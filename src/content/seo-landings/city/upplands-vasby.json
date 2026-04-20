@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "upplands-vasby",
+  "title": "Hemsida Upplands Väsby – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Upplands Väsby med AI. Från prompt till färdig sajt på minuter. Ingen bindningstid, egen domän, svenskt gränssnitt. Prova gratis.",
+  "h1": "Hemsida Upplands Väsby",
+  "heroSub": "Bygg din företagssajt på minuter med AI – helt på svenska, utan kod eller bindningstid.",
+  "introParagraphs": [
+    "Sajtmaskin är en svensk AI-plattform som låter dig skapa en komplett hemsida genom att chatta med en AI. Du beskriver vad du behöver – företagssajt, bokningssystem, webshop eller portfoliosida – och får en färdig sajt på minuter. Perfekt för företag i Upplands Väsby som vill komma igång snabbt utan att lära sig kod eller vänta på webbyrå.",
+    "Allt är på svenska: gränssnittet, supporten och innehållet som AI:n genererar. Du publicerar på din egen domän eller testar gratis på en subdomän utan månadskostnad. Ingen bindningstid, inga dolda avgifter. Du kan exportera koden när du vill och äger allt du skapar.",
+    "Plattformen är byggd i Sverige av Pretty Good AB och passar lika bra för hantverkare i Runby, konsulter vid Väsby centrum, frisörer i Dragonvägen-området eller e-handlare som vill testa en idé utan att satsa tusentals kronor på byrå först."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din sajt med AI",
+      "body": "Du startar en chatt och berättar vad du behöver: \"Jag driver en elinstallationsfirma i Upplands Väsby och vill ha en sajt med tjänster, priser och kontaktformulär.\" AI:n genererar struktur, texter och design på några minuter. Du chattar vidare för att justera färger, lägga till bilder eller ändra texter. När du är nöjd publicerar du på din egen domän eller testar på en gratis subdomän. Hela processen tar ofta under en timme, och du behöver ingen teknisk erfarenhet."
+    },
+    {
+      "heading": "Integrationer som gör sajten komplett",
+      "body": "Sajtmaskin kopplar direkt till Cal.com för bokningar, Stripe för betalningar, Google Analytics för statistik och Shopify om du vill sälja produkter. Det betyder att en frisörsalong i Väsby kan ta bokningar direkt på sajten, en PT kan sälja träningsprogram och en konsult kan ta betalt för rådgivningstimmar – allt utan att bygga komplicerade system. Integrationerna sätts upp genom chatten, och AI:n guidar dig genom varje steg."
+    },
+    {
+      "heading": "Lokal SEO för Upplands Väsby",
+      "body": "När du bygger sajten kan du be AI:n optimera för lokala sökningar som \"elektriker Upplands Väsby\" eller \"webbyra Runby\". Plattformen hjälper dig lägga in rätt nyckelord, strukturera kontaktinformation och skapa innehåll som Google förstår är relevant för orten. Det gör skillnad när folk söker efter tjänster i närområdet – din sajt dyker upp för kunder i Väsby, Rotebro och Sollentuna som letar lokalt."
+    },
+    {
+      "heading": "Jämfört med byråer och gör-det-själv-verktyg",
+      "body": "En lokal webbyrå i Stockholmsområdet tar ofta 15 000–50 000 kronor och levererar på några veckor. Gör-det-själv-verktyg som Wix eller Squarespace kräver att du själv drar ihop design, texter och struktur – vilket kan ta dagar eller veckor om du inte gjort det förr. Sajtmaskin landar mittemellan: du får en färdig sajt på minuter till en bråkdel av byrå-priset, men med AI som gör jobbet åt dig istället för mallar du fyller i manuellt. Ingen bindningstid, och du kan exportera koden om du senare vill flytta till egen hosting."
+    },
+    {
+      "heading": "Exempel från Upplands Väsby",
+      "body": "Företag i Dragonvägen-området använder Sajtmaskin för lokala tjänstesajter: rörmokare, målare, städfirmor. Konsulter vid pendeltågsstationen vill ha snabba portfoliosidor med bokningsfunktion. Butiker i Väsby centrum testar e-handel via Shopify-integrationen innan de investerar i fullskalig webshop. Gymmen och yogastudior i Runby sätter upp bokningssystem med Cal.com. Gemensamt är att alla kommer igång samma dag, utan att vänta på utvecklare eller lära sig WordPress."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en sajt live i Upplands Väsby?",
+      "a": "De flesta användare har en publicerad sajt inom en timme. Du chattar med AI:n, justerar det du vill ändra och trycker publicera. Om du redan har domän och innehåll klart går det ännu snabbare – ofta under 30 minuter från start till färdig sajt."
+    },
+    {
+      "q": "Kostar det att hosta sajten om jag använder subdomän?",
+      "a": "Nej, hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda din egen domän (till exempel dinafirma.se) behöver du en domän och kan välja att hosta där, men subdomänen är alltid kostnadsfri att testa och köra live."
+    },
+    {
+      "q": "Kan jag optimera sajten för sökning på Upplands Väsby?",
+      "a": "Ja, du ber AI:n inkludera lokala nyckelord och ortnamn när den genererar innehåll. Du kan också lägga till kontaktuppgifter, öppettider och beskrivningar av var du verkar – allt som hjälper Google förstå att du är relevant för folk som söker i Väsby-området."
+    },
+    {
+      "q": "Vad händer om jag vill byta till annan plattform senare?",
+      "a": "Du kan exportera hela sajtkoden när du vill. Ingen bindningstid, inga låsningar. Koden är din, så du kan flytta till egen server, annan hosting eller ge den till en utvecklare som bygger vidare. Du äger allt du skapar på Sajtmaskin."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för webshop och bokning?",
+      "a": "Ja. Du kopplar Shopify för e-handel och Cal.com för bokningar direkt i chatten. AI:n sätter upp integrationerna, och du kan ta betalt via Stripe. Det passar allt från frisörsalonger och PT:s som vill ta bokningar till småföretag som säljer produkter online."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, allt sköts genom chat. Du beskriver vad du vill ha, och AI:n bygger sajten. Du kan justera texter, färger och layout genom att fortsätta chatta – ingen kod krävs. Gränssnittet är på svenska och gjort för att vem som helst ska kunna använda det."
+    },
+    {
+      "q": "Hur skiljer sig Sajtmaskin från Wix eller Squarespace?",
+      "a": "Wix och Squarespace ger dig mallar som du fyller i själv, vilket kan ta dagar om du inte har erfarenhet. Sajtmaskin använder AI som skriver texter, väljer struktur och sätter upp design åt dig på minuter. Du chattar istället för att klicka runt i en editor, och resultatet är klart mycket snabbare."
+    }
+  ],
+  "localOrIndustryContext": "Upplands Väsby ligger vid E4:an norr om Stockholm med stark pendlingskultur och växande småföretagande. Företag i Runby, Väsby centrum och Dragonvägen-området behöver ofta snabba, prisvärda webbsajter för att nå lokala kunder i Stockholms län utan att betala storstadspriser för byråer.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Upplands Väsby. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

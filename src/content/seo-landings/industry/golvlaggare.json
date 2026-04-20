@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "golvlaggare",
+  "title": "Hemsida för golvläggare – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt golvläggeri med AI. Visa tjänster, galleri och ta bokningar direkt. Ingen kodning krävs – klar på minuter.",
+  "h1": "Hemsida för golvläggare",
+  "heroSub": "Bygg en sajt som visar dina golv och tar emot bokningar – färdig på minuter, ingen kod krävs.",
+  "introParagraphs": [
+    "En hemsida för golvläggare behöver visa upp dina tidigare jobb, beskriva tjänster som parkettläggning, klinkersättning och slipning, och göra det enkelt för kunder att boka en kostnadsfri offert. Med Sajtmaskin skapar du en komplett sajt direkt i chatten – berätta vad du gör, så bygger AI:n resten.",
+    "Du får en sajt med tjänstesidor, galleri för referensjobb, kontaktformulär och integrerad bokning via Cal.com. Publicera på din egen domän utan månadskostnad för hosting, och uppdatera innehållet när du vill. Allt på svenska, byggt för svenska golvläggare som vill synas online utan krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför behöver golvläggare en hemsida?",
+      "body": "De flesta husägare googlar \"golvläggare\" eller \"parkettslipning\" innan de ringer. Utan hemsida försvinner du i konkurrenternas flöde. En sajt visar vad du kan, var du jobbar och hur man når dig. Den skapar förtroende genom bilder på tidigare jobb och tydliga beskrivningar av dina tjänster – från massiv ek till klinker i badrum. Med en hemsida kan kunder läsa på i lugn och ro, jämföra och sedan boka direkt, vilket ger dig kvalificerade leads istället för kalla samtal."
+    },
+    {
+      "heading": "Vilka sidor och funktioner behövs?",
+      "body": "En typisk golvläggarsajt har en startsida med översikt, separata tjänstesidor för parkett, klinker, slipning och lackning, ett galleri med före- och efterbilder, samt en Om oss-sida som berättar om din erfarenhet och eventuella certifieringar. Lägg till en kontaktsida med telefon, mejl och ett formulär. Integrera Cal.com så kunder kan boka en tid för offert direkt i kalendern. Vill du sälja golvvård eller tillbehör kan du koppla in Stripe för betalning. Google Analytics visar vilka tjänster som lockar flest besökare."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din golvläggarsajt",
+      "body": "Öppna chatten och beskriv ditt golvläggeri: vilka tjänster du erbjuder, vilka områden du täcker, om du är specialist på trägolv eller hanterar allt från vinyl till natursten. AI:n skapar struktur, skriver texter och lägger in bildplatser för dina referensjobb. Du kan be om ändringar direkt i chatten – lägg till en sida för golvrenovering, ändra ton till mer formell, eller flytta bokningsknappen. När du är nöjd publicerar du på din domän. Ingen bindningstid, och du kan exportera koden om du vill flytta sajten senare."
+    },
+    {
+      "heading": "Konkreta exempel från svenska golvläggare",
+      "body": "En parkettläggare i Västerås kan ha en tjänstesida för slipning och lackning av gamla trägolv, ett galleri med bilder från villor i Bäckby och Lundby, och Cal.com-integration så villaägare bokar besiktning direkt. En klinkerfirma i Malmö visar badrumsrenoveringar, listar material från Kakelmonster och Starklinker, och har ett kontaktformulär för offerter på kök och hall. Båda sajterna är byggda på minuter, uppdateras enkelt och kostar inget i löpande hosting om de ligger på subdomän hos Sajtmaskin."
+    },
+    {
+      "heading": "Kom igång idag – ingen erfarenhet krävs",
+      "body": "Du behöver inte kunna koda eller design. Logga in på Sajtmaskin, skriv i chatten vad ditt golvläggeri gör och vem du vänder dig till. AI:n levererar ett förslag på några minuter. Testa olika layouter, lägg till fler tjänster eller byt färgschema tills det känns rätt. Publicera sedan på din egen domän eller använd en gratis subdomän för att testa. Uppdatera priser, lägg till nya referensbilder eller ändra öppettider när du vill – allt sker i samma chattgränssnitt, på ren svenska."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för golvläggare?",
+      "a": "Från första prompten till färdig sajt tar det oftast 10–20 minuter. Du beskriver dina tjänster i chatten, AI:n genererar struktur och texter, och du justerar tills allt ser rätt ut. Sedan publicerar du direkt."
+    },
+    {
+      "q": "Kan jag visa bilder på mina tidigare golv?",
+      "a": "Ja, du lägger enkelt in bilder i galleriet eller på tjänstesidorna. Ladda upp foton från dina projekt, och AI:n hjälper till att placera dem snyggt. Uppdatera galleriet när du vill genom att chatta med systemet."
+    },
+    {
+      "q": "Fungerar bokningsintegration för offertbesök?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så kunder kan boka tid direkt i din kalender. Du bestämmer tillgängliga tider och typ av möte – hembesök, videokonsultation eller offertsamtal. Bekräftelser skickas automatiskt."
+    },
+    {
+      "q": "Kostar det något att ha sajten live?",
+      "a": "Publicerar du på egen domän betalar du bara för domännamnet hos din registrar. Hosting på Sajtmaskins subdomän är gratis utan tidsbegränsning. Inga månadskostnader för att ha sajten uppe, och ingen bindningstid."
+    },
+    {
+      "q": "Kan jag sälja golvvårdsprodukter via sajten?",
+      "a": "Ja, integrera Stripe för betalning eller koppla din Shopify-butik om du redan har en. Då kan kunder köpa lackning, rengöringsmedel eller underhållspaket direkt på sajten. Du hanterar lager och frakt som vanligt."
+    },
+    {
+      "q": "Vad händer om jag vill byta webbyrå senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Ta med dig sajten till vilken hostingleverantör som helst eller lämna över till en webbyrå. Ingen inlåsning – du äger alltid ditt innehåll och din design."
+    },
+    {
+      "q": "Är det lätt att uppdatera priser och tjänster själv?",
+      "a": "Ja, all redigering sker i chatten. Skriv \"ändra priset på slipning till 350 kr/kvm\" eller \"lägg till en sida för vinylgolv\", så uppdaterar AI:n sajten direkt. Du behöver aldrig röra kod eller logga in i ett komplicerat CMS."
+    }
+  ],
+  "localOrIndustryContext": "Svenska golvläggare jobbar ofta med nordiska trägolv som ask, ek och björk, och många har ROT-avdrag som säljargument. Kunder söker lokalt – \"golvläggare Stockholm\", \"parkettslipning Göteborg\" – så det lönar sig att nämna dina områden tydligt på sajten. Visa certifieringar från Golvbranschens Riksorganisation om du har, och länka gärna till leverantörer som Tarkett, Kährs eller Pergo för att bygga trovärdighet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en golvläggare-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "grafisk-designer",
+  "title": "Hemsida för grafisk designer – bygg din portfolio på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din grafiska designbyrå med AI. Visa dina projekt, ta emot förfrågningar och boka möten – ingen kod krävs.",
+  "h1": "Hemsida för grafisk designer",
+  "heroSub": "Bygg en portfolio som visar dina bästa projekt och gör det enkelt för kunder att hitta och kontakta dig.",
+  "introParagraphs": [
+    "Som grafisk designer är din hemsida din viktigaste marknadskanal. Den ska visa vad du kan, presentera dina projekt på ett sätt som säljer, och göra det friktionsfritt för potentiella kunder att höra av sig. Många designers skjuter upp lanseringen för att de fastnar i tekniska detaljer eller inte hittar rätt plattform.",
+    "Med Sajtmaskin chattar du fram en färdig designportfolio på minuter. Du beskriver vad du gör – logotyper, grafiska profiler, förpackningsdesign, webbgrafik – och AI:n bygger en sajt med projektgalleri, om-sida, kontaktformulär och bokningsfunktion. Publicera direkt på din egen domän utan månadskostnad för hosting.",
+    "Du får en sajt som fungerar lika bra för dig som frilansar från Malmö som för byrån i Stockholm. Allt på svenska, ingen kod, inga mallar som ser likadana ut."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vilka sidor behöver en grafisk designers hemsida?",
+      "body": "En typisk designportfolio består av startsida med utvalda projekt, en projektsida där besökare kan filtrera efter typ (logotyp, förpackning, digital design), om-sida som berättar vem du är och hur du jobbar, samt kontaktsida. Många lägger också till en tjänstesida som tydligt listar vad du erbjuder och ungefärliga prisramar. Om du tar emot bokningar är en kalenderintegration guld värd – kunder kan boka ett första möte direkt utan mejltrådar fram och tillbaka. Sajtmaskin bygger alla dessa sidor och kopplar ihop Cal.com om du vill ha bokning."
+    },
+    {
+      "heading": "Hur visar du dina projekt på bästa sätt?",
+      "body": "Projektgalleriet är hjärtat i din hemsida. Varje case bör ha en hero-bild, kort beskrivning av uppdraget, din process och resultat. Tänk visuellt – stora bilder, luftigt, lätt att skrolla. Många designers glömmer att berätta varför kunden valde dem och vilket problem designen löste. Den kontexten gör att nya besökare förstår ditt värde. Sajtmaskin låter dig ladda upp bilder och skriva casen direkt i chatten, så du slipper krångla med CMS eller bildformat."
+    },
+    {
+      "heading": "Integrationer som sparar tid",
+      "body": "Utöver Cal.com för bokning kan du koppla Google Analytics för att se vilka projekt som drar mest trafik, och Stripe om du säljer digitala produkter som templates eller ikoner. Behöver du ta emot förfrågningar? Kontaktformuläret samlar allt på ett ställe. Vill du visa kundomdömen? Lägg in dem som block på startsidan. Allt sköts i samma gränssnitt – inget hopp mellan tjänster."
+    },
+    {
+      "heading": "Äger du koden och kan du flytta?",
+      "body": "Ja. Sajtmaskin genererar ren kod som du kan exportera när du vill. Ingen inlåsning, ingen bindningstid. Vill du senare migrera till en annan plattform eller låta en utvecklare bygga vidare är det helt okej. Under tiden du är hos oss får du kostnadsfri hosting på subdomän, eller koppla din egen domän direkt. Uppdateringar gör du genom att chatta – ändra text, byt bilder, lägg till nya projekt. Allt händer live."
+    },
+    {
+      "heading": "Varför svenska designers väljer Sajtmaskin",
+      "body": "Du pratar svenska med AI:n, supporten är svensk, och resultatet känns inte som en importerad mall. Många designers har provat Squarespace eller Wix men tycker att det tar för lång tid att få det att se proffsigt ut. Andra har betalat dyrt för en utvecklare och sedan inte kunnat uppdatera själva. Sajtmaskin ger dig kontroll, snabbhet och en sajt som faktiskt speglar din estetik – utan att du behöver lära dig Figma-till-kod-export eller WordPress-teman."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag använda mina egna typsnitt och färger?",
+      "a": "Ja, du styr helt över visuell identitet. Berätta vilka färger och typsnitt du vill ha i chatten, eller ladda upp din grafiska profil så anpassar AI:n designen. Vill du ändra senare gör du det på samma sätt – inga krångliga tema-inställningar."
+    },
+    {
+      "q": "Hur lägger jag till nya projekt i portfolion?",
+      "a": "Chatta \"lägg till nytt projekt\" och beskriv caset – kund, uppdrag, bilder. AI:n skapar en ny projektsida och lägger till den i galleriet. Du kan också redigera eller ta bort gamla projekt när som helst. Allt sker live utan att du behöver publicera om."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Absolut. Alla sidor Sajtmaskin genererar är responsiva från start. Projektbilder staplas snyggt, text är lättläst och knappar har lagom storlek för tummen. Många av dina besökare kommer från Instagram eller LinkedIn på mobilen, så det är kritiskt att upplevelsen är smidig."
+    },
+    {
+      "q": "Kan jag sälja grafiska templates eller produkter?",
+      "a": "Ja, genom Stripe-integrationen kan du ta betalt för digitala nedladdningar – logotyppaket, ikonset, Canva-templates. Du sätter pris, kunden betalar, och får tillgång till filen. Vill du bygga en hel webshop med lager och frakt kopplar du Shopify, men för enklare digitala produkter räcker Stripe."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Hosting på subdomän (dinbyra.sajtmaskin.se) är gratis. Vill du ha egen domän (dinbyra.se) betalar du bara domänregistrering hos din registrar och pekar den mot Sajtmaskin. Inga månadskostnader för hosting. Själva plattformen har en engångskostnad eller abonnemang beroende på vilket paket du väljer – kolla aktuell prissättning på sajten."
+    },
+    {
+      "q": "Kan jag visa kundomdömen och logotyper?",
+      "a": "Ja. Lägg till ett block med citat från nöjda kunder, eller en logotyprad som visar varumärken du jobbat med. Det bygger trovärdighet direkt på startsidan. Du kan också bädda in Instagram-flöde om du vill visa pågående projekt och behind-the-scenes."
+    },
+    {
+      "q": "Hur snabbt kan jag lansera?",
+      "a": "Många designers har en fungerande sajt inom en timme. Du chattar om vad du gör, vilka projekt du vill visa, laddar upp bilder och justerar text. Sedan pekar du domänen och går live. Behöver du mer tid att finjustera är det okej – sajten sparas och du kan fortsätta när du vill."
+    }
+  ],
+  "localOrIndustryContext": "Grafisk design i Sverige spänner från frilansare i Göteborg som gör identitet åt lokala kaféer till Stockholmsbyråer med internationella uppdrag. Oavsett skala behöver du en portfolio som laddar snabbt, ser proffsig ut och gör det enkelt för kunder att boka tid. Sajtmaskin är byggt i Sverige och förstår hur svenska designers jobbar – ingen översatt marketing-speak, bara verktyg som fungerar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en grafisk designer-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

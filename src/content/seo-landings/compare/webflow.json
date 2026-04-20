@@ -1,0 +1,102 @@
+{
+  "family": "compare",
+  "slug": "webflow",
+  "title": "Alternativ till Webflow – svensk AI-sajt på minuter | Sajtmaskin",
+  "metaDescription": "Webflow är kraftfullt men komplext. Sajtmaskin ger dig en färdig sajt på svenska via AI-chat – utan designkunskap eller månadskostnad.",
+  "h1": "Alternativ till Webflow för svenska företag",
+  "heroSub": "Få en komplett hemsida på minuter via AI-chat, helt på svenska och utan att lära dig ett visuellt verktyg.",
+  "introParagraphs": [
+    "Webflow är ett avancerat verktyg för designers som vill ha full kontroll över varje pixel. Men om du inte har designutbildning eller tid att lära dig ett komplext gränssnitt kan det kännas överväldigande. Sajtmaskin tar en helt annan väg: du chattar med en AI på svenska och får en färdig hemsida på minuter, utan att röra en enda designpanel.",
+    "Medan Webflow kräver månadsabonnemang, CMS-licenser och ofta hjälp av en byrå för att nå resultat, publicerar du med Sajtmaskin direkt på egen domän eller gratis på en subdomän – helt utan bindningstid. Allt sker på svenska, från gränssnittet till supporten, och du kan exportera koden när du vill.",
+    "Här förklarar vi varför svenska företag väljer Sajtmaskin som alternativ till Webflow, vad som skiljer verktygen åt och när respektive lösning passar bäst."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker svenska företag alternativ till Webflow?",
+      "body": "Webflow är byggt för professionella designers som behöver pixelperfekt kontroll och avancerade animationer. Men för de flesta svenska småföretag, konsulter och lokala verksamheter blir inlärningskurvan för brant och kostnaden för hög när man räknar in CMS-licenser, Workspace-platser och tid. Många upptäcker att de behöver anlita en byrå för att få sajten att fungera som de vill, vilket snabbt driver upp totalkostnaden. Dessutom är hela Webflow på engelska, vilket gör det svårare att hitta svensk support eller lokala integrationer. Svenska företag söker därför alternativ som är snabbare att komma igång med, talar deras språk och inte kräver designkunskap eller långsiktiga abonnemang."
+    },
+    {
+      "heading": "Så fungerar Sajtmaskin som alternativ",
+      "body": "Sajtmaskin ersätter designpanelen med en konversation. Du beskriver din verksamhet i chatten – vad du gör, vem du vänder dig till, vilka tjänster du erbjuder – och AI:n genererar en komplett hemsida med text, struktur och design på några minuter. Allt sker på svenska, och du kan justera innehåll, lägga till sidor eller byta stil genom att fortsätta chatta. När du är nöjd publicerar du på egen domän eller använder en gratis subdomän utan månadskostnad. Du får inbyggda integrationer med Cal.com för bokning, Stripe för betalning, Google Analytics och Shopify för webshop. Ingen bindningstid – exportera koden när du vill. Sajtmaskin är byggt i Sverige av Pretty Good AB och riktar sig till företag som vill ha en proffsig sajt snabbt, utan att lära sig ett designverktyg."
+    },
+    {
+      "heading": "Webflow vs Sajtmaskin: vad passar dig?",
+      "body": "Välj Webflow om du är designer eller har en byrå som kan bygga åt dig, om du behöver avancerade animationer och fullständig CSS-kontroll, eller om du bygger komplexa webbappar med custom code. Webflows CMS är kraftfullt för stora innehållsprojekt och plattformen är ledande inom visuell no-code-design. Välj Sajtmaskin om du vill ha en färdig sajt på minuter utan designkunskap, om du föredrar svensk support och svenskt gränssnitt, om du vill slippa månadskostnader för hosting eller om du behöver snabbt testa en idé utan att investera tid i inlärning. Sajtmaskin passar svenska småföretag, konsulter, lokala tjänster och alla som vill ha en proffsig sajt utan krångel. Båda verktygen är no-code, men Webflow kräver att du lär dig verktyget medan Sajtmaskin gör jobbet åt dig via AI."
+    },
+    {
+      "heading": "Kostnad och äganderätt",
+      "body": "Webflow tar betalt per sajt och projekt, med extra kostnader för CMS-innehåll, Workspace-platser och e-handel. Priserna börjar på drygt 150 kr/månad men stiger snabbt när du behöver fler funktioner, och du är låst till plattformen så länge du vill att sajten ska vara live. Sajtmaskin tar ingen månadskostnad för hosting på subdomän, och du kan publicera på egen domän utan löpande avgifter. Du äger koden och kan exportera den när som helst, vilket ger dig full kontroll och ingen inlåsning. För svenska företag som vill ha förutsägbara kostnader och äga sin sajt helt är Sajtmaskin ett tydligt alternativ."
+    },
+    {
+      "heading": "Svensk support och lokala integrationer",
+      "body": "Webflows support är på engelska och tidszoner gör att svar ofta dröjer till nästa dag. Dokumentation och community-resurser är rika men kräver att du är bekväm med engelska tekniska termer. Sajtmaskin erbjuder svensk support, svenskt gränssnitt och innehåll anpassat för svenska företag. Integrationer med Cal.com, Stripe och Google Analytics fungerar direkt, och plattformen är byggd för att passa svenska behov – från GDPR-medvetenhet till lokala betallösningar. Om du värderar att kunna ställa frågor på svenska och få svar samma dag är Sajtmaskin ett naturligt val."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag migrera min Webflow-sajt till Sajtmaskin?",
+      "a": "Du kan inte importera en Webflow-sajt direkt, men du kan beskriva innehållet och strukturen i chatten så bygger AI:n en ny sajt åt dig på minuter. Kopiera text och bilder från din gamla sajt och låt Sajtmaskin skapa en ny version. Många upplever att det går snabbare än att försöka exportera och konvertera Webflow-kod."
+    },
+    {
+      "q": "Är Sajtmaskin lika kraftfullt som Webflow för design?",
+      "a": "Nej, inte om du behöver pixelperfekt kontroll, avancerade animationer eller custom CSS för varje element. Webflow är byggt för designers som vill ha full frihet. Sajtmaskin är byggt för företag som vill ha en proffsig sajt snabbt utan att lära sig design. AI:n skapar en färdig design som fungerar direkt, och du kan justera via chatten. Om du inte är designer får du ofta bättre resultat snabbare med Sajtmaskin."
+    },
+    {
+      "q": "Kostar Sajtmaskin något per månad?",
+      "a": "Nej, inte om du publicerar på en subdomän hos Sajtmaskin. Då är hostingen gratis utan månadskostnad. Vill du använda egen domän betalar du en engångskostnad för publicering, men ingen löpande avgift. Ingen bindningstid och du kan exportera koden när du vill. Jämfört med Webflows månatliga abonnemang sparar du pengar över tid."
+    },
+    {
+      "q": "Kan jag använda Sajtmaskin om jag inte kan svenska?",
+      "a": "Sajtmaskin är byggt för svensktalande användare och hela gränssnittet är på svenska. Om du inte talar svenska är Webflow eller andra internationella plattformar bättre val. Sajtmaskins styrka är just att allt – från chat till support – sker på svenska, vilket gör det enklare för svenska företag."
+    },
+    {
+      "q": "Vilka integrationer finns i Sajtmaskin?",
+      "a": "Sajtmaskin har inbyggda integrationer med Cal.com för bokningar, Stripe för betalningar, Google Analytics för statistik och Shopify för webshop. Fler integrationer läggs till löpande. Webflow har fler tredjepartsintegrationer via Zapier och custom code, men kräver ofta teknisk kunskap för att sätta upp. Sajtmaskins integrationer fungerar direkt utan kod."
+    },
+    {
+      "q": "Kan jag exportera min sajt från Sajtmaskin?",
+      "a": "Ja, du kan exportera hela koden när du vill och äger den helt. Ingen inlåsning. Webflow låter dig också exportera statisk HTML, men då förlorar du CMS-funktioner och dynamiskt innehåll. Sajtmaskin ger dig full äganderätt från start."
+    },
+    {
+      "q": "Passar Sajtmaskin för e-handel?",
+      "a": "Ja, via Shopify-integration kan du lägga till en webshop. För enklare produktförsäljning eller tjänstebokning fungerar Sajtmaskin bra. Webflow har en egen e-handelsmodul som ger mer kontroll över checkout och produktsidor, men kostar extra och kräver teknisk kunskap. Om du redan använder Shopify eller vill ha en enkel lösning är Sajtmaskin ett bra alternativ."
+    }
+  ],
+  "localOrIndustryContext": "Webflow är populärt bland svenska designbyråer och kreatörer, men många svenska småföretag och konsulter upptäcker att plattformen är för komplex och dyr för deras behov. Sajtmaskin är byggt i Sverige för svenska företag som vill ha en proffsig sajt utan att lära sig design eller betala löpande avgifter.",
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/alternativ-till/framer",
+      "label": "Alternativ till Framer"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från Webflow. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

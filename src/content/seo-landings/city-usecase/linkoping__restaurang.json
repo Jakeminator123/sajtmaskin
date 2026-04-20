@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "linkoping/restaurang",
+  "title": "Hemsida restaurang Linköping – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell restaurangsajt i Linköping med AI. Meny, bordsbokningar och betalning – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för restaurang i Linköping",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokningar och betalning – på minuter, inte veckor.",
+  "introParagraphs": [
+    "Om du driver restaurang, café eller lunchställe i Linköping vet du att gästerna googlar er innan de bestämmer sig. En tydlig hemsida med uppdaterad meny, öppettider och enkel bordsbokning gör skillnad mellan en ny gäst och någon som väljer konkurrenten. Sajtmaskin låter dig bygga hela sajten via chat – AI:n skapar sidor, lägger in din meny och kopplar på bokningssystem direkt.",
+    "Du behöver ingen byrå och ingen teknisk kunskap. Berätta vad din restaurang erbjuder, vilken känsla du vill förmedla och vilka funktioner du behöver. På minuter har du en färdig sajt som fungerar på mobil och dator. Publicera på din egen domän eller testa kostnadsfritt på en subdomän utan månadskostnad.",
+    "Sajtmaskin är byggt i Sverige med svenskt gränssnitt och stöd. Du kan när som helst exportera koden och flytta sajten – ingen inlåsning, inga dolda avgifter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en restaurangsajt i Linköping behöver",
+      "body": "Linköpings restaurangscen är mångsidig – från studentvänliga lunchställen kring campus Valla till finare kvarterskrogar i Innerstaden och snabbmat vid Tornby. Oavsett koncept förväntar sig gästerna samma sak online: aktuell meny med priser, tydliga öppettider, adress med karta och helst möjlighet att boka bord direkt. Många vill också se veckans lunch, specialerbjudanden eller om ni har uteservering. Sajtmaskin genererar allt detta från din beskrivning och låter dig enkelt uppdatera menyn när säsongen eller leveranserna ändras."
+    },
+    {
+      "heading": "Bordsbokningar och betalning utan krångel",
+      "body": "Med Sajtmaskin kan du integrera Cal.com för bordsbokningar direkt på sajten – gästen väljer tid och antal personer utan att behöva ringa. Vill du sälja presentkort, ta förbetalning för större sällskap eller erbjuda take away-beställningar kopplar du på Stripe för kortbetalning. Allt sköts i samma gränssnitt där du byggde sajten. Du slipper pussla ihop olika tjänster eller betala för tunga bokningssystem du inte behöver."
+    },
+    {
+      "heading": "Uppdatera menyn själv – när som helst",
+      "body": "Veckans pasta ändras på måndagar? Nya vegetariska rätter på lunchmenyn? Logga in, skriv ändringen i chatten och AI:n uppdaterar sidan direkt. Ingen byråkontakt, ingen väntan. Du kan lägga till bilder på rätter, justera priser eller lyfta fram säsongens specialitet på sekunder. Sajten är alltid aktuell, och du behåller full kontroll utan att lära dig kod."
+    },
+    {
+      "heading": "Svenskt, snabbt och utan bindningstid",
+      "body": "Sajtmaskin är byggt av Pretty Good AB i Sverige. Support och gränssnitt är på svenska, och du äger din data. Vill du byta plattform senare? Exportera koden kostnadsfritt och ta sajten med dig. Ingen bindningstid, inga uppsägningstider. Testa gärna på en subdomän först – hosting där kostar ingenting per månad, så du kan känna dig trygg innan du kopplar på din riktiga domän."
+    },
+    {
+      "heading": "Från idé till live på en förmiddag",
+      "body": "Berätta för AI:n vilken typ av restaurang du driver, vilka rätter som är era signaturer och vilken stämning ni vill förmedla. Sajtmaskin skapar en första version på minuter. Testa, justera texter och bilder, lägg till din logotyp. Koppla på Google Analytics om du vill följa besökare. När du är nöjd publicerar du – ingen utvecklare behövs. Många restauranger i Linköping har sajten live samma dag de börjar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa veckans lunch och uppdatera den varje vecka?",
+      "a": "Ja, du uppdaterar innehållet genom att chatta med AI:n. Skriv \"Byt veckans lunch till X\" så ändras sidan direkt. Perfekt för lunchrestauranger som byter meny ofta."
+    },
+    {
+      "q": "Fungerar bordsbokningar direkt på sajten?",
+      "a": "Ja, via Cal.com-integrationen kan gäster välja tid och antal personer. Du ser bokningarna i din kalender och kan bekräfta eller flytta tider. Ingen extra bokningsplattform behövs."
+    },
+    {
+      "q": "Kan jag ta betalt för presentkort eller förbeställningar?",
+      "a": "Ja, koppla på Stripe så kan gäster betala med kort direkt på sajten. Fungerar för presentkort, take away-beställningar eller förskottsbetalning för större sällskap."
+    },
+    {
+      "q": "Kostar det något att testa eller ha sajten på en subdomän?",
+      "a": "Nej, hosting på subdomän (dinrestaurang.sajtmaskin.se) är gratis utan månadskostnad. Du betalar bara om du vill publicera på din egen domän eller behöver extra funktioner."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta restauranger har en färdig sajt på några timmar. AI:n genererar strukturen på minuter, sedan lägger du tid på att finjustera texter, ladda upp bilder och testa bokningsfunktionen."
+    },
+    {
+      "q": "Kan jag använda min befintliga domän, till exempel minrestaurang.se?",
+      "a": "Ja, du pekar din domän till Sajtmaskin via DNS-inställningar. Guider finns i gränssnittet, och svensk support hjälper dig om du kör fast."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när som helst utan kostnad. Sajten är din, och det finns ingen bindningstid. Ta koden och flytta till egen server eller annan leverantör om du vill."
+    }
+  ],
+  "localOrIndustryContext": "Linköping har en stark restaurangkultur som speglar stadens mix av studenter, teknikföretag och besökare till Gamla Linköping och Flygvapenmuseum. Gäster förväntar sig snabb info online – särskilt kring campus och Innerstaden där konkurrensen är hög. En sajt som laddar fort, visar menyn tydligt och erbjuder enkel bokning ger dig ett försprång.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/linkoping",
+      "label": "Skapa hemsida i Linköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Linköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/foretag",
+  "title": "Hemsida för företag i Göteborg – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag i Göteborg med AI. Publicera på egen domän, inga månadskostnader. Bygg via chat, utan kod.",
+  "h1": "Hemsida för företag i Göteborg",
+  "heroSub": "Bygg en professionell företagssajt på minuter med AI – ingen kod, ingen bindningstid, publicera direkt på din egen domän.",
+  "introParagraphs": [
+    "Om du driver företag i Göteborg vet du att en bra hemsida är skillnaden mellan att synas eller försvinna. Oavsett om du säljer tjänster, produkter eller vill visa upp din verksamhet behöver du en sajt som laddar snabbt, ser proffsig ut och är enkel att uppdatera. Sajtmaskin låter dig bygga exakt den sajten genom att chatta med en AI – utan att skriva en rad kod.",
+    "Du beskriver vad ditt företag gör, vilka tjänster du erbjuder och vad du vill att besökare ska göra. AI:n genererar hela sajten med text, struktur och design anpassad för just din bransch. Publicera på din egen domän eller använd en kostnadsfri subdomän. Inga dolda avgifter, ingen bindningstid.",
+    "Behöver du bokning? Integrera Cal.com. Vill du ta betalt? Koppla in Stripe. Vill du sälja produkter? Anslut Shopify. Allt på svenska, byggt i Sverige, klart på minuter istället för veckor."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad behöver en företagssajt i Göteborg?",
+      "body": "En företagssajt i Göteborg behöver visa vad du gör, var du finns och hur kunder når dig. Det räcker inte med vacker design – sidan måste vara snabb, mobilvänlig och enkel att hitta via Google. Många göteborgska företag behöver också bokningsfunktion för möten, kontaktformulär som faktiskt fungerar och integration med verktyg de redan använder. Sajtmaskin bygger allt detta direkt. Du chattar om ditt företag, AI:n skapar sidor för tjänster, om oss, kontakt och vad du nu behöver. Resultatet är en sajt som ser ut som den kostat tiotusentals kronor, men tagit minuter att sätta upp."
+    },
+    {
+      "heading": "Bygg via chat – ingen kod, inga krångliga verktyg",
+      "body": "Du behöver ingen teknisk kunskap. Öppna Sajtmaskin, beskriv ditt företag i chatten: vad du gör, vilka du hjälper, vad som skiljer dig från konkurrenter. AI:n genererar text, väljer layout och skapar sidor som passar din bransch. Vill du ändra något? Säg det i chatten. Vill du lägga till en tjänstesida eller ett team? Beskriv det. Allt händer i realtid. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri Sajtmaskin-subdomän. Ingen månadskostnad för hosting om du väljer subdomän. Vill du senare flytta sajten? Exportera koden och ta den vart du vill. Ingen inlåsning."
+    },
+    {
+      "heading": "Integrationer som fungerar direkt",
+      "body": "Sajtmaskin kopplar ihop din sajt med verktyg du redan använder. Behöver kunder boka tid? Integrera Cal.com så får du ett bokningssystem direkt på sajten. Vill du ta betalt för tjänster eller produkter? Anslut Stripe för säkra kortbetalningar. Driver du webshop? Koppla Shopify och visa produkter på sajten. Vill du följa besökare och konverteringar? Lägg till Google Analytics med ett klick. Allt sköts utan kod, utan krångel. Du fokuserar på ditt företag, Sajtmaskin fixar tekniken."
+    },
+    {
+      "heading": "Gjort i Sverige, på svenska, för svenska företag",
+      "body": "Sajtmaskin är byggt av Pretty Good AB i Sverige. Hela gränssnittet, supporten och AI:n pratar svenska. Det betyder att texten på din sajt blir naturlig, inte maskinöversatt. Det betyder också att du slipper engelska supportmejl och tidszoneskratt när något inte fungerar. Svenska företag har svenska behov – vi förstår att du vill ha faktura, att GDPR spelar roll och att sajten ska fungera på svenska marknaden. Därför är allt anpassat från grunden."
+    },
+    {
+      "heading": "Ingen bindningstid, inga dolda kostnader",
+      "body": "Många webbverktyg låser in dig med årsavtal och höjer priserna efter ett år. Sajtmaskin har ingen bindningstid. Publicera på subdomän utan månadskostnad, eller använd din egen domän. Vill du sluta? Exportera koden och ta den med dig. Vill du bygga om sajten? Gör det i chatten. Du äger ditt innehåll, du bestämmer hur länge du vill använda plattformen. Inga överraskningar, inga dolda avgifter."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt med Sajtmaskin?",
+      "a": "De flesta företagssajter är klara på 10–30 minuter. Du chattar om ditt företag, AI:n genererar sidor och innehåll, du justerar om du vill och publicerar. Ju tydligare du beskriver din verksamhet, desto snabbare går det. Vill du lägga till fler sidor eller funktioner senare gör du det i samma chatt."
+    },
+    {
+      "q": "Kan jag använda min egen domän för företagssajten?",
+      "a": "Ja, du kan publicera på din egen domän direkt. Vill du inte köpa domän än kan du använda en kostnadsfri Sajtmaskin-subdomän utan månadskostnad. Du kan byta till egen domän när som helst."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för alla branscher i Göteborg?",
+      "a": "Ja. Oavsett om du driver konsultverksamhet, hantverkare, butik, restaurang, byrå eller annan tjänst bygger AI:n en sajt anpassad för din bransch. Du beskriver vad du gör, AI:n skapar relevant innehåll och struktur. Behöver du bokning, betalning eller webshop lägger du till det via integrationer."
+    },
+    {
+      "q": "Vad kostar det att använda Sajtmaskin?",
+      "a": "Publicerar du på en Sajtmaskin-subdomän är hostingen gratis. Vill du använda egen domän eller lägga till integrationer som Stripe och Cal.com kan kostnader tillkomma beroende på vilka verktyg du väljer. Ingen bindningstid, inga dolda avgifter. Du betalar bara för det du faktiskt använder."
+    },
+    {
+      "q": "Kan jag uppdatera sajten själv efter att den är publicerad?",
+      "a": "Absolut. Gå in i chatten och beskriv vad du vill ändra – ny text, ny sida, annan layout. AI:n uppdaterar sajten direkt. Du behöver aldrig röra kod. Vill du ha full kontroll kan du exportera koden och redigera den själv, men de flesta gör allt via chatten."
+    },
+    {
+      "q": "Är sajten mobilanpassad och snabb?",
+      "a": "Ja. Alla sajter som Sajtmaskin genererar är responsiva och optimerade för mobil, surfplatta och dator. Sidorna laddar snabbt och följer moderna webbstandarder, vilket är viktigt både för besökare och för att synas i Google."
+    },
+    {
+      "q": "Vad händer om jag vill sluta använda Sajtmaskin?",
+      "a": "Du kan när som helst exportera hela sajten som kod och ta den med dig till en annan leverantör. Ingen bindningstid, ingen inlåsning. Du äger ditt innehåll och kan flytta det fritt."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg är en stad med stark företagskultur och allt från stora internationella bolag till lokala hantverkare och kreativa byråer. Oavsett om du verkar i Haga, på Hisingen eller i centrala stan behöver ditt företag en hemsida som gör det enkelt för kunder att hitta dig, förstå vad du erbjuder och ta kontakt. Sajtmaskin hjälper göteborgska företag att komma online snabbt, utan att fastna i tekniska detaljer eller långa projekt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

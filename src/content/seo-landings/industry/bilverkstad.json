@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "bilverkstad",
+  "title": "Hemsida för bilverkstad – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad med AI. Bokning, prislista och kundcase – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för bilverkstad",
+  "heroSub": "Bygg en komplett hemsida för din verkstad med AI – med bokning, tjänster och kundrecensioner, klar på minuter.",
+  "introParagraphs": [
+    "En bra hemsida gör att kunder hittar din bilverkstad när de söker efter service, däckbyte eller akut reparation. Den visar dina tjänster, priser och ledigiga tider – och gör det enkelt att boka direkt online. Med Sajtmaskin bygger du en sådan sajt på minuter, helt utan kod.",
+    "Du chattar med AI:n om vad din verkstad erbjuder – service, lackeringsarbete, däckhotell eller AC-kontroll – så genererar Sajtmaskin en färdig sajt med bokningsfunktion, tjänstesidor och kontaktformulär. Publicera på din egen domän och uppdatera när du vill.",
+    "Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när som helst. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad ska en hemsida för bilverkstad innehålla?",
+      "body": "De flesta bilverkstäder behöver ett antal grundsidor: startsida med öppettider och kontaktinfo, tjänstesida som listar besiktning, service, däckbyte och reparationer, prislista eller ungefärliga kostnader, samt en om-sida som berättar vem som driver verkstaden. Många vill också ha en bokningsfunktion så kunder kan välja tid direkt, ett kontaktformulär för offerter, och en sektion med kundrecensioner eller före-efter-bilder. Sajtmaskin genererar alla dessa sidor utifrån din beskrivning – du väljer vilka tjänster du vill lyfta och AI:n skapar strukturen."
+    },
+    {
+      "heading": "Bokningsfunktion som sparar tid",
+      "body": "Istället för att ta emot samtal och SMS hela dagen kan kunderna boka service och däckbyte direkt på sajten. Sajtmaskin integrerar Cal.com så du får en kalender där lediga tider syns i realtid. Kunden väljer tjänst, datum och lämnar registreringsnummer – du får en bekräftelse och kan förbereda jobbet. Det minskar dubbelbokningar och frigör tid för verkstadsgolvet. Du kan också sätta olika tidsintervall för olika jobb – trettio minuter för däckbyte, två timmar för storservice."
+    },
+    {
+      "heading": "Så bygger du sajten med Sajtmaskin",
+      "body": "Logga in och beskriv din verkstad i chatten: vilka tjänster du utför, om du är specialist på Volvo eller jobbar med alla märken, om du erbjuder hämtning och lämning. AI:n föreslår en struktur med relevanta sidor – tjänster, priser, bokning, kontakt. Du kan be om ändringar direkt i chatten, lägga till bilder från verkstaden eller ändra färgschema så det matchar din logga. När du är nöjd publicerar du på din egen domän. Vill du lägga till fler tjänster senare – som spolarvätskepåfyllning eller rostskyddsbbehandling – chattar du bara och sajten uppdateras."
+    },
+    {
+      "heading": "Integrationer som förenklar vardagen",
+      "body": "Förutom Cal.com för bokning kan du koppla Google Analytics för att se vilka tjänster folk söker efter, och Stripe om du vill ta förskottsbetalning för däckhotell eller större jobb. Driver du en butiksdel med tillbehör – vintertäcken, spolarvätska, motorolja – fungerar Shopify-integrationen så kunder kan handla direkt. Allt sköts från samma gränssnitt, på svenska, utan att du behöver lära dig kod eller hantera flera plattformar."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Sajtmaskin tar ingen månadskostnad för hosting på subdomän, och du kan när som helst exportera hela koden om du vill flytta sajten eller ge den till en annan leverantör. Det finns ingen bindningstid – du äger ditt innehåll och kan uppdatera sajten så ofta du vill. För en bilverkstad som växer eller ändrar tjänsteutbud är den flexibiliteten ovärderlig."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan kunder boka olika tjänster med olika tidsåtgång?",
+      "a": "Ja, Cal.com-integrationen låter dig skapa flera bokningslänkar med olika längd – tjugo minuter för oljebyte, en timme för bromsservice, en halvdag för kamremsbyte. Kunden väljer tjänst och ser lediga tider direkt."
+    },
+    {
+      "q": "Kan jag visa priser utan att låsa mig vid fasta belopp?",
+      "a": "Absolut. Många verkstäder skriver \"från X kronor\" eller \"ring för offert\". Du styr själv hur detaljerad prisinformationen ska vara – AI:n kan generera en prislista med intervall eller en kontaktknapp för varje tjänst."
+    },
+    {
+      "q": "Fungerar sajten på mobilen?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva. Kunder som söker akut hjälp på vägen kan enkelt hitta ditt telefonnummer, se öppettider och boka tid direkt från telefonen."
+    },
+    {
+      "q": "Kan jag lägga till bilder från verkstaden?",
+      "a": "Ja, ladda upp bilder på lokalen, teamet eller färdiga jobb. Du kan be AI:n placera dem på startsidan, om-sidan eller i ett galleri. Bilder skapar förtroende och visar att verkstaden är välskött."
+    },
+    {
+      "q": "Vad händer om jag vill ändra öppettider eller lägga till en ny tjänst?",
+      "a": "Logga in och chatta med AI:n – \"uppdatera öppettider till 8–17 på vardagar\" eller \"lägg till en sida för rostskydd\". Ändringen syns direkt på sajten, ingen tekniker behövs."
+    },
+    {
+      "q": "Kan jag koppla sajten till min egen domän?",
+      "a": "Ja, publicera på din egen domän – till exempel mittverkstad.se. Sajtmaskin guidar dig genom DNS-inställningarna, och sedan ligger sajten på ditt eget namn utan extra månadskostnad."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga sajten?",
+      "a": "De flesta bilverkstäder har en fungerande sajt på tio till tjugo minuter. Du beskriver tjänster och önskemål, AI:n genererar sidorna, du justerar text och bilder – sedan publicerar du. Inga veckors väntan eller projektmöten."
+    }
+  ],
+  "localOrIndustryContext": "Svenska bilverkstäder möter hård konkurrens från kedjor som Mekonomen och Bilia, men många bilägare föredrar den lokala verkstaden för personlig service och snabbare tider. En tydlig hemsida med enkel bokning hjälper dig sticka ut – särskilt när folk söker akut hjälp eller jämför priser på däckbyte inför vintern.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en bilverkstad-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

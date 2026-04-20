@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "tradgardsfirma",
+  "title": "Hemsida för trädgårdsfirma – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din trädgårdsfirma med AI. Visa projekt, ta bokningar och nå nya kunder – utan kod. Prova gratis idag.",
+  "h1": "Hemsida för trädgårdsfirma",
+  "heroSub": "Bygg en professionell sajt för din trädgårdsverksamhet på minuter – med bildgalleri, bokning och allt du behöver.",
+  "introParagraphs": [
+    "En bra hemsida för din trädgårdsfirma gör det enkelt för kunder att hitta dig, se vad du kan och boka dina tjänster direkt. Oavsett om du jobbar med trädgårdsdesign, anläggning av uteplatser eller löpande skötsel behöver du en sajt som visar upp dina projekt och bygger förtroende – utan att du ska behöva lära dig kod eller betala tusentals kronor till en byrå.",
+    "Med Sajtmaskin skapar du en komplett hemsida för din trädgårdsfirma genom att bara chatta med vår AI. Du beskriver vad du gör, vilka tjänster du erbjuder och vilka bilder du vill ha med, så genererar AI hela sajten åt dig. Publicera på din egen domän, integrera bokningssystem och uppdatera innehållet när du vill – allt på svenska och utan krångel.",
+    "Du betalar ingen månadskostnad om du nöjer dig med en subdomän, och vill du växa kan du när som helst koppla din egen domän, lägga till betalningar via Stripe eller exportera hela koden. Perfekt för dig som vill fokusera på trädgården, inte tekniken."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför din trädgårdsfirma behöver en hemsida",
+      "body": "Många trädgårdsfirmor får jobb via rekommendationer och lokala kontakter, men en hemsida öppnar dörren till nya kunder som söker efter tjänster online. När någon googlar \"trädgårdsanläggning\" eller \"trädgårdsskötsel\" i din stad vill du synas. En professionell sajt visar att du är etablerad, seriös och lätt att komma i kontakt med. Du kan visa upp före- och efterbilder från projekt, förklara vad som ingår i dina tjänster och låta kunder boka ett första möte direkt. Det sparar tid åt både dig och dem som funderar på att anlita dig."
+    },
+    {
+      "heading": "Vad en bra trädgårdssajt bör innehålla",
+      "body": "En hemsida för trädgårdsfirma behöver en startsida som tydligt förklarar vad du gör och var du verkar, en tjänstesida där du listar allt från trädgårdsdesign och plantering till gräsklippning och beskärning, samt ett galleri med bilder från tidigare uppdrag. Lägg gärna till en om-sida där du berättar om dig själv och din erfarenhet – det skapar förtroende. En kontaktsida med telefonnummer, mejl och gärna ett bokningsformulär gör det enkelt för kunder att nå dig. Om du vill kan du också ha en blogg där du delar trädgårdstips eller berättar om säsongsarbete, vilket både hjälper SEO och visar din expertis."
+    },
+    {
+      "heading": "Så bygger du sajten med Sajtmaskin",
+      "body": "Du startar en chatt med vår AI och skriver vad din trädgårdsfirma heter, vilka tjänster du erbjuder och var du jobbar. AI föreslår en struktur med sidor, texter och layout som passar din verksamhet. Du kan be om ändringar, lägga till fler sidor eller byta färgschema – allt sker i chatten. När du är nöjd publicerar du sajten på en gratis subdomän eller kopplar din egen domän direkt. Vill du ta emot bokningar integrerar du Cal.com, och behöver du ta betalt online kan du koppla Stripe. Allt sker utan kod, och du kan uppdatera innehållet när du vill genom att fortsätta chatta med AI:n."
+    },
+    {
+      "heading": "Bokningar, bilder och mobilanpassning",
+      "body": "Många trädgårdskunder surfar på mobilen när de letar efter hjälp, så din sajt måste se bra ut på alla skärmar. Sajtmaskin bygger automatiskt responsiva sajter som fungerar lika bra på telefon som på dator. Du kan lägga in ett bildgalleri som visar dina bästa projekt – det är ofta det som får kunder att höra av sig. Med Cal.com-integrationen kan besökare boka ett kostnadsfritt konsultmöte eller offertbesök direkt i din kalender, vilket minskar mejltrafiken och gör det enklare för dig att planera dina dagar."
+    },
+    {
+      "heading": "Ingen bindningstid och full kontroll",
+      "body": "Sajtmaskin har ingen bindningstid. Du kan publicera på vår subdomän helt gratis, och om du senare vill flytta sajten exporterar du koden och tar den med dig vart du vill. Det betyder att du aldrig är låst. Du äger ditt innehåll, dina bilder och din kunddata. Vill du lägga till fler funktioner eller ändra design gör du det direkt i chatten. Det är en lösning som växer med din firma, från enmansföretag till större trädgårdsbolag med anställda."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa före- och efterbilder från mina trädgårdsprojekt?",
+      "a": "Ja, du kan enkelt lägga till ett bildgalleri där du visar projekt du gjort. Du laddar upp bilderna och beskriver vad varje projekt handlade om, så skapar AI en snygg presentation. Det är ett av de bästa sätten att visa vad du kan och locka nya kunder."
+    },
+    {
+      "q": "Fungerar sajten på mobilen?",
+      "a": "Absolut. Alla sajter som byggs med Sajtmaskin är automatiskt mobilanpassade, så besökare får en bra upplevelse oavsett om de surfar på telefon, platta eller dator. Du behöver inte göra något extra för att det ska fungera."
+    },
+    {
+      "q": "Kan kunder boka tid direkt på hemsidan?",
+      "a": "Ja, genom att integrera Cal.com kan du lägga till en bokningskalender där kunder väljer tid för konsultation, offertbesök eller uppstartsmöte. Bokningarna hamnar direkt i din kalender, och du slipper mejla fram och tillbaka."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Om du publicerar på en subdomän hos Sajtmaskin är det gratis. Vill du ha din egen domän, typ dinträdgårdsfirma.se, behöver du registrera den och koppla den till sajten. Det kostar en mindre årsavgift hos domänleverantören, men ingen extra kostnad från oss."
+    },
+    {
+      "q": "Kan jag lägga till fler tjänster eller ändra texten senare?",
+      "a": "Ja, du kan när som helst gå in i chatten och be AI:n uppdatera texter, lägga till nya tjänster eller ändra bilder. Det tar bara några minuter, och ändringarna publiceras direkt när du godkänner dem."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, du behöver inga tekniska kunskaper alls. Allt sker genom chat där du beskriver vad du vill ha, och AI:n bygger sajten åt dig. Det är gjort för att vem som helst ska kunna skapa en professionell hemsida utan att öppna en kodeditor."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform?",
+      "a": "Ja, du kan när som helst exportera hela koden och flytta sajten till en annan leverantör eller egen server. Du äger allt innehåll och är aldrig låst till Sajtmaskin. Det ger dig full frihet och kontroll."
+    }
+  ],
+  "localOrIndustryContext": "Trädgårdsbranschen i Sverige är starkt säsongsbetonad, med hög efterfrågan på anläggning och design under vår och försommar, och skötseluppdrag under hela växtsäsongen. Många firmor jobbar lokalt inom en eller några kommuner, och konkurrensen om synlighet i Google är ofta regional. En hemsida som tydligt visar var du verkar och vad du är bra på hjälper dig att sticka ut och nå kunder som söker hjälp online.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en trädgårdsfirma-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

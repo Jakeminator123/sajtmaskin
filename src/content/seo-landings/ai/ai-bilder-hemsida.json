@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "ai-bilder-hemsida",
+  "title": "AI-bilder på hemsida – så funkar det | Sajtmaskin",
+  "metaDescription": "Vill du ha AI-genererade bilder på din hemsida? Vi förklarar hur AI skapar unika bilder direkt i din sajt – och vad du ska tänka på.",
+  "h1": "AI-bilder på hemsida – så funkar det",
+  "heroSub": "AI kan generera unika bilder direkt till din hemsida, utan bildbanker eller fotograf.",
+  "introParagraphs": [
+    "AI-bilder på hemsida betyder att du använder artificiell intelligens för att skapa unika bilder som passar din sajt, istället för att köpa stockfoton eller anlita en fotograf. Tekniken fungerar genom att du beskriver vad du vill ha i text, så genererar AI en bild på några sekunder. Resultatet blir unikt för just din sajt och kan anpassas exakt efter ditt innehåll.",
+    "I praktiken kan AI-verktyg skapa allt från produktbilder och illustrationer till bakgrundsbilder och ikoner. Fördelen är att du slipper leta efter bilder som nästan passar, och du får visuellt material som är skräddarsytt för din text. Nackdelen är att AI-bilder ibland kan se lite konstiga ut i detaljer, så du behöver ofta välja bland flera förslag.",
+    "När du bygger hemsida med Sajtmaskin kan AI generera både text och bilder som hör ihop. Du beskriver vad sajten ska handla om, så skapar systemet innehåll och visuellt material i ett svep. Det sparar tid och ger en helhet där bild och text faktiskt matchar varandra."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI genererar bilder till hemsidor",
+      "body": "AI-bildgeneratorer tränas på miljontals bilder och lär sig samband mellan ord och visuella element. När du skriver en beskrivning tolkar AI:n texten och skapar pixlar som matchar din prompt. Moderna verktyg som DALL-E, Midjourney och Stable Diffusion använder denna teknik. Resultatet beror på hur tydlig din beskrivning är – ju mer specifik, desto bättre träff. I Sajtmaskin sker detta automatiskt när AI:n bygger din sajt, så du slipper hantera separata bildverktyg. Systemet väljer stilar och motiv som passar din bransch och ditt budskap."
+    },
+    {
+      "heading": "Skillnad mot stockfoton och fotografering",
+      "body": "Traditionellt har du tre vägar: köpa stockfoton från bildbanker, anlita fotograf eller ta egna bilder. Stockfoton är snabba men ofta generiska, och samma bild kan dyka upp på konkurrenters sajter. Fotograf ger unika bilder men kostar ofta flera tusen kronor och tar tid att boka. Egna bilder är gratis men kräver utrustning och kompetens. AI-bilder landar mittemellan: de är unika, snabba och billiga, men saknar den autenticitet en riktig bild ger. För många företag fungerar AI bäst till illustrationer och komplement, medan produktbilder och teamfoton ofta blir bättre fotograferade."
+    },
+    {
+      "heading": "Vanliga användningsområden",
+      "body": "AI-bilder passar bra för konceptillustrationer, bakgrundsbilder, ikoner och grafik där exakt realism inte är kritisk. Många använder dem till blogginlägg, landningssidor och sektioner som behöver visuell variation. För e-handel kan AI skapa lifestyle-bilder runt produkter eller visa produkten i olika miljöer, men själva produktbilden bör ofta vara fotograferad. Tjänsteföretag använder AI för att visualisera abstrakta koncept – exempelvis kan en redovisningsbyrå få bilder som illustrerar trygghet och struktur utan att behöva hitta rätt stockfoto. I Sajtmaskin väljer AI automatiskt var bilder behövs och genererar passande motiv till varje sektion."
+    },
+    {
+      "heading": "Juridik och upphovsrätt",
+      "body": "Upphovsrätten för AI-bilder är fortfarande lite oklar i Sverige, men generellt äger du rätt att använda bilder du genererat via verktyg du har licens till. De flesta AI-tjänster ger kommersiell användningsrätt, men läs alltid villkoren. En viktig poäng: AI-bilder tränas på befintliga bilder, vilket väckt debatt om konstnärers rättigheter. Vissa branscher och plattformar kräver att du markerar AI-genererat material. För företag är det viktigt att välja verktyg som är transparenta med sina träningsdata och licensvillkor. Sajtmaskin använder AI-modeller med kommersiell licens, så bilderna du får är okej att publicera."
+    },
+    {
+      "heading": "Så kommer du igång",
+      "body": "Om du vill testa AI-bilder på din hemsida kan du antingen använda separata verktyg som Midjourney eller DALL-E och ladda upp bilderna manuellt, eller välja en plattform där AI-bilderna ingår direkt. Med Sajtmaskin beskriver du din verksamhet i chatten, så genererar AI både text och bilder som passar ihop. Du kan be om justeringar om en bild inte känns rätt, och systemet skapar nya förslag. Eftersom allt sker på svenska och i samma gränssnitt slipper du hoppa mellan verktyg. Publicera på egen domän eller testa gratis på en subdomän – ingen bindningstid och du kan exportera koden när du vill."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kostar det extra att använda AI-bilder på hemsidan?",
+      "a": "Det beror på vilken plattform du använder. Separata AI-bildverktyg tar ofta betalt per bild eller med månadsprenumeration. I Sajtmaskin ingår AI-genererade bilder i tjänsten, så du betalar ingen extra kostnad för bilderna. Du kan generera och byta bilder utan att räkna krediter."
+    },
+    {
+      "q": "Kan jag använda AI-bilder kommersiellt?",
+      "a": "Ja, de flesta AI-verktyg ger kommersiell användningsrätt för bilder du genererat, men kontrollera alltid villkoren för det specifika verktyget. Sajtmaskin använder modeller med kommersiell licens, så bilderna du får är okej att använda i din verksamhet. Tänk på att vissa branscher kan kräva märkning av AI-genererat material."
+    },
+    {
+      "q": "Ser AI-bilder proffsiga ut?",
+      "a": "Det varierar. AI-bilder har blivit mycket bättre de senaste åren och kan se imponerande ut, särskilt för illustrationer och konceptbilder. Detaljer som händer, text i bilder och komplexa ansikten kan fortfarande bli konstiga. För bästa resultat, generera flera varianter och välj den som ser bäst ut. Kombinera gärna AI-bilder med riktiga foton där autenticitet är viktig."
+    },
+    {
+      "q": "Kan jag redigera AI-bilderna efteråt?",
+      "a": "Ja, AI-bilder är vanliga bildfiler som du kan redigera i Photoshop, Canva eller andra bildredigerare. Vissa AI-verktyg har också inbyggda funktioner för att justera detaljer eller byta ut delar av bilden. I Sajtmaskin kan du be AI:n generera nya varianter om en bild inte passar, vilket ofta är snabbare än att redigera manuellt."
+    },
+    {
+      "q": "Hur specifik måste min beskrivning vara?",
+      "a": "Ju mer detaljer, desto bättre resultat. Istället för att skriva 'kontor' kan du skriva 'modernt kontor med stora fönster, gröna växter och människor som samarbetar'. Inkludera stil, färger, stämning och konkreta element. I Sajtmaskin sköter AI:n detta automatiskt baserat på din bransch och ditt innehåll, men du kan alltid be om justeringar om du vill ha en annan känsla."
+    },
+    {
+      "q": "Vad händer om samma bild genereras till någon annan?",
+      "a": "Sannolikheten är extremt liten. Varje AI-generering skapar unika pixelmönster, även om två personer skriver exakt samma prompt. Det är en fundamental skillnad mot stockfoton där tusentals sajter kan använda samma bild. AI-bilder är alltid unika för just din hemsida."
+    },
+    {
+      "q": "Kan AI skapa bilder på produkter jag säljer?",
+      "a": "AI kan skapa generiska produktbilder eller sätta din produkt i olika miljöer om du laddar upp en bild först. Men för e-handel rekommenderas fortfarande riktiga produktfoton som huvudbilder, eftersom kunder vill se exakt vad de köper. AI-bilder fungerar bra som komplement – till exempel lifestyle-bilder eller bilder som visar produkten i användning."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

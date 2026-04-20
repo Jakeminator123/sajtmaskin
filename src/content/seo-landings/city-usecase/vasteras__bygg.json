@@ -1,0 +1,85 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/bygg",
+  "title": "Hemsida för byggföretag i Västerås | Sajtmaskin",
+  "metaDescription": "Bygg en professionell hemsida för ditt byggföretag i Västerås på minuter. Svensk AI-plattform utan kod. Publicera direkt, ingen bindningstid.",
+  "h1": "Hemsida för byggföretag i Västerås",
+  "heroSub": "Skapa en komplett hemsida för ditt byggföretag på minuter – med bokning, projekt och kontaktformulär.",
+  "introParagraphs": [
+    "Du driver ett byggföretag i Västerås och behöver en hemsida som visar dina tjänster, tidigare projekt och gör det enkelt för kunder att boka konsultation. Sajtmaskin bygger hela sajten åt dig via chat – du beskriver vad du gör, så skapar vår svenska AI en färdig sajt med text, bilder och alla funktioner du behöver.",
+    "Sajten publiceras direkt på din egen domän eller kostnadsfritt på en subdomän. Inget krångel med kod, mallar eller designers. Du får bokningssystem via Cal.com, kontaktformulär och möjlighet att visa referensprojekt. Ingen bindningstid och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Västerås behöver",
+      "body": "Byggkunder i Västerås söker ofta efter lokala företag för renovering, tillbyggnad, badrumsrenoveringar och nybyggnation. Din hemsida behöver tydligt visa vilka tjänster du erbjuder, var du jobbar och hur man når dig. Bilder från tidigare projekt skapar förtroende, och ett enkelt sätt att boka kostnadsfri konsultation gör det lätt för kunder att ta kontakt. Sajtmaskin skapar allt detta automatiskt – du behöver bara berätta om ditt företag."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din byggsajt",
+      "body": "Du chattar med vår AI på svenska och beskriver ditt byggföretag: vilka tjänster du erbjuder, om du specialiserar dig på något särskilt, och vilka områden du täcker runt Västerås. AI:n genererar sedan en komplett sajt med startsida, tjänstesidor, om-sida och kontakt. Du kan lägga till ett projektgalleri för att visa renoveringar och byggen du gjort, och integrera Cal.com så kunder kan boka möten direkt. Allt på svenska, anpassat för byggbranschen."
+    },
+    {
+      "heading": "Bokningssystem och kundkontakt",
+      "body": "Med Cal.com-integration får du ett professionellt bokningssystem där kunder kan välja tid för kostnadsfri konsultation eller platsbesök. Systemet synkar med din kalender och skickar automatiska påminnelser. Kontaktformuläret samlar förfrågningar om offerter och projekt, och du kan lägga till ditt telefonnummer och e-post så kunder når dig på det sätt de föredrar. Allt är byggt för att göra det enkelt för byggkunder att ta steget från intresse till kontakt."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Sajtmaskin har ingen bindningstid. Du betalar för att bygga sajten, sedan kan du publicera den på egen domän eller använda vår kostnadsfria subdomän. Vill du senare flytta sajten eller ta över koden själv? Exportera den när du vill. Du äger allt innehåll och all data. Uppdatera text och bilder själv via gränssnittet, eller chatta med AI:n för att göra ändringar. Perfekt för byggföretag som vill ha en professionell närvaro utan månadskostnader eller krångel."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig byggsajt?",
+      "a": "De flesta får en komplett sajt på 10–20 minuter. Du chattar med AI:n, beskriver ditt byggföretag och vilka tjänster du erbjuder, så genereras sajten automatiskt. Sedan kan du justera text, lägga till bilder från projekt och publicera direkt."
+    },
+    {
+      "q": "Kan jag visa bilder från mina byggprojekt?",
+      "a": "Ja, du kan enkelt lägga till ett projektgalleri med bilder från renoveringar, tillbyggnader och andra jobb du gjort. Ladda upp bilder och lägg till beskrivningar så potentiella kunder ser vad du kan. Galleriet fungerar responsivt på mobil och dator."
+    },
+    {
+      "q": "Fungerar bokningssystemet för platsbesök i Västerås?",
+      "a": "Ja, Cal.com-integrationen låter dig sätta upp tider för konsultationer och platsbesök. Kunder väljer en tid som passar, systemet synkar med din kalender och skickar påminnelser till både dig och kunden. Du bestämmer själv vilka tider du vill ha bokningsbara."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Nej, om du använder vår subdomän är hosting helt gratis utan månadskostnad. Vill du ha din egen domän (t.ex. dittbyggforetag.se) kopplar du den kostnadsfritt, men domänen köper du själv hos en registrar. Inga dolda avgifter eller bindningstid."
+    },
+    {
+      "q": "Kan jag uppdatera priser och tjänster själv?",
+      "a": "Ja, du loggar in och ändrar text, bilder och innehåll direkt i gränssnittet. Vill du göra större ändringar kan du chatta med AI:n igen och be om uppdateringar. Allt på svenska, inget kodande behövs."
+    },
+    {
+      "q": "Syns sajten i Google för sökningar i Västerås?",
+      "a": "Ja, sajten är byggd med SEO-grunderna på plats: snabb laddning, mobilanpassning och ren kod. Du kan lägga till Google Analytics för att följa besökare. För att ranka högre lokalt är det bra att nämna Västerås och dina tjänsteområden i texten, vilket AI:n hjälper dig med."
+    }
+  ],
+  "localOrIndustryContext": "Västerås har stark byggmarknad med både villaområden och stadsnära renoveringar. Många söker lokala byggföretag för badrumsrenoveringar, köksprojekt och tillbyggnader. En hemsida som tydligt visar dina tjänster och tidigare jobb i regionen gör det enkelt för kunder att välja dig framför större, opersonliga aktörer.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

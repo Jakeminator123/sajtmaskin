@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "lund/webshop",
+  "title": "Hemsida Webshop Lund – Bygg din butik på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett webshop i Lund med AI. Från produktsidor till betalning – allt på minuter. Ingen kodning, ingen bindningstid.",
+  "h1": "Hemsida Webshop Lund",
+  "heroSub": "Bygg en färdig webshop för ditt Lundaföretag via chat – med produktsidor, betalning och frakt på plats direkt.",
+  "introParagraphs": [
+    "Sajtmaskin skapar en komplett webshop åt dig på minuter. Du chattar med vår AI om vad du säljer, vilka betalmetoder du vill ha och hur frakt ska fungera – så genererar vi en färdig butik med produktsidor, kundvagn och kassan klar. Allt på svenska, ingen kod, inga krångliga plugins.",
+    "Lundaföretag som säljer allt från hantverksprodukter och designföremål till specialmat och studenttjänster använder Sajtmaskin för att komma igång snabbt. Du publicerar på din egen domän, integrerar Stripe för kortbetalning och Shopify om du vill ha avancerad lagerhantering. Ingen månadskostnad för hosting på subdomän, ingen bindningstid – och du kan exportera koden när som helst.",
+    "Oavsett om du driver en liten butik i centrum, säljer lokala produkter eller vill nå studenter och invånare i hela Lund digitalt, får du en webshop som fungerar från dag ett. Redigera sortiment, priser och kampanjer direkt i gränssnittet – utan att behöva en utvecklare."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger Sajtmaskin din webshop",
+      "body": "Du beskriver i chatten vad du säljer, vilka kategorier du behöver och hur du vill att kassan ska fungera. Vår AI skapar produktsidor med bilder, beskrivningar och prislistor, lägger in en kundvagn och kopplar på Stripe så att kunder kan betala med kort. Vill du ha fraktalternativ anger du det – systemet lägger automatiskt in beräkning för leverans. Allt genereras på svenska och designas responsivt så att butiken fungerar lika bra på mobil som dator. Du kan sedan redigera texter, byta bilder och justera priser direkt i gränssnittet. Ingen kod, inga teman att välja bland – bara en färdig butik anpassad efter dina produkter."
+    },
+    {
+      "heading": "Betalning och integration för Lundabutiker",
+      "body": "Sajtmaskin integrerar Stripe direkt i kassan så att kunderna kan betala med Visa, Mastercard och Swish. Du behöver inget separat konto hos en betalförmedlare – koppla ditt Stripe-konto så rullar pengarna in automatiskt. Vill du ha avancerad lagerhantering, produktvarianter eller dropshipping kan du integrera Shopify och låta Sajtmaskin visa produkterna från din Shopify-butik. För Lundaföretag som säljer både online och i fysisk butik fungerar det perfekt att ha Shopify som lagersystem medan Sajtmaskin står för själva webbplatsen. Google Analytics ingår så du ser vilka produkter som säljer bäst och var dina kunder kommer ifrån."
+    },
+    {
+      "heading": "Varför Lundaföretag väljer Sajtmaskin för webshop",
+      "body": "Många småföretag i Lund vill sälja online men tycker att Shopify, WooCommerce eller andra plattformar är för dyra eller komplicerade att sätta upp. Sajtmaskin ger dig en färdig butik på minuter utan månadskostnad om du kör på vår subdomän, och du betalar bara när du vill ha egen domän eller extra funktioner. Du slipper krångla med plugins, teman och uppdateringar – allt är färdigt från start. Dessutom äger du koden, så om du växer och vill flytta till en egen server eller anpassa något specifikt kan du exportera allt och ta med dig. Perfekt för nystartade butiker, pop-up-koncept eller lokala producenter som vill testa e-handel utan att investera tusentals kronor i förväg."
+    },
+    {
+      "heading": "Redigera sortiment och priser själv",
+      "body": "När webshopen är live kan du lägga till nya produkter, ändra priser och uppdatera lagersaldo direkt i Sajtmaskins gränssnitt. Ingen utvecklare behövs – du skriver in produktnamn, pris, beskrivning och laddar upp bilder, så läggs de automatiskt in i rätt kategori med rätt layout. Vill du köra en kampanj ändrar du priset eller lägger till en banner högst upp. Beställningar samlas i en enkel dashboard där du ser vad som köpts, vem som beställt och vilken leveransadress som gäller. För Lundabutiker som säljer säsongsprodukter eller testar nya sortiment är det här en enorm fördel – du kan pivotera snabbt utan att betala för utvecklartid."
+    },
+    {
+      "heading": "Från idé till färdig butik på en eftermiddag",
+      "body": "Många Lundaföretag startar sin webshop på lunchen och har första beställningen samma kväll. Sajtmaskin tar hand om allt tekniskt – domän, SSL-certifikat, betalintegration och design – så du kan fokusera på att fotografera produkter och skriva bra beskrivningar. Behöver du hjälp finns svensk support som förstår lokala behov, och eftersom allt är på svenska slipper du översätta gränssnitt eller instruktioner. Oavsett om du säljer hantverk på Mårtenstorget, specialkaffe från ett lokalt rosteri eller studentrabatter på kläder, får du en webshop som ser professionell ut och fungerar från minut ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att driva en webshop via Sajtmaskin i Lund?",
+      "a": "Hosting på vår subdomän är gratis utan tidsgräns. Vill du ha egen domän och ta bort vår logotyp betalar du en engångsavgift eller en liten månadskostnad – inga dolda avgifter. Stripe tar en liten procent per transaktion, men det är standardpriser som gäller alla e-handlare. Ingen bindningstid, så du kan pausa eller avsluta när du vill."
+    },
+    {
+      "q": "Kan jag sälja både fysiska produkter och digitala varor?",
+      "a": "Ja, Sajtmaskin hanterar båda. För fysiska produkter lägger du in fraktalternativ och leveransadresser. För digitala varor – som PDF-guider, onlinekurser eller biljetter – kan kunden ladda ner direkt efter köpet. Du anger i chatten vilken typ av produkter du säljer, så anpassar AI kassan därefter."
+    },
+    {
+      "q": "Hur fungerar lagerhantering och beställningar?",
+      "a": "Du ser alla beställningar i en dashboard med kundinformation, adress och produktlista. Vill du ha automatisk lagerkoll och notiser när något tar slut kan du integrera Shopify. För mindre sortiment räcker det ofta att uppdatera lagersaldot manuellt när du packat och skickat. Systemet skickar orderbekräftelse till kunden automatiskt."
+    },
+    {
+      "q": "Kan jag anpassa designen för min Lundabutik?",
+      "a": "Ja, du kan byta färger, typsnitt, bilder och layout direkt i gränssnittet. Vill du ha något väldigt specifikt – som en speciell produktvisning eller lokal leveranskarta – kan du exportera koden och låta en utvecklare göra ändringar. Men de flesta Lundaföretag kör med standarddesignen och byter bara bilder och texter."
+    },
+    {
+      "q": "Fungerar webshopen för studenter och mobilanvändare?",
+      "a": "Absolut. Alla Sajtmaskin-butiker är responsiva och laddas snabbt på mobil, vilket är viktigt eftersom många Lundastudenter handlar från telefonen. Kassan är optimerad för Swish och kortbetalning via Stripe, så checkoutprocessen går snabbt. Google Analytics visar vilka enheter dina kunder använder så du kan följa upp."
+    },
+    {
+      "q": "Kan jag sälja lokalt och erbjuda upphämtning i Lund?",
+      "a": "Ja, du kan lägga in upphämtning som leveransalternativ i kassan. Kunden väljer då att hämta i din butik eller på en annan plats i Lund istället för att få varan skickad. Perfekt för lokala bagare, hantverkare eller pop-up-butiker som vill undvika fraktkostnader och möta kunderna personligen."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du äger koden och kan exportera hela webshopen när som helst. Ta med dig till en egen server, flytta till WordPress eller integrera i ett större system – ingen inlåsning. Många Lundaföretag startar på Sajtmaskin för att testa konceptet och skalar sedan upp när de vet att det fungerar."
+    }
+  ],
+  "localOrIndustryContext": "Lund har en stark kultur av lokala producenter, studentdrivna initiativ och hållbara småföretag. Från designstudios i Klostergården till specialbutiker runt Mårtenstorget finns det stor potential för e-handel som kompletterar fysiska butiker. Sajtmaskin gör det enkelt för Lundaföretag att nå både studenter och invånare digitalt utan stora förhandsinvesteringar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/lund",
+      "label": "Skapa hemsida i Lund"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Lund. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

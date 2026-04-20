@@ -1,0 +1,102 @@
+{
+  "family": "ai",
+  "slug": "ai-vs-squarespace",
+  "title": "AI-hemsida vs Squarespace – vad är skillnaden? | Sajtmaskin",
+  "metaDescription": "Jämför AI-byggda hemsidor med Squarespace. Lär dig hur AI genererar sajter från text och när mallar fortfarande är rätt val för ditt projekt.",
+  "h1": "AI-hemsida vs Squarespace – vad är skillnaden?",
+  "heroSub": "Förstå hur AI-genererade sajter skiljer sig från mallbyggare som Squarespace och vilken metod som passar just ditt behov.",
+  "introParagraphs": [
+    "En AI-hemsida byggs genom att du beskriver vad du vill ha i vanlig text, varpå AI:n genererar design, struktur och innehåll åt dig. Squarespace är däremot en mallbyggare där du väljer en färdig design och fyller i ditt eget innehåll genom att klicka och dra element. Den största skillnaden ligger i arbetsflödet: AI startar från noll utifrån din beskrivning, medan Squarespace ger dig en mall att anpassa.",
+    "Båda metoderna har sina styrkor. AI kan vara snabbare om du inte vet exakt hur din sajt ska se ut eller om du vill testa en idé utan att sitta och plocka med layouter. Squarespace ger mer visuell kontroll från start och passar dig som vill ha en beprövad mall att jobba ifrån. Ingen metod är universellt bättre – det beror på hur du föredrar att arbeta och hur mycket tid du vill lägga på designval.",
+    "I Sverige kan du prova AI-metoden med Sajtmaskin, som genererar hela sajten på svenska från en chattkonversation. Du kan publicera direkt på egen domän eller exportera koden, utan bindningstid eller månadskostnad för hosting på subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI bygger en hemsida",
+      "body": "När du använder AI för att bygga en sajt skriver du en beskrivning av vad företaget gör, vilka sidor du behöver och vilken känsla du vill förmedla. AI:n tolkar din text och skapar en komplett sajt med layout, färgschema, typografi och innehåll. Du chattar sedan för att justera detaljer, lägga till sektioner eller ändra tonalitet. Processen liknar att ge instruktioner till en designer, fast du får resultat på minuter istället för dagar. Sajtmaskin fungerar så här: du startar en chatt på svenska, beskriver din verksamhet, och får en färdig sajt som du kan publicera direkt eller fortsätta förfina."
+    },
+    {
+      "heading": "Hur Squarespace fungerar",
+      "body": "Squarespace erbjuder ett bibliotek med professionellt designade mallar sorterade efter bransch och stil. Du väljer en mall, byter ut exempeltext och bilder mot ditt eget material, och justerar färger och typsnitt via en visuell editor. Plattformen är känd för sina vackra mallar och pålitliga hosting, men kräver att du själv skriver allt innehåll och fattar designbeslut. Du drar och släpper block, testar olika layouter och tweakar tills sajten känns rätt. Det ger full kontroll men tar mer tid än AI-metoden, särskilt om du inte har klart för dig vilken design du vill ha från början."
+    },
+    {
+      "heading": "Styrkor och begränsningar",
+      "body": "AI-verktyg är snabbast när du vill testa en idé, saknar designerfarenhet eller behöver innehåll genererat åt dig. Du slipper välja mellan hundratals mallar och kan istället beskriva vad du vill uppnå. Nackdelen är att du får mindre pixelperfekt kontroll och att resultatet kan kräva omskrivning om AI:n missförstår din ton. Squarespace passar dig som vill ha en beprövad designmall, föredrar visuell redigering och är redo att skriva allt innehåll själv. Priset ligger ofta högre över tid, och du är bunden till Squarespace ekosystem. Sajtmaskin kombinerar AI-snabbhet med möjlighet att exportera koden, så du aldrig är låst."
+    },
+    {
+      "heading": "Integrationer och funktioner",
+      "body": "Squarespace har inbyggt e-handel, blogg, bokningssystem och medlemsområden direkt i plattformen. Allt sitter ihop, men du betalar för funktioner du kanske inte använder. AI-verktyg som Sajtmaskin fokuserar på att generera sajten och låter dig välja integrationer efter behov: Cal.com för bokning, Stripe för betalning, Shopify för webshop, Google Analytics för statistik. Det ger flexibilitet men kräver att du kopplar ihop tjänsterna själv. Välj Squarespace om du vill ha allt i ett paket. Välj AI om du vill plocka russinen ur kakan och bara betala för det du faktiskt behöver."
+    },
+    {
+      "heading": "Vilken metod passar dig?",
+      "body": "Om du vill komma igång på minuter, inte har färdigt innehåll och är nyfiken på att låta AI göra jobbet är en AI-hemsida rätt väg. Du får en fungerande sajt snabbt och kan iterera via chat. Om du har tydlig bild av designen, vill ha visuell kontroll från start och är bekväm med att skriva allt själv passar Squarespace bättre. Många använder faktiskt båda: AI för att testa koncept snabbt, Squarespace för mer etablerade projekt med specifika designkrav. Sajtmaskin låter dig prova AI-metoden på svenska, publicera gratis på subdomän och exportera koden om du vill flytta vidare. Ingen bindningstid, inget krångel."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan AI verkligen göra en lika snygg sajt som Squarespace mallar?",
+      "a": "AI genererar design baserat på moderna webbstandarder och kan skapa snygga sajter, men Squarespace mallar är handgjorda av designers och ofta mer visuellt polerade från start. AI-sajter kan justeras och förbättras via chat, men om du vill ha en specifik, ikonisk design kan en Squarespace-mall ge det snabbare. Det beror på dina prioriteringar: hastighet och flexibilitet kontra beprövad estetik."
+    },
+    {
+      "q": "Kostar det mer att använda AI än Squarespace?",
+      "a": "Squarespace tar mellan 150–500 kr per månad beroende på plan. Sajtmaskin tar betalt per generering och publicering, men ingen månadskostnad om du ligger på subdomän. Över tid kan AI bli billigare om du inte behöver alla Squarespace funktioner, men dyrare om du genererar många varianter. Jämför vad du faktiskt använder, inte bara listpriset."
+    },
+    {
+      "q": "Kan jag flytta en AI-genererad sajt till Squarespace senare?",
+      "a": "Ja, om AI-verktyget låter dig exportera koden. Sajtmaskin ger dig full kodexport, så du kan ta HTML, CSS och JavaScript och lägga in det var du vill. Squarespace stöder inte direkt kodimport på samma sätt, så du får anpassa innehållet manuellt. Det är enklare att gå från AI till egen hosting än till en annan mallplattform."
+    },
+    {
+      "q": "Vilken metod är snabbast att lära sig?",
+      "a": "AI kräver ingen inlärning av verktyg – du skriver bara vad du vill ha. Squarespace kräver att du lär dig deras editor, förstår hur block fungerar och var inställningar finns. Om du aldrig byggt en sajt förut är AI snabbare att komma igång med. Om du vill ha djup kontroll och är villig att lägga timmar på att lära dig plattformen ger Squarespace mer precision."
+    },
+    {
+      "q": "Kan jag använda samma domän med båda metoderna?",
+      "a": "Ja, både AI-verktyg och Squarespace låter dig koppla egen domän. Sajtmaskin publicerar på din domän utan extra kostnad, medan Squarespace kräver en betald plan för att ta bort deras branding och använda egen domän. Tekniskt är det ingen skillnad i slutresultatet – besökaren ser din domän oavsett metod."
+    },
+    {
+      "q": "Vilket alternativ är bäst för e-handel?",
+      "a": "Squarespace har inbyggd e-handel med produkthantering, lager och betalning i samma gränssnitt. Det är smidigt om du säljer direkt på sajten. Sajtmaskin kan integrera Shopify eller Stripe för betalning, men du hanterar produkter i separat verktyg. För fullskalig webshop med många produkter är Squarespace enklare. För enkel betalning eller bokning räcker AI med integrationer."
+    },
+    {
+      "q": "Kan jag byta metod mitt i projektet?",
+      "a": "Ja, men det kräver arbete. Om du startar i Squarespace och vill testa AI måste du beskriva sajten på nytt och migrera innehåll manuellt. Från AI till Squarespace innebär att du kopierar text och bilder och bygger om i deras editor. Sajtmaskin exporterar kod, så du kan flytta till egen hosting smidigt. Planera från start vilken metod som passar hela projektet, inte bara lansering."
+    }
+  ],
+  "localOrIndustryContext": "I Sverige har Squarespace länge varit populärt bland kreatörer och småföretag som vill ha en snygg sajt utan utvecklare. AI-verktyg som Sajtmaskin är nyare på marknaden men växer snabbt, särskilt bland företag som vill testa idéer snabbt eller saknar tid att sätta sig in i mallbyggare. Båda metoderna fungerar lika bra tekniskt i Sverige, men Sajtmaskin erbjuder svenskt gränssnitt och support, vilket gör processen smidigare om du föredrar att jobba på svenska.",
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

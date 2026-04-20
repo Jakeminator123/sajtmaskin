@@ -1,0 +1,101 @@
+{
+  "family": "compare",
+  "slug": "wordpress",
+  "title": "Alternativ till WordPress – Bygg hemsida på svenska med AI | Sajtmaskin",
+  "metaDescription": "Trött på WordPress plugins och krångel? Sajtmaskin är ett svenskt AI-alternativ som bygger din hemsida på minuter. Inget kodande, ingen byrå.",
+  "h1": "Alternativ till WordPress för svenska företag",
+  "heroSub": "Bygg en komplett hemsida på minuter med AI – utan plugins, teman eller tekniskt krångel.",
+  "introParagraphs": [
+    "WordPress driver miljontals sajter världen över, men många svenska företagare upplever att det blivit tungt, komplext och dyrt att underhålla. Du behöver välja bland tusentals plugins, hantera säkerhetsuppdateringar och ofta anlita en byrå för att få det du vill ha. Sajtmaskin är ett svenskt alternativ som tar en helt annan väg: AI bygger hela din hemsida från en konversation, på svenska, utan kod.",
+    "Med Sajtmaskin chattrar du med en AI som förstår ditt företag och skapar en färdig sajt på minuter. Allt innehåll genereras på svenska, designen anpassas automatiskt och du publicerar direkt – antingen på vår subdomän utan månadskostnad eller på din egen domän. Ingen plugin-djungel, inga säkerhetsbekymmer och ingen byrå som fakturerar timmar.",
+    "Du kan integrera bokningar via Cal.com, betalningar genom Stripe och webbshop via Shopify. Allt sköts från ett svenskt gränssnitt med svensk support. Vill du byta plattform senare? Exportera koden och ta den med dig. Ingen bindningstid, ingen leverantörslåsning."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker svenska företag alternativ till WordPress?",
+      "body": "WordPress lanserades 2003 som bloggplattform och har vuxit till ett flexibelt CMS. Men flexibiliteten har ett pris: du måste välja rätt tema, installera plugins för varje funktion, hålla allt uppdaterat och troubleshoota konflikter. För många svenska småföretag blir det överväldigande. Dessutom är de flesta teman och plugins på engelska, dokumentationen likaså, och svensk support kostar extra. Sajtmaskin är byggt från grunden för svenska användare som vill ha en färdig lösning utan teknisk overhead."
+    },
+    {
+      "heading": "Vad WordPress gör bra – och var Sajtmaskin passar bättre",
+      "body": "WordPress erbjuder enorm kontroll och ett gigantiskt ekosystem av tillägg. Om du driver en stor redaktion, behöver avancerad multisajt-arkitektur eller vill anpassa varje pixel själv är WordPress fortfarande ett starkt val. Men för svenska företag som vill ha en professionell hemsida snabbt – utan att lära sig Gutenberg, ACF eller PHP – är Sajtmaskin smidigare. AI hanterar struktur, innehåll och design åt dig. Du slipper välja bland 60 000 plugins och undra vilka som är säkra. Allt du behöver finns inbyggt eller integreras med ett klick."
+    },
+    {
+      "heading": "Svensk AI, svenskt språk, svensk support",
+      "body": "Sajtmaskins AI är tränad på svenska och förstår svenska företag, branscher och uttryck. Innehållet genereras direkt på korrekt svenska – inte översatt från engelska mallar. Gränssnittet, hjälptexter och supporten är helt på svenska, och plattformen drivs av Pretty Good AB i Sverige. Du slipper engelska forum, tidszoner och support som inte förstår svensk moms eller bokföring. Allt är byggt för den svenska marknaden."
+    },
+    {
+      "heading": "Ingen byrå, inga timkostnader",
+      "body": "Med WordPress hamnar de flesta småföretag hos en byrå för att få sajten att se professionell ut och fungera smidigt. Det kan kosta tiotusentals kronor i uppstart och tusentals i månatligt underhåll. Sajtmaskin tar bort mellanhanden: AI bygger sajten, du redigerar i klartext och publicerar själv. Vill du ha hjälp finns svensk support, men de flesta klarar sig utan. Hosting på subdomän är gratis, egen domän kostar inget extra i månadsavgift. Du betalar för plattformen, inte för byråtimmar."
+    },
+    {
+      "heading": "Exportera koden och äg din sajt",
+      "body": "En oro med molnplattformar är leverantörslåsning. Sajtmaskin låter dig exportera hela kodens källkod när du vill. Du äger ditt innehåll och din design. Vill du flytta till egen server eller annan tjänst går det smidigt. Ingen bindningstid, inga dolda avgifter. Det är din sajt, och den ska följa med dig oavsett vart verksamheten tar vägen."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag migrera min befintliga WordPress-sajt till Sajtmaskin?",
+      "a": "Just nu har Sajtmaskin ingen automatisk migreringsverktyg från WordPress. Men du kan be AI:n återskapa strukturen och innehållet genom att beskriva din nuvarande sajt eller klistra in texter. Bilder och filer laddar du upp manuellt. För enklare sajter går det snabbt; för stora arkiv kan det ta lite tid."
+    },
+    {
+      "q": "Saknar jag plugins och teman om jag lämnar WordPress?",
+      "a": "Sajtmaskin har inga plugins – istället är kärnfunktionerna inbyggda eller kopplas via integrationer som Cal.com, Stripe och Shopify. Du slipper jaga uppdateringar och troubleshoota konflikter. Teman behövs inte heller; AI skapar en design som passar ditt innehåll. Vill du anpassa utseendet gör du det direkt i editorn, utan att byta tema."
+    },
+    {
+      "q": "Är Sajtmaskin lika flexibelt som WordPress för avancerade behov?",
+      "a": "Nej, WordPress med rätt plugins och custom code ger mer kontroll för komplexa projekt. Sajtmaskin är byggt för företag som vill ha en professionell hemsida snabbt, utan att hantera kod. Om du behöver headless CMS, multisite-nätverk eller egen databaslogik passar WordPress bättre. Men för 95 procent av svenska småföretag räcker Sajtmaskins funktioner långt."
+    },
+    {
+      "q": "Vad händer med SEO jämfört med WordPress?",
+      "a": "WordPress med Yoast eller Rank Math ger djup SEO-kontroll. Sajtmaskin genererar ren, snabb HTML med korrekta meta-taggar, rubriker och semantisk struktur – allt som Google behöver. Du kan redigera title, description och alt-texter. Eftersom sajterna laddar snabbt och är mobilanpassade från start får du bra teknisk SEO utan plugins. För avancerad schema markup och detaljerad analys kan WordPress ge mer, men grunderna är täckta."
+    },
+    {
+      "q": "Kostar det mer eller mindre än WordPress i längden?",
+      "a": "WordPress själv är gratis, men du betalar för hosting, premium-tema, plugins, säkerhet och ofta byrå. Totalkostnaden landar lätt på flera tusen kronor per månad. Sajtmaskin tar en plattformsavgift men inkluderar hosting på subdomän utan extra kostnad, och du slipper köpa tillägg. Egen domän kostar inget extra i månadsavgift. För de flesta blir det billigare och mycket enklare."
+    },
+    {
+      "q": "Kan jag använda Sajtmaskin om jag inte är teknisk?",
+      "a": "Absolut. Sajtmaskin är byggt för icke-tekniska användare. Du chattrar med AI:n på vanlig svenska, och den bygger sajten. Ingen kod, inga inställningar att gräva i. WordPress kräver att du förstår admin-panelen, plugins och ibland lite HTML. Sajtmaskin kräver bara att du kan beskriva vad du vill ha."
+    },
+    {
+      "q": "Vad händer om Sajtmaskin försvinner – förlorar jag min sajt?",
+      "a": "Nej. Du kan när som helst exportera hela kodens källkod och ta den med dig. Sajten är din, och du kan hosta den var du vill. Ingen bindningstid, ingen leverantörslåsning. Det är en viktig skillnad mot många molntjänster som låser in ditt innehåll."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från WordPress. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

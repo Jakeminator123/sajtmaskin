@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "takfirma",
+  "title": "Hemsida för takfirma – bygg en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för din takfirma med AI. Visa tjänster, ta emot bokningar och bygg förtroende. Ingen kod krävs. Prova gratis idag.",
+  "h1": "Hemsida för takfirma",
+  "heroSub": "Bygg en proffsig hemsida som visar dina takarbeten, tar emot förfrågningar och gör det enkelt för kunder att kontakta dig.",
+  "introParagraphs": [
+    "En hemsida för takfirma behöver visa vad du kan, bygga förtroende och göra det smidigt för kunder att nå dig. Oavsett om du jobbar med takbyten, omläggningar, plåtarbeten eller akuta reparationer så vill husägare se exempel, läsa om din erfarenhet och kunna boka en kostnadsfri besiktning direkt. Med Sajtmaskin skapar du en komplett sajt på minuter – utan kod och utan krångel.",
+    "Du chattar med AI:n om vad din takfirma gör, vilka material du jobbar med och var du verkar. Sajtmaskin bygger sedan en färdig sajt med tjänstesidor, bildgalleri, kontaktformulär och bokningsfunktion. Du publicerar på din egen domän och kan börja ta emot kundförfrågningar samma dag.",
+    "Plattformen är byggd i Sverige med svenskt gränssnitt och support. Allt innehåll genereras på svenska, och du kan när som helst exportera koden om du vill flytta sajten."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för takfirma ska innehålla",
+      "body": "En bra hemsida för takfirma börjar med en tydlig startsida som förklarar vilka tjänster du erbjuder och var du jobbar. Sedan behöver du separata sidor för varje huvudtjänst – takbyte, omläggning, plåtarbeten, stuprännor, takreparation – så besökare snabbt hittar rätt. Ett bildgalleri med före- och efter-bilder från tidigare projekt bygger förtroende, särskilt om du visar olika taktyper som tegel, papp, plåt eller skiffer. En Om oss-sida med information om dina certifieringar, försäkringar och hur länge du jobbat i branschen gör att kunder känner sig trygga. Slutligen behöver du ett enkelt kontaktformulär eller bokningsfunktion så folk kan begära offert eller boka besiktning direkt."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din takfirmas hemsida",
+      "body": "Du startar en chatt och beskriver din takfirma: vilka tjänster du erbjuder, vilka material du jobbar med, om du har specialistkompetens inom energieffektiva tak eller gröna tak, och vilka områden du täcker. Sajtmaskin genererar då en komplett sajt med tjänstesidor, referensgalleri och kontaktsidor. Vill du att kunder ska kunna boka besiktning online? Integrera Cal.com så de kan välja tid direkt i kalendern. Behöver du ta emot betalningar för mindre reparationer? Koppla in Stripe. Allt sköts via chatten – du behöver aldrig röra kod. När sajten är klar publicerar du på din egen domän, och om du vill testa först kan du köra på en gratis subdomän."
+    },
+    {
+      "heading": "Bokningar och offerter direkt på sajten",
+      "body": "Många takfirmor förlorar kunder för att det är krångligt att komma i kontakt. Med Sajtmaskin kan du lägga till Cal.com-integration så besökare bokar kostnadsfri takbesiktning direkt i din kalender. Du slipper mejltennis och missade samtal. Vill du att kunder ska kunna ladda upp bilder på sitt tak innan besöket? Lägg till ett formulär där de beskriver problemet och bifogar foton. All data samlas på ett ställe, och du får notiser direkt. För mindre akutjobb – som att laga en läcka eller byta ett stuprör – kan du till och med ta betalt online via Stripe, så kunden kan boka och betala i ett svep."
+    },
+    {
+      "heading": "Ingen bindningstid och full äganderätt",
+      "body": "Sajtmaskin har ingen bindningstid. Du äger koden och kan när som helst exportera hela sajten om du vill flytta till en annan leverantör eller hantera den själv. Hosting på subdomän är gratis, och vill du publicera på din egen domän betalar du bara en engångskostnad – ingen månadshyra. Det finns inga dolda avgifter eller krav på långtidsavtal. Du kan uppdatera innehåll, lägga till nya tjänstesidor eller byta bilder via chatten när du vill, och allt sker på svenska med svensk support."
+    },
+    {
+      "heading": "Bygg förtroende med rätt innehåll",
+      "body": "Takarbete är en stor investering, och kunder vill veta att de anlitar någon pålitlig. Din hemsida ska därför visa certifieringar, försäkringar och medlemskap i branschorganisationer. Lägg till kundrecensioner eller referenser från tidigare projekt – gärna med bilder och namn på området där jobbet gjordes. Förklara tydligt hur en offertprocess går till, vad som ingår i priset och vilka garantier du ger. Ju mer transparent du är, desto lättare blir det för kunder att välja dig. Sajtmaskin hjälper dig strukturera allt det här så sajten känns proffsig och trovärdig från dag ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min takfirma?",
+      "a": "Med Sajtmaskin tar det några minuter. Du chattar om dina tjänster, vilka material du jobbar med och var du verkar, så genererar AI:n en färdig sajt. Du kan publicera direkt eller fortsätta justera innehåll och bilder tills allt är perfekt."
+    },
+    {
+      "q": "Kan jag visa bildgalleri från mina takprojekt?",
+      "a": "Ja, du kan enkelt lägga till ett bildgalleri med före- och efter-bilder från tidigare jobb. Ladda upp bilder via chatten och organisera dem per tjänst eller taktyp. Det är ett bra sätt att visa din erfarenhet och bygga förtroende."
+    },
+    {
+      "q": "Kan kunder boka takbesiktning direkt på sajten?",
+      "a": "Absolut. Integrera Cal.com så besökare kan välja tid för kostnadsfri besiktning direkt i din kalender. Du slipper mejla fram och tillbaka, och kunden får en bekräftelse automatiskt. Det minskar tröskeln för att ta kontakt."
+    },
+    {
+      "q": "Vad kostar det att driva hemsidan?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis. Vill du använda din egen domän betalar du en engångskostnad, ingen månadshyra. Det finns inga dolda avgifter eller bindningstid. Integrationer som Cal.com och Stripe har egna priser, men själva sajten kostar inget löpande."
+    },
+    {
+      "q": "Kan jag ta betalt för mindre reparationer online?",
+      "a": "Ja, koppla in Stripe så kan kunder betala direkt på sajten. Det passar bra för mindre jobb som akuta läckagereparationer eller byte av stuprännor. Kunden bokar, betalar och får bekräftelse i ett enda flöde."
+    },
+    {
+      "q": "Äger jag koden till hemsidan?",
+      "a": "Ja, du äger hela sajten och kan exportera koden när du vill. Det finns ingen bindningstid och inga krav på att stanna kvar hos Sajtmaskin. Du har full kontroll och kan flytta sajten till en annan leverantör om du vill."
+    },
+    {
+      "q": "Kan jag uppdatera innehållet själv?",
+      "a": "Ja, allt sköts via chatt. Vill du lägga till en ny tjänstesida, byta ut bilder eller uppdatera priser? Chatta med AI:n så fixas det direkt. Du behöver aldrig röra kod, och allt är på svenska."
+    }
+  ],
+  "localOrIndustryContext": "Takbranschen i Sverige präglas av höga krav på certifieringar, försäkringar och hantverksskicklighet. Kunder söker ofta efter lokala firmor med goda referenser och vill se tydliga exempel på tidigare arbeten. En hemsida som visar kompetens, transparens och gör det enkelt att boka besiktning ger dig en stor fördel mot konkurrenter som bara syns i telefonkatalogen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en takfirma-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

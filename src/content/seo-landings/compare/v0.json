@@ -1,0 +1,102 @@
+{
+  "family": "compare",
+  "slug": "v0",
+  "title": "Alternativ till v0 – bygg svenska sajter med AI | Sajtmaskin",
+  "metaDescription": "Söker du ett svenskt alternativ till v0? Sajtmaskin låter dig bygga hela hemsidor på svenska via AI-chat – utan kod, klart på minuter.",
+  "h1": "Svenskt alternativ till v0",
+  "heroSub": "Bygg färdiga hemsider istället för komponenter – på svenska, utan kod, publicerat direkt.",
+  "introParagraphs": [
+    "v0 från Vercel är ett kraftfullt verktyg för utvecklare som vill generera React-komponenter med AI. Men om du söker ett alternativ till v0 handlar det sällan om att hitta ännu ett komponentbibliotek – det handlar oftast om att du vill ha en färdig sajt, inte bara byggstenar. Eller att du behöver svenska texter, svensk support och en plattform som är byggd för svenska företag utan utvecklarresurser.",
+    "Sajtmaskin är ett svenskt alternativ som tar en annan väg. Istället för att generera kodkomponenter som du sedan ska sätta samman bygger Sajtmaskin hela din hemsida från en konversation. Du chattar om vad du vill ha, AI:n skapar sajten med text och design, och du publicerar direkt – antingen på egen domän eller gratis på en subdomän. Allt på svenska, utan att röra kod.",
+    "Här förklarar vi vad som skiljer, när v0 är rätt val, och varför Sajtmaskin passar bättre om du driver ett svenskt företag och vill ha en komplett sajt utan att anlita byrå eller utvecklare."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad v0 gör bra – och var Sajtmaskin tar vid",
+      "body": "v0 är byggt för utvecklare som vill snabba på frontend-arbetet. Du promptar fram UI-komponenter i React, Tailwind och Shadcn, kopierar koden och integrerar i ditt projekt. Det är smidigt om du redan har en kodbas och vill experimentera med design. Men v0 ger dig inte en färdig sajt – du får komponenter som du själv måste sätta samman, hosta och underhålla. Sajtmaskin ger dig istället hela sajten: AI:n skriver svenska texter, designar layouten, och publicerar direkt. Du behöver ingen utvecklare, ingen hosting-setup, ingen kod. Om målet är en fungerande hemsida snarare än ett kodbibliotek passar Sajtmaskin bättre."
+    },
+    {
+      "heading": "Svenskt språk, svensk support – inget översättningsarbete",
+      "body": "v0 fungerar på engelska och genererar engelska texter. För svenska företag betyder det att du antingen promptar på engelska och översätter resultatet manuellt, eller försöker få AI:n att skriva svenska – vilket sällan blir idiomatiskt. Sajtmaskin är byggt från grunden för svenska. Hela gränssnittet, all support och allt innehåll som AI:n genererar är på svenska. Du slipper översätta, justera formuleringar eller förklara svenska begrepp. Resultatet blir texter som låter naturliga för dina besökare, och du kan ställa frågor till supporten utan språkbarriär."
+    },
+    {
+      "heading": "Publicera direkt – ingen hosting eller deployment",
+      "body": "Med v0 får du kod som du sedan ska deploya själv, antingen via Vercel eller annan hosting. Det kräver att du förstår Git, CI/CD och domänkoppling. Sajtmaskin publicerar sajten direkt från chatten. Du kan välja att publicera på en gratis subdomän utan månadskostnad, eller koppla din egen domän med ett klick. Ingen terminalkommando, ingen build-process, ingen hosting-faktura att hålla koll på. Om du vill exportera koden senare går det också – men du behöver aldrig börja där."
+    },
+    {
+      "heading": "Integrationer för svenska företag – bokning, betalning, analys",
+      "body": "v0 genererar komponenter, men du måste själv integrera bokningssystem, betalningar och analys. Sajtmaskin har inbyggda integrationer med Cal.com för bokning, Stripe för betalningar, Google Analytics för statistik och Shopify för webshop. Allt kopplas på via gränssnittet utan kod. Det betyder att du kan lansera en fungerande bokningssajt, betaltjänst eller produktkatalog samma dag – utan att anlita utvecklare eller betala byråarvode."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen inlåsning – exportera när du vill",
+      "body": "Både v0 och Sajtmaskin låter dig äga koden, men modellen skiljer sig. v0 ger dig komponenter som du kopierar in i ditt projekt; Sajtmaskin bygger hela sajten och låter dig exportera den kompletta kodbasen när du vill. Det finns ingen bindningstid, ingen prenumerationstvång. Om du senare vill flytta till egen hosting eller låta en utvecklare ta över är det fritt fram. Skillnaden är att du med Sajtmaskin börjar med en färdig sajt istället för att börja med komponenter."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Är Sajtmaskin ett alternativ till v0 för utvecklare?",
+      "a": "v0 är byggt för utvecklare som vill generera React-komponenter och integrera dem i befintliga projekt. Sajtmaskin riktar sig till företagare, frilansare och marknadsförare som vill ha en färdig hemsida utan att skriva kod. Om du är utvecklare och behöver komponenter är v0 rätt val. Om du vill ha en komplett sajt på svenska utan utveckling passar Sajtmaskin bättre."
+    },
+    {
+      "q": "Kan jag använda Sajtmaskin om jag inte kan koda?",
+      "a": "Ja, det är hela poängen. Du chattar med AI:n om vad du vill ha, och Sajtmaskin bygger sajten åt dig. Du behöver aldrig röra kod, terminal eller deployment. Allt sker i gränssnittet på svenska. Om du senare vill anpassa något mer avancerat kan du exportera koden, men du kan också köra hela sajten utan att någonsin öppna en editor."
+    },
+    {
+      "q": "Genererar Sajtmaskin komponenter som v0?",
+      "a": "Nej. v0 genererar lösa UI-komponenter som du kopierar in i ditt projekt. Sajtmaskin bygger hela hemsidor med text, design, sidor och funktioner. Du får en komplett sajt som du kan publicera direkt, inte kodblock att sätta samman. Om du behöver komponenter till ett befintligt projekt är v0 bättre; om du vill ha en färdig sajt är Sajtmaskin rätt verktyg."
+    },
+    {
+      "q": "Kostar det något att hosta sajten på Sajtmaskin?",
+      "a": "Nej, om du publicerar på en subdomän hos Sajtmaskin är hostingen gratis utan månadskostnad. Vill du använda din egen domän kopplar du den kostnadsfritt, men då kan andra avgifter tillkomma beroende på din domänleverantör. Det finns ingen bindningstid och du kan exportera koden när du vill om du föredrar egen hosting."
+    },
+    {
+      "q": "Kan jag integrera betalning och bokning som med v0?",
+      "a": "Sajtmaskin har inbyggda integrationer med Stripe för betalningar, Cal.com för bokning, Google Analytics och Shopify för webshop. Du aktiverar dem via gränssnittet utan kod. Med v0 måste du själv koda integrationerna eller använda färdiga bibliotek. Om du vill ha funktionerna klara direkt utan utveckling är Sajtmaskin enklare."
+    },
+    {
+      "q": "Är Sajtmaskin byggt i Sverige?",
+      "a": "Ja, Sajtmaskin är byggt av Pretty Good AB i Sverige. Hela plattformen, gränssnittet, supporten och AI-genereringen är på svenska. Det betyder att du får svensk support, svenska texter och en tjänst som förstår svenska företags behov – utan att behöva översätta eller anpassa från engelska verktyg."
+    },
+    {
+      "q": "Kan jag byta från v0 till Sajtmaskin?",
+      "a": "Om du redan använder v0 för att generera komponenter och vill ha en hel sajt istället kan du börja om i Sajtmaskin och bygga sajten från grunden via AI-chatten. Sajtmaskin importerar inte v0-komponenter, men du kan beskriva vad du vill ha så bygger AI:n motsvarande sajt på svenska. Om du vill behålla dina v0-komponenter är det bättre att fortsätta där och komplettera med egen kod."
+    }
+  ],
+  "localOrIndustryContext": "v0 används främst av utvecklare internationellt som vill snabba på React-utveckling. I Sverige söker många småföretagare, konsulter och kreatörer efter verktyg som ger en färdig hemsida utan byrå. Sajtmaskin fyller det behovet genom att erbjuda svensk AI, svensk support och publicering utan kod – ett konkret alternativ för dig som vill ha sajten klar, inte bara komponenterna.",
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från v0. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

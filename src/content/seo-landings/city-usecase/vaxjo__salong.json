@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vaxjo/salong",
+  "title": "Hemsida Salong Växjö – Bygg din salongs sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Växjö med AI. Bokning, bildgalleri och mobilanpassning klart på minuter. Ingen kodning.",
+  "h1": "Hemsida för din salong i Växjö",
+  "heroSub": "Bygg en komplett sajt för din salong med AI – bokning, prislista och galleri klart på minuter.",
+  "introParagraphs": [
+    "Om du driver en salong i Växjö behöver du en hemsida som visar dina tjänster, tar emot bokningar och får nya kunder att hitta dig. Sajtmaskin låter dig bygga en professionell salongssajt genom att chatta med AI – helt utan kod eller tekniska kunskaper.",
+    "Du beskriver din salong i chatten, så skapar AI:n en färdig sajt med bokning, prislista, bildgalleri och kontaktformulär. Publicera på din egen domän eller testa kostnadsfritt på en subdomän. Allt på svenska, byggt för svenska salonger.",
+    "Sajten blir automatiskt mobilanpassad och optimerad för Google, så att kunder i Växjö hittar dig när de söker efter frisör, naglar, skönhet eller hudvård. Inga bindningstider, inga dolda avgifter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "Din salong lever på bokningar, och Sajtmaskin integrerar Cal.com direkt i sajten. Kunder kan boka klippning, färg, naglar eller ansiktsbehandling dygnet runt, och du får alla tider samlade i en kalender. Systemet hanterar påminnelser, ombokning och visar vilka tider som är lediga – utan att du behöver betala extra för ett separat bokningssystem. Perfekt för småländska salonger som vill ha full kontroll utan krångel."
+    },
+    {
+      "heading": "Visa upp ditt arbete med bildgalleri",
+      "body": "För en salong är bilder avgörande. Sajtmaskin skapar automatiskt ett snyggt galleri där du kan visa före- och efterbilder, färgningar, nagelkonst eller hudvårdsresultat. Ladda upp bilder direkt i chatten eller via administratörspanelen, så formaterar AI:n dem för snabb laddning och snygg visning på mobil. Kunder i Växjö ska kunna se vad du kan – och boka direkt efter att de sett dina resultat."
+    },
+    {
+      "heading": "Prislista och tjänstebeskrivningar som säljer",
+      "body": "AI:n hjälper dig skriva tydliga tjänstebeskrivningar och priser som får besökare att förstå vad de får. Istället för generiska listor skapar du innehåll som förklarar skillnaden mellan balayage och slingor, vad en ansiktsbehandling innehåller eller hur lång tid en gellack-behandling tar. Du kan när som helst uppdatera priser eller lägga till nya tjänster genom att chatta med AI:n – ingen webbdesigner behövs."
+    },
+    {
+      "heading": "Lokal synlighet i Växjö",
+      "body": "Sajten optimeras automatiskt för att synas när folk i Växjö söker efter salong, frisör eller skönhetsvård. Sajtmaskin lägger in rätt struktur, snabba laddningstider och mobilanpassning som Google älskar. Integrera Google Analytics för att se hur kunder hittar dig, och länka till din Instagram eller Facebook om du vill. Allt för att din salong ska sticka ut i Kronoberg."
+    },
+    {
+      "heading": "Ingen bindningstid – du äger din sajt",
+      "body": "Många webbplattformar låser in dig med månadskostnader och begränsningar. Med Sajtmaskin betalar du ingen hosting-avgift om du använder en subdomän, och du kan när som helst exportera hela koden och flytta sajten. Vill du ha egen domän som dinsalong.se? Koppla den direkt i gränssnittet. Du bestämmer, och du äger alltid ditt innehåll och din kunddata."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en salongssajt med Sajtmaskin?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n om din salong, vilka tjänster du erbjuder och hur du vill att sajten ska se ut. AI:n genererar sidor, bokning och prislista direkt. Sen kan du justera texter och bilder tills allt känns rätt."
+    },
+    {
+      "q": "Kan jag ta betalt för behandlingar via hemsidan?",
+      "a": "Ja, genom Stripe-integrationen kan kunder betala för presentkort, produkter eller förskottsbetalning för behandlingar. Många salonger i Växjö använder det för att sälja hemvårdsprodukter eller gåvokort online. Bokningar hanteras via Cal.com, som också kan kopplas till betalning om du vill."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Absolut. Alla sajter från Sajtmaskin är responsiva och ser bra ut på telefon, surfplatta och dator. Eftersom de flesta kunder bokar från mobilen är det extra viktigt att bokningsknappen, bilderna och priserna är lättlästa på liten skärm – det fixar AI:n automatiskt."
+    },
+    {
+      "q": "Kan jag ändra innehållet själv efter att sajten är klar?",
+      "a": "Ja, du chattar med AI:n för att uppdatera priser, lägga till nya tjänster, byta bilder eller ändra öppettider. Du behöver ingen teknisk kunskap – bara beskriv vad du vill ändra så fixar AI:n det. Vill du ha full kontroll kan du också exportera koden och redigera den själv."
+    },
+    {
+      "q": "Hur syns min salong i Växjö på Google?",
+      "a": "Sajtmaskin bygger sajter med snabb laddning, rätt struktur och mobilanpassning som Google prioriterar. För bästa lokala synlighet bör du också skapa en Google My Business-profil, be nöjda kunder om recensioner och länka din sajt till sociala medier. Analytics-integration hjälper dig följa hur folk hittar dig."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Om du använder en subdomän (dinsalong.sajtmaskin.se) är hostingen gratis utan månadskostnad. Vill du ha en egen domän som dinsalong.se betalar du bara för domänen (vanligtvis 100–150 kr/år) och kopplar den till Sajtmaskin. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag visa kundrecensioner på sajten?",
+      "a": "Ja, du kan lägga till recensioner manuellt eller bädda in dem från Google eller Facebook. Många salonger i Växjö visar citat från nöjda kunder direkt på startsidan för att bygga förtroende. Berätta för AI:n var du vill ha recensionerna, så skapar den en snygg sektion åt dig."
+    }
+  ],
+  "localOrIndustryContext": "Växjö har en stark salong- och skönhetsbransch med allt från etablerade frisörsalonger i city till mindre hudvårdskliniker och nagelstudios i bostadsområdena. Kunder förväntar sig enkel mobilbokning och tydlig info om priser och behandlingar – en professionell hemsida är inte längre en lyx utan ett krav för att konkurrera.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vaxjo",
+      "label": "Skapa hemsida i Växjö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Växjö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

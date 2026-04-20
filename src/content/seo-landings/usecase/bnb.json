@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "bnb",
+  "title": "Hemsida B&B – bygg en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en hemsida för ditt B&B med AI på minuter. Bildgalleri, bokningssystem, rumsbeskrivningar och karta – allt utan kod. Prova gratis idag.",
+  "h1": "Hemsida B&B",
+  "heroSub": "Bygg en proffsig hemsida för ditt bed & breakfast på minuter – med AI, utan kod.",
+  "introParagraphs": [
+    "En hemsida för ett B&B behöver visa dina rum med vackra bilder, presentera priser och tillgänglighet, berätta om läget och vad gästerna kan göra i närheten – och göra det enkelt att boka. Allt ska kännas personligt och inbjudande, så att besökare direkt får lust att stanna hos just dig.",
+    "Med Sajtmaskin skapar du en sådan sajt på minuter. Du chattar med vår AI, beskriver ditt B&B, laddar upp bilder och får en färdig hemsida som du kan publicera direkt. Inget krångel med kod eller tekniska verktyg – bara en sajt som fungerar.",
+    "Du kan integrera Cal.com för bokning, lägga till Google Analytics för att se besöksstatistik, och publicera på din egen domän. Ingen bindningstid och ingen månadsavgift om du väljer vår subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bildgalleri som visar dina rum och miljö",
+      "body": "Gäster vill se hur det ser ut innan de bokar. Ett bra bildgalleri visar varje rum, gemensamma utrymmen, frukostservering och utsikten från verandan. Sajtmaskin låter dig ladda upp bilder direkt i chatten, och AI:n bygger ett snyggt galleri som fungerar lika bra på mobil som dator. Du kan när som helst byta bilder eller lägga till nya."
+    },
+    {
+      "heading": "Rumsbeskrivningar med priser och faciliteter",
+      "body": "Varje rum behöver en tydlig beskrivning: hur många det passar, vilken säng, om det finns eget badrum, wifi, frukost inkluderad och pris per natt. Sajtmaskin skapar automatiskt rumsidor där all info samlas överskådligt. Du kan uppdatera priser och tillgänglighet direkt i editorn – inget behov av teknisk support."
+    },
+    {
+      "heading": "Bokningssystem som gör det enkelt att reservera",
+      "body": "Integrera Cal.com så kan gäster boka direkt på sajten. De ser lediga datum, väljer rum och får bekräftelse via mejl. Du slipper hantera bokningar manuellt i mejl eller telefon. Systemet synkar automatiskt och du får full kontroll över kalendern. Allt sätts upp via Sajtmaskin utan att du behöver koda något."
+    },
+    {
+      "heading": "Om er och vad som finns i närheten",
+      "body": "Berätta vem ni är, hur länge ni drivit B&B:t och vad som gör er speciella. Lägg till en sektion om vad gäster kan göra i trakten: vandringsturer, badplatser, restauranger, sevärdheter. En inbäddad Google Maps-karta visar exakt var ni ligger. Sajtmaskin genererar strukturen åt dig – du fyller bara i texten."
+    },
+    {
+      "heading": "Kontaktuppgifter och enkel bokning",
+      "body": "En tydlig kontaktsida med telefonnummer, mejladress och kanske ett kontaktformulär gör det lätt för gäster att ställa frågor. Sajtmaskin bygger in formuläret automatiskt och du får förfrågningar direkt till din mejl. Allt är mobilvänligt och lätt att hitta, oavsett var besökaren klickar sig in."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för mitt B&B?",
+      "a": "Oftast några minuter. Du beskriver ditt B&B i chatten, laddar upp bilder och berättar vad du vill ha med. AI:n genererar sajten direkt och du kan förhandsgranska och justera innan du publicerar."
+    },
+    {
+      "q": "Kan jag integrera ett bokningssystem?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com som du kopplar direkt via inställningarna. Gäster kan då boka rum på sajten och du får automatiska bekräftelser. Du kan också länka till andra bokningssystem om du föredrar det."
+    },
+    {
+      "q": "Måste jag kunna koda för att uppdatera sidan?",
+      "a": "Nej, allt sköts via chattgränssnittet eller en visuell editor. Du kan byta bilder, ändra texter, lägga till nya rum eller uppdatera priser utan att röra en rad kod. Vill du exportera koden senare går det också."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Absolut. Du kopplar din egen domän via DNS-inställningar, och Sajtmaskin guidar dig genom stegen. Vill du testa först kan du publicera på en gratis subdomän utan månadsavgift."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajten som kod när som helst. Ingen bindningstid, inga dolda avgifter. Du äger ditt innehåll och kan flytta det vart du vill."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och anpassar sig automatiskt till mobil, surfplatta och dator. Majoriteten av gäster söker boende på mobilen, så det är inbyggt från start."
+    },
+    {
+      "q": "Kan jag lägga till fler språk för internationella gäster?",
+      "a": "Just nu är gränssnittet på svenska, men du kan skriva innehållet på vilket språk du vill. Vill du ha en flerspråkig sajt kan du skapa separata sidor för engelska eller andra språk och länka mellan dem."
+    }
+  ],
+  "localOrIndustryContext": "B&B och stuguthyrning växer i Sverige, och gäster förväntar sig en proffsig hemsida där de kan se bilder, läsa om rummen och boka direkt. En egen sajt ger dig full kontroll och slipper provision till bokningsportaler.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en b&b-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

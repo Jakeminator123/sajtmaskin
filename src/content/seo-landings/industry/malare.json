@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "malare",
+  "title": "Hemsida för målare – Snabb sajt med bokningsfunktion | Sajtmaskin",
+  "metaDescription": "Få en komplett hemsida för ditt måleriföretag på minuter. Med bokning, projektreferenser och mobilvänlig design. Inget krångel, bara resultat.",
+  "h1": "Hemsida för målare",
+  "heroSub": "Bygg en professionell sajt för ditt måleriföretag på minuter – med bokningssystem, projektgalleri och allt du behöver för att få fler kunder.",
+  "introParagraphs": [
+    "Som målare behöver du en hemsida som visar upp dina projekt och gör det enkelt för kunder att boka tid. Ingen vill sitta och jaga offerter via mejl eller vänta på återkoppling. Med Sajtmaskin skapar du en komplett sajt för ditt måleriföretag direkt via chat – inklusive bokningsfunktion, bildgalleri och tydliga tjänstebeskrivningar.",
+    "Du får en sajt som fungerar lika bra på mobilen som på datorn, där kunder kan se tidigare jobb och boka kostnadsfri besiktning med ett par klick. Allt på svenska, utan kod, och publicerat på din egen domän samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bra hemsida för målare ska innehålla",
+      "body": "En fungerande hemsida för målare behöver visa vad du kan och göra det lätt att komma i kontakt. Det innebär tydliga tjänstesidor för invändig målning, utvändig fasadmålning och tapetsering. Ett bildgalleri där folk ser färdiga projekt – kök, vardagsrum, fasader – bygger förtroende direkt. Lägg till ett enkelt bokningsformulär eller kalender så slipper kunder ringa under arbetstid. Kontaktuppgifter, verksamhetsområde och gärna kundrecensioner gör resten. Allt detta skapar Sajtmaskin åt dig automatiskt utifrån vad du berättar om ditt företag."
+    },
+    {
+      "heading": "Bokningsfunktion som sparar tid",
+      "body": "Många målare tappar jobb för att folk inte orkar vänta på svar. Med Cal.com-integration får du en kalender där kunder bokar kostnadsfri besiktning direkt på sajten. Du bestämmer själv vilka tider som är lediga och får bekräftelse automatiskt. Ingen mejltennis, inga missade samtal. Kunden väljer tid, fyller i adress och typ av jobb, och du dyker upp förbedd. Funktionen finns inbyggd i Sajtmaskin och kopplas på när du vill – ingen extra kostnad, ingen teknisk huvudvärk."
+    },
+    {
+      "heading": "Visa upp dina projekt med bildgalleri",
+      "body": "Bilder säljer målerijobb. En fasad du målat om, ett sovrum i ny kulör eller en fräsch takfotspanel – det ger mer trovärdighet än tusen ord. Sajtmaskin bygger automatiskt ett snyggt galleri där du laddar upp bilder och kort beskrivning per projekt. Besökare kan klicka sig igenom, se före- och efterbilder, och få känsla för din stil och kvalitet. Galleriet är responsivt så bilderna ser bra ut på alla skärmar, och du kan när som helst lägga till nya jobb direkt i gränssnittet."
+    },
+    {
+      "heading": "Egen domän och inga dolda avgifter",
+      "body": "Du publicerar på din egen domän – typ malerilarsson.se – och äger hela sajten. Vill du ha subdomän hos oss kostar hostingen ingenting per månad. Inga bindningstider, inga överraskningar. Behöver du integrera Stripe för direktbetalning av mindre jobb eller Google Analytics för att se var besökarna kommer ifrån? Klart det går. Allt sköts från samma gränssnitt på svenska, och du kan exportera koden om du någonsin vill flytta sajten någon annanstans."
+    },
+    {
+      "heading": "Så bygger du sajten",
+      "body": "Öppna chatten i Sajtmaskin och berätta vad du gör: invändig och utvändig målning, tapetsering, kanske ROT-avdrag och verksamhetsområde. AI:n föreslår struktur, sidor och texter. Du justerar färger, byter bilder, lägger till bokningsknapp. På minuter har du en färdig sajt. Publicera direkt eller testa på subdomän först. Vill du ändra något senare gör du det själv – inget mejlande till support eller väntan på utvecklare. Allt på svenska, allt utan kod."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att ha hemsidan publicerad?",
+      "a": "Om du använder vår subdomän är hostingen gratis. Vill du ha egen domän betalar du bara för domännamnet hos din registrar. Inga månadskostnader för drift, inga dolda avgifter. Du äger sajten och kan exportera koden när du vill."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för besiktningar?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så kunder kan boka tid direkt på sajten. Du ställer in lediga tider och får bekräftelse automatiskt. Perfekt för kostnadsfria besiktningar eller offertmöten utan mejlkarusell."
+    },
+    {
+      "q": "Hur lägger jag upp bilder på tidigare målerijobb?",
+      "a": "Sajten får automatiskt ett projektgalleri där du laddar upp bilder och beskriver varje jobb. Före- och efterbilder, rum eller fasader – allt presenteras snyggt och responsivt. Du kan när som helst lägga till nya projekt via gränssnittet."
+    },
+    {
+      "q": "Fungerar sajten på mobilen?",
+      "a": "Absolut. Alla sajter från Sajtmaskin är responsiva och ser bra ut på telefon, surfplatta och dator. De flesta kunder söker målare på mobilen, så det är inbyggt från start."
+    },
+    {
+      "q": "Kan jag ta betalt via sajten för mindre jobb?",
+      "a": "Ja, koppla in Stripe så kan kunder betala direkt – till exempel förskott för material eller faktura för mindre uppdrag. Integrationen sköter du själv i gränssnittet utan kod."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden och flytta sajten vart du vill. Ingen bindningstid, ingen inlåsning. Du äger allt material och all data."
+    },
+    {
+      "q": "Måste jag kunna koda för att ändra något på sajten?",
+      "a": "Nej. Allt sköts via chat och ett enkelt gränssnitt på svenska. Vill du byta text, färg eller lägga till en sida gör du det direkt utan teknisk kunskap."
+    }
+  ],
+  "localOrIndustryContext": "Målare i Sverige jobbar ofta med ROT-avdrag, säsongsbetonade fasadjobb och många privatpersoner som söker på nätet. En hemsida som visar konkreta projekt, tydliga priser och enkel bokning gör skillnad i en bransch där förtroende och tillgänglighet avgör vem som får jobbet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en målare-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/konsult",
+  "title": "Hemsida för konsulter i Göteborg – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet i Göteborg med AI. Publicera på minuter, boka möten direkt, ingen bindningstid.",
+  "h1": "Hemsida för konsulter i Göteborg",
+  "heroSub": "Bygg en sajt som visar din expertis och bokar möten åt dig – utan kod, på minuter.",
+  "introParagraphs": [
+    "Som konsult i Göteborg behöver du en hemsida som snabbt förklarar vad du gör, bygger förtroende och gör det enkelt för kunder att boka ett första möte. Sajtmaskin låter dig skapa en komplett konsultsajt via chat – du beskriver din verksamhet, så bygger AI:n hela sajten med tjänstebeskrivningar, om-sida, kontaktformulär och bokningskalender.",
+    "Du publicerar direkt på din egen domän eller testar kostnadsfritt på en subdomän. Integrerad Cal.com-bokning innebär att potentiella kunder kan boka ett samtal direkt i kalendern, och du slipper mejltennis. Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när du vill.",
+    "Oavsett om du jobbar med HR, IT, hållbarhet eller affärsutveckling får du en sajt som matchar din profil och fungerar från dag ett."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför konsulter i Göteborg behöver en tydlig hemsida",
+      "body": "Göteborg har en stark konsultmarknad inom allt från tech och logistik till organisationsutveckling och kommunikation. Konkurrensen är hög, och många potentiella kunder googlar efter expertis innan de når ut. En hemsida som tydligt visar vad du kan, vilka resultat du levererar och hur man bokar dig är skillnaden mellan att bli hittad och att förbli osynlig. Sajtmaskin hjälper dig att snabbt komma online med en sajt som positionerar dig som expert, oavsett om du jobbar från kontor i Centralstaden eller hemifrån i Majorna."
+    },
+    {
+      "heading": "Bokningskalender, case och referenser – allt på plats direkt",
+      "body": "En konsultsajt behöver mer än en kontaktsida. Sajtmaskin genererar automatiskt sektioner för tjänstebeskrivningar, case-exempel, kundrecensioner och en integrerad bokningskalender via Cal.com. Du kan lägga till dina tidigare uppdrag, beskriva din metod och låta besökare boka ett kostnadsfritt förstasamtal direkt i din kalender. Vill du ta betalt för rådgivningstimmar kan du koppla på Stripe. Allt styrs från samma gränssnitt, helt på svenska."
+    },
+    {
+      "heading": "Ingen kod, ingen byrå – du äger hela processen",
+      "body": "Traditionellt har konsulter antingen byggt sajten själva i WordPress eller anlitat en byrå för 30 000 kronor och veckor av väntan. Sajtmaskin tar en mellanväg: AI:n bygger sajten på minuter utifrån din beskrivning, du justerar text och bilder via chat, och publicerar när du är nöjd. Ingen bindningstid innebär att du kan testa, lansera och ändra i din egen takt. Behöver du mer kontroll senare exporterar du koden och flyttar till valfri hostingleverantör."
+    },
+    {
+      "heading": "Från Lindholmen till Linnéstaden – lokal närvaro online",
+      "body": "Många göteborgskonsulter jobbar med kunder både lokalt och nationellt. En hemsida låter dig visa att du finns i regionen samtidigt som du når kunder över hela Sverige. Sajtmaskin genererar SEO-vänligt innehåll som hjälper dig synas i sökningar som 'organisationskonsult Göteborg' eller 'IT-konsult Västra Götaland'. Du kan lägga till kartor, kontorsinformation eller bara hålla det enkelt med ett kontaktformulär – AI:n anpassar strukturen efter vad du beskriver."
+    },
+    {
+      "heading": "Uppdatera sajten när verksamheten växer",
+      "body": "Konsultuppdrag förändras, nya tjänster tillkommer och du kanske vill lägga till en blogg eller nyhetsbrev. Sajtmaskin låter dig chatta med AI:n för att lägga till sidor, ändra texter eller integrera Google Analytics för att följa besökare. Ingen teknisk support behövs – du skriver vad du vill ändra, AI:n uppdaterar sajten. Allt sker på svenska, och du behåller full kontroll över innehåll och domän."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en konsultsajt live i Göteborg?",
+      "a": "De flesta konsulter har en färdig sajt på 10–20 minuter. Du beskriver din verksamhet i chatten, AI:n genererar sidor och struktur, du justerar text och bilder, sedan publicerar du. Vill du använda egen domän tar det några minuter extra att koppla DNS, annars går du live på en subdomän direkt."
+    },
+    {
+      "q": "Kan jag integrera en bokningskalender så kunder bokar möten direkt?",
+      "a": "Ja, Sajtmaskin har inbyggd Cal.com-integration. Du kopplar ditt Cal.com-konto, väljer vilka tider som ska vara bokningsbara, och besökare kan boka ett samtal direkt på sajten. Perfekt för kostnadsfria förstasamtal eller betald rådgivning."
+    },
+    {
+      "q": "Fungerar sajten för alla typer av konsulter – HR, IT, kommunikation?",
+      "a": "Absolut. AI:n anpassar innehåll och struktur efter din bransch. Beskriv vad du gör, vilka kunder du jobbar med och vilka resultat du levererar, så genereras relevanta tjänstesidor, case-exempel och om-text. Du kan lägga till branschspecifika sektioner via chatten när som helst."
+    },
+    {
+      "q": "Kostar det något att ha sajten live på en subdomän i Göteborg?",
+      "a": "Nej, hosting på subdomän (dinverksamhet.sajtmaskin.se) är helt kostnadsfritt utan månadskostnad. Vill du använda egen domän (dinverksamhet.se) kopplar du den via DNS – domänen köper du själv hos valfri registrar, hosting ingår."
+    },
+    {
+      "q": "Kan jag ta betalt för tjänster eller digitala produkter via sajten?",
+      "a": "Ja, via Stripe-integration kan du sälja konsulttimmar, digitala guider, workshops eller förbokade paket. Du kopplar ditt Stripe-konto, sätter priser och betalningar hanteras säkert. Perfekt om du vill erbjuda betalda tjänster direkt på sajten."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform eller bygga om sajten senare?",
+      "a": "Du kan exportera hela koden när du vill, utan extra kostnad. Ingen bindningstid innebär att du äger innehållet och kan flytta till WordPress, egen server eller vilken hostingleverantör som helst. Sajtmaskin låser inte in dig."
+    },
+    {
+      "q": "Syns min konsultsajt i Google-sökningar på Göteborg?",
+      "a": "Ja, Sajtmaskin genererar SEO-vänliga sidor med rätt meta-taggar, rubriker och struktur. Du kan lägga till ortsinformation, tjänstebeskrivningar och blogginlägg för att stärka synligheten. Google Analytics-integration hjälper dig följa vilka sökord som driver trafik."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg har en växande konsultmarknad inom tech, logistik, hållbarhet och organisationsutveckling. Många konsulter jobbar från co-working-spaces i Centralstaden, Lindholmen Science Park eller hemifrån i innerstadsområden som Majorna och Linnéstaden. En professionell hemsida hjälper dig synas i lokala sökningar och nå både regionala och nationella kunder.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

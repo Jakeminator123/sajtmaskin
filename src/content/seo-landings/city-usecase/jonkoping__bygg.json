@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "jonkoping/bygg",
+  "title": "Hemsida bygg Jönköping – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Jönköping med AI. Ingen kod, klar på minuter. Bokning, projekt och kontakt – allt integrerat.",
+  "h1": "Hemsida för byggföretag i Jönköping",
+  "heroSub": "Sajtmaskin bygger en komplett hemsida för ditt byggföretag via AI-chat – på minuter, utan kod, med bokning och projektgalleri integrerat.",
+  "introParagraphs": [
+    "Om du driver ett byggföretag i Jönköping behöver du en hemsida som visar dina projekt, gör det enkelt att boka offert och bygger förtroende hos nya kunder. Sajtmaskin är en svenskspråkig AI-plattform som skapar hela din sajt från en konversation – du beskriver vad du gör, så genererar AI text, bilder och struktur direkt.",
+    "Sajten publiceras på din egen domän utan månadskostnad för hosting på subdomän. Du får inbyggd bokning via Cal.com, kan ta betalt via Stripe och koppla Google Analytics. Ingen bindningstid, och du kan exportera koden när du vill. Allt byggt i Sverige av Pretty Good AB."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför byggföretag i Jönköping behöver en modern sajt",
+      "body": "Jönköping växer och konkurrensen inom bygg är hård. Kunder söker efter hantverkare online och förväntar sig att snabbt se tidigare projekt, läsa referenser och kunna boka tid för offert. En hemsida som saknar projektbilder, tydlig kontaktinfo eller mobil-anpassning tappar potentiella uppdrag till konkurrenter. Sajtmaskin ger dig en komplett närvaro som fungerar direkt – utan att du behöver vänta veckor på en byrå eller lära dig WordPress."
+    },
+    {
+      "heading": "Vad ingår i en bygg-sajt från Sajtmaskin",
+      "body": "AI:n bygger automatiskt sidor för tjänster som nybyggnation, renovering, tillbyggnad och ROT-arbeten. Du får ett projektgalleri där du visar före- och efterbilder, en om-sida med teamet och certifieringar, samt kontaktformulär och bokningskalender. Vill du ta betalt för konsultation eller mindre jobb direkt på sajten? Integrera Stripe. Behöver du spåra besökare? Google Analytics är klart på ett klick. Allt på svenska, anpassat för hur svenska byggkunder söker."
+    },
+    {
+      "heading": "Så bygger du din sajt – steg för steg",
+      "body": "Logga in på Sajtmaskin och beskriv ditt företag i chatten: vilka tjänster du erbjuder, om du är specialist på villarenoveringar eller kommersiella projekt, och vilka områden i Jönköping du täcker. AI:n föreslår struktur, skriver texter och genererar bilder. Du justerar rubriker, byter färg och lägger till egna projektfoton. När du är nöjd publicerar du på din domän – allt på under en timme. Inga tekniska kunskaper krävs, och du kan alltid chatta med AI:n för att ändra innehåll senare."
+    },
+    {
+      "heading": "Lokalt fokus och SEO för Jönköping",
+      "body": "Sajtmaskin hjälper dig skriva texter som nämner Jönköping, Huskvarna, Taberg och andra närliggande orter så att Google förstår var du verkar. AI:n föreslår rubriker som 'Byggfirma i Jönköping' eller 'ROT-avdrag och renovering Jönköping' och ser till att kontaktuppgifter och adress syns tydligt. Du kan lägga till en karta, öppettider och en blogg med lokala byggprojekt. Allt för att synas när någon i regionen söker efter en hantverkare."
+    },
+    {
+      "heading": "Ingen bindning, full kontroll",
+      "body": "Du äger din sajt och kan exportera all kod när du vill. Vill du byta till en annan plattform eller anställa en utvecklare senare? Inga problem. Hosting på subdomän kostar inget per månad, och egen domän kopplar du enkelt. Uppdatera texter, lägg till nya projekt eller ändra tjänster direkt i chatten – ingen tekniker behövs. Sajtmaskin växer med ditt företag, från enmansföretag till större byggfirma."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig hemsida för mitt byggföretag?",
+      "a": "De flesta kommer igång på under en timme. Du chattar med AI:n om dina tjänster och område, granskar förslaget och publicerar. Vill du finjustera texter eller lägga till fler projektbilder kan det ta lite längre, men grundstrukturen är klar på minuter."
+    },
+    {
+      "q": "Kan jag visa före- och efterbilder av mina projekt?",
+      "a": "Ja, Sajtmaskin skapar automatiskt ett projektgalleri där du laddar upp bilder och beskriver varje jobb. Du kan organisera efter kategori – till exempel kök, badrum, tillbyggnad – så besökare enkelt hittar relevanta referenser."
+    },
+    {
+      "q": "Fungerar bokningsfunktionen för offertbesök i Jönköping?",
+      "a": "Absolut. Integrera Cal.com så kan kunder boka tid för offert direkt på sajten. Du sätter själv tillgängliga tider och får notiser via mejl. Perfekt för att minska samtalstid och fylla kalendern automatiskt."
+    },
+    {
+      "q": "Kostar det extra att publicera på min egen domän?",
+      "a": "Nej. Hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda din egen domän, till exempel mittbyggföretag.se, kopplar du den via DNS-inställningar – inga dolda avgifter."
+    },
+    {
+      "q": "Kan jag lägga till ROT- och RUT-information på sajten?",
+      "a": "Ja, du kan skapa en sida som förklarar ROT-avdrag, vilka arbeten som kvalificerar och hur kunder ansöker. AI:n hjälper dig skriva texten och du kan länka till Skatteverkets info. Bra för att bygga förtroende och locka privatkunder."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera all kod när som helst. Ingen bindningstid, inga utträdesavgifter. Ta med dig sajten till en annan host eller fortsätt utveckla den med egna utvecklare – du äger allt material."
+    },
+    {
+      "q": "Syns min sajt i Google för sökningar i Jönköping?",
+      "a": "Sajtmaskin genererar SEO-vänliga texter med lokala nyckelord och ser till att titel, meta-beskrivning och rubriker är optimerade. Du kan lägga till bloggposter om lokala projekt och Google Analytics för att följa trafik. Resten beror på hur du marknadsför sajten och samlar recensioner."
+    }
+  ],
+  "localOrIndustryContext": "Jönköping har en stark byggmarknad med både villaprojekt och kommersiella renoveringar i centrum och kranskommuner som Huskvarna och Taberg. Kunder förväntar sig snabb kommunikation, tydliga referenser och transparent prissättning – en modern hemsida är ofta första steget för att vinna förtroendet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/jonkoping",
+      "label": "Skapa hemsida i Jönköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Jönköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

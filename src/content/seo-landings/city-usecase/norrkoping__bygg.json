@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "norrkoping/bygg",
+  "title": "Hemsida bygg Norrköping – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Norrköping med AI. Ingen kod krävs. Publicera på egen domän direkt.",
+  "h1": "Hemsida för byggföretag i Norrköping",
+  "heroSub": "Bygg en komplett sajt för ditt byggföretag på minuter med AI – ingen kod, ingen krånglig teknisk uppläggning.",
+  "introParagraphs": [
+    "Du driver ett byggföretag i Norrköping och behöver en hemsida som visar dina tjänster, projekt och kontaktuppgifter. Sajtmaskin låter dig skapa en färdig sajt genom att bara chatta med AI:n. Berätta vad du gör – om du bygger nyproduktion, hanterar ROT-renovering eller specialiserar dig på tillbyggnader – så genererar verktyget en komplett sajt anpassad för byggbranschen.",
+    "Sajten publiceras direkt på din egen domän eller kostnadsfritt på en Sajtmaskin-subdomän. Du får med projektgallerier, tjänstebeskrivningar, kontaktformulär och allt annat som ett modernt byggföretag behöver. Ingen bindningstid och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför byggföretag i Norrköping behöver en bra hemsida",
+      "body": "Norrköping har en stabil byggnadsmarknad med allt från villarenoveringar i Lindö och Smedby till större projekt i centrum och industriområden. Kunder söker efter pålitliga byggfirmor online innan de ringer. En professionell hemsida visar att du är etablerad, ger konkreta exempel på tidigare jobb och gör det enkelt att begära offert. Utan närvaro online riskerar du att förlora uppdrag till konkurrenter som syns i sökresultaten."
+    },
+    {
+      "heading": "Vad en bygg-sajt behöver innehålla",
+      "body": "En effektiv hemsida för byggföretag ska visa dina tjänster tydligt – nybyggnation, ombyggnad, fasadrenovering eller vad du nu erbjuder. Ett projektgalleri med bilder från färdiga jobb bygger förtroende snabbt. Kontaktformulär och telefonnummer ska synas direkt. Många byggfirmor vill också ha bokningsfunktion för platsbesök, integration med offertverktyg och tydlig information om ROT-avdrag. Sajtmaskin genererar allt detta automatiskt utifrån din beskrivning av verksamheten."
+    },
+    {
+      "heading": "Så bygger du sajten med Sajtmaskin",
+      "body": "Du startar en chat och beskriver ditt byggföretag: vilka tjänster du erbjuder, var i Norrköping du jobbar, vilka typer av projekt du är stolt över. AI:n skapar en komplett sajt med relevanta sidor, bilder och texter. Du kan direkt redigera allt i gränssnittet, lägga till fler bilder från dina projekt eller justera tjänstebeskrivningarna. När du är nöjd publicerar du på din egen domän. Vill du ha bokningsfunktion kopplar du Cal.com, och för offerter eller fakturahantering finns Stripe-integration."
+    },
+    {
+      "heading": "Publicera och anpassa utan teknisk krångel",
+      "body": "Sajten publiceras utan månadskostnad om du använder en Sajtmaskin-subdomän, eller så kopplar du din egen domän direkt. Du kan när som helst gå in och uppdatera projektgalleriet med nya bilder, lägga till referenser eller ändra tjänsteutbudet. Ingen bindningstid gäller, och vill du flytta sajten någon annanstans exporterar du koden kostnadsfritt. Allt support och gränssnitt är på svenska."
+    },
+    {
+      "heading": "Lokal närvaro i Norrköping",
+      "body": "Att synas i lokala sökresultat är avgörande för byggföretag. Sajtmaskin hjälper dig att bygga en sajt som tydligt visar att du jobbar i Norrköping och omnejd. Du kan nämna specifika områden du täcker, visa projekt från lokala stadsdelar och göra det enkelt för kunder i regionen att hitta och kontakta dig. En välgjord hemsida stärker din trovärdighet och gör att fler når ut till dig när de söker byggfirmor i området."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en hemsida för mitt byggföretag?",
+      "a": "De flesta har en färdig sajt på 10–15 minuter. Du chattar med AI:n, beskriver dina tjänster och projekt, och får en komplett sajt genererad direkt. Sedan kan du justera texter och bilder tills allt ser ut som du vill."
+    },
+    {
+      "q": "Kan jag visa bilder från mina byggprojekt i Norrköping?",
+      "a": "Absolut. Du laddar upp dina egna projektbilder och organiserar dem i ett galleri. Det är ett bra sätt att visa konkreta exempel på nybyggen, renoveringar eller tillbyggnader du gjort i Norrköping och omnejd."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Nej månadskostnad om du använder en Sajtmaskin-subdomän. Vill du ha din egen domän kopplar du den kostnadsfritt, men domänregistrering och eventuell hosting på extern server kan kosta beroende på leverantör."
+    },
+    {
+      "q": "Kan kunder boka platsbesök eller begära offert via sajten?",
+      "a": "Ja. Du kan integrera Cal.com för bokning av tider, och kontaktformulär ingår automatiskt. Vill du ta betalt online eller skicka fakturor går det att koppla Stripe. Allt sköts via samma gränssnitt."
+    },
+    {
+      "q": "Fungerar hemsidan bra för byggföretag som jobbar med ROT-avdrag?",
+      "a": "Ja. Du kan enkelt lägga till information om ROT-avdrag, rutarbeten och andra avdragsmöjligheter på sajten. Många byggföretag lyfter detta tydligt för att locka privatkunder som renoverar."
+    },
+    {
+      "q": "Kan jag uppdatera sajten själv när jag fått nya projekt?",
+      "a": "Ja, du loggar in och redigerar texter, byter bilder eller lägger till nya sidor när du vill. Inget tekniskt krångel – allt sker i ett svenskt gränssnitt utan kod."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden kostnadsfritt när som helst. Ingen bindningstid gäller, så du äger alltid ditt innehåll och kan flytta sajten om du vill."
+    }
+  ],
+  "localOrIndustryContext": "Norrköping har en blandad byggnadsmarknad med både villarenoveringar i etablerade områden som Lindö och Smedby, och större projekt i centrum och industrikvarter. Många byggföretag i regionen jobbar med allt från nyproduktion till ROT-renovering och fasadarbeten. En lokal närvaro online hjälper dig att nå kunder som söker pålitliga byggfirmor i närområdet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/norrkoping",
+      "label": "Skapa hemsida i Norrköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Norrköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

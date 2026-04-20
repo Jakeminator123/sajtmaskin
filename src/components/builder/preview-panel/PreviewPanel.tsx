@@ -41,6 +41,7 @@ import { usePreviewPanelOwnEnginePreviewTelemetry } from "./hooks/usePreviewPane
 import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
 import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
 import type {
+  BuildOutRouteRequestContext,
   ComposerAiFallbackPayload,
   InspectEngine,
   PreviewPanelProps,
@@ -206,14 +207,20 @@ export function PreviewPanel({
   }, [previewUrl]);
 
   const triggerBuildOut = useCallback(
-    (routePath: string) => {
-      if (!routePath) return;
+    (context: BuildOutRouteRequestContext | string) => {
+      const ctx: BuildOutRouteRequestContext =
+        typeof context === "string" ? { path: context } : context;
+      if (!ctx.path) return;
       if (onBuildOutRouteRequest) {
-        onBuildOutRouteRequest(routePath);
+        onBuildOutRouteRequest(ctx);
         return;
       }
+      const label = ctx.name || ctx.path;
+      const purposeLine = ctx.intent
+        ? `\n\nSyftet med sidan (från briefen): ${ctx.intent}`
+        : "";
       onSuggestionClick?.(
-        `Bygg ut sidan ${routePath} med fullt innehåll och design som matchar resten av sajten.`,
+        `Bygg ut sidan ${label} (${ctx.path}) med fullt innehåll och design som matchar resten av sajten.${purposeLine}`,
       );
     },
     [onBuildOutRouteRequest, onSuggestionClick],
@@ -254,7 +261,7 @@ export function PreviewPanel({
     setIframeError,
     setIframeErrorMessage,
     onNavigatePreviewUrl,
-    onBuildOutRouteRequest: (path) => triggerBuildOut(path),
+    onBuildOutRouteRequest: (context) => triggerBuildOut(context),
     onPreviewLifecycleChange: (phase) => {
       if (phase === "ready") {
         markVmReady();

@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "hotell",
+  "title": "Hemsida hotell – bygg en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för ditt hotell med AI. Rum, bokning, bilder och priser – allt fixat på minuter. Ingen kod, ingen krångel.",
+  "h1": "Hemsida för hotell",
+  "heroSub": "Bygg en proffsig hotellsajt med rum, bokning och priser – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En hemsida för hotell behöver visa dina rum tydligt, ha en smidig bokningsfunktion och ge gäster all info de behöver – öppettider, läge, frukost, incheckning och priser. Allt ska vara lätt att hitta, se bra ut på mobilen och bygga förtroende så besökaren faktiskt bokar.",
+    "Med Sajtmaskin skapar du hela sajten genom att chatta med AI:n. Du beskriver ditt hotell, vilka rum du har och vad som ska synas – så genererar AI:n sidor, texter och struktur på minuter. Publiceringen är gratis på subdomän, eller koppla din egen domän direkt.",
+    "Ingen bindningstid, ingen kod. Du kan integrera Cal.com för bokning, lägga till Google Analytics och exportera allt när du vill. Perfekt för dig som driver hotell, B&B eller vandrarhem och vill ha en sajt uppe snabbt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Visa rum med bilder och beskrivningar",
+      "body": "Gäster vill se rummen innan de bokar. Din hemsida behöver tydliga bilder, beskrivning av storlek, säng, badrum och utrustning – plus pris per natt. Sajtmaskin låter dig ladda upp bilder och beskriva varje rumstyp i chatten, så AI:n skapar snygga rumsidor med allt på plats. Du kan när som helst uppdatera priser eller lägga till nya rum genom att fortsätta konversationen."
+    },
+    {
+      "heading": "Bokningsfunktion som fungerar",
+      "body": "Ingen vill mejla fram och tillbaka för att boka. Integrera Cal.com så gäster kan se lediga datum och boka direkt på sajten. Sajtmaskin kopplar samman bokningsverktyget med dina rumsidor, och du styr tillgänglighet i Cal.com. Vill du ta betalt direkt vid bokning funkar Stripe-integrationen också, så du får förskottsbetalning eller deposition automatiskt."
+    },
+    {
+      "heading": "Praktisk info på ett ställe",
+      "body": "Gäster behöver veta incheckning, utcheckning, var ni ligger, om ni serverar frukost, parkering, husdjur och WiFi. Samla allt på en tydlig infosida eller i sidfoten. Sajtmaskin genererar strukturen åt dig – du fyller i detaljerna i chatten, så hamnar allt rätt. Kartan kan du bädda in från Google Maps, och kontaktuppgifter syns tydligt överallt."
+    },
+    {
+      "heading": "Mobilvänlig och snabb",
+      "body": "Majoriteten av hotellbokningar börjar på mobilen. Sajtmaskin bygger responsiva sajter som default – allt ser bra ut oavsett skärm. Sidorna laddar snabbt, bilder optimeras automatiskt och menyn fungerar lika smidigt på telefon som dator. Du behöver inte tänka på teknik, allt är fixat från start."
+    },
+    {
+      "heading": "Uppdatera och äg din sajt",
+      "body": "Säsongsrabatt? Ny frukostmeny? Stängt över jul? Uppdatera genom att chatta med AI:n – ändringarna syns direkt. Du äger all kod och kan exportera sajten när du vill, utan bindningstid. Vill du byta plattform senare tar du med dig allt. Hosting på Sajtmaskins subdomän är gratis, egen domän kopplar du på utan extra kostnad."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan gäster boka rum direkt på sajten?",
+      "a": "Ja, genom att integrera Cal.com får du en bokningskalender där gäster ser lediga datum och bokar direkt. Du styr tillgänglighet och tider i Cal.com, och Sajtmaskin kopplar samman det med dina rumsidor. Vill du ta betalt vid bokning kan du även lägga till Stripe."
+    },
+    {
+      "q": "Hur lägger jag till bilder på rummen?",
+      "a": "Du laddar upp bilder i Sajtmaskin och beskriver varje rum i chatten – AI:n placerar bilderna på rätt sida med text och pris. Du kan när som helst byta bilder eller lägga till fler genom att fortsätta konversationen med AI:n."
+    },
+    {
+      "q": "Kostar det att ha sajten uppe?",
+      "a": "Hosting på Sajtmaskins subdomän är gratis utan månadskostnad. Vill du använda din egen domän, till exempel mitthotell.se, kopplar du den kostnadsfritt. Du betalar bara för själva domänregistreringen hos din domänleverantör."
+    },
+    {
+      "q": "Kan jag visa priser och specialerbjudanden?",
+      "a": "Absolut. Du skriver in priser per natt, helgpaket eller säsongserbjudanden i chatten, så lägger AI:n in dem på rätt ställen. Vill du ändra pris eller lägga till en kampanj gör du det genom att uppdatera via chatten – tar någon minut."
+    },
+    {
+      "q": "Fungerar sajten på mobilen?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva från start. Bilder, text, meny och bokningsknappar anpassas automatiskt till mobil, surfplatta och dator. Du behöver inte göra något extra – det fungerar bara."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform?",
+      "a": "Ja, du äger koden och kan exportera hela sajten när du vill. Ingen bindningstid, inga dolda avgifter. Vill du flytta till egen server eller annan tjänst tar du med dig allt och kör vidare där."
+    },
+    {
+      "q": "Hur uppdaterar jag öppettider eller annan info?",
+      "a": "Chatta med AI:n och beskriv vad som ska ändras – nya öppettider, uppdaterad frukostmeny, stängt över helg. AI:n uppdaterar sajten direkt. Allt sköts genom konversation, ingen kod eller krånglig admin."
+    }
+  ],
+  "localOrIndustryContext": "Hotellbranschen i Sverige spänner från stora stadshotell till små familjedrivna pensionat och vandrarhem i fjällen. Oavsett storlek behöver du en sajt som visar rum, tar emot bokningar och ger gäster förtroende – helst utan att kräva webbutvecklare eller dyr byrå.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hotell-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

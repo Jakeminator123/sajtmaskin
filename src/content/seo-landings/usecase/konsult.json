@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "konsult",
+  "title": "Hemsida konsult – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet på minuter. AI genererar allt innehåll – från tjänster till CV. Publicera direkt.",
+  "h1": "Hemsida för konsult – klar på minuter",
+  "heroSub": "Låt AI bygga din konsultsajt med tjänstebeskrivningar, CV, referenser och bokningsfunktion.",
+  "introParagraphs": [
+    "En hemsida för konsult behöver visa vad du kan, vem du är och hur kunder bokar tid med dig. Typiskt innehåller den en startsida med din profil, en tjänstesida som beskriver vad du hjälper till med, ett CV eller Om-avsnitt, samt ett kontaktformulär eller bokningslänk. Många konsulter lägger också till referenser, case eller blogg för att bygga trovärdighet.",
+    "Med Sajtmaskin chattar du fram hela sajten på minuter. Du beskriver din kompetens, din målgrupp och vilka tjänster du erbjuder – så genererar AI:n alla sidor, texter och struktur. Du publicerar direkt på egen domän eller på en kostnadsfri subdomän, utan kod och utan bindningstid.",
+    "Sajten blir responsiv, snabb och SEO-anpassad från start. Du kan integrera Cal.com för bokningar, Stripe om du säljer paket eller rapporter, och Google Analytics för att följa besökare. Allt på svenska, byggt för svenska konsulter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänstesida med tydliga erbjudanden",
+      "body": "Beskriv varje tjänst kort och konkret: vad kunden får, hur lång tid det tar, vad det kostar. AI:n hjälper dig strukturera texten så den blir skannbar och övertygande. Du kan ha separata undersidor för varje tjänsteområde – exempelvis strategi, interim, utbildning – eller samla allt på en sida med sektioner. Lägg gärna till vem tjänsten passar bäst för, så besökaren snabbt ser om det är rätt match."
+    },
+    {
+      "heading": "CV och kompetensöversikt",
+      "body": "Visa din bakgrund, utbildning, certifieringar och tidigare uppdrag. Många konsulter väljer en tidslinjevy eller en lista med nyckelkompetenser högst upp. AI:n kan formatera ditt CV som en läsbar webbsida istället för PDF, vilket gör det enklare att uppdatera och bättre för SEO. Håll det relevant – fokusera på erfarenhet som stärker de tjänster du säljer idag."
+    },
+    {
+      "heading": "Referenscase eller kundutlåtanden",
+      "body": "Konkreta exempel bygger förtroende snabbare än allmänna påståenden. Beskriv ett eller flera uppdrag: vilken utmaning kunden hade, vad du gjorde, vilket resultat ni nådde. Anonymisera vid behov, men var specifik om bransch och typ av problem. Du kan också lägga in citat från nöjda kunder. Sajtmaskin låter dig skapa en referenssida med rutnät eller kort som besökaren kan klicka igenom."
+    },
+    {
+      "heading": "Bokningsfunktion via Cal.com",
+      "body": "Istället för att maila fram och tillbaka kan kunder boka ett första möte direkt i din kalender. Sajtmaskin integrerar Cal.com så du visar lediga tider, låter kunden välja längd på mötet och skickar automatisk bekräftelse. Du styr själv vilka tider som syns och kan ha olika mötestyper – gratis rådgivning, betald workshop, längre projekt-kickoff. Allt synkas med din Google- eller Outlook-kalender."
+    },
+    {
+      "heading": "Blogg eller kunskapsbank",
+      "body": "Publicera artiklar om vanliga frågor i din bransch, metodtips eller trender du ser. Det stärker din expertroll och ger sajten färskt innehåll som sökmotorer gillar. AI:n kan föreslå ämnen utifrån din profil och hjälpa dig skriva utkast. Du behöver ingen separat bloggplattform – allt ligger på samma domän, med samma design, och du uppdaterar direkt i Sajtmaskin."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en konsultsajt i Sajtmaskin?",
+      "a": "Oftast 10–20 minuter från första chatten till publicerad sajt. Du beskriver din verksamhet i några meningar, väljer vilka sidor du vill ha, och AI:n genererar text och struktur. Sedan justerar du eventuellt rubriker, byter bilder och lägger till din logotyp. Publicera direkt när du är nöjd."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion så kunder bokar möten?",
+      "a": "Ja, via Cal.com-integrationen. Du kopplar ditt Cal.com-konto, väljer vilken mötestyp som ska visas och bäddar in kalendern på en sida. Besökare ser lediga tider, bokar direkt och får bekräftelse via mejl. Allt synkas med din egen kalender automatiskt."
+    },
+    {
+      "q": "Behöver jag skriva alla texter själv?",
+      "a": "Nej. AI:n skriver förslag på alla sidor – startsida, tjänster, om, kontakt – utifrån det du berättar i chatten. Du kan använda texterna rakt av eller redigera dem så de låter precis som du vill. Du sparar timmar jämfört med att skriva från scratch."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på subdomän (dinbyrå.sajtmaskin.se) är gratis utan tidsbegränsning. Vill du använda egen domän (dinbyrå.se) betalar du för domänen hos en registrar, men Sajtmaskin tar ingen månadskostnad för hosting. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag visa case och referenser på sajten?",
+      "a": "Absolut. Skapa en referenssida där du listar uppdrag, beskriver utmaningar och resultat, och lägger till kundcitat. AI:n hjälper dig strukturera varje case så det blir läsbart och trovärdigt. Du kan anonymisera kundnamn om det behövs men ändå visa konkret vad du levererat."
+    },
+    {
+      "q": "Fungerar sajten på mobil och surfplatta?",
+      "a": "Ja, alla sajter i Sajtmaskin är responsiva från start. Texten, bilder och knappar anpassar sig automatiskt till skärmstorlek. Du behöver inte göra någon extra inställning – designen funkar lika bra på telefon som på dator."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform senare?",
+      "a": "Ja. Du kan när som helst exportera hela koden och flytta sajten till egen server eller annan tjänst. Ingen inlåsning, ingen uppsägningstid. Du äger allt innehåll och all kod som genererats."
+    }
+  ],
+  "localOrIndustryContext": "Konsultmarknaden i Sverige växer stadigt, och allt fler driver enskild firma eller aktiebolag inom strategi, IT, HR, ekonomi och hållbarhet. En professionell hemsida är ofta första intrycket – och med AI kan du nu bygga den på minuter istället för veckor.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en konsult-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

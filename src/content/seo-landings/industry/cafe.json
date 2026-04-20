@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "cafe",
+  "title": "Hemsida för café – bygg din cafésajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt café med meny, öppettider och beställning. Bygg din cafésajt på minuter med AI – ingen kod krävs.",
+  "h1": "Hemsida för café",
+  "heroSub": "Bygg en professionell cafésajt med meny, öppettider och beställning – på minuter, utan kod.",
+  "introParagraphs": [
+    "En hemsida för café behöver visa din meny, öppettider och var ni finns – enkelt och snabbt. Gästerna ska kunna se dagens bak, boka bord eller beställa hämtmat utan att behöva ringa. Med Sajtmaskin skapar du en komplett cafésajt på minuter genom att chatta med AI:n på svenska.",
+    "Du beskriver ditt café i chatten – kanske att ni specialiserar er på surdegsbröd och ekologiskt kaffe, har uteservering på sommaren eller bakar glutenfritt varje dag. AI:n bygger då en sajt med meny, kontaktinfo, bildgalleri och alla sidor du behöver. Publicera på egen domän eller använd en kostnadsfri subdomän utan månadskostnad.",
+    "Sajtmaskin är byggt i Sverige med svenskt gränssnitt och stöd. Du kan när som helst exportera koden, integrera bokningssystem via Cal.com eller betalning via Stripe om du vill sälja presentkort eller ta förbeställningar online."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bra cafésajt behöver innehålla",
+      "body": "En hemsida för café ska göra det lätt för gäster att hitta er och se vad ni erbjuder. Det innebär tydliga öppettider, adress med karta, aktuell meny och information om allergener eller specialkost. Många caféer vill också visa upp sitt bageri, espressomaskin eller mysiga hörn med bilder. Om ni har säsongsrätter, veckans soppor eller dagsfärsk fika är det smart att kunna uppdatera det snabbt. Funktioner som bordsbokning, click-and-collect eller presentkortsförsäljning gör sajten mer användbar och kan öka omsättningen utan extra bemanning."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din cafésajt",
+      "body": "Du startar en chatt och berättar om ditt café – kanske att ni ligger i Södermalm och fokuserar på hembakat, eller driver ett litet fik i Skåne med lokala råvaror. AI:n föreslår då en struktur: startsida med hero-bild och öppettider, en menysida uppdelad på frukost, lunch och bak, en om-sida med er historia och eventuellt en kontaktsida med karta. Du kan be AI:n lägga till en bokningsfunktion via Cal.com eller en enkel beställningsformulär. Allt skrivs på svenska och anpassas efter din ton – mysigt och personligt eller modernt och minimalistiskt."
+    },
+    {
+      "heading": "Meny, bokning och beställning – allt på ett ställe",
+      "body": "Med Sajtmaskin kan du integrera Cal.com för bordsbokning så gäster själva väljer tid, särskilt praktiskt för helgfrukost eller afternoon tea. Vill du ta betalt online för presentkort, catering eller hämtmat kopplar du Stripe direkt i chatten. Menyn kan struktureras med kategorier, priser och beskrivningar – glutenfritt, veganskt, laktosfritt – så gästerna vet vad de får. Du uppdaterar texten själv när säsongen skiftar eller ni bakar något nytt, utan att behöva ringa en webbyrå."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Sajtmaskin tar ingen månadskostnad om du använder en subdomän, och du kan när som helst koppla din egen domän. Det finns ingen bindningstid – vill du exportera koden och flytta sajten någon annanstans går det bra. Integrationer som Google Analytics hjälper dig se vilka sidor som besöks mest, om folk kollar menyn eller öppettiderna, så du kan förbättra sajten över tid. Allt stöd och gränssnitt är på svenska, och plattformen är byggd i Sverige av Pretty Good AB."
+    },
+    {
+      "heading": "Exempel: från prompt till färdig cafésajt",
+      "body": "Tänk dig att du driver Café Kardemumma i Uppsala. Du skriver i chatten: 'Jag vill ha en hemsida för mitt café, vi bakar allt själva och har stor uteservering, menyn ska visa frukost, lunch och hembakat, plus öppettider och karta.' AI:n skapar då startsida med hero-bild av uteserveringen, en menysida med tre avdelningar, om-sida om er filosofi och lokala leverantörer, samt kontaktsida med Google Maps inbäddad. Du justerar texter, byter bilder och publicerar – klart på en halvtimme."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag uppdatera menyn själv när vi byter rätter?",
+      "a": "Ja, du loggar in och ändrar text direkt på sajten. Vill du lägga till veckans soppa eller ta bort en rätt gör du det på några sekunder utan teknisk kunskap. AI:n kan också hjälpa dig formulera om du ber om det i chatten."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil för gäster som söker caféer på språng?",
+      "a": "Absolut. Alla sajter från Sajtmaskin är responsiva, vilket betyder att meny, öppettider och karta visas snyggt på mobil, surfplatta och dator. Många cafébesökare googlar på väg, så mobilanpassning är inbyggd från start."
+    },
+    {
+      "q": "Kan jag ta emot bordsbeställningar via hemsidan?",
+      "a": "Ja, genom att integrera Cal.com kan gäster boka bord direkt i kalendern. Du ställer in lediga tider och antal platser, och får bekräftelse via mejl. Det minskar telefonsamtal och gör det smidigt för gäster att säkra ett bord till helgfrukosten."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att jag byggt den?",
+      "a": "Om du använder en subdomän hos Sajtmaskin är hostingen kostnadsfri utan månadskostnad. Vill du ha egen domän som cafékardemumma.se betalar du domänregistrering hos valfri registrar, vanligtvis runt hundralappen per år. Inga dolda avgifter eller bindningstid."
+    },
+    {
+      "q": "Kan jag sälja presentkort eller ta betalt för catering online?",
+      "a": "Ja, du integrerar Stripe i chatten och lägger till en produkt- eller beställningssida. Då kan gäster köpa presentkort eller förbeställa tårta, smörgåstårta eller cateringpaket med kortbetalning. Pengarna går direkt till ditt Stripe-konto."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta caféägare har en fungerande sajt på 20–40 minuter. Du chattar med AI:n, granskar förslaget, justerar texter och bilder, och publicerar. Vill du lägga till bokning eller betalning kan det ta lite längre, men själva grundsajten går mycket snabbt."
+    },
+    {
+      "q": "Kan jag visa allergener och specialkost tydligt på menyn?",
+      "a": "Ja, du skriver in det i menytexten – till exempel 'glutenfri', 'vegansk' eller 'innehåller nötter'. Du kan också be AI:n skapa en särskild sektion för allergiinformation eller lägga till symboler. Allt är flexibelt och du styr layouten genom att chatta."
+    }
+  ],
+  "localOrIndustryContext": "Sverige har en stark fikakultur och många små caféer drivs av lokala bagare och baristas som värdesätter hantverket. Gäster förväntar sig att kunna kolla menyn online innan besök, särskilt för att se veganska eller glutenfria alternativ. En enkel, snabb hemsida med tydlig info om öppettider och dagens bak gör skillnad i en konkurrensutsatt marknad.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en café-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

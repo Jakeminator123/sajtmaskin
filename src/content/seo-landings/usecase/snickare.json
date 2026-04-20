@@ -1,0 +1,105 @@
+{
+  "family": "usecase",
+  "slug": "snickare",
+  "title": "Hemsida för snickare – bygg en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en hemsida för ditt snickeri direkt i chatten. Portfolio, kontaktformulär, bokning och referenser – allt på plats utan kod.",
+  "h1": "Hemsida för snickare",
+  "heroSub": "Bygg en proffsig hemsida för ditt snickeri på minuter – med portfolio, bokning och kontaktformulär, helt utan kod.",
+  "introParagraphs": [
+    "En hemsida för snickare behöver visa upp dina projekt tydligt, göra det enkelt för kunder att boka tid och ge förtroende genom referenser. De flesta snickerisajter innehåller en portfolio med bilder på utförda jobb, information om tjänster som köksinredning, trappor eller altanbyggen, samt ett smidigt sätt att ta emot förfrågningar. Allt detta kan du få på plats direkt – utan att behöva lära dig kod eller betala dyrt för en webbbyrå.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n på svenska. Du beskriver vad du gör, vilka tjänster du erbjuder och vilken känsla du vill förmedla, så genererar verktyget en färdig hemsida på minuter. Du publicerar på din egen domän, integrerar Cal.com för tidsbokning och kan när som helst uppdatera text och bilder själv."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio som visar dina projekt",
+      "body": "Potentiella kunder vill se vad du har gjort tidigare. En tydlig portfolio med bilder på kök, trappor, möbler eller renoveringar skapar direkt förtroende och visar din stilkänsla. Sajtmaskin låter dig enkelt lägga till bildgallerier och beskrivningar för varje projekt. Du kan strukturera efter typ av jobb – inomhus, utomhus, specialbeställningar – så besökare snabbt hittar det som matchar deras behov."
+    },
+    {
+      "heading": "Tjänster och priser som är lätta att hitta",
+      "body": "Många snickare erbjuder allt från enklare reparationer till fullskaliga renoveringsprojekt. En bra hemsida listar dina tjänster tydligt: köksinredning, trappbyggen, altaner, möbelsnickeri, renovering. Du behöver inte publicera exakta priser om jobben varierar, men att ge en känsla för vad du gör och hur processen ser ut hjälper besökare att förstå om ni matchar. Sajtmaskin genererar strukturerade tjänstesidor direkt från din beskrivning."
+    },
+    {
+      "heading": "Bokningssystem och kontaktformulär",
+      "body": "Att ta emot förfrågningar smidigt är avgörande. Sajtmaskin integrerar Cal.com så kunder kan boka ett kostnadsfritt konsultsamtal eller offertmöte direkt i din kalender. Vill du hellre ha ett klassiskt kontaktformulär fungerar det lika bra – alla meddelanden hamnar i din inkorg. Du slipper missa jobb för att någon inte får tag på dig, och kunden får svar snabbt."
+    },
+    {
+      "heading": "Referenser och kundcase som säljer",
+      "body": "Att visa upp nöjda kunder är en av de starkaste säljargumenten. Ett avsnitt med korta kundberättelser eller citat från tidigare uppdrag bygger förtroende snabbt. Sajtmaskin låter dig lägga till referenssektioner med namn, projekt och omdömen. Du kan uppdatera dem löpande när nya jobb blir klara, utan att behöva ringa en webbutvecklare."
+    },
+    {
+      "heading": "Bygg och publicera på minuter",
+      "body": "Du startar i Sajtmaskins chatt, beskriver ditt snickeri och vilka tjänster du erbjuder. AI:n föreslår struktur, texter och layout. Du justerar det du vill ändra – byter bilder, skriver om rubriker, lägger till projekt – och publicerar sedan på din egen domän. Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera all kod om du vill flytta sajten senare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Behöver jag kunna koda för att bygga en hemsida för mitt snickeri?",
+      "a": "Nej, Sajtmaskin är byggt för att du ska kunna skapa en hel sajt genom att chatta på svenska. Du beskriver vad du vill ha, så genererar AI:n sidor, texter och struktur. Du kan justera allt direkt i gränssnittet utan att röra en rad kod."
+    },
+    {
+      "q": "Kan jag visa upp mina projekt med bilder och beskrivningar?",
+      "a": "Ja, du lägger enkelt till bildgallerier för varje projekt. Du kan strukturera portfolio efter typ av jobb – kök, trappor, altaner – och skriva kort om varje uppdrag. Besökare får en tydlig bild av vad du kan och har gjort."
+    },
+    {
+      "q": "Hur får jag in bokningar och förfrågningar?",
+      "a": "Sajtmaskin integrerar Cal.com så kunder kan boka konsultsamtal direkt i din kalender. Vill du hellre använda kontaktformulär fungerar det också – alla meddelanden skickas till din e-post. Du väljer själv vilken lösning som passar ditt arbetssätt bäst."
+    },
+    {
+      "q": "Kostar det att ha sajten publicerad?",
+      "a": "Du publicerar kostnadsfritt på en subdomän hos Sajtmaskin. Vill du använda din egen domän, till exempel dittsnickeri.se, kopplar du den utan extra månadskostnad för hosting. Det finns ingen bindningstid och du kan exportera koden när du vill."
+    },
+    {
+      "q": "Kan jag uppdatera sajten själv när jag får nya projekt?",
+      "a": "Ja, du loggar in och lägger till nya bilder, texter eller tjänster direkt i gränssnittet. Inga väntetider på webbutvecklare – du håller sajten aktuell i samma takt som ditt snickeri växer."
+    },
+    {
+      "q": "Fungerar hemsidan på mobil?",
+      "a": "Ja, alla sajter som byggs i Sajtmaskin är responsiva och ser bra ut på mobil, surfplatta och dator. Många kunder söker hantverkare på telefonen, så det är viktigt att portfolio och kontaktformulär fungerar smidigt överallt."
+    },
+    {
+      "q": "Kan jag ta betalt för material eller förskottsbetalning via sajten?",
+      "a": "Ja, du kan integrera Stripe för att ta emot betalningar direkt på hemsidan. Det passar om du säljer standardtjänster, tar förskott eller vill att kunder ska kunna betala fakturor online. Du bestämmer själv hur du vill använda funktionen."
+    }
+  ],
+  "localOrIndustryContext": "Snickare i Sverige jobbar ofta med allt från renoveringsprojekt och köksinredningar till specialbeställda möbler och trappor. En hemsida som tydligt visar din stil, dina tjänster och tidigare jobb hjälper dig att sticka ut i en bransch där rekommendationer och visuellt intryck väger tungt.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en snickare-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

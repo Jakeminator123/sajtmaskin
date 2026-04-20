@@ -1,0 +1,105 @@
+{
+  "family": "usecase",
+  "slug": "fastighetsmaklare",
+  "title": "Hemsida fastighetsmäklare – bygg din mäklarsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fastighetsmäklarbyrå med AI. Objektgalleri, kontaktformulär och boka visning – klart på minuter.",
+  "h1": "Hemsida för fastighetsmäklare",
+  "heroSub": "Bygg en professionell mäklarsajt med objektgalleri, visningsbokning och kontaktformulär – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En hemsida för fastighetsmäklare behöver visa aktuella objekt tydligt, göra det enkelt för köpare att boka visning och ge förtroende genom presentation av mäklarna. Många byråer vill också ha en blogg för bostadstips, integration med värderingsverktyg och möjlighet att samla leads via formulär. Allt detta ska fungera smidigt på mobilen, eftersom de flesta bostadssökare scrollar på telefonen.",
+    "Med Sajtmaskin bygger du hela mäklarsajten genom att chatta med AI:n. Du beskriver vad du behöver – kanske ett galleri för dina objekt, en sida om byrån, kontaktformulär och en bokningsfunktion för visningar – så genererar AI:n en färdig sajt på minuter. Du publicerar på din egen domän, justerar texter och bilder direkt i gränssnittet, och integrerar Cal.com om du vill att kunder ska boka visningar automatiskt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Objektgalleri som visar dina bostäder",
+      "body": "De flesta besökare kommer för att se vad du har till salu just nu. Ett tydligt galleri med bilder, kvadratmeter, pris och adress är grunden. Sajtmaskin låter dig lägga till objekt som egna sidor eller kortare presentationer med bilder och text. Du kan uppdatera galleriet löpande när nya objekt kommer in eller säljs, och AI:n hjälper dig formatera informationen snyggt och enhetligt."
+    },
+    {
+      "heading": "Boka visning direkt på sajten",
+      "body": "Istället för att köpare ska maila eller ringa kan du låta dem boka visningstid direkt. Genom att integrera Cal.com i Sajtmaskin får du en bokningskalender där intressenter väljer ledig tid, och du får automatisk bekräftelse i din kalender. Det minskar administration och ger ett proffsigt intryck. Du styr själv vilka tider som är bokningsbara och kan koppla olika mäklare till olika objekt om ni är flera på byrån."
+    },
+    {
+      "heading": "Om oss – bygg förtroende",
+      "body": "Köpare och säljare vill veta vem de har att göra med. En Om oss-sida med presentation av mäklarna, er erfarenhet och lokalkännedom skapar trygghet. Lägg gärna till porträttbilder och korta texter om varje mäklare. Sajtmaskin genererar strukturen åt dig, och du fyller i era personliga beskrivningar direkt i editorn. Det går snabbt att justera ton och längd tills det känns rätt."
+    },
+    {
+      "heading": "Kontaktformulär och värderingsförfrågan",
+      "body": "Många besökare vill få sin bostad värderad eller ställa en snabb fråga. Ett enkelt kontaktformulär med namn, telefon, mailadress och fritext räcker långt. Du kan också lägga till ett särskilt värderingsformulär där säljare fyller i adress och bostadstyp. Formulären skickar automatiskt till din mail, så du kan följa upp direkt. Sajtmaskin bygger in formulären när du beskriver vad du behöver i chatten."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "Du vill att sajten ska ligga på dinmäklarbyrå.se, inte på en generisk subdomän. Sajtmaskin låter dig koppla din egen domän kostnadsfritt, och du betalar ingen löpande hostingavgift om du nöjer dig med subdomänen. Vill du byta plattform senare kan du exportera hela koden. Ingen bindningstid, ingen dold kostnad – bara en sajt som fungerar från dag ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa objekt från Hemnet eller Booli på min sajt?",
+      "a": "Sajtmaskin genererar din egen sajt där du lägger in objekt manuellt eller kopierar text och bilder. Automatisk synkning från Hemnet eller Booli kräver API-kopplingar som inte ingår i standardupplägg, men du kan enkelt uppdatera objektgalleriet själv när nya bostäder kommer in. Många mäklare väljer att ha ett urval av aktuella objekt på sin sajt och hänvisar till Hemnet för fullständig lista."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en mäklarsajt med Sajtmaskin?",
+      "a": "De flesta har en fungerande grundsajt på 10–15 minuter. Du chattar med AI:n, beskriver vilka sidor du vill ha – startsida, objektgalleri, om oss, kontakt – och får ett förslag direkt. Sedan justerar du texter, byter bilder och lägger till dina objekt. Totalt kan du räkna med en till två timmar om du vill ha allt klart och publicerat med egen domän, inklusive bokningstider och formulär."
+    },
+    {
+      "q": "Kan jag integrera betalning om jag säljer bostadsrapporter eller tjänster?",
+      "a": "Ja, Sajtmaskin stödjer Stripe-integration så du kan ta betalt direkt på sajten. Det passar om du säljer digitala bostadsrapporter, styling-konsultationer eller andra tilläggstjänster. Du kopplar ditt Stripe-konto, sätter pris och beskrivning, och köpare betalar med kort. Pengarna hamnar direkt på ditt konto minus Stripes avgift."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela sajten som kod när du vill, utan extra kostnad. Det innebär att du äger allt innehåll och kan flytta till egen server eller annan hostingtjänst. Ingen bindningstid och ingen inlåsning – du bestämmer själv hur länge du använder Sajtmaskin. Många väljer att stanna kvar eftersom det är så enkelt att uppdatera, men dörren är alltid öppen."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter som Sajtmaskin genererar är responsiva från start. Eftersom de flesta bostadssökare scrollar på telefonen är mobilvyn viktigast. Bildgallerier, kontaktformulär och bokningskalender anpassas automatiskt till skärmstorlek. Du kan förhandsgranska mobilvyn medan du bygger och justera text eller bildstorlek om något känns trångt."
+    },
+    {
+      "q": "Kan flera mäklare på byrån logga in och uppdatera sajten?",
+      "a": "Just nu är Sajtmaskin byggt för en huvudanvändare per sajt, men du kan dela inlogg med kollegor om ni vill samarbeta. Vill ni ha tydligare rollfördelning – till exempel att en mäklare bara kan redigera sina egna objekt – rekommenderar vi att ni bygger separata sidor per mäklare eller hanterar uppdateringar gemensamt. Funktionen för flera användare kan komma i framtida uppdateringar."
+    },
+    {
+      "q": "Kostar det extra att använda Cal.com för visningsbokningar?",
+      "a": "Cal.com är gratis i grundversionen, och Sajtmaskin integrerar det utan extra kostnad från vår sida. Du skapar ett Cal.com-konto, kopplar din kalender (Google, Outlook eller annan), och bäddar in bokningslänken på din sajt. Om du vill ha fler funktioner i Cal.com – som betalda bokningar eller avancerad schemaläggning – kan du uppgradera direkt hos dem, men grundbokningen är kostnadsfri."
+    }
+  ],
+  "localOrIndustryContext": "Fastighetsmäklarbranschen i Sverige är konkurrensutsatt, och en proffsig hemsida hjälper dig sticka ut lokalt. Många köpare googlar mäklare i sitt område eller kollar byrån efter att ha sett ett objekt på Hemnet. En snabb, tydlig sajt med enkla kontaktvägar ökar chansen att de hör av sig till dig istället för konkurrenten.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en fastighetsmäklare-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

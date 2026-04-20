@@ -1,0 +1,102 @@
+{
+  "family": "usecase",
+  "slug": "restaurang",
+  "title": "Hemsida Restaurang – Bygg din egen på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang, café eller pizzeria på minuter. Meny, bokning, bilder och karta – allt du behöver, utan kod.",
+  "h1": "Hemsida för restaurang",
+  "heroSub": "Bygg en komplett hemsida för din restaurang på minuter – med meny, bordsbokningar och allt du behöver.",
+  "introParagraphs": [
+    "En hemsida för restaurang behöver visa din meny tydligt, göra det enkelt att boka bord, visa öppettider och hitta till er – och förmedla känslan av att äta hos er. Många gäster kollar menyn online innan de bestämmer sig, så en bra sajt är ofta det första intrycket av din restaurang.",
+    "Med Sajtmaskin bygger du en professionell restaurangsajt på minuter genom att chatta med AI:n. Du beskriver vad du vill ha – meny, bildgalleri, bokningsfunktion, karta – så genererar AI:n hela sajten direkt. Ingen kod, inga krångliga verktyg. Bara en färdig sajt du kan publicera på din egen domän samma dag.",
+    "Du kan integrera Cal.com för bordsbokningar, lägga in Google Maps så gästerna hittar, och uppdatera menyn när du vill. Allt på svenska, byggt i Sverige, och du äger din sajt helt utan bindningstid."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny som är lätt att hitta och uppdatera",
+      "body": "Din meny är kärnan i hemsidan. Gäster vill se vad ni serverar, vilka priser ni har och om ni har något som passar deras diet. En tydlig meny med bilder och beskrivningar gör skillnad – folk bokar oftare när de vet vad de får. Med Sajtmaskin kan du be AI:n strukturera menyn efter kategorier, lägga till allergener eller skapa en särskild lunchmeny. Vill du ändra en rätt eller ett pris senare? Chatta bara med AI:n igen, så uppdateras sidan direkt."
+    },
+    {
+      "heading": "Bordsbokningar direkt på sajten",
+      "body": "Många gäster vill boka bord online istället för att ringa. Genom att integrera Cal.com i din Sajtmaskin-sajt får du ett bokningssystem som visar lediga tider och låter gäster reservera direkt. Du slipper missa bokningar utanför öppettider och får en smidigare vardag. Bokningarna synkas med din kalender, och du kan anpassa tider, bordsstorlekar och hur långt i förväg folk får boka."
+    },
+    {
+      "heading": "Bilder som visar stämningen",
+      "body": "Mat är visuellt, och bra bilder säljer. Ett bildgalleri eller en sektion med foton från restaurangen, tallrikar och lokalen hjälper besökare förstå vad ni erbjuder. Sajtmaskin låter dig enkelt ladda upp bilder och placera dem där de gör mest nytta – i hero-sektionen, bredvid menyn eller i ett eget galleri. AI:n kan föreslå layout baserat på hur du vill att sajten ska kännas."
+    },
+    {
+      "heading": "Karta, öppettider och kontaktinfo",
+      "body": "Gäster behöver veta var ni ligger, när ni har öppet och hur de når er. En inbäddad Google Maps-karta, tydliga öppettider och telefonnummer ska synas direkt. Sajtmaskin genererar automatiskt en kontaktsektion med all info du ger AI:n, så besökare slipper leta. Du kan även lägga till en länk till er Instagram eller Facebook om ni vill visa vad som händer just nu."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "Din restaurang förtjänar en egen adress på nätet – inte en underlänk till en plattform. Med Sajtmaskin publicerar du på din egen domän (t.ex. dinrestaurang.se) och kan välja att hosta på Sajtmaskins subdomän utan månadskostnad, eller exportera koden och lägga den var du vill. Ingen bindningstid, inga dolda avgifter. Du äger sajten och kan uppdatera den när du vill."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt med Sajtmaskin?",
+      "a": "Oftast några minuter. Du chattar med AI:n och beskriver vad du vill ha – meny, bilder, bokningsfunktion, kontaktinfo – så genererar den en färdig sajt. Sen kan du justera detaljer eller publicera direkt. Många har sin sajt live samma dag."
+    },
+    {
+      "q": "Kan jag lägga till bordsbokningar på sajten?",
+      "a": "Ja, genom att integrera Cal.com får du ett bokningssystem där gäster kan reservera bord direkt på hemsidan. Du ställer in lediga tider, bordsstorlekar och hur långt i förväg folk får boka. Bokningarna hamnar i din kalender automatiskt."
+    },
+    {
+      "q": "Går det att ändra menyn enkelt när vi byter rätter?",
+      "a": "Absolut. Du chattar med AI:n och säger vad som ska ändras – nytt pris, ny rätt, borttagen maträtt – så uppdateras sajten direkt. Ingen kod eller krångel. Du kan uppdatera menyn så ofta du vill utan extra kostnad."
+    },
+    {
+      "q": "Kan jag visa bilder på maten och restaurangen?",
+      "a": "Ja, du laddar upp bilder och AI:n placerar dem där de passar bäst – i hero-sektionen, bredvid menyn eller i ett bildgalleri. Bra matbilder och bilder från lokalen hjälper gäster få känsla för er restaurang innan de besöker er."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Du kan publicera på en Sajtmaskin-subdomän utan månadskostnad, eller koppla din egen domän. Vill du ha bokningar via Cal.com eller betalningar via Stripe kan de tjänsterna ha egna avgifter, men själva sajten från Sajtmaskin har ingen bindningstid eller dold månadskostnad."
+    },
+    {
+      "q": "Kan jag lägga in en karta så gäster hittar till oss?",
+      "a": "Ja, du kan bädda in Google Maps direkt på sajten så besökare ser var ni ligger. AI:n kan också lägga till öppettider, adress och telefonnummer i en tydlig kontaktsektion. Allt för att göra det så enkelt som möjligt för gäster att hitta och nå er."
+    },
+    {
+      "q": "Måste jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, inte alls. Hela poängen är att du bygger sajten genom att chatta. Du beskriver vad du vill ha, AI:n genererar sidan, och du kan publicera direkt. Vill du exportera koden senare går det också, men du behöver aldrig röra kod om du inte vill."
+    }
+  ],
+  "localOrIndustryContext": "Restaurangbranschen i Sverige blir allt mer digital – gäster googlar menyer, bokar bord online och kollar Instagram innan de väljer var de ska äta. En egen hemsida ger dig kontroll över hur du presenterar din restaurang, istället för att bara synas via tredjepartstjänster. Med Sajtmaskin får du en sajt som är byggd för svenska restauranger, på svenska, utan krångel.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en restaurang-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

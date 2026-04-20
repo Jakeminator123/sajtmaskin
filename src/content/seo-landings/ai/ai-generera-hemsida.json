@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "ai-generera-hemsida",
+  "title": "Så genererar AI en hemsida från text | Sajtmaskin",
+  "metaDescription": "AI läser din beskrivning, väljer struktur, skriver innehåll och bygger sidorna. Så fungerar det konkret – och vad du kan förvänta dig.",
+  "h1": "Så genererar AI en hemsida från text",
+  "heroSub": "En AI läser vad du skriver, tolkar vad sajten ska göra och bygger sidorna automatiskt – inklusive text, struktur och design.",
+  "introParagraphs": [
+    "När du ber en AI generera en hemsida skickar du in en beskrivning i vanlig text – vad företaget gör, vem du riktar dig till, vilka sidor du behöver. AI-modellen läser det, identifierar nyckelord och avsikt, väljer lämplig struktur och genererar sedan HTML, CSS och innehåll som passar ihop. Hela processen tar vanligtvis några sekunder till ett par minuter.",
+    "Tekniken bygger på språkmodeller som tränats på miljontals webbplatser och kan därför avgöra vad en restaurangsajt respektive en advokatbyrå behöver för sidor, vilken ton som passar och hur informationen bör organiseras. Resultatet blir en fungerande sajt direkt, inte ett tomt skal du måste fylla i själv.",
+    "Tidigare krävdes antingen kodkunskap, en mallbyggare där du klickar ihop allt manuellt, eller en byrå som tar veckor och kostar tiotusentals kronor. AI-generering förkortar den processen radikalt genom att producera färdigt innehåll och layout i ett enda steg."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad AI faktiskt gör när den bygger sajten",
+      "body": "AI-modellen analyserar din prompt och extraherar fakta: företagsnamn, bransch, tjänster, målgrupp. Den väljer sedan en passande sidstruktur – hem, om, tjänster, kontakt – och skriver unikt innehåll för varje sida baserat på din beskrivning. Samtidigt genereras HTML-kod, CSS för layout och responsiv design som fungerar på mobil. Allt sker parallellt i samma körning, så du får en komplett sajt som kan publiceras direkt."
+    },
+    {
+      "heading": "Skillnaden mot mallbyggare och traditionella verktyg",
+      "body": "En mallbyggare ger dig tomma block som du själv fyller med text och bilder. Du väljer färger, typsnitt och layout manuellt, vilket tar timmar även för en enkel sajt. AI-generering skriver istället hela texten åt dig, väljer färgschema utifrån bransch och skapar en layout som passar innehållet – allt från en enda textprompt. Du kan fortfarande redigera efteråt, men grundarbetet är klart från start."
+    },
+    {
+      "heading": "Vad du kan styra och vad AI beslutar själv",
+      "body": "Du styr genom att vara specifik i din prompt: vilka sidor du vill ha, vilken ton som passar ditt varumärke, om du behöver bokningsfunktion eller betalning. AI beslutar själv om tekniska detaljer som HTML-struktur, responsiv layout och vilka rubriker som blir H1 eller H2. De flesta verktyg låter dig justera färger, typsnitt och innehåll efteråt, men grundstrukturen skapas automatiskt baserat på vad modellen bedömer som bäst praxis för din bransch."
+    },
+    {
+      "heading": "Begränsningar och när mänsklig design fortfarande behövs",
+      "body": "AI är bra på standardsajter – företagspresentation, tjänstebeskrivningar, kontaktformulär. Men komplexa interaktioner, avancerade animationer eller helt unik grafisk profil kräver fortfarande manuell design eller utveckling. AI genererar heller inte fotografier; du behöver ladda upp egna bilder eller välja från bildbanker. För de flesta småföretag och soloprenörer räcker AI-genererad struktur långt, men stora varumärken med specifika designkrav kommer fortfarande vilja ha en designer inblandad."
+    },
+    {
+      "heading": "Hur Sajtmaskin använder AI för att bygga svenska sajter",
+      "body": "Sajtmaskin låter dig chatta med AI:n på svenska och beskriva din verksamhet i vanlig text. Modellen genererar då en komplett sajt med svenskt språk, svensk ton och struktur anpassad för din bransch. Du kan publicera direkt på en subdomän utan kostnad, eller koppla din egen domän. Integrationer som Cal.com för bokning och Stripe för betalning läggs till via chatten, och all kod kan exporteras om du vill flytta sajten senare. Hela verktyget är byggt i Sverige och fungerar helt på svenska."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det för AI att generera en hel hemsida?",
+      "a": "Från att du skickat din beskrivning till att sajten är klar tar det vanligtvis mellan 30 sekunder och ett par minuter, beroende på hur många sidor och funktioner du vill ha. Sajtmaskin genererar struktur, text och design i samma körning, så du får en publicerbar sajt direkt."
+    },
+    {
+      "q": "Kan jag ändra det AI:n har skapat efteråt?",
+      "a": "Ja, du kan redigera all text, byta färger, ladda upp egna bilder och lägga till nya sidor. I Sajtmaskin chattar du vidare med AI:n för att justera innehåll eller be om ändringar, och du kan också exportera koden för att redigera manuellt om du vill."
+    },
+    {
+      "q": "Skriver AI:n unik text eller kopierar den från andra sajter?",
+      "a": "AI:n genererar ny text baserat på din beskrivning, inte genom att kopiera befintliga sajter. Språkmodellen har lärt sig strukturer och formuleringar från miljontals webbplatser, men varje mening skrivs unikt för ditt projekt. Resultatet är originellt innehåll som passar just din verksamhet."
+    },
+    {
+      "q": "Vilka typer av hemsidor kan AI generera?",
+      "a": "AI klarar företagssajter, portfolios, bokningssidor, enkla webshoppar och landningssidor. Sajtmaskin stöder integrationer som Cal.com för bokning, Stripe för betalning och Shopify för e-handel. Mycket avancerade webbappar eller sajter med komplex funktionalitet kräver fortfarande specialutveckling."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda AI-genererade sajter?",
+      "a": "Nej, du beskriver vad du vill ha i vanlig text och AI:n bygger sajten. I Sajtmaskin sker allt via chat på svenska, och du behöver aldrig röra kod. Om du vill kan du exportera HTML/CSS senare, men det är helt frivilligt."
+    },
+    {
+      "q": "Hur säkerställer AI att designen blir responsiv och fungerar på mobil?",
+      "a": "Moderna AI-modeller genererar automatiskt responsiv CSS som anpassar layouten efter skärmstorlek. Sajtmaskin bygger alla sajter mobile-first, så de fungerar lika bra på telefon som på dator utan att du behöver göra något extra."
+    },
+    {
+      "q": "Vad kostar det att låta AI generera en hemsida?",
+      "a": "Sajtmaskin låter dig bygga och publicera på en subdomän helt utan månadskostnad. Vill du använda egen domän eller lägga till betalfunktioner kan extra avgifter tillkomma, men grundverktyget och AI-genereringen ingår utan bindningstid."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "boras/webshop",
+  "title": "Hemsida webshop Borås – Bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett webshop för ditt företag i Borås med AI. Ingen kod, ingen bindningstid. Stripe-betalningar och svensk support. Kom igång idag.",
+  "h1": "Hemsida webshop Borås",
+  "heroSub": "Bygg en komplett webshop för ditt boråsföretag med AI – från första produkten till färdig e-handel på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin hjälper företag i Borås att skapa professionella webshoppar utan kod eller teknisk krångel. Du chattar med vår AI, beskriver dina produkter och din stil, så genereras en komplett e-handelsplattform med betalningslösning, produktsidor och kassan klar. Allt på svenska, byggt för den svenska marknaden.",
+    "Oavsett om du driver en textilbutik i Simonsland, säljer hantverksvaror från Knalleland eller vill lansera en digital kanal för ditt företag i Sandared – du får en webshop som fungerar direkt. Publicera på din egen domän, integrera Stripe för kortbetalningar och Google Analytics för att följa försäljningen. Ingen bindningstid, ingen dold kostnad för hosting på subdomän.",
+    "Många boråsföretag har produkter redo att sälja men saknar en enkel väg till e-handel. Sajtmaskin tar bort alla tekniska barriärer så du kan fokusera på dina kunder och din affär istället för kod och servrar."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "AI bygger din webshop på minuter",
+      "body": "Du beskriver dina produkter, priser, kategorier och hur du vill att butiken ska se ut – Sajtmaskin genererar resten. Produktsidor med bilder och beskrivningar, en snygg startsida, kundvagn och kassaflöde. Allt anpassat efter ditt varumärke. När sajten är klar integrerar du Stripe för att ta emot kortbetalningar direkt. Inga komplicerade plugins eller installationer – bara en färdig webshop som är redo att ta emot beställningar."
+    },
+    {
+      "heading": "Svensk e-handel utan månadskostnader",
+      "body": "Många e-handelsplattformar kräver dyra månadsprenumerationer redan från start. Med Sajtmaskin betalar du ingen löpande hostingavgift om du publicerar på vår subdomän, och du kan när som helst koppla din egen domän. Plattformen är byggd i Sverige av Pretty Good AB med svenskt gränssnitt och svensk support. Du slipper översatta menyer och utländska betalningslösningar som inte passar svenska kunder."
+    },
+    {
+      "heading": "Integrationer för tillväxt",
+      "body": "Din webshop kan växa i takt med din verksamhet. Integrera Cal.com om du vill erbjuda bokningsbara konsultationer eller visningar vid sidan av produktförsäljning. Koppla Google Analytics för att se vilka produkter som fungerar bäst och var dina besökare kommer ifrån. Behöver du mer avancerad e-handel längre fram? Exportera koden och bygg vidare, eller koppla Shopify som backend. Ingen inlåsning – du äger alltid din sajt."
+    },
+    {
+      "heading": "Webshop för Boråsföretag i alla branscher",
+      "body": "Borås har en stark tradition av textil, mode och handel – men också ett växande ekosystem av hantverkare, designföretag och lokala producenter. Oavsett om du säljer kläder, inredning, livsmedel eller specialprodukter kan du ha en fungerande webshop igång samma dag. Sajtmaskin passar lika bra för den som testar e-handel för första gången som för etablerade butiker som vill komplettera sin fysiska närvaro med digital försäljning."
+    },
+    {
+      "heading": "Kom igång utan teknisk erfarenhet",
+      "body": "Du behöver ingen utvecklare, ingen webbyrå och ingen förkunskap. Logga in, berätta vad du vill sälja och hur du vill att butiken ska kännas – AI:n sköter resten. Vill du ändra något efter lansering? Chatta igen och be om justeringar. Allt händer i realtid, på svenska, utan att du behöver röra en rad kod. Från idé till färdig webshop på den tid det tar att fika."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en webshop igång i Borås?",
+      "a": "De flesta användare har en fungerande webshop klar på under en timme. Du chattar med AI:n, beskriver dina produkter och stil, granskar resultatet och publicerar. Stripe-integrationen tar några minuter extra om du inte har ett konto sedan tidigare. Sedan är butiken live och redo att ta emot beställningar."
+    },
+    {
+      "q": "Måste jag betala månadskostnad för att driva webshopen?",
+      "a": "Nej, om du publicerar på vår subdomän är hostingen kostnadsfri. Vill du använda din egen domän kopplar du den utan extra avgift. Du betalar bara för Sajtmaskin-plattformen, inte för separata hosting- eller e-handelstjänster. Inga dolda kostnader eller tvingande uppgraderingar."
+    },
+    {
+      "q": "Kan jag ta betalt med Swish och kort?",
+      "a": "Ja, genom Stripe-integrationen kan dina kunder betala med vanliga betalkort. Swish kräver en separat integration som du kan lägga till via Stripe eller annan betaltjänst. Sajtmaskin förbereder tekniken så att betalningarna flödar smidigt in i din kassa."
+    },
+    {
+      "q": "Fungerar webshopen för både lokala kunder och hela Sverige?",
+      "a": "Absolut. Du kan rikta dig till Borås och närområdet, hela Sverige eller internationellt – det bestämmer du själv genom fraktalternativ och marknadsföring. Många boråsföretag börjar lokalt och växer sedan när de ser vad som fungerar. Tekniken sätter inga gränser."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan extra kostnad. Ingen bindningstid, ingen inlåsning. Ta med dig sajten till egen server, bygg vidare med en utvecklare eller migrera till en annan e-handelsplattform. Du äger alltid ditt innehåll och din design."
+    },
+    {
+      "q": "Kan jag integrera webshopen med mitt bokföringssystem?",
+      "a": "Stripe skickar transaktionsdata som de flesta svenska bokföringssystem kan importera. Du kan också koppla Google Analytics för att följa försäljning och trafik. Behöver du mer avancerade integrationer kan du exportera koden och bygga custom-lösningar, eller arbeta med en utvecklare."
+    },
+    {
+      "q": "Får jag hjälp om jag kör fast?",
+      "a": "Ja, Sajtmaskin erbjuder svensk support. Du får hjälp på svenska, från Sverige, av människor som förstår hur svenska företag fungerar. Allt från tekniska frågor till tips om hur du beskriver dina produkter för bästa resultat."
+    }
+  ],
+  "localOrIndustryContext": "Borås har en lång historia som textil- och handelsstad, och idag blomstrar både etablerade butiker och nya kreatörer som vill nå kunder digitalt. En webshop ger dig möjlighet att sälja dygnet runt, nå kunder utanför city och komplettera din fysiska butik utan att behöva investera i dyra system eller anlita webbyrå.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/boras",
+      "label": "Skapa hemsida i Borås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Borås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

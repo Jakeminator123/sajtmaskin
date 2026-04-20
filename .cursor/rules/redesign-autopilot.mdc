@@ -42,5 +42,5 @@ When the user says **"Felsök"**:
 
 - NEVER change backend logic, API routes, or data flow
 - Always use CSS variables / Tailwind tokens — never hardcode colors
-- Color palette: navy background, orange primary/CTA, white foreground
+- Color palette (brandbook `public/Brandbook Sajtmaskin.docx`): off-white background (#F7F6F3), near-black foreground + CTA (#0F0F0F), sand accent (#E6E1D8), stone surface (#EFEDE7). No navy, no orange, no mascots.
 - Minimalist: as few words as possible in all UI text

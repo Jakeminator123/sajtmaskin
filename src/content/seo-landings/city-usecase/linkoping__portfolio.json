@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "linkoping/portfolio",
+  "title": "Hemsida Portfolio Linköping – Bygg din portfoliosajt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfoliohemsida i Linköping på minuter med AI. Ingen kodning krävs. Publicera direkt och visa ditt arbete online.",
+  "h1": "Portfoliohemsida i Linköping",
+  "heroSub": "Bygg en professionell portfoliosajt som visar ditt arbete – på minuter, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En portfoliohemsida är din digitala visitkort som visar vad du kan och vad du har gjort. Oavsett om du är fotograf, designer, arkitekt, konstnär eller konsult i Linköping behöver du en plats där potentiella kunder kan se ditt arbete. Med Sajtmaskin skapar du en skräddarsydd portfoliosajt genom att chatta med AI – du beskriver vad du vill ha, så bygger systemet sajten åt dig.",
+    "Du får en sajt som fungerar direkt, med bildgallerier, projektbeskrivningar och kontaktformulär. Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, inga dolda avgifter. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför din portfolio behöver en egen hemsida",
+      "body": "Sociala medier är bra för räckvidd, men en egen hemsida ger dig full kontroll över hur ditt arbete presenteras. Du väljer layout, färger och struktur utan att tvingas in i någon annans mall. I Linköping, där kreativa branscher och teknikföretag möts, är en professionell portfolio ofta avgörande för att vinna uppdrag. En hemsida gör dig lättare att hitta, enklare att dela och mer trovärdig i kundmötet."
+    },
+    {
+      "heading": "Så bygger du en portfoliosajt med AI",
+      "body": "Du startar en chatt och beskriver vad du gör och vilka projekt du vill visa. Vill du ha ett bildgalleri med dina bästa foton? En projektlista med fallstudier? Kanske en sida om din process eller dina tjänster? Sajtmaskin genererar hela strukturen, skriver texter och skapar en design som passar ditt innehåll. Du kan sedan justera bilder, byta ordning på sektioner eller lägga till nya sidor – allt genom att chatta vidare. När du är nöjd publicerar du sajten på din domän."
+    },
+    {
+      "heading": "Funktioner som gör din portfolio mer än vackra bilder",
+      "body": "En portfolio ska inte bara visa arbete, den ska också hjälpa besökare att ta nästa steg. Sajtmaskin låter dig integrera Cal.com för bokningar, så kunder kan boka möten direkt. Lägg till Google Analytics för att se vilka projekt som får mest uppmärksamhet. Vill du sälja prints, templates eller digitala produkter? Koppla in Stripe för betalning eller Shopify för en hel webshop. Allt går att lägga till utan att du behöver koda."
+    },
+    {
+      "heading": "Linköpings kreativa scen och digitala möjligheter",
+      "body": "Linköping har en stark tradition inom design, visualisering och innovation tack vare universitetet och företag inom tech och media. Kreativa yrkesutövare här – från UX-designers till illustratörer och 3D-artister – behöver ofta visa upp sitt arbete för både lokala och internationella uppdragsgivare. En portfoliohemsida gör dig synlig i sökmotorer och ger dig en professionell bas att utgå från när du nätverkar eller söker uppdrag."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen inlåsning",
+      "body": "Du äger din sajt. Vill du byta plattform senare kan du exportera hela koden och flytta den vart du vill. Hosting på subdomän är gratis, och du betalar bara om du vill använda din egen domän eller lägga till extra funktioner. Ingen månadskostnad, inga överraskningar. Sajtmaskin är byggt för att ge dig frihet och kontroll över din digitala närvaro."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfoliohemsida?",
+      "a": "De flesta har en fungerande sajt på 10–15 minuter. Du chattar med AI, beskriver dina projekt och väljer stil, så genereras sajten automatiskt. Vill du finjustera bilder och texter kan det ta lite längre, men grundstrukturen är klar direkt."
+    },
+    {
+      "q": "Kan jag visa olika typer av projekt på samma sajt?",
+      "a": "Absolut. Du kan skapa separata sektioner eller sidor för foto, design, arkitektur, illustration eller vad du nu jobbar med. Sajtmaskin låter dig organisera innehållet så att besökare enkelt hittar det de söker."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra layouten?",
+      "a": "Nej. Du gör alla ändringar genom att chatta. Vill du flytta ett bildgalleri, byta färgschema eller lägga till en ny projektsida skriver du bara vad du vill ha, så uppdateras sajten."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter är responsiva från start. Oavsett om besökare tittar på mobil, surfplatta eller dator ser portfolion professionell ut och är lätt att navigera."
+    },
+    {
+      "q": "Kan jag koppla min portfolio till bokningssystem?",
+      "a": "Ja, du kan integrera Cal.com så att kunder bokar möten eller konsultationer direkt via din sajt. Perfekt om du erbjuder kreativa tjänster och vill förenkla bokningen."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis. Vill du använda din egen domän tillkommer kostnaden för domänen, men ingen månadshyra för själva sajten. Du betalar bara för extra funktioner om du väljer att lägga till dem."
+    },
+    {
+      "q": "Kan jag sälja produkter via min portfoliosajt?",
+      "a": "Ja. Koppla in Stripe för enklare betalningar eller Shopify om du vill ha en fullfjädrad webshop. Många kreatörer säljer prints, mallar eller digitala nedladdningar direkt via sin portfolio."
+    }
+  ],
+  "localOrIndustryContext": "Linköping är hem för Linköpings universitet och ett växande tech- och designkluster. Kreativa yrkesutövare i staden – från visualiseringsexperter till frilansande designers – konkurrerar både lokalt och internationellt. En professionell portfoliohemsida hjälper dig att sticka ut och visa upp ditt arbete på ett sätt som sociala medier inte kan matcha.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/linkoping",
+      "label": "Skapa hemsida i Linköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Linköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

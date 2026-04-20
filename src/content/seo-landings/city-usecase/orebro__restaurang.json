@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "orebro/restaurang",
+  "title": "Hemsida restaurang Örebro – bygg din restaurangsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Örebro med AI. Meny, bordsbokning och betalning – allt på plats direkt. Ingen kodning.",
+  "h1": "Hemsida för restauranger i Örebro",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokning och betalning – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "Din restaurang i Örebro behöver en hemsida som visar menyn, tar emot bokningar och gör det enkelt för gäster att hitta er. Med Sajtmaskin skapar du allt detta på minuter genom att chatta med AI:n. Berätta vad din restaurang erbjuder, så genereras en färdig sajt med meny, bilder, öppettider och kontaktinfo.",
+    "Sajten publiceras direkt på din egen domän eller kostnadsfritt på en Sajtmaskin-subdomän. Du integrerar Cal.com för bordsbokning, Stripe om du vill ta betalt online, och Google Analytics för att följa besökare. Allt på svenska, byggt för svenska restauranger.",
+    "Ingen bindningstid och ingen kod. Du äger innehållet och kan exportera sajten när du vill. Perfekt för dig som driver restaurang i Örebro och vill ha en professionell närvaro online utan krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny och bilder som lockar gäster",
+      "body": "En restaurangsajt måste visa vad ni serverar. Sajtmaskin låter dig lägga upp menyn direkt i chatten – från à la carte till dagens lunch. AI:n formaterar automatiskt rätter, priser och allergener så det blir tydligt och lättläst. Ladda upp bilder på mat och lokal så gäster får en känsla för er restaurang innan de besöker. Allt detta sker utan att du behöver designa layouter eller skriva HTML."
+    },
+    {
+      "heading": "Bordsbokning integrerad från start",
+      "body": "Gäster vill kunna boka bord direkt på hemsidan. Genom integration med Cal.com får du ett bokningssystem som visar lediga tider och tar emot reservationer automatiskt. Du bestämmer själv öppettider, bordsstorlekar och hur långt i förväg folk kan boka. Bokningarna hamnar i din kalender och gästen får bekräftelse via mejl. Allt synkas smidigt utan att du behöver hantera separata system."
+    },
+    {
+      "heading": "Betalning och presentkort online",
+      "body": "Vill du sälja presentkort, ta förskottsbetalning för större sällskap eller erbjuda avhämtning med förbeställning? Med Stripe-integration kan gäster betala direkt på sajten. Du sätter upp produkter i chatten och AI:n bygger en enkel checkout. Pengarna går direkt till ditt konto, och du slipper manuell hantering. Perfekt för restauranger som vill digitalisera mer än bara menyn."
+    },
+    {
+      "heading": "Örebro-anpassad synlighet",
+      "body": "Restauranger i Örebro konkurrerar om både lokalbefolkning och besökare som söker matställen i city, vid Svampen eller nära Gustavsvik. Sajtmaskin hjälper dig optimera sajten för lokala sökord så folk hittar er när de googlar restaurang i Örebro. Du lägger enkelt in adress, karta och information om parkering eller kollektivtrafik. Sajten blir sökbar både för Google och för hungriga Örebroare."
+    },
+    {
+      "heading": "Uppdatera menyn när du vill",
+      "body": "Säsongsmenyer, veckans lunch eller nya rätter – din meny förändras. Med Sajtmaskin uppdaterar du innehållet direkt i chatten. Ingen inloggning till krångliga CMS-system. Skriv bara vad som ska ändras, så fixar AI:n det på sekunder. Du kan också ge tillgång till personal som ska kunna uppdatera öppettider eller specialerbjudanden utan att ringa webbyrå."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt?",
+      "a": "De flesta restaurangsajter är klara på 10–20 minuter. Du chattar med AI:n, beskriver din restaurang, laddar upp menytext och bilder, så genereras sajten automatiskt. Sen publicerar du direkt eller justerar detaljer tills allt känns rätt."
+    },
+    {
+      "q": "Kan gäster boka bord direkt på hemsidan?",
+      "a": "Ja, genom Cal.com-integrationen får du ett komplett bokningssystem. Gäster ser lediga tider, väljer antal personer och bokar. Du får bekräftelse i din kalender och kan hantera bokningar därifrån. Allt sker utan extra avgifter från Sajtmaskin."
+    },
+    {
+      "q": "Går det att sälja presentkort eller ta betalt online?",
+      "a": "Absolut. Med Stripe-integration sätter du upp presentkort, förbetalning för event eller avhämtningsbeställningar. Betalningen går direkt till ditt Stripe-konto och kunden får kvitto automatiskt. Du bestämmer själv vad du vill sälja."
+    },
+    {
+      "q": "Kostar det att ha sajten publicerad?",
+      "a": "Publicering på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda egen domän, som dinrestaurang.se, kopplar du den kostnadsfritt. Enda löpande kostnaden är domänregistrering hos din registrar, vanligtvis runt hundralappen per år."
+    },
+    {
+      "q": "Hur gör jag sajten synlig för folk som söker restaurang i Örebro?",
+      "a": "Sajtmaskin bygger in grundläggande SEO automatiskt: snabb laddning, mobilanpassning och ren kod. Du fyller i adress, stadsdel och beskrivning så Google förstår att ni finns i Örebro. Lägg gärna till en karta och information om hur man hittar er från Resecentrum eller Drottninggatan."
+    },
+    {
+      "q": "Kan jag uppdatera menyn själv efter lansering?",
+      "a": "Ja, du uppdaterar allt direkt i chatten. Skriv vilka rätter som ska bytas ut eller vilka priser som ändrats, så fixar AI:n uppdateringen på några sekunder. Ingen teknisk kunskap behövs, och du kan ge kollegor tillgång att göra samma sak."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela sajtkoden när du vill, utan kostnad. Koden är din och fungerar på vilken webbserver som helst. Ingen bindningstid, ingen utlåsning. Du äger allt innehåll och all design som skapats."
+    }
+  ],
+  "localOrIndustryContext": "Örebro har ett växande restaurangutbud från city och Järntorget till Marieberg och Vivalla. Gäster söker allt från lunch vid Stortorget till kvällsmat nära Konserthuset. En stark hemsida gör att din restaurang syns när folk googlar, och att de enkelt kan se menyn och boka bord innan besöket.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/orebro",
+      "label": "Skapa hemsida i Örebro"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Örebro. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

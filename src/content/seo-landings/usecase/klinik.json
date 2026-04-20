@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "klinik",
+  "title": "Hemsida klinik – bygg en professionell sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för din klinik med AI. Bokning, behandlingar, team och kontakt – allt på plats direkt. Publicera idag.",
+  "h1": "Hemsida för klinik",
+  "heroSub": "Bygg en professionell hemsida för din mottagning på minuter – med bokning, behandlingsinfo och allt du behöver.",
+  "introParagraphs": [
+    "En hemsida för klinik ska göra det enkelt för patienter att hitta information om behandlingar, boka tid och få kontakt. Vanligtvis behöver du sidor för dina tjänster, presentation av teamet, öppettider, priser och ett bokningssystem som fungerar dygnet runt. Allt ska vara tydligt, tryggt och enkelt att navigera.",
+    "Med Sajtmaskin bygger du hela sajten via chat. Du beskriver din klinik, vilka behandlingar du erbjuder och vad som är viktigt för dina patienter – så genererar AI:n en komplett hemsida med text, struktur och funktioner. Du kan integrera Cal.com för bokning och publicera direkt på din egen domän.",
+    "Ingen kod, ingen designer, ingen väntan. Du chattar, granskar resultatet och justerar tills allt sitter. Sen är sajten live."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Behandlingar och tjänster",
+      "body": "Varje klinik behöver en tydlig översikt över vilka behandlingar du erbjuder. Patienter vill veta vad du kan hjälpa till med, hur lång tid det tar och vad det kostar. Sajtmaskin skapar automatiskt sidor för varje tjänst baserat på din beskrivning – med rubriker, ingresser och strukturerad information. Du kan lägga till bilder, priser och bokningslänkar direkt i chatten."
+    },
+    {
+      "heading": "Bokningssystem som alltid är öppet",
+      "body": "Att ta emot bokningar via telefon är tidskrävande. Med Cal.com-integration får du ett bokningssystem inbyggt på sajten där patienter själva väljer tid, behandling och terapeut. Sajtmaskin kopplar ihop allt åt dig – du behöver bara berätta hur din kalender ser ut. Bokningar synkas automatiskt och patienter får bekräftelse direkt."
+    },
+    {
+      "heading": "Presentation av teamet",
+      "body": "Patienter vill veta vem de ska träffa. En teamsida med foto, namn, specialistkompetens och kort presentation bygger förtroende. Sajtmaskin genererar layouten och texten utifrån den information du ger – du kan lägga till varje medarbetare i chatten och AI:n formaterar allt snyggt. Det tar ett par minuter istället för timmar i en page builder."
+    },
+    {
+      "heading": "Kontakt och hitta hit",
+      "body": "Öppettider, adress, telefonnummer och karta ska vara lätta att hitta. Sajtmaskin skapar en kontaktsida med all praktisk information och kan bädda in Google Maps om du vill. Du kan också lägga till ett kontaktformulär så patienter kan ställa frågor direkt via sajten. Allt anpassas efter hur du vill att din mottagning ska nås."
+    },
+    {
+      "heading": "Publicera och äg din sajt",
+      "body": "När sajten är klar publicerar du den på din egen domän – ingen bindningstid, inga dolda avgifter. Vill du ha hosting på en Sajtmaskin-subdomän är det gratis. Behöver du exportera koden senare för att flytta eller anpassa? Inga problem. Du äger allt och kan göra precis vad du vill med resultatet."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag integrera mitt befintliga bokningssystem?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com som bokningslösning och du kan också bädda in andra system via iframe eller länka till externa bokningssidor. Berätta i chatten hur du vill att bokningen ska fungera så hjälper AI:n dig att sätta upp det."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för kliniken?",
+      "a": "De flesta får en fungerande sajt på 10–20 minuter. Du chattar om din verksamhet, behandlingar och vad som är viktigt, så genererar AI:n hela strukturen. Sen justerar du text, bilder och layout tills allt känns rätt. Publicering tar några klick."
+    },
+    {
+      "q": "Kan jag lägga till priser och behandlingsinformation själv?",
+      "a": "Absolut. Du beskriver varje behandling i chatten – vad den innebär, hur lång tid den tar och vad den kostar – så skapar Sajtmaskin automatiskt sidor med all information. Du kan när som helst gå in och ändra priser eller lägga till nya tjänster."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter som byggs med Sajtmaskin är responsiva och fungerar lika bra på mobil, surfplatta och dator. Patienter kan boka tid, läsa om behandlingar och hitta kontaktinfo oavsett enhet."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill. Det finns ingen bindningstid och du äger allt innehåll. Vill du flytta sajten till en annan hosting eller vidareutveckla den med egna utvecklare är det helt fritt."
+    },
+    {
+      "q": "Kan jag ha flera språk på sajten?",
+      "a": "Just nu bygger Sajtmaskin sajter på svenska, men du kan lägga till innehåll på andra språk manuellt efter publiceringen. Stöd för flerspråkiga sajter direkt i AI:n är på väg."
+    },
+    {
+      "q": "Kostar det något att publicera sajten?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän behöver du registrera den separat (kostar runt 100–150 kr/år hos en domänleverantör), sen pekar du den mot Sajtmaskin. Inga månadskostnader för själva sajten."
+    }
+  ],
+  "localOrIndustryContext": "Kliniker och mottagningar i Sverige behöver en hemsida som är tydlig, trygg och enkel att uppdatera. Patienter förväntar sig att kunna boka tid online, läsa om behandlingar och hitta kontaktinfo snabbt. Med Sajtmaskin får du allt på plats direkt – utan att behöva anlita byrå eller lära dig tekniska verktyg.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en klinik-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

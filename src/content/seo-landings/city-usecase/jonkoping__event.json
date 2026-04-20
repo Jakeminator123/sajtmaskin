@@ -1,0 +1,90 @@
+{
+  "family": "city-usecase",
+  "slug": "jonkoping/event",
+  "title": "Hemsida Event Jönköping – Bygg din eventsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Jönköping med AI. Biljettbokning, program och praktisk info – allt på plats direkt.",
+  "h1": "Hemsida för event i Jönköping",
+  "heroSub": "Bygg en komplett eventsajt med AI – från konsert på Elmia till festival i stadsparken, klar på minuter.",
+  "introParagraphs": [
+    "Ska du arrangera en konferens på Elmia, en kulturfestival i Jönköping city eller en företagsgala vid Vättern? En bra eventsajt samlar all praktisk information, hanterar biljetter och bygger förväntningar hos besökarna. Med Sajtmaskin får du en färdig hemsida direkt – berätta bara vad ditt event handlar om i chatten, så bygger AI:n resten.",
+    "Du får en sajt med programschema, talarpresentationer, karta till platsen och bokningsfunktion via Cal.com eller Stripe för biljettförsäljning. Allt på svenska, anpassat för din publik i Jönköpingstrakten. Publicera på egen domän eller kör kostnadsfritt på en subdomän – du väljer själv.",
+    "Ingen kod, ingen designprocess som drar ut på tiden. Perfekt när du behöver få upp en eventsajt snabbt inför Elmia-mässan, en konsert på Huskvarna Folkets Park eller en företagskonferens på Vätternsalen."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "AI bygger din eventsajt från en enkel beskrivning",
+      "body": "Du chattar med Sajtmaskin och beskriver ditt event: typ av tillställning, datum, plats, målgrupp och vad besökarna ska veta. AI:n genererar direkt en komplett sajt med startsida, programöversikt, praktisk info om parkering och kollektivtrafik i Jönköping, samt en kontaktsida. Vill du sälja biljetter kopplar du på Stripe. Behöver folk boka platser? Integrera Cal.com. Allt sker i samma chat-flöde."
+    },
+    {
+      "heading": "Perfekt för event runt Vättern och Elmia",
+      "body": "Jönköping är en naturlig mötesplats med Elmia som Nordens största mässområde, kulturhus som Spira och unika eventlokaler vid sjön. Din eventsajt behöver visa vägen för besökare från både stan och andra delar av Sverige. Sajtmaskin låter dig enkelt lägga in kartor, beskriva närliggande hotell och restauranger, och länka till Jönköpings Länstrafik. Allt för att göra det smidigt för gästerna att hitta och planera sitt besök."
+    },
+    {
+      "heading": "Bokning, betalning och analys – integrerat från start",
+      "body": "Koppla Cal.com för workshopbokningar eller Stripe för biljettköp direkt i sajten. Vill du följa hur många som besöker sidan och varifrån de kommer? Lägg till Google Analytics med ett klick. Behöver du en webshop för eventmerch eller konferenspaket? Shopify-integration ingår. Allt hanteras utan teknisk krångel, och du behåller full kontroll över din data."
+    },
+    {
+      "heading": "Ingen bindningstid – exportera när du vill",
+      "body": "Sajtmaskin låser inte in dig. Vill du flytta sajten efter eventet eller jobba vidare med koden själv? Exportera hela projektet och ta med dig det. Hosting på subdomän är gratis utan månadskostnad, men du kan när som helst koppla din egen domän. Byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och support som förstår lokala behov."
+    },
+    {
+      "heading": "Från idé till publicerad eventsajt på en halvtimme",
+      "body": "Traditionella webbbyråer tar veckor och kostar tiotusentals kronor. Sajtmaskin ger dig en färdig, professionell eventsajt samma dag du bestämmer dig. Ändra texter, byt bilder och justera layout direkt i chatten – AI:n uppdaterar sajten live. Perfekt när du har bråttom inför ett event i Jönköping och inte har tid att vänta på designer och utvecklare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en eventsajt live för mitt Jönköping-event?",
+      "a": "De flesta får sin sajt klar på 20–40 minuter. Du chattar med AI:n, beskriver eventet, godkänner förslaget och publicerar. Vill du koppla bokning eller betalning tar det några minuter extra, men hela processen är betydligt snabbare än traditionell webbutveckling."
+    },
+    {
+      "q": "Kan jag lägga in karta och vägbeskrivning till Elmia eller andra platser?",
+      "a": "Absolut. Du kan bädda in Google Maps, skriva ut vägbeskrivningar och länka till kollektivtrafik i Jönköping. Berätta i chatten vilken plats det gäller, så lägger AI:n in relevant information så besökarna enkelt hittar fram."
+    },
+    {
+      "q": "Funkar det att sälja biljetter direkt på sajten?",
+      "a": "Ja, via Stripe-integration kan du ta betalt för biljetter, workshops eller konferenspaket. Du sätter pris, antal platser och betalningsvillkor – Sajtmaskin kopplar ihop allt så besökarna kan köpa direkt på hemsidan."
+    },
+    {
+      "q": "Vad händer med sajten efter att eventet är över?",
+      "a": "Du bestämmer själv. Behåll den som arkiv, uppdatera inför nästa år eller exportera koden och stäng ner. Ingen bindningstid finns, så du kan avsluta när du vill utan dolda kostnader."
+    },
+    {
+      "q": "Kan jag använda min egen domän för eventsajten?",
+      "a": "Ja, du kan koppla vilken domän du vill. Vill du testa först kan du publicera gratis på en subdomän under Sajtmaskin, och senare flytta till egen adress när du är redo."
+    },
+    {
+      "q": "Hur gör jag om jag vill ändra programmet eller lägga till talare?",
+      "a": "Chatta bara med AI:n igen och berätta vad som ska ändras. Nya talare, uppdaterade tider, bytt lokal – allt justeras direkt utan att du behöver röra kod eller design själv."
+    }
+  ],
+  "localOrIndustryContext": "Jönköping är Sveriges mässstad med Elmia som dragplåster för nationella och internationella event. Från Dreamhack och bilmässor till konferenser på Spira och kulturfestivaler i stadsparken – staden har stark eventtradition. En lokal eventsajt behöver tala till både jönköpingsbor och besökare utifrån, med tydlig info om parkering vid Elmia, hotell i city och kollektivtrafik från resecentrum.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/jonkoping",
+      "label": "Skapa hemsida i Jönköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Jönköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

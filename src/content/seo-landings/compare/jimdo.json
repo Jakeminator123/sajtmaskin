@@ -1,0 +1,100 @@
+{
+  "family": "compare",
+  "slug": "jimdo",
+  "title": "Alternativ till Jimdo – bygg svensk AI-sajt på minuter | Sajtmaskin",
+  "metaDescription": "Jimdo är enkelt men byggt för Tyskland. Sajtmaskin är svenskt, AI-drivet och skapar hela sajten från en konversation – utan mall eller kod.",
+  "h1": "Alternativ till Jimdo för svenska företag",
+  "heroSub": "Bygg en komplett hemsida på svenska via chat – ingen mall, ingen kod, ingen tysk plattform.",
+  "introParagraphs": [
+    "Jimdo är en populär tysk sajtkonstruktör med AI-assistans och enkel redigering. Men plattformen är byggd för den tyska marknaden, med begränsad svenskanpassning och support som sällan talar flytande svenska. Om du vill ha en sajt som känns helt svensk från start – i språk, ton och struktur – kan Sajtmaskin vara ett bättre val.",
+    "Sajtmaskin är en svenskutvecklad AI-plattform där du bygger hela hemsidan genom att chatta. Du beskriver ditt företag, dina tjänster och vad du vill förmedla. AI:n skriver texter, väljer layout och skapar en färdig sajt på minuter. Allt på svenska. Ingen mall att fylla i, ingen kod att röra. Publicera på egen domän eller testa gratis på en subdomän utan månadskostnad."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker man alternativ till Jimdo?",
+      "body": "Jimdo fungerar bra för snabba projekt och enklare sajter, men användare stöter ofta på begränsningar. Designmallarna kan kännas generiska och svåra att anpassa utan att byta helt. AI-assistenten Jimdo Dolphin är snabb men ger begränsad kontroll – du får en färdig sajt men kan inte alltid styra strukturen i detalj. Supporten är primärt på tyska och engelska, och svenska texter måste du skriva själv. För den som vill ha en sajt som känns skräddarsydd för svenska kunder, med naturligt språk och lokal förankring, räcker inte alltid en internationell plattform."
+    },
+    {
+      "heading": "Hur Sajtmaskin skiljer sig från Jimdo",
+      "body": "Sajtmaskin är byggd från grunden för svenska företag. Istället för att välja en mall och fylla i fält chattar du med AI:n om vad du behöver. Du kan beskriva din ton, dina tjänster, din målgrupp – och få en sajt som redan från start har svenska texter, logisk struktur och relevanta sektioner. Vill du ändra något? Fortsätt bara konversationen. AI:n skriver om, lägger till sidor eller justerar layouten direkt. Du slipper teknisk terminologi och behöver aldrig öppna en kodredigerare. Publicera på egen domän utan uppsägningstid, eller exportera hela koden om du vill flytta sajten någon annanstans. Ingen inlåsning, ingen dolda avgifter för hosting på subdomän."
+    },
+    {
+      "heading": "Integrationer och funktioner utan krångel",
+      "body": "Sajtmaskin stödjer Cal.com för bokningar, Stripe för betalningar, Google Analytics för statistik och Shopify för webshop. Allt kopplas på via chatten – beskriv vad du behöver, så hjälper AI:n dig att aktivera rätt integration. Jimdo har också e-handel och bokningsfunktioner, men ofta med extra avgifter eller begränsningar i lägre prisplaner. Med Sajtmaskin får du en transparent modell: bygg sajten, lägg till de funktioner du faktiskt använder, och betala inte för hosting om du nöjer dig med en subdomän. Vill du ha full kontroll kan du när som helst exportera koden och drifta sajten på egen hand."
+    },
+    {
+      "heading": "Support och utveckling på svenska",
+      "body": "Jimdo har en stor kunskapsbas och community, men supporten är sällan på svenska och plattformen utvecklas utifrån tyska och internationella behov. Sajtmaskin drivs av Pretty Good AB i Sverige. All support sker på svenska, och produkten byggs för svenska företags vardag – från lokala betaltjänster till förväntningar på ton och innehåll. Om du stöter på problem eller vill ha hjälp att anpassa sajten får du svar från människor som förstår svensk affärskultur. Det gör skillnad när du ska lansera snabbt eller behöver råd om hur sajten ska kommunicera med svenska kunder."
+    },
+    {
+      "heading": "Vem passar Sajtmaskin bäst för?",
+      "body": "Sajtmaskin är idealisk för svenska småföretag, frilansare, konsulter och lokala tjänsteföretag som vill ha en professionell sajt utan att anlita byrå eller lära sig webbdesign. Om du uppskattar Jimdos enkelhet men saknar svensk känsla, djupare AI-assistans och flexibilitet utan malltvång är Sajtmaskin ett naturligt steg. Plattformen passar också den som vill testa en idé snabbt – skapa en landningssida på tio minuter, publicera gratis på subdomän, och uppgradera till egen domän när du är redo. Ingen bindningstid, ingen dold kostnad, ingen teknisk tröskel."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag migrera min befintliga Jimdo-sajt till Sajtmaskin?",
+      "a": "Sajtmaskin bygger sajten från grunden via AI, så det finns ingen automatisk importfunktion. Men du kan beskriva din nuvarande sajts struktur, kopiera in texter och be AI:n återskapa layouten. Processen tar oftast bara några minuter, och du får chansen att förbättra innehållet samtidigt. Om du har bilder eller filer från Jimdo laddar du enkelt upp dem i Sajtmaskin underbyggprocessen."
+    },
+    {
+      "q": "Är Sajtmaskin lika enkelt som Jimdo Dolphin?",
+      "a": "Jimdo Dolphin bygger en sajt genom att ställa några frågor och sedan generera en färdig mall. Sajtmaskin fungerar som en konversation – du kan vara mer detaljerad eller be om justeringar löpande. Båda är snabba, men Sajtmaskin ger dig större kontroll utan att behöva byta mall eller gå in i kodredigerare. Om du vill ha enkelhet med flexibilitet är Sajtmaskin minst lika smidigt, ofta mer anpassningsbart."
+    },
+    {
+      "q": "Kostar det att publicera sajten?",
+      "a": "Du kan publicera på en Sajtmaskin-subdomän helt utan månadskostnad. Vill du använda egen domän (t.ex. dittforetag.se) behöver du en publiceringsplan, men ingen bindningstid gäller. Du kan när som helst exportera hela sajtkoden och drifta den på egen server eller annan hostingtjänst. Jimdo kräver ofta betalplan även för grundfunktioner som egen domän och annonsfrihet."
+    },
+    {
+      "q": "Kan jag integrera bokningar och betalningar som i Jimdo?",
+      "a": "Ja. Sajtmaskin stödjer Cal.com för bokningar och Stripe för betalningar. Du beskriver i chatten vad du behöver – till exempel en bokningsmeny för konsultationer eller en betallänk för produkter – och AI:n lägger till funktionen. Jimdo har inbyggd e-handel, men ofta med begränsningar i antal produkter eller transaktionsavgifter beroende på plan. Sajtmaskin ger dig frihet att välja de verktyg du redan använder."
+    },
+    {
+      "q": "Är Sajtmaskin snabbare än att bygga i Jimdo?",
+      "a": "Båda plattformarna är snabba. Jimdo Dolphin kan skapa en sajt på några minuter genom att välja mall och fylla i text. Sajtmaskin gör samma sak via AI-chat, men skriver också innehållet åt dig baserat på din beskrivning. Om du vill slippa skriva alla texter själv och ändå få en sajt som känns skräddarsydd är Sajtmaskin ofta snabbare i praktiken – särskilt om du vill justera ton eller struktur efteråt."
+    },
+    {
+      "q": "Vad händer om jag vill byta tillbaka till Jimdo eller annan plattform?",
+      "a": "Du kan när som helst exportera hela sajtkoden från Sajtmaskin och använda den hur du vill. Det finns ingen inlåsning. Om du vill flytta till Jimdo, WordPress eller annan tjänst kan du antingen bygga om manuellt (lätt med AI-genererade texter som grund) eller drifta koden på egen server. Sajtmaskin tvingar dig aldrig att stanna – du äger alltid ditt innehåll och din kod."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för e-handel som Jimdo?",
+      "a": "Sajtmaskin integrerar med Shopify för fullskalig e-handel, vilket ger dig tillgång till ett av marknadens starkaste webshopsystem. Jimdo har inbyggd e-handel som fungerar bra för mindre sortiment, men Shopify erbjuder fler betalmetoder, frakt-integrationer och skalbarhet. Om du planerar att växa eller redan har en Shopify-butik kan Sajtmaskin bygga en sajt runt den. För enklare produktförsäljning räcker ofta Stripe-integration och en landningssida."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från Jimdo. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

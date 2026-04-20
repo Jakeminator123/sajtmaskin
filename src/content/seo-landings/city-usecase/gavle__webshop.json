@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "gavle/webshop",
+  "title": "Hemsida webshop Gävle – Bygg din webshop på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell webshop i Gävle med AI. Ingen kod, klart på minuter. Stripe-betalningar, lagerhantering och mobilvänlig design.",
+  "h1": "Webshop-hemsida i Gävle",
+  "heroSub": "Bygg en komplett webshop för ditt Gävle-företag med AI – från produktsidor till betalning, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En webshop i Gävle behöver fungera lika bra för kunder i Brynäs som i centrum, på mobil som dator. Med Sajtmaskin chattar du fram hela din webshop på minuter – produktsidor, kundvagn, Stripe-integration för betalningar och mobilanpassad design ingår direkt.",
+    "Du beskriver vad du säljer och hur sajten ska se ut, så genererar AI:n allt från produktkataloger till kassaflöde. Publicera på din egen domän utan månadskostnad för hosting på subdomän, och integrera Shopify om du vill ha full e-handelsplattform. Ingen bindningstid, exportera koden när du vill.",
+    "Perfekt för butiker i Gävle som vill komplettera sitt fysiska sortiment med digital försäljning – allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din webshop med AI",
+      "body": "Du startar en chatt och beskriver din verksamhet: vilka produkter du säljer, hur många kategorier du behöver, vilken känsla sajten ska ha. AI:n skapar produktsidor med bilder, beskrivningar och priser, lägger till kundvagn och kassaflöde, och kopplar Stripe för kortbetalningar. Vill du ha bokningsfunktion för Click & Collect integrerar du Cal.com. Allt händer i samma gränssnitt, på svenska, utan teknisk krångel."
+    },
+    {
+      "heading": "Stripe-betalningar och Shopify-integration",
+      "body": "Stripe-integrationen gör att dina kunder kan betala med kort direkt på sajten – säkert, snabbt och utan att du behöver hantera känsliga kortuppgifter. Behöver du lagerhantering, fraktberäkning eller mer avancerad produktadministration kopplar du Shopify som backend. Då får du Sajtmaskins snabba AI-design kombinerat med Shopifys robusta e-handelsmotor, perfekt för Gävle-företag som växer snabbt."
+    },
+    {
+      "heading": "Mobilanpassat för kunder i rörelse",
+      "body": "Över hälften av alla webshop-besök sker från mobilen, särskilt i en stad som Gävle där folk handlar mellan ärenden. Sajtmaskin genererar automatiskt responsiv design så produktbilder, knappar och kassan fungerar lika smidigt på iPhone som på laptop. Google Analytics ingår så du ser var kunderna kommer ifrån och vilka produkter som säljer bäst – data du kan använda för att finjustera sortiment och kampanjer."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Du äger koden och kan exportera den när som helst. Vill du byta leverantör eller bygga vidare själv finns inga lås. Hosting på subdomän kostar inget per månad, publicera på egen domän om du vill ha fullständig kontroll. Uppdatera produkter, priser och kampanjer direkt i chatten – AI:n hjälper dig justera utan att du behöver redigera kod."
+    },
+    {
+      "heading": "Från lokal butik till digital försäljning",
+      "body": "Många Gävle-företag har fysisk butik på Drottninggatan, Nian eller i Valbo köpcentrum och vill nå kunder utanför öppettider. En webshop låter dig sälja dygnet runt, ta betalt medan du sover och nå kunder i hela Gästrikland. Sajtmaskin gör steget från disk till digital enkel: beskriv ditt sortiment, välj betalmetod, publicera. Klart på en eftermiddag istället för veckor med byrå och utvecklare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en webshop med Sajtmaskin?",
+      "a": "De flesta har en fungerande webshop klar på 30–60 minuter. Du chattar med AI:n om produkter, kategorier och design, så genereras sidor, kundvagn och betalintegration automatiskt. Vill du finjustera texter eller bilder tar det lite längre, men grundstrukturen är klar direkt."
+    },
+    {
+      "q": "Kan jag ta betalt med Swish eller bara kort?",
+      "a": "Stripe-integrationen stödjer kortbetalningar direkt. Swish kräver separat avtal med din bank, men du kan lägga till Swish-knapp manuellt eller via Shopify-integration om du kopplar den plattformen. Stripe fungerar för de flesta e-handlare och ger snabba utbetalningar."
+    },
+    {
+      "q": "Fungerar webshoppen bra för kunder i Gävle på mobil?",
+      "a": "Ja, all design är mobilanpassad från start. Produktbilder, filtreringsmeny och kassan fungerar lika smidigt på telefon som dator. Eftersom många Gävlebor handlar på språng mellan jobb och hem är mobilvänlighet inbyggd i varje mall AI:n genererar."
+    },
+    {
+      "q": "Kan jag koppla webshopen till mitt Shopify-konto?",
+      "a": "Absolut. Shopify-integrationen låter dig använda Sajtmaskins AI-design som frontend och Shopify som backend för lager, frakt och orderhantering. Perfekt om du redan har produkter i Shopify eller vill ha avancerad e-handelsfunktionalitet utan att kompromissa med design."
+    },
+    {
+      "q": "Vad kostar hosting och domän?",
+      "a": "Hosting på subdomän (dinbutik.sajtmaskin.se) är gratis utan månadskostnad. Vill du använda egen domän (dinbutik.se) ordnar du den själv hos valfri registrar och pekar den mot Sajtmaskin. Inga dolda avgifter, inga bindningstider – du betalar bara för de tjänster du aktivt väljer."
+    },
+    {
+      "q": "Kan jag uppdatera produkter och priser själv efter lansering?",
+      "a": "Ja, du chattar med AI:n för att lägga till nya produkter, ändra priser eller redigera beskrivningar. Ingen kod behövs. Vill du ha full kontroll kan du exportera koden och redigera direkt, men för de flesta räcker det att be AI:n göra ändringen."
+    },
+    {
+      "q": "Äger jag koden till min webshop?",
+      "a": "Ja, du äger all kod och allt innehåll. Du kan exportera hela sajten när som helst och flytta den till annan hosting eller vidareutveckla med egen utvecklare. Inga lås, inga dolda villkor – din webshop är din."
+    }
+  ],
+  "localOrIndustryContext": "Gävle har stark tradition av handel – från Hemlingbyhandlarna till moderna köpcentrum som Valbo. Lokala butiker kompletterar allt oftare fysisk närvaro med webshop för att nå kunder i Sandviken, Hofors och hela Gästrikland dygnet runt, särskilt när kollektivtrafiken begränsar kvällshandel i centrum.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/gavle",
+      "label": "Skapa hemsida i Gävle"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Gävle. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

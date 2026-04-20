@@ -53,6 +53,14 @@ export function LandingFooter() {
                   Mallar
                 </a>
               </li>
+              <li>
+                <a
+                  href="/landningssidor"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Sajtkarta
+                </a>
+              </li>
             </ul>
           </div>
           <div>

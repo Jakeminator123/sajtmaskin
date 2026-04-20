@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
-import { Mascot } from "@/components/mascot/Mascot";
+import { MessageCircle, X } from "lucide-react";
 import { companyNameFromSlug } from "@/lib/kostnadsfri/company-name";
 import {
   normalizeKostnadsfriOpenClawConfig,
@@ -128,7 +127,7 @@ export function OpenClawChat() {
         </div>
       )}
 
-      {/* FAB — mascot headshot bubble */}
+      {/* FAB — chat bubble */}
       <button
         type="button"
         onClick={toggle}
@@ -143,7 +142,7 @@ export function OpenClawChat() {
         {isOpen ? (
           <X className="h-5 w-5" />
         ) : (
-          <Mascot slot="headshot" size={56} decorative className="h-14 w-14 object-cover" />
+          <MessageCircle className="h-6 w-6" />
         )}
       </button>
     </>

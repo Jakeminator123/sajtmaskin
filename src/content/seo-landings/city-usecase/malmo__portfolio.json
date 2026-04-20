@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "malmo/portfolio",
+  "title": "Hemsida Portfolio Malmö – Bygg din portfoliosajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfoliosajt i Malmö med AI. Perfekt för kreatörer, konsulter och byråer. Publicera på egen domän utan bindningstid.",
+  "h1": "Portfoliosajt i Malmö – snabbt och enkelt",
+  "heroSub": "Bygg en proffsig portfolio som visar ditt arbete på bästa sätt, direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "En portfoliosajt är din digitala visitkort i Malmö, oavsett om du är formgivare, fotograf, arkitekt eller konsult. Sajtmaskin låter dig bygga en komplett portfolio på minuter genom att helt enkelt beskriva vad du gör och vilka projekt du vill visa upp. AI:n genererar struktur, layout och innehåll – du publicerar på egen domän utan krångel.",
+    "Malmös kreativa scen växer och konkurrensen om uppdrag är stenhård. En välgjord portfolio som laddar snabbt, ser bra ut på mobilen och är lätt att uppdatera gör skillnad när kunder jämför. Med Sajtmaskin får du allt det utan att behöva anlita byrå eller lära dig WordPress.",
+    "Du betalar ingen månadsavgift om du kör på vår subdomän, och vill du använda egen domän fixar du det med ett klick. Ingen bindningstid, ingen dold kostnad – bara en rak lösning för dig som vill fokusera på ditt arbete istället för teknik."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad ska en portfoliosajt i Malmö innehålla?",
+      "body": "En stark portfolio börjar med tydlig presentation av vem du är och vad du gör. Sedan behöver du ett galleri eller projektsektion där besökare snabbt kan se ditt bästa arbete – helst med bilder, korta beskrivningar och resultat. Kontaktvägar måste vara självklara: mejl, telefon eller bokningslänk. Många kreatörer i Malmö jobbar internationellt, så flerspråksstöd eller åtminstone tydlig engelska kan vara värt att ha. Tekniskt ska sajten ladda snabbt och fungera felfritt på alla enheter, eftersom många kunder scrollar på mobilen under pendling eller möten."
+    },
+    {
+      "heading": "Så bygger du portfolio med Sajtmaskin",
+      "body": "Du startar en chatt och beskriver din verksamhet: vad du gör, vilka projekt du vill lyfta, vilken känsla sajten ska ha. AI:n föreslår struktur, skriver utkast till texter och skapar en layout som passar ditt innehåll. Du laddar upp bilder på dina projekt, justerar texter och färger direkt i gränssnittet, och publicerar när du är nöjd. Vill du integrera Cal.com för bokningar eller Google Analytics för att se var besökare kommer ifrån? Klart på några klick. Allt sker på svenska, och supporten sitter i Sverige om du kör fast."
+    },
+    {
+      "heading": "Integrationer som gör portfolion mer användbar",
+      "body": "Cal.com-integrationen låter kunder boka möte eller konsultation direkt från portfolion – perfekt om du säljer tid eller vill slippa mejltennisen. Stripe gör att du kan ta betalt för digitala produkter, templates eller workshops utan att bygga egen checkout. Google Analytics visar vilka projekt som får mest uppmärksamhet och var trafiken kommer ifrån, så du kan dubbla ner på det som funkar. Alla integrationer sätts upp utan kod, och du äger alltid din data."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Du kan exportera hela koden när du vill och flytta sajten till valfri hostingleverantör. Ingen låsning, inga dolda avgifter. Vill du testa på vår subdomän först och sedan flytta till egen domän senare? Inga problem. Det här är din portfolio, ditt arbete – vi ger dig bara verktygen att visa upp det snabbt och snyggt. Uppdatera projekt, lägg till nya case, ändra layout – allt utan att behöva boka tid hos utvecklare."
+    },
+    {
+      "heading": "Varför Malmö-baserade kreatörer väljer Sajtmaskin",
+      "body": "Malmös kreativa nätverk är tätt sammankopplat, och rekommendationer sprids snabbt. En portfolio som ser proffsig ut och laddas snabbt ökar chansen att du kommer ihåg när någon frågar efter fotograf, designer eller konsult. Sajtmaskin är byggt i Sverige, helt på svenska, och supporten förstår lokala behov – från GDPR till Swish-integration. Du slipper krångla med utländska plattformar eller översätta gränssnitt. Fokusera på det du är bra på, låt AI:n ta hand om tekniken."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfoliosajt?",
+      "a": "De flesta har en fungerande portfolio på 10–20 minuter. Du beskriver din verksamhet och dina projekt i chatten, AI:n genererar struktur och innehåll, sedan laddar du upp bilder och justerar detaljer. Vill du förfina texter eller testa olika layouter tar det lite längre, men grundsajten är klar på en kafferast."
+    },
+    {
+      "q": "Kan jag använda egen domän för min portfolio?",
+      "a": "Ja, du kopplar din egen domän direkt i inställningarna. Vill du testa först kan du publicera på vår subdomän helt utan kostnad. Ingen bindningstid, så du byter när du vill. DNS-inställningar fixar du enligt vår guide, och supporten hjälper till om något krånglar."
+    },
+    {
+      "q": "Funkar portfolion bra på mobil?",
+      "a": "Alla sajter från Sajtmaskin är responsiva från start, så din portfolio ser bra ut och fungerar smidigt på mobil, platta och dator. Eftersom många kunder scrollar projekt på telefonen är det här kritiskt, och du behöver inte tänka på det – layouten anpassar sig automatiskt."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för konsultationer?",
+      "a": "Absolut. Integrera Cal.com så kan kunder boka möte eller konsultation direkt från portfolion. Du sätter tider, längd och typ av möte, och kalendern synkar med din egen. Perfekt om du säljer tid eller vill slippa mejla fram och tillbaka om lediga tider."
+    },
+    {
+      "q": "Vad kostar det att driva portfolion?",
+      "a": "Publicerar du på vår subdomän är hostingen gratis. Vill du använda egen domän betalar du för domänen hos din registrar, men ingen månadskostnad för själva sajten hos oss. Inga dolda avgifter, ingen bindningstid. Du exporterar koden när du vill och flyttar sajten om du väljer annan hosting."
+    },
+    {
+      "q": "Hur uppdaterar jag projekt och bilder senare?",
+      "a": "Du loggar in, ändrar texter, byter bilder eller lägger till nya projekt direkt i gränssnittet. Ingen kod, ingen FTP, inget krångel. Ändringar syns live så fort du publicerar. Vill du testa nya layouter eller omstrukturera kan du göra det när du vill utan att sajten går ner."
+    },
+    {
+      "q": "Passar Sajtmaskin för kreatörer i Malmö som jobbar internationellt?",
+      "a": "Ja, du kan bygga flerspråkig portfolio eller köra helt på engelska om du vill. Gränssnittet är svenskt, men innehållet skriver du själv eller låter AI:n generera på det språk du behöver. Många Malmö-baserade kreatörer har kunder i Köpenhamn, Stockholm och internationellt – portfolion funkar lika bra oavsett marknad."
+    }
+  ],
+  "localOrIndustryContext": "Malmös kreativa sektor spänner från mediaproduktion i Västra Hamnen till designbyråer i Möllevången och frilansande formgivare över hela staden. En portfoliosajt är ofta första kontakten med potentiella kunder, och den behöver ladda snabbt, se proffsig ut och vara lätt att uppdatera när nya projekt blir klara. Sajtmaskin gör det enkelt att hålla portfolion fräsch utan teknisk huvudvärk.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Malmö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

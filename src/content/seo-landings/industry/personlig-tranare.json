@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "personlig-tranare",
+  "title": "Hemsida för personlig tränare – bygg din PT-sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din PT-verksamhet med bokning, betalning och träningsprogram. Ingen kod krävs. Klar på minuter.",
+  "h1": "Hemsida för personlig tränare",
+  "heroSub": "Bygg en sajt som visar ditt träningskoncept, tar emot bokningar och säljer dina tjänster – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "Som personlig tränare behöver du en hemsida som gör tre saker: visa vad du erbjuder, låta kunder boka pass och betala smidigt. Många PT:s kör fortfarande med Instagram-DM och Swish, vilket funkar tills du vill växa eller jobba mer strukturerat. En egen sajt ger dig en proffsig bas där allt samlas.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n. Du beskriver din verksamhet – kanske styrketräning för nybörjare i Malmö eller onlinecoaching med kostplaner – så genererar plattformen sidor, texter och funktioner. Publicera på din egen domän eller testa gratis på en subdomän. Inga månadskostnader för hosting, ingen bindningstid.",
+    "Allt är på svenska: gränssnittet, supporten och innehållet. Du kan integrera Cal.com för bokningar, Stripe för betalningar och Google Analytics för att se hur många som kollar dina tjänster. Behöver du ändra något senare? Gör det i chatten eller exportera koden och flytta sajten vart du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en PT-hemsida behöver innehålla",
+      "body": "En typisk hemsida för personlig tränare har en startsida med ditt träningskoncept och resultat du hjälpt kunder nå, en Om mig-sida där du visar utbildning och erfarenhet, en Tjänster-sida med priser på PT-pass, gruppträning eller onlinecoaching, samt en Kontakt- eller Boka-sida. Många PT:s lägger också till en blogg med träningsråd eller kostrecept för att ranka i Google och visa expertis. Vill du sälja digitala produkter – som träningsprogram i PDF eller videokurser – behöver du en enkel webshop eller betalfunktion. Sajtmaskin skapar den strukturen automatiskt utifrån vad du beskriver, och du kan justera sidorna direkt i chatten."
+    },
+    {
+      "heading": "Bokningar och betalningar utan krångel",
+      "body": "Att ta emot bokningar via mail eller Messenger blir snabbt rörigt när du har fler än några få kunder i veckan. Med Cal.com-integrationen får du en kalender där kunder ser lediga tider och bokar direkt – du slipper dubbelbokning och fram-och-tillbaka-mejl. Stripe-integrationen låter kunder betala med kort för klippkort, månadsprenumerationer eller engångspass. Allt sköts på sajten, så du kan fokusera på träningen istället för administration. Båda verktygen är gratis att koppla in, du betalar bara Stripes transaktionsavgift när någon betalar."
+    },
+    {
+      "heading": "Visa resultat och bygg förtroende",
+      "body": "Potentiella kunder vill se att du levererar. En bildgalleri med före-och-efter (med kundens godkännande), citat från nöjda klienter eller en enkel räknare – femtio genomförda PT-pass, tio kilo lättare tillsammans – gör sajten mer trovärdig än en Instagram-bio. Sajtmaskin kan generera sektioner för testimonials, case studies eller en portfolio med träningsprogram du kört. Du kan också bädda in videoklipp från dina pass eller kostråd. Allt detta bygger förtroende innan första kontakten, vilket gör att fler bokar direkt istället för att tveka."
+    },
+    {
+      "heading": "SEO och lokal synlighet",
+      "body": "Om du tränar kunder i Göteborg, Umeå eller Helsingborg vill du synas när folk googlar personlig tränare plus stadsnamnet. Sajtmaskin låter dig lägga in lokala nyckelord i rubriker och texter, och AI:n föreslår struktur som Google gillar – tydliga rubriker, snabb laddning, mobilanpassning. Du kan också skapa en blogg där du skriver om träning för kontorsarbetare, löpträning i svenska vintrar eller kostråd – det driver organisk trafik över tid. Plattformen genererar automatiskt SEO-titlar och meta-beskrivningar, men du kan justera allt om du vill finjustera."
+    },
+    {
+      "heading": "Ingen bindningstid, äg din sajt",
+      "body": "Många PT:s har bränt sig på dyra webbbyråer eller plattformar med långa avtal. Sajtmaskin har ingen bindningstid alls. Publicera på en subdomän gratis, eller koppla din egen domän (köper du själv hos Loopia, Binero eller liknande). Vill du flytta sajten senare? Exportera koden och ta den till vilken host du vill. Du äger allt innehåll och all data. Plattformen är byggd i Sverige av Pretty Good AB, så support och fakturering sker på svenska, enligt svensk lag."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en PT-sajt med Sajtmaskin?",
+      "a": "De flesta kommer igång på tio till tjugo minuter. Du chattar med AI:n, beskriver dina tjänster och vilka sidor du vill ha, så genereras en färdig sajt. Sen kan du justera texter, byta bilder och lägga till bokningsfunktion. Publicera direkt eller testa på en subdomän först."
+    },
+    {
+      "q": "Kan jag ta betalt för PT-pass och träningsprogram på sajten?",
+      "a": "Ja, via Stripe-integrationen. Du kan sälja engångspass, klippkort eller månadsprenumerationer. Vill du sälja digitala produkter som PDF-program eller videokurser kan du koppla in Shopify eller använda en enkel betalknapp. Allt sköts på sajten, kunden betalar med kort."
+    },
+    {
+      "q": "Fungerar bokningssystemet med min befintliga kalender?",
+      "a": "Cal.com synkar med Google Calendar, Outlook och Apple Calendar. När en kund bokar ett pass dyker det upp i din vanliga kalender automatiskt. Du kan sätta arbetstider, pauser och olika längd på olika tjänster – exempelvis 60 minuter för PT-pass, 30 minuter för kostsamtal."
+    },
+    {
+      "q": "Kan jag visa före-och-efter-bilder och kundrecensioner?",
+      "a": "Absolut. Du kan lägga till bildgallerier, testimonials och case studies. Ladda upp bilder (med kundens godkännande) och skriv korta texter om resultat. AI:n hjälper dig strukturera det snyggt. Du kan också bädda in Instagram-inlägg eller YouTube-klipp om du vill visa träningspass."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajten som kod och flytta den till vilken webbhost du vill. Ingen bindningstid, ingen inlåsning. Allt innehåll och all design äger du. Om du kör på vår subdomän är hostingen gratis, men du kan när som helst koppla en egen domän eller ta sajten någon annanstans."
+    },
+    {
+      "q": "Kan jag skriva blogginlägg om träning och kost?",
+      "a": "Ja, Sajtmaskin stödjer blogg. Du kan skriva inlägg om allt från benträning till proteinrika recept. AI:n kan föreslå ämnen och struktur, men du skriver själv (eller ber AI:n drafta). Bloggen hjälper dig ranka i Google och visar att du kan ditt stuff, vilket lockar fler kunder."
+    },
+    {
+      "q": "Kostar det något att publicera sajten?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis, ingen månadskostnad. Vill du använda en egen domän (typ dittnamn.se) köper du den själv hos en domänleverantör och kopplar hit. Cal.com och Google Analytics är gratis verktyg; Stripe tar en transaktionsavgift när kunder betalar (cirka 1,8 procent plus en fast krona per transaktion)."
+    }
+  ],
+  "localOrIndustryContext": "Personlig träning är en växande bransch i Sverige, från storstäder som Stockholm och Göteborg till mindre orter. Många PT:s startar som sidoprojekt och behöver en enkel sajt för att ta emot bokningar och betalningar utan att investera tusenlappar i en byrå. En proffsig hemsida gör skillnad när kunder jämför tränare – det visar att du menar allvar och gör det lätt att boka direkt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en personlig tränare-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

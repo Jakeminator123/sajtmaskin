@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "bokning",
+  "title": "Hemsida med bokning – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en hemsida med inbyggd bokning direkt via AI. Ingen kod, klart på minuter. Integrerad kalender och betalning – perfekt för tjänsteföretag.",
+  "h1": "Hemsida med bokning",
+  "heroSub": "Bygg en komplett sajt med online-bokning på minuter – ingen kod, ingen krånglig setup.",
+  "introParagraphs": [
+    "En hemsida med bokning är en sajt där dina kunder kan boka tid direkt online, utan mejl eller telefonsamtal fram och tillbaka. Den visar dina tjänster, visar lediga tider i realtid och låter besökaren välja, betala och få bekräftelse på en gång. Det är standarden idag för allt från frisörer och massörer till konsulter och hantverkare.",
+    "Med Sajtmaskin bygger du en sådan sajt på minuter. Du chattar med AI:n, beskriver vad du gör och vilka tjänster du erbjuder – så genererar den hela sajten med integrerad bokningskalender från Cal.com. Publicera på din egen domän, utan bindningstid eller dolda avgifter.",
+    "Resultatet är en professionell hemsida som tar emot bokningar dygnet runt, synkar med din kalender och sparar dig timmar varje vecka."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänstesida med tydlig beskrivning",
+      "body": "Varje tjänst du erbjuder behöver en egen sektion eller sida där kunden ser vad som ingår, hur lång tid det tar och vad det kostar. Sajtmaskin skapar automatiskt dessa sidor utifrån din beskrivning – med rubriker, brödtext och call-to-action som leder direkt till bokning. Du kan lägga till bilder, justera texten och publicera direkt."
+    },
+    {
+      "heading": "Integrerad bokningskalender",
+      "body": "Istället för att skicka kunder till en extern bokningssida bäddar Sajtmaskin in Cal.com direkt på din sajt. Besökaren ser lediga tider, väljer och bokar utan att lämna din hemsida. Allt synkas med Google Calendar, Outlook eller annan kalender du använder. Du slipper dubbelbokning och får automatiska påminnelser till både dig och kunden."
+    },
+    {
+      "heading": "Betalning vid bokning",
+      "body": "Om du vill ta betalt i förväg – för att minska no-shows eller säkra en deposition – kopplar du Stripe direkt i bokningsflödet. Kunden betalar med kort när de bokar, pengarna landar på ditt konto och både du och kunden får kvitto. Sajtmaskin hanterar kopplingen så du slipper teknisk setup."
+    },
+    {
+      "heading": "Kontaktinfo och öppettider",
+      "body": "En bokningssajt behöver också visa var du finns, hur man når dig och när du är tillgänglig. Sajtmaskin lägger automatiskt in kontaktsektion, karta och eventuellt öppettider baserat på vad du berättar. Allt är redigerbart så du kan uppdatera telefonnummer, adress eller stängningstider när som helst."
+    },
+    {
+      "heading": "Mobilanpassad och snabb",
+      "body": "Majoriteten av alla bokningar sker från mobilen. Sajtmaskin genererar responsiva sajter som ser bra ut och laddar snabbt på alla skärmar. Bokningsformuläret är stort nog att fylla i på telefon, knappar är lättklickade och kalendern scrollar smidigt. Du behöver inte testa själv – det funkar från start."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja. Du kan antingen publicera på en gratis subdomän hos Sajtmaskin eller koppla din egen domän. Guiden i plattformen visar exakt hur du pekar DNS-posterna, och supporten hjälper till om något krånglar."
+    },
+    {
+      "q": "Kostar bokningsfunktionen extra?",
+      "a": "Nej. Cal.com är gratis att använda för grundläggande bokning. Om du vill ha avancerade funktioner som SMS-påminnelser eller teamkalendrar kan du uppgradera direkt hos Cal.com, men själva integrationen i Sajtmaskin är alltid inkluderad utan extra kostnad."
+    },
+    {
+      "q": "Hur hanteras dubbelbokningar?",
+      "a": "Cal.com synkar med din kalender i realtid. När någon bokar en tid försvinner den direkt från schemat så ingen annan kan välja samma slot. Du kan också lägga in buffert mellan bokningar eller blockera tider manuellt när du är upptagen."
+    },
+    {
+      "q": "Kan kunden avboka eller boka om själv?",
+      "a": "Ja, om du aktiverar det i Cal.com. Kunden får en bekräftelsemejl med länk där de kan avboka eller välja ny tid. Du bestämmer själv reglerna – till exempel att ombokning måste ske minst 24 timmar i förväg."
+    },
+    {
+      "q": "Vad händer om jag vill byta bokningssystem senare?",
+      "a": "Du äger koden och kan exportera hela sajten när du vill. Då kan du byta ut Cal.com-integrationen mot Calendly, Bookly eller något annat system. Sajtmaskin låser dig aldrig – allt är öppen HTML, CSS och JavaScript."
+    },
+    {
+      "q": "Kan jag ta betalt för vissa tjänster men inte alla?",
+      "a": "Absolut. Du kopplar Stripe per tjänst i Cal.com. En kostnadsfri konsultation kan vara gratis att boka medan en behandling kräver förskottsbetalning. Sajtmaskin och Cal.com hanterar det smidigt i samma bokningsflöde."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta är klara på 10–20 minuter. Du chattar med AI:n, beskriver dina tjänster och bokningsbehov, granskar resultatet, justerar eventuellt några texter eller bilder – och publicerar. Cal.com-kopplingen sker med ett knapptryck, ingen kod behövs."
+    }
+  ],
+  "localOrIndustryContext": "Bokningssajter är idag standard inom friskvård, skönhet, konsultation och hantverksyrken. Kunder förväntar sig att kunna boka när det passar dem, inte bara under kontorstid. En hemsida med inbyggd bokning ökar därför både antalet bokningar och kundnöjdheten – särskilt om flödet är smidigt och mobilvänligt.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en bokning-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

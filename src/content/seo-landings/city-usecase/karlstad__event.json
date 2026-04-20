@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "karlstad/event",
+  "title": "Hemsida för event i Karlstad – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Karlstad med AI. Biljetthantering, anmälan och information – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för event i Karlstad",
+  "heroSub": "Bygg en komplett eventsajt med anmälan, biljetter och praktisk info – direkt via chat, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "Ska du arrangera en konferens på Clarion, en festival vid Mariebergsskogen eller ett företagsevent i Karlstad? En hemsida gör det enklare för deltagare att hitta information, anmäla sig och köpa biljetter. Med Sajtmaskin skapar du hela sajten på minuter genom att chatta med AI:n – den bygger sidor för program, talare, praktisk info och anmälan åt dig.",
+    "Du får en färdig sajt som fungerar på mobil och dator, med integrationer för bokning via Cal.com och betalning via Stripe. Publicera på din egen domän eller använd en kostnadsfri subdomän. Allt på svenska, utan bindningstid, och du kan exportera koden när du vill.",
+    "Oavsett om det är en endagskurs, en musikgala eller ett nätverk för Karlstads företagare – Sajtmaskin anpassar innehållet efter just ditt event."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför din eventsajt behöver mer än en Facebook-sida",
+      "body": "En eventssida på sociala medier når bara dem som redan följer dig. En egen hemsida syns i Google när folk söker efter event i Karlstad, ger dig full kontroll över design och information, och låter dig samla anmälningar och betalningar på ett ställe. Du slipper algoritmer som döljer dina inlägg och kan bygga en mailinglista för framtida event. Med Sajtmaskin får du en proffsig sajt utan att behöva anlita webbyrå eller lära dig WordPress."
+    },
+    {
+      "heading": "Så bygger du en eventsajt i Sajtmaskin",
+      "body": "Logga in och beskriv ditt event i chatten: typ av tillställning, datum, plats, målgrupp och vad besökare behöver veta. AI:n skapar sidor för startsida med hero-bild, program med tidsschema, information om talare eller artister, praktisk info om plats och parkering, samt en anmälningssida. Du kan be AI:n lägga till fler sektioner – sponsorer, FAQ, karta, bildgalleri från tidigare år. Ändra texter, byt bilder och justera färger direkt i chatten. När allt ser bra ut publicerar du på din domän."
+    },
+    {
+      "heading": "Integrationer som gör eventet smidigare",
+      "body": "Koppla Cal.com för att låta deltagare boka tid för workshops eller mingel. Lägg till Stripe för att ta betalt för biljetter direkt på sajten – inga mellanhänder, inga extraavgifter från tredjepartstjänster. Google Analytics visar hur många som besöker sajten och vilka sidor de tittar mest på, så du ser vad som engagerar. Allt sätts upp via Sajtmaskins gränssnitt, ingen teknisk kunskap behövs."
+    },
+    {
+      "heading": "Från idé till publicerad sajt på en förmiddag",
+      "body": "De flesta eventssajter är klara på 30–60 minuter. Du skriver vad du vill ha, AI:n levererar ett förslag, du justerar detaljer och publicerar. Ingen väntan på webbyrå, inga timdebitering, inga dolda kostnader. Om du vill ändra något efter lanseringen – lägg till en talare, uppdatera programmet, byt ut en bild – gör du det direkt i chatten. Sajtmaskin är byggt för att du ska kunna fokusera på att göra eventet bra, inte krångla med teknik."
+    },
+    {
+      "heading": "Äger du sajten och koden",
+      "body": "Allt innehåll och all design är din. Ingen bindningstid, ingen inlåsning. Vill du flytta sajten till en annan hostingtjänst eller ge den till en utvecklare för vidareutveckling kan du exportera hela koden. Hosting på subdomän kostar inget, egen domän kopplar du enkelt via DNS. Sajtmaskin tar ingen procent på dina biljettintäkter och lägger inga annonser på din sajt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja, genom att integrera Stripe kan besökare betala med kort direkt på din hemsida. Du får pengarna på ditt eget Stripe-konto utan mellanhänder. Sajtmaskin tar ingen provision på försäljningen."
+    },
+    {
+      "q": "Fungerar sajten för återkommande event i Karlstad?",
+      "a": "Absolut. Du kan uppdatera datum, program och information inför varje ny upplaga genom att chatta med AI:n. Behåll samma domän och design så bygger du igenkänning över tid. Perfekt för årliga konferenser, månatliga nätverksträffar eller säsongsbaserade festivaler."
+    },
+    {
+      "q": "Hur lägger jag till en karta till eventplatsen?",
+      "a": "Be AI:n bädda in en karta från Google Maps eller lägg till en sektion med vägbeskrivning och kollektivtrafikinformation. Du kan också lägga till praktiska detaljer som parkering vid Klarälvsbanan eller närmaste busshållplats om ditt event är centralt i Karlstad."
+    },
+    {
+      "q": "Kan jag använda sajten för företagsevent och interna konferenser?",
+      "a": "Ja, du kan lösenordsskydda hela sajten eller enskilda sidor så bara inbjudna med länk eller kod kommer åt informationen. Bra för kickoffer, utbildningsdagar eller styrelsemöten där du vill samla agenda, anmälan och praktisk info på ett ställe."
+    },
+    {
+      "q": "Vad händer om jag behöver ändra något dagen innan eventet?",
+      "a": "Du loggar in och ändrar direkt i chatten – uppdatera en tid, byt talare, lägg till en sektion. Ändringarna publiceras på sekunder. Ingen väntan på support eller tekniker, du har full kontroll själv."
+    },
+    {
+      "q": "Kostar det extra att ha sajten uppe efter att eventet är över?",
+      "a": "Nej, hosting på subdomän är gratis utan tidsbegränsning. Du kan låta sajten ligga kvar som arkiv eller referens, eller ta ner den när du vill. Ingen månadskostnad som tickar på i onödan."
+    },
+    {
+      "q": "Kan jag återanvända designen till nästa event?",
+      "a": "Ja, du kan duplicera sajten och uppdatera innehållet inför nästa tillfälle. Då slipper du bygga från scratch varje gång och håller en konsekvent profil över flera event. Smidig för eventserier eller återkommande arrangemang."
+    }
+  ],
+  "localOrIndustryContext": "Karlstad har en växande eventscen med allt från Putte i Parken och Karlstad Pride till företagskonferenser på hotellen vid Klarälven. En egen hemsida gör ditt event lättare att hitta för både lokala besökare och de som reser hit, och ger en professionell känsla som sticker ut i flödet av Facebook-inlägg.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/karlstad",
+      "label": "Skapa hemsida i Karlstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Karlstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

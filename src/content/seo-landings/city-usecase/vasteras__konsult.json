@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/konsult",
+  "title": "Hemsida konsult Västerås – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet i Västerås på minuter. AI bygger sajten åt dig – ingen kod, klart direkt.",
+  "h1": "Hemsida för konsulter i Västerås",
+  "heroSub": "Bygg en professionell konsultsajt på minuter med AI – ingen kod, ingen krånglig teknik, bara en färdig sajt som visar vad du kan.",
+  "introParagraphs": [
+    "Som konsult i Västerås behöver du en sajt som snabbt visar vad du erbjuder, vem du jobbar med och hur kunder når dig. Sajtmaskin bygger hela din hemsida via en enkel chatt – du beskriver din verksamhet, så skapar AI:n en komplett sajt med presentationssidor, kontaktformulär och bokningsfunktion.",
+    "Du får en sajt som fungerar direkt, publicerad på din egen domän eller kostnadsfritt på en subdomän hos oss. Allt på svenska, inget kodande, och du kan när som helst exportera koden om du vill flytta sajten någon annanstans.",
+    "Perfekt för managementkonsulter, IT-konsulter, HR-specialister och alla andra som säljer expertis och vill ha en sajt som är professionell utan att ta veckor att bygga."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din konsultsajt med Sajtmaskin",
+      "body": "Du startar en chatt och beskriver din konsultverksamhet – vilka tjänster du erbjuder, vilka branscher du jobbar med, vilka resultat du levererar. AI:n ställer följdfrågor om du vill ha bokningskalender, kontaktformulär eller case-exempel, sedan genereras hela sajten automatiskt. Du får en struktur med startsida, tjänstebeskrivningar, om-sida och kontakt. Vill du ändra något chattar du bara vidare, så uppdateras sidorna direkt. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän."
+    },
+    {
+      "heading": "Funktioner som konsulter i Västerås behöver",
+      "body": "De flesta konsulter behöver en tydlig presentation av sina tjänster, referensprojekt som visar trovärdighet, och ett enkelt sätt för kunder att boka ett första möte. Sajtmaskin integrerar Cal.com så att besökare kan boka tid direkt i din kalender, och kontaktformulär som skickar förfrågningar till din mejl. Vill du ta betalt för workshops eller digitala produkter kopplar du på Stripe. Google Analytics ingår om du vill följa besökare, och allt sköts från samma gränssnitt på svenska."
+    },
+    {
+      "heading": "Västerås konsultmarknad och synlighet online",
+      "body": "Västerås har en stark bas av industri- och teknikföretag som ofta behöver extern expertis inom allt från digitalisering till ledarskap. Många konsulter här jobbar mot ABB, kommunen, Mälardalens universitet och regionens tillverkningsbolag. En egen hemsida gör att du syns när potentiella kunder söker efter din typ av kompetens, och den fungerar som ett digitalt visitkort när du nätverkar på lokala events eller skickar offerter. Med Sajtmaskin får du en sajt som är sökoptimerad från start, så att du syns för rätt sökord i Västerås-området."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll över din sajt",
+      "body": "Du äger din sajt och kan exportera all kod när du vill. Hosting på subdomän är gratis utan tidsgräns, och vill du använda egen domän kopplar du bara den via DNS-inställningar. Det finns ingen månadskostnad för att ha sajten live, ingen bindningstid, och du kan när som helst pausa, uppdatera eller ta ner sajten. Allt content och alla bilder du laddar upp är ditt, och Sajtmaskin lägger inga vattenmärken eller krav på att du ska länka tillbaka till oss."
+    },
+    {
+      "heading": "Byggt i Sverige, support på svenska",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, och hela plattformen – från gränssnitt till support – är på svenska. Du slipper översätta termer eller gissa dig till vad knappar betyder. AI:n förstår svenska sammanhang och branschtermer, och genererar texter som låter naturliga. Har du frågor når du support som pratar svenska och förstår hur svenska konsulter jobbar. Allt från fakturering till dokumentation sker på svenska, så att du kan fokusera på ditt uppdrag istället för att kämpa med verktyget."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig konsultsajt?",
+      "a": "De flesta har en publicerad sajt inom 10–20 minuter. Du chattar med AI:n om din verksamhet, granskar resultatet och justerar om du vill. Sedan publicerar du direkt. Vill du lägga till fler sidor eller funktioner senare gör du det i samma chatt."
+    },
+    {
+      "q": "Kan jag integrera en bokningskalender för kundmöten?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com så att besökare kan boka tid direkt på sajten. Du kopplar ditt Cal.com-konto, väljer vilka tider som ska vara bokningsbara, och bäddar in kalendern på valfri sida. Bokningar hamnar automatiskt i din kalender."
+    },
+    {
+      "q": "Kostar det något att ha sajten live på en subdomän?",
+      "a": "Nej, hosting på subdomän hos Sajtmaskin är gratis utan tidsgräns. Vill du använda din egen domän (t.ex. dinkonsult.se) kopplar du den via DNS, men det är frivilligt. Det finns ingen månadskostnad för själva hostingen."
+    },
+    {
+      "q": "Kan jag visa case-exempel och referensprojekt på sajten?",
+      "a": "Absolut. Du beskriver dina projekt i chatten, så skapar AI:n case-sidor eller en portfolio-sektion. Du kan lägga till bilder, resultat och kundcitat. Allt uppdateras direkt när du chattar om ändringar."
+    },
+    {
+      "q": "Passar Sajtmaskin för konsulter som jobbar i Västerås och omnejd?",
+      "a": "Ja, plattformen är byggd för svenska företag och konsulter oavsett var du är baserad. Du kan lägga till Västerås som geografisk fokus på sajten, nämna lokala kunder eller projekt, och optimera för sökord som inkluderar Västerås. AI:n förstår svenska ortsnamn och branschsammanhang."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera all kod när du vill, utan extra kostnad. Sajten är byggd med standardteknik, så du kan flytta den till vilken hosting du vill eller låta en annan utvecklare ta över. Det finns ingen inlåsning."
+    },
+    {
+      "q": "Kan jag ta betalt för digitala tjänster eller workshops via sajten?",
+      "a": "Ja, du integrerar Stripe för kortbetalningar. Det fungerar för engångsprodukter, prenumerationer eller bokningsbara workshops. Du sätter pris och beskrivning, så hanterar Stripe hela betalflödet och skickar pengarna till ditt konto."
+    }
+  ],
+  "localOrIndustryContext": "Västerås har en bred konsultmarknad med fokus på teknik, industri och offentlig sektor. Många konsulter här jobbar mot stora arbetsgivare som ABB, Mälardalens universitet och kommunen, samt regionens tillverknings- och logistikföretag. En professionell hemsida gör att du syns när potentiella kunder söker efter expertis, och fungerar som en trovärdig referens när du nätverkar lokalt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

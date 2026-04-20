@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "akeri",
+  "title": "Hemsida för åkeri – bygg din transportsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt åkeri med AI. Offertformulär, tjänstbeskrivningar och bokningsfunktion – klar på minuter utan kod.",
+  "h1": "Hemsida för åkeri",
+  "heroSub": "Bygg en komplett transportsajt med offertformulär, tjänstöversikt och kontaktmöjligheter – direkt i chatten, utan att koda.",
+  "introParagraphs": [
+    "En hemsida för åkeri behöver visa vad du kör, var du kör och hur kunder snabbt kan begära offert. Många åkerier tappar jobb till konkurrenter som syns bättre online, trots att de har bättre service eller modernare lastbilar. Med Sajtmaskin bygger du en sajt som visar dina tjänster tydligt – från kranbilar och containertransport till expressleveranser – och gör det enkelt för nya kunder att höra av sig.",
+    "Du chattar med AI:n om vad ditt åkeri gör, vilka fordon du har och vilket område du täcker. Sajtmaskin genererar då en komplett sajt med tjänstsidor, om-sida, kontaktformulär och offertbegäran. Publicera på din egen domän eller testa gratis på en subdomän. Ingen bindningstid, ingen månadskostnad för hosting, och du kan exportera koden när du vill.",
+    "Plattformen är byggd i Sverige med svenskt gränssnitt och support. Integrationer med Cal.com för bokningar, Stripe för betalningar och Google Analytics för att se var dina besökare kommer ifrån ingår. Allt du behöver för att ta emot förfrågningar dygnet runt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för åkeri ska innehålla",
+      "body": "En bra transportsajt visar tydligt vilka tjänster du erbjuder: lastbilstransport, kranbilar, expressleveranser, containertransport eller specialtransporter. Varje tjänst bör ha en egen sida med bilder på fordonen och information om vikt, volym och geografisk räckvidd. Ett offertformulär där kunder fyller i lasttyp, vikt, upphämtning och destination gör det enkelt att få in förfrågningar. Kontaktuppgifter, öppettider och ett telefonnummer synligt i sidhuvudet skapar förtroende. Många åkerier vinner på att visa certifieringar som miljöklass, ADR-godkännande eller ISO-standard."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din åkerisajt",
+      "body": "Du startar en chatt och beskriver ditt åkeri: vilka transporter du kör, vilka fordon du har, vilket område du täcker och om du har specialkompetens som kyltransport eller farligt gods. AI:n föreslår då en struktur med startsida, tjänstsidor för varje transporttyp, om-sida med företagshistorik och kontaktsida med offertformulär. Du kan be om ändringar direkt i chatten – lägg till en sida för kranbilar, ändra texten om expressleveranser eller byt färgschema till företagets profil. Allt sker utan kod, och du ser resultatet live medan du chattar."
+    },
+    {
+      "heading": "Offertformulär och bokningsfunktion",
+      "body": "Sajtmaskin kan integrera Cal.com så kunder kan boka tid för upphämtning eller besiktning direkt i kalendern. Offertformuläret anpassas efter dina behov: fält för lasttyp, vikt, mått, från-adress, till-adress och önskad datum. Formuläret skickar förfrågan till din mejl eller CRM. Om du kör regelbundna linjer kan du lägga till en priskalkylator eller en sida med standardpriser för vanliga sträckor. Stripe-integration fungerar om du vill ta förskottsbetalning eller fakturera direkt via sajten."
+    },
+    {
+      "heading": "Mobilanpassning och lokal SEO",
+      "body": "Många som söker åkeri gör det från mobilen när de plötsligt behöver transport. Sajtmaskin bygger automatiskt responsiva sajter som fungerar lika bra på telefon som dator. Du kan lägga in ditt lokala område i texterna – exempelvis Göteborg, Skåne eller Norrland – så sajten rankar bättre för sökningar som åkeri Malmö eller kranbilar Stockholm. Google Analytics-integration visar vilka sökord som driver trafik och var besökarna klickar, så du kan förbättra sajten över tid."
+    },
+    {
+      "heading": "Ingen bindning, full kontroll",
+      "body": "Du äger innehållet och kan när som helst exportera koden om du vill flytta sajten till en egen server. Hosting på subdomän kostar ingenting per månad, och du kan uppgradera till egen domän direkt. Ingen bindningstid betyder att du testar utan risk. Support på svenska hjälper till om du kör fast. Sajtmaskin är byggt av Pretty Good AB i Sverige, så all data hanteras enligt svenska regler."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för åkeri?",
+      "a": "De flesta får en fungerande sajt på 10–20 minuter. Du chattar om dina tjänster, fordon och område, så genererar AI:n sidorna. Sedan justerar du texter och bilder tills allt ser rätt ut. Publicering sker direkt när du är nöjd."
+    },
+    {
+      "q": "Kan jag ha ett offertformulär där kunder fyller i lastuppgifter?",
+      "a": "Ja, Sajtmaskin bygger formulär med de fält du vill ha: lasttyp, vikt, volym, upphämtningsadress, leveransadress och önskad tid. Förfrågningar skickas till din mejl eller integreras med ditt CRM-system."
+    },
+    {
+      "q": "Fungerar sajten för kranbilar och specialtransporter?",
+      "a": "Absolut. Du beskriver varje tjänst i chatten – kranbilar, containertransport, expressleveranser, farligt gods – och AI:n skapar egna sidor med relevant information. Du kan lägga till bilder på fordonen och specifikationer som lyftkapacitet eller certifieringar."
+    },
+    {
+      "q": "Kan kunder boka upphämtningstid direkt på sajten?",
+      "a": "Ja, via Cal.com-integration. Du kopplar din kalender så kunder ser lediga tider och bokar direkt. Perfekt för planerade transporter eller besiktningar. Bekräftelse skickas automatiskt till både dig och kunden."
+    },
+    {
+      "q": "Kostar det något att ha sajten online varje månad?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän som dittkeri.se betalar du bara för domänen hos din registrar. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag visa priser eller priskalkylator för vanliga sträckor?",
+      "a": "Ja, du kan lägga till en prissida eller en enkel kalkylator där kunder väljer sträcka och lasttyp för att se ungefärligt pris. Allt anpassas efter hur du vill presentera dina tjänster."
+    },
+    {
+      "q": "Äger jag sajten och kan jag flytta den senare?",
+      "a": "Du äger allt innehåll och kan exportera koden när du vill. Ingen inlåsning. Om du senare vill driva sajten på egen server eller byta plattform är det fritt fram."
+    }
+  ],
+  "localOrIndustryContext": "Många svenska åkerier – från enmansföretag med en lastbil till regionala aktörer med kranbilar och specialfordon – saknar fortfarande en modern hemsida. Kunder söker ofta lokalt, som åkeri Västerås eller transport Sundsvall, och förväntar sig att kunna begära offert direkt online. En tydlig sajt med tjänstbeskrivningar och kontaktformulär gör skillnaden mellan att få jobbet eller att kunden ringer nästa namn i listan.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en åkeri-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

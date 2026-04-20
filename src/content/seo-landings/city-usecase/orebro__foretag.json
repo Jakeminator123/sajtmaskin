@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "orebro/foretag",
+  "title": "Hemsida företag Örebro – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag i Örebro med AI. Ingen kod, klart på minuter. Egen domän, bokningar och betalningar. Prova gratis.",
+  "h1": "Hemsida för företag i Örebro",
+  "heroSub": "Bygg en professionell företagssajt på minuter med AI – ingen kod, inga krångliga verktyg, bara din vision och vår svenska plattform.",
+  "introParagraphs": [
+    "Du driver företag i Örebro och behöver en hemsida som faktiskt fungerar – inte bara ser bra ut, utan hjälper dig att ta emot bokningar, visa upp tjänster och bygga förtroende hos kunder i regionen. Sajtmaskin låter dig skapa en komplett företagssajt genom att chatta med AI. Du beskriver vad du behöver, AI:n bygger sidan, och du publicerar på egen domän. Allt på svenska, utan kod.",
+    "Oavsett om du driver konsultverksamhet från Hjälmarstranden, hantverksfirma i Vivalla eller B2B-bolag i Näsby Park behöver din hemsida fungera från dag ett. Med Sajtmaskin får du bokningssystem via Cal.com, betalningar genom Stripe och Analytics – allt integrerat. Ingen bindningstid, ingen dold kostnad för hosting på subdomän, och du kan exportera koden när du vill.",
+    "Örebro-företag behöver sajter som speglar både lokal närvaro och professionell trovärdighet. Sajtmaskin ger dig verktygen att visa upp ditt företag på riktigt, utan att du behöver lära dig WordPress, anställa byrå eller vänta i veckor."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en företagssajt i Örebro behöver",
+      "body": "En företagssajt i Örebro ska göra tre saker: bygga förtroende, förklara vad du erbjuder och göra det enkelt för kunder att ta kontakt eller boka. Det betyder tydliga tjänstebeskrivningar, kontaktuppgifter som syns, och gärna integration med bokningssystem om du säljer tid. Många Örebro-företag behöver också visa lokal förankring – var du finns, vilka du jobbar med, varför kunder i regionen ska välja dig. Sajtmaskin låter dig bygga allt detta genom att beskriva din verksamhet i chatten. AI:n skapar struktur, texter och layout anpassat efter vad företagssajter faktiskt behöver."
+    },
+    {
+      "heading": "Så bygger du företagssajten med AI",
+      "body": "Du startar med att berätta vad ditt företag gör, vem du vill nå och vad sajten ska uppnå. AI:n föreslår struktur – startsida, tjänster, om oss, kontakt – och skriver förslag på texter. Du justerar, lägger till bilder, kopplar på Cal.com om du vill ta bokningar eller Stripe om du säljer produkter eller tjänster direkt. Allt händer i ett svenskt gränssnitt där du chattar dig fram till resultatet. När du är nöjd publicerar du på egen domän eller testar på en subdomän utan kostnad. Inga mallar som ser likadana ut, ingen kod att klippa och klistra."
+    },
+    {
+      "heading": "Integrationer som gör sajten användbar",
+      "body": "En företagssajt ska jobba åt dig, inte bara ligga där. Sajtmaskin kopplar Cal.com för mötesbokningar – perfekt om du säljer konsulttid, behandlingar eller rådgivning. Stripe hanterar betalningar om du tar förskott, säljer kurser eller fakturerar digitalt. Google Analytics visar var trafiken kommer ifrån och vilka sidor som fungerar. Behöver du webshop integrerar du Shopify. Allt sätts upp via chatten, och du behöver inte röra API-nycklar eller inställningar om du inte vill. Systemet föreslår vad som passar din verksamhet."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen inlåsning",
+      "body": "Sajtmaskin har ingen bindningstid. Du betalar för det du använder, och om du vill ta sajten någon annanstans exporterar du koden och äger allt. Hosting på subdomän kostar inget extra, egen domän kopplar du på när du är redo. Ingen dold kostnad, inga överraskningar i fakturan. Många Örebro-företag testar plattformen med en enkel sajt först, ser att det funkar och bygger sedan ut med fler sidor, bokningar eller betalfunktioner. Du styr takten, vi ger verktygen."
+    },
+    {
+      "heading": "Byggt i Sverige, stöd på svenska",
+      "body": "Sajtmaskin är byggt av Pretty Good AB i Sverige. Gränssnittet är på svenska, supporten pratar svenska och AI:n förstår hur svenska företag kommunicerar. Ingen översatt manual från engelska, inga chatbots som svarar på fel språk. Du får en plattform som är gjord för svenska förhållanden – GDPR, svenska betaltjänster, lokal hosting. Om du kör fast finns människor att prata med, inte bara en FAQ."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt?",
+      "a": "De flesta får ihop en fungerande sajt på 20–40 minuter. Du chattar med AI:n, justerar texter och layout, lägger till bilder och publicerar. Vill du ha bokningssystem eller betalningar tar det lite längre, men grundsajten är klar snabbt. Du kan alltid fortsätta utveckla efter publicering."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja, du kopplar din egen domän direkt i plattformen. Vill du testa först kan du publicera på en subdomän utan kostnad. Ingen bindningstid – du bestämmer när och om du vill ha egen adress."
+    },
+    {
+      "q": "Funkar det för alla typer av företag i Örebro?",
+      "a": "Ja. Konsulter, hantverkare, butiker, byråer, coacher, behandlare – alla som behöver en sajt som visar vad de gör och tar emot kunder. Sajtmaskin passar lika bra för enmansbolag som för företag med anställda. AI:n anpassar innehåll efter din bransch."
+    },
+    {
+      "q": "Vad kostar det att använda Sajtmaskin?",
+      "a": "Hosting på subdomän är gratis. Vill du ha egen domän, fler funktioner eller integrationer finns flexibla prisplaner. Ingen bindningstid, du betalar för vad du använder. Prova gärna med en enkel sajt först och bygg ut när du ser att det funkar."
+    },
+    {
+      "q": "Kan jag ta emot bokningar och betalningar?",
+      "a": "Ja. Integrera Cal.com för bokningar av möten, behandlingar eller konsultationer. Stripe hanterar betalningar om du säljer tjänster, produkter eller tar förskott. Båda sätts upp via chatten, och du behöver inte kunna koda."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill. Ingen inlåsning, inget krångel. Sajten är din, och du äger allt innehåll. Ta den till annan hosting eller utvecklare om du vill – vi håller inte din sajt som gisslan."
+    },
+    {
+      "q": "Behöver jag kunna koda eller ha teknisk erfarenhet?",
+      "a": "Nej. Du chattar med AI:n på svenska, beskriver vad du vill ha, och systemet bygger sajten. Vill du ändra något klickar du och justerar, fortfarande utan kod. Gränssnittet är gjort för att vem som helst ska kunna använda det."
+    }
+  ],
+  "localOrIndustryContext": "Örebro har en blandad näringslivsstruktur med allt från life science och logistik till handel och tjänsteföretag. Många lokala bolag behöver sajter som fungerar både regionalt och nationellt – tydlig lokal förankring kombinerat med professionell närvaro online. Sajtmaskin låter dig bygga en sajt som speglar din verksamhet utan att kräva teknisk kompetens eller stora budgetar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/orebro",
+      "label": "Skapa hemsida i Örebro"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Örebro. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

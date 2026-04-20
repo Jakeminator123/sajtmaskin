@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
+import { hrefForSeoLanding } from "@/content/seo/config";
 import { URLS } from "@/lib/config";
+import { collectAllSeoLandings } from "@/lib/seo/load-landing";
 
 const BASE_URL = URLS.baseUrl;
 
@@ -16,6 +18,7 @@ export const STATIC_SITEMAP_REL_PATHS = [
   "/faq",
   "/om",
   "/blogg",
+  "/landningssidor",
   "/terms",
   "/privacy",
 ] as const;
@@ -32,7 +35,16 @@ const CATEGORIES = [
   "apps-and-games",
 ];
 
-export default function sitemap(): MetadataRoute.Sitemap {
+const SEO_LANDING_PRIORITY: Record<string, number> = {
+  city: 0.8,
+  usecase: 0.8,
+  industry: 0.75,
+  ai: 0.7,
+  compare: 0.7,
+  "city-usecase": 0.65,
+};
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
   const staticPriorities: Record<string, number> = {
@@ -42,6 +54,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/faq": 0.5,
     "/om": 0.45,
     "/blogg": 0.45,
+    "/landningssidor": 0.5,
     "/terms": 0.3,
     "/privacy": 0.3,
   };
@@ -53,6 +66,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/faq": "monthly",
     "/om": "monthly",
     "/blogg": "weekly",
+    "/landningssidor": "weekly",
     "/terms": "yearly",
     "/privacy": "yearly",
   };
@@ -71,5 +85,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...categoryPages];
+  const landings = await collectAllSeoLandings();
+  const seoLandingPages: MetadataRoute.Sitemap = landings.map(({ family, slug, generatedAt }) => {
+    const lastModified = generatedAt ? new Date(generatedAt) : now;
+    return {
+      url: `${BASE_URL}${hrefForSeoLanding(family, slug)}`,
+      lastModified: Number.isNaN(lastModified.getTime()) ? now : lastModified,
+      changeFrequency: "weekly" as const,
+      priority: SEO_LANDING_PRIORITY[family] ?? 0.6,
+    };
+  });
+
+  return [...staticPages, ...categoryPages, ...seoLandingPages];
 }

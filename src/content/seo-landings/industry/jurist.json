@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "jurist",
+  "title": "Hemsida för jurist – bygg din advokatbyrå-sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din juristbyrå med AI. Publicera på egen domän, integrera bokning och betalning. Ingen kod krävs.",
+  "h1": "Hemsida för jurist",
+  "heroSub": "Bygg en professionell sajt för din advokatbyrå eller juristverksamhet – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En hemsida för jurist behöver förmedla trovärdighet, tydlighet och tillgänglighet. Klienter som söker juridisk hjälp vill snabbt förstå vilka tjänster du erbjuder, se dina specialistområden och kunna boka ett första möte. Med Sajtmaskin chattar du fram hela sajten på minuter – från tjänstesidor och teamproffs till bokningskalender och kontaktformulär.",
+    "Du beskriver din verksamhet i chatten, och AI:n bygger en komplett sajt anpassad för juristbranschen. Publicera på din egen domän, integrera Cal.com för tidsbokning och Stripe om du vill ta betalt för konsultationer direkt online. Allt på svenska, utan bindningstid, och du äger koden."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för jurist behöver innehålla",
+      "body": "En typisk juristsajt har en startsida som förklarar vad byrån gör, en tjänstesida uppdelad på specialistområden som familjerätt, arbetsrätt, avtalsrätt eller fastighetsrätt, samt en om-sida med teamet och dess kompetens. Många jurister behöver också en kontaktsida med bokningskalender, kontaktformulär och information om konsultationskostnader. Vissa vill publicera artiklar eller nyheter för att visa expertis inom sitt område. Sajtmaskin genererar alla dessa sidor utifrån din beskrivning och låter dig justera text, bilder och struktur direkt i chatten."
+    },
+    {
+      "heading": "Bokningar och betalningar för juridiska konsultationer",
+      "body": "Med Cal.com-integrationen kan klienter boka ett första rådgivningsmöte direkt på din hemsida – antingen fysiskt på kontoret eller digitalt via Teams eller Zoom. Du styr själv vilka tider som är bokningsbara och hur lång tid varje möte ska vara. Vill du ta betalt för konsultationen i förväg kopplar du Stripe och sätter ett fast pris eller erbjuder gratis förstasamtal. Allt synkas med din kalender så du slipper dubbelbokningar."
+    },
+    {
+      "heading": "Bygg sajten på svenska, för svenska klienter",
+      "body": "Juristbranschen i Sverige kräver tydligt och korrekt språk. Sajtmaskin är helt svenskspråkig – från gränssnittet till AI:ns förslag på text. Du kan be AI:n skriva om dina tjänster på ett sätt som passar privatpersoner eller företagskunder, justera tonalitet från formell till tillgänglig, och lägga till lokala referenser som Stockholms tingsrätt, Arbetsdomstolen eller Konsumentverket. Allt material ägs av dig och kan exporteras när du vill."
+    },
+    {
+      "heading": "Ingen kod, ingen bindningstid",
+      "body": "Du behöver varken webbyrå eller teknisk kunskap för att få upp en professionell juristsajt. Sajtmaskin hanterar design, struktur och publicering åt dig. Hosting på subdomän kostar ingenting per månad, och vill du använda egen domän som minbyra.se ordnar du det med ett klick. Ingen bindningstid – du kan när som helst exportera koden och flytta sajten till en annan plattform. Uppdateringar och justeringar gör du själv i chatten, precis när du behöver."
+    },
+    {
+      "heading": "Integrera med verktyg du redan använder",
+      "body": "Förutom Cal.com och Stripe kan du koppla Google Analytics för att se var besökare kommer ifrån och vilka sidor de läser. Vill du sälja kursmaterial, mallar eller juridiska guider online kan du integrera Shopify och ha en enkel webshop direkt på sajten. Allt sätts upp utan plugins eller krånglig konfiguration – du beskriver vad du vill ha, och AI:n fixar resten."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för jurist?",
+      "a": "De flesta jurister har en komplett sajt redo att publicera inom 10–15 minuter. Du beskriver din verksamhet, specialistområden och vilka sidor du vill ha, så genererar AI:n struktur och text. Sedan justerar du det som behöver finjusteras direkt i chatten."
+    },
+    {
+      "q": "Kan jag ha en bokningskalender för konsultationer?",
+      "a": "Ja, du integrerar Cal.com och låter klienter boka tid direkt på hemsidan. Du styr vilka tider som är lediga, hur långa möten ska vara och om de ska ske på kontoret eller digitalt. Allt synkas med din egen kalender."
+    },
+    {
+      "q": "Kan jag ta betalt för konsultationer via hemsidan?",
+      "a": "Ja, med Stripe-integrationen kan klienter betala för ett rådgivningsmöte i förväg. Du sätter pris och beskriver vad som ingår, och betalningen hanteras säkert via Stripe. Du kan också erbjuda gratis förstasamtal och ta betalt för uppföljning."
+    },
+    {
+      "q": "Äger jag innehållet och koden?",
+      "a": "Ja, allt material du skapar i Sajtmaskin ägs av dig. Du kan när som helst exportera hela sajten och flytta den till en annan plattform. Ingen bindningstid, inga dolda avgifter."
+    },
+    {
+      "q": "Kan jag skriva om olika juridiska områden på sajten?",
+      "a": "Absolut. Du kan be AI:n skapa separata sidor för familjerätt, arbetsrätt, avtalsrätt, fastighetsrätt eller andra specialistområden. Du kan också publicera artiklar och nyheter för att visa expertis och förbättra SEO."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Hosting på subdomän (dinbyra.sajtmaskin.se) är gratis utan månadskostnad. Vill du använda egen domän som minbyra.se kostar det en liten avgift, men du slipper fortfarande bindningstid och kan när som helst exportera sajten."
+    },
+    {
+      "q": "Kan jag visa teamet och deras kompetens på sajten?",
+      "a": "Ja, du kan lägga till teammedlemmar med bild, titel, specialistområden och beskrivning. AI:n hjälper dig strukturera en om-sida eller teamsida som visar vem som gör vad och vilken erfarenhet varje jurist har."
+    }
+  ],
+  "localOrIndustryContext": "Juristbranschen i Sverige kännetecknas av höga krav på trovärdighet och tydlighet. Många byråer arbetar med både privatpersoner och företag, och hemsidan behöver spegla expertis inom allt från familjerätt och bostadsköp till avtalsrätt och arbetsrättstvister. En modern juristsajt ska vara lätt att navigera, mobilvänlig och göra det enkelt för klienter att boka ett första möte.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en jurist-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

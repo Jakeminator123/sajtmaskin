@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "orebro/konsult",
+  "title": "Hemsida konsult Örebro – Bygg din sajt med AI | Sajtmaskin",
+  "metaDescription": "Skapa en professionell konsultsajt i Örebro på minuter. AI bygger din hemsida med bokning, Case och kontaktformulär. Ingen kod krävs.",
+  "h1": "Hemsida för konsulter i Örebro",
+  "heroSub": "Bygg en professionell konsultsajt med AI – klar på minuter, perfekt för Örebros konsultmarknad.",
+  "introParagraphs": [
+    "Som konsult i Örebro behöver du en hemsida som visar din expertis, gör det enkelt för kunder att boka tid och förklarar tydligt vad du kan hjälpa till med. Sajtmaskin bygger din konsultsajt på minuter via chat – du beskriver vad du gör, så skapar AI:n en färdig sajt med bokning, tjänstebeskrivningar och kontaktformulär.",
+    "Plattformen är byggd i Sverige med svenskt gränssnitt och support. Du publicerar på din egen domän utan månadskostnad för hosting på subdomän, och kan integrera Cal.com för bokning, Stripe för betalningar och Google Analytics. Ingen bindningstid – exportera koden när du vill.",
+    "Oavsett om du jobbar med HR, IT, ekonomi eller projektledning får du en sajt som speglar din profil och gör det lätt för Örebroföretag att ta kontakt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en konsultsajt i Örebro behöver",
+      "body": "En bra konsultsajt måste kommunicera vad du kan, vem du hjälper och hur kunden tar nästa steg. Typiska behov inkluderar tydliga tjänstebeskrivningar, en om-sida som bygger förtroende, case eller referenser, bokningsfunktion för möten och ett kontaktformulär. Många konsulter i Örebro jobbar både lokalt med regionens företag och digitalt med kunder i hela landet, så sajten behöver fungera för båda målgrupperna. Sajtmaskin genererar alla dessa delar automatiskt utifrån din prompt – du behöver bara beskriva din verksamhet."
+    },
+    {
+      "heading": "Så bygger du din konsultsajt med AI",
+      "body": "Du startar en chat och berättar vad du erbjuder: vilka tjänster, vilka branscher du jobbar med, din bakgrund och hur kunder ska komma i kontakt. AI:n skapar en komplett sajt med startsida, tjänstesidor, om-sida och kontakt. Du kan direkt integrera Cal.com för att låta besökare boka kostnadsfria samtal eller workshops, och lägga till Stripe om du säljer digitala produkter eller kurser. Allt på svenska, ingen kod, inga mallar att anpassa manuellt. När sajten är klar publicerar du på din egen domän."
+    },
+    {
+      "heading": "Integrationer för konsulter",
+      "body": "Sajtmaskin stödjer Cal.com för bokning – perfekt för första möten, workshops eller rådgivningstimmar. Stripe låter dig ta betalt för tjänster, kurser eller digitala guider direkt på sajten. Google Analytics ger dig koll på vilka sidor som besöks mest och var trafiken kommer ifrån. Vill du blogga eller dela case kan du enkelt lägga till nya sidor via chatten. Allt byggs med modern, responsiv kod som fungerar lika bra på mobil som dator, vilket är viktigt när många kunder i Örebro söker konsulter på språng."
+    },
+    {
+      "heading": "Örebro och konsultmarknaden",
+      "body": "Örebro har en bred näringsliv med allt från life science och logistik till offentlig sektor och tech. Konsulter inom HR, IT, ekonomi, kommunikation och projektledning jobbar ofta både med regionens medelstora företag och med uppdrag i Stockholm eller andra städer. En professionell hemsida gör att du syns i lokala sökningar, kan ta emot förfrågningar dygnet runt och visar att du är etablerad – även om du jobbar hemifrån eller på distans. Sajtmaskin hjälper dig få upp sajten snabbt så du kan fokusera på kunduppdragen."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du äger din sajt och kan exportera all kod när du vill. Hosting på subdomän är gratis utan månadskostnad, och vill du använda egen domän fixar du det direkt. Ingen bindningstid, inga dolda avgifter. Uppdatera innehåll via chatten eller redigera koden själv om du vill. Support på svenska finns när du behöver hjälp. Sajtmaskin är byggt av Pretty Good AB i Sverige, med fokus på enkelhet och transparens för svenska företagare och konsulter."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en konsultsajt?",
+      "a": "Själva AI-genereringen tar några minuter. Du chattar om din verksamhet, tjänster och målgrupp, så skapar Sajtmaskin en färdig sajt. Sedan kan du justera texter, lägga till bilder eller integrera bokning – totalt brukar de flesta ha en publicerad sajt inom en timme."
+    },
+    {
+      "q": "Kan jag integrera bokningssystem för konsultmöten?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com som du kopplar in direkt. Då kan besökare boka kostnadsfria samtal, workshops eller rådgivningstimmar i din kalender. Perfekt för att sänka tröskeln och få fler leads utan mejl fram och tillbaka."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera sajten?",
+      "a": "Nej. Du uppdaterar innehåll via chatten – beskriv vad du vill ändra så gör AI:n jobbet. Vill du ha full kontroll kan du exportera koden och redigera själv, men det är helt frivilligt."
+    },
+    {
+      "q": "Fungerar sajten för konsulter som jobbar både lokalt i Örebro och nationellt?",
+      "a": "Absolut. Du kan skriva innehåll som tilltalar både lokala företag i Örebro och kunder i hela Sverige. Lägg till case från olika regioner, beskriv att du jobbar på distans eller på plats, och optimera för både lokala och nationella sökord."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän betalar du för domänen hos din registrar, men Sajtmaskin tar ingen extra hostingavgift. Inga bindningstider – du betalar bara för det du använder."
+    },
+    {
+      "q": "Kan jag lägga till blogg eller case-sidor senare?",
+      "a": "Ja, du lägger enkelt till nya sidor via chatten. Beskriv att du vill ha en blogg om till exempel projektledning eller en case-sida om ett uppdrag, så genererar AI:n strukturen. Du fyller i ditt innehåll och publicerar."
+    },
+    {
+      "q": "Är supporten på svenska?",
+      "a": "Ja, Sajtmaskin är byggt i Sverige av Pretty Good AB. Gränssnitt, dokumentation och support är helt på svenska, så du slipper engelska supportchattar eller tidszonsskillnader."
+    }
+  ],
+  "localOrIndustryContext": "Örebros näringsliv spänner från life science och logistik till offentlig verksamhet och tillväxtföretag inom tech. Konsulter inom HR, ekonomi, IT och projektledning hittar uppdrag både regionalt och nationellt, och en professionell hemsida är ofta avgörande för att bygga förtroende och ta emot förfrågningar dygnet runt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/orebro",
+      "label": "Skapa hemsida i Örebro"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Örebro. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "lund/bygg",
+  "title": "Hemsida för byggföretag i Lund | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Lund på minuter. Ingen kod, ingen bindningstid. Bygg din sajt med AI idag.",
+  "h1": "Hemsida för byggföretag i Lund",
+  "heroSub": "Få en komplett hemsida för ditt byggföretag i Lund på minuter – med bokningssystem, projektgalleri och kontaktformulär.",
+  "introParagraphs": [
+    "Om du driver ett byggföretag i Lund behöver du en hemsida som visar dina projekt, gör det enkelt för kunder att begära offert och bygger förtroende. Sajtmaskin låter dig skapa en sådan sajt direkt via chat, utan att behöva koda eller anlita en byrå.",
+    "Du beskriver vad ditt byggföretag gör – om ni fokuserar på nybyggnation, renovering, tillbyggnader eller specialisttjänster som takarbeten eller badrumsrenoveringar. AI:n genererar då en färdig sajt med rätt struktur, texter och funktioner för just din verksamhet i Lund.",
+    "Sajten publiceras på din egen domän och du betalar ingen månadsavgift om du nöjer dig med en subdomän. Integrationer som Cal.com för offertförfrågningar och Google Analytics ingår, och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Lund behöver",
+      "body": "Byggbranschen i Lund präglas av allt från renoveringar i centrala kvarter till nybyggnation i växande områden somÖstra Torn och Linero. Dina potentiella kunder vill se referensprojekt, förstå vad ni är bra på och enkelt kunna ta kontakt. En bra hemsida för ett byggföretag behöver därför ett tydligt projektgalleri med bilder och beskrivningar, ett kontaktformulär eller bokningssystem för offertförfrågningar, information om tjänster och kompetensområden, samt förtroendemarkörer som certifieringar eller kundrecensioner. Sajtmaskin bygger allt detta automatiskt utifrån din beskrivning."
+    },
+    {
+      "heading": "Så bygger du sajten via chat",
+      "body": "Du startar en konversation och berättar vad ditt byggföretag erbjuder. Kanske är ni specialiserade på hållbara renoveringar av äldre fastigheter i centrala Lund, eller bygger energieffektiva villor i stadens nya bostadsområden. AI:n skapar då en sajt med relevanta sidor: startsida, tjänster, projekt, om oss och kontakt. Du kan direkt be om ändringar – lägg till en sida om ROT-avdrag, ändra färgschema för att matcha ditt varumärke, eller integrera ett offertformulär. Allt händer i realtid via chatten, och du ser resultatet direkt."
+    },
+    {
+      "heading": "Bokningar och kontakt",
+      "body": "För ett byggföretag är det avgörande att göra det smidigt för kunder att nå dig. Sajtmaskin integrerar Cal.com så besökare kan boka kostnadsfria platsbesök eller offertmöten direkt i din kalender. Du väljer själv vilka tider som är tillgängliga och får automatiska notiser. Alternativt kan du använda ett vanligt kontaktformulär som mailas till dig. Vill du ta betalt för konsultationer eller mindre tjänster går det att koppla in Stripe. Alla integrationer sätts upp utan teknisk kunskap."
+    },
+    {
+      "heading": "Anpassa och publicera",
+      "body": "När sajten är klar publicerar du den på din egen domän – perfekt om du redan äger byggforetaget.se eller liknande. Vill du testa först kan du använda en gratis subdomän hos Sajtmaskin. Det finns ingen bindningstid och du kan när som helst exportera hela koden om du vill flytta sajten någon annanstans. Uppdateringar gör du själv via chatten: lägg till nya projekt när de blir klara, ändra texter efter säsong eller uppdatera kontaktuppgifter. Allt utan att röra kod."
+    },
+    {
+      "heading": "Bygg för Lunds marknad",
+      "body": "Lund har en blandning av studenter, unga familjer, etablerade hushåll och en stark koppling till universitetet och life science-sektorn. Byggprojekt spänner från studentbostäder och radhus till exklusiva villor och kommersiella lokaler. Din hemsida kan spegla detta genom att lyfta relevanta projekt och tjänster – kanske hållbart byggande för miljömedvetna kunder, eller renoveringar av äldre fastigheter i stadens historiska delar. Sajtmaskin hjälper dig formulera budskapet så det träffar rätt i den lokala kontexten."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en färdig hemsida för mitt byggföretag?",
+      "a": "De flesta får en grundsajt på 10–15 minuter. Du chattar med AI:n, beskriver dina tjänster och projekt, och sajten byggs automatiskt. Vill du finjustera texter, lägga till fler sidor eller integrera bokningssystem tar det lite längre, men du kan publicera direkt när du är nöjd."
+    },
+    {
+      "q": "Kan jag visa projekt och referensbilder på sajten?",
+      "a": "Ja, du kan ladda upp bilder och skapa ett projektgalleri som visar tidigare arbeten. Beskriv varje projekt kort – typ av jobb, plats, eventuella speciallösningar – så besökare ser vad ni kan. Du uppdaterar galleriet själv via chatten när nya projekt blir klara."
+    },
+    {
+      "q": "Fungerar sajten för att ta emot offertförfrågningar?",
+      "a": "Absolut. Du kan integrera Cal.com så kunder bokar kostnadsfria platsbesök eller offertmöten direkt i din kalender, eller använda ett kontaktformulär där de beskriver sitt projekt. Båda alternativen är enkla att sätta upp och kräver ingen teknisk kunskap."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Om du publicerar på en subdomän hos Sajtmaskin är hostingen gratis utan månadsavgift. Vill du använda din egen domän behöver du köpa den separat, men det kostar oftast under hundra kronor per år. Inga dolda avgifter eller bindningstid."
+    },
+    {
+      "q": "Kan jag anpassa sajten för byggföretag i Lund specifikt?",
+      "a": "Ja, du styr allt innehåll själv. Nämn att ni jobbar i Lund och omnejd, lyfta lokala projekt eller områden som Östra Torn, Linero eller centrala Lund. AI:n hjälper dig formulera texter som känns relevanta för kunder i regionen, och du kan när som helst justera via chatten."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Det finns ingen bindningstid. Ta koden och flytta sajten till en annan hosting-tjänst eller låt en utvecklare bygga vidare på den. Du äger alltid ditt innehåll."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera sajten?",
+      "a": "Nej. Alla ändringar gör du via chat. Vill du lägga till en ny tjänstesida, uppdatera kontaktuppgifter eller byta bilder skriver du bara vad du vill ha ändrat. AI:n fixar det direkt, och du ser resultatet i realtid."
+    }
+  ],
+  "localOrIndustryContext": "Lunds byggmarknad spänner från renoveringar av äldre fastigheter i centrala kvarter till nybyggnation i växande områden som Östra Torn och Linero. Med en blandning av studenter, unga familjer och life science-sektorn finns efterfrågan på allt från studentbostäder till exklusiva villor och kommersiella lokaler.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/lund",
+      "label": "Skapa hemsida i Lund"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Lund. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

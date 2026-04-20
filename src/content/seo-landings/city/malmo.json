@@ -1,0 +1,78 @@
+{
+  "family": "city",
+  "slug": "malmo",
+  "title": "Skapa hemsida i Malmö — AI-driven webbplattform | Sajtmaskin",
+  "metaDescription": "Hemsida i Malmö på minuter. Sajtmaskin bygger din webbplats med AI — svenskspråkig, responsiv och SEO-optimerad. Testa gratis.",
+  "h1": "Skapa din hemsida i Malmö med AI",
+  "heroSub": "För Malmös kreatörer, butiker och tjänsteföretag — en sajt som är redo samma dag du börjar.",
+  "introParagraphs": [
+    "Malmö är en av Sveriges snabbast växande städer och hem för en växande skara entreprenörer, frilansare och små butiker. Sajtmaskin är byggt för att ge dig som driver verksamhet i Malmö möjligheten att få en professionell hemsida utan att behöva anlita en byrå eller lära sig kod.",
+    "Du beskriver vad du gör på svenska — vare sig det är café i Möllan, frisör på Limhamn eller konsult i Hyllie — och vår AI genererar en komplett sajt som du kan publicera samma eftermiddag.",
+    "Sajten är SEO-optimerad, snabb och redo att ranka på lokala sökningar i Öresundsregionen."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Malmöföretag förtjänar moderna hemsidor",
+      "body": "Staden har över 40 000 aktiva verksamheter och en av Sveriges mest diversifierade näringsliv. Sajtmaskin fyller luckan mellan dyra byråer och generiska byggverktyg — designat för svensk kontext, svenska texter och svenska kunder."
+    },
+    {
+      "heading": "Flöde från prompt till publicerad sajt",
+      "body": "Öppna Sajtmaskin, beskriv ditt företag, välj mellan Starter och Professional, och se sajten byggas live i förhandsgranskningen. Du kan chatta med AI:n för att ändra färger, texter och layout."
+    },
+    {
+      "heading": "Optimerat för Öresundsmarknaden",
+      "body": "Vi stöder både svensk och dansk målgrupp — din Malmöhemsida kan ha separata sidor för kunder i Sverige och Danmark, med rätt metadata och valutor."
+    },
+    {
+      "heading": "Öppet, snabbt, utan inlåsning",
+      "body": "Din sajt är din. Vi låser inte in dig i ett proprietärt format — du kan exportera koden och flytta när du vill. Hosting ingår men är inte obligatorisk."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för mitt Malmöföretag?",
+      "a": "Typiskt 5–15 minuter från första prompt. Mer komplexa sajter med bokning, webshop eller flera språk tar något längre."
+    },
+    {
+      "q": "Passar Sajtmaskin för en liten butik i Möllan eller på Davidshall?",
+      "a": "Absolut. Vi har tydliga mallar för småbutiker med produktvisning, kontakt och Google Maps-integration."
+    },
+    {
+      "q": "Stöder ni flerspråkigt (svenska + engelska)?",
+      "a": "Ja. Du kan generera en flerspråkig sajt där AI:n tar hand om översättningarna åt dig."
+    },
+    {
+      "q": "Kan jag byta min sajt senare?",
+      "a": "Ja. Du är aldrig inlåst. Exportera koden, byt hosting eller fortsätt med Sajtmaskin — det är ditt val."
+    },
+    {
+      "q": "Hur får jag min sajt att ranka på \"frisör Malmö\"?",
+      "a": "Sajtmaskin lägger in lokal SEO-metadata automatiskt. Vi rekommenderar att du dessutom skapar en Google Business-profil och länkar till sajten."
+    },
+    {
+      "q": "Kan jag koppla på Klarna, Swish eller Stripe?",
+      "a": "Stripe är inbyggt. Klarna och Swish kan läggas till via externa integrationer."
+    },
+    {
+      "q": "Vad händer om jag behöver hjälp?",
+      "a": "Support finns via chat på svenska. Du kan också boka en kort genomgång med oss om du fastnar."
+    }
+  ],
+  "localOrIndustryContext": "Malmö har ca 360 000 invånare och är starkt präglat av kreativa näringar, food-tech och SME-tjänster. Sajtmaskin fungerar lika bra för en Möllan-pizzeria som för en Hyllie-baserad startup.",
+  "internalLinks": [
+    { "href": "/hemsida/lund", "label": "Skapa hemsida i Lund" },
+    { "href": "/hemsida/helsingborg", "label": "Skapa hemsida i Helsingborg" },
+    { "href": "/hemsida/stockholm", "label": "Skapa hemsida i Stockholm" },
+    { "href": "/hemsida/trelleborg", "label": "Skapa hemsida i Trelleborg" },
+    { "href": "/skapa-hemsida/restaurang", "label": "Hemsida för restaurang" },
+    { "href": "/skapa-hemsida/cafe", "label": "Hemsida för café" },
+    { "href": "/hemsida-for/frisor", "label": "Hemsida för frisör" },
+    { "href": "/alternativ-till/wix", "label": "Alternativ till Wix" }
+  ],
+  "cta": {
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Malmö. Hjälp mig komma igång.",
+    "buttonLabel": "Skapa din hemsida gratis"
+  },
+  "generatedAt": "2026-04-17",
+  "model": "manual"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/webshop",
+  "title": "Hemsida webshop Västerås – Bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett webshop för ditt företag i Västerås med AI. Ingen kod krävs. Shopify-integration, betalningar och snabb lansering.",
+  "h1": "Webshop-hemsida i Västerås",
+  "heroSub": "Bygg en komplett e-handel för ditt Västerås-företag via chat – med AI som fixar design, produktsidor och betalningar.",
+  "introParagraphs": [
+    "En webshop-hemsida i Västerås behöver fungera för både lokala kunder som handlar från Mälardalen och besökare från hela Sverige. Sajtmaskin låter dig bygga en komplett e-handel på minuter genom att chatta med AI – du beskriver dina produkter, målgrupp och önskemål, så genereras en färdig webshop med produktsidor, kundvagn och betalningslösningar.",
+    "Du får Shopify-integration för att hantera lager och ordrar, Stripe för säkra kortbetalningar, och Google Analytics för att följa försäljningen. Allt på svenska, utan månadskostnad för hosting på subdomän, och du kan när som helst koppla din egen domän eller exportera koden. Perfekt för dig som vill sälja lokalt från Västerås eller nå kunder i hela landet.",
+    "Plattformen är byggd i Sverige av Pretty Good AB och ger dig full kontroll – ingen bindningstid, inget krångel med kodning, bara en fungerande webshop som är redo att ta emot beställningar direkt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "AI bygger din webshop från produktbeskrivning",
+      "body": "Du startar genom att berätta för AI:n vad du ska sälja – om det är hantverksvaror, sportutrustning, lokalproducerad mat eller modeartiklar. Beskriv din målgrupp, varumärkets känsla och vilka funktioner du behöver, så genererar Sajtmaskin en komplett webshop med produktsidor, kategorier, checkout och mobilanpassad design. Du kan justera texter, lägga till bilder och finjustera layouten direkt i chatten. Allt sker på svenska och tar minuter istället för veckor."
+    },
+    {
+      "heading": "Shopify-integration och betalningar som funkar",
+      "body": "Din webshop kopplas till Shopify för smidig hantering av produkter, lager och ordrar. Kunderna betalar säkert via Stripe, och du får full koll på försäljningen genom Google Analytics. Systemet hanterar moms, fraktalternativ och orderbekräftelser automatiskt. Du slipper tekniska krumbukter och kan fokusera på att packa och skicka varor till kunder i Västerås, Stockholm eller var de än bor."
+    },
+    {
+      "heading": "Lokal närvaro och rikstäckning från samma sajt",
+      "body": "En webshop i Västerås kan dra nytta av både lokal förankring och digital räckvidd. Erbjud upphämtning i butik för kunder från Erikslund eller Hälla, samtidigt som du säljer med hemleverans till hela Sverige. Sajtmaskin gör det enkelt att visa öppettider, hämtställen och lokala erbjudanden parallellt med nationell frakt. Du behöver ingen teknisk expertis – AI:n hjälper dig strukturera innehåll så att både grannarna och kunder långt bort hittar rätt."
+    },
+    {
+      "heading": "Ingen bindningstid, publicera när du vill",
+      "body": "Du betalar ingen månadskostnad för hosting på subdomän, och det finns ingen bindningstid. När webshopen är klar publicerar du direkt, kopplar din egen domän om du vill, eller exporterar hela koden för att flytta till egen server. Allt innehåll och alla inställningar ägs av dig. Du kan uppdatera sortiment, lägga till kampanjer och ändra priser via chatten när som helst – webshopen växer i takt med ditt företag."
+    },
+    {
+      "heading": "Svenskt gränssnitt och support från Sverige",
+      "body": "Sajtmaskin är byggt i Sverige med svenskt gränssnitt och svensk support. Du slipper översatta menyer, krångliga engelska termer och tidszoner som inte stämmer. Allt från produktbeskrivningar till juridiska texter genereras på korrekt svenska, och du får hjälp på ditt eget språk om något är oklart. Perfekt för dig som driver företag i Västerås och vill ha en webshop som känns proffsig och trygg för svenska kunder."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en webshop med Sajtmaskin?",
+      "a": "De flesta får en färdig webshop på 10–30 minuter. Du chattar med AI:n, beskriver produkter och önskemål, så genereras design, produktsidor och checkout automatiskt. Sedan kan du justera texter, bilder och layout tills allt ser rätt ut. När du är nöjd publicerar du direkt."
+    },
+    {
+      "q": "Kan jag sälja både lokalt i Västerås och till hela Sverige?",
+      "a": "Ja, det är en av styrkorna. Du kan erbjuda upphämtning i butik för lokala kunder och samtidigt ha hemleverans till hela landet. Sajtmaskin låter dig visa öppettider, hämtställen och fraktalternativ på samma sajt, så både grannar och kunder från andra städer hittar rätt."
+    },
+    {
+      "q": "Vilka betalningslösningar ingår i webshopen?",
+      "a": "Du får Stripe-integration för säkra kortbetalningar, vilket innebär att kunder kan betala med vanliga betalkort och digitala plånböcker. Systemet hanterar moms, orderbekräftelser och kvitton automatiskt. Du behöver bara koppla ditt Stripe-konto så är betalningarna igång."
+    },
+    {
+      "q": "Hur hanterar jag produkter och ordrar?",
+      "a": "Webshopen integreras med Shopify, där du lägger till produkter, uppdaterar lager och följer ordrar. När en kund beställer får du notis, och du kan hantera packning och frakt därifrån. Google Analytics ger dig översikt över försäljning och besökare, så du ser vad som funkar."
+    },
+    {
+      "q": "Kostar det något att ha webshopen live?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän kopplar du den själv, och då kan eventuella domänkostnader tillkomma. Det finns ingen bindningstid, så du bestämmer själv hur länge sajten ska vara uppe. Exportera koden när du vill om du behöver flytta."
+    },
+    {
+      "q": "Kan jag uppdatera sortiment och priser själv?",
+      "a": "Absolut. Du uppdaterar produkter, priser och kampanjer via Shopify-kopplingen, och ändrar texter eller layout genom att chatta med AI:n. Inga tekniska kunskaper krävs – du beskriver vad du vill ändra, så fixar systemet det. Webshopen växer i takt med ditt företag."
+    },
+    {
+      "q": "Är webshopen anpassad för mobil och surfplatta?",
+      "a": "Ja, all design är mobilanpassad från start. Oavsett om kunder handlar från telefon, surfplatta eller dator fungerar kundvagn, produktsidor och checkout smidigt. AI:n ser till att knappar, bilder och texter ser bra ut på alla skärmstorlekar, så du slipper testa manuellt."
+    }
+  ],
+  "localOrIndustryContext": "Västerås har en blandning av etablerad handel kring Erikslund och växande företagande i stadskärnan och förorter. En webshop ger lokala butiker och hantverkare möjlighet att nå kunder utanför öppettider och utanför Mälardalen, samtidigt som lokal upphämtning sänker tröskeln för grannar som vill handla närproducerat.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

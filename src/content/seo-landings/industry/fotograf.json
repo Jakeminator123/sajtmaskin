@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "fotograf",
+  "title": "Hemsida för fotograf – snabbt, snyggt och enkelt | Sajtmaskin",
+  "metaDescription": "Bygg en professionell hemsida för fotograf på minuter med AI. Portfolio, bokning och prislista – allt du behöver utan kod eller krångel.",
+  "h1": "Hemsida för fotograf",
+  "heroSub": "Visa ditt arbete och få fler bokningar med en hemsida som är lika snygg som dina bilder – klar på minuter.",
+  "introParagraphs": [
+    "En hemsida för fotograf behöver visa vad du kan och göra det enkelt för kunder att boka dig. Oavsett om du fotograferar bröllop, porträtt, produkter eller events behöver du en plats där bilderna får ta plats, där prisinformation är tydlig och där bokningsprocessen inte kräver tio mejl fram och tillbaka.",
+    "Med Sajtmaskin bygger du en komplett fotografsajt direkt i chatten. Du beskriver vad du gör – kanske att du är bröllopsfotograf i Skåne eller produktfotograf i Stockholm – så skapar AI:n en sajt med portfolio, om-sida, prislista och bokningsformulär. Publicera på egen domän, koppla Cal.com för schemaläggning och Stripe om du vill ta förskottsbetalning. Ingen kod, ingen designer, ingen månadskostnad för hosting.",
+    "Du äger koden och kan exportera den när du vill. Allt sköts på svenska, från gränssnitt till support."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en fotografsajt behöver innehålla",
+      "body": "En bra hemsida för fotograf har ett starkt portfolio som visar din stil – inte hundra bilder, utan de bästa från varje typ av uppdrag. En om-sida som berättar vem du är och hur du jobbar. En prislista eller paketöversikt så att potentiella kunder slipper gissa vad det kostar. Och ett enkelt sätt att boka eller höra av sig, helst utan att behöva skicka mejl. Många fotografer vill också ha en blogg för att visa senaste uppdragen, vilket både bygger förtroende och hjälper SEO. Sajtmaskin genererar alla dessa sidor direkt från din prompt och låter dig justera innehåll och layout i realtid."
+    },
+    {
+      "heading": "Bokningssystem som faktiskt fungerar",
+      "body": "Att mejla fram och tillbaka om lediga datum är tidskrävande och oproffsigt. Med Cal.com-integrationen kan besökare se dina lediga tider och boka direkt på sajten. Du bestämmer vilka typer av sessioner du erbjuder – porträtt, familj, event – och hur lång tid varje bokning tar. Vill du ta förskottsbetalning kopplar du Stripe, så kunden betalar när de bokar. Allt synkas med din kalender och du får notiser automatiskt. Det är den typen av funktion som tidigare krävde en utvecklare, men som nu bara är en integration att slå på."
+    },
+    {
+      "heading": "Portfolio som syns i Google",
+      "body": "En fotografsajt är din viktigaste marknadskanal, men bara om folk hittar den. Sajtmaskin genererar SEO-vänlig kod från start: snabba laddningstider, mobilanpassning, rätt metadata och strukturerad data. Varje portfoliobild kan få alt-text och beskrivning, vilket hjälper Google förstå vad du fotograferar. Blogginlägg från senaste bröllopet eller produktfotograferingen ger färskt innehåll som sökmotorer älskar. Du behöver inte vara teknisk – AI:n hanterar det tunga, du fyller på med bilder och texter."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Många sajbyggare låser in dig med månadskostnader, begränsade exporter eller dyra tillägg. Sajtmaskin tar betalt en gång för att generera sajten, sedan kan du publicera på subdomän utan löpande kostnad eller koppla egen domän. Vill du flytta sajten någon annanstans exporterar du koden – den är din. Integrationer som Cal.com och Stripe har egna villkor, men plattformen själv har ingen bindningstid. Du bestämmer hur länge sajten ska leva och var den ska ligga."
+    },
+    {
+      "heading": "Från prompt till publicerad sajt",
+      "body": "Du startar en chatt och beskriver din verksamhet: \"Jag är bröllopsfotograf i Göteborg, fotar även förlovningar och familjefotografering, vill visa portfolio och ha bokningsformulär\". AI:n föreslår struktur, sidor och innehåll. Du justerar texter, byter bilder, ändrar färger. När du är nöjd publicerar du – antingen på en sajtmaskin-subdomän eller din egen domän. Hela processen tar minuter, inte veckor. Och behöver du ändra något senare gör du det direkt i gränssnittet, ingen tekniker behövs."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa olika portfolios för bröllop och porträtt?",
+      "a": "Ja, du kan skapa separata gallerier eller sidor för varje typ av fotografering. AI:n hjälper dig strukturera innehållet så besökare enkelt hittar rätt kategori, och du kan länka direkt till specifika portfolios från sociala medier eller annonser."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Alla sajter från Sajtmaskin är responsiva från start. Bilder skalar snyggt, text är läsbar och bokningsformulär fungerar lika bra på telefon som på dator. Många fotografer får majoriteten av sina besökare via mobil, så det är inbyggt i designen."
+    },
+    {
+      "q": "Hur lägger jag till nya bilder i portfoliot?",
+      "a": "Du loggar in, navigerar till portfoliosidan och laddar upp nya bilder direkt i gränssnittet. Inga FTP-program eller komplicerade CMS-system. Ändringarna publiceras direkt när du sparar."
+    },
+    {
+      "q": "Kan jag ta betalt för bokningar via sajten?",
+      "a": "Ja, via Stripe-integrationen. Du kopplar ditt Stripe-konto, sätter pris på dina paket och kunden betalar när de bokar. Pengarna hamnar direkt på ditt konto minus Stripes avgift. Perfekt för förskott eller fullbetalning."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du exporterar koden och tar den med dig. Sajten är byggd med standardteknologi, så vilken webhost som helst kan köra den. Inga proprietära lås, inga dolda beroenden. Din sajt, dina villkor."
+    },
+    {
+      "q": "Kan jag ha en blogg för att visa senaste uppdragen?",
+      "a": "Absolut. Bloggen genereras med samma AI-process och du lägger till inlägg via gränssnittet. Bra för SEO, bra för att visa upp färskt arbete och bygga förtroende hos potentiella kunder."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej. Allt sker i chat och ett visuellt gränssnitt. Du beskriver vad du vill ha, AI:n bygger sajten, du justerar innehåll och layout genom att klicka och skriva. Koden finns där om du vill gräba, men du behöver aldrig röra den."
+    }
+  ],
+  "localOrIndustryContext": "Fotografbranschen i Sverige är mångfacetterad – från bröllopsfotografer i Småland till produktfotografer i Stockholm och naturfotografer i Norrland. Gemensamt är behovet av en sajt som visar arbetet snyggt, bygger förtroende och gör det enkelt att boka. Många fotografer kör enmansföretag och har varken tid eller budget för webbyrå, vilket gör en AI-driven lösning på svenska extra värdefull.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en fotograf-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

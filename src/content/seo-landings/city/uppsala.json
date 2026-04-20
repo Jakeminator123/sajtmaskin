@@ -1,0 +1,78 @@
+{
+  "family": "city",
+  "slug": "uppsala",
+  "title": "Skapa hemsida i Uppsala — AI-driven webbplattform | Sajtmaskin",
+  "metaDescription": "Bygg din hemsida i Uppsala med AI. Sajtmaskin levererar en svenskspråkig, snabb och SEO-optimerad sajt på minuter. Testa gratis.",
+  "h1": "Skapa din hemsida i Uppsala — från idé till publicering",
+  "heroSub": "AI-plattform för Uppsalas studenter, forskare, konsulter och småföretagare.",
+  "introParagraphs": [
+    "Uppsala är en kunskapsstad — med över 50 000 studenter, starka forskningskluster och en växande mängd konsulter och småföretag. Här finns behov av hemsidor som är snabba att bygga, lätta att underhålla och professionella från start.",
+    "Sajtmaskin är den svenska AI-plattformen som bygger din hemsida från en enkel prompt. Oavsett om du är lärare, frilansande jurist, eller driver en liten butik på Dragarbrunnsgatan får du en komplett sajt på minuter.",
+    "Inga dolda kostnader. Inga långa kontrakt. Bara en fungerande sajt du kan publicera samma kväll."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bygg professionellt utan byrå",
+      "body": "Sajtmaskin är byggt i Sverige för svenska behov. AI:n förstår akademisk kontext lika bra som butikskontext, och hjälper dig skapa en hemsida som matchar din verksamhet i Uppsala."
+    },
+    {
+      "heading": "För forskare, konsulter och studenter",
+      "body": "Behöver du en publikationssida, CV/portfolio eller en liten konsultsajt? Sajtmaskin kan generera alla dessa — med referenslistor, LinkedIn-länkar och kontaktformulär."
+    },
+    {
+      "heading": "Integrationer som fungerar",
+      "body": "Koppla Cal.com för bokningar, Stripe för betalningar, Google Analytics och Search Console direkt — utan att behöva röra kod."
+    },
+    {
+      "heading": "SEO från start",
+      "body": "Strukturerad data, snabba laddningstider och korrekt metadata gör att din Uppsala-sajt snabbt indexeras av Google."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag skapa en hemsida i Uppsala?",
+      "a": "Cirka 5–15 minuter från första prompt till publicerad sajt."
+    },
+    {
+      "q": "Passar Sajtmaskin för forskare och lärare?",
+      "a": "Ja. Mallarna stöder publikationslistor, CV, kontaktuppgifter och föreläsningsschema."
+    },
+    {
+      "q": "Är det gratis att testa?",
+      "a": "Ja. Du bygger och förhandsgranskar gratis. Betalar gör du när du vill publicera på egen domän eller generera mer."
+    },
+    {
+      "q": "Kan jag ha sajten på både svenska och engelska?",
+      "a": "Ja. AI:n översätter och genererar flerspråkigt innehåll."
+    },
+    {
+      "q": "Kan jag uppdatera sajten själv efteråt?",
+      "a": "Ja. Du kan chatta med AI:n för att ändra text, lägga till sidor eller justera design."
+    },
+    {
+      "q": "Stöder ni bokningssystem?",
+      "a": "Ja. Cal.com är inbyggt; andra system kan bäddas in."
+    },
+    {
+      "q": "Får jag koden om jag vill flytta sajten?",
+      "a": "Ja. Vi låser inte in dig — du kan exportera Next.js-koden."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala har Sveriges fjärde största befolkning och högst andel högutbildade. Sajtmaskin passar både för akademiska portfolios och för lokala tjänste- och butiksverksamheter.",
+  "internalLinks": [
+    { "href": "/hemsida/stockholm", "label": "Skapa hemsida i Stockholm" },
+    { "href": "/hemsida/vasteras", "label": "Skapa hemsida i Västerås" },
+    { "href": "/hemsida/enkoping", "label": "Skapa hemsida i Enköping" },
+    { "href": "/hemsida/sigtuna", "label": "Skapa hemsida i Sigtuna" },
+    { "href": "/skapa-hemsida/konsult", "label": "Hemsida för konsult" },
+    { "href": "/skapa-hemsida/portfolio", "label": "Portfolio-hemsida" },
+    { "href": "/skapa-hemsida/kurs", "label": "Hemsida för kurs" },
+    { "href": "/ai-hemsida/ai-hemsida", "label": "Vad är en AI-hemsida?" }
+  ],
+  "cta": {
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Uppsala. Hjälp mig komma igång.",
+    "buttonLabel": "Skapa din hemsida gratis"
+  },
+  "generatedAt": "2026-04-17",
+  "model": "manual"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "uppsala/foretag",
+  "title": "Hemsida företag Uppsala – bygg din sajt på minuter | Sajtmasmin",
+  "metaDescription": "Skapa en professionell företagshemsida i Uppsala med AI. Ingen kod, klart på minuter. Egen domän, bokningssystem och betalning. Prova gratis.",
+  "h1": "Hemsida för företag i Uppsala",
+  "heroSub": "Bygg en komplett företagssajt med AI – från första intrycket till bokningar och betalningar, utan kod eller teknikkrångel.",
+  "introParagraphs": [
+    "Om du driver företag i Uppsala behöver du en hemsida som gör jobbet: presentera vad du gör, var du finns och hur kunder når dig. Sajtmaskin bygger hela sajten åt dig via en vanlig chatt-konversation. Du beskriver ditt företag, väljer vilka funktioner du behöver – kanske bokningssystem, kontaktformulär eller integration med Google Analytics – och får en färdig sajt på minuter.",
+    "Allt är på svenska, från gränssnittet till supporten. Du publicerar på din egen domän, eller testar kostnadsfritt på en subdomän. Ingen bindningstid, inga dolda avgifter. När sajten är klar äger du den, och du kan exportera koden när du vill. Perfekt för konsulter, hantverkare, byråer och alla andra Uppsala-företag som vill synas online utan att lära sig WordPress eller anställa utvecklare.",
+    "Uppsala har allt från life science-bolag till kreativa byråer och lokala tjänsteföretag. Oavsett bransch behöver du en sajt som laddar snabbt, ser professionell ut på mobilen och gör det enkelt för kunder att ta kontakt eller boka tid. Sajtmaskin ger dig allt det på plats – utan att du behöver röra en rad kod."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad ingår i en företagshemsida från Sajtmaskin?",
+      "body": "Du får en komplett sajt med startsida, om-sida, tjänstebeskrivningar och kontaktsida – allt anpassat efter din bransch och dina behov. Vill du att kunder ska kunna boka möten direkt? Integrera Cal.com. Behöver du ta betalt online? Koppla in Stripe. Vill du följa besöksstatistik? Lägg till Google Analytics. Allt sätts upp via chatten, och du ser resultatet direkt. Sajten är responsiv, snabb och byggd för att konvertera besökare till kunder."
+    },
+    {
+      "heading": "Hur fungerar AI-chatten när du bygger sajten?",
+      "body": "Du startar en konversation och berättar vad ditt företag gör, vilka tjänster du erbjuder och vad du vill att sajten ska innehålla. AI:n ställer följdfrågor om du vill ha bokningsfunktion, betalning, bildgalleri eller andra features. Sedan genererar den hela sajten – texter, struktur, design – på några minuter. Du kan justera allt efteråt: byt färger, lägg till sidor, ändra texter. Inget kodande, bara vanlig svenska i chatten."
+    },
+    {
+      "heading": "Publicera på egen domän eller testa gratis",
+      "body": "När sajten är klar kan du publicera den på din egen domän direkt. Har du inte domän än? Inga problem – du kan köra sajten på en Sajtmaskin-subdomän helt utan kostnad så länge du vill, perfekt för att testa eller köra en enkel landningssida. Ingen månadshyra för hosting på subdomän, ingen bindningstid. Vill du flytta sajten senare? Exportera koden och ta den vart du vill."
+    },
+    {
+      "heading": "Integrationer som gör sajten mer än en broschyr",
+      "body": "En modern företagssajt ska göra mer än att visa information. Med Sajtmaskin kopplar du in Cal.com för tidsbokning, Stripe för kortbetalningar, Google Analytics för att följa trafik och till och med Shopify om du vill sälja produkter. Allt aktiveras via chatten, utan att du behöver konfigurera API-nycklar eller läsa dokumentation. Det bara fungerar, och du kan lägga till eller ta bort integrationer när du vill."
+    },
+    {
+      "heading": "Byggt i Sverige, för svenska företag",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt och svensk support. Det betyder att du slipper översatta menyer, engelska felmeddelanden och tidszoner som inte stämmer. Allt är anpassat för hur svenska företag jobbar – från GDPR-medvetna formulär till språk som känns naturligt. Du får hjälp på svenska, och sajten genereras med svensk ton och struktur från start."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig företagssajt?",
+      "a": "De flesta får en komplett sajt på 10–15 minuter. Du chattar med AI:n, beskriver ditt företag och väljer funktioner. Sedan genereras hela sajten automatiskt. Vill du finjustera texter eller design kan du göra det direkt i verktyget, men grundsajten är klar på några minuter."
+    },
+    {
+      "q": "Kan jag använda min befintliga domän?",
+      "a": "Ja, du publicerar sajten på vilken domän du vill. Du pekar bara DNS-posterna dit vi visar, och sajten går live. Har du ingen domän än kan du köra gratis på en Sajtmaskin-subdomän så länge du behöver, utan månadskostnad."
+    },
+    {
+      "q": "Vad kostar det att ha sajten online?",
+      "a": "Hosting på subdomän är gratis utan tidsbegränsning. Vill du använda egen domän och premium-funktioner finns betalplaner, men ingen bindningstid. Du kan när som helst exportera koden och flytta sajten till egen server om du vill."
+    },
+    {
+      "q": "Hur lägger jag till bokningssystem för kundmöten?",
+      "a": "Du säger till AI:n att du vill ha bokning, så integreras Cal.com automatiskt. Kunder kan boka tider direkt på sajten, och du får notiser via mejl. Allt synkas med din kalender, och du behöver inte installera plugins eller konfigurera något manuellt."
+    },
+    {
+      "q": "Fungerar sajten bra för företag i Uppsala som vill nå lokala kunder?",
+      "a": "Absolut. Du kan lägga till adress, karta, lokala referenser och texter som talar till Uppsala-kunder. Sajten är SEO-optimerad från start, så den syns i Google när folk söker efter dina tjänster i Uppsala. Du kan också koppla på Google Analytics för att följa varifrån besökarna kommer."
+    },
+    {
+      "q": "Kan jag ändra texterna och designen efter att sajten är klar?",
+      "a": "Ja, allt går att redigera. Du ändrar texter direkt i editorn, byter färgschema, lägger till nya sidor eller tar bort sektioner. Vill du ha hjälp kan du fråga AI:n i chatten igen, så justerar den sajten åt dig. Inga tekniska kunskaper behövs."
+    },
+    {
+      "q": "Vad händer om jag vill sluta använda Sajtmaskin?",
+      "a": "Du kan när som helst exportera hela sajten som kod och ta den med dig. Ingen bindningstid, inga utträdesavgifter. Sajten är din, och du bestämmer var den ska ligga. Vi låser inte in dig – tvärtom vill vi att du stannar för att verktyget är bra, inte för att du måste."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala är en universitetsstad med stark tillväxt inom life science, IT, konsultverksamhet och kreativa branscher. Lokala företag behöver sajter som fungerar lika bra för internationella partners som för grannar i Luthagen. Snabb laddning, mobilvänlighet och tydlig kontaktinfo är avgörande när konkurrensen är hög och kunderna förväntar sig digital närvaro på samma nivå som Stockholm.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Uppsala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

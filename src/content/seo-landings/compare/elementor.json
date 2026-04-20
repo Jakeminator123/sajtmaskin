@@ -1,0 +1,94 @@
+{
+  "family": "compare",
+  "slug": "elementor",
+  "title": "Alternativ till Elementor – Bygg sajt med AI på svenska | Sajtmaskin",
+  "metaDescription": "Letar du efter ett svenskt alternativ till Elementor? Sajtmaskin ger dig AI-driven webbdesign utan WordPress, plugins eller teknisk krångel.",
+  "h1": "Alternativ till Elementor för svenska företag",
+  "heroSub": "Bygg din hemsida med AI på minuter – ingen WordPress, inga plugins, ingen kod.",
+  "introParagraphs": [
+    "Elementor är ett av världens mest populära WordPress-plugin för att bygga hemsidor med drag-and-drop. Men många svenska företagare stöter på utmaningar: långsam inlärningskurva, krångel med WordPress-uppdateringar, hosting som kostar extra, och support på engelska. Om du vill ha en färdig sajt snabbt utan att lära dig ett nytt verktyg kan Sajtmaskin vara ett bättre val.",
+    "Sajtmaskin är en svensk AI-plattform där du bygger hela hemsidan genom att chatta med AI. Du beskriver vad du behöver, och inom minuter får du en färdig sajt med text, bilder och struktur. Allt på svenska, utan WordPress, utan plugins och utan kod. Publicera direkt på egen domän eller gratis på subdomän – ingen månadskostnad för hosting.",
+    "Skillnaden är enkel: Elementor ger dig full kontroll över varje pixel men kräver tid och teknisk förståelse. Sajtmaskin tar hand om designen åt dig så du kan fokusera på ditt företag. Båda verktygen har sina styrkor – det handlar om vad som passar dina behov just nu."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker svenska företag alternativ till Elementor?",
+      "body": "Elementor är kraftfullt men kräver WordPress, hosting och ofta tilläggsplugins för funktioner som bokning eller betalningar. Många upplever att det tar tid att lära sig gränssnittet, att sajten blir långsam med för många widgets, och att support och dokumentation främst finns på engelska. För den som vill ha en sajt igång snabbt utan teknisk expertis kan verktyget kännas överväldigande. Sajtmaskin löser detta genom att AI sköter designen och strukturen automatiskt. Du chattar på svenska, beskriver ditt företag och dina behov, och får en färdig sajt på minuter. Ingen WordPress att underhålla, inga plugins att uppdatera, och svensk support om du fastnar."
+    },
+    {
+      "heading": "Vad Elementor gör bra – och var Sajtmaskin passar bättre",
+      "body": "Elementor erbjuder enorm designfrihet och tusentals mallar. Om du har tid och vill bygga en komplex, skräddarsydd sajt med exakt kontroll över varje detalj är det ett utmärkt verktyg. Men för svenska småföretagare, frilansare och startups som vill ha en professionell sajt utan att bli webbdesigner är Sajtmaskin ett snabbare och enklare alternativ. Med Sajtmaskin behöver du inte välja mall, dra widgets eller justera marginaler. AI genererar layout, text och bilder baserat på din bransch och dina önskemål. Du kan fortfarande redigera allt efteråt, men grundjobbet är klart direkt. Integrationer som Cal.com för bokning och Stripe för betalningar fungerar utan extra plugins."
+    },
+    {
+      "heading": "Svensk plattform med AI – ingen byrå behövs",
+      "body": "Många som börjar med Elementor anlitar så småningom en byrå eller frilansare för att få sajten att se professionell ut. Det kostar ofta tiotusentals kronor. Sajtmaskin är byggt i Sverige av Pretty Good AB och ger dig samma resultat utan byrå. AI:n skriver SEO-anpassad text på svenska, väljer bilder och skapar en struktur som fungerar för din bransch. Du publicerar på egen domän eller gratis på subdomän utan månadskostnad för hosting. Behöver du en webshop? Integrera Shopify. Vill du ta betalt? Koppla in Stripe. Allt sker via chatten, på svenska, utan teknisk manual. Och ingen bindningstid – exportera koden när du vill och flytta sajten om dina behov förändras."
+    },
+    {
+      "heading": "Så kommer du igång – utan WordPress eller plugins",
+      "body": "Istället för att installera WordPress, välja hosting, ladda ner Elementor och börja dra widgets chattar du bara med Sajtmaskin. Berätta vad ditt företag gör, vilka tjänster du erbjuder och vad du vill att sajten ska innehålla. AI:n bygger sajten, du granskar resultatet och justerar om du vill. Publicera direkt eller koppla din egen domän. Vill du lägga till Google Analytics, bokningsfunktion via Cal.com eller betalningar via Stripe gör du det med några klick. Ingen kod, inga plugins, ingen manual på engelska. Allt på svenska, allt på minuter. Perfekt för dig som vill ha en sajt igång idag – inte nästa månad."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag använda Sajtmaskin om jag redan har WordPress och Elementor?",
+      "a": "Ja, absolut. Många använder Sajtmaskin för att snabbt testa en ny idé, lansera en landningssida eller bygga en separat sajt utan att röra WordPress-installationen. Du kan publicera på en annan domän eller subdomän och köra båda parallellt. Sajtmaskin kräver ingen WordPress-miljö, så det är helt fristående."
+    },
+    {
+      "q": "Får jag lika mycket designkontroll som i Elementor?",
+      "a": "Nej, inte på pixelnivå. Elementor ger dig full kontroll över varje detalj, medan Sajtmaskin prioriterar hastighet och enkelhet. AI:n skapar en professionell design automatiskt, och du kan redigera text, bilder och struktur efteråt. Om du behöver exakt kontroll över varje marginal passar Elementor bättre. Om du vill ha en snygg sajt snabbt utan att bli designer passar Sajtmaskin bättre."
+    },
+    {
+      "q": "Kostar Sajtmaskin lika mycket som Elementor Pro och hosting?",
+      "a": "Elementor Pro kostar runt 60–100 dollar per år, plus hosting (ofta 50–200 kr/månad) och eventuellt tilläggsplugins. Sajtmaskin låter dig publicera gratis på subdomän utan månadskostnad för hosting. Vill du använda egen domän betalar du endast för domänen själv. Totalt blir Sajtmaskin ofta billigare, särskilt om du räknar in tid och byråkostnader."
+    },
+    {
+      "q": "Kan jag integrera bokning och betalningar utan plugins?",
+      "a": "Ja. Sajtmaskin har inbyggda integrationer för Cal.com (bokning), Stripe (betalningar), Google Analytics och Shopify (webshop). Du aktiverar dem via chatten utan att installera plugins, hantera uppdateringar eller läsa teknisk dokumentation. Allt sker på svenska och fungerar direkt."
+    },
+    {
+      "q": "Vad händer om jag vill byta tillbaka till WordPress senare?",
+      "a": "Du kan exportera hela sajten som kod när du vill. Sajtmaskin har ingen bindningstid, så du äger alltid ditt innehåll. Vill du migrera till WordPress eller annan plattform senare är du fri att göra det. Ingen inlåsning, ingen dold kostnad."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för alla typer av sajter som Elementor gör?",
+      "a": "Sajtmaskin passar bäst för företagssajter, portfolios, bokningssidor, landningssidor och enklare webshoppar. Elementor passar bättre för mycket komplexa sajter med tusentals sidor, avancerade membership-funktioner eller extremt skräddarsydd design. För de flesta svenska småföretag och frilansare räcker Sajtmaskin mer än väl."
+    }
+  ],
+  "localOrIndustryContext": "Elementor används av miljontals WordPress-sajter globalt, men i Sverige möter många utmaningar med engelsk support, teknisk komplexitet och hosting-kostnader. Sajtmaskin är byggt i Sverige för svenska företagare som vill ha en professionell hemsida utan att bli webbtekniker. Perfekt för dig som värderar enkelhet, svenskt språk och snabba resultat framför pixelperfekt kontroll.",
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från Elementor. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

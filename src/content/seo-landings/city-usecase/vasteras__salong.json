@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/salong",
+  "title": "Hemsida Salong Västerås – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Västerås med AI. Onlinebokning, bildgalleri och mobilanpassning – klart på minuter.",
+  "h1": "Hemsida för salong i Västerås",
+  "heroSub": "Bygg en komplett sajt för din salong med AI – inklusive onlinebokning, prislista och bildgalleri, utan kod.",
+  "introParagraphs": [
+    "En salong i Västerås behöver en hemsida som visar upp dina tjänster, låter kunder boka tid direkt och speglar din stil. Med Sajtmaskin skapar du allt det via en konversation – berätta vad din salong erbjuder, så bygger AI:n en färdig sajt med bokningssystem, prislista och bildgalleri på minuter.",
+    "Du får en sajt som fungerar lika bra på mobil som dator, optimerad för Västeråskunder som söker frisör, nagelsalong, skönhetssalong eller barbershop. Publicera på din egen domän eller testa kostnadsfritt på en subdomän. Ingen bindningstid, ingen krånglig teknik – bara en sajt som hjälper dig fylla kalendern.",
+    "Sajtmaskin är byggt i Sverige med svenskt gränssnitt och stöd. Allt innehåll genereras på svenska, anpassat för hur dina kunder i Västerås söker och bokar salongtjänster."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Onlinebokning integrerad från start",
+      "body": "Kunder vill boka direkt när de hittar din salong online, oavsett om det är kväll eller helg. Sajtmaskin integrerar Cal.com så besökare kan välja behandling, tid och bekräfta direkt på sajten. Du styr vilka tider som är öppna, hur lång varje behandling tar och får automatiska bokningsbekräftelser. Perfekt för salonger i Västerås som vill minska telefonsamtal och fylla luckor i schemat."
+    },
+    {
+      "heading": "Visa upp din salong och dina tjänster",
+      "body": "En salongs hemsida ska inspirera och bygga förtroende. AI:n hjälper dig skapa ett bildgalleri för före/efter-bilder, presentera ditt team och lista alla behandlingar med priser. Du kan lägga till information om produkter du använder, specialerbjudanden och varför kunder ska välja just din salong. Allt skrivs och struktureras automatiskt – du justerar bara det du vill ändra."
+    },
+    {
+      "heading": "Mobilanpassad för Västeråskunder på språng",
+      "body": "Majoriteten av dina kunder söker salong på mobilen när de är på väg hem från jobbet eller mellan ärenden i city. Sajtmaskin bygger automatiskt en responsiv sajt som laddar snabbt och ser bra ut oavsett skärmstorlek. Bokningsknappen är alltid synlig, telefonnummer klickbart och Google Maps-integration visar var i Västerås du finns."
+    },
+    {
+      "heading": "Betallösning om du säljer presentkort eller produkter",
+      "body": "Vill du sälja presentkort, hemvårdsprodukter eller ta förskottsbetalning för behandlingar? Koppla in Stripe så kan kunder betala direkt på sajten. Du kan också integrera en Shopify-webshop om du har ett större sortiment. Allt sköts säkert och professionellt utan att du behöver bli teknisk expert."
+    },
+    {
+      "heading": "Ingen bindningstid – äg din sajt",
+      "body": "Sajtmaskin tar ingen månadskostnad för hosting på subdomän, och du kan när som helst exportera hela koden om du vill flytta sajten. Det finns ingen bindningstid och inga dolda avgifter. Du bygger, publicerar och äger din sajt. Perfekt för salonger som vill ha kontroll och flexibilitet utan att låsa sig vid dyra webbbyråer eller plattformar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min salong?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n om vilka behandlingar du erbjuder, vad som är viktigt för din salong och vilken känsla du vill förmedla. AI:n genererar sidor, texter och struktur direkt. Sedan justerar du bilder, priser och bokningsinställningar tills allt är som du vill ha det."
+    },
+    {
+      "q": "Kan jag lägga till onlinebokning för olika behandlingar?",
+      "a": "Ja, Cal.com-integrationen låter dig skapa olika bokningslänkar för klippning, färg, naglar, ansiktsbehandling eller vad du erbjuder. Du ställer in längd och pris per behandling, blockerar luncher och lediga dagar, och kunder bokar direkt på sajten. Bekräftelser och påminnelser skickas automatiskt."
+    },
+    {
+      "q": "Fungerar sajten bra för kunder i Västerås som söker på mobil?",
+      "a": "Absolut. Sajten är automatiskt mobilanpassad och snabbladdad, vilket är viktigt eftersom de flesta söker salong på telefonen. Bokningsknappar, telefonnummer och vägbeskrivning fungerar smidigt på alla skärmar. Google hittar också sajten lättare när den är optimerad för mobil."
+    },
+    {
+      "q": "Kan jag visa priser och bilder på mina behandlingar?",
+      "a": "Ja, du kan skapa en prislista för alla tjänster och lägga upp bildgallerier som visar resultat, lokalen eller teamet. AI:n hjälper dig strukturera informationen så det blir lätt för besökare att hitta det de söker. Du uppdaterar priser och bilder själv när du vill, direkt i gränssnittet."
+    },
+    {
+      "q": "Kostar det något att ha sajten på en egen domän?",
+      "a": "Du kan publicera kostnadsfritt på en Sajtmaskin-subdomän. Vill du ha en egen domän som salongensnamn.se köper du den själv och kopplar till sajten – inga extra månadskostnader från Sajtmaskin. Det ger en mer professionell känsla och gör det lättare för kunder att komma ihåg din adress."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Det finns ingen bindningstid och inga utträdesavgifter. Du äger allt innehåll och kan flytta sajten till egen server eller annan leverantör. Sajtmaskin låser inte in dig – du har full kontroll."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera sajten?",
+      "a": "Nej, allt sköts via chat eller ett enkelt gränssnitt. Vill du ändra öppettider, lägga till en ny behandling eller uppdatera bilder gör du det utan kod. Behöver du större ändringar kan du chatta med AI:n igen, så hjälper den dig. Teknisk kunskap behövs inte."
+    }
+  ],
+  "localOrIndustryContext": "Västerås har en växande salongbransch med allt från traditionella frisörer i city till moderna skönhetssalonger i Erikslund och Hälla. Kunder söker ofta efter salong nära jobbet eller hemmet, och vill kunna boka direkt online. En professionell hemsida gör det lättare att synas i lokala sökningar och konkurrera med kedjor och etablerade aktörer.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

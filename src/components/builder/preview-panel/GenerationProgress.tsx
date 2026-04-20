@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mascot } from "@/components/mascot/Mascot";
 import { cn } from "@/lib/utils";
 
 export type GenerationPhase =
@@ -119,17 +118,6 @@ export function GenerationProgress({ phase, forceComplete, className }: Generati
       )}
     >
       <div className="flex w-full max-w-sm flex-col items-center gap-5">
-        <Mascot
-          slot={isIdle ? "wave" : "hero"}
-          priority
-          decorative
-          size={192}
-          className={cn(
-            "drop-shadow-[0_16px_28px_rgba(10,12,24,0.14)]",
-            !isIdle && "motion-safe:animate-pulse",
-          )}
-        />
-
         {!isIdle && (
           <>
             <div className="text-4xl font-semibold tracking-tight text-foreground tabular-nums sm:text-5xl">

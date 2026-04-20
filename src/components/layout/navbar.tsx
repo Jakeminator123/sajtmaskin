@@ -20,15 +20,15 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   }, []);
 
   return (
-    <nav className="fixed top-0 right-0 left-0 z-50 h-16 border-b border-border bg-background/80 backdrop-blur-xl">
+    <nav className="fixed top-0 right-0 left-0 z-50 h-14 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
         <Link href="/" className="flex items-center">
           <Image
-            src="/logo.png"
+            src="/LOGO_SM2.0.png"
             alt="Sajtmaskin"
-            width={1653}
-            height={437}
-            className="h-7 w-auto object-contain transition-opacity hover:opacity-80"
+            width={843}
+            height={168}
+            className="h-6 w-auto object-contain transition-opacity hover:opacity-80 md:h-7"
             priority
           />
         </Link>

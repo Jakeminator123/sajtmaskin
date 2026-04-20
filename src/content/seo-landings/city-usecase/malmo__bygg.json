@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "malmo/bygg",
+  "title": "Hemsida för byggföretag i Malmö – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Malmö med AI. Få kontaktformulär, projektgalleri och bokningsfunktion – klart på minuter.",
+  "h1": "Hemsida för byggföretag i Malmö",
+  "heroSub": "Bygg en komplett sajt för ditt byggföretag via chat – med projektgalleri, offerförfrågningar och bokningar inbyggt från start.",
+  "introParagraphs": [
+    "Som byggföretag i Malmö behöver du en sajt som visar upp dina projekt, gör det enkelt för kunder att begära offert och bokar in konsultationer. Sajtmaskin skapar en färdig hemsida för ditt byggföretag på minuter – du chattar med AI:n om vad du gör, vilka tjänster du erbjuder och vilka projekt du vill visa, så genereras hela sajten direkt.",
+    "Du får en sajt med projektgalleri, kontaktformulär för offerter, integrerad bokning via Cal.com och möjlighet att ta betalt via Stripe. Allt på svenska, anpassat för hur byggbranschen i Malmö fungerar. Publicera på din egen domän eller kör gratis på en subdomän utan månadskostnad.",
+    "Ingen kod, ingen designer, ingen teknisk krångel. Bara en färdig sajt som gör jobbet – och du kan exportera koden när du vill utan att vara låst till plattformen."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Malmö behöver",
+      "body": "Dina potentiella kunder i Malmö och Skåne söker efter byggfirmor som ser professionella ut online. De vill se tidigare projekt – renoveringar i Västra Hamnen, tillbyggnader i Limhamn, badrumsrenoveringar i Möllevången. De vill kunna skicka en offerförfrågan direkt, helst med möjlighet att ladda upp bilder på det som ska göras. Och de vill boka ett första möte utan att behöva ringa fram och tillbaka. Sajtmaskin ger dig allt detta från start: bildgallerier för dina projekt, formulär anpassade för offerter, och Cal.com-integration så kunder kan boka in sig direkt i din kalender."
+    },
+    {
+      "heading": "Hur Sajtmaskin bygger din byggsajt",
+      "body": "Du startar en chatt och berättar vad ditt byggföretag gör – kanske är du specialist på altanbyggen, eller kör totalrenoveringar, eller fokuserar på ROT-arbeten. AI:n frågar vad du vill ha med: tjänstebeskrivningar, projektgalleri, prisexempel, kundrecensioner. Du kan be om specifika sektioner som certifieringar, försäkringsinformation eller samarbetspartners. Inom minuter har du en färdig sajt med rätt struktur, texter skrivna för din målgrupp i Malmö och layouter som fungerar på mobil – för många kollar på sajten från byggarbetsplatsen."
+    },
+    {
+      "heading": "Integrationer som gör sajten funktionell",
+      "body": "En byggsajt ska inte bara se bra ut – den ska jobba åt dig. Med Cal.com-integrationen kan kunder boka kostnadsfria konsultationer eller platsbesök direkt i din kalender. Stripe-kopplingen låter dig ta emot handpenning eller förskottsbetalning för material. Google Analytics visar vilka tjänster folk läser mest om, så du vet vad som drar. Behöver du sälja byggmaterial eller verktyg vid sidan om? Shopify-integrationen fixar det. Allt sätts upp via chatten, ingen teknisk kunskap krävs."
+    },
+    {
+      "heading": "Malmöspecifik sajt utan mallkänsla",
+      "body": "Sajtmaskin genererar innehåll baserat på din verksamhet och plats. Om du jobbar mest i Malmö kan sajten nämna områden du täcker – Västra Hamnen, Rosengård, Bunkeflostrand. Om du har ROT-avdrag som fokus kan det framhävas tydligt. Vill du rikta dig mot villaägare kontra fastighetsbolag? Berätta det i chatten så anpassas tonalitet och exempel. Resultatet blir en sajt som känns specifik för just ditt byggföretag, inte en generisk mall."
+    },
+    {
+      "heading": "Ingen bindningstid, äg din kod",
+      "body": "Många webbplattformar låser in dig med månadskostnader och svåra exportprocesser. Sajtmaskin fungerar tvärtom: publicera gratis på en subdomän, eller koppla din egen domän. Ingen bindningstid. Vill du flytta sajten till egen hosting senare? Exportera koden och gör det. Du äger allt innehåll och all design. Plattformen är byggd i Sverige av Pretty Good AB, med svenskt stöd om du kör fast."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig byggsajt?",
+      "a": "Själva genereringen tar några minuter. Du chattar med AI:n om ditt byggföretag, vilka tjänster du erbjuder och vad du vill ha med på sajten. Sen skapar AI:n struktur, texter och layout direkt. Du kan justera och lägga till bilder efteråt, men grunden är klar på under en kvart."
+    },
+    {
+      "q": "Kan jag visa upp mina byggprojekt i ett galleri?",
+      "a": "Ja, du kan lägga till ett projektgalleri där du visar bilder från renoveringar, nybyggen eller ombyggnader. Varje projekt kan ha egen beskrivning, plats och typ av arbete. Bra för att visa vad du kan och bygga förtroende hos nya kunder i Malmö."
+    },
+    {
+      "q": "Fungerar sajten för ROT-avdrag och F-skatt?",
+      "a": "Sajten kan innehålla information om att ditt företag är godkänt för ROT-avdrag och har F-skatt, vilket är viktigt för många kunder. Du lägger själv till texten om certifieringar och godkännanden, och kan länka till relevanta dokument eller myndighetsregister om du vill."
+    },
+    {
+      "q": "Kan kunder begära offert direkt på sajten?",
+      "a": "Absolut. Du kan ha ett kontaktformulär specifikt för offerter där kunder beskriver jobbet, laddar upp bilder och anger adress. Formuläret skickar allt till din e-post så du kan följa upp snabbt. Du kan också integrera Cal.com för att låta folk boka in ett platsbesök direkt."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du använda din egen domän, typ dittbyggforetag.se, kopplar du den utan extra kostnad från Sajtmaskin – du betalar bara för själva domänregistreringen hos din domänleverantör."
+    },
+    {
+      "q": "Kan jag ta betalt via sajten?",
+      "a": "Ja, via Stripe-integrationen kan du ta betalt för konsultationer, handpenning eller material direkt på sajten. Praktiskt om du vill säkra en bokning med förskottsbetalning eller sälja byggmaterial som sidoverksamhet."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill och flytta sajten till egen hosting eller annan plattform. Ingen bindningstid, inget krångel. Du äger allt innehåll och all design som genererats, så du är aldrig låst till Sajtmaskin."
+    }
+  ],
+  "localOrIndustryContext": "Malmös byggmarknad växer med nya bostadsområden i Hyllie och fortsatt omvandling i Västra Hamnen. Många villaägare i Limhamn och Bunkeflostrand söker byggfirmor för renoveringar och tillbyggnader. En professionell hemsida som visar lokala projekt och gör det enkelt att begära offert hjälper dig sticka ut i konkurrensen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Malmö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

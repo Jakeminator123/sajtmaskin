@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "uppsala/portfolio",
+  "title": "Hemsida Portfolio Uppsala – Bygg din portfolio på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfolio-hemsida i Uppsala med AI. Ingen kod krävs. Publicera på egen domän direkt. Perfekt för kreatörer och frilansare.",
+  "h1": "Hemsida Portfolio Uppsala",
+  "heroSub": "Bygg en professionell portfolio-sajt för ditt kreativa arbete i Uppsala – på minuter, utan kod.",
+  "introParagraphs": [
+    "En portfolio-hemsida är ditt digitala visitkort som kreatör, designer, fotograf eller frilansare i Uppsala. Här visar du upp dina bästa projekt, din stil och din kompetens – och gör det enkelt för potentiella kunder och uppdragsgivare att hitta och kontakta dig. Med Sajtmaskin skapar du en skräddarsydd portfolio direkt via chat, publicerar på egen domän och får en sajt som faktiskt representerar ditt arbete.",
+    "Uppsala har en stark kreativ scen med allt från illustratörer och UX-designers till fotografer och arkitekter. Oavsett om du arbetar från Fyrishov, har studio i Kvarngärdet eller driver ditt kreativa företag från hemmet behöver du en portfolio som är lika professionell som ditt arbete. Sajtmaskin låter dig fokusera på det du är bra på medan AI:n bygger sajten åt dig.",
+    "Ingen bindningstid, inga dolda avgifter och ingen teknisk krångel. Berätta vad du gör och vilka projekt du vill visa upp – så genererar Sajtmaskin en färdig portfolio-sajt på svenska som du kan publicera direkt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför en portfolio-hemsida är viktig i Uppsala",
+      "body": "Uppsala är en kunskapsstad med både universitetet, life science-företag och en växande kreativ sektor. Många uppdragsgivare söker lokala kreatörer för projekt inom webb, grafisk design, foto och kommunikation. En professionell portfolio-sajt gör att du syns när någon söker efter dina tjänster, visar trovärdighet och ger en tydlig bild av vad du kan leverera. Det räcker inte längre med en Instagram-profil – kunder förväntar sig en egen sajt där de kan se ditt arbete samlat, läsa om din process och enkelt ta kontakt."
+    },
+    {
+      "heading": "Vad en bra portfolio-sajt behöver innehålla",
+      "body": "En effektiv portfolio visar dina bästa projekt med tydliga bilder, beskrivningar av vad du gjorde och vilka resultat du uppnådde. Du behöver en om-sida som förklarar vem du är och vad du erbjuder, kontaktuppgifter som är lätta att hitta och gärna ett bokningsformulär eller länk till din kalender. Många kreatörer i Uppsala jobbar med både lokala företag och nationella kunder, så sajten ska fungera för båda målgrupperna. Sajtmaskin bygger allt detta automatiskt – du beskriver dina projekt och din inriktning, så skapar AI:n en struktur som passar just din verksamhet."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din portfolio-sajt",
+      "body": "Du startar en chat och berättar vad du gör – fotograf, illustratör, webbdesigner, copywriter eller något annat. Beskriv dina viktigaste projekt, din stil och vad som gör ditt arbete unikt. Sajtmaskin genererar då en komplett sajt med projektgalleri, om-sida, kontaktformulär och allt annat du behöver. Du kan integrera Cal.com för att låta kunder boka möten direkt, lägga till Google Analytics för att följa besökare, och publicera på din egen domän utan extra hostingkostnad om du väljer subdomän. Allt på svenska, allt utan kod."
+    },
+    {
+      "heading": "Integrera bokning och betalning i din portfolio",
+      "body": "Som frilansare eller kreatör i Uppsala vill du göra det enkelt för kunder att ta nästa steg. Med Cal.com-integration kan besökare boka ett första möte eller konsultation direkt i din portfolio. Behöver du ta betalt för digitala produkter, workshops eller konsulttjänster? Koppla in Stripe och sälj direkt från sajten. Allt detta sätter du upp via Sajtmaskin utan teknisk kompetens – du fokuserar på ditt kreativa arbete medan sajten tar hand om administrationen."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Sajtmaskin har ingen bindningstid och du kan när som helst exportera hela din sajtkod. Det betyder att du äger ditt innehåll och din närvaro helt och hållet. Vill du senare flytta till en annan plattform eller hantera sajten själv? Inga problem. Men de flesta stannar kvar eftersom det är så enkelt att uppdatera portfolio, lägga till nya projekt och anpassa innehåll direkt via chat – utan att behöva öppna någon kodredigerare eller lära dig WordPress."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfolio-sajt med Sajtmaskin?",
+      "a": "Själva genereringen tar några minuter. Du chattar med AI:n, beskriver dina projekt och vad du vill visa upp, så skapas en färdig sajt. Sedan kan du förfina, lägga till fler projekt eller justera texter – men du har en publicerbar portfolio inom en kvart om du vill."
+    },
+    {
+      "q": "Kan jag visa olika typer av projekt i samma portfolio?",
+      "a": "Absolut. Många kreatörer i Uppsala jobbar brett – kanske fotografi och grafisk design, eller illustration och webb. Sajtmaskin strukturerar dina projekt så att besökare enkelt kan filtrera eller bläddra mellan olika typer av arbete. Du bestämmer själv hur du vill kategorisera."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera min portfolio?",
+      "a": "Nej. Allt sköts via chat. Vill du lägga till ett nytt projekt, ändra en text eller uppdatera kontaktuppgifter skriver du bara till AI:n så uppdateras sajten. Ingen kod, inga krångliga adminpaneler."
+    },
+    {
+      "q": "Fungerar portfolio-sajten bra för att visa bilder och video?",
+      "a": "Ja. Sajtmaskin bygger responsiva gallerier som ser bra ut på mobil och dator. Du kan visa högupplösta bilder, bädda in video från Vimeo eller YouTube och presentera dina projekt på ett visuellt starkt sätt – precis som en portfolio ska vara."
+    },
+    {
+      "q": "Kan jag använda min egen domän för portfolio-sajten?",
+      "a": "Ja, du publicerar på din egen domän. Vill du slippa hostingavgift kan du använda en subdomän under Sajtmaskin utan månadskostnad. Båda alternativen ger dig full kontroll och professionell närvaro."
+    },
+    {
+      "q": "Är det lätt att lägga till bokningsfunktion för konsultationer?",
+      "a": "Mycket lätt. Du integrerar Cal.com direkt via Sajtmaskin så kan kunder boka möten i din kalender. Perfekt om du erbjuder konsultationer, kreativa workshops eller vill ha ett första möte med potentiella uppdragsgivare i Uppsala."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajtkoden när du vill. Ingen bindningstid, inga låsningar. Du äger ditt innehåll och kan flytta det fritt. Men eftersom Sajtmaskin gör det så enkelt att uppdatera och utveckla sajten väljer de flesta att stanna kvar."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala har en livaktig kreativ bransch med frilansare, designers och kreatörer som jobbar både lokalt och nationellt. Många söker uppdrag via nätverk kring universitetet, life science-sektorn och lokala företag. En professionell portfolio-sajt gör dig synlig och trovärdig i en stad där konkurrensen om kreativa uppdrag är stark.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Uppsala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

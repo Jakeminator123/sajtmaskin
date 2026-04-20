@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "halmstad/fotograf",
+  "title": "Hemsida för fotograf i Halmstad – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Halmstad. AI bygger din sajt med galleri, bokning och SEO – ingen kod krävs.",
+  "h1": "Hemsida för fotograf i Halmstad",
+  "heroSub": "Bygg en professionell fotograf-sajt på minuter med AI – perfekt anpassad för din verksamhet i Halmstad.",
+  "introParagraphs": [
+    "Som fotograf i Halmstad behöver du en hemsida som visar ditt arbete och gör det enkelt för kunder att boka dig. Sajtmaskin bygger din kompletta fotograf-sajt via chat – med bildgalleri, bokningssystem och kontaktformulär klart på minuter.",
+    "Du chattar med vår AI om din verksamhet, dina tjänster och din stil. Systemet skapar sedan en färdig sajt med professionella sidor för porträtt, bröllop, företagsfoto eller det du specialiserar dig på. Allt på svenska, anpassat för Halmstads marknad.",
+    "Publicera direkt på egen domän eller använd vår kostnadsfria subdomän. Integrera Cal.com för bokningar, Stripe för betalningar och Google Analytics för att följa hur kunder hittar dig. Ingen bindningstid – din sajt, dina villkor."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt en fotograf-sajt i Halmstad behöver",
+      "body": "Din hemsida får automatiskt sidor som visar ditt portfolio, beskriver dina tjänster och gör det enkelt att boka. Bildgallerier optimeras för snabb laddning utan att tappa kvalitet. Kontaktformulär, prislista och om-sida skapas utifrån det du berättar. Sajtmaskin bygger strukturen fotografer behöver – från bröllopsfotograf vid Tylösand till produktfotograf för Halmstads e-handlare."
+    },
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "Slipp mejl fram och tillbaka om tider. Med Cal.com-integration kan kunder boka konsultation eller fotosession direkt på din sajt. Du styr vilka tider som är lediga, hur lång varje session är och om kunden ska betala deposition via Stripe. Systemet synkar med din kalender så du aldrig dubbelbokar. Perfekt när du fotograferar både företagsporträtt på vardagar och familjefotografering på helger."
+    },
+    {
+      "heading": "SEO för fotografer i Halmstad",
+      "body": "Din sajt byggs med sökmotoroptimering från grunden. Varje sida får relevanta rubriker, beskrivningar och struktur som hjälper dig synas när någon söker efter fotograf i Halmstad. Bilder får automatiskt alt-texter, sajten laddas snabbt och fungerar lika bra på mobil som dator. Du kan enkelt uppdatera innehåll själv när du vill lägga till nya projekt eller tjänster."
+    },
+    {
+      "heading": "Ingen kod, ingen krånglig teknik",
+      "body": "Du behöver inga tekniska kunskaper. Berätta för AI:n vad du fotograferar, vilka dina vanligaste uppdrag är och hur du vill presentera dig. Systemet skapar design, struktur och innehåll. Vill du ändra något senare? Chatta igen eller redigera direkt i gränssnittet. Exportera koden när du vill, byt webbhotell eller bygg vidare själv. Ingen inlåsning."
+    },
+    {
+      "heading": "Från idé till publicerad sajt samma dag",
+      "body": "De flesta fotografer har sin sajt klar på under en timme. Du startar med att beskriva din verksamhet, väljer eventuellt färgschema och logotyp, sedan genererar AI:n hela sajten. Granska, justera om du vill, koppla din domän och publicera. Börja ta emot bokningar samma dag. Hosting på subdomän kostar inget extra – betala bara när du vill använda egen domän eller premium-funktioner."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig fotograf-sajt?",
+      "a": "De flesta har en komplett sajt klar på 30–60 minuter. Du chattar med AI:n om din verksamhet, systemet genererar sajten, du granskar och justerar eventuellt några detaljer, sedan publicerar du. Vill du lägga till mycket eget innehåll och bilder kan det ta längre, men grundstrukturen är klar direkt."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotografering på sajten?",
+      "a": "Ja, sajten kan ha separata sidor eller sektioner för varje typ av fotografering du erbjuder. Bröllop, porträtt, företagsfoto, produkt, event – du berättar vad du gör så skapar AI:n relevant struktur. Varje område kan ha eget galleri, egen beskrivning och egna priser."
+    },
+    {
+      "q": "Fungerar bokningssystemet för både korta och långa sessioner?",
+      "a": "Ja, Cal.com-integrationen låter dig sätta upp olika typer av bokningar. En snabb företagsporträtt på 30 minuter, en familjefotografering på två timmar eller en heldagssession för bröllop. Du bestämmer längd, pris och vilka tider som är tillgängliga för varje typ."
+    },
+    {
+      "q": "Syns min sajt när folk söker efter fotograf i Halmstad?",
+      "a": "Sajten byggs med SEO-grund från start, men synlighet i Google tar tid och beror på konkurrens. Du hjälper till genom att lägga till relevant innehåll om din verksamhet i Halmstad, uppdatera med nya projekt och eventuellt skriva om lokala uppdrag. Tekniskt är allt förberett – innehållet gör skillnaden."
+    },
+    {
+      "q": "Kan jag ta betalt för fotografering direkt på sajten?",
+      "a": "Ja, med Stripe-integration kan kunder betala deposition när de bokar eller full betalning för paketerade tjänster. Du styr själv vad som ska betalas direkt och vad som faktureras senare. Pengarna går till ditt eget Stripe-konto, Sajtmaskin tar ingen provision på dina intäkter."
+    },
+    {
+      "q": "Vad händer om jag vill byta från Sajtmaskin senare?",
+      "a": "Du kan exportera hela koden när du vill, utan extra kostnad. Ta sajten till vilket webbhotell som helst eller fortsätt utveckla den själv. Ingen bindningstid, inga utträdesavgifter. Din sajt är din – vi bygger bara verktyget som skapar den."
+    },
+    {
+      "q": "Kostar det något att ha sajten på en subdomän?",
+      "a": "Nej, hosting på en Sajtmaskin-subdomän är gratis. Du betalar bara om du vill koppla din egen domän, använda premium-integrationer eller exportera koden. Perfekt om du vill testa eller köra en enkel sajt utan löpande kostnader."
+    }
+  ],
+  "localOrIndustryContext": "Halmstad har en växande kreativ sektor med fotografer som täcker allt från bröllop vid kusten till kommersiellt arbete för lokala företag. Med närhet till både stadsmiljö, strand och natur finns stor variation i uppdrag. En professionell hemsida hjälper dig sticka ut och nå kunder som söker fotograf i Halland.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/halmstad",
+      "label": "Skapa hemsida i Halmstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Halmstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -45,6 +45,7 @@
     "template-pipeline:refresh": "python scripts/template-library/full_template_refresh.py",
     "template-pipeline:refresh:reuse-cache": "python scripts/template-library/full_template_refresh.py --skip-scrape",
     "runtime-library:audit": "npx tsx scripts/audit/audit-runtime-library.ts",
+    "seo:generate": "npx tsx scripts/seo/generate-landings.ts",
     "artifacts:rebuild": "python scripts/rebuild_artifacts.py --with-typecheck",
     "artifacts:rebuild:full": "python scripts/rebuild_artifacts.py --refresh-scrape --with-typecheck",
     "artifacts:rebuild:with-eval": "python scripts/rebuild_artifacts.py --with-eval --with-typecheck",

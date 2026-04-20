@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "stockholm/fotograf",
+  "title": "Hemsida fotograf Stockholm – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för ditt fotouppdrag i Stockholm. Portfölj, bokning och galleri – klart på minuter med AI. Ingen kodning behövs.",
+  "h1": "Hemsida fotograf Stockholm",
+  "heroSub": "Bygg en sajt som visar ditt bästa arbete och tar emot bokningar – direkt från en konversation med AI.",
+  "introParagraphs": [
+    "Som fotograf i Stockholm behöver du en hemsida som både visar upp din portfölj och gör det enkelt för kunder att boka dig. Med Sajtmaskin skapar du en komplett sajt på minuter genom att chatta med AI – ingen kodning, ingen krånglig mall. Du beskriver vad du fotograferar, laddar upp bilder och får en färdig sajt med galleri, kontaktformulär och bokningsfunktion.",
+    "Sajten är byggd för svenska fotografer och fungerar lika bra för bröllopsfotografer i Vasastan som produktfotografer i Södermalm. Du publicerar på din egen domän, integrerar Cal.com för bokning och Google Analytics för att se var dina besökare kommer ifrån. Allt på svenska, utan bindningstid.",
+    "Stockholm har hundratals fotografer som konkurrerar om samma uppdrag. En snabb, snygg hemsida som visar ditt arbete och gör det lätt att boka kan vara skillnaden mellan att få uppdraget eller förlora det till någon annan."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio som säljer ditt fotografi",
+      "body": "Din hemsida ska visa vad du kan, inte bara berätta om det. Sajtmaskin låter dig bygga bildgallerier som laddas snabbt och ser proffsiga ut på mobil och dator. Organisera dina bilder i kategorier – bröllop, porträtt, företagsfoto, event – så besökare direkt hittar det de letar efter. AI:n hjälper dig strukturera innehållet så varje bild får rätt plats och rätt kontext. Inga komplicerade plugins eller bildverktyg, bara en ren presentation av ditt arbete."
+    },
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "Kunder i Stockholm förväntar sig att kunna boka direkt på din sajt. Genom Cal.com-integrationen får du ett bokningssystem där kunder ser dina lediga tider och bokar utan att behöva mejla fram och tillbaka. Du bestämmer själv vilka dagar och tider som är tillgängliga, hur lång tid varje session tar och om du vill ha en depositionsavgift via Stripe. Allt synkas med din kalender så du aldrig dubbelbokar."
+    },
+    {
+      "heading": "Snabb sajt som syns i Stockholm",
+      "body": "När någon söker efter fotograf i Stockholm vill du att din sajt dyker upp. Sajtmaskin bygger tekniskt snabba sajter som Google gillar – ren kod, snabba laddningstider, mobilvänlig layout. Du får färdiga SEO-grundinställningar och kan enkelt lägga till texter som beskriver var du jobbar och vad du fotograferar. Ingen avancerad teknisk kunskap behövs, AI:n guidar dig genom vad som behöver finnas på plats."
+    },
+    {
+      "heading": "Äg din sajt och ditt innehåll",
+      "body": "Till skillnad från portföljplattformar där du hyr en profil äger du hela din sajt med Sajtmaskin. Publicera på din egen domän, exportera koden när du vill, inga dolda avgifter. Om du vill ha hosting på en subdomän hos oss är det gratis, annars tar du med dig sajten vart du vill. Du är inte låst till någon plattform och kan när som helst bygga vidare eller flytta. Allt innehåll, alla bilder, all kod är din."
+    },
+    {
+      "heading": "Bygg och publicera på minuter",
+      "body": "Du behöver ingen teknisk bakgrund för att bygga en fotograf-sajt. Öppna Sajtmaskin, beskriv vad du fotograferar och var du jobbar, ladda upp dina bästa bilder. AI:n skapar struktur, texter och layout åt dig. Justera det du vill ändra direkt i chatten, publicera när du är nöjd. Från idé till live-sajt tar det minuter, inte veckor. Perfekt när du behöver komma igång snabbt eller vill testa en ny nisch utan att investera tusentals kronor i webbyrå."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att bygga en fotograf-sajt med Sajtmaskin?",
+      "a": "Sajtmaskin tar betalt per sajt du bygger, inte per månad. Du betalar en engångsavgift för att skapa sajten, sedan kan du publicera på en gratis subdomän eller på din egen domän utan löpande hosting-avgift. Vill du ha extra funktioner som Stripe-betalningar eller Cal.com-bokning kan det tillkomma kostnader från de tjänsterna, men själva sajten har ingen månadskostnad hos oss."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotografi på samma sajt?",
+      "a": "Ja, du kan ha flera gallerier och kategorier på samma sajt. Skapa separata sidor för bröllop, porträtt, företagsfoto eller event så besökare lätt hittar rätt. AI:n hjälper dig strukturera menyn och länka ihop allt så navigeringen blir logisk. Du kan när som helst lägga till nya kategorier eller ta bort sådana som inte längre är relevanta."
+    },
+    {
+      "q": "Hur fungerar bokningssystemet för fotografuppdrag?",
+      "a": "Du integrerar Cal.com med din sajt så kunder kan se dina lediga tider och boka direkt. Du ställer in hur lång tid varje typ av session tar, vilka dagar du jobbar och om du vill ha buffert mellan bokningar. Kunden väljer tid, fyller i sina uppgifter och får en bekräftelse. Allt synkas med din kalender så du har koll på vad som är bokat."
+    },
+    {
+      "q": "Behöver jag kunna koda för att bygga sajten?",
+      "a": "Nej, hela sajten byggs genom att du chattar med AI:n. Du beskriver vad du vill ha, laddar upp bilder och justerar texter. AI:n skapar layout, struktur och teknisk grund. Om du vill ändra något senare gör du det i chatten eller direkt i gränssnittet. Ingen kodning behövs, men vill du exportera och anpassa koden själv går det också."
+    },
+    {
+      "q": "Fungerar sajten bra för kunder som söker fotograf i Stockholm?",
+      "a": "Ja, sajten byggs med SEO-grund som gör att Google förstår var du jobbar och vad du fotograferar. Du lägger enkelt till texter om Stockholm, vilka stadsdelar du täcker och vilka typer av uppdrag du tar. Snabb laddningstid och mobilvänlig design hjälper också till att synas bättre i sökresultat. Resten är upp till ditt innehåll och hur du marknadsför sajten."
+    },
+    {
+      "q": "Kan jag ta betalt för fotosessioner direkt på sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du ta emot betalningar för depositioner eller hela uppdrag. Koppla ditt Stripe-konto till sajten så kunder kan betala när de bokar. Du bestämmer själv om du vill ha full betalning i förskott, en deposition eller fakturera i efterhand. Allt sköts säkert genom Stripe, inga kortuppgifter lagras på din sajt."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajten som kod och flytta den vart du vill. Ingen bindningstid, inga dolda avgifter. Om du publicerar på vår subdomän kan du när som helst flytta till din egen domän. All text, alla bilder och all struktur följer med. Du äger allt innehåll och kan använda det precis som du vill, även utanför Sajtmaskin."
+    }
+  ],
+  "localOrIndustryContext": "Stockholm har en stor och konkurrensutsatt fotografmarknad med allt från etablerade bröllopsfotografer till nystartade produktfotografer. En proffsig hemsida som visar ditt arbete och gör det enkelt att boka är grundläggande för att sticka ut. Många kunder söker lokalt och vill se exempel från Stockholmsmiljöer innan de bokar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Stockholm. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

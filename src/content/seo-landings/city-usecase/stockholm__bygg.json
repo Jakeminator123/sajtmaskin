@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "stockholm/bygg",
+  "title": "Hemsida bygg Stockholm – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Stockholm med AI. Färdig på minuter, inga kodkunskaper behövs. Prova gratis idag.",
+  "h1": "Hemsida för byggföretag i Stockholm",
+  "heroSub": "Bygg en komplett hemsida för ditt byggföretag på minuter – med AI som förstår svenska och Stockholms byggmarknad.",
+  "introParagraphs": [
+    "Du driver ett byggföretag i Stockholm och behöver en hemsida som visar upp dina projekt, lockar nya kunder och gör det enkelt att ta emot förfrågningar. Med Sajtmaskin skapar du en färdig sajt direkt i chatten – berätta vad du gör, så genererar AI:n text, bilder och struktur anpassat för byggbranschen.",
+    "Ingen kod, ingen designer, ingen teknisk krångel. Du får en sajt med projektgalleri, kontaktformulär och möjlighet att integrera bokningssystem. Publicera på din egen domän eller använd en kostnadsfri subdomän. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Stockholm behöver",
+      "body": "Byggföretag i Stockholmsregionen konkurrerar om både privatpersoner som renoverar villor i förorterna och företag som bygger om lokaler i city. Din hemsida behöver visa tydliga referensprojekt med bilder, beskriva dina tjänster – ROT-arbeten, tillbyggnader, badrumsrenoveringar, nybyggnation – och göra det lätt för kunder att begära offert. Sajtmaskin skapar automatiskt sidor för varje tjänst, ett projektgalleri och ett kontaktformulär som samlar förfrågningar på ett ställe."
+    },
+    {
+      "heading": "Så bygger du din byggsajt med AI",
+      "body": "Öppna chatten och beskriv ditt företag: vilka tjänster du erbjuder, var i Stockholm du jobbar, vilka projekt du är stolt över. AI:n skapar direkt en komplett sajt med startsida, tjänstesidor, om-sida och kontakt. Du kan lägga till bilder från egna byggen, justera texter och färger, och integrera Cal.com om du vill att kunder ska boka kostnadsfria platsbesök direkt i kalendern. När du är nöjd publicerar du – antingen på din egen domän eller gratis på en subdomän."
+    },
+    {
+      "heading": "Integrationer för byggföretag",
+      "body": "Koppla din sajt till Cal.com så kunder kan boka tider för besiktning eller offertmöte direkt i din kalender. Använd Google Analytics för att se vilka tjänster som lockar flest besökare – kanske är det kök eller badrum som folk söker mest i ditt område. Om du säljer byggmaterial eller färdiga paketlösningar kan du integrera Stripe för betalning. Allt sköts från samma gränssnitt, på svenska."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Sajtmaskin har ingen bindningstid. Betala bara när du publicerar på egen domän – hosting på subdomän är gratis. Vill du flytta sajten senare kan du exportera hela koden och ta den till vilken webbserver som helst. Du äger alltid ditt innehåll och dina kundkontakter. Uppdatera projekt, lägg till nya tjänster eller ändra priser när du vill, direkt i chatten."
+    },
+    {
+      "heading": "Svenskt verktyg för svenska byggare",
+      "body": "Sajtmaskin är byggt i Sverige av Pretty Good AB och förstår hur svenska byggföretag kommunicerar. AI:n skriver texter som passar svensk ton och använder rätt termer – ROT-avdrag, F-skatt, Byggnads, Skatteverket. Du får en sajt som känns professionell och trovärdig för Stockholmskunder, utan att behöva anlita byrå eller lära dig WordPress."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en byggsajt?",
+      "a": "De flesta har en färdig sajt på 10–15 minuter. Du chattar med AI:n om ditt företag, väljer eventuellt bilder och justerar färger, sedan publicerar du. Vill du lägga till fler projekt eller detaljerade tjänstebeskrivningar kan du fortsätta bygga i din egen takt."
+    },
+    {
+      "q": "Kan jag visa bilder från mina egna byggprojekt?",
+      "a": "Ja, du laddar upp egna bilder direkt i editorn. Skapa ett projektgalleri med före- och efterbilder, eller visa referensobjekt på tjänstesidorna. AI:n hjälper dig strukturera bilderna så de syns bra på mobil och dator."
+    },
+    {
+      "q": "Fungerar sajten för ROT-avdrag och offertförfrågningar?",
+      "a": "Absolut. Du kan lägga in information om ROT-avdrag på relevanta tjänstesidor och använda kontaktformuläret för att ta emot offertförfrågningar. Integrerar du Cal.com kan kunder boka kostnadsfria hembesök direkt, vilket är vanligt för badrum och kök i Stockholmsområdet."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Hosting på subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän – exempelvis dittforetag.se – betalar du en engångsavgift för publicering. Inga månadskostnader, inga dolda avgifter."
+    },
+    {
+      "q": "Kan jag rikta mig till specifika stadsdelar i Stockholm?",
+      "a": "Ja, du kan skapa separata sidor för olika områden – Södermalm, Vasastan, Bromma, Nacka – och skriva om lokala projekt eller erfarenhet från varje stadsdel. Det hjälper dig synas i sökmotorer när folk söker byggare nära sitt hem."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när som helst och flytta sajten till vilken webbserver du vill. Ingen bindningstid, ingen inlåsning. Ditt innehåll och dina kundkontakter är alltid dina."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera sajten?",
+      "a": "Nej. Alla ändringar gör du i chatten eller i den visuella editorn. Vill du lägga till ett nytt projekt, ändra priser eller uppdatera kontaktuppgifter skriver du bara vad du vill ha – AI:n fixar resten."
+    }
+  ],
+  "localOrIndustryContext": "Stockholms byggmarknad är stark men konkurrensutsatt. Många husägare söker byggare online innan de ringer, och en tydlig hemsida med lokala referenser och snabb kontaktväg gör skillnad. Sajtmaskin hjälper dig synas professionellt utan att lägga veckor på webb-projekt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Stockholm. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

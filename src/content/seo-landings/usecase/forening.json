@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "forening",
+  "title": "Hemsida förening – bygg en komplett sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din förening direkt i chatten. Medlemsinfo, kalender, kontakt och mer – klart på minuter utan kod.",
+  "h1": "Hemsida förening",
+  "heroSub": "Bygg en komplett föreningssajt med AI – från välkomstsida till medlemsinfo och aktivitetskalender, utan att kunna koda.",
+  "introParagraphs": [
+    "En hemsida för förening samlar allt som medlemmar och intresserade behöver veta på ett ställe: vem ni är, vad ni gör, hur man blir medlem och när nästa aktivitet äger rum. Istället för att sprida information i mejlkedjor och Facebook-grupper får föreningen en stabil bas där alla alltid hittar aktuell information.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n. Du beskriver din förening – typ av verksamhet, vilka sidor du vill ha, vilken känsla sajten ska ge – så genererar AI:n en färdig sajt på minuter. Publicera direkt på er egen domän eller testa kostnadsfritt på en subdomän.",
+    "Du behöver ingen teknisk kunskap och ingen kod. Vill du ändra något senare chattar du bara med AI:n igen. Sajten ägs av er förening och ni kan exportera koden när som helst – ingen inlåsning, inga dolda avgifter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vilka sidor behöver en föreningssajt?",
+      "body": "De flesta föreningar behöver en startsida som förklarar vad föreningen gör och varför den finns. Sedan en Om oss-sida med historia, styrelse och kontaktuppgifter. En Bli medlem-sida med villkor, avgifter och anmälningsformulär gör det enkelt för nya att gå med. En Kalender eller Aktiviteter-sida visar kommande träffar, tävlingar eller event. Många vill också ha en Nyheter-sektion för att hålla medlemmarna uppdaterade. Sajtmaskin genererar alla dessa sidor utifrån din beskrivning och layoutar dem så de hänger ihop visuellt."
+    },
+    {
+      "heading": "Bokningsfunktion för aktiviteter och lokaler",
+      "body": "Om föreningen hyr ut en lokal, anordnar kurser eller tar emot anmälningar till event kan du integrera Cal.com direkt i sajten. Medlemmar bokar tid via kalendern och får automatisk bekräftelse. Du slipper manuell mejlhantering och dubbelbokning. Integrationen sköts i Sajtmaskin utan kod – du kopplar ditt Cal.com-konto så bäddas bokningskalendern in på rätt sida. Perfekt för allt från föreningslokaler till träningspass och studiecirklar."
+    },
+    {
+      "heading": "Medlemsavgifter och donationer via Stripe",
+      "body": "Vill föreningen ta emot medlemsavgifter eller donationer online? Koppla in Stripe så kan besökare betala direkt på sajten med kort eller Swish. Du skapar betalningslänkar eller knappar för olika nivåer – kanske ordinarie medlem, familjemedlemskap och stödmedlem. Pengarna landar på föreningens konto och ni får kvitton automatiskt. Stripe-integrationen aktiveras i Sajtmaskin med några klick, ingen e-handelskod behövs."
+    },
+    {
+      "heading": "Uppdatera sajten själv – eller låt AI göra det",
+      "body": "När styrelsen byter, aktivitetskalendern fylls på eller stadgarna ändras behöver sajten uppdateras. I Sajtmaskin chattar du bara med AI:n: 'Lägg till ny styrelsemedlem Anna Svensson som sekreterare' eller 'Ta bort evenemanget den 15 mars'. AI:n gör ändringen direkt. Vill du ha större kontroll kan du exportera koden och redigera i egen miljö. Ingen bindningstid och inget leverantörsberoende – föreningen äger alltid sin sajt."
+    },
+    {
+      "heading": "Kostnadsfritt att testa, ingen månadshyra för subdomän",
+      "body": "Du kan publicera din föreningssajt på en Sajtmaskin-subdomän helt utan månadskostnad. Perfekt om föreningen vill testa eller inte har budget för egen domän än. Vill ni senare flytta till er egen adress – till exempel idrottsforeningen.se – ordnar ni domänen hos valfri registrar och pekar den mot sajten. Sajtmaskin tar ingen löpande hostingavgift för subdomänen, så ni kan fokusera pengarna på föreningens kärnverksamhet istället."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan vi ha medlemsregister på sajten?",
+      "a": "Sajtmaskin genererar publika sidor, inte inloggade medlemsportaler. Men du kan lägga upp en sida med styrelse och kontaktpersoner, samt ett formulär där nya medlemmar anmäler sig. För fullständigt medlemsregister med inloggning rekommenderar vi att komplettera med en extern tjänst som IdrottOnline eller Membership, och länka till den från sajten."
+    },
+    {
+      "q": "Hur lägger vi till fler sidor senare?",
+      "a": "Chatta med AI:n och beskriv vilken sida du vill lägga till – till exempel 'Skapa en sida för våra sponsorer med logotyper och länkar'. AI:n genererar sidan och lägger in den i menyn. Du kan lägga till obegränsat antal sidor och strukturera om navigationen när föreningen växer."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och anpassar sig automatiskt till mobil, surfplatta och dator. Eftersom många medlemmar kollar information i telefonen är det viktigt att allt – kalender, kontaktinfo, anmälningsformulär – fungerar lika bra på liten skärm."
+    },
+    {
+      "q": "Kan vi bädda in vårt Instagram-flöde eller Facebook-grupp?",
+      "a": "Ja, du kan be AI:n bädda in sociala medier. Till exempel 'Lägg in vårt Instagram-flöde på startsidan' eller 'Länka till vår Facebook-grupp i sidfoten'. Sajtmaskin genererar rätt inbäddningskod så besökare ser era senaste inlägg direkt på hemsidan."
+    },
+    {
+      "q": "Vad händer om föreningen läggs ner eller vi byter plattform?",
+      "a": "Du kan när som helst exportera hela sajten som kod och flytta den till egen server eller annan tjänst. Ingen bindningstid och inga utträdesavgifter. Föreningen behåller full kontroll över innehållet och designen, oavsett vad som händer med Sajtmaskin i framtiden."
+    },
+    {
+      "q": "Kan flera styrelsemedlemmar redigera sajten?",
+      "a": "Just nu loggar du in med ditt konto och chattar med AI:n för att göra ändringar. Vill flera personer kunna uppdatera rekommenderar vi att ni delar inlogg internt eller exporterar koden och hanterar den i ett gemensamt Git-repo. Fler användarroller kan komma i framtida versioner."
+    },
+    {
+      "q": "Kostar det något att publicera på egen domän?",
+      "a": "Sajtmaskin tar ingen extra avgift för att peka din egen domän mot sajten. Du betalar bara domänregistrering hos din registrar (ofta 80–150 kr/år) och eventuell hostingkostnad om du väljer att exportera och själv hosta. Publicerar du på Sajtmaskins subdomän är hostingen gratis."
+    }
+  ],
+  "localOrIndustryContext": "Föreningslivet i Sverige sträcker sig från idrottsklubbar och kulturföreningar till byalag och intresseorganisationer. Många drivs ideellt med begränsad budget, vilket gör att en enkel, kostnadsfri lösning för hemsida ofta är avgörande för att nå nya medlemmar och hålla befintliga informerade.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en förening-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

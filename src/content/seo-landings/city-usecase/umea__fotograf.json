@@ -1,0 +1,90 @@
+{
+  "family": "city-usecase",
+  "slug": "umea/fotograf",
+  "title": "Hemsida fotograf Umeå – Bygg din portfoliosajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Umeå. AI bygger din portfoliosajt med bokning och galleri – ingen kod krävs.",
+  "h1": "Hemsida fotograf Umeå",
+  "heroSub": "Bygg en professionell portfoliosajt för din fotoverksamhet i Umeå – med AI, på minuter, helt utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Umeå behöver du en hemsida som visar dina bilder i bästa ljus och gör det enkelt för kunder att boka dig. Sajtmaskin bygger din kompletta portfoliosajt via chat – du beskriver din verksamhet, AI:n skapar sajten, och du publicerar direkt på din egen domän.",
+    "Du får ett bildgalleri som lyfter dina bästa jobb, en bokningsfunktion via Cal.com så kunder kan boka fotosessioner direkt, och kontaktformulär. Allt på svenska, ingen kod, ingen bindningstid. Publicera på subdomän utan månadskostnad eller koppla din egen domän.",
+    "Perfekt för bröllopsfotografer, porträttfotografer, företagsfotografer eller produktfotografer i Umeå som vill ha en sajt igång snabbt – utan att fastna i tekniska detaljer eller dyra webbbyråer."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio och galleri som säljer dina tjänster",
+      "body": "Din hemsida behöver visa vad du kan. Sajtmaskin skapar bildgallerier där du enkelt laddar upp dina bästa foton från bröllop, porträtt, events eller produktfoto. Bilderna presenteras responsivt så de ser bra ut på mobil och dator. Du kan organisera i olika kategorier – bröllop, familj, företag – så besökare snabbt hittar rätt. Inga krångliga bildhanteringssystem, bara en ren presentation av ditt arbete som får bilderna att tala."
+    },
+    {
+      "heading": "Bokningsfunktion för fotosessioner",
+      "body": "Låt kunder boka tid direkt på sajten. Genom integration med Cal.com får du ett bokningssystem där kunder ser dina lediga tider och bokar fotosessioner utan mejl fram och tillbaka. Du styr själv tillgänglighet, sessionslängd och buffert mellan bokningar. Bekräftelser och påminnelser skickas automatiskt. Vill du ta betalt i förskott funkar Stripe-integration så du kan ta depositioner eller full betalning direkt vid bokning."
+    },
+    {
+      "heading": "Ingen kod, ingen bindningstid",
+      "body": "Du behöver inte kunna programmera eller designa. Berätta i chatten vad din fotoverksamhet erbjuder – bröllopsfoto i Umeå och omnejd, porträttfoto i studio, företagsfoto – så bygger AI:n sajten. Justera texter och bilder direkt i gränssnittet. Ingen månadskostnad om du kör på subdomän, ingen bindningstid. Vill du flytta senare kan du exportera hela koden. Allt på svenska, byggt i Sverige av Pretty Good AB."
+    },
+    {
+      "heading": "Bygg för Umeås fotobransch",
+      "body": "Umeå har en aktiv fotoscen med allt från naturfotografer som fångar Norrlands ljus till eventfotografer på Guitars – The Museum och företagsfotografer som jobbar med lokala bolag. Din hemsida ska spegla din nisch och locka rätt kunder. Sajtmaskin låter dig snabbt testa olika vinklar: lyfta din specialisering på utomhusfoto i midnattssol, visa referenser från lokala bröllop, eller presentera paket för företagsporträtt. Uppdatera när du vill, utan att vänta på webbyrå."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en fotograf-hemsida igång?",
+      "a": "Själva AI-genereringen tar några minuter. Du chattar om din verksamhet, AI:n bygger sajten, sen laddar du upp dina egna bilder och justerar texter. De flesta fotografer har en färdig sajt samma dag. Vill du finjustera layout eller lägga till fler gallerier gör du det i ditt tempo – ingen brådska."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotojobb i separata gallerier?",
+      "a": "Ja. Du skapar hur många bildgallerier du vill – ett för bröllop, ett för porträtt, ett för företagsfoto. Besökare kan klicka sig vidare till den kategori som intresserar dem. Ladda upp bilder direkt i gränssnittet och organisera som du vill."
+    },
+    {
+      "q": "Funkar bokningssystemet för olika typer av sessioner?",
+      "a": "Ja. Cal.com-integrationen låter dig sätta upp olika tjänster med olika längd och pris. Du kan till exempel ha 30 minuters porträttsession, 2 timmars familjefoto eller heldags bröllop. Kunder väljer tjänst, ser lediga tider och bokar direkt. Du får notis och kan hantera allt i Cal.com-panelen."
+    },
+    {
+      "q": "Kostar det att publicera hemsidan?",
+      "a": "Publicering på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du ha egen domän typ dinafoto.se kopplar du den själv och betalar bara för domänregistreringen hos din registrar. Ingen hosting-avgift, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag ta betalt för fotosessioner via sajten?",
+      "a": "Ja, genom Stripe-integrationen. Du kan ta deposition vid bokning eller full betalning i förskott. Pengarna går direkt till ditt Stripe-konto. Bra om du vill säkra bokningar eller sälja paket och presentkort digitalt."
+    },
+    {
+      "q": "Hur ser en fotograf-sajt från Sajtmaskin ut för Umeå-kunder?",
+      "a": "Din sajt blir helt anpassad efter hur du beskriver verksamheten. Betonar du naturfoto i Norrland får du texter och struktur för det. Fokuserar du på bröllop i Umeå och kringliggande socknar speglas det i innehållet. Du kan alltid ändra texter, byta bilder och lägga till sidor – sajten växer med din verksamhet."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform senare?",
+      "a": "Ja. Ingen bindningstid. Du kan exportera hela koden och flytta till egen server eller annan tjänst när du vill. Du äger ditt innehåll och är aldrig låst."
+    }
+  ],
+  "localOrIndustryContext": "Umeå är en stad med stark kreativ sektor – från studenter på Umeå Institute of Design till etablerade fotografer som täcker allt från midnattssol och skoterevents till kulturfestivaler och företagsporträtt. En hemsida ger dig synlighet utanför sociala medier och en professionell bas där kunder kan utforska din portfolio och boka direkt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/umea",
+      "label": "Skapa hemsida i Umeå"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Umeå. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

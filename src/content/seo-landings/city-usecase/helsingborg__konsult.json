@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/konsult",
+  "title": "Hemsida för konsulter i Helsingborg | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet i Helsingborg på minuter. AI bygger din sajt med bokning, case och kontakt. Ingen kod.",
+  "h1": "Hemsida för konsulter i Helsingborg",
+  "heroSub": "Låt AI bygga en professionell konsultsajt med bokning, tjänstepresentation och case – klar på minuter, inte veckor.",
+  "introParagraphs": [
+    "Som konsult i Helsingborg behöver du en hemsida som visar din expertis, gör det enkelt för kunder att boka tid och bygger förtroende genom tydliga case och referenser. Sajtmaskin skapar din kompletta konsultsajt via chat – du beskriver din verksamhet, AI:n bygger sidan med allt från tjänstebeskrivningar till integrerad bokningskalender.",
+    "Din sajt blir färdig på minuter och publiceras direkt på din egen domän. Ingen kod, inga designverktyg att lära sig. Allt innehåll genereras på svenska och anpassas efter hur du arbetar som konsult – oavsett om du jobbar med strategi, IT, HR eller annan specialistkompetens.",
+    "Helsingborg har en stark näringslivskultur med allt från life science-bolag till logistikföretag och kreativa byråer. Din konsultsajt behöver därför tala direkt till lokala beslutsfattare och visa konkret värde. Sajtmaskin hjälper dig att kommunicera det på ett sätt som fungerar."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningskalender som alltid är uppdaterad",
+      "body": "Integrationen med Cal.com ger dig en professionell bokningslösning direkt på sajten. Potentiella kunder ser dina lediga tider och bokar möten utan mejltennis. Kalendern synkar automatiskt med din Google Calendar eller Outlook, så du slipper dubbelbokning. Perfekt när du är ute hos kund i Helsingborg eller på distans – systemet håller koll åt dig."
+    },
+    {
+      "heading": "Visa din kompetens med case och referenser",
+      "body": "Som konsult säljer du dig själv och dina resultat. Sajtmaskin bygger in sektioner för case-stories, kundreferenser och tidigare uppdrag som visar vad du faktiskt levererar. Du kan enkelt uppdatera med nya projekt när du avslutat ett uppdrag. Strukturen gör det lätt för besökare att snabbt förstå om du har rätt erfarenhet för deras behov – särskilt viktigt när lokala företag i Helsingborg söker specialist-hjälp."
+    },
+    {
+      "heading": "Tjänstesidor som förklarar vad du gör",
+      "body": "Varje konsulttjänst du erbjuder får en egen sida med tydlig beskrivning, arbetssätt och vad kunden kan förvänta sig. AI:n strukturerar informationen så att både tekniska beslutsfattare och icke-specialister förstår värdet. Du kan lägga till priser, tidsåtgång eller låta kunder begära offert direkt. Allt anpassas efter hur du faktiskt jobbar."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "Din konsultsajt publiceras på din egen domän, vilket ger professionell trovärdighet. Hosting på Sajtmaskins subdomän kostar ingenting per månad – du betalar bara när du bygger eller uppdaterar. Vill du flytta sajten senare? Exportera koden och ta den med dig. Ingen inlåsning, ingen dold månadsavgift som äter på konsultintäkterna."
+    },
+    {
+      "heading": "Uppdatera själv när verksamheten förändras",
+      "body": "Nya tjänster, ändrade priser eller fler case? Du uppdaterar via samma chat-gränssnitt som du byggde sajten i. Beskriv ändringen, AI:n implementerar den. Inget CMS att logga in i, inga mallar att kämpa med. Sajten växer i takt med din konsultverksamhet, och du behöver aldrig vänta på en webbutvecklare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en fungerande konsultsajt?",
+      "a": "De flesta konsultsajter är klara på 10-20 minuter. Du chattar med AI:n om din verksamhet, vilka tjänster du erbjuder och hur du vill att bokningssystemet ska fungera. AI:n genererar sedan hela sajten med alla sidor, texter och integrationer. Du kan publicera direkt eller justera detaljer först."
+    },
+    {
+      "q": "Kan jag visa case och referenser på ett professionellt sätt?",
+      "a": "Ja, Sajtmaskin bygger in sektioner för case-studies med projektbeskrivning, utmaning, lösning och resultat. Du kan lägga till kundreferenser med citat och företagsloggor. Strukturen gör det enkelt för potentiella kunder att snabbt se din erfarenhet och bedöma om du passar deras behov."
+    },
+    {
+      "q": "Fungerar bokningssystemet med min befintliga kalender?",
+      "a": "Ja, genom Cal.com-integrationen synkar bokningar automatiskt med Google Calendar, Outlook eller andra kalendertjänster du använder. Kunder ser dina lediga tider direkt på sajten och bokar möten som dyker upp i din kalender. Du kan sätta olika mötestyper, längder och bufferttider mellan bokningar."
+    },
+    {
+      "q": "Passar Sajtmaskin för konsulter i Helsingborg specifikt?",
+      "a": "Sajtmaskin fungerar för alla konsulter oavsett plats, men du kan enkelt anpassa innehållet för Helsingborgs näringsliv. Nämn lokala branscher du jobbar med, visa case från regionala kunder eller beskriv att du tar möten både på plats i Helsingborg och digitalt. AI:n hjälper dig formulera det på rätt sätt."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på Sajtmaskins subdomän är gratis. Vill du ha egen domän betalar du bara domänregistreringen (cirka 100-150 kr/år hos valfri domänleverantör). Inga månadskostnader för hosting. Du betalar endast när du bygger sajten eller gör större uppdateringar. Cal.com har en gratis plan för grundläggande bokning."
+    },
+    {
+      "q": "Kan jag ta betalt för konsultationer direkt på sajten?",
+      "a": "Ja, med Stripe-integrationen kan du ta betalt för förbokade konsultationer, workshops eller digitala produkter som mallar och guider. Du kan sätta fasta priser eller låta kunder välja paket. Betalningen hanteras säkert och pengarna går direkt till ditt Stripe-konto."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela din sajtkod och flytta den till valfri hosting-leverantör. Ingen inlåsning, ingen uppsägningstid. Koden är din och fungerar fristående. Det gör Sajtmaskin till ett säkert val även om du är osäker på långsiktiga behov."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en varierad näringsliv med starka kluster inom life science, logistik och handel. Många konsulter här arbetar med både lokala tillväxtföretag och etablerade koncerner som Ikano, Zoégas och BioInvent. En professionell hemsida hjälper dig att synas när dessa företag söker specialistkompetens.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

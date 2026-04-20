@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/bilverkstad",
+  "title": "Hemsida bilverkstad Göteborg – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Göteborg med AI. Bokningssystem, serviceinformation och mobilanpassning – klart på minuter.",
+  "h1": "Hemsida för bilverkstad i Göteborg",
+  "heroSub": "Bygg en komplett hemsida för din bilverkstad med AI – inklusive bokningssystem, prislista och kontaktformulär.",
+  "introParagraphs": [
+    "Din bilverkstad i Göteborg behöver en hemsida som gör det enkelt för kunder att boka tid, se vilka tjänster du erbjuder och hitta er verkstad. Med Sajtmaskin skapar du en färdig sajt på minuter genom att chatta med AI – ingen kodning eller teknisk kunskap behövs.",
+    "Plattformen är byggd för svenska företag och genererar allt innehåll på svenska. Du får en mobilanpassad sajt med integrerat bokningssystem via Cal.com, så kunderna kan boka service, besiktning eller däckbyte direkt. Publicera på din egen domän utan månadskostnad för hosting, och exportera koden när du vill.",
+    "Oavsett om du driver en mindre verkstad i Hisingen eller en etablerad bilservice i centrala Göteborg får du en professionell närvaro online som fungerar dygnet runt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bilverkstadssajt i Göteborg behöver",
+      "body": "Kunder söker efter bilverkstäder online när de behöver service, reparation eller besiktning. Din hemsida måste snabbt visa vad du kan hjälpa till med – från oljebyte och bromsar till motordiagnostik och lackering. En tydlig prislista eller prisindikation skapar förtroende, och öppettider plus vägbeskrivning gör det lätt att hitta er verkstad. I Göteborg, där många pendlar mellan stadsdelarna, är en karta och mobilanpassning extra viktigt. Sajtmaskin genererar all denna information baserat på din verksamhet och låter dig enkelt uppdatera tjänster och priser via chatten."
+    },
+    {
+      "heading": "Bokningssystem som sparar tid",
+      "body": "Ett integrerat bokningssystem minskar telefonsamtal och låter kunderna välja tid själva – även kvällar och helger. Sajtmaskin kopplar in Cal.com direkt i din sajt, så besökare kan se lediga tider och boka service utan att lämna hemsidan. Du bestämmer själv vilka tjänster som ska vara bokningsbara, hur lång tid varje jobb tar och när verkstaden har öppet. Systemet skickar automatiska påminnelser till kunden och synkar med din kalender, vilket gör det smidigt att planera arbetsdagen och undvika dubbelbokningar."
+    },
+    {
+      "heading": "Bygg sajten på minuter med AI",
+      "body": "Du startar genom att berätta för AI:n vad din bilverkstad erbjuder – exempelvis däckhotell, AC-service, besiktning och plåtreparationer. Sajtmaskin skapar då en komplett hemsida med relevanta sidor: startsida, tjänster, priser, om oss och kontakt. Vill du lägga till bildgalleri från verkstaden eller kundomdömen gör du det direkt i chatten. Allt innehåll genereras på svenska och anpassas efter din verksamhet i Göteborg. Ingen bindningstid eller dold kostnad – publicera på subdomän gratis eller koppla din egen domän direkt."
+    },
+    {
+      "heading": "Integrationer för en komplett lösning",
+      "body": "Utöver bokningssystemet kan du lägga till Google Analytics för att se hur många som besöker sajten och vilka tjänster de klickar på. Vill du sälja reservdelar, motoroljor eller tillbehör online kopplar du in Shopify som webshop. Stripe-integration gör det möjligt att ta förskottsbetalning för tjänster eller sälja presentkort. Alla integrationer sätts upp utan teknisk krångel, och du styr allt från samma gränssnitt som du byggde sajten i."
+    },
+    {
+      "heading": "Gjord i Sverige, för svenska bilverkstäder",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige och bygger på förståelse för hur svenska småföretag fungerar. Gränssnittet, supporten och all genererad text är på svenska. Du äger din sajt fullt ut och kan när som helst exportera koden om du vill flytta till en annan plattform. Ingen leverantörsinlåsning, inga dolda avgifter – bara en enkel väg till en professionell hemsida som får din bilverkstad i Göteborg att synas online."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min bilverkstad?",
+      "a": "De flesta får en färdig sajt på 10–20 minuter. Du chattar med AI:n om vilka tjänster du erbjuder, öppettider och kontaktuppgifter, så genereras sidorna automatiskt. Vill du justera texter eller lägga till bilder gör du det direkt i chatten efteråt."
+    },
+    {
+      "q": "Kan kunder boka service direkt på hemsidan?",
+      "a": "Ja, genom Cal.com-integrationen får du ett komplett bokningssystem där kunder väljer tjänst och ledig tid. Du bestämmer själv vilka tider som ska vara bokningsbara och hur lång tid varje typ av service tar. Systemet skickar automatiska bekräftelser och påminnelser."
+    },
+    {
+      "q": "Vad kostar det att ha hemsidan publicerad?",
+      "a": "Du kan publicera på en Sajtmaskin-subdomän helt gratis, utan månadskostnad. Vill du använda din egen domän (exempelvis dinverkstad.se) kopplar du den utan extra avgift från Sajtmaskin, men du betalar domänregistrering till din domänleverantör."
+    },
+    {
+      "q": "Kan jag visa priser på service och reparationer?",
+      "a": "Absolut. Du kan lägga in en prislista eller prisindikationer för vanliga tjänster som oljebyte, däckskifte, bromsar och besiktning. Många bilverkstäder väljer att visa från-priser och uppmanar kunden att boka för exakt offert, vilket Sajtmaskin enkelt kan generera åt dig."
+    },
+    {
+      "q": "Fungerar hemsidan bra på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är automatiskt mobilanpassade. Eftersom många kunder i Göteborg söker bilverkstad när de är på väg eller akut behöver hjälp är det viktigt att bokningssystem, telefonnummer och vägbeskrivning fungerar smidigt på telefonen."
+    },
+    {
+      "q": "Kan jag sälja reservdelar eller tillbehör via hemsidan?",
+      "a": "Ja, genom Shopify-integrationen kan du lägga till en webshop för reservdelar, motoroljor, vintertillbehör eller presentkort. Stripe-kopplingen gör det enkelt att ta betalt online. Du styr sortiment och priser själv."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan när som helst exportera hela koden till din hemsida och flytta den till valfri hostingleverantör eller webbyråverktyg. Ingen bindningstid och inget leverantörslås – du äger sajten fullt ut från dag ett."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg har hundratals bilverkstäder spridda från Hisingen till Frölunda, och konkurrensen om kunderna är hög. En professionell hemsida med bokningssystem och tydlig serviceinformation gör att du syns när göteborgare söker hjälp online – oavsett om de behöver akut däckbyte, årlig service eller rostskyddning inför vintern.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

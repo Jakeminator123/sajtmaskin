@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/fotograf",
+  "title": "Hemsida fotograf Helsingborg – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig fotografhemsida i Helsingborg med AI. Portfoliogalleri, bokningssystem och mobilanpassning – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida fotograf Helsingborg",
+  "heroSub": "Bygg en proffsig fotografhemsida med AI – perfekt för dig som fotograf i Helsingborg och vill synas online direkt.",
+  "introParagraphs": [
+    "Som fotograf i Helsingborg behöver du en hemsida som visar ditt arbete i rätt ljus. Sajtmaskin låter dig skapa en komplett fotografsajt på minuter genom att chatta med AI – du beskriver vad du fotograferar, vilka tjänster du erbjuder och vilken känsla du vill förmedla, så bygger AI:n hela sajten åt dig. Inga tekniska kunskaper behövs.",
+    "Du får ett elegant portfoliogalleri som gör dina bilder rättvisa, ett bokningssystem för kunder som vill boka fotosession, och en sajt som ser lika bra ut på mobil som på dator. Allt på svenska, anpassat för hur fotografer i Helsingborg och resten av Sverige jobbar. Publicera på din egen domän eller börja kostnadsfritt på en subdomän – ingen bindningstid, ingen kod.",
+    "Oavsett om du fotograferar bröllop vid Pålsjö slott, företagsporträtt i Helsingborgs hamn eller produktfoto för lokala butiker längs Kullagatan – Sajtmaskin ger dig rätt verktyg för att visa upp ditt arbete och få nya kunder."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio som säljer dina tjänster",
+      "body": "Din fotografhemsida börjar med bilderna. Sajtmaskin skapar automatiskt ett responsivt galleri där dina bästa bilder får plats att andas. Dela upp i kategorier – bröllop, porträtt, event, produktfoto – så att besökare snabbt hittar det de söker. Varje bild laddas snabbt och ser vass ut oavsett skärmstorlek. Du laddar upp bilderna direkt i gränssnittet, AI:n optimerar layout och bildstorlekar så allt ser proffsigt ut. Perfekt för att visa upp uppdrag från Helsingborg och Nordvästra Skåne."
+    },
+    {
+      "heading": "Bokningssystem för fotosessioner",
+      "body": "Integrera Cal.com direkt i din sajt så kunder kan boka tid för fotografering utan att maila fram och tillbaka. Du styr själv vilka tider som är lediga, hur lång varje session ska vara och vilka typer av fotograferingar du erbjuder. Kunden väljer datum och tid, fyller i lite info om uppdraget, och bekräftelsen går ut automatiskt. Fungerar lika bra för studiosessioner i Helsingborg som utomhusfotograferingar i Sofiero slottspark eller vid Tropical Beach."
+    },
+    {
+      "heading": "Priser, paket och kontaktinfo",
+      "body": "Visa tydligt vad du erbjuder och vad det kostar. Sajtmaskin låter dig skapa prissidor med olika paket – kanske en grundsession, ett bröllopspaket och företagsfotografering. Du kan inkludera Stripe-integration om du vill ta förskottsbetalning eller sälja digitala bildpaket direkt. Lägg till en kontaktsektion med formulär, telefonnummer och var i Helsingborg du är baserad. Allt byggs av AI:n utifrån din beskrivning – du justerar sen detaljer som priser och leveranstider."
+    },
+    {
+      "heading": "SEO och lokal synlighet",
+      "body": "Din fotografsajt behöver synas när folk i Helsingborg söker efter fotograf. Sajtmaskin bygger in grundläggande SEO – rätt rubriker, beskrivningar och snabb laddningstid. Du kan lägga till texter om var du verkar (Helsingborg, Höganäs, Ängelholm) och vilka typer av uppdrag du tar. Koppla på Google Analytics för att se hur besökare hittar till dig. Sajten är byggd för att ranka lokalt utan att du behöver vara SEO-expert."
+    },
+    {
+      "heading": "Publicera och äg din sajt",
+      "body": "När sajten är klar publicerar du den på din egen domän eller börjar kostnadsfritt på en Sajtmaskin-subdomän. Ingen bindningstid – du kan exportera hela koden när du vill och flytta sajten någon annanstans. Uppdatera galleri, priser och texter direkt i gränssnittet, eller be AI:n göra ändringar genom att chatta. Allt support och gränssnitt är på svenska, byggt i Sverige av Pretty Good AB."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografhemsida med Sajtmaskin?",
+      "a": "De flesta fotografsajter är klara på 10–20 minuter. Du chattar med AI:n om vilka tjänster du erbjuder, vilken stil du vill ha och vilka bilder som ska synas. AI:n genererar hela sajten – galleri, om-sida, priser och kontakt. Sen laddar du upp dina bilder, justerar texter om du vill, och publicerar. Inga tekniska kunskaper krävs."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotografering i separata gallerier?",
+      "a": "Ja, du kan skapa flera gallerier eller sektioner för bröllop, porträtt, event, produktfoto eller vad du jobbar med. AI:n bygger strukturen utifrån din beskrivning, och du laddar upp bilder i rätt kategori. Besökare kan enkelt navigera mellan olika typer av uppdrag och se exempel på det de söker."
+    },
+    {
+      "q": "Fungerar bokningssystemet för fotografer i Helsingborg?",
+      "a": "Absolut. Cal.com-integrationen fungerar överallt och du styr själv tider, platser och typer av sessioner. Du kan erbjuda studiosessioner i Helsingborg, utomhusfoto vid Sofiero eller hemmabesök i Nordvästra Skåne. Kunden bokar direkt på sajten och får automatisk bekräftelse – du slipper mejla fram och tillbaka."
+    },
+    {
+      "q": "Kan jag sälja bildpaket eller ta förskottsbetalning via sajten?",
+      "a": "Ja, med Stripe-integration kan du ta betalt direkt på sajten. Sätt upp digitala produkter som bildpaket, förskottsbetalning för bröllop eller presentkort. Betalningen hanteras säkert via Stripe, och du får pengarna direkt till ditt konto. Perfekt om du vill automatisera försäljning av digitala bilder eller ta deposition vid bokning."
+    },
+    {
+      "q": "Vad kostar det att ha en fotografhemsida på Sajtmaskin?",
+      "a": "Du kan publicera på en Sajtmaskin-subdomän helt utan månadskostnad för hosting. Vill du använda din egen domän (t.ex. dittnamn.se) behöver du bara betala för domänen hos en domänleverantör. Det finns ingen bindningstid och du kan exportera koden när du vill. Integrationer som Cal.com och Stripe har sina egna priser om du använder dem."
+    },
+    {
+      "q": "Syns min sajt när folk i Helsingborg söker efter fotograf?",
+      "a": "Sajtmaskin bygger in grundläggande SEO – snabb laddning, rätt struktur och möjlighet att lägga till lokala sökord. Du kan skriva om var du verkar (Helsingborg, Höganäs, Ängelholm) och vilka tjänster du erbjuder. Koppla på Google Analytics för att följa trafik. Lokal synlighet byggs också genom att du lägger upp bra bilder och tydlig info om dina tjänster."
+    },
+    {
+      "q": "Kan jag uppdatera galleriet och priser själv efter lansering?",
+      "a": "Ja, du loggar in och ändrar texter, byter bilder eller justerar priser direkt i gränssnittet. Du kan också be AI:n göra ändringar genom att chatta – beskriv vad du vill ändra så uppdaterar AI:n sajten. Allt är på svenska och du behöver ingen teknisk kunskap för att hålla sajten fräsch."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en växande kreativ scen med fotografer som täcker allt från bröllop vid havet till företagsporträtt i moderna kontorsmiljöer. Med Kullagatan, Dunkers kulturhus och natursköna platser som Sofiero och Tropical Beach finns gott om ikoniska lägen för fotosessioner. En proffsig hemsida hjälper dig synas bland lokala sökningar och visar att du är etablerad i Helsingborgsområdet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "norrkoping/webshop",
+  "title": "Hemsida webshop Norrköping – Bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett webshop i Norrköping med AI. Stripe-betalningar, Shopify-integration och svensk support. Publicera på egen domän direkt.",
+  "h1": "Webshop-hemsida i Norrköping",
+  "heroSub": "Bygg en komplett e-handel med AI – från produktkatalog till betalningar – och publicera på din egen domän direkt.",
+  "introParagraphs": [
+    "Ska du sälja produkter online från Norrköping behöver du en webshop som hanterar produkter, betalningar och leveranser smidigt. Sajtmaskin låter dig bygga en komplett e-handel på minuter genom att chatta med AI – utan kod, utan tekniskt krångel.",
+    "Du beskriver vad du säljer och hur din webshop ska fungera. AI:n genererar hela sajten med produktsidor, kassan, Stripe-integration för kortbetalningar och Shopify-koppling om du vill. Publicera på egen domän direkt, eller testa kostnadsfritt på en subdomän utan månadskostnad.",
+    "Perfekt för norrköpingsföretag som vill komma igång snabbt – allt på svenska, byggt i Sverige av Pretty Good AB."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du en webshop med AI",
+      "body": "Du startar en chatt och berättar vad du säljer – kläder, hantverksprodukter, mat, tjänster eller något helt annat. AI:n frågar om produktkategorier, betalningsalternativ, fraktalternativ och designönskemål. Inom minuter har du en färdig webshop med produktsidor, varukorg, kassan och integrerade betalningar via Stripe. Du kan lägga till fler produkter, justera priser och ändra texter direkt i chatten. Allt sker på svenska, och du behöver ingen teknisk bakgrund."
+    },
+    {
+      "heading": "Stripe, Shopify och andra integrationer",
+      "body": "Sajtmaskin kopplar ihop din webshop med de verktyg du behöver. Stripe hanterar kortbetalningar säkert, och integrationen är färdigkonfigurerad så kunder kan betala direkt på sajten. Har du redan produkter i Shopify kan du integrera det systemet och synka lager och ordrar. Google Analytics följer besökare och konverteringar så du ser vad som fungerar. Allt sätts upp automatiskt – du slipper installera plugins eller hantera API-nycklar själv."
+    },
+    {
+      "heading": "Egen domän och ingen bindningstid",
+      "body": "Publicera webshopen på din egen domän – t.ex. dinbutik.se – så fort du är nöjd. Vill du testa först kan du köra på en kostnadsfri subdomän utan månadskostnad för hosting. Det finns ingen bindningstid, och du kan exportera hela webbplatsens kod när du vill. Det betyder att du äger allt material och kan flytta sajten till en annan leverantör om du skulle vilja. Flexibelt, transparent och utan dolda avgifter."
+    },
+    {
+      "heading": "Varför norrköpingsföretag väljer Sajtmaskin",
+      "body": "Norrköping har en stark tradition av handel och tillverkning, och många lokala företag vill nå kunder utanför stan. En webshop öppnar dörren till hela Sverige och vidare. Sajtmaskin är byggt i Sverige med svenskt gränssnitt och support, vilket gör det enkelt att få hjälp på ditt eget språk. Du kan starta försäljningen samma dag, testa olika produkter och priser, och skala upp när det går bra. Perfekt för både nystartade butiker och etablerade företag som vill digitalisera."
+    },
+    {
+      "heading": "Kom igång idag",
+      "body": "Logga in på Sajtmaskin, beskriv din webshop i chatten och låt AI:n bygga sajten. Lägg till produkter, anslut Stripe för betalningar och publicera på egen domän. Ingen kod, ingen månadshyra för subdomän, ingen bindningstid. Allt du behöver för att sälja online – på minuter istället för månader."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en webshop med Sajtmaskin?",
+      "a": "Själva genereringen tar några minuter. Du chattar med AI:n om produkter, betalningsalternativ och design, så skapas hela webshopen automatiskt. Sen lägger du till dina produkter och bilder, kopplar Stripe och publicerar. Totalt kan du ha en fungerande e-handel live samma dag."
+    },
+    {
+      "q": "Kan jag ta betalt med kort direkt på sajten?",
+      "a": "Ja, Sajtmaskin integrerar Stripe så att kunderna betalar med kort, Swish eller andra metoder direkt i kassan. Du behöver ett Stripe-konto (gratis att skapa), så kopplar AI:n ihop allt automatiskt. Inga extra plugins eller teknisk konfiguration krävs."
+    },
+    {
+      "q": "Funkar det att integrera Shopify om jag redan har produkter där?",
+      "a": "Absolut. Sajtmaskin stödjer Shopify-integration så du kan synka produkter, lager och ordrar. Berätta i chatten att du vill koppla Shopify, så hjälper AI:n dig att sätta upp länken. Du kan också bygga webshopen direkt i Sajtmaskin och hantera allt därifrån."
+    },
+    {
+      "q": "Kostar det något att ha webshopen på en subdomän?",
+      "a": "Nej, hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän – t.ex. dinbutik.se – publicerar du dit istället. Ingen bindningstid, och du kan exportera koden när du vill."
+    },
+    {
+      "q": "Kan jag ändra produkter och priser efter att sajten är publicerad?",
+      "a": "Ja, du chattar med AI:n och ber om ändringar – lägg till nya produkter, justera priser, byt bilder eller uppdatera texter. Ändringarna publiceras direkt. Du behöver aldrig röra kod eller logga in i komplicerade adminpaneler."
+    },
+    {
+      "q": "Passar Sajtmaskin för lokala butiker i Norrköping som vill sälja online?",
+      "a": "Definitivt. Många norrköpingsbutiker använder Sajtmaskin för att nå kunder utanför stan. Du kan erbjuda click-and-collect, lokala fraktalternativ eller rikstäckande leverans. Sajten är på svenska, supporten likaså, och du kommer igång snabbt utan teknisk expertis."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela webbplatsens kod när som helst – ingen bindningstid. Det betyder att du äger allt material och kan flytta sajten till vilken hosting eller plattform du vill. Full frihet, inga låsningar."
+    }
+  ],
+  "localOrIndustryContext": "Norrköping har en lång handelstradition och ett växande företagsklimat med allt från designbutiker till hantverkare och lokala matproducenter. Många företag vill nå kunder utanför regionens gränser, och en webshop gör det möjligt att sälja dygnet runt till hela Sverige.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/norrkoping",
+      "label": "Skapa hemsida i Norrköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Norrköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

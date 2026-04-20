@@ -1,9 +1,6 @@
-/* Primary hero/builder CTAs — orange glow via --primary only */
+/* Primary hero/builder CTAs — subtle monochrome shadow per brandbook */
 .landing-cta-primary {
-  box-shadow:
-    0 1px 2px hsl(var(--primary) / 0.2),
-    0 8px 28px -6px hsl(var(--primary) / 0.45),
-    0 0 0 1px hsl(var(--primary) / 0.25);
+  box-shadow: var(--shadow-sm);
   transition:
     box-shadow var(--transition-base) var(--ease-out-soft),
     background-color var(--transition-base) var(--ease-out-soft),
@@ -17,10 +14,7 @@
 }
 
 .landing-cta-primary:hover:not(:disabled) {
-  box-shadow:
-    0 2px 4px hsl(var(--primary) / 0.25),
-    0 12px 36px -4px hsl(var(--primary) / 0.5),
-    0 0 0 1px hsl(var(--primary) / 0.35);
+  box-shadow: var(--shadow-md);
 }
 
 .landing-cta-primary:disabled {
@@ -30,8 +24,8 @@
 .shader-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.22;
+  filter: blur(120px);
+  opacity: 0.14;
   mix-blend-mode: multiply;
   animation: landing-v2-shader-float 20s ease-in-out infinite;
 }
@@ -39,7 +33,7 @@
 .shader-orb-1 {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-sand) / 0.5) 0%, transparent 70%);
   top: -100px;
   left: -100px;
   animation-duration: 25s;
@@ -48,7 +42,7 @@
 .shader-orb-2 {
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, hsl(var(--brand-orange) / 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-stone) / 0.5) 0%, transparent 70%);
   bottom: -150px;
   right: -150px;
   animation-duration: 30s;
@@ -58,7 +52,7 @@
 .shader-orb-3 {
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--foreground) / 0.03) 0%, transparent 70%);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -76,45 +70,15 @@
   animation: none;
 }
 
-/* Landing page chat backdrop — semantic tint per category (navy/orange palette) */
-.landing-chat-bg [data-landing-bg="template"] .shader-orb-1 {
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.06) 0%, transparent 70%);
+/* Landing page chat backdrop — monochrome sand/stone per brandbook */
+.landing-chat-bg [data-landing-bg] .shader-orb-1 {
+  background: radial-gradient(circle, hsl(var(--brand-sand) / 0.4) 0%, transparent 70%);
 }
-.landing-chat-bg [data-landing-bg="template"] .shader-orb-2 {
-  background: radial-gradient(circle, hsl(var(--brand-orange) / 0.05) 0%, transparent 70%);
+.landing-chat-bg [data-landing-bg] .shader-orb-2 {
+  background: radial-gradient(circle, hsl(var(--brand-stone) / 0.4) 0%, transparent 70%);
 }
-.landing-chat-bg [data-landing-bg="template"] .shader-orb-3 {
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.04) 0%, transparent 70%);
-}
-
-.landing-chat-bg [data-landing-bg="audit"] .shader-orb-1 {
-  background: radial-gradient(circle, hsl(var(--brand-orange) / 0.06) 0%, transparent 70%);
-}
-.landing-chat-bg [data-landing-bg="audit"] .shader-orb-2 {
-  background: radial-gradient(circle, hsl(var(--brand-orange) / 0.05) 0%, transparent 70%);
-}
-.landing-chat-bg [data-landing-bg="audit"] .shader-orb-3 {
-  background: radial-gradient(circle, hsl(var(--brand-warm) / 0.04) 0%, transparent 70%);
-}
-
-.landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-1 {
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.06) 0%, transparent 70%);
-}
-.landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-2 {
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.05) 0%, transparent 70%);
-}
-.landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-3 {
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.04) 0%, transparent 70%);
-}
-
-.landing-chat-bg [data-landing-bg="fritext"] .shader-orb-1 {
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.04) 0%, transparent 70%);
-}
-.landing-chat-bg [data-landing-bg="fritext"] .shader-orb-2 {
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.03) 0%, transparent 70%);
-}
-.landing-chat-bg [data-landing-bg="fritext"] .shader-orb-3 {
-  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.03) 0%, transparent 70%);
+.landing-chat-bg [data-landing-bg] .shader-orb-3 {
+  background: radial-gradient(circle, hsl(var(--foreground) / 0.03) 0%, transparent 70%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -165,7 +129,7 @@
   box-shadow:
     0 8px 16px hsl(var(--foreground) / 0.08),
     0 16px 32px hsl(var(--foreground) / 0.04),
-    0 0 0 1px hsl(var(--brand-orange) / 0.12);
+    0 0 0 1px hsl(var(--brand-sand) / 0.6);
 }
 
 .input-3d {
@@ -204,12 +168,12 @@
 @keyframes landing-v2-hero-pulse {
   0%, 100% {
     box-shadow:
-      0 0 0 0 hsl(var(--brand-orange) / 0),
+      0 0 0 0 hsl(var(--foreground) / 0),
       0 20px 60px -15px hsl(var(--foreground) / 0.08);
   }
   50% {
     box-shadow:
-      0 0 40px 4px hsl(var(--brand-orange) / 0.06),
+      0 0 40px 4px hsl(var(--foreground) / 0.04),
       0 25px 70px -15px hsl(var(--foreground) / 0.12);
   }
 }
@@ -315,10 +279,10 @@
 @keyframes rocket-glow-pulse {
   0%,
   100% {
-    filter: drop-shadow(0 0 6px hsl(var(--brand-orange) / 0.4));
+    filter: drop-shadow(0 0 6px hsl(var(--foreground) / 0.2));
   }
   50% {
-    filter: drop-shadow(0 0 14px hsl(var(--brand-orange) / 0.7));
+    filter: drop-shadow(0 0 14px hsl(var(--foreground) / 0.35));
   }
 }
 
@@ -410,9 +374,9 @@
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    hsl(var(--brand-orange) / 0.04) 45%,
-    hsl(var(--brand-orange) / 0.08) 50%,
-    hsl(var(--brand-orange) / 0.04) 55%,
+    hsl(var(--foreground) / 0.02) 45%,
+    hsl(var(--foreground) / 0.04) 50%,
+    hsl(var(--foreground) / 0.02) 55%,
     transparent 100%
   );
   animation: scan-line-kf 4s linear infinite;

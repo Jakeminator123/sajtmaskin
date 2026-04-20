@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/salong",
+  "title": "Hemsida för salong i Helsingborg – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Helsingborg med AI. Onlinebokning, bildgalleri och mobilvänlig design – klart på minuter.",
+  "h1": "Hemsida för salong i Helsingborg",
+  "heroSub": "Bygg en komplett sajt för din salong med onlinebokning, prislista och bildgalleri – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "Om du driver en salong i Helsingborg behöver du en hemsida som gör det enkelt för kunder att boka tid, se priser och hitta dig. Sajtmaskin låter dig bygga en professionell sajt på minuter genom att chatta med vår AI – du beskriver vad du vill ha, så genererar vi allt från layout till innehåll.",
+    "Du får en mobilvänlig sajt med integrerad bokning via Cal.com, bildgalleri för dina behandlingar, kontaktformulär och allt annat som behövs. Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, ingen kodning – bara en färdig sajt som börjar jobba för dig direkt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Onlinebokning som funkar dygnet runt",
+      "body": "Kunder i Helsingborg vill kunna boka klippning, färgning eller behandling när det passar dem – inte bara under öppettider. Med Sajtmaskins Cal.com-integration får du ett bokningssystem direkt på sajten där kunder ser lediga tider, väljer behandling och bokar själva. Du slipper telefonspelet och dubbelbokningen, och dina kunder får bekräftelse direkt. Allt synkas med din kalender så du behåller kontrollen."
+    },
+    {
+      "heading": "Visa upp ditt arbete med bildgalleri och prislista",
+      "body": "En salong säljer genom bilder. Sajtmaskin bygger automatiskt ett snyggt bildgalleri där du kan visa före- och efterbilder, färgresultat och din salong. Du laddar upp bilderna via chatten eller direkt i redigeraren. Prislistan presenteras tydligt så besökare direkt ser vad klippning, slingor eller styling kostar – inga frågetecken, bara transparens som bygger förtroende."
+    },
+    {
+      "heading": "Lokal SEO för att synas i Helsingborg",
+      "body": "När någon söker efter salong i Helsingborg vill du dyka upp. Sajtmaskin bygger in grundläggande SEO direkt – rätt rubriker, metabeskrivningar och struktur som hjälper Google förstå vad din sajt handlar om. Du anger ditt område och tjänster, så ser AI till att sajten är optimerad för lokala sökningar. Kombinera det med Google-integration så kan kunder hitta dig både via sökning och karta."
+    },
+    {
+      "heading": "Mobilvänlig design som ser proffsig ut",
+      "body": "Över hälften av dina besökare kommer från mobilen, speciellt när folk söker efter salong på väg hem eller under lunchen. Alla sajter från Sajtmaskin är responsiva från start – texten är läsbar, knapparna klickbara och bilderna snabba att ladda. Du behöver inte tänka på teknik; designen anpassar sig automatiskt till alla skärmstorlekar så sajten ser lika bra ut på iPhone som på dator."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du äger din sajt. Vill du byta plattform senare kan du exportera all kod och flytta var du vill. Hosting på subdomän kostar inget i månadsavgift, och vill du ha egen domän kopplar du den på någon minut. Inga dolda kostnader, inga långa avtal – bara en sajt som jobbar för din salong från dag ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en sajt för min salong?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar med AI:n, beskriver din salong, vilka behandlingar du erbjuder och vad du vill visa. Sajtmaskin genererar layout, texter och struktur direkt. Sen justerar du bilder, priser och öppettider tills allt ser rätt ut."
+    },
+    {
+      "q": "Kan jag integrera onlinebokning för klippning och behandlingar?",
+      "a": "Ja, via Cal.com-integrationen får du ett komplett bokningssystem direkt på sajten. Kunder ser lediga tider, väljer tjänst och bokar själva. Du får notiser och allt synkas med din kalender. Perfekt för salonger som vill minska telefonsamtal och dubbelbokning."
+    },
+    {
+      "q": "Fungerar sajten bra för salonger i Helsingborg specifikt?",
+      "a": "Absolut. Du kan lägga in adress, karta och lokal information som gör det enkelt för Helsingborgskunder att hitta dig. Sajten byggs med SEO för lokala sökningar så du syns när folk söker efter salong i området. Google-integration gör att du kan koppla Analytics och synas på kartan."
+    },
+    {
+      "q": "Vad kostar det att driva sajten varje månad?",
+      "a": "Hosting på subdomän är kostnadsfri utan månadsavgift. Vill du ha egen domän (t.ex. dinsalong.se) betalar du bara för domänen hos din registrar. Integrationer som Cal.com och Stripe har egna priser beroende på hur mycket du använder dem, men själva sajten kostar inget löpande hos oss."
+    },
+    {
+      "q": "Kan jag lägga till webshop för hårvårdsprodukter?",
+      "a": "Ja, via Shopify-integrationen kan du sälja produkter direkt från sajten. Perfekt om du vill erbjuda schampo, styling eller andra produkter mellan besöken. Du kopplar ditt Shopify-konto så hanteras lager och betalningar automatiskt. Stripe-integration fungerar också för enklare betalningar."
+    },
+    {
+      "q": "Måste jag kunna koda för att uppdatera priser eller öppettider?",
+      "a": "Nej, allt sköts via chatten eller en visuell redigerare. Vill du ändra pris på klippning, lägga till ny behandling eller uppdatera öppettider gör du det direkt utan kod. Sajtmaskin är byggt för att du ska kunna driva sajten själv, utan teknisk hjälp."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera all kod när som helst och flytta sajten vart du vill. Ingen bindningstid, inga låsningar. Du äger innehållet och designen, så du har full frihet att ta sajten vidare om dina behov förändras."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en stark salongbranch med allt från klassiska frisörer på Kullagatan till moderna studios i Söder. Konkurrensen är hård, och en professionell hemsida med onlinebokning och tydlig prislista hjälper dig sticka ut och nå kunder som söker online innan de väljer salong.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

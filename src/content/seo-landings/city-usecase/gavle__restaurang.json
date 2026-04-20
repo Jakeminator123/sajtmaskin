@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "gavle/restaurang",
+  "title": "Hemsida restaurang Gävle – bygg på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig restaurangsajt i Gävle med AI. Meny, bokningssystem och betalning – klart på minuter. Ingen kod, ingen bindningstid.",
+  "h1": "Hemsida för restaurang i Gävle",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokning och betalning – direkt i chatten, på svenska.",
+  "introParagraphs": [
+    "Din restaurang i Gävle behöver en hemsida som visar menyn, tar emot bokningar och ger gästerna all info de behöver innan de besöker er. Med Sajtmaskin bygger du allt det på minuter genom att chatta med AI:n på svenska. Du beskriver din restaurang, laddar upp menyn och väljer vilka funktioner du vill ha – resten sköter plattformen.",
+    "Sajten publiceras på din egen domän utan månadskostnad för hosting på subdomän. Du får in Cal.com för bordsbokning, Stripe om du vill ta förbetalning för event, och Google Analytics för att se var gästerna hittar er. Allt byggs och redigeras i samma chattgränssnitt, och du kan exportera koden när du vill.",
+    "Ingen bindningstid, ingen kod, ingen krånglig manual. Bara en färdig restaurangsajt som fungerar för Gävles matgäster – på desktop och mobil."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en restaurangsajt i Gävle behöver",
+      "body": "Gäster söker efter restauranger på mobilen, ofta strax innan de ska äta. Din sajt behöver ladda snabbt, visa menyn tydligt och ha öppettider, adress och telefonnummer direkt synliga. Ett bokningssystem sparar tid i telefonkön, och tydliga bilder på mat och lokal bygger förtroende. Sajtmaskin genererar allt det här från din prompt – du beskriver din restaurang, laddar upp menytext eller bilder, och AI:n strukturerar innehållet i en responsiv sajt som ser proffsig ut direkt."
+    },
+    {
+      "heading": "Meny, bokning och betalning utan krångel",
+      "body": "Du integrerar Cal.com för bordsbokning så gäster kan boka bord dygnet runt utan att ringa. Vill du ta förbetalning för större sällskap eller event kopplar du in Stripe. Menyn läggs in som text eller PDF, och AI:n formaterar den snyggt med rubriker, priser och allergianmärkningar. Uppdatera säsongsmenyn direkt i chatten – ändringarna syns på sajten på sekunder. Allt hanteras på svenska, och du behöver aldrig röra kod eller logga in i separata adminpaneler."
+    },
+    {
+      "heading": "Lokal synlighet i Gävle",
+      "body": "En restaurangsajt behöver synas när folk googlar \"restaurang Gävle\" eller söker efter specifika rätter. Sajtmaskin bygger SEO-vänliga sidor med rätt struktur, snabb laddningstid och mobil­anpassning – faktorer som Google värderar. Du lägger till Google Analytics för att se vilka sökord som driver trafik och vilka sidor gästerna kollar mest. Publicera på din egen domän så du äger närvaron, och uppdatera innehållet löpande för att hålla sajten relevant för både gäster och sökmotorer."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du betalar ingen månadshyra för hosting på subdomän, och det finns ingen bindningstid. Vill du byta plattform eller anlita en byrå senare kan du exportera hela koden och ta den med dig. Sajtmaskin ägs av Pretty Good AB i Sverige, så support och fakturering sker på svenska. Du chattar med AI:n när du vill göra ändringar – lägg till nya rätter, byt bilder, uppdatera öppettider – utan att vänta på webbyrå eller teknisk support."
+    },
+    {
+      "heading": "Kom igång på minuter",
+      "body": "Skapa ett konto, beskriv din restaurang i Gävle och vilka funktioner du vill ha. AI:n föreslår struktur och design, du justerar text och bilder i chatten, och sedan publicerar du på din domän. Hela processen tar minuter, inte veckor. Du kan testa plattformen utan bindning och se om den passar er restaurang. Behöver du hjälp finns svenskspråkig support, men gränssnittet är byggt för att du ska klara allt själv – utan teknisk bakgrund."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt?",
+      "a": "Från att du skapar konto till färdig sajt tar det oftast 10–20 minuter. Du chattar med AI:n på svenska, beskriver restaurangen och laddar upp meny och bilder. AI:n genererar sidorna, du justerar det du vill ändra, och sedan publicerar du. Uppdateringar och ändringar går lika snabbt – skriv i chatten så syns det på sajten direkt."
+    },
+    {
+      "q": "Kan jag integrera bokningssystem för bordsreservation?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com som du kopplar in för bordsbokning. Gäster kan då boka bord dygnet runt direkt på sajten. Du hanterar bokningarna i Cal.com och får notiser när någon bokar. Vill du ta förbetalning för event eller större sällskap kan du lägga till Stripe för kortbetalning."
+    },
+    {
+      "q": "Hur uppdaterar jag menyn när vi byter säsongsinriktning?",
+      "a": "Du skriver i chatten vad som ska ändras – nya rätter, priser eller allergianmärkningar – och AI:n uppdaterar menysidan direkt. Du kan också ladda upp en ny PDF eller bild på menyn så formaterar AI:n den snyggt. Inga inloggningar i CMS eller komplicerade formulär, bara chatta och publicera."
+    },
+    {
+      "q": "Fungerar sajten bra för gäster som söker på mobilen?",
+      "a": "Ja, alla sajter som byggs i Sajtmaskin är responsiva och mobil­anpassade från start. Gäster i Gävle som googlar restauranger på telefonen får en snabbladdad sajt med tydlig meny, öppettider och bokning. Google Analytics visar hur många som besöker via mobil så du ser vad som fungerar."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på subdomän hos Sajtmaskin är gratis utan månadskostnad. Vill du använda egen domän betalar du för domänregistrering hos valfri registrar. Cal.com och Stripe har egna priser beroende på användning. Det finns ingen bindningstid, så du kan pausa eller exportera sajten när du vill utan dolda avgifter."
+    },
+    {
+      "q": "Kan jag visa bilder på mat och lokal på sajten?",
+      "a": "Absolut. Du laddar upp bilder i chatten och AI:n placerar dem snyggt på startsida, menysida eller om-sidan. Högkvalitativa bilder på rätter och restaurangmiljö hjälper gäster att få känsla för er innan de besöker. Du kan byta bilder när som helst genom att chatta med AI:n."
+    },
+    {
+      "q": "Är Sajtmaskin anpassat för restauranger i Gävle specifikt?",
+      "a": "Sajtmaskin är byggt för svenska företag och fungerar lika bra i Gävle som i andra städer. Du skriver innehåll på svenska, lägger in lokal adress och öppettider, och sajten blir SEO-optimerad för sökningar som \"restaurang Gävle\". Plattformen ägs av Pretty Good AB i Sverige, så support och fakturering sker på svenska."
+    }
+  ],
+  "localOrIndustryContext": "Gävle har en växande restaurangscen med allt från klassiska kvartersställen till moderna konceptkrogar. Gäster söker ofta efter restauranger online innan de bestämmer sig, särskilt på helger och vid event. En snabb, mobilvänlig sajt med tydlig meny och enkel bokning gör skillnad i en stad där konkurrensen ökar och besökare förväntar sig smidig digital service.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/gavle",
+      "label": "Skapa hemsida i Gävle"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Gävle. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

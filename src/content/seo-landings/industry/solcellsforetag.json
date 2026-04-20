@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "solcellsforetag",
+  "title": "Hemsida för solcellsföretag – bygg på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt solcellsföretag med AI. Bokningsfunktion, projektreferenser och ROI-kalkylator. Ingen kod krävs.",
+  "h1": "Hemsida för solcellsföretag",
+  "heroSub": "Bygg en sajt som visar dina installationer, förklarar bidrag och bokar besiktningar – direkt via chat.",
+  "introParagraphs": [
+    "En hemsida för solcellsföretag behöver göra mer än att visa bilder på solpaneler. Den ska förklara hur rotavdraget fungerar, visa konkreta besparingsexempel och göra det enkelt för villaägare att boka en kostnadsfri konsultation. Många potentiella kunder jämför flera installatörer samtidigt, och den som har tydligast information och smidigast bokningsflöde vinner oftast uppdraget.",
+    "Med Sajtmaskin bygger du en komplett hemsida för ditt solcellsföretag på minuter. Du chattar med AI:n om vad du erbjuder – installation av solpaneler, batterilösningar, laddboxar – och får en färdig sajt med projektreferenser, ROI-kalkylator och integrerad bokning via Cal.com. Allt på svenska, utan kod.",
+    "Publicera på din egen domän eller testa kostnadsfritt på en subdomän. Ingen bindningstid, ingen dold månadsavgift för hosting. Du äger koden och kan exportera den när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för solcellsföretag behöver innehålla",
+      "body": "En typisk solcellssajt har en startsida som förklarar din tjänst och visar ett tydligt värde – ofta i form av besparingsexempel eller genomsnittlig återbetalningstid. En tjänstesida beskriver installation, batterilösningar och service. En referenssida visar genomförda projekt med bilder, effekt i kWh och kundomdömen. En bidragssida förklarar rotavdraget och eventuella lokala stöd. Och en kontaktsida med bokningsformulär eller kalender där kunden kan välja tid för kostnadsfri besiktning. Sajtmaskin genererar alla dessa sidor automatiskt utifrån din beskrivning."
+    },
+    {
+      "heading": "Bokningsfunktion och ROI-kalkylator",
+      "body": "Många solcellsföretag förlorar leads för att kunden måste vänta på svar via mail. Med Cal.com-integration får du en inbäddad kalender där villaägaren kan boka besiktningstid direkt. Du kan också be AI:n skapa en enkel ROI-kalkylator där besökaren anger takyta, elförbrukning och elområde och får en uppskattning av årlig besparing och payback-tid. Det bygger förtroende och gör att fler tar kontakt. Sajtmaskin kan integrera båda funktionerna utan att du behöver koda."
+    },
+    {
+      "heading": "Projektreferenser och kundcase",
+      "body": "Konkreta exempel säljer bättre än allmänna löften. En referenssida med bilder från villor i Skåne, Mälardalen eller Västsverige, kompletterad med data om installerad effekt och årlig produktion, visar att du levererat resultat. Sajtmaskin låter dig enkelt lägga till bildgallerier och textblock för varje projekt. Du kan också be AI:n generera en mall för kundcase där du fyller i namn, ort, systemstorlek och citat. Allt formateras automatiskt och ser professionellt ut."
+    },
+    {
+      "heading": "Bidragsinformation och prisexempel",
+      "body": "Rotavdraget på 50 procent är ofta avgörande för köpbeslutet, men många villaägare är osäkra på hur det fungerar. En tydlig bidragssida som förklarar maxbelopp, ansökningsprocess och vad som räknas som arbetskostnad minskar tröskeln att höra av sig. Du kan också visa prisexempel för olika systemstorlekar – exempelvis ett 6 kW-system för en normalvilla eller ett 10 kW-system med batteri. Sajtmaskin genererar denna information strukturerat och kan uppdateras när regler ändras."
+    },
+    {
+      "heading": "Ingen bindningstid, publicera på egen domän",
+      "body": "Många webbplattformar låser in dig med månadskostnader och begränsade exportmöjligheter. Sajtmaskin tar ingen löpande avgift om du väljer subdomän, och du kan när som helst publicera på din egen domän via Vercel eller Netlify. Vill du byta plattform eller anlita en utvecklare senare? Exportera koden och ta med dig allt. Du bygger inte på någon annans grund – du äger resultatet från dag ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag integrera en solcellskalkylator på sajten?",
+      "a": "Ja, du kan be AI:n skapa ett enkelt formulär där besökaren anger takyta, elförbrukning och postort. Sajtmaskin kan generera en statisk kalkylator eller integrera med externa API:er om du vill ha realtidspriser. Du kan också bädda in befintliga kalkylatorer via iframe."
+    },
+    {
+      "q": "Hur visar jag kundrecensioner och projektbilder?",
+      "a": "Sajtmaskin genererar automatiskt en referenssida där du kan lägga till bilder, projektdata och kundcitat. Du kan också integrera Google Reviews eller Trustpilot via embed-kod. AI:n formaterar allt så det ser enhetligt och professionellt ut."
+    },
+    {
+      "q": "Kan kunder boka besiktningstid direkt på sajten?",
+      "a": "Ja, genom Cal.com-integrationen får du en inbäddad kalender där kunden väljer ledig tid. Du kan sätta upp olika mötestyper – kostnadsfri konsultation, takbesiktning, servicebokning – och få notiser via mail eller Slack när någon bokar."
+    },
+    {
+      "q": "Vad kostar det att publicera sajten på min egen domän?",
+      "a": "Själva publicering via Vercel eller Netlify är gratis för normala trafikmängder. Du betalar bara för domännamnet hos din registrar, vanligtvis 80–150 kr per år. Sajtmaskin tar ingen extra avgift för hosting om du kör på subdomän, och ingen bindningstid gäller."
+    },
+    {
+      "q": "Kan jag lägga till information om rotavdrag och bidrag?",
+      "a": "Absolut. Du kan be AI:n skapa en bidragssida som förklarar rotavdraget, maxbelopp och ansökningsprocess. Du kan också lägga till lokala stöd om de finns i din region. Innehållet genereras på svenska och kan uppdateras när regler ändras."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga sajten?",
+      "a": "De flesta solcellsföretag har en fungerande sajt på 10–20 minuter. Du beskriver din verksamhet i chatten – vilka tjänster du erbjuder, vilka områden du täcker, om du har specialisering på batterilösningar eller laddboxar – och AI:n bygger strukturen. Sedan fyller du på med egna bilder och projektdata."
+    },
+    {
+      "q": "Kan jag exportera koden och ta med mig sajten senare?",
+      "a": "Ja, du kan exportera hela kodbasen när du vill. Den är byggd i React och Next.js, så vilken webbutvecklare som helst kan ta vid. Du äger allt innehåll och all design från start, ingen inlåsning."
+    }
+  ],
+  "localOrIndustryContext": "Solcellsmarknaden i Sverige växer snabbt, driven av höga elpriser och generöst rotavdrag. Villaägare i Skåne, Västsverige och Mälardalen letar aktivt efter lokala installatörer som kan förklara bidrag, visa konkreta besparingsexempel och erbjuda smidig bokning. En tydlig hemsida med projektreferenser och ROI-kalkylator gör skillnaden när kunden jämför offerter.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en solcellsföretag-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

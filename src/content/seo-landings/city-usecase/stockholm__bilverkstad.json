@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "stockholm/bilverkstad",
+  "title": "Hemsida för bilverkstad i Stockholm | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Stockholm på minuter. Bokning, prislista och kundrecensioner – allt utan kod.",
+  "h1": "Hemsida för bilverkstad i Stockholm",
+  "heroSub": "Bygg en komplett hemsida för din bilverkstad med bokning, tjänster och kundcase – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En bilverkstad i Stockholm behöver en hemsida som gör det enkelt för kunder att boka tid, se priser och hitta till er. Oavsett om du driver en fristående verkstad i Hägersten, specialiserar dig på volvoreparationer i Vällingby eller har en fullserviceverkstad vid Globen behöver du en sajt som fungerar på mobilen och syns i lokala sökningar.",
+    "Sajtmaskin bygger din verkstadssajt på minuter. Du chattar om vad du erbjuder – däckskifte, servicebesiktning, bromsreparationer, kamremsbyte – och får en färdig sajt med bokningstider via Cal.com, prislista, bilder från verkstaden och kontaktformulär. Publicera på egen domän och uppdatera själv när säsongserbjudanden eller öppettider ändras.",
+    "Ingen bindningstid, ingen teknisk krångel. Perfekt för dig som vill fokusera på verkstadsgolvet, inte webbdesign."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bilverkstad i Stockholm behöver på sin hemsida",
+      "body": "Stockholmskunder söker ofta efter verkstäder nära hemmet eller jobbet, och de vill boka snabbt. Din sajt behöver tydlig information om var ni ligger, vilka märken ni jobbar med och vad en service eller reparation kostar. En integrerad bokningskalender sparar tid – kunden väljer själv tid för däckhotell, besiktning eller felsökning utan att ringa. Visa gärna kundrecensioner och före-efter-bilder från lackarbeten eller rostskador. Med Sajtmaskin får du allt detta utan att behöva koda eller anlita byrå."
+    },
+    {
+      "heading": "Så bygger du sajten via chat",
+      "body": "Öppna Sajtmaskin och beskriv din verkstad: \"Jag driver en bilverkstad i Älvsjö som jobbar med Volvo, Saab och Toyota. Vi gör service, bromsar, avgassystem och AC-service. Jag vill ha bokning, prislista och ett formulär för offertförfrågan.\" AI:n skapar struktur, texter och layout. Du justerar priser, lägger till bilder från verkstaden och kopplar Cal.com så kunderna kan boka direkt. Vill du ta betalt för förbokade tjänster som däckhotell lägger du till Stripe. Klart på en timme."
+    },
+    {
+      "heading": "Bokning, priser och SEO för lokal synlighet",
+      "body": "Cal.com-integrationen låter kunder välja ledig tid för olika tjänster – 30 minuter för hjulskifte, en heldag för kamremsbyte. Du styr själv vilka tider som är bokningsbara och får notiser när någon bokar. Prislistan kan vara statisk eller dynamisk beroende på om du vill visa fasta priser eller be om offert. Sajtmaskin genererar SEO-vänliga texter som nämner stadsdel och tjänster, så du syns när någon söker \"volvoverkstad södermalm\" eller \"däckbyte kungsholmen\". Lägg till Google Analytics för att se vilka tjänster som lockar mest."
+    },
+    {
+      "heading": "Ingen bindningstid, exportera när du vill",
+      "body": "Du äger din sajt. Vill du byta plattform senare exporterar du koden och flyttar till egen server. Hosting på Sajtmaskins subdomän kostar inget extra, men de flesta bilverkstäder vill ha egen domän typ dinverkstad.se – koppla den direkt i gränssnittet. Uppdatera öppettider inför storhelger, lägg till vinterdäckkampanjer eller nya samarbetspartners själv. Ingen månadskostnad som låser dig, ingen byrå som ska godkänna ändringar. Perfekt för småföretagare som vill ha kontroll."
+    },
+    {
+      "heading": "Byggt i Sverige, support på svenska",
+      "body": "Sajtmaskin drivs av Pretty Good AB och är byggt för svenska företag. All support sker på svenska, och AI:n förstår verkstadsjargong som \"trepunktskontroll\", \"sommardäck\" och \"besiktningsprotokoll\". Du slipper översätta från engelska mallar eller gissa dig till vad funktioner heter. Integrationer med Cal.com och Stripe fungerar sömlöst, och du kan lägga till Shopify om du vill sälja reservdelar eller tillbehör online. Allt från ett gränssnitt, på ren svenska."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan kunder boka tid för service och besiktning direkt på sajten?",
+      "a": "Ja, via Cal.com-integrationen. Du skapar olika tjänster med olika längd – 30 min för oljebyte, 2 timmar för felsökning – och kunder väljer ledig tid i kalendern. Du får notis via mejl och kan bekräfta eller omboka vid behov."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta bilverkstäder har en fungerande sajt på 30–60 minuter. Du chattar om tjänster och priser, AI:n genererar sidorna, du laddar upp bilder från verkstaden och kopplar domän. Sen är du live. Uppdateringar tar några minuter."
+    },
+    {
+      "q": "Kan jag visa priser för vanliga tjänster som däckskifte och bromsar?",
+      "a": "Absolut. Du kan ha en statisk prislista eller beskriva att priserna varierar beroende på bilmodell. Många verkstäder visar startpriser och ber kunder fylla i ett formulär för exakt offert. Du väljer själv hur transparent du vill vara."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla Sajtmaskin-sajter är responsiva. Stockholmskunder söker ofta verkstad när de sitter i bilen eller på pendeln, så mobilvyn är lika viktig som desktop. Bokningsknappen och telefonnumret är alltid lättåtkomliga."
+    },
+    {
+      "q": "Kan jag lägga till kundrecensioner eller före-efter-bilder?",
+      "a": "Ja. Du kan skapa en sektion för recensioner och ladda upp bilder från lackarbeten, rostlagningar eller renoveringar. Visuellt innehåll bygger förtroende, särskilt för nya kunder som inte känner till din verkstad sedan tidigare."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att den är byggd?",
+      "a": "Hosting på Sajtmaskins subdomän är gratis. Vill du ha egen domän betalar du registratorn (ofta 100–150 kr/år). Cal.com och Stripe har egna prismodeller – Cal.com är gratis i basversion, Stripe tar en procent per transaktion. Inga dolda avgifter från Sajtmaskin."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform?",
+      "a": "Ja, du kan exportera koden när som helst och flytta till egen server eller annan hostingleverantör. Ingen bindningstid, ingen inlåsning. Du äger allt innehåll och all design."
+    }
+  ],
+  "localOrIndustryContext": "Stockholm har hundratals bilverkstäder, från kedjor som Mekonomen och Biltema Autoservice till fristående specialister på allt från veteranbilar till elbilar. Konkurrensen är hård, och kunder förväntar sig snabb bokning och transparent prissättning. En professionell hemsida gör skillnaden mellan att synas i Google Maps eller bli bortglömd.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Stockholm. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

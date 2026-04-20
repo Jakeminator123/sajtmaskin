@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "redovisning",
+  "title": "Hemsida för redovisningsbyrå – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din redovisningsbyrå med AI. Få kontaktformulär, tjänstepresentation och bokningsfunktion – utan kod.",
+  "h1": "Hemsida för redovisningsbyrå",
+  "heroSub": "Bygg en komplett hemsida för din redovisningsbyrå på minuter – med AI, på svenska, utan att kunna koda.",
+  "introParagraphs": [
+    "En bra hemsida för redovisningsbyrå gör det enkelt för potentiella kunder att förstå vad du erbjuder, boka ett första möte och få kontakt. Den behöver inte vara komplicerad, men den måste vara tydlig och väcka förtroende – något som är extra viktigt när folk anförtror dig sin ekonomi.",
+    "Med Sajtmaskin kan du bygga hela sajten via chat. Du beskriver din byrå, vilka tjänster du erbjuder och vad du vill att besökare ska kunna göra. AI:n skapar sedan sidor, texter och struktur åt dig. Du kan publicera direkt på egen domän, integrera bokningssystem via Cal.com och koppla på Google Analytics för att se hur sajten används.",
+    "Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när du vill. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för redovisningsbyrå behöver innehålla",
+      "body": "De flesta redovisningsbyråer behöver en startsida som förklarar vad byrån gör, en tjänstesida där bokföring, lönehantering och årsbokslut beskrivs tydligt, en om-sida som visar vem som driver byrån, och en kontaktsida med formulär eller telefonnummer. Många vill också ha en bokningsfunktion så att nya kunder kan boka ett kostnadsfritt rådgivningsmöte direkt. Sajtmaskin kan generera alla dessa sidor från en enda konversation och koppla in Cal.com för bokning om du vill."
+    },
+    {
+      "heading": "Hur Sajtmaskin bygger sajten åt dig",
+      "body": "Du startar en chat och beskriver din redovisningsbyrå: var du är baserad, vilka tjänster du erbjuder, om du riktar dig mot enskilda firmor eller lite större bolag, och vad besökare ska kunna göra på sajten. AI:n föreslår struktur, skriver texter och skapar sidor. Du kan be om ändringar direkt i chatten – lägg till en prislista, ändra ton, ta bort en sektion. När du är nöjd publicerar du på din egen domän eller på en kostnadsfri subdomän hos oss."
+    },
+    {
+      "heading": "Integrationer som gör sajten mer användbar",
+      "body": "Många redovisningsbyråer vill att kunder ska kunna boka möten online. Då kopplar du in Cal.com, som är gratis att använda och synkar med din kalender. Vill du ta betalt för rådgivningstjänster eller sälja paketerade tjänster kan du integrera Stripe. Google Analytics ger dig koll på hur många som besöker sajten och vilka sidor de läser. Alla integrationer sköts utan kod – du klistrar in en nyckel eller länk, och Sajtmaskin fixar resten."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Du betalar ingen månadskostnad om du publicerar på en subdomän hos Sajtmaskin. Vill du ha egen domän ordnar du den själv och pekar den mot sajten – inget abonnemang krävs. Det finns ingen bindningstid. Om du vill ta över koden helt och hållet kan du exportera den och flytta sajten till din egen server när som helst. Du äger alltid ditt innehåll."
+    },
+    {
+      "heading": "Byggt i Sverige, på svenska",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige. Hela gränssnittet, AI:ns texter och supporten är på svenska. Det betyder att sajten blir skriven för svenska besökare, med rätt tonalitet och utan översättningsfel. För en redovisningsbyrå som vill verka professionell och lokal är det en självklar fördel."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag lägga till en prislista på hemsidan?",
+      "a": "Ja, du kan be AI:n skapa en prissida och fylla i dina priser för bokföring, löner eller årsbokslut. Du kan uppdatera priserna när du vill genom att redigera sidan direkt eller be AI:n om en ändring."
+    },
+    {
+      "q": "Hur fungerar bokningsintegration för rådgivningsmöten?",
+      "a": "Du kopplar in Cal.com, som är ett gratis bokningssystem. Du skapar en länk till din kalender och bäddar in den på sajten. Besökare kan då välja tid och boka direkt, utan att du behöver mejla fram och tillbaka."
+    },
+    {
+      "q": "Kan jag visa vilka branscher jag är specialist på?",
+      "a": "Absolut. Du kan be AI:n lägga till en sektion där du beskriver att du jobbar mycket med bygg, restaurang eller frisörer – eller vilka branscher du än fokuserar på. Det gör sajten mer relevant för rätt kunder."
+    },
+    {
+      "q": "Vad händer om jag vill byta webbyrå senare?",
+      "a": "Du kan exportera hela koden och ta med dig sajten vart du vill. Det finns ingen bindningstid och inget abonnemang som låser dig. Du äger alltid ditt innehåll och din sajt."
+    },
+    {
+      "q": "Kan jag ha en blogg där jag skriver om skatteregler?",
+      "a": "Ja, du kan lägga till en blogg och publicera artiklar om momsregler, rotavdrag eller andra ämnen som dina kunder frågar om. Det är bra för SEO och visar att du har koll på ditt område."
+    },
+    {
+      "q": "Kostar det något att publicera sajten?",
+      "a": "Publicering på en subdomän hos Sajtmaskin är gratis, utan månadskostnad. Vill du ha en egen domän som redovisning.se köper du den själv hos en domänleverantör och pekar den mot sajten. Då tillkommer ingen extra kostnad från Sajtmaskin."
+    },
+    {
+      "q": "Hur lång tid tar det att få upp en sajt?",
+      "a": "De flesta kommer igång på några minuter. Du chattar med AI:n, beskriver din byrå och får ett förslag. Sedan justerar du det du vill ändra. När du är nöjd publicerar du. Totalt kan det ta allt från tio minuter till en timme, beroende på hur mycket du vill finjustera."
+    }
+  ],
+  "localOrIndustryContext": "Redovisningsbyråer i Sverige är ofta lokala eller regionala, och många kunder söker efter en byrå i närheten som de kan träffa fysiskt. En hemsida som tydligt visar var du finns, vilka tjänster du erbjuder och hur man bokar möte gör det lättare för potentiella kunder att välja dig framför en större, opersonlig aktör.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en redovisningsbyrå-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

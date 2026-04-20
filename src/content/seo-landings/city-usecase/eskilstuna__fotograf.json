@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "eskilstuna/fotograf",
+  "title": "Hemsida fotograf Eskilstuna – Bygg din portfolio på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell fotografhemsida i Eskilstuna med AI. Portfoliogalleri, bokningssystem och mobilvänlig design – klart på minuter.",
+  "h1": "Hemsida för fotografer i Eskilstuna",
+  "heroSub": "Bygg en professionell fotografportfolio med bokning och galleri – direkt via chat, utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Eskilstuna behöver du en hemsida som visar ditt arbete i bästa ljus och gör det enkelt för kunder att boka dig. Sajtmaskin låter dig bygga en komplett fotografsajt på minuter genom att chatta med vår AI – med bildgallerier, bokningssystem och kontaktformulär färdiga från start.",
+    "Du beskriver din fotografverksamhet i chatten, laddar upp dina bästa bilder och AI:n bygger en sajt anpassad efter ditt uttryck. Vill du fokusera på bröllop, företagsfoto eller porträtt? Behöver du prislista och paketerbjudanden? Allt skapas utifrån dina behov, och du publicerar på din egen domän utan månadskostnad för hosting.",
+    "Ingen bindningstid och du kan exportera koden när du vill. Sajten blir mobilanpassad automatiskt, vilket är viktigt när brudpar och företag i Eskilstuna söker fotograf på mobilen. Integrera Cal.com för smidig bokning eller Stripe om du säljer digitala bildfiler direkt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio som säljer dina tjänster",
+      "body": "En fotografhemsida lever på bilderna. Sajtmaskin skapar automatiskt responsiva gallerier där dina foton visas i fullskärm utan att tappa kvalitet. Du kan organisera bilder i kategorier – bröllop, familj, företag, event – så besökare snabbt hittar det de letar efter. AI:n hjälper dig skriva bildtexter och beskrivningar som förklarar din stil och arbetsprocess. Lägg till före-och-efter-bilder, kundreferenser bredvid galleriet och en tydlig uppmaning att boka konsultation. Allt byggs i samma chattflöde."
+    },
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "Slipp mejlkarusellen med potentiella kunder. Genom Cal.com-integrationen kan besökare se dina lediga tider och boka direkt på sajten. Du bestämmer sessionslängd, buffert mellan bokningar och vilka typer av uppdrag du tar emot. Systemet skickar automatiska påminnelser och bekräftelser, och synkar med din kalender. För fotografer i Eskilstuna som jobbar med både privatkunder och företag blir det enklare att hålla isär olika typer av bokningar och priser."
+    },
+    {
+      "heading": "Lokal synlighet i Eskilstuna",
+      "body": "Din sajt optimeras automatiskt för lokala sökningar så du syns när någon söker efter fotograf i Eskilstuna. AI:n hjälper dig skriva om de platser du fotograferar på – Fristadstorget, Parken Zoo, Eskilstuna Strängnäs flygplats för företagsfoto eller Torshälla kyrka för bröllop. Du kan lägga till ett lokalt fokusområde på sajten och visa upp samarbeten med bröllopsplanerare, eventföretag eller lokala firmor. Google Analytics ingår så du ser vilka sökord och sidor som driver flest förfrågningar."
+    },
+    {
+      "heading": "Priser, paket och betalning",
+      "body": "Visa tydligt vad du tar betalt och vad som ingår. Sajtmaskin hjälper dig strukturera prisinformation – från timpriser till kompletta bröllopspaket med förlovningsfoto, vigsel och bröllopsfest. Vill du ta förskottsbetalning? Integrera Stripe så kunder kan betala direkt på sajten när de bokar. Du kan också sälja digitala produkter som bildfiler, utskrifter eller fotoböcker. Allt hanteras säkert och du slipper krångliga betalningslösningar."
+    },
+    {
+      "heading": "Uppdatera enkelt när verksamheten växer",
+      "body": "När du lanserar nya tjänster, vinner priser eller vill lägga till fler gallerier gör du det direkt i chatten. AI:n förstår vad du vill ändra och uppdaterar designen konsekvent över hela sajten. Inget behov av utvecklare eller dyra byråer. Vill du testa olika varianter av din startsida eller prissättning? Gör det själv på minuter. Du äger koden och kan när som helst exportera allt om du vill flytta eller bygga vidare på egen hand."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografhemsida?",
+      "a": "De flesta fotografer har en färdig grundsajt på 10–20 minuter. Du chattar med AI:n om din inriktning, laddar upp bilder och beskriver dina tjänster. AI:n genererar layout, texter och gallerier direkt. Sedan kan du förfina detaljer, lägga till fler sidor eller justera priser i din egen takt. Publicering på egen domän tar bara några klick till."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotouppdrag på samma sajt?",
+      "a": "Absolut. Du kan skapa separata gallerier för bröllop, företagsfoto, porträtt, event eller produktfoto. Varje kategori får en egen undersida med relevanta bilder och beskrivning. Besökare kan enkelt navigera mellan dina olika inriktningar, och du kan länka direkt till specifika gallerier i marknadsföring eller sociala medier."
+    },
+    {
+      "q": "Fungerar bokningssystemet för både privat- och företagskunder?",
+      "a": "Ja, genom Cal.com-integrationen skapar du olika bokningstyper med egna priser och tidsramar. Du kan ha en bokningslänk för porträttfoto med 60 minuters sessioner och en annan för företagsfoto med heldag. Systemet hanterar buffert, resetid och olika priser automatiskt. Kunder ser bara de alternativ som är relevanta för dem."
+    },
+    {
+      "q": "Syns min sajt när folk söker fotograf i Eskilstuna?",
+      "a": "Sajten är SEO-optimerad från start med lokala sökord, snabb laddningstid och mobilanpassning. Du kan lägga till innehåll om specifika platser i Eskilstuna där du fotograferar och bygga upp lokal auktoritet. Google Analytics visar vilka sökord som driver trafik så du kan förbättra kontinuerligt. Resten beror på din närvaro i sociala medier och recensioner."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Publicerar du på Sajtmaskins subdomän är hostingen gratis utan månadskostnad. Vill du ha egen domän som dittnamn.se betalar du bara domänregistrering, vanligtvis 80–150 kr per år. Bokningssystem via Cal.com är gratis i grundversionen, Stripe tar en liten procent per transaktion om du använder betalning. Inga dolda avgifter eller bindningstid."
+    },
+    {
+      "q": "Kan jag sälja digitala bildfiler eller utskrifter direkt på sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du sälja digitala nedladdningar, printar eller fotoböcker. Du skapar produkter med priser och beskrivningar, och kunderna betalar säkert med kort. För fysiska produkter hanterar du själv utskick, men betalningen och orderhanteringen sköts automatiskt. Du kan också erbjuda digitala gallerier där kunder väljer och köper bilder efter en session."
+    },
+    {
+      "q": "Tänk om jag vill byta plattform eller bygga vidare själv senare?",
+      "a": "Du äger koden till din sajt och kan exportera allt när du vill, utan kostnad eller krångel. Vill du flytta till en annan hosting, anställa en utvecklare för specialfunktioner eller integrera med andra system är du fri att göra det. Ingen inlåsning, ingen bindningstid. Sajten är byggd med modern teknik som utvecklare enkelt kan arbeta vidare med."
+    }
+  ],
+  "localOrIndustryContext": "Eskilstuna har en växande kreativ sektor med fotografer som arbetar med allt från industrifoto för lokala företag till bröllop i stadens vackra miljöer. Med närhet till både Mälaren och Stockholm finns goda möjligheter för fotografer att bygga en bred kundbas, men konkurrensen kräver en professionell närvaro online där portfolio och enkel bokning är avgörande.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/eskilstuna",
+      "label": "Skapa hemsida i Eskilstuna"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Eskilstuna. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

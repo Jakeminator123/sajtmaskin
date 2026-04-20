@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "podcast",
+  "title": "Hemsida för podcast – bygg din poddsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för din podcast med AI. Presentera avsnitt, samla lyssnare och visa sponsorer – klart på minuter utan kod.",
+  "h1": "Hemsida för podcast",
+  "heroSub": "Bygg en sajt som visar upp din podd, samlar lyssnare och gör det enkelt att hitta alla avsnitt – direkt via chat.",
+  "introParagraphs": [
+    "En hemsida för podcast är platsen där din podd lever mellan avsnitten. Här samlar du alla avsnitt, presenterar dig som poddare, visar kommande gäster och ger nya lyssnare en smidig ingång. Sajten blir också din egen kanal – oberoende av Spotify, Apple Podcasts eller andra plattformar – där du styr varumärket och kan bygga en e-postlista eller visa upp sponsorer.",
+    "Med Sajtmaskin bygger du hela poddsajten via chat på svenska. Du beskriver din podd, vilka avsnitt du vill lyfta och vilka funktioner du behöver – så genererar AI:n en färdig sajt på minuter. Inga mallar att kämpa med, ingen kod att skriva. Publicera på din egen domän eller testa kostnadsfritt på en subdomän.",
+    "Sajten blir responsiv, snabb och enkel att uppdatera. Du kan lägga till bokningsformulär för gästförfrågningar via Cal.com, koppla Google Analytics för att se var lyssnarna kommer ifrån, eller sätta upp Stripe om du säljer merchandise eller premium-innehåll."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Avsnittslista med spelare och shownotes",
+      "body": "Kärnan i en poddsajt är en tydlig lista över alla avsnitt. Varje avsnitt får en egen sida eller sektion med titel, beskrivning, publiceringsdag och en inbäddad spelare från din poddhost. Shownotes med länkar, tidsstämplar och gästinfo gör det lätt för lyssnare att hitta tillbaka till det de hörde. Sajtmaskin låter dig strukturera avsnitten automatiskt – du matar in RSS-flödet eller beskriver layouten, så skapar AI:n sidorna åt dig."
+    },
+    {
+      "heading": "Om-sida och poddare-presentation",
+      "body": "Nya lyssnare vill veta vem som pratar och vad podden handlar om. En genomtänkt om-sida med din bakgrund, poddidén och kanske ett foto eller klipp bygger förtroende snabbt. Om ni är flera värdar kan varje person få en egen profilruta. Sajten blir också en naturlig länk att dela i sociala medier eller i din podd-bio – en plats där folk kan läsa mer utan att scrolla genom appar."
+    },
+    {
+      "heading": "Kontakt och gästbokningar",
+      "body": "Vill du ha gäster i podden? Lägg in ett formulär eller en Cal.com-bokning så kan potentiella gäster välja tid direkt. Sajtmaskin integrerar Cal.com med ett klick, så du slipper mejlkaruseller. Du kan också ha ett vanligt kontaktformulär för sponsorförfrågningar, lyssnartips eller samarbeten. Allt samlas på sajten istället för att gömmas i DM:s."
+    },
+    {
+      "heading": "Sponsorer och partners",
+      "body": "Många poddar växer genom sponsring. En dedikerad sektion för partners eller sponsorer visar proffsighet och gör det enklare att pitcha nya annonsörer – de ser direkt var deras logga hamnar. Du kan länka till rabattkoder, affiliate-sidor eller case-beskrivningar. Om du säljer egna produkter kan du koppla Stripe för betalning eller Shopify för en enkel merch-shop, allt integrerat via Sajtmaskin."
+    },
+    {
+      "heading": "Uppdatera och exportera när du vill",
+      "body": "Poddar utvecklas – nya säsonger, tema-byten, gästserier. Med Sajtmaskin chattade du bara in ändringarna: lägg till en ny avsnittssida, byt färgschema eller flytta om sektioner. Ingen bindningstid, och du kan exportera hela koden om du vill flytta sajten någon annanstans. Hosting på subdomän är gratis, egen domän kopplar du på direkt. Allt byggt i Sverige av Pretty Good AB."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Behöver jag flytta min podd från Spotify eller Apple Podcasts?",
+      "a": "Nej, din podd ligger kvar där den är. Hemsidan kompletterar dina plattformar genom att samla allt på ett ställe – avsnitt, shownotes, kontaktinfo och merch. Du bäddar in spelaren från din poddhost (Acast, Libsyn, Buzzsprout etc.) så folk kan lyssna direkt på sajten eller klicka vidare till sin favoritapp."
+    },
+    {
+      "q": "Kan jag lägga till nya avsnitt enkelt?",
+      "a": "Ja. Du chattar in det nya avsnittet med titel, beskrivning och länk till spelaren – så lägger Sajtmaskin till det i listan. Vill du automatisera kan du koppla ditt RSS-flöde, men manuell uppdatering via chat funkar också utmärkt och ger dig full kontroll över layouten."
+    },
+    {
+      "q": "Hur får jag in bokningar för gäster?",
+      "a": "Integrera Cal.com så får du en bokningslänk direkt på sajten. Potentiella gäster ser lediga tider och bokar själva – du får mejl och kalenderinbjudan automatiskt. Ingen kod krävs, Sajtmaskin kopplar integrationen åt dig."
+    },
+    {
+      "q": "Kan jag sälja merchandise eller premium-avsnitt?",
+      "a": "Absolut. Koppla Stripe för engångsbetalningar – t.ex. en tipsburk, merch eller tidig tillgång till avsnitt. Vill du ha en hel shop integrerar du Shopify. Båda sätts upp via Sajtmaskin utan att du behöver röra kod."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän (typ minpodd.se) kopplar du den kostnadsfritt – du betalar bara för själva domännamnet hos din registrar. Ingen månadskostnad för hosting, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag se statistik på besökare?",
+      "a": "Ja, koppla Google Analytics så ser du var lyssnarna kommer ifrån, vilka avsnitt som är populärast och hur länge folk stannar. Integrationen läggs till via Sajtmaskin – du klistrar in ditt Analytics-ID och allt spåras automatiskt."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela webbplatskoden när som helst och flytta den till valfri hosting. Ingen inlåsning, ingen uppsägningstid. Sajten är din – Sajtmaskin är bara verktyget som byggde den."
+    }
+  ],
+  "localOrIndustryContext": "Podd-scenen i Sverige växer snabbt, från true crime och samhällsdebatt till nischade hobbypoddar. En egen hemsida gör att du äger relationen till lyssnarna, kan bygga en e-postlista och ta emot sponsorer direkt – utan att vara beroende av plattformarnas algoritmer eller villkor.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en podcast-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

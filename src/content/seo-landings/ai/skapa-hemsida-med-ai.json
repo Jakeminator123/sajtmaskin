@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "skapa-hemsida-med-ai",
+  "title": "Skapa hemsida med AI – så funkar det i praktiken | Sajtmaskin",
+  "metaDescription": "Vill du skapa en hemsida med AI? Här förklarar vi hur AI-verktyg bygger sajter från text, vad som skiljer dem från mallbyggare och hur du kommer igång.",
+  "h1": "Skapa hemsida med AI",
+  "heroSub": "Berätta vad du behöver i vanlig text – så genererar AI:n hela din sajt på minuter.",
+  "introParagraphs": [
+    "Att skapa en hemsida med AI innebär att du beskriver vad du vill ha i vanlig text, och ett AI-verktyg genererar design, struktur och innehåll åt dig. Istället för att dra och släppa block eller skriva kod så har du en konversation där AI:n ställer frågor, föreslår lösningar och bygger sidorna medan du chattar. Resultatet är en färdig sajt som du kan publicera direkt eller fortsätta justera.",
+    "Det här skiljer sig från klassiska mallbyggare där du väljer en färdig design och fyller i text själv. Med AI börjar du från scratch – du säger vad du gör, vem du vänder dig till och vilka funktioner du behöver, så skapar verktyget en skräddarsydd sajt utifrån det. Tekniken passar dig som vill ha en unik sajt snabbt, utan att lära dig verktyg eller sitta fast i mallar som tusentals andra använder.",
+    "I Sverige finns Sajtmaskin – en plattform helt på svenska där du bygger sajten genom att chatta. Du beskriver ditt företag, AI:n genererar sidor, texter och struktur, och du kan publicera på egen domän utan månadskostnad för hosting. Allt från bokningssystem till betalningar går att integrera, och du äger koden och kan exportera den när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI faktiskt bygger din hemsida",
+      "body": "När du startar ett AI-projekt beskriver du i fritext vad sajten ska göra – sälja tjänster, visa portfolio, ta bokningar eller något annat. AI:n analyserar din beskrivning och genererar en sidstruktur med startsida, undersidor och navigation. Sedan skriver den förslag på rubriker, brödtext och call-to-action baserat på din bransch och målgrupp. Designen skapas automatiskt med typsnitt, färgschema och layout som passar ihop. Du kan be om ändringar i chatten – byt färg, lägg till en sektion, skriv om en rubrik – och AI:n uppdaterar sajten direkt. Det är som att ha en webbdesigner som jobbar i realtid."
+    },
+    {
+      "heading": "Skillnaden mot mallbyggare och byråer",
+      "body": "Mallbyggare som Wix eller Squarespace ger dig färdiga designer att anpassa. Du väljer mall, byter bilder och skriver egen text. Det funkar bra om du gillar mallen, men du är begränsad till vad designern tänkt ut. AI-verktyg börjar istället med dina behov och skapar en unik struktur. Du slipper välja bland hundratals mallar och gissa vilken som passar. Jämfört med en byrå är AI mycket snabbare och billigare – en byrå tar veckor och kostar tiotusentals kronor, medan AI ger dig ett utkast på minuter. Nackdelen är att AI inte ersätter strategisk rådgivning eller avancerad custom-kod, men för de flesta företagssajter räcker det långt."
+    },
+    {
+      "heading": "Vad du kan integrera och anpassa",
+      "body": "Moderna AI-plattformar låter dig koppla in verktyg du redan använder. Bokningssystem som Cal.com kan bäddas in så kunder bokar direkt på sajten. Betalningar via Stripe gör att du kan ta betalt för produkter eller tjänster. Google Analytics ger dig besöksstatistik, och Shopify-integration låter dig driva en webshop. Allt detta går att lägga till genom att beskriva vad du vill i chatten – AI:n sköter tekniken. Du kan också justera texter, bilder och färger när som helst, och om du vill ta över helt kan du exportera koden och fortsätta på egen hand eller hos en utvecklare."
+    },
+    {
+      "heading": "Så kommer du igång med Sajtmaskin",
+      "body": "Skapa ett konto på Sajtmaskin och starta en ny sajt. Du får frågor om vad du gör, vem du vänder dig till och vilka sidor du behöver. Svara i vanlig svenska – ju tydligare du är, desto bättre blir resultatet. AI:n genererar ett förslag på sajt med texter, bilder och struktur. Gå igenom sidorna och be om ändringar i chatten: ändra en rubrik, lägg till en sektion, byt färgschema. När du är nöjd publicerar du på en gratis subdomän eller kopplar din egen domän. Hosting på subdomän kostar inget per månad, och du kan när som helst exportera koden om du vill flytta sajten någon annanstans."
+    },
+    {
+      "heading": "När AI är rätt val – och när det inte är det",
+      "body": "AI passar dig som vill ha en proffsig sajt snabbt utan att lära dig verktyg eller betala byrå-priser. Det funkar utmärkt för företagssajter, portfolios, bokningssidor och enklare webshoppar. Om du behöver något väldigt unikt – avancerade animationer, custom-funktioner eller komplicerad backend – kan en byrå eller utvecklare vara bättre. Men för de allra flesta svenska småföretag, frilansare och föreningar ger AI-verktyg allt som behövs: snabb start, flexibilitet och full kontroll utan teknisk börda."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en hemsida med AI?",
+      "a": "De flesta får ett färdigt utkast på 10–20 minuter. Du beskriver vad du vill ha, AI:n genererar sidor och texter, och sedan justerar du det som behövs. Totalt kan du ha en publicerad sajt samma dag du börjar, beroende på hur mycket innehåll du vill finjustera."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda AI-verktyg?",
+      "a": "Nej, du behöver ingen teknisk kunskap. Du skriver i vanlig text vad du vill ha, och AI:n sköter all kod, design och struktur. Om du vill kan du exportera koden efteråt och låta en utvecklare anpassa den, men det är frivilligt."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja, du kan koppla din egen domän till sajten. Sajtmaskin låter dig också publicera på en gratis subdomän utan månadskostnad, så du kan testa och visa sajten innan du kopplar en egen domän."
+    },
+    {
+      "q": "Vad kostar det att skapa en hemsida med AI?",
+      "a": "Sajtmaskin tar betalt per sajt du skapar, inte per månad. Hosting på subdomän är gratis, och du betalar bara om du vill ha extra funktioner eller koppla egen domän. Det finns ingen bindningstid, och du kan exportera koden kostnadsfritt när du vill."
+    },
+    {
+      "q": "Kan jag lägga till bokning och betalningar?",
+      "a": "Ja, du kan integrera Cal.com för bokningar och Stripe för betalningar. Berätta i chatten vilken funktion du behöver, så hjälper AI:n dig att sätta upp det. Du kan också koppla Google Analytics och Shopify om du driver en webshop."
+    },
+    {
+      "q": "Äger jag innehållet och koden som AI:n skapar?",
+      "a": "Ja, du äger allt som genereras – texter, bilder, kod och design. Du kan när som helst exportera hela sajten och använda den var du vill, utan begränsningar eller extra kostnader."
+    },
+    {
+      "q": "Fungerar AI-verktyg på svenska?",
+      "a": "Sajtmaskin är helt på svenska – gränssnitt, support och AI-konversationen. AI:n skriver texter på svenska och förstår svenska branschtermer och uttryck, så du slipper översätta eller anpassa från engelska mallar."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/chatgpt-hemsida",
+      "label": "ChatGPT hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

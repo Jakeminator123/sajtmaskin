@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "uppsala/bilverkstad",
+  "title": "Hemsida bilverkstad Uppsala – snabbt & enkelt | Sajtmaskin",
+  "metaDescription": "Bygg en professionell hemsida för din bilverkstad i Uppsala på minuter. Med bokningssystem, prislista och mobilanpassning. Ingen kod krävs.",
+  "h1": "Hemsida för bilverkstad i Uppsala",
+  "heroSub": "Få en komplett hemsida med bokning, prislista och kundcase – anpassad för din verkstad i Uppsala.",
+  "introParagraphs": [
+    "En bilverkstad i Uppsala behöver en hemsida som gör det enkelt för kunder att boka tid, se priser på service och hitta er verkstad. Med Sajtmaskin bygger du en komplett sajt på minuter genom att chatta med vår AI – utan att skriva en rad kod.",
+    "Du får automatiskt med allt som bilverkstäder behöver: bokningssystem kopplat till Cal.com, tydliga servicelistor, kontaktformulär och mobilanpassad design. Publicera på din egen domän och uppdatera innehållet när du vill, direkt i chatten.",
+    "Sajten byggs helt på svenska och är optimerad för Uppsalakunder som söker efter bilservice, däckbyte, besiktning eller akut hjälp. Allt från introduktion till prissättning skapas utifrån hur du beskriver din verkstad."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem för service och reparationer",
+      "body": "Bilverkstäder lever på ett smidigt flöde av bokningar. Sajtmaskin integrerar Cal.com direkt på din sajt så kunder kan boka tid för service, däckskifte, bromsarbete eller felsökning dygnet runt. Du styr själv vilka tider som är tillgängliga och får notiser när någon bokar. Systemet fungerar lika bra på mobil som dator, vilket är viktigt när kunder ofta söker akut hjälp från bilen eller jobbet."
+    },
+    {
+      "heading": "Visa tjänster, priser och specialkompetens",
+      "body": "Många bilägare i Uppsala jämför verkstäder innan de väljer var de ska lämna bilen. En tydlig prislista för vanliga jobb som oljebyte, kamremsbyte, AC-service och däckhotell skapar förtroende. Sajtmaskin hjälper dig strukturera tjänster per kategori och lyfta fram din specialkompetens – oavsett om det är Volvo, elsystem, rostskydd eller veteranbilar. AI:n skriver om dina tjänster på ett sätt som både sökmotorer och kunder förstår."
+    },
+    {
+      "heading": "Lokal närvaro i Uppsala",
+      "body": "Din verkstad konkurrerar med andra aktörer i Uppsala, Storvreta, Bälinge och Sävja. Genom att nämna din adress, närhet till E4:an eller Uppsalas centrum och vilka områden du servar hjälper du lokala kunder hitta rätt. Sajtmaskin bygger in geografisk kontext naturligt i texterna så du syns när folk söker efter bilverkstad i ditt närområde. Du kan också lägga till karta, vägbeskrivning och öppettider som uppdateras enkelt."
+    },
+    {
+      "heading": "Mobilanpassat och snabbt – viktigt för akuta ärenden",
+      "body": "När en varningslampa tänds eller bilen inte startar söker folk hjälp direkt från mobilen. Din sajt måste ladda snabbt och visa telefonnummer, adress och bokningslänk tydligt. Sajtmaskin bygger alla sajter mobilanpassade från start, med snabb laddningstid och enkel navigation. Det gör skillnad när kunden står på en parkeringsplats och behöver boka akuttid samma dag."
+    },
+    {
+      "heading": "Uppdatera själv – ingen webbyrå behövs",
+      "body": "Priser ändras, ni får ny utrustning eller vill lyfta fram en kampanj inför däckskiftet. Med Sajtmaskin uppdaterar du innehållet genom att chatta med AI:n – inga inloggningar till krångliga CMS-system. Vill du lägga till ett kundcase, byta bild på teamet eller justera öppettider gör du det på sekunder. Exportera koden om du någonsin vill flytta sajten, ingen bindningstid håller dig kvar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att bygga en hemsida för min bilverkstad i Uppsala?",
+      "a": "Sajtmaskin tar betalt per sajt du bygger, ingen månadskostnad för hosting på subdomän. Vill du använda egen domän och avancerade integrationer som Stripe eller Cal.com ingår det i samma enkla modell. Du slipper timarvoden från webbyrå och kan uppdatera sajten själv utan extra kostnad."
+    },
+    {
+      "q": "Kan jag integrera ett bokningssystem för servicetider?",
+      "a": "Ja, Sajtmaskin kopplar ihop din sajt med Cal.com så kunder kan boka service, däckbyte eller besiktning direkt. Du styr vilka tider som är lediga och får notiser när någon bokar. Systemet synkar med din kalender och fungerar smidigt på alla enheter."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta bilverkstäder har en fungerande sajt inom några minuter. Du chattar med AI:n om din verkstad, vilka tjänster du erbjuder och vad som är viktigt för dina kunder i Uppsala. AI:n genererar sedan hela sajten med texter, struktur och design. Publicera direkt eller finjustera innehållet först."
+    },
+    {
+      "q": "Syns min verkstad i Uppsala när folk söker på Google?",
+      "a": "Sajten byggs med SEO-grunderna på plats: snabb laddning, mobilanpassning, tydliga rubriker och lokal kontext. Genom att nämna Uppsala, dina tjänster och närområden ökar chansen att synas lokalt. Du kan också koppla på Google Analytics för att följa besökare och sökord."
+    },
+    {
+      "q": "Kan jag visa priser och specialerbjudanden?",
+      "a": "Absolut. Beskriv dina tjänster och priser i chatten så strukturerar AI:n dem tydligt på sajten. Vill du lägga till kampanjer inför däckskiftet eller lyfta fram rostskydd uppdaterar du innehålll direkt i chatten. Inga krångliga mallar eller designverktyg behövs."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, ingen bindningstid. Det betyder att du äger ditt innehåll och kan flytta sajten till vilken host som helst. Sajtmaskin låser inte in dig – du bestämmer själv hur länge du vill använda plattformen."
+    },
+    {
+      "q": "Fungerar sajten för verkstäder med flera anställda?",
+      "a": "Ja, du kan presentera ditt team, visa specialkompetenser och lägga till kontaktuppgifter till olika mekaniker. Bokningssystemet kan kopplas till flera kalendrar om ni vill att kunder ska kunna välja vem som utför jobbet. Sajten växer med din verkstad."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala har både stora bilhallar och mindre familjeverkstäder. Konkurrensen är tydlig längs Börjegatan, Boländerna och vid handelsområdena utmed E4:an. En professionell hemsida med tydlig bokning och lokal närvaro hjälper din verkstad sticka ut, oavsett om du jobbar med personbilar, lätta lastbilar eller specialfordon.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Uppsala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

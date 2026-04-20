@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "sodertalje/bygg",
+  "title": "Hemsida bygg Södertälje – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Södertälje. AI-driven plattform som bygger din sajt på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för byggföretag i Södertälje",
+  "heroSub": "Låt AI bygga en komplett hemsida för ditt byggföretag – med projektgalleri, kontaktformulär och bokningsfunktion.",
+  "introParagraphs": [
+    "Du driver ett byggföretag i Södertälje och behöver en hemsida som visar upp dina projekt, gör det enkelt för kunder att boka offert och fungerar lika bra på mobilen som på datorn. Sajtmaskin bygger hela sajten åt dig via chat – du beskriver vad du gör, så skapar AI:n en färdig sajt på minuter.",
+    "Ingen kod, inga mallar att välja mellan. Du chattar på svenska om ditt företag, dina tjänster och vad du vill visa upp. AI:n skapar sidor för allt från takrenoveringar och tillbyggnader till badrumsombyggnader, lägger in kontaktformulär och kan koppla på bokningssystem direkt.",
+    "Publicera på din egen domän eller testa kostnadsfritt på en subdomän. Ingen bindningstid, ingen dold månadsavgift för hosting. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Södertälje behöver",
+      "body": "Byggföretag i Södertälje jobbar med allt från villarenoveringar i Hovsjö och Geneta till nybyggnation i Glasberga och ROT-jobb i centrala stan. Din hemsida behöver visa vad du är bra på med tydliga bilder, beskriva dina tjänster så att kunder förstår vad du erbjuder, och göra det enkelt att komma i kontakt. Ett projektgalleri med före- och efterbilder bygger förtroende. Kontaktformulär och telefonnummer ska synas direkt. Många söker byggare på mobilen, så sajten måste fungera lika bra där."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din byggsajt",
+      "body": "Du startar en chatt och berättar vad ditt företag gör: kanske takarbeten, badrumsrenoveringar och tillbyggnader i Södertälje och närliggande orter. AI:n skapar en komplett sajt med startsida, tjänstesidor, om-sida och kontaktsida. Vill du ha ett projektgalleri? Säg det, så läggs det till. Behöver du bokningsfunktion via Cal.com så kunder kan boka kostnadsfri offert? Fixas på några sekunder. Du kan lägga till Google Analytics för att se var besökarna kommer ifrån, eller Stripe om du vill ta förskottsbetalningar online."
+    },
+    {
+      "heading": "Redigera och publicera direkt",
+      "body": "När sajten är klar kan du redigera allt direkt i chatten. Byt text, lägg till fler tjänster, justera bilder eller färger. Allt händer live. Publicera på din egen domän när du är nöjd, eller kör på en kostnadsfri subdomän för att testa. Ingen månadskostnad för hosting på subdomän. Vill du senare ta över koden helt? Exportera den och flytta var du vill. Ingen bindningstid, inga krångliga avtal."
+    },
+    {
+      "heading": "Svenskt verktyg för svenska byggföretag",
+      "body": "Sajtmaskin är byggt i Sverige av Pretty Good AB. Allt är på svenska – gränssnitt, support, AI:n. Du slipper översätta eller anpassa utländska mallar. Plattformen förstår hur svenska byggföretag jobbar och vad kunder i Södertälje letar efter. Resultatet blir en sajt som känns professionell och lokal, inte som en generisk mall. Du fokuserar på byggjobben, vi fixar tekniken."
+    },
+    {
+      "heading": "Kom igång på minuter",
+      "body": "Skapa konto, starta chatten och beskriv ditt byggföretag. AI:n bygger sajten medan du kollar på. Lägg till bilder från dina projekt, justera texter, koppla på bokningssystem om du vill. Publicera när du är redo. Hela processen tar minuter, inte veckor. Ingen kod, ingen designer, inga byråtimmar. Bara en färdig hemsida som fungerar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en byggsajt med Sajtmaskin?",
+      "a": "Själva grundsajten skapas på några minuter. Du chattar om ditt företag och vilka tjänster du erbjuder, så bygger AI:n sidorna. Sedan lägger du till bilder från dina projekt och justerar texter efter behov. De flesta har en färdig sajt samma dag."
+    },
+    {
+      "q": "Kan jag visa upp mina byggprojekt i ett galleri?",
+      "a": "Ja, du kan be AI:n skapa ett projektgalleri där du laddar upp bilder från tidigare jobb. Före- och efterbilder funkar utmärkt för att visa vad du åstadkommit. Du kan lägga till beskrivningar och kategorisera efter typ av projekt, till exempel badrum, kök eller tillbyggnader."
+    },
+    {
+      "q": "Fungerar sajten för kunder som söker byggare i Södertälje?",
+      "a": "Absolut. Du skriver in var du verkar, så AI:n anpassar innehållet. Sajten blir synlig för de som söker byggföretag i Södertälje och närområdet. Du kan lägga till Google Analytics för att se var besökarna kommer ifrån och vilka sidor de tittar på."
+    },
+    {
+      "q": "Kan kunder boka offert direkt på sajten?",
+      "a": "Ja, integrera Cal.com så kan besökare välja tid för kostnadsfri offert eller platsbesök. Bokningssystemet synkas med din kalender. Du kan också ha ett vanligt kontaktformulär eller visa telefonnummer – välj vad som passar dig bäst."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda din egen domän behöver du köpa den separat, men själva hostingen ingår. Inga dolda avgifter, ingen bindningstid. Du kan exportera koden när du vill och flytta sajten om du väljer det."
+    },
+    {
+      "q": "Måste jag kunna koda för att ändra saker på sajten?",
+      "a": "Nej, allt sker via chat. Vill du byta en text, lägga till en tjänst eller ändra färg? Skriv det bara, så uppdaterar AI:n sajten direkt. Du ser förändringarna live. Ingen kod, inga krångliga verktyg."
+    },
+    {
+      "q": "Kan jag använda sajten för att ta betalt online?",
+      "a": "Ja, koppla in Stripe om du vill ta förskottsbetalningar eller sälja produkter som materialpaket. Du kan också integrera Shopify om du vill ha en fullständig webshop. Båda integrationerna sätts upp via chatten."
+    }
+  ],
+  "localOrIndustryContext": "Södertälje har en blandning av villaområden, flerfamiljshus och äldre bebyggelse som kräver allt från ROT-arbeten till nybyggnation. Byggföretag här jobbar ofta med både privatpersoner och fastighetsbolag. En hemsida som tydligt visar vad du kan och var du verkar hjälper kunder att hitta rätt direkt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/sodertalje",
+      "label": "Skapa hemsida i Södertälje"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Södertälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

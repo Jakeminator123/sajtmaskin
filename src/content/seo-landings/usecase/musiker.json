@@ -1,0 +1,101 @@
+{
+  "family": "usecase",
+  "slug": "musiker",
+  "title": "Hemsida för musiker – bygg din artistsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för din musik på minuter. Visa spelningar, släpp merch, samla fans – ingen kodning krävs. Prova Sajtmaskin idag.",
+  "h1": "Hemsida för musiker",
+  "heroSub": "Bygg en sajt som visar din musik, kommande spelningar och merch – direkt från en chattkonversation.",
+  "introParagraphs": [
+    "En hemsida för musiker är din digitala scen där fans hittar din musik, ser kommande spelningar, köper merch och lär känna dig som artist. Den samlar allt på ett ställe istället för att sprida länkar över tio olika plattformar. Med Sajtmaskin bygger du en sådan sajt på minuter genom att berätta för AI:n vad du behöver – ingen kod, ingen designer, inga krångliga verktyg.",
+    "Du chattar helt enkelt om vad du vill ha med: spelschema, streamlänkar, bildgalleri, merch-shop, kontaktformulär. AI:n skapar sidorna, lägger in ditt material och ger dig en färdig sajt du kan publicera på din egen domän. Vill du ändra något senare? Fortsätt bara chatten så uppdateras sajten direkt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Visa din musik och kommande spelningar",
+      "body": "De flesta besökare vill veta två saker: var kan jag lyssna, och när spelar du live? Sajtmaskin låter dig enkelt bädda in Spotify-spelare, Apple Music-länkar och YouTube-videor på en musiksida. Lägg till ett spelschema med datum, platser och biljettlänkar – antingen manuellt eller genom att integrera Cal.com för bokning av privata gig. Allt uppdateras när du vill genom att chatta med AI:n."
+    },
+    {
+      "heading": "Sälj merch och biljetter direkt på sajten",
+      "body": "Med Stripe-integration kan du ta betalt för t-shirts, vinyler eller digitala nedladdningar utan att lämna din egen sajt. Vill du ha en fullfjädrad webshop kopplar du Shopify. Allt sköts från Sajtmaskins gränssnitt – du behöver inte hantera kod eller plugins. Fans får en smidig köpupplevelse, du får betalt direkt till ditt konto."
+    },
+    {
+      "heading": "Bildgalleri och press-kit",
+      "body": "Visa pressfoto, live-bilder och albumomslag i ett snyggt galleri. Lägg till en press-sida med bio, high-res-bilder och kontaktinfo för bookingförfrågningar. Sajtmaskin genererar layouten åt dig – du laddar bara upp bilderna och skriver texten i chatten. Perfekt när journalister, arrangörer eller samarbetspartners vill veta mer om dig."
+    },
+    {
+      "heading": "Egen domän och ingen månadskostnad för hosting",
+      "body": "Publicera på din egen artistdomän (typ dinmusik.se) eller använd en gratis subdomän från Sajtmaskin. Ingen bindningstid, inga dolda avgifter. Vill du flytta sajten senare kan du exportera hela koden. Allt lagras i Sverige och supporten pratar svenska, så du slipper översätta tekniska termer eller vänta på svar från andra tidszoner."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag bädda in Spotify och YouTube på sajten?",
+      "a": "Ja, du säger bara till AI:n vilka låtar eller videor du vill visa så genereras inbäddningskoden automatiskt. Fungerar med Spotify, Apple Music, YouTube, SoundCloud och de flesta streamingtjänster."
+    },
+    {
+      "q": "Hur lägger jag till nya spelningar eller turnédatum?",
+      "a": "Fortsätt chatten och skriv in nya datum, platser och biljettlänkar. AI:n uppdaterar spelschemat direkt. Du kan också integrera en bokningskalender via Cal.com om du vill att folk ska kunna boka dig för privata event."
+    },
+    {
+      "q": "Kan jag sälja merch och musik direkt på sajten?",
+      "a": "Absolut. Koppla Stripe för enklare betalningar (t-shirts, posters, digitala album) eller Shopify om du vill ha en komplett webshop med lagerhantering. Båda integrationerna sätts upp via Sajtmaskin utan kod."
+    },
+    {
+      "q": "Vad händer om jag vill byta layout eller lägga till en ny sida?",
+      "a": "Du chattar bara med AI:n igen: "
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej. Du beskriver vad du vill ha i vanlig svenska så bygger AI:n sajten. Vill du ändra färg, typsnitt eller flytta ett avsnitt gör du det genom att fortsätta konversationen. Koden finns där om du vill exportera den, men du behöver aldrig röra den."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja, du pekar din domän mot Sajtmaskin via DNS-inställningar (vi guidar dig). Vill du inte köpa domän kan du publicera på en gratis subdomän, typ dinmusik.sajtmaskin.se, utan extra kostnad."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta musiker har en fungerande sajt på 10–20 minuter. Du chattar om vad du vill ha, AI:n genererar sidorna, du laddar upp bilder och texter, klickar publicera. Klart."
+    }
+  ],
+  "localOrIndustryContext": "Sveriges musikscen är mångfaldig – från folkmusik i Dalarna till hiphop i Göteborg och metal i norra Sverige. Oavsett genre behöver du en plats där fans hittar din musik utan att gräva genom sociala medier-flöden. Sajtmaskin är byggt i Sverige och pratar svenska, så du slipper översätta facktermer eller vänta på support från andra tidszoner.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en musiker-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

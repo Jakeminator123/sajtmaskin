@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "vaxjo/bygg",
+  "title": "Hemsida för byggföretag i Växjö – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Växjö med AI. Projektgalleri, offerter och bokningar – allt på plats direkt.",
+  "h1": "Hemsida för byggföretag i Växjö",
+  "heroSub": "Bygg en komplett sajt för ditt byggföretag på minuter – med projektgalleri, kontaktformulär och bokningssystem klart från start.",
+  "introParagraphs": [
+    "Som byggföretag i Växjö behöver du en hemsida som visar upp dina projekt och gör det enkelt för kunder att begära offert. Sajtmaskin skapar en färdig sajt åt dig via en enkel chatt – du beskriver vad du gör, så bygger vår AI allt från projektgalleri till kontaktformulär på minuter.",
+    "Du får en sajt som fungerar direkt: presentera tjänster som nybyggnation, tillbyggnader, ROT-arbeten och badrumsrenoveringar, visa referensprojekt med bilder, och låt kunder boka kostnadsfria konsultationer via integrerad kalender. Allt på svenska, ingen kod, och du publicerar på din egen domän utan månadskostnad för hosting."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt ett byggföretag behöver på en sajt",
+      "body": "Din hemsida får automatiskt sektioner för dina tjänster – från grunden till tak, om- och tillbyggnader, renoveringar och ROT-avdrag. Lägg till ett projektgalleri där du visar färdiga jobb med före- och efterbilder. Integrerat kontaktformulär och offerförfrågan gör att kunder når dig direkt, och med Cal.com-integration kan de boka en kostnadsfri platsbesiktning i din kalender. Allt genereras från din beskrivning av verksamheten."
+    },
+    {
+      "heading": "Anpassad för Växjös byggmarknad",
+      "body": "Växjö växer stadigt med både nyproduktion i Teleborg och Sandsbro och renovering av äldre villor i Araby och Öjaby. Din sajt kan lyfta din lokala förankring – visa projekt i olika stadsdelar, nämn erfarenhet av Växjös byggregler och samarbete med lokala arkitektkontor. Sajtmaskin låter dig enkelt uppdatera med nya referensprojekt när de blir klara, så sajten alltid speglar ditt senaste arbete."
+    },
+    {
+      "heading": "Från första besöket till bokad offert",
+      "body": "När en husägare i Växjö söker efter byggfirma vill de snabbt se om ni kan hjälpa till. Din sajt visar tydligt vad ni gör, vilka certifieringar ni har, och hur processen ser ut från första kontakt till färdigt projekt. Besökare kan fylla i en offerförfrågan med detaljer om sitt projekt, eller boka ett möte direkt i din kalender. Integrera Google Analytics så du ser vilka tjänster som intresserar mest."
+    },
+    {
+      "heading": "Publicera och uppdatera utan teknikkrångel",
+      "body": "Du chattar med Sajtmaskin om ditt byggföretag – tjänster, erfarenhet, referensprojekt – och får en färdig sajt på minuter. Publicera på din egen domän direkt, eller använd en kostnadsfri subdomän medan du bestämmer dig. Vill du lägga till nya projekt, ändra text eller uppdatera priser gör du det via chatten. Ingen bindningstid, och du kan exportera hela koden om du vill flytta sajten senare."
+    },
+    {
+      "heading": "Ingen månadskostnad för hosting",
+      "body": "Hosting på en Sajtmaskin-subdomän kostar ingenting löpande. Vill du ha egen domän och avancerade integrationer som Stripe för fakturering eller fler bokningsalternativ finns det som tillägg, men grundsajten fungerar utan månadsfaktura. Perfekt för mindre byggföretag som vill ha professionell närvaro online utan löpande kostnader. Allt byggs och driftas i Sverige av Pretty Good AB."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en färdig hemsida för mitt byggföretag?",
+      "a": "De flesta får en komplett sajt på 10–15 minuter. Du chattar med Sajtmaskin om dina tjänster, referensprojekt och vad du vill att sajten ska innehålla, så genererar AI:n allt från layout till texter. Sedan kan du justera, lägga till bilder från dina projekt och publicera direkt."
+    },
+    {
+      "q": "Kan jag visa före- och efterbilder från mina byggprojekt?",
+      "a": "Ja, du får ett projektgalleri där du laddar upp bilder och beskriver varje projekt. Perfekt för att visa tillbyggnader, badrumsrenoveringar eller fasadarbeten. Du uppdaterar galleriet själv via chatten när du har nya referensjobb att visa."
+    },
+    {
+      "q": "Fungerar sajten för att ta emot offerförfrågningar?",
+      "a": "Absolut. Du får ett kontaktformulär där kunder kan beskriva sitt projekt och begära offert. Formuläret skickar förfrågningarna direkt till din mejl. Du kan också integrera Cal.com så kunder bokar en kostnadsfri platsbesiktning i din kalender, vilket sparar tid i första kontakten."
+    },
+    {
+      "q": "Behöver jag nämna att jag jobbar i Växjö på sajten?",
+      "a": "Det är smart att vara tydlig med ditt verksamhetsområde. Nämn gärna Växjö och närliggande orter, visa projekt från olika stadsdelar, och förklara att du känner till lokala byggregler. Det hjälper både besökare och sökmotorer att förstå att du är rätt val för byggprojekt i regionen."
+    },
+    {
+      "q": "Kan jag lägga till information om ROT-avdrag?",
+      "a": "Ja, du kan ha en sektion som förklarar hur ROT-avdraget fungerar och vilka tjänster som kvalificerar. Många husägare söker specifikt efter firmor som hjälper till med ROT-dokumentation, så det är en bra sak att lyfta på sajten."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att den är publicerad?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du ha egen domän, fler integrationer eller e-handel finns det som tillägg. Du kan börja kostnadsfritt och uppgradera när verksamheten växer. Ingen bindningstid, så du bestämmer själv."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform senare?",
+      "a": "Ja, du kan exportera hela koden när du vill. Sajten är din, och det finns ingen inlåsning. Om du senare vill flytta till en annan hosting eller låta en utvecklare bygga vidare på sajten är det inga problem."
+    }
+  ],
+  "localOrIndustryContext": "Växjö är en av Sveriges snabbast växande städer med pågående utbyggnad i Teleborg, Sandsbro och Vikaholm. Samtidigt finns stort renoveringsbehov i äldre villaområden som Araby och Öjaby. Byggföretag i Växjö behöver visa både nybyggnationskompetens och erfarenhet av ombyggnation, gärna med lokala referenser som skapar förtroende hos husägare i regionen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vaxjo",
+      "label": "Skapa hemsida i Växjö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Växjö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

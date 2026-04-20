@@ -1,0 +1,102 @@
+{
+  "family": "compare",
+  "slug": "tilda",
+  "title": "Alternativ till Tilda – bygg hemsida på svenska med AI | Sajtmaskin",
+  "metaDescription": "Söker du ett svenskt alternativ till Tilda? Sajtmaskin låter dig bygga hemsidor med AI på minuter – utan kod, med svensk support och ingen bindningstid.",
+  "h1": "Svenskt alternativ till Tilda",
+  "heroSub": "Bygg hemsidor på svenska med AI – ingen kod, ingen byrå, ingen bindningstid.",
+  "introParagraphs": [
+    "Tilda är en kraftfull blockbaserad byggare som många nordiska företag använder för att skapa vackra landningssidor och portfolios. Men när du vill ha svensk support, AI-driven innehållsgenerering och slippa krångla med block för block, finns det ett alternativ byggt för svenska behov.",
+    "Sajtmaskin låter dig skapa en komplett hemsida på minuter genom att chatta med AI. Du beskriver ditt företag, väljer stil och publicerar – allt på svenska. Ingen kod, inga mallar att fylla i, och du kan exportera hela sajten när du vill.",
+    "Här förklarar vi vad som skiljer Tilda från Sajtmaskin, och hjälper dig avgöra vilket verktyg som passar ditt projekt bäst."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker företag alternativ till Tilda?",
+      "body": "Tilda har en elegant designfilosofi och kraftfulla animationsverktyg, men vissa användare stöter på utmaningar. Gränssnittet är inte översatt till svenska, vilket gör det svårare för teammedlemmar som inte är bekväma med engelska. Supporten sker på engelska eller ryska, och att bygga en sajt kräver att du manuellt lägger till och konfigurerar varje block – vilket tar tid. För svenska småföretag som vill komma igång snabbt, utan att lära sig ett nytt verktyg eller betala en byrå, kan processen kännas onödigt tung."
+    },
+    {
+      "heading": "Hur Sajtmaskin skiljer sig från Tilda",
+      "body": "Sajtmaskin är byggt för svenska företag som vill ha en färdig hemsida utan att lägga timmar på design och layout. Du chattar med AI:n, beskriver vad du gör och vad sajten ska förmedla – så genereras text, struktur och design automatiskt. Istället för att dra och släppa block får du en komplett sajt på minuter. Allt är på svenska: gränssnitt, support och genererat innehåll. Du publicerar på egen domän eller gratis på en subdomän, och kan när som helst exportera koden om du vill flytta vidare. Inga bindningstider, inga dolda avgifter."
+    },
+    {
+      "heading": "Integrationer och funktioner du behöver",
+      "body": "Sajtmaskin stödjer Cal.com för bokning, Stripe för betalningar, Google Analytics för trafik och Shopify för webshop – allt du behöver för att driva ett modernt företag online. Tilda har också integrationer, men kräver ofta att du kopplar ihop dem manuellt via widgets eller tredjepartstjänster. Med Sajtmaskin aktiverar du integrationer direkt i chatten, och AI:n hjälper dig konfigurera dem. Du slipper teknisk dokumentation och kan fokusera på att driva ditt företag."
+    },
+    {
+      "heading": "Vem passar Tilda bäst för?",
+      "body": "Tilda är ett utmärkt val om du älskar att designa pixel för pixel, vill ha full kontroll över animationer och typografi, och inte har bråttom. Det passar kreatörer, designers och byråer som bygger sajter åt kunder och vill ha maximal designfrihet. Om du har tid att lära dig verktyget och är bekväm med engelska, erbjuder Tilda en elegant plattform. Men om du driver ett litet företag i Sverige, vill ha sajten klar idag och behöver svensk support när något krånglar, är Sajtmaskin det enklare valet."
+    },
+    {
+      "heading": "Kom igång med Sajtmaskin idag",
+      "body": "Du behöver ingen erfarenhet, ingen designer och ingen byrå. Logga in, berätta vad ditt företag gör, och låt AI:n bygga sajten åt dig. Redigera i chatten, publicera på egen domän och lägg till bokningar eller betalningar när du är redo. Ingen bindningstid, ingen dold kostnad – bara en färdig hemsida på svenska. Prova Sajtmaskin och se hur snabbt du kan gå från idé till publicerad sajt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag migrera min befintliga Tilda-sajt till Sajtmaskin?",
+      "a": "Sajtmaskin genererar en ny sajt från grunden baserat på ditt företag och dina önskemål. Du kan inte importera Tilda-block direkt, men du kan beskriva strukturen och innehållet du vill ha, så bygger AI:n upp sajten åt dig. Om du har texter och bilder sparade kan du enkelt klistra in dem i chatten under redigeringen."
+    },
+    {
+      "q": "Är Sajtmaskin lika designflexibelt som Tilda?",
+      "a": "Tilda ger dig pixel-perfekt kontroll över varje block och animation, vilket är kraftfullt men tidskrävande. Sajtmaskin prioriterar hastighet och enkelhet – AI:n skapar en professionell design automatiskt, och du kan justera färger, typsnitt och layout i chatten. Om du behöver unik, handgjord design är Tilda starkare. Om du vill ha en snygg sajt på minuter utan designarbete passar Sajtmaskin bättre."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för landningssidor och kampanjer?",
+      "a": "Ja, Sajtmaskin är perfekt för landningssidor. Beskriv kampanjens syfte, målgrupp och call-to-action, så genererar AI:n en fokuserad sida med rätt struktur. Du kan integrera Stripe för betalningar, Cal.com för bokningar eller Google Analytics för att följa konverteringar. Publicera på egen domän och uppdatera innehållet direkt i chatten när kampanjen förändras."
+    },
+    {
+      "q": "Kan jag använda min egen domän med Sajtmaskin?",
+      "a": "Absolut. Du kan publicera på egen domän direkt från Sajtmaskin, precis som med Tilda. Vill du testa först kan du köra på en gratis subdomän utan månadskostnad. När du är redo att gå live kopplar du din domän, och sajten är tillgänglig för dina besökare. Ingen extra hosting-avgift på subdomän, och du kan exportera koden när som helst."
+    },
+    {
+      "q": "Vad händer om jag vill lämna Sajtmaskin senare?",
+      "a": "Du kan exportera hela din sajt som kod när du vill, utan extra kostnad eller krångel. Ingen bindningstid, inga utträdesavgifter. Ta koden och hosta den var du vill, eller fortsätt utveckla den med en utvecklare. Sajtmaskin låser inte in dig – du äger alltid ditt innehåll och din sajt."
+    },
+    {
+      "q": "Hur fungerar supporten jämfört med Tilda?",
+      "a": "Tildas support sker på engelska eller ryska, vilket kan vara en tröskel för svenska användare. Sajtmaskins support är helt på svenska, driven av människor i Sverige som förstår lokala behov. Du får hjälp snabbt, utan språkbarriär, och kan ställa frågor om allt från innehåll till integrationer. Supporten ingår, ingen extra kostnad."
+    },
+    {
+      "q": "Passar Sajtmaskin för webshop och e-handel?",
+      "a": "Ja, via Shopify-integrationen. Du kan koppla din Shopify-butik till sajten och visa produkter, kategorier och köpknappar. Sajtmaskin ersätter inte en fullständig e-handelsplattform, men fungerar utmärkt som komplement – en snygg framsida med produktinfo, medan Shopify sköter lagersaldo och betalningar. Perfekt för små butiker som vill ha en professionell närvaro snabbt."
+    }
+  ],
+  "localOrIndustryContext": "Tilda används av kreatörer och byråer i Norden, men saknar svenskt gränssnitt och lokal support. Sajtmaskin är byggt i Sverige av Pretty Good AB för svenska företag som vill ha en hemsida klar idag – utan att lära sig komplexa verktyg eller betala byråpriser.",
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från Tilda. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

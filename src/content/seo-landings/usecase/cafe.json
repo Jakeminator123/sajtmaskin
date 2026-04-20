@@ -1,0 +1,102 @@
+{
+  "family": "usecase",
+  "slug": "cafe",
+  "title": "Hemsida café – bygg en proffsig kafésajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för ditt café med AI. Meny, öppettider, bokning och beställning – allt klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för café",
+  "heroSub": "Bygg en proffsig kafésajt med meny, bokningsfunktion och beställning – direkt via chat, utan kod.",
+  "introParagraphs": [
+    "En hemsida för café behöver visa din meny tydligt, berätta var ni ligger och när ni har öppet, samt göra det enkelt för gäster att boka bord eller beställa hämtmat. Många kaféer vill också visa stämningen genom bilder och berätta lite om filosofin bakom kaffet eller bageriet.",
+    "Med Sajtmaskin bygger du hela sajten på minuter genom att chatta med AI:n på svenska. Du beskriver ditt café, klistrar in menyn och säger vilka funktioner du vill ha – så genererar plattformen en färdig sajt som du kan publicera direkt på din egen domän.",
+    "Allt är byggt för svenska förhållanden. Du slipper krångliga verktyg på engelska och kan när som helst exportera koden om du vill flytta sajten någon annanstans. Ingen bindningstid, ingen månadskostnad för hosting på subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny och priser – lätt att uppdatera",
+      "body": "Gäster vill se vad ni erbjuder innan de kommer. En tydlig meny med kaffe, bakverk, smörgåsar och drycker skapar förtroende och underlättar valet. Sajtmaskin låter dig lägga in menyn direkt i chatten – kopiera från ditt befintliga dokument eller skriv in den punkt för punkt. AI:n formaterar allt snyggt och du kan när som helst uppdatera priser eller lägga till säsongens specialbakelse utan att röra kod."
+    },
+    {
+      "heading": "Bokning och beställning – integrera direkt",
+      "body": "Vill gäster boka bord till brunch eller förbeställa tårta? Sajtmaskin integrerar Cal.com för smidig bokning och Stripe om du vill ta betalt online. Du kan också koppla Shopify om du säljer kaffe, merch eller presentkort via webshop. Allt sätts upp via chatten – du säger vad du behöver och AI:n lägger in rätt funktioner på rätt ställe."
+    },
+    {
+      "heading": "Öppettider, karta och kontakt",
+      "body": "En kafésajt måste alltid visa var ni ligger och när ni har öppet. Sajtmaskin genererar automatiskt en kontaktsektion med adress, telefon, mejl och öppettider. Du kan bädda in en Google Maps-karta så gäster hittar enkelt, och lägga till en länk till Instagram eller Facebook om ni är aktiva där. Allt samlas på ett ställe så besökare slipper leta."
+    },
+    {
+      "heading": "Stämning och berättelse",
+      "body": "Många gäster väljer café efter känsla. Visa bilder på lokalen, berätta om var kaffebönorna kommer ifrån eller varför ni bakar surdegsbröd varje morgon. Sajtmaskin hjälper dig strukturera texten så den blir personlig utan att bli för lång. Du laddar upp bilder i chatten och AI:n placerar dem där de gör mest nytta – hero, galleri eller i kombination med text."
+    },
+    {
+      "heading": "Publicera på egen domän – ingen månadskostnad",
+      "body": "När sajten är klar publicerar du den på din egen domän, till exempel kafesundbyberg.se. Hosting på subdomän hos Sajtmaskin kostar ingenting per månad, och du kan när som helst exportera hela koden om du vill drifta den själv eller flytta till annan leverantör. Ingen bindningstid, inga dolda avgifter."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en kafésajt med Sajtmaskin?",
+      "a": "De flesta är klara på 10–20 minuter. Du chattar med AI:n på svenska, beskriver ditt café, klistrar in menyn och säger vilka funktioner du vill ha. AI:n genererar hela sajten direkt, och du kan förhandsgranska och justera innan publicering."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för bord?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så gäster kan boka bord direkt på sajten. Du säger till i chatten att du vill ha bokning, kopplar ditt Cal.com-konto och väljer vilka tider som ska gå att boka. Allt sköts utan kod."
+    },
+    {
+      "q": "Går det att sälja presentkort eller kaffe online?",
+      "a": "Absolut. Du kan integrera Stripe för enklare betalningar eller koppla Shopify om du vill ha en fullständig webshop med produkter, lager och kassan. Sajtmaskin sätter upp kopplingen via chatten så du slipper teknisk konfiguration."
+    },
+    {
+      "q": "Kan jag uppdatera menyn själv efteråt?",
+      "a": "Ja, du loggar in och ändrar text, priser eller bilder direkt i gränssnittet. Vill du lägga till en ny macka eller byta pris på cappuccinon gör du det på några sekunder. Ingen utvecklare behövs."
+    },
+    {
+      "q": "Vad kostar det att drifta sajten?",
+      "a": "Hosting på subdomän hos Sajtmaskin är gratis – ingen månadskostnad. Vill du använda egen domän betalar du bara domänregistreringen hos din registrar. Sajtmaskin tar ingen löpande avgift för att sajten ska ligga uppe."
+    },
+    {
+      "q": "Kan jag visa Instagram-flöde eller sociala medier?",
+      "a": "Du kan länka till Instagram, Facebook och andra kanaler i kontaktsektionen. Vill du bädda in ett flöde eller visa inlägg direkt på sajten kan du lägga till det via chatten – säg bara vad du vill ha så hjälper AI:n till."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när som helst och flytta sajten till egen server eller annan leverantör. Ingen bindningstid, ingen utlåsning. Koden är din och du bestämmer var den ska ligga."
+    }
+  ],
+  "localOrIndustryContext": "Kaféer och bagerier i Sverige behöver en sajt som visar meny, öppettider och läge – ofta kompletterat med bokning eller hämtbeställning. Sajtmaskin är byggt i Sverige och hanterar svenska texter, priser i kronor och lokala integrationer smidigt.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en café-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

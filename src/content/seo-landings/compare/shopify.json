@@ -1,0 +1,102 @@
+{
+  "family": "compare",
+  "slug": "shopify",
+  "title": "Alternativ till Shopify – bygg webshop på svenska med AI | Sajtmaskin",
+  "metaDescription": "Shopify är kraftfullt men dyrt och byggt för USA. Sajtmaskin ger dig AI-driven webshop på svenska, ingen månadskostnad och svensk support.",
+  "h1": "Alternativ till Shopify som talar svenska",
+  "heroSub": "Bygg din webshop med AI på minuter – utan Shopifys månadskostnader, appar och krångel på engelska.",
+  "introParagraphs": [
+    "Du letar efter alternativ till Shopify för att plattformen antingen känns för dyr, för komplicerad eller för americentrisk. Shopify är byggt för globala varumärken med stora budgetar, men om du driver ett svenskt företag och vill ha en webshop som fungerar direkt – utan att betala för dussintals appar och teman – finns det enklare vägar.",
+    "Sajtmaskin låter dig bygga en komplett webshop genom att chatta med en AI. Du beskriver vad du säljer, AI skapar sajten på svenska, och du publicerar på din egen domän. Ingen månadskostnad om du nöjer dig med subdomän, ingen bindningstid, och all support på svenska. Integrationen med Stripe gör att du tar betalt direkt, och behöver du bokningsfunktion finns Cal.com inbyggt.",
+    "Shopify är ett utmärkt verktyg för den som vill skala internationellt och har resurser att anpassa plattformen. Men för svenska småföretagare, konsulter och kreatörer som vill sälja utan att bli plattformsexperter är Sajtmaskin byggt för att göra det enkelt från dag ett."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför svenska företag söker bort från Shopify",
+      "body": "Shopify kostar från 299 kr per månad, men den verkliga kostnaden kommer från appar, teman och transaktionsavgifter om du inte använder Shopify Payments. Många upptäcker att de betalar 800–1 500 kr i månaden när allt räknas in. Dessutom är gränssnittet på engelska, supporten svarar från Nordamerika, och dokumentationen förutsätter att du förstår e-handelsjargong. För den som vill komma igång snabbt och sälja på svenska blir tröskeln onödigt hög."
+    },
+    {
+      "heading": "Så fungerar Sajtmaskin som webshop-alternativ",
+      "body": "Du startar en chatt och berättar vad du säljer – kanske ekologiska hudvårdsprodukter, digitala kurser eller hantverksdesign. AI:n bygger din webshop med produktsidor, kundvagn och kassan kopplad till Stripe. Du kan lägga till Cal.com om du säljer tjänster som kräver bokning, och Google Analytics om du vill följa trafiken. Allt innehåll genereras på svenska, och du publicerar på din egen domän utan månadskostnad om du kör på subdomän. Vill du byta plattform senare exporterar du koden och äger allt."
+    },
+    {
+      "heading": "När Shopify fortfarande är rätt val",
+      "body": "Shopify är överlägset om du säljer tusentals produkter, behöver avancerad lagerhantering över flera länder eller vill integrera med dropshipping-nätverk och tredjepartslogistik. Plattformen har ett enormt ekosystem av appar och teman, och stödet för flera valutor och språk är inbyggt. Om du har budget för utvecklare och vill bygga en global e-handelslösning är Shopify en branschstandard. Sajtmaskin riktar sig till dig som vill ha en fungerande webshop idag, inte om tre månader efter konsultarvoden."
+    },
+    {
+      "heading": "Vad du får med Sajtmaskin",
+      "body": "AI genererar hela sajten från din beskrivning – produktsidor, Om oss, kontaktformulär och betalning via Stripe. Du chattar på svenska, supporten svaras på svenska, och allt innehåll skrivs för svenska kunder. Ingen bindningstid betyder att du testar utan risk, och ingen månadskostnad på subdomän gör att du kan lansera utan löpande utgifter. Integrationen med Cal.com passar perfekt om du kombinerar produkter med konsultation eller workshops, och Shopify-integrationen finns om du vill koppla in en befintlig butik."
+    },
+    {
+      "heading": "Så kommer du igång",
+      "body": "Skapa ett konto på Sajtmaskin, beskriv din webshop i chatten – vilka produkter, vilken stil, vilka sidor du behöver. AI:n bygger sajten på några minuter. Koppla din Stripe-konto för betalningar, lägg till dina produktbilder och texter om du vill justera, och publicera på din domän. Om något är oklart når du svensk support som förstår svenska företags vardag. Ingen kodkunskap krävs, ingen onboarding på engelska, ingen faktura för appar du inte vet om du behöver."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag migrera min befintliga Shopify-butik till Sajtmaskin?",
+      "a": "Du kan inte automatiskt importera produkter från Shopify, men du kan återskapa din butik genom att beskriva sortiment och struktur i chatten. AI:n bygger upp sajten, och du kopierar över produktbilder och beskrivningar manuellt. Om du har hundratals produkter kan det ta tid, men för mindre sortiment går det snabbt. Shopify-integrationen finns också om du vill behålla Shopify som backend."
+    },
+    {
+      "q": "Hur funkar betalningar jämfört med Shopify Payments?",
+      "a": "Sajtmaskin integrerar med Stripe, som tar 1,4 % plus 1,80 kr per transaktion för europeiska kort – samma nivå som Shopify Payments. Du slipper Shopifys extra transaktionsavgift om du använder annan betalleverantör. Stripe hanterar kortbetalningar, Swish och andra metoder, och du får pengarna direkt till ditt konto utan mellanhand."
+    },
+    {
+      "q": "Vad händer om jag växer och behöver mer avancerade funktioner?",
+      "a": "Du kan när som helst exportera koden och flytta till en egen server eller annan plattform. Sajtmaskin äger inte din sajt – du gör. Om du behöver lagerhantering över flera lager, dropshipping-integration eller försäljning i tio länder är Shopify eller WooCommerce bättre val. Men för svenska småföretag som säljer upp till några hundra produkter räcker Sajtmaskin långt, och du kan alltid skala upp senare."
+    },
+    {
+      "q": "Finns det appar och tillägg som i Shopify?",
+      "a": "Nej, Sajtmaskin har inga appar i Shopify-stil. Istället är grundfunktionerna inbyggda: Stripe för betalning, Cal.com för bokning, Google Analytics för statistik. Om du behöver specifika verktyg kan du lägga till egen kod efter export, men tanken är att du ska slippa jaga appar och betala för tillägg. Enkelheten är poängen."
+    },
+    {
+      "q": "Hur fungerar SEO och marknadsföring jämfört med Shopify?",
+      "a": "Sajtmaskin genererar SEO-vänlig kod med meta-taggar, snabba laddningstider och ren HTML. Du kan lägga till Google Analytics och andra spårningsverktyg. Shopify har fler inbyggda marknadsföringsverktyg som e-postautomation och rabattkoder, men grundläggande SEO och spårning fungerar lika bra på Sajtmaskin. För avancerad marketing automation behöver du externa verktyg oavsett plattform."
+    },
+    {
+      "q": "Vad kostar Sajtmaskin jämfört med Shopify?",
+      "a": "Shopify kostar från 299 kr per månad plus appar och teman, ofta 800–1 500 kr totalt. Sajtmaskin har ingen månadskostnad om du publicerar på subdomän, och egen domän kostar enligt din registrator. Du betalar bara Stripes transaktionsavgifter när du säljer. Ingen bindningstid, ingen dold kostnad, ingen faktura för funktioner du inte använder."
+    },
+    {
+      "q": "Passar Sajtmaskin för B2B-försäljning eller bara B2C?",
+      "a": "Sajtmaskin fungerar för både B2B och B2C. Om du säljer tjänster, konsultation eller produkter till företag kan du kombinera webshop med Cal.com för mötesbokningar och Stripe för fakturering. Shopify har mer avancerade B2B-funktioner som kundspecifika priser och kreditgränser, men för enklare B2B-försäljning där du vill visa utbud och ta betalt direkt duger Sajtmaskin utmärkt."
+    }
+  ],
+  "localOrIndustryContext": "Shopify dominerar global e-handel men är byggt för engelsktalande marknader med stora volymer. Svenska småföretag möter språkbarriärer, höga månadskostnader och komplexitet som inte matchar deras behov. Sajtmaskin fyller glappet för den som vill sälja online utan att bli plattformsexpert – direkt på svenska, med AI som bygger sajten och ingen bindningstid som tvingar dig att stanna.",
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/framer",
+      "label": "Alternativ till Framer"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från Shopify. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

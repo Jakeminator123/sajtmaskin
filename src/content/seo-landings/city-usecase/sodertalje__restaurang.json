@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "sodertalje/restaurang",
+  "title": "Hemsida restaurang Södertälje – Bygg din restaurangsajt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Södertälje på minuter. Med AI, bokning, meny och betalning. Ingen bindningstid.",
+  "h1": "Hemsida för restaurang i Södertälje",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokningar och betalning – på minuter via chat.",
+  "introParagraphs": [
+    "Om du driver restaurang i Södertälje vet du hur viktigt det är att gästerna hittar er meny, kan boka bord och se öppettider direkt online. Sajtmaskin låter dig bygga en komplett restaurangsajt genom att bara chatta med vår AI – ingen kodning, inga krångliga verktyg. Du beskriver vad du vill ha, så genererar AI hela sajten åt dig.",
+    "Du får en sajt med din meny, kontaktuppgifter, öppettider och integration med Cal.com för bordsbokningar. Vill du ta betalning online för catering eller presentkort kopplar du enkelt in Stripe. Allt på svenska, allt byggt för att fungera direkt. Publicera på din egen domän eller testa kostnadsfritt på en subdomän utan månadskostnad.",
+    "Det finns ingen bindningstid och du kan exportera hela koden när du vill. Sajtmaskin är byggt i Sverige av Pretty Good AB, specifikt för svenska företag som vill ha en professionell närvaro online utan att lägga veckor på utveckling."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en restaurangsajt i Södertälje behöver",
+      "body": "En restaurang i Södertälje konkurrerar om både lokala stamgäster och besökare som söker matställen online. Din hemsida behöver visa menyn tydligt – helst uppdelad i luncher, à la carte, barnmeny och dryckeslista. Gäster vill se priser, allergener och gärna bilder på rätterna. Kontaktuppgifter, adress och öppettider ska synas direkt, och en karta som visar var ni ligger i förhållande till centrum eller Torekällberget hjälper nya besökare att hitta. Bordsbokningsfunktion är nästan ett krav idag – gäster förväntar sig att kunna reservera bord direkt på sajten utan att behöva ringa. Om ni erbjuder catering, take away eller presentkort ska det också framgå tydligt med möjlighet att beställa eller betala online."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din restaurangsajt",
+      "body": "Du startar en chatt och berättar vad din restaurang heter, vilken typ av mat ni serverar och vad sajten ska innehålla. AI:n genererar då en komplett sajt med startsida, menysida, om oss-sida och kontaktsida. Du kan be AI:n lägga till din befintliga meny – kopiera in den som text eller be AI:n strukturera den snyggt med rubriker och priser. Vill du ha bordsbokningar integrerar du Cal.com direkt i sajten, så gäster kan välja tid och antal personer. För betalning av presentkort eller cateringbeställningar kopplar du in Stripe. Allt sker via chat – du justerar texter, byter bilder och ändrar färger genom att beskriva vad du vill. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän från Sajtmaskin."
+    },
+    {
+      "heading": "Meny, bokning och betalning – allt integrerat",
+      "body": "Sajtmaskin låter dig bygga in de funktioner som restauranger faktiskt behöver. Din meny blir en egen sida där gäster enkelt kan skrolla genom rätter, se priser och läsa beskrivningar. Cal.com-integrationen gör att bokningskalendern ligger direkt på sajten – gäster väljer datum, tid och antal personer, och du får bekräftelsen automatiskt. Stripe-integration innebär att du kan ta betalt för presentkort, förbeställningar eller cateringpaket direkt på sajten. Google Analytics kopplar du på om du vill följa hur många som besöker menyn eller bokningssidan. Allt hänger ihop utan att du behöver hantera olika verktyg eller plugins – AI:n bygger en sammanhängande sajt där alla delar fungerar tillsammans."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Sajtmaskin har ingen bindningstid. Du betalar ingen månadskostnad för hosting om du väljer att ligga på en subdomän, och vill du använda egen domän fixar du det enkelt. Det finns inga dolda avgifter för funktioner – integrationer som Cal.com och Stripe använder sina egna prismodeller, men själva sajten kostar inget extra att drifta på vår plattform. Vill du någon gång flytta sajten exporterar du hela koden och tar den med dig. Det är din sajt, ditt innehåll, dina gästdata. Sajtmaskin är byggt för svenska företag som vill ha full kontroll utan att låsas in i dyra abonnemang eller krångliga avtal."
+    },
+    {
+      "heading": "Bygg sajten på minuter, inte veckor",
+      "body": "Traditionellt tar det veckor att få en restaurangsajt på plats – brief, design, utveckling, korrektur, justeringar. Med Sajtmaskin chattar du med AI:n och får en färdig sajt på minuter. Du kan lansera direkt och sedan fortsätta förbättra – byta bilder, uppdatera menyn, lägga till säsongsrätter eller ändra öppettider. Allt sker via chat på svenska, och du behöver ingen teknisk kunskap. För en restaurang i Södertälje som vill synas online snabbt, ta emot bokningar och visa upp menyn professionellt är Sajtmaskin det enklaste sättet att komma igång."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag lägga in vår fullständiga meny med priser och allergener?",
+      "a": "Ja, du kan kopiera in er befintliga meny som text i chatten så strukturerar AI:n den snyggt med rubriker, beskrivningar, priser och allergeninformation. Du kan dela upp menyn i luncher, à la carte, drycker och desserter. Vill du uppdatera menyn senare gör du det genom att chatta med AI:n – till exempel lägga till säsongsrätter eller ändra priser."
+    },
+    {
+      "q": "Hur fungerar bordsbokningar på sajten?",
+      "a": "Du integrerar Cal.com, som är ett bokningsverktyg som ligger direkt på din sajt. Gäster väljer datum, tid och antal personer, och systemet visar lediga tider baserat på din kalender. Du får automatisk bekräftelse och kan hantera bokningar via Cal.com. Integrationen sätts upp via Sajtmaskin utan att du behöver koda något."
+    },
+    {
+      "q": "Kan gäster betala för presentkort eller catering direkt på sajten?",
+      "a": "Ja, genom att integrera Stripe kan du ta betalt för presentkort, cateringbeställningar eller förbeställningar. Du sätter upp produkter och priser, och gäster betalar säkert med kort direkt på sajten. Pengarna går till ditt Stripe-konto, och du hanterar ordrar därifrån."
+    },
+    {
+      "q": "Kostar det att ha sajten publicerad på en subdomän?",
+      "a": "Nej, hosting på en Sajtmaskin-subdomän är kostnadsfri utan månadskostnad. Vill du använda din egen domän, till exempel dinrestaurang.se, kan du koppla den till sajten. Det finns ingen bindningstid och inga dolda avgifter för själva sajten."
+    },
+    {
+      "q": "Passar Sajtmaskin för restauranger i Södertälje specifikt?",
+      "a": "Ja, Sajtmaskin är byggt för svenska företag och fungerar lika bra för restauranger i Södertälje som i andra städer. Du kan lägga in lokal information som adress, karta, öppettider och beskrivningar som passar just er verksamhet. Allt innehåll genereras på svenska och kan anpassas helt efter era behov."
+    },
+    {
+      "q": "Kan jag uppdatera menyn eller öppettider själv?",
+      "a": "Absolut. Du uppdaterar sajten genom att chatta med AI:n – till exempel be om att ändra lunchtider, lägga till en ny rätt eller uppdatera priser. Inga tekniska kunskaper krävs, och ändringarna syns direkt när du publicerar. Det är enkelt att hålla sajten aktuell utan att behöva vänta på en webbutvecklare."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill och ta sajten med dig till en annan hosting eller plattform. Det finns ingen bindningstid och inget leverantörslås. Sajten är din, och du har full kontroll över innehållet och koden."
+    }
+  ],
+  "localOrIndustryContext": "Södertälje har en mångsidig restaurangscen med allt från svenska husmanskrogar till internationella kök. Många gäster söker matställen online innan de bestämmer sig, och en tydlig sajt med meny och bokningsfunktion gör skillnad för synlighet och bokningar. Läget nära Stockholm och Mälaren gör att både lokala och besökande gäster letar efter restauranger i området.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/sodertalje",
+      "label": "Skapa hemsida i Södertälje"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Södertälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

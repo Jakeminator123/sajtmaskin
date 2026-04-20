@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "uppsala/restaurang",
+  "title": "Hemsida restaurang Uppsala – bygg din restaurangsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Uppsala med AI. Meny, bordsbokningar och betalningar – klart på minuter utan kod.",
+  "h1": "Hemsida för restauranger i Uppsala",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokningar och betalningar – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En restaurang i Uppsala behöver en hemsida som visar menyn, tar emot bordsbokningar och gör det enkelt för gäster att hitta er – oavsett om du driver en lunchrestaurang vid Svartbäcksgatan, en finare krog vid Fyrisån eller ett kvarterskök i Luthagen. Sajtmaskin låter dig bygga hela sajten via chat på svenska, med AI som skapar struktur, texter och funktioner åt dig.",
+    "Du beskriver din restaurang i chatten – köksstil, öppettider, specialiteter – så genererar Sajtmaskin en färdig sajt med menysidor, kontaktformulär och integration till Cal.com för bordsbokningar. Publicera på egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, ingen kodning, allt på svenska.",
+    "Sajten blir responsiv och snabb, vilket är viktigt när hungriga Uppsalabor söker efter restauranger på mobilen. Du kan när som helst uppdatera menyn, lägga till säsongsrätter eller ändra öppettider – direkt i gränssnittet."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny, bokningar och betalningar på plats",
+      "body": "Sajtmaskin skapar automatiskt menysidor där du visar förrätter, varmrätter, desserter och dryckeslista med priser och allergener. Integrera Cal.com så gäster kan boka bord direkt på sajten, och koppla Stripe om du vill ta förskottsbetalning för större sällskap eller events. Allt sköts från samma gränssnitt, utan att du behöver installera plugins eller hantera flera tjänster."
+    },
+    {
+      "heading": "Bygg sajten på svenska, för Uppsala",
+      "body": "Sajtmaskin är helt på svenska – från gränssnittet till AI:n som skriver dina texter. Det betyder att du kan beskriva din restaurang naturligt: \"Vi kör klassisk husmanskost med lokala råvaror, lunch vardagar 11–14, à la carte kvällar och helger\". AI:n förstår kontexten och skapar sidor som passar din verksamhet och dina gäster i Uppsala, utan generiska mallar."
+    },
+    {
+      "heading": "Ingen månadskostnad för hosting, äg din kod",
+      "body": "Publicera på en kostnadsfri Sajtmaskin-subdomän eller koppla din egen domän. Det finns ingen månadskostnad för hosting på subdomänen, och ingen bindningstid. Vill du flytta sajten senare exporterar du koden och tar den med dig. Du äger allt innehåll och all data, alltid."
+    },
+    {
+      "heading": "Snabbt, mobilvänligt och sökmotorvänligt",
+      "body": "Restaurangsajter i Uppsala måste fungera smidigt på mobilen – många gäster söker efter lunchställen eller kvällsmat när de är på språng i stan. Sajtmaskin bygger responsiva sajter som laddar snabbt och är optimerade för Google. Integrera Google Analytics om du vill följa besökare och se vilka menyer som är populärast."
+    },
+    {
+      "heading": "Från idé till publicerad sajt på minuter",
+      "body": "Du startar en chatt, beskriver din restaurang, och AI:n genererar struktur, texter och sidor. Justera rubriker, byt bilder, lägg till din logotyp – allt händer i samma gränssnitt. När du är nöjd publicerar du med ett klick. Vill du senare lägga till en webshop för take away eller catering kopplar du Shopify, men det är frivilligt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt med Sajtmaskin?",
+      "a": "De flesta har en färdig sajt på 10–30 minuter. Du chattar med AI:n om din restaurang, menyer och öppettider, så skapas sidorna automatiskt. Sedan justerar du texter och bilder efter behov och publicerar."
+    },
+    {
+      "q": "Kan gäster boka bord direkt på hemsidan?",
+      "a": "Ja, genom att integrera Cal.com får du ett bokningssystem där gäster väljer datum, tid och antal personer. Bokningarna hamnar i din kalender och du kan sätta regler för hur långt i förväg man kan boka och hur många platser som finns."
+    },
+    {
+      "q": "Fungerar sajten bra för lunchrestauranger i Uppsala?",
+      "a": "Absolut. Du kan lägga upp veckans lunchmenyer, visa priser och öppettider tydligt, och göra det enkelt för kontorsfolk runt Kungsgatan eller Dragarbrunnsgatan att hitta er. Sajten är mobilvänlig så gäster kan kolla menyn på väg till lunch."
+    },
+    {
+      "q": "Kan jag ta betalt online för större bokningar eller events?",
+      "a": "Ja, genom Stripe-integrationen kan du ta förskottsbetalning eller full betalning för sällskapsmiddagar, julbord eller cateringbeställningar. Du styr själv vilka tjänster som kräver betalning."
+    },
+    {
+      "q": "Vad kostar det att ha sajten publicerad?",
+      "a": "Hosting på en Sajtmaskin-subdomän är kostnadsfritt utan månadskostnad. Vill du använda en egen domän (t.ex. dinrestaurang.se) betalar du bara domänregistreringen hos din registrar. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag uppdatera menyn själv när säsongen skiftar?",
+      "a": "Ja, du loggar in och ändrar texter, priser eller rätter direkt i gränssnittet. Vill du lyfta fram en veckans rätt, säsongens skaldjur eller en ny dessert gör du det på några sekunder utan att behöva koda."
+    },
+    {
+      "q": "Äger jag sajten och kan jag flytta den senare?",
+      "a": "Du äger allt innehåll och all kod. Vill du flytta sajten till en annan hosting eller utveckla den vidare exporterar du koden när du vill. Ingen inlåsning, ingen bindningstid."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala har en livlig restaurangscen med allt från studentvänliga lunchställen vid Övre Slottsgatan till finare restauranger vid Fyrisån och kvarterskrogar i Luthagen och Svartbäcken. En tydlig hemsida med meny, öppettider och enkel bokning hjälper gäster att hitta er, oavsett om de söker lunch, middag eller catering.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Uppsala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

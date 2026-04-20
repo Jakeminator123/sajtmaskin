@@ -1,0 +1,101 @@
+{
+  "family": "usecase",
+  "slug": "pt",
+  "title": "Hemsida personlig tränare – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för din PT-verksamhet med AI. Bokning, priser, kundcase – allt du behöver. Publicera på egen domän utan månadskostnad.",
+  "h1": "Hemsida för personlig tränare",
+  "heroSub": "Bygg en sajt som visar vad du kan och låter kunder boka direkt – utan kod, på minuter.",
+  "introParagraphs": [
+    "En hemsida för personlig tränare behöver visa vem du är, vad du erbjuder och hur kunder bokar tid. Oftast ingår en startsida med ditt budskap, en Om-sida där du berättar din historia, en tjänstesida med priser och paket, samt ett bokningssystem så att nya kunder kan välja tid direkt. Många PT:ar lägger också in kundcase eller resultat för att visa vad du faktiskt åstadkommer.",
+    "Med Sajtmaskin bygger du hela den sajten via chat. Du beskriver din verksamhet, vilka tjänster du har och hur du vill att sidan ska kännas – så genererar AI:n en färdig hemsida på minuter. Du publicerar på din egen domän, integrerar Cal.com för bokning och Stripe om du vill ta betalt online. Ingen kod, ingen bindningstid, och ingen månadskostnad om du kör på subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Startsida med tydligt budskap",
+      "body": "Din startsida ska direkt förklara vem du hjälper och varför de ska välja dig. Ett hero-avsnitt med rubrik, undertext och en call-to-action (\"Boka kostnadsfri konsultation\") gör att besökaren förstår vad du erbjuder på fem sekunder. Lägg gärna in ett porträtt eller actionbild från träning så att sidan känns personlig. Sajtmaskin genererar layout och text utifrån din prompt – du justerar sen bilder och formuleringar direkt i editorn."
+    },
+    {
+      "heading": "Tjänster och priser",
+      "body": "Lista dina tjänster tydligt: personlig träning 1-till-1, gruppträning, onlinecoaching, kostplanering eller vad du nu erbjuder. Ange pris per session, månadspriser eller paket så att kunden slipper gissa. Många PT:ar drar sig för att visa pris på webben, men transparens bygger förtroende och filtrerar bort felaktiga förväntningar. Du kan alltid lägga till \"Kontakta mig för skräddarsytt upplägg\" om du vill ha flexibilitet."
+    },
+    {
+      "heading": "Bokningssystem som sparar tid",
+      "body": "Istället för att ta emot SMS och DM:ar fram och tillbaka kopplar du in Cal.com via Sajtmaskin. Kunden ser lediga tider i din kalender, bokar direkt och får automatisk bekräftelse. Du slipper dubbelbokning och kan synka med Google Calendar. Integrationen tar ett par klick – du lägger in din Cal.com-länk i inställningarna så bäddas kalendern in på din bokningssida."
+    },
+    {
+      "heading": "Kundcase och socialt bevis",
+      "body": "Visa före/efter-resultat, citat från nöjda kunder eller korta videohälsningar. Du behöver inte överväldiga – tre konkreta exempel räcker för att bevisa att du levererar. Lägg gärna in Instagram-inbäddningar om du har bra content där. Sajtmaskin låter dig dra in block för testimonials och bildgallerier, och du fyller i ditt eget material direkt i editorn."
+    },
+    {
+      "heading": "Om-sida som bygger förtroende",
+      "body": "Berätta varför du blev PT, vilka utbildningar du har och vad som driver dig. Personliga detaljer – att du själv gick ner 20 kilo, kom tillbaka efter skada eller tävlar i styrkelyft – gör att kunden känner koppling. Håll texten jordnära och undvik fluff. En bra Om-sida får besökaren att tänka \"den här personen förstår mig\" och är ofta avgörande för om de bokar eller inte."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att ha en hemsida som personlig tränare?",
+      "a": "Med Sajtmaskin betalar du inget för hosting om du publicerar på subdomän (dinpt.sajtmaskin.se). Vill du ha egen domän (dinpt.se) köper du den för cirka 100–150 kr/år hos en domänleverantör och pekar den mot Sajtmaskin utan extra månadskostnad. Cal.com är gratis i basversionen, Stripe tar betalt per transaktion. Totalt kan du köra en fullt fungerande sajt för under 200 kr/år."
+    },
+    {
+      "q": "Behöver jag kunna koda för att bygga sajten?",
+      "a": "Nej. Du chattar med AI:n, beskriver din verksamhet och vilka sidor du vill ha – så genereras hela sajten. Sen klickar du runt i editorn för att byta bilder, justera texter eller lägga till block. Allt är visuellt. Om du vill ha full kontroll kan du exportera koden, men de flesta PT:ar kör direkt i plattformen utan att röra en rad kod."
+    },
+    {
+      "q": "Kan jag ta betalt för träningspaket via hemsidan?",
+      "a": "Ja. Koppla in Stripe så kan kunder betala direkt på sajten – antingen engångsbetalning för ett paket eller prenumeration för löpande coaching. Du skapar produkter i Stripe, lägger in betalknappen på din tjänstesida och Sajtmaskin hanterar resten. Pengarna landar på ditt företagskonto minus Stripes transaktionsavgift (cirka 1,8 % + 1,80 kr per transaktion)."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "Från prompt till publicerad sajt: 10–20 minuter om du har texter och bilder redo. AI:n genererar strukturen på någon minut, sen lägger du in dina egna foton, justerar priser och kopplar Cal.com. Vill du fila på design och copy kan du spendera ett par timmar, men en fullt fungerande sajt går att pusha live samma kväll."
+    },
+    {
+      "q": "Kan jag bädda in Instagram-flöde eller YouTube-videos?",
+      "a": "Ja. Sajtmaskin stödjer inbäddning av Instagram-inlägg, YouTube-videos och andra embed-koder. Dra in ett HTML-block, klistra in embed-koden från Instagram/YouTube och spara. Perfekt om du vill visa träningsklipp, kundrecensioner eller daglig content från sociala medier direkt på hemsidan."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när som helst – ingen bindningstid, inga dolda avgifter. Ladda ner filerna och flytta till egen server, Netlify, Vercel eller var du vill. All content du skapat ägs av dig. De flesta stannar kvar för att slippa hosting-krångel, men dörren ut står alltid öppen."
+    }
+  ],
+  "localOrIndustryContext": "Personlig träning är en konkurrensutsatt bransch där förtroende och synlighet avgör. En proffsig hemsida med bokning och tydliga priser gör att du sticker ut från PT:ar som bara kör Instagram-DM. Många kunder googlar \"personlig tränare [stad]\" eller \"PT online\" – då behöver du en sajt som rankar och konverterar, inte bara en länk i bio.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en personlig tränare-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

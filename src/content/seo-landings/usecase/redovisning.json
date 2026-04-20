@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "redovisning",
+  "title": "Hemsida redovisningsbyrå – bygg din byrås sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din redovisningsbyrå direkt i chatten. Ingen kod, klart på minuter. Prova Sajtmaskin idag.",
+  "h1": "Hemsida för redovisningsbyrå",
+  "heroSub": "Bygg en komplett hemsida för din redovisningsbyrå på minuter – med AI, utan kod och helt på svenska.",
+  "introParagraphs": [
+    "En hemsida för en redovisningsbyrå behöver visa vad ni gör, vilka ni hjälper och hur man kommer i kontakt. Typiskt innehåller den information om era tjänster – löpande bokföring, årsbokslut, deklarationer, lönerapportering – samt en tydlig presentation av teamet och hur ni arbetar. Många byråer vill också ha en bokningsfunktion så kunder kan boka möten direkt, plus integration med faktureringssystem eller betalning.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI. Du beskriver din byrå, vilka tjänster ni erbjuder och vad som är viktigt för er. AI:n skapar sedan en färdig hemsida på minuter, med text, struktur och design anpassad för redovisningsbranschen. Du kan publicera direkt på egen domän eller testa kostnadsfritt på en subdomän.",
+    "Allt är på svenska, från gränssnitt till support. Du kan lägga till Cal.com för bokning, koppla Stripe för betalningar och integrera Google Analytics. Ingen bindningstid – exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänstepresentation som bygger förtroende",
+      "body": "Besökare vill snabbt förstå vad ni kan hjälpa till med. En tydlig tjänstesida listar era kärnområden – bokföring, årsbokslut, skattedeklarationer, löneadministration, rådgivning – med korta beskrivningar av varje. Sajtmaskin genererar denna struktur automatiskt utifrån vad du berättar om byrån. Du kan justera texterna direkt i chatten eller i redigeraren efteråt. Målet är att potentiella kunder direkt ser att ni hanterar just deras behov."
+    },
+    {
+      "heading": "Om-sida med teamet i fokus",
+      "body": "Redovisning handlar om tillit. En om-sida som presenterar grundarna, auktoriserade redovisningskonsulter eller revisorer och visar erfarenhet skapar trygghet. Många byråer lyfter också sin specialisering – kanske jobbar ni mest med bygg, restaurang eller e-handel. Sajtmaskin hjälper dig att strukturera detta innehåll så det känns personligt och professionellt. Du kan ladda upp teambilder och låta AI:n föreslå hur texten ska läggas upp."
+    },
+    {
+      "heading": "Kontakt och bokning direkt på sajten",
+      "body": "En kontaktsida med telefon, mejl och gärna ett formulär är standard. Men många byråer vill också att kunder ska kunna boka ett första möte direkt. Sajtmaskin stödjer integration med Cal.com, så du kan bädda in din kalender och låta besökare välja tid själva. Det minskar mejltrafiken och gör det enklare för nya kunder att ta steget. Du kopplar din Cal.com-länk i inställningarna – AI:n lägger in bokningsknappen där den passar bäst."
+    },
+    {
+      "heading": "Priser och paket – om du vill visa dem",
+      "body": "En del redovisningsbyråer väljer att visa fasta månadspaket eller timpris, andra föredrar att ge offert efter behov. Sajtmaskin kan skapa en prissida med tabeller eller kort som beskriver olika nivåer – startpaket, standardpaket, premiumpaket. Om du hellre vill att kunder hör av sig först kan AI:n istället lyfta fram en kontaktsektion med uppmaningar att boka rådgivning. Du styr själv hur öppen du vill vara med prissättning."
+    },
+    {
+      "heading": "Blogg och resurser för SEO och kundnytta",
+      "body": "En blogg med tips om bokföring, skatteregler eller digitalisering hjälper både SEO och kundrelationer. Sajtmaskin kan sätta upp en bloggsida där du enkelt lägger till inlägg. Du skriver själv eller ber AI:n föreslå ämnen och utkast. Artiklar som svarar på vanliga frågor – till exempel om momsredovisning eller representation – lockar trafik och positionerar byrån som expert. Allt publiceras på din egen domän, vilket stärker er synlighet i sökmotorerna."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min redovisningsbyrå?",
+      "a": "Själva byggprocessen tar oftast 5–15 minuter. Du chattar med AI:n, beskriver byrån och era tjänster, och får en färdig sajt. Sedan kan du justera texter, bilder och layout direkt i redigeraren. Många publicerar samma dag de börjar."
+    },
+    {
+      "q": "Kan jag lägga till en bokningsfunktion för kundmöten?",
+      "a": "Ja, Sajtmaskin integrerar med Cal.com. Du kopplar ditt Cal.com-konto i inställningarna, och AI:n lägger in en bokningsknapp eller inbäddad kalender på sajten. Kunder kan då boka möten direkt utan att mejla fram och tillbaka."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra innehållet efteråt?",
+      "a": "Nej. Du redigerar allt via chatten eller i den visuella redigeraren. Vill du ändra en rubrik, lägga till en tjänst eller byta bild gör du det med några klick. Om du senare vill ha full kontroll kan du exportera koden, men det är inget krav."
+    },
+    {
+      "q": "Kan jag använda min egen domän, till exempel minbyra.se?",
+      "a": "Absolut. Du pekar din domän mot Sajtmaskin via DNS-inställningar – guiden finns i plattformen. Vill du testa först kan du publicera på en kostnadsfri subdomän, typ minbyra.sajtmaskin.se, och flytta till egen domän senare."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på subdomän är gratis utan tidsbegränsning. Vill du använda egen domän och få tillgång till alla integrationer finns betalplaner, men ingen bindningstid. Du kan när som helst exportera sajten och flytta den till en annan leverantör om du vill."
+    },
+    {
+      "q": "Kan jag visa priser och paket på sajten?",
+      "a": "Ja, du kan be AI:n skapa en prissida med tabeller eller kort för olika tjänstepaket. Om du hellre vill att kunder kontaktar er för offert kan du istället lyfta fram kontaktformulär och bokning. Sajtmaskin anpassar strukturen efter hur du vill jobba."
+    },
+    {
+      "q": "Är Sajtmaskin anpassat för svenska redovisningsbyråer?",
+      "a": "Ja, hela plattformen är på svenska och AI:n förstår branschen. Den föreslår relevanta sektioner som tjänster, team, kontakt och priser. Du kan också lägga till specifika detaljer – som auktorisation, medlemskap i branschorganisationer eller specialisering på viss typ av kunder."
+    }
+  ],
+  "localOrIndustryContext": "Redovisningsbranschen i Sverige präglas av hög konkurrens och ökad digitalisering. Många byråer letar efter sätt att sticka ut online och göra det enklare för kunder att hitta och boka tjänster. En modern hemsida med tydlig tjänstepresentation, bokningsfunktion och relevant innehåll är idag en konkurrensfördel – särskilt för mindre byråer som vill växa utan stora marknadsbudgetar.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en redovisning-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

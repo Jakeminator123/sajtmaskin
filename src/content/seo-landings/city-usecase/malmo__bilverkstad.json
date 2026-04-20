@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "malmo/bilverkstad",
+  "title": "Hemsida för bilverkstad i Malmö – snabbt och enkelt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Malmö på minuter. Bokningstider, prislista och kontaktinfo – allt på plats direkt.",
+  "h1": "Hemsida för bilverkstad i Malmö",
+  "heroSub": "Bygg en komplett sajt för din bilverkstad med bokning, priser och kontaktinfo – på minuter, ingen kodning krävs.",
+  "introParagraphs": [
+    "Din bilverkstad i Malmö behöver en hemsida som gör det enkelt för kunder att hitta dig, boka tid och se vad du erbjuder. Med Sajtmaskin skapar du en färdig sajt via chat på svenska – du beskriver din verkstad, dina tjänster och öppettider, så bygger AI:n resten. Allt från bokningstider till prislista hamnar på plats direkt.",
+    "Sajten publiceras på din egen domän eller kostnadsfritt på en subdomän under Sajtmaskin. Du kan integrera Cal.com för att låta kunder boka service och besiktning direkt, koppla Stripe om du vill ta förskottsbetalning, och lägga till Google Analytics för att se var dina besökare kommer ifrån. Ingen bindningstid, ingen månadskostnad för hosting på subdomän.",
+    "Verkstäder i Malmö – från Fosie till Limhamn – använder Sajtmaskin för att snabbt få upp en sajt som fungerar på mobil och dator. Du behöver ingen byrå, ingen teknisk kunskap. Bara berätta vad din verkstad gör, så har du en sajt på minuter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bilverkstadssajt i Malmö behöver",
+      "body": "Kunder som söker bilverkstad i Malmö vill snabbt se var du ligger, vad du kan fixa och hur de bokar tid. Din sajt behöver tydlig info om adress och öppettider, en lista på tjänster som service, däckskift, bromsreparation och AC-service, samt ett enkelt sätt att boka tid eller ringa. Många verkstäder vill också visa priser på vanliga jobb som oljebyte eller besiktning, så kunden slipper gissa. Sajtmaskin bygger allt det här från din beskrivning – du anger vad du erbjuder, så skapar AI:n sidor med tjänster, kontaktformulär och bokningsintegration via Cal.com."
+    },
+    {
+      "heading": "Så bygger du sajten via chat",
+      "body": "Du startar en chatt på svenska och beskriver din bilverkstad: vad du heter, var i Malmö du ligger, vilka tjänster du utför och vad som gör din verkstad speciell – kanske att du är specialist på Volvo, att du har snabb service eller att du kör miljövänliga oljor. Sajtmaskin genererar då en komplett sajt med startsida, tjänstesidor, om-sida och kontakt. Vill du ändra något – byta färg, lägga till en sida om däckhotell eller justera texten – gör du det direkt i chatten. Allt sker på svenska, inga krångliga verktyg."
+    },
+    {
+      "heading": "Bokning, betalning och analytics",
+      "body": "Integrera Cal.com så att kunder kan välja ledig tid för service, däckskift eller besiktning direkt på sajten. Bokningarna hamnar i din kalender och kunden får bekräftelse via mejl. Vill du ta förskottsbetalning för vissa tjänster kopplar du Stripe – smart om du säljer till exempel besiktningar eller däckhotell i förväg. Google Analytics visar vilka sidor som är populärast och var trafiken kommer ifrån, så du ser om folk hittar dig via Google, Facebook eller rekommendationer. Allt sätts upp utan kod."
+    },
+    {
+      "heading": "Egen domän eller gratis subdomän",
+      "body": "Publicera sajten på din egen domän – till exempel dinverkstad.se – eller använd en kostnadsfri subdomän som dinverkstad.sajtmaskin.se. Ingen månadskostnad för hosting på subdomän, ingen bindningstid. Behöver du byta plattform senare kan du exportera hela koden och flytta sajten vart du vill. Det ger dig full frihet och kontroll över din närvaro online, utan att låsa in dig i dyra avtal."
+    },
+    {
+      "heading": "Byggt i Sverige, support på svenska",
+      "body": "Sajtmaskin drivs av Pretty Good AB i Sverige. Gränssnittet, supporten och all AI-genererad text är på svenska, vilket gör skillnad när du bygger en sajt för en lokal verkstad i Malmö. Du slipper översätta termer eller gissa dig fram i engelska menyer. Behöver du hjälp finns svensk support redo att svara, och alla uppdateringar och nya funktioner presenteras på svenska."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en sajt för min bilverkstad?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n på svenska, beskriver din verkstad och tjänster, så genereras sidor och innehåll direkt. Vill du finjustera text eller lägga till fler sidor gör du det i samma chatt. Allt sker i realtid."
+    },
+    {
+      "q": "Kan kunder boka service direkt på sajten?",
+      "a": "Ja, du integrerar Cal.com så att besökare kan välja ledig tid för service, däckskift, besiktning eller annat. Bokningen syns i din kalender och kunden får bekräftelse via mejl. Installationen sker utan kod, bara koppla ditt Cal.com-konto i Sajtmaskin."
+    },
+    {
+      "q": "Kostar det något att ha sajten på en subdomän?",
+      "a": "Nej, hosting på en subdomän under sajtmaskin.se är helt gratis och utan månadskostnad. Vill du använda din egen domän – som dinverkstad.se – kan du peka den mot sajten. Ingen bindningstid oavsett vilket alternativ du väljer."
+    },
+    {
+      "q": "Kan jag visa priser för vanliga tjänster som oljebyte och däckskift?",
+      "a": "Absolut. Berätta i chatten vilka tjänster du vill lista och vad de kostar, så skapar AI:n en prissida eller lägger in prisinfo på tjänstesidorna. Du kan när som helst uppdatera priser genom att chatta med AI:n igen."
+    },
+    {
+      "q": "Fungerar sajten bra för kunder i hela Malmö?",
+      "a": "Ja, sajten är responsiv och fungerar lika bra på mobil som dator. Oavsett om dina kunder bor i Västra Hamnen, Rosengård eller Limhamn kan de enkelt hitta din adress, se tjänster och boka tid. Google Analytics visar var besökarna kommer ifrån så du ser vilka stadsdelar som är mest aktiva."
+    },
+    {
+      "q": "Kan jag ta betalt online för till exempel besiktning?",
+      "a": "Ja, koppla Stripe så kan kunder betala direkt på sajten. Det passar bra för besiktningar, däckhotell eller förskottsbetalning för större jobb. Betalningen går direkt till ditt Stripe-konto och kunden får kvitto via mejl."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill och flytta sajten till en annan leverantör eller egen server. Ingen bindningstid, ingen inlåsning. Din sajt och ditt innehåll är ditt, och du bestämmer var den ska ligga."
+    }
+  ],
+  "localOrIndustryContext": "Malmö har ett stort antal bilverkstäder spridda från Fosie och Holma till Västra Hamnen och Limhamn. Konkurrensen är hård, och många kunder söker verkstad via mobilen när de behöver snabb hjälp. En sajt som laddar fort, visar tydlig info om tjänster och öppettider, och erbjuder enkel bokning gör skillnad. Sajtmaskin hjälper verkstäder i Malmö att komma online snabbt utan att behöva anlita byrå eller lära sig WordPress.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Malmö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

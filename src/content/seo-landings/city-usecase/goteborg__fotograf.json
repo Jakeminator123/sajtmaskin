@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/fotograf",
+  "title": "Hemsida fotograf Göteborg – Bygg din portfoliosajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Göteborg. AI bygger portfoliosajt med galleri, bokning och kontakt – utan kod.",
+  "h1": "Hemsida fotograf Göteborg",
+  "heroSub": "Bygg en professionell portfoliosajt för din fotoverksamhet i Göteborg – med AI, på minuter, utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Göteborg behöver du en hemsida som visar dina bästa bilder och gör det enkelt för kunder att boka dig. Sajtmaskin bygger din portfoliosajt via chat – du beskriver vad du fotograferar och vilka tjänster du erbjuder, så skapar AI:n en sajt med bildgalleri, tjänstebeskrivningar och bokningsfunktion.",
+    "Du får en sajt som fungerar lika bra för bröllop i Slottsskogen som företagsporträtt på Lindholmen. Allt på svenska, publicerat på din egen domän, utan månadskostnad för hosting. Integrationen med Cal.com gör att kunder kan boka fotosession direkt, och Stripe hanterar förskottsbetalningar om du vill.",
+    "Ingen bindningstid, ingen kod. Du kan när som helst exportera sajten och flytta den. Sajtmaskin är byggt i Sverige av Pretty Good AB och ger dig full kontroll över din närvaro online."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en fotografsajt i Göteborg behöver",
+      "body": "En bra hemsida för fotografer behöver visa ditt arbete tydligt. Det innebär bildgallerier uppdelade efter genre – porträtt, bröllop, företagsfoto, event – så besökare snabbt hittar det de letar efter. Du behöver också tydliga tjänstebeskrivningar med priser eller prisexempel, kontaktformulär och gärna bokningsfunktion. I Göteborg, där konkurrensen är stor inom allt från bröllopsfotografering till kommersiellt foto, är en proffsig sajt avgörande för att sticka ut."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din fotografsajt",
+      "body": "Du startar en chatt och beskriver din verksamhet: vilka typer av uppdrag du tar, ditt geografiska område, din stil. AI:n genererar en komplett sajt med startsida, portfoliogalleri, om-sida, tjänster och kontakt. Du kan be om ändringar – byt färgschema, lägg till fler gallerier, justera texter – direkt i chatten. När du är nöjd publicerar du på din egen domän, eller testar gratis på en subdomän först. Integrationen med Cal.com gör att kunder kan välja tid för fotosession, och du kan koppla Stripe för att ta emot depositioner."
+    },
+    {
+      "heading": "Portfoliogallerier som visar din stil",
+      "body": "Sajtmaskin skapar responsiva bildgallerier där dina foton visas i full kvalitet på alla skärmar. Du kan dela upp bilder i kategorier – bröllop, familj, företag, event – och varje galleri får sin egen sida. Det gör det enkelt för en brudgumstobe att se dina bröllopsjobb från Gunnebo eller en företagskund att bedöma dina porträttbilder från Haga. Du laddar upp bilder via gränssnittet, och AI:n hjälper till att strukturera och presentera dem på ett sätt som får ditt arbete att glänsa."
+    },
+    {
+      "heading": "Bokning och betalning integrerat",
+      "body": "Med Cal.com-integrationen kan kunder boka fotosession direkt på sajten – de väljer datum, tid och typ av uppdrag. Du bestämmer tillgänglighet och buffertider. Om du vill ta förskottsbetalning kopplar du Stripe, så kunden betalar en del när de bokar. Det minskar no-shows och gör bokningsflödet smidigare. Allt hanteras på sajten, utan att du behöver skicka fakturor eller mejla fram och tillbaka om tider."
+    },
+    {
+      "heading": "Bygg från Göteborg, för Göteborg",
+      "body": "Sajtmaskin är byggt i Sverige och förstår hur svenska fotografer arbetar. Du får en sajt som talar direkt till göteborgska kunder – oavsett om du jobbar med bröllop vid havet, företagsporträtt i city eller eventfoto på Liseberg. Ingen bindningstid, ingen dold kostnad. Du äger din sajt och kan när som helst exportera koden. Publicera på egen domän eller testa gratis på subdomän. Det tar minuter att komma igång, och du behöver ingen teknisk kunskap."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografsajt med Sajtmaskin?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar med AI:n, beskriver din verksamhet och vilka tjänster du erbjuder, så genereras sajten. Sen kan du justera text, bilder och layout direkt i chatten tills allt ser ut som du vill. Publicering på egen domän tar någon minut extra."
+    },
+    {
+      "q": "Kan jag visa olika portfoliogallerier för bröllop och företagsfoto?",
+      "a": "Ja, du kan skapa hur många gallerier du vill och dela upp dem efter genre, plats eller stil. Varje galleri får en egen sida, och du kan länka till dem från menyn eller startsidan. Det gör det enkelt för besökare att hitta precis den typ av foto de letar efter."
+    },
+    {
+      "q": "Fungerar bokningsfunktionen för fotosessioner i Göteborg?",
+      "a": "Ja, Cal.com-integrationen låter kunder välja tid och typ av session direkt på sajten. Du ställer in din tillgänglighet, buffertider och vilka typer av uppdrag du tar. Kunden får bekräftelse via mejl, och du kan synka bokningar med din kalender. Det fungerar lika bra för studiosessioner som utomhusfoto runt Göteborg."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hostingen gratis, ingen månadskostnad. Vill du använda din egen domän kopplar du den kostnadsfritt, men domänregistrering och eventuell premiumhosting kan kosta beroende på leverantör. Ingen bindningstid – du kan när som helst exportera sajten och flytta den."
+    },
+    {
+      "q": "Kan jag ta betalt för bokningar direkt på sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du ta emot depositioner eller full betalning när kunden bokar. Du ställer in belopp och betalvillkor, och Stripe hanterar transaktionen säkert. Det minskar risken för no-shows och gör bokningsprocessen smidigare för både dig och kunden."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra sajten?",
+      "a": "Nej, allt sker via chat. Du beskriver vad du vill ändra – byte av färg, ny text, fler gallerier – så uppdaterar AI:n sajten. Vill du ha full kontroll kan du exportera koden och redigera den själv, men det är inget krav. Gränssnittet är helt på svenska och byggt för att vara enkelt."
+    },
+    {
+      "q": "Hur skiljer sig Sajtmaskin från andra sajbyggare för fotografer?",
+      "a": "Sajtmaskin är svenskt, AI-drivet och fokuserar på snabbhet. Du bygger via chat istället för att dra och släppa block. Ingen bindningstid, ingen dold kostnad, och du kan exportera koden när du vill. Perfekt för fotografer i Göteborg som vill ha en proffsig sajt igång snabbt utan att lära sig ett komplicerat verktyg."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg har en stark kreativ scen med fotografer specialiserade på allt från bröllopsfoto vid kusten till kommersiella uppdrag för lokala företag. Med landmarks som Haga, Slottsskogen och hamnen finns gott om ikoniska platser att visa i portfolion. En professionell hemsida hjälper dig nå kunder i både city och förorter.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

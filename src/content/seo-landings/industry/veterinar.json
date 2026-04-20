@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "veterinar",
+  "title": "Hemsida för veterinär – snabbt och enkelt med AI | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din veterinärklinik på minuter. Bokning, akutinfo och djurvänlig design – allt på svenska, ingen kod krävs.",
+  "h1": "Hemsida för veterinär",
+  "heroSub": "Bygg en komplett veterinärsajt med bokning, akutinfo och öppettider – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En hemsida för din veterinärklinik behöver göra två saker bra: hjälpa djurägare hitta rätt snabbt när det är bråttom, och ge ett lugnt intryck när det inte är det. Det betyder tydliga öppettider, synlig akutinformation, enkel bokning och en känsla av att ni vet vad ni gör. Sajtmaskin låter dig bygga allt det genom att berätta vad din klinik gör – AI:n sätter ihop strukturen, texterna och funktionerna åt dig.",
+    "Du får en färdig sajt med sidor för dina tjänster (vaccinationer, kirurgi, hälsokontroller), ett bokningssystem kopplat till Cal.com, och mobilanpassad design som fungerar lika bra i väntrummet som hemma på kvällen. Publicera på din egen domän eller testa kostnadsfritt på en subdomän. Ingen bindningstid, allt på svenska."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en veterinärsajt behöver innehålla",
+      "body": "En bra hemsida för veterinär ska svara på de vanligaste frågorna innan djurägaren ens hinner leta: Har ni öppet? Tar ni emot akutfall? Kan jag boka tid online? Sajtmaskin bygger automatiskt sidor för tjänster som vaccination, kastrering, tandvård och årskontroller. Du får också en tydlig startsida med kontaktinfo, en Om oss-sektion där teamet kan presenteras, och en FAQ som svarar på allt från vad som räknas som akut till vad en hälsokontroll kostar. Allt är skrivet för djurägare, inte veterinärer – alltså begripligt och tryggt."
+    },
+    {
+      "heading": "Bokning och akutinformation som fungerar",
+      "body": "Många djurägare vill boka direkt på sajten, helst utan att ringa. Genom integrationen med Cal.com får du ett bokningssystem där besökare kan välja tid för vaccination, kontroll eller konsultation. Du styr själv vilka tider som syns och hur lång varje besökstyp är. För akutfall kan du lägga in en tydlig sektion på startsidan – med telefonnummer, vägbeskrivning och information om när ni hänvisar till jourcentral. Det minskar stress för både djurägare och er reception."
+    },
+    {
+      "heading": "Design och känsla som passar en djurklinik",
+      "body": "Veterinärsajter behöver kännas professionella men inte sterila. Sajtmaskin skapar en design som balanserar förtroende med värme – tänk lugna färger, tydlig typografi och utrymme för bilder på kliniken eller teamet. Sajten är responsiv, så den fungerar lika bra på mobilen när någon letar efter er nummer i bilen som på datorn när de jämför priser hemma. Du kan när som helst byta bilder, justera texter eller lägga till nya tjänster – allt direkt i gränssnittet."
+    },
+    {
+      "heading": "Bygg sajten på minuter, publicera på din domän",
+      "body": "Du startar genom att berätta vad din klinik heter, var ni finns och vilka tjänster ni erbjuder – smådjur, kirurgi, akutvård. AI:n genererar en komplett sajt med struktur, texter och funktioner anpassade för veterinärverksamhet. Publicera direkt på er egen domän eller testa först på en kostnadsfri subdomän. Vill ni koppla in Google Analytics eller lägga till betalning via Stripe för förskottsbetalning av vissa tjänster går det också. Ingen bindningstid, och du kan exportera koden när du vill."
+    },
+    {
+      "heading": "Ingen kod, inget krångel – bara en färdig sajt",
+      "body": "Sajtmaskin är byggt för dig som driver verksamhet, inte kodar. Allt sker i ett svenskt gränssnitt där du chattar fram ändringar istället för att redigera filer. Behöver du lägga till en ny tjänst, ändra öppettider eller uppdatera teambilderna? Skriv vad du vill ha, så fixar AI:n det. Supporten är svensk, plattformen är svensk, och resultatet är en sajt som känns professionell från dag ett – utan att du behöver lära dig WordPress, Wix eller någon annan plattform."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag lägga till bokningssystem för olika typer av besök?",
+      "a": "Ja, genom Cal.com-integrationen kan du skapa olika bokningslänkar för vaccination, hälsokontroll, konsultation eller andra tjänster. Du styr själv längd och tillgänglighet för varje besökstyp, och besökare bokar direkt på sajten."
+    },
+    {
+      "q": "Hur gör jag akutinformationen tydlig på startsidan?",
+      "a": "Sajtmaskin kan skapa en framhävd sektion på startsidan med akuttelefon, öppettider för akut och information om när ni hänvisar vidare. Du kan också länka till en dedikerad akutsida med vägbeskrivning och instruktioner."
+    },
+    {
+      "q": "Kan jag visa bilder på kliniken och teamet?",
+      "a": "Absolut. Du laddar upp egna bilder direkt i gränssnittet och placerar dem var du vill – på startsidan, i Om oss-sektionen eller på tjänstesidorna. AI:n hjälper dig med layout så det ser professionellt ut."
+    },
+    {
+      "q": "Fungerar sajten på mobilen?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och fungerar smidigt på mobil, surfplatta och dator. Många djurägare söker veterinär på mobilen, så designen är anpassad för det."
+    },
+    {
+      "q": "Kan jag ta betalt online för vissa tjänster?",
+      "a": "Ja, via Stripe-integrationen kan du ta betalt för till exempel förskottsbetalning av vaccinationer eller hälsokontroller. Du styr själv vilka tjänster som ska ha betalning kopplad."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Publicering på en subdomän hos Sajtmaskin är gratis utan månadsavgift. Vill du använda din egen domän (t.ex. dinklinik.se) behöver du köpa den separat, men själva publiceringen kostar inget extra. Ingen bindningstid."
+    },
+    {
+      "q": "Kan jag exportera sajten och flytta den senare?",
+      "a": "Ja, du kan när som helst exportera koden och flytta sajten till en annan leverantör eller egen server. Ingen inlåsning."
+    }
+  ],
+  "localOrIndustryContext": "Veterinärbranschen i Sverige präglas av både stora kedjor och fristående kliniker, och djurägare förväntar sig numera samma digitala service som inom humanvården – online-bokning, tydlig info och snabb kontakt. En professionell hemsida är inte längre en bonus utan en grundförutsättning för att konkurrera och ge trygghet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en veterinär-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

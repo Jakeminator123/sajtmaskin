@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "boras/restaurang",
+  "title": "Hemsida restaurang Borås – Bygg din restaurangsida på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Borås med AI. Meny, bokning och betalning – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för restaurang i Borås",
+  "heroSub": "Bygg en komplett restaurangsida med meny, bordsbokningar och betalning – på minuter, inte veckor.",
+  "introParagraphs": [
+    "Din restaurang i Borås behöver en hemsida som visar upp menyn, tar emot bordsbokningar och skapar förtroende hos nya gäster. Med Sajtmaskin bygger du allt det via chat – berätta vad din restaurang erbjuder, så genererar AI:n en färdig sajt med meny, bilder, kontaktinfo och bokningsfunktion.",
+    "Du publicerar direkt på egen domän eller startar gratis på en subdomän. Ingen bindningstid, inga dolda avgifter. Allt på svenska, byggt för svenska restauranger som vill synas online utan att lägga veckor på webbdesign.",
+    "Oavsett om du driver en pizzeria vid Knalleland, en lunchrestaurang på Simonsland eller ett finare kök i centrala Borås – Sajtmaskin ger dig verktygen att visa upp ditt koncept professionellt från dag ett."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny, bokning och betalning – allt integrerat",
+      "body": "En restaurangsida behöver mer än bara text och bilder. Sajtmaskin låter dig lägga in din meny direkt i chatten, integrera Cal.com för bordsbokningar och koppla Stripe om du vill ta förbetalning för events eller presentkort. Allt sätts upp automatiskt – du slipper krångla med plugins eller tredjepartstjänster. Gäster kan boka bord, läsa menyn och hitta öppettider på ett ställe."
+    },
+    {
+      "heading": "Bygg sajten på svenska, för svenska gäster",
+      "body": "Många webbverktyg är översatta klumpigt eller saknar svenskt stöd helt. Sajtmaskin är byggt i Sverige med svenskt gränssnitt och svensk support. Det betyder att din restaurangsida får rätt ton, rätt språk och rätt känsla direkt – utan att du behöver redigera maskinöversättningar eller gissa dig till funktioner. Perfekt för restauranger i Borås som vill kommunicera tydligt med lokala gäster."
+    },
+    {
+      "heading": "Ingen bindningstid – exportera koden när du vill",
+      "body": "Du äger din sajt. Om du senare vill flytta till en annan plattform eller låta en byrå ta över kan du exportera hela koden utan kostnad. Hosting på subdomän är gratis, och vill du använda egen domän fixar du det på minuter. Inga långa avtal, inga dolda avgifter – bara en sajt som fungerar här och nu."
+    },
+    {
+      "heading": "Perfekt för restauranger i Borås",
+      "body": "Borås har en stark restaurangscen – från klassiska svenska husmanskök till internationella kök och moderna brunchställen. Oavsett om du ligger vid Åhaga, Knalleland eller i city behöver du en sajt som syns i lokala sökningar och ger gästerna rätt info snabbt. Sajtmaskin hjälper dig att komma online direkt, så du kan fokusera på maten och servicen istället för att sitta fast i webbdesign."
+    },
+    {
+      "heading": "Kom igång på minuter",
+      "body": "Logga in, berätta om din restaurang i chatten – koncept, meny, öppettider, specialiteter – och låt AI:n bygga sajten. Granska resultatet, justera text och bilder om du vill, och publicera. Hela processen tar minuter, inte dagar. Du kan lägga till fler sidor, uppdatera menyn eller byta bilder när som helst. Allt via samma chattgränssnitt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag lägga in hela min restaurangmeny på sajten?",
+      "a": "Ja, absolut. Berätta i chatten vilka rätter du har, priser och eventuella allergianmärkningar, så lägger AI:n in allt snyggt på sidan. Du kan uppdatera menyn när som helst genom att chatta igen."
+    },
+    {
+      "q": "Fungerar bordsbokningar direkt på sajten?",
+      "a": "Ja, via Cal.com-integrationen. Du kopplar ditt Cal.com-konto så kan gäster boka bord direkt på hemsidan. Bokningarna hamnar i din kalender och du får notiser automatiskt."
+    },
+    {
+      "q": "Kostar det extra att använda egen domän?",
+      "a": "Nej. Du kan publicera gratis på en subdomän hos Sajtmaskin, eller koppla din egen domän utan extra avgift från oss. Du betalar bara för själva domänregistreringen hos din domänleverantör."
+    },
+    {
+      "q": "Kan jag sälja presentkort eller ta förbetalning för event?",
+      "a": "Ja, genom Stripe-integrationen. Du kan lägga till betalfunktioner för presentkort, catering-beställningar eller förbetalning av större bokningar. Allt sköts säkert via Stripe."
+    },
+    {
+      "q": "Syns min restaurang i Google om jag ligger i Borås?",
+      "a": "Sajten är SEO-optimerad från start, så ja. Du får rätt meta-taggar, snabb laddning och mobilanpassning – allt som Google värderar. Kombinera med Google My Business så syns du ännu bättre i lokala sökningar."
+    },
+    {
+      "q": "Kan jag uppdatera menyn själv, utan teknisk hjälp?",
+      "a": "Ja. Du uppdaterar allt via chatten – skriv bara vad som ska ändras, så fixar AI:n det direkt. Inga komplicerade admin-paneler eller CMS att lära sig."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Det finns ingen bindningstid, så du äger alltid din sajt och kan flytta den om du vill."
+    }
+  ],
+  "localOrIndustryContext": "Borås har en växande restaurangscen med allt från traditionella svenska restauranger till internationella kök och moderna caféer. Många gäster söker efter restauranger online innan de bestämmer sig, särskilt kring Knalleland, Simonsland och city. En professionell hemsida med tydlig meny och enkel bokning gör skillnad i en stad där konkurrensen ökar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/boras",
+      "label": "Skapa hemsida i Borås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Borås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

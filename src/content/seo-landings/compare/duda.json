@@ -1,0 +1,97 @@
+{
+  "family": "compare",
+  "slug": "duda",
+  "title": "Alternativ till Duda – svenskt AI-verktyg utan byråkostnad | Sajtmaskin",
+  "metaDescription": "Duda är kraftfullt för byråer, men dyrt och komplext för små företag. Sajtmaskin ger dig AI-driven hemsida på svenska – utan mellanhänder.",
+  "h1": "Alternativ till Duda för svenska företag",
+  "heroSub": "Bygg din hemsida med AI på svenska – utan byråpriser, white-label-krångel eller bindningstid.",
+  "introParagraphs": [
+    "Duda är ett populärt verktyg bland webbbyråer som bygger sajter åt kunder, med white-label-funktioner och avancerad kundhantering. Men om du driver ett litet eller medelstort företag i Sverige och bara vill ha en proffsig hemsida snabbt, betalar du ofta för funktioner du aldrig använder – och saknar svenskt gränssnitt och support.",
+    "Sajtmaskin är ett svenskt alternativ som låter dig bygga hela sajten via chat med AI. Du beskriver vad du behöver, så genererar plattformen design, text och struktur på minuter. Allt på svenska, utan mellanhänder, och du publicerar direkt på egen domän eller gratis subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker företag alternativ till Duda?",
+      "body": "Duda är byggt för byråer som hanterar många kunder samtidigt. Det innebär kraftfulla verktyg för team-samarbete, white-label-branding och kundåtkomst – men också en prislapp och komplexitet som sällan motiveras om du bara behöver en hemsida för ditt eget företag. Gränssnittet är på engelska, supporten sitter utomlands, och du måste ofta lära dig en hel plattform för att ändra enkla saker. Många svenska småföretagare vill ha något enklare, snabbare och mer direkt – utan att offra kvalitet."
+    },
+    {
+      "heading": "Vad gör Sajtmaskin annorlunda?",
+      "body": "Sajtmaskin bygger på AI och konversation. Du chattar med plattformen, förklarar vad din verksamhet gör och vad sajten ska innehålla, så skapar AI:n design, texter och sidstruktur åt dig. Allt händer på svenska, och du behöver ingen förkunskap om webbdesign eller kod. Du får förslag direkt, justerar via chat och publicerar när du är nöjd. Integrationer som Cal.com för bokning och Stripe för betalning finns inbyggda. Det finns ingen bindningstid, och vill du flytta sajten senare kan du exportera all kod. Hosting på subdomän kostar ingenting per månad – du betalar bara när du vill använda egen domän eller premium-funktioner."
+    },
+    {
+      "heading": "När passar Duda bättre?",
+      "body": "Om du driver en webbyrå som bygger sajter åt många kunder, eller om du behöver white-label-lösningar där kunden aldrig ser verktygets namn, är Duda fortfarande ett starkt val. Plattformen erbjuder avancerad teamhantering, klientåtkomst med olika behörighetsnivåer och verktyg för att fakturera vidare till slutkund. Duda passar också om du har ett internationellt team som arbetar på engelska och vill ha en etablerad plattform med bred ekosystem-support. Men för svenska småföretag, frilansare och lokala verksamheter som vill ha en sajt snabbt, på svenska och utan byråmellanled, är Sajtmaskin det enklare och billigare valet."
+    },
+    {
+      "heading": "Kom igång på minuter",
+      "body": "Skapa ett konto på Sajtmaskin, beskriv din verksamhet i chatten – exempelvis att du driver en frisörsalong i Malmö eller säljer hantverksprodukter online – så genererar AI:n en färdig sajt med text, bilder och struktur. Du granskar resultatet, ber om ändringar direkt i chatten och publicerar när allt ser bra ut. Ingen kod, inga mallar att välja mellan, ingen lång onboarding. Allt support och all kommunikation sker på svenska, och du äger din data. Vill du byta plattform senare exporterar du koden utan krångel."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag använda Sajtmaskin om jag inte kan något om webbutveckling?",
+      "a": "Ja, det är hela poängen. Du chattar med AI:n på svenska och beskriver vad du vill ha, så sköter plattformen resten. Inga tekniska kunskaper krävs."
+    },
+    {
+      "q": "Kostar det något att hosta sajten på Sajtmaskin?",
+      "a": "Hosting på subdomän är gratis. Vill du koppla egen domän eller använda premium-funktioner tillkommer en kostnad, men ingen månatlig grundavgift för själva hostingen på subdomän."
+    },
+    {
+      "q": "Hur skiljer sig Sajtmaskin från Duda rent tekniskt?",
+      "a": "Duda är en traditionell site builder med drag-and-drop och mallar, fokuserad på byråer. Sajtmaskin använder AI för att generera hela sajten från text, utan att du behöver välja mall eller dra element. Allt sker på svenska och är byggt för enskilda företag snarare än byråkunder."
+    },
+    {
+      "q": "Kan jag integrera betalningar och bokningar?",
+      "a": "Ja. Sajtmaskin har inbyggt stöd för Stripe (betalningar), Cal.com (bokning), Google Analytics och Shopify för webshop. Du kopplar ihop tjänsterna direkt i gränssnittet."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela kodens källfiler när du vill. Det finns ingen bindningstid och ingen inlåsning. Din sajt och data är dina."
+    },
+    {
+      "q": "Finns det svenskspråkig support?",
+      "a": "Ja. Sajtmaskin drivs av Pretty Good AB i Sverige, och all support sker på svenska. Du slipper engelska supportchattar i andra tidszoner."
+    },
+    {
+      "q": "Passar Sajtmaskin för webbbyråer som bygger sajter åt kunder?",
+      "a": "Sajtmaskin är i första hand byggt för företag som vill ha sin egen sajt snabbt och enkelt. Saknar du white-label, klientportal och teamhantering är Duda troligen bättre. Men driver du en liten byrå eller frilansverksamhet och vill snabba på leveransen med AI kan Sajtmaskin absolut fungera."
+    }
+  ],
+  "localOrIndustryContext": "Duda används globalt men har få användare i Sverige jämfört med internationella marknader. Sajtmaskin är byggt specifikt för svenska företag, med svenskt språk, svensk support och förståelse för lokala behov som bokföring, GDPR och svensk e-handel.",
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från Duda. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

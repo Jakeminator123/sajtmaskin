@@ -232,6 +232,7 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | OpenClaw / Sajtagenten | Separat assistent-/agentyta | Builderns LLM-flöde |
 | `appProjectId` | Användarprojektets id | `chatId`, `VERCEL_PROJECT_ID` |
 | `chatId` | Own-engine-chattens id | `appProjectId` |
+| seo-landing | Programmatiska SEO-sidor under `src/content/seo-landings/{family}/` (city, usecase, industry, ai, compare, city-usecase) renderade via `src/app/{hemsida,skapa-hemsida,hemsida-for,ai-hemsida,alternativ-till}/…/page.tsx` med JSON-LD; innehåll LLM-genereras av `scripts/seo/generate-landings.ts` (`npm run seo:generate`) | Bloggposter, builderns `StructuredBrief`/prompt-flöde, `/templates` |
 
 **`v0` betyder tre saker:** (1) API-versionering `/api/v0/` (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
 

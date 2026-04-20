@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "norrkoping/bilverkstad",
+  "title": "Hemsida bilverkstad Norrköping – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Norrköping med AI. Få bokning, prislista och kontaktformulär klart direkt – ingen kod krävs.",
+  "h1": "Hemsida för bilverkstad i Norrköping",
+  "heroSub": "Bygg en komplett sajt för din bilverkstad med AI – med bokning, tjänstlista och kontaktinfo som lockar kunder i Norrköping.",
+  "introParagraphs": [
+    "En bilverkstad i Norrköping behöver en hemsida som snabbt visar vilka tjänster du erbjuder, var verkstaden ligger och hur kunden bokar tid. Sajtmaskin låter dig bygga hela sajten via chat på svenska – AI:n skapar sidor för service, reparation, besiktning, priser och kontakt direkt.",
+    "Du chattar med AI:n om vad din verkstad gör – till exempel däckbyte, kamremsbyte, AC-service eller lackreparationer – och får en färdig sajt på minuter. Publicera på egen domän eller kostnadsfritt på en Sajtmaskin-subdomän, utan bindningstid.",
+    "Integrationer som Cal.com gör det enkelt för bilister i Norrköping att boka tid online, och du kan när som helst redigera text, lägga till bilder från verkstaden eller uppdatera öppettider och priser."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bilverkstadssajt i Norrköping bör innehålla",
+      "body": "Kunder som söker bilverkstad vill snabbt se vilka tjänster du utför – från service och däckhotell till rostskydd och felsökning. En tydlig tjänstlista, priser eller prisexempel och information om verkstadens utrustning bygger förtroende. Lägg gärna till en karta så det syns att du ligger centralt eller nära E4:an, och visa öppettider så kunden vet när den kan lämna bilen. Kontaktformulär eller direktbokning gör det smidigt att nå dig, och en sida om teamet eller verkstadens historia skapar personlig kontakt."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din verkstadssajt",
+      "body": "Du startar en chatt på svenska och berättar vad verkstaden erbjuder – exempelvis personbilsservice, lätta lastbilar, AC-laddning eller bromsreparationer. AI:n genererar direkt sidor med rubriker, texter och struktur anpassad för bilbranschen. Du kan be om en bokningssida som kopplas till Cal.com, en prislista för vanliga jobb eller en kontaktsida med karta och telefonnummer. Allt skrivs på svenska och du ser resultatet live. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän – ingen kod eller teknisk kunskap behövs."
+    },
+    {
+      "heading": "Bokning och betalning för bilverkstäder",
+      "body": "Med Cal.com-integrationen kan kunder boka tid för service, besiktningsförberedelse eller däckskifte direkt på sajten – du väljer själv vilka tidsintervall som passar verkstadens schema. Vill du ta förskottsbetalning för till exempel däckhotell eller rostbehandling kopplar du Stripe och tar betalt online. Google Analytics visar vilka tjänster som besökare klickar mest på, så du kan lyfta fram populära tjänster eller kampanjer. Allt sköts från Sajtmaskins gränssnitt utan krångliga plugins."
+    },
+    {
+      "heading": "Redigera och uppdatera när verkstaden förändras",
+      "body": "Bilbranschen rör sig snabbt – nya kampanjer, säsongsservice för sommardäck eller vinterdäck, uppdaterade priser eller ny utrustning. I Sajtmaskin redigerar du text direkt i chatten eller via editorn, byter bilder från verkstadsgolvet och lägger till nya tjänster på minuter. Vill du lyfta fram en erbjudande på luftkonditionering inför sommaren eller informera om besiktningskampanj skapar du en ny sektion utan att vänta på webbyrå. Du äger alltid koden och kan exportera sajten om du vill flytta den senare."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Sajtmaskin tar ingen månadsavgift för hosting på subdomän, och det finns ingen bindningstid. Du betalar bara när du vill använda premium-funktioner eller koppla egen domän. För en bilverkstad i Norrköping som vill testa en sajt utan risk är det perfekt – bygg, publicera och se hur kunderna reagerar. Behöver du hjälp finns svenskspråkig support, och alla uppdateringar av plattformen ingår. Du kan när som helst pausa, ändra eller ta ner sajten utan extra kostnad."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa priser för service och reparationer på sajten?",
+      "a": "Ja, du kan lägga till en prislista eller prisexempel för vanliga jobb som oljebyte, bromsbelägg eller kamremsbyte. Många verkstäder väljer att visa från-priser eller intervall och uppmanar kunden att ringa för exakt offert. Sajtmaskin gör det enkelt att strukturera prisinfo så den är tydlig och lätt att uppdatera när kostnader ändras."
+    },
+    {
+      "q": "Fungerar bokningsfunktionen för olika typer av jobb?",
+      "a": "Ja, Cal.com-integrationen låter dig skapa flera bokningslänkar – en för snabb service, en för däckbyte, en för besiktning och så vidare. Du sätter själv längd på varje tidsslot och vilka tider som är lediga. Kunden väljer tjänst och bokar direkt, och du får bekräftelse via mejl eller kalender."
+    },
+    {
+      "q": "Hur gör jag sajten synlig för bilister i Norrköping?",
+      "a": "Använd ortnamnet i texter – till exempel 'bilverkstad i Norrköping, nära Industrivägen' eller 'vi servar bilar i Norrköping och Söderköping'. Lägg till en Google Maps-karta så kunder ser var du ligger i förhållande till E4:an eller centrum. Lokal SEO gynnas också av att nämna närliggande områden och att ha tydlig kontaktinfo med adress och telefon."
+    },
+    {
+      "q": "Kan jag lägga till bilder från verkstaden?",
+      "a": "Absolut. Ladda upp foton på verkstadslokalen, teamet, utrustning eller bilar under arbete. Bilder skapar förtroende och visar att verkstaden är välutrustad och professionell. Du drar och släpper bilder i editorn eller ber AI:n skapa bildplatser som du fyller i efteråt."
+    },
+    {
+      "q": "Vad händer om jag vill byta webbplattform senare?",
+      "a": "Du kan exportera hela sajten som kod när du vill – ingen inlåsning. Filer och innehåll är dina, så du kan flytta till egen server eller annan plattform utan att börja om från scratch. Sajtmaskin ägs av Pretty Good AB i Sverige, och all data hanteras transparent."
+    },
+    {
+      "q": "Kan jag sälja däck eller reservdelar via sajten?",
+      "a": "Ja, koppla Shopify-integrationen för att lägga till en enkel webshop för däck, oljor, spolarvätska eller tillbehör. Många verkstäder säljer vinterdäck eller sommardäck online och låter kunden boka montering samtidigt. Stripe hanterar betalningen säkert, och du sköter lagersaldo i Shopify."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta bilverkstäder har en fungerande sajt på 10–20 minuter. Du chattar om tjänster, adress och öppettider, AI:n bygger sidorna, du justerar texter och bilder vid behov och publicerar. Vill du lägga till bokning eller betallösning tar det några minuter extra att koppla Cal.com eller Stripe, men själva sajten är klar direkt."
+    }
+  ],
+  "localOrIndustryContext": "Norrköping har en stark fordonstradition och många bilägare som pendlar via E4:an eller arbetar i industriområden runt staden. En tydlig hemsida med lägesinfo, tjänsteutbud och enkel bokning hjälper din verkstad att synas när bilister söker service, däckbyte eller besiktning lokalt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/norrkoping",
+      "label": "Skapa hemsida i Norrköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Norrköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

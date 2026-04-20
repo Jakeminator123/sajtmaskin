@@ -1,0 +1,101 @@
+{
+  "family": "compare",
+  "slug": "squarespace",
+  "title": "Alternativ till Squarespace – bygg din sajt med AI | Sajtmaskin",
+  "metaDescription": "Squarespace är vackert men dyrt och engelskspråkigt. Sajtmaskin ger dig svensk AI-byggare, ingen bindningstid och gratis hosting på subdomän.",
+  "h1": "Alternativ till Squarespace för svenska företag",
+  "heroSub": "Bygg din hemsida med AI på svenska – snabbare, billigare och utan månadskostnad för hosting.",
+  "introParagraphs": [
+    "Squarespace är känt för snygga mallar och en polish som få konkurrenter matchar. Men för svenska företag kommer det med utmaningar: allt är på engelska, supporten sitter utomlands, och månadskostnaden tickar på även om du inte rör sajten. Om du vill ha en sajt som byggs på svenska, utan bindningstid och med AI som gör jobbet åt dig, finns det ett enklare alternativ.",
+    "Sajtmaskin låter dig skapa en komplett hemsida genom att chatta med en AI. Du beskriver vad du behöver, och inom minuter får du en färdig sajt med text, bilder och struktur. Allt på svenska, med svensk support och möjlighet att publicera gratis på en subdomän – eller koppla din egen domän när du vill.",
+    "Du slipper välja bland hundratals mallar eller tweaka pixlar i timmar. Istället får du en sajt som är skräddarsydd för just ditt företag, och du kan exportera koden när som helst om du vill flytta vidare."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker folk alternativ till Squarespace?",
+      "body": "Squarespace är populärt för kreativa yrken och småföretag som vill ha en visuellt stark närvaro. Men många upplever att plattformen är dyr i längden, särskilt när du lägger till funktioner som bokning eller e-handel. Gränssnittet är helt på engelska, vilket gör det krångligare för team som inte är vana vid facktermer. Och eftersom allt byggs med mallar kan det ta tid att få sajten att kännas unik – du fastnar lätt i justeringar av marginaler och typsnitt istället för att fokusera på innehåll."
+    },
+    {
+      "heading": "Vad gör Sajtmaskin annorlunda?",
+      "body": "Sajtmaskin använder AI för att bygga hela sajten åt dig. Du chattar på svenska, beskriver ditt företag och vad du vill ha, och får en färdig sajt med text, bilder och layout på minuter. Ingen mall att välja, ingen designprocess som drar ut på tiden. Du kan publicera direkt på en subdomän utan månadskostnad, eller koppla din egen domän. Integrationer som Cal.com för bokning och Stripe för betalningar finns inbyggda, och du kan exportera koden när du vill – ingen inlåsning, ingen bindningstid."
+    },
+    {
+      "heading": "Svensk support och svenskt språk hela vägen",
+      "body": "Allt i Sajtmaskin är på svenska: gränssnittet, AI:n, supporten. Du slipper översätta begrepp eller vänta på svar från en annan tidszon. För företag som vill ha en sajt som talar direkt till svenska kunder – med rätt tonalitet, lokala referenser och ingen engelsk känsla – gör det stor skillnad. Du kan fokusera på ditt erbjudande istället för att kämpa med verktyget."
+    },
+    {
+      "heading": "Ingen månadskostnad för hosting",
+      "body": "Squarespace tar betalt varje månad oavsett om du uppdaterar sajten eller inte. Sajtmaskin låter dig publicera gratis på en subdomän, och du betalar bara när du vill koppla en egen domän eller lägga till extra funktioner. Det gör plattformen särskilt bra för projekt som inte behöver ligga på en dyr prenumeration, eller för företag som vill testa en idé utan att binda upp sig ekonomiskt."
+    },
+    {
+      "heading": "När passar Squarespace bättre?",
+      "body": "Om du driver en kreativ verksamhet där visuell identitet är avgörande – fotograf, designer, konstnär – och du vill ha kontroll över varje detalj i layouten, kan Squarespace fortfarande vara rätt val. Plattformen har ett enormt bibliotek av mallar och ett designsystem som är svårt att slå för den som vill ha pixel-perfekt kontroll. Men om du värdesätter snabbhet, svenskt språk och frihet från månadskostnader högre än malldesign, är Sajtmaskin ett starkare alternativ."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag migrera min Squarespace-sajt till Sajtmaskin?",
+      "a": "Du kan inte importera direkt, men du kan beskriva din nuvarande sajt för AI:n och få en ny version på minuter. Kopiera över texter och bilder, så bygger Sajtmaskin strukturen. Många upplever att det går snabbare än att manuellt flytta innehåll mellan plattformar."
+    },
+    {
+      "q": "Är Sajtmaskin lika snyggt som Squarespace?",
+      "a": "Squarespace är känt för polerade mallar och stark visuell design. Sajtmaskin genererar en modern, ren layout med AI, men du får inte samma bibliotek av fördesignade mallar. Däremot får du en sajt som är skräddarsydd för ditt innehåll från start, utan att behöva anpassa en mall."
+    },
+    {
+      "q": "Vad kostar Sajtmaskin jämfört med Squarespace?",
+      "a": "Squarespace kostar från cirka 140 kr/månad och uppåt beroende på plan. Sajtmaskin låter dig publicera gratis på en subdomän utan månadskostnad. Vill du koppla en egen domän eller lägga till integrationer betalar du för det, men det finns ingen löpande avgift om du inte behöver det."
+    },
+    {
+      "q": "Kan jag använda Sajtmaskin för e-handel?",
+      "a": "Ja, Sajtmaskin integrerar med Shopify för webshop-funktioner och Stripe för betalningar. Det är inte lika heltäckande som Squarespace Commerce, men fungerar bra för mindre sortiment eller tjänsteförsäljning. För stora e-handelsprojekt kan en dedikerad plattform vara bättre."
+    },
+    {
+      "q": "Får jag lika bra SEO som på Squarespace?",
+      "a": "Sajtmaskin genererar ren HTML med bra struktur för sökmotorer, och du kan redigera meta-taggar och rubriker. Squarespace har lite mer avancerade SEO-verktyg inbyggda, men för de flesta svenska småföretag räcker Sajtmaskins funktioner gott. Du kan också exportera koden och lägga till mer avancerad SEO själv."
+    },
+    {
+      "q": "Vad händer om jag vill lämna Sajtmaskin?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Det finns ingen bindningstid och ingen inlåsning. Ta koden och publicera den var du vill – på egen server, hos en annan host eller hos en byrå som tar över. Du äger alltid ditt innehåll."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej. Du chattar med AI:n på svenska och beskriver vad du vill ha. Sajten byggs automatiskt. Vill du justera något kan du be AI:n göra det, eller gå in i koden själv om du har kunskapen. Men det krävs ingen teknisk bakgrund för att komma igång."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/alternativ-till/framer",
+      "label": "Alternativ till Framer"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från Squarespace. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/foretag",
+  "title": "Hemsida företag Västerås – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag i Västerås med AI. Ingen kod, klart på minuter. Publicera direkt på egen domän.",
+  "h1": "Hemsida för företag i Västerås",
+  "heroSub": "Bygg en komplett företagssajt på minuter med AI – ingen kod, inga krångliga verktyg, bara din idé och ett färdigt resultat.",
+  "introParagraphs": [
+    "Sajtmaskin låter dig skapa en professionell hemsida för ditt företag i Västerås genom att helt enkelt chatta med AI. Du beskriver vad ditt företag gör, vilka tjänster du erbjuder och vad sajten ska innehålla – så genererar vår svenska AI en komplett hemsida på minuter. Ingen kodning, inga mallar att välja mellan, bara en färdig sajt anpassad efter dina behov.",
+    "Du publicerar direkt på egen domän eller använder en kostnadsfri subdomän utan månadskostnader för hosting. Integrationer som Cal.com för bokningar, Stripe för betalningar och Google Analytics för statistik är inbyggda. Ingen bindningstid – exportera koden när du vill och flytta sajten om du behöver."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din företagssajt med AI",
+      "body": "Du startar en chatt och berättar vad ditt företag gör – allt från konsultverksamhet till hantverksföretag eller lokala tjänster. AI:n ställer följdfrågor om målgrupp, tjänster och vilken känsla sajten ska ha. Utifrån dina svar genereras texter, struktur och layout automatiskt. Du får en komplett sajt med startsida, om-sida, tjänstebeskrivningar och kontaktformulär. Allt på svenska, anpassat efter hur företag i Västerås kommunicerar med sina kunder."
+    },
+    {
+      "heading": "Funktioner som gör sajten arbetsredo direkt",
+      "body": "Din företagssajt blir inte bara snygg – den är byggd för att fungera i praktiken. Integrera Cal.com så kunder kan boka möten eller konsultationer direkt på sajten. Koppla Stripe om du säljer produkter, kurser eller tar förskottsbetalningar. Google Analytics ger dig koll på besökare och vilka sidor som fungerar bäst. Allt detta utan att du behöver installera plugins eller skriva en rad kod. Sajten är responsiv och ser bra ut på mobil, surfplatta och dator."
+    },
+    {
+      "heading": "Västeråsföretag behöver synlighet och trovärdighet",
+      "body": "Oavsett om du driver ett konsultbolag vid Mälarstranden, ett byggföretag i Bäckby eller en redovisningsbyrå i city behöver du en hemsida som visar vad du gör och varför kunder ska välja just dig. Många företag i Västerås konkurrerar både lokalt och regionalt, och en professionell sajt är ofta första intrycket. Sajtmaskin gör det enkelt att komma igång även om du inte har tid eller budget för webbyrå. Du får en sajt som representerar ditt företag på riktigt, inte en generisk mall."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll över din sajt",
+      "body": "Du äger din hemsida helt. Det finns ingen bindningstid och du kan när som helst exportera all kod och flytta sajten till en annan plattform om du vill. Hosting på subdomän kostar ingenting per månad, och egen domän kopplar du enkelt. Uppdateringar gör du själv via chatten – beskriv vad du vill ändra så justerar AI:n innehållet. Det är som att ha en webbutvecklare tillgänglig dygnet runt, utan timkostnad."
+    },
+    {
+      "heading": "Svenskt verktyg byggt för svenska företag",
+      "body": "Sajtmaskin är utvecklat i Sverige av Pretty Good AB och har svenskt gränssnitt, svensk support och AI tränad på hur svenska företag kommunicerar. Du slipper översatta mallar eller engelska termer som inte passar din bransch. Allt från juridiska texter till kontaktformulär är anpassat för svensk affärskultur. För företag i Västerås innebär det en sajt som känns lokal och professionell från dag ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt?",
+      "a": "De flesta får en komplett sajt på 10–20 minuter. Du chattar med AI:n, svarar på frågor om ditt företag och får en färdig hemsida med texter, struktur och design. Vill du justera något efteråt gör du det direkt i chatten."
+    },
+    {
+      "q": "Kan jag använda min egen domän för företagssajten?",
+      "a": "Ja, du kopplar enkelt din egen domän till sajten. Vill du testa först kan du publicera på en kostnadsfri subdomän utan månadskostnad för hosting. Ingen bindningstid gäller oavsett vilket alternativ du väljer."
+    },
+    {
+      "q": "Fungerar sajten för företag som tar bokningar?",
+      "a": "Absolut. Du integrerar Cal.com så kunder kan boka möten, konsultationer eller servicetillfällen direkt på sajten. Bokningskalendern synkas med din egen kalender och du styr själv tillgänglighet och mötestyper."
+    },
+    {
+      "q": "Passar Sajtmaskin för företag i Västerås som vill synas lokalt?",
+      "a": "Ja, sajten blir sökmotorvänlig och du kan anpassa texter för att synas i lokala sökningar. Många Västeråsföretag använder sajten för att nå kunder i regionen, och du kan enkelt lägga till information om var ni finns och vilka områden ni täcker."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera all kod när som helst och flytta sajten till en annan hostingleverantör eller plattform. Det finns ingen bindningstid och du äger allt innehåll. Sajtmaskin låser inte in dig."
+    },
+    {
+      "q": "Kan jag lägga till betalfunktioner på sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du ta betalt för produkter, tjänster, kurser eller medlemskap. Du kan också koppla en Shopify-butik om du driver e-handel vid sidan av företagssajten."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera sajten?",
+      "a": "Nej, alla ändringar gör du genom att chatta med AI:n. Beskriv vad du vill ändra – texter, bilder, nya sidor – så uppdateras sajten automatiskt. Ingen kod, inga komplicerade gränssnitt."
+    }
+  ],
+  "localOrIndustryContext": "Västerås har en bred företagsmix från industri och teknik till konsulter, bygg och lokala tjänster. Många företag behöver en professionell hemsida som fungerar både för lokala kunder och regionala uppdrag, utan att det ska kosta skjortan eller ta veckor att få på plats.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

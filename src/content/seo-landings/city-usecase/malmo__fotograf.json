@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "malmo/fotograf",
+  "title": "Hemsida fotograf Malmö – AI bygger din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell fotografhemsida i Malmö med AI. Portfoliogalleri, bokningssystem och kontaktformulär – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för fotografer i Malmö",
+  "heroSub": "Bygg en professionell fotografsajt med AI – komplett med galleri, bokning och kontaktformulär, anpassad för Malmös fotobransch.",
+  "introParagraphs": [
+    "Som fotograf i Malmö behöver du en hemsida som visar ditt arbete på bästa sätt och gör det enkelt för kunder att boka dig. Sajtmaskin bygger din fotografsajt på minuter via chat – du beskriver din verksamhet, AI:n skapar en färdig sajt med portfoliogalleri, bokningssystem och allt annat du behöver.",
+    "Din sajt får automatiskt responsiv design som fungerar perfekt på mobil, viktigt när bröllopspar och företagskunder i Malmö söker fotograf på språng. Integrera Cal.com för direktbokning av porträttfotografering eller företagsfoto, lägg till Stripe om du säljer prints eller fotokurser. Allt på svenska, utan kod, klart att publicera på din egen domän direkt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfoliogalleri som visar ditt bästa arbete",
+      "body": "Din fotografhemsida behöver visa upp dina bilder professionellt. Sajtmaskin skapar automatiskt ett responsivt galleri där du kan dela upp dina projekt – bröllop, porträtt, företagsfoto, arkitektur eller evenemang. Bilderna optimeras för snabb laddning utan att tappa kvalitet, och galleriet fungerar lika bra på mobil som desktop. Lägg till beskrivningar, kundreferenser och bakomkulisser för att ge besökare full kontext kring ditt arbete."
+    },
+    {
+      "heading": "Bokningssystem för fotosessioner i Malmö",
+      "body": "Gör det enkelt för kunder att boka tid direkt på sajten. Med Cal.com-integration kan du visa tillgängliga tider för studiosession, utomhusfotografering i Malmö eller on-location-uppdrag. Kunder väljer tjänst, tid och bekräftar – allt synkas med din kalender automatiskt. Perfekt för porträttfotografer, familjefotografer och alla som vill slippa mejltennis om lediga tider. Du bestämmer själv buffert mellan bokningar och vilka dagar som är öppna."
+    },
+    {
+      "heading": "Anpassad för Malmös fotobransch",
+      "body": "Malmö har en stark kreativ scen med allt från modefotografer och arkitekturfotografer till dokumentärfotografer och bröllopsspecialister. Din sajt kan spegla din nisch – visa upp projekt från Västra Hamnen, Folkets Park eller lokala företag och kulturinstitutioner. Lägg till information om var du arbetar, om du har studio i Malmö eller jobbar på plats, och vilka typer av uppdrag du tar. Sajten byggs på svenska och kan inkludera lokala referenser som gör att Malmö-kunder känner igen sig."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Starta med Sajtmaskins kostnadsfria subdomän och publicera direkt. När du vill kan du koppla din egen domän utan extra månadskostnad för hosting på subdomän. Behöver du mer kraft eller vill äga koden helt? Exportera hela sajten och flytta den vart du vill. Ingen bindningstid, inga dolda avgifter. Du kan uppdatera galleri, priser och tjänster själv när verksamheten utvecklas, eller låta AI:n hjälpa dig bygga om sektioner via chat."
+    },
+    {
+      "heading": "Bygg din fotografsajt på minuter",
+      "body": "Berätta för AI:n vilken typ av fotograf du är, vilka tjänster du erbjuder i Malmö och vad som är viktigt för dina kunder. På minuter får du en färdig sajt med hem, om, portfolio, tjänster, priser och kontakt. Lägg till bokningssystem, kontaktformulär och Google Analytics direkt. Allt på svenska, byggt för att fungera – så du kan fokusera på fotografering istället för teknik."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografhemsida med Sajtmaskin?",
+      "a": "Själva AI-genereringen tar några minuter. Du chattar med AI:n om din fotografverksamhet, vilka tjänster du erbjuder och vad sajten ska innehålla, så skapar den en färdig struktur med text och layout. Sedan kan du ladda upp dina egna bilder till galleriet, justera texter och färger efter behov. De flesta fotografer har en publiceringsbar sajt inom en timme."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotoprojekt i separata gallerier?",
+      "a": "Ja, du kan organisera ditt arbete i olika sektioner – ett galleri för bröllop, ett för porträtt, ett för företagsfoto och så vidare. Varje galleri kan ha egen beskrivning och stil. Det gör det enkelt för besökare att hitta rätt typ av exempel och se om din stil passar deras behov. Du uppdaterar gallerierna själv genom att ladda upp nya bilder när du vill."
+    },
+    {
+      "q": "Fungerar bokningssystemet för olika typer av fotosessioner?",
+      "a": "Ja, med Cal.com-integrationen kan du sätta upp olika tjänster med olika längd och pris – exempelvis 30 minuters porträttsession, 2 timmars familjefotografering eller heldags bröllopsfotografering. Kunder ser tillgängliga tider, väljer vad som passar och bokar direkt. Du kan blockera datum när du inte är tillgänglig och ställa in bufferttid mellan uppdrag."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att uppdatera min fotografsajt?",
+      "a": "Nej, allt sköts via ett svenskt gränssnitt där du kan byta text, ladda upp nya bilder och ändra layout utan kod. Vill du göra större förändringar kan du chatta med AI:n och beskriva vad du vill ha – den uppdaterar sajten åt dig. Det är byggt för att fotografer ska kunna fokusera på sitt arbete, inte krångla med teknik."
+    },
+    {
+      "q": "Vad kostar det att driva en fotografhemsida via Sajtmaskin?",
+      "a": "Du kan publicera på en Sajtmaskin-subdomän helt utan månadskostnad för hosting. Vill du använda din egen domän betalar du bara för domänregistreringen hos din domänleverantör. Bokningssystem via Cal.com är gratis i basvarianten, Stripe tar en liten procent vid betalningar om du säljer prints eller kurser. Inga dolda avgifter eller bindningstid."
+    },
+    {
+      "q": "Kan jag använda sajten för att sälja fototjänster eller prints i Malmö?",
+      "a": "Ja, integrera Stripe för att ta betalt för bokningar, sälja digitala bilder eller fysiska prints direkt på sajten. Du kan också länka till en Shopify-webshop om du har ett större utbud. Många fotografer i Malmö använder sajten både som portfolio och för direktförsäljning av tjänster, vilket förenklar hela kundresan från visning till bokning till betalning."
+    },
+    {
+      "q": "Är sajten anpassad för mobil – viktigt när kunder söker fotograf i Malmö?",
+      "a": "Ja, sajten är responsiv från start och fungerar perfekt på mobil, surfplatta och desktop. Eftersom många söker och bokar fotograf på mobilen är det avgörande att galleri, kontaktformulär och bokningssystem fungerar smidigt på alla enheter. Bilderna optimeras automatiskt så de laddar snabbt även på mobilt nätverk."
+    }
+  ],
+  "localOrIndustryContext": "Malmö har en livlig fotoscen med efterfrågan på allt från bröllops- och porträttfotografer till arkitektur- och eventfotografer. Med kulturinstitutioner, kreativa företag och en växande startup-scen behöver fotografer en professionell närvaro online som både visar upp arbete och förenklar bokning.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Malmö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

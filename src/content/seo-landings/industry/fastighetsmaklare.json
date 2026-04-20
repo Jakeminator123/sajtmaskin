@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "fastighetsmaklare",
+  "title": "Hemsida för fastighetsmäklare – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din mäklarbyrå med objekt, värderingar och referenser. Ingen kod krävs. Publicera på egen domän direkt.",
+  "h1": "Hemsida för fastighetsmäklare",
+  "heroSub": "Bygg en komplett mäklarsajt med objektgalleri, bokningsfunktion och referenser – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "Som fastighetsmäklare behöver du en hemsida som visar dina aktuella objekt, gör det enkelt för säljare att boka värdering och bygger förtroende genom tydliga referenser. Sajtmaskin låter dig skapa hela sajten på minuter genom att chatta med en AI – du beskriver vad du vill ha, så genereras sidorna automatiskt.",
+    "Du får en färdig sajt med objektgalleri, kontaktformulär, om-sida och bokningsfunktion via Cal.com. Publicera direkt på egen domän utan månadskostnad för hosting, och uppdatera innehållet när nya objekt kommer in eller säljs. Allt på svenska, utan teknisk krångel.",
+    "Ingen bindningstid och du kan exportera koden när du vill. Perfekt för dig som driver egen byrå eller jobbar i ett mindre team och vill ha en proffsig närvaro utan att betala för dyra webbyrålösningar."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en mäklarsajt behöver innehålla",
+      "body": "En bra hemsida för fastighetsmäklare visar aktuella objekt med bilder, pris och beskrivning, gärna uppdelat på bostadsrätter, villor och fritidshus. Du behöver en startsida som ger snabb överblick, en om-sida där du presenterar dig själv och teamet, samt en kontaktsida där säljare kan boka kostnadsfri värdering. Många mäklare vill också ha en referenssida med tidigare försäljningar och kundutlåtanden för att bygga trovärdighet. Sajtmaskin skapar alla dessa sidor åt dig utifrån en enkel beskrivning i chatten."
+    },
+    {
+      "heading": "Objektgalleri och enkel uppdatering",
+      "body": "Med Sajtmaskin kan du bygga ett visuellt objektgalleri där varje bostad får en egen undersida med bildspel, fakta och beskrivning. Du uppdaterar innehållet själv genom att chatta med AI:n – skriv till exempel "
+    },
+    {
+      "heading": "Bokningar och kontakt som fungerar",
+      "body": "Integrera Cal.com direkt i sajten så att säljare kan boka tid för värdering i din kalender. Du slipper mejlkaos och missade samtal. Lägg till ett kontaktformulär på varje objektsida så intressenter enkelt kan ställa frågor. Vill du samla in leads kan du koppla Google Analytics för att se vilka objekt som drar mest trafik och var besökarna kommer ifrån. Allt sätts upp utan kod."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "När sajten är klar publicerar du den på din egen domän – till exempel dittnamn.se eller dinbyra.se. Väljer du att ligga på en Sajtmaskin-subdomän slipper du helt hosting-avgift. Behöver du fler funktioner senare, som betalning via Stripe för konsulttjänster eller e-böcker, lägger du enkelt till det. Ingen bindningstid och du kan exportera hela koden om du vill flytta sajten någon annanstans."
+    },
+    {
+      "heading": "Bygg sajten på minuter, inte veckor",
+      "body": "Traditionella webbbyråer tar ofta veckor och kostar tiotusentals kronor. Med Sajtmaskin chattar du fram hela mäklarsajten på några minuter. Beskriv vilka sidor du vill ha, vilka objekt som ska synas och hur du vill att kontaktflödet ska se ut – AI:n bygger strukturen, skriver utkast till texter och sätter upp designen. Du justerar sedan det du vill ändra, allt i samma gränssnitt. Perfekt när du precis startat egen byrå eller vill förnya en gammal sajt snabbt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa till salu-objekt med bilder och prisuppgifter?",
+      "a": "Ja, du bygger ett objektgalleri där varje bostad får en egen sida med bildspel, kvadratmeter, pris, läge och beskrivning. Du uppdaterar enkelt genom att chatta med AI:n när objekt säljs eller nya kommer in."
+    },
+    {
+      "q": "Hur lägger jag till bokningsfunktion för värderingar?",
+      "a": "Koppla Cal.com till sajten så får du en inbäddad kalender där säljare kan boka ledig tid direkt. Du hanterar allt i Cal.com och slipper dubbelbokningar. Integrationen sätts upp utan kod."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Absolut. Du pekar din domän mot Sajtmaskin och publicerar sajten där. Vill du ligga på en subdomän hos oss, till exempel dinbyra.sajtmaskin.se, är hostingen gratis utan månadskostnad."
+    },
+    {
+      "q": "Hur visar jag referenser och sålda objekt?",
+      "a": "Skapa en referenssida där du listar tidigare försäljningar med adress, slutpris och eventuellt kundcitat. Du kan också lägga till en sektion på startsidan med utvalda case. Allt läggs in genom chatten."
+    },
+    {
+      "q": "Kan jag koppla Google Analytics för att se besöksstatistik?",
+      "a": "Ja, du lägger till din Analytics-kod i Sajtmaskin så börjar du samla data på vilka objekt som är populärast, var trafiken kommer ifrån och hur länge folk stannar. Bra för att förstå vad som funkar."
+    },
+    {
+      "q": "Kostar det något att uppdatera sajten löpande?",
+      "a": "Nej månadskostnad för hosting på subdomän. Du betalar bara om du vill ha extra funktioner eller support. Uppdateringar av innehåll gör du själv genom att chatta med AI:n, utan begränsningar."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform senare?",
+      "a": "Ja, du kan exportera hela koden när du vill. Ingen bindningstid och inga dolda avgifter. Du äger alltid ditt innehåll och kan flytta sajten till egen server eller annan leverantör."
+    }
+  ],
+  "localOrIndustryContext": "Fastighetsmäklarbranschen i Sverige är hårt reglerad och konkurrensen är tuff, särskilt i storstadsområden som Stockholm, Göteborg och Malmö. En proffsig hemsida med tydliga objekt, snabb kontaktväg och trovärdiga referenser är ofta skillnaden mellan att säljare väljer dig eller en konkurrent. Många mindre byråer och nyetablerade mäklare saknar budget för dyra webblösningar – Sajtmaskin ger dig samma funktioner till en bråkdel av kostnaden.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en fastighetsmäklare-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

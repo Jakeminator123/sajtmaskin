@@ -1,0 +1,89 @@
+{
+  "family": "city-usecase",
+  "slug": "eskilstuna/portfolio",
+  "title": "Hemsida Portfolio Eskilstuna – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig portfoliosajt i Eskilstuna med AI. Ingen kod, publicera på egen domän, färdig på minuter. Perfekt för kreatörer och konsulter.",
+  "h1": "Portfoliosajt i Eskilstuna – snabbt och enkelt",
+  "heroSub": "Bygg en proffsig portfolio som visar ditt arbete, direkt från chatten. Ingen kod, inga krångliga verktyg.",
+  "introParagraphs": [
+    "En bra portfoliosajt gör skillnad när du söker uppdrag eller vill visa vad du kan. Oavsett om du är fotograf, designer, konsult eller hantverkare i Eskilstuna behöver du en sajt som visar ditt bästa arbete utan att ta veckor att bygga. Sajtmaskin låter dig skapa en färdig portfolio på minuter genom att chatta med AI – du beskriver vad du vill ha, så genereras hela sajten.",
+    "Du får en sajt som fungerar direkt, med bildgallerier, projektbeskrivningar och kontaktformulär. Publicera på egen domän eller använd en kostnadsfri subdomän. Allt på svenska, inget krångel med kod eller designverktyg. Perfekt när du behöver komma igång snabbt och visa upp ditt arbete professionellt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför en portfoliosajt är viktig i Eskilstuna",
+      "body": "Eskilstuna har en stark kreativ sektor och många frilansare inom design, foto, bygg och konsulttjänster. När potentiella kunder söker efter någon att anlita kollar de nästan alltid online först. En portfoliosajt visar inte bara vad du gjort – den bygger förtroende och gör det enkelt för kunder att kontakta dig. Utan en sajt riskerar du att tappas bort bland konkurrenterna som redan syns online. Med Sajtmaskin får du en färdig lösning som fungerar direkt, utan att du behöver lära dig design eller betala dyrt för en webbbyrå."
+    },
+    {
+      "heading": "Vad ingår i en bra portfolio?",
+      "body": "En portfoliosajt behöver visa ditt arbete tydligt, med bilder eller projektbeskrivningar som får besökaren att förstå vad du kan. Du vill ha en startsida som fångar intresse, ett galleri eller projektsektion där varje arbete får plats, en om-sida som berättar vem du är, och ett enkelt sätt för kunder att nå dig. Sajtmaskin bygger allt detta åt dig. Du kan lägga till Cal.com för bokningar om du säljer konsulttid, eller Stripe om du tar betalt för produkter eller tjänster. Allt sköts i samma gränssnitt, på svenska."
+    },
+    {
+      "heading": "Så bygger du din portfolio med Sajtmaskin",
+      "body": "Du startar en chatt och beskriver vad du behöver: vilken typ av portfolio, vilka projekt du vill visa, vilken känsla sajten ska ha. AI:n genererar en färdig sajt med text, layout och struktur. Du kan sedan justera bilder, byta texter eller lägga till fler sidor direkt i chatten. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän. Ingen bindningstid, och du kan exportera all kod om du vill flytta sajten senare. Det tar minuter istället för veckor, och du slipper tekniskt krångel helt."
+    },
+    {
+      "heading": "Integrationer som gör sajten mer användbar",
+      "body": "En portfoliosajt blir starkare när den kopplas till verktyg du redan använder. Med Cal.com kan kunder boka möten eller konsultationer direkt på sajten – perfekt om du säljer din tid. Stripe låter dig ta betalt för digitala produkter, kurser eller tjänster. Google Analytics visar vilka projekt som får mest besök, så du vet vad som funkar. Alla integrationer sätts upp utan kod, och du styr allt från samma svenska gränssnitt. Sajtmaskin håller tekniken enkel så du kan fokusera på ditt arbete istället."
+    },
+    {
+      "heading": "Ingen månadskostnad, ingen inlåsning",
+      "body": "Många sajttjänster kräver månadsbetalning så länge sajten finns uppe. Sajtmaskin tar betalt en gång när du bygger sajten, sen kan du använda en kostnadsfri subdomän utan löpande avgifter. Vill du ha egen domän kopplar du den direkt. Det finns ingen bindningstid och du kan exportera koden när som helst. Perfekt om du vill testa en portfoliosajt utan att låsa dig vid dyra abonnemang eller krångliga avtal. Allt är byggt i Sverige, med svenskt stöd och svenska texter från start."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfoliosajt?",
+      "a": "De flesta användare har en färdig sajt på 10–20 minuter. Du chattar med AI:n, beskriver vad du vill visa och vilken stil du föredrar, så genereras sajten direkt. Sedan justerar du bilder och texter tills allt känns rätt. Ingen kodning eller designkunskap behövs."
+    },
+    {
+      "q": "Kan jag använda min egen domän för portfolion?",
+      "a": "Ja, du kopplar din egen domän direkt i gränssnittet. Vill du testa först kan du publicera på en kostnadsfri subdomän utan månadskostnad. Bytet till egen domän går smidigt när du är redo, och allt innehåll följer med automatiskt."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för fotografer och designers i Eskilstuna?",
+      "a": "Absolut. Många kreatörer i Eskilstuna använder Sajtmaskin för att visa sina projekt snabbt och proffsigt. Du kan bygga bildgallerier, projektbeskrivningar och kontaktformulär på minuter. Sajten blir responsiv och ser bra ut på mobil, vilket är viktigt när kunder kollar ditt arbete på språng."
+    },
+    {
+      "q": "Kan jag ta betalt eller boka möten via sajten?",
+      "a": "Ja, du integrerar Stripe för betalningar och Cal.com för bokningar. Perfekt om du säljer konsulttid, workshops eller digitala produkter. Allt sätts upp utan kod, direkt i samma gränssnitt där du bygger sajten. Inga extra verktyg eller krångliga kopplingar behövs."
+    },
+    {
+      "q": "Vad händer om jag vill ändra något senare?",
+      "a": "Du chattar helt enkelt med AI:n igen och beskriver vad du vill ändra – nya bilder, andra texter, fler projekt. Sajten uppdateras direkt. Du kan också exportera koden och flytta sajten till en egen server om du vill ha full kontroll. Ingen inlåsning, inga dolda avgifter."
+    },
+    {
+      "q": "Kostar det något att ha sajten uppe efter lansering?",
+      "a": "Om du använder en subdomän från Sajtmaskin är hostingen kostnadsfri utan månadskostnad. Vill du ha egen domän betalar du bara för domänen själv, ingen extra avgift från oss. Du äger innehållet och kan exportera allt när du vill, utan bindningstid eller dolda kostnader."
+    }
+  ],
+  "localOrIndustryContext": "Eskilstuna har en växande kreativ sektor med fotografer, designers, konsulter och hantverkare som behöver synas online. En portfoliosajt är ofta första steget för att nå lokala och regionala kunder. Med Sajtmaskin slipper du vänta på webbyråer eller kämpa med komplicerade verktyg – du får en färdig sajt på minuter, helt på svenska.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/eskilstuna",
+      "label": "Skapa hemsida i Eskilstuna"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Eskilstuna. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

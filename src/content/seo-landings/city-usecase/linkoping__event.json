@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "linkoping/event",
+  "title": "Hemsida för event i Linköping – bygg din eventsajt med AI | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Linköping på minuter. Bokning, biljetter och betalning integrerat. Ingen kod krävs.",
+  "h1": "Hemsida för event i Linköping",
+  "heroSub": "Bygg en komplett eventsajt med bokning och betalning på minuter – direkt i chatten, helt på svenska.",
+  "introParagraphs": [
+    "Om du arrangerar konferenser, mässor, konserter eller företagsevent i Linköping behöver du en sajt som gör det enkelt för besökare att hitta information och boka biljetter. Sajtmaskin låter dig bygga en professionell eventsajt genom att bara beskriva vad du behöver i en chatt. AI:n skapar hela sajten åt dig – med program, talare, bokningssystem och betalning.",
+    "Du får en färdig sajt som fungerar på egen domän, med integrerade verktyg för bokningar via Cal.com och betalningar via Stripe. Allt är på svenska, och du kan publicera direkt utan att behöva vänta på webbyrå eller lära dig kod. Perfekt för eventbyråer, kulturarrangörer och företag som vill ha en snygg närvaro snabbt.",
+    "Ingen bindningstid och ingen månadskostnad om du använder vår subdomän. Vill du byta plattform senare kan du exportera hela koden. Sajtmaskin är byggt i Sverige av Pretty Good AB och är anpassat för svenska företag som vill ha kontroll utan krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en eventsajt i Linköping behöver",
+      "body": "En bra eventsajt ska snabbt visa vad eventet handlar om, när det är och var i Linköping det äger rum. Besökare vill se program, talare eller artister, och kunna boka eller köpa biljetter direkt. Många event i Linköping – från konferenser på Konsert & Kongress till festivaler i Trädgårdsföreningen – behöver också visa praktisk information om parkering, kollektivtrafik och boende. Sajtmaskin genererar alla dessa sektioner automatiskt utifrån din beskrivning, så du slipper bygga varje sida manuellt."
+    },
+    {
+      "heading": "Bokning och betalning integrerat från start",
+      "body": "Med Sajtmaskin får du Cal.com för bokningar och Stripe för kortbetalningar inbyggt i sajten. Det betyder att deltagare kan registrera sig, välja workshops eller köpa biljetter utan att du behöver koppla in externa tjänster efteråt. Allt sker på din egen sajt, och du behöver inte hantera mejllistor eller manuella bekräftelser. För återkommande event i Linköping – som nätverksmingel, utbildningar eller kulturkvällar – sparar det massor av tid."
+    },
+    {
+      "heading": "Bygg sajten på svenska, publicera direkt",
+      "body": "Sajtmaskin är helt på svenska, från gränssnittet till supporten. Du chattar med AI:n på svenska och beskriver ditt event – kanske en startup-pitch på Mjärdevi Science Park eller en musikfestival i Stångån-parken. AI:n skapar texter, layout och funktioner som passar just ditt event. Du kan redigera allt direkt i chatten och publicera på egen domän eller en kostnadsfri subdomän. Ingen kod, inga mallar att välja mellan – bara en färdig sajt på minuter."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du äger din sajt och kan exportera koden när du vill. Det finns ingen månadskostnad om du använder vår subdomän, och inga dolda avgifter. Vill du byta till annan hosting eller lägga till egna funktioner senare är du fri att göra det. För eventarrangörer i Linköping som vill testa en ny sajt inför ett enskilt event är det en trygg lösning – du kan använda Sajtmaskin för ett tillfälle och sedan bestämma om du vill fortsätta."
+    },
+    {
+      "heading": "Gjort i Sverige för svenska företag",
+      "body": "Sajtmaskin är byggt av Pretty Good AB i Sverige och följer svenska standarder för tillgänglighet och integritet. All support sker på svenska, och plattformen är anpassad för hur svenska företag och organisationer jobbar. För event i Linköping – oavsett om det är en akademisk konferens på Linköpings universitet eller en branschmässa – får du en sajt som känns professionell och fungerar direkt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en eventsajt live?",
+      "a": "De flesta eventsajter är klara på 10–20 minuter. Du beskriver ditt event i chatten, AI:n genererar sajten, och du publicerar direkt. Vill du justera texter eller lägga till fler sidor gör du det i samma chatt."
+    },
+    {
+      "q": "Kan jag sälja biljetter och ta betalt via sajten?",
+      "a": "Ja, Sajtmaskin integrerar Stripe så besökare kan betala med kort direkt på sajten. Du kan också koppla Cal.com för bokningar av workshops, föreläsningar eller andra tidsbestämda aktiviteter under eventet."
+    },
+    {
+      "q": "Fungerar sajten för återkommande event i Linköping?",
+      "a": "Absolut. Du kan uppdatera datum, program och talare inför varje nytt tillfälle genom att chatta med AI:n. Sajten ligger kvar på samma domän, så besökare som bokmärkt sidan hittar tillbaka automatiskt."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, allt sker i chatten på svenska. Du beskriver vad du vill ha, AI:n bygger sajten, och du kan redigera genom att skriva vad du vill ändra. Ingen kod syns om du inte själv vill exportera den."
+    },
+    {
+      "q": "Kan jag använda min egen domän för eventsajten?",
+      "a": "Ja, du kan publicera på vilken domän du vill. Vill du testa först kan du använda en kostnadsfri subdomän hos Sajtmaskin, och sedan flytta till egen domän när du är redo."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform efter eventet?",
+      "a": "Du kan exportera hela koden när som helst utan kostnad. Det finns ingen bindningstid, så du är fri att använda Sajtmaskin för ett enskilt event och sedan avsluta eller fortsätta som du vill."
+    },
+    {
+      "q": "Passar Sajtmaskin för event på Linköpings universitet eller Konsert & Kongress?",
+      "a": "Ja, plattformen fungerar för alla typer av event – akademiska konferenser, företagsevent, kulturarrangemang och festivaler. Du kan lägga till kartor, praktisk info om platsen och anpassa innehållet efter din målgrupp i Linköping."
+    }
+  ],
+  "localOrIndustryContext": "Linköping är en av Sveriges ledande teknik- och universitetsstad med ett aktivt näringsliv kring Mjärdevi Science Park och Linköpings universitet. Event här spänner från akademiska konferenser och innovationsmässor till kulturfestivaler och företagsmingel. En lokal eventsajt behöver ofta visa väg till arenor som Konsert & Kongress, Cloetta Center eller Campus Valla, samt ge info om parkering och kollektivtrafik för besökare som kommer från andra delar av Östergötland.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/linkoping",
+      "label": "Skapa hemsida i Linköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Linköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

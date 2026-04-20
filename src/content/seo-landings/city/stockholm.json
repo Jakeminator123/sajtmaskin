@@ -1,0 +1,78 @@
+{
+  "family": "city",
+  "slug": "stockholm",
+  "title": "Skapa hemsida i Stockholm — AI-driven webbplattform | Sajtmaskin",
+  "metaDescription": "Behöver du hemsida i Stockholm? Sajtmaskin bygger din webbplats på minuter med AI — svenskspråkig, snabb och helt utan kod. Testa gratis.",
+  "h1": "Skapa din hemsida i Stockholm på minuter",
+  "heroSub": "AI-driven webbplattform för Stockholms företag, konsulter och kreatörer — inga mallar, ingen kod.",
+  "introParagraphs": [
+    "Du som driver verksamhet i Stockholm vet att konkurrensen om synlighet online är stenhård. En välbyggd hemsida är skillnaden mellan att hittas av rätt kunder och att drunkna i flödet. Sajtmaskin hjälper dig att bygga en hemsida anpassad för Stockholms marknad, direkt från webbläsaren och utan att du behöver anlita en webbyrå.",
+    "Vi kombinerar AI-genererad copy, snygg design och automatisk SEO-optimering med en svenskspråkig intag som förstår din bransch — oavsett om du är frisör på Södermalm, konsult på Östermalm eller driver en webshop i Täby.",
+    "Resultatet är en hemsida som är redo att publiceras samma dag, med struktur som Google premierar och text som talar direkt till dina Stockholmskunder."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför företag i Stockholm väljer Sajtmaskin",
+      "body": "Stockholm har över 60 000 aktiva småföretag och en av Europas högsta digitaliseringsgrader. Samtidigt har traditionella byråer månader långa väntetider och priser från 25 000 kr och uppåt. Sajtmaskin är designat för den moderna Stockholmsverksamheten: snabb, AI-assisterad och byggd för att du ska kunna uppdatera sidan själv när som helst."
+    },
+    {
+      "heading": "Så fungerar det",
+      "body": "Beskriv din verksamhet på svenska — t.ex. \"jag är en frisör i Vasastan med bokning online\" — så genererar Sajtmaskin en komplett sajt med startsida, om-sida, tjänste- och kontaktsidor. Du ser direkt en färdig preview, kan justera färger, texter och bilder, och publicera med egen domän."
+    },
+    {
+      "heading": "SEO för Stockholmsföretag",
+      "body": "Varje sida vi genererar innehåller strukturerad data (schema.org), snabba Core Web Vitals och ortsspecifik metadata. Det hjälper din sajt att ranka på sökningar som \"frisör Södermalm\", \"redovisning Stockholm\" eller \"konsult Kista\" — utan att du behöver kunna något om SEO."
+    },
+    {
+      "heading": "Från prompt till publicerad sajt",
+      "body": "Hela flödet från första prompt till publicerad Stockholmshemsida tar typiskt 5–15 minuter. Du får en färdig svensk hemsida med responsiv design, kontaktformulär, bokningslänk och Google Analytics inkluderat — allt utan månadsvis avgift för dyra byggverktyg."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en hemsida i Stockholm?",
+      "a": "Med Sajtmaskin bygger du en fullständig hemsida på 5–15 minuter. Du beskriver din verksamhet på svenska, vår AI bygger sajten, och du kan publicera direkt på en .sajtmaskin.se-subdomän eller din egen domän."
+    },
+    {
+      "q": "Vad kostar det att skapa hemsida med Sajtmaskin?",
+      "a": "Du kan bygga och förhandsgranska helt gratis. Först när du vill publicera med egen domän eller lägga till avancerade funktioner tillkommer en kostnad — betydligt lägre än vad en Stockholmsbyrå tar."
+    },
+    {
+      "q": "Behöver jag kunna programmera?",
+      "a": "Nej. Allt sker via en svenskspråkig chattintegration. Skriv vad du vill förändra så uppdaterar AI:n sidan automatiskt — texter, bilder, färger, layout."
+    },
+    {
+      "q": "Kan jag använda egen domän?",
+      "a": "Ja. Du kan ansluta en domän du redan äger, eller köpa en ny via Sajtmaskin. Vi hanterar SSL-certifikat och DNS automatiskt."
+    },
+    {
+      "q": "Är sajten SEO-optimerad för Stockholmssökningar?",
+      "a": "Ja. Vi lägger automatiskt in metadata, strukturerad data och ortsspecifik kontext där det är relevant. Du kan dessutom själv styra vilka nyckelord och orter som ska prioriteras."
+    },
+    {
+      "q": "Kan jag koppla bokning, betalning eller e-handel?",
+      "a": "Ja. Populära integrationer som Cal.com, Stripe och Shopify kan anslutas. För Stockholmsbaserade salonger och kliniker rekommenderar vi bokningsintegration från början."
+    },
+    {
+      "q": "Hur skiljer Sajtmaskin sig från Wix eller Squarespace?",
+      "a": "Sajtmaskin är svenskspråkigt från grunden, använder AI för hela skapandet (inte bara vissa block), och är specialiserat på svenska marknader. Resultatet blir en sajt som känns gjord för din verksamhet, inte en mall."
+    }
+  ],
+  "localOrIndustryContext": "Stockholm står för en fjärdedel av Sveriges BNP och har över 1 miljon invånare i kommunen. Sajtmaskin används redan av verksamheter i hela länet — från Kungsholmen och Södermalm till Täby, Nacka och Södertälje.",
+  "internalLinks": [
+    { "href": "/hemsida/goteborg", "label": "Skapa hemsida i Göteborg" },
+    { "href": "/hemsida/uppsala", "label": "Skapa hemsida i Uppsala" },
+    { "href": "/hemsida/sodertalje", "label": "Skapa hemsida i Södertälje" },
+    { "href": "/hemsida/taby", "label": "Skapa hemsida i Täby" },
+    { "href": "/skapa-hemsida/webshop", "label": "Skapa webshop" },
+    { "href": "/skapa-hemsida/konsult", "label": "Hemsida för konsult" },
+    { "href": "/hemsida-for/frisor", "label": "Hemsida för frisörer" },
+    { "href": "/ai-hemsida/ai-hemsida", "label": "Vad är en AI-hemsida?" }
+  ],
+  "cta": {
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Stockholm. Hjälp mig komma igång.",
+    "buttonLabel": "Skapa din hemsida gratis"
+  },
+  "generatedAt": "2026-04-17",
+  "model": "manual"
+}

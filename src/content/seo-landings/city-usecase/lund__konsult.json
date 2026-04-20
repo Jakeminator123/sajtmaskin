@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "lund/konsult",
+  "title": "Hemsida konsult Lund – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell konsulthemsida i Lund med AI. Bokningssystem, betallösning och SEO – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för konsulter i Lund",
+  "heroSub": "Bygg en komplett konsultsajt med bokning, betalning och lokalt fokus – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "Som konsult i Lund behöver du en sajt som visar expertis, gör det enkelt att boka möten och tar betalt – utan att du ska behöva lägga veckor på tekniska lösningar. Sajtmaskin låter dig bygga hela hemsidan via chat: berätta vad du gör, vem du hjälper och vilka tjänster du erbjuder, så genererar AI:n en färdig sajt på minuter.",
+    "Du får Cal.com-integration för bokning, Stripe för betalning och Google Analytics för att följa besökare. Allt på svenska, publicerat på din egen domän utan månadskostnad för hosting på subdomän. Ingen bindningstid, och du kan exportera koden när du vill.",
+    "Lund är en stad med allt från life science-företag till hållbarhetskonsulter och managementrådgivare – och alla behöver en sajt som speglar lokal närvaro och professionalism. Sajtmaskin hjälper dig att komma igång direkt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem som passar konsultbranschen",
+      "body": "Konsulter lever på möten – och ett smidigt bokningssystem sparar både tid och mejltrådar. Sajtmaskin integrerar Cal.com direkt i din sajt, så kunder kan välja tid i din kalender utan att du behöver bekräfta manuellt. Du styr vilka tider som visas, hur långa möten du erbjuder och om det ska vara digitalt eller på plats i Lund. Systemet synkar med din Google- eller Outlook-kalender och skickar påminnelser automatiskt. Perfekt för dig som jobbar med allt från strategirådgivning till projektledning."
+    },
+    {
+      "heading": "Betallösning för timdebitering och paket",
+      "body": "Många konsulter vill ta betalt direkt när kunden bokar – antingen per timme, som fast paket eller som prenumeration för löpande uppdrag. Med Stripe-integration kan du sätta upp betalning för tjänster, workshops eller längre konsultprogram. Kunden betalar säkert med kort, Swish eller faktura, och du får pengarna direkt till ditt företagskonto. Allt hanteras automatiskt, utan att du behöver bygga en egen checkout eller hantera fakturor manuelt. Fungerar lika bra för enskilda timmar som för större projekt."
+    },
+    {
+      "heading": "Lokal synlighet i Lund och regionen",
+      "body": "Som konsult i Lund vill du synas när företag i staden eller Skåne söker efter experthjälp inom ditt område. Sajtmaskin bygger in grundläggande SEO från start: rätt rubriker, metabeskrivningar och snabb laddningstid. Du kan enkelt lägga till ortsnamn, branschord och beskrivningar av dina tjänster så Google förstår vad du gör och var du finns. Sajten är också mobilanpassad, vilket är viktigt när potentiella kunder söker på telefonen. Du kan publicera på egen domän och koppla Google Analytics för att se var besökarna kommer ifrån."
+    },
+    {
+      "heading": "Från AI-prompt till färdig sajt",
+      "body": "Du startar med att chatta med AI:n: beskriv dina konsulttjänster, vilka branscher du jobbar med och vad som skiljer dig från andra. AI:n genererar en komplett sajt med startsida, tjänstebeskrivningar, om-sida, kontaktformulär och bokningslänk. Du kan justera text, byta bilder och lägga till nya sidor direkt i chatten. Allt sker på svenska, och du behöver ingen teknisk kunskap. När du är nöjd publicerar du på din domän eller använder en kostnadsfri subdomän. Ingen bindningstid, och du kan exportera koden om du vill flytta sajten senare."
+    },
+    {
+      "heading": "Integrationer som sparar tid",
+      "body": "Förutom Cal.com och Stripe kan du koppla Google Analytics för att följa besökare, Shopify om du säljer digitala produkter eller kurser, och andra verktyg via API. Allt styrs från samma gränssnitt, utan att du behöver logga in på tio olika tjänster. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svensk support och GDPR-anpassning. Du äger din data och kan när som helst ta med dig allt om du vill byta plattform."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en konsultsajt live?",
+      "a": "De flesta konsulter har en färdig sajt inom 30–60 minuter. Du chattar med AI:n om dina tjänster, granskar förslaget och publicerar direkt. Vill du finjustera text eller lägga till fler sidor kan du göra det efteråt – sajten är live när du är nöjd."
+    },
+    {
+      "q": "Kan jag ta betalt för konsulttjänster direkt på sajten?",
+      "a": "Ja, via Stripe-integration. Du sätter upp betalning för timdebitering, paketpriser eller prenumerationer. Kunden betalar med kort eller Swish, och pengarna går direkt till ditt konto. Du kan även skicka faktura manuellt om du föredrar det."
+    },
+    {
+      "q": "Fungerar bokningssystemet med min befintliga kalender?",
+      "a": "Ja, Cal.com synkar med Google Calendar, Outlook och andra vanliga kalendertjänster. Du styr vilka tider som visas, hur långa möten du erbjuder och om det ska vara digitalt eller fysiskt. Kunden får bekräftelse och påminnelse automatiskt."
+    },
+    {
+      "q": "Kan jag visa att jag är baserad i Lund på sajten?",
+      "a": "Absolut. Du kan lägga till ortsinformation i din om-text, kontaktsida och tjänstebeskrivningar. Det hjälper lokala företag att hitta dig och förbättrar din synlighet i Googlesökningar för konsulttjänster i Lund och Skåne."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på subdomän är gratis utan tidsgräns. Vill du använda egen domän betalar du för domänregistrering (ca 100–150 kr/år) och eventuellt för Stripe-transaktioner (ca 1,4 % + 1,80 kr per transaktion). Ingen månadskostnad för själva plattformen om du kör på subdomän."
+    },
+    {
+      "q": "Kan jag lägga till blogginlägg ellerCase-studier senare?",
+      "a": "Ja, du kan när som helst lägga till nya sidor via chatten. Berätta vad sidan ska innehålla – till exempel ett case från ett projekt i Lund – så genererar AI:n texten. Du kan redigera och publicera direkt. Bra för SEO och för att visa din expertis."
+    },
+    {
+      "q": "Äger jag sajten och kan jag flytta den?",
+      "a": "Ja, du äger allt innehåll och kan exportera koden när du vill. Ingen bindningstid. Om du senare vill flytta till en egen server eller annan plattform tar du med dig filerna och kör vidare där. Sajtmaskin är byggt i Sverige med full GDPR-anpassning."
+    }
+  ],
+  "localOrIndustryContext": "Lund har en stark konsultmarknad inom life science, IT, hållbarhet och management, driven av universitetet och närliggande Science Village. Många konsulter jobbar både lokalt och regionalt i Skåne, och en sajt med tydligt ortsfokus hjälper dig att synas för rätt kunder.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/lund",
+      "label": "Skapa hemsida i Lund"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Lund. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

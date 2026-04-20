@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "jonkoping/salong",
+  "title": "Hemsida för salong i Jönköping – bygg med AI | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Jönköping på minuter. Med bokningssystem, mobilanpassning och ingen bindningstid.",
+  "h1": "Hemsida för salong i Jönköping",
+  "heroSub": "Bygg en komplett sajt för din salong med AI – inklusive bokning, prislista och galleri, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En salong i Jönköping behöver en hemsida som visar upp dina tjänster, gör det enkelt för kunder att boka tid och speglar din profil. Med Sajtmaskin bygger du en färdig sajt på minuter genom att chatta med AI:n – den skapar allt från bildgallerier och prislistor till integrerad bokning via Cal.com.",
+    "Du får en sajt som fungerar lika bra på mobilen som på datorn, publicerad på din egen domän utan månadskostnad för hosting. Allt på svenska, och du kan när som helst exportera koden om du vill flytta vidare. Perfekt för frisörer, nagelsalonger, skönhetssalonger och barberare i Jönköping som vill synas professionellt online.",
+    "Ingen bindningstid, inga krångliga verktyg. Bara en sajt som gör jobbet – så du kan fokusera på dina kunder istället för teknik."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem som funkar direkt",
+      "body": "För en salong är tidsbokning A och O. Sajtmaskin integrerar Cal.com så att dina kunder kan boka klipptid, färgbehandling eller nagelbehandling direkt på sajten. Bokningarna synkas med din kalender, och du slipper dubbelbokningar och missade samtal. AI:n sätter upp allt åt dig – du behöver bara koppla ditt Cal.com-konto, så är systemet igång. Kunderna ser lediga tider i realtid och bokar när det passar dem, dygnet runt."
+    },
+    {
+      "heading": "Visa upp ditt arbete med bildgalleri",
+      "body": "En salong lever på före-och-efter-bilder, färgexempel och inspirerande resultat. Sajtmaskin låter dig enkelt bygga in bildgallerier där du visar upp klippningar, färgningar, extensions, naglar eller skäggvård. Berätta för AI:n vilken känsla du vill ha – minimalistisk, lyxig, urban – så anpassar den layouten. Alla bilder är mobilanpassade automatiskt, så galleriet ser lika snyggt ut oavsett skärm. Lägg till nya bilder när du vill, direkt i gränssnittet."
+    },
+    {
+      "heading": "Prislista och tjänstebeskrivningar",
+      "body": "Dina kunder vill veta vad det kostar innan de bokar. Med Sajtmaskin skapar du tydliga prislistor och beskrivningar för varje tjänst – klippning, färg, permanent, ansiktsbehandling, vaxning, allt du erbjuder. AI:n formaterar det snyggt och läsbart, och du kan uppdatera priser eller lägga till nya behandlingar när verksamheten växer. Allt presenteras på ett sätt som bygger förtroende och gör det lätt för kunden att välja rätt behandling."
+    },
+    {
+      "heading": "Integrationer för betalning och analys",
+      "body": "Om du säljer presentkort, produkter eller tar förskottsbetalning kan du koppla Stripe för säkra kortbetalningar. Vill du förstå var besökarna kommer ifrån och vilka sidor de tittar på? Integrera Google Analytics med ett klick. Sajtmaskin är byggd för att växa med din salong – från enkel visitkort-sajt till fullfjädrad boknings- och försäljningsplattform, allt utan att du behöver anlita utvecklare."
+    },
+    {
+      "heading": "Äkta svensk support, ingen bindningstid",
+      "body": "Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och svensk support. Du äger din sajt och kan när som helst exportera koden om du vill byta plattform. Ingen bindningstid, inga dolda avgifter. Publicera på subdomän utan månadskostnad, eller koppla din egen domän direkt. Perfekt för salonger i Jönköping som vill ha kontroll, flexibilitet och en sajt som faktiskt hjälper verksamheten framåt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en salong-sajt?",
+      "a": "De flesta har en färdig sajt på 10–30 minuter. Du chattar med AI:n, beskriver din salong och vilka tjänster du erbjuder, så genererar den sidor, layout och innehåll. Sedan justerar du bilder, texter och färger tills allt ser rätt ut. Bokningssystem och betalintegration kopplar du på när du vill."
+    },
+    {
+      "q": "Kan jag integrera mitt befintliga bokningssystem?",
+      "a": "Ja, Sajtmaskin stöder Cal.com som är gratis och enkelt att sätta upp. Har du redan Bokadirekt, Booksy eller liknande kan du lägga in en länk eller inbäddad widget – AI:n hjälper dig placera den rätt på sidan. Flexibiliteten gör att du kan jobba som du vill."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Absolut. Alla sajter som byggs med Sajtmaskin är automatiskt mobilanpassade. Eftersom de flesta kunder bokar tid från telefonen är det superviktigt att bokningsknappen, bilderna och prislistorna ser bra ut på liten skärm – och det gör de utan att du behöver lyfta ett finger."
+    },
+    {
+      "q": "Kan jag sälja produkter eller presentkort på sajten?",
+      "a": "Ja. Koppla Stripe för kortbetalningar, eller integrera Shopify om du vill ha en fullfjädrad webshop med lager och frakt. Många salonger säljer presentkort, hårvårdsprodukter eller egna märken – Sajtmaskin klarar allt från enkel betalknapp till komplett e-handel."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Publicerar du på subdomän (dinsakong.sajtmaskin.se) är hostingen gratis. Vill du ha egen domän (dinsakong.se) betalar du bara domänregistrering, vanligtvis 100–150 kr/år. Inga månadskostnader för själva plattformen om du inte väljer premiumfunktioner. Bokningssystem som Cal.com är också gratis i basvarianten."
+    },
+    {
+      "q": "Passar Sajtmaskin för alla typer av salonger i Jönköping?",
+      "a": "Ja – frisörsalonger, nagelstudios, barberare, skönhetssalonger, spakliniker och hudvårdsinstitut. AI:n anpassar design och innehåll efter din bransch och stil. Berätta vad som är viktigt för dig – kanske hållbarhet, lyxkänsla eller snabba drop-in-klippningar – så skräddarsyr den sajten därefter."
+    },
+    {
+      "q": "Kan jag uppdatera öppettider och priser själv?",
+      "a": "Självklart. Du loggar in, klickar på det du vill ändra och skriver nytt. Inga krångliga admin-paneler. Vill du lägga till en ny behandling, ändra pris på klippning eller uppdatera semesterstängt? Det tar någon minut, och ändringarna syns direkt på sajten."
+    }
+  ],
+  "localOrIndustryContext": "Jönköping har en växande salong- och skönhetsbransch, från etablerade frisörsalonger i city till nya nagelstudios och barberare i Huskvarna och A6 Center. Konkurrensen är tuff, och en professionell hemsida med enkel bokning gör skillnad när kunder söker på Google eller scrollar Instagram. Sajtmaskin hjälper dig synas, ta emot bokningar dygnet runt och bygga förtroende – utan att du behöver lägga tusenlappar på webbyrå.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/jonkoping",
+      "label": "Skapa hemsida i Jönköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Jönköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

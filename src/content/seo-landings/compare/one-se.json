@@ -1,0 +1,102 @@
+{
+  "family": "compare",
+  "slug": "one-se",
+  "title": "Alternativ till One.com – Bygg hemsida med AI | Sajtmaskin",
+  "metaDescription": "Söker du alternativ till One.com? Sajtmaskin låter dig bygga hemsida med AI på minuter. Svenskt gränssnitt, ingen bindningstid, publicera direkt.",
+  "h1": "Alternativ till One.com",
+  "heroSub": "Bygg din hemsida med AI istället – på svenska, utan teknikkrångel och klart på minuter.",
+  "introParagraphs": [
+    "One.com är en välkänd webbhotell-leverantör i Skandinavien med över 20 års erfarenhet. De erbjuder domänregistrering, webbhotell och en klassisk webbplatsbyggare. Men om du vill ha en modern hemsida snabbt, utan att lära dig ett byggarverktyg eller betala byrå, finns det idag smartare alternativ.",
+    "Sajtmaskin är ett svenskt AI-verktyg som bygger hela din hemsida från en konversation. Du chattar om vad du behöver, AI:n skapar design och innehåll, och du publicerar direkt – antingen på vår subdomän (gratis hosting) eller din egen domän. Ingen månadskostnad för hosting om du nöjer dig med subdomänen, ingen bindningstid, och du kan exportera koden när du vill.",
+    "Det här är ett alternativ för dig som vill fokusera på ditt företag istället för att dra reglage i en webbplatsbyggare eller vänta på offerter från byråer."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker folk alternativ till One.com?",
+      "body": "One.com fungerar bra för klassiskt webbhotell och e-post, men deras webbplatsbyggare känns ofta omständlig för den som vill ha något klart snabbt. Många upplever att gränssnittet kräver inlärning, att mallarna känns daterade, och att supporten – trots att den finns på svenska – inte alltid kan hjälpa till med design eller innehåll. Dessutom kostar både domän, hosting och byggaren löpande, även om du bara behöver en enkel sajt. Folk letar därför efter verktyg som är snabbare, modernare och mer kostnadseffektiva – särskilt om de driver ett litet företag eller sidoprojekt."
+    },
+    {
+      "heading": "Vad Sajtmaskin gör annorlunda",
+      "body": "Sajtmaskin använder AI för att bygga hela hemsidan åt dig. Du skriver vad du gör, vem du riktar dig till och vad sajten ska innehålla – AI:n tar fram design, texter, struktur och bilder. Inget drag-and-drop, inga mallar att välja mellan. Du chattar, granskar förslaget och publicerar. Vill du ändra något säger du det i chatten, så justerar AI:n direkt. Hela processen tar minuter istället för timmar. Och eftersom allt är på svenska – gränssnitt, support, innehåll – slipper du översättningskrångel och får texter som låter naturliga för svenska kunder."
+    },
+    {
+      "heading": "Integrationer och publicering",
+      "body": "Sajtmaskin stödjer Cal.com för bokningar, Stripe för betalning, Google Analytics för statistik och Shopify för webshop. Du kan publicera på vår subdomän utan månadskostnad för hosting, eller koppla din egen domän (oavsett var den är registrerad). Ingen bindningstid – du kan när som helst exportera hela koden och flytta sajten till egen server om du vill. Det gör att du aldrig är låst, till skillnad från många traditionella webbplatsbyggare där innehållet sitter fast i plattformen."
+    },
+    {
+      "heading": "Vem passar Sajtmaskin för?",
+      "body": "Sajtmaskin är byggt för svenska småföretagare, frilansare, föreningar och startups som vill ha en proffsig hemsida utan att betala byrå eller lägga veckor på att lära sig verktyg. Om du behöver en sajt för en restaurang, konsultverksamhet, webbshop, bokningsbar tjänst eller portfolio – och vill ha den klar idag – är Sajtmaskin ett naturligt val. Det fungerar också utmärkt som komplement: behåll gärna One.com för e-post och domän, men bygg själva sajten med AI istället."
+    },
+    {
+      "heading": "Pris och ägandeskap",
+      "body": "Hosting på subdomän (dinsajt.sajtmaskin.se) är gratis. Vill du använda egen domän betalar du en engångskostnad eller prenumeration beroende på vilken plan du väljer – men ingen månadskostnad för själva hostingen om du stannar på subdomän. Du äger alltid innehållet och kan exportera koden. One.com tar betalt löpande för både domän, hosting och byggare, vilket snabbt summerar. Sajtmaskin är transparent: du betalar för det du använder, inte för att hålla sajten vid liv."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag använda min befintliga domän från One.com?",
+      "a": "Ja. Du pekar bara domänen mot Sajtmaskin via DNS-inställningar hos One.com. Du kan behålla domänen registrerad där och fortsätt använda deras e-post om du vill, medan själva hemsidan ligger på Sajtmaskin. Vi guidar dig genom DNS-kopplingen."
+    },
+    {
+      "q": "Måste jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej. Du chattar med AI:n på vanlig svenska och beskriver vad du vill ha. AI:n bygger sajten, du granskar och justerar via fler chattmeddelanden. Ingen kod, inga tekniska termer. Vill du däremot anpassa koden själv kan du exportera den när som helst."
+    },
+    {
+      "q": "Hur snabbt kan jag få sajten live?",
+      "a": "De flesta användare har en färdig sajt publicerad inom 10–30 minuter. AI:n genererar innehåll och design direkt, du justerar det som behövs i chatten, och trycker publicera. Jämfört med One.coms byggare, där du drar block och skriver allt själv, sparar du timmar."
+    },
+    {
+      "q": "Vad händer om jag vill byta tillbaka till One.com eller annan plattform?",
+      "a": "Du kan exportera hela koden från Sajtmaskin och ladda upp den på vilken webbserver som helst – inklusive One.com om du har webbhotell där. Ingen bindningstid, inget krångel. Du äger innehållet och är aldrig låst."
+    },
+    {
+      "q": "Får jag svensk support?",
+      "a": "Ja. Sajtmaskin drivs av Pretty Good AB i Sverige. Support, gränssnitt och all dokumentation är på svenska. Du slipper engelska chattbottar eller offshorade supportteam – du pratar med folk som förstår svenska företags behov."
+    },
+    {
+      "q": "Kan jag ha webshop eller bokningar på sajten?",
+      "a": "Ja. Sajtmaskin integrerar Shopify för e-handel och Cal.com för bokningar. Du kan också koppla Stripe för betalningar direkt på sajten. AI:n hjälper dig sätta upp det i chatten, så du slipper teknisk konfiguration."
+    },
+    {
+      "q": "Är Sajtmaskin billigare än One.com?",
+      "a": "Det beror på vad du behöver. Hosting på subdomän är gratis hos Sajtmaskin. One.com tar betalt löpande för domän, hosting och byggare. Om du bara behöver en enkel sajt utan egen domän kostar Sajtmaskin inget. Med egen domän är prismodellerna olika, men du slipper månadskostnad för själva hostingen om du väljer subdomän."
+    }
+  ],
+  "localOrIndustryContext": "One.com är särskilt populärt i Danmark och Sverige, där de marknadsför sig som enkelt webbhotell för småföretag. Många svenska företagare har domän och e-post där sedan åratal tillbaka, men upplever att webbplatsbyggaren halkat efter modernare AI-drivna alternativ som Sajtmaskin.",
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från One.com. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

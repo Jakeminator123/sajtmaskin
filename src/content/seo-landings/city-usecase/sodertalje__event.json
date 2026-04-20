@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "sodertalje/event",
+  "title": "Hemsida Event Södertälje – Bygg din eventsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för event i Södertälje med AI. Integrerad bokning, betalning och mobilanpassning. Ingen kod krävs.",
+  "h1": "Hemsida för event i Södertälje",
+  "heroSub": "Bygg en komplett eventsajt med bokning och biljettförsäljning – direkt i chatten, utan att koda.",
+  "introParagraphs": [
+    "Om du arrangerar konferenser, mässor, företagsevent eller kulturarrangemang i Södertälje behöver du en hemsida som gör det enkelt för besökare att hitta information, boka biljetter och ta kontakt. Sajtmaskin låter dig bygga hela sajten genom att chatta med en AI – du beskriver ditt event och får en färdig webbplats på minuter.",
+    "Sajten blir automatiskt anpassad för mobil, integrerad med bokningssystem som Cal.com och betalning via Stripe. Du kan publicera på din egen domän och allt innehåll genereras på svenska. Perfekt för eventbyråer, föreningar, kulturhus och företag som vill ha en professionell närvaro utan teknisk krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt en eventsajt i Södertälje behöver",
+      "body": "En bra eventsajt behöver tydlig information om plats, datum och program, enkel biljettbokning och kontaktuppgifter. För event i Södertälje är det extra viktigt med vägbeskrivningar och parkeringsinformation, speciellt om du arrangerar på platser som Täljehallen, Scaniarinken eller kulturhuset Ebbepark. Sajtmaskin bygger in allt detta automatiskt när du beskriver ditt event – från eventkalender och talarlista till priser och praktisk info. Du kan lägga till kartor, bildgallerier och sponsorloggor direkt i chatten."
+    },
+    {
+      "heading": "Integrerad bokning och betalning",
+      "body": "Istället för att skicka folk till externa biljettsystem kan du integrera Cal.com för tidsbokning av workshops eller Stripe för direktbetalning av biljetter. Det gör att hela kundresan – från intresse till bekräftad plats – sker på din egen sajt. Du bestämmer själv vilka betalmetoder som ska fungera och kan sätta upp olika biljettyper, early bird-priser eller grupprabatter. Allt hanteras smidigt utan att du behöver installera plugins eller skriva kod."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Många eventbyråer och föreningar i Södertälje arrangerar säsongsbetonade event eller enstaka konferenser. Därför är det viktigt att inte låsa sig vid dyra årsavtal. Med Sajtmaskin betalar du ingen månadsavgift om du publicerar på vår subdomän, och du kan när som helst exportera hela koden och flytta sajten. Det gör plattformen perfekt för både återkommande event som Södertäljemässan och engångsprojekt som företagskickoffer eller temafester."
+    },
+    {
+      "heading": "Svenskt gränssnitt och support",
+      "body": "All text, alla menyer och hela redigeringsgränssnittet är på svenska. Det gör det enkelt för föreningsstyrelsen, marknadskoordinatorn eller eventchefen att uppdatera programmet, lägga till nya talare eller ändra biljettpriser utan att behöva teknisk hjälp. Supporten sköts från Sverige och förstår lokala behov – från GDPR-krav till svenska betalvanor. Du slipper översätta gränssnitt eller gissa dig till vad knappar betyder."
+    },
+    {
+      "heading": "Från idé till publicerad sajt på minuter",
+      "body": "Du startar en chatt, beskriver ditt event – kanske en hållbarhetskonferens på Löfströms, en musikfestival vid kanalen eller en företagsmässa på Scandic. AI:n föreslår struktur, texter och design. Du justerar färger, byter bilder och lägger till de sektioner du vill ha. När du är nöjd publicerar du på din egen domän eller testar först på en kostnadsfri subdomän. Inga installationer, inga teman att välja mellan – bara en färdig sajt som fungerar direkt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja, genom att integrera Stripe kan du ta betalt för biljetter direkt på hemsidan. Du kan sätta upp olika biljettyper, priser och kvantitetsbegränsningar. Betalningen sker säkert och besökaren får bekräftelse direkt."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Absolut. Alla sajter som Sajtmaskin genererar är responsiva och fungerar lika bra på mobil som på dator. Eftersom många eventbesökare kollar info och köper biljetter från telefonen är det en självklarhet att designen anpassas automatiskt."
+    },
+    {
+      "q": "Kan jag uppdatera program och talare själv?",
+      "a": "Ja, du kan när som helst gå in i chatten och be AI:n lägga till nya programpunkter, byta talare eller ändra tider. Allt sker på svenska och du behöver inte röra någon kod. Ändringarna syns direkt på sajten."
+    },
+    {
+      "q": "Kostar det extra att använda egen domän?",
+      "a": "Nej, du kan koppla din egen domän utan extra kostnad. Vill du publicera på vår subdomän är även hostingen gratis. Det finns ingen bindningstid och inga dolda avgifter – du betalar bara för de tillägg du faktiskt vill använda."
+    },
+    {
+      "q": "Passar Sajtmaskin för återkommande event i Södertälje?",
+      "a": "Ja, många föreningar och eventbyråer använder samma sajt år efter år och uppdaterar bara datum, program och bilder inför varje ny upplaga. Du kan också klona sajten om du vill ha separata webbplatser för olika event."
+    },
+    {
+      "q": "Kan jag integrera eventkalendern med Google Analytics?",
+      "a": "Ja, Google Analytics ingår som integration så du kan följa hur många som besöker sajten, vilka sidor som är populärast och var dina besökare kommer ifrån. Det hjälper dig att förstå vad som fungerar och hur du ska marknadsföra eventet."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela koden och flytta sajten till en annan leverantör eller egen server. Det finns ingen inlåsning – du äger ditt innehåll och kan ta det med dig om du vill."
+    }
+  ],
+  "localOrIndustryContext": "Södertälje har en stark eventscen med allt från företagskonferenser kopplade till Scania och AstraZeneca till kulturarrangemang vid Mälaren och föreningsdrivna mässor. En lokal eventsajt behöver ofta tydlig vägvisning till arenor som Täljehallen eller Scaniarinken, information om parkering och kollektivtrafik samt anpassning för både svenska och internationella gäster.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/sodertalje",
+      "label": "Skapa hemsida i Södertälje"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Södertälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

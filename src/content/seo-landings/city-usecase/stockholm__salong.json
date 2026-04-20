@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "stockholm/salong",
+  "title": "Hemsida Salong Stockholm – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Stockholm med Sajtmaskin. Bokningssystem, mobilanpassad design och svensk support. Ingen kod krävs.",
+  "h1": "Hemsida för salong i Stockholm",
+  "heroSub": "Bygg en komplett sajt för din salong på minuter – med bokning, prislista och allt du behöver för att synas i Stockholm.",
+  "introParagraphs": [
+    "En salong i Stockholm behöver en hemsida som gör det enkelt för kunder att boka tid, se priser och hitta er på Södermalm, i Vasastan eller var ni än finns. Med Sajtmaskin bygger du en komplett sajt via chat – inga tekniska kunskaper behövs.",
+    "Du får automatiskt en mobilanpassad sajt med integrerat bokningssystem via Cal.com, prislista, bildgalleri och kontaktuppgifter. Publicera på din egen domän eller använd en kostnadsfri subdomän. Allt på svenska, byggt för svenska salonger.",
+    "Oavsett om du driver en hårsalong, nagelsalong eller skönhetssalong i Stockholm får du en sajt som speglar din stil och gör det smidigt för kunder att hitta och boka dig."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem som funkar för Stockholms kunder",
+      "body": "Stockholmare förväntar sig att kunna boka online dygnet runt. Sajtmaskin integrerar Cal.com direkt i din sajt så kunder kan välja behandling, se lediga tider och boka – utan att du behöver svara i telefon. Bokningarna synkas med din kalender och kunder får automatiska påminnelser. Perfekt när du har fullt schema och vill slippa dubbelbokningar."
+    },
+    {
+      "heading": "Visa upp ditt arbete med bildgalleri",
+      "body": "En salong säljer genom bilder. Ladda upp före- och efterbilder, visa din salong och ditt team. AI:n hjälper dig strukturera galleriet så det laddar snabbt och ser professionellt ut på mobil. Många av dina kunder hittar dig via Google på väg hem från jobbet – då måste sajten se bra ut på telefonen och ladda direkt."
+    },
+    {
+      "heading": "Prislista och tjänster – tydligt och enkelt",
+      "body": "Beskriv dina behandlingar i chatten så skapar Sajtmaskin en strukturerad prislista. Klippning, färg, balayage, naglar, fransar – allt presenteras överskådligt med priser och tidsåtgång. Du kan uppdatera priserna själv när som helst. Många salonger i Stockholm märker att en tydlig prislista minskar antalet frågor och ökar antalet bokningar."
+    },
+    {
+      "heading": "Bygg sajten på svenska, för svenska kunder",
+      "body": "Allt i Sajtmaskin är på svenska – gränssnittet, supporten och den färdiga sajten. Du chattar på svenska om vad din salong behöver, och AI:n bygger en sajt som passar Stockholms marknad. Ingen bindningstid, ingen dold kostnad för hosting om du väljer subdomän. Vill du byta plattform senare kan du exportera hela koden."
+    },
+    {
+      "heading": "Från Östermalm till Fruängen – synlighet i hela Stockholm",
+      "body": "Din sajt blir automatiskt optimerad för sökmotorer så folk som googlar 'salong Kungsholmen' eller 'hårsalong Södermalm' kan hitta dig. Du anger ditt område i chatten och AI:n ser till att din sajt nämner rätt stadsdelar och landmärken. Kombinera med Google Analytics för att se var dina besökare kommer ifrån och vilka sidor de tittar på."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min salong?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar om din salong – vad du erbjuder, var i Stockholm du ligger, vilka bilder du vill ha med – och AI:n bygger sajten medan du skriver. Sen kan du justera färger, texter och layout direkt i chatten."
+    },
+    {
+      "q": "Kan jag integrera ett bokningssystem?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så dina kunder kan boka behandlingar direkt på sajten. Du kopplar din kalender, ställer in vilka tider som är lediga och vilka behandlingar du erbjuder. Bokningar och påminnelser sköts automatiskt."
+    },
+    {
+      "q": "Funkar sajten bra på mobil?",
+      "a": "Absolut. Alla sajter från Sajtmaskin är mobilanpassade från start. Eftersom många stockholmare söker salong på mobilen när de är ute och går är det viktigt att sajten laddar snabbt och att bokningsknappen syns tydligt."
+    },
+    {
+      "q": "Kostar det något att ha sajten online?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän (dinssalong.sajtmaskin.se) är hostingen gratis utan tidsbegränsning. Vill du ha en egen domän (dinssalong.se) kopplar du den kostnadsfritt, men domänen köper du själv hos en domänregistrar."
+    },
+    {
+      "q": "Kan jag visa priser och behandlingar på sajten?",
+      "a": "Ja, du beskriver dina tjänster i chatten – klippning, färg, behandlingar, priser – och AI:n skapar en snygg prislista. Du kan när som helst uppdatera priser och lägga till nya behandlingar."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera sajten?",
+      "a": "Nej, allt sköts via chat. Vill du byta en bild, ändra text eller lägga till en ny tjänst skriver du bara vad du vill ha ändrat. AI:n uppdaterar sajten direkt. Vill du ha full kontroll kan du exportera koden, men det behövs inte för vanlig drift."
+    },
+    {
+      "q": "Hur gör jag för att synas i Stockholm?",
+      "a": "Sajten blir automatiskt SEO-optimerad med rätt nyckelord för din stadsdel. Fyll i dina kontaktuppgifter och adress så Google vet var du finns. Kombinera med Google My Business och lokala recensioner så ökar din synlighet rejält i Stockholmsområdet."
+    }
+  ],
+  "localOrIndustryContext": "Stockholm har hundratals salonger från Gamla Stan till Bromma, och konkurrensen om kunderna är hård. En professionell hemsida med enkel bokning och tydlig prislista gör skillnad – särskilt när allt fler stockholmare googlar salong på mobilen och förväntar sig att kunna boka direkt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Stockholm. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

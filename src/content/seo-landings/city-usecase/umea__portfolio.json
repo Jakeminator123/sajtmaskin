@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "umea/portfolio",
+  "title": "Hemsida Portfolio Umeå – Bygg din portfoliosajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfoliohemsida i Umeå med AI. Färdig på minuter, publicera på egen domän. Perfekt för kreatörer och konsulter.",
+  "h1": "Hemsida Portfolio Umeå",
+  "heroSub": "Bygg en portfoliosajt som visar ditt bästa arbete – direkt från chatten, publicerad på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin låter dig skapa en professionell portfoliohemsida i Umeå utan att skriva en rad kod. Du chattar med vår AI, beskriver vad du gör och vilka projekt du vill visa, så genererar plattformen en färdig sajt med galleri, projektbeskrivningar och kontaktformulär. Publicera på egen domän eller använd vår kostnadsfria subdomän.",
+    "Oavsett om du är fotograf, designer, arkitekt eller frilansande konsult i Umeå behöver du en portfoliosajt som snabbt visar vad du kan. Sajtmaskin ger dig en sajt som laddas snabbt, ser professionell ut på mobil och dator, och som du kan uppdatera själv när du vill lägga till nya projekt.",
+    "Allt är på svenska – gränssnittet, supporten och innehållet. Inga dolda avgifter, ingen bindningstid. Du äger din sajt och kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför Umeå behöver starka portfoliosajter",
+      "body": "Umeå har en stark kreativ sektor med allt från designbyråer och arkitekter till fotografer och frilansande kreatörer. När Umeå Konsthögskola och Designhögskolan producerar nya talanger varje år behöver de en plattform för att visa sitt arbete. En portfoliohemsida är inte bara ett CV – det är ditt skyltfönster mot potentiella kunder, arbetsgivare och samarbetspartners. I en stad där kulturen och designbranschen växer är det avgörande att synas online med en sajt som speglar din professionalism."
+    },
+    {
+      "heading": "Vad ingår i en portfoliosajt från Sajtmaskin",
+      "body": "Sajtmaskin bygger din portfoliohemsida med allt du behöver: ett responsivt projektgalleri där besökare kan klicka sig vidare till detaljerade case-beskrivningar, en om-sida som berättar vem du är och vad du gör, samt kontaktformulär eller bokningsfunktion via Cal.com. Du kan integrera Google Analytics för att se hur besökare hittar dina projekt, och om du säljer prints eller digitala produkter kopplar du enkelt in Stripe för betalningar. Alla sidor är mobilanpassade från start och laddas snabbt – viktigt när besökare scrollar genom ditt arbete."
+    },
+    {
+      "heading": "Så bygger du din portfoliosajt i Umeå",
+      "body": "Logga in på Sajtmaskin och beskriv i chatten vad du gör och vilka projekt du vill lyfta fram. AI:n föreslår struktur, layout och textförslag baserat på din bransch. Du laddar upp bilder, justerar texter och färgschema direkt i gränssnittet. När allt ser bra ut publicerar du på din egen domän eller på en kostnadsfri Sajtmaskin-subdomän. Vill du uppdatera portfolion med nya projekt gör du det själv via chatten – ingen teknisk support behövs. Hela processen tar minuter, inte veckor."
+    },
+    {
+      "heading": "Integrationer som gör din portfolio mer än ett galleri",
+      "body": "En portfoliosajt kan vara starten på nya uppdrag. Koppla in Cal.com så kan kunder boka ett första möte direkt från din sajt. Lägg till Stripe om du säljer fotografier, illustrationer eller designtjänster som digitala produkter. Google Analytics visar vilka projekt som får mest uppmärksamhet, så du kan anpassa din portfolio efter vad marknaden efterfrågar. Allt sätts upp via Sajtmaskin utan att du behöver hantera teknisk kod eller API-nycklar."
+    },
+    {
+      "heading": "Äkta flexibilitet – ingen inlåsning",
+      "body": "Du äger din portfoliosajt och all data. Vill du byta plattform eller bygga vidare med egen utvecklare kan du exportera hela koden. Ingen bindningstid, inga dolda avgifter. Hosting på subdomän kostar ingenting per månad, och om du vill använda egen domän är det bara att peka DNS:en rätt. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svensk support som svarar på svenska."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få min portfoliohemsida live i Umeå?",
+      "a": "De flesta användare har en färdig portfoliosajt publicerad inom 30–60 minuter. Du chattar med AI:n, laddar upp bilder och justerar texter, sedan publicerar du direkt. Ingen väntan på webbyrå eller teknisk support."
+    },
+    {
+      "q": "Kan jag visa video och interaktiva projekt i min portfolio?",
+      "a": "Ja, du kan bädda in video från YouTube eller Vimeo, samt länka till interaktiva demos eller externa case-sidor. Sajtmaskin stödjer responsiva inbäddningar så allt fungerar smidigt på mobil och desktop."
+    },
+    {
+      "q": "Kostar det något att hosta portfoliosajten?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda din egen domän pekar du bara DNS:en dit – ingen extra hostingavgift tillkommer från vår sida."
+    },
+    {
+      "q": "Hur uppdaterar jag portfolion när jag har nya projekt?",
+      "a": "Logga in, chatta med AI:n och beskriv det nya projektet eller ladda upp bilder direkt. Ändringarna publiceras på sekunder. Du behöver ingen teknisk kunskap för att hålla portfolion aktuell."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för fotografer och designers i Umeå?",
+      "a": "Absolut. Många kreatörer i Umeå använder Sajtmaskin för att snabbt bygga portfoliosajter med bildgallerier, projektbeskrivningar och kontaktformulär. Plattformen är byggd för att visa visuellt arbete på ett professionellt sätt."
+    },
+    {
+      "q": "Kan jag ta betalt för prints eller digitala filer via sajten?",
+      "a": "Ja, integrera Stripe så kan besökare köpa prints, stockfoton eller designfiler direkt från din portfolio. Betalningen hanteras säkert och du får pengarna på ditt konto utan mellanhänder."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajtkoden när du vill. Ingen bindningstid, inga utträdesavgifter. Din portfolio och allt innehåll tillhör dig, och du är fri att flytta den till annan hosting eller bygga vidare själv."
+    }
+  ],
+  "localOrIndustryContext": "Umeå har en levande kreativ sektor med Designhögskolan, Konsthögskolan och ett växande nätverk av frilansare inom foto, design och arkitektur. En stark portfoliohemsida är ofta avgörande för att få uppdrag, visa kompetens och synas i en konkurrensutsatt bransch.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/umea",
+      "label": "Skapa hemsida i Umeå"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Umeå. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

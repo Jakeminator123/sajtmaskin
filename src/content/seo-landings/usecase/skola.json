@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "skola",
+  "title": "Hemsida för skola – Bygg en professionell skolsajt | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för din skola på minuter med AI. Kalender, kontaktinfo, nyheter och elevinfo – allt utan kod. Prova gratis!",
+  "h1": "Hemsida för skola",
+  "heroSub": "Bygg en professionell skolhemsida på minuter – med AI som förstår svenska och vet vad skolor behöver.",
+  "introParagraphs": [
+    "En hemsida för skola ska samla det viktigaste på ett ställe: terminskalender, kontaktuppgifter till personal, information om verksamheten, nyheter och praktiska rutiner för elever och vårdnadshavare. Den ska vara lätt att uppdatera när schemat ändras eller när ni vill dela bilder från skolavslutningen, och den ska fungera lika bra i mobilen som på datorn.",
+    "Med Sajtmaskin skapar du hela sajten genom att chatta med en AI på svenska. Du beskriver vad skolan behöver – kanske en sida för varje årskurs, enkalender för lov och föräldramöten, eller ett formulär för frånvaroanmälan – så genererar AI:n en färdig sajt på minuter. Allt på svenska, utan kod, och du kan publicera direkt på er egen domän.",
+    "Du behöver ingen webbyrå eller teknisk kompetens. Vill du ändra något senare chattar du bara med AI:n igen, och sajten uppdateras. Ingen bindningstid, ingen dold kostnad – bara en skolhemsida som faktiskt fungerar i vardagen."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Kalender och terminsinfo",
+      "body": "Föräldrar och elever behöver veta när det är föräldramöten, sportlov, studiedagar och skolavslutning. En tydlig kalender på startsidan sparar massor av mejl och missförstånd. Sajtmaskin kan bygga in en kalendervy där du enkelt lägger till och redigerar datum, och du kan även integrera Cal.com om ni vill att föräldrar ska kunna boka utvecklingssamtal direkt online. Allt uppdateras i realtid så att informationen alltid stämmer."
+    },
+    {
+      "heading": "Personal och kontaktuppgifter",
+      "body": "En skolsajt ska göra det lätt att hitta rätt person – rektor, kurator, fritids, klassföreståndare. Sajtmaskin kan skapa en personalsida med namn, roller, mejladresser och telefonnummer, strukturerad så att föräldrar snabbt hittar vem de ska kontakta. Du kan också lägga till ett kontaktformulär så att frågor hamnar rätt direkt, istället för att studsa runt i mejlboxar."
+    },
+    {
+      "heading": "Nyheter och uppdateringar",
+      "body": "Från studiebesök och teaterföreställningar till nya rutiner i matsalen – skolor har mycket att berätta. Med en nyhetsfunktion kan du publicera inlägg med text och bilder, och de senaste nyheterna syns automatiskt på startsidan. Sajtmaskin gör det enkelt att lägga till nya inlägg via chatten, så du slipper krångliga adminpaneler. Perfekt för att hålla föräldrar och elever uppdaterade utan att skicka massutskick."
+    },
+    {
+      "heading": "Elevinfo och dokument",
+      "body": "Läsårsplanering, matsedel, regler för frånvaro, information om elevhälsan – det finns mycket praktisk information som behöver finnas tillgänglig. Sajtmaskin kan skapa sidor för varje årskurs eller ämnesområde, och du kan ladda upp PDF:er eller länka till externa dokument. Allt samlas på ett ställe istället för att ligga utspritt i mejl och papperslappar."
+    },
+    {
+      "heading": "Publicera på er egen domän",
+      "body": "Sajtmaskin låter dig publicera på er skolas egna domän – till exempel www.lillaskolan.se – så att sajten känns professionell och trovärdig. Vill ni testa först kan ni köra på en gratis subdomän utan månadskostnad. Ingen bindningstid, och du kan exportera hela koden om ni någonsin vill flytta sajten. Allt byggt i Sverige, med svenskt gränssnitt och support som förstår hur svenska skolor fungerar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan vi uppdatera sajten själva utan teknisk kunskap?",
+      "a": "Ja, det är hela poängen. Du chattar med AI:n på svenska och beskriver vad du vill ändra – till exempel lägga till en nyhet, uppdatera terminskalendern eller byta ut en bild. AI:n gör ändringen direkt, ingen kod eller krånglig adminpanel. Perfekt för rektorer och administratörer som har fullt upp med annat."
+    },
+    {
+      "q": "Kan föräldrar boka utvecklingssamtal via hemsidan?",
+      "a": "Ja, genom integrationen med Cal.com kan du sätta upp ett bokningssystem där föräldrar väljer tid för utvecklingssamtal. Du bestämmer själv vilka tider som är lediga, och bokningarna synkas automatiskt. Smidigare än papperslappar och mejlkedjor fram och tillbaka."
+    },
+    {
+      "q": "Fungerar sajten bra i mobilen?",
+      "a": "Absolut. Alla sajter som Sajtmaskin genererar är responsiva, vilket betyder att de anpassar sig automatiskt till mobil, surfplatta och dator. De flesta föräldrar kollar skolinformation i telefonen, så det är viktigt att allt fungerar smidigt oavsett skärmstorlek."
+    },
+    {
+      "q": "Kan vi ha en sajt per årskurs eller avdelning?",
+      "a": "Du kan strukturera sajten precis som ni vill. Antingen skapar du separata sidor för varje årskurs inom samma sajt, eller bygger helt separata sajter om ni till exempel har en grundskola och en gymnasieavdelning. Sajtmaskin är flexibel och du styr själv uppdelningen via chatten."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Du betalar en engångskostnad för att generera sajten med AI:n. Vill du publicera på en gratis subdomän hos Sajtmaskin finns ingen månadskostnad. Vill du använda er egen domän (till exempel www.skolan.se) kan du göra det direkt, och då betalar du bara för domänen hos er domänleverantör. Ingen bindningstid och inga dolda avgifter."
+    },
+    {
+      "q": "Kan vi lägga till fler funktioner senare?",
+      "a": "Ja, sajten växer med era behov. Vill ni lägga till ett formulär för frånvaroanmälan, en bildgalleri från skolavslutningen eller en sida för elevhälsan chattar du bara med AI:n igen. Du kan också integrera Google Analytics för att se hur många som besöker sajten, eller Stripe om ni vill ta betalt för till exempel fritidsplatser online."
+    },
+    {
+      "q": "Äger vi innehållet och koden?",
+      "a": "Ja, ni äger allt. Du kan exportera hela sajten som kod när du vill och flytta den till en annan leverantör om ni skulle vilja det. Ingen inlåsning, och all data är er. Sajtmaskin är bara verktyget som gör det enkelt att bygga och uppdatera."
+    }
+  ],
+  "localOrIndustryContext": "Svenska skolor har olika behov beroende på om det är en liten byskola, en kommunal grundskola i stan eller en fristående gymnasieskola. Gemensamt är att föräldrar och elever förväntar sig tydlig information som är lätt att hitta, och att personalen inte har tid att sitta och koda. Sajtmaskin är byggt för att passa just den verkligheten – en skolhemsida som fungerar från dag ett, på ren svenska.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en skola-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

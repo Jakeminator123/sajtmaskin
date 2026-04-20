@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "vvs",
+  "title": "Hemsida för VVS-firma – snabb start med AI | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för din VVS-firma på minuter. Jourbokningar, tjänstesidor och kontaktformulär – allt på svenska, ingen kod krävs.",
+  "h1": "Hemsida för VVS-firma",
+  "heroSub": "Bygg en komplett VVS-sajt med bokningsfunktion och jourtider – på minuter, inte veckor.",
+  "introParagraphs": [
+    "En hemsida för VVS-firma behöver visa att du finns tillgänglig när kunden får vattenläcka klockan sju på kvällen, att du kan byta värmepump och renovera badrum, och att det går att boka tid direkt. Sajtmaskin låter dig bygga hela sajten via chat – du beskriver din verksamhet, så skapar AI:n sidor för dina tjänster, jourtider, referensprojekt och kontaktformulär på ren svenska.",
+    "Du får en färdig struktur anpassad för VVS-branschen: tjänstesidor för akutjour, installation, service och renovering, plus integrerad bokning via Cal.com så kunden slipper ringa. Publicera på din egen domän eller testa kostnadsfritt på en subdomän. Ingen bindningstid, ingen kod – bara en sajt som fungerar från dag ett."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför VVS-firmor behöver en tydlig hemsida",
+      "body": "Dina kunder söker ofta under stress: läckage, trasig värme eller ett badrum som måste fixas fort. Då vill de se direkt att du täcker deras område, att du har jourtelefon och vad ett hembesök kostar. En hemsida som saknar tydliga tjänstebeskrivningar eller bara visar ett kontaktformulär utan telefonnummer tappar förtroendet. Sajtmaskin bygger strukturen åt dig – tjänstesidor med rubriker som Akutjour dygnet runt, Installation av värmepump och Badrumsrenovering, plus synliga kontaktvägar på varje sida så ingen behöver leta."
+    },
+    {
+      "heading": "Vilka sidor och funktioner en VVS-sajt brukar ha",
+      "body": "En typisk VVS-hemsida innehåller startsida med jourinfo och telefonnummer högst upp, tjänstesidor för varje huvudområde (akut, installation, service, renovering), en Om oss-sida som visar certifikat och erfarenhet, referensprojekt med bilder från badrum eller värmepumpsinstallationer, samt kontaktsida med öppettider och servicekarta. Många vill också ha bokningsfunktion för servicebesök och ett enkelt formulär för offertförfrågan. Sajtmaskin genererar alla dessa sidor automatiskt när du beskriver din firma i chatten, och du kan lägga till Cal.com-bokning eller Stripe-betalning om du säljer serviceavtal direkt."
+    },
+    {
+      "heading": "Så bygger du VVS-sajten med Sajtmaskin",
+      "body": "Logga in och beskriv din firma i chatten: Jag driver en VVS-firma i Västerås, vi gör akutjour, installerar värmepumpar och renoverar badrum. AI:n skapar då startsida, tjänstesidor, om-sida och kontaktformulär på svenska. Du kan direkt redigera texter, byta bilder och lägga till dina egna projekt. Vill du att kunder ska kunna boka servicetid? Koppla in Cal.com. Behöver du Google Analytics för att se vilka tjänster som söks mest? Aktivera integrationen med ett klick. När allt ser bra ut publicerar du på din egen domän – eller testar först på en gratis subdomän. Hela processen tar minuter, inte dagar."
+    },
+    {
+      "heading": "Jourinfo, bokning och mobilanpassning",
+      "body": "VVS-kunder ringer ofta från mobilen, mitt i ett akutläge. Därför måste sajten ladda snabbt, visa jourtelefonen tydligt och fungera lika bra på iPhone som på dator. Sajtmaskin bygger automatiskt mobilanpassade sidor där telefonnummer blir klickbara och bokningsknappen syns direkt. Du kan lägga in öppettider för jour, priser för hembesök och vad som räknas som akut. Allt detta skriver du i chatten, så formaterar AI:n det snyggt – inga tekniska inställningar, bara tydlig information som gör att fler kunder vågar höra av sig."
+    },
+    {
+      "heading": "Ingen bindningstid – exportera koden när du vill",
+      "body": "Sajtmaskin låser inte in dig. Vill du senare flytta sajten till en egen server eller låta en byrå ta över? Exportera hela koden och ta den med dig. Hosting på subdomän kostar ingenting i månadsavgift, och publicering på egen domän är en engångskostnad. Du äger innehållet, du bestämmer hur länge sajten ska ligga kvar. För en VVS-firma som vill testa en hemsida utan att skriva avtal eller betala månadshyra i åratal är det en trygg start – och om verksamheten växer kan du när som helst skala upp med fler sidor, blogg eller webshop för reservdelar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag lägga till en karta som visar vilka områden vi täcker?",
+      "a": "Ja, du kan bädda in Google Maps eller beskriva ditt serviceområde i text på kontaktsidan. Sajtmaskin stödjer inbäddning av kartor och du kan redigera HTML om du vill justera visningen. Många VVS-firmor listar helt enkelt kommuner eller postnummer direkt på startsidan."
+    },
+    {
+      "q": "Hur lägger jag in jourtider och akuttelefon synligt?",
+      "a": "Beskriv dina jourtider i chatten när du bygger sajten, så lägger AI:n in dem på startsidan och i sidfoten. Du kan också skapa en egen Jour-sida med telefonnummer, tider och vad som räknas som akut. Telefonnumret blir automatiskt klickbart på mobilen så kunden kan ringa direkt."
+    },
+    {
+      "q": "Kan kunder boka servicetid via hemsidan?",
+      "a": "Ja, integrera Cal.com så får du en bokningskalender där kunder väljer tid för service, besiktning eller offertmöte. Du styr själv vilka tider som är lediga och får notiser när någon bokar. Perfekt för planerade jobb som värmepumpsservice eller badrumsbesiktning."
+    },
+    {
+      "q": "Går det att visa referensprojekt med bilder?",
+      "a": "Absolut. Lägg till en Projekt- eller Referenssida och ladda upp bilder från badrumsrenoveringar, värmepumpsinstallationer eller rörstambyten. Du kan skriva kort om varje projekt och visa före/efter-bilder. Det bygger förtroende och visar att du har erfarenhet av riktiga jobb."
+    },
+    {
+      "q": "Kostar det något att publicera sajten?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda din egen domän, till exempel mittforetag.se, betalar du en engångskostnad för publicering. Inga dolda avgifter, ingen bindningstid – och du kan när som helst exportera koden."
+    },
+    {
+      "q": "Kan jag lägga till priser för vanliga tjänster?",
+      "a": "Ja, skapa en sida för Priser eller lägg in prisexempel direkt på tjänstesidorna. Många VVS-firmor visar startpris för hembesök, timpris eller fasta paket för service. Du redigerar texten precis som du vill, och AI:n formaterar det snyggt i tabeller eller listor."
+    },
+    {
+      "q": "Vad händer om jag vill ändra något senare?",
+      "a": "Du loggar in och redigerar texter, bilder eller sidor direkt i gränssnittet. Vill du lägga till en ny tjänstesida eller ta bort något? Gör det via chatten eller i editorn. Ändringar publiceras direkt, och du kan alltid återställa tidigare versioner om du ångrar dig."
+    }
+  ],
+  "localOrIndustryContext": "VVS-branschen i Sverige präglas av akuta ärenden och höga förväntningar på tillgänglighet. Kunder söker ofta efter jour nära mig eller akut VVS och vill se telefonnummer, servicekarta och tydliga priser direkt. En hemsida som laddar snabbt, visar certifikat och gör det lätt att boka eller ringa är en konkurrensfördel – särskilt för mindre firmor som vill synas lokalt utan att betala för dyra annonser.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en vvs-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

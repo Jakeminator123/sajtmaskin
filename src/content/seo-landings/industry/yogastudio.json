@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "yogastudio",
+  "title": "Hemsida för yogastudio – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din yogastudio med AI. Schemabokning, kursinfo och betalning – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för yogastudio",
+  "heroSub": "Bygg en komplett sajt för din yogastudio på minuter – med schemabokning, kurskalender och betalning integrerat från start.",
+  "introParagraphs": [
+    "En yogastudio behöver en hemsida som gör det enkelt för nya elever att hitta och boka pass, samtidigt som den speglar studions atmosfär och värderingar. Många studior kör fortfarande med bokningssystem i ett verktyg, betalning i ett annat och en sajt som inte pratar med någondera – vilket skapar merarbete och förvirring för både dig och dina besökare.",
+    "Sajtmaskin låter dig bygga hela hemsidan via chat på svenska. Du beskriver din studio, vilka typer av yoga du undervisar och hur du vill att bokningar ska funka – så genererar AI:n en färdig sajt med schemakalender, kursbeskrivningar och integrerad betalning. Publicera på din egen domän eller testa kostnadsfritt på en subdomän, utan bindningstid.",
+    "Sajten blir helt anpassad efter din studios behov. Vill du visa retreater separat, lyfta lärarutbildningar eller ha en blogg om yogafilosofi? Allt byggs in direkt, och du kan justera innehåll och struktur genom att chatta med AI:n – ingen kod behövs."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för yogastudio behöver innehålla",
+      "body": "En fungerande sajt för en yogastudio måste visa aktuellt schema, beskriva olika klasser och lärare, samt göra det friktionsfritt att boka och betala. Startsidan sätter tonen – bilder från studion, din filosofi, vad som gör er unika. Därefter behöver du sidor för schema och drop-in, kurspaket och priser, om-sida med presentation av lärare, samt kontaktinfo och hitta hit. Många studior vill också lyfta specialerbjudanden som nybörjarkurser, retreater eller workshops. Integrerad bokning via Cal.com och betalning via Stripe gör att alever kan boka och betala direkt på sajten, utan att du behöver hantera separata system eller mejlbokningar."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din yogastudiosajt",
+      "body": "Du startar en chatt och beskriver din studio: vilka stilar du undervisar, om du har drop-in eller terminsupplägg, vilka målgrupper du vänder dig till. AI:n föreslår en struktur med relevanta sidor – schema, kurser, lärare, priser, retreat-info om du erbjuder det. Du kan be om justeringar direkt i chatten: flytta bokningsknappen, lägg till en blogg, ändra färgschema för att matcha studions känsla. Cal.com-integrationen gör att ditt schema syns live på sajten och elever kan boka pass direkt. Vill du sälja klippkort eller kurspaket kopplar du Stripe för betalning. Allt sker på svenska, och du ser förändringarna i realtid."
+    },
+    {
+      "heading": "Bokningar, betalningar och scheman – allt integrerat",
+      "body": "Istället för att dina elever ska mejla för att boka eller betala via Swish i efterhand, får du ett system där allt hänger ihop. Cal.com visar ditt aktuella schema – morgonyoga, yinyoga på kvällen, workshops på helgen – och elever bokar sin plats direkt. Stripe hanterar betalningar säkert, oavsett om du säljer drop-in, månadskort eller en hel retreat. Du slipper manuell administration och elever får omedelbar bekräftelse. Vill du ändra tider, lägga till en ny klass eller pausa bokningar under sommaren? Uppdatera via chatten så justeras sajten direkt."
+    },
+    {
+      "heading": "Ingen bindningstid och full äganderätt",
+      "body": "Sajtmaskin har ingen bindningstid. Testar du på subdomän är hostingen gratis, vill du publicera på egen domän betalar du bara när du använder tjänsten. Vill du någon gång flytta sajten kan du exportera hela koden och drifta den var du vill. Det gör att du aldrig är låst – perfekt om studion växer och du vill byta plattform, eller om du vill ta över tekniken själv. Sajten är din, och du bestämmer hur länge du vill använda Sajtmaskin för att underhålla den."
+    },
+    {
+      "heading": "Anpassad efter din studios identitet",
+      "body": "Varje yogastudio har sin egen känsla – från dynamisk vinyasa i city till mjuk restorative yoga i en villaträdgård. Sajtmaskin låter dig forma sajten efter just din profil. Välj bilder som speglar er miljö, skriv texter som förmedlar er filosofi, lägg upp schemat så det passar era elever. Vill du lyfta att ni kör gravidyoga, senioryoga eller yoga för barn? Bygg in det som egna sidor eller block. AI:n hjälper dig formulera, men du styr innehåll och ton så sajten känns som er – inte som en generisk mall."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa mitt yogaschema live på hemsidan?",
+      "a": "Ja, genom Cal.com-integrationen kan du visa ditt aktuella schema direkt på sajten. Elever ser lediga tider och bokar sin plats utan att du behöver uppdatera manuellt. Ändrar du en tid i Cal.com syns det direkt på hemsidan."
+    },
+    {
+      "q": "Hur fungerar betalning för klippkort och kurspaket?",
+      "a": "Du kopplar Stripe för säkra kortbetalningar. Då kan elever köpa drop-in, klippkort eller hela kurspaket direkt på sajten. Du bestämmer priser och paketupplägg, och betalningen sker automatiskt när någon bokar. Inga manuella Swish-överföringar eller fakturor behövs."
+    },
+    {
+      "q": "Kan jag ha separata sidor för retreater och workshops?",
+      "a": "Absolut. Berätta i chatten att du vill lyfta retreater eller specialworkshops, så skapar AI:n egna sidor med beskrivningar, datum och bokningsfunktion. Du kan ha olika bokningslänkar och priser för olika event, allt samlat på samma sajt."
+    },
+    {
+      "q": "Måste jag kunna koda för att ändra något på sajten?",
+      "a": "Nej. All redigering sker via chat på svenska. Vill du ändra en text, lägga till en ny klass, byta bild eller justera färger skriver du bara vad du vill ha – AI:n uppdaterar sajten direkt. Ingen teknisk kunskap krävs."
+    },
+    {
+      "q": "Kostar det något att testa Sajtmaskin för min yogastudio?",
+      "a": "Du kan publicera på en Sajtmaskin-subdomän helt gratis, utan bindningstid. Vill du använda din egen domän och ta betalt via Stripe tillkommer en kostnad, men du betalar bara så länge du använder tjänsten. Ingen startavgift eller långt åtagande."
+    },
+    {
+      "q": "Kan jag lägga till en blogg om yoga och hälsa?",
+      "a": "Ja, be bara om en bloggsida i chatten. Då får du en sektion där du kan publicera artiklar om yogafilosofi, andningstekniker, kostråd eller vad du vill dela med dina elever. Bra för SEO och för att bygga community kring studion."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill och drifta sajten på egen hand eller flytta den till en annan tjänst. Du äger innehållet och designen, så du är aldrig låst till Sajtmaskin. Ingen bindningstid gäller."
+    }
+  ],
+  "localOrIndustryContext": "Yogastudior i Sverige växer snabbt, från Stockholms citydistrikt till mindre orter i Dalarna och Skåne. Många drivs av soloprenörer eller små team som vill fokusera på undervisning, inte teknik. En sajt som hanterar bokning, betalning och kursinfo automatiskt frigör tid till det som betyder mest – mötet med eleverna på mattan.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en yogastudio-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

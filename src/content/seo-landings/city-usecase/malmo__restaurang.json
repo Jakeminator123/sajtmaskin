@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "malmo/restaurang",
+  "title": "Hemsida restaurang Malmö – bygg din restaurangsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Malmö med AI. Meny, bokningssystem och betalning – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för restaurang i Malmö",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokning och betalning – på minuter, inte månader.",
+  "introParagraphs": [
+    "Sajtmaskin bygger hemsidor för restauranger i Malmö genom att du chattar med vår AI. Du beskriver din restaurang, vilken typ av mat ni serverar och vad gästerna ska kunna göra på sajten – så genererar AI en färdig sajt med meny, kontaktinfo och alla funktioner du behöver. Publicera direkt på din egen domän utan krångel.",
+    "Din restaurangsajt får automatiskt responsiv design som fungerar lika bra på mobil som dator, integration med Cal.com för bordsbokning, och Stripe om du vill ta betalt för presentkort eller catering direkt på sajten. Allt på svenska, byggt för svenska gäster. Ingen bindningstid och du kan exportera koden när du vill.",
+    "Oavsett om du driver en lunchrestaurang på Möllan, en fine dining-restaurang vid Västra Hamnen eller ett kvarterskök i Rosengård – Sajtmaskin ger dig en professionell närvaro online på minuter istället för veckor med webbyrå."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt en restaurang i Malmö behöver på sin hemsida",
+      "body": "En restaurangsajt måste visa meny med priser, öppettider, adress och enkelt sätt att boka bord. Sajtmaskin bygger in allt det automatiskt. Du kan lägga till bilder på rätter, berätta om er filosofi kring mat och dryck, visa allergiinformation och länka till sociala medier. Vill du ha flerspråkig sajt för att nå både svenska och internationella gäster i Malmö? Beskriv det i chatten så ordnar AI det. Integrationen med Cal.com låter gäster boka bord direkt utan att du behöver betala för dyra bokningssystem."
+    },
+    {
+      "heading": "Bygg restaurangsajten via chat – ingen kod",
+      "body": "Du startar med att beskriva din restaurang: vilken typ av kök, målgrupp, känsla ni vill förmedla. AI:n ställer följdfrågor om meny, öppettider och vilka funktioner du vill ha. På några minuter har du en sajt med professionella texter, struktur och design. Sedan kan du fortsätta chatta för att justera färger, byta bilder, lägga till specialmenyer för lunch eller à la carte. Allt händer i realtid – du ser förändringarna direkt. Ingen teknisk kunskap behövs, och du slipper maila fram och tillbaka med designers."
+    },
+    {
+      "heading": "Bokningar, betalningar och analyser inbyggt",
+      "body": "Sajtmaskin kopplar din restaurangsajt direkt till Cal.com så gäster kan boka bord dygnet runt. Vill du sälja presentkort, ta förbetalning för större sällskap eller erbjuda catering online? Integrera Stripe så tar du betalt säkert direkt på sajten. Google Analytics ingår om du vill följa hur många som besöker sajten, vilka sidor de tittar på och var de kommer ifrån. Allt sköts från en och samma plattform – du behöver inte jonglera med tio olika verktyg och inloggningar."
+    },
+    {
+      "heading": "Ingen bindningstid, publicera på egen domän",
+      "body": "Du betalar ingen månadskostnad för hosting om du använder en Sajtmaskin-subdomän, eller kopplar din egen domän (t.ex. dinrestaurang.se) direkt. Ingen bindningstid gäller – vill du ta sajten vidare till annan hosting kan du exportera hela koden. Det är din sajt, ditt innehåll. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och support som förstår hur svenska restauranger fungerar. Du får en professionell sajt utan att låsa in dig i dyra avtal eller krångliga CMS-system."
+    },
+    {
+      "heading": "Från Möllan till Västra Hamnen – lokal närvaro online",
+      "body": "Malmös restaurangscen är mångsidig, från foodtrucks vid Folkets Park till Michelin-ambitiösa kök vid kanalen. Oavsett koncept behöver du en sajt som speglar din identitet och gör det enkelt för gäster att hitta dig, läsa menyn och boka bord. Sajtmaskin låter dig bygga den sajten på minuter, uppdatera menyn när säsongen skiftar och lägga till evenemang eller erbjudanden utan att behöva ringa en webbyrå. Fokusera på maten – vi fixar tekniken."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt med Sajtmaskin?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n, beskriver din restaurang och vilka funktioner du vill ha, så genereras sajten automatiskt. Sedan kan du fortsätta justera texter, bilder och meny tills allt är precis som du vill. Publicera direkt när du är nöjd."
+    },
+    {
+      "q": "Kan jag lägga in vår meny och uppdatera den enkelt?",
+      "a": "Ja, du lägger in menyn genom att chatta med AI:n eller klistra in text direkt. Vill du ändra priser, lägga till säsongsrätter eller ta bort något? Chatta bara med AI:n igen så uppdateras sajten direkt. Ingen teknisk kunskap behövs – allt sköts via vanligt språk."
+    },
+    {
+      "q": "Fungerar bokningssystemet för restauranger i Malmö?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com som låter gäster boka bord direkt på din sajt. Du bestämmer själv tillgängliga tider, bordsstorlekar och eventuella specialregler. Systemet är helt webbaserat och fungerar lika bra för lunchbokningar som middagar. Inga extra avgifter för bokningsfunktionen."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att jag byggt den?",
+      "a": "Om du använder en Sajtmaskin-subdomän (t.ex. dinrestaurang.sajtmaskin.se) är hostingen gratis. Vill du ha egen domän kopplar du den direkt – inga månadskostnader från Sajtmaskin. Betaltjänster som Stripe och Cal.com har egna priser om du använder dem, men grundsajten kostar inget löpande."
+    },
+    {
+      "q": "Kan sajten vara på flera språk för internationella gäster?",
+      "a": "Ja, beskriv i chatten att du vill ha flerspråkig sajt så bygger AI:n in det. Perfekt för restauranger i Malmö som vill nå både svenska gäster och besökare från Danmark eller andra länder. Du kan ha meny och texter på svenska, engelska eller fler språk samtidigt."
+    },
+    {
+      "q": "Kan jag sälja presentkort eller ta betalt för catering via sajten?",
+      "a": "Ja, integrera Stripe så kan gäster betala direkt på sajten. Fungerar för presentkort, förbetalning av större bokningar, cateringbeställningar eller andra produkter. Du bestämmer själv vad du vill sälja och hur betalningen ska gå till. Allt sköts säkert via Stripe."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan lösning senare?",
+      "a": "Du kan exportera hela koden när du vill – ingen bindningstid gäller. Sajten är din och du kan ta den vidare till vilken hosting eller plattform du vill. Sajtmaskin låser inte in dig, du har full kontroll över ditt innehåll och din närvaro online."
+    }
+  ],
+  "localOrIndustryContext": "Malmös restaurangscen sträcker sig från Möllevångstorgets internationella kök till Västra Hamnens moderna restauranger och Gamla Stadens mysiga kvarter. Oavsett om du serverar falafel, fine dining eller klassisk husmanskost behöver du en sajt som gör det enkelt för gäster att hitta er, läsa menyn och boka bord – Sajtmaskin bygger den på minuter.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Malmö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

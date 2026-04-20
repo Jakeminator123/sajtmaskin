@@ -1,0 +1,86 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/bilverkstad",
+  "title": "Hemsida bilverkstad Västerås – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Västerås med Sajtmaskin. Bokning, prislista och kontaktformulär – klart på minuter.",
+  "h1": "Hemsida för bilverkstad i Västerås",
+  "heroSub": "Bygg en komplett sajt för din bilverkstad med bokning, tjänster och kontaktinfo – ingen kod krävs.",
+  "introParagraphs": [
+    "Driver du en bilverkstad i Västerås och vill ha en hemsida som faktiskt hjälper dig att ta emot bokningar och visa upp dina tjänster? Sajtmaskin låter dig bygga en komplett sajt på minuter genom att bara chatta med vår AI. Du får direkt med bokning via Cal.com, prislista för dina tjänster, kontaktformulär och allt annat en modern bilverkstad behöver.",
+    "Du behöver ingen teknisk kunskap. Berätta vad din verkstad erbjuder – besiktning, däckskifte, service, lackering eller specialisttjänster – så skapar AI:n en färdig sajt anpassad för Västerås-kunder. Publicera på din egen domän eller använd vår kostnadsfria subdomän. Ingen bindningstid, ingen månadshyra för hosting.",
+    "Sajten blir helt på svenska med lokalt fokus. Kunder i Västerås och Mälardalen hittar enkelt dina öppettider, kan boka tid direkt och se exakt vilka bilmärken och tjänster du jobbar med. Allt byggt i Sverige av Pretty Good AB."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem som funkar för verkstäder",
+      "body": "Bilverkstäder lever på schemalagda besök. Sajtmaskin integrerar Cal.com direkt i din sajt så kunder kan boka service, däckskifte eller besiktning dygnet runt. Du styr själv vilka tider som är lediga och får bekräftelse automatiskt. Ingen krånglig administration – bara en kalender som synkar med ditt system. Perfekt för både mindre verkstäder och större anläggningar i Västerås som vill minska telefonkön."
+    },
+    {
+      "heading": "Visa dina tjänster och priser tydligt",
+      "body": "Kunder vill veta vad det kostar innan de ringer. Med Sajtmaskin bygger du enkelt en prislista för service, bromsar, däck, AC-service och andra vanliga jobb. Du kan också lyfta specialkompetens – jobbar ni med eldrivna bilar, veteranbilar eller tunga fordon? AI:n hjälper dig formulera det så Västerås-kunderna förstår direkt vad som gör er unika. Uppdatera priser när som helst utan att behöva ringa en webbutvecklare."
+    },
+    {
+      "heading": "Lokalt förtroende och synlighet",
+      "body": "En bilverkstad i Västerås konkurrerar både med kedjor och andra lokala aktörer. Din sajt blir automatiskt SEO-optimerad för lokala sökningar så folk i Västerås, Hallstahammar och Köping hittar dig när de söker efter bilverkstad i närheten. Lägg till kundrecensioner, bilder från verkstaden och information om var ni ligger – allt som bygger förtroende. Sajtmaskin genererar även kontaktformulär och Google Analytics-integration så du ser vad som funkar."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Vi tror inte på inlåsning. Du kan exportera hela koden när du vill och flytta sajten till egen server. Vill du ha hjälp att koppla Stripe för kortbetalning av fakturor eller bygga ut med reservdelssortiment via Shopify? Integrationerna finns där när du behöver dem. Hosting på subdomän kostar inget extra, och du kan alltid uppgradera till egen domän. Allt på svenska, med svenskt stöd."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en färdig sajt för min bilverkstad?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar med AI:n om vilka tjänster du erbjuder, vilka öppettider ni har och vad som är viktigt för din verkstad. AI:n genererar sedan sidor för tjänster, bokning, om oss och kontakt. Du kan justera texter och bilder direkt i gränssnittet innan du publicerar."
+    },
+    {
+      "q": "Kan kunder boka tid direkt på sajten?",
+      "a": "Ja, genom Cal.com-integrationen får du ett komplett bokningssystem. Kunder väljer tjänst och tid, du får notis och bekräftelse skickas automatiskt. Du styr själv vilka tidsintervall som är bokningsbara och kan blockera ledigheter eller helgdagar. Allt synkas med din kalender så du slipper dubbelbokningar."
+    },
+    {
+      "q": "Funkar det för en mindre verkstad i Västerås eller är det bara för stora aktörer?",
+      "a": "Sajtmaskin är perfekt för mindre och medelstora verkstäder. Du behöver ingen IT-avdelning eller stor budget. Många ensamföretagare och familjeföretag i Västerås använder plattformen för att få en professionell närvaro utan månadskostnader. Skala upp när verksamheten växer – lägg till fler tjänster eller personal i bokningssystemet när det behövs."
+    },
+    {
+      "q": "Kan jag visa priser för service och däckskifte?",
+      "a": "Absolut. Du kan bygga en prislista för allt från oljebyte och bromsar till AC-service och kamremsbyte. Vill du ha fast pris för vissa jobb och offertförfrågan för andra? Det går bra. AI:n hjälper dig strukturera informationen så kunderna snabbt hittar vad de söker. Du uppdaterar priserna själv när säsongspriser eller nya tjänster tillkommer."
+    },
+    {
+      "q": "Syns sajten när folk i Västerås söker efter bilverkstad?",
+      "a": "Ja, alla sajter blir SEO-optimerade för lokala sökningar. Du anger din adress och verksamhetsområde så genererar Sajtmaskin innehåll som rankar för sökningar som bilverkstad Västerås, däckskifte Västerås och liknande. Google Analytics ingår så du kan följa vilka sökord som driver trafik och var dina besökare kommer ifrån."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när som helst utan extra kostnad. Ingen bindningstid, inga dolda avgifter. Vill du flytta sajten till en annan webbhotell-leverantör eller bygga vidare med en egen utvecklare är det helt okej. Du äger allt innehåll och all data. Hosting på vår subdomän är gratis, egen domän kopplar du när du vill."
+    }
+  ],
+  "localOrIndustryContext": "Västerås har stark fordonsindustri och många bilägare som pendlar både inom stan och till Stockholm. En lokal bilverkstad behöver synas när folk söker efter service, besiktning eller akuta reparationer. Med tydlig info om läge, öppettider och specialkompetens skapar du förtroende hos kunder som vill ha en pålitlig verkstad i närheten.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "chatgpt-hemsida",
+  "title": "Kan man använda ChatGPT för att bygga en hemsida? | Sajtmaskin",
+  "metaDescription": "Ja, AI som ChatGPT kan hjälpa dig bygga en hemsida – men du behöver rätt verktyg. Sajtmaskin är en svensk plattform som gör det enkelt.",
+  "h1": "Kan man använda ChatGPT för att bygga en hemsida?",
+  "heroSub": "AI kan skriva text och ge råd, men du behöver ett verktyg som faktiskt bygger sajten åt dig.",
+  "introParagraphs": [
+    "Ja, du kan använda ChatGPT för att få hjälp med texter, struktur och idéer till din hemsida. Men ChatGPT bygger inte själva sajten – det skriver kod och ger förslag som du sedan måste implementera själv. Det funkar om du kan webbutveckling, men för de flesta blir det krångligt att kopiera kod, hitta hosting och sätta upp allt manuellt.",
+    "Det du egentligen behöver är ett verktyg som kombinerar AI:ns förmåga att förstå vad du vill ha med möjligheten att faktiskt bygga, publicera och underhålla sajten. Sajtmaskin gör precis det: du chattar om vad du behöver, och får en färdig hemsida som du kan publicera direkt – helt på svenska och utan att röra kod.",
+    "I den här guiden förklarar vi hur AI används för att bygga hemsidor idag, vad som skiljer olika lösningar åt, och varför en svensk plattform som Sajtmaskin ofta är smidigast för svenska företag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI faktiskt används för att bygga hemsidor",
+      "body": "När du frågar ChatGPT om att bygga en hemsida får du ofta HTML- och CSS-kod, förslag på struktur och texter. Det är användbart om du vet hur du ska använda koden – ladda upp filer, koppla en domän, fixa responsiv design och säkerhet. För de flesta blir det en barriär. AI-drivna sajt-verktyg som Sajtmaskin tar samma språkförståelse men kopplar det direkt till en motor som genererar layout, sidor, formulär och integrationer. Du beskriver vad du vill ha, AI:n tolkar det och bygger sajten åt dig – redo att publicera."
+    },
+    {
+      "heading": "Vad är skillnaden mot mallbyggare och byråer?",
+      "body": "Traditionella mallbyggare som Wix eller Squarespace ger dig mallar att anpassa manuellt – du drar, släpper och justerar tills det ser rätt ut. Det tar tid och kräver designkänsla. Byråer bygger skräddarsytt men kostar ofta tiotusentals kronor och tar veckor. AI-baserade verktyg landar mitt emellan: du får en skräddarsydd sajt på minuter, till en bråkdel av byråkostnaden, och kan ändra allt efteråt genom att chatta. Sajtmaskin är byggt för svenska företag, med svenskt gränssnitt, svensk support och integrationer som Cal.com för bokning och Stripe för betalning."
+    },
+    {
+      "heading": "Vad kan du faktiskt bygga med AI?",
+      "body": "Med Sajtmaskin kan du skapa allt från en enkel visitkortssajt till en fullständig webshop via Shopify-integration. Du kan lägga till bokningsfunktion, betalning, formulär, blogg och analys. Allt styrs genom chat: berätta vad du behöver, så genererar AI:n sidorna, texterna och strukturen. Du kan justera färger, typsnitt och innehåll efteråt, och publicera på din egen domän utan månadskostnad för hosting på subdomän. Ingen bindningstid – vill du ta över koden själv kan du exportera den när som helst."
+    },
+    {
+      "heading": "Varför välja en svensk AI-plattform?",
+      "body": "Att bygga hemsida med AI handlar inte bara om tekniken – det handlar om att få hjälp på ditt språk, med förståelse för svenska företag och regler. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och support som förstår hur svenska småföretag jobbar. Du slipper översätta, anpassa utländska mallar eller gissa dig till vilka integrationer som funkar i Sverige. Allt är redo att användas direkt, och du äger alltid din egen sajt och data."
+    },
+    {
+      "heading": "Kom igång med AI och bygg din hemsida idag",
+      "body": "Du behöver inte kunna koda eller ha designerfarenhet. Logga in på Sajtmaskin, berätta vad du vill ha – en sajt för din frisörsalong, konsultbyrå eller webbshop – och låt AI:n bygga första versionen. Testa, justera och publicera när du är nöjd. Ingen bindningstid, ingen dold kostnad, och du kan alltid exportera koden om du vill gå vidare på egen hand. Prova det idag och se hur snabbt du kan få en professionell hemsida live."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan ChatGPT bygga en hel hemsida åt mig?",
+      "a": "ChatGPT kan skriva kod och ge dig struktur, men du måste själv implementera det – ladda upp filer, fixa hosting och koppla domän. Sajtmaskin använder AI på samma sätt men gör allt det tekniska åt dig, så du får en färdig sajt att publicera direkt."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda AI-verktyg som Sajtmaskin?",
+      "a": "Nej, inte alls. Du chattar om vad du vill ha, och AI:n genererar sajten åt dig. Du kan ändra allt efteråt genom att fortsätta chatta eller klicka dig fram i gränssnittet. Vill du ha koden kan du exportera den, men det är inget krav."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida med AI?",
+      "a": "Med Sajtmaskin kan du ha en första version live på minuter. Du beskriver vad du behöver, AI:n bygger sidorna och texterna, och du publicerar när du är nöjd. Justeringar gör du löpande genom att chatta eller redigera direkt."
+    },
+    {
+      "q": "Kan jag koppla min egen domän och lägga till betalning?",
+      "a": "Ja, du kan publicera på din egen domän och integrera Stripe för betalningar, Cal.com för bokning, Google Analytics för statistik och Shopify om du vill ha en webshop. Allt sköts från Sajtmaskin utan att du behöver koda."
+    },
+    {
+      "q": "Vad kostar det att använda Sajtmaskin?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän, fler integrationer eller exportera koden finns betalplaner, men ingen bindningstid. Du betalar bara för det du använder och kan avsluta när du vill."
+    },
+    {
+      "q": "Äger jag sajten och kan jag flytta den senare?",
+      "a": "Ja, du äger alltid din sajt och ditt innehåll. Du kan exportera koden när som helst och ta den vidare till annan hosting eller utvecklare om du vill. Ingen inlåsning."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för webshoppar och bokningssajter?",
+      "a": "Ja, du kan integrera Shopify för e-handel och Cal.com för bokning direkt från Sajtmaskin. AI:n hjälper dig sätta upp sidorna och funktionerna, och du kan justera allt efteråt."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

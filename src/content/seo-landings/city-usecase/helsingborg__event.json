@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/event",
+  "title": "Hemsida för event i Helsingborg – bygg på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Helsingborg med AI. Biljettförsäljning, bokning och betalning – allt på plats. Publicera direkt.",
+  "h1": "Hemsida för event i Helsingborg",
+  "heroSub": "Bygg en komplett eventsajt med biljettförsäljning, program och anmälan – på minuter, inte veckor.",
+  "introParagraphs": [
+    "Ska du arrangera ett event i Helsingborg och behöver en hemsida som faktiskt fungerar? Sajtmaskin låter dig bygga en komplett eventsajt via chat, med AI som sätter upp allt från programschema och talarlista till biljettförsäljning och anmälningsformulär. Ingen kod, inga krångliga verktyg – bara en konversation som blir en färdig sajt.",
+    "Oavsett om du planerar en konferens på Dunkers kulturhus, en musikfestival vid Gröningen eller en företagsgala på Rådhuset får du en sajt som är redo att publicera direkt. Stripe hanterar betalningar, Cal.com tar hand om bokningar, och du kan koppla på Google Analytics för att följa intresset. Allt på svenska, byggt för svenska eventarrangörer."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt en eventsajt behöver, på plats från start",
+      "body": "En bra eventsajt behöver mer än bara en snygg startsida. Du vill ha programschema, information om talare eller artister, praktiska detaljer om plats och tid, och ett smidigt sätt för folk att köpa biljetter eller anmäla sig. Sajtmaskin bygger allt det här åt dig när du beskriver ditt event i chatten. Vill du sälja biljetter kopplar du på Stripe. Behöver folk boka möten eller workshops fungerar Cal.com direkt. Du slipper leta plugins eller betala för fem olika tjänster."
+    },
+    {
+      "heading": "Från idé till publicerad sajt – utan tekniskt krångel",
+      "body": "Du startar en chatt och beskriver ditt event: vad det handlar om, var i Helsingborg det äger rum, vem det riktar sig till. AI:n föreslår struktur, sidor och funktioner. Du justerar texter, byter bilder, lägger till fler sektioner – allt medan du chattar. När du är nöjd publicerar du på din egen domän, eller testar på en kostnadsfri subdomän. Ingen bindningstid, inga dolda avgifter. Vill du ta sajten vidare senare exporterar du koden och äger allt."
+    },
+    {
+      "heading": "Perfekt för Helsingborgs varierade eventscen",
+      "body": "Helsingborg har allt från kulturella happenings och näringslivsmingel till idrottsevent och musikfestivaler. Oavsett om du arrangerar en konferens i Oceanhamnen, en popup-marknad i Söder eller en scenkonstföreställning på Tivoli behöver du en sajt som speglar eventets karaktär och gör det enkelt för besökare att hitta info och köpa biljetter. Sajtmaskin anpassar design och funktioner efter just ditt event, så sajten känns rätt från första besöket."
+    },
+    {
+      "heading": "Integrationer som gör jobbet enklare",
+      "body": "Stripe tar betalt för biljetter direkt på sajten – säkert och smidigt. Cal.com låter talare, utställare eller deltagare boka tider för workshops eller möten. Google Analytics visar var trafiken kommer ifrån och vilka sidor folk besöker mest. Behöver du en webshop för merch eller eventpaket kopplar du på Shopify. Alla integrationer sätts upp utan kod, och du styr allt från samma gränssnitt."
+    },
+    {
+      "heading": "Bygg, publicera och äg din eventsajt",
+      "body": "Många eventplattformar låser in dig i månadsavgifter och tar en procent av biljettförsäljningen. Sajtmaskin fungerar tvärtom: du bygger sajten, publicerar den och äger resultatet. Vill du driva sajten vidare efter eventet, använda den som mall för nästa år eller exportera koden och flytta till en egen server – det är helt upp till dig. Ingen bindningstid, inga dolda kostnader, bara en sajt som gör jobbet."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja, genom att koppla på Stripe kan besökare köpa biljetter direkt på din eventsajt. Betalningen hanteras säkert, och du kan sätta olika priser för olika biljetttyper eller early bird-erbjudanden. Allt sköts från samma gränssnitt."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en eventsajt?",
+      "a": "De flesta kommer igång på några minuter. Du beskriver ditt event i chatten, AI:n bygger en första version, och sedan justerar du texter, bilder och layout tills allt sitter. Många publicerar samma dag de börjar."
+    },
+    {
+      "q": "Fungerar sajten bra för event i Helsingborg med både svenska och danska gäster?",
+      "a": "Sajtmaskin bygger på svenska, men du kan enkelt redigera texter så de passar en internationell publik. Många event i Helsingborg drar besökare från Öresundsregionen, och du styr själv hur du formulerar info om plats, tid och praktiska detaljer."
+    },
+    {
+      "q": "Kan jag lägga till programschema och talarpresentationer?",
+      "a": "Absolut. Du kan bygga sidor för program, talare, workshops eller artistuppträdanden – precis vad ditt event behöver. Lägg till bilder, biografier, tidsschema och länkar. Allt redigeras direkt i chatten eller via gränssnittet."
+    },
+    {
+      "q": "Vad händer med sajten efter att eventet är över?",
+      "a": "Du bestämmer själv. Många låter sajten ligga kvar som arkiv eller marknadsföring inför nästa år. Andra exporterar koden och stänger ner. Ingen bindningstid betyder att du inte betalar för något du inte använder."
+    },
+    {
+      "q": "Kan jag koppla på bokningsfunktion för workshops eller möten?",
+      "a": "Ja, via Cal.com kan besökare boka tider direkt på sajten. Perfekt om ditt event har parallella sessioner, workshops eller möjlighet att boka möten med utställare eller talare. Allt synkas automatiskt."
+    },
+    {
+      "q": "Kostar det extra att publicera på min egen domän?",
+      "a": "Nej, du kan publicera på din egen domän utan extra kostnad. Vill du testa först finns en kostnadsfri subdomän. Ingen månadshyra för hosting, inga dolda avgifter – du betalar bara för det du faktiskt använder."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg är en eventstad med allt från Dunkers kulturhus och Konserthuset till Oceanhamnen och Sofiero. Oavsett om du arrangerar konferens, festival, mässa eller kulturnatt behöver du en sajt som gör det enkelt för besökare att hitta info, köpa biljetter och dela eventet vidare.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

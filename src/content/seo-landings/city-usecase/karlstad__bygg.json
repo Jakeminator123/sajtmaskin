@@ -1,0 +1,89 @@
+{
+  "family": "city-usecase",
+  "slug": "karlstad/bygg",
+  "title": "Hemsida bygg Karlstad – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Karlstad med AI. Publicera på minuter, ingen kodning krävs. Svensk plattform, inga bindningstider.",
+  "h1": "Hemsida för byggföretag i Karlstad",
+  "heroSub": "Bygg en komplett hemsida för ditt byggföretag via chat – publicera på egen domän utan att skriva en rad kod.",
+  "introParagraphs": [
+    "Om du driver ett byggföretag i Karlstad behöver du en sajt som visar upp dina projekt, gör det enkelt för kunder att begära offert och som syns när folk söker efter snickare, murare eller totalentreprenörer i trakten. Sajtmaskin låter dig skapa hela hemsidan genom att chatta med AI – berätta vad du gör, vilka tjänster du erbjuder och var du jobbar, så genererar plattformen en färdig sajt på minuter.",
+    "Du får ett svenskt gränssnitt, kan publicera direkt på din egen domän och behöver aldrig betala hosting om du nöjer dig med en subdomän. Integrationer som Cal.com för tidsbokning och Stripe för fakturering finns inbyggda, och du kan när som helst exportera koden om du vill flytta vidare. Ingen bindningstid, inget krångel – bara en färdig sajt som fungerar."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Karlstad behöver",
+      "body": "Byggbranschen i Karlstad sträcker sig från villarenoveringar i Herrhagen till nybyggen vid Hammarö och ombyggnationer i centrala kvarter. Din hemsida måste visa tydligt vilka tjänster du erbjuder – snickeri, murning, badrumsrenoveringar, tillbyggnader eller totalentreprenad. Bilder från tidigare projekt skapar förtroende, och en enkel offertförfrågan eller bokningskalender gör det smidigt för kunder att ta kontakt. Lokal närvaro är viktig: om du jobbar i Karlstad, Hammarö, Grums eller Forshaga ska det synas direkt."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din byggsajt",
+      "body": "Du startar en chatt och beskriver ditt företag: vilka byggtjänster du utför, vilka områden du täcker och vad som skiljer dig från andra hantverkare. AI:n skapar layout, texter och struktur – tjänstesidor, referensprojekt, kontaktformulär och om-sida. Du kan lägga till Cal.com för direktbokning av besiktningar eller mätningar, integrera Google Analytics för att se var besökarna kommer ifrån, och publicera på din egen domän samma dag. Vill du justera bilder, lägga till fler projekt eller ändra texten gör du det direkt i chatten."
+    },
+    {
+      "heading": "Ingen kod, ingen bindning",
+      "body": "Sajtmaskin kräver ingen teknisk kunskap. Du behöver inte anlita webbyrå, lära dig WordPress eller hantera hostingtjänster. Plattformen är byggd i Sverige av Pretty Good AB, med svenskt stöd och svensk fakturering. Det finns ingen bindningstid – vill du exportera koden och flytta sajten någon annanstans står du helt fri att göra det. Hosting på subdomän kostar ingenting i månadsavgift, och egen domän kopplar du på direkt om du vill."
+    },
+    {
+      "heading": "Integrationer för byggföretag",
+      "body": "Cal.com låter kunder boka tid för kostnadsfri konsultation, mätning eller offertbesök – perfekt när du jobbar ute på byggen och inte alltid kan svara i telefon. Stripe gör det enkelt att ta betalt för mindre jobb eller ta emot förskottsbetalningar. Google Analytics visar vilka sökord som driver trafik och var dina besökare bor, så du ser om folk hittar dig via sökning på bygg Karlstad eller via rekommendationer. Allt sätts upp utan plugins eller tekniskt pill."
+    },
+    {
+      "heading": "Lokal synlighet i Karlstad",
+      "body": "När någon i Karlstad söker efter snickare, murare eller byggfirma vill du synas. Sajtmaskin genererar SEO-vänliga texter som inkluderar dina tjänster och geografiska område, och du kan enkelt lägga till sidor för specifika stadsdelar eller närliggande orter. Kombinera det med tydliga kontaktuppgifter, Google Maps-integration och bilder från lokala projekt så bygger du förtroende och relevans. Sajten laddas snabbt, fungerar på mobil och ser professionell ut – precis som ditt hantverksarbete."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig byggsajt?",
+      "a": "De flesta har en publicerad sajt inom 30 minuter. Du chattar med AI:n, beskriver ditt byggföretag och tjänster, granskar förslaget och publicerar. Vill du finjustera texter eller lägga till fler projektbilder gör du det direkt i samma chatt."
+    },
+    {
+      "q": "Kan jag visa upp tidigare byggprojekt i Karlstad?",
+      "a": "Absolut. Du laddar upp bilder från renoveringar, nybyggen eller ombyggnader och beskriver varje projekt. AI:n skapar en referenssida eller projektgalleri som visar ditt arbete, och du kan när som helst lägga till nya jobb du är stolt över."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter Sajtmaskin genererar är responsiva och fungerar lika bra på telefon som på dator. Många kunder söker efter hantverkare på mobilen, så layouten anpassas automatiskt till alla skärmstorlekar."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på subdomän är gratis utan månadsavgift. Vill du använda din egen domän kopplar du den direkt, och då tillkommer eventuell domänkostnad hos din registrar. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan kunder boka tid för offertbesök direkt på sajten?",
+      "a": "Ja, genom Cal.com-integrationen kan besökare välja ledig tid i din kalender och boka konsultation, mätning eller besiktning. Du får notiser och kan hantera bokningar smidigt även när du är ute på jobb."
+    },
+    {
+      "q": "Hur gör jag om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan extra kostnad. Sajten är din och du står helt fri att flytta den till annan hosting eller vidareutveckla den med egen utvecklare om behoven förändras."
+    }
+  ],
+  "localOrIndustryContext": "Karlstad har en aktiv byggmarknad med allt från villarenoveringar i etablerade områden som Våxnäs och Kronoparken till nybyggnation vid Hammarö och Skutberget. Många hantverkare jobbar både i centrala Karlstad och i kranskommuner som Grums, Forshaga och Kil, vilket gör lokal synlighet och tydlig geografisk information viktig på hemsidan.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/karlstad",
+      "label": "Skapa hemsida i Karlstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Karlstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

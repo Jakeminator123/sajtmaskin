@@ -1,0 +1,102 @@
+{
+  "family": "ai",
+  "slug": "ai-hemsida-sma-foretag",
+  "title": "AI-hemsida för små företag – bygg på minuter | Sajtmaskin",
+  "metaDescription": "Små företag kan nu bygga kompletta hemsidor med AI på minuter. Berätta vad du gör, så genererar AI design, text och struktur – klart att publicera.",
+  "h1": "AI-hemsida för små företag",
+  "heroSub": "Beskriv ditt företag i chatten, så bygger AI en färdig hemsida med text, bilder och layout – publicera direkt eller justera efter behov.",
+  "introParagraphs": [
+    "Små företag kan idag bygga en hel hemsida genom att chatta med en AI. Du beskriver vad företaget gör, vilka tjänster du erbjuder och vem du vill nå – sedan genererar AI:n text, väljer layout, skapar sidor och föreslår struktur. På minuter har du en färdig sajt att granska, redigera och publicera.",
+    "Metoden passar särskilt bra för småföretagare som inte har tid att lära sig WordPress, budget att anlita byrå eller lust att sitta med mallbyggare i timmar. AI:n skriver om ditt företag utifrån din input, anpassar tonen och skapar sidor som kontakt, tjänster och om oss – allt medan du chattar.",
+    "Sajtmaskin är en svensk plattform som fungerar precis så här. Du startar en chatt på svenska, berättar om företaget, och AI:n bygger sajten. Publicera gratis på en subdomän eller koppla din egen domän. Ingen bindningstid, inget krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI faktiskt bygger hemsidan",
+      "body": "Du skriver i vanlig text vad företaget gör – exempelvis \"Vi säljer ekologisk hundmat i Malmö och vill nå hundägare som bryr sig om hälsa\". AI:n tolkar det, skriver presentationstexter, skapar en startsida, produktsida och kontaktsida, väljer färgschema och lägger in struktur. Du ser resultatet direkt och kan be AI:n ändra ton, lägga till sidor eller byta layout genom att fortsätta chatta. Allt händer i realtid, utan att du rör kod eller designer."
+    },
+    {
+      "heading": "Jämfört med mallbyggare och byråer",
+      "body": "Mallbyggare som Wix eller Squarespace kräver att du själv drar och släpper, skriver alla texter och fattar designbeslut. Det tar ofta flera dagar och resultatet beror helt på din egen känsla för layout. Byråer levererar proffsig kvalitet men kostar från 30 000 kronor uppåt och tar veckor. AI-hemsidor landar mittemellan: du får en färdig sajt på minuter, kan redigera fritt efteråt, och betalar en bråkdel av byråpriset. För små företag som vill komma igång snabbt är det en rejäl genväg."
+    },
+    {
+      "heading": "Vad ingår i en AI-genererad sajt",
+      "body": "En typisk AI-hemsida innehåller startsida med hero-sektion och presentation, tjänste- eller produktsidor, om oss-sida, kontaktformulär och footer med länkar. Sajtmaskin lägger automatiskt till SEO-titlar, meta-beskrivningar och mobilanpassning. Du kan integrera bokningssystem via Cal.com, betalning via Stripe, eller koppla Google Analytics. Vill du ha webshop fungerar Shopify-integration. Allt sätts upp genom chatten eller i editorn efteråt."
+    },
+    {
+      "heading": "Publicera och äga din sajt",
+      "body": "När sajten är klar publicerar du antingen på en gratis subdomän hos Sajtmaskin – ingen månadskostnad för hosting – eller kopplar din egen domän. Du äger allt innehåll och kan när som helst exportera koden om du vill flytta sajten någon annanstans. Ingen bindningstid, inga dolda avgifter. Uppdateringar och ändringar gör du själv i editorn eller genom att chatta med AI:n igen. För små företag betyder det full kontroll utan teknisk huvudvärk."
+    },
+    {
+      "heading": "Så kommer du igång med Sajtmaskin",
+      "body": "Gå till Sajtmaskin.se och starta en ny sajt. Skriv på svenska vad ditt företag gör, vilka tjänster du erbjuder och vad du vill att sajten ska innehålla. AI:n ställer följdfrågor om du vill justera ton eller lägga till funktioner. Granska resultatet, be om ändringar direkt i chatten, och publicera när du är nöjd. Hela processen tar ofta under tio minuter. Vill du testa är det gratis att skapa och förhandsgranska – du betalar först när du publicerar på egen domän."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida med AI?",
+      "a": "Från start till färdig sajt tar det ofta fem till tio minuter. Du chattar med AI:n, beskriver företaget, granskar förslaget och justerar om det behövs. Vill du ha fler sidor eller specialfunktioner kan det ta lite längre, men grundstrukturen är klar på minuter."
+    },
+    {
+      "q": "Kan jag redigera sajten efter att AI:n byggt den?",
+      "a": "Ja, du kan ändra allt i editorn – texter, bilder, färger, layout. Du kan också fortsätta chatta med AI:n och be om ändringar, lägga till nya sidor eller justera ton. Sajten är helt öppen att redigera precis som du vill."
+    },
+    {
+      "q": "Vad kostar det att publicera en AI-hemsida?",
+      "a": "Publicera på en subdomän hos Sajtmaskin är gratis, ingen månadskostnad för hosting. Vill du koppla din egen domän eller använda avancerade funktioner finns betalplaner, men grundfunktionen kostar inget löpande. Inga bindningstider."
+    },
+    {
+      "q": "Behöver jag kunna koda eller design?",
+      "a": "Nej, inte alls. Du skriver i vanlig svenska vad du vill ha, AI:n sköter kod, design och struktur. Vill du justera något efteråt går det att göra i editorn utan kodkunskap. Allt är byggt för att fungera utan teknisk bakgrund."
+    },
+    {
+      "q": "Kan jag integrera bokning och betalning?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com för bokningar och Stripe för betalningar. Du kan också koppla Google Analytics för statistik och Shopify om du vill ha en webshop. Integrationerna sätts upp via inställningar eller genom att be AI:n lägga till dem."
+    },
+    {
+      "q": "Äger jag sajten och kan jag flytta den?",
+      "a": "Du äger allt innehåll och kan när som helst exportera koden. Ingen bindningstid, ingen inlåsning. Vill du flytta sajten till en annan host eller utveckla den vidare själv är det fritt fram."
+    },
+    {
+      "q": "Fungerar AI-hemsidan för alla branscher?",
+      "a": "Ja, AI:n anpassar innehåll och struktur efter vad du beskriver – allt från hantverkare och konsulter till butiker och lokala tjänster. Du styr själv vilken ton och vilka sidor som passar ditt företag."
+    }
+  ],
+  "localOrIndustryContext": "Små företag i Sverige står ofta inför valet mellan dyra byråer och tidskrävande mallbyggare. AI-hemsidor har öppnat en tredje väg: snabb, prisvärd och på svenska. Sajtmaskin är byggt i Sverige av Pretty Good AB och riktar sig specifikt till svenska småföretagare som vill komma online utan krångel.",
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

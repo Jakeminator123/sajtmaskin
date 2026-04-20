@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "lund/restaurang",
+  "title": "Hemsida restaurang Lund – Bygg på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell restaurangsida i Lund med AI. Meny, bordsbokningar och betalning. Ingen kod, klart på minuter. Prova gratis idag.",
+  "h1": "Hemsida för restaurang i Lund",
+  "heroSub": "Bygg en komplett restaurangsida med meny, bokning och betalning – på minuter, utan kod.",
+  "introParagraphs": [
+    "En restaurang i Lund behöver en hemsida som visar menyn tydligt, tar emot bordsbokningar och ger hungriga gäster rätt känsla direkt. Sajtmaskin låter dig bygga allt det via chat – AI:n skapar sidorna, lägger in dina rätter och kopplar bokningssystem så du slipper krångel med kod eller designers.",
+    "Du chattar om din restaurang, kanske att du ligger nära Stortorget eller Mårtenstorget, vilken typ av mat du lagar och om du vill ta betalt online. På några minuter har du en färdig sajt att publicera på egen domän, eller gratis på en Sajtmaskin-subdomän. Allt på svenska, byggt för att fungera direkt.",
+    "Ingen bindningstid och du kan exportera koden när du vill. Perfekt om du driver en liten kvarterskrog, ett lunchställe för studenter eller en finare à la carte-restaurang som vill synas bättre online."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny och bilder som lockar gäster",
+      "body": "Din meny är ofta det första besökare letar efter. Sajtmaskin hjälper dig strukturera rätter, priser och allergener snyggt – antingen listar du dem i chatten eller kopierar in från ett befintligt dokument. Lägg till aptitretande bilder på dina signaturrätter så gästerna får mersmak. AI:n formaterar allt responsivt så menyn ser bra ut på mobilen när folk googlar \"var ska vi äta i Lund\" på väg in till stan."
+    },
+    {
+      "heading": "Bordsbokningar med Cal.com",
+      "body": "Slipp mejl och telefonjobberi. Integrera Cal.com så gästerna bokar bord direkt på sajten, väljer tid och antal personer. Systemet synkar med din kalender och skickar påminnelser automatiskt. Särskilt smidigt för helgkvällar när det ringer konstant, eller för lunchbokningar från företag runt Ideon och Brunnshög som vill reservera större sällskap."
+    },
+    {
+      "heading": "Betala online via Stripe",
+      "body": "Vill du ta förskottsbetalning för större sällskap, sälja presentkort eller ta betalt för en avhämtningsmeny? Koppla in Stripe så kan gäster betala direkt på sajten. Pengarna landar på ditt konto och du får kvitton automatiskt. Ingen krånglig e-handel att sätta upp – bara ange vad som ska säljas och vilket pris, så fixar Sajtmaskin resten."
+    },
+    {
+      "heading": "Snabbt, enkelt och helt på svenska",
+      "body": "Allt sker i chattrutan: berätta om din restaurang, vilka sidor du vill ha och vilken känsla du är ute efter. AI:n föreslår struktur, skriver utkast till texter och väljer färger som passar din profil. Du justerar direkt i gränssnittet, byter bilder och tweak:ar formuleringar tills det känns rätt. När du är nöjd publicerar du – klart på en eftermiddag istället för veckor med byrå."
+    },
+    {
+      "heading": "Ingen bindningstid, äg din kod",
+      "body": "Sajtmaskin tar ingen månadshyra om du kör på subdomän, och du kan när som helst exportera hela sajten som ren kod. Vill du flytta till egen server eller byta plattform senare är du fri att göra det. Ingen inlåsning, inga dolda avgifter – bara en enkel sajt som fungerar och som du äger helt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsida?",
+      "a": "De flesta har en fungerande sajt på 30–60 minuter. Du chattar om din restaurang, AI:n genererar sidor och meny, sen justerar du bilder och texter tills det ser rätt ut. Vill du koppla bokning och betalning tar det någon extra kvart, men allt går att göra samma dag."
+    },
+    {
+      "q": "Kan jag lägga till allergener och vegetariska alternativ?",
+      "a": "Absolut. När du listar menyn kan du märka rätter med vegetariskt, veganskt, glutenfritt eller andra allergener. Sajtmaskin formaterar det tydligt så gästerna ser direkt vad som passar dem. Du uppdaterar lika enkelt när säsongsmenyn byts."
+    },
+    {
+      "q": "Funkar boksystemet för lunch och à la carte?",
+      "a": "Ja, Cal.com låter dig sätta olika tider och bordsstorlekar. Du kan till exempel ha snabbare slots för lunch och längre för kvällsmiddagar, eller stänga av bokning vissa dagar. Allt justeras i Cal.com-inställningarna som du kopplar till sajten."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att uppdatera menyn?",
+      "a": "Nej. Du ändrar texter och priser direkt i Sajtmaskins editor, precis som att redigera ett dokument. Ingen kod, inget FTP, inget krångel. Perfekt när du vill lägga till veckans husman eller byta ut en rätt som inte säljer."
+    },
+    {
+      "q": "Är det lätt för Lundabor att hitta restaurangen online?",
+      "a": "Sajten blir sökmotorvänlig från start: tydliga rubriker, snabb laddning och mobilanpassad. Lägg till din adress och ett litet stycke om läget – nära Stortorget, Mårtenstorget eller universitetsområdet – så hjälper det både Google och hungriga gäster att hitta dig."
+    },
+    {
+      "q": "Kan jag sälja presentkort eller ta förskott för storgrupper?",
+      "a": "Ja, via Stripe-integrationen. Skapa en enkel produktsida för presentkort eller en depositionsavgift för sällskap över tio personer. Betalningen går direkt till ditt konto och kunden får kvitto på mejl. Smidigare än Swish-lappar och lättare att hålla koll på bokföringen."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Ingenting om du använder Sajtmaskins subdomän. Vill du ha egen domän (t.ex. dinrestaurang.se) betalar du bara domänregistrering, oftast runt hundralappen per år. Inga månadshyror för hosting, inga dolda avgifter. Cal.com och Stripe tar små transaktionsavgifter när de används, men plattformen själv kostar inget löpande."
+    }
+  ],
+  "localOrIndustryContext": "Lund har en livlig restaurangscen med allt från studentvänliga lunchställen kring Mårtenstorget till finare kök längs Bantorget och Klostergatan. Många gäster är studenter och akademiker som googlar snabbt på mobilen, så en tydlig meny och enkel bokning gör stor skillnad för att fånga besökare som annars väljer stället bredvid.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/lund",
+      "label": "Skapa hemsida i Lund"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Lund. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

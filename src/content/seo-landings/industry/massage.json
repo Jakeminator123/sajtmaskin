@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "massage",
+  "title": "Hemsida för massage – bygg en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en hemsida för din massageverksamhet med AI. Bokningssystem, presentationer och kontaktformulär – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för massage",
+  "heroSub": "Bygg en proffsig sajt för din massageverksamhet med AI – komplett med bokningssystem och tjänstepresentation på minuter.",
+  "introParagraphs": [
+    "En hemsida för massage gör det enkelt för klienter att hitta dig, läsa om dina behandlingar och boka tid direkt online. Utan en sajt försvinner du i mängden när potentiella kunder söker efter massage i din stad, och du missar bokningar till konkurrenter som syns på nätet.",
+    "Med Sajtmaskin bygger du en komplett massagesajt genom att chatta med AI:n. Berätta om din verksamhet – om du erbjuder klassisk massage, taktil massage eller idrottsmassage – så genereras sidor med tjänstebeskrivningar, priser, om-text och bokningsfunktion automatiskt. Publicera på din egen domän och ta emot bokningar samma dag.",
+    "Du behöver ingen teknisk kunskap. AI:n skapar struktur, texter och design anpassat för massagebranschen, och du kan justera allt direkt i chatten. Ingen bindningstid, ingen dold kostnad för hosting på subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för massage behöver innehålla",
+      "body": "En fungerande massagesajt har en startsida som förklarar vem du är och vad du erbjuder, en tjänstesida där du beskriver varje behandling – klassisk massage, taktil massage, idrottsmassage, triggerpunktbehandling – med längd och pris. Du behöver en om-sida där klienter kan läsa om din utbildning och erfarenhet, en kontaktsida med adress, telefon och karta, samt ett bokningssystem där besökare kan välja tid och behandling direkt. Många massageterapeuter lägger också till en blogg med råd om spänningar, återhämtning och stretching för att synas bättre i sökmotorer."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din massagesajt",
+      "body": "Du startar en chatt och beskriver din verksamhet: vilka behandlingar du erbjuder, var du finns, vad som gör dig unik. AI:n genererar då en komplett sajt med alla sidor ifyllda – texter om dina tjänster, prislista, om-text och kontaktuppgifter. Vill du ändra något säger du det i chatten: 'Lägg till en sida om gravidmassage' eller 'Ändra priset på 60-minutersbehandlingen till 750 kr'. Sajtmaskin integrerar Cal.com för bokningar så klienter kan välja ledig tid direkt på sajten, och du kan koppla Google Analytics för att se hur många som besöker sidan. Allt på svenska, anpassat för svenska massageterapeuter."
+    },
+    {
+      "heading": "Bokningssystem som fungerar för massage",
+      "body": "Integrationen med Cal.com låter dig sätta upp olika behandlingar med varierande längd – 30, 60 eller 90 minuter – och klienter väljer tid i din kalender. Du bestämmer bufferttid mellan bokningar så du hinner förbereda rummet, och systemet skickar automatiska påminnelser via mejl. Ingen extra kostnad för bokningsfunktionen, och du slipper manuella sms-konversationer fram och tillbaka. Klienter kan boka dygnet runt, även när du själv ger behandlingar."
+    },
+    {
+      "heading": "Lokal synlighet för massageterapeuter",
+      "body": "När någon söker 'massage Göteborg' eller 'idrottsmassage Stockholm' vill du synas. Sajtmaskin genererar SEO-vänliga texter med relevanta sökord för din stad och dina behandlingar, och du kan lägga till en blogg där du skriver om vanliga besvär – spänningar i nacke och axlar, löparknä, återhämtning efter träning. Ju fler relevanta texter du publicerar, desto bättre rankar sajten lokalt. Publicera på din egen domän, typ dinmassage.se, så bygger du ett varumärke som klienter kommer ihåg."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du äger koden och kan exportera sajten när du vill. Hosting på subdomän hos Sajtmaskin kostar inget extra, men vill du flytta till egen server går det bra. Inga dolda avgifter, inga långa avtal. Behöver du hjälp finns svensk support som förstår hur massagebranschen fungerar. Uppdatera priser, lägg till nya behandlingar eller ändra öppettider direkt i chatten – sajten växer med din verksamhet."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag lägga till presentkort på min massagesajt?",
+      "a": "Ja, genom Stripe-integrationen kan du sälja presentkort direkt på sajten. Kunder betalar online och får ett presentkort de kan skicka vidare, och du kan hantera inlösen via ditt bokningssystem. Sajtmaskin hjälper dig sätta upp betalflödet i chatten."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter Sajtmaskin genererar är responsiva och fungerar lika bra på mobil som dator. Många som bokar massage gör det från telefonen, så designen anpassas automatiskt till mindre skärmar med tydliga knappar och lättläst text."
+    },
+    {
+      "q": "Kan jag visa bilder från min massagemottagning?",
+      "a": "Absolut. Du kan ladda upp bilder i chatten eller ge AI:n beskrivningar så genereras platshållarbilder. Egen bildbank med foton från behandlingsrummet, väntrum och mottagning gör sajten mer personlig och bygger förtroende hos nya klienter."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga sajten?",
+      "a": "De flesta massagesajter är klara på 10–20 minuter. Du chattar med AI:n, beskriver dina behandlingar och verksamhet, granskar förslaget och justerar detaljer. Sen publicerar du direkt. Vill du lägga till fler sidor eller blogginlägg senare gör du det löpande."
+    },
+    {
+      "q": "Kan jag ha både svensk och engelsk version?",
+      "a": "Ja, du kan be AI:n skapa en flerspråkig sajt om du tar emot internationella klienter eller turister. Sajtmaskin genererar innehåll på båda språken och sätter upp en språkväxlare. Praktiskt om du har mottagning i storstadsområden med många utländska besökare."
+    },
+    {
+      "q": "Vad händer om jag vill byta bokningssystem senare?",
+      "a": "Du kan byta från Cal.com till annat system när du vill. Eftersom du äger koden kan du integrera vilken bookingtjänst som helst, eller be Sajtmaskins support hjälpa till. Ingen inlåsning i specifika verktyg."
+    },
+    {
+      "q": "Kan jag blogga om massage och hälsa på sajten?",
+      "a": "Ja, du kan lägga till en blogg där du skriver om allt från stretching och ergonomi till skillnaden mellan olika massagetekniker. Blogginlägg förbättrar din SEO och visar expertis, vilket bygger förtroende hos potentiella klienter. AI:n kan hjälpa till med ämnesförslag och struktur."
+    }
+  ],
+  "localOrIndustryContext": "Massagebranschen i Sverige är mångfacetterad – från legitimerade naprapater och sjukgymnaster som erbjuder medicinsk massage till taktila massörer inom omsorgen och frilansande massageterapeuter med egen mottagning. Många driver enmansföretag och behöver en sajt som är enkel att underhålla själv, utan att betala webbyrå för varje liten ändring. En tydlig hemsida med bokningsfunktion gör skillnad i en bransch där kunderna ofta söker lokalt och vill boka snabbt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/spa",
+      "label": "Hemsida för spa"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en massage-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

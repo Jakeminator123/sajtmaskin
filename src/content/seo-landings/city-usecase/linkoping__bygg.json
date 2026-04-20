@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "linkoping/bygg",
+  "title": "Hemsida för byggföretag i Linköping | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Linköping på minuter. Inget kodande, ingen bindningstid. Bygg din sajt med AI idag.",
+  "h1": "Hemsida för byggföretag i Linköping",
+  "heroSub": "Få en komplett hemsida för ditt byggföretag i Linköping – med bokningssystem, projektgalleri och kontaktformulär.",
+  "introParagraphs": [
+    "Du driver ett byggföretag i Linköping och behöver en hemsida som visar upp dina projekt, förklarar dina tjänster och gör det enkelt för kunder att höra av sig. Med Sajtmaskin chattar du fram hela sajten på minuter – ingen kodning, inga dyra byråer. Du beskriver vad du gör, vilka projekt du är stolt över och hur kunder ska boka, så bygger AI:n en färdig sajt åt dig.",
+    "Sajten publiceras på din egen domän eller kostnadsfritt på en subdomän. Du kan integrera Cal.com för bokningar av besiktningar och offertmöten, lägga till projektbilder och beskriva allt från nybyggnation till renoveringar. Allt på svenska, byggt i Sverige, och du kan exportera koden när du vill.",
+    "Byggbranschen i Linköping växer i takt med staden, och kunderna förväntar sig att hitta dig online. Med Sajtmaskin får du en professionell närvaro utan att lägga veckor på teknikaliteter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Linköping behöver",
+      "body": "Kunder som söker byggföretag i Linköping vill se konkreta exempel på vad du gjort – före- och efterbilder, referenser från villor i Lambohov eller renoveringar i centrum. De vill veta vilka tjänster du erbjuder: nybyggnation, tillbyggnader, badrumsrenoveringar, ROT-arbeten. Och de vill ha ett enkelt sätt att begära offert eller boka ett första möte. En bra byggsajt kombinerar tydliga bilder, förtroendeingivande texter och smidiga kontaktvägar – allt samlat på ett ställe som laddar snabbt och ser proffsigt ut på mobilen."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din byggsajt",
+      "body": "Du startar en chatt och berättar vad ditt företag gör: vilka tjänster du erbjuder, vilka områden du täcker, vilka projekt du vill lyfta fram. AI:n skapar en struktur med startsida, tjänstesidor, projektgalleri och kontaktsida. Du kan be om ändringar direkt i chatten – byt bilder, lägg till en sida om ROT-avdrag, justera texterna. När du är nöjd publicerar du på din egen domän eller på en gratis subdomän. Vill du att kunder ska kunna boka besiktningar kopplar du på Cal.com. Behöver du spåra besökare aktiverar du Google Analytics. Allt sker utan kod."
+    },
+    {
+      "heading": "Från första chatten till färdig sajt",
+      "body": "De flesta byggföretag har sajten klar på under en timme. Du beskriver dina tjänster och projekt, AI:n föreslår layout och texter, du justerar tills det känns rätt. Sedan publicerar du. Ingen bindningstid innebär att du kan testa Sajtmaskin utan risk – och om du senare vill flytta sajten exporterar du koden och tar den med dig. Hostingen på subdomän kostar ingenting per månad, så du slipper löpande fakturor för att ha en sajt online."
+    },
+    {
+      "heading": "Integrationer som byggbranschen behöver",
+      "body": "Med Cal.com kan kunder boka kostnadsfria hembesök eller offertmöten direkt i din kalender. Stripe låter dig ta förskottsbetalningar om du säljer standardpaket som fönsterbyten eller målning. Google Analytics visar vilka sidor som besöks mest och var trafiken kommer ifrån – användbart när du annonserar lokalt i Linköping. Alla integrationer aktiveras med några klick, ingen utvecklare behövs."
+    },
+    {
+      "heading": "Varför Linköpings byggföretag väljer Sajtmaskin",
+      "body": "Byggbranschen är hands-on, och tiden på kontoret ska hållas kort. Sajtmaskin låter dig få en komplett hemsida utan att sitta i möten med webbbyråer eller lära dig WordPress. Allt är på svenska, supporten svarar snabbt, och plattformen är byggd i Sverige. Du kan uppdatera projekt och texter själv när du vill – lägg till nya bilder från pågående byggen i Johannelund eller ändra prislistan när material blir dyrare. Flexibiliteten gör att sajten växer med ditt företag."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig byggsajt?",
+      "a": "De flesta har en publicerad sajt inom en timme. Du chattar med AI:n, beskriver dina tjänster och projekt, granskar förslaget och justerar tills du är nöjd. Sedan publicerar du direkt."
+    },
+    {
+      "q": "Kan jag visa före- och efterbilder från mina projekt?",
+      "a": "Ja, du laddar upp bilder i chatten eller via gränssnittet och ber AI:n skapa ett projektgalleri. Du kan organisera projekten efter typ – badrum, kök, tillbyggnader – och lägga till beskrivande texter för varje."
+    },
+    {
+      "q": "Fungerar sajten för ROT- och RUT-avdrag?",
+      "a": "Du kan lägga till information om ROT- och RUT-avdrag på tjänstesidorna och förklara hur kunder ansöker. Sajtmaskin hanterar inte själva avdragsprocessen, men du kan länka till Skatteverkets blanketter och ge tydliga instruktioner."
+    },
+    {
+      "q": "Kan kunder boka besiktningar direkt på sajten?",
+      "a": "Ja, integrera Cal.com så får du ett bokningssystem där kunder väljer tid för hembesök eller offertmöte. Bokningen synkas med din kalender och kunden får automatisk bekräftelse."
+    },
+    {
+      "q": "Vad kostar det att ha sajten online?",
+      "a": "Publicerar du på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du använda egen domän betalar du bara för domännamnet hos din registrar. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag uppdatera sajten själv när jag avslutat projekt?",
+      "a": "Absolut. Du loggar in och ändrar texter, byter bilder eller lägger till nya projektsidor via chatten. Inga tekniska kunskaper krävs – beskriv ändringen så fixar AI:n det."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil för kunder i Linköping?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och ser proffsiga ut på mobiler och surfplattor. Många byggkunder söker lokalt på telefonen, så mobilvyn är optimerad från start."
+    }
+  ],
+  "localOrIndustryContext": "Linköping växer snabbt med både nyproduktion och renoveringar i etablerade områden som Lambohov, Johannelund och Vasastaden. Byggföretag i staden konkurrerar om synlighet online, och en professionell hemsida är ofta första intrycket för villaägare och fastighetsbolag som söker pålitliga hantverkare.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/linkoping",
+      "label": "Skapa hemsida i Linköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Linköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

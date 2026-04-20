@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "karlstad/salong",
+  "title": "Hemsida Salong Karlstad – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Karlstad med Sajtmaskin. Bokningssystem, bildgalleri och mobilanpassning – klart på minuter.",
+  "h1": "Hemsida för salong i Karlstad",
+  "heroSub": "Bygg en komplett sajt för din salong med bokning, prislista och galleri – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "Om du driver en salong i Karlstad behöver du en hemsida som visar dina tjänster, låter kunder boka direkt och fungerar lika bra på mobilen som på datorn. Med Sajtmaskin skapar du allt detta på minuter genom att chatta med vår AI – ingen teknisk kunskap krävs.",
+    "Du beskriver din salong, vilka behandlingar du erbjuder och hur du vill att sajten ska se ut. AI:n bygger sedan en färdig sajt med bokningssystem, prislista, bildgalleri och kontaktformulär. Publicera på din egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Sajten blir automatiskt anpassad för mobiler, snabb att ladda och enkel att uppdatera när du vill ändra priser eller lägga till nya tjänster. Allt på svenska, byggt för svenska salonger."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "För en salong i Karlstad är direktbokning avgörande – kunder vill kunna boka klippning, färg eller behandling direkt när de hittar dig online. Sajtmaskin integrerar Cal.com så att ditt bokningssystem är på plats från dag ett. Kunderna ser lediga tider, bokar sin tid och får bekräftelse automatiskt. Du slipper dubbelbokningar och kan hantera allt från en kalender som synkar med din mobil."
+    },
+    {
+      "heading": "Visa dina tjänster och priser tydligt",
+      "body": "En bra hemsida för salong gör det enkelt för kunder att förstå vad du erbjuder och vad det kostar. Sajtmaskin hjälper dig strukturera din prislista så att klippning, färg, slingor, behandlingar och styling visas överskådligt. Du kan gruppera tjänster, lägga till beskrivningar och uppdatera priser när som helst direkt i gränssnittet. Inga krångliga verktyg – bara skriv vad du vill ändra så fixar AI:n resten."
+    },
+    {
+      "heading": "Bildgalleri som visar ditt hantverk",
+      "body": "Bilder säljer. Ett snyggt bildgalleri där du visar före-och-efter, olika frisyrer, färgningar och nöjda kunder bygger förtroende och inspirerar nya besökare. Sajtmaskin skapar ett responsivt galleri som ser professionellt ut på alla skärmar. Ladda upp bilder, lägg till bildtexter och låt ditt arbete tala för sig själv. Galleriet laddas snabbt och fungerar smidigt även på äldre mobiler."
+    },
+    {
+      "heading": "Anpassad för Karlstad och dina kunder",
+      "body": "En salong i Karlstad har ofta stamkunder från centrum, Kronoparken, Herrhagen och närliggande orter. Din hemsida kan enkelt anpassas med information om var du ligger, parkeringsmöjligheter och öppettider. Lägg till en karta, beskriv hur man hittar och gör det tydligt om du erbjuder kvälls- eller helgöppet. Sajtmaskin låter dig skriva detta på vanlig svenska – AI:n formaterar och placerar allt så det blir lättläst och trovärdig."
+    },
+    {
+      "heading": "Ingen bindningstid, äg din sajt",
+      "body": "Du äger koden och kan exportera den när du vill. Vill du byta leverantör eller flytta sajten till en egen server? Inga problem. Hosting på subdomän är gratis utan tidsgräns, och vill du använda din egen domän (tex friseringsalongen.se) kopplar du den direkt i panelen. Inga dolda avgifter, inga låsningar. Du bestämmer och kan alltid uppdatera eller ändra sajten själv."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min salong?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n, beskriver din salong, vilka tjänster du har och hur du vill att sajten ska se ut. AI:n genererar sidor, bokning, prislista och galleri direkt. Sen justerar du detaljer om du vill, eller publicerar som den är."
+    },
+    {
+      "q": "Kan jag integrera ett bokningssystem för min salong i Karlstad?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så att dina kunder kan boka tider direkt på hemsidan. Du kopplar din kalender, ställer in tillgängliga tider och tjänster, och systemet hanterar bokningar automatiskt. Fungerar smidigt för allt från snabbklippning till fleratimmars färgbehandlingar."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, inte alls. Du skriver vad du vill ha på vanlig svenska i chatten, och AI:n bygger sajten. Vill du ändra text, byta bild eller lägga till en ny tjänst gör du det genom att skriva – ingen kod syns om du inte vill exportera den senare."
+    },
+    {
+      "q": "Kan jag använda min egen domän för salongens hemsida?",
+      "a": "Absolut. Du kan antingen publicera gratis på en subdomän (tex dinsalong.sajtmaskin.se) eller koppla din egen domän direkt i inställningarna. Ingen extra kostnad för att använda egen domän, och det tar bara några minuter att konfigurera DNS-pekarna."
+    },
+    {
+      "q": "Fungerar hemsidan bra på mobiler?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och anpassar sig automatiskt till mobil, surfplatta och dator. Eftersom många kunder söker frisör eller salong på mobilen när de är ute och går är det extra viktigt att bokningsknappar, prislista och kontaktinfo fungerar smidigt på små skärmar."
+    },
+    {
+      "q": "Vad kostar det att ha hemsidan igång?",
+      "a": "Hosting på subdomän är gratis utan tidsbegränsning. Vill du använda egen domän, lägga till fler integrationer som Stripe för produktförsäljning eller använda avancerade funktioner finns flexibla tillval. Ingen bindningstid – du kan exportera och avsluta när du vill utan kostnad."
+    },
+    {
+      "q": "Kan jag visa priser och behandlingar för min salong i Karlstad?",
+      "a": "Ja, du kan enkelt bygga en prislista med alla dina tjänster – klippning, färg, slingor, permanent, behandlingar och styling. Strukturera efter kategori, lägg till beskrivningar och uppdatera priserna när du behöver. Allt visas tydligt och prydligt så att kunderna förstår vad de kan boka."
+    }
+  ],
+  "localOrIndustryContext": "Karlstad har en stark salong- och skönhetsbransch med både etablerade frisörer i centrum kring Drottninggatan och Västra Torggatan samt mindre salonger i förorterna. Många kunder söker aktivt online efter salong nära Bergvik, Kronoparken eller Sundsta, och en mobilvänlig hemsida med tydlig bokning och priser gör skillnad för att synas och locka nya besökare.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/karlstad",
+      "label": "Skapa hemsida i Karlstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Karlstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

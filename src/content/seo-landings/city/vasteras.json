@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "vasteras",
+  "title": "Hemsida Västerås – Skapa din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Västerås med AI på minuter. Ingen kod, ingen bindningstid. Publicera direkt på egen domän. Perfekt för lokala företag.",
+  "h1": "Skapa hemsida i Västerås med AI",
+  "heroSub": "Bygg en komplett hemsida för ditt företag i Västerås på minuter – helt på svenska, utan kod eller krångel.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som låter företag i Västerås bygga professionella hemsidor genom att helt enkelt chatta med AI:n. Du beskriver vad du vill ha, så genererar systemet hela sajten åt dig – texter, layout, bilder och allt. Ingen kod, inga mallar att välja mellan, ingen lång inlärningskurva.",
+    "Plattformen är byggd i Sverige och allt sker på svenska. Du kan publicera direkt på egen domän eller använda en gratis subdomän utan månadskostnad för hosting. Vill du integrera bokning via Cal.com, betalning med Stripe eller koppla på Google Analytics går det smidigt. När du vill kan du exportera koden och flytta sajten – ingen bindningstid.",
+    "För företag i Västerås innebär det att du kan fokusera på det du gör bäst medan AI:n sköter hemsidan. Oavsett om du driver café i Erikslund, konsultfirma i Haga eller hantverkare i Bäckby får du en sajt som fungerar direkt och syns i lokala sökningar."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Från idé till publicerad sajt på minuter",
+      "body": "Du startar med att berätta för AI:n vad ditt företag gör och vad sajten ska innehålla. Vill du ha en tjänstesida för din revisionsbyrå i centrala Västerås? Beskriv det. Behöver du en bokningssida för din frisörsalong i Malmaberg? Förklara det. AI:n tolkar din prompt och bygger en komplett sajt med relevanta sektioner, texter anpassade för din bransch och struktur som funkar för besökare. Du kan justera, lägga till sidor och ändra innehåll direkt i chatten. När allt känns rätt publicerar du på din egen domän eller använder en kostnadsfri subdomän för att testa."
+    },
+    {
+      "heading": "Lokal synlighet i Västerås och omnejd",
+      "body": "En hemsida som syns i Google när folk i Västerås söker efter det du erbjuder är guld värd. Sajtmaskin genererar automatiskt SEO-vänlig struktur, men det är du som styr innehållet. Nämn dina stadsdelar – Skiljebo, Irsta, Hammarby – och beskriv vilka områden du täcker. Skriv om lokala projekt eller kunder om det passar din bransch. AI:n hjälper dig formulera texter som både läses naturligt och ger sökmotorerna rätt signaler. Kombinera det med Google Analytics-integration så ser du exakt var besökarna kommer ifrån och vad de klickar på."
+    },
+    {
+      "heading": "Jämfört med byråer och gör-det-själv-verktyg",
+      "body": "Traditionella webbbyråer i Västerås tar ofta 30 000–80 000 kronor och flera veckor för en enkel företagssajt. Gör-det-själv-plattformar som Wix eller Squarespace kräver att du själv designar, skriver texter och lär dig deras verktyg – vilket lätt tar dagar eller veckor. Sajtmaskin landar mittemellan: AI:n gör jobbet åt dig på minuter, men du behåller full kontroll. Ingen bindningstid, ingen dold kostnad, ingen leverantörslåsning. Du kan exportera koden och flytta när du vill. För företag som vill komma igång snabbt utan att kompromissa med kvalitet är det en helt annan sits."
+    },
+    {
+      "heading": "Integrationer som funkar direkt",
+      "body": "Behöver du ta betalt online? Koppla in Stripe så kan kunder betala direkt på sajten. Vill du att folk ska boka tid? Integrera Cal.com så slipper du mejla fram och tillbaka. Driver du webshop går det att länka till Shopify. Allt sker via gränssnittet utan att du behöver röra kod. För en massageterapeut i Västerås kan det betyda bokningar dygnet runt. För en konsult kan det innebära betalda nedladdningar av rapporter. För en butik i Erikslund Shopping kan det vara länk till webshopen. Verktygen finns där när du behöver dem."
+    },
+    {
+      "heading": "Exempel från Västerås",
+      "body": "En elektriker i Bäckby kan bygga en tjänstesida med kontaktformulär och lista över tjänster på tio minuter. En bageri i Haga kan lägga upp meny, öppettider och en enkel bokningsfunktion för catering. En redovisningskonsult i city kan skapa en professionell sajt med teambeskrivningar och länk till bokningskalender. En personlig tränare i Malmaberg kan publicera träningsprogram, priser och kundcase. Gemensamt är att de alla slipper vänta på byrå eller lära sig komplicerade verktyg – AI:n bygger sajten medan de dricker kaffe."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en hemsida med Sajtmaskin?",
+      "a": "De flesta får en fungerande sajt på 10–20 minuter. Du chattar med AI:n, beskriver vad du vill ha, justerar vid behov och publicerar. Vill du finjustera texter eller lägga till fler sidor kan du göra det efteråt i din egen takt."
+    },
+    {
+      "q": "Kostar det att publicera sajten på egen domän?",
+      "a": "Du kan publicera på en gratis subdomän utan månadskostnad för hosting. Vill du använda egen domän (t.ex. dittforetag.se) behöver du köpa domänen separat och koppla den, men själva publiceringen via Sajtmaskin är enkel."
+    },
+    {
+      "q": "Kan jag använda Sajtmaskin om jag inte kan koda?",
+      "a": "Ja, det är hela poängen. Du behöver inte kunna någon kod. AI:n genererar allt åt dig och du redigerar via chat eller ett enkelt gränssnitt. Vill du exportera koden senare för att anpassa den själv eller låta en utvecklare göra det går det bra, men det är inget krav."
+    },
+    {
+      "q": "Funkar Sajtmaskin för lokala företag i Västerås?",
+      "a": "Absolut. Du styr själv vilka områden och stadsdelar du nämner i texterna, vilket hjälper sajten synas i lokala sökningar. Kombinera med Google Analytics så ser du var besökarna kommer ifrån och kan optimera innehållet över tid."
+    },
+    {
+      "q": "Vilka integrationer finns tillgängliga?",
+      "a": "Du kan koppla in Cal.com för bokning, Stripe för betalningar, Google Analytics för statistik och Shopify för webshop. Integrationerna aktiveras direkt i gränssnittet utan kod. Behöver du inte dem från start kan du lägga till dem senare."
+    },
+    {
+      "q": "Kan jag byta till annan plattform senare?",
+      "a": "Ja. Det finns ingen bindningstid och du kan exportera hela koden när du vill. Det gör att du aldrig är låst till Sajtmaskin. Du äger ditt innehåll och kan flytta sajten till valfri hostingleverantör eller utvecklare om du vill."
+    },
+    {
+      "q": "Vad händer om jag behöver ändra något efter publicering?",
+      "a": "Du loggar in, chattar med AI:n eller redigerar direkt i gränssnittet. Vill du byta text, lägga till en sida eller ändra layout gör du det på några minuter. Ändringar publiceras direkt så sajten alltid är uppdaterad."
+    }
+  ],
+  "localOrIndustryContext": "Västerås är Västmanlands största stad och ett nav för industri, handel och tjänsteföretag. Från Erikslund Shopping till Mälarstranden finns allt från hantverkare och konsulter till butiker och restauranger som behöver synlighet online. Sajtmaskin passar företag som vill komma igång snabbt utan att vänta på byrå eller lära sig komplicerade verktyg.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "kiropraktor",
+  "title": "Hemsida för kiropraktor – Bygg en professionell sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för din kiropraktorklinik med AI. Bokning, behandlingsinfo och kontakt – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för kiropraktor",
+  "heroSub": "Bygg en professionell sajt för din kiropraktorklinik på minuter – med inbyggd bokningsfunktion och allt innehåll du behöver.",
+  "introParagraphs": [
+    "En bra hemsida för kiropraktor gör det enkelt för patienter att boka tid, läsa om dina behandlingar och hitta till kliniken. Den ska bygga förtroende genom tydlig information om vad kiropraktik är, vilka besvär du behandlar och vad en behandling innebär. Många patienter söker hjälp med rygg- och nacksmärta och vill veta att de hamnar i rätta händer.",
+    "Med Sajtmaskin skapar du en komplett kiropraktorsajt via chat – utan att skriva en rad kod. AI:n bygger sidor för behandlingar, priser, om dig som behandlare och ett bokningssystem som fungerar direkt. Du publicerar på din egen domän och kan uppdatera innehållet när du vill, allt på svenska.",
+    "Plattformen är byggd för svenska förhållanden. Du får en sajt som känns professionell, laddar snabbt och fungerar lika bra på mobilen som på datorn. Perfekt oavsett om du driver en etablerad klinik i Stockholm eller precis startat mottagning i en mindre ort."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för kiropraktor behöver innehålla",
+      "body": "En kiropraktorsajt ska göra det lätt för patienter att förstå vad du gör och hur de bokar tid. Startsidan presenterar kliniken och dina tjänster. En om-sida beskriver din utbildning, erfarenhet och behandlingsfilosofi – det bygger förtroende. Under Behandlingar listar du vanliga besvär som ryggont, nackspänning, huvudvärk och idrottsskador, gärna med korta förklaringar. En prissida visar vad behandlingen kostar och om du tar emot friskvårdsbidrag. Kontaktsidan samlar adress, telefon, öppettider och en karta. Många kiropraktorer lägger också till en blogg med råd om ergonomi och förebyggande övningar."
+    },
+    {
+      "heading": "Bokningssystem som sparar tid",
+      "body": "Att låta patienter boka tid online minskar antalet telefonsamtal och gör det enklare att fylla schemat. Sajtmaskin integrerar Cal.com direkt i sajten – patienter ser lediga tider, bokar och får bekräftelse via mejl. Du styr själv när du har öppet och hur lång tid varje besök ska ta. Systemet synkar med din kalender så du slipper dubbelbokning. För kiropraktorer som tar betalt i förskott går det att koppla på Stripe, men det är inget krav. Bokningsfunktionen fungerar lika bra för drop-in som för återbesök enligt behandlingsplan."
+    },
+    {
+      "heading": "Så bygger du sajten med Sajtmaskin",
+      "body": "Du startar genom att chatta med AI:n och beskriver din verksamhet: vilka behandlingar du erbjuder, var kliniken ligger och vad du vill att sajten ska innehålla. AI:n föreslår struktur, skriver texter om rygg- och nackbehandling, lägger in dina priser och skapar kontaktsidor. Du kan be om ändringar direkt i chatten – lägg till en sida om idrottsskador, byt rubrik på startsidan eller justera färgerna. När allt ser bra ut publicerar du på din egen domän. Vill du ha sajten på en Sajtmaskin-subdomän är hostingen gratis, ingen månadskostnad. Behöver du exportera koden senare för att flytta någon annanstans? Inga problem, du äger alltid ditt material."
+    },
+    {
+      "heading": "Lokal närvaro och förtroende",
+      "body": "Patienter söker ofta efter kiropraktor i sin stad eller stadsdel. Genom att nämna var kliniken ligger – till exempel Södermalm, Majorna eller centrala Uppsala – och skriva om lokala sammanhang ökar chansen att synas i sökmotorer. Lägg gärna till ett kort stycke om parkeringsmöjligheter eller kollektivtrafik. Recensioner och rekommendationer bygger också förtroende, så överväg att länka till eller citera patientomdömen. En tydlig om-sida där du berättar om din utbildning och varför du blev kiropraktor gör att besökare känner sig trygga med att boka tid."
+    },
+    {
+      "heading": "Uppdatera och utveckla när du vill",
+      "body": "En hemsida för kiropraktor behöver ibland justeras – nya behandlingar läggs till, priser ändras eller du vill skriva en bloggpost om träningsråd. Med Sajtmaskin loggar du in och redigerar via chatten, precis som när du byggde sajten första gången. Ingen bindningstid betyder att du kan pausa, ändra eller exportera när som helst. Vill du koppla på Google Analytics för att se hur många som besöker bokningssidan? Det ordnas med ett klick. Plattformen växer med din klinik, oavsett om du är ensam behandlare eller har kollegor som ska synas på sajten."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en kiropraktorsajt?",
+      "a": "De flesta får en färdig sajt på 10–20 minuter. Du chattar med AI:n, beskriver din klinik och vilka behandlingar du erbjuder, så genereras struktur och texter. Sedan justerar du det du vill ändra och publicerar. Bokningssystem och kontaktformulär ingår från start."
+    },
+    {
+      "q": "Kan patienter boka tid direkt på sajten?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så besökare ser lediga tider och bokar online. Du styr själv schema och behandlingslängd. Bokningar synkas med din kalender och patienten får automatisk bekräftelse via mejl. Vill du ta betalt i förskott kopplar du på Stripe."
+    },
+    {
+      "q": "Kostar det något att ha sajten på en subdomän?",
+      "a": "Nej, hosting på en Sajtmaskin-subdomän är helt gratis och utan månadskostnad. Vill du använda din egen domän, till exempel dinakliniken.se, fixar du det enkelt via plattformen. Då betalar du bara för domänregistreringen hos din registrar."
+    },
+    {
+      "q": "Kan jag skriva om behandlingar och priser själv?",
+      "a": "Absolut. AI:n skapar förslag på texter om rygg, nacke och andra vanliga besvär, men du redigerar allt via chatten. Vill du lägga till en sida om idrottsskador eller ändra prislistan gör du det direkt. Inga kodkunskaper behövs."
+    },
+    {
+      "q": "Fungerar sajten bra på mobilen?",
+      "a": "Ja, alla sajter som byggs med Sajtmaskin är responsiva och anpassar sig automatiskt till mobil, surfplatta och dator. Många patienter bokar tid från telefonen, så det är viktigt att bokningsknappen och kontaktuppgifterna syns tydligt även på liten skärm."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajten som kod när du vill, utan extra kostnad. Ingen bindningstid betyder att du äger ditt material och är fri att flytta det till en annan webbhotell-leverantör om behoven förändras. Sajtmaskin låser inte in dig."
+    },
+    {
+      "q": "Kan jag lägga till en blogg med träningsråd?",
+      "a": "Ja, du ber AI:n skapa en bloggsida och sedan lägger du till inlägg via chatten. Många kiropraktorer skriver om ergonomi, stretching och förebyggande övningar. En blogg hjälper också sajten att synas bättre i sökmotorer och visar att du är aktiv och kunnig."
+    }
+  ],
+  "localOrIndustryContext": "Kiropraktik är en legitimerad vårdform i Sverige, och många patienter söker behandling för rygg- och nackbesvär via friskvårdsbidrag eller egenfinansierat. En tydlig hemsida som förklarar vad kiropraktik är, visar priser och gör det enkelt att boka tid ökar chansen att patienter väljer just din klinik.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en kiropraktor-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "norrkoping/restaurang",
+  "title": "Hemsida Restaurang Norrköping – Bygg din restaurangsajt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Norrköping på minuter. Med bokning, meny och betalning. Ingen kod krävs. Från 0 kr/mån.",
+  "h1": "Hemsida för restauranger i Norrköping",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokning och betalning – på minuter, utan kod.",
+  "introParagraphs": [
+    "En restaurang i Norrköping behöver en hemsida som visar menyn, tar emot bordsbokningar och ger gästerna rätt känsla redan vid första besöket. Sajtmaskin låter dig bygga allt det via chat – du beskriver din restaurang, så skapar AI:n en färdig sajt med de funktioner du behöver.",
+    "Du får en sajt som fungerar lika bra på mobilen som på datorn, med integrerad bokning via Cal.com, betalning via Stripe och möjlighet att koppla på Google Analytics. Publicera på egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, ingen månadskostnad för hosting om du väljer subdomän.",
+    "Oavsett om du driver en lunchrestaurang vid Knäppingsborg, ett kvarterskök i Smedby eller en finare restaurang vid Gamla Rådstugugatan – sajten byggs på dina villkor, på svenska, och du kan när som helst exportera koden."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny, bilder och känsla som speglar din restaurang",
+      "body": "En restaurangsajt börjar med menyn. I Sajtmaskin beskriver du dina rätter, priser och eventuella allergianpassningar – AI:n formaterar allt snyggt och läsbart. Ladda upp bilder på mat, lokal eller personal så hamnar de där de gör mest nytta. Du kan när som helst uppdatera säsongsmenyer, luncherbjudanden eller veckans husman direkt i gränssnittet, utan att behöva ringa en byrå."
+    },
+    {
+      "heading": "Bordsbokning integrerad från start",
+      "body": "Med Cal.com-integrationen kan gäster boka bord direkt på sajten. Du bestämmer själv öppettider, bordsstorlekar och hur långt i förväg folk kan boka. Bokningarna hamnar i din kalender och gästen får automatisk bekräftelse. Perfekt för restauranger i Norrköping som vill slippa telefonköer och dubbelbokning, särskilt under lunchtider eller helgkvällar när det är som mest tryck."
+    },
+    {
+      "heading": "Betalning och presentkort online",
+      "body": "Vill du sälja presentkort, ta förskottsbetalning för större sällskap eller erbjuda take away med kortbetalning? Stripe-integrationen gör det möjligt. Du kopplar ditt bankkonto, sätter priser och börjar ta betalt – direkt på sajten. Inga krångliga externa tjänster, allt ligger samlat. Många restauranger i Norrköping använder det för att sälja värdebevis eller ta betalt för event och temamiddagar."
+    },
+    {
+      "heading": "Bygg sajten på svenska, på minuter",
+      "body": "Sajtmaskin är helt på svenska – gränssnitt, stöd och AI. Du chattar om vad din restaurang behöver: \"Jag driver en pizzeria i Norrköping och vill visa menyn, ha bokning och betalning för presentkort.\" AI:n bygger en sajt utifrån det. Du justerar texter, byter bilder, lägger till sidor. När du är nöjd publicerar du på egen domän eller använder en gratis subdomän. Ingen kod, ingen bindningstid."
+    },
+    {
+      "heading": "Äkta svenskt, byggt i Sverige",
+      "body": "Sajtmaskin drivs av Pretty Good AB och är byggt för svenska företag. Allt innehåll, all support och alla mallar är anpassade för den svenska marknaden. Du slipper översatta gränssnitt och utländska supportsvar. Behöver du hjälp finns vi här, på svenska. Vill du äga din kod kan du exportera den när som helst och flytta vidare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att ha en restaurangsajt via Sajtmaskin?",
+      "a": "Hosting på subdomän är gratis, ingen månadskostnad. Vill du använda egen domän (t.ex. dinrestaurang.se) betalar du för domänen och eventuell hosting beroende på var du väljer att publicera. Inga dolda avgifter, ingen bindningstid. Bokning och betalning kopplar du via Cal.com och Stripe som har egna villkor."
+    },
+    {
+      "q": "Kan jag uppdatera menyn själv när den ändras?",
+      "a": "Ja, du loggar in och ändrar texter, priser och rätter direkt i gränssnittet. Ingen teknisk kunskap krävs. Perfekt när du byter säsongsmeny, lägger till veckans eller justerar priser. Ändringarna syns direkt på sajten."
+    },
+    {
+      "q": "Fungerar bordsbokningen för restauranger i Norrköping?",
+      "a": "Ja, Cal.com-integrationen fungerar överallt. Du ställer in dina öppettider, antal bord och bokningsfönster. Gäster bokar direkt på sajten och du får bokningarna i din kalender. Många restauranger i Norrköping använder det för att minska telefonbeläggning och undvika dubbelbokning."
+    },
+    {
+      "q": "Kan jag sälja presentkort eller ta förskottsbetalning?",
+      "a": "Ja, via Stripe-integrationen. Du skapar produkter (presentkort, eventbiljetter, take away-menyer) och tar betalt direkt på sajten. Pengarna går till ditt konto, du sköter själv utskick eller hantering av presentkorten."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt?",
+      "a": "Själva AI-genereringen tar någon minut. Sedan lägger du tid på att justera texter, ladda upp bilder och koppla bokning och betalning. Totalt kan du ha en färdig, publicerad sajt på en till två timmar, beroende på hur mycket innehåll du vill ha med från start."
+    },
+    {
+      "q": "Kan jag använda sajten för take away eller catering?",
+      "a": "Absolut. Du lägger till sidor för take away-meny, cateringerbjudanden eller event. Koppla betalning via Stripe så kan gäster beställa och betala direkt. Många restauranger i Norrköping kombinerar bordsbokning med take away på samma sajt."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill. Ingen bindningstid, inga låsningar. Ta koden och flytta till vilken hostingleverantör du vill, eller fortsätt utveckla den själv. Du äger alltid ditt innehåll."
+    }
+  ],
+  "localOrIndustryContext": "Norrköping har en växande restaurangscen från Gamla Rådstugugatan till Industrilandskapet, med allt från lunchställen vid Knäppingsborg till finare restauranger längs Motala ström. En sajt med tydlig meny, enkel bokning och mobilvänlig design gör skillnad när gäster söker efter var de ska äta – oavsett om det är lunch, middag eller event.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/norrkoping",
+      "label": "Skapa hemsida i Norrköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Norrköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

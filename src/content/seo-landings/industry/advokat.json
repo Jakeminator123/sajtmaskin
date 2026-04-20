@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "advokat",
+  "title": "Hemsida för advokatbyrå – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din advokatbyrå med AI. Kontaktformulär, tidsbokning och tjänstepresentation – klart på minuter.",
+  "h1": "Hemsida för advokatbyrå",
+  "heroSub": "Bygg en professionell sajt för din advokatbyrå med AI – komplett med bokning, kontaktformulär och tjänstesidor.",
+  "introParagraphs": [
+    "En hemsida för advokatbyrå behöver förmedla förtroende, tydlighet och tillgänglighet. Potentiella klienter söker efter specialistkompetens inom familjerätt, affärsjuridik eller brottmål, och de vill snabbt förstå om just du kan hjälpa dem. En bra sajt presenterar dina tjänster, visar vem du är och gör det enkelt att boka ett första möte.",
+    "Med Sajtmaskin bygger du hela sajten via chat på svenska. Du beskriver din byrå, dina tjänsteområden och hur du vill att klienter ska kontakta dig – så genererar AI en komplett hemsida med alla sidor, texter och funktioner du behöver. Publicera på din egen domän eller testa kostnadsfritt på en subdomän.",
+    "Ingen kod, ingen designer, ingen lång uppstartstid. Bara en färdig sajt som fungerar direkt och som du kan uppdatera när som helst genom att chatta med AI:n."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en advokatbyrås hemsida behöver innehålla",
+      "body": "En typisk sajt för advokat har startsida med tydlig presentation, en Om oss-sida som bygger förtroende, och separata tjänstesidor för varje rättsområde – till exempel familjerätt, bolagsrätt eller brottmål. Kontaktsida med formulär och telefonnummer är självklart, och många byråer vill ha en bokningsfunktion så klienter kan boka konsultation direkt. Vissa lägger även till en blogg för att dela juridiska tips eller nyheter, vilket stärker synlighet i sökmotorer."
+    },
+    {
+      "heading": "Så bygger Sajtmastin din advokatbyrås sajt",
+      "body": "Du startar en chatt och berättar vad din byrå gör: arbetar du med familjerätt i Stockholm, affärsjuridik i Göteborg eller brottmål i Malmö? Vilka tjänster vill du lyfta fram? Vill du att klienter ska kunna boka direkt? AI:n skapar då en komplett sajt med alla sidor, skriver texter som passar din profil och lägger in kontaktformulär. Vill du ha bokning kopplar du Cal.com, vill du ta betalt online finns Stripe. Allt på svenska, allt anpassat efter hur advokatbyråer faktiskt jobbar."
+    },
+    {
+      "heading": "Uppdatera sajten när du tar nya uppdrag eller ändrar fokus",
+      "body": "Juridiken förändras, och din byrå utvecklas. Kanske börjar du erbjuda testamentsrådgivning eller tar fler bolagsjuridiska uppdrag. Då chattar du bara med AI:n igen: lägg till en ny tjänstesida, uppdatera Om oss-texten eller ändra prismodellen. Inga krångliga CMS-paneler – du beskriver förändringen, AI:n uppdaterar sajten. Vill du själv äga koden kan du exportera den när som helst."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Många advokatbyråer har bränt sig på webbyrålösningar med månadskostnader, bindningstid och dyra ändringar. Sajtmaskin har ingen bindningstid. Hostar du på vår subdomän är det gratis, vill du ha egen domän betalar du bara för den. Integrationer som bokning och analys ingår. Du äger din sajt och kan när som helst ta den vidare om du vill – ingen låsning, inga dolda avgifter."
+    },
+    {
+      "heading": "Bygg förtroende med en sajt som ser professionell ut",
+      "body": "Klienter som söker juridisk hjälp jämför ofta flera byråer. En sajt som ser modern, tydlig och trygg ut gör skillnad. Sajtmaskin genererar design som fungerar på mobil och dator, med struktur som gör det lätt att hitta information. Du får en sajt som signalerar seriositet – utan att behöva anlita designer eller lära dig WordPress."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag ha separata sidor för varje rättsområde jag jobbar med?",
+      "a": "Ja, AI:n skapar egna tjänstesidor för varje område du nämner – familjerätt, affärsjuridik, brottmål eller annat. Varje sida får egen text och beskrivning som passar just det rättsområdet."
+    },
+    {
+      "q": "Fungerar bokningsfunktion för konsultationer?",
+      "a": "Absolut. Du kopplar Cal.com så kan klienter boka tid direkt på sajten. Du styr själv vilka tider som är lediga och får notiser när någon bokar. Perfekt för första möten eller rådgivningssamtal."
+    },
+    {
+      "q": "Kan jag lägga till juridiska guider eller bloggartiklar?",
+      "a": "Ja, du kan be AI:n skapa en bloggsida eller resurssida där du publicerar artiklar. Bra för SEO och för att visa expertis inom dina områden. Uppdatera innehållet genom att chatta."
+    },
+    {
+      "q": "Vad händer om jag vill byta fokus från privatjuridik till företagsjuridik?",
+      "a": "Du chattar med AI:n och beskriver förändringen. Tjänstesidor uppdateras, texter skrivs om och startsidan anpassas. Ingen ombyggnad, bara en konversation så är sajten uppdaterad."
+    },
+    {
+      "q": "Kan jag visa teamet och advokater på sajten?",
+      "a": "Ja, du kan ha en Om oss-sida eller teamsida med bilder och presentationer av varje advokat. Ladda upp bilder och beskriv vem som jobbar med vad, så bygger AI:n sidan."
+    },
+    {
+      "q": "Måste jag ha teknisk kunskap för att uppdatera sajten?",
+      "a": "Nej. Allt sker via chat på svenska. Du beskriver vad du vill ändra eller lägga till, AI:n gör jobbet. Ingen kod, inget CMS att lära sig."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill ha den hos annan leverantör?",
+      "a": "Ja, du kan exportera hela koden när du vill. Ingen bindningstid, ingen låsning. Du äger din sajt och bestämmer var den ska ligga."
+    }
+  ],
+  "localOrIndustryContext": "Sverige har tusentals advokatbyråer, från enmanskontor till stora bolag. Många mindre byråer saknar fortfarande modern webb eller har sajter som inte fungerar på mobil. En professionell hemsida är idag en grundförutsättning för att synas när potentiella klienter söker juridisk hjälp online.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en advokat-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "umea/konsult",
+  "title": "Hemsida konsult Umeå – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet i Umeå med AI. Ingen kod, klart på minuter. Bokning, betalning och egen domän.",
+  "h1": "Hemsida för konsulter i Umeå",
+  "heroSub": "Bygg en professionell konsultsajt med AI – från presentation och tjänster till bokning och betalning, utan kod.",
+  "introParagraphs": [
+    "Som konsult i Umeå behöver du en sajt som snabbt visar vad du kan, vem du hjälper och hur man bokar tid. Sajtmaskin låter dig bygga hela din konsulthemsida via chat på minuter. Du beskriver din verksamhet, dina tjänster och hur du vill att sajten ska fungera – AI:n skapar resten.",
+    "Du får en färdig sajt med presentation, tjänstebeskrivningar, kundcase, kontaktformulär och integrerad bokning via Cal.com. Lägg till Stripe om du vill ta betalt direkt online, eller koppla Google Analytics för att följa besökare. Allt på svenska, publicerat på din egen domän utan månadskostnad för hosting på subdomän.",
+    "Sajten är din – exportera koden när du vill, inga bindningstider. Perfekt för managementkonsulter, IT-konsulter, HR-specialister och andra rådgivare som vill ha en proffsig närvaro online utan krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en konsultsajt i Umeå behöver",
+      "body": "En bra konsulthemsida behöver förklara vad du gör, vilka problem du löser och varför kunder ska välja just dig. I Umeå, där många konsulter jobbar med allt från digitalisering och projektledning till hållbarhet och innovation, är tydlighet avgörande. Din sajt ska visa din expertis, tidigare uppdrag och hur processen ser ut. Lägg till en bokningsfunktion så potentiella kunder kan boka ett första möte direkt, och ett kontaktformulär för förfrågningar. Med Sajtmaskin bygger du allt detta via chat – berätta om din nisch, dina tjänster och målgrupp, så genererar AI:n en sajt som matchar."
+    },
+    {
+      "heading": "Bygg sajten via chat, publicera direkt",
+      "body": "Du startar med att beskriva din konsultverksamhet i chatten: vilka tjänster du erbjuder, vem du riktar dig till och vad som gör dig unik. Sajtmaskin skapar då en komplett struktur med startsida, om-sida, tjänstesidor och kontakt. Vill du ha en sida för kundcase eller referenser? Säg det, så läggs den till. Behöver du en blogg för att dela insikter? Den kommer med. När layouten är klar justerar du texter, bilder och färger tills allt känns rätt, sedan publicerar du på din egen domän. Ingen kod, inga mallar att kämpa med – bara en färdig sajt som fungerar."
+    },
+    {
+      "heading": "Bokning, betalning och analys – integrerat",
+      "body": "Sajtmaskin integrerar Cal.com så kunder kan boka kostnadsfria konsultationer eller betalda sessioner direkt i kalendern. Vill du ta betalt online kopplar du Stripe och säljer allt från timkonsultation till fasta paket. Google Analytics ger dig koll på var besökarna kommer ifrån och vilka sidor de läser, så du ser vad som funkar. Allt sätts upp utan teknisk kompetens – du aktiverar funktionerna i gränssnittet och AI:n fixar resten. För konsulter i Umeå som vill ha en sajt som jobbar dygnet runt är det en enorm tidsbesparing."
+    },
+    {
+      "heading": "Ingen bindningstid, din kod när du vill",
+      "body": "Du äger sajten helt. Vill du byta plattform eller bygga vidare själv exporterar du koden när som helst, utan extra kostnad. Hosting på subdomän kostar inget per månad, och egen domän kopplar du på några minuter. Det finns inga dolda avgifter eller långa avtal – du betalar för det du använder och kan sluta när du vill. För konsulter som värdesätter flexibilitet och kontroll är det en trygghet att veta att sajten alltid är din."
+    },
+    {
+      "heading": "Byggd i Sverige, support på svenska",
+      "body": "Sajtmaskin drivs av Pretty Good AB i Sverige. Gränssnittet, supporten och all dokumentation är på svenska, så du slipper översätta eller gissa dig fram. Behöver du hjälp att komma igång eller vill anpassa något? Teamet finns här. För konsulter i Umeå som vill ha en lokal partner och en plattform som förstår svenska förhållanden är det en stor fördel."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en konsultsajt?",
+      "a": "De flesta har en färdig sajt på 15–30 minuter. Du chattar med AI:n om din verksamhet, granskar förslaget, justerar texter och bilder, sedan publicerar du. Vill du lägga till fler sidor eller funktioner tar det lite längre, men grundstrukturen är klar snabbt."
+    },
+    {
+      "q": "Kan jag integrera en bokningskalender?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com så besökare kan boka möten direkt på sajten. Du kopplar ditt Cal.com-konto i inställningarna och väljer vilka tider som ska vara bokningsbara. Perfekt för konsultationer, workshops eller uppföljningsmöten."
+    },
+    {
+      "q": "Funkar det att ta betalt för konsulttjänster online?",
+      "a": "Absolut. Koppla Stripe och sätt upp produkter eller tjänster – allt från timdebitering till fasta paket. Kunder betalar direkt på sajten och du får pengarna in automatiskt. Ingen kod behövs för att sätta upp betalflödet."
+    },
+    {
+      "q": "Kan jag använda min egen domän i Umeå?",
+      "a": "Ja, du kan koppla vilken domän som helst – antingen en du redan äger eller en ny du registrerar. Hosting på subdomän (dinverksamhet.sajtmaskin.se) ingår utan månadskostnad. Vill du ha egen domän pekar du DNS-posterna dit, och sajten är live."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Sajten är din och det finns ingen bindningstid. Vill du flytta till en annan hosting eller bygga vidare själv är du helt fri att göra det."
+    },
+    {
+      "q": "Passar Sajtmaskin för olika typer av konsulter?",
+      "a": "Ja, oavsett om du jobbar med management, IT, HR, hållbarhet eller projektledning bygger du en sajt som passar din nisch. Du beskriver din verksamhet och målgrupp, så anpassar AI:n innehåll och struktur därefter. Allt från soloprenörer till konsultbolag använder plattformen."
+    },
+    {
+      "q": "Får jag support på svenska?",
+      "a": "Ja, Sajtmaskin drivs i Sverige och all support, dokumentation och gränssnitt är på svenska. Behöver du hjälp når du teamet direkt, utan att behöva översätta eller vänta på svar från ett annat land."
+    }
+  ],
+  "localOrIndustryContext": "Umeå har en stark konsultsektor kopplad till universitet, tech-bolag och offentlig sektor. Många konsulter jobbar med digitalisering, innovation och hållbarhetsfrågor. En professionell hemsida gör det enklare att nå både lokala och regionala kunder, och med integrerad bokning kan du ta emot förfrågningar dygnet runt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/umea",
+      "label": "Skapa hemsida i Umeå"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Umeå. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

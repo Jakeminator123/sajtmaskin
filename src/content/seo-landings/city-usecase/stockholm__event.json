@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "stockholm/event",
+  "title": "Hemsida för event i Stockholm – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell eventsajt i Stockholm med AI. Biljettförsäljning, bokning och betalning integrerat. Publicera på egen domän direkt.",
+  "h1": "Hemsida för event i Stockholm",
+  "heroSub": "Bygg en komplett eventsajt med biljetthantering och bokning – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "En eventsajt i Stockholm behöver mer än bara snygg design. Du vill att besökare enkelt ska kunna se programmet, boka biljetter, hitta lokalen och betala – allt utan krångel. Sajtmaskin bygger hela din eventsajt på minuter genom att du beskriver ditt event i chatten, och AI:n skapar en färdig sajt med alla funktioner du behöver.",
+    "Du får integrationer för biljettbokning via Cal.com, betalning genom Stripe, och möjlighet att publicera på din egen domän direkt. Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när du vill. Allt på svenska, byggt för svenska eventarrangörer.",
+    "Oavsett om du arrangerar konferenser på Waterfront, konserter på Debaser, workshops i Vasastan eller företagsevent i Kista – sajten anpassas efter ditt events karaktär och behov."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför Stockholm-event behöver en smart sajt",
+      "body": "Stockholm är en av Nordens mest aktiva eventstäder med hundratals event varje vecka – från techkonferenser och branschmingel till konserter och kulturkvällar. Konkurrensen om besökarnas uppmärksamhet är hård, och första intrycket avgör ofta om någon bokar biljett eller scrollar vidare. En eventsajt som laddar snabbt, visar all info tydligt och gör det enkelt att boka skapar förtroende direkt. Sajtmaskin bygger sajter optimerade för snabb laddning och tydlig användarupplevelse, så dina besökare hittar det de söker på sekunder."
+    },
+    {
+      "heading": "Biljettförsäljning och bokning – integrerat från start",
+      "body": "Att lägga till betalning och bokningsfunktion brukar vara krångligt, men Sajtmaskin har Stripe och Cal.com inbyggt. Du beskriver hur din biljetthantering ska fungera – kanske Early Bird-priser, grupprabatter eller VIP-biljetter – och sajten genereras med rätt struktur. Besökare kan boka direkt på sajten, betala säkert via Stripe, och få bekräftelse automatiskt. Perfekt för allt från mindre workshops med tjugo deltagare till större konferenser med hundratals gäster."
+    },
+    {
+      "heading": "Egen domän och full kontroll",
+      "body": "Din eventsajt publiceras på din egen domän, vilket ger professionell känsla och bygger ditt varumärke. Vill du testa först? Använd en gratis subdomän under Sajtmaskin. Det kostar inget i månadsavgift och du kan uppgradera när du vill. Du äger alltid innehållet och kan exportera hela sajten om du behöver flytta den. Inga dolda avgifter, inga låsningar – bara en sajt som fungerar för ditt event."
+    },
+    {
+      "heading": "Från idé till publicerad sajt på minuter",
+      "body": "Istället för att klicka runt i byggverktyg eller boka möten med webbyrå beskriver du ditt event i chatten. Berätta om typ av event, målgrupp, plats i Stockholm, vilka sektioner du behöver och vilka funktioner som är viktiga. AI:n genererar en komplett sajt med relevanta texter, struktur och design. Du kan sedan justera allt direkt i gränssnittet – byta bilder, ändra texter, lägga till programpunkter – tills sajten är precis som du vill ha den."
+    },
+    {
+      "heading": "Byggt i Sverige, på svenska",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt och svensk support. Alla texter genereras på svenska, vilket betyder att din eventsajt talar samma språk som dina besökare i Stockholm. Ingen översättningssvenska, inga konstiga formuleringar – bara naturlig svenska som skapar förtroende och gör det lätt för gäster att förstå vad ditt event handlar om."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en eventsajt?",
+      "a": "Själva genereringen tar några minuter. Du beskriver ditt event i chatten – typ, plats, målgrupp, funktioner – och AI:n skapar en färdig sajt. Sedan kan du justera texter, bilder och layout tills allt är perfekt. De flesta har en publicerad sajt samma dag."
+    },
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja, genom Stripe-integrationen kan besökare betala för biljetter direkt på din sajt. Du kan sätta olika prisklasser, hantera Early Bird-erbjudanden och få betalningar säkert. Kombinera med Cal.com för bokningshantering så har du full kontroll över deltagarlistor och betalningar."
+    },
+    {
+      "q": "Fungerar sajten för både små och stora event i Stockholm?",
+      "a": "Absolut. Sajtmaskin passar allt från workshops med tjugo deltagare till konferenser med hundratals gäster. Du bygger sajten efter dina behov – enkel programöversikt och bokning för mindre event, eller mer avancerad struktur med flera scener, talare och sponsorsynlighet för större arrangemang."
+    },
+    {
+      "q": "Vad kostar det att ha sajten publicerad?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda din egen domän behöver du registrera den, men det kostar bara domänavgiften. Inga dolda avgifter, ingen bindningstid. Stripe tar en liten avgift per transaktion när du säljer biljetter, men det är standardkostnader för betalhantering."
+    },
+    {
+      "q": "Kan jag visa karta och vägbeskrivning till eventplatsen?",
+      "a": "Ja, du kan enkelt lägga till information om plats och hur man tar sig dit. Många Stockholm-event har besökare som inte känner till området, så tydlig vägbeskrivning med tunnelbana, buss eller parkering är viktigt. Du kan inkludera karta och praktisk info direkt på sajten."
+    },
+    {
+      "q": "Hur uppdaterar jag programmet om något ändras?",
+      "a": "Du loggar in och ändrar direkt i gränssnittet. Lägg till nya talare, ändra tider, uppdatera platsinformation – allt utan kod. Ändringarna publiceras direkt så besökare alltid ser aktuell information. Perfekt när event är dynamiska och saker förändras fram till eventdagen."
+    },
+    {
+      "q": "Kan jag använda sajten för återkommande event?",
+      "a": "Ja, många använder Sajtmaskin för event-serier eller återkommande arrangemang. Du kan uppdatera datum, program och biljettinformation inför varje tillfälle, eller skapa separata sidor för olika event. Sajten växer med dina behov och du betalar ingen extra avgift för uppdateringar."
+    }
+  ],
+  "localOrIndustryContext": "Stockholm har en stark eventscen med allt från techkonferenser i Kista Science City till kulturarrangemang på Södermalm och företagsevent vid Waterfront. Besökare förväntar sig professionella sajter som gör det enkelt att hitta info och boka – en bra sajt kan vara avgörande för om ditt event fyller platserna.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Stockholm. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

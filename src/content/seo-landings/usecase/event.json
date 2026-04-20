@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "event",
+  "title": "Hemsida event – bygg en proffsig eventsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en hemsida för ditt event med AI på minuter. Få bokningsformulär, programinfo och biljettförsäljning – ingen kod krävs. Prova gratis.",
+  "h1": "Hemsida event – lansera din eventsajt direkt",
+  "heroSub": "Bygg en komplett hemsida för ditt event med AI – från programöversikt till biljettbokning, klar på minuter.",
+  "introParagraphs": [
+    "En hemsida för event samlar allt dina gäster behöver veta: programschema, plats och vägbeskrivning, talare eller artister, biljettköp och kontaktinfo. Oavsett om du arrangerar konferenser, bröllop, festivaler eller företagsevent behöver du en sajt som både informerar och konverterar besökare till deltagare.",
+    "Med Sajtmaskin bygger du hela eventsajten via chat. Du beskriver ditt event i vanlig svenska – AI:n skapar sidor för program, bokning, praktisk info och betalning. Publicera på din egen domän eller en kostnadsfri subdomän, och uppdatera innehållet när programmet ändras. Ingen kod, ingen designer, inga krångliga verktyg.",
+    "Integrationer med Cal.com och Stripe gör att du kan ta emot bokningar och betalningar direkt på sajten. Google Analytics visar hur många som besöker sidan och vilka sidor de läser. Allt du behöver för att driva ett event samlas på ett ställe."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Programöversikt och schema",
+      "body": "Besökare vill veta exakt vad som händer och när. En tydlig programsida med tider, talare, workshops eller artistuppträdanden gör att folk kan planera sin dag. Sajtmaskin låter dig skapa scheman med rubriker, beskrivningar och tidsangivelser – AI:n formaterar det snyggt automatiskt. Behöver du ändra en tid eller lägga till en talare? Uppdatera via chatten så justeras sidan direkt."
+    },
+    {
+      "heading": "Boknings- och biljettfunktion",
+      "body": "Många event kräver förhandsanmälan eller biljettköp. Genom att integrera Cal.com kan gäster boka sin plats direkt på sajten, och med Stripe tar du betalt för biljetter säkert och smidigt. Du slipper externa bokningssystem och håller all kommunikation på din egen domän. Sajtmaskin sätter upp formulär och betalflöde åt dig – du anger bara pris och vilka uppgifter du behöver från gästerna."
+    },
+    {
+      "heading": "Plats, karta och praktisk information",
+      "body": "Vägbeskrivning, parkeringsinfo, kollektivtrafik och tillgänglighet är avgörande för en bra gästupplevelse. En dedikerad sida med inbäddad karta och tydliga instruktioner minskar förvirring och no-shows. Sajtmaskin kan bädda in Google Maps och strukturera all praktisk info så den är lätt att hitta. Lägg även till FAQ-sektion för vanliga frågor om mat, klädkod eller medtag."
+    },
+    {
+      "heading": "Talare, artister och medverkande",
+      "body": "Om ditt event har föreläsare, musiker eller andra medverkande förtjänar de egna presentationer. Kort bio, foto och länk till sociala medier bygger förväntningar och trovärdighet. AI:n hjälper dig skapa enhetliga profilsidor för alla medverkande – du matar in text och bilder, resten sköts automatiskt. Det här är särskilt viktigt för konferenser och festivaler där line-upen säljer eventet."
+    },
+    {
+      "heading": "Kontakt och support inför eventet",
+      "body": "Gäster har alltid frågor: Kan jag få vegetarisk mat? Finns det barnpassning? Vad händer om jag blir sjuk? En kontaktsida med e-post, telefon och kanske en chattfunktion ger trygghet. Sajtmaskin låter dig lägga in kontaktformulär och all info du vill dela. Ju lättare det är att nå dig, desto färre problem får du på eventdagen."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag uppdatera programmet efter att sajten är publicerad?",
+      "a": "Ja, du uppdaterar via chatten. Skriv vad som ska ändras – ny talare, annan tid, extra workshop – så justerar AI:n sidan direkt. Inga tekniska kunskaper behövs och ändringarna syns live på sajten inom sekunder."
+    },
+    {
+      "q": "Hur tar jag betalt för biljetter på hemsidan?",
+      "a": "Integrera Stripe så kan besökare betala med kort direkt på din sajt. Du anger pris och vilka biljetttyper du har, Sajtmaskin sätter upp betalflödet. Pengarna hamnar på ditt Stripe-konto och du får kvitto till köparen automatiskt."
+    },
+    {
+      "q": "Kan jag använda min egen domän för eventsajten?",
+      "a": "Absolut. Publicera på din egen domän så att sajten blir del av ditt varumärke. Vill du testa först kan du använda en kostnadsfri subdomän hos Sajtmaskin, sedan byta till egen domän när du är redo."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sidor Sajtmaskin genererar är responsiva. Programschema, bokningsformulär och karta anpassas automatiskt till mobil, surfplatta och dator. Många eventgäster surfar på mobilen så det är inbyggt från start."
+    },
+    {
+      "q": "Kan jag samla in deltagaruppgifter och skicka ut påminnelser?",
+      "a": "Via bokningsformuläret samlar du in namn, e-post och andra uppgifter du behöver. För utskick av påminnelser och uppdateringar kan du koppla e-postlistan till ditt mejlverktyg. Sajtmaskin fokuserar på sajten, men integrationer gör resten enkelt."
+    },
+    {
+      "q": "Vad händer med sajten efter att eventet är över?",
+      "a": "Du bestämmer. Behåll den som arkiv, uppdatera den för nästa event eller ta ner den. Eftersom du äger koden kan du exportera allt och hosta var du vill. Ingen bindningstid, du styr helt själv."
+    },
+    {
+      "q": "Kan jag visa sponsorer och partners på sajten?",
+      "a": "Ja, skapa en sektion för sponsorloggor och beskrivningar. Berätta för AI:n vilka partners du har och hur de ska presenteras – logotyper i grid, textblock eller en egen sida. Perfekt för att ge synlighet åt de som stöttar ditt event."
+    }
+  ],
+  "localOrIndustryContext": "Eventbranschen i Sverige växer snabbt, från stora konferenser i Stockholm och Göteborg till lokala matfestivaler och bröllop runt om i landet. En proffsig hemsida är ofta det första intrycket – och avgör om folk köper biljett eller bokar plats. Med Sajtmaskin får även mindre arrangörer tillgång till samma teknik som de stora aktörerna, utan att behöva anlita byrå eller lära sig WordPress.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en event-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

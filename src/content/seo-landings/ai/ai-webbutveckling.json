@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "ai-webbutveckling",
+  "title": "AI-webbutveckling – så fungerar det i praktiken | Sajtmaskin",
+  "metaDescription": "AI-webbutveckling innebär att du beskriver din hemsida i vanlig text, och ett AI-system genererar design, struktur och innehåll åt dig. Så funkar det.",
+  "h1": "AI-webbutveckling – så fungerar det",
+  "heroSub": "Beskriv din sajt i vanlig text, så bygger AI:n hela hemsidan åt dig – från layout till innehåll.",
+  "introParagraphs": [
+    "AI-webbutveckling betyder att du pratar med ett AI-system i stället för att dra och släppa block eller skriva kod själv. Du beskriver vad du behöver – en sajt för din frisörsalong, en portfolio för ditt konsultbolag, en enkel webshop – och AI:n genererar struktur, text, bilder och design utifrån det. Resultatet blir en färdig hemsida som du kan publicera direkt eller justera efter eget huvud.",
+    "Det här är inte science fiction. Tekniken finns redan och används av tusentals svenska företag som vill komma igång snabbt utan att lära sig WordPress, anlita en byrå eller sitta fast i en mallbyggare. AI:n tar hand om det tunga jobbet – du fokuserar på ditt företag.",
+    "Skillnaden mot traditionella verktyg är att du inte börjar med en tom mall eller en lista av block att fylla i. Du startar en konversation, och AI:n fattar beslut om layout, tonalitet och struktur baserat på vad du faktiskt behöver, inte vad mallen erbjuder."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så skiljer sig AI från mallbyggare och byråer",
+      "body": "Mallbyggare som Wix eller Squarespace ger dig färdiga mallar att anpassa. Det funkar bra om du vet exakt vad du vill ha, men processen är fortfarande manuell – du väljer block, skriver text, laddar upp bilder och justerar färger själv. En byrå gör jobbet åt dig, men kostar lätt 30 000–100 000 kronor och tar veckor eller månader. AI-webbutveckling landar mittemellan: du får en skräddarsydd sajt på minuter, utan att behöva fatta hundra designbeslut eller betala byråpriser. Du beskriver, AI:n bygger, du justerar om du vill."
+    },
+    {
+      "heading": "Vad AI faktiskt gör när den bygger en hemsida",
+      "body": "När du chattar med ett AI-system för webbutveckling händer flera saker samtidigt. AI:n analyserar din bransch och ditt syfte, väljer en passande struktur (startsida, tjänstesidor, om oss, kontakt), skriver förslag på rubriker och brödtext, genererar eller föreslår bilder, och sätter ihop en layout som fungerar på mobil och dator. Allt detta sker i bakgrunden medan du skriver några meningar om ditt företag. Resultatet är en komplett sajt som du kan publicera direkt, eller fortsätta förfina genom att be AI:n ändra färger, byta ut text eller lägga till fler sidor."
+    },
+    {
+      "heading": "Vad du fortfarande behöver göra själv",
+      "body": "AI kan bygga sajten, men den kan inte fatta affärsbeslut åt dig. Du behöver fortfarande bestämma vad du vill säga, vilka tjänster du erbjuder, hur du vill att folk ska kontakta dig, och vilken känsla sajten ska ge. AI:n kan föreslå text, men du måste läsa igenom och se till att den låter som dig. Du behöver också koppla på egen domän, sätta upp betalning om du säljer något, och hålla innehållet uppdaterat över tid. Tänk på AI:n som en snabb medarbetare som gör grovjobbet – du är fortfarande ansvarig för slutresultatet."
+    },
+    {
+      "heading": "Varför svenska företag väljer AI-webbutveckling nu",
+      "body": "Många svenska småföretag och frilansare har skjutit upp hemsidan i åratal. Antingen för att byråer är för dyra, mallbyggare känns för krångliga, eller för att de helt enkelt inte vet var de ska börja. AI-webbutveckling löser det genom att sänka tröskeln radikalt. Du behöver inte kunna design, kod eller ens ha en klar bild av hur sajten ska se ut – du börjar bara prata om ditt företag, och AI:n tar fram ett förslag. För den som vill ha kontroll finns koden att exportera. För den som vill komma igång fort finns en färdig sajt på minuter. Och för den som inte vill betala månadshyra finns gratis hosting på subdomän."
+    },
+    {
+      "heading": "Så provar du AI-webbutveckling med Sajtmaskin",
+      "body": "Sajtmaskin är en svenskspråkig AI-plattform byggd i Sverige för svenska företag. Du chattar med AI:n på svenska, beskriver vad du behöver, och får en färdig hemsida som du kan publicera på egen domän eller gratis på en subdomän. Ingen bindningstid, ingen månadshyra om du nöjer dig med subdomänen, och du kan exportera koden när du vill. Integrationer för bokning, betalning och analys finns inbyggda. Det är det enklaste sättet att förstå vad AI-webbutveckling innebär i praktiken – genom att faktiskt bygga din egen sajt på några minuter."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan AI verkligen bygga en hel hemsida själv?",
+      "a": "Ja, men med förbehåll. AI:n genererar struktur, layout, text och bildförslag baserat på vad du beskriver. Resultatet är en komplett, publicerbar sajt. Men du behöver fortfarande läsa igenom texten, kolla att den stämmer med ditt varumärke, och justera detaljer om du vill. AI:n gör 80–90 procent av jobbet, du fyller i resten."
+    },
+    {
+      "q": "Blir alla AI-sajter likadana?",
+      "a": "Nej. AI:n anpassar design, struktur och ton efter din bransch och ditt syfte. En advokatbyrå får en annan sajt än en foodtruck. Men precis som med mallar finns det mönster – skillnaden är att AI:n kan mixa och matcha element på ett sätt som mallbyggare inte klarar. Och du kan alltid justera allt efteråt."
+    },
+    {
+      "q": "Kan jag ändra sajten efter att AI:n byggt den?",
+      "a": "Ja. Du kan be AI:n göra ändringar genom att fortsätta chatten, eller redigera direkt i gränssnittet om plattformen stödjer det. På Sajtmaskin kan du både chatta vidare och exportera koden för att redigera fritt. Du äger resultatet och kan göra vad du vill med det."
+    },
+    {
+      "q": "Kostar AI-webbutveckling lika mycket som en byrå?",
+      "a": "Nej, inte i närheten. En byrå tar lätt 30 000–100 000 kronor och några veckor. AI-plattformar som Sajtmaskin tar betalt per sajt (ofta några hundra kronor) eller erbjuder gratis hosting på subdomän. Du betalar för verktyget, inte för arbetstimmar."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda AI-webbutveckling?",
+      "a": "Nej. Hela poängen är att du beskriver vad du vill ha i vanlig text, och AI:n sköter resten. Om du vill ha full kontroll kan du exportera koden och redigera själv, men det är inget krav. De flesta användare publicerar direkt utan att röra en rad kod."
+    },
+    {
+      "q": "Funkar AI-sajter på mobil?",
+      "a": "Ja. AI:n bygger responsiva sajter som anpassar sig till skärmstorlek automatiskt. Det är standard idag, oavsett om sajten byggs med AI, mall eller av en byrå. Du bör alltid kolla resultatet på din egen mobil innan du publicerar, men tekniken finns på plats."
+    },
+    {
+      "q": "Kan jag använda min egen domän med en AI-byggd sajt?",
+      "a": "Ja. De flesta AI-plattformar låter dig koppla på egen domän. På Sajtmaskin kan du antingen använda en gratis subdomän (dinsajt.sajtmaskin.se) eller koppla på din egen domän. Ingen skillnad i funktionalitet, bara webbadressen som ändras."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

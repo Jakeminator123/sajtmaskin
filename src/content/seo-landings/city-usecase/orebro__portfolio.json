@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "orebro/portfolio",
+  "title": "Hemsida Portfolio Örebro – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfolio-hemsida i Örebro med AI. Ingen kod, klart på minuter. Publicera på egen domän utan bindningstid.",
+  "h1": "Portfolio-hemsida i Örebro",
+  "heroSub": "Bygg en professionell portfolio-sajt för ditt Örebro-företag på minuter – helt utan kod, med AI som gör jobbet.",
+  "introParagraphs": [
+    "En portfolio-hemsida visar upp ditt arbete, dina projekt och din kompetens på ett sätt som får potentiella kunder i Örebro att vilja jobba med dig. Med Sajtmaskin skapar du en skräddarsydd portfolio direkt i chatten – berätta vad du gör, vilka projekt du vill lyfta fram och vilken känsla sajten ska ha, så genererar AI:n hela sidan åt dig.",
+    "Du får en färdig sajt med bildgallerier, projektbeskrivningar och kontaktformulär som fungerar direkt. Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, inga dolda avgifter – bara en portfolio som faktiskt representerar dig och ditt arbete i Örebro.",
+    "Sajtmaskin är byggt i Sverige med svenskt gränssnitt och support. Allt innehåll genereras på svenska, och du kan integrera bokningssystem via Cal.com om du vill att kunder ska kunna boka möten direkt från din portfolio."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför en portfolio-sajt behövs i Örebro",
+      "body": "Oavsett om du är fotograf, designer, konsult, arkitekt eller hantverkare behöver du en plats där ditt arbete talar för sig självt. I Örebro finns allt från kreativa byråer till frilansare och småföretag som behöver visa upp sina projekt för lokala och regionala kunder. En portfolio-hemsida ger trovärdighet, gör det enkelt att dela ditt arbete och hjälper potentiella kunder att snabbt förstå vad du kan. Sajtmaskin bygger din portfolio med rätt struktur från start – projektgallerier, om-sida, kontaktuppgifter och allt du behöver för att synas professionellt."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din portfolio",
+      "body": "Du chattar med AI:n och beskriver vad du gör, vilka projekt du vill visa och vilken stil som passar ditt varumärke. AI:n genererar hela sajten – layout, texter, bildplaceringar och navigation. Du kan ladda upp dina egna bilder, justera texter och lägga till fler sidor direkt i editorn. Vill du ha en kontaktsektion, ett bokningsformulär eller integration med Google Analytics? Allt fixas med några klick. När du är nöjd publicerar du på din egen domän eller kör på en kostnadsfri subdomän. Ingen kod, ingen krånglig CMS – bara en portfolio som fungerar."
+    },
+    {
+      "heading": "Integrationer som gör portfolion mer än en broschyr",
+      "body": "Med Sajtmaskin kan du integrera Cal.com för att låta kunder boka konsultationer eller möten direkt från din portfolio. Perfekt om du erbjuder tjänster som kräver ett första samtal. Vill du ta betalt för digitala produkter, kurser eller nedladdningar? Koppla in Stripe och sätt upp enkel e-handel. Google Analytics ger dig koll på vilka projekt som får mest uppmärksamhet och var besökarna kommer ifrån. Allt sköts utan att du behöver röra kod – integrationerna aktiveras med ett par klick i gränssnittet."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Sajtmaskin har ingen bindningstid. Du betalar för det du använder och kan när som helst exportera hela koden om du vill flytta sajten någon annanstans. Hosting på subdomän är gratis, och vill du ha egen domän kopplar du den direkt i plattformen. Allt innehåll och all design ägs av dig. Du är aldrig låst till en plattform som håller din sajt som gisslan. Det här är din portfolio, och den ska fungera på dina villkor – oavsett om du driver en enmansverksamhet i Örebro eller växer till något större."
+    },
+    {
+      "heading": "Byggt i Sverige, för svenska företag",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige. Gränssnittet är på svenska, supporten är svensk och AI:n förstår svenska sammanhang. Det betyder att texterna blir naturliga, att lokala referenser fungerar och att du slipper översättningar eller konstiga formuleringar. För dig som driver verksamhet i Örebro innebär det en portfolio som känns rätt – både språkligt och kulturellt. Du får en sajt som ser ut och låter som en svensk sajt ska, inte en maskinöversatt kopia från en global plattform."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfolio-hemsida?",
+      "a": "De flesta har en fungerande portfolio på 10–20 minuter. Du chattar med AI:n, beskriver dina projekt och stil, och får en färdig sajt som du kan publicera direkt eller fortsätta jobba med i editorn."
+    },
+    {
+      "q": "Kan jag använda mina egna bilder och texter?",
+      "a": "Absolut. Du laddar upp dina projektbilder, justerar texter och anpassar allt efter ditt varumärke. AI:n ger dig en struktur att utgå ifrån, men allt innehåll är ditt och kan ändras fritt."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Hosting på subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän kopplar du den i plattformen. Inga dolda avgifter, ingen bindningstid – du betalar bara för de funktioner du aktivt väljer att använda."
+    },
+    {
+      "q": "Fungerar sajten bra för kunder i Örebro och resten av Sverige?",
+      "a": "Ja. Sajten är responsiv, snabb och SEO-optimerad. Du kan lägga till lokala referenser, kontaktuppgifter och beskriva var du verkar. Allt innehåll genereras på svenska, vilket gör att sajten känns naturlig för svenska besökare."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för konsultationer?",
+      "a": "Ja, via Cal.com-integrationen. Du kopplar ditt kalenderkonto och besökare kan boka möten direkt från din portfolio. Perfekt om du erbjuder tjänster som kräver ett första samtal eller konsultation."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill. Ingen bindningstid, ingen inlåsning. Sajten är din och du bestämmer var den ska ligga. Sajtmaskin håller aldrig ditt innehåll som gisslan."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej. Allt sker i chatten och editorn. AI:n bygger sajten, du justerar innehåll och layout visuellt. Ingen kod behövs, men har du kunskapen kan du såklart gå in och ändra om du vill."
+    }
+  ],
+  "localOrIndustryContext": "Örebro har en stark kreativ sektor med designers, fotografer, konsulter och hantverkare som behöver visa upp sitt arbete digitalt. En professionell portfolio är ofta avgörande för att vinna lokala uppdrag och bygga förtroende hos regionala kunder.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/orebro",
+      "label": "Skapa hemsida i Örebro"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Örebro. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

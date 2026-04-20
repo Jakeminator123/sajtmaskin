@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "ai-webbyra",
+  "title": "AI-webbyrå – kan AI ersätta en traditionell webbyrå? | Sajtmaskin",
+  "metaDescription": "Kan AI ersätta en webbyrå? Vi förklarar vad en AI-webbyrå gör, hur tekniken fungerar och när du faktiskt behöver mänsklig expertis.",
+  "h1": "Kan en AI-webbyrå ersätta en traditionell webbyrå?",
+  "heroSub": "Vi förklarar vad AI faktiskt kan göra när du ska bygga hemsida – och när du fortfarande behöver en människa.",
+  "introParagraphs": [
+    "En AI-webbyrå är inte en byrå i traditionell mening, utan ett verktyg som använder artificiell intelligens för att generera hemsidor automatiskt. Istället för att boka möten, skicka mejl och vänta veckor på leverans beskriver du vad du vill ha i en chattkonversation, och AI:n bygger sajten direkt. Det fungerar bra för standardsajter som visitkort, bokningssidor och enklare webshoppar, men ersätter inte en byrå när du behöver avancerad design, komplex funktionalitet eller strategisk rådgivning.",
+    "Fördelen med AI är hastighet och kostnad. Du får en färdig sajt på minuter istället för veckor, och betalar tusenkronor istället för tiotusentals. Nackdelen är att AI inte förstår din bransch på djupet, inte kan utmana dina idéer eller bygga helt unika lösningar. Tänk på AI som ett verktyg för att komma igång snabbt, inte som en fullständig ersättning för mänsklig expertis.",
+    "För svenska småföretag som behöver en fungerande hemsida utan att investera byråbudget är AI-verktyg som Sajtmaskin ett konkret alternativ. Du chattar på svenska, får en sajt som fungerar direkt och kan publicera på egen domän utan månadskostnad."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad gör en AI-webbyrå egentligen?",
+      "body": "En AI-webbyrå använder språkmodeller för att omvandla din beskrivning till färdig HTML, CSS och innehåll. Du skriver vad din sajt ska innehålla – typ av företag, vilka sidor du behöver, vilket budskap du vill förmedla – och AI:n genererar struktur, text, layout och grundläggande design. Bra AI-verktyg låter dig justera resultatet i samma chatt, så du kan be om ändringar tills sajten känns rätt. Tekniken fungerar eftersom moderna språkmodeller har tränats på miljontals webbplatser och kan känna igen mönster för vad som fungerar inom olika branscher. Men AI:n skapar inte från noll – den kombinerar befintliga mönster på nya sätt utifrån din input."
+    },
+    {
+      "heading": "Hur skiljer sig AI från mallbyggare och traditionella byråer?",
+      "body": "Mallbyggare som Wix eller Squarespace ger dig färdiga mallar som du anpassar själv genom att dra och släppa. Det kräver att du fattar alla designbeslut och skriver allt innehåll. Traditionella byråer intervjuar dig, skapar strategi och designar unikt, men tar veckor och kostar ofta 30 000–150 000 kronor. AI hamnar mittemellan: du får en färdig sajt utan att behöva fatta varje designval, men utan den strategiska djupdykning en byrå gör. AI är snabbast och billigast för standardbehov, byråer bäst för komplexa projekt, mallbyggare bäst när du vill ha full kontroll och har tid att lära dig verktygen."
+    },
+    {
+      "heading": "När räcker AI och när behöver du en byrå?",
+      "body": "AI fungerar utmärkt för visitkortsajter, bokningssidor, portfolios, enklare webshoppar och landningssidor. Om du vet vad du vill ha och behöver en sajt i luften snabbt är AI ofta tillräckligt. Du behöver en byrå när projektet kräver skräddarsydd funktionalitet, integrationer med komplexa system, avancerad användarforskning, varumärkesstrategi eller helt unik design som ska sticka ut. Byråer är också värdefulla när du behöver rådgivning om vad som faktiskt fungerar i din bransch, inte bara en teknisk lösning. Många företag börjar med AI för att testa en idé eller komma igång, och anlitar sedan en byrå när verksamheten växer och behoven blir mer specifika."
+    },
+    {
+      "heading": "Så fungerar Sajtmaskin som svensk AI-lösning",
+      "body": "Sajtmaskin är byggt i Sverige och fungerar helt på svenska, från gränssnitt till AI-konversation. Du beskriver din sajt i chatten, och AI:n genererar struktur, text och design direkt. Du kan be om ändringar, lägga till sidor och justera innehåll i samma samtal. När du är nöjd publicerar du på egen domän eller på en kostnadsfri subdomän. Plattformen inkluderar integrationer för bokning via Cal.com, betalningar via Stripe och analys via Google Analytics. Det finns ingen bindningstid och du kan exportera koden när du vill. Sajtmaskin är mest användbart när du behöver en fungerande hemsida snabbt, utan att lära dig kodning eller lägga byråbudget, och när du vill ha hela processen på svenska."
+    },
+    {
+      "heading": "Vad kostar AI jämfört med en byrå?",
+      "body": "En traditionell webbyrå tar ofta 30 000–150 000 kronor för en grundläggande företagssajt, plus löpande kostnad för hosting och underhåll. Mallbyggare kostar 100–400 kronor per månad men kräver att du lägger många timmar själv. AI-verktyg som Sajtmaskin tar betalt per sajt du bygger, vanligtvis några tusen kronor, och hosting på subdomän är kostnadsfritt. Totalkostnaden för att komma igång med AI är alltså en bråkdel av en byrå, men du får inte samma strategiska djup eller helt unika design. För många småföretag är den ekonomiska skillnaden avgörande – skillnaden mellan att ha råd med en sajt nu eller att vänta tills budgeten finns."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan AI verkligen ersätta en webbyrå helt?",
+      "a": "Nej, inte för alla projekt. AI fungerar utmärkt för standardsajter med tydliga behov, men ersätter inte en byrå när du behöver strategisk rådgivning, komplex funktionalitet, avancerad design eller djup förståelse för din bransch. Tänk på AI som ett verktyg för snabba, kostnadseffektiva lösningar, inte som ersättning för mänsklig expertis i komplexa projekt."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en sajt med AI?",
+      "a": "Med Sajtmaskin kan du ha en färdig sajt på 10–30 minuter. Du chattar med AI:n, beskriver vad du behöver, granskar resultatet och justerar tills det känns rätt. Jämfört med veckor för en byrå eller dagar av eget arbete i en mallbyggare är det en dramatisk tidsbesparing. Hastigheten gör AI särskilt värdefullt när du behöver testa en idé snabbt eller lansera något akut."
+    },
+    {
+      "q": "Blir alla AI-sajter likadana?",
+      "a": "Nej, för AI:n genererar innehåll och struktur baserat på din specifika beskrivning. Två företag i samma bransch får olika sajter om de beskriver olika budskap, tjänster och målgrupper. Men AI:n använder beprövade designmönster, så resultatet blir mer konventionellt än en byrås skräddarsydda design. Om du vill ha något helt unikt som sticker ut behöver du fortfarande mänsklig design."
+    },
+    {
+      "q": "Kan jag ändra sajten efter att AI:n byggt den?",
+      "a": "Ja, i Sajtmaskin fortsätter du chatta med AI:n för att justera text, lägga till sidor, ändra layout eller uppdatera innehåll. Du kan också exportera koden och redigera själv om du har teknisk kunskap. Det finns ingen låsning – sajten är din och du bestämmer hur du vill arbeta vidare med den."
+    },
+    {
+      "q": "Vad händer med SEO när AI skriver innehållet?",
+      "a": "AI kan skriva SEO-vänlig text med rätt nyckelord och struktur, men förstår inte din bransch eller konkurrenter på djupet. Du får grundläggande on-page SEO, men behöver själv eller med hjälp av expert optimera för din specifika marknad. För lokal SEO och enklare sajter räcker AI:ns texter ofta bra, men för konkurrensutsatta nischer behöver du mänsklig SEO-expertis."
+    },
+    {
+      "q": "Fungerar AI-sajter på mobil?",
+      "a": "Ja, Sajtmaskin genererar responsiv design som anpassar sig automatiskt till mobil, surfplatta och dator. Det är standard idag och AI:n bygger in det från start. Du behöver inte göra någonting extra för att sajten ska fungera på alla enheter."
+    },
+    {
+      "q": "Kan jag använda min egen domän med en AI-byggd sajt?",
+      "a": "Ja, i Sajtmaskin kan du publicera på din egen domän. Du kan också välja en kostnadsfri subdomän om du vill testa först. Det finns ingen teknisk skillnad – sajten fungerar likadant oavsett vilket domännamn du använder. Du äger innehållet och kan när som helst flytta det om du vill byta plattform."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,105 @@
+{
+  "family": "usecase",
+  "slug": "bilverkstad",
+  "title": "Hemsida bilverkstad – bygg din verkstadssajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad med AI. Bokningstider, tjänster, priser och kontakt – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för bilverkstad",
+  "heroSub": "Bygg en komplett sajt för din bilverkstad med AI – från tjänstepresentation till online-bokning, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En hemsida för bilverkstad behöver visa dina tjänster tydligt, låta kunder boka tid enkelt och ge besökare förtroende genom att visa vem ni är och vad ni kan. Oftast handlar det om sidor för service och reparation, däckbyten, besiktning, kontaktuppgifter med karta, och gärna prisexempel eller paketlösningar. Många verkstäder vill också visa sitt team, ha ett enkelt bokningsformulär och kanske integrera betalning för förskottsbetalning.",
+    "Med Sajtmaskin bygger du hela sajten via chat på svenska. Du beskriver din verkstad, vilka tjänster du erbjuder och vad som är viktigt för dina kunder – så genererar AI:n en färdig hemsida på minuter. Du kan publicera direkt på egen domän eller testa kostnadsfritt på en subdomän, och allt går att redigera efteråt utan teknisk kunskap."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänstesidor som visar vad ni gör",
+      "body": "Besökare vill snabbt se om ni kan hjälpa dem. Därför behöver din sajt tydliga sidor för varje tjänsteområde: service och oljebyte, däckhotell och däckskifte, bromsar och avgassystem, felsökning och reparation, AC-service, besiktning. Varje sida kan beskriva vad som ingår, ungefärliga tider och prisindikationer. Sajtmaskin låter dig skapa dessa sidor direkt i chatten – berätta vilka tjänster du har, så får du förslag på struktur och texter som du sedan justerar efter behov."
+    },
+    {
+      "heading": "Bokningsfunktion så kunder kan boka tid online",
+      "body": "Många verkstäder tappar kunder som ringer utanför öppettider eller inte orkar vänta i telefonkö. Med en integrerad bokningskalender kan besökare välja ledig tid dygnet runt. Sajtmaskin kopplar ihop din sajt med Cal.com, ett kostnadsfritt bokningssystem som synkar med din kalender. Du bestämmer vilka tider som är bokningsbara, hur lång tid varje typ av jobb tar och om kunden ska fylla i bilmodell eller regnummer direkt. Allt sköts från din sajt utan att kunden behöver mejla eller ringa."
+    },
+    {
+      "heading": "Om oss-sida som bygger förtroende",
+      "body": "Bilverkstad handlar om förtroende. Besökare vill veta att de lämnar sin bil i trygga händer. En om-sida där du presenterar verkstadens historia, ditt team, eventuella auktorisationer och varför ni brinner för bilar gör stor skillnad. Lägg gärna till bilder från verkstaden och på mekanikerna. Sajtmaskin hjälper dig strukturera det här – du berättar om verkstaden i chatten, laddar upp bilder, och AI:n skapar en sida som känns personlig och professionell."
+    },
+    {
+      "heading": "Kontakt och karta så kunden hittar er",
+      "body": "Tydlig kontaktinformation är kritisk: adress, telefon, mejl, öppettider och en inbäddad karta. Många kunder söker efter verkstäder nära hemmet, så se till att adressen syns både i sidfoten och på en dedikerad kontaktsida. Sajtmaskin lägger automatiskt in Google Maps när du anger din adress, och du kan lägga till ett kontaktformulär om du vill att besökare ska kunna ställa frågor direkt på sajten. Allt samlas på ett ställe så kunden slipper leta."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "När sajten är klar publicerar du den på din egen domän – exempelvis dinverkstad.se. Sajtmaskin tar ingen månadskostnad för hosting om du väljer subdomän, och du kan när som helst exportera all kod om du vill flytta sajten någon annanstans. Det finns ingen bindningstid, och du äger allt innehåll. Vill du lägga till fler sidor eller ändra texter senare gör du det direkt i gränssnittet, fortfarande utan att behöva kunna koda."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min bilverkstad?",
+      "a": "De flesta kommer igång på 10–20 minuter. Du chattar med AI:n på svenska, beskriver din verkstad och vilka tjänster du erbjuder, så genereras en första version direkt. Sedan justerar du texter, laddar upp bilder och lägger till eventuella funktioner som bokning eller prislista. Allt sker i samma gränssnitt utan teknisk krångel."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion så kunder bokar service online?",
+      "a": "Ja, Sajtmaskin integrerar med Cal.com som är ett kostnadsfritt bokningssystem. Du kopplar din kalender, ställer in vilka tider som är bokningsbara och hur lång tid olika jobb tar. Kunder väljer sedan ledig tid direkt på din sajt, och du får automatisk notis. Du kan också be om bilmodell eller regnummer i bokningsformuläret."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att jag byggt den?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du använda egen domän som dinverkstad.se betalar du endast domänregistrering hos din domänleverantör, ingen extra avgift till Sajtmaskin. Det finns ingen bindningstid och du kan exportera koden kostnadsfritt när du vill."
+    },
+    {
+      "q": "Kan jag visa priser och paketlösningar på sajten?",
+      "a": "Absolut. Du kan skapa sidor för olika servicepaket – till exempel sommarservice, vinterpaket eller besiktningspaket – och lista vad som ingår och vad det kostar. Många verkstäder väljer att visa från-priser eller prisexempel för att ge besökare en uppfattning. Du redigerar allt direkt i gränssnittet och kan uppdatera priser när du vill."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra saker efteråt?",
+      "a": "Nej, allt sköts via ett svenskt gränssnitt där du redigerar texter, byter bilder och lägger till nya sidor utan kod. Vill du göra mer avancerade ändringar kan du exportera koden och jobba vidare i en egen editor, men för de allra flesta räcker det inbyggda verktyget. Du kan också be AI:n om hjälp att omformulera texter eller lägga till nya avsnitt."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och anpassar sig automatiskt till mobil, surfplatta och dator. Eftersom många kunder söker efter bilverkstäder på vägen eller från bilen är mobilanpassning extra viktig. Du kan förhandsgranska hur sajten ser ut på olika skärmar innan du publicerar."
+    },
+    {
+      "q": "Kan jag lägga till Google Analytics eller andra verktyg?",
+      "a": "Ja, Sajtmaskin stödjer integration med Google Analytics så du kan följa hur många som besöker sajten, vilka sidor de tittar på och var de kommer ifrån. Du kan också koppla Stripe om du vill ta betalt online, eller lägga in tracking-pixlar för annonser. Allt görs genom enkla inställningar utan att du behöver röra kod."
+    }
+  ],
+  "localOrIndustryContext": "Bilverkstäder och däckfirmor i Sverige möter allt högre förväntningar på digital närvaro. Kunder söker efter öppettider, priser och lediga tider online – ofta från mobilen – och väljer den verkstad som gör det enklast att boka. En tydlig, snabb sajt med bokningsfunktion ger dig försprång mot konkurrenter som bara har telefonnummer och öppettider.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en bilverkstad-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

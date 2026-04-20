@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "gavle/salong",
+  "title": "Hemsida Salong Gävle – Bygg din salongs sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Gävle med AI. Få bokningssystem, bildgalleri och mobilanpassning på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för salong i Gävle",
+  "heroSub": "Bygg en komplett sajt för din salong i Gävle via chat – med bokning, prislista och galleri på plats direkt.",
+  "introParagraphs": [
+    "Din salong i Gävle behöver en hemsida som visar dina tjänster, tar emot bokningar och får nya kunder att hitta dig. Med Sajtmaskin chattar du fram hela sajten på minuter – AI:n bygger sidor för dina behandlingar, ett bildgalleri, prislista och integrerat bokningssystem från Cal.com.",
+    "Du får en färdig sajt anpassad för mobil och dator, optimerad för att synas i Gävle-sökningar. Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, inga dolda avgifter – bara en sajt som fungerar från dag ett.",
+    "Plattformen är helt på svenska, byggd i Sverige av Pretty Good AB. Du behöver ingen teknisk kunskap – berätta vad din salong erbjuder, så skapar AI:n strukturen, texterna och designen åt dig."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem som passar salonger i Gävle",
+      "body": "Cal.com-integrationen gör att dina kunder kan boka klippning, färg, behandlingar eller konsultation direkt på sajten. Du styr själv vilka tider som är öppna, hur lång tid varje behandling tar och vilka tjänster som går att boka. Systemet skickar automatiska påminnelser och bekräftelser, vilket minskar no-shows och sparar tid i vardagen. Allt synkas med din kalender så du alltid har koll på schemat."
+    },
+    {
+      "heading": "Visa upp din salong med bildgalleri och tjänster",
+      "body": "En salong lever på visuellt intryck. Sajtmaskin låter dig enkelt lägga till bilder på klippningar, färgningar, lokalen och teamet. Varje tjänst – från balayage till herrklippning – får en egen sida med beskrivning, pris och tidsåtgång. AI:n strukturerar innehållet så att besökare snabbt hittar det de söker, och du kan uppdatera priser eller lägga till nya behandlingar när du vill."
+    },
+    {
+      "heading": "Lokalt synlig i Gävle utan krångel",
+      "body": "Sajten byggs med adress, öppettider och kontaktuppgifter synliga på varje sida, vilket hjälper både kunder och Google att förstå var du finns. Du kan lägga till en karta, beskriva hur man hittar till salongen från Gävle centrum eller Brynäs, och skriva om vad som gör just din salong unik. Innehållet blir automatiskt mobilanpassat, vilket är viktigt när många söker salong på väg hem från jobbet."
+    },
+    {
+      "heading": "Ingen månadskostnad för hosting, äg din kod",
+      "body": "Publicera på subdomän utan månadskostnad, eller koppla din egen domän. Du äger alltid koden och kan exportera den när du vill – ingen inlåsning. Vill du senare lägga till Stripe för presentkort eller produktförsäljning går det att aktivera med ett klick. Sajtmaskin växer med din salong, utan att du behöver byta plattform eller anlita utvecklare."
+    },
+    {
+      "heading": "Svenskt gränssnitt och support från Sverige",
+      "body": "Allt i Sajtmaskin är på svenska – chatgränssnittet, verktygen, supporten. Plattformen är byggd i Sverige av Pretty Good AB, med förståelse för hur svenska småföretag fungerar. Du slipper översätta termer eller anpassa utländska mallar. När du behöver hjälp får du svar på svenska, från folk som förstår både tekniken och din bransch."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en sajt för min salong i Gävle?",
+      "a": "De flesta får en fungerande sajt på 10–20 minuter. Du chattar med AI:n om vilka tjänster du erbjuder, vilka priser du har och vad du vill visa upp. AI:n genererar sidor, texter och struktur. Sedan justerar du bilder, färger och detaljer tills allt känns rätt. Publicering sker direkt."
+    },
+    {
+      "q": "Kan jag ta emot bokningar direkt på hemsidan?",
+      "a": "Ja, genom Cal.com-integrationen. Du kopplar ditt Cal.com-konto, sätter upp tjänster med tidsåtgång och tillgängliga tider. Kunder bokar direkt på sajten och får bekräftelse via mejl. Du ser alla bokningar i din kalender och kan hantera om- och avbokningar därifrån."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter blir automatiskt mobilanpassade. Många som söker salong i Gävle gör det på telefonen, så bokningsknappar, bilder och menyer är byggda för att fungera lika bra på liten skärm som på dator. Du behöver inte göra något extra – det är inbyggt från start."
+    },
+    {
+      "q": "Kan jag sälja presentkort eller produkter via sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du ta betalt för presentkort, hårprodukter eller förskottsbetalning av behandlingar. Du aktiverar Stripe i inställningarna, lägger till produkter och priser, så fungerar betalningen direkt på sajten. Inga extra verktyg behövs."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Publicering på subdomän är kostnadsfri utan månadskostnad. Vill du använda egen domän behöver du köpa den separat (100–150 kr/år hos vanliga registratorer). Det finns inga dolda avgifter för hosting eller uppdateringar. Du betalar bara för själva Sajtmaskin-plattformen."
+    },
+    {
+      "q": "Hur gör jag sajten synlig för folk som söker salong i Gävle?",
+      "a": "Lägg in din adress, stadsdel och öppettider tydligt på sajten. Skriv om vilka tjänster du erbjuder och nämn Gävle i texterna där det känns naturligt. Koppla Google Analytics för att se vad besökare söker efter. Sajten byggs med ren kod som sökmotorer gillar, vilket ger dig en bra grund att växa från."
+    },
+    {
+      "q": "Kan jag ändra innehåll och priser själv efter lansering?",
+      "a": "Absolut. Du loggar in, ändrar text, byter bilder, uppdaterar prislistan eller lägger till nya behandlingar direkt i gränssnittet. Inga tekniska kunskaper krävs. Ändringar syns direkt på sajten. Du kan också exportera koden och flytta sajten om du vill ha full kontroll senare."
+    }
+  ],
+  "localOrIndustryContext": "Gävle har en växande salong- och skönhetsbransch med allt från etablerade hårateljéer i centrum till nystartade studios i Brynäs och Sätra. En professionell hemsida hjälper din salong att sticka ut, ta emot bokningar dygnet runt och nå kunder som söker behandlingar online innan de bestämmer sig.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/gavle",
+      "label": "Skapa hemsida i Gävle"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Gävle. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

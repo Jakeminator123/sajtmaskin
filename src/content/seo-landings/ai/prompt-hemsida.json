@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "prompt-hemsida",
+  "title": "Hemsida från prompt – bygg din sajt med AI | Sajtmaskin",
+  "metaDescription": "Skriv en prompt, få en färdig hemsida. Så fungerar AI-driven webbdesign – snabbare än mallar, billigare än byråer. Prova gratis på svenska.",
+  "h1": "Hemsida från prompt",
+  "heroSub": "Beskriv din sajt i vanlig text – AI:n bygger resten åt dig, på svenska och på minuter.",
+  "introParagraphs": [
+    "Att skapa en hemsida från en prompt betyder att du skriver en textbeskrivning av vad du vill ha, och en AI tolkar det och genererar design, struktur och innehåll automatiskt. Istället för att dra och släppa block eller koda själv skriver du helt enkelt \"Jag behöver en hemsida för min frisörsalong i Malmö med bokning och prislista\" – och får en färdig sajt tillbaka.",
+    "Tekniken bygger på språkmodeller som förstår svenska och kan översätta dina önskemål till HTML, CSS och innehåll. Det är inte science fiction – det fungerar idag, och det går mycket snabbare än att bygga sajten manuellt i en mallbyggare eller att mejla fram och tillbaka med en byrå i veckor.",
+    "Sajtmaskin är en svensk plattform som gör exakt detta. Du chattar med AI:n på svenska, beskriver vad du behöver, och får en publicerbar hemsida på minuter. Ingen kod, ingen bindningstid, och du kan exportera allt när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur prompten blir en sajt",
+      "body": "När du skriver en prompt analyserar AI:n vad du faktiskt menar: vilken typ av verksamhet, vilka sidor som behövs, vilken ton som passar. Sedan genererar den layout, färgschema, texter och bilder som matchar. Du kan vara detaljerad (\"modern design med gröna nyanser och ett kontaktformulär\") eller övergripande (\"hemsida för min café\") – AI:n fyller i luckorna. Efter första utkastet fortsätter du chatta för att justera, lägga till sidor eller ändra stil. Allt sker i realtid, så du ser resultatet direkt."
+    },
+    {
+      "heading": "Jämfört med mallbyggare och byråer",
+      "body": "Mallbyggare som Wix eller Squarespace kräver att du själv väljer mall, anpassar varje sektion och skriver alla texter. Det tar timmar eller dagar, och resultatet beror helt på din designkänsla. Byråer levererar proffsig kvalitet men kostar ofta tiotusentals kronor och tar veckor. En prompt-driven AI hamnar mittemellan: snabbare och billigare än en byrå, men mer intelligent och färdigställd än en tom mall. Du får ett förslag som faktiskt är anpassat till din bransch och dina behov – inte en generisk layout du måste fylla själv."
+    },
+    {
+      "heading": "Vad du kan styra med prompten",
+      "body": "Du bestämmer allt från känsla till funktioner. Vill du ha bokningssystem? Skriv det. Behöver du en webshop? Nämn produkterna. Vill du ha en viss färgpalett eller undvika vissa ord? Berätta det. AI:n hanterar både stora drag och detaljer. Du kan till exempel be om \"en sida för varje tjänst\", \"en sektion med kundrecensioner\" eller \"enkel meny utan undermeny\". Eftersom det är en konversation kan du alltid förtydliga eller ändra dig – prompten är inte huggen i sten."
+    },
+    {
+      "heading": "Varför det fungerar på svenska",
+      "body": "Många AI-verktyg är byggda för engelska och ger konstig svenska eller missar lokala references. Sajtmaskin är tränad på svenska texter och förstår svenska företagsnamn, orter och branschtermer. Det betyder att du kan skriva \"frisersalong i Göteborg\" och få innehåll som låter naturligt, inte översatt. Du slipper också engelska menyer eller supportchattar – allt är på svenska, från gränssnittet till hjälpen."
+    },
+    {
+      "heading": "Kom igång på fem minuter",
+      "body": "Skapa ett konto på Sajtmaskin, beskriv din hemsida i chatten och vänta någon minut medan AI:n jobbar. Granska resultatet, be om ändringar om du vill, och publicera sedan på en gratis subdomän eller koppla din egen domän. Ingen bindningstid, ingen kreditkortsuppgift för att testa. Om du vill ta över koden senare kan du exportera den och flytta var som helst. Det är det enklaste sättet att se om prompt-driven webbdesign passar dig – och det kostar ingenting att prova."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur detaljerad måste prompten vara?",
+      "a": "Du kan vara så kort som \"hemsida för min restaurang\" eller så specifik som \"tre sidor, blå färgton, med meny och öppettider synliga direkt\". AI:n fyller i det du inte nämner med vettiga förslag, och du kan alltid justera efteråt i chatten."
+    },
+    {
+      "q": "Kan jag ändra sidan efter att den genererats?",
+      "a": "Ja, du fortsätter chatta med AI:n för att lägga till sidor, byta färger, skriva om texter eller ändra layout. Du kan också redigera texten direkt i editorn om du föredrar det. Prompten är bara startpunkten."
+    },
+    {
+      "q": "Vad händer om AI:n missförstår min prompt?",
+      "a": "Då skriver du helt enkelt vad som blev fel, till exempel \"gör headern ljusare\" eller \"ta bort den där sektionen\". AI:n justerar och visar ett nytt förslag. Det är en konversation, inte ett engångskommando."
+    },
+    {
+      "q": "Kan jag använda prompten för webshop eller bokning?",
+      "a": "Absolut. Skriv att du behöver webshop så integreras Shopify, eller be om bokningsfunktion så kopplas Cal.com in. Du kan också lägga till betalningar via Stripe eller analysverktyg som Google Analytics – allt genom att beskriva vad du vill ha."
+    },
+    {
+      "q": "Är det gratis att testa?",
+      "a": "Ja, du kan skapa och publicera på en Sajtmaskin-subdomän utan kostnad. Vill du använda egen domän eller exportera koden finns betalplaner, men det kostar inget att prova själva prompt-funktionen och se hur din sajt blir."
+    },
+    {
+      "q": "Hur skiljer sig detta från att använda ChatGPT för att skapa HTML?",
+      "a": "ChatGPT kan ge dig kodsnuttar, men du måste själv sätta ihop, hosta och designa allt. Sajtmaskin tar prompten och levererar en färdig, publicerbar sajt med hosting, domän och integrationer inkluderade. Du behöver aldrig röra koden om du inte vill."
+    },
+    {
+      "q": "Kan jag exportera och äga koden helt?",
+      "a": "Ja, du kan när som helst exportera hela sajten som HTML/CSS/JS och flytta den till vilken hostingtjänst du vill. Ingen inlåsning, ingen bindningstid – koden är din."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

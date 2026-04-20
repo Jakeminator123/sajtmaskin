@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "sodertalje/bilverkstad",
+  "title": "Hemsida bilverkstad Södertälje | Bygg din sajt på minuter",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Södertälje med AI. Bokning, prislista och kontakt – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för bilverkstad i Södertälje",
+  "heroSub": "Bygg en komplett sajt för din bilverkstad med AI – med bokning, tjänster och kontaktformulär, direkt anpassad för Södertälje.",
+  "introParagraphs": [
+    "Din bilverkstad i Södertälje behöver en hemsida som visar vad ni kan och gör det enkelt för kunder att boka tid. Med Sajtmaskin skapar du en komplett sajt på minuter genom att chatta med AI – ingen kodning, inga krångliga verktyg.",
+    "Sajten får automatiskt allt en bilverkstad behöver: tjänster som service, däckskifte och besiktning, prislista, bokningssystem via Cal.com, och kontaktuppgifter. Du publicerar på egen domän eller kostnadsfritt på en subdomän, utan bindningstid."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bilverkstad i Södertälje behöver på sajten",
+      "body": "Kunder söker ofta efter specifika tjänster – besiktning, däckhotell, motordiagnostik eller lackering. Din hemsida ska tydligt lista vad ni erbjuder, var verkstaden ligger i Södertälje, och hur man bokar tid. Sajtmaskin låter dig beskriva din verksamhet i chatten, så genererar AI sidor för varje tjänst, öppettider, priser och en karta. Allt anpassat efter hur bilverkstäder i Södertälje jobbar."
+    },
+    {
+      "heading": "Bokningssystem som funkar direkt",
+      "body": "Med Cal.com-integration får du ett bokningssystem inbyggt på sajten. Kunder kan välja tjänst – servicebesök, hjulskifte eller felsökning – och boka ledig tid direkt. Du styr vilka tider som visas och får bekräftelse via mejl. Perfekt för verkstäder som vill slippa telefontaggar och dubbelbokning. Systemet synkar med din kalender och fungerar på mobil och dator."
+    },
+    {
+      "heading": "Bygg sajten via chat – ingen kod",
+      "body": "Du startar med att berätta vad din bilverkstad gör, var i Södertälje ni ligger, och vilka tjänster ni har. AI:n skapar sedan hela sajten: startsida, tjänstesidor, om-sida och kontakt. Vill du ändra något? Chatta igen – \"lägg till däckhotell\" eller \"byt färg till mörkblått\". Allt händer live. När du är nöjd publicerar du på egen domän eller testar gratis på en subdomän."
+    },
+    {
+      "heading": "Ingen bindningstid, äg din kod",
+      "body": "Sajtmaskin kräver ingen månadsprenumeration för hosting på subdomän. Vill du flytta sajten senare? Exportera koden och ta den med dig. Du äger allt innehåll och kan när som helst integrera Stripe för kortbetalning, Google Analytics för statistik, eller koppla en Shopify-butik om du säljer bildelar. Allt byggt i Sverige med svenskt stöd."
+    },
+    {
+      "heading": "Gjord för Södertälje och svenska bilverkstäder",
+      "body": "Sajtmaskin förstår svenska kundvanor och lokala behov. AI:n skriver texter som passar Södertälje – ingen generisk mall från utlandet. Du kan nämna närområden som Hovsjö, Ronna eller Glasberga, lägga till vägbeskrivning från E4 eller E20, och visa att ni servar både personbilar och lätta lastbilar. Sajten blir er digitala skyltfönster, alltid öppen."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min bilverkstad?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar med AI:n om vilka tjänster ni erbjuder, var i Södertälje verkstaden ligger, och vilka priser som gäller. AI:n bygger sidorna direkt. Vill du justera texter eller lägga till bilder gör du det i samma chatt."
+    },
+    {
+      "q": "Kan jag lägga in bokningssystem för service och däckskifte?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så kunder kan boka tid direkt på sajten. Du skapar tidsslots för olika tjänster – service, besiktning, däckskifte – och systemet visar lediga tider. Bekräftelse skickas automatiskt via mejl. Allt synkar med din kalender."
+    },
+    {
+      "q": "Kostar det något att ha sajten online?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Vill du använda egen domän, till exempel dinverkstad.se, kopplar du den utan extra kostnad från oss. Domänregistrering betalar du hos din domänleverantör. Ingen bindningstid, ingen dold avgift."
+    },
+    {
+      "q": "Kan jag visa priser för service och reparationer?",
+      "a": "Absolut. Du kan skapa prissidor för vanliga tjänster – oljebyte, bromsar, kamremsbyte – eller beskriva att ni ger offert efter besiktning. AI:n formaterar prislistor snyggt och du uppdaterar dem när du vill genom att chatta. Transparent prissättning bygger förtroende hos kunder i Södertälje."
+    },
+    {
+      "q": "Fungerar sajten för kunder som söker bilverkstad i Södertälje på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och fungerar lika bra på mobil, surfplatta och dator. Många kunder söker \"bilverkstad nära mig\" eller \"däckskifte Södertälje\" på telefonen, så sajten anpassar sig automatiskt till skärmstorleken."
+    },
+    {
+      "q": "Kan jag lägga till karta och vägbeskrivning till verkstaden?",
+      "a": "Ja, du kan bädda in Google Maps eller skriva egen vägbeskrivning – till exempel från E4 avfart Södertälje Syd eller Scaniakorsningen. AI:n hjälper dig placera kartan på kontaktsidan så kunder enkelt hittar er verkstad, oavsett om de kommer från Nyköping eller Stockholm."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill och flytta sajten till egen server eller annan leverantör. Ingen inlåsning. Allt innehåll – texter, bilder, struktur – äger du. Sajtmaskin ger dig friheten att välja, utan krångel."
+    }
+  ],
+  "localOrIndustryContext": "Södertälje har stark fordonstradition med Scania och många underleverantörer, vilket gör bilverkstäder viktiga för både privata bilägare och företag med transportfordon. En hemsida hjälper din verkstad att synas när kunder söker service, besiktning eller däckskifte i området – särskilt längs E4 och E20 där trafiken är tät.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/sodertalje",
+      "label": "Skapa hemsida i Södertälje"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Södertälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

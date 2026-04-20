@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/event",
+  "title": "Hemsida för event i Göteborg – Bygg din eventsajt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Göteborg på minuter. Integrerad bokning, biljettförsäljning och allt du behöver.",
+  "h1": "Hemsida för event i Göteborg",
+  "heroSub": "Bygg en komplett eventsajt med bokning, biljettförsäljning och praktisk info – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "När du arrangerar event i Göteborg behöver du en hemsida som gör det enkelt för besökare att hitta information, boka biljetter och ta sig till platsen. Sajtmaskin bygger din eventsajt på minuter via chat – du beskriver ditt event, så genererar AI:n en färdig sajt med allt från program och talarlista till integrerad bokningsfunktion.",
+    "Du får en sajt anpassad för Göteborgs eventscen, med plats för praktisk information om lokaler, kollektivtrafik och parkering. Integrationer med Cal.com för tidsbokning och Stripe för biljettförsäljning ingår, så besökarna kan registrera sig eller köpa direkt på sajten. Publicera på din egen domän eller använd vår kostnadsfria subdomän – utan bindningstid eller dolda avgifter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt en eventsajt i Göteborg behöver",
+      "body": "En bra eventsajt visar tydligt vad eventet handlar om, vem det är för och hur man deltar. Du behöver program med tider och talare, praktisk info om plats och ankomst, samt en enkel väg till registrering eller biljettköp. För event i Göteborg är det extra viktigt med vägbeskrivningar från Centralstationen, info om närmaste spårvagnshållplats och tips om parkering – särskilt om du håller till i områden som Lindholmen, Heden eller Gårda. Sajtmaskin bygger in allt detta automatiskt utifrån din beskrivning."
+    },
+    {
+      "heading": "Integrerad bokning och betalning",
+      "body": "Sajtmaskin kopplar din eventsajt direkt till Cal.com för tidsbokning och Stripe för kortbetalningar. Det betyder att besökare kan registrera sig till workshops, köpa biljetter eller boka mötestider utan att lämna din sajt. Du slipper hantera separata system eller manuella listor – allt samlas på ett ställe. Perfekt för allt från konferenser och nätverksmingel till konserter, föreläsningar och företagsevent runt om i Göteborg."
+    },
+    {
+      "heading": "Bygg sajten via chat – publicera direkt",
+      "body": "Du chattar med Sajtmaskin och beskriver ditt event: typ av arrangemang, målgrupp, datum, plats och vad som ska finnas med på sajten. AI:n genererar en komplett eventsajt med text, layout och funktioner. Du kan justera rubriker, byta bilder, lägga till fler sektioner eller ändra färger – allt i samma chattgränssnitt. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri Sajtmaskin-subdomän. Ingen kod, ingen designer, inga veckors väntan."
+    },
+    {
+      "heading": "Göteborgskontext som fungerar",
+      "body": "Sajtmaskin förstår att event i Göteborg ofta drar besökare från hela Västsverige. Sajten kan inkludera information om kollektivtrafik med Västtrafik, länk till Parkopedia för parkeringsplatser, och tips om närliggande hotell eller restauranger. Om ditt event är på Lindholmen kan sajten nämna Älvsnabbaren, håller du till på Svenska Mässan får besökarna vägledning från Korsvägen. Allt skräddarsytt för just din plats och ditt event."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du äger din sajt och kan exportera all kod när du vill. Ingen bindningstid, inga dolda avgifter. Hosting på subdomän är gratis, egen domän kopplar du när du vill. Uppdatera eventsajten inför varje nytt arrangemang, lägg till fler event eller bygg om helt – allt sköter du själv via chatten. Perfekt för återkommande event, pop-up-arrangemang eller engångsevent som kräver snabb lansering."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en eventsajt live?",
+      "a": "De flesta eventsajter är klara på 10–20 minuter. Du chattar med AI:n, beskriver ditt event och får en färdig sajt med bokning och betalning. Sedan justerar du detaljer om du vill och publicerar direkt."
+    },
+    {
+      "q": "Kan jag sälja biljetter via sajten?",
+      "a": "Ja, Sajtmaskin integrerar med Stripe så besökare kan köpa biljetter direkt på din sajt. Du sätter pris, antal platser och betalningen hanteras säkert via Stripe. Perfekt för konserter, konferenser och workshops."
+    },
+    {
+      "q": "Fungerar sajten för återkommande event i Göteborg?",
+      "a": "Absolut. Du kan uppdatera datum, program och talare inför varje nytt event via chatten. Sajten behåller samma domän och struktur, så besökare känner igen sig. Smidigt för månatliga meetups, kvartalsvisa konferenser eller årliga arrangemang."
+    },
+    {
+      "q": "Kan jag lägga till karta och vägbeskrivning till eventplatsen?",
+      "a": "Ja, du kan bädda in Google Maps och skriva praktisk info om hur man tar sig dit med spårvagn, buss eller bil. Sajtmaskin hjälper dig strukturera informationen så den blir tydlig för besökare som inte känner till platsen."
+    },
+    {
+      "q": "Vad kostar det att driva eventsajten?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän kopplar du den kostnadsfritt. Inga månadskostnader, ingen bindningstid. Du betalar bara för externa tjänster som Stripe-transaktioner om du säljer biljetter."
+    },
+    {
+      "q": "Kan jag använda sajten för företagsevent och privata arrangemang?",
+      "a": "Ja, Sajtmaskin fungerar för allt från stora konferenser och branschmingel till mindre workshops, release-fester och privata tillställningar. Du styr själv hur mycket information du vill visa och om eventet ska vara öppet eller kräva inbjudan."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera eventsajten?",
+      "a": "Nej, allt sköts via chat. Du skriver vad du vill ändra – nytt datum, fler talare, uppdaterat program – så gör AI:n ändringarna åt dig. Vill du ha full kontroll kan du exportera koden, men det är inget krav."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg har en stark eventscen med allt från musikfestivaler och branschkonferenser till kulturarrangemang och företagsmingel. Många event hålls på platser som Svenska Mässan, Världskulturmuseet, Lindholmen Science Park och olika scener runt Avenyn. En bra eventsajt behöver därför tydlig information om läge, kollektivtrafik och parkering – något som är extra viktigt i en stad där besökare ofta reser från olika delar av Västsverige.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

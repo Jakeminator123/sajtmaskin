@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/restaurang",
+  "title": "Hemsida restaurang Göteborg – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig restaurangsajt i Göteborg på minuter med AI. Meny, bokning, betalning – allt på svenska. Ingen kod, ingen bindning.",
+  "h1": "Hemsida för restaurang i Göteborg",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokning och betalning – på minuter, utan kod.",
+  "introParagraphs": [
+    "En restaurang i Göteborg behöver en hemsida som visar menyn, tar emot bordsbokningar och fungerar lika bra på mobilen som på datorn. Med Sajtmaskin skapar du allt det genom att chatta med en AI – ingen designer eller utvecklare behövs.",
+    "Du beskriver din restaurang i chatten, så genererar AI:n en färdig sajt med meny, kontaktinfo, öppettider och integrerad bokning via Cal.com. Vill du ta betalt för catering eller presentkort kopplar du på Stripe direkt i gränssnittet. Allt på svenska, publicerat på din egen domän inom några minuter.",
+    "Sajtmaskin är byggt i Sverige och låter dig exportera koden när du vill. Ingen bindningstid, ingen månadskostnad för hosting på subdomän. Perfekt för nystartade krogar i Linnéstaden eller etablerade restauranger vid Avenyn som vill ha kontroll över sin närvaro online."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny och bilder som får gästerna att boka bord",
+      "body": "Din meny är ofta det första en hungrig göteborgare kollar. Sajtmaskin låter dig lägga in rätter, priser, allergener och vackra bilder direkt i chatten. AI:n formaterar allt snyggt och responsivt så menyn ser proffsig ut på alla skärmar. Vill du ändra veckolunchen eller lägga till en säsongsmeny gör du det själv på sekunder – ingen teknisk kunskap krävs."
+    },
+    {
+      "heading": "Bordsbokning integrerad med Cal.com",
+      "body": "Slipp mejl och telefonpingpong. Koppla din sajt till Cal.com så kan gäster boka bord direkt genom hemsidan. Du ser bokningarna i din kalender, får notiser och kan styra tillgängliga tider själv. Integreringen sker med några klick i Sajtmaskin – ingen kod, inga krångliga API-nycklar. Perfekt för en lunchrestaurang på Heden eller en fine dining-upplevelse i Majorna."
+    },
+    {
+      "heading": "Betallösning för catering, presentkort och events",
+      "body": "Vill du sälja presentkort, ta förskottsbetalning för större sällskap eller erbjuda take away online? Stripe-integrationen i Sajtmaskin gör det enkelt. Du kopplar ditt Stripe-konto, sätter upp produkter eller tjänster i chatten och får en fungerande betallösning på sajten. Allt hanteras säkert och enligt svenska regler."
+    },
+    {
+      "heading": "Publicera på egen domän – ingen månadsavgift",
+      "body": "Din restaurang förtjänar en egen adress på nätet, inte en generisk subdomän. Sajtmaskin låter dig publicera på din egen domän direkt. Vill du testa först? Använd en gratis subdomän utan månadskostnad. Och om du någonsin vill byta plattform exporterar du hela koden – du äger allt material."
+    },
+    {
+      "heading": "Bygg och redigera på svenska, när du vill",
+      "body": "Sajtmaskin är helt på svenska – från gränssnittet till supporten. Du chattar med AI:n på svenska och får förslag, texter och struktur anpassade för svenska restauranggäster. Behöver du ändra öppettider inför midsommar eller uppdatera menyn efter leverans? Gör det själv direkt i chatten, utan att vänta på en byrå."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt med Sajtmaskin?",
+      "a": "De flesta kommer igång på 10–20 minuter. Du beskriver din restaurang, meny och vad du vill ha på sajten i chatten, så genererar AI:n en färdig struktur. Sedan justerar du texter, bilder och funktioner tills allt känns rätt. Publicering på egen domän tar bara några klick till."
+    },
+    {
+      "q": "Kan jag visa allergener och specialkoster på menyn?",
+      "a": "Ja, du lägger in den informationen när du bygger menyn i chatten. AI:n formaterar det snyggt så gäster enkelt ser vilka rätter som är vegetariska, veganska, glutenfria eller innehåller vanliga allergener. Du styr själv hur detaljerad informationen ska vara."
+    },
+    {
+      "q": "Fungerar bordsbokningsfunktionen för restauranger i Göteborg?",
+      "a": "Absolut. Cal.com-integrationen fungerar överallt och du kan ställa in tider, antal platser och bokningsregler precis som du vill. Gäster bokar direkt på sajten och du får notiser i realtid. Perfekt oavsett om du driver en liten bistro i Haga eller en större restaurang vid Kungsportsavenyn."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Publicerar du på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du använda din egen domän (till exempel dinakrog.se) betalar du bara för domänregistreringen hos din registrar. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag ta betalt för catering eller presentkort via sajten?",
+      "a": "Ja, koppla ditt Stripe-konto så kan du sälja presentkort, ta förskottsbetalning för events eller erbjuda catering-paket online. Betalningen hanteras säkert och du får pengarna direkt till ditt konto. Allt sätts upp i chatten utan kod."
+    },
+    {
+      "q": "Kan jag redigera menyn själv när säsongen ändras?",
+      "a": "Ja, du loggar in och uppdaterar meny, priser eller bilder direkt i chatten. Inga tekniska kunskaper behövs. Vill du lägga till en veckans husman eller ta bort en rätt som inte längre finns gör du det på några sekunder."
+    },
+    {
+      "q": "Äger jag sajten och kan jag flytta den senare?",
+      "a": "Du äger allt innehåll och kan exportera hela koden när du vill. Ingen bindningstid, inga krav på att stanna. Sajtmaskin är byggt för att ge dig full kontroll – perfekt om du vill växa eller byta plattform i framtiden."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg har en mångsidig restaurangscen – från klassiska fisk- och skaldjursställen vid Feskekôrka till moderna gourmetkök i Linné och mysiga kvartersrestauranger i Majorna. En bra hemsida hjälper både turister och göteborgare att hitta din meny, boka bord och få en känsla för vad du erbjuder innan de kliver in.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

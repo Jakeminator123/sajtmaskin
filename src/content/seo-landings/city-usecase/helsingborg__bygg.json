@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/bygg",
+  "title": "Hemsida bygg Helsingborg – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Helsingborg med AI. Ingen kod krävs – publicera på egen domän direkt.",
+  "h1": "Hemsida för byggföretag i Helsingborg",
+  "heroSub": "Bygg en komplett sajt för ditt byggföretag på minuter – med AI som förstår svenska och vad Helsingborgare söker efter.",
+  "introParagraphs": [
+    "Sajtmaskin skapar en färdig hemsida för ditt byggföretag i Helsingborg direkt via chat. Du beskriver vad du gör – om du renoverar villor i Ramlösa, bygger nytt i Drottninghög eller lägger om tak i Fredriksdal – så genererar AI:n en komplett sajt med rätt innehåll, bilder och struktur. Ingen kod, ingen designer, ingen väntan.",
+    "Du publicerar på din egen domän och betalar ingen månadsavgift för hosting om du kör på subdomän. Lägg till bokningssystem via Cal.com så kunder kan boka offerttid direkt, eller koppla Stripe om du vill ta förskottsbetalning för mindre jobb. Allt på svenska, byggt i Sverige.",
+    "Ingen bindningstid. Du äger koden och kan exportera den när du vill. Perfekt för hantverkare och byggfirmor som vill synas online utan att lägga veckor på hemsidebygge."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Helsingborg behöver",
+      "body": "Helsingborgare söker lokala byggare som kan visa tydliga referenser, har F-skattsedel och kan komma ut snabbt. Din hemsida behöver visa vilka tjänster du erbjuder – badrumsrenovering, tillbyggnad, takarbeten, plåtslageri – med konkreta exempel från närområdet. Bilder från tidigare projekt i Helsingborg eller nordvästra Skåne bygger förtroende. Kontaktuppgifter och möjlighet att boka kostnadsfri offert ska synas direkt. Sajtmaskin bygger allt detta automatiskt utifrån din prompt."
+    },
+    {
+      "heading": "AI bygger sajten – du fokuserar på jobbet",
+      "body": "Du chattar med Sajtmaskin och berättar vad ditt byggföretag gör. AI:n skapar en struktur med startsida, tjänstesidor, referensgalleri och kontaktformulär. Vill du lyfta att du jobbar i hela Helsingborg, Landskrona och Höganäs? Säg det – texten anpassas. Behöver du en sida för ROT-avdrag eller energirenovering? Den läggs till på sekunder. Allt innehåll genereras på svenska med rätt terminologi för byggbranschen."
+    },
+    {
+      "heading": "Integrationer som gör skillnad",
+      "body": "Koppla Cal.com så kunder kan välja tid för offertbesök direkt i kalendern – slipper du mejltennis om lediga tider. Stripe låter dig ta förskottsbetalning för materialinköp eller mindre renoveringar. Google Analytics visar vilka tjänster besökare klickar mest på, så du vet vad Helsingborgare faktiskt söker. Vill du visa produkter eller material kan du integrera Shopify. Allt sköts utan teknisk krångel."
+    },
+    {
+      "heading": "Publicera på egen domän – ingen hosting-kostnad",
+      "body": "Du kan köra på en gratis subdomän hos Sajtmaskin eller koppla din egen domän typ mittbyggforetag.se. Ingen månadskostnad för hosting på subdomän, och du kan när som helst exportera hela sajten om du vill flytta den. Perfekt för byggföretag som vill testa eller som inte vill låsa sig vid dyra webbhotell. Uppdatera innehåll själv via chatten – lägg till nya projekt, ändra priser eller uppdatera kontaktinfo på minuter."
+    },
+    {
+      "heading": "Byggt i Sverige, för svenska byggare",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige. Allt – gränssnitt, support, AI-genererad text – är på svenska. Ingen översatt känsla, inga konstiga formuleringar. AI:n förstår skillnaden mellan husgrund, takstol och dränering, och skriver så att både privatpersoner i Helsingborg och fastighetsbolag förstår vad du erbjuder. Du får en sajt som känns lokal, professionell och trovärdig från dag ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en färdig byggsajt?",
+      "a": "Du kan ha en komplett hemsida live på minuter. Berätta för AI:n vilka tjänster du erbjuder i Helsingborg – till exempel takläggning, badrumsrenovering eller tillbyggnader – så genereras struktur, texter och sidor direkt. Sen publicerar du på egen domän eller subdomän."
+    },
+    {
+      "q": "Kan jag visa projekt från Helsingborg och omnejd?",
+      "a": "Absolut. Du kan lägga till ett referensgalleri med bilder och beskrivningar från jobb du gjort i Helsingborg, Ramlösa, Ättekulla eller andra delar av nordvästra Skåne. Ladda upp bilder via chatten så placerar AI:n dem på rätt ställe med relevanta bildtexter."
+    },
+    {
+      "q": "Fungerar bokningssystem för offertbesök?",
+      "a": "Ja, via Cal.com-integrationen kan kunder välja tid för kostnadsfri offert direkt på sajten. Du kopplar din kalender så dubbelbokning undviks. Perfekt för byggare som vill slippa mejla fram och tillbaka om lediga tider."
+    },
+    {
+      "q": "Vad kostar det att ha sajten online?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän behöver du bara köpa den – ingen extra hostingavgift från Sajtmaskin. Du betalar bara för själva plattformen, inte för att hålla sajten live."
+    },
+    {
+      "q": "Kan jag uppdatera priser och tjänster själv?",
+      "a": "Ja, du uppdaterar allt via chat. Vill du lägga till en ny tjänst som energirenovering eller ta bort något du inte längre erbjuder säger du det till AI:n, som uppdaterar sajten direkt. Ingen teknisk kunskap krävs."
+    },
+    {
+      "q": "Äger jag sajten och koden?",
+      "a": "Ja. Du kan exportera hela koden när du vill och flytta sajten till eget webbhotell. Ingen bindningstid, ingen inlåsning. Du har full kontroll över ditt innehåll och din närvaro online."
+    },
+    {
+      "q": "Passar det för en enmansbyggfirma eller måste man vara större?",
+      "a": "Sajtmaskin fungerar lika bra för dig som jobbar själv som för större byggföretag. Oavsett om du är hantverkare med F-skatt eller ett etablerat byggbolag i Helsingborg får du en professionell sajt som matchar din verksamhet."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en blandning av äldre villaområden som Ramlösa och Tågaborg där renovering och ombyggnad är vanligt, samt nyare stadsdelar som Drottninghög och H+ där tillbyggnader och modernisering efterfrågas. Byggföretag i staden behöver synas online för att nå både villaägare och fastighetsbolag som söker lokala hantverkare med god referenslista.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

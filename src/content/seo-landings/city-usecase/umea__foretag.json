@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "umea/foretag",
+  "title": "Hemsida företag Umeå – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell företagshemsida i Umeå med AI. Ingen kodning, publicera på egen domän, integrationer för bokning och betalning. Prova gratis.",
+  "h1": "Hemsida för företag i Umeå",
+  "heroSub": "Bygg en komplett företagssajt på minuter med AI – ingen kod, inga månadskostnader, publicera direkt på din egen domän.",
+  "introParagraphs": [
+    "Att driva företag i Umeå kräver en hemsida som fungerar. Oavsett om du har kontor på Storgatan, arbetar från Uminova Science Park eller driver verksamhet i någon av förorterna behöver dina kunder hitta dig online. Sajtmaskin låter dig bygga en professionell företagssajt genom att helt enkelt chatta med vår AI – på svenska, utan kod, och klar på minuter.",
+    "Du beskriver vad ditt företag gör, vilka tjänster du erbjuder och vad som gör er unika. AI:n genererar sedan hela sajten med text, layout och struktur anpassad för just er verksamhet. Publicera direkt på egen domän eller testa kostnadsfritt på en subdomän. Inga bindningstider, inga dolda avgifter.",
+    "Med integrationer för Cal.com och Stripe får du bokning och betalning på plats. Vill du ha webshop kopplar du Shopify. Allt på svenska, byggt i Sverige, och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en företagssajt i Umeå behöver",
+      "body": "En bra företagshemsida i Umeå ska göra tre saker: visa vad ni gör, bygga förtroende och göra det enkelt för kunder att ta kontakt. Det betyder tydliga tjänstebeskrivningar, kontaktuppgifter som syns och gärna kundcase eller referenser. Många Umeåföretag behöver också bokningsfunktion för möten eller konsultationer, särskilt inom juridik, redovisning, IT och konsultverksamhet. Sajtmaskin bygger allt det här automatiskt utifrån din beskrivning. Du får en sajt som ser professionell ut, fungerar på mobil och desktop, och som dina kunder faktiskt använder."
+    },
+    {
+      "heading": "Så bygger du din företagssajt med AI",
+      "body": "Logga in på Sajtmaskin och starta en ny sajt. Berätta för AI:n vad ditt företag gör – vilka tjänster ni erbjuder, vem ni vänder er till, vad som skiljer er från konkurrenterna. AI:n skapar sedan en komplett sajt med startsida, tjänstesidor, om-sida och kontakt. Texterna skrivs på svenska och anpassas efter din bransch och ton. Vill du ändra något chattar du bara vidare: lägg till en ny tjänst, byt färgschema, flytta ett avsnitt. När du är nöjd publicerar du på din egen domän. Hela processen tar minuter, inte veckor."
+    },
+    {
+      "heading": "Integrationer som gör sajten användbar",
+      "body": "En statisk sajt är en bra början, men de flesta företag behöver mer. Med Cal.com-integrationen kan kunder boka möten direkt i din kalender – perfekt för konsulter, advokater, revisorer och alla som säljer tid. Stripe-integrationen låter dig ta betalt för tjänster, kurser eller produkter utan krångel. Vill du sälja varor kopplar du Shopify och får en komplett webshop. Google Analytics ger dig koll på besökare och beteende. Alla integrationer sätts upp via gränssnittet, ingen utvecklare behövs."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen inlåsning",
+      "body": "Sajtmaskin har inga bindningstider. Hostar du på vår subdomän är det gratis. Vill du använda egen domän betalar du bara för den tid du använder plattformen. När som helst kan du exportera hela sajten som ren kod och flytta den vart du vill. Du äger ditt innehåll, du äger din kod, du bestämmer. Det här är särskilt viktigt för företag som värderar flexibilitet och vill undvika leverantörslåsning. Byggt i Sverige av Pretty Good AB, med svensk support och svenska användarvillkor."
+    },
+    {
+      "heading": "Från idé till publicerad sajt samma dag",
+      "body": "De flesta företag i Umeå som använder Sajtmaskin har sin sajt live samma dag. Du behöver ingen teknisk kunskap, ingen designer, ingen copywriter. AI:n hanterar strukturen, texterna och layouten. Du fokuserar på att beskriva vad ditt företag gör och vad som gör er bra. Resultatet är en sajt som fungerar, ser professionell ut och som du kan uppdatera själv när verksamheten förändras. Testa gratis på en subdomän, publicera på egen domän när du är redo."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt med Sajtmaskin?",
+      "a": "De flesta har en färdig sajt på 10–30 minuter. Du chattar med AI:n, beskriver ditt företag och vad sajten ska innehålla. AI:n genererar hela sajten direkt. Vill du justera något fortsätter du bara konversationen. När du är nöjd publicerar du – antingen på en gratis subdomän eller på din egen domän."
+    },
+    {
+      "q": "Kan jag använda min egen domän för företagssajten?",
+      "a": "Ja, du kan publicera på vilken domän du vill. Har du redan en domän pekar du bara DNS:en mot Sajtmaskin. Har du ingen domän ännu kan du registrera en och koppla den direkt. Vill du testa först kan du köra på en gratis subdomän (dinsajt.sajtmaskin.se) och byta till egen domän senare."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för alla typer av företag i Umeå?",
+      "a": "Ja, oavsett om du driver konsultverksamhet, hantverksfirma, advokatbyrå, redovisningsbyrå, IT-företag eller annan tjänsteverksamhet. AI:n anpassar sajten efter din bransch och dina behov. Behöver du bokning, betalning eller webshop finns integrationer för det. Allt sköts via gränssnittet, ingen kod krävs."
+    },
+    {
+      "q": "Vad kostar det att använda Sajtmaskin för mitt företag?",
+      "a": "Hostar du på vår subdomän är det gratis. Vill du använda egen domän och få tillgång till integrationer betalar du en månadskostnad utan bindningstid. Inga dolda avgifter, inga installationskostnader. Du kan när som helst exportera koden och flytta sajten om du vill. Prissättningen finns tydligt på sajten."
+    },
+    {
+      "q": "Kan jag integrera bokningssystem och betalning på sajten?",
+      "a": "Ja, Sajtmaskin har inbyggda integrationer för Cal.com (bokning) och Stripe (betalning). Det betyder att kunder kan boka möten direkt i din kalender eller betala för tjänster utan att lämna sajten. Perfekt för konsulter, coacher, advokater och andra som säljer tid eller tjänster. Integrationer aktiveras med några klick."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, absolut inte. Hela poängen är att du bygger sajten genom att chatta på svenska. Du beskriver vad du vill ha, AI:n skapar det. Vill du ändra något skriver du bara vad du vill justera. Ingen kod, inga tekniska termer, inget krångel. När sajten är klar kan du exportera koden om du vill, men du behöver aldrig röra den."
+    },
+    {
+      "q": "Hur uppdaterar jag sajten när företaget förändras?",
+      "a": "Logga in och chatta med AI:n igen. Berätta vad som ska ändras – ny tjänst, uppdaterad text, annat kontaktuppgift, nytt team-medlem. AI:n uppdaterar sajten direkt. Du kan göra ändringar när som helst, hur ofta du vill. Ingen väntan på utvecklare, inga extra kostnader per ändring."
+    }
+  ],
+  "localOrIndustryContext": "Umeå är en stark tillväxtstad med allt från etablerade konsultbolag och advokatbyråer till nystartade techföretag vid Uminova Science Park. Många företag här behöver en sajt som fungerar snabbt, ser professionell ut och kan uppdateras löpande utan att kräva teknisk expertis. Med Sajtmaskins AI-drivna plattform får Umeåföretag en modern hemsida på minuter, helt på svenska och utan inlåsning.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/umea",
+      "label": "Skapa hemsida i Umeå"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Umeå. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

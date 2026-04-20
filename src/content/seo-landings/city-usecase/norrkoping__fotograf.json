@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "norrkoping/fotograf",
+  "title": "Hemsida fotograf Norrköping – Bygg din portfoliosajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Norrköping med AI. Portfolio, bokning och bildgallerier – utan kod. Prova gratis.",
+  "h1": "Hemsida för fotografer i Norrköping",
+  "heroSub": "Bygg en professionell portfoliosajt med bildgallerier, bokningssystem och kontaktformulär – direkt i chatten, på svenska.",
+  "introParagraphs": [
+    "Som fotograf i Norrköping behöver du en sajt som visar upp ditt arbete på bästa sätt. Sajtmaskin låter dig skapa en komplett portfoliosajt på minuter genom att chatta med vår AI. Du beskriver vad du fotograferar – bröllop, porträtt, företagsfoto eller arkitektur – så bygger AI:n en sajt anpassad för just din verksamhet.",
+    "Du får färdiga bildgallerier som gör dina foton rättvisa, integrerat bokningssystem via Cal.com så kunder kan boka sessioner direkt, och en responsiv design som fungerar lika bra på mobil som dator. Allt på svenska, utan att du behöver kunna kod eller design.",
+    "Publicera på din egen domän eller använd en gratis subdomän. Ingen bindningstid, ingen dold kostnad. Du äger din sajt och kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio som säljer dina tjänster",
+      "body": "En fotografsajt lever på bilderna. Sajtmaskin skapar automatiskt responsiva gallerier som laddar snabbt och ser professionella ut på alla enheter. Du kan organisera dina bilder i olika kategorier – bröllop, företagsporträtt, produktfoto – så potentiella kunder snabbt hittar det de söker. AI:n optimerar bildvisningen så dina foton får maximal impact utan att sajten blir långsam. Lägg till nya bilder genom att chatta, justera layouten eller ändra kategorier – allt sköts i samma gränssnitt."
+    },
+    {
+      "heading": "Bokningssystem för fotosessioner",
+      "body": "Integrera Cal.com direkt i din sajt så kunder kan boka fotograferingar utan mejltrådar fram och tillbaka. Sätt upp dina tillgängliga tider, olika typer av sessioner med olika längd och pris, och låt systemet hantera bekräftelser automatiskt. Perfekt för både bröllop som kräver långt förhandsbokningar och spontana porträttsessioner. Bokningskalendern synkas med din egen kalender så du aldrig dubbelbokar. Kunder i Norrköping uppskattar att kunna boka direkt när de besöker din sajt."
+    },
+    {
+      "heading": "Optimerad för Norrköpings fotomarknad",
+      "body": "Norrköping har en aktiv kulturscen med allt från industrihistoriska miljöer vid Strömmen till moderna lokaler och naturområden runt staden. Din hemsida kan lyfta fram din lokala förankring och visa att du känner de bästa platserna för olika typer av fotograferingar. Sajtmaskin låter dig enkelt lägga till lokalt innehåll som bygger förtroende hos kunder i regionen. Berätta var du är baserad, vilka områden du täcker, och visa exempel från olika platser i Norrköping. Det lokala perspektivet gör skillnad när någon söker efter en fotograf i närområdet."
+    },
+    {
+      "heading": "Tekniken som gör det enkelt",
+      "body": "Du behöver ingen teknisk kunskap. Chatta med AI:n på svenska: 'Jag vill ha ett galleri för bröllopsfoton' eller 'Lägg till en prislista för företagsporträtt'. AI:n förstår och bygger direkt. Vill du ändra något senare? Fortsätt bara konversationen. Sajten är responsiv från start, vilket betyder att den fungerar perfekt på mobiler – där de flesta besökare kommer ifrån. Bilderna optimeras automatiskt för snabb laddning utan att förlora kvalitet. Du kan koppla Google Analytics för att se hur besökare hittar till din sajt och vilka gallerier som är populärast."
+    },
+    {
+      "heading": "Från idé till publicerad sajt samma dag",
+      "body": "Traditionella webbbyråer tar veckor och kostar tiotusentals kronor. Sajtmaskin låter dig starta, bygga och publicera din fotografsajt samma dag. Börja med en grundstruktur, lägg till dina bästa bilder, aktivera bokningssystemet och publicera. Sedan utvecklar du sajten i din egen takt – lägg till fler gallerier, justera texter, uppdatera priser. Ingen bindningstid betyder att du kan testa plattformen utan risk. Många fotografer i Norrköping behöver en sajt snabbt inför bröllopsäsongen eller när de startar sin verksamhet – då är Sajtmaskin den snabbaste vägen från idé till färdig närvaro online."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografsajt?",
+      "a": "De flesta fotografer har en grundläggande sajt klar på 30–60 minuter. Du chattar med AI:n, beskriver din verksamhet och vilka tjänster du erbjuder, så genereras sajten automatiskt. Sedan lägger du till dina egna bilder och justerar texter efter behov. Du kan publicera direkt eller fortsätta finslipa. Vill du ha bokningssystem och betalintegration tar det lite längre, men allt sköts i samma chattgränssnitt."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotograferingar i separata gallerier?",
+      "a": "Ja, du kan skapa obegränsat antal gallerier för olika kategorier. Be AI:n skapa separata sektioner för bröllop, företagsporträtt, produktfoto, familjebilder eller vad du erbjuder. Varje galleri kan ha sin egen stil och layout. Besökare navigerar enkelt mellan kategorierna, och du kan när som helst lägga till nya gallerier eller flytta bilder mellan dem genom att chatta."
+    },
+    {
+      "q": "Fungerar bokningssystemet för olika typer av sessioner?",
+      "a": "Cal.com-integrationen låter dig sätta upp olika bokningstyper med olika längd, pris och ledtid. Du kan ha 30-minuters porträttsessioner, halvdags bröllopspaket eller heldags företagsfoto. Systemet visar automatiskt dina lediga tider baserat på din kalender, och kunder väljer vad som passar dem. Du får bekräftelser och påminnelser automatiskt, och kan enkelt hantera ombokningar."
+    },
+    {
+      "q": "Kostar det extra att ha bildgallerier med många foton?",
+      "a": "Nej, Sajtmaskin har ingen gräns för antal bilder eller gallerier. Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän betalar du bara för själva domänregistreringen. AI:n optimerar bilderna automatiskt så sajten laddar snabbt oavsett hur många foton du har. Du kan alltså bygga en rik portfolio utan att oroa dig för extra kostnader."
+    },
+    {
+      "q": "Hur gör jag sajten synlig för kunder i Norrköping?",
+      "a": "Sajtmaskin genererar SEO-optimerad kod från start, vilket hjälper sajten att synas i sökmotorer. Du kan lägga till lokalt innehåll som nämner Norrköping, områden du täcker och platser du fotograferar på. Koppla Google Analytics för att följa hur besökare hittar dig. Kombinera sajten med sociala medier och Google My Business för bästa lokala synlighet. Många fotografer får sina första kunder genom rekommendationer, och en professionell sajt gör det lätt för nöjda kunder att dela din länk."
+    },
+    {
+      "q": "Kan jag sälja digitala bilder eller utskrifter via sajten?",
+      "a": "Ja, du kan integrera Stripe för att ta betalt direkt på sajten, eller koppla en Shopify-webshop om du vill sälja produkter som utskrifter, fotoböcker eller digitala paket. Många fotografer använder sajten för att visa portfolio och ta emot bokningar, medan själva bildleveransen sker via separata galleritjänster. Du väljer själv vilken nivå av e-handel som passar din verksamhet. Allt kan justeras när dina behov förändras."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela din sajtkod när som helst utan extra kostnad. Ingen bindningstid eller utträdesavgift. Koden är standard HTML, CSS och JavaScript som fungerar på vilken webbserver som helst. Det betyder att du aldrig är låst till Sajtmaskin. Många väljer att stanna för att det är så enkelt att uppdatera sajten genom att chatta, men dörren står alltid öppen om du vill gå vidare."
+    }
+  ],
+  "localOrIndustryContext": "Norrköping har en växande kreativ sektor med fotografer som täcker allt från industrihistoriska miljöer vid Motala ström till moderna events och bröllop. Med stark lokal efterfrågan på både företagsfoto och privata uppdrag är en professionell hemsida avgörande för att synas bland konkurrenterna och nå kunder i Östergötland.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/norrkoping",
+      "label": "Skapa hemsida i Norrköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Norrköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

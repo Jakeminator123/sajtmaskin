@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "naprapat",
+  "title": "Hemsida för naprapat – bygg din mottagnings sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din naprapatmottagning med AI. Onlinebokning, behandlingsinfo och patientcase – klart på minuter.",
+  "h1": "Hemsida för naprapat",
+  "heroSub": "Bygg en komplett sajt för din naprapatmottagning med AI – inklusive onlinebokning och behandlingsinformation.",
+  "introParagraphs": [
+    "En hemsida för naprapat behöver visa vad du behandlar, hur du arbetar och göra det enkelt för patienter att boka tid. Många naprapater kör fortfarande med Facebook-sida eller gammal Wordpress-sajt där bokningsfunktionen krånglar och behandlingsutbudet är svårt att hitta. Det kostar dig patienter varje vecka.",
+    "Med Sajtmaskin chattar du fram hela sajten på minuter. Berätta vilka behandlingar du erbjuder, vilka besvär du jobbar med och om du tar emot idrottare eller kontorspatienter – så bygger AI:n sidor för ryggbehandling, idrottsskaderehabilitering, akupunktur, prislista, om dig och onlinebokning via Cal.com. Allt på svenska, publicerat på din egen domän utan månadskostnad för hosting.",
+    "Du kan när som helst gå in och ändra text, lägga till patientcase eller uppdatera priser. Ingen kod, ingen bindningstid. Sajten är din och du exporterar den om du vill flytta."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en naprapatsajt behöver innehålla",
+      "body": "Patienter söker efter lösningar på specifika besvär: nackspärr, löparknä, diskbråck, tennisarmbåge. Din hemsida ska därför ha tydliga sidor för varje behandlingsområde – rygg och nacke, idrottsskador, huvudvärk och käkbesvär, arbetsrelaterad smärta. Lägg till en Om mig-sida med din utbildning och arbetssätt, en prislista och kontaktinfo. Onlinebokning är standard idag; patienter vill boka kväll och helg utan att ringa. Integrera Cal.com så ser de lediga tider direkt och bokar själva. Många naprapater lägger också upp patientcase eller före-efter-historier för att visa resultat, plus praktisk info om friskvårdsbidrag och om du tar emot försäkringspatienter."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din naprapatsajt",
+      "body": "Du startar en chatt och beskriver din mottagning: Jag är naprapat i Malmö, jobbar mycket med löpare och kontorspatienter, erbjuder naprapati, dry needling och rehab. Vill ha bokning och sidor för rygg, knän och skulderbesvär. AI:n skapar då en komplett sajt med startsida, behandlingssidor, om-sida, prislista och kontakt. Cal.com-bokningen läggs in så patienter kan välja tid och behandlingstyp. Du kan be AI:n skriva om löparknä specifikt, lägga till en sida om friskvårdsbidrag eller ändra tonalitet så den passar din stil. Allt på svenska, allt redigerbart. Publicera på din egen domän eller kör på en Sajtmaskin-subdomän gratis. Inga dolda avgifter, ingen bindning."
+    },
+    {
+      "heading": "Onlinebokning och patientflöde",
+      "body": "Cal.com-integrationen låter dig sätta upp olika behandlingstider: 30 min akutbehandling, 50 min förstabesök, 20 min uppföljning. Patienten väljer tid, fyller i besvär och får bekräftelse direkt. Du ser bokningen i din kalender och kan skicka påminnelser. Om du vill ta betalt i förväg kopplar du Stripe – bra för drop-in eller för att minska no-shows. Många naprapater använder också sajten för att skicka ut övningsprogram eller rehab-tips efter behandling; lägg upp en blogg eller resurssida så kan patienter hitta tillbaka till informationen. Allt detta bygger du via chatt, ingen teknisk expertis behövs."
+    },
+    {
+      "heading": "Exempel och anpassning för din mottagning",
+      "body": "En naprapat i Göteborg som jobbar mycket med CrossFit-atleter bad AI:n skapa sidor för skuldermobilitet, knärehab och förebyggande behandling, plus en sida om träningsrådgivning. En kollega i Stockholm med fokus på kontorspatienter la till sidor om nackspänning, musarmbesvär och ergonomirådgivning. Du styr innehållet genom att berätta vad som är viktigt för just dina patienter. Vill du visa utbildning från Naprapathögskolan, medlemskap i Svenska Naprapatförbundet eller att du jobbar med IF Metall-försäkring? Skriv det i chatten så hamnar det på rätt ställe. Sajten blir din, inte en generisk mall."
+    },
+    {
+      "heading": "Äga och utveckla sajten över tid",
+      "body": "Du äger koden och kan exportera den när du vill. Inga låsningar till Sajtmaskin. Vill du lägga till Google Analytics för att se vilka behandlingssidor som är populärast? Klicka in integrationen. Vill du byta ut Cal.com mot ett annat bokningssystem senare? Exportera sajten och koppla vad du vill. Många naprapater startar enkelt – startsida, bokning, tre behandlingssidor – och bygger sedan ut med blogg, patientcase eller videoklipp när mottagningen växer. Eftersom allt sker via chatt tar varje förändring minuter, inte veckor med byrå och utvecklare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan patienter boka olika behandlingslängder?",
+      "a": "Ja, Cal.com låter dig sätta upp flera behandlingstyper med olika längd och pris. Patienten väljer till exempel Förstabesök 50 min, Uppföljning 30 min eller Akutbehandling 20 min när hen bokar. Du styr tillgänglighet och bufferttid mellan bokningar i Cal.com-inställningarna."
+    },
+    {
+      "q": "Hur visar jag att jag tar emot friskvårdsbidrag?",
+      "a": "Lägg till en sida eller sektion om friskvårdsbidrag där du förklarar vilka företag du samarbetar med – Epassi, Benify, Rikskuponger eller andra. Du kan också nämna det på prissidan. Berätta för AI:n i chatten så skrivs texten åt dig, sedan justerar du om det behövs."
+    },
+    {
+      "q": "Kan jag ha en blogg med övningar och rehab-tips?",
+      "a": "Absolut. Be AI:n lägga till en bloggsida så kan du publicera inlägg om förebyggande övningar, stretching för löpare eller ergonomi. Patienter hittar tillbaka till informationen och Google indexerar innehållet, vilket ger bättre SEO för din mottagning."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsgräns. Vill du använda egen domän betalar du bara domänregistrering hos din registrar, ingen månadskostnad till oss. Cal.com är gratis i grundversionen, Stripe tar betalningstransaktionsavgift om du använder det. Inga dolda avgifter."
+    },
+    {
+      "q": "Kan jag visa före-efter-case från behandlingar?",
+      "a": "Ja, du kan lägga upp patientcase med text och bilder. Tänk på patientintegritet – använd anonymiserade berättelser eller be om skriftligt samtycke. AI:n kan hjälpa dig strukturera case-sidor så de blir lätta att läsa och bygger förtroende."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga sajten?",
+      "a": "Själva AI-genereringen tar någon minut. Sedan spenderar de flesta naprapater 20–40 minuter på att läsa igenom, justera texter, ladda upp profilbild och koppla Cal.com. Du kan publicera samma dag om du vill, eller ta det i lugn takt och förfina under veckan."
+    },
+    {
+      "q": "Kan jag exportera sajten och flytta till egen server?",
+      "a": "Ja, du kan exportera hela koden och drifta den var du vill. Ingen bindningstid, ingen inlåsning. Sajten är din från start."
+    }
+  ],
+  "localOrIndustryContext": "Naprapater i Sverige jobbar ofta både med idrottare och kontorspatienter, och många tar emot försäkringspatienter via IF Metall, Folksam eller liknande. Friskvårdsbidrag är stort, så tydlig info om Epassi och Benify lockar företagskunder. Onlinebokning har blivit standard – patienter förväntar sig att kunna boka kväll och helg utan att ringa.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en naprapat-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

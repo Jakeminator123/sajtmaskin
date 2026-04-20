@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "malmo/salong",
+  "title": "Hemsida för salong i Malmö – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Malmö med AI. Bokning, prislista och galleri – allt du behöver. Ingen kod krävs.",
+  "h1": "Hemsida för salong i Malmö",
+  "heroSub": "Bygg en sajt för din salong som visar dina tjänster, priser och låter kunder boka direkt – på minuter, inte veckor.",
+  "introParagraphs": [
+    "Som salong i Malmö behöver du en hemsida som gör det enkelt för kunder att se vad du erbjuder och boka tid. Sajtmaskin skapar en komplett sajt för din salong direkt via chat – med prislista, tjänstebeskrivningar, galleri och bokningsfunktion. Ingen kod, ingen krånglig teknik.",
+    "Du chattar med vår AI om din salong: vilka behandlingar du har, dina priser, öppettider och vad som gör just din salong unik. På minuter får du en färdig sajt som du kan publicera på din egen domän. Allt på svenska, byggt för svenska salonger.",
+    "Vill du ha bokningssystem kopplar vi in Cal.com, behöver du ta betalt online fixar vi Stripe. Du bestämmer själv vad din sajt ska innehålla och kan ändra när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt en salong i Malmö behöver på sin hemsida",
+      "body": "Din sajt får automatiskt de sektioner som salonger behöver: en tydlig startsida med dina viktigaste tjänster, en komplett prislista sorterad efter kategori, en om-sida som berättar din historia, kontaktuppgifter och karta. Vill du visa bilder från salongen eller resultat från behandlingar lägger AI:n till ett galleri. Behöver du presentera ditt team med foton och beskrivningar? Säg bara till. Allt innehåll genereras utifrån vad du berättar – du slipper skriva varje ord själv."
+    },
+    {
+      "heading": "Bokningssystem som funkar för din salong",
+      "body": "Kunder i Malmö förväntar sig att kunna boka online, inte bara ringa. Sajtmaskin integrerar Cal.com så besökare kan se lediga tider och boka direkt på sajten. Du kopplar din kalender, ställer in hur lång varje behandling tar och vilka tider du vill ha öppet. Systemet hanterar dubbelbokningar automatiskt och skickar påminnelser till kunder. Ingen extra app att lära sig – allt sköts från din sajt."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "När din sajt är klar publicerar du den på din egen domän, typ dinsalong.se. Vill du testa först kan du köra på en gratis subdomän hos oss utan månadskostnad. Ingen bindningstid – behöver du flytta sajten senare exporterar du koden och tar den vart du vill. Hosting, SSL-certifikat och teknik ingår. Du fokuserar på salongen, vi fixar resten."
+    },
+    {
+      "heading": "Ändra innehåll när du vill via chatten",
+      "body": "Nya behandlingar? Ändrade priser? Sommarschemat? Chatta bara med AI:n så uppdateras sajten. Du behöver inte leta efter rätt knapp i något komplicerat gränssnitt. Skriv \"lägg till ansiktsbehandling, 600 kr, 60 minuter\" så är det klart. Vill du ändra text på startsidan eller byta ut en bild gör du det på samma sätt. Tekniken ska inte vara i vägen för ditt arbete."
+    },
+    {
+      "heading": "Byggt i Sverige för svenska salonger",
+      "body": "Sajtmaskin är byggt av Pretty Good AB i Sverige. Allt är på svenska – gränssnittet, supporten, innehållet. Vi förstår hur svenska salonger fungerar och vad kunder i Malmö förväntar sig. Ingen översatt manual från engelska, inga funktioner som bara funkar utomlands. Du får en sajt som känns hemma på den svenska marknaden och följer lokala förväntningar på design och användbarhet."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min salong?",
+      "a": "De flesta får en färdig sajt på 10–20 minuter. Du chattar med AI:n om dina tjänster, priser och vad du vill ha med, sen genereras sajten automatiskt. Vill du finjustera text eller lägga till fler bilder tar det lite längre, men grundsajten är klar direkt."
+    },
+    {
+      "q": "Kan jag ha bokningssystem på sajten?",
+      "a": "Ja, vi integrerar Cal.com så kunder kan boka tider direkt. Du ställer in vilka behandlingar du har, hur lång tid de tar och dina öppettider. Systemet visar lediga tider och hanterar bokningar automatiskt. Kunden får bekräftelse och påminnelse via mejl."
+    },
+    {
+      "q": "Vad kostar det att ha hemsidan?",
+      "a": "Du betalar en engångskostnad för att bygga sajten. Vill du publicera på egen domän tillkommer hosting, annars kan du köra på vår subdomän utan månadskostnad. Inga bindningstider eller dolda avgifter. Behöver du hjälp med ändringar senare betalar du per uppdrag."
+    },
+    {
+      "q": "Fungerar sajten bra för salonger i Malmö specifikt?",
+      "a": "Ja, sajten blir helt på svenska och fungerar för alla svenska orter. Du kan lägga in din adress i Malmö så visas en karta, skriva om ditt läge i staden och anpassa innehållet efter dina lokala kunder. Bokningssystemet hanterar svenska tider och språk utan krångel."
+    },
+    {
+      "q": "Kan jag visa bilder från min salong och behandlingar?",
+      "a": "Absolut. Du kan ladda upp bilder till ett galleri, ha före/efter-bilder för behandlingar eller visa teamfoton. Säg bara till AI:n vilka bilder du vill ha var, så läggs de in på rätt ställen. Du kan ändra och lägga till fler bilder när du vill via chatten."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden och flytta sajten vart du vill. Ingen inlåsning. Sajten är byggd med standard webbteknik så vilken webbhotell som helst kan köra den. Du äger allt innehåll och all data."
+    },
+    {
+      "q": "Kan jag ta betalt för produkter eller presentkort på sajten?",
+      "a": "Ja, vi kan integrera Stripe så du kan sälja produkter, presentkort eller ta förskottsbetalning för behandlingar. Du bestämmer vad du vill sälja och hur betalningen ska fungera. Allt sköts säkert genom Stripe, du behöver ingen egen kassalösning."
+    }
+  ],
+  "localOrIndustryContext": "Malmö har en stor och varierad salong-bransch med allt från klassiska frisörer till nagelsalonger och skönhetskliniker. Kunder i staden är vana vid att jämföra utbud och priser online innan de bokar, särskilt i centrala lägen där konkurrensen är tät. En tydlig hemsida med enkel bokning gör skillnad.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Malmö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

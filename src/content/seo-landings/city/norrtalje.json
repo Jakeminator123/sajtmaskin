@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "norrtalje",
+  "title": "Hemsida Norrtälje – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Norrtälje med AI. Publicera på egen domän, ingen bindningstid. Perfekt för lokala företag som vill synas snabbt.",
+  "h1": "Hemsida Norrtälje – AI bygger din sajt",
+  "heroSub": "Berätta vad ditt företag gör, så skapar Sajtmaskin en färdig hemsida på minuter. Publicera direkt på egen domän.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som låter företag i Norrtälje bygga professionella hemsidor utan kod. Du chattar med AI:n om vad du gör – allt från båtuthyrning vid Rörvik till frisörsalong på Tullportsgatan – och får en färdig sajt med text, struktur och design. Publicera på din egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Plattformen är byggd i Sverige av Pretty Good AB och hanterar allt från bokningssystem via Cal.com till betalningar med Stripe. Du kan exportera koden när du vill, ingen bindningstid. Perfekt för dig som vill ha en sajt igång snabbt utan att vänta veckor på byrå eller lära dig WordPress.",
+    "Norrtälje växer som kuststad och besöksmål, och allt fler lokala företag behöver synlighet online. Med Sajtmaskin får du en sajt som är optimerad för sökmotorer och som du enkelt uppdaterar själv när verksamheten förändras."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så skapar du en hemsida i Norrtälje med AI",
+      "body": "Logga in på Sajtmaskin och beskriv ditt företag i chatten. Kanske driver du en bed & breakfast i Hallstavik, ett café vid Norrtälje hamn eller en snickeriverkstad i Rimbo. AI:n ställer följdfrågor om tjänster, målgrupp och stil, sedan genereras hela sajten – startsida, tjänstesidor, kontaktformulär och eventuellt galleri. Du granskar resultatet, justerar texter eller bilder om du vill, och publicerar. Hela processen tar minuter, inte dagar. Vill du koppla bokningsfunktion för guidningar eller workshops fixar du det med ett klick via Cal.com-integrationen."
+    },
+    {
+      "heading": "Lokal SEO och synlighet i Norrtälje",
+      "body": "En AI-genererad sajt från Sajtmaskin får automatiskt grundläggande SEO-struktur: rubriker, metabeskrivningar och snabb laddningstid. För att synas i sökningar på exempelvis \"frisör Norrtälje\" eller \"bygg Rimbo\" lägger du till lokala nyckelord i dina texter och skapar en kontaktsida med adress och öppettider. Integrationen med Google Analytics visar vilka sidor som besöks mest, så du kan finslipa innehållet. Eftersom plattformen är svenskspråkig slipper du översättningsfel och kan skriva naturligt för kunder i Roslagen."
+    },
+    {
+      "heading": "Jämfört med webbyrå eller gör-det-själv-verktyg",
+      "body": "En lokal byrå i Stockholm eller Norrtälje tar ofta 20 000–50 000 kronor och flera veckors ledtid för en enklare företagssajt. Gör-det-själv-verktyg som Wix eller Squarespace kräver att du själv designar, skriver texter och konfigurerar plugins – ofta på engelska. Sajtmaskin kombinerar det bästa: AI skriver och strukturerar på svenska, du får en färdig sajt direkt, och kostnad är en engångsavgift eller abonnemang utan dolda tillägg. Vill du ha hjälp finns svenskt support. Behöver du inte längre plattformen exporterar du koden och hostar var du vill."
+    },
+    {
+      "heading": "Integrationer för bokning, betalning och webshop",
+      "body": "Många företag i Norrtälje lever på bokningsbara tjänster – guidade kajakpaddlingar, massage, hantverkskurser. Med Cal.com-kopplingen lägger du in din kalender så kunder bokar direkt på sajten. Säljer du produkter – lokalproducerad honung, keramik, båttillbehör – integrerar du Shopify och får en fungerande webshop. Tar du betalt för medlemskap eller digitala tjänster kopplar du Stripe. Allt sköts från samma gränssnitt, ingen teknisk djupdykning krävs."
+    },
+    {
+      "heading": "Exempel från Norrtälje och Roslagen",
+      "body": "Tänk dig en skärgårdsstugeuthyrning i Blidö som behöver visa lediga veckor och priser, en träningsinstruktör i centrala Norrtälje som vill ta betalt för onlinekurser, eller en lanthandel i Hallstavik som säljer lokala matvaror. Alla kan på minuter få en sajt som speglar verksamheten, publicera på egen domän och börja marknadsföra via sociala medier eller lokala Facebookgrupper. Uppdateringar – nya öppettider, säsongsmenyer, kommande event – gör du själv utan att ringa supporten."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kostar det något att publicera på subdomän?",
+      "a": "Nej, du kan testa och driva sajten på en Sajtmaskin-subdomän utan månadskostnad för hosting. Vill du ha egen domän (exempel.se) kopplar du den mot sajten, då tillkommer eventuell domänregistreringsavgift hos din registrar."
+    },
+    {
+      "q": "Kan jag använda Sajtmaskin om jag inte kan koda?",
+      "a": "Absolut. Hela idén är att du chattar med AI:n på svenska och får en färdig sajt. Du behöver inte röra HTML, CSS eller JavaScript. Vill du ändå finjustera kod går det att exportera och redigera lokalt."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "Från första prompt till publicerad sajt: vanligtvis 10–30 minuter beroende på hur många sidor och funktioner du vill ha. Enkla visitkortsajter kan vara klara på under tio minuter."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för webshop med många produkter?",
+      "a": "Shopify-integrationen gör att du kan koppla en fullfjädrad webshop. Har du hundratals produkter rekommenderar vi att du hanterar lagersaldo och produktdata i Shopify, medan Sajtmaskin sköter landningssidor och innehåll runt butiken."
+    },
+    {
+      "q": "Kan jag byta till annan plattform senare?",
+      "a": "Ja, du kan exportera hela koden och flytta sajten till vilken webbhost som helst. Ingen bindningstid eller inlåsning. Du äger ditt innehåll och din domän."
+    },
+    {
+      "q": "Är supporten på svenska?",
+      "a": "Ja, Sajtmaskin drivs av Pretty Good AB i Sverige och all support sker på svenska. Du slipper översatta hjälptexter och tidszonsskillnader."
+    },
+    {
+      "q": "Passar Sajtmaskin för tjänsteföretag i Norrtälje?",
+      "a": "Definitivt. Allt från VVS och elektriker till yogastudios och konsulter kan snabbt få upp en sajt med tjänstebeskrivningar, kontaktformulär och bokningsfunktion. Lokal SEO gör att du syns när folk söker i Norrtälje och Roslagen."
+    }
+  ],
+  "localOrIndustryContext": "Norrtälje är centralort i Norrtälje kommun och knutpunkt för Roslagen, med stark turism, småföretagande och skärgårdsnäring. Lokala företag – från hamnkrogar och båtuthyrare till hantverkare och butiker – behöver synlighet online för att nå både sommargäster och åretruntboende. Sajtmaskins svenska AI och snabba publicering passar perfekt för säsongsverksamheter som vill uppdatera erbjudanden löpande.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Norrtälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

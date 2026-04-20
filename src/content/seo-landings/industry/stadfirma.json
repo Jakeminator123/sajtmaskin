@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "stadfirma",
+  "title": "Hemsida för städfirma – bygg en professionell sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för din städfirma med AI. Bokningssystem, tjänstbeskrivningar och kontaktformulär – klart på minuter. Prova gratis.",
+  "h1": "Hemsida för städfirma",
+  "heroSub": "Bygg en professionell sajt för ditt städföretag med AI – inklusive bokningssystem och tjänstpresentation.",
+  "introParagraphs": [
+    "En hemsida för städfirma behöver göra två saker: visa vad ni erbjuder och göra det enkelt att boka. Kunder som söker efter hemstäd, flyttstäd eller kontorsstäd vill snabbt se priser, tillgänglighet och kunna boka direkt – helst utan att behöva ringa. Med Sajtmaskin bygger du en komplett sajt på minuter, där allt från tjänstbeskrivningar till bokningssystem sätts upp automatiskt.",
+    "Du chattar med AI:n om ditt städföretag – vilka tjänster ni har, vilka områden ni täcker, om ni är RUT-godkända – och får en färdig sajt med rätt struktur. Publicera på egen domän eller testa gratis på en subdomän. Ingen bindningstid, ingen kodning, och du kan exportera allt när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för städfirma behöver innehålla",
+      "body": "En bra sajt för ett städföretag har vanligtvis startsida med översikt, en tjänstsida för varje typ av städ (hemstäd, flyttstäd, kontorsstäd, fönsterputs), prissida eller offertformulär, om-sida med företagsinfo och eventuella certifieringar, samt en kontaktsida. Många städfirmor lägger också till en bokningsfunktion direkt på sajten så kunder slipper mejla fram och tillbaka. Sajtmaskin genererar alla dessa sidor utifrån din prompt och kopplar ihop dem med tydlig navigering. Du kan lägga till Cal.com för bokning eller Stripe om du vill ta förskottsbetalning."
+    },
+    {
+      "heading": "Bokningssystem som sparar tid",
+      "body": "Att hantera bokningar via telefon eller mejl tar tid från själva städjobben. Med ett integrerat bokningssystem på hemsidan kan kunder välja datum, tid och typ av städ själva – dygnet runt. Sajtmaskin stödjer Cal.com, som är gratis att börja med och fungerar på svenska. Du ställer in dina lediga tider, och systemet visar automatiskt vad som är bookningsbart. Bekräftelser och påminnelser skickas ut utan att du behöver lyfta ett finger. Det ger en proffsigare upplevelse och frigör tid för dig och dina medarbetare."
+    },
+    {
+      "heading": "Lokala referenser och RUT-avdrag",
+      "body": "Svenska kunder som letar efter städhjälp vill ofta veta att företaget är seriöst, RUT-godkänt och verkar i deras område. På sajten kan du tydligt visa vilka kommuner ni täcker – till exempel Stockholms innerstad, Malmö med kranskommuner eller Göteborgsregionen – och förklara hur RUT-avdraget fungerar. Sajtmaskin låter dig enkelt lägga till den informationen på en egen sida eller i en FAQ. Du kan också visa kundrecensioner, certifieringar eller försäkringar som bygger förtroende. Allt sätts upp direkt i chatten, och du kan justera texterna efteråt om du vill."
+    },
+    {
+      "heading": "Snabb publicering och enkel uppdatering",
+      "body": "När sajten är klar publicerar du den på din egen domän eller använder en gratis subdomän från Sajtmaskin för att testa. Vill du lägga till en ny tjänst – säg trappstädning eller byggnationsstäd – gör du det direkt i gränssnittet utan att behöva ringa en webbyrå. Priser, bilder och texter uppdaterar du själv. Eftersom allt är byggt i Sverige får du support på svenska om du fastnar. Och skulle du växa ur plattformen kan du exportera hela koden och flytta sajten var du vill."
+    },
+    {
+      "heading": "Så kommer du igång",
+      "body": "Logga in på Sajtmaskin och beskriv ditt städföretag i chatten: vilka tjänster ni erbjuder, vilka områden ni jobbar i, om ni är RUT-godkända och om ni vill ha bokningsfunktion. AI:n bygger en komplett sajt med alla sidor, texter och struktur. Granska resultatet, justera det du vill ändra och publicera. Koppla sedan Cal.com om du vill ha bokning, Google Analytics för att följa besökare, eller Stripe om du tar förskottsbetalning. Hela processen tar minuter, och du kan börja ta emot bokningar samma dag."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa olika priser för hemstäd, flyttstäd och kontorsstäd?",
+      "a": "Ja, du kan skapa separata tjänstsidor med egna priser och beskrivningar för varje typ av städ. Antingen anger du fasta timpriser eller beskriver att ni skickar offert efter behov. Sajtmaskin genererar strukturen automatiskt, och du justerar priserna själv."
+    },
+    {
+      "q": "Fungerar bokningssystemet med RUT-avdrag?",
+      "a": "Bokningssystemet Cal.com hanterar tidsbokning, men RUT-avdraget rapporterar du som vanligt till Skatteverket efter utfört jobb. Du kan förklara hur RUT fungerar på sajten och ta betalt via faktura eller Stripe – avdraget dras sedan av när kunden deklarerar."
+    },
+    {
+      "q": "Kan jag visa vilka områden vi städar i?",
+      "a": "Absolut. Du kan lägga till en sektion på startsidan eller en egen sida där du listar kommuner, stadsdelar eller postnummer ni täcker. Det hjälper både besökare och sökmotorer att förstå var ni verkar."
+    },
+    {
+      "q": "Vad händer om jag vill lägga till en ny tjänst senare?",
+      "a": "Du loggar in, lägger till en ny sida eller redigerar en befintlig och publicerar ändringen. Ingen kod krävs. Vill du ha hjälp kan du chatta med AI:n igen och be den skapa innehåll för den nya tjänsten."
+    },
+    {
+      "q": "Kan jag visa kundrecensioner på sajten?",
+      "a": "Ja, du kan lägga till ett avsnitt med recensioner eller omdömen på startsidan eller om-sidan. Skriv in dem manuellt eller länka till er Google-profil. Sajtmaskin stödjer även inbäddning av widgets om du vill automatisera det."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hostingen gratis utan månadsavgift. Vill du använda egen domän (t.ex. dinstadning.se) behöver du köpa den och eventuellt välja en hostingplan, men du äger alltid koden och kan exportera den."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "Från att du startar chatten till att sajten är publicerad tar det vanligtvis 10–20 minuter. Vill du finjustera texter och bilder kan det ta lite längre, men grundstrukturen är klar direkt."
+    }
+  ],
+  "localOrIndustryContext": "Städbranschen i Sverige växer stadigt, och allt fler kunder förväntar sig att kunna boka och jämföra tjänster online. RUT-avdraget gör hemstäd tillgängligt för många hushåll, och konkurrensen är hård – särskilt i storstadsregionerna. En professionell hemsida med tydlig information och smidig bokning är ofta avgörande för att vinna nya kunder.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en städfirma-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

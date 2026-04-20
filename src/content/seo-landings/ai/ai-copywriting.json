@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "ai-copywriting",
+  "title": "AI Copywriting Hemsida – Så skriver AI texterna åt dig | Sajtmaskin",
+  "metaDescription": "Undrar hur AI skriver texter till din hemsida? Vi förklarar hur AI-copywriting fungerar i praktiken och vad du kan förvänta dig av resultatet.",
+  "h1": "Så skriver AI texterna till din hemsida",
+  "heroSub": "AI-copywriting betyder att en språkmodell genererar allt från rubriker till brödtext – direkt anpassat efter vad du vill säga.",
+  "introParagraphs": [
+    "AI-copywriting för hemsidor fungerar genom att du beskriver ditt företag, dina tjänster och vad du vill förmedla. Språkmodellen analyserar din beskrivning och skriver sedan färdiga texter: rubriker, ingress, brödtext, FAQ och Call to Action. Resultatet blir en sammanhängande sajt där tonalitet och struktur hänger ihop, utan att du behöver sitta och formulera varje mening själv.",
+    "Traditionellt har du antingen skrivit allt själv, anlitat en copywriter eller fått generiska malltexter från en webbbyggare. AI-copywriting kombinerar snabbheten från mallar med anpassningen från en skribent – texten blir specifik för just ditt företag, men processen tar minuter istället för veckor.",
+    "Sajtmaskin är byggt kring den här principen: du chattar om vad du gör, AI:n skriver hela sajten på svenska och du publicerar direkt. Ingen kod, ingen månadsavgift för hosting på subdomän, och du kan alltid exportera eller ändra texterna efteråt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI faktiskt skriver din hemsidetext",
+      "body": "Du startar med en prompt – en beskrivning av ditt företag, målgrupp och vad du erbjuder. AI:n tolkar det och skapar en struktur: startsida, tjänstesidor, om-sida. Sedan fyller den på med texter som matchar din ton och ditt budskap. Modellen har tränats på miljontals texter och kan anpassa stil, längd och formalitet. Du får ett första utkast på sekunder, granskar det och justerar via chat om något ska ändras. Processen är iterativ – du styr, AI:n skriver."
+    },
+    {
+      "heading": "Vad AI-copywriting klarar bra – och mindre bra",
+      "body": "AI är stark på att skapa tydlig struktur, formulera förklarande text och hålla en konsekvent ton genom hela sajten. Den kan skriva övertygande rubriker, besvara vanliga frågor och anpassa längd efter var texten ska användas. Däremot saknar AI:n personlig erfarenhet och kan inte hitta på unika kundcitat eller specifika projekt om du inte matar in dem. Texten blir aldrig mer unik än den information du ger – så ju mer konkret du är i prompten, desto bättre blir resultatet."
+    },
+    {
+      "heading": "Jämfört med copywriter eller mallbyggare",
+      "body": "En copywriter ger dig skräddarsydd text och strategisk rådgivning, men kostar ofta tiotusentals kronor och tar veckor. Mallbyggare ger dig tomma textrutor eller generiska platshållare som du fyller i själv – snabbt men opersonligt. AI-copywriting hamnar mittemellan: du får färdig, anpassad text på minuter till en bråkdel av kostnaden, men utan den mänskliga strategiska djupdykningen. För de flesta småföretag och soloföretagare är det en mycket rimlig kompromiss."
+    },
+    {
+      "heading": "Så använder du AI-copywriting i Sajtmaskin",
+      "body": "Du beskriver ditt företag i chatten – vad du gör, för vem och varför. Sajtmaskin genererar en komplett sajt med texter, layout och struktur. Gillar du inte en rubrik? Säg det i chatten så skrivs den om. Vill du lägga till ett avsnitt om hållbarhet? Berätta det och AI:n lägger in det med matchande text. När du är nöjd publicerar du på din egen domän eller på en kostnadsfri subdomän. Allt sker på svenska, och du kan exportera koden när du vill."
+    },
+    {
+      "heading": "Vem passar AI-copywriting för hemsidor för?",
+      "body": "Bäst fungerar det för dig som vet vad du vill säga men inte vill spendera dagar på att formulera det. Soloföretagare, konsulter, småföretag och startups som behöver en sajt snabbt utan att kompromissa på kvalitet. Om du har en tydlig tjänst eller produkt och vill komma igång direkt är AI-copywriting ett effektivt verktyg. Har du däremot ett komplext varumärke med många intressenter kan du behöva komplettera med mänsklig copy – men även då kan AI ge dig ett starkt första utkast."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Blir texterna unika eller kopierade från andra sajter?",
+      "a": "AI:n genererar ny text varje gång baserat på din specifika prompt. Den kopierar inte från andra hemsidor, men om du ger väldigt generisk information blir texten också mer generisk. Ju mer detaljer du ger om ditt företag, desto mer unik blir texten."
+    },
+    {
+      "q": "Kan jag redigera texterna som AI:n skriver?",
+      "a": "Ja, du kan ändra allt direkt i chatten eller i editorn efter publicering. AI:n är en startpunkt – du har full kontroll och kan skriva om, lägga till eller ta bort precis vad du vill. Du kan också exportera koden och redigera i din egen miljö."
+    },
+    {
+      "q": "Hur bra svenska skriver AI:n egentligen?",
+      "a": "Moderna språkmodeller skriver flytande, grammatiskt korrekt svenska. Sajtmaskin är tränad på svenskt innehåll och håller en naturlig ton. Ibland kan formuleringar bli lite formella eller generiska – då justerar du i chatten tills det låter rätt för dig."
+    },
+    {
+      "q": "Kostar det extra att låta AI:n skriva om texter?",
+      "a": "Nej. Du kan iterera och be om omskrivningar så många gånger du behöver inom samma projekt. Det ingår i tjänsten. Du betalar bara om du vill publicera på egen domän eller använda premiumfunktioner – hosting på subdomän är gratis."
+    },
+    {
+      "q": "Kan AI:n skriva texter för webshop eller bokningssajt?",
+      "a": "Ja. Sajtmaskin kan generera produktbeskrivningar, tjänstetexter och förklarande innehåll för både webshoppar (via Shopify-integration) och bokningssidor (via Cal.com). AI:n anpassar texten efter typ av sajt, men du behöver själv mata in specifika produktdetaljer eller priser."
+    },
+    {
+      "q": "Vad händer om jag inte gillar texten AI:n skriver?",
+      "a": "Du beskriver vad som inte funkar – för formellt, för kort, fel ton – och AI:n skriver om. Processen är iterativ. Om du efter flera försök fortfarande inte är nöjd kan du exportera sajten och anlita en copywriter för att polera texterna, eller skriva om dem själv."
+    },
+    {
+      "q": "Är AI-copywriting bra för SEO?",
+      "a": "AI kan skriva SEO-vänliga texter med rätt nyckelord, rubriker och struktur – om du ber om det i prompten. Men SEO handlar också om länkbygge, teknisk optimering och unikt värde. AI:n ger dig en bra grund, men du behöver komplettera med strategi och kontinuerligt arbete för att ranka högt."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

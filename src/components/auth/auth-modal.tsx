@@ -5,7 +5,6 @@ import { useAuthStore } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, Eye, EyeOff, Loader2, ChevronDown } from "lucide-react";
-import { Mascot } from "@/components/mascot/Mascot";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -149,9 +148,6 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
         </button>
 
         <div className="p-6 pb-2 text-center">
-          <div className="mx-auto mb-2 flex justify-center">
-            <Mascot slot="key" size={96} decorative />
-          </div>
           <h2 className="text-xl font-semibold text-foreground">
             {mode === "login" ? "Logga in" : "Skapa konto"}
           </h2>

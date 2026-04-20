@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "uppsala/bygg",
+  "title": "Hemsida bygg Uppsala – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Uppsala med AI. Projektgalleri, offertförfrågningar och mobilanpassning på minuter.",
+  "h1": "Hemsida för byggföretag i Uppsala",
+  "heroSub": "Bygg en komplett sajt för ditt byggföretag med AI – från projektgalleri till offertformulär, klar på minuter.",
+  "introParagraphs": [
+    "Om du driver ett byggföretag i Uppsala behöver du en hemsida som visar dina projekt, förklarar dina tjänster och gör det enkelt för kunder att begära offert. Sajtmaskin låter dig skapa allt detta genom att chatta med en AI – utan att du behöver kunna kod eller design.",
+    "Du beskriver vad ditt byggföretag gör, vilka tjänster du erbjuder och vilka projekt du vill visa upp. AI:n genererar en färdig sajt med projektgalleri, tjänstbeskrivningar, kontaktformulär och offertförfrågningar. Publicera på din egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Sajten blir mobilanpassad från start, optimerad för Uppsala-sökningar och enkel att uppdatera när du avslutar nya projekt. Ingen bindningstid, ingen krånglig teknik – bara en professionell närvaro online för ditt byggföretag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Uppsala behöver",
+      "body": "Byggbranschen i Uppsala är aktiv med allt från renoveringar i Kungsängen och Luthagen till nybyggen i Gottsunda och Valsätra. Din hemsida behöver visa tydligt vilka tjänster du erbjuder – om det är takarbeten, tillbyggnader, badrumsrenoveringar eller totalentreprenader. Ett projektgalleri med bilder från tidigare uppdrag bygger förtroende direkt. Offertformulär gör det enkelt för husägare och fastighetsägare att beskriva sitt projekt och få svar snabbt. Många söker lokala hantverkare på mobilen, så sajten måste fungera lika bra i telefonen som på datorn."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din byggsajt",
+      "body": "Du startar en chatt och berättar vad ditt byggföretag gör: vilka tjänster ni utför, vilka områden i Uppsala ni jobbar i, vilka projekt ni är stolta över. AI:n skapar en komplett sajt med startsida, tjänstsidor, om-sida, kontaktformulär och projektgalleri. Du kan lägga till Cal.com för att låta kunder boka kostnadsfria platsbesök direkt i kalendern, eller integrera Stripe om du vill ta förskottsbetalningar för mindre uppdrag. Alla texter skrivs på svenska och anpassas efter din ton – professionell, personlig eller familjär."
+    },
+    {
+      "heading": "Uppdatera sajten när projekt blir klara",
+      "body": "Varje avslutat projekt är en möjlighet att visa vad ni kan. Med Sajtmaskin uppdaterar du projektgalleriet genom att chatta: ladda upp bilder från renoveringen i Eriksberg, beskriv utmaningen och lösningen, publicera. Inga komplicerade CMS-system eller sidbyggare. Du kan lägga till nya tjänster när verksamheten växer, justera prisexempel eller uppdatera kontaktuppgifter – allt via chat. Sajten förblir snabb och snygg oavsett hur mycket innehåll du lägger till."
+    },
+    {
+      "heading": "Ingen bindningstid, äg din kod",
+      "body": "Sajtmaskin tar ingen månadshyra om du använder en subdomän, och du kan när som helst exportera hela koden och flytta sajten till din egen server. Det finns ingen inlåsning. Vill du ha egen domän som mittbyggforetag.se ordnar du det via valfri domänleverantör och pekar den mot Sajtmaskin. Integrationer som Google Analytics hjälper dig förstå var besökarna kommer ifrån – om det är Google-sökningar på \"byggfirma Uppsala\" eller rekommendationer från Hemnet-annonser."
+    },
+    {
+      "heading": "Lokal SEO för Uppsala-sökningar",
+      "body": "AI:n skriver texter som nämner Uppsala och relevanta stadsdelar naturligt, vilket hjälper sajten synas när folk söker \"byggfirma Uppsala\", \"takarbeten Kungsängen\" eller \"badrumsrenovering Luthagen\". Du kan lägga till en sida med kundcase per stadsdel eller projekttyp. Sajten blir snabbladd och tekniskt korrekt, vilket Google premierar. Allt detta utan att du behöver anlita en SEO-byrå eller lära dig sökmotoroptimering själv."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig byggsajt?",
+      "a": "De flesta har en komplett sajt med projektgalleri, tjänstsidor och kontaktformulär klar på 10–20 minuter. Du chattar om ditt byggföretag, AI:n genererar sidorna, du granskar och justerar vid behov, sedan publicerar du. Vill du lägga till fler projekt eller detaljerade tjänstbeskrivningar tar det lite längre, men grundstrukturen är snabb."
+    },
+    {
+      "q": "Kan jag visa olika projekt för olika tjänster?",
+      "a": "Ja. Du kan skapa separata projektgallerier för takarbeten, tillbyggnader, badrumsrenoveringar eller fasadarbeten. Varje galleri kan ha egna bilder, beskrivningar och kundcitat. Det gör det enkelt för besökare att hitta relevanta exempel för sitt eget projekt."
+    },
+    {
+      "q": "Fungerar sajten för byggföretag i hela Uppsala?",
+      "a": "Absolut. Oavsett om du jobbar i centrala Uppsala, Gottsunda, Valsätra, Storvreta eller Björklinge kan du anpassa texter och projektexempel efter de områden du täcker. AI:n hjälper dig skriva om lokala förhållanden och byggregler om du vill, men det är inget krav."
+    },
+    {
+      "q": "Kan kunder begära offert direkt på sajten?",
+      "a": "Ja. Du får ett kontaktformulär där besökare kan beskriva sitt projekt, ladda upp bilder och lämna kontaktuppgifter. Förfrågningar skickas till din e-post. Vill du ha bokningsfunktion integrerar du Cal.com så kunder kan boka platsbesök direkt i din kalender."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Använder du en Sajtmaskin-subdomän är hosting gratis utan månadskostnad. Vill du ha egen domän betalar du domänregistrering hos valfri leverantör (ofta 80–150 kr/år) och pekar den mot Sajtmaskin. Inga dolda avgifter, ingen bindningstid. Integrationer som Cal.com och Stripe har egna prismodeller om du väljer att använda dem."
+    },
+    {
+      "q": "Kan jag lägga till kundrecensioner och certifieringar?",
+      "a": "Ja. Du kan skapa en sektion med kundcitat, betyg från Google eller Ratsit, och visa certifieringar som ROT-godkännande eller Byggnads medlemskap. Allt läggs till via chat – beskriv vad du vill ha, AI:n formaterar och placerar innehållet snyggt på sajten."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill och flytta sajten till egen server eller annan hostingleverantör. Det finns ingen inlåsning. All data och allt innehåll är ditt, och du kan ta med dig det om du bestämmer dig för att gå vidare."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala har en blandning av äldre trähusbebyggelse i Kungsängen och Luthagen, miljonprogramsområden som Gottsunda och Stenhagen, samt nyare villaområden i Valsätra och Sunnersta. Byggföretag behöver kunna visa kompetens inom allt från varsam renovering av äldre fastigheter till moderna tillbyggnader och energieffektiviseringar. En hemsida som tydligt visar projektexempel från olika stadsdelar och byggnadstyper hjälper husägare känna igen sig och våga ta kontakt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Uppsala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "skogsbruk",
+  "title": "Hemsida för skogsbruk – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt skogsbruk direkt i chatten. Visa tjänster, ta emot förfrågningar och bygg förtroende – utan kod.",
+  "h1": "Hemsida för skogsbruk",
+  "heroSub": "Bygg en sajt som visar dina tjänster inom avverkning, gallring och skogsvård – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En hemsida för skogsbruk hjälper dig att nå skogsägare och företag som behöver avverkning, gallring eller skogsvård. Den visar tydligt vilka tjänster du erbjuder, var du verkar och hur kunder når dig – så att förfrågningar kommer in även när du är ute i skogen.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n. Berätta vilka tjänster du utför, vilka maskiner du har och vilka områden du täcker, så skapar AI:n struktur, texter och kontaktformulär åt dig. Du publicerar på egen domän och kan koppla på bokningssystem om du vill ta emot tidsförfrågningar direkt.",
+    "Ingen bindningstid, ingen kod och ingen månadskostnad för hosting på subdomän. Du äger innehållet och kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för skogsbruk ska innehålla",
+      "body": "En typisk sajt för skogsbruk har en startsida som förklarar vilka du är och vilka tjänster du erbjuder – avverkning, gallring, röjning, virkesköp eller skogsvård. Sedan behövs en tjänstesida som beskriver varje arbetsmoment, vilka maskiner du använder och hur processen ser ut. En Om-sida bygger förtroende genom att visa erfarenhet, certifieringar och lokalkännedom. Kontaktsida med telefon, mejl och gärna ett formulär gör det enkelt för skogsägare att höra av sig. Många lägger även till referenser eller bilder från tidigare uppdrag för att visa resultat."
+    },
+    {
+      "heading": "Varför skogsbruk behöver en egen hemsida",
+      "body": "Många skogsägare söker hjälp online innan de ringer runt. Utan hemsida syns du inte i sökmotorerna och missar förfrågningar till konkurrenter som har närvaro på webben. En sajt gör att du kan visa upp kompetens, maskiner och arbetssätt på ett professionellt sätt, även om du är en mindre aktör. Den fungerar som en digital visitkort som jobbar dygnet runt – och den hjälper dig att bygga förtroende innan första samtalet. För skogsbruk som jobbar i flera kommuner eller län är en hemsida extra viktig för att nå utanför det lokala nätverket."
+    },
+    {
+      "heading": "Så bygger du sajten med Sajtmaskin",
+      "body": "Du startar en chatt och berättar vad ditt skogsbruk gör: vilka tjänster du erbjuder, vilka områden du täcker och vad som skiljer dig från andra. AI:n föreslår struktur, skriver texter och skapar sidor. Du kan be om ändringar direkt i chatten – lägg till en sida om certifieringar, byt ut en bild eller ändra kontaktformuläret. När allt ser bra ut publicerar du på egen domän. Vill du ta emot bokningar kopplar du på Cal.com, och för Google Analytics eller andra verktyg finns färdiga integrationer. Allt sköts utan kod, och du kan uppdatera sajten när som helst."
+    },
+    {
+      "heading": "Integrationer som passar skogsbruk",
+      "body": "Om du vill att kunder ska kunna boka ett första möte eller besiktning direkt på sajten kopplar du på Cal.com. Det sparar tid och minskar mejl fram och tillbaka. Vill du ta betalt för mindre tjänster eller sälja ved kan du integrera Stripe. Google Analytics hjälper dig se vilka sidor som besöks mest och var trafiken kommer ifrån – användbart om du vill veta vilka tjänster som väcker intresse. Alla integrationer sätts upp utan teknisk kunskap, och du behåller full kontroll över datan."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen teknisk krångel",
+      "body": "Sajtmaskin kräver ingen bindningstid. Du betalar inget för hosting om du väljer subdomän, och vill du använda egen domän fixar du det med ett klick. Behöver du exportera koden för att flytta sajten någon annanstans går det när som helst. Allt är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och svensk support. Du slipper krångla med WordPress, teman eller plugins – AI:n bygger en ren, snabb sajt som fungerar på mobil och dator."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för skogsbruk?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n, beskriver dina tjänster och områden, och får en struktur direkt. Vill du justera texter eller lägga till sidor gör du det i samma chatt. När du är nöjd publicerar du."
+    },
+    {
+      "q": "Kan jag visa bilder från avverkningar och uppdrag?",
+      "a": "Ja, du laddar upp egna bilder direkt i chatten eller via redigeraren. Många skogsbruk visar före-och-efter-bilder, maskiner i arbete eller färdiga stockupplag för att ge besökare en känsla för hur jobbet går till."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och ser bra ut på mobil, surfplatta och dator. Många skogsägare söker hjälp från telefonen, så mobilvyn är lika viktig som desktop."
+    },
+    {
+      "q": "Kan jag ta emot bokningar för besiktning eller offert?",
+      "a": "Ja, du kopplar på Cal.com så kan kunder boka ett möte eller besiktning direkt i din kalender. Det minskar mejl och telefontaggar, och du ser direkt vilka tider som är lediga."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Hosting på subdomän är gratis. Vill du använda egen domän betalar du för domänen (vanligtvis 100–150 kr/år hos en registrar) och kan välja att hosta hos Sajtmaskin eller någon annanstans. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag uppdatera sajten själv senare?",
+      "a": "Ja, du loggar in och chattar med AI:n för att ändra texter, lägga till tjänster eller byta bilder. Allt sker utan kod. Vill du ha hjälp finns svensk support."
+    },
+    {
+      "q": "Äger jag innehållet och koden?",
+      "a": "Ja, du äger allt innehåll och kan exportera koden när du vill. Sajtmaskin låser inte in dig – du bestämmer helt själv hur länge du vill använda plattformen."
+    }
+  ],
+  "localOrIndustryContext": "Skogsbruk i Sverige sträcker sig från Skåne till Norrbotten, och många företag jobbar lokalt inom ett eller flera län. En hemsida gör att du når skogsägare utanför ditt närmaste nätverk och visar att du är en seriös aktör – särskilt viktigt när konkurrensen om uppdrag ökar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en skogsbruk-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

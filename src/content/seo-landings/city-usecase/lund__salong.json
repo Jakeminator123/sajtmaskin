@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "lund/salong",
+  "title": "Hemsida Salong Lund – Bygg din salongs sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Lund med AI. Bokning, prislista och galleri – klart på minuter. Ingen kod, ingen bindningstid.",
+  "h1": "Hemsida för din salong i Lund",
+  "heroSub": "Bygg en komplett sajt för din salong med AI – inklusive bokning, prislista och bildgalleri, direkt från chatten.",
+  "introParagraphs": [
+    "Om du driver en hårsalong, nagelsalong, skönhetssalong eller barberare i Lund behöver du en hemsida som visar dina tjänster, låter kunder boka direkt och speglar din stil. Sajtmaskin bygger hela sajten åt dig på minuter – du chattar med AI:n om vad din salong erbjuder, så genereras allt från bokning till bildgalleri automatiskt.",
+    "Du får en färdig sajt med prislista, öppettider, kontaktuppgifter och integration med Cal.com för online-bokning. Publicera på egen domän eller använd en subdomän kostnadsfritt. Allt på svenska, ingen kod, ingen bindningstid.",
+    "Salongverksamhet i Lund, från Clemenstorget till Mårtenstorget, har ofta kunder som förväntar sig enkel bokning och tydlig information online. Med Sajtmaskin får du en sajt som fungerar direkt, utan att behöva vänta på webbyrå eller lära dig WordPress."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokning, prislista och galleri – allt på plats direkt",
+      "body": "En salongs hemsida behöver visa vad du gör, vad det kostar och hur man bokar tid. Sajtmaskin genererar automatiskt sidor för dina tjänster, prislista och ett bildgalleri där du kan visa tidigare arbeten. Integrera Cal.com så kan kunderna boka direkt via sajten, synka med din kalender och få bekräftelse automatiskt. Perfekt för salonger i Lund som vill slippa telefonbokningar och dubbelbokning."
+    },
+    {
+      "heading": "Svenskt gränssnitt och support – byggt för svenska salonger",
+      "body": "Sajtmaskin är byggt i Sverige med svenskt språk genom hela verktyget. Du skriver din prompt på svenska, AI:n genererar svensk text och alla mallar är anpassade för svenska företag. Stödet svarar på svenska och förstår hur salonger i Sverige jobbar. Ingen översatt plattform från utlandet – allt är skapat för att fungera här."
+    },
+    {
+      "heading": "Ingen månadskostnad för hosting, publicera direkt",
+      "body": "Publicera din salong-sajt på en subdomän helt utan månadskostnad för hosting. Vill du använda egen domän, typ dinsalong.se, kopplar du den direkt i gränssnittet. Ingen bindningstid och du kan exportera hela koden när du vill. Betala bara för det du använder, inga dolda avgifter eller tvingande abonnemang."
+    },
+    {
+      "heading": "Lägg till betalning och webbshop när du vill",
+      "body": "Säljer du presentkort, produkter eller vill ta förskottsbetalning för behandlingar? Integrera Stripe för betalningar eller koppla Shopify om du vill ha en komplett webshop. Allt sköts från samma gränssnitt, ingen krånglig teknisk setup. Du kan starta enkelt och bygga ut sajten i takt med att verksamheten växer."
+    },
+    {
+      "heading": "Anpassad för Lunds salongmarknad",
+      "body": "Lund har en blandning av studenter, akademiker och lokala invånare som alla söker skönhetstjänster online. En tydlig hemsida med enkel bokning och mobilvänlig design gör skillnad när kunder jämför salonger i centrum eller kring Bytarebacken. Sajtmaskin ser till att din sajt ser professionell ut och fungerar smidigt på alla enheter, utan att du behöver tänka på tekniken."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min salong i Lund?",
+      "a": "Själva genereringen tar några minuter. Du chattar med AI:n om din salong, vilka tjänster du erbjuder, priser och stil, så skapas hela sajten automatiskt. Sedan kan du justera texter, lägga till bilder och koppla bokningssystem. De flesta har en färdig sajt samma dag."
+    },
+    {
+      "q": "Kan jag integrera bokningssystem så kunder kan boka direkt?",
+      "a": "Ja, Sajtmaskin integrerar med Cal.com för online-bokning. Du kopplar ditt Cal.com-konto så läggs bokningsknappen in på sajten. Kunder väljer tjänst och tid, får bekräftelse automatiskt och bokningen synkas med din kalender. Perfekt för salonger som vill slippa telefonbokning."
+    },
+    {
+      "q": "Vad kostar det att ha hemsidan publicerad?",
+      "a": "Publicerar du på en subdomän via Sajtmaskin är hostingen gratis. Vill du använda egen domän som dinsalong.se betalar du bara domänregistrering och eventuellt för extra funktioner du väljer. Ingen bindningstid och inga dolda avgifter."
+    },
+    {
+      "q": "Kan jag visa bildgalleri med tidigare arbeten?",
+      "a": "Absolut. Sajtmaskin genererar en gallerisida där du enkelt laddar upp bilder på klippningar, färgningar, naglar eller andra behandlingar. Bra för att visa din stil och locka nya kunder i Lund som vill se exempel innan de bokar."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter som Sajtmaskin genererar är responsiva och fungerar smidigt på mobil, surfplatta och dator. Många kunder söker och bokar salong via mobilen, så det är inbyggt från start."
+    },
+    {
+      "q": "Kan jag sälja presentkort eller produkter via hemsidan?",
+      "a": "Ja, du kan integrera Stripe för enkel betalning av presentkort eller koppla Shopify om du vill ha en fullständig webshop med produkter. Allt sköts från samma gränssnitt utan teknisk krångel."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill. Ingen bindningstid och du äger alltid ditt innehåll. Vill du flytta sajten till egen server eller annan plattform är det bara att ladda ner och migrera."
+    }
+  ],
+  "localOrIndustryContext": "Lund har ett aktivt centrum med många salonger längs Stora Södergatan, Klostergatan och runt Mårtenstorget. Studentstaden lockar både unga kunder och etablerade invånare som söker skönhetstjänster online. En professionell hemsida med tydlig bokning och mobilanpassning är standard för salonger som vill synas i lokala sökningar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/lund",
+      "label": "Skapa hemsida i Lund"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Lund. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

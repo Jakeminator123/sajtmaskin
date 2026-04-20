@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vaxjo/portfolio",
+  "title": "Hemsida Portfolio Växjö – Bygg din portfolio på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfolio-hemsida i Växjö med AI. Ingen kod krävs. Publicera på egen domän utan bindningstid. Perfekt för kreatörer och konsulter.",
+  "h1": "Portfolio-hemsida i Växjö",
+  "heroSub": "Bygg en professionell portfolio som visar ditt arbete – på minuter, inte veckor.",
+  "introParagraphs": [
+    "Sajtmaskin hjälper dig att skapa en portfolio-hemsida som verkligen visar vad du kan. Berätta i chatten vad du gör och vilka projekt du vill lyfta fram, så genererar vår AI en färdig sajt anpassad för dina behov. Perfekt för fotografer, designers, konsulter, arkitekter och alla som behöver visa upp sitt arbete professionellt.",
+    "Du publicerar på din egen domän och slipper krångliga verktyg eller dyra webbbyråer. Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när du vill. Allt på svenska, byggt för svenska företagare och frilansare i Växjö och resten av landet.",
+    "Med integrationer för Cal.com kan besökare boka möten direkt via din portfolio. Vill du sälja prints eller tjänster? Koppla in Stripe. Google Analytics ger dig koll på vilka projekt som drar mest uppmärksamhet."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din portfolio med AI",
+      "body": "Börja med att berätta vad du gör och vilka projekt du vill visa. AI:n skapar en struktur med projektgalleri, om-sida och kontaktformulär. Du laddar upp bilder, justerar texter i chatten och ser förändringarna direkt. Ingen kod, inga mallar som ser likadana ut. När du är nöjd publicerar du på din egen domän – klart på minuter istället för veckor hos en byrå."
+    },
+    {
+      "heading": "Funktioner som gör skillnad för kreatörer",
+      "body": "En bra portfolio behöver mer än snygga bilder. Med Cal.com-integration kan kunder boka konsultation eller fotografering direkt. Stripe låter dig sälja tjänster, prints eller digitala produkter. Google Analytics visar vilka projekt som engagerar mest, så du vet vad du ska lyfta fram. Allt sköts från samma gränssnitt, på svenska, utan att du behöver hålla koll på tio olika verktyg."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du äger din sajt. Vill du byta plattform senare? Exportera koden och ta med dig allt. Ingen månadskostnad om du kör på vår subdomän, och när du är redo kopplar du din egen domän utan krångel. Ingen byrå som håller din sajt som gisslan, inga dolda avgifter. Sajtmaskin är byggt av Pretty Good AB i Sverige, med svensk support som faktiskt svarar."
+    },
+    {
+      "heading": "Varför Växjö-baserade kreatörer väljer Sajtmaskin",
+      "body": "Växjö har en stark kreativ sektor – från fotografer som dokumenterar Smålands natur till designers som jobbar med både lokala företag och internationella uppdrag. Många behöver en portfolio som är snabb att uppdatera mellan projekt, inte en statisk sajt som kräver utvecklare varje gång något nytt ska läggas till. Sajtmaskin ger dig flexibiliteten att själv lägga till projekt via chatten, utan att kompromissa med kvaliteten."
+    },
+    {
+      "heading": "Kom igång idag",
+      "body": "Skapa ditt konto, berätta vad du gör och vilka projekt du vill visa, och få en färdig portfolio på minuter. Testa gärna på subdomän först, publicera på egen domän när du är redo. Ingen bindningstid, ingen kod, bara en portfolio som faktiskt fungerar för att visa ditt arbete och få nya kunder."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfolio med Sajtmaskin?",
+      "a": "De flesta har en färdig portfolio på 10–30 minuter. Du chattar med AI:n om vad du gör, vilka projekt du vill visa och vilken känsla sajten ska ha. Ladda upp bilder, justera texter, och publicera. Ingen kod eller design från scratch – AI:n skapar strukturen, du fyller i ditt innehåll."
+    },
+    {
+      "q": "Kan jag visa olika typer av projekt på samma portfolio?",
+      "a": "Absolut. Berätta i chatten att du till exempel både fotograferar och designar, så skapar AI:n kategorier eller sektioner som passar. Du kan ha separata gallerier för olika tjänster, allt på samma sajt. Enkelt att uppdatera när nya projekt tillkommer."
+    },
+    {
+      "q": "Fungerar det att sälja prints eller digitala filer via portfolion?",
+      "a": "Ja, via Stripe-integrationen. Du kan lägga till en enkel shop-sektion där besökare köper prints, licenser eller digitala nedladdningar. Betalningen sköts säkert via Stripe, och du får pengarna direkt till ditt konto. Perfekt för fotografer och illustratörer."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att uppdatera min portfolio?",
+      "a": "Nej. Allt sköts i chatten. Vill du lägga till ett nytt projekt? Skriv det och ladda upp bilderna. Vill du ändra text på om-sidan? Be AI:n göra det. Inga krångliga CMS-system eller kodändringar. Om du kan chatta kan du uppdatera din sajt."
+    },
+    {
+      "q": "Vad kostar det att ha portfolion på egen domän?",
+      "a": "Domänen köper du själv (oftast 100–150 kr/år). Hosting på vår subdomän är gratis utan månadskostnad. Vill du ha egen domän kopplad tillkommer en liten hostingavgift, men ingen bindningstid. Du kan när som helst exportera koden och flytta sajten om du vill."
+    },
+    {
+      "q": "Passar Sajtmaskin för fotografer i Växjö som jobbar med både lokala och internationella kunder?",
+      "a": "Definitivt. Många Växjö-fotografer täcker allt från lokala bröllop till kommersiella uppdrag för större varumärken. Sajtmaskin låter dig visa olika typer av projekt på ett professionellt sätt, med Cal.com-bokning för lokala kunder och en portfolio som fungerar lika bra internationellt. Allt på svenska i gränssnittet, men sajten kan förstås vara på vilket språk du vill."
+    },
+    {
+      "q": "Kan jag integrera min portfolio med sociala medier?",
+      "a": "Ja, du kan länka till Instagram, Behance, LinkedIn eller andra plattformar. Många kreatörer vill ha en central hub där allt arbete samlas, med portfolion som bas och sociala medier som komplement. AI:n hjälper dig sätta upp länkarna smidigt."
+    }
+  ],
+  "localOrIndustryContext": "Växjö har en växande kreativ sektor med fotografer, designers, arkitekter och konsulter som behöver visa sitt arbete professionellt. Många jobbar både lokalt med småländska företag och regionalt/internationellt, vilket kräver en portfolio som är lätt att uppdatera och ser professionell ut. Sajtmaskin ger Växjö-baserade kreatörer ett verktyg som är snabbt, flexibelt och helt på svenska.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vaxjo",
+      "label": "Skapa hemsida i Växjö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Växjö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

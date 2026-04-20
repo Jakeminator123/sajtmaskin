@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "illustrator",
+  "title": "Hemsida för illustratör – bygg din portfolio på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din illustration direkt i chatten. Visa ditt arbete, ta emot förfrågningar och sälj prints – utan kod.",
+  "h1": "Hemsida för illustratör",
+  "heroSub": "Bygg en portfolio som visar ditt arbete och gör det enkelt för kunder att hitta och kontakta dig – direkt från chatten.",
+  "introParagraphs": [
+    "Som illustratör behöver du en plats där potentiella kunder kan se ditt arbete, förstå vad du gör och enkelt ta kontakt. En hemsida fungerar som ditt digitala visitkort och portfolio samtidigt – ett ställe där allt du skapat finns samlat, tillgängligt dygnet runt, oavsett om någon hittar dig via Instagram, LinkedIn eller en rekommendation.",
+    "Med Sajtmaskin bygger du en komplett illustratörssajt på minuter genom att chatta med AI:n. Berätta vilken stil du jobbar i, vilka uppdrag du tar och om du säljer prints – så genereras en färdig sajt med portfoliogalleri, om-sida och kontaktformulär. Allt på svenska, utan att skriva en rad kod.",
+    "Du publicerar på din egen domän och kan när som helst lägga till fler projekt, uppdatera texter eller koppla in bokningsfunktion om du vill erbjuda workshops. Ingen bindningstid, ingen krånglig CMS – bara en sajt som fungerar."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för illustratör brukar innehålla",
+      "body": "En typisk illustratörssajt har ett portfoliogalleri där du visar dina bästa projekt – sorterat efter kategori som bokillustration, editorial, karaktärsdesign eller mönster. En om-sida berättar vem du är, hur du jobbar och vilka kunder du haft. Många illustratörer har också en tjänstesida som förklarar vad du erbjuder: uppdragsillustration, muralmålning, workshops eller licenser. Om du säljer prints eller originaltryck kan du lägga till en enkel shop, och en kontaktsida med formulär gör det smidigt för art directors och förlag att nå dig."
+    },
+    {
+      "heading": "Varför illustratörer behöver en egen sajt",
+      "body": "Instagram och Behance är bra för synlighet, men de äger plattformen – inte du. En egen hemsida ger dig full kontroll över hur ditt arbete presenteras, utan algoritmer som bestämmer vad folk ser. När någon googlar ditt namn eller letar efter en illustratör i Sverige vill du att de ska hitta en professionell sajt, inte bara sociala medier. En hemsida bygger trovärdighet, särskilt när du pitchar till förlag, reklambyråer eller företag som söker illustratörer för kampanjer. Den fungerar också som en central punkt dit du kan skicka alla – från potentiella kunder till journalister."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din illustratörssajt",
+      "body": "Du startar en chatt och beskriver vad du behöver: vilken typ av illustration du gör, vilka projekt du vill visa och om du säljer något. AI:n skapar då en komplett sajt med portfoliogalleri, om-text och kontaktformulär. Du kan ladda upp bilder på dina illustrationer direkt i editorn, justera färger och typsnitt så det matchar din stil, och lägga till fler sidor om du vill – exempelvis en process-sida eller kund-case. Vill du sälja prints kopplar du in Stripe för betalning eller Shopify om du har en befintlig webshop. Behöver du bokningsbar tid för workshops eller konsultation? Integrera Cal.com. Allt sker i samma gränssnitt, på svenska."
+    },
+    {
+      "heading": "Publicera och äg din närvaro",
+      "body": "När sajten är klar publicerar du på din egen domän – inget krav på subdomän om du inte vill. Sajtmaskin tar ingen månadsavgift för hosting på subdomän, och du kan när som helst exportera koden om du vill flytta eller bygga vidare själv. Det finns ingen bindningstid. Du uppdaterar portfolion genom att logga in och lägga till nya projekt, byta ut bilder eller skriva om texter – lika enkelt som att chatta. Sajten är responsiv från start, så den fungerar lika bra på mobil som dator, vilket är viktigt när kunder scrollar igenom ditt arbete på språng."
+    },
+    {
+      "heading": "Från idé till publicerad sajt på en eftermiddag",
+      "body": "Många illustratörer skjuter på att fixa en hemsida för att det känns tekniskt eller dyrt. Med Sajtmaskin behöver du varken lära dig WordPress, anlita en designer eller spendera veckor på att pilla med kod. Du chattar fram sajten, laddar upp dina bästa verk, justerar det du vill och publicerar. Resten av dagen kan du ägna åt det du faktiskt vill göra: illustrera. Och när du landar ett nytt spännande uppdrag tar det två minuter att lägga till det i portfolion."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa illustrationer i olika kategorier eller projekt?",
+      "a": "Ja, du kan organisera ditt galleri efter kategori – till exempel barnbok, editorial, packaging eller karaktärsdesign. Varje projekt kan ha egna bilder, beskrivningar och kund-info. Du bestämmer själv strukturen genom att berätta för AI:n hur du vill dela upp ditt arbete."
+    },
+    {
+      "q": "Går det att sälja prints eller licenser direkt på sajten?",
+      "a": "Absolut. Du kan koppla in Stripe för enkel betalning av prints, eller integrera din Shopify-butik om du redan har en webshop. Vill du istället att folk ska maila för licensförfrågningar lägger du till ett kontaktformulär eller länk till din e-post."
+    },
+    {
+      "q": "Kan jag uppdatera portfolion själv när jag får nya uppdrag?",
+      "a": "Ja, du loggar in och lägger till nya bilder och texter direkt i editorn – ingen utvecklare behövs. Det tar ett par minuter att publicera ett nytt projekt, byta ut en bild eller uppdatera din om-text."
+    },
+    {
+      "q": "Funkar sajten bra på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva från start. Ditt portfoliogalleri, texter och kontaktformulär anpassas automatiskt till mobil, surfplatta och dator – så kunder kan bläddra bekvämt oavsett enhet."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, allt sker i en chatt. Du beskriver vad du vill ha, AI:n bygger sajten och du justerar det visuellt i editorn. Vill du däremot ha full kontroll kan du exportera koden när som helst – men det är inget krav."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja, du publicerar på din egen domän – exempelvis dinaillustration.se. Vill du testa först kan du köra på en gratis subdomän utan månadskostnad, och senare koppla din egna domän när du är redo."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän eller lägga till extra funktioner som betalintegrationer kan vissa tjänster ha egna avgifter, men det finns ingen bindningstid hos Sajtmaskin – du bestämmer själv vad du vill använda."
+    }
+  ],
+  "localOrIndustryContext": "I Sverige finns en stark tradition av illustration – från Elsa Beskow och John Bauer till moderna illustratörer som jobbar med allt från svenska barnböcker och Dagens Nyheter till internationella kampanjer. Många svenska illustratörer kombinerar uppdrag med att sälja prints på marknader som Form/Design Center i Malmö eller via egna webshoppar, och en professionell hemsida gör det enklare att nå både svenska förlag och utländska kunder.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en illustratör-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

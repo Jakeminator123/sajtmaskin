@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "eskilstuna/bilverkstad",
+  "title": "Hemsida bilverkstad Eskilstuna – snabbt, enkelt & svenskt | Sajtmaskin",
+  "metaDescription": "Bygg hemsida för din bilverkstad i Eskilstuna på minuter med AI. Bokning, prislista och kontakt – ingen kod krävs. Prova gratis idag.",
+  "h1": "Hemsida för bilverkstad i Eskilstuna",
+  "heroSub": "Få din verkstads hemsida live på minuter – med bokning, tjänster och kontaktformulär. Helt på svenska, ingen kod krävs.",
+  "introParagraphs": [
+    "En bilverkstad i Eskilstuna behöver en hemsida som gör det enkelt för kunder att boka service, se priser på vanliga jobb och hitta kontaktuppgifter. Med Sajtmaskin skapar du en komplett verkstadssajt via chat – AI:n bygger sidor för dina tjänster, integrerar bokningssystem och anpassar allt efter hur du jobbar.",
+    "Du chattar med AI:n på svenska, beskriver vad verkstaden erbjuder (däckskifte, service, besiktning, lackering eller specialisttjänster), så genereras en färdig sajt på minuter. Publicera på egen domän eller använd en subdomän kostnadsfritt. Ingen bindningstid, och du kan exportera koden när du vill.",
+    "Sajtmaskin är byggt i Sverige av Pretty Good AB och riktar sig till svenska småföretag som vill ha en proffsig närvaro online utan krångel eller dyra byråer."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänster och prislista som syns direkt",
+      "body": "Kunder som söker bilverkstad i Eskilstuna vill snabbt se vad du kan hjälpa till med och ungefär vad det kostar. Sajtmaskin låter dig skapa tydliga tjänstesidor – allt från oljebyte och bromsar till motordiagnostik och rostskydd. Du kan lägga in priser, tidsuppskattningar och beskrivningar så besökaren slipper ringa för varje fråga. AI:n strukturerar informationen så den blir lätt att scanna, och du uppdaterar priserna själv när säsongen skiftar eller nya tjänster tillkommer."
+    },
+    {
+      "heading": "Integrerad bokning med Cal.com",
+      "body": "Slipp mejltennis och missade samtal – låt kunderna boka tid direkt på sajten. Sajtmaskin integrerar Cal.com så besökaren ser lediga tider, väljer tjänst (service, däckhotell, AC-kontroll) och bokar med ett par klick. Du bestämmer själv öppettider, bufferttider och hur långt i förväg folk kan boka. Bokningarna hamnar i din kalender, och kunden får bekräftelse på mejl. Perfekt för en verkstad som vill fylla schemat utan extra administration."
+    },
+    {
+      "heading": "Lokalt anpassad för Eskilstuna",
+      "body": "Eskilstuna har allt från Vilsta och Torshälla till centrala Fristadstorget, och många verkstäder betjänar både privatpersoner och företag i regionen. Sajtmaskin låter dig enkelt lägga till en karta, öppettider och vägbeskrivning så kunder hittar er verkstad. Du kan nämna närliggande områden (Kjula, Skogstorp, Hällby) eller att ni hämtar och lämnar bilar inom Eskilstuna kommun. Allt skrivs på ren svenska, och du kan när som helst justera texten så den speglar er profil – familjär stadsdelsverkstad eller specialiserad importbilsservice."
+    },
+    {
+      "heading": "Ingen månadskostnad för hosting på subdomän",
+      "body": "Vill du testa utan att binda upp dig kan du publicera på en subdomän hos Sajtmaskin helt gratis – inga dolda avgifter, ingen bindningstid. När du är redo kopplar du din egen domän (bilverkstadneskilstuna.se eller liknande) med ett par klick. Sajten hostas säkert i Sverige, och du slipper krångla med servrar eller uppdateringar. Behöver du byta plattform senare exporterar du koden och tar med dig allt."
+    },
+    {
+      "heading": "Bygg och redigera via chat – utan kod",
+      "body": "Du beskriver vad verkstaden gör, vilka märken ni jobbar med, om ni har däckhotell eller hyr ut reservbilar – AI:n skapar sidor, menystruktur och formulär. Vill du ändra något senare skriver du bara \"lägg till sida om rostskydd\" eller \"byt färg på knapparna till mörkblå\". Allt sker i chatfönstret på svenska. Ingen teknisk kunskap krävs, och du ser resultatet direkt. Perfekt när du vill fokusera på verkstaden istället för att sitta med WordPress-plugins halva dagen."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en hemsida för min bilverkstad i Eskilstuna?",
+      "a": "De flesta får en färdig sajt på 10–20 minuter. Du chattar med AI:n, beskriver tjänster och önskemål, så genereras sidor för service, däckskifte, bokning och kontakt. Sedan publicerar du direkt på subdomän eller kopplar egen domän."
+    },
+    {
+      "q": "Kan jag integrera bokningssystem så kunder bokar service online?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com för bokning. Du kopplar ditt Cal.com-konto, ställer in tjänster och tider, så kan besökare boka direkt på sajten. Bokningar synkas med din kalender och kunden får automatisk bekräftelse."
+    },
+    {
+      "q": "Kostar det något att ha sajten live?",
+      "a": "Publicering på subdomän (dinverkstad.sajtmaskin.se) är gratis utan månadskostnad. Vill du använda egen domän betalar du för domänregistrering hos valfri registrar, men hosting ingår. Inga bindningstider – du kan exportera koden när du vill."
+    },
+    {
+      "q": "Kan jag lägga till prislista och beskrivningar av olika tjänster?",
+      "a": "Absolut. Du skapar sidor för varje tjänst (oljebyte, bromsservice, besiktning, lack) och lägger in priser, tidsåtgång och beskrivningar. AI:n formaterar informationen snyggt, och du uppdaterar själv när priser ändras."
+    },
+    {
+      "q": "Fungerar sajten för både privatpersoner och företagskunder i Eskilstuna?",
+      "a": "Ja, du kan skapa separata sidor eller avsnitt för privatkunder och företag. Beskriv era avtal, fleetservice eller faktureringsrutiner, så anpassar AI:n innehållet. Lägg gärna till ett kontaktformulär för företagsförfrågningar."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera hemsidan?",
+      "a": "Nej, allt sköts via chat på svenska. Vill du ändra text, lägga till en ny tjänst eller byta bilder skriver du bara instruktionen, så uppdaterar AI:n sajten. Ingen teknisk kunskap krävs."
+    },
+    {
+      "q": "Kan jag visa var verkstaden ligger och hur kunder hittar hit?",
+      "a": "Ja, du kan bädda in karta, skriva vägbeskrivning och lista närliggande områden (Torshälla, Vilsta, Skogstorp). Lägg gärna till öppettider och parkeringsinformation så besökare enkelt hittar er verkstad i Eskilstuna."
+    }
+  ],
+  "localOrIndustryContext": "Eskilstuna har en blandning av privatbilister, företagsflottor och pendlare mot Stockholm och Västerås. Många verkstäder ligger längs Odenskogsvägen, Nyforsvägen eller i industriområden i Hällby och Skiftinge. En tydlig hemsida med bokning och priser hjälper dig sticka ut i en stad där kunderna förväntar sig snabb service och transparent kommunikation.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/eskilstuna",
+      "label": "Skapa hemsida i Eskilstuna"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Eskilstuna. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

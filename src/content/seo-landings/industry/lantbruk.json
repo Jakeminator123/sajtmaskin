@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "lantbruk",
+  "title": "Hemsida för lantbruk – Bygg din gårdssajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt lantbruk med AI. Visa gårdsbutik, produkter och bokningsbara besök. Ingen kod krävs. Prova gratis!",
+  "h1": "Hemsida för lantbruk",
+  "heroSub": "Bygg en sajt för din gård på minuter – visa produkter, boka gårdsbesök och nå nya kunder direkt från åkern.",
+  "introParagraphs": [
+    "En hemsida för lantbruk gör att kunder hittar din gårdsbutik, ser vad du odlar eller producerar och kan boka besök eller köpa direkt online. Oavsett om du driver växtodling, har mjölkkor, säljer kött från egna djur eller erbjuder upplevelser på gården behöver du en plats där folk enkelt hittar öppettider, priser och kontaktuppgifter.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n på svenska. Berätta vad din gård erbjuder, så genereras sidor för produkter, om gården, besöksinformation och kontakt. Du kan lägga till bokning via Cal.com för gårdsbesök eller guidningar, koppla Stripe för betalning av produkter och publicera på din egen domän – allt utan att skriva en rad kod.",
+    "Ingen bindningstid och ingen månadsavgift om du kör på subdomän. När sajten är klar kan du exportera koden och flytta den om du vill. Perfekt för dig som vill fokusera på gården istället för teknik."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för lantbruk ska innehålla",
+      "body": "En bra lantbrukssajt börjar med en startsida som visar vad gården erbjuder och var ni ligger. Lägg till en Om oss-sida där du berättar om gårdens historia, djuren eller odlingen – folk vill veta vem som producerar maten. En produktsida listar kött, grönsaker, ägg, honung eller andra varor med bilder och priser. Om du har gårdsbutik behöver du öppettider och vägbeskrivning tydligt synliga. Vill du ta emot besök eller erbjuda aktiviteter som traktoråkning eller djurmöten lägger du till en bokningsfunktion. Kontaktsida med telefon, mejl och karta är standard."
+    },
+    {
+      "heading": "Vanliga funktioner för lantbruk",
+      "body": "Många gårdar vill visa sina produkter i ett enkelt galleri eller produktkatalog. Integrerar du Stripe kan kunder betala direkt för förbeställningar eller abonnemang på grönsakskorgar. Cal.com-integrationen låter besökare boka tid för gårdsbesök, hämtning av varor eller event som skördefest. Google Analytics visar vilka sidor som är populärast och var trafiken kommer ifrån – användbart om du kör annonser på Facebook eller lokala grupper. Behöver du en riktig webshop kopplar du Shopify för lager och frakt. Allt går att lägga till direkt i Sajtmaskin utan krångel."
+    },
+    {
+      "heading": "Så bygger du sajten med Sajtmaskin",
+      "body": "Logga in och beskriv din gård i chatten: vilka djur du har, vad du odlar, om du säljer direkt eller tar emot besök. AI:n föreslår en struktur med startsida, produktsida, om-sida och kontakt. Du kan be om ändringar – byt färger till grönt och brunt, lägg till en sida för recept med dina råvaror eller en blogg om säsongsarbete. Ladda upp bilder på djuren, åkrarna eller gårdsbutiken så placeras de automatiskt. När du är nöjd publicerar du på egen domän eller kör gratis på en Sajtmaskin-subdomän. Vill du uppdatera senare gör du det direkt i chatten – inga komplicerade verktyg."
+    },
+    {
+      "heading": "Varför lantbruk behöver en hemsida",
+      "body": "Allt fler konsumenter söker lokalt producerad mat och vill veta var den kommer ifrån. Utan hemsida missar du kunder som googlar gårdsbutik nära mig eller köp lamm direkt från bonde. En sajt gör att du kan visa upp gården dygnet runt, ta betalt online och minska antalet telefonsamtal om öppettider. Du når också turister och dagisar som letar efter gårdsbesök. Med tydlig information om djurvälfärd, ekologisk odling eller KRAV-märkning bygger du förtroende. En hemsida är din digitala skylt vid vägen – fast synlig för hela Sverige."
+    },
+    {
+      "heading": "Kom igång idag",
+      "body": "Skapa ett konto på Sajtmaskin och starta en ny sajt. Skriv i chatten vad din gård heter, var den ligger och vad du vill visa. AI:n bygger ett förslag på några sekunder. Testa olika layouter, lägg till texter om djuren eller odlingen och publicera när du är redo. Ingen bindningstid, ingen kod och support på svenska om du kör fast. Hundratals svenska företag har redan byggt sina sajter här – nu är det din gårds tur."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja produkter direkt på sajten?",
+      "a": "Ja, antingen kopplar du Stripe för enkel betalning av förbeställningar och abonnemang, eller Shopify om du vill ha en fullständig webshop med lager och fraktalternativ. Båda integrationerna finns inbyggda i Sajtmaskin."
+    },
+    {
+      "q": "Hur lägger jag till bokning för gårdsbesök?",
+      "a": "Integrera Cal.com så får du en bokningskalender direkt på sajten. Besökare väljer datum och tid, och du får bekräftelse via mejl. Perfekt för guidningar, djurmöten eller hämtning av varor."
+    },
+    {
+      "q": "Behöver jag kunna koda?",
+      "a": "Nej, du chattar med AI:n på svenska och beskriver vad du vill ha. Sajtmaskin genererar sidorna, lägger in texter och bilder och fixar tekniken. Du behöver bara ladda upp egna foton och skriva om gården."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja, du kan publicera på din egen domän direkt. Vill du testa först går det bra att köra på en gratis subdomän hos Sajtmaskin utan månadskostnad."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan extra kostnad. Ingen bindningstid, så du äger alltid ditt innehåll och kan flytta sajten till annan hosting om du väljer det."
+    },
+    {
+      "q": "Kan jag ha en blogg om säsongsarbete och recept?",
+      "a": "Absolut. Be AI:n lägga till en bloggsida så kan du publicera inlägg om skörd, djurskötsel, recept på dina råvaror eller säsongstips. Allt redigeras i samma chattgränssnitt."
+    },
+    {
+      "q": "Hur uppdaterar jag priser och öppettider?",
+      "a": "Logga in och be AI:n ändra texten på rätt sida. Du kan uppdatera priser, öppettider, produkter eller bilder när som helst utan att behöva lära dig något nytt verktyg."
+    }
+  ],
+  "localOrIndustryContext": "Lantbruk i Sverige spänner från små gårdsbutiker i Skåne till fjällnära fäbodbruk i Jämtland. Oavsett om du säljer nötkött, ekologiska grönsaker, ägg eller honung vill kunder veta var maten kommer ifrån och kunna besöka gården. En hemsida gör dig synlig för både lokala hushåll och turister som söker autentiska upplevelser.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en lantbruk-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

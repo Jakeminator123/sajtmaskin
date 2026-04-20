@@ -1,0 +1,105 @@
+{
+  "family": "usecase",
+  "slug": "landningssida",
+  "title": "Skapa landningssida snabbt med AI | Sajtmaskin",
+  "metaDescription": "Bygg en effektiv landningssida på minuter med AI. Ingen kod krävs – bara beskriv din produkt så får du en färdig sida med formulär och CTA.",
+  "h1": "Skapa landningssida med AI",
+  "heroSub": "Beskriv din produkt i chatten så bygger AI en komplett landningssida med hero, fördelar, formulär och call-to-action.",
+  "introParagraphs": [
+    "En landningssida är en fristående webbsida som fokuserar på ett enda mål: att få besökaren att göra något specifikt. Det kan vara att anmäla sig till en betaversion, ladda ner en guide, boka ett möte eller köpa en produkt. Till skillnad från en vanlig hemsida tar landningssidan bort alla distraktioner och leder besökaren mot en enda knapp eller ett formulär.",
+    "Traditionellt har det krävt en designer, en utvecklare och flera veckors arbete för att få en landningssida på plats. Med Sajtmaskin skapar du en färdig landningssida på minuter genom att chatta med AI:n. Du beskriver vad du erbjuder, vem det är till och vad besökaren ska göra – resten sköter plattformen.",
+    "Du får en komplett sida med rubrik, fördelar, sociala bevis, formulär och knapp. Publicera direkt på din egen domän eller på en kostnadsfri subdomän. Inga bindningstider, ingen kod och inget krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hero-sektion som fångar uppmärksamheten",
+      "body": "Överst på landningssidan behöver du en stark rubrik som förklarar vad du erbjuder, en underrubrik som förtydligar värdet och en tydlig call-to-action. Sajtmaskins AI skapar automatiskt en hero-sektion utifrån din produktbeskrivning. Du kan justera text, byta bild och ändra knappens färg direkt i chatten. Resultatet är en öppning som får besökaren att stanna kvar och läsa vidare."
+    },
+    {
+      "heading": "Fördelar och funktioner som säljer",
+      "body": "En bra landningssida listar tre till sex konkreta fördelar med din produkt eller tjänst. Fokusera på vad kunden får ut av det, inte bara vad det är. AI:n hjälper dig att strukturera dina fördelar i tydliga block med ikoner eller bilder. Du kan be om ändringar i ton, lägga till fler punkter eller ta bort sådant som känns överflödigt – allt genom att skriva i chatten."
+    },
+    {
+      "heading": "Sociala bevis och förtroende",
+      "body": "Besökare vill veta att andra har testat och gillat det du erbjuder. Lägg till kundcitat, logotyper från kända kunder, antal användare eller betyg. Sajtmaskin låter dig lägga in testimonials och trustmarkers direkt via AI-chatten. Du kan också integrera recensioner från externa källor eller visa siffror som stärker trovärdigheten. Allt presenteras snyggt utan att du behöver röra kod."
+    },
+    {
+      "heading": "Formulär och konvertering",
+      "body": "Själva poängen med landningssidan är att samla in leads eller driva försäljning. Sajtmaskin genererar kontaktformulär, anmälningsformulär eller integrerar med Cal.com för bokning och Stripe för betalning. Du bestämmer vilka fält som ska finnas och vad som händer när någon skickar in. AI:n kan också skapa varianter för A/B-test så du ser vilken version som konverterar bäst."
+    },
+    {
+      "heading": "Publicera och dela direkt",
+      "body": "När landningssidan är klar publicerar du den på din egen domän eller på en kostnadsfri Sajtmaskin-subdomän. Det tar några sekunder. Du får en länk att dela i annonser, nyhetsbrev, sociala medier eller där du vill driva trafik. Vill du göra ändringar senare öppnar du bara chatten igen och ber AI:n uppdatera texten, lägga till en sektion eller byta färgschema. Allt sker live utan driftstopp."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en landningssida med Sajtmaskin?",
+      "a": "De flesta får en färdig landningssida på fem till tio minuter. Du skriver vad du erbjuder, vem målgruppen är och vad besökaren ska göra. AI:n genererar sidan och du kan be om ändringar direkt i chatten tills du är nöjd. Sedan publicerar du med ett klick."
+    },
+    {
+      "q": "Kan jag koppla landningssidan till min egen domän?",
+      "a": "Ja, du kan publicera på vilken domän du vill. Sajtmaskin guidar dig genom DNS-inställningarna eller så kan du använda en kostnadsfri subdomän om du vill testa först. Ingen bindningstid gäller, så du kan byta när som helst."
+    },
+    {
+      "q": "Hur lägger jag till ett formulär för att samla leads?",
+      "a": "Berätta för AI:n vilka fält du vill ha – till exempel namn, e-post, telefon eller meddelande. Formuläret genereras automatiskt och du kan koppla det till din e-post eller ett CRM-system. Du kan också integrera Cal.com för bokningar eller Stripe för betalning om du säljer något direkt."
+    },
+    {
+      "q": "Kan jag testa olika versioner av landningssidan?",
+      "a": "Ja, be AI:n skapa varianter med olika rubriker, knappar eller layouter. Du kan publicera flera versioner och jämföra vilken som ger flest konverteringar. Google Analytics-integration ingår så du ser resultatet i realtid."
+    },
+    {
+      "q": "Vad händer om jag vill ändra något efter publicering?",
+      "a": "Öppna chatten och beskriv vad du vill ändra. AI:n uppdaterar sidan direkt utan att du behöver gå offline. Du kan byta text, bilder, färger, lägga till nya sektioner eller ta bort sådant som inte fungerar. Allt sker live."
+    },
+    {
+      "q": "Kostar det extra att ha landningssidan publicerad?",
+      "a": "Nej, om du publicerar på en Sajtmaskin-subdomän är hostingen kostnadsfri utan månadskostnad. Vill du använda egen domän betalar du bara för domännamnet hos din registrar. Inga dolda avgifter eller bindningstider."
+    },
+    {
+      "q": "Kan jag exportera koden om jag vill flytta landningssidan?",
+      "a": "Ja, du kan när som helst exportera hela sajten som kod och hosta den var du vill. Sajtmaskin låser inte in dig. Du äger allt innehåll och all design från start."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en landningssida-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

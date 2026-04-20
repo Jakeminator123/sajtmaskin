@@ -1,0 +1,89 @@
+{
+  "family": "city-usecase",
+  "slug": "malmo/event",
+  "title": "Hemsida för event i Malmö – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Malmö med AI. Biljettförsäljning, bokning och betalning – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för event i Malmö",
+  "heroSub": "Bygg en komplett eventsajt på minuter – med biljettförsäljning, bokning och betalning integrerat från start.",
+  "introParagraphs": [
+    "Om du arrangerar konferenser, workshops, festivaler eller andra event i Malmö behöver du en hemsida som både informerar och hanterar bokningar. Sajtmaskin låter dig bygga en komplett eventsajt via chat – AI:n skapar sidor för program, talare, plats och biljettköp direkt från din beskrivning.",
+    "Du får integrationer med Cal.com för bokningar och Stripe för betalningar redan från start. Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, ingen kod – bara en färdig sajt som fungerar för dina besökare i Malmö och resten av Skåne."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt en eventsajt i Malmö behöver",
+      "body": "En bra eventsajt visar tydligt vad som händer, när och var – och gör det enkelt att köpa biljett eller boka plats. Sajtmaskin bygger sidor för eventprogram, talarpresentationer, praktisk information om plats och parkering, samt en smidig boknings- eller köpfunktion. Du beskriver ditt event i chatten och AI:n strukturerar innehållet så besökarna snabbt hittar det de söker. Perfekt för allt från mindre workshops på Möllevången till större konferenser i Malmö Live."
+    },
+    {
+      "heading": "Integrerad bokning och betalning",
+      "body": "Istället för att lappa ihop externa tjänster får du Cal.com och Stripe inbyggt. Det betyder att deltagare kan boka sin plats eller köpa biljett direkt på din sajt, utan omvägar. Betalningen hanteras säkert via Stripe och bokningar synkas automatiskt. Du slipper krångel med separata system och kan fokusera på att göra ditt event i Malmö så bra som möjligt. Allt sköts från en och samma plattform."
+    },
+    {
+      "heading": "Bygg och publicera på minuter",
+      "body": "Du chattar med AI:n, beskriver ditt event – typ, datum, plats, talare, biljettpriser – och får en färdig sajt på minuter. Vill du ändra något skriver du bara i chatten igen. Publicera på din egen domän eller använd en kostnadsfri Sajtmaskin-subdomän. Ingen månadskostnad för hosting på subdomän, ingen bindningstid. Om du vill ta sajten vidare kan du exportera all kod och drifta den var du vill."
+    },
+    {
+      "heading": "Svenskt gränssnitt och support",
+      "body": "Sajtmaskin är byggt i Sverige med svenskt gränssnitt, svensk support och innehåll anpassat för svenska besökare. Det gör skillnad när du ska kommunicera med deltagare i Malmö – allt från datum och valuta till språk och ton känns naturligt. Du slipper översättningar och krångliga inställningar. Plattformen är gjord för svenska företag och organisationer som vill ha en professionell närvaro snabbt."
+    },
+    {
+      "heading": "Ingen kod, full kontroll",
+      "body": "Du behöver inga tekniska kunskaper för att bygga eller uppdatera din eventsajt. Allt sker via chat. Samtidigt äger du koden och kan när som helst exportera den om du vill flytta eller vidareutveckla sajten på egen hand. Ingen inlåsning, inga dolda avgifter. Sajtmaskin ger dig flexibiliteten att starta snabbt och växa i din egen takt – perfekt för eventarrangörer i Malmö som vill testa en idé eller skala upp ett återkommande event."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en eventsajt live i Malmö?",
+      "a": "Du kan ha en färdig sajt publicerad på minuter. Beskriv ditt event i chatten – AI:n bygger sidor för program, talare, bokning och betalning direkt. Publicera på egen domän eller använd en kostnadsfri subdomän så är du igång samma dag."
+    },
+    {
+      "q": "Kan jag sälja biljetter och ta betalt direkt på sajten?",
+      "a": "Ja, Stripe-integration finns inbyggd så besökare kan köpa biljetter eller betala för sin plats direkt på din hemsida. Betalningen hanteras säkert och du får pengarna till ditt Stripe-konto. Perfekt för event i alla storlekar."
+    },
+    {
+      "q": "Fungerar sajten för både små workshops och stora konferenser?",
+      "a": "Absolut. Sajtmaskin skalar från mindre meetups och workshops till stora konferenser och festivaler. Du beskriver ditt events omfattning och AI:n anpassar struktur och funktioner därefter. Lägg till fler sidor, talare eller bokningsalternativ när du behöver."
+    },
+    {
+      "q": "Kostar det extra att ha sajten på min egen domän?",
+      "a": "Nej, du kan publicera på din egen domän utan extra kostnad. Vill du använda en Sajtmaskin-subdomän är hosting helt gratis. Inga månadskostnader för själva driften, du betalar bara för de funktioner och integrationer du aktivt använder."
+    },
+    {
+      "q": "Kan jag uppdatera eventinformation när programmet ändras?",
+      "a": "Ja, skriv bara i chatten vad som ska ändras – ny talare, annan tid, uppdaterat program – så justerar AI:n sajten direkt. Du behöver aldrig gå in i kod eller komplicerade adminpaneler. Allt sköts via vanlig svenska i chatgränssnittet."
+    },
+    {
+      "q": "Vad händer om jag vill flytta sajten senare?",
+      "a": "Du kan när som helst exportera all kod och drifta sajten var du vill. Ingen bindningstid, ingen inlåsning. Sajtmaskin ger dig full äganderätt till koden, så du är fri att välja hur du vill gå vidare efter eventet eller om du vill byta plattform."
+    }
+  ],
+  "localOrIndustryContext": "Malmö har en livlig eventscen med allt från kulturella festivaler och konferenser till företagsevent och workshops. En professionell hemsida gör skillnad när du konkurrerar om deltagarnas uppmärksamhet – särskilt när besökare förväntar sig enkel bokning och tydlig information om plats och program.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Malmö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

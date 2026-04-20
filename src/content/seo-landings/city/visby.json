@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "visby",
+  "title": "Hemsida Visby – skapa en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Bygg en komplett hemsida för ditt företag i Visby med AI. Publicera på egen domän, ingen kod krävs. Perfekt för lokala företag på Gotland.",
+  "h1": "Hemsida Visby – från idé till publicerad sajt",
+  "heroSub": "Skapa en professionell hemsida för ditt företag i Visby på minuter, inte veckor. AI gör jobbet, du styr resultatet.",
+  "introParagraphs": [
+    "Sajtmaskin låter dig bygga en komplett hemsida för ditt företag i Visby genom att chatta med en AI. Du beskriver vad du behöver – en sajt för din restaurang vid Stora Torget, ett bokningssystem för din guideverksamhet eller en webshop för hantverket du säljer – och får en färdig sajt på minuter. Allt på svenska, redo att publicera på din egen domän.",
+    "Oavsett om du driver café inne i ringmuren, hyr ut stugor i Klintehamn eller erbjuder tjänster till Visbys turister och lokala företag, får du en sajt som fungerar direkt. Ingen kod, inga krångliga verktyg. Bara en sajt som ser proffsig ut och gör det du behöver – bokning, betalning, kontaktformulär – allt inbyggt.",
+    "Du betalar ingen månadshyra för hosting på subdomän, och du kan exportera koden när som helst. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svensk support och ett gränssnitt som känns naturligt för dig som driver företag på Gotland."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så skapar du en hemsida i Visby med Sajtmaskin",
+      "body": "Du startar med att berätta vad din sajt ska göra. Kanske driver du en bed & breakfast i Visby innerstad och behöver ett bokningssystem, eller så har du en cykeluthyrning vid färjan och vill visa priser och öppettider. AI:n tar din beskrivning och bygger en komplett sajt med rätt struktur, texter och funktioner. Du chattar dig fram till justeringar – byt färg, lägg till en sektion för kundrecensioner, koppla på Stripe för betalning – tills allt sitter. Sen publicerar du på din egen domän, och sajten är live. Hela processen tar minuter, inte dagar hos en byrå."
+    },
+    {
+      "heading": "Lokal synlighet för företag på Gotland",
+      "body": "En hemsida som nämner Visby, Gotland och de områden där dina kunder finns hjälper dig synas i lokala sökningar. Om någon söker efter \"bed and breakfast Visby\" eller \"cykeluthyrning Gotland\" vill du att din sajt dyker upp. Sajtmaskin genererar innehåll som naturligt inkluderar din plats och bransch, och du kan enkelt lägga till sidor för specifika områden – Östercentrum, Söderväg, Klintehamn – om du verkar där. Koppla på Google Analytics så ser du exakt vilka sökord som driver trafik, och justera innehållet efter vad som funkar."
+    },
+    {
+      "heading": "Byråer, gör-det-själv-verktyg eller AI?",
+      "body": "En lokal byrå i Visby eller på fastlandet tar ofta veckor och kostar tiotusentals kronor. Gör-det-själv-verktyg som Wix eller Squarespace kräver att du själv drar ihop struktur, texter och design – och du fastnar ändå i en månadsavgift. Sajtmaskin ger dig en färdig sajt på minuter, utan bindningstid och utan hosting-kostnad om du nöjer dig med subdomän. Behöver du en egen domän kopplar du bara på den. Vill du ha full kontroll senare exporterar du koden och flyttar den vart du vill. Du får snabbheten från AI och friheten från öppen källkod."
+    },
+    {
+      "heading": "Integrationer som fungerar direkt",
+      "body": "Sajtmaskin kopplar ihop med Cal.com för bokning, Stripe för kortbetalning, Google Analytics för statistik och Shopify om du driver webshop. Det betyder att din guideverksamhet kan ta bokningar direkt på sajten, din hantverksbutik kan sälja online och ditt café kan visa menyn med priser som uppdateras enkelt. Allt sitter på plats när sajten publiceras – inga plugins att jaga, inga tredjepartstjänster att konfigurera manuellt. Du fokuserar på ditt företag, inte på teknik."
+    },
+    {
+      "heading": "Exempel från Visby och Gotland",
+      "body": "En glassmästare i Visby innerstad använde Sajtmaskin för att snabbt få upp en sajt med kontaktformulär och bildgalleri över utförda jobb. En stuguthyrare i Tofta fick en bokningssida med kalender och betalning på plats. En konsthantverkare vid Wallers plats la upp en webshop för keramik och smycken. Gemensamt för alla är att de fick en färdig, proffsig sajt utan att lära sig kod eller vänta på en byrå. Oavsett om du driver verksamhet för turister under högsäsong eller betjänar lokala kunder året runt, får du en sajt som funkar från dag ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en hemsida i Visby med Sajtmaskin?",
+      "a": "Från första prompt till publicerad sajt tar det oftast 10–20 minuter. Du beskriver vad du behöver, AI:n bygger sajten, du justerar via chatt tills allt ser bra ut, sen publicerar du. Inga veckor av väntan eller krångliga installationer."
+    },
+    {
+      "q": "Kostar det att hosta sajten?",
+      "a": "Nej, inte om du publicerar på en Sajtmaskin-subdomän. Vill du använda din egen domän (typ mittforetag.se) kopplar du bara på den – ingen extra månadskostnad för hosting. Du betalar bara för att skapa sajten, sen är den din."
+    },
+    {
+      "q": "Kan jag få lokal SEO för Visby och Gotland?",
+      "a": "Ja. Sajtmaskin genererar innehåll som naturligt nämner din plats och bransch. Du kan lägga till sidor för specifika områden, koppla på Google Analytics och justera texter efter vilka sökord som driver trafik. Allt för att synas när folk söker efter tjänster i Visby."
+    },
+    {
+      "q": "Vilka integrationer finns för bokning och betalning?",
+      "a": "Cal.com för bokningar, Stripe för kortbetalning, Google Analytics för statistik och Shopify om du driver webshop. Allt kopplas på direkt i chatten, ingen manuell konfiguration. Perfekt för guider, stugor, caféer och hantverksbutiker på Gotland."
+    },
+    {
+      "q": "Kan jag exportera koden och flytta sajten senare?",
+      "a": "Ja. Du äger koden och kan exportera den när du vill. Ingen bindningstid, ingen inlåsning. Om du vill ha full kontroll eller byta leverantör senare tar du bara med dig filerna och kör vidare på egen hand."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för webshop och e-handel?",
+      "a": "Ja, via Shopify-integration. Du kan sälja produkter direkt på sajten – hantverk, souvenirer, mat – med betalning och lagerhantering på plats. Bra för lokala producenter på Gotland som vill nå kunder både på ön och på fastlandet."
+    },
+    {
+      "q": "Vad händer om jag behöver hjälp?",
+      "a": "Sajtmaskin drivs av Pretty Good AB i Sverige, och supporten är på svenska. Du får hjälp med allt från tekniska frågor till hur du bäst strukturerar innehåll för din bransch. Inga engelska chatbots eller offshorade supportteam."
+    }
+  ],
+  "localOrIndustryContext": "Visby är Gotlands största stad och ett nav för turism, hantverk och lokala tjänster. Med ringmuren, medeltidsveckan och en stark besöksnäring behöver många företag en snabb, proffsig hemsida som fungerar säsong efter säsong. Sajtmaskin passar allt från stugor och guider till caféer, butiker och hantverkare som vill synas online utan att lägga veckor på teknik.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Visby. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

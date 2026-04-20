@@ -12,7 +12,6 @@ import { WelcomeOverlay } from "@/components/modals/welcome-overlay";
 import { useEntryParams } from "@/lib/entry/use-entry-params";
 import { useAuth } from "@/lib/auth/auth-store";
 import { TemplateGallery } from "@/components/templates/template-gallery";
-import { Mascot } from "@/components/mascot/Mascot";
 import { SiteAuditSection } from "@/components/layout/site-audit-section";
 import {
   isTemplateEntryMode,
@@ -318,9 +317,6 @@ function RootLandingContent() {
     if (expandedSection === "category") {
       return (
         <div className="w-full max-w-4xl motion-safe:animate-fade-up motion-reduce:animate-none">
-          <div className="mb-3 flex justify-center">
-            <Mascot slot="templates" size={180} decorative className="h-auto w-[180px]" />
-          </div>
           <p className="mb-4 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Mallar
           </p>
@@ -350,18 +346,7 @@ function RootLandingContent() {
     return null;
   };
 
-  const renderHeroPrefix = () => {
-    return (
-      <div className="flex motion-safe:animate-fade-up motion-reduce:animate-none">
-        <Mascot
-          slot="hero"
-          priority
-          decorative
-          className="h-auto w-[clamp(150px,22vw,280px)] drop-shadow-[0_18px_30px_rgba(10,12,24,0.15)]"
-        />
-      </div>
-    );
-  };
+  const renderHeroPrefix = () => null;
 
   return (
     <>

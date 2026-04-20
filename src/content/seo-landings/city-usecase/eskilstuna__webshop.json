@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "eskilstuna/webshop",
+  "title": "Hemsida Webshop Eskilstuna – Bygg din butik på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett webshop i Eskilstuna med AI. Stripe-betalningar, lagerhantering och mobilanpassning på minuter. Ingen kod, ingen bindningstid.",
+  "h1": "Webshop-hemsida för Eskilstuna",
+  "heroSub": "Bygg en komplett nätbutik för ditt Eskilstuna-företag via chat – med betalningar, produkter och kassan klar på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin skapar färdiga webshoppar för företag i Eskilstuna genom AI-driven chat. Du beskriver vad du säljer, vilka betalmetoder du vill ha och hur butiken ska se ut – så genererar plattformen en komplett nätbutik med produktsidor, kundvagn, kassan och Stripe-integration. Allt på svenska, utan att du behöver skriva en rad kod.",
+    "Många lokala butiker i Eskilstuna – från hantverksateljéer i Fristadstorget till specialisthandel vid Kriebsensgatan – vill komplettera den fysiska butiken med nätförsäljning men saknar tid eller budget för traditionell webbutveckling. Med Sajtmaskin chattar du fram din webshop, publicerar på egen domän och börjar ta betalt samma dag.",
+    "Du betalar ingen månadskostnad för hosting om du kör på subdomän, och kan när som helst exportera hela koden. Integrationen med Stripe gör att betalningar landar direkt på ditt företagskonto, och du äger all kunddata."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du en webshop med AI",
+      "body": "Öppna chatten och beskriv din butik: vilka produkter, hur många kategorier, vilka betalmetoder och om du vill ha fraktalternativ. AI:n skapar produktsidor, en kundvagn, kassaflöde och kopplar Stripe för kortbetalningar. Du kan lägga till bilder, justera priser och beskrivningar direkt i gränssnittet. När allt ser bra ut publicerar du på din egen domän eller en kostnadsfri subdomän. Hela processen tar minuter istället för veckor."
+    },
+    {
+      "heading": "Stripe-betalningar och svensk e-handel",
+      "body": "Sajtmaskin integrerar Stripe som betalpartner, vilket innebär att kunder kan betala med kort, Swish via Stripe eller andra metoder du aktiverar. Alla transaktioner hanteras säkert enligt PSD2 och stark kundautentisering. Du får kvitton, orderbekräftelser och en enkel översikt över försäljningen. För Eskilstuna-butiker som vill expandera online men inte vill hantera egen kortterminallösning är Stripe det snabbaste sättet att komma igång."
+    },
+    {
+      "heading": "Lagerhantering och produktkatalog",
+      "body": "Webshopen låter dig lägga in obegränsat antal produkter med bilder, beskrivningar, varianter (storlek, färg) och lagerstatus. Du kan organisera sortimentet i kategorier, sätta kampanjpriser och visa relaterade produkter. Eftersom hela sajten byggs i Sverige fungerar alla texter, valutor och momsberäkningar på svenska från start. Uppdaterar du lagersaldot syns det direkt för kunderna, så du slipper översäljning."
+    },
+    {
+      "heading": "Mobilanpassning och lokal SEO",
+      "body": "Varje webshop Sajtmaskin genererar är responsiv och snabb på mobil – viktigt när majoriteten av näthandeln sker via telefon. Plattformen bygger också in grundläggande SEO: unika meta-titlar per produkt, strukturerad data för Google Shopping och snabba laddningstider. För Eskilstuna-företag som vill synas lokalt kan du enkelt lägga till ortnamn i produktbeskrivningar och om-sidan, så Google förstår var butiken hör hemma."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Du äger koden och kan exportera hela webshopen när du vill. Ingen automatisk förlängning, inga dolda avgifter. Om du växer och vill flytta till en större plattform eller anställa en utvecklare tar du med dig allt. Tills dess kör du på Sajtmaskins infrastruktur utan månadskostnad för hosting på subdomän, eller publicerar på egen domän för full kontroll."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att lansera en webshop?",
+      "a": "Från första chatten till publicerad butik tar det vanligtvis 10–30 minuter. Du beskriver sortiment och betalmetoder, AI:n bygger sajten, du laddar upp produktbilder och justerar texter – sedan är du live. Ingen väntan på utvecklare eller designmallar."
+    },
+    {
+      "q": "Kan jag ta betalt med Swish i webshopen?",
+      "a": "Ja, via Stripe kan du aktivera Swish som betalmetod tillsammans med kortbetalningar. Kunder väljer Swish i kassan och slutför köpet i sin Swish-app. Pengarna landar på ditt Stripe-konto och förs vidare till företagskontot enligt din utbetalningsplan."
+    },
+    {
+      "q": "Kostar det något att ha webshopen live?",
+      "a": "Hosting på subdomän är kostnadsfri utan tidsbegränsning. Vill du använda egen domän (t.ex. dinbutik.se) behöver du registrera den och peka DNS, men Sajtmaskin tar ingen extra hostingavgift. Stripe tar en liten procent per transaktion, men ingen fast månadsavgift."
+    },
+    {
+      "q": "Fungerar webshopen för både fysisk butik och näthandel i Eskilstuna?",
+      "a": "Absolut. Många lokala butiker använder webshopen som komplement: kunder kan beställa online och hämta i butiken, eller få hemleverans. Du styr själv fraktalternativ och kan erbjuda lokala leveranser inom Eskilstuna till lägre kostnad än rikstäckande frakt."
+    },
+    {
+      "q": "Kan jag lägga till fler produkter och kategorier senare?",
+      "a": "Ja, du loggar in och lägger till nya produkter, kategorier eller varianter när du vill. Inga begränsningar i antal. Ändringarna publiceras direkt så att kunderna ser det uppdaterade sortimentet. Du kan också pausa eller ta bort produkter utan att påverka resten av butiken."
+    },
+    {
+      "q": "Vad händer med kunddata och orderhistorik?",
+      "a": "All data lagras i din Sajtmaskin-miljö och du äger den fullt ut. Exporterar du koden får du med dig kundregister och orderhistorik i strukturerad form. Stripe sparar betalningsdata enligt PCI DSS, men personuppgifter och ordrar kontrollerar du själv enligt GDPR."
+    },
+    {
+      "q": "Kan jag integrera webshopen med mitt befintliga bokföringssystem?",
+      "a": "Sajtmaskin erbjuder export av orderdata som du kan importera i de flesta bokföringsprogram. För automatiserad synk kan du använda API:er eller verktyg som Zapier om du vill koppla Stripe-transaktioner direkt till Fortnox eller liknande. Fullt stöd för svensk e-handel och momshantering ingår."
+    }
+  ],
+  "localOrIndustryContext": "Eskilstuna har en blandning av etablerad detaljhandel i centrum och växande hantverks- och specialbutiker som söker digitala komplement. Från designföretag vid Munktellstaden till livsmedelshantverkare och konceptbutiker längs Kungsgatan ser allt fler värdet av en webshop som når kunder utanför stadens gränser – utan att behöva investera tusentals kronor i traditionell e-handelsplattform.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/eskilstuna",
+      "label": "Skapa hemsida i Eskilstuna"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Eskilstuna. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

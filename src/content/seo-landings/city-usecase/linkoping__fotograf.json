@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "linkoping/fotograf",
+  "title": "Hemsida fotograf Linköping – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell fotografsajt i Linköping med AI. Portfoliogalleri, bokningssystem och mobilanpassning. Ingen kod, publicera direkt.",
+  "h1": "Hemsida för fotografer i Linköping",
+  "heroSub": "Bygg en professionell fotografsajt med portfoliogalleri och bokningssystem – på minuter, utan att koda.",
+  "introParagraphs": [
+    "Som fotograf i Linköping behöver du en hemsida som visar upp dina bästa bilder, gör det enkelt för kunder att boka dig och som syns när folk söker efter fotograf i stan. Sajtmaskin bygger din kompletta fotografsajt via chat – du beskriver vad du fotograferar och vad du behöver, så skapar AI:n en sajt med galleri, kontaktformulär och alla funktioner du vill ha.",
+    "Du får en sajt som är snabb, mobilanpassad och enkel att uppdatera när du vill lägga till nya bilder eller ändra priser. Publicera på din egen domän eller testa kostnadsfritt på en subdomän. Allt på svenska, byggt för svenska fotografer som vill ha en professionell närvaro online utan krångel.",
+    "Ingen bindningstid och ingen kodkunskap krävs. Du kan integrera Cal.com för direktbokning, koppla Google Analytics för att se hur kunder hittar dig, och exportera hela sajten om du vill flytta den senare."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfoliogalleri som visar dina bästa jobb",
+      "body": "Din fotografsajt behöver ett snyggt galleri där potentiella kunder direkt ser vad du kan. Sajtmaskin skapar responsiva bildgallerier som laddar snabbt och ser proffsiga ut på alla skärmar. Du kan organisera bilder efter kategori – bröllop, porträtt, företagsfoto, produkt – så besökare enkelt hittar det de letar efter. Ladda upp nya bilder när du vill, byt ordning eller ta bort gamla jobb. Allt utan att röra kod."
+    },
+    {
+      "heading": "Bokningssystem integrerat direkt på sajten",
+      "body": "Låt kunder boka fotosession direkt via hemsidan. Genom integration med Cal.com får du ett bokningssystem som visar dina lediga tider, låter kunder välja typ av fotografering och skickar automatiska bekräftelser. Särskilt praktiskt för porträttfotografer, familjefotografer och de som kör företagsfoto i Linköping – kunderna slipper mejla fram och tillbaka, och du slipper dubbelbokningar. Systemet synkar med din kalender och fungerar på mobilen."
+    },
+    {
+      "heading": "Syns när Linköpingsbor söker fotograf",
+      "body": "En snygg sajt hjälper inte om ingen hittar den. Sajtmaskin bygger sajter som är tekniskt optimerade från start – snabb laddning, mobilvänliga, med ren kod som sökmotorer gillar. Du skriver själv dina texter om vad du erbjuder och var du verkar, så Google förstår att du är fotograf i Linköping. Lägg till referenser från tidigare uppdrag, beskriv dina tjänster tydligt och håll sajten uppdaterad med nya bilder. Det är grunderna för att synas lokalt."
+    },
+    {
+      "heading": "Anpassad för just ditt fotograferande",
+      "body": "Alla fotografer jobbar olika. Kanske fotograferar du mest bröllop i Linköpingstrakten, kanske är du produktfotograf för e-handlare, eller porträttfotograf med studio i centrum. Sajtmaskin anpassar strukturen efter vad du beskriver i chatten. Behöver du prislista, bildpaket, info om rättigheter och leveranstid? Vill du visa bakom kulisserna eller ha ett om-mig-avsnitt som bygger förtroende? Allt går att lägga till, och du kan alltid chatta med AI:n för att justera innehåll eller lägga till nya sidor."
+    },
+    {
+      "heading": "Äger du sajten – ingen inlåsning",
+      "body": "Du publicerar på din egen domän och kan när som helst exportera all kod. Ingen bindningstid, inga dolda avgifter. Vill du testa först? Publicera på en kostnadsfri subdomän tills du är nöjd. Hosting på subdomän kostar inget per månad, och om du vill flytta sajten till en egen server senare är du fri att göra det. Sajten är byggd i Sverige av Pretty Good AB, med svenskt gränssnitt och svensk support."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografsajt?",
+      "a": "De flesta fotografsajter är klara på 10–20 minuter. Du chattar med AI:n, beskriver vad du fotograferar, vilka tjänster du erbjuder och hur du vill att sajten ska se ut. AI:n genererar sidorna, du laddar upp dina bästa bilder, justerar texter om du vill och publicerar. Vill du lägga till fler sidor eller funktioner senare gör du det genom att fortsätta chatten."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotografering i separata gallerier?",
+      "a": "Ja, du kan skapa flera gallerier eller portfoliosidor. Till exempel en sida för bröllop, en för företagsporträtt och en för produktfoto. Det gör det enkelt för besökare att hitta rätt och se exempel på just den typ av fotografering de är intresserade av. Du organiserar det som du vill och kan lägga till nya kategorier när ditt uppdragsmix förändras."
+    },
+    {
+      "q": "Fungerar bokningssystemet för olika typer av fotosessioner?",
+      "a": "Ja, via Cal.com-integrationen kan du sätta upp olika bokningslänkar för olika tjänster – en för snabba porträtt, en för heldagsbröllop, en för företagsfoto. Varje typ kan ha sin egen längd, pris och beskrivning. Kunden väljer vad som passar och bokar direkt, och du får allt samlat i din kalender."
+    },
+    {
+      "q": "Syns min sajt när folk söker efter fotograf i Linköping?",
+      "a": "Sajten är tekniskt optimerad från start – snabb, mobilanpassad och med ren kod. Men för att ranka lokalt behöver du också skriva tydligt var du verkar och vad du erbjuder. Nämn Linköping i dina texter, beskriv dina tjänster konkret, lägg till kundcase och håll sajten uppdaterad. SEO tar tid, men grunden är på plats direkt."
+    },
+    {
+      "q": "Kan jag sälja digitala bildpaket eller utskrifter via sajten?",
+      "a": "Ja, genom Stripe-integration kan du ta betalt direkt på sajten. Du kan sätta upp produkter som digitala bildpaket, fysiska utskrifter eller presentkort. Vill du ha en större webshop med lager och frakt kan du integrera Shopify. Det passar fotografer som säljer prints, ramar eller förinställda bildpaket."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att den är byggd?",
+      "a": "Publicerar du på en Sajtmaskin-subdomän är hostingen gratis – ingen månadsavgift. Vill du ha egen domän (till exempel dittnamn.se) betalar du bara för domänen hos en registrar, vanligtvis 80–150 kr per år. Inga dolda avgifter, ingen bindningstid. Vill du flytta sajten till en egen server kan du exportera koden kostnadsfritt."
+    },
+    {
+      "q": "Kan jag uppdatera galleriet själv när jag har nya bilder?",
+      "a": "Ja, du loggar in och laddar upp nya bilder, byter ordning eller tar bort gamla. Allt via ett enkelt gränssnitt på svenska. Du behöver inte koda eller kontakta support. Vill du ändra text, lägga till en ny tjänst eller skapa en kampanjsida gör du det genom att chatta med AI:n igen."
+    }
+  ],
+  "localOrIndustryContext": "Linköping har en blandning av företagskunder kopplade till universitetet och tech-sektorn, plus privatpersoner som söker bröllops- och familjefotografer. Många fotografer här jobbar både med kommersiella uppdrag och privata event, vilket gör en flexibel sajt med tydlig tjänstepresentation extra viktig.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/linkoping",
+      "label": "Skapa hemsida i Linköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Linköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

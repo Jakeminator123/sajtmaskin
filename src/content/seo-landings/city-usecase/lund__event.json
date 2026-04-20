@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "lund/event",
+  "title": "Hemsida för event i Lund – Bygg din eventsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Lund med AI. Bokning, biljettförsäljning och information – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för event i Lund",
+  "heroSub": "Bygg en komplett eventsajt med bokning och biljettförsäljning på minuter – utan att kunna koda.",
+  "introParagraphs": [
+    "Arrangerar du konferenser, workshops, konserter eller företagsevent i Lund? En bra hemsida gör skillnad mellan ett event som fylls snabbt och ett där folk tvekar. Med Sajtmaskin bygger du en komplett eventsajt via chat – med bokningssystem, betalning via Stripe och all information besökare behöver för att säga ja.",
+    "Lund har en levande eventscen med allt från akademiska konferenser på universitetet till kulturarrangemang i Stadsparken och företagsmingel i Ideon. Oavsett om du arrangerar en gång per år eller varje månad behöver du en sajt som är enkel att uppdatera, tydlig för besökare och som fungerar lika bra på mobilen som på datorn.",
+    "Sajtmaskin är byggt i Sverige med svenskt gränssnitt. Du chattar med AI:n om ditt event, den genererar hela sajten, och du publicerar på din egen domän. Inga månadskostnader för hosting på subdomän, ingen bindningstid, och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en eventsajt i Lund behöver",
+      "body": "En eventsajt ska göra tre saker snabbt: väcka intresse, ge praktisk information och göra det enkelt att boka eller köpa biljett. Besökare vill veta datum, plats, program och pris direkt. I Lund är många vana vid digitala tjänster och förväntar sig att kunna boka direkt på sajten, inte via mejl eller telefon. Sajtmaskin bygger in allt detta från start: en tydlig hero med eventnamn och datum, programsektion, integration med Cal.com för bokning och Stripe för betalning. Du får också Google Analytics på plats så du ser hur många som besöker sajten och var de klickar."
+    },
+    {
+      "heading": "Så bygger du din eventsajt med AI",
+      "body": "Du startar en chatt och berättar om ditt event: typ av arrangemang, målgrupp, plats i Lund, vad som ingår. AI:n ställer följdfrågor om du vill ha bokningsfunktion, biljettförsäljning eller bara information. Sedan genererar den hela sajten med text, struktur och design. Du kan be om ändringar direkt i chatten – ändra färger, lägg till en sektion för talare, justera texten om Lundalokalen. När du är nöjd publicerar du på din egen domän eller på en kostnadsfri subdomän. Hela processen tar minuter, inte veckor."
+    },
+    {
+      "heading": "Bokningar och betalningar utan krångel",
+      "body": "Sajtmaskin integrerar Cal.com för bokningar och Stripe för kortbetalningar. Det betyder att besökare kan boka sin plats eller köpa biljett direkt på sajten, och du får bekräftelser och betalningar automatiskt. För event i Lund där många deltagare är studenter eller akademiker är det viktigt att processen är smidig och mobilvänlig. Allt sköts via sajten – du slipper hantera Excelarken och mejlbekräftelser manuellt. Om du arrangerar återkommande event kan du enkelt uppdatera datum och öppna ny bokning för nästa tillfälle."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Sajtmaskin har ingen bindningstid. Du äger innehållet och kan när som helst exportera koden och flytta sajten till en annan leverantör. Hosting på subdomän är gratis, och om du vill använda din egen domän fixar du det direkt i inställningarna. Du behöver inte oroa dig för dolda avgifter eller att bli inlåst. Många eventarrangörer i Lund kör säsongsvis eller projektbaserat – då är det skönt att inte betala för något du inte använder. Uppdatera sajten inför nästa event, stäng av den mellan arrangemangen, eller låt den ligga kvar som arkiv."
+    },
+    {
+      "heading": "Byggt i Sverige, stöd på svenska",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige. Gränssnittet är helt på svenska, supporten svarar på svenska, och AI:n förstår svensk eventkontext – från Kulturnatta till kickoffer och alumniträffar. Du slipper översätta termer eller anpassa engelska mallar. För eventarrangörer i Lund som vill ha en sajt som känns professionell och lokal är det en fördel att allt är byggt för svenska förhållanden från grunden."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en eventsajt med Sajtmaskin?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n om ditt event, den genererar sajten, och du gör eventuella justeringar direkt i chatten. Sedan publicerar du. Om du vill finjustera mycket kan det ta längre, men grundstrukturen är klar på minuter."
+    },
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja, via Stripe-integrationen kan besökare betala med kort direkt på sajten. Du kopplar ditt Stripe-konto, sätter pris och antal platser, och systemet hanterar betalningar och bekräftelser automatiskt. Perfekt för event i Lund där folk förväntar sig smidig digital bokning."
+    },
+    {
+      "q": "Fungerar sajten för återkommande event?",
+      "a": "Absolut. Du kan uppdatera datum, program och bokningslänkar inför varje nytt tillfälle. Många använder samma sajt för flera event och byter bara ut specifik information. Det går snabbt att göra ändringar via chatten, så du slipper bygga om från scratch varje gång."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad mellan event?",
+      "a": "Hosting på subdomän är gratis utan tidsbegränsning. Om du använder egen domän betalar du bara för domänen hos din domänleverantör. Det finns inga månadskostnader eller bindningstid hos Sajtmaskin, så sajten kan ligga kvar som arkiv eller information utan att kosta något."
+    },
+    {
+      "q": "Kan jag använda sajten för event på olika platser i Lund?",
+      "a": "Ja, du kan enkelt uppdatera platsinfo för varje event. Oavsett om du arrangerar på Mejeriet, Stadsparken, Ideon eller en universitetslokal justerar du adressen och vägbeskrivningen direkt. Sajten anpassar sig efter det du matar in."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra något på sajten?",
+      "a": "Nej, allt sköts via chat. Du beskriver vad du vill ändra – färg, text, layout, ny sektion – och AI:n uppdaterar sajten. Om du vill ha full kontroll kan du exportera koden och redigera själv, men det är inget krav. De flesta gör alla ändringar direkt i gränssnittet."
+    },
+    {
+      "q": "Är Sajtmaskin anpassat för svenska event och förhållanden?",
+      "a": "Ja, plattformen är byggd i Sverige med svenskt gränssnitt och stöd. AI:n förstår svensk eventkontext och terminologi, och alla integrationer fungerar för svenska företag. Du slipper engelska mallar som inte passar eller support på annat språk."
+    }
+  ],
+  "localOrIndustryContext": "Lund har en stark eventtradition med akademiska konferenser, kulturnätter, musikarrangemang och företagsevent kopplade till universitetet och Science Village. Många arrangörer behöver en sajt som fungerar snabbt, är lätt att uppdatera och klarar både bokning och biljettförsäljning digitalt. Med Sajtmaskin får du en komplett lösning anpassad för svenska event.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/lund",
+      "label": "Skapa hemsida i Lund"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Lund. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

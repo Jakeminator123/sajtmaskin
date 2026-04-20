@@ -4,7 +4,15 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { NeedsAnalysisField } from "@/lib/builder/needs-analysis";
-import { Mascot } from "@/components/mascot/Mascot";
+import {
+  inferCategoriesFromText,
+  STRONG_ECOMMERCE_SIGNALS,
+  STRONG_RESTAURANT_SIGNALS,
+} from "@/lib/builder/category-inference";
+import { debugLog } from "@/lib/utils/debug";
+const categoryInferenceDebug = (label: string, payload: unknown) => {
+  debugLog("intake", label, payload);
+};
 
 /* ── Types ───────────────────────────────────────────────────────── */
 
@@ -347,161 +355,10 @@ const PROPERTY_TYPE_OPTIONS = ["Villa", "Bostadsrätt", "Hyresrätt", "Tomt", "K
 const CONSULTING_EXPERTISE_OPTIONS = ["Strategi", "IT / Digitalisering", "Marknadsföring", "Organisation", "Ekonomi", "HR / Rekrytering", "Hållbarhet", "Innovation"];
 
 /* ── Category inference from text ────────────────────────────────── */
-
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  restaurant: [
-    "restaurang", "café", "cafe ", "kafé", "pub ", "pizzeria",
-    "sushi", "bistro", "krog", "matställe", "lunch", "middag", "brunch",
-    "fine dining", "gastropub", "tapas", "burger", "kebab", "falafel",
-    "à la carte", "smörgås", "smörgåsbord",
-  ],
-  ecommerce: [
-    "webshop", "e-handel", "nätbutik", "sälj", "produkter online",
-    "butik online", "webbshop", "shop", "näthandel", "webbutik",
-    "e-commerce", "onlinebutik", "handla online", "varukorg",
-    "hudvårdsprodukter", "kosmetik", "skincare", "skönhetsprodukter",
-    "cbd", "cbg", "hampa", "cannabidiol", "tillskott", "kosttillskott",
-    "serum", "ansiktskräm", "hudserum", "produkter", "sortiment",
-  ],
-  salon: [
-    "salong", "frisör", "frisörsalong", "skönhet", "naglar", "hudvård",
-    "spa", "barber", "makeup", "sminkning", "hårsalong",
-    "skönhetssalong", "nagelsalong", "fransar", "bryn", "klippning",
-    "färgning", "massage", "wellness",
-  ],
-  portfolio: [
-    "portfolio", "cv", "personlig sida", "mitt arbete", "mina projekt",
-    "kreativ portfolio", "design portfolio", "designer", "illustratör",
-    "grafisk design", "konstnär", "frilansar", "freelancer",
-  ],
-  consulting: [
-    "konsult", "byrå", "agentur", "rådgivning", "strategi",
-    "managementkonsult", "it-konsult", "affärskonsult", "projektledning",
-    "digitalbyrå", "webbyrå", "designbyrå",
-  ],
-  fitness: [
-    "gym", "träning", "tränare", "fitness", "yoga", "pilates",
-    "personlig tränare", "crossfit", "gruppträning", "kampsport",
-  ],
-  construction: [
-    "bygg", "hantverk", "snickare", "målare", "renovering",
-    "elektriker", "rörmokare", "byggfirma", "entreprenad",
-  ],
-  healthcare: [
-    "vård", "klinik", "tandläkare", "läkare", "terapi", "psykolog",
-    "kiropraktor", "fysioterapi", "sjukgymnast", "optiker",
-  ],
-  tech: [
-    "tech", "startup", "saas", "app", "mjukvara", "software",
-    "plattform", "ai ", "developer", "programmering",
-  ],
-  blog: [
-    "blogg", "magasin", "tidning", "artiklar", "nyheter", "content",
-    "skribent", "journalist", "podcast",
-  ],
-  landing: [
-    "landningssida", "landing page", "kampanj", "lansering",
-    "kampanjsida", "registrering", "anmälan", "väntelista",
-  ],
-  education: [
-    "utbildning", "skola", "kurs", "lärare", "akademi",
-    "coaching", "onlinekurs", "e-learning",
-  ],
-  event: [
-    "event", "bröllop", "fest", "konferens", "mässa", "festival",
-    "eventbyrå", "eventplanering",
-  ],
-  nonprofit: [
-    "förening", "ideell", "organisation", "välgörenhet", "stiftelse",
-    "volontär", "donation", "insamling",
-  ],
-  music: [
-    "musik", "artist", "band", "dj ", "producent", "skivbolag",
-    "musiker", "sångare", "studio",
-  ],
-  hotel: [
-    "hotell", "boende", "b&b", "stuga", "camping", "vandrarhem",
-    "resort", "semesterboende",
-  ],
-  legal: [
-    "juridik", "advokat", "jurist", "advokatbyrå", "rättshjälp",
-    "avtal", "familjerätt",
-  ],
-  accounting: [
-    "ekonomi", "redovisning", "bokföring", "revisor", "skatt",
-    "ekonomibyrå", "redovisningsbyrå",
-  ],
-  auto: [
-    "bil", "motor", "verkstad", "bilhandlare", "garage",
-    "bilverkstad", "bilreparation",
-  ],
-  travel: [
-    "resa", "turism", "resor", "resebyrå", "guide",
-    "charterresa", "semester",
-  ],
-  food: [
-    "mat", "catering", "bageri", "konditori", "food truck",
-    "cateringföretag", "tårta",
-  ],
-  photo: [
-    "foto", "fotograf", "video", "film", "media", "produktion",
-    "fotografering", "videoproduktion",
-  ],
-  business: [
-    "företag", "tjänst", "firma", "bolag", "aktiebolag",
-    "enskild firma", "småföretag",
-  ],
-};
-
-const STRONG_ECOMMERCE_SIGNALS = [
-  "webshop", "webbshop", "e-handel", "e-commerce", "nätbutik", "webbutik",
-  "onlinebutik", "näthandel", "produkter online", "handla online", "varukorg",
-  "köp", "beställ", "leverans", "frakt", "checkout",
-];
-const STRONG_RESTAURANT_SIGNALS = [
-  "restaurang", "bistro", "krog", "pizzeria", "sushi", "café", "kafé",
-  "matställe", "fine dining", "à la carte",
-];
-
-function inferCategoriesFromText(text: string): string[] {
-  const lower = text.toLowerCase();
-  const matches: Array<{ id: string; score: number }> = [];
-  for (const [catId, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    let score = 0;
-    for (const kw of keywords) {
-      if (lower.includes(kw)) score++;
-    }
-    if (score > 0) matches.push({ id: catId, score });
-  }
-
-  const hasStrongEcommerce = STRONG_ECOMMERCE_SIGNALS.some((s) => lower.includes(s));
-  const hasStrongRestaurant = STRONG_RESTAURANT_SIGNALS.some((s) => lower.includes(s));
-
-  const hasEcommerce = matches.find((m) => m.id === "ecommerce");
-  const hasSalon = matches.find((m) => m.id === "salon");
-  if (hasEcommerce && hasSalon) {
-    const ecomBoost = STRONG_ECOMMERCE_SIGNALS.filter((s) => lower.includes(s)).length;
-    if (ecomBoost > 0) hasEcommerce.score += ecomBoost * 2;
-  }
-
-  // Drop restaurant if text has strong ecommerce/salon evidence but no strong
-  // restaurant noun. "hudvårdsprodukter" + "shop" should never surface café
-  // just because the word "cafe" happens to appear elsewhere.
-  if (!hasStrongRestaurant && (hasStrongEcommerce || hasSalon)) {
-    const rIdx = matches.findIndex((m) => m.id === "restaurant");
-    if (rIdx >= 0) matches.splice(rIdx, 1);
-  }
-
-  // Give ecommerce an extra nudge whenever the user explicitly said they sell
-  // something — "produkter", "sortiment", "cbd" alone don't prove a webshop,
-  // but paired with any strong ecommerce verb they do.
-  if (hasEcommerce && hasStrongEcommerce) {
-    hasEcommerce.score += 2;
-  }
-
-  matches.sort((a, b) => b.score - a.score);
-  return matches.slice(0, 1).map((m) => m.id);
-}
+// Själva logiken + keyword-tabellerna lever i
+// `src/lib/builder/category-inference.ts` för att vara testbar.
+// Här importeras `inferCategoriesFromText`, `STRONG_ECOMMERCE_SIGNALS` och
+// `STRONG_RESTAURANT_SIGNALS` överst i filen.
 
 function extractOffer(prompt: string): string {
   return prompt.replace(/\n\nBefintlig sajt:.*$/s, "").trim();
@@ -690,7 +547,9 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
 
   const promptOffer = initialPrompt ? extractOffer(initialPrompt) : "";
   const inferredCategoryIds = useRef(
-    initialPrompt ? inferCategoriesFromText(initialPrompt) : [],
+    initialPrompt
+      ? inferCategoriesFromText(initialPrompt, { debug: categoryInferenceDebug })
+      : [],
   ).current;
   const inferredLabels = useRef(
     inferredCategoryIds
@@ -739,13 +598,17 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
 
     if (data.industries?.length) {
       for (const ind of data.industries) {
-        combinedCatIds.push(...inferCategoriesFromText(ind));
+        combinedCatIds.push(
+          ...inferCategoriesFromText(ind, { debug: categoryInferenceDebug }),
+        );
       }
     }
 
     const descriptionText = [data.metaDescription, data.description, data.title, data.tagline].filter(Boolean).join(" ");
     if (descriptionText.length > 5) {
-      combinedCatIds.push(...inferCategoriesFromText(descriptionText));
+      combinedCatIds.push(
+        ...inferCategoriesFromText(descriptionText, { debug: categoryInferenceDebug }),
+      );
     }
 
     // Structural signals from the scraper can be noisy (e.g. CBD price lists
@@ -760,9 +623,18 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       combinedCatIds.push("restaurant");
     }
     if (data.products?.length) {
-      combinedCatIds.push("ecommerce");
-      // Products outweighs weak menu hits — if both fire, ecommerce wins.
-      if (data.products.length >= 3) combinedCatIds.push("ecommerce");
+      // LLM:en plockar ibland ut "produkter" från t.ex. virkeslistor eller
+      // prislistor på trädentreprenader — det räcker inte för att fälla
+      // ecommerce. Vi röstar ecommerce bara när texten också innehåller en
+      // tydlig e-handelssignal (köp, varukorg, frakt, webshop, osv.).
+      if (textSaysEcommerce) {
+        combinedCatIds.push("ecommerce");
+        if (data.products.length >= 3) combinedCatIds.push("ecommerce");
+      } else if (data.products.length >= 5) {
+        // Väldigt långa produktlistor utan e-handelstext — ge en röst men
+        // bara en. Då kan en stark business-signal fortfarande vinna.
+        combinedCatIds.push("ecommerce");
+      }
     }
     if (data.treatments?.length) combinedCatIds.push("salon");
     if (data.projects?.length) combinedCatIds.push("portfolio");
@@ -1334,14 +1206,6 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
         {/* Header */}
         <div className="px-6 pb-2 pt-6 sm:px-10">
           <div className="flex items-start gap-4">
-            {(step === "company" || step === "media") && (
-              <Mascot
-                slot={step === "company" ? "wave" : "thumbs-up"}
-                size={64}
-                decorative
-                className="shrink-0"
-              />
-            )}
             <div className="min-w-0 flex-1">
               <h2 className="text-[22px] font-semibold tracking-tight text-foreground sm:text-2xl">{stepTitle}</h2>
               {stepSubtitle && (

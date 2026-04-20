@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "uppsala/event",
+  "title": "Hemsida för event i Uppsala – bygg din eventsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell eventsajt i Uppsala med AI. Biljettförsäljning, bokning och delningsfunktioner – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för event i Uppsala",
+  "heroSub": "Bygg en komplett eventsajt med biljettförsäljning, kalenderintegration och delningsfunktioner – direkt från chatten.",
+  "introParagraphs": [
+    "En bra eventsajt gör det enkelt för besökare att hitta information, boka biljetter och dela vidare till sina nätverk. Oavsett om du arrangerar konserter på Katalin, konferenser i Uppsala konsert & kongress, nätverksträffar i Fyrishov eller kulturkvällar i Studentstaden behöver din sajt fungera smidigt på mobilen och hantera både förköp och drop-in.",
+    "Med Sajtmaskin bygger du en komplett eventsajt på minuter. Berätta vad ditt event handlar om i chatten, så genererar AI:n en sajt med program, talare, platsinfo och bokningsfunktion. Du kan koppla Stripe för biljettförsäljning, Cal.com för tidsbokning och Google Analytics för att följa intresset. Allt på svenska, utan kod.",
+    "Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, inga dolda avgifter. Du äger innehållet och kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en eventsajt i Uppsala behöver",
+      "body": "En eventsajt måste snabbt svara på besökarens frågor: vad, när, var och hur man anmäler sig. I Uppsala, där många events samlar studenter, kulturintresserade och företagsnätverk, är det extra viktigt med tydlig platsinfo och bra vägbeskrivningar – många söker sig till events i kvarter som Kåbo, Luthagen eller centrum. Din sajt bör ha en kalender, beskrivning av programpunkter, information om talare eller artister, och en smidig boknings- eller biljettkö. Mobilanpassning är avgörande eftersom de flesta kollar eventsidor i telefonen medan de är på språng."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din eventsajt",
+      "body": "Du startar en chatt och beskriver ditt event: typ av arrangemang, datum, plats, målgrupp och eventuella specialfunktioner som workshops eller mingel. AI:n genererar en sajt med startsida, programschema, om-sektion och kontaktformulär. Vill du sälja biljetter kopplar du Stripe direkt i gränssnittet. Behöver deltagare boka enskilda tider – till exempel för workshops eller möten – integrerar du Cal.com. Allt sker i samma chatt, och du ser resultatet live. Vill du ändra färg, flytta ett avsnitt eller lägga till en FAQ-sektion säger du bara till, så uppdaterar AI:n sajten direkt."
+    },
+    {
+      "heading": "Biljettförsäljning och anmälan utan krångel",
+      "body": "Stripe-integrationen gör att du kan ta betalt för biljetter direkt på sajten. Besökare fyller i namn och mejl, betalar med kort eller Swish via Stripe, och får bekräftelse automatiskt. Vill du istället samla anmälningar kostnadsfritt använder du ett formulär som skickar uppgifter till din mejl eller ett CRM. För events med begränsat antal platser kan du visa återstående biljetter eller stänga anmälan när kvoten är nådd. Cal.com passar perfekt om du erbjuder enskilda samtal, speedmeeting eller bokningsbara workshoptider under eventet."
+    },
+    {
+      "heading": "Marknadsföring och delning",
+      "body": "En eventsajt behöver synas i sociala flöden och sökmotorer. Sajtmaskin genererar automatiskt Open Graph-taggar så att din sajt ser bra ut när någon delar länken på Facebook, LinkedIn eller i en gruppchatt. Du kan lägga till Google Analytics för att följa varifrån besökare kommer och vilka sidor de tittar mest på. Vill du köra annonser på Meta eller Google Ads fungerar sajten direkt med spårningspixlar. Eftersom allt innehåll är på svenska och sökmotoroptimerat har du goda chanser att synas när folk söker efter events i Uppsala."
+    },
+    {
+      "heading": "Äg din sajt och ditt innehåll",
+      "body": "Sajten du bygger är din. Publicera på egen domän (till exempel mittgrymmetevent.se) eller använd en kostnadsfri subdomän från Sajtmaskin. Ingen bindningstid, inga dolda avgifter för hosting på subdomän. Vill du flytta sajten till en egen server kan du exportera koden när som helst. All text, alla bilder och all data ägs av dig. Sajtmaskin tar ingen provision på biljettförsäljning – Stripes ordinarie avgifter gäller, men inget extra till oss."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en eventsajt?",
+      "a": "De flesta har en färdig sajt på 10–15 minuter. Du chattar med AI:n, beskriver ditt event och justerar det som behövs. Vill du lägga till betalning eller bokning tar det några minuter extra att koppla Stripe eller Cal.com, men själva sajten är klar direkt."
+    },
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja. Koppla ditt Stripe-konto så kan besökare betala med kort eller Swish. Du bestämmer pris, antal biljetter och om du vill ha tidig-anmälan-rabatt eller grupprабatt. Stripe sköter betalningen och du får pengarna direkt till ditt konto minus Stripes avgift."
+    },
+    {
+      "q": "Fungerar sajten för återkommande events i Uppsala?",
+      "a": "Absolut. Du kan lägga till en kalender med alla datum, beskriva varje tillfälle och länka till separata bokningssidor. Många arrangörer i Uppsala kör månatliga nätverksträffar, filmvisningar eller föreläsningsserier och använder samma sajt för alla tillfällen."
+    },
+    {
+      "q": "Kan jag visa karta och vägbeskrivning till eventplatsen?",
+      "a": "Ja. Bädda in en Google Maps-karta eller skriv en tydlig vägbeskrivning. För platser i Uppsala som kan vara svåra att hitta – till exempel lokaler i Kåbo eller Luthagen – är en karta guld värd. Du lägger till den direkt i chatten eller via redigeraren."
+    },
+    {
+      "q": "Vad händer om jag behöver ändra datum eller plats?",
+      "a": "Du loggar in, öppnar chatten och säger vad som ska ändras. AI:n uppdaterar texten på sajten direkt. Vill du meddela alla som köpt biljett gör du det via mejl – Stripe sparar alla köpares uppgifter så du enkelt kan nå dem."
+    },
+    {
+      "q": "Kan jag använda egen domän för eventsajten?",
+      "a": "Ja. Koppla din egen domän (till exempel sommargalan.se) via DNS-inställningar, eller använd en kostnadsfri subdomän från Sajtmaskin. Båda alternativen fungerar lika bra för marknadsföring och delning."
+    },
+    {
+      "q": "Kostar det något att ha sajten live efter eventet?",
+      "a": "Hosting på subdomän är gratis utan tidsgräns. Vill du behålla sajten som arkiv eller för nästa års event kan du göra det utan extra kostnad. Använder du egen domän betalar du bara för domänen hos din registrar."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala har en stark eventklutur med allt från studentnationer och kulturhus till företagsnätverk och festivaler som Musik vid Fyrisån. Många arrangörer behöver snabbt få upp en sajt inför säsongsstart eller enskilda storkvällar, och vill slippa krångel med tekniska plattformar. En lokal eventsajt behöver fungera för både studenter och Uppsala-bor i alla åldrar, ofta med fokus på lättillgänglig platsinfo och smidig mobilupplevelse.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Uppsala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

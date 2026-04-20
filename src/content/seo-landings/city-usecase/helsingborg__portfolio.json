@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/portfolio",
+  "title": "Hemsida Portfolio Helsingborg – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfolio-hemsida i Helsingborg med AI. Ingen kod, klart på minuter. Perfekt för kreatörer och konsulter i Öresund.",
+  "h1": "Portfolio-hemsida i Helsingborg",
+  "heroSub": "Bygg en professionell portfolio-sajt för ditt kreativa eller konsultativa arbete – på minuter, utan kod.",
+  "introParagraphs": [
+    "En portfolio-hemsida visar ditt arbete och din kompetens på ett sätt som ökar förtroendet hos potentiella kunder i Helsingborg och hela Öresundsregionen. Med Sajtmaskin bygger du en komplett portfolio-sajt genom att chatta med vår AI – du beskriver vad du gör, laddar upp bilder på dina projekt och får en färdig sajt som du kan publicera direkt.",
+    "Plattformen är helt på svenska och anpassad för svenska förhållanden. Du kan integrera bokningsfunktion via Cal.com så att kunder kan boka möten direkt, koppla Google Analytics för att följa besökare, och publicera på din egen domän. Ingen bindningstid och ingen månadskostnad om du väljer vår subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför portfolio-sajter funkar i Helsingborg",
+      "body": "Helsingborg har en stark kreativ sektor med formgivare, fotografer, arkitekter och kommunikationskonsulter. Många arbetar både lokalt och mot Köpenhamn och resten av Öresundsregionen. En portfolio-sajt fungerar som ditt digitala visitkort och gör det enkelt för nya kunder att se vad du kan. Den visar konkreta exempel på ditt arbete, bygger trovärdighet och hjälper dig att sticka ut i en konkurrensutsatt marknad."
+    },
+    {
+      "heading": "Vad en bra portfolio-sajt behöver innehålla",
+      "body": "En effektiv portfolio börjar med en tydlig presentation av vem du är och vad du gör. Sedan kommer projektgalleriet – bilder eller beskrivningar av dina bästa uppdrag, gärna med lite kontext om varje projekt. En om-sida eller kort bio bygger förtroende, och kontaktuppgifter eller ett bokningsformulär gör det lätt för besökare att ta nästa steg. Många vill också ha referenser eller kundomdömen för att stärka sitt rykte."
+    },
+    {
+      "heading": "Så bygger du din portfolio med Sajtmaskin",
+      "body": "Du startar en chatt och berättar vad du gör – till exempel grafisk formgivare, fotograf eller managementkonsult. AI:n frågar efter dina projekt, bilder och vilken känsla du vill förmedla. På några minuter genereras en hel sajt med startsida, projektgalleri, om-sida och kontaktformulär. Du kan sedan redigera text, byta bilder och justera layouten direkt i chatten. När du är nöjd publicerar du på din egen domän eller på en kostnadsfri subdomän hos oss."
+    },
+    {
+      "heading": "Integrera bokning och analys",
+      "body": "Om du vill att kunder ska kunna boka möten direkt lägger du till Cal.com-integration – då får besökare en kalender där de kan välja tid. Google Analytics kopplas på om du vill följa hur många som besöker sajten och vilka sidor de tittar på. Allt sköts via chatten, ingen kod behövs. Om du senare vill bygga ut sajten med fler sidor eller funktioner gör du det i samma gränssnitt."
+    },
+    {
+      "heading": "Ingen bindningstid – exportera när du vill",
+      "body": "Sajtmaskin har ingen bindningstid. Du kan när som helst exportera hela din sajtkod och flytta den till en annan leverantör om du vill. Det betyder att du aldrig är låst, och att du äger ditt innehåll fullt ut. För många i Helsingborg som värdesätter flexibilitet och kontroll är det en viktig trygghet."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfolio-sajt?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar med AI:n, beskriver dina projekt och laddar upp bilder. AI:n genererar sedan sidorna, och du kan finjustera direkt i chatten innan publicering."
+    },
+    {
+      "q": "Kan jag visa bildgallerier och projekt på ett snyggt sätt?",
+      "a": "Ja, Sajtmaskin skapar automatiskt projektgallerier med bilder, rubriker och beskrivningar. Du kan välja olika layouter och justera hur bilderna presenteras så att de passar din stil och dina projekt."
+    },
+    {
+      "q": "Behöver jag kunna koda för att redigera sajten?",
+      "a": "Nej, allt sker via chat. Du skriver vad du vill ändra – till exempel byta en bild, lägga till ett nytt projekt eller ändra en rubrik – och AI:n uppdaterar sajten direkt. Ingen teknisk kunskap krävs."
+    },
+    {
+      "q": "Kan jag koppla en bokningsfunktion för kundmöten?",
+      "a": "Ja, du kan integrera Cal.com så att besökare kan boka möten direkt på sajten. Det är särskilt praktiskt för konsulter, fotografer och andra som vill göra det enkelt för nya kunder att ta kontakt."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Om du publicerar på vår subdomän är hostingen gratis utan månadskostnad. Vill du använda din egen domän behöver du registrera den hos en domänleverantör, men själva sajten kan du driva kostnadsfritt hos oss."
+    },
+    {
+      "q": "Fungerar sajten bra för kunder i både Helsingborg och Köpenhamn?",
+      "a": "Absolut. Många i Helsingborg arbetar över sundet, och en professionell portfolio-sajt fungerar lika bra för svenska och danska kunder. Du kan enkelt ha innehåll på svenska, engelska eller båda språken."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform senare?",
+      "a": "Ja, du kan när som helst exportera hela sajtkoden och flytta den till en annan leverantör. Det finns ingen bindningstid och du äger alltid ditt innehåll."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en växande kreativ och konsultativ sektor, med många som arbetar både lokalt och mot Köpenhamn. En portfolio-sajt är ett viktigt verktyg för att nå nya kunder i hela Öresundsregionen och visa upp din kompetens på ett professionellt sätt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

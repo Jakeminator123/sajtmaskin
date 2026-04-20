@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "malmo/webshop",
+  "title": "Hemsida webshop Malmö – Bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell webshop i Malmö med AI. Stripe-integration, mobilanpassad design och ingen bindningstid. Publicera på egen domän direkt.",
+  "h1": "Webshop-hemsida i Malmö",
+  "heroSub": "Bygg en komplett e-handel för ditt Malmö-företag via chat – med betalning, frakt och produkter klara på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin skapar färdiga webshoppar för Malmö-företag genom att du chattar med AI:n om vad du säljer, vilka betalmetoder du vill ha och hur din butik ska se ut. Du får en komplett e-handel med produktsidor, kundvagn, Stripe-integration och mobilanpassad design – utan att skriva en rad kod.",
+    "Perfekt för butiker i Västra Hamnen, återförsäljare i Möllevången eller hantverkare i Limhamn som vill sälja online. Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, och du kan exportera hela koden om du vill flytta vidare.",
+    "Plattformen är byggd i Sverige med svenskt gränssnitt och support. Du integrerar Stripe för kortbetalningar, lägger till produkter via chatten och justerar allt från frakt till kampanjkoder – allt medan AI:n bygger sidorna åt dig."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du en webshop i Malmö med Sajtmaskin",
+      "body": "Berätta för AI:n vad du säljer – kläder, inredning, lokalproducerade varor eller tjänster. Systemet skapar produktsidor, kategorier och en kundvagn anpassad efter ditt sortiment. Du kopplar Stripe för säkra kortbetalningar, ställer in fraktalternativ och väljer om du vill ha lager-synk via Shopify-integration. Allt sker i chatten, och du ser förändringarna direkt. När du är nöjd publicerar du på egen domän eller testar på en kostnadsfri subdomän först."
+    },
+    {
+      "heading": "Betalning, frakt och mobilanpassning utan krångel",
+      "body": "Stripe-integrationen gör att kunder kan betala med kort direkt på din sajt – inga omvägar till externa kassor. Du ställer in fraktzoner, hanteringsavgifter och eventuella rabattkoder via chatten. Webshopen är mobilanpassad från start, vilket är avgörande när många Malmö-kunder handlar från telefonen på pendeln eller i soffan. Google Analytics följer med så du ser var besökarna kommer ifrån och vilka produkter som säljer bäst."
+    },
+    {
+      "heading": "Lokal e-handel i Malmö – från idé till lansering",
+      "body": "Många Malmö-företag vill kombinera fysisk butik med online-försäljning, eller starta rent digitalt för att nå kunder i hela Skåne och resten av Sverige. Sajtmaskin passar lika bra för vintage-butiken på Möllan som för hantverkaren i Limhamn eller designstudion i Västra Hamnen. Du kan lägga till bokningsfunktion via Cal.com om du säljer workshops eller konsultationer, och Shopify-kopplingen hjälper dig synka lager om du har flera försäljningskanaler."
+    },
+    {
+      "heading": "Ingen bindningstid och full kontroll över koden",
+      "body": "Du betalar ingen månadskostnad för hosting om du väljer subdomän, och det finns ingen bindningstid. Vill du flytta webshopen till en annan leverantör kan du exportera hela koden. Det gör Sajtmaskin till ett lågrisk-alternativ för nystartade e-handlare i Malmö som vill testa marknaden utan att låsa sig vid dyra avtal. Uppdatera produkter, priser och kampanjer när du vill – direkt i chatten."
+    },
+    {
+      "heading": "Svenskt gränssnitt och support från Pretty Good AB",
+      "body": "Plattformen är byggd i Sverige av Pretty Good AB, med allt från gränssnitt till support på svenska. Det betyder inga översättningsfel, inga tidszoner att brottas med och inga konstiga formuleringar i kassan. Du får hjälp på ditt eget språk om något krånglar, och AI:n förstår svenska produktbeskrivningar, kategorier och kampanjtexter utan problem."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag lansera en webshop i Malmö med Sajtmaskin?",
+      "a": "De flesta får en fungerande webshop på 10–30 minuter. Du chattar om produkter, betalmetoder och design, kopplar Stripe och publicerar. Vill du finjustera texter och bilder tar det förstås längre, men grundstrukturen är klar direkt."
+    },
+    {
+      "q": "Kan jag sälja fysiska produkter med frakt till hela Sverige?",
+      "a": "Ja. Du ställer in fraktzoner och priser via chatten – till exempel en kostnad för Malmö, en för Skåne och en för resten av landet. Stripe hanterar betalningen och kunden får orderbekräftelse automatiskt."
+    },
+    {
+      "q": "Kostar det något att ha webshopen publicerad?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän behöver du registrera den hos en domänleverantör, men själva plattformen har ingen bindningstid eller dolda avgifter. Stripe tar en liten procent per transaktion."
+    },
+    {
+      "q": "Fungerar webshopen bra på mobil för Malmö-kunder?",
+      "a": "Ja, alla sidor är mobilanpassade från start. Många kunder handlar från telefonen, så kundvagn, produktbilder och kassan är byggda för att fungera smidigt på små skärmar."
+    },
+    {
+      "q": "Kan jag integrera webshopen med min fysiska butik i Malmö?",
+      "a": "Via Shopify-integrationen kan du synka lager och produkter mellan online och butik. Det gör det enklare att hålla koll på vad som finns i lager och undvika att sälja slut varor dubbelt."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad eller bindningstid. Det ger dig full kontroll och möjlighet att flytta webshopen till en annan leverantör om dina behov förändras."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för workshops eller events?",
+      "a": "Ja, via Cal.com-integrationen. Perfekt om du säljer både produkter och kurser, eller vill erbjuda personlig styling, konsultation eller andra tjänster tillsammans med ditt sortiment."
+    }
+  ],
+  "localOrIndustryContext": "Malmö har en växande e-handelsscen med allt från vintage och design till lokalproducerad mat och hantverksvaror. Många företag i Västra Hamnen, Möllevången och Limhamn vill nå kunder digitalt utan att ge bort marginalerna till stora marknadsplatser. En egen webshop ger full kontroll över varumärke, priser och kundrelationer.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Malmö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

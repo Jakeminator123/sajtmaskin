@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "malmo/konsult",
+  "title": "Hemsida konsult Malmö – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet i Malmö. AI bygger sajten åt dig med bokning, case och kontaktformulär. Klar på minuter.",
+  "h1": "Hemsida för konsulter i Malmö",
+  "heroSub": "Bygg en professionell konsultsajt med AI – komplett med bokning, portfolio och kontaktformulär, anpassad för Malmös företagsklimat.",
+  "introParagraphs": [
+    "Som konsult i Malmö behöver du en hemsida som snabbt visar vad du kan och gör det enkelt för klienter att boka tid. Sajtmaskin bygger din sajt på minuter via chat – du beskriver din verksamhet, så genererar AI:n en färdig sajt med alla funktioner du behöver.",
+    "Du får bokning via Cal.com, kontaktformulär, case-sektion och tjänstebeskrivningar. Publicera på egen domän eller använd gratis hosting på subdomän. Allt på svenska, byggt för svenska konsulter som vill synas professionellt utan att lägga veckor på teknik."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Konsultsajt anpassad för Malmös marknad",
+      "body": "Malmö har en stark konsultmarknad inom allt från IT och kommunikation till hållbarhet och affärsutveckling. Din hemsida behöver tydligt visa din expertis, tidigare uppdrag och hur klienter når dig. Sajtmaskin bygger en sajt som passar just din nisch – med case, tjänstebeskrivningar och referenssektion. AI:n förstår svenska konsultbranschen och skapar innehåll som talar direkt till dina potentiella klienter i regionen."
+    },
+    {
+      "heading": "Bokningsfunktion och kontaktformulär klart från start",
+      "body": "Som konsult är din tid pengar. Därför integrerar Sajtmaskin Cal.com direkt i sajten så klienter kan boka kostnadsfria samtal eller möten utan mejlpingpong. Kontaktformuläret är anpassat för förfrågningar och du kan lägga till betalning via Stripe om du säljer digitala produkter eller paketerade tjänster. Allt är klart när sajten publiceras – ingen extra setup krävs."
+    },
+    {
+      "heading": "Bygg sajten via chat, publicera direkt",
+      "body": "Du chattar med AI:n och beskriver din konsultverksamhet: vilka tjänster du erbjuder, vilka branscher du jobbar med, dina viktigaste case. På minuter genereras en komplett sajt med startsida, om-sida, tjänstesidor och kontakt. Du kan redigera texter, byta bilder och justera layout direkt i gränssnittet. När du är nöjd publicerar du på egen domän eller använder gratis subdomän. Ingen kod, ingen bindningstid."
+    },
+    {
+      "heading": "Ingen månadsavgift, full äganderätt",
+      "body": "Hosting på subdomän kostar inget per månad. Vill du använda egen domän fixar du det med ett klick. Du äger alltid din sajt och kan exportera koden när som helst – ingen inlåsning. Perfekt för konsulter som vill ha full kontroll och flexibilitet. Sajtmaskin tar ingen provision på dina bokningar eller betalningar, allt går direkt till dig."
+    },
+    {
+      "heading": "Svenskt gränssnitt och support",
+      "body": "Sajtmaskin är byggt i Sverige av Pretty Good AB. Hela plattformen är på svenska, supporten pratar svenska och AI:n förstår svensk affärskultur. Du slipper översätta termer eller anpassa utländska mallar. Allt är gjort för svenska konsulter som vill ha en professionell närvaro online utan krångel."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få min konsultsajt live?",
+      "a": "De flesta konsulter har en färdig sajt på 10–30 minuter. Du beskriver din verksamhet i chatten, AI:n genererar sajten, du gör eventuella justeringar och publicerar. Bokning och kontaktformulär är klara direkt."
+    },
+    {
+      "q": "Kan jag visa case och tidigare uppdrag på sajten?",
+      "a": "Absolut. Du kan lägga till en portfolio- eller case-sektion där du beskriver projekt, resultat och vilka klienter du jobbat med. Perfekt för att bygga trovärdighet och visa vad du levererar."
+    },
+    {
+      "q": "Fungerar bokningsfunktionen med min kalender?",
+      "a": "Ja, Cal.com integreras med Google Calendar, Outlook och andra kalendertjänster. Klienter ser din tillgänglighet i realtid och bokar direkt – du får notis och mötet hamnar i din kalender automatiskt."
+    },
+    {
+      "q": "Kostar det något att ha sajten live i Malmö?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän (typ dittnamn.se) betalar du bara för domänen hos din registrar. Inga dolda avgifter eller bindningstid."
+    },
+    {
+      "q": "Kan jag ta betalt för digitala produkter eller paketerade tjänster?",
+      "a": "Ja, Stripe-integration låter dig sälja e-böcker, mallar, utbildningar eller fasta konsultpaket direkt på sajten. Betalningen går till ditt Stripe-konto, Sajtmaskin tar ingen provision."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajtkoden när som helst och flytta den till egen hosting eller annan plattform. Ingen inlåsning, du äger alltid ditt innehåll och din sajt."
+    },
+    {
+      "q": "Passar Sajtmaskin för alla typer av konsulter i Malmö?",
+      "a": "Ja, oavsett om du jobbar med IT, kommunikation, HR, hållbarhet, ekonomi eller affärsutveckling. AI:n anpassar innehåll och struktur efter din nisch och målgrupp."
+    }
+  ],
+  "localOrIndustryContext": "Malmö har en växande konsultmarknad med stark koppling till Öresundsregionen, Copenhagen och internationella nätverk. Många konsulter jobbar med hållbarhet, tech, kreativa branscher och offentlig sektor. En professionell hemsida är ofta första kontakten med nya klienter.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Malmö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

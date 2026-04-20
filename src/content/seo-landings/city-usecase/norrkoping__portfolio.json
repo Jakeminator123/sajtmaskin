@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "norrkoping/portfolio",
+  "title": "Hemsida Portfolio Norrköping – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfoliosajt i Norrköping med AI. Publicera på egen domän, ingen bindningstid. Perfekt för kreatörer och konsulter.",
+  "h1": "Hemsida Portfolio Norrköping",
+  "heroSub": "Bygg en portfoliosajt som visar ditt arbete – med AI, på minuter, utan kod.",
+  "introParagraphs": [
+    "En portfoliosajt är din digitala visitkort som visar vad du kan. I Norrköping, med sin starka kreativa sektor och växande tech-miljö, behöver frilansare, formgivare, fotografer och konsulter en sajt som gör intryck direkt. Sajtmaskin låter dig bygga en komplett portfolio genom att chatta med AI – du beskriver vad du gör, laddar upp bilder och texter, och får en färdig sajt på minuter.",
+    "Du publicerar på din egen domän utan månadskostnad för hosting på subdomän. Ingen bindningstid, inget krångel med kod. Allt sköts på svenska, och sajten är byggd för att synas i sökmotorer och imponera på besökare. Perfekt för dig som vill ha en professionell närvaro utan att lägga veckor på utveckling.",
+    "Oavsett om du är illustratör i Knäppingsborg, arkitekt vid Industrilandskapet eller konsult i city – din portfolio blir klar samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför din portfolio behöver en egen sajt",
+      "body": "Sociala medier är bra för synlighet, men en egen portfoliosajt ger dig full kontroll. Du äger innehållet, styr designen och kan visa exakt de projekt du vill lyfta fram. I Norrköping, där allt från reklambyrån till byggföretaget letar efter lokala kreatörer, gör en proffsig sajt skillnad. Den visar att du menar allvar och gör det enkelt för kunder att boka eller kontakta dig direkt. Med Sajtmaskin får du dessutom Cal.com-integration för bokning och Google Analytics för att se vad besökare är intresserade av."
+    },
+    {
+      "heading": "Så bygger du portfolio med AI",
+      "body": "Du startar en chatt och beskriver vad du gör – fotograf, designer, copywriter, whatever. AI:n föreslår struktur, sektioner och layout. Du laddar upp bilder från dina bästa projekt, skriver korta beskrivningar, och justerar färger och typsnitt tills det känns rätt. Sajten genereras i realtid, och du ser direkt hur den ser ut. Ingen kod, inga mallar som ser likadana ut. När du är nöjd publicerar du på din egen domän eller testar på en gratis subdomän. Exportera koden när du vill – du är aldrig låst."
+    },
+    {
+      "heading": "Funktioner som gör din portfolio komplett",
+      "body": "En portfoliosajt behöver mer än snygga bilder. Sajtmaskin ger dig kontaktformulär, projektgallerier, om-sida och case-beskrivningar – allt optimerat för mobil och sökmotorer. Vill du ta betalt för konsultation eller sälja prints? Integrera Stripe. Behöver kunder boka tid? Koppla in Cal.com. Allt sköts utan plugins eller krångliga inställningar. Du fokuserar på ditt arbete, AI:n fixar tekniken."
+    },
+    {
+      "heading": "Lokal synlighet i Norrköping",
+      "body": "Din portfolio ska synas när någon i Norrköping söker efter det du gör. Sajtmaskin bygger sajter med ren kod och snabb laddning, vilket sökmotorer älskar. Du kan enkelt lägga till lokala referenser – stadsdelar, projekt, samarbeten – som gör att sajten rankar bättre lokalt. Koppla på Google Analytics så ser du var trafiken kommer ifrån och vilka projekt som drar mest intresse. Allt på svenska, allt transparent."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Många sajbyggare låser in dig med månadskostnader och dolda avgifter. Sajtmaskin tar betalt en gång för bygget, och hosting på subdomän är gratis. Vill du ha egen domän fixar du det själv eller genom oss. Ingen bindningstid – exportera koden och flytta när du vill. Byggt i Sverige av Pretty Good AB, med svensk support och transparens i varje steg."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfoliosajt?",
+      "a": "De flesta har en färdig sajt på 30–60 minuter. Du chattar med AI:n, laddar upp bilder och texter, justerar design – och publicerar. Inget krångel, ingen väntan på utvecklare."
+    },
+    {
+      "q": "Kan jag visa olika typer av projekt på samma sajt?",
+      "a": "Absolut. Du kan skapa separata sektioner eller gallerier för foto, design, text, video – vad du än jobbar med. AI:n hjälper dig strukturera så besökare enkelt hittar rätt."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, allt sköts genom chat. AI:n genererar koden, du ser resultatet direkt och justerar med vanligt språk. Vill du gå in och tweaka kod själv kan du exportera och göra det, men det är frivilligt."
+    },
+    {
+      "q": "Funkar sajten bra på mobil?",
+      "a": "Ja, alla sajter är responsiva från start. Majoriteten av besökare kommer från mobil, så AI:n optimerar layout, bilder och knappar för alla skärmstorlekar automatiskt."
+    },
+    {
+      "q": "Kan jag koppla på bokning eller betalning?",
+      "a": "Ja. Integrera Cal.com för att låta kunder boka möten direkt, eller Stripe om du vill ta betalt för tjänster, prints eller digitala produkter. Allt sätts upp utan kod."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på subdomän är gratis. Vill du ha egen domän betalar du registrering och ev. hosting hos valfri leverantör. Inga månadskostnader från Sajtmaskin, ingen bindningstid."
+    },
+    {
+      "q": "Är Sajtmaskin lämpligt för kreatörer i Norrköping specifikt?",
+      "a": "Ja, plattformen är byggd i Sverige och fungerar perfekt för lokala frilansare, designers, fotografer och konsulter. Du kan enkelt lägga till lokala referenser och optimera för sökningar i Norrköping."
+    }
+  ],
+  "localOrIndustryContext": "Norrköping har en stark kreativ sektor med formgivare, arkitekter och mediebolag knutna till Industrilandskapet och campus. Många frilansare och konsulter behöver en portfoliosajt som både imponerar och syns lokalt – utan att lägga veckor på utveckling.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/norrkoping",
+      "label": "Skapa hemsida i Norrköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Norrköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

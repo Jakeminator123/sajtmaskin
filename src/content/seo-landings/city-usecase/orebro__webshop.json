@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "orebro/webshop",
+  "title": "Hemsida Webshop Örebro – Bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett webshop för ditt Örebroföretag med AI. Ingen kod, klart på minuter. Stripe-integration, mobilanpassat och SEO-optimerat.",
+  "h1": "Webshop-hemsida i Örebro",
+  "heroSub": "Bygg en komplett e-handelsplattform för ditt Örebroföretag – direkt i chatten, utan kod, klar att sälja på minuter.",
+  "introParagraphs": [
+    "En webshop behöver mer än snygga produktbilder. Den ska hantera betalningar smidigt, synas i sökmotorer när Örebrobor letar efter det du säljer, och fungera lika bra på mobilen som på datorn. Sajtmaskin bygger allt det där åt dig genom en konversation – du beskriver vad du säljer, resten sköter AI:n.",
+    "Du får en färdig e-handel med Stripe-integration för kortbetalningar, produktsidor optimerade för Google, och ett gränssnitt som fungerar för både dig och dina kunder. Publicera på din egen domän direkt, eller testa kostnadsfritt på en subdomän. Ingen bindningstid, ingen månadshyra för hosting – bara en webshop som är redo att ta emot beställningar.",
+    "Oavsett om du driver konceptbutik på Drottninggatan, säljer hantverkskaffe från Örebro Saluhall eller skickar lokala delikatesser över hela landet – din webshop är igång samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du en webshop med AI",
+      "body": "Du startar en chatt och berättar vad du säljer – ekologisk hudvård, vintage-kläder, träningsredskap, whatever. Sajtmaskin frågar vad du behöver: produktkategorier, betalningsalternativ, fraktinfo. AI:n genererar sedan hela sajten: startsida, produktsidor, kassan, villkor. Du ser resultatet direkt, justerar texter eller bilder om du vill, och publicerar. Stripe kopplas in så du kan ta betalt med kort. Shopify-integration finns om du vill synka ett större lager. Allt på svenska, allt utan en rad kod."
+    },
+    {
+      "heading": "Vad en Örebro-webshop behöver för att sälja",
+      "body": "Örebrokunderna handlar både lokalt och online – många söker specifikt efter företag i regionen när de vill stötta lokala aktörer eller hämta varor själva. Din webshop behöver tydlig info om leverans och upphämtning, gärna med Örebro-områden markerade. SEO-texterna ska nämna både vad du säljer och var du finns, så du dyker upp när någon googlar \"ekologiskt te Örebro\" eller \"cykeldelar Örebro köp online\". Sajtmaskin bygger in det automatiskt – produktsidor, meta-taggar och strukturerad data som sökmotorer älskar."
+    },
+    {
+      "heading": "Betalning, frakt och integration",
+      "body": "Stripe-integrationen gör att du tar emot kortbetalningar direkt – Visa, Mastercard, mobila plånböcker. Inga krångliga avtal, bara koppla ditt Stripe-konto. Vill du erbjuda Swish eller faktura kompletterar du via Stripe eller tredjepartstjänster. Fraktinställningar konfigurerar du själv: fasta avgifter, fri frakt över visst belopp, eller upphämtning i Örebro. Shopify-kopplingen passar om du har ett stort lager och vill synka lagersaldon automatiskt. Google Analytics följer med så du ser vilka produkter som säljer och var trafiken kommer ifrån."
+    },
+    {
+      "heading": "Mobilanpassat och snabbt – utan krångel",
+      "body": "Hälften av dina kunder surfar på mobilen – på bussen, i lunchrummet, på Gustavsvik. Sajtmaskin bygger responsiva webshoppar där produktbilder, kassa och menyval funkar lika smidigt på iPhone som på laptop. Sidorna laddas snabbt, vilket både Google och otåliga kunder uppskattar. Du behöver ingen egen server eller teknisk support – allt hostas säkert, och du kan exportera hela koden om du senare vill flytta. Inga dolda avgifter, inga bindningstider."
+    },
+    {
+      "heading": "Från idé till första beställningen – samma dag",
+      "body": "Traditionella e-handelsplattformar kräver veckors setup: temaval, plugin-jakt, betalgateway-byråkrati. Med Sajtmaskin chattar du klart på en timme. Ladda upp produktbilder, skriv beskrivningar (eller låt AI:n föreslå), koppla Stripe, publicera. Din webshop är live och redo att ta emot beställningar medan konkurrenterna fortfarande jämför hostingleverantörer. Perfekt för pop-up-butiker, säsongsförsäljning eller när du helt enkelt vill testa om din produktidé säljer – utan att investera tusentals kronor i förväg."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en webshop igång i Örebro?",
+      "a": "De flesta har en fungerande webshop klar på 1–3 timmar. Du chattar med AI:n om dina produkter, laddar upp bilder, kopplar Stripe för betalningar och publicerar. Vill du finjustera texter och layout kan det ta lite längre, men grundfunktionen – produktsidor, kassa, kortbetalning – är igång samma dag."
+    },
+    {
+      "q": "Kan jag erbjuda upphämtning i Örebro istället för frakt?",
+      "a": "Absolut. Du ställer in leveransalternativ som passar dig: endast frakt, endast upphämtning, eller båda. Många Örebro-företag erbjuder \"hämta i butik\" på Drottninggatan eller \"hämta på kontoret\" för att slippa fraktkostnader. Du skriver själv instruktionerna som visas i kassan."
+    },
+    {
+      "q": "Kostar det något att ha webshopen live?",
+      "a": "Publicerar du på Sajtmaskins subdomän (t.ex. dinbutik.sajtmaskin.se) är hostingen gratis – ingen månadshyra. Vill du använda egen domän (dinbutik.se) behöver du köpa den hos en domänleverantör och peka den mot sajten. Stripe tar en liten procent per transaktion, men det är standardavgifter – inga dolda kostnader från Sajtmaskin."
+    },
+    {
+      "q": "Vilka betalmetoder kan jag erbjuda mina kunder?",
+      "a": "Stripe-integrationen hanterar Visa, Mastercard, Apple Pay och Google Pay direkt. Vill du lägga till Swish, Klarna eller faktura kan du komplettera via Stripes utökade tjänster eller integrera tredjepartslösningar. De flesta svenska webshoppar kör Stripe + Swish, vilket täcker 95 procent av kunderna."
+    },
+    {
+      "q": "Syns min webshop på Google när folk söker i Örebro?",
+      "a": "Ja, Sajtmaskin bygger in SEO-grunderna: produktsidor med unika titlar och beskrivningar, snabba laddningstider, mobilanpassning och strukturerad data. Nämn Örebro i dina produkttexter och om-oss-sidan så ökar chansen att du rankar för lokala sökningar som \"handgjorda ljus Örebro\" eller \"sportnutrition Örebro online\"."
+    },
+    {
+      "q": "Kan jag integrera webshopen med mitt befintliga Shopify-lager?",
+      "a": "Ja, Shopify-integration finns. Det betyder att du kan synka produkter, priser och lagersaldon från Shopify till din Sajtmaskin-webshop. Praktiskt om du redan har ett stort lager upplagt och vill ha en snyggare eller snabbare frontend än Shopifys standardteman."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill – ingen bindningstid. Ta med dig HTML, CSS och all content till en annan host eller utvecklare. Dina produktdata och kunduppgifter äger du, så du är aldrig låst. Många testar Sajtmaskin för att komma igång snabbt och stannar för att det funkar, men dörren står alltid öppen."
+    }
+  ],
+  "localOrIndustryContext": "Örebro har en växande e-handelsscen – från lokala matproducenter på Saluhallen till modebutiker på Drottninggatan som kompletterar med webshop. Många kunder söker medvetet efter Örebro-baserade butiker för snabb upphämtning eller för att stötta lokalt. En webshop ger dig räckvidd utanför city samtidigt som du kan erbjuda click-and-collect för Örebrobor som vill slippa frakten.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/orebro",
+      "label": "Skapa hemsida i Örebro"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Örebro. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

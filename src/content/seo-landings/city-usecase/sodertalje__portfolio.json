@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "sodertalje/portfolio",
+  "title": "Hemsida Portfolio Södertälje – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfolio-hemsida i Södertälje med AI. Ingen kod, klart på minuter. Publicera på egen domän utan bindningstid.",
+  "h1": "Portfolio-hemsida i Södertälje",
+  "heroSub": "Bygg en professionell portfolio som visar ditt arbete – helt utan kod, klar på minuter med svensk AI.",
+  "introParagraphs": [
+    "En portfolio-hemsida ska visa vad du kan, inte hur bra du är på att koda. Med Sajtmaskin skapar du en komplett portfolio-sajt genom att chatta med vår AI på svenska. Berätta vad du gör, ladda upp bilder på dina projekt, så bygger AI:n en sajt som passar din bransch – oavsett om du är fotograf, designer, konstnär, hantverkare eller frilansare i Södertälje.",
+    "Du publicerar på din egen domän utan månadskostnad för hosting på subdomän. Vill du ha bokningsfunktion kopplar du Cal.com, behöver du ta betalt integrerar du Stripe. Ingen bindningstid och du kan exportera koden när du vill. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bygg din portfolio genom att chatta",
+      "body": "Du startar med att beskriva vad du vill visa: dina projekt, din bakgrund, dina tjänster. AI:n ställer följdfrågor om bildgallerier, kontaktformulär och struktur. På minuter har du en sajt med projektgallerier, om-sida och kontaktsektion. Allt anpassat efter hur du vill presentera ditt arbete. Du chattar på svenska och ser resultatet direkt – inga mallar att välja mellan, ingen teknisk terminologi att förstå."
+    },
+    {
+      "heading": "Funktioner för kreativa i Södertälje",
+      "body": "En portfolio behöver bildgallerier som laddar snabbt och ser professionella ut. Sajtmaskin bygger responsiva gallerier som fungerar lika bra på mobil som dator. Vill du att kunder ska kunna boka tid? Integrera Cal.com direkt i sajten. Säljer du prints eller design? Koppla Stripe för betalning eller Shopify om du har en hel webshop. Google Analytics följer med om du vill se hur besökare hittar dina projekt."
+    },
+    {
+      "heading": "Från Södertälje till hela Sverige – på egen domän",
+      "body": "Du publicerar på din egen domän och äger innehållet helt. Hosting på subdomän kostar inget per månad, vill du ha egen domän ordnar du det genom vilken registrar du vill. Sajten blir sökmotoroptimerad från start så att kunder i Södertälje och resten av Sverige hittar dig. Behöver du uppdatera portfolio med nya projekt chattar du bara med AI:n igen – inga krångliga CMS-gränssnitt att lära sig."
+    },
+    {
+      "heading": "Ingen bindningstid, exportera när du vill",
+      "body": "Sajtmaskin låser inte in dig. Vill du flytta sajten till egen server eller annan hosting kan du exportera hela koden. Inget abonnemang som förlängs automatiskt, inga dolda avgifter. Du betalar för det du använder och kan när som helst ta din portfolio vidare. Perfekt om du testar olika plattformar eller vill ha full kontroll över din närvaro online."
+    },
+    {
+      "heading": "Svenskt gränssnitt, svensk support",
+      "body": "Allt i Sajtmaskin är på svenska – AI:n, gränssnittet, dokumentationen och supporten. Du slipper översätta dina texter eller gissa dig till vad engelska termer betyder. Byggt i Sverige av Pretty Good AB, med förståelse för hur svenska kreativa yrkesutövare arbetar och vad en portfolio-sajt behöver för att fungera på den svenska marknaden."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en portfolio-sajt live?",
+      "a": "De flesta har en färdig sajt på 10–30 minuter. Du chattar med AI:n, laddar upp bilder och justerar det du vill ändra. Sedan publicerar du direkt. Har du bilderna redo och vet ungefär vad du vill visa går det ännu snabbare."
+    },
+    {
+      "q": "Kan jag visa olika typer av projekt i gallerier?",
+      "a": "Ja, AI:n hjälper dig strukturera projekt i kategorier eller separata gallerier. Du kan ha ett galleri för fotouppdrag, ett för design, ett för konst – precis hur du vill organisera ditt arbete. Varje projekt kan ha egen beskrivning och flera bilder."
+    },
+    {
+      "q": "Fungerar sajten bra för kunder i Södertälje och resten av Sverige?",
+      "a": "Sajten blir sökmotoroptimerad och responsiv från start. Besökare från Södertälje, Stockholm eller var som helst får snabb laddning och bra upplevelse på alla enheter. Du kan lägga till ortsinformation om du vill synas lokalt eller hålla det mer allmänt om du jobbar nationellt."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på subdomän kostar inget per månad. Vill du ha egen domän betalar du registrars vanliga pris (ofta 100–150 kr/år). Integrationer som Cal.com och Stripe har egna prismodeller, men själva kopplingen i Sajtmaskin kostar inget extra. Inga dolda avgifter."
+    },
+    {
+      "q": "Kan jag uppdatera portfolio när jag får nya projekt?",
+      "a": "Absolut. Du chattar med AI:n och ber om att lägga till nya bilder, ändra texter eller ta bort gamla projekt. Inga komplicerade admin-paneler – bara beskriv vad du vill ändra så fixar AI:n det. Uppdateringar tar oftast bara några minuter."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, du behöver inte kunna en enda rad kod. Allt sker genom chat på svenska. AI:n bygger sajten, du säger vad du vill ha och ser resultatet direkt. Vill du ändå gå in och tweaka kod senare kan du exportera allt, men det är frivilligt."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajten när du vill. Ingen bindningstid, inga avgifter för att ta ut din kod. Du äger allt innehåll och kan flytta sajten till vilken hosting du vill. Sajtmaskin låser inte in dig – du bestämmer helt själv hur länge du vill använda plattformen."
+    }
+  ],
+  "localOrIndustryContext": "Södertälje har en bred kreativ sektor med allt från industridesign och grafik till fotografi och hantverk. En portfolio-sajt hjälper dig nå både lokala uppdragsgivare och kunder i hela Stockholmsregionen. Med egen domän och SEO-optimering syns ditt arbete när folk söker efter din kompetens.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/sodertalje",
+      "label": "Skapa hemsida i Södertälje"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Södertälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

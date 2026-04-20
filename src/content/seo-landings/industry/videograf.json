@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "videograf",
+  "title": "Hemsida för videograf – bygg en proffsig portfolio på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en hemsida för videograf med AI. Visa ditt film-reel, ta bokningar och presentera dina tjänster – utan kod. Klar på minuter.",
+  "h1": "Hemsida för videograf",
+  "heroSub": "Bygg en portfolio-sajt som visar dina bästa filmer, tar bokningar och konverterar besökare till kunder – utan att röra kod.",
+  "introParagraphs": [
+    "Som videograf behöver du en hemsida som gör två saker: visa upp dina bästa projekt så att potentiella kunder direkt ser vad du kan, och göra det enkelt för dem att boka dig. En bra sajt fungerar som din digitala portfolio och ditt kontor i ett – den visar företagsfilmer, bröllopsklipp eller dokumentärer, listar dina tjänster och priser, och låter besökare boka direkt via kalender.",
+    "Med Sajtmaskin bygger du en komplett hemsida för videograf på minuter. Du chattar med AI:n om vad du filmar, vilka paket du erbjuder och hur du vill presentera ditt arbete. Plattformen genererar en sajt med videospelare, portfoliogalleri, tjänstesidor och bokningsfunktion. Publicera på egen domän eller testa gratis på en subdomän – ingen bindningstid, ingen kod."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad ska en hemsida för videograf innehålla?",
+      "body": "En videografsajt behöver en startsida med ditt bästa reel eller showreel högst upp – det är det första besökare vill se. Sedan en portfoliosida där du delar in projekt efter kategori: företagsfilm, bröllop, event, dokumentär eller produktfilm. Varje projekt bör ha en titel, kort beskrivning och inbäddad video från Vimeo eller YouTube. En Om-sida berättar vem du är, vilken utrustning du använder och din stil. En Tjänster-sida listar paket och priser, exempelvis halvdagsfilm, heldagsproduktion eller färdig redigering. Slutligen en Kontakt-sida med bokningskalender, formulär eller länk till Cal.com så kunder kan boka direkt."
+    },
+    {
+      "heading": "Varför videografer behöver en egen sajt",
+      "body": "Sociala medier är bra för räckvidd, men de äger din publik och algoritmen styr vem som ser dina filmer. En egen hemsida ger dig full kontroll: du väljer layout, visar projekt i den ordning du vill och samlar all information på ett ställe. När någon googlar 'videograf Stockholm' eller 'bröllopsfilm Göteborg' kan din sajt dyka upp – det gör inte din Instagram-profil lika lätt. En proffsig hemsida signalerar också att du är etablerad, vilket är viktigt när företag eller brudpar jämför alternativ. Dessutom kan du integrera bokningssystem och betalning så kunden kan reservera datum och betala handpenning direkt, utan mejlkavaj."
+    },
+    {
+      "heading": "Så bygger du en videografsajt med Sajtmaskin",
+      "body": "Logga in på Sajtmaskin och berätta i chatten vad du gör: 'Jag filmar företagsfilmer och event i Malmö, vill visa mitt reel och ta bokningar.' AI:n föreslår struktur – startsida med hero-video, portfoliogalleri sorterat på kategori, tjänstesida med paket och priser, samt kontaktsida. Du kan be om ändringar: 'Lägg till en referenssida med kundcitat' eller 'Gör en dedikerad sida för bröllopsfilm'. Ladda upp videos genom att bädda in från Vimeo eller YouTube, eller länka direkt. Koppla Cal.com för bokning och Stripe om du vill ta betalning online. Publicera på din egen domän eller testa på en gratis subdomän. Allt på svenska, ingen kod, klart på minuter."
+    },
+    {
+      "heading": "Bokningar och betalning direkt på sajten",
+      "body": "Sajtmaskin integrerar Cal.com så besökare kan se dina lediga datum och boka videouppdrag direkt. Du sätter regler för hur långt i förväg någon kan boka, hur lång tid varje session tar och vilka dagar du jobbar. Koppla Stripe om du vill ta handpenning eller full betalning online – särskilt användbart för bröllopsfilmare som ofta bokas månader i förväg. Kunden får automatisk bekräftelse via mejl och du slipper dubbelbokning. Allt synkas med din Google Calendar eller annan kalender, så du har koll på alla uppdrag på ett ställe."
+    },
+    {
+      "heading": "Ingen bindningstid, exportera koden när du vill",
+      "body": "Sajtmaskin har ingen låsning. Hosting på subdomän kostar inget per månad, och om du vill använda egen domän betalar du bara för den. Behöver du flytta sajten senare? Exportera hela koden och ta den till valfri hosting. Det betyder att du kan starta smidigt, testa layouter och innehåll, och sedan skala upp eller migrera när verksamheten växer. Perfekt för videografer som vill ha en proffsig sajt igång snabbt utan att binda sig till dyra årsavtal eller komplicerade CMS-plattformar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag bädda in videos från Vimeo och YouTube?",
+      "a": "Ja, Sajtmaskin stödjer inbäddning från både Vimeo och YouTube. Du klistrar in länken i chatten eller i redigeraren så genererar AI:n rätt kod. Det fungerar för enskilda videos, showreels och hela playlists. Vimeo är populärt bland videografer för bättre kvalitet och färre annonser."
+    },
+    {
+      "q": "Hur visar jag olika typer av projekt, typ företag och bröllop?",
+      "a": "Du kan skapa separata portfoliosidor eller kategorier. Be AI:n 'Skapa en sida för företagsfilm och en för bröllopsfilm' så får du två undersidor med egna gallerier. Varje kategori kan ha egen intro, egna videos och eget formulär. Det gör det lätt för besökare att hitta rätt typ av projekt."
+    },
+    {
+      "q": "Kan kunder boka videouppdrag direkt på sajten?",
+      "a": "Ja, genom Cal.com-integrationen. Du kopplar ditt Cal.com-konto, sätter lediga tider och tjänstetyper – exempelvis 'Halvdagsfilm 4 timmar' eller 'Heldagsproduktion 8 timmar'. Besökare ser din kalender, väljer datum och bokar. Du får notis via mejl och allt synkas med din egen kalender."
+    },
+    {
+      "q": "Kostar det att ha sajten publicerad?",
+      "a": "Hosting på Sajtmaskins subdomän (dinvideograf.sajtmaskin.se) är gratis utan månadskostnad. Vill du använda egen domän (exempelvis minvideografi.se) betalar du bara för domänregistreringen, ingen extra hostingavgift från Sajtmaskin. Inga dolda kostnader, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag ta betalt online för handpenning eller hela uppdraget?",
+      "a": "Ja, koppla Stripe-integrationen så kan kunder betala direkt på sajten. Du kan sätta fast pris för paket eller ta handpenning vid bokning. Stripe hanterar kortbetalningar säkert och du får pengarna direkt till ditt konto. Perfekt för bröllopsfilmare som vill säkra bokningen med deposition."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra design eller lägga till sidor?",
+      "a": "Nej, allt sker via chat. Vill du ändra färg, flytta en sektion eller lägga till en ny sida skriver du bara 'Gör headern mörkare' eller 'Lägg till en blogg för filmtips'. AI:n uppdaterar sajten direkt. Vill du ha full kontroll kan du exportera koden senare, men det är frivilligt."
+    },
+    {
+      "q": "Kan jag visa kundrecensioner och case studies?",
+      "a": "Absolut. Be AI:n skapa en referenssida eller en case-sektion. Du kan lägga in citat från nöjda kunder, före/efter-beskrivningar av projekt och inbäddade testimonial-videos. Det bygger förtroende och hjälper nya besökare att fatta beslut snabbare."
+    }
+  ],
+  "localOrIndustryContext": "Videografer i Sverige jobbar ofta med företagsfilm för lokala bolag, bröllopsfilm i sommarsäsongen och eventfilm för konferenser och festivaler. Många använder Vimeo för att visa portfolio med högre kvalitet än YouTube. En svensk hemsida med tydliga priser, bokningskalender och mobilanpassad video-uppspelning gör skillnad när kunder jämför alternativ.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en videograf-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

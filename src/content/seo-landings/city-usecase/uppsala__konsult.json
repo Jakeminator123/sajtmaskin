@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "uppsala/konsult",
+  "title": "Hemsida för konsulter i Uppsala – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet i Uppsala. Ingen kod krävs – bygg via chat, lägg till bokning och publicera direkt.",
+  "h1": "Hemsida för konsulter i Uppsala",
+  "heroSub": "Bygg en professionell konsultsajt på minuter – med bokning, portfolio och allt du behöver för att synas i Uppsala.",
+  "introParagraphs": [
+    "Som konsult i Uppsala behöver du en hemsida som snabbt förklarar vad du gör, visar dina resultat och gör det enkelt för kunder att boka tid. Sajtmaskin låter dig bygga precis en sådan sajt genom att chatta med vår AI – utan kod, designkunskap eller teknisk krångel.",
+    "Du beskriver din konsultverksamhet, vilka tjänster du erbjuder och vad som gör dig unik. AI:n skapar sedan en komplett sajt med tjänstebeskrivningar, kontaktformulär, bokningsfunktion via Cal.com och alla sidor du behöver. Publicera på din egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Sajten blir helt på svenska, optimerad för Uppsala-kunder och klar att visa upp samma dag. Inga bindningstider, inga dolda avgifter – bara en färdig hemsida som hjälper dig att växa din konsultverksamhet."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför konsulter i Uppsala väljer Sajtmaskin",
+      "body": "Konsultbranschen i Uppsala är mångfacetterad – från IT och HR till management och hållbarhet. Oavsett inriktning behöver du en sajt som bygger förtroende snabbt. Sajtmaskin ger dig en professionell närvaro på webben utan att du behöver lägga veckor på design eller tusenlappar på byrå. Du chattar fram din sajt, justerar det du vill och publicerar direkt. Integrationen med Cal.com gör att kunder kan boka möten direkt på sajten, vilket är guld värt när du arbetar med tidsbokade uppdrag."
+    },
+    {
+      "heading": "Allt en konsultsajt behöver – inbyggt från start",
+      "body": "En bra konsulthemsida ska visa vem du är, vad du kan och hur man kommer i kontakt. Sajtmaskin bygger automatiskt sidor för dina tjänster, en om-sida med din bakgrund, referenser eller case, samt kontakt med formulär. Vill du ta betalt för digitala produkter eller kurser? Koppla in Stripe. Behöver du analysera besökare? Google Analytics ingår. Allt är byggt för att du ska kunna fokusera på dina uppdrag istället för teknik."
+    },
+    {
+      "heading": "Från Uppsala till hela Sverige – på din egen domän",
+      "body": "Många konsulter i Uppsala jobbar både lokalt och nationellt. Med Sajtmaskin publicerar du på din egen domän, vilket stärker ditt varumärke och gör sajten lätt att dela. Vill du testa först? Använd en gratis subdomän utan månadskostnad. När du är nöjd flyttar du enkelt till din egen adress. Ingen bindningstid betyder att du kan exportera koden och flytta vidare om du vill – men de flesta stannar för att det helt enkelt fungerar."
+    },
+    {
+      "heading": "Bygg, testa och publicera – samma dag",
+      "body": "Du behöver ingen teknisk bakgrund. Berätta för AI:n om din konsultverksamhet: vilka problem du löser, vilka branscher du jobbar med och vad som skiljer dig från andra. AI:n skriver texter, väljer struktur och skapar en sajt som känns professionell. Du kan justera allt via chatten – byt färg, lägg till bilder, ändra texter. När du är nöjd publicerar du med ett klick. Hela processen tar minuter, inte veckor."
+    },
+    {
+      "heading": "Svenskt, enkelt och utan krångel",
+      "body": "Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och svensk support. Allt innehåll genereras på svenska, anpassat för din målgrupp. Ingen kod, inga mallar att välja mellan, inga plugins att installera. Bara en rak väg från idé till färdig sajt. Perfekt för dig som konsult som vill ha en professionell närvaro online utan att det tar tid från dina uppdrag."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en konsultsajt live?",
+      "a": "De flesta har en färdig sajt på 10–30 minuter. Du chattar med AI:n om din verksamhet, granskar resultatet och publicerar direkt. Vill du finjustera texter eller lägga till fler sidor tar det lite längre, men grundsajten är klar på nolltid."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för konsultmöten?",
+      "a": "Ja, Sajtmaskin integrerar med Cal.com så att kunder kan boka tid direkt på din hemsida. Du kopplar ditt Cal.com-konto och väljer vilka typer av möten du vill erbjuda – perfekt för konsulter som jobbar med tidsbokade uppdrag."
+    },
+    {
+      "q": "Funkar sajten bra för konsulter i Uppsala specifikt?",
+      "a": "Absolut. Du kan skriva texter som riktar sig till Uppsala-marknaden, nämna lokala referenser eller att du jobbar på plats i regionen. Sajten blir SEO-optimerad för sökord som inkluderar Uppsala, vilket hjälper lokala kunder att hitta dig."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Du kan publicera på en Sajtmaskin-subdomän helt gratis, utan månadskostnad. Vill du använda din egen domän behöver du registrera den (ofta runt 100 kr/år hos en domänleverantör) och sedan koppla den till sajten. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag sälja digitala produkter eller kurser via sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du ta betalt för tjänster, kurser, rapporter eller andra digitala produkter. Du sätter upp betalning direkt på sajten och pengarna går till ditt eget Stripe-konto."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra saker?",
+      "a": "Nej, allt sköts via chat. Vill du byta text, lägga till en sida eller ändra färg säger du bara till AI:n. Vill du ha full kontroll kan du exportera koden när som helst, men det är inget krav."
+    },
+    {
+      "q": "Kan jag använda sajten om jag jobbar både i Uppsala och resten av Sverige?",
+      "a": "Ja, du väljer själv hur bred eller lokal din sajt ska vara. Många konsulter skriver att de är baserade i Uppsala men jobbar nationellt. Sajten fungerar lika bra för lokala uppdrag som för kunder i hela landet."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala har en stark konsultmarknad tack vare närheten till universitet, life science-kluster och ett växande näringsliv. Oavsett om du jobbar med akademi, startup-bolag eller etablerade företag behöver du en sajt som snabbt bygger trovärdighet och gör det enkelt för kunder att ta kontakt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Uppsala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

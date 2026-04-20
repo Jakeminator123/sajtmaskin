@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "jonkoping/foretag",
+  "title": "Hemsida företag Jönköping – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag i Jönköping med AI. Publicera på egen domän, inga bindningstider. Bygg via chat på minuter.",
+  "h1": "Hemsida för företag i Jönköping",
+  "heroSub": "Bygg en professionell företagssajt med AI – anpassad för Jönköpings näringsliv, klar på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som låter ditt företag i Jönköping bygga en komplett hemsida via chat, utan att skriva en rad kod. Du beskriver vad företaget gör, vilka tjänster ni erbjuder och vad sajten ska innehålla – så genererar AI:n en färdig sajt med text, struktur och design som passar er profil.",
+    "Publicera direkt på egen domän eller testa kostnadsfritt på en subdomän. Ingen månadskostnad för hosting på subdomän, inga bindningstider, och du kan exportera koden när du vill. Allt gränssnitt, support och innehåll är på svenska, byggt i Sverige av Pretty Good AB.",
+    "Perfekt för företag i Jönköping som vill ha en modern närvaro online – oavsett om du driver konsultverksamhet, hantverksfirma, butik eller tjänsteföretag i regionen."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bygg företagssajten via chat",
+      "body": "Du startar med att chatta med AI:n på svenska. Berätta om ditt företag – vad ni gör, vilka ni hjälper, var i Jönköping ni verkar och vad besökare ska kunna göra på sajten. AI:n ställer följdfrågor om det behövs och genererar sedan en komplett sajt med startsida, tjänstebeskrivningar, om-sida och kontaktformulär. Du kan justera text, byta färger och lägga till fler sidor direkt i chatten. Allt sker på svenska och tar minuter istället för veckor."
+    },
+    {
+      "heading": "Integrationer som passar Jönköpingsföretag",
+      "body": "Sajtmaskin stödjer Cal.com för tidsbokning om du vill att kunder ska boka möten eller konsultationer, Stripe för betalningar om du säljer produkter eller tjänster direkt, Google Analytics för att följa besöksstatistik, och Shopify om du vill koppla en webshop. Alla integrationer aktiveras enkelt via gränssnittet, så du slipper tekniska krångel. Perfekt för lokala företag som vill kombinera information med bokning eller försäljning."
+    },
+    {
+      "heading": "Publicera på egen domän utan bindningstid",
+      "body": "När sajten är klar publicerar du antingen på en kostnadsfri subdomän hos Sajtmaskin eller kopplar din egen domän (till exempel dittforetagsjkpg.se). Ingen månadskostnad för hosting på subdomän, och ingen bindningstid oavsett vilken lösning du väljer. Vill du flytta sajten senare kan du exportera hela koden och drifta den var du vill. Du äger alltid ditt innehåll och din närvaro."
+    },
+    {
+      "heading": "Varför Jönköpingsföretag väljer Sajtmaskin",
+      "body": "Företag i Jönköping uppskattar att allt är på svenska – från gränssnitt till support – och att plattformen är byggd i Sverige. Du slipper engelska verktyg med krångliga menyer eller utländska supporttider. AI:n förstår svenska företagsnamn, orter och branschtermer, så texten blir naturlig och relevant. Många lokala företag har lanserat sajt samma dag de börjat, utan att anlita byrå eller lära sig webbdesign."
+    },
+    {
+      "heading": "Kom igång idag",
+      "body": "Skapa konto på Sajtmaskin, beskriv ditt företag i chatten och se hur AI:n bygger din sajt på minuter. Testa kostnadsfritt på subdomän, publicera på egen domän när du är nöjd, och uppdatera sajten via chat när verksamheten utvecklas. Perfekt för företag i Jönköping som vill ha en professionell sajt utan tekniskt krångel eller stora kostnader."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en företagssajt live i Jönköping?",
+      "a": "De flesta får en färdig sajt på 10–30 minuter. Du chattar med AI:n, granskar resultatet, justerar vid behov och publicerar. Vill du använda egen domän tar det några minuter extra att koppla DNS, men själva sajten är klar direkt."
+    },
+    {
+      "q": "Kostar det något att ha sajten på subdomän?",
+      "a": "Nej, hosting på subdomän hos Sajtmaskin är helt utan månadskostnad. Du betalar bara om du vill publicera på egen domän eller använda premiumfunktioner. Ingen bindningstid oavsett plan."
+    },
+    {
+      "q": "Kan jag lägga till bokning och betalning på sajten?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com för tidsbokning och Stripe för betalningar. Du aktiverar integrationerna i gränssnittet och kopplar dina konton. Perfekt om du vill att kunder ska kunna boka konsultation eller betala direkt på sajten."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för alla typer av företag i Jönköping?",
+      "a": "Ja, plattformen passar konsulter, hantverkare, butiker, tjänsteföretag och de flesta branscher. AI:n anpassar text och struktur efter vad du beskriver. Vill du ha webshop kan du integrera Shopify, vill du ha enkel info-sajt fungerar det lika bra."
+    },
+    {
+      "q": "Är gränssnittet och supporten på svenska?",
+      "a": "Ja, allt är på svenska – gränssnitt, AI-chat, support och dokumentation. Sajtmaskin är byggt i Sverige av Pretty Good AB, så du slipper översatta menyer eller engelska supporttider."
+    },
+    {
+      "q": "Kan jag flytta sajten till annan leverantör senare?",
+      "a": "Ja, du kan exportera hela koden när du vill och drifta sajten var du vill. Ingen bindningstid och inget leverantörslås. Du äger ditt innehåll och kan alltid ta sajten med dig."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, du bygger hela sajten via chat på svenska. AI:n genererar kod, design och text åt dig. Vill du justera något gör du det i chatten eller via det visuella gränssnittet – ingen kodkunskap krävs."
+    }
+  ],
+  "localOrIndustryContext": "Jönköping har en stark företagstradition med allt från tillverkningsindustri och logistik till handel, konsultverksamhet och kreativa byråer. Många lokala företag söker moderna, mobilvänliga sajter som speglar professionalitet utan att kräva stora investeringar eller teknisk expertis.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/jonkoping",
+      "label": "Skapa hemsida i Jönköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Jönköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

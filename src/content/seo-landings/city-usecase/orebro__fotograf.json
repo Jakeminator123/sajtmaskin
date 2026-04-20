@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "orebro/fotograf",
+  "title": "Hemsida fotograf Örebro – snabbt, enkelt och utan kod | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Örebro på minuter. AI-driven plattform med bokningssystem och galleri. Ingen kod krävs.",
+  "h1": "Hemsida för fotografer i Örebro",
+  "heroSub": "Bygg en professionell fotograf-sajt med AI – från portfolio och bokning till kontaktformulär – på minuter istället för veckor.",
+  "introParagraphs": [
+    "Som fotograf i Örebro behöver du en sajt som visar upp ditt arbete professionellt och gör det enkelt för kunder att boka dig. Sajtmaskin låter dig bygga en komplett hemsida genom att chatta med vår AI – du beskriver vad du fotograferar, vilka tjänster du erbjuder och hur du vill presentera ditt arbete, så genererar plattformen en färdig sajt på minuter.",
+    "Din fotograf-sajt får automatiskt bildgallerier, tjänstebeskrivningar, prislista och kontaktformulär. Vill du att kunder ska kunna boka fotosessioner direkt? Integrera Cal.com så hanteras bokningar automatiskt. Behöver du ta förskottsbetalningar för bröllop eller företagsfotografering? Koppla in Stripe. Allt på svenska, utan att du behöver röra kod.",
+    "Du publicerar på din egen domän och kan när som helst exportera hela sajten om du vill flytta den. Ingen bindningstid, ingen dold månadsavgift för hosting på subdomän – bara en plattform som låter dig fokusera på fotograferandet medan AI:n sköter webben."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför fotografer i Örebro behöver en modern hemsida",
+      "body": "Örebro har en växande kreativ scen med allt från bröllop på Örebro slott till företagsevent, familjefotografering och produktfoto för lokala företag. Kunder söker efter fotografer online och förväntar sig att kunna se portfolio, läsa om tjänster och boka direkt – helst utan mejlkonversationer fram och tillbaka. En sajt som visar ditt arbete professionellt och förenklar bokningen ger dig fler uppdrag och mindre administration. Sajtmaskin bygger exakt den typen av sajt, anpassad efter om du fokuserar på porträtt, event, kommersiellt eller något helt annat."
+    },
+    {
+      "heading": "Vad ingår i en fotograf-sajt från Sajtmaskin",
+      "body": "AI:n genererar en komplett struktur: startsida med hero-bild och presentation, dedikerade sidor för varje typ av fotografering du erbjuder (bröllop, porträtt, företag, etc.), bildgallerier som visar ditt bästa arbete, om-sida med din bakgrund och arbetssätt, samt kontaktsida. Du kan lägga till bokningsfunktion via Cal.com så kunder väljer tid direkt i kalendern, prislista med paket och tillägg, samt betalning via Stripe om du tar förskott. Allt byggs på svenska och ser lika bra ut på mobil som dator – viktigt när många bläddrar genom portfolios på telefonen."
+    },
+    {
+      "heading": "Så bygger du din fotograf-sajt med AI",
+      "body": "Du startar en chatt och beskriver din verksamhet: vilken typ av fotografering du gör, vem dina kunder är, vilka tjänster och paket du erbjuder, och vilken känsla sajten ska ha. AI:n föreslår struktur, texter och layout. Du kan be om justeringar direkt i chatten – byt färgschema, lägg till fler gallerisidor, justera prislistor, ändra tonalitet i texterna. När allt ser bra ut publicerar du på din egen domän. Vill du uppdatera galleriet efter ett nytt uppdrag eller lägga till en ny tjänst? Logga in och gör ändringen, ingen teknisk kunskap krävs."
+    },
+    {
+      "heading": "Bokningar, betalningar och gallerihantering",
+      "body": "Många fotografer tappar bokningar för att processen är krånglig. Med Cal.com-integrationen kan kunder välja tid för konsultation eller fotografering direkt på sajten, synkat med din kalender. Stripe-integrationen låter dig ta emot förskottsbetalningar för större uppdrag som bröllop eller företagsfotografering. Gallerifunktionen gör det enkelt att organisera bilder per kategori – bröllop, porträtt, event – så besökare snabbt hittar exempel på det de söker. Allt hanteras i samma gränssnitt, på svenska."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll över din sajt",
+      "body": "Du äger din hemsida. Vill du flytta den till en annan leverantör senare? Exportera koden och ta den med dig. Ingen bindningstid, inga dolda avgifter. Hosting på subdomän kostar inget extra per månad, och du kan när som helst uppgradera till egen domän. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svensk support och GDPR-kompatibel hantering – viktigt när du hanterar kundbilder och bokningsuppgifter."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotograf-sajt med Sajtmaskin?",
+      "a": "De flesta fotografer har en färdig sajt på 15–30 minuter. Du chattar med AI:n, beskriver din verksamhet och önskemål, granskar förslaget och justerar detaljer. Sedan publicerar du. Vill du lägga till fler gallerier eller finjustera texter senare gör du det när du hinner."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotografering på samma sajt?",
+      "a": "Absolut. Du kan ha separata sidor för bröllop, porträtt, företagsfoto, event eller vilka kategorier du jobbar med. Varje sida får egna gallerier och beskrivningar, så besökare enkelt hittar det som är relevant för dem."
+    },
+    {
+      "q": "Fungerar bokningssystemet för både konsultationer och fotosessioner?",
+      "a": "Ja. Cal.com-integrationen låter dig sätta upp olika typer av möten – kostnadsfri konsultation, porträttsession, bröllopsplanering – med olika längd och tillgänglighet. Kunder bokar direkt, och du får notiser automatiskt."
+    },
+    {
+      "q": "Kan jag ta betalt i förskott för större uppdrag?",
+      "a": "Ja, genom Stripe-integrationen. Många fotografer tar förskott för bröllop eller företagsevent. Du sätter upp betalning direkt på sajten, och kunden betalar säkert med kort. Pengarna går till ditt eget Stripe-konto."
+    },
+    {
+      "q": "Vad kostar det att ha hemsidan publicerad?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda din egen domän (t.ex. dittnamn.se) tillkommer kostnaden för domänen hos din registrar. Inga bindningstider – du kan exportera sajten när du vill."
+    },
+    {
+      "q": "Är sajten anpassad för mobil?",
+      "a": "Ja, alla sajter är responsiva och ser bra ut på telefon, surfplatta och dator. Eftersom många bläddrar genom fotoportfolios på mobilen är det extra viktigt att gallerier och bilder laddas snabbt och visas snyggt på mindre skärmar."
+    },
+    {
+      "q": "Passar Sajtmaskin för fotografer som precis startat i Örebro?",
+      "a": "Definitivt. Många nystartade fotografer behöver en professionell sajt snabbt, utan att lägga veckor eller tiotusentals kronor på webbutveckling. Sajtmaskin ger dig en färdig plattform på minuter, och du kan bygga ut den i takt med att verksamheten växer."
+    }
+  ],
+  "localOrIndustryContext": "Örebro har en blandning av bröllop på historiska platser som slottet, företagsevent i Conventum och näringslivet, samt en aktiv privatmarknad för familje- och porträttfoto. Fotografer här behöver ofta visa bredd i portfolio och göra det enkelt för både privatpersoner och företag att boka – något en AI-driven sajt med tydlig struktur och bokningssystem löser smidigt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/orebro",
+      "label": "Skapa hemsida i Örebro"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Örebro. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

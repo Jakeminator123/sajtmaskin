@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "gavle/event",
+  "title": "Hemsida för event i Gävle – bygg din eventsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för ditt event i Gävle med AI. Biljettsystem, bokningar och betalningar – ingen kod krävs. Publicera direkt.",
+  "h1": "Hemsida för event i Gävle",
+  "heroSub": "Bygg en komplett eventsajt med biljettförsäljning och bokningar på minuter – ingen kod eller teknisk kunskap krävs.",
+  "introParagraphs": [
+    "Om du arrangerar konferenser, festivaler, mässor eller kulturarrangemang i Gävle behöver du en hemsida som gör det enkelt för besökare att hitta information, köpa biljetter och boka platser. Sajtmaskin låter dig skapa en färdig eventsajt genom att bara beskriva ditt arrangemang i chatten – AI:n bygger sedan allt från program och talarlista till betalningslösning och bokningssystem.",
+    "Din sajt publiceras på egen domän eller kostnadsfritt på en Sajtmaskin-subdomän. Du får inbyggda integrationer med Cal.com för bokningar och Stripe för biljettförsäljning, så besökarna kan registrera sig och betala direkt på sajten. Allt på svenska, utan bindningstid, och du kan när som helst exportera koden om du vill flytta vidare."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt du behöver för ett event i Gävle",
+      "body": "En bra eventsajt visar tydligt vad som händer, när och var – och gör det smidigt att anmäla sig. Sajtmaskin genererar automatiskt sidor för program, talare, plats och praktisk information. Du kan lägga till kartor, tidtabeller och beskrivningar av workshops eller scenaktiviteter direkt i chatten. Vill du sälja biljetter i olika kategorier eller erbjuda early bird-priser? Stripe-integrationen hanterar det, och du får betalt direkt till ditt konto."
+    },
+    {
+      "heading": "Bokningar och registrering utan krångel",
+      "body": "Många event i Gävle kräver förhandsanmälan – allt från företagsfrukost på Elite Grand Hotel till workshops på Gasklockorna eller konserter på Gävle Konserthus. Med Cal.com-integrationen kan besökare boka sin plats direkt på sajten och få automatiska bekräftelser via mejl. Du bestämmer själv om anmälan ska vara gratis, kräva förskottsbetalning eller kombineras med biljettköp. Systemet synkar med din kalender så du alltid har koll på antalet deltagare."
+    },
+    {
+      "heading": "Lokal närvaro och trovärdighet",
+      "body": "Gävle har en aktiv eventscen med allt från Gävle Teater och Länsmuseet till pop-up-marknader i Boulognerskogen och nätverksmingel i Brynäs. När du bygger din sajt med Sajtmaskin kan du enkelt lyfta fram lokala samarbetspartners, sponsorer och platsspecifik information som vägbeskrivningar, parkering vid Gavlerinken eller kollektivtrafik från Gävle C. Det skapar förtroende och gör det enklare för besökare att planera sitt besök."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du betalar ingen månadskostnad för hosting om du använder en Sajtmaskin-subdomän, och det finns ingen bindningstid. Vill du koppla en egen domän – till exempel dinevent.se – gör du det med ett klick. Behöver du uppdatera programmet, lägga till en ny talare eller ändra biljettpriser? Chatta med AI:n så är ändringen klar på sekunder. Och när eventet är över kan du exportera hela koden och arkivera sajten eller bygga om den inför nästa år."
+    },
+    {
+      "heading": "Från idé till publicerad sajt på minuter",
+      "body": "Istället för att spendera veckor på att designa, koda och integrera system beskriver du bara ditt event i Sajtmaskins chat: vilken typ av arrangemang, datum, plats och vad besökarna ska kunna göra på sajten. AI:n genererar en komplett eventsajt med alla sidor, texter och funktioner du behöver. Du förhandsgranskar, justerar det du vill ändra och publicerar. Klart. Allt på svenska, byggt i Sverige, och du kan komma igång direkt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja biljetter i olika priskategorier?",
+      "a": "Ja, via Stripe-integrationen kan du sätta upp flera biljettyper – till exempel early bird, ordinarie, student eller VIP – med olika priser och begränsat antal per kategori. Besökare betalar direkt på sajten och du får pengarna till ditt Stripe-konto."
+    },
+    {
+      "q": "Fungerar sajten för både små och stora event i Gävle?",
+      "a": "Absolut. Oavsett om du arrangerar en workshop för tjugo personer, en konferens för trehundra eller en festival med tusentals besökare kan Sajtmaskin bygga en sajt som passar. Du skalar funktioner och innehåll efter ditt behov."
+    },
+    {
+      "q": "Hur lägger jag till en karta och vägbeskrivning till eventplatsen?",
+      "a": "Du beskriver var ditt event är – till exempel Gasklockorna eller Gävle Konserthus – så lägger AI:n automatiskt in adress och kan bädda in en karta. Du kan också lägga till information om parkering, kollektivtrafik och närliggande hotell."
+    },
+    {
+      "q": "Kan besökare anmäla sig utan att betala direkt?",
+      "a": "Ja, du väljer själv om anmälan ska vara gratis, kräva betalning eller vara en kombination. Med Cal.com-integrationen kan folk boka sin plats kostnadsfritt, medan Stripe används om du vill ta betalt för biljetter."
+    },
+    {
+      "q": "Vad händer om jag behöver ändra programmet efter publicering?",
+      "a": "Du chattar med AI:n och beskriver ändringen – ny talare, annan tid, uppdaterad plats. Sajten uppdateras direkt och besökare ser den nya informationen. Inga komplicerade CMS-system att navigera."
+    },
+    {
+      "q": "Kan jag använda min egen domän för eventsajten?",
+      "a": "Ja, du kan koppla vilken domän du vill – till exempel dinevent.se eller gävlefestival.com. Vill du testa först kan du publicera kostnadsfritt på en Sajtmaskin-subdomän och byta till egen domän senare."
+    },
+    {
+      "q": "Hur får jag koll på antal sålda biljetter och anmälningar?",
+      "a": "Stripe visar alla transaktioner och biljettförsäljning i realtid, och Cal.com ger dig en översikt över bokningar. Du kan också integrera Google Analytics för att följa besökstrafik och se vilka sidor folk tittar mest på."
+    }
+  ],
+  "localOrIndustryContext": "Gävle har en växande eventscen med kulturarrangemang på Länsmuseet, konserter på Gävle Konserthus, festivaler i Boulognerskogen och företagsevent i lokaler som Gasklockorna och Elite Grand Hotel. En professionell eventsajt gör det enklare att nå publik, hantera anmälningar och sälja biljetter – och med Sajtmaskin kan du bygga den på minuter istället för veckor.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/gavle",
+      "label": "Skapa hemsida i Gävle"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Gävle. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

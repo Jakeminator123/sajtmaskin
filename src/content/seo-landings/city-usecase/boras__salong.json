@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "boras/salong",
+  "title": "Hemsida för salong i Borås – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Borås med AI. Bokning, bildgalleri och mobilanpassning – klart på minuter. Ingen kodning.",
+  "h1": "Hemsida för salong i Borås",
+  "heroSub": "Bygg en komplett sajt för din salong i Borås via chat – med bokning, prislista och bildgalleri. Ingen kod, klar på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin låter dig skapa en professionell hemsida för din salong i Borås genom att bara beskriva vad du behöver. Vår AI bygger hela sajten åt dig – med bokning, behandlingsmenyer, bildgalleri och kontaktformulär. Allt på svenska, klart på minuter.",
+    "Du behöver ingen teknisk kunskap. Berätta vad din salong erbjuder, vilka bilder du vill visa och hur kunder ska kunna boka. AI:n skapar layouten, skriver texter och sätter upp bokningssystem via Cal.com. Publicera på egen domän eller använd vår kostnadsfria subdomän.",
+    "Perfekt för frisörer, skönhetssalonger, nagelstudios och spasalonger i Borås som vill ha en modern närvaro utan att betala dyra webbbyråer eller krångla med WordPress."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "För salonger i Borås är online-bokning ofta viktigast. Sajtmaskin integrerar Cal.com direkt i din sajt så kunder kan boka klippning, färgning, ansiktsbehandling eller naglar dygnet runt. Du styr själv vilka tider som är lediga och får notiser när någon bokar. Ingen extra app eller tredjepartstjänst behövs – allt ligger på din egen hemsida."
+    },
+    {
+      "heading": "Prislista och behandlingsmeny som är lätt att uppdatera",
+      "body": "Din salong behöver visa vad du erbjuder och vad det kostar. Sajtmaskin skapar snygga prislistor och behandlingsmenyer utifrån din beskrivning. Vill du lägga till en ny tjänst eller ändra pris? Chatta med AI:n så uppdateras sidan direkt. Ingen inloggning i krångliga CMS-system – bara en konversation på svenska."
+    },
+    {
+      "heading": "Bildgalleri som visar ditt arbete",
+      "body": "Potentiella kunder i Borås vill se resultat innan de bokar. Ladda upp bilder på frisyrer, naglar eller behandlingar så skapar AI:n ett snyggt galleri som fungerar perfekt på mobil. Du kan organisera bilder per kategori – balayage, herrklippning, gellack – så besökare snabbt hittar inspiration. Galleriet laddas snabbt och ser professionellt ut utan att du behöver designa något själv."
+    },
+    {
+      "heading": "Mobilanpassat för kunder på språng",
+      "body": "De flesta som söker salong i Borås gör det från mobilen, ofta när de är ute och går. Sajtmaskin bygger alla sajter mobile-first, så din hemsida ser lika bra ut på iPhone som på dator. Knappar är lätta att trycka på, telefonnummer klickbara och bokningsformuläret fungerar smidigt även med tummen. Ingen extra anpassning behövs – det är inbyggt från start."
+    },
+    {
+      "heading": "Ingen bindningstid, äg din kod",
+      "body": "Till skillnad från många webbplattformar låser vi inte in dig. Använd Sajtmaskin så länge det passar, och om du någon dag vill flytta sajten kan du exportera hela koden. Hosting på subdomän kostar inget i månadsavgift, och vill du ha egen domän fixar du det med ett klick. Du äger alltid ditt innehåll och din närvaro."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min salong i Borås?",
+      "a": "De flesta salongsajter är klara på 10–20 minuter. Du chattar med AI:n, beskriver dina tjänster och laddar upp bilder. AI:n bygger layouten, skriver texter och sätter upp bokning. Sedan kan du förfina eller publicera direkt."
+    },
+    {
+      "q": "Kan jag integrera mitt befintliga bokningssystem?",
+      "a": "Ja, om du redan använder Cal.com kan du koppla det direkt. Använder du Bokadirekt eller liknande kan du länka till det från din sajt. Sajtmaskin stödjer Cal.com nativt, vilket är populärt bland svenska småföretag och gratis att börja med."
+    },
+    {
+      "q": "Fungerar hemsidan för både frisör, naglar och skönhetssalong?",
+      "a": "Absolut. Sajtmaskin anpassar innehållet efter vad du beskriver. Berätta vilka behandlingar du erbjurar – klippning, färg, fransar, massage, vaxning – så skapar AI:n rätt struktur och texter. Samma plattform fungerar för alla typer av salonger."
+    },
+    {
+      "q": "Kan kunder hitta min salong i Borås via Google?",
+      "a": "Ja. Sajtmaskin bygger SEO-vänliga sajter med rätt meta-taggar och snabb laddningstid. Du kan lägga till Google Analytics för att följa besökare. Kom ihåg att också registrera din salong i Google Business Profile med adress och öppettider – det hjälper lokalt."
+    },
+    {
+      "q": "Vad kostar det att driva hemsidan efter att jag byggt den?",
+      "a": "Hosting på subdomän (dinsamalong.sajtmaskin.se) är gratis utan månadskostnad. Vill du ha egen domän (dinsamalong.se) betalar du domänregistrering, vanligtvis runt 100 kr per år. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag sälja produkter eller presentkort via sajten?",
+      "a": "Ja. Sajtmaskin integrerar Stripe för betalningar och Shopify för webshop. Du kan sälja hårprodukter, presentkort eller behandlingspaket direkt på sajten. Perfekt om du vill komplettera salongsbesöken med e-handel."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera texten eller lägga till bilder?",
+      "a": "Nej. Allt sköts via chat på svenska. Vill du ändra öppettider, lägga till en ny behandling eller byta ut en bild? Skriv bara vad du vill ha, så uppdaterar AI:n sajten. Ingen inloggning i komplicerade admin-paneler."
+    }
+  ],
+  "localOrIndustryContext": "Borås har en stark salong- och skönhetsbransch med många småföretagare runt Knalleland, Caroli City och i centrala kvarter. Kunder söker ofta lokalt och förväntar sig snabb bokning online. En professionell hemsida gör att din salong syns när folk googlar, och ett smidigt bokningssystem minskar telefonsamtal och no-shows.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/boras",
+      "label": "Skapa hemsida i Borås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Borås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

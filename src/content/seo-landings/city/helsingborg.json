@@ -1,0 +1,105 @@
+{
+  "family": "city",
+  "slug": "helsingborg",
+  "title": "Hemsida Helsingborg – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Helsingborg med AI på svenska. Ingen kod, publicera direkt på egen domän. Perfekt för lokala företag som vill synas snabbt.",
+  "h1": "Hemsida Helsingborg – AI bygger din sajt på minuter",
+  "heroSub": "Chatta med AI på svenska och få en färdig hemsida för ditt företag i Helsingborg – utan kod, utan krångel.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som låter dig bygga en komplett hemsida genom att bara chatta. Du beskriver vad du behöver – en restaurangsajt i Söder, en bokningssida för din salong i Råå, en produktkatalog för din butik vid Kärnan – och AI:n skapar design, texter och struktur på minuter. Allt på svenska, anpassat för Helsingborg och dina kunder här.",
+    "Plattformen passar både enskilda företagare och etablerade bolag som vill ha en proffsig närvaro utan att vänta veckor på byrå eller lära sig kod. Du publicerar på egen domän direkt, integrerar bokningar via Cal.com eller betalningar via Stripe, och kan exportera koden när som helst. Ingen bindningstid, ingen dold månadskostnad för hosting på subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Från idé till publicerad sajt – så funkar det",
+      "body": "Du startar en chatt och berättar vad ditt företag gör och vad hemsidan ska innehålla. AI:n ställer följdfrågor om färger, struktur och funktioner, sedan genereras hela sajten – startsida, undersidor, kontaktformulär och allt däremellan. Du ser resultatet direkt i browsern, justerar via chatten om något ska ändras, och publicerar när du är nöjd. Vill du ha bokningsfunktion för din frisörsalong i Ättekulla eller en produktkatalog för din designstudio i Planteringen? Integrationerna kopplas på med ett klick."
+    },
+    {
+      "heading": "Varför Helsingborgsföretag väljer Sajtmaskin",
+      "body": "Många lokala företag har bråttom att komma online men vill inte offra kvalitet eller betala tiotusentals kronor till byrå. Sajtmaskin ger dig en färdig sajt på den tid det tar att fika, och eftersom allt sker på svenska slipper du översatta mallar som känns generiska. Du kan lägga in lokala referenser – Helsingborgs hamn, Sofiero, Råå vallar – så besökare direkt känner igen sig. Plattformen hanterar även lokal SEO: du styr meta-titlar, beskrivningar och URL-struktur så din sajt rankar när folk söker efter tjänster i Helsingborg."
+    },
+    {
+      "heading": "Integrationer som gör sajten levande",
+      "body": "En statisk sajt räcker sällan. Sajtmaskin kopplar Cal.com för tidsbokning, Stripe för kortbetalning, Google Analytics för statistik och Shopify om du driver webshop. Allt konfigureras utan kod – du klistrar in API-nycklar i gränssnittet och AI:n bygger in funktionerna på rätt ställen. Perfekt för allt från advokatbyråer vid Drottninggatan som vill ta emot bokningar online till kreatörer i Fredriksdal som säljer konst och hantverk."
+    },
+    {
+      "heading": "Jämfört med byråer och gör-det-själv-verktyg",
+      "body": "Lokala webbbyråer i Helsingborg levererar ofta hög kvalitet men tar veckor och kostar från 30 000 kronor uppåt. Gör-det-själv-verktyg som Wix eller Squarespace kräver att du själv drar och släpper, skriver texter och fixar SEO – vilket kan ta dagar om du inte är van. Sajtmaskin landar mittemellan: AI:n gör jobbet åt dig på minuter, du får proffsig kod som du äger helt, och priset är en bråkdel av byråkostnaden. Du kan exportera och flytta sajten när du vill, ingen inlåsning."
+    },
+    {
+      "heading": "Exempel från Helsingborgs näringsliv",
+      "body": "Restauranger i Söder använder Sajtmaskin för menysidor med bokningsknapp, konsulter i Råå för portfoliosajter med kontaktformulär, butiker vid Kullagatan för produktkataloger med Stripe-checkout. Frisörer i Ättekulla lägger in Cal.com och tar emot tidsbokning dygnet runt, medan event-företag i Rydebäck skapar landningssidor för varje arrangemang. Oavsett om du driver enmansbolag eller har kontor i Västra Hamnen får du en sajt som ser ut som om en byrå byggt den – fast på bråkdelen av tiden."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida med Sajtmaskin?",
+      "a": "De flesta sajter är klara på 10–30 minuter. Du chattar med AI:n, beskriver vad du behöver, granskar förslaget och publicerar. Vill du finjustera texter eller lägga till fler sidor tar det lite längre, men grundstrukturen står på minuter."
+    },
+    {
+      "q": "Kan jag använda min egen domän för ett företag i Helsingborg?",
+      "a": "Ja, du kopplar din egen domän direkt i Sajtmaskin. Vill du ha helsingborg-frisör.se eller dinbutik.se pekar du DNS-posterna hit, och sajten går live på den adressen. Hosting på subdomän hos oss är gratis utan månadskostnad."
+    },
+    {
+      "q": "Funkar det för lokala tjänster som behöver synas i Helsingborg?",
+      "a": "Absolut. Du styr alla SEO-fält – meta-titlar, beskrivningar, rubriker – och kan skriva in Helsingborg, stadsdelar och lokala landmärken så Google förstår var du verkar. Kombinera med Google My Business så rankar du högt på lokala sökningar."
+    },
+    {
+      "q": "Vilka integrationer ingår och hur kopplar jag dem?",
+      "a": "Cal.com för bokning, Stripe för betalning, Google Analytics för statistik och Shopify för webshop. Du klistrar in API-nycklar eller embed-kod i gränssnittet, så bygger AI:n in funktionerna automatiskt. Ingen kodning krävs."
+    },
+    {
+      "q": "Kan jag exportera koden och flytta sajten senare?",
+      "a": "Ja, du äger all kod och kan exportera den när du vill. Ingen bindningstid, ingen inlåsning. Vill du senare migrera till egen server eller annan host är det bara att ladda ner filerna och flytta."
+    },
+    {
+      "q": "Vad kostar det jämfört med en lokal webbyrå i Helsingborg?",
+      "a": "Byråer tar ofta 30 000–100 000 kronor och levererar på veckor. Sajtmaskin kostar en bråkdel, bygger på minuter och ger dig full äganderätt till koden. Du betalar för plattformen, inte timmar hos designers och utvecklare."
+    },
+    {
+      "q": "Passar Sajtmaskin alla branscher i Helsingborg?",
+      "a": "Ja – restauranger, frisörer, konsulter, butiker, eventföretag, hantverkare, advokatbyråer, kreatörer. Alla som behöver en proffsig hemsida snabbt kan använda Sajtmaskin. AI:n anpassar design och innehåll efter din bransch och dina önskemål."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en blandning av traditionell industri, hamn, handel och växande tjänstesektor. Företag i Söder, Råå, Ättekulla och Västra Hamnen behöver ofta en snabb, prisvärd väg online – särskilt småföretag som inte har råd med stora byråbudgetar men vill synas proffsigt lokalt och på nätet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -8,6 +8,9 @@ export function MinimalFooter() {
           Sajtmaskin
         </Link>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <Link href="/landningssidor" className="transition-colors hover:text-foreground">
+            Sajtkarta
+          </Link>
           <Link href="/privacy" className="transition-colors hover:text-foreground">
             Integritet
           </Link>

@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "orebro/event",
+  "title": "Hemsida för event i Örebro – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell eventsajt för ditt företag i Örebro med AI. Boka biljetter, visa program och publicera på egen domän – utan kod.",
+  "h1": "Hemsida för event i Örebro",
+  "heroSub": "Bygg en komplett eventsajt med bokning, biljettförsäljning och programvisning – direkt från chatten, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En bra eventsajt behöver visa program, hantera bokningar och sälja biljetter smidigt. I Örebro, där allt från konferenser på Conventum till konserter i Stadsparken lockar besökare, är en tydlig och funktionell hemsida avgörande för att nå fram. Sajtmaskin låter dig bygga hela sajten via chat på svenska – AI:n skapar sidor, integrerar bokningssystem och sätter upp betalning medan du beskriver vad eventet behöver.",
+    "Du startar med att berätta om ditt event: typ av arrangemang, målgrupp, om du behöver biljettförsäljning eller bara anmälan. Sajtmaskin genererar då en färdig sajt med programsida, talarlista, platsinformation och bokningsfunktion via Cal.com. Vill du ta betalt kopplas Stripe på direkt. Publicera på din egen domän eller testa kostnadsfritt på en subdomän – ingen månadskostnad för hosting, ingen bindningstid."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "AI bygger din eventsajt på minuter",
+      "body": "Du chattar med Sajtmaskin på ren svenska och beskriver ditt event: är det en konferens, konsert, mässa eller workshops? Behöver du visa talare, schema, sponsorer? AI:n skapar då en komplett sajt med alla sidor och funktioner du behöver. Vill du ändra layout, lägga till en FAQ-sektion eller byta färgschema gör du det direkt i chatten. Allt händer live, och du ser resultatet medan du pratar. Ingen kod, inga mallar att välja mellan – bara en sajt som passar just ditt arrangemang."
+    },
+    {
+      "heading": "Bokning, biljetter och betalning integrerat",
+      "body": "För event i Örebro är det ofta avgörande att besökare kan boka plats eller köpa biljett direkt på sajten. Sajtmaskin integrerar Cal.com för bokningar och Stripe för kortbetalningar. Du kan sätta pris per biljett, erbjuda early bird-rabatt eller ha gratis anmälan med platsbegränsning. Allt sköts från samma gränssnitt. Vill du koppla på Google Analytics för att följa hur många som besöker programsidan eller klickar på köpknappen? Det fixar AI:n åt dig på en minut."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "När eventsajten är klar publicerar du den på din egen domän – perfekt om du vill ha eventnamn.se eller koppla den till företagets huvuddomän. Vill du testa först kan du köra på en kostnadsfri subdomän hos Sajtmaskin utan någon månadsavgift för hosting. Ingen bindningstid gäller, och du kan när som helst exportera hela koden om du vill flytta sajten någon annanstans. Det är din sajt, dina besökare, din data."
+    },
+    {
+      "heading": "Gjort i Sverige, stöd på svenska",
+      "body": "Sajtmaskin är byggt av Pretty Good AB i Sverige, och hela plattformen – gränssnitt, AI-chat och support – är på svenska. Det gör det enklare att beskriva exakt vad ditt event i Örebro behöver, och du slipper översätta eller gissa på engelska termer. Behöver du hjälp når du svensktalande support som förstår lokala behov, från GDPR-frågor till hur du bäst presenterar eventplatsen för en svensk publik."
+    },
+    {
+      "heading": "Ingen kod, inga gränser",
+      "body": "Du behöver varken kunna design eller programmering. Sajtmaskin hanterar responsiv layout, snabba laddningstider och SEO-grunderna automatiskt. Vill du senare lägga till en webshop för eventmerchandise kopplar du Shopify. Behöver du fler sidor – pressrum, partnersida, bildgalleri från förra årets event – ber du bara AI:n skapa dem. Allt går att justera och utöka när eventet växer, och du behåller full kontroll utan att behöva anlita utvecklare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en eventsajt med Sajtmaskin?",
+      "a": "De flesta kommer igång på 10–15 minuter. Du chattar med AI:n, beskriver ditt event och vilka funktioner du behöver, så genereras en färdig sajt. Vill du finjustera layout eller lägga till fler sidor gör du det direkt i samma chatt. Publiceringen på egen domän tar bara några klick till."
+    },
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja. Sajtmaskin integrerar Stripe så besökare kan betala med kort direkt på hemsidan. Du bestämmer pris, antal platser och om du vill ha olika biljettyper. Bokningar utan betalning kan du hantera via Cal.com-integrationen, som också ingår och låter folk välja tid eller anmäla sig kostnadsfritt."
+    },
+    {
+      "q": "Fungerar sajten bra för event i Örebro med lokal publik?",
+      "a": "Absolut. Du kan lägga till karta till eventplatsen, beskriva hur man tar sig dit från centrala Örebro och visa information på svenska som passar lokal målgrupp. Sajtmaskin är helt svenskspråkig, så allt från bokningsformulär till kvitton blir naturligt för besökare i Örebro och resten av Sverige."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Publicerar du på din egen domän betalar du bara för själva domännamnet hos din registrar. Vill du ha sajten på en subdomän hos Sajtmaskin är hostingen kostnadsfri utan månadskostnad. Inga dolda avgifter, ingen bindningstid. Använder du Stripe för biljettförsäljning tar de sin vanliga transaktionsavgift, men Sajtmaskin lägger inte på något extra."
+    },
+    {
+      "q": "Kan jag uppdatera program och talare enkelt inför eventet?",
+      "a": "Ja, du ändrar innehåll direkt i chatten. Vill du lägga till en ny talare, byta tid i schemat eller uppdatera platsinformation skriver du bara det till AI:n så uppdateras sajten live. Inget krångel med inloggning till CMS eller komplicerade adminpaneler – allt sker i samma chatt som du byggde sajten i."
+    },
+    {
+      "q": "Vad händer med sajten efter att eventet är över?",
+      "a": "Du bestämmer själv. Vill du behålla sajten som arkiv, lägga till bildgalleri och videor från eventet eller börja marknadsföra nästa års upplaga gör du det enkelt. Sajten är din, och du kan exportera all kod när du vill. Ingen bindningstid innebär att du kan pausa, ändra eller ta ner sajten precis när det passar dig."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att driva en eventsajt?",
+      "a": "Nej. Sajtmaskin sköter all teknik – responsiv design, laddningstider, SEO-grunder och säkerhet. Du fokuserar på innehåll och marknadsföring. Vill du koppla på Google Analytics eller andra verktyg senare hjälper AI:n dig, men det är inget krav. Allt du behöver är att kunna chatta på svenska."
+    }
+  ],
+  "localOrIndustryContext": "Örebro har en livaktig eventscen med allt från Conventums konferenser till konserter i Stadsparken och kulturarrangemang på Örebro slott. En professionell eventsajt hjälper arrangörer att nå både lokal publik och besökare från hela Mellansverige, med tydlig information om plats, program och enkel biljettbokning.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/orebro",
+      "label": "Skapa hemsida i Örebro"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Örebro. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,78 @@
+{
+  "family": "city",
+  "slug": "orebro",
+  "title": "Skapa hemsida i Örebro — AI-driven webbplattform | Sajtmaskin",
+  "metaDescription": "Hemsida i Örebro på minuter med AI. Sajtmaskin bygger din svenskspråkiga sajt — snabbt, SEO-optimerat, utan kod. Testa gratis.",
+  "h1": "Skapa din hemsida i Örebro med AI",
+  "heroSub": "AI-plattform för Örebros entreprenörer, hantverkare och butiker — en komplett sajt på minuter.",
+  "introParagraphs": [
+    "Örebro har växt snabbt som handelsstad och hub för logistik och småföretag i Mellansverige. Med över 160 000 invånare och ett brett näringsliv finns det stor efterfrågan på enkla och effektiva verktyg att bygga hemsidor med.",
+    "Sajtmaskin är den svenskspråkiga AI-plattformen som låter dig beskriva din verksamhet i Örebro — kanske en bilverkstad i Vivalla, en café i centrala Örebro eller en konsultbyrå i Marieberg — och få en färdig sajt direkt.",
+    "Vi kombinerar automatisk copywriting, responsiv design och inbyggd SEO så att din hemsida är redo att ta emot besökare samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Örebro behöver snabba digitala verktyg",
+      "body": "Med ett blandat näringsliv — från logistik och handel till tjänsteföretag och hantverkare — krävs flexibla hemsidor. Sajtmaskin gör det enkelt att bygga en sajt som passar oavsett om du är elektriker, frisör eller driver en pizzeria."
+    },
+    {
+      "heading": "Komplett flöde på svenska",
+      "body": "Hela resan — från första prompt till publicering — sker på svenska. Vår AI förstår svensk ton, svenska termer och svenska konventioner. Inga klumpiga översättningar, ingen förvirring."
+    },
+    {
+      "heading": "Ortsoptimerad SEO",
+      "body": "Sidan levereras med inbyggd Schema.org-markering, snabba laddningstider och platsspecifik metadata, så att sökningar som \"bilverkstad Örebro\" eller \"frisör Lindesberg\" ger synlighet."
+    },
+    {
+      "heading": "Skala med din verksamhet",
+      "body": "Starta med en enkel sajt och expandera sedan med webshop, bokning, bloggsektion eller medlemsområde — allt utan att bygga om grunden."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag skapa en hemsida för mitt Örebroföretag utan tekniska kunskaper?",
+      "a": "Ja. Inga kodkunskaper krävs — du beskriver bara verksamheten på svenska så tar Sajtmaskin hand om resten."
+    },
+    {
+      "q": "Hur lång tid tar det?",
+      "a": "Typiskt 5–15 minuter från första prompt till publicerbar sajt."
+    },
+    {
+      "q": "Är sajten mobilanpassad?",
+      "a": "Ja, alla sajter är responsiva och snabba på mobil."
+    },
+    {
+      "q": "Kan jag få en webshop?",
+      "a": "Ja. Webshop kan läggas till via integrationer mot Shopify eller Stripe."
+    },
+    {
+      "q": "Stöder ni bokningsfunktioner?",
+      "a": "Ja, Cal.com-integration är inbyggd. Perfekt för salonger, kliniker och konsulter i Örebro."
+    },
+    {
+      "q": "Hur mycket kostar det?",
+      "a": "Gratis att bygga och förhandsgranska. Publicering på egen domän och mer avancerade funktioner kräver credits."
+    },
+    {
+      "q": "Kan jag byta eller avsluta när jag vill?",
+      "a": "Ja. Ingen bindningstid, ingen uppsägning — du äger alltid din sajt."
+    }
+  ],
+  "localOrIndustryContext": "Örebro kommun har runt 160 000 invånare och är en viktig logistik- och handelsknutpunkt. Sajtmaskin används redan av verksamheter i hela Örebro län, från Kumla och Hallsberg till Lindesberg.",
+  "internalLinks": [
+    { "href": "/hemsida/stockholm", "label": "Skapa hemsida i Stockholm" },
+    { "href": "/hemsida/vasteras", "label": "Skapa hemsida i Västerås" },
+    { "href": "/hemsida/karlstad", "label": "Skapa hemsida i Karlstad" },
+    { "href": "/hemsida/linkoping", "label": "Skapa hemsida i Linköping" },
+    { "href": "/skapa-hemsida/bilverkstad", "label": "Hemsida för bilverkstad" },
+    { "href": "/skapa-hemsida/restaurang", "label": "Hemsida för restaurang" },
+    { "href": "/hemsida-for/bygg", "label": "Hemsida för byggföretag" },
+    { "href": "/ai-hemsida/bygga-hemsida-med-ai", "label": "Bygga hemsida med AI" }
+  ],
+  "cta": {
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Örebro. Hjälp mig komma igång.",
+    "buttonLabel": "Skapa din hemsida gratis"
+  },
+  "generatedAt": "2026-04-17",
+  "model": "manual"
+}

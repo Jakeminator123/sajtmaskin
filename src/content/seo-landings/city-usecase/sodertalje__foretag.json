@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "sodertalje/foretag",
+  "title": "Hemsida företag Södertälje – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag i Södertälje med AI. Ingen kod, klart på minuter. Publicera på egen domän utan bindningstid.",
+  "h1": "Hemsida för företag i Södertälje",
+  "heroSub": "Bygg en professionell företagssajt med AI – på svenska, utan kod, klar på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin hjälper företag i Södertälje att skapa en komplett hemsida genom att chatta med en AI. Du beskriver vad ditt företag gör, vilka tjänster du erbjuder och vad som är viktigt för dina kunder – så genererar AI:n hela sajten åt dig. Allt på svenska, med texter, struktur och design som passar just din verksamhet.",
+    "Du publicerar på din egen domän eller testar kostnadsfritt på en subdomän. Ingen bindningstid, inga dolda avgifter. Integrationer för bokning, betalning och analys ingår, och du kan exportera koden när du vill. Perfekt för allt från konsultbolag och hantverkare till butiker och tjänsteföretag i Södertälje."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför företag i Södertälje väljer Sajtmaskin",
+      "body": "Södertälje är en stad med allt från globala industrier till lokala tjänsteföretag, och konkurrensen om kunderna är hård. En professionell hemsida är ofta första steget för att synas – men traditionella webbbyråer tar tid och kostar mycket. Sajtmaskin låter dig bygga sajten själv på minuter, utan teknisk kunskap. Du får en färdig sajt med kontaktformulär, tjänstesidor och Om oss-sektion, anpassad efter hur företag i Södertälje kommunicerar med sina kunder."
+    },
+    {
+      "heading": "Så fungerar det – från idé till publicerad sajt",
+      "body": "Du startar en chatt och berättar vad ditt företag gör. AI:n ställer följdfrågor om målgrupp, tjänster och ton. Sedan genereras hela sajten: texter, sidor, navigation och layout. Du kan redigera allt direkt i chatten eller i editorn, lägga till bilder, byta färger och justera innehåll. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän. Hela processen tar minuter, inte veckor."
+    },
+    {
+      "heading": "Integrationer för bokning, betalning och analys",
+      "body": "Sajtmaskin stödjer Cal.com för att ta emot bokningar direkt på sajten – perfekt om du driver en konsultverksamhet, salong eller verkstad. Stripe-integration gör det enkelt att ta betalt online, och Google Analytics ger dig koll på besökare och konverteringar. Behöver du en webshop kan du koppla Shopify. Alla integrationer sätts upp utan kod, och du behåller full kontroll över dina kunddata."
+    },
+    {
+      "heading": "Ingen bindningstid – exportera koden när du vill",
+      "body": "Till skillnad från många andra plattformar låser Sajtmaskin inte in dig. Du kan när som helst exportera hela sajten som kod och flytta den till en egen server eller annan leverantör. Ingen månadsavgift för hosting på subdomän, och om du vill ha egen domän betalar du bara för det. Ingen dold kostnad, ingen uppsägningstid. Du äger ditt innehåll och bestämmer själv hur länge du vill använda plattformen."
+    },
+    {
+      "heading": "Byggt i Sverige – support och gränssnitt på svenska",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt och svensk support. AI:n skriver texter på svenska som låter naturliga, inte översatta. Det gör skillnad när du vänder dig till kunder i Södertälje och resten av Sverige. Du slipper engelska menyer, krångliga översättningar och support i andra tidszoner. Allt är anpassat för svenska företag som vill ha en sajt som fungerar direkt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt?",
+      "a": "De flesta har en färdig sajt på 10–30 minuter. Du chattar med AI:n, granskar förslaget och justerar det du vill ändra. Sedan publicerar du direkt. Ingen väntetid, ingen teknisk setup."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja, du kan publicera på vilken domän du vill. Vill du testa först kan du använda en kostnadsfri subdomän hos Sajtmaskin utan tidsbegränsning. Ingen bindningstid oavsett vilket alternativ du väljer."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för alla typer av företag i Södertälje?",
+      "a": "Ja, oavsett om du driver ett konsultbolag, hantverksföretag, butik, salong eller annan tjänsteverksamhet kan du bygga en sajt som passar. AI:n anpassar texter och struktur efter din bransch och målgrupp."
+    },
+    {
+      "q": "Kan jag ta betalt eller ta emot bokningar på sajten?",
+      "a": "Ja, du kan integrera Stripe för betalningar och Cal.com för bokningar. Båda sätts upp utan kod direkt i Sajtmaskin. Perfekt om du säljer tjänster, produkter eller vill att kunder ska boka möten online."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela sajten som kod och flytta den till en egen server eller annan leverantör. Ingen bindningstid, inget krångel. Du äger ditt innehåll och är aldrig låst."
+    },
+    {
+      "q": "Kostar det något att testa Sajtmaskin?",
+      "a": "Du kan publicera på en subdomän helt kostnadsfritt, utan tidsbegränsning. Vill du använda egen domän eller lägga till fler funktioner kan du uppgradera, men det är frivilligt. Ingen dold kostnad."
+    },
+    {
+      "q": "Får jag support på svenska?",
+      "a": "Ja, Sajtmaskin är byggt i Sverige med svenskt gränssnitt och svensk support. Allt från AI-texter till hjälp och dokumentation är på svenska, anpassat för svenska företag."
+    }
+  ],
+  "localOrIndustryContext": "Södertälje är hem för både stora internationella företag och en mångfald av lokala verksamheter inom handel, tjänster och hantverk. En professionell hemsida hjälper företag att nå kunder i regionen och konkurrera digitalt, oavsett om du verkar mot privatpersoner eller andra företag i Telge-området.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/sodertalje",
+      "label": "Skapa hemsida i Södertälje"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Södertälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

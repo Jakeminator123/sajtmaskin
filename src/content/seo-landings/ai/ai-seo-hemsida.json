@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "ai-seo-hemsida",
+  "title": "AI SEO hemsida – hur AI optimerar din sajt för sök | Sajtmaskin",
+  "metaDescription": "Hur AI kan bygga och optimera din hemsida för sökmotorer direkt. Läs om konkreta fördelar, tekniken bakom och varför det funkar bättre än mallar.",
+  "h1": "AI SEO hemsida – så optimerar AI för sök",
+  "heroSub": "AI kan skriva, strukturera och optimera din hemsida för sökmotorer medan den byggs – utan att du behöver kunna SEO.",
+  "introParagraphs": [
+    "En AI SEO hemsida betyder att artificiell intelligens både bygger sajten och optimerar den för sökmotorer samtidigt. Istället för att du manuellt ska fylla i meta-taggar, skriva nyckelord och gissa hur Google vill ha strukturen, analyserar AI din bransch och dina konkurrenter och skapar innehåll som är relevant både för besökare och sökmotorer. Det handlar inte om att fuska eller fylla sidor med nyckelord, utan om att AI förstår vad som gör en sida trovärdig och användbar.",
+    "Traditionellt har du antingen behövt anlita en SEO-byrå som tar betalt per timme, eller använda en mallbyggare där du själv får klura ut allt från sidrubrikerna till bildtexter. Med AI får du en sajt som redan från start har rätt struktur, naturligt skrivna texter och teknisk optimering – utan att du behöver vara expert. Det sparar veckor av arbete och tusentals kronor i konsultarvoden.",
+    "Sajtmaskin är ett svenskt verktyg som låter dig bygga en hel hemsida via chat. Du beskriver vad du gör, vem du vill nå och vilka tjänster du erbjuder – så genererar AI:n sidorna med SEO-optimerat innehåll, rubriker och metadata på svenska. Du publicerar på egen domän och kan exportera koden när du vill, utan bindningstid eller dolda avgifter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad AI gör för SEO när den bygger din sajt",
+      "body": "AI läser din beskrivning och skapar sidstruktur, rubriker och brödtext som matchar hur folk faktiskt söker. Den skriver naturliga meningar istället för att stoppa in nyckelord konstigt, och den skapar unika meta-beskrivningar för varje sida. AI kan också föreslå interna länkar, strukturera innehåll med rätt HTML-taggar och se till att bilder får beskrivande alt-texter. Allt detta händer automatiskt medan sajten byggs, så du slipper gå tillbaka och fixa efteråt."
+    },
+    {
+      "heading": "Skillnaden mot mallar och manuell SEO",
+      "body": "Med en mallbyggare får du ofta generiska texter som du själv måste skriva om, och du ansvarar för att lägga till nyckelord och metadata. Många missar tekniska detaljer som rubrikhierarki eller schema-märkning. En SEO-byrå kan göra jobbet åt dig, men det kostar ofta tiotusentals kronor och tar veckor. AI kombinerar det bästa: den skriver unikt innehåll anpassat till din verksamhet, optimerar tekniskt direkt och gör allt på minuter istället för veckor. Du behöver ingen förkunskap och slipper betala löpande konsultarvoden."
+    },
+    {
+      "heading": "Hur Sajtmaskin optimerar för svenska sökningar",
+      "body": "Sajtmaskin är tränad på svenska språket och förstår hur svenskar söker efter tjänster och produkter. När du chattar om din verksamhet genererar AI:n texter som låter naturliga på svenska, inte översatta. Den kan anpassa innehåll för lokala marknader, skapa FAQ-sektioner som svarar på vanliga frågor och strukturera sidor så Google förstår vad du erbjuder. Du kan publicera på egen domän direkt, eller testa på en subdomän utan kostnad. Integrationer med Cal.com, Stripe och Google Analytics finns inbyggda, så du kan spåra besökare och konverteringar från dag ett."
+    },
+    {
+      "heading": "Vad du fortfarande behöver göra själv",
+      "body": "AI bygger grunden, men SEO är en pågående process. Du behöver hålla innehållet uppdaterat, lägga till nya sidor när verksamheten växer och svara på frågor från besökare. Google uppskattar sajter som uppdateras regelbundet och visar expertis. AI kan inte ersätta din branschkunskap eller dina kundcase – den kan bara paketera det på ett sätt som sökmotorer gillar. Tänk på AI som en assistent som gör det tunga lyftet, medan du fokuserar på att driva verksamheten och skapa värde för kunderna."
+    },
+    {
+      "heading": "Så kommer du igång med AI SEO",
+      "body": "Börja med att beskriva din verksamhet i några meningar: vad du gör, vem du hjälper och var du verkar. AI:n ställer följdfrågor om tjänster, priser och stil, sedan genererar den en komplett sajt med optimerade sidor. Granska texterna, byt ut bilder om du vill och publicera. Sajtmaskin låter dig exportera koden när som helst, så du äger alltid resultatet. Ingen bindningstid, ingen dold kostnad för hosting på subdomän. Du kan testa gratis och se om AI:n förstår din bransch innan du bestämmer dig."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan AI verkligen skriva SEO-texter som rankar på Google?",
+      "a": "Ja, om AI:n är tränad på kvalitetsinnehåll och förstår sökavsikt. Google bryr sig om att texter svarar på användarens fråga, är välstrukturerade och laddas snabbt. AI kan skapa allt detta automatiskt, men du behöver fortfarande fylla på med unik expertis och uppdatera innehåll över tid för bästa resultat."
+    },
+    {
+      "q": "Blir alla AI-hemsidor likadana i Googles ögon?",
+      "a": "Nej, för AI:n utgår från din unika beskrivning av verksamheten. Varje sajt får olika rubriker, texter och struktur baserat på vad du berättar. Google kan inte se skillnad på om en text är skriven av människa eller AI – bara om den är relevant och användbar. Så länge innehållet är unikt för din verksamhet spelar det ingen roll hur det skapades."
+    },
+    {
+      "q": "Måste jag kunna SEO för att använda en AI-byggare?",
+      "a": "Nej, det är poängen. AI:n hanterar teknisk SEO, nyckelord och metadata automatiskt. Du behöver bara kunna beskriva vad du gör och vem du vill nå. Sajten får rätt struktur och optimering från start, så du slipper läsa guider eller anlita konsulter. Du kan alltid lära dig mer om SEO senare och finjustera, men det krävs inte för att komma igång."
+    },
+    {
+      "q": "Hur lång tid tar det innan en AI-skapad sajt rankar?",
+      "a": "Det beror på konkurrens och hur etablerad din domän är. En ny domän kan ta några veckor till månader innan Google indexerar och rankar sidorna. AI ger dig en tekniskt stark start, men du behöver fortfarande bygga förtroende genom att uppdatera innehåll, få länkar från andra sajter och visa att verksamheten är aktiv. SEO är en maraton, inte en sprint."
+    },
+    {
+      "q": "Kan jag redigera SEO-inställningar efter att AI byggt sajten?",
+      "a": "Ja, du äger koden och kan ändra allt. Sajtmaskin låter dig exportera hela sajten, så du kan redigera meta-taggar, rubriker och texter i vilken editor du vill. Om du inte vill koda själv kan du be AI:n om ändringar via chatten. Du är aldrig låst till det AI:n genererar från början."
+    },
+    {
+      "q": "Vad händer med SEO om jag byter från min gamla sajt?",
+      "a": "Du bör sätta upp omdirigeringar från gamla URL:er till nya, så Google och besökare hittar rätt. Sajtmaskin kan hjälpa dig att matcha sidstrukturen från din gamla sajt, eller så skapar du en bättre struktur och omdirigerar manuellt. Tappa inte ranking genom att radera gamla sidor utan att ersätta dem – flytta innehåll och berätta för Google var det finns nu."
+    },
+    {
+      "q": "Kostar det extra att få SEO-optimering med AI?",
+      "a": "Nej, SEO-optimeringen är inbyggd när AI:n genererar sajten. Du betalar ingen extra avgift för metadata, nyckelord eller teknisk struktur. Hosting på subdomän är gratis, och om du vill använda egen domän betalar du bara för domänregistrering hos din registrar. Inga dolda SEO-paket eller månadskostnader – allt ingår från start."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

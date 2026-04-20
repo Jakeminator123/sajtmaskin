@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "frisor",
+  "title": "Hemsida för frisör – bygg din salongsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din frisörsalong med online-bokning, prislista och galleri. Ingen kod krävs. Bygg via chat på svenska.",
+  "h1": "Hemsida för frisör",
+  "heroSub": "Bygg en komplett salongsajt med bokning, priser och bildgalleri – direkt via chat, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En hemsida för din frisörsalong gör det enkelt för kunder att boka tid, se priser och få en känsla för din stil innan de kommer. Istället för att svara på samma frågor om öppettider och priser kan du hänvisa till sajten, och kunder kan boka direkt när det passar dem – även utanför öppettider.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta på svenska. Du beskriver din salong, vilka tjänster du erbjuder och hur du vill att sajten ska se ut. AI:n genererar allt från startsida och prislista till ett bildgalleri och bokningssystem. Du kan publicera på egen domän och integrera Cal.com för att ta emot bokningar direkt på sajten.",
+    "Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när du vill. Allt gränssnitt och support är på svenska, byggt för svenska frisörer och andra småföretag som vill ha en professionell närvaro online utan krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en frisörsajt behöver innehålla",
+      "body": "En bra hemsida för frisör visar tydligt vad du erbjuder och gör det lätt att boka. Startsidan bör ha bilder från salongen och några exempel på ditt arbete, plus en kort presentation av dig och din stil. En prislista med klippning, färgning, slingor och behandlingar hjälper kunder att veta vad det kostar innan de hör av sig. Ett bildgalleri med före-och-efter-bilder eller stilinspiration bygger förtroende. Kontaktsida med adress, öppettider och telefonnummer är självklart, men viktigast är en bokningsfunktion så kunder kan boka direkt utan att ringa. Sajtmaskin kan bygga allt detta och koppla in Cal.com för bokningar."
+    },
+    {
+      "heading": "Online-bokning sparar tid och ger fler kunder",
+      "body": "Att ta emot bokningar via telefon under dagen tar tid från kunder i stolen, och många vill helst boka på kvällen när salongen är stängd. Med online-bokning via Cal.com kan kunder se lediga tider och boka direkt, dygnet runt. Du slipper dubbelbokning och missförstånd om tid eller tjänst. Sajtmaskin integrerar Cal.com så att bokningskalendern syns direkt på sajten. Kunder väljer tjänst, ser dina lediga tider och bekräftar – du får ett mejl och kan förbereda besöket. Det minskar no-shows och gör det enklare för nya kunder att ta steget att boka."
+    },
+    {
+      "heading": "Bildgalleri som visar din stil",
+      "body": "Frisörer säljer förtroende och känsla. Ett bildgalleri med ditt arbete – klippningar, färgningar, balayage, uppsättningar – visar potentiella kunder vad de kan förvänta sig. Bilder fungerar bättre än text för att förmedla stil och kvalitet. Sajtmaskin kan skapa ett galleri där du laddar upp bilder och AI:n formaterar dem snyggt. Du kan organisera bilderna efter tjänst eller stil, och uppdatera galleriet löpande när du har nya verk att visa. Det är ett av de viktigaste verktygen för att locka rätt kunder som gillar din estetik."
+    },
+    {
+      "heading": "Prislista och tjänstebeskrivningar",
+      "body": "Kunder vill veta vad det kostar innan de bokar. En tydlig prislista med damklippning, herrklippning, hårfärgning, slingor, balayage, permanent och behandlingar skapar transparens och minskar prisförfrågningar per telefon. Lägg gärna till en kort beskrivning av varje tjänst så kunder förstår skillnaden mellan till exempel slingor och balayage. Sajtmaskin kan generera en prislista från din prompt och formatera den överskådligt. Du kan när som helst uppdatera priser via chatten, och ändringarna publiceras direkt."
+    },
+    {
+      "heading": "Bygg frisörsajten via chat på svenska",
+      "body": "Du startar med att berätta för Sajtmaskin vad din salong heter, var du ligger, vilka tjänster du erbjuder och vilken känsla du vill förmedla – kanske minimalistisk och modern, eller varm och bohemisk. AI:n föreslår en struktur med startsida, om-sida, prislista, galleri, bokning och kontakt. Du kan be om justeringar, byta färger, lägga till texter eller ta bort sidor. När du är nöjd publicerar du på egen domän eller på en gratis subdomän. Integrationen med Cal.com och Google Analytics sätts upp direkt, och du kan exportera koden om du vill flytta sajten senare. Ingen kod, ingen designer, ingen månadskostnad för hosting – bara en färdig sajt på minuter."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag ta emot bokningar direkt på sajten?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så att kunder kan boka tid direkt på din hemsida. Du ser lediga tider, kunder väljer tjänst och tid, och du får en bekräftelse. Allt synkas med din kalender."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en frisörsajt?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar med AI:n på svenska, beskriver din salong och tjänster, och får ett förslag. Sedan justerar du tills du är nöjd och publicerar."
+    },
+    {
+      "q": "Kan jag visa bilder från mitt arbete?",
+      "a": "Absolut. Du kan ladda upp bilder till ett galleri som Sajtmaskin formaterar snyggt. Perfekt för att visa klippningar, färgningar och stilinspiration. Du uppdaterar bilderna när du vill via chatten."
+    },
+    {
+      "q": "Kostar det något att ha sajten online?",
+      "a": "Hosting på subdomän (dinsakong.sajtmaskin.se) är gratis utan tidsgräns. Vill du använda egen domän (dinsalong.se) kopplar du den själv, och då betalar du bara för domänen hos din registrar."
+    },
+    {
+      "q": "Kan jag ändra priser och tjänster senare?",
+      "a": "Ja, du chattar med Sajtmaskin och säger vad du vill ändra. AI:n uppdaterar prislistan eller lägger till nya tjänster, och du publicerar ändringarna direkt. Ingen teknisk kunskap krävs."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och ser bra ut på mobil, surfplatta och dator. Många frisörkunder bokar via mobilen, så det är viktigt att allt fungerar smidigt."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform?",
+      "a": "Ja, du kan exportera hela koden när du vill. Ingen bindningstid, ingen inlåsning. Du äger innehållet och kan flytta sajten till en annan host om du vill."
+    }
+  ],
+  "localOrIndustryContext": "Frisörbranschen i Sverige är konkurrenskraftig, särskilt i städer där kunder jämför salonger online innan de bokar. En professionell hemsida med tydlig prislista, bildgalleri och enkel bokning gör skillnad. Många mindre salonger saknar fortfarande online-bokning, vilket gör att de tappar kunder till konkurrenter som erbjuder det.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida-for/spa",
+      "label": "Hemsida för spa"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en frisör-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

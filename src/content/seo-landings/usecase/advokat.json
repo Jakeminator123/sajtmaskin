@@ -1,0 +1,102 @@
+{
+  "family": "usecase",
+  "slug": "advokat",
+  "title": "Hemsida advokatbyrå – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din advokatbyrå direkt i chatten. Kompetensområden, kontakt och bokningsfunktion – klart på minuter.",
+  "h1": "Hemsida för advokatbyrå",
+  "heroSub": "Bygg en professionell sajt för din byrå på minuter – med AI som förstår svenska juridiska tjänster.",
+  "introParagraphs": [
+    "En hemsida för en advokatbyrå behöver visa vilka kompetensområden ni arbetar med, presentera juristerna, förklara hur klienter bokar ett första möte och bygga förtroende genom tydlig information. Allt ska vara lätt att hitta och signalera seriositet.",
+    "Med Sajtmaskin chattar du fram hela sajten på svenska. Berätta vilka juridiska områden ni hanterar – familjerätt, bolagsrätt, fastighetsrätt eller något annat – så genererar AI:n struktur, texter och funktioner som passar just er byrå.",
+    "Du publicerar på egen domän, integrerar Cal.com för tidsbokning och kan när som helst exportera koden. Ingen bindningstid, ingen månadskostnad för hosting på subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Kompetensområden och tjänstebeskrivningar",
+      "body": "Besökare vill snabbt se om ni hanterar deras juridiska fråga. En tydlig sida eller sektion för varje kompetensområde – med beskrivning av vad tjänsten innebär, typiska ärenden och hur processen ser ut – gör att rätt klienter hittar er. Sajtmaskin låter dig lista era områden i prompten, så genereras passande texter och struktur automatiskt."
+    },
+    {
+      "heading": "Presentation av jurister och medarbetare",
+      "body": "Förtroende byggs genom att visa vem klienten kommer att prata med. Korta presentationer med foto, utbildning, erfarenhet och specialområden gör byrån personlig. Du anger juristernas namn och bakgrund i chatten, så skapar AI:n en snygg teampresentation som du enkelt kan justera efteråt."
+    },
+    {
+      "heading": "Bokningsfunktion och kontaktvägar",
+      "body": "Klienter ska kunna boka ett första möte eller konsultation direkt på sajten. Genom att integrera Cal.com får du en kalender där besökare väljer ledig tid, och du slipper mejltennisen. Sajtmaskin kopplar in bokningen åt dig – du anger bara vilken tjänst du använder, resten sker i bakgrunden."
+    },
+    {
+      "heading": "Information om processen och avgifter",
+      "body": "Många tveker för att de inte vet vad juridisk hjälp kostar eller hur lång tid ett ärende tar. En sida som förklarar er arbetsprocess, hur ni debiterar – timarvode, fast pris eller rättshjälp – och vad klienten kan förvänta sig skapar trygghet. AI:n hjälper dig formulera detta tydligt och utan juridiskt svårspråk."
+    },
+    {
+      "heading": "GDPR, integritetspolicy och etiska riktlinjer",
+      "body": "Som advokatbyrå hanterar ni känsliga personuppgifter, och besökare förväntar sig transparens kring datasäkerhet. Sajtmaskin genererar en grundläggande integritetspolicy som du kan anpassa, och du kan lägga till information om tystnadsplikt och etiska regler. Google Analytics-integrationen följer cookieregler, så du håller koll på trafiken utan krångel."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag använda min befintliga domän för advokatbyråns hemsida?",
+      "a": "Ja, du publicerar på vilken domän du vill. Sajtmaskin guidar dig genom DNS-inställningarna så sajten pekar rätt. Vill du testa först kan du köra på en gratis subdomän utan månadskostnad."
+    },
+    {
+      "q": "Hur lägger jag till bokningsfunktion för konsultationer?",
+      "a": "Du integrerar Cal.com direkt i Sajtmaskin. Skapa ett konto på Cal.com, koppla din kalender och klistra in länken i chatten – AI:n bäddar in bokningsformuläret på rätt ställe. Klienter väljer tid, du får notis."
+    },
+    {
+      "q": "Kan jag visa olika kompetensområden med egna undersidor?",
+      "a": "Absolut. Berätta i prompten vilka juridiska områden ni arbetar med, så skapar AI:n en undersida för varje. Du kan sedan redigera texterna, lägga till fallbeskrivningar eller justera tonalitet så det passar er profil."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när som helst, ingen bindningstid. Tar du sajten till en egen server eller annan hostingleverantör äger du allt material. Sajtmaskin låser inte in dig."
+    },
+    {
+      "q": "Hur säkerställer jag att sajten följer advokatetiska regler?",
+      "a": "Sajtmaskin genererar teknisk struktur och förslag på texter, men du ansvarar för juridiskt innehåll. Granska att informationen om avgifter, tystnadsplikt och klienträttigheter stämmer med Advokatsamfundets regler innan publicering. Du kan enkelt redigera allt i editorn."
+    },
+    {
+      "q": "Kan jag lägga till ett kontaktformulär som skickar krypterad mejl?",
+      "a": "Ja, Sajtmaskin stödjer kontaktformulär. För extra säkerhet kan du använda en e-posttjänst med kryptering (som ProtonMail) som mottagaradress, eller integrera ett separat formulärverktyg via kod. Grundformuläret fungerar direkt utan extra inställningar."
+    }
+  ],
+  "localOrIndustryContext": "Svenska advokatbyråer – från enmanskontor till mellanstor verksamhet – behöver en sajt som signalerar trovärdighet och gör det enkelt för klienter att ta kontakt. Sajtmaskin är byggt i Sverige, förstår svenska juridiska termer och låter dig fokusera på juridiken medan AI:n hanterar tekniken.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en advokat-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

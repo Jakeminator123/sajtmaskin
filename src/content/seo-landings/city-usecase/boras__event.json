@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "boras/event",
+  "title": "Hemsida för event i Borås – bygg din eventsajt med AI | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Borås på minuter. AI-driven plattform med bokning, biljetter och svensk support. Ingen kod krävs.",
+  "h1": "Hemsida för event i Borås",
+  "heroSub": "Bygg en komplett eventsajt med bokning, biljettsystem och betalning – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "Om du arrangerar konferenser, mässor, festivaler eller företagsevent i Borås behöver du en hemsida som gör det enkelt för besökare att hitta information, boka platser och köpa biljetter. Sajtmaskin låter dig bygga hela eventsajten genom att chatta med en AI – du beskriver ditt event, så genererar plattformen sidor, formulär och funktioner på minuter.",
+    "Allt sköts på svenska, från gränssnitt till support. Du kan integrera Cal.com för tidsbokning, Stripe för biljettförsäljning, och publicera på din egen domän utan månadskostnad för hosting. Perfekt för eventbyråer, kulturarrangörer och företag i Textilstaden som vill komma igång snabbt.",
+    "Ingen bindningstid och du kan exportera all kod när du vill. Sajtmaskin är byggt i Sverige av Pretty Good AB och ger dig full kontroll över din eventnärvaro online."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en eventsajt i Borås behöver",
+      "body": "En bra hemsida för event måste visa program, talare, plats och datum tydligt. Besökare vill kunna köpa biljetter direkt, boka workshops eller anmäla sig till nätverksmingel. I Borås, där allt från Knalleländevent till företagskonferenser på Borås Arena lockar publik, är det viktigt att sajten fungerar smidigt på mobil och laddar snabbt. Sajtmaskin genererar responsiva sidor med inbyggt stöd för betalning via Stripe och bokningssystem via Cal.com, så du slipper pussla ihop olika verktyg."
+    },
+    {
+      "heading": "Bygg eventsajten i chatten",
+      "body": "Du startar med att berätta för AI:n vad ditt event handlar om – kanske en hållbarhetskonferens, en musikfestival eller en branschmässa. AI:n skapar då startsida, programsida, talarpresentationer, FAQ och kontaktformulär. Vill du lägga till en sponsorsektion eller livestream-info? Skriv bara in önskemålet i chatten så uppdateras sajten direkt. Allt sker på svenska och du ser förändringarna i realtid, vilket gör processen både snabb och transparent."
+    },
+    {
+      "heading": "Integrationer för biljetter och bokning",
+      "body": "Sajtmaskin kopplar ihop din eventsajt med Stripe så att besökare kan köpa biljetter säkert online. Vill du erbjuda tidsbokade workshops eller one-on-one-möten med utställare? Integrera Cal.com så får deltagarna välja tid direkt på sajten. Google Analytics ger dig koll på hur många som besöker programsidan eller klickar på köpknappen. Alla integrationer sätts upp utan kod, och du behåller full äganderätt över data och domän."
+    },
+    {
+      "heading": "Publicera och uppdatera löpande",
+      "body": "När eventsajten är klar publicerar du den på din egen domän, eller använder en kostnadsfri subdomän från Sajtmaskin om du vill testa först. Behöver du ändra datum, lägga till en talare eller uppdatera priser? Gå in i chatten och be AI:n göra justeringen – ingen teknisk kompetens krävs. Det passar perfekt för eventteam i Borås som jobbar med korta ledtider och vill kunna reagera snabbt på ändringar."
+    },
+    {
+      "heading": "Ingen bindningstid, full flexibilitet",
+      "body": "Sajtmaskin har inga långa avtal. Betala endast när du behöver plattformen, och exportera all kod om du vill flytta sajten till egen server senare. Det gör tjänsten idealisk för engångsevent, årliga konferenser eller pop-up-arrangemang där du vill ha maximal kontroll och minimal administration. Svensk support hjälper dig om du kör fast, och all kommunikation sker på ditt modersmål."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja biljetter direkt på eventsajten?",
+      "a": "Ja, genom Stripe-integrationen kan besökare betala med kort direkt på sajten. Du sätter pris, antal platser och eventuella rabattkoder, och AI:n bygger in köpflödet automatiskt. Pengarna går till ditt eget Stripe-konto."
+    },
+    {
+      "q": "Fungerar sajten för både små och stora event i Borås?",
+      "a": "Absolut. Oavsett om du arrangerar en workshop för 20 personer på Simonsland eller en mässa för 2000 på Borås Arena kan Sajtmaskin skala innehåll och funktioner efter behov. Du styr själv hur mycket information och hur många sidor som ska genereras."
+    },
+    {
+      "q": "Hur lägger jag till program och talare?",
+      "a": "Berätta i chatten vilka programpunkter och talare du har, så skapar AI:n en strukturerad sida med tider, beskrivningar och eventuella profilbilder. Vill du ändra ordning eller lägga till en ny session skriver du bara in det, så uppdateras sidan direkt."
+    },
+    {
+      "q": "Kan besökare boka mötestider eller workshops?",
+      "a": "Ja, via Cal.com-integrationen kan du erbjuda tidsbokningar. Perfekt för speed-networking, mentorsessioner eller workshoppass där antalet platser är begränsat. Deltagarna ser lediga tider och bokar direkt på sajten."
+    },
+    {
+      "q": "Vad händer om jag behöver ändra eventsajten i sista minuten?",
+      "a": "Du chattar med AI:n och beskriver ändringen – ny tid, annan plats, extra talare. Uppdateringen syns direkt på den publicerade sajten. Ingen väntan på webbyrå eller teknisk support, vilket är ovärderligt när deadlines närmar sig."
+    },
+    {
+      "q": "Kan jag använda min egen domän för eventsajten?",
+      "a": "Ja, du publicerar på vilken domän du vill. Sajtmaskin erbjuder också kostnadsfri hosting på subdomän om du föredrar det. Ingen månadskostnad för hosting på subdomän, så du kan testa och lansera utan extra utgifter."
+    },
+    {
+      "q": "Är det lätt att exportera sajten efter eventet?",
+      "a": "Ja, du kan när som helst exportera all kod och flytta sajten till egen server. Det gör att du äger allt material och kan arkivera eller återanvända innehåll för kommande event utan att vara låst till plattformen."
+    }
+  ],
+  "localOrIndustryContext": "Borås har en livaktig eventscen med allt från Knalleland och Borås Djurpark till konferenser på Borås Arena och kulturprogram i Kulturhuset. Många arrangörer behöver snabba, flexibla sajter som fungerar för både återkommande och engångsevent, och Sajtmaskins AI-drivna plattform passar perfekt för den dynamiken.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/boras",
+      "label": "Skapa hemsida i Borås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Borås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

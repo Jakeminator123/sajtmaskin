@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "karlstad/konsult",
+  "title": "Hemsida för konsulter i Karlstad | Sajtmaskin",
+  "metaDescription": "Bygg en professionell hemsida för din konsultverksamhet i Karlstad på minuter. AI-driven plattform utan kod – publicera direkt med bokning.",
+  "h1": "Hemsida för konsulter i Karlstad",
+  "heroSub": "Skapa en professionell konsultsajt som visar din expertis och gör det enkelt för kunder att boka dina tjänster.",
+  "introParagraphs": [
+    "Som konsult i Karlstad behöver du en hemsida som snabbt visar vad du kan och gör det enkelt för potentiella kunder att ta kontakt. Sajtmaskin bygger din konsultsajt på minuter via chat – du beskriver din verksamhet, så skapar AI:n en färdig sajt med tjänstebeskrivningar, om dig-sektion och bokningsfunktion.",
+    "Du får en sajt som fungerar direkt: integrerad kalender via Cal.com så kunder kan boka möten, kontaktformulär, och alla texter skrivna utifrån din kompetens. Publicera på egen domän eller kör gratis på en Sajtmaskin-subdomän. Allt på svenska, ingen kod, inga månadskostnader för hosting om du väljer subdomän.",
+    "Perfekt för managementkonsulter, IT-konsulter, HR-specialister och alla andra som säljer sin expertis i Karlstad och Värmland. Du kan uppdatera innehåll när som helst och exportera koden om du vill flytta sajten senare."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en konsultsajt i Karlstad behöver",
+      "body": "En konsults hemsida ska bygga förtroende och visa tydlig kompetens. Besökare vill snabbt förstå vad du hjälper till med, vilken erfarenhet du har och hur de bokar ett första möte. Sajtmaskin genererar automatiskt sidor för dina tjänster, din bakgrund, case eller referensprojekt, och en kontaktsida med bokningskalender. Du kan lägga till blogginlägg för att visa expertis inom ditt område, vilket också stärker din synlighet i sökmotorer. Allt innehåll skrivs på svenska och anpassas efter din bransch – från strategikonsulter till tekniska specialister."
+    },
+    {
+      "heading": "Bygg din konsultsajt via chat",
+      "body": "Istället för att kämpa med WordPress-teman eller designverktyg chattar du helt enkelt med Sajtmaskin. Berätta vad du erbjuder, vilka branscher du jobbar med och vad som skiljer dig från andra konsulter. AI:n föreslår struktur, skriver texter och skapar en design som passar din profil. Du ser resultatet direkt och kan justera – ändra färger, byt bilder, lägg till fler tjänster eller ett portfolio. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän. Hela processen tar minuter, inte veckor."
+    },
+    {
+      "heading": "Integrerad bokning och betalning",
+      "body": "Sajtmaskin kopplar din sajt till Cal.com så att kunder kan boka kostnadsfria konsultationer eller betalmöten direkt i din kalender. Du slipper mejla fram och tillbaka – besökaren väljer en ledig tid och får automatisk bekräftelse. Vill du ta betalt för workshops, utbildningar eller rådgivningspaket? Integrera Stripe och sätt pris på dina tjänster. Allt synkas med din kalender och du får notiser när någon bokar. För konsulter som jobbar med företag i Karlstadsregionen blir det enklare att hantera både lokala möten och digitala sessioner."
+    },
+    {
+      "heading": "Ingen bindning – du äger din sajt",
+      "body": "Många webbplattformar låser in dig med månadskostnader och begränsningar. Sajtmaskin fungerar annorlunda: publicera gratis på subdomän utan månadskostnad, eller koppla din egen domän. Du kan när som helst exportera hela koden och flytta sajten till egen server. Ingen bindningstid, inga dolda avgifter. Uppdatera texter, lägg till nya tjänster eller ändra bokningsinställningar direkt i gränssnittet. Perfekt för konsulter som vill ha full kontroll utan att bli tekniker."
+    },
+    {
+      "heading": "Svenskt verktyg för svenska konsulter",
+      "body": "Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och svensk support. All AI-genererad text skrivs på svenska och förstår hur svenska konsulter kommunicerar med sina kunder. Du slipper översätta templates eller kämpa med engelska verktyg som inte riktigt passar den svenska marknaden. Google Analytics ingår så du kan följa hur besökare hittar din sajt, och allt från bokningsbekräftelser till kontaktformulär är på svenska. För konsulter i Karlstad som vill synas lokalt och nationellt ger det en professionell närvaro från dag ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en konsultsajt live?",
+      "a": "De flesta konsulter har en färdig sajt på 10–20 minuter. Du chattar med AI:n om dina tjänster och kompetens, granskar förslaget, justerar eventuellt texter eller bilder, och publicerar. Vill du koppla egen domän tar det någon minut extra, men du kan också köra direkt på en gratis subdomän och byta senare."
+    },
+    {
+      "q": "Kan jag lägga till en bokningskalender för konsultationer?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så att besökare kan boka möten direkt på sajten. Du kopplar din Google- eller Outlook-kalender, sätter vilka tider som är lediga och väljer möteslängd. Kunder ser tillgängliga tider och bokar – du får notis och allt synkas automatiskt. Perfekt för konsulter som vill slippa mejltennis."
+    },
+    {
+      "q": "Fungerar sajten för konsulter i Karlstad som jobbar både lokalt och digitalt?",
+      "a": "Absolut. Du kan tydligt visa att du tar både fysiska möten i Karlstad och digitala uppdrag nationellt. Lägg till en tjänstesida för lokal rådgivning och en annan för remote-konsultation. Bokningskalendern hanterar båda – du bestämmer om mötet ska vara på plats, via Zoom eller Teams. Många konsulter i Värmland jobbar hybrit och sajten stödjer det fullt ut."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du ha egen domän (till exempel dittnamn.se) betalar du bara domänregistrering hos din registrar, inga extra hostingavgifter från Sajtmaskin. Integrationer som Cal.com och Stripe har egna prisplaner, men grundfunktionerna är ofta kostnadsfria för mindre volymer."
+    },
+    {
+      "q": "Kan jag visa case och referenser på sajten?",
+      "a": "Ja, du kan lägga till en portfolio- eller case-sektion där du beskriver tidigare uppdrag och resultat. Beskriv projekten i chatten så genererar AI:n struktur och texter. Du kan också lägga till kundcitat eller logotyper från företag du jobbat med. Bra för att bygga förtroende, särskilt om du riktar dig till företag i Karlstadsregionen som vill se lokal erfarenhet."
+    },
+    {
+      "q": "Hur uppdaterar jag tjänster och priser senare?",
+      "a": "Du loggar in, redigerar texten direkt i gränssnittet eller chattar med AI:n om ändringen. Vill du lägga till en ny tjänst, ändra pris eller uppdatera din bio tar det någon minut. Inga krångliga CMS-menyer – allt är byggt för att vara snabbt och intuitivt. Ändringar publiceras direkt så sajten alltid speglar ditt aktuella utbud."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform?",
+      "a": "Ja, du kan exportera hela koden när som helst och flytta sajten till egen server eller annan host. Ingen bindningstid, ingen inlåsning. Du äger innehållet och kan ta med dig allt om du vill gå vidare. Det gör Sajtmaskin till ett tryggt val även om du är osäker på långsiktiga behov."
+    }
+  ],
+  "localOrIndustryContext": "Karlstad är Värmlands största stad och ett nav för både etablerade konsultbolag och frilansande specialister inom management, IT, HR och teknik. Många konsulter här jobbar med regionala företag, offentlig sektor och nationella uppdrag på distans – en hemsida som tydligt visar kompetens och gör bokning enkel är avgörande för att sticka ut.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/karlstad",
+      "label": "Skapa hemsida i Karlstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Karlstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

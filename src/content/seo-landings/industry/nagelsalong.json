@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "nagelsalong",
+  "title": "Hemsida för nagelsalong – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för din nagelsalong direkt i chatten. Bokningssystem, prislista och galleri – allt på plats utan kod. Prova gratis.",
+  "h1": "Hemsida för nagelsalong",
+  "heroSub": "Bygg en komplett sajt för din nagelsalong på minuter – med bokning, prislista och galleri integrerat från start.",
+  "introParagraphs": [
+    "En hemsida för nagelsalong behöver visa dina tjänster tydligt, låta kunder boka tid direkt och ge en känsla av din stil redan vid första besöket. Med Sajtmaskin skapar du allt det genom att chatta med AI:n – du beskriver vad salongen erbjuder, vilka behandlingar du är känd för och hur du vill att sajten ska se ut, så genereras en färdig sajt på svenska.",
+    "Du får en prislista för manikyr, pedikyr, gelnaglar och övriga behandlingar, ett bildgalleri där du visar upp ditt arbete, och ett bokningssystem via Cal.com som synkar med din kalender. Allt publiceras på din egen domän, och du kan redigera direkt i chatten om du vill ändra något.",
+    "Ingen bindningstid, ingen kod och ingen dold månadsavgift för hosting på subdomän. Du bygger, publicerar och äger din sajt – och kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för nagelsalong behöver innehålla",
+      "body": "En fungerande sajt för nagelsalong behöver en startsida som visar din stil och dina specialiteter, en tjänstesida med tydlig prislista för allt från klassisk lack till gelförstärkning och nagelkonst, och ett galleri där potentiella kunder ser exempel på ditt arbete. Dessutom behövs en om-sida där du berättar om dig själv, din utbildning och vilka produkter du använder, plus en kontaktsida med öppettider, adress och karta. Viktigast av allt är ett bokningssystem som låter kunder boka tid dygnet runt utan att behöva ringa."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din nagelsalongsajt",
+      "body": "Du startar en chatt och beskriver din salong: vilka behandlingar du erbjuder, om du är specialist på gelnaglar eller naturlig manikyr, vilka färger och känsla du vill ha på sajten. AI:n genererar då en komplett sajt med alla sidor, texter och struktur på plats. Du kan ladda upp bilder från ditt arbete direkt i chatten, och sajten uppdateras live. Vill du lägga till en ny behandling eller ändra priset på pedikyr säger du det bara, så justeras sidan på sekunden. Bokningssystemet kopplas till Cal.com så att kunder ser lediga tider och bokar direkt, och du kan integrera Stripe om du vill ta förskottsbetalning för längre behandlingar."
+    },
+    {
+      "heading": "Bokningssystem och betalning för nagelsalonger",
+      "body": "Sajtmaskin integrerar Cal.com så att dina kunder kan välja behandling, se lediga tider och boka direkt på sajten. Du bestämmer själv hur lång tid varje behandling tar och vilka buffertar du vill ha mellan bokningar. Vill du ta betalt i förskott för till exempel nagelförlängning eller större set kan du koppla Stripe och ta kortbetalning direkt vid bokning. Det minskar no-shows och gör det enklare för dig att planera dagen. Allt sköts via sajten utan extra appar eller system."
+    },
+    {
+      "heading": "Visa upp ditt arbete med ett bildgalleri",
+      "body": "För en nagelsalong är bilderna lika viktiga som texten. Kunder vill se exempel på dina naglar, färgkombinationer och tekniker innan de bokar. Sajtmaskin låter dig bygga ett galleri där du laddar upp bilder direkt i chatten, organiserar dem efter typ av behandling eller stil, och visar dem snyggt på sajten. Du kan när som helst lägga till nya bilder från senaste kundens set eller ta bort gamla. Galleriet fungerar lika bra på mobil som dator, och bilderna laddas snabbt utan att sajten blir seg."
+    },
+    {
+      "heading": "Ingen bindningstid – du äger din sajt",
+      "body": "Sajtmaskin har ingen bindningstid och inga dolda avgifter. Du betalar för att bygga sajten, och vill du ha den på en subdomän hos oss kostar hostingen inget extra per månad. Vill du flytta sajten till din egen server kan du exportera all kod när du vill. Du äger allt innehåll, alla bilder och all data. Behöver du hjälp får du support på svenska, och vill du göra ändringar gör du det själv i chatten utan att behöva vänta på en webbutvecklare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa olika priser för olika behandlingar på sajten?",
+      "a": "Ja, du kan ha en komplett prislista där varje behandling har sitt eget pris och sin beskrivning. Du uppdaterar priserna direkt i chatten, och ändringarna syns på sajten direkt. Du kan även gruppera behandlingar, till exempel ha en sektion för manikyr, en för pedikyr och en för tilläggsbehandlingar som nagelkonst eller paraffinbehandling."
+    },
+    {
+      "q": "Hur fungerar bokningssystemet för en nagelsalong?",
+      "a": "Sajtmaskin integrerar Cal.com så att kunder kan boka tid direkt på din sajt. Du ställer in hur lång tid varje behandling tar, vilka tider du är öppen och hur mycket buffert du vill ha mellan bokningar. Kunden väljer behandling, ser lediga tider och bokar – du får en bekräftelse och bokningen hamnar i din kalender. Du kan synka med Google Calendar eller andra kalendrar du använder."
+    },
+    {
+      "q": "Kan jag ta betalt i förskott via sajten?",
+      "a": "Ja, genom att koppla Stripe kan du ta kortbetalning direkt vid bokning. Det är särskilt användbart för längre behandlingar som nagelförlängning eller komplicerade set där du vill ha en förskottsbetalning. Du bestämmer själv om hela beloppet eller en del ska betalas i förskott, och resten kan kunden betala på plats."
+    },
+    {
+      "q": "Hur lägger jag till bilder på mina naglar?",
+      "a": "Du laddar upp bilder direkt i chatten när du bygger sajten, eller när som helst efteråt. Säg till AI:n var bilderna ska placeras – i galleriet, på startsidan eller vid en specifik behandling – så läggs de in automatiskt. Du kan organisera bilderna efter behandlingstyp, färgtema eller säsong, och ta bort eller byta ut bilder när du vill."
+    },
+    {
+      "q": "Kan jag ha sajten på min egen domän?",
+      "a": "Ja, du kan publicera sajten på vilken domän du vill. Har du redan en domän kopplar du den till Sajtmaskin, och har du ingen hjälper vi dig registrera en. Du kan också börja på en gratis subdomän hos oss och senare flytta till egen domän. Det kostar inget extra att hosta på vår subdomän, och du kan när som helst exportera sajten om du vill flytta den någon annanstans."
+    },
+    {
+      "q": "Vad händer om jag vill ändra något på sajten senare?",
+      "a": "Du öppnar chatten och säger vad du vill ändra – ett pris, en text, en bild eller en hel sida. AI:n uppdaterar sajten direkt. Du behöver ingen teknisk kunskap och ingen väntetid. Vill du lägga till en ny behandling, ändra öppettider eller byta färgschema gör du det på samma sätt. Allt sköts i samma gränssnitt där du byggde sajten från början."
+    },
+    {
+      "q": "Kan jag visa recensioner eller kundcase på sajten?",
+      "a": "Ja, du kan lägga till en sektion med kundrecensioner eller citat från nöjda kunder. Du skriver in texten i chatten, och AI:n formaterar och placerar ut den snyggt på sajten. Du kan också länka till dina Google-recensioner eller Instagram om du vill att besökare ska se mer socialt bevis. Det är ett bra sätt att bygga förtroende, särskilt för nya kunder som inte besökt salongen tidigare."
+    }
+  ],
+  "localOrIndustryContext": "Nagelsalonger i Sverige har gått från att vara en nisch till att finnas i de flesta städer och köpcentrum. Konkurrensen är hård, och många kunder hittar sin salong via Google eller Instagram. En proffsig hemsida med tydlig prislista, snygga bilder och enkel bokning gör skillnad – den visar att du tar din verksamhet på allvar och gör det enkelt för kunden att välja just dig.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida-for/spa",
+      "label": "Hemsida för spa"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en nagelsalong-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

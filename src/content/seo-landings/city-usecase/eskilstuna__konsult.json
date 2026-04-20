@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "eskilstuna/konsult",
+  "title": "Hemsida konsult Eskilstuna – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet i Eskilstuna. AI bygger sajten åt dig med bokning, case och kontakt. Publicera direkt.",
+  "h1": "Hemsida för konsulter i Eskilstuna",
+  "heroSub": "Bygg en professionell konsultsajt på minuter med AI – perfekt för dig som säljer expertis i Eskilstuna och omnejd.",
+  "introParagraphs": [
+    "Som konsult i Eskilstuna behöver du en hemsida som visar vad du kan, bygger förtroende och gör det lätt för kunder att boka tid. Sajtmaskin låter dig skapa en komplett konsultsajt via chat – med tjänstebeskrivningar, referenscase, bokningsfunktion och kontaktformulär. Allt på svenska, utan kod, klart på minuter.",
+    "Du chattar med vår AI om din konsultverksamhet: vilka tjänster du erbjuder, vilka branscher du jobbar med, och vad som gör dig unik. AI:n genererar en färdig sajt med rätt struktur för konsulter – från startsida och om-sida till tjänstesidor och bokningslänk. Publicera på egen domän eller kör kostnadsfritt på vår subdomän.",
+    "Integrationen med Cal.com gör att kunder kan boka möten direkt på sajten, och du kan när som helst uppdatera texter, lägga till case eller justera erbjudandet. Ingen bindningstid, ingen teknisk krångel – bara en sajt som jobbar för dig."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en konsultsajt i Eskilstuna behöver",
+      "body": "En bra konsultsajt måste snabbt förklara vad du gör, vem du hjälper och varför kunder ska välja dig. I Eskilstuna jobbar många konsulter mot både lokala företag och regionala uppdragsgivare i Mälardalen, så sajten behöver tala till båda målgrupperna. Tydliga tjänstebeskrivningar, konkreta exempel från tidigare uppdrag och enkel bokning är avgörande. Sajtmaskin ger dig en struktur som fungerar: startsida med tydligt budskap, tjänstesidor för varje erbjudande, en om-sida som bygger trovärdighet, och integrerad bokning så kunder slipper mejla fram och tillbaka."
+    },
+    {
+      "heading": "Bygg sajten via chat – AI gör jobbet",
+      "body": "Du startar en chatt och berättar vad du erbjuder: managementkonsult, IT-konsult, HR-rådgivning eller något annat. AI:n frågar om din målgrupp, dina styrkor och vilka resultat du levererar. Utifrån det genereras en komplett sajt med texter, struktur och layout. Du kan direkt be AI:n lägga till en case-sektion, byta rubrik på tjänstesidan eller skriva om om-texten. Allt händer i realtid, och du ser resultatet medan ni chattar. När du är nöjd publicerar du – antingen på din egen domän eller gratis på en sajtmaskin-subdomän."
+    },
+    {
+      "heading": "Bokning, case och kontakt – allt inbyggt",
+      "body": "Sajtmaskin integrerar Cal.com så att besökare kan boka ett första möte eller rådgivningssamtal direkt på sajten. Du väljer själv vilka tider som passar och vilken typ av möten du erbjuder – digitalt, på plats i Eskilstuna eller hybridformat. Du kan också lägga till case-beskrivningar för att visa tidigare uppdrag, eller en blogg där du delar insikter och bygger expertis. Behöver du ta betalt för digitala produkter eller utbildningar fungerar Stripe-integrationen smidigt. Google Analytics följer med om du vill följa besökare och konverteringar."
+    },
+    {
+      "heading": "Lokal närvaro och regional räckvidd",
+      "body": "Många konsulter i Eskilstuna jobbar både med lokala kunder och uppdrag i Stockholm, Västerås eller Örebro. Din sajt kan enkelt spegla det genom att nämna regionen du täcker och vilka branscher du är aktiv inom. Sajtmaskin låter dig skriva texter som passar din marknad – oavsett om du riktar dig mot offentlig sektor, tillverkningsindustri eller tjänsteföretag. Du kan när som helst uppdatera sajten själv via chatten, lägga till nya tjänster eller justera budskap när verksamheten växer."
+    },
+    {
+      "heading": "Ingen bindning, full kontroll",
+      "body": "Det kostar inget att testa Sajtmaskin, och när du publicerar finns ingen bindningstid. Vill du byta plattform senare kan du exportera hela koden och flytta sajten vart du vill. Hosting på subdomän är gratis, och egen domän kopplar du enkelt via DNS. Allt support och gränssnitt är på svenska, byggt i Sverige av Pretty Good AB. Du äger din sajt, ditt innehåll och dina kundkontakter – precis som det ska vara."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en konsultsajt live i Eskilstuna?",
+      "a": "De flesta kommer igång på under en timme. Du chattar med AI:n om din verksamhet, granskar förslaget, justerar det du vill och publicerar. Vill du använda egen domän tar DNS-kopplingen några timmar extra, men du kan köra på subdomän direkt och byta senare."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för rådgivningsmöten?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så besökare kan boka tid direkt på sajten. Du ställer in vilka möten du erbjuder, längd och tillgängliga tider. Allt synkas med din kalender, och kunder får automatisk bekräftelse."
+    },
+    {
+      "q": "Fungerar sajten för konsulter som jobbar regionalt i Mälardalen?",
+      "a": "Absolut. Du skriver texter som speglar ditt geografiska område – Eskilstuna, Stockholm, Västerås eller hela regionen. Sajten är lika lätt att hitta för kunder i Torshälla som i Strängnäs, beroende på hur du formulerar ditt erbjudande och vilka sökord du använder."
+    },
+    {
+      "q": "Kan jag visa case och referenser på sajten?",
+      "a": "Ja, du kan be AI:n skapa en case-sektion eller referenssida. Lägg till projektbeskrivningar, resultat och bransch. Du uppdaterar enkelt via chatten när du vill lyfta nya uppdrag eller ta bort gamla."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på subdomän är gratis utan tidsbegränsning. Vill du använda egen domän betalar du för domänen själv (oftast runt 100 kr/år) och kopplar den via DNS. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag sälja digitala produkter eller utbildningar via sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du ta betalt för e-böcker, onlinekurser, mallar eller andra digitala tjänster. Du sätter pris, beskrivning och leverans – resten sköter Sajtmaskin och Stripe."
+    },
+    {
+      "q": "Äger jag sajten och kan jag flytta den senare?",
+      "a": "Du äger allt innehåll och all kod. Vill du byta plattform exporterar du sajten och flyttar den vart du vill. Ingen inlåsning, inga krångliga villkor."
+    }
+  ],
+  "localOrIndustryContext": "Eskilstuna har en bred mix av konsulter inom management, IT, HR och teknik som jobbar mot både lokala företag och regionala uppdragsgivare. Närheten till Stockholm och Västerås gör att många konsulter täcker hela Mälardalen, vilket ställer krav på en sajt som fungerar både lokalt och regionalt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/eskilstuna",
+      "label": "Skapa hemsida i Eskilstuna"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Eskilstuna. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

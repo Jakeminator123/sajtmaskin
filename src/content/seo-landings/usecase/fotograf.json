@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "fotograf",
+  "title": "Hemsida fotograf – bygg din portfoliosajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet med AI. Portfolio, bokning, bildgallerier och kontaktformulär – klart på minuter.",
+  "h1": "Hemsida fotograf",
+  "heroSub": "Bygg en professionell portfoliosajt för din fotoverksamhet – med AI, på svenska, utan kod.",
+  "introParagraphs": [
+    "En hemsida för fotograf behöver visa ditt arbete i bästa ljus. Det innebär snygga bildgallerier, en tydlig portfolio uppdelad efter genre eller uppdragstyp, information om vad du erbjuder och vad det kostar, samt ett enkelt sätt för kunder att boka tid eller begära offert. Allt presenterat så att bilderna får plats att andas utan att sajten känns tom eller oprofessionell.",
+    "Med Sajtmaskin bygger du hela din fotografsajt genom att chatta med AI:n på svenska. Du beskriver vad du fotograferar, vilka tjänster du erbjuder och hur du vill att sajten ska se ut – så genererar AI:n layout, texter och struktur på minuter. Du laddar upp dina bästa bilder, justerar det du vill ändra och publicerar på din egen domän. Ingen kod, ingen designer, inga månadskostnader om du kör på subdomän.",
+    "Sajten blir responsiv från start, så dina bilder ser bra ut både på mobil och dator. Du kan integrera Cal.com för bokningar, Stripe om du säljer prints eller paket direkt, och Google Analytics för att se var dina besökare kommer ifrån. Behöver du ändra något senare skriver du bara till AI:n igen."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio och bildgallerier",
+      "body": "Det viktigaste på en fotografsajt är att visa upp ditt arbete. Dela gärna in portfolion efter genre – bröllop, porträtt, företagsfoto, produkt – så att besökaren snabbt hittar rätt. Varje galleri bör ha högupplösta bilder som laddas snabbt, gärna med lightbox-funktion så man kan klicka sig igenom i fullskärm. Sajtmaskin genererar gallerilayouter automatiskt och du drar och släpper dina bilder på plats. AI:n skriver även bildtexter om du vill, men du kan såklart lämna bilderna utan text om du föredrar det."
+    },
+    {
+      "heading": "Tjänster och priser",
+      "body": "Potentiella kunder vill veta vad du erbjuder och ungefär vad det kostar innan de hör av sig. Skapa en tydlig tjänstesida där du listar dina paket – till exempel 'Porträttfotografering 2 timmar', 'Bröllopsfoto heldag' eller 'Produktfoto 10 bilder'. Du behöver inte alltid publicera exakta priser, men en prisindikation eller 'från X kronor' hjälper besökaren att sålla. Sajtmaskin kan generera den här sidan utifrån vad du berättar om din verksamhet, och du justerar sedan formuleringar och belopp efter behov."
+    },
+    {
+      "heading": "Bokningsfunktion",
+      "body": "Integrera Cal.com så att kunder kan boka ett första möte, konsultation eller direkt fotografering i din kalender. Du sätter själv vilka tider som är lediga och hur lång varje session ska vara. Bokningsknappen läggs in på tjänstesidan eller i menyn, och bekräftelser skickas automatiskt. Det minskar mejlträlar fram och tillbaka och ger ett professionellt intryck. Sajtmaskin kopplar Cal.com direkt i gränssnittet – du anger bara din Cal-länk så fixar AI:n resten."
+    },
+    {
+      "heading": "Om mig och kontakt",
+      "body": "Berätta vem du är, var du är baserad och varför du fotograferar. Personliga sajter säljer bättre än anonyma portfolios, särskilt inom kreativa branscher. Lägg gärna in en bild på dig själv och några rader om din stil eller arbetssätt. Kontaktsidan ska ha ett formulär eller tydlig mejladress, gärna även telefonnummer om du vill att folk ringer. Sajtmaskin genererar kontaktformulär som skickar ifrån direkt till din mejl, och du kan lägga till karta eller sociala medier-länkar om du vill."
+    },
+    {
+      "heading": "Blogg eller referenscase",
+      "body": "En blogg där du visar bakom kulisserna från uppdrag, delar fotograferingstips eller presenterar nöjda kunder bygger förtroende och ger färskt innehåll som Google gillar. Du behöver inte blogga varje vecka – ett case i månaden räcker långt. Sajtmaskin har inbyggd bloggfunktion där du lägger till inlägg via editorn, och AI:n kan hjälpa till att skriva eller omformulera texter om du kör fast. Varje inlägg får sin egen URL och syns automatiskt i arkivet."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa högupplösta bilder utan att sajten blir långsam?",
+      "a": "Ja, Sajtmaskin optimerar bilderna automatiskt när du laddar upp dem. De komprimeras till rätt storlek för webben men behåller kvaliteten, så galleriet laddar snabbt även på mobil. Du kan alltid ladda upp original och låta systemet hantera komprimeringen."
+    },
+    {
+      "q": "Behöver jag kunna koda för att lägga till nya bilder eller projekt?",
+      "a": "Nej, allt sköts i editorn. Du klickar på det galleri du vill uppdatera, drar in nya bilder och sparar. Vill du lägga till en helt ny portfoliosektion skriver du till AI:n, typ 'lägg till galleri för företagsporträtt', så skapar den sidan direkt."
+    },
+    {
+      "q": "Kan jag ta betalt för prints eller digitala filer via sajten?",
+      "a": "Ja, integrera Stripe så får du en enkel checkout. Du skapar produktsidor för prints, digitala paket eller presentkort, och kunder betalar med kort. Pengarna landar på ditt Stripe-konto och du får mejl vid varje köp. Perfekt om du säljer fine art-prints eller vill erbjuda direktköp av bildfiler."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Absolut. Alla sidor Sajtmaskin genererar är responsiva, så gallerier, texter och knappar anpassas automatiskt till skärmstorlek. Många besökare hittar fotografer via Instagram och klickar vidare på mobilen, så mobilvyn är lika viktig som desktop."
+    },
+    {
+      "q": "Kan jag använda min egen domän, typ mittnamn.se?",
+      "a": "Ja, du pekar din domän till Sajtmaskin via DNS-inställningar hos din domänleverantör. Guiden i plattformen visar exakt vilka poster du ska lägga till. Vill du testa först kan du publicera kostnadsfritt på en subdomän, typ mittnamn.sajtmaskin.se, och byta till egen domän senare."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajten som kod när du vill, utan extra kostnad. Filerna är vanlig HTML, CSS och JavaScript som fungerar hos vilken hostingleverantör som helst. Ingen inlåsning, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag ha sajten på flera språk om jag jobbar internationellt?",
+      "a": "Just nu bygger Sajtmaskin på svenska, men du kan själv redigera texter till engelska eller annat språk i editorn efter att AI:n genererat strukturen. Automatisk flerspråkighet är på roadmapen, men manuell översättning funkar fint redan idag."
+    }
+  ],
+  "localOrIndustryContext": "Fotograf- och videografbranschen i Sverige är bred – allt från bröllopsfotografer och porträttfotografer till produktfotografer och eventfotografer. Gemensamt är behovet av en snabb, snygg portfolio online som visar stil och kompetens. Många fotografer startar som hobbyister eller frilansare vid sidan av och vill inte lägga tiotusentals kronor på webbyrå innan de vet om verksamheten bär sig. Sajtmaskin passar perfekt för den fasen – du får en proffsig sajt på minuter och kan växa in i fler funktioner allt eftersom kundbasen ökar.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en fotograf-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

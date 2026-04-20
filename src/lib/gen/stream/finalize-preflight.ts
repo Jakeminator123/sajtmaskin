@@ -298,6 +298,8 @@ function buildShellPageContent(route: PlannedRoute): string {
   // listens for this and triggers the same flow as the "Bygg ut"-arrow in the
   // preview-chrome route pill.
   const routePathJson = JSON.stringify(route.path);
+  const routeIntentJson = JSON.stringify(purpose || "");
+  const routeNameJson = JSON.stringify(route.name || "");
   return `"use client";
 
 import Link from "next/link";
@@ -306,13 +308,16 @@ import { ${iconName}, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 
 export default function ${funcName}Page() {
   const routePath = ${routePathJson};
+  const routeIntent = ${routeIntentJson};
+  const routeName = ${routeNameJson};
 
   const requestBuildOut = () => {
     if (typeof window === "undefined") return;
+    const payload = { path: routePath, intent: routeIntent, name: routeName };
     try {
       if (window.parent && window.parent !== window) {
         window.parent.postMessage(
-          { source: "sajtmaskin-preview", type: "build-out-request", payload: { path: routePath } },
+          { source: "sajtmaskin-preview", type: "build-out-request", payload },
           "*",
         );
         return;
@@ -326,6 +331,8 @@ export default function ${funcName}Page() {
     try {
       const url = new URL(window.location.href);
       url.searchParams.set("sajtmaskin_buildout", routePath);
+      if (routeIntent) url.searchParams.set("sajtmaskin_buildout_intent", routeIntent);
+      if (routeName) url.searchParams.set("sajtmaskin_buildout_name", routeName);
       window.location.href = url.toString();
     } catch {
       // ignore URL construction failures
@@ -381,6 +388,8 @@ export default function ${funcName}Page() {
         <button
           id="sajtmaskin-skapa-sida"
           data-sajtmaskin-path={routePath}
+          data-sajtmaskin-intent={routeIntent}
+          data-sajtmaskin-name={routeName}
           type="button"
           onClick={requestBuildOut}
           className="inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"

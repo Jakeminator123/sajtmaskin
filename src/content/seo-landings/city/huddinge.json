@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "huddinge",
+  "title": "Hemsida Huddinge – Bygg din sajt på minuter med AI | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Huddinge med AI. Från prompt till publicerad sajt på minuter. Ingen kod, ingen bindningstid. Perfekt för lokala företag.",
+  "h1": "Hemsida Huddinge – AI bygger din sajt",
+  "heroSub": "Berätta vad ditt företag gör, så skapar Sajtmaskin en färdig hemsida på minuter. Helt på svenska, redo att publicera.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som låter företag i Huddinge bygga professionella hemsidor utan att skriva en rad kod. Du chattar med AI:n, beskriver din verksamhet och vad sajten ska innehålla – sedan genereras allt från design till text automatiskt. Publicera på egen domän eller använd en kostnadsfri subdomän utan månadskostnad.",
+    "Plattformen passar allt från frisörer i Flemingsberg och restauranger vid Huddinge centrum till konsulter i Stuvsta och hantverkare som jobbar över hela kommunen. Eftersom Sajtmaskin är helt svenskt får du rätt språk, ton och lokala referenser direkt – inget översatt gränssnitt eller utländsk support.",
+    "Du bestämmer själv hur mycket tid du vill lägga. Vill du ha sajten klar på tio minuter? Kör. Behöver du finjustera texter och lägga till bokningsfunktion via Cal.com eller betalningar via Stripe? Det fixar du i samma chat. Ingen bindningstid, och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så fungerar det – från prompt till publicerad sajt",
+      "body": "Du börjar med att beskriva ditt företag i chatten: vad du gör, vilka tjänster du erbjuder, var i Huddinge du är verksam. AI:n ställer följdfrågor om färgval, struktur och funktioner. Inom minuter får du en färdig sajt med text, bilder och layout. Gillar du inte något? Säg till i chatten så justerar AI:n direkt. När allt ser bra ut publicerar du på din egen domän eller på en gratis subdomän. Hela flödet sker på svenska och kräver noll teknisk kunskap."
+    },
+    {
+      "heading": "Lokal SEO för Huddinge – syns när kunder söker",
+      "body": "En hemsida blir värdefull när den syns i sökmotorer. Sajtmaskin låter dig enkelt lägga in ortsnamn, stadsdelar som Flemingsberg, Fullersta eller Skogås, och lokala nyckelord i texter och metadata. Du kan skapa landningssidor för varje tjänst eller område du täcker, vilket hjälper dig att ranka när någon i Huddinge söker efter det du erbjuder. Google Analytics går att integrera direkt, så du ser var trafiken kommer ifrån och vilka sidor som fungerar bäst."
+    },
+    {
+      "heading": "Jämfört med webbyrå eller gör-det-själv-verktyg",
+      "body": "En lokal byrå i Stockholmsområdet tar ofta 30 000–80 000 kronor och flera veckors ledtid för en enklare företagssajt. Gör-det-själv-verktyg som Wix eller Squarespace kräver att du själv designar, skriver texter och lär dig deras gränssnitt – ofta på engelska. Sajtmaskin kombinerar det bästa: AI gör jobbet åt dig på minuter, du får svenskt innehåll och support, och du äger koden. Ingen månadskostnad om du nöjer dig med subdomän, ingen bindningstid och full frihet att exportera eller bygga vidare."
+    },
+    {
+      "heading": "Integrationer som gör sajten mer än en broschyr",
+      "body": "Behöver kunder boka tid? Koppla in Cal.com så får du ett bokningssystem direkt på sajten. Säljer du produkter eller tjänster? Stripe-integration låter dig ta betalt online utan krångel. Vill du driva en webshop kan du integrera Shopify. Allt sätts upp via chatten – ingen plugins att jaga eller kod att klistra in. För företag i Huddinge som vill växa online blir sajten ett verktyg, inte bara en skylt."
+    },
+    {
+      "heading": "Varför Sajtmaskin passar företag i Huddinge",
+      "body": "Huddinge är en blandad kommun med allt från tät stadsmiljö kring pendeltågsstationerna till villaområden och industrikvarter. Företag här behöver ofta nå kunder både lokalt och i hela Stockholmsregionen. Sajtmaskin låter dig snabbt testa olika vinklar: en sajt för lokala kunder med betoning på Huddinge, en annan för regionala uppdrag. Eftersom du inte är låst kan du experimentera, lansera och iterera i din egen takt. Plattformen är byggd i Sverige av Pretty Good AB, så support och utveckling sker på svenska."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig hemsida?",
+      "a": "De flesta användare har en publicerad sajt inom 10–20 minuter. Du chattar med AI:n, beskriver vad du behöver, granskar förslaget och publicerar. Vill du finjustera texter eller lägga till fler sidor tar det lite längre, men grundstrukturen är klar på minuter."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hosting helt gratis utan månadskostnad. Vill du använda egen domän (t.ex. dittforetag.se) behöver du köpa domänen separat, men hosting på subdomän förblir kostnadsfritt."
+    },
+    {
+      "q": "Kan jag optimera sajten för sökningar i Huddinge?",
+      "a": "Ja. Du styr alla texter, rubriker och metadata via chatten. Lägg in ortsnamn, stadsdelar som Flemingsberg eller Skogås, och beskriv dina tjänster lokalt. Sajtmaskin genererar SEO-vänlig kod, och du kan integrera Google Analytics för att följa resultat."
+    },
+    {
+      "q": "Funkar det för webshop eller bara informationssajter?",
+      "a": "Sajtmaskin stödjer Shopify-integration, så du kan driva en webshop. Du kan också ta betalt för tjänster via Stripe eller låta kunder boka tid via Cal.com. Plattformen är flexibel nog för både enkla visitkortsajter och mer avancerade lösningar."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad eller bindningstid. Koden är din, och du är fri att flytta sajten till vilken host du vill eller fortsätta utveckla den med egen utvecklare."
+    },
+    {
+      "q": "Behöver jag kunna koda eller design?",
+      "a": "Nej. Allt sker via chat på svenska. Du beskriver vad du vill ha, AI:n bygger sajten, och du godkänner eller justerar genom att skriva vanliga meningar. Ingen teknisk kunskap krävs."
+    },
+    {
+      "q": "Får jag support på svenska?",
+      "a": "Ja. Sajtmaskin är byggt i Sverige av Pretty Good AB, och all support, dokumentation och gränssnitt är på svenska. Du slipper översatta termer och utländska supporttidszoner."
+    }
+  ],
+  "localOrIndustryContext": "Huddinge är Stockholms fjärde största kommun med stark närvaro av vårdföretag kring Karolinska Universitetssjukhuset, handel vid Kungens kurva och Stuvsta, samt småföretagare i Flemingsberg och Skogås. Lokala företag tjänar på att synas i sökningar med ortsnamn och stadsdelar, och Sajtmaskin gör det enkelt att skapa SEO-anpassat innehåll utan byrå.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Huddinge. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

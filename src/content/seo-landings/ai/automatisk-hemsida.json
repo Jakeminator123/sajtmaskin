@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "automatisk-hemsida",
+  "title": "Automatisk hemsida – så fungerar det i praktiken | Sajtmaskin",
+  "metaDescription": "En automatisk hemsida byggs av AI som skriver text, väljer layout och skapar sidor från din beskrivning. Så fungerar tekniken – och vad du behöver veta.",
+  "h1": "Automatisk hemsida – så fungerar det",
+  "heroSub": "AI skriver texten, väljer layouten och skapar sidorna åt dig. Här är vad som händer bakom kulisserna.",
+  "introParagraphs": [
+    "En automatisk hemsida innebär att ett AI-system tar din beskrivning av verksamheten och genererar en komplett sajt – med text, struktur, bilder och design – utan att du behöver koda eller dra och släppa block. Du chattar med AI:n, beskriver vad du gör och vem du vänder dig till, och systemet bygger sajten direkt.",
+    "Tekniken skiljer sig från vanliga mallbyggare där du själv måste välja mall, skriva varje rubrik och para ihop sidor. Här analyserar AI:n din bransch, dina tjänster och din målgrupp, och skapar sedan allt från startsida till kontaktformulär i ett svep. Resultatet är en färdig sajt som du kan publicera direkt eller justera efter behov.",
+    "I Sverige finns nu verktyg som Sajtmaskin där hela processen sker på svenska – från chat till färdig sajt. Du beskriver din verksamhet i vanlig text, och AI:n levererar en sajt anpassad för din bransch, redo att publicera på egen domän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad AI faktiskt gör när den bygger din sajt",
+      "body": "När du startar en automatisk hemsida läser AI:n din beskrivning och identifierar nyckelord, tjänster, målgrupp och ton. Sedan genererar den rubrik och brödtext för varje sida, väljer en layoutstruktur som passar branschen och placerar element som kontaktformulär, bilder och call-to-action där de ger bäst effekt. Allt sker i realtid – du ser sajten växa fram medan du chattar. AI:n skriver också SEO-titlar och meta-beskrivningar, så sidan är sökmotoroptimerad från start. Du slipper fundera på vilken mall som passar eller hur du formulerar en Om oss-text; systemet gör det åt dig baserat på vad som fungerar för liknande verksamheter."
+    },
+    {
+      "heading": "Skillnaden mot mallbyggare och byråer",
+      "body": "Traditionella mallbyggare som Wix eller Squarespace ger dig en tom mall och ett drag-and-släpp-gränssnitt. Du väljer själv var varje bild ska sitta, skriver all text och bygger varje sida manuellt. Det ger full kontroll men kräver tid och designkänsla. En byrå skriver och designar åt dig, men processen tar veckor och kostar ofta tiotusentals kronor. En automatisk hemsida landar mittemellan: AI:n gör det tunga jobbet – text, layout, struktur – på minuter, och du justerar bara det du vill ändra. Du får en färdig sajt direkt, utan att vänta på offerter eller lära dig ett byggsystem. Och du kan fortfarande exportera koden eller byta tjänst om du vill – ingen inlåsning."
+    },
+    {
+      "heading": "Vad du behöver förbereda",
+      "body": "Du behöver ingen teknisk kunskap, men ju tydligare du beskriver din verksamhet, desto bättre blir resultatet. Tänk igenom vilka tjänster du erbjuder, vem du vänder dig till och vad som skiljer dig från konkurrenter. Om du har en logotyp eller specifika bilder kan du ladda upp dem, annars föreslår AI:n stockfoton eller genererar bildidéer. Du behöver också en domän om du vill publicera på egen adress – antingen registrerar du en ny eller kopplar en befintlig. Hela processen tar ofta under tio minuter från start till publicerad sajt, så länge du vet vad du vill säga."
+    },
+    {
+      "heading": "Så använder du en automatisk hemsida i praktiken",
+      "body": "Med Sajtmaskin startar du en chatt och beskriver din verksamhet på svenska. AI:n ställer följdfrågor om målgrupp, tjänster och stil, och genererar sedan en komplett sajt med startsida, tjänstesidor, om-sida och kontakt. Du ser förhandsgranskning direkt och kan be om ändringar – ändra ton, lägg till en sida, byt rubrik – genom att fortsätta chatten. När du är nöjd publicerar du på en subdomän gratis eller kopplar din egen domän. Du kan integrera Cal.com för bokningar, Stripe för betalningar eller Google Analytics för statistik. Allt sker utan kod, och du kan exportera hela sajten om du senare vill flytta till egen server."
+    },
+    {
+      "heading": "När automatisk passar – och när det inte gör det",
+      "body": "En automatisk hemsida fungerar bra för småföretag, frilansare, föreningar och startups som behöver en professionell sajt snabbt utan att lägga veckor på produktion. Den passar också om du vill testa en idé eller lansera en tjänst och behöver en sajt samma dag. Däremot är det mindre lämpligt om du behöver avancerad custom-funktionalitet, komplexa databaser eller helt unik design som kräver utvecklare. För de flesta verksamheter – allt från konsulter till lokala butiker – räcker en AI-genererad sajt långt, särskilt som du kan justera och utöka den över tid."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en automatisk hemsida?",
+      "a": "Från start till publicerad sajt tar det ofta 5–15 minuter. Du chattar med AI:n, beskriver verksamheten, granskar förslaget och publicerar. Vill du finjustera text eller layout kan det ta längre, men en fungerande sajt är klar på minuter."
+    },
+    {
+      "q": "Kan jag ändra texten och designen efteråt?",
+      "a": "Ja. Du kan fortsätta chatten och be AI:n ändra text, byta färgschema, lägga till sidor eller justera layout. Du kan också redigera direkt i gränssnittet om verktyget stödjer det. Ingenting är låst efter publicering."
+    },
+    {
+      "q": "Vad händer med SEO när AI skriver texten?",
+      "a": "AI:n skriver SEO-titlar, meta-beskrivningar och strukturerar innehållet med rubriker och nyckelord baserat på din bransch. Resultatet är ofta bättre än om du skriver själv utan SEO-kunskap, men du kan alltid justera för att passa specifika sökord."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja. De flesta tjänster låter dig publicera på en gratis subdomän först, sedan koppla din egen domän när du är redo. I Sajtmaskin betalar du bara för egen domän om du vill; subdomänen är gratis utan månadskostnad."
+    },
+    {
+      "q": "Är en automatisk hemsida lika bra som en byrå gör?",
+      "a": "Den är annorlunda. En byrå ger skräddarsydd design och strategisk rådgivning, men kostar mer och tar längre tid. En AI-sajt ger professionell kvalitet snabbt och billigt, men mindre unik känsla. För de flesta småföretag räcker AI-varianten långt."
+    },
+    {
+      "q": "Vad kostar det att driva en automatisk hemsida?",
+      "a": "Sajtmaskin tar ingen månadskostnad för hosting på subdomän. Vill du ha egen domän betalar du domänregistrering, ofta 100–200 kr per år. Integrationer som Stripe eller Cal.com har egna avgifter, men själva sajten är gratis att köra."
+    },
+    {
+      "q": "Kan jag exportera sajten och flytta den senare?",
+      "a": "Ja. Sajtmaskin låter dig exportera koden när du vill, utan inlåsning. Du kan då hosta sajten var du vill eller lämna över till en utvecklare. Du äger alltid ditt innehåll och din sajt."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

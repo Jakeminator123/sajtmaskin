@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "startup",
+  "title": "Hemsida för startup – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för din startup direkt i chatten. Ingen kod, klart på minuter. Publicera gratis eller koppla egen domän.",
+  "h1": "Hemsida för startup",
+  "heroSub": "Bygg en komplett landningssida för din startup på minuter – helt utan kod, direkt i chatten med AI.",
+  "introParagraphs": [
+    "En hemsida för startup behöver inte vara komplicerad, men den måste finnas. Typiskt vill du ha en tydlig rubrik som förklarar vad ni gör, ett sätt att samla in mejladresser eller bokningar, och någon form av bevis på att idén håller – omdömen, tidig kunddata eller en demo. Allt för att validera din idé snabbt och börja bygga en publik.",
+    "Med Sajtmaskin chattar du fram hela sajten på svenska. Du beskriver vad startupen gör, vilka problem ni löser och vad besökaren ska kunna göra – sedan genererar AI:n struktur, text och design. Publicera gratis på en subdomän eller koppla din egen domän direkt. Ingen kod, ingen bindningstid, inga dolda avgifter.",
+    "Du kan integrera Cal.com för mötesbokningar, Stripe för betalning om du säljer tidigt, och Google Analytics för att följa trafik. Behöver du ändra något senare gör du det i chatten – sajten uppdateras på sekunder."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tydlig värdeproposition och hero-sektion",
+      "body": "Första sektionen på din startupsajt ska förklara vad ni gör på fem sekunder. En stark rubrik, en mening som förtydligar, och en call-to-action – ofta en knapp för att boka demo, anmäla intresse eller testa produkten. Sajtmaskin genererar hero-text baserat på din beskrivning och lägger in rätt knappar automatiskt. Du kan justera tonalitet, lägga till bild eller video, och se resultatet live."
+    },
+    {
+      "heading": "Socialt bevis och early traction",
+      "body": "Även om du inte har hundratals kunder än kan du visa vad du har: citat från pilotanvändare, antal på väntelistan, partners ni samarbetar med, eller pressklipp. Sajtmaskin låter dig lägga in testimonial-block, logotyper och enkla siffror som bygger trovärdighet. Du styr hur mycket eller lite du vill visa – allt redigeras direkt i chatten."
+    },
+    {
+      "heading": "Produktöversikt eller demo",
+      "body": "Förklara hur er lösning fungerar i tre till fem steg, eller bädda in en video som visar produkten. För SaaS-startups fungerar en skärmdump med förklarande text bra. För fysiska produkter kan det vara bilder och use cases. Sajtmaskin skapar layouten åt dig – du behöver bara beskriva vad som ska synas och i vilken ordning."
+    },
+    {
+      "heading": "Lead capture och tidig konvertering",
+      "body": "De flesta startups vill samla mejladresser eller boka möten tidigt. Sajtmaskin integrerar formulär direkt i designen, och du kan koppla Cal.com för bokningar eller Mailchimp-kompatibla verktyg för nyhetsbrev. Vill du ta betalt redan nu fungerar Stripe-integration utan extra kod. Allt sätts upp via chatten – ingen teknisk konfiguration krävs."
+    },
+    {
+      "heading": "Uppdatera sajten i takt med pivots",
+      "body": "Startups ändrar riktning. Med Sajtmaskin skriver du bara vad som ska ändras i chatten – ny rubrik, annan målgrupp, fler funktioner – och AI:n uppdaterar sajten på sekunder. Du slipper vänta på utvecklare eller designer. Vill du exportera koden och flytta vidare när ni växer är det fritt fram, ingen lock-in."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att ha en hemsida för min startup?",
+      "a": "Publicerar du på en Sajtmaskin-subdomän är det gratis, inga månadskostnader. Vill du använda egen domän betalar du en engångsavgift eller abonnemang beroende på vilken plan du väljer. Ingen bindningstid, och du kan exportera koden när du vill."
+    },
+    {
+      "q": "Kan jag integrera bokningar och betalning direkt?",
+      "a": "Ja. Sajtmaskin stödjer Cal.com för mötesbokningar och Stripe för betalningar. Du kopplar dina konton i chatten så lägger AI:n in knapparna och formulären på rätt ställen. Perfekt om du vill sälja tidigt eller ta emot demobokningar."
+    },
+    {
+      "q": "Hur snabbt kan jag få sajten live?",
+      "a": "De flesta startupsajter är klara på 10–20 minuter. Du chattar fram struktur och innehåll, justerar det du vill ändra, och publicerar direkt. Ingen väntetid, ingen teknisk setup – allt händer i samma gränssnitt."
+    },
+    {
+      "q": "Kan jag ändra sajten när vi pivoterar?",
+      "a": "Absolut. Skriv i chatten vad som ska ändras – ny målgrupp, andra funktioner, annan ton – så uppdaterar AI:n texten och layouten på sekunder. Du behöver inte bygga om från scratch eller vänta på extern hjälp."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej. Hela processen sker i chatten på svenska. Du beskriver vad sajten ska innehålla, AI:n genererar design och text, och du publicerar med ett klick. Vill du ha mer kontroll senare kan du exportera koden, men det är frivilligt."
+    },
+    {
+      "q": "Kan jag följa hur många som besöker sajten?",
+      "a": "Ja, du kan integrera Google Analytics direkt via Sajtmaskin. Då ser du trafik, var besökare kommer ifrån och vilka sidor de tittar på. Bra för att förstå om ditt budskap når rätt målgrupp tidigt."
+    },
+    {
+      "q": "Vad händer om vi växer och behöver mer avancerad sajt?",
+      "a": "Du kan exportera hela koden och flytta vidare till egen hosting eller annan plattform när ni är redo. Ingen lock-in, ingen extra kostnad för export. Sajtmaskin är byggt för att vara startpunkten, inte ett fängelse."
+    }
+  ],
+  "localOrIndustryContext": "Många svenska startups validerar sin idé med en enkel landningssida innan de bygger produkt. Att ha en sajt live tidigt hjälper er testa budskap, samla mejladresser och visa investerare att ni är på väg. Sajtmaskin är byggt i Sverige och låter dig göra allt det här på svenska, utan att behöva lära dig verktyg eller vänta på byrå.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en startup-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

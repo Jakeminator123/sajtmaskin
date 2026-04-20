@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/bygg",
+  "title": "Hemsida bygg Göteborg – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Göteborg med AI. Publicera på minuter, ingen kod krävs. Prova Sajtmaskin idag.",
+  "h1": "Hemsida för byggföretag i Göteborg",
+  "heroSub": "Bygg en komplett sajt för ditt byggföretag via chat – med bokningsfunktion, projektreferenser och allt du behöver för att synas i Göteborg.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som låter byggföretag i Göteborg skapa en färdig hemsida på minuter. Du chattar med AI:n om vad du gör – om du kör ROT-jobb, nybyggnation, renovering eller specialisttjänster – så genereras hela sajten automatiskt. Ingen kod, ingen designer, inga veckor i väntan.",
+    "Du publicerar direkt på din egen domän eller testar kostnadsfritt på en subdomän utan månadsavgift. Allt är på svenska, från gränssnitt till support. Integrationer med Cal.com för tidsbokning, Stripe för fakturering och Google Analytics för att följa besökare ingår. Ingen bindningstid – exportera koden när du vill.",
+    "Byggbranschen i Göteborg är konkurrenskraftig. En tydlig sajt med projektreferenser, kontaktuppgifter och enkel bokning gör skillnad när kunder jämför alternativ. Sajtmaskin ger dig rätt verktyg utan krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Göteborg behöver",
+      "body": "Kunder som söker byggfirmor i Göteborg vill se konkreta exempel, tydliga tjänster och enkelt sätt att komma i kontakt. Din sajt behöver visa tidigare projekt med bilder, beskriva vad du erbjuder – från badrumsrenoveringar till tillbyggnader – och ha en bokningskalender eller kontaktformulär som fungerar på mobilen. Många söker lokalt, så det hjälper att nämna vilka stadsdelar du jobbar i: Majorna, Hisingen, Lundby, centrum. Sajtmaskin bygger in allt detta från din prompt, inklusive Google Analytics så du ser var trafiken kommer ifrån."
+    },
+    {
+      "heading": "Så fungerar Sajtmaskin för byggföretag",
+      "body": "Du startar en chat och berättar vad ditt företag gör: vilka tjänster, vilka projekt du är stolt över, om du är F-skattare, ROT-godkänd eller har specialkompetens. AI:n skapar en struktur med startsida, tjänstesidor, referenssida och kontakt. Du kan lägga till Cal.com-integration för att kunder ska boka kostnadsfri besiktning direkt, eller koppla Stripe om du tar förskottsbetalning digitalt. Allt på svenska, anpassat efter hur byggbranschen faktiskt fungerar. Ändra text och bilder i editorn, publicera när du är nöjd."
+    },
+    {
+      "heading": "Lokal synlighet och mobil­anpassning",
+      "body": "Många göteborgare söker byggfirma på mobilen när de står i sitt kök och funderar på renovering. Sajtmaskin genererar mobilanpassade sidor automatiskt, så formulär och bilder fungerar lika bra på telefon som dator. Genom att nämna Göteborg och relevanta stadsdelar i texten ökar chansen att synas i lokala sökresultat. Du kan också lägga in en karta som visar var du har kontor eller vilka områden du täcker, allt utan att behöva koda."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Byggprojekt är säsongsbetonade och ibland vill du testa innan du binder dig. Med Sajtmaskin finns ingen bindningstid. Publicera på en kostnadsfri subdomän för att prova, eller koppla din egen domän direkt. Du kan exportera hela koden när som helst om du vill flytta sajten någon annanstans eller låta en utvecklare ta vid. Allt byggt i Sverige av Pretty Good AB, med svenskspråkig support som förstår hur svenska småföretag jobbar."
+    },
+    {
+      "heading": "Integrationer som sparar tid",
+      "body": "Cal.com-integrationen låter kunder boka tid för kostnadsfri konsultation eller besiktning utan mejl fram och tillbaka. Stripe gör att du kan ta betalning för mindre jobb eller förskott direkt på sajten. Google Analytics visar vilka sidor som besöks mest, så du ser om folk kollar på kök, badrum eller fasadrenovering. Allt kopplas ihop via chattgränssnittet – du behöver inte läsa dokumentation eller klippa in kod."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en byggsajt med Sajtmaskin?",
+      "a": "Själva genereringen tar några minuter. Du chattar om dina tjänster och projekt, AI:n skapar strukturen, sedan lägger du till egna bilder och justerar text efter behov. De flesta publicerar samma dag. Inga veckors väntan på webbyrå."
+    },
+    {
+      "q": "Kan jag visa bilder från tidigare byggprojekt i Göteborg?",
+      "a": "Ja, du laddar upp projektbilder direkt i editorn. Skapa ett galleri för kök, badrum, tillbyggnader eller fasadrenoveringar. Bilder optimeras automatiskt för mobil och dator så sajten laddar snabbt."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad på subdomän?",
+      "a": "Nej, hosting på Sajtmaskins subdomän är gratis utan månadsavgift. Vill du ha egen domän som dittforetag.se kopplar du den själv, då tillkommer bara domänkostnaden från din registrar."
+    },
+    {
+      "q": "Funkar bokningsintegration med Cal.com för besiktningar?",
+      "a": "Ja, du kopplar ditt Cal.com-konto så att kunder kan boka tid för kostnadsfri besiktning eller konsultation direkt på sajten. Kalendern synkar automatiskt och du slipper mejla fram och tillbaka."
+    },
+    {
+      "q": "Är sajten anpassad för mobil och Göteborg-sökningar?",
+      "a": "Alla sidor är mobilanpassade från start. Genom att namnge Göteborg och stadsdelar i dina texter ökar chansen att synas när folk söker lokalt. Google Analytics visar var trafiken kommer ifrån så du ser om SEO fungerar."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform senare?",
+      "a": "Ja, du kan exportera hela koden när som helst. Ingen bindningstid, ingen inlåsning. Ta koden till en egen server eller låt en utvecklare ta över om verksamheten växer och du vill ha specialfunktioner."
+    },
+    {
+      "q": "Vad händer om jag behöver hjälp med sajten?",
+      "a": "Sajtmaskin har svenskspråkig support som förstår hur svenska byggföretag jobbar. Ställ frågor i chatten eller mejla. Allt är byggt i Sverige av Pretty Good AB, så du slipper översatta svar från utlandet."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg har stark byggmarknad med allt från renoveringar i sekelskiftesfastigheter i Majorna till nybyggen på Hisingen. Konkurrensen är hög, och kunder förväntar sig tydlig information och enkel kontakt. En professionell sajt med lokala referenser och bokningsfunktion gör att du sticker ut.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

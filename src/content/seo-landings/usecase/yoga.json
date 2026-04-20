@@ -1,0 +1,105 @@
+{
+  "family": "usecase",
+  "slug": "yoga",
+  "title": "Hemsida för yoga – bygg din yogasajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din yogastudio eller dina klasser direkt i chatten. Bokning, schema och betalning – allt du behöver.",
+  "h1": "Hemsida för yoga",
+  "heroSub": "Bygg en komplett sajt för din yogastudio eller dina klasser – med schema, bokning och betalning – direkt i chatten.",
+  "introParagraphs": [
+    "En hemsida för yoga behöver visa vad du erbjuder, när klasserna går och göra det enkelt att boka. De flesta yogalärare och studior vill ha ett tydligt schema, beskrivningar av olika klasser, information om lärarna och ett smidigt sätt för elever att boka och betala. Allt samlat på ett ställe så att nya besökare snabbt förstår vad du håller på med.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n. Du beskriver din verksamhet – kanske att du håller hatha och vinyasa, att du har drop-in och terminsklasser, att du vill ta betalt via Swish eller kort – så genererar AI:n sidorna åt dig. Publicera på din egen domän utan månadskostnad för hosting, och integrera Cal.com för bokning eller Stripe för betalningar direkt i gränssnittet."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Schema och klassbeskrivningar",
+      "body": "Besökare vill veta när du håller klasser och vad varje pass innehåller. Ett tydligt schema med tider, nivåer och stilar gör det lätt att välja rätt klass. Du kan beskriva skillnaden mellan dina lugna yin-pass och mer dynamiska flow-klasser, berätta hur lång varje session är och om det passar nybörjare eller erfarna yogis. Sajtmaskin låter dig lägga till scheman och beskrivningar direkt i chatten, och AI:n formaterar dem snyggt på sidan."
+    },
+    {
+      "heading": "Bokning och betalning",
+      "body": "Många yogastudior vill att elever ska kunna boka och betala online. Med Cal.com-integrationen kan du lägga in bokningslänkar för varje klass, så att besökare ser lediga tider och reserverar sin plats direkt. Om du tar betalt i förväg kopplar du Stripe och tar emot kortbetalningar eller Swish. Allt sköts automatiskt – du slipper mejla fram och tillbaka och hålla koll på vem som betalat."
+    },
+    {
+      "heading": "Om dig och din studio",
+      "body": "Folk vill veta vem som undervisar och vilken atmosfär du skapar. En om-sida med din bakgrund, utbildning och filosofi bygger förtroende. Om du driver en studio kan du berätta om lokalen, visa bilder och förklara vad som gör er unika. Sajtmaskin genererar texten utifrån det du berättar i chatten, och du kan alltid justera tonen eller lägga till detaljer efteråt."
+    },
+    {
+      "heading": "Priser och klippkort",
+      "body": "Tydliga priser gör det enkelt för besökare att bestämma sig. Visa om du har drop-in, klippkort, månadskort eller terminsavgifter. Många yogalärare erbjuder introduktionserbjudanden eller paketpriser – lista dem så att nya elever ser vad som passar dem. Du kan uppdatera priserna när som helst direkt i editorn, ingen kod krävs."
+    },
+    {
+      "heading": "Kontakt och hitta hit",
+      "body": "Glöm inte att visa var du finns och hur man når dig. En karta, adress och öppettider hjälper nya elever att hitta till studion. Lägg gärna till ett kontaktformulär eller mejladress för frågor. Sajtmaskin kan bädda in Google Maps och skapa formulär direkt, så att allt ligger på plats från start."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa ett veckoschema för alla mina klasser?",
+      "a": "Ja, du beskriver ditt schema i chatten så lägger AI:n in det på sidan. Du kan ha en tabell eller lista med tider, stilar och lärare. Vill du ändra något senare gör du det direkt i editorn utan att röra kod."
+    },
+    {
+      "q": "Hur fungerar bokning av klasser?",
+      "a": "Du kopplar Cal.com till din sajt så får varje klass en bokningslänk. Besökare klickar, väljer tid och bokar direkt. Bokningar hamnar i din kalender och du kan sätta max antal platser per pass. Integrationen är inbyggd i Sajtmaskin och tar ett par klick att aktivera."
+    },
+    {
+      "q": "Kan jag ta betalt för klasser via sajten?",
+      "a": "Ja, med Stripe-integrationen tar du emot kortbetalningar direkt på hemsidan. Du kan sälja klippkort, drop-in-biljetter eller prenumerationer. Pengarna går till ditt Stripe-konto och du ser alla transaktioner där. Swish kan du länka manuellt eller via betalformulär."
+    },
+    {
+      "q": "Vad kostar det att ha sajten igång?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsgräns. Vill du använda din egen domän – till exempel minayoga.se – betalar du en engångskostnad för att publicera. Inga månadskostnader, ingen bindningstid. Du äger koden och kan exportera den när du vill."
+    },
+    {
+      "q": "Kan jag lägga till bilder från studion och klasserna?",
+      "a": "Absolut. Du laddar upp bilder i editorn och placerar dem var du vill – i gallerier, vid klassbeskrivningar eller på startsidan. Bilder gör sajten mer levande och visar atmosfären i din studio. AI:n föreslår layouter som funkar bra med dina bilder."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten klar?",
+      "a": "De flesta har en fungerande sajt på under tio minuter. Du chattar med AI:n, beskriver din verksamhet och vilka sidor du behöver, så genereras allt. Sen kan du justera texter, färger och bilder tills det känns rätt. Publicera när du är nöjd."
+    },
+    {
+      "q": "Kan jag sälja yogaprodukter eller kurser på sajten?",
+      "a": "Ja, du kan integrera Shopify om du vill ha en webshop för mattor, block eller kläder. För digitala kurser eller workshops kan du använda Stripe för betalning och länka till videoinnehåll eller PDF:er. Sajtmaskin stödjer båda flödena utan extra plugins."
+    }
+  ],
+  "localOrIndustryContext": "Yoga har vuxit stort i Sverige och många lärare driver småskaliga studior eller håller klasser i föreningslokaler och gym. En egen hemsida gör det lättare att nå nya elever, visa vad som skiljer din undervisning från andra och ta betalt smidigt. Många yogalärare saknar teknisk bakgrund – därför är en AI-driven plattform som Sajtmaskin ett bra alternativ till att anlita byrå eller kämpa med WordPress.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en yoga-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

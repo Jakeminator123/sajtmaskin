@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "boras/bygg",
+  "title": "Hemsida för byggföretag i Borås – skapa din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Bygg en professionell hemsida för ditt byggföretag i Borås med AI. Ingen kodning, klar på minuter. Boka möten, visa projekt och nå fler kunder.",
+  "h1": "Hemsida för byggföretag i Borås",
+  "heroSub": "Skapa en professionell sajt för ditt byggföretag med AI – ingen kodning krävs, klar på minuter.",
+  "introParagraphs": [
+    "Som byggföretag i Borås behöver du en hemsida som visar dina projekt, gör det enkelt för kunder att boka konsultation och skapar förtroende. Med Sajtmaskin bygger du en komplett sajt genom att chatta med AI – du beskriver vad du gör, vilka tjänster du erbjuder och vilka projekt du vill lyfta fram, så genererar plattformen en färdig sajt på minuter.",
+    "Du får allt du behöver: projektgalleri, tjänstebeskrivningar, kontaktformulär och bokningsfunktion via Cal.com. Sajten är byggd på svenska, fungerar perfekt på mobil och kan publiceras på din egen domän direkt. Ingen bindningstid och ingen månadskostnad om du väljer subdomän.",
+    "Sajtmaskin är skapat i Sverige av Pretty Good AB och ger dig full kontroll. Vill du ändra text, lägga till nya projekt eller justera layout gör du det direkt i chatten. Exportera koden när du vill – du äger alltid din sajt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Borås behöver",
+      "body": "Byggbranschen i Borås är konkurrensutsatt, från nybyggnation och renoveringar till takarbeten och tillbyggnader. Din hemsida måste snabbt visa vad du gör, var du jobbar och varför kunder ska välja just dig. Det innebär tydliga tjänstebeskrivningar, bilder från färdiga projekt och ett enkelt sätt att komma i kontakt. Många kunder söker lokalt, så det är viktigt att sajten tydligt visar att du verkar i Borås och omnejd. Med Sajtmaskin får du en sajt som täcker allt detta utan att du behöver tänka på tekniken."
+    },
+    {
+      "heading": "Så bygger du sajten med AI",
+      "body": "Du startar med att beskriva ditt byggföretag i chatten: vilka tjänster du erbjuder, om du är specialist på nybyggnation, renovering eller ROT-arbeten, och vilka områden du täcker. AI:n genererar en komplett sajt med startsida, tjänstesidor, om-sida och kontakt. Vill du ha ett projektgalleri skriver du det, så läggs det till. Behöver du bokningsfunktion för kostnadsfria konsultationer integrerar du Cal.com direkt. Allt sker på svenska och du ser resultatet live medan du chattar. När sajten känns klar publicerar du den på din domän eller testar kostnadsfritt på en subdomän."
+    },
+    {
+      "heading": "Bokningar och kontakt direkt på sajten",
+      "body": "För ett byggföretag är det avgörande att göra det enkelt för kunder att ta kontakt. Med Cal.com-integration kan besökare boka ett möte eller kostnadsfri konsultation direkt på sajten, utan mejl fram och tillbaka. Du väljer själv vilka tider som är bokningsbara och får bekräftelser automatiskt. Kontaktformulär och telefonnummer är givetvis med, och du kan lägga till Google Analytics för att se hur besökare hittar till dig. Allt är byggt för att konvertera besökare till kunder."
+    },
+    {
+      "heading": "Visa dina projekt och bygg förtroende",
+      "body": "Bilder från färdiga projekt är det bästa sättet att visa vad du kan. I Sajtmaskin lägger du enkelt till projektbilder, beskrivningar och kundrecensioner genom chatten. Du kan skapa separata sidor för olika tjänster – till exempel en sida för kökrenoveringar, en för tillbyggnader och en för takarbeten. Sajten blir ett levande portfolio som du uppdaterar när du vill. Eftersom allt är på svenska och lokalt förankrat känner Boråskunder direkt att de hamnat rätt."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Sajtmaskin har ingen bindningstid och du kan exportera koden när som helst. Vill du byta webbhotell eller anställa en utvecklare senare tar du med dig allt. Hosting på subdomän är gratis, och vill du använda egen domän fixar du det på minuter. Du betalar bara för det du använder, utan dolda avgifter eller långa avtal. Plattformen är byggd i Sverige och supporten pratar svenska, så du får hjälp på ditt språk när du behöver det."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en byggsajt?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n, beskriver dina tjänster och projekt, så genereras sajten automatiskt. Vill du justera text eller lägga till fler sidor gör du det direkt i chatten. När du är nöjd publicerar du."
+    },
+    {
+      "q": "Kan jag lägga till bilder från mina byggprojekt?",
+      "a": "Ja, du laddar upp projektbilder och beskriver dem i chatten. AI:n skapar ett projektgalleri eller separata projektsidor beroende på vad du vill. Du kan när som helst lägga till nya projekt eller ta bort gamla."
+    },
+    {
+      "q": "Fungerar bokningsfunktionen för kostnadsfria konsultationer?",
+      "a": "Ja, genom Cal.com-integration kan kunder boka möten direkt på sajten. Du ställer in vilka tider som är lediga, och systemet hanterar bekräftelser och påminnelser automatiskt. Perfekt för att boka platsbesök eller offerttillfällen."
+    },
+    {
+      "q": "Kostar det något att ha sajten på en Borås-domän?",
+      "a": "Du kan använda egen domän utan extra kostnad från Sajtmaskin. Själva domänregistreringen köper du hos en domänleverantör, sedan pekar du den mot din sajt. Hosting på subdomän är helt gratis."
+    },
+    {
+      "q": "Kan jag visa ROT-avdrag och certifieringar på sajten?",
+      "a": "Absolut. Du skriver in information om ROT-avdrag, F-skattsedel, försäkringar och certifieringar i chatten, så lägger AI:n till det på relevanta ställen. Det bygger förtroende och visar att du är en seriös aktör."
+    },
+    {
+      "q": "Vad händer om jag vill byta webbplattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Det finns ingen bindningstid, så du äger alltid din sajt och kan flytta den till vilket webbhotell som helst. Sajtmaskin låser inte in dig."
+    },
+    {
+      "q": "Kan sajten visa att jag jobbar i Borås och omnejd?",
+      "a": "Ja, du anger ditt verksamhetsområde i chatten så syns det tydligt på sajten. Du kan lista vilka orter du täcker, lägga till en karta eller skriva om lokala projekt. Det hjälper Boråskunder att snabbt se att du jobbar i deras område."
+    }
+  ],
+  "localOrIndustryContext": "Borås har en stark byggnation med allt från villarenoveringar i Norrby och Trandared till nybyggnation i centrala delar. Många byggföretag i staden jobbar med både privata husägare och kommersiella uppdrag, och konkurrensen gör att en professionell hemsida är avgörande för att sticka ut och nå nya kunder.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/boras",
+      "label": "Skapa hemsida i Borås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Borås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

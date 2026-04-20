@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/restaurang",
+  "title": "Hemsida restaurang Västerås – bygg din restaurangsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Västerås med AI. Meny, bordsbokningar och betalning – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för restaurang i Västerås",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokningar och betalningar – på minuter, inte veckor.",
+  "introParagraphs": [
+    "Om du driver restaurang i Västerås behöver du en sajt som visar din meny, tar emot bokningar och gör det enkelt för gästerna att hitta er. Sajtmaskin låter dig skapa precis det via en enkel chatt med AI – utan att du behöver kunna kod eller anlita en byrå.",
+    "Du beskriver din restaurang, vilken typ av mat ni serverar och vad sajten ska innehålla. AI:n bygger sedan en färdig hemsida med meny, kontaktinfo, öppettider och integration för bordsbokningar via Cal.com. Publicera på egen domän eller använd en kostnadsfri subdomän.",
+    "Ingen bindningstid, inga dolda avgifter. Du äger sajten och kan exportera koden när du vill. Allt på svenska, byggt för svenska restauranger."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny och bordsbokningar direkt på plats",
+      "body": "En restaurangsajt ska visa vad ni serverar och göra det lätt att boka bord. Sajtmaskin genererar en menysektion där du kan dela in rätter efter kategori – förrätter, varmrätter, desserter, dryck. Integrera Cal.com så gäster kan boka bord direkt på sajten utan att ni behöver ta emot samtal eller mejl. Bokningarna hamnar i er kalender och gästerna får bekräftelse automatiskt. Perfekt för både lunchrestauranger och kvällsställen i Västerås."
+    },
+    {
+      "heading": "Betalningar och presentkort med Stripe",
+      "body": "Vill ni sälja presentkort, ta förskottsbetalning för större sällskap eller erbjuda takeaway-beställningar online? Koppla in Stripe så kan gäster betala direkt på sajten. Du sätter upp produkter och priser i Sajtmaskins gränssnitt, och betalflödet sköts säkert via Stripe. Inga krångliga plugins eller tekniska inställningar – bara en fungerande betalningslösning som fungerar på mobil och dator."
+    },
+    {
+      "heading": "Västerås-anpassad sajt som syns lokalt",
+      "body": "Restauranger i Västerås konkurrerar både om lunch- och middagsgäster, och många söker efter restauranger i närheten av Domkyrkan, Kokpunkten eller Erikslund. En sajt som nämner er stadsdel, närhet till landmärken och lokal inriktning rankar bättre i Google när folk söker efter restauranger i Västerås. Sajtmaskin hjälper dig skriva innehåll som passar er plats och stil – från finare à la carte till snabba lunch- och brunchställen."
+    },
+    {
+      "heading": "Uppdatera meny och info själv, när du vill",
+      "body": "Säsongsmenyer, veckans lunch, nya öppettider – du behöver kunna ändra innehållet själv utan att vänta på en webbutvecklare. I Sajtmaskin redigerar du text, bilder och priser direkt i gränssnittet. Ändringarna syns på sajten direkt. Vill du lägga till en ny rätt eller ändra priset på lunchen? Det tar en minut. Inget krångel, ingen faktura från byrå."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen månadskostnad för hosting",
+      "body": "Publicera på en subdomän hos oss utan månadskostnad, eller koppla din egen domän (exempelvis dinrestaurang.se). Ingen bindningstid – om du vill byta plattform senare kan du exportera hela sajten och ta koden med dig. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svensk support och svenskt gränssnitt. Du betalar för det du använder, inget annat."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt?",
+      "a": "De flesta har en färdig grund på 10–15 minuter. Du chattar med AI:n, beskriver din restaurang och vilka funktioner du vill ha – meny, bokning, kontakt. AI:n genererar sajten, och sen justerar du text och bilder tills allt ser rätt ut. Publicera direkt eller spara som utkast."
+    },
+    {
+      "q": "Kan jag visa menyn med priser och allergener?",
+      "a": "Ja. Du lägger in rätter med namn, beskrivning, pris och eventuella allergener eller specialkost-märkningar. Dela in menyn i kategorier som förrätter, huvudrätter, desserter. Gäster kan läsa allt direkt på sajten, och du uppdaterar enkelt när menyn ändras."
+    },
+    {
+      "q": "Fungerar bordsbokningar via sajten?",
+      "a": "Ja, genom Cal.com-integrationen. Du kopplar ditt Cal.com-konto så gäster kan välja datum, tid och antal personer direkt på sajten. Bokningar hamnar i er kalender och bekräftelse skickas automatiskt. Ingen manuell hantering behövs."
+    },
+    {
+      "q": "Kan jag sälja presentkort eller ta förskottsbetalning?",
+      "a": "Ja, via Stripe. Du sätter upp produkter som presentkort eller förskott för större sällskap, och gäster betalar säkert med kort. Pengarna går direkt till ditt Stripe-konto. Perfekt för event, julbord eller takeaway-beställningar."
+    },
+    {
+      "q": "Syns min restaurang i Google-sökningar i Västerås?",
+      "a": "Ja, om du skriver innehåll som nämner Västerås, er stadsdel och vad ni serverar. Sajtmaskin genererar SEO-vänlig kod, men du behöver fylla på med relevant text – exempelvis \"lunch nära Domkyrkan\" eller \"italiensk restaurang i Västerås centrum\". Kombinera med Google My Business för bäst synlighet."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Publicera på en subdomän utan månadskostnad för hosting. Vill du ha egen domän betalar du domänregistrering (ca 100–150 kr/år) hos en domänleverantör. Integrationer som Cal.com och Stripe har egna priser beroende på användning. Ingen bindningstid, inga dolda avgifter från Sajtmaskin."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform?",
+      "a": "Ja. Du äger koden och kan exportera hela sajten när du vill. Ta den till en egen server eller annan hosting-tjänst. Ingen inlåsning, ingen krånglig uppsägning. Du bestämmer själv hur länge du vill använda Sajtmaskin."
+    }
+  ],
+  "localOrIndustryContext": "Västerås har en växande restaurangscen med allt från lunch vid Mälaren till kvällsställen i city och Erikslund. Gäster söker ofta efter restauranger nära Domkyrkan, Kokpunkten eller Lögarängen, och en sajt som nämner er plats och inriktning hjälper er synas i lokala sökningar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

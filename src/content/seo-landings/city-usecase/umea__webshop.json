@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "umea/webshop",
+  "title": "Hemsida Webshop Umeå – Bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell webshop i Umeå med AI. Stripe-integration, mobilanpassad design och ingen bindningstid. Kom igång direkt.",
+  "h1": "Hemsida webshop Umeå",
+  "heroSub": "Bygg en komplett webshop för ditt Umeåföretag på minuter – med AI, Stripe-integration och svenskt gränssnitt.",
+  "introParagraphs": [
+    "Om du driver eller planerar att starta e-handel i Umeå behöver du en webshop som både ser professionell ut och hanterar betalningar smidigt. Sajtmaskin låter dig bygga en komplett webshop via chat – AI:n skapar design, produktsidor och integrerar betalning med Stripe, allt på svenska och utan att du behöver kunna kod.",
+    "Du beskriver din butik i chatten, väljer vilka produkter du vill sälja och publicerar direkt på din egen domän. Ingen bindningstid, ingen dold kostnad för hosting på subdomän, och du kan när som helst exportera koden om du vill flytta vidare.",
+    "Perfekt för lokala Umeåföretag som vill sälja online – oavsett om det handlar om hantverksvaror, kläder, heminredning eller specialprodukter från norra Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du en webshop med Sajtmaskin",
+      "body": "Du startar med att berätta för AI:n vad du säljer, vilken känsla butiken ska ha och vilka funktioner du behöver. Sajtmaskin genererar då en komplett webshop med produktsidor, kundvagn och kassan. Stripe-integrationen gör att du kan ta emot kortbetalningar direkt, och allt är mobilanpassat från start. Du justerar texter, bilder och priser i gränssnittet, lägger till fler produkter via chatten och publicerar när du är nöjd. Hela processen tar minuter istället för veckor."
+    },
+    {
+      "heading": "Stripe-betalning och Shopify-integration",
+      "body": "Sajtmaskin stödjer Stripe för kortbetalningar, vilket innebär att dina kunder kan betala säkert direkt på din sajt. För dig som vill ha en mer avancerad produktkatalog eller lagerhantering finns även Shopify-integration – då kopplar du din befintliga Shopify-butik till en skräddarsydd framsida byggd i Sajtmaskin. Du får full kontroll över designen samtidigt som Shopify sköter backend. Båda alternativen fungerar lika bra för Umeåföretag som säljer lokalt eller över hela Sverige."
+    },
+    {
+      "heading": "Lokal närvaro och nationell räckvidd",
+      "body": "Många Umeåföretag vill kombinera lokal förankring med möjligheten att nå kunder i hela landet. Med en webshop kan du visa upp dina produkter för besökare som hittar dig via sökmotorer, sociala medier eller lokala rekommendationer. Sajtmaskin låter dig enkelt lägga till Google Analytics för att se var dina besökare kommer ifrån, och du kan bygga in information om lokal upphämtning, leveransalternativ eller events i Umeå. Allt innehåll skrivs på svenska och anpassas efter hur just du vill presentera ditt varumärke."
+    },
+    {
+      "heading": "Ingen bindningstid – exportera när du vill",
+      "body": "Du äger din sajt helt. Det finns ingen bindningstid, och om du någon gång vill flytta webshopen till en annan plattform kan du exportera hela koden. Hosting på subdomän kostar inget extra, och vill du använda din egen domän ordnar du det direkt i gränssnittet. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt stöd och transparent prissättning. Du betalar bara för det du använder, utan dolda avgifter eller automatiska förlängningar."
+    },
+    {
+      "heading": "Från idé till färdig butik – på minuter",
+      "body": "Traditionella webshop-projekt kan ta månader och kosta tiotusentals kronor. Med Sajtmaskin chattar du fram din butik på minuter, testar betalflödet, justerar design och produkter tills allt känns rätt, och publicerar sedan direkt. Du kan lägga till fler produkter, ändra priser eller uppdatera texter när du vill – allt via samma enkla gränssnitt. Perfekt för dig som vill testa en affärsidé, lansera en sidoprojekt eller snabbt komma igång med e-handel utan att fastna i tekniska detaljer."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få igång en webshop med Sajtmaskin?",
+      "a": "De flesta användare har en fungerande webshop publicerad inom 10–20 minuter. Du beskriver din butik i chatten, AI:n genererar design och produktsidor, du lägger till Stripe-uppgifter för betalning och publicerar. Sedan kan du fortsätta justera och lägga till produkter löpande."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för lokala Umeåföretag som också vill sälja nationellt?",
+      "a": "Absolut. Du kan rikta dig till kunder i Umeå genom lokal SEO och information om upphämtning, samtidigt som webshopen är öppen för beställningar från hela Sverige. Google Analytics hjälper dig förstå var dina besökare kommer ifrån, och du styr själv fraktalternativ och leveransvillkor."
+    },
+    {
+      "q": "Kan jag använda min egen domän för webshopen?",
+      "a": "Ja, du kopplar din egen domän direkt i Sajtmaskins gränssnitt. Hosting på subdomän är gratis, men vill du ha en professionell adress som dittnamnumeå.se eller liknande ordnar du det enkelt via din domänleverantör och pekar sedan DNS:en mot Sajtmaskin."
+    },
+    {
+      "q": "Vilka betalmetoder stödjer Sajtmaskin?",
+      "a": "Sajtmaskin integrerar med Stripe, vilket innebär att dina kunder kan betala med vanliga betalkort. Stripe hanterar säkerheten och transaktionerna, och du får pengarna direkt till ditt konto. För mer avancerade behov kan du även koppla en Shopify-butik och använda deras betalningslösningar."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när som helst, utan kostnad eller krångel. Det finns ingen bindningstid, så du äger alltid ditt innehåll och din design. Om du väljer att flytta webshopen till en annan leverantör tar du med dig allt material och bygger vidare där."
+    },
+    {
+      "q": "Behöver jag kunna koda för att lägga till produkter eller ändra priser?",
+      "a": "Nej, allt sköts via gränssnittet eller chatten. Du lägger till nya produkter genom att beskriva dem, laddar upp bilder, sätter priser och justerar texter utan att röra en enda kodrad. Vill du ha mer avancerade anpassningar kan du såklart gå in i koden, men det är helt frivilligt."
+    },
+    {
+      "q": "Hur fungerar support och hjälp om jag kör fast?",
+      "a": "Sajtmaskin drivs av Pretty Good AB i Sverige, och all support sker på svenska. Du får hjälp via gränssnittet, och eftersom allt är byggt för svenska företag är dokumentation och exempel skrivna med svenska förhållanden i åtanke. Inga långa väntetider hos utländska supportteam."
+    }
+  ],
+  "localOrIndustryContext": "Umeå har en växande e-handelsscen med allt från lokala hantverkare och designföretag till nischbutiker som säljer samiska produkter, outdoor-utrustning och norrländska specialiteter. En webshop ger dig möjlighet att nå kunder långt utanför staden samtidigt som du behåller den lokala förankringen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/umea",
+      "label": "Skapa hemsida i Umeå"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Umeå. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

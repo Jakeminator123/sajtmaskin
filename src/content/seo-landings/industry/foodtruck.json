@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "foodtruck",
+  "title": "Hemsida för food truck – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din food truck med meny, schema och bokningar. Ingen kodning krävs – din sajt är klar på minuter.",
+  "h1": "Hemsida för food truck",
+  "heroSub": "Bygg en sajt med meny, körschema och bokningar – färdig på minuter, helt utan kod.",
+  "introParagraphs": [
+    "En hemsida för din food truck gör det enkelt för hungriga kunder att hitta dig, se vad du lagar och boka dig till event. Istället för att jaga dig på Instagram kan de kolla var du står idag, läsa menyn i lugn och ro och kontakta dig direkt för cateringförfrågningar.",
+    "Med Sajtmaskin bygger du en komplett sajt på minuter genom att chatta med AI:n. Berätta vad du serverar, var du brukar stå och vilka funktioner du behöver – så genererar plattformen en färdig hemsida med meny, körschema och bokningsformulär. Allt på svenska, redo att publicera.",
+    "Du kan starta kostnadsfritt på en subdomän eller koppla din egen domän direkt. Ingen bindningstid, ingen krånglig teknik – bara en sajt som hjälper dig sälja mer tacos, burgare eller vad du nu rullar ut."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en food truck-sajt behöver innehålla",
+      "body": "En bra hemsida för food truck visar tydligt vad du serverar, var du finns och hur man bokar dig. Startsidan behöver aktuellt körschema så folk slipper gissa, en aptitretande meny med priser och gärna bilder på dina signaturrätter. En Om-sida bygger förtroende och berättar historien bakom trucken, medan en kontaktsida med bokningsformulär gör det smidigt för företag och privatpersoner att hyra in dig till event, festivaler eller luncher. Många food trucks tjänar lika mycket på cateringuppdrag som på gatlunch, så en tydlig bokningsfunktion är guld värd."
+    },
+    {
+      "heading": "Varför food trucks behöver en egen sajt",
+      "body": "Sociala medier är bra för räckvidd, men de äger din närvaro och algoritmen bestämmer vem som ser dina inlägg. En egen hemsida ger dig full kontroll och en professionell bas som alltid finns där. När kunder googlar food truck i din stad eller söker efter specifik mat syns du i sökresultaten istället för att drunkna i Instagram-flödet. En sajt gör det också lättare att ta betalt online för bokningar, visa upp hela menyn utan att scrolla förbi Stories och samla mejladresser till nyhetsbrev när du lanserar nya rätter eller kör specialerbjudanden. Du blir bokningsbar dygnet runt utan att svara i DM."
+    },
+    {
+      "heading": "Så bygger du sajten med Sajtmaskin",
+      "body": "Logga in på Sajtmaskin och beskriv din food truck i chatten: vad du lagar, var du kör, vilken stil du vill ha. AI:n skapar en komplett sajt med meny, körschema och kontaktformulär på några minuter. Du kan lägga till Cal.com för direktbokning av event, koppla Google Analytics för att se var besökarna kommer ifrån och integrera Stripe om du vill ta förskottsbetalning för cateringuppdrag. Allt innehåll genereras på svenska och du kan när som helst redigera texter, byta bilder eller lägga till nya sidor. När du är nöjd publicerar du – antingen gratis på en Sajtmaskin-subdomän eller på din egen domän. Ingen kodning, ingen designer, inga månadskostnader om du inte vill."
+    },
+    {
+      "heading": "Exempel på funktioner som säljer mer",
+      "body": "Ett inbäddat körschema på startsidan visar var du står varje dag så stammisar hittar dig utan att fråga. En menysektion med allergener och prislappar minskar frågor och får folk att bestämma sig snabbare. Bildgalleri från tidigare event bygger förtroende hos företag som funderar på catering. Bokningsformulär med Cal.com låter kunder välja datum och skicka förfrågan direkt, vilket sparar dig från mejltennis. Testimonials från nöjda kunder – allt från kontorsluncher till bröllop – visar att du levererar. En enkel nyhetsbrevslåda samlar mejl så du kan meddela när du testar ny meny eller dyker upp på en festival. Allt det här kan du lägga till i Sajtmaskin utan att röra kod."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Sajtmaskin låser inte in dig. Du kan när som helst exportera hela koden och flytta sajten till egen server om du vill. Ingen bindningstid, inga dolda avgifter – du äger ditt innehåll och din närvaro. Startar du på subdomän är hostingen gratis, vill du ha egen domän kopplar du den på ett par minuter. Plattformen är byggd i Sverige av Pretty Good AB, med svenskt stöd och svensk datahantering. Perfekt för dig som vill ha en sajt som funkar nu, inte om tre månader när byrån äntligen levererar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min food truck?",
+      "a": "Från start till färdig sajt tar det vanligtvis 10–20 minuter. Du chattar med AI:n, beskriver din food truck och vad du vill visa, så genereras en komplett sajt med meny, schema och kontaktformulär. Sedan justerar du texter och bilder efter eget tycke innan du publicerar."
+    },
+    {
+      "q": "Kan jag visa var min food truck står varje dag?",
+      "a": "Ja, du kan lägga till ett körschema som visar platser och tider. Många bäddar in en Google Maps-karta eller listar veckans stopp direkt på startsidan. Du uppdaterar schemat själv när det ändras, så kunderna alltid ser aktuell info."
+    },
+    {
+      "q": "Kan kunder boka min food truck för event via sajten?",
+      "a": "Absolut. Du kan integrera Cal.com för direktbokning eller använda ett kontaktformulär där kunder skickar förfrågningar. Vill du ta förskottsbetalning kopplar du Stripe, så kan företag och privatpersoner boka och betala direkt på sajten."
+    },
+    {
+      "q": "Kostar det något att ha sajten online?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän kopplar du den utan extra kostnad för själva publiceringen. Inga månadskostnader om du inte väljer att lägga till betalintegrationer eller andra tredjepartstjänster."
+    },
+    {
+      "q": "Kan jag sälja produkter eller presentkort via hemsidan?",
+      "a": "Ja, du kan integrera Shopify om du vill sälja allt från presentkort till egna såser eller merch. Stripe-integration låter dig ta betalt för förbeställningar eller catering direkt på sajten. Allt sköts via enkla integrationer utan att du behöver koda."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela koden och flytta sajten till en annan leverantör eller egen server. Ingen bindningstid, inga utträdesavgifter – du äger ditt innehåll och kan ta det med dig om du vill."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter som byggs i Sajtmaskin är responsiva från start. De flesta som letar food trucks gör det på mobilen, så sajten anpassar sig automatiskt till skärmstorlek och ser bra ut oavsett enhet."
+    }
+  ],
+  "localOrIndustryContext": "Food truck-kulturen har exploderat i Sverige de senaste åren, från Malmös streetfood-scen till Stockholms festivalområden och Göteborgs lunchstråk. Allt fler truckar kör catering till företagsluncher, bröllop och privata fester, vilket gör en professionell hemsida till en konkurrensfördel. Med tydlig närvaro online blir du enklare att hitta och boka, oavsett om du serverar vietnamesiskt, vegetariskt eller klassiska svenska rätter på hjul.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en food truck-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

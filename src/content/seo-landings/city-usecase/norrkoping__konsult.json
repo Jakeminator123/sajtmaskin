@@ -1,0 +1,90 @@
+{
+  "family": "city-usecase",
+  "slug": "norrkoping/konsult",
+  "title": "Hemsida konsult Norrköping – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell konsulthemsida i Norrköping med AI. Ingen kod, klart på minuter. Bokning, betalning och egen domän. Prova gratis!",
+  "h1": "Hemsida för konsulter i Norrköping",
+  "heroSub": "Bygg din konsultsajt med AI – färdig på minuter, inte veckor. Perfekt för dig som vill synas professionellt utan teknikkrångel.",
+  "introParagraphs": [
+    "Som konsult i Norrköping behöver du en hemsida som visar vad du kan och gör det enkelt för kunder att boka dina tjänster. Sajtmaskin låter dig skapa en komplett konsultsajt genom att chatta med vår AI – du beskriver din verksamhet, så bygger vi sajten åt dig på minuter.",
+    "Du får allt du behöver: presentation av dina tjänster, integrerad bokningskalender via Cal.com, betalningslösning genom Stripe, och möjlighet att publicera på din egen domän. Ingen bindningstid och ingen månadskostnad om du väljer vår subdomän. Allt på svenska, byggt för svenska konsulter.",
+    "Oavsett om du jobbar med IT, HR, kommunikation eller affärsutveckling får du en sajt som speglar din expertis och gör det smidigt för Norrköpingsföretag att ta kontakt. Starta direkt – ingen kodkunskap krävs."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en konsulthemsida i Norrköping behöver",
+      "body": "En bra konsultsajt visar tydligt vad du erbjuder, vilka du hjälper och hur man kommer i kontakt. Du behöver en startsida som förklarar din kompetens, en tjänstesida med konkreta exempel, referenscase som bygger förtroende, och en enkel väg till bokning eller offertförfrågan. Många konsulter i Norrköping jobbar med både lokala företag och kunder i hela Östergötland, så sajten måste fungera för båda målgrupperna. Sajtmaskin skapar denna struktur automatiskt utifrån din beskrivning av verksamheten."
+    },
+    {
+      "heading": "Bokningar och betalning direkt på sajten",
+      "body": "Som konsult vill du att potentiella kunder enkelt ska kunna boka ett första möte eller betala för dina tjänster. Sajtmaskin integrerar Cal.com så besökare kan se din tillgänglighet och välja tid direkt på sajten, utan mejlkaruseller. Vill du ta betalt online kopplar du in Stripe på några minuter. Allt synkas med din kalender och du får notiser när någon bokar. Det här sparar tid och gör dig mer tillgänglig för företag som vill komma igång snabbt."
+    },
+    {
+      "heading": "Bygg sajten genom att chatta med AI",
+      "body": "Du startar genom att berätta för vår AI vad du gör som konsult – ditt fokusområde, vilka du hjälper, dina tjänster och vad som gör dig unik. AI:n ställer följdfrågor om det behövs, sedan genererar den en komplett sajt med text, struktur och design. Du kan justera allt direkt i chatten: ändra rubriker, lägg till case, byt färgschema eller lägg in fler tjänster. Ingen kod, inga mallar att fylla i manuellt. Allt sker på svenska och du ser resultatet direkt."
+    },
+    {
+      "heading": "Egen domän och full kontroll",
+      "body": "Du kan publicera sajten på din egen domän (konsultnamn.se) eller använda en gratis subdomän hos oss utan månadskostnad. Det finns ingen bindningstid – vill du senare flytta sajten kan du exportera all kod och ta den med dig. Du äger ditt innehåll och kan när som helst uppdatera tjänster, priser eller case. Sajtmaskin ger dig friheten att växa i din egen takt utan att låsa in dig i dyra abonnemang eller krångliga avtal."
+    },
+    {
+      "heading": "Byggt i Sverige för svenska konsulter",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt och svensk support. Vi förstår hur svenska konsulter jobbar och vad era kunder förväntar sig. Plattformen följer svensk standard för tillgänglighet och integritet, och all hjälp du får är på svenska. Många konsulter i Norrköping och resten av landet använder redan Sajtmaskin för att snabbt få upp professionella sajter som faktiskt genererar bokningar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en konsulthemsida?",
+      "a": "De flesta konsulter har en färdig sajt på 10–30 minuter. Du chattar med AI:n, beskriver din verksamhet och dina tjänster, så genererar den en komplett sajt. Vill du finjustera text eller lägga till fler sidor gör du det direkt i chatten. Sajten är publiceringsredo samma dag."
+    },
+    {
+      "q": "Kan jag integrera en bokningskalender för konsultationer?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så besökare kan boka tid direkt på sajten. Du kopplar din kalender, ställer in vilka tider som är lediga, och kunder väljer själva när de vill träffa dig. Du får notiser vid varje bokning och allt synkas automatiskt."
+    },
+    {
+      "q": "Vad kostar det att ha hemsidan publicerad?",
+      "a": "Publicerar du på vår subdomän är hostingen gratis utan månadskostnad. Vill du använda din egen domän (exempelvis dinkonsult.se) kostar det en liten avgift. Inga bindningstider och du kan när som helst exportera sajten om du vill flytta den någon annanstans."
+    },
+    {
+      "q": "Fungerar sajten bra för konsulter i Norrköping specifikt?",
+      "a": "Absolut. Många konsulter i Norrköping använder Sajtmaskin för att snabbt få upp professionella sajter. Du kan lyfta fram lokala referenser, visa att du jobbar i Östergötland, och optimera sajten för kunder i regionen. AI:n hjälper dig skriva innehåll som passar din målgrupp, oavsett om det är lokala företag eller nationella uppdrag."
+    },
+    {
+      "q": "Kan jag ta betalt för mina konsulttjänster via sajten?",
+      "a": "Ja, genom Stripe-integrationen kan kunder betala direkt på sajten. Det fungerar för både engångsfakturor och paketerade tjänster. Du ställer in priser, beskriver vad som ingår, och kunden betalar säkert online. Pengarna går direkt till ditt konto."
+    },
+    {
+      "q": "Måste jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, allt sker genom chat. Du beskriver vad du vill ha, AI:n bygger sajten, och du justerar genom att skriva vanliga instruktioner på svenska. Ingen kod, inga tekniska termer. Vill du ändå ha full kontroll kan du exportera koden senare, men det är inget krav."
+    }
+  ],
+  "localOrIndustryContext": "Norrköping har en stark näringslivsscen med allt från techföretag och industri till kreativa byråer och offentlig sektor. Konsulter inom IT, HR, kommunikation och affärsutveckling hittar många uppdrag här, och en professionell hemsida gör det enklare att nå både lokala och regionala kunder i Östergötland.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/norrkoping",
+      "label": "Skapa hemsida i Norrköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Norrköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

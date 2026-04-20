@@ -1,0 +1,94 @@
+{
+  "family": "usecase",
+  "slug": "webshop",
+  "title": "Skapa hemsida webshop – bygg din butik på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för din webshop med AI på minuter. Produktsidor, kundvagn, betalning och bokning – allt utan kod. Prova gratis.",
+  "h1": "Skapa hemsida webshop",
+  "heroSub": "Bygg en komplett webshop med AI – från produktkatalog till betalning, utan en rad kod.",
+  "introParagraphs": [
+    "En hemsida för webshop behöver produktsidor med bilder och beskrivningar, en kundvagn där besökare samlar sina val, betalningslösning och oftast också kontaktformulär eller bokningsfunktion för kundservice. Allt ska hänga ihop så att köpupplevelsen blir smidig från första klick till genomförd order.",
+    "Med Sajtmaskin bygger du hela din webshop genom att chatta med AI:n på svenska. Du beskriver vad du säljer, vilka produkter du vill visa och hur du vill ta betalt – sedan genererar plattformen en färdig sajt på minuter. Publicera direkt på din egen domän eller testa kostnadsfritt på en subdomän.",
+    "Du får inbyggd integration med Stripe för kortbetalningar, Cal.com om du vill erbjuda bokad rådgivning och Google Analytics för att följa dina besökare. Ingen bindningstid och du kan exportera hela koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Produktsidor som säljer",
+      "body": "Varje produkt behöver en egen sida med tydliga bilder, beskrivning, pris och köpknapp. Sajtmaskin genererar layouten automatiskt utifrån din produktlista. Du kan lägga till varianter som storlek eller färg, visa lagerstatus och lyfta fram erbjudanden. AI:n skriver produkttexter om du vill, eller så klistrar du in dina egna. Resultatet blir responsivt och snabbt – fungerar lika bra på mobil som dator."
+    },
+    {
+      "heading": "Kundvagn och kassan",
+      "body": "Besökaren lägger produkter i kundvagnen, justerar antal och går vidare till kassan. Sajtmaskin kopplar ihop din sajt med Stripe så att kortbetalningar hanteras säkert. Du behöver inget eget kassasystem – integrationen är färdig från start. Kunden fyller i leveransadress, betalar och får orderbekräftelse. Allt sker på din egen domän utan omdirigering till tredjepartssajter."
+    },
+    {
+      "heading": "Shopify-integration för större sortiment",
+      "body": "Driver du redan en Shopify-butik kan du integrera den med din Sajtmaskin-sajt. Då hämtas produkter, lager och ordrar direkt från Shopify medan designen och innehållet styrs via Sajtmaskin. Det ger dig frihet att forma butikens utseende utan att bygga om i Shopify:s tema-editor. Perfekt om du vill ha en unik framsida eller landningssidor som kompletterar din befintliga webshop."
+    },
+    {
+      "heading": "Bokning och kundkontakt",
+      "body": "Många webshoppar tjänar på att erbjuda personlig rådgivning – ett videosamtal innan köp, styling-hjälp eller teknisk support. Med Cal.com-integrationen lägger du in en bokningskalender direkt på sajten. Kunden väljer tid, bokar möte och får påminnelse. Du kan också lägga till kontaktformulär, chatt-widget eller vanliga frågor och svar så besökare snabbt hittar information."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja direkt via Sajtmaskin eller behöver jag Shopify?",
+      "a": "Du kan ta betalt direkt via Stripe-integrationen utan Shopify. Shopify behövs bara om du vill hantera ett stort sortiment med avancerad lagerhantering, fraktalternativ och ordersystem. För mindre butiker räcker Stripe och en produktkatalog på sajten."
+    },
+    {
+      "q": "Hur lägger jag till nya produkter efter lansering?",
+      "a": "Du chattar med AI:n och ber den lägga till en ny produktsida. Beskriv produkten, ladda upp bild och ange pris – klart på någon minut. Du kan också redigera befintliga sidor direkt i gränssnittet om du vill justera text eller byta bild."
+    },
+    {
+      "q": "Vad kostar det att driva webshopen efter att jag byggt den?",
+      "a": "Hosting på subdomän hos Sajtmaskin är gratis utan månadskostnad. Publicerar du på egen domän betalar du för domännamnet och eventuellt för Stripe-transaktioner enligt deras priser. Ingen bindningstid och du kan exportera koden kostnadsfritt när du vill."
+    },
+    {
+      "q": "Kan jag anpassa design och färger för mitt varumärke?",
+      "a": "Ja, du styr färgschema, typsnitt, layout och bilder genom att ge AI:n instruktioner på svenska. Vill du ha en specifik känsla – minimalistisk, lekfull, lyxig – beskriver du det så anpassar plattformen designen. Du kan också justera enskilda element efteråt."
+    },
+    {
+      "q": "Fungerar sajten på mobil och surfplatta?",
+      "a": "Alla sajter från Sajtmaskin är responsiva från start. Produktsidor, kundvagn och kassa anpassas automatiskt till skärmstorlek. Majoriteten av webshop-besök sker på mobil idag, så layouten är optimerad för touchskärmar och mindre skärmar först."
+    },
+    {
+      "q": "Hur får jag besökare att hitta min webshop?",
+      "a": "Sajtmaskin bygger in grundläggande SEO – sidrubrik, metabeskrivning och snabb laddningstid. Du kan koppla Google Analytics för att följa trafik och se vilka sidor som konverterar bäst. Resten handlar om marknadsföring: sociala medier, annonser, nyhetsbrev eller samarbeten som driver rätt målgrupp till din butik."
+    }
+  ],
+  "localOrIndustryContext": "E-handeln i Sverige växer stadigt och allt fler småföretagare lanserar egna webshoppar. Från hantverksdesign och lokalproducerad mat till secondhand-mode och digitala tjänster – möjligheterna är oändliga när du kan bygga butiken själv utan teknisk expertis.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en webshop-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

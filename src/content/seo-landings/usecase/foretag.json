@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "foretag",
+  "title": "Hemsida företag – bygg din företagssajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag med AI. Ingen kodning krävs – publicera på egen domän direkt. Prova Sajtmaskin idag.",
+  "h1": "Hemsida för företag – snabbt och enkelt",
+  "heroSub": "Bygg en komplett företagssajt med AI på minuter. Ingen kod, ingen krånglig setup – bara en färdig hemsida som fungerar direkt.",
+  "introParagraphs": [
+    "En hemsida för företag är idag grundläggande för att synas, sälj och bygga förtroende. Den ska presentera vad du gör, visa kontaktuppgifter, kanske ta bokningar eller betalningar, och ge besökare en tydlig bild av varför de ska välja just dig. Förut krävdes webbyrå, designer och tekniker – idag kan du bygga allt själv på minuter.",
+    "Med Sajtmaskin chattar du fram din företagssajt direkt. Du beskriver vad du behöver, och AI:n genererar struktur, texter och design. Publicera på egen domän eller testa gratis på en subdomän. Ingen bindningstid, inga dolda avgifter – bara en färdig sajt du kan redigera när du vill.",
+    "Oavsett om du driver en konsultfirma, en butik, ett hantverksföretag eller en tjänstebyrå får du en hemsida som ser professionell ut och fungerar från dag ett. Integrationer för bokning, betalning och analys finns inbyggda, så du slipper leta efter tredjepartstjänster."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Startsida som visar vad du gör",
+      "body": "Första intrycket avgör om besökaren stannar. Din startsida ska direkt förklara vad ditt företag erbjuder, vem ni hjälper och varför ni är rätt val. Sajtmaskin bygger en hero-sektion med rubrik, undertext och call-to-action, plus sektioner för tjänster, team och kundcase. Allt anpassas efter din bransch och ton – du justerar sedan exakt som du vill via chatten."
+    },
+    {
+      "heading": "Kontakt, bokning och betalning",
+      "body": "De flesta företag behöver ett enkelt sätt för kunder att nå dem. Sajtmaskin lägger automatiskt in kontaktformulär, telefonnummer och e-post. Vill du ta bokningar kopplar du Cal.com direkt i gränssnittet. Driver du en tjänst där kunder ska betala online aktiverar du Stripe-integration utan att röra kod. Allt sköts från samma plattform."
+    },
+    {
+      "heading": "Om oss, team och förtroende",
+      "body": "Besökare vill veta vem de har att göra med. En om-sida med er historia, teamfoton och värderingar bygger trovärdighet. Sajtmaskin genererar en struktur som passar din företagsstorlek – från enmansbolag till mindre team. Lägg till kundloggor, recensioner eller certifieringar för att stärka förtroendet ytterligare."
+    },
+    {
+      "heading": "Tjänster eller produkter i fokus",
+      "body": "Om du säljer flera tjänster eller produkter behöver varje erbjudande en egen presentation. Sajtmaskin skapar undersidor eller sektioner där du listar vad som ingår, priser och fördelar. Kopplar du Shopify får du en komplett webshop. Annars räcker det ofta med beskrivningar och ett kontaktformulär för offertförfrågan."
+    },
+    {
+      "heading": "SEO och analys från start",
+      "body": "En hemsida som ingen hittar fyller ingen funktion. Sajtmaskin bygger in grundläggande SEO – sidrubrik, metabeskrivning, snabb laddning – så Google kan indexera dig direkt. Vill du följa besökare kopplar du Google Analytics med ett klick. Du ser vilka sidor som fungerar och var folk hoppar av, utan att behöva gräva i tekniska inställningar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att ha en hemsida för företag?",
+      "a": "Med Sajtmaskin betalar du ingen månadsavgift om du publicerar på en subdomän. Vill du använda egen domän ordnar du den själv och pekar den mot sajten. Inga dolda kostnader, ingen bindningstid – du äger koden och kan exportera den när som helst."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt?",
+      "a": "Från att du öppnar chatten till färdig sajt tar det vanligtvis några minuter. Du beskriver vad du behöver, AI:n genererar sidor och innehåll, och du publicerar direkt. Vill du finjustera texter eller layout gör du det i samma gränssnitt, utan att vänta på designer eller utvecklare."
+    },
+    {
+      "q": "Kan jag lägga till bokning och betalning?",
+      "a": "Ja. Sajtmaskin integrerar Cal.com för bokningar och Stripe för betalningar. Du aktiverar dem i inställningarna, kopplar ditt konto och funktionen dyker upp på sajten. Inga plugins, ingen kod – bara klicka och koppla."
+    },
+    {
+      "q": "Behöver jag kunna koda för att redigera sajten?",
+      "a": "Nej. Allt sköts via chat eller ett visuellt gränssnitt. Vill du ändra en rubrik, byta bild eller lägga till en sektion skriver du bara vad du vill ha, och AI:n uppdaterar sajten. Du ser förändringarna direkt och publicerar när du är nöjd."
+    },
+    {
+      "q": "Äger jag innehållet och koden?",
+      "a": "Absolut. Du kan exportera hela sajten när du vill och flytta den till egen hosting. Ingen inlåsning, inga restriktioner – allt du bygger är ditt. Sajtmaskin är ett verktyg, inte en plattform som håller ditt innehåll gisslan."
+    },
+    {
+      "q": "Fungerar sajten på mobil och surfplatta?",
+      "a": "Ja, alla sajter Sajtmaskin bygger är responsiva från start. Layouten anpassas automatiskt till skärmstorlek, så besökare får en snygg upplevelse oavsett enhet. Du behöver inte göra något extra – det bara fungerar."
+    },
+    {
+      "q": "Kan jag koppla Google Analytics och spåra besökare?",
+      "a": "Ja. Under inställningar lägger du in ditt Google Analytics-ID, och spårningen aktiveras direkt. Du ser besöksstatistik, populära sidor och varifrån trafiken kommer, utan att behöva redigera kod eller installera plugins."
+    }
+  ],
+  "localOrIndustryContext": "Många svenska småföretag har länge skjutit upp att skaffa hemsida för att det känts dyrt eller komplicerat. Med AI-verktyg som Sajtmaskin försvinner den tröskeln – nu kan vem som helst bygga en professionell sajt på minuter, utan förkunskaper eller stora budgetar.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en företag-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

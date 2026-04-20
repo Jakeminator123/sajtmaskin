@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "medlemsklubb",
+  "title": "Hemsida för medlemsklubb – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din medlemsklubb med AI. Publicera medlemsinformation, event, nyheter och bokningsfunktioner – klart på minuter.",
+  "h1": "Hemsida för medlemsklubb",
+  "heroSub": "Bygg en komplett sajt för din förening eller klubb – med AI, på svenska, utan kod.",
+  "introParagraphs": [
+    "En hemsida för medlemsklubb samlar allt era medlemmar behöver på ett ställe: information om föreningen, kommande aktiviteter, nyheter, kontaktuppgifter och ofta en medlemsportal eller bokningsfunktion. Beroende på typ av klubb – idrottsförening, fackförening, intresseorganisation eller social klubb – varierar behoven, men grunden är densamma: en tydlig plats där medlemmar hittar det de söker.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n på svenska. Du beskriver vad klubben gör, vilka sidor du vill ha och vilka funktioner ni behöver – sedan genererar AI:n en färdig hemsida som du kan publicera direkt. Ingen kod, inga mallar att fylla i, ingen teknisk krångel.",
+    "Du kan integrera Cal.com för att medlemmar ska kunna boka tider till träningar eller event, koppla Google Analytics för att se vad som faktiskt läses, och publicera på er egen domän. Allt på svenska, byggt för svenska föreningar."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Startsida med tydlig klubbprofil",
+      "body": "Första intrycket avgör om nya besökare stannar. En bra startsida för en medlemsklubb visar direkt vad ni gör, varför ni finns och hur man blir medlem. Lägg till en välkomnande text, bilder från aktiviteter och kanske ett kort om styrelsen eller ledningen. Sajtmaskin låter dig beskriva klubbens personlighet i chatten – AI:n formar sedan layout och text så det känns rätt för just er verksamhet."
+    },
+    {
+      "heading": "Kalender och evenemang",
+      "body": "Medlemmar vill veta vad som händer och när. En evenemangskalender eller lista över kommande aktiviteter – träningar, möten, utflykter, föreläsningar – är ofta den mest besökta sidan. Du kan bygga in Cal.com-integration så medlemmar bokar plats direkt, eller bara visa datum och information. Sajtmaskin genererar kalendervyer och event-sidor baserat på vad du beskriver, och du kan uppdatera innehållet löpande via adminpanelen."
+    },
+    {
+      "heading": "Nyheter och information",
+      "body": "En nyhetssida håller medlemmarna uppdaterade om beslut, förändringar, rapporter från möten eller andra viktiga meddelanden. Det kan vara protokoll från årsmöten, info om medlemsavgifter eller tips inför säsongen. Sajtmaskin skapar nyhetssektioner som är enkla att fylla på – du skriver nytt innehåll direkt i gränssnittet, ingen publiceringsprocess krävs."
+    },
+    {
+      "heading": "Medlemsinformation och kontakt",
+      "body": "En sida med praktisk info – hur man blir medlem, vad det kostar, vilka förmåner som ingår, stadgar, och kontaktuppgifter till styrelse eller ansvariga – sparar massor av mejl och frågor. Sajtmaskin kan generera formulär för medlemsansökningar eller allmänna frågor, och du bestämmer själv hur mycket eller lite du vill automatisera. Allt byggs utifrån vad du berättar i chatten."
+    },
+    {
+      "heading": "Publicera och äg din sajt",
+      "body": "När sajten är klar publicerar du den på er egen domän, eller använder en kostnadsfri subdomän från Sajtmaskin utan månadskostnad för hosting. Ingen bindningstid – vill ni senare exportera koden och flytta sajten någon annanstans går det bra. Allt innehåll och all design ägs av er, och ni kan uppdatera sidan när som helst utan att behöva en webbutvecklare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan medlemmar logga in på sajten?",
+      "a": "Sajtmaskin bygger inte inloggningssystem för medlemsportaler i nuläget, men du kan länka till externa tjänster som hanterar medlemsregister eller skapa skyddade sidor via andra verktyg. Fokus ligger på att ge er en publik sajt som informerar och engagerar – resten kan du integrera efter behov."
+    },
+    {
+      "q": "Hur lägger jag till nya evenemang eller nyheter?",
+      "a": "Du loggar in i adminpanelen och lägger till nytt innehåll direkt – precis som i ett vanligt CMS. Sajtmaskin genererar strukturen, men du styr innehållet löpande. Inga tekniska kunskaper behövs för att uppdatera text, bilder eller event."
+    },
+    {
+      "q": "Fungerar sajten på mobilen?",
+      "a": "Ja, alla sajter som Sajtmaskin genererar är responsiva och fungerar lika bra på mobil som på dator. Eftersom många medlemmar kollar info på telefonen är det en självklarhet att layouten anpassar sig automatiskt."
+    },
+    {
+      "q": "Kan jag ta betalt för medlemskap via sajten?",
+      "a": "Ja, du kan integrera Stripe för att ta betalt direkt på hemsidan – antingen som engångsavgift eller prenumeration. Det gör det smidigt för nya medlemmar att gå med och betala på samma gång, utan manuell fakturering."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Sajtmaskin tar ingen månadskostnad om du publicerar på en subdomän. Vill du använda er egen domän (t.ex. klubbnamn.se) betalar du för domänen hos en registrar, men hosting ingår fortfarande. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan flera personer redigera innehållet?",
+      "a": "Ja, du kan ge åtkomst till flera användare så styrelsen eller ansvariga kan uppdatera var sin del av sajten. Det underlättar när olika personer ansvarar för nyheter, kalender eller medlemsinfo."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta klubbar har en fungerande sajt klar på några minuter till en timme, beroende på hur mycket innehåll du vill ha från start. Du chattar med AI:n, granskar resultatet, justerar vid behov och publicerar – klart."
+    }
+  ],
+  "localOrIndustryContext": "Medlemsklubbar i Sverige – allt från idrottsföreningar och scoutkårer till fackförbund och intresseorganisationer – behöver en enkel, prisvärd hemsida som medlemmarna faktiskt använder. Sajtmaskin är byggt i Sverige, på svenska, och passar perfekt för föreningar som vill slippa teknisk administration och fokusera på verksamheten.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en medlemsklubb-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

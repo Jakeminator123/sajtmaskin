@@ -1,0 +1,90 @@
+{
+  "family": "city-usecase",
+  "slug": "halmstad/webshop",
+  "title": "Hemsida Webshop Halmstad – Bygg Din E-handel på Minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell webshop i Halmstad med AI. Integrerad betalning via Stripe, mobilanpassad design och ingen bindningstid. Kom igång direkt.",
+  "h1": "Hemsida Webshop Halmstad",
+  "heroSub": "Bygg en komplett webshop för ditt Halmstadsföretag via chat – med integrerad betalning, produktsidor och svensk support.",
+  "introParagraphs": [
+    "En webshop behöver fungera från dag ett: tydliga produktsidor, smidig checkout och ett gränssnitt som får kunder att känna sig trygga. Med Sajtmaskin skapar du en komplett e-handel för ditt Halmstadsföretag på minuter, helt via chat. AI:n bygger sidorna, lägger in betalning via Stripe och ser till att allt är mobilanpassat från start.",
+    "Du behöver ingen teknisk kunskap och ingen månadskostnad för hosting på subdomän. Publicera på egen domän när du vill, integrera med Shopify om du behöver avancerad lagerhantering, och exportera koden om du någonsin vill flytta. Allt på svenska, byggt för svenska företag som vill sälja online utan krångel.",
+    "Oavsett om du driver en butik på Stora Torg, säljer lokala produkter eller vill nå kunder utanför Halmstad – en webshop öppnar dörren till försäljning dygnet runt. Sajtmaskin gör det enkelt att komma igång, utan att du behöver anlita byrå eller lära dig koda."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger Sajtmaskin din webshop i Halmstad",
+      "body": "Du startar en chatt och beskriver vad du säljer, vilka produktkategorier du har och hur du vill att sajten ska kännas. AI:n genererar produktsidor, en startsida med hero-sektion, om-sida och kontaktsida. Stripe-integration läggs in direkt så att kunder kan betala med kort, Swish eller andra metoder. Allt är mobilanpassat och redo att publicera. Du kan justera texter, byta bilder och lägga till fler produkter direkt i gränssnittet. När du är nöjd publicerar du på din egen domän eller på en kostnadsfri subdomän hos oss."
+    },
+    {
+      "heading": "Integrationer som gör din webshop komplett",
+      "body": "Stripe hanterar betalningar säkert och är enkelt att koppla till ditt företagskonto. Vill du ha bokningstider för konsultation eller upphämtning integrerar du Cal.com. Google Analytics ger dig koll på besökare och konverteringar. Behöver du mer avancerad lagerhantering, fraktalternativ eller dropshipping kan du integrera Shopify och låta Sajtmaskin bygga framsidan medan Shopify sköter backend. Alla integrationer sätts upp utan kod, och du kan alltid lägga till fler funktioner när verksamheten växer."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Hosting på subdomän kostar ingenting per månad. Vill du använda egen domän betalar du endast för den. Det finns ingen bindningstid – om du vill flytta vidare kan du exportera hela koden och ta den med dig. Ingen byrå som fakturerar timmar, inga dolda avgifter för uppdateringar. Du äger din sajt och bestämmer själv hur länge du vill använda Sajtmaskin. Det gör det enkelt att testa, lansera och växa i din egen takt."
+    },
+    {
+      "heading": "Varför Halmstadsföretag väljer Sajtmaskin",
+      "body": "Halmstad har en stark handel och många lokala producenter som vill nå fler kunder online. Traditionella webbyrålösningar tar ofta veckor och kostar tiotusentals kronor. Sajtmaskin låter dig komma igång samma dag, testa din produktmix och justera efter vad som fungerar. Allt är på svenska, supporten svarar på svenska och plattformen är byggd för hur svenska småföretag jobbar. Du slipper engelska verktyg med krånglig dokumentation och kan fokusera på att sälja istället för att kämpa med tekniken."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en webshop med Sajtmaskin?",
+      "a": "De flesta har en fungerande webshop på 10–30 minuter. Du chattar med AI:n, beskriver dina produkter och välj design. Stripe-integration och produktsidor skapas automatiskt. Sen kan du justera texter och bilder tills du är nöjd. Publiceringen tar några sekunder."
+    },
+    {
+      "q": "Kan jag använda Swish som betalmetod?",
+      "a": "Ja, via Stripe kan du erbjuda Swish, kort och andra populära betalsätt i Sverige. Stripe hanterar hela betalflödet säkert och pengarna hamnar direkt på ditt företagskonto. Du sätter upp det i Stripe-panelen och kopplar till din Sajtmaskin-sajt utan kod."
+    },
+    {
+      "q": "Vad kostar det att driva en webshop på Sajtmaskin?",
+      "a": "Hosting på subdomän är gratis. Vill du ha egen domän betalar du för den (oftast 100–200 kr/år). Stripe tar en liten procent per transaktion, vilket är branschstandard. Det finns inga månadskostnader för själva sajten och ingen bindningstid. Du betalar bara för det du faktiskt använder."
+    },
+    {
+      "q": "Kan jag sälja fysiska produkter och hantera frakt från Halmstad?",
+      "a": "Ja. Du kan lägga in fraktalternativ manuellt eller integrera Shopify för avancerad frakthantering, lager och orderspårning. Många Halmstadsföretag börjar enkelt med lokala leveranser eller upphämtning och lägger till fler alternativ när försäljningen växer."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att uppdatera produkter?",
+      "a": "Nej. Du redigerar texter, bilder och priser direkt i gränssnittet. Vill du lägga till en ny produkt beskriver du den i chatten så lägger AI:n till sidan. Allt är byggt för att vara intuitivt, även om du aldrig byggt en sajt förut."
+    },
+    {
+      "q": "Kan jag flytta min webshop senare om jag vill?",
+      "a": "Ja, du kan exportera hela koden när du vill. Det finns ingen bindningstid och du äger allt innehåll. Om du växer och behöver en större plattform eller vill byta leverantör tar du med dig sajten utan problem."
+    },
+    {
+      "q": "Fungerar webshopen bra på mobil?",
+      "a": "Ja, alla sajter är mobilanpassade från start. Majoriteten av besökare handlar från mobilen idag, så AI:n ser till att knappar, bilder och checkout fungerar smidigt på alla skärmstorlekar. Du kan förhandsgranska mobilvyn innan du publicerar."
+    }
+  ],
+  "localOrIndustryContext": "Halmstad har en levande handelstradition med allt från lokala matproducenter till modebutiker och hantverkare. Många företag runt Stora Torg och i Kungsbackavägen vill komplettera fysisk försäljning med e-handel. En webshop gör det möjligt att nå kunder i hela Halland och resten av Sverige, samtidigt som du kan erbjuda click-and-collect för lokala köpare.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/halmstad",
+      "label": "Skapa hemsida i Halmstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Halmstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

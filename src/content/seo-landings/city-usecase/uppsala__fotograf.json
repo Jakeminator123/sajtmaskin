@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "uppsala/fotograf",
+  "title": "Hemsida fotograf Uppsala – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Uppsala. AI bygger din sajt med galleri, bokning och SEO – utan kod. Prova gratis!",
+  "h1": "Hemsida fotograf Uppsala",
+  "heroSub": "Bygg en professionell fotograf-sajt för din Uppsalaverksamhet på minuter – med AI, utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Uppsala behöver du en hemsida som visar ditt arbete och gör det enkelt för kunder att boka dig. Sajtmaskin bygger din sajt direkt från en konversation – du beskriver vad du fotograferar och vem du vill nå, så genererar AI:n en färdig sajt med bildgalleri, bokningsfunktion och kontaktformulär.",
+    "Du får en sajt som fungerar på alla enheter, optimerad för sökmotorer så att kunder i Uppsala hittar dig när de söker efter fotograf. Publicera på din egen domän utan månadskostnad för hosting på subdomän, och integrera Cal.com för bokningar eller Stripe om du säljer bildpaket direkt.",
+    "Ingen bindningstid och du kan exportera koden när du vill. Allt på svenska, byggt för svenska fotografer som vill ha en professionell närvaro online utan krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad behöver en fotograf-sajt i Uppsala?",
+      "body": "En bra fotograf-hemsida visar ditt arbete tydligt och gör det lätt för kunder att ta kontakt. Du behöver ett responsivt galleri där bröllops-, porträtt- eller företagsfotografier syns professionellt, en om-sida som berättar vem du är och vad du erbjuder, och tydliga kontaktvägar. Bokningsfunktion sparar tid – kunder i Uppsala kan boka sessioner direkt utan mejltrådar. SEO-optimering gör att du syns när någon söker efter fotograf i Uppsala. Sajtmaskin bygger allt detta automatiskt när du beskriver din verksamhet i chatten."
+    },
+    {
+      "heading": "Så bygger AI din fotograf-sajt",
+      "body": "Du startar en konversation och berättar vad du fotograferar – bröllop, familjeporträtt, företagsfotografering eller event. AI:n frågar vad du vill ha med och genererar sedan en komplett sajt med startsida, galleri uppdelat efter typ, prissida och kontaktsida. Du kan be om justeringar direkt i chatten: ändra färger, lägg till fler gallerisektioner eller justera texter. Integrationen med Cal.com gör att besökare kan boka tid direkt i din kalender, och Google Analytics visar vilka sidor som får mest trafik. Allt sker på svenska och du ser resultatet direkt."
+    },
+    {
+      "heading": "Publicera och nå kunder i Uppsala",
+      "body": "När sajten är klar publicerar du på din egen domän – perfekt om du vill ha fotodittnamn.se eller liknande. Hosting på subdomän kostar inget per månad. Sajten är byggd för att synas i Uppsala-sökningar: lokala nyckelord, snabb laddning och mobilanpassning ingår. Du kan uppdatera galleriet själv när du har nya bilder att visa, lägga till blogginlägg om fotograferingar du gjort eller justera priser. Ingen teknisk kunskap krävs – allt sköts i samma gränssnitt där du byggde sajten."
+    },
+    {
+      "heading": "Integrationer för fotografer",
+      "body": "Cal.com-integration låter kunder välja tid för porträttsession eller konsultation, synkat med din kalender. Stripe gör att du kan sälja bildpaket, utskrifter eller digitala licenser direkt på sajten. Google Analytics visar hur besökare hittar dig och vilka tjänster de kollar på mest. Vill du visa Instagram-flöde eller länka till din portfolio på andra plattformar går det att lägga till. Alla integrationer sätts upp utan kod – du kopplar bara dina konton."
+    },
+    {
+      "heading": "Ingen bindning, full kontroll",
+      "body": "Du äger din sajt och kan exportera all kod när du vill. Ingen bindningstid betyder att du kan testa Sajtmaskin utan risk. Uppdateringar och ändringar gör du själv direkt i gränssnittet, och svensk support hjälper till om du kör fast. För fotografer i Uppsala som vill ha en professionell sajt snabbt, utan att lära sig WordPress eller anställa en byrå, är Sajtmaskin det enklaste sättet att komma online."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotograf-sajt?",
+      "a": "Själva AI-genereringen tar några minuter. Du beskriver din verksamhet i chatten, väljer eventuella justeringar, och sajten är klar att publicera samma dag. De flesta fotografer har en fungerande sajt inom en timme, inklusive uppladdning av bilder till galleriet."
+    },
+    {
+      "q": "Kan jag ha flera gallerier för olika typer av fotografering?",
+      "a": "Ja, du kan strukturera sajten med separata gallerier för bröllop, porträtt, företag eller event. Berätta i chatten hur du vill dela upp ditt arbete så skapar AI:n motsvarande sidor. Du kan lägga till eller ta bort gallerisektioner när som helst."
+    },
+    {
+      "q": "Fungerar bokningssystemet med min kalender?",
+      "a": "Ja, via Cal.com-integrationen synkar bokningar med Google Calendar, Outlook eller andra kalendrar du använder. Kunder ser lediga tider och bokar direkt, och du får notiser automatiskt. Du bestämmer själv vilka tider som ska vara bokningsbara."
+    },
+    {
+      "q": "Syns min sajt när folk söker efter fotograf i Uppsala?",
+      "a": "Sajten byggs med SEO-optimering för Uppsala, inklusive lokala nyckelord och snabb laddning. Du får bäst resultat om du fyller på med innehåll om var du fotograferar och vad som gör dig unik i Uppsala. Google Analytics visar hur besökare hittar dig."
+    },
+    {
+      "q": "Vad kostar det att ha sajten online?",
+      "a": "Hosting på subdomän hos Sajtmaskin är gratis utan månadskostnad. Vill du använda egen domän behöver du registrera den separat, men själva publiceringen kostar inget extra. Inga dolda avgifter och ingen bindningstid."
+    },
+    {
+      "q": "Kan jag sälja fotoutskrifter eller digitala paket på sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du ta betalt för bildpaket, utskrifter eller digitala licenser direkt på sajten. Du sätter priser och produkter själv, och betalningar hamnar på ditt Stripe-konto. Perfekt om du vill erbjuda direktköp utöver bokningsbara sessioner."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera bilderna?",
+      "a": "Nej, allt sköts i samma chattgränssnitt där du byggde sajten. Du kan byta bilder, lägga till nya gallerier eller uppdatera texter utan teknisk kunskap. Vill du ha full kontroll kan du exportera koden, men det är inget krav."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala har en stor marknad för fotografer – från studentporträtt och examensbilder vid universitetet till bröllop i domkyrkan och företagsfotografering i Science Park. En professionell hemsida gör att du syns när kunder söker lokalt och ger dem en enkel väg att boka dig.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Uppsala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

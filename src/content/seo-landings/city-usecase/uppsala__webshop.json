@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "uppsala/webshop",
+  "title": "Hemsida webshop Uppsala – Bygg din webbutik på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell webshop i Uppsala med AI. Ingen kod, klart på minuter. Stripe-integration, egen domän och svenskt stöd. Prova gratis.",
+  "h1": "Hemsida webshop Uppsala",
+  "heroSub": "Bygg din webbutik för Uppsala-kunder på minuter – med AI, Stripe-integration och utan kod.",
+  "introParagraphs": [
+    "Om du driver butik, konsultverksamhet eller hantverksbusiness i Uppsala och vill sälja online behöver du inte längre anlita byrå eller lära dig kod. Sajtmaskin låter dig bygga en komplett webshop genom att chatta med AI – du beskriver vad du säljer, vilka betalmetoder du vill ha och hur sajten ska se ut, så genereras allt automatiskt.",
+    "Din webshop får inbyggd Stripe-integration för kortbetalningar, produktkataloger, kundvagn och kassan färdigkonfigurerad. Publicera direkt på egen domän eller testa kostnadsfritt på en subdomän. Allt på svenska, byggt i Sverige, och du kan exportera koden när du vill.",
+    "Perfekt för dig som säljer lokala produkter till Uppsala-bor, driver nischad e-handel eller vill komplettera din fysiska butik med en webbutik som är igång samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "AI bygger din webshop – du chattar, vi kodar",
+      "body": "Istället för att klicka dig genom mallar eller designa sidor manuellt berättar du för Sajtmaskins AI vad du behöver. Beskriv dina produkter, priser, kategorier och betalflöde – AI:n genererar hela webshopen med produktsidor, filter, kundvagn och checkout. Vill du ändra layout, lägga till kampanjbanner eller justera färger gör du det genom att fortsätta chatten. Allt händer på svenska och du ser resultatet direkt i förhandsgranskningen."
+    },
+    {
+      "heading": "Stripe-integration och Shopify-koppling inkluderat",
+      "body": "Varje webshop från Sajtmaskin kan kopplas till Stripe för säkra kortbetalningar – Swish, Visa, Mastercard, Apple Pay. Vill du ha fullständig lagerstyrning, fraktalternativ och avancerad produkthantering integrerar du Shopify med ett klick. Då blir Sajtmaskin ditt snygga, svenskanpassade skyltfönster medan Shopify sköter backend. Ingen månadskostnad för hosting om du använder vår subdomän, och du äger all kod om du vill flytta senare."
+    },
+    {
+      "heading": "Webshop för Uppsala – lokal närvaro, digital räckvidd",
+      "body": "Uppsala har allt från hantverksbutiker i Svartbäcken till designföretag vid Fyrisån och livsmedelsleverantörer runt Ultuna. Oavsett om du säljer ekologiska grönsaker, tryckta affischer, keramik eller IT-tjänster kan du nå kunder både i Uppsala och resten av Sverige. Lägg till Google Analytics för att se varifrån besökarna kommer, koppla Cal.com om du erbjuder konsultation vid köp, och publicera på din egen domän för att bygga varumärke. Sajtmaskin ger dig tekniken – du fokuserar på produkterna och kunderna."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen kod – äkta frihet",
+      "body": "Du betalar ingen månadshyra för hosting på subdomän, och det finns ingen bindningstid. Vill du ha egen domän kopplar du den direkt i gränssnittet. Behöver du exportera hela sajten och flytta till egen server går det när som helst – koden är din. Sajtmaskin är byggt av Pretty Good AB i Sverige, med svenskt gränssnitt, svensk support och servrar som förstår svenska betalkrav. Perfekt för dig som vill testa e-handel utan att låsa in dig i dyra avtal."
+    },
+    {
+      "heading": "Från idé till öppen webshop samma dag",
+      "body": "Traditionella webshopslösningar kräver veckors konfiguration, teman, plugins och betalintegration. Med Sajtmaskin beskriver du din butik i chatten, AI:n bygger sajten, du justerar det du vill och publicerar. Klart på minuter, inte månader. Lägg till produkter löpande, uppdatera priser direkt i gränssnittet och se förändringarna live. Ingen teknisk bakgrund behövs – om du kan chatta kan du bygga webshop."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja fysiska produkter med hemsidan?",
+      "a": "Ja, absolut. Sajtmaskin genererar produktsidor, kundvagn och checkout. Koppla Stripe för betalningar och Shopify om du vill ha lagerstyrning, fraktalternativ och orderhantering. Då blir sajten ditt skyltfönster och Shopify din backend."
+    },
+    {
+      "q": "Kostar det något att ha webshopen online?",
+      "a": "Hosting på Sajtmaskins subdomän är gratis utan månadskostnad. Vill du använda egen domän kopplar du den själv, och då betalar du bara för domänregistreringen hos din registrar. Inga dolda avgifter eller bindningstid."
+    },
+    {
+      "q": "Hur lång tid tar det att få igång en webshop?",
+      "a": "Från första prompten till publicerad sajt kan det ta minuter. Du chattar med AI:n om produkter, layout och betalning, granskar resultatet och publicerar. Vill du finjustera fortsätter du chatten. De flesta har en fungerande webshop samma dag."
+    },
+    {
+      "q": "Fungerar webshopen bra för kunder i Uppsala och resten av Sverige?",
+      "a": "Ja. Sajten är responsiv, snabb och SEO-anpassad så den syns i Google oavsett var kunderna söker. Lägg till Google Analytics för att se varifrån trafiken kommer och optimera för lokala eller nationella sökord. Du når både grannarna i Luthagen och kunder i Malmö."
+    },
+    {
+      "q": "Kan jag integrera bokning eller konsultation i webshopen?",
+      "a": "Ja, genom Cal.com-integrationen. Perfekt om du säljer tjänster eller produkter som kräver rådgivning – kunden bokar tid direkt på sajten. Kombinera e-handel med bokningsbara möten utan extra plugins."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill och flytta sajten till egen server eller annan hosting. Ingen inlåsning, ingen bindningstid. Koden är din och Sajtmaskin håller inte dina produkter eller kunder som gisslan."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra produkter eller priser?",
+      "a": "Nej. Allt sköts genom chatten eller direkt i gränssnittet. Vill du lägga till en produkt, ändra pris eller byta bild beskriver du det för AI:n eller klickar i editorn. Teknisk kunskap behövs inte."
+    }
+  ],
+  "localOrIndustryContext": "Uppsala har stark handel i centrum, växande e-handelsföretag vid Fyrislund och hantverkare i Kungsängen och Gottsunda. Många lokala butiker vill komplettera fysisk närvaro med webshop för att nå kunder i hela Uppland och resten av Sverige, särskilt inom mat, design och hållbara produkter.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Uppsala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

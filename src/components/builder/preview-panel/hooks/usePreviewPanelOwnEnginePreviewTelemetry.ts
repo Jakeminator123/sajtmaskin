@@ -25,7 +25,10 @@ import {
 import { toast } from "sonner";
 import { buildOwnEngineRoutePreviewUrl } from "../preview-route-helpers";
 import type { PreviewIssuePayload } from "../iframe-diagnostics";
-import type { PreviewIframeMessage } from "../preview-panel-types";
+import type {
+  BuildOutRouteRequestContext,
+  PreviewIframeMessage,
+} from "../preview-panel-types";
 
 type ReportFailure = (payload: PreviewIssuePayload) => void;
 
@@ -47,7 +50,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
   setIframeError: Dispatch<SetStateAction<boolean>>;
   setIframeErrorMessage: Dispatch<SetStateAction<string | null>>;
   onNavigatePreviewUrl?: ((url: string) => void) | null;
-  onBuildOutRouteRequest?: ((path: string) => void) | null;
+  onBuildOutRouteRequest?: ((context: BuildOutRouteRequestContext) => void) | null;
   onPreviewLifecycleChange?: ((phase: "starting" | "ready") => void) | null;
   reportOwnEngineRenderFailureSinkRef: MutableRefObject<ReportFailure>;
 }): void {
@@ -188,7 +191,15 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
       if (data.type === "build-out-request") {
         const path = typeof data.payload?.path === "string" ? data.payload.path : "";
         if (path && onBuildOutRouteRequest) {
-          onBuildOutRouteRequest(path);
+          const intentRaw = data.payload?.intent;
+          const nameRaw = data.payload?.name;
+          const intent = typeof intentRaw === "string" && intentRaw.trim().length > 0
+            ? intentRaw
+            : null;
+          const name = typeof nameRaw === "string" && nameRaw.trim().length > 0
+            ? nameRaw
+            : null;
+          onBuildOutRouteRequest({ path, intent, name });
         }
         return;
       }

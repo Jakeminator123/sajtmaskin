@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "norrkoping/salong",
+  "title": "Hemsida för salong i Norrköping – Snabbt & enkelt | Sajtmaskin",
+  "metaDescription": "Bygg en professionell hemsida för din salong i Norrköping på minuter. Med bokningssystem, bildgalleri och mobilanpassning. Ingen kod krävs.",
+  "h1": "Hemsida för salong i Norrköping",
+  "heroSub": "Skapa en professionell sajt för din salong med bokning, prislista och galleri – helt utan kod.",
+  "introParagraphs": [
+    "Som salong i Norrköping behöver du en hemsida som visar dina tjänster, tar emot bokningar och gör det enkelt för nya kunder att hitta dig. Sajtmaskin bygger en komplett sajt för din salong på minuter via chat. Du beskriver vad du vill ha, så genererar AI:n allt från prislista och behandlingsbeskrivningar till kontaktformulär och öppettider.",
+    "Du får en färdig sajt med integrerad bokningskalender via Cal.com, bildgalleri för dina resultat, och alla texter skrivna för just din salong. Publicera direkt på egen domän eller använd vår kostnadsfria subdomän. Allt på svenska, och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem som fungerar dygnet runt",
+      "body": "Kunder i Norrköping söker ofta salong på kvällen eller helgen när de planerar sin vecka. Med Cal.com-integration får du ett bokningssystem som tar emot tidsbeställningar 24/7. Dina kunder ser lediga tider direkt, bokar sin behandling och får automatisk bekräftelse. Du slipper telefontaggar och dubbelbokningar, och kan fokusera på det du gör bäst – att ta hand om dina kunder."
+    },
+    {
+      "heading": "Visa upp ditt arbete med bildgalleri",
+      "body": "En salong lever på visuella intryck. Sajtmaskin bygger in ett snyggt bildgalleri där du kan visa före- och efterbilder, din lokal och ditt team. Bilderna laddas snabbt och ser professionella ut på alla enheter. Du laddar upp direkt via chattgränssnittet eller uppdaterar galleriet när du vill. Potentiella kunder i Norrköping kan se vad du erbjuder innan de ens lyfter luren."
+    },
+    {
+      "heading": "Prislista och behandlingsbeskrivningar",
+      "body": "Tydlig information om priser och behandlingar skapar förtroende. Sajten genererar automatiskt en strukturerad prislista utifrån dina tjänster – klippning, färg, permanent, fransar, naglar eller vad du nu erbjuder. Varje behandling kan få en egen beskrivning så att kunderna förstår vad som ingår och hur lång tid det tar. Du uppdaterar priserna själv när du behöver, utan att kontakta någon webbyrå."
+    },
+    {
+      "heading": "Mobilanpassad och snabb",
+      "body": "Över hälften av dina besökare kommer från mobilen. Sajtmaskin bygger automatiskt en responsiv sajt som ser lika bra ut på iPhone som på dator. Sidorna laddas snabbt, bilderna skalas rätt, och bokningsformuläret är lätt att fylla i även med tummen. Det ger en professionell känsla och gör att fler besökare faktiskt bokar tid istället för att hoppa av."
+    },
+    {
+      "heading": "Ingen bindningstid eller dold kostnad",
+      "body": "Du äger din sajt och kan exportera all kod när du vill. Hosting på subdomän kostar ingenting löpande, och vill du använda egen domän är det bara att koppla den. Inga månadsfakturor som tickar på i bakgrunden. Behöver du ändra något senare gör du det själv via chatten, eller så tar du hjälp av en utvecklare med den exporterade koden."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få sajten klar?",
+      "a": "De flesta salonger har en färdig sajt inom 10–15 minuter. Du chattar med AI:n, beskriver dina behandlingar och önskemål, så genereras sidan automatiskt. Vill du justera texter eller lägga till bilder gör du det direkt i samma gränssnitt."
+    },
+    {
+      "q": "Kan jag ta betalt för presentkort via sajten?",
+      "a": "Ja, du integrerar Stripe och säljer presentkort, produkter eller tar förskottsbetalning för behandlingar. Betalningen går direkt till ditt konto, och kunden får kvitto automatiskt. Perfekt om du vill erbjuda gåvokort inför jul eller födelsedagar."
+    },
+    {
+      "q": "Fungerar bokningssystemet med min befintliga kalender?",
+      "a": "Cal.com synkar med Google Calendar, Outlook och Apple Calendar. Blockerar du tid i din vanliga kalender syns det som upptaget på sajten. Du slipper dubbla system och har full kontroll över ditt schema från en enda plats."
+    },
+    {
+      "q": "Syns min salong i Norrköping på Google?",
+      "a": "Sajten är SEO-optimerad från start med rätt rubriker, snabb laddning och mobilanpassning. Lägg till Google Analytics så ser du var besökarna kommer ifrån. För bästa synlighet i lokala sökningar rekommenderar vi även att du håller din Google Business-profil uppdaterad."
+    },
+    {
+      "q": "Kan jag ändra priser och öppettider själv?",
+      "a": "Ja, du loggar in och uppdaterar via chatten. Säg \"ändra priset för klippning till 450 kr\" eller \"lägg till stängt midsommarafton\", så justeras sajten direkt. Inga tekniska kunskaper behövs."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Ta den till vilken webbhotell eller utvecklare som helst. Ingen inlåsning, ingen uppsägningstid. Din sajt är din."
+    },
+    {
+      "q": "Kan jag visa mitt team och våra specialiteter?",
+      "a": "Absolut. Lägg till teamsida med bild och presentation av varje frisör, nagel­teknolog eller hudterapeut. Visa vem som är specialist på balayage, keratinbehandling eller gellack. Det skapar personlig kontakt redan innan kunden kommer till salongen."
+    }
+  ],
+  "localOrIndustryContext": "Norrköping har en stark salong­bransch med allt från klassiska frisörer på Drottninggatan till moderna nagelstudios och skönhetssalonger i kvarteret runt Gamla Torget. Många kunder söker salong online innan de bokar, särskilt när de är nya i staden eller vill testa något nytt. En tydlig hemsida med enkel bokning gör skillnad i en stad där konkurrensen är hård.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/norrkoping",
+      "label": "Skapa hemsida i Norrköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Norrköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

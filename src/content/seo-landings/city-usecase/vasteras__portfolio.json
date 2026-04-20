@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/portfolio",
+  "title": "Hemsida Portfolio Västerås – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfolio-hemsida i Västerås med AI. Perfekt för kreatörer, konsulter och hantverkare. Publicera på egen domän utan kod.",
+  "h1": "Portfolio-hemsida i Västerås",
+  "heroSub": "Bygg en professionell portfolio som visar ditt arbete – på minuter, utan kod, helt på svenska.",
+  "introParagraphs": [
+    "En portfolio-hemsida är din digitala visitkort i Västerås. Oavsett om du är fotograf, designer, arkitekt, konsult eller hantverkare behöver du en sajt som visar upp dina projekt och gör det enkelt för kunder att kontakta dig. Sajtmaskin låter dig skapa en komplett portfolio direkt via chat – AI:n bygger gallerier, projektbeskrivningar och kontaktformulär åt dig.",
+    "Du chattar på svenska om vad du gör och vilka projekt du vill visa. Sajtmaskin genererar layouter, texter och bildgallerier som passar din bransch. Publicera på egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, ingen kodning – bara en färdig sajt som fungerar direkt.",
+    "Västerås kreativa och tekniska näringsliv växer snabbt. Med Sajtmaskin får du en portfolio som matchar förväntningarna från både lokala uppdragsgivare och nationella kunder, utan att behöva anlita byrå eller lära dig WordPress."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "AI bygger din portfolio på minuter",
+      "body": "Du beskriver i chatten vad du gör – fotograf, illustratör, snickare, webbutvecklare, inredare – och vilka projekt du vill lyfta fram. Sajtmaskin skapar automatiskt en struktur med projektgallerier, Om-sida, tjänstebeskrivningar och kontaktformulär. AI:n anpassar tonalitet och layout efter din bransch. Vill du ändra något? Fortsätt bara konversationen så justeras sajten i realtid. Allt sker på svenska och du ser resultatet direkt."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "När sajten är klar publicerar du antingen på din egen domän eller använder en kostnadsfri subdomän hos Sajtmaskin. Ingen hosting-avgift, ingen dold kostnad. Behöver du bokningsfunktion? Integrera Cal.com så kan kunder boka möten direkt. Vill du sälja prints, handgjorda produkter eller digitala tjänster? Koppla Stripe för betalning eller Shopify för en komplett webshop. Allt byggs in utan att du rör kod."
+    },
+    {
+      "heading": "Perfekt för Västerås kreativa och tekniska bransch",
+      "body": "Västerås har en stark mix av kreativa företagare, ingenjörer, konsulter och hantverkare. En portfolio-sajt behöver visa trovärdighet snabbt – både för lokala uppdragsgivare i Mälardalen och för kunder i Stockholm eller nationellt. Sajtmaskin ger dig en professionell närvaro som laddar snabbt, ser bra ut på mobil och är enkel att uppdatera när du får nya projekt. Du slipper krångel med mallar som inte passar din bransch."
+    },
+    {
+      "heading": "Ingen bindningstid – exportera koden när du vill",
+      "body": "Du äger din sajt. Vill du flytta vidare eller hantera koden själv kan du exportera allt när som helst. Ingen inlåsning, inga dolda avgifter. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och svensk support. Du får en färdig portfolio som du kan lansera samma dag, och du kan alltid växa vidare på dina egna villkor."
+    },
+    {
+      "heading": "Integrationer som gör sajten komplett",
+      "body": "En portfolio-sajt blir starkare med rätt funktioner. Lägg till Google Analytics för att se var besökare kommer ifrån. Integrera Cal.com så kunder kan boka konsultation eller fotosession direkt i kalendern. Vill du sälja? Stripe hanterar betalningar smidigt, och Shopify-integration gör det enkelt att driva en webshop bredvid portfolion. Allt kopplas ihop utan plugins eller komplicerade inställningar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en portfolio-hemsida i Västerås?",
+      "a": "Du kan ha en färdig sajt på minuter. Beskriv i chatten vad du gör och vilka projekt du vill visa, så genererar Sajtmaskin layout, texter och gallerier direkt. Publicera på egen domän eller subdomän samma dag."
+    },
+    {
+      "q": "Behöver jag kunna koda för att bygga en portfolio-sajt?",
+      "a": "Nej. Allt sker via chat på svenska. Du beskriver vad du vill ha, AI:n bygger sajten och du ser resultatet i realtid. Inga tekniska kunskaper krävs."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja. Du kan publicera på din egen domän utan extra kostnad. Vill du testa först finns kostnadsfria subdomäner hos Sajtmaskin."
+    },
+    {
+      "q": "Funkar det för alla typer av portfolios?",
+      "a": "Ja. Fotografer, designers, arkitekter, konsulter, hantverkare, illustratörer – Sajtmaskin anpassar struktur och tonalitet efter din bransch och dina projekt."
+    },
+    {
+      "q": "Kan jag lägga till bokning eller betalning?",
+      "a": "Absolut. Integrera Cal.com för bokning av möten eller fotosession. Koppla Stripe för betalningar eller Shopify om du vill sälja produkter bredvid portfolion."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på subdomän är gratis. Använder du egen domän betalar du bara för domänen hos din registrar. Inga månadskostnader för hosting, inga dolda avgifter."
+    },
+    {
+      "q": "Passar Sajtmaskin för företag i Västerås?",
+      "a": "Ja. Många kreatörer, konsulter och hantverkare i Västerås använder Sajtmaskin för att snabbt få en professionell närvaro. Sajten fungerar lika bra för lokala uppdrag som för nationella kunder."
+    }
+  ],
+  "localOrIndustryContext": "Västerås har en bred kreativ och teknisk sektor, från arkitekter och designers till ingenjörskonsulter och hantverkare. En portfolio-hemsida behöver visa kompetens snabbt och fungera smidigt på alla enheter – särskilt viktigt när kunder söker lokalt eller jämför leverantörer i Mälardalen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

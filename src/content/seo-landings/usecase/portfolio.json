@@ -1,0 +1,105 @@
+{
+  "family": "usecase",
+  "slug": "portfolio",
+  "title": "Skapa portfolio-sida på minuter med AI | Sajtmaskin",
+  "metaDescription": "Bygg en professionell portfolio-sida direkt i chatten. AI skapar gallerier, projektbeskrivningar och kontaktformulär – klart på minuter.",
+  "h1": "Skapa portfolio-sida med AI",
+  "heroSub": "Berätta vad du gör, så bygger AI en färdig portfolio med bildgallerier, projekttexter och kontaktformulär.",
+  "introParagraphs": [
+    "En portfolio-sida visar dina bästa projekt, beskriver vad du kan och gör det enkelt för kunder att höra av sig. Den behöver bildgallerier eller case-exempel, en om-sektion som förklarar din kompetens, och ett tydligt sätt att boka eller kontakta dig. Med Sajtmaskin chattar du fram hela sajten på svenska – AI skapar layout, texter och funktioner direkt.",
+    "Du beskriver vilken typ av jobb du vill visa (foto, design, illustrationer eller liknande), så föreslår AI struktur och sektioner. Ladda upp bilder, justera texter i editorn och publicera på din egen domän. Ingen kod, ingen designer – bara en färdig sajt som faktiskt fungerar.",
+    "Sajtmaskin är byggt i Sverige och pratar svenska. Du betalar inget för hosting på subdomän, kan koppla Cal.com för bokning och exportera koden när du vill. Perfekt för frilansare som vill ha en sajt igång samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bildgallerier och projektvisning",
+      "body": "En portfolio lever på visuellt material. Sajtmaskin låter dig skapa gallerier där varje projekt får egen sida med bilder, beskrivning och eventuellt kundnamn. AI föreslår layouter som passar din bransch – rutnät för foto, fullbredd för design, lista för case. Du laddar upp bilder direkt i editorn och justerar hur de visas. Inga plugins eller komplicerade inställningar."
+    },
+    {
+      "heading": "Om-sektion och kompetensbeskrivning",
+      "body": "Besökare vill veta vem du är och vad du är bra på. AI skriver ett förslag till om-text baserat på din prompt, som du sedan finjusterar. Lägg till en profilbild, lista tidigare kunder eller berätta om din process. Sektionen hamnar naturligt i navigationen så folk hittar den direkt. Texten kan vara personlig eller formell – du styr tonen själv."
+    },
+    {
+      "heading": "Kontaktformulär och bokningslänk",
+      "body": "Varje portfolio behöver ett enkelt sätt att ta kontakt. Sajtmaskin bygger in ett formulär där besökare skickar meddelande direkt till din mejl. Vill du att folk bokar tid istället? Koppla Cal.com så läggs en bokningsknapp in automatiskt. Ingen krånglig integration – du klistrar in länken, AI fixar resten. Formuläret fungerar från dag ett, ingen setup krävs."
+    },
+    {
+      "heading": "Responsiv design och snabb laddning",
+      "body": "Din portfolio måste se bra ut på mobil – de flesta besökare scrollar på telefonen. Sajtmaskin genererar automatiskt responsiv layout så bilder och text anpassas till skärmstorlek. Sajten laddas snabbt eftersom koden är ren och bilderna optimeras. Du behöver inte tänka på tekniska detaljer, allt är fixat när AI bygger sidorna."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "När sajten är klar publicerar du på subdomän gratis, eller kopplar din egen domän direkt i inställningarna. Ingen bindningstid, inga dolda avgifter. Vill du flytta sajten senare? Exportera koden och ta den med dig. Sajtmaskin äger inte ditt innehåll – du har full kontroll hela tiden."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en portfolio-sida?",
+      "a": "De flesta har en färdig grund på 10–15 minuter. Du chattar med AI, beskriver vad du vill visa, så genereras struktur och texter. Sen laddar du upp bilder och justerar detaljer i editorn. Publicering går på ett klick. Vill du finjustera mycket kan det ta längre, men grundsajten är klar direkt."
+    },
+    {
+      "q": "Kan jag visa olika typer av projekt på samma sajt?",
+      "a": "Ja, du kan ha flera gallerier eller sektioner. Berätta för AI att du till exempel gör både foto och grafisk design, så skapas separata projektområden med egen layout. Navigationen uppdateras automatiskt så besökare hittar rätt kategori. Du styr själv hur mycket du vill dela upp."
+    },
+    {
+      "q": "Fungerar det att sälja prints eller tjänster via sajten?",
+      "a": "Ja, koppla Stripe för enkel betalning eller integrera Shopify om du vill ha en hel webshop. AI kan lägga till produktsidor eller en tjänstekatalog. Vill du bara ta emot bokningar? Använd Cal.com-integrationen istället. Allt sätts upp direkt i chatten utan kod."
+    },
+    {
+      "q": "Måste jag kunna koda för att ändra layouten senare?",
+      "a": "Nej, allt går att justera i den visuella editorn. Byt färger, typsnitt, flytta sektioner eller lägg till nya bilder utan att röra kod. Vill du ha större kontroll kan du exportera koden och redigera själv, men det är helt frivilligt. De flesta gör allt i gränssnittet."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform?",
+      "a": "Du kan exportera hela sajten som kod när som helst. Ingen bindningstid, inga avgifter för att ta med dig materialet. Ladda upp koden på valfri webbhost eller ge den till en utvecklare. Sajtmaskin låser inte in dig – du äger allt innehåll från start."
+    },
+    {
+      "q": "Kan jag koppla Google Analytics för att se besökare?",
+      "a": "Ja, klistra in ditt Analytics-ID i inställningarna så börjar sajten spåra trafik automatiskt. Du ser varifrån besökare kommer, vilka sidor de tittar på och hur länge de stannar. Ingen kod behövs, integrationen funkar direkt när du publicerar."
+    },
+    {
+      "q": "Hur gör jag om jag vill ha text på flera språk?",
+      "a": "Skapa en sida per språk och länka dem i navigationen, eller be AI generera parallella versioner av innehållet. Sajtmaskin stödjer vilket språk som helst i texterna, men gränssnittet och supporten är på svenska. Många frilansare kör en svensk och en engelsk version på samma domän."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en portfolio-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "kurs",
+  "title": "Hemsida för kurs – bygg din kurssajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din kurs med AI. Kursinfo, anmälan, schema och betalning – klart på minuter. Ingen kod behövs.",
+  "h1": "Hemsida för kurs",
+  "heroSub": "Bygg en komplett kurssajt med AI – från kursbeskrivning och anmälan till schema och betalning, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En hemsida för kurs behöver visa vad kursen handlar om, vem den passar, vad deltagarna lär sig och hur de anmäler sig. Oftast vill du också ha ett tydligt schema, information om kursledare, pris och en smidig betalningslösning. Allt samlat på ett ställe så att intresserade snabbt kan boka sin plats.",
+    "Med Sajtmaskin skapar du en färdig kurssajt på minuter genom att chatta med AI. Du beskriver din kurs, vilka sektioner du vill ha och hur bokningsflödet ska fungera – så genererar AI hela sajten. Publicera direkt på din egen domän, koppla Cal.com för bokningar och Stripe för betalningar, och du är igång.",
+    "Allt är på svenska, från gränssnitt till stöd. Ingen bindningstid, inga dolda avgifter för hosting på subdomän, och du kan exportera koden när du vill. Perfekt för dig som vill fokusera på att leverera bra kurser istället för att krångla med teknik."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Kursbeskrivning och målgrupp",
+      "body": "Börja med en tydlig rubrik och en beskrivning av vad kursen går ut på. Förklara vilka problem den löser, vad deltagarna kommer att kunna efteråt och vem kursen passar bäst för. Ju tydligare du är, desto lättare är det för rätt personer att känna igen sig. Sajtmaskin låter dig skriva detta direkt i chatten, och AI formaterar det snyggt med rubriker, punktlistor och eventuellt en hero-sektion med bild."
+    },
+    {
+      "heading": "Schema, datum och plats",
+      "body": "Visa när kursen går av stapeln, om den är på plats eller online, hur många tillfällen den omfattar och hur lång varje session är. Ett tydligt schema gör att intresserade direkt ser om kursen passar deras kalender. Du kan också lägga till en sektion för kommande kurstillfällen om du kör samma kurs flera gånger per år. Sajtmaskin genererar schemat baserat på din input och gör det enkelt att uppdatera inför nästa omgång."
+    },
+    {
+      "heading": "Anmälan och betalning",
+      "body": "Gör det enkelt att boka plats. Integrera Cal.com för att visa lediga tider och ta emot anmälningar, eller lägg till ett kontaktformulär om du hanterar bokningar manuellt. Vill du ta betalt direkt kopplar du Stripe – då kan deltagarna betala när de anmäler sig, och du slipper fakturera i efterhand. Sajtmaskin sätter upp båda integrationerna åt dig, du behöver bara koppla dina konton."
+    },
+    {
+      "heading": "Om kursledaren",
+      "body": "Presentera dig själv eller den som håller i kursen. Berätta om din bakgrund, erfarenhet och varför du brinner för ämnet. Det bygger förtroende och gör att deltagarna känner sig tryggare med att anmäla sig. En bild och några stycken text räcker långt. AI hjälper dig att strukturera presentationen så den blir personlig utan att bli för lång."
+    },
+    {
+      "heading": "Vanliga frågor och kontaktinfo",
+      "body": "Samla de vanligaste frågorna på ett ställe: Vad ingår i priset? Kan jag få återbetalning om jag inte kan delta? Behöver jag förkunskaper? Finns det kursmaterial? En bra FAQ-sektion minskar antalet mejl du får och gör att fler vågar anmäla sig. Lägg också till tydlig kontaktinformation så att de som har andra frågor enkelt kan nå dig."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag ta betalt för kursen direkt på sajten?",
+      "a": "Ja, du kopplar Stripe till din Sajtmaskin-sajt så kan deltagarna betala med kort när de anmäler sig. Du sätter pris, väljer valuta och får pengarna direkt till ditt Stripe-konto. Inga extra avgifter från Sajtmaskin, du betalar bara Stripes vanliga transaktionsavgift."
+    },
+    {
+      "q": "Hur hanterar jag bokningar och anmälningar?",
+      "a": "Antingen integrerar du Cal.com för automatisk bokning där deltagarna väljer tid och får bekräftelse direkt, eller så lägger du till ett kontaktformulär där de fyller i sina uppgifter och du bekräftar manuellt. Båda lösningarna fungerar bra, välj den som passar ditt upplägg bäst."
+    },
+    {
+      "q": "Kan jag visa schema för flera kurstillfällen?",
+      "a": "Absolut. Du kan bygga en sektion där du listar kommande datum, tider och platser för varje kurstillfälle. Uppdatera den genom att chatta med AI eller redigera direkt i editorn när du lägger till nya omgångar. Perfekt om du kör samma kurs flera gånger per termin."
+    },
+    {
+      "q": "Vad händer om jag vill ändra kursinnehåll eller pris senare?",
+      "a": "Du kan när som helst uppdatera text, bilder, priser och schema. Antingen chattar du med AI och beskriver vad du vill ändra, eller så går du in i editorn och justerar direkt. Inga tekniska kunskaper behövs, och ändringarna publiceras direkt."
+    },
+    {
+      "q": "Kan jag använda min egen domän för kurssajten?",
+      "a": "Ja, du publicerar på din egen domän så att sajten blir del av ditt varumärke. Vill du testa först kan du köra på en Sajtmaskin-subdomän utan månadskostnad, sedan byta till egen domän när du är redo. Båda alternativen ingår."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta har en färdig kurssajt på 10–20 minuter. Du chattar med AI, beskriver kursen och vilka sektioner du vill ha, granskar resultatet, justerar om det behövs och publicerar. Snabbast om du har text och bilder redo, men AI hjälper dig även om du börjar från noll."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform?",
+      "a": "Ja, du kan när som helst exportera hela koden och flytta sajten till egen hosting eller annan plattform. Ingen inlåsning, ingen bindningstid. Du äger allt innehåll och kan ta det med dig om du vill."
+    }
+  ],
+  "localOrIndustryContext": "Kursarrangörer i Sverige behöver ofta visa kursinformation, schema och ta emot anmälningar på ett smidigt sätt. Många kör fortfarande med mejl och manuella listor, men en egen sajt med integrerad bokning och betalning sparar tid och ser proffsigare ut.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en kurs-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

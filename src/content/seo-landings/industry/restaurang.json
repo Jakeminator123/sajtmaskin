@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "restaurang",
+  "title": "Hemsida för restaurang – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang med AI. Meny, bordsbokning och betalning – allt på en plats. Ingen kod krävs.",
+  "h1": "Hemsida för restaurang",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokning och betalning – på minuter, utan att kunna koda.",
+  "introParagraphs": [
+    "En professionell hemsida är idag lika viktig som skylten utanför din restaurang. Gäster letar efter menyer, öppettider och möjlighet att boka bord online innan de bestämmer sig. Utan en fungerande sajt riskerar du att förlora kunder till konkurrenten som syns på Google.",
+    "Sajtmaskin låter dig bygga en komplett restauranghemsida genom att chatta med en AI. Du beskriver din restaurang, väljer vilka funktioner du vill ha – meny, bordsbokning, betalning för catering – och får en färdig sajt på minuter. Allt på svenska, utan kod.",
+    "Publicera på din egen domän eller testa gratis på en subdomän. Inga bindningstider, inga dolda avgifter. Bara en sajt som fungerar direkt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en restauranghemsida behöver innehålla",
+      "body": "En bra restaurangsajt visar menyn tydligt, gärna med bilder och priser. Gäster vill se vad du serverar innan de kommer. Lägg till öppettider, adress och en karta så folk hittar er. En kontaktsida med telefon och mejl är standard, men ännu bättre är ett integrerat bokningsformulär där gäster kan reservera bord direkt. Om ni erbjuder catering eller take away behöver det också synas tydligt. Tänk på att många besökare kommer från mobilen – sajten måste fungera lika bra på telefon som på dator."
+    },
+    {
+      "heading": "Bordsbokning, betalning och meny – allt integrerat",
+      "body": "Sajtmaskin kopplar ihop din sajt med Cal.com för bordsbokning, så gäster kan välja tid och antal personer direkt på hemsidan. Vill du ta betalt för cateringbeställningar eller presentkort kan du integrera Stripe. Menyn bygger du enkelt genom att beskriva dina rätter för AI:n – den formaterar allt snyggt och responsivt. Du kan när som helst uppdatera priser eller lägga till säsongsrätter genom att chatta med Sajtmaskin. Allt sparas automatiskt och syns direkt på sajten."
+    },
+    {
+      "heading": "Så bygger du din restaurangsajt med Sajtmaskin",
+      "body": "Börja med att beskriva din restaurang i chatten: vilken typ av mat ni lagar, vilken känsla ni vill förmedla, vilka funktioner du behöver. AI:n föreslår en struktur – startsida, meny, om oss, bokning, kontakt. Du godkänner eller justerar. Sedan genereras hela sajten på några minuter. Vill du ändra något senare chattar du bara: 'Lägg till en sida för vår vinlista' eller 'Byt färgschema till varmare toner'. Ingen teknisk kunskap krävs. När du är nöjd publicerar du på din egen domän eller kör vidare på en gratis subdomän."
+    },
+    {
+      "heading": "Äger du din sajt – exportera koden när du vill",
+      "body": "Till skillnad från många plattformar där du är låst låter Sajtmaskin dig exportera hela koden när som helst. Vill du flytta till en egen server eller låta en utvecklare bygga vidare är det inga problem. Ingen bindningstid, inga dolda avgifter. Du betalar bara för det du använder. Hosting på subdomän är gratis, vill du ha egen domän och avancerade funktioner väljer du det. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt stöd och svensk fakturering."
+    },
+    {
+      "heading": "Från familjekrog till finedining – exempel från verkliga restauranger",
+      "body": "Oavsett om du driver en pizzeria i Malmö, en sushirestaurang i Stockholm eller en skärgårdskrog utanför Göteborg fungerar samma process. En liten lunch­restaurang kan börja med meny och kontaktinfo, sedan lägga till bordsbokning när det behövs. En cateringfirma kan fokusera på paketlösningar och betalning via Stripe. Finediningstället vill kanske visa bildgalleri från köket och vinlista. Sajtmaskin anpassar sig efter din verksamhet – du styr själv hur enkel eller avancerad sajten ska vara."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restauranghemsida med Sajtmaskin?",
+      "a": "Själva genereringen tar några minuter. Du chattar med AI:n, beskriver din restaurang och väljer funktioner. Sedan skapas sajten automatiskt. Vill du finjustera färger, texter eller layout gör du det direkt i chatten. De flesta har en färdig sajt på under en timme, inklusive meny och bordsbokning."
+    },
+    {
+      "q": "Kan jag uppdatera menyn själv utan teknisk hjälp?",
+      "a": "Ja, du uppdaterar allt genom att chatta med Sajtmaskin. Skriv 'Lägg till en ny rätt: Grillad lax med citronsmör, 245 kr' så läggs den till på menyn direkt. Vill du ta bort något eller ändra pris gör du det på samma sätt. Inga krångliga admin­paneler – bara vanlig svenska."
+    },
+    {
+      "q": "Hur fungerar bordsbokning på sajten?",
+      "a": "Sajtmaskin integrerar Cal.com, ett bokningsverktyg där gäster väljer datum, tid och antal personer. Du bestämmer själv vilka tider som är bokningsbara och hur många bord du vill ta emot. Bekräftelser skickas automatiskt via mejl. Du kan även koppla bokningarna till din kalender så du har koll på allt på ett ställe."
+    },
+    {
+      "q": "Kan jag ta betalt för catering eller presentkort via sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du sätta upp betalning för cateringpaket, presentkort eller till och med take away-beställningar. Du bestämmer priser och vilka produkter som ska finnas. Betalningen hanteras säkert och pengarna landar direkt på ditt konto."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att den är klar?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis. Vill du använda din egen domän (till exempel dinrestaurang.se) behöver du köpa den och välja ett hostingalternativ. Inga bindningstider – du kan när som helst exportera koden och flytta sajten om du vill. Priset beror på vilka funktioner och tjänster du väljer."
+    },
+    {
+      "q": "Fungerar sajten lika bra på mobil som på dator?",
+      "a": "Ja, alla sajter som Sajtmaskin genererar är responsiva, vilket betyder att de anpassar sig automatiskt till skärmstorlek. Många restauranggäster söker på mobilen när de är ute och rör sig, så det är viktigt att meny, öppettider och bokning fungerar smidigt på telefonen."
+    },
+    {
+      "q": "Kan jag lägga till bilder på maten och restaurangen?",
+      "a": "Absolut. Du kan ladda upp bilder genom chatten eller beskriva vilken typ av bilder du vill ha, så hjälper AI:n till att placera dem snyggt. Bilder på rätter, lokalen och teamet gör sajten mer personlig och ökar chansen att gäster väljer just er restaurang."
+    }
+  ],
+  "localOrIndustryContext": "Restaurangbranschen i Sverige är hårt konkurrensutsatt, särskilt i storstäder som Stockholm, Göteborg och Malmö. Gäster förväntar sig att kunna hitta meny, boka bord och läsa recensioner online innan de bestämmer sig. En professionell hemsida är inte längre en lyx – det är en nödvändighet för att synas på Google och konkurrera med kedjor och etablerade namn.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en restaurang-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

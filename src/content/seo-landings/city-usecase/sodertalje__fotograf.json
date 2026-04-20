@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "sodertalje/fotograf",
+  "title": "Hemsida fotograf Södertälje – Bygg din portfoliosajt med AI | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för ditt fotografföretag i Södertälje på minuter. AI bygger portfoliosajt med bokning och galleri – ingen kod krävs.",
+  "h1": "Hemsida för fotografer i Södertälje",
+  "heroSub": "Bygg en portfoliosajt med galleri, bokning och kontaktformulär – på minuter, helt utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Södertälje behöver du en hemsida som visar upp ditt arbete och gör det enkelt för kunder att boka dig. Sajtmaskin bygger din kompletta portfoliosajt via chat – du beskriver vad du fotograferar och vilka tjänster du erbjuder, så skapar AI:n en sajt med bildgalleri, prislista och integrerad bokningsfunktion.",
+    "Sajten publiceras på din egen domän och du kan koppla Cal.com för automatisk bokning av fotograferingar. Allt på svenska, inga månadskostnader för hosting på subdomän, och du kan exportera koden när du vill. Perfekt för dig som vill fokusera på fotografering istället för tekniska krångel.",
+    "Oavsett om du fotograferar bröllop vid Mälaren, företagsporträtt i centrum eller produktbilder för Södertäljes företag – du får en sajt som speglar din stil och gör det lätt för kunder att hitta och kontakta dig."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio som säljer dina tjänster",
+      "body": "Din hemsida blir ditt viktigaste säljverktyg som fotograf. Sajtmaskin skapar automatiskt ett bildgalleri där du kan visa upp ditt bästa arbete, organiserat efter kategori – porträtt, bröllop, företagsfoto eller produktfotografering. Du laddar upp bilder via chatten eller direkt i editorn, och AI:n optimerar layouten så bilderna visas i bästa möjliga format. Varje galleri kan ha egen beskrivning och prislista, så besökare direkt ser vad du erbjuder och vad det kostar."
+    },
+    {
+      "heading": "Enkel bokning direkt på sajten",
+      "body": "Slipp mejltennis om lediga tider. Integrera Cal.com i din fotografsajt så kan kunder boka konsultationer och fotograferingar direkt via din hemsida. Du bestämmer själv vilka typer av bokningar du vill ta emot – allt från 30 minuters porträttfoto till heldagsbröllop. Bokningskalendern synkar med din egen kalender och skickar automatiska bekräftelser. För fotografer i Södertälje som jobbar med både privatpersoner och företag blir det mycket enklare att hålla koll på uppdragen."
+    },
+    {
+      "heading": "Bygg sajten på minuter, inte veckor",
+      "body": "Du behöver ingen webbutvecklare eller designer. Berätta för Sajtmaskin vad du fotograferar, vilka tjänster du erbjuder och vilken känsla du vill förmedla – minimalistisk, färgstark, klassisk – så genererar AI:n en komplett sajt med alla sidor du behöver. Portfolio, om mig, tjänster, priser och kontakt skapas automatiskt. Du kan sedan justera texter, byta bilder och anpassa färger direkt i editorn. Sajten är klar att publicera samma dag, och du kan alltid uppdatera den när du får nya bilder eller erbjudanden."
+    },
+    {
+      "heading": "Ingen bindningstid eller dolda kostnader",
+      "body": "Publicera på subdomän utan månadskostnad, eller koppla din egen domän. Det finns ingen bindningstid och du kan när som helst exportera hela sajtkoden om du vill flytta den någon annanstans. Vill du ta betalt för digitala bildpaket eller fotokurser kan du integrera Stripe för kortbetalningar. Google Analytics ingår om du vill följa hur många som besöker din portfolio och vilka tjänster som är mest populära."
+    },
+    {
+      "heading": "Gjord för svenska fotografer",
+      "body": "Sajtmaskin är byggt i Sverige med svenskt gränssnitt och support. All text genereras på svenska och sajten följer svenska förväntningar på struktur och innehåll. För dig som fotograf i Södertälje innebär det att sajten känns proffsig och trovärdig från start – utan anglicismer eller konstiga översättningar. Du får en hemsida som fungerar för den svenska marknaden, med tydlig information om dina tjänster och enkla vägar för kunder att komma i kontakt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografsajt?",
+      "a": "Själva genereringen tar någon minut. Du chattar med AI:n om vilka tjänster du erbjuder, vilken typ av fotograf du är och vilken stil du vill ha. Sedan skapar Sajtmaskin en komplett sajt med portfolio, tjänstesidor och kontaktformulär. Du kan publicera direkt eller lägga tid på att ladda upp fler bilder och finjustera texter – det bestämmer du själv."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotograferingar på samma sajt?",
+      "a": "Ja, du kan ha separata gallerier för varje typ av uppdrag. Skapa en sida för bröllop, en för företagsporträtt, en för produktfoto och så vidare. Varje kategori kan ha egen prislista och beskrivning. Det gör det lätt för besökare att hitta rätt och se exempel på just den typ av fotografering de söker."
+    },
+    {
+      "q": "Fungerar sajten för att ta emot bokningar?",
+      "a": "Ja, du integrerar Cal.com för bokningar direkt på hemsidan. Kunder väljer typ av fotografering, ser lediga tider och bokar utan att behöva mejla fram och tillbaka. Du kan sätta olika längd och pris för olika typer av uppdrag – en timmes porträttfoto eller en heldag för bröllop. Bekräftelser och påminnelser skickas automatiskt."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Publicering på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du ha din egen domän, typ dittnamn.se, köper du den hos valfri domänleverantör och kopplar den till sajten. Inga dolda avgifter eller bindningstid. Vill du ta betalt via sajten kan du lägga till Stripe, men grundfunktionen för portfolio och bokning kostar inget extra."
+    },
+    {
+      "q": "Kan jag uppdatera bilderna själv när jag får nya projekt?",
+      "a": "Absolut. Du loggar in och laddar upp nya bilder, byter ut gamla eller skapar nya gallerier när du vill. Allt sköts via editorn utan att du behöver kunna kod. Perfekt när du vill visa upp färska bröllopsbilder eller uppdatera portfolion efter ett nytt företagsuppdrag."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajtkoden när du vill, utan extra kostnad. Det finns ingen bindningstid. Om du bestämmer dig för att flytta sajten till en annan leverantör eller egen server tar du med dig allt innehåll. Du äger din sajt och ditt material."
+    },
+    {
+      "q": "Passar sajten för fotografer som jobbar både med privatpersoner och företag i Södertälje?",
+      "a": "Ja, du kan tydligt dela upp dina tjänster. Skapa en sida för privatfotografering – bröllop, familj, porträtt – och en för företagstjänster som profilbilder, eventfoto eller produktbilder. Visa relevanta exempel i varje galleri och ha separata bokningsalternativ. Det gör det enkelt för olika typer av kunder att hitta rätt och se att du har erfarenhet av just deras behov."
+    }
+  ],
+  "localOrIndustryContext": "Södertälje har en blandning av industri, handel och boende runt Mälaren, vilket ger fotografer möjlighet att jobba med allt från företagsuppdrag och eventfoto till bröllop och naturporträtt. En hemsida gör det enkelt för både privatpersoner och lokala företag att hitta dig, se din portfolio och boka direkt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/sodertalje",
+      "label": "Skapa hemsida i Södertälje"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Södertälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

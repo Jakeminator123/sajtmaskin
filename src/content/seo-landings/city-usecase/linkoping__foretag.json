@@ -1,0 +1,85 @@
+{
+  "family": "city-usecase",
+  "slug": "linkoping/foretag",
+  "title": "Hemsida för företag i Linköping – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag i Linköping med AI. Ingen kodning, klart på minuter. Bokning, betalning och egen domän ingår.",
+  "h1": "Hemsida för företag i Linköping",
+  "heroSub": "Bygg en komplett företagssajt med AI – från presentation och tjänster till bokning och betalning, anpassad för Linköpings näringsliv.",
+  "introParagraphs": [
+    "Sajtmaskin låter dig skapa en färdig hemsida för ditt företag i Linköping på några minuter. Du chattar med vår AI om vad ditt företag gör, vilka tjänster du erbjuder och hur du vill att sajten ska se ut. Sedan genererar plattformen en komplett sajt med presentation, tjänstesidor, kontaktformulär och de funktioner du behöver – allt på svenska och utan att du behöver kunna koda.",
+    "Oavsett om du driver en konsultfirma vid Linköpings universitet, ett hantverksföretag i Lambohov eller en tjänsteverksamhet i city får du en sajt som fungerar direkt. Publicera på egen domän eller använd vår kostnadsfria subdomän. Integrationer för bokning via Cal.com, betalning via Stripe och webbanalys via Google Analytics är inbyggda från start."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du en företagssajt med AI",
+      "body": "Börja med att berätta för Sajtmaskin vad ditt företag gör. Beskriv dina tjänster, vilka kunder du vänder dig till och vad som gör er unika. AI:n skapar då en struktur med startsida, om-sida, tjänstebeskrivningar och kontaktsida. Du kan direkt specificera om du behöver bokningsfunktion för möten, betalningslösning för tjänster eller integration med befintliga system. Allt innehåll genereras på svenska och anpassas efter den ton och stil du vill ha."
+    },
+    {
+      "heading": "Funktioner för företag i Linköping",
+      "body": "En företagssajt behöver mer än bara information. Med Sajtmaskin får du inbyggd bokningsfunktion via Cal.com så kunder kan boka möten eller konsultationer direkt. Stripe-integration låter dig ta betalt för tjänster eller produkter. Google Analytics ger dig koll på besökare och hur de hittar dig. Behöver du en webshop kopplar du enkelt till Shopify. Allt fungerar på svenska och är anpassat för hur företag i Linköping arbetar, från tech-bolag i Mjärdevi till lokala tjänsteföretag."
+    },
+    {
+      "heading": "Egen domän och full kontroll",
+      "body": "Publicera sajten på din egen domän eller använd en kostnadsfri subdomän från Sajtmaskin. Det finns ingen bindningstid och du kan när som helst exportera hela koden om du vill flytta sajten någon annanstans. Hosting på subdomän kostar inget per månad, och du äger allt innehåll. Uppdatera sajten själv genom att chatta med AI:n – lägg till nya tjänster, ändra texter eller justera utseendet utan att behöva anlita en byrå."
+    },
+    {
+      "heading": "Varför Linköpingsföretag väljer Sajtmaskin",
+      "body": "Linköping har ett varierat näringsliv med allt från högteknologiska företag kring universitetet till etablerade tjänsteföretag och hantverksverksamheter. Gemensamt är behovet av en professionell webb-närvaro som är snabb att få på plats och enkel att underhålla. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och svensk support. Du slipper krångliga verktyg, dyra byråer och långa projekttider – istället får du en färdig sajt samma dag som du bestämmer dig."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt?",
+      "a": "De flesta har en färdig sajt på 10–30 minuter. Du chattar med AI:n om ditt företag, väljer funktioner och justerar utseendet. Sedan är sajten klar att publicera. Vill du finjustera kan du fortsätta utveckla den i din egen takt."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för kundmöten?",
+      "a": "Ja, Sajtmaskin integrerar med Cal.com så kunder kan boka möten, konsultationer eller tjänster direkt på sajten. Du kopplar ditt Cal.com-konto och väljer vilka typer av bokningar du vill erbjuda. Allt synkas automatiskt med din kalender."
+    },
+    {
+      "q": "Fungerar det för företag i alla branscher i Linköping?",
+      "a": "Absolut. Oavsett om du driver konsultverksamhet, hantverksföretag, tjänsteföretag eller tech-bolag får du en sajt anpassad för din bransch. AI:n genererar relevant innehåll och struktur baserat på vad du beskriver om din verksamhet."
+    },
+    {
+      "q": "Vad kostar det att ha sajten publicerad?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan månadsavgift. Vill du använda egen domän betalar du bara för själva domänregistreringen. Det finns ingen bindningstid och du kan exportera koden kostnadsfritt när du vill."
+    },
+    {
+      "q": "Kan jag ta betalt för tjänster via hemsidan?",
+      "a": "Ja, genom Stripe-integration kan du ta betalt för tjänster, produkter eller prenumerationer direkt på sajten. Du kopplar ditt Stripe-konto och väljer vilka betalningsalternativ du vill erbjuda. Alla transaktioner hanteras säkert via Stripe."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera sajten?",
+      "a": "Nej, du uppdaterar allt genom att chatta med AI:n. Beskriv vad du vill ändra – nya tjänster, andra texter, justerad layout – så gör AI:n ändringarna. Du behöver aldrig röra kod om du inte vill."
+    }
+  ],
+  "localOrIndustryContext": "Linköping är hem för både Linköpings universitet och ett starkt tech-kluster i Mjärdevi Science Park, samtidigt som staden har en bred bas av tjänsteföretag, handel och hantverksverksamheter. En professionell hemsida är viktig oavsett om du riktar dig mot akademi, företagskunder eller privatpersoner i regionen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/linkoping",
+      "label": "Skapa hemsida i Linköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Linköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

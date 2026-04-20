@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/restaurang",
+  "title": "Hemsida restaurang Helsingborg – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell restaurangsajt i Helsingborg med AI. Meny, bokning och betalning integrerat. Ingen kod krävs. Publicera på egen domän direkt.",
+  "h1": "Hemsida för restaurang i Helsingborg",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokning och betalning – på minuter, utan kod.",
+  "introParagraphs": [
+    "Sajtmaskin låter dig skapa en professionell hemsida för din restaurang i Helsingborg via en enkel chatt med AI. Du beskriver vad du behöver – meny, öppettider, bordsbokning, bildgalleri – så bygger plattformen en färdig sajt på minuter. Allt på svenska, redo att publicera på din egen domän.",
+    "Helsingborgs restaurangscen växer snabbt, från hamnkrogar till finare matställen i centrum. En bra hemsida gör det enkelt för gäster att hitta din meny, boka bord och betala online. Med Sajtmaskin får du allt inbyggt: Cal.com för bordsbokningar, Stripe för betalning och Google Analytics för att se vad gästerna klickar på.",
+    "Ingen bindningstid, ingen dold månadskostnad för hosting på subdomän. Du kan exportera koden när du vill och äger alltid ditt innehåll. Perfekt för dig som vill ha en sajt igång fort utan att anlita byrå eller lära dig koda."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en restaurangsajt i Helsingborg behöver",
+      "body": "Gäster i Helsingborg förväntar sig att kunna se menyn, boka bord och hitta kontaktinfo direkt på mobilen. En tydlig startsida med aptitretande bilder, uppdaterad meny och enkel bokning gör skillnad. Många restauranger behöver också visa specialerbjudanden, veckans lunch eller eventkalender. Sajtmaskin genererar alla dessa sektioner automatiskt utifrån din prompt – du behöver bara beskriva vad som ska synas."
+    },
+    {
+      "heading": "Bordsbokning och betalning integrerat",
+      "body": "Med Cal.com-integration kan gäster boka bord direkt på sajten, utan att du behöver betala för externa bokningssystem. Stripe-kopplingen låter dig ta förskottsbetalning för större sällskap eller sälja presentkort online. Allt sköts i samma gränssnitt, på svenska. Du slipper krångliga plugins eller tredjepartstjänster som kostar extra. Uppdatera tillgängliga tider eller stäng av bokning för speciella dagar direkt i Sajtmaskin."
+    },
+    {
+      "heading": "Lokalt fokus och SEO för Helsingborg",
+      "body": "Helsingborgs matgäster söker ofta på Google efter \"restaurang Helsingborg centrum\" eller \"boka bord hamnen Helsingborg\". Sajtmaskin hjälper dig att fylla sajten med rätt nyckelord och strukturera innehållet så att Google förstår var du finns och vad du erbjuder. Du kan lägga till karta, adress och öppettider på ett sätt som syns i lokala sökresultat. Plattformen genererar också meta-taggar och mobilanpassning automatiskt, så du når gäster som surfar på språng."
+    },
+    {
+      "heading": "Snabb publicering, ingen bindningstid",
+      "body": "Från idé till live-sajt tar det minuter. Chatta med AI:n, granska förslaget, justera text och bilder – sedan publicerar du på din egen domän eller en gratis subdomän. Ingen månadskostnad för hosting på subdomän, ingen bindningstid. Om du vill byta plattform senare kan du exportera all kod och flytta sajten vart du vill. Du äger alltid ditt innehåll och har full kontroll."
+    },
+    {
+      "heading": "Support och uppdateringar på svenska",
+      "body": "Allt i Sajtmaskin – gränssnitt, dokumentation, support – är på svenska. Inget krångel med översättningar eller support som inte förstår svenska företagsformer. Plattformen uppdateras kontinuerligt med nya funktioner, och du kan lägga till fler sidor eller ändra design när som helst. Perfekt för restauranger som vill växa i sin egen takt utan att sitta fast i ett dyrt avtal."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa menyn och uppdatera den själv?",
+      "a": "Ja, menyn genereras som en egen sektion och du kan redigera rätter, priser och beskrivningar direkt i Sajtmaskin. Inga komplicerade CMS-system – bara klicka och skriv. Perfekt när du byter säsongsmeny eller lägger till veckans lunch."
+    },
+    {
+      "q": "Hur fungerar bordsbokningssystemet?",
+      "a": "Vi integrerar Cal.com så att gäster kan välja datum, tid och antal personer direkt på sajten. Du ser alla bokningar i en kalender och kan bekräfta eller avboka. Ingen extra kostnad för bokningssystemet – det ingår i plattformen."
+    },
+    {
+      "q": "Kan gäster betala online, till exempel för större sällskap?",
+      "a": "Ja, via Stripe-integration kan du ta emot förskottsbetalning, sälja presentkort eller ta betalt för event. Du bestämmer själv vilka tjänster som kräver betalning. Stripe hanterar alla korttyper och swish-betalningar."
+    },
+    {
+      "q": "Syns sajten i Google-sökningar för Helsingborg?",
+      "a": "Ja, Sajtmaskin genererar automatiskt SEO-vänlig struktur med rätt meta-taggar, snabb laddningstid och mobilanpassning. Du kan lägga till lokala nyckelord och adress så att Google kopplar sajten till Helsingborg. Resten sköter sökmotorerna över tid."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän (t.ex. dinrestaurang.se) behöver du köpa den separat, men hosting ingår fortfarande. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag lägga till bildgalleri och eventkalender?",
+      "a": "Absolut. Beskriv bara i chatten att du vill ha ett galleri med maträtter eller lokalen, så genererar AI:n sektionen. Eventkalender för temamiddagar eller livemusik fungerar på samma sätt. Du laddar upp bilder och fyller i datum själv efteråt."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden och flytta sajten till vilken host du vill. Inget låsning, inget krångel. Du äger alltid ditt innehåll och kan ta det med dig om du bestämmer dig för att gå vidare."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en livlig restaurangscen från hamnområdet till Stortorget, med allt från fik till finare kök. Många gäster söker restauranger online innan de bestämmer sig, särskilt turister och besökare från Danmark. En snabb, mobilvänlig sajt med tydlig meny och bokning är avgörande för att sticka ut i konkurrensen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "halmstad/salong",
+  "title": "Hemsida för salong i Halmstad – snabbt och enkelt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Halmstad på minuter. Bokning, bildgalleri och mobilanpassning. Ingen kodning krävs.",
+  "h1": "Hemsida för salong i Halmstad",
+  "heroSub": "Bygg en professionell sajt för din salong i Halmstad – med bokning, prislista och galleri – direkt via AI.",
+  "introParagraphs": [
+    "Om du driver en salong i Halmstad behöver du en hemsida som visar upp dina tjänster, låter kunder boka tid och ger ett professionellt intryck. Sajtmaskin låter dig skapa precis en sådan sajt på minuter, helt utan kod. Du chattar med AI:n om vad din salong erbjuder – klippning, färg, naglar, skönhetsbehandlingar – och får en färdig sajt med bokning, prislista och bildgalleri.",
+    "Sajten publiceras på din egen domän och fungerar lika bra på mobil som dator. Integrationen med Cal.com gör att kunder kan boka tider direkt, och du slipper krångliga bokningssystem. Allt på svenska, byggt i Sverige, och du betalar ingen månadsavgift om du väljer vår subdomän.",
+    "Halmstad har ett växande utbud av salonger längs Storgatan och i området kring Norre Katts park. För att sticka ut behöver du en sajt som är snabb, tydlig och enkel att uppdatera när du lanserar nya behandlingar eller kampanjer."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningsfunktion som faktiskt fungerar",
+      "body": "För en salong är bokningssystemet kärnan i hemsidan. Sajtmaskin integrerar Cal.com direkt i sajten, så dina kunder kan se lediga tider och boka sin behandling utan att behöva ringa eller skicka meddelanden på Instagram. Du bestämmer själv vilka tider som ska vara bokningsbara, och systemet synkar med din kalender. Inga dubbelbokningar, inget krångel."
+    },
+    {
+      "heading": "Visa upp ditt arbete med bildgalleri",
+      "body": "En salong säljer känsla och förtroende. Med Sajtmaskin kan du enkelt lägga till ett bildgalleri som visar före- och efterbilder, din salong, ditt team och behandlingar. Bilderna läggs in direkt via chatten eller laddas upp efteråt. Galleriet är responsivt och ser professionellt ut på alla skärmar, vilket är viktigt när många kunder hittar dig via mobilen."
+    },
+    {
+      "heading": "Prislista och tjänstebeskrivningar",
+      "body": "Dina besökare vill veta vad det kostar innan de bokar. Sajtmaskin genererar en tydlig prislista där du kan lista klippning, färg, slingor, nagelvård, ansiktsbehandlingar eller vad du nu erbjuder. Varje tjänst kan ha en kort beskrivning och pris, och du uppdaterar enkelt när du lägger till nya behandlingar eller justerar priser."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen kod",
+      "body": "Du äger din sajt. Om du vill flytta den eller bygga vidare själv kan du exportera koden när som helst. Ingen bindningstid, inga dolda avgifter. Hosting på subdomän är gratis, och vill du ha egen domän kopplar du den direkt i gränssnittet. Allt sköts på svenska, och supporten sitter i Sverige."
+    },
+    {
+      "heading": "Bygg sajten på fem minuter",
+      "body": "Du behöver inte vara teknisk. Chatta med AI:n om din salong – vad du heter, var du ligger i Halmstad, vilka tjänster du erbjuder, vilka bilder du vill ha med. Sajtmaskin genererar en komplett sajt med navigation, kontaktformulär, bokning och allt annat du behöver. Sedan kan du justera text, byta bilder och lägga till sidor via samma chattgränssnitt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min salong?",
+      "a": "Det tar ungefär fem till tio minuter. Du chattar med AI:n om vad din salong heter, var du ligger, vilka tjänster du erbjuder och vilken känsla du vill förmedla. Sajtmaskin genererar en färdig sajt som du kan publicera direkt eller justera efteråt."
+    },
+    {
+      "q": "Kan jag integrera bokningssystem för behandlingar?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så att dina kunder kan boka tider direkt på sajten. Du ställer in vilka tjänster som ska vara bokningsbara, hur lång tid varje behandling tar och vilka tider du har öppet. Systemet synkar med din kalender automatiskt."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Absolut. Alla sajter som byggs med Sajtmaskin är responsiva och ser professionella ut på mobil, surfplatta och dator. Många kunder hittar salonger via mobilen, så det är en självklarhet att sajten fungerar smidigt där."
+    },
+    {
+      "q": "Kan jag uppdatera priser och tjänster själv?",
+      "a": "Ja, du uppdaterar allt via samma chattgränssnitt som du byggde sajten i. Vill du lägga till en ny behandling, ändra ett pris eller byta en bild säger du det till AI:n, och sajten uppdateras direkt. Ingen kod, inga krångliga adminpaneler."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Hosting på subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän, till exempel dinsalong.se, kopplar du den i gränssnittet. Det tillkommer inga månadskostnader från Sajtmaskin, men du betalar för domänen hos din registrar."
+    },
+    {
+      "q": "Kan jag visa före- och efterbilder på sajten?",
+      "a": "Ja, du kan enkelt lägga till ett bildgalleri där du visar ditt arbete. Ladda upp bilder via chatten eller direkt i gränssnittet. Galleriet är responsivt och ser snyggt ut, vilket hjälper potentiella kunder att få känsla för vad du kan erbjuda."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att använda Sajtmaskin?",
+      "a": "Nej, du behöver ingen teknisk bakgrund. Allt sker via chat på svenska. Du beskriver vad du vill ha, och AI:n bygger sajten. Vill du ändra något senare gör du det på samma sätt – ingen kod, inga komplicerade verktyg."
+    }
+  ],
+  "localOrIndustryContext": "Halmstad har ett växande utbud av salonger, från etablerade aktörer i centrala stan till nystartade verksamheter i Andersberg och Söndrum. Konkurrensen är tydlig, och en professionell hemsida med bokning och tydlig prislista hjälper dig att sticka ut och nå kunder som söker online.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/halmstad",
+      "label": "Skapa hemsida i Halmstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Halmstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

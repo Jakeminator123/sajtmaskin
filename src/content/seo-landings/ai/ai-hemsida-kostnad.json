@@ -1,0 +1,100 @@
+{
+  "family": "ai",
+  "slug": "ai-hemsida-kostnad",
+  "title": "Vad kostar en AI-hemsida? Priser och jämförelse | Sajtmaskin",
+  "metaDescription": "En AI-hemsida kan kosta allt från 0 kr till flera tusen, beroende på plattform och funktioner. Jämför alternativ och se vad som passar dig.",
+  "h1": "Vad kostar en AI-hemsida?",
+  "heroSub": "Priset varierar från gratis till flera tusen kronor – här är vad du faktiskt betalar för.",
+  "introParagraphs": [
+    "En AI-hemsida kan kosta allt från noll kronor till flera tusen, beroende på vilken plattform du väljer och vilka funktioner du behöver. Vissa verktyg låter dig generera och publicera en grundläggande sajt helt gratis, medan andra tar betalt per månad för hosting, domän eller avancerade integrationer. Priset beror också på om du vill ha en enkel visitkortssida eller en fullfjädrad webshop med betalningar och bokningssystem.",
+    "Det som skiljer AI-verktyg från traditionella mallbyggare är att du beskriver vad du vill ha i vanlig text, så genererar AI layout, innehåll och struktur åt dig. Du slipper dra och släppa block i timmar – istället chattar du fram sajten på minuter. I den här guiden går vi igenom vad olika AI-plattformar kostar, vad priset inkluderar och hur det jämför sig med byråer och äldre verktyg."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Gratis kontra betalda AI-plattformar",
+      "body": "Många AI-hemsideverktyg erbjuder en gratisversion där du kan generera och förhandsgranska din sajt utan att betala något. Begränsningen ligger oftast i att du publicerar på en subdomän som verktyget äger, till exempel dinsajt.plattform.com. Vill du använda din egen domän eller lägga till betalningar och bokningar kostar det vanligtvis mellan 100 och 500 kronor i månaden, beroende på vilka funktioner du aktiverar. Vissa plattformar tar också en engångskostnad för design eller setup, medan andra kör helt prenumerationsbaserat."
+    },
+    {
+      "heading": "Så fungerar AI när du bygger en hemsida",
+      "body": "När du använder AI för att skapa en hemsida skriver du en prompt – en beskrivning av vad sajten ska handla om, vem den riktar sig till och vilka sidor du behöver. AI:n analyserar din text och genererar automatiskt rubriker, brödtext, bildförslag och layout. Du får en färdig sajt på några minuter istället för flera timmar. Vill du ändra något chattar du vidare: \"gör startsidan mer personlig\" eller \"lägg till en FAQ-sektion\". AI:n justerar direkt, utan att du behöver röra kod eller designverktyg."
+    },
+    {
+      "heading": "Jämförelse med mallbyggare och byråer",
+      "body": "Traditionella mallbyggare som Wix eller Squarespace kostar ungefär 150–400 kr per månad och kräver att du själv väljer mall, skriver texter och drar block till rätt plats. Det tar ofta flera timmar eller dagar att få till en sajt som känns professionell. En byrå tar mellan 15 000 och 100 000 kronor för en skräddarsydd webbplats, plus löpande underhåll. AI-verktyg landar mittemellan: snabbare än mallbyggare, billigare än byråer, och du behöver ingen teknisk kunskap. Du får en unik sajt som inte ser ut som tusen andra mallar, men slipper veckors projektledning."
+    },
+    {
+      "heading": "Vad ingår i kostnaden?",
+      "body": "När du betalar för en AI-hemsida får du vanligtvis hosting, SSL-certifikat och automatiska uppdateringar av plattformen. Många verktyg inkluderar också grundläggande SEO-inställningar och mobilanpassning utan extra kostnad. Vill du lägga till betalningar via Stripe, bokningar via Cal.com eller en webshop kan det kräva en högre prenumerationsnivå eller tilläggsavgifter. Domännamnet köper du oftast separat hos en registrar och betalar 80–150 kr per år. Vissa plattformar låter dig exportera koden kostnadsfritt om du vill byta till egen hosting senare."
+    },
+    {
+      "heading": "Sajtmaskin – transparent prissättning utan bindningstid",
+      "body": "Sajtmaskin låter dig bygga och publicera din AI-genererade hemsida på en subdomän helt utan månadskostnad. Vill du använda egen domän, lägga till bokningar eller betalningar betalar du bara för de funktioner du aktiverar. Det finns ingen bindningstid, och du kan exportera hela sajten och koden när du vill. Eftersom allt är på svenska – gränssnitt, support och genererat innehåll – slipper du översättningskrångel och får texter som faktiskt låter naturliga för svenska besökare. Du chattar fram sajten på minuter och publicerar direkt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kostar det något att testa en AI-hemsida?",
+      "a": "Många AI-verktyg, inklusive Sajtmaskin, låter dig generera och förhandsgranska din sajt helt gratis. Du betalar först när du vill publicera på egen domän eller lägga till betalda funktioner som bokningar eller e-handel."
+    },
+    {
+      "q": "Vad är skillnaden mellan en AI-hemsida och en mall?",
+      "a": "En mall är en färdig design du fyller med eget innehåll. En AI-hemsida genereras unikt utifrån din beskrivning – AI:n skriver texter, väljer layout och anpassar strukturen efter vad du behöver. Resultatet blir mer skräddarsytt och går mycket snabbare att få klart."
+    },
+    {
+      "q": "Ingår domän och hosting i priset?",
+      "a": "Hosting ingår ofta, men domännamnet köper du vanligtvis separat hos en registrar för 80–150 kr per år. Vissa AI-plattformar erbjuder gratis hosting på en subdomän, medan egen domän kan kräva en månadsprenumeration."
+    },
+    {
+      "q": "Kan jag lägga till betalningar och bokningar senare?",
+      "a": "Ja, de flesta AI-verktyg låter dig aktivera integrationer som Stripe för betalningar och Cal.com för bokningar när du behöver dem. Det kan kosta extra beroende på plattform, men du betalar bara för funktioner du faktiskt använder."
+    },
+    {
+      "q": "Vad händer om jag vill sluta betala?",
+      "a": "Många AI-plattformar, inklusive Sajtmaskin, låter dig exportera koden och flytta sajten till egen hosting. Då äger du allt innehåll och kan driva sajten vidare utan månadskostnad, men du förlorar tillgång till AI-chatten och automatiska uppdateringar."
+    },
+    {
+      "q": "Är det billigare än att anlita en byrå?",
+      "a": "Ja, en byrå tar ofta 15 000–100 000 kr för en skräddarsydd sajt plus löpande underhåll. En AI-plattform kostar mellan 0 och några hundra kronor i månaden, och du får en unik sajt på minuter istället för veckor. Kvaliteten är inte alltid identisk, men för de flesta småföretag räcker AI-verktyget långt."
+    },
+    {
+      "q": "Fungerar AI-hemsidor på svenska?",
+      "a": "Ja, men alla verktyg är inte lika bra på svenska. Sajtmaskin är byggt i Sverige och genererar allt innehåll på svenska, så texter och formuleringar blir naturliga. Internationella verktyg kan ge konstig svenska eller kräva att du skriver allt själv."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

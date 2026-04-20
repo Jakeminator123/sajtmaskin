@@ -1,0 +1,78 @@
+{
+  "family": "city",
+  "slug": "goteborg",
+  "title": "Skapa hemsida i Göteborg — AI-driven webbplattform | Sajtmaskin",
+  "metaDescription": "Bygg din hemsida i Göteborg med AI. Svenskspråkigt, snabbt och utan byrå. Sajtmaskin levererar en färdig sajt på minuter — testa gratis.",
+  "h1": "Skapa din hemsida i Göteborg — snabbt och smart",
+  "heroSub": "AI-plattform för Göteborgsföretag, restauranger och hantverkare — bygg en professionell sajt utan att anlita en byrå.",
+  "introParagraphs": [
+    "Göteborg är Sveriges andra största stad och hemmahamn för tusentals småföretag — från hantverkare i Mölndal till designbyråer i Gamlestaden. En bra hemsida är idag den främsta säljkanalen, oavsett bransch. Sajtmaskin låter dig bygga en hemsida anpassad för Göteborgsmarknaden direkt i webbläsaren, på svenska, utan kod.",
+    "Vår AI förstår kontexten — att du kanske är snickare i Majorna, cafébrygga på Linné eller konsult i Lindholmen — och genererar texter, bilder och struktur som speglar din verksamhet. Du får en komplett sajt med startsida, tjänster, kontakt och bokning.",
+    "På några minuter har du en publicerbar hemsida som presterar i Core Web Vitals och är strukturerad för att ranka på lokala sökningar i Västsverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Göteborgs företag behöver digital närvaro",
+      "body": "Med över 60 000 registrerade företag i Göteborg och en stark småföretagartradition i stadsdelar som Majorna, Lindholmen och Mölndal, är konkurrensen online betydande. Sajtmaskin är byggt för dig som vill komma igång snabbt, utan att betala 20 000–50 000 kr till en byrå."
+    },
+    {
+      "heading": "Beskriv — generera — publicera",
+      "body": "Du skriver en svenskspråkig prompt (t.ex. \"restaurang på Linnégatan med bokning och meny\") och får tillbaka en komplett sajt med header, hero, meny, bokning och kontakt. Allt kan justeras via chatten."
+    },
+    {
+      "heading": "Optimerat för Göteborgsökningar",
+      "body": "Sidor genereras med strukturerad data för Organization och LocalBusiness, snabba laddningstider och svenska metadata — så att sökningar som \"frisör Majorna\" eller \"bilverkstad Mölndal\" tar kunder direkt till din sajt."
+    },
+    {
+      "heading": "Ingen byrå, inget månadsabonnemang",
+      "body": "Till skillnad från Wix eller Squarespace betalar du inte en månadsavgift bara för att ha din sajt publicerad. Grundläggande hosting är gratis; du betalar för credits när du vill generera mer eller publicera på egen domän."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag bygga en hemsida i Göteborg?",
+      "a": "Oftast 5–15 minuter från första prompt till publicerad sajt, inklusive texter och bilder."
+    },
+    {
+      "q": "Passar Sajtmaskin för restauranger och caféer i Göteborg?",
+      "a": "Ja. Våra templates stöder meny, öppettider, bokning via Cal.com eller extern länk, och kartintegration med Google Maps."
+    },
+    {
+      "q": "Kan jag ansluta min befintliga .se-domän?",
+      "a": "Ja. Du kan koppla din egen domän — vi hanterar DNS och SSL automatiskt."
+    },
+    {
+      "q": "Hur skiljer sig Sajtmaskin från en lokal webbyrå i Göteborg?",
+      "a": "En byrå tar vanligtvis 6–12 veckor och 30 000+ kr. Sajtmaskin levererar samma dag till en bråkdel av priset, med möjlighet att uppdatera sidan själv via chat."
+    },
+    {
+      "q": "Är sajten responsiv för mobil och surfplatta?",
+      "a": "Ja. Alla sidor är mobilanpassade från grunden och presterar bra i Google Lighthouse."
+    },
+    {
+      "q": "Kan jag sälja produkter online?",
+      "a": "Ja. Integrationer mot Shopify och Stripe finns; vi hjälper dig att koppla checkout, leveransregler och produkter."
+    },
+    {
+      "q": "Finns support på svenska?",
+      "a": "Ja. Allt — från AI-chat till kundsupport — sker på svenska."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg och omkringliggande kommuner (Mölndal, Partille, Kungälv, Härryda) har gemensamt över 60 000 registrerade verksamheter. Sajtmaskin är byggt för att skala från soloföretagare till medelstora bolag.",
+  "internalLinks": [
+    { "href": "/hemsida/stockholm", "label": "Skapa hemsida i Stockholm" },
+    { "href": "/hemsida/malmo", "label": "Skapa hemsida i Malmö" },
+    { "href": "/hemsida/boras", "label": "Skapa hemsida i Borås" },
+    { "href": "/hemsida/trollhattan", "label": "Skapa hemsida i Trollhättan" },
+    { "href": "/skapa-hemsida/restaurang", "label": "Hemsida för restaurang" },
+    { "href": "/hemsida-for/bygg", "label": "Hemsida för byggföretag" },
+    { "href": "/skapa-hemsida/konsult", "label": "Hemsida för konsult" },
+    { "href": "/ai-hemsida/bygga-hemsida-med-ai", "label": "Bygga hemsida med AI" }
+  ],
+  "cta": {
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Göteborg. Hjälp mig komma igång.",
+    "buttonLabel": "Skapa din hemsida gratis"
+  },
+  "generatedAt": "2026-04-17",
+  "model": "manual"
+}

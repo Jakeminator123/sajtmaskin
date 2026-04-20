@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/portfolio",
+  "title": "Hemsida Portfolio Göteborg – Bygg Din Portfolio på Minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfolio-hemsida i Göteborg med AI. Ingen kod, snabb publicering, egen domän. Perfekt för kreatörer och konsulter.",
+  "h1": "Portfolio-hemsida i Göteborg",
+  "heroSub": "Bygg en professionell portfolio som visar ditt arbete – på minuter, utan kod, helt på svenska.",
+  "introParagraphs": [
+    "En portfolio-hemsida är ditt digitala visitkort som visar vad du kan och vad du har gjort. I Göteborg, där kreativa branscher, teknik och konsultverksamhet blomstrar, är en stark portfolio ofta avgörande för att få nya uppdrag. Sajtmaskin låter dig bygga en komplett portfolio-sajt genom att bara chatta med en AI – ingen kod, inga krångliga verktyg, bara din vision och vårt svenska gränssnitt.",
+    "Du beskriver vad du gör, vilka projekt du vill visa och vilken känsla sajten ska ha. AI:n skapar layouten, skriver texter och sätter upp gallerier. Du publicerar på din egen domän eller testar kostnadsfritt på en subdomän. Allt på svenska, byggt i Sverige, klart på minuter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad är en portfolio-hemsida?",
+      "body": "En portfolio-hemsida samlar dina bästa projekt, case och arbeten på ett ställe. Den visar potentiella kunder, uppdragsgivare eller arbetsgivare vad du kan leverera. För formgivare, fotografer, arkitekter, copywriters, utvecklare och konsulter i Göteborg är portfolion ofta det första intrycket. En bra portfolio kombinerar visuell styrka med tydliga beskrivningar och gör det enkelt att ta kontakt. Sajtmaskin bygger allt det där automatiskt – du laddar upp bilder och beskriver projekten, så fixar AI:n resten."
+    },
+    {
+      "heading": "Varför Göteborg behöver starka portfolios",
+      "body": "Göteborg har en livaktig kreativ scen med designbyråer, frilansare, tech-konsulter och kulturarbetare. Konkurrensen är stor, och många uppdragsgivare förväntar sig att kunna se tidigare arbeten innan de bokar ett möte. En professionell portfolio-sajt visar att du är seriös, tillgänglig och uppdaterad. Den fungerar dygnet runt som en tyst säljare och gör det lätt för kunder att hitta dig via Google. Med Sajtmaskin får du en sajt som känns unik, inte som en mall alla andra också använder."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din portfolio",
+      "body": "Du startar en chatt och berättar vad du gör, vilka projekt du vill visa och vilken stil du gillar. AI:n föreslår struktur, skriver introduktionstexter och skapar gallerier för dina case. Du kan lägga till kontaktformulär, integrera Cal.com för bokningar eller koppla Google Analytics för att se vilka projekt som lockar mest. Allt sker på svenska, och du kan justera texter, bilder och layout direkt i chatten. När du är nöjd publicerar du på din egen domän – ingen bindningstid, ingen dold kostnad."
+    },
+    {
+      "heading": "Integrationer som gör portfolion mer än vacker",
+      "body": "En portfolio ska inte bara visa arbeten – den ska också göra det enkelt att boka dig. Sajtmaskin integrerar Cal.com så besökare kan boka ett möte direkt. Vill du sälja digitala produkter, mallar eller kurser? Koppla Stripe för betalningar eller Shopify för en hel webshop. Google Analytics visar vilka projekt som får mest uppmärksamhet, så du kan optimera innehållet. Allt sätts upp utan kod, och du behåller full kontroll – exportera koden när du vill och flytta sajten om du behöver."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Sajtmaskin låser inte in dig. Du betalar ingen månadsavgift om du nöjer dig med en subdomän, och vill du ha egen domän fixar du det själv eller via oss. All kod är din – exportera och hosta var du vill. Byggt i Sverige av Pretty Good AB, med svenskt stöd och svenska servrar. Perfekt för dig i Göteborg som vill ha en portfolio som både ser proffsig ut och är snabb att uppdatera när nya projekt rullar in."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfolio-hemsida med Sajtmaskin?",
+      "a": "De flesta har en fungerande portfolio på 10–20 minuter. Du chattar med AI:n, beskriver dina projekt och laddar upp bilder. AI:n skapar layouten och skriver texter. Sedan justerar du det du vill ändra och publicerar. Inga mallar att välja mellan, ingen kod att skriva."
+    },
+    {
+      "q": "Kan jag visa case och projekt med bilder och text?",
+      "a": "Absolut. Du berättar om varje projekt – vad det handlade om, vad du gjorde, vilket resultat det blev. AI:n skapar gallerier, projektbeskrivningar och layout. Du laddar upp bilder direkt i chatten eller via gränssnittet. Allt presenteras snyggt och responsivt på alla skärmar."
+    },
+    {
+      "q": "Fungerar sajten bra för frilansare och konsulter i Göteborg?",
+      "a": "Ja, det är en av våra vanligaste användargrupper. Frilansare inom design, foto, copy, kod och strategi använder Sajtmaskin för att visa sitt arbete och ta emot bokningar via Cal.com-integration. Allt på svenska, snabbt att uppdatera när nya projekt kommer in."
+    },
+    {
+      "q": "Kan jag koppla bokningssystem och betalningar?",
+      "a": "Ja. Integrera Cal.com för att låta besökare boka möten eller konsultationer direkt. Vill du sälja digitala produkter, kurser eller mallar kopplar du Stripe. Behöver du en hel webshop fungerar Shopify-integration. Allt sätts upp utan kod."
+    },
+    {
+      "q": "Vad kostar det att driva en portfolio-hemsida?",
+      "a": "Publicera kostnadsfritt på en Sajtmaskin-subdomän utan månadsavgift. Vill du ha egen domän (t.ex. dittnamn.se) ordnar du den själv eller via oss – då tillkommer bara domänkostnaden. Ingen bindningstid, inga dolda avgifter. Exportera koden när du vill."
+    },
+    {
+      "q": "Kan jag uppdatera portfolion själv när jag får nya projekt?",
+      "a": "Ja, det är meningen. Du chattar med AI:n och beskriver det nya projektet, laddar upp bilder och justerar texter. Inga krångliga CMS-system – bara en konversation på svenska. Perfekt när du vill hålla portfolion fräsch utan att boka en webbutvecklare."
+    },
+    {
+      "q": "Äger jag koden och innehållet?",
+      "a": "Ja. All kod och allt innehåll är ditt. Exportera när du vill och hosta var du vill. Sajtmaskin låser inte in dig – du har full kontroll och kan flytta sajten till annan leverantör utan krångel. Byggt i Sverige med transparens i fokus."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg har en stark kreativ och teknisk näring med frilansare, byråer och konsulter som ofta konkurrerar om samma uppdrag. En professionell portfolio-hemsida är här ett måste för att sticka ut och visa trovärdighet. Sajtmaskin gör det enkelt att bygga och underhålla en portfolio som känns personlig och aktuell.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

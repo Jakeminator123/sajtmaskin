@@ -1,0 +1,102 @@
+{
+  "family": "ai",
+  "slug": "ai-sajtbyggare",
+  "title": "AI Sajtbyggare – Skillnaden mot traditionella verktyg | Sajtmaskin",
+  "metaDescription": "En AI-sajtbyggare skapar hela hemsidor från text. Jämför med mallar och byråer – se hur AI förändrar webbproduktion i Sverige.",
+  "h1": "AI Sajtbyggare – så skiljer den sig från gamla verktyg",
+  "heroSub": "AI-sajtbyggare genererar design, text och struktur från dina instruktioner. Ingen mall att välja, ingen kod att skriva.",
+  "introParagraphs": [
+    "En AI-sajtbyggare tar dina idéer i textform och bygger en komplett hemsida direkt. Du skriver vad du behöver – \"en sajt för min frisörsalong i Malmö med bokning och prislista\" – och AI:n skapar layout, texter, bilder och funktioner utan att du behöver välja mallar eller dra i byggblock. Det är fundamentalt annorlunda än traditionella verktyg där du startar med en färdig design och fyller i luckor.",
+    "Skillnaden ligger i att AI förstår sammanhang och skapar unikt innehåll för just ditt företag. Traditionella sajtbyggare ger dig en mall och ett gränssnitt med knappar; AI-verktyg läser din beskrivning och fattar beslut om färger, rubriker, bildplacering och textton åt dig. Resultatet blir mer skräddarsytt från start, och processen går snabbare eftersom du slipper designval och innehållsproduktion manuellt.",
+    "I Sverige är Sajtmaskin ett konkret exempel på hur detta fungerar i praktiken. Du chattar på svenska, beskriver din verksamhet, och får en publicerbar sajt på minuter – inklusive svensk text, lokal kontext och integrationer som Cal.com för bokning eller Stripe för betalning. Ingen bindningstid, ingen kod, bara en färdig sajt att lansera."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI bygger en hemsida – steg för steg",
+      "body": "Du skriver en prompt: \"Jag driver en redovisningsbyrå i Göteborg och behöver en sajt med tjänstebeskrivningar och kontaktformulär\". AI:n analyserar texten, identifierar bransch, plats och behov, och genererar sedan en komplett sajt med passande struktur – startsida, tjänstesidor, om-sida och kontakt. Den skriver texter som beskriver redovisningstjänster, väljer en professionell färgpalett och placerar call-to-action-knappar där de behövs. Du får en förhandsvisning, kan justera via chat (\"gör headern mörkare\", \"lägg till en prissida\"), och publicerar när du är nöjd. Hela processen tar minuter istället för dagar."
+    },
+    {
+      "heading": "Jämförelse: AI-sajtbyggare vs mallbaserade verktyg",
+      "body": "Traditionella sajtbyggare som Wix eller Squarespace visar dig hundratals mallar att välja mellan. Du klickar på en, byter bilder, skriver texter själv och drar element för att anpassa layouten. Det ger full kontroll men kräver tid, designkänsla och tydlig vision om hur sajten ska se ut. AI-sajtbyggare hoppar över mallvalet helt. Du beskriver målet, och AI:n skapar en unik design och skriver innehållet åt dig. Fördelen är hastighet och att du slipper kreativa blockeringar; nackdelen är att du får mindre pixelperfekt kontroll (även om du kan justera i efterhand). För den som vill ha en sajt snabbt utan att lära sig ett byggsystem är AI-vägen enklare."
+    },
+    {
+      "heading": "AI-sajtbyggare vs webbyrå – kostnad och tid",
+      "body": "En byrå tar din brief, skissar wireframes, designar i Figma, kodar sajten och levererar efter veckor eller månader. Du får exakt det du vill ha, men betalar ofta 30 000–150 000 kronor och väntar länge på resultat. AI-sajtbyggare ger dig en färdig sajt på minuter för en bråkdel av kostnaden – ofta gratis att testa, sedan en engångsavgift eller låg månadskostnad. Kvaliteten når inte alltid byrånivå på avancerade funktioner, men för standardsajter (företagspresentation, bokning, enkel webshop) är AI-resultatet fullt användbart. Du kan alltid börja med AI, lansera snabbt och uppgradera via byrå senare om verksamheten växer."
+    },
+    {
+      "heading": "Vad AI faktiskt gör: text, design och struktur",
+      "body": "AI-modeller är tränade på miljontals webbplatser och förstår vad som fungerar för olika branscher. När du ger en prompt genererar AI:n rubriker som lockar besökare, brödtexter som förklarar ditt erbjudande och call-to-action-formuleringar som driver konvertering. Den väljer typsnitt, färgscheman och layouter baserat på branschnormer – en advokatbyrå får en seriös, mörkblå palett medan en yogastudio får ljusa, lugna toner. AI:n placerar även innehåll logiskt: hero-sektion med värdeord först, sedan tjänster, sociala bevis och kontaktinfo. Allt detta sker automatiskt, men du kan styra genom att ge tydligare instruktioner eller be om ändringar i chatten."
+    },
+    {
+      "heading": "Sajtmaskin – AI-sajtbyggare på svenska",
+      "body": "Sajtmaskin är byggt i Sverige och fungerar helt på svenska, vilket gör skillnad när AI:n ska skriva texter och förstå lokal kontext. Du beskriver ditt företag i chatten, och plattformen genererar en komplett sajt med svenskt språk, rätt ton och relevanta referenser (svenska städer, branschtraditioner, lokala behov). Du kan integrera Cal.com för mötesbokningar, Stripe för betalningar eller Shopify för en webshop – allt utan kod. Sajten publiceras på en subdomän gratis, eller på din egen domän. Ingen bindningstid: du kan exportera koden och flytta sajten när du vill. Det är AI-sajtbyggande anpassat för svenska förhållanden, utan krångel."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur skiljer sig en AI-sajtbyggare från WordPress?",
+      "a": "WordPress kräver att du väljer tema, installerar plugins och bygger sidor manuellt i en editor. AI-sajtbyggare genererar hela sajten från en textbeskrivning – du slipper välja tema, skriva innehåll eller konfigurera funktioner själv. WordPress ger mer kontroll och anpassningsmöjligheter, men AI är mycket snabbare för standardsajter."
+    },
+    {
+      "q": "Kan AI skapa unika designer eller blir alla sajter lika?",
+      "a": "AI genererar design baserat på din prompt och bransch, så sajter för en restaurang och en juristbyrå ser olika ut. Layouten följer beprövade mönster (hero, tjänstegrid, kontaktsektion), men färger, typsnitt, bilder och texter anpassas. Resultatet är inte helt unikt som en byrås handgjorda design, men heller inte identiskt med andra sajter."
+    },
+    {
+      "q": "Vad händer om jag vill ändra något AI:n har skapat?",
+      "a": "Du kan be AI:n göra ändringar via chat: \"gör rubriken större\", \"byt till en grön färgpalett\", \"lägg till en blogg-sektion\". De flesta AI-sajtbyggare, inklusive Sajtmaskin, låter dig också redigera text och bilder direkt. Om du vill ha full kodkontroll kan du exportera sajten och fortsätta i en vanlig editor."
+    },
+    {
+      "q": "Är AI-genererade sajter bra för SEO?",
+      "a": "Ja, AI kan skapa SEO-vänlig struktur: tydliga rubriker, metabeskrivningar, snabb laddningstid och mobilanpassning. Däremot skriver AI inte automatiskt perfekt SEO-innehåll för alla nyckelord – du behöver ge tydliga instruktioner (\"inkludera ordet 'hudvård i Stockholm'\") eller redigera texten själv. AI ger en bra grund, men SEO-optimering kräver ofta manuell finjustering."
+    },
+    {
+      "q": "Kostar en AI-sajtbyggare lika mycket som en byrå?",
+      "a": "Nej, AI-sajtbyggare är mycket billigare. Byråer tar ofta 30 000 kronor och uppåt; AI-verktyg kostar vanligtvis en engångsavgift på några tusen kronor eller en låg månadskostnad. Sajtmaskin erbjuder till exempel gratis hosting på subdomän utan månadsavgift. Du betalar främst för extra funktioner eller egen domän."
+    },
+    {
+      "q": "Kan jag använda AI för en webshop eller bara enkla sajter?",
+      "a": "AI-sajtbyggare klarar enkla webshoppar med produktlistor, varukorg och betalning (t.ex. via Stripe eller Shopify-integration). För avancerade behov – tusentals produkter, komplex lagerhantering, personalisering – är en dedikerad e-handelsplattform eller byrålösning ofta bättre. Men för att testa en produktidé eller sälja ett begränsat sortiment räcker AI långt."
+    },
+    {
+      "q": "Vad är nackdelen med AI jämfört med att bygga själv?",
+      "a": "Du får mindre detaljkontroll. I en traditionell byggare kan du placera varje pixel exakt där du vill; AI fattar designbeslut åt dig baserat på din prompt. Om du har en mycket specifik vision eller behöver ovanliga funktioner kan AI:ns förslag kännas begränsande. Fördelen är att du sparar enormt med tid – nackdelen är att du delegerar kreativa val till algoritmen."
+    }
+  ],
+  "localOrIndustryContext": "I Sverige växer intresset för AI-verktyg som förenklar webbproduktion, särskilt bland småföretag och soloprenörer som inte har råd med byråer eller tid att lära sig WordPress. Svenskspråkiga plattformar som Sajtmaskin möter behovet av lokal support, svensk text och integrationer anpassade för nordiska betaltjänster och bokningssystem.",
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

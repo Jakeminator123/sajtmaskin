@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "boras/fotograf",
+  "title": "Hemsida fotograf Borås – Bygg din portfoliosajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Borås med AI. Publicera portfolio, bokning och priser direkt – ingen kod krävs.",
+  "h1": "Hemsida för fotografer i Borås",
+  "heroSub": "Bygg en professionell portfoliosajt med bokning och galleri på minuter – helt på svenska, utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Borås behöver du en hemsida som visar ditt bästa arbete och gör det enkelt för kunder att boka dig. Sajtmaskin låter dig bygga en komplett fotografsajt via chat – med bildgallerier, prislista, bokningssystem och kontaktformulär. Allt genereras av AI på svenska, och du publicerar direkt på din egen domän.",
+    "Du chattar med AI:n om vad du fotograferar, vilka tjänster du erbjuder och hur du vill presentera ditt arbete. Inom minuter har du en sajt med portfolio, om-sida, priser och bokningsfunktion. Integrationen med Cal.com gör att kunder kan boka fotosessioner direkt i kalendern, och du slipper mejla fram och tillbaka.",
+    "Ingen bindningstid och ingen månadskostnad för hosting på subdomän. Vill du ha egen domän fixar du det enkelt, och behöver du justera något senare gör du det direkt i gränssnittet. Koden är din – exportera när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en fotografsajt i Borås behöver",
+      "body": "En professionell fotografsajt ska visa upp ditt arbete på bästa sätt och göra det lätt för kunder att ta kontakt. Det innebär snygga bildgallerier som laddas snabbt, tydlig information om dina tjänster och priser, och ett smidigt sätt att boka tid. Många fotografer i Borås jobbar med bröllop, företagsfoto, porträtt eller produktfoto – och varje nisch kräver olika fokus på sajten. Sajtmaskin bygger sidan utifrån din verksamhet, så innehållet blir relevant för just dina kunder. Du får en responsiv sajt som ser bra ut på mobil, vilket är viktigt när kunder browsear efter fotograf på språng."
+    },
+    {
+      "heading": "AI bygger din portfoliosajt på minuter",
+      "body": "Du startar en chatt och berättar vad du fotograferar, vilka paket du erbjuder och hur du vill att sajten ska kännas. AI:n skapar struktur, texter och layout anpassat för fotografbranschen – med portfolio i fokus, om-sida som bygger förtroende, prissida och kontaktvägar. Vill du ha ett speciellt galleri för bröllop och ett annat för företagsporträtt? Säg det i chatten. Behöver du visa recensioner eller tidigare uppdrag? Det fixas direkt. Allt på svenska, och du ser resultatet live medan sajten byggs."
+    },
+    {
+      "heading": "Bokningssystem och betalning integrerat",
+      "body": "Med Cal.com-integrationen kan kunder boka fotosessioner direkt på sajten och välja ledig tid i din kalender. Ingen mejltennis, ingen dubbelbokningar. Vill du ta förskottsbetalning eller sälja digitala paket kan du koppla Stripe och ta betalt direkt på hemsidan. Det funkar lika bra för en timmes porträttfoto som för ett flerdagars bröllopsuppdrag. Allt sköts smidigt, och du behöver inte hålla på med krångliga plugins eller tredjepartstjänster som inte pratar med varandra."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "Sajtmaskin hostar din sajt kostnadsfritt på en subdomän, så du kan testa och lansera utan extra utgifter. Vill du ha en egen domän typ dittnamn.se eller dittfotoborås.se kopplar du den direkt i gränssnittet. Ingen bindningstid – använd tjänsten så länge den passar dig. Behöver du göra ändringar i texten, lägga till nya bilder i galleriet eller uppdatera priser gör du det själv utan att vänta på en webbutvecklare. Och vill du någon gång ta sajten vidare exporterar du koden och äger allt material."
+    },
+    {
+      "heading": "Bygg sajten som passar din fotoverksamhet",
+      "body": "Oavsett om du fokuserar på nyföddfoto, eventfoto, arkitekturfoto eller något helt annat anpassar Sajtmaskin innehållet efter din nisch. Du kan lägga till Google Analytics för att se var besökare kommer ifrån och vilka sidor de kollar på. Behöver du en webshop för prints eller förinställningar kan du integrera Shopify. Allt byggs från grunden på svenska, med ett gränssnitt som är enkelt att förstå även om du aldrig kodat en rad. Fokusera på fotograferandet – vi fixar tekniken."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografsajt med Sajtmaskin?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar med AI:n om dina tjänster, portfolio och önskemål, och systemet genererar sidor, texter och struktur direkt. Sen justerar du bilder och detaljer tills allt ser ut som du vill. Publicering sker direkt, ingen väntan."
+    },
+    {
+      "q": "Kan jag visa olika gallerier för bröllop, företag och porträtt?",
+      "a": "Ja, du kan skapa separata gallerier eller portfoliosidor för olika typer av uppdrag. Berätta i chatten vilka kategorier du vill ha, så strukturerar AI:n innehållet därefter. Du laddar upp bilder och organiserar dem som passar din verksamhet. Allt är flexibelt och enkelt att ändra senare."
+    },
+    {
+      "q": "Fungerar bokningssystemet för fotosessioner i Borås?",
+      "a": "Absolut. Cal.com-integrationen låter kunder välja ledig tid direkt på sajten, och du får bokningar synkade med din kalender. Du bestämmer själv längd på sessionerna, bufferttid mellan bokningar och vilka dagar du är tillgänglig. Funkar lika bra för studiosessioner som utomhusfoto runt Borås."
+    },
+    {
+      "q": "Kostar det något att ha sajten på en subdomän?",
+      "a": "Nej, hosting på subdomän är gratis utan månadskostnad. Vill du ha en egen domän som fotografnamn.se betalar du bara domänregistreringen hos din registrar, sen kopplar du den till Sajtmaskin. Ingen bindningstid och inga dolda avgifter."
+    },
+    {
+      "q": "Kan jag ta betalt för fotosessioner direkt på hemsidan?",
+      "a": "Ja, via Stripe-integrationen kan du ta förskottsbetalning, sälja paket eller ta betalt för digitala leveranser. Du sätter upp produkter eller tjänster i gränssnittet, och kunder betalar säkert med kort. Perfekt om du vill säkra bokningar med deposition eller sälja prints och bildpaket online."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera bilder och texter?",
+      "a": "Nej, allt sköts i ett svenskt gränssnitt utan kod. Du klickar på det du vill ändra, skriver ny text eller byter bild, och sparar. Vill du lägga till en ny tjänst, ändra priser eller uppdatera om-sidan gör du det direkt själv. Enkelt som att redigera ett dokument."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden och all data när du vill. Inget låsning, inga krångliga avtal. Ta med dig sajten till en annan host eller utveckla den vidare med en egen utvecklare. Sajtmaskin bygger på öppna standarder, så du äger alltid ditt material och din närvaro på webben."
+    }
+  ],
+  "localOrIndustryContext": "Borås har en växande kreativ sektor med fotografer som jobbar med allt från textil- och modefoto till bröllop och företagsporträtt. Med närhet till både natur och stadsmiljöer finns goda möjligheter för varierande uppdrag, och en professionell hemsida hjälper dig synas när lokala företag och privatpersoner söker fotograf i området.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/boras",
+      "label": "Skapa hemsida i Borås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Borås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

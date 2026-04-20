@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "freelance",
+  "title": "Hemsida för freelance – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din freelanceverksamhet med AI. Portfölj, bokning, kontakt – allt fixat på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för freelance",
+  "heroSub": "Bygg en komplett hemsida för din freelanceverksamhet på minuter – med AI, utan kod och med allt du behöver för att ta emot uppdrag.",
+  "introParagraphs": [
+    "En hemsida för freelance är din digitala visitkort och säljkanal i ett. Den visar vem du är, vad du kan och vilka uppdrag du har gjort – och gör det enkelt för potentiella kunder att boka tid eller ta kontakt. De flesta frilansare behöver en startsida som förklarar deras tjänster, en portfölj eller referenslista, en om-sida och ett smidigt sätt att ta emot förfrågningar.",
+    "Med Sajtmaskin bygger du allt det där på minuter. Du chattar med AI:n om vad du gör – copywriter, designer, fotograf, utvecklare, konsult – och får en färdig sajt med rätt struktur, text och layout. Publicera direkt på din egen domän eller testa gratis på en subdomän. Ingen kod, ingen bindningstid, inget krångel.",
+    "Du kan lägga till bokningsfunktion via Cal.com om du säljer timmar, koppla Stripe om du vill ta betalt online, eller bara hålla det enkelt med ett kontaktformulär. Allt styrs från samma svenska gränssnitt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfölj och case som visar vad du kan",
+      "body": "Potentiella kunder vill se exempel. En bra freelancesajt har en portfölj- eller projektsektion där du visar tidigare uppdrag, case eller arbeten. Sajtmaskin låter dig lägga upp bilder, beskrivningar och länkar – AI:n hjälper dig strukturera texten så det blir tydligt vad du gjorde och vilket resultat kunden fick. Du kan uppdatera portföljen när du vill, direkt i gränssnittet."
+    },
+    {
+      "heading": "Tydlig tjänstebeskrivning och prissättning",
+      "body": "Många frilansare tappar kunder för att sajten inte förklarar vad de faktiskt erbjuder. Du behöver en sida som listar dina tjänster – textkonsult, webbdesign, foto, strategi, vad det nu är – och gärna en fingervisning om priser eller hur du jobbar. Sajtmaskin genererar den texten åt dig baserat på vad du berättar i chatten, och du kan justera tonalitet och detaljer efteråt."
+    },
+    {
+      "heading": "Boknings- och kontaktfunktion",
+      "body": "Om du säljer tid vill du att kunder ska kunna boka möten direkt. Sajtmaskin integrerar med Cal.com så besökare ser din kalender och väljer en ledig tid. Vill du hellre ha ett vanligt kontaktformulär funkar det också – formuläret skickar mail till dig så fort någon fyller i det. Ingen krånglig setup, bara koppla ihop och publicera."
+    },
+    {
+      "heading": "Om-sida som bygger förtroende",
+      "body": "Folk köper från personer de litar på. En om-sida där du berättar vem du är, varför du gör det du gör och vad som skiljer dig från andra frilansare gör stor skillnad. Sajtmaskin hjälper dig skriva den texten – du kan be AI:n göra den personlig, professionell eller lite lättsam beroende på din stil. Lägg gärna till ett foto och eventuella certifieringar eller utbildningar."
+    },
+    {
+      "heading": "Ingen bindningstid – exportera när du vill",
+      "body": "Du äger din sajt. Vill du flytta den till en annan plattform senare kan du exportera hela koden och ta den med dig. Hosting på subdomän kostar ingenting i månadsavgift, och vill du koppla egen domän gör du det direkt i inställningarna. Sajtmaskin låser inte in dig – du bestämmer själv hur länge du vill använda tjänsten."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa min portfölj på sajten?",
+      "a": "Ja, du kan lägga till en portfölj- eller projektsektion där du visar bilder, beskrivningar och länkar till tidigare uppdrag. AI:n hjälper dig strukturera texten så det blir tydligt vad du gjort och vilket resultat kunden fick. Du uppdaterar portföljen själv när du vill."
+    },
+    {
+      "q": "Hur lägger jag till en bokningsfunktion?",
+      "a": "Sajtmaskin integrerar med Cal.com. Du kopplar ditt Cal.com-konto i inställningarna, så kan besökare boka tid direkt på sajten genom att se din kalender och välja en ledig slot. Integrationen är enkel att sätta upp och funkar direkt efter publicering."
+    },
+    {
+      "q": "Kan jag ta betalt för mina tjänster via sajten?",
+      "a": "Ja, du kan koppla Stripe och lägga till betalfunktion. Det passar om du säljer paket, konsultationstimmar eller digitala produkter. Stripe hanterar kortbetalningar säkert, och du får pengarna direkt till ditt konto. Vill du bara ta emot förfrågningar först funkar det också utmärkt."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda din egen domän kopplar du den i inställningarna – Sajtmaskin tar ingen extra avgift för det, du betalar bara för domänen hos din registrar. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag ändra design och text efter att sajten är klar?",
+      "a": "Absolut. Du kan redigera text, byta bilder, lägga till nya sidor och justera layout när du vill. Allt sker i samma chattgränssnitt eller via redigeringsläget. Vill du göra större förändringar kan du be AI:n om hjälp, eller göra det själv om du föredrar det."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, ingen kod krävs. Du bygger hela sajten genom att chatta med AI:n om vad du vill ha. Sajtmaskin genererar design, text och struktur åt dig. Vill du ha mer kontroll senare kan du exportera koden, men det är inget krav för att komma igång."
+    },
+    {
+      "q": "Kan jag använda sajten för att söka uppdrag aktivt?",
+      "a": "Ja, många frilansare använder sin sajt som portfolio och referens när de pitchar uppdrag. Du kan länka till sajten i mail, på LinkedIn eller i offerter. En professionell hemsida gör att potentiella kunder snabbt ser vad du kan och får förtroende för dig som leverantör."
+    }
+  ],
+  "localOrIndustryContext": "Frilansmarknaden i Sverige växer – allt fler jobbar som konsulter, kreatörer eller specialister inom teknik, kommunikation och design. En egen hemsida gör skillnad när du konkurrerar om uppdrag, särskilt om du vill jobba med större företag som förväntar sig professionell närvaro online.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en freelance-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

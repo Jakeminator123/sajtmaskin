@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "motala",
+  "title": "Hemsida Motala – Bygg din sajt på minuter med AI | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Motala med Sajtmaskin. Svensk AI bygger din sajt på minuter via chat. Egen domän, ingen bindningstid. Perfekt för lokala företag.",
+  "h1": "Hemsida Motala – AI bygger din sajt",
+  "heroSub": "Berätta vad ditt företag gör, så skapar Sajtmaskin en färdig hemsida på minuter. Helt på svenska, publicerad på din egen domän.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som låter företag i Motala bygga professionella hemsidor utan att skriva en rad kod. Du chattar med AI:n, beskriver vad du behöver, och får en komplett sajt med text, bilder och struktur på plats. Publicera direkt på egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Oavsett om du driver en verkstad vid Göta kanal, en butik på Stora Gatan eller en konsultfirma i Östermalm passar Sajtmaskin för dig som vill ha en sajt igång snabbt. Allt sker på svenska, från gränssnitt till support, och du slipper krångliga verktyg eller dyra byråtimmar.",
+    "Med integrationer för bokning via Cal.com, betalning via Stripe och webbshop via Shopify får du en sajt som faktiskt jobbar för dig. Ingen bindningstid, och du kan exportera koden när som helst."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Från idé till färdig sajt på minuter",
+      "body": "Du startar med att berätta för AI:n vad ditt företag gör – kanske att du säljer båttillbehör, driver en frisörsalong eller erbjuder redovisningstjänster. Sajtmaskin ställer följdfrågor om målgrupp, tjänster och stil, sedan genererar den hela sajten åt dig. Text, layout, bilder och struktur skapas automatiskt. Du granskar resultatet, justerar det du vill ändra via chatten, och publicerar. Hela processen tar minuter, inte veckor, och du behöver varken lära dig WordPress eller anlita en byrå."
+    },
+    {
+      "heading": "Lokal synlighet i Motala och omnejd",
+      "body": "En hemsida som nämner Motala, Göta kanal, Varamobaden eller andra lokala landmärken hjälper dig synas när folk söker efter tjänster i området. Sajtmaskin genererar innehåll som naturligt inkluderar din ort, vilket gör att Google förstår var du verkar. Kombinera sajten med Google Analytics för att se vilka sökord som driver trafik, och justera sedan texten via chatten om du vill fokusera på specifika stadsdelar som Östermalm eller Charlottenborg. Lokal SEO handlar om att vara relevant för de som bor och verkar här, och Sajtmaskin gör det enkelt att bygga in den kopplingen från start."
+    },
+    {
+      "heading": "Jämfört med byråer och gör-det-själv-verktyg",
+      "body": "En lokal byrå i Motala tar ofta 30 000–80 000 kronor och flera veckors ledtid för en enkel sajt. Gör-det-själv-plattformar som Wix eller Squarespace är billigare men kräver att du själv skriver all text, väljer mallar och konfigurerar plugins. Sajtmaskin landar mittemellan: AI:n gör jobbet åt dig, men du behåller full kontroll och äger koden. Ingen bindningstid betyder att du kan byta leverantör när du vill, och hosting på subdomän kostar ingenting per månad. För företag som vill ha en professionell sajt utan att lägga veckor eller tiotusentals kronor är det en praktisk lösning."
+    },
+    {
+      "heading": "Integrationer som gör sajten användbar",
+      "body": "En statisk sajt räcker sällan – du vill kunna ta emot bokningar, sälja produkter eller spåra besökare. Sajtmaskin stödjer Cal.com så kunder kan boka tid direkt, Stripe för kortbetalningar, Shopify för att driva en webshop och Google Analytics för att följa trafik. Om du driver en hudvårdsklinik vid Platensgatan kan du lägga in bokningslänk, om du säljer hantverksprodukter på Stora Torget kan du koppla en Shopify-butik. Alla integrationer sätts upp via chatten, utan teknisk krångel."
+    },
+    {
+      "heading": "Exempel från Motala",
+      "body": "Tänk dig en cykelverkstad vid kanalen som vill visa öppettider och prislista, en bageri i centrala Motala som behöver en meny och kontaktformulär, eller en redovisningsbyrå i Östermalm som vill presentera sina tjänster professionellt. Alla tre kan bygga sin sajt på under en timme med Sajtmaskin, publicera på egen domän och uppdatera innehållet via chat när något ändras. Plattformen passar lika bra för enmansföretag som för lokala butiker med flera anställda, och eftersom allt är på svenska slipper du översätta gränssnitt eller support."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida med Sajtmaskin?",
+      "a": "Själva genereringen tar några minuter. Du chattar med AI:n, beskriver ditt företag och vad sajten ska innehålla, sedan skapar den text, layout och struktur automatiskt. Totalt kan du ha en färdig, publicerad sajt på under en timme, inklusive tid för granskning och justeringar."
+    },
+    {
+      "q": "Kan jag använda min egen domän för sajten?",
+      "a": "Ja, du publicerar på din egen domän som du registrerar via valfri domänregistrator. Sajtmaskin guidar dig genom DNS-inställningarna. Om du vill testa först kan du köra på en gratis subdomän utan månadskostnad."
+    },
+    {
+      "q": "Vad kostar det att använda Sajtmaskin?",
+      "a": "Det finns ingen månadskostnad för hosting på subdomän. Om du publicerar på egen domän betalar du för domänregistreringen hos din registrator, och Sajtmaskin tar en engångsavgift eller abonnemang beroende på vilka funktioner du vill ha. Inga bindningstider, och du kan exportera koden kostnadsfritt när som helst."
+    },
+    {
+      "q": "Hur uppdaterar jag innehållet på sajten?",
+      "a": "Du chattar med AI:n igen och beskriver vad du vill ändra – ny text, andra bilder, fler sidor. Sajtmaskin genererar uppdateringarna och du publicerar på nytt. Inget behov av att logga in i ett CMS eller redigera kod manuellt."
+    },
+    {
+      "q": "Passar Sajtmaskin för webbshop eller bokningssystem?",
+      "a": "Ja, du kan integrera Shopify för e-handel och Cal.com för bokningar. AI:n hjälper dig sätta upp länkarna och strukturen, så kunder kan boka tid eller köpa produkter direkt från sajten. Stripe-integration finns för kortbetalningar."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan lösning senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Eftersom det är vanlig HTML, CSS och JavaScript kan du flytta sajten till vilken hostingleverantör som helst eller fortsätta utveckla den med en annan byrå. Ingen inlåsning."
+    },
+    {
+      "q": "Fungerar sajten bra för lokal SEO i Motala?",
+      "a": "Ja, AI:n genererar innehåll som naturligt inkluderar din ort och lokala referenser, vilket hjälper Google förstå var du verkar. Kombinera med Google Analytics för att följa vilka sökord som driver besökare, och justera texten via chatten om du vill optimera för specifika stadsdelar eller tjänster."
+    }
+  ],
+  "localOrIndustryContext": "Motala ligger vid Göta kanal och är ett nav för både industri och turism i Östergötland. Lokala företag – från verkstäder och butiker vid kanalen till konsultfirmor i Östermalm – behöver en digital närvaro som speglar ortens blandning av tradition och framtidsfokus. Sajtmaskin gör det enkelt att bygga en hemsida som känns lokal och professionell, utan att du behöver lägga veckor eller stora summor på utveckling.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Motala. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "stockholm/foretag",
+  "title": "Hemsida för företag i Stockholm – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt Stockholmsföretag på minuter. AI bygger hela sajten via chat. Egen domän, inga bindningstider.",
+  "h1": "Hemsida för företag i Stockholm",
+  "heroSub": "Bygg en professionell företagssajt på minuter med AI – ingen kod, ingen krånglig teknik, bara din vision och vårt svenska verktyg.",
+  "introParagraphs": [
+    "Ditt Stockholmsföretag behöver en hemsida som fungerar – en som visar vad ni gör, bygger trovärdighet och gör det enkelt för kunder att komma i kontakt. Med Sajtmaskin skapar du en komplett företagssajt genom att chatta med AI. Du beskriver din verksamhet, väljer stil och funktioner, och får en färdig sajt på minuter. Allt på svenska, allt utan kod.",
+    "Oavsett om du driver konsultbyrå i Vasastan, restaurang på Söder eller e-handel från Kista – du får en sajt som passar just din bransch. Publicera på egen domän eller testa kostnadsfritt på en subdomän. Integrera bokningssystem via Cal.com, ta betalt med Stripe eller koppla på Google Analytics. Ingen bindningstid, och du kan exportera koden när du vill.",
+    "Stockholm är fyllt av företag som konkurrerar om samma kunder. En professionell hemsida är ofta första intrycket – och med Sajtmaskin behöver du varken vänta veckor eller betala tiotusentals kronor för att få en."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en företagssajt i Stockholm behöver",
+      "body": "En bra företagssajt visar tydligt vad ni gör, var ni finns och hur man når er. Den behöver fungera lika bra på mobil som dator, ladda snabbt och ge ett professionellt intryck. För många Stockholmsföretag är det också viktigt med bokningsfunktion, kontaktformulär som faktiskt fungerar, och kanske integration med betalning eller CRM. Sajtmaskin bygger allt detta direkt i chatten – du väljer vilka funktioner du vill ha, och AI komponerar en sajt som passar din bransch och dina behov."
+    },
+    {
+      "heading": "Så bygger du din företagssajt med AI",
+      "body": "Du startar en chatt och beskriver ditt företag: vad ni gör, vem ni vänder er till, vilken känsla sajten ska ha. AI:n ställer följdfrågor om funktioner – vill du ha bokningssystem, webshop, bildgalleri? Sedan genereras en komplett sajt med text, layout och struktur. Du kan justera direkt i chatten: byt färg, lägg till sidor, ändra text. När du är nöjd publicerar du på egen domän eller testar gratis på en Sajtmaskin-subdomän. Hela processen tar minuter, inte veckor."
+    },
+    {
+      "heading": "Integrationer som gör sajten mer än en broschyr",
+      "body": "En statisk sajt är början, men ofta vill du mer. Med Sajtmaskin kopplar du enkelt Cal.com för tidsbokning – perfekt om du driver allt från frisörsalong till advokatbyrå. Stripe-integration låter dig ta betalt direkt på sajten, och Shopify-koppling gör det möjligt att driva en komplett webshop. Google Analytics ger dig koll på besökare och trafik. Allt konfigureras utan kod, och du behåller full kontroll – ingen inlåsning, ingen dold kostnad."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Många webbbyråer i Stockholm kräer långsiktiga avtal och månadskostnader för hosting, support och uppdateringar. Sajtmaskin fungerar annorlunda: du betalar för att bygga sajten, sedan äger du den. Hosting på subdomän är gratis, egen domän kopplar du själv. Vill du flytta sajten någon annanstans? Exportera koden och gör det. Inga dolda avgifter, inga uppsägningstider, inga överraskningar."
+    },
+    {
+      "heading": "Byggt i Sverige, för svenska företag",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt och svensk support. Det betyder att AI:n förstår svenska nyanser, att texterna blir naturliga, och att du slipper översatta mallar från utländska plattformar. För Stockholmsföretag som vill ha en sajt som känns professionell och lokal – inte som en generisk mall – är det en viktig skillnad."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt med Sajtmaskin?",
+      "a": "Själva byggprocessen tar oftast mellan fem och tjugo minuter, beroende på hur många sidor och funktioner du vill ha. Du chattar med AI:n, beskriver ditt företag och justerar tills du är nöjd. Publicering sker direkt, och du kan börja dela länken samma stund."
+    },
+    {
+      "q": "Kan jag använda min egen domän för företagssajten?",
+      "a": "Ja, du kan koppla vilken domän du vill till sajten. Har du redan en domän pekar du DNS:en mot Sajtmaskin, och har du ingen hjälper vi dig komma igång. Vill du testa först kan du publicera gratis på en subdomän under Sajtmaskin."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för alla typer av företag i Stockholm?",
+      "a": "Ja, oavsett om du driver konsultverksamhet, restaurang, butik, byrå eller tjänsteföretag kan du bygga en sajt som passar. AI:n anpassar struktur, text och funktioner efter din bransch. Behöver du webshop, bokning eller betalning finns integrationerna där."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad varje månad?",
+      "a": "Hosting på en Sajtmaskin-subdomän är helt gratis, utan tidsbegränsning. Vill du använda egen domän och ha full kontroll kan du antingen hosta själv (genom att exportera koden) eller välja en hostinglösning som passar dig. Inga månadskostnader från Sajtmaskin om du inte väljer tilläggsmoduler."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för möten eller tjänster?",
+      "a": "Ja, via Cal.com-integration kan du lägga till ett bokningssystem direkt på sajten. Perfekt om du erbjuder konsultation, behandlingar, möten eller andra tidsbundna tjänster. Kunder bokar direkt på hemsidan, och du får notiser automatiskt."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajtkoden när du vill, utan extra kostnad eller krångel. Koden är din, och du kan flytta den till vilken hostingleverantör du vill. Ingen inlåsning, inga dolda avgifter."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, hela verktyget är byggt för att fungera utan kod. Du chattar på svenska, beskriver vad du vill ha, och AI:n bygger sajten. Vill du ändra något senare gör du det i chatten eller via ett enkelt gränssnitt. Teknisk kunskap behövs inte."
+    }
+  ],
+  "localOrIndustryContext": "Stockholm har över 150 000 registrerade företag, från enmansbolag till stora kontor i city. Konkurrensen är hård, och en professionell hemsida är ofta avgörande för att synas och bygga förtroende. Samtidigt är kostnaden för webbyråer i Stockholm ofta hög, och väntetiden lång. Sajtmaskin gör det möjligt för Stockholmsföretag att få en sajt på plats snabbt, utan att kompromissa med kvalitet eller funktionalitet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Stockholm. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

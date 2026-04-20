@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "saas",
+  "title": "Hemsida SaaS – Bygg din mjukvarusajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt SaaS-bolag direkt i chatten. Produktsidor, bokning, betalning och analytics – allt på plats på minuter.",
+  "h1": "Hemsida för SaaS-bolag",
+  "heroSub": "Bygg en komplett sajt för din mjukvaruprodukt – med AI, på svenska, utan kod.",
+  "introParagraphs": [
+    "En hemsida för SaaS behöver förklara vad produkten gör, visa priser tydligt och göra det enkelt att testa eller köpa. Oftast ingår en hero med värdeförslag, funktionssidor som beskriver nyckelfunktioner, prisplan med olika nivåer, samt integration för bokning av demo eller direkt betalning. Många SaaS-sajter har också kundcase, FAQ och en blogg för SEO.",
+    "Med Sajtmaskin chattar du fram hela sajten på minuter. Du beskriver din produkt, vilka funktioner du vill lyfta och hur prismodellen ser ut – så genererar AI:n layout, texter och struktur. Du publicerar på egen domän, kopplar Cal.com för demobokningar och Stripe för betalning, och kan exportera koden när du vill.",
+    "Ingen bindningstid, inget krångel med webbbyråer. Allt på svenska, byggt för att du ska kunna fokusera på produktutveckling istället för att pilla med WordPress."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Produktsida som förklarar vad mjukvaran gör",
+      "body": "Första intrycket avgör om besökaren stannar. En tydlig hero med rubrik, underrubrik och call-to-action är standard, men därifrån behöver du visa konkreta funktioner med skärmdumpar eller kort demo-video. Sajtmaskin låter dig beskriva funktionerna i chatten – AI:n strukturerar dem i sektioner med rubriker, punktlistor och plats för bilder. Du laddar upp screenshots eller produktbilder efteråt, direkt i editorn."
+    },
+    {
+      "heading": "Prissida med tydliga nivåer och jämförelse",
+      "body": "SaaS-kunder vill veta vad det kostar innan de bokar demo. En klassisk prissida visar tre nivåer – Starter, Pro, Enterprise – med funktioner listade per plan. Sajtmaskin genererar en responsiv pristabell från din beskrivning av vad som ingår i varje nivå. Du kan koppla Stripe för direktbetalning eller lägga in en länk till extern checkout. Ändra priser och funktioner när du vill, utan att röra kod."
+    },
+    {
+      "heading": "Demobokningar och lead-formulär",
+      "body": "Många SaaS-bolag vill prata med kunden innan avslut. Integrera Cal.com så får du en inbäddad kalender där besökare bokar demo direkt på sajten. Sajtmaskin kopplar din Cal.com-länk automatiskt när du anger den i inställningarna. Vill du samla leads istället kan du lägga till ett formulär som skickar till din CRM eller e-post – allt går att konfigurera utan kod."
+    },
+    {
+      "heading": "Kundcase och sociala bevis",
+      "body": "Testimonials och case studies bygger förtroende. En sektion med logotyper från kunder, korta citat eller längre case-stories visar att produkten funkar i verkligheten. Beskriv vilka kunder du vill lyfta i chatten, så skapar AI:n layout för case-sektionen. Du fyller i riktiga namn och citat efteråt, eller ber AI:n generera placeholder-texter tills du har godkänt material från kunderna."
+    },
+    {
+      "heading": "FAQ och SEO-innehåll",
+      "body": "Vanliga frågor minskar support-trycket och hjälper Google förstå vad sajten handlar om. Sajtmaskin genererar FAQ baserat på din produktbeskrivning – frågor om priser, säkerhet, integration, support. Du kan lägga till egna frågor eller redigera svaren direkt. Vill du ha en blogg för content marketing kan du skapa undersidor och skriva inlägg i samma editor, allt publicerat på samma domän."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag koppla Stripe för prenumerationsbetalning?",
+      "a": "Ja. Lägg in din Stripe-länk i inställningarna så kan besökare betala direkt på sajten. Vill du hantera prenumerationer rekommenderar vi Stripe Billing eller en extern tjänst som Chargebee, men checkout-länken funkar direkt i Sajtmaskin."
+    },
+    {
+      "q": "Hur lägger jag till en produktdemo-video?",
+      "a": "Ladda upp videon till YouTube eller Vimeo, kopiera embed-koden och klistra in den i editorn där du vill att videon ska synas. Sajtmaskin renderar den responsivt så den funkar på mobil och desktop."
+    },
+    {
+      "q": "Kan jag ha flera prissidor för olika marknader?",
+      "a": "Absolut. Skapa undersidor för varje marknad – till exempel /priser-sverige och /priser-norge – och anpassa valuta och nivåer. Du kan länka mellan dem i navigationen eller visa rätt sida baserat på besökarens språkinställning."
+    },
+    {
+      "q": "Går det att integrera med min CRM?",
+      "a": "Sajtmaskin har inbyggt stöd för formulär som skickar till e-post. Vill du koppla Hubspot, Salesforce eller Pipedrive kan du använda deras embed-kod eller webhook – klistra in scriptet i sidinställningarna så funkar det."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajten som HTML, CSS och JavaScript när du vill. Inga dolda beroenden, ingen vendor lock-in. Ladda upp filerna på valfri webbserver eller hosting-tjänst och sajten funkar precis som innan."
+    },
+    {
+      "q": "Kan jag köra A/B-test på prissidan?",
+      "a": "Ja, via Google Optimize eller liknande verktyg. Lägg in tracking-scriptet i sidinställningarna och konfigurera dina varianter i verktyget. Sajtmaskin påverkar inte hur A/B-test körs – sajten beter sig som vilken statisk site som helst."
+    },
+    {
+      "q": "Hur snabbt kan jag få upp en fungerande sajt?",
+      "a": "De flesta kommer igång på 10–20 minuter. Chatta fram strukturen, ladda upp logotyp och produktbilder, koppla domän och publicera. Vill du finjustera texter och design tar det längre, men en fullt fungerande sajt med bokning och betalning går att lansera samma dag."
+    }
+  ],
+  "localOrIndustryContext": "SaaS-marknaden i Sverige växer snabbt, med allt från nischade B2B-verktyg till globala plattformar som startade här. Oavsett om du bygger en intern mjukvara, en vertikal SaaS för en specifik bransch eller en horisontell produkt behöver hemsidan förklara värdet snabbt – och Sajtmaskin gör det enkelt att testa budskap och layout utan att vänta på byrå eller utvecklare.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en saas-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

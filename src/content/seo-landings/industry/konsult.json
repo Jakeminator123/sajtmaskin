@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "konsult",
+  "title": "Hemsida för konsult – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet med AI. Visa referenser, tjänster och boka möten direkt. Ingen kod krävs.",
+  "h1": "Hemsida för konsult",
+  "heroSub": "Bygg en sajt som visar din expertis, dina referenser och gör det enkelt för kunder att boka tid – utan att koda.",
+  "introParagraphs": [
+    "Som konsult lever du på ditt rykte och din expertis. En bra hemsida hjälper potentiella kunder att förstå vad du kan, vilka resultat du levererat tidigare och hur de enkelt kommer i kontakt med dig. Men att bygga en sajt som faktiskt konverterar besökare till bokningar tar tid – tid du hellre lägger på uppdrag.",
+    "Sajtmaskin låter dig skapa en komplett konsultsajt på minuter genom att chatta med AI. Du beskriver vad du gör, vilka branscher du jobbar med och vilka tjänster du erbjuder. AI:n bygger sedan hela sajten med rätt struktur, texter och funktioner. Du kan integrera Cal.com för bokningar, publicera på egen domän och uppdatera innehållet när du vill.",
+    "Ingen bindningstid, ingen kod och ingen månadskostnad för hosting på subdomän. Du får en sajt som ser professionell ut och fungerar direkt – så du kan fokusera på det du är bäst på."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför konsulter behöver en tydlig hemsida",
+      "body": "Många konsulter får uppdrag genom nätverk och rekommendationer, men en hemsida gör det möjligt för nya kunder att hitta dig och förstå vad du kan innan de hör av sig. En bra sajt visar tydligt vilka problem du löser, vilka branscher du jobbar med och vad tidigare kunder säger om dig. Den fungerar som ett digitalt visitkort som jobbar dygnet runt. Utan en sajt riskerar du att förlora uppdrag till konsulter som syns online och som gör det enkelt att boka ett första möte. En professionell hemsida bygger trovärdighet och gör säljprocessen smidigare – både för dig och för kunden."
+    },
+    {
+      "heading": "Vilka sidor och funktioner behöver en konsultsajt?",
+      "body": "En typisk hemsida för konsult innehåller en startsida som tydligt förklarar vad du gör och för vem, en tjänstesida som listar dina erbjudanden – till exempel strategiarbete, processledning eller interimslösningar – och en referenssida med case och kundutlåtanden. Många konsulter har också en om-sida som berättar din historia och visar varför kunder ska lita på dig. En kontaktsida med bokningskalender gör det enkelt för potentiella uppdragsgivare att boka ett kostnadsfritt samtal direkt. Om du skriver artiklar eller har material att dela kan en blogg eller resurssida öka din synlighet i sökmotorer och positionera dig som expert i ditt område."
+    },
+    {
+      "heading": "Så bygger du en konsultsajt med Sajtmaskin",
+      "body": "Du startar en chatt och beskriver din konsultverksamhet: vilka tjänster du erbjuder, vilka branscher du jobbar med och vilka resultat du levererat. AI:n genererar en komplett sajt med startsida, tjänster, referenser och kontaktformulär. Du kan integrera Cal.com så besökare bokar möten direkt i din kalender, lägga till Google Analytics för att se var trafiken kommer ifrån och anpassa färger, typsnitt och bilder så sajten känns rätt. Allt sker i ett svenskt gränssnitt utan kod. När du är nöjd publicerar du på egen domän eller på en kostnadsfri subdomän. Behöver du uppdatera referenser eller lägga till nya tjänster gör du det direkt i chatten."
+    },
+    {
+      "heading": "Bokningar, betalningar och integration med dina verktyg",
+      "body": "Sajtmaskin stödjer Cal.com för bokningar, vilket innebär att kunder kan välja tid direkt på din sajt utan mejltennis. Vill du ta betalt för workshops, utbildningar eller digitala produkter integrerar du Stripe. Google Analytics ger dig koll på hur många som besöker sajten och vilka sidor som fungerar bäst. Allt är byggt för att göra din konsultverksamhet mer effektiv. Du slipper teknisk krångel och kan fokusera på att leverera värde till dina kunder. Och eftersom det inte finns någon bindningstid kan du när som helst exportera koden och flytta sajten om du vill."
+    },
+    {
+      "heading": "Ingen kod, ingen bindningstid – äkta flexibilitet",
+      "body": "Sajtmaskin är byggt för dig som vill ha kontroll utan att behöva lära dig webbutveckling. Du äger din sajt, kan uppdatera den när du vill och betalar ingen månadskostnad om du väljer subdomän. Vill du ha egen domän fixar du det enkelt. Behöver du ändra något chattar du med AI:n igen. Det tar minuter, inte veckor. Perfekt för konsulter som vill ha en professionell närvaro online utan att fastna i teknik eller dyra byråavtal."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min konsultverksamhet?",
+      "a": "De flesta konsultsajter är klara på 10–20 minuter. Du beskriver din verksamhet i chatten, AI:n genererar sajten och du justerar det du vill ändra. Sedan publicerar du direkt."
+    },
+    {
+      "q": "Kan jag visa mina referenser och case på sajten?",
+      "a": "Ja, du kan lägga till en referenssida med kundutlåtanden, case och resultat. AI:n hjälper dig strukturera innehållet så det blir tydligt och trovärdigt."
+    },
+    {
+      "q": "Fungerar bokningsintegration med min kalender?",
+      "a": "Ja, Sajtmaskin integrerar med Cal.com så besökare kan boka möten direkt. Du kopplar din kalender och väljer vilka tider som ska vara tillgängliga."
+    },
+    {
+      "q": "Kan jag ta betalt för digitala produkter eller workshops?",
+      "a": "Ja, genom Stripe-integration kan du sälja digitala produkter, utbildningar eller ta förskottsbetalning för workshops direkt på sajten."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att jag byggt den?",
+      "a": "Hosting på subdomän är gratis. Vill du ha egen domän betalar du för den separat. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag uppdatera sajten själv när jag får nya uppdrag?",
+      "a": "Absolut. Du chattar med AI:n och beskriver vad du vill ändra – nya tjänster, uppdaterade referenser eller annat innehåll. Inga tekniska kunskaper krävs."
+    },
+    {
+      "q": "Äger jag sajten och kan jag flytta den senare?",
+      "a": "Ja, du äger koden och kan exportera den när du vill. Ingen inlåsning, full flexibilitet."
+    }
+  ],
+  "localOrIndustryContext": "Konsultbranschen i Sverige växer stadigt och allt fler specialister driver egna verksamheter inom strategi, ledning, HR och digitalisering. En professionell hemsida är ofta avgörande för att synas i konkurrensen och bygga förtroende hos nya kunder. Sajtmaskin är byggt i Sverige av Pretty Good AB och anpassat för svenska konsulter som vill ha en sajt som fungerar direkt – utan krångel.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en konsult-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

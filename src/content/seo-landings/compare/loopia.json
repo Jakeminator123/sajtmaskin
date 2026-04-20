@@ -1,0 +1,102 @@
+{
+  "family": "compare",
+  "slug": "loopia",
+  "title": "Alternativ till Loopia – bygg hemsida med AI | Sajtmaskin",
+  "metaDescription": "Söker du alternativ till Loopia? Sajtmaskin låter dig bygga hela sajten med AI på minuter. Svenskt, enkelt och utan månadskostnad för hosting.",
+  "h1": "Alternativ till Loopia – bygg din sajt med AI",
+  "heroSub": "Skapa en färdig hemsida på minuter med AI-chat, publicera på egen domän och slipp krångliga verktyg.",
+  "introParagraphs": [
+    "Loopia är ett etablerat svenskt webbhotell med sajtbyggare, men många upplever att verktygen känns daterade och att det tar lång tid att få ihop en sajt som ser professionell ut. Om du vill ha en färdig hemsida snabbare, utan att lära dig ett nytt gränssnitt, kan Sajtmaskin vara ett bättre val.",
+    "Sajtmaskin låter dig bygga hela sajten genom att chatta med en AI. Du beskriver vad du behöver, så genererar AI design, texter och struktur direkt. Du kan publicera på egen domän eller använda en subdomän helt utan månadskostnad. Allt är på svenska, supporten är svensk, och du slipper betala byrå för att få ihop något snyggt.",
+    "Om du redan har domän hos Loopia kan du koppla den till Sajtmaskin. Du behöver inte byta webbhotell för att testa – starta bara ett projekt och se om AI-vägen passar dig bättre än traditionella sajtbyggare."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker folk alternativ till Loopia?",
+      "body": "Loopia har funnits länge och är pålitligt för domänregistrering och webbhotell, men deras sajtbyggare upplevs ofta som omständlig. Många kämpar med att få layouten att se modern ut, och det saknas flexibilitet i designvalen. För den som vill ha en sajt snabbt utan att klicka sig genom massor av inställningar kan det kännas tungrott. Dessutom kostar de flesta paket månadshyra även om du inte behöver avancerade funktioner. Om du vill slippa både tekniskt krångel och löpande kostnader för en enkel sajt är det naturligt att leta efter något smidigare."
+    },
+    {
+      "heading": "Hur Sajtmaskin skiljer sig från Loopia",
+      "body": "Sajtmaskin bygger på AI istället för en traditionell sajtbyggare. Du chattar med AI:n och beskriver vad du behöver – en restaurangsajt, en bokningssida för frisören, en portfoliosajt. AI:n genererar då design, texter och struktur på minuter. Du kan justera allt efteråt, men grundjobbet är klart direkt. Publicering på subdomän kostar inget per månad, och vill du använda egen domän kopplar du den precis som hos vilket webbhotell som helst. Allt gränssnitt, all support och all AI-genererad text är på svenska. Du slipper lära dig ett nytt verktyg – du pratar bara med AI:n som med en webbdesigner."
+    },
+    {
+      "heading": "Integrationer och funktioner du behöver",
+      "body": "Sajtmaskin stödjer Cal.com för bokningar, Stripe för betalningar, Google Analytics för statistik och Shopify för webshop. Det räcker för de flesta små och medelstora företag. Loopia erbjuder fler tekniska tillägg om du driver en komplex e-handel eller behöver specifika serverinställningar, men för vanliga företagssajter, portfolios och bokningssidor är Sajtmaskins integrationer mer än tillräckliga. Och eftersom AI:n skriver texterna åt dig slipper du sitta och fylla i tomma block – du får ett färdigt förslag som du kan redigera direkt."
+    },
+    {
+      "heading": "Priser och äganderätt",
+      "body": "Loopia tar betalt per månad för de flesta paket, och priset ökar om du vill ha fler funktioner. Sajtmaskin tar ingen månadskostnad för hosting på subdomän, och du kan när som helst exportera hela koden och flytta sajten vart du vill. Det finns ingen bindningstid. Om du vill ha egen domän betalar du bara för domänen, precis som hos Loopia, men själva sajtbyggandet och publiceringen kostar inget extra. Det gör Sajtmaskin särskilt bra för dig som vill testa en idé eller driva en enkel sajt utan löpande kostnader."
+    },
+    {
+      "heading": "När passar Loopia bättre?",
+      "body": "Loopia är ett bra val om du behöver avancerad e-posthantering, särskilda serverinställningar eller vill ha allt – domän, webbhotell, e-post och sajt – från samma leverantör med traditionell support. Om du driver en större webshop med komplexa behov kan Loopias ekosystem vara tryggare. Men om du främst vill ha en snabb, snygg sajt utan tekniskt krångel, och uppskattar att AI gör jobbet åt dig, är Sajtmaskin det enklare valet. Du kan alltid behålla domänen hos Loopia och bara koppla den till Sajtmaskin."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag använda min Loopia-domän med Sajtmaskin?",
+      "a": "Ja, du pekar bara domänens DNS-poster mot Sajtmaskin. Du behåller domänen hos Loopia och kan när som helst byta tillbaka om du vill. Sajtmaskin guidar dig genom kopplingen, och svensk support hjälper till om något krånglar."
+    },
+    {
+      "q": "Är Sajtmaskin billigare än Loopia?",
+      "a": "Hosting på subdomän är gratis hos Sajtmaskin, så du betalar inget per månad för att ha sajten uppe. Loopia tar oftast månadshyra för sina paket. Om du vill ha egen domän betalar du för domänen, men själva sajtbyggandet och publiceringen kostar inget extra hos Sajtmaskin."
+    },
+    {
+      "q": "Hur fungerar AI-sajtbyggaren jämfört med Loopias verktyg?",
+      "a": "Du chattar med AI:n och beskriver vad du behöver. AI:n genererar då design, texter och struktur på minuter. Loopias sajtbyggare kräver att du själv drar och släpper block och fyller i innehåll. Sajtmaskin gör grundjobbet åt dig, du justerar bara det du vill ändra efteråt."
+    },
+    {
+      "q": "Får jag lika bra support som hos Loopia?",
+      "a": "Sajtmaskin drivs av Pretty Good AB i Sverige, och all support är på svenska. Loopia har också svensk support, men Sajtmaskin är specialiserat på AI-sajtbyggande, så du får hjälp av folk som verkligen kan verktyget. Båda är svenska bolag med svensk kundservice."
+    },
+    {
+      "q": "Kan jag exportera sajten och flytta den senare?",
+      "a": "Ja, du kan exportera hela koden när du vill och flytta sajten till vilket webbhotell som helst. Det finns ingen bindningstid. Loopia låter dig också flytta sajten, men deras sajtbyggare är oftast kopplad till deras plattform, så export kan vara krångligare."
+    },
+    {
+      "q": "Vilka funktioner saknas jämfört med Loopia?",
+      "a": "Sajtmaskin fokuserar på sajtbyggande, inte e-post eller serveradministration. Om du behöver avancerad e-posthantering, databaser eller särskilda serverinställningar passar Loopia bättre. Men för vanliga företagssajter, portfolios och bokningssidor har Sajtmaskin allt du behöver, plus AI som gör jobbet snabbare."
+    },
+    {
+      "q": "Hur snabbt kan jag få sajten live?",
+      "a": "Med Sajtmaskin kan du ha en färdig sajt publicerad på minuter. AI:n genererar allt direkt, du granskar och justerar, sedan publicerar du. Med Loopias sajtbyggare tar det oftast flera timmar eller dagar att klicka ihop en sajt som ser professionell ut, eftersom du måste göra allt manuellt."
+    }
+  ],
+  "localOrIndustryContext": "Loopia är en av Sveriges mest etablerade leverantörer av domäner och webbhotell, och många svenska företag har sina domäner där. Sajtmaskin kompletterar detta genom att erbjuda ett modernare sätt att bygga själva sajten – med AI istället för traditionella verktyg. Du kan behålla det du gillar hos Loopia och bara använda Sajtmaskin för sajtbygget.",
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/wix",
+      "label": "Alternativ till Wix"
+    },
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från Loopia. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

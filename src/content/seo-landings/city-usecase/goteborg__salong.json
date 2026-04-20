@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/salong",
+  "title": "Hemsida för salong i Göteborg – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Göteborg med AI. Bokningssystem, mobilanpassad design och SEO – utan kod. Från 0 kr/mån.",
+  "h1": "Hemsida för salong i Göteborg",
+  "heroSub": "Bygg en komplett sajt för din salong med AI – inklusive onlinebokning, prislista och bildgalleri. Klar på minuter, inte veckor.",
+  "introParagraphs": [
+    "Om du driver en salong i Göteborg behöver du en hemsida som gör det enkelt för kunder att boka tid, se dina tjänster och hitta dig. Sajtmaskin låter dig skapa en komplett sajt via chat – berätta vad din salong erbjuder, så bygger AI:n hela sajten åt dig, inklusive bokningssystem och mobilanpassad design.",
+    "Du får allt som behövs: prislista, bildgalleri, behandlingsbeskrivningar, kontaktformulär och integration med Cal.com för onlinebokning. Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, ingen kod, och du kan exportera sajten när du vill.",
+    "Plattformen är byggd i Sverige med svenskt gränssnitt och support. Du chattar på svenska, och AI:n förstår exakt vad en salong i Göteborg behöver – från Avenyn till Haga, Majorna till Linnéstaden."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem som fungerar dygnet runt",
+      "body": "Med Cal.com-integrationen får dina kunder boka frisör-, skönhets- eller nagelbehandlingar direkt på sajten, även när salongen är stängd. Systemet synkar med din kalender, skickar automatiska påminnelser och minskar no-shows. Perfekt för dig som vill slippa SMS-bokning och telefonköer. Allt sätts upp automatiskt när du bygger sajten – du behöver bara koppla ditt Cal.com-konto."
+    },
+    {
+      "heading": "Visa upp din salong och dina tjänster",
+      "body": "En salongs hemsida behöver inspirerande bilder och tydliga beskrivningar. Sajtmaskin skapar layouter som lyfter dina före/efter-bilder, behandlingsmenyer och teammedlemmar. Lägg till bildgallerier för hårfärg, klippningar, naglar, fransar eller hudvård – allt anpassat för mobil och desktop. Prislistor blir automatiskt formaterade och lätta att uppdatera när du justerar dina tjänster."
+    },
+    {
+      "heading": "Lokal SEO för salonger i Göteborg",
+      "body": "För att synas när göteborgare söker efter salong, frisör eller skönhetsbehandling behöver sajten rätt struktur. Sajtmaskin bygger in stadsdelsnamn, tjänstebeskrivningar och schema-märkning som Google förstår. Du kan enkelt lägga till innehåll om din salong i Linnéstaden, Majorna, Hisingen eller var du än finns. Kombinera med Google Analytics för att se vilka sidor som driver flest bokningar."
+    },
+    {
+      "heading": "Från idé till publicerad sajt på minuter",
+      "body": "Istället för att maila fram och tillbaka med en webbbyrå chattar du med AI:n: 'Jag driver en hårsalong i Göteborg och behöver en sajt med bokning, prislista och galleri.' AI:n skapar hela strukturen, du justerar texter och bilder, och publicerar när du är nöjd. Vill du lägga till Stripe för presentkort eller produktförsäljning går det med ett klick. Ingen månadskostnad om du kör på subdomän, och du äger alltid koden."
+    },
+    {
+      "heading": "Gjord för svenska salonger",
+      "body": "Sajtmaskin är byggd av Pretty Good AB i Sverige, med svenskt språk i alla led. Plattformen förstår svenska salongers behov – från momshantering till GDPR-kompatibla bokningsformulär. Du får support på svenska, och AI:n skriver texter som låter naturliga för svenska kunder. Ingen bindningstid, inga dolda avgifter, och du kan exportera hela sajten om du vill flytta vidare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar en hemsida för salong via Sajtmaskin?",
+      "a": "Det är gratis att bygga sajten, och om du publicerar på en Sajtmaskin-subdomän kostar hosting 0 kr/mån. Vill du använda din egen domän (t.ex. dinsalong.se) tillkommer kostnaden för domänen. Bokningssystem via Cal.com och betalningar via Stripe har egna priser beroende på användning, men själva integrationen är inkluderad."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten publicerad?",
+      "a": "De flesta salonger har en fungerande sajt klar på 10–30 minuter. Du chattar med AI:n om vilka behandlingar du erbjuder, laddar upp bilder, kopplar bokningssystem och publicerar. Vill du finjustera texter och layout kan du ta den tid du behöver – allt sparas automatiskt."
+    },
+    {
+      "q": "Kan jag integrera mitt befintliga bokningssystem?",
+      "a": "Ja, Sajtmaskin har inbyggt stöd för Cal.com som bokningslösning. Använder du ett annat system kan du bädda in det via en iframe eller länka till din befintliga bokningssida. De flesta svenska bokningssystem för salonger (Bokadirekt, Timma m.fl.) går att länka eller integrera."
+    },
+    {
+      "q": "Fungerar sajten bra för kunder som söker salong i Göteborg?",
+      "a": "Ja, sajten blir automatiskt mobilanpassad och SEO-optimerad. Du kan lägga till stadsdelsnamn, landmärken och lokala sökord så att göteborgare hittar dig när de söker på Google. Kombinera med Google My Business så stärker du din lokala närvaro ytterligare."
+    },
+    {
+      "q": "Kan jag sälja produkter eller presentkort på sajten?",
+      "a": "Ja, via Stripe-integrationen kan du ta betalt för presentkort, produkter eller förskottsbetalning av behandlingar. Vill du ha en fullskalig webshop kan du integrera Shopify. Båda alternativen sätts upp direkt i plattformen utan kod."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan när som helst exportera hela koden till din sajt och flytta den till en annan host eller webbleverantör. Det finns ingen bindningstid, och du äger allt innehåll och all design. Sajtmaskin låser inte in dig."
+    },
+    {
+      "q": "Får jag hjälp om jag kör fast?",
+      "a": "Ja, du får svenskspråkig support via chatt och e-post. Eftersom plattformen är byggd i Sverige av Pretty Good AB slipper du tidszoner och språkbarriärer. De flesta frågor löses direkt i gränssnittet, men supporten finns där om du behöver."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg har hundratals salonger från Avenyn till Haga, och konkurrensen om synlighet är hård. En professionell hemsida med onlinebokning och tydlig prislista gör det enklare för nya kunder att välja just din salong – oavsett om du är frisör, hudterapeut, nagelteknolog eller driver en kombinerad skönhetssalong.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,90 @@
+{
+  "family": "city-usecase",
+  "slug": "sodertalje/webshop",
+  "title": "Hemsida webshop Södertälje – Bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett webshop för ditt Södertäljeföretag med AI. Publicera på egen domän, integrera Shopify och betalningar – utan kod.",
+  "h1": "Hemsida webshop Södertälje",
+  "heroSub": "Bygg en färdig e-handelsajt för ditt Södertäljeföretag via chat – med betalningar, produkter och din egen domän.",
+  "introParagraphs": [
+    "En webshop behöver mer än snygga produktbilder. Du vill ha en sajt som tar betalt, hanterar lager och gör det lätt för kunder i Södertälje och resten av Sverige att handla. Sajtmaskin bygger hela din e-handel på minuter genom att du chattar med vår AI – ingen kod, ingen krånglig installation.",
+    "Du får en komplett webshop med integrationer för Shopify, Stripe-betalningar och Google Analytics. Publicera direkt på din egen domän eller testa kostnadsfritt på en subdomän. Allt på svenska, byggt för svenska företag som vill sälja online utan att behöva anlita dyra byråer.",
+    "Oavsett om du driver en butik på Storgatan, säljer hantverksprodukter från verkstaden i Hovsjö eller vill komplettera ditt B2B-företag med e-handel – Sajtmaskin ger dig en sajt som fungerar från dag ett."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du en webshop med AI",
+      "body": "Du startar en chatt och beskriver vad du säljer, vilka funktioner du behöver och hur sajten ska se ut. AI:n föreslår struktur, produktsidor, kassan och betalningsflöde. Du justerar text, bilder och layout direkt i chatten tills allt sitter. Sedan publicerar du på din egen domän – eller på en subdomän utan månadskostnad. Shopify-integrationen hanterar produkter och lager, Stripe tar hand om kortbetalningar. Allt sker på svenska och du behöver aldrig öppna en kodredigerare."
+    },
+    {
+      "heading": "Funktioner en Södertäljewebshop behöver",
+      "body": "Företag i Södertälje säljer allt från industriprodukter till lokala matvaror och tjänster. Din webshop behöver därför tydliga produktsidor, smidig kassan, fraktinformation och betalningsalternativ som svenska kunder förväntar sig. Sajtmaskin bygger in Stripe för kortbetalningar, Cal.com om du säljer tjänster som kräver bokning, och Google Analytics så du ser var kunderna kommer ifrån. Du kan välja att integrera Shopify för fullständig e-handel eller bygga en enklare produktkatalog om du vill starta smått. Allt anpassas efter dina behov."
+    },
+    {
+      "heading": "Publicera och äg din webshop",
+      "body": "När sajten är klar publicerar du den på din egen domän – inget tvång att stanna på vår plattform. Vill du testa först? Använd en subdomän utan månadskostnad. Det finns ingen bindningstid och du kan exportera hela koden när du vill. Det betyder att du äger din webshop helt och inte är låst till en leverantör. Du kan uppdatera produkter, priser och innehåll själv, eller be AI:n göra det genom att chatta. Perfekt för småföretag och lokala aktörer som vill ha full kontroll."
+    },
+    {
+      "heading": "Varför Södertäljeföretag väljer Sajtmaskin",
+      "body": "Många företag i Södertälje har behövt välja mellan dyra webbbyråer eller komplicerade e-handelsplattformar med utländska gränssnitt. Sajtmaskin är byggt i Sverige, helt på svenska, och designat för att svenska företag ska kunna starta e-handel snabbt. Du slipper tekniskt krångel, dolda avgifter och långa projekttider. Istället får du en färdig webshop på minuter, med de integrationer du faktiskt behöver. Hundratals svenska företag använder redan Sajtmaskin för att sälja online – nu är det din tur."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en webshop med Sajtmaskin?",
+      "a": "De flesta har en fungerande webshop på 10–30 minuter. Du chattar med AI:n, beskriver dina produkter och behov, och får en färdig sajt som du kan publicera direkt. Vill du finjustera design och texter tar det lite längre, men grundstrukturen är klar på minuter."
+    },
+    {
+      "q": "Kan jag integrera Shopify för att hantera produkter och lager?",
+      "a": "Ja, Sajtmaskin stödjer Shopify-integrering så du kan hantera produkter, lager och ordrar i Shopify medan sajten visar allt snyggt för dina kunder. Du kan också bygga en enklare produktkatalog utan Shopify om du vill starta mindre."
+    },
+    {
+      "q": "Hur fungerar betalningar i webshopen?",
+      "a": "Du integrerar Stripe för kortbetalningar direkt i kassan. Stripe hanterar alla vanliga betalkort och säkerheten, så du slipper oroa dig för PCI-compliance. Kunderna betalar smidigt och pengarna hamnar på ditt konto."
+    },
+    {
+      "q": "Kostar det att ha webshopen publicerad?",
+      "a": "Du kan publicera på en subdomän helt utan månadskostnad. Vill du använda din egen domän behöver du en publiceringsplan, men det finns inga dolda avgifter eller bindningstid. Du kan också exportera koden och hosta själv om du vill."
+    },
+    {
+      "q": "Fungerar webshopen för företag i Södertälje som säljer både lokalt och nationellt?",
+      "a": "Absolut. Din webshop fungerar för kunder var de än befinner sig. Du kan lägga till fraktinformation, lokala hämtalternativ eller leveransvillkor som passar just ditt företag. Många Södertäljeföretag säljer både till lokala kunder och resten av Sverige genom sin Sajtmaskin-webshop."
+    },
+    {
+      "q": "Kan jag uppdatera produkter och priser själv efter att sajten är publicerad?",
+      "a": "Ja, du uppdaterar genom att chatta med AI:n eller redigera direkt i gränssnittet. Vill du lägga till nya produkter, ändra priser eller uppdatera bilder gör du det på några minuter. Använder du Shopify sköter du produkthanteringen där."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan extra kostnad. Det betyder att du äger din webshop och kan flytta den till vilken hosting du vill. Ingen bindningstid, inga krångliga avslut – du bestämmer helt själv."
+    }
+  ],
+  "localOrIndustryContext": "Södertälje har en stark företagstradition inom industri, logistik och handel. Många lokala företag vill komplettera fysiska butiker eller B2B-verksamhet med e-handel, men har saknat enkla verktyg på svenska. Sajtmaskin gör det möjligt för Södertäljeföretag att starta webshop snabbt, utan teknisk expertis.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/sodertalje",
+      "label": "Skapa hemsida i Södertälje"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Södertälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

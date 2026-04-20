@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "gavle/fotograf",
+  "title": "Hemsida fotograf Gävle – Bygg din portfoliosajt med AI | Sajtmaskin",
+  "metaDescription": "Skapa en professionell fotografhemsida i Gävle på minuter. AI bygger din portfolio med bokningssystem och bildgallerier – ingen kod krävs.",
+  "h1": "Hemsida för fotografer i Gävle",
+  "heroSub": "Bygg en professionell portfoliosajt med bokningssystem och bildgallerier – på minuter, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "Som fotograf i Gävle behöver du en hemsida som visar upp ditt arbete professionellt och gör det enkelt för kunder att boka dig. Sajtmaskin låter dig bygga en komplett fotografsajt via chat – berätta vad du fotograferar och vilken stil du vill ha, så genererar AI:n en färdig sajt med portfolio, om-sida och kontaktformulär.",
+    "Du får integrerat bokningssystem via Cal.com så kunder kan boka fotosession direkt, bildgallerier som visar ditt arbete i bästa ljus, och möjlighet att sälja digitala bilder eller paket via Stripe. Allt på svenska, utan teknisk krångel.",
+    "Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när du vill. Byggt i Sverige för svenska fotografer."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio som säljer ditt arbete",
+      "body": "Din fotografhemsida behöver visa upp dina bilder på ett sätt som får potentiella kunder att vilja boka. Sajtmaskin skapar automatiskt responsiva bildgallerier där dina foton får plats att andas. Organisera efter kategori – bröllop, porträtt, företagsfoto, events – så besökare snabbt hittar det de söker. AI:n optimerar bildvisningen för både mobil och desktop, och du kan enkelt uppdatera portfolion genom att ladda upp nya bilder. Ingen kodning, inga krångliga CMS-system."
+    },
+    {
+      "heading": "Bokningssystem som fungerar dygnet runt",
+      "body": "Med Cal.com-integration får du ett professionellt bokningssystem direkt i hemsidan. Kunder ser dina lediga tider och bokar fotosession utan att behöva maila fram och tillbaka. Du bestämmer själv sessionslängd, bufferttid mellan bokningar och vilka typer av tjänster du erbjuder. Systemet synkar med din kalender och skickar automatiska påminnelser till både dig och kunden. Perfekt för fotografer som vill spendera mindre tid på administration och mer tid bakom kameran."
+    },
+    {
+      "heading": "Sälj dina tjänster och bilder online",
+      "body": "Vill du sälja fotoprodukter, digitala bildpaket eller presentkort? Stripe-integrationen gör det möjligt att ta betalt direkt på hemsidan. Skapa paketpriser för olika typer av fotosessioner, sälja redigeringstjänster eller erbjuda digitala nedladdningar av bilder. Kunderna betalar säkert med kort, och du får pengarna direkt till ditt konto. Allt hanteras smidigt utan att du behöver bygga en komplex webshop."
+    },
+    {
+      "heading": "Bygg sajten på minuter, inte veckor",
+      "body": "Traditionella hemsidor för fotografer tar tid och kostar ofta tiotusentals kronor. Med Sajtmaskin chattar du med AI:n om din verksamhet – vilka typer av uppdrag du tar, din fotografiska stil, vilka tjänster du erbjuder – och får en färdig sajt på minuter. AI:n skriver texter, skapar layout och sätter upp alla funktioner du behöver. Du kan sedan justera allt själv, byta bilder, ändra färger och lägga till sidor. Inget bindande avtal, ingen teknisk utbildning krävs."
+    },
+    {
+      "heading": "Gjord för Gävle, byggd i Sverige",
+      "body": "Sajtmaskin är utvecklat i Sverige med fokus på svenska företag. Allt är på svenska – gränssnittet, supporten, juridiska texter. Din fotografhemsida får automatiskt GDPR-kompatibel cookiebanner och integritetspolicy som följer svensk lagstiftning. Vill du rankas för sökningar som 'bröllopsfotograf Gävle' eller 'företagsfotograf Gästrikland' kan du enkelt optimera texter och metadata. Google Analytics ingår för att följa hur besökare hittar dig."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografhemsida med Sajtmaskin?",
+      "a": "De flesta fotografer har en färdig grundsajt på 10-15 minuter. Du chattar med AI:n om din verksamhet, väljer stil och funktioner, så genereras en komplett sajt med portfolio, om-sida och kontaktformulär. Sedan lägger du till dina egna bilder och justerar texter efter behov. Du kan publicera direkt eller fortsätta finslipa – det är helt upp till dig."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotografier i separata gallerier?",
+      "a": "Ja, du kan skapa hur många bildgallerier du vill och organisera dem efter kategori. Många fotografer i Gävle delar upp sitt arbete i bröllop, porträtt, företagsfoto, events och liknande. Varje galleri kan ha sin egen stil och presentation. Du laddar enkelt upp bilder och AI:n hjälper till att skapa en snygg layout som fungerar på alla skärmar."
+    },
+    {
+      "q": "Fungerar bokningssystemet för olika typer av fotosessioner?",
+      "a": "Absolut. Med Cal.com-integrationen kan du skapa olika bokningsbara tjänster – allt från 30-minuters porträttsession till heldags bröllopsfotografering. Du sätter själv pris, sessionslängd och hur mycket tid du vill ha mellan bokningar. Kunder ser dina lediga tider och bokar direkt, och systemet skickar automatiska bekräftelser och påminnelser."
+    },
+    {
+      "q": "Vad kostar det att driva en fotografhemsida via Sajtmaskin?",
+      "a": "Du betalar ingen månadskostnad om du publicerar på en subdomän hos oss. Vill du använda din egen domän (till exempel dittnamn.se) behöver du köpa domänen och eventuellt välja hosting, men det finns inga bindningstider. Du kan när som helst exportera koden och flytta sajten någon annanstans. Inga dolda avgifter eller långa avtal."
+    },
+    {
+      "q": "Kan jag sälja bildpaket eller fotoprodukter via hemsidan?",
+      "a": "Ja, med Stripe-integration kan du ta betalt för digitala bildpaket, printar, fotosessioner eller presentkort direkt på sajten. Du skapar produkter med beskrivningar och priser, och kunderna betalar säkert med kort. Pengarna går direkt till ditt Stripe-konto. Perfekt för fotografer som vill sälja utan att bygga en hel webshop."
+    },
+    {
+      "q": "Hur optimerar jag sajten för att synas i Gävle-sökningar?",
+      "a": "Sajtmaskin låter dig enkelt redigera sidtitlar, beskrivningar och texter så du kan inkludera relevanta sökord som 'fotograf Gävle' eller din specialisering. Du kan skapa en om-sida som nämner att du verkar i Gävle och omnejd, lägga till en kontaktsida med adress, och koppla på Google Analytics för att följa hur folk hittar dig. AI:n hjälper till att strukturera innehållet SEO-vänligt från start."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela din sajt som kod och flytta den till valfri hosting-leverantör. Ingen bindningstid, inga utträdesavgifter. Din hemsida är din – Sajtmaskin låser inte in dig. Många väljer att stanna för att det är smidigt och prisvärt, men dörren står alltid öppen om du vill gå vidare."
+    }
+  ],
+  "localOrIndustryContext": "Gävle har en växande kreativ sektor med fotografer som täcker allt från bröllopsfoto vid Gavleån till kommersiella uppdrag för lokala företag. En professionell hemsida hjälper dig sticka ut i en stad där många fortfarande förlitar sig på sociala medier. Med egen sajt äger du din närvaro och kan visa upp arbete på dina villkor.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/gavle",
+      "label": "Skapa hemsida i Gävle"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Gävle. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

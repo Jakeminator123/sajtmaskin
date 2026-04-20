@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "musiker",
+  "title": "Hemsida för musiker – bygg din musiksajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för musiker med AI. Visa din musik, konsertkalender och kontaktinfo – utan kod. Publicera på egen domän direkt.",
+  "h1": "Hemsida för musiker",
+  "heroSub": "Bygg en professionell musiksajt med AI – visa din musik, kommande spelningar och låt bokare hitta dig enkelt.",
+  "introParagraphs": [
+    "En hemsida för musiker är ditt digitala visitkort där fans, bokare och skivbolag kan lyssna på din musik, se när du spelar nästa gång och komma i kontakt med dig. Utan en egen sajt försvinner du lätt i flödet på sociala medier, och det blir svårare för nya lyssnare att upptäcka dig när de googlar ditt artistnamn.",
+    "Med Sajtmaskin bygger du en komplett musiksajt på minuter genom att chatta med AI:n. Du beskriver vad du behöver – kanske en startsida med din senaste singel, en konsertkalender och ett kontaktformulär – så genererar plattformen hela sajten åt dig. Allt på svenska, ingen kod, publicera direkt på din egen domän.",
+    "Sajten blir din när du vill exportera koden, och du slipper månadskostnader om du använder vår subdomän. Integrationer med Cal.com för bokningar och Google Analytics för att se var dina besökare kommer ifrån ingår, så du kan fokusera på musiken istället för tekniken."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för musiker ska innehålla",
+      "body": "En typisk musiksajt behöver en startsida där besökare direkt ser vem du är och kan lyssna på din musik via inbäddad Spotify eller SoundCloud. En Om-sida berättar din historia och ger bokare känslan av vem de bokar, medan en Musik-sida samlar dina releaser, videor och pressbilder. Konsertkalendern är viktig för fans som vill se när du spelar live, och ett tydligt kontaktformulär gör det enkelt för arrangörer att nå dig. Många musiker lägger även till en Press-sida med högupplösta bilder, biografi och tidigare recensioner så journalister snabbt hittar det de behöver."
+    },
+    {
+      "heading": "Så bygger du en musiksajt med Sajtmaskin",
+      "body": "Du startar en chatt och skriver något i stil med 'Jag behöver en hemsida för mitt band, med startsida, konsertkalender och kontaktformulär'. AI:n föreslår struktur, design och innehåll baserat på vad du beskriver. Du kan be om justeringar direkt i chatten – byt färgschema till mörkare toner, lägg till en sektion för merch eller integrera din Spotify-profil. När allt ser bra ut publicerar du sajten på din egen domän eller testar den kostnadsfritt på en Sajtmaskin-subdomän. Vill du lägga till bokningsfunktion via Cal.com för meet-and-greet eller privatkonserter fixar du det med ett klick."
+    },
+    {
+      "heading": "Varför musiker behöver en egen sajt",
+      "body": "Sociala medier är bra för att nå ut, men algoritmerna bestämmer vem som ser dina inlägg och plattformarna kan ändra reglerna när som helst. En egen hemsida äger du helt själv – här styr du vad besökare ser först, hur din musik presenteras och hur länge innehållet stannar kvar. När någon googlar ditt artistnamn vill du att din egen sajt ska dyka upp högst upp, inte bara Spotify-profilen eller någon annans recension. En professionell hemsida signalerar också att du tar din musik på allvar, vilket gör skillnad när bokare och festivalarrangörer utvärderar artister."
+    },
+    {
+      "heading": "Funktioner som gör skillnad för musiker",
+      "body": "Utöver grundinnehållet kan du integrera Stripe om du säljer merch, biljetter eller digitala nedladdningar direkt från sajten. Google Analytics visar vilka låtar eller sidor som får mest trafik, så du ser vad som engagerar dina fans. Cal.com-integrationen låter bokare välja tid för möten eller låter dig ta emot förfrågningar om privata spelningar med automatisk kalendersynk. Eftersom Sajtmaskin är svenskt får du stöd på svenska och kan enkelt skriva texter som känns naturliga för svenska fans och arrangörer. Ingen bindningstid betyder att du kan exportera hela sajten och flytta den till en annan leverantör om du vill, utan att förlora ditt arbete."
+    },
+    {
+      "heading": "Exempel på musiksajter som fungerar",
+      "body": "En singer-songwriter från Göteborg kanske har en minimalistisk startsida med en stor hero-bild, en inbäddad Spotify-spelare och en knapp till konsertkalendern. Ett metalband från Stockholm kan vilja ha en mörkare design med bandfoton, turnédatum och en merch-shop integrerad via Shopify. En jazzmusiker i Malmö kanske fokuserar på en diskografi-sida med albumomslag och länkar till streamingtjänster, plus en press-sektion med citat från Orkesterjournalen. Oavsett genre bygger du strukturen du behöver genom att beskriva den i chatten, och AI:n anpassar design och innehåll efter din musikstil."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag bädda in musik från Spotify och YouTube?",
+      "a": "Ja, du kan enkelt bädda in spelare från Spotify, SoundCloud, YouTube och andra tjänster direkt på din sajt. Beskriv bara i chatten vilka plattformar du vill integrera så hjälper AI:n dig att lägga till rätt kod. Det fungerar för enskilda låtar, album eller hela spellistor."
+    },
+    {
+      "q": "Hur lägger jag till en konsertkalender?",
+      "a": "Du kan skapa en sida med kommande spelningar där varje konsert visas med datum, plats och eventuell biljettlänk. Om du vill ha en mer avancerad kalender kan du integrera Cal.com för bokningar eller länka till externa biljettjänster som Ticketmaster. Uppdatera enkelt genom att chatta med AI:n när nya datum tillkommer."
+    },
+    {
+      "q": "Kostar det extra att publicera på min egen domän?",
+      "a": "Nej, du kan koppla din egen domän utan extra kostnad. Köp domänen hos valfri registrar, peka DNS-posterna mot Sajtmaskin och publicera. Om du inte har en egen domän än kan du använda en kostnadsfri subdomän hos oss för att testa sajten innan du bestämmer dig."
+    },
+    {
+      "q": "Kan jag sälja merch eller biljetter via sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du ta betalt för merch, digitala nedladdningar eller vad du vill sälja. Vill du ha en fullständig webshop kan du integrera Shopify. För biljettförsäljning kan du antingen länka till externa tjänster eller använda Stripe för enklare direktförsäljning."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela sajten som kod när som helst, utan bindningstid. Ta med dig alla sidor, bilder och texter och publicera dem var du vill. Sajtmaskin låser inte in dig, så du äger alltid ditt innehåll och kan flytta fritt."
+    },
+    {
+      "q": "Får jag hjälp på svenska om jag kör fast?",
+      "a": "Ja, Sajtmaskin är byggt i Sverige av Pretty Good AB och allt stöd, gränssnitt och dokumentation är på svenska. Du kan chatta med AI:n på svenska för att justera sajten, och om du behöver mänsklig hjälp når du supporten på svenska."
+    },
+    {
+      "q": "Kan jag ha både svensk och engelsk version av sajten?",
+      "a": "Ja, du kan bygga flerspråkiga sidor genom att be AI:n skapa separata versioner eller lägga till språkväxlare. Många musiker som turnerar internationellt vill ha engelska texter för press och bokare, medan svenska fans uppskattar innehåll på sitt eget språk. Beskriv bara din önskade struktur i chatten."
+    }
+  ],
+  "localOrIndustryContext": "Svenska musiker – från indieband i Umeå till elektroniska producenter i Malmö – behöver en digital närvaro som fungerar för både lokala fans och internationella bokare. Med Sajtmaskin får du en plattform som förstår svenska förhållanden, stödjer svensk text och gör det enkelt att nå ut både hemma och utomlands.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en musiker-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

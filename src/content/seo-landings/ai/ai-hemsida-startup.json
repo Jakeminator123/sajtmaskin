@@ -1,0 +1,98 @@
+{
+  "family": "ai",
+  "slug": "ai-hemsida-startup",
+  "title": "AI-hemsida för startups – bygg sajt på minuter | Sajtmaskin",
+  "metaDescription": "Startups använder AI för att bygga hemsidor snabbt och billigt. Läs hur AI-verktyg som Sajtmaskin skapar färdiga sajter från en prompt – utan kod.",
+  "h1": "AI-hemsida för startups",
+  "heroSub": "Bygg en färdig hemsida på minuter genom att chatta med AI – perfekt när du behöver lansera snabbt.",
+  "introParagraphs": [
+    "AI-hemsidor för startups betyder att du beskriver din idé i text, så genererar AI design, innehåll och struktur automatiskt. Istället för att sitta i en mallbyggare i dagar eller betala en byrå tiotusentals kronor får du en färdig sajt på minuter. Det passar startups som behöver komma igång snabbt, testa en idé eller lansera en MVP utan att lägga tid och pengar på webbutveckling.",
+    "Tekniken fungerar genom att AI-modeller läser din beskrivning och skapar sidor, texter, layout och navigation utifrån det. Du kan justera resultatet direkt i chatten, lägga till bokningsfunktion eller betalning, och publicera på din egen domän. Det är inte en mallbyggare där du drar och släpper – AI gör jobbet åt dig baserat på vad du säger.",
+    "För startups är fördelen tydlig: du slipper lära dig WordPress, Wix eller koda själv. Du behöver ingen designer eller copywriter i tidiga skeden. Och om du vill byta verktyg senare kan du exportera koden och flytta vidare. Det handlar om att komma igång nu, inte om att bygga för evigt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI bygger en hemsida åt dig",
+      "body": "Du skriver vad din startup gör, vilka du vänder dig till och vad sajten ska innehålla. AI:n tolkar det och genererar sidor med text, bilder, knappar och menyer. Det tar några minuter. Sedan kan du be AI:n ändra färger, lägga till en kontaktsektion eller skriva om en rubrik. Allt sker i chat, utan att du öppnar en editor eller rör kod. Resultatet är en färdig sajt som ser professionell ut och fungerar direkt. Du kan publicera den på en subdomän gratis eller koppla din egen domän. Tekniken liknar hur ChatGPT skriver text, men här skapar AI hela webbsidor med fungerande struktur och design."
+    },
+    {
+      "heading": "Skillnaden mot mallbyggare och byråer",
+      "body": "Mallbyggare som Wix eller Squarespace ger dig hundratals mallar, men du måste själv välja, anpassa och fylla i allt. Det tar tid och kräver designkänsla. Byråer levererar skräddarsytt, men kostar ofta 30 000–100 000 kronor och tar veckor. AI-hemsidor landar mittemellan: du får en färdig sajt snabbt och billigt, men den är skapad unikt för dig – inte en mall du delar med tusentals andra. Du behöver ingen teknisk kunskap, och du kan ändra allt efteråt. För en startup som vill testa en idé eller lansera innan pengarna tar slut är det en enorm fördel."
+    },
+    {
+      "heading": "Vad kan du faktiskt göra med en AI-hemsida?",
+      "body": "Du kan bygga en landningssida för att samla mejladresser, en produktsajt med Stripe-betalning, en bokningsbar tjänstesida med Cal.com, eller en enkel webshop via Shopify-integration. Du kan lägga in Google Analytics för att följa trafik, bädda in formulär, videor och kartor. AI:n skapar innehållet, men du styr vad som ska finnas. Om du vill ändra något skriver du bara det i chatten. Det fungerar för B2B-startups som behöver en proffsig sajt snabbt, för konsulter som vill ta betalt online, eller för produktlanseringar där du testar budskap innan du skalar. Du är inte låst – exportera koden och flytta när du vill."
+    },
+    {
+      "heading": "Varför svenska startups väljer Sajtmaskin",
+      "body": "Sajtmaskin är byggt i Sverige, på svenska, för svenska företag. Du chattar på svenska och får svenskt innehåll direkt – ingen översättning, inga konstiga formuleringar. Du slipper månadsavgift om du publicerar på subdomän, och det finns ingen bindningstid. Integrationer med Cal.com, Stripe och Shopify är inbyggda, så du kan ta betalt eller ta emot bokningar från dag ett. Många startups använder Sajtmaskin för att testa en idé snabbt, lansera en MVP eller bygga en sajt medan de söker kapital. Det är ett verktyg som växer med dig – börja enkelt, lägg till funktioner när du behöver dem, och exportera om du vill bygga vidare själv senare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida med AI?",
+      "a": "Från prompt till färdig sajt tar det oftast 5–15 minuter. Du beskriver vad du vill ha, AI:n genererar sidan, och sedan kan du justera direkt i chatten. Om du vet vad du vill säga går det ännu snabbare. Publiceringen sker med ett klick."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja. Du kan publicera på en gratis subdomän hos Sajtmaskin, eller koppla din egen domän. Det finns inga dolda avgifter för hosting på subdomän, och du kan byta när du vill. Instruktioner för domänkoppling finns i plattformen."
+    },
+    {
+      "q": "Vad händer om jag vill byta verktyg senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad eller bindningstid. Det betyder att du äger allt material och kan flytta sajten till en annan host, fortsätta utveckla själv eller anlita en utvecklare. Ingen inlåsning."
+    },
+    {
+      "q": "Kan jag ta betalt eller ta emot bokningar direkt?",
+      "a": "Ja. Sajtmaskin har inbyggda integrationer med Stripe för betalningar och Cal.com för bokningar. Du kopplar ditt konto och lägger till funktionen på sajten. Det fungerar direkt utan kod eller extra plugins."
+    },
+    {
+      "q": "Hur bra blir texterna som AI:n skriver?",
+      "a": "AI:n skriver utifrån din beskrivning, så kvaliteten beror på hur tydlig du är. Texterna blir grammatiskt korrekta och läsbara, men du kan alltid be AI:n skriva om, förkorta eller ändra ton. De flesta justerar lite efter att sajten genererats, precis som med en copywriter."
+    },
+    {
+      "q": "Funkar det för webshop också?",
+      "a": "Ja, via Shopify-integration. Du kan koppla din Shopify-butik och visa produkter på sajten. För enklare försäljning av enstaka produkter eller tjänster räcker Stripe-integrationen. Det beror på vad du säljer och hur många produkter du har."
+    },
+    {
+      "q": "Kostar det något att prova?",
+      "a": "Sajtmaskin erbjuder en gratis testperiod där du kan bygga och publicera på subdomän utan betalning. Du betalar bara om du vill använda egen domän eller behöver extra funktioner. Inga dolda avgifter eller kreditkortskrav för att testa."
+    }
+  ],
+  "localOrIndustryContext": "Svenska startups jobbar ofta med snäva budgetar och korta deadlines, särskilt i tidiga skeden eller under kapitalrundor. AI-verktyg som Sajtmaskin passar det tempot – du kan lansera en sajt samma dag du bestämmer dig, testa budskap snabbt och iterera utan att vänta på utvecklare eller designer.",
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

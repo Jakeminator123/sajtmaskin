@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "markfirma",
+  "title": "Hemsida för markfirma – snabbt, enkelt och utan kod | Sajtmaskin",
+  "metaDescription": "Bygg en professionell hemsida för din markfirma på minuter med AI. Visa schaktning, markarbeten och asfalt – publicera direkt utan kod.",
+  "h1": "Hemsida för markfirma",
+  "heroSub": "Skapa en professionell sajt för ditt markföretag på minuter – med AI som bygger åt dig, utan kod eller krångel.",
+  "introParagraphs": [
+    "En hemsida för markfirma behöver visa vad ni gör, var ni verkar och hur kunder enkelt når er för offert. Många markföretag tappar jobb till konkurrenter som syns bättre online, trots att de gör lika bra jobb. Med Sajtmaskin bygger du en komplett sajt på minuter – beskriv bara din verksamhet i chatten så skapar AI:n sidor, bilder och texter anpassade för schaktning, markarbeten eller asfalt.",
+    "Du får en sajt som visar referensprojekt, tjänster och kontaktformulär – allt på svenska och klart att publicera direkt. Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan när som helst koppla din egen domän eller exportera koden."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför markfirmor behöver en egen hemsida",
+      "body": "De flesta kunder söker efter markföretag online innan de ringer – särskilt för större jobb som husgrunder, dränering eller parkeringsplatser. Utan hemsida hamnar du utanför synfältet när byggfirmor, fastighetsägare eller villaägare jämför alternativ. En sajt visar att du är etablerad, gör det lätt att begära offert och ger förtroende genom bilder från tidigare jobb. Många markfirmor förlitar sig på rekommendationer, men en hemsida fångar också nya kunder som inte känner till dig sedan tidigare."
+    },
+    {
+      "heading": "Vad en bra hemsida för markfirma ska innehålla",
+      "body": "Startsidan ska direkt visa vilka tjänster ni erbjuder – schaktning, sprängning, markplanering, asfalt, dränering – och var ni jobbar. En tjänstesida för varje huvudområde hjälper Google förstå vad ni gör och lockar rätt sökningar. Referenssida med bilder från projekt bygger förtroende: husgrunder, vägar, VA-arbeten. Kontaktsida med telefon, mejl och gärna ett formulär för offertförfrågan gör det enkelt att nå er. Om ni har maskiner som grävmaskiner, dumprar eller vältmaskiner kan ni nämna det – det signalerar kapacitet."
+    },
+    {
+      "heading": "Hur Sajtmaskin bygger din markfirmasajt",
+      "body": "Du startar en chatt och beskriver din verksamhet: vilka tjänster ni utför, var ni är verksamma, om ni jobbar mot privat eller företag. AI:n skapar sedan en komplett sajt med sidor, texter och bilder som passar just markbranschen. Du kan direkt redigera texter, lägga till egna foton från projekt eller justera färger. Vill du ha bokningskalender för konsultationer kopplar du Cal.com, eller Google Analytics för att se besöksstatistik. Allt på svenska, ingen kod, och du publicerar när du är nöjd – antingen på vår subdomän gratis eller på din egen domän."
+    },
+    {
+      "heading": "Integrationer som gör sajten mer användbar",
+      "body": "Med Cal.com kan kunder boka tid för platsbesök eller offertmöte direkt i kalendern – smidigare än mejl fram och tillbaka. Google Analytics visar vilka sidor som besöks mest och var trafiken kommer ifrån, så du ser om lokala sökningar fungerar. Stripe kan användas om ni tar förskottsbetalningar eller fakturerar mindre jobb direkt online. Alla integrationer aktiveras med ett klick, ingen teknisk kunskap krävs, och du behåller full kontroll över dina kundkontakter."
+    },
+    {
+      "heading": "Ingen bindningstid – du äger alltid din sajt",
+      "body": "Sajtmaskin har ingen låsning. Hosting på subdomän kostar inget löpande, och vill du använda egen domän eller exportera hela sajten som kod kan du göra det när du vill. Det betyder att du aldrig är beroende av oss – sajten är din. Många webbbyråer binder upp markfirmor i månadskostnader eller gör det krångligt att byta, men här bestämmer du själv. Uppdatera texter, lägg till nya projekt eller ändra priser direkt i gränssnittet, utan att vänta på någon annan."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för markfirma?",
+      "a": "Oftast några minuter. Du chattar med AI:n om dina tjänster – schaktning, asfalt, markarbeten – och var du jobbar, så genereras en komplett sajt. Sen kan du redigera texter och lägga till egna bilder från projekt innan du publicerar."
+    },
+    {
+      "q": "Kan jag visa bilder från mina egna projekt?",
+      "a": "Ja, du kan ladda upp dina egna foton från husgrunder, vägarbeten eller andra jobb och ersätta AI-genererade bilder. Det gör sajten mer trovärdig och visar konkret vad ni har gjort tidigare."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter är responsiva och ser bra ut på telefon, surfplatta och dator. Många kunder söker efter markfirmor på mobilen när de står på tomten eller pratar med byggfirman, så det är viktigt att allt funkar smidigt."
+    },
+    {
+      "q": "Kan jag lägga till ett offertformulär?",
+      "a": "Absolut. Du kan ha kontaktformulär där kunder beskriver jobbet, och du kan koppla Cal.com om du vill att de bokar tid för platsbesök direkt. Allt skickas till din mejl så du inte missar någon förfrågan."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda egen domän eller få fler funktioner finns betalplaner, men ingen bindningstid. Du kan när som helst exportera sajten och flytta den om du vill."
+    },
+    {
+      "q": "Kan jag uppdatera priser och tjänster själv?",
+      "a": "Ja, du loggar in och redigerar texter direkt – lägger till nya tjänster, ändrar områdesbeskrivningar eller uppdaterar kontaktuppgifter. Ingen kod, inget krångel, och ändringarna syns direkt på sajten."
+    },
+    {
+      "q": "Syns sajten på Google?",
+      "a": "Ja, sajten är tekniskt optimerad för sökmotorer. För att ranka bra lokalt är det smart att nämna var du jobbar – kommun eller region – och ha tydliga tjänstebeskrivningar. Google Analytics kan du koppla för att följa hur sajten presterar."
+    }
+  ],
+  "localOrIndustryContext": "Markbranschen i Sverige är lokal till sin natur – de flesta firmor jobbar inom en eller ett par kommuner. Kunder söker ofta efter ",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en markfirma-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

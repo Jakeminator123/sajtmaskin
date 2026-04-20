@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "halmstad/bygg",
+  "title": "Hemsida för byggföretag i Halmstad – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Halmstad med AI. Färdig på minuter, ingen kod krävs. Från 0 kr/mån.",
+  "h1": "Hemsida för byggföretag i Halmstad",
+  "heroSub": "Bygg en sajt som visar dina projekt, tar emot förfrågningar och bokar besiktningar – direkt från chatten.",
+  "introParagraphs": [
+    "Om du driver ett byggföretag i Halmstad vet du att kunderna vill se tidigare projekt, läsa recensioner och enkelt kunna boka ett kostnadsfritt besök. Sajtmaskin låter dig skapa en komplett hemsida på minuter genom att bara beskriva vad du gör – AI:n bygger resten.",
+    "Du får en sajt som visar dina tjänster, referensprojekt med bilder, kontaktformulär och integrerad bokningskalender via Cal.com. Publicera på din egen domän eller kör gratis på en subdomän. Ingen bindningstid, ingen kodning, allt på svenska.",
+    "Perfekt för snickare, murare, takläggare, ROT-företag och totalentreprenörer i Halmstad som vill synas professionellt online utan att lägga veckor på utveckling."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Halmstad behöver",
+      "body": "Byggkunder i Halmstad söker oftast efter lokala hantverkare med tydliga referenser och enkel kontakt. Din hemsida behöver visa vad du är bra på – om det är nybyggnation, renovering, tillbyggnader eller ROT-arbeten. Bilder från tidigare projekt i området skapar förtroende, och ett enkelt sätt att begära offert eller boka konsultation gör att fler hör av sig. Många byggföretag tappar kunder för att sajten är otydlig eller saknar mobilvänlighet."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din byggsajt",
+      "body": "Du chattar med AI:n och beskriver ditt företag: vilka tjänster du erbjuder, vilka områden du täcker, om du har F-skattsedel och ROT-avdrag. Sajtmaskin genererar sedan en komplett sajt med startsida, tjänstesidor, Om oss, kontaktformulär och galleri. Du kan lägga till Cal.com för direktbokning av besiktningar eller Stripe om du vill ta förskottsbetalningar online. Allt är färdigt på minuter, och du kan redigera text och bilder direkt i gränssnittet."
+    },
+    {
+      "heading": "Integrationer som sparar tid",
+      "body": "Koppla Cal.com så kunder kan boka kostnadsfri konsultation eller besiktning direkt i din kalender. Lägg till Google Analytics för att se vilka tjänster som får mest klick. Om du säljer byggmaterial eller färdiga paketlösningar kan du integrera Shopify. Allt sköts från samma gränssnitt, och alla integrationer är på svenska. Du slipper hoppa mellan olika verktyg eller betala för dyra plugins."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Sajtmaskin tar ingen månadskostnad om du kör på vår subdomän, och även på egen domän är priset transparent utan dolda avgifter. Du äger alltid din data och kan när som helst exportera hela sajten som kod om du vill flytta till egen server. Perfekt för byggföretag som vill testa utan risk eller som växer och behöver flexibilitet."
+    },
+    {
+      "heading": "Byggt i Sverige, stöd på svenska",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt och support. Vi förstår hur svenska byggföretag arbetar, vilka lagar som gäller (F-skatt, ROT-avdrag, GDPR) och hur kunder i Halmstad söker efter hantverkare. Du får en sajt som känns lokal och professionell, inte som en översatt mall från utlandet."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "Oftast är grundsajten klar på 5–10 minuter. Du chattar med AI:n, beskriver ditt byggföretag och väljer vilka sidor du vill ha. Sedan lägger du till egna bilder från projekt och justerar texter om du vill. Publicera direkt på subdomän eller koppla din egen domän samma dag."
+    },
+    {
+      "q": "Kan jag visa referensprojekt från Halmstad?",
+      "a": "Absolut. Du kan skapa ett galleri eller en projektsida där du laddar upp bilder från renoveringar, nybyggen eller ombyggnader du gjort i Halmstad och omnejd. Lägg gärna till kortfattade beskrivningar så besökare ser vad du kan."
+    },
+    {
+      "q": "Fungerar bokningsfunktionen för besiktningar?",
+      "a": "Ja, via Cal.com-integrationen kan kunder boka kostnadsfri konsultation, besiktning eller uppmätning direkt i din kalender. Du bestämmer själv tillgängliga tider och får notiser när någon bokar. Smidigare än att skicka mail fram och tillbaka."
+    },
+    {
+      "q": "Kostar det något att ha sajten live?",
+      "a": "På en Sajtmaskin-subdomän är hosting gratis utan månadskostnad. Vill du använda egen domän (t.ex. dittforetag.se) tillkommer en transparent avgift, men fortfarande utan bindningstid. Inga dolda kostnader eller krav på årslånga avtal."
+    },
+    {
+      "q": "Kan jag lägga till ROT-avdragsinformation?",
+      "a": "Ja, du kan enkelt lägga till en sida eller sektion som förklarar att du erbjuder ROT-avdrag och hur kunden ansöker. Eftersom allt innehåll är redigerbart kan du skriva precis vad som är relevant för dina tjänster och hålla informationen uppdaterad."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra något?",
+      "a": "Nej. Allt sköts via ett visuellt gränssnitt på svenska. Du klickar på texten du vill ändra, skriver om och sparar. Vill du lägga till en ny tjänst eller ta bort en sida gör du det direkt i editorn. Ingen kod, inga krångliga menyer."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela sajten som kod och flytta den till egen server eller annan leverantör. Sajtmaskin låser inte in dig – du äger ditt innehåll och har full frihet att välja väg framåt."
+    }
+  ],
+  "localOrIndustryContext": "Halmstad har en stark byggsektor med allt från villarenoveringar i Andersberg och Östra Stranden till nybyggnation längs kusten. Många hantverkare här jobbar med både ROT-projekt och nyproduktion, och konkurrensen om synlighet på Google är hög. En snabb, mobilvänlig sajt med tydliga referenser från lokala projekt gör skillnad när kunder jämför företag.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/halmstad",
+      "label": "Skapa hemsida i Halmstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Halmstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

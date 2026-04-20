@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "hundfrisor",
+  "title": "Hemsida för hundfrisör – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din hundfrisörsalong med bokning, prislista och galleri. Ingen kod krävs – publicera på egen domän direkt.",
+  "h1": "Hemsida för hundfrisör",
+  "heroSub": "Bygg en komplett sajt för din hundfrisörsalong med bokning, prislista och galleri – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En bra hemsida hjälper din hundfrisörsalong att synas när hundägare söker klippning, trimning eller bad i närheten. Den ska visa dina tjänster tydligt, låta kunder boka tid direkt och ge en känsla av vem du är – så att de känner sig trygga att lämna sin hund hos dig. Utan en sajt riskerar du att tappa kunder till konkurrenter som dyker upp först på Google.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n. Du beskriver vad du erbjuder – kanske rastrimmning, showklippning eller valptvätt – så skapar verktyget sidor, prislista, bildgalleri och bokningsfunktion. Publicera på din egen domän utan månadskostnad för hosting, och uppdatera innehållet när du vill.",
+    "Sajten är byggd för att vara lätt att hitta och enkel att använda, både för dig och dina kunder. Inga tekniska kunskaper behövs, och du slipper vänta på webbyrå eller lära dig WordPress."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för hundfrisör behöver innehålla",
+      "body": "Startsidan ska direkt visa vad du gör och var du finns. En Om-sida berättar om din erfarenhet och utbildning, vilket bygger förtroende. Tjänstesidan listar klippning, trimning, bad, tassklippning och eventuellt specialtjänster som handstripping eller showprep. En prislista gör det enkelt för kunden att planera, och ett galleri med före- och efterbilder visar ditt hantverk. Kontaktsida med adress, telefon och öppettider, plus en bokningsfunktion så kunder kan boka tid direkt utan att ringa."
+    },
+    {
+      "heading": "Så fungerar Sajtmaskin för hundfrisörer",
+      "body": "Du startar en chatt och skriver vad din salong erbjuder – kanske 'Jag driver hundfrisör i Malmö och erbjuder klippning, trimning och bad för alla raser'. AI:n föreslår struktur och innehåll, du justerar texter och bilder, lägger till priser och kopplar Cal.com för bokning. Vill du ta betalt online för produkter som schampo eller borskar kan du integrera Stripe eller Shopify. Allt sker i samma gränssnitt, på svenska, och du ser resultatet direkt."
+    },
+    {
+      "heading": "Bokning och prislista – viktiga funktioner",
+      "body": "Många hundfrisörer tappar bokningar för att kunder inte orkar ringa under öppettider. Med Cal.com-integrationen kan de boka klippning klockan 22 på kvällen om de vill. Du styr själv vilka tider som är lediga och får bekräftelse direkt. Prislistan kan delas upp efter storlek – små, medelstora och stora hundar – eller efter ras och pälstyp. Tydliga priser minskar frågor och gör att kunden känner sig trygg redan innan de hör av sig."
+    },
+    {
+      "heading": "Bildgalleri och förtroende",
+      "body": "Före- och efterbilder är guld värt för en hundfrisör. De visar vad du kan och lockar kunder som vill ha samma resultat för sin hund. Sajtmaskin låter dig enkelt lägga upp bilder i ett galleri, organiserat efter ras eller tjänst om du vill. Lägg gärna till en kort text om varje hund eller klippning – det skapar personlighet och visar att du bryr dig om varje kund."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du äger koden och kan när som helst exportera hela sajten om du vill flytta till egen server. Hosting på subdomän är gratis, vill du ha egen domän kopplar du den direkt. Inga långa avtal, inga dolda avgifter. Uppdatera texter, lägg till nya tjänster eller byt bilder själv – utan att behöva mejla en webbyrå och vänta i dagar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag ha olika priser för olika hundraser?",
+      "a": "Ja, du kan strukturera prislistan hur du vill – efter storlek, ras, pälstyp eller tjänst. Skapa separata tabeller eller listor så att det blir tydligt för kunden vad just deras hund kostar."
+    },
+    {
+      "q": "Fungerar bokningssystemet med min befintliga kalender?",
+      "a": "Cal.com synkar med Google Calendar, Outlook och andra vanliga kalendrar. När en kund bokar tid blockeras den automatiskt i din kalender, och du kan ställa in påminnelser till både dig och kunden."
+    },
+    {
+      "q": "Kan jag visa recensioner från nöjda hundägare?",
+      "a": "Absolut. Du kan lägga till ett recensionsavsnitt på startsidan eller en egen sida för kundomdömen. Kopiera in text från Google, Facebook eller mejl – eller be AI:n skapa en snygg layout för citaten."
+    },
+    {
+      "q": "Vad händer om jag vill lägga till fler tjänster senare?",
+      "a": "Du uppdaterar sajten genom att chatta med AI:n igen. Säg 'Lägg till tandborstning som tjänst' eller 'Skapa en sida för valpkurser', så justeras innehållet. Inga tekniska kunskaper behövs."
+    },
+    {
+      "q": "Kan jag sälja produkter som schampo och borstar?",
+      "a": "Ja, integrera Shopify för en fullständig webshop eller Stripe för enklare produktförsäljning. Du kan visa produkter direkt på sajten och ta betalt online."
+    },
+    {
+      "q": "Hur gör jag för att synas på Google?",
+      "a": "Sajtmaskin bygger sajten med bra SEO-grund – rätt rubriker, snabb laddning och mobilanpassning. Skriv texter med ord som hundägare söker efter, som 'hundfrisör Göteborg' eller 'pudelklippning', och lägg till din adress tydligt. Koppla Google Analytics för att följa besökare."
+    },
+    {
+      "q": "Kan jag visa öppettider och adress tydligt?",
+      "a": "Ja, kontaktsidan kan innehålla karta, adress, telefon, mejl och öppettider. Du kan också lägga öppettiderna i sidfoten så de syns på alla sidor, vilket gör det enkelt för kunder att snabbt kolla när du har öppet."
+    }
+  ],
+  "localOrIndustryContext": "Hundfrisörer i Sverige jobbar ofta ensamma eller i små salonger och behöver en sajt som är enkel att sköta själv. Många kunder söker lokalt – 'hundfrisör Stockholm' eller 'trimning Skåne' – så det är viktigt att sajten nämner stad och område tydligt. Bildgalleri och tydlig bokning är avgörande, eftersom hundägare vill se resultat och slippa ringa under arbetstid.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en hundfrisör-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -3,7 +3,6 @@
 import { AlertCircle, Loader2, MessageCircleQuestion } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mascot } from "@/components/mascot/Mascot";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef } from "react";
 import { GenerationProgress, type GenerationPhase } from "./GenerationProgress";
@@ -97,7 +96,6 @@ export function PreviewPanelEmptyState({
     }
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
-        <Mascot slot="empty-state" size={160} decorative className="mb-3" />
         <p className="mb-1 text-sm font-medium text-foreground">Din hemsida visas här</p>
         <p className="text-xs">Svara på frågorna så skapar jag din sajt.</p>
       </div>
@@ -140,14 +138,7 @@ export function PreviewPanelEmptyState({
       <div className="w-full max-w-md rounded-[var(--radius)] border border-border bg-card px-8 py-10 text-center shadow-sm">
         {EmptyIcon ? (
           <EmptyIcon className={cn("mx-auto mb-4 h-10 w-10 text-primary/85")} />
-        ) : (
-          <Mascot
-            slot={isInitialEmpty ? "wave" : "empty-state"}
-            size={160}
-            decorative
-            className="mx-auto mb-3"
-          />
-        )}
+        ) : null}
         <p className="mb-2 text-base font-medium tracking-tight text-foreground" suppressHydrationWarning>
           {title}
         </p>

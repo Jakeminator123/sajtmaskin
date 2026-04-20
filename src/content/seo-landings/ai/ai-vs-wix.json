@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "ai-vs-wix",
+  "title": "AI-hemsida vs Wix – vilken skillnad gör AI egentligen? | Sajtmaskin",
+  "metaDescription": "Vad skiljer en AI-hemsida från Wix? Vi förklarar hur AI bygger sajter från text, hur det skiljer sig från mallbyggare och vad det betyder i praktiken.",
+  "h1": "AI-hemsida vs Wix – vad är skillnaden?",
+  "heroSub": "Så fungerar AI-byggare jämfört med traditionella verktyg som Wix, och vad det betyder för dig som ska skapa en sajt.",
+  "introParagraphs": [
+    "Skillnaden mellan en AI-hemsida och Wix handlar om hur sajten byggs. Wix är en mallbyggare där du väljer en färdig design och fyller i text och bilder själv. En AI-hemsida genereras direkt från det du beskriver i text – du skriver vad du vill ha, så skapar AI:n layout, innehåll och struktur åt dig. Båda är kodfria verktyg, men arbetssättet är helt olika.",
+    "Med Wix börjar du med en tom eller förifylld mall och drar och släpper element tills sajten ser rätt ut. Det ger full kontroll men kräver att du fattar alla designbeslut själv. Med AI beskriver du istället ditt företag, vad sajten ska göra och vem den är till för – sedan bygger AI:n en komplett sajt baserat på det. Du kan fortfarande redigera efteråt, men utgångspunkten är färdig istället för tom.",
+    "Båda metoderna fungerar, men passar olika behov. Wix är bra om du vill ha full kontroll från start och har tid att bygga själv. AI passar om du vill komma igång snabbt, få ett förslag baserat på din beskrivning och slippa designa från noll. Sajtmaskin är ett svenskt exempel på det senare – en AI-plattform där du chattar fram din sajt på svenska och publicerar direkt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI faktiskt bygger en hemsida",
+      "body": "När du använder en AI-byggare skriver du en beskrivning av vad sajten ska innehålla – till exempel \"en sajt för en frisörsalong i Malmö med bokning, prislista och bildgalleri\". AI:n analyserar texten och genererar en komplett sajt: väljer layout, skriver innehåll, skapar sidor och lägger till funktioner som bokningssystem. Det är inte en mall du fyller i, utan en sajt som byggs unikt för din beskrivning. Du kan sedan redigera allt, men grunden är färdig direkt. Tekniken bygger på språkmodeller som förstår vad du menar och översätter det till fungerande webbsidor."
+    },
+    {
+      "heading": "Vad mallbyggare som Wix gör annorlunda",
+      "body": "Wix och liknande verktyg ger dig tusentals mallar att välja mellan. Du väljer en som passar din bransch, byter ut exempeltext mot din egen, laddar upp bilder och justerar färger och typsnitt. Det är visuellt och intuitivt, men varje steg kräver att du fattar beslut: var ska texten sitta, hur stor ska rubriken vara, vilken knapp passar bäst? Du bygger sajten bit för bit, vilket ger full kontroll men tar tid. Wix har också AI-funktioner numera, men kärnan är fortfarande att du själv designar med hjälp av mallar och dra-och-släpp-verktyg."
+    },
+    {
+      "heading": "Vad passar för dig?",
+      "body": "Om du vill ha full designkontroll från första pixeln och tycker det är kul att pyssla med layout passar Wix bra. Det är också ett bra val om du har en mycket specifik vision och vill att allt ska se ut exakt som du tänkt dig. AI-byggare som Sajtmaskin passar bättre om du vill komma igång snabbt, inte har tid eller lust att designa själv, eller vill få ett förslag att utgå från. Du kan fortfarande ändra allt efteråt, men du slipper börja med en tom canvas. För svenska företag som vill ha en sajt på svenska, med svenskt stöd och utan krångel, är Sajtmaskin ett konkret alternativ."
+    },
+    {
+      "heading": "Hur Sajtmaskin fungerar i praktiken",
+      "body": "På Sajtmaskin chattar du fram din sajt på svenska. Du beskriver vad du gör, vad sajten ska innehålla och vem den är till för – sedan genererar AI:n en komplett sajt med text, bilder och struktur. Du kan lägga till funktioner som bokning via Cal.com, betalning via Stripe eller webshop via Shopify direkt i chatten. Sajten publiceras på en subdomän kostnadsfritt, eller på din egen domän om du vill. Det finns ingen bindningstid och du kan exportera koden när du vill. Allt är byggt i Sverige, på svenska, för svenska företag."
+    },
+    {
+      "heading": "Kan du kombinera AI och egen kontroll?",
+      "body": "Ja. De flesta AI-byggare, inklusive Sajtmaskin, låter dig redigera allt efter att AI:n genererat grunden. Du kan ändra text, byta bilder, flytta sektioner och justera layout precis som i en vanlig editor. Skillnaden är att du börjar med en färdig sajt istället för en tom mall. Det betyder att du kan använda AI för att få en snabb start och sedan finjustera själv, eller låta AI:n göra det mesta och bara göra små justeringar. Du behöver inte välja mellan full AI-automatik och full manuell kontroll – du kan ha båda."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Är AI-hemsidor sämre än sajter byggda i Wix?",
+      "a": "Nej, de är bara byggda på ett annat sätt. En AI-hemsida genereras från din beskrivning medan Wix kräver att du bygger själv med mallar. Kvaliteten beror på hur bra AI:n är och hur väl du beskriver vad du vill ha. Båda metoderna kan ge proffsiga resultat, men AI sparar tid genom att skapa grunden åt dig."
+    },
+    {
+      "q": "Kan jag redigera en AI-genererad sajt efteråt?",
+      "a": "Ja, det går att ändra allt på en AI-genererad sajt. På Sajtmaskin kan du redigera text, bilder, layout och funktioner precis som på vilken hemsidebyggare som helst. AI:n ger dig en färdig grund, men du har full kontroll att justera som du vill. Du kan också be AI:n göra ändringar genom att chatta."
+    },
+    {
+      "q": "Kostar AI-hemsidor mer än Wix?",
+      "a": "Det varierar mellan olika AI-verktyg. Sajtmaskin låter dig publicera på en subdomän helt kostnadsfritt, utan månadskostnad för hosting. Wix har en gratisversion men kräver betalplan för egen domän och för att ta bort Wix-annonser. Jämför alltid vad som ingår – vissa AI-verktyg tar betalt per sajt, andra per funktion."
+    },
+    {
+      "q": "Vilken är snabbast att bygga en sajt med?",
+      "a": "AI-byggare är generellt snabbare eftersom du får en färdig sajt direkt från din beskrivning. Med Wix börjar du med en tom eller förifylld mall och bygger själv, vilket kan ta allt från några timmar till flera dagar beroende på hur komplex sajten är. Med Sajtmaskin kan du ha en publicerad sajt på minuter."
+    },
+    {
+      "q": "Fungerar AI-hemsidor för webshop och bokning?",
+      "a": "Ja, många AI-byggare stödjer integrationer för e-handel och bokning. Sajtmaskin kan koppla in Shopify för webshop, Cal.com för bokning och Stripe för betalningar. Wix har egna inbyggda lösningar för samma saker. Båda metoderna fungerar, men integrationerna skiljer sig åt mellan plattformarna."
+    },
+    {
+      "q": "Kan jag flytta min sajt från Wix till en AI-byggare?",
+      "a": "Du kan inte direkt importera en Wix-sajt till en AI-byggare, men du kan bygga om den. På Sajtmaskin beskriver du vad din nuvarande sajt innehåller så genererar AI:n en ny version. Du kan också exportera innehåll från Wix manuellt och lägga in det. Det är enklare än att bygga från noll, men kräver viss insats."
+    },
+    {
+      "q": "Är Sajtmaskin ett bra alternativ till Wix för svenska företag?",
+      "a": "Ja, om du vill ha en svenskspråkig plattform med svenskt stöd och snabb uppstart. Sajtmaskin är byggt i Sverige, fungerar helt på svenska och låter dig chatta fram din sajt istället för att bygga med mallar. Det passar dig som vill komma igång snabbt och slippa designa själv, men fortfarande ha kontroll att redigera efteråt."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

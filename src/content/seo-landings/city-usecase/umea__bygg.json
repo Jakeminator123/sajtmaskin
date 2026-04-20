@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "umea/bygg",
+  "title": "Hemsida för byggföretag i Umeå | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Umeå på minuter. AI bygger sajten åt dig – med projektgalleri, offerter och bokning.",
+  "h1": "Hemsida för byggföretag i Umeå",
+  "heroSub": "Låt AI bygga en komplett hemsida för ditt byggföretag – med projektgalleri, kontaktformulär och bokningsfunktion.",
+  "introParagraphs": [
+    "Som byggföretag i Umeå behöver du en hemsida som visar upp dina projekt, gör det enkelt för kunder att begära offert och skapar förtroende. Sajtmaskin bygger en färdig sajt åt dig på minuter genom att du chattar med AI:n om vad du gör – från villarenoveringar och tillbyggnader till nyproduktion och ROT-jobb.",
+    "Du får en sajt som fungerar direkt: bildgalleri för avslutade projekt, kontaktformulär för offerter, integration med Cal.com för platsbesök, och Google Analytics för att se var kunderna kommer ifrån. Publicera på din egen domän utan månadskostnad för hosting, och exportera koden när du vill.",
+    "Allt på svenska, byggt för svenska byggföretag som vill synas professionellt online utan att lägga veckor på teknik."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Umeå behöver",
+      "body": "Byggkunder i Umeå söker efter lokala hantverkare de kan lita på. Din hemsida behöver visa tydligt vilka tjänster du erbjuder – om du jobbar med nybyggnation, renoveringar, tillbyggnader eller specialiserar dig på exempelvis träbyggnation eller energieffektivisering. Ett projektgalleri med bilder från tidigare jobb i regionen skapar förtroende, särskilt om du kan visa referensprojekt från Umeå, Holmsund eller omgivande byar. Kontaktvägar måste vara enkla: telefon, formulär för offertförfrågan och gärna möjlighet att boka kostnadsfri platsbesök direkt. Många byggföretag tjänar också på att tydligt visa ROT- och RUT-avdrag, certifieringar och försäkringar."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din byggsajt",
+      "body": "Du startar en chatt och berättar vad ditt byggföretag gör: vilka tjänster du erbjuder, vilka projekt du är stolt över, och vad som skiljer dig från andra. AI:n frågar efter detaljer – bilder på jobb, prislista, serviceområde – och genererar en komplett hemsida på minuter. Du får färdiga sektioner för tjänster, projektgalleri, om-företaget och kontakt. Vill du lägga till bokningsfunktion för platsbesök kopplar du Cal.com. Behöver du ta betalt för konsultationer eller mindre jobb online? Integrera Stripe. Allt justeras direkt i chatten: byt bilder, ändra texter, lägg till nya tjänster. Ingen kod, ingen designer, ingen väntan."
+    },
+    {
+      "heading": "Bygg lokal närvaro i Umeå",
+      "body": "Många byggkunder söker specifikt efter hantverkare i Umeå eller norra Sverige. Sajtmaskin låter dig enkelt lägga in ditt serviceområde, lokala referenser och kontaktuppgifter så du syns i lokala sökningar. Lägg upp ett projektgalleri med jobb från Umeå, Holmsund, Hörnefors eller andra närliggande orter. Berätta om din erfarenhet av norrländskt klimat, isolering, fuktskydd och byggmetoder anpassade för regionen. Du kan också lägga till ett blogginlägg om exempelvis vinterbyggande eller energismarta lösningar – content som både hjälper kunder och stärker din SEO. Allt hanteras i samma chattgränssnitt."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Sajtmaskin tar ingen månadskostnad för hosting om du kör på vår subdomän, och du kan när som helst exportera hela sajten och flytta den till egen server. Det finns ingen bindningstid. Vill du uppdatera projektgalleriet efter ett avslutat jobb? Öppna chatten, ladda upp bilder, klar. Behöver du lägga till en ny tjänst inför vårsäsongen? Säg till AI:n. Du äger din data, din kod och ditt innehåll. Byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och svensk support."
+    },
+    {
+      "heading": "Kom igång idag",
+      "body": "Skapa ditt konto, berätta för AI:n om ditt byggföretag i Umeå, och få en färdig hemsida på minuter. Publicera direkt eller justera tills allt känns rätt. Inga tekniska förkunskaper krävs, ingen månadskostnad för hosting, ingen krånglig onboarding. Bara en hemsida som fungerar och hjälper dig att nå fler kunder i Umeå och omgivning."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig byggsajt?",
+      "a": "De flesta har en publicerbar sajt på 10–20 minuter. Du chattar med AI:n om dina tjänster, laddar upp några projektbilder och justerar texter. Sedan är sajten live. Vill du finjustera layout eller lägga till fler sidor gör du det i samma chatt."
+    },
+    {
+      "q": "Kan jag visa projektgalleri med bilder från Umeå?",
+      "a": "Ja. Ladda upp bilder från dina projekt i Umeå, Holmsund eller andra orter du jobbar i. AI:n skapar ett galleri automatiskt, och du kan lägga till bildtexter, projektbeskrivningar och kundrecensioner. Galleriet fungerar på mobil och dator."
+    },
+    {
+      "q": "Kostar det något att ha sajten online?",
+      "a": "Hosting på vår subdomän är gratis utan tidsgräns. Vill du använda din egen domän (t.ex. dittbyggforetag.se) kopplar du den kostnadsfritt, men domänregistrering och eventuell premiumhosting kan tillkomma beroende på dina behov."
+    },
+    {
+      "q": "Kan kunder boka platsbesök direkt på sajten?",
+      "a": "Ja, via Cal.com-integration. Du kopplar din kalender så kunder kan välja tid för kostnadsfri platsbesök eller konsultation. Bokningar synkas automatiskt och du får notiser. Perfekt för att minska mejl och telefontagg fram och tillbaka."
+    },
+    {
+      "q": "Fungerar sajten för ROT- och RUT-avdrag?",
+      "a": "Du kan enkelt lägga till information om ROT- och RUT-avdrag, visa vilka tjänster som kvalificerar och länka till Skatteverkets info. Sajtmaskin hanterar inte avdragen automatiskt, men du kan förklara processen tydligt för dina kunder på sajten."
+    },
+    {
+      "q": "Kan jag uppdatera sajten själv efter lansering?",
+      "a": "Absolut. Öppna chatten, berätta vad du vill ändra – nya bilder, uppdaterade priser, en till tjänst – och AI:n justerar sajten direkt. Ingen teknisk kunskap behövs. Du kan också exportera koden och redigera den manuellt om du vill."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajten när som helst, utan kostnad eller krångel. Koden är din och fungerar på vilken webbserver som helst. Ingen inlåsning, ingen bindningstid."
+    }
+  ],
+  "localOrIndustryContext": "Umeå är en växande stad med stark byggnation – från studentbostäder och kommersiella lokaler till villarenoveringar och fritidshus i skärgården. Byggföretag i regionen möter ofta krav på energieffektiva lösningar, klimatanpassat byggande och lokala material. En hemsida som visar lokal förankring, konkreta projekt och tydlig kompetens hjälper dig sticka ut i en marknad där kunderna söker pålitliga hantverkare.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/umea",
+      "label": "Skapa hemsida i Umeå"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Umeå. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

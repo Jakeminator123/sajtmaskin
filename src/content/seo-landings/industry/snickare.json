@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "snickare",
+  "title": "Hemsida för snickare – bygg en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en hemsida för ditt snickeri snabbt och enkelt. Visa upp dina projekt, ta emot förfrågningar och bygg förtroende. Ingen kod krävs.",
+  "h1": "Hemsida för snickare",
+  "heroSub": "Bygg en proffsig hemsida för ditt snickeri på minuter – visa upp dina projekt och få fler kunder utan krångel.",
+  "introParagraphs": [
+    "En hemsida för snickare är idag det viktigaste sättet att visa vad du kan. När någon behöver ett nytt kök, specialtillverkade hyllor eller en inredningslösning söker de online först. Utan en sajt där du visar dina tidigare jobb, beskriver dina tjänster och gör det lätt att ta kontakt riskerar du att förlora uppdrag till konkurrenter som syns.",
+    "Med Sajtmaskin bygger du en komplett hemsida för ditt snickeri på minuter. Du chattar med vår AI, berättar vad du gör och vilka tjänster du erbjuder – så genererar den en färdig sajt med bildgalleri, tjänstebeskrivningar, kontaktformulär och allt du behöver. Ingen kod, inga krångliga verktyg, bara en sajt som fungerar direkt.",
+    "Publicera på din egen domän eller använd vår kostnadsfria subdomän. Integrera bokningskalender via Cal.com om du vill att kunder ska kunna boka ett hembesök direkt. Allt är byggt för svenska företag, med svenskt gränssnitt och stöd."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för snickare behöver innehålla",
+      "body": "En bra hemsida för snickare börjar med en startsida som tydligt visar vad du gör och var du finns. Lägg till ett bildgalleri eller en portfoliosida där du visar upp färdiga projekt – kök, inredningar, möbler, trappor eller vad du nu specialiserar dig på. En tjänstesida där du beskriver vad du erbjuder hjälper besökare förstå om du passar deras behov. Lägg gärna till en Om-sida som berättar vem du är, hur länge du jobbat och varför kunder ska välja dig. Sist behöver du en kontaktsida med telefonnummer, mejl och gärna ett formulär så att folk enkelt kan skicka en förfrågan."
+    },
+    {
+      "heading": "Vanliga funktioner som snickerier behöver",
+      "body": "Många snickare vill ha ett bildgalleri som visar tidigare jobb, gärna sorterat efter typ av projekt. Ett kontaktformulär gör det lätt för kunder att skicka en förfrågan utan att behöva öppna sin mejlklient. Om du vill erbjuda direktbokning av hembesök eller konsultation kan du integrera en bokningskalender via Cal.com. Vissa snickare säljer även färdiga produkter – då kan du koppla på Stripe för betalning eller integrera Shopify om du vill ha en fullständig webshop. Google Analytics hjälper dig förstå var dina besökare kommer ifrån och vilka sidor de tittar mest på."
+    },
+    {
+      "heading": "Hur Sajtmaskin bygger din snickaresajt",
+      "body": "Du startar en chatt med vår AI och beskriver ditt snickeri: vilka tjänster du erbjuder, var du jobbar, vad som gör dig unik. AI:n genererar då en komplett hemsida med alla sidor, texter och struktur anpassad efter det du berättat. Du kan ladda upp bilder på dina projekt så läggs de automatiskt in i galleriet. Vill du ändra något chattar du bara vidare – ändra text, lägg till en sida, byt färgschema. Allt sker i realtid utan att du behöver röra kod. När du är nöjd publicerar du sajten på din egen domän eller använder vår kostnadsfria subdomän. Ingen bindningstid, och du kan exportera koden när som helst om du vill flytta sajten."
+    },
+    {
+      "heading": "Varför snickare behöver en hemsida idag",
+      "body": "De flesta som söker efter en snickare börjar på Google. De skriver 'snickare Stockholm', 'kökstillverkning Göteborg' eller 'specialsnickeri Malmö' och tittar på de sajter som dyker upp. Utan hemsida syns du inte i de sökningarna. En sajt bygger också förtroende – när folk ser bilder på dina tidigare jobb och läser vad andra kunder säger får de en känsla för din kvalitet. Det blir mycket enklare att ta kontakt när du har ett formulär eller tydliga kontaktuppgifter än om folk bara hittar ett telefonnummer på ett gammalt visitkort. En hemsida arbetar för dig dygnet runt, även när du står i verkstan."
+    },
+    {
+      "heading": "Kom igång på minuter",
+      "body": "Skapa ett konto på Sajtmaskin och starta en chatt. Berätta om ditt snickeri, vilka tjänster du erbjuder och vad du vill att sajten ska innehålla. AI:n genererar en färdig hemsida på några minuter. Ladda upp bilder på dina projekt, justera texter om du vill och publicera. Du kan lägga till bokningskalender, kontaktformulär och andra funktioner när du behöver dem. Ingen månadskostnad för hosting på subdomän, och du kan när som helst uppgradera till egen domän. Allt stöd och gränssnitt är på svenska, byggt i Sverige av Pretty Good AB."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa upp mina projekt i ett galleri?",
+      "a": "Ja, du kan ladda upp bilder på dina färdiga projekt och AI:n skapar automatiskt ett snyggt galleri. Du kan sortera efter typ av projekt, till exempel kök, inredning eller möbler, så besökare lätt hittar det de letar efter."
+    },
+    {
+      "q": "Behöver jag kunna koda för att bygga sajten?",
+      "a": "Nej, du behöver ingen teknisk kunskap alls. Du chattar med AI:n på svenska och beskriver vad du vill ha, så genererar den hela sajten. Vill du ändra något fortsätter du bara chatten."
+    },
+    {
+      "q": "Kan kunder boka tid för hembesök direkt på sajten?",
+      "a": "Ja, du kan integrera Cal.com för bokning. Då kan kunder välja en ledig tid i din kalender och boka ett hembesök eller konsultation direkt, utan att ni behöver mejla fram och tillbaka."
+    },
+    {
+      "q": "Vad kostar det att ha sajten online?",
+      "a": "Hosting på subdomän är helt gratis utan månadskostnad. Vill du använda din egen domän finns uppgraderingsalternativ. Ingen bindningstid, och du kan exportera koden när du vill."
+    },
+    {
+      "q": "Kan jag sälja produkter via sajten?",
+      "a": "Ja, du kan integrera Stripe för enklare betalningar eller koppla på Shopify om du vill ha en fullständig webshop. Perfekt om du säljer färdiga möbler eller inredningsdetaljer vid sidan av specialbeställningar."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten klar?",
+      "a": "De flesta har en färdig sajt på några minuter. Du chattar med AI:n, laddar upp bilder och justerar det du vill ändra. Sedan publicerar du direkt. Allt går mycket snabbare än med traditionella verktyg."
+    },
+    {
+      "q": "Får jag hjälp om jag kör fast?",
+      "a": "Ja, vi har svenskt stöd och hela gränssnittet är på svenska. Eftersom Sajtmaskin är byggt i Sverige av Pretty Good AB får du hjälp på ditt eget språk om du behöver det."
+    }
+  ],
+  "localOrIndustryContext": "Snickare i Sverige jobbar ofta med allt från kökstillverkning och inredning till specialmöbler och renoveringar. Många driver enmansföretag eller små verkstäder och har inte tid att lära sig komplicerade verktyg. En enkel hemsida som visar upp dina projekt och gör det lätt för kunder att höra av sig kan göra stor skillnad för hur många förfrågningar du får.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en snickare-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

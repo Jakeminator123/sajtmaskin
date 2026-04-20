@@ -1,0 +1,102 @@
+{
+  "family": "usecase",
+  "slug": "salong",
+  "title": "Hemsida Salong – Bygg en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en hemsida för din salong direkt i chatten. Bokning, prislista, galleri och kontakt – allt fixat på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för salong – snabbt och enkelt",
+  "heroSub": "Bygg en komplett sajt för din frisör- eller skönhetssalong på minuter, helt utan kod. AI fixar design, bokning och innehåll.",
+  "introParagraphs": [
+    "En hemsida för salong behöver visa vad du erbjuder, vad det kostar och hur kunderna bokar tid. Oftast ingår en prislista, ett bildgalleri som visar ditt arbete, information om dig och salongen, samt ett enkelt sätt att boka eller kontakta dig. Det ska gå snabbt för besökaren att hitta rätt och känna förtroende.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n. Du beskriver din salong, vilka tjänster du har och vad du vill visa – så genererar verktyget en färdig hemsida på minuter. Publicera direkt på egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Du behöver ingen teknisk kunskap. AI:n skapar struktur, texter och design åt dig, och du kan justera allt efteråt om du vill. Perfekt när du vill komma igång snabbt och fokusera på dina kunder istället för krånglig teknik."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Prislista och tjänstebeskrivningar",
+      "body": "Besökare vill veta vad du erbjuder och vad det kostar innan de bokar. En tydlig prislista med dina tjänster – klippning, färg, behandlingar, naglar eller hudvård – gör det lätt att jämföra och välja. Sajtmaskin låter dig lägga in tjänster och priser direkt i chatten, så slipper du bygga tabeller eller formatera manuellt. AI:n strukturerar informationen snyggt och läsbart."
+    },
+    {
+      "heading": "Bildgalleri som visar ditt arbete",
+      "body": "Bilder säljer. Ett galleri med före-efter-bilder, frisyrer, naglar eller makeup visar vad du kan och bygger förtroende. Ladda upp dina bästa jobb så presenterar Sajtmaskin dem i ett responsivt galleri som funkar lika bra på mobil som dator. Du kan uppdatera galleriet när du vill, utan att behöva koda eller installera plugins."
+    },
+    {
+      "heading": "Integrerad bokning med Cal.com",
+      "body": "Låt kunderna boka tid direkt på sajten istället för att ringa eller skicka meddelanden fram och tillbaka. Sajtmaskin integrerar Cal.com så du får ett bokningssystem inbäddat på hemsidan. Besökaren ser lediga tider, väljer behandling och bokar – allt på ett ställe. Du slipper dubbelbokningar och får mer tid över till det du brinner för."
+    },
+    {
+      "heading": "Om-sidan och kontaktuppgifter",
+      "body": "Berätta vem du är, var salongen ligger och varför kunder ska välja just dig. En personlig om-sida med bild, öppettider, adress och kontaktinfo skapar trygghet. Sajtmaskin genererar texten utifrån det du berättar i chatten, och du kan alltid ändra eller lägga till mer senare. Karta, telefonnummer och mejladress hamnar där de ska."
+    },
+    {
+      "heading": "Mobilvänlig och snabb",
+      "body": "Över hälften av dina besökare kommer från mobilen. Sajtmaskin bygger automatiskt en responsiv sajt som ser bra ut och laddar snabbt på alla skärmar. Du behöver inte tänka på tekniska detaljer – allt funkar direkt. Snabba laddningstider är också viktigt för Google, så din sajt syns bättre i sökresultaten."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att ha en hemsida för min salong?",
+      "a": "Med Sajtmaskin kan du publicera på en gratis subdomän utan månadskostnad. Vill du ha egen domän (till exempel dinsalong.se) betalar du bara för domänregistreringen, vanligtvis runt 100–150 kr per år. Ingen bindningstid och inga dolda avgifter."
+    },
+    {
+      "q": "Kan jag lägga till bokning direkt på sajten?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com så du får ett bokningssystem inbäddat på hemsidan. Besökare ser lediga tider och bokar direkt. Du kan ansluta din kalender och få notiser när någon bokar. Allt sköts smidigt utan extra plugins."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga sajten?",
+      "a": "De flesta har en färdig sajt på 10–15 minuter. Du chattar med AI:n, beskriver din salong och vilka sidor du vill ha, så genereras hela strukturen automatiskt. Sedan kan du justera texter, byta bilder och finjustera tills du är nöjd. Publicera när du känner dig klar."
+    },
+    {
+      "q": "Kan jag visa bilder på mina frisyrer och behandlingar?",
+      "a": "Absolut. Du kan ladda upp bilder och skapa ett galleri direkt i verktyget. AI:n lägger in bilderna snyggt och responsivt, så de ser bra ut på alla enheter. Uppdatera galleriet när du vill utan att behöva koda."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du äger din kod och kan exportera hela sajten när du vill. Ingen bindningstid och inga låsningar. Om du bestämmer dig för att flytta eller bygga vidare på egen hand är det bara att ladda ner filerna och ta med dig allt."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra något på sajten?",
+      "a": "Nej. Sajtmaskin är byggt för att du ska kunna chatta dig till en färdig hemsida utan teknisk kunskap. Vill du ändra text, byta bild eller lägga till en ny sida gör du det i gränssnittet. Allt på svenska, inga krångliga menyer."
+    },
+    {
+      "q": "Kan jag koppla Google Analytics för att se besökare?",
+      "a": "Ja, du kan integrera Google Analytics direkt i Sajtmaskin. Då ser du hur många som besöker sajten, vilka sidor de tittar på och var de kommer ifrån. Bra för att förstå vad som funkar och vad du kan förbättra."
+    }
+  ],
+  "localOrIndustryContext": "Frisör- och skönhetssalonger lever på återkommande kunder och rekommendationer. En hemsida som visar ditt arbete, förenklar bokning och bygger förtroende gör skillnad i en bransch där det personliga mötet är allt. Många salonger saknar fortfarande en egen sajt eller kör med inaktuella sidor som inte funkar på mobil.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en salong-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

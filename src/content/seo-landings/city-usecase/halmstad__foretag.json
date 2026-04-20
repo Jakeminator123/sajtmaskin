@@ -1,0 +1,90 @@
+{
+  "family": "city-usecase",
+  "slug": "halmstad/foretag",
+  "title": "Hemsida för företag i Halmstad – bygg på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag i Halmstad på minuter. AI bygger sajten åt dig – ingen kod, ingen bindning. Publicera direkt.",
+  "h1": "Hemsida för företag i Halmstad",
+  "heroSub": "Bygg en komplett företagssajt på minuter med AI – anpassad för Halmstad och redo att publicera direkt.",
+  "introParagraphs": [
+    "Ditt företag i Halmstad behöver en hemsida som visar vad ni gör, bygger förtroende och gör det enkelt för kunder att ta kontakt. Med Sajtmaskin skapar du en komplett företagssajt genom att bara berätta vad ditt företag gör i en vanlig chatt. AI:n bygger allt – texter, struktur och design – och du publicerar på egen domän utan månadskostnad för hosting.",
+    "Du behöver ingen teknisk kunskap och ingen webbyrå. Hela gränssnittet är på svenska, sajten byggs för svenska företag och du kan integrera bokningar via Cal.com, betalningar via Stripe och analytics direkt. Ingen bindningstid – exportera koden när du vill.",
+    "Oavsett om du driver ett konsultbolag vid Nissan, en butik på Stora Torg eller ett hantverksföretag i Tylösand får du en sajt som fungerar från dag ett."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du en företagssajt i Halmstad med AI",
+      "body": "Du startar en chatt och beskriver ditt företag – vad ni gör, vilka ni hjälper och vad som gör er unika. AI:n genererar en komplett sajt med startsida, tjänstebeskrivningar, om-sida och kontaktformulär. Du kan lägga till Halmstad-specifik information som adress, öppettider eller att ni servar hela Halland. Allt skrivs på svenska och anpassas efter din bransch. När du är nöjd publicerar du på din egen domän – klart på minuter istället för veckor."
+    },
+    {
+      "heading": "Funktioner som gör din företagssajt komplett",
+      "body": "En bra företagssajt behöver mer än snygga sidor. Sajtmaskin ger dig integrationer som faktiskt fungerar: koppla Cal.com för att låta kunder boka möten direkt, Stripe om du säljer produkter eller tjänster online, och Google Analytics för att se hur besökare hittar dig. Vill du visa recensioner, case eller ett projektgalleri? Lägg till det i chatten så bygger AI:n rätt struktur. Allt är mobilvänligt från start, vilket är viktigt när många söker lokala företag från telefonen."
+    },
+    {
+      "heading": "Ingen bindning, ingen dold kostnad",
+      "body": "Du betalar ingen månadskostnad för hosting om du använder vår subdomän, och vill du ha egen domän fixar du det direkt. Det finns ingen bindningstid – du kan när som helst exportera hela koden och flytta sajten till egen server. Det här är din sajt, inte vår. Uppdateringar gör du själv i chatten eller via gränssnittet, och behöver du hjälp får du support på svenska. Perfekt för småföretag i Halmstad som vill ha kontroll utan krångel."
+    },
+    {
+      "heading": "Varför Halmstad-företag väljer Sajtmaskin",
+      "body": "Företag i Halmstad – från Andersberg till Östra Stranden – behöver sajter som speglar lokal närvaro och professionalism. Sajtmaskin är byggt i Sverige av Pretty Good AB, vilket betyder svenskt gränssnitt, svensk support och förståelse för hur svenska företag kommunicerar. Du slipper översatta mallar och utländska chattbotar. Istället får du en sajt som känns rätt från start, med texter som låter naturliga och funktioner som passar svenska kunders förväntningar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt?",
+      "a": "De flesta har en färdig sajt på 10–30 minuter. Du chattar med AI:n om ditt företag, granskar resultatet och justerar det du vill ändra. Sedan publicerar du direkt. Ingen väntan på webbyrå eller teknisk installation."
+    },
+    {
+      "q": "Kan jag lägga till Halmstad-specifik information?",
+      "a": "Absolut. Du kan lägga in adress, karta, öppettider, information om att ni servar Halmstad och omnejd, eller nämna lokala områden där ni är verksama. AI:n bygger in det naturligt i texterna."
+    },
+    {
+      "q": "Vad kostar det att ha sajten igång?",
+      "a": "Hosting på vår subdomän är gratis utan månadskostnad. Vill du använda egen domän ordnar du det själv via valfri domänleverantör. Inga dolda avgifter, ingen bindningstid. Du betalar bara för Sajtmaskin-plattformen när du bygger och uppdaterar."
+    },
+    {
+      "q": "Kan kunder boka möten eller betala via sajten?",
+      "a": "Ja. Du integrerar Cal.com för bokningar och Stripe för betalningar direkt i gränssnittet. Perfekt om du säljer konsulttjänster, kurser, produkter eller vill att kunder ska kunna boka tid utan mejl fram och tillbaka."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter är mobilvänliga från start. Många i Halmstad söker lokala företag från telefonen, så det är viktigt att allt – text, bilder, knappar och formulär – fungerar lika bra på liten skärm."
+    },
+    {
+      "q": "Kan jag flytta sajten senare om jag vill?",
+      "a": "Ja. Du kan exportera hela koden när du vill och flytta den till egen server eller annan leverantör. Ingen inlåsning, ingen bindningstid. Sajten är din."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera innehållet?",
+      "a": "Nej. Du uppdaterar genom att chatta med AI:n eller redigera direkt i gränssnittet. Allt är på svenska och byggt för att vara enkelt, även om du aldrig byggt en sajt förut."
+    }
+  ],
+  "localOrIndustryContext": "Halmstad är en stad med allt från etablerade tjänsteföretag och butiker i centrum till växande småföretag i förorterna. Oavsett om du driver verksamhet vid hamnen, längs Strandgatan eller i industriområden utanför stan behöver du en sajt som visar vad du gör och gör det enkelt för kunder att hitta dig.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/halmstad",
+      "label": "Skapa hemsida i Halmstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Halmstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "vaxjo/restaurang",
+  "title": "Hemsida restaurang Växjö – bygg din restaurangsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Växjö med AI. Meny, bordsbokning och betalning. Ingen kod krävs. Klart på minuter.",
+  "h1": "Hemsida för restauranger i Växjö",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokning och betalning – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "Om du driver restaurang, pizzeria eller café i Växjö vet du hur viktigt det är att gäster hittar er meny och kan boka bord direkt online. Med Sajtmaskin skapar du en färdig restaurangsajt på minuter genom att chatta med AI:n. Du beskriver vad du vill ha, så genererar systemet sidor för meny, öppettider, kontakt och bokning – helt på svenska.",
+    "Sajten publiceras på din egen domän eller kostnadsfritt på en subdomän. Du får inbyggd bokningsfunktion via Cal.com, kan ta betalt med Stripe och uppdatera menyn själv när som helst. Ingen bindningstid och ingen månadskostnad för hosting om du väljer subdomän. Allt är byggt för svenska förhållanden av Pretty Good AB i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en restaurangsajt i Växjö behöver",
+      "body": "Gäster i Växjö söker ofta efter menyer, allergininformation och möjlighet att boka bord innan de bestämmer sig. En bra restaurangsajt visar er meny tydligt, har öppettider och adress synlig direkt på startsidan, och gör det enkelt att ringa eller boka online. Om ni erbjuder avhämtning eller leverans är det ett plus att visa det direkt. Sajtmaskin bygger allt detta automatiskt när du beskriver din restaurang i chatten – från lunch­menyer till allergenlista och kontaktuppgifter."
+    },
+    {
+      "heading": "Bordsbokning och betalning direkt på sajten",
+      "body": "Med Sajtmaskins integration till Cal.com lägger du till en bokningskalender på sajten utan krångel. Gäster ser lediga tider och bokar sitt bord direkt, och du får bekräftelsen i din kalender. Vill du ta förskottsbetalning för större sällskap eller events kopplar du på Stripe och tar betalt säkert online. Allt sköts från samma gränssnitt, och du behöver ingen separat bokningslösning eller teknisk support."
+    },
+    {
+      "heading": "Uppdatera meny och priser själv",
+      "body": "Säsongsmenyer, nya rätter eller justerade priser – du ändrar direkt i Sajtmaskin genom att skriva vad du vill ändra. AI:n uppdaterar sidan på sekunder, och ändringarna syns live. Ingen väntan på webbyrå eller teknisk personal. Du kan lägga till bilder på rätter, beskriva allergener och justera texter precis som du vill. Vill du exportera hela sajten och flytta vidare är koden din att ta med dig när som helst."
+    },
+    {
+      "heading": "Svenskt gränssnitt och support",
+      "body": "Sajtmaskin är helt på svenska – gränssnitt, AI-chat och support. Du slipper översätta menyer eller gissa dig till engelska termer. Systemet förstår svenska mattraditioner, allergenmärkning och lokala behov. Eftersom plattformen är byggd i Sverige får du support som förstår hur svenska restauranger jobbar, och all data hanteras enligt svenska regler."
+    },
+    {
+      "heading": "Kom igång på minuter",
+      "body": "Du behöver ingen teknisk erfarenhet. Logga in, beskriv din restaurang i chatten – namn, typ av mat, öppettider, meny – och låt AI:n bygga sajten. Granska resultatet, justera det du vill ändra, och publicera. Vill du ha egen domän kopplar du den, annars kör du kostnadsfritt på subdomän. Inga startavgifter, ingen bindningstid. Du betalar bara för det du använder."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt med Sajtmaskin?",
+      "a": "De flesta har en färdig sajt på 10–15 minuter. Du chattar med AI:n, beskriver din restaurang och meny, så genereras sidorna automatiskt. Sedan justerar du detaljer om du vill och publicerar."
+    },
+    {
+      "q": "Kan jag visa menyn på flera språk för turister i Växjö?",
+      "a": "Ja, du kan lägga till sidor på engelska eller andra språk genom att be AI:n skapa parallella versioner av menyn. Perfekt för restauranger nära Växjö centrum eller turistmål som vill nå internationella gäster."
+    },
+    {
+      "q": "Kostar det extra att ha bordsbokning på sajten?",
+      "a": "Sajtmaskin-plattformen tar ingen extra avgift för bokningsfunktionen. Du kopplar ditt eget Cal.com-konto (gratis eller betald plan) och hanterar bokningar därifrån. Inga dolda kostnader från vår sida."
+    },
+    {
+      "q": "Kan jag ta betalt online för events eller förbeställningar?",
+      "a": "Ja, genom Stripe-integrationen kan du ta betalt direkt på sajten. Användbart för större sällskap, julbord eller cateringbeställningar där du vill ha förskottsbetalning."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan lösning senare?",
+      "a": "Du kan exportera hela koden när som helst utan kostnad. Sajten är din, och det finns ingen bindningstid. Ta koden och flytta till valfri webbhost eller utvecklare om du vill."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil för gäster som söker restaurang i Växjö?",
+      "a": "Ja, alla sajter är responsiva och fungerar smidigt på mobil. Eftersom många gäster söker restauranger på telefonen när de är ute i stan är mobilupplevelsen prioriterad från start."
+    },
+    {
+      "q": "Kan jag lägga till Google Analytics för att se var gästerna kommer ifrån?",
+      "a": "Absolut. Du kopplar Google Analytics direkt i Sajtmaskin och ser trafik, sökord och varifrån besökarna hittar er – användbart för att förstå om gäster söker från Växjö eller omgivande orter."
+    }
+  ],
+  "localOrIndustryContext": "Växjö har en växande restaurangscen med allt från klassiska svenska krogar till internationella kök, och många gäster söker online efter menyer och bokningsinfo innan besök. En proffsig hemsida gör skillnad när gäster jämför alternativ i centrum eller runt universitetet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vaxjo",
+      "label": "Skapa hemsida i Växjö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Växjö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

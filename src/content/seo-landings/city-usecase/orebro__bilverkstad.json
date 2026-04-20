@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "orebro/bilverkstad",
+  "title": "Hemsida bilverkstad Örebro – snabbt och enkelt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Örebro på minuter. Bokning, prislista och kontakt – allt fixat med AI. Ingen kod krävs.",
+  "h1": "Hemsida för bilverkstad i Örebro",
+  "heroSub": "Bygg en komplett sajt för din verkstad med bokning, prislista och kundrecensioner – direkt i chatten, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En bilverkstad i Örebro behöver en hemsida som gör det enkelt för kunder att boka tid, se vad olika tjänster kostar och hitta er i Sörbyängen, Vivalla eller var ni nu håller till. Sajtmaskin bygger hela sajten åt dig på minuter – du chattar med vår AI och får en färdig sajt med bokning, kontaktformulär och allt som behövs.",
+    "Du slipper krångla med WordPress, designverktyg eller tekniska inställningar. Sajten blir svensk från grunden, mobilanpassad och enkel att uppdatera när du vill ändra priser eller öppettider. Publicera på egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Perfekt för både etablerade verkstäder som vill modernisera sin närvaro och nya aktörer som behöver komma igång snabbt. Ingen bindningstid, och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem som funkar för verkstadsjobb",
+      "body": "Bilverkstäder lever på schemaläggning – besiktning klockan nio, däckbyte efter lunch, felsökning på eftermiddagen. Med Sajtmaskins integration till Cal.com får du ett bokningssystem där kunderna själva väljer tid för service, reparation eller EU-kontroll. Du styr vilka tider som är lediga och hur lång tid varje typ av jobb tar. Allt synkas automatiskt så du slipper dubbelbokningar och missade samtal."
+    },
+    {
+      "heading": "Visa priser och tjänster tydligt",
+      "body": "Örebrokunderna vill veta vad en bromsrenovering eller oljebyte kostar innan de ringer. Lägg in en prislista direkt på sajten – antingen fasta priser eller ungefärliga intervall. Du kan gruppera tjänsterna: rutinservice, däck och fälg, motor och växellåda, lackering och plåt. Sajten uppdaterar du själv när priserna ändras, utan att behöva ringa en webbyrå."
+    },
+    {
+      "heading": "Lokal synlighet i Örebro",
+      "body": "Sajtmaskin bygger in rätt struktur för lokal SEO så folk hittar dig när de söker efter bilverkstad i Örebro. Lägg till er adress, öppettider och ett Google Maps-kort så att kunder från Almby, Centrala stan eller Lundby enkelt hittar till verkstaden. Du kan också lägga in bilder från verkstaden och berätta om teamet – det bygger förtroende."
+    },
+    {
+      "heading": "Integrationer för betalning och analys",
+      "body": "Vill du ta förskottsbetalning för däckhotell eller sälja verkstadsprodukter online? Koppla in Stripe för kortbetalningar eller Shopify om du vill ha en hel webshop för tillbehör. Google Analytics ingår så du ser hur många som besöker sajten och vilka sidor som är populärast. Allt sätts upp via chatten – ingen teknisk expertis krävs."
+    },
+    {
+      "heading": "Ingen bindningstid, äg din sajt",
+      "body": "Sajtmaskin har ingen bindningstid. Du betalar för det du använder och kan när som helst exportera hela koden och flytta sajten till egen server. Hosting på subdomän är gratis, eller publicera direkt på er egen domän. Uppdateringar gör du själv genom att chatta med AI:n – lägg till nya tjänster, ändra texter eller byt bilder på några sekunder."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min bilverkstad?",
+      "a": "De flesta verkstadssajter är klara på 10–15 minuter. Du chattar med AI:n, beskriver vilka tjänster ni erbjuder, lägger till bokning och prislista, så genererar Sajtmaskin en färdig sajt. Sen kan du justera texter och bilder direkt i chatten tills allt ser rätt ut."
+    },
+    {
+      "q": "Kan kunderna boka service och däckbyte direkt på sajten?",
+      "a": "Ja, genom integrationen med Cal.com får du ett komplett bokningssystem. Du ställer in vilka tider som är lediga och hur lång tid olika jobb tar – sedan bokar kunderna själva dygnet runt. Du får notiser via mejl och kan synka med din kalender."
+    },
+    {
+      "q": "Fungerar sajten bra för bilverkstäder i Örebro specifikt?",
+      "a": "Absolut. Sajtmaskin är helt på svenska och du kan enkelt lägga till lokal information som adress i Örebro, karta och öppettider. Det gör att sajten rankar bättre när folk i Örebro söker efter bilverkstad, och kunderna hittar snabbt till er verkstad oavsett om ni ligger i Sörbyängen eller vid Universitetet."
+    },
+    {
+      "q": "Vad kostar det att driva sajten varje månad?",
+      "a": "Hosting på en Sajtmaskin-subdomän är helt gratis utan månadskostnad. Vill du ha egen domän (t.ex. dinverkstad.se) betalar du bara för domänregistreringen, vanligtvis runt 100–150 kr per år. Bokningssystemet Cal.com är gratis i basvarianten, Stripe tar en liten procent per transaktion om du säljer något."
+    },
+    {
+      "q": "Kan jag uppdatera priser och tjänster själv?",
+      "a": "Ja, du uppdaterar allt genom att chatta med Sajtmaskin. Vill du ändra priset på oljebyte, lägga till sommardäck i sortimentet eller uppdatera öppettider inför semestern? Skriv bara i chatten så ändras sajten direkt. Ingen inloggning till krångliga admin-paneler."
+    },
+    {
+      "q": "Kan jag ta betalt online för däckhotell eller reservdelar?",
+      "a": "Ja, koppla in Stripe för kortbetalningar eller Shopify om du vill sälja reservdelar och tillbehör i en webshop. Integrationen sätter du upp via chatten – Sajtmaskin guidar dig genom stegen. Perfekt om du vill ta förskottsbetalning eller sälja produkter utöver verkstadstjänsterna."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan när som helst exportera hela koden och flytta sajten till vilken webbhost du vill. Ingen bindningstid, inga dolda avgifter. Sajten är din och du bestämmer var den ska ligga. De flesta stannar kvar för att det är så smidigt, men dörren står alltid öppen."
+    }
+  ],
+  "localOrIndustryContext": "Örebro har en blandning av etablerade bilverkstäder och nyare aktörer, från stora kedjor vid retail-parken till mindre familjeägda verkstäder i Sörbyängen och Vivalla. Med växande trafik och fler bilar behöver verkstäderna en modern sajt för att konkurrera – särskilt när kunderna förväntar sig online-bokning och tydliga priser.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/orebro",
+      "label": "Skapa hemsida i Örebro"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Örebro. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

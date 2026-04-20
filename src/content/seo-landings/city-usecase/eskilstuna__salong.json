@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "eskilstuna/salong",
+  "title": "Hemsida Salong Eskilstuna – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din salong i Eskilstuna med AI. Bokning, bildgalleri och mobilanpassning – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för salong i Eskilstuna",
+  "heroSub": "Bygg en komplett sajt för din salong med AI – inklusive bokning, prislista och galleri. Ingen kodning, klart på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin hjälper salonger i Eskilstuna att skapa professionella hemsidor utan teknisk krångel. Du chattar med vår AI om din verksamhet – vilka behandlingar du erbjuder, dina öppettider, prislistor och bildgalleri – så bygger systemet en färdig sajt direkt. Allt på svenska, anpassat för mobil och redo att ta emot bokningar.",
+    "Din salong behöver en sajt som visar upp ditt arbete, gör det enkelt för kunder att boka tid och hittar dig i lokala sökningar. Med Sajtmaskin får du bokning via Cal.com, betalning genom Stripe och en design som fungerar lika bra på telefon som dator. Publicera på din egen domän eller använd vår kostnadsfria subdomän – du väljer själv.",
+    "Ingen bindningstid och ingen dold månadsavgift för hosting. Du kan exportera hela koden när du vill och äger alltid ditt innehåll. Bygg sajten idag och börja ta emot bokningar imorgon."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokningssystem som fungerar för salonger",
+      "body": "Kunder vill boka direkt när de hittar dig online, helst från mobilen på väg hem från jobbet. Sajtmaskin integrerar Cal.com så besökare kan välja behandling, tid och stylist direkt på sajten. Systemet hanterar bekräftelser, påminnelser och ombokning automatiskt. Du slipper dubbelbokning och telefontider – allt samlas i en kalender du når var du än är. Perfekt för salonger i Eskilstuna som vill jobba smartare."
+    },
+    {
+      "heading": "Visa upp ditt arbete med bildgalleri",
+      "body": "En salong säljer känsla och förvandling. Din hemsida behöver ett snyggt galleri där potentiella kunder ser före- och efterbilder, färgarbeten, klippningar och styling. Sajtmaskin bygger responsiva bildgallerier som laddar snabbt och ser professionella ut på alla skärmar. Ladda upp dina bästa resultat så presenterar AI dem på ett sätt som får besökare att vilja boka. Inga krångliga verktyg – bara dra och släpp."
+    },
+    {
+      "heading": "Prislista och behandlingar tydligt presenterade",
+      "body": "Kunder vill veta vad det kostar innan de hör av sig. En överskådlig prislista med klippning, färg, slingor, behandlingar och styling skapar förtroende och minskar onödiga samtal. Sajtmaskin strukturerar din prislista automatiskt efter kategorier, visar tidsåtgång och kan inkludera paketpriser. Uppdatera priserna själv när du vill – inga tekniska kunskaper behövs. Allt är byggt för att konvertera besökare till bokade tider."
+    },
+    {
+      "heading": "Lokal SEO för Eskilstuna",
+      "body": "Din sajt behöver synas när någon söker efter salong, frisör eller hårvård i Eskilstuna. Sajtmaskin bygger in rätt nyckelord, strukturerad data och lokal information så Google förstår var du finns och vad du erbjuder. Du kan lägga till adress, karta och öppettider – allt som gör att lokala kunder hittar dig före konkurrenterna. Kombinera det med Google Analytics så ser du exakt var dina besökare kommer ifrån."
+    },
+    {
+      "heading": "Bygg och publicera på minuter",
+      "body": "Berätta för AI:n vilken typ av salong du driver, vilka tjänster du erbjuder och vad som gör dig unik i Eskilstuna. Systemet genererar texter, struktur och design direkt. Justera färger, byt bilder och lägg till ditt bokningssystem – allt via chat. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän. Ingen bindningstid, ingen dold kostnad. Du kan exportera koden och flytta sajten när du vill."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min salong?",
+      "a": "De flesta salonger har en färdig sajt på 15–30 minuter. Du chattar med AI:n om dina behandlingar, priser och stil, så genereras sidan direkt. Sedan justerar du bilder och färger tills du är nöjd. Publiceringen sker med ett klick."
+    },
+    {
+      "q": "Kan jag integrera bokningssystem direkt på sajten?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com som låter kunder boka behandlingar direkt på hemsidan. Du kopplar ditt Cal.com-konto så visas tillgängliga tider automatiskt. Kunder väljer tjänst, tid och får bekräftelse via mejl. Allt synkas med din kalender."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Absolut. Alla sajter från Sajtmaskin är responsiva och optimerade för mobil från start. De flesta salonger får majoriteten av sina besökare via telefon, så design och bokning fungerar lika smidigt på liten skärm som på dator."
+    },
+    {
+      "q": "Kan jag ta betalt online för behandlingar?",
+      "a": "Ja, genom Stripe-integrationen kan du ta förskottsbetalning eller full betalning när kunden bokar. Det minskar no-shows och gör det enklare för kunder som vill betala direkt. Du bestämmer själv vilka behandlingar som kräver förskott."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Om du publicerar på vår subdomän är hostingen kostnadsfri. Vill du använda egen domän betalar du bara för domänregistrering hos din registrar. Inga dolda månadskostnader. Boknings- och betaltjänster har egna avgifter hos Cal.com respektive Stripe."
+    },
+    {
+      "q": "Kan jag uppdatera priser och öppettider själv?",
+      "a": "Ja, du uppdaterar allt innehåll själv via chattgränssnittet. Ändra prislista, lägg till nya behandlingar, byt bilder eller justera öppettider – allt utan att röra kod. Ändringarna publiceras direkt."
+    },
+    {
+      "q": "Syns min salong i Google-sökningar i Eskilstuna?",
+      "a": "Sajten byggs med lokal SEO från start – rätt nyckelord, strukturerad data och platsinfo ingår. Kombinera det med Google Analytics och en Google My Business-profil så ökar chansen att synas när folk söker efter salong i Eskilstuna. Resultat tar några veckor, men grunden läggs direkt."
+    }
+  ],
+  "localOrIndustryContext": "Eskilstuna har en stark frisör- och skönhetsbransch med salonger längs Kungsgatan, i Tälje Torg och runt Fristadstorget. Konkurrensen om lokala kunder är hög, och en professionell hemsida med enkel bokning kan göra skillnad när potentiella kunder jämför alternativ på mobilen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/eskilstuna",
+      "label": "Skapa hemsida i Eskilstuna"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en salong-hemsida för min verksamhet i Eskilstuna. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

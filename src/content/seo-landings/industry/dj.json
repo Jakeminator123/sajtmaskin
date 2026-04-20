@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "dj",
+  "title": "Hemsida för DJ – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för din DJ-verksamhet med AI. Bokning, spellistor och portfolio – klar på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för DJ",
+  "heroSub": "Bygg en sajt som visar ditt sound, tar bokningar och lyfter ditt DJ-namn – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "Som DJ behöver du en sajt som visar vem du är, vilken musik du spelar och hur kunder kan boka dig. Sajtmaskin låter dig bygga hela hemsidan via chat på minuter – med portfolio, bokningsfunktion och spellistor integrerade från start.",
+    "Du beskriver din stil, dina gig och vad du vill att sajten ska göra. AI:n skapar sidor för mixar, evenemang, bokning och kontakt. Publicera på egen domän eller kör gratis på en subdomän – ingen bindningstid, ingen kod.",
+    "Perfekt för club-DJ:s, mobila DJ:s och producenter som vill ha en proffsig närvaro utan att lära sig WordPress eller betala dyra webbbyråer."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad ska en DJ-hemsida innehålla?",
+      "body": "En bra DJ-sajt behöver startsida med din profil och sound, en sida för mixar och spellistor (gärna inbäddade från SoundCloud eller Spotify), en portfolio med bilder och videos från gig, samt tydlig bokningsfunktion. Många vill också ha ett event-flöde där kommande spelningar syns, kontaktformulär och länkar till sociala medier. Sajtmaskin genererar alla dessa sidor automatiskt utifrån din prompt – du väljer sedan vilka du vill ha kvar och justerar texten direkt i editorn."
+    },
+    {
+      "heading": "Bokningar och betalning – inbyggt",
+      "body": "Med Cal.com-integration får du ett bokningsschema där kunder ser lediga datum och bokar direkt. Vill du ta förskottsbetalning eller sälja biljetter till egna event kopplar du Stripe – då kan besökare betala via Swish, kort eller Klarna. Allt hanteras på sajten utan att du behöver mejla fram och tillbaka. Bokningsbekräftelser skickas automatiskt och du slipper dubbelbokning."
+    },
+    {
+      "heading": "Visa ditt sound med inbäddade mixar",
+      "body": "Sajtmaskin låter dig bädda in SoundCloud-sets, Spotify-listor eller YouTube-videos direkt på sidan. Skapa en dedikerad mix-sida där besökare kan lyssna på dina senaste sets, eller lägg in ett utdrag på startsidan så folk hör din stil direkt. Du kan uppdatera innehållet när du vill – lägg till nya mixar efter varje gig eller säsong."
+    },
+    {
+      "heading": "Egen domän och ingen månadskostnad",
+      "body": "Publicera på din egen domän (typ djnamn.se) eller använd en gratis subdomän från Sajtmaskin. Ingen månadskostnad för hosting på subdomän, och du äger alltid koden – exportera den och flytta när du vill. Ingen bindningstid, inga dolda avgifter. Lägg till Google Analytics för att se hur många som besöker sajten och vilka mixar som spelas mest."
+    },
+    {
+      "heading": "Bygg sajten på minuter, inte veckor",
+      "body": "Istället för att sitta med WordPress-teman eller vänta på webbyrå chattar du med Sajtmaskin: berätta vilken typ av DJ du är, vilka gig du kör och vad sajten ska kunna. AI:n levererar en färdig sajt med text, struktur och design. Du justerar färger, bilder och texter i editorn, kopplar domän och går live samma dag. Perfekt när du fått en ny bokning och behöver en sajt att skicka till kunden – nu."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag bädda in SoundCloud och Spotify på sajten?",
+      "a": "Ja, du kan bädda in mixar från SoundCloud, Spotify-listor och YouTube-videos direkt på sidorna. Sajtmaskin stödjer inbäddning via iframe och embed-koder, så dina sets syns och spelas direkt på sajten."
+    },
+    {
+      "q": "Hur fungerar bokningsfunktionen för DJ-gig?",
+      "a": "Du kopplar Cal.com till sajten och sätter upp ditt schema med lediga datum. Kunder väljer datum och tid, fyller i detaljer om eventet och får en bekräftelse. Du ser alla bokningar i Cal.com-dashboarden och kan synka med din kalender."
+    },
+    {
+      "q": "Kan jag ta betalt för bokningar eller biljetter?",
+      "a": "Ja, via Stripe-integrationen kan du ta förskottsbetalning när någon bokar dig, eller sälja biljetter till egna event. Betalning sker med Swish, kort eller Klarna direkt på sajten, och pengarna hamnar på ditt Stripe-konto."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda egen domän (djnamn.se) betalar du endast domänregistrering hos din registrar. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag visa kommande gig och event på sajten?",
+      "a": "Absolut. Du kan skapa en event-sida där du listar kommande spelningar med datum, plats och länk till biljetter. Uppdatera listan när du vill direkt i editorn – ingen kod behövs."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en DJ-sajt?",
+      "a": "Själva AI-genereringen tar någon minut. Sedan spenderar du lite tid på att justera texter, ladda upp bilder från gig och bädda in mixar. De flesta har en färdig sajt på 20–30 minuter. Du kan alltid fortsätta finslipa efter publicering."
+    },
+    {
+      "q": "Kan jag exportera sajten och flytta den senare?",
+      "a": "Ja, du äger koden och kan exportera hela sajten när du vill. Flytta till egen hosting eller annan plattform – ingen inlåsning, inga krångel."
+    }
+  ],
+  "localOrIndustryContext": "DJ-scenen i Sverige spänner från club-residens i Stockholm, Göteborg och Malmö till mobila DJ:s som kör bröllop och företagsfester över hela landet. Oavsett om du spinner house på Trädgården, kör 90-tals-disco i Småland eller mixar techno i Umeå behöver du en sajt där kunder snabbt ser din stil och kan boka dig – Sajtmaskin gör det enkelt att komma igång.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en dj-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

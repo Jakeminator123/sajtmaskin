@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "gratis-ai-hemsida",
+  "title": "Gratis AI-hemsida – så fungerar det i praktiken | Sajtmaskin",
+  "metaDescription": "Ja, du kan testa att bygga en AI-hemsida gratis. Lär dig hur AI skapar webbplatser från text, vad som kostar och vad som är inkluderat utan kostnad.",
+  "h1": "Gratis AI-hemsida – vad ingår egentligen?",
+  "heroSub": "AI kan skapa en komplett hemsida från en textbeskrivning. Här är vad som är gratis och vad du betalar för.",
+  "introParagraphs": [
+    "Ja, du kan skapa en AI-genererad hemsida utan att betala. Flera plattformar låter dig bygga och publicera en grundläggande sajt kostnadsfritt, antingen på en subdomän eller under en provperiod. Det som ofta kostar är egen domän, avancerade funktioner eller professionell hosting. AI:n själv – den som skriver texter, väljer bilder och bygger sidstrukturen – ingår vanligtvis i gratisversionen.",
+    "Skillnaden mot traditionella gratistjänster är att AI gör jobbet åt dig. Istället för att dra och släppa block eller fylla i mallar beskriver du vad sajten ska göra, så genererar AI layout, texter och navigation på några minuter. Du kan sedan justera resultatet manuellt eller be AI:n om ändringar. Det är särskilt användbart om du vill testa en idé snabbt eller saknar tid att lära dig en webbverktyg.",
+    "I Sverige erbjuder Sajtmaskin exakt detta: bygg en hel sajt genom att chatta med AI, publicera den gratis på en subdomän och betala bara om du vill koppla en egen domän eller lägga till betalfunktioner. Ingen bindningstid, ingen dold kostnad – du äger koden och kan exportera den när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI bygger en hemsida från text",
+      "body": "Du startar med en prompt, till exempel \"jag behöver en sajt för mitt bageri i Göteborg med meny, öppettider och kontaktformulär\". AI:n analyserar din beskrivning, väljer en passande struktur, skriver texter som matchar tonen du vill ha och föreslår bilder eller platshållare. På Sajtmaskin sker allt detta i en chattkonversation – du kan be om ändringar direkt, som \"gör rubriken kortare\" eller \"lägg till en sektion om catering\". Resultatet är en färdig sajt med HTML, CSS och funktioner som fungerar direkt, utan att du behöver röra kod."
+    },
+    {
+      "heading": "Vad kostar det och vad är gratis?",
+      "body": "Gratisversioner inkluderar vanligtvis AI-generering, grundläggande design och publicering på en subdomän (typ dittnamn.sajtmaskin.se). Du betalar när du vill ha en egen domän (dittbageri.se), koppla på betalningar via Stripe, bokningssystem via Cal.com eller använda avancerad analys. Hosting på subdomän är ofta gratis för alltid, medan egen domän kan kosta en engångsavgift eller en liten månadskostnad. Sajtmaskin tar ingen löpande hostingavgift om du nöjer dig med subdomänen, och du kan när som helst exportera koden och flytta sajten till en egen server."
+    },
+    {
+      "heading": "Jämfört med mallbyggare och byråer",
+      "body": "Traditionella gratisbyggare som Wix eller Webflow kräver att du själv drar block, skriver texter och väljer färger – AI-verktyg gör detta automatiskt från din beskrivning. Byråer kostar ofta tiotusentals kronor och tar veckor, medan AI ger ett utkast på minuter. Nackdelen med AI är att den inte alltid träffar rätt på första försöket – du får iterera och justera. Men för snabba tester, MVP:er eller små företag som vill komma igång direkt är AI-metoden både snabbare och billigare än alternativen."
+    },
+    {
+      "heading": "Vad du kan bygga gratis med AI",
+      "body": "Med en gratis AI-hemsida kan du skapa portfolios, företagssajter med kontaktformulär, landningssidor för events, enkla bloggar eller produktpresentationer. Du får responsiv design som fungerar på mobil, grundläggande SEO-struktur och möjlighet att redigera innehåll efteråt. Begränsningar brukar vara antal sidor, avsaknad av e-handel eller avancerade integrationer och ibland ett litet märke som visar vilken plattform du använder. För många räcker det långt – särskilt om målet är att testa en idé eller ha en närvaro online utan att investera tusentals kronor."
+    },
+    {
+      "heading": "Så provar du Sajtmaskin utan kostnad",
+      "body": "Gå in på sajtmaskin.se, beskriv din sajt i chatten och låt AI:n generera ett förslag. Granska resultatet, be om ändringar tills du är nöjd och publicera sedan på en gratis subdomän. Ingen registrering krävs för att testa, och du kan exportera koden direkt om du vill ha full kontroll. Om du senare vill koppla en egen domän, lägga till Stripe-betalningar eller Cal.com-bokning betalar du bara för de funktioner du aktiverar. Allt är på svenska, supporten svarar snabbt och det finns inga dolda avgifter eller bindningstid."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Är en gratis AI-hemsida verkligen helt kostnadsfri?",
+      "a": "Ja, om du publicerar på en subdomän och nöjer dig med grundfunktioner. Du betalar bara om du vill ha egen domän, betalintegrationer eller premium-funktioner. Hosting på subdomän och AI-generering ingår utan kostnad."
+    },
+    {
+      "q": "Kan jag använda min egen domän på en gratis AI-sajt?",
+      "a": "Det beror på plattform. Sajtmaskin låter dig koppla egen domän mot en engångsavgift, medan vissa gratistjänster kräver uppgradering till betald plan. Subdomänen är alltid gratis."
+    },
+    {
+      "q": "Hur bra blir en AI-genererad sajt jämfört med en handgjord?",
+      "a": "AI levererar snabbt ett professionellt utkast med struktur, texter och design. Kvaliteten beror på hur tydlig din prompt är och hur mycket du justerar efteråt. För enkla sajter är resultatet ofta lika bra som en mall, men komplexa projekt kan kräva manuell finputsning."
+    },
+    {
+      "q": "Kan jag redigera sajten efter att AI:n skapat den?",
+      "a": "Ja, de flesta AI-verktyg låter dig ändra texter, byta bilder, flytta sektioner och justera färger. Sajtmaskin låter dig chatta vidare med AI:n för ändringar eller exportera koden och redigera manuellt i din egen editor."
+    },
+    {
+      "q": "Vad händer om jag vill byta från gratis till betald?",
+      "a": "Du behåller allt innehåll och kan lägga till funktioner som egen domän eller betalningar när du vill. Ingen migrering behövs – du aktiverar bara tilläggstjänster i samma gränssnitt. På Sajtmaskin finns ingen bindningstid, så du kan skala upp eller ner efter behov."
+    },
+    {
+      "q": "Äger jag sajten om jag bygger den med gratis AI?",
+      "a": "Ja, du äger innehållet och kan exportera koden. Sajtmaskin ger dig full äganderätt och låter dig flytta sajten till valfri server. Vissa gratisplattformar låser in dig, så kontrollera alltid villkoren innan du börjar."
+    },
+    {
+      "q": "Fungerar gratis AI-hemsidor för e-handel?",
+      "a": "Grundversioner stödjer sällan full e-handel, men du kan ofta integrera Shopify eller Stripe mot en kostnad. Sajtmaskin låter dig koppla Stripe för betalningar och Shopify för produktkataloger, så du kan starta en enkel webshop även på gratisplanen med subdomän."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/chatgpt-hemsida",
+      "label": "ChatGPT hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/webshop",
+  "title": "Hemsida Webshop Helsingborg – Bygg Din Webbutik på Minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell webshop i Helsingborg med AI. Stripe-integration, mobilanpassad design och publicering på egen domän. Ingen bindningstid.",
+  "h1": "Webshop-hemsida i Helsingborg",
+  "heroSub": "Bygg en komplett webbutik för ditt Helsingborgsföretag med AI – från produktkatalog till betalningslösning på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin hjälper företag i Helsingborg att skapa professionella webshoppar utan kod eller teknisk krångel. Du chattar med vår AI om vad du säljer, vilken känsla butiken ska ha och vilka funktioner du behöver – så genererar systemet en färdig webshop med produktsidor, kundvagn och betalningsintegration.",
+    "Oavsett om du driver en designbutik vid Kullagatan, säljer lokala produkter från Helsingborgs saluhall eller vill nå kunder utanför Skåne med dina varor, får du en webshop som fungerar direkt. Publicera på din egen domän utan månadskostnad för hosting på subdomän, och integrera Stripe för säkra betalningar eller koppla din befintliga Shopify-butik.",
+    "Ingen bindningstid och full kontroll. Du kan när som helst exportera koden och flytta din webshop om behoven förändras. Allt på svenska, byggt i Sverige av Pretty Good AB."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du en webshop med AI",
+      "body": "Istället för att spendera veckor med mallar, plugins och betalningsinställningar beskriver du bara din verksamhet i chatten. Berätta vad du säljer, vilka produktkategorier du har och hur du vill att kundresan ska se ut. AI:n skapar en komplett webshop-struktur med produktsidor, filter, kundvagn och kassan. Du ser resultatet direkt och kan justera design, färger, texter och layout genom att fortsätta konversationen. Ingen kodning krävs, men allt är ändå professionellt byggt och redo för riktiga kunder."
+    },
+    {
+      "heading": "Betalningar och integrationer för e-handel",
+      "body": "En webshop behöver säkra betalningar. Sajtmaskin integrerar direkt med Stripe så dina kunder kan betala med kort, Swish och andra vanliga metoder. Har du redan en Shopify-butik kan du koppla den och använda Sajtmaskin som ett snabbare gränssnitt för innehåll och kampanjsidor. Vill du ha bokningsbara tjänster vid sidan av produkter fungerar Cal.com-integrationen utmärkt för det. Google Analytics ingår för att du ska förstå var dina besökare kommer ifrån och vilka produkter som fungerar bäst."
+    },
+    {
+      "heading": "Mobilanpassat och redo för Helsingborgs kunder",
+      "body": "Över hälften av alla webshopköp sker på mobilen, och i en stad som Helsingborg där många pendlar och handlar på språng är det extra viktigt att butiken fungerar lika bra på telefonen som på datorn. Alla sajter från Sajtmaskin är responsiva från start, så produktbilder, kassan och menyer anpassar sig automatiskt. Du behöver inte testa olika skärmstorlekar själv – AI:n ser till att allt ser professionellt ut oavsett enhet."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "När din webshop är klar publicerar du den på din egen domän, eller använder en kostnadsfri subdomän från Sajtmaskin om du vill testa först. Ingen bindningstid betyder att du kan pausa, ändra eller exportera hela koden när du vill. Det är din sajt, dina kunddata och din frihet. För företag i Helsingborg som vill växa snabbt utan att låsa in sig i dyra plattformsavtal är det en trygg modell."
+    },
+    {
+      "heading": "Från lokal butik till nationell e-handel",
+      "body": "Många Helsingborgsföretag börjar med fysisk försäljning på Kullavägen, Drottninggatan eller saluhallen och vill sedan nå kunder i hela Sverige. Med en webshop kan du behålla den lokala förankringen men sälja dygnet runt till hela landet. Sajtmaskin gör det enkelt att lägga till lokala leveransalternativ, hämtköp i butik eller samarbete med Helsingborgs fraktleverantörer – allt genom att beskriva dina behov i chatten."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en webshop med Sajtmaskin?",
+      "a": "De flesta får en färdig grundstruktur på 10–20 minuter. Sedan lägger du tid på att ladda upp produktbilder, skriva produktbeskrivningar och finjustera design. Men själva tekniken – kundvagn, kassan, betalningar – är klar direkt från AI:n utan att du behöver konfigurera något manuellt."
+    },
+    {
+      "q": "Kan jag sälja både produkter och tjänster på samma sajt?",
+      "a": "Ja. Du kan kombinera en produktkatalog med Stripe-betalning och bokningsbara tjänster via Cal.com. Perfekt om du till exempel säljer hantverksprodukter men även erbjuder workshops eller konsultation. Berätta bara för AI:n vad du behöver så sätts rätt integrationer upp."
+    },
+    {
+      "q": "Fungerar webshopen för kunder i hela Sverige eller bara Helsingborg?",
+      "a": "Din webshop fungerar nationellt från dag ett. Du bestämmer själv fraktalternativ, leveransområden och priser. Många Helsingborgsföretag använder sajten för att nå kunder i Stockholm, Göteborg och resten av landet, men behåller möjligheten till lokal upphämtning för närområdet."
+    },
+    {
+      "q": "Vad kostar det att driva en webshop via Sajtmaskin?",
+      "a": "Hosting på subdomän är gratis. Vill du använda egen domän och ta emot betalningar tillkommer Stripes transaktionsavgifter (standard i branschen). Ingen bindningstid eller dolda månadskostnader. Du betalar för det du faktiskt använder, och kan exportera koden kostnadsfritt när som helst."
+    },
+    {
+      "q": "Kan jag integrera min befintliga Shopify-butik?",
+      "a": "Ja, Sajtmaskin kan kopplas till Shopify så du använder vår AI för att bygga kampanjsidor, landningssidor och innehåll medan själva produkthanteringen sköts i Shopify. Det ger dig snabbare innehållsproduktion utan att byta e-handelsplattform."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra något i webshopen?",
+      "a": "Nej. Allt sker genom chat med AI:n. Vill du ändra färger, flytta element, lägga till en ny produktkategori eller justera kassan skriver du bara vad du vill ha så uppdateras sajten. Är du utvecklare kan du såklart exportera koden och anpassa den manuellt, men det är frivilligt."
+    },
+    {
+      "q": "Hur fungerar support och hjälp om jag kör fast?",
+      "a": "Sajtmaskin erbjuder svenskspråkig support, och eftersom hela plattformen är byggd i Sverige av Pretty Good AB får du hjälp på svenska utan tidszoner eller språkbarriärer. Många frågor löser du direkt i chatten med AI:n, men finns det något tekniskt står teamet redo."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en stark tradition av handel och entreprenörskap, från hamnområdet till stadskärnan. Många lokala företag vill kombinera fysisk närvaro med digital försäljning, och webshop-lösningar som är snabba att sätta upp och enkla att underhålla passar perfekt för stadens dynamiska företagsklimat.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

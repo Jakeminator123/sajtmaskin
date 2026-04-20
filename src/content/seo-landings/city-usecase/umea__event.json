@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "umea/event",
+  "title": "Hemsida för event i Umeå – bygg din eventsajt med AI | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Umeå på minuter. AI bygger sajten åt dig – med bokning, biljetter och allt du behöver.",
+  "h1": "Hemsida för event i Umeå",
+  "heroSub": "Bygg en komplett eventsajt med AI – från idé till publicerad sida på minuter, utan kod eller krångel.",
+  "introParagraphs": [
+    "Om du arrangerar event i Umeå behöver du en sajt som gör det enkelt för besökare att hitta information, boka biljetter och ta kontakt. Sajtmaskin låter dig bygga en färdig hemsida för ditt event genom att bara beskriva vad du vill ha – AI:n skapar sedan design, struktur och innehåll automatiskt.",
+    "Du får en sajt som fungerar direkt: med bokningssystem via Cal.com, betalningar genom Stripe, och möjlighet att publicera på din egen domän. Allt på svenska, byggt för att passa både stora festivaler och mindre arrangemang i Umeå. Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när du vill.",
+    "Oavsett om du planerar en konferens på Bildmuseet, en konsert på Folkets Hus eller en matmarknad i city – du får en professionell eventsajt utan att behöva anlita byrå eller lära dig koda."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en eventsajt i Umeå behöver",
+      "body": "Event i Umeå spänner från kulturarrangemang och musikfestivaler till företagskonferenser och lokala marknader. Din hemsida behöver visa datum, plats och program tydligt, ofta med en karta eller vägbeskrivning till platsen. Många besökare kommer från både stan och omkringliggande kommuner, så information om parkering och kollektivtrafik är viktig. Du vill förmodligen ha ett bokningssystem för biljetter eller anmälan, särskilt om platsen har begränsat antal platser. Integrationer för betalning gör det smidigt att sälja biljetter direkt, och en kontaktsektion hjälper sponsorer eller samarbetspartners att nå dig enkelt."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din eventsajt",
+      "body": "Du startar genom att chatta med AI:n och beskriver ditt event: typ av arrangemang, datum, plats, målgrupp och vad besökare ska kunna göra på sajten. AI:n genererar sedan en komplett hemsida med passande struktur – evenemangsinformation, programschema, biljettsida, om-sektion och kontaktformulär. Du kan lägga till Cal.com för bokningar eller Stripe för biljettförsäljning direkt i gränssnittet. Vill du justera texter, byta bilder eller lägga till en sektion för medverkande? Fortsätt bara chatten så uppdaterar AI:n sajten. När allt ser bra ut publicerar du på din egen domän eller använder en kostnadsfri subdomän."
+    },
+    {
+      "heading": "Integrationer som gör eventsajten komplett",
+      "body": "Sajtmaskin kopplar ihop de verktyg du behöver för att driva ett event smidigt. Cal.com låter besökare boka möten, workshops eller guidningar direkt i kalendern. Stripe hanterar kortbetalningar för biljetter säkert och enkelt. Google Analytics visar var trafiken kommer ifrån och vilka sidor som är populärast – användbart för att förstå hur folk hittar ditt event. Behöver du sälja merch eller eventpaket kan du integrera Shopify. Allt sköts från samma gränssnitt, på svenska, utan att du behöver sätta upp API-nycklar eller skriva kod själv."
+    },
+    {
+      "heading": "Publicera och uppdatera utan bindning",
+      "body": "När din eventsajt är klar publicerar du den antingen på din egen domän eller på en subdomän utan månadskostnad. Det finns ingen bindningstid – du äger innehållet och kan exportera hela koden när du vill. Det gör Sajtmaskin perfekt för engångsevent som en sommarfestival eller återkommande arrangemang som en årlig konferens. Behöver du ändra datum, lägga till ett nytt programpunkt eller uppdatera artistinfo? Chatta med AI:n igen så fixas det på sekunder. Allt stöd och all dokumentation är på svenska, byggt i Sverige av Pretty Good AB."
+    },
+    {
+      "heading": "Från idé till live på minuter",
+      "body": "Traditionellt tar det dagar eller veckor att få en eventsajt på plats – särskilt om du behöver anlita designer och utvecklare. Med Sajtmaskin går hela processen på minuter. Du beskriver ditt event, AI:n bygger sajten, du justerar det du vill och publicerar. Perfekt när du har bråttom inför ett event eller vill testa en idé snabbt. Eftersom allt sker via chat behöver du inte lära dig något nytt verktyg eller gräva i mallar. Du pratar, AI:n bygger, du lanserar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en eventsajt live i Umeå?",
+      "a": "Från start till publicerad sajt tar det oftast bara några minuter. Du chattar med AI:n om ditt event, granskar resultatet, gör eventuella justeringar och publicerar. Vill du koppla på bokningssystem eller betalning tar det någon minut extra, men hela processen är betydligt snabbare än att bygga manuellt eller vänta på en byrå."
+    },
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja, genom att integrera Stripe kan besökare betala för biljetter med kort direkt på din hemsida. Du kan också använda Cal.com för att hantera bokningar om du har begränsat antal platser eller vill låta folk välja tidsslot. Båda integrationerna sätts upp via gränssnittet utan kod."
+    },
+    {
+      "q": "Fungerar sajten för både stora och små event?",
+      "a": "Absolut. Oavsett om du arrangerar en liten workshop med tjugo deltagare eller en stor festival med tusentals besökare bygger AI:n en sajt som passar. Du styr själv hur mycket information och vilka funktioner som ska finnas med – från enkel landningssida till fullständig eventsajt med program, artistinfo och sponsorloggor."
+    },
+    {
+      "q": "Kan jag uppdatera eventinformation efter publicering?",
+      "a": "Ja, när som helst. Behöver du ändra datum, lägga till en ny talare eller uppdatera vägbeskrivningen chattar du bara med AI:n igen så görs ändringarna direkt. Inga krångliga CMS-gränssnitt – bara beskriv vad som ska ändras så fixar AI:n det."
+    },
+    {
+      "q": "Vad händer med sajten efter eventet är över?",
+      "a": "Du bestämmer själv. Du kan låta sajten ligga kvar som arkiv, ta ner den eller återanvända strukturen för nästa års event. Eftersom det inte finns någon bindningstid och du kan exportera koden äger du allt material. Många återanvänder sajten år efter år och uppdaterar bara datum och detaljer."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att bygga eventsajten?",
+      "a": "Nej, ingen kodning eller teknisk bakgrund krävs. Du beskriver ditt event i vanlig svenska via chatten, och AI:n bygger hela sajten. Vill du justera något fortsätter du bara konversationen. Allt är byggt för att vara enkelt även om du aldrig gjort en hemsida förut."
+    },
+    {
+      "q": "Passar Sajtmaskin för event som riktar sig till Umeåbor specifikt?",
+      "a": "Ja, du kan be AI:n skriva innehåll som passar lokala besökare – med hänvisningar till kända platser i Umeå, information om parkering vid Norrlandsoperan eller tips om kollektivtrafik. Sajten blir så lokal eller bred du vill, beroende på hur du beskriver målgruppen i prompten."
+    }
+  ],
+  "localOrIndustryContext": "Umeå har en livaktig eventscen med allt från Umeå Jazzfestival och kulturnatten till företagskonferenser och studentevent kopplade till universitetet. Oavsett om ditt event äger rum i city, vid Nydalasjön eller på campus behöver du en sajt som gör det lätt för besökare att hitta information och boka plats – något Sajtmaskin löser på minuter.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/umea",
+      "label": "Skapa hemsida i Umeå"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Umeå. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

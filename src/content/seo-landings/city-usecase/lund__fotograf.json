@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "lund/fotograf",
+  "title": "Hemsida fotograf Lund – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell fotograf-hemsida i Lund med AI. Portfolio, bokning och galleri – allt klart på minuter. Ingen kod. Publicera direkt.",
+  "h1": "Hemsida fotograf Lund",
+  "heroSub": "Bygg din fotograf-sajt med AI – portfolio, bokningssystem och bildgallerier klara på minuter, utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Lund behöver du en hemsida som visar ditt arbete i bästa ljus och gör det enkelt för kunder att boka dig. Sajtmaskin bygger hela din sajt via chat – du beskriver vad du fotograferar och vilka tjänster du erbjuder, så skapar AI:n en komplett sajt med portfolio, prislista och bokningsfunktion.",
+    "Du får ett bildgalleri som lyfter dina foton, integrerad bokning via Cal.com så kunder kan välja tid direkt, och all text anpassad för din typ av fotografi. Publicera på din egen domän eller använd en kostnadsfri subdomän. Allt på svenska, byggt för svenska fotografer.",
+    "Ingen bindningstid och ingen kod. Du kan när som helst exportera hela sajten om du vill flytta den någon annanstans."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio som säljer ditt fotografi",
+      "body": "Din hemsida behöver visa vad du kan. Sajtmaskin skapar bildgallerier optimerade för fotografier – snabba att ladda, responsiva på mobil och desktop, och presenterade så att dina bilder får ta plats. Ladda upp ditt bästa arbete och AI:n arrangerar det i en portfolio som passar din stil, vare sig du fotograferar bröllop, porträtt, produkter eller arkitektur. Du kan dela upp galleriet i kategorier så besökare snabbt hittar rätt."
+    },
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "Med Cal.com-integration kan kunder boka fotosession direkt på sajten. De ser dina lediga tider, väljer den som passar och bokar – du får bekräftelse automatiskt. Perfekt för porträttfotografer, familjefotografer eller alla som arbetar med bokade uppdrag. Systemet synkar med din kalender så du aldrig dubbelbokar, och kunden får en tydlig bekräftelse. Allt sköts smidigt utan mejlkaruseller."
+    },
+    {
+      "heading": "Anpassad för fotografer i Lund",
+      "body": "Lund har en stark kreativ scen med allt från studentporträtt och examensfoton till företagsfotografi för lokala startups och etablerade bolag. Din hemsida kan lyfta fram de tjänster som passar Lundamarknaden – kanske universitetsrelaterad fotografering, lokala evenemang eller kommersiella uppdrag för företag i Ideon Science Park. Sajtmaskin låter dig enkelt beskriva din nisch, så texten och strukturen speglar vad du faktiskt erbjuder kunder i Lund och Skåne."
+    },
+    {
+      "heading": "Priser, paket och kontaktformulär",
+      "body": "Visa tydligt vad du tar betalt och vad som ingår. Sajtmaskin hjälper dig strukturera prislistor och paket – baspaket, tilläggstjänster, rättigheter – så kunder förstår vad de får. Lägg till ett kontaktformulär för förfrågningar om specialuppdrag eller offertförfrågningar. Om du säljer digitala nedladdningar eller printar kan du integrera Stripe för betalning direkt på sajten."
+    },
+    {
+      "heading": "Snabbt, enkelt och helt på svenska",
+      "body": "Hela processen sker på svenska. Du chattar med AI:n, beskriver din fotografverksamhet och vad sajten ska innehålla. På minuter får du en färdig sajt med texter, struktur och funktioner. Justera bilder, byt färger, lägg till sidor – allt utan kod. Publicera när du är nöjd. Ingen bindningstid, ingen dold kostnad för hosting på subdomän, och du äger alltid din data."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att ha en fotograf-hemsida via Sajtmaskin?",
+      "a": "Att skapa och publicera sajten på en Sajtmaskin-subdomän är gratis. Vill du använda din egen domän tillkommer en kostnad, men det finns ingen månadshyra för själva hostingen. Du betalar bara för de tilläggstjänster du aktivt väljer, som bokningssystem eller betalintegration, och de flesta har egna gratisalternativ."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotografier i separata gallerier?",
+      "a": "Ja. Du kan skapa flera gallerier eller kategorier – ett för bröllop, ett för porträtt, ett för företagsfoto och så vidare. Det gör det enkelt för besökare att hitta rätt och se exempel på just den typ av fotografering de är intresserade av. AI:n hjälper dig strukturera det när du bygger sajten."
+    },
+    {
+      "q": "Hur fungerar bokningssystemet för fotosessioner?",
+      "a": "Sajtmaskin integrerar Cal.com, ett bokningsverktyg där du ställer in dina lediga tider, sessionslängd och buffert mellan bokningar. Kunder ser kalendern på din sajt, väljer en tid och bokar direkt. Du får en notis och bokningen hamnar i din kalender. Grundfunktionen i Cal.com är gratis."
+    },
+    {
+      "q": "Fungerar sajten bra för fotografer i Lund specifikt?",
+      "a": "Absolut. Sajtmaskin är byggd i Sverige och all text genereras på svenska. Du kan anpassa innehållet för Lundamarknaden – nämn lokala områden, rikta dig till studenter, företag i Ideon eller familjer i Lund. AI:n skriver texter som passar din målgrupp och dina tjänster, inte generiska mallar."
+    },
+    {
+      "q": "Kan jag sälja foton eller printar direkt på sajten?",
+      "a": "Ja, genom att integrera Stripe kan du ta betalt för digitala nedladdningar, printar eller fotosessioner. Du sätter priser, kunden betalar via kortbetalning och du får pengarna direkt till ditt konto. Det gör sajten till en komplett plattform för både marknadsföring och försäljning."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela din sajt som kod och flytta den till en annan hostingleverantör. Ingen bindningstid, ingen inlåsning. Du äger innehållet och har full frihet att ta sajten vidare om dina behov förändras."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta fotografer har en fungerande sajt på några minuter. Du chattar med AI:n, beskriver din verksamhet och laddar upp bilder. AI:n genererar struktur, texter och layout. Sedan justerar du det du vill ändra och publicerar. Allt går snabbt, och du behöver ingen teknisk kunskap."
+    }
+  ],
+  "localOrIndustryContext": "Lund har en livlig fotografscen med allt från studentporträtt och examensfotograferingar vid universitetet till kommersiellt arbete för tech-företag i Ideon och kreativa byråer i city. En professionell hemsida hjälper dig synas i en stad där både privatpersoner och företag söker lokala fotografer online.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/lund",
+      "label": "Skapa hemsida i Lund"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Lund. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

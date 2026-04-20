@@ -1,0 +1,90 @@
+{
+  "family": "city-usecase",
+  "slug": "lund/foretag",
+  "title": "Hemsida för företag i Lund – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag i Lund med AI. Ingen kod, klart på minuter. Publicera direkt – från 0 kr/mån.",
+  "h1": "Hemsida för företag i Lund",
+  "heroSub": "Bygg en professionell företagssajt på minuter med AI – ingen kod, inget krångel, redo att publicera direkt.",
+  "introParagraphs": [
+    "Oavsett om du driver en konsultfirma i Ideon, en butik på Mårtenstorget eller ett kunskapsföretag nära universitetet behöver ditt företag i Lund en hemsida som visar vad ni gör och gör det enkelt för kunder att hitta er. Med Sajtmaskin skapar du en komplett företagssajt genom att bara berätta vad ditt företag gör – AI:n bygger resten.",
+    "Du får en sajt med kontaktformulär, tjänstebeskrivningar, om-sida och allt annat som behövs. Publicera på egen domän eller testa kostnadsfritt på en subdomän. Ingen bindningstid, ingen månadskostnad för hosting om du väljer subdomän, och du kan exportera koden när du vill.",
+    "Sajtmaskin är byggt i Sverige med svenskt gränssnitt och stöd. Allt sker via chat – du beskriver ditt företag, AI:n genererar sajten, och du kan justera direkt tills allt är precis som du vill ha det."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en företagssajt i Lund behöver",
+      "body": "En bra företagssajt visar tydligt vad ni gör, var ni finns och hur man når er. För företag i Lund är det ofta viktigt att framhålla kompetens, erfarenhet och lokala kopplingar – särskilt om ni arbetar mot andra företag i regionen eller rekryterar från universitetet. Sajten behöver vanligtvis sidor för tjänster eller produkter, om företaget, kontaktuppgifter och kanske en blogg eller nyhetssektion. Sajtmaskin genererar hela strukturen automatiskt utifrån din beskrivning och ser till att allt hänger ihop."
+    },
+    {
+      "heading": "Bygg sajten via chat – ingen kod",
+      "body": "Du startar med att berätta vad ditt företag gör, vilka ni vänder er till och vad sajten ska innehålla. AI:n skapar då en komplett sajt med texter, struktur och design. Vill du ändra något? Skriv bara i chatten – byt färg, lägg till en sida, justera en rubrik. Allt uppdateras direkt. Du behöver aldrig röra kod, mallar eller byggverktyg. När sajten är klar publicerar du den på din egen domän eller testar kostnadsfritt på en Sajtmaskin-subdomän."
+    },
+    {
+      "heading": "Integrationer som gör sajten mer användbar",
+      "body": "Sajtmaskin stödjer Cal.com för bokningar, Stripe för betalningar, Google Analytics för besöksstatistik och Shopify om du vill lägga till en webshop. Det gör det enkelt att bygga ut sajten i takt med att företaget växer – från en enkel presentation till en sajt där kunder kan boka möten, köpa produkter eller betala för tjänster. Allt kopplas ihop utan att du behöver hantera tekniska detaljer."
+    },
+    {
+      "heading": "Ingen bindningstid – exportera när du vill",
+      "body": "Du äger din sajt. Det finns ingen bindningstid och du kan exportera hela koden när som helst om du vill flytta den någon annanstans eller hantera den själv. Hosting på subdomän kostar ingenting per månad, och om du publicerar på egen domän betalar du bara för det du faktiskt använder. Sajtmaskin låser inte in dig – du har full kontroll och frihet att välja hur länge du vill använda plattformen."
+    },
+    {
+      "heading": "Byggt i Sverige för svenska företag",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt, svensk support och AI som förstår hur svenska företag kommunicerar. Allt innehåll genereras på svenska, och du slipper översätta eller anpassa mallar från utländska plattformar. Det gör processen snabbare och resultatet mer naturligt för dina kunder i Lund och resten av Sverige."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en företagssajt?",
+      "a": "De flesta sajter är klara på några minuter. Du skriver vad ditt företag gör, AI:n genererar sajten, och sedan kan du justera direkt i chatten tills allt ser bra ut. Hur lång tid det tar beror mest på hur mycket du vill finjustera."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja, du kan publicera på vilken domän du vill. Du kan också börja med en kostnadsfri subdomän hos Sajtmaskin för att testa sajten innan du kopplar din egen domän."
+    },
+    {
+      "q": "Vad kostar det att ha sajten publicerad?",
+      "a": "Hosting på en Sajtmaskin-subdomän kostar ingenting per månad. Publicerar du på egen domän betalar du för den trafik och de resurser du använder, utanfast månadsavgift. Det finns ingen bindningstid."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för alla typer av företag i Lund?",
+      "a": "Ja, oavsett om du driver konsultverksamhet, butik, restaurang, byrå eller kunskapsföretag kan du bygga en sajt som passar. AI:n anpassar struktur och innehåll efter vad du beskriver, så sajten blir relevant för just din bransch och dina kunder."
+    },
+    {
+      "q": "Kan jag lägga till bokning eller betalning?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com för bokningar och Stripe för betalningar. Du kan också koppla Google Analytics för statistik och Shopify om du vill ha en webshop. Allt sätts upp via chatten utan teknisk krångel."
+    },
+    {
+      "q": "Vad händer om jag vill sluta använda Sajtmaskin?",
+      "a": "Du kan exportera hela sajten när du vill och flytta den till en annan leverantör eller hantera den själv. Det finns ingen bindningstid och du äger alltid din egen kod och ditt innehåll."
+    }
+  ],
+  "localOrIndustryContext": "Lund har en stark mix av kunskapsföretag, konsulter, techbolag kopplade till Ideon och lokala butiker och tjänsteföretag. Många företag rekryterar från universitetet och arbetar regionalt eller internationellt, vilket gör en tydlig och professionell hemsida extra viktig för att synas och attrahera rätt kunder och medarbetare.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/lund",
+      "label": "Skapa hemsida i Lund"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Lund. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

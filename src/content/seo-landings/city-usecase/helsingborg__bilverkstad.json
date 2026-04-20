@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/bilverkstad",
+  "title": "Hemsida bilverkstad Helsingborg – bygg på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Helsingborg med AI. Bokningstider, prislista och kontaktinfo – klart på minuter.",
+  "h1": "Hemsida för bilverkstad i Helsingborg",
+  "heroSub": "Bygg en komplett sajt för din bilverkstad med bokning, priser och kundrecensioner – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "Om du driver bilverkstad i Helsingborg behöver du en sajt som gör det enkelt för kunder att boka tid, se priser på service och hitta er verkstad. Sajtmaskin låter dig bygga hela hemsidan på minuter genom att chatta med AI – du beskriver vad verkstaden erbjuder, så genereras sidor för besiktning, däckskifte, reparationer och bokning automatiskt.",
+    "Du får ett färdigt svenskt gränssnitt med Cal.com-integration för tidsbokning, Google Maps till er adress i Helsingborg, och alla texter skrivna för just bilbranschen. Publicera på egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid och du kan exportera koden när som helst."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bokning och prislista – viktigt för bilverkstäder",
+      "body": "Kunder som söker bilverkstad i Helsingborg vill snabbt se vad service kostar och boka tid online. Sajtmaskin bygger in Cal.com så besökare kan välja ledig tid direkt på sajten – för besiktning, oljebyte, bromsservice eller felsökning. Du lägger enkelt till en prislista med vanliga jobb som kamremsbyte, AC-service och däckhotell, så kunderna slipper ringa för att få en uppfattning om kostnad. AI:n skapar även kontaktsidor med telefonnummer, öppettider och karta till verkstaden."
+    },
+    {
+      "heading": "Så bygger du sajten via chat",
+      "body": "Du startar en chatt och beskriver din bilverkstad: vilka tjänster ni utför, om ni är specialiserade på något märke, var i Helsingborg ni ligger och vad som skiljer er från andra verkstäder. AI:n föreslår struktur – startsida, tjänster, om oss, boka tid, kontakt – och skriver alla texter på svenska. Du kan be om ändringar direkt i chatten, lägga till bilder på verkstaden eller teamet, och justera färger så de matchar er profil. Allt sker utan kod, och du ser resultatet live medan du chattar."
+    },
+    {
+      "heading": "Helsingborgs bilägare söker lokal expertis",
+      "body": "I Helsingborg finns allt från nyare bilar i Drottninghög till äldre modeller i Söder, och bilägare vill hitta en verkstad som känner deras märke och kan fixa problem snabbt. En tydlig hemsida som visar er erfarenhet, certifieringar och kundrecensioner bygger förtroende. Sajtmaskin låter dig lägga in texter om att ni till exempel är auktoriserad verkstad, jobbar med originaldelar, eller har specialkompetens på Volvo, BMW eller japanska bilar. Du kan även bädda in Google-recensioner eller lägga upp egna kundomdömen."
+    },
+    {
+      "heading": "Integrera betalning och analytics",
+      "body": "Om du vill ta förskottsbetalning för besiktning eller sälja presentkort online kan du koppla Stripe direkt i Sajtmaskin. Google Analytics ingår också, så du ser vilka tjänster besökare klickar mest på och var trafiken kommer ifrån – organisk sökning, Google Maps eller sociala medier. All data ägs av dig, och du kan när som helst exportera hela sajten om du vill flytta till egen server eller annan plattform."
+    },
+    {
+      "heading": "Ingen månadskostnad för hosting på subdomän",
+      "body": "Publicera sajten på en kostnadsfri Sajtmaskin-subdomän, till exempel dinverkstad.sajtmaskin.se, utan månadshyra. Vill du ha egen domän – som helsingborgsbildelar.se – kopplar du den med några klick. Det finns ingen bindningstid, så du testar risken noll. Uppdatera priser, lägg till nya tjänster eller ändra öppettider direkt i gränssnittet, utan att behöva vänta på webbutvecklare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta bilverkstäder har en fungerande sajt på 10–20 minuter. Du chattar om vilka tjänster ni erbjuder, AI:n genererar sidor och texter, du justerar bilder och färger, sedan publicerar du. Vill du finjustera bokningstider eller lägga till fler tjänster gör du det löpande."
+    },
+    {
+      "q": "Kan kunder boka däckskifte och service direkt på sajten?",
+      "a": "Ja, genom Cal.com-integrationen skapar du bokningsbara tider för alla tjänster – däckskifte, besiktning, oljebyte, bromsservice. Du väljer längd per bokning och vilka tider som är lediga, så kunder bokar själva dygnet runt utan att ringa."
+    },
+    {
+      "q": "Fungerar sajten bra för bilverkstäder i Helsingborg specifikt?",
+      "a": "Absolut. Du skriver in er adress i Helsingborg så bäddas Google Maps in automatiskt, och all text genereras på svenska med lokal kontext. Du kan nämna närliggande områden som Ramlösa, Påarp eller Ättekulla så kunder från hela regionen hittar er. Sajten optimeras också för mobil, vilket är viktigt när folk söker akuthjälp med bilen."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Egen domän kostar från cirka 100 kr per år hos valfri registrar. Cal.com och Google Analytics är kostnadsfria i grundutförande. Stripe tar en liten procent per transaktion om du aktiverar betalning, men ingen fast avgift."
+    },
+    {
+      "q": "Kan jag visa priser på reparationer och service?",
+      "a": "Ja, du lägger enkelt in en prissida med vanliga jobb – kamremsbyte, AC-laddning, hjulställ, felsökning – och ungefärliga priser eller från-priser. Det minskar antalet samtal och ger kunder transparens. Du uppdaterar priserna när du vill direkt i gränssnittet."
+    },
+    {
+      "q": "Äger jag innehållet och kan jag byta plattform senare?",
+      "a": "Du äger allt innehåll och all kod. Sajtmaskin låter dig exportera hela sajten som HTML/CSS/JS när som helst, utan extra kostnad. Det finns ingen bindningstid, så du kan flytta till egen server eller annan leverantör om du vill."
+    },
+    {
+      "q": "Hur lägger jag till bilder från verkstaden?",
+      "a": "Ladda upp egna bilder i chatten eller direkt i redigeraren – foton på verkstadshallen, teamet, utrustning eller färdiga jobb. AI:n placerar bilderna automatiskt på rätt sidor, men du kan flytta och ändra storlek precis som du vill. Komprimering sker automatiskt så sajten laddar snabbt."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en blandad bilpark från pendlare, familjer och företag, och konkurrensen mellan verkstäder är hård längs Drottninggatan och i industriområdena. En professionell hemsida med tydlig bokning och priser hjälper din verkstad att sticka ut när bilägare söker på Google eller kollar recensioner.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

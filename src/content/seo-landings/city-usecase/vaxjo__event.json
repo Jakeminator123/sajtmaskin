@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vaxjo/event",
+  "title": "Hemsida event Växjö – skapa evenemangssajt på minuter | Sajtmaskin",
+  "metaDescription": "Bygg en professionell eventsajt i Växjö med AI på minuter. Biljettförsäljning, bokning och betalning. Ingen kod, ingen bindning. Från 0 kr/mån.",
+  "h1": "Hemsida event Växjö",
+  "heroSub": "Skapa en komplett evenemangssajt för ditt företag i Växjö – med AI, på minuter, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "Vare sig du arrangerar konferenser på Växjö Konserthus, festivaler vid Växjösjön eller företagsevent i Science Park behöver du en sajt som hanterar anmälningar, biljetter och information smidigt. Sajtmaskin bygger hela din eventsajt från en chattkonversation – du beskriver vad du vill ha, så genererar AI:n sidor, bokningsformulär och betalningslösning direkt.",
+    "Du publicerar på egen domän och betalar ingen månadskostnad om du använder vår subdomän. Integrationer med Cal.com för tidsbokning, Stripe för biljettbetalningar och Google Analytics för att följa besökarstatistik ingår. Allt på svenska, byggt i Sverige, utan bindningstid.",
+    "Växjös eventscen växer snabbt – från kulturfestivaler och idrottsevenemang till akademiska konferenser och företagsmingel. En sajt som är snabb att uppdatera och enkel att administrera ger dig mer tid att fokusera på själva evenemanget istället för tekniken."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "AI bygger din eventsajt från en konversation",
+      "body": "Du startar en chatt, berättar vilken typ av evenemang du arrangerar – kanske en bokmässa, musikfestival eller företagsgala – och vilka funktioner du behöver. Sajtmaskin genererar då automatiskt startsida, eventprogram, talarpresentationer, bokningsformulär och FAQ. Du kan be AI:n justera texter, lägga till bilder eller ändra layouten direkt i chatten. Resultatet är en färdig sajt på minuter, redo att publiceras."
+    },
+    {
+      "heading": "Biljettförsäljning och bokning som funkar",
+      "body": "Genom integrationen med Stripe kan besökare köpa biljetter eller betala deltagaravgifter direkt på sajten – alla transaktioner sker säkert och du får pengarna på ditt konto. Behöver du tidsbokade aktiviteter, workshops eller möten kopplar du Cal.com så deltagare kan välja tid själva. Allt hänger ihop utan att du behöver programmera eller hantera krångliga plugins. Du ser bokningar och betalningar i realtid och kan exportera deltagarlistor när du vill."
+    },
+    {
+      "heading": "Uppdatera program och info när som helst",
+      "body": "Event förändras – talare byts ut, tider flyttas, nya sponsorer tillkommer. I Sajtmaskin redigerar du innehåll genom att chatta med AI:n: 'Lägg till en ny talare kl 14', 'Ändra platsen till Teleborg Arena', 'Ta bort workshopen på fredag'. Sajten uppdateras direkt utan att du behöver logga in i komplicerade CMS-system. Perfekt när du sitter på plats och behöver fixa något snabbt från mobilen."
+    },
+    {
+      "heading": "Ingen bindning, ingen dold kostnad",
+      "body": "Du betalar ingen månadskostnad om du kör på vår subdomän, och vill du använda egen domän (t.ex. vaxjofestival.se) fixar du det enkelt. Det finns ingen bindningstid – när evenemanget är över kan du pausa sajten eller exportera hela koden och flytta den var du vill. Ingen dold kostnad för extra sidor, besökare eller funktioner. Du äger ditt innehåll och din kod, alltid."
+    },
+    {
+      "heading": "Byggt i Sverige, på svenska, för svenska event",
+      "body": "Sajtmaskin är utvecklad av Pretty Good AB i Sverige, med svenskt gränssnitt och svensk support. Det betyder att alla texter, formulär och betalningsflöden fungerar naturligt för svenska besökare. Google Analytics-integration ger dig insikt i varifrån deltagarna kommer – kanske mest från Växjö och Kronoberg, men också från Stockholm eller Malmö. Du får en sajt som känns professionell och trygg, utan att behöva översätta eller anpassa utländska verktyg."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få upp en eventsajt för mitt evenemang i Växjö?",
+      "a": "De flesta kommer igång på 10–20 minuter. Du chattar med AI:n, beskriver ditt event och vilka sidor du behöver, så genereras sajten automatiskt. Sedan justerar du texter och bilder tills allt ser bra ut. Vill du koppla betalning via Stripe eller bokning via Cal.com tar det ytterligare någon minut, men grundsajten är klar direkt."
+    },
+    {
+      "q": "Kan besökare köpa biljetter direkt på sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du sälja biljetter, ta betalt för deltagaravgifter eller sälja merchandise. Besökaren betalar med kort, Swish eller andra metoder Stripe stödjer, och pengarna hamnar på ditt konto. Du behöver inte bygga någon checkout – AI:n skapar betalningsflödet åt dig."
+    },
+    {
+      "q": "Funkar det för återkommande event som festivaler eller mässor?",
+      "a": "Absolut. Du kan uppdatera program, datum och information inför varje upplaga genom att chatta med AI:n. Vill du behålla samma domän och design år efter år gör du det, eller så skapar du en ny variant. Ingen bindning innebär att du bara betalar när sajten faktiskt används."
+    },
+    {
+      "q": "Kan jag använda min egen domän, typ vaxjoevent.se?",
+      "a": "Ja, du kopplar enkelt din egen domän till sajten. Vill du slippa den kostnaden kan du köra på vår subdomän (t.ex. dittevent.sajtmaskin.se) helt utan månadskostnad. Båda alternativen fungerar lika bra tekniskt."
+    },
+    {
+      "q": "Vad händer om jag behöver ändra något direkt innan evenemanget?",
+      "a": "Du chattar bara med AI:n och beskriver ändringen – 'Flytta starttiden till 18.00', 'Lägg till en extra workshop', 'Byt ut talarbild'. Sajten uppdateras på sekunder. Ingen väntan på utvecklare eller krångliga inloggningar, perfekt när det är bråttom."
+    },
+    {
+      "q": "Hur funkar det med GDPR och deltagardata?",
+      "a": "All data lagras säkert och du äger den. Integrationer som Cal.com och Stripe följer GDPR-regler. Du kan när som helst exportera eller radera deltagarinformation. Sajtmaskin är byggt i Sverige och följer svensk och europeisk dataskyddslagstiftning."
+    },
+    {
+      "q": "Kan jag få hjälp om jag kör fast?",
+      "a": "Ja, vi har svensk support som hjälper dig. Eftersom allt är på svenska och byggt för svenska användare är de flesta frågor enkla att lösa direkt i chatten med AI:n, men behöver du mänsklig hjälp finns vi här."
+    }
+  ],
+  "localOrIndustryContext": "Växjö är Smålands eventhub med allt från Linnéuniversitetets akademiska konferenser och idrottsevent i Vida Arena till kulturfestivaler vid sjöarna och företagsmingel i Science Park. En eventsajt behöver vara snabb att uppdatera, enkel för deltagare att hitta i och smidig att administrera – särskilt när du jonglerar leverantörer, sponsorer och frivilliga samtidigt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vaxjo",
+      "label": "Skapa hemsida i Växjö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Växjö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

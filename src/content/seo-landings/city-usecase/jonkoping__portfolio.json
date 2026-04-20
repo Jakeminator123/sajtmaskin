@@ -1,0 +1,90 @@
+{
+  "family": "city-usecase",
+  "slug": "jonkoping/portfolio",
+  "title": "Hemsida Portfolio Jönköping – Bygg din portfoliosajt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfoliosajt i Jönköping på minuter med AI. Ingen kod krävs. Publicera direkt på egen domän. Prova Sajtmaskin idag.",
+  "h1": "Hemsida Portfolio Jönköping",
+  "heroSub": "Bygg en professionell portfoliosajt för ditt kreativa företag i Jönköping – på minuter, utan kod.",
+  "introParagraphs": [
+    "En portfoliosajt är ditt digitala visitkort där du visar upp dina bästa projekt, case och arbeten. I Jönköping, med sin starka design- och mediabransch, är en välgjord portfolio avgörande för att nå nya kunder och uppdragsgivare. Sajtmaskin låter dig bygga en skräddarsydd portfoliosajt genom att bara chatta med AI – ingen teknisk kunskap behövs.",
+    "Du beskriver vad du gör, vilka projekt du vill lyfta och vilken känsla du vill förmedla. AI:n bygger sedan en komplett sajt med bildgallerier, projektbeskrivningar och kontaktformulär. Publicera på din egen domän direkt, eller testa först på en kostnadsfri subdomän. Allt på svenska, byggt för svenska kreativa företag.",
+    "Oavsett om du är fotograf, designer, arkitekt eller konsulent i Jönköpingsregionen får du en sajt som speglar din stil och gör det enkelt för potentiella kunder att se vad du kan."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför en portfoliosajt är viktig i Jönköping",
+      "body": "Jönköping har en livaktig kreativ sektor med allt från reklambyråer och webbdesigners till frilansande fotografer och illustratörer. Konkurrensen om uppdragen är ofta hård, och en professionell portfoliosajt hjälper dig att sticka ut. Den visar inte bara vad du har gjort, utan också hur du arbetar och vad som gör dig unik. För många kunder i regionen är en snygg, lättnavigerad portfolio det första steget till att boka in ett möte eller skicka en förfrågan."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din portfoliosajt",
+      "body": "Du startar en chatt och berättar vad du behöver: vilka projekt du vill visa, vilken ton du vill ha och om du behöver funktioner som kontaktformulär eller bokningssystem. AI:n genererar en komplett sajt med layouter anpassade för visuellt innehåll – stora bilder, tydliga rubriker och responsiv design som fungerar på mobil. Du kan ladda upp bilder, justera texter och lägga till nya projekt direkt i gränssnittet. När du är nöjd publicerar du på din egen domän, utan krångel."
+    },
+    {
+      "heading": "Integrationer som gör livet enklare",
+      "body": "Vill du att kunder ska kunna boka ett möte direkt? Koppla in Cal.com så får du ett bokningssystem inbyggt på sajten. Behöver du ta betalt för konsultationer eller digitala produkter? Stripe-integrationen gör det smidigt. Google Analytics ger dig koll på hur besökare hittar och använder din portfolio. Alla integrationer sätts upp utan kod, så du slipper tekniska krångligheter och kan fokusera på att visa upp ditt arbete."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Sajtmaskin har inga långa avtal eller dolda avgifter. Vill du ha sajten på en subdomän kostar hostingen ingenting per månad. Behöver du flytta sajten senare kan du exportera hela koden och ta den med dig. Du äger ditt innehåll och har full frihet att växa i din egen takt. Det gör Sajtmaskin till ett tryggt val för frilansare och småföretag i Jönköping som vill ha flexibilitet."
+    },
+    {
+      "heading": "Byggd i Sverige, för svenska kreativa",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt och support. Allt innehåll genereras på svenska, vilket gör att texter och tonalitet känns naturliga för din publik i Jönköpingsregionen. Du slipper översättningsproblem och får en sajt som talar direkt till dina svenska kunder. Det är en plattform skapad för den svenska marknaden, av människor som förstår hur svenska företag jobbar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfoliosajt?",
+      "a": "De flesta användare har en fungerande portfoliosajt på 10–20 minuter. Du chattar med AI:n, beskriver dina projekt och väljer stil. Sedan genereras sajten automatiskt. Du kan justera och publicera direkt, eller fortsätta finjustera tills allt känns rätt."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja, du kan koppla vilken domän du vill till din portfoliosajt. Har du ingen domän än kan du börja med en kostnadsfri subdomän hos Sajtmaskin och uppgradera senare när du är redo."
+    },
+    {
+      "q": "Hur lägger jag till nya projekt i min portfolio?",
+      "a": "Du loggar in, går till den sektion där projekten visas och lägger till nytt innehåll direkt i editorn. Ladda upp bilder, skriv beskrivningar och publicera uppdateringen. Ingen kod behövs, allt sköts i gränssnittet."
+    },
+    {
+      "q": "Fungerar sajten bra för fotografer i Jönköping?",
+      "a": "Absolut. Portfoliosajter från Sajtmaskin är byggda för visuellt innehåll med stora bildytor och responsiv design. Perfekt för fotografer, illustratörer och andra kreativa yrkesgrupper som behöver visa upp sitt arbete på ett snyggt sätt."
+    },
+    {
+      "q": "Kan jag ta betalt för tjänster via sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du sätta upp betalningar för konsultationer, digitala produkter eller andra tjänster. Allt hanteras säkert och smidigt, utan att du behöver bygga egen betalningslösning."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela sajten som kod när du vill. Det finns ingen bindningstid och inget som låser dig. Du äger ditt innehåll och kan ta det med dig om du väljer att flytta till en annan lösning."
+    }
+  ],
+  "localOrIndustryContext": "Jönköping har en stark tradition inom design, media och kreativa näringar, med allt från etablerade byråer till frilansare och nystartade studios. En professionell portfoliosajt är ofta avgörande för att synas i den lokala marknaden och nå kunder i regionen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/jonkoping",
+      "label": "Skapa hemsida i Jönköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Jönköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

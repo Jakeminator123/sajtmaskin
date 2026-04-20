@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/fotograf",
+  "title": "Hemsida fotograf Västerås – Bygg din portfoliosajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Västerås. AI bygger din portfoliosajt med galleri, bokning och kontakt – ingen kod.",
+  "h1": "Hemsida fotograf Västerås",
+  "heroSub": "Bygg en professionell portfoliosajt för din fotoverksamhet i Västerås – med AI, på minuter, utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Västerås behöver du en hemsida som visar ditt arbete i bästa ljus och gör det enkelt för kunder att boka dig. Sajtmaskin bygger din kompletta portfoliosajt via chat – du beskriver din verksamhet, AI:n skapar sajten med bildgalleri, tjänstebeskrivningar, bokningsfunktion och kontaktformulär.",
+    "Du publicerar på din egen domän direkt, utan tekniskt krångel. Integrationen med Cal.com gör att bröllopspar, företag och privatpersoner kan boka fotosessioner direkt i din kalender. Allt på svenska, byggt för fotografer som vill ha en professionell närvaro online utan att lägga veckor på utveckling.",
+    "Ingen bindningstid, ingen kodning, ingen månadskostnad för hosting på subdomän. Du äger sajten och kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfoliosajt anpassad för fotografer",
+      "body": "Din hemsida behöver visa upp ditt arbete på ett sätt som får potentiella kunder att vilja boka dig. Sajtmaskin skapar automatiskt en responsiv portfoliosajt med bildgallerier organiserade efter kategori – bröllop, porträtt, företagsfoto, evenemang eller vad du nu specialiserar dig på. Du laddar upp dina bilder, AI:n optimerar layouten så den fungerar lika bra på mobil som dator. Varje tjänst får en egen sida där du beskriver vad som ingår, priser och vad kunden kan förvänta sig."
+    },
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "Fotografer i Västerås behöver ett smidigt sätt att hantera bokningar utan att spela mejltenniss om lediga tider. Med Cal.com-integrationen får du ett bokningssystem där kunder ser din tillgänglighet och bokar direkt. Du bestämmer längd på sessioner, bufferttid mellan uppdrag och vilka typer av fotograferingar du erbjuder. Bekräftelser och påminnelser skickas automatiskt, och allt synkas med din kalender så du slipper dubbelbokning."
+    },
+    {
+      "heading": "Bygg sajten via chat på svenska",
+      "body": "Du chattar med Sajtmaskin på svenska och beskriver din fotoverksamhet – vilka tjänster du erbjuder, vad som gör ditt arbete unikt, vilka områden i Västerås och omnejd du täcker. AI:n genererar hela sajten med texter, struktur och design anpassad för fotografer. Vill du visa upp priser? Lyfta fram kundrecensioner? Ha en blogg för SEO? Du säger det, sajten byggs. Sedan justerar du bilder, texter och färger tills allt känns rätt."
+    },
+    {
+      "heading": "Egen domän och full kontroll",
+      "body": "Din portfoliosajt publiceras på din egen domän, vilket ger professionell trovärdighet och gör det enklare för Västeråskunder att hitta och komma ihåg dig. Du kan använda subdomän kostnadsfritt eller koppla din egna domän direkt. Ingen bindningstid innebär att du kan testa plattformen utan risk, och skulle du någonsin vilja byta system kan du exportera hela koden. Du äger ditt innehåll och din närvaro online."
+    },
+    {
+      "heading": "Integrationer som gör livet enklare",
+      "body": "Utöver bokningssystemet kan du integrera Google Analytics för att se var dina besökare kommer ifrån och vilka tjänster de är mest intresserade av. Vill du sälja presentkort eller ta förskottsbetalning? Stripe-integrationen hanterar betalningar säkert. Allt sätts upp utan teknisk expertis – du fokuserar på fotografering, Sajtmaskin tar hand om tekniken."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en fotografhemsida med Sajtmaskin?",
+      "a": "De flesta fotografer har en fungerande grundsajt på 10–20 minuter. Du chattar på svenska om din verksamhet, AI:n bygger strukturen, sedan lägger du till dina bästa bilder och justerar texter. Att sätta upp bokningssystem och domän tar ytterligare några minuter."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotograferingar i separata gallerier?",
+      "a": "Ja, du skapar så många gallerier du behöver – ett för bröllop, ett för porträtt, ett för företagsfoto och så vidare. Varje galleri kan ha sin egen stil och beskrivning, vilket gör det enkelt för besökare att hitta precis det de söker."
+    },
+    {
+      "q": "Fungerar bokningssystemet för olika typer av sessioner?",
+      "a": "Absolut. Du kan erbjuda olika bokningsbara tjänster med olika längd och pris – en timmes porträttsession, heldag bröllop, företagsfotografering och så vidare. Kunder väljer typ av session och ser direkt när du har ledigt."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att lägga till nya bilder?",
+      "a": "Nej, du laddar upp bilder direkt i gränssnittet precis som du skulle göra i vilken bildapp som helst. Sajten optimerar automatiskt bilderna för snabb laddning utan att förstöra kvaliteten."
+    },
+    {
+      "q": "Vad kostar det att ha hemsidan publicerad?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda din egen domän behöver du registrera den, vilket brukar kosta runt hundralappen per år. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan kunder i Västerås hitta min sajt via Google?",
+      "a": "Ja, sajten byggs med SEO-grunderna på plats – snabb laddning, mobilvänlig, rätt struktur. Du kan lägga till Google Analytics för att följa trafiken och skriva blogginlägg om dina uppdrag i Västerås för att synas bättre lokalt."
+    },
+    {
+      "q": "Kan jag byta utseende på sajten efter att den är byggd?",
+      "a": "Ja, du kan när som helst ändra färger, typsnitt, layout och innehåll. Vill du ha en helt ny design chattar du med AI:n igen och beskriver vad du vill ändra. Dina bilder och innehåll finns kvar."
+    }
+  ],
+  "localOrIndustryContext": "Västerås har en växande kreativ sektor med fotografer som täcker allt från bröllop vid Mälaren till företagsporträtt i City och familjefotografering i Vallby. En professionell hemsida gör skillnaden när par planerar bröllop eller företag söker fotograf för produktbilder och personalprofiler.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

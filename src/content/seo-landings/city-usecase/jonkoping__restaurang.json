@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "jonkoping/restaurang",
+  "title": "Hemsida restaurang Jönköping – Bygg din restaurangsajt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Jönköping på minuter. Med AI, bokningssystem och menyer. Ingen kodning krävs.",
+  "h1": "Hemsida för restaurang i Jönköping",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bokningssystem och betalning – på minuter, utan kod.",
+  "introParagraphs": [
+    "Sajtmaskin låter dig skapa en färdig hemsida för din restaurang i Jönköping direkt via chat. Du beskriver vad du behöver – meny, öppettider, bordsbokning, bilder – och AI:n bygger sajten åt dig. Allt på svenska, klart att publicera på din egen domän.",
+    "Du får bokningssystem via Cal.com, betalning genom Stripe och möjlighet att visa menyer, specialerbjudanden och events. Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när du vill.",
+    "Perfekt för restauranger, caféer och lunchställen i Jönköping som vill ha en professionell närvaro online utan krångel eller teknisk expertis."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt din restaurang behöver på en sajt",
+      "body": "En restaurangsajt i Jönköping behöver visa meny, öppettider, adress och kontaktinfo tydligt. Sajtmaskin genererar automatiskt sektioner för allt detta baserat på vad du berättar i chatten. Du kan lägga in dagens lunch, à la carte-meny, dryckeslista och allergininformation. Lägg till bilder på rätter och lokalen så gästerna får känsla för stället innan de besöker dig. Allt presenteras snyggt och mobilanpassat från start."
+    },
+    {
+      "heading": "Bordsbokning direkt på hemsidan",
+      "body": "Med integrationen till Cal.com kan gäster boka bord direkt på din hemsida. Du bestämmer själv tider, antal platser och hur långt i förväg bokningar ska öppna. Systemet skickar bekräftelser automatiskt och du får full kontroll över bokningskalendern. Inga mellanhänder, inga provisioner – bara ett enkelt bokningssystem som fungerar dygnet runt och minskar antalet telefonsamtal under rushtid."
+    },
+    {
+      "heading": "Ta betalt för events och presentkort",
+      "body": "Vill du sälja presentkort, ta förbokning för event eller ta betalt för cateringbeställningar? Stripe-integrationen gör det möjligt att ta betalt direkt på sajten. Du kan sätta upp produkter, priser och leveransalternativ utan att behöva tredjepartstjänster. Allt sker säkert och smidigt, och pengarna hamnar direkt på ditt konto. Perfekt för restauranger som vill bredda intäkterna utöver ordinarie servering."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Sajtmaskin har ingen bindningstid. Du betalar bara för de tjänster du använder, och kan när som helst exportera hela din sajt och flytta den någon annanstans. Hostar du på vår subdomän kostar det ingenting per månad. Vill du ha egen domän kopplar du den direkt i gränssnittet. Du äger alltid ditt innehåll och din kod, och kan göra ändringar själv eller be AI:n hjälpa till via chatten."
+    },
+    {
+      "heading": "Byggt i Sverige, för svenska restauranger",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt och svensk support. Vi förstår hur svenska restauranger fungerar – från Skatteverkets krav till hur gäster förväntar sig att hitta information. Allt innehåll genereras på svenska, och du slipper översättningsproblem eller utländska mallar som inte passar den svenska marknaden. Det är verktyget som faktiskt är gjort för dig."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt?",
+      "a": "De flesta restaurangsajter är klara på 10–20 minuter. Du chattar med AI:n, beskriver din restaurang, laddar upp meny och bilder, och sajten byggs automatiskt. Sedan kan du justera detaljer direkt i gränssnittet eller be AI:n göra ändringar åt dig."
+    },
+    {
+      "q": "Kan jag visa olika menyer för lunch och middag?",
+      "a": "Ja, du kan ha flera menyer på samma sajt. Berätta i chatten att du vill ha separata sektioner för lunch, à la carte, barnmeny eller veckans specialerbjudanden, så skapar AI:n strukturen åt dig. Du kan uppdatera menyer när du vill utan teknisk hjälp."
+    },
+    {
+      "q": "Fungerar bokningssystemet för grupper och events?",
+      "a": "Ja, Cal.com-integrationen stödjer både vanliga bordsbokningar och större grupper. Du kan sätta upp olika bokningstyper – exempelvis 2–4 personer, 5–10 personer eller hela lokalen för privata events. Varje typ kan ha egna regler för tider och förbokning."
+    },
+    {
+      "q": "Kostar det något att ha sajten online?",
+      "a": "Hosting på vår subdomän är gratis utan månadskostnad. Vill du använda din egen domän betalar du bara för domänen hos din registrar. Det finns inga dolda avgifter. Boknings- och betaltjänster har sina egna villkor, men själva sajten kostar inget att drifta på vår plattform."
+    },
+    {
+      "q": "Hur uppdaterar jag öppettider och specialerbjudanden?",
+      "a": "Du loggar in och ändrar direkt i gränssnittet, eller ber AI:n göra det via chatten. Vill du till exempel stänga en dag för personalfest eller lägga till en julbuffé skriver du bara det, så uppdateras sajten på sekunder. Ingen teknisk kunskap behövs."
+    },
+    {
+      "q": "Passar Sajtmaskin för caféer och lunchrestauranger i Jönköping?",
+      "a": "Absolut. Sajtmaskin fungerar lika bra för caféer, lunchrestauranger, pizzerior och fine dining. Du anpassar innehållet efter din verksamhet – från enkel lunchmeny till avancerad vinlista. Många lunchställen i Jönköping använder sajten för att visa dagens rätt och ta emot cateringbeställningar."
+    },
+    {
+      "q": "Kan jag koppla Google Analytics för att se besökare?",
+      "a": "Ja, du kan integrera Google Analytics direkt i Sajtmaskin. Då ser du hur många som besöker sajten, vilka sidor de tittar på och var de kommer ifrån. Det hjälper dig förstå vad gästerna är intresserade av och hur du kan förbättra din närvaro online."
+    }
+  ],
+  "localOrIndustryContext": "Jönköping har en varierad restaurangscen med allt från klassiska lunchrestauranger kring Hovrättstorget till moderna konceptkök vid Munksjön. En tydlig hemsida hjälper både lokalbefolkning och besökare att hitta rätt ställe, och gör det enklare att sticka ut i en stad där matupplevelsen är viktig för både studenter och företagare.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/jonkoping",
+      "label": "Skapa hemsida i Jönköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Jönköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

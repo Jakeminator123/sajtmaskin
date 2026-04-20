@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "spa",
+  "title": "Hemsida för spa – skapa din bokningsklara sajt på minuter | Sajtmaskin",
+  "metaDescription": "Bygg en professionell hemsida för ditt spa med AI. Få bokningssystem, behandlingsmeny och mobilanpassad design – utan kod. Klart på minuter.",
+  "h1": "Hemsida för spa",
+  "heroSub": "Skapa en bokningsklar hemsida för ditt spa med AI – komplett med behandlingsmeny, priser och direktbokning.",
+  "introParagraphs": [
+    "En hemsida för spa behöver visa dina behandlingar tydligt, göra det enkelt att boka tid och förmedla den lugna, professionella känsla som gästerna förväntar sig redan innan de kliver in genom dörren. Med Sajtmaskin bygger du en komplett spa-sajt på minuter, direkt från chatten – utan att behöva koda eller designa själv.",
+    "Du beskriver ditt spa i några meningar, vilka behandlingar du erbjuder och vad som är viktigt för dig. AI:n skapar sedan en färdig sajt med behandlingsmeny, prislista, om-sida och kontaktformulär. Vill du ha bokningssystem integrerat? Det fixar du med ett klick via Cal.com. Allt på svenska, allt anpassat för mobil.",
+    "Sajten publiceras på din egen domän eller kostnadsfritt på en Sajtmaskin-subdomän. Ingen bindningstid, inga dolda avgifter. Du äger innehållet och kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bra hemsida för spa behöver innehålla",
+      "body": "Besökare vill snabbt se vilka behandlingar du erbjuder, vad de kostar och hur de bokar tid. En tydlig behandlingsmeny med beskrivningar av ansiktsbehandlingar, massage, kroppsbehandlingar och spa-paket är grunden. Lägg till en om-sida som berättar vem ni är, vilka produkter ni använder och vad som gör ert spa unikt. Kontaktuppgifter, öppettider och en karta ska synas direkt. Vill du sälja presentkort eller produkter? Då behöver du även en enkel webshop-funktion. Allt detta skapar Sajtmaskin automatiskt utifrån din beskrivning."
+    },
+    {
+      "heading": "Bokningssystem som sparar tid varje dag",
+      "body": "Att hantera bokningar via telefon och sms tar tid från behandlingarna. Med Cal.com-integrationen får du ett bokningssystem direkt på sajten där gästerna själva väljer behandling, tid och terapeut. Systemet synkar med din kalender, skickar automatiska påminnelser och minskar antalet no-shows. Du bestämmer själv vilka tider som ska vara bokningsbara och kan blockera lediga stunder för egna uppgifter. Allt hanteras smidigt utan att du behöver lägga tid på administration."
+    },
+    {
+      "heading": "Så bygger du din spa-sajt med Sajtmaskin",
+      "body": "Logga in och beskriv ditt spa i chatten: vilka behandlingar ni erbjuder, er profil och vad som är viktigt att lyfta fram. AI:n genererar en komplett sajt med alla sidor, texter och struktur på några minuter. Du kan sedan justera texter, byta bilder, lägga till fler sidor eller ändra färger direkt i gränssnittet. Vill du integrera bokning kopplar du Cal.com, behöver du sälja presentkort online lägger du till Stripe för betalning. När du är nöjd publicerar du på din egen domän. Hela processen tar en halvtimme, inte flera veckor."
+    },
+    {
+      "heading": "Mobilanpassning och snabb laddning",
+      "body": "Över hälften av dina besökare kommer från mobilen, ofta när de letar spa-behandling i närheten eller vill boka direkt. Sajtmaskin bygger automatiskt sajter som fungerar lika bra på telefon som dator, med snabba laddningstider och tydliga knappar. Google prioriterar mobilanpassade sajter i sökresultaten, vilket gör det lättare för nya gäster att hitta dig. Du behöver inte tänka på tekniska detaljer – allt är optimerat från start."
+    },
+    {
+      "heading": "Äkta svenskt, byggt för svenska spa",
+      "body": "Sajtmaskin är utvecklat i Sverige av Pretty Good AB, med svenskt gränssnitt och support som förstår hur svenska spa-företag fungerar. AI:n skriver texter på naturlig svenska, anpassade för den svenska marknaden. Du slipper översatta mallar eller support på engelska. Allt från fakturering till juridiska villkor följer svenska standarder. Din sajt blir en naturlig del av hur svenska gäster söker och bokar spa-upplevelser."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa olika behandlingskategorier på sajten?",
+      "a": "Ja, du kan strukturera behandlingsmeny med kategorier som ansiktsbehandlingar, massage, kroppsbehandlingar och spa-paket. Varje behandling får egen beskrivning, pris och tidsåtgång. Du kan enkelt lägga till eller ta bort behandlingar när utbudet ändras."
+    },
+    {
+      "q": "Fungerar bokningssystemet för flera terapeuter?",
+      "a": "Ja, Cal.com-integrationen stödjer flera terapeuter med egna kalendrar. Gäster kan välja specifik terapeut eller låta systemet föreslå närmaste lediga tid. Varje terapeut hanterar sin egen kalender och får notiser om nya bokningar."
+    },
+    {
+      "q": "Kan jag sälja presentkort via hemsidan?",
+      "a": "Ja, genom Stripe-integrationen kan du sälja presentkort direkt på sajten. Du bestämmer värden och utformning, betalningen hanteras säkert och köparen får presentkortet via mejl. Du kan även koppla in Shopify om du vill sälja produkter som hudvårdsprodukter eller spa-tillbehör."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta har en färdig spa-sajt publicerad inom 30–60 minuter. AI:n genererar grundstrukturen på några minuter, sedan lägger du tid på att justera texter, ladda upp egna bilder och koppla eventuella integrationer. Du kan publicera direkt eller fortsätta finslipa innan lansering."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Publicerar du på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du använda egen domän behöver du registrera den, vilket kostar cirka 100–150 kronor per år. Bokningssystem via Cal.com och betalning via Stripe har egna prismodeller beroende på användning, men inga fasta avgifter från Sajtmaskin."
+    },
+    {
+      "q": "Kan jag byta bilder och texter själv efteråt?",
+      "a": "Ja, du redigerar allt innehåll direkt i gränssnittet utan teknisk kunskap. Byt behandlingsbilder, uppdatera priser, lägg till säsongserbjudanden eller ändra öppettider när du vill. Ändringar publiceras direkt. Du kan även exportera hela koden om du vill flytta sajten någon annanstans."
+    },
+    {
+      "q": "Syns sajten i Google när folk söker spa i min stad?",
+      "a": "Sajten är tekniskt optimerad för sökmotorer från start med snabb laddning, mobilanpassning och ren kod. Du kan lägga till Google Analytics för att följa besökare. Hur väl du rankar beror på konkurrens, innehåll och hur länge sajten funnits. Tydliga behandlingsbeskrivningar, lokal information och regelbundna uppdateringar hjälper Google förstå vad du erbjuder."
+    }
+  ],
+  "localOrIndustryContext": "Svenska spa-anläggningar sträcker sig från urbana day spa i Stockholm och Göteborg till hotellspa i skid- och kustorter. Många drivs som småföretag där ägaren själv utför behandlingar, vilket gör en enkel och tidsbesparande hemsida extra viktig. Tydlig kommunikation om bokningsrutiner och behandlingsutbud är avgörande i en bransch där förtroende och professionalism väger tungt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en spa-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

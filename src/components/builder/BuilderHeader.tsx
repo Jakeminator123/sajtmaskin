@@ -237,12 +237,12 @@ export function BuilderHeader(props: {
           title="Till startsidan"
         >
           <Image
-            src="/logo.png"
+            src="/LOGO_SM2.0.png"
             alt="Sajtmaskin"
-            width={1653}
-            height={437}
+            width={843}
+            height={168}
             priority
-            className="h-6 w-auto object-contain"
+            className="h-5 w-auto object-contain md:h-6"
           />
         </button>
         {hasMounted && isAuthenticated && (

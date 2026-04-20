@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "bast-ai-hemsida",
+  "title": "Bäst AI hemsida 2025 – Vilket verktyg ska du välja? | Sajtmaskin",
+  "metaDescription": "Jämförelse av AI-verktyg för hemsidor. Vi förklarar hur AI faktiskt bygger sajter, vad som skiljer verktygen åt och varför svenska företag väljer Sajtmaskin.",
+  "h1": "Vilket AI-verktyg är bäst för hemsidor?",
+  "heroSub": "En ärlig genomgång av hur AI faktiskt bygger hemsidor – och vad du ska tänka på när du väljer verktyg.",
+  "introParagraphs": [
+    "Det finns inget enskilt AI-verktyg som är bäst för alla hemsidor. Svaret beror på vad du behöver: en enkel visitkort-sajt, en webshop, en bokningsbar tjänstesida eller något annat. Men alla moderna AI-verktyg delar samma grundprincip – du beskriver vad du vill ha i vanlig text, så genererar AI layout, innehåll och struktur åt dig. Skillnaden ligger i hur mycket kontroll du får, hur lätt det är att publicera och om verktyget är byggt för din marknad.",
+    "För svenska företag handlar valet ofta om språk och support. Många internationella AI-verktyg fungerar tekniskt bra, men genererar texter på knagglig svenska och saknar integrationer med svenska betaltjänster eller bokningssystem. Sajtmaskin är byggt i Sverige, pratar flytande svenska och låter dig publicera på egen domän utan månadskostnad – vilket gör det till ett konkret alternativ om du vill testa AI utan att låsa in dig.",
+    "I den här guiden går vi igenom hur AI faktiskt bygger hemsidor, vad som skiljer verktygen åt och hur du väljer rätt för just ditt projekt."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så här bygger AI en hemsida – tekniken bakom",
+      "body": "När du skriver en prompt till ett AI-verktyg analyserar språkmodellen vad du behöver: antal sidor, typ av innehåll, målgrupp, stil. Sedan genererar den HTML, CSS och text i ett sammanhang – inte genom att kopiera mallar, utan genom att komponera kod och copy baserat på mönster från miljontals webbplatser. Resultatet är en färdig sajt som du kan redigera direkt i gränssnittet. Bra AI-verktyg låter dig justera tonalitet, lägga till sektioner och byta bilder utan att röra kod. Mindre bra verktyg ger dig en statisk utskrift som är svår att förändra."
+    },
+    {
+      "heading": "AI-verktyg vs mallbyggare och byråer",
+      "body": "Mallbyggare som Wix och Squarespace ger dig kontroll, men kräver att du själv väljer layout, skriver texter och fyller i bilder. AI-verktyg gör det omvända: du beskriver målet, så skapas helheten åt dig. Det sparar tid, särskilt om du inte är designer. Byråer levererar skräddarsytt resultat och strategisk rådgivning, men kostar tiotusentals kronor och tar veckor. AI hamnar mittemellan – snabbt, prisvärt och anpassningsbart, men utan den mänskliga strategikänslan. För många småföretag är AI det rätta steget ett: få upp en sajt snabbt, testa marknaden och förfina sedan."
+    },
+    {
+      "heading": "Vad du ska kolla på när du jämför AI-verktyg",
+      "body": "Tre saker är avgörande. För det första: kan du publicera på egen domän, eller tvingas du ha verktygets branding i URLen? För det andra: vilka integrationer finns – bokning, betalning, analytics, webshop? För det tredje: kan du exportera koden om du vill byta plattform senare, eller är du låst? Många AI-verktyg är imponerande i demon men begränsar dig när du ska gå live. Kolla också om supporten pratar ditt språk. En AI som genererar svenska texter men har support på engelska kan bli frustrerande när något krånglar."
+    },
+    {
+      "heading": "Varför svenska företag väljer Sajtmaskin",
+      "body": "Sajtmaskin är byggt för svensk marknad. Du chattar på svenska, får svensk support och kan integrera Cal.com för bokning, Stripe för betalning och Shopify för webshop – allt utan kod. Du publicerar på egen domän direkt, och om du vill testa först finns en subdomän utan månadskostnad. Det finns ingen bindningstid, och du kan exportera hela koden när du vill. Det gör Sajtmaskin till ett lågriskalternativ: prova AI för hemsidor utan att låsa in dig i ett abonnemang eller offra kontrollen över din sajt."
+    },
+    {
+      "heading": "Kom igång med AI för din hemsida",
+      "body": "Börja med att skriva ner vad din sajt ska göra: sälja, informera, ta bokningar, visa portfolio? Ju tydligare du är, desto bättre blir resultatet – oavsett verktyg. Testa gärna flera AI-tjänster parallellt; många erbjuder gratis demo. När du hittat ett verktyg som passar, publicera en enkel version snabbt och förfina sedan baserat på feedback. AI gör det lätt att iterera, så vänta inte på perfektion från start. Det viktigaste är att du får upp något som fungerar, så du kan börja samla trafik och lära dig vad din målgrupp faktiskt behöver."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan AI verkligen bygga en hel hemsida åt mig?",
+      "a": "Ja. Du skriver vad sajten ska innehålla, så genererar AI layout, texter, navigation och grundläggande design. Du kan sedan redigera allt direkt i verktyget. AI ersätter inte strategiskt tänkande, men den gör det tunga lyftet – särskilt för standardsidor som tjänstepresentationer, portfolios och bokningssajter."
+    },
+    {
+      "q": "Blir alla AI-hemsidor likadana?",
+      "a": "Nej, för AI komponerar utifrån din prompt. Om du beskriver målgrupp, tonalitet och syfte tydligt får du en sajt som skiljer sig från andra. Risken för mall-känsla är större om du skriver vaga prompter som \"gör en hemsida för mitt företag\". Ju mer specifik input, desto mer unikt resultat."
+    },
+    {
+      "q": "Kostar det att publicera en AI-genererad sajt?",
+      "a": "Det beror på verktyget. Vissa kräver månadsavgift för hosting, andra låter dig publicera gratis på en subdomän. Sajtmaskin tar ingen månadskostnad för subdomän, och du kan när som helst koppla egen domän. Vill du exportera koden och hosta själv går det också."
+    },
+    {
+      "q": "Kan jag integrera betalning och bokning med AI-verktyg?",
+      "a": "Ja, om verktyget stödjer det. Sajtmaskin integrerar Cal.com för bokning och Stripe för betalning direkt i gränssnittet, utan kod. Många internationella AI-verktyg saknar färdiga kopplingar till svenska tjänster, så kolla det innan du väljer om du behöver den funktionen."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Om verktyget låter dig exportera koden kan du flytta sajten vart du vill. Sajtmaskin ger dig full kodexport utan extra kostnad. Verktyg som låser koden gör dig beroende av deras plattform, vilket kan bli dyrt eller begränsande på sikt."
+    },
+    {
+      "q": "Är AI-hemsidor SEO-vänliga?",
+      "a": "Ja, om verktyget genererar ren HTML och låter dig redigera meta-taggar, rubriker och alt-texter. AI kan skriva SEO-optimerade texter, men du behöver själv se till att nyckelord och struktur matchar din målgrupp. Sajtmaskin genererar semantisk HTML och låter dig justera allt som påverkar SEO."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida med AI?",
+      "a": "Från prompt till färdig sajt: några minuter. Sedan tillkommer tid för redigering, bildval och finjustering – ofta några timmar totalt, beroende på hur noga du vill vara. Jämfört med veckor hos en byrå eller dagar i en mallbyggare är det en stor tidsbesparing."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

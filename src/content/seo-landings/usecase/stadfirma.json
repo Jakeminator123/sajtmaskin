@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "stadfirma",
+  "title": "Hemsida för städfirma – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din städfirma med AI. Bokningsfunktion, tjänstbeskrivningar och kundrecensioner – klart på minuter.",
+  "h1": "Hemsida för städfirma",
+  "heroSub": "Bygg en komplett hemsida för ditt städföretag med AI – inga tekniska kunskaper behövs.",
+  "introParagraphs": [
+    "En hemsida för städfirma behöver visa vilka tjänster du erbjuder, vad det kostar, var du verkar och hur kunder enkelt kan boka eller begära offert. Den ska bygga förtroende genom tydliga beskrivningar, referensbilder och gärna recensioner från nöjda kunder. Många städfirmor behöver också presentera sitt team, visa miljöcertifieringar eller förklara vilka städprodukter de använder.",
+    "Med Sajtmaskin skapar du hela sajten genom att chatta med AI:n. Du beskriver ditt städföretag, vilka tjänster du har och vad du vill visa – så genererar AI:n en färdig hemsida med alla sektioner du behöver. Publicera på din egen domän eller testa kostnadsfritt på en subdomän, utan bindningstid.",
+    "Du kan integrera Cal.com för direktbokning, lägga till Stripe om du vill ta förskottsbetalning och koppla Google Analytics för att se hur besökare hittar dig. Allt på svenska, utan kod."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänster och priser som syns tydligt",
+      "body": "Besökare vill snabbt förstå vad du städar – hemstädning, kontorsstädning, flyttstädning, fönsterputs eller storstädning – och vad det kostar. Sajtmaskin låter dig lista varje tjänst med beskrivning och prisbild. AI:n kan generera tjänstkort med rubriker, brödtext och call-to-action som leder till bokningsformuläret. Du uppdaterar priser eller lägger till nya tjänster direkt i editorn utan att behöva en utvecklare."
+    },
+    {
+      "heading": "Bokningsfunktion så kunder slipper maila",
+      "body": "En integrerad bokningskalender minskar administration och gör det enkelt för kunden att välja tid. Sajtmaskin stödjer Cal.com, som du kopplar in med några klick. Besökaren ser lediga tider, bokar direkt och får bekräftelse via mejl. Du kan sätta olika kalendrar för olika tjänster – hemstäd, storstäd eller fönster – och undvika dubbelbokningar. Allt synkas automatiskt så du slipper hålla koll i flera system."
+    },
+    {
+      "heading": "Förtroende genom recensioner och före-efter-bilder",
+      "body": "Nya kunder vill se att andra är nöjda innan de bokar. Lägg in citat från riktiga kunder, visa betyg eller länka till din Google-profil. Sajtmaskin gör det enkelt att skapa recensionssektioner med namn, kommentar och eventuellt företagslogga om du städar åt företagskunder. Komplettera gärna med före-efter-bilder från flyttstäd eller storstädning – det visar kvalitet på ett sätt som text aldrig kan."
+    },
+    {
+      "heading": "Presentera ditt team och era värderingar",
+      "body": "Många kunder vill veta vem som kommer hem till dem. En Om oss-sida med foto och kort presentation av medarbetarna skapar trygghet. Berätta om ni är försäkrade, F-skattesedel, RUT-registrerade eller använder miljövänliga produkter. Sajtmaskin låter dig lägga till personkort, certifikat-badges och fritext där du förklarar hur ni jobbar. Det tar några minuter att fylla i via AI-chatten, och du kan alltid justera i editorn efteråt."
+    },
+    {
+      "heading": "Lokal SEO så du syns i din stad",
+      "body": "Städfirmor lever på lokala kunder, så det är viktigt att Google förstår var du verkar. Sajtmaskin hjälper dig att fylla i stad, område och tjänster på ett sätt som sökmotorer gillar. Nämn stadsdelen eller kommunen i rubrikerna, lägg till en karta och skriv om varför lokala kunder ska välja just dig. Du kan också koppla Google Analytics för att se vilka sökord som driver trafik och justera texten över tid."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag ta betalt direkt på hemsidan?",
+      "a": "Ja, via Stripe-integrationen kan du ta förskottsbetalning eller fakturera efter utförd städning. Du bestämmer själv om kunden ska betala vid bokning eller om du skickar en länk efteråt. Stripe hanterar kortbetalningar säkert, och pengarna landar på ditt företagskonto."
+    },
+    {
+      "q": "Hur lägger jag till RUT-avdragsinformation?",
+      "a": "Du kan lägga till en FAQ-sektion eller informationsruta där du förklarar hur RUT-avdraget fungerar och att kunden betalar 50 procent av arbetskostnaden. Skriv in texten i AI-chatten eller direkt i editorn, så hamnar den på rätt plats på sajten. Många städfirmor har detta på startsidan eller under varje tjänst."
+    },
+    {
+      "q": "Kan jag visa olika priser för privatpersoner och företag?",
+      "a": "Absolut. Skapa separata tjänstsidor eller prislistor för hemstädning respektive kontorsstädning. Du kan också använda flikar eller dropdowns för att besökaren ska välja kategori. Sajtmaskin låter dig strukturera innehållet precis som du vill, och AI:n hjälper till att generera texten för varje segment."
+    },
+    {
+      "q": "Fungerar sajten på mobilen?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva från start. Bokningsformulär, bilder och menyer anpassar sig automatiskt till skärmstorlek. Eftersom många kunder söker städhjälp från telefonen är det extra viktigt att knapparna är stora och att telefonnumret syns tydligt."
+    },
+    {
+      "q": "Kan jag byta text och bilder efter att sajten är publicerad?",
+      "a": "Ja, du loggar in i editorn när du vill och ändrar text, byter bilder eller lägger till nya tjänster. Inga tekniska kunskaper behövs. Om du vill göra större förändringar kan du chatta med AI:n igen och be om nya sektioner. Uppdateringarna syns direkt när du publicerar."
+    },
+    {
+      "q": "Vad händer om jag vill sluta använda Sajtmaskin?",
+      "a": "Det finns ingen bindningstid. Du kan exportera hela koden och flytta sajten till en annan leverantör när du vill. Om du kör på subdomän hos oss är hostingen gratis, men väljer du egen domän betalar du bara så länge du använder tjänsten. Inga dolda avgifter eller uppsägningstider."
+    },
+    {
+      "q": "Kan jag koppla min befintliga domän?",
+      "a": "Ja, du pekar din domän till Sajtmaskin via DNS-inställningar hos din domänleverantör. Guiden i plattformen visar exakt vilka poster du ska lägga till. Det tar oftast några minuter till ett par timmar innan allt är aktivt. Du kan också registrera en ny domän direkt om du inte har en sedan tidigare."
+    }
+  ],
+  "localOrIndustryContext": "Städbranschen i Sverige växer stadigt, och allt fler kunder söker städfirmor online innan de ringer. En professionell hemsida med tydlig bokningsfunktion och lokala referenser gör skillnaden när konkurrensen är hård, särskilt i storstadsområden där RUT-avdraget driver efterfrågan.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en städfirma-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

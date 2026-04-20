@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "halmstad/portfolio",
+  "title": "Hemsida Portfolio Halmstad – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfolio-hemsida i Halmstad med AI. Publicera på egen domän, ingen bindningstid. Perfekt för kreatörer och konsulter.",
+  "h1": "Portfolio-hemsida i Halmstad",
+  "heroSub": "Bygg en professionell portfolio som visar ditt arbete – på minuter, inte veckor.",
+  "introParagraphs": [
+    "En portfolio-hemsida är ditt digitala visitkort som visar upp dina projekt, case och kompetens. I Halmstad, där kreativa byråer, konsulter och frilansare konkurrerar om uppdrag från både lokala företag och större kunder i regionen, är en välgjord portfolio avgörande för att sticka ut.",
+    "Med Sajtmaskin bygger du en skräddarsydd portfolio-sajt genom att chatta med AI:n. Berätta vad du gör, vilka projekt du vill lyfta fram och hur du vill presentera dig – så genererar systemet en komplett sajt med projektgalleri, om-sida och kontaktformulär. Du publicerar direkt på din egen domän utan månadskostnader för hosting på subdomän.",
+    "Allt är på svenska, från gränssnittet till supporten. Ingen kod krävs, ingen bindningstid finns, och du kan exportera koden när du vill. Perfekt för dig som vill ha en professionell närvaro online utan att lägga veckor på tekniska detaljer."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en portfolio-hemsida i Halmstad behöver",
+      "body": "En stark portfolio visar inte bara vad du har gjort, utan berättar historien om hur du löser problem. Dina besökare – ofta potentiella kunder från Halmstads näringsliv eller regionala företag – vill snabbt förstå din kompetens och se konkreta exempel. Det innebär tydliga case-beskrivningar, visuellt material som foton eller skisser, och en enkel väg till kontakt. Många i Halmstad söker lokala samarbetspartners, så att tydligt visa var du finns och vilka branscher du jobbar med skapar förtroende. En portfolio ska också fungera lika bra på mobilen som på datorn, eftersom många besökare bläddrar från telefonen."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din portfolio",
+      "body": "Du startar en chatt och beskriver din verksamhet: fotograf, grafisk designer, arkitekt, webbutvecklare eller annan kreativ roll. Berätta vilka projekt du vill visa, vilken känsla sajten ska ha och om du behöver särskilda sektioner som testimonials eller prislistor. AI:n skapar en komplett struktur med startsida, projektgalleri, om-sida och kontaktformulär. Du kan be om justeringar direkt i chatten – ändra färger, lägg till fler projekt, justera texter – tills allt känns rätt. När du är nöjd publicerar du på din egen domän. Vill du lägga till bokningsfunktion via Cal.com eller koppla Google Analytics går det smidigt via integrationer."
+    },
+    {
+      "heading": "Fördelar för kreatörer och konsulter i Halmstad",
+      "body": "Halmstad har en växande kreativ sektor och många frilansare som behöver en professionell portfolio utan att betala tusentals kronor till webbyrå. Med Sajtmaskin får du en sajt som ser skräddarsydd ut, på minuter istället för veckor. Du slipper teknisk krångel och kan fokusera på det du är bra på – ditt hantverk. Eftersom allt är på svenska behöver du inte kämpa med engelska verktyg eller support i andra tidszoner. Du äger din kod och kan när som helst exportera den om du vill flytta eller bygga vidare själv. Ingen bindningstid betyder att du testar risklöst, och ingen månadskostnad för hosting på subdomän håller nere dina löpande utgifter."
+    },
+    {
+      "heading": "Integrationer som gör portfolio-sajten mer kraftfull",
+      "body": "En portfolio handlar ofta om att visa upp arbete och sedan göra det enkelt för kunden att ta nästa steg. Med Cal.com-integration kan besökare boka ett första möte direkt i kalendern – perfekt om du säljer konsulttjänster eller fotosessioner. Stripe-integrationen låter dig ta betalt för digitala produkter, mallar eller kurser om du vill diversifiera intäkterna. Google Analytics ger dig insikt i vilka projekt som lockar mest och var dina besökare kommer ifrån, så du kan finjustera innehållet. Allt sköts via Sajtmaskins gränssnitt utan att du behöver sätta upp komplicerade API-nycklar eller skriva kod."
+    },
+    {
+      "heading": "Från idé till publicerad portfolio på en eftermiddag",
+      "body": "Traditionellt tar det veckor att få en portfolio-sajt live: brief till byrå, skisser fram och tillbaka, väntan på utveckling, korrekturläsning, buggrättning. Med Sajtmaskin är hela flödet kondenserat till några timmar. Du chattar med AI:n, granskar förslaget, justerar det du vill ändra och publicerar. Resten av eftermiddagen kan du spendera på att sprida länken till ditt nätverk i Halmstad, uppdatera LinkedIn-profilen och börja få förfrågningar. Eftersom systemet är byggt i Sverige av Pretty Good AB får du svensk support om du kör fast. Inga dolda avgifter, inga överraskningar – bara en rak väg från idé till färdig sajt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfolio-hemsida med Sajtmaskin?",
+      "a": "De flesta har en fungerande portfolio på 30–60 minuter. Du chattar med AI:n, beskriver dina projekt och önskemål, granskar förslaget och justerar tills du är nöjd. Sedan publicerar du direkt på din domän. Vill du finjustera texter eller lägga till fler case kan du göra det när du vill – inget stressigt deadline."
+    },
+    {
+      "q": "Kan jag visa bilder och case på ett snyggt sätt?",
+      "a": "Absolut. Sajtmaskin genererar gallerisektioner och projektlayouter som passar visuellt material. Du laddar upp bilder, skriver case-beskrivningar och AI:n formaterar allt responsivt så det ser bra ut på alla skärmar. Du kan justera layout och stil direkt i chatten om du vill ha ett annorlunda uttryck."
+    },
+    {
+      "q": "Kostar det något att ha sajten live varje månad?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du använda din egen domän (till exempel dinportfolio.se) kopplar du den kostnadsfritt, men domänregistrering och eventuell extern hosting står du för själv. Inga dolda avgifter eller bindningstid finns."
+    },
+    {
+      "q": "Fungerar det bra för frilansare och kreatörer i Halmstad?",
+      "a": "Ja, många lokala fotografer, designers och konsulter använder Sajtmaskin för att snabbt få upp en professionell portfolio. Du kan lyfta fram att du finns i Halmstad, visa lokala projekt och göra det enkelt för regionala kunder att hitta dig. Allt på svenska, vilket uppskattas av både dig och dina besökare."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för möten?",
+      "a": "Ja, via Cal.com-integrationen bäddar du in en kalender där kunder kan boka tid direkt. Perfekt om du säljer konsultation, fotosessioner eller kreativa workshops. Du ställer in det i Sajtmaskins gränssnitt utan att behöva koda."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela koden och flytta sajten till en annan host eller bygga vidare själv. Ingen bindningstid finns, så du är aldrig låst. Sajtmaskin ägs av dig, inte tvärtom."
+    },
+    {
+      "q": "Får jag hjälp om jag kör fast?",
+      "a": "Ja, svensk support ingår. Sajtmaskin är byggt av Pretty Good AB i Sverige, så du slipper engelska supportchattar i andra tidszoner. Ställ frågor på svenska och få konkreta svar snabbt."
+    }
+  ],
+  "localOrIndustryContext": "Halmstad har en livaktig kreativ scen med designers, fotografer, arkitekter och digitala konsulter som konkurrerar både lokalt och regionalt. En professionell portfolio är ofta avgörande för att vinna uppdrag från Halmstads näringsliv och större kunder i Halland. Att snabbt kunna lansera och uppdatera sin portfolio ger en konkurrensfördel.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/halmstad",
+      "label": "Skapa hemsida i Halmstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Halmstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

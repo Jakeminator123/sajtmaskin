@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "jonkoping/webshop",
+  "title": "Hemsida webshop Jönköping – bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell webshop i Jönköping med AI. Integrerad betalning via Stripe, mobilanpassad design och publicera direkt. Ingen bindningstid.",
+  "h1": "Webshop-hemsida i Jönköping",
+  "heroSub": "Bygg en komplett e-handel för ditt Jönköpingsföretag – med AI, svensk support och integration till Stripe och Shopify.",
+  "introParagraphs": [
+    "En webshop-hemsida i Jönköping behöver fungera lika bra för kunder i Huskvarna som i Tenhult. Sajtmaskin låter dig bygga en komplett e-handel via chat – med produktsidor, kundvagn, betalning och mobilanpassning på plats från start. Du beskriver din butik, AI:n bygger sajten, och du publicerar på egen domän utan månadskostnad för hosting.",
+    "Oavsett om du säljer hantverksprodukter från Elmia-mässan, lokalproducerad mat från Vätternregionen eller designtjänster till företag i Science Park – får du en webshop som känns professionell och är redo att ta betalt samma dag. Allt på svenska, byggt i Sverige, utan kod.",
+    "Du chattar med AI:n om sortiment, betalmetoder och utseende. Inom minuter har du en fungerande webshop med Stripe-integration för kortbetalning, Google Analytics för att följa besökare, och möjlighet att koppla Shopify om du vill synka lager. Ingen bindningstid, exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din webshop med Sajtmaskin",
+      "body": "Du startar en chatt och berättar vad du säljer, vilka betalmetoder du vill ha och hur sajten ska se ut. AI:n genererar produktsidor, kundvagn, kassan och alla undersidor. Du kan direkt redigera texter, byta bilder och lägga till fler produkter – allt i samma gränssnitt. När du är nöjd publicerar du på din egen domän, eller testar först på en kostnadsfri subdomän. Stripe-integration gör att du kan ta betalt med kort direkt, och Cal.com-bokning fungerar om du säljer tjänster vid sidan av produkter."
+    },
+    {
+      "heading": "Integrationer för e-handel i Jönköping",
+      "body": "Sajtmaskin kopplar Stripe för säkra kortbetalningar, så kunder i Jönköping och resten av Sverige kan handla direkt. Vill du synka lager och ordrar med Shopify fungerar även det. Google Analytics följer besökare och konverteringar, så du ser vilka produkter som säljer bäst. Behöver du bokningsfunktion – för workshops, hämtning i butik eller konsultation – aktiverar du Cal.com med ett klick. Allt sköts från samma plattform, ingen krånglig teknisk setup."
+    },
+    {
+      "heading": "Lokal e-handel och Vätternregionens marknad",
+      "body": "Jönköping ligger mitt i Vätternregionen med närhet till både Smålands skogar och E4-stråket. Många lokala företag säljer hantverk, livsmedel, design och tekniktjänster – och behöver en webshop som fungerar för både lokala kunder och nationell leverans. Sajtmaskin ger dig en sajt som laddar snabbt, ser professionell ut på mobil och desktop, och låter dig lägga till fraktalternativ eller upphämtning i butik. Du kan starta smått och växa i din egen takt, utan att byta plattform."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Du äger koden till din webshop och kan exportera den när som helst. Ingen månadskostnad för hosting på subdomän, ingen bindningstid. Vill du flytta sajten till egen server eller annan leverantör är du fri att göra det. Sajtmaskin tar inte provision på dina försäljningar – Stripe-avgifterna är standardpriser direkt från betaltjänsten. Du bygger din e-handel utan att låsa in dig, och svensk support hjälper till om du kör fast."
+    },
+    {
+      "heading": "Från idé till färdig webshop på en dag",
+      "body": "Många Jönköpingsföretag har produkter redo men skjuter på e-handel för att det känns tekniskt. Med Sajtmaskin chattar du klart en webshop under lunchen, testar betalflödet på eftermiddagen och kan publicera samma kväll. AI:n skapar struktur, design och funktionalitet – du fokuserar på sortiment och kundkontakt. Perfekt för lokala butiker som vill komplettera med e-handel, eller för nya varumärken som startar direkt online."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en webshop igång i Jönköping?",
+      "a": "Du kan chatta fram en komplett webshop med produktsidor, kundvagn och betalning på under en timme. Publicera på subdomän direkt för test, eller koppla egen domän samma dag. Stripe-integration aktiveras snabbt så du kan ta betalt med kort från start."
+    },
+    {
+      "q": "Kan jag sälja både produkter och tjänster på samma sajt?",
+      "a": "Ja, Sajtmaskin stödjer både produktförsäljning via Stripe och bokning av tjänster via Cal.com. Du kan ha en webshop för fysiska varor och samtidigt erbjuda konsultation, workshops eller upphämtningstider – allt på samma hemsida."
+    },
+    {
+      "q": "Kostar det extra att använda Stripe för betalning?",
+      "a": "Nej, Sajtmaskin tar ingen extra avgift. Du betalar Stripes standardpriser för kortbetalningar, som ligger runt 1,4 % plus en fast avgift per transaktion inom EU. Inga dolda kostnader eller provision från vår sida."
+    },
+    {
+      "q": "Kan jag koppla min webshop till Shopify för lagerhantering?",
+      "a": "Ja, Sajtmaskin har Shopify-integration så du kan synka produkter, lager och ordrar. Använd Sajtmaskins design och svenska gränssnitt för fronten, och Shopify för backend om du vill. Fungerar smidigt för företag som redan har Shopify eller vill ha avancerad lagerhantering."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du äger koden och kan exportera hela sajten när du vill. Ingen bindningstid, ingen utträdesavgift. Flytta till egen server, annan leverantör eller vidareutveckla med egen utvecklare – du är aldrig låst till Sajtmaskin."
+    },
+    {
+      "q": "Fungerar webshopen bra på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är mobilanpassade från start. Produktsidor, kundvagn och kassan fungerar lika smidigt på telefon som på desktop. Viktigt eftersom många kunder i Jönköping och resten av Sverige handlar via mobilen."
+    },
+    {
+      "q": "Kan jag erbjuda upphämtning i butik eller lokal leverans?",
+      "a": "Ja, du kan lägga till fraktalternativ som upphämtning i Jönköping, lokal leverans i Vätternregionen eller vanlig postleverans. Stripe hanterar betalningen, och du sköter leveransmetoderna efter dina behov. Perfekt för lokala företag som vill kombinera e-handel med fysisk butik."
+    }
+  ],
+  "localOrIndustryContext": "Jönköping är ett nav för både traditionellt hantverk och modern tech, med närhet till Elmia-mässan, Science Park och Vätterns livsmedelsbygd. Lokala företag behöver webshoppar som fungerar för både grannköp och rikstäckning – Sajtmaskin ger dig verktygen att starta e-handel snabbt, utan att offra kvalitet eller flexibilitet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/jonkoping",
+      "label": "Skapa hemsida i Jönköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Jönköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

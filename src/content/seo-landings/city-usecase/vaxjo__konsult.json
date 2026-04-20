@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vaxjo/konsult",
+  "title": "Hemsida för konsulter i Växjö – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet i Växjö. AI bygger din sajt med bokningssystem och portofolio – publicera direkt.",
+  "h1": "Hemsida för konsulter i Växjö",
+  "heroSub": "Bygg en professionell konsultsajt med AI – klar att ta emot kunder på minuter, utan kod eller krångel.",
+  "introParagraphs": [
+    "Som konsult i Växjö behöver du en hemsida som snabbt visar vad du kan, bygger förtroende och gör det enkelt för kunder att boka dina tjänster. Sajtmaskin låter dig skapa en komplett konsultsajt via chat – berätta vad du erbjuder, så genererar AI:n en färdig sajt med dina tjänster, referenser och bokningssystem.",
+    "Du får en sajt som fungerar direkt: publicera på egen domän eller på vår kostnadsfria subdomän. Integrerat bokningssystem via Cal.com så kunder kan boka möten direkt. Stripe för betalning om du säljer paket eller prenumerationer. Ingen bindningstid och du kan exportera koden när du vill.",
+    "Perfekt för managementkonsulter, IT-konsulter, HR-specialister och alla andra som säljer expertis i Växjö. Din sajt är redo att jobba för dig samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en konsulthemsida i Växjö behöver",
+      "body": "En konsultsajt måste snabbt kommunicera din expertis och specialisering. Potentiella kunder vill se konkreta exempel på vad du har åstadkommit, förstå din arbetsmetod och kunna boka ett första möte utan krångel. Sajtmaskin bygger automatiskt sidor för dina tjänster, ett portfolio med case, om-sida som positionerar dig som expert, och integrerar bokningssystem så kunder kan välja tid direkt. Allt anpassat efter hur du beskriver din verksamhet i chatten."
+    },
+    {
+      "heading": "Bygg din konsultsajt via chat",
+      "body": "Du startar genom att berätta om din konsultverksamhet: vilka tjänster du erbjuder, vilka branscher du jobbar med, vad som skiljer dig från andra konsulter. AI:n skapar då en komplett sajt med struktur och innehåll som matchar din profil. Vill du lägga till kundreferenser, beskriva din metod eller visa tidigare projekt? Skriv bara i chatten så uppdateras sajten direkt. Ingen teknisk kunskap behövs – du fokuserar på ditt expertområde, vi fixar tekniken."
+    },
+    {
+      "heading": "Bokningar och betalningar utan krångel",
+      "body": "Integrationen med Cal.com ger dig ett professionellt bokningssystem där kunder kan välja tid för strategimöte, workshop eller konsultation. Systemet synkar med din kalender och skickar automatiska påminnelser. Vill du sälja fasta konsultpaket eller ta förskottsbetalning? Koppla in Stripe så kan kunder betala direkt på sajten. Allt sköts smidigt utan att du behöver hantera flera separata verktyg."
+    },
+    {
+      "heading": "Flexibilitet för din växande verksamhet",
+      "body": "När din konsultverksamhet utvecklas växer sajten med dig. Lägg till nya tjänster, uppdatera dina case, justera priser – allt via chatten. Vill du blogga om din bransch för att stärka din expertposition? Lägg till en blogg. Behöver du samarbeta med andra konsulter? Skapa teamsidor. Ingen bindningstid innebär att du kan exportera hela sajten och flytta den om dina behov förändras. Din sajt ägs av dig, inte av plattformen."
+    },
+    {
+      "heading": "Växjö och regionen som marknad",
+      "body": "Växjö är nav för både offentlig sektor och privata företag i hela Kronoberg. Många konsulter jobbar med både lokala organisationer och kunder i Småland och Skåne. En professionell hemsida gör dig synlig för både Växjöföretag som söker experthjälp och för regionala uppdragsgivare. Med rätt SEO-grund och tydlig positionering når du kunder som aktivt letar efter din typ av kompetens, oavsett om det gäller digitalisering, hållbarhet, HR eller affärsutveckling."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få min konsultsajt live?",
+      "a": "De flesta konsultsajter är klara på 10–20 minuter. Du chattar om dina tjänster och specialisering, AI:n bygger sajten, du granskar och justerar vid behov, sedan publicerar du direkt. Vill du använda egen domän tar det någon minut extra att koppla den, annars är du live på vår subdomän direkt."
+    },
+    {
+      "q": "Kan jag visa case och referenser på sajten?",
+      "a": "Absolut. Berätta i chatten om projekt du genomfört, resultat du uppnått eller kunder du jobbat med, så skapar AI:n en portfolio-sektion eller referenssida. Du styr själv hur detaljerat du vill visa dina case – från korta beskrivningar till djupgående framgångshistorier med mätbara resultat."
+    },
+    {
+      "q": "Fungerar bokningssystemet med min befintliga kalender?",
+      "a": "Ja, Cal.com-integrationen synkar med Google Calendar, Outlook och andra stora kalendertjänster. Kunder ser din tillgängliga tid och bokar direkt, mötet hamnar automatiskt i din kalender och båda parter får bekräftelse och påminnelser. Du slipper mejla fram och tillbaka om tider."
+    },
+    {
+      "q": "Kan jag ta betalt för konsultpaket via sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du sälja fasta konsultpaket, ta förskottsbetalning för projekt eller ta betalt för workshops och utbildningar. Du sätter upp produkter och priser, kunder betalar säkert med kort, och pengarna går direkt till ditt Stripe-konto."
+    },
+    {
+      "q": "Hur syns jag för företag i Växjö som söker konsulter?",
+      "a": "Sajten byggs med grundläggande SEO så du har chans att rankas när företag söker efter din typ av konsulttjänster i Växjö. Kombinera det med tydlig beskrivning av vad du gör, för vem och vilka resultat du levererar. Många konsulter kompletterar också med profil på LinkedIn och nätverk i lokala företagsgrupper."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela din sajt som kod och flytta den till egen hosting eller annan plattform. Ingen bindningstid och inga utträdesavgifter. Sajten och innehållet ägs av dig från dag ett, så du är aldrig låst till Sajtmaskin."
+    },
+    {
+      "q": "Kan jag ha sajten på både svenska och engelska?",
+      "a": "Ja, du kan bygga flerspråkiga sajter om du jobbar med internationella kunder eller vill nå utländska företag i Växjöregionen. Berätta i chatten vilka språk du vill ha, så skapar AI:n parallella versioner av ditt innehåll med språkväxlare."
+    }
+  ],
+  "localOrIndustryContext": "Växjö har stark närvaro av både stora arbetsgivare inom offentlig sektor, skogsbaserad industri och ett växande IT- och innovationsklimat kopplat till Linnéuniversitetet. Konsulter inom allt från hållbarhet och digitalisering till ledarskap och organisation hittar uppdrag både lokalt och regionalt i Småland.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vaxjo",
+      "label": "Skapa hemsida i Växjö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Växjö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "elektriker",
+  "title": "Hemsida för elektriker – bygg din egen på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din elfirma direkt i chatten. Bokning, tjänstlista och kontaktformulär – allt på plats utan kod.",
+  "h1": "Hemsida för elektriker",
+  "heroSub": "Bygg en komplett sajt för din elfirma på minuter – med bokning, tjänster och kontaktuppgifter som syns i Google.",
+  "introParagraphs": [
+    "En hemsida för elektriker behöver visa vad du gör, var du jobbar och hur kunder enkelt kan boka dig. Typiskt ingår en lista över dina tjänster – installation, felsökning, elcertifikat – kontaktuppgifter, priser eller offertförfrågan, och gärna ett bokningssystem så att kunder kan boka en tid direkt.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med vår AI. Du beskriver din verksamhet på svenska, så genererar systemet sidor, texter och funktioner som passar en elektriker. Publicera på din egen domän eller testa gratis på en subdomän – ingen bindningstid, ingen kod.",
+    "Du kan integrera Cal.com för bokning, lägga till kontaktformulär och få sajten indexerad i Google direkt. Allt på svenska, klart på minuter istället för veckor."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänstlista och prisuppgift",
+      "body": "Besökare vill veta vad du kan hjälpa till med. En tydlig sida med tjänster – elinstallation, troubleshooting, utbyte av elcentral, laddbox för elbil – gör det lätt att förstå om du passar deras behov. Du kan välja att visa fasta priser, timpriser eller en knapp för offertförfrågan. Sajtmaskin genererar texten åt dig, och du justerar direkt i chatten om något ska ändras."
+    },
+    {
+      "heading": "Bokningssystem och kontaktformulär",
+      "body": "Många kunder vill boka tid utan att behöva ringa. Genom att koppla Cal.com till din sajt får du en kalender där besökare ser lediga tider och bokar direkt. Vill du hellre ha ett vanligt kontaktformulär fungerar det lika bra – formuläret skickas till din mejl så du kan svara när det passar. Allt sätts upp automatiskt när du bygger sajten, ingen teknisk kunskap krävs."
+    },
+    {
+      "heading": "Lokal SEO och synlighet",
+      "body": "Som elektriker jobbar du ofta inom ett visst område – stad, kommun eller region. Sajten bör nämna var du är verksam så att Google kan visa dig för rätt sökningar. Sajtmaskin hjälper dig skriva texter som naturligt inkluderar platsnamn och tjänster, och du kan lägga till en kontaktsida med adress och karta. Publicera på egen domän så stärker du varumärket och syns bättre lokalt."
+    },
+    {
+      "heading": "Mobilvänlig och snabb",
+      "body": "De flesta som söker efter en elektriker gör det från mobilen, ofta i en akut situation. Sajten måste därför ladda snabbt och vara lätt att navigera på liten skärm. Alla sajter från Sajtmaskin är responsiva från start – layouten anpassar sig automatiskt, knappar är lätta att trycka på och telefonnummer blir klickbara så besökaren ringer direkt."
+    },
+    {
+      "heading": "Exportera och äg din kod",
+      "body": "Du är inte låst till vår plattform. När sajten är klar kan du exportera hela koden och flytta den till vilken webbhost du vill. Vill du bygga vidare själv eller anlita en utvecklare senare går det bra. Ingen bindningstid, inga dolda avgifter – du äger alltid resultatet."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Vad kostar det att ha en hemsida för min elfirma?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän betalar du endast för domänregistrering, vanligtvis runt hundra kronor per år. Inga månadskostnader för själva sajten om du inte väljer extra tjänster som Stripe eller Cal.com, vilka har egna prismodeller."
+    },
+    {
+      "q": "Kan jag lägga till bilder från mina jobb?",
+      "a": "Ja, du laddar upp egna bilder direkt i editorn eller ber AI:n skapa platshållare som du byter ut senare. Bilder från installationer, färdiga projekt eller teamet gör sajten mer personlig och bygger förtroende. Filerna lagras säkert och optimeras automatiskt för snabb laddning."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta användare har en fungerande sajt på 10–20 minuter. Du chattar med AI:n, granskar förslaget, justerar texter eller layout om du vill, och publicerar. Vill du koppla egen domän tillkommer en DNS-inställning som kan ta några timmar att sprida sig, men sajten fungerar på subdomän direkt."
+    },
+    {
+      "q": "Kan kunder betala för tjänster via sajten?",
+      "a": "Ja, genom Stripe-integrationen kan du ta emot kortbetalningar, fakturera eller sätta upp prenumerationer. Det passar om du säljer fasta paket – till exempel årlig elbesiktning eller serviceavtal. Du behöver ett Stripe-konto, sedan kopplar du det i Sajtmaskin utan kodning."
+    },
+    {
+      "q": "Syns sajten i Google?",
+      "a": "Ja, alla sidor indexeras automatiskt om du publicerar dem som publika. Du kan redigera sidrubrik, metabeskrivning och URL för varje sida så att de matchar vad folk söker efter – till exempel 'elektriker Stockholm' eller 'installation laddbox'. Sajtmaskin genererar tekniskt korrekt HTML som sökmotorer gillar."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela webbplatsen som ren kod – HTML, CSS, JavaScript – och flytta den till vilken host du vill. Ingen leverantörslåsning. Om du vill fortsätta bygga vidare själv eller anlita en byrå äger du all kod och allt innehåll."
+    },
+    {
+      "q": "Kan jag visa kundrecensioner eller certifikat?",
+      "a": "Absolut. Du kan be AI:n skapa en sektion för recensioner, lägga till logotyper för elinstallationsföretag eller certifieringar som ROT-avdrag. Textblock och bilder är helt flexibla – du styr vad som syns och var det placeras på sidan."
+    }
+  ],
+  "localOrIndustryContext": "Elbranschen i Sverige är reglerad och kräver auktorisation, så förtroende är avgörande. En professionell hemsida som tydligt visar dina tjänster, certifieringar och kontaktvägar hjälper kunder att känna sig trygga. Många söker efter elektriker akut, så snabb laddning och synligt telefonnummer är extra viktigt.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en elektriker-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

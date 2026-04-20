@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "ai-design-hemsida",
+  "title": "AI Design Hemsida – Hur fungerar det i praktiken? | Sajtmaskin",
+  "metaDescription": "Lär dig hur AI designar hemsidor genom att analysera text, generera layout och anpassa innehåll. Konkret guide till AI-driven webbdesign.",
+  "h1": "Hur AI designar en hemsida",
+  "heroSub": "AI bygger hemsidor genom att tolka dina önskemål, välja struktur och generera både design och innehåll – allt från en konversation.",
+  "introParagraphs": [
+    "När AI designar en hemsida börjar det med att du beskriver vad du behöver i vanlig text. Systemet analyserar din bransch, ditt syfte och vilka funktioner du vill ha. Sedan genererar det en komplett sajt med layout, färgschema, typografi och innehåll som matchar din beskrivning. Du får ett färdigt förslag på sekunder istället för veckor.",
+    "Skillnaden mot traditionella mallbyggare är att AI inte bara fyller i tomma rutor. Den fattar beslut om struktur, väljer vilka sektioner som behövs och skriver texter som passar just ditt företag. Du kan sedan justera allt genom att fortsätta konversationen, precis som när du ger feedback till en designer.",
+    "Den här tekniken gör att du slipper både teknisk kunskap och designerfarenhet. AI hanterar allt från responsiv layout till SEO-grunderna, medan du fokuserar på att få sajten att säga rätt sak till dina besökare."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så tolkar AI dina önskemål",
+      "body": "AI-modeller tränade på miljontals webbplatser kan känna igen mönster i hur olika branscher presenterar sig. När du skriver att du driver en frisörsalong i Malmö förstår systemet att du troligen behöver bokningsfunktion, bildgalleri och prislista. Den jämför din input med liknande projekt och föreslår en struktur som fungerar. Du behöver inte specificera varje detalj – AI fyller i det som saknas baserat på vad som är standard för din typ av verksamhet."
+    },
+    {
+      "heading": "Från prompt till färdig design",
+      "body": "Processen går snabbt. Du skriver vad du vill ha, AI genererar ett första utkast med navigation, hero-sektion, innehållsblock och footer. Färger väljs utifrån din bransch eller preferenser du nämner. Typsnitt matchas för läsbarhet och känsla. Bilder föreslås eller genereras om du inte har egna. Hela flödet tar minuter istället för de veckor en traditionell process kräver. Resultatet är en fullt fungerande sajt som du kan publicera direkt eller fortsätta förfina."
+    },
+    {
+      "heading": "Jämfört med mallar och byråer",
+      "body": "Mallbyggare ger dig förinställda layouter som du fyller med eget innehåll. Det kräver att du vet vad du vill ha och hur man bygger struktur. Byråer levererar skräddarsytt, men kostar ofta tiotusentals kronor och tar veckor. AI landar mittemellan: du får skräddarsydd design och innehåll utan att behöva kunskap, till en bråkdel av byråkostnaden. Flexibiliteten är högre än mallar eftersom AI anpassar sig efter din beskrivning, inte tvärtom."
+    },
+    {
+      "heading": "Vad AI hanterar automatiskt",
+      "body": "Förutom synlig design tar AI hand om tekniska detaljer. Responsiv layout så sajten fungerar på mobil och desktop. Grundläggande SEO som meta-taggar och rubrikstruktur. Tillgänglighet som kontrast och alt-texter. Laddningstid genom optimerad kod. Du slipper tänka på dessa detaljer men kan fortfarande justera dem om du vill ha full kontroll. AI gör det tunga arbetet medan du behåller sista ordet."
+    },
+    {
+      "heading": "Så fungerar det med Sajtmaskin",
+      "body": "På Sajtmaskin chattar du med AI:n på svenska och beskriver din sajt. Systemet genererar design, struktur och innehåll direkt. Du kan integrera Cal.com för bokning, Stripe för betalningar eller Shopify för en webshop. Publicera på egen domän eller använd en gratis subdomän. Ingen bindningstid och du kan exportera koden när du vill. Allt byggt i Sverige med svenskt gränssnitt, så du slipper översättningar och utländska supporttider."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan AI verkligen designa en unik hemsida?",
+      "a": "Ja, men med nyanser. AI skapar inte konst från tomma intet, utan kombinerar beprövade designmönster på nya sätt baserat på din input. Resultatet blir unikt för ditt innehåll och dina val, men följer principer som fungerar. Tänk det som en erfaren designer som jobbar snabbt snarare än en konstnär som startar från scratch."
+    },
+    {
+      "q": "Måste jag kunna koda för att använda AI-design?",
+      "a": "Nej, det är hela poängen. Du kommunicerar i vanlig text och AI översätter det till fungerande kod och design. Om du vill kan du gå in och ändra koden senare, men det krävs inte. Systemet hanterar allt tekniskt medan du fokuserar på vad sajten ska säga och göra."
+    },
+    {
+      "q": "Hur lång tid tar det att få en färdig sajt?",
+      "a": "Första utkastet genereras på några minuter. Hur lång tid du sedan lägger på justeringar beror på hur nöjd du är och hur mycket du vill finjustera. Många publicerar samma dag de börjar, andra spenderar några dagar på att få texter och bilder precis rätt. Jämfört med veckor hos en byrå eller dagar med mallbyggare är det betydligt snabbare."
+    },
+    {
+      "q": "Vad händer om jag vill ändra något AI har skapat?",
+      "a": "Du fortsätter bara konversationen och ber om ändringar. Vill du ha en annan färg, flytta en sektion eller skriva om en text säger du det, så uppdaterar AI sajten. Du kan också gå in manuellt och redigera om du föredrar det. Ingenting är låst, allt går att justera precis som med vilken hemsida som helst."
+    },
+    {
+      "q": "Blir sajten SEO-optimerad automatiskt?",
+      "a": "AI lägger in grunderna: rätt rubrikstruktur, meta-beskrivningar, snabb laddning och mobilanpassning. Men SEO handlar också om innehåll, nyckelord och hur du beskriver ditt erbjudande. AI hjälper dig skriva bra texter, men du behöver se till att de matchar vad folk faktiskt söker efter. Tekniken fixas, strategin styr du."
+    },
+    {
+      "q": "Kan jag använda AI-designad sajt för e-handel?",
+      "a": "Ja, genom integrationer. Sajtmaskin kopplar till Shopify om du vill ha en fullständig webshop, eller Stripe om du säljer enstaka produkter eller tjänster. AI bygger produktsidor, kassan och betalflödet baserat på vad du beskriver. Du får en fungerande e-handel utan att behöva sätta upp allt manuellt."
+    },
+    {
+      "q": "Äger jag sajten eller är jag låst till plattformen?",
+      "a": "Du äger allt. Publicera på din egen domän och exportera koden när du vill. Ingen bindningstid, inga dolda avgifter. Om du vill flytta sajten någon annanstans senare går det bra. Sajtmaskin låser inte in dig, verktyget är till för att göra det enklare att komma igång, inte för att hålla dig kvar."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -88,6 +88,7 @@ import {
 } from "@/lib/builder/chat-tools";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { cn } from "@/lib/utils";
+import { debugLog } from "@/lib/utils/debug";
 import { ChevronLeft, ChevronRight, Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -1364,13 +1365,28 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const smartSendMessage = useCallback(
     async (message: string, options?: Record<string, unknown>) => {
       if (!guardGuestGeneration()) return;
-      const intent = await classifyIntent(message);
-      if (intent === "help") {
-        await sendHelpMessage(message, vm.setMessages, vm.messages);
-        return;
+      // Explicita build-out-anrop (t.ex. "Skapa sida"-knappen på en shell-sida)
+      // ska aldrig klassas som help-fråga — de är redan en tydlig byggintent.
+      const skipIntentClassification =
+        options?.skipIntentClassification === true ||
+        options?.forceIntent === "build";
+      if (!skipIntentClassification) {
+        const intent = await classifyIntent(message);
+        if (intent === "help") {
+          await sendHelpMessage(message, vm.setMessages, vm.messages);
+          return;
+        }
       }
 
-      await vm.sendMessage(message, options);
+      // Strippa interna flaggor så vi inte skickar dem vidare till API:t.
+      const {
+        skipIntentClassification: _skip,
+        forceIntent: _force,
+        ...rest
+      } = options ?? {};
+      void _skip;
+      void _force;
+      await vm.sendMessage(message, Object.keys(rest).length ? rest : undefined);
     },
     [guardGuestGeneration, sendHelpMessage, vm.sendMessage, vm.setMessages, vm.messages],
   );
@@ -1512,6 +1528,58 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     },
     [smartCreateChat, smartSendMessage, vm.chatId],
   );
+
+  // URL-fallback: shell-sidor som öppnats i ny flik lägger build-out-intentet
+  // i `?sajtmaskin_buildout=...` istället för via postMessage. När builderns
+  // användare kommer tillbaka hit plockar vi upp querysträngen, triggar
+  // samma build-out som knappen skulle ha gjort, och rensar parametrarna.
+  const urlFallbackConsumedRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (urlFallbackConsumedRef.current) return;
+    let params: URLSearchParams;
+    try {
+      params = new URLSearchParams(window.location.search);
+    } catch {
+      return;
+    }
+    const path = params.get("sajtmaskin_buildout");
+    if (!path) return;
+    urlFallbackConsumedRef.current = true;
+    const intent = params.get("sajtmaskin_buildout_intent");
+    const name = params.get("sajtmaskin_buildout_name");
+
+    // Rensa query innan vi triggar så att en eventuell omnavigering inte
+    // fastnar i en loop.
+    try {
+      params.delete("sajtmaskin_buildout");
+      params.delete("sajtmaskin_buildout_intent");
+      params.delete("sajtmaskin_buildout_name");
+      const nextSearch = params.toString();
+      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+      window.history.replaceState({}, "", nextUrl);
+    } catch {
+      // ignore history replace failures
+    }
+
+    const label = name?.trim() || path;
+    const purposeLine = intent?.trim()
+      ? `\n\nSyftet med sidan (från briefen): ${intent.trim()}`
+      : "";
+    const prompt = `Bygg ut sidan ${label} (${path}) med fullt innehåll och design som matchar resten av sajten.${purposeLine}`;
+    debugLog("AI", "build-out-request from URL fallback", { path, hasIntent: Boolean(intent) });
+    void (async () => {
+      if (!guardGuestGeneration()) {
+        toast.info("Logga in för att bygga ut fler sidor.");
+        return;
+      }
+      toast.info(`Bygger ut sidan ${label}…`);
+      await smartSendMessage(prompt, {
+        skipIntentClassification: true,
+        forceIntent: "build",
+      });
+    })();
+  }, [guardGuestGeneration, smartSendMessage]);
 
   const toolAvailability = useMemo<ToolActionAvailability>(
     () => ({
@@ -2110,10 +2178,33 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 }
               }}
               onSuggestionClick={(prompt) => void vm.sendMessage(prompt)}
-              onBuildOutRouteRequest={(routePath) => {
-                const prompt = `Bygg ut sidan ${routePath} med fullt innehåll och design som matchar resten av sajten.`;
-                toast.info(`Bygger ut sidan ${routePath}…`);
-                void smartSendMessage(prompt);
+              onBuildOutRouteRequest={({ path, intent, name }) => {
+                // Gäst-gating sker inuti smartSendMessage — vi visar toasten
+                // *efter* att vi försökt starta byggningen, men bara om
+                // gäst-gaten lät oss passera. Annars får användaren auth-
+                // modalen direkt.
+                const label = name?.trim() || path;
+                const purposeLine = intent?.trim()
+                  ? `\n\nSyftet med sidan (från briefen): ${intent.trim()}`
+                  : "";
+                const prompt = `Bygg ut sidan ${label} (${path}) med fullt innehåll och design som matchar resten av sajten.${purposeLine}`;
+                debugLog("AI", "build-out-request prompt built", {
+                  path,
+                  hasIntent: Boolean(intent?.trim()),
+                  hasName: Boolean(name?.trim()),
+                });
+                void (async () => {
+                  const guestOk = guardGuestGeneration();
+                  if (!guestOk) {
+                    toast.info("Logga in för att bygga ut fler sidor.");
+                    return;
+                  }
+                  toast.info(`Bygger ut sidan ${label}…`);
+                  await smartSendMessage(prompt, {
+                    skipIntentClassification: true,
+                    forceIntent: "build",
+                  });
+                })();
               }}
             />
           </div>

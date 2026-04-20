@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "eskilstuna/bygg",
+  "title": "Hemsida för byggföretag i Eskilstuna | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Eskilstuna på minuter. AI bygger sajten åt dig – med projekt, referenser och bokningsfunktion.",
+  "h1": "Hemsida för byggföretag i Eskilstuna",
+  "heroSub": "Låt AI bygga en komplett sajt för ditt byggföretag med projektgalleri, referenser och bokningssystem – klar på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin skapar en färdig hemsida för ditt byggföretag i Eskilstuna direkt från en konversation. Du beskriver vad du gör – om det är nybyggnation, renovering, takarbeten eller snickeri – så genererar AI:n sidor med dina tjänster, ett projektgalleri, kundrecensioner och kontaktformulär. Allt på svenska, anpassat för hur byggkunder i Eskilstuna söker efter hantverkare.",
+    "Sajten publiceras på din egen domän utan månadskostnad för hosting på subdomän. Du integrerar Cal.com för tidsbokning av kostnadsfria besiktningar, kopplar Google Analytics för att se vilka tjänster som lockar mest, och kan när som helst exportera koden. Ingen bindningstid, ingen krånglig teknik – bara en sajt som fungerar för ditt byggföretag.",
+    "Byggbranschen i Eskilstuna är konkurrenskraftig och kunder jämför alltid flera aktörer innan de väljer. En professionell hemsida som visar tidigare projekt, tydliga tjänstebeskrivningar och enkelt bokningssystem ger dig ett försprång – och Sajtmaskin gör det möjligt utan att du behöver anlita byrå eller lära dig kod."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger AI din byggsajt",
+      "body": "Du startar en chatt och berättar vad ditt företag gör: vilka tjänster ni erbjuder, vilka material ni jobbar med, om ni är ROT-certifierade och vilka områden runt Eskilstuna ni täcker. AI:n skapar då en struktur med startsida, tjänstesidor för varje kategori – som tillbyggnad, badrumsrenovering eller fasadarbete – ett projektgalleri där bilder från tidigare jobb visas, samt en om-sida och kontaktsida. Du kan ladda upp bilder från avslutade projekt, lägga till kundutlåtanden och justera texter tills allt känns rätt. Hela processen tar minuter istället för veckor."
+    },
+    {
+      "heading": "Projektgalleri och referenser som säljer",
+      "body": "Byggkunder vill se vad du har gjort tidigare. Sajtmaskin genererar ett bildgalleri där varje projekt kan ha före- och efterbilder, kort beskrivning av arbetet och vilken typ av uppdrag det var. Du kan sortera efter kategori – kök, badrum, nybygge, altaner – så besökare snabbt hittar relevanta exempel. Under varje projekt kan du lägga kundrecensioner som förstärker förtroendet. Galleriet är responsivt och ser professionellt ut på mobil, där de flesta besökare kommer ifrån när de söker efter byggfirmor i Eskilstuna."
+    },
+    {
+      "heading": "Bokning och offertförfrågningar direkt på sajten",
+      "body": "Integrera Cal.com så kunder kan boka ett kostnadsfritt hembesök eller besiktning direkt i din kalender. Du väljer vilka tider som är lediga och systemet skickar automatiska påminnelser. För större projekt kan du lägga till ett offertformulär där kunder beskriver sitt behov, laddar upp bilder och anger adress. Formuläret skickas till din mail och du svarar när det passar. Stripe-integration gör det möjligt att ta emot förskottsbetalning eller fakturera mindre jobb direkt, vilket minskar administration och påminnelser."
+    },
+    {
+      "heading": "Lokal SEO för Eskilstuna och kranskommuner",
+      "body": "Sajten byggs med tydliga ortsnämn – Eskilstuna, Torshälla, Kjula, Sundbyholm – och tjänstebeskrivningar som matchar hur folk söker: takläggare Eskilstuna, badrumsrenovering Torshälla, snickare Kjula. AI:n genererar unika texter för varje tjänstesida så Google förstår vad du erbjuder och var. Du kan lägga till en karta som visar ditt verksamhetsområde och en blogg där du skriver om vanliga byggprojekt, ROT-avdrag eller säsongstips. Det stärker din synlighet i lokala sökresultat och bygger förtroende hos besökare som vill anlita någon i närheten."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Du äger din sajt och kan exportera all kod när du vill. Inget abonnemang som låser dig, inga dolda avgifter. Hosting på subdomän är gratis, eller publicera på din egen domän direkt. Uppdatera texter, lägg till nya projekt och ändra priser själv via chatgränssnittet – ingen teknisk kunskap krävs. Om ditt företag växer och du vill migrera till en annan plattform tar du med dig allt innehåll. Sajtmaskin ger dig kontroll och flexibilitet, precis som du behöver som företagare i byggbranschen."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få sajten klar?",
+      "a": "Själva genereringen tar några minuter. Du chattar om ditt byggföretag, AI:n skapar sidorna, och sedan lägger du tid på att ladda upp projektbilder och finjustera texter. De flesta har en publicerbar sajt inom en timme. Du kan alltid fortsätta uppdatera efter lansering."
+    },
+    {
+      "q": "Kan jag visa före- och efterbilder från mina projekt?",
+      "a": "Ja, projektgalleriet stödjer bildpar och bildserier. Du laddar upp bilder, skriver en kort beskrivning av jobbet och väljer kategori. Besökare kan filtrera efter typ av projekt, vilket gör det lätt att visa relevanta referenser för den som söker exempelvis kökrenoveringar eller tillbyggnader."
+    },
+    {
+      "q": "Fungerar bokningen med min kalender?",
+      "a": "Cal.com-integrationen synkar med Google Calendar, Outlook och andra kalendertjänster. Du ställer in vilka tider som är lediga för hembesök eller besiktningar, och kunder bokar direkt på sajten. Du får notiser via mail och kan bekräfta eller omboka vid behov."
+    },
+    {
+      "q": "Syns sajten i Google-sökningar på Eskilstuna?",
+      "a": "Ja, sajten byggs med lokal SEO från start: ortnamn i texter, tjänstesidor optimerade för lokala sökord och teknisk struktur som Google gillar. Du kan förbättra synligheten ytterligare genom att lägga till blogginlägg, kundrecensioner och hålla innehållet uppdaterat med nya projekt."
+    },
+    {
+      "q": "Kan jag ta betalt eller fakturera via sajten?",
+      "a": "Stripe-integrationen låter dig ta emot kortbetalningar för förskott, mindre jobb eller materialinköp. Du kan också använda formulär för offertförfrågningar och skicka faktura manuellt. Systemet är flexibelt och anpassas efter hur du vill hantera betalningar i ditt byggföretag."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera all kod och allt innehåll när du vill, utan kostnad eller krångel. Sajten är din och det finns ingen bindningstid. Om du växer och behöver en mer avancerad lösning tar du med dig allt material och flyttar vidare."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera sajten?",
+      "a": "Nej, alla ändringar görs via chat. Du skriver vad du vill ändra – nytt projekt, uppdaterad prislista, ny tjänst – och AI:n uppdaterar sajten. Det är lika enkelt som att skicka ett meddelande. Ingen teknisk kunskap krävs."
+    }
+  ],
+  "localOrIndustryContext": "Eskilstuna har en stark byggnation med både villaområden och centrumnära renoveringsprojekt. Konkurrensen är hög och kunder söker aktivt efter lokala byggföretag online. En professionell hemsida med tydliga referenser och enkel bokning gör skillnad när kunder väljer vem de ska kontakta för offert.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/eskilstuna",
+      "label": "Skapa hemsida i Eskilstuna"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Eskilstuna. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

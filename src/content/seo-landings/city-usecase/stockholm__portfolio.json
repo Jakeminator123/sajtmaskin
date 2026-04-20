@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "stockholm/portfolio",
+  "title": "Hemsida Portfolio Stockholm – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfoliosajt i Stockholm med AI. Ingen kod, klart på minuter. Perfekt för kreatörer, fotografer och designers.",
+  "h1": "Portfoliohemsida i Stockholm",
+  "heroSub": "Bygg en professionell portfoliosajt som visar ditt arbete – på minuter, utan att kunna koda.",
+  "introParagraphs": [
+    "En portfoliohemsida är ditt digitala visitkort som kreatör, fotograf, designer eller konstnär i Stockholm. Den ska visa ditt bästa arbete, berätta vem du är och göra det enkelt för potentiella kunder att kontakta dig. Med Sajtmaskin skapar du en skräddarsydd portfoliosajt genom att chatta med AI – ingen kod, ingen krånglig teknik.",
+    "Stockholms kreativa scen är mångfacetterad, från Södermalms designbyråer till Vasastans fotografer och Östermalms arkitekter. Din portfolio behöver sticka ut och ladda snabbt, oavsett om besökaren hittar dig via Google, Instagram eller en rekommendation. Sajtmaskin genererar en komplett sajt anpassad efter just ditt arbete och din stil.",
+    "Du chattar med AI:n om vad du gör, vilka projekt du vill visa och hur du vill att sajten ska kännas. På minuter får du en färdig portfoliohemsida med bildgallerier, projektbeskrivningar och kontaktformulär. Publicera på din egen domän eller testa kostnadsfritt på en subdomän – ingen bindningstid, ingen månadskostnad för hosting."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en portfoliohemsida i Stockholm behöver",
+      "body": "En stark portfoliosajt visar ditt bästa arbete i fokus, med tydlig navigering och snabb laddning. Stockholms kreativa yrkesverksamma konkurrerar om uppdrag från allt från startups i Kista till etablerade varumärken på Strandvägen, så första intrycket räknas. Din sajt ska fungera lika bra på mobil som dator, ha skarpa bilder som inte tar evigheter att ladda, och en tydlig kontaktväg. Sajtmaskin bygger allt detta automatiskt – bildoptimering, responsiv design och kontaktformulär ingår från start."
+    },
+    {
+      "heading": "Så bygger du din portfolio med AI",
+      "body": "Du startar en chatt och beskriver vad du gör: fotograf, illustratör, webbdesigner, arkitekt eller något helt annat. Berätta vilka projekt du vill lyfta fram och vilken känsla sajten ska ha – minimalistisk, färgstark, elegant eller lekfull. AI:n genererar en komplett portfoliosajt med gallerier, om-sida och kontaktsektion. Du kan direkt ladda upp dina bilder, justera texter och ändra layout genom att fortsätta chatten. Ingen teknisk kunskap krävs, och du ser resultatet live medan du bygger."
+    },
+    {
+      "heading": "Integrationer för kreatörer",
+      "body": "Vill du att kunder ska kunna boka fotosession direkt? Koppla in Cal.com så får du ett bokningssystem integrerat i sajten. Säljer du prints, konst eller designtjänster? Anslut Stripe för säkra betalningar eller Shopify om du vill ha en fullständig webshop. Google Analytics ger dig koll på var besökarna kommer ifrån och vilka projekt de tittar mest på – värdefullt när du marknadsför dig i Stockholms kreativa nätverk eller via sociala medier."
+    },
+    {
+      "heading": "Egen domän och full frihet",
+      "body": "Publicera din portfoliosajt på din egen domän – dittnamn.se eller dinstudio.com. Det ser professionellt ut när du skickar länken till potentiella uppdragsgivare eller lägger den i din Instagram-bio. Vill du testa först? Använd en kostnadsfri subdomän utan månadskostnad. Ingen bindningstid gäller, och du kan när som helst exportera hela koden om du vill flytta sajten någon annanstans. Din portfolio, dina villkor."
+    },
+    {
+      "heading": "Byggt i Sverige, för svenska kreatörer",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige, med svenskt gränssnitt och svensk support. Det innebär att allt – från AI-chatten till hjälptexter – är på svenska, och du slipper översätta eller anpassa utländska verktyg. För dig som kreatör i Stockholm betyder det en sajt som känns rätt språkligt och kulturellt, och som du kan uppdatera själv när du landat ett nytt projekt eller vill lyfta fram färsk work."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfoliohemsida?",
+      "a": "De flesta har en färdig portfoliosajt på 10–20 minuter. Du chattar med AI:n om ditt arbete och vilka projekt du vill visa, så genereras sajten. Sedan lägger du till dina bilder och justerar texter – allt i samma gränssnitt. Vill du ha mer avancerade funktioner som bokning eller e-handel tar det lite längre, men grunden är klar på minuter."
+    },
+    {
+      "q": "Kan jag visa olika typer av projekt i gallerier?",
+      "a": "Ja, du kan strukturera din portfolio precis som du vill. Dela upp i projekt, kategorier eller tidsperioder – fotoserier, designcase, illustrationer eller arkitekturritningar. AI:n hjälper dig skapa gallerier med bildtexter, projektbeskrivningar och länkar. Du kan när som helst lägga till nya projekt genom att fortsätta chatten."
+    },
+    {
+      "q": "Fungerar sajten bra för fotografer i Stockholm?",
+      "a": "Absolut. Många fotografer i Stockholm använder Sajtmaskin för att visa sitt arbete – från porträttfotografer på Södermalm till eventfotografer och produktfotografer. Bilderna optimeras automatiskt för snabb laddning utan att tappa kvalitet, och layouten är responsiv så gallerier ser bra ut på alla skärmar. Vill du erbjuda bokningar integrerar du Cal.com direkt."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Publicerar du på en subdomän hos Sajtmaskin är hostingen kostnadsfri utan månadskostnad. Vill du använda din egen domän (dittnamn.se) behöver du köpa den separat, men du kan fortfarande hosta sajten hos oss eller exportera koden och lägga den var du vill. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag sälja prints eller tjänster via sajten?",
+      "a": "Ja. Integrera Stripe för att ta betalt för prints, konsultationer eller andra tjänster direkt på sajten. Vill du ha en fullständig webshop med lager och frakt kopplar du in Shopify. Båda integrationerna sätts upp genom AI-chatten, och du behöver inte hantera någon kod själv."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela koden till din portfoliosajt och flytta den till en annan hostingleverantör eller vidareutveckla den själv. Ingen bindningstid gäller, så du äger alltid ditt innehåll och din sajt. Sajtmaskin låser inte in dig – du bestämmer."
+    },
+    {
+      "q": "Får jag hjälp om jag kör fast?",
+      "a": "Ja, Sajtmaskin erbjuder svensk support. Eftersom plattformen är byggd i Sverige av Pretty Good AB får du hjälp på svenska, utan tidszoner eller språkbarriärer. De flesta frågor löser du direkt i AI-chatten, men behöver du mer hjälp finns supporten där."
+    }
+  ],
+  "localOrIndustryContext": "Stockholm har en stark kreativ sektor med tusentals designers, fotografer, illustratörer och arkitekter. Från Södermalms ateljéer till Vasastans designbyråer och Östermalms arkitektkontorer är konkurrensen om uppdrag hård, och en professionell portfoliosajt är ofta avgörande för att sticka ut.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Stockholm. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

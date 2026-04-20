@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "bygg",
+  "title": "Hemsida för byggföretag – färdig på minuter | Sajtmaskin",
+  "metaDescription": "Bygg en professionell hemsida för ditt byggföretag med AI. Visa projekt, ta emot förfrågningar och boka besiktningar – allt utan kod.",
+  "h1": "Hemsida för byggföretag",
+  "heroSub": "Få en komplett hemsida som visar dina projekt, tar emot offerter och bokar besiktningar – klar på minuter.",
+  "introParagraphs": [
+    "En hemsida för byggföretag behöver visa vad ni kan, vilka projekt ni gjort och hur kunder enkelt når er för offert. Många byggjobb startar med att kunden googlar lokalt, kollar referenser och jämför företag. Saknar du en sajt eller har en gammal sida som inte visar upp era renoveringar och nybyggen, försvinner du i konkurrensen.",
+    "Sajtmaskin bygger din hemsida via chat på svenska. Du beskriver vad företaget gör – till exempel takrenoveringar, tillbyggnader eller totalentreprenader – så skapar AI:n hela sajten med projektsidor, kontaktformulär och bokningsfunktion. Du publicerar på egen domän och kan uppdatera när nya projekt blir klara.",
+    "Ingen kod, ingen designer, ingen väntan. Allt innehåll skrivs på svenska och du äger sajten helt. Exportera koden när du vill eller låt den ligga på vår infrastruktur utan månadskostnad på subdomän."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för byggföretag behöver innehålla",
+      "body": "Startsidan visar direkt vad ni bygger – villarenoveringar, kommersiella lokaler, badrumsrenoveringar eller nybyggnation. En tydlig rubrik och ett kontaktformulär högt upp gör att besökaren snabbt kan be om offert. Projekt- eller referenssida med bilder från färdiga jobb ger förtroende. Kunder vill se att ni faktiskt byggt liknande objekt. Om-sidan beskriver vem som driver företaget, hur länge ni funnits och vilka certifieringar ni har. Kontaktsida med telefon, mejl och gärna en karta om ni jobbar lokalt. Många byggföretag vill också ha en tjänstesida där varje typ av jobb – till exempel takbyte, tillbyggnad, planlösningar – får en egen undersida som rankar i Google."
+    },
+    {
+      "heading": "Bokningar och offerter direkt på sajten",
+      "body": "Sajtmaskin integrerar Cal.com så kunder kan boka kostnadsfri besiktning eller rådgivningsmöte direkt i din kalender. Det minskar mejltrafiken och visar att du är tillgänglig. Kontaktformulär kan anpassas för att fånga projekttyp, adress, budget och tidsram – precis den info du behöver för att ge en vettig offert. Formuläret skickar till din mejl eller CRM. Du kan också lägga till Stripe om du tar förskottsbetalning för ritningar eller projektering. Allt sätts upp via chatten när du bygger sajten, ingen teknisk konfiguration krävs från din sida."
+    },
+    {
+      "heading": "Visa projekt och bygg förtroende",
+      "body": "Bygg- och renoveringsjobb säljs på förtroende. En projektsida med före/efter-bilder, kort beskrivning av utmaningen och lösningen gör mer än tusen ord om kvalitet. Sajtmaskin låter dig lägga till projektgallerier där varje jobb får en egen sida med bilder och text. Du kan uppdatera när nya projekt blir klara – logga in, chatta med AI:n och lägg till nya bilder eller case. Inga komplicerade CMS-gränssnitt. Referenscitat från nöjda kunder kan också läggas in, antingen som textblock eller i ett separat testimonial-avsnitt. Google älskar färskt innehåll, så regelbundna uppdateringar med nya projekt hjälper din synlighet."
+    },
+    {
+      "heading": "Lokal SEO för byggföretag",
+      "body": "De flesta byggkunder söker lokalt: \"byggföretag Göteborg\", \"takläggare Malmö\", \"totalentreprenad Stockholm\". Sajtmaskin hjälper dig skriva innehåll som nämner din stad och stadsdel naturligt, utan att det blir konstlat. Du kan ha en sida per tjänst och stad om du jobbar i flera kommuner. Google Analytics ingår så du ser vilka sidor som drar trafik och varifrån besökarna kommer. Vill du synas i Google Maps och lokala sökresultat behöver du också en Google Business-profil – länka den på sajten så stärker du kopplingen. Sajten blir mobilvänlig automatiskt, vilket är viktigt eftersom många kunder surfar på telefonen när de står på tomten eller i lägenheten och funderar på renovering."
+    },
+    {
+      "heading": "Bygg sajten via chat, publicera direkt",
+      "body": "Du startar en chatt på svenska och beskriver ditt byggföretag: vilka tjänster ni erbjuder, var ni jobbar, vilka projekt ni vill lyfta. AI:n föreslår struktur, skriver texter och väljer layout. Du kan be om ändringar – byt färg, lägg till en sida, ändra rubrik – allt händer i chatten. När du är nöjd publicerar du på egen domän eller på en gratis subdomän hos oss. Ingen bindningstid, inga dolda avgifter. Behöver du göra uppdateringar senare öppnar du chatten igen och ber AI:n lägga till nya projekt eller ändra kontaktuppgifter. Vill du ta över tekniskt kan du exportera hela koden och drifta var du vill."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa projekt med bilder och beskrivningar?",
+      "a": "Ja, Sajtmaskin skapar projektsidor där varje jobb får plats med bilder, text och detaljer. Du kan lägga till nya projekt via chatten när de blir klara, utan att behöva koda eller logga in i ett komplicerat CMS."
+    },
+    {
+      "q": "Hur tar kunder kontakt för offert?",
+      "a": "Du får ett kontaktformulär där kunder fyller i projekttyp, adress och önskemål. Formuläret skickar till din mejl. Du kan också integrera Cal.com så kunder bokar besiktning direkt i din kalender, vilket minskar mejlpingis och visar tillgänglighet."
+    },
+    {
+      "q": "Fungerar sajten på mobilen?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och ser bra ut på telefon, platta och dator. Många byggkunder surfar på mobilen när de står på plats och söker efter hantverkare, så det är viktigt att sajten fungerar överallt."
+    },
+    {
+      "q": "Kan jag ha separata sidor för olika tjänster?",
+      "a": "Absolut. Du kan be AI:n skapa undersidor för varje tjänst – till exempel takbyte, badrumsrenovering, tillbyggnad – så att varje sida rankar för sitt sökord i Google. Det hjälper kunder hitta precis den tjänst de behöver."
+    },
+    {
+      "q": "Kostar det extra att uppdatera sajten senare?",
+      "a": "Nej, du kan logga in och chatta med AI:n för att lägga till nya projekt, ändra texter eller byta bilder när du vill. Ingen extra kostnad för uppdateringar. Vill du ha sajten på subdomän hos oss är hosting gratis, annars publicerar du på egen domän."
+    },
+    {
+      "q": "Kan jag koppla Google Analytics för att se besökare?",
+      "a": "Ja, Google Analytics ingår som integration. Du ser vilka sidor som får mest trafik, varifrån besökarna kommer och vilka sökord som leder till sajten. Det hjälper dig förstå vad kunder letar efter och var du bör lägga mer innehåll."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill och drifta sajten var du vill. Ingen inlåsning, ingen bindningstid. Du äger innehållet och tekniken helt, så du är aldrig fast hos oss om du väljer att gå vidare."
+    }
+  ],
+  "localOrIndustryContext": "Byggbranschen i Sverige är hårt konkurrensutsatt, särskilt i storstadsregionerna. Kunder jämför ofta flera företag online innan de ringer. En professionell hemsida med tydliga projekt och enkel kontaktväg gör skillnaden mellan att få förfrågan eller bli överhoppad.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en bygg-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

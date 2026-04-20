@@ -1,0 +1,105 @@
+{
+  "family": "usecase",
+  "slug": "vvs",
+  "title": "Hemsida VVS – Bygg en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för ditt VVS-företag med AI. Bokningssystem, tjänstlista och kontaktformulär – klart på minuter utan kod.",
+  "h1": "Hemsida VVS",
+  "heroSub": "Bygg en proffsig hemsida för ditt VVS-företag på minuter – med AI, utan kod och utan krångel.",
+  "introParagraphs": [
+    "En hemsida för VVS behöver visa vad du gör, var du jobbar och hur kunder enkelt kan boka tid eller begära offert. Typiskt innehåller den en tydlig startsida med dina tjänster, kontaktuppgifter, bilder från utförda jobb och ett bokningsformulär eller telefonnummer som syns direkt. Många VVS-företag vill också visa references, akutjour-info och prisexempel så att besökaren snabbt förstår vad de kan förvänta sig.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med en AI. Du beskriver ditt företag och vad du vill ha med – AI:n skapar sedan sidor, texter och struktur åt dig. Publicera på din egen domän eller på en kostnadsfri subdomän, och lägg till bokningssystem eller betalning om du vill ta betalt direkt online."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänster och specialområden",
+      "body": "Besökaren vill veta om du fixar det de behöver – allt från badrumsrenovering och golvvärme till akuta läckor och värmepumpinstallation. Lista dina huvudsakliga tjänster tydligt på startsidan eller i en egen tjänstsektion. Sajtmaskin kan generera texter för varje tjänst baserat på vad du berättar, så du slipper skriva allt själv. Du kan alltid redigera och lägga till bilder från egna projekt efteråt."
+    },
+    {
+      "heading": "Bokningssystem och kontaktformulär",
+      "body": "Många kunder vill boka tid direkt eller skicka en förfrågan utan att ringa. Med Cal.com-integrationen i Sajtmaskin kan du bädda in en kalender där kunder väljer ledig tid för besiktning eller offert. Alternativt sätter du upp ett enkelt kontaktformulär som mailas direkt till dig. Båda lösningarna är enkla att aktivera i chatgränssnittet – ingen kod behövs."
+    },
+    {
+      "heading": "Referensprojekt och bilder",
+      "body": "Bilder från verkliga jobb bygger förtroende snabbt. Skapa en referenssida eller ett galleri där du visar före- och efterbilder från badrum, värmesystem eller stambyten. Sajtmaskin låter dig ladda upp bilder och organisera dem i block eller gallerier. AI:n kan föreslå layout och bildtexter, men du bestämmer själv vilka projekt som ska synas."
+    },
+    {
+      "heading": "Akutjour och serviceavtal",
+      "body": "Om du erbjuder jourservice eller underhållsavtal är det viktigt att informationen syns tydligt. Skapa en egen sektion eller banner på startsidan med telefonnummer och öppettider för akutärenden. Du kan också beskriva vad ett serviceavtal innebär och vilka fördelar kunden får. Sajtmaskin genererar text och struktur – du justerar detaljer så de stämmer med dina rutiner."
+    },
+    {
+      "heading": "Publicera och uppdatera när du vill",
+      "body": "När sajten är klar publicerar du den på din egen domän eller på en subdomän utan månadskostnad för hosting. Vill du ändra text, lägga till nya tjänster eller uppdatera priser gör du det direkt i chatten eller i editorn. Ingen bindningstid – du kan exportera hela koden och flytta sajten när som helst om du vill byta plattform senare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en VVS-hemsida med Sajtmaskin?",
+      "a": "De flesta kommer igång på 10–20 minuter. Du chattar med AI:n om ditt företag, tjänster och vad du vill ha med, så genereras sidor och texter automatiskt. Sedan justerar du detaljer, laddar upp bilder och publicerar. Allt sker i samma gränssnitt utan att du behöver koda."
+    },
+    {
+      "q": "Kan jag lägga till bokningssystem för offertbesök?",
+      "a": "Ja, Sajtmaskin integrerar med Cal.com så att kunder kan välja ledig tid direkt på sajten. Du kopplar din kalender och bestämmer vilka tidsintervall som ska vara bokningsbara. Bekräftelser skickas automatiskt via mail till både dig och kunden."
+    },
+    {
+      "q": "Behöver jag skriva alla texter själv?",
+      "a": "Nej, AI:n skriver förslag på alla texter baserat på vad du berättar om ditt företag och dina tjänster. Du kan sedan redigera, korta ner eller lägga till detaljer så texten låter som dig. Bilder och logotyp laddar du upp själv."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Publicerar du på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du använda din egen domän (till exempel mittVVSföretag.se) kopplar du den kostnadsfritt, men domänregistrering och eventuell e-post hanterar du via din domänleverantör."
+    },
+    {
+      "q": "Kan jag visa prisexempel eller ta betalt online?",
+      "a": "Du kan skriva in prisexempel i text på vilken sida som helst. Vill du ta betalt direkt – till exempel för serviceavtal eller fasta installationspaket – integrerar du Stripe. Då kan kunder betala med kort utan att du behöver fakturera manuellt."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter som byggs i Sajtmaskin är responsiva och anpassar sig automatiskt till mobil, surfplatta och dator. Majoriteten av dina besökare kommer troligen från mobilen, så layouten är optimerad för små skärmar från start."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform senare?",
+      "a": "Ja, du kan exportera hela koden när som helst utan extra kostnad. Det finns ingen bindningstid och du äger allt innehåll. Vill du flytta till en annan hosting eller vidareutveckla sajten med en egen utvecklare är det fritt fram."
+    }
+  ],
+  "localOrIndustryContext": "VVS-branschen i Sverige är konkurrensutsatt, och många kunder söker lokalt på Google efter installatörer i närheten. En egen hemsida med tydlig kontaktinfo, tjänstebeskrivning och bokningsfunktion gör det enklare att synas i sökresultat och bygga förtroende innan kunden ringer.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en vvs-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

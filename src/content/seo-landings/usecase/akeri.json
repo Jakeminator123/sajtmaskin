@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "akeri",
+  "title": "Hemsida åkeri – bygg en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida för ditt åkeri direkt i chatten. Presentera tjänster, visa flottan och ta emot förfrågningar – klart på minuter.",
+  "h1": "Hemsida för åkeri",
+  "heroSub": "Bygg en professionell sajt för ditt transportföretag på minuter – med AI, utan kod.",
+  "introParagraphs": [
+    "En hemsida för åkeri behöver visa vad ni kör, vilka fordon ni har och hur kunder enkelt kan begära offert eller boka transport. Oftast vill du presentera tjänster som partilast, styckegods, expressleverans eller specialtransporter, visa bilder på lastbilar och förare, samt ha tydliga kontaktvägar så speditörer och företag snabbt når er.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n. Du beskriver ditt åkeri, vilka tjänster ni erbjuder och vad som ska synas – så genererar verktyget en färdig hemsida direkt. Ingen kod, inga mallar att kämpa med. Publicera på egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Allt är på svenska, från gränssnitt till support. Du kan när som helst justera text och bilder, lägga till bokningsfunktion via Cal.com eller koppla Google Analytics. Ingen bindningstid, och du äger koden om du vill exportera den senare."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänstepresentation och specialkompetens",
+      "body": "Beskriv tydligt vilka transporter ni utför – inrikes eller utrikes, partivaror, tempererat gods, farligt gods eller tunga lyft. Många åkerier har nischer som ADR-transporter, djurtransporter eller maskinflytt, och det ska synas direkt på startsidan. AI:n hjälper dig formulera tjänstebeskrivningar som är konkreta och lätta att scanna, så potentiella kunder direkt förstår om ni passar deras behov."
+    },
+    {
+      "heading": "Fordonsflotta och kapacitet",
+      "body": "Visa vilka lastbilar ni har – antal fordon, typ av släp, maxlast och specialutrustning som kran, skåp med bakgavellyft eller kylsläp. Bilder på era bilar bygger förtroende och ger kunden en känsla för er kapacitet. Sajtmaskin låter dig enkelt lägga in bildgallerier och korta fakta om varje fordon, så besökaren ser att ni har rätt utrustning för jobbet."
+    },
+    {
+      "heading": "Offerförfrågan och kontakt",
+      "body": "Gör det enkelt att begära offert. Ett formulär där kunden fyller i vikt, volym, hämtadress och leveransadress sänker tröskeln att höra av sig. Du kan integrera Cal.com om ni vill låta kunder boka tid för besiktning eller lastning direkt i kalendern. Alla formulär skickar mail till er, så ni kan svara snabbt och vinna affären innan konkurrenten hinner."
+    },
+    {
+      "heading": "Certifikat, försäkringar och referenser",
+      "body": "Transportköpare vill veta att godset är i trygga händer. Visa era certifikat som ISO, godkänt yrkestrafiktillstånd eller medlemskap i branschorganisationer. Lägg gärna upp logotyper från större kunder ni kört för eller korta citat från nöjda speditörer. Det bygger trovärdighet och skiljer er från oseriösa aktörer."
+    },
+    {
+      "heading": "Lokalt fotfäste och täckningsområde",
+      "body": "Berätta var ni är baserade och vilka regioner ni täcker. Många söker efter lokala åkerier för snabba leveranser eller returtransporter. Om ni kör fasta linjer eller har terminal på flera orter, visa det på en karta eller lista. Sajtmaskin gör det lätt att lägga till geografisk information som stärker er synlighet i lokala sökningar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för mitt åkeri?",
+      "a": "De flesta har en färdig sajt på 10–15 minuter. Du chattar med AI:n, beskriver dina tjänster och vilka fordon ni har, så genereras sidan direkt. Sedan justerar du texter och bilder tills allt känns rätt. Ingen väntan på webbyrå eller teknisk support."
+    },
+    {
+      "q": "Kan jag visa bilder på mina lastbilar och förare?",
+      "a": "Ja, du laddar upp bilder direkt i editorn. Skapa ett bildgalleri för fordonsflottan eller lägg in porträtt på förarna med korta presentationer. Det gör sajten personlig och visar att ni är ett riktigt företag med erfaren personal."
+    },
+    {
+      "q": "Går det att ta emot offerförfrågningar via sajten?",
+      "a": "Absolut. Du lägger till ett formulär där kunden fyller i lastdetaljer, hämtadress och önskat leveransdatum. Alla inskick mailas till er, så ni kan ge prisförslag snabbt. Du kan också integrera Cal.com om ni vill att kunden bokar tid för besiktning direkt."
+    },
+    {
+      "q": "Måste jag betala månadskostnad för hosting?",
+      "a": "Nej, om du publicerar på en Sajtmaskin-subdomän är hostingen gratis utan tidsbegränsning. Vill du använda egen domän, typ akerietsvensson.se, kopplar du den kostnadsfritt. Inga dolda avgifter eller bindningstid."
+    },
+    {
+      "q": "Kan jag lägga till fler tjänster senare, som magasinering?",
+      "a": "Ja, du chattar bara med AI:n igen och ber den lägga till en sektion om magasinering eller annan tjänst. Sidan uppdateras på några sekunder. Du kan när som helst ändra innehåll, lägga till nya bilder eller ta bort sidor du inte längre behöver."
+    },
+    {
+      "q": "Syns sajten i Google när jag söker på åkeri i min stad?",
+      "a": "Ja, alla sidor Sajtmaskin genererar är SEO-optimerade med rätt rubriker och metadata. För bästa lokala synlighet, se till att nämna din stad och region i texterna. Koppla gärna Google Analytics så du ser vilka sökord som driver trafik, och justera innehållet efter det."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Då får du alla filer och kan flytta sajten till vilken host som helst eller låta en utvecklare bygga vidare. Ingen inlåsning – du äger alltid ditt innehåll och din kod."
+    }
+  ],
+  "localOrIndustryContext": "Åkeribranschen i Sverige präglas av hård konkurrens och krav på snabb offerthantering. Många transportköpare jämför flera åkerier innan de väljer, så en tydlig hemsida som visar fordonsflotta, certifikat och referenskunder kan avgöra om ni får uppdraget. Lokala åkerier har ofta fördel i returtransporter och expressleveranser, vilket gör det viktigt att synas i geografiska sökningar.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en åkeri-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

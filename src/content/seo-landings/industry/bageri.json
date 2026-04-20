@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "bageri",
+  "title": "Hemsida för bageri – bygg din bagerisajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt bageri med AI. Visa sortiment, ta emot tårtbeställningar och nå fler kunder. Ingen kod krävs.",
+  "h1": "Hemsida för bageri",
+  "heroSub": "Bygg en professionell bagerisajt som visar ditt sortiment, tar emot beställningar och lockar fler kunder till din butik.",
+  "introParagraphs": [
+    "En hemsida för bageri gör det enkelt för kunder att se vad du bakar, beställa tårtor och hitta dina öppettider – innan de ens sätter foten i butiken. Många bagare tappar kunder för att folk inte hittar information om sortiment eller specialbeställningar online, särskilt när Google blivit första anlöpsstationen.",
+    "Med Sajtmaskin bygger du en komplett bagerisajt på minuter genom att chatta med AI. Du beskriver ditt bageri, ditt sortiment och vilka funktioner du behöver – sedan genererar plattformen hela sajten åt dig. Publicera på din egen domän utan månadskostnad för hosting, och uppdatera innehållet när säsongen eller utbudet ändras.",
+    "Allt är på svenska, från gränssnittet till supporten. Du behöver ingen teknisk kunskap och ingen bindningstid – sajten är din att äga och exportera när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bra bagerisajt behöver innehålla",
+      "body": "En hemsida för bageri ska visa ditt sortiment tydligt – bröd, bullar, kakor, tårtor – gärna med bilder och priser. En sida för tårtbeställningar är central, där kunder kan se modeller, smaker och lämna förfrågningar. Kontaktuppgifter, öppettider och adress ska synas direkt, helst med en karta. Många bagare lägger också till en Om oss-sida som berättar om hantverket, råvarorna och historien bakom bageriet. Om du kör leverans eller cateringtjänster behöver du en sida som förklarar hur det fungerar och vilka områden du täcker."
+    },
+    {
+      "heading": "Funktioner som gör livet enklare för bagare",
+      "body": "Bokningsfunktion via Cal.com låter kunder boka tid för avhämtning av tårtor eller större beställningar, så du slipper telefonkö på fredagseftermiddagen. Stripe-integration gör det möjligt att ta förskottsbetalning för specialbeställningar eller sälja presentkort direkt på sajten. Google Analytics visar vilka sidor som besöks mest – kanske är det dina kanelbullar eller prinsesstårtor folk söker efter. Om du vill sälja hembakat online kan du koppla en Shopify-webshop för torrvaror, müsli eller surdegsstartare."
+    },
+    {
+      "heading": "Så bygger du din bagerisajt med Sajtmaskin",
+      "body": "Du startar en chatt och berättar vad ditt bageri heter, var det ligger och vad du bakar. Beskriv vilka sidor du vill ha – kanske startsida, sortiment, tårtbeställning, om oss och kontakt. AI:n skapar strukturen, skriver texter och lägger in dina bilder. Du kan justera färger, typsnitt och layout direkt i chatten, lägga till bokningsformulär eller betalningslänkar. När allt ser bra ut publicerar du på din egen domän. Vill du ändra något senare – säsongens nyheter, nya öppettider, julgodis – gör du det själv utan att vänta på en webbbyrå."
+    },
+    {
+      "heading": "Varför svenska bagerier behöver en egen sajt",
+      "body": "Konkurrensen från stormarknader och kedjor är hård, men lokala bagare vinner på personlig service och kvalitet. En hemsida visar upp skillnaden: ekologiska råvaror, surdeg på riktigt, tårtor som faktiskt bakas på plats. Folk söker efter bageri nära mig, beställa tårta eller surdegsbröd plus ortnamn – då behöver du synas online. En sajt bygger förtroende och gör det lätt för nya kunder att upptäcka dig, medan stammisar kan beställa utan att ringa. Du äger kanalen helt, till skillnad från sociala medier där algoritmer styr vem som ser dina inlägg."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen teknisk huvudvärk",
+      "body": "Sajtmaskin har ingen bindningstid. Du betalar för det du använder och kan exportera koden när som helst. Hosting på subdomän kostar inget extra per månad, och vill du ha egen domän kopplar du den direkt. Allt är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och support som förstår hur svenska småföretag fungerar. Du behöver ingen webbdesigner, ingen utvecklare och ingen IT-avdelning – bara en idé om hur din bagerisajt ska se ut."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa bilder på bröd och bakverk på hemsidan?",
+      "a": "Ja, du laddar upp bilder direkt när du bygger sajten eller lägger till dem senare. Bilderna kan visas i gallerier, på sortimentssidor eller i tårtbeställningsformuläret. AI:n hjälper dig att placera dem snyggt utan att du behöver kunna bildhantering."
+    },
+    {
+      "q": "Hur tar jag emot tårtbeställningar via sajten?",
+      "a": "Du kan lägga till ett kontaktformulär där kunder fyller i datum, smak, storlek och budskap. Formuläret skickar beställningen till din mejl. Vill du ta förskottsbetalning kopplar du Stripe, så kunden betalar direkt när hen beställer."
+    },
+    {
+      "q": "Kan kunder boka avhämtningstid för beställningar?",
+      "a": "Ja, genom Cal.com-integration kan du lägga till en bokningskalender där kunder väljer tid för avhämtning. Du styr själv vilka tider som är lediga och får bekräftelse automatiskt. Perfekt för att undvika kö och dubbelbokning."
+    },
+    {
+      "q": "Måste jag kunna koda för att uppdatera sortiment eller priser?",
+      "a": "Nej, du uppdaterar allt genom att chatta med AI:n. Skriv till exempel ändra pris på surdegsbröd till 65 kronor eller lägg till säsongens semla, så fixar plattformen det direkt. Ingen kod, inga krångliga adminpaneler."
+    },
+    {
+      "q": "Kan jag sälja bakverk online via hemsidan?",
+      "a": "Ja, om du vill driva e-handel kopplar du en Shopify-webshop. Då kan kunder köpa och betala för torrvaror, müsli, presentkort eller förbeställningar direkt på sajten. Stripe-integration fungerar också för enklare betalningar utan fullständig webshop."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att jag byggt den?",
+      "a": "Hosting på subdomän hos Sajtmaskin kostar inget extra per månad. Vill du ha egen domän betalar du registrering hos din domänleverantör, oftast 100–150 kronor per år. Integrationer som Cal.com och Stripe har egna prisplaner, men grundfunktionerna är gratis eller billiga för små volymer."
+    },
+    {
+      "q": "Kan jag visa öppettider och adress tydligt på startsidan?",
+      "a": "Ja, du bestämmer var öppettider, adress och karta ska synas. Många väljer att ha dem i sidfoten på alla sidor, plus en tydlig kontaktsektion på startsidan. AI:n kan även bädda in en Google Maps-karta så kunder hittar till bageriet enkelt."
+    }
+  ],
+  "localOrIndustryContext": "Svenska bagare sitter ofta i liten lokal med begränsad tid för marknadsföring. En hemsida som jobbar dygnet runt – visar sortiment, tar emot beställningar och svarar på vanliga frågor – frigör tid till det du gör bäst: baka. Från Skånes sockerkakskultur till norrländska tunnbröd finns stolthet i lokalt hantverk, och en sajt är ditt skyltfönster mot alla som söker kvalitet istället för fabriksbröd.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en bageri-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

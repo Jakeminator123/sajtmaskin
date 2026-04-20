@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "gavle/bilverkstad",
+  "title": "Hemsida bilverkstad Gävle – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Gävle med AI. Bokning, prislista och kontaktformulär – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för bilverkstad i Gävle",
+  "heroSub": "Bygg en komplett hemsida för din bilverkstad i Gävle via chat – med bokning, tjänster och kontaktinfo på plats.",
+  "introParagraphs": [
+    "Om du driver bilverkstad i Gävle behöver du en sajt som visar vad du kan fixa, vad det kostar och hur kunderna bokar tid. Sajtmastin låter dig bygga allt det via en konversation med AI – utan att du behöver kunna kod eller design.",
+    "Du chattar om din verkstad, vilka tjänster du erbjuder och hur du vill att sajten ska se ut. AI:n bygger sedan sidor för besiktning, däckskifte, service, reparationer och annat du jobbar med. Publicera på egen domän eller kör gratis på en subdomän – ingen månadskostnad för hosting.",
+    "Sajten blir helt på svenska, med Gävle-anpassad info om du vill nämna var verkstaden ligger eller vilka områden du servar. Integrera Cal.com för bokning eller Stripe om du vill ta förskottsbetalning för vissa tjänster."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänstesidor som visar vad du fixar",
+      "body": "En bilverkstad behöver tydliga sidor för varje tjänst: däckhotell, kamremsbyte, bromsservice, AC-kontroll, rostskydd och så vidare. Sajtmaskin genererar strukturerade sidor där varje tjänst får en beskrivning, ungefärligt pris eller prisintervall och en knapp för bokning. Du kan lägga till bilder på verkstaden, utrustning eller tidigare jobb. Allt redigeras direkt i chatten om du vill ändra formulering eller lägga till säsongsinfo, till exempel vinterdäck-kampanjer inför snösäsongen i Gävle."
+    },
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "Många bilverkstäder i Gävle tar emot bokningar via telefon eller Facebook, vilket blir rörigt. Med Cal.com-integrationen får du ett kalendersystem där kunder själva väljer tid för service, besiktning eller reparation. Du styr vilka tider som är lediga och hur lång varje typ av jobb tar. Bokningsbekräftelse skickas automatiskt via mejl, och kunden får en påminnelse dagen innan. Det minskar no-shows och frigör tid från telefonväxeln."
+    },
+    {
+      "heading": "Lokalt förtroende och Google-synlighet",
+      "body": "Gävlebor söker ofta 'bilverkstad Gävle', 'däckskifte Gävle' eller 'besiktning Strömsbro'. En sajt med rätt nyckelord, lokal adress och Google Analytics-koppling hjälper dig synas i sökresultaten. Sajtmaskin bygger in kontaktinfo, karta och öppettider på ett sätt som Google förstår. Du kan också lägga till kundrecensioner eller en sektion med vanliga frågor om till exempel besiktningskrav eller vad som ingår i en storservice. Allt för att besökaren snabbt ska känna att din verkstad är pålitlig och nära."
+    },
+    {
+      "heading": "Ingen bindningstid – du äger koden",
+      "body": "Till skillnad från många webbverktyg binder Sajtmaskin dig inte. Vill du flytta sajten till en annan host eller låta en utvecklare ta över? Exportera koden när du vill. Hosting på subdomän är gratis utan tidsgräns, och egen domän kopplar du på direkt. Det finns inga dolda avgifter eller krav på årslånga avtal. Perfekt om du vill testa plattformen utan risk innan du satsar på marknadsföring."
+    },
+    {
+      "heading": "Uppdatera priser och kampanjer själv",
+      "body": "Priser på däck, oljor och reservdelar ändras. Med Sajtmaskin redigerar du text och priser genom att chatta – ingen inloggning i krångliga CMS-paneler. Vill du lägga till en sommarkampanj på AC-fyllning eller höja priset på rostskyddsbehandling? Skriv bara 'ändra priset på rostskydd till 3 500 kr' så uppdateras sidan. Det gör att sajten alltid är aktuell, vilket bygger förtroende hos kunder som jämför verkstäder online."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig sajt för min bilverkstad?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar om vilka tjänster du erbjuder, var i Gävle verkstaden ligger och om du vill ha bokning eller betalning. AI:n bygger sidorna, du kollar igenom och justerar om något behöver ändras. Sedan publicerar du direkt."
+    },
+    {
+      "q": "Kan jag ta betalt online för till exempel däckhotell?",
+      "a": "Ja, via Stripe-integrationen. Du kan sätta upp förskottsbetalning för tjänster som däckhotell, rostskydd eller förbokad service. Kunden betalar med kort, och du får pengarna direkt på ditt Stripe-konto. Bra för att säkra bokningar och minska administrationen."
+    },
+    {
+      "q": "Fungerar bokningssystemet med min befintliga kalender?",
+      "a": "Cal.com synkar med Google Calendar, Outlook och Apple Calendar. När en kund bokar tid syns det i din vanliga kalender, så du slipper dubbelbokning. Du kan också blockera tider när verkstaden är stängd eller när du har större jobb inbokade."
+    },
+    {
+      "q": "Syns min verkstad i Google om jag använder en subdomän?",
+      "a": "Ja, Google indexerar subdomäner precis som vanliga domäner. Men om du vill maximera lokal SEO rekommenderar vi en egen domän, typ bilverkstadgavle.se. Det ser mer professionellt ut och gör det lättare att ranka för 'bilverkstad Gävle'. Egen domän kopplar du på med ett par klick."
+    },
+    {
+      "q": "Kan jag visa bilder från verkstaden och tidigare jobb?",
+      "a": "Absolut. Ladda upp bilder i chatten – till exempel från lyftarna, väntrummet eller ett rostskyddsjobb du är stolt över. Bilderna läggs automatiskt in på rätt sidor. Visuellt innehåll bygger förtroende, särskilt för nya kunder som inte besökt verkstaden tidigare."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad. Ta den till vilken host som helst eller ge den till en webbutvecklare. Ingen bindningstid, inga utträdesavgifter. Sajtmaskin är byggt för att du ska äga ditt innehåll, inte vara låst."
+    },
+    {
+      "q": "Kostar det extra att uppdatera priser eller lägga till nya tjänster?",
+      "a": "Nej. Du chattar helt enkelt 'lägg till sida för motordiagnostik' eller 'ändra pris på däckskifte till 800 kr', så uppdateras sajten. Inga timarvoden, inga tillägg. Allt ingår i grundpriset, och hosting på subdomän är gratis så länge du vill."
+    }
+  ],
+  "localOrIndustryContext": "Gävle har allt från Brynäs och Sätra till Hemlingby och Valbo, och många bilägare letar efter en närbelägen verkstad de kan lita på. En tydlig hemsida med adress, tjänster och enkel bokning gör att du sticker ut mot verkstäder som bara syns på Facebook eller i telefonkatalogen.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/gavle",
+      "label": "Skapa hemsida i Gävle"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Gävle. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

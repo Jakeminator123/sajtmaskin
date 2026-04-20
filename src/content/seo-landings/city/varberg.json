@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "varberg",
+  "title": "Hemsida Varberg – Bygg din sajt med AI på minuter | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Varberg snabbt och enkelt med Sajtmaskin. AI bygger hela sajten från en prompt – publicera direkt, ingen bindningstid.",
+  "h1": "Hemsida Varberg – AI bygger din sajt på minuter",
+  "heroSub": "Sajtmaskin låter företag i Varberg skapa professionella hemsidor genom att chatta med AI – ingen kod, ingen byrå, redo på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som bygger kompletta hemsidor åt företag i Varberg. Du beskriver vad du vill ha i en chattkonversation, så genererar AI design, texter och struktur. Publicera direkt på din egen domän eller testa kostnadsfritt på en subdomän – ingen månadsavgift, ingen bindningstid.",
+    "Plattformen passar allt från frisörer och restauranger vid Societetsparken till konsulter i Getakärr, byggföretag i Träslövsläge och butiker längs Kungsgatan. Eftersom gränssnittet och supporten är helt på svenska slipper du översätta begrepp eller anpassa utländska mallar till svensk standard.",
+    "Vill du integrera bokningar via Cal.com, betalningar med Stripe eller koppla på Google Analytics går det på några klick. Behöver du en webshop fungerar Shopify-integrationen smidigt. All kod kan exporteras när du vill, så du äger alltid resultatet."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så skapar du en hemsida i Varberg med Sajtmaskin",
+      "body": "Logga in och beskriv din verksamhet i chatten – vad du gör, vem du riktar dig till och vilken känsla sajten ska ha. AI:n föreslår layout, färgschema och textavsnitt utifrån din bransch. Du kan be om ändringar direkt i chatten: byt rubrik, lägg till en tjänstesida, justera kontaktformuläret. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän för att testa. Hela processen tar minuter, inte veckor."
+    },
+    {
+      "heading": "Lokal SEO och synlighet i Varberg",
+      "body": "Sajtmaskin genererar automatiskt teknisk grund för sökmotoroptimering: snabba laddningstider, mobilanpassning och ren kodstruktur. Du lägger enkelt till lokala nyckelord som stadsdelar – Brunnsparken, Västerport, Östra Lugnet – och branschtermer i dina texter. Koppla Google Analytics för att följa besökare och se vilka sökord som driver trafik. Eftersom sajten byggs på moderna webbstandarder rankar den bra från start, vilket är avgörande när konkurrensen om lokala sökningar ökar."
+    },
+    {
+      "heading": "Jämfört med webbyrå eller gör-det-själv-verktyg",
+      "body": "En traditionell byrå i Varberg tar ofta flera veckor och kostar tiotusentals kronor. Gör-det-själv-plattformar som Wix eller Squarespace kräver att du själv drar och släpper, skriver all text och förstår designprinciper. Sajtmaskin kombinerar det bästa: AI levererar ett färdigt förslag på sekunder, du styr ändringar genom naturligt språk och betalar ingen löpande hostingavgift om du nöjer dig med subdomänen. Vill du ha mer kontroll exporterar du koden och flyttar till valfri leverantör."
+    },
+    {
+      "heading": "Integrationer för bokning, betalning och analys",
+      "body": "Driver du en salong, PT-verksamhet eller konsultbyrå kan du bädda in Cal.com för direktbokning. Säljer du produkter eller kurser kopplar du Stripe för kortbetalningar eller integrerar en Shopify-webshop. Google Analytics ger dig insikt i varifrån besökarna kommer och vilka sidor de läser. Alla integrationer sköts via enkla inställningar – ingen utvecklare behövs. Du fokuserar på din affär medan Sajtmaskin hanterar tekniken."
+    },
+    {
+      "heading": "Ingen bindningstid – äg din kod",
+      "body": "Många plattformar låser in dig med månadsprenumerationer och stängda system. Sajtmaskin låter dig exportera hela kodboken när du vill, utan extra kostnad. Det innebär att du kan flytta sajten till egen server, anlita en utvecklare för anpassningar eller byta leverantör helt. Hostingen på subdomän är gratis, så du testar risk fritt. Vill du använda egen domän betalar du endast för domännamnet hos din registrar – ingen mellanavgift till oss."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en hemsida igång i Varberg?",
+      "a": "De flesta användare har en publicerad sajt inom 10–20 minuter. Du chattar med AI:n om din verksamhet, granskar förslaget, justerar det du vill ändra och trycker publicera. Vill du finjustera texter eller lägga till fler sidor tar det förstås längre tid, men grundstrukturen står klar direkt."
+    },
+    {
+      "q": "Kan jag använda min egen domän, till exempel varbergfrisör.se?",
+      "a": "Ja, du pekar din domän mot Sajtmaskins servrar via DNS-inställningar hos din registrar. Instruktioner finns i plattformen. Vill du testa först kan du publicera på en kostnadsfri subdomän, typ dinfirma.sajtmaskin.se, utan tidsbegränsning."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för e-handel och webshoppar?",
+      "a": "Ja, via Shopify-integrationen kan du bädda in en komplett webshop. Vill du ha enklare produktvisning och betalning räcker Stripe-kopplingen. AI:n hjälper dig strukturera produktsidor och kassan så att flödet blir tydligt för besökare."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan leverantör senare?",
+      "a": "Du exporterar hela kodboken – HTML, CSS, JavaScript – och laddar upp den var du vill. Ingen bindningstid, inga utträdesavgifter. Koden är din från dag ett, så du är aldrig låst till Sajtmaskin."
+    },
+    {
+      "q": "Hur hanteras support och uppdateringar?",
+      "a": "Support sker på svenska via chatt och e-post. Plattformen uppdateras automatiskt, så säkerhetspatchar och nya funktioner rullas ut utan att du behöver göra något. Vill du ha hjälp med innehåll eller strategi kan du alltid ställa frågor i chatten."
+    },
+    {
+      "q": "Passar Sajtmaskin för alla branscher i Varberg?",
+      "a": "Ja, plattformen fungerar lika bra för tjänsteföretag, butiker, restauranger, konsulter och föreningar. AI:n anpassar design och texter efter din bransch. Berättar du att du driver en surfskola i Apelviken får du ett förslag som matchar den känslan, medan en revisionsbyrå i centrum får en mer formell layout."
+    },
+    {
+      "q": "Kostar det något att testa Sajtmaskin?",
+      "a": "Nej, du kan skapa och publicera på en subdomän utan betalning. Vill du använda egen domän eller exportera koden finns olika prisplaner, men grundfunktionen är kostnadsfri att prova. Inga kortnummer, ingen automatisk fakturering."
+    }
+  ],
+  "localOrIndustryContext": "Varberg är känt för Kallbadhuset, surfstranden i Apelviken och en växande besöksnäring. Lokala företag – från caféer vid Societetsparken till hantverkare i Träslövsläge – behöver synlighet online för att nå både turister och bofasta. Sajtmaskin gör det enkelt att snabbt lansera en professionell hemsida som rankar på lokala sökningar, utan att anlita dyr byrå eller lägga veckor på mallverktyg.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Varberg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,101 @@
+{
+  "family": "ai",
+  "slug": "ai-logotyp-hemsida",
+  "title": "AI-genererad logotyp och hemsida på en gång | Sajtmaskin",
+  "metaDescription": "Få både logotyp och hemsida skapad av AI – på minuter. Svensk plattform som bygger hela sajten via chat, inklusive grafik och innehåll.",
+  "h1": "AI-genererad logotyp och hemsida",
+  "heroSub": "Låt AI skapa både din visuella identitet och hela webbplatsen i ett svep – utan designer eller utvecklare.",
+  "introParagraphs": [
+    "När du bygger en hemsida med AI idag får du inte bara text och layout – moderna verktyg kan också generera logotyper, färgscheman och grafiska element som matchar din verksamhet. Istället för att först anlita en designer för logotypen och sedan en webbutvecklare för sajten, kan AI-plattformar skapa en sammanhängande helhet direkt från dina önskemål.",
+    "Sajtmaskin är en svensk tjänst som bygger hela din hemsida via chat. Du beskriver vad du behöver – kanske en sajt för din frisörsalong eller konsultverksamhet – så genererar AI:n struktur, texter, bilder och grafik. Resultatet publiceras på din egen domän, och du betalar ingen löpande hostingavgift om du använder en subdomän.",
+    "Tekniken fungerar genom att du chattar med AI:n om ditt företag, din stil och dina behov. Systemet skapar sedan en komplett webbplats med sammanhängande design, inklusive grafiska element som passar din profil. Allt på svenska, och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI skapar logotyp och design tillsammans",
+      "body": "Traditionellt har du behövt en grafisk profil färdig innan hemsidan byggs. Med AI-verktyg integreras processen: när plattformen förstår din verksamhet och stil kan den generera visuella element – från färgpalett till grafiska former – som sedan används konsekvent genom hela sajten. Sajtmaskin bygger designen utifrån vad du beskriver i chatten, så logotyp och webbplats får samma känsla från start. Du slipper koordinera mellan olika leverantörer eller se till att filer skickas fram och tillbaka."
+    },
+    {
+      "heading": "Skillnaden mot mallbyggare och byråer",
+      "body": "Mallbyggare som Wix eller Squarespace kräver att du själv laddar upp en logotyp och väljer färger manuellt. Designbyråer skapar unika grafiska profiler men tar ofta veckor och kostar tiotusentals kronor. AI-plattformar landar mittemellan: du får skräddarsytt innehåll och design på minuter, utan att behöva fatta hundratals designbeslut själv. Sajtmaskin genererar hela paketet direkt, och du justerar efteråt om något ska ändras. Ingen bindningstid och inget krav på månadsprenumeration för hosting."
+    },
+    {
+      "heading": "Integrationer som gör sajten funktionell direkt",
+      "body": "En logotyp och snygg design räcker sällan – du behöver bokning, betalning eller analysverktyg. Sajtmaskin kopplar direkt till Cal.com för tidsbokning, Stripe för kortbetalningar, Google Analytics för besöksstatistik och Shopify om du vill sälja produkter. Allt konfigureras i samma gränssnitt där sajten byggs, så du slipper krångla med plugins eller tekniska installationer. Resultatet blir en färdig webbplats som faktiskt fungerar för ditt företag från dag ett."
+    },
+    {
+      "heading": "Svensk plattform utan dolda avgifter",
+      "body": "Sajtmaskin drivs av Pretty Good AB i Sverige, med svenskt gränssnitt och support. Du betalar ingen månadshyra för hosting om du använder en subdomän, och vill du ha egen domän kopplar du den utan extra mellanhand. Ingen bindningstid betyder att du kan exportera hela webbplatsens kod när som helst – du äger alltid ditt material. Det gör tjänsten särskilt lämplig för småföretagare och organisationer som vill testa AI-byggd webb utan långsiktiga åtaganden."
+    },
+    {
+      "heading": "Så kommer du igång",
+      "body": "Börja med att beskriva din verksamhet i chatten: vad du gör, vem du vänder dig till och vilken känsla du vill ha. AI:n föreslår struktur, texter och design – inklusive grafiska element som fungerar som logotyp eller visuell profil. Granska resultatet, be om justeringar direkt i chatten, och publicera när du är nöjd. Hela processen tar vanligtvis några minuter till en halvtimme, beroende på hur mycket du vill finjustera. Därefter kan du när som helst logga in och uppdatera innehåll eller lägga till nya sidor."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan AI verkligen skapa en unik logotyp åt mig?",
+      "a": "AI genererar grafiska element och designförslag baserat på din beskrivning, men resultatet är inte en registrerad varumärkeslogotyp. Du får visuella komponenter som fungerar på webben och kan användas i din profil. Vill du ha en juridiskt skyddad logotyp behöver du komplettera med en varumärkesregistrering separat."
+    },
+    {
+      "q": "Måste jag ha en logotyp färdig innan jag börjar?",
+      "a": "Nej. Sajtmaskin bygger design och grafik som en del av processen när du chattar om ditt företag. Du kan också ladda upp en befintlig logotyp om du redan har en, men det är inget krav för att komma igång."
+    },
+    {
+      "q": "Vad kostar det att publicera sajten med AI-genererad design?",
+      "a": "Hosting på subdomän är gratis utan månadskostnad. Vill du använda din egen domän betalar du bara domänregistrering hos din registrar. Sajtmaskin tar ingen löpande avgift för att hålla sajten live, och du kan exportera koden kostnadsfritt när du vill."
+    },
+    {
+      "q": "Kan jag ändra färger och grafik efter att sajten är publicerad?",
+      "a": "Ja. Du chattar med AI:n för att justera färgschema, typsnitt eller grafiska detaljer när som helst. Ändringar publiceras direkt, och du behöver ingen teknisk kunskap för att uppdatera designen."
+    },
+    {
+      "q": "Fungerar den AI-genererade designen på mobil?",
+      "a": "Ja. Sajtmaskin bygger responsiva webbplatser som anpassar layout och grafik automatiskt till mobiler, surfplattor och datorer. Du behöver inte skapa separata versioner."
+    },
+    {
+      "q": "Kan jag använda den AI-skapade logotypen utanför hemsidan?",
+      "a": "Du äger allt material som genereras och kan exportera grafiken för att använda i visitkort, sociala medier eller trycksaker. Tänk på att AI-genererade bilder kan ha vissa licensvillkor beroende på vilken bildtjänst som används, men Sajtmaskins egna designelement äger du fritt."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en professionell designer senare?",
+      "a": "Du kan exportera hela webbplatsens kod och material när som helst. En designer kan då arbeta vidare med filerna eller skapa en ny grafisk profil som du implementerar på sajten. Ingen bindningstid innebär att du alltid kan välja nästa steg själv."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

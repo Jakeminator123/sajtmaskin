@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "stockholm/restaurang",
+  "title": "Hemsida restaurang Stockholm – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell restaurangsajt i Stockholm med AI. Meny, bordsbokningar och betalning – klart på minuter. Ingen kod, ingen bindning.",
+  "h1": "Hemsida för restauranger i Stockholm",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokningar och betalning – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En restaurang i Stockholm behöver en sajt som visar menyn, tar emot bordsbokningar och ger gäster all info de behöver innan de bestämmer sig. Med Sajtmaskin bygger du allt det på minuter genom att chatta med AI:n på svenska.",
+    "Du beskriver din restaurang, vilka rätter du serverar och vad som är viktigt för dina gäster. AI:n skapar sedan en färdig sajt med meny, kontaktuppgifter, öppettider och integrerad bokning via Cal.com. Publicera på egen domän eller kör kostnadsfritt på en subdomän – ingen månadsavgift för hosting.",
+    "Allt innehåll genereras på svenska och är anpassat för Stockholms matscen. Du kan när som helst ändra menyn, lägga till event eller justera bokningsinställningar – utan att röra kod."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny och bordsbokningar på plats direkt",
+      "body": "Stockholms restauranger lever på att gäster snabbt hittar menyn och kan boka bord utan krångel. Sajtmaskin genererar en menysektion där du listar rätter, priser och allergener. Integrationen med Cal.com gör att gäster bokar direkt på sajten, och du får bokningarna i din kalender. Vill du ta förskottsbetalning för större sällskap kopplar du in Stripe på minuten."
+    },
+    {
+      "heading": "Visa upp din restaurang för Stockholms matälskare",
+      "body": "Folk i Stockholm söker restauranger online innan de väljer var de ska äta. En tydlig sajt med bilder på rätter, information om koncept och plats gör skillnad. AI:n hjälper dig skriva texter som förklarar vad som gör din restaurang unik – om det är husmanskost på Söder, finare middag på Östermalm eller kvarterskrog i Vasastan. Du laddar upp bilder och justerar texten tills det känns rätt."
+    },
+    {
+      "heading": "Integrationer som fungerar för restaurangbranschen",
+      "body": "Utöver bokningar kan du lägga till Google Analytics för att se hur gäster hittar din sajt, koppla Stripe om du säljer presentkort eller vouchers, och länka till sociala medier. Behöver du en webshop för hämtmat eller catering finns Shopify-integration. Allt sköts från samma gränssnitt på svenska, och du betalar bara för de tjänster du faktiskt använder."
+    },
+    {
+      "heading": "Ingen bindning, full kontroll över koden",
+      "body": "Många restauranger i Stockholm har bränt sig på dyra webbbyråer eller låsta plattformar. Med Sajtmaskin äger du koden och kan exportera den när du vill. Ingen bindningstid, inga dolda avgifter. Vill du senare flytta sajten eller låta en utvecklare ta över är det fritt fram. Hosting på subdomän kostar inget, och egen domän kopplar du själv."
+    },
+    {
+      "heading": "Byggt i Sverige, stöd på svenska",
+      "body": "Sajtmaskin drivs av Pretty Good AB och är byggt för svenska företag. All support, all AI-generering och alla texter sker på svenska. Det betyder att din restaurangsajt inte blir en översatt mall utan content som faktiskt passar Stockholms matkultur och dina gästers förväntningar."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt med Sajtmaskin?",
+      "a": "De flesta restauranger har en färdig sajt med meny och bokning på 10–20 minuter. Du chattar med AI:n, beskriver dina rätter och vad gäster behöver veta, och får ett förslag direkt. Sedan justerar du tills allt ser rätt ut."
+    },
+    {
+      "q": "Kan gäster boka bord direkt på sajten?",
+      "a": "Ja, via Cal.com-integrationen. Du kopplar ditt Cal.com-konto så läggs en bokningsknapp in på sajten. Gäster väljer tid och antal personer, och du får bokningen i din kalender. Vill du ta förskottsbetalning för större sällskap kopplar du även Stripe."
+    },
+    {
+      "q": "Hur uppdaterar jag menyn när den ändras?",
+      "a": "Du loggar in, säger till AI:n vilka rätter som ska ändras eller läggas till, och sajten uppdateras direkt. Ingen kod, inget krångel. Perfekt när du byter säsongsmeny eller lägger till veckans lunch."
+    },
+    {
+      "q": "Fungerar sajten bra för restauranger i Stockholm specifikt?",
+      "a": "Ja, AI:n skriver texter på svenska och kan anpassa innehållet efter Stockholms matscen – oavsett om du driver finare restaurang i city, kvarterskrog i Vasastan eller casual dining på Södermalm. Du styr själv hur lokal eller bred profilen ska vara."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att den är byggd?",
+      "a": "Hosting på subdomän är gratis. Vill du ha egen domän betalar du för domänen hos din registrar och kopplar den själv. Cal.com och Stripe har sina egna priser, men Sajtmaskin lägger inte på extra avgifter. Ingen bindningstid."
+    },
+    {
+      "q": "Kan jag sälja presentkort eller hämtmat via sajten?",
+      "a": "Ja, via Stripe för enklare försäljning eller Shopify-integration om du vill ha en fullständig webshop. Många restauranger i Stockholm använder det för presentkort, catering-paket eller hämtmat."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden och flytta sajten vart du vill. Ingen bindning, ingen låsning. Du äger allt innehåll och all design som AI:n har genererat."
+    }
+  ],
+  "localOrIndustryContext": "Stockholm har hundratals restauranger som kämpar om uppmärksamhet online. En snabb, tydlig sajt med meny och bokningsfunktion är ofta avgörande för om gäster väljer just din restaurang. Sajtmaskin gör det enkelt att komma igång utan att lägga veckor eller tiotusentals kronor på en byrå.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Stockholm. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

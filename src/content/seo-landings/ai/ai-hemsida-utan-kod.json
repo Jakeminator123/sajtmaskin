@@ -1,0 +1,102 @@
+{
+  "family": "ai",
+  "slug": "ai-hemsida-utan-kod",
+  "title": "AI hemsida utan kod – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en komplett hemsida med AI utan att skriva en rad kod. Chatta med AI, få en färdig sajt och publicera direkt – allt på svenska.",
+  "h1": "AI hemsida utan kod",
+  "heroSub": "Berätta vad du vill ha för sajt, så bygger AI:n den åt dig – ingen kod, inga mallar, färdig på minuter.",
+  "introParagraphs": [
+    "En AI-hemsida utan kod betyder att du beskriver i vanlig text vad din sajt ska innehålla, och en AI genererar design, struktur och innehåll automatiskt. Du behöver inte välja mallar, dra och släppa block eller skriva HTML. Istället chattar du med systemet som om du pratade med en webbutvecklare, och får en färdig sajt som svar.",
+    "Det här skiljer sig från traditionella mallbyggare där du fortfarande måste fatta hundratals designbeslut och fylla i allt innehåll själv. AI:n skriver texter, väljer layout, skapar kontaktformulär och anpassar allt efter vad du säger att du behöver. Du kan såklart justera och ändra efteråt, men grundarbetet är redan gjort.",
+    "Sajtmaskin är ett svenskt verktyg byggt just för detta. Du chattar på svenska, AI:n bygger sajten, och du kan publicera direkt på din egen domän eller testa gratis på en subdomän. Ingen bindningstid, ingen kod – bara en färdig hemsida på den tid det tar att dricka ett kaffe."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI faktiskt bygger din hemsida",
+      "body": "När du startar en konversation med Sajtmaskin beskriver du vad ditt företag gör, vem du vänder dig till och vad besökare ska kunna göra på sajten. AI:n analyserar det och genererar en komplett struktur med startsida, undersidor, navigering och innehåll. Den skriver rubriker, brödtexter och call-to-actions baserat på din bransch. Den väljer färgschema, typografi och layout som passar ditt syfte. Allt händer i bakgrunden medan du chattar – du ser resultatet växa fram i realtid."
+    },
+    {
+      "heading": "Skillnaden mot mallbyggare och WordPress",
+      "body": "Traditionella mallbyggare som Wix eller Squarespace ger dig en tom mall som du själv måste fylla med innehåll, bilder och struktur. Du fattar varje beslut om var knapparna ska sitta och vad texterna ska säga. Med AI-generering startar du istället med en färdig sajt som redan har logisk struktur och relevant innehåll. WordPress kräver att du installerar teman, plugins och hanterar uppdateringar – eller betalar en byrå för att göra det. AI-verktyg som Sajtmaskin tar hand om tekniken helt, så du kan fokusera på att förklara vad du vill ha."
+    },
+    {
+      "heading": "Vad du kan integrera utan kod",
+      "body": "Även om sajten byggs av AI behöver den ofta kopplas till andra verktyg. Sajtmaskin låter dig integrera Cal.com för bokningar, Stripe för betalningar, Google Analytics för statistik och Shopify om du vill ha en webshop. Allt sker utan att du behöver röra kod eller API-nycklar. Du aktiverar funktionen i chatten, AI:n lägger till rätt komponenter, och du kopplar ditt konto. På så sätt får du en sajt som faktiskt fungerar för ditt företag, inte bara ser bra ut."
+    },
+    {
+      "heading": "När du vill ha kontroll över koden ändå",
+      "body": "Att bygga utan kod betyder inte att du är låst. Sajtmaskin låter dig exportera hela sajten som ren kod när du vill – HTML, CSS, JavaScript, allt. Du kan då ta den till vilken webbhotell som helst, anställa en utvecklare för att anpassa den, eller bara ha den som backup. Ingen bindningstid, ingen plattformslåsning. AI:n gör jobbet så länge det passar dig, och när du växer ur verktyget tar du med dig resultatet."
+    },
+    {
+      "heading": "Varför svenska verktyg gör skillnad",
+      "body": "Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt, svensk support och AI tränad på hur svenska företag kommunicerar. Det betyder att texter blir naturliga, inte översatta. Juridiska sidor som integritetspolicy följer svensk standard. Och när du behöver hjälp får du svar från människor i samma tidszon som förstår lokala behov. För många företag är det värt mer än den billigaste globala lösningen."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Behöver jag kunna koda för att använda AI-hemsida?",
+      "a": "Nej, det är hela poängen. Du beskriver vad du vill ha i vanlig text, och AI:n genererar sajten. Du behöver aldrig se eller skriva kod om du inte vill. Allt sker genom chat."
+    },
+    {
+      "q": "Hur lång tid tar det att få en färdig sajt?",
+      "a": "De flesta har en publicerbar sajt inom 10–20 minuter. Du chattar, AI:n bygger, du justerar eventuellt några detaljer, och sedan publicerar du. Hur snabbt det går beror mest på hur tydlig du är med vad du vill ha."
+    },
+    {
+      "q": "Kan jag ändra saker efter att AI:n byggt sajten?",
+      "a": "Ja, du kan redigera texter, byta bilder, lägga till nya sidor och justera design direkt i gränssnittet. AI:n gör grundarbetet, men du har full kontroll över slutresultatet."
+    },
+    {
+      "q": "Vad kostar det att publicera på egen domän?",
+      "a": "Du kan testa gratis på en subdomän utan tidsbegränsning. För att publicera på din egen domän behöver du en betald plan, men det finns ingen månadskostnad för själva hostingen om du nöjer dig med subdomänen."
+    },
+    {
+      "q": "Kan jag använda min befintliga domän?",
+      "a": "Ja, du kan koppla vilken domän som helst till din Sajtmaskin-sajt. Du pekar DNS-posterna till Sajtmaskins servrar, och sajten blir tillgänglig på din adress. Guider finns i gränssnittet."
+    },
+    {
+      "q": "Vad händer om jag vill sluta använda Sajtmaskin?",
+      "a": "Du kan när som helst exportera hela sajten som kod och ta den till vilken webbhotell du vill. Ingen bindningstid, ingen låsning. Du äger innehållet och kan göra vad du vill med det."
+    },
+    {
+      "q": "Fungerar AI-genererade sajter för SEO?",
+      "a": "Ja, Sajtmaskin genererar ren HTML med korrekt struktur, meta-taggar och snabb laddning – allt som sökmotorer gillar. Du kan redigera alla SEO-fält själv, och sajten är byggd för att ranka bra från start."
+    }
+  ],
+  "localOrIndustryContext": "I Sverige har no-code-rörelsen vuxit snabbt de senaste åren, men få verktyg är byggda med svenska företag i åtanke. Sajtmaskin fyller det gapet genom att kombinera AI-generering med svensk språkkänsla, lokal support och integration med verktyg som svenska företag faktiskt använder. Det gör skillnad när du slipper översätta, anpassa och gissa dig fram.",
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

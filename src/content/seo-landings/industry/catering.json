@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "catering",
+  "title": "Hemsida för catering – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din cateringverksamhet med AI. Meny, event-paket, offertförfrågan och bokning – klart på minuter.",
+  "h1": "Hemsida för catering",
+  "heroSub": "Bygg en sajt som visar din meny, tar emot bokningar och hanterar offertförfrågningar – utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En hemsida för catering behöver visa vad du lagar, vad det kostar och göra det enkelt för kunder att boka eller begära offert. Många cateringföretag fastnar i dyra webbbyråer eller klumpiga mallösningar som inte riktigt passar branschen. Med Sajtmaskin bygger du en komplett sajt på minuter genom att bara beskriva din verksamhet i chatten.",
+    "Du får en sajt med menysidor, event-paket, kontaktformulär och bokningsfunktion. Allt på svenska, anpassat efter hur svenska catering-kunder söker och bokar. Publiceringen sker direkt på din egen domän, och du kan när som helst exportera koden om du vill flytta vidare.",
+    "Ingen bindningstid, ingen dold kostnad för hosting på subdomän. Bara en färdig hemsida som börjar jobba för dig samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en cateringsajt behöver innehålla",
+      "body": "En professionell hemsida för catering ska visa dina menyer tydligt – frukost, lunch, middag, fingerfood, vegetariskt, allergianpassat. Besökare vill se priser eller prisexempel, läsa om event-paket för bröllop, företagsfester eller konferenser, och kunna begära offert utan krångel. Många vill också boka direkt online. Bilder på mat och tidigare uppdrag skapar förtroende. En Om oss-sida med din historia och kökfilosofi gör att kunder känner sig trygga. Sajtmaskin genererar alla dessa sidor utifrån din beskrivning och lägger in struktur som fungerar för catering."
+    },
+    {
+      "heading": "Bokningar och offertförfrågningar som funkar",
+      "body": "Med Cal.com-integrationen får du ett bokningssystem inbyggt i sajten. Kunder kan välja datum, antal gäster och typ av event, och du får allt samlat i din kalender. För offertförfrågningar skapar Sajtmaskin ett formulär där besökare fyller i detaljer – antal personer, allergier, budget, plats. Formuläret skickas direkt till din mail, så du slipper missa förfrågningar. Om du vill ta betalt online för färdiga paket kopplar du Stripe på några minuter. Allt detta utan att du behöver installera plugins eller koda själv."
+    },
+    {
+      "heading": "Så bygger du sajten med Sajtmaskin",
+      "body": "Du öppnar chatten och beskriver din cateringverksamhet: vilka menyer du erbjuder, vilka event du jobbar med, vad som gör dig unik. AI:n föreslår struktur, sidor och innehåll. Du kan be om ändringar direkt i chatten – lägg till en sida för bröllopscatering, byt ut bilder, justera priser. När du är nöjd publicerar du på din egen domän. Vill du testa först? Använd en gratis subdomän. Hela processen tar minuter, inte veckor. Och eftersom allt är på svenska blir texterna naturliga för svenska kunder som söker efter catering i Stockholm, Göteborg, Malmö eller var du än verkar."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Många webbplattformar låser in dig med månadskostnader och begränsningar. Sajtmaskin tar ingen löpande avgift för hosting på subdomän, och du kan när som helst exportera hela sajten som ren kod. Det betyder att du äger allt och kan flytta sajten till vilken hostingtjänst du vill. Vill du lägga till Google Analytics för att se varifrån besökarna kommer? Klart på några klick. Behöver du koppla en Shopify-butik för att sälja hembakade tårtor eller färdiga lunchlådor? Även det går smidigt. Du har full kontroll, utan teknisk huvudvärk."
+    },
+    {
+      "heading": "Varför svenska cateringföretag väljer Sajtmaskin",
+      "body": "Catering är en bransch där förtroende, smak och timing är allt. Din hemsida måste spegla det – professionell, tydlig, lätt att använda. Sajtmaskin är byggt i Sverige av Pretty Good AB, med förståelse för hur svenska kunder söker och bokar catering. Du får en sajt som talar kundernas språk, med svensk support om du kör fast. Och eftersom AI:n genererar innehållet kan du testa olika vinklingar – lyxcatering, hållbar catering, företagslunch – och se vad som fungerar bäst. Ingen byrå, ingen väntan, ingen teknisk expertis krävs. Bara en färdig sajt som hjälper dig sälja mer catering."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa olika menyer för olika typer av event?",
+      "a": "Ja, du kan skapa separata sidor för bröllopsmeny, företagslunch, mingelfingerfood eller vad som helst. Beskriv bara i chatten vilka menyer du vill ha, så strukturerar AI:n upp dem. Du kan också lägga till PDF-menyer som besökare laddar ner."
+    },
+    {
+      "q": "Hur hanterar jag offertförfrågningar på sajten?",
+      "a": "Sajtmaskin skapar ett kontaktformulär där kunder fyller i datum, antal gäster, allergier och önskemål. Formuläret skickas till din mail. Vill du ha ett mer avancerat flöde kan du integrera Cal.com så att kunder bokar ett möte direkt i din kalender för att diskutera offerten."
+    },
+    {
+      "q": "Kan jag ta betalt för färdiga cateringpaket online?",
+      "a": "Ja, med Stripe-integrationen kan du sälja paket direkt på sajten – till exempel frukostlåda för tio personer eller lunchbuffé. Kunden betalar med kort, och du får pengarna direkt på ditt konto. Perfekt för mindre standardpaket där du inte behöver skräddarsy offert."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda din egen domän behöver du köpa den och eventuellt betala för hosting, men du kan exportera koden och välja vilken hostingtjänst du vill. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag visa bilder på mat och tidigare event?",
+      "a": "Absolut. Du laddar upp bilder direkt i editorn eller beskriver vilken typ av bilder du vill ha, så lägger AI:n in dem på rätt ställen. Bildgallerier från bröllop, företagsfester och middagar skapar förtroende och visar vad du kan."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och ser bra ut på mobil, surfplatta och dator. Många som söker catering gör det på mobilen, så det är viktigt att meny, bokningsformulär och kontaktinfo funkar smidigt även på liten skärm."
+    },
+    {
+      "q": "Kan jag ändra innehållet själv efter publiceringen?",
+      "a": "Ja, du kan när som helst gå in i chatten och be om ändringar – uppdatera priser, lägga till nya rätter, byta bilder eller skriva om text. AI:n hjälper dig med ändringarna, och du publicerar den nya versionen direkt. Enkelt som att skicka ett meddelande."
+    }
+  ],
+  "localOrIndustryContext": "Cateringbranschen i Sverige växer stadigt, från bröllopscatering i skärgården till företagsluncher i Stockholms city och studentfester i Uppsala. Kunder söker allt oftare online efter lokala cateringföretag med tydliga menyer och enkel bokning. En professionell hemsida är inte längre en lyx – det är så du blir hittad och bokad.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en catering-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useRef } from "react"
-import Image from "next/image"
 import { Mic, X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
@@ -75,24 +74,30 @@ export function LandingHero({
   )
 
   return (
-    <section className="relative isolate flex min-h-[min(100dvh,880px)] flex-col items-center justify-start overflow-hidden bg-background px-4 pb-12 pt-20 md:justify-center md:px-6 md:pb-16 md:pt-24">
-      <Image
-        src="/background.jpg"
-        alt=""
+    <section
+      className="relative isolate -mt-12 flex min-h-[min(100dvh,880px)] flex-col items-center justify-start overflow-hidden px-4 pb-12 pt-20 md:-mt-14 md:justify-center md:px-6 md:pb-16 md:pt-28"
+      style={{ backgroundColor: "#f3f2ee" }}
+    >
+      <video
         aria-hidden
-        fill
-        priority
-        sizes="100vw"
-        className="pointer-events-none absolute inset-0 -z-10 select-none object-cover"
-      />
-      <div className="flex w-full max-w-5xl flex-col items-center gap-8 md:flex-row md:items-center md:justify-center md:gap-12">
-        <div className="flex w-full max-w-lg flex-col items-stretch">
-          <div className={`mb-8 max-w-md self-center text-center md:mb-10 ${motionEnter}`}>
-            <h1 className="font-(--font-heading) text-balance text-3xl font-semibold leading-[1.1] tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-4xl">
-              Bygg din sajt.
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        className="pointer-events-none absolute inset-0 -z-10 h-full w-full select-none object-cover"
+        style={{ objectPosition: "50% 50%", transform: "translateX(22%)" }}
+      >
+        <source src="/SM_hero.mp4" type="video/mp4" />
+      </video>
+      <div className="flex w-full max-w-5xl flex-col items-start gap-8 md:flex-row md:items-center md:justify-start md:gap-12">
+        <div className="flex w-full max-w-lg flex-col items-stretch md:mr-auto">
+          <div className={`mb-8 max-w-md text-left md:mb-10 ${motionEnter}`}>
+            <h1 className="whitespace-nowrap font-(--font-heading) text-2xl font-semibold uppercase leading-[1.05] tracking-tight text-foreground sm:text-3xl md:text-[2rem]">
+              FRÅN TANKE TILL SAJT.
             </h1>
-            <p className="mx-auto mt-3 max-w-xs text-sm text-white/85 drop-shadow-[0_1px_8px_rgba(0,0,0,0.3)]">
-              En kort beskrivning räcker.
+            <p className="mt-4 max-w-sm text-base text-muted-foreground">
+              Inget krångel. Bara resultat.
             </p>
           </div>
 
@@ -191,10 +196,7 @@ export function LandingHero({
                       Skapar…
                     </span>
                   ) : (
-                    <>
-                      Starta
-                      <Sparkles className="ml-1.5 h-3.5 w-3.5" />
-                    </>
+                    "Bygg hemsida"
                   )}
                 </Button>
               </div>

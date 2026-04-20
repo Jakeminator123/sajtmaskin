@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "linkoping/webshop",
+  "title": "Hemsida webshop Linköping – bygg din webbutik på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell webshop i Linköping med AI. Stripe-integration, egen domän och ingen bindningstid. Bygg din webbutik på minuter.",
+  "h1": "Webshop-hemsida i Linköping",
+  "heroSub": "Bygg en komplett webbutik för ditt Linköpingsföretag – med AI, Stripe-integration och utan kod.",
+  "introParagraphs": [
+    "Sajtmaskin skapar din webshop via chat på minuter. Du beskriver vad du säljer, vilka betalmetoder du vill ha och hur sajten ska se ut – så genererar AI:n en färdig webbutik med produktsidor, kundvagn och Stripe-integration. Perfekt för lokala företag i Linköping som vill sälja online utan att lära sig kod eller betala dyra byråpriser.",
+    "Du publicerar på din egen domän direkt, och om du vill testa först kan du köra på en kostnadsfri subdomän. Ingen bindningstid, ingen dold månadsavgift för hosting. Allt på svenska, byggt i Sverige av Pretty Good AB.",
+    "Oavsett om du driver en butik vid Stora torget, säljer hantverksprodukter från verkstaden i Lambohov eller vill komplettera din fysiska butik med e-handel – Sajtmaskin ger dig en webshop som fungerar från dag ett."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din webshop med Sajtmaskin",
+      "body": "Du startar en chatt och beskriver din verksamhet: vilka produkter du säljer, hur många kategorier du behöver, om du vill ha kampanjbanners eller ett nyhetsbrev. AI:n genererar hela strukturen – startsida, produktsidor, kundvagn, kassan och villkorssidor. Du kan be om ändringar direkt i chatten, byta färger, lägga till bilder eller justera texter. När du är nöjd kopplar du din domän och aktiverar Stripe för betalningar. Hela processen tar minuter istället för veckor."
+    },
+    {
+      "heading": "Stripe, frakt och lokala betalningar",
+      "body": "Sajtmaskin integrerar Stripe så att dina kunder kan betala med kort, Swish eller andra metoder som Stripe stödjer. Du ställer in fraktalternativ – kanske hämtköp i din butik i Linköping, Postnord-leverans eller budtjänst inom Östergötland. Allt sköts via Stripe Dashboard där du ser ordrar, hanterar återbetalningar och följer försäljningen. Inga krångliga plugins eller tredjepartstjänster – bara en ren koppling som fungerar direkt."
+    },
+    {
+      "heading": "Ingen bindningstid, exportera koden när du vill",
+      "body": "Många webshop-plattformar låser in dig med månadskostnader och begränsningar. Sajtmaskin fungerar tvärtom: du äger koden och kan exportera den när som helst. Vill du senare flytta till en egen server eller anlita en utvecklare för specialanpassningar? Inga problem. Hosting på subdomän kostar inget, och om du publicerar på egen domän betalar du bara för det du använder – inga fasta avgifter, inga dolda kostnader."
+    },
+    {
+      "heading": "Webshop-hemsidor för Linköpingsföretag",
+      "body": "Linköping har allt från designbutiker och hantverksföretag till techbolag och livsmedelsleverantörer. Sajtmaskin passar lika bra för en liten keramikverkstad som vill sälja krukor online som för en cykelbutik som behöver reservdelsförsäljning på webben. Du får en sajt som ser professionell ut, laddar snabbt och fungerar lika bra på mobil som dator. Och eftersom allt är på svenska slipper du översätta gränssnitt eller instruktioner."
+    },
+    {
+      "heading": "Kom igång idag – utan förkunskaper",
+      "body": "Du behöver ingen teknisk bakgrund för att bygga en webshop med Sajtmaskin. Kan du chatta kan du bygga en sajt. Beskriv dina produkter, välj layout och färger, koppla Stripe – klart. Vill du lägga till Google Analytics för att följa besökare eller Cal.com för bokningsbara tjänster vid sidan av produkterna? Det fixar du med ett klick. Och behöver du hjälp finns svenskspråkig support redo att guida dig."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få upp en webshop med Sajtmaskin?",
+      "a": "De flesta har en fungerande webshop på 10–30 minuter. Du chattar med AI:n, beskriver dina produkter och önskemål, granskar resultatet och publicerar. Vill du finjustera texter eller bilder tar det lite längre, men grundstrukturen är klar på minuter."
+    },
+    {
+      "q": "Kan jag sälja både fysiska produkter och digitala varor?",
+      "a": "Ja, Stripe hanterar båda typerna. Du ställer in fraktalternativ för fysiska varor och kan erbjuda direktnedladdning eller e-postleverans för digitala produkter. Sajtmaskin genererar rätt struktur baserat på vad du beskriver i chatten."
+    },
+    {
+      "q": "Kostar det extra att använda Stripe för betalningar?",
+      "a": "Sajtmaskin tar ingen avgift för Stripe-integrationen. Du betalar Stripes standardavgifter per transaktion, men ingen extra kostnad till oss. Du behåller full kontroll över ditt Stripe-konto och ser alla intäkter där."
+    },
+    {
+      "q": "Kan jag erbjuda hämtköp i Linköping istället för frakt?",
+      "a": "Absolut. Du ställer in fraktalternativ i Stripe, inklusive lokalt hämtköp. Kunden väljer vid kassan om de vill hämta i din butik eller få varan skickad. Perfekt för lokala kunder som vill slippa fraktkostnad."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera all kod när du vill, utan kostnad. Sajten är byggd med standard webbteknik, så vilken utvecklare som helst kan ta över. Ingen inlåsning, ingen bindningstid – du äger alltid ditt innehåll och din kod."
+    },
+    {
+      "q": "Kan jag integrera webshopen med mitt befintliga bokföringssystem?",
+      "a": "Stripe kan kopplas till de flesta bokföringssystem via API eller Zapier. Sajtmaskin genererar en ren webshop som Stripe hanterar, så integrationer mot ekonomisystem sköts via Stripe Dashboard eller tredjepartsverktyg. Behöver du specialanpassning kan du exportera koden och låta en utvecklare bygga vidare."
+    },
+    {
+      "q": "Fungerar webshopen bra på mobil?",
+      "a": "Ja, alla sajter som Sajtmaskin genererar är responsiva och fungerar lika bra på mobil som dator. Majoriteten av dina kunder kommer förmodligen besöka webshopen via telefon, så det är inbyggt från start."
+    }
+  ],
+  "localOrIndustryContext": "Linköping har en stark blandning av techföretag, hantverksverksamheter och lokala butiker. Många företag vid Stora torget, i Tornby eller runt Universitetsområdet vill komplettera fysisk försäljning med e-handel. Sajtmaskin gör det enkelt att starta en webshop utan att behöva anlita dyr byrå eller lära sig komplicerade plattformar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/linkoping",
+      "label": "Skapa hemsida i Linköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Linköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

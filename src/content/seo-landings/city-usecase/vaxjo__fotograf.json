@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vaxjo/fotograf",
+  "title": "Hemsida fotograf Växjö – Bygg din portfoliosajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Växjö. AI bygger din portfoliosajt med bildgalleri och bokningsfunktion – utan kod.",
+  "h1": "Hemsida för fotografer i Växjö",
+  "heroSub": "Bygg en professionell portfoliosajt med bildgalleri, bokning och kontaktformulär – på minuter, helt utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Växjö behöver du en hemsida som visar dina bilder på bästa sätt och gör det enkelt för kunder att boka dig. Sajtmaskin låter dig bygga en komplett portfoliosajt genom att bara chatta med en AI – du beskriver vad du behöver, så skapar plattformen sajten åt dig.",
+    "Du får ett responsivt bildgalleri som fungerar lika bra på mobil som dator, integrerad bokning via Cal.com så kunder kan boka fotosessioner direkt, och alla texter skrivs automatiskt utifrån din verksamhet. Publicera på din egen domän utan månadskostnad för hosting på subdomän, och uppdatera sajten när du vill utan att behöva lära dig kod.",
+    "Perfekt oavsett om du fotograferar bröllop, porträtt, företagsevent eller produkter – sajten anpassas efter din inriktning och visar exakt det som dina potentiella kunder i Växjö och Kronoberg letar efter."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfoliosajt som säljer dina tjänster",
+      "body": "Din hemsida behöver visa ditt arbete på ett sätt som får besökare att vilja boka. Sajtmaskin bygger bildgallerier med kategorier för olika typer av uppdrag – bröllop, familj, företag eller vad du nu erbjuder. Du kan ladda upp bilder direkt i gränssnittet, och AI hjälper dig att strukturera dem så de visas professionellt. Lägg till beskrivningar av dina paket, priser och vad som ingår. Allt presenteras tydligt så besökaren snabbt förstår vad du erbjuder och vad det kostar."
+    },
+    {
+      "heading": "Bokningssystem integrerat från start",
+      "body": "Slipp mejla fram och tillbaka om lediga tider. Med Cal.com-integration kan kunder se din kalender och boka fotosessioner direkt på sajten. Du bestämmer själv hur långa sessionerna ska vara, vilka dagar du är tillgänglig och hur lång framförhållning som krävs. Bekräftelser och påminnelser skickas automatiskt. Vill du ta förskottsbetalning? Koppla Stripe så kunder kan betala direkt vid bokning. Allt sköts via din hemsida utan extra verktyg."
+    },
+    {
+      "heading": "Mobilvänlig och snabb – viktigt för fotografer",
+      "body": "De flesta som letar efter fotograf i Växjö gör det från mobilen. Därför bygger Sajtmaskin automatiskt sajter som fungerar perfekt på alla skärmstorlekar. Dina bilder laddas snabbt och ser skarpa ut, även på högupplösta mobilskärmar. Sajten är också SEO-optimerad från start, vilket gör det enklare för lokala kunder att hitta dig när de söker efter fotograf i Växjö på Google. Du kan enkelt lägga till Google Analytics för att se hur besökare hittar till din sajt."
+    },
+    {
+      "heading": "Uppdatera och utveckla utan tekniskt krångel",
+      "body": "När du fått nya bilder från ett uppdrag eller vill lägga till en ny tjänst behöver det inte ta timmar. Logga in och uppdatera direkt i gränssnittet – lägg till bilder, ändra texter eller skapa nya sidor. Allt på svenska, utan kod. Vill du senare exportera hela sajten och flytta den till en egen server? Det går bra, du äger koden. Ingen bindningstid, inga dolda avgifter. Sajtmaskin är byggt i Sverige av Pretty Good AB, med support på svenska."
+    },
+    {
+      "heading": "Från idé till publicerad sajt samma dag",
+      "body": "Du startar genom att berätta för AI:n vad du behöver – kanske en portfoliosajt för bröllopsfotograf med bokning och prislista. AI:n genererar hela strukturen, skriver texter baserat på din verksamhet och sätter upp de funktioner du behöver. Du granskar, justerar det du vill ändra och publicerar. Vill du använda din egen domän typ fotografnamn.se? Koppla den direkt, eller använd en kostnadsfri subdomän för att testa. Hela processen tar minuter istället för veckor."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min fotoverksamhet?",
+      "a": "Själva AI-genereringen tar några minuter. Du chattar med plattformen om vad du behöver – portfoliosidor, bokningsfunktion, prislista – så skapar den en komplett sajt. Sedan lägger du tid på att ladda upp dina egna bilder och finjustera texter. De flesta fotografer har en publicerad sajt samma dag de börjar."
+    },
+    {
+      "q": "Kan jag visa olika typer av uppdrag i separata gallerier?",
+      "a": "Ja, du kan skapa hur många kategorier du vill. Exempelvis ett galleri för bröllop, ett för porträtt och ett för företagsfotografering. Varje galleri kan ha egen beskrivning och egna bilder. Besökare kan enkelt navigera mellan kategorierna för att se exempel på just den typ av fotografering de är intresserade av."
+    },
+    {
+      "q": "Fungerar bokningssystemet med min befintliga kalender?",
+      "a": "Cal.com-integrationen synkar med Google Calendar, Outlook och andra vanliga kalendertjänster. När någon bokar en session på din hemsida blockeras tiden automatiskt i din kalender. Du får notiser om nya bokningar och kan hantera allt från Cal.com-gränssnittet. Inga dubbelbokningar, allt uppdateras i realtid."
+    },
+    {
+      "q": "Kostar det extra att använda egen domän för min fotosajtd?",
+      "a": "Nej, du kan koppla din egen domän utan extra kostnad. Vill du använda en subdomän hos Sajtmaskin istället – typ dittnamn.sajtmaskin.se – är hostingen kostnadsfri. Domänregistrering sköter du själv hos valfri domänleverantör, sedan kopplar du den via DNS-inställningar som vi guidar dig genom."
+    },
+    {
+      "q": "Hur gör jag om jag vill uppdatera priser eller lägga till nya tjänster?",
+      "a": "Logga in och redigera direkt i gränssnittet. Allt är på svenska och du behöver ingen teknisk kunskap. Ändra texter, lägg till nya sidor, byt bilder – precis som du redigerar ett dokument. Ändringarna publiceras direkt när du sparar. Vill du ha hjälp finns svensk support tillgänglig."
+    },
+    {
+      "q": "Är Sajtmaskin lämpligt för fotografer i Växjö specifikt?",
+      "a": "Ja, plattformen fungerar utmärkt för lokala fotografer. Du kan enkelt lägga till information om att du verkar i Växjö och Kronoberg, vilket hjälper dig ranka lokalt på Google. Många fotografer i mindre städer behöver en professionell närvaro online utan att betala stora summor till webbbyråer – Sajtmaskin löser just det."
+    },
+    {
+      "q": "Vad händer om jag vill sluta använda Sajtmaskin senare?",
+      "a": "Du kan när som helst exportera hela din sajt som kod och flytta den till en egen server eller annan hostingleverantör. Det finns ingen bindningstid. Du äger allt innehåll och kan ta med dig det vart du vill. Sajtmaskin är ett verktyg för att komma igång snabbt, inte en inlåsning."
+    }
+  ],
+  "localOrIndustryContext": "Växjö har en växande kreativ sektor med fotografer som täcker allt från bröllop vid Växjö sjöar till företagsfotografering för lokala bolag och event på Växjö konserthus. En professionell hemsida gör det enklare att nå kunder i både stad och omgivande kommuner i Kronoberg.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vaxjo",
+      "label": "Skapa hemsida i Växjö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Växjö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

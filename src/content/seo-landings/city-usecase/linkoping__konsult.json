@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "linkoping/konsult",
+  "title": "Hemsida konsult Linköping – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din konsultverksamhet i Linköping. AI bygger sajten åt dig på minuter. Ingen kod, ingen bindning.",
+  "h1": "Hemsida för konsulter i Linköping",
+  "heroSub": "Bygg en professionell konsultsajt som visar din expertis och gör det enkelt för kunder att boka dig – direkt via chat.",
+  "introParagraphs": [
+    "Som konsult i Linköping behöver du en hemsida som snabbt förklarar vad du gör, visar din erfarenhet och gör det enkelt för potentiella kunder att ta kontakt eller boka ett möte. Sajtmaskin låter dig bygga hela sajten via chat – AI:n skapar text, struktur och design utifrån vad du berättar om din verksamhet.",
+    "Du får en färdig sajt på minuter med allt du behöver: presentation av dina tjänster, referenscase, Om dig-sektion och integrerad bokningsfunktion via Cal.com. Publicera på din egen domän eller använd en kostnadsfri subdomän. Ingen bindningstid, ingen kod – bara en sajt som faktiskt fungerar för din konsultverksamhet."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en konsultsajt i Linköping behöver",
+      "body": "En bra hemsida för konsulter behöver visa tydligt vad du kan hjälpa till med, vilka branscher eller problem du är specialist på, och varför kunder ska välja just dig. I Linköping, med både stora företag inom tech och industri samt en växande startup-scen, är det viktigt att snabbt kommunicera din nisch. Din sajt ska också göra det friktionsfritt att boka ett första möte – varje extra klick eller formulärfält kostar dig potentiella uppdrag. Sajtmaskin bygger in allt detta automatiskt när du beskriver din verksamhet."
+    },
+    {
+      "heading": "Bokningar och kontakt som faktiskt fungerar",
+      "body": "Många konsulter förlorar kunder för att bokningsprocessen är krånglig. Med Sajtmaskin får du Cal.com integrerat direkt – besökare ser din kalender och bokar ett möte utan mejltrådar fram och tillbaka. Vill du ta betalt för workshops eller analyser? Stripe-integrationen gör att du kan ta betalt direkt på sajten. Allt sköts i samma gränssnitt där du byggde sajten, helt på svenska."
+    },
+    {
+      "heading": "Bygg sajten via chat – ingen kod",
+      "body": "Du chattar med AI:n och beskriver din konsultverksamhet: vilka tjänster du erbjuder, vilka branscher du jobbar med, tidigare uppdrag och vad som gör dig unik. AI:n genererar sedan hela sajten – texter, struktur, design. Du kan justera allt direkt i chatten eller i den visuella editorn. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri Sajtmaskin-subdomän. Inga månadskostnader för hosting på subdomän, ingen bindningstid."
+    },
+    {
+      "heading": "Äkta svenskt – byggt i Linköping-regionen",
+      "body": "Sajtmaskin är byggt av Pretty Good AB i Sverige. Allt är på svenska – gränssnittet, supporten, AI:n som skriver texterna. Det betyder att din sajt får texter som låter naturliga, inte som dåligt översatt marknadssvenska. För konsulter som jobbar med svenska företag i Linköping och Östergötland är det en självklarhet att sajten ska vara på riktig svenska, inte engelsk fackjargong som körts genom Google Translate."
+    },
+    {
+      "heading": "Kom igång idag – ingen teknisk krångel",
+      "body": "Logga in, berätta vad du gör som konsult, låt AI:n bygga sajten. Testa bokningsfunktionen, lägg till case, justera färger om du vill. Publicera när du är nöjd. Vill du senare exportera koden och flytta sajten? Inga problem, du äger allt. Sajtmaskin tar bort alla tekniska hinder mellan dig och en fungerande hemsida så du kan fokusera på det du är bra på – att leverera värde till dina kunder."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en konsultsajt med Sajtmaskin?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n om din verksamhet, granskar förslaget och justerar det du vill ändra. Sedan publicerar du direkt. Ingen väntan på webbyrå eller teknisk setup."
+    },
+    {
+      "q": "Kan jag integrera min kalender för bokningar?",
+      "a": "Ja, Sajtmaskin har inbyggd Cal.com-integration. Du kopplar din kalender så att kunder kan boka möten direkt på sajten. De ser när du är ledig och väljer en tid som passar – allt synkas automatiskt."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Om du använder en Sajtmaskin-subdomän är hostingen kostnadsfri utan månadskostnad. Vill du använda din egen domän (t.ex. dinkonsult.se) behöver du köpa domänen och eventuellt välja en hostinglösning, men du kan också publicera via Sajtmaskin."
+    },
+    {
+      "q": "Fungerar sajten bra för konsulter i Linköping specifikt?",
+      "a": "Ja. Många konsulter i Linköping jobbar med både lokala företag och kunder i hela Sverige. Sajten kan enkelt anpassas för att visa lokal närvaro samtidigt som den fungerar för nationella uppdrag. AI:n hjälper dig skriva texter som passar din målgrupp."
+    },
+    {
+      "q": "Kan jag ta betalt för tjänster direkt på sajten?",
+      "a": "Ja, via Stripe-integrationen kan du sälja workshops, analystjänster eller paketerade konsulttjänster direkt på sajten. Betalningen hanteras säkert och du får pengarna direkt till ditt konto."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill. Ingen bindningstid, inga dolda avgifter. Du äger din sajt och allt innehåll, så du är aldrig låst till Sajtmaskin."
+    },
+    {
+      "q": "Behöver jag kunna koda för att ändra saker på sajten?",
+      "a": "Nej. Allt sköts via chat eller en visuell editor. Vill du ändra en text, lägga till en tjänst eller byta bild chattar du bara med AI:n eller klickar och redigerar direkt. Ingen kod behövs."
+    }
+  ],
+  "localOrIndustryContext": "Linköping har en stark konsultmarknad inom tech, industri och life science tack vare Linköpings universitet, Saab och ett växande startup-ekosystem. Många konsulter här jobbar med allt från IT och projektledning till hållbarhet och innovation, ofta för både lokala och nationella kunder.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/linkoping",
+      "label": "Skapa hemsida i Linköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Linköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "optiker",
+  "title": "Hemsida för optiker – bygg din egen på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din optikerbutik med AI. Boka synundersökningar, visa glasögon och nå fler kunder. Ingen kodning krävs.",
+  "h1": "Hemsida för optiker",
+  "heroSub": "Bygg en komplett sajt för din optikerbutik på minuter – med bokning, produktvisning och allt du behöver för att växa.",
+  "introParagraphs": [
+    "En bra hemsida gör att kunder hittar dig när de söker efter glasögon eller synundersökning i närheten. Den visar ditt sortiment, låter besökare boka tider direkt och skapar förtroende genom att du syns professionellt online. Många optiker förlorar kunder till kedjor bara för att de saknar en modern närvaro på webben.",
+    "Med Sajtmaskin bygger du en färdig hemsida för din optiker på några minuter. Du chattar med AI:n om vad du behöver – kanske en bokningsfunktion för synundersökningar, ett galleri med bågar, information om linser och kontaktuppgifter – så genereras hela sajten åt dig. Ingen kod, ingen krånglig manual, bara en färdig sajt att publicera direkt.",
+    "Sajten blir helt på svenska, fungerar lika bra på mobil som dator och du kan koppla på Cal.com för bokning och Google Analytics för att se hur många som besöker dig. Vill du sälja bågar eller solglasögon online går det att integrera Shopify. Allt utan bindningstid och du kan när som helst exportera koden om du vill flytta."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för optiker behöver innehålla",
+      "body": "De flesta optikerbutiker behöver en startsida som förklarar vad ni erbjuder, en tjänstesida för synundersökning och linser, ett galleri eller produktsida för glasögonbågar och solglasögon, en om-sida som berättar vem ni är och varför kunder ska välja er, samt en kontaktsida med öppettider, adress och karta. Många vill också ha en bokningsfunktion så besökare kan boka syntest direkt utan att ringa. Om du säljer bågar online behöver du en enkel webshop med bilder, priser och betalning. Sajtmaskin skapar alla dessa sidor automatiskt när du beskriver din verksamhet i chatten."
+    },
+    {
+      "heading": "Varför optiker behöver en egen hemsida",
+      "body": "Många kunder googlar 'optiker nära mig' eller 'synundersökning' plus ortnamn innan de väljer var de ska gå. Utan hemsida syns du inte i sökresultaten och folk hamnar hos Synoptik, Specsavers eller andra kedjor istället. En egen sajt gör att du kan visa ditt sortiment, dina specialerbjudanden och din expertis – och att kunder kan boka tid när det passar dem, även utanför öppettider. Det ger dig fler bokningar och minskar antalet missade samtal. En hemsida är också ett bevis på att du är etablerad och seriös, vilket är viktigt när folk ska lita på dig med sin syn."
+    },
+    {
+      "heading": "Bokningsfunktion och integration med Cal.com",
+      "body": "Genom att koppla Cal.com till din sajt kan besökare se lediga tider och boka synundersökning direkt i kalendern. De får automatisk bekräftelse via mejl och kan avboka eller omboka själva. Det sparar tid för dig och sänker tröskeln för kunder som helst inte vill ringa. Sajtmaskin gör integrationen enkel – du behöver bara ett Cal.com-konto så länkas det in på din bokningssida. Vill du ta betalt i förväg för undersökningen kan du kombinera med Stripe, så pengarna dras när bokningen görs."
+    },
+    {
+      "heading": "Visa ditt sortiment och sälj glasögon online",
+      "body": "Ett bildgalleri med era glasögonbågar och solglasögon gör att kunder kan bläddra hemma innan de kommer in. Du kan sortera efter märke, stil eller pris och lägga till korta beskrivningar. Vill du sälja direkt online kopplar du in Shopify – då blir sajten en webshop där folk kan lägga bågar i varukorgen, betala med kort och få hem beställningen. Många optiker börjar med ett enkelt galleri och lägger till e-handel senare när de ser att intresset finns. Sajtmaskin stödjer båda varianterna och du väljer själv hur långt du vill gå."
+    },
+    {
+      "heading": "Snabbt, svenskt och utan bindningstid",
+      "body": "Hela Sajtmaskin är på svenska – gränssnitt, support och den AI du chattar med. Du behöver inte kunna engelska eller tekniska termer. Sajten publiceras på en subdomän gratis, eller på din egen domän om du har en. Det finns ingen bindningstid och ingen dold kostnad. Vill du någonsin byta plattform exporterar du koden och tar den med dig. De flesta optiker har en färdig sajt på under en timme, från första chatten till publicering."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa priser på glasögon och linser på sajten?",
+      "a": "Ja, du kan lägga in prislistor eller priser på enskilda produkter precis som du vill. Många optiker väljer att visa startpriser och skriver att slutpriset beror på styrka och glas. Du kan också välja att inte visa priser alls och istället uppmuntra besökare att boka en tid för offert."
+    },
+    {
+      "q": "Hur fungerar bokning av synundersökning?",
+      "a": "Du kopplar ditt Cal.com-konto till sajten så visas din kalender med lediga tider. Kunder klickar på en tid, fyller i namn och mejl, och får en bokningsbekräftelse direkt. Du ser bokningen i Cal.com och kan skicka påminnelser automatiskt. Vill du ta betalt i förväg går det att lägga till Stripe."
+    },
+    {
+      "q": "Kan jag sälja glasögon direkt på sajten?",
+      "a": "Ja, genom att integrera Shopify får du en fullt fungerande webshop där kunder kan köpa bågar, solglasögon eller tillbehör. De betalar med kort via Stripe och du hanterar leverans som vanligt. Många optiker börjar utan e-handel och lägger till det senare när de vill."
+    },
+    {
+      "q": "Syns sajten på Google när folk söker efter optiker?",
+      "a": "Ja, sajten indexeras av Google automatiskt. För att ranka bra lokalt är det smart att fylla i din adress, öppettider och ortnamn på sajten, samt skapa ett Google My Business-konto som pekar till hemsidan. Sajtmaskin genererar SEO-vänlig kod så du har en bra grund från start."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan när som helst exportera hela koden och flytta sajten till en annan host eller plattform. Det finns ingen bindningstid och ingen låsning. Koden är din och du bestämmer vad du gör med den."
+    },
+    {
+      "q": "Kan jag lägga till information om olika glastyper och behandlingar?",
+      "a": "Absolut. Du kan skapa egna sidor för antireflexbehandling, blåljusfilter, progressiva glas eller vad du vill informera om. Berätta för AI:n vad du vill ha med så skapas innehållet och strukturen åt dig. Du kan alltid redigera texten efteråt."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten klar?",
+      "a": "De flesta optiker har en färdig sajt på 30–60 minuter. Du chattar med AI:n om vad du vill ha, granskar resultatet, justerar eventuellt några texter eller bilder, och publicerar. Vill du lägga till bokning eller webshop kan det ta lite längre beroende på hur snabbt du sätter upp Cal.com eller Shopify, men själva sajten är klar på minuter."
+    }
+  ],
+  "localOrIndustryContext": "Optikerbranschen i Sverige domineras av stora kedjor, men många lokala optiker har lojala kunder som uppskattar personlig service och expertis. En egen hemsida hjälper dig att synas i lokala sökningar och konkurrera digitalt utan att behöva stora marknadsföringsbudgetar. Genom att visa ditt sortiment, erbjuda enkel bokning och berätta vem du är skapar du förtroende och får fler att välja dig framför kedjorna.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en optiker-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

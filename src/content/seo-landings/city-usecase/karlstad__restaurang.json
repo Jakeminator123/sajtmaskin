@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "karlstad/restaurang",
+  "title": "Hemsida restaurang Karlstad – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din restaurang i Karlstad med AI. Meny, bordsbokningar och betalningar – klart på minuter utan kod.",
+  "h1": "Hemsida för restaurang i Karlstad",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bokningssystem och betalningar – direkt i chatten, utan att kunna koda.",
+  "introParagraphs": [
+    "Om du driver restaurang, pizzeria eller café i Karlstad vet du att gäster googlar er innan de bestämmer sig. En bra hemsida visar menyn, öppettider och gör det enkelt att boka bord eller beställa. Med Sajtmaskin skapar du allt det där på minuter – du chattar med AI:n om vad du behöver, så byggs sajten åt dig.",
+    "Du får en färdig sajt med meny som är lätt att uppdatera, integration till Cal.com för bordsbokningar och Stripe om du vill ta betalt online. Publicera på din egen domän eller kör gratis på en subdomän. Ingen bindningstid, ingen kodning, ingen krånglig adminpanel. Bara en sajt som fungerar för din restaurang i Karlstad."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en restaurangsajt i Karlstad behöver",
+      "body": "Gäster vill se din meny, hitta adress och öppettider, och helst boka bord direkt. Många kollar mobilen när de går längs Drottninggatan eller sitter vid Klarälven och funderar på var de ska äta. Då räcker det inte med en Facebooksida – du behöver en riktig hemsida som laddar snabbt, ser bra ut på telefon och dyker upp på Google. Sajtmaskin bygger allt det där automatiskt: startsida, menysida, kontakt, bokningsformulär och Google Maps. Du skriver vad du vill ha, AI:n fixar resten."
+    },
+    {
+      "heading": "Meny, bokning och betalning – integrerat från start",
+      "body": "Sajtmaskin kopplar direkt till Cal.com så gäster kan boka bord i realtid, och till Stripe om du vill sälja presentkort, ta förskottsbetalning för större sällskap eller ta betalt för take away online. Menyn blir en egen sida som du uppdaterar genom att chatta – inga krångliga CMS-fält. Vill du lägga till veckans lunch eller ändra priser tar det några sekunder. Allt ligger på din egen domän, och du kan när som helst exportera koden om du vill flytta sajten någon annanstans."
+    },
+    {
+      "heading": "Svenskt, snabbt och byggt för lokala restauranger",
+      "body": "Sajtmaskin är byggt i Sverige av Pretty Good AB, med svensk support och svenskt gränssnitt. Det betyder att allt från bokningsbekräftelser till datumformat fungerar som svenska gäster förväntar sig. Du behöver ingen webbyrå, ingen månadskostnad för hosting om du kör på subdomän, och ingen teknisk kunskap. Restauranger i Karlstad och resten av Sverige använder Sajtmaskin för att de vill ha en sajt som fungerar nu – inte om tre månader när byrån äntligen levererat."
+    },
+    {
+      "heading": "Så bygger du din restaurangsajt",
+      "body": "Logga in på Sajtmaskin och beskriv din restaurang i chatten: namn, typ av kök, öppettider, vilka sidor du vill ha. AI:n genererar en komplett sajt på minuter. Du kan be om ändringar, lägga till bilder, justera färger och texter – allt genom att chatta. När du är nöjd publicerar du på din egen domän eller en gratis subdomän. Vill du lägga till bokningssystem eller betallösning gör du det med ett klick. Sen är sajten live och gäster kan hitta er på Google, boka bord och se vad ni har på menyn."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Du äger din sajt. Ingen bindningstid, inga dolda avgifter. Vill du exportera koden och flytta sajten till en egen server kan du göra det när du vill. Hosting på subdomän är gratis, egen domän kostar bara vad domänen själv kostar. Du betalar för att bygga sajten, sen är det ditt. Perfekt för restauranger som vill ha kontroll och flexibilitet utan att låsa sig till en leverantör i åratal."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt med Sajtmaskin?",
+      "a": "Oftast några minuter. Du beskriver din restaurang i chatten – namn, typ av mat, öppettider, vilka sidor du vill ha – så genererar AI:n en färdig sajt. Sen kan du justera texter, bilder och layout genom att fortsätta chatta. När du är nöjd publicerar du direkt."
+    },
+    {
+      "q": "Kan jag uppdatera menyn själv utan att koda?",
+      "a": "Ja, du uppdaterar genom att chatta med AI:n. Vill du ändra ett pris, lägga till en rätt eller ta bort något skriver du bara det, så uppdateras sajten. Ingen inloggning i krångliga adminpaneler, inga fält att fylla i – bara vanlig svenska i chatten."
+    },
+    {
+      "q": "Fungerar bokningssystemet för restauranger i Karlstad?",
+      "a": "Ja, Sajtmaskin integrerar med Cal.com som hanterar bordsbokningar i realtid. Gäster väljer datum och tid direkt på sajten, och du får bekräftelse. Systemet är svenskanpassat och fungerar lika bra för en liten bistro som en större restaurang i centrala Karlstad."
+    },
+    {
+      "q": "Kan jag ta betalt online för presentkort eller förskottsbetalning?",
+      "a": "Ja, genom Stripe-integrationen kan du sälja presentkort, ta förskottsbetalning för större sällskap eller ta betalt för take away-beställningar. Du kopplar ditt Stripe-konto till sajten, sen fungerar betalningarna automatiskt. Säkert och enkelt för både dig och gästerna."
+    },
+    {
+      "q": "Kostar det något att ha sajten live efter att jag byggt den?",
+      "a": "Hosting på subdomän (dinrestaurang.sajtmaskin.se) är gratis utan tidsgräns. Vill du ha egen domän (dinrestaurang.se) betalar du bara för domänen själv, ingen extra hostingavgift. Inga månadskostnader, inga dolda avgifter. Du äger sajten och kan exportera koden när du vill."
+    },
+    {
+      "q": "Syns sajten på Google när folk söker efter restauranger i Karlstad?",
+      "a": "Ja, sajten byggs med ren, snabb kod som Google gillar. Du får automatiskt rätt meta-taggar, mobilanpassning och snabba laddtider – allt som behövs för bra SEO. Sen är det upp till dig att fylla på med bra innehåll om din restaurang, meny och läge i Karlstad så att Google förstår vad ni erbjuder."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan lösning senare?",
+      "a": "Du kan exportera hela koden när du vill, ingen bindningstid. Sajten är din, och du kan flytta den till vilken webbhotell som helst. Sajtmaskin låser inte in dig – du har full kontroll och kan välja att driva sajten själv eller hos annan leverantör när som helst."
+    }
+  ],
+  "localOrIndustryContext": "Karlstad har en livlig restaurangscen längs Drottninggatan, vid Inre Hamn och runt Stora torget. Gäster söker ofta efter restauranger på mobilen när de rör sig i stan, och förväntar sig att snabbt hitta meny, öppettider och kunna boka bord direkt. En snabb, tydlig hemsida gör skillnad när konkurrensen är hård.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/karlstad",
+      "label": "Skapa hemsida i Karlstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Karlstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "umea/bilverkstad",
+  "title": "Hemsida bilverkstad Umeå – Bygg på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Umeå med AI. Bokningstider, tjänstlista och kontaktinfo – klart på minuter utan kod.",
+  "h1": "Hemsida för bilverkstad i Umeå",
+  "heroSub": "Bygg en komplett sajt för din bilverkstad med AI – bokning, tjänster och öppettider på plats direkt.",
+  "introParagraphs": [
+    "Om du driver bilverkstad i Umeå behöver du en sajt där kunderna enkelt ser vad du erbjuder, när du har öppet och hur de bokar tid. Sajtmaskin bygger hela hemsidan åt dig via chat – du beskriver din verkstad, så skapar AI:n sidor för dina tjänster, priser, kontaktuppgifter och bokningsmöjligheter.",
+    "Du får en färdig sajt på minuter, publicerad på egen domän eller kostnadsfritt på en Sajtmaskin-subdomän. Allt innehåll genereras på svenska, och du kan integrera Cal.com för tidsbokning så kunderna själva väljer tid för service, däckbyte eller besiktning. Ingen kod, ingen bindningstid – bara en fungerande hemsida som fungerar för din verkstad i Umeå."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför bilverkstäder i Umeå behöver en bra hemsida",
+      "body": "Många kunder söker bilverkstad online innan de ringer, särskilt när de behöver jämföra priser på service eller hitta verkstad med ledig tid. I Umeå, där konkurrensen är stabil och kunderna ofta är lojala, gör en tydlig sajt skillnad – den visar vad du kan, vad det kostar och hur snabbt du kan ta emot bilen. En hemsida som fungerar dygnet runt ger dig fler bokningar och färre missade samtal, särskilt under högsäsong som däckskifte vår och höst."
+    },
+    {
+      "heading": "Vad en bilverkstadssajt i Umeå ska innehålla",
+      "body": "Din sajt behöver en startsida som förklarar vilka tjänster du erbjuder – service, reparationer, däckhotell, AC-service, bromsar, besiktning. En sida med priser eller prisexempel bygger förtroende. Lägg till öppettider, adress och karta så kunderna hittar till verkstaden på Ersbodavägen, Bölesholmsgatan eller var du än håller till. Integrera Cal.com så besökare bokar tid direkt, och lägg gärna in en FAQ som svarar på vanliga frågor om garantier, väntetid och om du tar emot drop-in."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din bilverkstadssajt",
+      "body": "Du chattar med AI:n och beskriver din verkstad: vilka märken du jobbar med, vilka tjänster du kör, om du har däckhotell eller specialiserar dig på något. Sajtmaskin genererar en komplett sajt med alla sidor, texter och struktur på svenska. Du kan lägga till bilder på verkstaden, logga, färgschema och justera texter direkt i gränssnittet. Publicera på egen domän eller använd en subdomän utan månadskostnad. Vill du exportera koden senare går det när som helst – ingen inlåsning."
+    },
+    {
+      "heading": "Bokning och betalning direkt på sajten",
+      "body": "Med Cal.com-integrationen kan kunderna välja ledig tid för service eller reparation utan att behöva ringa. Du styr själv vilka tider som visas och hur lång tid varje typ av jobb tar. Vill du ta förskottsbetalning för däckhotell eller service kan du koppla Stripe och ta betalt direkt på sajten. Google Analytics visar vilka sidor som besöks mest, så du ser om kunderna letar efter priser, öppettider eller specifika tjänster – användbar data när du vill förbättra sajten."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen teknisk krångel",
+      "body": "Sajtmaskin kräver ingen bindningstid och ingen månadskostnad om du kör på subdomän. Du äger allt innehåll och kan exportera koden när du vill. Uppdatera priser, öppettider eller tjänster själv – inget behov av webbyrå för små ändringar. Perfekt för bilverkstäder i Umeå som vill ha en fungerande sajt utan att lägga veckor på projektering eller tusentals kronor på byråarvode."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag lägga till priser för service och däckbyte på sajten?",
+      "a": "Ja, du kan skriva in priser eller prisexempel för vanliga tjänster som oljebyte, service, däckskifte och AC-fyllning. Många verkstäder väljer att visa från-priser eller intervall för att ge kunderna en uppfattning, och du uppdaterar priserna själv när som helst."
+    },
+    {
+      "q": "Fungerar bokningssystemet för olika typer av jobb?",
+      "a": "Ja, med Cal.com kan du skapa olika bokningstyper – till exempel 30 minuter för däckskifte, 2 timmar för service eller drop-in för mindre saker. Du styr vilka tider som är lediga och hur många bokningar du tar per dag, så systemet aldrig dubbelbokningar."
+    },
+    {
+      "q": "Kan jag visa var verkstaden ligger i Umeå på sajten?",
+      "a": "Absolut. Du lägger in adress och bäddar in en Google Maps-karta så kunderna ser exakt var du håller till, om det är i Ersboda, Bölesholmen eller centrala Umeå. Tydlig vägbeskrivning och parkering kan du skriva in på kontaktsidan."
+    },
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "De flesta bilverkstadssajter är klara på 10–20 minuter. Du chattar med AI:n, granskar resultatet, lägger till logga och bilder, och publicerar. Vill du finjustera texter eller lägga till fler tjänster gör du det direkt i gränssnittet innan eller efter publicering."
+    },
+    {
+      "q": "Kan jag uppdatera öppettider och tjänster själv?",
+      "a": "Ja, du loggar in och ändrar vad du vill – öppettider inför helgdagar, nya tjänster som du börjat erbjuda, eller uppdaterade priser. Inga tekniska kunskaper behövs, och ändringarna syns direkt på sajten."
+    },
+    {
+      "q": "Kostar det extra att ha sajten på min egen domän?",
+      "a": "Nej, du kan använda din egen domän utan extra kostnad. Vill du köra på en Sajtmaskin-subdomän är hostingen gratis. Äger du redan en domän kopplar du den via DNS-inställningar, och guider finns om du behöver hjälp."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när som helst och flytta sajten vart du vill. Ingen bindningstid, ingen inlåsning – du äger allt material och kan ta det med dig om du bestämmer dig för att byta lösning."
+    }
+  ],
+  "localOrIndustryContext": "Umeå har en stabil bilpark och många verkstäder som konkurrerar om kunderna, särskilt kring däckskifte och serviceintervaller. En tydlig hemsida med bokning och priser hjälper dig sticka ut och fånga kunder som söker online innan de bestämmer sig.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/umea",
+      "label": "Skapa hemsida i Umeå"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Umeå. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

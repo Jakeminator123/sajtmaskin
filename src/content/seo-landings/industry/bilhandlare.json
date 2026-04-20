@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "bilhandlare",
+  "title": "Hemsida för bilhandlare – bygg din bilsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilhandel med AI. Visa lagerbilar, värderingsformulär och finansiering. Ingen kod krävs.",
+  "h1": "Hemsida för bilhandlare",
+  "heroSub": "Bygg en komplett bilsajt med lagerpresentation, kontaktformulär och integrationer – direkt i chatten, utan att koda.",
+  "introParagraphs": [
+    "En hemsida för bilhandlare behöver visa ditt lager tydligt, locka köpare att boka provkörning och förmedla förtroende. Kunderna vill se bilder, specifikationer, pris och kunna kontakta dig direkt – helst samma kväll de börjat titta. Sajtmaskin låter dig bygga hela sajten via chat på svenska, så du slipper vänta veckor på en byrå eller lära dig WordPress.",
+    "Du beskriver vad du behöver – kanske en startsida med utvalda bilar, en lagersida med filter på märke och årsmodell, en värderingssida och en om oss-sektion. AI:n genererar sidorna, du justerar texter och bilder i editorn, och publicerar på din egen domän. Integrationer som Cal.com för provkörningar och Google Analytics för att följa besökare ingår utan extra krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför bilhandlare behöver en egen hemsida",
+      "body": "Köpare googlar märke och modell, jämför priser och läser recensioner innan de ringer. Saknar du en sajt hamnar du utanför deras radar, och de som hittar dig på Blocket eller Facebook får ingen känsla för din verksamhet. En egen hemsida visar att du är etablerad, ger plats för kundcase och garantivillkor, och låter dig samla leads i ett eget system istället för att betala för varje klick på en annonsportal. Du äger trafiken och kan bygga långsiktiga relationer."
+    },
+    {
+      "heading": "Vanliga sidor och funktioner på en bilhandlarsajt",
+      "body": "De flesta bilsajter har en startsida med hero-bild och senaste inkomna bilar, en lagersida där varje bil får en egen undersida med bildgalleri, kilometerstånd, utrustningslista och pris, en om oss-sida som berättar historik och värdegrund, samt en kontaktsida med öppettider, karta och formulär. Många lägger till en värderingssida där besökare fyller i registreringsnummer för att få ett preliminärt bud, och en finansieringssida som förklarar samarbete med banker eller leasingbolag. Bokningsfunktion för provkörning och integration till Stripe för handpenning förekommer också."
+    },
+    {
+      "heading": "Så bygger du bilsajten i Sajtmaskin",
+      "body": "Du startar en ny sajt och skriver till AI:n: 'Jag driver en bilhandel i Örebro och säljer begagnade personbilar. Jag vill ha en startsida med våra bästa bilar, en lagersida, om oss och kontakt.' AI:n skapar strukturen på sekunder. Sedan lägger du till bilder på bilarna, justerar prisuppgifter och beskrivningar i editorn, och kopplar Cal.com om du vill att kunder ska boka visning direkt i kalendern. Vill du ha ett värderingsformulär ber du AI:n lägga till det, och den genererar fält för märke, modell, årsmodell och miltal. Publicera på din egen domän – ingen månadskostnad om du kör på subdomän först."
+    },
+    {
+      "heading": "Integrationer som förenklar vardagen",
+      "body": "Cal.com-integrationen låter kunder välja tid för provkörning utan att du behöver svara på mejl fram och tillbaka. Stripe gör att du kan ta emot handpenning online om köparen vill reservera bilen direkt. Google Analytics visar vilka bilar som får mest klick och varifrån trafiken kommer, så du vet om det är värt att annonsera på Facebook eller satsa mer på SEO. Shopify-kopplingen passar om du säljer tillbehör som golvmattor eller vinterdäck vid sidan av bilarna. Allt sätts upp i gränssnittet utan kod."
+    },
+    {
+      "heading": "Ingen bindningstid – du äger koden",
+      "body": "Många webbbyråer låser dig i årsavtal eller tar betalt per ändring. Sajtmaskin har ingen bindningstid. Vill du flytta sajten till egen server kan du exportera hela koden och drifta den var du vill. Det betyder att du aldrig är beroende av oss, och att investeringen i innehåll och design är din oavsett vad som händer. För de flesta bilhandlare räcker det att publicera på subdomän gratis och uppgradera till egen domän när försäljningen rullar på."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa mitt lager med filter på märke och pris?",
+      "a": "Ja. Du lägger upp varje bil som en egen undersida eller listar dem på en lagersida. AI:n kan generera en enkel filterfunktion, eller så bäddar du in ett befintligt lagersystem via iframe eller API om du redan har det i ett annat verktyg."
+    },
+    {
+      "q": "Hur lägger jag till bilder på bilarna?",
+      "a": "Ladda upp bilder direkt i editorn för varje bilsida. Du kan dra och släppa flera foton, ordna dem i galleri och lägga till bildtexter med utrustningsdetaljer. Sajtmaskin optimerar bilderna automatiskt så sajten laddar snabbt även med många högupplösta bilder."
+    },
+    {
+      "q": "Kan kunder boka provkörning via sajten?",
+      "a": "Ja, genom Cal.com-integrationen. Du kopplar ditt Cal.com-konto, skapar en bokningslänk för provkörning och bäddar in den på bilsidan eller kontaktsidan. Kunden väljer tid, du får notis i kalendern, och allt synkas med Google Calendar eller Outlook."
+    },
+    {
+      "q": "Vad kostar det att drifta sajten?",
+      "a": "Publicering på subdomän hos Sajtmaskin är gratis utan tidsgräns. Vill du använda egen domän – till exempel dinabilhandel.se – betalar du för domänen hos din registrar och pekar DNS:en till oss, ingen extra hostingavgift. Exporterar du koden och driftar själv betalar du bara för din egen server."
+    },
+    {
+      "q": "Kan jag ta betalt online för handpenning?",
+      "a": "Ja, via Stripe-integrationen. Du skapar ett betalformulär där köparen anger belopp eller väljer en förvald handpenning, betalar med kort, och du får pengarna direkt till ditt Stripe-konto. Perfekt om någon vill reservera en bil över helgen utan att besöka er fysiskt först."
+    },
+    {
+      "q": "Hur gör jag sajten synlig på Google?",
+      "a": "Sajtmaskin genererar ren HTML med semantiska taggar, snabba laddtider och mobilvänlig layout – allt Google gillar. Du fyller i metabeskrivningar för varje sida, lägger till alt-texter på bilder och publicerar. Länka sajten från din Google My Business-profil och sociala medier för att få de första besökarna, så börjar Google indexera sidorna inom några dagar."
+    },
+    {
+      "q": "Kan jag uppdatera lagret själv när bilar säljs?",
+      "a": "Absolut. Logga in i editorn, ta bort sidan för den sålda bilen eller markera den som såld, och publicera om. Inga tekniska kunskaper krävs. Vill du automatisera kan du koppla ett externt lagersystem via API, men för de flesta räcker manuell uppdatering en gång i veckan."
+    }
+  ],
+  "localOrIndustryContext": "Svensk bilhandel är tuff – konkurrensen från Blocket, Kvdbil och bytesaffärer är hård, och kunderna förväntar sig transparens kring historik och besiktning. En egen sajt där du visar Carfax-rapporter, garantivillkor och kundrecensioner bygger förtroende och skiljer dig från annonser som försvinner i flödet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en bilhandlare-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

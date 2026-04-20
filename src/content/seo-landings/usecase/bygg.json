@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "bygg",
+  "title": "Hemsida för byggföretag – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag på minuter med AI. Ingen kod, svensk support. Visa projekt, ta emot bokningar och bygg förtroende.",
+  "h1": "Hemsida för byggföretag",
+  "heroSub": "Bygg en professionell sajt för din byggfirma på minuter – ingen kod, ingen krångel, bara resultat.",
+  "introParagraphs": [
+    "En hemsida för byggföretag behöver visa vad du gör, vilka projekt du genomfört och hur kunder enkelt kan kontakta dig. Det handlar om att bygga förtroende genom tydliga bilder, referenser och en känsla av att du är pålitlig. Många byggfirmor tappar jobb för att de saknar en sajt som visar att de är seriösa.",
+    "Med Sajtmaskin bygger du hela sajten via chat på svenska. Du beskriver vad ditt byggföretag gör – om du renoverar badrum, bygger villatak eller driver totalentreprenader – så skapar AI:n en färdig sajt med rätt struktur, texter och funktioner. Du publicerar på din egen domän och kan integrera bokningssystem direkt.",
+    "Ingen bindningstid, ingen månadskostnad för hosting på subdomän, och du kan exportera koden när du vill. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Projektgalleri som visar dina färdiga jobb",
+      "body": "Potentiella kunder vill se vad du har byggt tidigare. Ett bildgalleri med före- och efterbilder från renoveringar, nybyggen eller ombyggnationer ger direkt trovärdighet. Lägg gärna till korta beskrivningar av varje projekt – vilken typ av byggnad, vad ni gjorde och ungefär hur lång tid det tog. Sajtmaskin låter dig enkelt lägga upp bilder och texter i en struktur som ser proffsig ut, utan att du behöver designa själv."
+    },
+    {
+      "heading": "Tjänstebeskrivning som förklarar vad du erbjuder",
+      "body": "Skriv tydligt vilka tjänster du tar uppdrag inom: nybyggnation, tillbyggnad, badrumsrenovering, takarbeten, fasadarbeten eller totalentreprenader. Många byggföretag glömmer att förklara vad som ingår i priset eller hur processen ser ut. En bra tjänstesida svarar på frågor som 'Får jag offert innan start?' och 'Hur lång är byggtiden?'. Det minskar osäkerheten och gör att fler hör av sig."
+    },
+    {
+      "heading": "Kontaktformulär och bokningsfunktion",
+      "body": "Gör det lätt för kunden att nå dig. Ett kontaktformulär där de fyller i namn, telefon och kort beskrivning av projektet räcker långt. Vill du ta det ett steg längre kan du integrera Cal.com för att låta kunder boka ett kostnadsfritt möte eller platsbesök direkt i din kalender. Sajtmaskin fixar integrationerna åt dig så du slipper tekniskt krångel."
+    },
+    {
+      "heading": "Om oss-sida som bygger förtroende",
+      "body": "Berätta vem som driver företaget, hur länge ni har funnits och varför ni brinner för bygg. Har ni F-skatt, försäkringar eller är medlemmar i Byggföretagen? Nämn det. Kunder vill veta att de anlitar någon som är seriös och står för kvalitet. En personlig om-sida med bild på teamet eller dig som driver firman gör stor skillnad."
+    },
+    {
+      "heading": "Så bygger du din byggsajt med Sajtmaskin",
+      "body": "Du chattar på svenska och beskriver ditt byggföretag – vad ni gör, var ni jobbar och vad som är viktigt att lyfta. AI:n skapar en färdig sajt med alla sektioner, texter och en layout som fungerar på mobil och dator. Du justerar bilder, byter texter och lägger till dina egna projekt. Publicera på din domän eller testa på en subdomän kostnadsfritt. Inga kodkunskaper behövs, och du kan exportera allt när du vill."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Behöver jag kunna koda för att bygga en hemsida för mitt byggföretag?",
+      "a": "Nej, Sajtmaskin bygger sajten åt dig via chat. Du beskriver vad du vill ha, så genererar AI:n allt – texter, struktur och design. Du kan justera och publicera direkt utan att röra kod."
+    },
+    {
+      "q": "Kan jag visa bilder från mina byggprojekt på sajten?",
+      "a": "Ja, du kan enkelt ladda upp bilder i ett projektgalleri. Lägg till före- och efterbilder, beskriv varje projekt och visa vad du har byggt. Det är ett av de viktigaste sätten att bygga förtroende."
+    },
+    {
+      "q": "Hur får jag kunder att kontakta mig via sajten?",
+      "a": "Du kan lägga till ett kontaktformulär där kunder fyller i namn, telefon och beskrivning av projektet. Vill du kan du också integrera Cal.com så de bokar ett kostnadsfritt möte direkt i din kalender."
+    },
+    {
+      "q": "Kan jag använda min egen domän?",
+      "a": "Ja, du publicerar på din egen domän. Vill du testa först kan du köra på en subdomän utan månadskostnad. Ingen bindningstid, och du kan byta när du vill."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Hosting på subdomän är gratis. Vill du använda egen domän och få fler funktioner finns betalplaner, men ingen bindningstid. Du kan exportera koden och flytta sajten när du vill."
+    },
+    {
+      "q": "Kan jag lägga till fler sidor senare?",
+      "a": "Ja, du kan när som helst lägga till nya sidor – till exempel för varje tjänst, fler projekt eller en blogg med byggråd. Sajtmaskin låter dig bygga vidare i samma chattgränssnitt."
+    },
+    {
+      "q": "Fungerar sajten på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och fungerar på mobil, surfplatta och dator. Många kunder kollar på sajten från mobilen, så det är viktigt att allt ser bra ut där."
+    }
+  ],
+  "localOrIndustryContext": "Byggbranschen i Sverige är konkurrensutsatt, och många mindre firmor tappar uppdrag till de som syns online. En professionell hemsida visar att du är seriös, har F-skatt och kan leverera kvalitet. Med Sajtmaskin får även en enmansföretagare eller liten byggfirma en sajt som ser ut som en större aktörs – på minuter, inte veckor.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en bygg-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

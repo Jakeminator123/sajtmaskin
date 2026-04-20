@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "linkoping/bilverkstad",
+  "title": "Hemsida bilverkstad Linköping – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din bilverkstad i Linköping med Sajtmaskin. AI bygger din sajt med bokning, prislista och karta på minuter.",
+  "h1": "Hemsida för bilverkstad i Linköping",
+  "heroSub": "Låt AI bygga en komplett sajt för din bilverkstad med bokning, prislista och kontaktformulär – klar på minuter.",
+  "introParagraphs": [
+    "Din bilverkstad i Linköping behöver en hemsida som visar vad du kan, var du ligger och hur kunderna bokar tid. Sajtmaskin bygger allt det direkt via chat – du beskriver din verkstad, vilka tjänster du erbjuder och om du jobbar med personbilar, lastbilar eller specialfordon, så skapar AI:n en färdig sajt med bokning, prislista och karta.",
+    "Du publicerar på din egen domän utan månadskostnad för hosting på subdomän. Integrationen med Cal.com gör att kunder kan boka servicebesök direkt, och du kan lägga till betalning via Stripe om du vill ta förskott på större jobb. Allt på svenska, byggt i Sverige.",
+    "Ingen bindningstid och du kan exportera koden när du vill. Perfekt för verkstäder i Linköping som vill synas online utan krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en bilverkstadssajt i Linköping behöver",
+      "body": "Kunder som söker bilverkstad i Linköping vill snabbt se vad du kan hjälpa till med, var du ligger och hur de bokar tid. Din sajt behöver en tydlig tjänstelista – service, däckskifte, besiktning, lackering eller specialjobb – plus öppettider och kontaktuppgifter. En karta som visar var i Linköping du finns, gärna med vägbeskrivning från E4 eller centrum, gör det lätt för nya kunder att hitta. Bokningsfunktion sparar tid för både dig och kunderna."
+    },
+    {
+      "heading": "AI bygger sajten åt dig på minuter",
+      "body": "Du chattar med Sajtmaskin och beskriver din verkstad: vilka bilmärken du jobbar med, om du har hissplatser för tunga fordon, om du gör lackering eller enbart mek. AI:n skapar en komplett sajt med startsida, tjänstesidor, om-sida och kontakt. Du kan be om justeringar direkt i chatten – ändra färger, lägg till bilder från verkstaden, justera texten om specialkompetens. Cal.com-integrationen kopplas in så kunder kan välja tid för service eller besiktning."
+    },
+    {
+      "heading": "Publicera på egen domän, ingen hosting-avgift",
+      "body": "När sajten är klar publicerar du på din egen domän – exempelvis dinverkstad.se – eller använder en gratis subdomän från Sajtmaskin utan månadskostnad. Du äger innehållet och kan när som helst exportera hela koden. Vill du lägga till Google Analytics för att se hur många som besöker sajten eller var de kommer ifrån? Det fixar du med ett klick. Stripe-integrationen låter dig ta betalt online om du säljer däck, tillbehör eller vill ha förskott på reparationer."
+    },
+    {
+      "heading": "Integrationer för bokning och betalning",
+      "body": "Cal.com-bokningssystemet visar lediga tider i din kalender och låter kunder välja servicetyp – oljebyte, bromsservice, däckhotell. Du får notiser via mejl eller SMS och slipper telefontaggar. Stripe gör det möjligt att ta betalt för produkter eller tjänster direkt på sajten, praktiskt om du säljer vinterdäck eller sommardäck. Allt sköts på svenska och anpassas efter hur din verkstad jobbar."
+    },
+    {
+      "heading": "Anpassat för Linköpings bilverkstäder",
+      "body": "Linköping har både personbilsverkstäder i Tornby och Lambohov, tung fordonsservice vid hamnområdet och specialister på veteranbilar eller elbilar. Din sajt kan lyfta det som gör din verkstad unik – kanske att du ligger nära Saab-museet och har koll på klassiska Saab-modeller, eller att du har snabbladdare för elbilar. Lokal närvaro och tydlig info om var du ligger i förhållande till E4 eller Universitetssjukhuset gör det lättare för nya kunder att välja dig."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en bilverkstadssajt?",
+      "a": "Oftast några minuter. Du beskriver din verkstad i chatten – tjänster, läge i Linköping, specialkompetens – så genererar AI:n en färdig sajt. Sen justerar du bilder, texter och färger tills allt ser rätt ut. Publicering på egen domän går direkt."
+    },
+    {
+      "q": "Kan kunder boka service direkt på sajten?",
+      "a": "Ja, via Cal.com-integrationen. Du kopplar din kalender så kunder ser lediga tider och väljer typ av service – oljebyte, däckskifte, besiktning. Du får notis när någon bokar och kan bekräfta eller föreslå annan tid. Allt på svenska."
+    },
+    {
+      "q": "Kostar det att ha sajten på en subdomän?",
+      "a": "Nej, hosting på subdomän från Sajtmaskin är gratis utan månadskostnad. Vill du använda egen domän som dinverkstad.se betalar du bara domänregistrering hos din registrar, ingen extra avgift från oss."
+    },
+    {
+      "q": "Kan jag visa priser på service och reparationer?",
+      "a": "Absolut. Du lägger in prislista för vanliga jobb – oljebyte, bromsservice, däckskifte – eller skriver att du lämnar offert efter besiktning. Texten anpassas efter hur din verkstad jobbar, och du kan uppdatera priser när du vill."
+    },
+    {
+      "q": "Fungerar sajten för tung fordonsservice?",
+      "a": "Ja, du beskriver att du jobbar med lastbilar, bussar eller entreprenadmaskiner så anpassar AI:n innehållet. Du kan lyfta att du har stora hissplatser, verktyg för tunga fordon och kompetens för Scania eller Volvo. Bokning och prislista funkar likadant."
+    },
+    {
+      "q": "Hur lägger jag till en karta till verkstaden?",
+      "a": "Du anger adressen i Linköping så bäddar Sajtmaskin in en karta på kontaktsidan. Kunder ser direkt var du ligger – i Tornby, vid Kallerstad eller nära E4 – och kan planera vägen. Du kan även lägga till vägbeskrivning i text om det underlättar."
+    },
+    {
+      "q": "Kan jag exportera sajten och flytta den senare?",
+      "a": "Ja, du kan när som helst exportera hela koden och drifta sajten var du vill. Ingen bindningstid, ingen inlåsning. Du äger allt innehåll och bestämmer själv hur länge du använder Sajtmaskin."
+    }
+  ],
+  "localOrIndustryContext": "Linköping har en bred bilbransch med allt från personbilsverkstäder i Tornby och Lambohov till tung fordonsservice vid hamnområdet och specialister på veteranbilar och elbilar. Närheten till Saab-museet och universitetets teknikfokus gör att många verkstäder har nischkompetens inom klassiska bilar eller elbilsservice.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/linkoping",
+      "label": "Skapa hemsida i Linköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Linköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "helsingborg/foretag",
+  "title": "Hemsida företag Helsingborg – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell företagshemsida i Helsingborg med AI. Ingen kod, klart på minuter. Publicera på egen domän utan bindningstid.",
+  "h1": "Hemsida för företag i Helsingborg",
+  "heroSub": "Bygg en professionell företagshemsida via chat – ingen kod, inga krångliga verktyg. Klar att publicera på minuter.",
+  "introParagraphs": [
+    "Sajtmaskin låter dig bygga en komplett företagshemsida genom att chatta med AI. Du beskriver vad ditt företag i Helsingborg gör, vilka tjänster du erbjuder och vad du vill visa upp – så genererar AI en färdig sajt med text, struktur och design. Allt på svenska, klart på minuter.",
+    "Publicera direkt på egen domän eller testa kostnadsfritt på en subdomän. Ingen bindningstid, inga dolda avgifter. Du kan integrera bokningssystem via Cal.com, betalningar via Stripe och analysera besökare med Google Analytics. Passar allt från konsultbolag och hantverkare till butiker och kreativa byråer i Helsingborg.",
+    "Sajtmaskin är byggt i Sverige av Pretty Good AB. Du behöver ingen teknisk kunskap – bara en tydlig bild av vad ditt företag vill kommunicera. Exportera koden när du vill och äg alltid ditt innehåll."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Bygg din företagssajt via chat",
+      "body": "Istället för att klicka dig genom mallar och pagebuilders chattar du med AI. Berätta om ditt företag, vilka tjänster du erbjuder, vad som skiljer dig från konkurrenterna och vilken känsla sajten ska ge. AI:n skapar en komplett hemsida med startsida, tjänstebeskrivningar, om-sida och kontaktformulär. Du kan sedan justera text, byta bilder och lägga till fler sidor – allt i samma chattgränssnitt. Inget krångel, inga tekniska hinder."
+    },
+    {
+      "heading": "Integrationer för företag som växer",
+      "body": "En företagshemsida behöver ofta mer än bara text och bilder. Med Sajtmaskin kopplar du enkelt Cal.com för tidsbokning, Stripe för betalningar och Google Analytics för att följa besökarstatistik. Driver du även en webshop kan du integrera Shopify. Allt sker utan kod – du aktiverar funktionerna via chatten och AI:n sätter upp det tekniska. Perfekt för företag i Helsingborg som vill ha en sajt som jobbar medan du fokuserar på kunder."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "Du kan publicera din företagssajt på egen domän direkt, eller köra den kostnadsfritt på en Sajtmaskin-subdomän om du vill testa först. Ingen bindningstid, inga dolda avgifter för hosting på subdomän. Vill du byta plattform senare? Exportera koden och ta med dig allt. Du äger ditt innehåll och bestämmer själv hur länge du vill använda tjänsten. Enkelt, transparent och byggt för svenska företag."
+    },
+    {
+      "heading": "Svenskt gränssnitt och support",
+      "body": "Sajtmaskin är helt på svenska – från chattgränssnittet till AI:ns texter och support. Det betyder att din företagssajt får naturligt svenskt språk utan översättningsfel eller konstiga formuleringar. Perfekt för företag i Helsingborg som vill kommunicera professionellt med lokala kunder. Du slipper engelska menyer och kan ställa frågor på svenska om du fastnar. Allt är byggt i Sverige av Pretty Good AB."
+    },
+    {
+      "heading": "För alla typer av företag i Helsingborg",
+      "body": "Oavsett om du driver en konsultfirma, hantverksföretag, butik, restaurang eller kreativ byrå kan du bygga en passande sajt med Sajtmaskin. AI:n anpassar struktur och innehåll efter din bransch och dina behov. Behöver du visa upp projekt? Vill du ha en tjänstekatalog? Ska kunder kunna boka möten eller betala direkt? Berätta vad du behöver så skapar AI:n en sajt som fungerar för just ditt företag."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en företagshemsida i Helsingborg?",
+      "a": "De flesta får en färdig sajt på 10–30 minuter. Du chattar med AI:n, beskriver ditt företag och justerar det som behövs. Sedan publicerar du direkt. Ingen väntan på webbyrå eller teknisk setup."
+    },
+    {
+      "q": "Måste jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, allt sker via chat. Du skriver vad du vill ha, AI:n bygger sajten och du kan justera genom att fortsätta konversationen. Ingen kod, inga tekniska verktyg att lära sig."
+    },
+    {
+      "q": "Kan jag använda min egen domän för företagssajten?",
+      "a": "Ja, du kan publicera på egen domän direkt. Vill du testa först går det bra att köra på en kostnadsfri Sajtmaskin-subdomän utan bindningstid. Du väljer själv när du vill koppla din domän."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för företag i Helsingborg med lokala kunder?",
+      "a": "Absolut. AI:n skriver på svenska och du kan lägga till lokal information, öppettider, adress och kontaktuppgifter som passar dina kunder i Helsingborg. Perfekt för företag som vill nå både lokalt och regionalt."
+    },
+    {
+      "q": "Vilka integrationer kan jag lägga till på min företagssajt?",
+      "a": "Du kan koppla Cal.com för bokning, Stripe för betalningar, Google Analytics för statistik och Shopify om du har en webshop. Allt aktiveras via chatten utan teknisk kunskap."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Hosting på subdomän är gratis utan bindningstid. Vill du använda egen domän eller lägga till integrationer kan vissa funktioner ha en kostnad, men du ser alltid priset innan du aktiverar något."
+    },
+    {
+      "q": "Kan jag exportera min sajt om jag vill byta plattform?",
+      "a": "Ja, du kan exportera koden när du vill och ta med dig allt innehåll. Ingen inlåsning – du äger din sajt och bestämmer själv hur länge du vill använda Sajtmaskin."
+    }
+  ],
+  "localOrIndustryContext": "Helsingborg har en blandad näringsliv med allt från handel och logistik till tech och kreativa branscher. Företag här behöver ofta en sajt som fungerar både lokalt och regionalt, med tydlig kontaktinfo och möjlighet att visa upp tjänster professionellt. Sajtmaskin passar företag i alla storlekar som vill komma igång snabbt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/helsingborg",
+      "label": "Skapa hemsida i Helsingborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Helsingborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

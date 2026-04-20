@@ -1,0 +1,102 @@
+{
+  "family": "ai",
+  "slug": "ai-hemsida-webshop",
+  "title": "AI-driven webshop – bygg och optimera din butik med AI | Sajtmaskin",
+  "metaDescription": "AI bygger din webshop direkt från en beskrivning, genererar produktsidor och optimerar layout. Prova gratis på svenska – publicera på minuter.",
+  "h1": "AI-driven webshop – så fungerar det",
+  "heroSub": "Låt AI bygga hela din webshop från en enkel beskrivning, inklusive produktsidor, layout och betalintegration.",
+  "introParagraphs": [
+    "En AI-driven webshop innebär att artificiell intelligens tar hand om konstruktionen av din butik – du beskriver vad du säljer och till vem, så genererar AI struktur, produktsidor, kategorilogik och design utan att du behöver koda eller välja bland hundra mallar. Tekniken har mognat snabbt det senaste året och används nu av allt från hobbyföretagare till etablerade butiker som vill testa nya koncept.",
+    "Traditionellt har du antingen byggt i en plattform som Shopify eller WooCommerce (där du klickar ihop sidor manuellt), anlitat en byrå eller kodat själv. AI-verktyg förkortar den processen radikalt genom att tolka din affärsidé och direkt skapa fungerande sidor, menyer och produktkataloger. Du får fortfarande full kontroll – du kan redigera, byta bilder och justera texter – men grundarbetet sker automatiskt.",
+    "Sajtmaskin är ett svenskt exempel på den här tekniken. Du chattar med AI:n om din butik, den genererar hela webshopen på svenska och kopplar in Shopify för lagerhantering och Stripe för kortbetalningar. Publicera på egen domän eller testa gratis på en subdomän. Ingen bindningstid, och du kan exportera koden när du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad AI faktiskt gör när den bygger din webshop",
+      "body": "AI-modellen läser din beskrivning (till exempel \"ekologiska hundtillbehör, skandinavisk design, riktar sig till stadshundar\") och skapar en komplett sidstruktur: startsida med hero och USP, produktkategorier, enskilda produktsidor med bildgallerier och köpknappar, en om-sida och kontaktformulär. Den väljer färgpalett och typsnitt som passar din profil, skriver förslag på produktbeskrivningar och genererar SEO-titlar. Resultatet är en fungerande prototyp som du sedan fyller med riktiga produktbilder och justerar efter behov."
+    },
+    {
+      "heading": "Shopify-integration och betalningar",
+      "body": "Sajtmaskin kopplar din AI-genererade front end till Shopify via API, vilket innebär att du hanterar lager, ordrar och frakt i Shopifys backend medan kunderna ser din unika design. Betalningar går genom Stripe – Swish, kort och andra metoder fungerar direkt. Du slipper bygga egen kassalösning men behåller friheten att designa kundresan precis som du vill. Alla transaktioner är säkra och PCI-kompatibla utan extra arbete från din sida."
+    },
+    {
+      "heading": "Skillnaden mot klassiska webshop-plattformar",
+      "body": "Shopify, WooCommerce och Wix ger dig mallar och drag-and-drop-redigerare, men du måste fortfarande klicka ihop varje sida, välja layout-block och skriva all text själv. Det tar timmar eller dagar. En AI-driven approach genererar allt det där på minuter baserat på din beskrivning, och du hoppar direkt till finputsning. Du får också förslag på texter och struktur som är skräddarsydda för din nisch, istället för generiska platshållare."
+    },
+    {
+      "heading": "Vanliga användningsfall",
+      "body": "Många använder AI-webshoppar för att snabbt validera en produktidé – lansera en butik på en helg, testa marknaden och iterera. Andra driver etablerade butiker parallellt på flera plattformar och vill ha en fristående sajt med eget varumärke utan att betala procent till en marknadsplats. Konsulter och designers använder AI för att bygga kundprojekt snabbare, och hobbyföretagare säljer hantverksvaror eller print-on-demand utan teknisk börda."
+    },
+    {
+      "heading": "Så kommer du igång med Sajtmaskin",
+      "body": "Skapa ett konto, beskriv din webshop i chatten (sortiment, målgrupp, stil) och låt AI:n generera första utkastet. Granska sidorna, byt ut bilder, redigera texter och lägg till dina riktiga produkter via Shopify-kopplingen. Koppla Stripe för betalningar, anslut din egen domän eller publicera på en gratis subdomän för att testa. Hela processen tar vanligtvis 10–30 minuter från idé till publicerad butik. Exportera koden när du vill – ingen inlåsning."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan AI verkligen skapa en hel webshop utan att jag kodar?",
+      "a": "Ja. Du beskriver din butik i vanlig text, så genererar AI struktur, sidor, design och texter. Du behöver inte skriva en rad kod. Däremot bör du lägga in dina egna produktbilder och justera beskrivningar så de stämmer exakt, men grundarbetet sköter AI:n."
+    },
+    {
+      "q": "Hur hanteras lager och ordrar i en AI-byggd webshop?",
+      "a": "Sajtmaskin kopplar till Shopify för lagerhantering, så du administrerar produkter, ordrar och frakt i Shopifys backend. AI:n bygger bara fronten – själva butiksgränssnittet – medan Shopify sköter logistiken. Du kan också välja att inte använda Shopify om du bara vill ha en enklare sajt utan fullständig e-handel."
+    },
+    {
+      "q": "Vad kostar det att driva en AI-driven webshop via Sajtmaskin?",
+      "a": "Sajtmaskin tar ingen månadsavgift om du publicerar på en subdomän. Vill du ha egen domän betalar du för domänregistrering (ca 100–150 kr/år). Shopify kostar från 299 kr/månad för deras Starter-plan, och Stripe tar en transaktionsavgift (ca 1,8 % + 1,80 kr per kortköp). Inga dolda kostnader eller bindningstid."
+    },
+    {
+      "q": "Kan jag redigera webshopen efter att AI:n byggt den?",
+      "a": "Absolut. Du kan ändra texter, byta bilder, lägga till nya sidor och justera färger direkt i gränssnittet. Vill du ha full kontroll kan du exportera koden och fortsätta utveckla lokalt eller hos en annan leverantör. Sajtmaskin låser inte in dig."
+    },
+    {
+      "q": "Fungerar AI-genererade webshoppar bra för SEO?",
+      "a": "Ja, AI:n skriver semantisk HTML, genererar metataggar och strukturerar innehåll så sökmotorer kan indexera det. Du bör dock gå igenom produktbeskrivningar och rubriker själv för att säkerställa att nyckelord och ton stämmer med din strategi. Google Analytics ingår så du kan följa trafik och konverteringar från start."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när som helst, utan kostnad. Ta med dig HTML, CSS och JavaScript till vilken hostingleverantör du vill. Shopify-integrationen är standard-API, så du kan även koppla samma backend till en ny front end om du bygger om senare."
+    },
+    {
+      "q": "Kan AI:n hantera flera språk eller valutor i webshopen?",
+      "a": "Just nu genererar Sajtmaskin på svenska, men du kan manuellt lägga till engelska eller andra språk genom att redigera texterna. För flera valutor och internationell frakt använder du Shopifys inbyggda funktioner – AI:n bygger strukturen, sedan konfigurerar du vilka marknader du vill nå i Shopify-panelen."
+    }
+  ],
+  "localOrIndustryContext": "E-handeln i Sverige omsätter över 150 miljarder kronor årligen, och allt fler nischbutiker startar för att möta specifika kundbehov. AI-verktyg sänker tröskeln radikalt – du behöver inte längre teknisk expertis eller stor budget för att testa en produktidé online.",
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

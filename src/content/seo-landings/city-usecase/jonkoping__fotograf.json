@@ -1,0 +1,89 @@
+{
+  "family": "city-usecase",
+  "slug": "jonkoping/fotograf",
+  "title": "Hemsida fotograf Jönköping – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din fotoverksamhet i Jönköping. AI bygger din sajt med galleri, bokning och kontakt – ingen kod krävs.",
+  "h1": "Hemsida fotograf Jönköping",
+  "heroSub": "Bygg en professionell fotograf-sajt för din verksamhet i Jönköping – på minuter, inte veckor.",
+  "introParagraphs": [
+    "Som fotograf i Jönköping behöver du en hemsida som visar upp ditt arbete och gör det enkelt för kunder att boka dig. Sajtmaskin bygger din fotograf-sajt via chat – du beskriver vad du fotograferar och vem du riktar dig till, så skapar AI:n en färdig sajt med bildgalleri, om-sida, prisinfo och kontaktformulär.",
+    "Du publicerar direkt på din egen domän eller testar kostnadsfritt på en subdomän. Ingen bindningstid, ingen månadskostnad för hosting på subdomän. Allt på svenska, byggt för svenska fotografer som vill synas online utan att lära sig kod eller design."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad ingår i en fotograf-sajt från Sajtmaskin?",
+      "body": "Din sajt får automatiskt de sidor en fotograf behöver: startsida med hero-bild, ett galleri där du visar ditt arbete uppdelat i kategorier (bröllop, porträtt, företag), en om-sida där du berättar vem du är, en prissida och en kontaktsida. Sajtmaskin bygger strukturen direkt från din beskrivning. Du laddar upp dina egna bilder, justerar texter och färger via chatten – ingen kodning krävs. Vill du ha bokningsfunktion kopplar du Cal.com, vill du ta betalt online lägger du till Stripe."
+    },
+    {
+      "heading": "Varför fotografer i Jönköping väljer Sajtmaskin",
+      "body": "Många fotografer i Jönköping jobbar som enskild firma eller egenanställda och behöver en sajt som är snabb att sätta upp och lätt att uppdatera själv. Med Sajtmaskin slipper du byråtimmar och WordPress-krångel. Du chattar fram sajten, publicerar på din egen domän och kan när som helst exportera koden om du vill flytta. Plattformen är byggd i Sverige av Pretty Good AB, med svenskt gränssnitt och svensk support. Perfekt när du vill komma igång snabbt mellan fotojobb."
+    },
+    {
+      "heading": "Galleri, bokning och SEO – allt på plats",
+      "body": "En fotograf-sajt behöver visa bilder snyggt, vara snabb att ladda och synas i Google när någon söker efter fotograf i Jönköping. Sajtmaskin genererar responsiva gallerier som ser bra ut på mobil, optimerar bildstorlekar automatiskt och skapar SEO-vänliga sidor med rätt rubriker och metadata. Vill du att kunder ska kunna boka direkt integrerar du Cal.com så de väljer tid i din kalender. Du kan lägga till Google Analytics för att se hur besökare hittar dig."
+    },
+    {
+      "heading": "Kom igång på minuter, inte månader",
+      "body": "Traditionellt tar det veckor att bygga en fotograf-sajt: hitta designer, skicka bilder fram och tillbaka, vänta på korrigeringar. Med Sajtmaskin startar du en chat, beskriver din verksamhet och vilka tjänster du erbjuder, så står sajten klar på minuter. Du testar kostnadsfritt, justerar tills allt känns rätt och publicerar sedan. Inga dolda avgifter, ingen bindningstid. Uppdatera innehåll via chatten när du vill – lägg till nya gallerier, ändra priser eller lägg till tjänster allt eftersom din verksamhet växer."
+    },
+    {
+      "heading": "Från idé till publicerad sajt – så fungerar det",
+      "body": "Logga in på Sajtmaskin och starta ett nytt projekt. Berätta att du är fotograf i Jönköping, vilka typer av uppdrag du tar (bröllop, familj, företagsporträtt) och vad du vill att sajten ska innehålla. AI:n skapar struktur, texter och layout. Du laddar upp dina bästa bilder, justerar färgschema och typsnitt via chatten. När du är nöjd kopplar du din domän eller publicerar på subdomän. Vill du lägga till bokningsfunktion eller betalning senare gör du det med ett par klick. Allt sköts från samma gränssnitt, ingen teknisk expertis krävs."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag använda mina egna bilder i galleriet?",
+      "a": "Ja, du laddar upp dina egna foton och organiserar dem i kategorier som passar din verksamhet – till exempel bröllop, porträtt eller företagsfoto. Sajtmaskin optimerar bilderna automatiskt för snabb laddning utan att förlora kvalitet."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du använda din egen domän (till exempel dittnamn.se) kopplar du den kostnadsfritt, men domänregistrering och eventuell premium-hosting kan kosta beroende på ditt val."
+    },
+    {
+      "q": "Kan kunder boka fotosession direkt på sajten?",
+      "a": "Ja, du integrerar Cal.com så besökare kan välja tid i din kalender. De ser lediga tider, bokar och får bekräftelse automatiskt. Perfekt för porträtt- och familjefotograferingar där kunder vill boka snabbt."
+    },
+    {
+      "q": "Syns min sajt när folk söker efter fotograf i Jönköping?",
+      "a": "Sajtmaskin bygger SEO-vänliga sidor med rätt metadata, rubriker och snabb laddningstid. För att ranka högt i Google behöver du också bra innehåll, relevanta texter om dina tjänster i Jönköping och gärna en Google My Business-profil som länkas till sajten."
+    },
+    {
+      "q": "Kan jag ändra innehållet själv efter publicering?",
+      "a": "Absolut. Du uppdaterar texter, lägger till nya bilder eller ändrar priser via chatten. Inga tekniska kunskaper krävs – beskriv vad du vill ändra så uppdateras sajten direkt."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill. Ingen bindningstid, inga låsningar. Ta med dig sajten och hosta den var du vill, eller fortsätt använda Sajtmaskin så länge det passar dig."
+    }
+  ],
+  "localOrIndustryContext": "Jönköping har en växande kreativ sektor med många frilansande fotografer som jobbar med bröllop, företagsporträtt och eventfoto. En professionell hemsida hjälper dig sticka ut när par söker bröllopsfotograf eller företag behöver profilbilder. Att synas online lokalt är avgörande i en stad där mycket bokas via Google och sociala medier.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/jonkoping",
+      "label": "Skapa hemsida i Jönköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Jönköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

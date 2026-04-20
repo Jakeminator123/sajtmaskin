@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "tandlakare",
+  "title": "Hemsida för tandläkare – bygg din tandvårdssajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din tandläkarpraktik med AI. Bokningssystem, behandlingsinfo och patientformulär – klart på minuter.",
+  "h1": "Hemsida för tandläkare",
+  "heroSub": "Bygg en komplett tandvårdssajt med bokningssystem och behandlingsinformation – direkt i chatten, utan kod.",
+  "introParagraphs": [
+    "En bra hemsida för tandläkare gör det enkelt för patienter att boka tid, läsa om behandlingar och hitta er praktik. Den ska bygga förtroende med tydlig information om teamet, priser och vad som händer vid besöket. Många tandläkare tappar bokningar för att sajten saknar online-bokning eller är svår att hitta på mobilen.",
+    "Med Sajtmaskin skapar du en färdig tandvårdssajt på minuter. Berätta i chatten vad din praktik erbjuder – allmäntandvård, implantat, blekning – så bygger AI:n hela sajten med bokningssystem, behandlingssidor och kontaktformulär. Publicera på din egen domän utan månadskostnad för hosting, och integrera Cal.com så patienter kan boka direkt.",
+    "Du behöver ingen byrå eller teknisk kunskap. Ändra text och bilder i gränssnittet, lägg till nya tjänster när praktiken växer, och exportera koden om du vill flytta senare. Allt på svenska, byggt för svenska tandläkare som vill ha en professionell närvaro online utan krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en tandläkarsajt behöver innehålla",
+      "body": "En typisk hemsida för tandläkare har startsida med översikt, sida om teamet med foton och kompetenser, behandlingssidor för varje tjänst (kontroll, lagning, rotfyllning, blekning, implantat), prislista, bokningssida och kontakt med karta. Många lägger till patientinformation om vad som ingår i undersökningen, hur akuta ärenden hanteras och vilka försäkringar ni tar emot. Ett enkelt formulär för nya patienter sparar tid i receptionen. Bokningssystem som visar lediga tider direkt minskar telefonsamtal och no-shows. Sajten ska ladda snabbt på mobil – de flesta patienter söker tandläkare på väg hem från jobbet."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din tandvårdssajt",
+      "body": "Du startar en chatt och beskriver din praktik: \"Jag driver en allmäntandvård i Malmö, vi gör kontroller, lagningar, rotfyllningar och tandblekning. Vill ha bokning, priser och info om teamet.\" AI:n skapar då struktur, skriver utkast till behandlingstexter och lägger in bokningsfunktion via Cal.com. Du kan direkt redigera allt – byt ut standardtext mot er egen beskrivning, ladda upp teamfoton, justera priser. Lägg till fler sidor om ni erbjuder specialisttjänster som protetik eller parodontalbehandling. Integrationen med Google Analytics visar vilka behandlingssidor som är populärast, så du ser vad patienter söker efter."
+    },
+    {
+      "heading": "Bokningssystem och patientformulär",
+      "body": "Cal.com-integrationen låter patienter välja behandling, se lediga tider och boka direkt på sajten. Du styr hur lång tid varje typ av besök tar – trettio minuter för kontroll, sextio för lagning. Nya patienter kan fylla i ett formulär med medicinsk historik och försäkringsuppgifter innan första besöket, vilket sparar tid i väntrummet. Om ni tar betalt online för vissa tjänster, som blekning eller hygienskydd, kopplar du Stripe. Allt synkas med er kalender så dubbelbokningar inte händer. Patienter får bekräftelse på mail automatiskt."
+    },
+    {
+      "heading": "Bygg förtroende med tydlig information",
+      "body": "Patienter väljer tandläkare baserat på förtroende. En sida om teamet med namn, utbildning och intressen gör praktiken personlig. Behandlingssidor ska förklara vad som händer, hur lång tid det tar och vad det kostar – inga överraskningar. Många tandläkare lägger upp vanliga frågor: Gör det ont? Vad ingår i kontrollen? Tar ni emot Folktandvårdens remisser? En enkel blogg med tips om tandhälsa – som hur ofta man ska byta tandborste eller varför fluor är viktigt – visar expertis och hjälper SEO. Sajtmaskin låter dig lägga till allt detta utan att röra kod."
+    },
+    {
+      "heading": "Ingen bindningstid, äg din sajt",
+      "body": "Många tandläkare fastnar i dyra avtal med webbbyråer som tar betalt varje månad för hosting och ändringar. Med Sajtmaskin äger du sajten från dag ett. Publicera på subdomän gratis eller koppla din egen domän (tandlakarestrand.se) utan extra kostnad. Vill du byta plattform senare? Exportera hela koden och ta den med dig. Uppdatera öppettider, lägg till nya behandlingar eller byt bilder själv – ingen väntan på byrå. Perfekt för både nyöppnade praktiker som vill komma igång snabbt och etablerade kliniker som vill modernisera utan att börja om från noll."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan patienter boka tid direkt på sajten?",
+      "a": "Ja, via Cal.com-integrationen kan patienter se lediga tider och boka behandlingar direkt. Du styr hur lång tid varje besökstyp tar och vilka tider som är bokningsbara. Bekräftelse skickas automatiskt på mail, och bokningar synkas med din kalender så du slipper dubbelbokningar."
+    },
+    {
+      "q": "Hur lägger jag till information om olika behandlingar?",
+      "a": "Berätta i chatten vilka behandlingar ni erbjuder – kontroll, lagning, rotfyllning, blekning, implantat – så skapar AI:n egna sidor för varje tjänst. Du redigerar sedan texten så den passar er praktik, lägger till priser och förklarar vad som ingår. Lägg till fler behandlingssidor när ni utökar verksamheten."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och snabba på mobil. Eftersom de flesta patienter söker tandläkare på telefon är det viktigt att bokningssystem, kontaktinfo och karta fungerar smidigt. Du kan förhandsgranska mobilversionen innan du publicerar."
+    },
+    {
+      "q": "Kan jag ta betalt online för vissa tjänster?",
+      "a": "Ja, koppla Stripe om ni vill ta betalt direkt på sajten – till exempel för tandblekning, hygienskydd eller avgift för missad tid. Betalningen hanteras säkert och pengarna går direkt till ert konto. Bra för tjänster där patienten betalar i förväg."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Hosting på subdomän är gratis utan tidsgräns. Vill du använda egen domän betalar du bara domänregistrering (cirka hundra kronor per år hos valfri registrator). Cal.com har en gratisplan för grundläggande bokning. Inga månadskostnader för själva sajten, ingen bindningstid. Du betalar bara om du vill ha extra funktioner eller premium-integrationer."
+    },
+    {
+      "q": "Kan jag visa teamet och deras kompetens?",
+      "a": "Absolut. Lägg till en teamsida med foto, namn, utbildning och specialområden för varje tandläkare och tandhygienist. Det bygger förtroende och hjälper patienter välja vem de vill träffa. Du kan också lägga till personliga intressen om ni vill göra praktiken mer mänsklig."
+    },
+    {
+      "q": "Äger jag sajten eller är jag låst till Sajtmaskin?",
+      "a": "Du äger allt innehåll och kan exportera koden när du vill. Ingen bindningstid. Om du senare vill byta plattform eller låta en utvecklare ta över är det helt fritt. Sajtmaskin är ett verktyg för att komma igång snabbt, inte en låsning."
+    }
+  ],
+  "localOrIndustryContext": "Tandvården i Sverige präglas av både privata praktiker och Folktandvården. Många patienter jämför kliniker online innan de boker, och en tydlig hemsida med priser, teaminfo och enkel bokning är ofta avgörande. Särskilt i större städer som Stockholm, Göteborg och Malmö är konkurrensen hård, och en professionell sajt hjälper er synas.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en tandläkare-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "revisor",
+  "title": "Hemsida för revisor – Bygg en professionell revisionsbyrå-sajt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din revisionsbyrå på minuter. Färdiga sektioner för tjänster, bokningar och kundkontakt. Ingen kod krävs.",
+  "h1": "Hemsida för revisor",
+  "heroSub": "Bygg en professionell sajt för din revisionsbyrå – med bokningsfunktion, tjänstepresentation och kundcase – direkt i chatten.",
+  "introParagraphs": [
+    "En revisor behöver en hemsida som bygger förtroende och gör det enkelt för kunder att hitta rätt. Det handlar om att tydligt visa vilka tjänster du erbjuder – revision, rådgivning, bokslut, deklarationer – och ge besökare ett smidigt sätt att boka ett första möte. Många revisionsbyråer kämpar med sajter som ser daterade ut eller saknar grundläggande funktioner som kontaktformulär och tidbokning.",
+    "Med Sajtmaskin bygger du en komplett hemsida för din revisionsbyrå på minuter. Du chattar med AI:n om vad du behöver – kanske en sida för företagsrevision, en för skatterådgivning, ett bokningsformulär kopplat till din kalender och en sektion med kundcase. Sajten blir färdig att publicera på din egen domän, utan månadskostnad för hosting om du kör på vår subdomän.",
+    "Allt är på svenska, från gränssnitt till support. Du kan när som helst exportera koden eller lägga till integrationer som Cal.com för bokning och Google Analytics för att följa hur kunder hittar dig."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en revisionsbyrå-sajt behöver innehålla",
+      "body": "En bra hemsida för revisor har vanligtvis en startsida som förklarar vem du hjälper och varför, en tjänstesida där du listar revision, bokslut, löpande bokföring och skatterådgivning, en om-sida som presenterar dig och eventuella medarbetare med legitimationer, och en kontaktsida med telefon, mejl och gärna ett bokningsformulär. Många byråer har också en blogg eller kunskapsbank där de delar tips om momsregler, bokslutsdatum eller nya skatteregler – det bygger expertis och hjälper sajten synas i sökmotorer. Om du jobbar med specifika branscher, som e-handel eller fastighetsbolag, kan du ha egna landningssidor för dem."
+    },
+    {
+      "heading": "Bokningsfunktion och kundkontakt",
+      "body": "Revisorer lever på återkommande relationer, och första steget är ofta ett kostnadsfritt rådgivningsmöte. Därför är en integrerad bokningsfunktion guld värd. Med Sajtmaskins Cal.com-integration kan besökare boka tid direkt i din kalender utan mejl fram och tillbaka. Du bestämmer själv vilka tider som är lediga och hur långa möten du vill erbjuda. Utöver det behöver sajten ett enkelt kontaktformulär för snabba frågor och tydliga uppgifter – telefon, mejl, organisationsnummer – så att potentiella kunder känner sig trygga. Många revisionsbyråer lägger också in en karta om de har fysiskt kontor."
+    },
+    {
+      "heading": "Bygg förtroendet med case och referenser",
+      "body": "Revision handlar om tillit. Besökare vill veta att du har erfarenhet och nöjda kunder. En sektion med kundcase eller citat från företagare du hjälpt gör stor skillnad. Det behöver inte vara långa texter – ett par meningar om hur du hjälpte ett litet aktiebolag genom en revision eller rådde en e-handlare om momshantering räcker långt. Om du har auktorisation eller är medlem i branschorganisationer som FAR, visa det tydligt. Sajten ska andas seriositet utan att bli stel – du vill att småföretagare och tillväxtbolag ska känna att de kan prata öppet med dig om sina siffror."
+    },
+    {
+      "heading": "Så bygger du sajten med Sajtmaskin",
+      "body": "Du startar genom att chatta med AI:n: berätta vilken typ av revisionsbyrå du driver, vilka tjänster du erbjuder och vad som är viktigt för dina kunder. AI:n föreslår en struktur – kanske startsida, tjänster, om oss, blogg och kontakt – och genererar text och layout. Du kan direkt be om ändringar: lägg till en sektion för årsbokslut, byt rubrik på om-sidan, integrera Cal.com för bokning. När du är nöjd publicerar du på din egen domän eller kör på en subdomän utan månadskostnad. Vill du senare lägga till fler sidor eller byta färgschema gör du det i samma chatt. Ingen kod, ingen bindningstid."
+    },
+    {
+      "heading": "Integration med verktyg du redan använder",
+      "body": "Sajtmaskin kopplas enkelt till Cal.com så kunder kan boka möten, Stripe om du vill ta betalt för rådgivningstimmar eller digitala produkter som mallar, och Google Analytics för att se vilka sidor som får mest trafik och var besökare kommer ifrån. Allt sköts via chatten – du behöver inte gräva i inställningar eller koda. Om du senare vill flytta sajten eller bygga vidare på egen hand kan du exportera hela kodbasen. Sajten är din, inte inlåst i en plattform."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min revisionsbyrå?",
+      "a": "De flesta revisorer har en fungerande sajt på 10–20 minuter. Du chattar om vilka tjänster du erbjuder, vilka sidor du behöver och om du vill ha bokningsfunktion. AI:n bygger sajten direkt, och du kan justera text och layout i samma chatt innan du publicerar."
+    },
+    {
+      "q": "Kan jag lägga till en blogg om skatteregler och bokföringstips?",
+      "a": "Ja, du kan be AI:n skapa en bloggsida och lägga till inlägg direkt i chatten. Många revisorer använder bloggen för att dela uppdateringar om momsändringar, bokslutsdatum eller tips till småföretagare – det stärker din expertis och hjälper sajten synas i Google."
+    },
+    {
+      "q": "Hur fungerar bokningsfunktionen för kundmöten?",
+      "a": "Sajtmaskin integrerar med Cal.com. Du kopplar din kalender, sätter vilka tider som är lediga och hur långa möten du vill erbjuda. Besökare bokar direkt på sajten, och du får bekräftelse via mejl. Ingen dubbelbokningar, inget mejlkaos."
+    },
+    {
+      "q": "Kan jag visa vilka auktorisationer och medlemskap jag har?",
+      "a": "Absolut. Du kan be AI:n lägga till en sektion på om-sidan eller startsidan där du visar FAR-medlemskap, auktorisation eller andra legitimationer. Du kan också ladda upp logotyper eller certifikat om du vill. Det bygger förtroende direkt."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter att jag byggt den?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hostingen gratis. Vill du använda din egen domän behöver du köpa den separat (oftast runt 100–150 kr/år). Det finns ingen månadskostnad för själva sajten, och du kan när som helst exportera koden om du vill flytta den någon annanstans."
+    },
+    {
+      "q": "Kan jag ha separata sidor för olika tjänster som revision och rådgivning?",
+      "a": "Ja, du kan ha hur många tjänstesidor du vill. Många revisorer skapar en sida för företagsrevision, en för skatterådgivning, en för bokslut och så vidare. AI:n hjälper dig strukturera menyn så det blir tydligt för besökare vilken tjänst som passar deras behov."
+    },
+    {
+      "q": "Är sajten anpassad för mobil och läsplattor?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och fungerar lika bra på mobil, läsplatta och dator. Många småföretagare söker efter revisor på telefonen, så det är viktigt att bokningsformulär och kontaktuppgifter är lättillgängliga oavsett skärmstorlek."
+    }
+  ],
+  "localOrIndustryContext": "Revisionsmarknaden i Sverige präglas av allt från stora byråer som PwC och KPMG till enmansföretag och lokala samarbeten. Många småföretagare söker en personlig revisor som förstår deras bransch och kan prata klarspråk om bokslut och skatt. En professionell hemsida gör att du syns när de googlar, och en smidig bokningsfunktion sänker tröskeln för att ta kontakt.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en revisor-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

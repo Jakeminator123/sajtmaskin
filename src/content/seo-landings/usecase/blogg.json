@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "blogg",
+  "title": "Starta blogg hemsida – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Starta din blogghemsida direkt – AI skapar layout, arkiv och läsarvänlig design på minuter. Publicera på egen domän utan krångel.",
+  "h1": "Starta blogg hemsida med AI",
+  "heroSub": "Få en komplett bloggsajt med arkiv, kategorier och läsvänlig design – klar att publicera på några minuter.",
+  "introParagraphs": [
+    "En blogghemsida behöver mer än bara en startsida. Du vill ha ett tydligt arkiv där läsare hittar äldre inlägg, kategorier som sorterar dina ämnen, en om-sida som visar vem du är, och en layout som gör texten lätt att ta till sig på alla skärmar. Många bloggare fastnar i tekniken innan de ens hunnit skriva sitt första inlägg.",
+    "Med Sajtmaskin chattar du fram hela sajten på minuter. Du beskriver vad bloggen handlar om – mat, resor, personlig utveckling, mode – så bygger AI:n struktur, navigering och design åt dig. Publicera direkt på egen domän eller testa gratis på en subdomän. Inga mallar att välja mellan, ingen kod att röra.",
+    "Du kan när som helst redigera text, lägga till nya sidor eller koppla på Google Analytics för att se vilka inlägg som läses mest. Vill du ta betalt för premium-innehåll fungerar Stripe-integration direkt. Allt på svenska, allt utan bindningstid."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Arkiv och kategorier som håller ordning",
+      "body": "En blogg växer snabbt. Efter tio inlägg behöver läsare ett sätt att hitta det de söker. Sajtmaskin skapar automatiskt ett arkivsystem där alla inlägg listas kronologiskt, plus kategorisidor om du vill sortera efter tema. Du kan lägga till taggar, skriva ingress-texter och visa publiceringsdag – allt justeras direkt i chatten eller i editorn efteråt."
+    },
+    {
+      "heading": "Läsvänlig typografi och mobil­anpassning",
+      "body": "Blogginlägg läses oftast på mobilen, i soffan eller på pendeln. Sajtmaskin väljer typsnitt och radavstånd som gör långa texter behagliga att skrolla igenom, oavsett skärmstorlek. Bilder skalas automatiskt och menyn fungerar lika bra med tummen som med musen. Du slipper testa på tio olika enheter – layouten är responsiv från start."
+    },
+    {
+      "heading": "Om-sida och kontaktvägar",
+      "body": "Läsare vill veta vem som skriver. Sajtmaskin lägger in en om-sida där du presenterar dig själv, din bakgrund och varför du bloggar. Vill du att folk ska kunna boka dig för föreläsningar eller samarbeten? Integrera Cal.com så får du ett bokningsschema direkt på sajten. Eller lägg till ett enkelt kontaktformulär – allt skapas när du ber AI:n om det."
+    },
+    {
+      "heading": "Enkel publicering och uppdatering",
+      "body": "Varje nytt blogginlägg läggs till genom att du chattar med AI:n eller redigerar direkt i gränssnittet. Inga krångliga CMS-system att lära sig. Vill du ändra rubrik, byta ut en bild eller skriva om ett stycke går det på sekunder. Publicera när du är nöjd – på egen domän om du har en, annars på en kostnadsfri Sajtmaskin-subdomän tills du är redo."
+    },
+    {
+      "heading": "Exportera och äg din kod",
+      "body": "Din blogg är din. Sajtmaskin låser inte in dig – ladda ner hela sajten som kod när du vill och flytta den till vilken hostingleverantör som helst. Ingen bindningstid, inga dolda avgifter. Du kan fortsätta uppdatera via Sajtmaskin eller ta över tekniken själv. Perfekt om du vill testa bloggen först och sedan växa vidare på egen hand."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag importera gamla blogginlägg från en annan plattform?",
+      "a": "Just nu skapar Sajtmaskin nya sidor från grunden via chat. Vill du flytta över gamla inlägg kan du kopiera texten och be AI:n skapa motsvarande sidor, eller redigera manuellt i editorn. Export-funktionen gör det enkelt att sedan migrera allt till ett CMS om du behöver mer avancerad import senare."
+    },
+    {
+      "q": "Hur lägger jag till nya blogginlägg efter lanseringen?",
+      "a": "Chatta med AI:n och beskriv ditt nya inlägg – rubrik, text, eventuella bilder. Sajtmaskin lägger till det i arkivet och uppdaterar navigeringen automatiskt. Du kan också gå in i editorn och skapa sidan manuellt om du föredrar att skriva direkt i gränssnittet."
+    },
+    {
+      "q": "Kan läsare prenumerera på nya inlägg via e-post?",
+      "a": "Sajtmaskin har ingen inbyggd e-postlista än, men du kan integrera externa tjänster genom att bädda in ett formulär från exempelvis Mailchimp eller Substack. Lägg till HTML-koden i en sektion så samlar du prenumeranter direkt på sajten."
+    },
+    {
+      "q": "Fungerar bloggen bra för SEO och Google?",
+      "a": "Ja. Sajtmaskin genererar ren HTML med semantiska taggar, snabba laddningstider och mobilanpassning – allt som Google värderar. Du kan lägga till metabeskrivningar, anpassa URL-slugs och koppla på Google Analytics för att följa trafik och sökord. Tekniken är på plats; innehållet och nyckelorden är upp till dig."
+    },
+    {
+      "q": "Kostar det något att driva bloggen efter att jag byggt den?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsgräns. Vill du använda egen domän behöver du registrera den (cirka 100–150 kr/år hos en domänleverantör) och eventuellt betala för hosting om du väljer att exportera koden. Sajtmaskin tar ingen månadskostnad för själva sajten."
+    },
+    {
+      "q": "Kan jag ta betalt för premium-innehåll eller medlemskap?",
+      "a": "Ja, via Stripe-integrationen. Du kan skapa betalda sidor eller sektioner som läsare låser upp efter köp. Perfekt om du vill erbjuda exklusiva guider, kurser eller tidig tillgång till inlägg. Stripe hanterar betalningen; du får pengarna direkt till ditt konto."
+    },
+    {
+      "q": "Vad händer om jag vill byta design senare?",
+      "a": "Du chattar med AI:n och beskriver vad du vill ändra – färger, typsnitt, layout. Sajtmaskin uppdaterar designen utan att du förlorar innehåll. Vill du göra en större omgång kan du alltid exportera koden och anpassa den själv, eller be AI:n bygga en helt ny version och migrera texten."
+    }
+  ],
+  "localOrIndustryContext": "Bloggvärlden i Sverige är mångfacetterad – från matbloggare och reseentusiaster till personliga dagböcker och nischade expertbloggar. Oavsett ämne är tekniken ofta det första hindret. Sajtmaskin tar bort det hindret så du kan fokusera på det som betyder något: att skriva och nå läsare.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en blogg-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

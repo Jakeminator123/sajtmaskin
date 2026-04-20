@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "norrkoping/event",
+  "title": "Hemsida Event Norrköping – Bygg din eventsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för event i Norrköping med AI. Biljettförsäljning, bokning och betalning – allt på plats direkt. Ingen kod behövs.",
+  "h1": "Hemsida för event i Norrköping",
+  "heroSub": "Bygg en komplett eventsajt med biljettförsäljning, bokning och betalning – på minuter, inte veckor.",
+  "introParagraphs": [
+    "Om du arrangerar konserter, mässor, konferenser eller andra event i Norrköping behöver du en hemsida som tar hand om bokning, biljettförsäljning och information – utan krångel. Sajtmaskin låter dig bygga en färdig eventsajt via chat, helt på svenska, och du kan publicera den på din egen domän direkt.",
+    "Du chattar med vår AI om vad ditt event handlar om, vilka funktioner du behöver och hur sajten ska se ut. På minuter får du en färdig sajt med integrerad bokning via Cal.com och betalning via Stripe. Ingen kod, ingen designer, inga månadskostnader för hosting om du väljer vår subdomän.",
+    "Sajten blir helt din. Du kan när som helst exportera koden och flytta den om du vill. Perfekt för eventbolag, festivalproducenter, konferensarrangörer eller föreningar i Norrköping som vill ha en professionell närvaro online utan tekniskt krångel."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Allt en eventsajt behöver, på plats från start",
+      "body": "En bra eventsajt behöver mer än vacker design. Den ska kunna ta emot bokningar, sälja biljetter, visa program och hantera betalningar. Sajtmaskin bygger in allt detta direkt. Du får Cal.com-integration för tidsbokning av workshops eller möten, Stripe för säker kortbetalning, och Google Analytics om du vill följa besökare. Vill du sälja merchprodukter kan du koppla in Shopify. Allt sköts via chatten – du säger vad du vill ha, AI:n bygger resten."
+    },
+    {
+      "heading": "Bygg sajten på svenska, för svenska besökare",
+      "body": "Alla eventverktyg och sajtkoncept är byggda för den svenska marknaden. Gränssnittet är på svenska, supporten är svensk, och innehållet skrivs för svenska besökare. Det betyder att din sajt känns naturlig och professionell för den som letar efter event i Norrköping – ingen översatt känsla eller utländska betalningsflöden som förvirrar. Du behöver inte anpassa mallar från utlandet eller gissa dig till hur saker fungerar."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen inlåsning",
+      "body": "Du äger din sajt och ditt innehåll. Vill du ha den på egen domän fixar du det direkt, vill du testa på vår subdomän först är det gratis att hosta. Det finns ingen månadskostnad för själva plattformen om du väljer subdomän, och du kan när som helst exportera hela koden och flytta sajten någon annanstans. Inga avtal, inga dolda avgifter, inga krångligheter om du vill byta riktning."
+    },
+    {
+      "heading": "Perfekt för Norrköpings eventscen",
+      "body": "Norrköping har en bred eventkultur – från Flygvapenmuseets storslagna arrangemang och festivaler vid Motala ström till mindre klubbkvällar, företagskonferenser och kulturhus-evenemang. Oavsett om du arrangerar techkonferens på Kopparhammaren, konstutställning i Gamla stan eller livespelning på Louis de Geer behöver du en sajt som fungerar smidigt och ser professionell ut. Sajtmaskin ger dig det verktyget, utan att du behöver anlita byrå eller lära dig WordPress."
+    },
+    {
+      "heading": "Kom igång på minuter",
+      "body": "Logga in, berätta för AI:n vad ditt event handlar om – typ av arrangemang, datum, plats, biljettpriser, eventuella sponsorer. Välj färger och stil om du vill, eller låt AI:n föreslå. Granska resultatet, justera via chatten om något ska ändras, och publicera. Hela processen tar minuter. Sen kan du uppdatera program, lägga till nya talare eller ändra biljettinfo direkt i gränssnittet, utan att behöva vänta på utvecklare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja. Genom Stripe-integrationen kan du ta betalt för biljetter direkt på din sajt. Du sätter pris, antal platser och betalningsflöde, och besökaren betalar med kort. Pengarna går direkt till ditt Stripe-konto, och du har full koll på försäljningen."
+    },
+    {
+      "q": "Fungerar sajten för både små och stora event i Norrköping?",
+      "a": "Absolut. Oavsett om du arrangerar en workshop för tjugo personer eller en festival med tusentals besökare byggs sajten efter dina behov. Du kan skala upp funktioner, lägga till fler betalningsalternativ eller koppla in fler bokningssystem allt eftersom eventet växer."
+    },
+    {
+      "q": "Behöver jag kunna koda för att uppdatera sajten?",
+      "a": "Nej. Allt sköts via chat eller ett enkelt gränssnitt. Vill du ändra text, byta bild, lägga till nytt programpunkt eller justera priser gör du det direkt utan kod. Vill du göra mer avancerade ändringar kan du exportera koden och anlita utvecklare, men det är helt frivilligt."
+    },
+    {
+      "q": "Kan jag använda min egen domän för eventsajten?",
+      "a": "Ja. Du kan antingen publicera på vår subdomän kostnadsfritt eller koppla din egen domän direkt. Det tar bara några minuter att peka domänen rätt, och sen är sajten live på ditt eget namn."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela sajten som kod och flytta den till en annan hosting eller plattform. Det finns ingen inlåsning. Du äger allt innehåll och all design, och kan göra vad du vill med det."
+    },
+    {
+      "q": "Kan jag integrera sajten med sociala medier och marknadsföring?",
+      "a": "Ja. Du kan lägga in Facebook Pixel, Google Analytics och andra spårningsverktyg för att följa trafik och konverteringar. Sajten är också byggd för att dela snyggt på sociala medier, så att ditt event syns bra när folk delar länken."
+    },
+    {
+      "q": "Hur snabbt kan jag få sajten live inför ett event?",
+      "a": "De flesta får en färdig sajt på under en timme. Om du har bilder, texter och grundinfo klart kan du bygga, granska och publicera på minuter. Perfekt om du har bråttom inför ett kommande event i Norrköping och inte vill vänta veckor på en byrå."
+    }
+  ],
+  "localOrIndustryContext": "Norrköping har en stark eventkultur med allt från stora kulturfestivaler och industrimässor till intimare konserter och företagskonferenser. Staden erbjuder unika lokaler som Flygvapenmuseum, Louis de Geer Konsert & Kongress och Visualiseringscenter C, vilket ställer höga krav på professionella eventsajter som matchar stadens kreativa profil.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/norrkoping",
+      "label": "Skapa hemsida i Norrköping"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Norrköping. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

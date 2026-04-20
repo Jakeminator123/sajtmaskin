@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "solna",
+  "title": "Hemsida Solna – Bygg din sajt på minuter med AI | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Solna med AI. Från idé till publicerad sajt på minuter. Ingen kod, ingen bindningstid. Bygg din Solna-sajt idag – helt på svenska.",
+  "h1": "Bygg hemsida i Solna med AI – snabbt, enkelt, på svenska",
+  "heroSub": "Från prompt till färdig sajt på minuter. Perfekt för Solna-företag som vill synas online utan krångel.",
+  "introParagraphs": [
+    "Sajtmaskin är AI-plattformen som låter dig bygga en komplett hemsida genom att chatta med AI. Du beskriver vad du vill ha – en sajt för din café i Huvudsta, en bokningssida för din PT-verksamhet vid Råsunda eller en portfoliosajt för din designstudio i Hagalund – så genererar AI:n hela sajten på svenska. Publicera på egen domän eller gratis på en subdomän, utan bindningstid.",
+    "Oavsett om du driver enmansbolag från Bergshamra eller ett växande företag i Frösunda passar Sajtmaskin dig som vill slippa veckors väntan på byrå och tusentals kronor i startkostnad. Allt sker på svenska, med svenskt stöd, och du behöver aldrig röra kod.",
+    "Solna ligger mitt i Stockholmsregionen med närhet till både city och Arlanda. En lokal hemsida som nämner Solna, Arenastaden eller Ulriksdal hjälper dig synas när kunder söker tjänster i området – och med Sajtmaskin får du den sajten på plats samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din Solna-sajt med AI",
+      "body": "Logga in på Sajtmaskin och beskriv din verksamhet i chatten. Skriv om vad du gör, var i Solna du verkar och vem du vill nå – AI:n tar hand om resten. På minuter får du en färdig sajt med text, layout och struktur anpassad efter dina behov. Vill du ändra något? Chatta vidare så justerar AI:n direkt. När du är nöjd publicerar du på din egen domän eller på en kostnadsfri subdomän. Inga dolda avgifter, ingen hostingkostnad på subdomän, ingen bindningstid."
+    },
+    {
+      "heading": "Varför Solna-företag väljer Sajtmaskin",
+      "body": "Solna är hem för allt från startups i Arenastaden till hantverkare i Råsunda och konsulter i Huvudsta. Gemensamt är att tiden är dyrbar och att en hemsida behöver vara på plats snabbt. Sajtmaskin passar dig som vill slippa mejla fram och tillbaka med byråer i veckor eller kämpa med gör-det-själv-verktyg som kräver designkunskap. Du får en sajt som ser professionell ut, laddas snabbt och är byggd för sökmotorer – allt på svenska och utan tekniskt krångel. Integrationer som Cal.com för bokning och Stripe för betalning är inbyggda, så du kan ta betalt eller ta emot bokningar direkt."
+    },
+    {
+      "heading": "Lokal SEO för Solna – syns när kunderna söker",
+      "body": "När någon i Solna söker efter frisör Solna, PT Arenastaden eller webbyrå Hagalund vill du dyka upp. Sajtmaskin genererar SEO-vänlig struktur från start, och du kan enkelt lägga till lokala nyckelord som stadsdelar, landmärken eller områden. Nämn Solna centrum, Råsunda stadion eller Ulriksdals slottspark i dina texter så förstår Google var du finns. Kombinera det med snabb laddningstid och mobilanpassning så klättrar du i sökresultaten – utan att behöva anlita SEO-konsult."
+    },
+    {
+      "heading": "Sajtmaskin vs byråer och gör-det-själv-verktyg",
+      "body": "En lokal byrå i Solna kan ta veckor och kosta tiotusentals kronor för en enkel sajt. Gör-det-själv-verktyg som Wix eller Squarespace är billigare men kräver att du själv designar, skriver och felsöker – ofta på engelska. Sajtmaskin ger dig det bästa av två världar: AI skriver och designar åt dig på svenska, du får en färdig sajt på minuter, och du kan exportera koden när du vill. Ingen bindningstid, ingen dold kostnad, och du slipper lära dig verktyg du aldrig använder igen."
+    },
+    {
+      "heading": "Exempel från Solna – branscher och områden",
+      "body": "Sajtmaskin används av allt från yogastudios i Bergshamra till eventbolag i Arenastaden och hantverkare i Frösunda. En PT-tränare vid Råsunda kan bygga en bokningssajt med Cal.com-integration på tio minuter. En konsult i Hagalund kan skapa en portfoliosajt som visar case och kontaktuppgifter. En liten butik i Solna centrum kan lägga till Shopify och sälja online samma dag. Oavsett bransch eller storlek får du en sajt som fungerar – utan att vänta på utvecklare eller designer."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för mitt Solna-företag?",
+      "a": "De flesta får en färdig sajt på 10–20 minuter. Du chattar med AI:n, beskriver vad du vill ha, och sajten genereras direkt. Vill du justera något tar det bara några minuter till. Publicering sker med ett klick."
+    },
+    {
+      "q": "Kostar det något att hosta sajten på subdomän?",
+      "a": "Nej, hosting på subdomän är helt gratis och utan månadskostnad. Vill du använda egen domän – till exempel dinverksamhet.se – kopplar du den själv och betalar bara för domänregistreringen hos din registrar."
+    },
+    {
+      "q": "Kan jag nämna Solna, Arenastaden eller Råsunda på sajten?",
+      "a": "Absolut. Du styr allt innehåll genom att chatta med AI:n. Be den nämna specifika stadsdelar, landmärken eller områden så skrivs texten om. Det hjälper dig synas i lokala sökningar och gör sajten mer relevant för besökare i Solna."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för webshop eller bokningssajt?",
+      "a": "Ja. Du kan integrera Shopify för e-handel och Cal.com för bokningar direkt i Sajtmaskin. Stripe finns inbyggt om du vill ta betalt. Allt sätts upp via chatten utan kod."
+    },
+    {
+      "q": "Kan jag exportera koden och flytta sajten senare?",
+      "a": "Ja, du äger koden och kan exportera den när du vill. Ingen bindningstid, inga låsningar. Du kan ta sajten vidare till egen server eller annan hostingleverantör om du vill."
+    },
+    {
+      "q": "Vad händer om jag behöver ändra något efter publicering?",
+      "a": "Logga in igen, chatta med AI:n och beskriv ändringen. AI:n uppdaterar sajten direkt. Du kan göra hur många ändringar som helst, när som helst."
+    },
+    {
+      "q": "Passar Sajtmaskin småföretag och enmansbolag i Solna?",
+      "a": "Definitivt. Sajtmaskin är byggt för dig som vill ha en professionell sajt utan att lägga veckor eller tiotusentals kronor. Perfekt för frilansare, konsulter, hantverkare och småföretag som behöver komma online snabbt."
+    }
+  ],
+  "localOrIndustryContext": "Solna är en av Sveriges tätast befolkade kommuner med stark närvaro av både stora företag i Arenastaden och mindre verksamheter i Huvudsta, Hagalund, Råsunda och Bergshamra. Närheten till Stockholm city och Arlanda gör Solna attraktivt för konsulter, eventbolag och tjänsteföretag som behöver synlighet online.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Solna. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

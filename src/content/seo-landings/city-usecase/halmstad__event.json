@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "halmstad/event",
+  "title": "Hemsida event Halmstad – Bygg din eventsajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt event i Halmstad med AI. Bokning, biljettförsäljning och anmälan – klart på minuter utan kod.",
+  "h1": "Hemsida för event i Halmstad",
+  "heroSub": "Bygg en komplett eventsajt med bokning och biljettförsäljning via chat – ingen kod behövs.",
+  "introParagraphs": [
+    "En hemsida för event i Halmstad behöver mer än bara en programpunkt och en adress. Du vill att besökare enkelt ska kunna anmäla sig, köpa biljetter, hitta till platsen och få all information de behöver – oavsett om du arrangerar en konferens på Hallandsgården, en festival vid Nissan eller ett företagsevent i Slottsmöllan.",
+    "Med Sajtmaskin bygger du en komplett eventsajt på minuter genom att chatta med AI:n. Berätta om ditt event, så genereras en färdig sajt med anmälningsformulär, integration till Cal.com för bokning, Stripe för biljettförsäljning och Google Maps för vägbeskrivning. Publicera på egen domän eller kostnadsfritt på en subdomän – ingen bindningstid, ingen teknisk krångel.",
+    "Du behöver ingen webbyrå och ingen månadskostnad för hosting. Allt är byggt i Sverige med svenskt gränssnitt, och du kan när som helst exportera koden om du vill flytta sajten någon annanstans."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en eventsajt i Halmstad behöver",
+      "body": "En bra eventsajt ger besökarna allt de behöver för att fatta beslut och agera. Det innebär tydlig information om datum, plats och program, enkel anmälan eller biljettköp, och praktiska detaljer som parkering och tillgänglighet. För event i Halmstad är det ofta viktigt att visa vägbeskrivning från E6:an eller från centralstationen, och att förtydliga om eventen passar för både lokala besökare och de som reser från Göteborg eller Malmö. Sajtmaskin låter dig lägga in all denna information direkt i chatten, och AI:n bygger en struktur som gör det lätt för besökarna att hitta och agera."
+    },
+    {
+      "heading": "Bokning och biljettförsäljning utan krångel",
+      "body": "Genom integrationen med Cal.com kan du sätta upp bokningsbara tider för workshops, guidningar eller möten i samband med eventen. Vill du sälja biljetter kopplar du in Stripe och får en fungerande betalningslösning direkt på sajten – inget mellanlager, inga externa bokningssystem som tar en stor del av intäkten. Du styr priser, antal platser och deadlines själv, och besökarna betalar smidigt med kort. Allt sköts från din sajt, och du behöver inte lära dig något nytt verktyg."
+    },
+    {
+      "heading": "Lokal synlighet och enkel marknadsföring",
+      "body": "En eventsajt på egen domän rankar bättre i Google än en Facebook-sida eller en länk på Eventbrite. Med Sajtmaskin får du en sajt som är SEO-optimerad från start, och du kan enkelt lägga till Google Analytics för att följa hur många som besöker sajten och var de kommer ifrån. Vill du annonsera på sociala medier eller i lokala Halmstadsgrupper blir det mycket enklare när du har en riktig hemsida att länka till – det ser professionellt ut och ger besökarna förtroende för att eventen är på riktigt."
+    },
+    {
+      "heading": "Ingen bindningstid, full kontroll",
+      "body": "Sajtmaskin har ingen bindningstid. Du betalar för att bygga sajten, publicerar den på en subdomän utan månadskostnad, eller kopplar din egen domän om du vill. Behöver du uppdatera information inför eventen gör du det direkt i chatten, och AI:n hjälper dig att ändra text, lägga till nya sektioner eller justera bokningsflödet. Vill du senare flytta sajten exporterar du koden och tar den med dig – du äger allt innehåll och all funktionalitet."
+    },
+    {
+      "heading": "Bygg sajten på minuter, inte veckor",
+      "body": "Traditionellt tar det veckor att få en eventsajt klar via en byrå, och det kostar ofta tiotusentals kronor. Med Sajtmaskin chattar du fram hela sajten på minuter. Du beskriver eventen, väljer funktioner som bokning och betalning, och AI:n genererar en färdig design med all text och struktur. Du kan testa, justera och publicera samma dag – perfekt när du har bråttom att få ut informationen och börja sälja biljetter inför ett event i Halmstad."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en eventsajt live?",
+      "a": "Du kan bygga och publicera en komplett eventsajt på minuter. Berätta för AI:n om ditt event, välj funktioner som bokning eller biljettförsäljning, och sajten genereras direkt. Publicera på en kostnadsfri subdomän eller koppla din egen domän – du bestämmer tempot."
+    },
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja, genom integrationen med Stripe kan du ta betalt för biljetter direkt på hemsidan. Du sätter pris, antal platser och deadlines, och besökarna betalar smidigt med kort. Pengarna går direkt till ditt Stripe-konto utan mellanhänder."
+    },
+    {
+      "q": "Fungerar sajten för event på olika platser i Halmstad?",
+      "a": "Absolut. Du kan lägga in adress, vägbeskrivning och karta för var som helst i Halmstad – från Slottsmöllan och Hallandsgården till utomhusevent vid Nissan eller Tylösand. AI:n hjälper dig att strukturera informationen så besökarna enkelt hittar rätt."
+    },
+    {
+      "q": "Kan jag uppdatera sajten om programmet ändras?",
+      "a": "Ja, du kan när som helst chatta med AI:n och be om ändringar. Lägg till nya talare, ändra tider, uppdatera praktisk information – allt sköts via chatten och uppdateras direkt på sajten utan teknisk krångel."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Om du publicerar på en subdomän hos Sajtmaskin är hostingen kostnadsfri utan månadskostnad. Vill du använda en egen domän betalar du för domänen hos din registrar, men det finns ingen bindningstid eller löpande avgift från Sajtmaskin."
+    },
+    {
+      "q": "Kan jag använda sajten för återkommande event?",
+      "a": "Ja, du kan enkelt uppdatera datum, biljettpriser och program för nästa tillfälle. Sajten är din och kan återanvändas säsong efter säsong, eller så bygger du en ny variant för varje event – du väljer själv."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att sätta upp bokning och betalning?",
+      "a": "Nej, AI:n guidar dig genom integrationen med Cal.com och Stripe via chatten. Du behöver ett konto hos respektive tjänst, men själva kopplingen och konfigurationen sköts automatiskt – ingen kodning eller teknisk expertis krävs."
+    }
+  ],
+  "localOrIndustryContext": "Halmstad har en växande eventscen med allt från kulturfestivaler och konferenser till företagsevent och sporttävlingar. Med närhet till både Göteborg och Malmö, och populära mötesplatser som Hallandsgården och Slottsmöllan, lockar staden besökare från hela regionen. En professionell eventsajt gör det enklare att nå både lokala och regionala deltagare.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/halmstad",
+      "label": "Skapa hemsida i Halmstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Halmstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

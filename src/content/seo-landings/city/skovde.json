@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "skovde",
+  "title": "Hemsida Skövde – Skapa en proffsig sajt på minuter | Sajtmaskin",
+  "metaDescription": "Bygg en komplett hemsida i Skövde med AI – från idé till publicerad sajt på minuter. Ingen kod, ingen bindning. Prova gratis idag.",
+  "h1": "Skapa hemsida i Skövde med AI",
+  "heroSub": "Från prompt till färdig sajt på minuter – perfekt för Sköv­de­företag som vill synas online utan krångel eller månadskostnader.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som låter dig bygga en komplett hemsida genom att chatta med en AI. Du beskriver vad du behöver – en sajt för din frisersalong på Hertig Johans Torg, en bokningssida för PT-verksamheten vid Billingen eller en portfolio för din designbyrå – så genererar AI:n hela sajten på några minuter. Allt på svenska, utan kod, och redo att publiceras direkt.",
+    "Oavsett om du driver café vid Kulturhus Skövde, konsultverksamhet i Ryd eller hantverksfirma i Timmersdala får du en sajt som fungerar på alla enheter, rankar lokalt i Google och kan kopplas till bokningssystem, betalningar och analytics. Ingen bindningstid, ingen dold månadskostnad – bara en färdig hemsida som gör jobbet.",
+    "Tusentals svenska företag har redan byggt sin sajt med Sajtmaskin. Nu är det Sköv­des tur att skippa byråköerna och gör-det-själv-frustrationen."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din Skövdesajt med AI",
+      "body": "Du startar en chat och berättar vad du behöver: \"Jag driver en hudvårdsklinik i Skövde och vill ha en sajt med tjänstebeskrivningar, prislista och bokningskalender.\" AI:n skapar då struktur, texter, bilder och layout som matchar din verksamhet. Du kan justera färger, byta bilder, lägga till nya sidor eller ändra texter – allt i samma chattgränssnitt. När du är nöjd publicerar du antingen på en gratis Sajtmaskin-subdomän eller kopplar din egen domän. Hela processen tar minuter, inte veckor, och du behöver aldrig öppna en kodredigerare."
+    },
+    {
+      "heading": "Lokal SEO för Skövde – syns när kunderna söker",
+      "body": "En hemsida som inte syns i Google är värdelös. Sajtmaskin bygger automatiskt in SEO-grunder som snabba laddtider, mobilanpassning och ren kod – faktorer som Google älskar. Men för att ranka på \"frisör Skövde\" eller \"takläggare Billingen\" behöver du också lokalt innehåll. Nämn stadsdelen där du jobbar, skriv om kunder i Ryd eller Timmersdala, och koppla på Google Analytics för att följa vilka sökord som driver trafik. AI:n hjälper dig formulera texter som känns äkta, inte som robottext. Resultatet? Du dyker upp när folk i Skövde söker efter det du erbjuder."
+    },
+    {
+      "heading": "Jämför: byrå, gör-det-själv eller AI",
+      "body": "En lokal webbyrå i Skövde tar ofta 30 000–80 000 kronor för en enkel sajt, plus månadsavgift för hosting och uppdateringar. Gör-det-själv-verktyg som Wix eller Squarespace kräver att du lär dig deras editor, väljer bland hundratals mallar och kämpar med plugins. Sajtmaskin ger dig det bästa av två världar: AI gör grovjobbet, du styr resultatet, och du äger koden. Ingen bindningstid betyder att du kan exportera och flytta sajten när som helst. Och eftersom hosting på subdomän är gratis slipper du fasta månadskostnader – perfekt för nystartade företag eller föreningar i Skövde som vill testa utan risk."
+    },
+    {
+      "heading": "Integrationer som gör sajten levande",
+      "body": "En statisk sajt är bara början. Med Sajtmaskin kopplar du Cal.com för att ta emot bokningar direkt – praktiskt för allt från yogastudios vid Vättern till bilverkstäder i Varnhem. Stripe-integration låter dig ta betalt online, och Shopify-kopplingen gör att du kan sälja produkter utan att bygga en hel e-handel från scratch. Google Analytics visar vilka sidor som besöks mest och var trafiken kommer ifrån. Allt sätts upp via chatten, utan teknisk huvudvärk. Du fokuserar på din verksamhet – AI:n och integrationerna sköter resten."
+    },
+    {
+      "heading": "Exempel från Skövde-företag",
+      "body": "En PT-tränare vid Billingehallen byggde en sajt med träningspaket, kundcase och bokningsformulär på 20 minuter. En blomsterbutik i centrala Skövde la upp produktgalleri, öppettider och Google Maps-integration samma dag de fick idén. En redovisningskonsult i Ryd skapade en professionell portfolio med kundloggor och kontaktformulär – utan att betala en krona i startkostnad. Gemensamt för alla? De ville ha en sajt snabbt, utan att lära sig WordPress eller vänta på byrå. Sajtmaskin levererade, och de kunde fokusera på att driva sina företag vidare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en färdig hemsida i Skövde?",
+      "a": "De flesta användare har en publicerad sajt inom 30–60 minuter. Du chattar med AI:n, granskar förslaget, justerar det du vill ändra och trycker publicera. Vill du koppla egen domän tar det någon minut extra, men själva sajten är klar på nolltid."
+    },
+    {
+      "q": "Måste jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, absolut inte. Hela gränssnittet är en chatt på svenska. Du beskriver vad du vill ha, AI:n bygger sajten, och du justerar via vanliga kommandon som \"byt färg till blå\" eller \"lägg till en Om oss-sida\". Ingen kod syns om du inte vill exportera den."
+    },
+    {
+      "q": "Kostar det något att ha sajten publicerad?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsgräns. Vill du använda din egen domän – exempelvis mittforetag.se – betalar du en engångsavgift eller en liten månadskostnad beroende på vilken plan du väljer. Inga dolda avgifter, ingen bindningstid."
+    },
+    {
+      "q": "Kan jag koppla boknings- och betalfunktioner?",
+      "a": "Ja. Sajtmaskin integrerar Cal.com för bokningar och Stripe för kortbetalningar. Perfekt om du driver salong, konsultverksamhet eller säljer kurser. Du aktiverar integrationerna direkt i chatten – AI:n guidar dig genom varje steg."
+    },
+    {
+      "q": "Hur fungerar lokal SEO för Skövde?",
+      "a": "Sajtmaskin bygger in teknisk SEO automatiskt: snabb laddning, mobilanpassning, rena URL:er. För att ranka lokalt skriver du om din stadsdel, nämner Skövde i rubriker och texter, och håller innehållet relevant för dina kunder. Google Analytics hjälper dig följa vilka sökord som funkar."
+    },
+    {
+      "q": "Kan jag flytta sajten till en annan plattform senare?",
+      "a": "Ja. Du äger koden och kan exportera hela sajten när du vill. Ingen bindningstid, inga låsningar. Om du vill byta till egen server eller annan hosting är du fri att göra det – men de flesta stannar kvar eftersom det är så smidigt."
+    },
+    {
+      "q": "Funkar Sajtmaskin för webbshop och e-handel?",
+      "a": "Ja, via Shopify-integration. Du kan sälja produkter, hantera lager och ta betalt – allt kopplat till din Sajtmaskin-sajt. För enklare försäljning räcker Stripe-knappen. AI:n hjälper dig sätta upp det som passar din verksamhet bäst."
+    }
+  ],
+  "localOrIndustryContext": "Skövde är en växande stad med stark industrihistoria, högskola och ett levande småföretagsklimat. Från Hertig Johans Torg till Billingen, Ryd och Timmersdala finns hundratals företag som behöver synlighet online – men inte alltid har tid eller budget för traditionella webbbyråer. Sajtmaskin passar perfekt för Sköv­de­företagare som vill komma igång snabbt, ranka lokalt och äga sin närvaro på nätet.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Skövde. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

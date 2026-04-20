@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { Mascot } from "@/components/mascot/Mascot";
 
 interface ErrorPageProps {
   error: Error & { digest?: string };
@@ -16,15 +15,12 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center">
-        <div className="mb-4 flex justify-center">
-          <Mascot slot="error" size={160} decorative />
-        </div>
         <h2 className="mb-2 text-xl font-bold text-foreground">Något gick fel</h2>
         <p className="mb-6 text-muted-foreground">Ett oväntat fel inträffade. Försök att ladda om sidan.</p>
         <div className="space-y-3">
           <button
             onClick={() => reset()}
-            className="bg-brand-blue hover:bg-brand-blue/90 w-full rounded-lg px-4 py-2 font-medium text-white transition-colors"
+            className="w-full rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground transition-colors hover:opacity-90"
           >
             Försök igen
           </button>

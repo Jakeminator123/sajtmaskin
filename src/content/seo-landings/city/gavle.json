@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "gavle",
+  "title": "Hemsida Gävle – Bygg din sajt på minuter med AI | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Gävle med svensk AI. Publicera på egen domän, ingen bindningstid. Från prompt till färdig sajt på minuter – ingen kod krävs.",
+  "h1": "Hemsida Gävle – snabbt, enkelt och helt på svenska",
+  "heroSub": "Bygg en komplett hemsida för ditt företag i Gävle via chat. Sajtmaskin är AI-plattformen som gör det på minuter, utan kod.",
+  "introParagraphs": [
+    "Sajtmaskin är den svenskspråkiga AI-plattformen som låter företag i Gävle skapa en färdig hemsida genom att chatta. Du beskriver vad du vill ha – en sajt för din café i Brynäs, en bokningssida för din frisörsalong vid Rådhustorget eller en produktkatalog för ditt hantverksföretag – och AI:n bygger allt åt dig. Publicera på egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Ingen bindningstid, ingen kod och inget krångel. Du får en sajt som fungerar direkt, med möjlighet att integrera bokning via Cal.com, betalning via Stripe och webshop via Shopify. Allt gränssnitt, support och innehåll är på svenska, byggt i Sverige av Pretty Good AB.",
+    "Oavsett om du driver restaurang vid Norra Skeppsbron, konsultfirma i Sätra eller webbyrå i Andersberg – Sajtmaskin ger dig en professionell hemsida utan att du behöver vänta på byrå eller lära dig WordPress."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Från prompt till publicerad sajt – så fungerar det",
+      "body": "Du startar en chatt och berättar vad din sajt ska innehålla. Vill du ha en startsida med om-text, en tjänstesida och kontaktformulär? Eller en butik med produkter, betalning och frakt? AI:n genererar layout, text och struktur utifrån din beskrivning. Du kan justera, lägga till sidor och ändra innehåll direkt i chatten. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän. Hela processen tar minuter, inte veckor. Ingen teknisk kunskap behövs – Sajtmaskin sköter hosting, säkerhet och uppdateringar automatiskt."
+    },
+    {
+      "heading": "Varför Gävle-företag väljer Sajtmaskin",
+      "body": "Många företag i Gävle har behov av en snabb, prisvärd hemsida men vill slippa tekniskt krångel. Lokala webbbyråer kan ta veckor och kosta tiotusentals kronor. Gör-det-själv-verktyg som Wix eller Squarespace kräver att du bygger allt manuellt, ofta på engelska. Sajtmaskin kombinerar enkelhet med flexibilitet: du chattar på svenska, får en färdig sajt direkt och kan när som helst exportera koden om du vill flytta. Det passar allt från enmansföretag i Hemlingby till etablerade butiker i city. Du betalar ingen månadshyra för hosting på subdomän, och du kan lägga till funktioner som bokningssystem eller Stripe-betalning när du behöver det."
+    },
+    {
+      "heading": "Lokal SEO och synlighet i Gävle",
+      "body": "En hemsida som rankar lokalt behöver rätt nyckelord, tydlig platsinfo och snabb laddningstid. Sajtmaskin genererar SEO-vänlig struktur automatiskt: title-taggar, meta-beskrivningar och rubrikhierarki som sökmotorer gillar. Du kan enkelt lägga in ortsnamn som Gävle, Valbo, Järvsta eller Strömsbro i dina texter, samt integrera Google Analytics för att följa besökare. Eftersom sajten hostas snabbt och mobilanpassas automatiskt får du bra tekniska förutsättningar från start. Vill du synas när folk söker efter 'frisör Gävle' eller 'bygg Brynäs' hjälper rätt innehåll och lokal förankring – något du styr själv i chatten när du bygger sidorna."
+    },
+    {
+      "heading": "Integrationer som gör sajten mer än en broschyr",
+      "body": "Sajtmaskin stödjer Cal.com för bokningar, perfekt om du driver salong, PT-verksamhet eller konsultbyrå i Gävle. Stripe låter dig ta betalt direkt på sajten – smidigt för kurser, medlemskap eller produkter. Vill du sälja fysiska varor kopplar du Shopify och får en komplett webshop. Google Analytics ger dig koll på besökare och trafikkällor. Allt sätts upp utan att du behöver installera plugins eller skriva kod. Du fokuserar på ditt företag, Sajtmaskin hanterar tekniken."
+    },
+    {
+      "heading": "Ingen bindningstid – du äger din sajt",
+      "body": "Många plattformar låser in dig med månadsavgifter och stängda system. Sajtmaskin låter dig exportera hela koden när du vill. Vill du senare flytta till egen server eller anlita en utvecklare? Inga problem. Hosting på subdomän kostar inget per månad, och publicering på egen domän är enkel. Du bestämmer själv hur länge du vill använda plattformen. Det är din sajt, ditt innehåll, din kontroll – precis som det ska vara för företag i Gävle som vill växa på egna villkor."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en hemsida med Sajtmaskin?",
+      "a": "Från start till publicerad sajt tar det oftast bara några minuter. Du chattar med AI:n, beskriver vad du vill ha, granskar resultatet och publicerar. Vill du finjustera text eller lägga till fler sidor kan du göra det direkt i chatten. Ingen väntetid på byrå eller teknisk setup."
+    },
+    {
+      "q": "Kostar det något att hosta sajten?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda din egen domän, till exempel dittforetag.se, publicerar du dit istället. Ingen bindningstid och inga dolda avgifter – du betalar bara för de funktioner du aktivt väljer att använda."
+    },
+    {
+      "q": "Kan jag använda Sajtmaskin om jag inte kan koda?",
+      "a": "Ja, det är hela poängen. Sajtmaskin är byggt för att du ska kunna skapa en professionell hemsida utan någon teknisk kunskap. Du chattar på svenska, AI:n bygger sajten, och du publicerar med ett klick. Ingen kod, ingen design, ingen hosting att konfigurera."
+    },
+    {
+      "q": "Funkar Sajtmaskin för företag i Gävle som vill synas lokalt?",
+      "a": "Absolut. Du kan enkelt lägga in ortsnamn, stadsdelar och lokala nyckelord i dina texter. Sajtmaskin genererar SEO-vänlig struktur automatiskt, och du kan koppla Google Analytics för att följa hur besökare hittar dig. Lokal synlighet handlar om rätt innehåll och snabb sajt – båda delarna får du direkt."
+    },
+    {
+      "q": "Vilka integrationer finns för bokning och betalning?",
+      "a": "Sajtmaskin stödjer Cal.com för bokningar, Stripe för betalningar och Shopify om du vill driva webshop. Google Analytics ingår också. Allt sätts upp utan plugins eller teknisk konfiguration. Du aktiverar det du behöver, direkt i plattformen."
+    },
+    {
+      "q": "Kan jag flytta min sajt senare om jag vill?",
+      "a": "Ja. Du kan exportera hela koden när som helst och flytta sajten till en annan host eller anlita en utvecklare. Ingen inlåsning, ingen bindningstid. Din sajt, ditt innehåll, din frihet att välja."
+    },
+    {
+      "q": "Passar Sajtmaskin för alla branscher i Gävle?",
+      "a": "Ja, oavsett om du driver café, frisörsalong, konsultfirma, hantverksföretag eller webbyrå. Sajtmaskin fungerar för allt från enkla visitkortssajter till bokningssystem och webshoppar. Du beskriver ditt behov, AI:n bygger en sajt som passar just din verksamhet."
+    }
+  ],
+  "localOrIndustryContext": "Gävle är en stad med stark mix av industri, handel och tjänsteföretag – från hamnen och järnvägen till butiker i city och växande IT-sektor. Företag i Brynäs, Sätra, Andersberg och Valbo behöver ofta en snabb, prisvärd hemsida utan att offra kvalitet eller lokal förankring. Sajtmaskin ger Gävle-företag möjlighet att komma online direkt, på svenska, med full kontroll.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Gävle. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

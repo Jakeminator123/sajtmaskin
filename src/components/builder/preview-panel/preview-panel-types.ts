@@ -50,8 +50,21 @@ export type PreviewIframeMessage = {
     path?: string | null;
     chatId?: string | null;
     status?: string | null;
+    intent?: string | null;
+    name?: string | null;
   };
 };
+
+/**
+ * Kontext för en build-out-förfrågan. Shell-sidorna bakar in `intent` + `name`
+ * från `PlannedRoute` så builder-shellen kan formulera en prompt som matchar
+ * det som redan förberetts i backend i stället för en generisk text.
+ */
+export interface BuildOutRouteRequestContext {
+  path: string;
+  intent?: string | null;
+  name?: string | null;
+}
 
 export interface PreviewPanelProps {
   chatId: string | null;
@@ -101,8 +114,12 @@ export interface PreviewPanelProps {
    * preview-chrome:s "Bygg ut"-pil. Om ej angett faller vi tillbaka till
    * `onSuggestionClick` med en generisk prompt. Builder-shellen bör koppla
    * detta till `smartSendMessage` så gäst-gating och toast fungerar.
+   *
+   * Shell-sidor skickar med `intent` + `name` från `PlannedRoute` så builder
+   * kan återanvända den pre-preparerade sidosyftestexten i prompten.
+   * Chrome-pilen skickar bara `path`; båda är giltiga.
    */
-  onBuildOutRouteRequest?: (routePath: string) => void;
+  onBuildOutRouteRequest?: (context: BuildOutRouteRequestContext) => void;
 }
 
 /** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */

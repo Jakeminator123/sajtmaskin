@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "tandlakare",
+  "title": "Hemsida för tandläkare – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din tandläkarpraktik med AI. Onlinebokning, tjänster, priser och kontaktinfo – klart på minuter.",
+  "h1": "Hemsida för tandläkare",
+  "heroSub": "Bygg en professionell sajt för din tandläkarpraktik med AI – inklusive onlinebokning, tjänster och kontaktinfo.",
+  "introParagraphs": [
+    "En hemsida för tandläkare behöver visa vilka behandlingar du erbjuder, vem som jobbar på kliniken, hur patienter bokar tid och var ni finns. Den ska skapa förtroende genom att presentera teamet, visa priser tydligt och göra det enkelt att komma i kontakt – oavsett om någon söker akut hjälp eller vill boka en vanlig kontroll.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI:n. Du beskriver din praktik, vilka tjänster ni har och vad som är viktigt att lyfta, så genererar verktyget en färdig hemsida på minuter. Publicera direkt på egen domän eller testa kostnadsfritt på en subdomän.",
+    "Sajten blir svensk från grunden – både språk och upplägg – och du kan när som helst uppdatera texter, lägga till nya sidor eller integrera bokningssystem som Cal.com så patienter bokar direkt online."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänster och behandlingar",
+      "body": "Visa tydligt vad ni erbjuder: undersökning och rengöring, lagningar, rotkanalbehandling, tandblekning, protetik eller implantat. Varje tjänst får en egen sektion med kort beskrivning och gärna ett ungefärligt pris eller prisintervall. Det hjälper patienter förstå vad de kan förvänta sig och minskar antalet frågor om grundläggande saker. AI:n i Sajtmaskin fyller på med relevanta texter utifrån din prompt, så du slipper skriva allt själv."
+    },
+    {
+      "heading": "Presentation av teamet",
+      "body": "Patienter vill veta vem som ska behandla dem. En sida med foto och kort presentation av varje tandläkare och tandhygienist bygger förtroende. Nämn utbildning, specialområden och gärna något personligt som skapar kontakt. Sajtmaskin låter dig lägga in bilder och text för varje teammedlem direkt i chatten, och strukturen blir automatiskt snygg och lättläst på alla skärmar."
+    },
+    {
+      "heading": "Onlinebokning och kontakt",
+      "body": "Integrera Cal.com så patienter kan boka tid direkt via hemsidan – utan att ringa eller maila fram och tillbaka. Du väljer vilka tider som ska vara öppna för bokning och får notiser när någon bokar. Utöver det behöver sajten telefonnummer, mejladress, öppettider och en karta som visar var kliniken ligger. Allt det här kan AI:n sätta upp åt dig på nolltid."
+    },
+    {
+      "heading": "Priser och försäkringsinformation",
+      "body": "Tydliga priser minskar osäkerhet. Lista vad en undersökning kostar, vad en lagning ligger på och vilka behandlingar som täcks av högkostnadsskyddet. Om ni tar emot Försäkringskassan, frisktandvård eller privata försäkringar är det värt att nämna. Du kan uppdatera priserna när som helst genom att chatta med AI:n igen – ingen kod eller krångel."
+    },
+    {
+      "heading": "Akutinformation och råd",
+      "body": "Många söker efter tandläkare när något gör ont. Ha en sektion som förklarar vad patienten ska göra vid akuta besvär, vilka tider ni tar emot akutfall och vart de ska vända sig utanför er öppettid. Det visar att ni bryr er och kan fånga upp patienter som behöver snabb hjälp. Sajtmaskin gör det lätt att lägga till sådan info utan att behöva designa eller koda själv."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag integrera ett bokningssystem direkt på sajten?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com som du kopplar in med några klick. Då kan patienter boka lediga tider direkt på hemsidan, och du får notiser via mejl. Du styr själv vilka tider som visas och kan blockera perioder när kliniken är stängd."
+    },
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min tandläkarpraktik?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n, beskriver vilka tjänster ni har, lägger in teamet och kontaktinfo, så genereras sidorna automatiskt. Sen kan du justera texter och bilder tills allt känns rätt."
+    },
+    {
+      "q": "Kan jag visa priser på behandlingar utan att det blir rörigt?",
+      "a": "Absolut. Du kan ha en egen prissida eller lista priser under varje tjänst. AI:n hjälper dig strukturera informationen så den blir tydlig. Om du vill uppdatera priserna senare gör du det genom att chatta igen – inga krångliga CMS-menyer."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill, utan kostnad eller bindningstid. Då tar du med dig allt material och kan antingen drifta sajten själv eller flytta den till en annan leverantör. Inget låses in."
+    },
+    {
+      "q": "Behöver jag kunna koda för att lägga till nya sidor eller ändra texter?",
+      "a": "Nej, allt sköts via chat. Vill du lägga till en sida om tandblekning eller ändra öppettiderna skriver du bara det till AI:n, så uppdateras sajten direkt. Du ser förändringarna live och kan alltid gå tillbaka om något blev fel."
+    },
+    {
+      "q": "Kan jag använda min egen domän, typ tandlakare-stockholm.se?",
+      "a": "Ja, du publicerar på vilken domän du vill. Sajtmaskin guidar dig genom DNS-inställningarna, och inom några minuter pekar domänen på din nya sajt. Vill du testa först kan du köra på en gratis subdomän tills du är nöjd."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sidor Sajtmaskin genererar är responsiva från start. Patienter som googlar på telefonen ser samma info som på dator, och bokningsformuläret fungerar lika smidigt oavsett skärmstorlek."
+    }
+  ],
+  "localOrIndustryContext": "Tandläkarbranschen i Sverige är tydligt reglerad och patienterna förväntar sig professionell kommunikation, transparenta priser och enkel bokning. En hemsida som levererar det direkt ökar förtroendet och minskar tröskeln för nya patienter att höra av sig.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en tandläkare-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

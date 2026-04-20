@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "vaxjo/bilverkstad",
+  "title": "Hemsida bilverkstad Växjö – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en proffsig hemsida för din bilverkstad i Växjö med AI. Bokning, prislista och kontakt – klart på minuter. Ingen kod krävs.",
+  "h1": "Hemsida för bilverkstad i Växjö",
+  "heroSub": "Bygg en komplett sajt för din bilverkstad i Växjö via chat – med bokning, tjänster och kontaktformulär.",
+  "introParagraphs": [
+    "Om du driver bilverkstad i Växjö behöver du en hemsida som gör det enkelt för kunderna att boka tid, se priser på service och besiktning, och hitta er verkstad. Sajtmaskin låter dig bygga en färdig sajt på minuter genom att chatta med vår AI – ingen kod eller teknisk kunskap behövs.",
+    "Du beskriver din verkstad, vilka tjänster ni erbjuder och hur ni vill att sajten ska se ut. AI:n skapar sedan allt från startsida och tjänstesidor till bokningsfunktion och kontaktformulär. Publicera direkt på egen domän eller testa kostnadsfritt på en subdomän.",
+    "Plattformen är byggd i Sverige med svenskt gränssnitt och stöd. Du kan när som helst exportera koden och äger allt innehåll. Perfekt för bilverkstäder som vill synas proffsigt online utan att lägga veckor på utveckling."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Tjänster och prislista – tydligt för dina kunder",
+      "body": "En bra bilverkstadssajt visar direkt vad ni erbjuder och vad det kostar. Sajtmaskin hjälper dig skapa sidor för service, däckbyte, besiktning, lackering eller specialisttjänster som kamremsbyte och bromsar. Du kan lägga in priser eller prisexempel så kunderna slipper gissa. AI:n strukturerar informationen så den blir lätt att scanna, och du kan när som helst uppdatera text och bilder via chatten."
+    },
+    {
+      "heading": "Integrerad bokning med Cal.com",
+      "body": "Låt kunderna boka tid direkt på sajten med Cal.com-integration. Du kopplar ditt Cal.com-konto så visas tillgängliga tider automatiskt. Kunden väljer tjänst, tid och lämnar kontaktuppgifter – allt samlas i ditt bokningssystem. Perfekt för servicebesök, hjulskifte eller drop-in-besiktning. Ingen manuell hantering av mejl eller telefonsamtal för varje bokning."
+    },
+    {
+      "heading": "Lokal synlighet i Växjö",
+      "body": "För att bilägare i Växjö ska hitta er verkstad behöver sajten rätt information: adress, öppettider, telefonnummer och en karta. Sajtmaskin bygger in kontaktuppgifter på varje sida och kan lägga till en Google Maps-integration så kunder hittar er från Teleborg, Arabyområdet eller centrum. Du kan också lägga till lite text om er verkstad – hur länge ni funnits, vilka bilmärken ni jobbar med och vad som gör er unika."
+    },
+    {
+      "heading": "Snabbt, enkelt och utan bindningstid",
+      "body": "Du startar med att chatta med AI:n om din verkstad. Inom minuter har du en färdig sajt med alla sidor, texter och struktur. Vill du ändra något? Chatta igen. Behöver du lägga till fler tjänster eller byta bilder? Gör det direkt i gränssnittet. Ingen bindningstid och ingen månadskostnad om du använder subdomän. När sajten är klar publicerar du på egen domän eller exporterar koden om du vill drifta själv."
+    },
+    {
+      "heading": "Integrationer för betalning och analys",
+      "body": "Vill du ta betalt online för till exempel besiktningsbokning kan du koppla Stripe. Behöver du se hur många som besöker sajten och vilka sidor som är populärast? Lägg till Google Analytics med ett klick. Allt sköts via Sajtmaskin utan att du behöver installera plugins eller skriva kod. Fokusera på att driva verkstaden – vi fixar tekniken."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min bilverkstad?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du chattar med AI:n om din verkstad, tjänster och önskemål, så genereras alla sidor automatiskt. Vill du justera texter eller lägga till bilder tar det några minuter till."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för service och däckbyte?",
+      "a": "Ja, du integrerar Cal.com så kunderna kan boka tid direkt på sajten. Du ställer in vilka tjänster som ska gå att boka, hur lång tid varje besök tar och vilka tider som är lediga. Bokningarna hamnar i ditt Cal.com-konto."
+    },
+    {
+      "q": "Kostar det något att ha sajten online?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hosting gratis utan tidsbegränsning. Vill du använda egen domän som dinverkstad.se betalar du för domänen hos en domänleverantör och pekar den mot din sajt. Ingen månadskostnad för plattformen."
+    },
+    {
+      "q": "Kan jag visa priser på service och besiktning?",
+      "a": "Absolut. Du lägger in priser eller prisexempel på varje tjänstesida. Vill du hellre skriva \"Ring för offert\" fungerar det också. Du bestämmer hur transparent ni vill vara med prissättningen."
+    },
+    {
+      "q": "Hur gör jag sajten synlig för bilägare i Växjö?",
+      "a": "Lägg in er adress, telefonnummer och öppettider tydligt. Nämn gärna områden ni ligger nära, som Teleborg eller Arabyområdet. En Google Maps-integration hjälper också. Sajtmaskin bygger in rätt struktur för lokal SEO så sökmotorer förstår var ni finns."
+    },
+    {
+      "q": "Kan jag exportera sajten om jag vill byta plattform senare?",
+      "a": "Ja, du kan när som helst exportera hela koden och flytta sajten till en egen server eller annan leverantör. Ingen bindningstid och inget krångel. Du äger allt innehåll."
+    },
+    {
+      "q": "Vad händer om jag behöver ändra något efter publiceringen?",
+      "a": "Du chattar med AI:n igen eller redigerar direkt i gränssnittet. Vill du lägga till en ny tjänst, byta öppettider eller uppdatera bilder tar det bara några minuter. Inga tekniska kunskaper behövs."
+    }
+  ],
+  "localOrIndustryContext": "Växjö har en blandning av lokala bilverkstäder och kedjor, och många bilägare söker online innan de bokar service eller besiktning. En tydlig sajt med bokning och priser gör skillnad, särskilt för verkstäder som vill nå kunder i Teleborg, Arabyområdet och omkringliggande byar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vaxjo",
+      "label": "Skapa hemsida i Växjö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bilverkstad-hemsida för min verksamhet i Växjö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

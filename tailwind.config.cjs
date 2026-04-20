@@ -15,6 +15,9 @@ const config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         brand: {
+          ink: "hsl(var(--brand-ink))",
+          sand: "hsl(var(--brand-sand))",
+          stone: "hsl(var(--brand-stone))",
           navy: "hsl(var(--brand-navy))",
           orange: "hsl(var(--brand-orange))",
           warm: "hsl(var(--brand-warm))",

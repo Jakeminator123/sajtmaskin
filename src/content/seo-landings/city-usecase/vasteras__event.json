@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "vasteras/event",
+  "title": "Hemsida för event i Västerås – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell eventsajt i Västerås med AI. Biljettförsäljning, bokning och betalning. Ingen kod krävs. Publicera på egen domän direkt.",
+  "h1": "Hemsida för event i Västerås",
+  "heroSub": "Bygg en komplett eventsajt med bokning, biljetter och betalning – på minuter, inte veckor.",
+  "introParagraphs": [
+    "Västerås växer som eventstad, från Cityfestivalen och Power Meet till företagsevent på Kokpunkten och kulturkvällar på Aros Congress Center. För att nå publiken behöver du en sajt som visar program, säljer biljetter och tar bokningar – utan att du ska behöva koda eller vänta på byrå.",
+    "Sajtmaskin låter dig bygga en färdig eventsajt genom att chatta med vår AI. Du beskriver ditt event, vilka funktioner du behöver och vilken känsla sajten ska ha. AI:n skapar sidor för program, artistinfo, platsbeskrivning och biljettköp. Integrationen med Cal.com hanterar bokningar, Stripe tar betalt och allt publiceras på din egen domän. Du kan uppdatera info, lägga till nya datum och ändra priser direkt i gränssnittet – perfekt när eventsäsongen rullar på."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en eventsajt i Västerås behöver",
+      "body": "En bra eventsajt gör det enkelt för besökare att förstå vad som händer, när och var. Du behöver tydliga programsidor med tider och artister, en karta eller vägbeskrivning till Västerås Konserthus, Rocklunda eller din egen lokal. Biljettförsäljning ska gå smidigt med Stripe, och om du kör workshops eller mingel behöver du bokningsfunktion via Cal.com. Glöm inte kontaktinfo, FAQ om parkering och eventuella sponsorloggor. Sajtmaskin bygger allt det här åt dig från din beskrivning – inga mallar att fylla i, bara en färdig sajt anpassad efter ditt event."
+    },
+    {
+      "heading": "Från idé till publicerad sajt på minuter",
+      "body": "Du startar en chatt och berättar vad du planerar: en musikfestival på Lögarängen, en foodtruck-kväll vid Mälaren eller ett företagsseminarium på Bishops Arms. AI:n frågar om detaljer – datum, pris, målgrupp, stil – och genererar sedan hela sajten. Du får förslag på texter, bildplaceringar och sidstruktur. Gillar du inte något? Säg till i chatten så justerar AI:n direkt. När allt ser bra ut publicerar du på din domän, eller testar gratis på en Sajtmaskin-subdomän. Inga installationer, ingen kod, inget krångel."
+    },
+    {
+      "heading": "Integrationer som gör eventsajten komplett",
+      "body": "Stripe-integrationen låter dig sälja biljetter direkt på sajten – besökaren betalar med kort, du får pengarna på ditt konto. Cal.com passar perfekt om du behöver boka in talare, guidade turer eller VIP-mingel. Google Analytics visar var trafiken kommer ifrån, vilka sidor folk tittar på och när de köper biljett. Behöver du sälja merch eller eventpaket kopplar du Shopify. Allt sköts från samma gränssnitt, på svenska, utan att du behöver läsa dokumentation eller installera plugins."
+    },
+    {
+      "heading": "Uppdatera och anpassa när du vill",
+      "body": "Event förändras – en artist blir sjuk, en workshop flyttas, priset på sena biljetter höjs. I Sajtmaskin chattar du bara \"ändra starttid till 19.00\" eller \"lägg till en ny scen\" så uppdaterar AI:n sajten. Vill du byta färgschema inför höstens event eller lägga till en sponsorsektion? Beskriv det i chatten. Ingen bindningstid och du kan exportera koden när som helst om du vill flytta sajten. Allt ägs av dig, inte av plattformen."
+    },
+    {
+      "heading": "Byggt i Sverige, hostat utan månadskostnad",
+      "body": "Sajtmaskin drivs av Pretty Good AB i Sverige. Gränssnittet, supporten och all AI-genererad text är på svenska. Hostar du på vår subdomän betalar du ingen månadshyra – perfekt om du kör ett enstaka event eller vill testa utan risk. Vill du ha egen domän och full kontroll fixar du det på minuter. Inga dolda avgifter, inga överraskningar. Bara en sajt som fungerar när Västeråspubliken ska hitta och boka ditt event."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja, genom Stripe-integrationen. Besökaren lägger biljett i varukorg, betalar med kort och får bekräftelse via mejl. Du ser alla transaktioner i Stripe-panelen och pengarna hamnar på ditt konto. Perfekt för allt från klubbkvällar till stora festivaler."
+    },
+    {
+      "q": "Hur lägger jag till bokningsfunktion för workshops?",
+      "a": "Koppla Cal.com så får du ett bokningsschema direkt på sajten. Besökaren väljer tid, fyller i namn och mejl, och får automatisk bekräftelse. Du ser alla bokningar i Cal.com-kalendern och kan skicka påminnelser eller flytta tider om något ändras."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter Sajtmaskin skapar är responsiva. Programmet, biljettköpet och kartan fungerar lika smidigt på telefon som på dator. De flesta eventbesökare surfar på mobilen, så det är inbyggt från start."
+    },
+    {
+      "q": "Kan jag visa en karta till eventplatsen i Västerås?",
+      "a": "Absolut. Beskriv i chatten var eventet är – Västerås Konserthus, Rocklunda ishall, Mälarpaviljongerna – så lägger AI:n in en karta och vägbeskrivning. Du kan även lägga till info om parkering, kollektivtrafik eller cykelställ."
+    },
+    {
+      "q": "Vad händer om jag behöver ändra datum eller pris?",
+      "a": "Chatta bara med AI:n: \"flytta eventet till 15 juni\" eller \"sänk biljettpriset till 150 kr\". Sajten uppdateras direkt. Inga formulär att fylla i, inga filer att ladda upp. Allt sköts i samma gränssnitt där du byggde sajten."
+    },
+    {
+      "q": "Kan jag lägga till sponsorloggor och partners?",
+      "a": "Ja, beskriv vilka sponsorer du har så skapar AI:n en sektion med loggor och länkar. Vill du ha olika nivåer – huvudsponsor, medsponsor – säger du det i chatten. Du kan uppdatera loggor och texter när som helst."
+    },
+    {
+      "q": "Kostar det extra att hosta sajten?",
+      "a": "Nej, om du använder en Sajtmaskin-subdomän är hosting gratis. Vill du ha egen domän (typ mittfestival.se) kopplar du den utan extra månadskostnad från oss. Du betalar bara för själva domänregistreringen hos din domänleverantör."
+    }
+  ],
+  "localOrIndustryContext": "Västerås eventscen spänner från Cityfestivalen och Mässan i Västerås till mindre klubbkvällar på Steam Hotel och konserter i Konserthuset. Med Mälaren, Lögarängen och Rocklunda som populära eventplatser behöver arrangörer en sajt som snabbt når både Västeråsare och besökare från Stockholm och Örebro – utan att kräva teknisk expertis eller stora budgetar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vasteras",
+      "label": "Skapa hemsida i Västerås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Västerås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

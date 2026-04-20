@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "karlstad/webshop",
+  "title": "Hemsida webshop Karlstad – Bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell webshop i Karlstad med AI. Ingen kod, klart på minuter. Stripe-betalningar, egen domän och svensk support. Prova gratis!",
+  "h1": "Webshop i Karlstad – från idé till färdig e-handel",
+  "heroSub": "Bygg din e-handelsplattform med AI på minuter. Betalningar, produkter och design – allt fixat direkt i chatten.",
+  "introParagraphs": [
+    "Du behöver en webshop för ditt företag i Karlstad, men vill slippa veckors utveckling och höga kostnader. Sajtmaskin låter dig bygga en komplett e-handel genom att chatta med en AI – berätta vad du säljer, så får du en färdig webshop med produktsidor, betalningslösning via Stripe och professionell design på minuter.",
+    "Perfekt för dig som driver butik på Drottninggatan, säljer hantverksprodukter från verkstaden i Kronoparken eller vill komplettera din fysiska butik med onlineförsäljning. Du får en sajt som fungerar direkt, på egen domän, utan bindningstid. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "AI bygger din webshop direkt i chatten",
+      "body": "Ingen kodning, inga krångliga verktyg. Du chattar med Sajtmaskin och beskriver vad du säljer – kläder, inredning, lokalproducerade livsmedel eller tjänster. AI:n skapar produktsidor, kategoristruktur, kassan och designen automatiskt. Vill du ändra något? Be AI:n justera färger, lägga till fler produkter eller ändra layouten. Allt händer i realtid medan ni chattar."
+    },
+    {
+      "heading": "Stripe-betalningar och Shopify-integration",
+      "body": "Din webshop får Stripe-integration så kunderna kan betala med kort direkt på sajten. Säkert, snabbt och professionellt. Behöver du mer avancerad lagerhantering och ordersystem? Koppla in Shopify och få full e-handelsfunktion. Båda integrationerna sätts upp direkt – du väljer vad som passar ditt företag bäst. För enklare försäljning räcker Stripe, för större sortiment är Shopify ett kraftfullt komplement."
+    },
+    {
+      "heading": "Egen domän utan månadskostnader",
+      "body": "Publicera din webshop på din egen domän direkt. Vill du testa först? Använd en gratis subdomän hos oss utan månadskostnad för hosting. Ingen bindningstid – du kan när som helst exportera hela koden och flytta sajten. Din webshop är din, och du bestämmer helt själv hur länge du vill använda Sajtmaskin. Allt support och gränssnitt på svenska, från ett företag i Sverige."
+    },
+    {
+      "heading": "Från lokal butik till digital försäljning",
+      "body": "Många företag i Karlstad kompletterar sin fysiska butik med e-handel för att nå kunder utanför stan. Med Sajtmaskin får du en webshop som matchar din profil – oavsett om du säljer vintage på Herrgårdsgatan, ekologiska produkter på Torgmarknad eller hantverkstjänster. Lägg till Cal.com för bokningsbara konsultationer eller Google Analytics för att följa hur kunderna hittar dina produkter. Allt sätts upp på minuter."
+    },
+    {
+      "heading": "Webshop som växer med ditt företag",
+      "body": "Börja enkelt med några produkter och bygg ut när du är redo. Lägg till nya kategorier, ändra priser, uppdatera bilder – allt direkt i chatten med AI:n. Ingen teknisk kunskap krävs. Din webshop är byggd för att växa: från testförsäljning till fullskalig e-handel. Och eftersom du kan exportera koden när du vill har du alltid full kontroll över din digitala försäljningskanal."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en webshop igång i Karlstad?",
+      "a": "De flesta har en fungerande webshop på 10–20 minuter. Du chattar med AI:n, beskriver dina produkter och vad du vill sälja, så genereras sajten automatiskt. Stripe-betalningar och design ingår direkt. Vill du publicera på egen domän tar det bara några minuter extra att koppla den."
+    },
+    {
+      "q": "Kan jag sälja både produkter och tjänster på samma sajt?",
+      "a": "Absolut. Din webshop kan kombinera fysiska produkter med bokningsbara tjänster genom Cal.com-integration. Perfekt om du till exempel säljer hantverksprodukter och samtidigt erbjuder workshops eller konsultationer. Allt sköts från samma sajt med AI:ns hjälp."
+    },
+    {
+      "q": "Vad kostar det att driva en webshop via Sajtmaskin?",
+      "a": "Det finns ingen månadskostnad för hosting om du använder vår subdomän. Vill du ha egen domän betalar du bara för domänregistreringen. Stripe tar en liten avgift per transaktion (standard kortavgifter), och Shopify kostar extra om du väljer den integrationen. Ingen bindningstid – du betalar bara för det du faktiskt använder."
+    },
+    {
+      "q": "Behöver jag tekniska kunskaper för att uppdatera produkter?",
+      "a": "Nej, allt sköts i chatten. Vill du lägga till nya produkter, ändra priser eller uppdatera beskrivningar chattar du bara med AI:n. Inga krångliga adminpaneler eller tekniska verktyg. Säg vad du vill ändra så händer det direkt."
+    },
+    {
+      "q": "Fungerar webshopen på mobiler?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva och fungerar perfekt på mobil, surfplatta och dator. Eftersom allt fler handlar på mobilen är det inbyggt från start. Du behöver inte göra något extra – designen anpassar sig automatiskt."
+    },
+    {
+      "q": "Kan jag integrera med mitt befintliga kassasystem?",
+      "a": "Sajtmaskin erbjuder Stripe för kortbetalningar och Shopify för fullständig e-handel med lagerhantering. Behöver du koppla andra system kan du exportera koden och låta en utvecklare göra anpassningar. Du äger koden helt och kan bygga vidare precis som du vill."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan när som helst exportera hela koden till din webshop. Ingen inlåsning, ingen bindningstid. Ta koden och flytta till vilken hostingleverantör du vill, eller fortsätt utveckla den själv. Din webshop är din, och du bestämmer helt över den."
+    }
+  ],
+  "localOrIndustryContext": "Karlstad har en växande företagsscen med allt från lokala hantverkare och designbutiker till livsmedelproducenter och tjänsteföretag. Många kompletterar sina fysiska butiker i centrum med e-handel för att nå kunder i hela Värmland och resten av Sverige. En webshop ger dig möjlighet att sälja dygnet runt, oavsett öppettider.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/karlstad",
+      "label": "Skapa hemsida i Karlstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Karlstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

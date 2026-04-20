@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "eskilstuna/event",
+  "title": "Hemsida för event i Eskilstuna – bygg din eventsajt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell eventsajt i Eskilstuna på minuter. Kalenderintegration, biljettförsäljning och responsiv design – allt utan kod.",
+  "h1": "Hemsida för event i Eskilstuna",
+  "heroSub": "Bygg en komplett eventsajt med bokningssystem och betalning – ingen kod krävs, klar på minuter.",
+  "introParagraphs": [
+    "En eventsajt behöver visa program, sälja biljetter och hantera anmälningar smidigt. Med Sajtmaskin bygger du en komplett hemsida för dina evenemang i Eskilstuna direkt via chat – AI:n skapar struktur, design och funktioner medan du beskriver vad du vill ha.",
+    "Plattformen är byggd i Sverige och helt på svenska. Du får kalenderintegration via Cal.com, betalning genom Stripe och kan publicera på din egen domän. Allt sker utan bindningstid, och du kan exportera koden när du vill.",
+    "Perfekt för eventarrangörer, föreningar, kulturaktörer och företag i Eskilstuna som vill ha en professionell närvaro online utan att lägga veckor på utveckling."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför eventsajter i Eskilstuna behöver rätt funktioner",
+      "body": "Eskilstuna har en stark eventkultur med allt från Parken Zoo-evenemang till kulturhus, idrottstävlingar och företagsmingel. Besökare förväntar sig att snabbt hitta datum, köpa biljetter och se praktisk info om plats och program. En eventsajt som saknar tydlig kalender eller krånglig anmälan tappar deltagare till konkurrenter. Med Sajtmaskin får du en sajt som visar evenemang överskådligt, hanterar bokningar direkt och tar betalt säkert – allt integrerat från start."
+    },
+    {
+      "heading": "Bygg din eventsajt via chat – så fungerar det",
+      "body": "Du chattar med AI:n och beskriver dina evenemang: typ av event, målgrupp, om du vill sälja biljetter eller bara ta anmälningar. AI:n föreslår layout, skapar sidor för program och praktisk info, och kopplar in Cal.com för bokningar och Stripe för betalning. Du kan be om ändringar direkt i chatten – byt färger, lägg till bildgalleri från tidigare event, justera formulär. När du är nöjd publicerar du på din egen domän eller använder en kostnadsfri subdomän. Ingen kod, inga krångliga verktyg."
+    },
+    {
+      "heading": "Integrationer som gör eventsajten komplett",
+      "body": "Cal.com låter besökare boka platser eller välja tider för workshoppar och aktiviteter. Stripe hanterar kortbetalning för biljetter, och du kan sätta olika priser för tidig anmälan, gruppbiljetter eller VIP-paket. Google Analytics visar vilka evenemang som lockar mest trafik och var dina besökare kommer ifrån. Behöver du koppla en webshop för eventmerchandise fungerar Shopify-integrationen sömlöst. Allt sätts upp utan teknisk kompetens."
+    },
+    {
+      "heading": "Flexibilitet utan bindningstid eller dolda avgifter",
+      "body": "Sajtmaskin tar ingen månadsavgift för hosting på subdomän, och det finns ingen bindningstid. Vill du flytta sajten eller bygga vidare själv kan du exportera hela koden. Det passar eventarrangörer som testar nya koncept, föreningar med begränsad budget eller företag som vill äga sin digitala närvaro helt. Du betalar bara för det du använder och kan skala upp eller ner efter behov."
+    },
+    {
+      "heading": "Exempel på eventsajter som fungerar i Eskilstuna",
+      "body": "En idrottsförening kan visa tävlingskalender, ta anmälningar och sälja startplatser. En kulturfestival presenterar artistprogram, säljer dagsbiljetter och erbjuder VIP-upplevelser. Ett företag som arrangerar nätverksmingel kan visa talare, hantera registrering och skicka automatiska bekräftelser. Oavsett om du kör återkommande event eller engångshändelser ger Sajtmaskin strukturen och verktygen du behöver för att synas professionellt och hantera logistiken smidigt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en eventsajt med Sajtmaskin?",
+      "a": "De flesta får en fungerande sajt på 10–30 minuter. Du chattar med AI:n, beskriver dina evenemang och önskemål, och får förslag direkt. Justeringar görs i samma chatt, så du slipper maila fram och tillbaka eller vänta på utvecklare."
+    },
+    {
+      "q": "Kan jag sälja biljetter direkt på sajten?",
+      "a": "Ja, genom Stripe-integrationen tar sajten kortbetalning säkert. Du kan sätta olika priser, erbjuda rabattkoder och hantera återbetalningar. Pengarna går direkt till ditt Stripe-konto, och du behöver inte tredjepartstjänster för biljettförsäljning."
+    },
+    {
+      "q": "Fungerar sajten för både små och stora evenemang?",
+      "a": "Absolut. En lokal workshop med tio platser och en festival med tusentals besökare kan båda byggas på samma plattform. Du skalar funktioner efter behov – enkel anmälan för små event, avancerad biljetthantering och flera datum för större."
+    },
+    {
+      "q": "Kan besökare boka specifika tider eller aktiviteter?",
+      "a": "Ja, Cal.com-integrationen låter dig sätta upp bokningsbara tidsslots. Perfekt för workshoppar, guidade turer eller event med flera parallella program där deltagare väljer sina aktiviteter."
+    },
+    {
+      "q": "Vad händer om jag vill ändra eventinfo efter publicering?",
+      "a": "Du loggar in och gör ändringar direkt via chatten – uppdatera datum, lägg till nya talare, ändra priser. Sajten uppdateras live utan att du behöver teknisk kunskap. Allt sker på svenska och är intuitivt."
+    },
+    {
+      "q": "Kan jag använda min egen domän för eventsajten?",
+      "a": "Ja, du publicerar på vilken domän du vill. Har du ingen domän än kan du börja med en kostnadsfri subdomän från Sajtmaskin och byta senare. Ingen extra avgift för hosting på subdomän."
+    },
+    {
+      "q": "Passar Sajtmaskin för återkommande evenemang i Eskilstuna?",
+      "a": "Helt klart. Många eventarrangörer i Eskilstuna kör återkommande event – månatliga mingel, säsongsbaserade festivaler, årliga tävlingar. Du kan uppdatera kalendern löpande, återanvända struktur och bygga en stamkundsbas som känner igen din sajt."
+    }
+  ],
+  "localOrIndustryContext": "Eskilstuna har en livaktig eventscen med Parken Zoo, Munktellarenan, Faktum och en rad kulturhus och idrottsanläggningar. Både lokala föreningar och kommersiella arrangörer konkurrerar om besökare, och en professionell eventsajt med smidig bokning och tydlig info gör skillnad i en stad där folk är vana vid hög service och snabb digital hantering.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/eskilstuna",
+      "label": "Skapa hemsida i Eskilstuna"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en event-hemsida för min verksamhet i Eskilstuna. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

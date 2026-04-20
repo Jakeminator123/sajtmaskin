@@ -1,0 +1,106 @@
+{
+  "family": "usecase",
+  "slug": "gym",
+  "title": "Hemsida gym – bygg en sajt för ditt träningscenter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt gym på minuter. Med AI, bokning, priser och all info dina medlemmar behöver – utan kod.",
+  "h1": "Hemsida för gym och träningsstudio",
+  "heroSub": "Bygg en sajt med schema, bokningar och medlemsinfo – direkt i chatten, utan att koda en rad.",
+  "introParagraphs": [
+    "En hemsida för gym behöver visa träningstider, priser, vilka pass som går och hur man blir medlem. Oftast vill besökare boka drop-in eller provträning direkt, se vilka tränare som jobbar där och få en känsla för atmosfären. Allt det ska vara lätt att hitta, både på mobilen och datorn.",
+    "Med Sajtmaskin bygger du hela sajten genom att chatta med AI. Du beskriver ditt gym – gruppträning, frivikter, PT, öppettider – så genererar verktyget sidor med text, bilder och funktioner på plats. Du publicerar på din egen domän och kan integrera bokningssystem och betalning direkt.",
+    "Ingen bindningstid, ingen dold kostnad för hosting på subdomän. Du äger koden och kan exportera den när du vill. Perfekt för både nya studior och etablerade gym som vill modernisera sin närvaro online."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Schema och drop-in-info",
+      "body": "Besökare vill veta när de kan träna. Bygg in veckoschemat med passtider, träningsformer och vilka tränare som leder passen. Lägg till en sektion för drop-in-regler, priser per gång och hur bokning fungerar. Sajtmaskin låter dig strukturera allt i ett klart flöde – AI:n föreslår layout och du justerar texten tills det stämmer."
+    },
+    {
+      "heading": "Medlemskap och priser",
+      "body": "Tydliga prisplaner är avgörande. Skapa en prissida som visar månadskort, årskort, klippkort och eventuella studentrabatter. Förklara vad som ingår: tillgång till alla pass, fri träning, omklädningsrum med bastu. Koppla Stripe om du vill ta betalt online, eller länka till er befintliga medlemsportal. Allt går att sätta upp utan kod."
+    },
+    {
+      "heading": "Boka provträning eller PT-session",
+      "body": "Integrera Cal.com så att nya besökare kan boka ett första besök eller en personlig träningstid direkt på sajten. Du väljer vilka tider som är lediga, och bokningarna hamnar i din kalender. Det sänker tröskeln för nya medlemmar och frigör tid från telefonsamtal och mejlbokningar."
+    },
+    {
+      "heading": "Presentera tränare och faciliteter",
+      "body": "Visa upp teamet med korta profiler: namn, specialitet, erfarenhet. Lägg till bilder på lokalen – träningsytan, maskiner, omklädningsrum – så att besökare får en känsla för miljön innan de kommer. Sajtmaskin genererar struktur för teampresentationer och bildgallerier; du laddar upp dina egna foton och justerar texten."
+    },
+    {
+      "heading": "Uppdatera själv när som helst",
+      "body": "Ändrade öppettider inför sommar? Nytt pass på schemat? Logga in och redigera direkt i chatten – AI:n hjälper dig omformulera eller lägga till block. Ingen väntan på webbyrå. Du kan också exportera hela koden om du vill flytta sajten eller anpassa den mer avancerat senare."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en gymsajt med Sajtmaskin?",
+      "a": "Oftast några minuter. Du chattar om vad gymmet erbjuder – pass, priser, öppettider – så genererar AI:n en färdig sajt med alla sidor. Sedan justerar du text och bilder tills allt ser rätt ut. Publiceringen sker direkt på din domän."
+    },
+    {
+      "q": "Kan jag integrera bokningssystem för provträning?",
+      "a": "Ja, Sajtmaskin stödjer Cal.com som du kopplar in med några klick. Besökare bokar tider direkt på sajten och du får bekräftelse i din kalender. Perfekt för drop-in, PT-sessioner eller introduktionspass."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Om du publicerar på en Sajtmaskin-subdomän är hostingen gratis utan månadskostnad. Vill du använda din egen domän betalar du endast för domänregistreringen hos din registrar. Ingen bindningstid och du kan exportera koden kostnadsfritt när du vill."
+    },
+    {
+      "q": "Kan jag lägga till betalning för medlemskap?",
+      "a": "Ja, via Stripe-integrationen. Du skapar produkter för månadskort, årskort eller klippkort och lägger in betalknappen på prissidan. Pengarna går direkt till ditt Stripe-konto. Alternativt länkar du till ert befintliga medlemssystem."
+    },
+    {
+      "q": "Hur uppdaterar jag schemat när pass ändras?",
+      "a": "Logga in i Sajtmaskin och berätta i chatten vad som ska ändras – ny passtid, annan tränare, tillagt pass. AI:n uppdaterar sidan direkt. Du behöver ingen teknisk kunskap, bara skriv vad som ska stå så fixar verktyget layouten."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sidor Sajtmaskin genererar är responsiva. Scheman, priser och bokningsknappar anpassas automatiskt till skärmstorlek. De flesta gymbesökare surfar på telefon, så mobilvyn prioriteras från start."
+    },
+    {
+      "q": "Kan jag visa bilder från gymmet och träningspassen?",
+      "a": "Absolut. Ladda upp foton på lokalen, utrustningen och teamet så placerar AI:n dem i gallerier eller hero-sektioner. Bilder skapar förtroende och ger besökare en känsla för atmosfären innan de kliver in första gången."
+    }
+  ],
+  "localOrIndustryContext": "Gym och träningsstudios i Sverige behöver en sajt som fungerar dygnet runt – besökare kollar schema, priser och bokutningsmöjligheter när det passar dem. En tydlig, snabb hemsida minskar administration och gör det enklare för nya medlemmar att ta steget in.",
+  "internalLinks": [
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en gym-hemsida. Hjälp mig att komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,100 @@
+{
+  "family": "compare",
+  "slug": "wix",
+  "title": "Alternativ till Wix – bygg hemsida på svenska med AI | Sajtmaskin",
+  "metaDescription": "Letar du efter ett svenskt alternativ till Wix? Sajtmaskin bygger din hemsida på minuter med AI – helt på svenska, utan bindningstid.",
+  "h1": "Alternativ till Wix för svenska företag",
+  "heroSub": "Bygg din hemsida på minuter med AI – helt på svenska, utan krångel och utan bindningstid.",
+  "introParagraphs": [
+    "Wix är en populär webbplatsbyggare med tusentals mallar och drag-and-drop-redigering. Men många svenska företagare stöter på utmaningar: gränssnittet är på engelska, supporten svarar sent från andra tidszoner, och kostnaderna växer snabbt när du behöver fler funktioner. Om du vill ha en hemsida som byggs snabbt, talar svenska och inte kräver timmar av klickande, finns det alternativ.",
+    "Sajtmaskin är byggt för svenska företag som vill komma igång fort. Istället för att dra och släppa element skapar du hela sajten genom att chatta med AI – på ren svenska. Du får en färdig hemsida på minuter, publicerar på egen domän eller kostnadsfritt på en subdomän, och betalar bara när du behöver extra funktioner. Ingen bindningstid, ingen byrå, ingen frustration."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför söker företag alternativ till Wix?",
+      "body": "Wix fungerar bra för många, men vissa saker gör att svenska användare letar vidare. Gränssnittet är inte översatt till svenska, vilket gör det svårare att hitta rätt inställningar. Supporten sitter utomlands och svarar sällan samma dag. Prismodellen kan bli dyr: grundplanen är billig, men vill du koppla bort Wix-annonser, lägga till e-handel eller få bättre SEO-verktyg klättrar kostnaden snabbt. Dessutom kan Wix-sajter kännas tröga att redigera när du har många sidor eller vill ändra layout i efterhand. För den som vill ha kontroll, snabbhet och svensk känsla kan ett alternativ passa bättre."
+    },
+    {
+      "heading": "Hur Sajtmaskin skiljer sig från Wix",
+      "body": "Sajtmaskin bygger på AI istället för drag-and-drop. Du beskriver vad du behöver – företagssajt, webshop, bokningssida – och AI:n skapar hela strukturen, texterna och designen på minuter. Allt händer på svenska: gränssnitt, support och innehåll. Du slipper klicka dig genom mallar eller dra element. Vill du ändra något skriver du bara vad du vill ha, så uppdaterar AI:n sidan. Sajtmaskin har ingen bindningstid och ingen dold kostnad för hosting på subdomän. Vill du publicera på egen domän betalar du en engångsavgift, och du kan när som helst exportera koden och flytta sajten. Integrationer som Cal.com för bokning och Stripe för betalning ingår utan extra tillägg."
+    },
+    {
+      "heading": "Vad Wix fortfarande gör bra",
+      "body": "Wix har funnits länge och erbjuder enormt många mallar, appar och designalternativ. Om du vill ha full visuell kontroll över varje pixel och gillar att experimentera med layout kan Wix drag-and-drop-editor vara tillfredsställande. Deras App Market har hundratals tillägg för nischfunktioner, och ekosystemet är moget. För internationella projekt med flera språkversioner och stora team kan Wix infrastruktur vara en fördel. Men för svenska småföretag, frilansare och startups som vill ha en sajt igång snabbt – utan att lära sig ett nytt verktyg eller vänta på support – är Sajtmaskin ofta smidigare och billigare."
+    },
+    {
+      "heading": "Priser och äganderätt",
+      "body": "Wix tar betalt per månad, och priset stiger om du vill ta bort deras annonser, koppla egen domän eller lägga till e-handel. Sajtmaskin fungerar annorlunda: hosting på subdomän är gratis, och du betalar bara en engångsavgift om du vill publicera på egen domän. Inga månadskostnader för själva sajten. Vill du ha bokning, betalning eller analytics integrerar du det direkt utan dolda avgifter. Du äger koden och kan exportera den när du vill – ingen inlåsning. Det gör Sajtmaskin billigare över tid, särskilt om du inte behöver betala för funktioner du aldrig använder."
+    },
+    {
+      "heading": "Kom igång på minuter – helt på svenska",
+      "body": "Med Sajtmaskin startar du genom att chatta med AI:n. Berätta vad ditt företag gör, vilka sidor du behöver och vad som är viktigt för dig. AI:n skriver texterna, väljer struktur och skapar designen. Du granskar, justerar och publicerar. Hela processen tar minuter, inte dagar. Support finns på svenska, och eftersom Sajtmaskin drivs av Pretty Good AB i Sverige får du svar snabbt. Ingen inlärningstid, ingen manual, ingen frustration. Bara en färdig hemsida som talar ditt språk."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Är Sajtmaskin billigare än Wix?",
+      "a": "Ja, för de flesta svenska småföretag. Wix tar betalt varje månad, och priset ökar när du lägger till funktioner. Sajtmaskin har gratis hosting på subdomän och tar bara en engångsavgift för egen domän. Inga månadskostnader för själva sajten, och integrationer som bokning och betalning ingår utan extra kostnad."
+    },
+    {
+      "q": "Kan jag flytta min sajt från Wix till Sajtmaskin?",
+      "a": "Ja. Du kan beskriva din nuvarande sajt för AI:n, och Sajtmaskin bygger en ny version med samma innehåll och struktur. Du kan också exportera koden från Sajtmaskin när som helst och flytta vidare om du vill. Ingen inlåsning."
+    },
+    {
+      "q": "Har Sajtmaskin lika många mallar som Wix?",
+      "a": "Nej, Sajtmaskin använder inte mallar. Istället skapar AI:n en unik sajt baserat på vad du beskriver. Du får en design som passar ditt företag, inte en mall som tusen andra också använder. Vill du ändra något skriver du bara vad du vill ha."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för webshop?",
+      "a": "Ja, Sajtmaskin integrerar med Shopify för e-handel och Stripe för betalningar. Du kan sälja produkter, prenumerationer eller tjänster direkt på sajten. AI:n hjälper dig sätta upp allt, och du slipper klicka igenom komplicerade inställningar."
+    },
+    {
+      "q": "Får jag svensk support?",
+      "a": "Ja, Sajtmaskin drivs av Pretty Good AB i Sverige. Support, gränssnitt och allt innehåll är på svenska. Du får svar snabbt, samma dag, och slipper vänta på svar från andra tidszoner."
+    },
+    {
+      "q": "Kan jag redigera sajten själv efter att AI:n skapat den?",
+      "a": "Ja, du kan be AI:n ändra vad som helst – texter, layout, sidor, bilder. Eller exportera koden och redigera den själv om du har teknisk kompetens. Du har full kontroll."
+    },
+    {
+      "q": "Vad händer om jag vill sluta använda Sajtmaskin?",
+      "a": "Ingen bindningstid. Du kan exportera koden när du vill och flytta sajten till egen hosting. Du äger allt innehåll och all design, och kan ta med dig det vidare utan kostnad."
+    }
+  ],
+  "internalLinks": [
+    {
+      "href": "/alternativ-till/squarespace",
+      "label": "Alternativ till Squarespace"
+    },
+    {
+      "href": "/alternativ-till/webflow",
+      "label": "Alternativ till Webflow"
+    },
+    {
+      "href": "/alternativ-till/shopify",
+      "label": "Alternativ till Shopify"
+    },
+    {
+      "href": "/alternativ-till/framer",
+      "label": "Alternativ till Framer"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag funderar på att byta från Wix. Hjälp mig bygga min nya hemsida med Sajtmaskin."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

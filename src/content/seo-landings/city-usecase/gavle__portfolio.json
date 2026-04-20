@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "gavle/portfolio",
+  "title": "Hemsida Portfolio Gävle – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfoliosajt i Gävle med AI. Ingen kod krävs – publicera på egen domän direkt. Perfekt för kreatörer och konsulter.",
+  "h1": "Hemsida Portfolio Gävle",
+  "heroSub": "Bygg en portfoliosajt som visar ditt arbete – på minuter, inte veckor.",
+  "introParagraphs": [
+    "En portfoliosajt är ditt digitala visitkort. Oavsett om du är fotograf, designer, konsult eller hantverkare i Gävle behöver du en plats där kunder kan se vad du kan. Sajtmaskin låter dig bygga en komplett portfoliosajt genom att helt enkelt beskriva vad du gör – AI:n skapar sedan sidan med bildgallerier, projektbeskrivningar och kontaktformulär.",
+    "Du får en sajt som fungerar på mobil och dator, publicerad på din egen domän. Ingen kod, inga mallar att kämpa med. Lägg till Cal.com för bokningar eller Stripe om du säljer tjänster direkt. Allt på svenska, byggt för att fungera direkt.",
+    "Många i Gävle har väntat för länge med att få upp en portfolio – antingen för att det känns tekniskt eller för dyrt. Med Sajtmaskin chattar du fram din sajt på minuter, och du äger resultatet helt. Ingen bindningstid, ingen dold kostnad."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en portfoliosajt i Gävle behöver",
+      "body": "En bra portfoliosajt visar ditt bästa arbete tydligt. Det betyder stora bilder, korta beskrivningar och enkel navigering. För kreatörer i Gävle – allt från snickare till webbdesigners – handlar det om att bevisa kompetens direkt. Besökare ska förstå vad du gör inom fem sekunder. Sajtmaskin bygger strukturen automatiskt: startsida med urval, projektsidor med detaljer, om-sida och kontakt. Du kan lägga till bokningsfunktion via Cal.com om du vill att kunder ska boka konsultation direkt."
+    },
+    {
+      "heading": "Så bygger du din portfolio med AI",
+      "body": "Du startar en chatt och beskriver din verksamhet: vad du gör, vilka projekt du vill visa, vilken känsla sajten ska ha. AI:n genererar en komplett sajt med text, layout och struktur. Du kan justera bilder, byta färger och lägga till fler projekt direkt i gränssnittet. Vill du ha en kontaktformulär? Det finns där. Behöver du Google Analytics? Klicka på. Allt är på svenska och fungerar direkt. När du är nöjd publicerar du på din egen domän, eller testar gratis på en Sajtmaskin-subdomän först."
+    },
+    {
+      "heading": "Varför Gävle-baserade kreatörer väljer Sajtmaskin",
+      "body": "Gävle har en stark kreativ scen – allt från fotografer som dokumenterar Gävlebukken till hantverkare som renoverar hus i Söder. Många har byggt sitt rykte lokalt men saknar en digital närvarvaro som matchar kvaliteten i deras arbete. Sajtmaskin löser det utan att du behöver lära dig WordPress eller betala en byrå tiotusentals kronor. Du får en sajt som ser professionell ut, laddar snabbt och fungerar på alla enheter. Och eftersom du äger koden kan du när som helst exportera och flytta vidare om behoven förändras."
+    },
+    {
+      "heading": "Integrationer som gör sajten mer användbar",
+      "body": "En portfoliosajt blir kraftfullare med rätt verktyg. Lägg till Cal.com så kan kunder boka möten direkt i din kalender – perfekt för konsulter och fotografer. Koppla Stripe om du säljer digitala produkter eller tar förskottsbetalning för uppdrag. Google Analytics visar vilka projekt som får mest uppmärksamhet. Allt sätts upp med några klick, inget kodande. För de som driver webshop vid sidan av portfolion finns Shopify-integration. Verktygen anpassas efter vad just du behöver, inte tvärtom."
+    },
+    {
+      "heading": "Ingen bindningstid, ingen dold kostnad",
+      "body": "Du betalar för att bygga sajten, sedan äger du den. Hosting på Sajtmaskin-subdomän är gratis utan tidsgräns. Vill du ha egen domän kopplar du den direkt. Ingen månadskostnad som tickar på, ingen uppsägningstid. Behöver du ändra något senare gör du det själv i gränssnittet, eller startar en ny chatt med AI:n. Koden är din – exportera och flytta när du vill. Det är så enkelt det ska vara."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfoliosajt?",
+      "a": "De flesta har en färdig sajt på 10–20 minuter. Du beskriver vad du gör och vilka projekt du vill visa, så genererar AI:n strukturen. Sedan lägger du in dina egna bilder och justerar text om du vill. Publiceringen sker direkt."
+    },
+    {
+      "q": "Kan jag visa video i min portfolio?",
+      "a": "Ja, du kan bädda in video från YouTube eller Vimeo på projektsidor. Det fungerar bra för fotografer, filmproducenter eller hantverkare som vill visa processvideor. AI:n hjälper dig strukturera innehållet så video och bilder fungerar tillsammans."
+    },
+    {
+      "q": "Fungerar sajten bra för fotografer i Gävle?",
+      "a": "Absolut. Fotografer behöver stora bilder och snabb laddning – Sajtmaskin optimerar automatiskt. Du kan skapa separata sidor för bröllop, porträtt eller företagsfoto. Lägg till Cal.com så kan kunder boka fotosession direkt. Många lokala fotografer använder portfolion som sitt huvudsakliga säljverktyg."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsgräns. Vill du ha egen domän (exempel.se) betalar du för domänen hos din registrar, ingen extra kostnad från oss. Inga månadsfakturor, inga dolda avgifter. Du äger sajten och bestämmer själv."
+    },
+    {
+      "q": "Kan jag lägga till fler projekt senare?",
+      "a": "Ja, du loggar in och lägger till nya projektsidor när du vill. Gränssnittet är på svenska och fungerar som en enkel editor. Vill du ha hjälp startar du en ny chatt med AI:n som kan generera text och struktur för nya projekt. Sajten växer i din takt."
+    },
+    {
+      "q": "Passar detta för konsulter och frilansare?",
+      "a": "Ja, många konsulter i Gävle använder Sajtmaskin för att visa casestudies och referenser. Du kan beskriva uppdrag utan att avslöja känslig information, visa resultat och koppla bokningsfunktion. Perfekt för allt från IT-konsulter till managementrådgivare som behöver en professionell närvaro snabbt."
+    },
+    {
+      "q": "Äger jag koden till min portfoliosajt?",
+      "a": "Ja, du äger all kod och allt innehåll. Du kan exportera hela sajten när du vill och flytta till egen server eller annan hosting. Ingen inlåsning, inga begränsningar. Sajten är din från start till slut."
+    }
+  ],
+  "localOrIndustryContext": "Gävle har en blandning av etablerade kreatörer och nya frilansare som behöver synlighet. Från Söders hantverkare till designstudios vid hamnen – en portfoliosajt är ofta skillnaden mellan att få uppdraget eller inte. Sajtmaskin gör det möjligt att få upp en professionell sajt samma dag du bestämmer dig, utan teknisk krångel.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/gavle",
+      "label": "Skapa hemsida i Gävle"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Gävle. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

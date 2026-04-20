@@ -1,0 +1,89 @@
+{
+  "family": "city-usecase",
+  "slug": "vaxjo/foretag",
+  "title": "Hemsida för företag i Växjö – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt företag i Växjö med AI. Ingen kod, inga månadskostnader på subdomän. Publicera på egen domän direkt.",
+  "h1": "Hemsida för företag i Växjö",
+  "heroSub": "Bygg en professionell företagssajt med AI – på minuter, inte månader. Ingen kod, inga krångliga verktyg.",
+  "introParagraphs": [
+    "Sajtmaskin låter dig skapa en komplett hemsida för ditt företag i Växjö genom att bara beskriva vad du behöver. AI:n bygger sajten åt dig med all text, struktur och funktioner på plats. Du chattar på svenska, justerar det du vill ändra, och publicerar direkt på din egen domän.",
+    "Oavsett om du driver konsultverksamhet, hantverksfirma eller lokal butik i Växjö så får du en sajt som fungerar från dag ett. Inga bindningstider, ingen månadsavgift för hosting på subdomän, och du kan exportera koden när du vill. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du din företagssajt med AI",
+      "body": "Du startar med att berätta vad ditt företag gör och vad sajten ska innehålla. AI:n skapar sedan hela strukturen med startsida, om-sida, tjänstebeskrivningar och kontaktformulär. Texterna skrivs utifrån din bransch och dina behov. Du ser resultatet direkt i chatten och kan be om ändringar tills allt sitter. Sedan publicerar du på din egen domän eller testar på en kostnadsfri subdomän först."
+    },
+    {
+      "heading": "Funktioner som passar företag i Växjö",
+      "body": "Behöver kunderna boka möten? Integrera Cal.com direkt i sajten. Vill du ta betalt online? Koppla in Stripe. Behöver du en webshop? Anslut Shopify. Google Analytics finns inbyggt om du vill följa besökare. Allt sköts från samma gränssnitt, på svenska, utan att du behöver sätta upp något själv. Du väljer bara vad du behöver, resten löser Sajtmaskin."
+    },
+    {
+      "heading": "Ingen bindning, full kontroll",
+      "body": "Du äger din sajt och kan när som helst exportera all kod. Vill du byta leverantör eller hantera driften själv går det bra. Hosting på subdomän kostar inget extra per månad, och om du vill använda egen domän fixar du det på några minuter. Inga dolda avgifter, inga långa avtal. Du betalar för det du använder och kan sluta när du vill."
+    },
+    {
+      "heading": "Varför företag i Växjö väljer Sajtmaskin",
+      "body": "Många småföretag i Växjö behöver en sajt som fungerar utan att det tar veckor att bygga eller kostar tiotusentals kronor. Sajtmaskin ger dig en färdig lösning på minuter. Allt är på svenska, supporten sitter i Sverige, och du slipper tekniskt krångel. Perfekt för dig som vill fokusera på företaget istället för att lära dig webbverktyg."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få sajten live?",
+      "a": "Du kan ha en färdig sajt publicerad på under en timme. AI:n bygger strukturen på minuter, sedan lägger du tid på att finjustera text och bilder efter dina önskemål. Publicering på egen domän eller subdomän går direkt när du är nöjd."
+    },
+    {
+      "q": "Kan jag använda min befintliga domän?",
+      "a": "Ja, du kan koppla vilken domän som helst till din sajt. Du pekar DNS-posterna till Sajtmaskin och sajten är live på din adress. Vill du testa först kan du använda en kostnadsfri subdomän och byta till egen domän senare."
+    },
+    {
+      "q": "Funkar Sajtmaskin för alla typer av företag i Växjö?",
+      "a": "Ja, oavsett om du driver konsultfirma, hantverksföretag, butik eller annan verksamhet så bygger AI:n en sajt som passar din bransch. Du beskriver vad du gör så anpassas innehåll och struktur efter det."
+    },
+    {
+      "q": "Vad kostar det att ha sajten publicerad?",
+      "a": "Hosting på subdomän kostar ingen extra månadsavgift. Vill du använda egen domän och få tillgång till fler funktioner finns olika planer, men ingen bindningstid. Du kan när som helst exportera sajten och flytta den."
+    },
+    {
+      "q": "Kan jag lägga till bokningsfunktion för möten?",
+      "a": "Ja, du kan integrera Cal.com direkt i sajten så att kunder kan boka tider med dig. Allt sköts från Sajtmaskin utan att du behöver sätta upp något externt system själv."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, hela verktyget fungerar genom chat på svenska. Du beskriver vad du vill ha, AI:n bygger sajten, och du justerar genom att skriva vad du vill ändra. Ingen kod, inga tekniska kunskaper krävs."
+    },
+    {
+      "q": "Kan jag få hjälp om jag kör fast?",
+      "a": "Ja, support finns på svenska och sitter i Sverige. Du får hjälp med allt från tekniska frågor till hur du bäst bygger din sajt. Allt ingår, inga extra avgifter för support."
+    }
+  ],
+  "localOrIndustryContext": "Växjö har en blandning av etablerade företag och nya startups inom allt från teknik till hantverk och handel. Många lokala företag behöver en sajt som är snabb att få igång och enkel att uppdatera själv, utan att behöva anlita byrå för varje ändring. Sajtmaskin passar företag som vill ha kontroll och flexibilitet utan tekniskt krångel.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/vaxjo",
+      "label": "Skapa hemsida i Växjö"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en företag-hemsida för min verksamhet i Växjö. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

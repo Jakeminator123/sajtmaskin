@@ -1,0 +1,105 @@
+{
+  "family": "city",
+  "slug": "lund",
+  "title": "Hemsida Lund – Bygg din sajt på minuter med AI | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Lund med svenskt AI-verktyg. Från prompt till publicerad sajt på minuter. Ingen kod, ingen bindning. Perfekt för Lunds företag.",
+  "h1": "Hemsida Lund – snabbt, smart och helt på svenska",
+  "heroSub": "Bygg din företagssajt i Lund med AI som förstår svenska. Publicera på egen domän, ingen månadskostnad för hosting.",
+  "introParagraphs": [
+    "Sajtmaskin är en svensk AI-plattform som låter dig bygga en komplett hemsida genom att chatta. Du beskriver vad du behöver, AI:n skapar sidorna, och du publicerar direkt – allt på svenska och utan att skriva en rad kod. För företag i Lund betyder det att du kan ha en professionell sajt uppe samma dag, oavsett om du driver konsultverksamhet på Ideon, café i Mårtenstorget eller hantverksbutik i Klostergården.",
+    "Ingen bindningstid, ingen dold kostnad. Du betalar för det du använder och kan när som helst exportera koden. Hosting på subdomän är gratis, eller koppla din egen domän. Integrationer med Cal.com för bokning, Stripe för betalning och Google Analytics för statistik ingår – allt byggt för svenska förhållanden av Pretty Good AB i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Från idé till publicerad sajt – så funkar det",
+      "body": "Du startar en konversation och berättar vad din sajt ska innehålla: vilka tjänster du erbjuder, vilka sidor du behöver, vilken känsla du vill ha. AI:n genererar hela strukturen – texter, layout, menyer – och du ser resultatet direkt. Vill du ändra något? Fortsätt bara chatten. Lägg till en Om oss-sida, justera kontaktformuläret eller byt färgschema. När du är nöjd publicerar du på din egen domän eller på en kostnadsfri Sajtmaskin-subdomän. Hela processen tar minuter, inte veckor."
+    },
+    {
+      "heading": "Varför Lunds företag väljer Sajtmaskin",
+      "body": "Lund är en stad med allt från spjutspetsforskning och startup-miljöer till etablerad handel och kulturliv. Oavsett om du jobbar med life science på Medicon Village, driver en designstudio i centrum eller erbjuder redovisningstjänster till småföretag behöver du en sajt som speglar din kompetens – utan att det ska kräva teknisk expertis eller månader av projektledning. Sajtmaskin ger dig full kontroll: du äger koden, kan exportera när du vill och slipper bindningstid. För många lundabaser är det avgörande att verktyget är helt på svenska, med support som förstår lokala behov och svenska affärsvillkor."
+    },
+    {
+      "heading": "Lokal synlighet och SEO för Lund",
+      "body": "En sajt som rankar i Google för sökningar som 'arkitekt Lund' eller 'yogastudio Klostergården' kräver rätt struktur och innehåll från start. Sajtmaskin låter dig enkelt lägga till stadsdelar, tjänster och lokala referenser direkt i AI-prompten, så sidorna blir relevanta för både besökare och sökmotorer. Du kan bygga in kontaktuppgifter, öppettider och beskrivningar som matchar hur folk faktiskt söker. Kombinera det med Google Analytics-integration så ser du vilka sidor som fungerar och var besökarna kommer ifrån – perfekt för att finjustera din lokala närvaro över tid."
+    },
+    {
+      "heading": "Byråer, gör-det-själv-verktyg eller AI?",
+      "body": "Traditionella webbbyråer i Lund levererar ofta hög kvalitet, men projekten tar tid och kostar lätt 30 000–80 000 kronor. Gör-det-själv-plattformar som Wix eller Squarespace är billigare men kräver att du själv kämpar med mallar, block och design – och supporten är sällan på svenska. Sajtmaskin landar mittemellan: du får professionell struktur och innehåll direkt från AI:n, men behåller full flexibilitet att ändra och äga koden. Ingen månadskostnad om du nöjer dig med subdomän, inga dolda avgifter, och du kan när som helst ta sajten vidare till en annan plattform om du vill."
+    },
+    {
+      "heading": "Integrationer som funkar för svenska företag",
+      "body": "Behöver du ta emot bokningar? Koppla in Cal.com direkt i chatten. Vill du sälja produkter eller tjänster online? Stripe-integration gör det enkelt att ta betalt, och för dig som redan har en Shopify-butik kan du länka samman katalog och kassa. Google Analytics ger dig insikt i besöksstatistik utan krångel. Allt sköts på svenska, och eftersom Sajtmaskin är byggt i Sverige följer det svenska dataskyddsregler och affärspraxis. För företag i Lund som vill ha en modern sajt utan teknisk huvudvärk är det en kombination som är svår att slå."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få en sajt live i Lund?",
+      "a": "De flesta användare har en publicerad sajt inom 30–60 minuter. Du chattar med AI:n, granskar resultatet, justerar om du vill och publicerar. Ingen väntan på byrå eller tekniker – du styr tempot helt själv."
+    },
+    {
+      "q": "Kostar det något att hosta sajten?",
+      "a": "Hosting på en Sajtmaskin-subdomän är helt gratis. Vill du använda din egen domän (till exempel dinafirma.se) kopplar du den kostnadsfritt, men domänregistrering och eventuell premiumhosting kan tillkomma beroende på dina behov."
+    },
+    {
+      "q": "Kan jag lägga till bokning och betalning?",
+      "a": "Ja. Sajtmaskin integrerar med Cal.com för bokningar och Stripe för kortbetalningar. Du aktiverar dem direkt i chatten, och AI:n bygger in formulär och knappar där de behövs. Perfekt för allt från frisörsalonger till konsulttjänster."
+    },
+    {
+      "q": "Äger jag koden och innehållet?",
+      "a": "Absolut. Du kan när som helst exportera hela sajten och flytta den till en egen server eller annan plattform. Ingen inlåsning, ingen bindningstid. Allt innehåll och all design är din från start."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för e-handel?",
+      "a": "Ja, via Shopify-integration. Om du redan har en Shopify-butik kan du koppla den till din Sajtmaskin-sajt. För enklare försäljning av enstaka produkter eller tjänster räcker ofta Stripe-betalning och ett kontaktformulär."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej. Hela gränssnittet är en chattkonversation på svenska. Du beskriver vad du vill ha, AI:n bygger sidorna, och du godkänner eller ändrar genom att fortsätta chatten. Ingen teknisk kunskap krävs."
+    },
+    {
+      "q": "Hur skiljer sig Sajtmaskin från Wix eller Squarespace?",
+      "a": "Sajtmaskin är helt på svenska, använder AI för att skapa struktur och texter åt dig, och låter dig äga och exportera koden. Wix och Squarespace kräver att du själv bygger med mallar och block, har ofta engelskspråkig support och låser in dig i deras ekosystem."
+    }
+  ],
+  "localOrIndustryContext": "Lund kombinerar universitetsmiljö, life science-kluster och levande stadskärna. Från Ideon Science Park och Medicon Village till butiker vid Mårtenstorget och kulturliv i Kulturens kvarter – företag här behöver sajter som speglar både lokal förankring och internationell kompetens, utan tekniskt krångel.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Lund. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

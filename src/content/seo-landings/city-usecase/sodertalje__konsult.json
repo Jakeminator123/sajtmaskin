@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "sodertalje/konsult",
+  "title": "Hemsida konsult Södertälje – Bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell konsulthemsida i Södertälje med AI. Bokningskalender, case och kontaktformulär. Publicera på egen domän direkt.",
+  "h1": "Hemsida för konsulter i Södertälje",
+  "heroSub": "Bygg en komplett konsultsajt med AI – från presentation och tjänster till bokningskalender och referenser.",
+  "introParagraphs": [
+    "Som konsult i Södertälje behöver du en hemsida som snabbt visar vad du kan, vilka uppdrag du tar och hur kunder bokar tid med dig. Sajtmaskin låter dig bygga hela sajten via chat – du beskriver din verksamhet, så genererar AI:n sidorna, texterna och strukturen på minuter.",
+    "Du får en färdig sajt med tjänstebeskrivningar, om-sida, case eller referenser, kontaktformulär och integrerad bokningskalender via Cal.com. Publicera direkt på din egen domän eller på en kostnadsfri subdomän medan du testar. Ingen kod, ingen designer, ingen väntan."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en konsulthemsida i Södertälje behöver",
+      "body": "Oavsett om du jobbar med IT, HR, ekonomi eller projektledning vill potentiella kunder se vem du är, vad du levererar och hur de kommer i kontakt. En bra konsultsajt visar tydligt dina specialistområden, tidigare uppdrag eller branscher du jobbat med, och gör det enkelt att boka ett första möte. I Södertälje, där många konsulter jobbar mot både lokala företag och större bolag i regionen, är det viktigt att sajten känns professionell och pålitlig från första besöket."
+    },
+    {
+      "heading": "AI bygger sidorna åt dig",
+      "body": "Du chattar med Sajtmaskin och beskriver din konsultverksamhet: vilka tjänster du erbjuder, vilka branscher du riktar dig mot, och vad som skiljer dig från andra. AI:n skapar då startsida, tjänstesidor, om-sida och kontaktsida med texter anpassade efter din profil. Vill du lägga till case, kundreferenser eller en blogg? Säg till i chatten så läggs sidorna till. Allt innehåll genereras på svenska och kan justeras direkt i editorn."
+    },
+    {
+      "heading": "Bokningskalender och betalning",
+      "body": "Sajtmaskin integrerar Cal.com så att kunder kan boka kostnadsfria samtal eller workshops direkt i din kalender. Du kopplar ditt Cal.com-konto, väljer mötestyp och längd, så bäddas bokningsformuläret in på sajten. Tar du betalt för kortare rådgivningstimmar eller workshops kan du aktivera Stripe-integration och ta betalt när bokningen görs. Allt hanteras automatiskt utan extra verktyg."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "När sajten är klar publicerar du antingen på en kostnadsfri Sajtmaskin-subdomän eller kopplar din egen domän direkt. Det finns ingen bindningstid och ingen löpande hostingavgift för subdomäner. Vill du senare flytta sajten exporterar du koden och äger allt material. Du kan när som helst uppdatera texter, lägga till nya tjänster ellercase via chatten – AI:n hjälper dig att hålla sajten aktuell."
+    },
+    {
+      "heading": "Bygg din konsultsajt i Södertälje idag",
+      "body": "Logga in på Sajtmaskin, beskriv din konsultverksamhet och vilka tjänster du vill lyfta fram. AI:n genererar en komplett sajt på minuter. Lägg till bokningskalender, publicera på din domän och börja ta emot förfrågningar samma dag. Ingen kod, ingen krångel – bara en färdig hemsida som jobbar för dig."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en konsulthemsida?",
+      "a": "Själva genereringen tar några minuter. Du chattar med AI:n om din verksamhet, tjänster och målgrupp, så skapas sidorna automatiskt. Sedan justerar du texter och bilder efter behov. De flesta har en färdig sajt samma dag."
+    },
+    {
+      "q": "Kan jag lägga till case och kundreferenser?",
+      "a": "Ja, be AI:n skapa en case-sida eller referenssida så genereras layouten och platshållare. Du fyller sedan i projektnamn, utmaningar, lösningar och resultat. Vill du lägga till fler case senare gör du det direkt i editorn eller via chatten."
+    },
+    {
+      "q": "Fungerar bokningskalendern med mitt Google- eller Outlook-konto?",
+      "a": "Cal.com synkar med Google Calendar, Outlook och andra kalendertjänster. Du kopplar ditt Cal.com-konto till Sajtmaskin, väljer mötestyp och tillgänglighet, så kan kunder boka lediga tider direkt på sajten. Bekräftelser skickas automatiskt."
+    },
+    {
+      "q": "Kan jag rikta mig mot både Södertälje och Stockholm?",
+      "a": "Absolut. Du styr själv vilka orter eller regioner du nämner på sajten. Beskriv i chatten att du jobbar i Södertälje, Stockholm och omnejd så anpassar AI:n texterna. Du kan också skapa separata landningssidor för olika regioner om du vill."
+    },
+    {
+      "q": "Vad kostar det att driva sajten efter lansering?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Vill du använda egen domän betalar du för domänregistreringen hos din registrar, men ingen extra hostingavgift till Sajtmaskin. Integrationer som Cal.com och Stripe har egna priser beroende på användning."
+    },
+    {
+      "q": "Kan jag ta betalt för konsultationstimmar via sajten?",
+      "a": "Ja, aktivera Stripe-integrationen så kan du sätta pris på olika tjänster – exempelvis en timmes rådgivning eller en workshop. Kunder betalar när de bokar, och du får pengarna direkt till ditt Stripe-konto. Allt hanteras automatiskt utan manuell fakturering."
+    },
+    {
+      "q": "Äger jag sajten och kan jag exportera den?",
+      "a": "Du äger allt innehåll och all kod. Det finns ingen bindningstid. När du vill kan du exportera hela sajten som kod och flytta den till en annan hosting eller utveckla vidare på egen hand. Sajtmaskin låser aldrig in dig."
+    }
+  ],
+  "localOrIndustryContext": "Södertälje har en stark närvaro av både industri och tjänsteföretag, vilket skapar efterfrågan på specialistkonsulter inom allt från logistik och produktion till IT och HR. Många konsulter jobbar mot både lokala bolag och större koncerner i Stockholmsregionen, vilket gör en professionell hemsida till ett viktigt verktyg för att synas och bygga förtroende.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/sodertalje",
+      "label": "Skapa hemsida i Södertälje"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en konsult-hemsida för min verksamhet i Södertälje. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

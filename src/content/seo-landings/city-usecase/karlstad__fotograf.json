@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "karlstad/fotograf",
+  "title": "Hemsida fotograf Karlstad – Bygg din portfolio på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell fotografhemsida i Karlstad med AI. Portfolio, bokning och gallerier – klart på minuter. Ingen kod, svensk support.",
+  "h1": "Hemsida fotograf Karlstad",
+  "heroSub": "Bygg en professionell fotografportfolio med bokning och gallerier – direkt från chatten, utan kod.",
+  "introParagraphs": [
+    "Som fotograf i Karlstad behöver du en hemsida som visar ditt arbete i bästa ljus och gör det enkelt för kunder att boka dig. Sajtmaskin bygger din kompletta fotografsajt på minuter via AI – med portfolio, bokningssystem och kontaktformulär klart från start.",
+    "Du chattar på svenska om vad du fotograferar, vilken stil du har och hur du vill att sajten ska se ut. AI:n skapar sedan en färdig hemsida med bildgallerier, prislista och integrerad bokning via Cal.com. Publicera på din egen domän eller testa gratis på en subdomän utan månadskostnad.",
+    "Ingen kod, inga mallar att krångla med. Bara en sajt som fungerar direkt och som du enkelt uppdaterar när du skjutit nya bilder eller vill lägga till tjänster."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Portfolio och gallerier som säljer ditt arbete",
+      "body": "En fotografhemsida lever på bilderna. Sajtmaskin skapar automatiskt responsiva gallerier där dina bilder visas i full kvalitet på alla skärmar. Du kan organisera i olika kategorier – bröllop, porträtt, företagsfoto, events – så kunder snabbt hittar exempel på just det de söker. Lägg till nya bilder direkt i chatten eller via CMS:et, så uppdateras galleriet automatiskt. Perfekt när du kommer hem från ett uppdrag i Karlstad och vill visa färskt material."
+    },
+    {
+      "heading": "Integrerad bokning som sparar tid",
+      "body": "Slipp mejltennis om lediga tider. Sajtmaskin integrerar Cal.com direkt i din sajt så kunder kan boka fotograferingar själva. Du bestämmer vilka tider som är lediga, hur lång tid olika typer av sessioner tar och om du vill ha buffert mellan uppdrag. Systemet synkar med din kalender och skickar automatiska bekräftelser. Fungerar lika bra för snabba porträttsessioner som för heldagsbokningar av bröllop eller företagsevent."
+    },
+    {
+      "heading": "Priser, paket och betalning på plats",
+      "body": "Visa tydligt vad du erbjuder och vad det kostar. Sajtmaskin hjälper dig strukturera dina tjänster – frånbaspaket till tilläggstjänster som retuschering eller extra bildleverans. Vill du ta betalt direkt online? Koppla in Stripe så kunder kan betala deposition eller hela beloppet när de bokar. Särskilt smidigt för standardiserade tjänster som passfoto eller cv-porträtt där priset är fast."
+    },
+    {
+      "heading": "Lokalt synlig i Karlstad",
+      "body": "När någon söker efter fotograf i Karlstad ska de hitta dig. Sajtmaskin bygger in grundläggande SEO från start – korrekt teknisk struktur, snabba laddtider och mobilvänlig design. Du lägger enkelt till Google Analytics för att se var besökarna kommer ifrån. Kombinera med Google My Business och lokal närvaro på sociala medier så fångar du både de som söker aktivt och de som scrollar förbi i flödet."
+    },
+    {
+      "heading": "Ingen bindning, full kontroll",
+      "body": "Din hemsida, dina villkor. Sajtmaskin har ingen bindningstid och du kan exportera hela koden när du vill. Börja på en gratis subdomän för att testa, flytta sedan till din egen domän när du är redo. Uppdatera texter och bilder själv via ett enkelt CMS, eller be AI:n göra ändringar åt dig. Tekniken ska inte stjäla tid från det du faktiskt brinner för – att fotografera."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur snabbt kan jag få upp en fotografhemsida?",
+      "a": "De flesta har en fungerande sajt inom 10–15 minuter. Du chattar om vilken typ av fotografi du gör, vilka tjänster du erbjuder och hur du vill att sajten ska se ut. AI:n genererar sedan en komplett sajt med gallerier, bokning och kontaktformulär. Sedan laddar du upp dina egna bilder och justerar texter om du vill – klart samma dag."
+    },
+    {
+      "q": "Kan jag visa olika typer av fotografi i separata gallerier?",
+      "a": "Ja, du kan skapa hur många gallerier du vill – ett för bröllop, ett för företagsporträtt, ett för events och så vidare. Varje galleri kan ha sin egen stil och beskrivning. Du organiserar bilderna direkt i CMS:et eller ber AI:n skapa strukturen åt dig. Perfekt när du jobbar brett och vill att kunder snabbt ska hitta rätt exempel."
+    },
+    {
+      "q": "Hur fungerar bokningssystemet för fotograferingar?",
+      "a": "Sajtmaskin integrerar Cal.com så kunder kan boka tid direkt på din sajt. Du ställer in vilka typer av sessioner du erbjuder, hur lång tid de tar och vilka tider du är ledig. Systemet synkar med din kalender och skickar automatiska bekräftelser via mejl. Kunden väljer datum och tid, fyller i vad de vill ha fotograferat, och bokningen hamnar i din kalender."
+    },
+    {
+      "q": "Behöver jag teknisk kunskap för att uppdatera bilder?",
+      "a": "Nej, det är superenkelt. Du laddar upp nya bilder via CMS:et precis som du laddar upp till sociala medier. Bilderna läggs automatiskt in i rätt galleri med korrekt storlek och kvalitet. Vill du ändra ordning, lägga till beskrivningar eller ta bort bilder gör du det med några klick. Ingen kod, ingen krånglig bildhantering."
+    },
+    {
+      "q": "Kan jag ta betalt för fotograferingar via hemsidan?",
+      "a": "Ja, genom Stripe-integration kan kunder betala deposition eller hela beloppet direkt när de bokar. Särskilt användbart för standardtjänster som passfoto, cv-bilder eller fasta paket där priset är bestämt i förväg. För större uppdrag som bröllop kan du ta deposition online och resten efter leverans. Du bestämmer själv hur du vill hantera betalningar."
+    },
+    {
+      "q": "Fungerar sajten bra för fotografer i Karlstad specifikt?",
+      "a": "Ja, du kan enkelt lyfta fram att du är baserad i Karlstad och täcker Värmland. Lägg till information om var du fotograferar – i studio, på plats hos kund, utomhus i Karlstad eller omnejd. Många söker lokala fotografer för bröllop, familjeporträtt eller företagsfoto, så lokal förankring hjälper dig synas för rätt kunder. Tekniken är samma oavsett stad, men innehållet anpassar du efter din marknad."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela din sajt när du vill, ingen bindningstid. Koden är din och fungerar på vilken webbhost som helst. De flesta stannar kvar eftersom det är så enkelt att uppdatera och driva sajten via Sajtmaskin, men dörren står alltid öppen. Börja gärna på en gratis subdomän för att testa, flytta till egen domän när du är nöjd."
+    }
+  ],
+  "localOrIndustryContext": "Karlstad har en växande kreativ sektor med fotografer som täcker allt från kommersiellt arbete till bröllop och events. Många kunder söker lokala fotografer för personliga uppdrag, och en professionell hemsida med tydlig portfolio och enkel bokning gör skillnad när de jämför alternativ.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/karlstad",
+      "label": "Skapa hemsida i Karlstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en fotograf-hemsida för min verksamhet i Karlstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

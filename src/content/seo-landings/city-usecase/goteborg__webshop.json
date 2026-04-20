@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "goteborg/webshop",
+  "title": "Hemsida webshop Göteborg – bygg din e-handel på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en webshop i Göteborg med AI. Från prompt till färdig e-handel på minuter. Stripe-integration, egen domän, inga dolda avgifter.",
+  "h1": "Webshop i Göteborg – från idé till e-handel",
+  "heroSub": "Bygg din Göteborg-baserade webshop med AI. Komplett med betalning, produkter och leveransalternativ – klar på minuter.",
+  "introParagraphs": [
+    "En webshop kräver mer än vackra produktbilder. Du behöver en smidig kassaflöde, tydliga leveransvillkor och en sajt som fungerar lika bra på mobilen som på datorn. Sajtmaskin bygger allt det där åt dig – direkt från en konversation där du beskriver vad du säljer och hur du vill driva din e-handel.",
+    "Många göteborgska företag som tidigare tvekade inför kostnaden och komplexiteten i att starta webshop upptäcker nu att det går att komma igång på riktigt. Ingen månadshyra för hosting om du kör på vår subdomän, inga bindningstider, och du kan när som helst exportera koden om du vill flytta.",
+    "Oavsett om du säljer hantverkskaffe från Haga, designmöbler, träningskläder eller lokalproducerade delikatesser – du får en e-handel som faktiskt är redo att ta emot beställningar samma dag."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så fungerar det – från prompt till webshop",
+      "body": "Du startar en chatt och berättar vad du säljer, vilka betalmetoder du vill erbjuda och hur leverans ska fungera. Sajtmaskins AI bygger sedan en komplett webshop med produktsidor, kundvagn, kassan och alla juridiska sidor som behövs. Stripe-integrationen gör att du kan ta betalt direkt, och du väljer själv om du vill hantera frakt, upphämtning eller digitala leveranser. Allt på svenska, allt anpassat efter din bransch."
+    },
+    {
+      "heading": "Betalning, frakt och juridik – klart från start",
+      "body": "En webshop är inte komplett utan fungerande betalning och tydliga villkor. Sajtmaskin kopplar Stripe så att du kan ta emot kort- och Swish-betalningar direkt. Du kan lägga in fraktalternativ, definiera leveranstider och visa detta tydligt i kassan. Integritetspolicy, köpvillkor och returrätt genereras utifrån svensk e-handelslagstiftning, så du slipper gissa dig fram. Vill du senare lägga till bokningsfunktion eller analysverktyg finns Cal.com och Google Analytics redo att aktivera."
+    },
+    {
+      "heading": "Göteborg-anpassad e-handel",
+      "body": "Göteborg har en stark tradition av lokala varumärken och hållbara affärsmodeller. Många webshoppar här vill visa var produkterna kommer ifrån, erbjuda upphämtning i butik eller på utlämningsställen runt om i staden, och kommunicera hållbarhet på ett trovärdigt sätt. Sajtmaskin låter dig enkelt lägga in den typen av information – från karta över upphämtningsplatser till texter om lokala leverantörer. Du kan också välja att rikta din webshop till göteborgare eller sälja över hela Sverige."
+    },
+    {
+      "heading": "Ingen bindningstid, full äganderätt",
+      "body": "Du äger koden till din webshop. Vill du senare migrera till Shopify, WooCommerce eller en egen server kan du exportera allt och flytta. Så länge du är nöjd kan du köra på vår subdomän utan månadskostnad för hosting, eller koppla din egen domän direkt. Inga dolda avgifter, inga låsningar. Du bestämmer själv när och om du vill växa eller förändra din e-handel."
+    },
+    {
+      "heading": "Från lokal butik till digital försäljning",
+      "body": "Många göteborgska butiker och producenter vill komplettera den fysiska försäljningen med en webshop, men har skjutit på det för att det känns krångligt. Med Sajtmaskin kan du ha en fungerande e-handel igång samma eftermiddag. Lägg upp dina produkter, sätt priser, aktivera betalning – och börja sälja. Behöver du hjälp finns svensk support, och vill du justera något senare gör du det direkt i chatten."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en webshop live?",
+      "a": "Själva AI-genereringen tar några minuter. Sedan lägger du själv tid på att fylla i produkter, priser, bilder och justera texter. Många har en fungerande webshop klar samma dag, särskilt om sortimentet är litet till att börja med. Du kan alltid lägga till fler produkter senare."
+    },
+    {
+      "q": "Kan jag ta betalt med Swish och kort?",
+      "a": "Ja, via Stripe-integrationen kan du ta emot kortbetalningar och Swish. Du kopplar ditt eget Stripe-konto, så pengarna hamnar direkt hos dig. Inga mellanhänder, inga extra avgifter från Sajtmaskin utöver Stripes egna transaktionskostnader."
+    },
+    {
+      "q": "Fungerar webshopen för lokala leveranser i Göteborg?",
+      "a": "Absolut. Du kan ställa in fraktalternativ som passar din verksamhet – hemkörning i Göteborg, upphämtning i butik, utlämningsställen eller postpaket. Allt visas tydligt för kunden i kassan, och du kan ha olika priser beroende på leveranssätt."
+    },
+    {
+      "q": "Vad händer om jag vill byta till Shopify senare?",
+      "a": "Du kan exportera hela koden och flytta din webshop dit du vill. Produktdata, texter och design följer med. Shopify-integrationen finns också tillgänglig om du vill driva webshopen via Shopify men behålla Sajtmaskins design och innehåll."
+    },
+    {
+      "q": "Behöver jag kunna koda för att lägga till produkter?",
+      "a": "Nej. Du hanterar produkter, priser och bilder via gränssnittet – inget kodande krävs. Vill du ändra layout eller funktioner kan du be AI:n i chatten, och den uppdaterar sajten åt dig."
+    },
+    {
+      "q": "Ingår juridiska texter som köpvillkor och integritetspolicy?",
+      "a": "Ja, Sajtmaskin genererar de sidor som krävs enligt svensk lag: köpvillkor, integritetspolicy, cookiepolicy och information om ångerrätt. Du bör alltid läsa igenom och anpassa dem till din verksamhet, men grunden finns där från start."
+    },
+    {
+      "q": "Kan jag sälja både fysiska och digitala produkter?",
+      "a": "Ja. Du kan blanda produkttyper i samma webshop – t.ex. sälja fysiska varor med frakt och digitala nedladdningar eller tjänster som levereras via e-post. Kassan hanterar båda typerna smidigt."
+    }
+  ],
+  "localOrIndustryContext": "Göteborg har en levande scen av lokala producenter, designföretag och hållbara varumärken som allt oftare vill nå kunder digitalt. Från Haga och Linné till Majorna och Gamlestaden finns butiker och verkstäder som ser värdet i en webshop – inte minst för att nå kunder utanför rushen eller utanför stan. Sajtmaskin gör steget in i e-handel enklare, snabbare och billigare än traditionella lösningar.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en webshop-hemsida för min verksamhet i Göteborg. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,94 @@
+{
+  "family": "city-usecase",
+  "slug": "orebro/bygg",
+  "title": "Hemsida för byggföretag i Örebro – snabbt & enkelt | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för ditt byggföretag i Örebro på minuter. AI bygger sajten, du chattar. Ingen kod, ingen bindning.",
+  "h1": "Hemsida för byggföretag i Örebro",
+  "heroSub": "Låt AI bygga en komplett sajt för ditt byggföretag – med projektgalleri, kontaktformulär och allt du behöver för att synas i Örebro.",
+  "introParagraphs": [
+    "Som byggföretag i Örebro behöver du en hemsida som visar dina projekt, förklarar dina tjänster och gör det enkelt för kunder att höra av sig. Sajtmaskin bygger exakt den sajten åt dig på minuter, genom en vanlig chatt. Du beskriver vad du gör – ROT-renoveringar, nybyggnation, tillbyggnader – så skapar AI:n sidor, texter och struktur direkt.",
+    "Allt är på svenska, från gränssnitt till support. Du publicerar på din egen domän eller testar kostnadsfritt på en subdomän. Ingen kod, inga mallar att klicka ihop, ingen bindningstid. Perfekt för hantverkare och byggare som vill ha en sajt som fungerar utan att lägga veckor på teknikaliteter.",
+    "Örebro växer och konkurrensen om bygguppdragen är hård. En tydlig hemsida där kunder ser vad du kan och hur de når dig gör skillnad. Med Sajtmaskin får du den sajten idag, inte om tre månader."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en byggsajt i Örebro behöver",
+      "body": "Kunder som söker byggfirmor vill se referensprojekt, läsa om tjänster och snabbt få kontakt. Din sajt behöver ett bildgalleri för genomförda jobb, tydliga beskrivningar av vad du erbjuder – från badrumsrenoveringar till takbyten – och ett kontaktformulär eller telefonnummer som syns direkt. Många söker lokalt, så det hjälper att nämna Örebro och närliggande orter. Sajtmaskin genererar allt detta från din beskrivning: sidor för tjänster, om-sida, kontakt och portfolio. Du kan lägga till Cal.com för direktbokning av kostnadsfri besiktning eller offertmöte."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din byggsajt",
+      "body": "Du startar en chatt och berättar vad ditt företag gör: kanske snickeri, plåtarbeten och ROT-jobb i Örebro med omnejd. AI:n föreslår sidstruktur – hem, tjänster, projekt, kontakt – och skriver utkast till texter. Du justerar, byter bilder, lägger till kundrecensioner. På minuter har du en fungerande sajt. Vill du ta betalt för materialkostnader i förskott? Koppla Stripe. Vill du spåra besökare? Lägg till Google Analytics med ett klick. Ingen teknisk kunskap krävs, allt sker i chatten på svenska."
+    },
+    {
+      "heading": "Publicera och äg din sajt",
+      "body": "När sajten är klar publicerar du på din egen domän eller använder en kostnadsfri subdomän från Sajtmaskin för att testa. Ingen månadskostnad för hosting på subdomän, ingen bindningstid. Behöver du uppdatera med nya projekt eller tjänster gör du det direkt i chatten. Vill du flytta sajten någon annanstans? Exportera koden när du vill. Du äger alltid ditt innehåll och din närvaro. Sajtmaskin är byggt i Sverige av Pretty Good AB, så support och fakturering sker på svenska."
+    },
+    {
+      "heading": "Integration med boknings- och betalverktyg",
+      "body": "Många byggföretag vill att kunder ska kunna boka ett möte eller besiktning direkt. Sajtmaskin integrerar Cal.com så besökare väljer ledig tid i din kalender. Tar du förskottsbetalning eller säljer byggmaterial via sajten? Stripe-integration gör det möjligt att ta betalt online. Behöver du en enkel webshop för verktyg eller tillbehör? Koppla Shopify. Allt sätts upp utan kod, och du styr vilka funktioner som ska vara med från start."
+    },
+    {
+      "heading": "Lokal synlighet i Örebro",
+      "body": "Örebro har allt från villaområden i Ladugårdsängen och Vivalla till renoveringsobjekt i centrala stan. Att nämna stadsdelar och närliggande orter som Kumla eller Askersund på sajten hjälper lokala sökningar. Sajtmaskin låter dig enkelt lägga till geografisk kontext i texter, så kunder som söker byggfirma nära dem hittar just dig. Kombinera det med tydliga referensbilder och kontaktuppgifter, så har du en sajt som jobbar för dig dygnet runt."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att få en färdig byggsajt?",
+      "a": "De flesta har en fungerande sajt på 10–30 minuter. Du chattar med AI:n, beskriver dina tjänster och projekt, så genereras sidor och texter. Sedan justerar du bilder och detaljer tills allt ser rätt ut. Ingen väntan på webbyrå eller tekniker."
+    },
+    {
+      "q": "Kan jag visa bildgalleri från mina byggprojekt?",
+      "a": "Ja, du laddar upp bilder i chatten och AI:n skapar ett portfolio eller projektgalleri. Du kan organisera bilder per projekt, lägga till beskrivningar och visa före- och efterbilder. Perfekt för att bevisa kvalitet och erfarenhet."
+    },
+    {
+      "q": "Kostar det att ha sajten publicerad?",
+      "a": "Publicerar du på en subdomän från Sajtmaskin är hostingen gratis utan tidsbegränsning. Vill du använda din egen domän, typ dittforetag.se, betalar du bara för domänen hos din registrar. Sajtmaskin har ingen månadskostnad för hosting på subdomän och ingen bindningstid."
+    },
+    {
+      "q": "Fungerar sajten för ROT-avdrag och fakturering?",
+      "a": "Sajten visar dina tjänster och priser, men själva faktureringen sköter du i ditt vanliga system. Vill du ta förskottsbetalning online kan du integrera Stripe. ROT-avdrag hanteras i din bokföring, men du kan förklara processen på en egen sida så kunderna förstår hur det fungerar."
+    },
+    {
+      "q": "Kan kunder boka kostnadsfri besiktning direkt på sajten?",
+      "a": "Ja, genom Cal.com-integration lägger du in din kalender så besökare väljer tid för besiktning eller offertmöte. Du får notis via mejl och kan förbereda. Det minskar mejl och telefontagg och ger en professionell känsla."
+    },
+    {
+      "q": "Är Sajtmaskin anpassat för byggföretag i Örebro?",
+      "a": "Sajtmaskin är byggt för alla branscher i hela Sverige, inklusive byggföretag i Örebro. Du styr själv vilka orter och tjänster som nämns, så sajten blir lokal och relevant. AI:n hjälper till med texter som passar just din verksamhet och ditt område."
+    },
+    {
+      "q": "Vad händer om jag vill byta till en annan plattform senare?",
+      "a": "Du kan exportera hela koden när du vill och flytta sajten till egen server eller annan leverantör. Ingen inlåsning, inget krångel. Du äger ditt innehåll och kan ta det med dig om behoven förändras."
+    }
+  ],
+  "localOrIndustryContext": "Örebro är en stad i tillväxt med bostadsbyggande i nya områden och renoveringar i äldre stadsdelar. Byggföretag som syns online och visar lokala referenser får lättare kontakt med villaägare och fastighetsbolag. En tydlig hemsida är ofta första intrycket.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/orebro",
+      "label": "Skapa hemsida i Örebro"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en bygg-hemsida för min verksamhet i Örebro. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

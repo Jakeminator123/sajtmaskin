@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "umea/restaurang",
+  "title": "Hemsida restaurang Umeå – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell restaurangsajt i Umeå med AI. Meny, bordsbokning och betalning – allt på plats direkt. Ingen kod krävs.",
+  "h1": "Hemsida för restauranger i Umeå",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokning och betalning – på svenska, utan kod, på minuter.",
+  "introParagraphs": [
+    "En restaurang i Umeå behöver en hemsida som visar menyn, tar emot bordsbokningar och fungerar lika bra på mobilen som på datorn. Med Sajtmaskin skapar du allt det där genom att chatta med AI:n – du beskriver din restaurang, väljer funktioner och publicerar direkt.",
+    "Du får en sajt som passar både lunch på Rådhustorget och middagsgäster från hela stan. Integrationer för bordsbokning via Cal.com, betalning genom Stripe och möjlighet att visa menyer, öppettider och specialerbjudanden. Allt på svenska, utan bindningstid, och du kan när som helst exportera koden."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Meny, bokning och betalning på plats från start",
+      "body": "Restauranger behöver visa sin meny tydligt, ta emot bokningar och ibland sälja presentkort eller ta förbetalning. Sajtmaskin bygger in allt det direkt: du lägger till dina rätter i chatten, kopplar Cal.com för bordsbokning och Stripe om du vill ta betalt online. AI:n skapar layouten, anpassar texten och ser till att allt fungerar responsivt. Du slipper krångla med plugins eller tredjepartstjänster som inte pratar svenska."
+    },
+    {
+      "heading": "Anpassad för Umeås restaurangscen",
+      "body": "Umeå har allt från klassiska husmanskök och pizzerior till moderna gastropubar och asiatiska restauranger. Din hemsida ska spegla din profil – om du driver en mysig kvarterskrog på Öbacka eller en finare restaurang i city spelar roll för ton, bilder och layout. Sajtmaskin låter dig styra uttrycket genom att beskriva din stil i chatten, så sajten känns rätt för just dina gäster och din stadsdel."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "Du kan publicera din restaurangsajt på en sajtmaskin-subdomän helt gratis, eller koppla din egen domän direkt. Ingen månadshyra för hosting på subdomän, ingen bindningstid. Om du vill byta plattform senare exporterar du koden och tar med dig allt. Det gör Sajtmaskin till ett lågriskval för nystartade restauranger eller de som vill testa en ny sajt utan att låsa sig."
+    },
+    {
+      "heading": "Uppdatera menyn och kampanjer själv",
+      "body": "Lunchmeny, veckans special, ny à la carte – du ändrar direkt i gränssnittet utan att behöva ringa en webbyrå. Chattar du med AI:n kan du be om nya sektioner, ändra texter eller lägga till säsongsrätter. Allt sker på svenska och sparas automatiskt. För restauranger som byter meny ofta eller kör tidsbegränsade erbjudanden är det en stor fördel att kunna uppdatera snabbt."
+    },
+    {
+      "heading": "Integrerat med boknings- och betaltjänster",
+      "body": "Cal.com hanterar bordsbokningar med tidsschema och påminnelser, Stripe tar betalt för presentkort eller förbeställningar, Google Analytics visar var dina besökare kommer ifrån. Vill du sälja egna produkter – olivolja, kryddor, kokböcker – kopplar du Shopify. Alla integrationer sköts via Sajtmaskin så du slipper hantera flera inloggningar och tekniska kopplingar på egen hand."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa olika menyer för lunch och middag?",
+      "a": "Ja, du skapar separata sektioner för lunchmeny, à la carte, barnmeny eller vad du behöver. AI:n hjälper dig strukturera så besökarna enkelt hittar rätt meny, och du kan uppdatera varje del oberoende av de andra."
+    },
+    {
+      "q": "Hur fungerar bordsbokning via hemsidan?",
+      "a": "Du kopplar Cal.com till sajten, ställer in hur många bord och tider du vill erbjuda, så kan gästerna boka direkt. De får bekräftelse på mejl och du ser alla bokningar i Cal.com-panelen. Ingen extra kostnad från Sajtmaskin för själva integreringen."
+    },
+    {
+      "q": "Kostar det något att ha sajten på en sajtmaskin-adress?",
+      "a": "Nej, publicering på subdomän är gratis och utan bindningstid. Vill du använda din egen restaurangdomän kopplar du den direkt, men subdomänen kostar ingenting per månad."
+    },
+    {
+      "q": "Kan jag ta betalt för presentkort eller förbeställningar?",
+      "a": "Ja, via Stripe-integrationen. Du skapar produkter för presentkort, menyer att hämta eller förbetalda middagar, och kunderna betalar säkert med kort. Pengarna hamnar direkt på ditt Stripe-konto."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva från start. Menyn, bokningsformuläret och bilderna anpassas automatiskt till skärmstorlek, vilket är viktigt eftersom många restauranggäster söker upp menyn på telefonen."
+    },
+    {
+      "q": "Kan jag byta utseende om jag vill förnya profilen?",
+      "a": "Absolut. Du chattar med AI:n och beskriver nya färger, typsnitt eller layout. Sajtmaskin uppdaterar designen medan allt innehåll – meny, texter, bilder – ligger kvar. Perfekt när du gör om lokalen eller vill matcha en ny grafisk profil."
+    },
+    {
+      "q": "Vad händer om jag vill sluta använda Sajtmaskin?",
+      "a": "Du exporterar koden och tar med dig hela sajten. Ingen bindningstid, inga avgifter för att lämna. Du äger ditt innehåll och kan flytta det till vilken hostingtjänst du vill."
+    }
+  ],
+  "localOrIndustryContext": "Umeå har en livlig restaurangscen med allt från studentvänliga lunchställen kring campus till uppskattade finare restauranger i centrala stan. En bra hemsida hjälper gäster hitta din meny, boka bord och få känslan av vad du erbjuder – oavsett om du driver en pizzeria på Ersboda eller en modern bistro vid Rådhusesplanaden.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/umea",
+      "label": "Skapa hemsida i Umeå"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Umeå. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,101 @@
+{
+  "family": "industry",
+  "slug": "konstnar",
+  "title": "Hemsida för konstnär – Bygg ditt portfolio på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för dina konstverk utan kod. AI bygger ditt portfolio med galleri, om-sida och kontakt på minuter. Prova gratis.",
+  "h1": "Hemsida för konstnär",
+  "heroSub": "Visa dina verk professionellt online – låt AI bygga ditt portfolio med galleri, CV och kontaktformulär på minuter.",
+  "introParagraphs": [
+    "En hemsida för konstnär är din digitala utställningslokal där samlare, gallerister och konstintresserade kan upptäcka dina verk dygnet runt. Med Sajtmaskin skapar du ett professionellt portfolio direkt via chat – berätta om din konst, dina tekniker och vad du vill visa, så genererar AI:n en färdig sajt med bildgalleri, CV-sida och kontaktmöjligheter.",
+    "Du behöver ingen teknisk kunskap eller webbdesigner. Plattformen är helt på svenska, sajten publiceras på din egen domän, och du kan när som helst uppdatera med nya verk eller kommande utställningar. Perfekt för målare, skulptörer, fotografer, grafiker och alla som vill nå fler med sin konst."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför konstnärer behöver en egen hemsida",
+      "body": "Sociala medier är bra för räckvidd, men de äger din närvaro och dina bilder kan beskäras eller försvinna i flödet. En egen hemsida ger dig full kontroll över hur dina verk presenteras, vilken story du berättar och hur besökare kan kontakta eller köpa direkt. Gallerister och kuratorer söker ofta efter konstnärer online – en professionell sajt med CV, utställningshistorik och högupplösta bilder skapar trovärdighet och öppnar dörrar till samarbeten och försäljning."
+    },
+    {
+      "heading": "Så här ser en konstnärssajt ut",
+      "body": "De flesta konstnärssajter har en startsida med utvalda verk, ett galleri uppdelat per serie eller teknik, en om-sida med CV och konstnärlig inriktning, samt en kontaktsida. Många lägger också till en sida för aktuella utställningar, pressklipp eller en webshop för tryck och originalverk. Med Sajtmaskin beskriver du din struktur i chatten – till exempel 'jag målar abstrakta oljemålningar och akvareller, vill visa mina serier separat och ha en köp-sida' – så bygger AI:n sidorna med rätt layout och navigation."
+    },
+    {
+      "heading": "Galleri, bokning och försäljning på plats",
+      "body": "Sajtmaskin låter dig integrera Cal.com om du vill ta emot bokningar för ateljébesök eller konsultationer, och Stripe om du säljer verk eller prints direkt från sajten. Vill du ha en fullständig webshop kopplar du enkelt till Shopify. Allt sköts från samma gränssnitt, och du kan uppdatera priser, lägga till nya bilder eller ändra texter direkt i chatten – ingen kod, inga krångliga plugins."
+    },
+    {
+      "heading": "Från prompt till publicerad sajt",
+      "body": "Starta en chatt, beskriv din konst och vad du vill ha på sajten. AI:n föreslår struktur, skriver texter utifrån dina beskrivningar och skapar ett visuellt tema som matchar din stil. Du godkänner eller justerar, laddar upp bilder på dina verk, och publicerar på din egen domän – allt på samma dag. Vill du testa först? Publicera gratis på en Sajtmaskin-subdomän utan bindningstid, och flytta till egen domän när du är redo."
+    },
+    {
+      "heading": "Bygg och äg din närvaro",
+      "body": "Ingen månadskostnad för hosting på subdomän, ingen bindningstid och du kan när som helst exportera hela koden om du vill flytta vidare. Sajtmaskin är byggt i Sverige av Pretty Good AB, med svenskt gränssnitt och support. Du behöver inte lära dig WordPress, Squarespace eller Wix – bara chatta om din konst, så får du en sajt som fungerar och ser professionell ut från dag ett."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Kan jag visa högupplösta bilder utan att sajten blir långsam?",
+      "a": "Ja, Sajtmaskin optimerar automatiskt bilder för webben så att galleriet laddas snabbt även med många verk. Du laddar upp originalfiler och plattformen skapar responsiva versioner som ser skarpa ut på alla skärmar."
+    },
+    {
+      "q": "Hur lägger jag till nya verk eller uppdaterar utställningsinfo?",
+      "a": "Du chattar med AI:n och beskriver ändringen – till exempel 'lägg till tre nya målningar i serien Sommarlandskap' eller 'uppdatera utställningssidan med vernissage 15 mars'. AI:n gör uppdateringen direkt och du ser resultatet live."
+    },
+    {
+      "q": "Kan jag sälja original och prints från sajten?",
+      "a": "Ja, integrera Stripe för direktbetalning eller koppla Shopify om du vill ha en fullständig webshop med lagerhantering och frakt. Du styr själv priser, beskrivningar och vilka verk som är till salu."
+    },
+    {
+      "q": "Behöver jag kunna koda för att anpassa designen?",
+      "a": "Nej, allt sker via chat. Vill du ändra färger, typsnitt eller layout beskriver du det i vanlig svenska så justerar AI:n designen. Behöver du mer avancerade ändringar kan du exportera koden och jobba vidare med en utvecklare."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän tillkommer kostnad för domänen och eventuellt premium hosting, men ingen bindningstid gäller. Du betalar bara för det du faktiskt använder."
+    },
+    {
+      "q": "Kan jag visa CV, pressklipp och utställningshistorik?",
+      "a": "Absolut. Berätta i chatten vilka sidor du vill ha – CV med utbildning och utställningar, en presssida med recensioner och artiklar, eller en tidslinje över din konstnärliga resa. AI:n strukturerar informationen och skapar sidorna åt dig."
+    },
+    {
+      "q": "Fungerar sajten på mobil och surfplatta?",
+      "a": "Ja, alla sajter från Sajtmaskin är responsiva från start. Ditt galleri, texter och kontaktformulär anpassas automatiskt till alla skärmstorlekar så besökare får en bra upplevelse oavsett enhet."
+    }
+  ],
+  "localOrIndustryContext": "Sveriges konstscen sträcker sig från Konstnärshuset i Stockholm och Göteborgs Konsthall till lokala gallerier i Malmö, Uppsala och Umeå. Många svenska konstnärer kombinerar fysiska utställningar med digital närvaro, och en professionell hemsida har blivit lika viktig som ett välskrivet CV när gallerier och offentliga konsthallar söker nya namn.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en konstnär-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "halmstad/restaurang",
+  "title": "Hemsida restaurang Halmstad – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell restaurangsajt i Halmstad med AI. Meny, bokning och betalning klart på minuter. Ingen kod krävs. Prova gratis.",
+  "h1": "Hemsida för restaurang i Halmstad",
+  "heroSub": "Bygg en komplett restaurangsajt med meny, bordsbokningar och betalning – direkt från chatten, utan att skriva en rad kod.",
+  "introParagraphs": [
+    "En restaurang i Halmstad behöver en hemsida som visar menyn, tar emot bokningar och gör det enkelt för gäster att hitta er. Med Sajtmaskin chattar du fram hela sajten på minuter – AI:n bygger design, struktur och funktioner medan du beskriver vad du vill ha.",
+    "Du får en färdig sajt med matsedel, öppettider, kontaktinfo och integration till Cal.com för bordsbokningar. Vill du ta betalt för presentkort eller catering kopplar du på Stripe. Allt på svenska, publicerat på din egen domän utan månadskostnad för hosting."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en restaurangsajt i Halmstad behöver",
+      "body": "Gäster söker er online innan de bestämmer sig. De vill se menyn, kolla priser, boka bord och hitta adress – helst på mobilen. En bra restaurangsajt visar aptitretande bilder, tydliga allergenlabels och aktuella öppettider. Många halmstadrestauranger behöver också lyfta sitt läge nära havet, Nissan eller centrum. Sajtmaskin bygger allt det här automatiskt när du berättar om din restaurang i chatten."
+    },
+    {
+      "heading": "Så bygger du sajten",
+      "body": "Starta en chatt och beskriv din restaurang: typ av kök, stil, målgrupp. AI:n föreslår layout, färger och sektioner. Du kan be om en menysektion med kategorier, en om oss-sida med berättelsen om restaurangen, och en kontaktsida med karta. Vill du ha bordsbokningar integrerar du Cal.com direkt – gäster kan välja tid och antal personer utan att du behöver hantera mejl fram och tillbaka. Publicera på din domän när du är nöjd."
+    },
+    {
+      "heading": "Bokning, betalning och webshop",
+      "body": "Cal.com-integrationen låter gäster boka bord direkt på sajten, synkat med din kalender. Vill du sälja presentkort, ta förskottsbetalning för större sällskap eller driva en lunchcatering kopplar du på Stripe. Behöver du en komplett webshop för hämtmat eller meal kits fungerar Shopify-integrationen. Allt sköts från Sajtmaskins gränssnitt – ingen teknisk krångel."
+    },
+    {
+      "heading": "Uppdatera menyn och innehållet själv",
+      "body": "Säsongsmenyer, veckans lunch, nya allergenlabels – du ändrar direkt i chatten eller redigeraren. Ingen väntan på webbyrå. Ladda upp nya maträttsbilder, justera priser eller lägg till en sommarterrass-sektion när det är dags. Exportera koden när du vill om du senare behöver flytta sajten."
+    },
+    {
+      "heading": "Ingen bindningstid, svensk support",
+      "body": "Sajtmaskin har ingen bindningstid. Publicera på subdomän utan månadskostnad, eller koppla din egen domän. Behöver du hjälp får du support på svenska från Pretty Good AB i Sverige. Allt innehåll, alla instruktioner och hela gränssnittet är på svenska – byggt för svenska restauranger och deras gäster."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en restaurangsajt?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar med AI:n om din restaurang, väljer design och lägger in meny och bilder. Vill du integrera bokning eller betalning tar det några minuter extra, men grundsajten är klar snabbt."
+    },
+    {
+      "q": "Kan gäster boka bord direkt på sajten?",
+      "a": "Ja, via Cal.com-integrationen. Du kopplar ditt Cal.com-konto så kan gäster välja datum, tid och antal personer direkt på hemsidan. Bokningarna synkas med din kalender och du får notiser automatiskt."
+    },
+    {
+      "q": "Fungerar sajten för hämtmat och catering?",
+      "a": "Absolut. Använd Stripe för att ta betalt för cateringbeställningar eller presentkort, eller integrera Shopify om du vill ha en fullständig webshop för hämtmat, meal kits eller andra produkter. Allt sköts från samma gränssnitt."
+    },
+    {
+      "q": "Syns restaurangen för Halmstad-sökningar på Google?",
+      "a": "Sajten byggs med SEO-grund: tydliga rubriker, snabb laddning, mobilanpassning. Nämn Halmstad, ditt kvarter och typ av mat i texterna så hjälper det. Koppla Google Analytics för att följa besökare och sökord. Lokalt SEO förbättras över tid med bra innehåll."
+    },
+    {
+      "q": "Vad kostar det att driva sajten?",
+      "a": "Publicera på subdomän utan månadskostnad för hosting. Egen domän kostar hos din domänleverantör (oftast 100–150 kr/år). Cal.com och Stripe tar avgift per bokning/transaktion. Ingen bindningstid – du betalar bara för det du använder."
+    },
+    {
+      "q": "Kan jag visa menyn på flera språk?",
+      "a": "Ja, du kan bygga sidor på olika språk och länka mellan dem. Praktiskt om du har många turister eller internationella gäster i Halmstad. Lägg till en engelsk version av menyn och en välkomstsida – AI:n hjälper dig strukturera det."
+    },
+    {
+      "q": "Vad händer om jag vill byta plattform senare?",
+      "a": "Du kan exportera hela koden när du vill. Ingen inlåsning. Ta med dig sajten till egen hosting eller annan plattform om behoven förändras. Allt du byggt är ditt."
+    }
+  ],
+  "localOrIndustryContext": "Halmstad har en växande restaurangscen med allt från klassiska kustrestauranger vid Tylösand till moderna lunchställen i city och kvarterskrogar vid Nissan. Många gäster söker restauranger online innan besök, särskilt sommartid när turister letar efter matställen nära stranden.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/halmstad",
+      "label": "Skapa hemsida i Halmstad"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en restaurang-hemsida för min verksamhet i Halmstad. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

@@ -1,0 +1,93 @@
+{
+  "family": "city-usecase",
+  "slug": "boras/portfolio",
+  "title": "Hemsida Portfolio Borås – Bygg Din Portfolio på Minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell portfoliosajt i Borås med AI. Perfekt för kreatörer, konsulter och hantverkare. Publicera på egen domän utan bindningstid.",
+  "h1": "Portfolio-hemsida i Borås",
+  "heroSub": "Bygg en professionell portfolio som visar ditt arbete – på minuter, inte veckor.",
+  "introParagraphs": [
+    "En portfolio-hemsida är din digitala visitkort och showroom i ett. Oavsett om du är formgivare, fotograf, arkitekt, konsult eller hantverkare i Borås behöver du en sajt som visar vad du kan – snabbt, tydligt och professionellt. Med Sajtmaskin bygger du en färdig portfolio på minuter genom att chatta med vår AI. Du beskriver vad du gör och vilka projekt du vill lyfta, så genererar vi en komplett sajt som du publicerar direkt på din egen domän.",
+    "Ingen kod, inga mallar som ser likadana ut, ingen månadshyra för hosting. Du får en sajt som är byggd för att visa upp ditt arbete, med bildgallerier, projektbeskrivningar och kontaktformulär. Och om du vill boka möten eller sälja tjänster direkt på sajten fixar vi det med integrationer för Cal.com och Stripe. Allt på svenska, byggt i Sverige."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Varför en portfolio-sajt i Borås?",
+      "body": "Borås har en stark tradition inom textil, design och hantverk, och staden är hem för både etablerade byråer och frilansare inom kreativa yrken. Om du arbetar med formgivning, fotografi, inredning, arkitektur eller annan visuell kommunikation är en portfolio-hemsida ditt viktigaste säljverktyg. Den visar potentiella kunder vad du faktiskt har gjort, inte bara vad du säger att du kan. En bra portfolio gör skillnaden mellan att få uppdraget eller bli bortglömd. Med Sajtmaskin får du en sajt som lyfter dina projekt och gör det enkelt för kunder i Borås och resten av Sverige att hitta och kontakta dig."
+    },
+    {
+      "heading": "Så bygger du en portfolio med Sajtmaskin",
+      "body": "Du startar en chatt och berättar vad du gör och vilka projekt du vill visa. Vår AI genererar en komplett sajt med startsida, om-sida, projektgallerier och kontaktsida. Du laddar upp bilder, justerar texter och layouter direkt i gränssnittet – allt på svenska. Vill du ha ett kontaktformulär som skickar mail? Klart. Vill du boka konsultationer via Cal.com? Fixat. Behöver du sälja prints eller digitala filer via Stripe? Inga problem. När du är nöjd publicerar du på din egen domän. Ingen bindningstid, ingen dold kostnad. Och vill du senare exportera koden och flytta sajten någon annanstans är det fritt fram."
+    },
+    {
+      "heading": "Funktioner för kreativa yrkesutövare",
+      "body": "En portfolio-sajt behöver visa ditt arbete på bästa sätt. Sajtmaskin ger dig bildgallerier som laddar snabbt och ser bra ut på mobil, projektbeskrivningar med plats för både text och bilder, och en tydlig kontaktsektion. Du kan organisera projekt efter kategori, kund eller år. Vill du ha ett bokningssystem för fotograferingar eller designmöten integrerar vi Cal.com. Säljer du tavlor, prints eller digitala filer kopplar vi på Stripe. Behöver du spåra besökare och se var trafiken kommer ifrån lägger vi in Google Analytics. Allt är byggt för att du ska kunna fokusera på ditt arbete, inte på tekniken."
+    },
+    {
+      "heading": "Ingen månadskostnad för hosting",
+      "body": "Många portfoliotjänster tar betalt varje månad bara för att hålla sajten online. Med Sajtmaskin publicerar du på en subdomän helt kostnadsfritt – ingen månadshyra, ingen gräns för hur länge sajten får ligga uppe. Vill du använda din egen domän kopplar du den direkt. Du äger innehållet, du bestämmer hur länge sajten ska finnas, och du kan när som helst exportera koden och flytta den till en annan host. Det är din sajt, inte vår."
+    },
+    {
+      "heading": "Byggt i Sverige, på svenska",
+      "body": "Sajtmaskin är utvecklat av Pretty Good AB i Sverige. Hela gränssnittet, supporten och AI-chatten är på svenska. Du slipper översätta termer eller gissa dig fram i engelska menyer. Vi förstår hur svenska företag och frilansare arbetar, och vi har byggt verktyget för att passa er verklighet. Har du frågor når du oss på svenska. Behöver du hjälp med integrationer eller domäninställningar guidar vi dig på ditt språk."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en portfolio-sajt?",
+      "a": "De flesta har en färdig sajt på 10–30 minuter. Du chattar med AI:n, beskriver dina projekt och laddar upp bilder. Sedan justerar du layout och texter tills du är nöjd. Vill du lägga till fler sidor eller funktioner senare gör du det i samma gränssnitt."
+    },
+    {
+      "q": "Kan jag visa olika typer av projekt på samma sajt?",
+      "a": "Absolut. Du kan organisera projekt i kategorier – till exempel fotografi, grafisk design och illustration – och låta besökare filtrera eller bläddra mellan dem. AI:n hjälper dig strukturera innehållet så det blir tydligt och lätt att navigera."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja. Alla sajter som Sajtmaskin genererar är responsiva och ser bra ut på telefon, surfplatta och dator. Bildgallerier och projektbeskrivningar anpassas automatiskt till skärmstorleken så att ditt arbete alltid visas på bästa sätt."
+    },
+    {
+      "q": "Kan jag sälja prints eller digitala filer direkt på sajten?",
+      "a": "Ja, genom Stripe-integrationen. Du lägger till produkter, sätter priser och kopplar ditt Stripe-konto. Kunder betalar direkt på sajten och du får pengarna på ditt konto. Perfekt om du säljer fotografier, illustrationer eller designfiler."
+    },
+    {
+      "q": "Vad kostar det att ha sajten online?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan tidsbegränsning. Vill du använda din egen domän betalar du bara för domänregistreringen hos din registrar. Inga månadskostnader, inga dolda avgifter. Integrationer som Stripe och Cal.com har sina egna villkor, men själva sajten kostar inget att hålla uppe."
+    },
+    {
+      "q": "Kan jag boka möten eller konsultationer via sajten?",
+      "a": "Ja, med Cal.com-integrationen. Du kopplar ditt Cal.com-konto och besökare kan boka tid direkt på sajten. Perfekt för fotografer, designers och konsulter som vill förenkla bokningen av möten och samtal."
+    },
+    {
+      "q": "Passar Sajtmaskin för frilansare och småföretagare i Borås?",
+      "a": "Definitivt. Många formgivare, fotografer, arkitekter och konsulter i Borås använder Sajtmaskin för att snabbt få upp en professionell portfolio utan att behöva anlita webbyrå eller lära sig kod. Du får en sajt som fungerar direkt och som du själv kan uppdatera när du får nya projekt."
+    }
+  ],
+  "localOrIndustryContext": "Borås har en levande kreativ sektor med rötter i textil- och designhistorien. Från Textilhögskolan till lokala designbyråer och frilansare finns här en stark kultur av hantverk och visuell kommunikation. En portfolio-sajt är ofta det första en potentiell kund ser, och den behöver vara lika professionell som ditt arbete.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/boras",
+      "label": "Skapa hemsida i Borås"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag behöver en portfolio-hemsida för min verksamhet i Borås. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

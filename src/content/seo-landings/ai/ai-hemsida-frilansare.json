@@ -1,0 +1,102 @@
+{
+  "family": "ai",
+  "slug": "ai-hemsida-frilansare",
+  "title": "AI-hemsida för frilansare – bygg din sajt på minuter | Sajtmaskin",
+  "metaDescription": "Frilansare kan nu bygga professionella hemsidor med AI på minuter. Berätta vad du gör, så genererar AI design, text och struktur åt dig.",
+  "h1": "AI-hemsida för frilansare",
+  "heroSub": "Bygg en professionell sajt genom att chatta med AI – ingen kod, inga mallar, klart på minuter.",
+  "introParagraphs": [
+    "Som frilansare behöver du en hemsida som visar vad du kan och gör det enkelt för kunder att boka eller kontakta dig. AI-verktyg för hemsidor låter dig beskriva din verksamhet i vanlig text, varefter AI:n genererar design, struktur och innehåll åt dig. Istället för att välja mallar eller skriva varje rad själv får du en färdig sajt som du kan justera direkt.",
+    "Sajtmaskin är en svensk AI-plattform där du bygger din hemsida genom att chatta. Du berättar vad du jobbar med – copywriting, foto, konsultation eller annat – och AI:n skapar sidor, texter och layout. Du kan lägga till bokningsfunktion via Cal.com, betalning via Stripe och publicera på din egen domän utan månadskostnad för hosting på subdomän.",
+    "Det finns ingen bindningstid och du kan exportera koden när du vill. Allt sker på svenska, från gränssnittet till supporten."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Hur AI bygger en hemsida åt dig",
+      "body": "Du startar en chatt och beskriver vad du gör som frilansare: tjänster, målgrupp, stil. AI:n tolkar din text och genererar en komplett sajt med startsida, tjänstebeskrivningar, om-sida och kontaktformulär. Den väljer färger, typsnitt och layout baserat på din bransch och dina önskemål. Du ser resultatet direkt och kan be AI:n ändra saker – byta färg, omformulera en rubrik, lägga till en sektion – genom att fortsätta chatten. Ingen kodning eller mallväljande krävs."
+    },
+    {
+      "heading": "Skillnaden mot mallbyggare och WordPress",
+      "body": "Traditionella mallbyggare som Wix eller Squarespace kräver att du väljer en mall, drar och släpper block och skriver all text själv. Det tar tid och du måste fatta många designbeslut. WordPress med tema ger mer kontroll men kräver teknisk kunskap och underhåll. AI-verktyg som Sajtmaskin genererar istället allt från grunden utifrån din beskrivning. Du slipper välja bland hundratals mallar och får en sajt skräddarsydd för just din verksamhet. Vill du ändra något gör du det genom att be AI:n, inte genom att klicka runt i ett gränssnitt."
+    },
+    {
+      "heading": "Integrationer för bokning och betalning",
+      "body": "Som frilansare vill du ofta att kunder ska kunna boka tid eller betala direkt på sajten. Sajtmaskin integrerar Cal.com för bokning, så besökare kan välja lediga tider i din kalender utan mejlpingpong. Stripe-integration låter dig ta betalt för tjänster eller produkter direkt på hemsidan. Google Analytics ger dig koll på besökare och trafik. Behöver du en enkel webshop finns Shopify-koppling. Allt sätts upp utan kod, och du styr vad som ska finnas på sajten."
+    },
+    {
+      "heading": "Publicera på egen domän utan månadskostnad",
+      "body": "Du kan publicera din AI-genererade sajt på en Sajtmaskin-subdomän helt utan månadskostnad för hosting. Vill du använda din egen domän, typ dittnamn.se, kopplar du den direkt i plattformen. Det finns ingen bindningstid, så du kan testa, lansera och ändra i din egen takt. Vill du flytta sajten någon annanstans exporterar du koden och tar den med dig. Allt innehåll och design du skapat med AI:n är ditt."
+    },
+    {
+      "heading": "Varför Sajtmaskin för svenska frilansare",
+      "body": "Sajtmaskin är byggt i Sverige av Pretty Good AB och hela plattformen är på svenska – gränssnitt, AI-chatt och support. Det gör det enklare att beskriva din verksamhet och få träffsäkra texter. Du behöver ingen teknisk bakgrund; om du kan chatta kan du bygga en sajt. För frilansare som vill komma igång snabbt, utan att lära sig verktyg eller betala en byrå, är det ett konkret sätt att få en professionell hemsida på plats. Du fokuserar på ditt jobb, AI:n sköter tekniken."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida med AI?",
+      "a": "De flesta frilansare har en fungerande sajt på 10–30 minuter. Du chattar med AI:n, beskriver din verksamhet och får ett förslag direkt. Sen justerar du det du vill ändra genom att fortsätta chatten. Ju tydligare du är från start, desto snabbare blir du klar."
+    },
+    {
+      "q": "Kan jag ändra texterna och designen efteråt?",
+      "a": "Ja, du kan be AI:n ändra vad som helst när du vill – byta färg, skriva om en rubrik, lägga till en ny sida. Du kan också redigera texten direkt i editorn om du föredrar det. Sajten är aldrig låst; du styr och justerar löpande."
+    },
+    {
+      "q": "Måste jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, hela poängen är att du slipper kod. Du bygger genom att chatta med AI:n på svenska. Vill du exportera koden senare går det, men för att skapa och publicera sajten behövs ingen teknisk kunskap alls."
+    },
+    {
+      "q": "Vad kostar det att ha sajten live?",
+      "a": "Hosting på en Sajtmaskin-subdomän är gratis utan månadskostnad. Vill du använda din egen domän betalar du för domänen hos din registrar, men Sajtmaskin tar ingen extra hostingavgift. Det finns ingen bindningstid och du kan exportera koden när du vill."
+    },
+    {
+      "q": "Kan jag lägga till bokning och betalning på sajten?",
+      "a": "Ja, Sajtmaskin integrerar Cal.com för bokning och Stripe för betalningar. Du kopplar dina konton och AI:n lägger in funktionerna på sajten. Besökare kan då boka tid eller betala direkt utan att du behöver hantera det manuellt via mejl."
+    },
+    {
+      "q": "Fungerar sajten bra på mobil?",
+      "a": "Ja, AI:n genererar responsiv design som anpassar sig till mobil, surfplatta och dator. Du behöver inte göra separata versioner; allt sköts automatiskt så sajten ser bra ut oavsett skärmstorlek."
+    },
+    {
+      "q": "Kan jag använda Sajtmaskin om jag inte är tech-kunnig?",
+      "a": "Absolut. Sajtmaskin är byggt för att vem som helst ska kunna skapa en professionell hemsida. Om du kan beskriva vad du gör i en chatt kan du bygga en sajt. Supporten är på svenska och hjälper dig om du kör fast."
+    }
+  ],
+  "localOrIndustryContext": "Frilansare i Sverige jobbar ofta ensamma och behöver en enkel väg till en professionell närvaro online. AI-verktyg som Sajtmaskin sänker tröskeln rejält jämfört med att anlita byrå eller lära sig WordPress, och du får en sajt på svenska utan krångel.",
+  "internalLinks": [
+    {
+      "href": "/ai-hemsida/ai-hemsida",
+      "label": "AI-hemsida"
+    },
+    {
+      "href": "/ai-hemsida/bygga-hemsida-med-ai",
+      "label": "Bygga hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/skapa-hemsida-med-ai",
+      "label": "Skapa hemsida med AI"
+    },
+    {
+      "href": "/ai-hemsida/gratis-ai-hemsida",
+      "label": "Gratis AI-hemsida"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill bygga min hemsida med AI. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

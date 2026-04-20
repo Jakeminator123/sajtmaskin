@@ -1,0 +1,106 @@
+{
+  "family": "city",
+  "slug": "tumba",
+  "title": "Hemsida Tumba – Bygg din sajt på minuter med AI | Sajtmaskin",
+  "metaDescription": "Skapa hemsida i Tumba snabbt och enkelt med Sajtmaskin. AI bygger din sajt från en prompt – ingen kod, ingen bindningstid. Publicera direkt.",
+  "h1": "Hemsida Tumba – AI bygger din sajt",
+  "heroSub": "Från idé till färdig hemsida på minuter. Sajtmaskin låter företag i Tumba skapa professionella sajter via chat, helt utan kod.",
+  "introParagraphs": [
+    "Sajtmaskin är en svenskspråkig AI-plattform som bygger kompletta hemsidor åt dig. Du beskriver vad du vill ha i en chattkonversation, så genererar AI design, texter och struktur direkt. Ingen kod, inga mallar att klicka ihop – bara en färdig sajt som du publicerar på egen domän eller kostnadsfritt på en subdomän.",
+    "För företag i Tumba innebär det att du slipper vänta veckor på en byrå eller kämpa med komplicerade verktyg. Oavsett om du driver frisörsalong vid Tumba torg, konsultverksamhet i Eriksberg eller hantverksfirma i Uttran får du en sajt som fungerar direkt. Allt sker på svenska, med svenskt stöd och ingen bindningstid.",
+    "Sajtmaskin är byggt i Sverige av Pretty Good AB. Plattformen integrerar Cal.com för bokning, Stripe för betalning, Google Analytics och Shopify för webshop. Du kan när som helst exportera koden och flytta sajten om du vill."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Så bygger du hemsida i Tumba med AI",
+      "body": "Du startar en chat och beskriver vad din sajt ska innehålla – tjänster, kontaktinfo, bilder, prislista eller vad du behöver. AI:n ställer följdfrågor om färgval, struktur och funktioner, sedan genererar den hela sajten på minuter. Du ser resultatet direkt i förhandsgranskning och kan be om ändringar i samma chatt. När allt ser bra ut publicerar du på egen domän eller använder en kostnadsfri subdomän. Ingen teknisk kunskap krävs, och du behöver aldrig öppna en kodredigerare."
+    },
+    {
+      "heading": "Varför Tumba-företag väljer Sajtmaskin",
+      "body": "Lokala företag i Tumba behöver ofta sajter snabbt – för att synas i Google, ta emot bokningar eller visa upp tjänster. Traditionella byråer tar tid och kostar mycket, medan gör-det-själv-verktyg kräver tålamod och designkunskap. Sajtmaskin landar mittemellan: du får professionell kvalitet utan väntetid eller tekniskt krångel. Eftersom allt sker på svenska blir kommunikationen enkel, och du slipper översätta gränssnitt eller support. För frisörer, konsulter, hantverkare och butiker i Tumba centrum, Eriksberg eller Uttran blir det en lösning som fungerar från dag ett."
+    },
+    {
+      "heading": "Lokal SEO och synlighet i Tumba",
+      "body": "En hemsida hjälper dig synas när folk i Tumba söker efter dina tjänster. Genom att nämna stadsdelar som Tumba centrum, Eriksberg, Uttran eller Storvreten i dina texter och metadata ökar chansen att ranka lokalt. Sajtmaskin låter dig enkelt lägga till kontaktuppgifter, öppettider och beskrivningar som Google indexerar. Du kan integrera Google Analytics för att följa besökare och se vilka sökord som fungerar. Eftersom sajten publiceras på egen domän behåller du full kontroll över SEO, och du kan när som helst uppdatera innehåll via chatten."
+    },
+    {
+      "heading": "Integrationer som passar lokala företag",
+      "body": "Sajtmaskin stödjer Cal.com för bokningar – perfekt om du driver salong, klinik eller konsultverksamhet i Tumba. Stripe-integration gör det enkelt att ta betalt online, och Shopify-koppling passar dig som vill sälja produkter. Google Analytics ger dig koll på besökare och trafik. Allt konfigureras direkt i plattformen, utan extra plugins eller krångliga inställningar. Du kan starta enkelt och lägga till funktioner när verksamheten växer."
+    },
+    {
+      "heading": "Ingen bindningstid – du äger din sajt",
+      "body": "Sajtmaskin kräver ingen månadsprenumeration för hosting på subdomän, och du binder dig aldrig till plattformen. När som helst kan du exportera hela koden och flytta sajten till egen server eller annan leverantör. Det innebär full frihet: testa plattformen, bygg sajten, publicera – och bestäm själv hur länge du vill stanna. För småföretag i Tumba som vill ha flexibilitet utan långtidskontrakt är det en trygg modell."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att skapa en hemsida med Sajtmaskin?",
+      "a": "Från första prompt till publicerad sajt går det ofta på minuter. Du chattar med AI:n, beskriver vad du vill ha, granskar resultatet och publicerar. Vill du finjustera design eller lägga till fler sidor kan det ta lite längre, men grundflödet är snabbt och smidigt."
+    },
+    {
+      "q": "Behöver jag kunna koda för att använda Sajtmaskin?",
+      "a": "Nej, ingen kodkunskap krävs. Du beskriver vad du vill ha i vanlig svenska, AI:n bygger sajten och du publicerar med ett klick. Vill du senare exportera koden för egen anpassning är det möjligt, men det är frivilligt."
+    },
+    {
+      "q": "Kan jag använda egen domän för min Tumba-hemsida?",
+      "a": "Ja, du kan publicera på egen domän direkt. Vill du testa först fungerar det lika bra att använda en kostnadsfri subdomän från Sajtmaskin. Ingen månadskostnad tillkommer för subdomänen."
+    },
+    {
+      "q": "Fungerar Sajtmaskin för webshop och bokningar?",
+      "a": "Ja, plattformen integrerar Shopify för e-handel och Cal.com för bokningar. Du kan också koppla Stripe för betalningar och Google Analytics för statistik. Allt sätts upp direkt i gränssnittet."
+    },
+    {
+      "q": "Vad kostar det att använda Sajtmaskin?",
+      "a": "Det finns ingen månadskostnad för hosting på subdomän. Vill du använda egen domän eller lägga till integrationer kan kostnader tillkomma beroende på tjänst, men grundplattformen är tillgänglig utan bindningstid."
+    },
+    {
+      "q": "Kan jag uppdatera sajten efter publicering?",
+      "a": "Absolut. Du kan när som helst gå tillbaka till chatten, be om ändringar eller lägga till nytt innehåll. AI:n uppdaterar sajten och du publicerar på nytt. Allt sker i samma gränssnitt."
+    },
+    {
+      "q": "Passar Sajtmaskin för alla branscher i Tumba?",
+      "a": "Ja, oavsett om du driver frisörsalong, konsultfirma, hantverksföretag, butik eller klinik fungerar plattformen. AI:n anpassar design och innehåll efter din bransch och dina behov."
+    }
+  ],
+  "localOrIndustryContext": "Tumba ligger i Botkyrka kommun och har runt 37 000 invånare i tätorten, medan hela kommunen når cirka 95 000. Lokala företag finns i Tumba centrum, Eriksberg, Uttran och Storvreten. Området har både service, handel och småföretag som tjänar på synlighet online och enkel bokningsfunktion.",
+  "internalLinks": [
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    },
+    {
+      "href": "/hemsida/uppsala",
+      "label": "Skapa hemsida i Uppsala"
+    },
+    {
+      "href": "/skapa-hemsida/webshop",
+      "label": "Hemsida för webshop"
+    },
+    {
+      "href": "/skapa-hemsida/restaurang",
+      "label": "Hemsida för restaurang"
+    },
+    {
+      "href": "/skapa-hemsida/cafe",
+      "label": "Hemsida för café"
+    },
+    {
+      "href": "/skapa-hemsida/salong",
+      "label": "Hemsida för salong"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag vill skapa en hemsida för min verksamhet i Tumba. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}

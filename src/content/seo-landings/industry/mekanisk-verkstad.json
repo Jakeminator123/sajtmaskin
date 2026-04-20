@@ -1,0 +1,102 @@
+{
+  "family": "industry",
+  "slug": "mekanisk-verkstad",
+  "title": "Hemsida för mekanisk verkstad – bygg din på minuter | Sajtmaskin",
+  "metaDescription": "Skapa en professionell hemsida för din mekaniska verkstad med AI. Visa tjänster, maskiner och referenser direkt. Ingen kod krävs.",
+  "h1": "Hemsida för mekanisk verkstad",
+  "heroSub": "Bygg en sajt som visar dina tjänster inom svarvning, fräsning och prototypframtagning – på minuter, utan kod.",
+  "introParagraphs": [
+    "En hemsida för mekanisk verkstad behöver visa vad du kan göra, vilka maskiner du har och varför en konstruktör eller inköpare ska ringa just dig. Många verkstäder har antingen ingen sajt alls eller en som inte uppdaterats på tio år. Det gör att potentiella kunder söker sig till konkurrenter som syns online.",
+    "Med Sajtmaskin bygger du en komplett hemsida genom att chatta med vår AI. Du beskriver din verkstad, vilka tjänster du erbjuder och vilka material du jobbar med. AI:n skapar sedan sidor för svarvning, fräsning, prototyper, maskiner, referenser och kontakt. Du publicerar på egen domän och kan uppdatera när som helst.",
+    "Ingen bindningstid, ingen kod och ingen dold kostnad. Du får en sajt som fungerar direkt och som du äger helt själv."
+  ],
+  "contentBlocks": [
+    {
+      "heading": "Vad en hemsida för mekanisk verkstad ska innehålla",
+      "body": "En bra sajt för en mekanisk verkstad börjar med en tydlig startsida som förklarar vad ni gör och var ni finns. Sedan behöver du undersidor för varje tjänst: svarvning, fräsning, borrning, slipning eller vad du nu erbjuder. Visa gärna vilka material ni hanterar – stål, aluminium, mässing, plast – och vilka toleranser ni klarar. En sida om maskiner och utrustning bygger förtroende, särskilt om du listar CNC-svarvar, fräsar eller mätutrustning. Lägg till en referenssida med bilder på tidigare jobb, gärna med kort beskrivning av utmaningen. Avsluta med kontaktuppgifter, öppettider och ett formulär så att kunder enkelt kan skicka förfrågningar eller ritningar."
+    },
+    {
+      "heading": "Varför mekaniska verkstäder behöver en hemsida idag",
+      "body": "Många som söker efter svarvning eller fräsning gör det online, även inom industrin. Inköpare och konstruktörer googlar leverantörer i närheten eller med specifik kompetens. Har du ingen sajt syns du inte i sökningen, och då går jobben till verkstäder som har en. En hemsida ger också trovärdighet – den visar att du är etablerad och professionell. Du slipper skicka samma information om och om igen via mail; istället kan du hänvisa till sajten där allt finns samlat. Dessutom kan du visa upp jobb du är stolt över, vilket säljer bättre än vilken broschyr som helst."
+    },
+    {
+      "heading": "Så bygger Sajtmaskin din verkstadssajt",
+      "body": "Du startar en chatt och berättar om din verkstad: var du ligger, vilka tjänster du erbjuder, vilka maskiner du har och vad som skiljer dig från andra. AI:n föreslår en struktur med startsida, tjänstesidor, om-sida, referenser och kontakt. Du kan be om ändringar direkt i chatten – lägg till en sida om prototypframtagning, ändra texten om svarvning, byt bilder. När du är nöjd publicerar du på din egen domän. Vill du lägga till en bokningsfunktion för kundbesök eller offertförfrågningar fixar du det med Cal.com-integrationen. Allt på svenska, allt utan kod."
+    },
+    {
+      "heading": "Integrationer som fungerar för verkstäder",
+      "body": "Många verkstäder vill att kunden ska kunna ladda upp ritningar eller skicka offertförfrågningar direkt via sajten. Med Sajtmaskin kan du lägga till formulär som skickar filer till din mail. Vill du ta betalt för mindre jobb eller prototyper i förskott kopplar du in Stripe. Behöver du boka in kundbesök eller möten för genomgång av ritningar fungerar Cal.com smidigt. Google Analytics visar vilka sidor som besöks mest, så du ser om folk söker CNC-fräsning eller manuell svarvning. Allt sätts upp utan att du behöver prata med en utvecklare."
+    },
+    {
+      "heading": "Ingen bindningstid – du äger din sajt",
+      "body": "Med Sajtmaskin betalar du ingen månadskostnad om du väljer att ligga på en subdomän hos oss. Vill du ha egen domän kopplar du den direkt. Det finns ingen bindningstid, och du kan när som helst exportera koden och flytta sajten till en annan leverantör om du vill. Vi låser inte in dig. Det här är din hemsida, byggd för din verkstad, och du bestämmer hur länge du vill använda vår plattform. Uppdatera själv när du skaffar nya maskiner, lägger till tjänster eller vill visa nya referenser."
+    }
+  ],
+  "faq": [
+    {
+      "q": "Hur lång tid tar det att bygga en hemsida för min mekaniska verkstad?",
+      "a": "De flesta har en fungerande sajt på 10–20 minuter. Du chattar med AI:n, beskriver din verkstad och vilka tjänster du erbjuder. AI:n skapar sidor, du justerar det du vill ändra, och sedan publicerar du. Vill du lägga till fler bilder eller texter senare gör du det direkt i gränssnittet."
+    },
+    {
+      "q": "Kan jag visa bilder på maskiner och tidigare jobb?",
+      "a": "Absolut. Du laddar upp bilder i chatten eller via gränssnittet, och AI:n placerar dem på rätt ställen. Många verkstäder visar sina CNC-maskiner, mätutrustning och exempel på detaljer de svarvat eller fräst. Det bygger förtroende och visar vad du klarar av."
+    },
+    {
+      "q": "Fungerar sajten på mobilen?",
+      "a": "Ja, alla sajter som byggs med Sajtmaskin är responsiva och fungerar lika bra på mobil som på dator. Många inköpare och konstruktörer kollar leverantörer på telefonen, så det är viktigt att sajten ser bra ut överallt."
+    },
+    {
+      "q": "Kan kunder skicka ritningar via hemsidan?",
+      "a": "Ja, du kan lägga till ett formulär där kunder laddar upp filer. Ritningar och specifikationer skickas direkt till din mail, så du kan ge offert snabbt. Det sparar tid jämfört med att ta emot förfrågningar via telefon."
+    },
+    {
+      "q": "Kostar det extra att uppdatera sajten senare?",
+      "a": "Nej. Du kan när som helst logga in och ändra texter, lägga till nya tjänster, byta bilder eller skapa nya sidor. Ingen extra kostnad, ingen väntan på webbyrå. Du äger sajten och kan uppdatera den själv."
+    },
+    {
+      "q": "Kan jag koppla sajten till min egen domän?",
+      "a": "Ja, du kan använda din egen domän direkt. Har du ingen domän än hjälper vi dig att registrera en. Vill du ligga kvar på en subdomän hos oss är det också okej, utan månadskostnad."
+    },
+    {
+      "q": "Vad händer om jag vill sluta använda Sajtmaskin?",
+      "a": "Du kan exportera hela koden och flytta sajten till en annan leverantör när du vill. Ingen bindningstid, inga dolda avgifter. Sajten är din, och du bestämmer var den ska ligga."
+    }
+  ],
+  "localOrIndustryContext": "Mekaniska verkstäder i Sverige, från Gnosjö till Eskilstuna, behöver synas online för att nå konstruktörer och inköpare som söker svarvning, fräsning eller prototyper. Många verkstäder drivs av hantverkare som kan sina maskiner men inte har tid att bygga hemsidor. Sajtmaskin gör det enkelt att få upp en professionell sajt som visar vad du kan, utan att du behöver lära dig kod eller anlita byrå.",
+  "internalLinks": [
+    {
+      "href": "/hemsida-for/frisor",
+      "label": "Hemsida för frisör"
+    },
+    {
+      "href": "/hemsida-for/skonhetssalong",
+      "label": "Hemsida för skönhetssalong"
+    },
+    {
+      "href": "/hemsida-for/nagelsalong",
+      "label": "Hemsida för nagelsalong"
+    },
+    {
+      "href": "/hemsida-for/massage",
+      "label": "Hemsida för massage"
+    },
+    {
+      "href": "/hemsida/stockholm",
+      "label": "Skapa hemsida i Stockholm"
+    },
+    {
+      "href": "/hemsida/goteborg",
+      "label": "Skapa hemsida i Göteborg"
+    },
+    {
+      "href": "/hemsida/malmo",
+      "label": "Skapa hemsida i Malmö"
+    }
+  ],
+  "cta": {
+    "buttonLabel": "Skapa din hemsida gratis",
+    "prompt": "Jag driver en mekanisk verkstad-verksamhet och behöver en hemsida. Hjälp mig komma igång."
+  },
+  "generatedAt": "2026-04-19",
+  "model": "anthropic/claude-sonnet-4-5"
+}
