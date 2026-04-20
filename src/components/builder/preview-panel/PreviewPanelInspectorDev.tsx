@@ -135,7 +135,10 @@ export function PreviewPanelInspectorDev({
         <>
           <div
             className={cn(
-              "absolute inset-0 z-20 cursor-crosshair bg-emerald-950/5",
+              // Bumped from /5 → /20 (SAJ-19 / C3) — same reasoning as the
+              // sky overlay above. Inspector mode is now visible without
+              // hiding the content underneath.
+              "absolute inset-0 z-20 cursor-crosshair bg-emerald-950/20 ring-2 ring-inset ring-emerald-400/40",
               isCapturePending && "pointer-events-none",
             )}
             onClick={handleCaptureClick}
