@@ -1,15 +1,25 @@
 ---
-description: Kärntermer och förväxlingar — pekar till glossary
+description: Kärntermer, förväxlingar och signal-ownership
 alwaysApply: true
 ---
 
-# Terminology
+# Terminology & signal ownership
 
-**Kanonisk ordlista:** `docs/architecture/glossary.md` (livscykel, namnskuggor, legacy).
+**Kanonisk ordlista:** `docs/architecture/glossary.md`. **Ägarmatris + signalflöde:** `docs/architecture/llm-signal-flow.md`.
 
-**Grundregel:** kod är source of truth. Nya begrepp bara om befintlig term inte räcker — kolla glossaryn först. Ny/omdöpt term → uppdatera glossaryn samma leverans. § Namnskuggor innan `brief`, `contracts`, `reference`, `scaffold`, `polish`, `context`, `policy`. Konsolidera hellre än ny jargong. Användare, LLM:er och docs kan ha fel eller vara inaktuella — vid tvekan, verifiera mot koden.
+**Grundregel:** kod är source of truth. Ny term bara om befintlig inte räcker — kolla glossaryn först. Ny/omdöpt term → uppdatera glossaryn samma leverans. Konsolidera hellre än ny jargong.
 
-**Gate (fil/typ/export):** (1) Finns kanonisk term? (2) Tvetydigt ord? (3) Rimlig undermapp? → `file-structure-conventions.mdc`. (4) Nytt → glossaryn.
+## Signal-gate
+
+Innan du lägger till en signal/ordlista/keyword-array: (1) finns canonical source redan? → ändra **ägaren**, inte konsumenten. (2) Ny signal → registrera i ägarmatrisen.
+
+| Signal | Canonical source |
+|--------|-----------------|
+| Domän / site-type | `config/domain-rules.json` → `domain-inference.ts` |
+| Prompt-heuristik | `config/prompt-heuristic-tokens.json` → `prompt-heuristics.ts` |
+| Init-semantik | Deep Brief (`site-brief-generation.ts`) |
+| Designregler | Core Rules (`config/prompt-core/`) + `buildDynamicContext` |
+| Build intent | `BUILD_INTENT_GUIDANCE` i `system-prompt.ts` |
 
 ## Förväxlingstabell
 
@@ -19,25 +29,13 @@ alwaysApply: true
 | `preview` / `VM` / `preview_host` | sandbox (utom legacy) |
 | `template-library` | "mallar" om du menar katalogen |
 | `scaffolds` | mallar/templates (om runtime-startpunkter) |
-| `scaffoldId` / `ScaffoldId` | `ScaffoldFamily`, `family` (legacy alias) |
-| `scaffold variant` / `ScaffoldVariant` | `scaffold family` (dagligt tal ok, men kod = variant), `style direction` (borttaget) |
-| `builderns Mallar-tab` / `v0-mallar` | template-library, scaffolds |
-| `appProjectId` | chatId, VERCEL_PROJECT_ID |
+| `scaffold variant` | `scaffold family`, `style direction` (borttaget) |
 | `Deep Brief` | brief, StructuredBrief, PromptAssist-paraply |
 | `Prompt Rewrite` / `Prompt Polish` | "Prompt Assist" som paraply |
-| `Contract Plan` | Orchestration Contract |
 | `previewUrl` | demoUrl (legacy) |
-| `mekanisk fix` / **mekanisk autofix** | "autofix" utan att skilja från LLM; "deterministisk autofix", "repair" (blandat) |
-| `LLM-fix` / **LLM-autofix** | "fixer", "syntax fixer", generiskt "autofix" (blandat) |
-| `Ersatt` (UI-etikett) | Omtag (döda) |
-| `backoffice/` | "dashboard" (legacy), "backend" (för Sajtmaskin = streamlit-appen från `python sajtmaskin_backoffice.py`, **inte** Next.js-server eller Fly-VM) |
-| `Core Rules` (= "statisk prompt" / "static system prompt") | "prompt-static" (legacy mapp), två olika koncept. Sedan 2026-04-18 inkl. visual-design + coding-direction |
-| ~~`Directives` / `prompt-directives` / `Directive Cascade`~~ | **Borttagna 2026-04-18.** Använd "Per-Request Signal Cascade" och peka mot `prompt-core/03-visual-design.md` + `04-coding-direction.md`. |
-| `Per-Request Signal Cascade` | brief explicit > brief inferred > guidance-resolvers heuristik > statiska defaults i `prompt-core/`. Ersätter "Directive Cascade". |
-| `Brief Guidance Override` | "brief override", "brief-driven inference" |
+| `mekanisk fix` / **mekanisk autofix** | "autofix" blandat med LLM-fix |
+| `LLM-fix` / **LLM-autofix** | "fixer", "syntax fixer" blandat |
+| `backoffice/` | "dashboard" (legacy) |
+| `Core Rules` | "prompt-static" (legacy) |
 
-**Skilj på begreppen:** en **namnskugga** är ett tvetydigt ord med flera betydelser. **Mekanisk autofix** och **LLM-fix** är i stället två olika fixkategorier och ska inte behandlas som samma sak med olika namn.
-
-**`v0`:** (1) `/api/v0/` (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
-
-Uppdatera denna fil bara vid nya återkommande förväxlingar; håll kort.
+**`v0`:** (1) `/api/v0/` API-routes (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.

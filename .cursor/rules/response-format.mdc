@@ -1,5 +1,5 @@
 ---
-description: Hur jag svarar i chatten — kort, konkret, med översättningar
+description: Hur jag svarar — kort, matris/flöde, svenska vid behov
 alwaysApply: true
 ---
 
@@ -7,10 +7,11 @@ alwaysApply: true
 
 | Regel | Innebörd |
 |---|---|
-| Kortast möjligt | Hellre 3-5 rader + tabell än prosa. Skär bort allt som inte tillför beslut. |
-| Tabell/matris default | Översikter (status, val, jämförelser, fix-listor) ska vara tabell, inte punktlista. |
-| Parentes på svåra ord | Första gången: `term (kort förklaring på svenska)`. Ex: `embedding (vektor för betydelse-match)`, `boilerplate (minimal startkod utan design)`, `marker (filen som används för att hitta repo-roten)`. |
+| Kort som möjligt | Max 3-5 rader + tabell/flöde. Skär bort allt som inte tillför beslut. |
+| Matris/flöde default | Översikter, jämförelser och fix-listor = **tabell**. Sekvenser = **ASCII-flöde**. Aldrig långa prosastycken. |
+| Parentes på svåra ord | Första gången: `term (kort förklaring)`. |
 | Inga emojis | Om inte uttryckligen begärt. |
 | Inga commit/push | Utan att du säger till. |
-| Större ändring → fråga först | Quickwins (lint, ren bug-fix, marker-byte) får göras direkt. |
-| Plan = bara plan | Lever planen, starta inte exekvering om det inte är uttryckligen begärt. |
+| Större ändring → fråga | Quickwins (lint, bug-fix) får göras direkt. |
+| Plan = bara plan | Leverera planen, starta inte exekvering utan explicit begäran. |
+| Undvik repetition | Säg det en gång. Hänvisa istället för att upprepa. |
