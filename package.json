@@ -38,7 +38,6 @@
     "templates:local:refresh": "node scripts/v0-templates/refresh-local-v0-catalog.mjs",
     "templates:local:refresh:embeddings": "node scripts/v0-templates/refresh-local-v0-catalog.mjs --with-embeddings",
     "templates:embeddings": "npx tsx scripts/embeddings/generate-template-embeddings.ts",
-    "scripts:dashboard": "python scripts/scripts_dashboard.py",
     "backoffice": "python sajtmaskin_backoffice.py",
     "inspector:start": "node services/inspector-worker/server.mjs",
     "inspector:install": "cd services/inspector-worker && npm install && npx playwright install chromium",

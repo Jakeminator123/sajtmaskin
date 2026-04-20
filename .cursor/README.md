@@ -78,7 +78,7 @@ Kod är source of truth; strict schemas speglar kod, ersätter den inte.
 
 **Entrypoint:** `python sajtmaskin_backoffice.py` från repo-rot.
 
-**Legacy wrappers** (forwardar till `backoffice/`): `config/dashboard/app.py`, `scripts/scripts_dashboard.py`.
+**Legacy wrapper** (forwardar till `backoffice/`): `config/dashboard/app.py`.
 
 **Domänkarta:** `config/dashboard/domain-map.json` — mappar backoffice-vyer till kanoniska sökvägar, docs och kodsanningar.
 

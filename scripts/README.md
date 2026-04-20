@@ -10,10 +10,8 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 
 | Verktyg | Start | Roll |
 |------|------|------|
-| [`scripts/scripts_dashboard.py`](scripts_dashboard.py) | `npm run scripts:dashboard` | Tkinter-panel för pipeline/artifacts/parity |
-| [`dashboard_shared.py`](dashboard_shared.py) | (importeras) | Delad prompt-dump-status för panelerna |
-| [`../config/dashboard/app.py`](../config/dashboard/app.py) | `cd config/dashboard && python app.py` | Streamlit-konfigurationspanel för `config/*`, manifest, budgets, phase-routing |
-| [`../sajtmaskin_backoffice.py`](../sajtmaskin_backoffice.py) | `npm run backoffice` | Streamlit-overheadpanel för scaffolds, pipeline, eval samt Autofix/Kvalitet |
+| [`../sajtmaskin_backoffice.py`](../sajtmaskin_backoffice.py) | `npm run backoffice` | Konsoliderad Streamlit-backoffice (konfiguration, scaffolds, pipeline, observability, autofix). Källkod under `backoffice/`. |
+| [`../config/dashboard/app.py`](../config/dashboard/app.py) | `cd config/dashboard && python app.py` | Legacy-wrapper som forwardar till samma backoffice (alternativ startkontext). |
 
 `config/dashboard/shared_overhead.py` är den delade helpern för manifest-/fault-fix-logik mellan Streamlit-ytorna. Ingen panel ska importera den andra appens entrypoint direkt.
 
