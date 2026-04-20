@@ -120,12 +120,13 @@ describe("GET preview-status (engine)", () => {
   });
 
   it("returns stopped + provider_not_running_or_unreachable when resume fails", async () => {
+    const oldEnough = Date.now() - 120_000;
     getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb_1",
       sandboxUrl: "https://preview.example",
       versionId: "v1",
-      createdAt: Date.now(),
-      lastUsedAt: Date.now(),
+      createdAt: oldEnough,
+      lastUsedAt: oldEnough,
     });
     tryResumeTier2Runtime.mockResolvedValue(null);
 

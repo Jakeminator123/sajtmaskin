@@ -78,4 +78,28 @@ describe("fixDuplicateImportBindings", () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain("lucide-react");
   });
+
+  it("handles multiline import from package plus duplicate default from local stub (rapier case)", () => {
+    const code = [
+      '"use client";',
+      "",
+      "import {",
+      "  CuboidCollider,",
+      "  Physics,",
+      "  RigidBody,",
+      "  type RapierRigidBody,",
+      '} from "@react-three/rapier";',
+      'import RapierRigidBody from "@/components/rapier-rigid-body"',
+      "",
+      "export function X() { return null; }",
+    ].join("\n");
+
+    const result = fixDuplicateImportBindings(code, "components/floating-bike-scene.tsx");
+
+    expect(result.fixed).toBe(true);
+    expect(result.removedBindings).toContain("RapierRigidBody");
+    expect(result.code).not.toContain("@/components/rapier-rigid-body");
+    expect(result.code).toContain("@react-three/rapier");
+    expect(result.code).toContain("type RapierRigidBody");
+  });
 });

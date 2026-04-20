@@ -147,6 +147,25 @@ vi.mock("@/lib/gen/engine", () => ({
   createGenerationPipeline,
 }));
 
+vi.mock("@/lib/models/phase-routing", () => ({
+  resolvePhaseThinking: () => ({
+    phase: "generator",
+    thinking: true,
+    reasoningEffort: "medium",
+    reason: "mock",
+  }),
+}));
+
+vi.mock("@/lib/builder/site-brief-generation", () => ({
+  tryGenerateServerAutoBrief: vi.fn(async () => null),
+}));
+
+vi.mock("@/lib/api/preview-url-contract", () => ({
+  previewUrlField: (url: string | null | undefined) => ({
+    previewUrl: url == null || url === "" ? null : String(url),
+  }),
+}));
+
 vi.mock("@/lib/gen/url-compress", () => ({
   compressUrls: (value: string) => ({ compressed: value, urlMap: {} }),
 }));
@@ -226,8 +245,115 @@ vi.mock("@/lib/gen/context/file-context-builder", () => ({
   buildFileContext,
 }));
 
+vi.mock("@/lib/gen/prompt-dump", () => ({
+  dumpOwnEngineCodegenFromFullSystem: vi.fn(),
+}));
+
+vi.mock("@/lib/gen/attachment-text-hydrate", () => ({
+  appendHydratedTextAttachmentExcerpts: vi.fn(async (msg: string) => msg),
+}));
+
+vi.mock("@/lib/own-engine/session/own-engine-build-session", () => ({
+  buildOwnEngineGenerationStreamMeta: vi.fn(() => ({})),
+  buildPreGenerationContractGateParams: vi.fn(() => null),
+}));
+
+vi.mock("@/lib/own-engine/session/own-engine-pipeline-generation", () => ({
+  createOwnEnginePipelineAndGenerationStream: vi.fn(
+    (input: {
+      chatId: string;
+      engineModel: string;
+      previousFiles?: Array<{ path: string; content?: string; language?: string }>;
+      pipeline: { prompt: string; systemPrompt: string; model?: string; abortSignal?: AbortSignal };
+    }) => {
+      const pipelineStream = createGenerationPipeline({
+        prompt: input.pipeline.prompt,
+        systemPrompt: input.pipeline.systemPrompt,
+        abortSignal: input.pipeline.abortSignal,
+      });
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      return new ReadableStream<Uint8Array>({
+        async start(controller) {
+          const reader = pipelineStream.getReader();
+          let buffer = "";
+          let accumulatedContent = "";
+          try {
+            while (true) {
+              const { done: readerDone, value } = await reader.read();
+              if (readerDone) break;
+              buffer += decoder.decode(value, { stream: true });
+              const parsed = parseSSEBuffer(buffer);
+              buffer = parsed.remaining;
+              for (const evt of parsed.events) {
+                if (evt.event === "content" && evt.data?.text) {
+                  accumulatedContent += evt.data.text;
+                  controller.enqueue(encoder.encode(
+                    `event: content\ndata: ${JSON.stringify(evt.data)}\n\n`,
+                  ));
+                } else if (evt.event === "done") {
+                  const finalized = await finalizeOrHandleEmptyGeneration({
+                    emptyGenerationReason: "done_empty_output",
+                    finalizeParams: {
+                      chatId: input.chatId,
+                      accumulatedContent,
+                      model: input.engineModel ?? "gpt-5.4",
+                      previousFiles: input.previousFiles ?? [],
+                    },
+                  });
+                  controller.enqueue(encoder.encode(
+                    `event: done\ndata: ${JSON.stringify({
+                      chatId: input.chatId,
+                      versionId: finalized.version?.id ?? null,
+                      messageId: finalized.messageId ?? null,
+                      previewUrl: null,
+                      previewBlocked: finalized.preflight?.previewBlocked ?? false,
+                      verificationBlocked: finalized.preflight?.verificationBlocked ?? false,
+                      previewBlockingReason: finalized.preflight?.previewBlockingReason ?? null,
+                    })}\n\n`,
+                  ));
+                } else {
+                  controller.enqueue(encoder.encode(
+                    `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`,
+                  ));
+                }
+              }
+            }
+          } finally {
+            controller.close();
+          }
+        },
+      });
+    },
+  ),
+}));
+
+vi.mock("@/lib/own-engine/session/own-engine-plan-mode", () => ({
+  computePlanModePlannerPrompts: vi.fn(),
+  createPlanModePipelineStream: vi.fn(),
+  dumpPlanModePlannerPrompts: vi.fn(),
+  logPlanModeGenerationStart: vi.fn(),
+  resolvePlanModePlannerSettings: vi.fn(),
+}));
+
+vi.mock("@/lib/providers/own-engine/plan-mode-response", () => ({
+  createOwnEnginePlanModeResponse: vi.fn(),
+}));
+
+vi.mock("@/lib/providers/own-engine/pre-generation-contract-gate", () => ({
+  createPreGenerationContractGateReadableStream: vi.fn(),
+}));
+
+vi.mock("@/lib/own-engine/resolve-max-steps", () => ({
+  resolveOwnEngineMaxSteps: vi.fn(() => 4),
+}));
+
 vi.mock("@/lib/gen/stream/finalize-version", () => ({
   EmptyGenerationError: class EmptyGenerationError extends Error {},
+}));
+
+vi.mock("@/lib/api/engine/chats/credits-handler", () => ({
+  createCommitCreditsOnce: vi.fn(() => vi.fn(async () => undefined)),
 }));
 
 vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({

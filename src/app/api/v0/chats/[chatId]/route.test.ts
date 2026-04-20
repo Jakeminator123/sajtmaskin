@@ -20,10 +20,24 @@ vi.mock("@/lib/tenant", () => ({
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion,
   getLatestVersion,
+  maybeAutoAcceptTimedOutRepair: vi.fn(async (version: unknown) => ({
+    version,
+    wasAutoAccepted: false,
+  })),
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewUrl,
+}));
+
+vi.mock("@/lib/api/preview-url-contract", () => ({
+  previewUrlField: (url: string | null | undefined) => ({
+    previewUrl: url == null || url === "" ? null : String(url),
+  }),
+}));
+
+vi.mock("@/lib/db/services/version-errors", () => ({
+  createEngineVersionErrorLogs: vi.fn(async () => null),
 }));
 
 vi.mock("@/lib/gen/scaffolds", () => ({
@@ -87,10 +101,13 @@ describe("GET /api/v0/chats/[chatId]", () => {
       version_number: 2,
       message_id: "msg_1",
       sandbox_url: "https://sandbox.example",
+      preview_url: null,
       release_state: "draft",
       verification_state: "failed",
       verification_summary: "Blocking preflight errors",
       promoted_at: null,
+      repaired_files_json: null,
+      repair_available_at: null,
     });
 
     const response = await GET(new Request("https://example.com/api/v0/chats/chat_1"), {
@@ -106,7 +123,7 @@ describe("GET /api/v0/chats/[chatId]", () => {
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
-  it("returns legacyShimPreviewUrl but null previewUrl when latest own-engine version exposes preview", async () => {
+  it("returns null previewUrl and null legacyShimPreviewUrl for own-engine versions without preview_url", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({
       id: "chat_1",
       project_id: "proj_1",
@@ -123,12 +140,14 @@ describe("GET /api/v0/chats/[chatId]", () => {
       version_number: 2,
       message_id: "msg_1",
       sandbox_url: "https://sandbox.example",
+      preview_url: null,
       release_state: "draft",
       verification_state: "passed",
       verification_summary: null,
       promoted_at: null,
+      repaired_files_json: null,
+      repair_available_at: null,
     });
-    buildPreviewUrl.mockReturnValue("/api/preview-render?chatId=chat_1&versionId=ver_ok");
 
     const response = await GET(new Request("https://example.com/api/v0/chats/chat_1"), {
       params: Promise.resolve({ chatId: "chat_1" }),
@@ -137,13 +156,10 @@ describe("GET /api/v0/chats/[chatId]", () => {
 
     expect(response.status).toBe(200);
     expect(json.previewUrl).toBeNull();
-    expect(json.legacyShimPreviewUrl).toBe("/api/preview-render?chatId=chat_1&versionId=ver_ok");
+    expect(json.legacyShimPreviewUrl).toBeNull();
     expect(json.latestVersion.previewUrl).toBeNull();
-    expect(json.latestVersion.legacyShimPreviewUrl).toBe(
-      "/api/preview-render?chatId=chat_1&versionId=ver_ok",
-    );
+    expect(json.latestVersion.legacyShimPreviewUrl).toBeNull();
     expect(json.latestVersion.canPin).toBe(false);
-    expect(buildPreviewUrl).toHaveBeenCalledWith("chat_1", "ver_ok");
   });
 
   it("returns 404 when chat is not engine-backed and has no legacy DB mapping", async () => {

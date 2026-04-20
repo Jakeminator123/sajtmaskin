@@ -1,5 +1,12 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { isRuntimeProvidedImport } from "@/lib/gen/autofix/runtime-imports";
+import ts from "typescript";
+import {
+  createTsxSourceFile,
+  getLocalBindingNamesFromImportDeclaration,
+  isDenylistedStubDefaultName,
+  removeImportDeclarations,
+} from "./import-binding-ast";
 
 interface CrossFileImportFix {
   sourceFile: string;
@@ -7,10 +14,6 @@ interface CrossFileImportFix {
   stubFile: string;
 }
 
-// Captures: [0]=full statement, [1]=import clause (default+named), [2]=source path
-const IMPORT_FULL_RE =
-  /import\s+((?:type\s+)?(?:\{[^}]*\}|[\w$]+)(?:\s*,\s*(?:\{[^}]*\}|[\w$]+))*)\s+from\s+['"]([^'"]+)['"]/g;
-const NAMED_RE = /\{([^}]+)\}/;
 const LOCAL_PREFIXES = ["@/", "./", "../"];
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 const INDEX_EXTENSIONS = EXTENSIONS.map((ext) => `/index${ext}`);
@@ -54,36 +57,96 @@ function deriveComponentName(importPath: string): string {
     .replace(/^\w/, (c) => c.toUpperCase());
 }
 
-// ---------------------------------------------------------------------------
-// Import-specifier parsing
-// ---------------------------------------------------------------------------
-
 interface ImportSpecifiers {
   defaultImport: string | null;
   namedImports: string[];
   isTypeOnly: boolean;
 }
 
-function parseImportClause(clause: string): ImportSpecifiers {
-  const isTypeOnly = /^type\s/.test(clause.trim());
-  const stripped = clause.replace(/^type\s+/, "").trim();
-
-  let defaultImport: string | null = null;
+function importSpecifiersFromDeclaration(decl: ts.ImportDeclaration): ImportSpecifiers {
+  const ic = decl.importClause;
+  if (!ic) return { defaultImport: null, namedImports: [], isTypeOnly: false };
   const namedImports: string[] = [];
-
-  const namedMatch = stripped.match(NAMED_RE);
-  if (namedMatch) {
-    for (const token of namedMatch[1].split(",")) {
-      const clean = token.replace(/\s+as\s+\w+/, "").replace(/type\s+/, "").trim();
-      if (clean) namedImports.push(clean);
+  if (ic.namedBindings && ts.isNamedImports(ic.namedBindings)) {
+    for (const el of ic.namedBindings.elements) {
+      namedImports.push(el.name.text);
     }
-    const beforeBrace = stripped.slice(0, stripped.indexOf("{")).replace(/,\s*$/, "").trim();
-    if (beforeBrace && /^[A-Za-z_$]/.test(beforeBrace)) defaultImport = beforeBrace;
-  } else if (/^[A-Za-z_$][\w$]*$/.test(stripped)) {
-    defaultImport = stripped;
+  }
+  return {
+    defaultImport: ic.name?.text ?? null,
+    namedImports,
+    isTypeOnly: ic.isTypeOnly,
+  };
+}
+
+interface ImportDeclMeta {
+  decl: ts.ImportDeclaration;
+  moduleSpecifier: string;
+  resolved: boolean;
+  names: string[];
+}
+
+function gatherImportMeta(
+  decl: ts.ImportDeclaration,
+  importerPath: string,
+  fileMap: Map<string, CodeFile>,
+): ImportDeclMeta {
+  const names = getLocalBindingNamesFromImportDeclaration(decl);
+  if (!decl.moduleSpecifier || !ts.isStringLiteral(decl.moduleSpecifier)) {
+    return { decl, moduleSpecifier: "", resolved: true, names };
+  }
+  const spec = decl.moduleSpecifier.text;
+  if (!isLocalImport(spec) || isRuntimeProvidedImport(spec)) {
+    return { decl, moduleSpecifier: spec, resolved: true, names };
+  }
+  const projectPath = normalizeToProjectPath(spec, importerPath);
+  const resolved = fileExists(fileMap, projectPath);
+  return { decl, moduleSpecifier: spec, resolved, names };
+}
+
+/**
+ * Removes local imports whose target file is missing when they duplicate a binding
+ * already satisfied by a resolved import (e.g. package `type RapierRigidBody` vs
+ * bogus `@/components/rapier-rigid-body`), or when the default import name is denylisted.
+ */
+function stripCollidingMissingImports(
+  content: string,
+  importerPath: string,
+  fileMap: Map<string, CodeFile>,
+): string {
+  const sf = createTsxSourceFile(importerPath, content);
+  const metas: ImportDeclMeta[] = [];
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st)) continue;
+    metas.push(gatherImportMeta(st, importerPath, fileMap));
   }
 
-  return { defaultImport, namedImports, isTypeOnly };
+  const resolvedNames = new Set<string>();
+  for (const m of metas) {
+    if (m.resolved) {
+      for (const n of m.names) resolvedNames.add(n);
+    }
+  }
+
+  const toRemove = new Set<ts.ImportDeclaration>();
+  for (const m of metas) {
+    if (m.resolved) continue;
+    const ic = m.decl.importClause;
+    const defaultName = ic?.name?.text;
+    if (defaultName && isDenylistedStubDefaultName(defaultName)) {
+      toRemove.add(m.decl);
+      continue;
+    }
+    if (m.names.some((n) => resolvedNames.has(n))) {
+      toRemove.add(m.decl);
+    }
+  }
+
+  if (toRemove.size === 0) return content;
+  const next = removeImportDeclarations(sf, toRemove);
+  const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed, removeComments: false });
+  const out = printer.printFile(next);
+  return out.endsWith("\n") || content.endsWith("\n") ? out : `${out}\n`;
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +221,9 @@ function createStubFile(
  * in the file set. For each missing target, generates a stub file that
  * exports exactly the names the importers expect — with context-aware
  * implementations for providers, contexts, hooks, and components.
+ *
+ * Before stubbing, drops hallucinated local imports that duplicate bindings
+ * from resolved imports (AST-accurate, including multiline imports).
  */
 export function checkCrossFileImports(
   files: CodeFile[],
@@ -165,32 +231,40 @@ export function checkCrossFileImports(
   const fileMap = new Map<string, CodeFile>();
   for (const f of files) fileMap.set(f.path, f);
 
+  for (const f of files) {
+    if (!f.path.match(/\.(tsx?|jsx?)$/)) continue;
+    const nextContent = stripCollidingMissingImports(f.content, f.path, fileMap);
+    if (nextContent !== f.content) {
+      fileMap.set(f.path, { ...f, content: nextContent });
+    }
+  }
+
+  const working = Array.from(fileMap.values());
   const fixes: CrossFileImportFix[] = [];
-  // Accumulate all specifiers per missing target so multi-file imports merge
   const pendingStubs = new Map<
     string,
     { source: string; importers: string[]; specs: ImportSpecifiers[] }
   >();
 
-  for (const file of files) {
+  for (const file of working) {
     if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
 
-    for (const match of file.content.matchAll(IMPORT_FULL_RE)) {
-      const clause = match[1];
-      const source = match[2];
-      if (!isLocalImport(source)) continue;
-      if (isRuntimeProvidedImport(source)) continue;
+    const sf = createTsxSourceFile(file.path, file.content);
+    for (const st of sf.statements) {
+      if (!ts.isImportDeclaration(st)) continue;
 
-      const projectPath = normalizeToProjectPath(source, file.path);
-      if (fileExists(fileMap, projectPath)) continue;
+      const meta = gatherImportMeta(st, file.path, fileMap);
+      if (meta.resolved) continue;
 
+      const projectPath = normalizeToProjectPath(meta.moduleSpecifier, file.path);
       const stubPath =
         projectPath.endsWith(".tsx") || projectPath.endsWith(".ts")
           ? projectPath
           : `${projectPath}.tsx`;
       if (fileMap.has(stubPath)) continue;
 
-      const spec = parseImportClause(clause);
+      const spec = importSpecifiersFromDeclaration(st);
+      const source = meta.moduleSpecifier;
 
       const existing = pendingStubs.get(projectPath);
       if (existing) {
@@ -212,7 +286,6 @@ export function checkCrossFileImports(
         ? projectPath
         : `${projectPath}.tsx`;
 
-    // Merge all specifiers from every importer
     const merged: ImportSpecifiers = {
       defaultImport: null,
       namedImports: [],
@@ -239,7 +312,6 @@ export function checkCrossFileImports(
     }
   }
 
-  if (fixes.length === 0) return { files, fixes };
-
+  // Always return fileMap: strip pass may rewrite files even when no stubs are created.
   return { files: Array.from(fileMap.values()), fixes };
 }
