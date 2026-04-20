@@ -103,6 +103,8 @@ const finalized = {
       blockingCategories: [],
     },
   },
+  rejectedShrinks: [],
+  rejectedStructural: [],
 } as const;
 
 describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {

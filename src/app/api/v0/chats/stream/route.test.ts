@@ -576,6 +576,8 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         previewBlockingReason: null,
       },
       contentForVersion: "<main>Hello runtime lane</main>",
+      rejectedShrinks: [],
+      rejectedStructural: [],
     });
 
     const request = new Request("https://example.com/api/v0/chats/stream", {
