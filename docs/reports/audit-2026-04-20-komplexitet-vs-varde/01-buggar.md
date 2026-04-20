@@ -91,30 +91,13 @@ Källor: `docs/plans/active/P27-validator.md` blocking_note, `docs/plans/active/
 
 ---
 
-### §1.5 Quality-gate kör bara `typecheck` på F2 — inte `build`
+### §1.5 Quality-gate kör bara `typecheck` på F2 — inte `build` — **DONE 2026-04-20**
 
 | Fält | Värde |
 |------|-------|
-| **Fil** | `config/ai_models/manifest.json` (`qualityGateTiers.designPreview`) |
-| **Bevis** | `src/lib/gen/verify/quality-gate-checks.ts:38` → `DEFAULT_DESIGN_PREVIEW = ["typecheck"]` |
-| **Svårighet** | Enkel (men gränsar mot förbättring §2.4 — listas båda) |
-| **Tidsåtgång** | 30 minuter test + verifiering |
-| **Kostnad infra** | +5–20 sek per generering, +5–10 USD/mån (mer Fly-CPU) |
-| **Värde** | Fångar Next-runtime-fel före preview-iframe — undviker "ren HTML"-incidenter |
-
-**Manual:**
-
-1. Editera `config/ai_models/manifest.json`:
-   ```json
-   "qualityGateTiers": {
-     "designPreview": ["typecheck", "build"],
-     "integrationsBuild": ["typecheck", "build"]
-   }
-   ```
-2. Kör en testgenerering, mät boot-tid före/efter.
-3. Om bootkostnaden är >20 % regression: lägg `build` bara på "interactive"-anrop (manuell preview-refresh), inte på var enda finalize.
-
-> **Egentlig tradeoff:** se §2.4 i förbättringar — kanske vill du ha `build` på vissa anrop bara.
+| **Fil** | `config/ai_models/manifest.json`, `src/lib/gen/verify/quality-gate-checks.ts` |
+| **Status** | Klart 2026-04-20. `qualityGateTiers.designPreview` är nu `["typecheck", "build"]` och `DEFAULT_DESIGN_PREVIEW`-fallback matchar. Backoffice `pages/ai_models.py` läser värdet direkt från manifest så panelen surfar nya policyn automatiskt. Testerna i `server-verify.test.ts` + `preview-quality-gate.test.ts` uppdaterade att asserta nya beteendet. För att revertera per-miljö (kostnad), sätt arrayen till `["typecheck"]`. |
+| **Kostnad** | +5–20 sek per finalize, +5–10 USD/mån (Fly-CPU). |
 
 ---
 

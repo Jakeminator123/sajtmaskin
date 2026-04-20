@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-20 (Hygien + bug-fix-pass efter LLM-flöde Fas 2/3-leverans: validate-loop-ordning fix (LLM-fixer på alla pass), community-registry deterministic block-pick, P19 ingress 1 stängd (`preview_url` invalideras vid `/files`-mutation), audit Tier S städning (typo-rename, manifest-schema sync, ESLint --cache, `preflight:common`). Tidigare samma dag: LLM-flöde Fas 2/3 Wave 1-4 (strukturella SSE drops, verifier-fynd → fixer, `pre_vm_typecheck` uppgår i `validate_syntax`, auto-repair default ON i dev/preview). P27-validator A+B+D körda; P22b caller-wiring; P28 #6 lint-fix. P25b och resten av P28 stannar som känd skuld nedan.).
+Senast uppdaterad: 2026-04-20 (Etapp-pass: F2 quality-gate `build` aktiverat, P29 Fas 1A levererad — 18 v0-chat-routes utan tester borttagna, Tier A #14 / audit §3.4 partiellt DONE. Tidigare samma dag: hygien + bug-fix-pass (validate-loop-ordning, deterministic block-pick, P19 ingress 1, Tier S städning), och Fas 2/3 Wave 1-4. P28 STÄNGD. Aktiva spår nedan.).
 
 ## Öppna punkter
 
@@ -12,7 +12,8 @@ Senast uppdaterad: 2026-04-20 (Hygien + bug-fix-pass efter LLM-flöde Fas 2/3-le
 | 4 | Eval | Automatisk baseline-uppdatering (CI/script för eval-svit) | Låg | — |
 | 5 | UX polish | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. Kräver visuell verifiering. Tidigare spårad som P25b — plan-fil borttagen i konsolidering, scope kvar. | Låg | — |
 | 6 | Hygien-städ (rest av P28) | **STÄNGD 2026-04-20** efter full vitest-körning: alla 7 ursprungliga P28-fails är gröna (env-encryption, route × 2, preview-status × 2, isolation × 2 — fixades organiskt av Wave 1-4 + dagens hygien-pass). Två stream-route-tests (mock-drift) fixade samma dag genom att lägga till `rejectedShrinks: []` + `rejectedStructural: []` i mock-objekten. Schema-mismatch i `qualityGateTiers` löst (kanonisk path: `config/ai_models/manifest.schema.json`). Lint-fel borta. **Slutläge:** 1176 tester totalt, 1176 passar. | — | — |
-| 7 | API-yta | `/api/v0/*` ↔ `/api/engine/*` konsolidering (audit §3.4). Subagent-inventering klar 2026-04-20: 27 v0-chat-routes är rena re-exports (säkra att radera, 0 klient-callsites), 7 routes är legitima legacy (deployments/projects/integrations) med faktiska klient-callsites. Plan finns i `P29-v0-engine-consolidation.md`. | Hög | P29 |
+| 7 | API-yta | `/api/v0/*` ↔ `/api/engine/*` konsolidering (audit §3.4). **Fas 1A KLAR 2026-04-20:** 18 v0-chat-routes utan test-coverage borttagna. **Fas 1B kvar:** 10 routes med UNIQUE test-coverage — kräver test-migrering till engine-sidan först (~1 dag). **Fas 2 kvar:** 7 Class C legacy-routes (deployments/projects/integrations) — rename eller behåll-beslut (~½–1 dag). Detaljer i `P29-v0-engine-consolidation.md`. | Hög | P29 |
+| 8 | F2 quality-gate | **DONE 2026-04-20:** `build`-check aktiverad i `qualityGateTiers.designPreview`. Fångar Next-runtime-fel före preview-iframe. +5–10 USD/mån. | — | — |
 
 ## Avklarat i LLM-flöde Fas 2/3-leverans (2026-04-20)
 
@@ -26,6 +27,13 @@ Senast uppdaterad: 2026-04-20 (Hygien + bug-fix-pass efter LLM-flöde Fas 2/3-le
 | Wave 3 — `pre_vm_typecheck` sammanslaget i `validate_syntax`. `runWarmTscPass` körs efter esbuild når `passed`, delar `fixBudgetMs` och `runLlmFixer`-loop. Pipeline-kontraktet uppdaterat (en fas mindre); `OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES` likaså. F3 sätter `forceTsc: true`. SSE phases utökade. (audit §2.1) | `src/lib/gen/autofix/validate-and-fix.ts`, `src/lib/gen/stream/finalize-pipeline-contract.ts`, `src/lib/gen/stream/finalize-version.ts`, `src/lib/gen/autofix/validate-and-fix.test.ts`, `src/lib/gen/stream/finalize-pipeline-contract.test.ts` |
 | Wave 4 — `triggerBuildErrorRepair` default ON i `development` + Vercel `preview`, default OFF i `production` via `isAutoRepairBuildErrorEnabled()`. Tidigare default OFF överallt — tysta vit-sida-buggar i dev när VM:en kraschade. | `src/lib/gen/verify/server-verify.ts`, `config/env-policy.json` |
 | Docs-sync: glossary-rader för Verifier Pass, Validate-step (esbuild + warm tsc), Element Preservation Guard, SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR. Pipeline-tabellen i `fas2-orchestration-and-build.md`. Mental-model-vs-actual-flow uppdaterad. Audit §2.1 + §3.1 markerade levererade. Backoffice `pages/preview.py` synkad. | `docs/architecture/glossary.md`, `docs/architecture/fas2-orchestration-and-build.md`, `docs/architecture/mental-model-vs-actual-flow.md`, `docs/reports/audit-2026-04-20-komplexitet-vs-varde/03-konsolidering-pipeline.md`, `backoffice/pages/preview.py` |
+
+## Avklarat i etapp-pass (2026-04-20, efter hygien + bug-fix-pass)
+
+| Vad | Var |
+|-----|-----|
+| **Etapp A — F2 quality-gate `build`-check (audit Tier S #7 / §1.5):** `qualityGateTiers.designPreview` uppdaterat till `["typecheck", "build"]` i manifestet + matchande default-fallback i `quality-gate-checks.ts`. Tester uppdaterade. Backoffice surfar nya policyn automatiskt (läser direkt från manifest). Audit §1.5 markerad DONE. | `config/ai_models/manifest.json`, `src/lib/gen/verify/quality-gate-checks.ts`, `src/lib/gen/verify/preview-quality-gate.ts`, `src/lib/gen/verify/server-verify.test.ts`, `src/lib/gen/verify/preview-quality-gate.test.ts`, `docs/reports/audit-2026-04-20-komplexitet-vs-varde/01-buggar.md` |
+| **Etapp B — P29 Fas 1A: 18 v0-chat-routes borttagna (audit §3.4 partial):** Alla pure re-exports utan unique test-coverage. Halverar antalet `v0/chats/**/route.ts`-filer från 28 → 10. Verifierat: 1176/1176 tester gröna efter deletion. Fas 1B (10 routes med tester) deferras till dedikerad migration-session per `P29-v0-engine-consolidation.md`. | 18 borttagna `route.ts`-filer under `src/app/api/v0/chats/**`, kommentar-uppdatering i `src/lib/utils/image-validator.ts`, `docs/plans/active/P29-v0-engine-consolidation.md`, `docs/reports/audit-2026-04-20-komplexitet-vs-varde/03-konsolidering-pipeline.md` |
 
 ## Avklarat i hygien + bug-fix-pass (2026-04-20, efter Fas 2/3-leverans)
 

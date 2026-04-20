@@ -107,7 +107,7 @@ Check-profilerna konsoliderades 2026-04 fran fyra (`tier2` / `serverVerify` /
 `promotion` / `interactive`) till tva via `config/ai_models/manifest.json`
 (`qualityGateTiers`):
 
-- `designPreview` (F2): `["typecheck"]` — kor efter finalize och i bakgrunds-server-verify.
+- `designPreview` (F2): `["typecheck", "build"]` (sedan 2026-04-20 — `build` lades till for att fanga Next-runtime-fel innan preview-iframen renderar; tidigare bara `typecheck`). Kor efter finalize och i bakgrunds-server-verify. Audit Tier S #7.
 - `integrationsBuild` (F3): `["typecheck", "build"]` — kor i `/finalize-design`/promotion-flodet.
 
 ## F2/F3-livscykel (2026-04)
