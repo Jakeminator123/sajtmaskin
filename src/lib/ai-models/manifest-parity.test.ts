@@ -34,6 +34,10 @@ describe("config/ai_models/manifest.json parity", () => {
 
     expect([...allowed.gatewayClassModels]).toEqual([...ASSIST_MODELS]);
     expect([...allowed.anthropicDirectModels]).toEqual([...ANTHROPIC_ASSIST_MODELS]);
+    expect([...allowed.models]).toEqual([
+      ...allowed.gatewayClassModels,
+      ...allowed.anthropicDirectModels,
+    ]);
 
     if (!process.env.SAJTMASKIN_ASSIST_MODEL?.trim()) {
       expect(ASSIST_MODEL).toBe(m.promptAssist.defaults.assist);

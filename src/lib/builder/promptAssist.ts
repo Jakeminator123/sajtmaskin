@@ -11,6 +11,11 @@ export type PromptAssistProvider = "openai" | "anthropic";
 
 const promptAssistAllowed = getPromptAssistAllowedFromManifest();
 
+// `ASSIST_MODELS` and `ANTHROPIC_ASSIST_MODELS` are kept for historical reasons —
+// existing callers (and `manifest-parity.test.ts`) still read the split arrays.
+// New callers should prefer the unified `promptAssistAllowed.models` accessor
+// from `getPromptAssistAllowedFromManifest()`, which returns the union (provider
+// is implicit in the model-id prefix: `openai/`, `anthropic/`, `anthropic-direct/`).
 export const ASSIST_MODELS = Object.freeze([
   ...promptAssistAllowed.gatewayClassModels,
 ]);
