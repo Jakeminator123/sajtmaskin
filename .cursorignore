@@ -100,9 +100,16 @@ logs/*
 !logs/generationslogg/
 !logs/generationslogg/_latest.txt
 !logs/generationslogg/**/summary.md
-!logs/site-observability/
-!logs/site-observability/**/observability.json
-!logs/site-observability/**/fix-patterns.json
+#!logs/site-observability/
+#!logs/site-observability/**/observability.json
+#!logs/site-observability/**/fix-patterns.json
+
+
+# --- Template references (klonade Vercel-repos, input till AI-kuration) ---
+data/template-references/repos/**
+data/template-references/_metadata/**
+# --- Dossier-arkiv (gammal pipeline) ---
+archive/dossiers-legacy-2026-04-20/**
 
 
 manual_log/

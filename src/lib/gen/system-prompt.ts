@@ -152,12 +152,12 @@ export interface Brief {
     reason: string;
     confidence: number;
   } | null;
-  /** Brief-LLM nominated dossiers (Fas 1.0). Hints — orchestrator's embedding pick decides. */
-  dossierNominations?: Array<{
-    id: string;
-    reason: string;
-    confidence: number;
-  }>;
+  /**
+   * Capabilities the brief-LLM declared the site needs (v2 dossier system).
+   * Each capability resolves to one dossier (or none) at runtime via
+   * `selectDossiersForRequest`. Free-form kebab-case strings.
+   */
+  requestedCapabilities?: string[];
 }
 
 export interface MediaCatalogItem {
@@ -778,16 +778,20 @@ export function buildDynamicContext(
     parts.push(
       "## Available Dossiers",
       "",
-      `Selected from a pool of ${dossierSel.poolSize} active dossiers (legoklossar) for this generation. Use only what the user's prompt actually needs.`,
+      `Selected deterministically from the brief's requested capabilities (pool size: ${dossierSel.poolSize}). Each dossier maps to one capability the site needs.`,
       "",
     );
     for (const sel of dossierSel.selected) {
       const e = sel.entry;
-      const providers = e.providers && e.providers.length > 0
-        ? ` — providers: ${e.providers.map((p) => p.name).join(", ")}`
+      const configBadge = e.class === "hard"
+        ? sel.configured
+          ? " [configured]"
+          : " [UNCONFIGURED — render placeholder UI]"
         : "";
-      parts.push(`- **${e.label}** \`${e.id}\` (${e.kind}, ${e.category})${providers}`);
-      parts.push(`  - ${e.description}`);
+      parts.push(
+        `- **${e.label}** \`${e.id}\` (${e.class}, capability: ${e.capability}, ${e.codeFidelity})${configBadge}`,
+      );
+      parts.push(`  - ${e.summary}`);
     }
     parts.push("");
 
@@ -841,10 +845,11 @@ export function buildDynamicContext(
     ]);
     const verbatimFiles: VerbatimFile[] = [];
     for (const sel of dossierSel.selected) {
-      for (const file of sel.entry.files) {
-        const mode = file.injectionMode ?? defaultInjectionMode(file.kind, sel.entry.kind);
+      const files = sel.entry.files ?? [];
+      for (const file of files) {
+        const mode = defaultInjectionMode(file, sel.entry);
         if (mode !== "verbatim") continue;
-        const content = getDossierFileContent(sel.entry.id, file.path);
+        const content = getDossierFileContent(sel.entry.class, sel.entry.id, file.path);
         if (content === null) continue;
         // Dossier files live under data/dossiers/<id>/components/<path-in-project>
         // The "components/" prefix is the dossier-internal staging dir; strip it

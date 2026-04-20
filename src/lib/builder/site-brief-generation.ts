@@ -242,28 +242,29 @@ const siteBriefSchema = z.object({
       "Brief-LLM's variant guess (visual signature within the scaffold). " +
       "Set null if you didn't nominate a scaffold.",
     ),
-  // OBS: INGEN .default([]) här. Zod's .default() gör fältet optional i
-  // det genererade JSON-schemat, vilket kraschar OpenAI strict mode med
-  // "'required' is required to be supplied and to be an array including
-  // every key in properties. Missing 'dossierNominations'." Brief-LLM:n
-  // ska alltid skicka fältet (tom array [] om inga nomineringar) — det
-  // står redan explicit i BRIEF_SYSTEM_PROMPT under NOMINATIONS.
-  dossierNominations: z
+  // Dossier capabilities (Fas 2 — capability-driven dossier-system, 2026-04-20).
+  // Brief-LLM deklarerar vilka abstrakta förmågor sajten behöver. Varje
+  // capability matchar 1:1 mot en dossier i data/dossiers/{hard,soft}/<id>/
+  // (eller noll om ingen finns). OBS: INGEN .default([]) — Zod's .default()
+  // gör fältet optional i strict-mode JSON-schemat och kraschar OpenAI.
+  // Brief-LLM:n ska alltid skicka fältet (tom array [] om inget behövs).
+  requestedCapabilities: z
     .array(
-      z.object({
-        id: z
-          .string()
-          .describe(
-            "dossier-id from data/dossiers/ (e.g. payments-stripe-checkout, auth-clerk-authentication-starter).",
-          ),
-        reason: z.string().max(160),
-        confidence: z.number().min(0).max(1),
-      }),
+      z
+        .string()
+        .min(2)
+        .max(60)
+        .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+        .describe(
+          "Single kebab-case capability id. Examples: payments, auth, ai-chat, " +
+          "image-gen, pricing-section, visual-3d.",
+        ),
     )
-    .max(3)
+    .max(6)
     .describe(
-      "Up to 3 integration dossiers the request seems to need (auth, payments, db, ai, etc.). " +
-      "Only nominate when the prompt mentions a specific feature. Empty array [] if unsure.",
+      "Capabilities the site explicitly needs. Each one resolves to one dossier " +
+      "(or none) at runtime. Only include a capability if the prompt clearly asks " +
+      "for it. Empty array [] when the request is purely visual/content. Cap at 6.",
     ),
 });
 
@@ -283,12 +284,15 @@ const BRIEF_SYSTEM_PROMPT =
   "Include every key from the schema in your response — never omit a key. For nullable design-guidance fields (domainProfile, motionLevel, qualityBar, seasonalHints), set them to a real value when the request gives you signal, and set them to null (or [] for seasonalHints) when truly ambiguous. " +
   "If a required value is unknown, use an empty string. " +
   "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
-  "NOMINATIONS (scaffoldNomination, variantNomination, dossierNominations):\n" +
+  "NOMINATIONS (scaffoldNomination, variantNomination):\n" +
   "- These are HINTS for the orchestrator, not commitments. Be honest about confidence (0.0-1.0).\n" +
   "- scaffoldNomination: pick from {base-nextjs, landing-page, saas-landing, portfolio, blog, dashboard, auth-pages, ecommerce, content-site, app-shell}. Use confidence < 0.5 when several would fit. Set to null only when the request is too vague to guess.\n" +
-  "- variantNomination: only nominate when scaffoldNomination is set. Variant ids live under config/scaffold-variants/<scaffold>/. If unsure of exact id, set to null.\n" +
-  "- dossierNominations: nominate ONLY when the prompt explicitly mentions a feature (login → auth-*, payments/subscription → payments-*, database/data → database-*, AI/chatbot/RAG → ai-*, blog → ui-content-*, etc.). Empty array [] if no clear feature is mentioned. Cap at 3.\n" +
-  "- Do NOT invent dossier ids. If unsure of the exact id, leave the array empty — the orchestrator's embedding pick will choose.\n\n" +
+  "- variantNomination: only nominate when scaffoldNomination is set. Variant ids live under config/scaffold-variants/<scaffold>/. If unsure of exact id, set to null.\n\n" +
+  "REQUESTED CAPABILITIES (drives dossier injection):\n" +
+  "- Declare the abstract capabilities the site explicitly needs. Each one is matched 1:1 against a dossier at runtime.\n" +
+  "- Only include a capability when the prompt CLEARLY asks for it. Pure visual/content sites should return [].\n" +
+  "- Common capabilities: 'payments' (checkout/subscription), 'auth' (login/signup), 'ai-chat' (chatbot/assistant), 'image-gen' (text-to-image), 'pricing-section' (plan comparison), 'visual-3d' (3D hero, R3F).\n" +
+  "- Use kebab-case. Cap at 6. Skip any capability you are not certain the user wants — false positives drag in env vars and dependencies.\n\n" +
   "SCOPE AWARENESS (important):\n" +
   "- Match the scope to the complexity of the user's request.\n" +
   "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +

@@ -51,13 +51,12 @@ Komplement:
 
 ---
 
-## Dossier-pipeline
+## Dossier-system
 
 | Dokument | Vad |
 |---|---|
-| [dossier-format.md](./dossier-format.md) | Schema och kontrakt för `data/dossiers/`-mappar |
-| [dossier-pipeline-roadmap.md](./dossier-pipeline-roadmap.md) | Fas-uppdelad plan: skrap → kuration → embeddings → runtime → avveckling. Inkl. lane-karta |
-| [dossier-promotion-flow.md](./dossier-promotion-flow.md) | Operativt: skiss → draft → active. Backoffice-flöde |
+| [dossier-system.md](./dossier-system.md) | Format, schema, urvalsalgoritm, hur man lägger till nya. Allt i en fil. |
+| [_archived/dossier-format.md](./_archived/dossier-format.md), [_archived/dossier-pipeline-roadmap.md](./_archived/dossier-pipeline-roadmap.md), [_archived/dossier-promotion-flow.md](./_archived/dossier-promotion-flow.md) | Legacy v1-pipeline (auto-curate, embeddings, scaffold-recommendations) — ersatt 2026-04-20. Bara historik. |
 
 ---
 

@@ -753,12 +753,11 @@ export async function handleMessageStreamRequest(
           prompt: optimizedMessage,
           routePlanPrompt: message,
           buildSpecPrompt: message,
-          // QW-1: dossier-pick + contract-inferens + capability-inferens får
-          // rå message så file-context-wrappingen i optimizedMessage inte
-          // förgiftar deras semantiska beslut (t.ex. att import av Stripe i
-          // previousFiles skulle få contracts att gissa "ny stripe-integration",
-          // eller att en LoginForm-fil i context skulle pinna `needsAuth`).
-          dossierPickPrompt: message,
+          // QW-1: contract-inferens + capability-inferens får rå message så
+          // file-context-wrappingen i optimizedMessage inte förgiftar deras
+          // semantiska beslut (t.ex. att en LoginForm-fil i context skulle
+          // pinna `needsAuth`). Dossier-urvalet är capability-driven från
+          // brief, så det behöver ingen rå-prompt.
           contractsPrompt: message,
           capabilitiesPrompt: message,
           buildIntent: engineIntent,

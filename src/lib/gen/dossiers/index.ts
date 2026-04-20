@@ -1,32 +1,26 @@
 export {
-  getActiveDossiers,
   getAllDossiers,
   getDossierById,
-  getDossierEmbeddings,
+  getDossiersByCapability,
   getDossierInstructions,
   getDossierFileContent,
-  getDossierStatus,
-  getScaffoldRecommendations,
+  getCapabilityMap,
   clearDossierRegistryCache,
 } from "./registry";
+
 export { selectDossiersForRequest } from "./select";
+export type { SelectDossiersOptions } from "./select";
+
+export { defaultInjectionMode } from "./types";
 export type {
-  DossierEntry,
-  DossierKind,
-  DossierCategory,
-  DossierStatus,
-  DossierProvider,
+  DossierClass,
+  CodeFidelity,
+  DossierComplexity,
+  Capability,
   DossierEnvVar,
   DossierFile,
-  DossierFileInjectionMode,
   DossierExposes,
-  DossierScaffoldFit,
-  DossierEmbedding,
-  DossierEmbeddingsFile,
-  ScaffoldRecommendationBucket,
-  ScaffoldRecommendationsFile,
+  DossierEntry,
   SelectedDossier,
   DossierSelectionResult,
 } from "./types";
-export { defaultInjectionMode } from "./types";
-export type { SelectDossiersOptions } from "./select";

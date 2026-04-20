@@ -9,7 +9,7 @@ Senast uppdaterad: 2026-04-20 efter cloud-loop (PR #69 — 21 commits) ovanpå m
 | 1 | UX (P25b-rest) | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. | Låg | Visuell verifiering — [SAJ-23](https://linear.app/sajtmaskin/issue/SAJ-23) |
 | 2 | Ingress (P19 Steg 3) | UX-transparens vid follow-up-bas != latest ("du redigerar version X, inte senaste Y"). | Låg | UI-arbete (4–8h) — [SAJ-22](https://linear.app/sajtmaskin/issue/SAJ-22) |
 | 3 | Eval | Automatisk baseline-uppdatering (CI-script för eval-svit). | Låg | — |
-| 4 | Pre-existing test failures | 5 fail på master (phase-routing 3, model-selection 1, dossiers 1) — inte rörda i cloud-loopen. | Medel | Egen PR |
+| 4 | Pre-existing test failures | 4 fail på master (phase-routing 3, model-selection 1) — inte rörda i cloud-loopen. **Dossier-failet borta 2026-04-20** efter v2-refactor (gamla testfilen ersatt). | Medel | Egen PR |
 | 5 | shadcn (P20 Nivå 3) | Uppströms `registry:font`-ingestion (fullt format). CI-MVP-validering klar 2026-04-20. | Låg | Inte blockerande |
 | 6 | shadcn (P20 Nivå 2) | Uppströms `registry:block`-integration (fullt format). Deterministic-pick shrink-leverans klar 2026-04-20. | Låg | Inte blockerande |
 

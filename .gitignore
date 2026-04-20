@@ -247,22 +247,20 @@ UTLÅTANDE_DEEP_BREEF.txt
 sajtmaskin.zip
 
 
-# --- Dossier-pipeline (skrap-/enrich-output, embeddings, repo-cache) ---
-data/dossiers/_raw/playwright-catalog-light.json
-data/dossiers/_raw/_enriched/
-data/dossiers/_raw/_curation-queue.md
-data/dossiers/_raw/_import-summary.json
-data/dossiers/_raw/*/skiss.json
-data/dossiers/_index/dossier-embeddings.json
-data/dossiers/_repo-cache/
+# --- Template references (input till AI-kuration, dossiers:curate) ---
+# Klonade upstream-repos och GitHub-metadata. Stora filer; läses bara av
+# kuration on demand. Se docs/architecture/dossier-system.md.
+data/template-references/repos/
+data/template-references/_metadata/
+
+# --- Dossier-arkiv (gammal pipeline, frozen 2026-04-20) ---
+# Innehåller 95 gamla manifest-mappar + 16 pipeline-skript + index.
+# Se archive/dossiers-legacy-2026-04-20/README.md.
+archive/dossiers-legacy-2026-04-20/
+
+# Misc legacy build logs from the archived dossier pipeline
 playwright-broad.log
 playwright-light.log
 enrich-full.log
 smoke-enrich.log
-data/dossiers/_index/master.json
-data/dossiers/_index/by-category.json
-data/dossiers/_index/curate-batch.log
 logs/variant-patterns-batch.log
-# AI-curate moves removed files to <dossier>/_removed/ as rollback safety net
-# — they're redundant with git history so don't commit them.
-data/dossiers/*/_removed/

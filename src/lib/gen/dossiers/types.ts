@@ -1,61 +1,31 @@
 /**
- * Dossier runtime types — what the rest of the codebase sees.
+ * Dossier runtime types (v2).
  *
- * Dossier source-of-truth lives in data/dossiers/<id>/manifest.json.
- * Schema: docs/schemas/strict/dossier.schema.json
- * Format: docs/architecture/dossier-format.md
+ * Source-of-truth: data/dossiers/{hard|soft}/<id>/manifest.json
+ * Schema:          docs/schemas/strict/dossier.schema.json
+ * Architecture:    docs/architecture/dossier-system.md
+ *
+ * Two classes (encoded in folder path):
+ *   - hard: needs external secrets (Stripe, Auth.js, OpenAI). Preflight checks envVars.
+ *   - soft: self-contained (UI sections, R3F 3D, animation patterns).
+ *
+ * Two code-fidelities (per-dossier default, per-file override):
+ *   - verbatim:   LLM emits files unchanged (auth glue, webhooks, SDK init).
+ *   - rewritable: LLM may paraphrase (UI components, layout patterns).
  */
 
-export type DossierKind = "integration" | "ui-section";
+export type DossierClass = "hard" | "soft";
 
-export type DossierCategory =
-  | "auth"
-  | "payments"
-  | "database"
-  | "cms"
-  | "realtime"
-  | "bookings"
-  | "email"
-  | "analytics"
-  | "ai"
-  | "search"
-  | "storage"
-  | "ui-marketing"
-  | "ui-content"
-  | "ui-data"
-  | "ui-navigation"
-  | "ui-feedback";
+export type CodeFidelity = "verbatim" | "rewritable";
 
-export type DossierStatus =
-  | "active"
-  | "draft"
-  /** GitHub repo is archived. Excluded from runtime selection. */
-  | "source-archived"
-  /** GitHub repo last pushed > 18 months ago. Excluded from runtime selection. */
-  | "source-stale"
-  /** GitHub repo URL is dead (404, parse error, network). Excluded from runtime selection. */
-  | "source-unreachable";
+export type DossierComplexity = "simple" | "medium" | "advanced";
 
-/** Statuses that exclude a dossier from runtime selection. */
-export const NON_RUNTIME_STATUSES: ReadonlySet<DossierStatus> = new Set([
-  "draft",
-  "source-archived",
-  "source-stale",
-  "source-unreachable",
-]);
-
-/** Optional manifest fields used for deprecation tracking. */
-export interface DossierDeprecationFields {
-  /** Human-readable note about why the dossier was flagged. */
-  _deprecationReason?: string;
-  /** Replacement repo URL when the original source has been sunset. */
-  _replacementUrl?: string;
-}
-
-export interface DossierProvider {
-  name: string;
-  url?: string;
-}
+/**
+ * A capability is an abstract intent the brief declares the site needs.
+ * Examples: "payments", "auth", "ai-chat", "image-gen", "pricing-section".
+ * Free-form by design — keep `data/dossiers/_index/capability-map.json` clean.
+ */
+export type Capability = string;
 
 export interface DossierEnvVar {
   key: string;
@@ -63,47 +33,12 @@ export interface DossierEnvVar {
   purpose: string;
 }
 
-/** How a dossier file should reach the user's output project. */
-export type DossierFileInjectionMode =
-  /**
-   * LLM sees the file content as reference in the prompt and may rewrite it.
-   * Default for components/UI files where adaptation is desirable.
-   */
-  | "inline"
-  /**
-   * LLM must emit the file unchanged in its CodeProject output. Used for
-   * integration glue (api-routes, middleware, lib helpers) where deviating
-   * from the dossier's pattern is risky (e.g. Stripe webhook signing).
-   */
-  | "verbatim";
-
 export interface DossierFile {
+  /** Path relative to the dossier directory. Usually under "components/". */
   path: string;
   role: "client" | "server" | "shared";
-  kind: "component" | "api-route" | "hook" | "util" | "config" | "middleware";
-  /** Defaults to "inline" if omitted. See DossierFileInjectionMode for semantics. */
-  injectionMode?: DossierFileInjectionMode;
-}
-
-/**
- * Default injection mode by file kind for integration dossiers.
- *
- * SAFETY: `config` defaults to `inline` (was `verbatim`) because dossier
- * `config` files are sometimes `app/layout.tsx` — emitting that verbatim
- * collides with the scaffold's own layout (path-based merge would replace
- * the scaffold layout with the dossier's, losing fonts/providers/metadata).
- * Force verbatim per-file when truly needed.
- */
-export function defaultInjectionMode(
-  kind: DossierFile["kind"],
-  dossierKind: DossierKind,
-): DossierFileInjectionMode {
-  if (dossierKind !== "integration") return "inline";
-  // Integration glue that is risky to paraphrase — Stripe webhooks, auth
-  // middleware, SDK init helpers — defaults to verbatim.
-  if (kind === "api-route" || kind === "middleware") return "verbatim";
-  if (kind === "util") return "verbatim";
-  return "inline";
+  /** Per-file override of the dossier's `codeFidelity` default. */
+  injectionMode?: CodeFidelity;
 }
 
 export interface DossierExposes {
@@ -112,86 +47,62 @@ export interface DossierExposes {
   import: string;
 }
 
-export interface DossierScaffoldFit {
-  primary: string[];
-  compatible: string[];
-}
-
 export interface DossierEntry {
+  /** Folder path encodes class. Set by registry, not by manifest. */
+  class: DossierClass;
+  /** Kebab-case unique id; matches the directory name. */
   id: string;
-  kind: DossierKind;
-  category: DossierCategory;
+  /** Human-readable label. */
   label: string;
-  description: string;
+  /** Abstract capability matched against `brief.requestedCapabilities`. */
+  capability: Capability;
+  /** Default injection mode for files in this dossier. */
+  codeFidelity: CodeFidelity;
+  complexity: DossierComplexity;
+  /** Tie-breaker when two dossiers share the same capability. */
+  defaultForCapability: boolean;
+  /** 1-3 sentences describing the dossier. */
   summary: string;
-  providers?: DossierProvider[];
   envVars?: DossierEnvVar[];
-  dependencies: string[];
-  files: DossierFile[];
+  dependencies?: string[];
+  files?: DossierFile[];
   exposes?: DossierExposes[];
-  scaffoldFit: DossierScaffoldFit;
-  complexity: "simple" | "medium" | "advanced";
-  qualityScore?: number;
-  sourceTemplateUrl?: string;
-  sourceRepoUrl?: string;
+  /** ISO date YYYY-MM-DD when a human last validated the dossier. */
   lastVerified: string;
-  tags: string[];
-  _source: string;
-  _status?: DossierStatus;
-  /** Read from data/dossiers/<id>/instructions.md by registry on load. */
+  sourceRepoUrl?: string;
+  notes?: string;
+  /** Lazy-loaded from `instructions.md` by the registry on selection. */
   instructions?: string;
 }
 
-/** Per-scaffold recommendation buckets. */
-export interface ScaffoldRecommendationBucket {
-  alwaysInclude: string[];
-  primaryRecommended: string[];
-  suggested: string[];
-}
-
-export interface ScaffoldRecommendationsFile {
-  generatedAt: string;
-  generationMode: "auto" | "merged" | "manual";
-  scaffolds: Record<string, ScaffoldRecommendationBucket>;
-  notes?: string;
-}
-
-export interface DossierEmbedding {
-  id: string;
-  kind: DossierKind;
-  category: DossierCategory;
-  embedding: number[];
-}
-
-export interface DossierEmbeddingsFile {
-  _meta: {
-    model: string;
-    dimensions: number;
-    generated: string;
-    sourceMasterGenerated: string;
-    count: number;
-  };
-  embeddings: DossierEmbedding[];
-}
-
-/** Output of `selectDossiersForRequest` — what gets injected into the prompt. */
+/** Output of `selectDossiersForRequest`. */
 export interface SelectedDossier {
   entry: DossierEntry;
-  /** 0..1 — combined score: cosine similarity + recommendation boost. */
-  score: number;
-  /** Why this dossier was picked (for prompt-dump observability). */
-  reason: "alwaysInclude" | "embedding" | "recommendation-only" | "embedding+boost";
+  /** Why this dossier was picked. */
+  reason: "capability-match" | "default-fallback";
+  /**
+   * True if all required envVars are present in `process.env`.
+   * Soft dossiers (no envVars) are always configured.
+   * Hard dossiers without configured envVars are still injected, but the
+   * codegen LLM is told to render an "unconfigured" placeholder UI.
+   */
+  configured: boolean;
 }
 
 export interface DossierSelectionResult {
-  /** Selected dossiers, ordered high-score first. */
+  /** Selected dossiers in the order capabilities appear in the brief. */
   selected: SelectedDossier[];
-  /** Active pool size at time of selection. */
+  /** Total number of dossiers in the active pool. */
   poolSize: number;
-  /** Embeddings used or skipped (no API key, no file). */
-  embeddingsUsed: boolean;
-  /** Embedding model + dim if used. */
-  embeddingMeta?: { model: string; dimensions: number };
-  /** Reason summary by category for logging. */
-  byCategory: Record<string, string[]>;
+  /** capability → list of selected dossier ids (for logging). */
+  byCapability: Record<string, string[]>;
+}
+
+/**
+ * Default file injection mode resolution.
+ * Manifests can omit `files[].injectionMode`; this falls back to the
+ * dossier-level `codeFidelity`.
+ */
+export function defaultInjectionMode(file: DossierFile, entry: DossierEntry): CodeFidelity {
+  return file.injectionMode ?? entry.codeFidelity;
 }

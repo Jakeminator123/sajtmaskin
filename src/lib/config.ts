@@ -350,14 +350,14 @@ export const FEATURES = {
   useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
 
   /**
-   * New dossier pipeline (data/dossiers/). Reads master.json +
-   * dossier-embeddings.json + scaffold-recommendations.json at runtime,
-   * picks scaffold-agnostic dossiers via cosine + recommendation-boost,
-   * injects ## Available Dossiers + ## Selected Dossier Instructions
-   * blocks into the system prompt.
+   * Dossier pipeline (data/dossiers/{hard,soft}/). Deterministic capability-
+   * driven selection from `brief.requestedCapabilities`. Reads manifests
+   * directly off disk (no embeddings, no master.json). Injects
+   * `## Available Dossiers` + `## Selected Dossier Instructions` blocks into
+   * the system prompt.
    *
-   * Off by default in production (opt-in via env). On in development for
-   * easy local iteration. See docs/architecture/dossier-pipeline-roadmap.md.
+   * On by default in development. Off by default in production (opt-in) until
+   * the capability map is verified. See docs/architecture/dossier-system.md.
    */
   useDossierPipeline:
     env.SAJTMASKIN_DOSSIER_PIPELINE === "true" ||

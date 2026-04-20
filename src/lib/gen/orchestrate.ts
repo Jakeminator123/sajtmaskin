@@ -76,19 +76,11 @@ export interface OrchestrationInput {
   /** Optional prompt used for BuildSpec classification (defaults to `prompt`). */
   buildSpecPrompt?: string;
   /**
-   * Optional prompt used for dossier-pick embedding query (defaults to `prompt`).
+   * Optional prompt used for pre-generation contract inference (defaults to `prompt`).
    * QW-1: stream callers should pass the *raw* user message here, not the
    * file-context-wrapped optimizedMessage — wrapped prompts contain previous
-   * file content that drowns out the user's actual intent and biases dossier
-   * embedding ranking toward whatever libraries the previous files imported.
-   */
-  dossierPickPrompt?: string;
-  /**
-   * Optional prompt used for pre-generation contract inference (defaults to `prompt`).
-   * QW-1: same reasoning as `dossierPickPrompt` — wrapped prompts cause false
-   * positives where contract inference triggers on provider names that only
-   * appear because previous files imported them, not because the user wants
-   * that integration.
+   * file content that drowns out the user's actual intent and biases contract
+   * inference toward whatever libraries the previous files imported.
    */
   contractsPrompt?: string;
   /**
@@ -589,38 +581,19 @@ export async function resolveOrchestrationBase(
     });
   }
 
-  // Pool-modell: när dossier-pipen är på, plocka top dossiers via embedding +
-  // recommendation-boost. Misslyckad selektion (saknad fil, API-error) → null,
-  // system-prompt-block hoppas tyst över. Säker no-op om inga active dossiers.
+  // Deterministic dossier selection: brief.requestedCapabilities -> exact
+  // dossier per capability. No embeddings, no fuzzy match, no caps. The
+  // pipeline is gated by FEATURES.useDossierPipeline so it can be disabled
+  // per environment if the dossier pool is unhealthy.
   let dossierSelection: DossierSelectionResult | null = null;
   if (FEATURES.useDossierPipeline) {
     try {
-      // Build a compact route-plan summary if a plan exists. Helps the
-      // embedding query understand "user wants pricing page + login flow"
-      // beyond what the bare prompt says (Fas 1.0 fix).
-      const routePlanSummary = routePlan
-        ? `routes: ${routePlan.routes
-            .map((r) => `${r.path} (${r.intent})`)
-            .slice(0, 8)
-            .join(" | ")}`
-        : undefined;
-
-      dossierSelection = await selectDossiersForRequest({
-        prompt: input.dossierPickPrompt ?? prompt,
-        brief,
-        scaffoldId: resolvedScaffold?.id ?? null,
-        scaffoldContext: resolvedScaffold
-          ? `Scaffold ${resolvedScaffold.label}. Tags: ${resolvedScaffold.tags.join(", ")}.`
-          : undefined,
-        capabilityHints: capabilityHints || undefined,
-        routePlanSummary,
-      });
+      dossierSelection = selectDossiersForRequest({ brief });
       if (dossierSelection.selected.length > 0) {
         console.info("[orchestrate] dossiers_selected", {
           count: dossierSelection.selected.length,
           poolSize: dossierSelection.poolSize,
-          embeddingsUsed: dossierSelection.embeddingsUsed,
-          byCategory: dossierSelection.byCategory,
+          byCapability: dossierSelection.byCapability,
         });
       }
     } catch (err) {
@@ -749,23 +722,22 @@ export async function finalizeOrchestrationPrompts(
     });
   }
 
-  // ── Dossier nomination vs final selection diff (Fas 1.0) ────────────────
-  const briefDossierNoms = (brief as { dossierNominations?: Array<{ id?: string }> } | null | undefined)
-    ?.dossierNominations ?? [];
-  if (briefDossierNoms.length > 0 && base.dossierSelection) {
-    const nominatedIds = new Set(briefDossierNoms.map((n) => n.id).filter(Boolean));
-    const finalIds = new Set(base.dossierSelection.selected.map((s) => s.entry.id));
-    const matched = [...nominatedIds].filter((id) => finalIds.has(id!));
-    const briefOnly = [...nominatedIds].filter((id) => !finalIds.has(id!));
-    const embeddingOnly = [...finalIds].filter((id) => !nominatedIds.has(id));
-    console.info("[orchestrate] dossier_drift", {
-      mode: resolvedMode,
-      briefNominatedCount: nominatedIds.size,
-      finalSelectedCount: finalIds.size,
-      matched,
-      briefOnly,
-      embeddingOnly,
-    });
+  // ── Dossier capability vs final selection diff (v2 — capability-driven) ──
+  // Logs which requested capabilities resolved to dossiers and which did not.
+  // Useful for catching brief-LLM declaring capabilities that have no dossier.
+  const briefCaps = (brief as { requestedCapabilities?: unknown } | null | undefined)?.requestedCapabilities;
+  if (Array.isArray(briefCaps) && briefCaps.length > 0 && base.dossierSelection) {
+    const requested = new Set(briefCaps.filter((c): c is string => typeof c === "string"));
+    const resolved = new Set(Object.keys(base.dossierSelection.byCapability));
+    const unresolved = [...requested].filter((c) => !resolved.has(c));
+    if (unresolved.length > 0) {
+      console.info("[orchestrate] dossier_capability_unresolved", {
+        mode: resolvedMode,
+        requested: [...requested],
+        resolved: [...resolved],
+        unresolved,
+      });
+    }
   }
 
   const finalBuildIntent: BuildIntent = base.buildSpec.buildIntent;

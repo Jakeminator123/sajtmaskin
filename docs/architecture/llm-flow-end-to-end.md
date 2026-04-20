@@ -21,9 +21,11 @@ USER PROMPT
 ┌──────────────────────────────────────────┐
 │ FAS 1 — Förberedelse                     │
 │ 1. Deep Brief expanderar + nominerar     │
+│    + deklarerar requestedCapabilities    │
 │ 2. Scaffold pickas (embedding-driven)    │
 │ 3. Variant pickas inom scaffold          │
-│ 4. Dossiers (1-3 st) pickas              │
+│ 4. Dossiers pickas deterministic         │
+│    (1 per requested capability)          │
 │ 5. Dynamic prompt komponeras             │
 └──────────────────────────────────────────┘
     │
@@ -39,8 +41,8 @@ FAS 3 — Verify, repair, preview-VM, deploy
 | Själva kodgenereringen | Fas 2 |
 | Verifiering, autofix, repairs | Fas 3 |
 | Preview-VM dispatch + deploy | Fas 3 |
-| Scrape Vercel-mallar för dossier-kandidater | Ingestion-pipeline (offline) |
-| Bygga embeddings | Ingestion-pipeline (offline) |
+| Hand- eller AI-kuration av nya dossiers (`scripts/dossiers/curate-from-reference.ts`) | Offline / backoffice |
+| Bygga scaffold-embeddings (för scaffold-pick) | Ingestion-pipeline (offline) |
 
 ---
 
@@ -75,11 +77,11 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 | Princip | Innebörd |
 |---|---|
 | Statisk prompt aldrig bryts | Core Rules (`prompt-core/*.md` listade i `codegen-core-manifest.json`) är spelregler för LLM:n. Inget i fas 1 får motsäga dem |
-| Deep Brief = expansion + nominering | Brief returnerar JSON med (a) utbyggd intent, (b) `scaffoldNomination`, `variantNomination`, `dossierNominations`. Inget mer |
-| Embedding är källa till sanning vid tvetydighet | Brief-nomineringen är en hint. Embedding-pick i orchestrate kan **bekräfta eller överrösta** med drift-logg |
-| Ansvarsuppdelning | Scaffold = struktur. Variant = visuell signatur. Dossier = integration. Inga överlappande ansvar |
+| Deep Brief = expansion + nominering | Brief returnerar JSON med (a) utbyggd intent, (b) `scaffoldNomination`, `variantNomination`, (c) `requestedCapabilities` (string[]). Inget mer |
+| Scaffold/variant: embedding kan överrösta brief-nominering | Brief-nomineringen är en hint. Embedding-pick i orchestrate kan **bekräfta eller överrösta** med drift-logg. **Dossiers gör INTE detta** — där är brief sanningen |
+| Ansvarsuppdelning | Scaffold = struktur. Variant = visuell signatur. Dossier = capability-implementation (1:1 mot brief.requestedCapabilities). Inga överlappande ansvar |
 | Per-Request Signal Cascade | EXPLICIT (Brief-fält) > INDICATED (Brief-LLM tolkning) > INFERRED (heuristik i `guidance-resolvers.ts`) > DEFAULT (variant) > FALLBACK (statiska defaults i `prompt-core/`). Tidigare "Directive Cascade" + `prompt-directives/` är borttagna 2026-04-18 |
-| Dossier som riktig kod | När dossier väljs ska dess `components/`-filer faktiskt levereras till output-projektet (`injectionMode: "verbatim"`), inte bara beskrivas för LLM:n |
+| Dossier som riktig kod | När en dossier väljs renderas dess `instructions.md` i prompten, och filer med `injectionMode: "verbatim"` (default för hard-class api-routes/middleware/glue) injiceras byte-exakt under `## Dossier Files To Emit Verbatim` |
 
 ---
 
@@ -96,7 +98,7 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
             │   visualDirection, imagery, uiNotes, seo, domainProfile,
             │   motionLevel, qualityBar, mustHave, avoid
             └── Nomineringar: scaffoldNomination, variantNomination,
-                dossierNominations (med confidence)
+                requestedCapabilities (string[])
         │
         ▼
 [3] SCAFFOLD PICK (orchestrate.ts)
@@ -116,13 +118,14 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
     - Bara variants under valt scaffold (1:N)
         │
         ▼
-[5] DOSSIER PICK (selectDossiersForRequest)
-    - Filtrerar ut active dossiers (skippar source-archived/-stale/-unreachable)
-    - Embedding-sökning över utökad query:
-      prompt + 7 brief-fält + capabilityHints + routePlanSummary
-    - Boost från scaffold-recommendations.json (alwaysInclude/primary/suggested)
-    - Cap: max 1/kategori, max 5 totalt
-    - Brief.dossierNominations loggas som drift mot final selection
+[5] DOSSIER PICK (selectDossiersForRequest, v2)
+    - Läser brief.requestedCapabilities (string[])
+    - För varje capability: hitta matchande dossier via getDossiersByCapability
+    - Tie-break på defaultForCapability=true; annars id-sort
+    - Hard-class: kolla envVars i process.env → mark configured
+    - Eager-load instructions.md för valda dossiers
+    - Inga embeddings, ingen domain-veto, inga cap. Det brief säger är det
+      som injiceras (1:1 capability → dossier eller noll om saknas).
         │
         ▼
 [6] DYNAMIC CONTEXT BUILD (buildDynamicContext)
@@ -166,7 +169,7 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 | Brief genereras? | Ja, med Deep Brief LLM | Nej — använder lagrad brief från init |
 | Scaffold-pick | Embedding + brief.nomination | Lagrad scaffold (`persistedScaffoldId`) — ingen ny pick |
 | Variant-pick | Embedding + brief.nomination | Lagrad variant (`persistedVariantId`) |
-| Dossier-pick | Full embedding-pass | Full embedding-pass (kan ändras per follow-up) |
+| Dossier-pick | Capability-driven från brief.requestedCapabilities | Capability-driven från (uppdaterad) brief — användaren kan lägga till capabilities och triggar nya dossier-injektioner i nästa generering |
 | Drift-detection | Loggas normalt | Loggas med `mode: "followUp"` så det kan filtreras |
 | Brief-nominerings-fält | Färska från LLM | Kan vara stale (från init) — drift-loggar märker upp `mode` |
 
@@ -176,32 +179,21 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 
 | Checkpoint | Kommando |
 |---|---|
-| Brief returnerar nomineringar | Trigga generation, kolla `data/prompt-dumps/orchestration-dynamic/generation-input-package.json` för `brief.scaffoldNomination/variantNomination/dossierNominations` |
-| Drift loggas | Sök terminal-output efter `[orchestrate] scaffold_drift`, `variant_drift`, `dossier_drift`. Brief-LLM-stavfel (id som inte finns i registry) loggas som `scaffold_unknown_brief_nomination` |
-| Dossier-pick fungerar | `npm run dossiers:smoke-prompt` |
+| Brief returnerar nomineringar | Trigga generation, kolla `data/prompt-dumps/orchestration-dynamic/generation-input-package.json` för `brief.scaffoldNomination/variantNomination/requestedCapabilities` |
+| Drift loggas | Sök terminal-output efter `[orchestrate] scaffold_drift`, `variant_drift`. Brief-LLM-stavfel (id som inte finns i registry) loggas som `scaffold_unknown_brief_nomination` |
+| Dossier-pick fungerar | Trigga generation, sök `[orchestrate] dossiers_selected` i loggen. byCapability ska visa 1 dossier per requested capability |
 | Verbatim-block syns | Sök `## Dossier Files To Emit Verbatim` i `data/prompt-dumps/own-engine-codegen/full-system.md` |
-| Källhälsa fungerar | `npm run dossiers:compat` |
+| Hard-dossier saknar env | `## Available Dossiers` visar `[UNCONFIGURED — render placeholder UI]`-badge istället för `[configured]` |
 
 ---
 
 ## Status
 
-Klart (✓): Brief-LLM strukturerad JSON · Brief-nomineringar (Fas 1.0) · Scaffold-pick (embedding + keyword hybrid) · Variant-pick (embedding mot signaturePatterns) · Drift-detection · Dossier-pick med utökad query (7 brief-fält) · Dossier instructions injicerat i prompt · Dossier-filer levererade verbatim (Fas 1.5) · GitHub-källhälsa per dossier · Vercel-katalog-utbyggnad (419 templates skrapade + GitHub-validerade).
+Klart (✓): Brief-LLM strukturerad JSON · Brief-nomineringar (Fas 1.0) · Scaffold-pick (embedding + keyword hybrid) · Variant-pick (embedding mot signaturePatterns) · Drift-detection · Dossier-system v2 (capability-driven, deterministic — `data/dossiers/{hard,soft}/`) · Dossier instructions injicerat i prompt · Dossier-filer levererade verbatim · Hard-class env-preflight (`configured`-flagga).
 
 Borttaget (2026-04-18): `config/prompt-static/` (16 filer) · `backoffice/pages/prompt_static.py` · Dead loader-fallback i `static-core-loader.ts`.
 
----
-
-## Backlog (förbättringar)
-
-| Idé | Värde | Storlek |
-|---|---|---|
-| Brief-LLM får dossier-nominering-hint från top-1 embedding pre-call | Lägre drift, snabbare iteration | Liten |
-| `injectionPlan` i `DossierSelectionResult` (explicit lista över verbatim-filer) | Bättre observability | Liten |
-| Variant kan override:a vissa scaffold-filer (t.ex. `app/page.tsx`) inom ramen | Större varians per scaffold | Stor — kräver merge-logic mellan variant + scaffold + brief |
-| Dossier embedding inkluderar `topics` från GitHub | Bättre matchning för niche-integrationer | Liten |
-| GitHub-health filter (skip `_status: source-archived`) i dossier-selection | Färre stale matchningar | Liten |
-| Brief-LLM Zod-schema: scaffoldNomination required om buildIntent=website/template | Tydligare kontrakt | Liten |
+Borttaget (2026-04-20): Dossier-pipeline v1 (auto-curate, embeddings, scaffold-recommendations.json, domain-veto, 16 pipeline-skript, 96-dossier-pool) · `archive/dossiers-legacy-2026-04-20/` om det behövs som referens.
 
 ---
 
@@ -209,7 +201,8 @@ Borttaget (2026-04-18): `config/prompt-static/` (16 filer) · `backoffice/pages/
 
 | Risk | Mitigation |
 |---|---|
-| Brief-LLM hallucinerar dossier-id som inte finns | Validera mot master.json + skip ogiltiga med varning |
-| Embedding-pick överröstar brief utan motiv | Drift-logg med båda pickar + reason → debugbar |
-| Dossier-filer krockar med scaffold-filer (samma path) | Konflikt-detection före leverans → varna LLM eller ta scaffold-filen |
-| Stale dossier-källa ger Next 14-mönster i Next 16-projekt | GitHub-health filter (kräver compat-test + github-enrich) |
+| Brief-LLM deklarerar capability som inte har en dossier | `selectDossiersForRequest` skippar tyst — capability bara hoppas över, inte krasch |
+| Hard-dossier saknar env-vars i preview | Markeras `configured: false` → system-prompt instruerar codegen-LLM att rendera placeholder-UI istället för krasch |
+| Två dossiers delar samma capability | `defaultForCapability=true` vinner. Annars id-sort (deterministic). Redaktion fångar duplicering via `capability-map.json` |
+| Dossier-filer krockar med scaffold-filer (samma path) | `system-prompt.ts`-rad 827-841: `SCAFFOLD_RESERVED_PATHS` skippar dossier-verbatim på `app/layout.tsx`, `package.json`, etc. + loggar varning |
+| Lägga till en ny capability utan att uppdatera brief-LLM-prompten | Brief-LLM:n returnerar då aldrig kapabiliteten → dossiern injiceras aldrig. Backoffice "Capability map"-tab visar verifierbart vilka capabilities som finns |
