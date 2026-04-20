@@ -461,13 +461,21 @@ export async function POST(req: Request) {
         fixedFiles.map((f) => ({ path: f.name, content: f.content })),
         projectEnv,
       );
-      const allMissingForDeploy = [
-        ...envRequirements.missingEnvKeys,
-        ...envRequirements.placeholderCoveredKeys,
-      ];
+      // Only keys missing from BOTH user config AND preview placeholders block
+      // the deploy. Keys that are decorative or covered by harmless/tier-3 stub
+      // placeholders are surfaced as warnings — Vercel will get whatever the
+      // user has stored, and the rest can be filled in later. This matches the
+      // F3 readiness gate in `app/api/engine/chats/[chatId]/readiness/route.ts`
+      // which already treats `placeholderCoveredKeys` as warnings, not blockers.
+      const placeholderCoveredWarnings =
+        envRequirements.placeholderCoveredKeys.length > 0
+          ? [
+              `Miljövariabler täckta av platshållare (deployas utan riktiga värden tills du fyller i dem): ${envRequirements.placeholderCoveredKeys.join(", ")}`,
+            ]
+          : [];
       const deployReadiness = buildDeployReadiness({
-        missingEnvKeys: allMissingForDeploy,
-        preDeployWarnings: warnings,
+        missingEnvKeys: envRequirements.missingEnvKeys,
+        preDeployWarnings: [...warnings, ...placeholderCoveredWarnings],
         invalidFilePaths: invalidFiles,
       });
 
@@ -484,7 +492,7 @@ export async function POST(req: Request) {
         });
       }
 
-      if (allMissingForDeploy.length > 0) {
+      if (envRequirements.missingEnvKeys.length > 0) {
         return NextResponse.json(
           {
             error:

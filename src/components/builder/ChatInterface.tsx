@@ -864,7 +864,7 @@ export function ChatInterface({
       >
         <PromptInputHeader className="flex-col items-stretch gap-2">
           <p className="text-[11px] leading-4 text-zinc-500" suppressHydrationWarning>
-            Förfina innan du skickar
+            Verktyg
           </p>
           <div className="flex flex-wrap gap-1.5">
             <button

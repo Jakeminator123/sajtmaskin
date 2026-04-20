@@ -25,6 +25,7 @@ export function mergeGeneratedProjectFiles({
   if (isFollowUp) {
     const mergeResult = mergeVersionFilesWithWarnings(previousFiles!, generatedFiles, {
       rejectSignificantShrinks: true,
+      rejectDroppedStructuralElements: true,
     });
     const mergedFiles = mergeResult.files;
     if (mergeResult.warnings.length > 0) {

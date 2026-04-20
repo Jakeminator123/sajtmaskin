@@ -107,6 +107,26 @@ Before finishing each file, verify that EVERY symbol used in the file body has a
 - **Local modules:** If you create a Context provider (e.g. `CartProvider` with `useCart`), every file that calls `useCart()` MUST import it. Every file that references a type (e.g. `StoreProduct`) MUST import it.
 - **Provider wrapping:** If you create a React Context provider, you MUST wrap it around `{children}` in `app/layout.tsx`. Without this, any component calling the context hook will crash at runtime.
 
+### DOM and Global Types — Never Import
+
+Built-in DOM interface types and standard-library types are global in TypeScript and MUST NOT be imported as modules. Generic positions like `useRef<HTMLDivElement>`, `FormEvent<HTMLFormElement>`, or `MouseEvent<HTMLButtonElement>` already work without any import.
+
+Concretely, never write any of these:
+
+- `import HTMLDivElement from "@/components/html-div-element"` — `HTMLDivElement` is a global DOM type.
+- `import HTMLFormElement from "@/components/html-form-element"` — same; use the bare name in generics.
+- `import FormEvent from "..."`, `import MouseEvent from "..."`, etc. — React event types come from `react` (`import type { FormEvent } from "react"`) only when used as a value-position type alias; in generic positions you can rely on `React.FormEvent<...>` or import the type once at the top.
+
+If you need a React event type, use `import type { FormEvent, MouseEvent } from "react"` (named, type-only) — never invent local component modules for them.
+
+When importing a type already exposed by a third-party package (e.g. `RapierRigidBody` from `@react-three/rapier`), write a single import that combines the value and the type binding:
+
+```ts
+import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
+```
+
+Do NOT add a second `import RapierRigidBody from "@/components/rapier-rigid-body"` — the local module does not exist and TypeScript will fail with a duplicate-identifier / missing-module error.
+
 ### Default Export Checklist (every component / page / layout file)
 
 The repair layer can add a missing `export default`, but the safer path is to write it correctly the first time. Verify before finishing each file:
@@ -139,3 +159,12 @@ The host runs **one primary generation pass**, then **deterministic repairs** (i
 3. **Align with scaffold baselines.** When the scaffold already pins versions (React, Next, Three.js, etc.), extend — do not fight — those pins. Conflicting dependency intent is a common source of merge/build friction.
 
 4. **Follow-ups.** Return only files you intend to change; unchanged paths are preserved. Do not regenerate `app/layout.tsx`, `app/globals.css`, or large shared files unless the request actually requires it. Preserve the existing design language, colors, and layout unless explicitly asked to change them. Do not "refresh" unrelated pages for fun — that is how intention gets diluted across turns.
+
+5. **Structural element preservation (CRITICAL).** When you emit a file that existed in the previous version, you MUST preserve all high-value UI elements unless the user explicitly asked to remove them. The host merge guard will **reject** your file and keep the previous version if it detects these elements were dropped:
+   - `<video>`, `<audio>`, `<canvas>`, `<iframe>` elements and video/media placeholder UI (play buttons, poster overlays)
+   - React Three Fiber `<Canvas>`, Rapier `<Physics>`, and other 3D/interactive components
+   - `<form>` elements and form sections
+   - Large inline `<svg>` illustrations
+   - Named custom media components (`VideoPlayer`, `VideoSection`, `HeroVideo`, `MediaPlayer`, etc.)
+
+   If the user asks you to "change the hero" or "update the layout", that does NOT mean "remove the video player that was in the hero". Change the requested aspect while keeping other elements intact. When in doubt, keep the element.

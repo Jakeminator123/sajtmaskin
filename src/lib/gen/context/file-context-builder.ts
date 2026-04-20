@@ -1,4 +1,8 @@
 import type { CodeFile } from "../parser";
+import {
+  buildFileStructuralInventory,
+  renderStructuralInventoryForPrompt,
+} from "./structural-elements";
 
 export interface FileContextOptions {
   files: CodeFile[];
@@ -13,6 +17,12 @@ export interface FileContextOptions {
    * survive light-context filtering when the prompt has design intent.
    */
   pinnedFiles?: string[];
+  /**
+   * When true, appends a structural inventory of notable UI elements
+   * (video, canvas, 3D, forms, media components, section landmarks)
+   * so the LLM knows what exists even in files it cannot see in full.
+   */
+  includeStructuralInventory?: boolean;
 }
 
 export interface FileContext {
@@ -98,6 +108,7 @@ export function buildFileContext(options: FileContextOptions): FileContext {
     includeContents = false,
     maxFilesWithContent = 6,
     pinnedFiles = [],
+    includeStructuralInventory = false,
   } = options;
 
   const fileList = files.map((f) => f.path);
@@ -182,6 +193,16 @@ export function buildFileContext(options: FileContextOptions): FileContext {
       const contentSections = buildContentSections(prioritizedFiles, contentBudget);
       if (contentSections) {
         summary = `${summary}\n\n${contentSections}`;
+      }
+    }
+  }
+
+  if (includeStructuralInventory && summary.length < maxChars) {
+    const inventories = buildFileStructuralInventory(files);
+    if (inventories.length > 0) {
+      const inventoryText = renderStructuralInventoryForPrompt(inventories);
+      if (inventoryText && summary.length + inventoryText.length + 4 < maxChars) {
+        summary = `${summary}\n\n${inventoryText}`;
       }
     }
   }

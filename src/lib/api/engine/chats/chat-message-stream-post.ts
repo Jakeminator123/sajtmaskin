@@ -408,7 +408,11 @@ export async function handleMessageStreamRequest(
               ? (manyFiles ? FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles : FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles)
               : 8,
             pinnedFiles: designPinnedFiles,
+            includeStructuralInventory: true,
           });
+
+          const elementPreservationReminder =
+            "IMPORTANT: When you emit a file, your output FULLY REPLACES that file. Every section, media element (<video>, play buttons, <canvas>, <iframe>, <form>, 3D components), and interactive block from the previous version MUST appear in your output unless you were explicitly asked to remove it. The host will reject files where structural elements are missing.";
 
           if (skipIntentClassification) {
             optimizedMessage = wrapWithSection({
@@ -416,6 +420,7 @@ export async function handleMessageStreamRequest(
               introLines: [
                 "Apply the requested change precisely. Do not modify unrelated sections or files.",
                 "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+                elementPreservationReminder,
               ],
               body: fileCtx.summary,
               divider: true,
@@ -441,6 +446,7 @@ export async function handleMessageStreamRequest(
                   followUpIntent === "clear-redesign"
                     ? "You may still reuse useful content or information architecture from the current project when relevant."
                     : "",
+                  elementPreservationReminder,
                 ],
                 body: fileCtx.summary,
               }),

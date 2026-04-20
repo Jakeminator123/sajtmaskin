@@ -553,7 +553,7 @@ async function tryRepairPartialFileOutput(params: {
 }
 
 const IMAGERY_PROMPT_PATTERN =
-  /\b(bild|bilder|bildspel|foto|foton|hero|galleri|gallery|image|images|photo|photos|carousel|slideshow|illustration|illustrations|illustrat|porträtt|portrait)\b/i;
+  /\b(bild|bilder|bildspel|foto|foton|hero|galleri|gallery|image|images|photo|photos|carousel|slideshow|illustration|illustrations|illustrat|porträtt|portrait|video|film|media|spela|player|uppspelning|poster|thumbnail|embed|iframe)\b/i;
 
 const IMAGERY_PLACEHOLDER_PATTERN =
   /\/placeholder\.svg|UNSPLASH_PLACEHOLDER|via\.placeholder\.com|placehold\.co/i;

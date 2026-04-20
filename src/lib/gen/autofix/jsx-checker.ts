@@ -1,8 +1,13 @@
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import type { AutoFixEntry } from "./pipeline";
+import { isDenylistedStubDefaultName } from "./rules/import-binding-ast";
 
-/** Includes `import type { … }` so three.js `Group` is not mistaken for missing lucide `Group`. */
+/**
+ * Single-line import matcher. Multiline imports are normalised first
+ * via `flattenMultilineImports`, so this regex only needs to handle the
+ * collapsed form.
+ */
 const IMPORT_RE =
   /^import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+))\s+from\s+["']([^"']+)["']/gm;
 const JSX_OPEN_TAG_RE = /<([A-Z]\w*)[\s/>]/g;
@@ -21,14 +26,148 @@ const BUILT_IN = new Set([
   "Profiler",
 ]);
 
+/**
+ * Built-in DOM and standard-library types that appear in TypeScript generic
+ * positions (e.g. `useRef<HTMLDivElement>`, `FormEvent<HTMLFormElement>`).
+ * These are matched by `JSX_OPEN_TAG_RE` because the trailing `>` satisfies
+ * the `[\s/>]` lookahead — they are NOT JSX components and must never trigger
+ * a generated `@/components/<kebab>` stub import.
+ *
+ * `HTMLxxxElement` and `SVGxxxElement` are handled by the regex in
+ * `isDenylistedStubDefaultName` (see `rules/import-binding-ast.ts`).
+ */
+const GLOBAL_TYPES = new Set([
+  // React event types
+  "FormEvent",
+  "MouseEvent",
+  "KeyboardEvent",
+  "ChangeEvent",
+  "FocusEvent",
+  "DragEvent",
+  "ClipboardEvent",
+  "TouchEvent",
+  "WheelEvent",
+  "AnimationEvent",
+  "TransitionEvent",
+  "PointerEvent",
+  "UIEvent",
+  "Event",
+  "EventTarget",
+  // DOM globals
+  "Document",
+  "Window",
+  "Element",
+  "Node",
+  "NodeList",
+  "CSSStyleDeclaration",
+  "MutationObserver",
+  "IntersectionObserver",
+  "ResizeObserver",
+  "AbortController",
+  "AbortSignal",
+  "Headers",
+  "Request",
+  "Response",
+  "URL",
+  "URLSearchParams",
+  "FormData",
+  "Blob",
+  "File",
+  "FileList",
+  "FileReader",
+  "ReadableStream",
+  "WritableStream",
+  "TransformStream",
+  // Common React type helpers used as generics
+  "HTMLAttributes",
+  "ComponentProps",
+  "PropsWithChildren",
+  "ReactNode",
+  "ReactElement",
+  "CSSProperties",
+  "RefObject",
+  "MutableRefObject",
+  "Ref",
+  // TypeScript utility / built-ins occasionally written in generic position
+  "Promise",
+  "Array",
+  "Map",
+  "Set",
+  "Record",
+  "Partial",
+  "Required",
+  "Readonly",
+  "Pick",
+  "Omit",
+]);
+
+/**
+ * Returns true for tokens that look like built-in DOM/standard types and must
+ * never be treated as missing JSX components.
+ */
+function isGlobalTypeName(name: string): boolean {
+  if (GLOBAL_TYPES.has(name)) return true;
+  return isDenylistedStubDefaultName(name);
+}
+
+/**
+ * Flatten multiline import declarations into a single line so the simple
+ * `IMPORT_RE` regex can pick up every named binding. Without this, an import
+ * like:
+ *
+ *   import {
+ *     RigidBody,
+ *     type RapierRigidBody,
+ *   } from "@react-three/rapier";
+ *
+ * would not be recognised, and `RapierRigidBody` would be reported as missing
+ * even though it is already imported.
+ */
+function flattenMultilineImports(code: string): string {
+  const lines = code.split("\n");
+  const out: string[] = [];
+  let buffer: string[] | null = null;
+
+  for (const line of lines) {
+    if (buffer) {
+      buffer.push(line);
+      // Continue collecting until we close the brace AND see `from "..."` (or `;`).
+      const joined = buffer.join(" ");
+      if (/\}\s*from\s*["'][^"']+["']/.test(joined) || /\}\s*;?\s*$/.test(line)) {
+        out.push(joined.replace(/\s+/g, " "));
+        buffer = null;
+      }
+      continue;
+    }
+
+    // Detect the start of a multiline named import: `import ... { ... ` without
+    // a closing `}` on the same line.
+    if (/^\s*import\s+(?:type\s+)?\{[^}]*$/.test(line)) {
+      buffer = [line];
+      continue;
+    }
+
+    out.push(line);
+  }
+
+  // Flush any unterminated buffer back as-is.
+  if (buffer) out.push(...buffer);
+
+  return out.join("\n");
+}
+
 function extractImportedNames(code: string): Set<string> {
   const names = new Set<string>();
+  const flattened = flattenMultilineImports(code);
   IMPORT_RE.lastIndex = 0;
 
-  for (const match of code.matchAll(IMPORT_RE)) {
+  for (const match of flattened.matchAll(IMPORT_RE)) {
     if (match[1]) {
       for (const n of match[1].split(",")) {
-        const trimmed = n.trim().split(/\s+as\s+/).pop()?.trim();
+        // Strip a leading `type ` modifier on a per-binding basis so
+        // `import { RigidBody, type RapierRigidBody } ...` registers both.
+        const cleaned = n.trim().replace(/^type\s+/, "");
+        const trimmed = cleaned.split(/\s+as\s+/).pop()?.trim();
         if (trimmed) names.add(trimmed);
       }
     }
@@ -134,6 +273,9 @@ function fixMissingImports(code: string): {
   const missing: string[] = [];
   for (const comp of used) {
     if (BUILT_IN.has(comp)) continue;
+    // Built-in DOM/standard-library types appear in TS generic positions like
+    // `useRef<HTMLDivElement>` and must not be treated as missing components.
+    if (isGlobalTypeName(comp)) continue;
     if (imported.has(comp)) continue;
     if (localDecls.has(comp)) continue;
     missing.push(comp);
@@ -153,6 +295,13 @@ function fixMissingImports(code: string): {
       const existing = shadcnByPath.get(path) ?? [];
       existing.push(name);
       shadcnByPath.set(path, existing);
+    } else if (isDenylistedStubDefaultName(name)) {
+      // Final safety net: never emit `import X from "@/components/<kebab>"`
+      // for known-bad names (DOM types, package re-exports). These would
+      // create non-existent stub modules and break the build.
+      warnings.push(
+        `Skipped generated stub import for built-in/global name: ${name}`,
+      );
     } else {
       genericNames.push(name);
     }

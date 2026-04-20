@@ -161,6 +161,13 @@ repair_available
 
 - Deploy prechecks ligger i deployment-routen (`precheckOnly`, `skipAutoFix`,
   `DEPLOY_MISSING_ENV` etc.).
+- **Env-gate (deploy):** Endast `missingEnvKeys` blockerar deploy via
+  `DEPLOY_MISSING_ENV` (HTTP 409). `placeholderCoveredKeys` (nycklar tackta
+  av harmless eller tier-3 stub-platsplaller) gar i `deployReadiness.warnings`
+  och stoppar inte deployen. Matchar F3-readiness-gaten i
+  `app/api/engine/chats/[chatId]/readiness/route.ts` (samma princip:
+  "deferred to publish"). Vercel far de varden anvandaren konfigurerat;
+  resten kan fyllas i senare via env-panelen.
 - Deploy ar ett separat driftsteg fran preview-session.
 - Deploy-SSE pa klienten reconnectar vid transienta natverksfel (max 3 forsok: 2s/4s/8s).
 - Vercel webhook-sparet hanteras av `src/app/api/webhooks/vercel/route.ts`.

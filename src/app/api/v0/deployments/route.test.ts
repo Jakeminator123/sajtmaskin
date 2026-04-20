@@ -88,7 +88,12 @@ describe("POST /api/v0/deployments", () => {
     expect(json.deployReadiness?.missingEnv).toEqual([]);
   });
 
-  it("precheckOnly surfaces missing env when version implies Stripe and project env empty", async () => {
+  it("precheckOnly surfaces placeholder-covered Stripe env as warning, not blocker", async () => {
+    // STRIPE_SECRET_KEY is in `41-tier3-stub-placeholders.env.txt`, so it
+    // counts as `placeholderCoveredKeys` rather than `missingEnvKeys`. The
+    // deploy gate (matching the F3 readiness gate) treats placeholder-covered
+    // keys as warnings — the deploy can still proceed and Vercel gets the
+    // user-stored value (or none, surfaced via the warning).
     getVersionFiles.mockResolvedValue([
       {
         path: "lib/pay.ts",
@@ -109,10 +114,17 @@ describe("POST /api/v0/deployments", () => {
     const res = await POST(req);
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
-      deployReadiness?: { ready: boolean; missingEnv: string[] };
+      deployReadiness?: {
+        ready: boolean;
+        missingEnv: string[];
+        warnings: string[];
+      };
     };
-    expect(json.deployReadiness?.ready).toBe(false);
-    expect(json.deployReadiness?.missingEnv).toContain("STRIPE_SECRET_KEY");
+    expect(json.deployReadiness?.ready).toBe(true);
+    expect(json.deployReadiness?.missingEnv).not.toContain("STRIPE_SECRET_KEY");
+    expect(
+      json.deployReadiness?.warnings.some((w) => w.includes("STRIPE_SECRET_KEY")),
+    ).toBe(true);
   });
 
   it("precheckOnly runs auto-fix by default (K-007): removes pnpm-lock, no skip message in fixesApplied", async () => {

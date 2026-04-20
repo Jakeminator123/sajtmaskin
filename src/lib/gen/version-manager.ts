@@ -4,6 +4,7 @@ import {
   getVersionById,
 } from "@/lib/db/chat-repository-pg";
 import { parseCodeProject, type CodeFile } from "./parser";
+import { extractStructuralElements } from "./context/structural-elements";
 
 /**
  * Extracts files from raw assistant content using the CodeProject parser.
@@ -99,10 +100,11 @@ export async function resolveFollowUpPreviousFiles(
 }
 
 export interface MergeWarning {
-  type: "significant-shrink" | "scaffold-file-dropped";
+  type: "significant-shrink" | "scaffold-file-dropped" | "structural-elements-dropped";
   file: string;
   previousSize: number;
   newSize: number;
+  droppedElements?: Array<{ kind: string; label: string }>;
 }
 
 export interface MergeResult {
@@ -191,9 +193,13 @@ export function mergePackageJsonContent(prevContent: string, nextContent: string
 export function mergeVersionFilesWithWarnings(
   previousFiles: CodeFile[],
   newFiles: CodeFile[],
-  options?: { rejectSignificantShrinks?: boolean },
+  options?: {
+    rejectSignificantShrinks?: boolean;
+    rejectDroppedStructuralElements?: boolean;
+  },
 ): MergeResult {
   const rejectShrinks = options?.rejectSignificantShrinks === true;
+  const rejectDroppedElements = options?.rejectDroppedStructuralElements === true;
   const merged = new Map<string, CodeFile>();
   const warnings: MergeWarning[] = [];
 
@@ -202,10 +208,6 @@ export function mergeVersionFilesWithWarnings(
   }
   for (const f of newFiles) {
     const prev = merged.get(f.path);
-    // 0.5 = drop generated files that retain less than half of the previous
-    // version. The earlier 0.3 threshold required a 70% shrink before a file
-    // was flagged, which routinely let through token-truncated outputs and
-    // "here's the relevant section…" partials.
     const isShrunk = !!prev && f.content.length < prev.content.length * 0.5;
     if (isShrunk) {
       warnings.push({
@@ -225,6 +227,30 @@ export function mergeVersionFilesWithWarnings(
     if (isShrunk && rejectShrinks) {
       continue;
     }
+
+    // Structural element guard: detect when high-value UI elements
+    // (video, canvas, forms, 3D, media components, play buttons, etc.)
+    // disappear between versions. When `rejectDroppedStructuralElements`
+    // is true, keep the previous file to prevent accidental loss.
+    if (prev && rejectDroppedElements && !isShrunk) {
+      const prevElements = extractStructuralElements(prev.content);
+      if (prevElements.length > 0) {
+        const nextElements = extractStructuralElements(f.content);
+        const nextKinds = new Set(nextElements.map((e) => e.kind));
+        const dropped = prevElements.filter((e) => !nextKinds.has(e.kind));
+        if (dropped.length > 0) {
+          warnings.push({
+            type: "structural-elements-dropped",
+            file: f.path,
+            previousSize: prev.content.length,
+            newSize: f.content.length,
+            droppedElements: dropped,
+          });
+          continue;
+        }
+      }
+    }
+
     merged.set(f.path, f);
   }
 

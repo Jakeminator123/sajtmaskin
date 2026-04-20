@@ -485,6 +485,15 @@ export function buildDynamicContext(
       "",
       "You are editing/refining the current project state from previous generations. Treat the scaffold, route plan, project context, and continuity signals below as the latest known implementation context. Apply only the user's requested changes unless they clearly ask for a redesign.",
       "",
+      "### Element Preservation Rule",
+      "",
+      "When you output a file, your version **fully replaces** the previous file at that path. The host has NO line-level diff — it is all-or-nothing per file. This means:",
+      "",
+      "- If you emit `app/page.tsx`, every section, component, media element, and interactive block from the previous version MUST appear in your output unless the user explicitly asked to remove it.",
+      "- Pay special attention to: `<video>` elements, video placeholder UIs (play buttons, poster images), `<canvas>`, `<iframe>`, `<form>`, 3D scenes (`<Canvas>`, `<Physics>`), inline SVGs, and custom media components.",
+      "- \"Change the hero\" means change its styling/content — NOT remove the video player or media element inside it.",
+      "- The host merge guard will reject your file and keep the old version if it detects structural elements were dropped. Write the complete file correctly the first time.",
+      "",
     );
   }
 
