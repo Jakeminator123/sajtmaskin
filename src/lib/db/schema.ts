@@ -251,19 +251,30 @@ export const userIntegrations = pgTable(
   }),
 );
 
-export const transactions = pgTable("transactions", {
-  id: text("id").primaryKey(),
-  user_id: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  type: text("type").notNull(),
-  amount: integer("amount").notNull(),
-  balance_after: integer("balance_after").notNull(),
-  description: text("description"),
-  stripe_payment_intent: text("stripe_payment_intent"),
-  stripe_session_id: text("stripe_session_id"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const transactions = pgTable(
+  "transactions",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    amount: integer("amount").notNull(),
+    balance_after: integer("balance_after").notNull(),
+    description: text("description"),
+    stripe_payment_intent: text("stripe_payment_intent"),
+    stripe_session_id: text("stripe_session_id"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Idempotency guard for Stripe webhooks: a given session id may only
+    // ever produce one transaction row, so a duplicate webhook delivery
+    // surfaces as a unique-violation we can swallow.
+    stripeSessionIdx: uniqueIndex("transactions_stripe_session_idx").on(
+      table.stripe_session_id,
+    ),
+  }),
+);
 
 export const guestUsage = pgTable(
   "guest_usage",
@@ -435,38 +446,47 @@ export const engineMessages = pgTable("engine_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const engineVersions = pgTable("engine_versions", {
-  id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
-  messageId: text("message_id"),
-  versionNumber: integer("version_number").notNull(),
-  filesJson: text("files_json").notNull(),
-  repairedFilesJson: text("repaired_files_json"),
-  previewUrl: text("preview_url"),
-  releaseState: text("release_state").notNull().default("draft"),
-  verificationState: text("verification_state").notNull().default("pending"),
-  verificationSummary: text("verification_summary"),
-  repairAvailableAt: timestamp("repair_available_at"),
-  promotedAt: timestamp("promoted_at"),
-  /**
-   * Parent version this row was forked from. Set by the F3 ("Bygg
-   * integrationer") trigger so the integrations build is implicitly
-   * branched off a specific F2 design version. Null for plain F2
-   * versions and for versions migrated before the F2/F3 split.
-   */
-  parentVersionId: text("parent_version_id"),
-  /**
-   * Lifecycle stage:
-   *   - `"design"` (default) — F2 design preview row.
-   *   - `"integrations"` — F3 row produced by `/finalize-design`.
-   *
-   * Derived at row insertion time from `BuildSpec.previewPolicy`. Stored
-   * directly so deploy-readiness queries don't need to re-read the
-   * orchestration snapshot.
-   */
-  lifecycleStage: text("lifecycle_stage").notNull().default("design"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const engineVersions = pgTable(
+  "engine_versions",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    messageId: text("message_id"),
+    versionNumber: integer("version_number").notNull(),
+    filesJson: text("files_json").notNull(),
+    repairedFilesJson: text("repaired_files_json"),
+    previewUrl: text("preview_url"),
+    releaseState: text("release_state").notNull().default("draft"),
+    verificationState: text("verification_state").notNull().default("pending"),
+    verificationSummary: text("verification_summary"),
+    repairAvailableAt: timestamp("repair_available_at"),
+    promotedAt: timestamp("promoted_at"),
+    /**
+     * Parent version this row was forked from. Set by the F3 ("Bygg
+     * integrationer") trigger so the integrations build is implicitly
+     * branched off a specific F2 design version. Null for plain F2
+     * versions and for versions migrated before the F2/F3 split.
+     */
+    parentVersionId: text("parent_version_id"),
+    /**
+     * Lifecycle stage:
+     *   - `"design"` (default) — F2 design preview row.
+     *   - `"integrations"` — F3 row produced by `/finalize-design`.
+     *
+     * Derived at row insertion time from `BuildSpec.previewPolicy`. Stored
+     * directly so deploy-readiness queries don't need to re-read the
+     * orchestration snapshot.
+     */
+    lifecycleStage: text("lifecycle_stage").notNull().default("design"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    chatVersionUnique: uniqueIndex("engine_versions_chat_version_unique").on(
+      table.chatId,
+      table.versionNumber,
+    ),
+  }),
+);
 
 export const engineGenerationLogs = pgTable("engine_generation_logs", {
   id: text("id").primaryKey(),

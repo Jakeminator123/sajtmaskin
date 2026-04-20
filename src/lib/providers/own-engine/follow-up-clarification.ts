@@ -2,6 +2,12 @@ import { generateText } from "ai";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
+import {
+  FOLLOW_UP_INTENT_MODES,
+  type FollowUpIntentMode,
+} from "@/lib/gen/follow-up-intent-types";
+
+export type { FollowUpIntentMode };
 
 const FOLLOW_UP_REFINE_PATTERNS = [
   /\b(förfina|förbättra|justera|uppdatera|ändra|byt ut|lägg till|fixa|trimma)\b/i,
@@ -84,13 +90,6 @@ function hasRedesignVerbNounCombo(message: string): boolean {
   const hasNoun = FOLLOW_UP_REDESIGN_NOUN_PATTERNS.some((re) => re.test(message));
   return hasNoun;
 }
-
-export type FollowUpIntentMode =
-  | "clear-refine"
-  | "clear-redesign"
-  | "ambiguous-redesign"
-  | "ambiguous-followup"
-  | "neutral";
 
 /**
  * High-precision phrases where we should re-run scaffold resolution even if
@@ -307,14 +306,6 @@ const LLM_FALLBACK_MIN_WORDS = 80;
 const LLM_FALLBACK_TIMEOUT_MS = 2_000;
 const LLM_FALLBACK_MODEL = "openai/gpt-4.1";
 
-const VALID_INTENT_MODES: ReadonlySet<FollowUpIntentMode> = new Set([
-  "clear-refine",
-  "clear-redesign",
-  "ambiguous-redesign",
-  "ambiguous-followup",
-  "neutral",
-]);
-
 const _llmFallbackCache = new Map<string, FollowUpIntentMode>();
 
 function hashMessage(message: string): string {
@@ -333,7 +324,7 @@ function buildLlmFallbackCacheKey(chatId: string | null | undefined, message: st
 
 function parseLlmIntentLabel(raw: string): FollowUpIntentMode | null {
   const cleaned = raw.trim().toLowerCase().replace(/^["'`]|["'`]$/g, "").trim();
-  if (VALID_INTENT_MODES.has(cleaned as FollowUpIntentMode)) {
+  if (FOLLOW_UP_INTENT_MODES.has(cleaned as FollowUpIntentMode)) {
     return cleaned as FollowUpIntentMode;
   }
   return null;

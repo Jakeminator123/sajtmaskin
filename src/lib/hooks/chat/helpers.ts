@@ -170,7 +170,12 @@ export function mergeStreamingText(previous: string, incoming: string): string {
   if (!previous) return incoming;
   if (!incoming) return previous;
   if (incoming === previous) return previous;
-  if (incoming.length < 50 && previous.endsWith(incoming)) return previous;
+  // Only swallow incoming as a duplicate tail when it is short enough to be
+  // a plausible SSE repeat-token (e.g. duplicated punctuation, cursor token).
+  // The previous threshold of <50 chars dropped legitimate short corrective
+  // chunks like "no" / "not" when the prior text happened to end with the
+  // same letters, silently truncating the stream.
+  if (incoming.length <= 8 && previous.endsWith(incoming)) return previous;
   if (incoming.startsWith(previous)) return incoming;
   if (previous.startsWith(incoming)) return previous;
 

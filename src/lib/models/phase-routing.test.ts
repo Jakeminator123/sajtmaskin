@@ -115,7 +115,7 @@ describe("getPhaseRoutingSummary", () => {
 });
 
 describe("resolvePhaseThinking", () => {
-  it("fast tier disables planner thinking and uses low reasoning effort", () => {
+  it("keeps fast tier planner thinking-off (low effort) and generator thinking-on (P21 manifest)", () => {
     expect(resolvePhaseThinking("fast", "planner")).toEqual({
       phase: "planner",
       thinking: false,

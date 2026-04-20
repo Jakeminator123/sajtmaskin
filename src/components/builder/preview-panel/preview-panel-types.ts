@@ -1,6 +1,9 @@
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
-import type { EngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
+import type {
+  EngineVersionDisplayStatus,
+  EngineVersionLifecycleStage,
+} from "@/lib/db/engine-version-lifecycle";
 import type { AlternatePreviewUrls } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
 
@@ -89,7 +92,7 @@ export interface PreviewPanelProps {
    * shows the button; F3 (`integrations`) hides it (already in F3).
    * See `.cursor/rules/env-flow-f2-mute.mdc`.
    */
-  lifecycleStage?: "design" | "integrations" | null;
+  lifecycleStage?: EngineVersionLifecycleStage | null;
   /** Called when F3 trigger reports missing tier-3 env keys. */
   onF3MissingEnv?: (payload: {
     parentVersionId: string;

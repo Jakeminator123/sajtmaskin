@@ -54,26 +54,41 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      // Get metadata
       const userId = session.metadata?.userId;
       const packageId = session.metadata?.packageId;
-      const diamonds = parseInt(session.metadata?.diamonds || "0", 10);
+      const rawDiamonds = session.metadata?.diamonds;
+      const diamonds = rawDiamonds ? parseInt(rawDiamonds, 10) : 0;
 
-      if (!userId || !diamonds) {
-        console.error("[Stripe/webhook] Missing metadata:", session.metadata);
-        return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
+      // Validate that diamonds is a positive integer (parseInt returns NaN for
+      // garbage input, which the previous `!diamonds` only caught coincidentally
+      // because NaN is falsy — but didn't catch e.g. "-50" or "1.5").
+      if (!userId || !Number.isFinite(diamonds) || diamonds <= 0) {
+        // Permanent failure — Stripe must NOT retry. Log session.id only
+        // (no metadata blob) to avoid leaking PII into logs.
+        console.error(
+          "[Stripe/webhook] Rejecting session with invalid metadata:",
+          session.id,
+          "(event:",
+          event.id + ")",
+        );
+        return NextResponse.json({ received: true, ignored: "invalid_metadata" });
       }
 
-      // Verify user exists
       const user = await getUserById(userId);
       if (!user) {
-        console.error("[Stripe/webhook] User not found:", userId);
-        return NextResponse.json({ error: "User not found" }, { status: 400 });
+        // Permanent failure — Stripe must NOT retry. User won't materialize
+        // by retrying the webhook. Log session.id only, never raw userId.
+        console.error(
+          "[Stripe/webhook] Rejecting session with unknown user:",
+          session.id,
+          "(event:",
+          event.id + ")",
+        );
+        return NextResponse.json({ received: true, ignored: "unknown_user" });
       }
 
-      // Add diamonds to user
       try {
-        const transaction = await createTransaction(
+        await createTransaction(
           userId,
           "purchase",
           diamonds,
@@ -85,12 +100,27 @@ export async function POST(req: NextRequest) {
         console.info(
           "[Stripe/webhook] Added",
           diamonds,
-          "diamonds to user",
-          userId,
-          "- new balance:",
-          transaction.balance_after,
+          "diamonds for session",
+          session.id,
         );
       } catch (error) {
+        // Race-condition idempotency guard: when two concurrent webhook
+        // deliveries race past the SELECT-by-session-id check above, the
+        // unique index on transactions.stripe_session_id will reject the
+        // second insert. Treat that as success so Stripe doesn't retry.
+        const message = error instanceof Error ? error.message : String(error);
+        if (
+          message.includes("transactions_stripe_session_idx") ||
+          message.includes("duplicate key value") ||
+          (typeof (error as { code?: string }).code === "string" &&
+            (error as { code?: string }).code === "23505")
+        ) {
+          console.info(
+            "[Stripe/webhook] Duplicate session insert ignored:",
+            session.id,
+          );
+          return NextResponse.json({ received: true });
+        }
         console.error("[Stripe/webhook] Failed to add diamonds:", error);
         return NextResponse.json({ error: "Failed to add diamonds" }, { status: 500 });
       }

@@ -5,7 +5,32 @@ vi.mock("@/lib/utils/debug", () => ({
   warnLog: vi.fn(),
 }));
 
-import { buildAutoFixPrompt, finalizeStreamStats, initStreamStats } from "./helpers";
+import {
+  buildAutoFixPrompt,
+  finalizeStreamStats,
+  initStreamStats,
+  mergeStreamingText,
+} from "./helpers";
+
+describe("mergeStreamingText", () => {
+  it("does not drop a short corrective chunk that incidentally overlaps the tail", () => {
+    // previous ends with "probably no" and the next SSE delta is also
+    // "probably no" — the old heuristic silently dropped the delta because
+    // it matched the tail and was <50 chars, truncating real corrective
+    // content. The new heuristic only swallows tails up to 8 chars long.
+    const previous = "We could go but the answer is probably no";
+    const incoming = "probably no";
+    expect(mergeStreamingText(previous, incoming)).toBe(
+      "We could go but the answer is probably noprobably no",
+    );
+  });
+
+  it("still de-duplicates very short repeat tokens (<=8 chars)", () => {
+    const previous = "Loading...";
+    const incoming = "...";
+    expect(mergeStreamingText(previous, incoming)).toBe("Loading...");
+  });
+});
 
 describe("finalizeStreamStats", () => {
   it("does not mark recovered error events as critical anomalies", () => {

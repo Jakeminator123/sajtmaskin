@@ -33,10 +33,29 @@ export function describePreviewHostHttpFailure(params: {
   return rawMessage;
 }
 
-const START_TIMEOUT_MS = 300_000;
-const STATUS_TIMEOUT_MS = 15_000;
-const VERIFY_TIMEOUT_MS = 300_000;
-const CLEANUP_TIMEOUT_MS = 30_000;
+/**
+ * Klient-side timeouts för anrop mot preview-host. Sammankopplade med
+ * preview-host-VM:ets egna budget i `preview-host/src/server.js` —
+ * justera båda sidor om budgeten ändras.
+ *
+ * - START / VERIFY: cold-start på Fly.io kan ta 60–120 s när maskinen är
+ *   skalad till 0; lägg på buffer för Next-build + warm-typecheck.
+ * - STATUS: poll under boot — håll kort så UI-spinnern inte hänger om
+ *   preview-host hängt sig.
+ * - CLEANUP: admin-städning av föräldralösa workspaces; körs sällan så
+ *   längre timeout är OK.
+ */
+export const PREVIEW_HOST_CLIENT_TIMEOUTS_MS = {
+  start: 300_000,
+  status: 15_000,
+  verify: 300_000,
+  cleanup: 30_000,
+} as const;
+
+const START_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.start;
+const STATUS_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.status;
+const VERIFY_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify;
+const CLEANUP_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.cleanup;
 
 async function triggerPreviewHostCleanup(): Promise<boolean> {
   const base = getPreviewHostBaseUrl();

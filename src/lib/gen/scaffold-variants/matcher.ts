@@ -5,22 +5,19 @@ import { getVariantsForScaffold, getVariantById } from "./registry";
 import { getBlockedVariantIds } from "./eval-blocklist";
 import type { PickScaffoldVariantInput, ScaffoldVariant } from "./types";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
+import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 
 /**
- * P22: lokal kopia av `FollowUpIntentMode` (från
- * `providers/own-engine/follow-up-clarification.ts`). Återimporteras inte
- * härifrån för att undvika att dra in provider-laget i scaffold-matchern.
+ * Bakåtkompatibilitets-alias. Den ursprungliga lokala typen är borttagen;
+ * matchern lutar sig nu mot den delade `FollowUpIntentMode` i
+ * `src/lib/gen/follow-up-intent-types.ts`. Aliasen ligger kvar i fall
+ * något test eller framtida konsument importerar det gamla namnet.
  */
-export type LockedVariantFollowUpIntent =
-  | "clear-refine"
-  | "clear-redesign"
-  | "ambiguous-redesign"
-  | "ambiguous-followup"
-  | "neutral";
+export type LockedVariantFollowUpIntent = FollowUpIntentMode;
 
 export interface LockedVariantForFollowUpInput {
   chatId?: string | null;
-  intent: LockedVariantFollowUpIntent;
+  intent: FollowUpIntentMode;
   scaffoldId: string | null | undefined;
   priorVariantId: string | null | undefined;
 }

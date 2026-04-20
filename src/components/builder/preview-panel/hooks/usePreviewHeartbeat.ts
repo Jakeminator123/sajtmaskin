@@ -59,7 +59,10 @@ export function usePreviewHeartbeat(params: {
   const sendHeartbeat = useCallback(async () => {
     if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
     if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    // Heartbeat must keep firing even when the tab is hidden — long F3 builds
+    // (tab switched away) were TTL-ing out of preview-session because we
+    // skipped the POST here. Heartbeat is a cheap fire-and-forget; hibernation
+    // is still triggered separately after HIDDEN_HIBERNATE_DELAY_MS below.
     const data = await postPreviewHeartbeat({
       chatId,
       versionId,

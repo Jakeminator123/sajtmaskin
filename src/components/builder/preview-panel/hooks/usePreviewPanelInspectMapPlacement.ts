@@ -322,7 +322,6 @@ export function usePreviewPanelInspectMapPlacement(options: {
     setHoveredMapElement,
     hoveredPlacement,
     setHoveredPlacement,
-    fetchElementMap,
     handleToggleInspect,
     sectionZones,
     handlePlacementMouseMove,

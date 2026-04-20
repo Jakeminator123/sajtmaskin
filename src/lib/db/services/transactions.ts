@@ -4,7 +4,6 @@ import { db } from "@/lib/db/client";
 import { transactions, users } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { Transaction } from "./shared";
-import { getUserById } from "./users";
 
 export async function createTransaction(
   userId: string,
@@ -15,33 +14,49 @@ export async function createTransaction(
   stripeSessionId?: string,
 ): Promise<Transaction> {
   assertDbConfigured();
-  const user = await getUserById(userId);
-  if (!user) {
-    throw new Error("User not found");
-  }
 
-  const newBalance = (user.diamonds || 0) + amount;
-  const now = new Date();
+  // Atomic balance mutation: we lock the user row, recompute the balance
+  // against the freshly-locked diamonds value (so concurrent purchases or
+  // refunds cannot read-then-stomp each other), then write the user row
+  // and the transaction ledger row inside the same transaction.
+  return db.transaction(async (tx) => {
+    const lockedUsers = await tx
+      .select({ diamonds: users.diamonds })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for("update");
 
-  await db.update(users).set({ diamonds: newBalance, updated_at: now }).where(eq(users.id, userId));
+    const lockedUser = lockedUsers[0];
+    if (!lockedUser) {
+      throw new Error("User not found");
+    }
 
-  const id = nanoid();
-  const rows = await db
-    .insert(transactions)
-    .values({
-      id,
-      user_id: userId,
-      type,
-      amount,
-      balance_after: newBalance,
-      description: description || null,
-      stripe_payment_intent: stripePaymentIntent || null,
-      stripe_session_id: stripeSessionId || null,
-      created_at: now,
-    })
-    .returning();
+    const newBalance = (lockedUser.diamonds || 0) + amount;
+    const now = new Date();
 
-  return rows[0];
+    await tx
+      .update(users)
+      .set({ diamonds: newBalance, updated_at: now })
+      .where(eq(users.id, userId));
+
+    const id = nanoid();
+    const rows = await tx
+      .insert(transactions)
+      .values({
+        id,
+        user_id: userId,
+        type,
+        amount,
+        balance_after: newBalance,
+        description: description || null,
+        stripe_payment_intent: stripePaymentIntent || null,
+        stripe_session_id: stripeSessionId || null,
+        created_at: now,
+      })
+      .returning();
+
+    return rows[0];
+  });
 }
 
 export async function hasSignupBonusTransaction(userId: string): Promise<boolean> {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchChatVersionFilesJson } from "../chat-version-files-fetch";
 import { extractPreviewRoutesFromFileNames } from "../preview-route-helpers";
 
@@ -11,32 +11,9 @@ export function usePreviewPanelPreviewRoutes(
 ): {
   previewRoutes: string[];
   previewRoutesLoading: boolean;
-  fetchPreviewRoutes: () => Promise<void>;
 } {
   const [previewRoutes, setPreviewRoutes] = useState<string[]>([]);
   const [previewRoutesLoading, setPreviewRoutesLoading] = useState(false);
-
-  const fetchPreviewRoutes = useCallback(async () => {
-    if (!chatId || !versionId) {
-      setPreviewRoutes([]);
-      return;
-    }
-
-    setPreviewRoutesLoading(true);
-    try {
-      const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
-      if (!response.ok) {
-        setPreviewRoutes([]);
-        return;
-      }
-      const fileNames = Array.isArray(data?.files) ? data.files.map((file) => file.name) : [];
-      setPreviewRoutes(extractPreviewRoutesFromFileNames(fileNames));
-    } catch {
-      setPreviewRoutes([]);
-    } finally {
-      setPreviewRoutesLoading(false);
-    }
-  }, [chatId, versionId]);
 
   useEffect(() => {
     let isActive = true;
@@ -67,5 +44,5 @@ export function usePreviewPanelPreviewRoutes(
     return () => { isActive = false; };
   }, [chatId, versionId]);
 
-  return { previewRoutes, previewRoutesLoading, fetchPreviewRoutes };
+  return { previewRoutes, previewRoutesLoading };
 }
