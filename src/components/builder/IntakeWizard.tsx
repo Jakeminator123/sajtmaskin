@@ -2472,7 +2472,7 @@ function StoryStep({ answers, onChange, scrapedFields }: { answers: WizardAnswer
     <div className="space-y-5">
       <div>
         <SectionLabel>Om oss</SectionLabel>
-        <p className="mb-1.5 text-xs text-muted-foreground/70">Berätta om företaget — historia, filosofi, vad som gör er unika. Blir "Om oss"-sidan.</p>
+        <p className="mb-1.5 text-xs text-muted-foreground/70">Berätta om företaget — historia, filosofi, vad som gör er unika. Blir &ldquo;Om oss&rdquo;-sidan.</p>
         <div className="relative">
           <textarea
             value={answers.aboutUs}

@@ -43,6 +43,13 @@ export default defineConfig([
     "src/templates/**/*",
     ".next/**/*",
     ".vercel/**/*",
+    // Preview-host VM runtime state — generated workspaces, their .next/
+    // build output and vendored node_modules are runtime-managed artifacts,
+    // not source.
+    "preview-host/data/**/*",
+    // QA-run snapshots — AI-generated persona output used as test fixtures,
+    // not hand-maintained source.
+    "output/qa-runs/**/*",
     "out/**/*",
     "build/**/*",
     "dist/**/*",

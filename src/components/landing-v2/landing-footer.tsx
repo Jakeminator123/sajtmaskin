@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Zap } from "lucide-react"
 
 export function LandingFooter() {
@@ -34,14 +35,14 @@ export function LandingFooter() {
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Produkt</h4>
             <ul className="space-y-2">
               <li>
-                <a href="/#funktioner" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/#funktioner" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Funktioner
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/#teknik" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/#teknik" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Teknik
-                </a>
+                </Link>
               </li>
               <li>
                 <a href="#priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -49,17 +50,17 @@ export function LandingFooter() {
                 </a>
               </li>
               <li>
-                <a href="/templates" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/templates" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Mallar
-                </a>
+                </Link>
               </li>
               <li>
-                <a
+                <Link
                   href="/landningssidor"
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Sajtkarta
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -67,14 +68,14 @@ export function LandingFooter() {
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">F&ouml;retag</h4>
             <ul className="space-y-2">
               <li>
-                <a href="/om" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/om" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Om oss
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/blogg" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/blogg" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Blogg
-                </a>
+                </Link>
               </li>
               <li>
                 <a
@@ -98,30 +99,30 @@ export function LandingFooter() {
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Juridiskt</h4>
             <ul className="space-y-2">
               <li>
-                <a href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Integritetspolicy
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Anv&auml;ndarvillkor
-                </a>
+                </Link>
               </li>
               <li>
-                <a
+                <Link
                   href="/privacy#gdpr"
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   GDPR
-                </a>
+                </Link>
               </li>
               <li>
-                <a
+                <Link
                   href="/privacy#cookies"
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Cookies
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
