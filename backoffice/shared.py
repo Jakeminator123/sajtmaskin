@@ -118,7 +118,7 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
         / "template-library"
         / "template-library.generated.json",
         eval_latest=root / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json",
-        schema_md=root / "docs" / "architecture" / "scaffold-schema.md",
+        schema_md=root / "docs" / "architecture" / "scaffold-system.md",
         error_log_csv=root / "logs" / "llm-segmentts-and-index" / "error-log.csv",
         autofix_hook_ts=root / "src" / "lib" / "hooks" / "chat" / "useAutoFix.ts",
     )

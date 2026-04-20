@@ -228,5 +228,5 @@ npm run dossiers:curate -- --force --only=<id>                   # re-kurera akt
 ## Hänvisningar
 
 - Pipeline + lane-karta: `docs/architecture/dossier-pipeline-roadmap.md`
-- Scaffold-systemet: `docs/architecture/scaffold-schema.md`
-- Scaffold-schema + inventarium: `docs/architecture/scaffold-schema.md`
+- Scaffold-systemet (inventarium + arkitektur): `docs/architecture/scaffold-system.md`
+- Scaffold-kontrakt (rent schema): `docs/schemas/scaffold-contract.md`

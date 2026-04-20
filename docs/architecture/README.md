@@ -46,7 +46,7 @@ Komplement:
 
 | Dokument | Vad |
 |---|---|
-| [scaffold-schema.md](./scaffold-schema.md) | Scaffold-systemets fulla schema + per-scaffold/per-variant inventarium med kvalitetsbedömning |
+| [scaffold-system.md](./scaffold-system.md) | Scaffold-systemets arkitektur + per-scaffold/per-variant inventarium med kvalitetsbedömning. Rent kontrakt finns i [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md). |
 | [component-library-policy.md](./component-library-policy.md) | Policy: scaffolds vs shadcn vs capability-gated deps |
 
 ---

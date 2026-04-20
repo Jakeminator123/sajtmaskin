@@ -2,7 +2,7 @@
 
 Kanonisk ordlista. Navigationshjälp, inte en ersättning för att läsa koden.
 
-**Kod är alltid source of truth.** Behöver du kodsymbol eller filsökväg — grepa. Behöver du pipeline-detaljer — se `docs/architecture/scaffold-schema.md`.
+**Kod är alltid source of truth.** Behöver du kodsymbol eller filsökväg — grepa. Behöver du pipeline-detaljer — se `docs/architecture/scaffold-system.md`.
 **Användare, LLM:er och docs kan ha fel eller vara inaktuella.** Vid tvekan: verifiera mot koden innan du döper om, förenklar eller drar slutsatser.
 
 Snabb förväxlingstabell: `.cursor/rules/terminology.mdc`.
@@ -138,7 +138,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Agent Tools | Tool-definitioner för planner/agent-flöden | kanonisk |
 | Template-Library | Kuraterad referensartefakt byggd från externa Vercel-templates | kanonisk |
 | Dossier | Build-time researchartefakt per extern template | kanonisk |
-| Scaffold-Variant Inventarium | Beslutsunderlag i [`docs/architecture/scaffold-schema.md`](./scaffold-schema.md) — per-scaffold och per-variant tabell med kvalitet och förslag på cleanup. Inte runtime-data. | kanonisk |
+| Scaffold-Variant Inventarium | Beslutsunderlag i [`docs/architecture/scaffold-system.md`](./scaffold-system.md) — per-scaffold och per-variant tabell med kvalitet och förslag på cleanup. Inte runtime-data. | kanonisk |
 | ~~Capability Pack~~ | Borttaget. `buildCapabilityHints()` täcker behovet. | **borttaget** |
 | ~~Enhancement Pack~~ | Borttaget. Prompts styr via static core. | **borttaget** |
 | ~~DynamicContextAssembly~~ | Docs-synonym | **döda** |

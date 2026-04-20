@@ -223,7 +223,7 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 
 **Ersättare:** Per-integration- och stilexempel hanteras nu av dossier-pipen i `data/dossiers/_index/`. Aktivt via `SAJTMASKIN_DOSSIER_PIPELINE` (default `true` i development). Se `docs/architecture/llm-flow-end-to-end.md` för det aktuella flödet.
 
-**För scaffold-variants:** stilbeskrivning sker via `signaturePatterns` (layouts/motifs/antiPatterns) per variant i `config/scaffold-variants/<scaffold>/<variant>.json`. Renderas i `## Scaffold Variant`-blocket av `system-prompt.ts`. Se `scaffold-schema.md` rad 22 för detaljer.
+**För scaffold-variants:** stilbeskrivning sker via `signaturePatterns` (layouts/motifs/antiPatterns) per variant i `config/scaffold-variants/<scaffold>/<variant>.json`. Renderas i `## Scaffold Variant`-blocket av `system-prompt.ts`. Se `../architecture/scaffold-system.md` för full inventarium.
 
 ## Font handling
 

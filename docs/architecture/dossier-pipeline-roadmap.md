@@ -246,6 +246,6 @@ URL-alias: `?page=dossiers` öppnar direkt.
 
 - Format: [dossier-format.md](./dossier-format.md) + `docs/schemas/strict/dossier.schema.json`
 - Promotion-flöde: [dossier-promotion-flow.md](./dossier-promotion-flow.md)
-- Scaffold-inventarium: [scaffold-schema.md](./scaffold-schema.md)
+- Scaffold-inventarium: [scaffold-system.md](./scaffold-system.md)
 - Backoffice: `backoffice/pages/dossiers.py`
 - Skript: `scripts/dossiers/`
