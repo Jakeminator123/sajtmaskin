@@ -631,6 +631,33 @@ def _normalize_bool_env(raw: str | None) -> bool:
     return value in {"1", "true", "yes"}
 
 
+# --- Env-driven endpoint resolvers --------------------------------------------
+# Helpers that turn environment variables into ready-to-use endpoint config for
+# Streamlit pages. Keep them small and side-effect-free; the UI layer decides
+# how to react when a value is missing.
+
+def resolve_metrics_endpoint() -> tuple[str, str | None]:
+    """Returns ``(base_url, token)`` for the ``/api/metrics`` endpoint.
+
+    Base URL preference order:
+      1. ``SAJTMASKIN_METRICS_BASE_URL``
+      2. ``SAJTMASKIN_BASE_URL``
+      3. ``http://localhost:3000`` (dev fallback)
+
+    Token comes from ``SAJTMASKIN_METRICS_TOKEN``. Returns ``token=None`` when
+    the env var is unset or empty so the caller can render its own UX.
+    """
+
+    base_url = (
+        os.environ.get("SAJTMASKIN_METRICS_BASE_URL", "").strip()
+        or os.environ.get("SAJTMASKIN_BASE_URL", "").strip()
+        or "http://localhost:3000"
+    )
+    base_url = base_url.rstrip("/")
+    token = os.environ.get("SAJTMASKIN_METRICS_TOKEN", "").strip() or None
+    return base_url, token
+
+
 def _parse_iso8601(value: str | None) -> datetime | None:
     if not value:
         return None

@@ -13,6 +13,7 @@ from . import (
     eval_page,
     llm_config,
     mental_model,
+    observability,
     orchestration,
     overview,
     pipeline,
@@ -57,6 +58,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("Orchestration Map", "Overhead", orchestration.render),
     PageSpec("Autofix & Kvalitet", "Overhead", autofix.render),
     PageSpec("Pipeline Health", "Overhead", pipeline_health.render),
+    PageSpec("Observability", "Overhead", observability.render),
     PageSpec("Projekt-admin (radera)", "Overhead", projects_admin.render),
     PageSpec("Mental modell", "Overhead", mental_model.render),
 )
