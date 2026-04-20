@@ -8,6 +8,28 @@ Stäng pågående arbete — eller ett helt arbetsspår. Review, scoped cleanup,
 - **Integrera** snarare än att skriva över: om samma yta berörs, läs diff/kontext och bevara meningsfulla tillägg från andra — tvinga inte en "ren" lösning som kastar bort deras arbete.
 - **Dokumentera** i slutsvar vad som kom från denna session vs vad som redan fanns eller kompletterades från annat håll, när det är relevant.
 
+### Origin-check innan commit/push (OBLIGATORISK)
+
+Andra agenter eller människor kan ha pushat till `origin/<branch>` medan denna session pågått. **Innan du commitar och pushar:**
+
+1. `git fetch --quiet` (uppdatera remote-refs lokalt; inget mergas)
+2. Räkna divergens: `git rev-list --left-right --count HEAD...origin/<branch>` → svar `A B` betyder `A` lokala commits framåt, `B` remote-commits bakom.
+   - PowerShell-not: `@{u}` blir mojiberg pga encoding. Använd alltid `origin/<branch>` explicit.
+3. Tolka resultatet:
+   - **`0 0`** → synkat, gå vidare till commit + push.
+   - **`A 0`** (A>0) → bara du har lokala commits, push utan force är säker.
+   - **`0 B`** (B>0) → någon annan har pushat. Stoppa, läs `git log --oneline HEAD..origin/<branch>` och rapportera till användaren innan du försöker mergea/rebasa.
+   - **`A B`** (båda >0) → divergens. Stoppa och fråga; rebasa/mergea inte tyst.
+4. Efter push: kör steg 1+2 igen för att verifiera att din push gick fram (`A B = 0 0`).
+
+### Working-tree-ändringar du inte själv gjort
+
+Om `git status` visar pre-existerande modifieringar som inte hör till din session:
+
+- Commit:a **bara dina egna ändrade filer** med explicit lista (`git add file1 file2 ...`), aldrig `git add -A`.
+- Lista i slutsvaret vilka filer du **medvetet inte** rörde och varför ("hörde till tidigare arbetsspår, lämnar för ägaren att paketera").
+- Stoppa och fråga användaren om scopet är otydligt.
+
 ## Mål
 
 1. **Granska** ändringarna med code-review-ögon: buggrisker, regressionsrisker, överdrivna docs och missad verifiering.
