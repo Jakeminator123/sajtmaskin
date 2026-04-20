@@ -31,7 +31,7 @@ const PACKAGE_JSON = `{
     "node": "${GENERATED_PROJECT_NODE_RANGE}"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
