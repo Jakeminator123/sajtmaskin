@@ -377,8 +377,10 @@ export const FEATURES = {
 
   useStripePayments: Boolean(SECRETS.stripeSecretKey),
 
-  // NOTE: Pexels is disabled - set ENABLE_PEXELS=true to re-enable
-  usePexels: Boolean(SECRETS.pexelsApiKey) && env.ENABLE_PEXELS === "true",
+  // NOTE: `usePexels` removed 2026-04-20 (audit §3.7). Had 0 callsites in
+  // runtime code — Unsplash is the active stock-image source. To re-enable
+  // Pexels: add an integration that reads `SECRETS.pexelsApiKey` directly,
+  // and (optionally) re-introduce the `ENABLE_PEXELS` env gate.
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
   useFigmaApi: Boolean(SECRETS.figmaAccessToken),
 
