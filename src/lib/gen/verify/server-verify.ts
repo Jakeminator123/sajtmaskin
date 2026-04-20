@@ -231,6 +231,30 @@ export async function triggerServerVerification(params: {
 }
 
 /**
+ * Resolves whether the post-VM build-error auto-repair loop is enabled
+ * for the current runtime. Defaults to ON in `development` and Vercel
+ * `preview` (so the loop is exercised constantly during build), and OFF
+ * in `production` until we have enough live data to flip the default
+ * there too. Explicit `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1|true|false`
+ * always wins over the default.
+ */
+export function isAutoRepairBuildErrorEnabled(): boolean {
+  const explicit = process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR?.trim().toLowerCase();
+  if (explicit === "1" || explicit === "true" || explicit === "on" || explicit === "yes") {
+    return true;
+  }
+  if (explicit === "0" || explicit === "false" || explicit === "off" || explicit === "no") {
+    return false;
+  }
+  const vercelEnv = process.env.VERCEL_ENV?.trim().toLowerCase();
+  if (vercelEnv === "preview" || vercelEnv === "development") return true;
+  if (vercelEnv === "production") return false;
+  const nodeEnv = process.env.NODE_ENV?.trim().toLowerCase();
+  if (nodeEnv === "development" || nodeEnv === "test") return true;
+  return false;
+}
+
+/**
  * Auto-trigger a server-side repair loop when the live preview-VM emits
  * a `build-error` SSE (npm install / next build / dev server crashed).
  *
@@ -241,9 +265,10 @@ export async function triggerServerVerification(params: {
  * also schedule server-verify (which it usually doesn't in design
  * mode, see `resolvePostFinalizeServerVerifyDecision`).
  *
- * **Opt-in for safety.** Gated by `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1`
- * so we don't change end-user-visible behavior in production until
- * we've watched it in dev for a while. Same `inflight` dedup as
+ * **Default on in dev/preview** (Wave 4 of the LLM-flow consolidation).
+ * Production still waits for explicit opt-in via
+ * `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1` until we have enough field
+ * data to flip the production default. Same `inflight` dedup as
  * server-verify, so we never run two repair loops on the same version
  * concurrently regardless of which path triggered them.
  */
@@ -261,7 +286,7 @@ export async function triggerBuildErrorRepair(params: {
     repairAvailableAt: string | null;
   }) => void;
 }): Promise<void> {
-  if (process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR !== "1") return;
+  if (!isAutoRepairBuildErrorEnabled()) return;
   const { chatId, versionId, buildError, onRepairAvailable } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
