@@ -57,6 +57,7 @@ export const GOOGLE_FONT_REGISTRY: Record<string, GoogleFontEntry> = {
   Overpass: { displayName: "Overpass", variable: "--font-sans", category: "sans-serif" },
   Red_Hat_Display: { displayName: "Red Hat Display", variable: "--font-sans", category: "sans-serif" },
   Urbanist: { displayName: "Urbanist", variable: "--font-sans", category: "sans-serif" },
+  Source_Sans_3: { displayName: "Source Sans 3", variable: "--font-sans", category: "sans-serif" },
 
   // — Serif —
   Playfair_Display: { displayName: "Playfair Display", variable: "--font-display", category: "serif" },
