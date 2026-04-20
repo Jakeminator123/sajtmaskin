@@ -690,10 +690,30 @@ export async function handleMessageStreamRequest(
           engineIntent = "app";
         }
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
+        const snapshotRecord =
+          engineChat.orchestration_snapshot && typeof engineChat.orchestration_snapshot === "object"
+            ? (engineChat.orchestration_snapshot as Record<string, unknown>)
+            : null;
         const snapshotVariantId =
-          engineChat.orchestration_snapshot &&
-          typeof (engineChat.orchestration_snapshot as Record<string, unknown>).variantId === "string"
-            ? ((engineChat.orchestration_snapshot as Record<string, unknown>).variantId as string)
+          snapshotRecord && typeof snapshotRecord.variantId === "string"
+            ? (snapshotRecord.variantId as string)
+            : null;
+        // P22b: ärv qualityTarget från senaste accepterad versions buildSpec
+        // (lagrad i orchestration_snapshot). `inheritQualityTargetFromPriorVersion`
+        // i orchestrate.ts är no-op om värdet saknas eller redan matchar baseSpec.
+        const snapshotBuildSpec =
+          snapshotRecord && snapshotRecord.buildSpec && typeof snapshotRecord.buildSpec === "object"
+            ? (snapshotRecord.buildSpec as Record<string, unknown>)
+            : null;
+        const PRIOR_QUALITY_TARGETS = ["standard", "premium", "release-candidate"] as const;
+        const rawPriorQualityTarget =
+          snapshotBuildSpec && typeof snapshotBuildSpec.qualityTarget === "string"
+            ? snapshotBuildSpec.qualityTarget
+            : null;
+        const priorQualityTarget =
+          rawPriorQualityTarget &&
+          (PRIOR_QUALITY_TARGETS as readonly string[]).includes(rawPriorQualityTarget)
+            ? (rawPriorQualityTarget as (typeof PRIOR_QUALITY_TARGETS)[number])
             : null;
         const orchestrationInput = {
           prompt: optimizedMessage,
@@ -728,6 +748,13 @@ export async function handleMessageStreamRequest(
           existingShellRoutePaths,
           capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
           lifecycleStage: parsedMeta.lifecycleStage,
+          // P22b: chatId + followUpIntent + priorQualityTarget aktiverar P22:s
+          // helpers runtime (`inheritQualityTargetFromPriorVersion` i deriveBuildSpec
+          // och `lockedVariantForFollowUp` i resolveScaffoldVariant). Utan dessa
+          // är helpers dead code: tester gröna, produktion oförändrad.
+          chatId,
+          followUpIntent: previousFiles.length > 0 ? followUpIntent : undefined,
+          priorQualityTarget,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);

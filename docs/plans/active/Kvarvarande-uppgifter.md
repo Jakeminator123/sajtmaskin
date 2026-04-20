@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-20 (P27-validator: sektion A+B+D körda. Wave 2026-04 P21-P27 + P21b flyttade till `avklarat/`. Tre uppföljare i `active/`: P22b, P25b, P28).
+Senast uppdaterad: 2026-04-20 (P27-validator: sektion A+B+D körda. Wave 2026-04 P21-P27 + P21b flyttade till `avklarat/`. Konsolideringspass samma datum: P22b:s caller-wiring landad i `chat-message-stream-post.ts` + P28 #6 lint-fix landad. P25b och resten av P28 stannar som känd skuld nedan. Backoffice `ai_models.py` synkad: ny "Per-tier policy"-tab visar `perTierTimeouts/RepairPolicies/Briefing` read-only. Edit görs via manifest.json-tabben tills accessor-funktioner landar.).
 
 ## Öppna punkter
 
@@ -10,9 +10,15 @@ Senast uppdaterad: 2026-04-20 (P27-validator: sektion A+B+D körda. Wave 2026-04
 | 2 | shadcn | Nivå 3: `registry:font` — konsolidera upstream font-format med nuvarande `fontPairings` + `google-font-registry.ts` | Medel | P20 |
 | 3 | Ingress | Old-content ingress hardening — bevisa ingresspunkter, sedan små fixar | Medel-hög | P19 |
 | 4 | Eval | Automatisk baseline-uppdatering (CI/script för eval-svit) | Låg | — |
-| 5 | Follow-up wiring | Wira `priorQualityTarget`/`followUpIntent`/`persistedVariantId` i `chat-message-stream-post.ts` så P22:s helpers aktiveras runtime + två stream-route-tests blir gröna. | Medel | P22b |
-| 6 | UX polish | VersionHistory-tooltips + mjuk "promoted"-badge + version_mismatch overlay-rendering. Använder `VersionMismatchOverlayPayload` från P24. | Låg | P25b |
-| 7 | Hygien-städ | 7 pre-existing test-failures (env-vars, route × 2, preview-status × 2, stream × 2), 1 lint-error (`font-import-fixer.ts:45`), schema-mismatch i `qualityGateTiers`, plus engine-test isolation (`engine.test.ts` failar i full suite men passerar standalone — `vi.resetModules()` saknas i någon av P22/P23/P26:s nya test-filer). | Låg | P28 |
+| 5 | UX polish | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. Kräver visuell verifiering. Tidigare spårad som P25b — plan-fil borttagen i konsolidering, scope kvar. | Låg | — |
+| 6 | Hygien-städ (rest av P28) | 7 pre-existing test-failures: env-encryption fail-closed (`project-env-vars.test.ts`), route × 2 (`v0/chats/[chatId]/route.test.ts`), preview-status × 2 (`v0/...preview-status` + `engine/...preview-status`), två stream-route-tests (mock-drift: behöver `createOwnEnginePipelineAndGenerationStream` + `tryGenerateServerAutoBrief` mockade). Plus schema-mismatch i `qualityGateTiers` (`docs/schemas/strict/manifest.schema.json`) och engine-test isolation (`engine.test.ts` failar i full suite men passerar standalone — `vi.resetModules()` saknas i någon av P22/P23/P26:s nya test-filer). Lint-felet `font-import-fixer.ts:45` är fixat (konsolidering 2026-04-20). | Låg | — |
+
+## Avklarat i konsolideringspass (2026-04-20)
+
+| Vad | Var |
+|-----|-----|
+| P22b core wiring: `chatId` + `followUpIntent` + `priorQualityTarget` skickas in i `OrchestrationInput` på follow-up-grenen, så `inheritQualityTargetFromPriorVersion` och `lockedVariantForFollowUp` aktiveras runtime istället för att vara dead code. `priorQualityTarget` hämtas från `engineChat.orchestration_snapshot.buildSpec.qualityTarget` och valideras mot union-typen innan användning. | `src/lib/api/engine/chats/chat-message-stream-post.ts` |
+| P28 #6 lint-fix: `prefer-const` på `workingCode` i `font-import-fixer.ts:45`. | `src/lib/gen/autofix/rules/font-import-fixer.ts` |
 
 ## Avklarat denna session (2026-04-15)
 

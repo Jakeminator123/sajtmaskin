@@ -635,6 +635,95 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         st.rerun()
 
 
+def _render_per_tier_policies(manifest: dict[str, Any]) -> None:
+    """Surface P21:s tier-differentierade fält (perTierTimeouts/RepairPolicies/Briefing).
+
+    Read-only-vy: nya fälten ligger som top-level-objekt i manifestet och
+    bevaras automatiskt vid all edit (eftersom write_json skriver tillbaka
+    hela manifestet). Edit görs via manifest.json-tabben tills accessor-
+    funktionerna landar och vi kan lägga till skrivlogik per tier.
+    """
+
+    timeouts = manifest.get("perTierTimeouts") or {}
+    policies = manifest.get("perTierRepairPolicies") or {}
+    briefing = manifest.get("perTierBriefing") or {}
+
+    st.markdown("### Tier-differentierade policys (sedan wave 2026-04-20)")
+    st.caption(
+        "Aktiveras av per-tier accessor-funktioner i `phase-routing.ts`/`engine.ts` (P26-uppföljning). "
+        "Gamla globala fält (`routeTimeouts`, `repairPolicies`, `briefing.specModel`) "
+        "kvarstår som fallback. Edit görs via manifest.json-tabben."
+    )
+
+    has_any = bool(timeouts or policies or briefing)
+    if not has_any:
+        st.info(
+            "Inga `perTier*`-fält hittades i manifestet. Förvänta sig 5 tiers "
+            "(fast/pro/max/codex/anthropic) i vart och ett av `perTierTimeouts`, "
+            "`perTierRepairPolicies`, `perTierBriefing`."
+        )
+        return
+
+    tiers = ["fast", "pro", "max", "codex", "anthropic"]
+
+    if timeouts:
+        st.markdown("#### perTierTimeouts")
+        st.dataframe(
+            [
+                {
+                    "tier": tier,
+                    "engineRouteMaxDurationSeconds": (
+                        timeouts.get(tier) or {}
+                    ).get("engineRouteMaxDurationSeconds", "—"),
+                    "verifierTimeoutMs": (
+                        timeouts.get(tier) or {}
+                    ).get("verifierTimeoutMs", "—"),
+                }
+                for tier in tiers
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+
+    if policies:
+        st.markdown("#### perTierRepairPolicies")
+        st.dataframe(
+            [
+                {
+                    "tier": tier,
+                    "deterministicAutofixPasses": (
+                        policies.get(tier) or {}
+                    ).get("deterministicAutofixPasses", "—"),
+                    "syntaxFixPasses": (
+                        policies.get(tier) or {}
+                    ).get("syntaxFixPasses", "—"),
+                    "serverRepairPasses": (
+                        policies.get(tier) or {}
+                    ).get("serverRepairPasses", "—"),
+                }
+                for tier in tiers
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+
+    if briefing:
+        st.markdown("#### perTierBriefing")
+        st.dataframe(
+            [
+                {
+                    "tier": tier,
+                    "briefingModel": human_model_label(
+                        str((briefing.get(tier) or {}).get("briefingModel", ""))
+                    ),
+                }
+                for tier in tiers
+            ],
+            hide_index=True,
+            width="stretch",
+        )
+
+
 def _render_other_route_models(man_path, manifest: dict[str, Any]) -> None:
     route_specs = [
         ("audit_structured", "Audit (strukturerad webbgranskning)", "Primary model och fallback-kedja."),
@@ -751,6 +840,7 @@ def render(ctx: BackofficeContext) -> None:
             "Första prompten / orkestrering",
             "Provider / kontrakt",
             "Repair / budget / timeout",
+            "Per-tier policy",
             "Övriga route-modeller",
             "Workloads",
             "manifest.json",
@@ -772,6 +862,8 @@ def render(ctx: BackofficeContext) -> None:
         _render_provider_contracts(man_path, manifest)
     elif models_part == "Repair / budget / timeout":
         _render_repair_budget_timeout(ctx, man_path, manifest)
+    elif models_part == "Per-tier policy":
+        _render_per_tier_policies(manifest)
     elif models_part == "Övriga route-modeller":
         _render_other_route_models(man_path, manifest)
     elif models_part == "Workloads":
