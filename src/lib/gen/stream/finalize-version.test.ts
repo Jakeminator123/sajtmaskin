@@ -63,6 +63,10 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
 vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   isVerifierPassEnabled,
   runVerifierPass,
+  formatVerifierFindingsAsFixerErrors: (findings: {
+    blocking: Array<{ id: string; detail: string }>;
+  }) =>
+    findings.blocking.map((f) => `[verifier:${f.id}] ${f.detail}`),
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
@@ -734,6 +738,85 @@ describe("finalizeAndSaveVersion", () => {
       "ver_1",
       expect.stringContaining("Verifier reported"),
     );
+  });
+
+  it("feeds verifier blocking findings into runLlmFixer (closes verifier feedback loop)", async () => {
+    const cleanContent =
+      '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```';
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "navigation-placeholder-actions",
+          detail: "src/app/page.tsx: hero CTA href is empty",
+        },
+      ],
+      quality: [],
+    });
+    runLlmFixer.mockResolvedValueOnce({
+      fixedContent: cleanContent,
+      fixedFiles: ["src/app/page.tsx"],
+      missingFiles: [],
+      partial: false,
+      success: true,
+      durationMs: 1100,
+    });
+    const progressEvents: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+    await finalizeAndSaveVersion({
+      accumulatedContent: cleanContent,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "premium",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "strict",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      onProgress: (event, data) => progressEvents.push({ event, data }),
+    });
+
+    expect(runLlmFixer).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([
+        expect.stringContaining("[verifier:navigation-placeholder-actions]"),
+      ]),
+      expect.objectContaining({
+        abortSignal: expect.any(Object),
+      }),
+    );
+    expect(progressEvents).toContainEqual({
+      event: "verifier",
+      data: expect.objectContaining({ phase: "fixing", findingsCount: 1 }),
+    });
+    expect(progressEvents).toContainEqual({
+      event: "verifier",
+      data: expect.objectContaining({ phase: "fixed", fixerImproved: true }),
+    });
+    // When the fixer succeeds, the version should NOT be marked verifier-blocked.
+    expect(failVersionVerification).not.toHaveBeenCalled();
   });
 
   it("fails before persist when preflight detects partial file output", async () => {

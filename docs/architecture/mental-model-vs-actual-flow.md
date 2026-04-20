@@ -79,7 +79,7 @@ Tre paralella vägar — bara en av dem triggar automatisk repair, och **inte i 
 
 ### Nuvarande verklighet ✅ (opt-in)
 
-Ny exporterad funktion **`triggerBuildErrorRepair`** i [`server-verify.ts`](../../src/lib/gen/verify/server-verify.ts), gated bakom `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1`. Hookad i [`generation-stream-post-finalize.ts`](../../src/lib/providers/own-engine/generation-stream-post-finalize.ts) på båda `build-error`-emit-platserna. När flaggan är på:
+Ny exporterad funktion **`triggerBuildErrorRepair`** i [`server-verify.ts`](../../src/lib/gen/verify/server-verify.ts), gated av `isAutoRepairBuildErrorEnabled()`. **Sedan denna leverans (Wave 4):** default ON i `development` + Vercel `preview`, default OFF i `production`. `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1|true|false|on|off|yes|no` overridar default explicit. Hookad i [`generation-stream-post-finalize.ts`](../../src/lib/providers/own-engine/generation-stream-post-finalize.ts) på båda `build-error`-emit-platserna. När loopen är aktiv:
 
 1. `build-error` SSE skickas (samma beteende som innan — UI-banner)
 2. **Samtidigt** fire-and-forget `triggerBuildErrorRepair` som:
@@ -133,9 +133,9 @@ Tre verkliga uppkomstkällor identifierade och **alla nu blockerade**:
 | Pre-LLM systemprompt-assert | ✅ Klar (soft) | Slå på `SAJTMASKIN_STRICT_SYSTEM_PROMPT_ASSERT=1` i eval/CI |
 | Mekaniska fixers (~25 st) | ✅ Dokumenterade | Konsolidera bara med telemetri |
 | Lucide-fixers slagna ihop | ✅ Klar | `lucide-misuse-fixer.ts` ersätter två filer |
-| Auto-repair på `build-error` | ✅ Klar (opt-in) | Aktivera via `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1` |
+| Auto-repair på `build-error` | ✅ Klar — default ON i dev/preview sedan Wave 4 (2026-04-20) | `isAutoRepairBuildErrorEnabled()` läser `VERCEL_ENV`/`NODE_ENV`. `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0/1` overridar |
 | Escape-leakage-källor | ✅ Tre källor stängda | Ev. fjärde källa → systemprompt-assert flaggar |
-| F2 + `verificationPolicy: fast` skippar verify | ⚠️ By design | Auto-repair på `build-error` (ovan) täcker det vanligaste hålet |
+| F2 + `verificationPolicy: fast` skippar verify | ⚠️ By design | Auto-repair på `build-error` (ovan) täcker det vanligaste hålet, och **verifier-fynd matas nu in i `runLlmFixer`** pre-VM (Wave 2 2026-04-20) — så `quality-gate:verifier-blocking` reparerar sig själv när möjligt innan persist |
 | Versioner syns innan verify klar | ⚠️ By design | UI-badges (`verification_state`) är källan till sanning |
 | LLM-fixer kontextbredd | ⚠️ Litet | Endast `error.file/line/message` + targeted bundle. Att lägga in build-output (`npm run dev`-stderr) i kontexten skulle hjälpa svåra fall |
 

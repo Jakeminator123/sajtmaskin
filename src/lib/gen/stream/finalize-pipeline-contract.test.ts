@@ -28,7 +28,6 @@ describe("finalize-pipeline-contract", () => {
       "url_expand",
       "autofix",
       "validate_syntax",
-      "pre_vm_typecheck",
       "materialize_images",
       "verifier",
       "parse_merge_preflight",
@@ -46,12 +45,19 @@ describe("finalize-pipeline-contract", () => {
       "url_expand",
       "autofix",
       "validate_syntax",
-      "pre_vm_typecheck",
       "parse_merge_preflight",
     ]);
     expect(OWN_ENGINE_FINALIZE_DEEP_PATH_PHASES).toEqual([
       "materialize_images",
       "verifier",
     ]);
+  });
+
+  it("does not list pre_vm_typecheck as its own phase (merged into validate_syntax)", () => {
+    const ids = OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id) as string[];
+    expect(ids).not.toContain("pre_vm_typecheck");
+    expect(OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES as string[]).not.toContain(
+      "pre_vm_typecheck",
+    );
   });
 });

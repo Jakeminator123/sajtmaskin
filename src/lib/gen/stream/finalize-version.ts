@@ -16,7 +16,11 @@ import {
   type ScaffoldRetrySuggestion,
 } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
-import { isVerifierPassEnabled, runVerifierPass } from "@/lib/gen/verify/verifier-pass";
+import {
+  formatVerifierFindingsAsFixerErrors,
+  isVerifierPassEnabled,
+  runVerifierPass,
+} from "@/lib/gen/verify/verifier-pass";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -106,6 +110,18 @@ export interface FinalizeResult {
   preflight: PreviewPreflightSummary;
   /** Files whose new content was rejected (< 50% of prior size). Surfaced to user via SSE. */
   rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
+  /**
+   * Files reverted by the Element Preservation Guard (structural elements
+   * such as `<video>`, `<canvas>`, `<form>`, R3F `<Canvas>`, Rapier
+   * `<Physics>`, video/media components, section landmarks). Without
+   * surfacing this, follow-ups like "byt hero till intro" silently fail
+   * because the guard keeps the previous file. Surfaced to user via SSE
+   * so the builder can render an explicit warning.
+   */
+  rejectedStructural: Array<{
+    file: string;
+    droppedElements: Array<{ kind: string; label: string }>;
+  }>;
 }
 
 interface FinalizePathPolicy {
@@ -117,124 +133,7 @@ interface FinalizePathPolicy {
     | "light_followup_fast_policy";
 }
 
-async function runPreVmTypecheckPhase(params: {
-  chatId: string;
-  contentForVersion: string;
-  buildSpec?: BuildSpec | null;
-  resolvedScaffold: ScaffoldManifest | null;
-  onProgress?: FinalizeProgressCallback;
-  stepTelemetry: FinalizeStepTelemetryMap;
-  setContent: (next: string) => void;
-}): Promise<void> {
-  const startedAt = Date.now();
-  params.onProgress?.("pre_vm_typecheck", { phase: "start" });
-  try {
-    const { runPreVmTypecheck, formatTypecheckDiagnosticsForRepair } = await import(
-      "@/lib/gen/preview/warm-typecheck"
-    );
-    const { parseCodeProject } = await import("@/lib/gen/parser");
-    const project = parseCodeProject(params.contentForVersion).files;
-    const result = await runPreVmTypecheck({
-      scaffoldId: params.resolvedScaffold?.id ?? null,
-      files: project,
-      force: params.buildSpec?.previewPolicy === "fidelity3",
-    });
-    if (result.skipped) {
-      params.onProgress?.("pre_vm_typecheck", {
-        phase: "done",
-        durationMs: result.durationMs,
-        skipped: result.skipped,
-      });
-      params.stepTelemetry.pre_vm_typecheck = {
-        status: "skipped",
-        durationMs: result.durationMs,
-        reason: result.skipped,
-      };
-      return;
-    }
-    if (result.ok) {
-      params.onProgress?.("pre_vm_typecheck", {
-        phase: "done",
-        durationMs: result.durationMs,
-        diagnosticCount: 0,
-      });
-      params.stepTelemetry.pre_vm_typecheck = {
-        status: "done",
-        durationMs: result.durationMs,
-        diagnosticCount: 0,
-      };
-      return;
-    }
-
-    devLogAppend("in-progress", {
-      type: "pre-vm-typecheck.diagnostics",
-      chatId: params.chatId,
-      diagnosticCount: result.diagnostics.length,
-      sample: result.diagnostics.slice(0, 5),
-    });
-
-    // Try one repair pass via the LLM fixer with diagnostics as input.
-    try {
-      const { runLlmFixer: runLlmFixerLazy } = await import(
-        "@/lib/gen/autofix/llm-fixer"
-      );
-      const errors = formatTypecheckDiagnosticsForRepair(result.diagnostics);
-      const repaired = await runLlmFixerLazy(params.contentForVersion, errors, {});
-      if (repaired.success && repaired.fixedContent) {
-        // post-LLM mechanical pass: cleans up artifacts the LLM fixer may have
-        // introduced (bare imports, missing aliases). Always required after a
-        // fresh LLM output — not idempotent with the outer autofix earlier in
-        // the pipeline because content has changed.
-        const reFixed = await runAutoFix(repaired.fixedContent, {
-          previewPolicy: params.buildSpec?.previewPolicy,
-        });
-        params.setContent(reFixed.fixedContent);
-        params.onProgress?.("pre_vm_typecheck", {
-          phase: "repaired",
-          durationMs: Date.now() - startedAt,
-          diagnosticCount: result.diagnostics.length,
-        });
-        params.stepTelemetry.pre_vm_typecheck = {
-          status: "done",
-          durationMs: Date.now() - startedAt,
-          diagnosticCount: result.diagnostics.length,
-          repaired: true,
-        };
-        return;
-      }
-    } catch (repairErr) {
-      devLogAppend("in-progress", {
-        type: "pre-vm-typecheck.repair-error",
-        chatId: params.chatId,
-        message: repairErr instanceof Error ? repairErr.message : String(repairErr),
-      });
-    }
-
-    // Repair did not run or did not improve — log and continue.
-    params.onProgress?.("pre_vm_typecheck", {
-      phase: "done",
-      durationMs: Date.now() - startedAt,
-      diagnosticCount: result.diagnostics.length,
-      repaired: false,
-    });
-    params.stepTelemetry.pre_vm_typecheck = {
-      status: "done",
-      durationMs: Date.now() - startedAt,
-      diagnosticCount: result.diagnostics.length,
-      repaired: false,
-    };
-  } catch (err) {
-    params.onProgress?.("pre_vm_typecheck", {
-      phase: "error",
-      durationMs: Date.now() - startedAt,
-    });
-    params.stepTelemetry.pre_vm_typecheck = {
-      status: "error",
-      durationMs: Date.now() - startedAt,
-      reason: err instanceof Error ? err.message : "unknown",
-    };
-  }
-}
+const VERIFIER_REPAIR_TIMEOUT_MS = 60_000;
 
 type FinalizeStepStatus = "done" | "skipped" | "error";
 
@@ -261,6 +160,10 @@ interface FinalizeFastPathResult {
   scaffoldRetry: ScaffoldRetrySuggestion | null;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
   rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
+  rejectedStructural: Array<{
+    file: string;
+    droppedElements: Array<{ kind: string; label: string }>;
+  }>;
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 
@@ -687,6 +590,11 @@ async function runFinalizeFastPath(params: {
     resolvedTier,
     previewPolicy: buildSpec?.previewPolicy,
     alreadyMechanicallyFixed,
+    // Wave 3 consolidation: the warm-tsc pass now lives inside
+    // `validateAndFix` and runs after esbuild reaches `passed`. F3 keeps
+    // forcing it on so the integrations build always pays for the check.
+    resolvedScaffold,
+    forceTsc: buildSpec?.previewPolicy === "fidelity3",
     onProgress: (evt) => {
       onProgress?.("validate_syntax", {
         pass: evt.pass,
@@ -703,6 +611,7 @@ async function runFinalizeFastPath(params: {
     errorsBefore: syntaxResult.errorsBefore,
     errorsAfter: syntaxResult.errorsAfter,
     result: syntaxResult.status,
+    tsc: syntaxResult.tsc ?? null,
   });
   stepTelemetry.validate_syntax = createFinalizeStepTelemetry(validateStartedAt, "done", {
     fixerUsed: syntaxResult.fixerUsed,
@@ -711,6 +620,7 @@ async function runFinalizeFastPath(params: {
     errorsAfter: syntaxResult.errorsAfter,
     earlyStopReason: syntaxResult.earlyStopReason,
     result: syntaxResult.status,
+    tsc: syntaxResult.tsc ?? null,
   });
 
   if (syntaxResult.fixerUsed || syntaxResult.status !== "passed") {
@@ -726,21 +636,6 @@ async function runFinalizeFastPath(params: {
       resolvedTier: params.resolvedTier ?? null,
     });
   }
-
-  // Pre-VM typecheck (warm scaffold cache). Fail-open: when the cache
-  // isn't provisioned in this environment we just continue. F3 gens
-  // force the check so the integrations build always pays for it.
-  await runPreVmTypecheckPhase({
-    chatId,
-    contentForVersion,
-    buildSpec,
-    resolvedScaffold,
-    onProgress,
-    stepTelemetry,
-    setContent: (next) => {
-      contentForVersion = next;
-    },
-  });
 
   ensureNonEmptyGenerationContent({
     contentForVersion,
@@ -823,6 +718,97 @@ async function runFinalizeFastPath(params: {
         blockingCount: findings.blocking.length,
         qualityCount: findings.quality.length,
       });
+
+      // Close the verifier feedback loop: when there are blocking findings,
+      // feed them straight back into the LLM fixer with the same prompt
+      // shape used for syntax/typecheck repairs. Previously these findings
+      // were only logged + used to set `verificationBlocked` — paying for
+      // the verifier model with no chance for a quick auto-fix.
+      if (findings.blocking.length > 0) {
+        const verifierFixStartedAt = Date.now();
+        onProgress?.("verifier", {
+          phase: "fixing",
+          findingsCount: findings.blocking.length,
+        });
+        const fixerErrors = formatVerifierFindingsAsFixerErrors({
+          blocking: findings.blocking,
+        });
+        const fixerModel = resolvedTier
+          ? resolvePhaseModel(resolvedTier, "fixer").modelId
+          : undefined;
+        const fixerThinking = resolvedTier
+          ? resolvePhaseThinking(resolvedTier, "fixer")
+          : null;
+        const verifierFixAbort = new AbortController();
+        const verifierFixTimeout = setTimeout(
+          () => verifierFixAbort.abort(),
+          VERIFIER_REPAIR_TIMEOUT_MS,
+        );
+        let fixerImproved = false;
+        try {
+          const repaired = await runLlmFixer(contentForVersion, fixerErrors, {
+            model: fixerModel,
+            thinking: fixerThinking?.thinking,
+            reasoningEffort: fixerThinking?.reasoningEffort,
+            abortSignal: verifierFixAbort.signal,
+          });
+          if (repaired.success && repaired.fixedContent) {
+            const reFixed = await runAutoFix(repaired.fixedContent, {
+              chatId,
+              model,
+              previewPolicy: buildSpec?.previewPolicy,
+            });
+            contentForVersion = reFixed.fixedContent;
+            fixerImproved = true;
+            // Optimistic clear: the findings were addressed by the fixer.
+            // The version is no longer marked verifier-blocked unless a
+            // future re-run re-detects them. We deliberately do NOT
+            // re-run `runVerifierPass` here — it would add another
+            // 5-15 sek to `done`. Server-verify (Fas 3) catches anything
+            // the fixer missed.
+            verifierBlockingFindings = [];
+          }
+          devLogAppend("in-progress", {
+            type: "verifier-pass.fixer",
+            chatId,
+            findingsBefore: findings.blocking.length,
+            fixerImproved,
+            success: repaired.success,
+            partial: repaired.partial,
+            scaffoldId: params.resolvedScaffold?.id ?? null,
+          });
+          onProgress?.("verifier", {
+            phase: "fixed",
+            durationMs: Date.now() - verifierFixStartedAt,
+            findingsBefore: findings.blocking.length,
+            fixerImproved,
+          });
+        } catch (verifierFixErr) {
+          console.warn(
+            "[verifier-pass] Fixer pass failed, keeping advisory blockers:",
+            verifierFixErr,
+          );
+          devLogAppend("in-progress", {
+            type: "verifier-pass.fixer-error",
+            chatId,
+            message:
+              verifierFixErr instanceof Error
+                ? verifierFixErr.message
+                : "Unknown verifier fixer error",
+          });
+        } finally {
+          clearTimeout(verifierFixTimeout);
+        }
+        stepTelemetry.verifier = createFinalizeStepTelemetry(verifierStartedAt, "done", {
+          trigger: verifierPolicy.reason,
+          blockingCount: findings.blocking.length,
+          qualityCount: findings.quality.length,
+          fixerUsed: true,
+          fixerImproved,
+          findingsBefore: findings.blocking.length,
+          findingsAfter: verifierBlockingFindings.length,
+        });
+      }
     } catch (verifierErr) {
       console.warn("[verifier-pass] Non-fatal error, skipping:", verifierErr);
       onProgress?.("verifier", { phase: "error" });
@@ -858,7 +844,8 @@ async function runFinalizeFastPath(params: {
     previousFiles,
   });
   filesJson = mergeResult.filesJson;
-  const rejectedShrinks = mergeResult.rejectedShrinks;
+  let rejectedShrinks = mergeResult.rejectedShrinks;
+  let rejectedStructural = mergeResult.rejectedStructural;
 
   if (previousFiles && previousFiles.length > 0) {
     const previousContentLen = previousFiles.reduce((sum, f) => sum + (f.content?.length ?? 0), 0);
@@ -970,6 +957,10 @@ async function runFinalizeFastPath(params: {
         previousFiles,
       });
       filesJson = remergeResult.filesJson;
+      // Concat shrink/structural rejections from the remerge so the SSE
+      // payload reflects the full picture across both merge passes.
+      rejectedShrinks = [...rejectedShrinks, ...remergeResult.rejectedShrinks];
+      rejectedStructural = [...rejectedStructural, ...remergeResult.rejectedStructural];
 
       preflightResult = await runFinalizePreflight({
         chatId,
@@ -1070,6 +1061,7 @@ async function runFinalizeFastPath(params: {
     scaffoldRetry,
     verifierBlockingFindings,
     rejectedShrinks,
+    rejectedStructural,
     stepTelemetry,
   };
 }
@@ -1234,6 +1226,7 @@ export async function finalizeAndSaveVersion(
     scaffoldRetry,
     verifierBlockingFindings,
     rejectedShrinks,
+    rejectedStructural,
     stepTelemetry: fastPathStepTelemetry,
   } = await runFinalizeFastPath({
     chatId,
@@ -1626,5 +1619,6 @@ export async function finalizeAndSaveVersion(
       routePlan,
     },
     rejectedShrinks: rejectedShrinks ?? [],
+    rejectedStructural: rejectedStructural ?? [],
   };
 }

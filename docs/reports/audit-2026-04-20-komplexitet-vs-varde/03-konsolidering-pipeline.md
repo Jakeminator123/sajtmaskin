@@ -97,7 +97,9 @@ Se [`02-forbattringar.md`](./02-forbattringar.md) §1.5.
 
 ## §2 MEDEL konsolideringar (totalt ~1 vecka)
 
-### §2.1 Slå ihop `pre_vm_typecheck` och `validate_syntax` till ett steg
+### §2.1 Slå ihop `pre_vm_typecheck` och `validate_syntax` till ett steg — ✅ LEVERERAD 2026-04-20
+
+> **Status:** Implementerad. `runWarmTscPass` i [`src/lib/gen/autofix/validate-and-fix.ts`](../../../src/lib/gen/autofix/validate-and-fix.ts) körs efter esbuild når `passed`. `pre_vm_typecheck` borttaget från `OWN_ENGINE_POST_STREAM_PIPELINE`. F3 kvar på `forceTsc: true`. SSE-progress sammansläppt under `validate_syntax` med nya phases `tsc-validating`/`tsc-fixing`/`tsc-passed`/`tsc-skipped`. Glossary-rad "Validate-step (esbuild + warm tsc)" registrerad. Backoffice `pages/preview.py` synkad.
 
 | Fält | Värde |
 |------|-------|
@@ -179,7 +181,9 @@ Detta är **god rådgivning** men också ett tecken på att utvecklaren vet att 
 
 ## §3 STORA konsolideringar (totalt ~3 veckor)
 
-### §3.1 Ta bort `verifier`-passet (LLM read-only granskning)
+### §3.1 Verifier-passet — ✅ DELVIS LEVERERAD 2026-04-20 (alt 4: feedback-loop)
+
+> **Status:** Verifier-passet behållet, men feedback-loopen stängd. Blocking-fynd matas in i `runLlmFixer` direkt efter passet via `formatVerifierFindingsAsFixerErrors()` i [`verifier-pass.ts`](../../../src/lib/gen/verify/verifier-pass.ts) + 60 s timeout med scoped `phaseRouting.fixer`-modell i [`finalize-version.ts`](../../../src/lib/gen/stream/finalize-version.ts). Lyckad fixer-pass rensar `verifierBlockingFindings` så versionen inte markeras blocked för fynd som redan reparerats. Re-validation hoppas över för att undvika +5–15 sek på `done`. Asynk verifier (alt 2) eller borttagning (alt 1/3) kvarstår som möjlig framtida konsolidering.
 
 | Fält | Värde |
 |------|-------|

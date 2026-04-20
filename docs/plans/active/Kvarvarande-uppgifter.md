@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-20 (P27-validator: sektion A+B+D körda. Wave 2026-04 P21-P27 + P21b flyttade till `avklarat/`. Konsolideringspass samma datum: P22b:s caller-wiring landad i `chat-message-stream-post.ts` + P28 #6 lint-fix landad. P25b och resten av P28 stannar som känd skuld nedan. Backoffice `ai_models.py` synkad: ny "Per-tier policy"-tab visar `perTierTimeouts/RepairPolicies/Briefing` read-only. Edit görs via manifest.json-tabben tills accessor-funktioner landar.).
+Senast uppdaterad: 2026-04-20 (LLM-flöde Fas 2/3-leverans: Wave 1 strukturella drops i SSE + pre-VM typecheck-fixer hardening + golden-test fixture; Wave 2 verifier-fynd matas in i `runLlmFixer`; Wave 3 `pre_vm_typecheck` sammanslaget i `validate_syntax` (audit §2.1 stängd, §3.1 alt 4 levererad); Wave 4 `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR` default ON i dev/preview. Backoffice `pages/preview.py` synkad till nya validate-steget. Tidigare: P27-validator A+B+D körda; P22b caller-wiring; P28 #6 lint-fix. P25b och resten av P28 stannar som känd skuld nedan.).
 
 ## Öppna punkter
 
@@ -12,6 +12,19 @@ Senast uppdaterad: 2026-04-20 (P27-validator: sektion A+B+D körda. Wave 2026-04
 | 4 | Eval | Automatisk baseline-uppdatering (CI/script för eval-svit) | Låg | — |
 | 5 | UX polish | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. Kräver visuell verifiering. Tidigare spårad som P25b — plan-fil borttagen i konsolidering, scope kvar. | Låg | — |
 | 6 | Hygien-städ (rest av P28) | 7 pre-existing test-failures: env-encryption fail-closed (`project-env-vars.test.ts`), route × 2 (`v0/chats/[chatId]/route.test.ts`), preview-status × 2 (`v0/...preview-status` + `engine/...preview-status`), två stream-route-tests (mock-drift: behöver `createOwnEnginePipelineAndGenerationStream` + `tryGenerateServerAutoBrief` mockade). Plus schema-mismatch i `qualityGateTiers` (`docs/schemas/strict/manifest.schema.json`) och engine-test isolation (`engine.test.ts` failar i full suite men passerar standalone — `vi.resetModules()` saknas i någon av P22/P23/P26:s nya test-filer). Lint-felet `font-import-fixer.ts:45` är fixat (konsolidering 2026-04-20). | Låg | — |
+
+## Avklarat i LLM-flöde Fas 2/3-leverans (2026-04-20)
+
+| Vad | Var |
+|-----|-----|
+| Wave 1 — Element Preservation Guard rejections bubblas via SSE `done.rejectedStructural` + `warnLog`. Tidigare tysta "byt hero till intro"-buggen är nu observerbar både server-side och i UI:t. | `src/lib/gen/stream/finalize-merge.ts`, `src/lib/gen/stream/finalize-version.ts`, `src/lib/providers/own-engine/generation-stream-post-finalize.ts` |
+| Wave 1 — Pre-VM typecheck-fixern (medan den fortfarande var ett eget steg) fick `model`/`thinking`/`reasoningEffort`/`abortSignal` med 60 s timeout via `phaseRouting.fixer`. Hårdningen sögs upp i Wave 3-konsolideringen. | `src/lib/gen/stream/finalize-version.ts` (borttagen som del av Wave 3) |
+| Wave 1 — Remerge-shrinks/structural rejections efter partial-file repair konkateneras nu till de samlade arrayerna istället för att tappas. | `src/lib/gen/stream/finalize-version.ts` |
+| Wave 1 — Golden-test fixture uppdaterad med `rejectedShrinks` + `rejectedStructural` så `tsc --noEmit` går igen. | `src/lib/providers/own-engine/generation-stream.golden.test.ts` |
+| Wave 2 — Verifier blocking-fynd matas in i `runLlmFixer` direkt efter verifier-passet via `formatVerifierFindingsAsFixerErrors()`. Lyckad fixer-pass rensar `verifierBlockingFindings` så versionen inte markeras blocked. SSE `verifier`-eventet får `phase: "fixing"` och `phase: "fixed"`. Test täcker hela banan. (audit §3.1 alt 4) | `src/lib/gen/verify/verifier-pass.ts`, `src/lib/gen/stream/finalize-version.ts`, `src/lib/gen/stream/finalize-version.test.ts` |
+| Wave 3 — `pre_vm_typecheck` sammanslaget i `validate_syntax`. `runWarmTscPass` körs efter esbuild når `passed`, delar `fixBudgetMs` och `runLlmFixer`-loop. Pipeline-kontraktet uppdaterat (en fas mindre); `OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES` likaså. F3 sätter `forceTsc: true`. SSE phases utökade. (audit §2.1) | `src/lib/gen/autofix/validate-and-fix.ts`, `src/lib/gen/stream/finalize-pipeline-contract.ts`, `src/lib/gen/stream/finalize-version.ts`, `src/lib/gen/autofix/validate-and-fix.test.ts`, `src/lib/gen/stream/finalize-pipeline-contract.test.ts` |
+| Wave 4 — `triggerBuildErrorRepair` default ON i `development` + Vercel `preview`, default OFF i `production` via `isAutoRepairBuildErrorEnabled()`. Tidigare default OFF överallt — tysta vit-sida-buggar i dev när VM:en kraschade. | `src/lib/gen/verify/server-verify.ts`, `config/env-policy.json` |
+| Docs-sync: glossary-rader för Verifier Pass, Validate-step (esbuild + warm tsc), Element Preservation Guard, SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR. Pipeline-tabellen i `fas2-orchestration-and-build.md`. Mental-model-vs-actual-flow uppdaterad. Audit §2.1 + §3.1 markerade levererade. Backoffice `pages/preview.py` synkad. | `docs/architecture/glossary.md`, `docs/architecture/fas2-orchestration-and-build.md`, `docs/architecture/mental-model-vs-actual-flow.md`, `docs/reports/audit-2026-04-20-komplexitet-vs-varde/03-konsolidering-pipeline.md`, `backoffice/pages/preview.py` |
 
 ## Avklarat i konsolideringspass (2026-04-20)
 

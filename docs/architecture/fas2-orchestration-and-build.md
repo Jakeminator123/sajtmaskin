@@ -41,8 +41,9 @@ Relaterade dokument:
 | Finalize pipeline | `src/lib/gen/stream/finalize-version.ts` |
 | Pipelineordning | `src/lib/gen/stream/finalize-pipeline-contract.ts` |
 | Deterministisk autofix | `src/lib/gen/autofix/pipeline.ts` |
-| Syntax + LLM-fixer | `src/lib/gen/autofix/validate-and-fix.ts` |
-| Verifier-pass (read-only LLM) | `src/lib/gen/verify/verifier-pass.ts` |
+| Syntax + warm tsc + LLM-fixer | `src/lib/gen/autofix/validate-and-fix.ts` (esbuild + tsc i samma loop sedan 2026-04-20) |
+| Warm typecheck-runner | `src/lib/gen/preview/warm-typecheck.ts` (anropas fran `validateAndFix`, inte langre eget pipeline-steg) |
+| Verifier-pass (LLM + fixer-loop) | `src/lib/gen/verify/verifier-pass.ts` (`formatVerifierFindingsAsFixerErrors` matar fynd in i `runLlmFixer`) |
 | Parse/merge/preflight | `src/lib/gen/stream/finalize-merge.ts`, `src/lib/gen/stream/finalize-preflight.ts` |
 | Efter finalize (`done`, preview-start) | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` |
 
@@ -93,11 +94,26 @@ Efter codegen-streamen kor `finalizeAndSaveVersion()` med denna ordning:
 1. **`url_expand`** -> `expandUrls()` (kor forst sa autofix ser riktiga URL:er
    i import-paths, inte `{{MEDIA_N}}`-aliaser).
 2. **`autofix`** -> `runAutoFix()` (mekaniska fixar).
-3. **`validate_syntax`** -> `validateAndFix()` (mekanisk + LLM-fixer vid behov).
-   Anropas med `alreadyMechanicallyFixed: true` nar steg 2 just kort, sa det
-   initiala mekaniska passet inom validateAndFix hoppas over (idempotent).
+3. **`validate_syntax`** -> `validateAndFix()` (mekanisk + LLM-fixer vid
+   behov). Anropas med `alreadyMechanicallyFixed: true` nar steg 2 just
+   kort, sa det initiala mekaniska passet inom validateAndFix hoppas
+   over (idempotent). **Sedan 2026-04-20:** detta steg agar aven warm-tsc
+   passet (`runWarmTscPass`) som tidigare var ett separat `pre_vm_typecheck`-
+   steg. Esbuild kor forst; nar esbuild reaches `passed` kors `tsc --noEmit`
+   mot scaffold-cachen och eventuella TS-fel matas in i samma
+   `runLlmFixer`-loop med samma `fixBudgetMs`. F3 (`previewPolicy === "fidelity3"`)
+   forcear `forceTsc: true`. SSE-progress emitterar `phase`-vardena
+   `validating` / `fixing` / `tsc-validating` / `tsc-fixing` / `tsc-passed` /
+   `tsc-skipped` / `passed` / `gave-up` under samma `validate_syntax`-event.
 4. **`materialize_images`** -> endast full path; non-fatal vid fel.
 5. **`verifier`** -> endast full path + verifier-policy; non-fatal vid fel.
+   **Sedan 2026-04-20:** blocking-fynd matas in i `runLlmFixer` direkt efter
+   verifier-passet via `formatVerifierFindingsAsFixerErrors()` (samma
+   `phaseRouting.fixer`-modell + 60 s abort) och fixern's output kors
+   genom `runAutoFix` igen. Re-validation av verifier hoppas medvetet
+   over (skulle forlanga `done` med 5-15 sek); server-verify (Fas 3)
+   fangar resten. Lyckad fixer -> `verifierBlockingFindings = []` sa
+   versionen INTE markeras verifier-blocked.
 6. **`parse_merge_preflight`** -> parse, merge, preflight, integration-manifest.
 7. **Partial-file repair** -> om preflight hittar avhuggna filer, forsoks
    `partialFileRepairMaxAttempts` LLM-fixer-rundor (manifeststyrt, default 1,
@@ -123,7 +139,7 @@ och `contextPolicy: "light"` (om inga repair-villkor tvingar full path).
 | Typ | Exempel | Blockerar sparad version? |
 |---|---|---|
 | Blocking | `EmptyGenerationError`, `PartialFileOutputError` (efter konfigurerade repair-forsok) | Ja |
-| Kvalitetssignal | Verifier-fynd (`blocking`/`quality`) | Nej. `blocking` i verifiern ar advisory-severity och stoppar inte persist. |
+| Kvalitetssignal | Verifier-fynd (`blocking`/`quality`) | Nej. `blocking` i verifiern ar advisory-severity och stoppar inte persist (men sedan 2026-04-20 matas blocking-fynd in i `runLlmFixer` direkt efter verifier-passet, sa de oftast reparerats nar persist sker). |
 | Non-fatal | Bildmaterialisering/verifier kastar | Nej, pipeline fortsatter |
 | Observability | Telemetry, devlog, preflight-loggar | Nej |
 

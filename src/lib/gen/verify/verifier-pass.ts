@@ -44,6 +44,31 @@ const FORCE_BLOCKING_IDS = new Set<string>([
 ]);
 
 /**
+ * Format verifier blocking findings as fixer-style "errors" for `runLlmFixer`.
+ *
+ * The verifier returns free-form `detail` strings (often containing the file
+ * path inline). The fixer prompt expects errors that look like compiler
+ * output — `<file>:<line>:<col> <message>`. We can't always extract a real
+ * line/column from verifier output, so we synthesise `1:1` and prefix the
+ * detail with a marker so the fixer treats it as a quality blocker rather
+ * than a syntax error. The `id` is appended so downstream tooling can
+ * still map back to the verifier finding catalogue.
+ */
+export function formatVerifierFindingsAsFixerErrors(
+  findings: Pick<VerifierFindings, "blocking">,
+): string[] {
+  const lines: string[] = [];
+  for (const f of findings.blocking) {
+    const detail = f.detail.trim();
+    if (!detail) continue;
+    const looksLikePath = /^[A-Za-z0-9_./@-]+\.\w{1,5}:/.test(detail);
+    const prefix = looksLikePath ? "" : "verifier:1:1 ";
+    lines.push(`${prefix}[verifier:${f.id}] ${detail}`);
+  }
+  return lines;
+}
+
+/**
  * Promote known production-quality issues from `quality` to `blocking` so they
  * cannot silently slip through when the LLM mis-classifies them.
  */
