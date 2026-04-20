@@ -1,21 +1,40 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-20 (11 etapper levererade. Senaste: K) Stort pass 4 parallella write-subagents — backoffice observability-panel + Redis brief-cache (Tier B #20) + P19 Steg 1 ingress-telemetri + P20 Nivå 3 font-pairings-CI (en verklig violation rapporterad: `Source Sans 3` saknas i registry). Tier S = 7/7, Tier A = 9/12, Tier B = 5/13. P19 Steg 1+2+4 levererade, Steg 3 öppen. P20 alla 3 nivåer KLARA. P28 + P29 spår stängda. 1214/1214 tester gröna. Aktiva spår nedan.).
+Senast uppdaterad: 2026-04-20 efter 11 etapper (A-K) på master `9249a0994`. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** 1214/1214 tester gröna. Se `docs/plans/active/handoff-2026-04-20-next-session.md` för full handoff till nästa agent inkl. prompt-utkast.
 
-## Öppna punkter
+## Öppna punkter (smal lista — 6 saker)
 
-| # | Område | Beskrivning | Prio | P-fil |
-|---|--------|-------------|------|-------|
-| 1 | shadcn | Nivå 2 (Blocks → section recipes): **shrink-leverans 2026-04-20** — deterministic block-pick (DJB-hash istället för `Math.random`) i `community-registry-fetch.ts`. Fullt registry:block-integration ej levererad (subagent-rec: kräver inte). | Låg | P20 |
-| 2 | shadcn | Nivå 3: `registry:font` — **CI-MVP klar 2026-04-20** (`npm run typography:validate-pairings`). Hittade 1 verklig violation: `Source_Sans_3` saknas i registret men refereras av `editorial-serif.json`. Uppstrøms `registry:font`-ingestion fortfarande framtida arbete. | Låg | P20 |
-| 3 | Ingress | Old-content ingress hardening — Steg 1 + 2 + 4 klara 2026-04-20 (`preview_url` invalideras + v0-import freshness + ingress-telemetri på `reused_url`/`followup_base_*`). Återstår: Steg 3 (UI-transparens vid follow-up-bas != latest). | Låg | P19 |
-| 4 | Eval | Automatisk baseline-uppdatering (CI/script för eval-svit) | Låg | — |
-| 5 | UX polish | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. Kräver visuell verifiering. Tidigare spårad som P25b — plan-fil borttagen i konsolidering, scope kvar. | Låg | — |
-| 6 | Hygien-städ (rest av P28) | **STÄNGD 2026-04-20** efter full vitest-körning: alla 7 ursprungliga P28-fails är gröna (env-encryption, route × 2, preview-status × 2, isolation × 2 — fixades organiskt av Wave 1-4 + dagens hygien-pass). Två stream-route-tests (mock-drift) fixade samma dag genom att lägga till `rejectedShrinks: []` + `rejectedStructural: []` i mock-objekten. Schema-mismatch i `qualityGateTiers` löst (kanonisk path: `config/ai_models/manifest.schema.json`). Lint-fel borta. **Slutläge:** 1176 tester totalt, 1176 passar. | — | — |
-| 7 | API-yta | **DONE 2026-04-20:** P29 helt stängd. Fas 1A (18 testlösa v0-chat-routes) + Fas 1B (10 routes med migrerade tester + `v0-chats-compat.ts` borta) + Fas 2-beslut (7 Class C-routes på `/api/v0/` är canonical permanent — ej rename). Plan flyttad till `docs/plans/avklarat/P29-v0-engine-consolidation.md`. | — | — |
-| 8 | F2 quality-gate | **DONE 2026-04-20:** `build`-check aktiverad i `qualityGateTiers.designPreview`. Fångar Next-runtime-fel före preview-iframe. +5–10 USD/mån. | — | — |
-| 9 | Plans-arkiv | **DONE 2026-04-20:** `npm run plans:archive` (dry-run) + `:apply` (`git mv`) via `scripts/plans/auto-archive.mjs`. Hjälp för framtida agenter att hålla `docs/plans/active/` rensat. Audit Tier B #22 / §1.7. | — | — |
-| 10 | Observability | **DONE 2026-04-20:** Prometheus/OTel-grund + P50 prompt-to-done. Etapp I = metrics-modul + `/api/metrics` + 3 pipeline-wire-ins. Etapp J.1 = `sajtmaskin_prompt_to_done_ms`-histogram via SSE-byte-detection i `prompt-to-done-stream.ts`, wirad i båda stream-post-handlarna (init + followup). Token via `SAJTMASKIN_METRICS_TOKEN`. Audit Tier B #19 / §1.1 + Tier A #12. **Avlåser** även audit Tier A #16 (early-stop-inventering). | — | — |
+| # | Område | Beskrivning | Prio | Blocker |
+|---|--------|-------------|------|---------|
+| 1 | Typografi | **`Source_Sans_3`-violation** — refereras av `editorial-serif.json` men saknas i `google-font-registry.ts`. Verifiera med `npm run typography:validate-pairings`. Fix: lägg till i registret ELLER byt variant. | Låg | Produktbeslut (5 min) |
+| 2 | UX (P25b-rest) | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. | Låg | Visuell verifiering |
+| 3 | Ingress (P19 Steg 3) | UX-transparens vid follow-up-bas != latest ("du redigerar version X, inte senaste Y"). | Låg | UI-arbete (4–8h) |
+| 4 | Eval | Automatisk baseline-uppdatering (CI-script för eval-svit). | Låg | — |
+| 5 | shadcn (P20 Nivå 3) | Uppströms `registry:font`-ingestion (fullt format). CI-MVP-validering klar 2026-04-20. | Låg | Inte blockerande |
+| 6 | shadcn (P20 Nivå 2) | Uppströms `registry:block`-integration (fullt format). Deterministic-pick shrink-leverans klar 2026-04-20. | Låg | Inte blockerande |
+
+## Telemetri-blockad (vänta 1 vecka, sen plocka)
+
+| # | Vad | Counter att läsa |
+|---|---|---|
+| 7 | **Audit Tier A #16** Inventera early-stop-flaggor i `validateAndFix`/`runRepairLoop` | `sajtmaskin_early_stop_total{reason, phase}` |
+| 8 | **Audit §3.1** Verifier asynk eller helt bort | `sajtmaskin_verifier_blocking_total{finding_id}` |
+| 9 | **Audit §3.3** Partial-file-repair-removal (kräver också fast-tier byts till GPT-5+) | `sajtmaskin_partial_file_repair_total{outcome}` |
+| 10 | **Audit Tier A #12 / Audit Tier A #17** P50-utvärdering / Brief A/B-test | `sajtmaskin_prompt_to_done_ms_bucket{outcome, kind}` + `sajtmaskin_brief_cache_total{outcome}` |
+
+## Strategiska / stora satsningar
+
+| # | Vad | Effort | Värde |
+|---|---|---|---|
+| 11 | **Audit §3.2** Slå ihop `server-verify` + `quality-gate` + `accept-repair` | 1 vecka | -1 lifecycle-state, mer förutsägbar UX |
+| 12 | **Audit Tier D #38** WebContainers-migration | 2-3 veckor | **Boot 2-5 min → 5 sek (50-60×). Tar betyget 6.5 → 8.** |
+
+## Externa förutsättningar
+
+| # | Vad | Blocker |
+|---|---|---|
+| 13 | **Tier A #9** ÅÄÖ pre-commit hook | Husky/lint-staged install |
+| 14 | **FIXA.txt-spåret** (33+ konkreta bugs i genererad output) | Separat skuld-dokument, icke-kanoniskt; se handoff-fil för topp-5 |
 
 ## Avklarat i LLM-flöde Fas 2/3-leverans (2026-04-20)
 

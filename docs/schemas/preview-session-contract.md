@@ -131,9 +131,7 @@ Canonical route:
 
 - `POST /api/engine/chats/[chatId]/preview-session`
 
-Compat route:
-
-- `POST /api/v0/chats/[chatId]/preview-session`
+(Tidigare `/api/v0/chats/[chatId]/preview-session`-aliaset borttaget i P29 Fas 1B 2026-04-20.)
 
 Primary response contract lives in:
 
@@ -163,7 +161,7 @@ Canonical routes:
 - `POST /api/engine/chats/[chatId]/preview-hibernate`
 - `POST /api/engine/chats/[chatId]/preview-destroy`
 
-Compat routes exist under `/api/v0/chats/[chatId]/...`.
+(Tidigare `/api/v0/chats/[chatId]/...`-aliases borttagna i P29 Fas 1B 2026-04-20.)
 
 Stable contract types:
 
