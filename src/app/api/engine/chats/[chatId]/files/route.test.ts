@@ -91,7 +91,7 @@ describe("own-engine file route parity", () => {
     updateVersionFiles.mockResolvedValue(true);
 
     const response = await PATCH(
-      new Request("https://example.com/api/v0/chats/chat_1/files", {
+      new Request("https://example.com/api/engine/chats/chat_1/files", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -122,7 +122,7 @@ describe("own-engine file route parity", () => {
 
     const response = await DELETE(
       new Request(
-        "https://example.com/api/v0/chats/chat_1/files?versionId=ver_1&fileName=src%2Fapp%2Fpage.tsx",
+        "https://example.com/api/engine/chats/chat_1/files?versionId=ver_1&fileName=src%2Fapp%2Fpage.tsx",
         {
           method: "DELETE",
         },

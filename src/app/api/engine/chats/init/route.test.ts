@@ -57,7 +57,7 @@ vi.mock("@/lib/rateLimit", () => ({
 
 import { POST } from "./route";
 
-describe("POST /api/v0/chats/init", () => {
+describe("POST /api/engine/chats/init", () => {
   beforeEach(() => {
     createProject.mockReset();
     saveProjectData.mockReset();
@@ -103,7 +103,7 @@ describe("POST /api/v0/chats/init", () => {
     const buffer = await zip.generateAsync({ type: "nodebuffer" });
 
     const response = await POST(
-      new Request("https://example.com/api/v0/chats/init", {
+      new Request("https://example.com/api/engine/chats/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

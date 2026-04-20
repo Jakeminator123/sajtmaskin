@@ -73,7 +73,7 @@ vi.mock("drizzle-orm", () => ({
 
 import { GET } from "./route";
 
-describe("GET /api/v0/chats/[chatId]", () => {
+describe("GET /api/engine/chats/[chatId]", () => {
   beforeEach(() => {
     shouldUseV0Fallback.mockReturnValue(false);
     getEngineChatByIdForRequest.mockReset();
@@ -110,7 +110,7 @@ describe("GET /api/v0/chats/[chatId]", () => {
       repair_available_at: null,
     });
 
-    const response = await GET(new Request("https://example.com/api/v0/chats/chat_1"), {
+    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1"), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const json = await response.json();
@@ -149,7 +149,7 @@ describe("GET /api/v0/chats/[chatId]", () => {
       repair_available_at: null,
     });
 
-    const response = await GET(new Request("https://example.com/api/v0/chats/chat_1"), {
+    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1"), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const json = await response.json();
@@ -166,7 +166,7 @@ describe("GET /api/v0/chats/[chatId]", () => {
     getEngineChatByIdForRequest.mockResolvedValue(null);
     getChatByV0ChatIdForRequest.mockResolvedValue(null);
 
-    const response = await GET(new Request("https://example.com/api/v0/chats/chat_external"), {
+    const response = await GET(new Request("https://example.com/api/engine/chats/chat_external"), {
       params: Promise.resolve({ chatId: "chat_external" }),
     });
 

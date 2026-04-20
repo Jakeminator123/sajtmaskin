@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const handleCreateChatStreamPost = vi.hoisted(() => vi.fn());
@@ -87,6 +88,58 @@ describe("/api/engine/chats POST (sync JSON)", () => {
     });
   });
 
+  it("passes through non-SSE responses from the shared stream handler (migrated from v0)", async () => {
+    handleCreateChatStreamPost.mockResolvedValue(
+      NextResponse.json({ error: "bad" }, { status: 400 }),
+    );
+
+    const res = await POST(
+      new Request("https://example.com/api/engine/chats", {
+        method: "POST",
+        body: JSON.stringify({ message: "x" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("bad");
+  });
+
+  it("converts SSE transcript to JSON for create-chat (migrated from v0)", async () => {
+    const sse = [
+      "event: meta",
+      'data: {"enginePath":"own-engine","promptStrategy":"direct","modelId":"gpt-test"}',
+      "",
+      "event: done",
+      'data: {"chatId":"chat_1","versionId":"ver_1","messageId":"msg_1","previewPending":false,"preflight":{"previewBlocked":false,"verificationBlocked":false,"previewBlockingReason":null}}',
+      "",
+    ].join("\n");
+
+    handleCreateChatStreamPost.mockResolvedValue(
+      new Response(sse, {
+        status: 200,
+        headers: { "content-type": "text/event-stream; charset=utf-8" },
+      }),
+    );
+
+    const res = await POST(
+      new Request("https://example.com/api/engine/chats", {
+        method: "POST",
+        body: JSON.stringify({ message: "Bygg en sida" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.id).toBe("chat_1");
+    expect(json.internalChatId).toBe("chat_1");
+    expect(json.meta).toMatchObject({ enginePath: "own-engine", promptStrategy: "direct" });
+    expect(json.latestVersion).toMatchObject({
+      versionId: "ver_1",
+      messageId: "msg_1",
+    });
+  });
+
   it("does not promote compatibility shim preview-ready to canonical previewUrl", async () => {
     const sse = [
       "event: meta",
@@ -136,5 +189,20 @@ describe("/api/engine/chats GET", () => {
     const res = await GET(new Request("https://example.com/api/engine/chats?projectId=x"));
     const json = await res.json();
     expect(json.chats).toEqual([]);
+  });
+
+  it("returns empty chats when projectId is missing (migrated from v0)", async () => {
+    const res = await GET(new Request("https://example.com/api/engine/chats"));
+    const json = await res.json();
+    expect(json.chats).toEqual([]);
+  });
+
+  it("lists chats for an owned project (migrated from v0)", async () => {
+    vi.mocked(getAppProjectByIdForRequest).mockResolvedValue({ id: "proj_internal" } as never);
+    vi.mocked(listChatsByProject).mockResolvedValue([{ id: "c1" }] as never);
+
+    const res = await GET(new Request("https://example.com/api/engine/chats?projectId=ext_1"));
+    const json = await res.json();
+    expect(json.chats).toEqual([{ id: "c1" }]);
   });
 });

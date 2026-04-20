@@ -75,7 +75,7 @@ vi.mock("drizzle-orm", () => ({
 
 import { GET, PATCH } from "./route";
 
-describe("GET /api/v0/chats/[chatId]/versions", () => {
+describe("GET /api/engine/chats/[chatId]/versions", () => {
   beforeEach(() => {
     shouldUseV0Fallback.mockReturnValue(false);
     getEngineChatByIdForRequest.mockReset();
@@ -109,7 +109,7 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
       },
     ]);
 
-    const response = await GET(new Request("https://example.com/api/v0/chats/chat_1/versions"), {
+    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1/versions"), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const json = await response.json();
@@ -138,7 +138,7 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     ]);
     buildPreviewUrl.mockReturnValue("/api/preview-render?chatId=chat_1&versionId=ver_ok");
 
-    const response = await GET(new Request("https://example.com/api/v0/chats/chat_1/versions"), {
+    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1/versions"), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
     const json = await response.json();
@@ -155,7 +155,7 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     getChatByV0ChatIdForRequest.mockResolvedValue(null);
 
     const response = await GET(
-      new Request("https://example.com/api/v0/chats/chat_external/versions"),
+      new Request("https://example.com/api/engine/chats/chat_external/versions"),
       { params: Promise.resolve({ chatId: "chat_external" }) },
     );
     const json = await response.json();
@@ -173,7 +173,7 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     updateVersionPreviewUrl.mockResolvedValue(true);
 
     const response = await PATCH(
-      new Request("https://example.com/api/v0/chats/chat_1/versions", {
+      new Request("https://example.com/api/engine/chats/chat_1/versions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
