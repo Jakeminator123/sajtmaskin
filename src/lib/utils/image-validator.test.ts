@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractImageRefs, type TextFile } from "./image-validator";
+import { extractImageRefs, validateImages, type TextFile } from "./image-validator";
 
 describe("extractImageRefs", () => {
   it("extracts CSS background-image urls", () => {
@@ -25,6 +25,37 @@ describe("extractImageRefs", () => {
         file: "app/page.tsx",
       },
     ]);
+  });
+
+  // SAJ-18 / A3: source.unsplash.com was shut down in mid-2024.
+  it("flags source.unsplash.com URLs as broken without HEAD round-trip", async () => {
+    const files: TextFile[] = [
+      {
+        name: "app/page.tsx",
+        content: `
+          export default function Page() {
+            return (
+              <>
+                <img src="https://source.unsplash.com/random/800x600?hotel" alt="hotel exterior" />
+                <img src="https://source.unsplash.com/featured/?ocean" alt="ocean view" />
+              </>
+            );
+          }
+        `,
+      },
+    ];
+
+    const result = await validateImages({
+      files,
+      autoFix: false,
+      unsplashAccessKey: null, // No replacements possible without key, but detection should still fire.
+    });
+
+    expect(result.broken).toHaveLength(2);
+    for (const b of result.broken) {
+      expect(b.status).toBe(410);
+      expect(b.url).toContain("source.unsplash.com");
+    }
   });
 
   it("does not treat JavaScript URL constructors as image refs", () => {
