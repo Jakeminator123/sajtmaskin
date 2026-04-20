@@ -54,21 +54,37 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      // Get metadata
       const userId = session.metadata?.userId;
       const packageId = session.metadata?.packageId;
-      const diamonds = parseInt(session.metadata?.diamonds || "0", 10);
+      const rawDiamonds = session.metadata?.diamonds;
+      const diamonds = rawDiamonds ? parseInt(rawDiamonds, 10) : 0;
 
-      if (!userId || !diamonds) {
-        console.error("[Stripe/webhook] Missing metadata:", session.metadata);
-        return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
+      // Validate that diamonds is a positive integer (parseInt returns NaN for
+      // garbage input, which the previous `!diamonds` only caught coincidentally
+      // because NaN is falsy — but didn't catch e.g. "-50" or "1.5").
+      if (!userId || !Number.isFinite(diamonds) || diamonds <= 0) {
+        // Permanent failure — Stripe must NOT retry. Log session.id only
+        // (no metadata blob) to avoid leaking PII into logs.
+        console.error(
+          "[Stripe/webhook] Rejecting session with invalid metadata:",
+          session.id,
+          "(event:",
+          event.id + ")",
+        );
+        return NextResponse.json({ received: true, ignored: "invalid_metadata" });
       }
 
-      // Verify user exists
       const user = await getUserById(userId);
       if (!user) {
-        console.error("[Stripe/webhook] User not found:", userId);
-        return NextResponse.json({ error: "User not found" }, { status: 400 });
+        // Permanent failure — Stripe must NOT retry. User won't materialize
+        // by retrying the webhook. Log session.id only, never raw userId.
+        console.error(
+          "[Stripe/webhook] Rejecting session with unknown user:",
+          session.id,
+          "(event:",
+          event.id + ")",
+        );
+        return NextResponse.json({ received: true, ignored: "unknown_user" });
       }
 
       try {
