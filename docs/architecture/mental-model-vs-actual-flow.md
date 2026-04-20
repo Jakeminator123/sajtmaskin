@@ -145,7 +145,7 @@ Den enda återstående medvetna gråzonen är "version visas i UI innan verify k
 
 ## Var ska jag titta för djup-detaljer?
 
-- **Pre-LLM och prompt-komposition**: [`llm-flow-end-to-end.md`](./llm-flow-end-to-end.md), [`llm-flow-fas1-plan.md`](./llm-flow-fas1-plan.md)
+- **Pre-LLM och prompt-komposition**: [`llm-flow-end-to-end.md`](./llm-flow-end-to-end.md)
 - **Post-stream pipeline (autofix → verify → preview-boot)**: `src/lib/gen/stream/finalize-pipeline-contract.ts` (canonical ordering), `src/lib/gen/autofix/pipeline.ts` (fixer-family map)
 - **Repair-loopen**: `src/lib/gen/verify/repair-loop.ts`, `src/lib/gen/verify/server-verify.ts`
 - **Build-error auto-repair**: `triggerBuildErrorRepair` i `server-verify.ts`, hookad i `generation-stream-post-finalize.ts`

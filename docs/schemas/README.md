@@ -54,7 +54,7 @@ coding-direction). The directive cascade (`config/prompt-directives/` +
 `directive-loader.ts`) was removed 2026-04-18; the two used files are now
 plain core fragments. Full pipeline context (loader, checks, debug dumps,
 fallbacks) is summarized in
-[`docs/architecture/builder-generation.md`](../architecture/builder-generation.md).
+[`docs/architecture/fas2-orchestration-and-build.md`](../architecture/fas2-orchestration-and-build.md).
 
 For runtime scaffold input specifically, also read `scaffold-contract.md`.
 

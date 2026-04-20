@@ -1,269 +1,255 @@
-# Fas 1 — Startprompt: LLM-flöde och scaffold-kedja
+# Fas 1 — Startprompt: prompt → streamstart
 
-Detaljerad kartläggning av vad som händer från att användaren skriver en prompt
-till att own-engine-strömmen startar (eller misslyckas).
+Vad som händer från knapptryck på landningssidan tills LLM-streamen startar (eller misslyckas).
+
+**Senast uppdaterad:** 2026-04-20. **Kod är source of truth.** Ordlista: [glossary.md](./glossary.md).
 
 ---
 
-## Flödesöversikt (mindmap-stil)
+## Init-flöde (ny chatt)
+
+### 1. Landning → Builder
+
+`startBuild()` i `src/components/landing-v2/use-landing-controller.ts`:
+- `createProject()` → `appProjectId`
+- `POST /api/prompts` → `promptId`
+- `router.push("/builder?project=X&promptId=Y&buildMethod=freeform")`
+
+### 2. Builder läser URL-handoff
+
+`deriveBuilderEntryState(searchParams)` i `src/app/builder/builder-entry.ts`:
+
+| Prio | Villkor | entryKind |
+|---|---|---|
+| 1 | `templateId` finns | `template` |
+| 2 | `source === "audit"` | `audit` |
+| 3 | `prompt` eller `promptId` | `prompt-handoff` |
+| 4 | `project` utan `chatId` | `project-restore` |
+| 5 | Inget | `blank` |
+
+Prompten fylls i inputfältet via `useBuilderDerivedState`. **Ingen chatt skapas ännu.**
+
+### 3. Modell- och promptverktyg
+
+| Val | Var | Påverkar |
+|---|---|---|
+| Byggmodell (`selectedModelTier`) | UI | Codegen via `manifest.json` `buildProfiles` |
+| Promptverktyg (`promptAssistModel`) | UI | Brief / rewrite — separat från codegen |
+| Djup brief (`promptAssistDeep`) | UI | Endast första prompten i ny chat (`canUseDeepBrief = !chatId`) |
+
+### 4. Klicka "Skapa" → klient-pipeline
+
+`useCreateChat.requestCreateChat()`:
+
+1. `applyDynamicInstructionsForNewChat()` (`useBuilderPromptActions.ts`)
+   - `generateDynamicInstructions()` (`useInitBrief.ts`)
+   - Vid deep brief: `POST /api/ai/brief` → `generateSiteBriefObject()` → `pendingBriefRef`
+2. `createNewChat()` (`useCreateChat.ts`)
+   - Om `pendingBriefRef` finns → rå prompt (briefen bärs i `meta.brief`)
+   - Annars `formatPrompt()` (MÅL/TILLGÄNGLIGHET-wrapper)
+   - Bilagor via `appendAttachmentPrompt()`
+3. Bygger `meta`-objekt och `POST /api/engine/chats/stream` (SSE)
+
+```ts
+meta = {
+  promptOriginal, promptFormatted, isFirstPrompt: true,
+  buildIntent, buildMethod, scaffoldMode, scaffoldId,
+  designTheme, themeColors, palette,
+  promptAssistModel, promptAssistMode, promptAssistDeep,
+  modelTier, buildProfileId, imageGenerations,
+  brief?, // om klient-brief
+}
+```
+
+### 5. Server: `create-chat-stream-post.ts`
 
 ```
-Användaren skriver prompt på landingssidan
-│
-├── startBuild()  [use-landing-controller.ts]
-│   ├── createProject()
-│   ├── POST /api/prompts  →  promptId
-│   └── router.push("/builder?project=X&promptId=Y&buildMethod=freeform")
-│
-└── Builder tar emot prompt-handoff
-    │
-    ├── deriveBuilderEntryState()  [builder-entry.ts]
-    │   └── entryKind: "prompt-handoff" | "template" | "audit" | "blank"
-    │
-    ├── resolvedPrompt → initialPrompt i ChatInterface  [useBuilderDerivedState.ts]
-    │   └── Förifylls i inputfältet, INGEN chat skapas ännu
-    │
-    ├── Användaren väljer modell + promptverktyg + djup brief
-    │   ├── Byggmodell (selectedModelTier): fast | pro | max | codex | anthropic
-    │   │   └── Mappar till provider-modell via manifest.json buildProfiles
-    │   ├── Promptverktyg (promptAssistModel): openai/gpt-5.4, anthropic/claude-opus-4.6, ...
-    │   │   └── Separat från byggmodell — styr brief/rewrite, inte codegen
-    │   └── Djup brief (promptAssistDeep): boolean, default true
-    │       └── Gäller BARA första prompten i ny chat (canUseDeepBrief = !chatId)
-    │
-    └── Användaren klickar skicka → requestCreateChat()
-        │
-        ├── 1. applyDynamicInstructionsForNewChat()  [useBuilderPromptActions.ts]
-        │   ├── generateDynamicInstructions()  [useInitBrief.ts]
-        │   │   ├── Om assist = "off": skippar, bygger enkel addendum
-        │   │   ├── Om deep brief:
-        │   │   │   ├── POST /api/ai/brief  (client-side deep brief)
-        │   │   │   │   ├── generateSiteBriefObject()  [site-brief-generation.ts]
-        │   │   │   │   ├── Använder createDirectModel() → OPENAI_API_KEY / ANTHROPIC_API_KEY
-        │           │   │   │   ├── Schema: siteBriefSchema (enda schemat; null vid fail → server auto-brief)
-        │   │   │   │   └── Returnerar brief-objekt med briefQuality: "full" | "server-auto" | "none"
-        │   │   │   └── Brief sparas i pendingBriefRef
-        │   │   └── Om shallow: bygger prompt-addendum från heuristik
-        │   └── Sätter customInstructions + pendingBriefRef
-        │
-        ├── 2. createNewChat()  [useCreateChat.ts]
-        │   ├── Formaterar prompt:
-        │   │   ├── Om pendingBriefRef finns: skickar råtext (briefen bärs i meta.brief)
-        │   │   └── Om ingen brief: formatPrompt() wrapper (MÅL/TILLGÄNGLIGHET)
-        │   ├── Bygger promptMeta med: brief, modelId, modelTier, scaffold, palette, etc.
-        │   └── POST /api/engine/chats/stream  (SSE)
-        │
-        └── 3. Server: create-chat-stream-post.ts
-            │
-            ├── parseChatRequestMeta(meta)
-            ├── resolveModelSelection() → canonisk tier + engineModel
-            ├── orchestratePromptMessage() → strategi (direct/phase/preserved)
-            │
-            ├── Brief-resolution:
-            │   ├── clientBriefFromMeta = meta.brief (från steg 1)
-            │   ├── Om client-brief saknas: shouldRunServerAutoBrief()?
-            │   │   └── tryGenerateServerAutoBrief() → server-side fallback
-            │   └── effectiveBrief = clientBriefFromMeta ?? serverAutoBrief
-            │   └── ⚠️ DUBBEL BRIEF: båda kan köras om client-brief
-            │       inte hinner med innan create-chat startar
-            │
-            ├── Orchestrering: prepareGenerationContext()  [orchestrate.ts]
-            │   ├── resolveOrchestrationBase()
-            │   │   ├── Scaffold-val:
-            │   │   │   ├── off → ingen scaffold
-            │   │   │   ├── manual → getScaffoldById(scaffoldId)
-            │   │   │   ├── persisted → befintlig scaffold
-            │   │   │   └── auto → matchScaffoldAuto() (keyword + embedding)
-            │   │   ├── Route plan: buildRoutePlan()
-            │   │   ├── Pre-generation contracts: inferPreGenerationContracts()
-            │   │   ├── BuildSpec: deriveBuildSpec()
-            │   │   └── Component references: loadShadcnExamples() + community blocks
-            │   │
-            │   └── finalizeOrchestrationPrompts()
-            │       ├── buildDynamicContext() → system prompt med alla lager
-            │       ├── composeEngineSystemPrompt()
-            │       └── Scaffold variant, template guidance, structural files
-            │
-            ├── Pipeline: createOwnEnginePipelineAndGenerationStream
-            │   ├── createGenerationPipeline()  [engine.ts]
-            │   │   ├── getOpenAIModel(engineModel) → AI SDK provider
-            │   │   ├── streamText({ model, system, messages, tools, maxSteps })
-            │   │   │   ├── tools = getAgentTools()  ← NYCKEL FÖR TOOL-ONLY BUG
-            │   │   │   │   ├── suggestIntegration  (nu med execute → non-blocking)
-            │   │   │   │   ├── requestEnvVar        (nu med execute → non-blocking)
-            │   │   │   │   ├── askClarifyingQuestion (INGEN execute → blocking)
-            │   │   │   │   └── emitPlanArtifact      (INGEN execute → plan mode)
-            │   │   │   └── maxSteps: 4 (tillåter multi-step efter tool result)
-            │   │   └── createCodeGenSSEStream() → SSE events
-            │   │
-            │   └── createOwnEngineGenerationStream()  [generation-stream.ts]
-            │       ├── Parserar SSE: content, thinking, tool-call, done
-            │       ├── emitOwnEngineToolCallSse() för tool calls
-            │       ├── accumulatedContent byggs från content-events
-            │       └── Vid done: finalizeAndSaveVersion() eller handleEmptyGeneration()
-            │
-            └── Finalize-pipeline (om kod genererades):
-                ├── url_expand
-                ├── autofix
-                ├── validate_syntax (ev. LLM-fixer)
-                ├── materialize_images
-                ├── verifier
-                └── parse_merge_preflight → version sparas
+parseChatRequestMeta(meta)
+  → resolveModelSelection() → canonisk tier + engineModel
+  → orchestratePromptMessage() → strategi (direct | phase | preserved)
+  → Brief-resolution:
+      effectiveBrief = clientBriefFromMeta ?? tryGenerateServerAutoBrief()
+  → prepareGenerationContext() (orchestrate.ts)
+      → resolveOrchestrationBase() (scaffold, route plan, contracts, BuildSpec, refs)
+      → finalizeOrchestrationPrompts() (system prompt + scaffold variant)
+  → createOwnEnginePipelineAndGenerationStream()
+      → streamText({ model, system, messages, tools, maxSteps: 4 })
+      → SSE: content, thinking, tool-call, done
+  → finalizeAndSaveVersion() (autofix → validate → verify → persist)
 ```
 
 ---
 
-## Follow-up (uppföljning i befintlig chat)
+## Deep Brief
 
-Follow-up skiljer sig från init på fyra sätt:
+LLM-genererat strukturerat objekt som beskriver sajten. Produceras av `generateSiteBriefObject()` i `src/lib/builder/site-brief-generation.ts` med Vercel AI SDK `generateObject` + `siteBriefSchema`.
+
+### Schema (siteBriefSchema)
 
 ```
-Användaren skickar ny prompt i befintlig chat (chatId finns)
-│
-├── useSendMessage() eller requestCreateChat() om chatId saknas
-│   ├── Ingen deep brief körs (canUseDeepBrief = false)
-│   ├── formatPrompt() wrapping (MÅL/TILLGÄNGLIGHET) — inte brief
-│   └── POST /api/engine/chats/[chatId]/stream
-│
-└── Server: chat-message-stream-post.ts
-    │
-    ├── Hämtar befintlig chat (engineChat) + persisted scaffold
-    ├── resolveFollowUpPreviousFiles()
-    │   └── Läser senaste versionens filer från DB
-    │
-    ├── Follow-up-specifik logik:
-    │   ├── followUpIntent: classifyFollowUpIntent()
-    │   │   └── "neutral" | "clear-redesign" | "copy-change" | ...
-    │   ├── followUpClarification: checkFollowUpClarification()
-    │   │   └── Kan trigga askClarifyingQuestion om beslut behövs
-    │   ├── deriveFollowUpContextPolicy()
-    │   │   └── "light" för enkla ändringar, "normal" för tyngre
-    │   └── buildFileContext() — wraps user prompt med:
-    │       ├── Befintliga filer (komprimerade)
-    │       ├── Change scope hints
-    │       └── Continuity-instruktioner
-    │
-    ├── Orchestrering (samma som init men med skillnader):
-    │   ├── scaffoldMode = "persisted" (inte "auto")
-    │   ├── generationMode = "followUp"
-    │   ├── brief skickas INTE — utgår från befintlig scaffold + filer
-    │   ├── Route plan fryser ofta befintliga routes
-    │   └── Capability-heavy follow-ups behåller contextPolicy: "normal"
-    │
-    └── Pipeline + finalize (samma kedja som init)
+projectTitle, brandName,
+pages[]: { name, sections[]: { name, purpose, heroPosition, ctaText } },
+visualDirection: { styleKeywords[], colorScheme, mood },
+imagery: { strategy, examples },
+uiNotes, seo: { title, description },
+domainProfile, motionLevel, qualityBar, seasonalHints,
+mustHave[], avoid[], toneAndVoice[]
 ```
 
-### Viktiga skillnader init vs follow-up
+`briefQuality`: `"full" | "server-auto" | "none"`. Endast `siteBriefSchema` finns — `simplifiedBriefSchema` är borttaget.
 
-| Aspekt | Init (ny chat) | Follow-up (befintlig chat) |
-|--------|---------------|---------------------------|
-| Deep Brief | Ja (om assist är på) | Nej |
-| Server auto-brief | Ja (fallback) | Nej |
-| Scaffold-val | auto/manual | persisted |
-| Previous files | Inga | Senaste version |
+### Två vägar till brief
+
+| Väg | Trigger | Källa |
+|---|---|---|
+| Klient-brief | Användaren har brief-verktyget på | `meta.brief` |
+| Server auto-brief | `shouldRunServerAutoBrief() === true` | `tryGenerateServerAutoBrief()` |
+
+### Server auto-brief körs **inte** om
+
+- `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF === "1"`
+- Klienten redan skickade brief
+- `promptSourceTechnical` eller `promptSourcePreservePayload`
+- `promptType === "audit"`
+- Follow-up (`followup_general` / `followup_technical`)
+- Orchestration-reason: `technical_content_preserved` / `preserve_registry_payload`
+
+### Modellval för brief
+
+`resolveRunnableBriefModel()`:
+- Default: `AUTO_BRIEF_MODEL_OPENAI` / `AUTO_BRIEF_MODEL_ANTHROPIC` (från `config/ai_models/manifest.json`)
+- Om bara en API-nyckel finns → byter till tillgänglig leverantör
+- Båda saknas → ingen brief
+
+---
+
+## Scaffold-val
+
+I `orchestrate.ts` → `matchScaffoldAuto()` (`src/lib/gen/scaffolds/matcher.ts`).
+
+| Läge | Beteende |
+|---|---|
+| `off` | Inget scaffold |
+| `manual` | Användaren valde specifikt scaffold-id |
+| `auto` | Keyword + embedding-matchning |
+| `persisted` | Follow-up: `getScaffoldById(persistedScaffoldId)` |
+
+### Auto-matchning
+
+1. **Keyword** (synkron): 9 listor (landing, saas, portfolio, blog, dashboard, app, auth, ecommerce, content) tvåspråkigt. Hospitality-veto: restaurang/frisör blockerar ecommerce om inte starka e-handelsord finns.
+2. **Embedding** (parallell): `searchScaffoldsWithDiagnostics()` → OpenAI embeddings vs förberäknade scaffold-vektorer (cosine).
+3. **Merge-policy**: Embeddings kan override:a keyword om score ≥ 0.35 (eller 0.45 mot generiskt keyword) och safety guards passerar (auth kräver auth-keywords, etc.).
+
+---
+
+## Capability-inferens
+
+`inferCapabilities(prompt)` i `src/lib/gen/capability-inference.ts` — **deterministisk regex**, ingen LLM.
+
+Flaggor: `needsMotion`, `needs3D`, `needsCharts`, `needsDatabase`, `needsAuth`, `needsAppShell`, `needsDataUI`, `needsForms`, `needsEcommerce`, `needsCarousel`, `needsPremiumVisuals`, `needsCalendar`, `needsCommandSearch`, `needsThemeToggle`.
+
+Boostar scaffold-matchning och styr prompt-kontext.
+
+---
+
+## Route Plan
+
+`buildRoutePlan()` i `src/lib/gen/route-plan.ts`.
+
+| Källa | Prioritet |
+|---|---|
+| Brief (`pages[]`) | Primär om den har routes |
+| Scaffold-defaults | Blog → `/blog/[slug]`, ecommerce → `/products`, ... |
+| Prompt-patterns | Regex: `/about`, `/contact`, `/pricing`, ... |
+
+Output: `RoutePlan { routes[], siteType, provenance }`.
+
+---
+
+## Follow-up (befintlig chatt)
+
+`useSendMessage` → `POST /api/engine/chats/[chatId]/stream` → `chat-message-stream-post.ts`.
+
+| Aspekt | Init | Follow-up |
+|---|---|---|
+| Deep Brief | Klient eller server auto | Ingen (delta-brief vid redesign) |
+| Scaffold | `auto`/`manual` | `persisted` |
+| Previous files | Inga | Senaste version (`resolveFollowUpPreviousFiles()`) |
 | File context | Ingen wrapping | Befintliga filer + change scope |
-| Follow-up intent | N/A | Klassificeras |
-| Clarification | Möjlig via contracts | Möjlig via follow-up check |
-| generationMode | "init" | "followUp" |
+| Routes | Fri planering | Frysta — explicit add/remove krävs |
+| Continuity | Ingen | `prependOrchestrationContinuityToFollowUp()` |
+| `isFirstPrompt` | `true` | `false` |
+| `generationMode` | `"init"` | `"followUp"` |
+| Follow-up intent | N/A | `classifyFollowUpIntent()` |
+| Clarification | Pre-generation contracts | `checkFollowUpClarification()` |
+| Context policy | N/A | `deriveFollowUpContextPolicy()` (`light` / `normal`) |
 
 ---
 
-## API-routing (direkt provider, inte gateway)
-
-Alla LLM-anrop i builder-flödet går via direkta provider-API:er:
+## API-routing (direkt provider, ingen gateway)
 
 | Syfte | Funktion | Nyckel |
-|-------|----------|--------|
+|---|---|---|
 | Codegen (own-engine) | `getOpenAIModel()` | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` |
-| Brief / prompt-assist | `createDirectModel()` | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` |
+| Brief / prompt-assist | `createDirectModel()` | samma |
 | Prompt rewrite/polish | `createDirectModel()` | samma |
 
-`PromptAssistProvider` är nu `"openai" | "anthropic"` — den gamla `"gateway"`-etiketten
-är borttagen ur runtime-typer. HTTP-scheman accepterar `"gateway"` för bakåtkompatibilitet
-och normaliserar till `"openai"` server-side.
+`PromptAssistProvider` är `"openai" | "anthropic"`. HTTP-scheman accepterar `"gateway"` för bakåtkompatibilitet och normaliserar till `"openai"` server-side.
 
 ---
 
-## Kända problem (2026-04-15)
+## Tools tillgängliga i streamText
 
-### P1 — Tool-only output (fixat)
-Modellen anropar `suggestIntegration`/`requestEnvVar` men genererar ingen kod.
-**Orsak:** Verktygen saknade `execute`-funktioner, så AI SDK multi-step-loopen
-avbröts efter tool calls utan att modellen fick tool-resultat att fortsätta med.
-**Fix:** `execute` tillagt på non-blocking tools.
+`getAgentTools()`. `maxSteps: 4` tillåter multi-step efter tool-result.
 
-### P2 — Dubbel brief
-Client-side deep brief och server auto-brief kan köras parallellt.
-Om client-brief inte hinner med innan create-chat startar skickas
-ingen `meta.brief`, och servern triggar sin egen auto-brief.
-
-### P3 — Brief schema: Anthropic structured output (löst)
-`simplifiedBriefSchema` är borttaget; `siteBriefSchema` är enda schemat
-(`src/lib/builder/site-brief-generation.ts`). Tidigare `grammar compilation`-fel
-hos Anthropic var kopplade till den dubbla schemalösningen som inte längre finns.
-
-### P4 — Env-panel visar inte preview-placeholders
-`ProjectEnvVarsPanel` jämför bara sparade projektvariabler.
-Preview-merge-lagret (placeholders + preview-token + project-env + generated)
-syns inte i UI, vilket ger intryck av "saknas" för nycklar som tier-2 redan
-skulle ha via placeholder.
-
-### P5 — Placeholder-lucka: NEXT_PUBLIC_SITE_URL
-Flaggas som relevant i `detect-integrations.ts` och finns numera i
-`40-harmless-placeholders.env.txt` (klassad som harmlös via
-`src/lib/integrations/placeholder-harmless.ts`).
-
-### P6 — Brief-loggning asymmetrisk
-OpenAI-grenen loggar `brief.full` i devLog. Anthropic-grenen gör det inte.
-Om du kör Anthropic som prompt-assist syns brief-resultatet inte i lokala loggar.
-
-### P7 — Överlappande prompt-lager
-Flera omskrivningsvägar existerar parallellt:
-- Deep Brief (strukturerad brief → meta.brief)
-- Prompt Rewrite ("Förbättra"-knappen)
-- Prompt Polish ("Skriv om"-knappen)
-- formatPrompt() (MÅL/TILLGÄNGLIGHET-wrapper)
-- Server-side prompt orchestration
-- Server auto-brief (fallback)
-
-### P8 — "Laddar preview..." fastnar trots att sajten renderas (fixat)
-Preview-overlayen ("Laddar preview...") förblir synlig trots att VM:en kör
-och sajten renderas i iframen. Användaren kan inte interagera med sajten.
-**Orsak:** Race condition i SSE-hantering:
-1. SSE `done` → `setPreviewPending(true)` (stream-handlers.ts:764)
-2. SSE `preview-ready` → `setPreviewPending(false)` (stream-handlers.ts:673)
-3. `.then()` i useCreateChat.ts:306 → `setPreviewPending(data.previewPending)` → sätter tillbaka `true`
-4. Bootstrap-effekten i useBuilderVmPreview.ts ser att URL redan är live → early return utan att cleara `previewPending`
-**Fix:** Lade till `setPreviewPending(false)` i bootstrap-effektens early-return-guard
-(useBuilderVmPreview.ts:225) när preview-URL redan är en live tier-2-URL.
-
-### P9 — Unsplash-query parsar garbage (fixat)
-Image-materialization skickar meningslösa queries (t.ex. `}`) till Unsplash API.
-**Orsak:** `sanitizeQuery()` i image-materializer.ts strippar template literals
-och backticks men inte code artifacts ({, }, [, ], <, >, ;, =). Ingen
-minimilängd-check på den sanitiserade queryn.
-**Fix:** Lade till stripping av code-tecken + `isViableImageQuery()` guard
-(kräver minst 3 word-tecken).
-
-### P10 — UI-kosmetik under generering
-Noterade under testgenerering 2026-04-15:
-- Rå JSX-kod visas i chatpanelen (`<div style={{ ... }}>`) istället för att
-  döljas bakom fillistan
-- "Förbättra" / "Skriv om"-knappar förblir disabled efter avslutad generering
-- "Inga versioner ännu" visas under aktiv generering (borde visa progress)
-- Filbadge-inkonsekvens under streaming: `site-footer.tsx 352` (utan L-suffix)
-  vs `85L` — normaliseras först efter avslut
-- "Lansering"-sektionen visar "1 varning" + "verifying" under pågående
-  quality gate — oklart om detta ska exponeras för slutanvändare
+| Tool | `execute` | Effekt |
+|---|---|---|
+| `suggestIntegration` | Ja | Non-blocking — modellen fortsätter koda |
+| `requestEnvVar` | Ja | Non-blocking |
+| `askClarifyingQuestion` | Nej | Blocking — frågar användaren |
+| `emitPlanArtifact` | Nej | Plan mode |
 
 ---
 
-## Förenklingskandidater (notering, inte beslut)
+## Kodfiler (huvudflöde)
 
-- Konsolidera "gateway"-etiketten till "openai-class" eller ta bort den.
-- Slå ihop eller tydliggör brief-vägarna (client vs server auto).
-- Reducera brief-schemat så det klarar Anthropic structured output.
-- Ge env-panelen synlighet för preview-placeholder-lagret.
-- Symmetrisera brief-loggning mellan providers.
-- Undvik att `.then()` i useCreateChat.ts blindt skriver `previewPending`
-  från done-data — kontrollera om `preview-ready` redan clearat den.
+| Steg | Fil |
+|---|---|
+| Landning → builder | `src/components/landing-v2/use-landing-controller.ts` |
+| URL-parsing | `src/app/builder/builder-entry.ts` |
+| Klient skapar chatt | `src/lib/hooks/chat/useCreateChat.ts` |
+| Follow-up skickar | `src/lib/hooks/chat/useSendMessage.ts` |
+| Init brief-orchestration | `src/lib/hooks/chat/useInitBrief.ts` |
+| Prompt-formatering | `src/lib/builder/promptAssist.ts` |
+| Deep Brief | `src/lib/builder/site-brief-generation.ts` |
+| Auto-brief policy | `src/lib/builder/server-auto-brief-policy.ts` |
+| Orchestration | `src/lib/gen/orchestrate.ts` |
+| Scaffold-matchning | `src/lib/gen/scaffolds/matcher.ts` |
+| Embedding-sökning | `src/lib/gen/scaffolds/scaffold-search.ts` |
+| Capability-inferens | `src/lib/gen/capability-inference.ts` |
+| Route plan | `src/lib/gen/route-plan.ts` |
+| Server init-handler | `src/lib/api/engine/chats/create-chat-stream-post.ts` |
+| Server follow-up-handler | `src/lib/api/engine/chats/chat-message-stream-post.ts` |
+
+---
+
+## Kända problem (2026-04-20)
+
+| ID | Område | Status |
+|---|---|---|
+| P2 | Dubbel brief: client+server kan båda köra om klient-brief inte hinner före request | Öppet |
+| P4 | `ProjectEnvVarsPanel` visar inte preview-merge-lagret (placeholders + project-env + generated) | Öppet |
+| P6 | Anthropic-grenen loggar inte `brief.full` i devLog (asymmetrisk logging) | Öppet |
+| P7 | Flera överlappande prompt-lager: Deep Brief, Rewrite, Polish, formatPrompt, server-auto-brief | Öppet |
+| P10 | UI-kosmetik under generering (rå JSX i chat, knappar disabled, badge-inkonsistens) | Öppet |
+
+Lösta tidigare: P1 tool-only output (execute lades till), P3 brief-schema (simplified borttaget), P5 NEXT_PUBLIC_SITE_URL (klassad som harmless), P8 preview overlay race (bootstrap-guard), P9 Unsplash garbage queries (sanitize + viability check).
+
+---
+
+## Förenklingskandidater
+
+- Slå ihop brief-vägarna (client vs server-auto) eller gör dem strikt sekventiella.
+- Symmetrisera brief-loggning OpenAI/Anthropic.
+- Reducera prompt-lager: en kanonisk path (Deep Brief eller Rewrite, inte båda).
+- Synliggör placeholder-merge i env-panelen.

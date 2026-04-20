@@ -102,7 +102,7 @@ Not runtime dependencies:
 | **Rot-träd** (snabb: var mappar ligger) | [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) |
 | **Arkitektur** (fyra kapitel) | [`docs/architecture/README.md`](architecture/README.md) |
 | System / motor / builder-entry | [`docs/architecture/system-overview.md`](architecture/system-overview.md) |
-| Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/builder-generation.md`](architecture/builder-generation.md) |
+| Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/fas2-orchestration-and-build.md`](architecture/fas2-orchestration-and-build.md) |
 | LLM-roller och signallager | [`docs/schemas/llm-role-matrix.md`](schemas/llm-role-matrix.md), [`docs/schemas/orchestration-signal-contract.md`](schemas/orchestration-signal-contract.md), [`docs/architecture/llm-signal-flow.md`](architecture/llm-signal-flow.md) |
 | Fas 2: orkestrering, LLM-input, finalize / validate / verifier / preflight | [`docs/architecture/fas2-orchestration-and-build.md`](architecture/fas2-orchestration-and-build.md) |
 | Fas 3: preview, VM, quality-gate, deploy | [`docs/architecture/fas3-preview-and-deploy.md`](architecture/fas3-preview-and-deploy.md) |

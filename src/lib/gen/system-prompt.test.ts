@@ -158,7 +158,7 @@ describe("buildDynamicContext", () => {
       // Generic guidance fields (styleRules, sectionInventory, avoidPatterns,
       // worldClassRubric) were removed from variants 2026-04-17 (Val A) — the
       // variant block now relies on its high-signal design axes (motif, fonts,
-      // promptHints, themeTokens). See docs/architecture/scaffold-variants-inventory.md.
+      // promptHints, themeTokens). See docs/architecture/scaffold-schema.md.
       const { context } = await buildDynamicContext({
         intent: "website",
         generationMode: "init",

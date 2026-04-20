@@ -13,7 +13,7 @@
 **Djupare ämnesdokument** (lägg inte in backlog eller långa tabeller här):
 
 - Preview / sandbox / credentials: [`architecture/fas3-preview-and-deploy.md`](./architecture/fas3-preview-and-deploy.md)
-- Modeller / assist / builder-generering: [`architecture/builder-generation.md`](./architecture/builder-generation.md), `src/lib/models/catalog.ts`
+- Modeller / assist / builder-generering: [`architecture/fas2-orchestration-and-build.md`](./architecture/fas2-orchestration-and-build.md), `src/lib/models/catalog.ts`
 - Historisk nyckeljämförelse (utan hemligheter): borttagen — se git-historik
 
 ---
@@ -98,8 +98,8 @@ När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host 
 
 Djupare ämnen:
 
-- Modellprofiler och override-nycklar: `docs/schemas/model-build-profiles.md`, `docs/architecture/builder-generation.md`, `config/ai_models/manifest.json`
-- OpenClaw / avatar: `docs/architecture/builder-generation.md`, `src/lib/config.ts`
+- Modellprofiler och override-nycklar: `docs/schemas/model-build-profiles.md`, `docs/architecture/fas2-orchestration-and-build.md`, `config/ai_models/manifest.json`
+- OpenClaw / avatar: `docs/architecture/system-overview.md`, `src/lib/config.ts`
 - Exporterade Next-projekt och preview-host: `docs/architecture/fas3-preview-and-deploy.md`, `preview-host/README.md`
 - DB-skrivskydd: `scripts/README.md`
 

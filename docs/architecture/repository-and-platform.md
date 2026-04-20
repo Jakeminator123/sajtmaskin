@@ -21,7 +21,7 @@ Osäkra utkast kan ligga som egna filer under `active/` tills de flyttas till `a
 
 - **Git** bestämmer vad som följer med clone/PR; stora lokala kataloger (`logs/`, `data/`) är ofta ignorerade.
 - **`.cursorignore`** styr indexering i Cursor — inte samma som git.
-Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-indexing.mdc) (ignore-filer, workspace).
+Detalj: [`.cursor/rules/repo-router.mdc`](../../.cursor/rules/repo-router.mdc) (ignore-filer, workspace).
 
 ## Skript och scaffolds
 
@@ -42,7 +42,7 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 
 2. **Vercel-mallar / externa referenser**
    - källa: `e2e/vercel-templates/*`
-   - rå pipeline: `data/external-template-pipeline/*`
+   - rå dossier-pipeline: `data/dossiers/*` (`_raw/`, `_index/`, `_repo-cache/`)
    - används för extern research, dossiers och scaffold research
    - embeddings: `src/lib/gen/template-library/template-library-embeddings.json`
 
@@ -67,7 +67,7 @@ Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` �
 
 - Discovery pipeline, Playwright-spec och koppling till externa referenser/scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`scripts/README.md`](../../scripts/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
 - `e2e/vercel-templates/*` är **automatiserad extern intake**, inte runtime.
-- `data/external-template-pipeline/reference-library/` och dess **dossiers** är build-time researchmaterial. Runtime own-engine läser inte dossiers direkt; `build-template-library.ts` kondenserar dem först till `src/lib/gen/template-library/template-library.generated.json` och `src/lib/gen/scaffolds/scaffold-research.generated.json`, som sedan används som referens-/researchartefakter i scaffold- och promptflöden.
+- `data/dossiers/` är den nya kanoniska dossier-pipen (sedan 2026-04). Runtime own-engine läser dossiers via `_index/dossier-embeddings.json` (cosine-match) → `selectDossiersForRequest()` i `orchestrate.ts` → `## Available Dossiers` + `## Selected Dossier Instructions` i system prompt. Den gamla `data/external-template-pipeline/reference-library/` är borttagen. Generated artifacts (`template-library.generated.json`, `scaffold-research.generated.json`) finns kvar tills Fas 9 av roadmapen är genomförd. Se [dossier-pipeline-roadmap.md](./dossier-pipeline-roadmap.md).
 
 ## Inspector / Playwright worker
 

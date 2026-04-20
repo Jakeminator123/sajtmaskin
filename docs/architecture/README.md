@@ -1,54 +1,101 @@
-# Arkitektur — oversikt
+# Arkitektur — översikt
 
-**Senast strukturerad om:** 2026-04-15
+**Senast uppdaterad:** 2026-04-20.
 
-Detta ar ingangssidan for arkitekturdokumentationen.
+Ingångssida för arkitekturdokumentationen.
 
-- Kod ar alltid source of truth.
-- Fasnamn (Fas 1/2/3) ar kanoniska.
-- "Steg 3/4/5" anvands inte langre som primar struktur i docs.
+- **Kod är alltid source of truth.**
+- Fasnamn (Fas 1 / Fas 2 / Fas 3) är kanoniska. "Steg 3/4/5" och "Fas 4" används inte längre.
+- Hierarki vid konflikt: `docs/schemas/strict/*.schema.json` > `docs/schemas/*.md` > docs/architecture > backoffice (`sajtmaskin_backoffice.py`).
 
 ---
 
 ## Snabb orientering
 
-- Rottrad och mappansvar: [repo-tree.md](./repo-tree.md)
-- Terminologi: [`../../.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc)
-- Full ordlista: [glossary.md](./glossary.md)
+| | Dokument |
+|---|---|
+| Rottrad och mappansvar | [repo-tree.md](./repo-tree.md) |
+| Repohygien, plattformsgräns, OpenClaw-yta | [repository-and-platform.md](./repository-and-platform.md) |
+| Hög nivå: motor, builder, preview, deploy | [system-overview.md](./system-overview.md) |
+| Full ordlista | [glossary.md](./glossary.md) |
+| Terminologi-rule | [`../../.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc) |
+| Plan/doc-policy | [documentation-lifecycle.md](./documentation-lifecycle.md) |
 
 ---
 
-## Fasdokument (kanonisk LLM-kedja)
+## Kanonisk LLM-kedja (fasdokument)
 
 | Fas | Dokument | Fokus |
 |---|---|---|
-| 1 | [fas1-startprompt-flow.md](./fas1-startprompt-flow.md) | Prompt in, assist, brief, init/follow-up-ingang |
-| 2 | [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) | Orkestrering, LLM-input, finalize/autofix/verifier/persist |
+| 1 | [fas1-startprompt-flow.md](./fas1-startprompt-flow.md) | Prompt in, assist, brief, init/follow-up-ingång |
+| 2 | [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) | Orkestrering, LLM-input, finalize/autofix/verify/persist |
 | 3 | [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md) | Preview-host/VM, lifecycle, quality-gate, deploy |
 
----
+Komplement:
 
-## Ovriga centrala dokument
-
-| Dokument | Vad det tacker |
+| Dokument | Vad det täcker |
 |---|---|
-| [builder-generation.md](./builder-generation.md) | Kort nav for builderns LLM-pipeline |
-| [llm-signal-flow.md](./llm-signal-flow.md) | Hur signallager samspelar i kedjan |
-| [preview-white-screen-runbook.md](./preview-white-screen-runbook.md) | Felsokning av vit/tom preview |
-| [scaffold-schema.md](./scaffold-schema.md) | Scaffold-systemets fulla schema |
-| [scaffold-variants-inventory.md](./scaffold-variants-inventory.md) | Per-scaffold och per-variant inventarium med kvalitetsbedomning + cleanup-forslag (beslutsunderlag) |
-| [template-scaffold-lane.md](./template-scaffold-lane.md) | Botten-till-toppen-karta: Vercel-skrapan -> dossiers -> library -> variants -> runtime-prompt. Lane-ownership-dokument. |
-| [dossier-format.md](./dossier-format.md) | Schema och kontrakt for dossier-mappar (data/dossiers/). Kategorier, faltforklaringar, embedding-strategi. |
-| [dossier-pipeline-roadmap.md](./dossier-pipeline-roadmap.md) | Fas-uppdelad plan for nya dossier-pipen (skrap -> kuration -> embeddings -> runtime-migration -> avveckling av gammal pipeline). Trackar progress. |
-| [system-overview.md](./system-overview.md) | Hog niva: motor, builder, preview, deploy |
-| [repository-and-platform.md](./repository-and-platform.md) | Repohygien, plattformsgrans och nav |
+| [llm-flow-end-to-end.md](./llm-flow-end-to-end.md) | "Vad händer när användaren skickar en prompt?" — kort end-to-end |
+| [llm-signal-flow.md](./llm-signal-flow.md) | Hur signallager samspelar + ägarmatris (canonical source per signal) |
+| [mental-model-vs-actual-flow.md](./mental-model-vs-actual-flow.md) | Användarintuition vs verklig implementation (system-prompt assert, autofix, repair, escape) |
+| [followup-design-intent-gap.md](./followup-design-intent-gap.md) | Varför design-intent follow-ups ibland missar `globals.css` |
 
 ---
 
-## Snabblankar till kod
+## Scaffold-system
+
+| Dokument | Vad |
+|---|---|
+| [scaffold-schema.md](./scaffold-schema.md) | Scaffold-systemets fulla schema + per-scaffold/per-variant inventarium med kvalitetsbedömning |
+| [component-library-policy.md](./component-library-policy.md) | Policy: scaffolds vs shadcn vs capability-gated deps |
+
+---
+
+## Dossier-pipeline
+
+| Dokument | Vad |
+|---|---|
+| [dossier-format.md](./dossier-format.md) | Schema och kontrakt för `data/dossiers/`-mappar |
+| [dossier-pipeline-roadmap.md](./dossier-pipeline-roadmap.md) | Fas-uppdelad plan: skrap → kuration → embeddings → runtime → avveckling. Inkl. lane-karta |
+| [dossier-promotion-flow.md](./dossier-promotion-flow.md) | Operativt: skiss → draft → active. Backoffice-flöde |
+
+---
+
+## Drift och felsökning
+
+| Dokument | Vad |
+|---|---|
+| [preview-white-screen-runbook.md](./preview-white-screen-runbook.md) | Felsökning av vit/tom preview |
+
+---
+
+## Modellbanor i buildern (snabbreferens)
+
+| Bana | Vad den styr |
+|---|---|
+| Byggmodell (`fast`/`pro`/`max`/`codex`/`anthropic`) | Generation/refine-streamen |
+| Prompt assist | Deep brief, rewrite och promptverktyg |
+| Polish | "Skriv om"-lanen (lätt omskrivning) |
+| Thinking | Resonemangsflagga, inte separat modellbana |
+
+Kanonisk modellkarta: `docs/schemas/model-build-profiles.md` + `config/ai_models/manifest.json`.
+
+---
+
+## Stream + handoff (snabbreferens)
+
+- `done` = versionen är finaliserad och sparad. Inte att preview är klar.
+- Efter `done` kan servern skicka `preview-ready` eller `build-error`.
+- `done.previewPending` = Fas 3 fortsätter direkt efter Fas 2.
+
+---
+
+## Snabblänkar till kod
 
 - `src/lib/gen/`
 - `src/lib/providers/own-engine/`
 - `src/lib/models/catalog.ts`
 - `config/ai_models/manifest.json`
 - `docs/schemas/README.md`
+
+OpenClaw/Sajtagenten ligger bredvid own-engine-pipen: `src/components/openclaw/`, `/api/openclaw/*`, `/avatar`, `/api/did/chat`. Inte en lane i builderns own-engine.
