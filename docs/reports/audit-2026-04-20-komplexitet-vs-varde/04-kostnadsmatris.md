@@ -16,37 +16,37 @@
 
 ## TIER S — gör imorgon (ROI 9–10)
 
-| # | Åtgärd | Typ | Svårighet | Tid | Mån-kostnad | ROI | Källa |
-|---|--------|-----|-----------|-----|-------------|-----|-------|
-| 1 | `prefer-const` lint-fix | B | enkel | 2 min | 0 | 10 | `01-buggar.md` §1.1 |
-| 2 | `.gitignore` Turbopack-cache | B | enkel | 5 min | 0 | 10 | `01-buggar.md` §1.2 |
-| 3 | Manifest-schema sync (`designPreview/integrationsBuild`) | B | enkel | 30 min | 0 | 9 | `01-buggar.md` §1.6 |
-| 4 | ESLint `--cache` flag | F | enkel | 1 h | 0 | 9 | `02-forbattringar.md` §1.2 |
-| 5 | `.editorconfig` | F | enkel | 15 min | 0 | 9 | `02-forbattringar.md` §1.8 |
-| 6 | P28 7 pre-existing failures | B | medel | ½ dag | 0 | 9 | `01-buggar.md` §2.1 |
-| 7 | Aktivera `build` i F2 quality gate | F+B | enkel | 1 h | +5–10 USD | 9 | `01-buggar.md` §1.5 + `02-forbattringar.md` §1.4 |
+| # | Åtgärd | Typ | Svårighet | Tid | Mån-kostnad | ROI | Källa | Status |
+|---|--------|-----|-----------|-----|-------------|-----|-------|--------|
+| 1 | `prefer-const` lint-fix | B | enkel | 2 min | 0 | 10 | `01-buggar.md` §1.1 | ✅ DONE |
+| 2 | `.gitignore` Turbopack-cache | B | enkel | 5 min | 0 | 10 | `01-buggar.md` §1.2 | ✅ DONE |
+| 3 | Manifest-schema sync (`designPreview/integrationsBuild`) | B | enkel | 30 min | 0 | 9 | `01-buggar.md` §1.6 | ✅ DONE |
+| 4 | ESLint `--cache` flag | F | enkel | 1 h | 0 | 9 | `02-forbattringar.md` §1.2 | ✅ DONE |
+| 5 | `.editorconfig` | F | enkel | 15 min | 0 | 9 | `02-forbattringar.md` §1.8 | ✅ DONE (preexisterande) |
+| 6 | P28 7 pre-existing failures | B | medel | ½ dag | 0 | 9 | `01-buggar.md` §2.1 | ✅ DONE |
+| 7 | Aktivera `build` i F2 quality gate | F+B | enkel | 1 h | +5–10 USD | 9 | `01-buggar.md` §1.5 + `02-forbattringar.md` §1.4 | ✅ DONE |
 
-**Tier S-summa:** ~1 dag arbete, +5–10 USD/mån löpande, master grön.
+**Tier S-summa:** **7/7 KLART 2026-04-20.** Master grön (1172/1172), -10 USD/mån (`v0-chats-compat.ts` + lint-cache), +5–10 USD/mån (build i F2). Netto ~0.
 
 ---
 
 ## TIER A — nästa sprint (ROI 7–8)
 
-| # | Åtgärd | Typ | Svårighet | Tid | Mån-kostnad | ROI | Källa |
-|---|--------|-----|-----------|-----|-------------|-----|-------|
-| 8 | `tsc --build` projektreferenser | F | enkel | 1 h | 0 | 8 | `02-forbattringar.md` §1.3 |
-| 9 | Pre-commit ÅÄÖ-hook | B | enkel | 30 min | 0 | 8 | `01-buggar.md` §1.3 |
-| 10 | Filnamn `övergipande` typo | B | enkel | 5 min | 0 | 8 | `01-buggar.md` §1.4 |
-| 11 | Slå ihop `predev`/`prebuild` | F+K | enkel | 30 min | 0 | 8 | `02-forbattringar.md` §1.5 |
-| 12 | P50 prompt → preview metric | F | medel | 2 dagar | 0 | 8 | `02-forbattringar.md` §2.1 |
-| 13 | Slå ihop `pre_vm_typecheck` + `validate_syntax` | K | medel | 2 dagar | -2–3 USD | 8 | `03-konsolidering-pipeline.md` §2.1 |
-| 14 | Konsolidera `/api/v0/*` ↔ `/api/engine/*` | K | stor | 1 vecka | 0 | 8 | `03-konsolidering-pipeline.md` §3.4 |
-| 15 | P22b stream-route follow-up | B | medel | ½ dag | 0 | 7 | `01-buggar.md` §2.2 |
-| 16 | Inventera early-stop-flaggor | K | enkel | 2 h | 0 | 7 | `03-konsolidering-pipeline.md` §1.2 |
-| 17 | Brief som optional (A/B-test) | K | medel | 2 dagar | -5–10 USD | 7 | `03-konsolidering-pipeline.md` §3.5 |
-| 18 | FEATURES-flagga rensning | K | enkel-medel | ½ dag | 0 | 7 | `03-konsolidering-pipeline.md` §3.7 |
+| # | Åtgärd | Typ | Svårighet | Tid | Mån-kostnad | ROI | Källa | Status |
+|---|--------|-----|-----------|-----|-------------|-----|-------|--------|
+| 8 | `tsc --build` projektreferenser | F | enkel | 1 h | 0 | 8 | `02-forbattringar.md` §1.3 | ✅ EFFEKTIVT KLART (`incremental: true` redan i tsconfig; mätt cold 27s → warm 8s = 3.4× — explicit `tsc --build` skipped som non-issue) |
+| 9 | Pre-commit ÅÄÖ-hook | B | enkel | 30 min | 0 | 8 | `01-buggar.md` §1.3 | ⏸ DEFER (kräver husky-install, out of scope för "30 min") |
+| 10 | Filnamn `övergipande` typo | B | enkel | 5 min | 0 | 8 | `01-buggar.md` §1.4 | ✅ DONE |
+| 11 | Slå ihop `predev`/`prebuild` | F+K | enkel | 30 min | 0 | 8 | `02-forbattringar.md` §1.5 | ✅ DONE (preflight:common) |
+| 12 | P50 prompt → preview metric | F | medel | 2 dagar | 0 | 8 | `02-forbattringar.md` §2.1 | ⏸ Kräver telemetri-grund |
+| 13 | Slå ihop `pre_vm_typecheck` + `validate_syntax` | K | medel | 2 dagar | -2–3 USD | 8 | `03-konsolidering-pipeline.md` §2.1 | ✅ DONE (Wave 3) |
+| 14 | Konsolidera `/api/v0/*` ↔ `/api/engine/*` | K | stor | 1 vecka | 0 | 8 | `03-konsolidering-pipeline.md` §3.4 | ✅ DONE (P29 alla 3 faser) |
+| 15 | P22b stream-route follow-up | B | medel | ½ dag | 0 | 7 | `01-buggar.md` §2.2 | ✅ DONE (P22b core wiring) |
+| 16 | Inventera early-stop-flaggor | K | enkel | 2 h | 0 | 7 | `03-konsolidering-pipeline.md` §1.2 | ⏸ DEFER (telemetri-grund saknas) |
+| 17 | Brief som optional (A/B-test) | K | medel | 2 dagar | -5–10 USD | 7 | `03-konsolidering-pipeline.md` §3.5 | ⏸ DEFER (A/B-infra saknas) |
+| 18 | FEATURES-flagga rensning | K | enkel-medel | ½ dag | 0 | 7 | `03-konsolidering-pipeline.md` §3.7 | ✅ DONE (1 dead flag rensad; resten är credential-gates) |
 
-**Tier A-summa:** ~2 veckor arbete, -10 USD/mån löpande, pipeline -1 fas, API-yta -50 %.
+**Tier A-summa:** **8/12 KLART 2026-04-20.** 4 deferrerade pga saknad telemetri/infra.
 
 ---
 

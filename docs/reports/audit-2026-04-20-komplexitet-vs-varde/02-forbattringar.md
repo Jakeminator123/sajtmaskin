@@ -45,21 +45,12 @@ Indelning: **enkla** (≤2h) → **medel** (½–2 dagar) → **stora** (3+ daga
 
 ---
 
-### §1.3 `npm run typecheck` — använd `tsc --build` med projektreferenser
+### §1.3 `npm run typecheck` — använd `tsc --build` med projektreferenser — **EFFEKTIVT REDAN GJORT 2026-04-20**
 
 | Fält | Värde |
 |------|-------|
 | **Fil** | `tsconfig.json`, `package.json` |
-| **Svårighet** | Enkel |
-| **Tidsåtgång** | 1 timme |
-| **Kostnad infra** | 0 |
-| **Värde** | Inkrementell typecheck — sekunder istället för 30+ sek |
-
-**Manual:**
-
-1. Inför `tsconfig.build.json` med `composite: true`.
-2. Byt `npm run typecheck`-script till `tsc --build`.
-3. Lägg `tsconfig.tsbuildinfo` i `.gitignore`.
+| **Status** | `tsconfig.json` har redan `incremental: true` (rad 18). `tsc --noEmit` läser och uppdaterar `tsconfig.tsbuildinfo` automatiskt. Mätt 2026-04-20: cold = 27s, warm = 8s (3.4× snabbare). `.tsbuildinfo`-filen är redan i `.gitignore` (rad 22). Audit-rekommendationen att introducera `tsc --build` med `composite: true` skulle krocka med Next.js-setupen (`noEmit: true` + paths-aliasing kan inte enkelt kombineras med composite-mode utan `outDir` + .d.ts-emit). Värdet (3.4× speedup) är redan uppnått utan ändringar — explicit `tsc --build` skulle inte ge mätbar ytterligare vinst utan stort omkast. **Skipped som non-issue.** |
 
 ---
 
