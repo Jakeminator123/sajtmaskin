@@ -1,6 +1,6 @@
 # P19 — Old-content ingress hardening (konservativ)
 
-Status: Active (Steg 2 KLART 2026-04-20; Steg 1, 3, 4 öppna)
+Status: Active (Steg 2 KLART 2026-04-20; Steg 4 KLART 2026-04-20; Steg 1, 3 öppna)
 Skapad: 2026-04-15
 Prioritet: Medel
 
@@ -61,12 +61,12 @@ Detta måste angripas konservativt: först bevisa ingresspunkter, sedan små sä
 
 > **Status:** Öppen. Subagent-fynd 2026-04-20 noterade att `9b1c5dc8` (unify active-version) löste *delvis* den race-condition som gjorde att fel bas valdes — men UX-transparensen återstår. Effort: ~4–8h.
 
-### Steg 4 — v0-import freshness-signal
+### Steg 4 — v0-import freshness-signal — **DONE 2026-04-20**
 
-- Exponera importkällans timestamp/ursprung i import-respons eller metadata.
-- Lägg till enkel varning när lokal källa är äldre än förväntat tröskelvärde (informationsnivå, ej blockering).
-
-> **Status:** Öppen. Effort: ~2–4h.
+- ✅ `/api/template` POST-respons innehåller nu ett `source`-objekt med `templateId`, `timestamp`, `ageSeconds`, `stale`, `sourceSlugs` och `categoryLabel`. Se `src/app/api/template/route.ts` (`buildTemplateSourceMetadata`).
+- ✅ Tröskel `STALENESS_THRESHOLD_SECONDS = 30 dygn` (module-level, intern). När `stale === true` skrivs en info-rad via `devLogAppend("latest", { type: "v0-import.stale-source", templateId, ageSeconds, timestamp })` — ej blockerande.
+- ✅ Saknad/oparsbar timestamp ger `ageSeconds: null, stale: false` (safe default). Existerande responsfält är oförändrade; fältet är additivt.
+- Klienter kan nu opt-in:a UI-varning. UX-exponering i builder är egen uppgift (ej del av denna plan).
 
 ### Steg 5 — Verifiering
 
