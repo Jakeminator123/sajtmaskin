@@ -1,7 +1,8 @@
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 
-export type PromptAssistMode = "rewrite" | "polish";
+export const PROMPT_ASSIST_MODES = ["rewrite", "polish"] as const;
+export type PromptAssistMode = (typeof PROMPT_ASSIST_MODES)[number];
 
 export type PromptAssistConfig = {
   model: string;
