@@ -38,7 +38,7 @@
 | 9 | Pre-commit ÅÄÖ-hook | B | enkel | 30 min | 0 | 8 | `01-buggar.md` §1.3 | ⏸ DEFER (kräver husky-install, out of scope för "30 min") |
 | 10 | Filnamn `övergipande` typo | B | enkel | 5 min | 0 | 8 | `01-buggar.md` §1.4 | ✅ DONE |
 | 11 | Slå ihop `predev`/`prebuild` | F+K | enkel | 30 min | 0 | 8 | `02-forbattringar.md` §1.5 | ✅ DONE (preflight:common) |
-| 12 | P50 prompt → preview metric | F | medel | 2 dagar | 0 | 8 | `02-forbattringar.md` §2.1 | 🔓 UNLOCKED 2026-04-20 (telemetri-grund #19 finns; återstår: P50-aggregering + dashboard) |
+| 12 | P50 prompt → preview metric | F | medel | 2 dagar | 0 | 8 | `02-forbattringar.md` §2.1 | ✅ DONE 2026-04-20 (histogram `sajtmaskin_prompt_to_done_ms` via `prompt-to-done-stream.ts`; wirad i create + chat-message stream-post) |
 | 13 | Slå ihop `pre_vm_typecheck` + `validate_syntax` | K | medel | 2 dagar | -2–3 USD | 8 | `03-konsolidering-pipeline.md` §2.1 | ✅ DONE (Wave 3) |
 | 14 | Konsolidera `/api/v0/*` ↔ `/api/engine/*` | K | stor | 1 vecka | 0 | 8 | `03-konsolidering-pipeline.md` §3.4 | ✅ DONE (P29 alla 3 faser) |
 | 15 | P22b stream-route follow-up | B | medel | ½ dag | 0 | 7 | `01-buggar.md` §2.2 | ✅ DONE (P22b core wiring) |
@@ -56,9 +56,9 @@
 |---|--------|-----|-----------|-----|-------------|-----|-------|--------|
 | 19 | Prometheus/OTel export | F | enkel | 2 h | +5 USD | 6 | `02-forbattringar.md` §1.1 | ✅ DONE (2026-04-20, `src/lib/observability/metrics.ts` + `/api/metrics`; avlåser Tier A #12, #16) |
 | 20 | Brief-cache (Redis) | F | medel | ½ dag | -2 USD | 6 | `02-forbattringar.md` §2.7 | ⏸ |
-| 21 | `data/dossiers/` `.gitignore` | F | enkel | 30 min | 0 | 6 | `02-forbattringar.md` §1.6 | ⏸ |
+| 21 | `data/dossiers/` `.gitignore` | F | enkel | 30 min | 0 | 6 | `02-forbattringar.md` §1.6 | ✅ EFFEKTIVT KLART 2026-04-20 (subagent-verifierat: existerande `# Dossier-pipeline` block täcker allt; `git status -- data/dossiers/` redan tom) |
 | 22 | Auto-archive avklarade planer | F | enkel | 1 h | 0 | 6 | `02-forbattringar.md` §1.7 | ✅ DONE (`scripts/plans/auto-archive.mjs`) |
-| 23 | Konsolidera `promptAssist.allowed` | F | medel | ½ dag | 0 | 6 | `02-forbattringar.md` §2.3 | ⏸ |
+| 23 | Konsolidera `promptAssist.allowed` | F | medel | ½ dag | 0 | 6 | `02-forbattringar.md` §2.3 | ✅ DONE 2026-04-20 (additiv `allowed.models` union; båda legacy-arrayer kvar för bakåtkompat) |
 | 24 | Eval-suite som CI-gate | F | medel | 1 dag | +20–40 USD | 6 | `02-forbattringar.md` §2.4 | ⏸ |
 | 25 | Strukturerad logging (JSON) | F | medel | 2 dagar | 0 | 6 | `02-forbattringar.md` §2.5 | ⏸ |
 | 26 | Engelska som primärspråk i docs | F | medel | 2 dagar | 0 | 6 | `02-forbattringar.md` §2.10 | ⏸ politiskt |
