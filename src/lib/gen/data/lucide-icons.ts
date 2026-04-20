@@ -13,11 +13,24 @@
  */
 
 /**
- * Brand icons removed in lucide-react v1. Generated projects install v1+
- * so these are invalid. Map each to a safe geometric/generic replacement
- * that the autofix pipeline can substitute automatically.
+ * Map of icon names that the LLM commonly invents but lucide-react never
+ * shipped (or shipped under a different name). Catches the case where the
+ * generic nearest-icon fallback would hand back `Circle`, which is almost
+ * always wrong for these semantic icons.
+ *
+ * Two categories live here:
+ *   - Brand icons removed in lucide-react v1 (Instagram, Github, ...).
+ *     Generated projects install v1+ so these names don't exist as exports.
+ *   - Semantic aliases that the LLM hallucinates from domain prompts
+ *     (BedDouble/BedSingle/BedKing for hospitality, etc.). These map to
+ *     the closest real lucide icon so the generated UI shows a recognisable
+ *     glyph instead of a plain Circle (see SAJ-15 / handoff A2).
+ *
+ * The fallback chain is: BRAND/ALIAS map → case-insensitive exact →
+ * stripped-suffix → substring → Circle.
  */
 export const LUCIDE_BRAND_ICON_REPLACEMENTS: Record<string, string> = {
+  // Brand icons (removed in v1)
   Instagram: "Camera",
   Facebook: "Globe",
   Twitter: "MessageCircle",
@@ -29,6 +42,28 @@ export const LUCIDE_BRAND_ICON_REPLACEMENTS: Record<string, string> = {
   GithubIcon: "Code2",
   Linkedin: "Briefcase",
   Slack: "MessageSquare",
+
+  // Semantic aliases — hospitality / hotel UI (SAJ-15)
+  BedDouble: "Bed",
+  BedSingle: "Bed",
+  BedKing: "Bed",
+  BedQueen: "Bed",
+  Suite: "Bed",
+  RoomService: "BellRing",
+  Concierge: "ConciergeBell",
+
+  // Semantic aliases — common LLM hallucinations across domains
+  BookOpenCheck: "BookOpen",
+  CalendarCheck2: "CalendarCheck",
+  CalendarX2: "CalendarX",
+  ClipboardCheck2: "ClipboardCheck",
+  HeartHandshake: "Handshake",
+  ShieldCheck2: "ShieldCheck",
+  SparkleStar: "Sparkles",
+  StarHalf: "Star",
+  ThumbsUpDown: "ThumbsUp",
+  WifiOff2: "WifiOff",
+  Wifi2: "Wifi",
 };
 
 export const LUCIDE_ICONS: Set<string> = new Set([
