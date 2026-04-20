@@ -42,7 +42,7 @@ export function fixFontImport(
   }
 
   const replaced = applyPreviewFontReplacements(code, filePath);
-  let workingCode = replaced.code;
+  const workingCode = replaced.code;
   const aggregatedFixes: AutoFixEntry[] = [...replaced.fixes];
 
   const usedFonts = new Set<string>();

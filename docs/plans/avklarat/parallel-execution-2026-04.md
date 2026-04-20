@@ -1,8 +1,18 @@
 ---
 id: parallel-execution-2026-04
 title: Parallel execution master — Sajtmaskin cleanup wave 2026-04
-status: active
+status: done
 created: 2026-04-20
+closed: 2026-04-20
+closure_note: |
+  Wave stängd efter konsolideringspass. P22b:s caller-wiring landade i
+  `chat-message-stream-post.ts` (chatId + followUpIntent + priorQualityTarget
+  ärvt från `orchestration_snapshot.buildSpec`). Lint-felet i
+  `font-import-fixer.ts:45` (P28 #6) rensat. Resterande P28-poster (test-mock
+  drift i stream-route-tests, env-encryption fail-closed, schema-parity,
+  engine-test isolation) och hela P25b (UX polish — tooltips + overlay) stannar
+  som känd skuld i `active/Kvarvarande-uppgifter.md` — de är pre-existing och
+  bedöms inte vara värda att tvinga in i denna wave.
 ---
 
 # Parallell exekvering — masterdokument
