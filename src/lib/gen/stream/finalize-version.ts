@@ -5,6 +5,7 @@ import { FEATURES } from "@/lib/config";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
+import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { expandUrls } from "@/lib/gen/url-compress";
 import type { PreviewPreflightSummary } from "@/lib/gen/preview/diagnostics";
@@ -409,6 +410,7 @@ async function tryRepairPartialFileOutput(params: {
         thinking: fixerThinking?.thinking,
         reasoningEffort: fixerThinking?.reasoningEffort,
         requiredFiles: partialFiles,
+        recurringPatterns: readRecurringPatternsForChat(chatId),
         abortSignal: abort.signal,
       });
       if (!result.success && !result.partial) {
@@ -753,6 +755,7 @@ async function runFinalizeFastPath(params: {
             model: fixerModel,
             thinking: fixerThinking?.thinking,
             reasoningEffort: fixerThinking?.reasoningEffort,
+            recurringPatterns: readRecurringPatternsForChat(chatId),
             abortSignal: verifierFixAbort.signal,
           });
           if (repaired.success && repaired.fixedContent) {

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
+import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import { buildLintRepairContextLines } from "./lint-output";
 import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
@@ -63,6 +64,11 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   fixerModel?: string;
   fixerThinking?: boolean;
   fixerReasoningEffort?: ReasoningEffort;
+  // Återkommande felmönster från tidigare runs i samma chat-session.
+  // Anroparen läser via `readRecurringPatternsForChat(chatId)` (i
+  // `@/lib/logging/generation-log-writer`) och skickar in dem så LLM-fixern
+  // får signal att INTE upprepa fixar som redan misslyckats.
+  recurringPatterns?: RecurringFailurePattern[];
   onAttemptPromotion: (
     projectContent: string,
     method: RepairMethod,
@@ -611,6 +617,7 @@ export async function runRepairLoop<TPayload = unknown>(
           thinking: params.fixerThinking,
           reasoningEffort: params.fixerReasoningEffort,
           requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
+          recurringPatterns: params.recurringPatterns,
           abortSignal: fixerAbort.signal,
         },
       );

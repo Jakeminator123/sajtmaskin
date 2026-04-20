@@ -23,6 +23,7 @@ import {
   markVersionSupersededByRepair,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
+import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -473,6 +474,7 @@ async function tryServerRepairLoop(params: {
     fixerModel,
     fixerThinking: fixerThinking?.thinking,
     fixerReasoningEffort: fixerThinking?.reasoningEffort,
+    recurringPatterns: readRecurringPatternsForChat(chatId),
     hasActionableErrorContext: hadQualityGateFailures,
     onAttemptPromotion: async (projectContent, method) => ({
       promoted: await tryPromoteAfterGate(projectContent, method),

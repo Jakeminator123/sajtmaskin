@@ -4,6 +4,7 @@ import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-rout
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
 import { incEarlyStop, recordPhaseDuration } from "@/lib/observability/metrics";
 import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
 import { normalizeErrorPattern, countByFixer, type FixEntry } from "./types";
@@ -194,6 +195,7 @@ async function runWarmTscPass(
         model: fixerModel,
         thinking: fixerThinking?.thinking,
         reasoningEffort: fixerThinking?.reasoningEffort,
+        recurringPatterns: readRecurringPatternsForChat(opts.chatId),
         abortSignal: tscFixAbort.signal,
       });
       if (repaired.success && repaired.fixedContent) {
@@ -532,6 +534,7 @@ async function validateAndFixInner(
             thinking: fixerThinking?.thinking,
             reasoningEffort: fixerThinking?.reasoningEffort,
             requiredFiles: brokenFiles,
+            recurringPatterns: readRecurringPatternsForChat(opts.chatId),
             abortSignal: fixerAbort.signal,
           });
         } finally {
