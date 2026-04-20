@@ -25,6 +25,27 @@
     "Balance product proof with approachable copy and visual warmth.",
     "Pricing and product trust should be clear without becoming enterprise-stiff."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a two-column hero with warm headline copy on the left and a rounded product screenshot card with floating stat chips on the right.",
+      "Build feature sections as alternating 55/45 splits, pairing short benefit copy with soft-framed UI panels and small proof callouts.",
+      "Compose social proof as a row of rounded testimonial or logo cards directly beneath the hero, keeping trust visible before deep product detail.",
+      "Use a three-tier pricing grid with the middle plan gently raised, stronger primary action, and concise comparison bullets beneath each tier.",
+      "Frame the final CTA as a centered rounded panel with short reassuring copy, a single primary button, and lightweight trust notes underneath."
+    ],
+    "motifs": [
+      "Cards use 1rem corner radius, pale borders, and soft shadows so every product or proof block feels approachable rather than sharp-edged.",
+      "Primary actions appear as solid violet buttons against bright light surfaces, with mint or cool-tint accents reserved for supportive highlights and badges.",
+      "Product visuals sit inside white device-like frames with subtle layered depth, often accompanied by floating metrics, avatars, or success toasts.",
+      "Sections favor airy spacing, short copy blocks, and rounded proof elements that keep clarity high without drifting into enterprise dashboard density."
+    ],
+    "antiPatterns": [
+      "Avoid full-bleed dark hero sections with neon gradients; they make the product feel too aggressive for this warm, clear SaaS variant.",
+      "Do not use dense comparison tables or procurement-style pricing language that pushes the page into enterprise-stiff territory.",
+      "Avoid razor-sharp card corners, heavy strokes, or brutalist layouts; this variant depends on softness and approachable product framing.",
+      "Never overwhelm the hero with multiple dashboard screenshots or complex collage stacks that compete with the main conversion message."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.99 0.004 250)",
     "foreground": "oklch(0.22 0.01 250)",
@@ -38,32 +59,6 @@
     "ring": "oklch(0.62 0.17 265)",
     "radius": "1rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-    "Preserve clear information density with persistent navigation and scannable panels."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "overview metrics",
-    "filters or controls",
-    "table or chart area"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
-    "Avoid turning dashboard references into generic marketing landing pages."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Final output should feel custom and production-grade, not like a renamed starter.",
-    "Dense UI must still feel legible, fast, and trustworthy."
-  ],
   "sourceTemplateIds": [
     "saas-paddle-billing-subscription-starter",
     "saas-update-starter-subscriptions-and-auth-for-saas",

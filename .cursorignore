@@ -140,3 +140,17 @@ next-env.d.ts
 templates_v0/out/
 # Matchar .gitignore: bara generations-output, inte hela output/
 output/generations/
+
+
+# --- Dossier-pipeline (skrap- och enrich-output, embeddings, repo-cache) ---
+data/dossiers/_raw/playwright-catalog-light.json
+data/dossiers/_raw/_enriched/**
+data/dossiers/_raw/_curation-queue.md
+data/dossiers/_raw/_import-summary.json
+data/dossiers/_raw/*/skiss.json
+data/dossiers/_index/dossier-embeddings.json
+data/dossiers/_repo-cache/**
+data/dossiers/_index/master.json
+data/dossiers/_index/by-category.json
+# Auto-curate rollback-backup — gitignored ocksa, ingen runtime-konsumerar
+data/dossiers/*/_removed/**

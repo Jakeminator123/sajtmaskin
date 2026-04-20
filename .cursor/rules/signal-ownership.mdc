@@ -8,8 +8,6 @@ globs:
   - src/lib/hooks/chat/useCreateChat.ts
   - config/domain-rules.json
   - config/prompt-core/**
-  - config/prompt-directives/**
-  - config/prompt-static/**
   - config/prompt-heuristic-tokens.json
 ---
 
@@ -32,7 +30,7 @@ Innan du lägger till, duplicerar eller flyttar en signal:
 | Domän / site-type | `config/domain-rules.json` → `domain-inference.ts` | Inga lokala keyword-listor |
 | Prompt-heuristik tokens | `config/prompt-heuristic-tokens.json` → `prompt-heuristics.ts` | Inga lokala `MARKERS`/`HINTS`-arrayer |
 | Init-semantik | Deep Brief (`site-brief-generation.ts`) | Inte i `customInstructions` |
-| Designregler | Core Rules (`config/prompt-core/`) + Directives (`config/prompt-directives/`, Level 4) + `buildDynamicContext` (per-request, Level 1-3) | Inte i `EXTENDED_CUSTOM_INSTRUCTIONS` (borttagen) |
+| Designregler | Core Rules (`config/prompt-core/`, inkl. visual-design + coding-direction) + `buildDynamicContext` (per-request: brief explicit > brief inferred > guidance-resolvers heuristik > statiska defaults) | Inte i `EXTENDED_CUSTOM_INSTRUCTIONS` (borttagen). Directive cascade (`prompt-directives/`) borttagen 2026-04-18. |
 | Build intent (codegen) | `BUILD_INTENT_GUIDANCE` i `system-prompt.ts` | Assist-copy i `promptAssist.ts` ok men synka |
 
 ## Vid tvivel

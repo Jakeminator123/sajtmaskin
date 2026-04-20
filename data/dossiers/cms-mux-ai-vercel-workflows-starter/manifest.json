@@ -1,0 +1,115 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-mux-ai-vercel-workflows-starter",
+  "kind": "integration",
+  "category": "cms",
+  "label": "@mux/ai + Vercel Workflows Starter",
+  "description": "A Next.js starter template demonstrating how to build durable video AI pipelines with @mux/ai and the Vercel Workflow DevKit.",
+  "summary": "Use this dossier when a Next.js app needs server-side helpers for Mux-backed video AI workflows: resolving Mux credentials, normalizing language codes, downloading remote images for multimodal prompts, and safely handling customer-visible workflow errors. It provides reusable utility modules for workflow steps and backend routes that orchestrate video analysis, moderation, captioning, translation, or metadata generation with @mux/ai.",
+  "providers": [
+    {
+      "name": "Mux",
+      "url": "https://github.com/muxinc/ai"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "MUX_TOKEN_ID",
+      "required": true,
+      "purpose": "Get your credentials at: https://dashboard.mux.com/settings/access-tokens"
+    },
+    {
+      "key": "MUX_TOKEN_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "EVALITE_INGEST_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/anthropic",
+    "@ai-sdk/google",
+    "@ai-sdk/openai",
+    "@mux/mux-node",
+    "@noble/ciphers",
+    "ai",
+    "dedent",
+    "dotenv",
+    "dotenv-expand",
+    "p-retry",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/src/lib/client-factory.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/image-download.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/language-codes.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/mux-ai-error.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/mux-assets.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/env.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/lib/mux-ai-handler.ts",
+      "role": "server",
+      "kind": "util"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "content-site",
+      "blog",
+      "saas-landing",
+      "portfolio"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 87,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/mux-ai-vercel-workflows-starter",
+  "sourceRepoUrl": "https://github.com/muxinc/ai",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "mux",
+    "video-ai",
+    "workflows",
+    "nextjs",
+    "captions",
+    "translation",
+    "language-codes",
+    "asset-metadata",
+    "server-utils"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:26:16.790Z",
+  "_curatedBy": "auto-curate.ts"
+}

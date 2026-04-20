@@ -26,7 +26,6 @@ from backoffice.shared import (
     read_autofix_runtime_config,
     read_env_flag,
     read_json,
-    run_scaffold_cli,
     write_env_flag,
     write_json,
     write_phase_thinking,
@@ -247,44 +246,13 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
     elif page == "Research & Dossiers":
         st.header("Research & Dossiers")
 
-        st.subheader("Runtime Template Guidance")
-        tg_key = "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE"
-        tg_current = read_env_flag(ctx, tg_key)
-        tg_new = st.toggle(
-            "Aktivera scaffold-ankrad template guidance (init only)",
-            value=tg_current,
-            key="tg_toggle",
-            help=f"Styr env-flaggan `{tg_key}` i `.env.local`. När på injiceras kompakt runtimeGuidance från scaffoldens referenceTemplates i första genereringen.",
+        st.info(
+            "Den gamla template-library-pipen (SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE + "
+            "SAJTMASKIN_VARIANT_STRUCTURAL_FILES) är avvecklad sedan 2026-04-17. "
+            "Per-integration-guidance hanteras nu av dossier-pipen "
+            "(`data/dossiers/_index/`) — se fliken **Dossiers** för aktiva dossiers, "
+            "embeddings och scaffold-rekommendationer."
         )
-        if tg_new != tg_current:
-            if write_env_flag(ctx, tg_key, tg_new):
-                st.success(f"`{tg_key}` satt till `{'true' if tg_new else 'false'}` i `.env.local`.")
-                st.caption("Dev-servern kan behöva startas om för att ändringen ska gälla i runtime.")
-            else:
-                st.error("Kunde inte skriva till `.env.local`. Kontrollera filrättigheter.")
-        else:
-            st.caption(f"Nuvarande: `{tg_key}={'true' if tg_current else 'false'}`")
-        st.divider()
-
-        st.subheader("Variant Structural Files")
-        vsf_key = "SAJTMASKIN_VARIANT_STRUCTURAL_FILES"
-        vsf_current = read_env_flag(ctx, vsf_key)
-        vsf_new = st.toggle(
-            "Aktivera strukturella kodreferenser från scaffold-varianter (init only)",
-            value=vsf_current,
-            key="variant_structural_files_toggle",
-            help=(
-                f"Styr env-flaggan `{vsf_key}` i `.env.local`. När på injiceras utvalda `layout.tsx`-, `page.tsx`- och `middleware.ts`-utdrag i första genereringen. Två pass: (1) variant-driven från `sourceTemplateIds`, (2) capability-driven från hela katalogen baserat på detekterade capabilities (auth, ecommerce, dashboard)."
-            ),
-        )
-        if vsf_new != vsf_current:
-            if write_env_flag(ctx, vsf_key, vsf_new):
-                st.success(f"`{vsf_key}` satt till `{'true' if vsf_new else 'false'}` i `.env.local`.")
-                st.caption("Dev-servern kan behöva startas om för att ändringen ska gälla i runtime.")
-            else:
-                st.error("Kunde inte skriva till `.env.local`. Kontrollera filrättigheter.")
-        else:
-            st.caption(f"Nuvarande: `{vsf_key}={'true' if vsf_current else 'false'}`")
         st.divider()
 
         st.subheader("Deferred Extra Init Routes")
@@ -388,38 +356,9 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
             st.warning("Kunde inte läsa `config/prompt-heuristic-tokens.json`.")
         st.divider()
 
-        catalog = read_json(ctx.catalog_json)
-        template_lib = read_json(ctx.template_lib_json)
-        col1, col2 = st.columns(2)
-
-        if catalog and isinstance(catalog, dict):
-            entries = catalog.get("entries", [])
-            col1.metric("Catalog entries", len(entries))
-            curated = [e for e in entries if e.get("verdict") == "valid"]
-            st.subheader(f"Kuraterade templates ({len(curated)})")
-            cat_rows = []
-            for e in curated[:100]:
-                cat_rows.append(
-                    {
-                        "title": e.get("title", ""),
-                        "category": e.get("categorySlug", ""),
-                        "score": e.get("qualityScore", 0),
-                        "scaffoldIds": ", ".join(e.get("recommendedScaffoldIds", [])),
-                        "verdict": e.get("verdict", ""),
-                    }
-                )
-            if cat_rows:
-                st.dataframe(pd.DataFrame(cat_rows), width="stretch", hide_index=True)
-        else:
-            col1.metric("Catalog", "saknas")
-            st.info("catalog.json hittades inte. Kör pipeline: `npm run template-library:build`")
-
-        if template_lib and isinstance(template_lib, dict):
-            tl_entries = template_lib.get("entries", [])
-            col2.metric("Template-library entries", len(tl_entries))
-        else:
-            col2.metric("Template-library", "saknas")
-
+        # Catalog + template-library-statistiken har avlägsnats — den gamla
+        # external-template-pipen togs bort i 4ba06d96e (2026-04-17). Dossier-
+        # pipen är källan nu (se "Dossiers (legoklossar)"-sidan).
         research_data = read_json(ctx.research_json)
         if research_data and isinstance(research_data, dict):
             scaffolds_research = research_data.get("scaffolds", {})
@@ -428,59 +367,19 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
                 with st.expander(sid):
                     st.json(data)
         else:
-            st.info("scaffold-research.generated.json saknas. Kör `npm run template-library:build`.")
+            st.info(
+                "Scaffold-research-data saknas. Den gamla template-library-pipen "
+                "är avvecklad — använd **Dossiers (legoklossar)** + **Källhälsa**-fliken där."
+            )
 
     elif page == "Pipeline":
-        st.header("Scaffold & Template Pipeline")
-        st.markdown(
-            """
-Kör pipeline-steg via scaffold_cli.py. Varje knapp delegerar till samma kommandon som `npm run scaffolds:*`.
-    """
+        st.header("Scaffold & Template Pipeline (avvecklad)")
+        st.warning(
+            "Den gamla template-library-pipen avvecklades 2026-04-17 — `scaffold_cli.py`, "
+            "`scripts/template-library/`, `data/external-template-pipeline/` och denna sidas "
+            "knappar har flyttats till `legacy-stuff/`. Se `data/dossiers/` och fliken "
+            "**Dossiers (legoklossar)** för den nya pipen."
         )
-
-        status_col, action_col = st.columns([2, 1])
-        with status_col:
-            st.subheader("Status")
-            if st.button("Hämta status", key="pipeline_status"):
-                with st.spinner("Kör scaffold_cli.py status..."):
-                    output = run_scaffold_cli(ctx, "status", ["--json"])
-                try:
-                    st.json(json.loads(output))
-                except (json.JSONDecodeError, ValueError):
-                    st.code(output)
-
-        with action_col:
-            st.subheader("Kör steg")
-            steps = [
-                ("import", "Import scrape → raw discovery"),
-                ("hydrate", "Hydrate repo-cache"),
-                ("build", "Build template-library + research"),
-                ("embeddings", "Generate scaffold embeddings"),
-                ("eval", "Kör scaffold selection eval"),
-                ("verify", "Verifiera artefakter + manifests"),
-            ]
-            for cmd, label in steps:
-                if st.button(label, key=f"pipeline_{cmd}"):
-                    with st.spinner(f"Kör {cmd}..."):
-                        extra = ["--include-template-library"] if cmd == "embeddings" else []
-                        output = run_scaffold_cli(ctx, cmd, extra if extra else None)
-                    st.code(output[-3000:] if len(output) > 3000 else output)
-
-            st.divider()
-            if st.button("Kör ALLT (import → verify)", key="pipeline_all", type="primary"):
-                with st.spinner("Kör full pipeline... (kan ta flera minuter)"):
-                    output = run_scaffold_cli(ctx, "all", ["--include-template-library"])
-                st.code(output[-5000:] if len(output) > 5000 else output)
-
-        st.subheader("Artifact-status (snabbvy)")
-        artifacts = {
-            "scaffold-research.generated.json": ctx.research_json.exists(),
-            "scaffold-embeddings.json": ctx.embeddings_json.exists(),
-            "template-library.generated.json": ctx.template_lib_json.exists(),
-            "catalog.json": ctx.catalog_json.exists(),
-        }
-        for name, exists in artifacts.items():
-            st.text(f"  {'✅' if exists else '❌'}  {name}")
 
     elif page == "Eval":
         st.header("Scaffold Selection Eval")
@@ -526,13 +425,10 @@ Kör pipeline-steg via scaffold_cli.py. Varje knapp delegerar till samma kommand
                     )
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
         else:
-            st.info("Ingen eval-rapport hittades. Kör `npm run scaffolds:eval` eller tryck nedan.")
-
-        if st.button("Kör ny eval", key="run_eval"):
-            with st.spinner("Kör scaffold selection eval..."):
-                output = run_scaffold_cli(ctx, "eval")
-            st.code(output[-3000:] if len(output) > 3000 else output)
-            st.rerun()
+            st.info(
+                "Ingen eval-rapport hittades. Den gamla `scaffold_cli.py eval`-vägen är "
+                "avvecklad — använd `npm run eval:suite` eller dossier-pipens egna evals."
+            )
 
     elif page == "Orchestration Map":
         st.header("Orchestration Map")
@@ -610,8 +506,8 @@ Kör pipeline-steg via scaffold_cli.py. Varje knapp delegerar till samma kommand
             bs_text = build_spec_path.read_text(encoding="utf-8")
             for bs_type, bs_desc in [
                 ("BuildSpecContextPolicy", "Tokenbudget-nivå för scaffold"),
-                ("BuildSpecQualityTarget", "Kvalitetsmål (standard/premium/release-candidate)"),
-                ("BuildSpecPreviewPolicy", "Preview-policy: fidelity2 (typecheck) eller fidelity3 (build)"),
+                ("BuildSpecQualityTarget", "Kvalitetsmål (standard/premium/release-candidate). release-candidate sätts numera bara via explicit F3-trigger."),
+                ("BuildSpecPreviewPolicy", "F2 = `fidelity2` (design-loopen, typecheck). F3 = `fidelity3` (bygg integrationer, typecheck + build). F3 triggas ENBART via `POST .../finalize-design`."),
                 ("BuildSpecVerificationPolicy", "Verifieringsnivå: fast / standard / strict"),
             ]:
                 bs_vals = extract_ts_union_values(bs_text, bs_type)

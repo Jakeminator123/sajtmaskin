@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-sanity-next-js-personal-website",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Sanity + Next.js Personal Website",
+  "description": "A personal website built with Next.js and Sanity featuring visual editing, live previews, real-time collaboration, and editable projects.",
+  "summary": "Use this dossier when the site needs Sanity as a headless CMS for a personal site, portfolio, or editorial content site in Next.js. It provides the integration patterns the runtime LLM should add for fetching published content, supporting draft preview/visual editing, and wiring Sanity Studio and webhooks into an App Router project.",
+  "providers": [
+    {
+      "name": "Sanity",
+      "url": "https://github.com/vercel/next.js"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/lib/sanity/client.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/lib/sanity/fetch.ts",
+      "role": "server",
+      "kind": "data-access"
+    },
+    {
+      "path": "components/lib/sanity/queries.ts",
+      "role": "shared",
+      "kind": "query"
+    },
+    {
+      "path": "components/app/api/draft-mode/enable/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/draft-mode/disable/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/revalidate/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/studio/[[...tool]]/page.tsx",
+      "role": "client",
+      "kind": "page"
+    },
+    {
+      "path": "components/sanity.config.ts",
+      "role": "shared",
+      "kind": "config"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 87,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/sanity-next-js-personal-website",
+  "sourceRepoUrl": "https://github.com/vercel/next.js",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "sanity",
+    "cms",
+    "nextjs",
+    "app-router",
+    "groq",
+    "draft-mode",
+    "preview",
+    "studio",
+    "webhook",
+    "revalidation"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:29:58.688Z",
+  "_curatedBy": "auto-curate.ts"
+}

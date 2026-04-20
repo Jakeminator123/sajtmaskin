@@ -26,6 +26,27 @@
     "Prioritize clarity, hierarchy, and task flow before visual expressiveness.",
     "The app shell should feel extensible and neutral enough for many product domains."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a left sidebar + top command bar shell with a scrollable main pane and a right details drawer for records.",
+      "Compose dashboard home as a KPI strip on top, followed by two-column cards, with recent activity and tasks stacked below.",
+      "Build index pages as a sticky filter bar above a dense data table, with bulk actions and row details opening in a side panel.",
+      "Use settings pages with a narrow section nav on the left and grouped form cards on the right in a single reading column.",
+      "Lay out record detail pages with a title and actions row, summary stats beneath, then tabbed content with related items in secondary panels."
+    ],
+    "motifs": [
+      "Use soft neutral surfaces, 1px low-contrast borders, and medium rounded corners that make cards feel practical instead of decorative.",
+      "Show hierarchy through structured spacing, compact toolbar rows, muted labels, and one restrained accent color for actions and status emphasis.",
+      "Prefer white or lightly tinted cards on a quiet background, with subtle shadows only on overlays, drawers, and elevated controls.",
+      "Keep typography plain and efficient with Inter, semibold section headers, and dense but breathable line spacing for operational content."
+    ],
+    "antiPatterns": [
+      "Avoid full-bleed marketing heroes, oversized headlines, or editorial storytelling blocks that interrupt task flow inside the app shell.",
+      "Never rely on loud gradients, glassmorphism, or neon glows; this variant should feel dependable, neutral, and work-focused.",
+      "Avoid masonry dashboards or uneven card collage layouts that make scanning metrics and operational data feel inconsistent.",
+      "Do not use playful illustration-heavy empty states or whimsical decorative shapes that undermine the product's utility-first tone."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.98 0.003 255)",
     "foreground": "oklch(0.22 0.01 255)",
@@ -39,32 +60,6 @@
     "ring": "oklch(0.54 0.14 250)",
     "radius": "0.85rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-    "Preserve clear information density with persistent navigation and scannable panels."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "overview metrics",
-    "filters or controls",
-    "table or chart area"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
-    "Avoid turning dashboard references into generic marketing landing pages."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Final output should feel custom and production-grade, not like a renamed starter.",
-    "Dense UI must still feel legible, fast, and trustworthy."
-  ],
   "sourceTemplateIds": [
     "ecommerce-blazity-enterprise-ecommerce-starter",
     "authentication-clerk-authentication-starter",

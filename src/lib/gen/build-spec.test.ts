@@ -107,8 +107,8 @@ describe("deriveBuildSpec", () => {
     expect(spec.previewPolicy).toBe("fidelity2");
     expect(spec.verificationPolicy).toBe("standard");
     expect(spec.contextPolicy).toBe("normal");
-    expect(spec.tokenBudgets.scaffoldTokens).toBe(15_000);
-    expect(spec.tokenBudgets.scaffoldChars).toBe(28_000);
+    expect(spec.tokenBudgets.scaffoldTokens).toBe(22_000);
+    expect(spec.tokenBudgets.scaffoldChars).toBe(42_000);
     expect(spec.routeRealization).toEqual({
       mode: "full",
       primaryRoutePath: "/",
@@ -135,15 +135,15 @@ describe("deriveBuildSpec", () => {
     expect(spec.forbiddenPatterns).toContain("unrequested_full_redesign");
   });
 
-  it("promotes release-candidate prompts to fidelity3", () => {
-    const spec = deriveBuildSpec({
+  it("enters F3 only via explicit previewPolicyOverride and forces release-candidate", () => {
+    const params = {
       prompt: "Gör detta deploy-ready och ready for production med billing och auth.",
-      buildIntent: "app",
-      generationMode: "init",
+      buildIntent: "app" as const,
+      generationMode: "init" as const,
       resolvedScaffold: saasScaffold,
       routePlan: {
-        provenance: { primarySource: "prompt", sources: ["prompt"] },
-        siteType: "app-shell",
+        provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
+        siteType: "app-shell" as const,
         reason: "test",
         routes: [
           { path: "/", name: "Dashboard", intent: "Main app", required: true },
@@ -153,25 +153,30 @@ describe("deriveBuildSpec", () => {
       },
       preGenerationContracts: {
         contracts: {
-          dataMode: "persisted",
+          dataMode: "persisted" as const,
           databaseProvider: "Supabase",
           authProvider: "NextAuth / Auth.js",
           paymentProvider: "Stripe",
           integrations: [
-            { provider: "Stripe", name: "Stripe", reason: "billing", status: "chosen", envVars: [] },
+            { provider: "Stripe", name: "Stripe", reason: "billing", status: "chosen" as const, envVars: [] },
           ],
           envVars: [],
         },
         unresolvedDecisions: [],
         confirmedAnswers: [],
       },
-      promptStrategyMeta: { strategy: "phase_plan_build_refine", promptType: "freeform" },
-    });
+      promptStrategyMeta: { strategy: "phase_plan_build_refine" as const, promptType: "freeform" as const },
+    };
 
-    expect(spec.qualityTarget).toBe("release-candidate");
-    expect(spec.previewPolicy).toBe("fidelity3");
-    expect(spec.verificationPolicy).toBe("strict");
-    expect(spec.referenceCategories).toContain("backend");
+    const f2 = deriveBuildSpec(params);
+    expect(f2.previewPolicy).toBe("fidelity2");
+    expect(f2.qualityTarget).not.toBe("release-candidate");
+
+    const f3 = deriveBuildSpec({ ...params, previewPolicyOverride: "fidelity3" });
+    expect(f3.qualityTarget).toBe("release-candidate");
+    expect(f3.previewPolicy).toBe("fidelity3");
+    expect(f3.verificationPolicy).toBe("strict");
+    expect(f3.referenceCategories).toContain("backend");
   });
 
   it("uses normal context and standard verification for page-addition follow-ups", () => {
@@ -310,7 +315,12 @@ Persisted errors for this version:
     expect(spec.contextPolicy).toBe("heavy");
   });
 
-  it("keeps common multi-page websites at standard quality when they lack app/integration signals", () => {
+  it("promotes multi-page websites to premium quality even without explicit app/integration signals", () => {
+    // Prior to the multi-route promotion fix, multi-page sites stayed at
+    // "standard". That under-spent the budget on the most error-prone
+    // category (sites with >1 route hit cross-page consistency issues
+    // disproportionately often). RouteCount > 1 now bumps quality to
+    // premium so the verifier pass and richer context are enabled.
     const spec = deriveBuildSpec({
       prompt: "Bygg en hemsida för ett lokalt företag med startsida, om oss och produkter.",
       buildIntent: "website",
@@ -322,7 +332,7 @@ Persisted errors for this version:
     });
 
     expect(spec.changeScope).toBe("page-addition");
-    expect(spec.qualityTarget).toBe("standard");
+    expect(spec.qualityTarget).toBe("premium");
     expect(spec.contextPolicy).toBe("normal");
   });
 
@@ -413,12 +423,12 @@ Persisted errors for this version:
     });
     expect(light.contextPolicy).toBe("light");
     expect(light.tokenBudgets).toEqual({
-      scaffoldTokens: 11_250,
-      refsTokens: 3_750,
-      systemContextTokens: 15_000,
-      scaffoldChars: 20_000,
-      refsChars: 12_000,
-      systemContextChars: 48_000,
+      scaffoldTokens: 13_000,
+      refsTokens: 5_000,
+      systemContextTokens: 22_000,
+      scaffoldChars: 24_000,
+      refsChars: 16_000,
+      systemContextChars: 70_000,
     });
 
     const normal = deriveBuildSpec({
@@ -432,12 +442,12 @@ Persisted errors for this version:
     });
     expect(normal.contextPolicy).toBe("normal");
     expect(normal.tokenBudgets).toEqual({
-      scaffoldTokens: 15_000,
-      refsTokens: 7_500,
-      systemContextTokens: 30_000,
-      scaffoldChars: 28_000,
-      refsChars: 24_000,
-      systemContextChars: 96_000,
+      scaffoldTokens: 22_000,
+      refsTokens: 12_000,
+      systemContextTokens: 60_000,
+      scaffoldChars: 42_000,
+      refsChars: 38_000,
+      systemContextChars: 192_000,
     });
 
     const heavy = deriveBuildSpec({
@@ -462,12 +472,12 @@ Persisted errors for this version:
     });
     expect(heavy.contextPolicy).toBe("heavy");
     expect(heavy.tokenBudgets).toEqual({
-      scaffoldTokens: 25_000,
-      refsTokens: 12_500,
-      systemContextTokens: 50_000,
-      scaffoldChars: 48_000,
-      refsChars: 40_000,
-      systemContextChars: 160_000,
+      scaffoldTokens: 32_000,
+      refsTokens: 16_000,
+      systemContextTokens: 80_000,
+      scaffoldChars: 60_000,
+      refsChars: 50_000,
+      systemContextChars: 256_000,
     });
   });
 

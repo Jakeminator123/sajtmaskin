@@ -1,0 +1,98 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-notion-backed-next-js-blog",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Notion-backed Next.js Blog",
+  "description": "A Next.js site using new SSG support with a Notion backed blog",
+  "summary": "Use this dossier when a site needs a blog or editorial section whose content is authored in Notion and rendered statically in Next.js. It provides the integration-specific API routes and helper patterns for asset proxying, preview mode, slug normalization, and published-post filtering.",
+  "providers": [
+    {
+      "name": "Notion",
+      "url": "https://github.com/ijjk/notion-blog"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@zeit/react-jsx-parser",
+    "async-sema",
+    "github-slugger",
+    "katex",
+    "prismjs",
+    "uuid"
+  ],
+  "files": [
+    {
+      "path": "components/src/lib/blog-helpers.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/pages/api/asset.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/pages/api/clear-preview.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/pages/api/preview-post.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/pages/api/preview.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/lib/notion/config.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/app/api/preview/route.ts",
+      "role": "server",
+      "kind": "route-handler"
+    },
+    {
+      "path": "components/src/app/api/clear-preview/route.ts",
+      "role": "server",
+      "kind": "route-handler"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 84,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/notion-blog",
+  "sourceRepoUrl": "https://github.com/ijjk/notion-blog",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "notion",
+    "cms",
+    "nextjs",
+    "blog",
+    "preview-mode",
+    "draft-mode",
+    "ssg",
+    "asset-proxy"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:28:36.054Z",
+  "_curatedBy": "auto-curate.ts"
+}

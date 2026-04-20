@@ -348,15 +348,21 @@ export const FEATURES = {
   // Historical name: setting this to false disables the light fast-path
   // optimization and forces finalize to stay on the deep path.
   useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
-  useRuntimeTemplateGuidance:
-    env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE === "true" ||
-    env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE === "1" ||
-    (env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE !== "false" &&
-      env.NODE_ENV === "development"),
-  useVariantStructuralFiles:
-    env.SAJTMASKIN_VARIANT_STRUCTURAL_FILES === "true" ||
-    env.SAJTMASKIN_VARIANT_STRUCTURAL_FILES === "1" ||
-    (env.SAJTMASKIN_VARIANT_STRUCTURAL_FILES !== "false" &&
+
+  /**
+   * New dossier pipeline (data/dossiers/). Reads master.json +
+   * dossier-embeddings.json + scaffold-recommendations.json at runtime,
+   * picks scaffold-agnostic dossiers via cosine + recommendation-boost,
+   * injects ## Available Dossiers + ## Selected Dossier Instructions
+   * blocks into the system prompt.
+   *
+   * Off by default in production (opt-in via env). On in development for
+   * easy local iteration. See docs/architecture/dossier-pipeline-roadmap.md.
+   */
+  useDossierPipeline:
+    env.SAJTMASKIN_DOSSIER_PIPELINE === "true" ||
+    env.SAJTMASKIN_DOSSIER_PIPELINE === "1" ||
+    (env.SAJTMASKIN_DOSSIER_PIPELINE !== "false" &&
       env.NODE_ENV === "development"),
   deferExtraRoutesOnInit:
     env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT !== "false" &&

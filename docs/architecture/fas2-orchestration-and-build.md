@@ -38,7 +38,6 @@ Relaterade dokument:
 | LLM-input / systemprompt | `src/lib/gen/system-prompt.ts` |
 | Tokenbudget / pruning | `src/lib/gen/tokens.ts` |
 | Core Rules + static core loader | `src/lib/gen/static-core-loader.ts` |
-| Directives loader | `src/lib/gen/directive-loader.ts` |
 | Finalize pipeline | `src/lib/gen/stream/finalize-version.ts` |
 | Pipelineordning | `src/lib/gen/stream/finalize-pipeline-contract.ts` |
 | Deterministisk autofix | `src/lib/gen/autofix/pipeline.ts` |
@@ -55,9 +54,8 @@ Relaterade dokument:
 
 | Del | Innehall | Var det byggs |
 |---|---|---|
-| System (Core Rules) | `config/codegen-core-manifest.json` + `config/prompt-core/*.md` (fallback: `codegen-static-prompt.json` + `prompt-static/*.md`) | `getStaticCoreFromWorkspace()` |
-| System (Directives, Level 4) | `config/prompt-directives/*.md` via `directive-loader.ts` | `getDirectiveRawText()` i `buildDynamicContext()` |
-| System (dynamisk kontext) | Scaffold, route plan, contracts, brief, capabilities, refs, BuildSpec-signaler | `buildDynamicContext()` |
+| System (Core Rules) | `config/codegen-core-manifest.json` + `config/prompt-core/*.md` (inkl. `03-visual-design.md` + `04-coding-direction.md` som tidigare låg i den borttagna directive-cascaden) | `getStaticCoreFromWorkspace()` |
+| System (dynamisk kontext) | Scaffold, route plan, contracts, brief, capabilities, refs, BuildSpec-signaler, guidance-resolvers (motion/domain/quality) | `buildDynamicContext()` |
 | Separator | `SYSTEM_PROMPT_SEPARATOR` | `system-prompt.ts` |
 | User-turn | Senaste prompten (ev. URL-komprimerad) | API-lager -> pipeline |
 | Chatthistorik | Tidigare user/assistant-meddelanden | Chat-repo -> pipeline |
@@ -82,8 +80,9 @@ Viktigt:
 - `capability-inference.ts` skapar `## Detected Capabilities`.
 - `## Your Toolkit` byggs fran lokal/saker shadcn-yta.
 - `## Component References` adderar capability-matchade exempel.
-- `## Structural References (this variant)` kan injiceras vid init nar
-  `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`.
+- ~~`## Structural References (this variant)` via `SAJTMASKIN_VARIANT_STRUCTURAL_FILES`~~
+  — **avvecklad 2026-04-17**. Strukturella exempel hanteras nu via
+  dossier-pipen (`data/dossiers/_index/`).
 
 ---
 
@@ -91,9 +90,12 @@ Viktigt:
 
 Efter codegen-streamen kor `finalizeAndSaveVersion()` med denna ordning:
 
-1. **`autofix`** -> `runAutoFix()` (mekaniska fixar).
-2. **`url_expand`** -> `expandUrls()`.
+1. **`url_expand`** -> `expandUrls()` (kor forst sa autofix ser riktiga URL:er
+   i import-paths, inte `{{MEDIA_N}}`-aliaser).
+2. **`autofix`** -> `runAutoFix()` (mekaniska fixar).
 3. **`validate_syntax`** -> `validateAndFix()` (mekanisk + LLM-fixer vid behov).
+   Anropas med `alreadyMechanicallyFixed: true` nar steg 2 just kort, sa det
+   initiala mekaniska passet inom validateAndFix hoppas over (idempotent).
 4. **`materialize_images`** -> endast full path; non-fatal vid fel.
 5. **`verifier`** -> endast full path + verifier-policy; non-fatal vid fel.
 6. **`parse_merge_preflight`** -> parse, merge, preflight, integration-manifest.

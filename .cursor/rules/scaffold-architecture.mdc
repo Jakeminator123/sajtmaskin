@@ -49,7 +49,7 @@ ANVÄNDARENS PROMPT
   │
   ├─ 2a. Variant Pre-Match (create-chat-stream-post.ts, ~1ms)
   │      Keyword-only scaffold+variant-matchning före brief.
-  │      Producerar VariantHints (colorMode, motif, fonts, styleRules)
+  │      Producerar VariantHints (colorMode, motif, fonts, promptHints)
   │      som injiceras i brief-prompten som designstartpunkt.
   │
   ├─ 2b. Deep Brief (valfri, server-auto-brief)
@@ -86,8 +86,7 @@ ANVÄNDARENS PROMPT
   │      Budgeteras mot maxChars, pruneas mot contextPolicy
   │
   ├─ 9. Dynamic Context + System Prompt (system-prompt.ts)
-  │      Core Rules (config/prompt-core/*.md — immutable)
-  │      + Directives (config/prompt-directives/*.md — adaptive via Directive Cascade)
+  │      Core Rules (config/prompt-core/*.md — immutable, inkl. visual-design + coding-direction)
   │      + Dynamic Context (prioriterad + prunad):
   │        - Scaffold context (serialiserade filer)
   │        - Scaffold Research Priorities (checklist + upgrade targets + reference templates)
@@ -163,3 +162,7 @@ Scaffold-kontexten är typiskt 5-15% av systempromten. Budgeteras via BuildSpec:
 4. Verifiera filantal: `getAllScaffolds().map(s => s.files.length)`
 5. Ändra ALDRIG `serialize.ts`, `registry.ts`, `seo-defaults.ts` utan att förstå merge-pipeline
 6. External research styrs via `npm run template-library:build`, inte manuellt
+
+## Beslutsunderlag
+
+Innan du föreslår att lägga till, ta bort eller slå ihop scaffolds/variants — läs `docs/architecture/scaffold-variants-inventory.md`. Den listar alla 10 scaffolds + variants (idag 26) med kvalitetsbedömning, hur build-skripten fungerar, och konkreta rangordnade cleanup-förslag.

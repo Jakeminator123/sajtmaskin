@@ -1,7 +1,7 @@
 import { generateCode } from "../engine";
 import { ENGINE_MAX_OUTPUT_TOKENS } from "../defaults";
 import { dumpOwnEngineCodegenFromFullSystem } from "../prompt-dump";
-import { buildSystemPrompt } from "../system-prompt";
+import { prepareGenerationContext } from "../orchestrate";
 import { parseCodeProject } from "../parser";
 import { runAutoFix } from "../autofix/pipeline";
 import { DEFAULT_MODEL } from "../models";
@@ -125,10 +125,20 @@ async function evaluatePrompt(
 ): Promise<EvalResult> {
   const start = performance.now();
 
-  const systemPrompt = buildSystemPrompt({
-    intent: evalPrompt.intent,
-    imageGenerations: false,
+  // Run the full orchestration pipeline so eval tests the SAME system prompt
+  // that production generates (scaffold, route plan, contracts, variant,
+  // capability hints, references, ...). Previously this used a thin
+  // `buildSystemPrompt({ intent })` shortcut that silently produced a much
+  // weaker prompt than prod — eval results were therefore not representative.
+  // Disable embedding scaffold matching to keep eval deterministic and offline.
+  const generationInput = await prepareGenerationContext({
+    prompt: evalPrompt.prompt,
+    buildIntent: evalPrompt.intent,
+    scaffoldMode: "auto",
+    embeddingScaffoldMatch: false,
+    sessionSeed: `eval_${evalPrompt.id}`,
   });
+  const systemPrompt = generationInput.engineSystemPrompt;
   dumpOwnEngineCodegenFromFullSystem(systemPrompt, { source: "eval/runner" });
 
   const stream = generateCode({
@@ -142,6 +152,8 @@ async function evaluatePrompt(
   const content = await collectSSEContent(stream);
   const generationTimeMs = Math.round(performance.now() - start);
 
+  // Eval path: standalone mechanical pass on raw stream content. Mirrors the
+  // outer autofix in finalize-version.ts but without the surrounding pipeline.
   const { fixedContent } = await runAutoFix(content);
   const project = parseCodeProject(fixedContent);
   const completeProjectFiles = buildCompleteProject(

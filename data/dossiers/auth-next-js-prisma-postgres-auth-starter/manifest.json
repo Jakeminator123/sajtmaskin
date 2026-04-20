@@ -1,0 +1,106 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-next-js-prisma-postgres-auth-starter",
+  "kind": "integration",
+  "category": "auth",
+  "label": "Next.js & Prisma Postgres Auth Starter",
+  "description": "Get started with Next.js, Prisma Postgres, and Auth.js",
+  "summary": "Use this dossier when a Next.js app needs email/password authentication backed by Auth.js sessions and a Prisma-managed Postgres database. It provides the Auth.js route handler, Prisma client setup for Prisma Postgres, and the core patterns needed to add credentials auth, session access, and protected server logic.",
+  "providers": [
+    {
+      "name": "Auth.js",
+      "url": "https://github.com/prisma/nextjs-auth-starter"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "DATABASE_URL",
+      "required": true,
+      "purpose": "Or manually run `npx prisma init --db` to create a Prisma Postgres and manually set the `DATABASE_URL` below"
+    },
+    {
+      "key": "AUTH_SECRET",
+      "required": true,
+      "purpose": "Create a random 32-character string or run `npx auth secret` to obtain one and set it as the `AUTH_SECRET` below"
+    }
+  ],
+  "dependencies": [
+    "@prisma/adapter-pg",
+    "@prisma/client",
+    "bcryptjs",
+    "lucide-react",
+    "next-auth"
+  ],
+  "files": [
+    {
+      "path": "components/app/api/auth/[...nextauth]/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/prisma.ts",
+      "role": "server",
+      "kind": "util"
+    },
+    {
+      "path": "components/auth.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/prisma/schema.prisma",
+      "role": "server",
+      "kind": "schema"
+    },
+    {
+      "path": "components/app/generated/prisma/.gitkeep",
+      "role": "server",
+      "kind": "generated-placeholder"
+    },
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/api/register/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 88,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/prisma-postgres",
+  "sourceRepoUrl": "https://github.com/prisma/nextjs-auth-starter",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "auth.js",
+    "next-auth",
+    "nextjs",
+    "prisma",
+    "postgres",
+    "credentials",
+    "session",
+    "middleware"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:19:51.148Z",
+  "_curatedBy": "auto-curate.ts"
+}

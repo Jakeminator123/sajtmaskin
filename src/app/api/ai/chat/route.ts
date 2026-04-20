@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
+import { getRequestUserId } from "@/lib/tenant";
 import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import {
@@ -77,6 +78,13 @@ export async function POST(req: Request) {
     try {
       const botError = requireNotBot(req);
       if (botError) return botError;
+
+      const userId = await getRequestUserId(req);
+      if (!userId || userId.startsWith("guest:")) {
+        // Block both unauthenticated and guest-session callers; this route exposes
+        // paid gateway models and must not be open to anonymous traffic.
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
 
       const body = await req.json().catch(() => null);
       const parsed = chatRequestSchema.safeParse(body);

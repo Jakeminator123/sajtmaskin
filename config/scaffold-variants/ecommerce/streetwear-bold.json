@@ -25,6 +25,27 @@
     "Favor campaign attitude and drop culture over safe retail neutrality.",
     "Product cards and promotional bands should feel fast, bold, and scarce."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a full-bleed dark hero with oversized condensed headline, one dominant sneaker image, and a stacked drop countdown beside the CTA.",
+      "Build collection pages as a dense 3-column product wall with promotional tiles injected between products like campaign posters.",
+      "Use a product detail layout with a large left image stage, right-side size selector block, and a slim scarcity strip above purchase controls.",
+      "Design the homepage with horizontal campaign bands separating sections, alternating featured product spotlights and new-drop grids.",
+      "Use a raised carousel or slider for limited releases, with cropped product shots, bold labels, and quick-buy actions pinned below."
+    ],
+    "motifs": [
+      "Use hard black-charcoal surfaces with stark white type, hot orange CTAs, and occasional acid-green accents for release energy.",
+      "Pair oversized all-caps condensed headlines with tight tracking, compact utility text, and bold numeric callouts for drops and pricing.",
+      "Make cards feel sharp and fast with visible borders, medium radius corners, and poster-like image crops that intentionally feel aggressive.",
+      "Add scarcity cues at first glance through countdown pills, low-stock tags, and thin promotional bars spanning the viewport."
+    ],
+    "antiPatterns": [
+      "Avoid soft pastel palettes, airy lifestyle minimalism, or gentle wellness styling that dilutes the storefront’s streetwear attitude.",
+      "Never use polite boutique product grids with excessive whitespace; this variant should feel packed, urgent, and campaign-driven.",
+      "Avoid glossy luxury editorials with serif typography and muted elegance; the voice here should feel raw, loud, and immediate.",
+      "Do not rely on neutral retail UI alone without promo bands, scarcity messaging, or drop framing around featured products."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.13 0.01 260)",
     "foreground": "oklch(0.95 0.006 260)",
@@ -38,32 +59,6 @@
     "ring": "oklch(0.78 0.19 24)",
     "radius": "0.8rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-    "Preserve clear information density with persistent navigation and scannable panels."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "overview metrics",
-    "filters or controls",
-    "table or chart area"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
-    "Avoid turning dashboard references into generic marketing landing pages."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Final output should feel custom and production-grade, not like a renamed starter.",
-    "Dense UI must still feel legible, fast, and trustworthy."
-  ],
   "sourceTemplateIds": [
     "ecommerce-blazity-enterprise-ecommerce-starter",
     "ecommerce-stripe-subscription-starter",

@@ -43,7 +43,13 @@ function resolvePhaseModelRef(
   phase: GenerationPhaseFromManifest,
 ): string {
   const phaseRouting = getPhaseRoutingFromManifest();
-  return phaseRouting[selectedTier][phase];
+  const tierRouting = phaseRouting[selectedTier];
+  if (!tierRouting) {
+    throw new Error(
+      `[phase-routing] Unknown tier "${selectedTier}" — manifest.phaseRouting.defaultByTier has no entry. Known tiers: ${Object.keys(phaseRouting).join(", ")}`,
+    );
+  }
+  return tierRouting[phase];
 }
 
 export function resolvePhaseModel(
@@ -79,7 +85,18 @@ export function resolvePhaseThinking(
   phase: GenerationPhase,
 ): PhaseThinkingOverride {
   const thinkingByTier = getPhaseThinkingFromManifest();
-  const config = thinkingByTier[selectedTier][phase];
+  const tierConfig = thinkingByTier[selectedTier];
+  if (!tierConfig) {
+    throw new Error(
+      `[phase-routing] Unknown tier "${selectedTier}" — manifest.phaseRouting.thinkingByTier has no entry. Known tiers: ${Object.keys(thinkingByTier).join(", ")}`,
+    );
+  }
+  const config = tierConfig[phase];
+  if (!config) {
+    throw new Error(
+      `[phase-routing] Tier "${selectedTier}" has no thinking-config for phase "${phase}". Known phases: ${Object.keys(tierConfig).join(", ")}`,
+    );
+  }
   return {
     phase,
     thinking: config.thinking,

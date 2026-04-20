@@ -4,8 +4,15 @@ import type {
   BuildSpecVerificationPolicy,
 } from "../build-spec";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
-import { buildPreviewEnvLocalContents } from "@/lib/gen/preview/env-local";
-import { startPreviewHostSession } from "@/lib/gen/preview/preview-host-client";
+import {
+  buildPreviewEnvLocalContents,
+  type PreviewLifecycleStage,
+} from "@/lib/gen/preview/env-local";
+import {
+  destroyPreviewHostSession,
+  startPreviewHostSession,
+  updatePreviewHostSession,
+} from "@/lib/gen/preview/preview-host-client";
 import {
   clearPreviewSessionAsync,
   getActivePreviewSessionAsync,
@@ -60,6 +67,46 @@ type StartPreviewSessionOutcome =
 /** Own-engine stream + `/preview-session` bootstrap can call `startPreviewSession` at the same time for the same chat+version — share one in-flight promise so we do not spawn two Fly preview sessions. */
 const inflightPreviewSessionByChatVersion = new Map<string, Promise<StartPreviewSessionOutcome>>();
 
+/**
+ * Best-effort destroy + clear: read the existing session, fire-and-forget
+ * the host destroy so the Fly sandbox is released, then clear the local +
+ * Redis pointer.
+ *
+ * The previous behaviour only cleared the local pointer, leaving the host
+ * sandbox running until idle TTL fired or `/admin/cleanup` reaped it. That
+ * was the root cause of the disk-full retries we keep seeing in
+ * `triggerPreviewHostCleanup`. Errors from the host are swallowed because
+ * the local pointer must always be cleared even if the host call fails —
+ * the alternative is a zombie entry the user cannot recover from.
+ */
+async function destroyAndClearPreviewSession(chatId: string): Promise<void> {
+  try {
+    const existing = await getActivePreviewSessionAsync(chatId);
+    if (existing?.sandboxId) {
+      destroyPreviewHostSession({ sandboxId: existing.sandboxId })
+        .then((res) => {
+          if (!res.ok) {
+            console.warn(
+              `[preview-session] best-effort destroy for ${chatId}/${existing.sandboxId} failed: ${res.message}`,
+            );
+          }
+        })
+        .catch((err) => {
+          console.warn(
+            "[preview-session] best-effort destroy threw:",
+            err instanceof Error ? err.message : err,
+          );
+        });
+    }
+  } catch (err) {
+    console.warn(
+      "[preview-session] best-effort destroy lookup threw:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+  await clearPreviewSessionAsync(chatId);
+}
+
 export type StartPreviewSessionOptions = {
   /** When set, decrypted `projectEnvVars` merge into preview `.env.local` (after placeholders). */
   appProjectId?: string | null;
@@ -89,6 +136,14 @@ export type StartPreviewSessionOptions = {
    * the stored `files_json` is already scaffold-merged/repaired.
    */
   skipProjectScaffold?: boolean;
+  /**
+   * Lifecycle stage of the version being previewed. Threaded into
+   * `buildPreviewEnvLocalContents` so F3 previews strip the tier3-stub
+   * placeholder layer (otherwise stub `STRIPE_SECRET_KEY=sk_test_...`
+   * etc. silently mask missing real values and the F3 readiness gate
+   * becomes ineffective). Defaults to `"design"` when omitted.
+   */
+  lifecycleStage?: PreviewLifecycleStage;
 };
 
 /**
@@ -143,12 +198,16 @@ async function runStartPreviewSession(
       : null;
 
   if (cid && options?.forceRestart) {
-    await clearPreviewSessionAsync(cid);
+    // forceRestart is the user's signal that the previous sandbox should
+    // be torn down — release the Fly runtime before clearing local state.
+    await destroyAndClearPreviewSession(cid);
   }
 
   if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActivePreviewSessionAsync(cid);
     if (sess?.versionId === vid && sess.sandboxId) {
+      // Snabb-resume: samma versionId betyder att host troligen redan
+      // har korrekta filer + warm Next dev. Bara verifiera och returnera.
       const resumed = await tryResumeTier2Runtime(sess);
       if (resumed) {
         await touchPreviewSessionAsync({
@@ -170,7 +229,77 @@ async function runStartPreviewSession(
           },
         };
       }
-      await clearPreviewSessionAsync(cid);
+      // Resume failed → the stored sandbox may have died on the host.
+      // Best-effort destroy first to avoid leaking compute if the host
+      // still holds the runtime, then clear the local pointer.
+      await destroyAndClearPreviewSession(cid);
+    }
+  }
+
+  // Follow-up-flow: chatten har en session men på en ÄLDRE versionId.
+  // Tidigare hamnade vi här i `startPreviewHostSession`-pathen och fick
+  // `startOutcome: "fresh"` (= "recreated" i UI). Det var visserligen
+  // funktionellt OK eftersom preview-host själv återanvänder sandboxId
+  // när den ser samma chatId, men UI:t tappade resumed-signalen.
+  //
+  // Försök först `updatePreviewHostSession` (semantiskt korrekt: byter
+  // ut filer i en levande sandbox + restartar Next dev). Om host:en
+  // svarar 404 (sandboxen är död) faller vi tillbaka till start-pathen.
+  if (cid && vid && options?.forceRestart !== true) {
+    const sess = await getActivePreviewSessionAsync(cid);
+    if (sess?.sandboxId && sess.versionId !== vid) {
+      const skipRepairForUpdate = options?.skipRepair === true;
+      const skipScaffoldForUpdate = options?.skipProjectScaffold === true;
+      let updateFiles: CodeFile[];
+      try {
+        updateFiles = skipRepairForUpdate
+          ? generatedFiles
+          : repairGeneratedFiles(generatedFiles).files;
+      } catch {
+        updateFiles = generatedFiles;
+      }
+      const runtimeForUpdate: RuntimeFile[] = skipScaffoldForUpdate
+        ? updateFiles.map((f) => ({ name: f.path, content: f.content }))
+        : buildCompleteProject(
+            updateFiles,
+            collectRequiredUiComponents(updateFiles),
+          ).map((f) => ({ name: f.path, content: f.content }));
+      const updatePayload = Object.fromEntries(
+        runtimeForUpdate.map((f) => [f.name, f.content]),
+      );
+      const updated = await updatePreviewHostSession({
+        sandboxId: sess.sandboxId,
+        versionId: vid,
+        filesJson: updatePayload,
+      });
+      if (updated.ok) {
+        await touchPreviewSessionAsync({
+          chatId: cid,
+          sandboxId: updated.sandboxId,
+          sandboxUrl: updated.sandboxUrl,
+          versionId: vid,
+          tier2Provider: "preview_host",
+        });
+        return {
+          ok: true,
+          result: {
+            sandboxUrl: updated.sandboxUrl,
+            sandboxId: updated.sandboxId,
+            sandboxPreviewMode: resolvedMode,
+            fidelityTier: 2,
+            startOutcome: "resumed",
+            tier2Meta: { tier2Provider: "preview_host" as const },
+          },
+        };
+      }
+      // sessionMissing=true betyder host:en saknar sandboxen helt; clear
+      // den lokala pekaren så start-pathen nedan får skapa en ny utan
+      // att bli förvirrad av föråldrad session-store-data.
+      if ("sessionMissing" in updated && updated.sessionMissing === true) {
+        await destroyAndClearPreviewSession(cid);
+      }
+      // Annan typ av update-fel → fall genom till startPreviewHostSession
+      // som har full retry+disk-cleanup-logik.
     }
   }
 
@@ -219,6 +348,7 @@ async function runStartPreviewSession(
   const envBody = await buildPreviewEnvLocalContents({
     appProjectId: options?.appProjectId ?? null,
     generatedEnvLocal: priorEnvLocal,
+    lifecycleStage: options?.lifecycleStage,
   });
   runtimeFiles.push({ name: envLocalPath, content: envBody });
 

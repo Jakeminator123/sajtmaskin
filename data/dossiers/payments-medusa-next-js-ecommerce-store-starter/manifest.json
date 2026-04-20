@@ -1,0 +1,64 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "payments-medusa-next-js-ecommerce-store-starter",
+  "kind": "integration",
+  "category": "payments",
+  "label": "Medusa Next.js Ecommerce Store Starter",
+  "description": "Ecommerce store template built with Next.js App Router, Medusa and TailwindCSS, with features like Algolia search and Stripe checkout.",
+  "summary": "Use this dossier when building a Next.js storefront that needs Medusa as the commerce backend for products, carts, checkout, regions, and order flows. It provides integration guidance for connecting a Next.js App Router ecommerce site to a Medusa server; the current extracted files are unrelated middleware examples and should not be used.",
+  "providers": [
+    {
+      "name": "Medusa",
+      "url": "https://github.com/vercel/next.js"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/lib/medusa.ts",
+      "role": "server",
+      "kind": "lib"
+    },
+    {
+      "path": "components/app/api/cart/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/cart/items/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "ecommerce"
+    ],
+    "compatible": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs",
+      "saas-landing"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 72,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/medusa",
+  "sourceRepoUrl": "https://github.com/vercel/next.js",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "medusa",
+    "payments",
+    "ecommerce",
+    "nextjs",
+    "storefront",
+    "cart",
+    "checkout",
+    "products"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:02:03.827Z",
+  "_curatedBy": "auto-curate.ts"
+}

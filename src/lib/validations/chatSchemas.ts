@@ -5,6 +5,7 @@ import {
   DEFAULT_MODEL_ID,
   type CanonicalModelId,
 } from "@/lib/models/catalog";
+import { PROMPT_ASSIST_MODES } from "@/lib/hooks/prompt-assist-types";
 
 export type ModelTier = CanonicalModelId;
 
@@ -78,7 +79,7 @@ const promptMetaSchema = z
     promptFormatted: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
     promptAssistModel: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     promptAssistDeep: z.boolean().optional(),
-    promptAssistMode: z.enum(["polish", "rewrite"]).optional(),
+    promptAssistMode: z.enum(PROMPT_ASSIST_MODES).optional(),
     buildIntent: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     buildMethod: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     formattedChanged: z.boolean().optional(),

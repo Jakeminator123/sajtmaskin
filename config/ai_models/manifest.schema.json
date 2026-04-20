@@ -242,12 +242,16 @@
     "embeddingModels": { "type": "object" },
     "generatedSiteIntegrationPlaceholders": {
       "type": "object",
-      "description": "Plain-text env fragment for generated user-site preview builds (not Sajtmaskin app env).",
-      "required": ["envFragmentFile"],
+      "description": "Plain-text env fragments for generated user-site preview builds (not Sajtmaskin app env). Split into a harmless layer (safe in F3) and a tier-3 stub layer (F2-only, dropped in F3).",
+      "required": ["harmlessEnvFragmentFile", "tier3StubEnvFragmentFile"],
       "properties": {
-        "envFragmentFile": {
+        "harmlessEnvFragmentFile": {
           "type": "string",
-          "description": "Filename under config/ai_models/ (dotenv-style KEY=value)."
+          "description": "Filename under config/ai_models/ for placeholder values that are safe to keep in F3."
+        },
+        "tier3StubEnvFragmentFile": {
+          "type": "string",
+          "description": "Filename under config/ai_models/ for placeholder values stripped from F3 merges."
         },
         "policyDocRelativeToConfig": { "type": "string" },
         "preGenerationContractsEntry": { "type": "string" },

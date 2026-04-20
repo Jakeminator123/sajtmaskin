@@ -167,8 +167,11 @@ export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
 /** Default for AI image generation toggle */
 export const DEFAULT_IMAGE_GENERATIONS = true;
 
-/** Default for reasoning/thinking toggle — off for faster first generation */
-export const DEFAULT_THINKING = false;
+/** Default for reasoning/thinking toggle.
+ * Önskat beteende: alltid på. Reasoning ger märkbart bättre arkitekturval och
+ * struktur, särskilt för multi-page och scenes. Kostar lite tid (~5-15s extra)
+ * men ger högre kvalitet. Användare kan toggla av per-chat i UI:t. */
+export const DEFAULT_THINKING = true;
 
 /** Default for spec mode in builder */
 export const DEFAULT_SPEC_MODE = false;
@@ -238,6 +241,7 @@ const LEGACY_EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
 - Use responsive prefixes: sm:, md:, lg:, xl:, 2xl:
 - Prefer gap-* over margins between flex/grid items
 - Use group/peer for interactive states
+- Tailwind v4 \`@apply\` accepts ONLY real utility classes — NEVER your own \`@layer components\` classes (e.g. \`.surface-*\`, \`.tile-*\`, \`.card-*\`). Doing \`@apply surface-blueprint;\` after declaring \`.surface-blueprint { ... }\` in \`@layer components\` produces a hard build error ("Cannot apply unknown utility class") that whitescreens the preview. Either use the custom class directly via \`className=\"surface-blueprint\"\` in JSX, or repeat the underlying CSS declarations inline in each consumer rule.
 
 ## Visual Identity
 - Never use flat pure-white backgrounds across the whole page
@@ -296,8 +300,8 @@ const LEGACY_EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
  * Returns the default Custom Instructions.
  *
  * Visual design, layout, motion and images are covered by Core Rules
- * (config/prompt-core/) and Directives (config/prompt-directives/) plus
- * brief-driven dynamic context — custom instructions only carry tech stack,
+ * (config/prompt-core/, including 03-visual-design.md and 04-coding-direction.md)
+ * plus brief-driven dynamic context — custom instructions only carry tech stack,
  * shadcn setup and a11y basics.
  */
 export function getDefaultCustomInstructions(_scaffoldMode: ScaffoldMode): string {

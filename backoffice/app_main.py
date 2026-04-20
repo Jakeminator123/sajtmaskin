@@ -86,7 +86,7 @@ def run_backoffice_app(
         )
         st.session_state["backoffice_nav"] = page
         st.caption(
-            "`config/` · `docs/` · `.cursor/` · `scripts/` · scaffolds/template-library/artifacts"
+            "`config/` · `docs/` · `.cursor/` · `scripts/` · `data/dossiers/`"
         )
         st.divider()
         st.subheader("Repo")

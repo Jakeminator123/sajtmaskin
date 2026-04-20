@@ -25,6 +25,27 @@
     "Keep the reading flow technical and efficient rather than lifestyle-editorial.",
     "Use code-friendly surfaces and documentation-adjacent hierarchy where it helps."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a narrow reading column with a sticky right-side table of contents and slim metadata rail for long technical posts.",
+      "Compose the homepage as a compact article feed with featured post first, then dense title-and-excerpt rows separated by hairline dividers.",
+      "Build post headers with left-aligned title, small monospace metadata line, and optional tag cluster above a restrained hero-free intro.",
+      "Use docs-adjacent content pages with a 240px left sidebar for categories and a clean main pane for articles or API notes.",
+      "Present archive and tag pages as two-column lists with dates in a fixed narrow column and titles plus summaries in the wider column."
+    ],
+    "motifs": [
+      "Pair sans headings with monospace body accents, using code-block surfaces, muted borders, and a cool neutral palette with one blue accent.",
+      "Use 1px dividers, 0.7rem corner radius, and low-contrast cards so structure feels engineered rather than decorative.",
+      "Let whitespace and typography carry hierarchy, with compact section spacing, precise line lengths, and understated interactive states.",
+      "Treat code snippets, callouts, and metadata as first-class elements using documentation-like panels instead of magazine-style visual flourishes."
+    ],
+    "antiPatterns": [
+      "Avoid oversized lifestyle hero imagery or full-bleed editorial photography that interrupts the technical reading rhythm.",
+      "Never use loud gradient-heavy cards, glassmorphism, or neon glows that make the blog feel like a startup marketing page.",
+      "Avoid center-aligned landing-page compositions for article pages; this variant should read like documentation, not a personal brand splash.",
+      "Do not over-round surfaces or stack chunky shadows, because soft playful UI undermines the precise engineering tone."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.97 0.003 240)",
     "foreground": "oklch(0.2 0.01 240)",
@@ -38,32 +59,6 @@
     "ring": "oklch(0.52 0.14 245)",
     "radius": "0.7rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-    "Favor editorial readability, spacing rhythm, and content hierarchy over card spam."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "article hero",
-    "archive list",
-    "author or credibility block"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
-    "Avoid collapsing editorial references into generic feature-card marketing."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Final output should feel custom and production-grade, not like a renamed starter.",
-    "Reading flow should feel deliberate on both desktop and mobile."
-  ],
   "sourceTemplateIds": [
     "blog-next-js-contentlayer-blog-starter",
     "portfolio-next-js-portfolio-with-pageview-counter",

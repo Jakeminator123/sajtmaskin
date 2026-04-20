@@ -17,6 +17,10 @@
     {
       "heading": "Cormorant Garamond",
       "body": "Raleway"
+    },
+    {
+      "heading": "EB Garamond",
+      "body": "Outfit"
     }
   ],
   "signatureMotif": "editorial framing, premium contrast, and restrained luxury accents",
@@ -25,6 +29,27 @@
     "Use stronger storytelling and atmosphere than a normal brochure page.",
     "Treat whitespace and image framing as part of the premium experience."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a cinematic split hero with one oversized portrait or campaign image opposite a narrow text column and a single gold-accent CTA.",
+      "Compose feature storytelling as alternating full-width image bands and offset copy blocks, with generous top and bottom whitespace between sections.",
+      "Build product or collection highlights as a staggered two-column editorial grid with varied image crops, caption text, and a floating detail card.",
+      "Present testimonials or brand statements in a centered narrow column framed by thin borders, followed by a luxurious logo strip or press row.",
+      "Use a three-card offering section with the center card slightly raised, darker than the page, and finished with refined border treatment."
+    ],
+    "motifs": [
+      "Pair near-black surfaces with warm ivory typography, muted bronze accents, and occasional soft gold highlights that feel expensive rather than flashy.",
+      "Use thin editorial rules, framed image containers, and oversized serif headlines to create magazine-like hierarchy and visual restraint.",
+      "Let whitespace feel intentional and abundant, with narrow text measures, tall section spacing, and carefully cropped imagery carrying the mood.",
+      "Favor rounded corners around 1.2rem, soft dark cards, and subtle border contrast instead of bright shadows or glossy glass effects."
+    ],
+    "antiPatterns": [
+      "Avoid loud neon gradients, iridescent blobs, or startup-style glow effects that break the restrained luxury mood.",
+      "Never stack dense feature grids or dashboard-like icon blocks that make the page feel SaaS-functional instead of editorial-premium.",
+      "Avoid bright white backgrounds or high-key pastel sections; the experience should stay moody, atmospheric, and contrast-led.",
+      "Do not use chunky pill-heavy UI, playful illustrations, or cartoon iconography that cheapen the fashion-led framing."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.15 0.01 35)",
     "foreground": "oklch(0.93 0.01 80)",
@@ -36,34 +61,9 @@
     "accent": "oklch(0.55 0.06 40)",
     "border": "oklch(0.3 0.01 45)",
     "ring": "oklch(0.78 0.1 85)",
-    "radius": "1.2rem"
+    "radius": "1.2rem",
+    "bodyBackgroundImage": "radial-gradient(ellipse at top, color-mix(in oklab, var(--color-primary) 14%, transparent) 0%, transparent 38%), radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-accent) 18%, transparent) 0%, transparent 32%)"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-    "Favor editorial readability, spacing rhythm, and content hierarchy over card spam."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "article hero",
-    "archive list",
-    "author or credibility block"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
-    "Avoid collapsing editorial references into generic feature-card marketing."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Final output should feel custom and production-grade, not like a renamed starter.",
-    "Reading flow should feel deliberate on both desktop and mobile."
-  ],
   "sourceTemplateIds": [
     "portfolio-magic-portfolio-for-next-js",
     "portfolio-next-js-portfolio-with-pageview-counter",

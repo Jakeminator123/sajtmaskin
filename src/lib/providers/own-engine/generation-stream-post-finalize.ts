@@ -12,7 +12,10 @@ import {
 } from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { triggerServerVerification } from "@/lib/gen/verify/server-verify";
+import {
+  triggerBuildErrorRepair,
+  triggerServerVerification,
+} from "@/lib/gen/verify/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
@@ -71,19 +74,37 @@ export async function runOwnEngineStreamPostFinalize(params: {
     repairPassIndex = 0,
   } = params;
 
+  // Lager 4 av F2-mute (se .cursor/rules/env-flow-f2-mute.mdc):
+  // post-finalize kod-scan av Stripe/Upstash/etc. emitterade tidigare
+  // `integration`-SSE direkt till chatten utan lifecycle-gate. I F2
+  // (design) hör de hemma i `env.example`-filen tyst, inte i chatten.
+  // I F3 (integrations) får de fram som vanligt.
+  const isIntegrationsStage = buildSpec.previewPolicy === "fidelity3";
   const newDetected = getUnsignaledDetectedIntegrations(
     accumulatedContent,
     toolSignaledProviders,
   );
   if (newDetected.length > 0) {
-    const integrationPayload: BuilderIntegrationEnvelope = { items: newDetected };
-    safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
-    devLogAppend("in-progress", {
-      type: "engine.integration_signals",
-      chatId,
-      integrations: newDetected.map((d) => d.key),
-      envVars: newDetected.flatMap((d) => d.envVars),
-    });
+    if (isIntegrationsStage) {
+      const integrationPayload: BuilderIntegrationEnvelope = { items: newDetected };
+      safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
+      devLogAppend("in-progress", {
+        type: "engine.integration_signals",
+        chatId,
+        integrations: newDetected.map((d) => d.key),
+        envVars: newDetected.flatMap((d) => d.envVars),
+      });
+    } else {
+      warnLog(
+        "engine",
+        "F2 post-finalize: dropped detected-integrations from chat (F2-mute layer 4)",
+        {
+          chatId,
+          integrations: newDetected.map((d) => d.key),
+          envVarCount: newDetected.flatMap((d) => d.envVars).length,
+        },
+      );
+    }
   }
 
   let parsedForPreview: CodeFile[] = [];
@@ -145,6 +166,9 @@ export async function runOwnEngineStreamPostFinalize(params: {
         verificationSummary: finalized.version.verification_summary,
         promotedAt: finalized.version.promoted_at,
         ...(previewUrlHint ? { previewUrlHint } : {}),
+        ...(finalized.rejectedShrinks.length > 0
+          ? { rejectedShrinks: finalized.rejectedShrinks }
+          : {}),
       }),
     ),
   );
@@ -179,6 +203,11 @@ export async function runOwnEngineStreamPostFinalize(params: {
           previewPolicy: buildSpec.previewPolicy,
           verificationPolicy: buildSpec.verificationPolicy,
           versionIdForSession: finalized.version.id,
+          // F3 previews must strip tier3-stub placeholders so missing real
+          // env vars surface as a runtime failure instead of being silently
+          // backfilled with `sk_test_...`-style stubs.
+          lifecycleStage:
+            buildSpec.previewPolicy === "fidelity3" ? "integrations" : "design",
           skipRepair: parsedFromFinalizeFilesJson,
           // filesJson from finalize is already scaffold-merged/repaired
           // so preview bootstrap can skip project scaffold rebuild.
@@ -278,6 +307,35 @@ export async function runOwnEngineStreamPostFinalize(params: {
           message: previewSessionResult.error.message,
         });
         safeEnqueue(enc.encode(formatSSEEvent("build-error", { ...previewSessionResult.error })));
+        // Opt-in (env-gated) auto-repair so VM build failures loop back
+        // through `runRepairLoop` automatically instead of waiting for
+        // a manual click on "Repair". See `triggerBuildErrorRepair`.
+        triggerBuildErrorRepair({
+          chatId,
+          versionId: finalized.version.id,
+          buildError: {
+            stage: previewSessionResult.error.stage,
+            message: previewSessionResult.error.message,
+            failureCode: previewSessionResult.error.failureCode ?? null,
+          },
+          onRepairAvailable: (payload) => {
+            safeEnqueue(
+              enc.encode(
+                formatSSEEvent("version-repair-available", {
+                  versionId: payload.versionId,
+                  summary: payload.summary,
+                  repairAvailableAt: payload.repairAvailableAt,
+                }),
+              ),
+            );
+          },
+        }).catch((repairErr) => {
+          warnLog("engine", "build_error_repair_trigger_failed", {
+            chatId,
+            versionId: finalized.version.id,
+            message: repairErr instanceof Error ? repairErr.message : "unknown",
+          });
+        });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Preview start failed";
@@ -305,6 +363,31 @@ export async function runOwnEngineStreamPostFinalize(params: {
           }),
         ),
       );
+      triggerBuildErrorRepair({
+        chatId,
+        versionId: finalized.version.id,
+        buildError: {
+          stage: "preview-start",
+          message,
+        },
+        onRepairAvailable: (payload) => {
+          safeEnqueue(
+            enc.encode(
+              formatSSEEvent("version-repair-available", {
+                versionId: payload.versionId,
+                summary: payload.summary,
+                repairAvailableAt: payload.repairAvailableAt,
+              }),
+            ),
+          );
+        },
+      }).catch((repairErr) => {
+        warnLog("engine", "build_error_repair_trigger_failed", {
+          chatId,
+          versionId: finalized.version.id,
+          message: repairErr instanceof Error ? repairErr.message : "unknown",
+        });
+      });
     }
   }
 
@@ -319,6 +402,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     versionId: finalized.version.id,
     run: serverVerifyDecision.run,
     reason: serverVerifyDecision.reason,
+    diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
     verificationPolicy: buildSpec.verificationPolicy,
     qualityTarget: buildSpec.qualityTarget,
     buildIntent: buildSpec.buildIntent,
@@ -329,6 +413,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     triggerServerVerification({
       chatId,
       versionId: finalized.version.id,
+      diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
       onRepairAvailable: (payload) => {
         safeEnqueue(
           enc.encode(

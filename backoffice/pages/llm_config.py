@@ -111,9 +111,7 @@ def render(ctx: BackofficeContext) -> None:
         checks: list[tuple[str, bool]] = []
         checks.append(("manifest.json finns", man_path.is_file()))
         try:
-            cg_core_path = ctx.config_dir / "codegen-core-manifest.json"
-            cg_legacy_path = ctx.config_dir / "codegen-static-prompt.json"
-            cg_path = cg_core_path if cg_core_path.is_file() else cg_legacy_path
+            cg_path = ctx.config_dir / "codegen-core-manifest.json"
             cg = read_json(cg_path)
             frags = cg.get("fragments") or []
             missing = [f for f in frags if not (ctx.config_dir / f).is_file()]

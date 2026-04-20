@@ -1,0 +1,109 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-vercel-x-xai-chatbot",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Vercel x xAI Chatbot",
+  "description": "An open-source AI chatbot built with Next.js, the AI SDK, and xAI.",
+  "summary": "Use this dossier when a site needs an embedded streaming chatbot powered by xAI models through the Vercel AI SDK. It provides the core API route pattern, client chat hook usage, model selection passthrough, and basic error handling for a Next.js App Router app.",
+  "providers": [
+    {
+      "name": "xAI",
+      "url": "https://github.com/vercel-labs/ai-sdk-starter-xai"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "XAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/react",
+    "@ai-sdk/xai",
+    "@opentelemetry/api-logs",
+    "@opentelemetry/instrumentation",
+    "@opentelemetry/sdk-logs",
+    "@radix-ui/react-label",
+    "@radix-ui/react-select",
+    "@radix-ui/react-slot",
+    "@vercel/analytics",
+    "@vercel/otel",
+    "ai",
+    "autoevals",
+    "braintrust",
+    "class-variance-authority",
+    "clsx",
+    "fast-deep-equal",
+    "lucide-react",
+    "motion",
+    "next-themes",
+    "sonner",
+    "streamdown",
+    "tailwind-merge",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/app/api/chat/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/components/chat.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/ai/providers.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/chat/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/components/chat.tsx",
+      "role": "client",
+      "kind": "component"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "landing-page",
+      "auth-pages",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/vercel-x-xai-chatbot",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-starter-xai",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "xai",
+    "ai-sdk",
+    "nextjs",
+    "chatbot",
+    "streaming",
+    "app-router",
+    "grok",
+    "vercel-ai-sdk"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:15:59.273Z",
+  "_curatedBy": "auto-curate.ts"
+}

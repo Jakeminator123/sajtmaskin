@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "compat-report.schema.json",
+  "title": "Dossier source-health compat report",
+  "description": "Output of scripts/dossiers/compat-test.ts. Lists every dossier with a sourceRepoUrl + GitHub API verdict (archived/stale/unreachable/ok). Written to data/dossiers/_index/compat-report.json.",
+  "type": "object",
+  "required": ["generatedAt", "ruleConfig", "totals", "results"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ruleConfig": {
+      "type": "object",
+      "required": ["staleAgeDays"],
+      "properties": {
+        "staleAgeDays": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "ok",
+        "source-archived",
+        "source-stale",
+        "source-unreachable",
+        "no-source",
+        "skipped",
+        "applied"
+      ],
+      "properties": {
+        "ok": { "type": "integer", "minimum": 0 },
+        "source-archived": { "type": "integer", "minimum": 0 },
+        "source-stale": { "type": "integer", "minimum": 0 },
+        "source-unreachable": { "type": "integer", "minimum": 0 },
+        "no-source": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "applied": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "verdict", "reasons"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "description": "Manifest _status at scan time." },
+          "sourceRepoUrl": { "type": ["string", "null"] },
+          "parsed": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "required": ["owner", "repo"],
+                "properties": {
+                  "owner": { "type": "string" },
+                  "repo": { "type": "string" },
+                  "subpath": { "type": ["string", "null"] }
+                }
+              }
+            ]
+          },
+          "github": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "required": [
+                  "archived",
+                  "pushed_at",
+                  "default_branch",
+                  "topics",
+                  "language",
+                  "stargazers_count",
+                  "open_issues_count"
+                ],
+                "properties": {
+                  "archived": { "type": "boolean" },
+                  "pushed_at": { "type": "string" },
+                  "default_branch": { "type": "string" },
+                  "topics": { "type": "array", "items": { "type": "string" } },
+                  "language": { "type": ["string", "null"] },
+                  "stargazers_count": { "type": "integer", "minimum": 0 },
+                  "open_issues_count": { "type": "integer", "minimum": 0 }
+                }
+              }
+            ]
+          },
+          "ageDays": { "type": ["integer", "null"], "minimum": 0 },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "source-archived",
+              "source-stale",
+              "source-unreachable",
+              "no-source",
+              "skipped"
+            ]
+          },
+          "reasons": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

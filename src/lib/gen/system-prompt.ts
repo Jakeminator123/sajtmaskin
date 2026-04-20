@@ -1,27 +1,33 @@
 /**
  * System prompt builder for sajtmaskin's own code generation engine.
  *
- * Architecture:
+ * Architecture (post 2026-04-18 directive-cascade removal):
  *  ┌─────────────────────────────────────────────────┐
- *  │  Core Rules — config/codegen-core-manifest.json +              │
- *  │    config/prompt-core/*.md (immutable product rules)           │
- *  │  (~6–8K tokens, mtime-cached per process)        │
- *  ├─────────────────────────────────────────────────┤
- *  │  Directives — config/prompt-directives/*.md      │
- *  │  (adaptive modules resolved via Directive Cascade)│
+ *  │  Static Core — config/codegen-core-manifest.json +             │
+ *  │    config/prompt-core/*.md (immutable product rules,           │
+ *  │    incl. visual-design + coding-direction)                     │
+ *  │  (~8–10K tokens, mtime-cached per process)       │
  *  ├─────────────────────────────────────────────────┤
  *  │  Dynamic context  (varies per request)           │
- *  │  → Build intent, visual identity, project ctx    │
+ *  │  → Build intent, scaffold variant, brief, route, │
+ *  │    contracts, dossiers, guidance                 │
  *  └─────────────────────────────────────────────────┘
  *
- * Directive Cascade (resolution priority):
- *  1. EXPLICIT  — Brief/prompt provides exact value
+ * Per-request signal cascade (highest precedence first):
+ *  1. EXPLICIT  — Brief/prompt provides an exact value
  *  2. INDICATED — Brief-LLM infers from context
- *  3. INFERRED  — guidance-resolvers / deterministic heuristics
- *  4. DEFAULT   — Placeholder text in directive file
+ *  3. INFERRED  — `resolveGuidanceBlocks` (deterministic heuristics)
+ *  4. STATIC    — Plain text in `config/prompt-core/*.md`
+ *
+ * The legacy `prompt-directives/` folder + `directive-loader.ts` were
+ * removed 2026-04-18: only `visual-design` and `content-voice` were ever
+ * runtime-injected, so they are now plain core fragments. The 10 unused
+ * directive files were aspirational placeholders the substitution engine
+ * never actually used. Brief and scaffold variant carry the per-request
+ * signal those defaults pretended to switch on.
  *
  * What reaches the model (own-engine):
- *  - **Core Rules** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
+ *  - **Static Core** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
  *    **dynamic context** from this file = full **system** message.
  *  - **User turn** = current request prompt; not duplicated here.
  *  - **Chat history** = prior turns, assembled by the generation pipeline.
@@ -32,16 +38,17 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { debugLog } from "@/lib/utils/debug";
+import {
+  deriveTier3BuildSpec,
+  renderTier3BuildPlanBlock,
+} from "@/lib/integrations/tier3-build-spec";
+import { renderTier3F2DenyBlockLines } from "@/lib/integrations/tier3-sdk-deny";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
-import type {
-  ScaffoldVariant,
-  VariantStructuralFilesSelection,
-} from "./scaffold-variants";
+import type { ScaffoldVariant } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import { resolveGoogleFontImportName } from "./data/google-font-registry";
-import { getDirectiveRawText } from "./directive-loader";
 import { resolveGuidanceBlocks, type ColorPalette } from "./guidance-resolvers";
 import { BUILD_INTENT_GUIDANCE } from "./intent-guidance";
 import type { RoutePlan } from "./route-plan";
@@ -51,6 +58,11 @@ import {
   estimateTokens,
   type PromptBudgetBlock,
 } from "./tokens";
+import {
+  defaultInjectionMode,
+  getDossierFileContent,
+  type DossierSelectionResult,
+} from "./dossiers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
@@ -128,79 +140,30 @@ export interface Brief {
     keywords?: string[];
   };
   siteName?: string;
-
-  // ── Fact-bearing fields (populated from wizard answers / scrape) ─────────
-  // Copying ground-truth facts as structured data lets the model render them
-  // verbatim without having to be lectured in the user message.
-  contact?: {
-    phone?: string;
-    email?: string;
-    address?: string;
-    openingHours?: string;
-    bookingUrl?: string;
-  };
-  services?: string[];
-  uniqueSellingPoints?: string[];
-  products?: Array<{
-    name: string;
-    price?: string;
-    description?: string;
-    category?: string;
+  /** Brief-LLM nominated scaffold (Fas 1.0). Hint — runtime embedding-pick may override. */
+  scaffoldNomination?: {
+    id: string;
+    reason: string;
+    confidence: number;
+  } | null;
+  /** Brief-LLM nominated variant (Fas 1.0). Hint — only meaningful if scaffoldNomination set. */
+  variantNomination?: {
+    id: string;
+    reason: string;
+    confidence: number;
+  } | null;
+  /** Brief-LLM nominated dossiers (Fas 1.0). Hints — orchestrator's embedding pick decides. */
+  dossierNominations?: Array<{
+    id: string;
+    reason: string;
+    confidence: number;
   }>;
-  menuItems?: Array<{
-    name: string;
-    price?: string;
-    description?: string;
-    category?: string;
-  }>;
-  treatments?: Array<{
-    name: string;
-    price?: string;
-    duration?: string;
-  }>;
-  team?: Array<{ name: string; role?: string }>;
-  testimonials?: string[];
-  projectsShowcase?: Array<{ name: string; client?: string; description?: string }>;
-  /** Long-form copy the wizard / scrape collected verbatim. */
-  longCopy?: {
-    aboutUs?: string;
-    companyStory?: string;
-    vision?: string;
-    contactPageText?: string;
-  };
-  /** Commerce / hospitality flags carried through from the wizard. */
-  commerce?: {
-    delivery?: boolean;
-    acceptsReservations?: boolean;
-    paymentMethods?: string[];
-    shippingInfo?: string;
-    priceRange?: string;
-    cuisine?: string[];
-  };
-}
-
-export interface MediaCatalogCredit {
-  /** Rights holder / photographer name, displayed in attribution. */
-  name: string;
-  /** Optional link to the photographer page. */
-  profileUrl?: string;
-  /** Optional link to the asset's canonical page (for license compliance). */
-  sourceUrl?: string;
-  /** Provider label — "Unsplash", "Pexels", etc. */
-  provider: string;
 }
 
 export interface MediaCatalogItem {
   alias: string;
   url: string;
   alt?: string;
-  /**
-   * Origin of the asset. "user" = uploaded via the wizard. "stock" = fetched
-   * from a third-party stock provider and MUST be shown with attribution.
-   */
-  source?: "user" | "stock";
-  /** Attribution metadata, required when source === "stock". */
-  credit?: MediaCatalogCredit;
 }
 
 export interface DesignReferenceAsset {
@@ -233,12 +196,10 @@ export interface DynamicContextOptions {
   buildSpec?: BuildSpec | null;
   /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
-  /** Pre-rendered scaffold-anchored template-library guidance (init only, opt-in). */
-  templateGuidance?: string;
   /** Verified shadcn usage examples matched to this request's capabilities. */
   componentReferences?: { name: string; code: string }[];
-  /** Curated structural code references derived from the active scaffold variant. */
-  variantStructuralFiles?: VariantStructuralFilesSelection | null;
+  /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
+  dossierSelection?: DossierSelectionResult | null;
 }
 
 function str(v: unknown): string {
@@ -259,7 +220,6 @@ function extractCapabilityHintLines(capabilityHints?: string): string[] {
 
 function buildShadcnToolkitSummary(ctx?: {
   scaffoldId?: ScaffoldId | null;
-  sectionInventory?: string[];
 }): string[] {
   return buildRegistryDrivenShadcnToolkitSummary(
     ctx?.scaffoldId ? ctx : undefined,
@@ -285,14 +245,16 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^import reference/i, priority: 75 },
   { match: /^route plan$/i, priority: 90, required: true },
   { match: /^your toolkit$/i, priority: 85, required: true },
+  { match: /^available dossiers$/i, priority: 87 },
+  { match: /^selected dossier instructions$/i, priority: 84 },
+  { match: /^dossier files to emit verbatim$/i, priority: 92, required: true },
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },
   { match: /^pages & sections$/i, priority: 82 },
-  { match: /^media catalog$/i, priority: 92, required: true },
+  { match: /^media catalog$/i, priority: 80 },
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
   { match: /^component references$/i, priority: 80 },
-  { match: /^structural references$/i, priority: 75 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
@@ -311,8 +273,6 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^spec file$/i, priority: 78 },
   { match: /^current project files$/i, priority: 80 },
   { match: /^imagery/i, priority: 66 },
-  { match: /^must have$/i, priority: 88, required: true },
-  { match: /^avoid$/i, priority: 88, required: true },
   { match: /^seo$/i, priority: 62 },
 ];
 
@@ -410,6 +370,33 @@ export type BuildDynamicContextResult = {
   variantId: string | null;
 };
 
+/**
+ * Standardized "sterile but better" body background recipe used when a variant
+ * does not ship its own `bodyBackgroundImage`. Keeps a calm visual rhythm
+ * derived from the variant's own primary color instead of leaving the surface
+ * dead-flat. Light variants get a soft top-left primary wash; dark variants
+ * get a slightly heavier wash so depth is still readable on near-black.
+ */
+function buildFallbackBodyBackgroundImage(
+  variant: ScaffoldVariant | null | undefined,
+): string | null {
+  const tokens = variant?.themeTokens;
+  if (!tokens) return null;
+  const primary = tokens.primary;
+  const accent = tokens.accent;
+  if (!primary && !accent) return null;
+  const isDark = variant?.colorMode === "dark";
+  const primaryMix = isDark ? 14 : 6;
+  const accentMix = isDark ? 10 : 5;
+  const primaryStop = primary
+    ? `radial-gradient(circle at top left, color-mix(in oklab, ${primary} ${primaryMix}%, transparent) 0%, transparent 38%)`
+    : null;
+  const accentStop = accent
+    ? `radial-gradient(circle at bottom right, color-mix(in oklab, ${accent} ${accentMix}%, transparent) 0%, transparent 42%)`
+    : null;
+  return [primaryStop, accentStop].filter(Boolean).join(", ") || null;
+}
+
 function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): string[] {
   const tokens = variant?.themeTokens;
   if (!tokens) return [];
@@ -435,18 +422,24 @@ function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): str
     .filter(([, value]) => Boolean(value))
     .map(([token, value]) => `  - ${token}: ${value}`);
   if (tokens.bodyBackgroundImage) {
-    lines.push(`  - background-image: ${tokens.bodyBackgroundImage}`);
+    // bodyBackgroundImage is NOT a CSS variable — it's a body-styling
+    // recipe. Emit it under its own sub-bullet with an explicit application
+    // hint so the model adds it to `body { background-image: … }` in
+    // app/globals.css rather than treating it as a stray --token.
+    lines.push(
+      `  - **Body background recipe** (apply on \`body { background-image: ... }\` in \`app/globals.css\`):`,
+      `    - ${tokens.bodyBackgroundImage}`,
+    );
+  } else {
+    const fallback = buildFallbackBodyBackgroundImage(variant);
+    if (fallback) {
+      lines.push(
+        `  - **Body background recipe** (standardized fallback — apply on \`body { background-image: ... }\` in \`app/globals.css\` so the surface is not dead-flat):`,
+        `    - ${fallback}`,
+      );
+    }
   }
   return lines;
-}
-
-function inferReferenceCodeFence(path: string): string {
-  if (/\.tsx$/i.test(path)) return "tsx";
-  if (/\.ts$/i.test(path)) return "ts";
-  if (/\.jsx$/i.test(path)) return "jsx";
-  if (/\.js$/i.test(path)) return "js";
-  if (/\.json$/i.test(path)) return "json";
-  return "text";
 }
 
 /**
@@ -476,9 +469,7 @@ export function buildDynamicContext(
     generationMode,
     buildSpec,
     sessionSeed,
-    templateGuidance,
     componentReferences,
-    variantStructuralFiles,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -494,6 +485,15 @@ export function buildDynamicContext(
       "",
       "You are editing/refining the current project state from previous generations. Treat the scaffold, route plan, project context, and continuity signals below as the latest known implementation context. Apply only the user's requested changes unless they clearly ask for a redesign.",
       "",
+      "### Element Preservation Rule",
+      "",
+      "When you output a file, your version **fully replaces** the previous file at that path. The host has NO line-level diff — it is all-or-nothing per file. This means:",
+      "",
+      "- If you emit `app/page.tsx`, every section, component, media element, and interactive block from the previous version MUST appear in your output unless the user explicitly asked to remove it.",
+      "- Pay special attention to: `<video>` elements, video placeholder UIs (play buttons, poster images), `<canvas>`, `<iframe>`, `<form>`, 3D scenes (`<Canvas>`, `<Physics>`), inline SVGs, and custom media components.",
+      "- \"Change the hero\" means change its styling/content — NOT remove the video player or media element inside it.",
+      "- The host merge guard will reject your file and keep the old version if it detects structural elements were dropped. Write the complete file correctly the first time.",
+      "",
     );
   }
 
@@ -503,21 +503,76 @@ export function buildDynamicContext(
     parts.push("## Custom Instructions (from the user)", "", trimmedCustom, "");
   }
 
+  // ── F2 / Design Stage Contract (HARD) ─────────────────────────────────
+  // F2 = visual fidelity stage. The user is iterating on look-and-feel,
+  // NOT on backend integrations. Tier-3 imports/process.env references
+  // bloat output, leak imports the user didn't ask for, and force the
+  // builder UI into "fill in env vars"-mode which we explicitly want
+  // to avoid. F3 ("Bygg nu" / fidelity3) is when integrations are wired
+  // in — and only when the user has clicked that button.
+  // See `.cursor/rules/env-flow-f2-mute.mdc`.
+  if (buildSpec?.previewPolicy !== "fidelity3") {
+    parts.push(
+      "## Generation Stage: F2 / Design (HARD CONTRACT)",
+      "",
+      "You are generating a **visual design preview**. The user wants to see, click, and iterate on the UI. They have NOT asked you to wire in any external services.",
+      "",
+      "**FORBIDDEN in F2 — even if a dossier example shows it, even if the prompt mentions a service by name unless the user explicitly asks for backend wiring:**",
+      "",
+      "- Do NOT `import` any of these packages:",
+      // Deny-list rendered from `config/integrations/tier3-sdk-deny.json` so
+      // this prompt block and the mechanical `tier3-sdk-guard-fixer` can
+      // never drift apart. Add a module in the JSON; both update.
+      ...renderTier3F2DenyBlockLines(),
+      "- Do NOT use `process.env.STRIPE_*`, `process.env.SUPABASE_*`, `process.env.CLERK_*`, `process.env.RESEND_*`, `process.env.SANITY_*`, `process.env.GOOGLE_CLIENT_*`, `process.env.AUTH_SECRET`, or any other tier-3 secret. Public `NEXT_PUBLIC_GA_ID` etc. is fine if the user wanted analytics.",
+      "- Do NOT emit a `.env.local` listing tier-3 keys.",
+      "- Do NOT add Stripe API routes (`/api/stripe/*`, `/api/checkout/*`), webhooks (`/api/webhooks/*`), or auth callbacks unless explicitly requested.",
+      "",
+      "**INSTEAD in F2, for any 'backend' need:**",
+      "",
+      "- Mock all data inline as TypeScript constants: `const ROOMS = [{ id: \"1\", name: \"Skogssvit\", price: 1290 }, ...]`.",
+      "- Forms: use `useState` + `toast.success(\"Bokningen mottagen!\")` on submit. No POST endpoint, no DB.",
+      "- Auth UIs: render a beautiful `<LoginForm>` with email/password fields that calls `toast.success(\"Inloggad (demo)\")` on submit. No real session.",
+      "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg nu' i previewpanelen.\" No Stripe, no API call.",
+      "- Search: client-side `Array.filter()` over the inline mock data.",
+      "",
+      "Why: the user will click **\"Bygg nu\"** in the preview panel when they want to lift the site to F3 / integrations stage. THAT is when real keys, SDKs and API routes get wired in — by a separate generation pass with a separate prompt that explicitly asks for it. Right now, your job is to make the visual frontend perfect.",
+      "",
+    );
+  }
+
   // ── Build Intent ────────────────────────────────────────────────────────
   const guidance = BUILD_INTENT_GUIDANCE[intent];
+  // Variant resolution: production callers (orchestrate) always pass
+  // `resolvedVariant`. The fallback below exists for legacy callers
+  // (`buildSystemPrompt` from eval/runner). Keep its inputs aligned with
+  // `orchestrate.resolveScaffoldVariant` so the fallback picks the same
+  // variant as orchestrate would — otherwise `variantId` logged downstream
+  // can drift from what shaped the prompt. Prefer the raw user prompt
+  // (canonical orchestrate input); fall back to brief-derived text only
+  // when no userPrompt is available.
+  const fallbackVariantPrompt =
+    str(userPrompt) ||
+    [
+      str(brief?.oneSentencePitch),
+      str(brief?.tagline),
+      strList(brief?.mustHave).join(" "),
+      toneKeywords.join(" "),
+      styleKeywords.join(" "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    guidance.rules.join(" ");
+  // resolvedVariant is the embedding-driven pick from resolveOrchestrationBase
+  // (orchestrate.ts → pickScaffoldVariantAsync). The keyword fallback below
+  // only runs when buildDynamicContext is called outside the standard
+  // orchestrate flow (e.g. legacy tests, snapshot rendering) — keeping it
+  // sync avoids forcing this whole function async.
   const effectiveVariant =
     resolvedVariant ??
     pickScaffoldVariant({
-      prompt: [
-        str(brief?.oneSentencePitch),
-        str(brief?.tagline),
-        strList(brief?.mustHave).join(" "),
-        toneKeywords.join(" "),
-        styleKeywords.join(" "),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim() || guidance.rules.join(" "),
+      prompt: fallbackVariantPrompt,
       scaffoldId: resolvedScaffold?.id ?? buildSpec?.scaffoldId ?? null,
       styleKeywords,
       toneKeywords,
@@ -570,10 +625,12 @@ export function buildDynamicContext(
         .join(", or ");
       parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
       const importHints: string[] = [];
-      for (const pair of effectiveVariant.fontPairings.slice(0, 1)) {
+      const seenImportNames = new Set<string>();
+      for (const pair of effectiveVariant.fontPairings) {
         for (const name of [pair.heading, pair.body]) {
           const importName = resolveGoogleFontImportName(name);
-          if (importName && importName !== name) {
+          if (importName && importName !== name && !seenImportNames.has(importName)) {
+            seenImportNames.add(importName);
             importHints.push(`\`${name}\` → \`import { ${importName} } from "next/font/google"\``);
           }
         }
@@ -588,27 +645,28 @@ export function buildDynamicContext(
         parts.push(`  - ${hint}`);
       }
     }
-    if ((effectiveVariant.styleRules?.length ?? 0) > 0) {
-      parts.push("- **Style rules from curated references:**");
-      for (const rule of effectiveVariant.styleRules!.slice(0, 3)) {
-        parts.push(`  - ${rule}`);
+    const sig = effectiveVariant.signaturePatterns;
+    if (sig && (sig.layouts.length || sig.motifs.length || sig.antiPatterns.length)) {
+      // Concrete layout/motif/anti-pattern signatures, replacing the generic
+      // guidance fields removed 2026-04-17. Populated by
+      // scripts/scaffolds/auto-curate-variant-patterns.ts (GPT-5.4 + Zod).
+      if (sig.layouts.length > 0) {
+        parts.push("- **Signature layouts:**");
+        for (const layout of sig.layouts.slice(0, 5)) {
+          parts.push(`  - ${layout}`);
+        }
       }
-    }
-    if ((effectiveVariant.sectionInventory?.length ?? 0) > 0) {
-      parts.push(
-        `- **Section inventory to favor:** ${effectiveVariant.sectionInventory!.slice(0, 4).join(", ")}`,
-      );
-    }
-    if ((effectiveVariant.avoidPatterns?.length ?? 0) > 0) {
-      parts.push("- **Avoid patterns:**");
-      for (const pattern of effectiveVariant.avoidPatterns!.slice(0, 2)) {
-        parts.push(`  - ${pattern}`);
+      if (sig.motifs.length > 0) {
+        parts.push("- **Signature motifs:**");
+        for (const motif of sig.motifs.slice(0, 4)) {
+          parts.push(`  - ${motif}`);
+        }
       }
-    }
-    if ((effectiveVariant.worldClassRubric?.length ?? 0) > 0) {
-      parts.push("- **World-class quality bar:**");
-      for (const rubric of effectiveVariant.worldClassRubric!.slice(0, 3)) {
-        parts.push(`  - ${rubric}`);
+      if (sig.antiPatterns.length > 0) {
+        parts.push("- **Avoid for this variant:**");
+        for (const anti of sig.antiPatterns.slice(0, 4)) {
+          parts.push(`  - ${anti}`);
+        }
       }
     }
     const themeTokenLines = formatThemeTokenLines(effectiveVariant);
@@ -632,31 +690,10 @@ export function buildDynamicContext(
     "When multiple sources suggest different colors, fonts, or visual direction, follow this order:",
     "1. User-locked theme tokens (if set in builder UI) — absolute, never override",
     "2. Brief visual direction (colorPalette, typography, tone, domainProfile) — primary design intent",
-    "3. Scaffold Variant defaults (theme tokens, font pairings, signature motif, style rules) — fallback when brief is silent",
+    "3. Scaffold Variant defaults (theme tokens, font pairings, signature motif, prompt hints) — fallback when brief is silent",
     "4. Directive defaults — placeholder values from directive files, used when neither brief nor variant provides guidance",
     "",
   );
-
-  if (variantStructuralFiles && variantStructuralFiles.files.length > 0) {
-    parts.push(
-      "## Structural References",
-      "",
-      "Verified structural patterns from curated references relevant to the active scaffold variant and detected capabilities. Adapt routing, middleware, and layout patterns to the user's request — do not clone them verbatim.",
-      "",
-    );
-    for (const ref of variantStructuralFiles.files) {
-      parts.push(
-        `### ${ref.path} (from ${ref.sourceTitle})`,
-        "",
-        `Reason: ${ref.reason}`,
-        "",
-        `\`\`\`${inferReferenceCodeFence(ref.path)}`,
-        ref.excerpt,
-        "```",
-        "",
-      );
-    }
-  }
 
   // ── Import Rules & Known Pitfalls live in config/prompt-core/01-behavioral-contract.md
   // (static core, cached per process — no longer eats dynamic context token budget)
@@ -680,7 +717,7 @@ export function buildDynamicContext(
       (t) => `  - ${t.title} (${t.categorySlug}, score ${t.qualityScore})`,
     );
 
-    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0 || templateGuidance) {
+    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0) {
       parts.push(
         "## Scaffold Research Priorities",
         "",
@@ -697,9 +734,6 @@ export function buildDynamicContext(
       if (referenceLines.length > 0) {
         parts.push("", "- Reference inspirations:");
         parts.push(...referenceLines);
-      }
-      if (templateGuidance) {
-        parts.push("", templateGuidance);
       }
       parts.push("");
     }
@@ -719,7 +753,6 @@ export function buildDynamicContext(
     "- shadcn/ui (registry-synced local layer; import from `@/components/ui/<subpath>`):",
     ...buildShadcnToolkitSummary({
       scaffoldId: resolvedScaffold?.id ?? null,
-      sectionInventory: effectiveVariant?.sectionInventory,
     }),
   ];
   if (capabilityLines.length > 0) {
@@ -732,6 +765,132 @@ export function buildDynamicContext(
   }
   toolkitLines.push("");
   parts.push(...toolkitLines);
+
+  // ── Available Dossiers + Selected Instructions (pool-modellen) ────────
+  // Två block:
+  //   ## Available Dossiers — kompakt lista av valda legoklossar (LLM ser
+  //      vad som finns att stoppa in om prompten begär det)
+  //   ## Selected Dossier Instructions — full instructions.md per vald
+  //      dossier (When to use / How to integrate / UX rules / Avoid)
+  // Drivs av FEATURES.useDossierPipeline; opt-in. Tomt → block hoppas över.
+  const dossierSel = options.dossierSelection;
+  if (dossierSel && dossierSel.selected.length > 0) {
+    parts.push(
+      "## Available Dossiers",
+      "",
+      `Selected from a pool of ${dossierSel.poolSize} active dossiers (legoklossar) for this generation. Use only what the user's prompt actually needs.`,
+      "",
+    );
+    for (const sel of dossierSel.selected) {
+      const e = sel.entry;
+      const providers = e.providers && e.providers.length > 0
+        ? ` — providers: ${e.providers.map((p) => p.name).join(", ")}`
+        : "";
+      parts.push(`- **${e.label}** \`${e.id}\` (${e.kind}, ${e.category})${providers}`);
+      parts.push(`  - ${e.description}`);
+    }
+    parts.push("");
+
+    const withInstructions = dossierSel.selected.filter((s) => s.entry.instructions);
+    if (withInstructions.length > 0) {
+      parts.push(
+        "## Selected Dossier Instructions",
+        "",
+        "Concrete usage instructions for each selected dossier. Adapt to the user's request — do not paste blindly.",
+        "",
+      );
+      for (const sel of withInstructions) {
+        parts.push(`### ${sel.entry.label} (\`${sel.entry.id}\`)`, "");
+        parts.push(sel.entry.instructions!.trim(), "");
+      }
+    }
+
+    // ── Verbatim files (Fas 1.5: dossier-as-code) ─────────────────────────
+    // Files marked `injectionMode: "verbatim"` (or defaulting to it for
+    // integration api-routes/middleware/config/util) MUST be emitted by the
+    // codegen LLM exactly as given. This protects integration glue (Stripe
+    // webhook signing, auth middleware, SDK init) from accidental rewrites.
+    interface VerbatimFile {
+      dossierId: string;
+      dossierLabel: string;
+      relPath: string;
+      /** Output path in the generated project (without dossier `components/` prefix). */
+      outputPath: string;
+      /** File extension fence language for CodeProject blocks. */
+      fence: string;
+      content: string;
+    }
+    // Paths that belong to the scaffold and are dangerous to overwrite via a
+    // dossier verbatim block (would clobber fonts, providers, metadata). We
+    // skip these even if a dossier asks for verbatim — log so we can spot
+    // dossier-data that needs fixing.
+    const SCAFFOLD_RESERVED_PATHS = new Set([
+      "app/layout.tsx",
+      "app/globals.css",
+      "app/loading.tsx",
+      "app/error.tsx",
+      "app/not-found.tsx",
+      "app/template.tsx",
+      "package.json",
+      "tsconfig.json",
+      "next.config.js",
+      "next.config.mjs",
+      "next.config.ts",
+      "tailwind.config.ts",
+      "postcss.config.mjs",
+    ]);
+    const verbatimFiles: VerbatimFile[] = [];
+    for (const sel of dossierSel.selected) {
+      for (const file of sel.entry.files) {
+        const mode = file.injectionMode ?? defaultInjectionMode(file.kind, sel.entry.kind);
+        if (mode !== "verbatim") continue;
+        const content = getDossierFileContent(sel.entry.id, file.path);
+        if (content === null) continue;
+        // Dossier files live under data/dossiers/<id>/components/<path-in-project>
+        // The "components/" prefix is the dossier-internal staging dir; strip it
+        // for the actual output path so files land at app/.../route.ts etc.
+        const outputPath = file.path.replace(/^components\//, "");
+        if (SCAFFOLD_RESERVED_PATHS.has(outputPath)) {
+          debugLog(
+            "GEN",
+            `[verbatim-skip] ${sel.entry.id}: refusing to emit verbatim file at scaffold-reserved path '${outputPath}'`,
+          );
+          continue;
+        }
+        const ext = (outputPath.split(".").pop() ?? "ts").toLowerCase();
+        const fence =
+          ext === "tsx" || ext === "ts" || ext === "js" || ext === "jsx" || ext === "css"
+            ? ext
+            : "text";
+        verbatimFiles.push({
+          dossierId: sel.entry.id,
+          dossierLabel: sel.entry.label,
+          relPath: file.path,
+          outputPath,
+          fence,
+          content: content.trimEnd(),
+        });
+      }
+    }
+    if (verbatimFiles.length > 0) {
+      parts.push(
+        "## Dossier Files To Emit Verbatim",
+        "",
+        "The following files come from selected dossier integrations and **MUST appear in your CodeProject output exactly as written below**. Do not paraphrase, refactor, rename, or remove any line — these contain integration glue (auth, webhooks, SDK init) where deviation breaks the integration. Adjust only environment-variable comments if the user already provided a replacement value.",
+        "",
+        "Emit one CodeProject block per file with the exact path shown.",
+        "",
+      );
+      for (const vf of verbatimFiles) {
+        parts.push(`### From \`${vf.dossierId}\` (${vf.dossierLabel}) → \`${vf.outputPath}\``);
+        parts.push("");
+        parts.push("```" + vf.fence + ` file="${vf.outputPath}"`);
+        parts.push(vf.content);
+        parts.push("```");
+        parts.push("");
+      }
+    }
+  }
 
   if (routePlan && routePlan.routes.length > 0) {
     const routeRealization = buildSpec?.routeRealization ?? null;
@@ -800,7 +959,30 @@ export function buildDynamicContext(
     } else {
       parts.push("", "- Keep the route structure compact unless the prompt clearly requires extra pages.");
     }
+    parts.push(
+      "- Generate routes in the project's primary language only. Do not emit both '/contact' and '/kontakt' — pick one based on the brief locale.",
+    );
     parts.push("");
+  }
+
+  // ── Tier-3 Integration Build Plan (F3 only) ────────────────────────────
+  // When previewPolicy is fidelity3 we render the structured tier-3 spec
+  // derived from the contracts. This block tells the F3 LLM exactly which
+  // env keys are guaranteed present and what wiring steps to perform.
+  if (
+    buildSpec?.previewPolicy === "fidelity3" &&
+    preGenerationContracts &&
+    preGenerationContracts.contracts.integrations.length > 0
+  ) {
+    try {
+      const spec = deriveTier3BuildSpec(preGenerationContracts.contracts);
+      const block = renderTier3BuildPlanBlock(spec);
+      if (block) {
+        parts.push(block, "");
+      }
+    } catch {
+      // Never block prompt assembly on a tier-3 rendering error.
+    }
   }
 
   if (preGenerationContracts) {
@@ -913,121 +1095,6 @@ export function buildDynamicContext(
     }
     if (avoid.length > 0) {
       parts.push("## Avoid", "", ...avoid.map((a) => `- ${a}`), "");
-    }
-
-    // ── Facts (ground truth — render verbatim, compose around as you like) ──
-    // These are strictly data; design/layout decisions remain with the model.
-    const factsLines: string[] = [];
-    const contact = brief.contact;
-    if (contact && (contact.phone || contact.email || contact.address || contact.openingHours || contact.bookingUrl)) {
-      factsLines.push("### Contact (use verbatim)");
-      if (contact.phone) factsLines.push(`- Phone: ${contact.phone}`);
-      if (contact.email) factsLines.push(`- Email: ${contact.email}`);
-      if (contact.address) factsLines.push(`- Address: ${contact.address}`);
-      if (contact.openingHours) factsLines.push(`- Opening hours: ${contact.openingHours}`);
-      if (contact.bookingUrl) factsLines.push(`- Booking URL: ${contact.bookingUrl}`);
-      factsLines.push("");
-    }
-    const services = strList(brief.services).slice(0, 12);
-    if (services.length > 0) {
-      factsLines.push("### Services / offerings", ...services.map((s) => `- ${s}`), "");
-    }
-    const usps = strList(brief.uniqueSellingPoints).slice(0, 8);
-    if (usps.length > 0) {
-      factsLines.push("### Unique selling points", ...usps.map((u) => `- ${u}`), "");
-    }
-    const products = Array.isArray(brief.products) ? brief.products.slice(0, 20) : [];
-    if (products.length > 0) {
-      factsLines.push("### Products (render with the exact names and prices)");
-      for (const p of products) {
-        const name = str(p?.name);
-        if (!name) continue;
-        const price = str(p?.price);
-        const desc = str(p?.description);
-        const cat = str(p?.category);
-        const bits = [name, price && `(${price})`, cat && `[${cat}]`].filter(Boolean).join(" ");
-        factsLines.push(`- ${bits}${desc ? ` — ${desc}` : ""}`);
-      }
-      factsLines.push("");
-    }
-    const menu = Array.isArray(brief.menuItems) ? brief.menuItems.slice(0, 30) : [];
-    if (menu.length > 0) {
-      factsLines.push("### Menu items (render with the exact names and prices)");
-      for (const m of menu) {
-        const name = str(m?.name);
-        if (!name) continue;
-        const price = str(m?.price);
-        const desc = str(m?.description);
-        const cat = str(m?.category);
-        const bits = [name, price && `(${price})`, cat && `[${cat}]`].filter(Boolean).join(" ");
-        factsLines.push(`- ${bits}${desc ? ` — ${desc}` : ""}`);
-      }
-      factsLines.push("");
-    }
-    const treatments = Array.isArray(brief.treatments) ? brief.treatments.slice(0, 20) : [];
-    if (treatments.length > 0) {
-      factsLines.push("### Treatments (render with the exact names, prices and durations)");
-      for (const t of treatments) {
-        const name = str(t?.name);
-        if (!name) continue;
-        const price = str(t?.price);
-        const duration = str(t?.duration);
-        const bits = [name, price && `(${price})`, duration && `[${duration}]`].filter(Boolean).join(" ");
-        factsLines.push(`- ${bits}`);
-      }
-      factsLines.push("");
-    }
-    const team = Array.isArray(brief.team) ? brief.team.slice(0, 12) : [];
-    if (team.length > 0) {
-      factsLines.push("### Team");
-      for (const t of team) {
-        const name = str(t?.name);
-        if (!name) continue;
-        const role = str(t?.role);
-        factsLines.push(`- ${name}${role ? ` — ${role}` : ""}`);
-      }
-      factsLines.push("");
-    }
-    const testimonialsList = strList(brief.testimonials).slice(0, 8);
-    if (testimonialsList.length > 0) {
-      factsLines.push("### Testimonials (quote verbatim)");
-      for (const q of testimonialsList) factsLines.push(`- "${q.replace(/"/g, "'")}"`);
-      factsLines.push("");
-    }
-    const showcase = Array.isArray(brief.projectsShowcase) ? brief.projectsShowcase.slice(0, 10) : [];
-    if (showcase.length > 0) {
-      factsLines.push("### Past projects / case studies");
-      for (const p of showcase) {
-        const name = str(p?.name);
-        if (!name) continue;
-        const client = str(p?.client);
-        const desc = str(p?.description);
-        factsLines.push(`- ${name}${client ? ` — ${client}` : ""}${desc ? `: ${desc}` : ""}`);
-      }
-      factsLines.push("");
-    }
-    const longCopy = brief.longCopy;
-    if (longCopy && (longCopy.aboutUs || longCopy.companyStory || longCopy.vision || longCopy.contactPageText)) {
-      factsLines.push("### Long-form copy (use as source text, rewrite for rhythm — do not invent contradicting facts)");
-      if (longCopy.aboutUs) factsLines.push(`- About us: ${longCopy.aboutUs.slice(0, 600)}`);
-      if (longCopy.companyStory) factsLines.push(`- Company story: ${longCopy.companyStory.slice(0, 600)}`);
-      if (longCopy.vision) factsLines.push(`- Vision: ${longCopy.vision.slice(0, 400)}`);
-      if (longCopy.contactPageText) factsLines.push(`- Contact copy: ${longCopy.contactPageText.slice(0, 400)}`);
-      factsLines.push("");
-    }
-    const commerce = brief.commerce;
-    if (commerce && (commerce.delivery != null || commerce.acceptsReservations != null || commerce.paymentMethods?.length || commerce.shippingInfo || commerce.priceRange || commerce.cuisine?.length)) {
-      factsLines.push("### Commerce / hospitality flags");
-      if (commerce.delivery != null) factsLines.push(`- Delivery: ${commerce.delivery ? "yes" : "no"}`);
-      if (commerce.acceptsReservations != null) factsLines.push(`- Reservations: ${commerce.acceptsReservations ? "yes" : "no"}`);
-      if (commerce.priceRange) factsLines.push(`- Price range: ${commerce.priceRange}`);
-      if (commerce.shippingInfo) factsLines.push(`- Shipping: ${commerce.shippingInfo}`);
-      if (commerce.paymentMethods?.length) factsLines.push(`- Payment: ${commerce.paymentMethods.join(", ")}`);
-      if (commerce.cuisine?.length) factsLines.push(`- Cuisine: ${commerce.cuisine.join(", ")}`);
-      factsLines.push("");
-    }
-    if (factsLines.length > 0) {
-      parts.push("## Facts", "", ...factsLines);
     }
 
     // UX & UI notes from brief
@@ -1171,27 +1238,18 @@ export function buildDynamicContext(
     }
   }
 
-  // ── Directive defaults (level 4) ───────────────────────────────────────
-  // Inject directive content for areas not already covered by brief/variant/resolvers.
-  const visualDesignDirective = getDirectiveRawText("visual-design");
-  if (visualDesignDirective) {
-    const cleaned = visualDesignDirective
-      .replace(/<!--[^>]*-->\n?/g, "")
-      .replace(/^#\s+.+\n/m, "")
-      .trim();
-    parts.push(cleaned, "");
-  }
+  // ── Visual-design + content-voice live in static core ─────────────────
+  // These were directive files (`config/prompt-directives/01-visual-design.md`
+  // + `10-content-voice.md`) injected per-request via the now-removed
+  // directive cascade. They never varied per request, so they are static
+  // core fragments today (`config/prompt-core/03-visual-design.md` +
+  // `04-coding-direction.md`) and load through `static-core-loader.ts`
+  // alongside the behavioral and component contracts. Per-request signal
+  // (brief, scaffold variant, guidance resolvers above) overrides them
+  // through the `## Design Priority` hierarchy emitted earlier in the
+  // dynamic context.
 
-  const contentVoiceDirective = getDirectiveRawText("content-voice");
-  if (contentVoiceDirective) {
-    const cleanedVoice = contentVoiceDirective
-      .replace(/<!--[^>]*-->\n?/g, "")
-      .replace(/^#\s+.+\n/m, "")
-      .trim();
-    parts.push("## Coding Direction", "", cleanedVoice, "");
-  }
-
-  // ── Imagery (brief-specific only; prompt-directives/02-images.md is a reference doc, not runtime-injected)
+  // ── Imagery (brief-specific only) ──────────────────────────────────────
   // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
   // (those already feed Scaffold Variant selection). Keep only concrete image subjects/notes.
   if (brief?.imagery) {
@@ -1214,35 +1272,14 @@ export function buildDynamicContext(
     parts.push(
       "## Media Catalog",
       "",
-      "Use the following media assets by their alias. The aliases will be expanded to full URLs during post-processing. Prefer `[user]` assets over `[stock]` assets whenever both describe the same scene.",
+      "Use the following media assets by their alias. The aliases will be expanded to full URLs during post-processing.",
       "",
     );
-    const stockItems: MediaCatalogItem[] = [];
     for (const item of mediaCatalog.slice(0, 30)) {
       const altText = item.alt ? ` (${item.alt})` : "";
-      const originTag =
-        item.source === "stock" ? " [stock]" : item.source === "user" ? " [user]" : "";
-      parts.push(`- \`{{${item.alias}}}\`${altText}${originTag}`);
-      if (item.source === "stock" && item.credit) stockItems.push(item);
+      parts.push(`- \`{{${item.alias}}}\`${altText}`);
     }
     parts.push("");
-    if (stockItems.length > 0) {
-      parts.push(
-        "### Stock attribution (MUST render visibly)",
-        "",
-        "When any `{{STOCK_IMG_*}}` or `{{STOCK_VID_*}}` asset is rendered, include a compact credit near the asset or in the footer. Use small but readable text. Accepted formats:",
-        "- Caption under image: `Photo: Jane Doe / Unsplash`",
-        "- Footer line aggregating credits: `Bilder: Jane Doe, John Smith / Unsplash, Pexels`",
-        "",
-        "Credits for this request:",
-      );
-      for (const item of stockItems) {
-        const c = item.credit!;
-        const profile = c.profileUrl ? ` (${c.profileUrl})` : "";
-        parts.push(`- \`{{${item.alias}}}\` → ${c.name} / ${c.provider}${profile}`);
-      }
-      parts.push("");
-    }
   }
 
   // ── Component References (capability-driven shadcn examples) ─────────
@@ -1325,62 +1362,23 @@ export function buildDynamicContext(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PUBLIC API — buildSystemPrompt(), getSystemPromptLengths()
+// PUBLIC API — composeEngineSystemPrompt(), getSystemPromptLengths()
+//
+// The canonical generation path is:
+//   1. `prepareGenerationContext()` (orchestrate.ts) builds a `BuildSpec`,
+//      resolves scaffold/variant/route/contracts, then calls
+//      `buildDynamicContext()` with the full input set.
+//   2. `composeEngineSystemPrompt(dynamicContext)` glues the static Core
+//      Rules (`config/prompt-core/*.md`) onto the dynamic context to produce
+//      the single system message sent to the LLM.
+//
+// The legacy `buildSystemPrompt(options)` shortcut was removed in favor of
+// this two-step path because its options type kept drifting from
+// `DynamicContextOptions` and silently producing thinner prompts in eval.
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Between static core (config/prompt-core) and buildDynamicContext output. */
 export const SYSTEM_PROMPT_SEPARATOR = "\n\n---\n\n# Request-Specific Context\n\n";
-
-export interface BuildSystemPromptOptions {
-  intent: BuildIntent;
-  brief?: Brief | null;
-  themeOverride?: ThemeColors | null;
-  imageGenerations?: boolean;
-  mediaCatalog?: MediaCatalogItem[];
-  scaffoldContext?: string;
-  resolvedScaffold?: ScaffoldManifest | null;
-  routePlan?: RoutePlan | null;
-  preGenerationContracts?: PreGenerationContractContext | null;
-  componentPalette?: PaletteState | null;
-  designThemePreset?: string | null;
-  designReferences?: DesignReferenceAsset[];
-  customInstructions?: string;
-  userPrompt?: string;
-  generationMode?: "init" | "followUp";
-  buildSpec?: BuildSpec | null;
-  variantStructuralFiles?: VariantStructuralFilesSelection | null;
-}
-
-/**
- * Builds the complete system prompt by combining the static core with
- * a dynamic, per-request context block.
- *
- * The static core is always the first portion of the string, which allows
- * OpenAI's prompt prefix caching to kick in after the first request.
- */
-export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
-  const { context } = buildDynamicContext({
-    intent: options.intent,
-    brief: options.brief,
-    themeOverride: options.themeOverride,
-    imageGenerations: options.imageGenerations,
-    mediaCatalog: options.mediaCatalog,
-    scaffoldContext: options.scaffoldContext,
-    resolvedScaffold: options.resolvedScaffold,
-    routePlan: options.routePlan,
-    preGenerationContracts: options.preGenerationContracts,
-    componentPalette: options.componentPalette,
-    designThemePreset: options.designThemePreset,
-    designReferences: options.designReferences,
-    buildSpec: options.buildSpec,
-    customInstructions: options.customInstructions,
-    userPrompt: options.userPrompt,
-    generationMode: options.generationMode,
-    variantStructuralFiles: options.variantStructuralFiles,
-  });
-
-  return `${loadStaticCoreSync()}${SYSTEM_PROMPT_SEPARATOR}${context}`;
-}
 
 /** Compose static codegen core + dynamic context without re-running retrieval. */
 export function composeEngineSystemPrompt(dynamicContextText: string): string {
@@ -1389,7 +1387,7 @@ export function composeEngineSystemPrompt(dynamicContextText: string): string {
 
 /**
  * Returns character counts for prompt-cache monitoring.
- * Use after buildSystemPrompt() to log total, static, and dynamic lengths.
+ * Use after `composeEngineSystemPrompt()` to log total, static, and dynamic lengths.
  */
 export function getSystemPromptLengths(fullPrompt: string): {
   total: number;

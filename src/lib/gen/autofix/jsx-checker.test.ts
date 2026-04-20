@@ -51,4 +51,64 @@ export default function Page() {
     expect(out).toMatch(/from "lucide-react"/);
     expect(fixes.some((f) => f.description?.includes("lucide"))).toBe(true);
   });
+
+  it("does not generate @/components stub for HTMLDivElement used as a generic type", () => {
+    const code = `
+"use client";
+
+import { useRef } from "react";
+
+export default function Reveal() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  return <div ref={ref}>content</div>;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code);
+    expect(out).not.toMatch(/from "@\/components\/html-div-element"/);
+    expect(
+      fixes.some((f) => f.description?.includes("HTMLDivElement")),
+    ).toBe(false);
+  });
+
+  it("does not generate @/components stub for HTMLFormElement in FormEvent generic", () => {
+    const code = `
+"use client";
+
+import type { FormEvent } from "react";
+
+export default function ContactForm() {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+  }
+  return <form onSubmit={handleSubmit}><input /></form>;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code);
+    expect(out).not.toMatch(/from "@\/components\/html-form-element"/);
+    expect(
+      fixes.some((f) => f.description?.includes("HTMLFormElement")),
+    ).toBe(false);
+  });
+
+  it("recognises multiline named imports so RapierRigidBody is not duplicated", () => {
+    const code = `
+"use client";
+
+import { useRef } from "react";
+import {
+  RigidBody,
+  type RapierRigidBody,
+} from "@react-three/rapier";
+
+export default function CoffeeBeanBody() {
+  const ref = useRef<RapierRigidBody | null>(null);
+  return <RigidBody ref={ref} />;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code);
+    expect(out).not.toMatch(/from "@\/components\/rapier-rigid-body"/);
+    expect(
+      fixes.some((f) => f.description?.includes("RapierRigidBody")),
+    ).toBe(false);
+  });
 });

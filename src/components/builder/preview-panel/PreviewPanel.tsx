@@ -115,6 +115,9 @@ export function PreviewPanel({
   onPlacementComplete,
   simplified = false,
   onComposerAiFallback,
+  lifecycleStage = null,
+  onF3MissingEnv,
+  onF3Ready,
   generationPhase,
   onInlineEditPrompt,
   onSuggestionClick,
@@ -658,10 +661,13 @@ export function PreviewPanel({
   }, [canShowCode, startViewSwitchTransition]);
 
   const elementRegistry = useMemo(() => buildJsxElementRegistry(files), [files]);
-  elementRegistryRef.current = elementRegistry;
+  // Sync ref to latest registry without mutating during render — async inspect callbacks read this.
+  useEffect(() => {
+    elementRegistryRef.current = elementRegistry;
+  }, [elementRegistry]);
 
   useEffect(() => {
-    if (!showElementRegistry || !selectedRegistryLine) return;
+    if (!showElementRegistry || selectedRegistryLine === null) return;
     const container = codeScrollRef.current;
     if (!container) return;
     const approxLineHeight = 18;
@@ -1013,6 +1019,11 @@ export function PreviewPanel({
         inlineEditMode={inlineEditMode}
         handleToggleInlineEdit={onInlineEditPrompt ? handleToggleInlineEdit : undefined}
         onSuggestionClick={onSuggestionClick}
+        chatId={chatId}
+        versionId={versionId}
+        lifecycleStage={lifecycleStage}
+        onF3MissingEnv={onF3MissingEnv}
+        onF3Ready={onF3Ready}
       />
 
       {isCodeView ? (

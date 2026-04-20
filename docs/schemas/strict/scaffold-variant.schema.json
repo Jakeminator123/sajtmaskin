@@ -18,7 +18,7 @@
   "properties": {
     "$schema": {
       "type": "string",
-      "description": "Optional JSON Schema reference for editor validation."
+      "description": "Optional JSON Schema reference for editor validation. Recommended on every variant file: `\"$schema\": \"../../../docs/schemas/strict/scaffold-variant.schema.json\"`."
     },
     "id": {
       "type": "string",
@@ -90,7 +90,36 @@
       "items": { "type": "string", "minLength": 10 },
       "minItems": 1,
       "maxItems": 5,
-      "description": "Directives injected as 'Scaffold hints' in the system prompt. Be SPECIFIC to this variant, not generic."
+      "description": "Short cues injected as '- Variant cues:' bullets in the '## Scaffold Variant (this generation)' block of the system prompt. Be SPECIFIC to this variant, not generic. The first 3 entries are rendered."
+    },
+    "signaturePatterns": {
+      "type": "object",
+      "description": "Concrete layouts/motifs/antiPatterns that give the LLM specific visual direction. Replaces the generic guidance fields removed 2026-04-17. Populated by scripts/scaffolds/auto-curate-variant-patterns.ts. Each entry must be SPECIFIC ('asymmetric hero with floating product card') not abstract ('modern layout').",
+      "required": ["layouts", "motifs", "antiPatterns"],
+      "additionalProperties": false,
+      "properties": {
+        "layouts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 12 },
+          "minItems": 3,
+          "maxItems": 5,
+          "description": "3-5 concrete layout choices the variant prefers."
+        },
+        "motifs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 10 },
+          "minItems": 2,
+          "maxItems": 4,
+          "description": "2-4 visual motifs that read at first glance."
+        },
+        "antiPatterns": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 10 },
+          "minItems": 2,
+          "maxItems": 4,
+          "description": "2-4 patterns the LLM should NOT use for this variant."
+        }
+      }
     },
     "themeTokens": {
       "type": "object",
@@ -115,30 +144,6 @@
         "bodyBackgroundImage": { "type": "string", "description": "CSS background-image for body (gradients, patterns)." }
       }
     },
-    "styleRules": {
-      "type": "array",
-      "items": { "type": "string", "minLength": 10 },
-      "maxItems": 6,
-      "description": "Layout/surface/typography rules SPECIFIC to this variant. Not generic advice — describe what makes THIS variant's grid, surfaces, type, and CTAs distinct."
-    },
-    "sectionInventory": {
-      "type": "array",
-      "items": { "type": "string" },
-      "maxItems": 8,
-      "description": "Expected section types for this variant. E.g. 'hero with headline + CTA', 'social proof bar', 'metrics row'."
-    },
-    "avoidPatterns": {
-      "type": "array",
-      "items": { "type": "string", "minLength": 10 },
-      "maxItems": 6,
-      "description": "What NOT to do for this variant. Be concrete — 'Avoid bubbly gradients' not 'Avoid bad design'."
-    },
-    "worldClassRubric": {
-      "type": "array",
-      "items": { "type": "string", "minLength": 10 },
-      "maxItems": 6,
-      "description": "Quality tests for the final output. Each item should be a pass/fail checkpoint."
-    },
     "sourceTemplateIds": {
       "type": "array",
       "items": { "type": "string" },
@@ -147,7 +152,7 @@
     },
     "default": {
       "type": "boolean",
-      "description": "If true, this variant gets +1 base score in matching and acts as fallback for the scaffold. Exactly one variant per scaffold should be default."
+      "description": "Marks the canonical fallback variant for this scaffold (used by the backoffice and as the safety pick when no other ranking signal applies). NOTE: as of 2026-04 the matcher no longer adds a numeric scoring bonus for `default: true` (see src/lib/gen/scaffold-variants/matcher.ts) — keyword and embedding matches decide. Convention: keep exactly one default per scaffold; sibling variants stay `default: false` and earn their priority via keywords + embeddings."
     }
   }
 }

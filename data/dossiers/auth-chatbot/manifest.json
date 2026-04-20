@@ -1,0 +1,183 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-chatbot",
+  "kind": "integration",
+  "category": "auth",
+  "label": "Chatbot",
+  "description": "A full-featured, hackable Next.js AI chatbot built by Vercel",
+  "summary": "Use this dossier when the site needs authenticated chat or account-aware AI features backed by NextAuth. It provides the core auth/session wrapper, Postgres/Drizzle configuration, structured API error handling, and Redis-based per-IP rate limiting patterns used by the Vercel AI chatbot.",
+  "providers": [
+    {
+      "name": "Vercel",
+      "url": "https://github.com/vercel/chatbot"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "AUTH_SECRET",
+      "required": true,
+      "purpose": "generate a random secret: https://generate-secret.vercel.app/32 or `openssl rand -base64 32`"
+    },
+    {
+      "key": "AI_GATEWAY_API_KEY",
+      "required": true,
+      "purpose": "https://vercel.com/ai-gateway"
+    },
+    {
+      "key": "BLOB_READ_WRITE_TOKEN",
+      "required": true,
+      "purpose": "https://vercel.com/docs/vercel-blob"
+    },
+    {
+      "key": "POSTGRES_URL",
+      "required": true,
+      "purpose": "https://vercel.com/docs/postgres"
+    },
+    {
+      "key": "REDIS_URL",
+      "required": true,
+      "purpose": "https://vercel.com/docs/redis"
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/provider",
+    "@ai-sdk/react",
+    "@codemirror/lang-python",
+    "@codemirror/state",
+    "@codemirror/theme-one-dark",
+    "@codemirror/view",
+    "@opentelemetry/api",
+    "@opentelemetry/api-logs",
+    "@radix-ui/react-use-controllable-state",
+    "@streamdown/cjk",
+    "@streamdown/code",
+    "@streamdown/math",
+    "@streamdown/mermaid",
+    "@vercel/analytics",
+    "@vercel/blob",
+    "@vercel/functions",
+    "@vercel/otel",
+    "ai",
+    "bcrypt-ts",
+    "botid",
+    "class-variance-authority",
+    "classnames",
+    "clsx",
+    "cmdk",
+    "codemirror",
+    "date-fns",
+    "diff-match-patch",
+    "dotenv",
+    "drizzle-orm",
+    "fast-deep-equal",
+    "framer-motion",
+    "katex",
+    "lucide-react",
+    "motion",
+    "nanoid",
+    "next-auth",
+    "next-themes",
+    "orderedmap",
+    "papaparse",
+    "postgres",
+    "prosemirror-example-setup",
+    "prosemirror-inputrules",
+    "prosemirror-markdown",
+    "prosemirror-model",
+    "prosemirror-schema-basic",
+    "prosemirror-schema-list",
+    "prosemirror-state",
+    "prosemirror-view",
+    "radix-ui",
+    "react-data-grid",
+    "redis",
+    "resumable-stream",
+    "server-only",
+    "shiki",
+    "sonner",
+    "streamdown",
+    "swr",
+    "tailwind-merge",
+    "use-stick-to-bottom",
+    "usehooks-ts",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/drizzle.config.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/lib/errors.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/ratelimit.ts",
+      "role": "server",
+      "kind": "util"
+    },
+    {
+      "path": "components/auth.ts",
+      "role": "server",
+      "kind": "auth-config"
+    },
+    {
+      "path": "components/app/api/auth/[...nextauth]/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/lib/auth-guard.ts",
+      "role": "server",
+      "kind": "util"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "base-nextjs",
+      "saas-landing",
+      "ecommerce",
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/chatbot",
+  "sourceRepoUrl": "https://github.com/vercel/chatbot",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "vercel",
+    "next-auth",
+    "auth",
+    "chatbot",
+    "ai-sdk",
+    "drizzle",
+    "postgres",
+    "redis",
+    "rate-limit"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:17:52.994Z",
+  "_curatedBy": "auto-curate.ts"
+}

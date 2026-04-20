@@ -27,6 +27,14 @@ export function useInitBrief(params: PromptAssistConfig) {
   const generateDynamicInstructions = useCallback(
     async (originalPrompt: string, options: InitBriefOptions = {}): Promise<string> => {
       const normalizedModel = normalizeAssistModel(options.modelOverride ?? model);
+      // P22: hård guard — Deep Brief är init-only. När en chatId redan finns
+      // är det per definition en follow-up; brief-anropet växer prompten med
+      // ~70 kB delta-context utan nytta. Kastas tidigt så att en framtida
+      // regression i builder-callern fångas i CI istället för i produktion.
+      const chatId = options.chatId ?? null;
+      if (chatId && options.forceDeepBrief) {
+        throw new Error("forceDeepBrief is init-only — use shallow brief on follow-ups");
+      }
       if (isPromptAssistOff(normalizedModel)) {
         debugLog("AI", "Prompt assist off – skipping dynamic instructions", {
           model: normalizedModel,

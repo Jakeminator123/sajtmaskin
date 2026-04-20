@@ -34,10 +34,16 @@ export interface Chat {
 export interface Message {
   id: string;
   chat_id: string;
-  role: "system" | "user" | "assistant" | "thinking";
+  role: "system" | "user" | "assistant";
   content: string;
   ui_parts?: Record<string, unknown>[] | null;
   token_count: number | null;
+  /**
+   * Concatenated reasoning emitted during the stream that produced this
+   * message. Persisted on assistant messages so the builder UI can
+   * re-render the "thinking" panel after a refresh; null otherwise.
+   */
+  thinking?: string | null;
   created_at: string;
 }
 
@@ -54,6 +60,10 @@ export interface Version {
   verification_summary: string | null;
   repair_available_at: string | null;
   promoted_at: string | null;
+  /** F2/F3 lifecycle stage; defaults to "design" for legacy rows. */
+  lifecycle_stage: "design" | "integrations";
+  /** F3 versions point at the F2 version they were forked from. */
+  parent_version_id: string | null;
   created_at: string;
 }
 
@@ -133,20 +143,26 @@ export async function addMessage(
   uiParts?: Record<string, unknown>[] | null,
 ): Promise<Message> {
   const id = uuid();
-  await db.insert(engineMessages).values({
-    id,
-    chatId,
-    role,
-    content,
-    uiParts: Array.isArray(uiParts) ? uiParts : null,
-    tokenCount: tokenCount ?? null,
+  return await db.transaction(async (tx) => {
+    await tx.insert(engineMessages).values({
+      id,
+      chatId,
+      role,
+      content,
+      uiParts: Array.isArray(uiParts) ? uiParts : null,
+      tokenCount: tokenCount ?? null,
+    });
+    await tx
+      .update(engineChats)
+      .set({ updatedAt: new Date() })
+      .where(eq(engineChats.id, chatId));
+    const rows = await tx
+      .select()
+      .from(engineMessages)
+      .where(eq(engineMessages.id, id))
+      .limit(1);
+    return toRow(rows[0]) as unknown as Message;
   });
-  await db
-    .update(engineChats)
-    .set({ updatedAt: new Date() })
-    .where(eq(engineChats.id, chatId));
-  const rows = await db.select().from(engineMessages).where(eq(engineMessages.id, id)).limit(1);
-  return toRow(rows[0]) as unknown as Message;
 }
 
 async function loadVersionById(
@@ -165,6 +181,8 @@ async function getStoredVersion(versionId: string): Promise<Version> {
   return loadVersionById(db, versionId);
 }
 
+const MAX_VERSION_INSERT_RETRIES = 3;
+
 async function insertDraftVersionRow(
   executor: typeof db,
   params: {
@@ -172,29 +190,48 @@ async function insertDraftVersionRow(
     messageId: string | null;
     filesJson: string;
     previewUrl?: string;
+    /** F2/F3 lifecycle stage. Defaults to "design". */
+    lifecycleStage?: "design" | "integrations";
+    /** When set, F3 row pointing at the F2 version it was forked from. */
+    parentVersionId?: string | null;
   },
 ): Promise<Version> {
   const id = uuid();
-  const latest = await executor
-    .select({ maxVer: sql<number>`COALESCE(MAX(${engineVersions.versionNumber}), 0)` })
-    .from(engineVersions)
-    .where(eq(engineVersions.chatId, params.chatId));
-  const versionNumber = (latest[0]?.maxVer ?? 0) + 1;
 
-  await executor.insert(engineVersions).values({
-    id,
-    chatId: params.chatId,
-    messageId: params.messageId,
-    versionNumber,
-    filesJson: params.filesJson,
-    repairedFilesJson: null,
-    previewUrl: params.previewUrl ?? null,
-    releaseState: "draft",
-    verificationState: "pending",
-    verificationSummary: null,
-    repairAvailableAt: null,
-    promotedAt: null,
-  });
+  for (let attempt = 0; attempt < MAX_VERSION_INSERT_RETRIES; attempt++) {
+    try {
+      await executor.execute(
+        sql`INSERT INTO engine_versions (id, chat_id, message_id, version_number, files_json, repaired_files_json, preview_url, release_state, verification_state, verification_summary, repair_available_at, promoted_at, lifecycle_stage, parent_version_id, created_at)
+            VALUES (
+              ${id},
+              ${params.chatId},
+              ${params.messageId},
+              (SELECT COALESCE(MAX(version_number), 0) + 1 FROM engine_versions WHERE chat_id = ${params.chatId}),
+              ${params.filesJson},
+              ${null},
+              ${params.previewUrl ?? null},
+              ${"draft"},
+              ${"pending"},
+              ${null},
+              ${null},
+              ${null},
+              ${params.lifecycleStage ?? "design"},
+              ${params.parentVersionId ?? null},
+              NOW()
+            )`,
+      );
+      break;
+    } catch (e: unknown) {
+      const isUniqueViolation =
+        e instanceof Error &&
+        ("code" in e && (e as Record<string, unknown>).code === "23505");
+      if (isUniqueViolation && attempt < MAX_VERSION_INSERT_RETRIES - 1) {
+        continue;
+      }
+      throw e;
+    }
+  }
+
   return loadVersionById(executor, id);
 }
 
@@ -210,9 +247,17 @@ export async function addAssistantMessageAndCreateDraftVersion(
     tokenCount?: number;
     uiParts?: Record<string, unknown>[] | null;
     previewUrl?: string;
+    lifecycleStage?: "design" | "integrations";
+    parentVersionId?: string | null;
+    /**
+     * Concatenated reasoning captured from the stream for this
+     * assistant message. Persisted on the row so the builder UI can
+     * re-show the "thinking" panel after an F5 refresh.
+     */
+    thinking?: string | null;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts, previewUrl } = options;
+  const { tokenCount, uiParts, previewUrl, lifecycleStage, parentVersionId, thinking } = options;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -222,6 +267,7 @@ export async function addAssistantMessageAndCreateDraftVersion(
       content,
       uiParts: Array.isArray(uiParts) ? uiParts : null,
       tokenCount: tokenCount ?? null,
+      thinking: typeof thinking === "string" && thinking.length > 0 ? thinking : null,
     });
     await tx
       .update(engineChats)
@@ -234,6 +280,8 @@ export async function addAssistantMessageAndCreateDraftVersion(
       messageId,
       filesJson,
       previewUrl,
+      lifecycleStage,
+      parentVersionId,
     });
 
     const msgRows = await tx.select().from(engineMessages).where(eq(engineMessages.id, messageId)).limit(1);
@@ -256,9 +304,11 @@ export async function addAssistantMessageAndUpdateExistingVersion(
   options: {
     tokenCount?: number;
     uiParts?: Record<string, unknown>[] | null;
+    /** See `addAssistantMessageAndCreateDraftVersion` for semantics. */
+    thinking?: string | null;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts } = options;
+  const { tokenCount, uiParts, thinking } = options;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -268,6 +318,7 @@ export async function addAssistantMessageAndUpdateExistingVersion(
       content,
       uiParts: Array.isArray(uiParts) ? uiParts : null,
       tokenCount: tokenCount ?? null,
+      thinking: typeof thinking === "string" && thinking.length > 0 ? thinking : null,
     });
     await tx
       .update(engineChats)
@@ -301,8 +352,16 @@ export async function createDraftVersion(
   messageId: string | null,
   filesJson: string,
   previewUrl?: string,
+  lifecycle?: { stage?: "design" | "integrations"; parentVersionId?: string | null },
 ): Promise<Version> {
-  return insertDraftVersionRow(db, { chatId, messageId, filesJson, previewUrl });
+  return insertDraftVersionRow(db, {
+    chatId,
+    messageId,
+    filesJson,
+    previewUrl,
+    lifecycleStage: lifecycle?.stage,
+    parentVersionId: lifecycle?.parentVersionId,
+  });
 }
 
 export async function createAndPromoteDraftVersion(

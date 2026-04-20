@@ -67,9 +67,31 @@ function notifyAutofixSkipped(reasons: string[]) {
   });
 }
 
-const MAX_ATTEMPTS_PER_REASON = 1;
-const MAX_AUTOFIX_PER_CHAT = 2;
-const DEDUPE_TTL_MS = 5 * 60 * 1000;
+// Tak och timing för klient-driven autofix. Override via NEXT_PUBLIC_*
+// (klientside-bundling). Defaults är aggressivt konservativa: max 1 försök
+// per fel-typ OCH max 1 totalt per chat. Tidigare default på 2 totalt
+// gjorde att två sekventiella followups kunde skrivas in i samma version
+// utan möjlighet till rollback (se generationslogg 235012/235205).
+// Användare som vill ha den gamla "2 retries"-loopen kan fortfarande
+// opt-in via NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=2.
+function readClientNumberEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+const MAX_ATTEMPTS_PER_REASON = readClientNumberEnv(
+  "NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON",
+  1,
+);
+const MAX_AUTOFIX_PER_CHAT = readClientNumberEnv(
+  "NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT",
+  1,
+);
+const DEDUPE_TTL_MS = readClientNumberEnv(
+  "NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS",
+  5 * 60 * 1000,
+);
 const SOFT_ONLY_AUTOFIX_REASONS = new Set([
   "misstänkt scaffold-mismatch",
   "planerade routes saknas",
@@ -94,9 +116,32 @@ type VersionSummary = {
   verificationState?: string | null;
 };
 
+/**
+ * Canonical reason-key for autofix dedupe.
+ *
+ * The OLD implementation hashed the full `reasons[]` string list, which
+ * meant that a quality-gate-fail with reasons `["typecheck failed"]`
+ * and a follow-up post-check with `["preview rendering failed",
+ * "typecheck failed"]` produced DIFFERENT keys and bypassed the dedupe
+ * cap — even though both passes targeted the same underlying failure.
+ * That's how two `generationKind=followup` runs landed on the same
+ * versionId 52s apart in the Snickar Anders log.
+ *
+ * New canonical key prefers the structured `repair.qualityGate[].check`
+ * set (typecheck/build/lint), falling back to sorted `reasons[]` only
+ * when no quality-gate context exists. Same underlying failure → same
+ * key → cap holds.
+ */
 function makeReasonKey(payload: AutoFixPayload): string {
+  const checks = payload.repair?.qualityGate
+    ?.map((g) => g.check)
+    .filter(Boolean);
+  if (checks && checks.length > 0) {
+    const checkHash = [...new Set(checks)].sort().join("|");
+    return `${payload.chatId}:check:${checkHash}`;
+  }
   const reasonHash = payload.reasons.slice().sort().join("|");
-  return `${payload.chatId}:${reasonHash}`;
+  return `${payload.chatId}:reason:${reasonHash}`;
 }
 
 function makeChatKey(chatId: string): string {
@@ -377,11 +422,29 @@ export function useAutoFix(
 
         const chatKey = makeChatKey(payload.chatId);
         const chatTotal = autoFixAttemptsRef.current[chatKey]?.count ?? 0;
-        if (chatTotal >= MAX_AUTOFIX_PER_CHAT) return;
+        if (chatTotal >= MAX_AUTOFIX_PER_CHAT) {
+          if (typeof window !== "undefined") {
+            // eslint-disable-next-line no-console
+            console.info(
+              "[autofix] chat-cap reached",
+              { chatId: payload.chatId, max: MAX_AUTOFIX_PER_CHAT, chatTotal },
+            );
+          }
+          return;
+        }
 
         const reasonKey = makeReasonKey(payload);
         const reasonAttempts = autoFixAttemptsRef.current[reasonKey]?.count ?? 0;
-        if (reasonAttempts >= MAX_ATTEMPTS_PER_REASON) return;
+        if (reasonAttempts >= MAX_ATTEMPTS_PER_REASON) {
+          if (typeof window !== "undefined") {
+            // eslint-disable-next-line no-console
+            console.info(
+              "[autofix] reason-cap reached",
+              { chatId: payload.chatId, reasonKey, max: MAX_ATTEMPTS_PER_REASON },
+            );
+          }
+          return;
+        }
 
         if (!(await isLatestVersionPayload(payload))) return;
 

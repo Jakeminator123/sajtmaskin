@@ -26,6 +26,27 @@
     "Treat the shell as a product world, not just a sidebar plus content column.",
     "Use contrast and atmosphere to make the workspace feel owned by a specific domain."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a cinematic app shell with a left rail, top command bar, and a central stage panel framed like a live control room.",
+      "Build dashboard pages as layered workspaces with one dominant canvas, a right-side inspector drawer, and compact status cards pinned around it.",
+      "Compose chat or creator screens with a full-height conversation pane, sticky input dock, and floating model or session controls above the fold.",
+      "Arrange analytics or lobby views as a dramatic hero metric band over a dense grid of dark cards, with one glowing primary action anchoring the scene.",
+      "Use modal flows as centered command chambers with dimmed shell surroundings, stacked step panels, and a visible high-contrast confirm action."
+    ],
+    "motifs": [
+      "Dark graphite surfaces should stack in depth, with soft inner shadows, thin cool borders, and neon pink or electric blue action glows.",
+      "Cards should feel like illuminated equipment: near-black fills, 0.95rem corners, subtle edge highlights, and brighter active states than resting surfaces.",
+      "Navigation and controls should read like a game or creator cockpit, with compact pills, luminous toggles, and focused panels floating over the shell.",
+      "Use contrast like atmosphere, letting bright text, live dots, and saturated action accents puncture large fields of controlled darkness."
+    ],
+    "antiPatterns": [
+      "Avoid flat monochrome admin dashboards with equal-weight cards everywhere; this variant needs a clear focal stage and depth hierarchy.",
+      "Never use airy white surfaces, pastel gradients, or friendly startup illustrations; they break the owned, high-intensity product-world mood.",
+      "Avoid generic website framing where content sits in one centered column; the shell should feel immersive, surrounding, and operational.",
+      "Do not rely on soft beige warmth, rounded playful blobs, or oversized marketing icons; this style wants tension, precision, and controlled glow."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.11 0.01 270)",
     "foreground": "oklch(0.95 0.006 270)",
@@ -39,32 +60,6 @@
     "ring": "oklch(0.72 0.2 330)",
     "radius": "0.95rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Preserve clear information density with persistent navigation and scannable panels.",
-    "Keep each auth screen single-purpose, calm, and trustworthy."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "overview metrics",
-    "filters or controls",
-    "table or chart area"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid turning dashboard references into generic marketing landing pages.",
-    "Avoid mixing auth flows with unrelated landing-page sections."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Dense UI must still feel legible, fast, and trustworthy.",
-    "Auth pages should feel ready for real product onboarding."
-  ],
   "sourceTemplateIds": [
     "ai-chatbot",
     "ai-next-js-ai-chatbot-with-twilio-segment-analytics",

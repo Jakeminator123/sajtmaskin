@@ -6,7 +6,9 @@
   "sourceOfTruth": {
     "types": [
       "src/lib/gen/preview/preview-contract.ts",
-      "src/lib/gen/preview/preview-host-client.ts"
+      "src/lib/gen/preview/preview-host-client.ts",
+      "src/lib/integrations/tier3-build-spec.ts",
+      "src/lib/integrations/placeholder-harmless.ts"
     ],
     "runtime": [
       "src/lib/gen/verify/preview-quality-gate.ts",
@@ -14,6 +16,7 @@
       "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
       "src/app/api/engine/chats/[chatId]/repair/route.ts",
       "src/app/api/engine/chats/[chatId]/accept-repair/route.ts",
+      "src/app/api/engine/chats/[chatId]/finalize-design/route.ts",
       "src/lib/db/chat-repository-pg.ts",
       "preview-host/src/server.js",
       "preview-host/src/validate.js",
@@ -73,6 +76,22 @@
       "workspaceIsolation": "isolated temporary verify workspace",
       "producesPreviewUrl": false,
       "checks": ["typecheck", "build", "lint"],
+      "manifestLaneSelection": {
+        "configKey": "qualityGateTiers",
+        "lanes": {
+          "designPreview": {
+            "checks": ["typecheck"],
+            "purpose": "F2 quality gate. Used by live-preview tier-2 verification, background `server-verify` and post-repair re-check.",
+            "consumer": "DESIGN_PREVIEW_QUALITY_GATE_CHECKS"
+          },
+          "integrationsBuild": {
+            "checks": ["typecheck", "build"],
+            "purpose": "F3 quality gate. Used by `/finalize-design` flow and promotion paths.",
+            "consumer": "INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS"
+          }
+        },
+        "removed2026Q2": ["tier2", "serverVerify", "promotion", "interactive"]
+      },
       "appSideTelemetryNote": "Sajtmaskin may attach optional compact visualQA inside persisted preflight:quality-gate log meta when SAJTMASKIN_VISUAL_QA is enabled and all verify checks passed; this is app-side only and not part of PreviewHostVerifyResponse.",
       "auth": {
         "requiredOutsideLocalDev": true,
@@ -161,7 +180,79 @@
           "enum": ["preview_host", null]
         },
         "reason": { "type": "string", "required": false },
-        "message": { "type": "string", "required": false }
+        "message": { "type": "string", "required": false },
+        "providerDestroyDeferred": {
+          "type": "boolean",
+          "required": false,
+          "note": "True when local state was cleared but the host destroy returned a retryable failure (5xx). Host-side cleanup is deferred to idle TTL or `/admin/cleanup`."
+        }
+      }
+    },
+    "FinalizeDesignApiJson": {
+      "route": "/api/engine/chats/[chatId]/finalize-design",
+      "method": "POST",
+      "purpose": "F3 ('Bygg integrationer') trigger. Validates tier-3 readiness against stored project env vars before allowing the chat-stream caller to start an F3 generation with `meta.lifecycleStage: \"integrations\"` and `meta.parentVersionId`.",
+      "type": "object",
+      "request": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "versionId": {
+            "type": "string",
+            "required": false,
+            "note": "Defaults to preferred/latest engine version for the chat."
+          }
+        }
+      },
+      "responses": {
+        "200_ready": {
+          "required": ["ready", "parentVersionId", "streamMeta"],
+          "properties": {
+            "ready": { "const": true },
+            "parentVersionId": { "type": "string" },
+            "requirements": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["key", "name", "requiredRealEnvKeys"],
+                "properties": {
+                  "key": { "type": "string" },
+                  "name": { "type": "string" },
+                  "requiredRealEnvKeys": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            },
+            "streamMeta": {
+              "type": "object",
+              "required": ["lifecycleStage", "parentVersionId"],
+              "properties": {
+                "lifecycleStage": { "const": "integrations" },
+                "parentVersionId": { "type": "string" }
+              }
+            }
+          }
+        },
+        "412_missing_env": {
+          "required": ["ready", "parentVersionId", "missingByIntegration"],
+          "properties": {
+            "ready": { "const": false },
+            "parentVersionId": { "type": "string" },
+            "missingByIntegration": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["key", "name", "missing"],
+                "properties": {
+                  "key": { "type": "string" },
+                  "name": { "type": "string" },
+                  "missing": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
+        },
+        "404_not_found": { "required": ["error"] },
+        "409_already_integrations": { "required": ["ready", "reason"] }
       }
     },
     "PreviewHostVerifyRequest": {

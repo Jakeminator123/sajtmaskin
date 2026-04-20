@@ -1,22 +1,20 @@
 /**
  * Verify-lane check lists, ordered by strictness.
  *
- * Three distinct lanes use these lists — they are NOT the same gate:
+ * Two canonical lanes (manifest `qualityGateTiers`):
  *
- *  1. **Tier-2 verify lane** (`TIER2_QUALITY_GATE_CHECKS`):
- *     Runs on preview-host right after generation via the client's
- *     `runTier2VerifyLane` in `post-checks.ts`. Blocking for live preview.
- *     Currently: typecheck only.
+ *  1. **Design preview lane** (`DESIGN_PREVIEW_QUALITY_GATE_CHECKS`):
+ *     Runs on preview-host right after F2 generation via the client's
+ *     `runTier2VerifyLane` in `post-checks.ts`. Also used by background
+ *     `triggerServerVerification` after finalize. Currently: typecheck only.
  *
- *  2. **Background server verify** (`SERVER_VERIFY_QUALITY_GATE_CHECKS`):
- *     Fire-and-forget after finalize via `triggerServerVerification` in
- *     `server-verify.ts`. Promotes or fails the version in DB; does NOT
- *     block the SSE response. Currently: typecheck + lint.
+ *  2. **Integrations build lane** (`INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS`):
+ *     Used for F3 ("bygg integrationer") and deploy-promotion paths.
+ *     Currently: typecheck + build.
  *
- *  3. **Promotion / interactive** (`PROMOTION_QUALITY_GATE_CHECKS`,
- *     `INTERACTIVE_QUALITY_GATE_CHECKS`): Used for deploy-level or
- *     manual verification. Strictest: typecheck + build (+ lint for
- *     interactive). Not part of the normal preview flow.
+ * Older 4-lane shape (`tier2`/`serverVerify`/`promotion`/`interactive`)
+ * was collapsed 2026-04: serverVerify and interactive were duplicates of
+ * the two canonical lanes with only stylistic differences.
  */
 import { getQualityGateTiersFromManifest } from "@/lib/ai-models/load-manifest";
 
@@ -37,27 +35,15 @@ function sanitizeTierChecks(
 
 const qualityGateTiers = getQualityGateTiersFromManifest();
 
-const DEFAULT_TIER2 = ["typecheck"] as const;
-const DEFAULT_SERVER_VERIFY = ["typecheck", "lint"] as const;
-const DEFAULT_PROMOTION = ["typecheck", "build"] as const;
-const DEFAULT_INTERACTIVE = ["typecheck", "build", "lint"] as const;
+const DEFAULT_DESIGN_PREVIEW = ["typecheck"] as const;
+const DEFAULT_INTEGRATIONS_BUILD = ["typecheck", "build"] as const;
 
-export const TIER2_QUALITY_GATE_CHECKS = sanitizeTierChecks(
-  qualityGateTiers.tier2,
-  DEFAULT_TIER2,
+export const DESIGN_PREVIEW_QUALITY_GATE_CHECKS = sanitizeTierChecks(
+  qualityGateTiers.designPreview,
+  DEFAULT_DESIGN_PREVIEW,
 );
 
-export const SERVER_VERIFY_QUALITY_GATE_CHECKS = sanitizeTierChecks(
-  qualityGateTiers.serverVerify,
-  DEFAULT_SERVER_VERIFY,
-);
-
-export const PROMOTION_QUALITY_GATE_CHECKS = sanitizeTierChecks(
-  qualityGateTiers.promotion,
-  DEFAULT_PROMOTION,
-);
-
-export const INTERACTIVE_QUALITY_GATE_CHECKS = sanitizeTierChecks(
-  qualityGateTiers.interactive,
-  DEFAULT_INTERACTIVE,
+export const INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS = sanitizeTierChecks(
+  qualityGateTiers.integrationsBuild,
+  DEFAULT_INTEGRATIONS_BUILD,
 );

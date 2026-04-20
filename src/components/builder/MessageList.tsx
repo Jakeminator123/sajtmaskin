@@ -3,11 +3,11 @@
 import {
   Conversation,
   ConversationContent,
+  ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
 import { Sources, SourcesContent, SourcesTrigger, Source } from "@/components/ai-elements/sources";
-import { VersionFeedback } from "@/components/builder/VersionFeedback";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -39,19 +39,41 @@ import {
   buildAgentLogItems as buildAgentLogItemsFromTooling,
 } from "@/components/builder/BuilderMessageTooling";
 import { GenerationSummary } from "@/components/builder/GenerationSummary";
+import { VersionFeedback } from "@/components/builder/VersionFeedback";
 import { Streamdown } from "streamdown";
 import { code as streamdownCode } from "@streamdown/code";
+
+/**
+ * Streamdown 2.x renders inline links inside a wrapper that, in
+ * combination with the link-safety modal portal, occasionally injects
+ * block-level elements inside `<p>` tags during hydration ("nested
+ * `<a>`/`<div>` inside `<p>`" warning in console). We don't need the
+ * link-safety popup or fancy preview affordance for assistant messages,
+ * so render a plain anchor instead. This is the documented escape
+ * hatch: the `components` prop forwards ReactMarkdown's component
+ * override map straight through.
+ *
+ * If/when Streamdown ships an explicit `linkPreview={false}` toggle
+ * this override can be replaced.
+ */
+const STREAMDOWN_PLAIN_COMPONENTS = {
+  a: ({ children, href, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a
+      {...rest}
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline underline-offset-2"
+    >
+      {children}
+    </a>
+  ),
+};
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { memo, useEffect, useMemo, useRef, useState, type AnchorHTMLAttributes } from "react";
 
 interface MessageListProps {
   chatId: string | null;
@@ -65,12 +87,7 @@ interface MessageListProps {
 
 function hasGenerationContent(text: string): boolean {
   if (!text) return false;
-  if (text.includes('file="') || text.includes("```")) return true;
-  // Modellen strömmar ibland rå TSX/JSX/HTML utan öppnande code-fence innan
-  // strömmen stänger. Dessa fingerprints säkerställer att sådan text ruttas
-  // via GenerationSummary (som döljer rå kod bakom "Råtext") istället för
-  // att renderas bokstavligt som markdown i chatten.
-  return /<[A-Za-z][A-Za-z0-9]*[\s>/]|style=\{\{|className="|import\s+\w|export\s+default/.test(text);
+  return text.includes('file="') || text.includes("```");
 }
 
 const MessageListComponent = ({
@@ -166,34 +183,26 @@ const MessageListComponent = ({
 
   if (!chatId && messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-border/40 bg-card/60 shadow-[0_1px_0_hsl(var(--border)/0.4)]">
-          <MessageSquare className="h-7 w-7 text-muted-foreground/75" aria-hidden />
-        </div>
-        <p className="text-sm" suppressHydrationWarning>
-          Ingen chat vald
-        </p>
+      <div className="flex h-full flex-col items-center justify-center text-gray-500">
+        <MessageSquare className="mb-3 h-10 w-10" />
+        <p className="text-sm" suppressHydrationWarning>Ingen chat vald ännu</p>
       </div>
     );
   }
 
   if (messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-border/40 bg-card/60 shadow-[0_1px_0_hsl(var(--border)/0.4)]">
-          <MessageSquare className="h-7 w-7 text-muted-foreground/75" aria-hidden />
-        </div>
-        <p className="text-sm" suppressHydrationWarning>
-          Inga meddelanden ännu
-        </p>
+      <div className="flex h-full flex-col items-center justify-center text-gray-500">
+        <MessageSquare className="mb-3 h-10 w-10" />
+        <p className="text-sm" suppressHydrationWarning>Inga meddelanden ännu</p>
       </div>
     );
   }
 
   return (
     <>
-      <Conversation className="h-full scroll-smooth scrollbar-thin [scroll-behavior:smooth]" role="log" aria-label="Konversation">
-        <ConversationContent className="space-y-3 px-3 py-3 sm:px-4 sm:py-4">
+      <Conversation className="h-full">
+        <ConversationContent>
           {messages.map((message, messageIndex) => {
           const reasoningPart = message.parts.find(
             (p): p is Extract<MessagePart, { type: "reasoning" }> => p.type === "reasoning",
@@ -237,19 +246,10 @@ const MessageListComponent = ({
           const hasVisibleTooling =
             agentLogItems.length > 0 || compactToolParts.length > 0 || toolParts.length > 0;
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
-          const expandToolSection = Boolean(pendingReply?.messageId === message.id);
-          const toolingStepCount = agentLogItems.length + compactToolParts.length;
 
           return (
             <Message key={message.id} from={message.role}>
-              <MessageContent
-                className={cn(
-                  "max-w-[min(88%,28rem)] gap-2.5 rounded-[1.25rem] border px-4 py-3 shadow-[0_1px_0_hsl(var(--border)/0.45)] transition-[box-shadow,background-color,border-color] duration-[var(--transition-base,200ms)] ease-out",
-                  message.role === "user"
-                    ? "ml-auto border-primary/20 bg-primary/[0.06] text-foreground"
-                    : "border-border/40 bg-card/75 text-foreground backdrop-blur-[2px]",
-                )}
-              >
+              <MessageContent>
                 {message.role === "assistant" && reasoningPart && (
                   <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
                     <ReasoningTrigger />
@@ -274,41 +274,22 @@ const MessageListComponent = ({
 
                 {!showStructuredParts &&
                   message.role === "assistant" &&
-                  toolingStepCount > 0 && (
-                    <Collapsible
-                      key={`tool-section-${message.id}-${expandToolSection ? "open" : "shut"}-${pendingReply?.key ?? "none"}`}
-                      defaultOpen={expandToolSection}
-                      className="group rounded-xl border border-border/35 bg-muted/15"
-                    >
-                      <CollapsibleTrigger className="text-muted-foreground hover:bg-muted/35 flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition-colors">
-                        <span>
-                          Steg · {toolingStepCount}
-                          {expandToolSection ? (
-                            <span className="text-primary/90 ml-1.5 font-normal">· svar</span>
-                          ) : null}
-                        </span>
-                        <ChevronDown
-                          className="h-4 w-4 shrink-0 opacity-70 transition-transform duration-[var(--transition-base,200ms)] group-data-[state=open]:rotate-180"
-                          aria-hidden
-                        />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="space-y-0 px-2 pb-2">
-                        {agentLogItems.length > 0 && <AgentLogCard items={agentLogItems} />}
-                        {compactToolParts.length > 0 && (
-                          <CompactToolParts
-                            messageId={message.id}
-                            toolParts={compactToolParts}
-                            pendingReply={pendingReply}
-                            hasUserAfterCurrentMessage={hasUserAfterCurrentMessage}
-                            pendingQuickReplyKey={pendingQuickReplyKey}
-                            onQuickReply={async (messageId, optionIndex, option, options) =>
-                              sendQuickReply(messageId, optionIndex, option, options)
-                            }
-                            quickReplyDisabled={quickReplyDisabled}
-                          />
-                        )}
-                      </CollapsibleContent>
-                    </Collapsible>
+                  agentLogItems.length > 0 && <AgentLogCard items={agentLogItems} />}
+
+                {!showStructuredParts &&
+                  message.role === "assistant" &&
+                  compactToolParts.length > 0 && (
+                    <CompactToolParts
+                      messageId={message.id}
+                      toolParts={compactToolParts}
+                      pendingReply={pendingReply}
+                      hasUserAfterCurrentMessage={hasUserAfterCurrentMessage}
+                      pendingQuickReplyKey={pendingQuickReplyKey}
+                      onQuickReply={async (messageId, optionIndex, option, options) =>
+                        sendQuickReply(messageId, optionIndex, option, options)
+                      }
+                      quickReplyDisabled={quickReplyDisabled}
+                    />
                   )}
 
                 {showStructuredParts &&
@@ -317,7 +298,7 @@ const MessageListComponent = ({
                     <Plan
                       key={`${message.id}-plan-${index}`}
                       isStreaming={Boolean(part.isStreaming || message.isStreaming)}
-                      defaultOpen={Boolean(part.isStreaming || message.isStreaming)}
+                      defaultOpen
                     >
                       <PlanHeader>
                         <div className="space-y-1">
@@ -345,7 +326,7 @@ const MessageListComponent = ({
                       {part.plan.actions && part.plan.actions.length > 0 && (
                         <PlanFooter>
                           <div className="text-muted-foreground mb-2 text-xs font-medium uppercase">
-                            Planåtgärder
+                            Plan actions
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {part.plan.actions.map((action) => (
@@ -364,20 +345,22 @@ const MessageListComponent = ({
 
                 {message.role === "assistant" ? (
                   textContent ? (
-                    message.isStreaming || hasGenerationContent(textContent) ? (
+                    hasGenerationContent(textContent) ? (
                       <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
                     ) : (
                       <MessageResponse>
                         <Streamdown
                           plugins={{ code: streamdownCode }}
-                          isAnimating={false}
+                          components={STREAMDOWN_PLAIN_COMPONENTS}
+                          isAnimating={Boolean(message.isStreaming)}
+                          caret={message.isStreaming ? "block" : undefined}
                         >
                           {textContent}
                         </Streamdown>
                       </MessageResponse>
                     )
                   ) : message.isStreaming && !reasoningPart && !hasStructuredParts && !hasVisibleTooling ? (
-                    <StreamingTypingIndicator />
+                    <span className="text-sm text-gray-500">Startar own-engine-ström...</span>
                   ) : null
                 ) : (
                   <CollapsibleUserMessage content={textContent} />
@@ -416,7 +399,7 @@ const MessageListComponent = ({
           );
           })}
         </ConversationContent>
-        {/* ConversationScrollButton removed for cleaner UX */}
+        <ConversationScrollButton />
       </Conversation>
 
       {pendingReply && (
@@ -424,12 +407,12 @@ const MessageListComponent = ({
           <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="font-semibold text-foreground">
-                  Svar krävs
+                <DialogTitle className="font-semibold text-amber-300">
+                  Svar krävs för att fortsätta
                 </DialogTitle>
                 <DialogDescription>
-                  Buildern väntar innan nästa steg. Det kan gälla integrationer, innehåll eller
-                  designval.
+                  Buildern väntar på ditt svar innan nästa steg kan fortsätta. Det kan gälla till
+                  exempel integrationer, innehåll, designval eller planblockerare.
                 </DialogDescription>
               </DialogHeader>
 
@@ -445,8 +428,7 @@ const MessageListComponent = ({
                         <Button
                           key={replyKey}
                           size="sm"
-                          variant="outline"
-                          className="h-8 border-border/60 text-xs font-normal"
+                          variant="secondary"
                           disabled={!canReply || pendingQuickReplyKey !== null}
                           onClick={() => void handleModalQuickReply(option, optionIndex)}
                         >
@@ -468,9 +450,7 @@ const MessageListComponent = ({
           {!isReplyDialogOpen && (
             <Button
               type="button"
-              size="sm"
-              variant="outline"
-              className="border-border/60 bg-card/90 text-foreground shadow-sm backdrop-blur-sm transition-[box-shadow,background-color] duration-[var(--transition-fast,150ms)] hover:bg-muted/50 fixed bottom-6 right-6 z-40"
+              className="fixed bottom-6 right-6 z-40 bg-amber-500 text-black hover:bg-amber-400"
               onClick={() => setIsReplyDialogOpen(true)}
             >
               Svar krävs
@@ -487,27 +467,61 @@ export const MessageList = memo(MessageListComponent);
 /**
  * CollapsibleUserMessage - Truncates long user messages (especially shadcn/ui block prompts)
  * Shows first few lines with expand button for long technical messages.
+ *
+ * Special-case: server- och klient-driven autofix-prompter (start med
+ * "AUTO-FIX REQUEST — TARGETED REPAIR") är interna repair-instruktioner
+ * till modellen och ska ALDRIG renderas som vanlig användarchat-text.
+ * De visas som en kompakt status-rad med expanderbart innehåll för
+ * felsökning.
  */
-function StreamingTypingIndicator() {
+/**
+ * Best-effort phase guess for the auto-repair status line.
+ *
+ * The repair pipeline does not currently emit per-phase SSE events to
+ * this component, so we derive a phase label from elapsed wall-clock
+ * since the user-message rendered. Numbers are calibrated against the
+ * observed Snickar Anders timings (see logs/generationslogg/20260419-235205):
+ *   reasoning ~10s, output ~40s, autofix ~5s, verifier ~3-5s,
+ *   quality-gate ~30-40s. Total around 100-150s.
+ *
+ * The label is intentionally hedged ("ungefär") — when the model takes
+ * substantially longer (e.g. max-tier with thinking can spend 6 min on
+ * reasoning alone) the phase shown will lag reality, but at least the
+ * elapsed counter is honest.
+ */
+function describeRepairPhase(elapsedSec: number): string {
+  if (elapsedSec < 12) return "LLM tänker";
+  if (elapsedSec < 50) return "Skriver kod";
+  if (elapsedSec < 60) return "Autofix";
+  if (elapsedSec < 100) return "Verifierar";
+  return "Slutför";
+}
+
+function RepairProgressIndicator() {
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      const next = Math.floor((Date.now() - startedAt) / 1000);
+      setElapsedSec(next);
+      // Cap at 5 min — by then either the chat has moved on or
+      // something is clearly stuck and we shouldn't keep counting.
+      if (next > 300) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  const phase = describeRepairPhase(elapsedSec);
   return (
     <div
-      className="flex items-center gap-2.5 py-1 text-muted-foreground/80"
-      role="status"
+      className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
       aria-live="polite"
     >
-      <span className="sr-only">Skriver</span>
-      <span className="flex items-center gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="h-1.5 w-1.5 rounded-full bg-primary/30 motion-safe:animate-bounce"
-            style={{
-              animationDelay: `${i * 200}ms`,
-              animationDuration: "1.2s",
-            }}
-          />
-        ))}
-      </span>
+      <Loader2 className="h-3 w-3 animate-spin" />
+      <span>Automatisk reparation körs</span>
+      <span className="text-muted-foreground/70">·</span>
+      <span className="text-foreground/80">{phase}</span>
+      <span className="text-muted-foreground/70">·</span>
+      <span className="tabular-nums">{elapsedSec}s</span>
     </div>
   );
 }
@@ -515,10 +529,47 @@ function StreamingTypingIndicator() {
 function CollapsibleUserMessage({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Check if this is a long technical message (shadcn block prompt pattern)
-  const isTechnicalPrompt = content.includes("---") && content.includes("Registry files");
   const lineCount = content.split("\n").length;
   const charCount = content.length;
+
+  const isAutoFixPrompt = content.trimStart().startsWith("AUTO-FIX REQUEST");
+  if (isAutoFixPrompt) {
+    return (
+      <div className="space-y-2">
+        <RepairProgressIndicator />
+        {isExpanded ? (
+          <div className="space-y-2">
+            <MessageResponse>
+              <Streamdown
+                plugins={{ code: streamdownCode }}
+                components={STREAMDOWN_PLAIN_COMPONENTS}
+              >
+                {content}
+              </Streamdown>
+            </MessageResponse>
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+            >
+              <ChevronUp className="h-3 w-3" />
+              Dölj reparations-prompt
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+          >
+            <ChevronDown className="h-3 w-3" />
+            Visa intern reparations-prompt ({lineCount} rader)
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Check if this is a long technical message (shadcn block prompt pattern)
+  const isTechnicalPrompt = content.includes("---") && content.includes("Registry files");
 
   // Only collapse if message is long (>500 chars or >10 lines) and contains technical content
   const shouldCollapse = isTechnicalPrompt && (charCount > 500 || lineCount > 10);
@@ -526,7 +577,12 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   if (!shouldCollapse) {
     return (
       <MessageResponse>
-        <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+        <Streamdown
+          plugins={{ code: streamdownCode }}
+          components={STREAMDOWN_PLAIN_COMPONENTS}
+        >
+          {content}
+        </Streamdown>
       </MessageResponse>
     );
   }
@@ -541,18 +597,20 @@ function CollapsibleUserMessage({ content }: { content: string }) {
     return (
       <div className="space-y-2">
         <MessageResponse>
-          <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+          <Streamdown
+            plugins={{ code: streamdownCode }}
+            components={STREAMDOWN_PLAIN_COMPONENTS}
+          >
+            {content}
+          </Streamdown>
         </MessageResponse>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+        <button
           onClick={() => setIsExpanded(false)}
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
         >
           <ChevronUp className="h-3 w-3" />
-          Dölj
-        </Button>
+          Dölj detaljer
+        </button>
       </div>
     );
   }
@@ -560,18 +618,20 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   return (
     <div className="space-y-2">
       <MessageResponse>
-        <Streamdown plugins={{ code: streamdownCode }}>{summary}</Streamdown>
+        <Streamdown
+          plugins={{ code: streamdownCode }}
+          components={STREAMDOWN_PLAIN_COMPONENTS}
+        >
+          {summary}
+        </Streamdown>
       </MessageResponse>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+      <button
         onClick={() => setIsExpanded(true)}
+        className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
       >
         <ChevronDown className="h-3 w-3" />
-        Visa mer ({lineCount})
-      </Button>
+        Visa tekniska instruktioner ({lineCount} rader)
+      </button>
     </div>
   );
 }

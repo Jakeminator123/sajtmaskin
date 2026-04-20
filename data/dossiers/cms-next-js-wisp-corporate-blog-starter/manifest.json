@@ -1,0 +1,114 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-next-js-wisp-corporate-blog-starter",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Next.js × Wisp Corporate Blog Starter",
+  "description": "Create stunning corporate websites and blogs with Wisp CMS",
+  "summary": "Use this dossier when a Next.js site needs blog content sourced from Wisp CMS. It provides the minimal Wisp client setup, required environment/config shape, and a reusable OG image route pattern for Wisp-backed posts.",
+  "providers": [
+    {
+      "name": "Wisp CMS",
+      "url": "https://github.com/Wisp-CMS/nextjs-corporate-blog-starter"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "NEXT_PUBLIC_BLOG_ID",
+      "required": true,
+      "purpose": "Obtain Blog ID from from https://www.wisp.blog/app/setup"
+    },
+    {
+      "key": "NEXT_PUBLIC_BASE_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_BLOG_ORGANIZATION",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_BLOG_TITLE",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_BLOG_DESCRIPTION",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@hookform/resolvers",
+    "@radix-ui/react-accordion",
+    "@radix-ui/react-aspect-ratio",
+    "@radix-ui/react-checkbox",
+    "@radix-ui/react-label",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-toast",
+    "@tanstack/react-query",
+    "@wisp-cms/client",
+    "@wisp-cms/react-custom-component",
+    "axios",
+    "class-variance-authority",
+    "clsx",
+    "date-fns",
+    "lucide-react",
+    "node-html-parser",
+    "react-hook-form",
+    "rss",
+    "schema-dts",
+    "slugify",
+    "tailwind-merge",
+    "url-join",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/src/app/api/og-image/route.tsx",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/lib/wisp.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/config.ts",
+      "role": "shared",
+      "kind": "config"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site"
+    ],
+    "compatible": [
+      "portfolio",
+      "landing-page",
+      "saas-landing",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/wisp-corporate-blog-starter",
+  "sourceRepoUrl": "https://github.com/Wisp-CMS/nextjs-corporate-blog-starter",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "wisp",
+    "wisp-cms",
+    "cms",
+    "nextjs",
+    "blog",
+    "content",
+    "og-image"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:28:00.130Z",
+  "_curatedBy": "auto-curate.ts"
+}

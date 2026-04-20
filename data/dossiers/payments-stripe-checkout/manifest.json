@@ -1,0 +1,99 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "payments-stripe-checkout",
+  "kind": "integration",
+  "category": "payments",
+  "label": "Stripe Checkout",
+  "description": "Subscription and one-time payments via Stripe Checkout (hosted page) — månadsbetalning, recurring billing, SaaS abonnemang.",
+  "summary": "Use this dossier when a site needs Stripe-hosted checkout for one-time purchases or subscriptions without building a custom card form. It provides the core server/client wiring: a Stripe SDK helper, an API route that creates Checkout Sessions, and a reusable button that redirects users to Stripe Checkout.",
+  "providers": [
+    {
+      "name": "Stripe",
+      "url": "https://stripe.com"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "STRIPE_SECRET_KEY",
+      "required": true,
+      "purpose": "Server-side Stripe API authentication. Use a test-mode key for development."
+    },
+    {
+      "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "required": true,
+      "purpose": "Client-side Stripe.js initialization. Safe to expose."
+    },
+    {
+      "key": "NEXT_PUBLIC_SITE_URL",
+      "required": true,
+      "purpose": "Used for Stripe success/cancel redirect URLs. Example: https://example.com"
+    }
+  ],
+  "dependencies": [
+    "stripe",
+    "@stripe/stripe-js"
+  ],
+  "files": [
+    {
+      "path": "components/api/checkout-session/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/checkout-button.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/lib/stripe.ts",
+      "role": "server",
+      "kind": "lib"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "CheckoutButton",
+      "type": "component",
+      "import": "@/components/checkout-button"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 89,
+  "sourceTemplateUrl": "https://vercel.com/templates/ecommerce/stripe-subscription-starter",
+  "sourceRepoUrl": "https://github.com/vercel/nextjs-subscription-payments",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "stripe",
+    "payments",
+    "checkout",
+    "subscriptions",
+    "one-time-payments",
+    "hosted-checkout",
+    "billing",
+    "saas"
+  ],
+  "_source": "hand-curated",
+  "_status": "source-archived",
+  "_curatedAt": "2026-04-18T02:43:48.958Z",
+  "_curatedBy": "auto-curate.ts",
+  "_statusUpdatedAt": "2026-04-18T11:00:00.000Z",
+  "_statusUpdatedReason": "Auto-flagged source-archived 2026-04-18 efter att dossiern injicerades på irrelevanta brochure-prompts. Originalflaggningen (deprecationReason nedan) erkändes inte av runtime-filtret eftersom _status fortfarande var 'active'. Re-curate mot _replacementUrl innan den markeras active igen.",
+  "_deprecationReason": "Source repo vercel/nextjs-subscription-payments was archived on GitHub jan 2025 (449d ago). Vercel's own template page links to the replacement (see _replacementUrl). Re-curate against the new repo before marking active again. Current dossier code still works — it's just not aligned with Next 16 / latest Stripe SDK patterns.",
+  "_replacementUrl": "https://github.com/nextjs/saas-starter"
+}

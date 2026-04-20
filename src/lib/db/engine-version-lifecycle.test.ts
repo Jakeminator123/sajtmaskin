@@ -113,13 +113,13 @@ describe("canExposeEnginePreview", () => {
 });
 
 describe("selectPreferredEngineVersion", () => {
-  it("prefers promoted over repairing", () => {
+  it("prefers newest non-failed over older promoted", () => {
     const versions = [
       { versionNumber: 1, releaseState: "promoted", verificationState: "passed" },
       { versionNumber: 2, verificationState: "repairing" },
     ];
     const preferred = selectPreferredEngineVersion(versions);
-    expect(preferred?.versionNumber).toBe(1);
+    expect(preferred?.versionNumber).toBe(2);
   });
 
   it("skips failed, picks repairing over nothing", () => {

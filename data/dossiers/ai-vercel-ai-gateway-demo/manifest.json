@@ -1,0 +1,86 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-vercel-ai-gateway-demo",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Vercel AI Gateway Demo",
+  "description": "An open-source AI chatbot built with Next.js, the AI SDK, and the AI Gateway.",
+  "summary": "Use this dossier when a site needs a server-side chat API backed by Vercel AI Gateway with model allowlisting and streamed responses in a Next.js App Router app. It provides the core route handlers, gateway client setup, and model constants needed to expose a safe multi-model AI endpoint to a custom chat UI.",
+  "providers": [
+    {
+      "name": "Vercel",
+      "url": "https://github.com/vercel-labs/ai-sdk-gateway-demo"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@ai-sdk/gateway",
+    "@ai-sdk/react",
+    "@radix-ui/react-select",
+    "@radix-ui/react-slot",
+    "ai",
+    "class-variance-authority",
+    "clsx",
+    "lucide-react",
+    "next-themes",
+    "streamdown",
+    "tailwind-merge",
+    "tw-animate-css",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/app/api/chat/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/models/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/constants.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/lib/gateway.ts",
+      "role": "server",
+      "kind": "config"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "auth-pages",
+      "landing-page",
+      "content-site",
+      "blog"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 87,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/vercel-ai-gateway-demo",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-gateway-demo",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "vercel",
+    "ai-gateway",
+    "ai-sdk",
+    "nextjs",
+    "chat",
+    "streaming",
+    "llm",
+    "app-router"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:13:16.095Z",
+  "_curatedBy": "auto-curate.ts"
+}

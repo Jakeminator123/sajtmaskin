@@ -33,10 +33,29 @@ export function describePreviewHostHttpFailure(params: {
   return rawMessage;
 }
 
-const START_TIMEOUT_MS = 300_000;
-const STATUS_TIMEOUT_MS = 15_000;
-const VERIFY_TIMEOUT_MS = 300_000;
-const CLEANUP_TIMEOUT_MS = 30_000;
+/**
+ * Klient-side timeouts för anrop mot preview-host. Sammankopplade med
+ * preview-host-VM:ets egna budget i `preview-host/src/server.js` —
+ * justera båda sidor om budgeten ändras.
+ *
+ * - START / VERIFY: cold-start på Fly.io kan ta 60–120 s när maskinen är
+ *   skalad till 0; lägg på buffer för Next-build + warm-typecheck.
+ * - STATUS: poll under boot — håll kort så UI-spinnern inte hänger om
+ *   preview-host hängt sig.
+ * - CLEANUP: admin-städning av föräldralösa workspaces; körs sällan så
+ *   längre timeout är OK.
+ */
+export const PREVIEW_HOST_CLIENT_TIMEOUTS_MS = {
+  start: 300_000,
+  status: 15_000,
+  verify: 300_000,
+  cleanup: 30_000,
+} as const;
+
+const START_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.start;
+const STATUS_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.status;
+const VERIFY_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify;
+const CLEANUP_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.cleanup;
 
 async function triggerPreviewHostCleanup(): Promise<boolean> {
   const base = getPreviewHostBaseUrl();
@@ -102,6 +121,28 @@ export type PreviewHostStartOk = {
   sandboxUrl: string;
   sandboxId: string;
   startOutcome: "resumed" | "recreated";
+};
+
+/**
+ * Payload describing a transient `version_mismatch` window between a finalized
+ * version being persisted in the app and the preview-VM having booted that
+ * version. Emitted by preview-host-client consumers so the builder UI (P25)
+ * can render a non-blocking overlay instead of leaving a white iframe sitting
+ * for ~10s during the restart.
+ *
+ * Field name `version_mismatch_overlay_payload` (snake_case) is the
+ * cross-process channel key used between this module and the builder overlay;
+ * the TS type uses our usual camelCase for fields.
+ */
+export type VersionMismatchOverlayPayload = {
+  /** Own-engine chat id whose preview is mid-restart. */
+  chatId: string;
+  /** Version id the app has finalized and expects the preview to be running. */
+  expectedVersionId: string;
+  /** Version id the preview-VM most recently booted, or null if unknown. */
+  currentVersionId: string | null;
+  /** Milliseconds elapsed since the mismatch was first observed. */
+  msSinceMismatch: number;
 };
 
 export type PreviewHostStartErr = {
@@ -220,6 +261,96 @@ export async function startPreviewHostSession(params: {
       return { ok: true, sandboxUrl, sandboxId, startOutcome };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Preview host request failed";
+      return { ok: false, message, retryable: true };
+    }
+  });
+}
+
+/**
+ * Updates an existing preview-host session with new files / new versionId.
+ * Hits `POST /preview/session/update` (preview-host server.js:453).
+ *
+ * Skiljer sig från `startPreviewHostSession` så här:
+ * - Sätter `lastAction: "update"` istället för `"start"` på sessionen
+ * - Returnerar alltid `startOutcome: "resumed"` (inte "fresh→recreated")
+ * - Kräver att sandboxen redan finns (404 om saknas, fall tillbaka till start)
+ *
+ * Använd för follow-up-generationer på samma chatId. Telemetry/UI får då
+ * "resumed"-signal istället för "recreated", vilket är semantiskt korrekt
+ * — samma sandbox lever vidare, bara filerna byts ut.
+ */
+export type PreviewHostUpdateOk = PreviewHostStartOk;
+export type PreviewHostUpdateErr = PreviewHostStartErr & {
+  /** True när host returnerade 404 (sandbox saknas). Caller bör då falla tillbaka till `startPreviewHostSession`. */
+  sessionMissing?: boolean;
+};
+
+export async function updatePreviewHostSession(params: {
+  sandboxId: string;
+  versionId: string;
+  filesJson: Record<string, string>;
+}): Promise<PreviewHostUpdateOk | PreviewHostUpdateErr> {
+  const base = getPreviewHostBaseUrl();
+  if (!base) {
+    return {
+      ok: false,
+      message: "SAJTMASKIN_PREVIEW_HOST_BASE_URL is not set.",
+      retryable: false,
+    };
+  }
+  return retryPreviewHostRequestAfterCleanup(async () => {
+    try {
+      const requestBody = {
+        sandboxId: params.sandboxId,
+        versionId: params.versionId,
+        filesJson: params.filesJson,
+        changeClass: "patch",
+      };
+      const res = await fetch(`${base}/preview/session/update`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...previewHostAuthHeaders(),
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(START_TIMEOUT_MS),
+      });
+      const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (res.status === 404) {
+        return {
+          ok: false,
+          message:
+            typeof responseBody.message === "string" && responseBody.message
+              ? responseBody.message
+              : "preview-host session not found",
+          retryable: false,
+          sessionMissing: true,
+        };
+      }
+      if (!res.ok) {
+        const msg = describePreviewHostHttpFailure({
+          endpoint: "/preview/session/start",
+          status: res.status,
+          body: responseBody,
+        });
+        return {
+          ok: false,
+          message: msg,
+          retryable: res.status >= 500 || res.status === 429,
+        };
+      }
+      const sandboxUrl = typeof responseBody.previewUrl === "string" ? responseBody.previewUrl.trim() : "";
+      const sandboxId = typeof responseBody.sandboxId === "string" ? responseBody.sandboxId.trim() : "";
+      if (!sandboxUrl || !sandboxId) {
+        return {
+          ok: false,
+          message: "Preview host returned an invalid update payload.",
+          retryable: true,
+        };
+      }
+      return { ok: true, sandboxUrl, sandboxId, startOutcome: "resumed" };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Preview host update failed";
       return { ok: false, message, retryable: true };
     }
   });

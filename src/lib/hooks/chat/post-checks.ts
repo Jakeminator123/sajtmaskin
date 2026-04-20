@@ -1,6 +1,6 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { UiMessagePart } from "@/lib/builder/types";
-import { TIER2_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
+import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import {
@@ -337,7 +337,7 @@ async function runTier2VerifyLane(params: {
     toolName: "Quality gate",
     toolCallId,
     state: "input-streaming",
-    input: { chatId, versionId, checks: TIER2_QUALITY_GATE_CHECKS },
+    input: { chatId, versionId, checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS },
   } as UiMessagePart);
 
   try {
@@ -346,7 +346,7 @@ async function runTier2VerifyLane(params: {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, checks: TIER2_QUALITY_GATE_CHECKS }),
+        body: JSON.stringify({ versionId, checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS }),
       },
     );
 

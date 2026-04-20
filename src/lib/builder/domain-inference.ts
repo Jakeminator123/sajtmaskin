@@ -36,6 +36,13 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Unicode-aware "word boundary" via lookarounds on \p{L}/\p{N}.
+ * JavaScript's `\b` is ASCII-only — `/\bcafé\b/i.test("ett café här")`
+ * returns `false` because `é` is not in `\w`. Same trap hits keywords
+ * that start or end with å/ä/ö/é (`café`, `kafé`, `öppettider`, `byrå`, …).
+ * Mirrors the safe pattern used in `gen/scaffolds/matcher.ts`.
+ */
 function buildRules(
   json: Array<{
     domain: string;
@@ -50,7 +57,10 @@ function buildRules(
     return {
       domain: entry.domain as DomainProfile,
       briefHint: entry.briefHint,
-      pattern: new RegExp(`\\b(${alternation})\\b`, "i"),
+      pattern: new RegExp(
+        `(^|[^\\p{L}\\p{N}])(?:${alternation})(?=[^\\p{L}\\p{N}]|$)`,
+        "iu",
+      ),
     };
   });
 }

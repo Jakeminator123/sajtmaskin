@@ -1,7 +1,22 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { debugLog } from "@/lib/utils/debug";
 import type { ScaffoldManifest } from "./scaffolds/types";
 
-export type RoutePlanSiteType = "one-page" | "brochure" | "content-heavy" | "app-shell";
+export const ROUTE_PLAN_SITE_TYPES = [
+  "one-page",
+  "brochure",
+  "content-heavy",
+  "app-shell",
+] as const;
+export type RoutePlanSiteType = (typeof ROUTE_PLAN_SITE_TYPES)[number];
+
+export function isRoutePlanSiteType(value: unknown): value is RoutePlanSiteType {
+  return (
+    typeof value === "string" &&
+    (ROUTE_PLAN_SITE_TYPES as readonly string[]).includes(value)
+  );
+}
+
 export type RoutePlanSource = "brief" | "prompt" | "scaffold";
 
 /** Ordered route-plan contributors (e.g. prompt patterns then scaffold defaults). */
@@ -54,12 +69,7 @@ export function parseRoutePlanFromUnknown(data: Record<string, unknown> | null |
   const siteType = data.siteType;
   const reason = data.reason;
   const routesRaw = data.routes;
-  if (
-    siteType !== "one-page" &&
-    siteType !== "brochure" &&
-    siteType !== "content-heavy" &&
-    siteType !== "app-shell"
-  ) {
+  if (!isRoutePlanSiteType(siteType)) {
     return null;
   }
   if (typeof reason !== "string" || !Array.isArray(routesRaw)) return null;
@@ -473,6 +483,10 @@ export function buildRoutePlan(params: {
     }
   }
 
+  // Track brief-origin routes separately so cap-enforced trim can drop
+  // prompt-pattern / scaffold-default routes (which also use required:true)
+  // without ever dropping the user's brief-defined pages.
+  const briefRoutePaths = new Set<string>();
   if (hasBriefRoutes) {
     if (useFollowUpFreeze && !explicitAddRouteIntent) {
       const existingSet = new Set(routes.map((route) => normalizeRoutePath(route.path)));
@@ -480,10 +494,12 @@ export function buildRoutePlan(params: {
         const normalizedBriefPath = normalizeRoutePath(briefRoute.path);
         if (!existingSet.has(normalizedBriefPath)) continue;
         pushRoute(routes, briefRoute);
+        briefRoutePaths.add(normalizedBriefPath);
       }
     } else {
       for (const briefRoute of briefRoutes) {
         pushRoute(routes, briefRoute);
+        briefRoutePaths.add(normalizeRoutePath(briefRoute.path));
       }
     }
   }
@@ -538,15 +554,48 @@ export function buildRoutePlan(params: {
     }
   }
 
+  // Compute explicit page-count cap upfront so scaffold defaults respect it
+  // (e.g. "snickerifirma 2 sidor" should not trigger ecommerce auto-adding
+  // /products + /cart on top of the brief's 2 pages).
+  const earlyExplicitPageCount = detectExplicitPageCount(prompt);
   const pathsBeforeScaffoldDefaults = new Set(
     routes.map((route) => normalizeRoutePath(route.path)),
   );
-  if (!useFollowUpFreeze) {
+  const skipScaffoldDefaults =
+    earlyExplicitPageCount !== null && routes.length >= earlyExplicitPageCount;
+  if (!useFollowUpFreeze && !skipScaffoldDefaults) {
     applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
   }
   const scaffoldAddedRoutes = routes.some(
     (route) => !pathsBeforeScaffoldDefaults.has(normalizeRoutePath(route.path)),
   );
+
+  // Symmetric downward trim: detectExplicitPageCount is also used below to
+  // boost route counts upward (Math.max). Without this trim the user's
+  // explicit "2 sidor" gets silently overridden when brief + scaffold +
+  // patterns produce more. Trim happens in two passes:
+  //   pass 1: drop routes flagged required:false (rare — most adders use true)
+  //   pass 2: drop routes that are not from the brief and not "/"
+  // Brief-origin routes are preserved even if the total still exceeds the
+  // cap (logged via `reason` so the LLM resolves the conflict).
+  let trimmedRouteCount = 0;
+  if (!useFollowUpFreeze && earlyExplicitPageCount !== null && routes.length > earlyExplicitPageCount) {
+    for (let i = routes.length - 1; i >= 0 && routes.length > earlyExplicitPageCount; i -= 1) {
+      const candidate = routes[i]!;
+      if (candidate.required) continue;
+      if (normalizeRoutePath(candidate.path) === "/") continue;
+      routes.splice(i, 1);
+      trimmedRouteCount += 1;
+    }
+    for (let i = routes.length - 1; i >= 0 && routes.length > earlyExplicitPageCount; i -= 1) {
+      const candidate = routes[i]!;
+      const normalizedPath = normalizeRoutePath(candidate.path);
+      if (normalizedPath === "/") continue;
+      if (briefRoutePaths.has(normalizedPath)) continue;
+      routes.splice(i, 1);
+      trimmedRouteCount += 1;
+    }
+  }
 
   const sources: RoutePlanSource[] = [];
   if (hasBriefRoutes) sources.push("brief");
@@ -558,13 +607,16 @@ export function buildRoutePlan(params: {
       ? "scaffold"
       : "prompt";
 
-  const explicitPageCount = detectExplicitPageCount(prompt);
+  const explicitPageCount = earlyExplicitPageCount;
   const explicitPageCountActive = explicitPageCount !== null && explicitPageCount > routes.length && !useFollowUpFreeze;
+  const explicitPageCountTrimmed = trimmedRouteCount > 0;
 
   const reason = useFollowUpFreeze
     ? explicitRouteRemovals.size > 0
       ? "Follow-up mode preserves existing App Router routes by default, while explicit route-removal intent can remove selected pages."
       : "Follow-up mode preserves existing App Router routes by default; only explicit user intent should add new pages."
+    : explicitPageCountTrimmed
+      ? `User explicitly requested ${explicitPageCount} pages — trimmed ${trimmedRouteCount} optional route(s) to honor the cap. Generate real App Router pages for the remaining entries.`
     : hasBriefRoutes && promptAddedRoutes
       ? "Route structure merges brief-defined pages with explicit prompt route requests."
       : hasBriefRoutes && scaffoldAddedRoutes
@@ -588,8 +640,59 @@ export function buildRoutePlan(params: {
     siteType: inferSiteType(buildIntent, effectiveRouteCount),
     reason,
     routes,
-    ...(explicitPageCountActive ? { explicitPageCount } : {}),
+    ...(explicitPageCount !== null && (explicitPageCountActive || explicitPageCountTrimmed)
+      ? { explicitPageCount }
+      : {}),
   };
+}
+
+/**
+ * Locale-alternate route pairs that mean the same destination in different
+ * languages. When the generator (LLM) emits both variants we keep only the
+ * one that matches the project's resolved locale so navigation, sitemaps,
+ * and internal linking stay coherent. Sv-default for sajtmaskin's typical
+ * Swedish builds.
+ */
+const LOCALE_ROUTE_PAIRS: Array<{ en: string; sv: string }> = [
+  { en: "/contact", sv: "/kontakt" },
+  { en: "/about", sv: "/om" },
+  { en: "/services", sv: "/tjanster" },
+];
+
+export function deduplicateLocaleAlternateRoutes(
+  routes: string[],
+  locale: string,
+): string[] {
+  if (!Array.isArray(routes) || routes.length === 0) return [];
+  const lc = (locale ?? "sv").toLowerCase();
+  const isSwedish = lc.startsWith("sv");
+  const keepKey: "sv" | "en" = isSwedish ? "sv" : "en";
+  const dropKey: "sv" | "en" = isSwedish ? "en" : "sv";
+  const normalized = routes.map((r) => normalizeRoutePath(r));
+  const present = new Set(normalized);
+  const dropped: string[] = [];
+  for (const pair of LOCALE_ROUTE_PAIRS) {
+    if (present.has(pair[keepKey]) && present.has(pair[dropKey])) {
+      present.delete(pair[dropKey]);
+      dropped.push(pair[dropKey]);
+    }
+  }
+  if (dropped.length > 0) {
+    debugLog("GEN", "[route-plan] dropped duplicate locale-alternate routes", {
+      locale: lc,
+      kept: keepKey,
+      dropped,
+    });
+  }
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const path of normalized) {
+    if (!present.has(path)) continue;
+    if (seen.has(path)) continue;
+    seen.add(path);
+    result.push(path);
+  }
+  return result;
 }
 
 export function extractAppRoutePathsFromFilePaths(filePaths: string[]): string[] {

@@ -16,6 +16,9 @@ type StoredGenerationEntry = {
 const ROOT_DIR = path.join(process.cwd(), "logs", "generationslogg");
 const SITE_OBSERVABILITY_DIR = path.join(process.cwd(), "logs", "site-observability");
 const LEGACY_INDEX_DIR = path.join(process.cwd(), "logs", "llm-segmentts-and-index");
+const RUN_INDEX_DIR = path.join(ROOT_DIR, "_index");
+const CHAT_TO_RUN_INDEX_FILE = path.join(RUN_INDEX_DIR, "chat-to-run.json");
+const UNROUTED_DIR = path.join(ROOT_DIR, "_unrouted");
 const TIMELINE_FILE = "timeline.ndjson";
 const SUMMARY_FILE = "summary.md";
 const META_FILE = "meta.json";
@@ -33,6 +36,14 @@ const MAX_SUMMARY_TIMELINE_ROWS = 180;
 const MAX_SITE_HISTORY_RUNS = 50;
 const runDirBySlug = new Map<string, string>();
 const runDirByChatId = new Map<string, string>();
+// runDirByRunId is the most specific scoping: each `site.start` event mints
+// a unique runId (from the timestamp + slug folder name) and any subsequent
+// event that includes runId/generationId in its data routes only to its own
+// folder. This prevents cross-contamination when two followup runs land on
+// the same chatId (see logs 20260419-235012 vs 20260419-235205, where
+// `site.finalized` from run B leaked into run A's timeline.ndjson because
+// runDirByChatId only knew about the latest run).
+const runDirByRunId = new Map<string, string>();
 
 type RunFixPattern = {
   pattern: string;
@@ -141,11 +152,62 @@ function ensureSiteObservabilityDir(): void {
   }
 }
 
+function ensureRunIndexDir(): void {
+  if (!fs.existsSync(RUN_INDEX_DIR)) {
+    fs.mkdirSync(RUN_INDEX_DIR, { recursive: true });
+  }
+}
+
+function readChatToRunIndex(): Record<string, string> {
+  try {
+    if (!fs.existsSync(CHAT_TO_RUN_INDEX_FILE)) return {};
+    const raw = fs.readFileSync(CHAT_TO_RUN_INDEX_FILE, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const out: Record<string, string> = {};
+      for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof value === "string" && value.trim()) {
+          out[key] = value;
+        }
+      }
+      return out;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function writeChatToRunIndex(map: Record<string, string>): void {
+  try {
+    ensureRunIndexDir();
+    fs.writeFileSync(
+      CHAT_TO_RUN_INDEX_FILE,
+      JSON.stringify(map, null, 2) + "\n",
+      "utf8",
+    );
+  } catch {
+    /* best-effort; index is a recovery aid only */
+  }
+}
+
+function recordChatToRun(chatId: string | null, runDirName: string): void {
+  if (!chatId || !runDirName) return;
+  const idx = readChatToRunIndex();
+  if (idx[chatId] === runDirName) return;
+  idx[chatId] = runDirName;
+  writeChatToRunIndex(idx);
+}
+
 function pruneOldRunDirs(): void {
   try {
     const entries = fs
       .readdirSync(ROOT_DIR, { withFileTypes: true })
       .filter((e) => e.isDirectory())
+      // Skip the bookkeeping subdirs (`_index`, `_unrouted`) that we keep
+      // alongside the per-run folders so prune doesn't wipe the chat-to-run
+      // recovery index.
+      .filter((e) => !e.name.startsWith("_"))
       .map((e) => e.name)
       .sort();
     if (entries.length <= MAX_RUN_DIRS) return;
@@ -153,12 +215,25 @@ function pruneOldRunDirs(): void {
     for (const name of toRemove) {
       fs.rmSync(path.join(ROOT_DIR, name), { recursive: true, force: true });
     }
+    pruneChatToRunIndexAgainstDisk();
   } catch (err) {
     console.warn(
       "[generationslogg] pruneOldRunDirs failed:",
       err instanceof Error ? err.message : err,
     );
   }
+}
+
+function pruneChatToRunIndexAgainstDisk(): void {
+  const idx = readChatToRunIndex();
+  let changed = false;
+  for (const [chatId, runName] of Object.entries(idx)) {
+    if (!fs.existsSync(path.join(ROOT_DIR, runName))) {
+      delete idx[chatId];
+      changed = true;
+    }
+  }
+  if (changed) writeChatToRunIndex(idx);
 }
 
 function createRunDir(ts: string, slug: string | null): string {
@@ -1497,16 +1572,104 @@ function resolveLatestRunDirFromDisk(): string | null {
   }
 }
 
+/**
+ * Stable lookup of a run directory from an event/context triple. Used both as
+ * the fallback inside {@link resolveRunDir} (when the in-memory caches were
+ * lost to a HMR / process restart between `site.start` and the current event)
+ * and as a public helper for callers that want to attach external artefacts
+ * to a known run without re-deriving the folder name.
+ *
+ * Resolution order:
+ *  1. `runId` — used as the run-folder name directly when it matches an
+ *     existing directory under {@link ROOT_DIR}.
+ *  2. `chatId` — looks up the persistent chat-to-run index written every
+ *     time `site.start` mints a new run.
+ *  3. `slug` — falls back to a stable bucket under {@link UNROUTED_DIR} so
+ *     events with no run context still land somewhere inspectable instead
+ *     of being dropped silently.
+ *
+ * Returns `null` only when none of the three keys can be resolved (which is
+ * the explicit "no context at all" case the caller is expected to handle).
+ */
+export function resolveRunDirFromContext(params: {
+  chatId?: string | null;
+  runId?: string | null;
+  slug?: string | null;
+}): string | null {
+  ensureRootDir();
+  const runId = readString(params.runId);
+  const chatId = readString(params.chatId);
+  const slug = normalizeSlug(params.slug);
+
+  if (runId) {
+    const dir = path.join(ROOT_DIR, runId);
+    if (fs.existsSync(dir)) return dir;
+  }
+
+  if (chatId) {
+    const idx = readChatToRunIndex();
+    const mapped = idx[chatId];
+    if (mapped) {
+      const dir = path.join(ROOT_DIR, mapped);
+      if (fs.existsSync(dir)) return dir;
+    }
+  }
+
+  if (slug) {
+    const fallbackDir = path.join(UNROUTED_DIR, slug);
+    try {
+      if (!fs.existsSync(fallbackDir)) {
+        fs.mkdirSync(fallbackDir, { recursive: true });
+      }
+      return fallbackDir;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 function resolveRunDir(entry: StoredGenerationEntry): string | null {
   const type = readString(entry.data.type);
   const slug = normalizeSlug(entry.slug || readString(entry.data.slug));
   const chatId = readString(entry.data.chatId);
+  // runId / generationId comes from the producer when it has been wired
+  // through (see writeGenerationLogEntry callers in the engine stream).
+  // When present it is the most reliable key — every event for the SAME
+  // generation pass shares the same runId, so we never misroute to a
+  // sibling run on the same chat.
+  const runId =
+    readString(entry.data.runId) ?? readString(entry.data.generationId) ?? null;
 
   if (type === "site.start") {
     const dir = createRunDir(entry.ts, slug);
+    const dirRunId = path.basename(dir);
+    runDirByRunId.set(dirRunId, dir);
+    if (runId && runId !== dirRunId) runDirByRunId.set(runId, dir);
     if (slug) runDirBySlug.set(slug, dir);
-    if (chatId) runDirByChatId.set(chatId, dir);
+    if (chatId) {
+      runDirByChatId.set(chatId, dir);
+      // Persist the chatId → run-folder mapping so that a HMR reload or a
+      // process restart between `site.start` and the next event can still
+      // route follow-up events back to the right folder via
+      // `resolveRunDirFromContext` (used in the disk-fallback branch below).
+      recordChatToRun(chatId, dirRunId);
+    }
     return dir;
+  }
+
+  // Most specific: explicit runId on the event.
+  if (runId) {
+    const fromRun = runDirByRunId.get(runId);
+    if (fromRun && fs.existsSync(fromRun)) {
+      if (chatId) runDirByChatId.set(chatId, fromRun);
+      if (slug) runDirBySlug.set(slug, fromRun);
+      return fromRun;
+    }
+    if (fromRun && !fs.existsSync(fromRun)) {
+      runDirByRunId.delete(runId);
+    }
   }
 
   if (chatId) {
@@ -1531,17 +1694,30 @@ function resolveRunDir(entry: StoredGenerationEntry): string | null {
     }
   }
 
-  // Fallback: recover from HMR / process restart by reading _latest.txt.
-  // In dev there is typically one active generation, so the latest dir is correct.
-  const fallbackDir = resolveLatestRunDirFromDisk();
-  if (fallbackDir) {
-    if (slug) runDirBySlug.set(slug, fallbackDir);
-    if (chatId) runDirByChatId.set(chatId, fallbackDir);
-    return fallbackDir;
+  // Fallback: recover from HMR / process restart by consulting the
+  // persistent chat-to-run index (or the unrouted slug bucket) before we
+  // give up. Cross-contamination is avoided because the index only contains
+  // chatId → run-folder mappings recorded by `site.start`; a stale entry
+  // simply misses (file no longer exists) and we drop through.
+  const recovered = resolveRunDirFromContext({ chatId, runId, slug });
+  if (recovered) {
+    if (chatId) runDirByChatId.set(chatId, recovered);
+    if (slug) runDirBySlug.set(slug, recovered);
+    if (runId) runDirByRunId.set(runId, recovered);
+    return recovered;
+  }
+
+  // Ambient events (no chatId/runId/slug at all) can still safely route to
+  // the latest run on disk — there is no risk of mixing unrelated runs
+  // because there is no run identity to mix.
+  const hasContext = Boolean(runId || chatId || slug);
+  if (!hasContext) {
+    const fallbackDir = resolveLatestRunDirFromDisk();
+    if (fallbackDir) return fallbackDir;
   }
 
   console.warn(
-    `[generationslogg] resolveRunDir: could not resolve run dir for event type=${type ?? "?"} slug=${slug ?? "?"} chatId=${chatId?.slice(0, 8) ?? "?"}`,
+    `[generationslogg] resolveRunDir: no run context resolvable for event type=${type ?? "?"} slug=${slug ?? "?"} chatId=${chatId?.slice(0, 8) ?? "?"} runId=${runId?.slice(0, 16) ?? "?"}`,
   );
   return null;
 }

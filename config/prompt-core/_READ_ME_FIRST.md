@@ -2,30 +2,29 @@
 
 These `.md` files are the **immutable product constraints** of the codegen system prompt. They are **concatenated in order** listed in `config/codegen-core-manifest.json` and sent as the **prefix** of the single `system` string to the **building** LLM.
 
-Core Rules never vary per request. They define stack, output format, component contracts, behavioral rules, accessibility, and import conventions.
+Core Rules never vary per request. They define stack, output format, component contracts, behavioral rules, accessibility, import conventions, baseline visual quality and content voice.
 
 ## What is **not** here
 
-### Directives (adaptive prompt modules)
-Anything that **adapts per request** — visual design, motion, quality bar, domain hints, seasonal palettes, follow-up scope, creative extensions — lives in `config/prompt-directives/`. Directives have placeholder defaults that are resolved through the **Directive Cascade**:
-
-1. **EXPLICIT** — Brief/prompt provides an exact value
-2. **INDICATED** — Strong signal in the prompt (Brief-LLM infers)
-3. **INFERRED** — guidance-resolvers / deterministic heuristics
-4. **DEFAULT** — Placeholder in the directive file
-
-### Dynamic Context (built in TypeScript)
+### Per-request signal lives in `buildDynamicContext()` (TypeScript)
 The app assembles request-specific context in `buildDynamicContext()` in `src/lib/gen/system-prompt.ts`:
 
 - Custom instructions from the builder UI
 - Build intent rules (template / website / app)
+- Generation profile, scaffold variant (theme tokens, signature patterns, prompt hints)
 - Serialized scaffold + capability hints
 - Route plan, pre-generation contracts
 - Scaffold research priorities / reference inspirations
-- Brief structure from deep brief (when present)
+- Brief structure from deep brief (when present) — colors, typography, tone, must-have/avoid
+- Domain inference, motion guidance, quality bar (`resolveGuidanceBlocks`)
 - Design references, theme signals, follow-up context
+- Tier-3 build plan (F3) or F2 design contract
 
-If you duplicate those topics here, the model gets **conflicting or stale** instructions.
+The signal **cascade** (highest precedence first) is: brief explicit → brief inferred → guidance-resolvers heuristics → static defaults in this folder.
+
+The legacy `config/prompt-directives/` adaptive layer was removed 2026-04-18: only `visual-design` and `coding-direction` were ever runtime-injected, so they live as plain core fragments here (`03-visual-design.md`, `04-coding-direction.md`). The 10 unused directive files were aspirational placeholders the substitution engine never used.
+
+If you duplicate per-request topics in core, the model gets **conflicting or stale** instructions.
 
 ## Editing
 

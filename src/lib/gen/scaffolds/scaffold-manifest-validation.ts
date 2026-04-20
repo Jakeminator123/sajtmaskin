@@ -1,5 +1,4 @@
 import { getAllScaffolds } from "./registry";
-import { getTemplateLibraryEntryById } from "../template-library/catalog";
 import type { ScaffoldManifest } from "./types";
 
 export interface ScaffoldManifestIssue {
@@ -84,13 +83,6 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
           scaffoldId: scaffold.id,
           severity: "error",
           message: `Reference template ${reference.id} has an invalid quality score`,
-        });
-      }
-      if (!getTemplateLibraryEntryById(reference.id)) {
-        issues.push({
-          scaffoldId: scaffold.id,
-          severity: "error",
-          message: `Reference template ${reference.id} does not exist in the generated template library catalog`,
         });
       }
     }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getScaffoldById } from "./scaffolds/registry";
 import {
   buildRoutePlan,
+  deduplicateLocaleAlternateRoutes,
   detectExplicitPageCount,
   findMissingPlannedRoutes,
   parseRoutePlanFromUnknown,
@@ -396,6 +397,46 @@ describe("buildRoutePlan — dashboard scaffold with app intent", () => {
   });
 });
 
+describe("deduplicateLocaleAlternateRoutes", () => {
+  it("route-plan deduplicates /contact + /kontakt", () => {
+    expect(
+      deduplicateLocaleAlternateRoutes(["/", "/contact", "/kontakt", "/meny"], "sv"),
+    ).toEqual(["/", "/kontakt", "/meny"]);
+  });
+
+  it("keeps the English variant when locale is en", () => {
+    expect(
+      deduplicateLocaleAlternateRoutes(["/", "/contact", "/kontakt", "/meny"], "en"),
+    ).toEqual(["/", "/contact", "/meny"]);
+  });
+
+  it("dedupes /about ↔ /om and /services ↔ /tjanster pairs", () => {
+    expect(
+      deduplicateLocaleAlternateRoutes(
+        ["/", "/about", "/om", "/services", "/tjanster"],
+        "sv",
+      ),
+    ).toEqual(["/", "/om", "/tjanster"]);
+  });
+
+  it("leaves routes alone when only one variant is present", () => {
+    expect(deduplicateLocaleAlternateRoutes(["/", "/kontakt"], "sv")).toEqual([
+      "/",
+      "/kontakt",
+    ]);
+    expect(deduplicateLocaleAlternateRoutes(["/", "/about"], "en")).toEqual([
+      "/",
+      "/about",
+    ]);
+  });
+
+  it("normalizes input paths and removes duplicates", () => {
+    expect(
+      deduplicateLocaleAlternateRoutes(["/", "/contact/", "/kontakt"], "sv"),
+    ).toEqual(["/", "/kontakt"]);
+  });
+});
+
 describe("detectExplicitPageCount", () => {
   it("detects Swedish page count", () => {
     expect(detectExplicitPageCount("Jag vill ha 3 sidor")).toBe(3);
@@ -433,5 +474,39 @@ describe("buildRoutePlan — explicit page count", () => {
       resolvedScaffold: null,
     });
     expect(plan.routes.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("trims optional routes when explicit page count is below planned routes", () => {
+    const plan = buildRoutePlan({
+      prompt: "Snickerifirma med kontakt, tjänster, blogg och priser. 2 sidor.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+    });
+    expect(plan.routes.length).toBe(2);
+    expect(plan.routes.some((r) => r.path === "/")).toBe(true);
+    expect(plan.explicitPageCount).toBe(2);
+    expect(plan.reason).toMatch(/trimmed/i);
+  });
+
+  it("never trims the root route during cap enforcement", () => {
+    const plan = buildRoutePlan({
+      prompt: "Bygg en sajt med kontakt, blogg och priser. 1 sida.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+    });
+    expect(plan.routes.some((r) => r.path === "/")).toBe(true);
+    expect(plan.routes.length).toBeLessThanOrEqual(2);
+  });
+
+  it("skips ecommerce scaffold defaults when explicit page count cap is already reached", () => {
+    const ecommerce = getScaffoldById("ecommerce");
+    const plan = buildRoutePlan({
+      prompt: "En liten butik. 1 sida.",
+      buildIntent: "website",
+      resolvedScaffold: ecommerce ?? null,
+    });
+    expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
+    expect(plan.routes.length).toBeLessThanOrEqual(1);
   });
 });

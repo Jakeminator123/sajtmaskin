@@ -12,7 +12,16 @@ import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-l
  *
  * `_template_refs/` is a third, separate concept: research material only.
  */
-const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <23";
+/**
+ * Node-engine-range för **exporterade/nedladdade** projekt.
+ *
+ * Vi tillåter Node 22, 23 och 24. Bredare än preview-host och repots egna
+ * package.json (som låser till 22 eftersom Fly-imagen och Vercel-runtime kör
+ * Node 22), men exporterade projekt landar på användarens egen maskin där
+ * Node 24 redan är vanligt. Strikt `<23` triggade kosmetisk EBADENGINE-warn
+ * vid `npm install` utan att paketen faktiskt var inkompatibla.
+ */
+const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <25";
 
 const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
@@ -267,7 +276,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="sv" className="dark">
+    <html lang="sv" className="dark" suppressHydrationWarning>
       <body className={\`\${inter.variable} antialiased\`}>
         {children}
       </body>

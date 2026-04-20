@@ -6,7 +6,7 @@ import {
   buildServerRepairOutcomeMeta,
   compactVisualQAForQualityGateLog,
 } from "./server-verify-log-meta";
-import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
+import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
 import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
@@ -55,9 +55,9 @@ describe("resolveServerRepairEarlyStopReason", () => {
   });
 });
 
-describe("SERVER_VERIFY_QUALITY_GATE_CHECKS", () => {
-  it("adds lint to background server verification without changing tier-2 preview defaults", () => {
-    expect(SERVER_VERIFY_QUALITY_GATE_CHECKS).toEqual(["typecheck", "lint"]);
+describe("DESIGN_PREVIEW_QUALITY_GATE_CHECKS", () => {
+  it("runs only typecheck for fast F2 design-preview verification", () => {
+    expect(DESIGN_PREVIEW_QUALITY_GATE_CHECKS).toEqual(["typecheck"]);
   });
 });
 

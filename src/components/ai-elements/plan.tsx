@@ -15,7 +15,10 @@ import { cn } from "@/lib/utils";
 import { ChevronsUpDownIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { createContext, useContext } from "react";
-import { Shimmer } from "./shimmer";
+
+const Shimmer = ({ children }: { children: string }) => (
+  <span className="text-muted-foreground animate-pulse">{children}</span>
+);
 
 type PlanContextValue = {
   isStreaming: boolean;

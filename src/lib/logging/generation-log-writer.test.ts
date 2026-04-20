@@ -225,11 +225,54 @@ describe("generation-log writer", () => {
       .readdirSync(rootDir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
+      .filter((name) => !name.startsWith("_"))
       .sort();
 
     expect(dirs).toHaveLength(3);
     expect(dirs[0]).toContain("site-3");
     expect(dirs[1]).toContain("site-4");
     expect(dirs[2]).toContain("site-5");
+  });
+
+  it("generation-log-writer resolves runId from chatId fallback", async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
+    process.chdir(tempDir);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
+    vi.stubEnv("GENERATIONSLOGG", "1");
+
+    const { resolveRunDirFromContext } = await import("./generation-log-writer");
+
+    const rootDir = path.join(tempDir, "logs", "generationslogg");
+    const indexDir = path.join(rootDir, "_index");
+    const fakeRunDirName = "20260420-120000-test";
+    const fakeRunDir = path.join(rootDir, fakeRunDirName);
+    fs.mkdirSync(fakeRunDir, { recursive: true });
+    fs.mkdirSync(indexDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(indexDir, "chat-to-run.json"),
+      JSON.stringify({ abc: fakeRunDirName }),
+      "utf8",
+    );
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const resolved = resolveRunDirFromContext({ chatId: "abc" });
+    expect(resolved).toBe(fakeRunDir);
+
+    const stale = resolveRunDirFromContext({ chatId: "missing" });
+    expect(stale).toBeNull();
+
+    const slugBucket = resolveRunDirFromContext({ slug: "Some Slug!" });
+    expect(slugBucket).toBe(path.join(rootDir, "_unrouted", "some-slug"));
+    expect(fs.existsSync(slugBucket as string)).toBe(true);
+
+    expect(
+      warnSpy.mock.calls.some((call) =>
+        String(call[0] ?? "").includes("could not resolve run dir"),
+      ),
+    ).toBe(false);
+
+    warnSpy.mockRestore();
   });
 });

@@ -46,11 +46,40 @@ export function shouldTriggerPostFinalizeServerVerify(params: {
   return resolvePostFinalizeServerVerifyDecision(params).run;
 }
 
+export type ServerVerifyDecision = {
+  run: boolean;
+  reason: string;
+  /**
+   * When true, server-verify runs only to surface diagnostics — it MUST
+   * NOT auto-promote and SHOULD NOT trigger the auto-repair loop.
+   * Used when verifier-blocking findings already exist: we still want
+   * SSR/build-error visibility (otherwise problems like a missing
+   * `usePathname` import in `floating-cta.tsx` stay invisible to
+   * `next build` until every other blocker is cleared), but we won't
+   * mutate the version under those circumstances.
+   */
+  diagnosticOnly?: boolean;
+};
+
+/**
+ * Decide whether to run async server-verify after finalize.
+ *
+ * Simplified 2026-04: the post-finalize verify lane is now driven primarily
+ * by `previewPolicy === "fidelity3"`. F2 generations skip the async verify
+ * unless quality-gate already produced non-blocking warnings or this is a
+ * repair pass. The earlier multi-OR signal heuristic (buildIntent/app,
+ * contextPolicy/heavy, changeScope/integration etc.) was redundant once
+ * F3 became an explicit lifecycle stage instead of an auto-promoted policy.
+ *
+ * 2026-04-19: `verificationBlocked` no longer hard-blocks the run — it
+ * downgrades it to `diagnosticOnly`. Promotion still requires zero
+ * blockers downstream; this only opens up SSR/build-error logging.
+ */
 export function resolvePostFinalizeServerVerifyDecision(params: {
   buildSpec: BuildSpec;
   finalized: FinalizeResult;
   repairPassIndex?: number;
-}): { run: boolean; reason: string } {
+}): ServerVerifyDecision {
   const { buildSpec, finalized, repairPassIndex = 0 } = params;
   if (buildSpec.verificationPolicy === "fast" && repairPassIndex === 0) {
     return { run: false, reason: "fast_policy" };
@@ -61,26 +90,26 @@ export function resolvePostFinalizeServerVerifyDecision(params: {
   if (finalized.preflight.previewBlocked) {
     return { run: false, reason: "preview_blocked" };
   }
-  if (finalized.preflight.verificationBlocked) {
-    return { run: false, reason: "verification_blocked" };
-  }
 
   const previewStart = getPostFinalizePreviewStartContract(finalized);
   const hasNonBlockingWarnings = previewStart.issueCounts.non_blocking_quality_warning > 0;
-  const isHighSignalFlow =
-    buildSpec.verificationPolicy === "strict" ||
-    buildSpec.previewPolicy === "fidelity3" ||
-    buildSpec.qualityTarget !== "standard" ||
-    buildSpec.buildIntent === "app" ||
-    buildSpec.contextPolicy === "heavy" ||
-    buildSpec.changeScope === "integration" ||
-    buildSpec.changeScope === "page-addition" ||
-    (buildSpec.generationMode === "followUp" && buildSpec.changeScope === "redesign") ||
-    hasNonBlockingWarnings;
+  const verificationBlocked = finalized.preflight.verificationBlocked === true;
 
-  if (!isHighSignalFlow) {
-    return { run: false, reason: "low_risk_standard_flow" };
+  if (
+    buildSpec.previewPolicy === "fidelity3" ||
+    repairPassIndex > 0 ||
+    hasNonBlockingWarnings ||
+    verificationBlocked
+  ) {
+    if (verificationBlocked) {
+      return {
+        run: true,
+        reason: "diagnostic_only_verification_blocked",
+        diagnosticOnly: true,
+      };
+    }
+    return { run: true, reason: "policy_match" };
   }
 
-  return { run: true, reason: "policy_match" };
+  return { run: false, reason: "design_preview_skip_verify" };
 }

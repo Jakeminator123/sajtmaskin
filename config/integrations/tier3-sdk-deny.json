@@ -1,0 +1,99 @@
+{
+  "_meta": {
+    "purpose": "Single source of truth for the F2 (design-stage) deny-list of tier-3 backend SDKs. Read by `src/lib/integrations/tier3-sdk-deny.ts`, which feeds both the autofix `tier3-sdk-guard-fixer` (mechanical strip) and the dynamic 'F2 / Design Stage Contract (HARD)' block in `src/lib/gen/system-prompt.ts` (LLM instruction). Add a module here and both consumers pick it up. Categories drive the prompt rendering (one bullet per category); the flat module list drives the autofix matcher.",
+    "consumers": [
+      "src/lib/gen/autofix/rules/tier3-sdk-guard-fixer.ts",
+      "src/lib/gen/system-prompt.ts (F2 design stage contract block)"
+    ]
+  },
+  "categories": [
+    {
+      "label": "Payments",
+      "modules": ["stripe", "@stripe/stripe-js", "@stripe/react-stripe-js"]
+    },
+    {
+      "label": "Auth",
+      "modules": [
+        "@clerk/nextjs",
+        "@clerk/clerk-sdk-node",
+        "@clerk/clerk-react",
+        "next-auth",
+        "@auth/core",
+        "@auth/nextjs",
+        "@auth0/nextjs-auth0",
+        "@auth0/auth0-react"
+      ]
+    },
+    {
+      "label": "Database",
+      "modules": [
+        "@supabase/supabase-js",
+        "@supabase/ssr",
+        "@supabase/auth-helpers-nextjs",
+        "mongodb",
+        "mongoose"
+      ]
+    },
+    {
+      "label": "Cache/queues",
+      "modules": [
+        "redis",
+        "ioredis",
+        "@upstash/redis",
+        "@upstash/ratelimit",
+        "@upstash/qstash"
+      ]
+    },
+    {
+      "label": "Email",
+      "modules": ["resend", "@react-email/render"]
+    },
+    {
+      "label": "AI",
+      "modules": ["openai", "@anthropic-ai/sdk"]
+    },
+    {
+      "label": "Search",
+      "modules": [
+        "algoliasearch",
+        "@algolia/client-search",
+        "react-instantsearch",
+        "react-instantsearch-dom",
+        "instantsearch.js",
+        "meilisearch",
+        "@meilisearch/instant-meilisearch",
+        "typesense",
+        "typesense-instantsearch-adapter",
+        "@elastic/elasticsearch"
+      ]
+    },
+    {
+      "label": "Observability",
+      "modules": ["@sentry/nextjs", "@sentry/node", "@sentry/react", "@sentry/browser"]
+    },
+    {
+      "label": "Vercel managed",
+      "modules": [
+        "@vercel/blob",
+        "@vercel/kv",
+        "@vercel/postgres",
+        "@vercel/edge-config"
+      ]
+    },
+    {
+      "label": "CMS",
+      "modules": [
+        "@sanity/client",
+        "next-sanity",
+        "contentful",
+        "contentful-management",
+        "@storyblok/react",
+        "storyblok-js-client"
+      ]
+    },
+    {
+      "label": "Server APIs",
+      "modules": ["googleapis"]
+    }
+  ]
+}

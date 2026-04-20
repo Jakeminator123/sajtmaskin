@@ -1,0 +1,78 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-clean-next-js-sanity-app",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Clean Next.js + Sanity App",
+  "description": "A clean Next.js template with a native authoring experience",
+  "summary": "Use this dossier when a Next.js App Router site should read structured content from Sanity and support preview/draft authoring with next-sanity. It provides the core Sanity environment/config helpers, a reusable client, and the draft-mode enable route needed for Visual Editing and content previews.",
+  "providers": [
+    {
+      "name": "Sanity",
+      "url": "https://github.com/sanity-io/sanity-template-nextjs-clean"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/frontend/app/api/draft-mode/enable/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/frontend/sanity/lib/api.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/frontend/sanity/lib/client.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/frontend/sanity/lib/token.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/frontend/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "ecommerce",
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 89,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/sanity-template-nextjs-clean",
+  "sourceRepoUrl": "https://github.com/sanity-io/sanity-template-nextjs-clean",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "sanity",
+    "cms",
+    "nextjs",
+    "app-router",
+    "draft-mode",
+    "visual-editing",
+    "preview",
+    "groq"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-17T16:58:28.558Z",
+  "_curatedBy": "auto-curate.ts"
+}

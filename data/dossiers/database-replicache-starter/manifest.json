@@ -1,0 +1,81 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-replicache-starter",
+  "kind": "integration",
+  "category": "database",
+  "label": "Replicache Starter",
+  "description": "Todo list app powered by Replicache, NextJS and Supabase.",
+  "summary": "Use this dossier when a Next.js app needs local-first, realtime-ish collaborative data sync with optimistic UI and offline support. It provides the essential Replicache todo-domain UI patterns plus the required server-side push/pull and mutation shape you should wire to your own database.",
+  "providers": [
+    {
+      "name": "Replicache",
+      "url": "https://github.com/rocicorp/replicache-vercel-template"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "classnames",
+    "replicache",
+    "replicache-nextjs",
+    "replicache-react",
+    "todomvc-app-css"
+  ],
+  "files": [
+    {
+      "path": "components/src/components/footer.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/src/components/link.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/src/lib/replicache.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/app/api/replicache/push/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/app/api/replicache/pull/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "ecommerce",
+      "saas-landing",
+      "auth-pages"
+    ]
+  },
+  "complexity": "advanced",
+  "qualityScore": 84,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/replicache-starter",
+  "sourceRepoUrl": "https://github.com/rocicorp/replicache-vercel-template",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "replicache",
+    "database",
+    "local-first",
+    "offline-sync",
+    "optimistic-ui",
+    "nextjs",
+    "push-pull",
+    "collaboration"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:41:02.253Z",
+  "_curatedBy": "auto-curate.ts"
+}

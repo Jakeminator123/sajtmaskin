@@ -25,6 +25,27 @@
     "Favor dense but legible information panels, tabs, and code-like framing over marketing-style spacing.",
     "Use developer-friendly cues such as monospace, logs, traces, and command affordances where relevant."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a two-column operations shell with a narrow icon-and-label sidebar and a dense main pane stacked with tabs, metrics, and log tables.",
+      "Build the primary dashboard as a 12-column command center with compact stat cards on top, a wide trace or chart panel, and a right-side incident feed.",
+      "Compose detail pages with sticky subnav tabs, a left rail of resource metadata, and a dominant central console containing logs, code blocks, or traces.",
+      "Use split-pane screens where an interactive terminal or query editor sits left and live results, status badges, and event streams update on the right.",
+      "Structure settings and deployment pages as dense sectioned panels with inline descriptions, key-value grids, and footer action bars instead of airy form stacks."
+    ],
+    "motifs": [
+      "Use terminal-style chrome with thin borders, muted dark surfaces, and header strips that feel like tabs or window bars.",
+      "Pair monospace headings, labels, and metrics with sans body copy so the hierarchy feels operational rather than editorial.",
+      "Favor compact status chips, command buttons, and key-value rows with precise contrast and restrained green or amber highlights.",
+      "Show code-like framing everywhere: log lines, trace timestamps, prompt blocks, and panel headers that resemble developer tooling."
+    ],
+    "antiPatterns": [
+      "Avoid oversized marketing heroes, testimonial-style spacing, or full-bleed lifestyle imagery that weakens the operational terminal mood.",
+      "Never use soft pastel cards, glassmorphism blur, or colorful gradient backgrounds; this variant should stay sharp, dark, and utilitarian.",
+      "Avoid giant rounded tiles with sparse content; panels should feel information-dense, inspectable, and built for repeated scanning.",
+      "Do not center everything into a single-column narrative flow; this style depends on split panes, side rails, and concurrent information views."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.12 0.01 265)",
     "foreground": "oklch(0.93 0.005 265)",
@@ -38,32 +59,6 @@
     "ring": "oklch(0.67 0.17 160)",
     "radius": "0.75rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Preserve clear information density with persistent navigation and scannable panels.",
-    "Keep each auth screen single-purpose, calm, and trustworthy."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "overview metrics",
-    "filters or controls",
-    "table or chart area"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid turning dashboard references into generic marketing landing pages.",
-    "Avoid mixing auth flows with unrelated landing-page sections."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Dense UI must still feel legible, fast, and trustworthy.",
-    "Auth pages should feel ready for real product onboarding."
-  ],
   "sourceTemplateIds": [
     "ai-chatbot",
     "ai-next-js-ai-chatbot-with-twilio-segment-analytics",

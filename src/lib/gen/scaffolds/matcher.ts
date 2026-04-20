@@ -623,6 +623,7 @@ export type ScaffoldSelectionMethod =
   | "persisted"
   | "keyword"
   | "embedding"
+  | "agreement"
   | "default";
 
 export type ScaffoldSelectionConfidence = "high" | "medium" | "low";
@@ -971,9 +972,13 @@ const KEYWORD_STRENGTH_CAP = 12;
 /**
  * When cosine similarity is at least this fraction of normalized keyword strength,
  * the embedding pick wins (non-generic keyword case). Lower → embeddings win more often.
- * Override: `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (e.g. `0.75`–`1.1`).
+ * Override: `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (e.g. `0.55`–`1.1`).
+ *
+ * Lowered from 0.82 → 0.65 (2026-04-17) so embeddings are weighted more heavily
+ * against keyword matches when the two diverge. Cosine similarity ≥ 0.55 is
+ * empirically a strong signal in our scaffold corpus.
  */
-const DEFAULT_EMBED_VS_KEYWORD_BIAS = 0.82;
+const DEFAULT_EMBED_VS_KEYWORD_BIAS = 0.65;
 
 /** True → `matchScaffold()` does not use keyword lists; returns intent baseline only. */
 export function isScaffoldKeywordMatchDisabled(): boolean {
@@ -1141,7 +1146,18 @@ export async function matchScaffoldAuto(
         (options.queryContext.styleKeywords && options.queryContext.styleKeywords.length > 0) ||
         (options.queryContext.domainHints && options.queryContext.domainHints.length > 0)),
   );
-  const lower = scaffoldPrompt.toLowerCase();
+  // Embedding query + the sync `matchScaffold` baseline benefit from the
+  // combined prompt+brief text (a brief that explicitly says "Login page"
+  // should be allowed to promote auth-pages). The diagnostic
+  // `keywordScores` map in meta, however, must NOT double-count brief
+  // signals: when brief text is already merged into `scaffoldPrompt`,
+  // `buildKeywordScores` would count brief words and
+  // `applyBriefKeywordBoost` would then boost the same words a second
+  // time, inflating confidence and topCandidates ordering. So we score
+  // against the original prompt and let `applyBriefKeywordBoost` be the
+  // single brief-injection point in the diagnostics.
+  const lowerPrompt = prompt.toLowerCase();
+  const lowerScaffold = scaffoldPrompt.toLowerCase();
 
   const embeddingPromise = useEmbeddings
     ? searchScaffoldsWithDiagnostics(scaffoldPrompt, 3)
@@ -1149,7 +1165,7 @@ export async function matchScaffoldAuto(
 
   const keywordResult = matchScaffold(scaffoldPrompt, buildIntent);
   const baseKeywordScores = applyBriefKeywordBoost(
-    buildKeywordScores(lower, options.capabilities),
+    buildKeywordScores(lowerPrompt, options.capabilities),
     options.queryContext,
   );
   const keywordsDisabled = isScaffoldKeywordMatchDisabled();
@@ -1188,11 +1204,14 @@ export async function matchScaffoldAuto(
   }
 
   const semantic = await embeddingPromise;
-  const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
-  const appScore = countKeywordMatches(lower, APP_KEYWORDS);
-  const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
-  const hospitalityScore = countKeywordMatches(lower, HOSPITALITY_SERVICE_KEYWORDS);
-  const strongEcommerceScore = countKeywordMatches(lower, STRONG_ECOMMERCE_INTENT);
+  // Override-guards intentionally use prompt+brief: a brief that says
+  // "checkout flow" is just as good evidence as the prompt itself for
+  // gating an ecommerce-embedding override.
+  const authScore = countKeywordMatches(lowerScaffold, AUTH_KEYWORDS);
+  const appScore = countKeywordMatches(lowerScaffold, APP_KEYWORDS);
+  const dashboardScore = countKeywordMatches(lowerScaffold, DASHBOARD_KEYWORDS);
+  const hospitalityScore = countKeywordMatches(lowerScaffold, HOSPITALITY_SERVICE_KEYWORDS);
+  const strongEcommerceScore = countKeywordMatches(lowerScaffold, STRONG_ECOMMERCE_INTENT);
   const embedBias = readEmbedVsKeywordBias();
 
   const embeddingTopResult =
@@ -1228,6 +1247,25 @@ export async function matchScaffoldAuto(
   }
 
   const top = semantic.results[0]!;
+
+  if (
+    keywordResult &&
+    keywordResult.id === top.scaffold.id &&
+    top.score >= EMBEDDING_MIN_SCORE
+  ) {
+    const agreementConfidence: ScaffoldSelectionConfidence =
+      top.score >= 0.55 ? "high" : "medium";
+    return {
+      scaffold: keywordResult,
+      meta: {
+        ...fallbackMeta,
+        selectionMethod: "agreement",
+        selectionConfidence: agreementConfidence,
+        embeddingOverrideReason: null,
+      },
+    };
+  }
+
   const embeddingOverrideReason = getEmbeddingOverrideReason({
     keywordResult,
     keywordScores,

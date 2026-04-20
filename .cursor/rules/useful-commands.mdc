@@ -10,6 +10,7 @@ Snabb uppslagsregel när du behöver rätt kommando utan att leta runt. **`packa
 ## Dev och verifiering
 
 - `npm run dev` — starta appen lokalt.
+- `npm run dev:clean` — rensa `.next/` + Turbopack-cache, sedan starta dev. Kör vid: alla API-routes 404 trots att filerna finns på disk, efter större ändring i `next.config.ts`, eller efter `node_modules`-reinstall. Långsammare kallstart, så använd bara vid behov.
 - `npm run devtest` — konservativ smoke-test: typecheck + scaffoldvalidering + test + lint.
 - `npm run typecheck` — TypeScript utan output.
 - `npm run test:ci` — kör hela Vitest-sviten en gång.

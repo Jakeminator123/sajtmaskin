@@ -218,6 +218,58 @@ describe("matchScaffold", () => {
     expect(result.scaffold?.id).not.toBe("portfolio");
   });
 
+  it("reports selectionMethod=agreement when keyword and embedding converge on the same scaffold", async () => {
+    const saas = getScaffoldById("saas-landing");
+    expect(saas).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: saas!, score: 0.62 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 9,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en SaaS-landningssida med pricing-tiers och kundportal-CTA.",
+      "website",
+    );
+
+    expect(result.scaffold?.id).toBe("saas-landing");
+    expect(result.meta.selectionMethod).toBe("agreement");
+    expect(result.meta.selectionConfidence).toBe("high");
+    expect(result.meta.embeddingOverrideReason).toBeNull();
+    expect(result.meta.embeddingTopResult?.id).toBe("saas-landing");
+  });
+
+  it("agreement uses medium confidence when embedding score is between min and 0.55", async () => {
+    const saas = getScaffoldById("saas-landing");
+    expect(saas).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: saas!, score: 0.42 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 9,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en SaaS-landningssida med pricing-tiers och kundportal-CTA.",
+      "website",
+    );
+
+    expect(result.scaffold?.id).toBe("saas-landing");
+    expect(result.meta.selectionMethod).toBe("agreement");
+    expect(result.meta.selectionConfidence).toBe("medium");
+  });
+
   it("does not let embedding pick auth-pages without auth keywords", async () => {
     const auth = getScaffoldById("auth-pages");
     expect(auth).toBeTruthy();

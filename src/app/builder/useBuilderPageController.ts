@@ -49,7 +49,9 @@ import {
   type PreviewLifecycleState,
 } from "@/lib/builder/preview-lifecycle";
 import {
+  isCompatibilityShimPreviewUrl,
   isShimOrMissingPreviewUrl,
+  isTier2LivePreviewUrl,
   resolveAlternatePreviewUrls,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
@@ -1342,6 +1344,24 @@ export function useBuilderPageController() {
 
     const currentIsLivePreview = currentPreviewUrl != null && !isShimOrMissingPreviewUrl(currentPreviewUrl);
     const nextIsShimPreview = nextDemoUrl != null && isShimOrMissingPreviewUrl(nextDemoUrl);
+
+    // Hard guard: never downgrade an established tier-2 (VM/live) preview URL
+    // back to a compatibility shim URL within the same active version. The
+    // shim renders raw JSX without Tailwind and shows a blue overlay, which
+    // is jarring when the live preview is already running. This happens when
+    // the persisted version row in the DB still has a shim URL while the SSE
+    // stream has already set the tier-2 URL on the client. Without this guard
+    // the version-sync effect re-renders and overwrites the live URL.
+    if (
+      currentPreviewUrl != null &&
+      isTier2LivePreviewUrl(currentPreviewUrl) &&
+      nextDemoUrl != null &&
+      isCompatibilityShimPreviewUrl(nextDemoUrl) &&
+      !didChangeVersion
+    ) {
+      return;
+    }
+
     if (
       currentIsLivePreview &&
       nextIsShimPreview &&
@@ -1401,10 +1421,24 @@ export function useBuilderPageController() {
           if (isActive) setPromptAssistContext("");
           return;
         }
+        // Liten delay sa fetchen inte race:ar mot finalize-pipens
+        // versions-persist (annars far vi 404 + console-spam pa nyligen
+        // skapade versionId i ~1s-fonstret innan DB:n hunnit committa).
+        await new Promise((resolve) => window.setTimeout(resolve, 600));
+        if (!isActive || controller.signal.aborted) return;
         const response = await fetch(
           `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(derived.activeVersionId)}`,
           { signal: controller.signal },
         );
+        // 404 inom kort fonster efter version.created ar normalt (race
+        // mot finalize-persist). Vi tystar dem och provar igen vid nasta
+        // refreshToken-tick istallet for att spamma Chrome-konsolen.
+        if (response.status === 404) {
+          if (isActive) {
+            setPromptAssistContext("");
+          }
+          return;
+        }
         const data = (await response.json().catch(() => null)) as {
           files?: Array<{ name: string; content?: string | null }>;
         } | null;

@@ -1,0 +1,92 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-generative-ui-chatbot-with-react-server-components",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Generative UI Chatbot with React Server Components",
+  "description": "A Generative UI chatbot that streams React Server Components from the Server with Next.js and the Vercel AI SDK",
+  "summary": "Use this dossier when the site needs an AI chat surface that can stream assistant text and server-rendered UI fragments in a Next.js App Router app. It provides the core message rendering patterns for Vercel AI SDK RSC chat, plus the required server action and provider wiring to connect OpenAI-backed generative UI responses.",
+  "providers": [
+    {
+      "name": "Vercel AI SDK",
+      "url": "https://github.com/vercel-labs/ai-sdk-preview-rsc-genui"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/openai",
+    "@vercel/analytics",
+    "@vercel/kv",
+    "ai",
+    "d3-scale",
+    "framer-motion",
+    "react-use",
+    "sonner",
+    "streamdown",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/components/icons.tsx",
+      "role": "shared",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/message.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/lib/ai.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/components/chat.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/ai-provider.tsx",
+      "role": "server",
+      "kind": "component"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "auth-pages",
+      "content-site"
+    ]
+  },
+  "complexity": "advanced",
+  "qualityScore": 84,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/rsc-genui",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-rsc-genui",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "vercel-ai-sdk",
+    "openai",
+    "nextjs",
+    "app-router",
+    "rsc",
+    "chat",
+    "streaming",
+    "generative-ui"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:04:42.004Z",
+  "_curatedBy": "auto-curate.ts"
+}

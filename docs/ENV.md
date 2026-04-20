@@ -44,11 +44,15 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | OpenClaw / Sajtagenten | `OPENCLAW_GATEWAY_URL`, `OPENCLAW_GATEWAY_TOKEN`, `IMPLEMENT_UNDERSCORE_CLAW` | Alla tre krävs för att den flytande widgeten och Sajtagenten-ytorna ska aktiveras. Utan en enda av dem visas ingen widget. |
 | D-ID avatar (mAIa Klo) | `NEXT_PUBLIC_AVATAR_AGENT_ID`, `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | Aktiverar videokamera-togglen i OpenClaw-widgeten och `/avatar`-pilotytan. Utan dem fungerar widgeten som ren textchatt. Origins måste vara allowlistade i D-ID Studio. |
 | Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | Preview-sessioner kör nu via preview-host / Fly. Detaljer: `fas3-preview-and-deploy.md`. |
+| Pre-VM typecheck | `SAJTMASKIN_PRE_VM_TYPECHECK=true`, ev. `SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT` | Aktiverar `tsc --noEmit` mot varm scaffold-cache före VM. F3-genereringar tvingar alltid på den. Fail-open vid kall cache. Källa: `src/lib/gen/preview/warm-typecheck.ts`. |
+| F2/F3 placeholder-fragments | (inga env-vars; två filer i `config/ai_models/`) | F2 mergar `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`. F3 (`/finalize-design`) stripar tier-3-stubben och kräver riktiga värden via stored project env vars. Per-key-klassificering: `src/lib/integrations/placeholder-harmless.ts`. |
 | Statisk Visual QA (heuristik) | `SAJTMASKIN_VISUAL_QA` satt till `1` eller `true` | Efter att **alla** verify-lanekontroller passerat kan appen köra `analyzeVisualQuality` på exportabla filer (ingen screenshot). Resultatet syns i quality-gate-svar och kan loggas kompakt i `preflight:quality-gate`-meta. Standard är av. Läses direkt från `process.env` i `src/lib/gen/visual-qa.ts`, inte via `serverSchema` i `env.ts`. |
 | LLM reasoning/thinking | `SAJTMASKIN_DEFAULT_THINKING=true` | Kanonisk server-side default för reasoning/thinking-flaggan i kodgenerering. Gäller när klienten inte skickar ett explicit val. `SAJTMASKIN_SHOW_THINKING` stöds bara som legacy-alias under migrering av äldre miljöer. |
-| Scaffold template guidance | `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true` | Scaffold-ankrad template-library guidance för init-generering. Hämtar kompakt `runtimeGuidance` från scaffoldens `referenceTemplates` i `template-library.generated.json` och injicerar i `## Scaffold Research Priorities`. **På i development** (auto via `NODE_ENV`), av i production om inte explicit `=true`. Stäng av i dev med `=false`. Kan även styras via backoffice (Research & Dossiers). Runtime läser **inte** råa dossiers. |
-| Variant structural files | `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true` | Injecterar budgeterade `layout.tsx`-, `page.tsx`- och `middleware.ts`-utdrag i promptblocket `## Structural References (this variant)`. Två pass: (1) variant-driven från `sourceTemplateIds`, (2) capability-driven från hela katalogen baserat på `InferredCapabilities` (auth, ecommerce, dashboard). Läser från `template-library.generated.json`, inte från råa dossier-mappar. **På i development** (auto via `NODE_ENV`), av i production om inte explicit `=true`. Kan styras via backoffice (Research & Dossiers). |
-| Deferred extra init routes | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=false` för att stänga av | **Default på.** Init-genereringar (inkl. `isFirstCodeGeneration`-fallet efter scaffold/contract-gate) planerar flera routes men fullrealiserar bara primärrouten direkt. Extrasidor blir giltiga shells med en tydlig `Skapa sida`-yta och bygger ut via "Bygg ut"-pilen i preview-chrome. På follow-up bevaras shells automatiskt om inte användaren explicit ber om att bygga ut en specifik sida. Sätt `=false`/`=0` för att återgå till full multi-route-generering på init. |
+| Dossier pipeline | `SAJTMASKIN_DOSSIER_PIPELINE=true` | Aktiverar runtime-läsning av `data/dossiers/_index/` (master.json, dossier-embeddings.json, scaffold-recommendations.json) och injicerar `## Available Dossiers` + `## Selected Dossier Instructions` i system-prompten. **På i development**, opt-in i production. Ersätter den avvecklade `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE` + `SAJTMASKIN_VARIANT_STRUCTURAL_FILES` (template-library, borttagen 2026-04-17). |
+| Dossier-trösklar | `DOSSIER_MAX_TOTAL=3`, `DOSSIER_MAX_PER_CATEGORY=1`, `DOSSIER_MIN_SCORE=0.45`, `DOSSIER_MIN_SCORE_PAYMENTS=0.55`, `DOSSIER_MIN_SCORE_AUTH=0.55`, `DOSSIER_MIN_SCORE_DATABASE=0.5`, `DOSSIER_MIN_SCORE_REALTIME=0.5`, `DOSSIER_MIN_SCORE_AI=0.5`, `DOSSIER_PRIMARY_BOOST=0.15`, `DOSSIER_SUGGESTED_BOOST=0.05` | Styr embedding-cosine-trösklarna och taken för dossier-injection per request. Höjda 2026-04-18 efter att Stripe + Upstash drogs in på en irrelevant museum-prompt. Per-kategori är striktare för dyra kategorier (payments/auth/database/realtime). **OBS:** läses vid module-load i [`src/lib/gen/dossiers/select.ts`](../src/lib/gen/dossiers/select.ts) — ändringar kräver server-restart för att slå igenom. |
+| Dossier brochure-gate | `DOSSIER_BROCHURE_BLOCK_CATEGORIES=payments,auth,database,realtime` | Hard-gate: kategorier som ALDRIG injiceras när brief-LLM:n klassar sajten som `siteType=brochure` (ren landningssida/info-sajt). Kommaseparerad lista. Sätt tom sträng för att stänga av gaten. |
+| Klient-autofix-tak | `NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=2`, `NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON=1`, `NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS=300000` | Styr klient-driven autofix i [`useAutoFix.ts`](../src/lib/hooks/chat/useAutoFix.ts). Max-per-chat hindrar oändliga repair-loopar. Max-per-reason hindrar samma fel-typ från att försöka fler gånger än tillåtet. NEXT_PUBLIC_-prefix krävs eftersom värdena läses i klient-bundlen. |
+| Deferred extra init routes | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true` | Opt-in för att låta init-genereringar (inklusive `isFirstCodeGeneration`-fallet efter scaffold/contract-gate) planera flera routes men bara fullt realisera primärrouten direkt. Extrasidor blir då giltiga shells med tydlig `Skapa sida`-yta. På follow-up bevaras shells automatiskt om inte användaren explicit ber om att bygga ut en specifik sida. Default av. |
 | Lokal dev-logg | `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod); `GENERATIONSLOGG` styr generationsloggen | Runtime-only, inte i Zod-schemat. `logs/generationslogg/` behåller bara de 3 senaste körningarna. `SAJTMASKIN_LOG` / `file-logger.ts` är borttagna (2026-04, oanvänd). |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
 
@@ -71,7 +75,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 När `preview-host` används på Fly finns **två** olika env-ytor:
 
 - **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, och `SAJTMASKIN_PREVIEW_HOST_API_KEY` när preview-host kör icke-lokalt.
-- **Preview-host-tjänsten (Fly):** `PREVIEW_HOST_API_KEY`, plus host-sidans `PREVIEW_HOST_DATA_DIR=/data` i `preview-host/fly.toml` eller motsvarande service-env.
+- **Preview-host-tjänsten (Fly):** `PREVIEW_HOST_API_KEY`, plus host-sidans `PREVIEW_HOST_DATA_DIR=/data` i `preview-host/fly.toml` eller motsvarande service-env. Plus `SAJTMASKIN_PREVIEW_DISABLE_HMR` (default `true`) som styr om webpack-HMR-pluginen inaktiveras i preview-VM:ens Next dev — av som default eftersom Fly's edge-proxy droppar WS-handshakes på `/<chatId>/_next/webpack-hmr`-pathen och annars spammar klient-konsolen. Sätt `false` för att återaktivera HMR vid direkt-debug av VM:en.
 
 Praktisk rekommendation:
 
@@ -79,6 +83,7 @@ Praktisk rekommendation:
 - Sätt `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens env och samma secret som `PREVIEW_HOST_API_KEY` på preview-hosten
 - Sätt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
 - Låt `PREVIEW_HOST_DATA_DIR=/data` leva på host-sidan (`fly.toml` / Fly-env), inte i repo-rotens `.env.local`
+- Låt `SAJTMASKIN_PREVIEW_DISABLE_HMR=true` (default) ligga på host-sidan; ändra bara om du behöver hot-reload mellan kod-ändringar i en pågående preview-VM
 
 När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host som den aktiva tier-2-vägen.
 
@@ -103,6 +108,32 @@ Djupare ämnen:
 ## Genererade användarsajter (preview / VM runtime)
 
 Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **fas3-preview-and-deploy.md**, avsnitt om tier-2 preview `.env.local`.
+
+### Project env file (`env.example`) — användar­synlig dokumentationsfil
+
+Varje genererad sajt får en egen `env.example`-fil i projektets filträd (syns i builderns filpanel). Den genereras av [`src/lib/gen/preview/project-env-file.ts`](../src/lib/gen/preview/project-env-file.ts) och **regenereras vid varje generering** så lokala ändringar skrivs över — riktiga värden ska in via env-panelen i F3, eller (lokalt) genom att kopiera till `.env.local`.
+
+> **Filnamnet hette tidigare `env.env`.** Renamed 2026-04 till `env.example` för att följa standardkonventionen och tydliggöra att Next.js INTE läser filen vid runtime — det är ren dokumentation. Injectorn rensar gamla `env.env`-filer automatiskt vid nästa generering, så befintliga projekt slipper manuell migrering.
+
+Filen tar bort behovet av att fråga användaren om env-variabler i chatten under F2:
+
+| Stage | Innehåll i `env.example` | Källor |
+|-------|---------------------|--------|
+| **F2** (`design`) | Alla harmless-placeholders **+** tier-3-stubs **+** projekt-preview-tokens. Användaren ser exakt vilka nycklar projektet kan tänkas använda. Ingen interaktion krävs — preview-VM:en bootar oberoende av denna fil. | `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt` + `project-preview-env.ts` |
+| **F3** (`integrations`) | Tier-3-stubs strippas. Värden från env-panelen (`projectEnvVars` i DB) mergas in som "user"-lager. Saknade tier-3 nycklar surfar som blockers via [`src/lib/integrations/tier3-build-spec.ts`](../src/lib/integrations/tier3-build-spec.ts). | Som F2 utan tier-3 + DB-lagrade `projectEnvVars` + ev. modell-emitterad `.env.local` |
+
+`env.example` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i sandboxen — det är `.env.local` som faktiskt boot:ar previewen, `env.example` är **användarsynlig spegling** + förklaringsdokument. Detaljer: [`src/lib/gen/stream/finalize-version.ts`](../src/lib/gen/stream/finalize-version.ts) (kallar `injectProjectEnvFileIntoFilesJson`).
+
+### Regelkontrakt: F2-tystnad
+
+F2 får aldrig generera env-frågor i chatten. Detta är en hård regel — se [`.cursor/rules/env-flow-f2-mute.mdc`](../.cursor/rules/env-flow-f2-mute.mdc). Fyra lager skydd är på plats:
+
+1. **Tool exposure gate** — `requestEnvVar` / `suggestIntegration` exponeras inte för LLM:n i F2 ([`create-chat-stream-post.ts`](../src/lib/api/engine/chats/create-chat-stream-post.ts), [`chat-message-stream-post.ts`](../src/lib/api/engine/chats/chat-message-stream-post.ts)).
+2. **SSE filter** — om verktygen ändå råkar kallas droppas tool-events av [`generation-stream-tools.ts`](../src/lib/providers/own-engine/generation-stream-tools.ts) i F2 (defense-in-depth, tool-call-pathen).
+3. **Panel mount-gate** — `ProjectEnvVarsPanel` renderas bara när `lifecycleStage === "integrations"` ([`BuilderShellContent.tsx`](../src/app/builder/BuilderShellContent.tsx)). I F2 visas en kompakt rad som pekar på `env.example` + "Bygg nu"-knappen.
+4. **Post-finalize code-scan gate** — efter finalize scannar [`generation-stream-post-finalize.ts`](../src/lib/providers/own-engine/generation-stream-post-finalize.ts) genererad kod efter integrations-imports (Stripe, Upstash etc.). I F2 droppas resultatet (loggas som warning). I F3 emitteras integration-SSE som vanligt. Tillagt 2026-04-18 efter regression där Stripe+Upstash visades i F2-chatten på en museum-prompt.
+
+Lansering-spärren (readiness-route) gatas också på lifecycleStage så att F2 alltid returnerar `ready: true` oavsett vad som detekteras i koden.
 
 ---
 

@@ -256,23 +256,38 @@ async function buildEngineReadiness(
     });
   }
 
-  const envRequirements = resolveEnvRequirementsFromVersionFiles(versionRows, projectEnv);
+  // F2 (`design`) is a pure visual fidelity stage. Env vars are
+  // auto-handled in the project's `env.example` file with placeholders so
+  // the chat never has to ask the user. Only when the user opts into
+  // F3 ("Bygg nu") do missing env keys become blockers.
+  // See `.cursor/rules/env-flow-f2-mute.mdc`.
+  const lifecycleStage =
+    typeof version.lifecycle_stage === "string" ? version.lifecycle_stage : "design";
+  const envGateActive = lifecycleStage === "integrations";
+
+  const envRequirements = resolveEnvRequirementsFromVersionFiles(
+    versionRows,
+    projectEnv,
+    { lifecycleStage: envGateActive ? "integrations" : "design" },
+  );
   const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys, placeholderCoveredKeys } = envRequirements;
 
-  if (requiredEnvKeys.length > 0 && !chat.project_id) {
-    blockers.push({
-      id: "project-context-missing",
-      title: "Projektkontext saknas för miljövariabler.",
-      detail: "Spara projektet först så att miljövariabler kan kopplas till rätt projekt.",
-      severity: "blocker",
-      action: "env",
-    });
-  } else if (missingEnvKeys.length > 0) {
-    blockers.push(buildMissingEnvBlocker(missingEnvKeys));
-  }
+  if (envGateActive) {
+    if (requiredEnvKeys.length > 0 && !chat.project_id) {
+      blockers.push({
+        id: "project-context-missing",
+        title: "Projektkontext saknas för miljövariabler.",
+        detail: "Spara projektet först så att miljövariabler kan kopplas till rätt projekt.",
+        severity: "blocker",
+        action: "env",
+      });
+    } else if (missingEnvKeys.length > 0) {
+      blockers.push(buildMissingEnvBlocker(missingEnvKeys));
+    }
 
-  if (placeholderCoveredKeys.length > 0) {
-    warnings.push(buildPlaceholderCoveredEnvWarning(placeholderCoveredKeys));
+    if (placeholderCoveredKeys.length > 0) {
+      warnings.push(buildPlaceholderCoveredEnvWarning(placeholderCoveredKeys));
+    }
   }
 
   const latestPreviewSignal = errorLogs.find(
@@ -303,6 +318,7 @@ async function buildEngineReadiness(
     info: {
       versionId: version.id,
       lifecycleStatus,
+      lifecycleStage: lifecycleStage === "integrations" ? "integrations" : "design",
       verificationSummary: version.verification_summary ?? null,
       appProjectId: chat.project_id ?? null,
       requiredEnvKeys,

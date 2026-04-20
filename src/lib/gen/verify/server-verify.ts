@@ -19,13 +19,14 @@ import {
   saveRepairedFiles,
   getChat,
   getLatestVersion,
+  getPreferredVersion,
   markVersionSupersededByRepair,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
+import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -64,24 +65,32 @@ export function isServerVerifyInFlight(versionId: string): boolean {
 }
 
 async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
-  const latest = await getLatestVersion(chatId).catch(() => null);
-  return !latest || latest.id === versionId;
+  const preferred = (await getPreferredVersion(chatId).catch(() => null))
+    ?? (await getLatestVersion(chatId).catch(() => null));
+  return !preferred || preferred.id === versionId;
 }
 
 /**
  * Fire-and-forget server-side verification + capped repair loop.
  * Called from generation stream after finalize. Does NOT block the SSE response.
+ *
+ * `diagnosticOnly` (default false) skips both auto-promotion and the
+ * auto-repair loop — we only persist quality-gate findings as logs so
+ * SSR/build-error visibility exists for whitelisted UIs even when the
+ * version has verifier-blocking findings (in which case promotion is
+ * disallowed by design).
  */
 export async function triggerServerVerification(params: {
   chatId: string;
   versionId: string;
+  diagnosticOnly?: boolean;
   onRepairAvailable?: (payload: {
     versionId: string;
     summary: string | null;
     repairAvailableAt: string | null;
   }) => void;
 }): Promise<void> {
-  const { chatId, versionId, onRepairAvailable } = params;
+  const { chatId, versionId, onRepairAvailable, diagnosticOnly = false } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
 
@@ -108,7 +117,7 @@ export async function triggerServerVerification(params: {
       chatId,
       versionId,
       exportable,
-      checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
+      checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
     });
     if (!gateResult) {
       await failVersionVerification(versionId, "Quality gate unavailable during verification.").catch(() => null);
@@ -144,6 +153,22 @@ export async function triggerServerVerification(params: {
     });
 
     if (passed) {
+      if (diagnosticOnly) {
+        // Diagnostics-only mode: even a passing gate must NOT promote,
+        // because verifier-blocking findings (which the caller
+        // explicitly knew about when picking diagnosticOnly) still
+        // disallow promotion regardless of build/typecheck status.
+        await createEngineVersionErrorLogs([{
+          chatId,
+          versionId,
+          level: "info",
+          category: "server-verify:diagnostic",
+          message:
+            "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
+          meta: { serverOwned: true, diagnosticOnly: true },
+        }]).catch(() => null);
+        return;
+      }
       await promoteVersion(versionId, "Automatic server verification passed.").catch(() => null);
       return;
     }
@@ -156,6 +181,32 @@ export async function triggerServerVerification(params: {
         output: r.output,
         durationMs: r.durationMs ?? null,
       }));
+
+    if (diagnosticOnly) {
+      // Diagnostics-only mode: log the failures and return. Do NOT enter
+      // the repair loop — that would mutate the version under
+      // conditions where promotion is forbidden anyway, and would
+      // contribute to the regress-on-repair pattern (see Snickar
+      // Anders log: blocking went from 1 → 3 across two repair passes
+      // because every pass mutated and re-failed). Surfacing the
+      // failures is enough; manual repair via the explicit
+      // `/api/engine/chats/.../repair` HTTP path is still available
+      // for the user.
+      await createEngineVersionErrorLogs([{
+        chatId,
+        versionId,
+        level: "warning",
+        category: "server-verify:diagnostic",
+        message:
+          "Server verify gate failed but auto-repair suppressed (verifier blockers already exist; surface findings for inspection only).",
+        meta: {
+          serverOwned: true,
+          diagnosticOnly: true,
+          failedChecks: failedOutputs.map((f) => f.check),
+        },
+      }]).catch(() => null);
+      return;
+    }
 
     await tryServerRepairLoop({
       chatId,
@@ -174,6 +225,70 @@ export async function triggerServerVerification(params: {
       versionId,
       "Server verification could not complete.",
     ).catch(() => null);
+  } finally {
+    inflight.delete(versionId);
+  }
+}
+
+/**
+ * Auto-trigger a server-side repair loop when the live preview-VM emits
+ * a `build-error` SSE (npm install / next build / dev server crashed).
+ *
+ * Closes the gap between "the user mental model" — *VM-fel ska åka
+ * tillbaka in i repair-kedjan automatiskt* — and the previous reality,
+ * where build-error only triggered a UI banner unless the user
+ * manually clicked "Repair" or the F2 verification policy happened to
+ * also schedule server-verify (which it usually doesn't in design
+ * mode, see `resolvePostFinalizeServerVerifyDecision`).
+ *
+ * **Opt-in for safety.** Gated by `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1`
+ * so we don't change end-user-visible behavior in production until
+ * we've watched it in dev for a while. Same `inflight` dedup as
+ * server-verify, so we never run two repair loops on the same version
+ * concurrently regardless of which path triggered them.
+ */
+export async function triggerBuildErrorRepair(params: {
+  chatId: string;
+  versionId: string;
+  buildError: {
+    stage: string;
+    message: string;
+    failureCode?: string | null;
+  };
+  onRepairAvailable?: (payload: {
+    versionId: string;
+    summary: string | null;
+    repairAvailableAt: string | null;
+  }) => void;
+}): Promise<void> {
+  if (process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR !== "1") return;
+  const { chatId, versionId, buildError, onRepairAvailable } = params;
+  if (!isServerVerifyEligible(versionId)) return;
+  inflight.add(versionId);
+  try {
+    if (!(await isLatestVersionForChat(chatId, versionId))) return;
+    const codeFiles = await getVersionFiles(versionId);
+    if (!codeFiles || codeFiles.length === 0) return;
+    const failureCodeSuffix = buildError.failureCode ? ` [${buildError.failureCode}]` : "";
+    const failedOutput: ServerVerifyFailedOutput = {
+      check: "build",
+      exitCode: 1,
+      output: `[preview-vm:${buildError.stage}]${failureCodeSuffix} ${buildError.message}`,
+      durationMs: null,
+    };
+    await tryServerRepairLoop({
+      chatId,
+      versionId,
+      codeFiles,
+      failedOutputs: [failedOutput],
+      verifyLaneDurationMs: 0,
+      firstFailureCheck: "build",
+      jobStartedAt: null,
+      jobFinishedAt: null,
+      onRepairAvailable,
+    });
+  } catch (err) {
+    console.error("[server-verify] build-error repair failed:", err);
   } finally {
     inflight.delete(versionId);
   }
@@ -226,7 +341,7 @@ async function tryServerRepairLoop(params: {
       versionId,
       exportable: exportableForGate,
       hadQualityGateFailures,
-      checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
+      checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,

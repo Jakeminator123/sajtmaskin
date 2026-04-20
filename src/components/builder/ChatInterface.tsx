@@ -29,14 +29,8 @@ import {
 } from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Loader2, X } from "lucide-react";
+import { FileText, ImageIcon, Loader2, Plus, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
-import { ChatToolsPalette } from "@/components/builder/ChatToolsPalette";
-import {
-  dispatchChatToolAction,
-  type ToolActionAvailability,
-  type ToolActionId,
-} from "@/lib/builder/chat-tools";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
 import {
@@ -206,7 +200,6 @@ interface ChatInterfaceProps {
   currentCode?: string;
   existingUiComponents?: string[];
   continuePlanMode?: boolean;
-  toolAvailability?: ToolActionAvailability;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -271,7 +264,6 @@ export function ChatInterface({
   currentCode,
   existingUiComponents,
   continuePlanMode = false,
-  toolAvailability,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -467,13 +459,9 @@ export function ChatInterface({
         try {
           const { media, file } = await uploadInspectPreview(previewDataUrl, fileName);
           const uploadedId = String(media.id || `inspect-upload-${Date.now()}`);
-          const rawInspectUrl = media.url || "";
-          const normalizedInspectUrl = rawInspectUrl && !rawInspectUrl.startsWith("http")
-            ? `${window.location.origin}${rawInspectUrl.startsWith("/") ? "" : "/"}${rawInspectUrl}`
-            : rawInspectUrl;
           const uploadedFile: UploadedFile = {
             id: uploadedId,
-            url: normalizedInspectUrl,
+            url: media.url || "",
             filename: file.name,
             mimeType: media.mimeType || file.type || "image/jpeg",
             size: file.size,
@@ -482,7 +470,7 @@ export function ChatInterface({
               detail.element?.nearestHeading ? ` heading=${detail.element.nearestHeading}` : ""
             }`,
             isPublicUrl:
-              media.storageType === "blob" || normalizedInspectUrl.includes("blob.vercel-storage.com"),
+              media.storageType === "blob" || (media.url || "").includes("blob.vercel-storage.com"),
           };
 
           setFiles((prevFiles) => {
@@ -840,47 +828,6 @@ export function ChatInterface({
     setPickerTab(null);
   };
 
-  const handleToolAction = useCallback(
-    (id: ToolActionId) => {
-      switch (id) {
-        case "generate.plan":
-          void handlePlanRequest();
-          return;
-        case "generate.elements":
-        case "generate.switchScaffold":
-          setPickerTab("ui");
-          return;
-        case "generate.theme":
-          setPickerTab("tema");
-          return;
-        case "content.uploadMedia":
-          if (mediaEnabled) {
-            setIsMediaDrawerOpen(true);
-          } else {
-            toast.info("Mediabibliotek är inaktiverat för detta projekt.");
-          }
-          return;
-        case "content.stockImages":
-          if (mediaEnabled) {
-            setIsMediaDrawerOpen(true);
-          } else {
-            toast.info("Mediabibliotek är inaktiverat för detta projekt.");
-          }
-          return;
-        case "content.uploadText":
-          if (mediaEnabled) {
-            setIsTextUploaderOpen(true);
-          } else {
-            toast.info("Textinläsning är inaktiverad för detta projekt.");
-          }
-          return;
-        default:
-          dispatchChatToolAction(id);
-      }
-    },
-    [handlePlanRequest, mediaEnabled],
-  );
-
   const handleMediaSelect = (item: {
     id: string;
     url: string;
@@ -916,19 +863,30 @@ export function ChatInterface({
         className="border-input bg-background rounded-lg border shadow-sm"
       >
         <PromptInputHeader className="flex-col items-stretch gap-2">
-          <div className="flex items-center justify-between">
-            <ChatToolsPalette
-              availability={
-                toolAvailability ?? {
-                  hasChat: Boolean(chatId),
-                  hasVersion: false,
-                  hasPreview: false,
-                  hasDeployment: false,
-                }
-              }
+          <p className="text-[11px] leading-4 text-zinc-500" suppressHydrationWarning>
+            Verktyg
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+              onClick={handlePlanRequest}
+              disabled={inputDisabled || !input.trim()}
+              title="Gör en plan eller PRD innan kod"
+            >
+              <FileText className="size-3" />
+              Plan
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+              onClick={() => setPickerTab("ui")}
               disabled={inputDisabled}
-              onSelect={handleToolAction}
-            />
+              title="Lägg till element, AI-block, mallar eller tema"
+            >
+              <Plus className="size-3" />
+              Element
+            </button>
           </div>
         </PromptInputHeader>
         {(isFigmaInputOpen || figmaUrl.trim()) && (

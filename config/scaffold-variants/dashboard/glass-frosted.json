@@ -24,6 +24,27 @@
     "Keep information density high, but use translucent depth to separate zones cleanly.",
     "This should feel operational, polished, and product-grade rather than brochure-like."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a fixed frosted top bar and translucent left rail, with the main canvas arranged as a 12-column analytics grid.",
+      "Build the overview page with a wide KPI row, a dominant central trend chart, and stacked right-side activity cards.",
+      "Compose detail pages as split workspaces with a primary data panel left and floating utility cards layered on the right.",
+      "Use modal and drawer flows as elevated glass sheets above a dim dashboard, keeping surrounding metrics faintly visible through blur.",
+      "Arrange settings and management pages as dense card matrices with grouped sections, short forms, and inline status panels instead of long single columns."
+    ],
+    "motifs": [
+      "Use translucent charcoal panels with strong backdrop blur, 1rem radius, hairline borders, and soft internal highlights on edges.",
+      "Pair deep blue-violet backgrounds with cyan or violet metric glows, making key numbers feel softly illuminated without looking neon-gaming.",
+      "Layer cards at multiple elevations with subtle shadows and slight tint shifts, so every zone feels stacked like product UI glass.",
+      "Use crisp sans typography, compact spacing, and mini charts embedded inside cards to keep the interface operational and information-rich."
+    ],
+    "antiPatterns": [
+      "Avoid warm paper textures, grainy organic surfaces, or hand-drawn accents that break the polished product-grade dashboard feel.",
+      "Never use flat opaque white cards or bright light-mode sections that destroy the layered frosted depth across the workspace.",
+      "Avoid oversized marketing hero sections with sparse copy and giant illustrations; this variant should read as an active application first.",
+      "Do not introduce loud rainbow gradients or glossy 3D blobs that overpower charts, metrics, and functional navigation."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.16 0.015 250)",
     "foreground": "oklch(0.94 0.006 250)",
@@ -37,32 +58,6 @@
     "ring": "oklch(0.7 0.18 280)",
     "radius": "1rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-    "Preserve clear information density with persistent navigation and scannable panels."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "overview metrics",
-    "filters or controls",
-    "table or chart area"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
-    "Avoid turning dashboard references into generic marketing landing pages."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Final output should feel custom and production-grade, not like a renamed starter.",
-    "Dense UI must still feel legible, fast, and trustworthy."
-  ],
   "sourceTemplateIds": [
     "ecommerce-blazity-enterprise-ecommerce-starter",
     "authentication-clerk-authentication-starter",

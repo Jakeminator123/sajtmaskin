@@ -1,0 +1,74 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-postgres-drizzle-next-js-starter",
+  "kind": "integration",
+  "category": "database",
+  "label": "Postgres + Drizzle Next.js Starter",
+  "description": "Simple Next.js template that uses a Postgres database and Drizzle as the ORM.",
+  "summary": "Use this dossier when a Next.js app needs a relational database with PostgreSQL and a type-safe ORM plus migrations. It provides the minimal Drizzle + Postgres wiring patterns the runtime LLM should apply: database client setup, schema definition, query usage in server code, and migration configuration.",
+  "providers": [
+    {
+      "name": "Drizzle",
+      "url": "https://github.com/drizzle-team/drizzle-orm"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/lib/db/schema.ts",
+      "role": "server",
+      "kind": "schema"
+    },
+    {
+      "path": "components/lib/db/index.ts",
+      "role": "server",
+      "kind": "db-client"
+    },
+    {
+      "path": "components/drizzle.config.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/health/db/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 88,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/postgres-drizzle",
+  "sourceRepoUrl": "https://github.com/drizzle-team/drizzle-orm",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "drizzle",
+    "postgres",
+    "nextjs",
+    "database",
+    "orm",
+    "migrations",
+    "drizzle-kit",
+    "server-actions"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:00:57.485Z",
+  "_curatedBy": "auto-curate.ts"
+}

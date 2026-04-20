@@ -71,7 +71,7 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Prompt Strategy | `direct`, `phase_plan_build_refine`, `preserved` | kanonisk |
 | Prompt Type | `wizard`, `freeform`, `technical`, `app`, `template`, etc. | kanonisk |
 | Brief (`meta.brief`) | Strukturerat JSON-objekt (~24 fält: projectTitle, pages[], visualDirection, toneAndVoice, imagery, seo + designguidance-fält). Bär designintention. Genereras av LLM via `/api/ai/brief` (init) eller `tryGenerateServerAutoBrief` (server-fallback). `briefQuality`: `"full"`, `"server-auto"`, eller `"none"`. Follow-ups skickar inte brief — kontext via orchestration snapshot istället. | kanonisk |
-| Brief Guidance Override | Brief-LLM-producerade designfält (`domainProfile`, `motionLevel`, `qualityBar`, `seasonalHints`) som overridar deterministisk inferens i `guidance-resolvers.ts`. Cascade Level 1-2. Fallback till Level 3 (deterministiska heuristiker) när fälten saknas. Alla nya fält optionella — bakåtkompatibelt. | kanonisk |
+| Brief Guidance Override | Brief-LLM-producerade designfält (`domainProfile`, `motionLevel`, `qualityBar`, `seasonalHints`) som overridar deterministisk inferens i `guidance-resolvers.ts`. Brief-explicit slår heuristik som slår statiska defaults i `prompt-core/`. Alla nya fält optionella — bakåtkompatibelt. | kanonisk |
 | Variant Pre-Match | Snabb deterministisk keyword-only scaffold+variant-matchning (~1ms) som körs *före* brief-generering i `create-chat-stream-post.ts`. Producerar `VariantHints` som injiceras i brief-prompten. Den riktiga selektionen körs fortfarande i `resolveOrchestrationBase`/`finalizeOrchestrationPrompts` med full kontext. | kanonisk |
 | Variant Hints | Kompakt sammanfattning av variant-defaults (colorMode, signatureMotif, fontPairing, promptHints, styleRules) som ges till Brief-LLM:en som startpunkt. `src/lib/gen/scaffold-variants/variant-hints.ts`. | kanonisk |
 | Deep Brief | UI-term för brief-generering. Samma datatyp som Brief. `canUseDeepBrief` = `!chatId` (bara på init). Togglen `promptAssistDeep` i header styr om LLM-brief körs. | kanonisk |
@@ -83,14 +83,17 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Build Intent | `template \| website \| app` — vad användaren vill bygga | kanonisk |
 | Build Method | `wizard \| category \| audit \| freeform \| kostnadsfri` — hur entry skedde | kanonisk |
 | Generation Mode | `init \| followUp` | kanonisk |
+| Follow-up Intent | `clear-refine \| clear-redesign \| ambiguous-redesign \| ambiguous-followup \| neutral` från `classifyFollowUpIntent` (regex-only). `lockedVariantForFollowUp` håller scaffold-varianten stabil mellan v1→v2 om intent ≠ `clear-redesign`. `inheritQualityTargetFromPriorVersion` arvslår om-räkningen av `qualityTarget` på follow-ups. | kanonisk |
 | Plan Mode | Planner-LLM med plan-artefakt; PlanPhase: plan, build, refine, verify, done | kanonisk |
 | Build Profile | `fast`, `pro`, `max`, `codex`, `anthropic` — UI-tiername för codegen | kanonisk |
 | Generation Phase | `planner`, `generator`, `fixer`, `verifier`, `deploy-assistant` — per-fas modellrouting | kanonisk |
+| Per-Tier Policy Fields | `perTierTimeouts`, `perTierRepairPolicies`, `perTierBriefing` i `config/ai_models/manifest.json` (sedan 2026-04-20). Tier-differentierade `engineRouteMaxDurationSeconds`/`verifierTimeoutMs`, `deterministicAutofixPasses`/`syntaxFixPasses`/`serverRepairPasses`, samt `briefingModel`. Snabb cap:as på 180s + `gpt-5.2` brief, Tanker får 800s + 240s verifier-timeout + `gpt-5.4`. Gamla globala fält behålls som fallback tills accessor-funktioner använder per-tier-fälten. | kanonisk |
 | Thinking | Reasoning-flagga, inte en separat lane | kanonisk |
-| Core Rules | Oföränderliga produktregler från `config/prompt-core/*.md` (stack, format, beteende, a11y, import). Läses av `static-core-loader.ts` via `config/codegen-core-manifest.json`. Ersätter "Static Core". | kanonisk |
+| Core Rules | Oföränderliga produktregler från `config/prompt-core/*.md` (stack, format, beteende, a11y, import, visuell baseline, content voice). Läses av `static-core-loader.ts` via `config/codegen-core-manifest.json`. Ersätter "Static Core". Sedan 2026-04-18 ingår även `03-visual-design.md` och `04-coding-direction.md` som tidigare låg i den borttagna directive-cascaden. | kanonisk |
 | Static Core | Alias för Core Rules. Legacy-term — använd "Core Rules" i nya sammanhang. | alias |
-| Directives | Adaptiva promptmoduler i `config/prompt-directives/*.md` med placeholder-defaults som löses genom Directive Cascade. Läses av `directive-loader.ts`. | kanonisk |
-| Directive Cascade | 4-nivå resolution: (1) EXPLICIT — brief/prompt anger exakt, (2) INDICATED — Brief-LLM infererar, (3) INFERRED — guidance-resolvers, (4) DEFAULT — placeholder i direktivfilen. Generalisering av Design Priority. | kanonisk |
+| Per-Request Signal Cascade | Prioritetsordning för designsignal: (1) brief explicit (colorPalette, typography, mustHave), (2) brief inferred (domainProfile, motionLevel, qualityBar), (3) guidance-resolvers heuristik, (4) statiska defaults i `prompt-core/`. Renderas i `## Design Priority`-blocket. Ersätter den tidigare "Directive Cascade" som hade en aspirationell substitutionsmotor som aldrig användes. | kanonisk |
+| ~~Directives~~ | Adaptiv promptmodul-katalog `config/prompt-directives/*.md` + `directive-loader.ts`. **Borttagen 2026-04-18**: bara 2 av 12 filer injicerades runtime. Innehållet flyttat till `prompt-core/03-visual-design.md` + `prompt-core/04-coding-direction.md`. Per-request signal lever i brief, scaffold-variant och guidance-resolvers. | **borttagen** |
+| ~~Directive Cascade~~ | 4-nivå resolution-modell. **Borttagen 2026-04-18** tillsammans med directive-katalogen. Ersatt av "Per-Request Signal Cascade". | **borttagen** |
 | ~~Prompt Assist (paraply)~~ | Otydligt samlingsnamn. Rewrite/Polish/model-picker borttagna. Deep Brief lever kvar. | **borttagen** |
 | ~~StructuredBrief~~ | Docs-synonym för Deep Brief | **döda** |
 | ~~simplifiedBriefSchema~~ | Borttaget brief-schema med 34 optionals, failade Anthropic >24 | **döda** |
@@ -114,7 +117,11 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Scaffold Serialize Mode | `structural \| inspirational`. Init→inspirational, followUp/heavy→structural | kanonisk |
 | Scaffold Variant | Visuellt uttryck inom scaffold: typsnitt, motif, theme tokens, prompt hints. `variantId` bevaras i orchestration snapshot och återanvänds vid follow-up för att förhindra variant-drift. | kanonisk |
 | Variant Structural Files | Init-only kodreferenser från variantens sourceTemplateIds + capability-driven | kanonisk |
-| Capability Map | Snabb klassificering: auth, ecommerce, forms, 3D, motion, charts | kanonisk |
+| Variant Signature Patterns | `signaturePatterns` per variant: `{ layouts[], motifs[], antiPatterns[] }`. Konkret visuell guidance som ersatte de fyra borttagna generiska guidance-fälten 2026-04-17. Fylls i av `scripts/scaffolds/auto-curate-variant-patterns.ts` (GPT-5.4 + Zod). Renderas i `## Scaffold Variant`-blocket. | kanonisk |
+| Variant Embedding Pick | `pickScaffoldVariantAsync()` — embedding-driven variant-selection som faller graciöst tillbaka till keyword `pickScaffoldVariant` när embeddings/API-key saknas. Existerar i orchestrate.ts som fallback. **Sedan 2026-04-18 låser create-chat det keyword-baserade pre-match-resultatet via `persistedVariantId`**, så async-pickaren körs i praktiken endast när låsningen missas (id stale, plan-mode, eval-runner). Detta håller brief-LLM-hints och codegen synkade på samma variant. | kanonisk |
+| Capability Map | Snabb klassificering: auth, ecommerce, forms, 3D, motion, charts, **physics** (sedan 2026-04-20: `needsPhysics` triggas av "åker omkring/svävar/flyger/gravity/kolliderar/fysik" och kräver `@react-three/rapier` med `<Physics>` + `<RigidBody>` ovanpå `needs3D`) | kanonisk |
+| Motion-Reduce Trap | Anti-mönster där generatorn applicerar `motion-reduce:hidden` på hela `<Canvas>` eller fixed-overlay-wrapper utan `motion-safe:`-fallback → 3D-lagret blir `display:none` när användaren har prefers-reduced-motion. Verifier:s `checkMotionReduceTrap` (sedan 2026-04-20) ger blocking-finding och capability-inference instruerar nu explicit `motion-safe:` på inre mesh istället. | kanonisk |
+| Locale Alternate Routes | `/contact`↔`/kontakt`, `/about`↔`/om`, `/services`↔`/tjanster`. `deduplicateLocaleAlternateRoutes` (sedan 2026-04-20) i `route-plan.ts` behåller den som matchar projektets resolved locale (default `sv`). | kanonisk |
 | Route Plan | Planerad IA/ruttlista. Provenance: brief > scaffold > prompt | kanonisk |
 | Route Realization | Policylager: vilka routes realiseras i denna generation | kanonisk |
 | Contract Plan | Auth, payment, database, env vars, integrations | kanonisk |
@@ -122,8 +129,8 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Finalize Path | Telemetrietikett för finalize-läge: `full` (hela kedjan) eller `light` (skippar image/verifier) | kanonisk |
 | Orchestration Contract | Binder scaffold→routes→valideringsförväntningar | kanonisk |
 | Design Priority | Explicit hierarki i dynamisk kontext: (1) user-locked theme, (2) brief, (3) variant defaults, (4) scaffold CSS baseline. Löser prioritetskonflikt mellan designkällor. `required: true`, priority 89. | kanonisk |
-| Dynamic Context | Request-specifik promptdel: scaffold + routes + contracts + brief + tema + resolverade direktiv. Prunad. Konsumerar Directives via `directive-loader.ts`. | kanonisk |
-| System Prompt | Core Rules + Directives + Dynamic Context | kanonisk |
+| Dynamic Context | Request-specifik promptdel byggd i `buildDynamicContext()`: scaffold + routes + contracts + brief + tema + guidance-resolvers + tier-3 design/integrations-block. Prunad mot tokenbudget. | kanonisk |
+| System Prompt | Core Rules + Dynamic Context (sedan directive-cascade-borttaget 2026-04-18). | kanonisk |
 | Generation Package | Kanonisk fan-in: systemPrompt + dynamicContext + pruning + lineageHash | kanonisk |
 | Your Toolkit | Scaffold-medveten shadcn-sammanfattning i prompten. Primära komponentgrupper per scaffold (via `SCAFFOLD_PRIMARY_GROUPS` + variant `sectionInventory`), sedan "also available". + capability-hints. | kanonisk |
 | Google Font Registry | Central fontdatapost (`src/lib/gen/data/google-font-registry.ts`): ~75 fonts med importnamn, displaynamn, CSS-variabel, kategori. Används av font-import-fixer (autofix) och font-hint i systemprompten. | kanonisk |
@@ -131,6 +138,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Agent Tools | Tool-definitioner för planner/agent-flöden | kanonisk |
 | Template-Library | Kuraterad referensartefakt byggd från externa Vercel-templates | kanonisk |
 | Dossier | Build-time researchartefakt per extern template | kanonisk |
+| Scaffold-Variant Inventarium | Beslutsunderlag (`docs/architecture/scaffold-variants-inventory.md`) — per-scaffold och per-variant tabell med kvalitet och förslag på cleanup. Inte runtime-data. | kanonisk |
 | ~~Capability Pack~~ | Borttaget. `buildCapabilityHints()` täcker behovet. | **borttaget** |
 | ~~Enhancement Pack~~ | Borttaget. Prompts styr via static core. | **borttaget** |
 | ~~DynamicContextAssembly~~ | Docs-synonym | **döda** |
@@ -164,12 +172,18 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Autofix (mekanisk) | Mekanisk fix-pipeline — kedja av fixers, se ovan | kanonisk |
 | Validate and Fix | Syntax → progressiv mekanisk→LLM→mekanisk fix-loop | kanonisk |
 | LLM Fixer | LLM-fix med fixer-prompt | kanonisk |
-| Finalize | Samlad pipeline: autofix → URL-expansion → validate → image materialize → ev. verifier → save | kanonisk |
+| Finalize | Samlad pipeline: URL-expansion → autofix → validate → image materialize → ev. verifier → save | kanonisk |
 | Image Materialize | Materialiserar bildalias/placeholders | kanonisk |
-| Verifier Pass | LLM-driven read-only granskning. `blocking` findings är advisory och stoppar inte persist. | kanonisk |
+| Verifier Pass | LLM-driven read-only granskning. `blocking` findings är advisory och stoppar inte persist. Sedan 2026-04-20: `checkMotionReduceTrap` flaggar `motion-reduce:hidden` på `<Canvas>` / fixed-overlay utan `motion-safe:`-fallback. | kanonisk |
+| Run-Dir Resolver | `resolveRunDirFromContext({ chatId, runId, slug })` i `generation-log-writer.ts` (sedan 2026-04-20). Slår upp aktiv run-katalog via `runId`, sedan via `chatId`-index, sist `_unrouted/<slug>/`-fallback. Eliminerar `could not resolve run dir`-warning-spam i normalfallet. `runIdResolverFromSession` i preview-host (`runtime.js`) trådar `runId` från sajtmaskin via `/preview/session/start` + `/update`. | kanonisk |
+| Reasoning Tokens | Separat token-mätvärde för LLM-reasoning (osynlig "tankearbete") vs visible output. `extractReasoningTokens` (sedan 2026-04-20) i `generation-stream.ts` läser från `usage.reasoning_tokens` (OpenAI Responses-API) eller `tokenUsage.reasoningTokens` (AI-SDK). Loggas som separat `stream.token-usage`-event så thinking-modeller inte längre ser misstänkt billiga i loggen. | kanonisk |
+| Version-Mismatch Overlay | UX-mekanism för perioden mellan att en ny version sparas och att preview-VM:en hunnit reload:a. `VersionMismatchOverlayPayload`-typ exporteras från `preview-host-client.ts` (sedan P24, 2026-04-20). Faktisk overlay-rendering i preview-panel-komponenten är ännu inte landad — spåras som UX polish-debt i `docs/plans/active/Kvarvarande-uppgifter.md`. | kanonisk |
 | Preflight | Teknisk kontroll inför preview: routing, filkonsistens, blocking | kanonisk |
-| Quality Gate | Binärt pass/fail-beslut. Fyra lanes: tier-2, server-verify, promotion, interactive. | kanonisk |
-| Quality Gate Tiers | Manifeststyrda check-profiler i `config/ai_models/manifest.json` (`qualityGateTiers`) | kanonisk |
+| Quality Gate | Binärt pass/fail-beslut. Två lanes (2026-04): `designPreview` (F2) och `integrationsBuild` (F3). | kanonisk |
+| Quality Gate Tiers | Manifeststyrda check-profiler i `config/ai_models/manifest.json` (`qualityGateTiers`). 4-lane-shapen (`tier2`/`serverVerify`/`promotion`/`interactive`) konsoliderades 2026-04 till `designPreview`/`integrationsBuild`. | kanonisk |
+| ~~`tier2` / `serverVerify` / `promotion` / `interactive` (lanes)~~ | Gamla lane-namn. Konsoliderade 2026-04. | **borttagna** — se `designPreview` / `integrationsBuild` |
+| `designPreview` (lane) | F2 quality gate. `["typecheck"]`. Kör efter finalize och i bakgrunds-`server-verify`. | kanonisk |
+| `integrationsBuild` (lane) | F3 quality gate. `["typecheck", "build"]`. Används vid promotion / "Bygg integrationer"-flödet. | kanonisk |
 | Server Verify | Asynkron verify + repair-loop efter finalize | kanonisk |
 | Repair Loop Core (`runRepairLoop`) | Delad repair-kärna för server-verify och manuell `/repair` | kanonisk |
 | Warm Repair | Targeted repair där bara trasiga filer (+ imports) skickas till LLM-fixer | kanonisk |
@@ -215,7 +229,19 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | `previewUrlHint` | Temporär VM-hint, inte slutlig previewUrl | kanonisk |
 | `legacyShimPreviewUrl` | Shim-/fallback-URL | legacy |
 | ~~sandbox~~ (generell term) | Legacy-/compat-term | **legacy** — använd VM / `preview_host` |
-| Fidelity 2 / 3 | Normal resp. strikt (next build) preview-lane | kanonisk |
+| Fidelity 2 / 3 | F2 = `previewPolicy: fidelity2` (design-loopen, npm install + next dev). F3 = `previewPolicy: fidelity3` (integrationer, install + build + dev). F3 triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Auto-promotering från prompt-heuristik (t.ex. "deploy-ready", `RELEASE_CANDIDATE_PATTERNS`) borttagen 2026-04. | kanonisk |
+| LifecycleStage | `"design"` (F2) eller `"integrations"` (F3). Härleds från `BuildSpec.previewPolicy` vid version-insert och persisteras i `engine_versions.lifecycle_stage`. F3-versioner pekar på sin F2-fork via `engine_versions.parent_version_id`. | kanonisk |
+| Tier-3 Integration / "tredje gradens integration" | Integration vars env-keys måste ha riktiga värden för att fungera vid runtime (Stripe-secret, Supabase-URL, Redis, OpenAI, …). Per-key-klassificering i `src/lib/integrations/placeholder-harmless.ts`. F3 vägrar starta tills alla `requiredRealEnvKeys` är satta — verifieras av `validateTier3Readiness` via `/finalize-design`. | kanonisk |
+| Tier3BuildSpec | Strukturerat F3-byggkontrakt (`src/lib/integrations/tier3-build-spec.ts`): per integration `requiredRealEnvKeys`, `placeholderOkEnvKeys`, `buildInstructions[]`, `setupGuide`. Renderas som `## Tier-3 Integration Build Plan` i F3-system-prompten. | kanonisk |
+| `placeholderHarmless` (per env-key) | Booleansk klassificering: harmlösa keys (Stripe-publishable, AUTH_SECRET, GA-id, search-only) får placeholdras även i F3. Tier-3-keys (DB-URL, Stripe-secret, Redis, OpenAI) stripas från F3-merge och kräver riktiga värden. | kanonisk |
+| Pre-VM Typecheck | Finalize-fas (`pre_vm_typecheck`, 2026-04) som kör `tsc --noEmit` mot en varm scaffold-`node_modules`-cache och vid TS-fel försöker en LLM-fix-pass innan filer går till VM. Fail-open vid kall cache. Default av (`SAJTMASKIN_PRE_VM_TYPECHECK`); F3 force-runs alltid. | kanonisk |
+| F2 SDK Guard | Mekanisk autofix-fixer (`tier3-sdk-guard-fixer`) som strippar tier-3 SDK-imports (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, Resend, Algolia, Sentry, Sanity, Storyblok, …) från F2-output. Aktiveras endast vid `previewPolicy === "fidelity2"`. Single source of truth: `config/integrations/tier3-sdk-deny.json` (laddas via `src/lib/integrations/tier3-sdk-deny.ts`); samma JSON renderar även F2 Contract-blocket i system-prompten, så autofix och LLM-instruktion kan inte driva isär. | kanonisk |
+| F2 Contract (system-prompt) | Hård sektion (`## Generation Stage: F2 / Design (HARD CONTRACT)`) som injiceras i system-prompten när `previewPolicy !== "fidelity3"`. Förbjuder modellen att importera tier-3 SDKs eller använda `process.env.X` för tier-3 keys, instruerar mock-data + visual placeholders för payment/auth/search/etc. Komplement till F2 SDK Guard som städar mekaniskt om modellen ändå läcker. | kanonisk |
+| Domain Veto (dossiers) | Hård filter ovanpå embedding-similaritet i `dossiers/select.ts`. När prompten detekteras som "lightweight" (hospitality, restaurant, portfolio, blog, event, charity, small-business-brochure) blockeras dossier-kategorier som inte hör hemma där (`payments`, `auth`, `database`, `cms`, `realtime`, `ai`, `search`) — även om embedding säger ja. Explicit prompt-keywords ("Stripe", "inloggning", …) unblockar respektive kategori. Modul: `src/lib/gen/dossiers/domain-veto.ts`. | kanonisk |
+| Project env file (`env.example`) | Auto-genererad användarsynlig dokumentationsfil som mountas i den genererade sajtens filträd (`versions.files_json`). Listar harmless + tier-3 stub placeholders i F2 så användaren ser exakt vilka nycklar projektet kan tänkas använda; i F3 strippas tier-3 stubs och `projectEnvVars` mergas in som user-lager. Next.js läser INTE filen — det är en hjälpfil som användaren kopierar till `.env.local` lokalt. Modul: `src/lib/gen/preview/project-env-file.ts`. Ej att förväxla med preview-VM:ns interna `.env.local` som skrivs av `buildPreviewEnvLocalContents` och som faktiskt boot:ar previewen. Filnamnet hette tidigare `env.env` (renamed 2026-04 — injectorn rensar legacy-filer automatiskt vid nästa generering). | kanonisk |
+| Element Preservation Guard | Skydd mot att follow-up-generering tappar bort high-value UI-element (`<video>`, `<canvas>`, `<iframe>`, `<form>`, R3F `<Canvas>`, Rapier `<Physics>`, video-/media-komponenter, play-button-UI, sektionslandmärken). Två lager: (1) `## Element Preservation Rule` i system-prompt + `elementPreservationReminder` i prompt-wrappen instruerar LLM:en att behålla allt som inte explicit ska bort; (2) `mergeVersionFilesWithWarnings({ rejectDroppedStructuralElements: true })` i `finalize-merge.ts` avvisar mekaniskt en ny fil som tappat element och behåller den gamla. Detection-modul: `src/lib/gen/context/structural-elements.ts`. Inventoryn injiceras också i follow-up-prompten via `buildFileContext({ includeStructuralInventory: true })`. | kanonisk |
+| jsx-checker DOM-globals guard | Filter i `src/lib/gen/autofix/jsx-checker.ts` som hindrar autofix-pipelinen från att skapa falska `import X from "@/components/<kebab>"` för built-in DOM-typer (`HTMLDivElement`, `HTMLFormElement`, `FormEvent` etc.) som råkar matcha JSX-tag-regexen i TS generic-position (`useRef<HTMLDivElement>`). Använder `GLOBAL_TYPES`-set + `isDenylistedStubDefaultName` (från `rules/import-binding-ast.ts`) som final safety net. `flattenMultilineImports` normaliserar multiline `import { ... }`-block så att t.ex. `type RapierRigidBody` i en R3F/Rapier-import inte felaktigt rapporteras som saknad. Komplement till behavioral-contract-sektionen "DOM and Global Types — Never Import". | kanonisk |
+| Tier-2 downgrade-guard (preview) | Skydd i `useBuilderPageController.ts`-versions-sync som hindrar att en redan etablerad tier-2 (VM/Fly) `currentPreviewUrl` skrivs över av en compatibility-shim-URL från databasens `version.previewUrl`. SSE `preview-ready` kan ge klienten Fly-URL:en innan DB:n hunnit persistera den; utan guarden skulle nästa re-render läsa shim-URL:en och visa det som "blå overlay" i builder-iframen. Guarden är aktiv när `!didChangeVersion` — versionsbyte tillåts fortfarande gå "neråt". | kanonisk |
 
 ---
 
@@ -229,6 +255,7 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | scaffolds | Interna runtime-startpunkter | template-library, Vercel-mallar |
 | `Group` (ikon vs 3D) | Lucide exporterar ikonen `Group`; Three.js/`@react-three/fiber` använder `Group` som nod — samma PascalCase | Autofix får inte lägga till lucide-`Group` när filen redan har `import type { Group } from "three"` (jsx-checker känner igen `import type`) |
 | own-engine | Enda aktiva codegen-vägen | OpenClaw, gammal v0-runtime |
+| `backoffice` | Lokal Streamlit-app — startas via `python sajtmaskin_backoffice.py` (entrypoint relauncherar `streamlit run`). Källkod under `backoffice/` (`shared.py` + `pages/*`). Skriver till `config/`, läser från `config/`, `data/`, `logs/`. **Inte** Next.js API-server, **inte** Fly-VM/preview_host. | Next.js-runtime under `src/app/api/`, preview-VM (Fly), "dashboard" (legacy namn på samma sak) |
 | OpenClaw / Sajtagenten | Separat assistent-/agentyta | Builderns LLM-flöde |
 | `appProjectId` | Användarprojektets id | `chatId`, `VERCEL_PROJECT_ID` |
 | `chatId` | Own-engine-chattens id | `appProjectId` |
@@ -238,13 +265,38 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 **Builder model lanes:** Byggmodell = Build Profile · Deep Brief = automatisk init-expansion (alltid aktiv) · Thinking = reasoning-flagga, inte lane. _(Förbättra/Skriv om-knapparna borttagna.)_
 
+**Dossier-status (`_status`)** styr om en dossier injiceras vid runtime:
+
+| `_status` | Runtime-aktiv? | Sätts av | Innebörd |
+|---|---|---|---|
+| `active` | Ja | Curator (hand eller `auto-curate.ts`) | Färdig att användas |
+| `draft` | Nej | Pipeline (skiss → draft) | Behöver curation innan aktivering |
+| `source-archived` | Nej | `compat-test.ts --apply` | GitHub-källa är arkiverad |
+| `source-stale` | Nej | `compat-test.ts --apply` | GitHub-källa har inte commits > 540d |
+| `source-unreachable` | Nej | `compat-test.ts --apply` | GitHub-källa returnerar 404 / parse-fel |
+
+`_deprecationReason` = informationssträng (max 240 tecken) som förklarar varför dossiern är bruten. `_replacementUrl` = pekare till ersättnings-repo (när källan är sunset). Båda är informationsfält — runtime-filtrering drivs av `_status` ensamt.
+
+`compat-test.ts --apply` är **återhämtande**: om en dossier tidigare flaggats som `source-*` men källan är frisk igen, återställs `_status` till `active` automatiskt.
+
+---
+
+**Core Rules ↔ statisk prompt** är **samma sak** sett från olika håll:
+- `Core Rules` = innehållet (immutable produktregler — stack, output-format, behavior, komponentkontrakt).
+- `statisk prompt` / `static system prompt` / `static core` = den färdig-ihopklistrade prefix-strängen som skickas som `system`-meddelande till codegen-LLM:en.
+- Filhemmet: `config/prompt-core/*.md` listade i `config/codegen-core-manifest.json`.
+- Loadern: `src/lib/gen/static-core-loader.ts` → `getStaticCoreFromWorkspace()`.
+- Compose-funktionen: `composeEngineSystemPrompt(dynamicContextText)` limmar Core Rules + `\n\n---\n\n` + dynamic context.
+- **Den gamla `prompt-static/`-mappen är borttagen** (apr 2026). Säg `prompt-core/` eller `Core Rules`.
+
 ---
 
 ## Env-lager
 
 1. **Plattformens env:** repoets `.env*`, Vercel env vars, `src/lib/env.ts` + `config/env-policy.json`.
 2. **Genererad sajts env:** egen `.env.local` i byggprojektet/previewmiljön.
-3. **Felsökningsordning:** preview → plattforms-env.
+3. **Project env file (`env.example`):** användarsynlig dokumentationsfil i den genererade sajtens filträd (Next.js läser INTE filen — den är hjälptext, riktiga värden går i `.env.local`). Auto-genererad av `src/lib/gen/preview/project-env-file.ts` och mountad i `versions.files_json` av `injectProjectEnvFileIntoFilesJson` (kallas i `finalize-version.ts`). Listar harmless + tier3-stub placeholders i F2 (så användaren ser exakt vilka nycklar som finns); i F3 strippas tier3-stubs och `projectEnvVars` mergas in som user-lager. Filens roll är att hålla F2-chatten tyst — riktiga värden fylls i via env-panelen som mountas först i F3, eller (lokalt) genom att kopiera till `.env.local`. Se [`docs/ENV.md`](../ENV.md) § "Project env file". Renamed från `env.env` 2026-04.
+4. **Felsökningsordning:** preview → project env file → plattforms-env.
 
 ---
 
@@ -262,6 +314,9 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | `GATEWAY_ASSIST_MODELS` | Borttagen re-export; använd `ASSIST_MODELS` |
 | `isGatewayAssistModel()` | Borttagen; ersatt av `isOpenAIAssistModel()` |
 | `SPEC_FILE_INSTRUCTION` | Borttagen ur init-flödet (specMode default false) |
+| `RELEASE_CANDIDATE_PATTERNS` | Borttagen 2026-04. Auto-promotering till F3 från prompt-keywords ("deploy-ready", "production") togs bort när F3 blev en explicit knapp. |
+| `qualityGateTiers.tier2` / `serverVerify` / `promotion` / `interactive` | Borttagna 2026-04. Konsoliderade till `designPreview` (F2) + `integrationsBuild` (F3). |
+| `40-generated-site-integration-placeholders.env.txt` | Splittad 2026-04 i `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`. |
 
 ---
 
@@ -284,4 +339,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-16 (Fas A-D + Fas 6: Delta-Brief vid clear-redesign, Variant Pre-Match, Brief Guidance Override, Core Rules + Directives, Directive Cascade. Dokumentationsharmonisering: scaffold-schema, fas2-orchestration, signal-ownership-matrix, schemas/README uppdaterade med nya termer). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-18 (Directive cascade borttagen — 10 oanvända directive-filer + directive-loader.ts + manifest + 2 backoffice-pages raderade. visual-design och content-voice flyttade till prompt-core. "Per-Request Signal Cascade" ersätter "Directive Cascade" som term). Versionhistorik finns i git.

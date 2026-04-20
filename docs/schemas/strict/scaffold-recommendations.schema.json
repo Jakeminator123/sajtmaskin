@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "scaffold-recommendations.schema.json",
+  "title": "ScaffoldRecommendations",
+  "description": "Möbleringsbart register: per scaffold-id → vilka dossiers som rekommenderas (alwaysInclude / primaryRecommended / suggested). Pool-modell: alla dossiers är tekniskt sett tillgängliga oavsett, det här är rankings-hint för embedding-matchningen vid runtime. Source of truth: data/dossiers/_index/scaffold-recommendations.json. Format-doc: docs/architecture/dossier-format.md § scaffold-recommendations.json.",
+  "type": "object",
+  "required": ["generatedAt", "generationMode", "scaffolds"],
+  "additionalProperties": false,
+  "properties": {
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp för senaste skrivning. Sätts av build-scaffold-recommendations.ts eller hand."
+    },
+    "generationMode": {
+      "type": "string",
+      "enum": ["auto", "merged", "manual"],
+      "description": "auto = full regenerering från dossiers' scaffoldFit. merged = behöll manuella edits + lade till nya. manual = användaren har redigerat direkt."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Fri text — skrivs vid första generation, behålls vid merge."
+    },
+    "scaffolds": {
+      "type": "object",
+      "description": "Map från scaffold-id → recommendation-bucket. Scaffold-id måste matcha en av de 10 i src/lib/gen/scaffolds/types.ts.",
+      "patternProperties": {
+        "^[a-z0-9]+(-[a-z0-9]+)*$": {
+          "type": "object",
+          "required": ["alwaysInclude", "primaryRecommended", "suggested"],
+          "additionalProperties": false,
+          "properties": {
+            "alwaysInclude": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Dossier-id:n som ALLTID injiceras i system-prompten för denna scaffold, oavsett prompt. Använd sparsamt — bara funktioner varje sajt vill ha. Bypassar embedding-scoring."
+            },
+            "primaryRecommended": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Dossiers som får +0.15 boost i embedding-cosine-rankning. Visas högst i förslagslistan när de matchas."
+            },
+            "suggested": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Dossiers som får +0.05 boost. Sekundär förslagslista."
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

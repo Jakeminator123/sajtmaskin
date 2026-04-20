@@ -61,6 +61,18 @@ describe("inferCapabilities", () => {
     const caps = inferCapabilities("Jag vill ha en sökpalett som öppnas med tangentbordsgenväg");
     expect(caps.needsCommandSearch).toBe(true);
   });
+
+  it("capability-inference detects physics keywords", () => {
+    const caps = inferCapabilities("en figur som åker omkring och studsar");
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsPhysics).toBe(true);
+  });
+
+  it("does not flag physics for plain 3D corner art", () => {
+    const caps = inferCapabilities("en 3d-bild i hörnet");
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsPhysics).toBe(false);
+  });
 });
 
 describe("buildCapabilityHints (pack-based)", () => {
@@ -149,5 +161,22 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).toContain("Drawer");
     expect(hints).toContain("Dialog");
     expect(hints).toContain("Carousel");
+  });
+
+  it("3D hint warns against the reduced-motion trap and points at motion-safe:", () => {
+    const caps = inferCapabilities("3d animation site with particle effects");
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain(`motion-reduce` + `:hidden`);
+    expect(hints).toContain("motion-safe:");
+    expect(hints).toContain("Reduced-motion trap");
+  });
+
+  it("3D hint upgrades to rapier when physics keywords are present", () => {
+    const caps = inferCapabilities("en figur som åker omkring och studsar");
+    expect(caps.needsPhysics).toBe(true);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("@react-three/rapier");
+    expect(hints).toContain("Physics");
+    expect(hints).toContain("RigidBody");
   });
 });

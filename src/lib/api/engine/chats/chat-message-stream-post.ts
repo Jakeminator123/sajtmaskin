@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { createSSEHeaders } from "@/lib/streaming";
 import { withRateLimit } from "@/lib/rateLimit";
-import { getEngineChatByIdForRequest } from "@/lib/tenant";
+import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
@@ -71,6 +71,7 @@ import { createPreGenerationContractGateReadableStream } from "@/lib/providers/o
 import {
   buildAwaitingClarificationStream,
   classifyFollowUpIntent,
+  hasDesignFollowUpSignal,
   persistFollowUpClarification,
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
@@ -99,15 +100,27 @@ type HistoryMessage = { role: "user" | "assistant"; content: string };
 
 const CODE_BLOCK_HEAVY_THRESHOLD = 500;
 
+/**
+ * QW-4: bevara assistant-prosa innan första file-blocket. Designrationale
+ * (typ "jag valde glassmorphism för att matcha ditt premium-tema", "lade
+ * pricing överst för konvertering") skrivs typiskt FÖRE file-blocken.
+ * Att kasta hela meddelandet gör att codegen-LLM:n förlorar sin egen
+ * motivering på senare turns och kan välja motsatt riktning. Vi behåller
+ * upp till ~800 tecken prosa-prefix + filsammanfattning.
+ */
 function compressOldAssistantContent(content: string): string {
   if (content.length < CODE_BLOCK_HEAVY_THRESHOLD) return content;
   const fileMatches = [...content.matchAll(/file="([^"]+)"/g)].map((m) => m[1]);
+  const firstFileIdx = content.search(/file="/);
+  // Ta prosa-prefixet om det finns (innan första file=) — annars första 800.
+  const proseHead = (firstFileIdx > 0 ? content.slice(0, firstFileIdx) : content.slice(0, 800)).trim();
   if (fileMatches.length === 0) {
     const codeBlocks = (content.match(/```/g) || []).length / 2;
     if (codeBlocks < 1) return content;
-    return content.slice(0, 200) + "\n\n[Earlier code generation truncated — see current project files for latest version.]";
+    return proseHead + "\n\n[Earlier code blocks truncated — see current project files for latest version.]";
   }
-  return `[Earlier code generation: ${fileMatches.slice(0, 8).join(", ")}${fileMatches.length > 8 ? ` (+${fileMatches.length - 8} more)` : ""}. Current project files contain the latest version.]`;
+  const fileSummary = `${fileMatches.slice(0, 8).join(", ")}${fileMatches.length > 8 ? ` (+${fileMatches.length - 8} more)` : ""}`;
+  return `${proseHead}\n\n[Earlier code generation: ${fileSummary}. Current project files contain the latest version.]`;
 }
 
 function buildBoundedChatHistory(messages: Array<{ role: string; content: string }>): HistoryMessage[] {
@@ -211,14 +224,27 @@ export async function handleMessageStreamRequest(
         const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
 
         if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
+          // IDOR guard: the caller can request a re-mapping to any
+          // project id, so we must independently verify they actually
+          // own the target project before re-pointing the chat row.
+          const ownedTarget = await getAppProjectByIdForRequest(
+            req,
+            metaAppProjectId,
+            { sessionId },
+          );
+          if (!ownedTarget) {
+            return attachSessionCookie(
+              NextResponse.json({ error: "forbidden" }, { status: 403 }),
+            );
+          }
           try {
-            await chatRepo.updateChatProjectId(engineChat.id, metaAppProjectId);
-            engineChat.project_id = metaAppProjectId;
+            await chatRepo.updateChatProjectId(engineChat.id, ownedTarget.id);
+            engineChat.project_id = ownedTarget.id;
           } catch (error) {
             console.warn("[API/engine/chats/:chatId/stream] Failed to repair chat project mapping", {
               chatId,
               currentProjectId: engineChat.project_id,
-              targetProjectId: metaAppProjectId,
+              targetProjectId: ownedTarget.id,
               error: error instanceof Error ? error.message : String(error),
             });
           }
@@ -316,6 +342,8 @@ export async function handleMessageStreamRequest(
           const deltaPreMatchScaffold = persistedScaffoldIdForDelta && !deltaIgnoreScaffold
             ? getScaffoldById(persistedScaffoldIdForDelta)
             : matchScaffold(message, (metaBuildIntent as BuildIntent | null));
+          // Keyword-only pre-match for delta hint (~1ms). Final embedding-driven
+          // pick happens in resolveOrchestrationBase later. See create-chat-stream-post.ts.
           const deltaPreMatchVariant = deltaPreMatchScaffold
             ? pickScaffoldVariant({ prompt: message, scaffoldId: deltaPreMatchScaffold.id })
             : null;
@@ -369,6 +397,9 @@ export async function handleMessageStreamRequest(
             FEATURES.useFollowUpLightContext &&
             followUpContextPolicy === "light";
           const manyFiles = previousFiles.length > 14;
+          const designPinnedFiles = hasDesignFollowUpSignal(message)
+            ? ["app/globals.css", "app/layout.tsx"]
+            : undefined;
           const fileCtx = buildFileContext({
             files: previousFiles,
             maxChars: useLightFollowUpContext ? FOLLOW_UP_TUNING.lightContextMaxChars : 140_000,
@@ -376,7 +407,12 @@ export async function handleMessageStreamRequest(
             maxFilesWithContent: useLightFollowUpContext
               ? (manyFiles ? FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles : FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles)
               : 8,
+            pinnedFiles: designPinnedFiles,
+            includeStructuralInventory: true,
           });
+
+          const elementPreservationReminder =
+            "IMPORTANT: When you emit a file, your output FULLY REPLACES that file. Every section, media element (<video>, play buttons, <canvas>, <iframe>, <form>, 3D components), and interactive block from the previous version MUST appear in your output unless you were explicitly asked to remove it. The host will reject files where structural elements are missing.";
 
           if (skipIntentClassification) {
             optimizedMessage = wrapWithSection({
@@ -384,6 +420,7 @@ export async function handleMessageStreamRequest(
               introLines: [
                 "Apply the requested change precisely. Do not modify unrelated sections or files.",
                 "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+                elementPreservationReminder,
               ],
               body: fileCtx.summary,
               divider: true,
@@ -409,6 +446,7 @@ export async function handleMessageStreamRequest(
                   followUpIntent === "clear-redesign"
                     ? "You may still reuse useful content or information architecture from the current project when relevant."
                     : "",
+                  elementPreservationReminder,
                 ],
                 body: fileCtx.summary,
               }),
@@ -658,15 +696,43 @@ export async function handleMessageStreamRequest(
           engineIntent = "app";
         }
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
+        const snapshotRecord =
+          engineChat.orchestration_snapshot && typeof engineChat.orchestration_snapshot === "object"
+            ? (engineChat.orchestration_snapshot as Record<string, unknown>)
+            : null;
         const snapshotVariantId =
-          engineChat.orchestration_snapshot &&
-          typeof (engineChat.orchestration_snapshot as Record<string, unknown>).variantId === "string"
-            ? ((engineChat.orchestration_snapshot as Record<string, unknown>).variantId as string)
+          snapshotRecord && typeof snapshotRecord.variantId === "string"
+            ? (snapshotRecord.variantId as string)
+            : null;
+        // P22b: ärv qualityTarget från senaste accepterad versions buildSpec
+        // (lagrad i orchestration_snapshot). `inheritQualityTargetFromPriorVersion`
+        // i orchestrate.ts är no-op om värdet saknas eller redan matchar baseSpec.
+        const snapshotBuildSpec =
+          snapshotRecord && snapshotRecord.buildSpec && typeof snapshotRecord.buildSpec === "object"
+            ? (snapshotRecord.buildSpec as Record<string, unknown>)
+            : null;
+        const PRIOR_QUALITY_TARGETS = ["standard", "premium", "release-candidate"] as const;
+        const rawPriorQualityTarget =
+          snapshotBuildSpec && typeof snapshotBuildSpec.qualityTarget === "string"
+            ? snapshotBuildSpec.qualityTarget
+            : null;
+        const priorQualityTarget =
+          rawPriorQualityTarget &&
+          (PRIOR_QUALITY_TARGETS as readonly string[]).includes(rawPriorQualityTarget)
+            ? (rawPriorQualityTarget as (typeof PRIOR_QUALITY_TARGETS)[number])
             : null;
         const orchestrationInput = {
           prompt: optimizedMessage,
           routePlanPrompt: message,
           buildSpecPrompt: message,
+          // QW-1: dossier-pick + contract-inferens + capability-inferens får
+          // rå message så file-context-wrappingen i optimizedMessage inte
+          // förgiftar deras semantiska beslut (t.ex. att import av Stripe i
+          // previousFiles skulle få contracts att gissa "ny stripe-integration",
+          // eller att en LoginForm-fil i context skulle pinna `needsAuth`).
+          dossierPickPrompt: message,
+          contractsPrompt: message,
+          capabilitiesPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
@@ -687,6 +753,14 @@ export async function handleMessageStreamRequest(
           existingRoutePaths,
           existingShellRoutePaths,
           capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
+          lifecycleStage: parsedMeta.lifecycleStage,
+          // P22b: chatId + followUpIntent + priorQualityTarget aktiverar P22:s
+          // helpers runtime (`inheritQualityTargetFromPriorVersion` i deriveBuildSpec
+          // och `lockedVariantForFollowUp` i resolveScaffoldVariant). Utan dessa
+          // är helpers dead code: tester gröna, produktion oförändrad.
+          chatId,
+          followUpIntent: previousFiles.length > 0 ? followUpIntent : undefined,
+          priorQualityTarget,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -866,7 +940,11 @@ export async function handleMessageStreamRequest(
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId,
           resolvedTier: resolvedModelTier,
-          includeIntegrationSignals: false,
+          // Integration tools (`requestEnvVar`, `suggestIntegration`) are
+          // only useful in F3 ("bygg integrationer") where the user is
+          // wiring real keys. Stays off in F2 follow-ups so design-iteration
+          // chats never surface env-var prompts.
+          includeIntegrationSignals: parsedMeta.lifecycleStage === "integrations",
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,
@@ -913,6 +991,10 @@ export async function handleMessageStreamRequest(
             metaPromptSourceKind === "autofix" && metaEngineBaseVersionId
               ? metaEngineBaseVersionId
               : undefined,
+          lifecycleParentVersionId:
+            parsedMeta.lifecycleStage === "integrations"
+              ? parsedMeta.parentVersionId
+              : null,
         });
 
         const engineHeaders = new Headers(createSSEHeaders());

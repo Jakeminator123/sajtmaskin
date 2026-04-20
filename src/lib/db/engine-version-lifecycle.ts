@@ -11,6 +11,14 @@ export const ENGINE_VERSION_VERIFICATION_STATES = [
 ] as const;
 export type EngineVersionVerificationState = (typeof ENGINE_VERSION_VERIFICATION_STATES)[number];
 
+/**
+ * Lifecycle stage of an engine version row. Stored in
+ * `engine_versions.lifecycle_stage` and derived from
+ * `BuildSpec.previewPolicy` at row-insert time.
+ */
+export const ENGINE_VERSION_LIFECYCLE_STAGES = ["design", "integrations"] as const;
+export type EngineVersionLifecycleStage = (typeof ENGINE_VERSION_LIFECYCLE_STAGES)[number];
+
 export type EngineVersionLifecycleLike = {
   versionNumber?: number | null;
   version_number?: number | null;
@@ -20,7 +28,27 @@ export type EngineVersionLifecycleLike = {
   release_state?: string | null;
   verificationState?: string | null;
   verification_state?: string | null;
+  lifecycleStage?: string | null;
+  lifecycle_stage?: string | null;
+  parentVersionId?: string | null;
+  parent_version_id?: string | null;
 };
+
+/** Read the lifecycle stage from a row, defaulting to `"design"` for legacy rows. */
+export function resolveEngineVersionLifecycleStage(
+  version: EngineVersionLifecycleLike | null | undefined,
+): EngineVersionLifecycleStage {
+  const raw = version?.lifecycleStage ?? version?.lifecycle_stage ?? null;
+  if (raw === "integrations") return "integrations";
+  return "design";
+}
+
+/** Read the parent version id (F2 row that this F3 row was forked from). */
+export function resolveEngineVersionParentId(
+  version: EngineVersionLifecycleLike | null | undefined,
+): string | null {
+  return version?.parentVersionId ?? version?.parent_version_id ?? null;
+}
 
 export type EngineVersionLifecycleStatus =
   | "draft"
@@ -138,6 +166,14 @@ export function sortEngineVersionsNewestFirst<T extends EngineVersionLifecycleLi
   return [...versions].sort((a, b) => getVersionSortKey(b) - getVersionSortKey(a));
 }
 
+/**
+ * Pick the preferred version for follow-ups and UI display.
+ *
+ * Semantics: newest non-failed version wins. `promoted` is a quality
+ * signal (used by deploy via `selectDeployTargetEngineVersion`), NOT a
+ * version-selection signal — otherwise a newer draft is silently ignored
+ * and follow-ups merge against stale files.
+ */
 export function selectPreferredEngineVersion<T extends EngineVersionLifecycleLike>(
   versions: T[],
 ): T | undefined {
@@ -146,14 +182,26 @@ export function selectPreferredEngineVersion<T extends EngineVersionLifecycleLik
     return undefined;
   }
 
-  const latestPromoted = sorted.find(
-    (version) => resolveEngineVersionLifecycleStatus(version) === "promoted",
-  );
-  if (latestPromoted) {
-    return latestPromoted;
-  }
-
   return (
     sorted.find((version) => resolveEngineVersionLifecycleStatus(version) !== "failed") ?? sorted[0]
   );
+}
+
+/**
+ * Pick the preferred deploy target. Latest non-failed `integrations` (F3)
+ * row beats the latest design (F2) row — the F2 row may still be the
+ * builder's currently-edited surface, but deploys should ship the
+ * integrations build when one exists.
+ */
+export function selectDeployTargetEngineVersion<T extends EngineVersionLifecycleLike>(
+  versions: T[],
+): T | undefined {
+  const sorted = sortEngineVersionsNewestFirst(versions);
+  const integrations = sorted.find(
+    (version) =>
+      resolveEngineVersionLifecycleStage(version) === "integrations" &&
+      resolveEngineVersionLifecycleStatus(version) !== "failed",
+  );
+  if (integrations) return integrations;
+  return selectPreferredEngineVersion(versions);
 }

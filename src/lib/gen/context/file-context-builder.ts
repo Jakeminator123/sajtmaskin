@@ -1,10 +1,28 @@
 import type { CodeFile } from "../parser";
+import {
+  buildFileStructuralInventory,
+  renderStructuralInventoryForPrompt,
+} from "./structural-elements";
 
 export interface FileContextOptions {
   files: CodeFile[];
   maxChars?: number;
   includeContents?: boolean;
   maxFilesWithContent?: number;
+  /**
+   * Files that MUST be included with full content when `includeContents` is true,
+   * regardless of `maxFilesWithContent` cap or default priority ranking. Paths
+   * that don't exist in `files` are ignored silently. Used by follow-up flows
+   * to guarantee design-critical files (e.g. `app/globals.css`, `app/layout.tsx`)
+   * survive light-context filtering when the prompt has design intent.
+   */
+  pinnedFiles?: string[];
+  /**
+   * When true, appends a structural inventory of notable UI elements
+   * (video, canvas, 3D, forms, media components, section landmarks)
+   * so the LLM knows what exists even in files it cannot see in full.
+   */
+  includeStructuralInventory?: boolean;
 }
 
 export interface FileContext {
@@ -89,6 +107,8 @@ export function buildFileContext(options: FileContextOptions): FileContext {
     maxChars = 60_000,
     includeContents = false,
     maxFilesWithContent = 6,
+    pinnedFiles = [],
+    includeStructuralInventory = false,
   } = options;
 
   const fileList = files.map((f) => f.path);
@@ -153,14 +173,36 @@ export function buildFileContext(options: FileContextOptions): FileContext {
   }
 
   if (includeContents && summary.length < maxChars) {
-    const prioritizedFiles = [...files]
-      .sort(compareByPriority)
-      .slice(0, Math.max(1, maxFilesWithContent));
+    const filesByPath = new Map(files.map((f) => [f.path, f]));
+    const pinnedSelection: CodeFile[] = [];
+    const seenPaths = new Set<string>();
+    for (const path of pinnedFiles) {
+      if (seenPaths.has(path)) continue;
+      const match = filesByPath.get(path);
+      if (!match) continue;
+      pinnedSelection.push(match);
+      seenPaths.add(path);
+    }
+    const remaining = [...files]
+      .filter((f) => !seenPaths.has(f.path))
+      .sort(compareByPriority);
+    const sliceLimit = Math.max(1, maxFilesWithContent, pinnedSelection.length);
+    const prioritizedFiles = [...pinnedSelection, ...remaining].slice(0, sliceLimit);
     const contentBudget = maxChars - summary.length - 2;
     if (contentBudget > 300) {
       const contentSections = buildContentSections(prioritizedFiles, contentBudget);
       if (contentSections) {
         summary = `${summary}\n\n${contentSections}`;
+      }
+    }
+  }
+
+  if (includeStructuralInventory && summary.length < maxChars) {
+    const inventories = buildFileStructuralInventory(files);
+    if (inventories.length > 0) {
+      const inventoryText = renderStructuralInventoryForPrompt(inventories);
+      if (inventoryText && summary.length + inventoryText.length + 4 < maxChars) {
+        summary = `${summary}\n\n${inventoryText}`;
       }
     }
   }

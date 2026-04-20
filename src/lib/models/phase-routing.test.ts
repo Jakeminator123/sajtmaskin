@@ -115,11 +115,11 @@ describe("getPhaseRoutingSummary", () => {
 });
 
 describe("resolvePhaseThinking", () => {
-  it("keeps planner/generator thinking enabled by default for fast tier", () => {
+  it("keeps fast tier planner thinking-off (low effort) and generator thinking-on (P21 manifest)", () => {
     expect(resolvePhaseThinking("fast", "planner")).toEqual({
       phase: "planner",
-      thinking: true,
-      reasoningEffort: "medium",
+      thinking: false,
+      reasoningEffort: "low",
       reason: "manifest-phase-thinking",
     });
     expect(resolvePhaseThinking("fast", "generator")).toEqual({
@@ -140,5 +140,14 @@ describe("resolvePhaseThinking", () => {
     expect(resolvePhaseThinking("max", "planner").reasoningEffort).toBe("high");
     expect(resolvePhaseThinking("codex", "generator").reasoningEffort).toBe("high");
     expect(resolvePhaseThinking("anthropic", "planner").reasoningEffort).toBe("high");
+  });
+
+  it("max tier enables verifier thinking with medium reasoning effort", () => {
+    expect(resolvePhaseThinking("max", "verifier")).toEqual({
+      phase: "verifier",
+      thinking: true,
+      reasoningEffort: "medium",
+      reason: "manifest-phase-thinking",
+    });
   });
 });

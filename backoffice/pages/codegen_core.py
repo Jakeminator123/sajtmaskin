@@ -15,19 +15,9 @@ def render(ctx: BackofficeContext) -> None:
         "till den statiska delen av systemprompten. Se `config/prompt-core/_READ_ME_FIRST.md`."
     )
 
-    core_path = ctx.config_dir / "codegen-core-manifest.json"
-    legacy_path = ctx.config_dir / "codegen-static-prompt.json"
-
-    if core_path.is_file():
-        path = core_path
-    elif legacy_path.is_file():
-        path = legacy_path
-        st.warning(
-            f"Använder legacy-manifest `{legacy_path.name}`. "
-            "Migrera till `codegen-core-manifest.json`."
-        )
-    else:
-        st.error("Inget manifest hittat.")
+    path = ctx.config_dir / "codegen-core-manifest.json"
+    if not path.is_file():
+        st.error("`config/codegen-core-manifest.json` saknas.")
         return
 
     data = read_json(path)

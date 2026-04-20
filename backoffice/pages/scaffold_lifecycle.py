@@ -16,7 +16,6 @@ from backoffice.shared import (
     read_json,
     read_text,
     render_where_panel,
-    run_scaffold_cli,
     write_json,
     write_text,
 )
@@ -676,43 +675,6 @@ def _render_tree_view(
 
     if dossier_source_label:
         st.caption(f"Dossiermetadata laddas från `{dossier_source_label}`.")
-
-    with st.expander("Structural References — budget och capability-mappning", expanded=False):
-        st.markdown("**Filprioriteringsregler** (från `config/structural-file-priorities.json`):")
-        prio_rows = [{"pattern": r.pattern, "priority": p} for r, p in priority_rules]
-        if prio_rows:
-            st.dataframe(pd.DataFrame(prio_rows), width="stretch", hide_index=True)
-        else:
-            st.info("Inga prioritetsregler laddade (fallback-regler används).")
-        st.markdown(f"Filer med prioritet < 0 blockeras. Default-prioritet: **{default_prio}**")
-        st.divider()
-        st.markdown("**Budget:**")
-        st.markdown("- Variant-pass: max 3 filer, 16 000 chars")
-        st.markdown("- Capability-pass: max 2 filer, 8 000 chars")
-        st.markdown("- Totalt: max 5 filer, ~24 000 chars (~6 000 tokens)")
-        st.divider()
-        st.markdown("**Capability → signal-mappning** (från samma config):")
-        config_path = ctx.config_dir / "structural-file-priorities.json"
-        cap_map_rows: list[dict[str, str]] = []
-        if config_path.is_file():
-            try:
-                raw_cfg = read_json(config_path)
-                for m in raw_cfg.get("capabilitySignalMap", []):
-                    if isinstance(m, dict):
-                        cap_map_rows.append({"capability": str(m.get("capabilityKey", "")), "signal": str(m.get("signalKey", ""))})
-            except Exception:
-                pass
-        if not cap_map_rows:
-            cap_map_rows = [
-                {"capability": "needsAuth", "signal": "auth"},
-                {"capability": "needsEcommerce", "signal": "ecommerce"},
-                {"capability": "needsAppShell", "signal": "dashboard"},
-                {"capability": "needsCharts", "signal": "dashboard"},
-                {"capability": "needsDataUI", "signal": "dashboard"},
-                {"capability": "needsForms", "signal": "cms"},
-                {"capability": "needsCarousel", "signal": "ecommerce"},
-            ]
-        st.dataframe(pd.DataFrame(cap_map_rows), width="stretch", hide_index=True)
 
     overview_rows = []
     for manifest in manifests:
@@ -2053,45 +2015,13 @@ def _render_pipeline_tools(ctx: BackofficeContext) -> None:
         "Här kör du variantshärledning och relevanta scaffold/template-artifacts utan att lämna lifecycle-vyn."
     )
 
-    if st.button("Kör härledning (derive-variants-from-dossiers)", key="run_variant_derive"):
-        with st.spinner("Kör derive-variants-from-dossiers.ts..."):
-            try:
-                output = _run_repo_command(
-                    ctx,
-                    [
-                        "npx",
-                        "tsx",
-                        "scripts/scaffolds/derive-variants-from-dossiers.ts",
-                    ],
-                )
-                st.code(output[-5000:] if len(output) > 5000 else output)
-            except Exception as error:
-                st.error(str(error))
-
-    c1, c2, c3 = st.columns(3)
-    if c1.button("Bygg om embeddings", key="run_variant_embeddings"):
-        with st.spinner("Kör scaffold embeddings..."):
-            try:
-                output = run_scaffold_cli(ctx, "embeddings")
-                st.code(output[-5000:] if len(output) > 5000 else output)
-            except Exception as error:
-                st.error(str(error))
-
-    if c2.button("Bygg om research", key="run_variant_build"):
-        with st.spinner("Kör template-library build..."):
-            try:
-                output = run_scaffold_cli(ctx, "build")
-                st.code(output[-5000:] if len(output) > 5000 else output)
-            except Exception as error:
-                st.error(str(error))
-
-    if c3.button("Verifiera", key="run_variant_verify"):
-        with st.spinner("Verifierar artifacts..."):
-            try:
-                output = run_scaffold_cli(ctx, "verify")
-                st.code(output[-5000:] if len(output) > 5000 else output)
-            except Exception as error:
-                st.error(str(error))
+    st.info(
+        "Den gamla `scaffold_cli.py`-pipen avvecklades 2026-04-17. Variant-underhåll "
+        "sker nu från terminalen:\n\n"
+        "- `npm run scaffolds:variant-embeddings` — bygg om embeddings för alla 21 variants\n"
+        "- `npm run scaffolds:variant-patterns` — AI-curate `signaturePatterns`\n"
+        "- `npm run dossiers:rebuild` — bygg om dossier-index + recommendations + embeddings"
+    )
 
 
 def render(ctx: BackofficeContext) -> None:

@@ -169,6 +169,22 @@ describe("validateAndFix", () => {
     expect(result.llmFixCount).toBe(0);
   });
 
+  it("skips initial mechanical pass when alreadyMechanicallyFixed is true", async () => {
+    validateGeneratedCode.mockResolvedValueOnce({ valid: true, errors: [] });
+
+    const content = "```tsx file=\"app/page.tsx\"\nexport default function P(){return <main/>}\n```";
+    const result = await validateAndFix(content, {
+      chatId: "chat_skip",
+      model: "gpt-5.4",
+      alreadyMechanicallyFixed: true,
+    });
+
+    expect(runAutoFix).not.toHaveBeenCalled();
+    expect(result.status).toBe("passed");
+    expect(result.content).toBe(content);
+    expect(result.mechanicalFixCount).toBe(0);
+  });
+
   it("stops early when a fixer pass does not reduce error count", async () => {
     validateGeneratedCode
       .mockResolvedValueOnce({

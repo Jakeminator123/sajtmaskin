@@ -25,6 +25,27 @@
     "Organize the experience around storytelling and reading cadence rather than conversion-only stacking.",
     "Favor rich content hierarchy, callouts, and believable editorial structure."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a magazine-style homepage with a featured lead story spanning two columns beside a stacked list of secondary articles.",
+      "Build article pages with a narrow reading column, generous side margins, and a right-rail for pull quotes or section navigation.",
+      "Use a sectioned content hub with alternating editorial bands: intro copy, curated story grid, expert callout, then newsletter block.",
+      "Compose service storytelling pages as long-form narratives with chapter-like sections, inline testimonials, and a soft CTA near the end.",
+      "Use author or category archives with a prominent intro header followed by a masonry-like card rhythm that still preserves clear reading order."
+    ],
+    "motifs": [
+      "Pair warm paper-like backgrounds with dark ink text, muted beige separators, and terracotta accents that appear sparingly on interactive elements.",
+      "Use serif headlines over clean sans body copy, with oversized editorial spacing and clear typographic contrast between feature stories and supporting content.",
+      "Show cards and callouts as soft surfaced panels with 1rem radius, thin low-contrast borders, and almost no heavy shadow.",
+      "Introduce calm hierarchy through eyebrow labels, pull quotes, divider rules, and captioned imagery that make pages feel published rather than marketed."
+    ],
+    "antiPatterns": [
+      "Avoid startup-style landing stacks with repetitive feature blocks and aggressive CTA repetition that interrupts the reading cadence.",
+      "Never use glossy gradients, neon accents, or glassmorphism panels; they break the quiet editorial warmth of the variant.",
+      "Avoid ultra-dense dashboard grids or cramped multi-column text layouts that make the experience feel utilitarian instead of readable.",
+      "Do not make every section full-bleed and visually loud; this variant needs measured margins and breathing room between story beats."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.985 0.004 80)",
     "foreground": "oklch(0.22 0.015 40)",
@@ -38,32 +59,6 @@
     "ring": "oklch(0.58 0.11 45)",
     "radius": "1rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
-    "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "article hero",
-    "archive list",
-    "author or credibility block"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid collapsing editorial references into generic feature-card marketing.",
-    "Avoid forcing documentation references into pricing-first SaaS structures."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Reading flow should feel deliberate on both desktop and mobile.",
-    "Content-first sites should feel structured, findable, and stable."
-  ],
   "sourceTemplateIds": [
     "blog-a-next-js-14-blog-with-server-components",
     "blog-blog-with-agility-cms-and-next-js",

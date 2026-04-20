@@ -60,6 +60,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             id: m.id,
             role: m.role,
             content: m.content,
+            // Persisted reasoning text so the builder can re-hydrate the
+            // collapsed "thinking" panel after a refresh; only populated
+            // for assistant messages whose generator actually emitted
+            // reasoning deltas.
+            thinking: m.thinking ?? null,
             uiParts: Array.isArray(m.ui_parts) ? m.ui_parts : undefined,
             tokenCount: m.token_count,
             createdAt: m.created_at,

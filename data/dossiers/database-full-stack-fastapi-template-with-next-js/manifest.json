@@ -1,0 +1,69 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-full-stack-fastapi-template-with-next-js",
+  "kind": "integration",
+  "category": "database",
+  "label": "Full stack FastAPI template with Next.js",
+  "description": "Build full-stack apps with Next.js and FastAPI.",
+  "summary": "Use this dossier when a Next.js frontend needs to authenticate against and consume a FastAPI backend using bearer tokens. It provides the essential client-side auth hook pattern for login, signup, current-user fetching, and logout, plus guidance for wiring generated API clients and token handling safely.",
+  "providers": [
+    {
+      "name": "FastAPI",
+      "url": "https://github.com/fastapi/full-stack-fastapi-template"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/frontend/src/hooks/useAuth.ts",
+      "role": "client",
+      "kind": "hook"
+    },
+    {
+      "path": "components/frontend/src/lib/api.ts",
+      "role": "shared",
+      "kind": "api-client"
+    },
+    {
+      "path": "components/frontend/src/hooks/useAuth.ts",
+      "role": "client",
+      "kind": "hook"
+    },
+    {
+      "path": "components/.env.example",
+      "role": "shared",
+      "kind": "config"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "auth-pages",
+      "saas-landing",
+      "ecommerce"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 78,
+  "sourceTemplateUrl": "https://vercel.com/templates/other/full-stack-fastapi-template-with-next-js",
+  "sourceRepoUrl": "https://github.com/fastapi/full-stack-fastapi-template",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "fastapi",
+    "nextjs",
+    "authentication",
+    "bearer-token",
+    "react-query",
+    "rest-api",
+    "full-stack"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:34:43.655Z",
+  "_curatedBy": "auto-curate.ts"
+}

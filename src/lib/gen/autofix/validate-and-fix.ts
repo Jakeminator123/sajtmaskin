@@ -1,6 +1,7 @@
 import { runLlmFixer } from "./llm-fixer";
 import { runAutoFix } from "./pipeline";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
@@ -66,6 +67,15 @@ export async function validateAndFix(
     resolvedTier?: CanonicalModelId;
     onProgress?: ValidateFixProgressCallback;
     fixBudgetMs?: number;
+    /** Forwarded to `runAutoFix` so the F2 SDK guard can run when active. */
+    previewPolicy?: BuildSpecPreviewPolicy;
+    /**
+     * Skip the initial mechanical `runAutoFix` pass when the caller already
+     * ran it on the same content (e.g. finalize-version.ts → outer autofix).
+     * Avoids redundant idempotent work. The post-LLM mechanical pass inside
+     * the repair loop is unaffected.
+     */
+    alreadyMechanicallyFixed?: boolean;
   },
 ): Promise<ValidateFixResult> {
   const onProgress = opts.onProgress;
@@ -88,13 +98,21 @@ export async function validateAndFix(
   try {
     const { validateGeneratedCode } = await import("../retry/validate-syntax");
 
-    // Initial mechanical pass
-    const preFixResult = await runAutoFix(content, {
-      chatId: opts.chatId,
-      model: opts.model,
-    });
-    let currentContent = preFixResult.fixedContent;
-    totalMechanicalFixes += preFixResult.fixes.length;
+    // Initial mechanical pass — skipped when caller already ran runAutoFix
+    // on this exact content (idempotent: guards against double work in the
+    // finalize-version.ts pipeline where the outer autofix runs first).
+    let currentContent = content;
+    let initialMechanicalFixes: FixEntry[] = [];
+    if (!opts.alreadyMechanicallyFixed) {
+      const preFixResult = await runAutoFix(content, {
+        chatId: opts.chatId,
+        model: opts.model,
+        previewPolicy: opts.previewPolicy,
+      });
+      currentContent = preFixResult.fixedContent;
+      initialMechanicalFixes = preFixResult.fixes as FixEntry[];
+      totalMechanicalFixes += preFixResult.fixes.length;
+    }
 
     let initialErrorCount = 0;
     let bestContent = content;
@@ -205,7 +223,7 @@ export async function validateAndFix(
         devLogAppend("in-progress", {
           type: "autofix.mechanical-residual",
           chatId: opts.chatId,
-          mechanicalFixCount: preFixResult.fixes.length,
+          mechanicalFixCount: initialMechanicalFixes.length,
           residualErrorCount: validation.errors.length,
           residualErrors: validation.errors.slice(0, 12).map((e: { file: string; line: number; message: string }) => ({
             file: e.file,
@@ -213,7 +231,7 @@ export async function validateAndFix(
             message: e.message,
             pattern: normalizeErrorPattern(e.message),
           })),
-          topMechanicalFixers: countByFixer(preFixResult.fixes as FixEntry[]),
+          topMechanicalFixers: countByFixer(initialMechanicalFixes),
         });
       }
 
@@ -311,11 +329,14 @@ export async function validateAndFix(
           });
         }
 
-        // Mechanical pass on LLM output
+        // Mechanical pass on LLM output — required after each LLM fixer pass to
+        // normalize freshly emitted imports/structure before the next validate pass.
+        // Not deduped with the initial mechanical pass: content has changed.
         onProgress?.({ pass, phase: "retrying", errorCount: validation.errors.length });
         const reFixed = await runAutoFix(fixerResult.fixedContent, {
           chatId: opts.chatId,
           model: opts.model,
+          previewPolicy: opts.previewPolicy,
         });
         currentContent = reFixed.fixedContent;
         totalMechanicalFixes += reFixed.fixes.length;

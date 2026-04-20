@@ -1,0 +1,68 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-marketing-finwise-saas-landing-page",
+  "kind": "ui-section",
+  "category": "ui-marketing",
+  "label": "Finwise: SaaS Landing Page",
+  "description": "Lightweight, easy to customize landing page template for SaaS, built with Next.js and Tailwind.",
+  "summary": "Use this dossier when you need a SaaS/marketing landing page shell in Next.js App Router with built-in SEO metadata, shared header/footer layout, Google Fonts, and optional Google Analytics. It provides the global layout pattern and analytics hook-up, but not the page sections or branded content.",
+  "providers": [
+    {
+      "name": "Nexi Launch",
+      "url": "https://github.com/nexi-launch/finwise-landing-page"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "GOOGLE_ANALYTICS_ID",
+      "required": true,
+      "purpose": "Retrieve your GA ID from your GA dashboard"
+    }
+  ],
+  "dependencies": [
+    "@headlessui/react",
+    "@next/third-parties",
+    "clsx",
+    "framer-motion",
+    "react-icons"
+  ],
+  "files": [
+    {
+      "path": "components/src/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "landing-page",
+      "saas-landing"
+    ],
+    "compatible": [
+      "content-site",
+      "base-nextjs",
+      "blog",
+      "portfolio"
+    ]
+  },
+  "complexity": "simple",
+  "qualityScore": 74,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/finwise-saas-landing-page",
+  "sourceRepoUrl": "https://github.com/nexi-launch/finwise-landing-page",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "nexi-launch",
+    "nextjs",
+    "app-router",
+    "landing-page",
+    "saas",
+    "metadata",
+    "google-analytics",
+    "layout",
+    "marketing-ui"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:48:38.685Z",
+  "_curatedBy": "auto-curate.ts"
+}

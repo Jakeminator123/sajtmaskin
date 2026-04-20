@@ -113,7 +113,7 @@ Körs av klienten efter att stream-hantering och finalize är klar.
 Om ingen autofix köades → `runTier2VerifyLane()`:
 
 1. `POST /api/engine/chats/{chatId}/quality-gate` med `{ versionId, checks }`
-2. **Checks**: Från `TIER2_QUALITY_GATE_CHECKS` (manifest-default, fallback `["typecheck"]`)
+2. **Checks**: Från `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` (F2-lane, manifest-default `["typecheck"]`). F3-lanen heter `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` (`["typecheck", "build"]`). Konsoliderat 2026-04 från fyra lanes (`tier2`/`serverVerify`/`promotion`/`interactive`).
 3. Engine: `buildExportableProject()` → `runQualityGateChecks()` → preview-host verify lane
 4. Optional: visuell QA om checks passerar
 

@@ -1,0 +1,76 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-next-js-preview-mode",
+  "kind": "integration",
+  "category": "database",
+  "label": "Next.js Preview Mode",
+  "description": "Preview content changes before publishing.",
+  "summary": "Use this dossier when a Next.js site needs draft/preview workflows for CMS or unpublished content. It provides the API route patterns for enabling and disabling Next.js Preview Mode / Draft Mode so editors can see unpublished content rendered with authenticated draft data.",
+  "providers": [
+    {
+      "name": "Next.js",
+      "url": "https://github.com/vercel/preview-mode-demo"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@reach/alert-dialog",
+    "@reach/dialog",
+    "aws-sdk",
+    "copy-to-clipboard",
+    "shortid",
+    "slate",
+    "slate-history",
+    "slate-react"
+  ],
+  "files": [
+    {
+      "path": "components/src/pages/api/exit.tsx",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/pages/api/preview.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/lib/is-preview.ts",
+      "role": "shared",
+      "kind": "utility"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "landing-page",
+      "portfolio",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "simple",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjs-preview-mode",
+  "sourceRepoUrl": "https://github.com/vercel/preview-mode-demo",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "nextjs",
+    "preview-mode",
+    "draft-mode",
+    "cms",
+    "api-routes",
+    "pages-router"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:38:44.554Z",
+  "_curatedBy": "auto-curate.ts"
+}

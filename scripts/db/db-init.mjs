@@ -390,6 +390,7 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_version_id ON engine_version_error_logs(version_id)`,
   `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_chat_id ON engine_version_error_logs(chat_id)`,
   `ALTER TABLE engine_messages ADD COLUMN IF NOT EXISTS ui_parts JSONB`,
+  `ALTER TABLE engine_messages ADD COLUMN IF NOT EXISTS thinking TEXT`,
   `DO $$
    BEGIN
      IF EXISTS (

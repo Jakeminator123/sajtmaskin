@@ -6,7 +6,6 @@ import {
   jsonb,
   boolean,
   uniqueIndex,
-  index,
   integer,
   serial,
 } from "drizzle-orm/pg-core";
@@ -35,9 +34,7 @@ export const chats = pgTable("chats", {
   webUrl: text("web_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => ({
-  projectIdx: index("chats_project_id_idx").on(table.projectId),
-}));
+});
 
 export const versions = pgTable(
   "versions",
@@ -254,19 +251,30 @@ export const userIntegrations = pgTable(
   }),
 );
 
-export const transactions = pgTable("transactions", {
-  id: text("id").primaryKey(),
-  user_id: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  type: text("type").notNull(),
-  amount: integer("amount").notNull(),
-  balance_after: integer("balance_after").notNull(),
-  description: text("description"),
-  stripe_payment_intent: text("stripe_payment_intent"),
-  stripe_session_id: text("stripe_session_id"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const transactions = pgTable(
+  "transactions",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    amount: integer("amount").notNull(),
+    balance_after: integer("balance_after").notNull(),
+    description: text("description"),
+    stripe_payment_intent: text("stripe_payment_intent"),
+    stripe_session_id: text("stripe_session_id"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Idempotency guard for Stripe webhooks: a given session id may only
+    // ever produce one transaction row, so a duplicate webhook delivery
+    // surfaces as a unique-violation we can swallow.
+    stripeSessionIdx: uniqueIndex("transactions_stripe_session_idx").on(
+      table.stripe_session_id,
+    ),
+  }),
+);
 
 export const guestUsage = pgTable(
   "guest_usage",
@@ -408,7 +416,7 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
 
 export const engineChats = pgTable("engine_chats", {
   id: text("id").primaryKey(),
-  projectId: text("project_id"),
+  projectId: text("project_id").references(() => appProjects.id, { onDelete: "cascade" }),
   title: text("title"),
   model: text("model").notNull().default("gpt-5.4"),
   systemPrompt: text("system_prompt"),
@@ -417,9 +425,7 @@ export const engineChats = pgTable("engine_chats", {
   orchestrationSnapshot: jsonb("orchestration_snapshot").$type<Record<string, unknown> | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => ({
-  projectIdx: index("engine_chats_project_id_idx").on(table.projectId),
-}));
+});
 
 export const engineMessages = pgTable("engine_messages", {
   id: text("id").primaryKey(),
@@ -428,28 +434,59 @@ export const engineMessages = pgTable("engine_messages", {
   content: text("content").notNull(),
   uiParts: jsonb("ui_parts").$type<Record<string, unknown>[] | null>(),
   tokenCount: integer("token_count"),
+  /**
+   * Concatenated reasoning / chain-of-thought captured during streaming
+   * for assistant messages whose model emits `reasoning-delta` parts.
+   * Persisted so the builder UI can re-show the thinking section after a
+   * page refresh (F5) instead of only displaying it during the live
+   * stream. Nullable for messages with no reasoning (user messages,
+   * fast-tier responses, etc.).
+   */
+  thinking: text("thinking"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => ({
-  chatIdx: index("engine_messages_chat_id_idx").on(table.chatId),
-}));
+});
 
-export const engineVersions = pgTable("engine_versions", {
-  id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
-  messageId: text("message_id"),
-  versionNumber: integer("version_number").notNull(),
-  filesJson: text("files_json").notNull(),
-  repairedFilesJson: text("repaired_files_json"),
-  previewUrl: text("preview_url"),
-  releaseState: text("release_state").notNull().default("draft"),
-  verificationState: text("verification_state").notNull().default("pending"),
-  verificationSummary: text("verification_summary"),
-  repairAvailableAt: timestamp("repair_available_at"),
-  promotedAt: timestamp("promoted_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => ({
-  chatIdx: index("engine_versions_chat_id_idx").on(table.chatId),
-}));
+export const engineVersions = pgTable(
+  "engine_versions",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    messageId: text("message_id"),
+    versionNumber: integer("version_number").notNull(),
+    filesJson: text("files_json").notNull(),
+    repairedFilesJson: text("repaired_files_json"),
+    previewUrl: text("preview_url"),
+    releaseState: text("release_state").notNull().default("draft"),
+    verificationState: text("verification_state").notNull().default("pending"),
+    verificationSummary: text("verification_summary"),
+    repairAvailableAt: timestamp("repair_available_at"),
+    promotedAt: timestamp("promoted_at"),
+    /**
+     * Parent version this row was forked from. Set by the F3 ("Bygg
+     * integrationer") trigger so the integrations build is implicitly
+     * branched off a specific F2 design version. Null for plain F2
+     * versions and for versions migrated before the F2/F3 split.
+     */
+    parentVersionId: text("parent_version_id"),
+    /**
+     * Lifecycle stage:
+     *   - `"design"` (default) — F2 design preview row.
+     *   - `"integrations"` — F3 row produced by `/finalize-design`.
+     *
+     * Derived at row insertion time from `BuildSpec.previewPolicy`. Stored
+     * directly so deploy-readiness queries don't need to re-read the
+     * orchestration snapshot.
+     */
+    lifecycleStage: text("lifecycle_stage").notNull().default("design"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    chatVersionUnique: uniqueIndex("engine_versions_chat_version_unique").on(
+      table.chatId,
+      table.versionNumber,
+    ),
+  }),
+);
 
 export const engineGenerationLogs = pgTable("engine_generation_logs", {
   id: text("id").primaryKey(),
@@ -481,8 +518,8 @@ export const engineVersionErrorLogs = pgTable("engine_version_error_logs", {
 
 export const generationTelemetry = pgTable("generation_telemetry", {
   id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id),
-  versionId: text("version_id").references(() => engineVersions.id),
+  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+  versionId: text("version_id").references(() => engineVersions.id, { onDelete: "cascade" }),
   scaffoldId: text("scaffold_id"),
   scaffoldAlternatives: jsonb("scaffold_alternatives").$type<string[] | null>(),
   scaffoldSelectionMethod: text("scaffold_selection_method"),
@@ -517,7 +554,7 @@ export const generationTelemetry = pgTable("generation_telemetry", {
 export const versionComments = pgTable("version_comments", {
   id: text("id").primaryKey(),
   versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
-  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
   userId: text("user_id"),
   authorName: text("author_name"),
   content: text("content").notNull(),
@@ -529,7 +566,7 @@ export const versionComments = pgTable("version_comments", {
 export const versionApprovals = pgTable("version_approvals", {
   id: text("id").primaryKey(),
   versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
-  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
   userId: text("user_id"),
   approverName: text("approver_name"),
   status: text("status").notNull().default("pending"),

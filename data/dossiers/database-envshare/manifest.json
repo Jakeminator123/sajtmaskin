@@ -1,0 +1,84 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-envshare",
+  "kind": "integration",
+  "category": "database",
+  "label": "EnvShare",
+  "description": "Simple Next.js + Upstash app to share environment variables securely using AES-CBC encryption.",
+  "summary": "Use this dossier when a site needs one-time or short-lived secret sharing, such as securely sending environment variables, API keys, or config blobs between trusted operators. It provides the integration patterns for optional privacy-preserving analytics, encrypted-secret usage metrics in Upstash Redis, and the minimal UI primitives needed to surface errors and basic stats in a Next.js app.",
+  "providers": [
+    {
+      "name": "EnvShare",
+      "url": "https://github.com/chronark/envshare"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@heroicons/react",
+    "@next/font",
+    "@upstash/redis",
+    "@vercel/analytics",
+    "@vercel/og",
+    "base-x",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/app/components/analytics.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/app/components/error.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/app/components/stats.tsx",
+      "role": "server",
+      "kind": "component"
+    },
+    {
+      "path": "components/lib/envshare-crypto.ts",
+      "role": "server",
+      "kind": "lib"
+    },
+    {
+      "path": "components/app/api/envshare/[id]/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "auth-pages",
+      "saas-landing",
+      "content-site"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 72,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/envshare",
+  "sourceRepoUrl": "https://github.com/chronark/envshare",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "envshare",
+    "upstash",
+    "redis",
+    "secret-sharing",
+    "encryption",
+    "aes-cbc",
+    "nextjs",
+    "vercel-analytics",
+    "privacy"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:33:18.398Z",
+  "_curatedBy": "auto-curate.ts"
+}

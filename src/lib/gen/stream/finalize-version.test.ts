@@ -15,6 +15,7 @@ const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
+const addAssistantMessageAndUpdateExistingVersion = vi.hoisted(() => vi.fn());
 const updateChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const getChatOrchestrationSnapshot = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
@@ -83,6 +84,7 @@ vi.mock("@/lib/gen/export/project-scaffold-ui-reader", () => ({
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
+  addAssistantMessageAndUpdateExistingVersion,
   updateChatOrchestrationSnapshot,
   getChatOrchestrationSnapshot,
   addMessage,
@@ -148,6 +150,7 @@ describe("finalizeAndSaveVersion", () => {
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
     addAssistantMessageAndCreateDraftVersion.mockReset();
+    addAssistantMessageAndUpdateExistingVersion.mockReset();
     updateChatOrchestrationSnapshot.mockReset();
     getChatOrchestrationSnapshot.mockReset();
     addMessage.mockReset();
@@ -259,6 +262,10 @@ describe("finalizeAndSaveVersion", () => {
       message: { id: "msg_1" },
       version: { id: "ver_1" },
     });
+    addAssistantMessageAndUpdateExistingVersion.mockResolvedValue({
+      message: { id: "msg_1" },
+      version: { id: "ver_1" },
+    });
     updateChatOrchestrationSnapshot.mockResolvedValue(true);
     getChatOrchestrationSnapshot.mockResolvedValue(null);
     addMessage.mockResolvedValue({ id: "orphan_msg" });
@@ -268,6 +275,80 @@ describe("finalizeAndSaveVersion", () => {
     createEngineVersionErrorLogs.mockResolvedValue([]);
     createGenerationTelemetryRecord.mockResolvedValue({ id: "telemetry_1" });
     buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
+  });
+
+  describe("thinking persistence", () => {
+    it("forwards accumulatedThinking into the draft persist call (new version path)", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+        accumulatedThinking: "Step 1: pick layout. Step 2: render hero.",
+      });
+
+      expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalledTimes(1);
+      const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+      expect(call?.[3]).toEqual(
+        expect.objectContaining({
+          thinking: "Step 1: pick layout. Step 2: render hero.",
+        }),
+      );
+    });
+
+    it("forwards accumulatedThinking when updating an existing version (repair path)", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+        targetVersionId: "ver_existing",
+        accumulatedThinking: "Repair reasoning trace",
+      });
+
+      expect(addAssistantMessageAndUpdateExistingVersion).toHaveBeenCalledTimes(1);
+      const call = addAssistantMessageAndUpdateExistingVersion.mock.calls[0];
+      expect(call?.[4]).toEqual(
+        expect.objectContaining({ thinking: "Repair reasoning trace" }),
+      );
+    });
+
+    it("passes thinking: null when no reasoning was collected", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+      expect(call?.[3]).toEqual(expect.objectContaining({ thinking: null }));
+    });
+
+    it("normalizes empty-string accumulatedThinking to null", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+        accumulatedThinking: "",
+      });
+
+      const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+      expect(call?.[3]).toEqual(expect.objectContaining({ thinking: null }));
+    });
   });
 
   it("does not call addMessage for assistant rows (avoids orphan assistant without version)", async () => {
@@ -345,6 +426,7 @@ describe("finalizeAndSaveVersion", () => {
       "chat_1",
       expect.stringContaining("export default function Page()"),
       expect.any(String),
+      expect.objectContaining({ lifecycleStage: "design" }),
     );
     expect(deleteEngineMessage).not.toHaveBeenCalled();
   });
@@ -478,7 +560,7 @@ describe("finalizeAndSaveVersion", () => {
           path: "src/app/page.tsx",
         }),
       ]),
-      { rejectSignificantShrinks: true },
+      { rejectSignificantShrinks: true, rejectDroppedStructuralElements: true },
     );
     expect(checkScaffoldImports).toHaveBeenCalled();
   });
@@ -637,8 +719,8 @@ describe("finalizeAndSaveVersion", () => {
     expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
-          category: "quality-gate:verifier",
-          level: "warning",
+          category: "quality-gate:verifier-blocking",
+          level: "error",
           message:
             "`app/page.tsx` uses external next/image hosts without confirmed remotePatterns config.",
           meta: expect.objectContaining({
@@ -646,6 +728,11 @@ describe("finalizeAndSaveVersion", () => {
           }),
         }),
       ]),
+    );
+    // Verifier-blocking findings must also gate the version, not just be logged.
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      "ver_1",
+      expect.stringContaining("Verifier reported"),
     );
   });
 

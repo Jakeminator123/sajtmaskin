@@ -1,0 +1,95 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-marketing-visactor-next-js-template",
+  "kind": "ui-section",
+  "category": "ui-marketing",
+  "label": "VisActor Next.js Template",
+  "description": "A modern dashboard with VisActor charts, dark mode, and data visualization for seamless analytics.",
+  "summary": "Use this dossier when you need a reusable analytics/dashboard UI foundation built around VisActor charts in a Next.js app. It provides a responsive page container, a VisActor brand icon, and utility/state patterns for chart-friendly data formatting and date-range filtering, but not a complete drop-in dashboard shell.",
+  "providers": [
+    {
+      "name": "VisActor",
+      "url": "https://github.com/mengxi-ream/visactor-next-template"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@radix-ui/react-dropdown-menu",
+    "@radix-ui/react-popover",
+    "@radix-ui/react-slot",
+    "@visactor/react-vchart",
+    "@visactor/vchart",
+    "class-variance-authority",
+    "clsx",
+    "date-fns",
+    "jotai",
+    "lucide-react",
+    "next-themes",
+    "react-day-picker",
+    "tailwind-merge"
+  ],
+  "files": [
+    {
+      "path": "components/src/components/container.tsx",
+      "role": "shared",
+      "kind": "component"
+    },
+    {
+      "path": "components/src/components/icons.tsx",
+      "role": "shared",
+      "kind": "component"
+    },
+    {
+      "path": "components/src/lib/utils.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/components/visactor-chart.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/src/lib/visactor-specs.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/components/chart-card.tsx",
+      "role": "shared",
+      "kind": "component"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "landing-page",
+      "content-site",
+      "auth-pages"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 72,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/visactor-nextjs-template",
+  "sourceRepoUrl": "https://github.com/mengxi-ream/visactor-next-template",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "visactor",
+    "vchart",
+    "nextjs",
+    "analytics",
+    "dashboard",
+    "charts",
+    "data-visualization",
+    "ui-marketing"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:50:09.341Z",
+  "_curatedBy": "auto-curate.ts"
+}

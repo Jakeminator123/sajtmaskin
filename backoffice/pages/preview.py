@@ -75,3 +75,20 @@ def render(ctx: BackofficeContext) -> None:
 """
     )
 
+    st.subheader("F2 / F3 livscykel (2026-04)")
+    st.markdown(
+        """
+- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck"]`). Tier-3 SDK-imports
+  (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, …) strippas mekaniskt av `tier3-sdk-guard-fixer`.
+- **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. `integrationsBuild` quality gate (`["typecheck", "build"]`).
+  Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 readiness mot
+  projektets stored env-vars; returnerar `412` med `missingByIntegration` om någon `requiredRealEnvKeys` saknas.
+- **`engine_versions.lifecycle_stage`**: `"design"` (F2) eller `"integrations"` (F3). F3-versioner pekar på sin
+  F2-rot via `engine_versions.parent_version_id`.
+- **Pre-VM typecheck**: ny finalize-fas (`pre_vm_typecheck`) som kör `tsc --noEmit` mot en varm scaffold-`node_modules`-cache och
+  försöker en LLM-fix-pass innan filer går till VM. Aktiveras via `SAJTMASKIN_PRE_VM_TYPECHECK`; F3 kör alltid med `force=true`.
+- **Placeholder-merge** (`src/lib/gen/preview/env-local.ts`): `harmless → tier3-stub → project-preview → user → generated`.
+  Vid F3 hoppas tier-3-stub-laget över helt. Per-key-klassificering: `src/lib/integrations/placeholder-harmless.ts`.
+"""
+    )
+

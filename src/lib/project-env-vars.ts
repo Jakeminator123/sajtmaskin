@@ -81,6 +81,44 @@ function safeDecrypt(value: string, key: string): string | null {
   }
 }
 
+const SUSPICIOUS_LITERAL_NEWLINE_RE = /\\n/g;
+const SUSPICIOUS_DOUBLE_BACKSLASH_RUN_RE = /\\{4,}/g;
+
+/**
+ * Detect (and warn about) common ingest-side corruption in stored env
+ * values. The classic case is a value created via `vercel env add … |`
+ * piped through PowerShell, which silently substitutes literal `\n`
+ * sequences for newlines (documented in `.cursor/rules/platform-quirks.mdc`).
+ *
+ * We do NOT mutate the value here — secrets like base64-encoded private
+ * keys can legitimately contain `\n`, and silently rewriting them would
+ * be far worse than the cosmetic warning. The point is to make the
+ * leakage observable so the operator can fix it at the source.
+ *
+ * Returns the value unchanged. Side effect: logs a warning the first
+ * time a key with suspicious content is seen per process.
+ */
+const _warnedKeys = new Set<string>();
+function warnIfSuspiciousEnvValue(key: string, value: string): void {
+  if (_warnedKeys.has(key)) return;
+  let issue: string | null = null;
+  // Heuristic: a single isolated `\n` is fine (private keys etc.); 3+
+  // is the same threshold the system-prompt assert uses for "this is
+  // probably JSON-encoded leakage, not legit content".
+  const literalNewlineCount = (value.match(SUSPICIOUS_LITERAL_NEWLINE_RE) ?? []).length;
+  if (literalNewlineCount >= 3) {
+    issue = `value contains ${literalNewlineCount} literal "\\n" sequences — likely PowerShell pipe to \`vercel env\` substituted newlines for the literal sequence.`;
+  } else if (SUSPICIOUS_DOUBLE_BACKSLASH_RUN_RE.test(value)) {
+    issue = `value contains a run of 4+ backslashes — likely escape inflation from a previous round-trip.`;
+  }
+  if (!issue) return;
+  _warnedKeys.add(key);
+  console.warn(
+    `[project-env-vars] Suspicious env value for "${key}": ${issue} ` +
+      `Inspect via \`vercel env pull --environment=preview\` and re-set the key from a temp file (see \`.cursor/rules/platform-quirks.mdc\`).`,
+  );
+}
+
 function toDisplayProjectEnvVarItem(item: StoredProjectEnvVarItem): ProjectEnvVarItem {
   const hasValue = typeof item.value === "string" && item.value.length > 0;
   return {
@@ -145,8 +183,8 @@ export async function upsertStoredProjectEnvVars(
     const shouldEncrypt = item.sensitive ?? previous?.sensitive ?? true;
     const canEncrypt = shouldEncrypt && hasEnvVarEncryptionKey();
     if (shouldEncrypt && !canEncrypt) {
-      console.warn(
-        `[project-env-vars] ENV_VAR_ENCRYPTION_KEY not configured; storing "${key}" as plaintext.`,
+      throw new Error(
+        `Cannot store sensitive env var "${key}" — ENV_VAR_ENCRYPTION_KEY is not configured.`,
       );
     }
     byKey.set(key, {
@@ -192,6 +230,10 @@ export async function getStoredProjectEnvVarMap(projectId: string): Promise<Reco
     if (typeof item.value === "string" && item.value.length > 0) {
       const decrypted = safeDecrypt(item.value, item.key);
       if (decrypted !== null) {
+        // Surface PowerShell-pipe / escape-inflation leakage at ingest
+        // so we don't silently propagate `\n` into preview env files
+        // and waste a debug session jagging "varför ser det konstigt ut".
+        warnIfSuspiciousEnvValue(item.key, decrypted);
         acc[item.key] = decrypted;
       }
     }

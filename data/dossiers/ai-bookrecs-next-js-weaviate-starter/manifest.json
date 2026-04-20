@@ -1,0 +1,101 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-bookrecs-next-js-weaviate-starter",
+  "kind": "integration",
+  "category": "ai",
+  "label": "BookRecs: Next.js + Weaviate Starter",
+  "description": "A Next.js application that demonstrates the power of semantic search with Weaviate on a dataset of books.",
+  "summary": "Use this dossier when a site needs semantic search or recommendations backed by a Weaviate vector database from a Next.js app. It provides the core server-side API pattern for querying a Weaviate collection with nearText and optional generated explanations using OpenAI/Cohere headers.",
+  "providers": [
+    {
+      "name": "Weaviate",
+      "url": "https://github.com/weaviate/BookRecs"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "WEAVIATE_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "WEAVIATE_CLUSTER_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "COHERE_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_COHERE_CONFIGURED",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@next/third-parties",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-popover",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-tooltip",
+    "class-variance-authority",
+    "clsx",
+    "lucide-react",
+    "react-spinners",
+    "tailwind-merge",
+    "weaviate-ts-client"
+  ],
+  "files": [
+    {
+      "path": "components/lib/weaviate.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/pages/api/recommendations.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "content-site"
+    ],
+    "compatible": [
+      "saas-landing",
+      "blog",
+      "ecommerce",
+      "base-nextjs",
+      "landing-page"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 87,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/weaviate-bookrecs",
+  "sourceRepoUrl": "https://github.com/weaviate/BookRecs",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "weaviate",
+    "vector-search",
+    "semantic-search",
+    "recommendations",
+    "nextjs",
+    "graphql",
+    "openai",
+    "cohere",
+    "ai"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-17T16:56:17.358Z",
+  "_curatedBy": "auto-curate.ts"
+}

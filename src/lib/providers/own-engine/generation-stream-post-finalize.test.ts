@@ -247,6 +247,121 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example");
   });
 
+  it("F2-mute layer 4: drops detected-integrations SSE in fidelity2 (design)", async () => {
+    const helpers = await import("@/lib/gen/stream/shared-own-engine-helpers");
+    const mockedDetect = vi.mocked(helpers.getUnsignaledDetectedIntegrations);
+    mockedDetect.mockReturnValueOnce([
+      {
+        key: "stripe",
+        name: "Stripe",
+        provider: "stripe",
+        intent: "env_vars",
+        envVars: ["STRIPE_SECRET_KEY"],
+        status: "Kräver konfiguration",
+      },
+    ]);
+    const enqueued: string[] = [];
+    const safeEnqueue = (data: Uint8Array) => {
+      enqueued.push(new TextDecoder().decode(data));
+    };
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "import Stripe from 'stripe'",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      },
+    });
+
+    expect(formatSSEEventMock).not.toHaveBeenCalledWith(
+      "integration",
+      expect.anything(),
+    );
+    expect(devLogAppend).not.toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "engine.integration_signals" }),
+    );
+  });
+
+  it("F2-mute layer 4: emits detected-integrations SSE in fidelity3 (integrations)", async () => {
+    const helpers = await import("@/lib/gen/stream/shared-own-engine-helpers");
+    const mockedDetect = vi.mocked(helpers.getUnsignaledDetectedIntegrations);
+    mockedDetect.mockReturnValueOnce([
+      {
+        key: "stripe",
+        name: "Stripe",
+        provider: "stripe",
+        intent: "env_vars",
+        envVars: ["STRIPE_SECRET_KEY"],
+        status: "Kräver konfiguration",
+      },
+    ]);
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "import Stripe from 'stripe'",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "release-candidate",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "strict",
+        contextPolicy: "heavy",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 80_000,
+          refsChars: 40_000,
+          systemContextChars: 160_000,
+        },
+      },
+    });
+
+    expect(formatSSEEventMock).toHaveBeenCalledWith(
+      "integration",
+      expect.objectContaining({
+        items: expect.arrayContaining([expect.objectContaining({ key: "stripe" })]),
+      }),
+    );
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "engine.integration_signals",
+        integrations: ["stripe"],
+      }),
+    );
+  });
+
   it("emits done with previewPending + previewUrlHint, but no previewUrl", async () => {
     shouldStartOwnEnginePreview.mockReturnValue(true);
     isTier2PreviewConfigured.mockReturnValue(false);
@@ -329,7 +444,7 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
     ).toBe(false);
   });
 
-  it("allows verify for standard policy when version is eligible", () => {
+  it("allows verify when previewPolicy is fidelity3 (F3 lifecycle stage)", () => {
     expect(
       shouldTriggerPostFinalizeServerVerify({
         buildSpec: {
@@ -339,9 +454,9 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
           scaffoldId: null,
           routePlanSummary: "prompt:one-page:/",
           stylePack: "brand-led",
-          qualityTarget: "premium",
-          previewPolicy: "fidelity2",
-          verificationPolicy: "standard",
+          qualityTarget: "release-candidate",
+          previewPolicy: "fidelity3",
+          verificationPolicy: "strict",
           contextPolicy: "normal",
           referenceCategories: [],
           forbiddenPatterns: [],
@@ -352,6 +467,34 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
           },
         },
         finalized: finalized as never,
+      }),
+    ).toBe(true);
+  });
+
+  it("allows verify on repair pass even when F2 lifecycle would normally skip", () => {
+    expect(
+      shouldTriggerPostFinalizeServerVerify({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "copy",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "light",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
+          },
+        },
+        finalized: finalized as never,
+        repairPassIndex: 1,
       }),
     ).toBe(true);
   });
@@ -409,7 +552,7 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
       }),
     ).toEqual({
       run: false,
-      reason: "low_risk_standard_flow",
+      reason: "design_preview_skip_verify",
     });
   });
 });
@@ -456,7 +599,7 @@ describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {
       expect.objectContaining({
         type: "server-verify.policy",
         run: false,
-        reason: "low_risk_standard_flow",
+        reason: "design_preview_skip_verify",
       }),
     );
   });

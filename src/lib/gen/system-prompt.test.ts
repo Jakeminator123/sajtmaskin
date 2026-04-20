@@ -154,7 +154,11 @@ describe("buildDynamicContext", () => {
       expect(scaffoldIdx).toBeLessThan(projectIdx);
     });
 
-    it("includes the variant world-class rubric when a resolved variant provides one", async () => {
+    it("surfaces the variant signature motif, font pairings, and prompt hints in the variant block", async () => {
+      // Generic guidance fields (styleRules, sectionInventory, avoidPatterns,
+      // worldClassRubric) were removed from variants 2026-04-17 (Val A) — the
+      // variant block now relies on its high-signal design axes (motif, fonts,
+      // promptHints, themeTokens). See docs/architecture/scaffold-variants-inventory.md.
       const { context } = await buildDynamicContext({
         intent: "website",
         generationMode: "init",
@@ -177,24 +181,19 @@ describe("buildDynamicContext", () => {
           signatureMotif: "Large image-led editorial rhythm",
           colorMode: "light",
           promptHints: ["Lead with an editorial hero and layered credibility"],
-          styleRules: ["Use deliberate vertical rhythm"],
-          sectionInventory: ["hero", "credibility", "feature detail"],
-          avoidPatterns: ["Avoid generic startup card spam"],
-          worldClassRubric: [
-            "Professional hierarchy above the fold with decisive CTA clarity.",
-            "Sections should feel curated and production-grade, not like a theme demo.",
-          ],
           sourceTemplateIds: ["vercel-acme"],
         },
       });
 
-      expect(context).toContain("- **World-class quality bar:**");
-      expect(context).toContain(
-        "Professional hierarchy above the fold with decisive CTA clarity.",
-      );
-      expect(context).toContain(
-        "Sections should feel curated and production-grade, not like a theme demo.",
-      );
+      expect(context).toContain("## Scaffold Variant (this generation)");
+      expect(context).toContain("Large image-led editorial rhythm");
+      expect(context).toContain("Playfair Display + Inter");
+      expect(context).toContain("Lead with an editorial hero and layered credibility");
+      // The legacy guidance blocks must NOT appear anymore.
+      expect(context).not.toContain("- **Style rules from curated references:**");
+      expect(context).not.toContain("- **Section inventory to favor:**");
+      expect(context).not.toContain("- **Avoid patterns:**");
+      expect(context).not.toContain("- **World-class quality bar:**");
     });
 
     it("init app with route plan surfaces application intent, routes, and multi-page instruction", async () => {
@@ -521,121 +520,4 @@ describe("buildDynamicContext", () => {
     });
   });
 
-  describe("template guidance injection", () => {
-    const initSpec: BuildSpec = {
-      ...lightFollowUpSpec,
-      generationMode: "init",
-      changeScope: "redesign",
-      contextPolicy: "normal",
-      verificationPolicy: "standard",
-    };
-
-    const sampleGuidance =
-      "- External template guidance (adapt to the scaffold and user request, do not copy verbatim):\n" +
-      "  - **Commerce Starter** style: Keep storefront hierarchy explicit\n" +
-      "  - Sections: catalog grid, product detail, cart\n" +
-      "  - Avoid: Avoid hiding product information\n" +
-      "  - Quality: Commerce flows should feel trustworthy";
-
-    it("includes template guidance in scaffold research block when provided for init", async () => {
-      const { context } = await buildDynamicContext({
-        intent: "website",
-        generationMode: "init",
-        buildSpec: initSpec,
-        scaffoldContext: "Scaffold context",
-        resolvedScaffold: {
-          id: "ecommerce",
-          label: "E-handel",
-          description: "E-commerce storefront",
-          allowedBuildIntents: ["website"],
-          tags: [],
-          promptHints: [],
-          files: [],
-          qualityChecklist: ["Keep hero above fold"],
-        },
-        templateGuidance: sampleGuidance,
-      });
-
-      expect(context).toContain("## Scaffold Research Priorities");
-      expect(context).toContain("External template guidance");
-      expect(context).toContain("Commerce Starter");
-      expect(context).toContain("catalog grid");
-    });
-
-    it("omits template guidance when not provided", async () => {
-      const { context } = await buildDynamicContext({
-        intent: "website",
-        generationMode: "init",
-        buildSpec: initSpec,
-        scaffoldContext: "Scaffold context",
-      });
-
-      expect(context).not.toContain("External template guidance");
-    });
-
-    it("omits template guidance for follow-up when templateGuidance is not provided", async () => {
-      const { context } = await buildDynamicContext({
-        intent: "website",
-        generationMode: "followUp",
-        buildSpec: lightFollowUpSpec,
-        scaffoldContext: "Scaffold context",
-        resolvedScaffold: {
-          id: "ecommerce",
-          label: "E-handel",
-          description: "E-commerce storefront",
-          allowedBuildIntents: ["website"],
-          tags: [],
-          promptHints: [],
-          files: [],
-          qualityChecklist: ["Keep hero above fold"],
-        },
-      });
-
-      expect(context).not.toContain("External template guidance");
-    });
-
-    it("does not contain selectedFiles or excerpt content", async () => {
-      const { context } = await buildDynamicContext({
-        intent: "website",
-        generationMode: "init",
-        buildSpec: initSpec,
-        scaffoldContext: "Scaffold context",
-        templateGuidance: sampleGuidance,
-        resolvedScaffold: {
-          id: "ecommerce",
-          label: "E-handel",
-          description: "E-commerce storefront",
-          allowedBuildIntents: ["website"],
-          tags: [],
-          promptHints: [],
-          files: [],
-        },
-      });
-
-      expect(context).not.toContain("selectedFiles");
-      expect(context).not.toContain("excerpt");
-    });
-
-    it("opens scaffold research block when only template guidance exists (no checklist/targets)", async () => {
-      const { context } = await buildDynamicContext({
-        intent: "website",
-        generationMode: "init",
-        buildSpec: initSpec,
-        scaffoldContext: "Scaffold context",
-        templateGuidance: sampleGuidance,
-        resolvedScaffold: {
-          id: "base-nextjs",
-          label: "Base Next.js",
-          description: "Minimal starter",
-          allowedBuildIntents: ["website"],
-          tags: [],
-          promptHints: [],
-          files: [],
-        },
-      });
-
-      expect(context).toContain("## Scaffold Research Priorities");
-      expect(context).toContain("External template guidance");
-    });
-  });
 });

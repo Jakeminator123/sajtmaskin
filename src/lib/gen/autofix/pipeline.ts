@@ -3,6 +3,7 @@ import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
 import { fixReactHookImports } from "./react-hook-import-fixer";
+import { fixNextNavigationImports } from "./nextjs-navigation-import-fixer";
 import {
   buildProjectModuleExportIndex,
   fixImportedDeclarationConflicts,
@@ -15,9 +16,9 @@ import {
   fixNextOgImageResponseImport,
 } from "./common-import-fixer";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
-import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
-import { fixLucideLinkMisuse } from "./rules/lucide-link-fixer";
+import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
+import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import {
   fixCnImportConflict,
@@ -26,6 +27,9 @@ import {
   fixMissingCnImport,
 } from "./rules/metadata-import-fixer";
 import { fixFontImport } from "./rules/font-import-fixer";
+import { fixTier3SdkImports } from "./rules/tier3-sdk-guard-fixer";
+import { fixEscapeLeakage } from "./rules/escape-leakage-fixer";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
@@ -50,6 +54,14 @@ export interface AutoFixResult {
 export interface AutoFixContext {
   chatId?: string;
   model?: string;
+  /**
+   * Lifecycle stage of the build. Drives the F2 SDK guard
+   * (`tier3-sdk-guard-fixer`): tier-3 backend SDK imports are stripped
+   * unless `previewPolicy === "fidelity3"`. Absent/undefined is treated
+   * as F2 — preview-blocking SDK leakage is the bigger risk than an
+   * occasional false-positive strip in test harnesses.
+   */
+  previewPolicy?: BuildSpecPreviewPolicy;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +232,43 @@ export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: s
 /**
  * Run all mechanical (deterministic) fixers sequentially on accumulated content.
  *
+ * ─── Fixer-family map (so future readers don't think it's one big blob) ───
+ *
+ *  Each fixer is a small pure function with a SPECIFIC failure mode it
+ *  catches. Multiple "import" fixers exist because LLM output breaks
+ *  imports in subtly different ways and each fixer is the smallest
+ *  correct unit:
+ *
+ *  • Adding a missing import    → react-import-fixer, react-hook-import-fixer,
+ *    when the symbol is used      react-type-import-fixer, next-image-import-fixer,
+ *    but never imported.          next-og-image-response-import-fixer,
+ *                                  metadata-import-fixer, metadata-route-import-fixer,
+ *                                  cn-import-fixer, font-import-fixer.
+ *
+ *  • Wrong source for an       → tier3-sdk-guard-fixer (strips backend
+ *    existing import.              SDKs in F2), lucide-misuse-fixer (lucide
+ *                                   `Link`/`Image` re-routed to next/*).
+ *
+ *  • Cross-file import         → local-symbol-import-fixer (add missing
+ *    reconciliation that            local imports), local-named-import-default-fixer
+ *    needs the WHOLE project        and local-default-import-fixer (named ↔ default
+ *    to decide.                     mismatch when other file's export shape
+ *                                    contradicts the import shape),
+ *                                    import-declaration-conflict-fixer (drop
+ *                                    imports that shadow a local declaration),
+ *                                    duplicate-import-binding-fixer (same
+ *                                    identifier from two sources).
+ *
+ *  These five "cross-file" fixers look redundant but they're not — each
+ *  encodes a different decision predicate and they're cheap to run.
+ *  Consolidating them into one pass would force a more complex shared
+ *  state machine without measurable savings; the current split makes
+ *  each rule trivially auditable. If you ARE going to consolidate them
+ *  later, do it AFTER you have telemetry showing redundant work
+ *  (counters in `countByFixer(...)`), not before.
+ *
  * Fixer order:
+ *  0.   escape-leakage-fixer — unwrap JSON-double-encoded file content
  *  1.   use-client-fixer   — prepend "use client" when client APIs detected
  *  2.   import-validator   — fix shadcn import paths
  *  3.   react-import-fixer — add missing `import React` + hooks + types
@@ -251,7 +299,7 @@ export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: s
  */
 async function runAutoFixSinglePass(
   content: string,
-  _context?: AutoFixContext,
+  context?: AutoFixContext,
 ): Promise<AutoFixResult> {
   const allFixes: FixEntry[] = [];
   const allWarnings: string[] = [];
@@ -271,6 +319,11 @@ async function runAutoFixSinglePass(
   const fixedFiles: CodeFile[] = [];
   const exportIndex = buildProjectExportIndex(project.files);
   const moduleExportIndex = buildProjectModuleExportIndex(project.files);
+  // F2 SDK guard runs whenever we are NOT in F3. Backend SDK imports leaking
+  // into a design-phase build are a hard preview-blocker, so absent
+  // `previewPolicy` defaults to "guard on" — legacy callers that genuinely
+  // want F3 semantics must opt in explicitly.
+  const tier3GuardActive = context?.previewPolicy !== "fidelity3";
 
   for (const file of project.files) {
     const isTsxOrJsx =
@@ -278,6 +331,29 @@ async function runAutoFixSinglePass(
       file.language === "ts" || file.language === "js";
 
     let currentCode = file.content;
+
+    // 0. escape-leakage-fixer — detect and unwrap JSON-double-encoded
+    // file content (literal `\n`, `\\"`, optionally surrounded by outer
+    // quotes) BEFORE any downstream fixer runs. Otherwise rules that
+    // split on `\r?\n` see the entire file as a single line and either
+    // do nothing (silent skip) or, worse, generate over-escaped output.
+    // Runs on every language — env files, JSON, .ts, .tsx alike.
+    try {
+      const escapeResult = fixEscapeLeakage(currentCode);
+      if (escapeResult.fixed) {
+        currentCode = escapeResult.code;
+        allFixes.push({
+          fixer: "escape-leakage-fixer",
+          category: "mechanical",
+          description: `Unwrapped JSON-double-encoded content (${escapeResult.kind}, recovered ${escapeResult.bytesRecovered} bytes)`,
+          file: file.path,
+        });
+      }
+    } catch (err) {
+      allWarnings.push(
+        `[${file.path}] escape-leakage-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
 
     // 1. use-client-fixer (tsx/jsx only)
     if (file.language === "tsx" || file.language === "jsx") {
@@ -295,6 +371,28 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] use-client-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // 1b. tier3-sdk-guard-fixer (F2 only) — strip backend SDK imports the
+    // model emitted in design phase. Run before import-validator so it
+    // doesn't try to "fix" imports we're about to remove.
+    if (tier3GuardActive && isTsxOrJsx) {
+      try {
+        const guardResult = fixTier3SdkImports(currentCode);
+        if (guardResult.removedModules.length > 0) {
+          currentCode = guardResult.code;
+          allFixes.push({
+            fixer: "tier3-sdk-guard-fixer",
+            category: "mechanical",
+            description: `Removed F2 tier-3 SDK imports: ${guardResult.removedModules.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] tier3-sdk-guard-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }
@@ -349,6 +447,28 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] react-hook-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3b-nav. nextjs-navigation-import-fixer — add missing usePathname/useRouter/etc.
+      // Mirrors react-hook-import-fixer for `next/navigation` because LLMs frequently
+      // call these hooks without an import, which causes ReferenceError at SSR
+      // (preview-VM 500 / whiteout). Run AFTER react-hook-import-fixer so the
+      // two never compete for the same import block.
+      try {
+        const navResult = fixNextNavigationImports(currentCode);
+        if (navResult.fixed) {
+          currentCode = navResult.code;
+          allFixes.push({
+            fixer: "nextjs-navigation-import-fixer",
+            category: "mechanical",
+            description: `Added missing next/navigation imports: ${navResult.addedSymbols.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] nextjs-navigation-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
@@ -772,6 +892,29 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] tier2-preview-basepath threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // 4l-css. tailwind-apply-component-fixer (for .css files) — Tailwind v4
+    // forbids `@apply` of `@layer components` classes. Detect and inline.
+    // This is the most common cause of "Cannot apply unknown utility class"
+    // build errors on freshly generated sites.
+    if (/\.css$/i.test(file.path)) {
+      try {
+        const applyResult = fixTailwindApplyOfComponents(currentCode);
+        if (applyResult.fixed) {
+          currentCode = applyResult.code;
+          allFixes.push({
+            fixer: "tailwind-apply-component-fixer",
+            category: "mechanical",
+            description: `Inlined Tailwind v4 @apply of ${applyResult.replacedClasses.length} component-layer class(es): ${applyResult.replacedClasses.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] tailwind-apply-component-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }

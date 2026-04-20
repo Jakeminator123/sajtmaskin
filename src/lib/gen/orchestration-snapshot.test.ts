@@ -40,6 +40,20 @@ describe("mergePersistedOrchestrationSnapshots", () => {
     expect(out).toEqual({ x: "y" });
   });
 
+  it("rejects stale snapshot when previous.capturedAt is newer", () => {
+    const previous = { a: 1, capturedAt: "2026-04-20T12:00:00Z" };
+    const staleNext = { a: 99, capturedAt: "2026-04-20T11:00:00Z" };
+    const out = mergePersistedOrchestrationSnapshots(previous, staleNext);
+    expect(out.a).toBe(1);
+  });
+
+  it("accepts newer snapshot when next.capturedAt is later", () => {
+    const previous = { a: 1, capturedAt: "2026-04-20T11:00:00Z" };
+    const newerNext = { a: 99, capturedAt: "2026-04-20T12:00:00Z" };
+    const out = mergePersistedOrchestrationSnapshots(previous, newerNext);
+    expect(out.a).toBe(99);
+  });
+
   it("deep-merges buildSpec so partial next preserves keys from previous", () => {
     const out = mergePersistedOrchestrationSnapshots(
       {

@@ -5,11 +5,10 @@ from typing import Callable
 
 from . import (
     ai_models,
-    artifacts_pipeline,
     autofix,
     codegen_core,
-    codegen_directives,
     cursor_agents,
+    dossiers,
     env_policy,
     eval_page,
     llm_config,
@@ -17,16 +16,15 @@ from . import (
     orchestration,
     overview,
     pipeline,
+    pipeline_health,
     preview,
+    projects_admin,
     prompt_core,
-    prompt_directives,
-    prompt_static,
     research,
     runtime_scaffolds,
     scaffold_lifecycle,
     scaffolds,
     shadcn_audit,
-    template_pipeline,
     user_degraded_env,
 )
 
@@ -43,12 +41,8 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("LLM-faser & runtime-sanning", "Konfiguration", llm_config.render),
     PageSpec("Codegen core", "Konfiguration", codegen_core.render),
     PageSpec("prompt-core", "Konfiguration", prompt_core.render),
-    PageSpec("Codegen directives", "Konfiguration", codegen_directives.render),
-    PageSpec("prompt-directives", "Konfiguration", prompt_directives.render),
-    PageSpec("prompt-static (legacy)", "Konfiguration", prompt_static.render),
     PageSpec("ai_models", "Konfiguration", ai_models.render),
     PageSpec("Runtime scaffolds", "Konfiguration", runtime_scaffolds.render),
-    PageSpec("Template pipeline", "Konfiguration", template_pipeline.render),
     PageSpec("Preview och versioner", "Konfiguration", preview.render),
     PageSpec("env-policy", "Konfiguration", env_policy.render),
     PageSpec("shadcn-audit", "Konfiguration", shadcn_audit.render),
@@ -56,23 +50,23 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("Cursor-agenter", "Konfiguration", cursor_agents.render),
     PageSpec("Scaffolds", "Overhead", scaffolds.render),
     PageSpec("Scaffold Lifecycle", "Overhead", scaffold_lifecycle.render),
-    PageSpec("Research & Dossiers", "Overhead", research.render),
+    PageSpec("Dossiers (legoklossar)", "Overhead", dossiers.render),
+    PageSpec("Research & Dossiers (legacy)", "Overhead", research.render),
     PageSpec("Pipeline", "Overhead", pipeline.render),
     PageSpec("Eval", "Overhead", eval_page.render),
     PageSpec("Orchestration Map", "Overhead", orchestration.render),
     PageSpec("Autofix & Kvalitet", "Overhead", autofix.render),
+    PageSpec("Pipeline Health", "Overhead", pipeline_health.render),
+    PageSpec("Projekt-admin (radera)", "Overhead", projects_admin.render),
     PageSpec("Mental modell", "Overhead", mental_model.render),
-    PageSpec("Artifacts pipeline", "Pipelines", artifacts_pipeline.render),
 )
 
 PAGE_MAP = {spec.name: spec for spec in PAGE_SPECS}
 PAGE_NAMES = tuple(spec.name for spec in PAGE_SPECS)
-PAGE_GROUPS = ("Konfiguration", "Overhead", "Pipelines")
+PAGE_GROUPS = ("Konfiguration", "Overhead")
 PAGE_QUERY_ALIASES = {
     "llm": "LLM-faser & runtime-sanning",
-    "artifacts": "Artifacts pipeline",
     "core": "prompt-core",
-    "directives": "prompt-directives",
-    "static": "prompt-static (legacy)",
+    "dossiers": "Dossiers (legoklossar)",
 }
 

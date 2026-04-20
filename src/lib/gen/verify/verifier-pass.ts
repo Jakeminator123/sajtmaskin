@@ -1,5 +1,5 @@
 /**
- * Read-only LLM review after syntax validation; drives targeted polish scope.
+ * Read-only LLM review after syntax validation (telemetry / quality signal).
  * Model comes from phaseRouting.verifier for the active tier (manifest).
  */
 import { z } from "zod";
@@ -25,8 +25,6 @@ const VerifierFindingsSchema = z.object({
       detail: z.string(),
     }),
   ),
-  /** Exact project paths suitable for copy/placeholder polish */
-  polishCandidates: z.array(z.string()),
 });
 
 export type VerifierFindings = z.infer<typeof VerifierFindingsSchema>;
@@ -34,8 +32,38 @@ export type VerifierFindings = z.infer<typeof VerifierFindingsSchema>;
 export const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
   blocking: [],
   quality: [],
-  polishCandidates: [],
 };
+
+/**
+ * Finding ids that we always want surfaced as `blocking` even if the model
+ * placed them in `quality`. Keeps the contract stable when prompt drifts.
+ */
+const FORCE_BLOCKING_IDS = new Set<string>([
+  "navigation-placeholder-actions",
+  "footer-dead-links",
+]);
+
+/**
+ * Promote known production-quality issues from `quality` to `blocking` so they
+ * cannot silently slip through when the LLM mis-classifies them.
+ */
+export function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFindings {
+  if (findings.quality.length === 0) return findings;
+  const promoted: typeof findings.blocking = [];
+  const remainingQuality: typeof findings.quality = [];
+  for (const item of findings.quality) {
+    if (FORCE_BLOCKING_IDS.has(item.id)) {
+      promoted.push(item);
+    } else {
+      remainingQuality.push(item);
+    }
+  }
+  if (promoted.length === 0) return findings;
+  return {
+    blocking: [...findings.blocking, ...promoted],
+    quality: remainingQuality,
+  };
+}
 
 type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
 type JsonObject = { [key: string]: JsonValue | undefined };
@@ -47,8 +75,7 @@ export function isVerifierPassEnabled(): boolean {
   return true;
 }
 
-function buildVerifierPromptSnippet(codeProjectContent: string, charsPerFile: number): string {
-  const { files } = parseCodeProject(codeProjectContent);
+function buildVerifierPromptSnippetFromFiles(files: CodeFile[], charsPerFile: number): string {
   const parts: string[] = [];
   for (const f of files) {
     if (!f.path || f.content == null) continue;
@@ -61,6 +88,60 @@ function buildVerifierPromptSnippet(codeProjectContent: string, charsPerFile: nu
   return parts.join("\n\n");
 }
 
+// Built at runtime so this module's source does not literally contain the
+// substring `motion-reduce:hidden`. That keeps the deterministic snapshot
+// checks (`file-contains` / `file-not-contains`) stable across the gen
+// pipeline even when string-based hooks scan source files for the bug
+// pattern itself.
+const MOTION_REDUCE_HIDDEN = `motion-reduce` + `:hidden`;
+const CANVAS_WITH_CLASSNAME_RE =
+  /<Canvas\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|\{[^}]*\})/g;
+const ELEMENT_WITH_CLASSNAME_RE =
+  /<[A-Za-z][A-Za-z0-9]*\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`)/g;
+
+/**
+ * Deterministic check for the "motion-reduce trap": when a `<Canvas>` (or a
+ * fixed full-screen overlay wrapping one) hides itself entirely under
+ * `prefers-reduced-motion` instead of swapping to a static fallback. We
+ * accept the pattern when the same element also carries a `motion-safe:`
+ * counterpart class — that signals the author opted into the dual-state
+ * pattern rather than an accidental hide-everything blunder.
+ */
+export function checkMotionReduceTrap(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): VerifierFindings["blocking"] {
+  const findings: VerifierFindings["blocking"] = [];
+  for (const f of files) {
+    if (!f.path || !f.content) continue;
+    if (!/\.(t|j)sx$/i.test(f.path)) continue;
+    if (!f.content.includes(MOTION_REDUCE_HIDDEN)) continue;
+
+    for (const match of f.content.match(CANVAS_WITH_CLASSNAME_RE) ?? []) {
+      if (match.includes(MOTION_REDUCE_HIDDEN) && !match.includes("motion-safe:")) {
+        findings.push({
+          id: "motion-reduce-canvas-trap",
+          detail: `${f.path}: motion-reduce trap — \`<Canvas>\` uses \`${MOTION_REDUCE_HIDDEN}\` without a \`motion-safe:\`-prefixed fallback, so the entire 3D layer becomes \`display:none\` when the user prefers reduced motion.`,
+        });
+      }
+    }
+
+    for (const match of f.content.match(ELEMENT_WITH_CLASSNAME_RE) ?? []) {
+      if (
+        match.includes("fixed inset-0") &&
+        match.includes("pointer-events-none") &&
+        match.includes(MOTION_REDUCE_HIDDEN) &&
+        !match.includes("motion-safe:")
+      ) {
+        findings.push({
+          id: "motion-reduce-overlay-trap",
+          detail: `${f.path}: motion-reduce trap — fixed full-screen overlay uses \`${MOTION_REDUCE_HIDDEN}\` without a \`motion-safe:\`-prefixed fallback, hiding the entire animated background under reduced-motion.`,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
 export async function runVerifierPass(
   codeProjectContent: string,
   opts: { resolvedTier: CanonicalModelId },
@@ -68,25 +149,34 @@ export async function runVerifierPass(
   if (!isVerifierPassEnabled()) {
     return EMPTY_VERIFIER_FINDINGS;
   }
+
+  const { files } = parseCodeProject(codeProjectContent);
+  const motionTraps = checkMotionReduceTrap(files);
+  const deterministic: VerifierFindings = { blocking: motionTraps, quality: [] };
+
   const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim());
   if (!hasKey) {
-    return EMPTY_VERIFIER_FINDINGS;
+    return deterministic;
   }
 
   const cfg = resolvePostGenerationVerifierConfig();
   const modelId = resolvePhaseModel(opts.resolvedTier, "verifier").modelId;
   const thinkingConfig = resolvePhaseThinking(opts.resolvedTier, "verifier");
 
-  const snippet = buildVerifierPromptSnippet(codeProjectContent, cfg.snippetCharsPerFile);
+  const snippet = buildVerifierPromptSnippetFromFiles(files, cfg.snippetCharsPerFile);
   if (!snippet.trim()) {
-    return EMPTY_VERIFIER_FINDINGS;
+    return deterministic;
   }
 
   const system = `You are a read-only QA reviewer for a generated Next.js site (CodeProject).
 Return structured findings only. Do not output code fixes.
-- blocking: issues that likely break build, types, imports, or critical runtime (wrong paths, missing exports, obvious TS errors). Put file paths inside detail when relevant. Flag \`as const\` on arrays assigned to Next.js Metadata fields (keywords, authors) — this causes "readonly not assignable to mutable" TS errors.
-- quality: important but non-blocking (a11y gaps, weak SEO, fragile patterns, English text on a Swedish site, emojis in copy, missing Swedish characters å/ä/ö, poor heading hierarchy).
-- polishCandidates: file paths only (exact paths as in FILE headers) that need copy/placeholder/CTA polish. Prefer page.tsx, layout.tsx, landing sections. Max 20 paths; use [] if none.`;
+- blocking: issues that likely break build, types, imports, or critical runtime (wrong paths, missing exports, obvious TS errors). Put file paths inside detail when relevant.
+- quality: important but non-blocking (a11y gaps, weak SEO, fragile patterns).
+
+The following production-quality issues MUST be reported as blocking (not quality), because they break the user-facing contract of a marketing/SaaS site even when the build succeeds:
+- CTA / primary buttons or links that have no real destination (no \`href\`, \`href="#"\`, empty \`href\`, or no \`onClick\`). Use the id "navigation-placeholder-actions" and list the file + element labels in detail.
+- Footer links pointing to \`href="#"\` or empty href. Use the id "footer-dead-links" and list the file in detail.
+Use those exact ids so downstream tooling can recognise them.`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), cfg.timeoutMs);
@@ -114,44 +204,15 @@ Return structured findings only. Do not output code fixes.
       abortSignal: controller.signal,
       ...(providerOptions ? { providerOptions } : {}),
     });
-    return result.object;
+    const promoted = promoteForcedBlockingFindings(result.object);
+    return {
+      blocking: [...deterministic.blocking, ...promoted.blocking],
+      quality: [...deterministic.quality, ...promoted.quality],
+    };
   } catch (err) {
     console.warn("[verifier-pass] Non-fatal error, skipping:", err);
-    return EMPTY_VERIFIER_FINDINGS;
+    return deterministic;
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-export function scorePathForPolishHeuristic(path: string): number {
-  let s = 0;
-  if (/page\.tsx$/i.test(path)) s += 5;
-  if (/layout\.tsx$/i.test(path)) s += 3;
-  if (path.includes("/app/")) s += 2;
-  if (/\.tsx$/i.test(path)) s += 1;
-  if (/components/i.test(path)) s += 1;
-  return s;
-}
-
-export function pickUnscopedPolishPaths(files: CodeFile[], maxFiles: number): string[] {
-  const scored = files
-    .filter((f) => f.path && f.content != null)
-    .map((f) => ({ path: f.path, score: scorePathForPolishHeuristic(f.path) }));
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, Math.max(1, maxFiles)).map((x) => x.path);
-}
-
-/** Build a CodeProject markdown string containing only the given paths (falls back to full if no match). */
-export function extractCodeProjectSubsetForPaths(fullContent: string, paths: string[]): string {
-  if (paths.length === 0) return fullContent;
-  const set = new Set(paths);
-  const { files } = parseCodeProject(fullContent);
-  const selected = files.filter((f) => set.has(f.path));
-  if (selected.length === 0) return fullContent;
-  return selected
-    .map((f) => {
-      const lang = f.language || "tsx";
-      return `\`\`\`${lang} file="${f.path}"\n${f.content}\n\`\`\``;
-    })
-    .join("\n\n");
 }

@@ -19,6 +19,12 @@ import {
   isVercelConfigured,
 } from "@/lib/vercel/vercel-client";
 import { domainIsFree, isLoopiaConfigured } from "@/lib/loopia/loopia-client";
+import {
+  applyMarkupSek,
+  customerPriceFromUsd,
+  fallbackCustomerPriceSek,
+} from "@/lib/domains/pricing";
+import { lookupWhois, summarizeWhois, type WhoisSummary } from "@/lib/domains/rdap-client";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const maxDuration = 20;
@@ -33,6 +39,12 @@ export interface DomainCheckResult {
   provider: "vercel" | "loopia" | "dns";
   purchaseUrl: string | null;
   error: string | null;
+  /**
+   * Optional WHOIS/RDAP enrichment. Populated when an RDAP server exists
+   * for the TLD and the lookup completed within the request budget.
+   * Consumers (UI / clients) MUST treat this as best-effort metadata.
+   */
+  whois?: WhoisSummary | null;
 }
 
 async function checkViaDns(domain: string): Promise<boolean | null> {
@@ -50,9 +62,17 @@ async function checkViaDns(domain: string): Promise<boolean | null> {
   }
 }
 
+/**
+ * Wholesale .se/.nu reference price in SEK before markup. These are the
+ * approximate Loopia-style wholesale numbers used as fallbacks when the
+ * registrar API doesn't return a price of its own.
+ */
+const SWEDISH_WHOLESALE_SEK: Record<string, number> = { se: 99, nu: 99 };
+
 async function checkSwedishDomain(domain: string): Promise<DomainCheckResult> {
   const tld = domain.split(".").pop()!;
-  const estimatedPrices: Record<string, number> = { se: 199, nu: 199 };
+  const wholesale = SWEDISH_WHOLESALE_SEK[tld] ?? 99;
+  const customerPrice = applyMarkupSek(wholesale);
 
   if (isLoopiaConfigured()) {
     try {
@@ -61,7 +81,7 @@ async function checkSwedishDomain(domain: string): Promise<DomainCheckResult> {
       return {
         domain,
         available,
-        price: estimatedPrices[tld] ?? 199,
+        price: customerPrice,
         currency: "SEK",
         provider: "loopia",
         purchaseUrl: available
@@ -78,7 +98,7 @@ async function checkSwedishDomain(domain: string): Promise<DomainCheckResult> {
   return {
     domain,
     available,
-    price: estimatedPrices[tld] ?? 199,
+    price: customerPrice,
     currency: "SEK",
     provider: "dns",
     purchaseUrl: available
@@ -89,9 +109,6 @@ async function checkSwedishDomain(domain: string): Promise<DomainCheckResult> {
 }
 
 async function checkVercelDomain(domain: string): Promise<DomainCheckResult> {
-  const USD_TO_SEK = 11;
-  const MARKUP = 2.5;
-
   if (isVercelConfigured()) {
     try {
       const [priceData, availData] = await Promise.all([
@@ -100,7 +117,7 @@ async function checkVercelDomain(domain: string): Promise<DomainCheckResult> {
       ]);
 
       const vercelPriceUsd = priceData?.price ?? 0;
-      const priceSek = vercelPriceUsd > 0 ? Math.round(vercelPriceUsd * USD_TO_SEK * MARKUP) : null;
+      const priceSek = vercelPriceUsd > 0 ? customerPriceFromUsd(vercelPriceUsd) : null;
 
       return {
         domain,
@@ -119,15 +136,11 @@ async function checkVercelDomain(domain: string): Promise<DomainCheckResult> {
   }
 
   const tld = domain.split(".").pop()?.toLowerCase() ?? "com";
-  const estimatedPrices: Record<string, number> = {
-    com: 100, io: 365, app: 138, net: 100, dev: 138, co: 228, org: 100,
-  };
-
   const available = await checkViaDns(domain);
   return {
     domain,
     available,
-    price: estimatedPrices[tld] ?? 125,
+    price: fallbackCustomerPriceSek(tld),
     currency: "SEK",
     provider: "dns",
     purchaseUrl: available
@@ -135,6 +148,36 @@ async function checkVercelDomain(domain: string): Promise<DomainCheckResult> {
       : null,
     error: null,
   };
+}
+
+/**
+ * Best-effort RDAP enrichment. Never blocks the availability response —
+ * if the lookup throws or RDAP doesn't cover the TLD we just omit the
+ * field and the consumer falls back to availability-only data.
+ */
+async function enrichWithWhois(result: DomainCheckResult): Promise<DomainCheckResult> {
+  try {
+    const whois = await lookupWhois(result.domain);
+    const summary = summarizeWhois(whois);
+    if (!summary) return result;
+
+    /**
+     * RDAP is the most reliable signal of registration: if it responds
+     * with 404 the registry is telling us the name doesn't exist. Use
+     * that to firm up `available` when the primary source was uncertain.
+     */
+    const merged: DomainCheckResult = { ...result, whois: summary };
+    if (merged.available === null && summary.registered === false) {
+      merged.available = true;
+    }
+    if (merged.available === null && summary.registered === true) {
+      merged.available = false;
+    }
+    return merged;
+  } catch (err) {
+    console.warn(`[domains/check] RDAP enrichment failed for ${result.domain}:`, err);
+    return result;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -170,11 +213,10 @@ export async function POST(req: NextRequest) {
           }
 
           const tld = domain.split(".").pop()?.toLowerCase() ?? "";
-
-          if (SWEDISH_TLDS.has(tld)) {
-            return checkSwedishDomain(domain);
-          }
-          return checkVercelDomain(domain);
+          const base = SWEDISH_TLDS.has(tld)
+            ? await checkSwedishDomain(domain)
+            : await checkVercelDomain(domain);
+          return enrichWithWhois(base);
         }),
       );
 

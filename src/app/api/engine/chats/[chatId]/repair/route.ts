@@ -15,7 +15,7 @@ import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/verify/preview-quality-gate";
-import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
+import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
@@ -180,7 +180,7 @@ export async function POST(
         versionId: currentVersionId,
         exportable,
         hadQualityGateFailures,
-        checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
+        checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
       });
       const visualQA = maybeAnalyzeVisualQAForPassedExportable({
         exportable,
@@ -293,6 +293,11 @@ export async function POST(
         ).catch((err) => {
           console.warn("[repair] Failed to mark version failed (no context):", err);
         });
+        // NB: `loopResult` is in TDZ here — this callback fires from inside
+        // the awaited `runRepairLoop(...)` call below, so the outer
+        // `const loopResult = ...` binding is not yet assigned. Use the
+        // pre-computed gate manifest instead (the no-context branch by
+        // definition has no incremental loop output to surface).
         await createEngineVersionErrorLogs([
           {
             chatId,
@@ -305,7 +310,7 @@ export async function POST(
               remainingErrors: 0,
               qualityGateFailureCount: gateFailures.length,
               serverOwned: false,
-              errorManifest: loopResult.errorManifest,
+              errorManifest: groupedGateContext.errorManifest,
             },
           },
         ]).catch((err) => {

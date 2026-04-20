@@ -1,0 +1,132 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-internal-knowledge-base-ai-sdk",
+  "kind": "integration",
+  "category": "database",
+  "label": "Internal Knowledge Base - AI SDK",
+  "description": "A retrieval-augmented generation Next.js chatbot using the AI SDK's middleware interface.",
+  "summary": "Use this dossier when a site needs a private, retrieval-augmented chat experience over internal documents such as PDFs, manuals, or support content. It provides the integration patterns for ingesting documents, extracting PDF text, storing embeddings/metadata in Postgres/Blob, and serving authenticated AI SDK chat routes with retrieval in Next.js.",
+  "providers": [
+    {
+      "name": "Vercel",
+      "url": "https://github.com/vercel-labs/ai-sdk-preview-internal-knowledge-base"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "AUTH_SECRET",
+      "required": true,
+      "purpose": "Generate a random secret: https://generate-secret.vercel.app/32 or `openssl rand -base64 32`"
+    },
+    {
+      "key": "BLOB_READ_WRITE_TOKEN",
+      "required": true,
+      "purpose": "Instructions to create kv database here: https://vercel.com/docs/storage/vercel-blob"
+    },
+    {
+      "key": "POSTGRES_URL",
+      "required": true,
+      "purpose": "Instructions to create a database here: https://vercel.com/docs/storage/vercel-postgres/quickstart"
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/openai",
+    "@langchain/textsplitters",
+    "@vercel/analytics",
+    "@vercel/blob",
+    "@vercel/kv",
+    "ai",
+    "bcrypt-ts",
+    "classnames",
+    "d3-scale",
+    "date-fns",
+    "dotenv",
+    "drizzle-orm",
+    "framer-motion",
+    "next-auth",
+    "pdf-parse",
+    "postgres",
+    "sonner",
+    "streamdown",
+    "swr",
+    "use-local-storage",
+    "usehooks-ts",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/drizzle.config.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/utils/pdf.ts",
+      "role": "server",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/ai/retrieval.ts",
+      "role": "server",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/db/schema.ts",
+      "role": "shared",
+      "kind": "schema"
+    },
+    {
+      "path": "components/lib/db/index.ts",
+      "role": "server",
+      "kind": "db-client"
+    },
+    {
+      "path": "components/app/api/chat/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/ingest/documents.ts",
+      "role": "server",
+      "kind": "ingestion"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "auth-pages",
+      "content-site",
+      "blog"
+    ]
+  },
+  "complexity": "advanced",
+  "qualityScore": 87,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/ai-sdk-internal-knowledge-base",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-internal-knowledge-base",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "vercel",
+    "ai-sdk",
+    "rag",
+    "knowledge-base",
+    "postgres",
+    "pgvector",
+    "openai",
+    "pdf",
+    "drizzle",
+    "nextjs"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:35:37.824Z",
+  "_curatedBy": "auto-curate.ts"
+}

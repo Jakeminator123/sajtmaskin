@@ -7,6 +7,12 @@ const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
 const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
+const maybeAutoAcceptTimedOutRepair = vi.hoisted(() =>
+  vi.fn(async (v: unknown) => ({ version: v, wasAutoAccepted: false })),
+);
+const addMessage = vi.hoisted(() => vi.fn());
+const createDraftVersion = vi.hoisted(() => vi.fn());
+const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/engine", () => ({
   shouldUseV0Fallback,
@@ -21,6 +27,13 @@ vi.mock("@/lib/tenant", () => ({
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getVersionsByChat,
   updateVersionPreviewUrl,
+  maybeAutoAcceptTimedOutRepair,
+  addMessage,
+  createDraftVersion,
+}));
+
+vi.mock("@/lib/db/services/version-errors", () => ({
+  createEngineVersionErrorLogs,
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
@@ -71,6 +84,13 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     getVersionsByChat.mockReset();
     updateVersionPreviewUrl.mockReset();
     buildPreviewUrl.mockReset();
+    maybeAutoAcceptTimedOutRepair.mockReset();
+    maybeAutoAcceptTimedOutRepair.mockImplementation(async (v: unknown) => ({
+      version: v,
+      wasAutoAccepted: false,
+    }));
+    createEngineVersionErrorLogs.mockReset();
+    createEngineVersionErrorLogs.mockResolvedValue(null);
   });
 
   it("returns failed own-engine versions without a preview URL", async () => {

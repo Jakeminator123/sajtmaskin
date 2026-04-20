@@ -280,6 +280,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const assistModelHint = parsedMeta.promptAssistModel;
 
       // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints.
+      // Intentionally NOT pickScaffoldVariantAsync — that would add a +500ms OpenAI embedding
+      // round-trip just for hint generation.
+      // The picked preMatchVariant.id is later passed as orchestrationInput.persistedVariantId
+      // so the same variant is reused by finalizeOrchestrationPrompts (no async re-pick), keeping
+      // brief-LLM hints and codegen aligned.
       // Only runs when scaffoldMode is not "off" — if off, resolveOrchestrationBase will
       // also skip scaffold selection, so we should not inject stale variant hints.
       const scaffoldModeIsOff = parsedMeta.scaffoldMode === "off";
@@ -761,6 +766,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
         const orchestrationInput = {
           prompt: optimizedMessage,
+          // QW-1: capability inference (needsAuth/needsEcommerce/needsCharts…)
+          // är keyword-baserad. Använd rå user-message så bifogade text-utdrag
+          // (PDFs/.docx) inte triggar capabilities som skuggar prompt-intent.
+          capabilitiesPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
@@ -773,6 +782,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           customInstructions: trimmedSystemPrompt || undefined,
           promptStrategyMeta: strategyMeta,
           mediaCatalog: mediaCatalog.length > 0 ? mediaCatalog : undefined,
+          // Lock variant to the pre-match pick so brief-LLM hints (variantHints
+          // built above) and the final codegen variant agree. Without this the
+          // async embedding-driven picker in finalizeOrchestrationPrompts can
+          // land on a different variant after brief is ready, causing
+          // brief→codegen drift. If preMatchVariant is null, async picker runs.
+          // getVariantById fallback in orchestrate.ts re-picks if id is stale.
+          persistedVariantId: preMatchVariant?.id ?? null,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -979,7 +995,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId: engineChat.id,
           resolvedTier: resolvedModelTier,
-          includeIntegrationSignals: true,
+          // F2-init must NEVER surface env-var prompts in chat. Tier-3 env
+          // input belongs in the F3 ("Bygg integrationer") flow, which goes
+          // through `chat-message-stream-post.ts` with
+          // `meta.lifecycleStage: "integrations"` and gates the tools there.
+          includeIntegrationSignals: false,
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,

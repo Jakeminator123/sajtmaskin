@@ -425,6 +425,10 @@ function ensureDeferredRouteShells(params: {
     shellRoutePaths: [],
   };
 
+  // Post-derive view of effective-init: shell routes only get materialized
+  // by build-spec when the original derive call was effective-init. Different
+  // invariant than `isEffectiveInit({ generationMode, isFirstCodeGeneration })`
+  // — do NOT swap for that helper here.
   const effectiveInit =
     buildSpec.generationMode === "init" ||
     realization.shellRoutePaths.length > 0;

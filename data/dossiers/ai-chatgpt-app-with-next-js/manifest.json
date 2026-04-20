@@ -1,0 +1,70 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-chatgpt-app-with-next-js",
+  "kind": "integration",
+  "category": "ai",
+  "label": "ChatGPT app with Next.js",
+  "description": "Ship a ChatGPT app on Vercel with Next.js and Model Context Protocol (MCP).",
+  "summary": "Use this when building a Next.js app that should run both as a normal web app and inside ChatGPT as an embedded app with MCP-powered tools. It provides the ChatGPT-specific HTML bootstrap and permissive cross-origin middleware needed for iframe embedding, client navigation, external link handling, and API access from the ChatGPT host.",
+  "providers": [
+    {
+      "name": "Vercel",
+      "url": "https://github.com/vercel-labs/chatgpt-apps-sdk-nextjs-starter"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@modelcontextprotocol/sdk",
+    "mcp-handler",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/mcp/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "landing-page",
+      "auth-pages",
+      "content-site"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/chatgpt-app-with-next-js",
+  "sourceRepoUrl": "https://github.com/vercel-labs/chatgpt-apps-sdk-nextjs-starter",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "vercel",
+    "nextjs",
+    "chatgpt",
+    "mcp",
+    "model-context-protocol",
+    "openai-apps",
+    "iframe",
+    "cors"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-17T16:56:50.907Z",
+  "_curatedBy": "auto-curate.ts"
+}

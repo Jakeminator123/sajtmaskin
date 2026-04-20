@@ -10,6 +10,7 @@ import {
   appendToolPartToMessage,
   buildApiErrorMessage,
   isAbortLikeError,
+  isClientInitiatedAbort,
   isNetworkError,
 } from "./helpers";
 import { runPostGenerationChecks } from "./post-checks";
@@ -206,6 +207,10 @@ export function useSendMessage(
       };
 
       let requestBody: Record<string, unknown> | null = null;
+      // Hoisted so the catch block can distinguish between client-initiated
+      // aborts (we cancelled this controller) vs server/provider-initiated
+      // aborts (controller still un-aborted but `fetch` rejected).
+      let streamController: AbortController | null = null;
 
       try {
         const formattedMessage = formatPrompt(messageText);
@@ -281,7 +286,7 @@ export function useSendMessage(
         }
 
         streamAbortRef.current?.abort();
-        const streamController = new AbortController();
+        streamController = new AbortController();
         streamAbortRef.current = streamController;
         startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
@@ -334,8 +339,18 @@ export function useSendMessage(
           streamController.signal,
         );
       } catch (error) {
+        if (isClientInitiatedAbort(error, streamController)) {
+          debugLog("AI", "Streaming send aborted by client");
+          return;
+        }
         if (isAbortLikeError(error)) {
-          debugLog("AI", "Streaming send aborted");
+          // Abort-shaped error that did NOT originate from our controller →
+          // server/provider/proxy tore the stream down. Surface as a toast
+          // so the user doesn't think the half-rendered output is final.
+          debugLog("AI", "Streaming send aborted by server/provider");
+          toast.error(
+            "Strömmen avbröts av servern eller modellen. Försök igen — om det upprepas, prova en annan modell.",
+          );
           return;
         }
 
@@ -368,8 +383,8 @@ export function useSendMessage(
             await handleNonStreamingSend(data);
             return;
           } catch (fallbackErr) {
-            if (isAbortLikeError(fallbackErr)) {
-              debugLog("AI", "Streaming send fallback aborted");
+            if (isClientInitiatedAbort(fallbackErr, fallbackController)) {
+              debugLog("AI", "Streaming send fallback aborted by client");
               return;
             }
             finalError = fallbackErr;

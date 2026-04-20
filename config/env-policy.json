@@ -26,15 +26,19 @@
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
     "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
-    "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE",
-    "SAJTMASKIN_VARIANT_STRUCTURAL_FILES",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
+    "SAJTMASKIN_PRE_VM_TYPECHECK",
+    "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
     "SAJTMASKIN_PREVIEW_HOST_API_KEY",
     "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "LOOPIA_API_USER",
     "LOOPIA_API_PASSWORD",
+    "GODADDY_API",
+    "GODADDY_SECRET",
+    "OTE_GODADDY_API",
+    "OTE_GODADDY_SECRET",
     "INSPECTOR_CAPTURE_WORKER_TOKEN",
     "SUPERADMIN_EMAIL",
     "INSPECTOR_CAPTURE_WORKER_URL",
@@ -157,8 +161,6 @@
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
     "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
     "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
-    "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE",
-    "SAJTMASKIN_VARIANT_STRUCTURAL_FILES",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_SHOW_THINKING",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
@@ -171,6 +173,8 @@
     "SAJTMASKIN_PHASE_FORCE_CHARS",
     "SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS",
     "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
+    "SAJTMASKIN_PRE_VM_TYPECHECK",
+    "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
@@ -294,18 +298,6 @@
       "notes": "Feature flag for budgeted scaffold serialization instead of broad scaffold file dumps."
     },
     {
-      "key": "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "When true/1, inject scaffold-anchored template-library runtimeGuidance into init generations. Default off."
-    },
-    {
-      "key": "SAJTMASKIN_VARIANT_STRUCTURAL_FILES",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "When true/1, inject structural code references derived from scaffold variant sourceTemplateIds into init generations. Auto-on in development unless explicitly false."
-    },
-    {
       "key": "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
@@ -328,6 +320,18 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Fail fast when required generated template-library or scaffold-research artifacts are missing or empty. Default is strict outside tests."
+    },
+    {
+      "key": "SAJTMASKIN_PRE_VM_TYPECHECK",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Feature flag for pre-VM `tsc --noEmit` against the warm scaffold node_modules cache (`src/lib/gen/preview/warm-typecheck.ts`). Off by default. F3 generations force-run regardless. When the cache is cold the phase fails open so the pipeline never blocks."
+    },
+    {
+      "key": "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Override directory for the per-scaffold typecheck cache (defaults to `<tmpdir>/sajtmaskin/typecheck-cache`). One subdirectory per scaffold id, each with its own `node_modules` + `tsconfig.json`."
     },
     {
       "key": "SAJTMASKIN_SHOW_THINKING",
@@ -604,6 +608,30 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required where Loopia-backed domain flows are used."
+    },
+    {
+      "key": "GODADDY_API",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "GoDaddy production availability API key. Used by src/lib/domains/godaddy-client.ts as a supplementary availability/price source."
+    },
+    {
+      "key": "GODADDY_SECRET",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "GoDaddy production availability API secret. Pairs with GODADDY_API."
+    },
+    {
+      "key": "OTE_GODADDY_API",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview"],
+      "notes": "GoDaddy OTE (test) availability API key. Used in dev/preview by src/lib/domains/godaddy-client.ts and the standalone tools in scripts/domains/."
+    },
+    {
+      "key": "OTE_GODADDY_SECRET",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview"],
+      "notes": "GoDaddy OTE (test) availability API secret. Pairs with OTE_GODADDY_API."
     },
     {
       "key": "UNSPLASH_ACCESS_KEY",

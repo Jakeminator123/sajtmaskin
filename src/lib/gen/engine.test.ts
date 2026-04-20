@@ -34,6 +34,10 @@ async function loadEngineModule() {
   vi.doMock("./default-thinking", () => ({
     getDefaultThinkingEnabled: () => false,
   }));
+  vi.doMock("./system-prompt-assert", () => ({
+    assertSystemPromptShape: () => [],
+    logAndMaybeThrowOnSystemPromptAssert: () => undefined,
+  }));
 
   return import("./engine");
 }

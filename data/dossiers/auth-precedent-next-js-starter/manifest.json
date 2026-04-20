@@ -1,0 +1,117 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-precedent-next-js-starter",
+  "kind": "integration",
+  "category": "auth",
+  "label": "Precedent – Next.js Starter",
+  "description": "A collection of components, hooks, and utilities built on Next.js, Typescript, Tailwind, Radix, Framer Motion, Prisma, and PostgreSQL.",
+  "summary": "Use this dossier when a Next.js App Router project needs Clerk authentication wired at the app shell level. It provides the essential integration pattern: `ClerkProvider` in the root layout, Clerk middleware for request handling, and guidance for protecting routes and rendering auth UI.",
+  "providers": [
+    {
+      "name": "Clerk",
+      "url": "https://github.com/steven-tey/precedent"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+      "required": true,
+      "purpose": "To start building, create a Clerk application at https://dashboard.clerk.com/apps/new"
+    },
+    {
+      "key": "CLERK_SECRET_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@clerk/nextjs",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-popover",
+    "@radix-ui/react-tooltip",
+    "@vercel/analytics",
+    "@vercel/og",
+    "classnames",
+    "clsx",
+    "focus-trap-react",
+    "framer-motion",
+    "lucide-react",
+    "ms",
+    "react-markdown",
+    "tailwind-merge",
+    "use-debounce",
+    "vaul"
+  ],
+  "files": [
+    {
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/sign-in/[[...sign-in]]/page.tsx",
+      "role": "shared",
+      "kind": "page"
+    },
+    {
+      "path": "components/app/sign-up/[[...sign-up]]/page.tsx",
+      "role": "shared",
+      "kind": "page"
+    },
+    {
+      "path": "components/app/(protected)/layout.tsx",
+      "role": "server",
+      "kind": "layout"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/precedent",
+  "sourceRepoUrl": "https://github.com/steven-tey/precedent",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "clerk",
+    "auth",
+    "nextjs",
+    "app-router",
+    "middleware",
+    "signin",
+    "signup",
+    "protected-routes"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:22:15.766Z",
+  "_curatedBy": "auto-curate.ts"
+}

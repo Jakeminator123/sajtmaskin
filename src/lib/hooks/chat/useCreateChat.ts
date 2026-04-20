@@ -14,6 +14,7 @@ import {
   clearCreateChatLock,
   getActiveCreateChatLock,
   isAbortLikeError,
+  isClientInitiatedAbort,
   isNetworkError,
   updateCreateChatLockChatId,
   writeCreateChatLock,
@@ -335,6 +336,10 @@ export function useCreateChat(
       };
 
       let requestBody: Record<string, unknown> | null = null;
+      // Hoisted so the catch block can distinguish between client-initiated
+      // aborts (we cancelled this controller) vs server/provider-initiated
+      // aborts (controller still un-aborted but `fetch` rejected).
+      let streamController: AbortController | null = null;
 
       try {
         // When Deep Brief is active the brief object carries all semantic
@@ -429,7 +434,7 @@ export function useCreateChat(
         }
 
         streamAbortRef.current?.abort();
-        const streamController = new AbortController();
+        streamController = new AbortController();
         streamAbortRef.current = streamController;
         startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
@@ -495,8 +500,15 @@ export function useCreateChat(
           pendingBriefRef.current = null;
         }
       } catch (error) {
+        if (isClientInitiatedAbort(error, streamController)) {
+          debugLog("AI", "Create chat stream aborted by client");
+          return true;
+        }
         if (isAbortLikeError(error)) {
-          debugLog("AI", "Create chat stream aborted");
+          debugLog("AI", "Create chat stream aborted by server/provider");
+          toast.error(
+            "Strömmen avbröts av servern eller modellen. Försök igen — om det upprepas, prova en annan modell.",
+          );
           return true;
         }
 
@@ -529,8 +541,8 @@ export function useCreateChat(
             await handleNonStreamingCreate(data);
             return true;
           } catch (fallbackErr) {
-            if (isAbortLikeError(fallbackErr)) {
-              debugLog("AI", "Create chat fallback aborted");
+            if (isClientInitiatedAbort(fallbackErr, fallbackController)) {
+              debugLog("AI", "Create chat fallback aborted by client");
               return true;
             }
             finalError = fallbackErr;

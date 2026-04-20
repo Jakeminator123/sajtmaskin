@@ -43,6 +43,18 @@ export interface ParsedChatRequestMeta {
   promptAssistDeep: boolean | null;
   promptAssistMode: "polish" | "rewrite" | null;
   engineBaseVersionId: string | null;
+  /**
+   * F2/F3 lifecycle stage. `"integrations"` is set by the
+   * `/finalize-design` route after Tier-3 readiness has passed; the
+   * stream pipeline propagates it to `BuildSpec.previewPolicyOverride`
+   * and to `engine_versions.lifecycle_stage`. Defaults to `"design"`.
+   */
+  lifecycleStage: "design" | "integrations";
+  /**
+   * F3 only: id of the F2 version this build is forked from.
+   * Stored as `engine_versions.parent_version_id`.
+   */
+  parentVersionId: string | null;
 }
 
 /**
@@ -78,5 +90,8 @@ export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
     promptAssistDeep: metaBoolOrNull(meta, "promptAssistDeep"),
     promptAssistMode,
     engineBaseVersionId: metaString(meta, "engineBaseVersionId")?.trim() || null,
+    lifecycleStage:
+      metaString(meta, "lifecycleStage") === "integrations" ? "integrations" : "design",
+    parentVersionId: metaString(meta, "parentVersionId")?.trim() || null,
   };
 }

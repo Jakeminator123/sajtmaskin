@@ -1,11 +1,139 @@
 "use client";
 
-import type { ModelTraceSnapshot } from "@/lib/models/trace";
+import {
+  getPhaseRoutingFromManifest,
+  getPhaseThinkingFromManifest,
+} from "@/lib/ai-models/load-manifest";
+import { MODEL_TIER_OPTIONS } from "@/lib/builder/defaults";
+import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
+import type { ModelTraceSnapshot, PerTierPhaseMatrixRow } from "@/lib/models/trace";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, RefreshCw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "sajtmaskin:model-trace-overlay";
+
+const MATRIX_PHASES: PerTierPhaseMatrixRow["phase"][] = [
+  "planner",
+  "generator",
+  "fixer",
+  "verifier",
+  "deploy-assistant",
+];
+
+/**
+ * Static projection of the manifest's tier × phase routing into a flat list
+ * of {@link PerTierPhaseMatrixRow}. Computed once per render via `useMemo`
+ * inside {@link PerTierPhaseMatrix}; the manifest is a static JSON import so
+ * this is safe on the client.
+ */
+function buildPerTierPhaseMatrix(): PerTierPhaseMatrixRow[] {
+  const phaseRouting = getPhaseRoutingFromManifest();
+  const phaseThinking = getPhaseThinkingFromManifest();
+  const rows: PerTierPhaseMatrixRow[] = [];
+  for (const tierOption of MODEL_TIER_OPTIONS) {
+    const tier = tierOption.value;
+    const tierRouting = phaseRouting[tier];
+    const tierThinking = phaseThinking[tier];
+    if (!tierRouting || !tierThinking) continue;
+    const baseModel = canonicalModelIdToOwnModelId(tier);
+    for (const phase of MATRIX_PHASES) {
+      const ref = tierRouting[phase];
+      const modelId = ref === "selected_build_model" ? baseModel : ref;
+      const thinkingCfg = tierThinking[phase];
+      rows.push({
+        tier,
+        phase,
+        modelId,
+        thinking: thinkingCfg?.thinking ?? false,
+        reasoningEffort: thinkingCfg?.reasoningEffort ?? "medium",
+      });
+    }
+  }
+  return rows;
+}
+
+function PerTierPhaseMatrix() {
+  // Memoised so the 5×5 derivation doesn't rerun on every parent rerender;
+  // manifest data is static for the lifetime of the bundle.
+  const perTierPhaseMatrix = useMemo(() => buildPerTierPhaseMatrix(), []);
+  const tiers = MODEL_TIER_OPTIONS.map((option) => option.value);
+
+  return (
+    <details className="rounded-lg border border-white/10 bg-white/3 p-2">
+      <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
+        Tier × Phase Matrix
+      </summary>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full border-collapse text-[10px]">
+          <thead>
+            <tr className="text-left text-slate-400">
+              <th className="border-b border-white/10 px-1.5 py-1 font-medium">tier \\ phase</th>
+              {MATRIX_PHASES.map((phase) => (
+                <th
+                  key={phase}
+                  className="border-b border-white/10 px-1.5 py-1 font-medium"
+                >
+                  {phase}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tiers.map((tier) => (
+              <tr key={tier} className="align-top">
+                <th
+                  scope="row"
+                  className="border-b border-white/5 px-1.5 py-1 text-left font-medium text-slate-200"
+                >
+                  {tier}
+                </th>
+                {MATRIX_PHASES.map((phase) => {
+                  const row = perTierPhaseMatrix.find(
+                    (entry) => entry.tier === tier && entry.phase === phase,
+                  );
+                  if (!row) {
+                    return (
+                      <td
+                        key={phase}
+                        className="border-b border-white/5 px-1.5 py-1 text-slate-500"
+                      >
+                        —
+                      </td>
+                    );
+                  }
+                  return (
+                    <td
+                      key={phase}
+                      className="border-b border-white/5 px-1.5 py-1 text-slate-300"
+                    >
+                      <div className="font-mono break-all">{row.modelId}</div>
+                      <div className="mt-0.5 flex flex-wrap gap-1 text-[9px] text-slate-400">
+                        <span
+                          className={cn(
+                            "rounded border px-1",
+                            row.thinking
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                              : "border-white/10 bg-white/5",
+                          )}
+                        >
+                          think:{row.thinking ? "on" : "off"}
+                        </span>
+                        <span className="rounded border border-white/10 bg-white/5 px-1">
+                          re:{row.reasoningEffort}
+                        </span>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
 
 type ModelTraceOverlayProps = {
   selectedModelTier: string;
@@ -17,7 +145,7 @@ type ModelTraceOverlayProps = {
 
 function statusChipClass(ok: boolean) {
   return ok
-    ? "border-green-500/30 bg-green-500/10 text-green-200"
+    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
     : "border-red-500/30 bg-red-500/10 text-red-200";
 }
 
@@ -112,7 +240,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
       })
       .catch((fetchError) => {
         if (controller.signal.aborted) return;
-        setError(fetchError instanceof Error ? fetchError.message : "Kunde inte ladda modellspåret.");
+        setError(fetchError instanceof Error ? fetchError.message : "Could not load model trace.");
       })
       .finally(() => {
         if (!controller.signal.aborted) setIsLoading(false);
@@ -127,30 +255,30 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
 
   return (
     <aside className="pointer-events-none fixed right-4 bottom-4 z-50 flex max-w-[min(92vw,28rem)] justify-end">
-      <div className="pointer-events-auto w-full rounded-xl border border-border bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur">
-        <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+      <div className="pointer-events-auto w-full rounded-xl border border-white/10 bg-slate-950/95 text-slate-100 shadow-2xl backdrop-blur">
+        <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
           <div>
-            <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
-              Modellspår
+            <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-400">
+              Model Trace
             </p>
-            <p className="text-xs text-foreground">
-              Builder-routing, env-mappning och aktiva modellanor
+            <p className="text-xs text-slate-300">
+              Builder routing, env mapping, and active model lanes
             </p>
           </div>
           <div className="flex items-center gap-1">
             <button
               type="button"
-              className="rounded-md border border-border p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="rounded-md border border-white/10 p-1.5 text-slate-300 transition hover:bg-white/5 hover:text-white"
               onClick={() => setRefreshNonce((value) => value + 1)}
-              title="Uppdatera spåret"
+              title="Refresh trace"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
             </button>
             <button
               type="button"
-              className="rounded-md border border-border p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="rounded-md border border-white/10 p-1.5 text-slate-300 transition hover:bg-white/5 hover:text-white"
               onClick={() => setIsCollapsed((value) => !value)}
-              title={isCollapsed ? "Expandera" : "Fäll ihop"}
+              title={isCollapsed ? "Expand" : "Collapse"}
             >
               {isCollapsed ? (
                 <ChevronUp className="h-3.5 w-3.5" />
@@ -160,14 +288,14 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
             </button>
             <button
               type="button"
-              className="rounded-md border border-border p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="rounded-md border border-white/10 p-1.5 text-slate-300 transition hover:bg-white/5 hover:text-white"
               onClick={() => {
                 if (typeof window !== "undefined") {
                   window.localStorage.removeItem(STORAGE_KEY);
                 }
                 setIsVisible(false);
               }}
-              title="Dölj overlay"
+              title="Hide overlay"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -186,30 +314,30 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
               <>
                 <section className="space-y-2">
                   <div className="grid grid-cols-[7rem_1fr] gap-x-2 gap-y-1">
-                    <span className="text-muted-foreground">Byggmodell</span>
+                    <span className="text-slate-400">Byggmodell</span>
                     <span>
                       {selected.buildProfileLabel} ({selected.buildTier})
                     </span>
 
-                    <span className="text-muted-foreground">Resolved build</span>
+                    <span className="text-slate-400">Resolved build</span>
                     <span>{selected.buildModel}</span>
 
-                    <span className="text-muted-foreground">Provider</span>
+                    <span className="text-slate-400">Provider</span>
                     <span>{providerLabel(selected.buildProvider)}</span>
 
-                    <span className="text-muted-foreground">Thinking</span>
+                    <span className="text-slate-400">Thinking</span>
                     <span>{boolLabel(selected.thinkingRequested)}</span>
 
-                    <span className="text-muted-foreground">Forbattra</span>
+                    <span className="text-slate-400">Forbattra</span>
                     <span>{selected.promptAssistLabel}</span>
 
-                    <span className="text-muted-foreground">Assist model</span>
+                    <span className="text-slate-400">Assist model</span>
                     <span className="break-all">{selected.promptAssistModel}</span>
 
-                    <span className="text-muted-foreground">Assist provider</span>
+                    <span className="text-slate-400">Assist provider</span>
                     <span>{providerLabel(selected.promptAssistProvider)}</span>
 
-                    <span className="text-muted-foreground">Deep brief</span>
+                    <span className="text-slate-400">Deep brief</span>
                     <span>
                       {selected.promptAssistDeepActive
                         ? "Active"
@@ -218,7 +346,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                           : "Off"}
                     </span>
 
-                    <span className="text-muted-foreground">Skriv om</span>
+                    <span className="text-slate-400">Skriv om</span>
                     <span className="break-all">{selected.polishModel}</span>
                   </div>
 
@@ -250,8 +378,8 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                   </div>
                 </section>
 
-                <section className="rounded-lg border border-border bg-muted/30 p-2">
-                  <p className="mb-2 text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">
+                <section className="rounded-lg border border-white/10 bg-white/3 p-2">
+                  <p className="mb-2 text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
                     Provider Auth
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -282,48 +410,50 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                   </section>
                 ) : null}
 
-                <details className="rounded-lg border border-border bg-muted/30 p-2">
-                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">
+                <details className="rounded-lg border border-white/10 bg-white/3 p-2">
+                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
                     Active Routes
                   </summary>
                   <div className="mt-2 space-y-2">
                     {snapshot.routes.map((route) => (
-                      <div key={route.key} className="rounded-md border border-border px-2 py-1.5">
+                      <div key={route.key} className="rounded-md border border-white/10 px-2 py-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-foreground">{route.label}</span>
+                          <span className="font-medium text-slate-100">{route.label}</span>
                           <span
                             className={cn(
                               "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
                               route.active
-                                ? "border-green-500/30 bg-green-500/10 text-green-200"
-                                : "border-border bg-muted/30 text-muted-foreground",
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                                : "border-white/10 bg-white/4 text-slate-400",
                             )}
                           >
                             {route.active ? "active" : "idle"}
                           </span>
                         </div>
-                        <p className="mt-1 break-all text-foreground">{route.route}</p>
-                        <p className="mt-1 text-muted-foreground">{route.purpose}</p>
+                        <p className="mt-1 break-all text-slate-300">{route.route}</p>
+                        <p className="mt-1 text-slate-400">{route.purpose}</p>
                       </div>
                     ))}
                   </div>
                 </details>
 
-                <details className="rounded-lg border border-border bg-muted/30 p-2">
-                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">
+                <PerTierPhaseMatrix />
+
+                <details className="rounded-lg border border-white/10 bg-white/3 p-2">
+                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
                     Build Profiles
                   </summary>
                   <div className="mt-2 space-y-2">
                     {snapshot.buildProfiles.map((profile) => (
-                      <div key={profile.id} className="rounded-md border border-border px-2 py-1.5">
+                      <div key={profile.id} className="rounded-md border border-white/10 px-2 py-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-foreground">
+                          <span className="font-medium text-slate-100">
                             {profile.uiLabel} ({profile.id})
                           </span>
-                          <span className="text-muted-foreground">{providerLabel(profile.provider)}</span>
+                          <span className="text-slate-400">{providerLabel(profile.provider)}</span>
                         </div>
-                        <p className="mt-1 text-foreground">{profile.configuredModel}</p>
-                        <p className="mt-1 text-muted-foreground">{profile.uiDescription}</p>
+                        <p className="mt-1 text-slate-300">{profile.configuredModel}</p>
+                        <p className="mt-1 text-slate-400">{profile.uiDescription}</p>
                         {profile.warnings.length > 0 ? (
                           <ul className="mt-2 space-y-1 text-amber-200">
                             {profile.warnings.map((warning) => (
@@ -336,18 +466,18 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                   </div>
                 </details>
 
-                <details className="rounded-lg border border-border bg-muted/30 p-2">
-                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">
+                <details className="rounded-lg border border-white/10 bg-white/3 p-2">
+                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
                     Prompt Assist Options
                   </summary>
                   <div className="mt-2 space-y-2">
                     {snapshot.promptAssistOptions.map((option) => (
-                      <div key={option.value} className="rounded-md border border-border px-2 py-1.5">
+                      <div key={option.value} className="rounded-md border border-white/10 px-2 py-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-foreground">{option.label}</span>
-                          <span className="text-muted-foreground">{providerLabel(option.provider)}</span>
+                          <span className="font-medium text-slate-100">{option.label}</span>
+                          <span className="text-slate-400">{providerLabel(option.provider)}</span>
                         </div>
-                        <p className="mt-1 break-all text-foreground">{option.value}</p>
+                        <p className="mt-1 break-all text-slate-300">{option.value}</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <span
                             className={cn(
@@ -361,8 +491,8 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                             className={cn(
                               "rounded-full border px-2 py-0.5",
                               option.deepBriefEligible
-                                ? "border-green-500/30 bg-green-500/10 text-green-200"
-                                : "border-border bg-muted/30 text-muted-foreground",
+                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                                : "border-white/10 bg-white/4 text-slate-400",
                             )}
                           >
                             deep brief: {option.deepBriefEligible ? "yes" : "no"}
@@ -373,9 +503,9 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                   </div>
                 </details>
 
-                <section className="rounded-lg border border-border bg-muted/30 p-2 text-foreground">
-                  <p className="mb-1 text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">
-                    Anteckningar
+                <section className="rounded-lg border border-white/10 bg-white/3 p-2 text-slate-300">
+                  <p className="mb-1 text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
+                    Notes
                   </p>
                   <ul className="space-y-1">
                     {snapshot.notes.map((note) => (
@@ -385,8 +515,8 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                 </section>
               </>
             ) : (
-              <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-foreground">
-                {isLoading ? "Laddar modellspåret..." : "Inget modellspår laddat ännu."}
+              <div className="rounded-lg border border-white/10 bg-white/3 px-3 py-2 text-slate-300">
+                {isLoading ? "Loading model trace..." : "No model trace loaded yet."}
               </div>
             )}
           </div>

@@ -16,6 +16,7 @@ import {
   isIntegrationManifestPath,
   tryParseIntegrationManifest,
 } from "@/lib/integrations/integration-manifest";
+import type { PreviewLifecycleStage } from "@/lib/gen/preview/env-local";
 
 export type DetectedIntegration = {
   key: string;
@@ -25,6 +26,17 @@ export type DetectedIntegration = {
   envVars: string[];
   status: string;
   setupGuide?: string;
+};
+
+export type DetectIntegrationsOptions = {
+  /**
+   * F2 (`design`) suppresses the regex `process.env.X` custom-env scan
+   * so a hotell-landing that happens to import a dossier example doesn't
+   * flood the user with 36 fake env-keys. The registry/manifest-based
+   * detection still runs (those are explicit), but custom-env spillover
+   * is parked silently. F3 (`integrations`) runs the full pipeline.
+   */
+  lifecycleStage?: PreviewLifecycleStage;
 };
 
 const ENV_VAR_PATTERN = /process\.env\.([A-Z][A-Z0-9_]{2,})/g;
@@ -288,16 +300,25 @@ function appendCustomEnvIntegrations(
   ];
 }
 
-export function detectIntegrations(code: string): DetectedIntegration[] {
-  return appendCustomEnvIntegrations(code, runDetectionPipeline(code));
+export function detectIntegrations(
+  code: string,
+  options: DetectIntegrationsOptions = {},
+): DetectedIntegration[] {
+  const base = runDetectionPipeline(code);
+  if (options.lifecycleStage === "design") return base;
+  return appendCustomEnvIntegrations(code, base);
 }
 
 /**
  * Prefer `sajtmaskin.integration-manifest.json` when valid; otherwise full heuristic scan.
  * @param files — use `path` as `name` when wiring from version rows.
+ * @param options — pass `lifecycleStage: "design"` from F2 callers to
+ *   suppress regex custom-env spillover (manifest/registry detection
+ *   still runs, since those are explicit).
  */
 export function detectIntegrationsFromVersionFiles(
   files: Array<{ name: string; content: string }>,
+  options: DetectIntegrationsOptions = {},
 ): DetectedIntegration[] {
   const manifestEntry = files.find((f) => isIntegrationManifestPath(f.name));
   const manifestParsed = manifestEntry
@@ -314,9 +335,10 @@ export function detectIntegrationsFromVersionFiles(
 
   if (manifestParsed) {
     const fromManifest = detectedIntegrationsFromManifest(manifestParsed);
+    if (options.lifecycleStage === "design") return fromManifest;
     return appendCustomEnvIntegrations(codeForScan, fromManifest);
   }
 
   const combined = files.map((f) => `// File: ${f.name}\n${f.content}`).join("\n\n");
-  return detectIntegrations(combined);
+  return detectIntegrations(combined, options);
 }

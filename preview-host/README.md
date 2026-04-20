@@ -95,6 +95,29 @@ Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DI
 4. **Autofix-loop**: throttla antal parallella preview-host-boots per chatt sa att autofix inte skapar 4 samtida install+dev-starter.
 5. **Observerbarhet**: lagg till tydligare loggning av Next.js stdout/stderr i runtime-loggar (just nu damps HMR-brus).
 
+### Kanda begransningar (acceptabla pa F2)
+
+- **Forsta boot ar fortfarande seg pa tunga deps.** Workspace-cachen hjalper vid andra koerningen, men forsta `npm install` pa ett nytt projekt kan ta minuter.
+- **Aktiv preview-workspace kan bli stor** — framfor allt pga `node_modules` och dev-artifacts. Diskanvandning sjunker forst efter cleanup eller destroy.
+
+### Next.config-patch (AST + regex-fallback)
+
+`patchNextConfigForPreviewBasePath` (i `src/runtime.js`) injicerar `basePath` + en `webpack`-mutator (som filtrerar bort `HotModuleReplacementPlugin` nar `SAJTMASKIN_PREVIEW_DISABLE_HMR=true`) i workspaceens `next.config.{ts,mjs,js}` vid varje boot. Detta tystar tidigare HMR-WebSocket-spam i Chrome-konsolen och fixar `basePath` for `/{chatId}`-prefixet.
+
+Patchen kor i tva lager:
+
+1. **AST-laget** (`patchNextConfigViaAst`, acorn-baserat) parsar konfigen och injicerar i ratt object literal. Stoder fem shapes:
+   - `const cfg = { … }`
+   - `const cfg: NextConfig = { … }` (TS-typen strippas till same-length whitespace innan parse, sa AST-positioner mappar 1:1 till originalkallan)
+   - `module.exports = { … }`
+   - `export default { … }`
+   - `export default function () { return { … } }`
+2. **Regex-fallback** (`patchNextConfigViaRegex`) anropas endast om AST-parsen failar eller ingen kand object literal hittas. Skip-villkor (`SAJTMASKIN_PREVIEW_BASE_PATH` redan injicerat, `basePath:` redan satt, ingen config-fil) ar terminala — fallback retryas inte da, sa redan-patchade filer kan inte korrumperas.
+
+Snapshot-test for alla fem shapes finns i `scripts/test-patch.mjs` (`node scripts/test-patch.mjs`).
+
+Hot-reload mellan kod-andringar tappas medvetet — preview-host gor full iframe-reload via `refreshToken` vid varje ny generation anda. Satt `SAJTMASKIN_PREVIEW_DISABLE_HMR=false` om du behover HMR direkt mot VM:en.
+
 ## Det som nu finns har
 
 Detta spar ar nu scaffoldat som en liten, helt separat prototyp:

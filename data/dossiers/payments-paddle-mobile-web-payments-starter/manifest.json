@@ -1,0 +1,126 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "payments-paddle-mobile-web-payments-starter",
+  "kind": "integration",
+  "category": "payments",
+  "label": "Paddle Mobile Web Payments Starter",
+  "description": "Starter project for iOS apps using Paddle checkout in Next.js.",
+  "summary": "Use this dossier when a Next.js site needs to launch Paddle Checkout for purchases tied to an iOS app and then deep-link the customer back into the app after payment. It provides the small set of client-side utilities needed for price/trial formatting and mobile redirect URL construction, plus guidance for wiring Paddle.js into a checkout button or pricing UI.",
+  "providers": [
+    {
+      "name": "Paddle",
+      "url": "https://github.com/PaddleHQ/paddle-mobile-web-payments-starter"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "APPLE_TEAM_ID",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_BUNDLE_IDENTIFIER",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_APP_REDIRECT_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_PADDLE_ENV",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_PADDLE_CLIENT_TOKEN",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@paddle/paddle-js",
+    "@radix-ui/react-accordion",
+    "@radix-ui/react-avatar",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-navigation-menu",
+    "@radix-ui/react-radio-group",
+    "@radix-ui/react-separator",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-tabs",
+    "class-variance-authority",
+    "clsx",
+    "embla-carousel-react",
+    "lucide-react",
+    "motion",
+    "react-use-measure",
+    "sonner",
+    "tailwind-merge",
+    "vaul"
+  ],
+  "files": [
+    {
+      "path": "components/src/lib/format-billing-cycle.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/format-currency.ts",
+      "role": "client",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/format-trial-period.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/redirect.ts",
+      "role": "client",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/paddle.ts",
+      "role": "client",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/lib/open-paddle-checkout.ts",
+      "role": "client",
+      "kind": "util"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "saas-landing",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "ecommerce",
+      "landing-page",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 82,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/paddle-in-app-checkout-starter",
+  "sourceRepoUrl": "https://github.com/PaddleHQ/paddle-mobile-web-payments-starter",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "paddle",
+    "payments",
+    "mobile",
+    "ios",
+    "deep-link",
+    "checkout",
+    "subscriptions",
+    "nextjs"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:03:53.312Z",
+  "_curatedBy": "auto-curate.ts"
+}

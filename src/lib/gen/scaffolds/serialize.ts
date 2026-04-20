@@ -86,9 +86,22 @@ export function serializeScaffoldForPrompt(
 
   if (mode === "inspirational") {
     const filePaths = scaffold.files.map((f) => `- ${f.path}`).join("\n");
-    const criticalFiles = selectCriticalScaffoldFiles(scaffold, "light", options);
-    const layoutAndStyleFiles = criticalFiles.filter(
-      (f) => !f.path.endsWith("/page.tsx") && !f.path.endsWith("\\page.tsx"),
+    // Inspirational mode wants layout + theme files (layout.tsx, globals.css,
+    // package.json, components/*) — page.tsx is shown as a separate import
+    // example block below. Filter out page.tsx files BEFORE selecting top-N
+    // critical, otherwise multi-page scaffolds (app-shell, dashboard) end up
+    // with all 4 critical slots taken by page.tsx files and the layout block
+    // renders empty.
+    const nonPageScaffold = {
+      ...scaffold,
+      files: scaffold.files.filter(
+        (f) => !f.path.endsWith("/page.tsx") && !f.path.endsWith("\\page.tsx"),
+      ),
+    };
+    const layoutAndStyleFiles = selectCriticalScaffoldFiles(
+      nonPageScaffold,
+      "light",
+      options,
     );
     const layoutBlocks = renderSelectedScaffoldFiles(
       layoutAndStyleFiles,
@@ -197,7 +210,7 @@ function selectCriticalScaffoldFiles(
   contextPolicy: BuildSpecContextPolicy,
   options: ScaffoldSerializeOptions,
 ): typeof scaffold.files {
-  const maxFiles = contextPolicy === "light" ? 3 : 4;
+  const maxFiles = contextPolicy === "light" ? 4 : 5;
   return [...scaffold.files]
     .sort((a, b) => {
       const aScore =

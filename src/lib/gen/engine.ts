@@ -8,6 +8,10 @@ import {
   type RequestAttachment,
 } from "./request-metadata";
 import { createCodeGenSSEStream, type StreamMeta } from "./stream/stream-format";
+import {
+  assertSystemPromptShape,
+  logAndMaybeThrowOnSystemPromptAssert,
+} from "./system-prompt-assert";
 
 export type { StreamMeta };
 export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
@@ -44,6 +48,13 @@ export interface GenerateOptions {
   tools?: ToolSet;
   maxSteps?: number;
   referenceAttachments?: RequestAttachment[];
+  /**
+   * Invoked once the underlying SSE stream completes (success, abort,
+   * or error) with the concatenated reasoning emitted by the model
+   * during the run. Callers wire this into the finalize step so the
+   * chain-of-thought is persisted alongside the assistant message.
+   */
+  onAccumulatedThinking?: (thinkingText: string | null) => void;
 }
 
 /**
@@ -79,6 +90,7 @@ export function generateCode(
     tools,
     maxSteps,
     referenceAttachments,
+    onAccumulatedThinking,
   } = options;
   const resolvedThinking = thinking ?? defaultThinkingEnabled;
 
@@ -108,6 +120,15 @@ export function generateCode(
         };
   }
 
+  // Pre-LLM systemprompt assertion — catches JSON-double-encoded leakage,
+  // missing separator, unbalanced fences, etc. before we burn tokens on
+  // a poisoned prompt. Soft by default (warns); set
+  // `SAJTMASKIN_STRICT_SYSTEM_PROMPT_ASSERT=1` to fail loud.
+  logAndMaybeThrowOnSystemPromptAssert(
+    assertSystemPromptShape(systemPrompt),
+    { chatId: meta?.chatId, phase: "engine.generateCode" },
+  );
+
   const result = streamText({
     model,
     system: systemPrompt,
@@ -122,6 +143,7 @@ export function generateCode(
     thinking: resolvedThinking,
     meta,
     abortController: internalAbortController ?? undefined,
+    onAccumulatedThinking,
   });
 }
 
@@ -138,6 +160,7 @@ export interface PipelineOptions {
   maxSteps?: number;
   referenceAttachments?: GenerateOptions["referenceAttachments"];
   meta?: StreamMeta;
+  onAccumulatedThinking?: GenerateOptions["onAccumulatedThinking"];
 }
 
 export function createGenerationPipeline(
@@ -156,6 +179,7 @@ export function createGenerationPipeline(
       tools: options.tools,
       maxSteps: options.maxSteps,
       referenceAttachments: options.referenceAttachments,
+      onAccumulatedThinking: options.onAccumulatedThinking,
     },
     options.meta,
   );

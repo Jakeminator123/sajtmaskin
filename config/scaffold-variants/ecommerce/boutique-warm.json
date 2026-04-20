@@ -25,6 +25,27 @@
     "Lead with merchandising and product mood before dense catalog controls.",
     "Product storytelling should feel curated rather than catalog-first."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a split hero with editorial lifestyle photography on one side and a tight product story card with price and CTA on the other.",
+      "Open collection pages with a featured product strip above the grid, then transition into a calm 3-column catalog with generous gutters.",
+      "Build product detail pages as a two-column composition with large imagery, stacked purchase controls, and a warm storytelling block below.",
+      "Use gift-guide sections as staggered editorial cards, mixing product cutouts, short narrative captions, and occasional highlighted picks.",
+      "Frame trust and brand story as alternating image-and-copy bands, ending with a compact newsletter or in-store pickup callout."
+    ],
+    "motifs": [
+      "Warm cream backgrounds, soft white product cards, and earthy accent buttons create a tactile boutique storefront at first glance.",
+      "Large serif headlines paired with restrained sans body text give product storytelling an editorial magazine-shop feel.",
+      "Use 1rem rounded corners, thin warm-gray borders, and very soft shadows so merchandise feels curated instead of tech-polished.",
+      "Lifestyle photography should feel natural and softly lit, with product cutouts and detail crops used as supporting merchandising moments."
+    ],
+    "antiPatterns": [
+      "Avoid dense marketplace-style filter rails dominating the first screen; this variant should introduce mood and curation before control-heavy catalog UI.",
+      "Never use cold monochrome minimalism or stark black-and-white contrast; the storefront should feel warm, giftable, and human.",
+      "Avoid loud promo badges, flashing sale strips, or aggressive conversion banners that undermine the calm boutique presentation.",
+      "Do not make product grids feel warehouse-like with tiny cards and cramped spacing; items need breathing room and storytelling context."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.985 0.008 55)",
     "foreground": "oklch(0.24 0.015 30)",
@@ -38,32 +59,6 @@
     "ring": "oklch(0.62 0.16 40)",
     "radius": "1rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-    "Preserve clear information density with persistent navigation and scannable panels."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "overview metrics",
-    "filters or controls",
-    "table or chart area"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
-    "Avoid turning dashboard references into generic marketing landing pages."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Final output should feel custom and production-grade, not like a renamed starter.",
-    "Dense UI must still feel legible, fast, and trustworthy."
-  ],
   "sourceTemplateIds": [
     "ecommerce-blazity-enterprise-ecommerce-starter",
     "ecommerce-stripe-subscription-starter",

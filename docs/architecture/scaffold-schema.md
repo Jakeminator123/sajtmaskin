@@ -2,6 +2,8 @@
 
 Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod är source of truth.
 
+> **Beslutsunderlag:** För konkret per-scaffold och per-variant inventarium med kvalitetsbedömning + förslag på vad som bör tas bort/slås ihop, se [`scaffold-variants-inventory.md`](./scaffold-variants-inventory.md).
+
 ---
 
 ## Genomförda förenklingar
@@ -84,12 +86,14 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | 14 | Scaffold serialisering | `serializeScaffoldForPrompt()` | `serialize.ts` | Ja | Budgeterad markdown-injection i systemprompt |
 | 14a | Serialize mode auto-detect | `detectScaffoldMode()` | `serialize.ts` | **Oanvänd** | Exporterad + testad men aldrig anropad i production. Mode bestäms mekaniskt i orchestrate.ts |
 | 15 | Dynamic context | `buildDynamicContext()` | `system-prompt.ts` | Ja | scaffold + routes + contracts + brief + tema + capabilities → prioriterad + prunad |
-| 16 | System prompt | `composeEngineSystemPrompt()` | `system-prompt.ts` | Ja | Core Rules + Directives + Dynamic Context |
+| 16 | System prompt | `composeEngineSystemPrompt()` | `system-prompt.ts` | Ja | Core Rules + Dynamic Context (directive cascade borttagen 2026-04-18) |
 | 17 | Kodgenerering | `generateCode()` | `engine.ts` | Ja | LLM-anrop med systemprompt + user turn |
 | 18 | Follow-up kontinuitet | `persistedScaffoldId` | `orchestrate.ts` | Ja | Återanvänder scaffold från init i follow-up |
 | 19 | Scaffold-aware retry | `inferScaffoldRetrySuggestion()` | `scaffold-aware-retry.ts` | Ja | Föreslår scaffold-pivot vid misslyckad generation |
-| 20 | Template-library runtime guidance | `resolveTemplateGuidance()` | `orchestrate.ts` | **Auto i dev** | Scaffold-ankrad runtimeGuidance via `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Auto-on i `NODE_ENV=development`, explicit opt-in i prod. Init only. `searchTemplateLibrary()` ej använd i runtime. |
-| 21 | Variant structural files | `selectVariantStructuralFiles()` + `selectCapabilityStructuralFiles()` | `scaffold-variants/structural-files.ts`, `orchestrate.ts` | **Auto i dev** | Två pass: (1) variant-driven från `sourceTemplateIds` (max 3 filer), (2) capability-driven från hela katalogen baserat på `InferredCapabilities` (max 2 extra). Injecteras i `## Structural References (this variant)` via `SAJTMASKIN_VARIANT_STRUCTURAL_FILES`. Init / first-code-generation only. |
+| 20 | ~~Template-library runtime guidance~~ | ~~`resolveTemplateGuidance()`~~ | ~~`orchestrate.ts`~~ | **Avvecklad 2026-04-17** | Borttagen från runtime tillsammans med `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Ersatt av dossier-pipen (`data/dossiers/_index/`). Se `docs/ENV.md` + `backoffice/pages/_ops_impl.py`. Env-variabeln läses inte längre någonstans i `src/`. |
+| 21 | ~~Variant structural files~~ | ~~`selectVariantStructuralFiles()` + `selectCapabilityStructuralFiles()`~~ | ~~`scaffold-variants/structural-files.ts`, `orchestrate.ts`~~ | **Avvecklad 2026-04-17** | Borttagen tillsammans med `SAJTMASKIN_VARIANT_STRUCTURAL_FILES`. Funktionerna existerar inte längre i runtime. Strukturella exempel hanteras nu via dossier-pipen. |
+| 22 | Variant signature patterns | `signaturePatterns` per variant | `config/scaffold-variants/<scaffold>/<variant>.json`, `system-prompt.ts` | Ja (auto i dev) | Konkreta layouts/motifs/antiPatterns som ersatte de fyra borttagna guidance-fälten 2026-04-17 (`styleRules`, `sectionInventory`, `avoidPatterns`, `worldClassRubric`). Fylls i av `scripts/scaffolds/auto-curate-variant-patterns.ts` (GPT-5.4 + Zod). Renderas i `## Scaffold Variant`-blocket i systemprompten. |
+| 23 | Embedding-driven variant pick | `pickScaffoldVariantAsync()` | `scaffold-variants/matcher.ts`, `orchestrate.ts` + 3 stream-endpoints | Ja (sedan 2026-04-17) | Embeddar prompten via OpenAI, cosine vs precomputed `config/scaffold-variants/_index/variant-embeddings.json`, top-3 + deterministisk seed. Faller graciöst tillbaka till keyword-matchning (`pickScaffoldVariant`) när embeddings/API-key saknas. **Sedan 2026-04-18:** `create-chat-stream-post.ts` låser den keyword-baserade pre-match-varianten via `OrchestrationInput.persistedVariantId`, så orchestrate i normalflödet hämtar samma variant via `getVariantById` istället för att köra async-pickaren. Async-pickaren körs då bara som fallback (id stale, plan-mode, eval). Eliminerar drift mellan brief-LLM-hint och codegen-variant. |
 
 ---
 
@@ -155,6 +159,7 @@ scaffoldMode?
                  │   └─ → bästa embedding-match med score
                  │
                  └─ 3c. Merge-policy
+                     ├─ Keyword + embedding pekar på samma id → agreement (boostad confidence)
                      ├─ Stark keyword-match → keyword vinner
                      ├─ Generisk keyword (landing-page/base-nextjs) → embedding kan override
                      ├─ Safety guards (auth veto, app intent, portfolio)
@@ -163,7 +168,7 @@ scaffoldMode?
 
 | Meta-fält | Värden | Beskrivning |
 |-----------|--------|-------------|
-| `selectionMethod` | off, manual, persisted, keyword, embedding, default | Hur scaffolden valdes |
+| `selectionMethod` | off, manual, persisted, keyword, embedding, agreement, default | Hur scaffolden valdes (`agreement` = keyword + embedding pekar på samma scaffold) |
 | `selectionConfidence` | high, medium, low | Tillförlitlighet |
 | `keywordScores` | Record<id, score> | Poäng per scaffold |
 | `embeddingTopResult` | { id, score } \| null | Bästa embedding-träff |
@@ -273,18 +278,19 @@ Viktiga serialiserings-features:
 ### STEG 10 — Dynamic Context + System Prompt (`system-prompt.ts`)
 
 ```
-System Prompt = Core Rules + Directives + Dynamic Context
+System Prompt = Core Rules + Dynamic Context
+                (directive cascade togs bort 2026-04-18)
 
 Core Rules (config/prompt-core/*.md via codegen-core-manifest.json):
 ├── 00-core-contract (stack, format, Lucide)
-├── 01-behavioral-contract (a11y, import, beteende)
-└── 02-component-contract (shadcn patterns)
+├── 01-behavioral-contract (a11y, import, beteende, F2/F3-pekare)
+├── 02-component-contract (shadcn patterns)
+├── 03-visual-design (visual quality, color system, typography, polish, charts)
+└── 04-coding-direction (default voice, domain examples, tone adaptation)
 
-Directives (config/prompt-directives/*.md, Level 4 defaults via Directive Cascade):
-├── visual-design, images, scaffold-starters, follow-up-scope
-├── motion, quality-bar, domain-hints, seasonal-palette
-├── design-priority, content-voice, creative-extensions, integration-contracts
-└── Cascade: EXPLICIT (brief) > INDICATED (Brief-LLM) > INFERRED (resolvers) > DEFAULT (directive)
+Per-request signal cascade (brief explicit > brief inferred > guidance-
+resolvers heuristik > statiska defaults i prompt-core/) renderas i
+"## Design Priority"-blocket nedan.
 
 Dynamic Context (request-specifik, prioriterad + prunad):
 ├── scaffold context (serialiserad scaffold)
@@ -404,8 +410,8 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Problem | Detalj |
 |---------|--------|
-| Template-library scaffold-anchored guidance (opt-in) | `resolveTemplateGuidance()` i `orchestrate.ts` injicerar runtimeGuidance i `## Scaffold Research Priorities` när `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true`. Global `searchTemplateLibrary()` förblir oanvänd i runtime. |
-| Variant structural files (opt-in) | Två pass: (1) `selectVariantStructuralFiles()` slår upp variantens `sourceTemplateIds` (max 3 filer), (2) `selectCapabilityStructuralFiles()` söker i hela katalogen efter entries som matchar `InferredCapabilities` (max 2 extra). Merged via `mergeStructuralFiles()` och injiceras i `## Structural References (this variant)` när `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`. |
+| ~~Template-library scaffold-anchored guidance (opt-in)~~ | **Löst (2026-04-17).** `resolveTemplateGuidance()` borttagen tillsammans med `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Per-integration-guidance hanteras nu via dossier-pipen (`data/dossiers/_index/`). |
+| ~~Variant structural files (opt-in)~~ | **Löst (2026-04-17).** `selectVariantStructuralFiles()`/`selectCapabilityStructuralFiles()` borttagna tillsammans med `SAJTMASKIN_VARIANT_STRUCTURAL_FILES`. Strukturella exempel kommer nu från dossier-pipen. |
 | `PromptType` i kod ≠ glossary | Koden har `wizard \| freeform \| template \| audit \| followup_*`. Glossary nämner även `app` och `technical` som docs-only flavorer. |
 | ~~Scaffold inline-filer~~ | **Löst.** Scaffold-filer extraherade till disk under `scaffolds/<id>/files/`. Manifest-filer refererar filer via `loadScaffoldFiles()`. |
 
@@ -424,7 +430,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `template-library/types.ts` | `recommendedScaffoldIds: ScaffoldId[]` | **Nej** — en dossier kan rekommendera flera scaffold-id:n |
 | `scaffold-embedding-locale.ts` | Nycklar per family | Ja — byt till id |
 | `scaffold-aware-retry.ts` | Retry per family | Ja — byt till id |
-| `config/scaffold-variants/` | Variantdata per scaffold (keywords, fontPairings, themeTokens, dossier-härledd guidance) | Ja |
+| `config/scaffold-variants/` | Variantdata per scaffold (keywords, fontPairings, themeTokens, signaturePatterns) | Ja |
 | `diagnostics.ts` | Telemetri | Ja |
 | `orchestration-contract.ts` | `scaffoldId` i contract | Genomfört |
 | Dossier-manifests (catalog.json) | `recommendedScaffoldIds[]` | **Nej** — extern mapping |
@@ -537,17 +543,13 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Fil | Vad |
 |-----|-----|
-| `config/codegen-core-manifest.json` | Fragment-lista för Core Rules (primär) |
-| `config/codegen-directives-manifest.json` | Fragment-lista för Directives |
-| `config/prompt-core/*.md` | 3 Core Rules-filer (stack, beteende, komponenter) |
-| `config/prompt-directives/*.md` | 12 Directive-filer (adaptiva, Level 4 defaults) |
-| `config/codegen-static-prompt.json` | Legacy fallback fragment-lista |
-| `config/prompt-static/*.md` | Legacy fragment-filer (fallback om core-manifest saknas) |
-| `config/ai_models/manifest.json` | Build profiles, token-budgetar, embedding-index-pekare, phase routing |
-| `config/ai_models/40-generated-site-integration-placeholders.env.txt` | Fake env vars för preview |
+| `config/codegen-core-manifest.json` | Fragment-lista för Core Rules (enda manifestet sedan directive cascade togs bort 2026-04-18) |
+| `config/prompt-core/*.md` | 5 Core Rules-filer: 00 core-contract, 01 behavioral, 02 components, 03 visual-design, 04 coding-direction |
+| `config/integrations/tier3-sdk-deny.json` | Single source of truth för F2 SDK guard + F2 contract-block |
+| `config/ai_models/manifest.json` | Build profiles, token-budgetar, embedding-index-pekare, phase routing, qualityGateTiers (`designPreview` / `integrationsBuild`) |
+| `config/ai_models/40-harmless-placeholders.env.txt` | Placeholder env vars som är trygga även i F3 (Stripe-publishable, AUTH_SECRET, GA-id, ...) |
+| `config/ai_models/41-tier3-stub-placeholders.env.txt` | F2-stubbar (Stripe-secret, Supabase, Clerk-secret, Redis, OpenAI, ...) — strippas i F3 |
 | `config/env-policy.json` | Env-audit regler |
-
-**Scaffold-direkt:** `config/prompt-static/08-scaffold-starters.md` (scaffold merge-instruktioner för LLM) och `13-intent-fidelity-and-merge.md` (path-baserad scaffold merge).
 
 ### Bara build/audit (inte runtime)
 
@@ -563,8 +565,6 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `config/README.md` | Index över config/ |
 | `config/ai_models/_READ_ME_FIRST.md` + `*.md` | Modell-dokumentation |
 | `config/prompt-core/_READ_ME_FIRST.md` | Core Rules dokumentation |
-| `config/prompt-directives/_READ_ME_FIRST.md` | Directives dokumentation |
-| `config/prompt-static/_READ_ME_FIRST.md` | Legacy prompt-fragment dokumentation |
 | `config/user_degraded_env.txt` | Policy-text, inte parsad |
 
 ### Lokal dashboard (valfri GUI)

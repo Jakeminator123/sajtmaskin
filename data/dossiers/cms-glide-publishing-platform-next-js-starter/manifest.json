@@ -1,0 +1,118 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-glide-publishing-platform-next-js-starter",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Glide Publishing Platform - Next.js Starter",
+  "description": "A complete Bootstrap app with built-in features like routing, page rendering and basic SEO.",
+  "summary": "Use this dossier when building a Next.js App Router site whose pages, SEO metadata, and media URLs are sourced from Glide Publishing Platform APIs. It provides the core Glide fetch/config layer, a catch-all page pattern for CMS-driven routing, optional static path generation, and a middleware pattern for noindexing non-production environments.",
+  "providers": [
+    {
+      "name": "GlideCMS",
+      "url": "https://github.com/GlideCMS/nextjs-demo-public"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "CONNECT_API_URL",
+      "required": true,
+      "purpose": "required variables"
+    },
+    {
+      "key": "CONNECT_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "MEDIA_BASE_PATH",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "ENVIRONMENT",
+      "required": true,
+      "purpose": "optional variables"
+    },
+    {
+      "key": "PREGENERATE_PATHS",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@glidecms/core-tools",
+    "@glidecms/deliver-core-dev",
+    "@glidecms/next-tools",
+    "@vercel/edge-config",
+    "axios",
+    "bootstrap",
+    "classnames",
+    "dotenv",
+    "html-react-parser",
+    "jquery",
+    "mitt",
+    "react-intersection-observer",
+    "vertx"
+  ],
+  "files": [
+    {
+      "path": "components/app/[...slug]/generate-static-params.ts",
+      "role": "server",
+      "kind": "static-generation"
+    },
+    {
+      "path": "components/app/[...slug]/page.tsx",
+      "role": "server",
+      "kind": "route"
+    },
+    {
+      "path": "components/lib/glide.ts",
+      "role": "server",
+      "kind": "lib"
+    },
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/page.tsx",
+      "role": "server",
+      "kind": "route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 68,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/gpp-starter",
+  "sourceRepoUrl": "https://github.com/GlideCMS/nextjs-demo-public",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "glidecms",
+    "glide",
+    "cms",
+    "nextjs",
+    "app-router",
+    "seo",
+    "middleware",
+    "ssg",
+    "isr"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:25:34.059Z",
+  "_curatedBy": "auto-curate.ts",
+  "_deprecationReason": "Source repo last pushed 652d ago, only 2★. Niche CMS with low community traction. Consider deprecating in favor of cms-clean-next-js-sanity-app or cms-builder-io-personalization-starter (both active)."
+}

@@ -10,16 +10,15 @@ import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import {
-  pickScaffoldVariant,
+  pickScaffoldVariantAsync,
   getVariantById,
-  selectVariantStructuralFiles,
-  selectCapabilityStructuralFiles,
   type ScaffoldVariant,
-  type VariantStructuralFilesSelection,
 } from "./scaffold-variants";
+import { lockedVariantForFollowUp } from "./scaffold-variants/matcher";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
   getScaffoldById,
+  getScaffoldIds,
   matchScaffoldAuto,
   type ScaffoldQueryContext,
   type ScaffoldSelectionMeta,
@@ -34,7 +33,6 @@ import {
   type DesignReferenceAsset,
   type DynamicContextOptions,
   type DynamicContextPruning,
-  type MediaCatalogItem,
 } from "./system-prompt";
 import {
   inferCapabilities,
@@ -58,26 +56,18 @@ import {
   computeLineageHash,
   serializePackageForDump,
 } from "./generation-input-package";
-import { deriveBuildSpec, type BuildSpec } from "./build-spec";
+import {
+  deriveBuildSpec,
+  type BuildSpec,
+  type BuildSpecQualityTarget,
+} from "./build-spec";
 import { estimateCharsForTokens } from "./tokens";
 import { FEATURES } from "@/lib/config";
-import { getTemplateLibraryEntryById } from "./template-library/catalog";
-import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
-import type { TemplateLibraryRuntimeGuidance } from "./template-library/types";
 import { getRelevantExampleNames, getPromptDrivenExampleNames } from "./data/shadcn-example-map";
 import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-example-loader";
 import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
 import { fetchCommunityBlocks } from "./data/community-registry-fetch";
-
-export interface TemplateGuidanceMeta {
-  enabled: boolean;
-  templateIds: string[];
-  guidanceEntries: Array<{
-    id: string;
-    title: string;
-    guidance: TemplateLibraryRuntimeGuidance;
-  }>;
-}
+import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -85,6 +75,35 @@ export interface OrchestrationInput {
   routePlanPrompt?: string;
   /** Optional prompt used for BuildSpec classification (defaults to `prompt`). */
   buildSpecPrompt?: string;
+  /**
+   * Optional prompt used for dossier-pick embedding query (defaults to `prompt`).
+   * QW-1: stream callers should pass the *raw* user message here, not the
+   * file-context-wrapped optimizedMessage — wrapped prompts contain previous
+   * file content that drowns out the user's actual intent and biases dossier
+   * embedding ranking toward whatever libraries the previous files imported.
+   */
+  dossierPickPrompt?: string;
+  /**
+   * Optional prompt used for pre-generation contract inference (defaults to `prompt`).
+   * QW-1: same reasoning as `dossierPickPrompt` — wrapped prompts cause false
+   * positives where contract inference triggers on provider names that only
+   * appear because previous files imported them, not because the user wants
+   * that integration.
+   */
+  contractsPrompt?: string;
+  /**
+   * Optional prompt used for capability inference (defaults to `prompt`).
+   * QW-1 follow-up: capability inference (`needsAuth`, `needsEcommerce`, …)
+   * is keyword-based and triggers on terms like "login", "cart", "checkout"
+   * found anywhere in the input string. When the wrapped follow-up prompt
+   * carries previous file content (e.g. `LoginForm.tsx`), capabilities get
+   * stuck on "auth" even when the user only asked to change a color.
+   *
+   * Stream callers should pass the *raw* user message so capability-driven
+   * scaffold boosts, capabilityHints text, prompt-driven shadcn refs and
+   * dossier pick query reflect actual intent — not stale file context.
+   */
+  capabilitiesPrompt?: string;
   buildIntent: BuildIntent;
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
@@ -126,7 +145,14 @@ export interface OrchestrationInput {
   capabilities?: InferredCapabilities;
   /** Per-session seed (e.g. chatId) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
-  /** Variant id from a previous generation's snapshot — reused on follow-ups to prevent variant drift. */
+  /**
+   * Variant id to lock for this orchestration run. Used in two ways:
+   *  - Initial chat (create-chat-stream-post): pinned to the keyword
+   *    pre-match pick so brief-LLM hints and codegen agree.
+   *  - Follow-ups (chat-message-stream-post): reused from the previous
+   *    orchestration_snapshot.variantId to prevent variant drift across turns.
+   * If the id no longer resolves via getVariantById, async picker runs as fallback.
+   */
   persistedVariantId?: string | null;
   /**
    * True when this is the first real code generation in a chat that already has a
@@ -134,8 +160,36 @@ export interface OrchestrationInput {
    * like template guidance to activate even though generationMode resolves to "followUp".
    */
   isFirstCodeGeneration?: boolean;
-  /** User-provided image assets to inject as a media catalog in the system prompt. */
-  mediaCatalog?: MediaCatalogItem[];
+  /**
+   * F2/F3 lifecycle stage. `"integrations"` triggers F3:
+   * `BuildSpec.previewPolicyOverride: "fidelity3"` and the dynamic
+   * context block `## Tier-3 Integration Build Plan` is rendered.
+   * Defaults to `"design"` (F2) when unset.
+   */
+  lifecycleStage?: "design" | "integrations";
+  /**
+   * P22: optional chatId — propagated to inheritance helpers + variant lock
+   * so per-chat decisions can be made deterministically. Stays optional so
+   * existing callers compile unchanged.
+   */
+  chatId?: string | null;
+  /**
+   * P22: previously accepted version's `qualityTarget` (from
+   * `orchestration_snapshot.buildSpec`). Lets follow-up runs reuse the
+   * same target instead of re-running `quality_target_promoted_for_multipage`.
+   */
+  priorQualityTarget?: BuildSpecQualityTarget | null;
+  /**
+   * P22: previously persisted follow-up intent for this chat. Used by
+   * the variant-lock helper — `clear-redesign` allows fresh matching,
+   * everything else reuses the prior variant.
+   */
+  followUpIntent?:
+    | "clear-refine"
+    | "clear-redesign"
+    | "ambiguous-redesign"
+    | "ambiguous-followup"
+    | "neutral";
 }
 
 export interface OrchestrationBase {
@@ -150,6 +204,8 @@ export interface OrchestrationBase {
   buildSpec: BuildSpec;
   serializeMode: "inspirational" | "structural" | null;
   componentReferences: ComponentReference[];
+  /** Selected dossiers when FEATURES.useDossierPipeline is on, else null/undefined. Optional to keep test fixtures backward-compatible. */
+  dossierSelection?: DossierSelectionResult | null;
 }
 
 export interface FinalizedOrchestrationContext {
@@ -158,7 +214,34 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
-  templateGuidanceMeta: TemplateGuidanceMeta;
+}
+
+/**
+ * P22: när vi kör en follow-up och en tidigare accepterad version finns
+ * (med en `qualityTarget` i sin orchestration-snapshot) ska vi ärva det
+ * värdet i stället för att räkna om från scratch. Det stoppar dubbel-
+ * loggen `quality_target_promoted_for_multipage` på samma chat och säkrar
+ * att senare turns inte plötsligt ändrar kvalitetstak.
+ *
+ * Faller tillbaka till `baseSpec` oförändrat när:
+ *  - `generationMode !== "followUp"`
+ *  - inget `priorQualityTarget` finns
+ *  - värdet redan matchar baseSpec
+ */
+export function inheritQualityTargetFromPriorVersion(
+  chatId: string | null | undefined,
+  baseSpec: BuildSpec,
+  priorQualityTarget?: BuildSpecQualityTarget | null,
+): BuildSpec {
+  if (baseSpec.generationMode !== "followUp") return baseSpec;
+  if (!priorQualityTarget) return baseSpec;
+  if (priorQualityTarget === baseSpec.qualityTarget) return baseSpec;
+  console.info("[orchestrate] quality_target_inherited_from_prior_version", {
+    chatId: chatId ?? null,
+    from: baseSpec.qualityTarget,
+    to: priorQualityTarget,
+  });
+  return { ...baseSpec, qualityTarget: priorQualityTarget };
 }
 
 function buildScaffoldQueryContext(
@@ -208,6 +291,11 @@ export function buildGenerationInputPackage(
     preGenerationContracts: base.preGenerationContracts,
     buildSpec: base.buildSpec,
     capabilityHints: base.capabilityHints,
+    customInstructions: input.customInstructions ?? null,
+    themeColors: input.themeColors ?? null,
+    componentPalette: input.componentPalette ?? null,
+    designReferences: input.designReferences ?? null,
+    variantId: finalized.variantId,
   });
 
   return {
@@ -221,7 +309,6 @@ export function buildGenerationInputPackage(
     dynamicContextBlocks: finalized.dynamicContextBlocks,
     variantId: finalized.variantId,
     lineageHash,
-    templateGuidanceMeta: finalized.templateGuidanceMeta,
   };
 }
 
@@ -248,9 +335,6 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
       dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
       variantId: pkg.variantId ?? null,
-      templateGuidanceEnabled: pkg.templateGuidanceMeta?.enabled ?? false,
-      templateGuidanceIds: pkg.templateGuidanceMeta?.templateIds ?? [],
-      structuralRefsInjected: pkg.dynamicContext.includes("## Structural References"),
     },
   );
 }
@@ -296,7 +380,12 @@ export async function resolveOrchestrationBase(
     briefContextApplied: false,
   };
 
-  const capabilities = providedCapabilities ?? inferCapabilities(prompt);
+  // QW-1: capability + prompt-driven shadcn-ref inference must run against
+  // the raw user message, not the file-context-wrapped prompt. The wrapped
+  // prompt carries previous file content on follow-ups and would otherwise
+  // pin needsAuth/needsEcommerce to whatever the previous version imported.
+  const intentSourcePrompt = input.capabilitiesPrompt ?? prompt;
+  const capabilities = providedCapabilities ?? inferCapabilities(intentSourcePrompt);
   const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
 
   const effectivePersistedScaffoldId =
@@ -304,7 +393,7 @@ export async function resolveOrchestrationBase(
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
   const componentRefNames = [
     ...getRelevantExampleNames(capabilities),
-    ...getPromptDrivenExampleNames(prompt),
+    ...getPromptDrivenExampleNames(intentSourcePrompt),
   ];
   const uniqueRefNames = [...new Set(componentRefNames)];
   const localRefs = loadShadcnExamples(uniqueRefNames);
@@ -366,6 +455,59 @@ export async function resolveOrchestrationBase(
 
   }
 
+  // ── Drift detection: Brief-LLM scaffold nomination vs final pick (Fas 1.0) ──
+  // Brief returns a hint; the embedding/keyword pick above is the final answer.
+  // Logging drift makes mismatches visible in dev and lets us tune confidence
+  // thresholds. Brief stays the source of truth for design direction either way.
+  // On followUp runs, the brief may carry stale nominations from init — we
+  // include `mode` in the log so noise from followUp can be filtered out.
+  const briefScaffoldNom = (brief as { scaffoldNomination?: { id?: string; confidence?: number } } | null | undefined)
+    ?.scaffoldNomination ?? null;
+  // Compare case-insensitively — Brief-LLM occasionally returns "SaaS-landing"
+  // when the canonical id is "saas-landing"; that is not real drift.
+  const briefNomNorm = briefScaffoldNom?.id?.trim().toLowerCase() ?? null;
+  const finalNorm = resolvedScaffold?.id.toLowerCase() ?? null;
+  if (briefNomNorm && finalNorm && briefNomNorm !== finalNorm) {
+    // Guard: brief-LLM occasionally hallucinates ids that aren't in the
+    // registry (e.g. "saas", "blog-page", "shop"). Logging those as
+    // scaffold_drift drowns out genuine drift signals where both sides
+    // pick a real scaffold. Surface unknown nominations under their own
+    // key so we can quantify schema-fidelity separately.
+    const knownIds = new Set(getScaffoldIds().map((id) => id.toLowerCase()));
+    if (!knownIds.has(briefNomNorm)) {
+      console.info("[orchestrate] scaffold_unknown_brief_nomination", {
+        mode: input.generationMode ?? "init",
+        briefNominated: briefScaffoldNom!.id,
+        briefConfidence: briefScaffoldNom!.confidence ?? null,
+        finalPick: resolvedScaffold!.id,
+      });
+    } else {
+      // The picker's `selectionMethod` reports HOW the picker arrived at
+      // its choice (e.g. "agreement", "embeddings", "default") — not how
+      // the picker's choice relates to the brief's nomination. When brief
+      // and final pick differ, "agreement" is misleading. Compute a
+      // brief-vs-picker outcome label from the brief's confidence so this
+      // log clearly shows the relationship between the two stages.
+      const briefConfidenceValue =
+        typeof briefScaffoldNom!.confidence === "number"
+          ? briefScaffoldNom!.confidence
+          : null;
+      const briefVsPickerOutcome =
+        briefConfidenceValue !== null && briefConfidenceValue < 0.6
+          ? "picker_default_low_brief_confidence"
+          : "picker_override";
+      console.info("[orchestrate] scaffold_drift", {
+        mode: input.generationMode ?? "init",
+        briefNominated: briefScaffoldNom!.id,
+        briefConfidence: briefConfidenceValue,
+        finalPick: resolvedScaffold!.id,
+        pickMethod: briefVsPickerOutcome,
+        pickerInternalMethod: scaffoldSelection.selectionMethod ?? "unknown",
+        pickConfidence: scaffoldSelection.selectionConfidence ?? null,
+      });
+    }
+  }
+
   if (!resolvedReferenceFetches) {
     [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
   }
@@ -399,13 +541,13 @@ export async function resolveOrchestrationBase(
     existingRoutePaths,
   });
   const preGenerationContracts = inferPreGenerationContracts({
-    prompt,
+    prompt: input.contractsPrompt ?? prompt,
     buildIntent: effectiveBuildIntent,
     brief,
     capabilities,
     contractAnswers,
   });
-  const buildSpec = deriveBuildSpec({
+  const rawBuildSpec = deriveBuildSpec({
     prompt: buildSpecPrompt ?? prompt,
     buildIntent: effectiveBuildIntent,
     generationMode: resolvedMode,
@@ -416,7 +558,14 @@ export async function resolveOrchestrationBase(
     capabilities,
     isFirstCodeGeneration: input.isFirstCodeGeneration,
     existingShellRoutePaths,
+    previewPolicyOverride:
+      input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
   });
+  const buildSpec = inheritQualityTargetFromPriorVersion(
+    input.chatId,
+    rawBuildSpec,
+    input.priorQualityTarget,
+  );
   const orchestrationContract = buildOrchestrationContract({
     resolvedScaffold,
     routePlan,
@@ -440,6 +589,49 @@ export async function resolveOrchestrationBase(
     });
   }
 
+  // Pool-modell: när dossier-pipen är på, plocka top dossiers via embedding +
+  // recommendation-boost. Misslyckad selektion (saknad fil, API-error) → null,
+  // system-prompt-block hoppas tyst över. Säker no-op om inga active dossiers.
+  let dossierSelection: DossierSelectionResult | null = null;
+  if (FEATURES.useDossierPipeline) {
+    try {
+      // Build a compact route-plan summary if a plan exists. Helps the
+      // embedding query understand "user wants pricing page + login flow"
+      // beyond what the bare prompt says (Fas 1.0 fix).
+      const routePlanSummary = routePlan
+        ? `routes: ${routePlan.routes
+            .map((r) => `${r.path} (${r.intent})`)
+            .slice(0, 8)
+            .join(" | ")}`
+        : undefined;
+
+      dossierSelection = await selectDossiersForRequest({
+        prompt: input.dossierPickPrompt ?? prompt,
+        brief,
+        scaffoldId: resolvedScaffold?.id ?? null,
+        scaffoldContext: resolvedScaffold
+          ? `Scaffold ${resolvedScaffold.label}. Tags: ${resolvedScaffold.tags.join(", ")}.`
+          : undefined,
+        capabilityHints: capabilityHints || undefined,
+        routePlanSummary,
+      });
+      if (dossierSelection.selected.length > 0) {
+        console.info("[orchestrate] dossiers_selected", {
+          count: dossierSelection.selected.length,
+          poolSize: dossierSelection.poolSize,
+          embeddingsUsed: dossierSelection.embeddingsUsed,
+          byCategory: dossierSelection.byCategory,
+        });
+      }
+    } catch (err) {
+      console.warn(
+        "[orchestrate] dossier selection failed — continuing without dossiers:",
+        err instanceof Error ? err.message : err,
+      );
+      dossierSelection = null;
+    }
+  }
+
   return {
     resolvedScaffold,
     scaffoldSelection,
@@ -452,129 +644,17 @@ export async function resolveOrchestrationBase(
     buildSpec,
     serializeMode: resolvedSerializeMode,
     componentReferences,
+    dossierSelection,
   };
 }
 
-/**
- * Lightweight prompt-aware scoring for scaffold referenceTemplates.
- * Uses keyword overlap with prompt + brief + buildSpec signals to pick
- * the most relevant 1–2 refs instead of blindly taking the first ones.
- */
-function scoreReferenceRelevance(
-  ref: { id: string; title: string; categorySlug: string; qualityScore: number; strengths: string[] },
-  prompt: string,
-  brief: Record<string, unknown> | null | undefined,
-  referenceCategories: string[],
-): number {
-  let score = 0;
-  const promptLower = prompt.toLowerCase();
-
-  if (referenceCategories.includes(ref.categorySlug)) score += 5;
-
-  const haystack = [ref.title, ...ref.strengths].join(" ").toLowerCase();
-  const promptTokens = promptLower
-    .split(/\s+/)
-    .filter((t) => t.length > 3)
-    .slice(0, 20);
-  for (const token of promptTokens) {
-    if (haystack.includes(token)) score += 1;
-  }
-
-  if (brief) {
-    const briefText = [
-      typeof brief.oneSentencePitch === "string" ? brief.oneSentencePitch : "",
-      typeof brief.targetAudience === "string" ? brief.targetAudience : "",
-      typeof brief.primaryCallToAction === "string" ? brief.primaryCallToAction : "",
-    ].join(" ").toLowerCase();
-    const briefTokens = briefText.split(/\s+/).filter((t) => t.length > 3).slice(0, 15);
-    for (const token of briefTokens) {
-      if (haystack.includes(token)) score += 1.5;
-    }
-  }
-
-  score += ref.qualityScore / 100;
-
-  return score;
-}
-
-/**
- * Resolve scaffold-anchored template-library runtime guidance for init generations.
- * Reranks the scaffold's referenceTemplates by prompt/brief/buildSpec relevance
- * and picks the top 1–2 entries, using only compact runtimeGuidance.
- *
- * Also activates when the chat has a persistedScaffoldId but no previous files
- * (first real code generation after a contract gate turn).
- */
-function resolveTemplateGuidance(
-  resolvedScaffold: ScaffoldManifest | null,
-  generationMode: "init" | "followUp",
-  prompt?: string,
-  brief?: Record<string, unknown> | null,
-  referenceCategories?: string[],
-  isFirstCodeGeneration?: boolean,
-): TemplateGuidanceMeta {
-  const empty: TemplateGuidanceMeta = { enabled: false, templateIds: [], guidanceEntries: [] };
-  if (!FEATURES.useRuntimeTemplateGuidance) return empty;
-  const effectiveInit = generationMode === "init" || (generationMode === "followUp" && isFirstCodeGeneration);
-  if (!effectiveInit) return empty;
-  if (!resolvedScaffold?.research?.referenceTemplates?.length) return empty;
-
-  const allRefs = resolvedScaffold.research.referenceTemplates;
-  const scored = allRefs.map((ref) => ({
-    ref,
-    score: scoreReferenceRelevance(ref, prompt ?? "", brief, referenceCategories ?? []),
-  }));
-  scored.sort((a, b) => b.score - a.score);
-  const topRefs = scored.slice(0, 2);
-
-  const entries: TemplateGuidanceMeta["guidanceEntries"] = [];
-  for (const { ref } of topRefs) {
-    const entry = getTemplateLibraryEntryById(ref.id);
-    if (!entry) continue;
-    entries.push({
-      id: entry.id,
-      title: entry.title,
-      guidance: deriveTemplateRuntimeGuidance(entry),
-    });
-  }
-
-  return {
-    enabled: entries.length > 0,
-    templateIds: entries.map((e) => e.id),
-    guidanceEntries: entries,
-  };
-}
-
-function formatTemplateGuidanceForPrompt(meta: TemplateGuidanceMeta): string | undefined {
-  if (!meta.enabled || meta.guidanceEntries.length === 0) return undefined;
-
-  const lines: string[] = [];
-  lines.push("- External template guidance (adapt to the scaffold and user request, do not copy verbatim):");
-  for (const entry of meta.guidanceEntries) {
-    const g = entry.guidance;
-    if (g.styleRules.length > 0) {
-      lines.push(`  - **${entry.title}** style: ${g.styleRules.slice(0, 2).join("; ")}`);
-    }
-    if (g.sectionInventory.length > 0) {
-      lines.push(`  - Sections: ${g.sectionInventory.slice(0, 3).join(", ")}`);
-    }
-    if (g.avoidPatterns.length > 0) {
-      lines.push(`  - Avoid: ${g.avoidPatterns.slice(0, 2).join("; ")}`);
-    }
-    if (g.worldClassRubric.length > 0) {
-      lines.push(`  - Quality: ${g.worldClassRubric.slice(0, 2).join("; ")}`);
-    }
-  }
-  return lines.join("\n");
-}
-
-function resolveScaffoldVariant(
+async function resolveScaffoldVariant(
   scaffoldId: string | null | undefined,
   prompt: string,
   brief: Record<string, unknown> | null,
   generationMode: "init" | "followUp",
   sessionSeed?: string,
-): ScaffoldVariant | null {
+): Promise<ScaffoldVariant | null> {
   const styleKeywords = Array.isArray(
     (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords,
   )
@@ -590,7 +670,9 @@ function resolveScaffoldVariant(
         (brief as { toneAndVoice?: unknown[] } | null)?.toneAndVoice ?? []
       ).filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
     : [];
-  return pickScaffoldVariant({
+  // Embedding-driven variant pick when an OpenAI key + variant-embeddings.json
+  // are present. Falls back to keyword `pickScaffoldVariant` automatically.
+  return pickScaffoldVariantAsync({
     prompt,
     scaffoldId: (scaffoldId as ScaffoldVariant["scaffoldId"] | null | undefined) ?? null,
     styleKeywords,
@@ -598,27 +680,6 @@ function resolveScaffoldVariant(
     generationMode,
     sessionSeed,
   });
-}
-
-function mergeStructuralFiles(
-  variant: VariantStructuralFilesSelection | null,
-  capability: VariantStructuralFilesSelection | null,
-): VariantStructuralFilesSelection | null {
-  if (!variant && !capability) return null;
-  if (!variant) return capability;
-  if (!capability) return variant;
-  const usedSourcePaths = new Set(
-    variant.files.map((f) => `${f.sourceId}::${f.path}`),
-  );
-  const dedupedCapFiles = capability.files.filter(
-    (f) => !usedSourcePaths.has(`${f.sourceId}::${f.path}`),
-  );
-  const merged = [...variant.files, ...dedupedCapFiles];
-  return {
-    files: merged,
-    sourceIds: [...new Set(merged.map((f) => f.sourceId))],
-    totalChars: merged.reduce((sum, f) => sum + f.excerpt.length, 0),
-  };
 }
 
 /**
@@ -643,42 +704,69 @@ export async function finalizeOrchestrationPrompts(
 
   const resolvedMode = generationMode ?? (input.persistedScaffoldId ? "followUp" : "init");
 
-  const templateGuidanceMeta = resolveTemplateGuidance(
-    base.resolvedScaffold,
-    resolvedMode,
-    prompt,
-    brief,
-    base.buildSpec.referenceCategories,
-    input.isFirstCodeGeneration,
-  );
-  const templateGuidanceText = formatTemplateGuidanceForPrompt(templateGuidanceMeta);
   const scaffoldIdForVariant = base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId;
-  const persistedVariant =
-    input.persistedVariantId && scaffoldIdForVariant
-      ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
+  // P22: variant-lock på follow-ups. När caller lämnar `followUpIntent`
+  // omarkerat tolkas det som "neutral" — då behåller vi nuvarande beteende
+  // och låser till `persistedVariantId`. Om en framtida caller skickar in
+  // `clear-redesign` släpper helpern loss matchern så att en ny stilriktning
+  // kan väljas.
+  const lockedVariant =
+    resolvedMode === "followUp"
+      ? lockedVariantForFollowUp({
+          chatId: input.chatId,
+          intent: input.followUpIntent ?? "neutral",
+          scaffoldId: scaffoldIdForVariant,
+          priorVariantId: input.persistedVariantId,
+        })
       : null;
+  const persistedVariant =
+    lockedVariant ??
+    (input.persistedVariantId && scaffoldIdForVariant
+      ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
+      : null);
   const resolvedVariant =
     persistedVariant ??
-    resolveScaffoldVariant(
+    (await resolveScaffoldVariant(
       scaffoldIdForVariant,
       prompt,
       brief,
       resolvedMode,
       input.sessionSeed,
-    );
-  const effectiveInit =
-    resolvedMode === "init" || (resolvedMode === "followUp" && input.isFirstCodeGeneration);
-  const variantStructuralFiles = (() => {
-    if (!effectiveInit) return null;
-    const fromVariant = selectVariantStructuralFiles(resolvedVariant, FEATURES.useVariantStructuralFiles);
-    const fromCapabilities = selectCapabilityStructuralFiles(
-      base.capabilities,
-      base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId,
-      fromVariant?.sourceIds,
-      FEATURES.useVariantStructuralFiles,
-    );
-    return mergeStructuralFiles(fromVariant, fromCapabilities);
-  })();
+    ));
+
+  // ── Drift detection: Brief variant nomination vs embedding pick (Fas 1.0) ──
+  const briefVariantNom = (brief as { variantNomination?: { id?: string; confidence?: number } } | null | undefined)
+    ?.variantNomination ?? null;
+  const briefVarNomNorm = briefVariantNom?.id?.trim().toLowerCase() ?? null;
+  const finalVarNorm = resolvedVariant?.id.toLowerCase() ?? null;
+  if (briefVarNomNorm && finalVarNorm && briefVarNomNorm !== finalVarNorm) {
+    console.info("[orchestrate] variant_drift", {
+      mode: resolvedMode,
+      scaffoldId: scaffoldIdForVariant,
+      briefNominated: briefVariantNom!.id,
+      briefConfidence: briefVariantNom!.confidence ?? null,
+      finalPick: resolvedVariant!.id,
+    });
+  }
+
+  // ── Dossier nomination vs final selection diff (Fas 1.0) ────────────────
+  const briefDossierNoms = (brief as { dossierNominations?: Array<{ id?: string }> } | null | undefined)
+    ?.dossierNominations ?? [];
+  if (briefDossierNoms.length > 0 && base.dossierSelection) {
+    const nominatedIds = new Set(briefDossierNoms.map((n) => n.id).filter(Boolean));
+    const finalIds = new Set(base.dossierSelection.selected.map((s) => s.entry.id));
+    const matched = [...nominatedIds].filter((id) => finalIds.has(id!));
+    const briefOnly = [...nominatedIds].filter((id) => !finalIds.has(id!));
+    const embeddingOnly = [...finalIds].filter((id) => !nominatedIds.has(id));
+    console.info("[orchestrate] dossier_drift", {
+      mode: resolvedMode,
+      briefNominatedCount: nominatedIds.size,
+      finalSelectedCount: finalIds.size,
+      matched,
+      briefOnly,
+      embeddingOnly,
+    });
+  }
 
   const finalBuildIntent: BuildIntent = base.buildSpec.buildIntent;
 
@@ -687,7 +775,6 @@ export async function finalizeOrchestrationPrompts(
     brief: brief as DynamicContextOptions["brief"],
     themeOverride: themeColors,
     imageGenerations,
-    mediaCatalog: input.mediaCatalog,
     scaffoldContext: base.scaffoldContext,
     capabilityHints: base.capabilityHints,
     resolvedScaffold: base.resolvedScaffold,
@@ -701,10 +788,9 @@ export async function finalizeOrchestrationPrompts(
     userPrompt: input.prompt,
     generationMode: resolvedMode,
     sessionSeed: input.sessionSeed,
-    templateGuidance: templateGuidanceText,
     componentReferences: base.componentReferences,
-    variantStructuralFiles,
     resolvedVariant,
+    dossierSelection: base.dossierSelection,
   };
 
   const dynamic = buildDynamicContext(dynamicOpts);
@@ -716,7 +802,6 @@ export async function finalizeOrchestrationPrompts(
     dynamicContextPruning: dynamic.pruning,
     dynamicContextBlocks: dynamic.blocks,
     variantId: dynamic.variantId,
-    templateGuidanceMeta,
   };
 }
 

@@ -1,0 +1,86 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-platforms-starter-kit",
+  "kind": "integration",
+  "category": "database",
+  "label": "Platforms Starter Kit",
+  "description": "Next.js template for building multi-tenant applications with the App Router and Redis.",
+  "summary": "Use this dossier when a Next.js app needs lightweight multi-tenant routing based on subdomains, with tenant metadata stored in Upstash Redis. It provides the core hostname middleware, Redis client setup, root-domain utilities, and helper functions for reading per-subdomain records.",
+  "providers": [
+    {
+      "name": "Vercel",
+      "url": "https://github.com/vercel/platforms"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-label",
+    "@radix-ui/react-popover",
+    "@radix-ui/react-slot",
+    "@upstash/redis",
+    "@vercel/analytics",
+    "@vercel/speed-insights",
+    "class-variance-authority",
+    "clsx",
+    "frimousse",
+    "lucide-react",
+    "tailwind-merge"
+  ],
+  "files": [
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/lib/redis.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/subdomains.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/utils.ts",
+      "role": "shared",
+      "kind": "util"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "ecommerce",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "blog"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 87,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/platforms-starter-kit",
+  "sourceRepoUrl": "https://github.com/vercel/platforms",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "vercel",
+    "upstash",
+    "redis",
+    "multitenant",
+    "subdomain",
+    "middleware",
+    "nextjs",
+    "app-router"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:40:18.595Z",
+  "_curatedBy": "auto-curate.ts"
+}

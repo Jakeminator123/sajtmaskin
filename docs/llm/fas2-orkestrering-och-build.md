@@ -43,9 +43,9 @@ En **härledd policy-bundle** som styr hela körningen.
 | Parameter | Möjliga värden | Vad det styr |
 |-----------|---------------|--------------|
 | `changeScope` | `copy`, `local-layout`, `page-addition`, `redesign`, `integration` | Hur stor ändring prompten begär |
-| `qualityTarget` | `standard`, `premium`, `release-candidate` | Kvalitetskrav på output |
+| `qualityTarget` | `standard`, `premium`, `release-candidate` | Kvalitetskrav på output. `release-candidate` sätts numera bara när `previewPolicyOverride === "fidelity3"` (F3-trigger). |
 | `contextPolicy` | `light`, `normal`, `heavy` | Token-budget (se nedan) |
-| `previewPolicy` | `fidelity2`, `fidelity3` | Preview-djup |
+| `previewPolicy` | `fidelity2`, `fidelity3` | F2 = design-loopen (default). F3 = "Bygg integrationer" — sätts via `DeriveBuildSpecParams.previewPolicyOverride`, triggas explicit av `POST /api/engine/chats/[chatId]/finalize-design`. |
 | `verificationPolicy` | `fast`, `standard`, `strict` | Verifier-inställning |
 | `routeRealization` | `null`, `primary-full-with-shells` | Om extra routes skjuts upp |
 | `forbiddenPatterns` | Symboliska flaggor | T.ex. `unrequested_full_redesign` |
@@ -93,7 +93,7 @@ En **härledd policy-bundle** som styr hela körningen.
 11. **Pre-generation Contracts** — data mode, providers, env vars
 12. **Project Context** — brief-härledda fält, pages, must-have/avoid
 13. **Visual Identity + Design References**
-14. **Coding Direction** — directives (visual-design, content-voice)
+14. **Coding Direction** — kommer från `prompt-core/03-visual-design.md` + `04-coding-direction.md` i Core Rules ovanför separator (sedan directive cascade togs bort 2026-04-18)
 15. **Imagery + Media Catalog**
 16. **Component References** — upp till 5 fenced shadcn-exempel
 17. **SEO**
@@ -151,8 +151,8 @@ Definierad i `finalize-pipeline-contract.ts`:
 
 | Steg | Vad | Typ |
 |------|-----|-----|
-| 1. **autofix** | ~24 mekaniska fixar (imports, JSX, fonts, metadata, etc.) | Deterministisk |
-| 2. **url_expand** | Expandera förkortade URL:er | Deterministisk |
+| 1. **url_expand** | Expandera förkortade URL:er (`{{MEDIA_N}}` → riktiga URL:er). Körs först så autofix ser riktiga import-paths. | Deterministisk |
+| 2. **autofix** | ~24 mekaniska fixar (imports, JSX, fonts, metadata, etc.) | Deterministisk |
 | 3. **validate_syntax** | esbuild-validering + ev. LLM-fixer-loop (max 180s) | Hybrid |
 | 4. **materialize_images** | Byt placeholder-bilder mot Unsplash (6–8 st) | Nätverksanrop |
 | 5. **verifier** | Read-only LLM-granskning: `blocking` / `quality` findings | LLM |
@@ -226,5 +226,4 @@ Defaults: NextAuth Credentials om `needsAuth`; Stripe test-placeholders om betal
 | Syntax-validering | `src/lib/gen/autofix/validate-and-fix.ts` |
 | Pre-gen contracts | `src/lib/gen/contract/pre-generation-contracts.ts` |
 | Verifier | `src/lib/gen/verifier/` |
-| Core Rules | `config/prompt-core/*.md` |
-| Directives | `config/prompt-directives/*.md` |
+| Core Rules | `config/prompt-core/*.md` (5 filer inkl. visual-design + coding-direction) |

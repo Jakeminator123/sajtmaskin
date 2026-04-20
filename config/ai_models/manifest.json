@@ -151,8 +151,8 @@
     "thinkingByTier": {
       "fast": {
         "planner": {
-          "thinking": true,
-          "reasoningEffort": "medium"
+          "thinking": false,
+          "reasoningEffort": "low"
         },
         "generator": {
           "thinking": true,
@@ -174,11 +174,11 @@
       "pro": {
         "planner": {
           "thinking": true,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "high"
         },
         "generator": {
           "thinking": true,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "high"
         },
         "fixer": {
           "thinking": false,
@@ -207,7 +207,7 @@
           "reasoningEffort": "medium"
         },
         "verifier": {
-          "thinking": false,
+          "thinking": true,
           "reasoningEffort": "medium"
         },
         "deploy-assistant": {
@@ -262,6 +262,27 @@
     },
     "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override."
   },
+  "perTierRepairPolicies": {
+    "fast":      { "deterministicAutofixPasses": 1, "syntaxFixPasses": 2, "serverRepairPasses": 1 },
+    "pro":       { "deterministicAutofixPasses": 2, "syntaxFixPasses": 3, "serverRepairPasses": 2 },
+    "max":       { "deterministicAutofixPasses": 2, "syntaxFixPasses": 4, "serverRepairPasses": 2 },
+    "codex":     { "deterministicAutofixPasses": 2, "syntaxFixPasses": 4, "serverRepairPasses": 2 },
+    "anthropic": { "deterministicAutofixPasses": 2, "syntaxFixPasses": 3, "serverRepairPasses": 2 }
+  },
+  "perTierTimeouts": {
+    "fast":      { "engineRouteMaxDurationSeconds": 180, "verifierTimeoutMs": 120000 },
+    "pro":       { "engineRouteMaxDurationSeconds": 360, "verifierTimeoutMs": 120000 },
+    "max":       { "engineRouteMaxDurationSeconds": 800, "verifierTimeoutMs": 240000 },
+    "codex":     { "engineRouteMaxDurationSeconds": 800, "verifierTimeoutMs": 240000 },
+    "anthropic": { "engineRouteMaxDurationSeconds": 600, "verifierTimeoutMs": 120000 }
+  },
+  "perTierBriefing": {
+    "fast":      { "briefingModel": "openai/gpt-5.2" },
+    "pro":       { "briefingModel": "openai/gpt-5.3-codex" },
+    "max":       { "briefingModel": "openai/gpt-5.4" },
+    "codex":     { "briefingModel": "openai/gpt-5.4" },
+    "anthropic": { "briefingModel": "anthropic/claude-sonnet-4.6" }
+  },
   "repairPolicies": {
     "deterministicAutofixPasses": 2,
     "syntaxFixPasses": 4,
@@ -271,10 +292,8 @@
     "partialFileRepairMaxAttempts": 1
   },
   "qualityGateTiers": {
-    "tier2": ["typecheck"],
-    "serverVerify": ["typecheck", "lint"],
-    "promotion": ["typecheck", "build"],
-    "interactive": ["typecheck", "build", "lint"]
+    "designPreview": ["typecheck"],
+    "integrationsBuild": ["typecheck", "build"]
   },
   "promptOrchestration": {
     "hardCaps": {
@@ -692,7 +711,7 @@
     },
     "streamSafetyTimeoutMs": {
       "envKey": "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
-      "default": 720000,
+      "default": 840000,
       "min": 60000,
       "max": 900000
     }
@@ -718,10 +737,11 @@
     }
   },
   "generatedSiteIntegrationPlaceholders": {
-    "envFragmentFile": "40-generated-site-integration-placeholders.env.txt",
+    "harmlessEnvFragmentFile": "40-harmless-placeholders.env.txt",
+    "tier3StubEnvFragmentFile": "41-tier3-stub-placeholders.env.txt",
     "policyDocRelativeToConfig": "user_degraded_env.txt",
     "preGenerationContractsEntry": "src/lib/gen/pre-generation-contracts.ts",
-    "notes": "Targets generated user Next.js apps, not Sajtmaskin app env. When `startPreviewSession` runs, `envFragmentFile` is merged into `.env.local` with project preview tokens, stored project env, then generated `.env.local` (later wins). Tier-1 shim and some helper/export paths may skip this merge. Never use placeholder values in production. Loader: `readGeneratedSitePlaceholdersEnvText()` in `load-generated-site-placeholders.ts`."
+    "notes": "Targets generated user Next.js apps, not Sajtmaskin app env. F2 ('design preview') merges BOTH layers into `.env.local`. F3 ('bygg integrationer') strips the tier-3-stub layer and requires real values from project env vars (validated by `tier3-build-spec.ts`). Per-key classification lives in `src/lib/integrations/placeholder-harmless.ts`. Loader: `readGeneratedSitePlaceholdersEnvText()` in `load-generated-site-placeholders.ts`."
   },
   "workloads": [
     {
@@ -807,11 +827,11 @@
     {
       "id": "server_verify_repair_llm",
       "title": "Background server verify repair",
-      "description": "Targeted LLM repair inside fire-and-forget server verification after tier-2 quality-gate failures.",
+      "description": "Targeted LLM repair inside fire-and-forget server verification after F2 (designPreview) quality-gate failures.",
       "invocation": "streamText_ai_sdk",
       "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
       "codeEntry": [
-        "src/lib/gen/server-verify.ts",
+        "src/lib/gen/verify/server-verify.ts",
         "src/lib/gen/autofix/llm-fixer.ts",
         "src/lib/models/phase-routing.ts"
       ],

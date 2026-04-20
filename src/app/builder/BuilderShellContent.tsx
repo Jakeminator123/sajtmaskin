@@ -1888,12 +1888,28 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               readiness={vm.deployReadiness}
               isLoading={vm.isDeployReadinessLoading}
             />
-            <ProjectEnvVarsPanel
-              externalProjectId={vm.externalProjectId}
-              appProjectId={vm.appProjectId}
-              chatId={vm.chatId}
-              activeVersionId={vm.activeVersionId}
-            />
+            {vm.deployReadiness?.info?.lifecycleStage === "integrations" ? (
+              <ProjectEnvVarsPanel
+                externalProjectId={vm.externalProjectId}
+                appProjectId={vm.appProjectId}
+                chatId={vm.chatId}
+                activeVersionId={vm.activeVersionId}
+              />
+            ) : (
+              <div className="border-border bg-muted/40 text-muted-foreground mx-3 mt-2 rounded-md border px-3 py-2 text-xs leading-relaxed">
+                <span className="text-foreground font-medium">
+                  Env-variabler:
+                </span>{" "}
+                auto-hanterade i{" "}
+                <code className="bg-background rounded px-1 py-0.5 text-[11px]">
+                  env.example
+                </code>{" "}
+                för det här projektet. Klicka{" "}
+                <span className="text-foreground font-medium">&quot;Bygg nu&quot;</span> i
+                previewen för att fylla i riktiga värden för externa
+                integrationer.
+              </div>
+            )}
             <div className="relative min-h-0 flex-1 overflow-hidden">
               <MessageList
                 chatId={vm.chatId}
@@ -2156,9 +2172,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               pendingPlacementItem={pendingPlacementItem}
               onPlacementComplete={handlePlacementComplete}
               simplified={false}
-              onComposerAiFallback={async (payload) => {
-                const prompt = `Lägg till en "${payload.placementLabel}"-sektion ${payload.placement === "after-hero" ? "efter hero" : `vid ${payload.placement}`} på startsidan.`;
-                void vm.sendMessage(prompt);
+              onComposerAiFallback={handleComposerAiFallback}
+              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+              onF3MissingEnv={(payload) => {
+                window.dispatchEvent(
+                  new CustomEvent("project-env-vars-open", {
+                    detail: {
+                      envKeys: payload.missingByIntegration.flatMap(
+                        (entry) => entry.missing,
+                      ),
+                    },
+                  }),
+                );
               }}
               generationPhase={generationPhase}
               onInlineEditPrompt={(prompt, file) => {
@@ -2210,8 +2235,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           </div>
           <div
             className={cn(
-              "border-border bg-muted/15 flex h-full flex-col border-l motion-safe:transition-[width,background-color,border-color] motion-safe:duration-200",
-              vm.isVersionPanelCollapsed ? "w-10" : "w-80",
+              "border-border bg-background hidden h-full flex-col border-l transition-[width] duration-200 lg:flex",
+              vm.isVersionPanelCollapsed ? "lg:w-10" : "lg:w-80",
             )}
           >
             <VersionHistory

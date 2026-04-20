@@ -6,6 +6,7 @@ import type { ScaffoldId } from "../scaffolds/types";
 import type {
   FontPairing,
   ScaffoldVariant,
+  ScaffoldVariantSignaturePatterns,
   ScaffoldVariantThemeTokens,
 } from "./types";
 
@@ -35,6 +36,20 @@ function readFontPairings(value: unknown): FontPairing[] {
       return { heading, body };
     })
     .filter((item): item is FontPairing => Boolean(item));
+}
+
+function readSignaturePatterns(
+  value: unknown,
+): ScaffoldVariantSignaturePatterns | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const layouts = readStringArray(raw.layouts);
+  const motifs = readStringArray(raw.motifs);
+  const antiPatterns = readStringArray(raw.antiPatterns);
+  if (layouts.length === 0 && motifs.length === 0 && antiPatterns.length === 0) {
+    return undefined;
+  }
+  return { layouts, motifs, antiPatterns };
 }
 
 function readThemeTokens(value: unknown): ScaffoldVariantThemeTokens | undefined {
@@ -67,7 +82,7 @@ function readThemeTokens(value: unknown): ScaffoldVariantThemeTokens | undefined
   return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
-function parseVariant(filePath: string, expectedScaffoldId: ScaffoldId): ScaffoldVariant | null {
+function parseVariant(filePath: string, expectedScaffoldId: ScaffoldId): ScaffoldVariant {
   let rawJson: unknown;
   try {
     rawJson = JSON.parse(fs.readFileSync(filePath, "utf-8"));
@@ -115,10 +130,7 @@ function parseVariant(filePath: string, expectedScaffoldId: ScaffoldId): Scaffol
     signatureMotif,
     colorMode: colorMode as ScaffoldVariant["colorMode"],
     promptHints: readStringArray(raw.promptHints),
-    styleRules: readStringArray(raw.styleRules),
-    sectionInventory: readStringArray(raw.sectionInventory),
-    avoidPatterns: readStringArray(raw.avoidPatterns),
-    worldClassRubric: readStringArray(raw.worldClassRubric),
+    signaturePatterns: readSignaturePatterns(raw.signaturePatterns),
     themeTokens: readThemeTokens(raw.themeTokens),
     sourceTemplateIds: readStringArray(raw.sourceTemplateIds),
     default: Boolean(raw.default),
@@ -146,8 +158,7 @@ function loadVariants(): ScaffoldVariant[] {
       .map((entry) => entry.name)
       .sort((a, b) => a.localeCompare(b));
     for (const fileName of files) {
-      const variant = parseVariant(path.join(scaffoldDir, fileName), scaffoldId);
-      if (variant) variants.push(variant);
+      variants.push(parseVariant(path.join(scaffoldDir, fileName), scaffoldId));
     }
   }
 

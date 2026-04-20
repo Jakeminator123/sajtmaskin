@@ -32,6 +32,7 @@ import {
 } from "./finalize-preflight";
 import { mergeGeneratedProjectFiles } from "./finalize-merge";
 import { injectIntegrationManifestIntoFilesJson } from "@/lib/integrations/inject-integration-manifest";
+import { injectProjectEnvFileIntoFilesJson } from "@/lib/gen/preview/project-env-file";
 import {
   buildPersistedOrchestrationSnapshot,
   mergePersistedOrchestrationSnapshots,
@@ -58,8 +59,6 @@ export interface FinalizeParams {
   orchestrationContract?: OrchestrationContract | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: Record<string, string>;
-  /** User-provided image URLs to prefer over Unsplash during image materialization. */
-  userMediaUrls?: string[];
   startedAt: number;
   runAutofix?: boolean;
   tokenUsage?: { prompt?: number; completion?: number };
@@ -79,6 +78,20 @@ export interface FinalizeParams {
    * Used by autofix so a repair attempt replaces v1 in-place rather than minting v2.
    */
   targetVersionId?: string | null;
+  /**
+   * F3 only: id of the F2 design version this build is forked from.
+   * Stored on the new `engine_versions` row as `parent_version_id`.
+   * Set by the `/finalize-design` flow; ignored when `buildSpec.previewPolicy`
+   * is not `fidelity3`.
+   */
+  lifecycleParentVersionId?: string | null;
+  /**
+   * Concatenated reasoning text from the live stream. Persisted on the
+   * assistant message so the builder UI can re-render the "thinking"
+   * panel after a refresh. `null` when the model emitted no reasoning
+   * deltas (e.g. fast-tier responses).
+   */
+  accumulatedThinking?: string | null;
 }
 
 export interface FinalizeResult {
@@ -91,6 +104,8 @@ export interface FinalizeResult {
   filesJson: string;
   contentForVersion: string;
   preflight: PreviewPreflightSummary;
+  /** Files whose new content was rejected (< 50% of prior size). Surfaced to user via SSE. */
+  rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
 }
 
 interface FinalizePathPolicy {
@@ -100,6 +115,125 @@ interface FinalizePathPolicy {
     | "fast_path_disabled_by_flag"
     | "repair_pass"
     | "light_followup_fast_policy";
+}
+
+async function runPreVmTypecheckPhase(params: {
+  chatId: string;
+  contentForVersion: string;
+  buildSpec?: BuildSpec | null;
+  resolvedScaffold: ScaffoldManifest | null;
+  onProgress?: FinalizeProgressCallback;
+  stepTelemetry: FinalizeStepTelemetryMap;
+  setContent: (next: string) => void;
+}): Promise<void> {
+  const startedAt = Date.now();
+  params.onProgress?.("pre_vm_typecheck", { phase: "start" });
+  try {
+    const { runPreVmTypecheck, formatTypecheckDiagnosticsForRepair } = await import(
+      "@/lib/gen/preview/warm-typecheck"
+    );
+    const { parseCodeProject } = await import("@/lib/gen/parser");
+    const project = parseCodeProject(params.contentForVersion).files;
+    const result = await runPreVmTypecheck({
+      scaffoldId: params.resolvedScaffold?.id ?? null,
+      files: project,
+      force: params.buildSpec?.previewPolicy === "fidelity3",
+    });
+    if (result.skipped) {
+      params.onProgress?.("pre_vm_typecheck", {
+        phase: "done",
+        durationMs: result.durationMs,
+        skipped: result.skipped,
+      });
+      params.stepTelemetry.pre_vm_typecheck = {
+        status: "skipped",
+        durationMs: result.durationMs,
+        reason: result.skipped,
+      };
+      return;
+    }
+    if (result.ok) {
+      params.onProgress?.("pre_vm_typecheck", {
+        phase: "done",
+        durationMs: result.durationMs,
+        diagnosticCount: 0,
+      });
+      params.stepTelemetry.pre_vm_typecheck = {
+        status: "done",
+        durationMs: result.durationMs,
+        diagnosticCount: 0,
+      };
+      return;
+    }
+
+    devLogAppend("in-progress", {
+      type: "pre-vm-typecheck.diagnostics",
+      chatId: params.chatId,
+      diagnosticCount: result.diagnostics.length,
+      sample: result.diagnostics.slice(0, 5),
+    });
+
+    // Try one repair pass via the LLM fixer with diagnostics as input.
+    try {
+      const { runLlmFixer: runLlmFixerLazy } = await import(
+        "@/lib/gen/autofix/llm-fixer"
+      );
+      const errors = formatTypecheckDiagnosticsForRepair(result.diagnostics);
+      const repaired = await runLlmFixerLazy(params.contentForVersion, errors, {});
+      if (repaired.success && repaired.fixedContent) {
+        // post-LLM mechanical pass: cleans up artifacts the LLM fixer may have
+        // introduced (bare imports, missing aliases). Always required after a
+        // fresh LLM output — not idempotent with the outer autofix earlier in
+        // the pipeline because content has changed.
+        const reFixed = await runAutoFix(repaired.fixedContent, {
+          previewPolicy: params.buildSpec?.previewPolicy,
+        });
+        params.setContent(reFixed.fixedContent);
+        params.onProgress?.("pre_vm_typecheck", {
+          phase: "repaired",
+          durationMs: Date.now() - startedAt,
+          diagnosticCount: result.diagnostics.length,
+        });
+        params.stepTelemetry.pre_vm_typecheck = {
+          status: "done",
+          durationMs: Date.now() - startedAt,
+          diagnosticCount: result.diagnostics.length,
+          repaired: true,
+        };
+        return;
+      }
+    } catch (repairErr) {
+      devLogAppend("in-progress", {
+        type: "pre-vm-typecheck.repair-error",
+        chatId: params.chatId,
+        message: repairErr instanceof Error ? repairErr.message : String(repairErr),
+      });
+    }
+
+    // Repair did not run or did not improve — log and continue.
+    params.onProgress?.("pre_vm_typecheck", {
+      phase: "done",
+      durationMs: Date.now() - startedAt,
+      diagnosticCount: result.diagnostics.length,
+      repaired: false,
+    });
+    params.stepTelemetry.pre_vm_typecheck = {
+      status: "done",
+      durationMs: Date.now() - startedAt,
+      diagnosticCount: result.diagnostics.length,
+      repaired: false,
+    };
+  } catch (err) {
+    params.onProgress?.("pre_vm_typecheck", {
+      phase: "error",
+      durationMs: Date.now() - startedAt,
+    });
+    params.stepTelemetry.pre_vm_typecheck = {
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      reason: err instanceof Error ? err.message : "unknown",
+    };
+  }
 }
 
 type FinalizeStepStatus = "done" | "skipped" | "error";
@@ -178,8 +312,8 @@ function buildVerifierFailureLogs(params: {
   return blockingFindings.map((finding) => ({
     chatId,
     versionId,
-    level: "warning" as const,
-    category: "quality-gate:verifier",
+    level: "error" as const,
+    category: "quality-gate:verifier-blocking",
     message: finding.detail,
     meta: {
       verifierFindingId: finding.id,
@@ -332,13 +466,14 @@ async function tryRepairPartialFileOutput(params: {
   chatId: string;
   resolvedTier?: CanonicalModelId;
   partialFileIssues: string[];
+  previewPolicy?: BuildSpec["previewPolicy"];
 }): Promise<{
   repairedContent: string | null;
   attempts: number;
   succeeded: boolean;
   partialFiles: string[];
 }> {
-  const { contentForVersion, chatId, resolvedTier, partialFileIssues } = params;
+  const { contentForVersion, chatId, resolvedTier, partialFileIssues, previewPolicy } = params;
   const partialFiles = extractPartialFileNames(partialFileIssues);
   if (partialFiles.length === 0) {
     return {
@@ -374,7 +509,10 @@ async function tryRepairPartialFileOutput(params: {
       if (!result.success && !result.partial) {
         break;
       }
-      const reFixed = await runAutoFix(result.fixedContent);
+      // post-LLM mechanical pass on partial-file repair output. Required
+      // because LLM fixer may emit imports/structure that need normalization
+      // before parse/merge runs again.
+      const reFixed = await runAutoFix(result.fixedContent, { previewPolicy });
       devLogAppend("in-progress", {
         type: "partial-file-repair.outcome",
         chatId,
@@ -416,11 +554,32 @@ async function tryRepairPartialFileOutput(params: {
   };
 }
 
+const IMAGERY_PROMPT_PATTERN =
+  /\b(bild|bilder|bildspel|foto|foton|hero|galleri|gallery|image|images|photo|photos|carousel|slideshow|illustration|illustrations|illustrat|porträtt|portrait|video|film|media|spela|player|uppspelning|poster|thumbnail|embed|iframe)\b/i;
+
+const IMAGERY_PLACEHOLDER_PATTERN =
+  /\/placeholder\.svg|UNSPLASH_PLACEHOLDER|via\.placeholder\.com|placehold\.co/i;
+
+function followUpRequestsImagery(params: {
+  originalPrompt?: string;
+  accumulatedContent?: string;
+}): boolean {
+  if (params.originalPrompt && IMAGERY_PROMPT_PATTERN.test(params.originalPrompt)) {
+    return true;
+  }
+  if (params.accumulatedContent && IMAGERY_PLACEHOLDER_PATTERN.test(params.accumulatedContent)) {
+    return true;
+  }
+  return false;
+}
+
 function resolveFinalizePathPolicy(params: {
   buildSpec?: BuildSpec | null;
   repairPassIndex: number;
+  originalPrompt?: string;
+  accumulatedContent?: string;
 }): FinalizePathPolicy {
-  const { buildSpec, repairPassIndex } = params;
+  const { buildSpec, repairPassIndex, originalPrompt, accumulatedContent } = params;
   if (!FEATURES.useFinalizeDeepPath) {
     // Historical env naming: false here disables the light pipeline shortcut
     // and keeps finalize on the full pipeline for every run.
@@ -435,6 +594,13 @@ function resolveFinalizePathPolicy(params: {
     buildSpec?.contextPolicy === "light" &&
     (buildSpec?.changeScope === "copy" || buildSpec?.changeScope === "local-layout");
   if (isLightFollowUp) {
+    // Light path skips `materialize_images`. If the user explicitly asked for
+    // imagery (or the model emitted placeholders), force the deep path so
+    // Unsplash materialization actually runs — otherwise the preview ships
+    // with `/placeholder.svg` instead of the requested photo.
+    if (followUpRequestsImagery({ originalPrompt, accumulatedContent })) {
+      return { runDeepPath: true, reason: "default" };
+    }
     return { runDeepPath: false, reason: "light_followup_fast_policy" };
   }
   return { runDeepPath: true, reason: "default" };
@@ -478,7 +644,12 @@ async function runFinalizeFastPath(params: {
   contentForVersion: string;
   finalizePath: FinalizePathPolicy;
   repairPassIndex: number;
-  userMediaUrls?: string[];
+  /**
+   * True when the caller already ran a deterministic autofix pass on
+   * `contentForVersion`. Forwarded to `validateAndFix` to skip its
+   * redundant initial mechanical pass.
+   */
+  alreadyMechanicallyFixed: boolean;
 }): Promise<FinalizeFastPathResult> {
   const {
     chatId,
@@ -494,6 +665,7 @@ async function runFinalizeFastPath(params: {
     onProgress,
     finalizePath,
     repairPassIndex,
+    alreadyMechanicallyFixed,
   } = params;
   let contentForVersion = params.contentForVersion;
   const stepTelemetry: FinalizeStepTelemetryMap = {};
@@ -512,6 +684,8 @@ async function runFinalizeFastPath(params: {
     chatId,
     model,
     resolvedTier,
+    previewPolicy: buildSpec?.previewPolicy,
+    alreadyMechanicallyFixed,
     onProgress: (evt) => {
       onProgress?.("validate_syntax", {
         pass: evt.pass,
@@ -552,6 +726,21 @@ async function runFinalizeFastPath(params: {
     });
   }
 
+  // Pre-VM typecheck (warm scaffold cache). Fail-open: when the cache
+  // isn't provisioned in this environment we just continue. F3 gens
+  // force the check so the integrations build always pays for it.
+  await runPreVmTypecheckPhase({
+    chatId,
+    contentForVersion,
+    buildSpec,
+    resolvedScaffold,
+    onProgress,
+    stepTelemetry,
+    setContent: (next) => {
+      contentForVersion = next;
+    },
+  });
+
   ensureNonEmptyGenerationContent({
     contentForVersion,
     chatId,
@@ -565,7 +754,7 @@ async function runFinalizeFastPath(params: {
     const maxReplacements = resolveImageMaterializationLimit(buildSpec);
     onProgress?.("materialize_images", { phase: "start" });
     try {
-      const imgResult = await materializeImages(contentForVersion, { maxReplacements, userMediaUrls: params.userMediaUrls });
+      const imgResult = await materializeImages(contentForVersion, { maxReplacements });
       if (imgResult.replacedCount > 0) {
         contentForVersion = imgResult.content;
         devLogAppend("in-progress", {
@@ -660,13 +849,15 @@ async function runFinalizeFastPath(params: {
     }>
   ).map((f) => ({ ...f, language: f.language || "tsx" }));
 
-  filesJson = mergeGeneratedProjectFiles({
+  const mergeResult = mergeGeneratedProjectFiles({
     chatId,
     originalFilesJson: filesJson,
     generatedFiles,
     resolvedScaffold,
     previousFiles,
   });
+  filesJson = mergeResult.filesJson;
+  const rejectedShrinks = mergeResult.rejectedShrinks;
 
   if (previousFiles && previousFiles.length > 0) {
     const previousContentLen = previousFiles.reduce((sum, f) => sum + (f.content?.length ?? 0), 0);
@@ -704,7 +895,35 @@ async function runFinalizeFastPath(params: {
     originalPrompt,
   });
   filesJson = preflightResult.filesJson;
-  filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
+  const envLifecycleStage =
+    buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design";
+  filesJson = injectIntegrationManifestIntoFilesJson(filesJson, {
+    lifecycleStage: envLifecycleStage,
+  });
+
+  // Cache appProjectId across both injection callsites (initial + post
+  // partial-file-repair). Lookup is lazy because most generations don't
+  // hit the repair branch.
+  let cachedAppProjectId: string | null | undefined;
+  const resolveAppProjectId = async (): Promise<string | null> => {
+    if (cachedAppProjectId !== undefined) return cachedAppProjectId;
+    try {
+      const row = await chatRepo.getChat(chatId);
+      const pid =
+        typeof row?.project_id === "string" && row.project_id.trim()
+          ? row.project_id.trim()
+          : null;
+      cachedAppProjectId = pid;
+      return pid;
+    } catch {
+      cachedAppProjectId = null;
+      return null;
+    }
+  };
+  filesJson = await injectProjectEnvFileIntoFilesJson(filesJson, {
+    appProjectId: await resolveAppProjectId(),
+    lifecycleStage: envLifecycleStage,
+  });
   let finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
   let preflightFileCount = preflightResult.preflightFileCount;
   let preflightIssues = preflightResult.preflightIssues;
@@ -731,6 +950,7 @@ async function runFinalizeFastPath(params: {
       chatId,
       resolvedTier,
       partialFileIssues,
+      previewPolicy: buildSpec?.previewPolicy,
     });
     const repairedContent = partialRepair.repairedContent;
 
@@ -741,13 +961,14 @@ async function runFinalizeFastPath(params: {
         JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>
       ).map((f) => ({ ...f, language: f.language || "tsx" }));
 
-      filesJson = mergeGeneratedProjectFiles({
+      const remergeResult = mergeGeneratedProjectFiles({
         chatId,
         originalFilesJson: filesJson,
         generatedFiles: reGeneratedFiles,
         resolvedScaffold,
         previousFiles,
       });
+      filesJson = remergeResult.filesJson;
 
       preflightResult = await runFinalizePreflight({
         chatId,
@@ -760,7 +981,13 @@ async function runFinalizeFastPath(params: {
         originalPrompt,
       });
       filesJson = preflightResult.filesJson;
-      filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
+      filesJson = injectIntegrationManifestIntoFilesJson(filesJson, {
+        lifecycleStage: envLifecycleStage,
+      });
+      filesJson = await injectProjectEnvFileIntoFilesJson(filesJson, {
+        appProjectId: await resolveAppProjectId(),
+        lifecycleStage: envLifecycleStage,
+      });
       finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
       preflightFileCount = preflightResult.preflightFileCount;
       preflightIssues = preflightResult.preflightIssues;
@@ -846,9 +1073,17 @@ async function runFinalizeFastPath(params: {
 }
 
 /**
- * Shared post-generation pipeline: autofix -> URL expansion -> syntax validate/fix ->
+ * Shared post-generation pipeline: URL expansion -> autofix -> syntax validate/fix ->
  * image materialize -> optional verifier -> file parsing -> scaffold merge ->
  * preflight -> assistant message -> version save.
+ *
+ * Why URL expansion runs first: `expandUrls` rewrites `{{MEDIA_N}}` aliases into
+ * real URLs, which can appear inside import paths. Running autofix on aliased
+ * paths could mis-trigger import rewrites (F2 SDK guard, bare-import resolver),
+ * so we expand first and then let the deterministic autofix see the final
+ * import strings. The internal `runAutoFix` call inside `validateAndFix` is
+ * therefore redundant on this path and is suppressed via
+ * `alreadyMechanicallyFixed: true`.
  *
  * Assistant row + draft version are persisted in one DB transaction (no orphan assistant
  * if version insert fails). Steps after that (preflight error logs, telemetry, generation
@@ -871,7 +1106,6 @@ export async function finalizeAndSaveVersion(
     orchestrationContract,
     resolvedScaffold,
     urlMap,
-    userMediaUrls,
     startedAt,
     runAutofix = true,
     tokenUsage,
@@ -882,10 +1116,16 @@ export async function finalizeAndSaveVersion(
     repairPassIndex = 0,
     lineageHash,
     targetVersionId,
+    lifecycleParentVersionId,
   } = params;
 
   let contentForVersion = accumulatedContent;
-  const finalizePath = resolveFinalizePathPolicy({ buildSpec, repairPassIndex });
+  const finalizePath = resolveFinalizePathPolicy({
+    buildSpec,
+    repairPassIndex,
+    originalPrompt,
+    accumulatedContent,
+  });
   let autoFixFixCount = 0;
   let autoFixWarningCount = 0;
   let autoFixDependencyCount = 0;
@@ -906,16 +1146,31 @@ export async function finalizeAndSaveVersion(
     finalizePathReason: finalizePath.reason,
   });
 
-  // 1. Autofix
+  // 1. URL expansion — runs before autofix so {{MEDIA_N}} aliases inside
+  // import paths are rewritten to real URLs before any deterministic
+  // import rewriting (F2 SDK guard, bare-import resolver) inspects them.
+  const urlExpandStartedAt = Date.now();
+  onProgress?.("url_expand", { phase: "start" });
+  contentForVersion = expandUrls(accumulatedContent, urlMap);
+  onProgress?.("url_expand", { phase: "done", durationMs: Date.now() - urlExpandStartedAt });
+  finalizeStepTelemetry.url_expand = createFinalizeStepTelemetry(urlExpandStartedAt, "done");
+
+  // 2. Autofix — operates on URL-expanded content.
+  // idempotent: validateAndFix downstream is told to skip its initial mechanical
+  // pass (alreadyMechanicallyFixed: true) since nothing between here and there
+  // mutates contentForVersion.
+  let autofixSucceeded = false;
   if (runAutofix) {
     const autoFixStartedAt = Date.now();
     onProgress?.("autofix", { phase: "start", chatId });
     try {
-      const autoFixResult = await runAutoFix(accumulatedContent, {
+      const autoFixResult = await runAutoFix(contentForVersion, {
         chatId,
         model,
+        previewPolicy: buildSpec?.previewPolicy,
       });
       contentForVersion = autoFixResult.fixedContent;
+      autofixSucceeded = true;
       autoFixFixCount = autoFixResult.fixes.length;
       autoFixWarningCount = autoFixResult.warnings.length;
       autoFixDependencyCount = Object.keys(autoFixResult.dependencies).length;
@@ -965,13 +1220,6 @@ export async function finalizeAndSaveVersion(
     });
   }
 
-  // 2. URL expansion (before verifier / parse)
-  const urlExpandStartedAt = Date.now();
-  onProgress?.("url_expand", { phase: "start" });
-  contentForVersion = expandUrls(contentForVersion, urlMap);
-  onProgress?.("url_expand", { phase: "done", durationMs: Date.now() - urlExpandStartedAt });
-  finalizeStepTelemetry.url_expand = createFinalizeStepTelemetry(urlExpandStartedAt, "done");
-
   const {
     contentForVersion: fastPathContent,
     syntaxResult,
@@ -999,7 +1247,7 @@ export async function finalizeAndSaveVersion(
     contentForVersion,
     finalizePath,
     repairPassIndex,
-    userMediaUrls,
+    alreadyMechanicallyFixed: autofixSucceeded,
   });
   contentForVersion = fastPathContent;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
@@ -1007,14 +1255,23 @@ export async function finalizeAndSaveVersion(
   // 5–6. Persist assistant + version atomically after merge/preflight.
   // When targetVersionId is set (autofix / repair), update existing version in-place
   // instead of minting a new version number.
+  const thinkingForPersist =
+    typeof params.accumulatedThinking === "string" && params.accumulatedThinking.length > 0
+      ? params.accumulatedThinking
+      : null;
   const { message: assistantMsg, version: initialVersion } = targetVersionId
     ? await chatRepo.addAssistantMessageAndUpdateExistingVersion(
         chatId,
         targetVersionId,
         contentForVersion,
         filesJson,
+        { thinking: thinkingForPersist },
       )
-    : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson);
+    : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson, {
+        lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",
+        parentVersionId: lifecycleParentVersionId ?? null,
+        thinking: thinkingForPersist,
+      });
   let version = initialVersion;
   devLogAppend("in-progress", {
     type: "version.created",
@@ -1096,6 +1353,18 @@ export async function finalizeAndSaveVersion(
   if (verifierFailureLogs.length > 0) {
     preflightLogs.push(...verifierFailureLogs);
   }
+  // Verifier-blocking findings need to actually gate the version. The
+  // preflight bundle only knows about preflight errors, so we OR the verifier
+  // signal in here and use the effective flag for telemetry, generation log
+  // status, and `failVersionVerification` below.
+  const verifierBlocked = verifierBlockingFindings.length > 0;
+  const hasVerificationBlockingErrors =
+    hasVerificationBlockingPreflightErrors || verifierBlocked;
+  const verificationFailureSummary = verifierBlocked
+    ? hasVerificationBlockingPreflightErrors
+      ? `${preflightFailureSummary} Verifier reported ${verifierBlockingFindings.length} blocking finding(s).`
+      : `Verifier reported ${verifierBlockingFindings.length} blocking finding(s).`
+    : preflightFailureSummary;
   if (autoFixHeavyLoad) {
     preflightLogs.push({
       chatId,
@@ -1124,7 +1393,8 @@ export async function finalizeAndSaveVersion(
     issueCount: preflightIssues.length,
     errorCount: preflightErrors.length,
     warningCount: preflightWarnings.length,
-    verificationBlocked: hasVerificationBlockingPreflightErrors,
+    verificationBlocked: hasVerificationBlockingErrors,
+    verifierBlocked,
     previewBlocked: hasPreviewBlockingPreflightErrors,
     previewBlockingReason,
     scaffoldRetry,
@@ -1136,7 +1406,7 @@ export async function finalizeAndSaveVersion(
     versionId: version.id,
     fileCount: preflightFileCount,
     issueCount: preflightIssues.length,
-    verificationBlocked: hasVerificationBlockingPreflightErrors,
+    verificationBlocked: hasVerificationBlockingErrors,
     previewBlocked: hasPreviewBlockingPreflightErrors,
   });
   try {
@@ -1172,7 +1442,9 @@ export async function finalizeAndSaveVersion(
       },
       preflight: {
         previewBlocked: hasPreviewBlockingPreflightErrors,
-        verificationBlocked: hasVerificationBlockingPreflightErrors,
+        verificationBlocked: hasVerificationBlockingErrors,
+        verifierBlocked,
+        verifierBlockingFindingCount: verifierBlockingFindings.length,
         issueCount: preflightIssues.length,
         previewFileCount: finalizedFilesForPreview.length,
         unresolvedImportFallbackUsed: preflightResult.unresolvedImportFallbackUsed,
@@ -1225,7 +1497,7 @@ export async function finalizeAndSaveVersion(
       preflightWarningCount: preflightWarnings.length,
       previewSuccess: !hasPreviewBlockingPreflightErrors,
       previewBlockingReason,
-      qualityGateResult: hasVerificationBlockingPreflightErrors
+      qualityGateResult: hasVerificationBlockingErrors
         ? "preflight_failed"
         : "preflight_passed",
       durationMs: Date.now() - startedAt,
@@ -1254,8 +1526,8 @@ export async function finalizeAndSaveVersion(
         completion: tokenUsage?.completion,
       },
       Date.now() - startedAt,
-      !hasVerificationBlockingPreflightErrors,
-      hasVerificationBlockingPreflightErrors ? preflightFailureSummary : logNote,
+      !hasVerificationBlockingErrors,
+      hasVerificationBlockingErrors ? verificationFailureSummary : logNote,
     );
     devLogAppend("in-progress", {
       type: "generation-log.persisted",
@@ -1277,11 +1549,11 @@ export async function finalizeAndSaveVersion(
     });
   }
 
-  if (hasVerificationBlockingPreflightErrors) {
+  if (hasVerificationBlockingErrors) {
     try {
       const failedVersion = await chatRepo.failVersionVerification(
         version.id,
-        preflightFailureSummary,
+        verificationFailureSummary,
       );
       if (failedVersion?.id) {
         version = failedVersion;
@@ -1291,6 +1563,7 @@ export async function finalizeAndSaveVersion(
         chatId,
         versionId: version.id,
         errorCount: preflightErrors.length,
+        verifierBlockingFindingCount: verifierBlockingFindings.length,
       });
     } catch (verificationErr) {
       console.warn("[preflight] Failed to mark version failed after blocking errors:", verificationErr);
@@ -1324,7 +1597,8 @@ export async function finalizeAndSaveVersion(
     contentLen: contentForVersion.length,
     scaffold: resolvedScaffold?.id ?? null,
     previewBlocked: hasPreviewBlockingPreflightErrors,
-    verificationBlocked: hasVerificationBlockingPreflightErrors,
+    verificationBlocked: hasVerificationBlockingErrors,
+    verifierBlocked,
   });
 
   return {
@@ -1336,7 +1610,7 @@ export async function finalizeAndSaveVersion(
     filesJson,
     contentForVersion,
     preflight: {
-      verificationBlocked: hasVerificationBlockingPreflightErrors,
+      verificationBlocked: hasVerificationBlockingErrors,
       previewBlocked: hasPreviewBlockingPreflightErrors,
       issueCount: preflightIssues.length,
       errorCount: preflightErrors.length,
@@ -1348,5 +1622,6 @@ export async function finalizeAndSaveVersion(
       scaffoldRetry,
       routePlan,
     },
+    rejectedShrinks: rejectedShrinks ?? [],
   };
 }

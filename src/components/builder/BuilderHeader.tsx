@@ -389,27 +389,44 @@ export function BuilderHeader(props: {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Generering</DropdownMenuLabel>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={enableThinking}
-                      onCheckedChange={onEnableThinkingChange}
-                      disabled={isConfigLocked}
-                    >
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Resonemang
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    Aktiverar mer resonemang i AI-svaret. Ger högre kvalitet men kan ta längre tid.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {/* Fast-tier (gpt-5.4-fast) does not support reasoning deltas
+                in the manifest — server-side phase routing already forces
+                thinking=false for this tier. We mirror that here so the
+                user gets immediate feedback instead of toggling a setting
+                that has no effect. */}
+            {(() => {
+              const thinkingUnsupportedForTier = selectedModelTier === "fast";
+              return (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <DropdownMenuCheckboxItem
+                          checked={enableThinking && !thinkingUnsupportedForTier}
+                          onCheckedChange={onEnableThinkingChange}
+                          disabled={isConfigLocked || thinkingUnsupportedForTier}
+                        >
+                          <Wand2 className="mr-2 h-4 w-4" />
+                          Resonemang
+                          {thinkingUnsupportedForTier && (
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              (ej i Snabb)
+                            </span>
+                          )}
+                        </DropdownMenuCheckboxItem>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs">
+                      <p className="text-xs">
+                        {thinkingUnsupportedForTier
+                          ? "Snabb-modellen stödjer inte resonemang. Välj Lagom eller Tanker för att aktivera resonemang."
+                          : "Aktiverar mer resonemang i AI-svaret. Ger högre kvalitet men kan ta längre tid."}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })()}
 
             <TooltipProvider>
               <Tooltip>
@@ -619,6 +636,7 @@ export function BuilderHeader(props: {
                     window.open(
                       `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
                       "_blank",
+                      "noopener,noreferrer",
                     );
                   }
                 }}
@@ -818,7 +836,13 @@ export function BuilderHeader(props: {
             size="sm"
             variant="outline"
             className="border-green-500 text-green-600"
-            onClick={() => window.open(deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`, "_blank")}
+            onClick={() =>
+              window.open(
+                deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`,
+                "_blank",
+                "noopener,noreferrer",
+              )
+            }
           >
             <Globe className="h-4 w-4" />
             <span className="hidden sm:inline">Publicerad</span>

@@ -123,7 +123,11 @@ vi.mock("@/lib/db/services/prompt-logs", () => ({
 vi.mock("@/lib/models/selection", () => ({
   resolveModelSelection: () => ({
     modelId: "test-model-id",
-    modelTier: "test-tier",
+    // Must be a real tier from manifest.phaseRouting (e.g. "fast", "pro") —
+    // resolvePhaseModel/resolvePhaseThinking now throw a clear error for
+    // unknown tiers instead of silently crashing with "Cannot read
+    // properties of undefined".
+    modelTier: "fast",
   }),
   resolveEngineModelId: () => "gpt-5.4",
 }));
@@ -618,6 +622,13 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
   });
 
   it("returns awaiting-input done output for tool-only empty generations", async () => {
+    // The mocked pipeline stands in for what `createOwnEnginePipelineAndGenerationStream`
+    // would produce. The real generation-stream layer translates raw AI SDK
+    // tool-call parts (suggestIntegration, requestEnvVar, askClarifyingQuestion)
+    // into `integration` / `tool-call` SSE events — see
+    // `src/lib/providers/own-engine/generation-stream-tools.ts:60-80`. The
+    // route then swallows `integration` events on F2-init via
+    // `includeIntegrationSignals: false` (assertion below verifies that).
     createGenerationPipeline.mockReturnValue(
       buildPipelineStream([
         {
@@ -668,21 +679,22 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
     const integrationEvent = events.find((event) => event.event === "integration");
     const doneEvent = events.find((event) => event.event === "done");
 
-    expect(integrationEvent?.data).toMatchObject({
-      items: [
-        expect.objectContaining({
-          key: "supabase",
-          envVars: ["SUPABASE_URL"],
-          status: "Kräver konfiguration",
-        }),
-      ],
-    });
+    // F2-init (new-chat) explicitly sets `includeIntegrationSignals: false`
+    // — see create-chat-stream-post.ts ~line 777 and the comment about env-
+    // var prompts belonging to the F3 ("Bygg integrationer") flow. The
+    // integration event the pipeline emits is intentionally swallowed here
+    // and forwarded only through chat-message-stream-post.ts in F3.
+    expect(integrationEvent).toBeUndefined();
+    // `suggestIntegration` is informational, not blocking — only
+    // `askClarifyingQuestion` flips `sawBlockingToolCall=true` (see
+    // generation-stream.ts:142-148). `awaitingInput` therefore stays false
+    // here even though `toolCalls` includes the suggestion.
     expect(doneEvent?.data).toMatchObject({
       chatId: "engine_chat_1",
       versionId: null,
       messageId: null,
       previewUrl: null,
-      awaitingInput: true,
+      awaitingInput: false,
       reason: "done_empty_output",
       toolCalls: ["suggestIntegration"],
     });

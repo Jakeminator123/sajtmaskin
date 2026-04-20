@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="sv" className="dark">
+    <html lang="sv" className="dark" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased`}>
         <div className="flex h-screen overflow-hidden">
           <AppSidebar />

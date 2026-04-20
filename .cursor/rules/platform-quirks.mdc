@@ -7,6 +7,8 @@ alwaysApply: false
 
 Använd vid plattforms-, shell-, Playwright-, stream- eller preview-skrivningskänsliga uppgifter.
 
-**PowerShell:** inga bash-heredocs (`<<'EOF'`). Git commit: `@' ... '@ | git commit -F -` eller flera `-m`. Vercel env via pipe kan ge `\n` i värdet — tempfil + `cmd /c "type ..."`. Undvik långa `node -e` / `python -c` med nästlade citat; använd repo-scripts eller filer.
+**Shell-default:** PowerShell 7 (`pwsh.exe` från `C:\Program Files\PowerShell\7\`). Konfigurerad via `.vscode/settings.json` `terminal.integrated.defaultProfile.windows` + `automationProfile.windows` (subagent-terminaler). Använd `pwsh`-syntax, inte legacy `powershell` 5.x. Om en subagent verkar köra äldre powershell: kontrollera `$PSVersionTable.PSVersion` — ska vara 7.x.
+
+**PowerShell:** inga bash-heredocs (`<<'EOF'`). Git commit: skriv message till tempfil + `git commit -F filename` (eller flera `-m`). Vercel env via pipe kan ge `\n` i värdet — tempfil + `cmd /c "type ..."`. Undvik långa `node -e` / `python -c` med nästlade citat; använd repo-scripts eller filer. `Select-Object` finns INTE i cmd-shells — kör via `powershell -Command`. Citat-escape: `\"` funkar inte i PowerShell-strings → använd här-strings (`@" ... "@`) eller skriv till fil först.
 
 **Runtime:** Vercel Sandbox (stor upload): `sandbox.writeFiles([{ path, content: Buffer.from(str, "utf-8") }])`. Playwright: ev. `npx playwright install chromium`. Stream proxy: inte `reader.releaseLock()` medan `read()` väntar — avbryt via `reader.cancel()` i `ReadableStream.cancel()`.

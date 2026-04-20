@@ -62,4 +62,10 @@ export type PreviewDestroyApiJson = {
   tier2Provider?: "preview_host" | null;
   reason?: string;
   message?: string;
+  /**
+   * True when local state was cleared but the host destroy call returned
+   * a retryable failure (e.g. 5xx). The host will reap the orphan via idle
+   * TTL or `/admin/cleanup`; the user is no longer pointing at the zombie.
+   */
+  providerDestroyDeferred?: boolean;
 };

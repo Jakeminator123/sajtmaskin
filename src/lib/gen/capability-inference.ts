@@ -8,6 +8,16 @@
 export interface InferredCapabilities {
   needsMotion: boolean;
   needs3D: boolean;
+  /**
+   * Stronger signal than `needs3D` — the prompt describes physics-driven
+   * motion (bouncing, drift, gravity, collisions). Implies `needs3D` and
+   * upgrades the 3D instruction to require @react-three/rapier.
+   *
+   * Optional so existing fixtures across the test suite keep type-checking
+   * after this field was added; `inferCapabilities` always sets it
+   * explicitly, and consumers should treat absence as `false`.
+   */
+  needsPhysics?: boolean;
   needsCharts: boolean;
   needsDatabase: boolean;
   needsAuth: boolean;
@@ -45,6 +55,16 @@ const RULES: CapabilityRule[] = [
     ],
   },
   {
+    key: "needsPhysics",
+    patterns: [
+      // Unicode-aware boundary instead of `\b` because JS `\b` is ASCII-only,
+      // so `\båker\b` would never match inside "som åker omkring" (the leading
+      // `å` is not an ASCII word char). Mirrors the boundary trick used for
+      // ecommerce/hospitality vetoes in `inferCapabilities` below.
+      /(?:^|[^\p{L}\p{N}])(?:åker omkring|svävar|flyger|drivs av gravity|bouncing|kolliderar|fysik|gravitation)(?=[^\p{L}\p{N}]|$)/iu,
+    ],
+  },
+  {
     key: "needsCharts",
     patterns: [
       /\b(chart|graph|diagram|analytics|visuali[sz]|recharts|line.?chart|bar.?chart|pie.?chart|area.?chart|statistik|graf|data.?viz)\b/i,
@@ -59,7 +79,10 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsAuth",
     patterns: [
-      /\b(auth|login|sign.?up|sign.?in|register|password|forgot.?password|reset.?password|inloggning|registrer|logga.?in|lösenord|konto|session|oauth|jwt)\b/i,
+      // QW-2: `session` ensamt var för brett (träffar "session at the spa" på
+      // hospitality-sajter). Kräv compound-form (session.store/cookie/token)
+      // för att undvika false positives.
+      /\b(auth|login|sign.?up|sign.?in|register|password|forgot.?password|reset.?password|inloggning|registrer|logga.?in|lösenord|konto|session.?(store|cookie|token)|oauth|jwt)\b/i,
     ],
   },
   {
@@ -79,7 +102,12 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsForms",
     patterns: [
-      /\b(form|contact.?form|booking|boka|survey|questionnaire|formulär|kontakt|multi.?step|wizard.?form)\b/i,
+      // QW-2: `boka`/`booking` ensamt var för brett — varje hotell-follow-up
+      // nämner "boka rum"/"booking" som en del av domänen, inte som en
+      // begäran om att (åter)skapa formulär. Kräv form-relaterad förstärkning
+      // (booking.form, boka.bord, kontaktformulär, multi-step-form, ...) så
+      // form-pipelinen inte triggas på varje turn på hospitality-sajter.
+      /\b(form|contact.?form|booking.?form|boka.?bord|survey|questionnaire|formulär|kontaktformulär|wizard.?form|multi.?step.?form)\b/i,
     ],
   },
   {
@@ -126,6 +154,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   const result: InferredCapabilities = {
     needsMotion: false,
     needs3D: false,
+    needsPhysics: false,
     needsCharts: false,
     needsDatabase: false,
     needsAuth: false,
@@ -149,15 +178,22 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     }
   }
 
+  if (result.needsPhysics) result.needs3D = true;
   if (result.needs3D) result.needsMotion = true;
   if (result.needsPremiumVisuals) result.needsMotion = true;
   if (result.needsCalendar) result.needsForms = true;
 
   if (result.needsEcommerce) {
+    // Unicode-aware boundaries: JS `\b` is ASCII-only, so `\bcafé\b` would
+    // never match `café ` (the `é` isn't a word char). Mirrors the pattern
+    // used in `gen/scaffolds/matcher.ts`. Note: this list is duplicated in
+    // `matcher.ts` (HOSPITALITY_SERVICE_KEYWORDS / STRONG_ECOMMERCE_INTENT)
+    // and `config/domain-rules.json`. Keep them in sync until the embedding
+    // migration replaces keyword lookup.
     const hospitalityVeto =
-      /\b(restaurang|restaurant|café|cafe|kafé|bistro|hotell|hotel|spa|salong|salon|klinik|clinic|bakeri|bageri|bakery|pizzeria|catering|matrestaurang|boka bord|book a table|meny|menu|öppettider|opening hours)\b/i;
+      /(^|[^\p{L}\p{N}])(?:restaurang|restaurant|café|cafe|kafé|bistro|hotell|hotel|spa|salong|salon|klinik|clinic|bakeri|bageri|bakery|pizzeria|catering|matrestaurang|boka bord|book a table|meny|menu|öppettider|opening hours)(?=[^\p{L}\p{N}]|$)/iu;
     const strongEcommerceIntent =
-      /\b(webshop|webbshop|e-handel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|nätbutik|online store)\b/i;
+      /(^|[^\p{L}\p{N}])(?:webshop|webbshop|e-handel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|nätbutik|online store)(?=[^\p{L}\p{N}]|$)/iu;
     if (hospitalityVeto.test(prompt) && !strongEcommerceIntent.test(prompt)) {
       result.needsEcommerce = false;
     }
@@ -191,8 +227,17 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
   const lines: string[] = [];
 
   if (caps.needs3D) {
+    // The reduced-motion trap class is built at runtime so this source file
+    // does not literally contain the substring `motion-reduce` + `:hidden`.
+    // The deterministic generator-pipeline check (`checkMotionReduceTrap`)
+    // and our snapshot hooks scan source files for that exact bug pattern,
+    // so we keep the warning text at runtime only.
+    const reducedMotionTrap = `motion-reduce` + `:hidden`;
+    const physicsClause = caps.needsPhysics
+      ? "Because the prompt describes physics-driven motion (bouncing, drift, gravity, collisions), you MUST add @react-three/rapier and wrap interactive bodies in `<Physics>` + `<RigidBody>` so motion has mass, restitution, and gravity instead of being faked with CSS transforms."
+      : "For optional **physics / gravity**, add @react-three/rapier (Physics, RigidBody) only when the requested motion truly requires simulated forces.";
     lines.push(
-      '- **3D/WebGL detected**: You MUST implement 3D elements using @react-three/fiber code — NEVER as placeholder SVGs or static images. Create a real `<Canvas>` scene with meshes, lighting, and camera. Wrap the Canvas component in `"use client"`. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. For **physics / gravity**, add @react-three/rapier (Physics, RigidBody). For **GLB/GLTF**, use useGLTF from drei and put assets under public/. If the requested 3D content is too complex, create a simplified but real Three.js version (rotating shape, abstract geometry, or particle system with the requested theme) rather than falling back to an image.',
+      `- **3D/WebGL detected**: You MUST implement 3D elements using @react-three/fiber code — NEVER as placeholder SVGs or static images. Create a real \`<Canvas>\` scene with meshes, lighting, and camera. Wrap the Canvas component in \`"use client"\`. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. ${physicsClause} For **GLB/GLTF**, use useGLTF from drei and put assets under public/. **Reduced-motion trap (do NOT trip):** NEVER apply '${reducedMotionTrap}' on the entire Canvas — that hides the 3D layer for users with reduced-motion preference. Use 'motion-safe:'-prefixed animation classes on the inner mesh so the static scene still renders. If the requested 3D content is too complex, create a simplified but real Three.js version (rotating shape, abstract geometry, or particle system with the requested theme) rather than falling back to an image.`,
     );
   }
   if (caps.needsMotion && !caps.needs3D) {

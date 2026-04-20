@@ -11,8 +11,9 @@
     "Översikt": {
       "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För manifest vs kod som faktiskt styr modeller: vyn **LLM-faser & runtime-sanning**. Fasindelad LLM-kedja: docs/architecture/README.md. Fas 2 (orkestrering/finalize/validering): docs/architecture/fas2-orchestration-and-build.md.",
       "canonicalPaths": [
-        "config/codegen-static-prompt.json",
-        "config/prompt-static/",
+        "config/codegen-core-manifest.json",
+        "config/prompt-core/",
+        "config/integrations/tier3-sdk-deny.json",
         "config/ai_models/",
         "config/env-policy.json",
         "config/shadcn-mirror-audit-policy.json",
@@ -60,28 +61,30 @@
         "src/lib/gen/stream/finalize-version.ts"
       ]
     },
-    "Codegen static": {
-      "summary": "Ordning och lista över statiska promptfragment för own-engine. Själva texterna ligger som filer under prompt-static/.",
+    "Codegen core": {
+      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Den gamla `prompt-static/`-mappen + `codegen-static-prompt.json` togs bort 2026-04-18.",
       "canonicalPaths": [
-        "config/codegen-static-prompt.json",
-        "config/prompt-static/*.md (via fragments i JSON)"
+        "config/codegen-core-manifest.json",
+        "config/prompt-core/*.md (via fragments i JSON)"
       ],
       "docsPaths": [
-        "docs/architecture/builder-generation.md"
+        "docs/architecture/builder-generation.md",
+        "docs/architecture/glossary.md"
       ],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts",
         "src/lib/gen/system-prompt.ts"
       ]
     },
-    "prompt-static": {
-      "summary": "Markdown-fragment som concateneras till statisk systemprompt (se codegen-static-prompt.json).",
+    "prompt-core": {
+      "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-request-data.",
       "canonicalPaths": [
-        "config/prompt-static/",
-        "config/prompt-static/_READ_ME_FIRST.md"
+        "config/prompt-core/",
+        "config/prompt-core/_READ_ME_FIRST.md"
       ],
       "docsPaths": [
-        "docs/architecture/builder-generation.md"
+        "docs/architecture/builder-generation.md",
+        "docs/architecture/glossary.md"
       ],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts"
@@ -94,7 +97,8 @@
         "config/ai_models/*.md",
         "config/ai_models/*.txt",
         "config/ai_models/_READ_ME_FIRST.md",
-        "config/ai_models/40-generated-site-integration-placeholders.env.txt"
+        "config/ai_models/40-harmless-placeholders.env.txt",
+        "config/ai_models/41-tier3-stub-placeholders.env.txt"
       ],
       "docsPaths": [
         "docs/schemas/model-build-profiles.md",
@@ -117,7 +121,7 @@
         "src/lib/gen/contract/pre-generation-contracts.ts",
         "src/lib/gen/preview/env-local.ts",
         "src/lib/gen/preview/project-preview-env.ts",
-        "src/lib/gen/server-verify.ts",
+        "src/lib/gen/verify/server-verify.ts",
         "src/lib/api/engine/chats/create-chat-stream-post.ts",
         "src/lib/api/engine/chats/chat-message-stream-post.ts",
         "src/app/api/engine/chats/[chatId]/repair/route.ts",
@@ -148,53 +152,33 @@
         "src/lib/api/engine/chats/chat-message-stream-post.ts"
       ]
     },
-    "Template pipeline": {
-      "summary": "External-template research och de genererade artifacts som byggs från den. Research-data under data/ är inte runtime i sig, och current own-engine-prompten injicerar inte längre template-library-retrieval direkt. Kondenserad extern research kan dock nå modellen indirekt via scaffold-research/referenceTemplates.",
-      "canonicalPaths": [
-        "data/external-template-pipeline/",
-        "data/external-template-pipeline/raw-discovery/current/catalog.json",
-        "scripts/template-library/build-template-library.ts",
-        "scripts/template-library/hydrate-template-library-cache.ts",
-        "scripts/template-library/import-template-discovery.ts",
-        "src/lib/gen/template-library/template-library.generated.json",
-        "src/lib/gen/template-library/template-library-embeddings.json"
-      ],
-      "docsPaths": [
-        "docs/schemas/external-template-pipeline-contract.md",
-        "docs/README.md"
-      ],
-      "codeReaders": [
-        "src/lib/gen/template-library/search.ts",
-        "src/lib/gen/template-library/runtime-guidance.ts"
-      ]
-    },
     "Scaffold Lifecycle": {
-      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter -> dossier-kopplingar, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt beroendevaliderad scaffold-radering. Variants är det visuella uttrycket inom en scaffold; dossiers är build-time-källor som berikar varianterna statiskt via sourceTemplateIds.",
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter -> dossier-kopplingar, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt beroendevaliderad scaffold-radering. Variants är det visuella uttrycket inom en scaffold; dossiers är de modulära byggklossarna (data/dossiers/) som dynamiskt injiceras i system-prompten via embedding-baserat val.",
       "canonicalPaths": [
         "config/scaffold-variants/",
         "backoffice/pages/scaffold_lifecycle.py",
         "src/lib/gen/scaffold-variants/",
         "src/lib/gen/scaffolds/",
-        "scripts/template-library/build-template-library.ts",
-        "data/external-template-pipeline/reference-library/catalog.json"
+        "data/dossiers/"
       ],
       "docsPaths": [
         "docs/schemas/scaffold-contract.md",
-        "docs/schemas/external-template-pipeline-contract.md",
+        "docs/architecture/dossier-format.md",
         ".cursor/rules/scaffold-architecture.mdc"
       ],
       "codeReaders": [
         "backoffice/pages/scaffold_lifecycle.py",
         "src/lib/gen/scaffold-variants/registry.ts",
         "src/lib/gen/scaffold-variants/matcher.ts",
-        "scripts/scaffolds/derive-variants-from-dossiers.ts"
+        "scripts/scaffolds/auto-curate-variant-patterns.ts",
+        "scripts/scaffolds/generate-variant-embeddings.ts"
       ]
     },
     "Preview och versioner": {
-      "summary": "Tier-2 VM-preview, version-lifecycle, repair/promotion, prompt-dumps och de viktigaste logg-/telemetriytorna för buildern. `done` kan bära `previewPending` och `previewUrlHint` innan previewn är redo; `previewUrlHint` är tillfällig boot-hint (inte färdig previewUrl). `legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. Partial-file-output stoppas nu före versionpersist och ska därför synas som tidigt finalize-/streamfel, inte som sen preview/quality-gate-fail. Prompt-dump-status delas i den konsoliderade backoffice-appen via `backoffice/shared.py`.",
+      "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previewUrlHint` innan previewn är redo; `previewUrlHint` är tillfällig boot-hint (inte färdig previewUrl). `legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. F3 (`previewPolicy: fidelity3`) triggas explicit via `POST .../finalize-design` efter tier-3 readiness-validering — F2 är default. Partial-file-output stoppas före versionpersist och ska synas som tidigt finalize-fel.",
       "canonicalPaths": [
         "src/lib/db/engine-version-lifecycle.ts",
-        "src/lib/gen/server-verify.ts",
+        "src/lib/gen/verify/server-verify.ts",
         "src/lib/gen/prompt-dump.ts",
         "data/prompt-dumps/",
         "src/lib/providers/own-engine/generation-stream-post-finalize.ts",
@@ -204,7 +188,11 @@
         "src/app/api/engine/chats/[chatId]/preview-hibernate/route.ts",
         "src/app/api/engine/chats/[chatId]/preview-destroy/route.ts",
         "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
-        "src/app/api/engine/chats/[chatId]/repair/route.ts"
+        "src/app/api/engine/chats/[chatId]/repair/route.ts",
+        "src/app/api/engine/chats/[chatId]/finalize-design/route.ts",
+        "src/lib/integrations/tier3-build-spec.ts",
+        "src/lib/integrations/placeholder-harmless.ts",
+        "src/lib/gen/preview/warm-typecheck.ts"
       ],
       "docsPaths": [
         "docs/architecture/fas3-preview-and-deploy.md"
@@ -240,7 +228,7 @@
       ],
       "docsPaths": [
         "docs/ENV.md",
-        "config/prompt-static/01-tech-stack.md"
+        "config/prompt-core/00-core-contract.md"
       ],
       "codeReaders": [
         "scripts/audit/audit-shadcn-mirror-repos.mjs"
@@ -250,7 +238,8 @@
       "summary": "Policytext för degraded/placeholder-miljö i användarprojekt. Lista med nycklar pekas från manifest m.m.",
       "canonicalPaths": [
         "config/user_degraded_env.txt",
-        "config/ai_models/40-generated-site-integration-placeholders.env.txt"
+        "config/ai_models/40-harmless-placeholders.env.txt",
+        "config/ai_models/41-tier3-stub-placeholders.env.txt"
       ],
       "docsPaths": [
         "docs/schemas/integrations-and-data.md"

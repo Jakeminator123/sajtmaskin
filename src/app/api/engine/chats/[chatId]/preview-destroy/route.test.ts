@@ -115,7 +115,12 @@ describe("POST preview-destroy", () => {
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("v1", null);
   });
 
-  it("returns 502 when preview_host destroy fails", async () => {
+  it("clears local state and defers host destroy when preview_host returns a retryable failure", async () => {
+    // Retryable host failures (5xx, network blips) used to bubble up as a 502
+    // and leave the local Redis pointer dangling — the user could not recover
+    // from a zombie session. We now clear local state regardless and surface
+    // `providerDestroyDeferred: true`. Host orphans are reaped by idle TTL or
+    // `/admin/cleanup`.
     getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb1",
       sandboxUrl: "https://preview.example",
@@ -139,10 +144,52 @@ describe("POST preview-destroy", () => {
       { params: Promise.resolve({ chatId: "c1" }) },
     );
 
+    const body = (await res.json()) as {
+      ok: boolean;
+      destroyed?: boolean;
+      clearedPreviewUrl?: boolean;
+      providerDestroyDeferred?: boolean;
+      message?: string;
+    };
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.destroyed).toBe(false);
+    expect(body.clearedPreviewUrl).toBe(true);
+    expect(body.providerDestroyDeferred).toBe(true);
+    expect(body.message).toBe("preview-host unavailable");
+    expect(clearPreviewSessionAsync).toHaveBeenCalledWith("c1");
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("v1", null);
+  });
+
+  it("returns 400 when preview_host destroy fails non-retryably", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      sandboxId: "sb1",
+      sandboxUrl: "https://preview.example",
+      versionId: "v1",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+      tier2Provider: "preview_host",
+    });
+    destroyPreviewHostSession.mockResolvedValue({
+      ok: false,
+      message: "invalid sandboxId",
+      retryable: false,
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "sb1" }),
+      }),
+      { params: Promise.resolve({ chatId: "c1" }) },
+    );
+
     const body = (await res.json()) as { ok: boolean; reason?: string };
-    expect(res.status).toBe(502);
+    expect(res.status).toBe(400);
     expect(body.ok).toBe(false);
     expect(body.reason).toBe("destroy_failed");
+    expect(clearPreviewSessionAsync).not.toHaveBeenCalled();
     expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
   });
 });

@@ -170,6 +170,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         previewPolicy,
         verificationPolicy,
         versionIdForSession: versionRow.id,
+        // F3 versions strip tier3-stub layer; F2 keeps it for boot.
+        lifecycleStage:
+          versionRow.lifecycle_stage === "integrations" ? "integrations" : "design",
         skipRepair: true,
         // DB files are finalize-preflighted and include scaffold baseline.
         skipProjectScaffold: true,

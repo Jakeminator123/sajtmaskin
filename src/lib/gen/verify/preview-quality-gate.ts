@@ -10,7 +10,7 @@ import {
   type VisualQAResult,
 } from "./visual-qa";
 import {
-  TIER2_QUALITY_GATE_CHECKS,
+  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
   type QualityGateCheck,
 } from "./quality-gate-checks";
 import { runPreviewHostQualityGate } from "@/lib/gen/preview/preview-host-client";
@@ -111,7 +111,7 @@ export function qualityGateAllPassed(results: QualityGateCheckResult[]): boolean
 export function resolveRepairQualityGateChecks(
   checks?: readonly QualityGateCheck[],
 ): readonly QualityGateCheck[] {
-  return Array.isArray(checks) && checks.length > 0 ? checks : TIER2_QUALITY_GATE_CHECKS;
+  return Array.isArray(checks) && checks.length > 0 ? checks : DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
 }
 
 export function describeQualityGateVerification(
@@ -170,7 +170,7 @@ export async function runQualityGateOnExportable(params: {
     chatId: params.chatId,
     versionId: params.versionId,
     files,
-    checks: params.checks ?? TIER2_QUALITY_GATE_CHECKS,
+    checks: params.checks ?? DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
   });
 }
 

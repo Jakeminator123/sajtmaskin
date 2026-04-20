@@ -10,6 +10,8 @@ __pycache__/
 node_modules/
 node_modules.old/
 .next/
+.next/dev/cache/
+.next/dev/node_modules/
 out/
 .cache/
 dist/
@@ -41,9 +43,19 @@ env.vercel*.local
 ENV_JAMFORRELSE.txt
 di-d.txt
 
+# Temp commit-message files from local commit workflow
+COMMIT_MSG.tmp
+COMMIT_EDITMSG.tmp
+
+# Lokala tmp-dumpar (t.ex. accidental API-responsfångster)
+.tmp-*
+
 # Local prompt dumps (opt-in: SAJTMASKIN_PROMPT_DUMP=1)
 data/prompt-dumps/*
 !data/prompt-dumps/README.md
+
+# Pipeline-health-state (backoffice-paneldata, lokalt per-maskin)
+data/backoffice/
 
 # Database files (local data, not for git)
 data/*.db
@@ -226,3 +238,24 @@ UTLÅTANDE_DEEP_BREEF.txt
 .cursor/openclaw-bridge/
 reviews/
 sajtmaskin.zip
+
+
+# --- Dossier-pipeline (skrap-/enrich-output, embeddings, repo-cache) ---
+data/dossiers/_raw/playwright-catalog-light.json
+data/dossiers/_raw/_enriched/
+data/dossiers/_raw/_curation-queue.md
+data/dossiers/_raw/_import-summary.json
+data/dossiers/_raw/*/skiss.json
+data/dossiers/_index/dossier-embeddings.json
+data/dossiers/_repo-cache/
+playwright-broad.log
+playwright-light.log
+enrich-full.log
+smoke-enrich.log
+data/dossiers/_index/master.json
+data/dossiers/_index/by-category.json
+data/dossiers/_index/curate-batch.log
+logs/variant-patterns-batch.log
+# AI-curate moves removed files to <dossier>/_removed/ as rollback safety net
+# — they're redundant with git history so don't commit them.
+data/dossiers/*/_removed/

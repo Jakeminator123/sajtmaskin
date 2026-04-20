@@ -13,6 +13,25 @@ import type { RoutePlan } from "./route-plan";
 import type { ScaffoldId, ScaffoldManifest } from "./scaffolds/types";
 
 export type BuildSpecGenerationMode = "init" | "followUp";
+
+/**
+ * `init` semantics: first real codegen in this chat. A follow-up turn that
+ * is the first code generation after a contract gate is treated as init too.
+ *
+ * Single canonical helper — previously inlined in `orchestrate.ts` (×2),
+ * `build-spec.ts` and `stream/finalize-preflight.ts`. Keep them aligned by
+ * importing this from a single place.
+ */
+export function isEffectiveInit(params: {
+  generationMode: BuildSpecGenerationMode | "init" | "followUp" | undefined;
+  isFirstCodeGeneration?: boolean | null;
+}): boolean {
+  const mode = params.generationMode;
+  return (
+    mode === "init" ||
+    (mode === "followUp" && Boolean(params.isFirstCodeGeneration))
+  );
+}
 export type BuildSpecChangeScope =
   | "copy"
   | "local-layout"
@@ -106,6 +125,13 @@ type DeriveBuildSpecParams = {
    * target are preserved as shells.
    */
   existingShellRoutePaths?: string[];
+  /**
+   * Explicit caller-controlled `previewPolicy` override.
+   * F3 (`fidelity3`) is ONLY entered via this override — never auto-promoted
+   * by prompt heuristics or buildIntent shape. Set by the F3 trigger route
+   * (`POST /api/engine/chats/[chatId]/finalize-design`).
+   */
+  previewPolicyOverride?: BuildSpecPreviewPolicy;
 };
 
 function escapeRegex(value: string): string {
@@ -122,12 +148,6 @@ function phrasePatterns(values: readonly string[]): RegExp[] {
     return new RegExp(`\\b${escaped}\\b`, "i");
   });
 }
-
-const RELEASE_CANDIDATE_PATTERNS = [
-  ...phrasePatterns(["release candidate", "ready for production", "launch"]),
-  /\bdeploy[- ]ready\b/i,
-  /\bprod(?:uction)?[- ]ready\b/i,
-];
 
 const REDESIGN_PATTERNS = phrasePatterns([
   "redesign",
@@ -312,9 +332,7 @@ function deriveRouteRealizationPolicy(params: {
   const allRoutePaths = routePlan.routes.map((route) => route.path);
   const primaryRoutePath = choosePrimaryRoutePath({ buildIntent, routePlan, prompt });
 
-  const effectiveInit =
-    generationMode === "init" ||
-    (generationMode === "followUp" && Boolean(isFirstCodeGeneration));
+  const effectiveInit = isEffectiveInit({ generationMode, isFirstCodeGeneration });
 
   if (effectiveInit && FEATURES.deferExtraRoutesOnInit && allRoutePaths.length > 1) {
     const companionRoutePaths = deriveRequiredCompanionRoutes({
@@ -480,24 +498,25 @@ function inferChangeScope(params: {
 }
 
 function inferQualityTarget(params: {
-  prompt: string;
   buildIntent: BuildIntent;
   generationMode: BuildSpecGenerationMode;
   resolvedScaffold: ScaffoldManifest | null;
   routePlan: RoutePlan;
   routeRealization: RouteRealizationPolicy;
   preGenerationContracts: PreGenerationContractContext;
+  /** Explicit override — F3 lifecycle stage forces release-candidate. */
+  previewPolicy: BuildSpecPreviewPolicy;
 }): BuildSpecQualityTarget {
   const {
-    prompt,
     buildIntent,
     generationMode,
     resolvedScaffold,
     routePlan,
     routeRealization,
     preGenerationContracts,
+    previewPolicy,
   } = params;
-  if (includesAny(RELEASE_CANDIDATE_PATTERNS, prompt)) return "release-candidate";
+  if (previewPolicy === "fidelity3") return "release-candidate";
 
   const advancedScaffoldId =
     resolvedScaffold?.id === "dashboard" ||
@@ -518,40 +537,36 @@ function inferQualityTarget(params: {
     preGenerationContracts.contracts.dataMode === "persisted" ||
     advancedScaffoldId;
 
+  // Multi-page renders that don't otherwise trip a premium signal still
+  // benefit from the higher token / verification budget — single-route
+  // landings have one chance to look right, but every additional route
+  // multiplies the surface area where a "standard" budget can drop visual
+  // polish or cross-route consistency. Promote when we're rendering more
+  // than one route at init.
+  if (!premiumSignals && routeCount > 1) {
+    console.info("[build-spec] quality_target_promoted_for_multipage", {
+      routeCount,
+      buildIntent,
+      generationMode,
+      scaffoldId: resolvedScaffold?.id ?? null,
+      from: "standard",
+      to: "premium",
+    });
+    return "premium";
+  }
+
   return premiumSignals ? "premium" : "standard";
 }
 
-function inferPreviewPolicy(params: {
-  prompt: string;
-  generationMode: BuildSpecGenerationMode;
-  qualityTarget: BuildSpecQualityTarget;
-  routePlan: RoutePlan;
-  routeRealization: RouteRealizationPolicy;
-  preGenerationContracts: PreGenerationContractContext;
-  buildIntent: BuildIntent;
-}): BuildSpecPreviewPolicy {
-  const {
-    prompt,
-    generationMode,
-    qualityTarget,
-    routePlan,
-    routeRealization,
-    preGenerationContracts,
-    buildIntent,
-  } = params;
-  const routeCount = effectiveInitRouteCount({
-    generationMode,
-    routePlan,
-    routeRealization,
-  });
-  if (qualityTarget === "release-candidate") return "fidelity3";
-  if (
-    buildIntent === "app" &&
-    (preGenerationContracts.contracts.integrations.length > 1 || routeCount > 4)
-  ) {
-    return "fidelity3";
-  }
-  if (includesAny(RELEASE_CANDIDATE_PATTERNS, prompt)) return "fidelity3";
+/**
+ * Default `previewPolicy`. **Always returns `fidelity2`.** F3 is opt-in via
+ * `DeriveBuildSpecParams.previewPolicyOverride`, set explicitly by the
+ * "Bygg integrationer" button (`POST .../finalize-design`). Auto-promotion
+ * by prompt content or buildIntent shape was removed 2026-04 because it
+ * caused unwanted F3 builds whenever a prompt happened to mention "deploy"
+ * or "production".
+ */
+function inferPreviewPolicy(): BuildSpecPreviewPolicy {
   return "fidelity2";
 }
 
@@ -666,34 +681,49 @@ function inferContextPolicy(params: {
   return "normal";
 }
 
+/**
+ * Token budgets per `contextPolicy`. Tuned to be **generous but not absurd**:
+ * the smart `inferContextPolicy` already picks the right tier based on
+ * change scope, route count, integrations, and capability heaviness — so the
+ * absolute numbers just need enough headroom that block pruning rarely fires
+ * unless we're genuinely overflowing.
+ *
+ * Rationale (as of 2026-04):
+ * - Largest scaffold (ecommerce) is ~7.3k tokens fully serialized.
+ * - Modern context windows (GPT-5, Claude 4) are 200k+; even `heavy` here
+ *   sits at ~80k and leaves plenty for chat history + completion tokens.
+ * - `*Chars` mirrors via `CHARS_PER_TOKEN_ESTIMATE = 3.2` for refs and
+ *   system context; `scaffoldChars` is intentionally tighter (~1.9 ratio)
+ *   so the scaffold block can't dominate the dynamic context.
+ */
 function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): BuildSpecTokenBudgets {
   switch (contextPolicy) {
     case "light":
       return {
-        scaffoldTokens: 11_250,
-        refsTokens: 3_750,
-        systemContextTokens: 15_000,
-        scaffoldChars: 20_000,
-        refsChars: 12_000,
-        systemContextChars: 48_000,
+        scaffoldTokens: 13_000,
+        refsTokens: 5_000,
+        systemContextTokens: 22_000,
+        scaffoldChars: 24_000,
+        refsChars: 16_000,
+        systemContextChars: 70_000,
       };
     case "heavy":
       return {
-        scaffoldTokens: 25_000,
-        refsTokens: 12_500,
-        systemContextTokens: 50_000,
-        scaffoldChars: 48_000,
-        refsChars: 40_000,
-        systemContextChars: 160_000,
+        scaffoldTokens: 32_000,
+        refsTokens: 16_000,
+        systemContextTokens: 80_000,
+        scaffoldChars: 60_000,
+        refsChars: 50_000,
+        systemContextChars: 256_000,
       };
     default:
       return {
-        scaffoldTokens: 18_000,
-        refsTokens: 9_000,
-        systemContextTokens: 40_000,
-        scaffoldChars: 34_000,
-        refsChars: 28_000,
-        systemContextChars: 128_000,
+        scaffoldTokens: 22_000,
+        refsTokens: 12_000,
+        systemContextTokens: 60_000,
+        scaffoldChars: 42_000,
+        refsChars: 38_000,
+        systemContextChars: 192_000,
       };
   }
 }
@@ -795,6 +825,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     capabilities = null,
     isFirstCodeGeneration,
     existingShellRoutePaths,
+    previewPolicyOverride,
   } = params;
 
   const capabilityHeavy = capabilities ? hasHeavyCapabilities(capabilities) : false;
@@ -813,23 +844,15 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     routePlan,
     preGenerationContracts,
   });
+  const previewPolicy = previewPolicyOverride ?? inferPreviewPolicy();
   const qualityTarget = inferQualityTarget({
-    prompt,
     buildIntent,
     generationMode,
     resolvedScaffold,
     routePlan,
     routeRealization,
     preGenerationContracts,
-  });
-  const previewPolicy = inferPreviewPolicy({
-    prompt,
-    generationMode,
-    qualityTarget,
-    routePlan,
-    routeRealization,
-    preGenerationContracts,
-    buildIntent,
+    previewPolicy,
   });
   const verificationPolicy = inferVerificationPolicy({
     generationMode,

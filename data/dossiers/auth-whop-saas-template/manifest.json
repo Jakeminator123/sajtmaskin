@@ -1,0 +1,133 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-whop-saas-template",
+  "kind": "integration",
+  "category": "auth",
+  "label": "Whop SaaS Template",
+  "description": "A simple way to sell access to your Next.js App, built with the Whop SDK",
+  "summary": "Use this when a Next.js app should let users sign in with Whop and gate app routes or features based on active Whop product ownership. It provides the Auth.js provider config, route-level membership checks, and a product-access API pattern for server-enforced entitlements.",
+  "providers": [
+    {
+      "name": "Whop",
+      "url": "https://github.com/whopio/next-template"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "NEXT_PUBLIC_WHOP_CLIENT_ID",
+      "required": true,
+      "purpose": "You'll need these variables to authenticate with the API."
+    },
+    {
+      "key": "WHOP_CLIENT_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "WHOP_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_REQUIRED_PRODUCT",
+      "required": true,
+      "purpose": "Navigate to your product, click on the three dots, and click \"Copy Product ID\""
+    },
+    {
+      "key": "NEXT_PUBLIC_RECOMMENDED_PLAN_ID",
+      "required": true,
+      "purpose": "Clicking on it will copy it to your clipboard."
+    },
+    {
+      "key": "NEXTAUTH_SECRET",
+      "required": true,
+      "purpose": "You can generate one here: https://generate-secret.vercel.app/"
+    },
+    {
+      "key": "NEXTAUTH_URL",
+      "required": true,
+      "purpose": "Only required in localhost (you can omit this when deploying to Vercel)"
+    }
+  ],
+  "dependencies": [
+    "@whop-sdk/core",
+    "next-auth"
+  ],
+  "files": [
+    {
+      "path": "components/lib/auth.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/lib/get-user-sdk/middleware.ts",
+      "role": "server",
+      "kind": "util"
+    },
+    {
+      "path": "components/app/api/auth/[...nextauth]/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/get-user-sdk/server.ts",
+      "role": "server",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/has-product.ts",
+      "role": "server",
+      "kind": "util"
+    },
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/api/whop/has-product/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/types/next-auth.d.ts",
+      "role": "shared",
+      "kind": "types"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 84,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/whop-template",
+  "sourceRepoUrl": "https://github.com/whopio/next-template",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "whop",
+    "auth",
+    "next-auth",
+    "authjs",
+    "oauth",
+    "membership",
+    "product-gating",
+    "nextjs"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:24:09.129Z",
+  "_curatedBy": "auto-curate.ts"
+}

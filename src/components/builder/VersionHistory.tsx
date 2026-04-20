@@ -199,9 +199,9 @@ export function VersionHistory({
   }, [chatId, versionList.length]);
 
   const formatVersionTime = (value: string | Date | null | undefined): string => {
-    if (!value) return "Just nu";
+    if (!value) return "Just now";
     const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) return "Just nu";
+    if (Number.isNaN(date.getTime())) return "Just now";
     if (!showLocalTimes) {
       return `${date.toISOString().slice(11, 16)} UTC`;
     }
@@ -220,11 +220,15 @@ export function VersionHistory({
     setDownloadingVersionId(versionId);
 
     try {
-      window.open(`${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/download?format=zip`, "_blank");
-      toast.success("Nedladdning startad");
+      window.open(
+        `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/download?format=zip`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+      toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
-      toast.error("Kunde inte ladda ner");
+      toast.error("Failed to download");
     } finally {
       setDownloadingVersionId(null);
     }
@@ -245,18 +249,18 @@ export function VersionHistory({
       );
       const data = (await res.json().catch(() => null)) as BlobExportResponse | null;
       if (!res.ok) {
-        const message = data?.error || `Export misslyckades (HTTP ${res.status})`;
+        const message = data?.error || `Export failed (HTTP ${res.status})`;
         throw new Error(String(message));
       }
 
       const url = data?.blob?.url;
       if (url) {
-        window.open(url, "_blank");
+        window.open(url, "_blank", "noopener,noreferrer");
       }
-      toast.success("Exporterad till Blob");
+      toast.success("Exported to Blob");
     } catch (error) {
       console.error("Blob export error:", error);
-      toast.error(error instanceof Error ? error.message : "Kunde inte exportera");
+      toast.error(error instanceof Error ? error.message : "Failed to export");
     } finally {
       setExportingVersionId(null);
     }
@@ -297,18 +301,18 @@ export function VersionHistory({
 
       const data = (await res.json().catch(() => null)) as GitHubExportResponse | null;
       if (!res.ok) {
-        const message = data?.error || `GitHub-export misslyckades (HTTP ${res.status})`;
+        const message = data?.error || `GitHub export failed (HTTP ${res.status})`;
         throw new Error(String(message));
       }
 
       const url = data?.repoUrl;
       if (url) {
-        window.open(url, "_blank");
+        window.open(url, "_blank", "noopener,noreferrer");
       }
-      toast.success("Exporterad till GitHub");
+      toast.success("Exported to GitHub");
     } catch (error) {
       console.error("GitHub export error:", error);
-      toast.error(error instanceof Error ? error.message : "Kunde inte exportera till GitHub");
+      toast.error(error instanceof Error ? error.message : "Failed to export to GitHub");
     } finally {
       setExportingGitHubVersionId(null);
     }
@@ -330,13 +334,13 @@ export function VersionHistory({
       });
       const data = (await res.json().catch(() => ({}))) as PinVersionResponse;
       if (!res.ok) {
-        throw new Error(data?.error || `Fästning misslyckades (HTTP ${res.status})`);
+        throw new Error(data?.error || `Pin failed (HTTP ${res.status})`);
       }
-      toast.success(nextPinned ? "Version fäst" : "Version avfäst");
+      toast.success(nextPinned ? "Version pinned" : "Version unpinned");
       mutate();
     } catch (error) {
       console.error("Pin error:", error);
-      toast.error(error instanceof Error ? error.message : "Kunde inte uppdatera fästning");
+      toast.error(error instanceof Error ? error.message : "Failed to update pin");
     } finally {
       setPinningVersionId(null);
     }
@@ -357,17 +361,17 @@ export function VersionHistory({
       });
       const data = (await res.json().catch(() => null)) as RestoreVersionResponse | null;
       if (!res.ok) {
-        throw new Error(data?.error || `Återställning misslyckades (HTTP ${res.status})`);
+        throw new Error(data?.error || `Restore failed (HTTP ${res.status})`);
       }
       if (data?.versionId) {
         onVersionSelect(String(data.versionId));
       }
-      toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version återställd som ny draftversion");
+      toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version restored som ny draftversion");
       mutate();
       setConfirmRestoreVersion(null);
     } catch (error) {
       console.error("Restore error:", error);
-      toast.error(error instanceof Error ? error.message : "Kunde inte återställa version");
+      toast.error(error instanceof Error ? error.message : "Failed to restore version");
     } finally {
       setRestoringVersionId(null);
     }
@@ -425,37 +429,17 @@ export function VersionHistory({
             <ChevronLeft className="h-4 w-4" />
           </Button>
         )}
-        <span className="text-muted-foreground mt-6 rotate-90 text-[10px] tracking-wide uppercase">
-          Versioner
+        <span className="text-muted-foreground rotate-90 text-[10px] tracking-wide uppercase">
+          Versions
         </span>
       </div>
     );
   }
 
-  const collapseButton = canToggleCollapse ? (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={onToggleCollapse}
-      title="Fäll in versioner"
-      aria-label="Fäll in versioner"
-      className="h-7 w-7"
-    >
-      <ChevronRight className="h-4 w-4" />
-    </Button>
-  ) : null;
-
   if (!chatId) {
     return (
-      <div className="flex h-full flex-col">
-        {canToggleCollapse && (
-          <div className="flex items-center justify-end border-border border-b px-2 py-2">
-            {collapseButton}
-          </div>
-        )}
-        <div className="text-muted-foreground flex flex-1 items-center justify-center p-4">
-          <p className="text-center text-sm">Skicka ett meddelande för att starta</p>
-        </div>
+      <div className="text-muted-foreground flex h-full items-center justify-center p-4">
+        <p className="text-center text-sm">Send a message to start a project</p>
       </div>
     );
   }
@@ -464,13 +448,8 @@ export function VersionHistory({
     return (
       <div className="flex h-full flex-col">
         <div className="border-border border-b px-4 py-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="mt-2 h-3 w-24" />
-            </div>
-            {collapseButton}
-          </div>
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="mt-2 h-3 w-24" />
         </div>
         <div className="flex-1 space-y-2 overflow-y-auto p-2">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -495,19 +474,12 @@ export function VersionHistory({
   if (versions.length === 0) {
     const showSyncing = Boolean(chatId) && !syncingElapsed;
     return (
-      <div className="flex h-full flex-col">
-        {canToggleCollapse && (
-          <div className="flex items-center justify-end border-border border-b px-2 py-2">
-            {collapseButton}
-          </div>
-        )}
-        <div className="text-muted-foreground flex flex-1 items-center justify-center p-4">
-          <p className="text-center text-sm" suppressHydrationWarning>
-            {showSyncing
-              ? "Synkar versionshistorik..."
-              : "Inga versioner ännu. Generera en sida för att skapa en version."}
-          </p>
-        </div>
+      <div className="text-muted-foreground flex h-full items-center justify-center p-4">
+        <p className="text-center text-sm" suppressHydrationWarning>
+          {showSyncing
+            ? "Synkar versionshistorik..."
+            : "Inga versioner ännu. Generera en sida för att skapa en version."}
+        </p>
       </div>
     );
   }
@@ -517,10 +489,10 @@ export function VersionHistory({
       <div className="border-border border-b px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="font-semibold">Versionshistorik</h3>
+            <h3 className="font-semibold">Version History</h3>
             <p className="text-muted-foreground mt-1 text-xs">
-              {versions.length} version{versions.length !== 1 ? "er" : ""}
-              {pinnedCount > 0 ? ` • ${pinnedCount} fästa` : ""}
+              {versions.length} version{versions.length !== 1 ? "s" : ""}
+              {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ""}
             </p>
             <p className="text-muted-foreground text-xs">
               Pinned versions är skrivskyddade snapshots. Avpinna för att kunna redigera.
@@ -551,7 +523,11 @@ export function VersionHistory({
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  window.open(`/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`, "_blank")
+                  window.open(
+                    `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`,
+                    "_blank",
+                    "noopener,noreferrer",
+                  )
                 }
                 className="h-7 px-2 text-xs"
               >
@@ -609,18 +585,18 @@ export function VersionHistory({
             );
             const lifecycleLabel =
               lifecycleStatus === "promoted"
-                ? "Publicerad"
+                ? "Promoted"
                 : lifecycleStatus === "verifying"
-                  ? "Verifierar"
+                  ? "Verifying"
                   : lifecycleStatus === "repairing"
-                    ? "Reparerar"
+                    ? "Repairing"
                     : lifecycleStatus === "repair_available"
-                      ? "Reparation tillgänglig"
+                      ? "Repair available"
                     : lifecycleStatus === "retrying"
                       ? "Ersatt"
                       : lifecycleStatus === "failed"
                         ? "Fel"
-                        : "Utkast";
+                        : "Draft";
             const lifecycleBadgeVariant =
               lifecycleStatus === "failed"
                 ? "destructive"
@@ -633,7 +609,7 @@ export function VersionHistory({
                     : "secondary";
             const lifecycleBadgeClassName =
               lifecycleStatus === "retrying"
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
                 : lifecycleStatus === "repairing"
                   ? "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300"
                   : lifecycleStatus === "repair_available"
@@ -641,7 +617,6 @@ export function VersionHistory({
                   : undefined;
             const isEngineVersionRow =
               version.canPin === false || typeof version.versionNumber === "number";
-            const isLegacyRow = !isEngineVersionRow;
             const tier2PreviewNorm = normalizePreviewUrl(version.previewUrl ?? version.sandboxUrl);
             const hasTier2LivePreviewForRow = Boolean(
               tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm),
@@ -669,11 +644,11 @@ export function VersionHistory({
                     : null;
             const qualityTierBadgeClass =
               qualityTier === "production"
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
+                ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"
                 : qualityTier === "tier2"
-                  ? "border-blue-500/40 bg-blue-500/10 text-blue-700"
+                  ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
                   : qualityTier === "preview"
-                    ? "border-green-500/40 bg-green-500/10 text-green-700"
+                    ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
                     : undefined;
             const runtimeStatusForRow =
               isSelected && isEngineVersionRow ? selectedPreviewStatus?.status ?? null : null;
@@ -682,31 +657,31 @@ export function VersionHistory({
                 ? {
                     label: "VM live",
                     className:
-                      "border-green-500/40 bg-green-500/10 text-green-700",
+                      "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
                   }
                 : runtimeStatusForRow === "starting"
                   ? {
                       label: "VM startar",
                       className:
-                        "border-blue-500/40 bg-blue-500/10 text-blue-700",
+                        "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
                     }
                   : runtimeStatusForRow === "stopped"
                     ? {
                         label: "VM stoppad",
                         className:
-                          "border-amber-500/40 bg-amber-500/10 text-amber-700",
+                          "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
                       }
                     : runtimeStatusForRow === "version_mismatch"
                       ? {
                           label: "VM annan version",
                           className:
-                            "border-orange-500/40 bg-orange-500/10 text-orange-700",
+                            "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300",
                         }
                       : runtimeStatusForRow === "missing"
                         ? {
                             label: "VM saknas",
                             className:
-                              "border-slate-500/40 bg-slate-500/10 text-slate-700",
+                              "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
                           }
                         : null;
             const lifecycleSummary = (() => {
@@ -776,7 +751,7 @@ export function VersionHistory({
                         )}
                         {isPinned && (
                           <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-                            Fäst
+                            Pinned
                           </Badge>
                         )}
                         {internalVersionId && (() => {
@@ -792,7 +767,7 @@ export function VersionHistory({
                                 />
                               )}
                               {status === "approved" && (
-                                <span title="Godkänd"><CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-600" /></span>
+                                <span title="Godkänd"><CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" /></span>
                               )}
                               {unresolved > 0 && (
                                 <Badge
@@ -837,25 +812,23 @@ export function VersionHistory({
                       >
                         <a href={listPreviewUrl} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="mr-1 h-3 w-3" />
-                          Visa
+                          View
                         </a>
                       </Button>
                     )}
-                    {!isLegacyRow && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (internalVersionId) setCompareVersionId(internalVersionId);
-                        }}
-                        title="Jämför med föregående version"
-                        aria-label="Jämför med föregående version"
-                        className="h-7 px-2 text-xs"
-                      >
-                        Jämför
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (internalVersionId) setCompareVersionId(internalVersionId);
+                      }}
+                      title="Jämför med föregående version"
+                      aria-label="Jämför med föregående version"
+                      className="h-7 px-2 text-xs"
+                    >
+                      Compare
+                    </Button>
                     {canRestore && (
                       <Button
                         variant="ghost"
@@ -871,7 +844,7 @@ export function VersionHistory({
                         ) : (
                           <RotateCcw className="mr-1 h-3 w-3" />
                         )}
-                        {canRollback ? "Rollback" : "Återställ"}
+                        {canRollback ? "Rollback" : "Restore"}
                       </Button>
                     )}
                     {hasPendingRepair && (
@@ -918,65 +891,59 @@ export function VersionHistory({
                     >
                       <MessageSquare className="h-3 w-3" />
                     </Button>
-                    {!isLegacyRow && (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => handleDownload(e, version)}
-                        disabled={isDownloading}
-                        title="Ladda ner version"
-                        aria-label="Ladda ner version"
-                        className="h-7 w-7"
-                      >
-                        {isDownloading ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <Download className="h-3 w-3" />
-                        )}
-                      </Button>
-                    )}
-                    {!isLegacyRow && (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => handleExportToBlob(e, version)}
-                        disabled={isExporting}
-                        title="Exportera till Vercel Blob"
-                        aria-label="Exportera till Vercel Blob"
-                        className="h-7 w-7"
-                      >
-                        {isExporting ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <UploadCloud className="h-3 w-3" />
-                        )}
-                      </Button>
-                    )}
-                    {!isLegacyRow && (
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={(e) => handleExportToGitHub(e, version)}
-                        disabled={isExportingGitHub}
-                        title="Exportera till GitHub"
-                        aria-label="Exportera till GitHub"
-                        className="h-7 w-7"
-                      >
-                        {isExportingGitHub ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <GitBranch className="h-3 w-3" />
-                        )}
-                      </Button>
-                    )}
-                    {!isLegacyRow && canPin && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={(e) => handleDownload(e, version)}
+                      disabled={isDownloading}
+                      title="Download version"
+                      aria-label="Download version"
+                      className="h-7 w-7"
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Download className="h-3 w-3" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={(e) => handleExportToBlob(e, version)}
+                      disabled={isExporting}
+                      title="Export to Vercel Blob"
+                      aria-label="Export to Vercel Blob"
+                      className="h-7 w-7"
+                    >
+                      {isExporting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <UploadCloud className="h-3 w-3" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={(e) => handleExportToGitHub(e, version)}
+                      disabled={isExportingGitHub}
+                      title="Export to GitHub"
+                      aria-label="Export to GitHub"
+                      className="h-7 w-7"
+                    >
+                      {isExportingGitHub ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <GitBranch className="h-3 w-3" />
+                      )}
+                    </Button>
+                    {canPin && (
                       <Button
                         variant="ghost"
                         size="icon-sm"
                         onClick={(e) => handleTogglePin(e, version)}
                         disabled={isPinning}
-                        title={isPinned ? "Avfäst version" : "Fäst version"}
-                        aria-label={isPinned ? "Avfäst version" : "Fäst version"}
+                        title={isPinned ? "Unpin version" : "Pin version"}
+                        aria-label={isPinned ? "Unpin version" : "Pin version"}
                         className="h-7 w-7"
                       >
                         {isPinning ? (

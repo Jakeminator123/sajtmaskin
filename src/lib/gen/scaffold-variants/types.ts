@@ -26,6 +26,27 @@ export interface ScaffoldVariantThemeTokens {
   bodyBackgroundImage?: string;
 }
 
+/**
+ * Concrete, hand- or LLM-curated visual signatures for a variant. Replaces
+ * the four generic guidance fields (styleRules, sectionInventory,
+ * avoidPatterns, worldClassRubric) removed 2026-04-17 — those produced
+ * boilerplate. signaturePatterns are required to be SPECIFIC: layouts must
+ * read like "asymmetric hero with floating product card" rather than
+ * "modern layout"; motifs like "2px hairline borders + 1rem radius" rather
+ * than "subtle design"; antiPatterns like "never use gradient buttons on
+ * auth surfaces" rather than "bad patterns".
+ *
+ * Populated by scripts/scaffolds/auto-curate-variant-patterns.ts.
+ */
+export interface ScaffoldVariantSignaturePatterns {
+  /** 3-5 concrete layout choices the variant prefers. */
+  layouts: string[];
+  /** 2-3 visual motifs that read at first glance. */
+  motifs: string[];
+  /** 2-3 patterns the LLM should NOT use for this variant. */
+  antiPatterns: string[];
+}
+
 export interface ScaffoldVariant {
   id: ScaffoldVariantId;
   scaffoldId: ScaffoldId;
@@ -35,12 +56,26 @@ export interface ScaffoldVariant {
   fontPairings: FontPairing[];
   signatureMotif: string;
   colorMode: "light" | "dark" | "either";
+  /**
+   * Short, scaffold-specific cues for the LLM (e.g. "Lead with editorial framing,
+   * not feature cards"). Only fields with high signal — generic guidance fields
+   * (styleRules, sectionInventory, avoidPatterns, worldClassRubric) were removed
+   * 2026-04-17 because the regelmotor-driven aggregation produced near-identical
+   * boilerplate across variants. See `docs/architecture/scaffold-variants-inventory.md`.
+   */
   promptHints: string[];
-  styleRules?: string[];
-  sectionInventory?: string[];
-  avoidPatterns?: string[];
-  worldClassRubric?: string[];
+  /**
+   * Concrete layouts/motifs/antiPatterns. Optional during migration; once
+   * auto-curate-variant-patterns.ts has filled all 21 variants this becomes
+   * effectively required for prompt rendering.
+   */
+  signaturePatterns?: ScaffoldVariantSignaturePatterns;
   themeTokens?: ScaffoldVariantThemeTokens;
+  /**
+   * Curated dossier ids associated with this variant. Historically used by
+   * the legacy structural-files pipeline (removed 2026-04-17). Kept for
+   * backoffice display + cross-referencing in `data/dossiers/`.
+   */
   sourceTemplateIds?: string[];
   default?: boolean;
 }

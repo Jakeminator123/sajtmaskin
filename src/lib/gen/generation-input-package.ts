@@ -9,7 +9,7 @@
  */
 import { createHash } from "node:crypto";
 
-import type { OrchestrationBase, TemplateGuidanceMeta } from "./orchestrate";
+import type { OrchestrationBase } from "./orchestrate";
 import type { BuildSpec } from "./build-spec";
 import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
 
@@ -32,14 +32,18 @@ export interface GenerationInputPackage extends OrchestrationBase {
   variantId: string | null;
   /** SHA-256 of deterministic inputs for lineage tracking. */
   lineageHash: string;
-  /** Scaffold-anchored template-library guidance metadata (observability). */
-  templateGuidanceMeta?: TemplateGuidanceMeta;
 }
 
 /**
  * Compute a stable hash over the deterministic inputs that shaped generation.
  * Time-dependent or embedding-dependent fields are excluded so the same
  * logical input always produces the same hash.
+ *
+ * **Lineage invariant:** if any field in here changes between two runs, the
+ * resulting system prompt MAY differ. The optional fields cover signals that
+ * end up in the dynamic context (theme tokens, custom instructions, palette,
+ * design references, picked variant) — leaving them out caused two different
+ * prompts to share the same hash.
  */
 export function computeLineageHash(pkg: {
   userPrompt: string;
@@ -50,6 +54,11 @@ export function computeLineageHash(pkg: {
   routePlan: unknown;
   preGenerationContracts: unknown;
   buildSpec?: BuildSpec | null;
+  customInstructions?: string | null;
+  themeColors?: unknown;
+  componentPalette?: unknown;
+  designReferences?: unknown;
+  variantId?: string | null;
 }): string {
   const h = createHash("sha256");
   h.update(pkg.userPrompt);
@@ -60,6 +69,11 @@ export function computeLineageHash(pkg: {
   h.update(JSON.stringify(pkg.routePlan ?? null));
   h.update(JSON.stringify(pkg.preGenerationContracts ?? null));
   h.update(JSON.stringify(pkg.buildSpec ?? null));
+  h.update(pkg.customInstructions ?? "");
+  h.update(JSON.stringify(pkg.themeColors ?? null));
+  h.update(JSON.stringify(pkg.componentPalette ?? null));
+  h.update(JSON.stringify(pkg.designReferences ?? null));
+  h.update(pkg.variantId ?? "");
   return h.digest("hex");
 }
 
@@ -88,12 +102,5 @@ export function serializePackageForDump(
     dynamicContextPruning: pkg.dynamicContextPruning,
     dynamicContextBlocks: pkg.dynamicContextBlocks,
     variantId: pkg.variantId,
-    templateGuidance: pkg.templateGuidanceMeta
-      ? {
-          enabled: pkg.templateGuidanceMeta.enabled,
-          templateIds: pkg.templateGuidanceMeta.templateIds,
-          entriesUsed: pkg.templateGuidanceMeta.guidanceEntries.length,
-        }
-      : null,
   };
 }
