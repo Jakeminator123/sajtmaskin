@@ -34,7 +34,7 @@ Senast uppdaterad: 2026-04-20 efter 11 etapper (A-K) på master `9249a0994`. **T
 | # | Vad | Blocker |
 |---|---|---|
 | 13 | **Tier A #9** ÅÄÖ pre-commit hook | Husky/lint-staged install |
-| 14 | **FIXA.txt-spåret** (33+ konkreta bugs i genererad output) | Separat skuld-dokument, icke-kanoniskt; se handoff-fil för topp-5 |
+| 14 | **Skuld-spår från arkiverade rapport-dokument** (FIXA.txt + imorgon.txt — borttagna 2026-04-20) | Båda konsoliderade i `handoff-2026-04-20-next-session.md` sektion "Skuld från arkiverade rapport-dokument". 33 buggar (A1-A18 + B1-B9 + C1-C4 + D1-D2) + 2 från imorgon (I1 tier-2-env-default, I2 sektion-landmarks). Topp-3 quickwins: I1 (5 min), C1 (Turbopack-flagga), C2 (sandbox-pointer-lock 2 min). Toppen-5 högvärde: C1, B1, A3, A1, A2. |
 
 ## Avklarat i LLM-flöde Fas 2/3-leverans (2026-04-20)
 

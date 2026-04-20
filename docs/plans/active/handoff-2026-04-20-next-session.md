@@ -8,8 +8,9 @@
 
 * **11 etapper levererade 2026-04-20 (A-K).** ~22 commits på `master`. 1214/1214 tester gröna.
 * **22 av 43 audit-punkter klara** (~51%). Tier S = 100%, Tier A = 75%, Tier B = 38%.
-* **`master` är ren** — `git status` visar bara användarens lokala edits (`.cursor/settings.json`, `.markdownlintignore`, `drizzle.config.ts`) + 2 untracked filer (`src/FIXA.txt`, `version-777eaba7.zip`).
+* **`master` är ren** — `git status` visar bara användarens lokala edits (`.cursor/settings.json`, `.markdownlintignore`, `drizzle.config.ts`).
 * **3 stora arbetsspår är stängda:** Tier S (alla snabba quick-wins), P28 (alla 7 pre-existing test-failures), P29 (`/api/v0/chats/**` helt borttaget och konsoliderat till `/api/engine/chats/**`).
+* **API-yta:** `/api/v0/chats/**` helt borttaget (28 routes). `/api/v0/`-grenen krympt 82% (34 → 6 routes; 6 kvar är Class C: deployments + projects + integrations som canonical permanent URL). Total sajtmaskin-API-yta krympt ~23% (123 → ~95 routes).
 * **Telemetri-grunden är på plats:** Prometheus-metrics + `/api/metrics`-endpoint + Streamlit observability-panel + P50-prompt-to-done-histogram + ingress-counters + brief-cache-counters.
 
 ---
@@ -53,7 +54,7 @@ Källa: `docs/plans/active/Kvarvarande-uppgifter.md` punkt 1–10 + audit-rappor
 
 | # | Vad | Effort | Blocker |
 |---|---|---|---|
-| 1 | **`Source_Sans_3`-violation i `editorial-serif.json`** | 5 min | Produktbeslut — lägg till i `google-font-registry.ts` ELLER byt variant. Verifiera med `npm run typography:validate-pairings` |
+| 1 | **`Source_Sans_3`-violation i `editorial-serif.json`** | 5 min | Produktbeslut — lägg till i `google-font-registry.ts` ELLER byt variant. Source Sans 3 är officiell Google Font (https://fonts.google.com/specimen/Source+Sans+3); orchestrator rekommenderar Alternativ A (lägg till i registret). Verifiera fyndet med `npm run typography:validate-pairings`. **Bör tas av nästa cloud-agent som första uppvärmning.** |
 | 2 | **P19 Steg 3 — UX-transparens** vid follow-up-bas != latest | 4–8h | Ingen — UI-arbete |
 | 3 | **P25b-rest — VersionHistory tooltips/badges** + `VersionMismatchOverlayPayload`-rendering | medel | Ingen — kräver visuell verifiering |
 | 4 | **Eval auto-baseline-uppdatering** (CI-script för eval-svit) | låg | Ingen |
@@ -94,19 +95,100 @@ Källa: `docs/plans/active/Kvarvarande-uppgifter.md` punkt 1–10 + audit-rappor
 
 ---
 
-## FIXA.txt — separat skuld-dokument (icke-adresserat)
+## Skuld från arkiverade rapport-dokument (FIXA.txt + imorgon.txt — borttagna 2026-04-20)
 
-`src/FIXA.txt` listar **18 buggar i genererad output (A1-A18) + 9 system-buggar (B1-B9) + 4 preview-issues (C1-C4) + 2 docs-uppdateringar (D1-D2)** från en faktisk site-generering (`version-777eaba7`, Hotellet i Spanien). Det var ursprungligen "parallel-agentens scope" enligt filen själv — **ingen av dem är direkt adresserad denna session** (möjligen A7 indirekt via Wave 2:s motion-reduce-trap-check och B7 via Wave 3).
+> Dessa två lokala rapport-dokument har konsoliderats hit och raderats från repot för att undvika parallella sanningar. Innehåll bevarat i git-historiken.
 
-**Toppen-5 i FIXA.txt enligt dess egen prioritering:**
+### Från `imorgon.txt` (2 öppna kvalitetsrisker)
 
-1. **C1** — HMR/Turbopack-regression i preview-iframen (console-spam ~1s)
-2. **B1** — DB pool kraschar 3 endpoints samtidigt
-3. **A3** — `source.unsplash.com` URL:er (domänen död sedan 2024)
-4. **A1** — `booking-form-state` dead-stub-fil följer med varje version
-5. **A2** — Lucide `Circle as BedDouble` — fel-ikon i hero
+**I1 — `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` saknar default i `compatibility-shim.ts`**
+* `isTier2LivePreviewUrl(url)` returnerar `false` om env-varen är tom/unset → tier-2-downgrade-guarden blir tandlös → "blå overlay-buggen" återkommer.
+* **Snabbfix:** Lägg `fly.dev` som default-suffix i `src/lib/gen/preview/legacy/compatibility-shim.ts`. Liten ändring, stor robusthet (5–10 min). Alternativ: startup-check som kraschar med tydligt felmeddelande.
 
-Detta är **utomstående bugfixar** för en ny session att överväga om de vill prioritera UX-quality för faktiskt genererade siter snarare än arkitektonisk konsolidering.
+**I2 — Element Preservation Guard sektion-landmarks kan blockera legitima section-renames**
+* CSS-klass-detection (`hero`, `about`, `pricing`, `testimonial`, `feature`, `service`, `portfolio`, `cta`, `footer`, `header`, `banner`, `showcase`, `menu`, `reservation`, `booking`, `gallery`, `team`, `faq`, `video`, `media`, `player`) i `src/lib/gen/context/structural-elements.ts` betraktar varje sådan sektion som "kritiskt element". Follow-up som byter `hero-section` → `intro-block` blockeras tyst — sajten ser oförändrad ut, ingen UI-felindikering.
+* **Lösning (större förändring):** (a) ta bort sektion-keyword-detection helt (behåll bara riktiga DOM-element som `<video>`/`<canvas>`/`<form>`/3D-scener); ELLER (b) varna i UI istället för att blockera; ELLER (c) tillåt force-instruktion i prompt. Vågen 1 i denna session bubblar `done.rejectedStructural` via SSE — så symptomet är observerbart men grundorsaken inte fixad.
+
+### Från `src/FIXA.txt` — 33 buggar från konkret site-generering (`version-777eaba7`, Hotellet i Spanien)
+
+> **Status:** Inget direkt adresserat denna session (möjligen A7 indirekt via Wave 2:s `checkMotionReduceTrap` och B7 via Wave 3-konsolideringen). Listan är prioriterad efter värde/effort. Topp-15 nedan; full lista i git-historik (`git show <commit-före-radering>:src/FIXA.txt`).
+
+**A: 18 buggar i GENERERAD OUTPUT (varje genererad site påverkas)**
+
+| ID | Bugg | Effort |
+|---|---|---|
+| **A1** | `components/booking-form-state.tsx` är tom auto-stub (data-stub-pattern, dead code) — auto-detektera + ta bort | Liten |
+| **A2** | `import { Circle as BedDouble, ... } from "lucide-react"` — Lucide-fallback aliasar saknad ikon till `Circle`, fel ikon visas i hero. Behöver mapping-tabell (`BedDouble → Bed`, `BedSingle → Bed`) | Liten |
+| **A3** | 6 `source.unsplash.com`-URL:er (domänen död sedan 2024). Brief-LLM får ALDRIG resolvera till `source.unsplash.com`; image-validator ska re-resolvera 5xx-URL:er | Medel |
+| **A4** | `@react-three/rapier@^2.1.0` installerat men aldrig importerat — ~150-200KB bundle bloat. Skanna deps mot imports | Liten |
+| **A5** | `ThemeProvider` ligger inuti `<main>` istället för runt `<body>` — header/footer följer inte dark-mode-toggling | Liten |
+| **A6** | `<Canvas>` med `fixed inset-0 z-[70]` täcker hela sidan inkl. header/footer/modaler; iOS Safari touch-event-issues. Sänk z-index | Liten |
+| **A7** | `frameloop="demand"` stänger inte ner Canvas vid `prefers-reduced-motion` — WebGL-context lever, GPU/batteri-belastning. Returnera null vid reduced motion | Liten |
+| **A8** | `<Environment preset="studio">` drar 4-8MB HDR från extern CDN. För liten flying-phone räcker simple lighting (~5MB sparing) | Liten |
+| **A9** | `metadataBase` pekar på `https://hotelletispanien.se` (fictive domain) — Open Graph 404 | Liten |
+| **A10** | `globals.css :focus-visible` slår ut shadcn:s egna focus-rings; ring-färg osynlig i dark-mode (a11y-bugg) | Liten |
+| **A11** | Ingen JSON-LD/schema.org för hotell — Google rich results saknas | Medel |
+| **A12** | Ingen analytics — ingen `@vercel/analytics`/GA/Plausible. Brief tagged "Lead form + email routing" som workflow saknas mätning | Liten |
+| **A13** | 7 vanliga `<img>` istället för `next/image` — ingen LCP-prio, ingen blur-placeholder | Liten/Medel |
+| **A14** | `ContactForm.handleSubmit` är client-only mock — user skickar förfrågan, ser "Tack!", inget mail skickas | Liten |
+| **A15** | OpenStreetMap-iframe i kontakt/page.tsx → CSP frame-src violation i preview-iframe | Liten |
+| **A16** | Inkonsistent format — 5 separata `import { Card } from "@/components/ui/card"` istället för en samlad. Behöver `import/no-duplicates` eslint-fix i finalize-pipeline | Liten |
+| **A17** | `package.json scripts.dev = "next dev"` defaultar Turbopack i Next 16 → triggrar HMR-WS-spam (se C1) | Liten |
+| **A18** | Inga `loading.tsx` / `error.tsx` / `not-found.tsx` — vit sida vid SSR-error | Liten |
+
+**B: 9 SYSTEM-BUGGAR (sajtmaskin-pipeline)**
+
+| ID | Bugg | Effort |
+|---|---|---|
+| **B1** | `EMAXCONNSESSION: max clients reached` — `chat-repository-pg.ts:452` kraschar i 3 endpoints samtidigt (readiness, validate-images, quality-gate 500). Byt till transaction mode (`?pgbouncer=true&connection_limit=1`) eller höj pool | Liten/Medel |
+| **B2** | Verifier retryar 3× på `insufficient_quota` (icke-tillfälligt, slösar 8s+) — `verifier-pass.ts:223`. Sätt `maxRetries=1` när status ∈ {401, 402, 403, 429} med `code: insufficient_quota` | Liten |
+| **B3** | "Stream error" i UI maskerar provider-felkoder. Mappa OpenAI-felkoder i `comm.error.create`: `insufficient_quota → "OpenAI-kvoten slut"`, `rate_limit_exceeded → "Rate limit"`, `context_length_exceeded → "För lång prompt"` | Liten |
+| **B4** | `detectPromptType` returnerar `"freeform"` innan `!isFirstPrompt`-check — follow-ups loggas alltid som freeform, `ORCHESTRATION_SOFT_TARGET_FOLLOWUP_CHARS` aktiveras aldrig. Fix: gate freeform-grenen på `isFirstPrompt` | Liten |
+| **B5** | "Brief: applicerad + Systempromt: NK tecken" visas inte för follow-ups i Agentloggen. Sätt `briefApplied + systemPromptLength` på model-info-payload i follow-up-grenen i `chat-message-stream-post.ts` | Liten |
+| **B6** | `POST /quality-gate` tar 49s efter `site.done` — preview rapporteras "ready" men UI fryser. Utred om quality-gate måste vara blockerande post-finalize (alternativt: bakgrund + SSE-push) | Liten utredning + Medel |
+| **B7** | Validate-step hoppar över `tsc` warm pass ("tsc-skipped") trots Wave 3-aktivering. Hitta varför `runWarmTscPass` skippar (timeout? feature-flagga? `forceTsc`?) | Liten/Medel |
+| **B8** | Brun→grön tema-ändring rörde page.tsx 269L (CSS-only delta överflödig). Pre-classify follow-up: theme-only? → exkludera page.tsx från delta-prompten | Medel |
+| **B9** | 78-93s reasoning + 42-74s output för triviala ändringar på "Lagom"-tier. Auto-downgrade till "Snabb"+thinking-off när delta-classifier säger trivial CSS | Medel |
+
+**C: 4 PREVIEW/IFRAME-issues**
+
+| ID | Bugg | Effort |
+|---|---|---|
+| **C1** | Turbopack i Next 16 kringgår `SAJTMASKIN_PREVIEW_DISABLE_HMR` — `web-socket.ts:50` spammar wss `~1s`. Fix: ändra `project-scaffold.ts:34` → `"dev": "next dev --webpack"` (minst angreppsyta) | Liten |
+| **C2** | `PreviewPanelFrame.tsx:150` saknar `allow-pointer-lock` (+`allow-modals`) i sandbox — R3F:s `OrbitControls` kraschar tyst i iframen | 2 min |
+| **C3** | Inspector-overlay osynlig — `bg-sky-950/10` / `bg-emerald-950/5` med `cursor-crosshair`. Användare glömmer inspector är på, tror knappar är trasiga | Liten |
+| **C4** | `preview-status` + `readiness` pollas parallellt var ~750ms (bidrar till B1). Throttla till 2-3s eller long-poll/SSE | Medel |
+
+**D: 2 DOC-UPPDATERINGAR (gör tillsammans med C1)**
+
+| ID | Vad | Effort |
+|---|---|---|
+| **D1** | `Kvarvarande-uppgifter.md`: "WSS/HMR till Fly — löst (stabil)" är **regressed** via Turbopack/Next 16 (se C1). | 2 min |
+| **D2** | `docs/ENV.md` + `preview-host/README.md`: caveat — `SAJTMASKIN_PREVIEW_DISABLE_HMR` adresserar bara Webpack. Turbopack kräver separat åtgärd (se C1) | 5 min |
+
+### Topp-15 prioriteringsordning från FIXA.txt (värde/effort)
+
+1. **C1** — HMR-regression (täpper console-spam, snabb fix, varje preview påverkas)
+2. **B1** — DB pool (kraschar 3 endpoints, snabb fix om pgbouncer-mode finns)
+3. **A3** — `source.unsplash.com` (varje genererad sajt har trasiga bilder, hög synlighet)
+4. **A1** — booking-form-state stub (dead code i varje version)
+5. **A2** — Lucide BedDouble-fallback (synligt fel-ikon i hero)
+6. **A4** — Rapier oanvänd dep (250 KB bundle bloat)
+7. **C2 + C3** — Sandbox + inspector overlay (löser "iframen känns död")
+8. **A5** — ThemeProvider-positionering
+9. **B2 + B3** — Verifier retry + silent-output mapping (snabba kvalitetsfixar)
+10. **B6** — Quality-gate 49s blockering
+11. **B5 + B4** — UI-loggning av brief/typ
+12. **A11 + A12** — JSON-LD + tracker (SEO/analytics)
+13. **A6, A7, A8** — Canvas-overlay + reduced-motion + Environment (3D-best-practices)
+14. **A13 + A14** — `next/image` + form-backend (kvalitetslyft)
+15. **A10, A15, A16, A18** — Polish
+
+### Topp-3 från `imorgon.txt`
+
+1. **I1** — Default `fly.dev` i `compatibility-shim.ts` (5-10 min, stor robusthet)
+2. **C1 (FIXA)** — Turbopack `--webpack`-flagga (samma effort, samma rotorsak)
+3. **I2** — Element Preservation Guard sektion-landmarks (större förändring, gör efter att data via `done.rejectedStructural`-SSE samlas in 1 vecka)
 
 ---
 
@@ -205,8 +287,8 @@ DISCIPLIN PER ETAPP:
 | `.cursor/skills/sajtmaskin-context/SKILL.md` | Terminologi-guardrails (v0/template-library/scaffold-disambiguering). |
 | `.cursor/rules/useful-commands.mdc` | Snabb npm-script-överblick. |
 | `AGENTS.md` | Repo-konventioner. |
-| `src/FIXA.txt` | **Separat skuld-dokument** (utomstående bugs i genererad output) — ej kanonisk, ej kompletterad denna session. |
-| `imorgon.txt` (root) | Tidigare arbetsdagsanteckning från en annan agent — historisk, ej kanonisk. |
+| (`src/FIXA.txt` borttagen 2026-04-20 — innehåll konsoliderat i sektionen "Skuld från arkiverade rapport-dokument" ovan) | — |
+| (`imorgon.txt` borttagen 2026-04-20 — innehåll konsoliderat i sektionen "Skuld från arkiverade rapport-dokument" ovan) | — |
 
 ---
 
