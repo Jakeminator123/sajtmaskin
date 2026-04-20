@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-20 (P27-validator: sektion A+B+D körda. Wave 2026-04 P21-P27 + P21b flyttade till `avklarat/`. Tre uppföljare i `active/`: P22b, P25b, P28).
+Senast uppdaterad: 2026-04-20 (P27-validator: sektion A+B+D körda. Wave 2026-04 P21-P27 + P21b flyttade till `avklarat/`. Tre uppföljare i `active/`: P22b, P25b, P28. Backoffice `ai_models.py` synkad: ny "Per-tier policy"-tab visar `perTierTimeouts/RepairPolicies/Briefing` read-only. Edit görs via manifest.json-tabben tills accessor-funktioner landar.).
 
 ## Öppna punkter
 
