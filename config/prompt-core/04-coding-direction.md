@@ -57,6 +57,28 @@ Do NOT use the following well-known free test videos, regardless of how convenie
 - For placeholder images use either `images.unsplash.com/photo-<id>?...` direct CDN URLs (resolved post-generation by the image-materializer) or named placeholder services with topic-relevant queries. **NEVER** emit `https://source.unsplash.com/...` URLs — that domain was shut down in mid-2024 and every such URL ships as a broken image. Avoid generic `/placeholder.svg` filler when the subject is clear enough to query.
 - Always set descriptive `alt` text — the alt is the fallback when the image fails or is replaced later by the validator.
 
+### React Three Fiber Canvas placement (A6/A7/A8)
+
+- A `<Canvas>` that decorates a section MUST stay scoped to that section. Wrap it in a relatively-positioned parent and use `absolute inset-0` (or a sized container). NEVER use `fixed inset-0 z-[70]` for a decorative scene — that obscures the page header, footer, modals, and any shadcn `Sheet`/`Dialog` overlays. If a fullscreen scene is genuinely required, keep the z-index below 50 so above-page chrome (`z-[70]+`) still wins.
+- When `frameloop="demand"` is set, also short-circuit the entire `<Canvas>` mount when `prefers-reduced-motion: reduce` is on — `frameloop="demand"` only pauses the render loop; the WebGL context, GPU memory, and three.js scene graph all stay alive. Pattern: `const reduced = useReducedMotion(); if (reduced) return null;` (use the framer-motion hook or a small `useMediaQuery` helper). The scene returns and re-mounts when the user re-enables motion.
+- For incidental 3D (a single floating phone, a small glyph, a loading shape) DO NOT use `<Environment preset="studio" />` or any other drei `Environment` preset — they pull 4–8 MB HDR cubemaps from a third-party CDN on first paint. Use a directional + ambient light pair (`<directionalLight intensity={1} position={[2, 3, 1]} /><ambientLight intensity={0.4} />`) which renders identically for these small scenes. Reserve `Environment` for scenes that genuinely need PBR reflections.
+
+### Focus rings (A10)
+
+- DO NOT add a global `:focus-visible { outline: ... }` rule in `app/globals.css`. shadcn primitives ship with carefully tuned `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2` — a global outline overrides them and breaks both light- and dark-mode visibility because the global colour rarely matches the theme's `--ring` token. If you need a focus tweak, scope it to a specific component or override the `--ring` CSS variable inside `:root` / `.dark`.
+
+### CSP-incompatible iframes (A15)
+
+- The preview iframe enforces a strict `frame-src` policy (`'self'` + Vercel preview hosts). Embedding `<iframe src="https://www.openstreetmap.org/...">` or any other third-party map / video / form provider in generated pages produces a CSP violation and a blank box. Use a static map image (Mapbox/Google Static API URL or an Unsplash photo of a city map) plus a `Visa på karta`-link to the live provider. The same applies to YouTube embeds in F2 — link out instead of embedding when the host is not Vercel-owned.
+
+### Default Next.js error / loading / 404 routes (A18)
+
+- For every generated `app/<route>/page.tsx` that is non-trivial, also generate a sibling `loading.tsx` and `error.tsx`. At the app-root, generate `app/error.tsx` and `app/not-found.tsx`. Keep them minimal but on-brand (heading + supportive copy + a `Link href="/"`-back action) so SSR errors and missing routes do not surface as a blank white page in preview or production.
+
+### One import per source (A16)
+
+- Coalesce multiple named imports from the same module into a single statement. `import { Card } from "@/components/ui/card"` followed five lines later by `import { CardHeader, CardContent } from "@/components/ui/card"` is wrong — emit a single `import { Card, CardContent, CardHeader } from "@/components/ui/card"`. The eslint rule `import/no-duplicates` is set to `error` in generated projects (see `eslint.config.mjs`), so duplicate-source imports fail the build, not just lint.
+
 ## Tone Adaptation
 
 When the brief provides `toneAndVoice` keywords, adapt content accordingly:
