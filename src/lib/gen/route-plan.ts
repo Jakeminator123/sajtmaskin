@@ -2,7 +2,21 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { debugLog } from "@/lib/utils/debug";
 import type { ScaffoldManifest } from "./scaffolds/types";
 
-export type RoutePlanSiteType = "one-page" | "brochure" | "content-heavy" | "app-shell";
+export const ROUTE_PLAN_SITE_TYPES = [
+  "one-page",
+  "brochure",
+  "content-heavy",
+  "app-shell",
+] as const;
+export type RoutePlanSiteType = (typeof ROUTE_PLAN_SITE_TYPES)[number];
+
+export function isRoutePlanSiteType(value: unknown): value is RoutePlanSiteType {
+  return (
+    typeof value === "string" &&
+    (ROUTE_PLAN_SITE_TYPES as readonly string[]).includes(value)
+  );
+}
+
 export type RoutePlanSource = "brief" | "prompt" | "scaffold";
 
 /** Ordered route-plan contributors (e.g. prompt patterns then scaffold defaults). */
@@ -55,12 +69,7 @@ export function parseRoutePlanFromUnknown(data: Record<string, unknown> | null |
   const siteType = data.siteType;
   const reason = data.reason;
   const routesRaw = data.routes;
-  if (
-    siteType !== "one-page" &&
-    siteType !== "brochure" &&
-    siteType !== "content-heavy" &&
-    siteType !== "app-shell"
-  ) {
+  if (!isRoutePlanSiteType(siteType)) {
     return null;
   }
   if (typeof reason !== "string" || !Array.isArray(routesRaw)) return null;

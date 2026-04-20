@@ -9,6 +9,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { ROUTE_PLAN_SITE_TYPES } from "./route-plan";
+
 export const INTEGRATION_PROVIDERS = [
   "supabase",
   "stripe",
@@ -106,7 +108,7 @@ export const emitPlanArtifact = tool({
   inputSchema: z.object({
     goal: z.string().describe("One-sentence project goal"),
     siteType: z
-      .enum(["one-page", "brochure", "content-heavy", "app-shell"])
+      .enum(ROUTE_PLAN_SITE_TYPES)
       .optional()
       .describe("High-level project classification"),
     scope: z.array(z.string()).describe("Pages or sections to build"),
