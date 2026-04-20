@@ -36,10 +36,28 @@ function normalizeLiteralPath(raw: string): { rel: string; kind: "file" | "dir" 
   return { rel: withoutAnnotation, kind: "file" };
 }
 
+// Paths we deliberately do NOT assert in parity:
+//
+// 1. `logs/**` — runtime artifacts written by generation-log-writer.ts
+//    that are gitignored (`logs/*`). They exist on developer machines after
+//    a generation run but never on a clean CI checkout (Vercel).
+//
+// 2. `.cursor/rules/**` — internal Cursor AI rule files. They are renamed/
+//    consolidated as the AI config evolves, and breaking CI every time a
+//    rule file is restructured is a wrong-coupling. The domain-map may
+//    still reference them as "where to look" hints, but their existence is
+//    not a contract.
+function isRuntimeArtifactPath(rel: string): boolean {
+  if (rel === "logs" || rel.startsWith("logs/")) return true;
+  if (rel === ".cursor" || rel.startsWith(".cursor/")) return true;
+  return false;
+}
+
 function assertLiteralPathsExist(values: string[] | undefined) {
   for (const value of values ?? []) {
     const normalized = normalizeLiteralPath(value);
     if (!normalized) continue;
+    if (isRuntimeArtifactPath(normalized.rel)) continue;
     const abs = repoPath(...normalized.rel.split("/"));
     expect(
       existsSync(abs),

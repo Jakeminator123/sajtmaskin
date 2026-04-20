@@ -47,7 +47,6 @@
         "docs/schemas/model-build-profiles.md",
         "docs/schemas/llm-role-matrix.md",
         "docs/schemas/quality-gate.md",
-        "docs/architecture/builder-generation.md",
         "docs/architecture/fas2-orchestration-and-build.md"
       ],
       "humanSchemaPaths": [
@@ -68,7 +67,7 @@
         "config/prompt-core/*.md (via fragments i JSON)"
       ],
       "docsPaths": [
-        "docs/architecture/builder-generation.md",
+        "docs/architecture/fas2-orchestration-and-build.md",
         "docs/architecture/glossary.md"
       ],
       "codeReaders": [
@@ -83,7 +82,7 @@
         "config/prompt-core/_READ_ME_FIRST.md"
       ],
       "docsPaths": [
-        "docs/architecture/builder-generation.md",
+        "docs/architecture/fas2-orchestration-and-build.md",
         "docs/architecture/glossary.md"
       ],
       "codeReaders": [
@@ -102,7 +101,6 @@
       ],
       "docsPaths": [
         "docs/schemas/model-build-profiles.md",
-        "docs/architecture/builder-generation.md",
         "docs/architecture/fas2-orchestration-and-build.md"
       ],
       "humanSchemaPaths": [
@@ -139,7 +137,7 @@
       ],
       "docsPaths": [
         "docs/schemas/scaffold-contract.md",
-        "docs/architecture/builder-generation.md"
+        "docs/architecture/fas2-orchestration-and-build.md"
       ],
       "codeReaders": [
         "src/lib/gen/scaffolds/registry.ts",
@@ -164,7 +162,7 @@
       "docsPaths": [
         "docs/schemas/scaffold-contract.md",
         "docs/architecture/dossier-format.md",
-        ".cursor/rules/scaffold-architecture.mdc"
+        ".cursor/rules/scaffold-rules.mdc"
       ],
       "codeReaders": [
         "backoffice/pages/scaffold_lifecycle.py",
@@ -265,7 +263,7 @@
         ".cursor/rules/signal-ownership.mdc",
         ".cursor/rules/gen-pipeline-simplicity.mdc",
         ".cursor/rules/file-structure-conventions.mdc",
-        ".cursor/rules/scaffold-architecture.mdc",
+        ".cursor/rules/scaffold-rules.mdc",
         ".cursor/rules/openclaw-bridge.mdc",
         ".cursor/rules/useful-commands.mdc",
         ".cursor/rules/platform-quirks.mdc",
