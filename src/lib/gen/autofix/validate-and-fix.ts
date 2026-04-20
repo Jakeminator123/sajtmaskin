@@ -4,6 +4,7 @@ import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-rout
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { incEarlyStop, recordPhaseDuration } from "@/lib/observability/metrics";
 import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
 import { normalizeErrorPattern, countByFixer, type FixEntry } from "./types";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
@@ -256,8 +257,28 @@ async function runWarmTscPass(
  * runs the mechanical → LLM → mechanical loop up to the configured pass
  * limit.  Returns the best available content together with structured
  * telemetry (mechanical vs LLM fix counts, residual error patterns).
+ *
+ * Wraps the inner implementation in a try/finally so phase duration is
+ * recorded to Prometheus regardless of exit path (success / pipeline-error
+ * / thrown). The metrics module is fail-safe; observation never throws.
  */
 export async function validateAndFix(
+  content: string,
+  opts: Parameters<typeof validateAndFixInner>[1],
+): Promise<ValidateFixResult> {
+  const startedAt = Date.now();
+  try {
+    return await validateAndFixInner(content, opts);
+  } finally {
+    try {
+      recordPhaseDuration("validate_syntax", Date.now() - startedAt);
+    } catch {
+      // Telemetry must never break codegen; swallow.
+    }
+  }
+}
+
+async function validateAndFixInner(
   content: string,
   opts: {
     chatId: string;
@@ -338,6 +359,7 @@ export async function validateAndFix(
 
       if (isBudgetExceeded(budgetDeadline)) {
         earlyStopReason = "time_budget_exceeded";
+        try { incEarlyStop("time_budget_exceeded", "validate_syntax"); } catch {}
         emitBudgetStop(pass, bestErrorCount);
         break;
       }
@@ -495,6 +517,7 @@ export async function validateAndFix(
         ];
         if (isBudgetExceeded(budgetDeadline)) {
           earlyStopReason = "time_budget_exceeded";
+          try { incEarlyStop("time_budget_exceeded", "validate_syntax"); } catch {}
           emitBudgetStop(pass, bestErrorCount);
           break;
         }
@@ -524,6 +547,7 @@ export async function validateAndFix(
             errorCount: validation.errors.length,
           });
           earlyStopReason = "fixer_noop";
+          try { incEarlyStop("fixer_noop", "validate_syntax"); } catch {}
           onProgress?.({ pass, phase: "gave-up", errorCount: validation.errors.length });
           devLogAppend("in-progress", {
             type: "syntax-validation.early-stop",
@@ -562,6 +586,7 @@ export async function validateAndFix(
 
         if (isBudgetExceeded(budgetDeadline)) {
           earlyStopReason = "time_budget_exceeded";
+          try { incEarlyStop("time_budget_exceeded", "validate_syntax"); } catch {}
           emitBudgetStop(pass, bestErrorCount);
           break;
         }
@@ -623,6 +648,7 @@ export async function validateAndFix(
         console.info(`[engine] Pass ${pass}: errors reduced ${validation.errors.length} -> ${reValidation.errors.length}`);
         if (reValidation.errors.length >= validation.errors.length) {
           earlyStopReason = "no_improvement";
+          try { incEarlyStop("no_improvement", "validate_syntax"); } catch {}
           onProgress?.({ pass, phase: "gave-up", errorCount: reValidation.errors.length });
           devLogAppend("in-progress", {
             type: "syntax-validation.early-stop",
@@ -646,6 +672,7 @@ export async function validateAndFix(
         });
         if (isBudgetExceeded(budgetDeadline)) {
           earlyStopReason = "time_budget_exceeded";
+          try { incEarlyStop("time_budget_exceeded", "validate_syntax"); } catch {}
           emitBudgetStop(pass, bestErrorCount);
           break;
         }

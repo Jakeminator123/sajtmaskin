@@ -8,22 +8,12 @@ Indelning: **enkla** (≤2h) → **medel** (½–2 dagar) → **stora** (3+ daga
 
 ## §1 ENKLA förbättringar (totalt ~1 dag)
 
-### §1.1 Prometheus/OpenTelemetry-export från `generation-log-writer.ts`
+### §1.1 Prometheus/OpenTelemetry-export — **DONE 2026-04-20**
 
 | Fält | Värde |
 |------|-------|
-| **Fil** | `src/lib/logging/generation-log-writer.ts` |
-| **Svårighet** | Enkel |
-| **Tidsåtgång** | 2 timmar |
-| **Kostnad infra** | 0 (om scrape görs lokalt) — +5 USD/mån (Grafana Cloud free tier) |
-| **Värde** | Mätbar P50/P95/P99 för pipeline-faser; hittar regressioner snabbt |
-
-**Manual:**
-
-1. Lägg `prom-client` som dep.
-2. Skapa `src/lib/observability/metrics.ts` med histogram per fas (`url_expand`, `autofix`, `validate_syntax`, `pre_vm_typecheck`, `materialize_images`, `verifier`, `parse_merge_preflight`).
-3. Exportera `/api/metrics` (auth-skyddad) som returnerar Prometheus-format.
-4. Optional: koppla till Grafana Cloud Free.
+| **Fil** | `src/lib/observability/metrics.ts` (singleton-modul, hot-reload-säker) + `src/app/api/metrics/route.ts` (auth-skyddad GET) + wire-in i `validate-and-fix.ts` (phase duration + early-stop) + `verifier-pass.ts` (phase duration + per-finding blocking-counter) + `finalize-version.ts` (partial-file-repair outcome) |
+| **Status** | Klart 2026-04-20. `prom-client@^15` installerat. Singleton-Registry cachas på `globalThis.__sajtmaskinMetricsRegistry` så Next dev-mode hot-reload inte duplicerar metrics. 12 kanoniska faser i `OBSERVED_PHASES` (utan `pre_vm_typecheck` — uppgår i `validate_syntax` sedan W3). Custom-metric-prefix `sajtmaskin_*`. Default Node process-metrics aktiverade. Auth via bearer-token i `Authorization`-header eller `?token=`-query mot `SAJTMASKIN_METRICS_TOKEN`-env (tom/unset = 503 disabled, fel = 401, rätt = 200 + Prometheus text-format). Token-key dokumenterad i `config/env-policy.json`. **17 nya vitest-tester gröna** (9 metrics-modul + 8 API-route). Helpers `recordPhaseDuration / incFixerCall / incVerifierBlocking / incPartialFileRepair / incEarlyStop` är fail-safe (`try { ... } catch {}` på alla call-sites så telemetri aldrig bryter codegen). Avlåser audit Tier A #12 (P50 metric), #16 (early-stop-inventering) och §3.1-data (FORCE_BLOCKING_IDS rate). |
 
 ---
 

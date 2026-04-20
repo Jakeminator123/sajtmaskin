@@ -29,6 +29,7 @@ import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog"
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
+import { incPartialFileRepair } from "@/lib/observability/metrics";
 import { buildFinalizePreflightLogBundle } from "./finalize-preflight-logs";
 import {
   type FinalizePreflightIssue,
@@ -424,6 +425,7 @@ async function tryRepairPartialFileOutput(params: {
         succeeded: true,
         partialFiles,
       });
+      try { incPartialFileRepair("success"); } catch {}
       return {
         repairedContent: reFixed.fixedContent,
         attempts,
@@ -450,6 +452,7 @@ async function tryRepairPartialFileOutput(params: {
     succeeded: false,
     partialFiles,
   });
+  try { incPartialFileRepair("fail"); } catch {}
   return {
     repairedContent: null,
     attempts,

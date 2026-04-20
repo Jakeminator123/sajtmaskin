@@ -10,6 +10,7 @@ import { getOpenAIModel, isAnthropicModel } from "@/lib/gen/models";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
+import { incVerifierBlocking, recordPhaseDuration } from "@/lib/observability/metrics";
 
 /** OpenAI structured-output strict mode requires no optional object keys — keep paths inside `detail`. */
 const VerifierFindingsSchema = z.object({
@@ -171,8 +172,22 @@ export async function runVerifierPass(
   codeProjectContent: string,
   opts: { resolvedTier: CanonicalModelId },
 ): Promise<VerifierFindings> {
+  const verifierStartedAt = Date.now();
+  const recordOnExit = (findings: VerifierFindings): VerifierFindings => {
+    try {
+      recordPhaseDuration("verifier", Date.now() - verifierStartedAt);
+      // Per-finding counter so the audit §3.1 question ("how often do
+      // FORCE_BLOCKING_IDS actually fire?") becomes a queryable metric.
+      // Only counts blocking findings — quality is advisory anyway.
+      for (const f of findings.blocking) incVerifierBlocking(f.id);
+    } catch {
+      // Telemetry must never break verification.
+    }
+    return findings;
+  };
+
   if (!isVerifierPassEnabled()) {
-    return EMPTY_VERIFIER_FINDINGS;
+    return recordOnExit(EMPTY_VERIFIER_FINDINGS);
   }
 
   const { files } = parseCodeProject(codeProjectContent);
@@ -181,7 +196,7 @@ export async function runVerifierPass(
 
   const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim());
   if (!hasKey) {
-    return deterministic;
+    return recordOnExit(deterministic);
   }
 
   const cfg = resolvePostGenerationVerifierConfig();
@@ -190,7 +205,7 @@ export async function runVerifierPass(
 
   const snippet = buildVerifierPromptSnippetFromFiles(files, cfg.snippetCharsPerFile);
   if (!snippet.trim()) {
-    return deterministic;
+    return recordOnExit(deterministic);
   }
 
   const system = `You are a read-only QA reviewer for a generated Next.js site (CodeProject).
@@ -230,13 +245,13 @@ Use those exact ids so downstream tooling can recognise them.`;
       ...(providerOptions ? { providerOptions } : {}),
     });
     const promoted = promoteForcedBlockingFindings(result.object);
-    return {
+    return recordOnExit({
       blocking: [...deterministic.blocking, ...promoted.blocking],
       quality: [...deterministic.quality, ...promoted.quality],
-    };
+    });
   } catch (err) {
     console.warn("[verifier-pass] Non-fatal error, skipping:", err);
-    return deterministic;
+    return recordOnExit(deterministic);
   } finally {
     clearTimeout(timeoutId);
   }

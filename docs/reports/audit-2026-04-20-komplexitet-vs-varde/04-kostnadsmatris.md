@@ -38,11 +38,11 @@
 | 9 | Pre-commit ÅÄÖ-hook | B | enkel | 30 min | 0 | 8 | `01-buggar.md` §1.3 | ⏸ DEFER (kräver husky-install, out of scope för "30 min") |
 | 10 | Filnamn `övergipande` typo | B | enkel | 5 min | 0 | 8 | `01-buggar.md` §1.4 | ✅ DONE |
 | 11 | Slå ihop `predev`/`prebuild` | F+K | enkel | 30 min | 0 | 8 | `02-forbattringar.md` §1.5 | ✅ DONE (preflight:common) |
-| 12 | P50 prompt → preview metric | F | medel | 2 dagar | 0 | 8 | `02-forbattringar.md` §2.1 | ⏸ Kräver telemetri-grund |
+| 12 | P50 prompt → preview metric | F | medel | 2 dagar | 0 | 8 | `02-forbattringar.md` §2.1 | 🔓 UNLOCKED 2026-04-20 (telemetri-grund #19 finns; återstår: P50-aggregering + dashboard) |
 | 13 | Slå ihop `pre_vm_typecheck` + `validate_syntax` | K | medel | 2 dagar | -2–3 USD | 8 | `03-konsolidering-pipeline.md` §2.1 | ✅ DONE (Wave 3) |
 | 14 | Konsolidera `/api/v0/*` ↔ `/api/engine/*` | K | stor | 1 vecka | 0 | 8 | `03-konsolidering-pipeline.md` §3.4 | ✅ DONE (P29 alla 3 faser) |
 | 15 | P22b stream-route follow-up | B | medel | ½ dag | 0 | 7 | `01-buggar.md` §2.2 | ✅ DONE (P22b core wiring) |
-| 16 | Inventera early-stop-flaggor | K | enkel | 2 h | 0 | 7 | `03-konsolidering-pipeline.md` §1.2 | ⏸ DEFER (telemetri-grund saknas) |
+| 16 | Inventera early-stop-flaggor | K | enkel | 2 h | 0 | 7 | `03-konsolidering-pipeline.md` §1.2 | 🔓 UNLOCKED 2026-04-20 (`incEarlyStop` wirad i `validate-and-fix.ts`, samla data 1 vecka och beslut) |
 | 17 | Brief som optional (A/B-test) | K | medel | 2 dagar | -5–10 USD | 7 | `03-konsolidering-pipeline.md` §3.5 | ⏸ DEFER (A/B-infra saknas) |
 | 18 | FEATURES-flagga rensning | K | enkel-medel | ½ dag | 0 | 7 | `03-konsolidering-pipeline.md` §3.7 | ✅ DONE (1 dead flag rensad; resten är credential-gates) |
 
@@ -54,7 +54,7 @@
 
 | # | Åtgärd | Typ | Svårighet | Tid | Mån-kostnad | ROI | Källa | Status |
 |---|--------|-----|-----------|-----|-------------|-----|-------|--------|
-| 19 | Prometheus/OTel export | F | enkel | 2 h | +5 USD | 6 | `02-forbattringar.md` §1.1 | ⏸ Förkrav för Tier A #12/#16 |
+| 19 | Prometheus/OTel export | F | enkel | 2 h | +5 USD | 6 | `02-forbattringar.md` §1.1 | ✅ DONE (2026-04-20, `src/lib/observability/metrics.ts` + `/api/metrics`; avlåser Tier A #12, #16) |
 | 20 | Brief-cache (Redis) | F | medel | ½ dag | -2 USD | 6 | `02-forbattringar.md` §2.7 | ⏸ |
 | 21 | `data/dossiers/` `.gitignore` | F | enkel | 30 min | 0 | 6 | `02-forbattringar.md` §1.6 | ⏸ |
 | 22 | Auto-archive avklarade planer | F | enkel | 1 h | 0 | 6 | `02-forbattringar.md` §1.7 | ✅ DONE (`scripts/plans/auto-archive.mjs`) |
