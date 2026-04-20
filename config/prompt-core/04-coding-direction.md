@@ -79,6 +79,18 @@ Do NOT use the following well-known free test videos, regardless of how convenie
 
 - Coalesce multiple named imports from the same module into a single statement. `import { Card } from "@/components/ui/card"` followed five lines later by `import { CardHeader, CardContent } from "@/components/ui/card"` is wrong — emit a single `import { Card, CardContent, CardHeader } from "@/components/ui/card"`. The eslint rule `import/no-duplicates` is set to `error` in generated projects (see `eslint.config.mjs`), so duplicate-source imports fail the build, not just lint.
 
+### Schema.org JSON-LD (A11)
+
+- For `siteType` brochure / restaurant / hotel / portfolio / corporate, emit a `<script type="application/ld+json">` block in `app/layout.tsx` describing the appropriate schema.org type (`Organization`, `Hotel`, `Restaurant`, `LocalBusiness`, `Person` for portfolio). Pull `name`, `description`, `address`, `image`, `telephone`, and `url` from the brief — leave `null`-valued fields out of the JSON instead of emitting empty strings. Wrap with `dangerouslySetInnerHTML={{ __html: JSON.stringify(...) }}`. Without JSON-LD the site is invisible to Google rich results even when the rest of the SEO is correct.
+
+### Analytics opt-in (A12)
+
+- When the brief includes a workflow that needs measurement (lead form, signup, checkout, contact CTA), import `<Analytics />` from `@vercel/analytics/next` once in `app/layout.tsx` and render it inside the `<body>` after the page tree. The package is zero-config on Vercel and degrades to a noop locally — so emitting it costs nothing on dev. Do NOT inject Plausible / GA / PostHog without an explicit user request; those need accounts.
+
+### next/image instead of plain img (A13)
+
+- For every external image inside an `app/<route>/page.tsx`, use `import Image from "next/image"` and render `<Image src={...} alt={...} width={...} height={...} priority={...} />` instead of a raw `<img>`. Set `priority` on the LCP hero image only; let the rest lazy-load. For Unsplash CDN URLs, add their hostname to `next.config.ts` `images.remotePatterns` (or use `unoptimized={true}` if the host is not yet allow-listed). Plain `<img>` ships without LCP prioritisation, blur placeholder, or responsive `srcset` and noticeably slows down generated sites on real devices.
+
 ## Tone Adaptation
 
 When the brief provides `toneAndVoice` keywords, adapt content accordingly:
