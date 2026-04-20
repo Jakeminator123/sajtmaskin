@@ -292,7 +292,7 @@
     "partialFileRepairMaxAttempts": 1
   },
   "qualityGateTiers": {
-    "designPreview": ["typecheck"],
+    "designPreview": ["typecheck", "build"],
     "integrationsBuild": ["typecheck", "build"]
   },
   "promptOrchestration": {

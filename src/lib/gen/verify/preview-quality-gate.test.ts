@@ -131,7 +131,8 @@ describe("resolveRepairQualityGateChecks", () => {
     ]);
   });
 
-  it("falls back to tier-2 defaults when no explicit checks are provided", () => {
-    expect(resolveRepairQualityGateChecks()).toEqual(["typecheck"]);
+  it("falls back to F2 design-preview defaults when no explicit checks are provided", () => {
+    // Tier-2 default is now `typecheck + build` (since 2026-04-20).
+    expect(resolveRepairQualityGateChecks()).toEqual(["typecheck", "build"]);
   });
 });

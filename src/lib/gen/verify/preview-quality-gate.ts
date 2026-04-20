@@ -1,7 +1,9 @@
 /**
  * Shared quality gate executed through preview-host's isolated verify lane.
- * Default tier-2 gate: install + typecheck only. Build/lint available for
- * tier-3 / interactive / deploy paths via explicit `checks` override.
+ * Default F2 design-preview gate: install + typecheck + build (since
+ * 2026-04-20 — added `build` to catch Next-runtime errors before the
+ * preview iframe renders). Lint and other checks are available via
+ * explicit `checks` override.
  */
 import type { CodeFile } from "@/lib/gen/parser";
 import {
