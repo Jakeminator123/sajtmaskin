@@ -461,19 +461,12 @@ export async function validateAndFix(
         });
       }
 
-      // --- last pass? give up ---
-      if (pass === SYNTAX_FIX_MAX_PASSES) {
-        onProgress?.({ pass, phase: "gave-up", errorCount: validation.errors.length });
-        devLogAppend("in-progress", {
-          type: "syntax-validation.gave-up",
-          chatId: opts.chatId,
-          pass,
-          errorCount: validation.errors.length,
-        });
-        break;
-      }
-
       // --- LLM fixer ---
+      // Note: the "is this the last pass? give up" check used to live HERE,
+      // before runLlmFixer was invoked. That made the LLM fixer dead code on
+      // the final pass — and entirely unreachable when SYNTAX_FIX_MAX_PASSES
+      // was 1. Moved AFTER the fixer block (search for "last pass with errors")
+      // so the fixer always gets a chance on every pass within budget.
       const errorSummary = validation.errors.map(
         (e: { file: string; line: number; column: number; message: string }) =>
           `${e.file}:${e.line}:${e.column} ${e.message}`,
@@ -656,6 +649,24 @@ export async function validateAndFix(
           emitBudgetStop(pass, bestErrorCount);
           break;
         }
+      }
+
+      // --- last pass with errors? give up ---
+      // Runs AFTER the LLM fixer attempt so the fixer always gets a chance,
+      // even on the final pass. (Earlier this lived before the fixer block,
+      // making the fixer dead code on the final pass and unreachable when
+      // SYNTAX_FIX_MAX_PASSES === 1.)
+      if (pass === SYNTAX_FIX_MAX_PASSES) {
+        const remaining =
+          bestErrorCount === Infinity ? lastErrors.length : bestErrorCount;
+        onProgress?.({ pass, phase: "gave-up", errorCount: remaining });
+        devLogAppend("in-progress", {
+          type: "syntax-validation.gave-up",
+          chatId: opts.chatId,
+          pass,
+          errorCount: remaining,
+        });
+        break;
       }
     }
 

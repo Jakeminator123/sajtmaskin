@@ -289,6 +289,74 @@ describe("validateAndFix", () => {
     );
   });
 
+  it("invokes the LLM fixer on the final pass too (regression: was dead code when pass === SYNTAX_FIX_MAX_PASSES)", async () => {
+    // Each pass: validate → fixer (improves) → reValidate (one fewer error).
+    // With the bug, the gave-up branch fired before the fixer on the final
+    // pass; with the fix, the fixer runs every pass within the loop budget.
+    // Manifest default for syntaxFixPasses is 4; we mock four full pass
+    // cycles (validate + reValidate) and four fixer responses.
+    const initialContent = '```tsx file="app/page.tsx"\nbroken\n```';
+    const improvedContent = '```tsx file="app/page.tsx"\nbetter\n```';
+
+    for (let pass = 1; pass <= 4; pass++) {
+      validateGeneratedCode
+        .mockResolvedValueOnce({
+          valid: false,
+          errors: Array.from({ length: 5 - (pass - 1) }, () => ({
+            file: "app/page.tsx",
+            line: pass,
+            column: 1,
+            message: `err pass${pass}`,
+          })),
+        })
+        .mockResolvedValueOnce({
+          valid: false,
+          errors: Array.from({ length: 5 - pass }, () => ({
+            file: "app/page.tsx",
+            line: pass,
+            column: 1,
+            message: `err pass${pass}`,
+          })),
+        });
+    }
+
+    for (let i = 0; i < 4; i++) {
+      runLlmFixer.mockResolvedValueOnce({
+        fixedContent: improvedContent,
+        fixedFiles: ["app/page.tsx"],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 10,
+      });
+    }
+
+    // runAutoFix is called once for the initial mech pass + once after each
+    // successful LLM fixer attempt = 1 + 4 = 5 invocations.
+    for (let i = 0; i < 5; i++) {
+      runAutoFix.mockResolvedValueOnce({
+        fixedContent: improvedContent,
+        fixes: [],
+        warnings: [],
+        dependencies: {},
+      });
+    }
+
+    const result = await validateAndFix(initialContent, {
+      chatId: "chat_multi_pass",
+      model: "gpt-5.4",
+    });
+
+    expect(runLlmFixer).toHaveBeenCalledTimes(4);
+    expect(result.passes).toBe(4);
+    expect(result.fixerUsed).toBe(true);
+    expect(result.fixerImproved).toBe(true);
+    // Final reValidate (pass 4) leaves 1 residual error, so we end "partial",
+    // never "passed", and never short-circuit before the fixer runs.
+    expect(result.status).toBe("partial");
+    expect(result.errorsAfter).toBe(1);
+  });
+
   it("stops early when a fixer pass does not reduce error count", async () => {
     validateGeneratedCode
       .mockResolvedValueOnce({
