@@ -16,6 +16,10 @@ Snabb uppslagsregel när du behöver rätt kommando utan att leta runt. **`packa
 - `npm run test:ci` — kör hela Vitest-sviten en gång.
 - `npm run lint` — ESLint för repot.
 
+## Typografi-validering
+
+- `npm run typography:validate-pairings` — kollar att alla `fontPairings`-namn i `config/scaffold-variants/**/*.json` finns i `src/lib/gen/data/google-font-registry.ts`. Exit 1 vid drift. Rapport på stdout. Audit P20 Nivå 3.
+
 ## Plans-arkivering
 
 - `npm run plans:archive` — **dry-run.** Listar plan-filer i `docs/plans/active/` vars `Status:`-rad signalerar klar (`DONE`/`Closed`/`Stängd`/`Avslutad`). Skippar `Kvarvarande-uppgifter.md` + `README.md`.

@@ -55,7 +55,7 @@
 | # | Åtgärd | Typ | Svårighet | Tid | Mån-kostnad | ROI | Källa | Status |
 |---|--------|-----|-----------|-----|-------------|-----|-------|--------|
 | 19 | Prometheus/OTel export | F | enkel | 2 h | +5 USD | 6 | `02-forbattringar.md` §1.1 | ✅ DONE (2026-04-20, `src/lib/observability/metrics.ts` + `/api/metrics`; avlåser Tier A #12, #16) |
-| 20 | Brief-cache (Redis) | F | medel | ½ dag | -2 USD | 6 | `02-forbattringar.md` §2.7 | ⏸ |
+| 20 | Brief-cache (Redis) | F | medel | ½ dag | -2 USD | 6 | `02-forbattringar.md` §2.7 | ✅ DONE 2026-04-20 (`src/lib/api/ai/brief-cache.ts` + headers + counter) |
 | 21 | `data/dossiers/` `.gitignore` | F | enkel | 30 min | 0 | 6 | `02-forbattringar.md` §1.6 | ✅ EFFEKTIVT KLART 2026-04-20 (subagent-verifierat: existerande `# Dossier-pipeline` block täcker allt; `git status -- data/dossiers/` redan tom) |
 | 22 | Auto-archive avklarade planer | F | enkel | 1 h | 0 | 6 | `02-forbattringar.md` §1.7 | ✅ DONE (`scripts/plans/auto-archive.mjs`) |
 | 23 | Konsolidera `promptAssist.allowed` | F | medel | ½ dag | 0 | 6 | `02-forbattringar.md` §2.3 | ✅ DONE 2026-04-20 (additiv `allowed.models` union; båda legacy-arrayer kvar för bakåtkompat) |

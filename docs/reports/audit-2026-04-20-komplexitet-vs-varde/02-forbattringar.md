@@ -210,7 +210,9 @@ Idag finns två separerade arrayer (`gatewayClassModels` och `anthropicDirectMod
 
 ---
 
-### §2.7 Brief-cache per chatId+promptHash
+### §2.7 Brief-cache per chatId+promptHash — **DONE 2026-04-20**
+
+> Klart i Etapp K.2 (commit `70b22f861`). `src/lib/api/ai/brief-cache.ts` cacher i Redis 24h på `brief:v1:<modelId>:<chatId-or-anon>:<sha256-24>`. Gated på `FEATURES.useRedisCache`. Headers `X-Brief-Cache: hit|miss|skip`. Counter `sajtmaskin_brief_cache_total{outcome}`. Tester 8/8 + 1 metric-test. Caveat: chatId är alltid `null` i HTTP-routen idag (`briefRequestSchema` accepterar inte chatId); helper-signaturen stödjer chatId för framtida server-auto-brief-callers. Original audit-recipe nedan, behållen som historik.
 
 | Fält | Värde |
 |------|-------|
