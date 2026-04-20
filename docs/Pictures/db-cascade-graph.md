@@ -40,15 +40,19 @@ flowchart TD
   engineVersions -->|CASCADE| versionApprovals
 ```
 
+
+
 ## Tabeller utanför cascade-kedjan (medvetet)
 
-| Tabell | Varför ingen cascade |
-| --- | --- |
-| `media_library` | Ägs av användaren, kan delas mellan projekt — ska överleva projekt-radering |
-| `domain_orders` | Finansiella records, raderas explicit i `deleteProject()` och cleanup-scriptet |
-| `prompt_logs` | Telemetri, ska överleva projekt-radering så analytics inte tappas |
-| Externa Supabase/Neon hos genererade sajter | Ägs av användarens egna konto, helt utanför sajtmaskins DB |
-| Vercel Blob/S3-payloads | Lever utanför Postgres, separat städ-flöde |
+
+| Tabell                                      | Varför ingen cascade                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `media_library`                             | Ägs av användaren, kan delas mellan projekt — ska överleva projekt-radering    |
+| `domain_orders`                             | Finansiella records, raderas explicit i `deleteProject()` och cleanup-scriptet |
+| `prompt_logs`                               | Telemetri, ska överleva projekt-radering så analytics inte tappas              |
+| Externa Supabase/Neon hos genererade sajter | Ägs av användarens egna konto, helt utanför sajtmaskins DB                     |
+| Vercel Blob/S3-payloads                     | Lever utanför Postgres, separat städ-flöde                                     |
+
 
 ## Referenser
 
@@ -57,3 +61,4 @@ flowchart TD
 - Drizzle-schema: [src/lib/db/schema.ts](../../src/lib/db/schema.ts)
 - Cleanup-script: [scripts/db/cleanup-test-projects.mjs](../../scripts/db/cleanup-test-projects.mjs)
 - Schema-doc: [docs/schemas/integrations-and-data.md](../schemas/integrations-and-data.md)
+

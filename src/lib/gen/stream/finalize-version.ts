@@ -260,6 +260,7 @@ interface FinalizeFastPathResult {
   finalizedFilesForPreview: CodeFile[];
   scaffoldRetry: ScaffoldRetrySuggestion | null;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
+  rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 
@@ -1068,6 +1069,7 @@ async function runFinalizeFastPath(params: {
     finalizedFilesForPreview,
     scaffoldRetry,
     verifierBlockingFindings,
+    rejectedShrinks,
     stepTelemetry,
   };
 }
@@ -1231,6 +1233,7 @@ export async function finalizeAndSaveVersion(
     finalizedFilesForPreview,
     scaffoldRetry,
     verifierBlockingFindings,
+    rejectedShrinks,
     stepTelemetry: fastPathStepTelemetry,
   } = await runFinalizeFastPath({
     chatId,
