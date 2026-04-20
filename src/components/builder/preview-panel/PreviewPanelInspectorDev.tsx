@@ -96,7 +96,12 @@ export function PreviewPanelInspectorDev({
         <>
           <div
             className={cn(
-              "absolute inset-0 z-20 cursor-crosshair bg-sky-950/10",
+              // Bumped from /10 → /25 (SAJ-19 / C3): the previous overlay was
+              // so transparent that users routinely forgot inspect mode was on
+              // and reported the iframe as "broken" because clicks did not pass
+              // through. Visible tint + crosshair cursor + the "Placering aktiv"
+              // header banner make state unambiguous without occluding content.
+              "absolute inset-0 z-20 cursor-crosshair bg-sky-950/25 ring-2 ring-inset ring-sky-400/40",
               (iframeLoading || externalLoading) && "pointer-events-none",
             )}
             onClick={handlePlacementClick}
@@ -135,7 +140,10 @@ export function PreviewPanelInspectorDev({
         <>
           <div
             className={cn(
-              "absolute inset-0 z-20 cursor-crosshair bg-emerald-950/5",
+              // Bumped from /5 → /20 (SAJ-19 / C3) — same reasoning as the
+              // sky overlay above. Inspector mode is now visible without
+              // hiding the content underneath.
+              "absolute inset-0 z-20 cursor-crosshair bg-emerald-950/20 ring-2 ring-inset ring-emerald-400/40",
               isCapturePending && "pointer-events-none",
             )}
             onClick={handleCaptureClick}

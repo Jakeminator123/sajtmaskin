@@ -27,7 +27,7 @@ describe("mergePackageJsonWithBaseline", () => {
       dependencies: Record<string, string>;
     };
 
-    expect(merged.scripts.dev).toBe("next dev");
+    expect(merged.scripts.dev).toBe("next dev --webpack");
     expect(merged.scripts.build).toBe("next build");
     expect(merged.devDependencies.typescript).toBeDefined();
     expect(merged.devDependencies.tailwindcss).toBeDefined();
@@ -120,7 +120,7 @@ describe("buildCompleteProject", () => {
     const pkg = files.find((f) => f.path === "package.json");
     expect(pkg).toBeDefined();
     const parsed = JSON.parse(pkg!.content) as { scripts: Record<string, string> };
-    expect(parsed.scripts.dev).toBe("next dev");
+    expect(parsed.scripts.dev).toBe("next dev --webpack");
 
     const env = files.find((f) => f.path === ".env.local");
     expect(env).toBeDefined();
@@ -333,7 +333,7 @@ describe("buildExportableProject", () => {
     const pkg = JSON.parse(exported.find((f) => f.path === "package.json")!.content) as {
       scripts: Record<string, string>;
     };
-    expect(pkg.scripts.dev).toBe("next dev");
+    expect(pkg.scripts.dev).toBe("next dev --webpack");
 
     const counter = exported.find((f) => f.path === "components/counter.tsx");
     expect(counter).toBeDefined();

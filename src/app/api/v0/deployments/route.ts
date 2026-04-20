@@ -128,7 +128,7 @@ function applyPreDeployFixes(
       version: "0.1.0",
       private: true,
       scripts: {
-        dev: "next dev",
+        dev: "next dev --webpack",
         build: "next build",
         start: "next start",
       },

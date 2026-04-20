@@ -22,4 +22,10 @@ These are non-trivial compositions or import patterns where the model frequently
 - **Combobox**: a local `@/components/ui/combobox` wrapper exists. Preferred pattern: `<Combobox><ComboboxInput ... /><ComboboxContent><ComboboxList><ComboboxItem ... /></ComboboxList></ComboboxContent></Combobox>`. Use the local wrapper directly unless a lower-level custom composition is intentional.
 - **Sonner** (toasts) — import-fall trap: `toast("Message")` or `toast.success("Done")` must be imported as `import { toast } from "sonner"`. Do NOT import `toast` from `"@/components/ui/sonner"` — that file only exports the `Toaster` provider.
 - **InputOTP**: `<InputOTP maxLength={6}><InputOTPGroup><InputOTPSlot index={0} />...` for verification codes. Wraps `input-otp`. The `index` prop on each slot must match its position; mismatched indexes break paste-fill.
-- **next-themes ThemeProvider**: wrap children with `<ThemeProvider>` in `app/layout.tsx`. Toggle from a `"use client"` component via `const { setTheme } = useTheme()`. Without the layout-level provider, every theme hook crashes.
+- **next-themes ThemeProvider**: in `app/layout.tsx`, wrap `{children}` directly inside `<body>` — `<body><ThemeProvider attribute="class" defaultTheme="system" enableSystem>{children}</ThemeProvider></body>`. NEVER place it inside `<main>` or wrap only the page content; header / footer / fixed overlays render outside `<main>` and would otherwise stay locked to the system theme even after the user toggles dark mode. Toggle from a `"use client"` component via `const { setTheme } = useTheme()`. Without the body-level provider, every theme hook crashes and the dark-mode switch only re-paints the page body.
+
+## No Empty Stub Modules
+
+Do NOT emit placeholder files such as `components/booking-form-state.tsx` that contain only a `// TODO` comment, an empty default export, or a stubbed type alias with no consumers. If a feature is not implemented in this generation, omit the file entirely. Empty stubs ship as dead code, confuse the file panel, and trigger false-positive "missing import" autofix loops.
+
+Acceptable: a file exists with full implementation, or it does not exist at all. Anything in between (single-line export, empty function body, "data-stub-pattern" placeholders) is a regression — see SAJ-16 / handoff A1.

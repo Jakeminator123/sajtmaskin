@@ -147,7 +147,9 @@ export function PreviewPanelFrame({
         className="h-full w-full border-0"
         onLoad={handleIframeLoad}
         onError={handleIframeError}
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        // allow-pointer-lock: required by R3F's OrbitControls + drei pointer-locking helpers.
+        // allow-modals: lets generated apps use window.alert/confirm without silent failures.
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-modals"
         title="Preview"
       />
 
