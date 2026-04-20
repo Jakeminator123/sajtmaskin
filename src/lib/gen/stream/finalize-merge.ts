@@ -13,13 +13,19 @@ export interface MergeGeneratedProjectFilesParams {
   previousFiles?: CodeFile[];
 }
 
+export interface MergeGeneratedProjectFilesResult {
+  filesJson: string;
+  /** Files rejected by shrink-guard — surfaced to user so they know why edits were dropped. */
+  rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
+}
+
 export function mergeGeneratedProjectFiles({
   chatId,
   originalFilesJson,
   generatedFiles,
   resolvedScaffold,
   previousFiles,
-}: MergeGeneratedProjectFilesParams): string {
+}: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
   const isFollowUp = Boolean(previousFiles && previousFiles.length > 0);
 
   if (isFollowUp) {
@@ -28,6 +34,9 @@ export function mergeGeneratedProjectFiles({
       rejectDroppedStructuralElements: true,
     });
     const mergedFiles = mergeResult.files;
+    const rejectedShrinks = mergeResult.warnings
+      .filter((w) => w.type === "significant-shrink")
+      .map((w) => ({ file: w.file, previousSize: w.previousSize, newSize: w.newSize }));
     if (mergeResult.warnings.length > 0) {
       devLogAppend("in-progress", {
         type: "merge-warnings",
@@ -58,7 +67,7 @@ export function mergeGeneratedProjectFiles({
       }
     }
 
-    return JSON.stringify(finalFiles);
+    return { filesJson: JSON.stringify(finalFiles), rejectedShrinks };
   }
 
   if (resolvedScaffold) {
@@ -97,7 +106,7 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    return JSON.stringify(importResult.files);
+    return { filesJson: JSON.stringify(importResult.files), rejectedShrinks: [] };
   }
 
   const crossFileResult = checkCrossFileImports(generatedFiles);
@@ -107,8 +116,8 @@ export function mergeGeneratedProjectFiles({
       chatId,
       fixes: crossFileResult.fixes,
     });
-    return JSON.stringify(crossFileResult.files);
+    return { filesJson: JSON.stringify(crossFileResult.files), rejectedShrinks: [] };
   }
 
-  return originalFilesJson;
+  return { filesJson: originalFilesJson, rejectedShrinks: [] };
 }

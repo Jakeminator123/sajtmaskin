@@ -104,6 +104,8 @@ export interface FinalizeResult {
   filesJson: string;
   contentForVersion: string;
   preflight: PreviewPreflightSummary;
+  /** Files whose new content was rejected (< 50% of prior size). Surfaced to user via SSE. */
+  rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
 }
 
 interface FinalizePathPolicy {
@@ -847,13 +849,15 @@ async function runFinalizeFastPath(params: {
     }>
   ).map((f) => ({ ...f, language: f.language || "tsx" }));
 
-  filesJson = mergeGeneratedProjectFiles({
+  const mergeResult = mergeGeneratedProjectFiles({
     chatId,
     originalFilesJson: filesJson,
     generatedFiles,
     resolvedScaffold,
     previousFiles,
   });
+  filesJson = mergeResult.filesJson;
+  const rejectedShrinks = mergeResult.rejectedShrinks;
 
   if (previousFiles && previousFiles.length > 0) {
     const previousContentLen = previousFiles.reduce((sum, f) => sum + (f.content?.length ?? 0), 0);
@@ -957,13 +961,14 @@ async function runFinalizeFastPath(params: {
         JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>
       ).map((f) => ({ ...f, language: f.language || "tsx" }));
 
-      filesJson = mergeGeneratedProjectFiles({
+      const remergeResult = mergeGeneratedProjectFiles({
         chatId,
         originalFilesJson: filesJson,
         generatedFiles: reGeneratedFiles,
         resolvedScaffold,
         previousFiles,
       });
+      filesJson = remergeResult.filesJson;
 
       preflightResult = await runFinalizePreflight({
         chatId,
@@ -1617,5 +1622,6 @@ export async function finalizeAndSaveVersion(
       scaffoldRetry,
       routePlan,
     },
+    rejectedShrinks: rejectedShrinks ?? [],
   };
 }

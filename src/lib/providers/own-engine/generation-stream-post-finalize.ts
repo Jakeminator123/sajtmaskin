@@ -166,6 +166,9 @@ export async function runOwnEngineStreamPostFinalize(params: {
         verificationSummary: finalized.version.verification_summary,
         promotedAt: finalized.version.promoted_at,
         ...(previewUrlHint ? { previewUrlHint } : {}),
+        ...(finalized.rejectedShrinks.length > 0
+          ? { rejectedShrinks: finalized.rejectedShrinks }
+          : {}),
       }),
     ),
   );

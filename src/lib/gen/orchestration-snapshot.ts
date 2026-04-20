@@ -82,13 +82,28 @@ function isPlainObjectRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** Shallow merge: new finalize wins on key collision; keeps prior keys omitted from latest stream (K-019). */
+/**
+ * Shallow merge: new finalize wins on key collision; keeps prior keys
+ * omitted from latest stream (K-019).
+ *
+ * Guards against last-write-wins race: if `previous.capturedAt` is
+ * newer than `next.capturedAt`, the merge is skipped and `previous`
+ * is returned unchanged — a stale finalize must not overwrite a
+ * newer snapshot (e.g. repair finishing after a new follow-up).
+ */
 export function mergePersistedOrchestrationSnapshots(
   previous: Record<string, unknown> | null | undefined,
   next: Record<string, unknown>,
 ): Record<string, unknown> {
   const base =
     previous && typeof previous === "object" && !Array.isArray(previous) ? { ...previous } : {};
+
+  const prevTime = typeof base.capturedAt === "string" ? Date.parse(base.capturedAt) : 0;
+  const nextTime = typeof next.capturedAt === "string" ? Date.parse(next.capturedAt) : 0;
+  if (prevTime && nextTime && prevTime > nextTime) {
+    return base;
+  }
+
   const merged = { ...base, ...next };
   const prevBuildSpec = base.buildSpec;
   const nextBuildSpec = next.buildSpec;
