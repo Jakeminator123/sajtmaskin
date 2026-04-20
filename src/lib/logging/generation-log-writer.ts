@@ -38,9 +38,14 @@ const MAX_TIMELINE_ENTRIES_PER_RUN = 1_000;
 const MAX_SUMMARY_TIMELINE_ROWS = 180;
 // Per-chat history.ndjson cappar fortfarande till 50 rader per chat. Det här
 // är OCAPAT antalet *chat-mappar* under site-observability/. Med LRU-prune
-// nedan kommer äldsta chats att rensas bort när vi går över 30.
+// nedan kommer äldsta chats att rensas bort när vi går över taket.
+//
+// Cap sänkt 30 → 5 (2026-04-21): durable chat/version-data ligger i Postgres,
+// medan dessa per-chat-mappar bara används för (a) LLM-fixerns kortminne om
+// återkommande fel inom en aktiv session och (b) telemetri-snapshots. 5
+// senaste räcker för normal arbetsbelastning och håller Cursor-indexet smalt.
 const MAX_SITE_HISTORY_RUNS = 50;
-const MAX_SITE_OBSERVABILITY_CHATS = 30;
+const MAX_SITE_OBSERVABILITY_CHATS = 5;
 // _unrouted/ är fallback-bucketar för events som saknar runId/chatId/slug.
 // Förut kunde de ackumuleras för evigt; vi cappar dem på samma sätt.
 const MAX_UNROUTED_BUCKETS = 10;
