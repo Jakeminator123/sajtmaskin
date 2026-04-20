@@ -1,8 +1,8 @@
 # P20 — shadcn-ekosystem: inkrementellt vs enhetlig pipeline
 
-Status: Active (strategisk uppföljning)
+Status: Active (Nivå 1 + 2 KLARA 2026-04-20; Nivå 3 öppen)
 Skapad: 2026-04-15
-Prioritet: Medel (beror på genereringskvalitet och underhållsbehov)
+Prioritet: Låg (kvarvarande Nivå 3 är CI-script, ej blockerande)
 
 ## Bakgrund
 
@@ -12,8 +12,8 @@ Tidigare fanns en tänkt uppdelning i **faser** (t.ex. blocks/recipes, sedan `re
 
 Kort, fokuserat arbete som matchar checklistan i `Kvarvarande-uppgifter.md`:
 
-1. **Blocks → section recipes** — metadata eller små recept så genereringen kan välja sektioner konsekvent.
-2. **`registry:font`** — tydlig fontkedja i samma anda som shadcn-registret (färre manuella fontbeslut i prompt). Font-register (`google-font-registry.ts`) levererat; upstream `registry:font`-integration kvar.
+1. ~~**Blocks → section recipes**~~ — **KLART (shrink-leverans) 2026-04-20** (`6c9b20b25`): `selectCandidates()` i `community-registry-fetch.ts` använder DJB-hash av `prompt::sectionType::namespace` istället för `Math.random()`. Samma prompt → samma section-recipes över reruns. Subagent-rekommendation från P29-utredning levererad utan att introducera deterministisk-bara-recept-yta.
+2. **`registry:font`** — tydlig fontkedja i samma anda som shadcn-registret (färre manuella fontbeslut i prompt). Font-register (`google-font-registry.ts`) levererat; upstream `registry:font`-integration kvar. Subagent-rekommenderad shrink-MVP: CI-script som validerar att alla `fontPairings` i scaffold-variants finns i `google-font-registry.ts` (~4–8h, lågt risk).
 3. ~~**Scaffold-toolkit + komponentpool**~~ — **KLART** (`65921ac53`): `buildRegistryDrivenShadcnToolkitSummary` tar `ScaffoldToolkitContext`, grupperar "Primary" vs "Also available".
 
 Detta ger snabb effekt om varje steg **valideras** mot minst en riktig generation + importlint.

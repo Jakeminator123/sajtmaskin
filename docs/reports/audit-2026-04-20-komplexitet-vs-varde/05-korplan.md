@@ -6,6 +6,24 @@
 
 ---
 
+## Faktisk progress sedan rapport-datum (2026-04-20)
+
+**Tier S = 7/7 KLART, Tier A = 8/12 KLART** (4 deferrerade på telemetri-/A-B-infra). Sammanställning över 8 etapper levererade 2026-04-20:
+
+| Etapp | Commit | Vad |
+|---|---|---|
+| W1-W4 (annan agent) | `13bf8a3b7`, `b639c33f5` | LLM-flöde Fas 2/3 (struct-drops SSE, verifier→fixer, validate-merge, auto-repair) |
+| Hygien + bug-fix | `057b9bd0b`, `6c9b20b25`, `72837c500`, `ccb92a3e5`, `9ad682fab` | validate-loop fix, deterministic block-pick, P19 ingress 1, Tier S städning, docs |
+| **A** | `b2d073cd0` | F2 quality-gate `build`-check |
+| **B+C** | `560a788ef`, `594ad6c1c` | P29 Fas 1A (18 testlösa v0-routes) + docs |
+| **D+E** | `8136324a0`, `44a9c9eeb` | P29 Fas 1B (10 routes med tester migrerade) + stale-ref cleanup |
+| **F** | `14feacb50`, `3266ac4fe` | P29 Fas 2 + audit-städning (P29 helt stängd) |
+| **G** | `425108b58` | Tier A #8 verifierat non-issue + 04-kostnadsmatris status-kolumn |
+
+**Vågorna nedan är delvis obsoleta** efter denna leverans — Våg 1 i princip klar (master grön, hygien-paket levererat), Våg 2 sub-våg 2A (telemetri-grund) återstår och blockerar bl.a. Tier A #16. Strategisk satsning #38 (WebContainers) återstår som single-largest-ROI och är nästa stora arbetsspår.
+
+---
+
 ## Total översikt
 
 ```

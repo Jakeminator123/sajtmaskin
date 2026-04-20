@@ -74,6 +74,8 @@
     "shadcn:sync": "npx tsx scripts/shadcn/sync-shadcn-registry.ts",
     "shadcn:sync:soft": "npm run shadcn:sync || echo [shadcn-sync] Registry check skipped",
     "shadcn:sync:write": "npx tsx scripts/shadcn/sync-shadcn-registry.ts --write",
+    "plans:archive": "node scripts/plans/auto-archive.mjs",
+    "plans:archive:apply": "node scripts/plans/auto-archive.mjs --apply",
     "shadcn:sync-examples": "npx tsx scripts/shadcn/sync-shadcn-examples.ts",
     "baseline-deps:verify": "npx tsx scripts/deps/validate-baseline-npm-versions.ts",
     "baseline-deps:tree": "npx tsx scripts/deps/validate-baseline-npm-tree.ts",

@@ -105,20 +105,12 @@ Indelning: **enkla** (≤2h) → **medel** (½–2 dagar) → **stora** (3+ daga
 
 ---
 
-### §1.7 Auto-archive avklarade planer >30 dagar gamla
+### §1.7 Auto-archive avklarade planer — **DONE 2026-04-20**
 
 | Fält | Värde |
 |------|-------|
-| **Fil** | `scripts/plans/auto-archive.mjs` (ny) |
-| **Svårighet** | Enkel |
-| **Tidsåtgång** | 1 timme |
-| **Kostnad infra** | 0 |
-| **Värde** | `docs/plans/active/` förblir "aktiv" |
-
-**Manual:**
-
-1. Skapa script som läser frontmatter från alla `docs/plans/active/P*.md`, hittar `status: done` + `created: <30 dagar sedan>`, och `git mv` dem till `avklarat/`.
-2. Lägg som veckovis cron eller manuell `npm run plans:archive`.
+| **Fil** | `scripts/plans/auto-archive.mjs` |
+| **Status** | Klart 2026-04-20. Pragmatisk variant istället för audit-rapportens YAML-frontmatter-approach (våra plan-filer använder prosa-status, inte YAML). Default = `npm run plans:archive` = **dry-run** som listar kandidater; `npm run plans:archive:apply` kör `git mv`. Skippar `Kvarvarande-uppgifter.md` + `README.md` (levande listor). Datum-tröskeln (30 dagar) är slopad — vi har för få plan-filer för att det ska vara meningsfullt; status-rad räcker som signal. README-rad i `docs/plans/avklarat/README.md` läggs medvetet manuellt så att leveransbeskrivningen får meningsfull text. |
 
 ---
 

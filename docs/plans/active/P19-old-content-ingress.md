@@ -1,8 +1,8 @@
 # P19 — Old-content ingress hardening (konservativ)
 
-Status: Active
+Status: Active (Steg 2 KLART 2026-04-20; Steg 1, 3, 4 öppna)
 Skapad: 2026-04-15
-Prioritet: Medel-hög
+Prioritet: Medel
 
 ## Problem
 
@@ -47,20 +47,26 @@ Detta måste angripas konservativt: först bevisa ingresspunkter, sedan små sä
   - vilken versionsrad som faktiskt används av `resolveFollowUpPreviousFiles()`
 - Dokumentera 2-3 reproducerbara scenarier.
 
-### Steg 2 — Konservativa skydd
+> **Status:** Öppen. Blockad på telemetri-grund (audit Tier B #19 Prometheus/OTel) för meningsfull analys.
 
-- Invalidera `preview_url` när filer uppdateras på en version via `/files`-muteringar, så att nästa preview-bootstrap inte återanvänder stale URL.
-- Behåll befintligt resume-flöde via session-store, men undvik URL-genväg när innehåll ändrats.
+### Steg 2 — Konservativa skydd — **DONE 2026-04-20**
+
+- ✅ Ingress-punkt 1 stängd: `updateVersionFiles()` nollställer nu `preview_url` när filer muteras via `/api/engine/chats/[chatId]/files`. Levererat i commit `72837c500`. Nästa preview-session-request kortsluter inte längre till `startOutcome: "reused_url"` mot stale tier-2 VM-snapshot.
+- Befintligt resume-flöde via session-store oförändrat (URL-genvägen undviks bara vid faktisk filmutering, inte vid normal preview-bootstrap).
 
 ### Steg 3 — Transparens i follow-up-basen
 
 - Visa i UI/logg vilken basversion follow-up skickar (`engineBaseVersionId`).
 - Om bas inte är latest: ge tydlig signal ("du redigerar version X, inte senaste Y").
 
+> **Status:** Öppen. Subagent-fynd 2026-04-20 noterade att `9b1c5dc8` (unify active-version) löste *delvis* den race-condition som gjorde att fel bas valdes — men UX-transparensen återstår. Effort: ~4–8h.
+
 ### Steg 4 — v0-import freshness-signal
 
 - Exponera importkällans timestamp/ursprung i import-respons eller metadata.
 - Lägg till enkel varning när lokal källa är äldre än förväntat tröskelvärde (informationsnivå, ej blockering).
+
+> **Status:** Öppen. Effort: ~2–4h.
 
 ### Steg 5 — Verifiering
 

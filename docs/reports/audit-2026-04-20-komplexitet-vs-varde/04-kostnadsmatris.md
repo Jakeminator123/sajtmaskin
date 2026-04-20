@@ -52,23 +52,23 @@
 
 ## TIER B — när tid finns (ROI 5–6)
 
-| # | Åtgärd | Typ | Svårighet | Tid | Mån-kostnad | ROI | Källa |
-|---|--------|-----|-----------|-----|-------------|-----|-------|
-| 19 | Prometheus/OTel export | F | enkel | 2 h | +5 USD | 6 | `02-forbattringar.md` §1.1 |
-| 20 | Brief-cache (Redis) | F | medel | ½ dag | -2 USD | 6 | `02-forbattringar.md` §2.7 |
-| 21 | `data/dossiers/` `.gitignore` | F | enkel | 30 min | 0 | 6 | `02-forbattringar.md` §1.6 |
-| 22 | Auto-archive avklarade planer | F | enkel | 1 h | 0 | 6 | `02-forbattringar.md` §1.7 |
-| 23 | Konsolidera `promptAssist.allowed` | F | medel | ½ dag | 0 | 6 | `02-forbattringar.md` §2.3 |
-| 24 | Eval-suite som CI-gate | F | medel | 1 dag | +20–40 USD | 6 | `02-forbattringar.md` §2.4 |
-| 25 | Strukturerad logging (JSON) | F | medel | 2 dagar | 0 | 6 | `02-forbattringar.md` §2.5 |
-| 26 | Engelska som primärspråk i docs | F | medel | 2 dagar | 0 | 6 | `02-forbattringar.md` §2.10 |
-| 27 | Konsolidera 5 cross-file-import-fixers | K | medel | 1 dag | 0 | 6 | `03-konsolidering-pipeline.md` §2.2 |
-| 28 | Mekaniska autofixers → deklarativ tabell | K | medel | 1 dag | 0 | 6 | `03-konsolidering-pipeline.md` §2.3 |
-| 29 | Förenkla `BuildSpec` till presets | K | medel | 1 dag | 0 | 6 | `03-konsolidering-pipeline.md` §3.6 |
-| 30 | Repair-loop hård gräns 90s | B | stor | 2 dagar | -2–5 USD | 6 | `01-buggar.md` §3.2 |
-| 31 | Komponenttester (builder) | F | medel | 3 dagar | 0 | 5 | `02-forbattringar.md` §2.8 |
+| # | Åtgärd | Typ | Svårighet | Tid | Mån-kostnad | ROI | Källa | Status |
+|---|--------|-----|-----------|-----|-------------|-----|-------|--------|
+| 19 | Prometheus/OTel export | F | enkel | 2 h | +5 USD | 6 | `02-forbattringar.md` §1.1 | ⏸ Förkrav för Tier A #12/#16 |
+| 20 | Brief-cache (Redis) | F | medel | ½ dag | -2 USD | 6 | `02-forbattringar.md` §2.7 | ⏸ |
+| 21 | `data/dossiers/` `.gitignore` | F | enkel | 30 min | 0 | 6 | `02-forbattringar.md` §1.6 | ⏸ |
+| 22 | Auto-archive avklarade planer | F | enkel | 1 h | 0 | 6 | `02-forbattringar.md` §1.7 | ✅ DONE (`scripts/plans/auto-archive.mjs`) |
+| 23 | Konsolidera `promptAssist.allowed` | F | medel | ½ dag | 0 | 6 | `02-forbattringar.md` §2.3 | ⏸ |
+| 24 | Eval-suite som CI-gate | F | medel | 1 dag | +20–40 USD | 6 | `02-forbattringar.md` §2.4 | ⏸ |
+| 25 | Strukturerad logging (JSON) | F | medel | 2 dagar | 0 | 6 | `02-forbattringar.md` §2.5 | ⏸ |
+| 26 | Engelska som primärspråk i docs | F | medel | 2 dagar | 0 | 6 | `02-forbattringar.md` §2.10 | ⏸ politiskt |
+| 27 | Konsolidera 5 cross-file-import-fixers | K | medel | 1 dag | 0 | 6 | `03-konsolidering-pipeline.md` §2.2 | ⏸ kräver telemetri |
+| 28 | Mekaniska autofixers → deklarativ tabell | K | medel | 1 dag | 0 | 6 | `03-konsolidering-pipeline.md` §2.3 | ⏸ avslog (förenkling utan kvalitet → kvalitet) |
+| 29 | Förenkla `BuildSpec` till presets | K | medel | 1 dag | 0 | 6 | `03-konsolidering-pipeline.md` §3.6 | ⏸ kräver telemetri |
+| 30 | Repair-loop hård gräns 90s | B | stor | 2 dagar | -2–5 USD | 6 | `01-buggar.md` §3.2 | ⏸ |
+| 31 | Komponenttester (builder) | F | medel | 3 dagar | 0 | 5 | `02-forbattringar.md` §2.8 | ⏸ |
 
-**Tier B-summa:** ~3 veckor arbete, +20 USD/mån löpande.
+**Tier B-summa:** **1/13 KLART 2026-04-20** (#22). Övriga väntar på antingen telemetri-grund (#19 är förkrav för flera), explicit beslut, eller större tidsfönster.
 
 ---
 

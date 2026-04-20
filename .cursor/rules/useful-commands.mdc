@@ -16,6 +16,11 @@ Snabb uppslagsregel när du behöver rätt kommando utan att leta runt. **`packa
 - `npm run test:ci` — kör hela Vitest-sviten en gång.
 - `npm run lint` — ESLint för repot.
 
+## Plans-arkivering
+
+- `npm run plans:archive` — **dry-run.** Listar plan-filer i `docs/plans/active/` vars `Status:`-rad signalerar klar (`DONE`/`Closed`/`Stängd`/`Avslutad`). Skippar `Kvarvarande-uppgifter.md` + `README.md`.
+- `npm run plans:archive:apply` — kör `git mv` för kandidaterna ovan till `docs/plans/avklarat/`. Lägg manuellt till en rad i `docs/plans/avklarat/README.md` så historiken är spårbar.
+
 ## shadcn
 
 - `npm run shadcn:sync` — jämför lokal `SHADCN_COMPONENTS` mot officiella registret; skriver inte filer.
