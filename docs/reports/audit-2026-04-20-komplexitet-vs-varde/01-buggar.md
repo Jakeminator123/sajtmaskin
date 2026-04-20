@@ -117,32 +117,7 @@ Källor: `docs/plans/active/P27-validator.md` blocking_note, `docs/plans/active/
 
 | Fält | Värde |
 |------|-------|
-| **Fil** | Se `docs/plans/active/P28-pre-existing-cleanup.md` rad 36-46 |
-| **Bevis** | P27 blocking_note + P28-planen |
-| **Svårighet** | Medel |
-| **Tidsåtgång** | ½ dag |
-| **Kostnad infra** | 0 |
-| **Värde** | Master grön på `npm run test:ci` |
-
-**Failures:**
-
-| # | Fil | Test |
-|---|-----|------|
-| 1 | `src/lib/project-env-vars.test.ts` | `fails closed when sensitive env vars saved without encryption key` |
-| 2 | `src/app/api/v0/chats/[chatId]/route.test.ts` | `does not expose a preview URL for failed own-engine versions` |
-| 3 | `src/app/api/v0/chats/[chatId]/route.test.ts` | `returns legacyShimPreviewUrl but null previewUrl when own-engine version saved but preview not yet provisioned` |
-| 4 | `src/app/api/v0/chats/[chatId]/preview-status/route.test.ts` | `returns stopped when resume fails` |
-| 5 | `src/app/api/engine/chats/[chatId]/preview-status/route.test.ts` | `returns stopped + provider_not_running_or_unreachable when resume fails (alias)` |
-| 6 | `src/lib/gen/engine.test.ts` | Test-isolation-leak (passerar standalone, failar i full suite) |
-| 7 | Övriga isolation-leaks i `orchestrate.test.ts`, `route-plan.test.ts`, `capability-inference.test.ts`, `verifier-pass.test.ts`, `generation-log-writer.test.ts` |
-
-**Manual:**
-
-P28 är redan en aktiv plan — följ den. Sammanfattat:
-
-1. Börja med #1 (`project-env-vars.ts`): sannolikt en saknad guard som ska throwa när `ENCRYPTION_KEY` saknas.
-2. För #2-#5 (preview-URL): troligen en assert som väntar `null` men får `undefined` eller en URL-string.
-3. För #6-#7 (test-isolation): lägg `vi.resetModules()` i `beforeEach` av en eller flera nya tester från P22/P23/P26 som mockar `system-prompt`/`models`/`stream-format`.
+| **Status** | **DONE 2026-04-20.** Full vitest-körning visar 1172/1172 gröna. Alla 7 listade fails löstes organiskt via Wave 1-4 + dagens hygien-pass + mock-drift-fix (commit `99a0f8efb`). Tester #2-#5 levde ursprungligen på `/api/v0/chats/...`-routes som nu är borttagna i P29 Fas 1B; deras assertions migrerade till engine-side test-filer först. #6-#7 isolation-leaks är inte längre observerbara i full suite. |
 
 ---
 

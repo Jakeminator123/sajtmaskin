@@ -301,9 +301,11 @@ finalize → done → preview-session + server-verify (parallellt)
 
 ---
 
-### §3.4 Slå ihop `/api/v0/*` ↔ `/api/engine/*` — **CHAT-YTAN DONE 2026-04-20**
+### §3.4 Slå ihop `/api/v0/*` ↔ `/api/engine/*` — **HELT DONE 2026-04-20**
 
-> **Status 2026-04-20:** Hela `/api/v0/chats/**`-trädet borttaget. Fas 1A (18 testlösa re-exports) + Fas 1B (10 routes vars unique test-coverage migrerades till engine-side test-filer via 2 parallella write-subagents). `v0-chats-compat.ts`/`logLegacyV0ChatsHit` borta. 1172/1172 tester gröna. Kvarstår Fas 2: 7 Class C legacy-routes (deployments/projects/integrations) med riktiga klient-callsites — rename till `/api/legacy/v0/*` eller dokumenterat keep-beslut. Detaljer i `docs/plans/active/P29-v0-engine-consolidation.md`.
+> **Status 2026-04-20:** Hela `/api/v0/chats/**`-trädet borttaget. Fas 1A (18 testlösa re-exports) + Fas 1B (10 routes vars unique test-coverage migrerades till engine-side test-filer via 2 parallella write-subagents). `v0-chats-compat.ts`/`logLegacyV0ChatsHit` borta. 1172/1172 tester gröna.
+>
+> **Fas 2 beslut 2026-04-20:** De 7 kvarvarande Class C-routerna (`init-registry`, `integrations/vercel/projects`, `projects/instructions`, `projects/[id]/env-vars`, `deployments/*`) **behålls på `/api/v0/`** — ingen rename. Motivering: routerna är inte arkitektur-legacy utan canonical permanent URL för deras features; rename till `/api/legacy/v0/*` skulle vara kosmetiskt med klient-deploy-koordineringskostnad utan funktionellt värde. Dokumenterat i `src/lib/api/engine-chats-path.ts` JSDoc + glossary. P29-spåret stängt; planfil flyttad till `docs/plans/avklarat/P29-v0-engine-consolidation.md`.
 
 | Fält | Värde |
 |------|-------|

@@ -1,8 +1,9 @@
 # P29 — `/api/v0/*` ↔ `/api/engine/*` consolidation
 
-Status: Active (planning) — investigation complete 2026-04-20, implementation deferred
+Status: **DONE 2026-04-20** — Fas 1A + Fas 1B levererade, Fas 2 beslutad (behåll Class C på `/api/v0/`)
 Skapad: 2026-04-20
-Prioritet: Hög (audit ROI 8 + sluter 4 av 7 P28-failures som bonus)
+Avslutad: 2026-04-20
+Prioritet: Hög (audit ROI 8)
 Referens: [`docs/reports/audit-2026-04-20-komplexitet-vs-varde/03-konsolidering-pipeline.md`](../../reports/audit-2026-04-20-komplexitet-vs-varde/03-konsolidering-pipeline.md) §3.4
 
 ## Bakgrund
@@ -92,25 +93,31 @@ Ingen åtgärd.
 - `npx vitest run` → 1172/1172
 - Audit §3.4 chat-ytan markerad DONE i `01-buggar.md` / `03-konsolidering-pipeline.md`
 
-### Fas 2 — Class C rename eller behåll (~½–1 dag)
+### Fas 2 — Class C-routerna: BESLUT 2026-04-20: behåll på `/api/v0/`
 
-**Scope:** Antingen byt namn på de 7 Class C-routerna till `/api/legacy/v0/*` (för att signalera status), eller behåll på `/api/v0/*` och dokumentera explicit att de är legitima legacy-routes.
+**Beslut:** Behåll de 7 Class C-routerna på `/api/v0/`. **Ingen rename.**
 
-**Beslut behövs:** Vill vi pinka ut "legacy" via URL eller via dokumentation? Rename kostar 3 klient-callsite-uppdateringar (`ProjectEnvVarsPanel`, `useBuilderDeployActions`, `useDeploymentStatus`).
+**Class C-routes (permanent legacy, ej "att-städa-bort"):**
 
-**Estimerad tid:** 4–8 timmar inkl klient-uppdateringar.
+- `/api/v0/chats/init-registry` — registry-helper, intern
+- `/api/v0/integrations/vercel/projects` — builder integrations panel
+- `/api/v0/projects/instructions` — legacy stub
+- `/api/v0/projects/[projectId]/env-vars` — `ProjectEnvVarsPanel.tsx:266,456,508`
+- `/api/v0/deployments` — `useBuilderDeployActions.ts:175`
+- `/api/v0/deployments/[deploymentId]` — deploy status
+- `/api/v0/deployments/[deploymentId]/events` — `useDeploymentStatus.ts:31`
 
-**Risk:** Låg-medel — klient-callsites behöver synkroniserade deploys (rename kan inte göras utan client-change).
+**Motivering:**
 
-### Fas 2 — Class C rename eller behåll (~½–1 dag)
+Audit-rapporten (`03-konsolidering-pipeline.md` §3.4) föreslog rename till `/api/legacy/v0/*` för att "signalera status". Vi avslår av tre skäl:
 
-**Scope:** Antingen byt namn på de 7 Class C-routerna till `/api/legacy/v0/*` (för att signalera status), eller behåll på `/api/v0/*` och dokumentera explicit att de är legitima legacy-routes.
+1. **Routerna är inte arkitektur-legacy** — de fungerar, är aktivt använda av builder-UI:t, och har ingen ersättare under `/api/engine/`. "Legacy"-tag på URL:en blir missvisande för läsare som tror att routerna är på väg bort.
+2. **Rename = klient-deploy-koordinering = risk för noll mätbart värde.** Rename kräver att server och klient deployas synkat (annars 404 mellan stadier). Värdet är estetiskt/signal, inte funktionellt.
+3. **Linje:** "Enkelhet utan teaterföreställning". Att byta namn på något funktionellt bara för att audit-rapporten gillar det är arkitektur-puritanism, inte förenkling.
 
-**Beslut behövs:** Vill vi pinka ut "legacy" via URL eller via dokumentation? Rename kostar 3 klient-callsite-uppdateringar (`ProjectEnvVarsPanel`, `useBuilderDeployActions`, `useDeploymentStatus`).
+**Vad vi gör istället:** Dokumentera tydligt i `src/lib/api/engine-chats-path.ts` JSDoc + i glossary att `/api/v0/` är **canonical permanent prefix för Class C-routes** (deployments/projects/integrations) och inte ett "compat-spår". `useDeploymentStatus`-noten i `Kvarvarande-uppgifter.md` ("naming debt") avskrivs som icke-skuld.
 
-**Estimerad tid:** 4–8 timmar inkl klient-uppdateringar.
-
-**Risk:** Låg-medel — klient-callsites behöver synkroniserade deploys (rename kan inte göras utan client-change).
+**Konsekvens:** P29 är stängd. Inga öppna underspår. `/api/v0/` finns kvar för 7 specifika routes och är dokumenterat som rätt URL för dem.
 
 ## Vad denna plan **inte** omfattar
 
@@ -134,12 +141,12 @@ Ingen åtgärd.
 - `src/lib/api/engine/chats/v0-chats-compat.ts` (`logLegacyV0ChatsHit`) borta — inga v0-chat-callers kvar
 - Audit §3.4 chat-ytan markerad **DONE** i `01-buggar.md` / `03-konsolidering-pipeline.md`
 
-**Fas 2 klart när:**
+**Fas 2 klart när:** ✅ **Klart 2026-04-20**
 
-- Class C-routerna har en stabil URL-policy (rename eller dokumenterat keep)
-- 3 klient-callsites uppdaterade vid rename
-- `useDeploymentStatus` "naming debt" i `Kvarvarande-uppgifter.md` punkt under "Noterat" stängd
+- Class C-routerna har en stabil URL-policy: **behåll på `/api/v0/`** (beslut + motivering ovan)
+- `engine-chats-path.ts` JSDoc + glossary dokumenterar `/api/v0/` som permanent prefix för deployments/projects/integrations
+- `useDeploymentStatus` "naming debt" i `Kvarvarande-uppgifter.md` avskriven som icke-skuld
 
-## Hur du kör
+## Avslut
 
-Subagent-driven readonly-investigation är redan gjord (rapport 2026-04-20). Implementationen är mekanisk: skapa en ny session, plocka 5–10 routes per commit, push, upprepa. Använd `git mv` om någon test ska flyttas till engine-sidan.
+Hela P29-spåret stängt 2026-04-20. Filen flyttas till `docs/plans/avklarat/`.

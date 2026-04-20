@@ -42,18 +42,20 @@ Allt är försett med:
 
 Sorterade på (värde / kostnad). Detaljer i [`04-kostnadsmatris.md`](./04-kostnadsmatris.md).
 
-| # | Åtgärd | Typ | Kostnad | Värde | Källa |
-|---|--------|-----|---------|-------|-------|
-| 1 | Fixa `prefer-const` lint i `font-import-fixer.ts:45` | Bugg-enkel | 2 min | Master grön | `01-buggar.md` §1.1 |
-| 2 | Lägg `.next/dev/cache/turbopack/**` i `.gitignore` | Bugg-enkel | 5 min | Hundratals untracked filer borta | `01-buggar.md` §1.2 |
-| 3 | Slå ihop `pre_vm_typecheck` med `validate_syntax` | Konsolidering | 2 timmar | Ett stadium mindre i pipelinen | `03-konsolidering-pipeline.md` §3.2 |
-| 4 | Fasa ut `verifier-pass` (LLM read-only) | Konsolidering | 3 timmar | -1 LLM-anrop per generering, sparar tid + tokens | `03-konsolidering-pipeline.md` §3.4 |
-| 5 | Slå ihop `/api/v0/*` ↔ `/api/engine/*` (compat-routes) | Konsolidering | 1 dag | -50 % API-yta | `03-konsolidering-pipeline.md` §3.7 |
-| 6 | Aktivera `build`-check i F2 quality gate (inte bara `typecheck`) | Förbättring-enkel | 1 timme | Fångar Next-runtime-fel före preview | `02-forbattringar.md` §2.4 |
-| 7 | Fixa P28-spåret (7 pre-existing testfailures) | Bugg-medel | ½ dag | Master grön | `01-buggar.md` §2 |
-| 8 | Migrera live-preview från Fly-VM → StackBlitz WebContainers | Förbättring-stor | 2–3 veckor | Boot 5 min → 5 sek (50–60×) | `02-forbattringar.md` §3.1 |
-| 9 | Konsolidera 5 cross-file-import-fixers → 1 (med telemetri) | Konsolidering | 1 dag | -4 fixers, lättare att underhålla | `03-konsolidering-pipeline.md` §3.5 |
-| 10 | Engelska som primärspråk i docs (svenska som sekundär) | Förbättring-medel | 2 dagar | Sänker bus factor från 1 → flera | `02-forbattringar.md` §2.10 |
+| # | Åtgärd | Typ | Kostnad | Värde | Källa | Status |
+|---|--------|-----|---------|-------|-------|--------|
+| 1 | Fixa `prefer-const` lint i `font-import-fixer.ts:45` | Bugg-enkel | 2 min | Master grön | `01-buggar.md` §1.1 | ✅ DONE |
+| 2 | Lägg `.next/dev/cache/turbopack/**` i `.gitignore` | Bugg-enkel | 5 min | Hundratals untracked filer borta | `01-buggar.md` §1.2 | ✅ DONE |
+| 3 | Slå ihop `pre_vm_typecheck` med `validate_syntax` | Konsolidering | 2 timmar | Ett stadium mindre i pipelinen | `03-konsolidering-pipeline.md` §2.1 | ✅ DONE (Wave 3) |
+| 4 | Fasa ut `verifier-pass` (LLM read-only) | Konsolidering | 3 timmar | -1 LLM-anrop per generering, sparar tid + tokens | `03-konsolidering-pipeline.md` §3.1 | ⏸ DEFER (kräver A/B-data; W2 går motsatt riktning) |
+| 5 | Slå ihop `/api/v0/*` ↔ `/api/engine/*` (compat-routes) | Konsolidering | 1 dag | -50 % API-yta | `03-konsolidering-pipeline.md` §3.4 | ✅ DONE (P29: chat-ytan borta, Class C beh. permanent) |
+| 6 | Aktivera `build`-check i F2 quality gate (inte bara `typecheck`) | Förbättring-enkel | 1 timme | Fångar Next-runtime-fel före preview | `01-buggar.md` §1.5 / `02-forbattringar.md` §1.4 | ✅ DONE |
+| 7 | Fixa P28-spåret (7 pre-existing testfailures) | Bugg-medel | ½ dag | Master grön | `01-buggar.md` §2.1 | ✅ DONE (alla 7 löstes organiskt) |
+| 8 | Migrera live-preview från Fly-VM → StackBlitz WebContainers | Förbättring-stor | 2–3 veckor | Boot 5 min → 5 sek (50–60×) | `02-forbattringar.md` §3.1 | ⏸ Strategiskt nästa steg |
+| 9 | Konsolidera 5 cross-file-import-fixers → 1 (med telemetri) | Konsolidering | 1 dag | -4 fixers, lättare att underhålla | `03-konsolidering-pipeline.md` §2.2 | ⏸ DEFER (audit säger telemetri först) |
+| 10 | Engelska som primärspråk i docs (svenska som sekundär) | Förbättring-medel | 2 dagar | Sänker bus factor från 1 → flera | `02-forbattringar.md` §2.10 | ⏸ Politiskt val |
+
+**Top-10 progress sedan rapport-datum (2026-04-20):** 6 av 10 ✅ DONE samma dag. 1 strategisk satsning (#8 WebContainers) återstår som single-largest ROI-vinst. 3 är medvetet deferrerade per linje-resonemang (kräver data eller är politik).
 
 ---
 
