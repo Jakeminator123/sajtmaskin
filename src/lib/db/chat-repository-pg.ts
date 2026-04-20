@@ -462,6 +462,12 @@ export async function updateVersionFiles(versionId: string, filesJson: string): 
     .update(engineVersions)
     .set({
       filesJson,
+      // Invalidate the cached tier-2 preview URL: the next preview-session
+      // request must boot a fresh VM against the updated files instead of
+      // short-circuiting to `startOutcome: "reused_url"` and showing the
+      // previous snapshot. Without this, file mutations via /files were
+      // silently masked by the stale URL (P19 ingress point 1).
+      previewUrl: null,
       repairedFilesJson: null,
       repairAvailableAt: null,
       releaseState: sql<EngineVersionReleaseState>`
