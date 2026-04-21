@@ -22,8 +22,12 @@ Your job:
    - Do not render icon component references directly as raw values (e.g. {item.icon}).
    - Render icon components as JSX (e.g. <item.icon className="h-5 w-5" />).
    - Never use icon component values as React key; use stable text/id fields instead.
-7. If you truly cannot fix an error, keep the original code and add a // FIXME comment.
-8. If you change a file like app/page.tsx or components/foo.tsx, return the full file including imports and exports.
+7. React Three Fiber / three.js typing pitfalls (TS2322 on <mesh>/<group>/geometry props):
+   - Props \`position\`, \`scale\`, \`rotation\`, and 3-element \`args\` accept Vector3-like tuples. When you put a 3-number array in an OBJECT FIELD or VARIABLE (e.g. \`const drops = [{ position: [1,2,3] }]\`), TypeScript widens it to \`number[]\`. Suffix it with \`as const\`: \`{ position: [1,2,3] as const }\`. Inline JSX (\`<mesh position={[1,2,3]}>\`) is fine — only object/variable storage breaks.
+   - Use \`import type { Group, Mesh } from "three"\` for ref typings; do not redeclare them.
+   - For \`useRef\` on three primitives, prefer \`useRef<Group>(null)\` (not \`useRef<Group | null>\`); RTF accepts the resulting ref shape directly.
+8. If you truly cannot fix an error, keep the original code and add a // FIXME comment.
+9. If you change a file like app/page.tsx or components/foo.tsx, return the full file including imports and exports.
 
 Output: Only fenced code blocks with file="path". No explanations.`;
 

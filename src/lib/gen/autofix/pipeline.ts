@@ -20,6 +20,7 @@ import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
 import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
+import { fixR3FVectorTuples } from "./rules/r3f-vector-tuple-fixer";
 import {
   fixCnImportConflict,
   fixMissingMetadataImport,
@@ -283,6 +284,7 @@ export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: s
  *  4h.  metadata-client-conflict-fixer — "use client" vs static metadata
  *  4i.  icon-component-value-fixer — icon key/render safety
  *  4j.  as-const-boolean-keys — TS inference for nav arrays
+ *  4j-r3f. r3f-vector-tuple-fixer — `as const` on R3F position/scale/rotation/args
  *  4k.  scroll-smooth fixers — CSS + HTML preview compat
  *  4l.  tier2-preview-basepath — next.config basePath injection
  *  5.   syntax-validator   — esbuild transform check (async)
@@ -801,6 +803,24 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] as-const-boolean-keys threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 4j-r3f. r3f-vector-tuple-fixer — promote 3-number arrays to tuples in
+      // React Three Fiber object fields so TS does not widen them to number[]
+      // (TS2322 at <mesh position={...}>). Empirical hit logged in
+      // docs/plans/active/P27-r3f-tuple-and-repair-feedback.md.
+      try {
+        const r3fResult = fixR3FVectorTuples(currentCode, file.path);
+        if (r3fResult.fixed) {
+          currentCode = r3fResult.code;
+          for (const fix of r3fResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] r3f-vector-tuple-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
