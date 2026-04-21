@@ -75,7 +75,7 @@ Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `pack
 
 ## Övrigt
 
-- **Konsoliderad backoffice (Streamlit)**: `sajtmaskin_backoffice.py` startar nu den samlade Streamlit-ytan. Kod och sidmoduler ligger under `backoffice/` och täcker både konfigurationspanel, overhead/admin och artifacts/pipeline.
+- **Konsoliderad backoffice (Streamlit)**: kanonisk start är `npm run backoffice` (kör `scripts/dev/run-python.mjs` → `python sajtmaskin_backoffice.py`, plattformsoberoende). Direktanrop `python(3) sajtmaskin_backoffice.py` fungerar också. Entrypointen relauncherar via `streamlit run`. Kod och sidmoduler ligger under `backoffice/` och täcker både konfigurationspanel, overhead/admin och artifacts/pipeline.
 - **Legacy entrypoint**: `config/dashboard/app.py` finns kvar som wrapper som öppnar samma konsoliderade app med annan startkontext.
 - **Delad dashboardlogik**: `backoffice/shared.py` är den kanoniska helperkällan för prompt-dumps, manifest, autofix-/quality-inställningar, repo-paths och scaffold-/pipelinehelpers. `config/dashboard/shared_overhead.py` är ett re-export för bakåtkompatibilitet.
 - **Dashboardkarta**: `config/dashboard/domain-map.json` beskriver vilka kanoniska paths, docs och codeReaders varje vy hör till.
