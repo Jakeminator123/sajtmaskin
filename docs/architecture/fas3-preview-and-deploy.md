@@ -47,7 +47,8 @@ Primär previewväg är `preview_host` (Fly). Tier-1 shim (`/api/preview-render`
 | `POST /api/engine/chats/[chatId]/quality-gate` | Interaktiv quality-gate lane |
 | `POST /api/engine/chats/[chatId]/repair` | Manual/klientdriven repair |
 | `POST /api/engine/chats/[chatId]/accept-repair` | Applicera serverrepair från `repair_available` |
-| `POST /api/engine/chats/[chatId]/finalize-design` | F3-trigger ("Bygg integrationer"). Validerar tier-3 readiness; 412 + `missingByIntegration` om env-keys saknas |
+| `POST /api/engine/chats/[chatId]/finalize-design` | F3-trigger ("Bygg integrationer"). Validerar tier-3 readiness mot dossier-`enforcement`-tags + `allowPlaceholdersInF3`-toggle; 412 + `missingByIntegration` bara när `build`-enforcement-keys saknas och inte är placeholder-täckta. |
+| `PATCH /api/projects/[id]/preferences` | Sätter app-project-preferenser (P31: `allowPlaceholdersInF3` boolean i `project_data.meta`). |
 | `POST /api/v0/deployments` | Deploy till Vercel |
 
 Sedan 2026-04-20 (P29 Fas 1B) finns **inga** `/api/v0/chats/...` compat-routes kvar — chat-ytan är konsoliderad under `/api/engine/chats/...`. Övriga `/api/v0/*`-segment (deployments, projects, integrations) är Class C legacy med riktiga klient-callsites.
@@ -196,8 +197,8 @@ Skild från quality gate. `runVerifierPass()` är read-only LLM-granskning som r
 | `lifecycle_stage` | `"design"` | `"integrations"` |
 | Tier-3 SDK-imports (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, Resend, ...) | Strippas av `tier3-sdk-guard-fixer` → placeholder-baserat | Behålls; kräver riktiga env-keys |
 | System prompt | Standard | + `## Tier-3 Integration Build Plan` med per-integration `requiredRealEnvKeys` + 4–8 build-steg |
-| `env-local.ts` | Tier-3 stub-lager aktivt | Stub-lager strippas helt |
-| Readiness | Ingen tier-3 check | `validateTier3Readiness` mot `projectEnvVars`. 412 + `missingByIntegration` om saknas |
+| `env-local.ts` | Tier-3 stub-lager aktivt | Stub-lager strippas helt (om inte `allowPlaceholdersInF3`-toggle är på) |
+| Readiness | Ingen tier-3 check | `validateTier3Readiness` mot `projectEnvVars` filtrerat på dossier-`enforcement: "build"` (P31). 412 + `missingByIntegration` bara om verkligt blockerande keys saknas. `feature-runtime` rapporteras som warning, `warn-only` som info. |
 
 ---
 
