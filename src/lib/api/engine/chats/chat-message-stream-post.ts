@@ -12,7 +12,7 @@ import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
 import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
-import { buildStreamErrorResponse } from "./stream-error-response";
+import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { FEATURES, FOLLOW_UP_TUNING } from "@/lib/config";
@@ -1071,15 +1071,13 @@ export async function handleMessageStreamRequest(
               : null,
         });
 
-        const engineHeaders = new Headers(createSSEHeaders());
-        return attachSessionCookie(new Response(
-          wrapStreamForPromptToDoneMetric(engineStream, {
-            kind: "followup",
-            promptStartedAt,
-            signal: req.signal,
-          }),
-          { headers: engineHeaders },
-        ));
+        return buildEngineStreamResponse({
+          engineStream,
+          req,
+          promptStartedAt,
+          kind: "followup",
+          attachSessionCookie,
+        });
     } catch (err) {
       return buildStreamErrorResponse({
         err,
