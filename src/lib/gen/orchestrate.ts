@@ -459,38 +459,18 @@ export async function resolveOrchestrationBase(
         method: scaffoldSelection.selectionMethod,
       });
 
-      // P26: when embedding fails on a follow-up and we have a
-      // persistedScaffoldId from a prior turn, prefer that over the
-      // keyword-based fallback. Keyword matching against a 30k-char
-      // optimizedMessage (or even raw user prompts that happen to mention
-      // "app"/"dashboard") can flip the project's scaffold mid-stream.
-      // The persisted scaffold represents the user's accepted state — only
-      // override it on an explicit clear-redesign (which sets
-      // ignorePersistedScaffoldForMatch = true upstream).
-      if (
-        resolvedMode === "followUp" &&
-        persistedScaffoldId &&
-        !ignorePersistedScaffoldForMatch &&
-        resolvedScaffold?.id !== persistedScaffoldId
-      ) {
-        const persistedFallback = getScaffoldById(persistedScaffoldId);
-        if (persistedFallback) {
-          console.info("[orchestrate] scaffold_locked_to_persisted_on_embedding_fail", {
-            chatId: input.chatId ?? null,
-            keywordPick: resolvedScaffold?.id ?? null,
-            persistedScaffoldId,
-            reason: scaffoldSelection.semanticUnavailableReason,
-          });
-          resolvedScaffold = persistedFallback;
-          scaffoldSelection = {
-            ...scaffoldSelection,
-            selectedScaffold: persistedFallback.id,
-            selectionMethod: "persisted",
-            selectionConfidence: "high",
-            topCandidates: [{ id: persistedFallback.id, score: 1, source: "keyword" }],
-          };
-        }
-      }
+      // P26 (post-review note): tidigare hade vi här en fallback som
+      // återgick till `persistedScaffoldId` när embedding föll. Reviewer
+      // visade att den var död kod: vi når denna `auto`-gren bara när
+      // `effectivePersistedScaffoldId` är falsy, dvs antingen finns inget
+      // persisted-id eller `ignorePersistedScaffoldForMatch === true`. I
+      // båda fallen kunde fallback-vilkoret aldrig sätts. Borttaget för
+      // att undvika förvirring. Den ledande root-cause-fixen (A1: rå
+      // message till embedding via `scaffoldMatchPrompt`) hindrar de
+      // flesta embedding-fail i praktiken; om vi i framtiden vill täcka
+      // unlock-fallet (clear-redesign + embedding-fail → fall tillbaka
+      // ändå) ska det göras genom att lägga checken UTANFÖR auto-grenen,
+      // efter scaffold-resolutionen, inte härinne.
     }
 
   }
