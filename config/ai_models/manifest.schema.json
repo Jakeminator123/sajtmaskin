@@ -56,22 +56,20 @@
       "properties": {
         "defaults": {
           "type": "object",
-          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic", "specModel"],
+          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic"],
           "properties": {
             "requestModel": { "type": "string" },
             "serverAutoOpenAI": { "type": "string" },
-            "serverAutoAnthropic": { "type": "string" },
-            "specModel": { "type": "string" }
+            "serverAutoAnthropic": { "type": "string" }
           }
         },
         "envKeys": {
           "type": "object",
-          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic", "specModel"],
+          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic"],
           "properties": {
             "requestModel": { "type": "string" },
             "serverAutoOpenAI": { "type": "string" },
-            "serverAutoAnthropic": { "type": "string" },
-            "specModel": { "type": "string" }
+            "serverAutoAnthropic": { "type": "string" }
           }
         },
         "notes": { "type": "string" }

@@ -85,13 +85,11 @@ const briefingSchema = z.object({
     requestModel: z.string(),
     serverAutoOpenAI: z.string(),
     serverAutoAnthropic: z.string(),
-    specModel: z.string(),
   }),
   envKeys: z.object({
     requestModel: z.string(),
     serverAutoOpenAI: z.string(),
     serverAutoAnthropic: z.string(),
-    specModel: z.string(),
   }),
   notes: z.string().optional(),
 });

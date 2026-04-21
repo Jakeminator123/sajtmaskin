@@ -75,12 +75,6 @@ export const AUTO_BRIEF_MODEL_ANTHROPIC = readStringEnv(
   briefing.serverAutoAnthropic,
 );
 
-/** Older spec-first helper default model. */
-export const SPEC_MODEL = readStringEnv(
-  briefingEnvKeys.specModel,
-  briefing.specModel,
-);
-
 // ============================================================================
 // TOKEN BUDGETS
 // ============================================================================
