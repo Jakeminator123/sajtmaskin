@@ -157,9 +157,56 @@ function printDevBanner() {
   }
 }
 
+// ── Error-log RAG auto-ingest ──
+//
+// Run BEFORE next dev|build|start so a follow-up generation has the freshest
+// possible "lessons from similar past builds" snapshot. The indexer is
+// delta-aware (skips when producer NDJSON is older than snapshot), idempotent,
+// and time-capped via Promise.race to never block startup beyond 5s.
+//
+// Toggle via SAJTMASKIN_USE_ERROR_LOG_RAG; the indexer itself runs unconditionally
+// so the snapshot stays current — the runtime retriever respects the flag.
+const RAG_INDEXER_PATH = resolve(__dirname, "..", "observability", "index-error-log-rag.mjs");
+
+async function maybeRunErrorLogRagIndexer() {
+  if (!existsSync(RAG_INDEXER_PATH)) return;
+  const startedAt = Date.now();
+  const ragProc = spawn(process.execPath, [RAG_INDEXER_PATH, "--quiet"], {
+    stdio: "ignore",
+    env,
+    detached: false,
+  });
+  await new Promise((resolveOuter) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      const ms = Date.now() - startedAt;
+      console.info(`\x1b[35m[error-log-rag]\x1b[0m indexer finished (${ms}ms)`);
+      resolveOuter();
+    };
+    const timeout = setTimeout(() => {
+      try {
+        ragProc.kill("SIGTERM");
+      } catch {}
+      console.info("\x1b[35m[error-log-rag]\x1b[0m indexer skipped (timeout 5s, non-fatal)");
+      finish();
+    }, 5000);
+    ragProc.on("exit", () => {
+      clearTimeout(timeout);
+      finish();
+    });
+    ragProc.on("error", () => {
+      clearTimeout(timeout);
+      finish();
+    });
+  });
+}
+
 // ── Start Next.js ──
 
 await maybeStartWorker();
+await maybeRunErrorLogRagIndexer();
 printDevBanner();
 
 const nextBin = resolve(__dirname, "..", "..", "node_modules", "next", "dist", "bin", "next");

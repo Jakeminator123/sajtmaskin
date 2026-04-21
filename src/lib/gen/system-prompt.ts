@@ -45,6 +45,7 @@ import {
 import { renderTier3F2DenyBlockLines } from "@/lib/integrations/tier3-sdk-deny";
 import { FEATURES } from "@/lib/config";
 import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
+import { renderErrorLogRagBlockLines } from "@/lib/gen/rag/error-log-retriever";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
@@ -1079,6 +1080,25 @@ export function buildDynamicContext(
       const recurringLines = renderRecurringFailuresBlockLines(chatId);
       if (recurringLines.length > 0) {
         parts.push(...recurringLines);
+      }
+    }
+
+    // Phase 3.4 — Vector RAG block. When enabled, retrieves top-K
+    // similar past failures from the deterministic TF-IDF index built
+    // by `scripts/observability/index-error-log-rag.mjs` and renders
+    // them as `### Lessons from similar past builds`. Auto-rebuilt at
+    // npm run dev|build|start (see scripts/dev/next-runner.mjs hook).
+    // Capped at 800 chars; falls silently when index is empty/missing.
+    if (FEATURES.useErrorLogRag) {
+      const ragLines = renderErrorLogRagBlockLines({
+        prompt: userPrompt ?? "",
+        scaffoldId: resolvedScaffold?.id ?? buildSpec?.scaffoldId ?? null,
+        // lineageHash is not surfaced into DynamicContextOptions today; the
+        // retriever happily works without it. P26 follow-up could thread it
+        // through orchestration-snapshot.
+      });
+      if (ragLines.length > 0) {
+        parts.push(...ragLines);
       }
     }
   }

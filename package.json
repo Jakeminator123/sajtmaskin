@@ -78,7 +78,9 @@
     "mirror:audit": "node scripts/audit/audit-shadcn-mirror-repos.mjs",
     "mirror:audit:verbose": "node scripts/audit/audit-shadcn-mirror-repos.mjs --verbose",
     "mirror:audit:json": "node scripts/audit/audit-shadcn-mirror-repos.mjs --json",
-    "mirror:audit:strict": "node scripts/audit/audit-shadcn-mirror-repos.mjs --strict"
+    "mirror:audit:strict": "node scripts/audit/audit-shadcn-mirror-repos.mjs --strict",
+    "rag:error-log:reindex": "node scripts/observability/index-error-log-rag.mjs",
+    "rag:error-log:reindex:force": "node scripts/observability/index-error-log-rag.mjs --force"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
