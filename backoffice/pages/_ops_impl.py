@@ -285,7 +285,7 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
         else:
             st.info(
                 "Ingen eval-rapport hittades. Den gamla `scaffold_cli.py eval`-vägen är "
-                "avvecklad — använd `npm run eval:suite` eller dossier-pipens egna evals."
+                "avvecklad — använd `npm run eval` (kör eval-harnessen i `src/lib/gen/eval/`)."
             )
 
     elif page == "Orchestration Map":

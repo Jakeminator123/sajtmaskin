@@ -257,7 +257,8 @@ def _collect_known_output_paths(ctx: BackofficeContext) -> set[Path]:
     som plockar upp en sibling `_index/`-fil). Vi exkluderar dock INTE syskon
     i samma mapp som inte är registrerade outputs — det skulle felaktigt
     göra checken tyst för scripts vars källor lever i samma mapp som deras
-    output (se `dossiers-embeddings` med `master.json` i `_index/`).
+    output (t.ex. ett scaffold-embeddings-script vars källfiler ligger i
+    samma `_index/`-mapp som dess output).
     """
     out: set[Path] = set()
     for s in SCRIPTS:

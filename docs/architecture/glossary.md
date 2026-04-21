@@ -138,7 +138,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Component References | Tre lager: lokala exempel, officiellt register, community-registries | kanonisk |
 | Agent Tools | Tool-definitioner för planner/agent-flöden | kanonisk |
 | Template-Library | Kuraterad referensartefakt byggd från externa Vercel-templates | kanonisk |
-| Dossier | Build-time researchartefakt per extern template | kanonisk |
+| Dossier | Återanvändbar legokloss (capability-baserad) som injiceras i codegen-prompten. Per-dossier `manifest.json` + `instructions.md` + ev. komponenter. Klassifieras `hard` (behöver env-secrets) eller `soft` (självförsörjande). Två kod-fideliteter: `verbatim` (LLM emit:ar byte-exakt) eller `rewritable` (LLM får adaptera). Full spec: [`dossier-system.md`](./dossier-system.md). Schema: [`dossier.schema.json`](../schemas/strict/dossier.schema.json). Se även "Dossier System (v2)" nedan. | kanonisk |
 | Scaffold-Variant Inventarium | Beslutsunderlag i [`docs/architecture/scaffold-system.md`](./scaffold-system.md) — per-scaffold och per-variant tabell med kvalitet och förslag på cleanup. Inte runtime-data. | kanonisk |
 | ~~Capability Pack~~ | Borttaget. `buildCapabilityHints()` täcker behovet. | **borttaget** |
 | ~~Enhancement Pack~~ | Borttaget. Prompts styr via static core. | **borttaget** |
@@ -278,19 +278,7 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 **Builder model lanes:** Byggmodell = Build Profile · Deep Brief = automatisk init-expansion (alltid aktiv) · Thinking = reasoning-flagga, inte lane. _(Förbättra/Skriv om-knapparna borttagna.)_
 
-**Dossier-status (`_status`)** styr om en dossier injiceras vid runtime:
-
-| `_status` | Runtime-aktiv? | Sätts av | Innebörd |
-|---|---|---|---|
-| `active` | Ja | Curator (hand eller `auto-curate.ts`) | Färdig att användas |
-| `draft` | Nej | Pipeline (skiss → draft) | Behöver curation innan aktivering |
-| `source-archived` | Nej | `compat-test.ts --apply` | GitHub-källa är arkiverad |
-| `source-stale` | Nej | `compat-test.ts --apply` | GitHub-källa har inte commits > 540d |
-| `source-unreachable` | Nej | `compat-test.ts --apply` | GitHub-källa returnerar 404 / parse-fel |
-
-`_deprecationReason` = informationssträng (max 240 tecken) som förklarar varför dossiern är bruten. `_replacementUrl` = pekare till ersättnings-repo (när källan är sunset). Båda är informationsfält — runtime-filtrering drivs av `_status` ensamt.
-
-`compat-test.ts --apply` är **återhämtande**: om en dossier tidigare flaggats som `source-*` men källan är frisk igen, återställs `_status` till `active` automatiskt.
+**Dossier-status (HISTORISK v1):** Den gamla `_status`-maskinen (`active` / `draft` / `source-archived` / `source-stale` / `source-unreachable`) drivs av `compat-test.ts --apply` togs bort 2026-04-20 i samband med dossier-pipeline v2-omstarten. v2-manifestet har **inga `_status`-, `_deprecationReason`- eller `_replacementUrl`-fält** (`additionalProperties: false` i [`dossier.schema.json`](../schemas/strict/dossier.schema.json)). Runtime walkar `data/dossiers/{hard,soft}/` direkt — alla dossiers som ligger där är aktiva. Hand-deprekering = flytta mappen till `archive/dossiers-legacy-2026-04-20/`. Källhälso-checken har ingen ersättare ännu (kandidat för framtida CI-script).
 
 ---
 

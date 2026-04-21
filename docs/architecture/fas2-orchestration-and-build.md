@@ -136,7 +136,7 @@ Härledd policy-bundle som styr körningen.
 14. Component References (upp till 5 fenced shadcn-exempel)
 15. SEO
 
-`## Structural References` är **borttaget 2026-04-17** — strukturella exempel sköts av dossier-pipen (`data/dossiers/_index/`).
+`## Structural References` är **borttaget 2026-04-17** — strukturella exempel sköts av dossier-pipen v2 (`data/dossiers/{hard,soft}/<id>/`). `data/dossiers/_index/capability-map.json` är en genererad backoffice-view, inte en runtime-källa.
 
 ### Pruning
 
