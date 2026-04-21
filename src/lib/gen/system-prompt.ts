@@ -55,152 +55,47 @@ import type { RoutePlan } from "./route-plan";
 import type { ScaffoldId, ScaffoldManifest } from "./scaffolds/types";
 import {
   buildBudgetedSystemPrompt,
-  estimateTokens,
-  type PromptBudgetBlock,
 } from "./tokens";
 import {
   defaultInjectionMode,
   getDossierFileContent,
   type DossierSelectionResult,
 } from "./dossiers";
+import {
+  DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS,
+  splitContextIntoBudgetBlocks,
+} from "./system-prompt/budget";
+import type {
+  Brief,
+  MediaCatalogItem,
+  DesignReferenceAsset,
+  DynamicContextOptions,
+  DynamicContextPruning,
+  DynamicContextBlockTrace,
+  BuildDynamicContextResult,
+} from "./system-prompt/types";
 
-// ═══════════════════════════════════════════════════════════════════════════
-// STATIC CORE — config manifest + fragments (see static-core-loader.ts)
-// Loaded via require() to keep node:fs out of Turbopack's static analysis
-// while remaining available at server runtime.
-// ═══════════════════════════════════════════════════════════════════════════
+export type {
+  Brief,
+  MediaCatalogItem,
+  DesignReferenceAsset,
+  DynamicContextOptions,
+  DynamicContextPruning,
+  DynamicContextBlockTrace,
+  BuildDynamicContextResult,
+};
 
-let _cachedStaticCore: string | null = null;
-function loadStaticCoreSync(): string {
-  if (_cachedStaticCore !== null) return _cachedStaticCore;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getStaticCoreFromWorkspace } = require("./static-core-loader") as typeof import("./static-core-loader");
-  _cachedStaticCore = getStaticCoreFromWorkspace();
-  return _cachedStaticCore;
-}
+export {
+  SYSTEM_PROMPT_SEPARATOR,
+  composeEngineSystemPrompt,
+  getSystemPromptLengths,
+} from "./system-prompt/compose";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DYNAMIC CONTEXT — varies per request
+// Type definitions live in `./system-prompt/types.ts` and are re-exported
+// above; budget-splitting helpers live in `./system-prompt/budget.ts`.
 // ═══════════════════════════════════════════════════════════════════════════
-
-export interface Brief {
-  projectTitle?: string;
-  brandName?: string;
-  oneSentencePitch?: string;
-  tagline?: string;
-  targetAudience?: string;
-  primaryCallToAction?: string;
-  toneAndVoice?: string[];
-  visualDirection?: {
-    styleKeywords?: string[];
-    colorPalette?: {
-      primary?: string;
-      secondary?: string;
-      accent?: string;
-      background?: string;
-      text?: string;
-    };
-    typography?: {
-      headings?: string;
-      body?: string;
-    };
-  };
-  pages?: Array<{
-    name?: string;
-    path?: string;
-    purpose?: string;
-    sections?: Array<{
-      type?: string;
-      heading?: string;
-      bullets?: string[];
-    }>;
-  }>;
-  imagery?: {
-    styleKeywords?: string[];
-    suggestedSubjects?: string[];
-    styleNotes?: string[];
-    subjects?: string[];
-    shotTypes?: string[];
-    altTextRules?: string[];
-  };
-  domainProfile?: string;
-  motionLevel?: "minimal" | "moderate" | "lively";
-  qualityBar?: "clean" | "premium" | "bold-dramatic";
-  seasonalHints?: string[];
-  mustHave?: string[];
-  avoid?: string[];
-  uiNotes?: {
-    components?: string[];
-    interactions?: string[];
-    accessibility?: string[];
-  };
-  seo?: {
-    titleTemplate?: string;
-    metaDescription?: string;
-    keywords?: string[];
-  };
-  siteName?: string;
-  /** Brief-LLM nominated scaffold (Fas 1.0). Hint — runtime embedding-pick may override. */
-  scaffoldNomination?: {
-    id: string;
-    reason: string;
-    confidence: number;
-  } | null;
-  /** Brief-LLM nominated variant (Fas 1.0). Hint — only meaningful if scaffoldNomination set. */
-  variantNomination?: {
-    id: string;
-    reason: string;
-    confidence: number;
-  } | null;
-  /** Brief-LLM nominated dossiers (Fas 1.0). Hints — orchestrator's embedding pick decides. */
-  dossierNominations?: Array<{
-    id: string;
-    reason: string;
-    confidence: number;
-  }>;
-}
-
-export interface MediaCatalogItem {
-  alias: string;
-  url: string;
-  alt?: string;
-}
-
-export interface DesignReferenceAsset {
-  kind: "figma" | "image";
-  label: string;
-  note?: string;
-}
-
-export interface DynamicContextOptions {
-  intent: BuildIntent;
-  brief?: Brief | null;
-  themeOverride?: ThemeColors | null;
-  imageGenerations?: boolean;
-  mediaCatalog?: MediaCatalogItem[];
-  scaffoldContext?: string;
-  capabilityHints?: string;
-  resolvedScaffold?: ScaffoldManifest | null;
-  resolvedVariant?: ScaffoldVariant | null;
-  routePlan?: RoutePlan | null;
-  preGenerationContracts?: PreGenerationContractContext | null;
-  componentPalette?: PaletteState | null;
-  designThemePreset?: string | null;
-  designReferences?: DesignReferenceAsset[];
-  /** User-supplied custom instructions from the builder UI */
-  customInstructions?: string;
-  /** Raw user prompt text — used for domain/motion/quality inference. */
-  userPrompt?: string;
-  /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
-  generationMode?: "init" | "followUp";
-  buildSpec?: BuildSpec | null;
-  /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
-  sessionSeed?: string;
-  /** Verified shadcn usage examples matched to this request's capabilities. */
-  componentReferences?: { name: string; code: string }[];
-  /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
-  dossierSelection?: DossierSelectionResult | null;
-}
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -225,150 +120,6 @@ function buildShadcnToolkitSummary(ctx?: {
     ctx?.scaffoldId ? ctx : undefined,
   );
 }
-
-const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 30_000;
-
-const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
-  match: RegExp;
-  priority: number;
-  required?: boolean;
-}> = [
-  { match: /^generation mode:/i, priority: 100, required: true },
-  { match: /^custom instructions/i, priority: 100, required: true },
-  { match: /^build intent:/i, priority: 95, required: true },
-  { match: /^generation profile$/i, priority: 92, required: true },
-  { match: /^scaffold variant \(this generation\)$/i, priority: 91 },
-  { match: /^design priority$/i, priority: 89, required: true },
-  { match: /^scaffold$/i, priority: 90, required: true },
-  { match: /^scaffold:\s/i, priority: 90, required: true },
-  { match: /^layout & theme files/i, priority: 85 },
-  { match: /^import reference/i, priority: 75 },
-  { match: /^route plan$/i, priority: 90, required: true },
-  { match: /^your toolkit$/i, priority: 85, required: true },
-  { match: /^available dossiers$/i, priority: 87 },
-  { match: /^selected dossier instructions$/i, priority: 84 },
-  { match: /^dossier files to emit verbatim$/i, priority: 92, required: true },
-  { match: /^pre-generation contracts$/i, priority: 90, required: true },
-  { match: /^project context$/i, priority: 88, required: true },
-  { match: /^pages & sections$/i, priority: 82 },
-  { match: /^media catalog$/i, priority: 80 },
-  { match: /^visual identity$/i, priority: 78 },
-  { match: /^design references$/i, priority: 72 },
-  { match: /^component references$/i, priority: 80 },
-  { match: /^critical scaffold files$/i, priority: 86, required: true },
-  { match: /^scaffold file tree$/i, priority: 84, required: true },
-  { match: /^scaffold research priorities$/i, priority: 70 },
-  { match: /^domain inference$/i, priority: 77 },
-  { match: /^structure hints$/i, priority: 76 },
-  { match: /^contract.*backend.*hints$/i, priority: 75 },
-  { match: /^coding direction$/i, priority: 76 },
-  { match: /^color system$/i, priority: 73 },
-  { match: /^art direction/i, priority: 73 },
-  { match: /^typography/i, priority: 72 },
-  { match: /^visual polish$/i, priority: 71 },
-  { match: /^charts$/i, priority: 65 },
-  { match: /^interaction.+motion$/i, priority: 68 },
-  { match: /^quality bar$/i, priority: 74 },
-  { match: /^component palette$/i, priority: 72 },
-  { match: /^spec file$/i, priority: 78 },
-  { match: /^current project files$/i, priority: 80 },
-  { match: /^imagery/i, priority: 66 },
-  { match: /^seo$/i, priority: 62 },
-];
-
-function normalizeContextBlockKey(title: string, index: number): string {
-  const normalized = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return normalized || `context_block_${index + 1}`;
-}
-
-function resolveContextBlockPriority(title: string): { priority: number; required: boolean } {
-  for (const rule of CONTEXT_BLOCK_PRIORITY_RULES) {
-    if (rule.match.test(title)) {
-      return {
-        priority: rule.priority,
-        required: Boolean(rule.required),
-      };
-    }
-  }
-  return { priority: 60, required: false };
-}
-
-type DynamicContextBlock = PromptBudgetBlock & {
-  title: string;
-  estimatedTokens: number;
-};
-
-function splitContextIntoBudgetBlocks(context: string): DynamicContextBlock[] {
-  if (!context.trim()) return [];
-
-  const blocks: Array<{ title: string; content: string }> = [];
-  const lines = context.split("\n");
-  let currentTitle = "preamble";
-  let currentLines: string[] = [];
-
-  const flush = () => {
-    const content = currentLines.join("\n").trim();
-    if (!content) return;
-    blocks.push({ title: currentTitle, content });
-  };
-
-  for (const line of lines) {
-    const headingMatch = /^##\s+(.+)$/.exec(line);
-    if (headingMatch) {
-      flush();
-      currentTitle = headingMatch[1].trim();
-      currentLines = [line];
-      continue;
-    }
-    currentLines.push(line);
-  }
-  flush();
-
-  const duplicateCounts = new Map<string, number>();
-
-  return blocks.map((block, index) => {
-    const { priority, required } = resolveContextBlockPriority(block.title);
-    const baseKey = normalizeContextBlockKey(block.title, index);
-    const seen = duplicateCounts.get(baseKey) ?? 0;
-    duplicateCounts.set(baseKey, seen + 1);
-    const key = seen === 0 ? baseKey : `${baseKey}_${seen + 1}`;
-    return {
-      key,
-      text: block.content,
-      title: block.title,
-      priority,
-      required,
-      estimatedTokens: estimateTokens(block.content),
-    };
-  });
-}
-
-/** Observability for dynamic-context token budgeting (`buildBudgetedSystemPrompt`). */
-export interface DynamicContextPruning {
-  budgetTokens: number;
-  usedTokens: number;
-  droppedBlockKeys: string[];
-  keptBlockKeys: string[];
-}
-
-export interface DynamicContextBlockTrace {
-  key: string;
-  title: string;
-  priority: number;
-  required: boolean;
-  estimatedTokens: number;
-  kept: boolean;
-}
-
-export type BuildDynamicContextResult = {
-  context: string;
-  pruning: DynamicContextPruning;
-  blocks: DynamicContextBlockTrace[];
-  variantId: string | null;
-};
 
 /**
  * Standardized "sterile but better" body background recipe used when a variant
@@ -1377,33 +1128,6 @@ export function buildDynamicContext(
 // `DynamicContextOptions` and silently producing thinner prompts in eval.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Between static core (config/prompt-core) and buildDynamicContext output. */
-export const SYSTEM_PROMPT_SEPARATOR = "\n\n---\n\n# Request-Specific Context\n\n";
-
-/** Compose static codegen core + dynamic context without re-running retrieval. */
-export function composeEngineSystemPrompt(dynamicContextText: string): string {
-  return `${loadStaticCoreSync()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContextText}`;
-}
-
-/**
- * Returns character counts for prompt-cache monitoring.
- * Use after `composeEngineSystemPrompt()` to log total, static, and dynamic lengths.
- */
-export function getSystemPromptLengths(fullPrompt: string): {
-  total: number;
-  static: number;
-  dynamic: number;
-} {
-  const total = fullPrompt.length;
-  const sepIdx = fullPrompt.indexOf(SYSTEM_PROMPT_SEPARATOR);
-  if (sepIdx === -1) {
-    return { total, static: total, dynamic: 0 };
-  }
-  const staticLen = sepIdx;
-  const dynamicLen = total - staticLen - SYSTEM_PROMPT_SEPARATOR.length;
-  return {
-    total,
-    static: staticLen,
-    dynamic: Math.max(0, dynamicLen),
-  };
-}
+// `SYSTEM_PROMPT_SEPARATOR`, `composeEngineSystemPrompt`,
+// `getSystemPromptLengths` and the static-core loader live in
+// `./system-prompt/compose.ts` and are re-exported from the top of this file.
