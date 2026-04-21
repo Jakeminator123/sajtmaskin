@@ -14,6 +14,10 @@ Senast uppdaterad: 2026-04-21 efter wave `cursor/wave-2026-04-21-cleanup` (före
 | Fyra dormant `FEATURES`-flaggor hårdkodade: `useBuildSpec`, `useLightweightScaffoldSerialization`, `useFollowUpLightContext`, `useFinalizeDeepPath` | Off-grenen användes aldrig. Tillhörande env-keys (`SAJTMASKIN_BUILD_SPEC_ENABLED` m.fl.) borttagna ur `env.ts` + `config/env-policy.json`. |
 | Lint-cleanup: `PreviewPanelFrame` setState-in-effect fix, `useAutoFix` oanvända `eslint-disable`, scripts unused-vars | 12 warnings → 2 (resterande 2 är i preview-host/ separata paket). |
 | Docs-sync: glossary, `llm-role-matrix.md`, `integrations-and-data.md`, `model-build-profiles.md`, `preview-white-screen-runbook.md`, `followup-design-intent-gap.md` uppdaterade att spegla borttagningarna | Kod är source of truth; docs speglar nu koden. |
+| **Stora filer splittrade per ansvar** | `system-prompt.ts` 1409 → 1039 (types/budget/compose/helpers), `finalize-version.ts` 1812 → 1283 (errors/policies/failure-logs/partial-file/partial-file-repair/step-telemetry), `build-spec.ts` 896 → 788 (prompt-patterns/regex-utils), `finalize-preflight.ts` 710 → 589 (shell-pages), `repair-loop.ts` 706 → 601 (diagnostics-parser), `scaffolds/matcher.ts` 1057 → 732 (keyword-banks), `autofix/pipeline.ts` 1126 → 996 (3 rules/ fixers). |
+| Stream-post dedupe: shared `stream-error-response.ts` + `buildEngineStreamResponse` för init+follow-up. | Samma felhantering och SSE-header-sättning bodde i båda POST-routerna. |
+| Knip-driven unused-export purge (~25 exports) | Downgraded till module-local eller borttagna (buildPreviewUrl, isBuildSpecEnabled, resolveLatestVersions, getAllDossiers, getDossierStatus, NON_RUNTIME_STATUSES, m.fl.). |
+| Glossary purge: 14 strikethrough legacy-rader borttagna ur huvudtabellerna (lever kvar i "Legacy som inte ska återintroduceras"). | Mindre brus när man slår upp kanoniska termer. |
 
 ## Öppna punkter (smal lista — 6 saker)
 
