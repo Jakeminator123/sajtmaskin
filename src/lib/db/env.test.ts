@@ -11,7 +11,7 @@ describe("db env resolver", () => {
     const resolved = resolveConfiguredDbEnv({
       POSTGRES_URL: "postgresql://primary.example:5432/db",
       STORAGE_POSTGRES_URL: "postgresql://storage.example:5432/db",
-    } as NodeJS.ProcessEnv);
+    } as unknown as NodeJS.ProcessEnv);
 
     expect(resolved).toEqual({
       name: "POSTGRES_URL",
@@ -23,7 +23,7 @@ describe("db env resolver", () => {
     const resolved = resolveConfiguredDbEnv({
       POSTGRES_URL: "${POSTGRES_URL}",
       STORAGE_POSTGRES_URL: "postgresql://storage.example:5432/devdb",
-    } as NodeJS.ProcessEnv);
+    } as unknown as NodeJS.ProcessEnv);
 
     expect(resolved).toEqual({
       name: "STORAGE_POSTGRES_URL",
