@@ -118,12 +118,12 @@ describe("GET /api/engine/chats/[chatId]", () => {
     expect(response.status).toBe(200);
     expect(json.previewUrl).toBeNull();
     expect(json.latestVersion.previewUrl).toBeNull();
-    expect(json.legacyShimPreviewUrl).toBeNull();
-    expect(json.latestVersion.legacyShimPreviewUrl).toBeNull();
+    expect(json.legacyShimPreviewUrl).toBeUndefined();
+    expect(json.latestVersion.legacyShimPreviewUrl).toBeUndefined();
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
-  it("returns null previewUrl and null legacyShimPreviewUrl for own-engine versions without preview_url", async () => {
+  it("returns null previewUrl for own-engine versions without preview_url", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({
       id: "chat_1",
       project_id: "proj_1",
@@ -156,9 +156,9 @@ describe("GET /api/engine/chats/[chatId]", () => {
 
     expect(response.status).toBe(200);
     expect(json.previewUrl).toBeNull();
-    expect(json.legacyShimPreviewUrl).toBeNull();
+    expect(json.legacyShimPreviewUrl).toBeUndefined();
     expect(json.latestVersion.previewUrl).toBeNull();
-    expect(json.latestVersion.legacyShimPreviewUrl).toBeNull();
+    expect(json.latestVersion.legacyShimPreviewUrl).toBeUndefined();
     expect(json.latestVersion.canPin).toBe(false);
   });
 

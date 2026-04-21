@@ -1,8 +1,8 @@
 import {
-  isCompatibilityShimPreviewUrl,
   isTier2LivePreviewUrl,
   normalizePreviewUrl,
-} from "@/lib/gen/preview/legacy/compatibility-shim";
+} from "@/lib/gen/preview/preview-url-classifier";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 /** Discrete preview lifecycle for own-engine live preview + iframe (builder UI). */
 export type PreviewLifecycleState =

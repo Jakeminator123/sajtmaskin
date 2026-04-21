@@ -3,18 +3,14 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
-import {
-  isCompatibilityShimPreviewUrl,
-  isTier2LivePreviewUrl,
-  normalizePreviewUrl,
-} from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export type VersionLike = {
   versionId?: string | null;
   id?: string | null;
   previewUrl?: string | null;
   demoUrl?: string | null;
-  legacyShimPreviewUrl?: string | null;
   /** Own-engine list uses `false`; legacy mapped V0 DB rows use `true`. */
   canPin?: boolean;
   versionNumber?: number | null;

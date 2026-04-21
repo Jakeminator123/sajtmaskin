@@ -53,7 +53,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           scaffoldId: chat.scaffold_id,
           scaffoldLabel: resolvedScaffold?.label ?? null,
           ...previewUrlField(null),
-          legacyShimPreviewUrl: null,
           createdAt: chat.created_at,
           updatedAt: chat.updated_at,
           messages: chat.messages.map((m) => ({
@@ -74,7 +73,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
                 id: latest.id,
                 versionId: latest.id,
                 ...previewUrlField(latest.preview_url),
-                legacyShimPreviewUrl: null,
                 createdAt: latest.created_at,
                 versionNumber: latest.version_number,
                 messageId: latest.message_id,

@@ -1,7 +1,5 @@
-import {
-  isCompatibilityShimPreviewUrl,
-  normalizePreviewUrl,
-} from "@/lib/gen/preview/legacy/compatibility-shim";
+import { normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 /**
  * Public HTTP/SSE JSON uses `previewUrl` only (no response key `demoUrl`).

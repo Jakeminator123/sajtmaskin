@@ -51,7 +51,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           id: v.id,
           versionId: v.id,
           ...previewUrlField(v.preview_url),
-          legacyShimPreviewUrl: null,
           createdAt: v.created_at,
           versionNumber: v.version_number,
           messageId: v.message_id,
@@ -224,7 +223,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       success: true,
       versionId: restoredVersion.id,
       ...previewUrlField(null),
-      legacyShimPreviewUrl: null,
     });
   } catch (err) {
     return NextResponse.json(

@@ -1,18 +1,35 @@
 /**
- * Legacy compatibility-preview URL helpers (`/api/preview-render`) och shim-detektion.
- * Primär produktpreview är tier-2 live-preview; se `docs/architecture/fas3-preview-and-deploy.md`.
+ * Legacy compatibility-preview URL helpers (`/api/preview-render`) and
+ * shim detection.
+ *
+ * Primary product preview is the tier-2 live preview (preview-host / VM).
+ * Tier-2 URL classification lives in `../preview-url-classifier`; import
+ * tier-2 helpers from there.
+ *
+ * This module owns ONLY:
+ * - the shim URL path constant
+ * - `isShimPreviewDisabled()`     (env gate)
+ * - `isCompatibilityShimPreviewUrl(url)`
+ * - `isShimOrMissingPreviewUrl(url)`  (used by bootstrap to re-try on shim / stale URL)
+ *
+ * It re-exports `normalizePreviewUrl` from `preview-url-classifier` for
+ * backward compatibility with callers that import it from here.
  */
-export type AlternatePreviewUrls = {
-  /** Persisted tier-2 / VM preview URL for this version (not Vercel Sandbox). */
-  storedLivePreviewUrl: string | null;
-};
+
+import {
+  isTier2LivePreviewUrl,
+  normalizePreviewUrl,
+  previewUrlsEquivalent,
+  type AlternatePreviewUrls,
+} from "../preview-url-classifier";
+
+export { normalizePreviewUrl } from "../preview-url-classifier";
 
 const OWN_ENGINE_PREVIEW_PATH = "/api/preview-render";
-const PREVIEW_URL_BASE = "https://preview.local";
 
 /**
- * When `SAJTMASKIN_SHIM_PREVIEW_DISABLED` is truthy, the legacy compatibility
- * (shim) preview is suppressed end-to-end:
+ * When `SAJTMASKIN_SHIM_PREVIEW_DISABLED` is truthy, the legacy
+ * compatibility (shim) preview is suppressed end-to-end:
  * - `buildPreviewUrl` returns null so no shim URL is ever constructed
  * - `/api/preview-render` returns HTTP 410 with an explanatory page
  * - `isShimOrMissingPreviewUrl` always returns true so the tier-2 VM
@@ -23,10 +40,6 @@ export function isShimPreviewDisabled(): boolean {
   const raw = process.env.SAJTMASKIN_SHIM_PREVIEW_DISABLED?.trim().toLowerCase();
   if (!raw) return false;
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
-}
-
-export function normalizePreviewUrl(url: string | null | undefined): string | null {
-  return typeof url === "string" && url.trim().length > 0 ? url.trim() : null;
 }
 
 export function isCompatibilityShimPreviewUrl(url: string | null | undefined): boolean {
@@ -44,72 +57,11 @@ export function isShimOrMissingPreviewUrl(url: string | null | undefined): boole
   return false;
 }
 
-function tier2PreviewHostSuffixesFromEnv(): string[] {
-  if (typeof process === "undefined" || !process.env) return [];
-  const raw = process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES?.trim();
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((s) => s.trim().toLowerCase().replace(/^\./, ""))
-    .filter(Boolean);
-}
-
-function hostMatchesTier2Suffixes(host: string, suffixes: string[]): boolean {
-  const h = host.toLowerCase();
-  for (const sfx of suffixes) {
-    if (!sfx) continue;
-    if (h === sfx || h.endsWith(`.${sfx}`)) return true;
-  }
-  return false;
-}
-
-/** True for tier-2 live preview URLs (preview-host / VM, legacy `*.vercel.run`, etc.) — not the compatibility shim. */
-export function isTier2LivePreviewUrl(url: string | null | undefined): boolean {
-  const normalized = normalizePreviewUrl(url);
-  if (!normalized || isCompatibilityShimPreviewUrl(normalized)) {
-    return false;
-  }
-
-  const suffixes = tier2PreviewHostSuffixesFromEnv();
-  try {
-    const host = new URL(normalized, PREVIEW_URL_BASE).hostname.toLowerCase();
-    if (host.includes("sandbox") || host.endsWith(".vercel.run")) return true;
-    return hostMatchesTier2Suffixes(host, suffixes);
-  } catch {
-    const fallback = normalized.toLowerCase();
-    if (fallback.includes("sandbox") || fallback.includes("vercel.run")) return true;
-    return hostMatchesTier2Suffixes(fallback, suffixes);
-  }
-}
-
-export function hasTier2LivePreviewUrl(url: string | null | undefined): boolean {
-  return isTier2LivePreviewUrl(url);
-}
-
-function previewUrlsEquivalent(
-  a: string | null | undefined,
-  b: string | null | undefined,
-): boolean {
-  const left = normalizePreviewUrl(a);
-  const right = normalizePreviewUrl(b);
-  if (!left || !right) return false;
-  if (left === right) return true;
-  try {
-    return new URL(left, PREVIEW_URL_BASE).href === new URL(right, PREVIEW_URL_BASE).href;
-  } catch {
-    return false;
-  }
-}
-
-export function resolveAlternatePreviewUrls(params: {
-  storedLivePreviewUrl?: string | null;
-}): AlternatePreviewUrls {
-  const storedLivePreviewUrl = normalizePreviewUrl(params.storedLivePreviewUrl);
-  return {
-    storedLivePreviewUrl,
-  };
-}
-
+/**
+ * UI banner that surfaces "switch to the stored tier-2 preview" when the
+ * current iframe URL is the compatibility shim. Returns null when no
+ * upgrade is possible or useful.
+ */
 export function buildAlternatePreviewBannerState(params: {
   currentUrl: string | null | undefined;
   alternatePreviewUrls?: AlternatePreviewUrls | null;
@@ -124,11 +76,6 @@ export function buildAlternatePreviewBannerState(params: {
       !previewUrlsEquivalent(currentUrl, livePreviewUrl),
   );
 
-  if (!offerTier2Preview) {
-    return null;
-  }
-
-  return {
-    livePreviewUrl: livePreviewUrl!,
-  };
+  if (!offerTier2Preview) return null;
+  return { livePreviewUrl: livePreviewUrl! };
 }

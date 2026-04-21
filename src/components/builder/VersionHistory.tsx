@@ -5,7 +5,7 @@ import {
   resolveEngineVersionDisplayStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
-import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import {
   AlertCircle,
   CheckCircle,
@@ -49,7 +49,6 @@ type VersionSummary = {
   versionId?: string | null;
   previewUrl?: string | null;
   demoUrl?: string | null;
-  legacyShimPreviewUrl?: string | null;
   sandboxUrl?: string | null;
   createdAt?: string | Date | null;
   versionNumber?: number | null;
@@ -83,7 +82,6 @@ type RestoreVersionResponse = {
   success?: boolean;
   versionId?: string | null;
   demoUrl?: string | null;
-  legacyShimPreviewUrl?: string | null;
   error?: string;
 };
 
@@ -632,7 +630,6 @@ export function VersionHistory({
             );
             const listPreviewUrl =
               (tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm) ? tier2PreviewNorm : null) ??
-              normalizePreviewUrl(version.legacyShimPreviewUrl) ??
               normalizePreviewUrl(version.demoUrl);
             const qualityTierLabel =
               qualityTier === "production"

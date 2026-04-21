@@ -6,7 +6,6 @@ describe("pickVersionPreviewUrl", () => {
     expect(
       pickVersionPreviewUrl({
         previewUrl: "https://preview.example/app",
-        legacyShimPreviewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
         verificationState: "verifying",
       }),
     ).toBe("https://preview.example/app");
@@ -16,7 +15,6 @@ describe("pickVersionPreviewUrl", () => {
     expect(
       pickVersionPreviewUrl({
         previewUrl: null,
-        legacyShimPreviewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
         verificationState: "pending",
       }),
     ).toBeNull();

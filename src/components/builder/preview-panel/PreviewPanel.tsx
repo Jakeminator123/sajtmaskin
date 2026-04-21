@@ -52,10 +52,10 @@ import {
 } from "./preview-route-helpers";
 import { findFileNodeByPath } from "./code-file-tree-utils";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import {
   buildAlternatePreviewBannerState,
   isCompatibilityShimPreviewUrl,
-  isTier2LivePreviewUrl,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview/diagnostics";
 import { toast } from "sonner";

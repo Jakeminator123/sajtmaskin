@@ -117,11 +117,11 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].previewUrl).toBeNull();
-    expect(json.versions[0].legacyShimPreviewUrl).toBeNull();
+    expect(json.versions[0].legacyShimPreviewUrl).toBeUndefined();
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
-  it("keeps legacyShimPreviewUrl null for own-engine version rows", async () => {
+  it("omits legacyShimPreviewUrl field for own-engine version rows", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
     getVersionsByChat.mockResolvedValue([
       {
@@ -146,7 +146,7 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].previewUrl).toBeNull();
-    expect(json.versions[0].legacyShimPreviewUrl).toBeNull();
+    expect(json.versions[0].legacyShimPreviewUrl).toBeUndefined();
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 

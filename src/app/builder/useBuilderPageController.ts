@@ -45,10 +45,12 @@ import {
   type PreviewLifecycleState,
 } from "@/lib/builder/preview-lifecycle";
 import {
-  isCompatibilityShimPreviewUrl,
-  isShimOrMissingPreviewUrl,
   isTier2LivePreviewUrl,
   resolveAlternatePreviewUrls,
+} from "@/lib/gen/preview/preview-url-classifier";
+import {
+  isCompatibilityShimPreviewUrl,
+  isShimOrMissingPreviewUrl,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   asRecord,
