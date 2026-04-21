@@ -171,7 +171,7 @@ function getSubjectPaletteGuidance(value: string): string[] {
 
 export type MotionProfile = "static" | "balanced" | "lively";
 
-export function inferMotionProfile(params: {
+function inferMotionProfile(params: {
   prompt?: string;
   tone?: string[];
   styleKeywords?: string[];
@@ -202,7 +202,7 @@ export function inferMotionProfile(params: {
   return preferLively ? "lively" : "balanced";
 }
 
-export function resolveMotionGuidance(
+function resolveMotionGuidance(
   tone: string[],
   styleKeywords: string[],
   variant: "detailed" | "compact" = "detailed",
@@ -246,7 +246,7 @@ export function resolveMotionGuidance(
 
 // ── Quality bar ───────────────────────────────────────────────────────────
 
-export function resolveQualityBarGuidance(
+function resolveQualityBarGuidance(
   tone: string[],
   styleKeywords: string[],
   variant: "detailed" | "compact" = "detailed",
@@ -270,7 +270,7 @@ export function resolveQualityBarGuidance(
 
 // ── Domain structure & contract hints ─────────────────────────────────────
 
-export function buildDomainStructureHints(domain: DomainProfile): string[] {
+function buildDomainStructureHints(domain: DomainProfile): string[] {
   switch (domain) {
     case "restaurant":
       return [
@@ -338,7 +338,7 @@ export function buildDomainStructureHints(domain: DomainProfile): string[] {
   }
 }
 
-export function buildDomainContractHints(domain: DomainProfile): string[] {
+function buildDomainContractHints(domain: DomainProfile): string[] {
   switch (domain) {
     case "restaurant":
     case "hotel":
@@ -360,7 +360,7 @@ export function buildDomainContractHints(domain: DomainProfile): string[] {
 
 // ── Seasonal / thematic palette ───────────────────────────────────────────
 
-export function resolveSeasonalPaletteGuidance(signal: string): string[] {
+function resolveSeasonalPaletteGuidance(signal: string): string[] {
   if (!isSeasonalOrCulturalTopic(signal)) return [];
   return [
     "Use a subject-led palette instead of default SaaS blue. Seasonal/cultural themes should borrow color cues from the actual subject matter.",

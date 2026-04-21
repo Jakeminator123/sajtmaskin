@@ -34,7 +34,7 @@ export function stripNextImports(code: string): string {
   return result;
 }
 
-export function resolveDefaultExportName(code: string): string | null {
+function resolveDefaultExportName(code: string): string | null {
   const fnMatch = code.match(/export\s+default\s+(?:async\s+)?function\s+(\w+)/);
   if (fnMatch) return fnMatch[1];
 
@@ -48,7 +48,7 @@ export function resolveDefaultExportName(code: string): string | null {
   return null;
 }
 
-export function parseNamedImports(input: string): ImportBinding[] {
+function parseNamedImports(input: string): ImportBinding[] {
   return input
     .split(",")
     .map((part) => part.trim())

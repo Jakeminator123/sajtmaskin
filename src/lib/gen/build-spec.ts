@@ -35,7 +35,7 @@ export type BuildSpecGenerationMode = "init" | "followUp";
  * `build-spec.ts` and `stream/finalize-preflight.ts`. Keep them aligned by
  * importing this from a single place.
  */
-export function isEffectiveInit(params: {
+function isEffectiveInit(params: {
   generationMode: BuildSpecGenerationMode | "init" | "followUp" | undefined;
   isFirstCodeGeneration?: boolean | null;
 }): boolean {

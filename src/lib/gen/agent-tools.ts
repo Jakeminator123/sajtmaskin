@@ -26,7 +26,7 @@ const INTEGRATION_PROVIDERS = [
   "other",
 ] as const;
 
-export const suggestIntegration = tool({
+const suggestIntegration = tool({
   description:
     "Signal that the generated site requires an external integration or service. " +
     "Call ONLY when generated code will actually depend on that integration (not for hypothetical " +
@@ -54,7 +54,7 @@ export const suggestIntegration = tool({
   }),
 });
 
-export const requestEnvVar = tool({
+const requestEnvVar = tool({
   description:
     "Signal that the generated code requires a specific environment variable the user must set. " +
     "Use for custom keys not covered by suggestIntegration. Do not call for optional nice-to-haves " +
@@ -78,7 +78,7 @@ export const requestEnvVar = tool({
   }),
 });
 
-export const askClarifyingQuestion = tool({
+const askClarifyingQuestion = tool({
   description:
     "Ask a clarifying question before generating code when the prompt is ambiguous about a " +
     "blocking decision (database, auth, payment, core scope). Do not use for every possible " +
@@ -101,7 +101,7 @@ export const askClarifyingQuestion = tool({
   }),
 });
 
-export const emitPlanArtifact = tool({
+const emitPlanArtifact = tool({
   description:
     "Emit a structured project plan. Use this in plan mode to return " +
     "the plan as a structured artifact instead of free text.",

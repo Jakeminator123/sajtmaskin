@@ -5,7 +5,7 @@ import { buildCodeFileMap, buildPreparedModuleMap } from "./file-resolution";
 import { prepareModules } from "./transpile";
 import { buildPreviewPrelude } from "./legacy/shims";
 
-export function buildLocalImportAliases(modules: PreparedModule[]): string {
+function buildLocalImportAliases(modules: PreparedModule[]): string {
   const fileMap = buildCodeFileMap(modules.map((module) => module.file));
   const moduleByPath = buildPreparedModuleMap(modules);
   const lines = new Set<string>();
@@ -41,7 +41,7 @@ function isPreviewHandledImportSource(source: string): boolean {
   return isPreviewBuiltinImportSource(source);
 }
 
-export function collectPreviewValidationIssues(modules: PreparedModule[]): PreviewValidationIssue[] {
+function collectPreviewValidationIssues(modules: PreparedModule[]): PreviewValidationIssue[] {
   const fileMap = buildCodeFileMap(modules.map((module) => module.file));
   const moduleByPath = buildPreparedModuleMap(modules);
   const issues: PreviewValidationIssue[] = [];
@@ -85,7 +85,7 @@ export function collectPreviewValidationIssues(modules: PreparedModule[]): Previ
   return issues;
 }
 
-export function buildMissingImportStubs(modules: PreparedModule[], issues: PreviewValidationIssue[]): string {
+function buildMissingImportStubs(modules: PreparedModule[], issues: PreviewValidationIssue[]): string {
   if (issues.length === 0) return "";
 
   const fileMap = buildCodeFileMap(modules.map((m) => m.file));

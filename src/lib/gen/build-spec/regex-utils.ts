@@ -4,7 +4,7 @@
  * Extracted from `src/lib/gen/build-spec.ts` 2026-04-21.
  */
 
-export function escapeRegex(value: string): string {
+function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 

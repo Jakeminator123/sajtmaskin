@@ -10,7 +10,7 @@ export const ROUTE_PLAN_SITE_TYPES = [
 ] as const;
 export type RoutePlanSiteType = (typeof ROUTE_PLAN_SITE_TYPES)[number];
 
-export function isRoutePlanSiteType(value: unknown): value is RoutePlanSiteType {
+function isRoutePlanSiteType(value: unknown): value is RoutePlanSiteType {
   return (
     typeof value === "string" &&
     (ROUTE_PLAN_SITE_TYPES as readonly string[]).includes(value)
@@ -43,7 +43,7 @@ export interface RoutePlan {
   explicitPageCount?: number;
 }
 
-export function isRoutePlanSource(value: unknown): value is RoutePlanSource {
+function isRoutePlanSource(value: unknown): value is RoutePlanSource {
   return value === "brief" || value === "prompt" || value === "scaffold";
 }
 

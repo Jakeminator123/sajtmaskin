@@ -17,7 +17,6 @@ import { join, resolve } from "node:path";
 import type {
   DossierEmbeddingsFile,
   DossierEntry,
-  DossierStatus,
   ScaffoldRecommendationsFile,
 } from "./types";
 
@@ -170,11 +169,6 @@ function loadDossierFileContent(dossierId: string, relPath: string): string | nu
 
 // ─── PUBLIC API ────────────────────────────────────────────────────────
 
-/** All dossiers (active + draft) — for backoffice and tooling. */
-export function getAllDossiers(): DossierEntry[] {
-  return loadMaster().dossiers;
-}
-
 /** Active dossiers only — what runtime should ever surface. */
 export function getActiveDossiers(): DossierEntry[] {
   const master = loadMaster();
@@ -183,12 +177,6 @@ export function getActiveDossiers(): DossierEntry[] {
 
 export function getDossierById(id: string): DossierEntry | null {
   return loadMaster().dossiers.find((d) => d.id === id) ?? null;
-}
-
-export function getDossierStatus(id: string): DossierStatus | null {
-  const master = loadMaster();
-  if (!master.dossiers.some((d) => d.id === id)) return null;
-  return master.activeIds.has(id) ? "active" : "draft";
 }
 
 /** Return scaffold-recommendations bucket for a scaffold-id, or null. */

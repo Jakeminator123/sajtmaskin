@@ -36,14 +36,6 @@ export type DossierStatus =
   /** GitHub repo URL is dead (404, parse error, network). Excluded from runtime selection. */
   | "source-unreachable";
 
-/** Statuses that exclude a dossier from runtime selection. */
-export const NON_RUNTIME_STATUSES: ReadonlySet<DossierStatus> = new Set([
-  "draft",
-  "source-archived",
-  "source-stale",
-  "source-unreachable",
-]);
-
 /** Optional manifest fields used for deprecation tracking. */
 export interface DossierDeprecationFields {
   /** Human-readable note about why the dossier was flagged. */

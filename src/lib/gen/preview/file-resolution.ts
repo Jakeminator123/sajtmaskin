@@ -3,7 +3,7 @@ import { PAGE_CANDIDATES, SCRIPT_FILE_RE, NON_RENDERABLE_FILE_RE, isPreviewBuilt
 import { normalizeFilePath, normalizeRoutePath, routeFromPageFile, resolveLocalImportPath } from "./utils";
 import { stripNextImports, parseImports } from "./import-parser";
 
-export function registerFileAlias(map: Map<string, CodeFile>, file: CodeFile, alias: string): void {
+function registerFileAlias(map: Map<string, CodeFile>, file: CodeFile, alias: string): void {
   const normalizedAlias = normalizeFilePath(alias);
   if (!normalizedAlias) return;
   if (!map.has(normalizedAlias)) {
@@ -11,7 +11,7 @@ export function registerFileAlias(map: Map<string, CodeFile>, file: CodeFile, al
   }
 }
 
-export function registerModuleAlias(
+function registerModuleAlias(
   map: Map<string, PreparedModule>,
   module: PreparedModule,
   alias: string,

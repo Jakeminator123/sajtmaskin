@@ -156,12 +156,12 @@ function loadFragmentRecord(read: (cwd?: string) => string, label: string): Reco
 }
 
 /** Load harmless placeholders as a flat record. */
-export function loadHarmlessPlaceholderRecord(): Record<string, string> {
+function loadHarmlessPlaceholderRecord(): Record<string, string> {
   return loadFragmentRecord(readHarmlessPlaceholdersEnvText, "Harmless");
 }
 
 /** Load tier-3 stub placeholders as a flat record. */
-export function loadTier3StubPlaceholderRecord(): Record<string, string> {
+function loadTier3StubPlaceholderRecord(): Record<string, string> {
   return loadFragmentRecord(readTier3StubPlaceholdersEnvText, "Tier-3 stub");
 }
 
