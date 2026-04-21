@@ -602,6 +602,8 @@ export async function runRepairLoop<TPayload = unknown>(
           })
         : null;
 
+    const fixerInput = targetedBundle?.contentForFixer ?? content;
+    const contentBeforePass = content;
     const fixerAbort = new AbortController();
     const timeoutHandle = setTimeout(
       () => fixerAbort.abort(),
@@ -609,18 +611,14 @@ export async function runRepairLoop<TPayload = unknown>(
     );
     let fixerResult: Awaited<ReturnType<typeof runLlmFixer>>;
     try {
-      fixerResult = await runLlmFixer(
-        targetedBundle?.contentForFixer ?? content,
-        errorSummary,
-        {
-          model: params.fixerModel,
-          thinking: params.fixerThinking,
-          reasoningEffort: params.fixerReasoningEffort,
-          requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
-          recurringPatterns: params.recurringPatterns,
-          abortSignal: fixerAbort.signal,
-        },
-      );
+      fixerResult = await runLlmFixer(fixerInput, errorSummary, {
+        model: params.fixerModel,
+        thinking: params.fixerThinking,
+        reasoningEffort: params.fixerReasoningEffort,
+        requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
+        recurringPatterns: params.recurringPatterns,
+        abortSignal: fixerAbort.signal,
+      });
     } finally {
       clearTimeout(timeoutHandle);
     }
@@ -650,11 +648,19 @@ export async function runRepairLoop<TPayload = unknown>(
       projectContent: content,
     });
     errorManifest = groupedAfterFix.errorManifest;
+    // The LLM "changed something" when either the raw output differs from
+    // the targeted input we handed it OR the post-autofix content differs
+    // from what the loop had at the top of this iteration. Either signal
+    // means the model did not regurgitate the same bytes verbatim.
+    const contentChanged =
+      fixerOutput !== fixerInput || content !== contentBeforePass;
     const stopReason = resolveServerRepairEarlyStopReason({
       fixerProducedOutput: true,
       errorsBefore,
       errorsAfter: syntaxResult.errors.length,
       timedOut: false,
+      contentChanged,
+      gateFailureSignals: repairContextLines.length,
     });
 
     if (syntaxResult.errors.length < bestErrorCount) {

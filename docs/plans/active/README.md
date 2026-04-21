@@ -7,6 +7,8 @@
 | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) | Kanonisk checklista — uppdaterad efter wave 2026-04-20 + konsolideringspass. |
 | [`P19-old-content-ingress.md`](./P19-old-content-ingress.md) | Konservativ hardening — kräver bevis innan kodändringar. |
 | [`P20-shadcn-ecosystem-next.md`](./P20-shadcn-ecosystem-next.md) | shadcn blocks + fonts strategi. Scaffold-toolkit redan levererat. |
+| [`P26-followup-orchestration-glitch.md`](./P26-followup-orchestration-glitch.md) | 7 PR-branches lokalt; `build_intent_promoted` triggar fortfarande i live-loggen 2026-04-21 — verifiera merge-status. |
+| [`P30-r3f-tuple-and-repair-feedback.md`](./P30-r3f-tuple-and-repair-feedback.md) | R3F vector-tuple autofix + LLM-fixer R3F-tips + gate-aware `no_improvement`-policy. Levererat 2026-04-21. |
 
 ## Avklarade i wave 2026-04-20
 

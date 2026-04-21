@@ -53,6 +53,42 @@ describe("resolveServerRepairEarlyStopReason", () => {
       }),
     ).toBe("time_budget_exceeded");
   });
+
+  it("stops as no_improvement when the fixer ran but produced byte-identical content", () => {
+    expect(
+      resolveServerRepairEarlyStopReason({
+        fixerProducedOutput: true,
+        errorsBefore: 0,
+        errorsAfter: 0,
+        contentChanged: false,
+        gateFailureSignals: 5,
+      }),
+    ).toBe("no_improvement");
+  });
+
+  it("continues in gate-only failure mode (errorsBefore=0, gate failures, content changed)", () => {
+    expect(
+      resolveServerRepairEarlyStopReason({
+        fixerProducedOutput: true,
+        errorsBefore: 0,
+        errorsAfter: 0,
+        contentChanged: true,
+        gateFailureSignals: 5,
+      }),
+    ).toBe("continue");
+  });
+
+  it("preserves legacy no_improvement when esbuild was already counting errors", () => {
+    expect(
+      resolveServerRepairEarlyStopReason({
+        fixerProducedOutput: true,
+        errorsBefore: 2,
+        errorsAfter: 2,
+        contentChanged: true,
+        gateFailureSignals: 5,
+      }),
+    ).toBe("no_improvement");
+  });
 });
 
 describe("DESIGN_PREVIEW_QUALITY_GATE_CHECKS", () => {
