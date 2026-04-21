@@ -307,6 +307,7 @@ export function OpenClawChatPanel({
       className={cn(
         "flex flex-col overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/95 text-slate-50 shadow-2xl shadow-cyan-950/35 backdrop-blur-xl",
         "h-[min(640px,calc(100vh-5rem))] max-w-[calc(100vw-1rem)]",
+        "transition-[width] duration-300 ease-out",
         panelWidthClass,
       )}
     >
@@ -397,7 +398,7 @@ export function OpenClawChatPanel({
       {/* Avatar video — landscape, embedded card */}
       {showAvatar ? (
         <div className="shrink-0 border-b border-white/10 bg-slate-950/40 px-3 pb-3 pt-3">
-          <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20 transition-all duration-300">
+          <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20">
             {avatar.avatarReady ? (
               <video
                 ref={avatar.videoRef}
