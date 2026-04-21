@@ -761,6 +761,8 @@ async function runFinalizeFastPath(params: {
             recurringPatterns: readRecurringPatternsForChat(chatId),
             abortSignal: verifierFixAbort.signal,
           });
+          let rerunBlockingCount: number | null = null;
+          let rerunDurationMs: number | null = null;
           if (repaired.success && repaired.fixedContent) {
             const reFixed = await runAutoFix(repaired.fixedContent, {
               chatId,
@@ -769,18 +771,70 @@ async function runFinalizeFastPath(params: {
             });
             contentForVersion = reFixed.fixedContent;
             fixerImproved = true;
-            // Optimistic clear: the findings were addressed by the fixer.
-            // The version is no longer marked verifier-blocked unless a
-            // future re-run re-detects them. We deliberately do NOT
-            // re-run `runVerifierPass` here — it would add another
-            // 5-15 sek to `done`. Server-verify (Fas 3) catches anything
-            // the fixer missed.
-            verifierBlockingFindings = [];
+
+            // Repair-loop hardening B (gated on FEATURES.verifierRerunAfterFix):
+            //
+            // Re-run the verifier ONCE on the fixed content to confirm the
+            // LLM actually addressed the blocking finding. Without this we
+            // optimistically cleared `verifierBlockingFindings` and could
+            // tell the UI "fixed" when nothing was fixed. Capped at one
+            // re-run + a 30 s timeout so latency stays bounded.
+            if (FEATURES.verifierRerunAfterFix) {
+              const rerunStartedAt = Date.now();
+              const rerunAbort = new AbortController();
+              const rerunTimeout = setTimeout(
+                () => rerunAbort.abort(),
+                VERIFIER_REPAIR_TIMEOUT_MS,
+              );
+              try {
+                const rerunFindings = await runVerifierPass(contentForVersion, {
+                  resolvedTier: verifierTier,
+                });
+                rerunDurationMs = Date.now() - rerunStartedAt;
+                rerunBlockingCount = rerunFindings.blocking.length;
+                // Trust the rerun: if the fixer truly fixed it the count is
+                // 0; if not the version stays verifier-blocked with the
+                // *current* findings (not the stale ones).
+                verifierBlockingFindings = rerunFindings.blocking.slice(0, 5);
+                devLogAppend("in-progress", {
+                  type: "verifier_rerun_after_fix",
+                  chatId,
+                  before: findings.blocking.length,
+                  after: rerunFindings.blocking.length,
+                  durationMs: rerunDurationMs,
+                  scaffoldId: params.resolvedScaffold?.id ?? null,
+                });
+              } catch (rerunErr) {
+                console.warn(
+                  "[verifier-pass] Re-run after fix failed (non-fatal):",
+                  rerunErr,
+                );
+                devLogAppend("in-progress", {
+                  type: "verifier_rerun_after_fix.error",
+                  chatId,
+                  message:
+                    rerunErr instanceof Error
+                      ? rerunErr.message
+                      : "Unknown verifier rerun error",
+                });
+                // Fall back to the optimistic clear so we do not regress
+                // behaviour when the rerun cannot complete.
+                verifierBlockingFindings = [];
+              } finally {
+                clearTimeout(rerunTimeout);
+              }
+            } else {
+              // Legacy optimistic clear (no rerun) — kept behind feature
+              // flag during rollout to avoid regressing latency budgets.
+              verifierBlockingFindings = [];
+            }
           }
           devLogAppend("in-progress", {
             type: "verifier-pass.fixer",
             chatId,
             findingsBefore: findings.blocking.length,
+            findingsAfterRerun: rerunBlockingCount,
+            rerunDurationMs,
             fixerImproved,
             success: repaired.success,
             partial: repaired.partial,

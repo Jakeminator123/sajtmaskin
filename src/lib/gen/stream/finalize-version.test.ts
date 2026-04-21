@@ -37,7 +37,7 @@ vi.mock("@/lib/config", async () => {
     FEATURES: {
       ...actual.FEATURES,
       consistentRepairPassIndex: true,
-      verifierRerunAfterFix: false,
+      verifierRerunAfterFix: true,
       skipDoubleValidateAndFixOnMerge: true,
       recurringPatternsInMainPrompt: false,
       useErrorLogRag: false,
@@ -1218,6 +1218,143 @@ describe("finalizeAndSaveVersion", () => {
       });
       expect(result.version.id).toBe("ver_1");
       expect(pruneStaleVersionErrorLogs).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Repair-loop hardening B — verifier re-run after LLM-fixer.
+  // Tests use vi.doMock to flip FEATURES.verifierRerunAfterFix per-case so
+  // the legacy optimistic-clear path is also covered.
+  describe("Phase 2B — verifier re-run after LLM-fixer", () => {
+    const verifierTriggeringBuildSpec = {
+      buildIntent: "website" as const,
+      generationMode: "init" as const,
+      changeScope: "redesign" as const,
+      scaffoldId: null,
+      routePlanSummary: "prompt:one-page:/",
+      stylePack: "brand-led",
+      qualityTarget: "premium" as const,
+      previewPolicy: "fidelity2" as const,
+      verificationPolicy: "strict" as const,
+      contextPolicy: "normal" as const,
+      referenceCategories: [],
+      forbiddenPatterns: [],
+      tokenBudgets: {
+        scaffoldChars: 36_000,
+        refsChars: 12_000,
+        systemContextChars: 48_000,
+      },
+      routeRealization: {
+        mode: "full" as const,
+        primaryRoutePath: "/",
+        fullRoutePaths: ["/"],
+        shellRoutePaths: [],
+      },
+    };
+
+    const baseArgs = () => ({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_2b",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      buildSpec: verifierTriggeringBuildSpec,
+    });
+
+    it("blocking → fix succeeds → rerun reports clean → no rerun-blocking findings persisted", async () => {
+      // First verifier call: 1 blocking finding.
+      // Second verifier call (rerun): 0 blocking findings.
+      runVerifierPass
+        .mockResolvedValueOnce({
+          blocking: [{ id: "missing-h1", detail: "page missing h1" }],
+          quality: [],
+        })
+        .mockResolvedValueOnce({ blocking: [], quality: [] });
+      runLlmFixer.mockResolvedValue({
+        fixedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <h1>Hello</h1>; }\n```',
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 50,
+      });
+      await finalizeAndSaveVersion(baseArgs());
+      // Two verifier calls: initial pass + rerun.
+      expect(runVerifierPass).toHaveBeenCalledTimes(2);
+      // Telemetry should reflect a clean rerun.
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            preflight: expect.objectContaining({
+              verifierBlocked: false,
+              verifierBlockingFindingCount: 0,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("blocking → fix succeeds → rerun reports still-blocking → keeps findings + verifierBlocked", async () => {
+      runVerifierPass
+        .mockResolvedValueOnce({
+          blocking: [{ id: "missing-h1", detail: "page missing h1" }],
+          quality: [],
+        })
+        .mockResolvedValueOnce({
+          blocking: [{ id: "missing-h1", detail: "page still missing h1" }],
+          quality: [],
+        });
+      runLlmFixer.mockResolvedValue({
+        fixedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Still missing h1</div>; }\n```',
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 50,
+      });
+      await finalizeAndSaveVersion(baseArgs());
+      expect(runVerifierPass).toHaveBeenCalledTimes(2);
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            preflight: expect.objectContaining({
+              verifierBlocked: true,
+              verifierBlockingFindingCount: 1,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("rerun failure → falls back to optimistic clear (legacy behaviour) so existing latency budgets are not regressed", async () => {
+      runVerifierPass
+        .mockResolvedValueOnce({
+          blocking: [{ id: "missing-h1", detail: "page missing h1" }],
+          quality: [],
+        })
+        .mockRejectedValueOnce(new Error("rerun aborted"));
+      runLlmFixer.mockResolvedValue({
+        fixedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <h1>Hello</h1>; }\n```',
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 50,
+      });
+      await finalizeAndSaveVersion(baseArgs());
+      expect(runVerifierPass).toHaveBeenCalledTimes(2);
+      // Optimistic clear means verifierBlocked goes false despite rerun fail.
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            preflight: expect.objectContaining({ verifierBlocked: false }),
+          }),
+        }),
+      );
     });
   });
 });
