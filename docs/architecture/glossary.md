@@ -65,8 +65,6 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 |------|-----------|--------|
 | Raw Prompt | Obearbetad prompttext | kanonisk |
 | Prompt Formatting | Minimal wrapper (MÅL + TILLGÄNGLIGHET). Fallback — körs bara utan brief. | kanonisk |
-| ~~Prompt Rewrite~~ | LLM-driven förbättring (Förbättra). Borttagen — ersatt av Deep Brief → server-side expansion. | **borttagen** |
-| ~~Prompt Polish~~ | Lätt copy-editor (Skriv om). Borttagen — ersatt av Deep Brief → server-side expansion. | **borttagen** |
 | Prompt Orchestration | Strategi-/budget-/trunkerings-gate; väljer PromptStrategy | kanonisk |
 | Prompt Strategy | `direct`, `phase_plan_build_refine`, `preserved` | kanonisk |
 | Prompt Type | `wizard`, `freeform`, `technical`, `app`, `template`, etc. | kanonisk |
@@ -78,7 +76,6 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Server Auto-Brief | Server-side brief-fallback (`tryGenerateServerAutoBrief`) som körs av `create-chat-stream-post` om klient inte skickade `meta.brief`. `briefQuality: "server-auto"`. Avstängs för audit, follow-up, tekniska payloads. | kanonisk |
 | Delta-Brief | Partiell brief-uppdatering vid `clear-redesign` follow-ups. `classifyFollowUpIntent() === "clear-redesign"` → kör `tryGenerateServerAutoBrief` med redesign-prompt + `priorDesignContext` (från `briefSummary` i snapshot) + variant-hints (pre-match). Ger Kod-LLM:en strukturerad designkontext vid redesigns istället för rått textmeddelande. | kanonisk |
 | Shallow / Prompt-only | Inget brief-objekt. Prompten wrappas av `formatPrompt()` (MÅL/TILLGÄNGLIGHET) och nyckelord extraheras heuristiskt av `buildDynamicInstructionAddendumFromPrompt()`. Legacy-fallback. | kanonisk |
-| ~~WebsiteSpec / SajtmaskinSpec~~ | Spec-first LLM-genererat strukturobjekt. Helt borttaget 2026-04-21 tillsammans med `/api/ai/spec`, `processPromptWithSpec`, `briefToSpec`, `promptToSpec`, `SPEC_MODEL`, `SAJTMASKIN_SPEC_MODEL` och `DEFAULT_SPEC_MODE`. | **borttagen** |
 | Build Intent | `template \| website \| app` — vad användaren vill bygga | kanonisk |
 | Build Method | `wizard \| category \| audit \| freeform \| kostnadsfri` — hur entry skedde | kanonisk |
 | Generation Mode | `init \| followUp` | kanonisk |
@@ -91,13 +88,6 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Core Rules | Oföränderliga produktregler från `config/prompt-core/*.md` (stack, format, beteende, a11y, import, visuell baseline, content voice). Läses av `static-core-loader.ts` via `config/codegen-core-manifest.json`. Ersätter "Static Core". Sedan 2026-04-18 ingår även `03-visual-design.md` och `04-coding-direction.md` som tidigare låg i den borttagna directive-cascaden. | kanonisk |
 | Static Core | Alias för Core Rules. Legacy-term — använd "Core Rules" i nya sammanhang. | alias |
 | Per-Request Signal Cascade | Prioritetsordning för designsignal: (1) brief explicit (colorPalette, typography, mustHave), (2) brief inferred (domainProfile, motionLevel, qualityBar), (3) guidance-resolvers heuristik, (4) statiska defaults i `prompt-core/`. Renderas i `## Design Priority`-blocket. Ersätter den tidigare "Directive Cascade" som hade en aspirationell substitutionsmotor som aldrig användes. | kanonisk |
-| ~~Directives~~ | Adaptiv promptmodul-katalog `config/prompt-directives/*.md` + `directive-loader.ts`. **Borttagen 2026-04-18**: bara 2 av 12 filer injicerades runtime. Innehållet flyttat till `prompt-core/03-visual-design.md` + `prompt-core/04-coding-direction.md`. Per-request signal lever i brief, scaffold-variant och guidance-resolvers. | **borttagen** |
-| ~~Directive Cascade~~ | 4-nivå resolution-modell. **Borttagen 2026-04-18** tillsammans med directive-katalogen. Ersatt av "Per-Request Signal Cascade". | **borttagen** |
-| ~~Prompt Assist (paraply)~~ | Otydligt samlingsnamn. Rewrite/Polish/model-picker borttagna. Deep Brief lever kvar. | **borttagen** |
-| ~~StructuredBrief~~ | Docs-synonym för Deep Brief | **döda** |
-| ~~simplifiedBriefSchema~~ | Borttaget brief-schema med 34 optionals, failade Anthropic >24 | **döda** |
-| ~~gateway (provider-etikett)~~ | Historisk synonym för "openai" i PromptAssistProvider. Nu `"openai"`. | **döda** |
-| ~~summarize (PromptStrategy)~~ | Aldrig producerad strategi, borttagen ur typen | **döda** |
 
 ---
 
@@ -138,10 +128,6 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Template-Library | Kuraterad referensartefakt byggd från externa Vercel-templates | kanonisk |
 | Dossier | Build-time researchartefakt per extern template | kanonisk |
 | Scaffold-Variant Inventarium | Beslutsunderlag i [`docs/architecture/scaffold-system.md`](./scaffold-system.md) — per-scaffold och per-variant tabell med kvalitet och förslag på cleanup. Inte runtime-data. | kanonisk |
-| ~~Capability Pack~~ | Borttaget. `buildCapabilityHints()` täcker behovet. | **borttaget** |
-| ~~Enhancement Pack~~ | Borttaget. Prompts styr via static core. | **borttaget** |
-| ~~DynamicContextAssembly~~ | Docs-synonym | **döda** |
-| ~~OwnEngineGenerator~~ | Docs-namn utan kodsymbol | **döda** |
 
 ---
 
@@ -180,7 +166,6 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Preflight | Teknisk kontroll inför preview: routing, filkonsistens, blocking | kanonisk |
 | Quality Gate | Binärt pass/fail-beslut. Två lanes (2026-04): `designPreview` (F2) och `integrationsBuild` (F3). | kanonisk |
 | Quality Gate Tiers | Manifeststyrda check-profiler i `config/ai_models/manifest.json` (`qualityGateTiers`). 4-lane-shapen (`tier2`/`serverVerify`/`promotion`/`interactive`) konsoliderades 2026-04 till `designPreview`/`integrationsBuild`. | kanonisk |
-| ~~`tier2` / `serverVerify` / `promotion` / `interactive` (lanes)~~ | Gamla lane-namn. Konsoliderade 2026-04. | **borttagna** — se `designPreview` / `integrationsBuild` |
 | `designPreview` (lane) | F2 quality gate. `["typecheck"]`. Kör efter finalize och i bakgrunds-`server-verify`. | kanonisk |
 | `integrationsBuild` (lane) | F3 quality gate. `["typecheck", "build"]`. Används vid promotion / "Bygg integrationer"-flödet. | kanonisk |
 | Server Verify | Asynkron verify + repair-loop efter finalize | kanonisk |
@@ -195,7 +180,6 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Post-Checks | Client-side post-genererings-orkestrering | kanonisk |
 | Engine Version Lifecycle | `draft`, `verifying`, `repairing`, `repair_available`, `failed`, `promoted` | kanonisk |
 | Scaffold Retry | Sen diagnos + scaffoldpivot-förslag vid misslyckad generation | kanonisk |
-| ~~PostChecksAndQualityGate~~ | Sammansatt docs-term | **döda** |
 
 ---
 
@@ -226,8 +210,6 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | `preview-session` | Bootstrap-route för tier-2-preview | kanonisk |
 | `previewPending` | Finalize klar, preview väntas | kanonisk |
 | `previewUrlHint` | Temporär VM-hint, inte slutlig previewUrl | kanonisk |
-| ~~`legacyShimPreviewUrl`~~ | Shim-/fallback-URL som alltid var `null` i engine-routes. Fältet borttaget ur API-kontraktet 2026-04-21; shim-preview själv (under `SAJTMASKIN_SHIM_PREVIEW_DISABLED`-kontroll) lever kvar i `/api/preview-render`. | **borttagen** (som fält) |
-| ~~sandbox~~ (generell term) | Legacy-/compat-term | **legacy** — använd VM / `preview_host` |
 | Fidelity 2 / 3 | F2 = `previewPolicy: fidelity2` (design-loopen, npm install + next dev). F3 = `previewPolicy: fidelity3` (integrationer, install + build + dev). F3 triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Auto-promotering från prompt-heuristik (t.ex. "deploy-ready", `RELEASE_CANDIDATE_PATTERNS`) borttagen 2026-04. | kanonisk |
 | LifecycleStage | `"design"` (F2) eller `"integrations"` (F3). Härleds från `BuildSpec.previewPolicy` vid version-insert och persisteras i `engine_versions.lifecycle_stage`. F3-versioner pekar på sin F2-fork via `engine_versions.parent_version_id`. | kanonisk |
 | Tier-3 Integration / "tredje gradens integration" | Integration vars env-keys måste ha riktiga värden för att fungera vid runtime (Stripe-secret, Supabase-URL, Redis, OpenAI, …). Per-key-klassificering i `src/lib/integrations/placeholder-harmless.ts`. F3 vägrar starta tills alla `requiredRealEnvKeys` är satta — verifieras av `validateTier3Readiness` via `/finalize-design`. | kanonisk |
