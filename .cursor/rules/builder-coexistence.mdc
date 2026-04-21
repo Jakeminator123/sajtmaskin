@@ -1,0 +1,40 @@
+---
+description: Agent får inte navigera till användarens aktiva builder-URL
+alwaysApply: true
+---
+
+# Builder coexistence
+
+**Regel:** En LLM-agent (Cursor-chatten, background agent, browser-use subagent, MCP-browser, Playwright-skript m.m.) får **inte** öppna eller hålla en flik mot `/builder?...` eller `/api/engine/chats/<chatId>/...` när användaren själv aktivt genererar i samma chat. Två samtidiga klienter mot samma `chatId` orsakar:
+
+- **Race conditions** på `version`-raden (samma `versionId` återanvänds över repair-passes — två klienter som triggar finalize samtidigt kan klippa varandras content; t.ex. `contentLen 80102 → 18693` mellan två passes med identisk `versionId`).
+- **Felaktig "Fel"-badge i UI:t**: error-log per `versionId` ackumuleras över passes. Om agentens session triggar en repair-pass utanför användarens vy ser användaren stale verifier-findings tillsammans med ny korrekt preview, och tror att sidan är trasig fast den faktiskt fungerar.
+- **Spridd preview-heartbeat**: två viewers `POST /preview-heartbeat` mot samma sandbox → preview-host förlänger TTL felaktigt och fakturerings-/quota-mätare blir missvisande.
+- **CSP/CORS-symptom** i loggarna när två origins (cloud-agent + lokal browser) träffar samma `/api/engine/chats/...`-stream samtidigt.
+
+## Tillåtet
+
+- **Läs** repo-filer (`src/`, `docs/`, `scripts/`, `data/`, `logs/`, terminalfiler, prompt-dumps under `data/prompt-dumps/`, generationslogg under `logs/generationslogg/`).
+- **Köra** non-destructive backoffice-/skript-kommandon (`npm run db:check`, `npm run env:status`, läsa `data/backoffice/*.json`).
+- Begära **screenshot från användaren** istället för att navigera själv om något måste verifieras visuellt.
+
+## Förbjudet under användarens aktiva session
+
+- `browser_navigate` mot `http://localhost:3000/builder*` eller `https://*.sajtmaskin*/builder*`.
+- `fetch` / curl / Playwright mot `/api/engine/chats/<chatId>/stream`, `/preview-status`, `/preview-heartbeat`, `/finalize`, `/error-log`, `/files`, `/versions`.
+- Att starta egna preview-sessioner mot samma `appProjectId` som användaren har öppet.
+
+## Om du måste verifiera builder-beteende
+
+1. Be användaren först. Helst med en screenshot eller en exporterad `error-log.json`.
+2. Om beteendet kräver en levande session: be användaren stänga sin builder-tab först, kör verifieringen med en **ny** `chatId`, och rensa upp efteråt.
+3. Använd `data/prompt-dumps/`, `logs/generationslogg/<run-id>/timeline.ndjson` och terminalfiler — där finns ofta exakt det du behöver utan att röra live-systemet.
+
+## Symptom som tyder på att regeln redan brutits
+
+- Två `version.created`-rader med samma `versionId` inom samma minut, med olika `contentLen`.
+- Verifier-findings daterade före senaste finalize men UI visar dem som "aktuella".
+- `[telemetry:preview-lifecycle]` heartbeats från två olika `viewerId` mot samma `sandboxId`.
+- `[llm-fixer] failed: This operation was aborted` följt direkt av en till finalize-pass med samma `versionId`.
+
+Vid sådana symptom: stoppa pågående agent-jobb mot den `chatId`/`appProjectId` direkt och informera användaren.

@@ -20,8 +20,18 @@
 
 import JSZip from "jszip";
 import { access, readFile, readdir, writeFile } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import process from "node:process";
+
+/**
+ * Convert an absolute path into a repo-relative POSIX-style path so files we
+ * commit (e.g. template-categories.json `_source`) stay portable across OSes
+ * and don't leak local user directories.
+ */
+function toRepoRelative(absolutePath) {
+  const rel = relative(process.cwd(), absolutePath);
+  return rel.split(/[\\/]/).join("/");
+}
 
 const LOCAL_IMAGE_API_PREFIX = "/api/template-image";
 const LOCAL_TEMPLATE_DOWNLOADS_PREFIX = "templates_v0/downloads/";
@@ -460,7 +470,7 @@ async function loadLocalManifestSource() {
   return {
     mode: "local-manifest",
     label: "templates_v0/out manifest",
-    source: LOCAL_MANIFEST_PATHS.collected,
+    source: toRepoRelative(LOCAL_MANIFEST_PATHS.collected),
     discoveredTemplateIds,
     templateToSourceCategories,
     sourceCategorySizes: buildSourceCategorySizes(templateToSourceCategories),
