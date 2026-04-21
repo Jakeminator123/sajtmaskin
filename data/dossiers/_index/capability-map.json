@@ -6,7 +6,7 @@
     "ai-chat": ["openai-chat"],
     "pricing-section": ["pricing-tier-table"],
     "contact-form": ["resend-contact-form"],
-    "analytics": ["vercel-analytics"],
+    "analytics": ["vercel-analytics", "plausible-analytics"],
     "faq-section": ["faq-accordion"],
     "testimonials-section": ["testimonials-grid"],
     "visual-3d": ["three-fiber-canvas"],
