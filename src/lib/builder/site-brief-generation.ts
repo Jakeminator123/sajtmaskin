@@ -8,7 +8,7 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import {
   isAnthropicAssistModel,
-  isGatewayAssistModel,
+  isOpenAIAssistModel,
   isPromptAssistModelAllowed,
   normalizeAssistModel,
   resolvePromptAssistProvider,
@@ -30,7 +30,7 @@ export const briefRequestSchema = z.object({
     .trim()
     .min(1, "prompt is required")
     .max(MAX_AI_BRIEF_PROMPT_CHARS, `prompt too long (max ${MAX_AI_BRIEF_PROMPT_CHARS} chars)`),
-  provider: z.enum(["gateway", "anthropic"]).optional(),
+  provider: z.enum(["openai", "anthropic"]).optional(),
   model: z.string().min(1).optional().default(BRIEF_MODEL),
   temperature: z.number().min(0).max(2).optional(),
   imageGenerations: z.boolean().optional().default(true),
@@ -321,10 +321,20 @@ const BRIEF_SYSTEM_PROMPT =
   "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
   "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.";
 
-function buildBriefUserPrompt(prompt: string, imageGenerations: boolean): string {
+function buildBriefUserPrompt(
+  prompt: string,
+  imageGenerations: boolean,
+  variantHints?: string,
+  priorDesignContext?: string,
+): string {
   const siteTypeHint = inferSiteTypeHint(prompt);
+  // Order: raw prompt -> prior design context (for clear-redesign followups)
+  // -> variant hints (scaffold variant tokens the orchestrator pre-matched)
+  // -> site-type domain hint -> imagery guidance. Each block optional.
   return (
     prompt +
+    (priorDesignContext ? `\n\n${priorDesignContext}` : "") +
+    (variantHints ? `\n\n${variantHints}` : "") +
     (siteTypeHint ? `\n\nSite type hint: ${siteTypeHint}.` : "") +
     (imageGenerations
       ? "\n\nInclude imagery guidance because image generation is enabled."
@@ -349,7 +359,7 @@ export type SiteBriefHttpError = {
  */
 export function validateBriefModelForHttp(
   normalizedModel: string,
-  providerOverride?: "gateway" | "anthropic",
+  providerOverride?: "openai" | "anthropic",
 ): SiteBriefHttpError | null {
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
   if (providerOverride && providerOverride !== resolvedProvider) {
@@ -391,7 +401,7 @@ export function validateBriefModelForHttp(
     }
     return null;
   }
-  if (!isGatewayAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
+  if (!isOpenAIAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
     return {
       status: 400,
       body: {
@@ -426,6 +436,8 @@ export async function generateSiteBriefObject(
     maxTokens?: number;
     abortSignal?: AbortSignal;
     source?: string;
+    variantHints?: string;
+    priorDesignContext?: string;
   },
 ): Promise<SiteBriefGenerationResult> {
   const {
@@ -436,11 +448,18 @@ export async function generateSiteBriefObject(
     maxTokens: requestedMaxTokens,
     abortSignal,
     source,
+    variantHints,
+    priorDesignContext,
   } = input;
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
-  const logProvider = resolvedProvider === "gateway" ? "openai" : resolvedProvider;
+  const logProvider = resolvedProvider;
   const maxTokens = resolveMaxTokens(requestedMaxTokens);
-  const userPrompt = buildBriefUserPrompt(prompt, imageGenerations);
+  const userPrompt = buildBriefUserPrompt(
+    prompt,
+    imageGenerations,
+    variantHints,
+    priorDesignContext,
+  );
   const briefSource = normalizeBriefLogSource(source);
 
   debugLog("AI", "Brief model call started (same request, direct provider)", {
@@ -612,13 +631,13 @@ function resolveRunnableBriefModel(preferred: string): string | null {
     m = AUTO_BRIEF_MODEL_OPENAI;
   }
   const provider = resolvePromptAssistProvider(m);
-  if (provider === "gateway" && !hasOpenAI && hasAnthropic) {
+  if (provider === "openai" && !hasOpenAI && hasAnthropic) {
     return AUTO_BRIEF_MODEL_ANTHROPIC;
   }
   if (provider === "anthropic" && !hasAnthropic && hasOpenAI) {
     return AUTO_BRIEF_MODEL_OPENAI;
   }
-  if (provider === "gateway" && !hasOpenAI) return null;
+  if (provider === "openai" && !hasOpenAI) return null;
   if (provider === "anthropic" && !hasAnthropic) return null;
   return m;
 }
@@ -631,6 +650,13 @@ export async function tryGenerateServerAutoBrief(params: {
   assistModelHint?: string | null;
   imageGenerations: boolean;
   signal?: AbortSignal;
+  /** Scaffold variant hints the orchestrator pre-matched; surfaces palette/
+   *  font tokens so the brief-LLM can echo them instead of inventing new ones. */
+  variantHints?: string;
+  /** Prior design context (compact summary of the previous brief). Used on
+   *  clear-redesign follow-ups to preserve brand/structure while allowing
+   *  visual changes. */
+  priorDesignContext?: string;
 }): Promise<{ brief: Record<string, unknown>; modelUsed: string } | null> {
   const normalized = normalizeAssistModel(
     params.assistModelHint?.trim() || AUTO_BRIEF_MODEL_OPENAI,
@@ -645,6 +671,8 @@ export async function tryGenerateServerAutoBrief(params: {
       imageGenerations: params.imageGenerations,
       abortSignal: params.signal,
       source: "server_auto_brief",
+      variantHints: params.variantHints,
+      priorDesignContext: params.priorDesignContext,
     });
     return { brief, modelUsed: normalizedModel };
   } catch (e) {

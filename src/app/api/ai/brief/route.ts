@@ -118,7 +118,14 @@ export async function POST(req: Request) {
             { status: 422 },
           );
         }
-        const { brief, briefQuality, provider: briefProvider } = result;
+        const { brief, provider: briefProvider } = result;
+        // `/api/ai/brief` is always triggered explicitly by the client (via
+        // useInitBrief), so the output quality is always "full". The
+        // alternative "server-auto" value is reserved for implicit briefs
+        // generated server-side inside create-chat when the client did not
+        // ship a brief. We do not read usedSimplified here — the cache
+        // consumer treats both schema variants as a "full" brief.
+        const briefQuality: "full" | "server-auto" = "full";
         const payload: CachedBriefPayload = {
           brief: brief as Record<string, unknown>,
           briefQuality,
