@@ -1,16 +1,22 @@
 {
   "$comment": "View of capability → dossier ids. Rebuild via the Dossiers page (Capability map tab → 'Bygg om') or by reading the manifests directly. Read-only at runtime; the registry walks data/dossiers/{hard,soft}/ directly. This file is here for backoffice listings + sanity check during curation.",
-  "generatedAt": "2026-04-21T08:00:00.000Z",
+  "generatedAt": "2026-04-21T10:30:00.000Z",
   "capabilities": {
     "payments": ["stripe-checkout"],
     "ai-chat": ["openai-chat"],
+    "auth": ["clerk-auth"],
     "pricing-section": ["pricing-tier-table"],
     "contact-form": ["resend-contact-form"],
+    "newsletter-subscribe": ["mailchimp-newsletter"],
     "analytics": ["vercel-analytics", "plausible-analytics"],
+    "error-tracking": ["sentry-error-tracking"],
     "faq-section": ["faq-accordion"],
     "testimonials-section": ["testimonials-grid"],
     "visual-3d": ["three-fiber-canvas"],
     "parallax-scroll": ["scroll-parallax"],
-    "parallax-pointer": ["pointer-parallax"]
+    "parallax-pointer": ["pointer-parallax"],
+    "carousel": ["embla-carousel"],
+    "command-search": ["cmdk-command-palette"],
+    "marquee": ["marquee-scroller"]
   }
 }
