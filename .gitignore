@@ -125,9 +125,6 @@ Thumbs.db
 # Local MCP config (can hold tokens); committed template: .cursor/mcp.json.example
 .cursor/mcp.json
 
-# Personal bug notes / scratch — not for GitHub
-pot_buggs/
-
 # OAuth / mobile secret dumps (never commit real files)
 **/client_secret*.json
 google-services.json
@@ -137,6 +134,10 @@ google-services.json
 .cursor/automation/archive/
 .cursor/automation/input/
 .cursor/migration-archive/
+# Lokal mirror av buggrapporter via /buggrapport (Linear är källan-till-sanning).
+# README:n committas så konventionen är synlig för agenter på andra maskiner.
+.cursor/bugs/*
+!.cursor/bugs/README.md
 
 # Logs
 *.log

@@ -39,7 +39,7 @@ export default defineConfig([
     "data/dossiers/_raw/**/*",
     "data/dossiers/*/components/**/*",
     "data/dossiers/*/_removed/**/*",
-    "pot_buggs/**/*",
+    ".cursor/bugs/**/*",
     "src/templates/**/*",
     ".next/**/*",
     ".vercel/**/*",
