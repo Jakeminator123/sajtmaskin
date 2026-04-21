@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
@@ -145,4 +145,49 @@ export async function getLatestEngineVersionErrorLogs(
     .orderBy(desc(engineVersionErrorLogs.created_at))
     .limit(limit);
   return rows as VersionErrorLog[];
+}
+
+/**
+ * Repair-loop hardening — SAJ-25.
+ *
+ * When a follow-up/repair pass on the SAME `versionId` finalizes cleanly
+ * (verificationBlocked === false), the error-log rows from PREVIOUS passes
+ * (rows whose `meta.repairPassIndex < currentRepairPassIndex`) are stale
+ * because they describe state that no longer exists. UI consumes the full
+ * row set per `versionId` and renders a red "Fel"-badge even though the
+ * latest pass is clean.
+ *
+ * This prune is best-effort:
+ *  - only deletes rows with strictly lower `meta.repairPassIndex`
+ *  - never throws (callers wrap in try/catch and rely on devLog telemetry)
+ *
+ * Returns the number of rows deleted so the caller can log
+ * `version_error_log_pruned`.
+ */
+export async function pruneStaleVersionErrorLogs(
+  versionId: string,
+  currentRepairPassIndex: number,
+): Promise<number> {
+  assertDbConfigured();
+  if (!versionId) return 0;
+  if (!Number.isFinite(currentRepairPassIndex) || currentRepairPassIndex <= 0) {
+    return 0;
+  }
+  // Drizzle / pg JSONB comparison: cast `meta->>'repairPassIndex'` to int
+  // and compare. Rows that lack the meta key are treated as repairPassIndex
+  // 0, which is correct: anything written before the consistentRepairPassIndex
+  // feature-flag rolled out predates the current pass.
+  const result = await db
+    .delete(engineVersionErrorLogs)
+    .where(
+      and(
+        eq(engineVersionErrorLogs.version_id, versionId),
+        lt(
+          sql`COALESCE((${engineVersionErrorLogs.meta}->>'repairPassIndex')::int, 0)`,
+          currentRepairPassIndex,
+        ),
+      ),
+    )
+    .returning({ id: engineVersionErrorLogs.id });
+  return result.length;
 }

@@ -870,6 +870,7 @@ export async function finalizeOrchestrationPrompts(
     userPrompt: input.prompt,
     generationMode: resolvedMode,
     sessionSeed: input.sessionSeed,
+    chatId: input.chatId ?? null,
     componentReferences: base.componentReferences,
     resolvedVariant,
     dossierSelection: base.dossierSelection,
