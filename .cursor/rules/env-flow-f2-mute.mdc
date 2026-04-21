@@ -13,7 +13,7 @@ globs:
 
 # Env-flöde i F2 är tyst
 
-**Hård regel:** F2 (`lifecycleStage === "design"`) får ALDRIG producera env-frågor i chatten. Env-keys parkeras tyst i `env.env`. F3 är enda touchpointen där användaren fyller i riktiga värden.
+**Hård regel:** F2 (`lifecycleStage === "design"`) får ALDRIG producera env-frågor i chatten. Env-keys parkeras tyst i `env.example` (filen genereras av `src/lib/gen/preview/project-env-file.ts` — inte att förväxlas med preview-VM:ns interna `.env.local`). F3 är enda touchpointen där användaren fyller i riktiga värden.
 
 ## Fyra skyddslager
 
