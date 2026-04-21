@@ -22,22 +22,26 @@ Relaterade: [fas1-startprompt-flow.md](./fas1-startprompt-flow.md), [fas3-previe
 
 | Område | Fil |
 |---|---|
-| Orkestrering | `src/lib/gen/orchestrate.ts` |
-| BuildSpec | `src/lib/gen/build-spec.ts` |
-| System prompt | `src/lib/gen/system-prompt.ts` |
+| Orkestrering | `src/lib/gen/orchestrate.ts` + `src/lib/gen/orchestrate/{scaffold-query-context,scaffold-variant-resolver}.ts` |
+| BuildSpec | `src/lib/gen/build-spec.ts` + `src/lib/gen/build-spec/{prompt-patterns,regex-utils,derived-fields}.ts` |
+| System prompt | `src/lib/gen/system-prompt.ts` + `src/lib/gen/system-prompt/{types,budget,compose,helpers}.ts` |
 | Tokenbudget / pruning | `src/lib/gen/tokens.ts` |
 | Core Rules loader | `src/lib/gen/static-core-loader.ts` |
 | Core Rules manifest | `config/codegen-core-manifest.json` |
 | Core Rules fragment | `config/prompt-core/*.md` (6 filer inkl. `_READ_ME_FIRST.md`) |
 | LLM-anrop | `src/lib/gen/engine.ts` |
 | SSE-formatering | `src/lib/gen/stream/stream-format.ts` |
+| Scaffold-val / matcher | `src/lib/gen/scaffolds/matcher.ts` + `src/lib/gen/scaffolds/keyword-banks.ts` |
 | Scaffold-serialisering | `src/lib/gen/scaffolds/serialize.ts` |
-| Finalize | `src/lib/gen/stream/finalize-version.ts` |
+| Route-plan | `src/lib/gen/route-plan.ts` + `src/lib/gen/route-plan/route-patterns.ts` |
+| Finalize | `src/lib/gen/stream/finalize-version.ts` + `src/lib/gen/stream/finalize-version/{errors,policies,failure-logs,partial-file,partial-file-repair,step-telemetry}.ts` |
 | Finalize-kontrakt (ordning) | `src/lib/gen/stream/finalize-pipeline-contract.ts` |
-| Deterministisk autofix | `src/lib/gen/autofix/pipeline.ts` |
+| Finalize-preflight | `src/lib/gen/stream/finalize-preflight.ts` + `src/lib/gen/stream/finalize-preflight/shell-pages.ts` |
+| Deterministisk autofix | `src/lib/gen/autofix/pipeline.ts` + `src/lib/gen/autofix/rules/*.ts` |
 | Syntax + warm tsc + LLM-fixer | `src/lib/gen/autofix/validate-and-fix.ts` |
 | Warm typecheck-runner | `src/lib/gen/preview/warm-typecheck.ts` |
 | Verifier-pass | `src/lib/gen/verify/verifier-pass.ts` |
+| Repair-loop | `src/lib/gen/verify/repair-loop.ts` + `src/lib/gen/verify/repair-loop/diagnostics-parser.ts` |
 | Parse/merge/preflight | `src/lib/gen/stream/finalize-merge.ts`, `finalize-preflight.ts` |
 | Pre-gen contracts | `src/lib/gen/contract/pre-generation-contracts.ts` |
 | Efter finalize | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` |
