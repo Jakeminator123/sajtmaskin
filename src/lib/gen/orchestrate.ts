@@ -646,6 +646,14 @@ export async function resolveOrchestrationBase(
       // selectDossiersForRequest just looks up dossier ids by capability.
       const inferredCapabilityIds: string[] = [];
       if (capabilities.needs3D) inferredCapabilityIds.push("visual-3d");
+      if (capabilities.needsParallax) {
+        // Both parallax dossiers are independently useful — selectDossiersForRequest
+        // picks one per capability, so listing both means we get the right one
+        // when the prompt mentions just one direction (scroll vs pointer) and
+        // both when the prompt is unspecific.
+        inferredCapabilityIds.push("parallax-scroll", "parallax-pointer");
+      }
+      if (capabilities.needsPayments) inferredCapabilityIds.push("payments");
       const briefCapsRaw = (brief as { requestedCapabilities?: unknown } | null | undefined)
         ?.requestedCapabilities;
       const briefCapsArray = Array.isArray(briefCapsRaw)

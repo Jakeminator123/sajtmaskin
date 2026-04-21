@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { withRateLimit } from "@/lib/rateLimit";
 import { OPENCLAW } from "@/lib/config";
 import {
@@ -54,7 +56,34 @@ Regler:
 - Du får inte klicka på knappar, skicka formulär, publicera live eller ändra inställningar åt användaren.
 - Påstå aldrig att du redan har fyllt ett fält innan användaren har godkänt det.
 - Kodkontext skickas sparsamt för att spara tokens. Om du inte ser kod i kontexten ska du inte hitta på detaljer, utan be om en mer specifik kodfråga eller relevant buildervy/version.
-- Nämn ALDRIG Vercel, v0, v0 Platform API eller specifik underliggande infrastruktur. Säg istället "publicera live", "vår AI-motor" eller "modern molninfrastruktur".`;
+- Nämn ALDRIG Vercel, v0, v0 Platform API eller specifik underliggande infrastruktur. Säg istället "publicera live", "vår AI-motor" eller "modern molninfrastruktur".
+- Nämn ALDRIG interna namn som "dossier", "scaffold-matcher", "tier-3 build spec", "capability-inference" eller andra arkitekturdetaljer för användaren. Säg "byggblock", "modul" eller "färdiga komponenter" om sådana funktioner kommer på tal.`;
+
+/**
+ * Builder-prompt-tips loaded once at module init from
+ * `data/openclaw/builder-prompt-tips.md`. Appended as a separate system
+ * message so the assistant can cite concrete prompting advice (visual vs
+ * functional separation, keyword triggers for built-in modules, F3 key
+ * guidance) without restating it in every response. Falls back to an
+ * empty string if the file cannot be read so the route never crashes.
+ */
+const BUILDER_PROMPT_TIPS = (() => {
+  try {
+    const path = join(
+      process.cwd(),
+      "data",
+      "openclaw",
+      "builder-prompt-tips.md",
+    );
+    return readFileSync(path, "utf8").trim();
+  } catch (error) {
+    console.warn(
+      "[openclaw/chat] builder-prompt-tips.md not loadable — assistant will run without prompt tips:",
+      error instanceof Error ? error.message : error,
+    );
+    return "";
+  }
+})();
 
 function buildRoutingSystemPrompt(intent: "general" | "review"): string {
   if (intent === "review") {
@@ -105,6 +134,10 @@ export async function POST(req: NextRequest) {
         content: buildRoutingSystemPrompt(decideOpenClawRoutingIntent({ messages: body.messages })),
       },
     ];
+
+    if (BUILDER_PROMPT_TIPS) {
+      messages.push({ role: "system", content: BUILDER_PROMPT_TIPS });
+    }
 
     if (body.context && typeof body.context === "object") {
       const contextMessage = await buildOpenClawContextSystemMessage({

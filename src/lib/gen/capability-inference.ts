@@ -26,6 +26,14 @@ export interface InferredCapabilities {
    * cover. Optional for backwards compatibility with older fixtures.
    */
   needsParallax?: boolean;
+  /**
+   * Prompt asks for a real payment flow (Stripe/Klarna/checkout). Bridges
+   * to the `payments` dossier capability so `stripe-checkout` is selected
+   * with high confidence, and so the F3 readiness gate knows which
+   * provider's keys are truly blocking. Optional for backwards
+   * compatibility with older fixtures.
+   */
+  needsPayments?: boolean;
   needsCharts: boolean;
   needsDatabase: boolean;
   needsAuth: boolean;
@@ -61,10 +69,26 @@ const RULES: CapabilityRule[] = [
     // entrance-animation guidance unless the prompt asks for both.
     key: "needsParallax",
     patterns: [
-      /\b(parallax|paralaks|parallax-?effekt|parallax-?scroll|parallax-?pointer|parallax på (scroll|mus|pointer))\b/i,
+      /\b(parallax|paralaks|parallax-?effekt|parallax-?scroll|parallax-?pointer|parallax-?header|parallax på (scroll|mus|pointer))\b/i,
       /\b(mouse.?parallax|pointer.?parallax|cursor.?parallax|mus.?parallax)\b/i,
       /\b(följer (mus(en|pekaren)|cursor|pointer)|hover.?tilt|tilt.?card)\b/i,
       /\b(scroll-?parallax|scroll-?driven|sticky.?parallax|pinned.?(section|parallax))\b/i,
+    ],
+  },
+  {
+    // Real payment intent — Stripe, Klarna, checkout, "betalning",
+    // "betala", "köpa". Bridges to the `payments` dossier capability so
+    // `stripe-checkout` (or future provider dossiers) is selected with
+    // high confidence and the F3 gate flags the right keys as blocking.
+    // Distinct from generic ecommerce wording (`needsEcommerce`) which
+    // still triggers product/cart/storefront patterns.
+    key: "needsPayments",
+    patterns: [
+      /\b(stripe|stripe.?betalning|stripe.?checkout)\b/i,
+      /\b(klarna|swish|paypal|adyen|mollie|braintree)\b/i,
+      /\b(betalningsfl(o|ö)de|betalningsl(o|ö)sning|payment.?flow|checkout.?flow)\b/i,
+      /\b(card.?payment|kortbetalning|kortköp)\b/i,
+      /\b(prenumerationsbetalning|subscription.?billing|recurring.?billing)\b/i,
     ],
   },
   {
@@ -147,7 +171,7 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsPremiumVisuals",
     patterns: [
-      /\b(premium|luxury|glassmorphism|glass|neon|glow|gradient.?text|blur|frosted|modern.*design|sleek|elegant|sophisticated|futuristisk|exklusiv)\b/i,
+      /\b(premium|luxury|glassmorphism|glass|glas|neon|glow|gradient.?text|blur|frosted|modern.*design|sleek|elegant|sophisticated|futuristisk|exklusiv)\b/i,
       /\b(dark.?mode.*hero|spotlight|cinematic|atmospheric|immersive)\b/i,
       /\b(filmisk|filmiskt|cinematisk|cinematiskt|arkiv.?x|x-files|ufo|paranormal)\b/i,
     ],
@@ -178,6 +202,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     needs3D: false,
     needsPhysics: false,
     needsParallax: false,
+    needsPayments: false,
     needsCharts: false,
     needsDatabase: false,
     needsAuth: false,
@@ -293,6 +318,11 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
   if (caps.needsParallax) {
     lines.push(
       "- **Parallax requested**: Use the parallax dossier(s) selected for this build. For scroll-driven parallax, wrap layers in `ScrollParallaxLayer` from `@/components/scroll-parallax-layer` (one section ref drives many sibling layers). For pointer/mouse parallax on DOM, use `PointerParallaxLayer` from `@/components/pointer-parallax-layer`. For pointer parallax inside a React Three Fiber scene, call `usePointerParallax(targetRef)` from `@/components/use-pointer-parallax` and read the returned ref inside `useFrame`. NEVER apply `motion-reduce:hidden` on the parallax layer itself — keep the content visible at its end-state when reduced motion is on. Add framer-motion to deps when scroll-parallax is in scope.",
+    );
+  }
+  if (caps.needsPayments) {
+    lines.push(
+      "- **Payments requested**: Use the payments dossier selected for this build (typically `stripe-checkout`). Mount `<CheckoutButton>` from `@/components/checkout-button` on the pricing/buy CTA, and ship the `/api/checkout-session` server route as-is from the dossier. Treat `STRIPE_SECRET_KEY` as a build-blocking env (sajten kraschar utan), and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as warn-only (publishable, harmless placeholder OK). Style the button with the project's color tokens — do not import Stripe Elements UI; the dossier uses hosted Checkout.",
     );
   }
   if (caps.needsCharts) {

@@ -95,6 +95,36 @@ describe("inferCapabilities", () => {
     expect(caps.needsMotion).toBe(true);
     expect(caps.needsParallax).toBe(false);
   });
+
+  // ---- Phase 6: empirical phrasings the user wants to be reliable ----
+
+  it("phrase 'parallax-header i glas' triggers needsParallax + needsPremiumVisuals", () => {
+    const caps = inferCapabilities("Jag vill ha en parallax-header i glas");
+    expect(caps.needsParallax).toBe(true);
+    expect(caps.needsPremiumVisuals).toBe(true);
+  });
+
+  it("phrase 'mouse-parallax på hero-cardet' triggers needsParallax", () => {
+    const caps = inferCapabilities("Lägg till mouse-parallax på hero-cardet");
+    expect(caps.needsParallax).toBe(true);
+  });
+
+  it("phrase 'stripe-betalning som använder mina färger' triggers needsPayments", () => {
+    const caps = inferCapabilities(
+      "Jag vill ha en stripe-betalning som använder mina färger",
+    );
+    expect(caps.needsPayments).toBe(true);
+  });
+
+  it("Klarna and Swish trigger needsPayments", () => {
+    expect(inferCapabilities("Lägg in Klarna-betalning på checkout").needsPayments).toBe(true);
+    expect(inferCapabilities("Användaren ska kunna betala med Swish").needsPayments).toBe(true);
+  });
+
+  it("does NOT flag needsPayments for plain ecommerce wording without explicit payment provider", () => {
+    const caps = inferCapabilities("Visa produkter i en katalog, ingen kassa just nu");
+    expect(caps.needsPayments).toBe(false);
+  });
 });
 
 describe("buildCapabilityHints (pack-based)", () => {
@@ -148,6 +178,16 @@ describe("buildCapabilityHints (pack-based)", () => {
     const hints = buildCapabilityHints(caps)!;
     expect(hints).toContain("3D/WebGL");
     expect(hints).toContain("Parallax requested");
+  });
+
+  it("payments hint mentions Stripe checkout dossier components and key enforcement", () => {
+    const caps = inferCapabilities("Lägg in stripe-betalning för bokpaketen");
+    expect(caps.needsPayments).toBe(true);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("Payments requested");
+    expect(hints).toContain("CheckoutButton");
+    expect(hints).toContain("STRIPE_SECRET_KEY");
+    expect(hints).toContain("warn-only");
   });
 
   it("generates hints for previously uncovered capabilities", () => {
