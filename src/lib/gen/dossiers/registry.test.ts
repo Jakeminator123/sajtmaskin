@@ -88,3 +88,18 @@ describe("getCapabilityMap", () => {
     }
   });
 });
+
+describe("getAllDossiers deterministic ordering", () => {
+  // Regression guard: readdirSync() returns filesystem-dependent order. If a
+  // future refactor drops the explicit sort in listIds(), downstream
+  // first-wins consumers (buildCapabilityBulletList, capability-map export)
+  // would silently become non-deterministic across machines. Assert that the
+  // id sequence is stable and ascending within each class boundary.
+  it("returns dossier ids in ascending sort order per class", () => {
+    const all = getAllDossiers();
+    const hardIds = all.filter((d) => d.class === "hard").map((d) => d.id);
+    const softIds = all.filter((d) => d.class === "soft").map((d) => d.id);
+    expect(hardIds).toEqual([...hardIds].sort());
+    expect(softIds).toEqual([...softIds].sort());
+  });
+});
