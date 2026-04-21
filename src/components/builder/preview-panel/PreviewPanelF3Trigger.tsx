@@ -31,6 +31,13 @@ export interface PreviewPanelF3TriggerProps {
     }>;
   }) => void;
   className?: string;
+  /**
+   * External "is the builder busy with another generation right now?" flag.
+   * Disables the trigger so a second `/finalize-design` call (and the
+   * follow-up auto-`sendMessage` from C3's `onReady`) cannot race the
+   * stream that the previous click is currently running.
+   */
+  isBusy?: boolean;
 }
 
 type FinalizeDesignResponse = {
@@ -62,6 +69,7 @@ export function PreviewPanelF3Trigger({
   onReady,
   onMissingEnv,
   className,
+  isBusy = false,
 }: PreviewPanelF3TriggerProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -122,8 +130,12 @@ export function PreviewPanelF3Trigger({
       size="sm"
       variant="default"
       onClick={handleClick}
-      disabled={isLoading}
-      title="Lyft sajten till F3 / fidelity 3 — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
+      disabled={isLoading || isBusy}
+      title={
+        isBusy
+          ? "En annan generering pågår — vänta tills den är klar innan du startar F3-bygget."
+          : "Lyft sajten till F3 / fidelity 3 — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
+      }
       className={className}
     >
       {isLoading ? (

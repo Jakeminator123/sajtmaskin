@@ -75,6 +75,12 @@ interface PreviewPanelChromeProps {
     parentVersionId: string;
     missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
   }) => void;
+  /**
+   * Whether the builder shell is busy (creating chat, streaming a previous
+   * generation, loading a template, preparing a prompt). Forwarded to the
+   * F3 trigger so a second click cannot race the first one.
+   */
+  isBusy?: boolean;
   onF3Ready?: (payload: {
     parentVersionId: string;
     requirements: Array<{
@@ -130,6 +136,7 @@ export function PreviewPanelChrome({
   chatId,
   versionId,
   lifecycleStage,
+  isBusy = false,
   onF3MissingEnv,
   onF3Ready,
 }: PreviewPanelChromeProps) {
@@ -171,6 +178,7 @@ export function PreviewPanelChrome({
               versionId={versionId ?? null}
               onMissingEnv={onF3MissingEnv}
               onReady={onF3Ready}
+              isBusy={isBusy}
               className="h-7 bg-violet-600 px-2 text-[12px] text-white hover:bg-violet-500"
             />
           ) : null}

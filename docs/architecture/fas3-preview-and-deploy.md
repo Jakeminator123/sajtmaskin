@@ -76,7 +76,7 @@ Sedan 2026-04-20 (P29 Fas 1B) finns **inga** `/api/v0/chats/...` compat-routes k
 | Typ | Teknik | När |
 |---|---|---|
 | **Tier-2 (live)** | Separat Fly-service kör `npm run dev` med riktiga filer | Standard när `SAJTMASKIN_PREVIEW_HOST_BASE_URL` är satt |
-| **Shim** (legacy) | HTML med CDN React + transpilerad kod via `/api/preview-render` | Fallback när tier-2 inte är konfigurerad |
+| **Shim** (legacy) | HTML med CDN React + transpilerad kod via `/api/preview-render` | **Avstängd som default sedan Block D (2026-04-21)** — `SAJTMASKIN_SHIM_PREVIEW_DISABLED` defaultar till true. Operatörer kan opta in genom att sätta `=0`/`false`/`off`/`no`. När shim är på agerar den fallback om tier-2 inte är konfigurerad; när den är av (default) returnerar `buildPreviewUrl()` `null` och `/api/preview-render` svarar `410 Gone`. |
 
 ### Tier-2 preview-session (`preview-session.ts`)
 

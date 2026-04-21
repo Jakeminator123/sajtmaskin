@@ -107,6 +107,7 @@ export function PreviewPanel({
   onPlacementComplete,
   onComposerAiFallback,
   lifecycleStage = null,
+  isBusy = false,
   onF3MissingEnv,
   onF3Ready,
 }: PreviewPanelProps) {
@@ -855,6 +856,7 @@ export function PreviewPanel({
         chatId={chatId}
         versionId={versionId}
         lifecycleStage={lifecycleStage}
+        isBusy={isBusy}
         onF3MissingEnv={onF3MissingEnv}
         onF3Ready={onF3Ready}
       />

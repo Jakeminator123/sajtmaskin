@@ -101,9 +101,8 @@ Källa: `docs/plans/active/Kvarvarande-uppgifter.md` punkt 1–10 + audit-rappor
 
 ### Från `imorgon.txt` (2 öppna kvalitetsrisker)
 
-**I1 — `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` saknar default i `compatibility-shim.ts`**
-* `isTier2LivePreviewUrl(url)` returnerar `false` om env-varen är tom/unset → tier-2-downgrade-guarden blir tandlös → "blå overlay-buggen" återkommer.
-* **Snabbfix:** Lägg `fly.dev` som default-suffix i `src/lib/gen/preview/legacy/compatibility-shim.ts`. Liten ändring, stor robusthet (5–10 min). Alternativ: startup-check som kraschar med tydligt felmeddelande.
+**I1 — `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` saknar default i `compatibility-shim.ts`** _(LÖST 2026-04-21 i Block D)_
+* Tier-2-host-suffix-detektionen lever nu i `src/lib/gen/preview/preview-url-classifier.ts` (utbruten ur `compatibility-shim.ts` i D1). `DEFAULT_TIER2_HOST_SUFFIX_LIST = ["fly.dev"]` används som fallback när env-varen är unset. `isTier2LivePreviewUrl()` returnerar därmed `true` för Fly-värdar även utan explicit env-konfiguration → tier-2-downgrade-guarden är inte längre tandlös. Block D dödade också compatibility-shim som default (`SAJTMASKIN_SHIM_PREVIEW_DISABLED` defaultar till true), så "blå overlay"-regressionen är dubbelt skyddad.
 
 **I2 — Element Preservation Guard sektion-landmarks kan blockera legitima section-renames**
 * CSS-klass-detection (`hero`, `about`, `pricing`, `testimonial`, `feature`, `service`, `portfolio`, `cta`, `footer`, `header`, `banner`, `showcase`, `menu`, `reservation`, `booking`, `gallery`, `team`, `faq`, `video`, `media`, `player`) i `src/lib/gen/context/structural-elements.ts` betraktar varje sådan sektion som "kritiskt element". Follow-up som byter `hero-section` → `intro-block` blockeras tyst — sajten ser oförändrad ut, ingen UI-felindikering.

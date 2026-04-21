@@ -962,7 +962,16 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onPlacementComplete={handlePlacementComplete}
               onComposerAiFallback={handleComposerAiFallback}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+              isBusy={isBusy}
               onF3MissingEnv={(payload) => {
+                // F2-mute caveat: the user is still in F2 when finalize-design
+                // returns 412, and `ProjectEnvVarsPanel` only mounts in F3
+                // (gated above on `lifecycleStage === "integrations"`). The
+                // event therefore has no listener until lifecycle flips —
+                // the toast in `PreviewPanelF3Trigger` is the primary user
+                // signal here. We still dispatch so the panel auto-opens with
+                // the right keys *if* it happens to be mounted (e.g. the
+                // operator already moved the version to F3 in another tab).
                 openProjectEnvVarsPanel(
                   payload.missingByIntegration.flatMap((entry) => entry.missing),
                 );
