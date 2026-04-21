@@ -125,6 +125,27 @@ describe("inferCapabilities", () => {
     const caps = inferCapabilities("Visa produkter i en katalog, ingen kassa just nu");
     expect(caps.needsPayments).toBe(false);
   });
+
+  // ---- P31 follow-up bug #3: generic 'betala med X' / 'köpa med X' ----
+
+  it("'betala med kort' triggers needsPayments", () => {
+    expect(inferCapabilities("Användaren ska kunna betala med kort").needsPayments).toBe(true);
+    expect(inferCapabilities("Vi vill kunna betala med kreditkort på sidan").needsPayments).toBe(true);
+  });
+
+  it("'köpa med kort' / 'köp med stripe' triggers needsPayments", () => {
+    expect(inferCapabilities("Det ska gå att köpa med kort").needsPayments).toBe(true);
+    expect(inferCapabilities("Köp med stripe direkt på produktsidan").needsPayments).toBe(true);
+  });
+
+  it("does NOT trigger needsPayments on generic 'betala räkningen' style phrases", () => {
+    expect(inferCapabilities("Påminn kunden om att betala räkningen").needsPayments).toBe(false);
+    expect(inferCapabilities("Kostar att betala för parkering").needsPayments).toBe(false);
+  });
+
+  it("'kreditkort' alone (without provider) triggers needsPayments", () => {
+    expect(inferCapabilities("Vi tar kreditkort på plats").needsPayments).toBe(true);
+  });
 });
 
 describe("buildCapabilityHints (pack-based)", () => {

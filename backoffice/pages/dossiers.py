@@ -70,6 +70,9 @@ def _walk_all_dossiers() -> list[dict[str, Any]]:
     return out
 
 
+_ALLOWED_ENFORCEMENT = {"build", "feature-runtime", "warn-only"}
+
+
 def _validate_manifest(data: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     for f in REQUIRED_FIELDS:
@@ -81,7 +84,48 @@ def _validate_manifest(data: dict[str, Any]) -> list[str]:
         errors.append("complexity must be 'simple' | 'medium' | 'advanced'")
     if "id" in data and not isinstance(data["id"], str):
         errors.append("id must be a string")
+    # P31: per-envVar `enforcement` is optional but, when present, must be one
+    # of the three documented values. Defaults to "build" downstream.
+    env_vars = data.get("envVars") or []
+    if isinstance(env_vars, list):
+        for idx, ev in enumerate(env_vars):
+            if not isinstance(ev, dict):
+                continue
+            enforcement = ev.get("enforcement")
+            if enforcement is None:
+                continue
+            if enforcement not in _ALLOWED_ENFORCEMENT:
+                errors.append(
+                    f"envVars[{idx}].enforcement must be one of "
+                    f"{sorted(_ALLOWED_ENFORCEMENT)} (got {enforcement!r})"
+                )
     return errors
+
+
+def _summarize_enforcement(data: dict[str, Any]) -> str:
+    """Compact `Bx Fy Wz` (build / feature-runtime / warn-only) tag for the
+    listing view so curators can spot suspicious enforcement profiles at a
+    glance without opening each manifest."""
+    counts = {"build": 0, "feature-runtime": 0, "warn-only": 0}
+    env_vars = data.get("envVars") or []
+    if not isinstance(env_vars, list):
+        return ""
+    for ev in env_vars:
+        if not isinstance(ev, dict):
+            continue
+        tag = ev.get("enforcement", "build")
+        if tag in counts:
+            counts[tag] += 1
+        else:
+            counts["build"] += 1
+    parts = []
+    if counts["build"]:
+        parts.append(f"B{counts['build']}")
+    if counts["feature-runtime"]:
+        parts.append(f"F{counts['feature-runtime']}")
+    if counts["warn-only"]:
+        parts.append(f"W{counts['warn-only']}")
+    return " ".join(parts)
 
 
 def _rebuild_capability_map(dossiers: list[dict[str, Any]]) -> dict[str, Any]:
@@ -125,12 +169,19 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
             "complexity": d.get("complexity"),
             "default": "✓" if d.get("defaultForCapability") else "",
             "envVars": len(d.get("envVars") or []),
+            # B = build, F = feature-runtime, W = warn-only enforcement counts.
+            "enforcement": _summarize_enforcement(d),
             "deps": len(d.get("dependencies") or []),
             "files": len(d.get("files") or []),
             "lastVerified": d.get("lastVerified"),
         })
     rows.sort(key=lambda r: (r["class"], r["capability"] or "", r["id"]))
     st.dataframe(rows, width="stretch", hide_index=True)
+    st.caption(
+        "Enforcement-kolumn: B=build (blockerar F3), F=feature-runtime "
+        "(UI-banner / popup vid runtime), W=warn-only (komponent self-disablar). "
+        "Saknat tag på en envVar tolkas som B."
+    )
 
 
 def _section_edit(dossiers: list[dict[str, Any]]) -> None:
@@ -158,6 +209,41 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
         manifest_path.write_text(json.dumps(parsed, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         st.success(f"Sparat {manifest_path.relative_to(REPO_ROOT)}")
         st.cache_data.clear()
+
+
+def _section_enforcement_overview(dossiers: list[dict[str, Any]]) -> None:
+    """Per-envVar enforcement overview so curators can spot dossiers that
+    over-use `feature-runtime` (UI must actually render a banner) or
+    `warn-only` (component must actually self-disable). The F3 readiness
+    gate trusts these tags — getting them wrong either blocks deploy or
+    lets a deploy succeed with broken integrations."""
+    st.subheader("EnvVar enforcement (P31)")
+    st.caption(
+        "`build` = real value krävs vid F3-build. "
+        "`feature-runtime` = SDK importerad men UI visar konfigurations-banner när nyckel saknas. "
+        "`warn-only` = koden self-disablar (`if (!domain) return null`). "
+        "Saknad tag tolkas som `build`."
+    )
+    rows: list[dict[str, Any]] = []
+    for d in dossiers:
+        env_vars = d.get("envVars") or []
+        if not isinstance(env_vars, list) or not env_vars:
+            continue
+        for ev in env_vars:
+            if not isinstance(ev, dict):
+                continue
+            rows.append({
+                "dossier": d.get("id"),
+                "class": d["_class"],
+                "key": ev.get("key"),
+                "required": "✓" if ev.get("required") else "",
+                "enforcement": ev.get("enforcement", "build (default)"),
+            })
+    if not rows:
+        st.info("Inga dossiers med envVars hittade.")
+        return
+    rows.sort(key=lambda r: (r["enforcement"], r["dossier"] or "", r["key"] or ""))
+    st.dataframe(rows, width="stretch", hide_index=True)
 
 
 def _section_capability_map(dossiers: list[dict[str, Any]]) -> None:
@@ -252,14 +338,18 @@ def render(ctx) -> None:  # ctx kept for backoffice signature parity
     )
 
     dossiers = _walk_all_dossiers()
-    tabs = st.tabs(["Översikt", "Lista", "Redigera", "Capability map", "AI-kuration"])
+    tabs = st.tabs(
+        ["Översikt", "Lista", "Enforcement", "Redigera", "Capability map", "AI-kuration"]
+    )
     with tabs[0]:
         _section_overview(dossiers)
     with tabs[1]:
         _section_list(dossiers)
     with tabs[2]:
-        _section_edit(dossiers)
+        _section_enforcement_overview(dossiers)
     with tabs[3]:
-        _section_capability_map(dossiers)
+        _section_edit(dossiers)
     with tabs[4]:
+        _section_capability_map(dossiers)
+    with tabs[5]:
         _section_curate()

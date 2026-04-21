@@ -57,14 +57,19 @@ export type ResolvedProjectEnvRequirements = {
    */
   buildBlockingKeys: string[];
   /**
-   * Keys whose dossier marks them `"feature-runtime"` (UI mounts a
-   * configuration banner / popup at runtime when missing). Surfaced as
-   * informational warnings, never as blockers.
+   * UNCONFIGURED keys whose dossier marks them `"feature-runtime"` (UI
+   * mounts a configuration banner / popup at runtime when missing).
+   * Surfaced as informational warnings, never as blockers. Configured
+   * `feature-runtime` keys are intentionally excluded — they would
+   * otherwise display "configuration required" copy even after the user
+   * sets them.
    */
   featureRuntimeKeys: string[];
   /**
-   * Keys whose dossier marks them `"warn-only"` (component self-disables
-   * on empty value). Surfaced only when missing from configured + placeholder.
+   * UNCONFIGURED keys whose dossier marks them `"warn-only"` (component
+   * self-disables on empty value). Surfaced only as info; never blocks.
+   * Configured warn-only keys are excluded for the same reason as
+   * `featureRuntimeKeys`.
    */
   warnOnlyKeys: string[];
 };
@@ -133,7 +138,11 @@ function flattenEnforcement(
   return map;
 }
 
-function resolveEnvRequirementsFromDetected(
+/**
+ * @internal exported for unit-testing the enforcement bucketing without
+ * pulling in the database client (which `resolveProjectEnv` requires).
+ */
+export function resolveEnvRequirementsFromDetected(
   detectedIntegrations: DetectedIntegration[],
   env: ResolvedProjectEnv,
   options: { allowPlaceholdersInF3?: boolean } = {},
@@ -150,15 +159,17 @@ function resolveEnvRequirementsFromDetected(
     (key) => !env.configuredKeys.has(key),
   );
 
-  // Bucket every key into its enforcement class so callers can present the
-  // right severity. A key can only be in one bucket.
-  const buildKeys = requiredEnvKeys.filter(
+  // Bucket every UNCONFIGURED key into its enforcement class so callers can
+  // present the right severity. A key can only be in one bucket. Configured
+  // keys are dropped here on purpose: a `feature-runtime` key the user has
+  // already set should never surface as "configuration required" in the UI.
+  const buildKeys = unconfigured.filter(
     (key) => (enforcement.get(key) ?? "build") === "build",
   );
-  const featureRuntimeKeys = requiredEnvKeys.filter(
+  const featureRuntimeKeys = unconfigured.filter(
     (key) => enforcement.get(key) === "feature-runtime",
   );
-  const warnOnlyKeys = requiredEnvKeys.filter(
+  const warnOnlyKeys = unconfigured.filter(
     (key) => enforcement.get(key) === "warn-only",
   );
 
@@ -174,10 +185,10 @@ function resolveEnvRequirementsFromDetected(
     (key) => !placeholderKeys.has(key),
   );
 
-  // Phase-4 narrowing: blocking-set is the unconfigured `build`-enforcement
-  // subset, minus placeholder-covered keys when the F3 toggle is on.
+  // Phase-4 narrowing: blocking-set is the `build`-enforcement subset of
+  // unconfigured keys, minus placeholder-covered keys when the F3 toggle
+  // is on. (Configured keys were already filtered out via `unconfigured`.)
   const buildBlockingKeys = buildKeys.filter((key) => {
-    if (env.configuredKeys.has(key)) return false;
     if (allowPlaceholdersInF3 && placeholderKeys.has(key)) return false;
     return true;
   });

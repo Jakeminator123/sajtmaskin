@@ -66,6 +66,7 @@ Varje signal i init-pipelinen har **exakt en canonical source**. Konsumenter lä
 | **Build intent (codegen)** | `BUILD_INTENT_GUIDANCE` i `system-prompt.ts` | lokal konstant | `buildDynamicContext()` | Assist-copy i `promptAssist.ts` ok (annat syfte) |
 | **Build intent (assist)** | `BUILD_INTENT_GUIDANCE` i `promptAssist.ts` | lokal konstant | rewrite/polish/addendum | Synka manuellt med codegen-versionen |
 | **Capability-inferens** | `capability-inference.ts` | regexar + manifest | `buildDynamicContext()`, `BuildSpec`, `follow-up-clarification` | Nej |
+| **Capability → dossier-bridge** | `orchestrate.ts` `inferredCapabilityIds` | hardcoded mapping | `selectDossiersForRequest({ requestedCapabilities })` | Nej — single source. 2026-04-21: `needs3D → visual-3d`, `needsParallax → [parallax-scroll, parallax-pointer]`, `needsPayments → payments` |
 | **Fallback-addendum (non-init)** | `promptAssist.ts` | `MOTION_GUIDANCE`, `VISUAL_IDENTITY_GUIDANCE`, `QUALITY_BAR_GUIDANCE` | `useInitBrief.ts` → `generateDynamicInstructions` vid brief-miss | Legacy-fallback, skippas vid init |
 | **User-message formattering (fallback)** | `formatPrompt()` i `promptAssist.ts` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `useCreateChat.ts` (bara utan brief) | Fallback — init skickar rå text |
 | **Init Brief hook** | `useInitBrief.ts` | `generateDynamicInstructions` | `useBuilderPageController.ts` | Hook — konsumerar `/api/ai/brief` + fallback addendum |

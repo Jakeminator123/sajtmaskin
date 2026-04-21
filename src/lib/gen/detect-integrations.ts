@@ -356,16 +356,36 @@ function buildEnvEnforcementClusters(
   return clusters;
 }
 
+/**
+ * Pick the dossier cluster with the MOST env-key overlap with the given
+ * integration's envVars. First-match was the original behaviour; that
+ * misclassifies when two dossiers share a generic env name (e.g.
+ * `DATABASE_URL` belongs to both Supabase and Prisma dossiers, and the
+ * registry's Supabase entry would silently inherit Prisma's enforcement
+ * map). Best-match by overlap count is deterministic and isolates
+ * cross-vendor name collisions to the single shared key.
+ *
+ * Ties (two clusters with equal overlap) keep the first cluster — that
+ * matches the original behaviour and is fine in practice because the
+ * caller's selectedDossiers ordering is stable per build.
+ */
 function findMatchingCluster(
   envVars: string[],
   clusters: DossierEnforcementCluster[],
 ): DossierEnforcementCluster | undefined {
+  let bestCluster: DossierEnforcementCluster | undefined;
+  let bestOverlap = 0;
   for (const cluster of clusters) {
+    let overlap = 0;
     for (const key of envVars) {
-      if (cluster.allKeys.has(key)) return cluster;
+      if (cluster.allKeys.has(key)) overlap += 1;
+    }
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      bestCluster = cluster;
     }
   }
-  return undefined;
+  return bestCluster;
 }
 
 function applyEnforcementOverlay(

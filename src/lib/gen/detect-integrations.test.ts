@@ -121,6 +121,69 @@ describe("detectIntegrations + selectedDossiers enforcement overlay", () => {
   });
 });
 
+describe("detectIntegrations + best-matching-cluster on shared env keys", () => {
+  // Two dossiers that both claim DATABASE_URL (Supabase + Prisma scenario).
+  const SUPABASE_DOSSIER: SelectedDossier = {
+    reason: "capability-match",
+    configured: true,
+    entry: {
+      class: "hard",
+      id: "supabase",
+      label: "Supabase",
+      capability: "database",
+      codeFidelity: "verbatim",
+      complexity: "medium",
+      defaultForCapability: true,
+      summary: "test fixture",
+      envVars: [
+        { key: "NEXT_PUBLIC_SUPABASE_URL", required: true, purpose: "...", enforcement: "build" },
+        { key: "NEXT_PUBLIC_SUPABASE_ANON_KEY", required: true, purpose: "...", enforcement: "build" },
+        { key: "DATABASE_URL", required: false, purpose: "...", enforcement: "build" },
+      ],
+      lastVerified: "2026-04-21",
+    },
+  };
+  const PRISMA_DOSSIER: SelectedDossier = {
+    reason: "capability-match",
+    configured: true,
+    entry: {
+      class: "soft",
+      id: "prisma-orm",
+      label: "Prisma ORM",
+      capability: "orm",
+      codeFidelity: "rewritable",
+      complexity: "simple",
+      defaultForCapability: false,
+      summary: "test fixture",
+      envVars: [
+        { key: "DATABASE_URL", required: true, purpose: "...", enforcement: "feature-runtime" },
+      ],
+      lastVerified: "2026-04-21",
+    },
+  };
+
+  it("matches the cluster with MORE env-overlap when two dossiers share a key", () => {
+    // Both dossiers have DATABASE_URL — but Supabase has 3 keys overlapping
+    // the Supabase registry detection (URL + anon + DATABASE), while Prisma
+    // has only 1 (DATABASE_URL). Best-overlap should pick Supabase even
+    // when Prisma is listed first in selectedDossiers.
+    const code = `
+      import { createClient } from "@supabase/supabase-js";
+      const c = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    `;
+    const detected = detectIntegrations(code, {
+      selectedDossiers: [PRISMA_DOSSIER, SUPABASE_DOSSIER],
+    });
+    const supabase = detected.find((d) => d.provider === "supabase");
+    expect(supabase).toBeDefined();
+    // Supabase cluster wins → DATABASE_URL inherits its `build` enforcement,
+    // not Prisma's `feature-runtime`. (Pre-fix, first-match would pick Prisma.)
+    expect(supabase?.envEnforcement?.NEXT_PUBLIC_SUPABASE_URL).toBe("build");
+    expect(supabase?.envEnforcement?.DATABASE_URL).toBe("build");
+  });
+
+});
+
 describe("detectIntegrationsFromVersionFiles + selectedDossiers", () => {
   it("applies overlay even when manifest is present", () => {
     const manifestContent = JSON.stringify({

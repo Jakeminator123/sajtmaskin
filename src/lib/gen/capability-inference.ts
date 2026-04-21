@@ -76,19 +76,26 @@ const RULES: CapabilityRule[] = [
     ],
   },
   {
-    // Real payment intent — Stripe, Klarna, checkout, "betalning",
-    // "betala", "köpa". Bridges to the `payments` dossier capability so
-    // `stripe-checkout` (or future provider dossiers) is selected with
-    // high confidence and the F3 gate flags the right keys as blocking.
-    // Distinct from generic ecommerce wording (`needsEcommerce`) which
-    // still triggers product/cart/storefront patterns.
+    // Real payment intent — Stripe, Klarna, checkout, "betalningsflöde",
+    // "betala med kort", "köpa med …". Bridges to the `payments` dossier
+    // capability so `stripe-checkout` (or future provider dossiers) is
+    // selected with high confidence and the F3 gate flags the right keys
+    // as blocking. Distinct from generic ecommerce wording
+    // (`needsEcommerce`) which still triggers product/cart/storefront
+    // patterns. The "betala med …" pattern is intentionally narrow —
+    // it requires a payment-instrument noun (`kort`, `swish`, `klarna`,
+    // `kreditkort`) so generic "betala räkningen"-phrases don't trigger.
     key: "needsPayments",
     patterns: [
       /\b(stripe|stripe.?betalning|stripe.?checkout)\b/i,
       /\b(klarna|swish|paypal|adyen|mollie|braintree)\b/i,
       /\b(betalningsfl(o|ö)de|betalningsl(o|ö)sning|payment.?flow|checkout.?flow)\b/i,
-      /\b(card.?payment|kortbetalning|kortköp)\b/i,
+      /\b(card.?payment|kortbetalning|kortköp|kreditkort)\b/i,
       /\b(prenumerationsbetalning|subscription.?billing|recurring.?billing)\b/i,
+      // "betala med kort/swish/klarna/kreditkort/visa/mastercard"
+      /\bbetala\s+med\s+(kort|kreditkort|swish|klarna|stripe|paypal|visa|mastercard|apple\s*pay|google\s*pay)\b/i,
+      // "köp(a) med kort/online/checkout" — narrow noun-list
+      /\bk(ö|o)p(a)?\s+med\s+(kort|kreditkort|stripe|klarna|swish|checkout)\b/i,
     ],
   },
   {

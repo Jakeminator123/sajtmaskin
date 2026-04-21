@@ -301,6 +301,22 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 3. **Project env file (`env.example`):** användarsynlig dokumentationsfil i den genererade sajtens filträd (Next.js läser INTE filen — den är hjälptext, riktiga värden går i `.env.local`). Auto-genererad av `src/lib/gen/preview/project-env-file.ts` och mountad i `versions.files_json` av `injectProjectEnvFileIntoFilesJson` (kallas i `finalize-version.ts`). Listar harmless + tier3-stub placeholders i F2 (så användaren ser exakt vilka nycklar som finns); i F3 strippas tier3-stubs och `projectEnvVars` mergas in som user-lager. Filens roll är att hålla F2-chatten tyst — riktiga värden fylls i via env-panelen som mountas först i F3, eller (lokalt) genom att kopiera till `.env.local`. Se [`docs/ENV.md`](../ENV.md) § "Project env file". Renamed från `env.env` 2026-04.
 4. **Felsökningsordning:** preview → project env file → plattforms-env.
 
+### EnvVar enforcement (P31)
+
+Per envVar i en hard-dossier deklareras hur strängt F3-readiness-gaten enforceer den:
+
+| Tag | Betydelse | Exempel |
+|---|---|---|
+| `build` (default) | Krävs som riktigt värde innan F3-build kan lyckas; placeholder kraschar deploy. | `STRIPE_SECRET_KEY`, server-side `DATABASE_URL`. |
+| `feature-runtime` | SDK importeras men dossierns UI visar konfigurations-banner / popup när nyckeln saknas. F3 rapporterar som warning, inte blocker. "Klarna-popup-mönstret". | `RESEND_API_KEY` + 503-route. |
+| `warn-only` | Koden self-disablar på tom value (`if (!domain) return null`). Bara info, ingen warning. | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`. |
+
+Tagen läses av `tier3-build-spec.ts` och `project-env-resolver.ts`. Saknas tag tolkas den som `build`. Se [`docs/llm/dossier-author-template.md`](../llm/dossier-author-template.md) för authoring-regler.
+
+### F3 placeholder-toggle (P31)
+
+`allowPlaceholdersInF3` (boolean på `project_data.meta`, default false). När true: placeholder-täckta `build`-keys passerar F3-readiness-gaten med varning, så användaren kan publicera en sajt vars integrationer kraschar vid riktiga API-anrop — användbart för förhandsvisning innan affärsavtalen är klara. Persisteras via `PATCH /api/projects/[id]/preferences`, togglas i `ProjectEnvVarsPanel` via `F3PlaceholderToggle`-komponenten.
+
 ---
 
 ## Legacy som inte ska återintroduceras
