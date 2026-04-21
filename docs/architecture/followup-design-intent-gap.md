@@ -35,7 +35,7 @@ Bygg-LLM ser bara: "användaren har skrivit *animationsaktig bakgrund*" + befint
 
 ### 2. `app/globals.css` kan saknas i light-context
 
-[`src/lib/config.ts:347`](../../src/lib/config.ts) defaultar `FEATURES.useFollowUpLightContext = true`. Light-context-flödet i [`chat-message-stream-post.ts:382-393`](../../src/lib/api/engine/chats/chat-message-stream-post.ts) inkluderar bara 4-6 filer med fullt innehåll (`FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles` / `lightContextMaxFilesFewFiles` — env-overridable). Resten visas som file-listing utan kod.
+Light-context är defaultbeteendet för follow-ups sedan 2026-04-21 (historiskt gated av `FEATURES.useFollowUpLightContext`, nu hårdkodat på). Light-context-flödet i [`chat-message-stream-post.ts:382-393`](../../src/lib/api/engine/chats/chat-message-stream-post.ts) inkluderar bara 4-6 filer med fullt innehåll (`FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles` / `lightContextMaxFilesFewFiles` — env-overridable). Resten visas som file-listing utan kod.
 
 Pickaren är inte design-medveten — den prioriterar inte `app/globals.css` när prompten rör bakgrund/färg/tema. Om sajten har 30+ filer och `globals.css` inte är topp-N i relevans-rankningen får bygg-LLM:n bara filnamnet, inte dess befintliga gradient-/oklch-värden.
 

@@ -1,6 +1,19 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-20 efter 11 etapper (A-K) på master `9249a0994`. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** 1214/1214 tester gröna. Se `docs/plans/active/handoff-2026-04-20-next-session.md` för full handoff till nästa agent inkl. prompt-utkast.
+Senast uppdaterad: 2026-04-21 efter wave `cursor/wave-2026-04-21-cleanup` (förenklings- och namnskugge-städning). **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** 1214/1214 tester gröna.
+
+## Avklarat i wave 2026-04-21 (cleanup)
+
+| Vad | Varför |
+|-----|-----|
+| Dead `pendingSpecRef` (builder-hooks) + `SPEC_FILE_INSTRUCTION` + `LEGACY_EXTENDED_CUSTOM_INSTRUCTIONS` isolerad till egen modul | Ref:en sattes aldrig till annat än `null`; exporten hade inga callers; den ~70-radiga prosa-strängen skräpade i `defaults.ts`. |
+| **Spec-first-kedjan borttagen**: `/api/ai/spec`, `WebsiteSpec`, `SajtmaskinSpec`, `processPromptWithSpec`, `briefToSpec`, `promptToSpec`, `SPEC_MODEL`, `SAJTMASKIN_SPEC_MODEL`, `briefing.specModel`, `SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS`, `DEFAULT_SPEC_MODE`, `specMode`-query | Glossaryn hade klassat hela kedjan som legacy/borttagen; koden låg kvar men hade inga runtime-callers. Deep Brief är nu enda pre-generation-expansionen. |
+| **`legacyShimPreviewUrl`-fältet borttaget ur API-kontraktet** | Engine-routes satte alltid fältet till `null`; klienter läste det aldrig meningsfullt. Själva shim-preview-rutten (`/api/preview-render`, env-flaggad) är oförändrad. |
+| Tier-2-URL-helpers flyttade till `src/lib/gen/preview/preview-url-classifier.ts` | Glossaryn beskrev layouten sedan länge. `normalizePreviewUrl`/`isTier2LivePreviewUrl`/`hasTier2LivePreviewUrl`/`resolveAlternatePreviewUrls` bor där nu; shim-modulen behåller bara shim-specifika helpers + re-exporterar `normalizePreviewUrl` för bakåtkompat. |
+| `src/lib/builder/gateway-policy.ts` → `src/lib/builder/direct-model.ts` | Filnamnsskuld — "gateway" är dött i runtime. Innehållet är oförändrat (`createDirectModel` kvarstår). |
+| Fyra dormant `FEATURES`-flaggor hårdkodade: `useBuildSpec`, `useLightweightScaffoldSerialization`, `useFollowUpLightContext`, `useFinalizeDeepPath` | Off-grenen användes aldrig. Tillhörande env-keys (`SAJTMASKIN_BUILD_SPEC_ENABLED` m.fl.) borttagna ur `env.ts` + `config/env-policy.json`. |
+| Lint-cleanup: `PreviewPanelFrame` setState-in-effect fix, `useAutoFix` oanvända `eslint-disable`, scripts unused-vars | 12 warnings → 2 (resterande 2 är i preview-host/ separata paket). |
+| Docs-sync: glossary, `llm-role-matrix.md`, `integrations-and-data.md`, `model-build-profiles.md`, `preview-white-screen-runbook.md`, `followup-design-intent-gap.md` uppdaterade att spegla borttagningarna | Kod är source of truth; docs speglar nu koden. |
 
 ## Öppna punkter (smal lista — 6 saker)
 
@@ -12,6 +25,10 @@ Senast uppdaterad: 2026-04-20 efter 11 etapper (A-K) på master `9249a0994`. **T
 | 4 | Eval | Automatisk baseline-uppdatering (CI-script för eval-svit). | Låg | — |
 | 5 | shadcn (P20 Nivå 3) | Uppströms `registry:font`-ingestion (fullt format). CI-MVP-validering klar 2026-04-20. | Låg | Inte blockerande |
 | 6 | shadcn (P20 Nivå 2) | Uppströms `registry:block`-integration (fullt format). Deterministic-pick shrink-leverans klar 2026-04-20. | Låg | Inte blockerande |
+
+## Tidigare status (2026-04-20)
+
+Senast uppdaterad: 2026-04-20 efter 11 etapper (A-K) på master `9249a0994`. 1214/1214 tester gröna. Se `docs/plans/active/handoff-2026-04-20-next-session.md` för full handoff till nästa agent inkl. prompt-utkast.
 
 ## Telemetri-blockad (vänta 1 vecka, sen plocka)
 

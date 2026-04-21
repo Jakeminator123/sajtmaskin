@@ -124,7 +124,6 @@ Product lane is separate from model-lane build profile resolution.
 |---------|------------|-------------|-------|-----------|
 | Shallow rewrite | `Forbattra` | `SAJTMASKIN_ASSIST_MODEL` | `/api/ai/chat` | `streamText()` |
 | Deep brief | `Forbattra` + `Deep Brief Mode` | `SAJTMASKIN_ASSIST_MODEL` | `/api/ai/brief` | `generateObject()` |
-| Spec chain | no normal builder control | none | `/api/ai/spec` | `processPromptWithSpec()` |
 
 ## Polish lane (low-cost rewrite)
 
@@ -138,7 +137,7 @@ Important current nuance:
 
 - `Skriv om` normally uses the polish lane model, but follows the Anthropic product lane when the current assist lane is Anthropic
 - deep brief is only used before the first message in a new chat
-- builder `specMode` is now `false` by default; spec-layer code remains but is not active in the freeform flow
+- the spec-first chain (`WebsiteSpec`/`SajtmaskinSpec`, `/api/ai/spec`, `processPromptWithSpec`) was fully removed 2026-04-21 — Deep Brief is now the only pre-generation expansion path
 
 ## Prompt-assist provider strings
 
@@ -159,7 +158,7 @@ Important current nuance:
 
 - prompt assist does **not** use the v0 Model API
 - the `"gateway"` provider label has been replaced by `"openai"` in runtime code (HTTP schemas still accept `"gateway"` for backwards compat and normalize server-side)
-- the prompt-assist implementation constructs direct OpenAI/Anthropic AI SDK clients in `src/lib/builder/gateway-policy.ts`
+- the prompt-assist implementation constructs direct OpenAI/Anthropic AI SDK clients in `src/lib/builder/direct-model.ts` (renamed from the legacy `gateway-policy.ts` 2026-04-21)
 - in practice, "gateway-class" selection in the manifest currently means a manifest-approved
   model string plus direct provider client construction in the route implementation
 

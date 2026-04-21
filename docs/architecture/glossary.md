@@ -79,7 +79,7 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Fallback Brief | Deterministisk minimal brief utan LLM (variant-defaults + prompt-heuristik). Planerad men ej implementerad. | planerad |
 | Delta-Brief | Partiell brief-uppdatering vid `clear-redesign` follow-ups. `classifyFollowUpIntent() === "clear-redesign"` → kör `tryGenerateServerAutoBrief` med redesign-prompt + `priorDesignContext` (från `briefSummary` i snapshot) + variant-hints (pre-match). Ger Kod-LLM:en strukturerad designkontext vid redesigns istället för rått textmeddelande. | kanonisk |
 | Shallow / Prompt-only | Inget brief-objekt. Prompten wrappas av `formatPrompt()` (MÅL/TILLGÄNGLIGHET) och nyckelord extraheras heuristiskt av `buildDynamicInstructionAddendumFromPrompt()`. Legacy-fallback. | kanonisk |
-| ~~WebsiteSpec / SajtmaskinSpec~~ | Spec-first LLM-genererat strukturobjekt. `specMode` default false sedan Fas 1 världsklass. | **legacy** |
+| ~~WebsiteSpec / SajtmaskinSpec~~ | Spec-first LLM-genererat strukturobjekt. Helt borttaget 2026-04-21 tillsammans med `/api/ai/spec`, `processPromptWithSpec`, `briefToSpec`, `promptToSpec`, `SPEC_MODEL`, `SAJTMASKIN_SPEC_MODEL` och `DEFAULT_SPEC_MODE`. | **borttagen** |
 | Build Intent | `template \| website \| app` — vad användaren vill bygga | kanonisk |
 | Build Method | `wizard \| category \| audit \| freeform \| kostnadsfri` — hur entry skedde | kanonisk |
 | Generation Mode | `init \| followUp` | kanonisk |
@@ -227,7 +227,7 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | `preview-session` | Bootstrap-route för tier-2-preview | kanonisk |
 | `previewPending` | Finalize klar, preview väntas | kanonisk |
 | `previewUrlHint` | Temporär VM-hint, inte slutlig previewUrl | kanonisk |
-| `legacyShimPreviewUrl` | Shim-/fallback-URL | legacy |
+| ~~`legacyShimPreviewUrl`~~ | Shim-/fallback-URL som alltid var `null` i engine-routes. Fältet borttaget ur API-kontraktet 2026-04-21; shim-preview själv (under `SAJTMASKIN_SHIM_PREVIEW_DISABLED`-kontroll) lever kvar i `/api/preview-render`. | **borttagen** (som fält) |
 | ~~sandbox~~ (generell term) | Legacy-/compat-term | **legacy** — använd VM / `preview_host` |
 | Fidelity 2 / 3 | F2 = `previewPolicy: fidelity2` (design-loopen, npm install + next dev). F3 = `previewPolicy: fidelity3` (integrationer, install + build + dev). F3 triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Auto-promotering från prompt-heuristik (t.ex. "deploy-ready", `RELEASE_CANDIDATE_PATTERNS`) borttagen 2026-04. | kanonisk |
 | LifecycleStage | `"design"` (F2) eller `"integrations"` (F3). Härleds från `BuildSpec.previewPolicy` vid version-insert och persisteras i `engine_versions.lifecycle_stage`. F3-versioner pekar på sin F2-fork via `engine_versions.parent_version_id`. | kanonisk |
@@ -323,7 +323,11 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | `simplifiedBriefSchema` | Borttaget; `siteBriefSchema` är enda schemat |
 | `GATEWAY_ASSIST_MODELS` | Borttagen re-export; använd `ASSIST_MODELS` |
 | `isGatewayAssistModel()` | Borttagen; ersatt av `isOpenAIAssistModel()` |
-| `SPEC_FILE_INSTRUCTION` | Borttagen ur init-flödet (specMode default false) |
+| `SPEC_FILE_INSTRUCTION` | Borttagen 2026-04-21 tillsammans med hela spec-first-kedjan (se `WebsiteSpec / SajtmaskinSpec` ovan). |
+| `gateway-policy.ts` | Filnamnsskuld — filen heter numera `direct-model.ts` (2026-04-21). `createDirectModel` själv är oförändrad. |
+| `legacyShimPreviewUrl` (API-fält) | Alltid `null` i engine-routes; fältet borttaget ur API-kontraktet 2026-04-21. |
+| `SAJTMASKIN_BUILD_SPEC_ENABLED` · `SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION` · `SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT` · `SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED` | Fyra dormant opt-out-flaggor vars off-gren aldrig användes. Hårdkodade 2026-04-21; motsvarande `FEATURES.*`-poster borttagna. |
+| `SAJTMASKIN_SPEC_MODEL` · `SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS` · `briefing.specModel` (manifest) | Dead remnants av spec-first-kedjan. Borttagna 2026-04-21. |
 | `RELEASE_CANDIDATE_PATTERNS` | Borttagen 2026-04. Auto-promotering till F3 från prompt-keywords ("deploy-ready", "production") togs bort när F3 blev en explicit knapp. |
 | `qualityGateTiers.tier2` / `serverVerify` / `promotion` / `interactive` | Borttagna 2026-04. Konsoliderade till `designPreview` (F2) + `integrationsBuild` (F3). |
 | `40-generated-site-integration-placeholders.env.txt` | Splittad 2026-04 i `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`. |
@@ -349,4 +353,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-18 (Directive cascade borttagen — 10 oanvända directive-filer + directive-loader.ts + manifest + 2 backoffice-pages raderade. visual-design och content-voice flyttade till prompt-core. "Per-Request Signal Cascade" ersätter "Directive Cascade" som term). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-21 (wave 2026-04-21-cleanup — spec-first-kedjan borttagen, `/api/ai/spec`/`WebsiteSpec`/`SajtmaskinSpec`/`processPromptWithSpec`/`briefToSpec`/`promptToSpec`/`SPEC_MODEL`/`DEFAULT_SPEC_MODE` borta; `legacyShimPreviewUrl`-fältet borttaget ur API-kontraktet; tier-2-URL-helpers flyttade till `preview-url-classifier.ts`; `gateway-policy.ts` → `direct-model.ts`; fyra dormant `FEATURES`-flaggor hårdkodade; `pendingSpecRef` rensad ur builder-hooks). Tidigare: 2026-04-18 (Directive cascade borttagen). Versionhistorik finns i git.

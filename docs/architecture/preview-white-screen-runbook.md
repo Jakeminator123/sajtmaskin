@@ -11,7 +11,7 @@
 
 | Lager | Vad | När det syns |
 |--------|-----|----------------|
-| **Kompatibilitetsvy — Shim** | Statisk HTML + React 18 från **CDN** (unpkg) + Tailwind från **cdn.tailwindcss.com** | `legacyShimPreviewUrl` eller äldre `demoUrl` pekar på `/api/preview-render?...` |
+| **Kompatibilitetsvy — Shim** | Statisk HTML + React 18 från **CDN** (unpkg) + Tailwind från **cdn.tailwindcss.com** | Äldre `demoUrl` (eller manuell navigering) pekar på `/api/preview-render?...`; själva shim-preview-rutten styrs numera av `SAJTMASKIN_SHIM_PREVIEW_DISABLED` — API:t annonserar inte shim-URL:er längre (`legacyShimPreviewUrl`-fältet borttaget 2026-04-21). |
 | **Primär preview — `preview_host`** | Riktig `npm run dev` i VM via preview-host | `previewUrl` / faktisk iframe-URL är normalt `*.fly.dev/{chatId}`; `engine_versions.sandbox_url` satt |
 
 **Preflight grön** (`previewBlocked: false`) betyder inte längre “shim funkar”, utan att den aktiva versionen fortfarande kan exponeras. Preview-host kräver **`SAJTMASKIN_PREVIEW_HOST_BASE_URL`** i huvudappen och ev. auth mellan appen och preview-host. Se [`fas3-preview-and-deploy.md`](./fas3-preview-and-deploy.md) och [`docs/ENV.md`](../ENV.md).
