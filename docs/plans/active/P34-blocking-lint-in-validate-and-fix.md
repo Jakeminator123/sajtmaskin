@@ -1,6 +1,6 @@
 # P34 — Blocking lint in the pre-save validation loop
 
-**Status:** Fas A+B implementerade 2026-04-21 — `warm-eslint.ts` + integration i `validateAndFix` finns bakom flaggan `SAJTMASKIN_BLOCKING_ESLINT`. F3 (integrationer) forcerar passet på. Default av i prod tills latens mätts i dev/preview.
+**Status:** Fas A+B+C(delvis) levererade 2026-04-21. `warm-eslint.ts` + integration i `validateAndFix` finns bakom flaggan `SAJTMASKIN_BLOCKING_ESLINT`. F3 (integrationer) forcerar passet på. Vercel `development` har flaggan aktiverad (`SAJTMASKIN_BLOCKING_ESLINT="true"`, verifierat via `vercel env pull`). Preview/production kräver separat aktivering via Vercel Dashboard (CLI 51.8.0 kräver explicit git-branch för preview-scope; master kan inte användas eftersom det är production-branch).
 **Skapad:** 2026-04-21.
 
 ---
@@ -68,9 +68,23 @@ Esbuild + tsc fångar syntax/typfel. Om de finns kvar returnerar eslint en kaska
 |---|---|---|---|---|
 | **A** | Lägg `runPreVmEslint` i `warm-eslint.ts` + `runWarmEslintPass` i `validate-and-fix.ts`. Tester isolerade. | Låg | Ingen runtime-påverkan | **Klar** 2026-04-21 |
 | **B** | Koppla in efter warm-tsc när tsc är clean. Default AV via `SAJTMASKIN_BLOCKING_ESLINT`. F3 forcerar på. | Låg-medel | Ingen ändring tills flagga på | **Klar** 2026-04-21 |
-| **C** | Aktivera flaggan i dev + preview. Mäta latens-delta. | Medel | +5-15s per generering (måste mätas) | Väntar på go |
-| **D** | Aktivera i prod om latens-budget håller. Flytta flaggan till manifestet. | Medel | Lint-errors fångas före version sparas | Väntar på C |
+| **C** | Aktivera flaggan i dev + preview. Mäta latens-delta. | Medel | +5-15s per generering (måste mätas) | **Delvis** 2026-04-21: development satt via `vercel env add`. Preview kräver per-branch eller Dashboard (CLI 51.8.0-begränsning). |
+| **D** | Aktivera i prod om latens-budget håller. Flytta flaggan till manifestet. | Medel | Lint-errors fångas före version sparas | Väntar på C-mätning |
 | **E** | Ta bort lint från bakgrundsgate (från SAJ-28 glapp 1) när blocking-pass är default på. | Låg | Sparar bakgrund-compute | Väntar på D |
+
+### Fas C aktivering (praktisk not, 2026-04-21)
+
+Command som användes för development:
+
+```
+cmd /c "echo|set /p=true" | vercel env add SAJTMASKIN_BLOCKING_ESLINT development
+```
+
+Newline-säker (`cmd /c echo|set /p=true` ger exakt `true` utan trailing `\r\n`). Verifierat via `vercel env pull`: värdet är `"true"`, inga CRLF, ingen omslutande whitespace.
+
+Preview-scope kunde inte sättas via CLI utan explicit git-branch. `master` är production-branch och rejekteras. För att aktivera för alla preview-branches: använd Vercel Dashboard → Settings → Environment Variables → lägg till `SAJTMASKIN_BLOCKING_ESLINT=true` för Preview (eller specificera en PR-branch när en sådan existerar).
+
+Warm-cache-caveat: även med flaggan på i Vercel-kontexten kommer `runPreVmEslint` returnera `skipped: "cache_cold"` om scaffold-cache inte är provisionerad i den körande VM:en. Cache-provisioneringen är out-of-scope för denna plan — sker via offline-script per scaffold-deploy.
 
 ---
 

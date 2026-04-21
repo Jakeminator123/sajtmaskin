@@ -10,7 +10,7 @@
 | [`P26-followup-orchestration-glitch.md`](./P26-followup-orchestration-glitch.md) | 7 PR-branches lokalt; `build_intent_promoted` triggar fortfarande i live-loggen 2026-04-21 — verifiera merge-status. |
 | [`P32-request-type-taxonomy.md`](./P32-request-type-taxonomy.md) | Förslag — 8-klass request-type-klassificering (Q&A/Score, External-fetch, Multi-change, Micro-edit, Local-layout, Page-addition, Redesign, Integration) → right-sized pipelines. Väntar på agreement. |
 | [`P33-shadcn-ecosystem-expansion.md`](./P33-shadcn-ecosystem-expansion.md) | Förslag — utbyggnad av shadcn-integrationen i 5 faser (fyll exempel-luckor, bredda capability-map, fler community-registries, embedding-retrieval, llms.txt-synk). Inga MCP-runtime-tools i scope. Väntar på agreement. |
-| [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | Fas A+B klara 2026-04-21 — `warm-eslint.ts` + integration i `validateAndFix` bakom `SAJTMASKIN_BLOCKING_ESLINT`. F3 forcerar på. Fas C (aktivera i dev/preview + mäta latens) väntar på go. |
+| [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | Fas A+B+C(delvis) 2026-04-21. `warm-eslint.ts` + integration i `validateAndFix` bakom `SAJTMASKIN_BLOCKING_ESLINT`. F3 forcerar på. Development env aktiverat på Vercel; preview kräver Dashboard pga CLI-begränsning. Mätning pågår när trafik kommer in. |
 | [`repair-loop-hardening.md`](./repair-loop-hardening.md) | Fyra delspår efter `8e617807b` (href↔route safety net): repairPassIndex-konsistens, verifier-rerun efter LLM-fixer, eliminera dubbel `validateAndFix` i preflight, fix-patterns till huvudgeneratorn. Steg A motsvarar Linear SAJ-25 (handoff klar i `.cursor/handoffs/`). |
 
 ## Avklarade i wave 2026-04-20
