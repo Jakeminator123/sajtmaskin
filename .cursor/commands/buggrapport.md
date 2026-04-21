@@ -143,7 +143,7 @@ Skapa **inte** flera issues för samma rotorsak i samma session — slå ihop ti
 
 Background Agents kör i en ephemeral VM. Det förändrar tre saker mot lokalt flöde — agenten **måste** vara medveten:
 
-1. **Linear-MCP måste vara konfigurerad i Background Agent-miljön.** Om `list_teams` failar eller returnerar tomt: stoppa, skapa **ingen** issue (annars hamnar buggen i fel workspace eller försvinner). Rapportera i agentens slutmeddelande att Linear-auth saknas så att den kan kopplas in via Cursor → Background Agents → MCP.
+1. **Linear-pluginen är redan enabled i `.cursor/settings.json`** (committad), så Background Agents ärver `plugins.linear.enabled: true` automatiskt. Det som **inte** ärvs är OAuth-auth — den är knuten till en Cursor-user/agent, inte till repo:t. Om `list_teams` failar eller returnerar tomt i Background Agent: stoppa, skapa **ingen** issue (annars hamnar buggen i fel workspace eller försvinner). Rapportera i agentens slutmeddelande att Linear-auth saknas så användaren kan koppla in den via Cursor → Background Agents → autentisera Linear-pluginen för agenten. Inget behöver läggas till i `.cursor/mcp.json` eller settings — bara auth.
 2. **Lokal mirror i `.cursor/bugs/` är gitignored** — filen skrivs i VM:n men **pushas aldrig**. Det är OK: Linear är källan-till-sanning. Skriv ändå filen lokalt under körningen så att efterföljande steg i samma agent-session kan grep:a den (t.ex. om agenten skapar flera relaterade rapporter i en körning).
 3. **Dublett-check får inte förlita sig på lokala filer** (de finns inte mellan körningar i cloud). Använd istället `list_issues` mot Linear:
 
