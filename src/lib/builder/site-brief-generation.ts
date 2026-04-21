@@ -13,7 +13,7 @@ import {
   normalizeAssistModel,
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
-import { createDirectModel, getTemperatureConfig } from "@/lib/builder/gateway-policy";
+import { createDirectModel, getTemperatureConfig } from "@/lib/builder/direct-model";
 import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
 import {
   ASSIST_MAX_OUTPUT_TOKENS,

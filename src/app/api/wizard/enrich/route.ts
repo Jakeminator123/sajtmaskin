@@ -12,7 +12,7 @@
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { generateText } from "ai";
-import { createDirectModel } from "@/lib/builder/gateway-policy";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import OpenAI from "openai";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/botProtection";
