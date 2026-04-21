@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
-import { createDirectModel } from "@/lib/builder/gateway-policy";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import {
   FOLLOW_UP_INTENT_MODES,
   type FollowUpIntentMode,

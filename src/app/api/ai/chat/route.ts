@@ -17,7 +17,7 @@ import {
 import {
   createDirectModel,
   getTemperatureConfig,
-} from "@/lib/builder/gateway-policy";
+} from "@/lib/builder/direct-model";
 import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -158,7 +158,7 @@ export async function POST(req: Request) {
             {
               error: "Missing OpenAI API key",
               setup:
-                "Set OPENAI_API_KEY. Prompt-assist OpenAI models call the OpenAI API directly (see createDirectModel in gateway-policy).",
+                "Set OPENAI_API_KEY. Prompt-assist OpenAI models call the OpenAI API directly (see createDirectModel in @/lib/builder/direct-model).",
             },
             { status: 401 },
           );
