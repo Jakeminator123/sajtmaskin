@@ -72,6 +72,7 @@ const STREAMDOWN_PLAIN_COMPONENTS = {
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
+import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState, type AnchorHTMLAttributes } from "react";
 
@@ -83,6 +84,12 @@ interface MessageListProps {
   onQuickReply?: (text: string, options?: { planMode?: boolean }) => Promise<void> | void;
   onApproveBuildPlan?: (plan: Record<string, unknown>) => Promise<void> | void;
   quickReplyDisabled?: boolean;
+  /**
+   * F2 vs F3 lifecycle gate. Forwarded to plan / tooling cards so their
+   * env / integrations buttons are hidden during F2, and used to gate
+   * the env-requirement auto-open side effect.
+   */
+  lifecycleStage?: EngineVersionLifecycleStage | null;
 }
 
 function hasGenerationContent(text: string): boolean {
@@ -98,7 +105,9 @@ const MessageListComponent = ({
   onQuickReply,
   onApproveBuildPlan,
   quickReplyDisabled = false,
+  lifecycleStage = null,
 }: MessageListProps) => {
+  const isIntegrations = lifecycleStage === "integrations";
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
   const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
   const [isReplyDialogOpen, setIsReplyDialogOpen] = useState(false);
@@ -166,10 +175,14 @@ const MessageListComponent = ({
       lastAutoOpenedEnvRequirementRef.current = null;
       return;
     }
+    // F2-mute: ProjectEnvVarsPanel is only mounted in F3, so suppress the
+    // auto-open side effect during F2 to avoid silently dispatching events
+    // nothing is listening for.
+    if (!isIntegrations) return;
     if (lastAutoOpenedEnvRequirementRef.current === requirement.key) return;
     lastAutoOpenedEnvRequirementRef.current = requirement.key;
     openProjectEnvVarsPanel(requirement.envKeys);
-  }, [latestEnvRequirement]);
+  }, [latestEnvRequirement, isIntegrations]);
 
   const handleModalQuickReply = async (option: string, optionIndex: number) => {
     if (!pendingReply) return;
@@ -269,6 +282,7 @@ const MessageListComponent = ({
                         sendQuickReply(messageId, optionIndex, option, options)
                       }
                       quickReplyDisabled={quickReplyDisabled}
+                      lifecycleStage={lifecycleStage}
                     />
                   )}
 
@@ -289,6 +303,7 @@ const MessageListComponent = ({
                         sendQuickReply(messageId, optionIndex, option, options)
                       }
                       quickReplyDisabled={quickReplyDisabled}
+                      lifecycleStage={lifecycleStage}
                     />
                   )}
 
@@ -321,6 +336,7 @@ const MessageListComponent = ({
                           rawPlan={part.plan.raw}
                           onApproveBuild={onApproveBuildPlan}
                           approveDisabled={quickReplyDisabled}
+                          lifecycleStage={lifecycleStage}
                         />
                       </PlanContent>
                       {part.plan.actions && part.plan.actions.length > 0 && (

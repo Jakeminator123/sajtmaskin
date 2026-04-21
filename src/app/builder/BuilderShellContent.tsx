@@ -791,6 +791,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           <LaunchReadinessCard
             readiness={vm.deployReadiness}
             isLoading={vm.isDeployReadinessLoading}
+            lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
           />
           {vm.deployReadiness?.info?.lifecycleStage === "integrations" ? (
             <ProjectEnvVarsPanel
@@ -823,6 +824,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onQuickReply={(text, options) => vm.sendMessage(text, options)}
               onApproveBuildPlan={handleApproveBuildPlan}
               quickReplyDisabled={isBusy}
+              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             />
             <TipCard
               open={tipPanelOpen && vm.tipsEnabled}
@@ -982,6 +984,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onToggleCollapse={vm.handleToggleVersionPanel}
               versions={vm.effectiveVersionsList}
               mutateVersions={vm.mutateVersions}
+              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             />
           </div>
         </div>

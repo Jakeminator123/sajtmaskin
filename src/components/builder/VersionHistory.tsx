@@ -105,6 +105,11 @@ interface VersionHistoryProps {
   versions?: VersionSummary[];
   /** Mutate function from parent's useVersions instance */
   mutateVersions?: () => void;
+  /**
+   * F2 vs F3 lifecycle gate. Forwarded to dialogs (e.g.
+   * VersionDiagnosticsDialog) that conditionally render env-panel actions.
+   */
+  lifecycleStage?: import("@/lib/db/engine-version-lifecycle").EngineVersionLifecycleStage | null;
 }
 
 export function VersionHistory({
@@ -116,6 +121,7 @@ export function VersionHistory({
   onToggleCollapse,
   versions: externalVersions,
   mutateVersions: externalMutate,
+  lifecycleStage = null,
 }: VersionHistoryProps) {
   const { user, isAuthenticated, hasGitHub, isInitialized, fetchUser } = useAuth();
   // Use parent-provided versions when available to avoid duplicate polling
@@ -967,6 +973,7 @@ export function VersionHistory({
         onOpenChange={(open) => {
           if (!open) setDiagnosticsVersionId(null);
         }}
+        lifecycleStage={lifecycleStage}
       />
       <Dialog
         open={Boolean(confirmRestoreVersion)}

@@ -48,6 +48,14 @@ type StructuredToolPartsProps = {
   pendingQuickReplyKey: string | null;
   onQuickReply?: QuickReplyHandler;
   quickReplyDisabled?: boolean;
+  /**
+   * F2 vs F3 lifecycle gate. Env / integrations buttons inside compact
+   * tool parts are hidden during F2 because the target panel is not
+   * mounted there.
+   */
+  lifecycleStage?:
+    | import("@/lib/db/engine-version-lifecycle").EngineVersionLifecycleStage
+    | null;
 };
 
 type CompactToolPartsProps = StructuredToolPartsProps;
@@ -504,7 +512,9 @@ export function CompactToolParts({
   pendingQuickReplyKey,
   onQuickReply,
   quickReplyDisabled = false,
+  lifecycleStage = null,
 }: CompactToolPartsProps) {
+  const isIntegrations = lifecycleStage === "integrations";
   return (
     <>
       {toolParts.map((part, index) => {
@@ -709,18 +719,20 @@ export function CompactToolParts({
                 )}
               </>
             )}
-            <div className="mt-2 flex flex-wrap gap-2">
-              {!replyPrompt && projectEnvKeys.length > 0 && (
-                <Button size="sm" onClick={() => openProjectEnvVarsPanel(projectEnvKeys)}>
-                  Konfigurera miljövariabler
-                </Button>
-              )}
-              {!replyPrompt && (
-                <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
-                  Visa integrationer
-                </Button>
-              )}
-            </div>
+            {isIntegrations ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {!replyPrompt && projectEnvKeys.length > 0 && (
+                  <Button size="sm" onClick={() => openProjectEnvVarsPanel(projectEnvKeys)}>
+                    Konfigurera miljövariabler
+                  </Button>
+                )}
+                {!replyPrompt && (
+                  <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
+                    Visa integrationer
+                  </Button>
+                )}
+              </div>
+            ) : null}
           </div>
         );
       })}

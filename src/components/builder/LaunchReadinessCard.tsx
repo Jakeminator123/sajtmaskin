@@ -8,15 +8,25 @@ import {
   deployReadinessBadgeClassName,
   formatDeployReadinessStatusLabel,
 } from "@/lib/builder/deploy-readiness-ui";
+import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
 import { cn } from "@/lib/utils";
 
 type Props = {
   readiness: ChatReadiness | null;
   isLoading?: boolean;
+  /**
+   * F2 vs F3 lifecycle gate. The "Öppna miljövariabler" action targets a
+   * panel that only mounts in F3 — hide it during F2.
+   */
+  lifecycleStage?: EngineVersionLifecycleStage | null;
 };
 
-function renderItem(item: ChatReadinessItem, missingEnvKeys: string[]) {
+function renderItem(
+  item: ChatReadinessItem,
+  missingEnvKeys: string[],
+  isIntegrations: boolean,
+) {
   const isWarning = item.severity === "warning";
   return (
     <div
@@ -37,7 +47,7 @@ function renderItem(item: ChatReadinessItem, missingEnvKeys: string[]) {
         {item.title}
       </div>
       {item.detail ? <div className="mt-0.5 text-[11px] text-muted-foreground">{item.detail}</div> : null}
-      {item.action === "env" ? (
+      {item.action === "env" && isIntegrations ? (
         <Button
           type="button"
           variant="ghost"
@@ -52,10 +62,16 @@ function renderItem(item: ChatReadinessItem, missingEnvKeys: string[]) {
   );
 }
 
-export function LaunchReadinessCard({ readiness, isLoading = false }: Props) {
+export function LaunchReadinessCard({
+  readiness,
+  isLoading = false,
+  lifecycleStage = null,
+}: Props) {
   if (!readiness && !isLoading) {
     return null;
   }
+
+  const isIntegrations = lifecycleStage === "integrations";
 
   const badge =
     readiness != null
@@ -91,8 +107,8 @@ export function LaunchReadinessCard({ readiness, isLoading = false }: Props) {
         <div className="mt-2 text-[11px] text-muted-foreground">Kontrollerar publiceringsstatus...</div>
       ) : readiness ? (
         <div className="mt-2 space-y-2">
-          {readiness.blockers.map((item) => renderItem(item, readiness.info.missingEnvKeys))}
-          {readiness.warnings.map((item) => renderItem(item, readiness.info.missingEnvKeys))}
+          {readiness.blockers.map((item) => renderItem(item, readiness.info.missingEnvKeys, isIntegrations))}
+          {readiness.warnings.map((item) => renderItem(item, readiness.info.missingEnvKeys, isIntegrations))}
 
           {readiness.info.lifecycleStatus ? (
             <div className="text-[11px] text-muted-foreground">
