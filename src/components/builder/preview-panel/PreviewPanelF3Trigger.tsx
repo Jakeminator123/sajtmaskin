@@ -93,8 +93,23 @@ export function PreviewPanelF3Trigger({
           (sum, entry) => sum + entry.missing.length,
           0,
         );
+        // P26: surface the actual missing env-key names, not just a count,
+        // so the user knows which secrets to add. Tidigare gav bara
+        // räkning vilket lämnade användaren utan handlingsinformation.
+        const missingKeyList = missing
+          .flatMap((entry) =>
+            entry.missing.map((envKey) => `${envKey} (${entry.name})`),
+          )
+          .slice(0, 6);
+        const overflow = totalMissing > missingKeyList.length;
         toast.warning(
-          `Lägg in ${totalMissing} env-värde${totalMissing === 1 ? "" : "n"} innan du kan bygga integrationer.`,
+          `Saknar ${totalMissing} env-värde${totalMissing === 1 ? "" : "n"} för integrationsbygge`,
+          {
+            description: missingKeyList.length
+              ? `${missingKeyList.join(", ")}${overflow ? ", …" : ""}`
+              : undefined,
+            duration: 8000,
+          },
         );
         onMissingEnv?.({
           parentVersionId: data.parentVersionId,
@@ -143,7 +158,7 @@ export function PreviewPanelF3Trigger({
       ) : (
         <Wand2 className="h-4 w-4" />
       )}
-      <span className="ml-1.5">Bygg nu</span>
+      <span className="ml-1.5">Bygg integrationer</span>
     </Button>
   );
 }
