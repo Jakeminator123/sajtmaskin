@@ -887,6 +887,14 @@ export async function handleMessageStreamRequest(
           buildIntent: metaBuildIntent,
           buildMethod: metaBuildMethod,
           message: optimizedMessage,
+          // P26: also surface the raw user message (truncated to 500 chars)
+          // so devs can see exactly what the user typed without scrolling
+          // through the wrapped optimizedMessage. Bekräftar samtidigt att
+          // LLM:en faktiskt får råa intentet — det ligger sist i
+          // optimizedMessage under rubriken "Begärda ändringar".
+          rawMessage:
+            message.length > 500 ? `${message.slice(0, 500)}…` : message,
+          rawMessageLength: message.length,
           slug: metaBuildMethod || metaBuildIntent || undefined,
           promptType: promptOrchestration.strategyMeta.promptType,
           promptStrategy: promptOrchestration.strategyMeta.strategy,
