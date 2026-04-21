@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
+import { VersionMismatchOverlay } from "./VersionMismatchOverlay";
+
 export interface PreviewPanelFrameProps {
   isLoading: boolean;
   iframeError: boolean;
@@ -16,6 +19,21 @@ export interface PreviewPanelFrameProps {
   iframeRef: RefObject<HTMLIFrameElement | null>;
   handleIframeLoad: () => void;
   handleIframeError: () => void;
+  /**
+   * P25b-rest: when the app and the preview-VM disagree on which version is
+   * live, the dispatch pipeline can populate this prop to render the
+   * non-blocking `VersionMismatchOverlay` over the iframe. Default `null`
+   * = no overlay. The overlay component is the *consumer* — wiring up the
+   * dispatch (poll/SSE that detects the mismatch) is a separate concern;
+   * see `VersionMismatchOverlayPayload` JSDoc in `preview-host-client.ts`.
+   */
+  versionMismatchPayload?: VersionMismatchOverlayPayload | null;
+  /**
+   * Optional retry handler forwarded to `VersionMismatchOverlay`. Wire to
+   * the same callback as the iframe-reload button so users can force a
+   * restart if the mismatch lingers beyond the expected window.
+   */
+  onForceRestart?: () => void;
   children?: ReactNode;
 }
 
@@ -44,6 +62,8 @@ export function PreviewPanelFrame({
   iframeRef,
   handleIframeLoad,
   handleIframeError,
+  versionMismatchPayload = null,
+  onForceRestart,
   children,
 }: PreviewPanelFrameProps) {
   const [showOverlay, setShowOverlay] = useState(false);
@@ -152,6 +172,13 @@ export function PreviewPanelFrame({
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-modals"
         title="Preview"
       />
+
+      {versionMismatchPayload ? (
+        <VersionMismatchOverlay
+          payload={versionMismatchPayload}
+          onForceRestart={onForceRestart}
+        />
+      ) : null}
 
       {children}
     </div>

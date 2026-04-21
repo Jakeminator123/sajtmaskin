@@ -1,0 +1,134 @@
+name: Eval Baseline Update
+
+# Runs the eval suite and refreshes `src/lib/gen/eval/eval-baseline.json` when
+# the suite passes its own gate. Two trigger modes:
+#
+#   - workflow_dispatch  → operator triggers manually after a deliberate
+#     pipeline improvement, picks dry-run vs. real save in the input.
+#   - schedule (weekly)  → keeps the baseline drifting with reality so the
+#     `--gate` check in CI doesn't silently rot. Skipped if no improvements
+#     vs. current baseline (commit step is no-op).
+#
+# Cost note: each run consumes OPENAI quota for the full eval prompt set
+# (~15 prompts at the time of writing). Schedule is intentionally weekly,
+# not daily.
+#
+# Required secrets:
+#   - OPENAI_API_KEY  → consumed by the eval LLM calls.
+#
+# Behavior:
+#   1. Run `npm run eval` (no --gate, no --save-baseline) and capture exit.
+#      Hard-fail if the suite itself errors (network, missing env, etc.).
+#   2. Run `npm run eval:gate` to compare current vs. baseline. If gate
+#      returns non-zero we STOP — a regressing run must not overwrite the
+#      baseline (that would mask the regression).
+#   3. Run `npm run eval:baseline` to write the new snapshot.
+#   4. If `eval-baseline.json` actually changed, open a PR (draft) so the
+#      operator can review the deltas before merging. Direct push to master
+#      is intentionally avoided because baseline shifts can hide real
+#      regressions if accepted blindly.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Skip baseline write + PR (only run eval + gate compare)"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    # Every Monday at 04:11 UTC. Offset from `weekly-template-sync` (03:23) so
+    # they don't pile up if both queue.
+    - cron: "11 4 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: eval-baseline-update
+  cancel-in-progress: false
+
+jobs:
+  refresh-baseline:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify OPENAI_API_KEY is present
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::OPENAI_API_KEY secret is not configured. Add it under Repo Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run eval suite
+        run: npm run eval:suite
+
+      - name: Compare against baseline (gate)
+        id: gate
+        continue-on-error: true
+        run: npm run eval:gate
+
+      - name: Stop if eval gate failed
+        if: ${{ steps.gate.outcome == 'failure' }}
+        run: |
+          echo "::error::Eval gate failed. Refusing to overwrite baseline with a regressing run."
+          echo "Investigate the regression locally before re-running this workflow."
+          exit 1
+
+      - name: Save new baseline
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true' }}
+        run: npm run eval:baseline
+
+      - name: Detect baseline change
+        id: diff
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true' }}
+        shell: bash
+        run: |
+          if git diff --quiet -- src/lib/gen/eval/eval-baseline.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No baseline change to commit."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open PR with refreshed baseline
+        if: ${{ steps.diff.outputs.changed == 'true' }}
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(eval): refresh eval-baseline.json (auto-update)"
+          branch: chore/eval-baseline-${{ github.run_id }}
+          delete-branch: true
+          title: "chore(eval): refresh eval-baseline.json"
+          body: |
+            Automated refresh of `src/lib/gen/eval/eval-baseline.json` after
+            this week's eval run passed the gate.
+
+            **Review checklist** before merging:
+            - Does the new average score look right (no suspicious jumps)?
+            - Any prompts that flipped PASS -> FAIL or FAIL -> PASS?
+            - New blocking checks added vs. previous baseline?
+
+            Trigger: ${{ github.event_name }}
+            Run: ${{ github.run_id }}
+          labels: |
+            eval
+            automated
+          draft: true
