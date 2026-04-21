@@ -22,8 +22,11 @@ import {
 } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
+import { getProjectData } from "@/lib/db/services/projects";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
+import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
+import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import {
   deriveTier3BuildSpec,
   validateTier3Readiness,
@@ -33,6 +36,7 @@ import type {
   PlanContracts,
   PlanIntegrationContract,
 } from "@/lib/gen/plan/schema";
+import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 
 export const runtime = "nodejs";
 
@@ -51,6 +55,14 @@ function buildContractsFromDetectedIntegrations(
       reason: typeof d.intent === "string" ? d.intent : "detected from generated code",
       status: "chosen",
       envVars: d.envVars,
+      // P31 follow-up: propagate the per-key enforcement classification
+      // so `tier3-build-spec.ts` can partition tier-3 keys into build /
+      // feature-runtime / warn-only buckets — matching what the readiness
+      // route surfaces. Without this, finalize-design treats every tier-3
+      // key as build-blocking even when the readiness card already passed.
+      ...(d.envEnforcement && Object.keys(d.envEnforcement).length > 0
+        ? { envEnforcement: d.envEnforcement }
+        : {}),
     }));
   return {
     dataMode: integrations.length > 0 ? "persisted" : "none",
@@ -61,6 +73,7 @@ function buildContractsFromDetectedIntegrations(
 
 async function deriveTier3BuildSpecForVersion(
   versionId: string,
+  selectedDossiers: SelectedDossier[],
 ): Promise<Tier3BuildSpec> {
   const codeFiles = await getVersionFiles(versionId);
   if (!codeFiles || codeFiles.length === 0) {
@@ -70,9 +83,23 @@ async function deriveTier3BuildSpecForVersion(
     codeFiles
       .filter((f) => typeof f?.path === "string" && typeof f?.content === "string")
       .map((f) => ({ name: f.path as string, content: f.content as string })),
+    { selectedDossiers },
   );
   const contracts = buildContractsFromDetectedIntegrations(detected);
   return deriveTier3BuildSpec(contracts);
+}
+
+async function readAllowPlaceholdersInF3(
+  projectId: string | null | undefined,
+): Promise<boolean> {
+  if (!projectId) return false;
+  try {
+    const data = await getProjectData(projectId);
+    const meta = data?.meta as Record<string, unknown> | null | undefined;
+    return meta?.allowPlaceholdersInF3 === true;
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(
@@ -125,7 +152,13 @@ export async function POST(
       );
     }
 
-    const spec = await deriveTier3BuildSpecForVersion(baseVersion.id);
+    const selectedDossiers = resolveSelectedDossiersFromSnapshot(
+      chat.orchestration_snapshot,
+    );
+    const spec = await deriveTier3BuildSpecForVersion(
+      baseVersion.id,
+      selectedDossiers,
+    );
 
     if (spec.requirements.length === 0) {
       return NextResponse.json({
@@ -147,7 +180,17 @@ export async function POST(
         )
       : ({} as Record<string, string>);
 
-    const readiness = validateTier3Readiness(spec, projectEnvVars);
+    // P31 follow-up: when the user has opted into "tillåt placeholders i F3"
+    // we accept tier-3 keys that have a preview placeholder (with a
+    // warning surfaced separately by readiness/UI). Without this gate the
+    // toggle's promise of "publicera ändå" is broken.
+    const allowPlaceholdersInF3 = await readAllowPlaceholdersInF3(
+      chat.project_id,
+    );
+    const readiness = validateTier3Readiness(spec, projectEnvVars, {
+      allowPlaceholdersForBuildKeys: allowPlaceholdersInF3,
+      placeholderEnvKeys: loadPlaceholderKeySet(),
+    });
 
     if (!readiness.ready) {
       return NextResponse.json(

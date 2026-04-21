@@ -23,8 +23,7 @@ import {
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
 import { getProjectData } from "@/lib/db/services/projects";
-import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
-import type { SelectedDossier } from "@/lib/gen/dossiers/types";
+import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
@@ -96,34 +95,6 @@ async function readAllowPlaceholdersInF3(
   }
 }
 
-/**
- * Resolve the dossier set used for the chat's most recent build, so the
- * readiness route can overlay per-envVar `enforcement` tags (Phase 4 of
- * the F3-readiness rework).
- *
- * Source: `chat.orchestration_snapshot.brief.requestedCapabilities`. When
- * absent we fall back to `[]` — the resolver then defaults all keys to
- * `enforcement: "build"` (legacy behaviour, no regression).
- */
-function resolveSelectedDossiersFromSnapshot(
-  snapshot: unknown,
-): SelectedDossier[] {
-  if (!snapshot || typeof snapshot !== "object") return [];
-  const brief = (snapshot as { brief?: unknown }).brief;
-  if (!brief || typeof brief !== "object") return [];
-  const caps = (brief as { requestedCapabilities?: unknown })
-    .requestedCapabilities;
-  if (!Array.isArray(caps)) return [];
-  const requestedCapabilities = caps.filter(
-    (c): c is string => typeof c === "string",
-  );
-  if (requestedCapabilities.length === 0) return [];
-  try {
-    return selectDossiersForRequest({ requestedCapabilities }).selected;
-  } catch {
-    return [];
-  }
-}
 
 function buildLifecycleBlocker(status: string, summary?: string | null): ChatReadinessItem | null {
   if (status === "draft") {

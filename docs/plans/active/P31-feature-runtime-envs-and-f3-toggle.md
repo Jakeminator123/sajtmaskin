@@ -87,6 +87,20 @@ Ny [data/openclaw/builder-prompt-tips.md](../../../data/openclaw/builder-prompt-
 
 Hookad i [src/app/api/openclaw/chat/route.ts](../../../src/app/api/openclaw/chat/route.ts) som tredje system message (efter SYSTEM_PROMPT och routing-prompt). Laddas vid module init med graceful fallback. Lägger även till regel i SYSTEM_PROMPT att aldrig nämna interna namn (dossier, scaffold-matcher, etc).
 
+## Follow-up (commits `d749c8502` + denna review-runda)
+
+Post-merge review (subagent + manuell granskning) hittade tre regressioner som åtgärdats utan att bryta P31:s designkontrakt:
+
+- **Hög:** `featureRuntimeKeys` / `warnOnlyKeys` filtrerade hela `requiredEnvKeys` istället för `unconfigured`. Konfigurerade keys visade "konfiguration krävs"-banner. Fixat i [`project-env-resolver.ts`](../../../src/lib/project-env-resolver.ts) `resolveEnvRequirementsFromDetected`.
+- **Hög:** `finalize-design/route.ts` saknade dossier-overlay + envEnforcement-propagering. Readiness sa "grön" men finalize blockerade på samma key — gates inkonsistenta. Fixat genom att (a) propagera `envEnforcement` från `DetectedIntegration` till `PlanIntegrationContract` (schema utöktes i [`plan/schema.ts`](../../../src/lib/gen/plan/schema.ts)), (b) finalize-design läser nu `selectedDossiers` från snapshot via shared helper [`resolveSelectedDossiersFromSnapshot`](../../../src/lib/gen/dossiers/snapshot-selection.ts), (c) `validateTier3Readiness` får `allowPlaceholdersForBuildKeys` när toggle är på. Cast-hacket i `tier3-build-spec.ts` är borttaget eftersom typen finns nu.
+- **Medium:** `findMatchingCluster` first-match misklassificerade vid delade env-keys. Fixat med best-overlap (deterministisk tie-break = first cluster).
+- **Medium:** `needsPayments` saknade generiska "betala med X"-fraser. Utökat med narrow patterns som kräver payment-instrument-noun.
+- **Medium:** Saknad regression-täckning för snapshot-resolution. Fixat med 8 nya cases i [`snapshot-selection.test.ts`](../../../src/lib/gen/dossiers/snapshot-selection.test.ts).
+
+Backoffice-paritet: [`backoffice/pages/dossiers.py`](../../../backoffice/pages/dossiers.py) validerar enforcement-värdet och visar `B/F/W`-fördelning per dossier i ny "Enforcement"-tab.
+
+Docs-synk: [`glossary.md`](../../architecture/glossary.md) har nya sektioner "EnvVar enforcement (P31)" + "F3 placeholder-toggle (P31)". [`dossier-system.md`](../../architecture/dossier-system.md) field-tabell pekar på enforcement. [`llm-signal-flow.md`](../../architecture/llm-signal-flow.md) dokumenterar `inferredCapabilityIds`-bridgen.
+
 ## Förväntade utfall
 
 För ett bokcafé på `app-shell` med selectedDossiers = []:

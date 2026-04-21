@@ -222,15 +222,10 @@ export function deriveTier3BuildSpec(
       : def.envVars;
     const { harmless, tier3 } = partitionEnvKeysByTier(envKeys);
 
-    // PlanContracts may carry per-key enforcement under a future schema
-    // extension. We read it defensively so callers that already pass it
-    // benefit immediately, while older callers see all keys treated as
-    // `build` (unchanged behaviour).
-    const enforcementHint = (
-      integration as PlanIntegrationContract & {
-        envEnforcement?: Record<string, "build" | "feature-runtime" | "warn-only">;
-      }
-    ).envEnforcement;
+    // PlanContracts may carry per-key enforcement (added to the schema in
+    // P31). When absent (older callers / legacy snapshots) every tier-3
+    // key falls back to `"build"` — the conservative pre-P31 default.
+    const enforcementHint = integration.envEnforcement;
     const featureRuntimeEnvKeys = enforcementHint
       ? tier3.filter((k) => enforcementHint[k] === "feature-runtime")
       : [];
