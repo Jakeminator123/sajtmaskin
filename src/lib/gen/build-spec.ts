@@ -5,6 +5,7 @@ import {
 } from "@/lib/builder/promptOrchestration";
 import { FEATURES } from "@/lib/config";
 import {
+  HEAVY_CAPABILITY_KEYS,
   hasHeavyCapabilities,
   type InferredCapabilities,
 } from "./capability-inference";
@@ -1052,22 +1053,14 @@ function deriveCapabilityFlags(
   capabilities: InferredCapabilities | null,
 ): BuildSpecCapabilityFlags {
   if (!capabilities) return { heavy: false, signals: [] };
-  const heavyKeys: Array<keyof InferredCapabilities> = [
-    "needsMotion",
-    "needs3D",
-    "needsPhysics",
-    "needsCharts",
-    "needsAppShell",
-    "needsDataUI",
-    "needsEcommerce",
-    "needsCarousel",
-    "needsPremiumVisuals",
-    "needsCalendar",
-    "needsCommandSearch",
-  ];
-  const signals = heavyKeys.filter((key) => capabilities[key] === true);
+  // SINGLE SOURCE OF TRUTH: HEAVY_CAPABILITY_KEYS is also what
+  // `hasHeavyCapabilities()` checks. Previously this function maintained
+  // its own (broader) list which drifted apart from the canonical one,
+  // letting `signals` include capabilities that did not actually flip
+  // `heavy`. Reviewer caught the inconsistency 2026-04-21.
+  const signals = HEAVY_CAPABILITY_KEYS.filter((key) => capabilities[key] === true);
   return {
-    heavy: hasHeavyCapabilities(capabilities) || signals.length > 0,
+    heavy: hasHeavyCapabilities(capabilities),
     signals: signals.map((key) => String(key)),
   };
 }

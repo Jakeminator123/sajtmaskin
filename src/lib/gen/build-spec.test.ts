@@ -755,8 +755,10 @@ Persisted errors for this version:
       },
     });
     expect(spec.capabilityFlags?.heavy).toBe(true);
-    expect(spec.capabilityFlags?.signals).toContain("needsMotion");
     expect(spec.capabilityFlags?.signals).toContain("needs3D");
+    // needsMotion is intentionally NOT in `signals` — it is not part of
+    // `HEAVY_CAPABILITY_KEYS` (matches `hasHeavyCapabilities`).
+    expect(spec.capabilityFlags?.signals).not.toContain("needsMotion");
   });
 
   it("returns an empty capabilityFlags signal list when capabilities is null", () => {
