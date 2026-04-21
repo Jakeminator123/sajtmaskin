@@ -142,8 +142,9 @@ export interface OrchestrationInput {
   /** Optional prompt strategy metadata from builder orchestration. */
   promptStrategyMeta?: Pick<
     PromptStrategyMeta,
-    "strategy" | "promptType" | "complexityScore"
-  > | null;
+    "strategy" | "promptType"
+  > &
+    Partial<Pick<PromptStrategyMeta, "complexityScore">>;
   /** Existing App Router paths from previous version files (follow-up route freeze/clamp). */
   existingRoutePaths?: string[];
   /** Route paths whose existing content is a deferred shell page (auto-detected from file content). */

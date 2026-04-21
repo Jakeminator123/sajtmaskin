@@ -155,10 +155,7 @@ type DeriveBuildSpecParams = {
   resolvedScaffold: ScaffoldManifest | null;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
-  promptStrategyMeta?: Pick<
-    PromptStrategyMeta,
-    "strategy" | "promptType" | "complexityScore"
-  > | null;
+  promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilities?: InferredCapabilities | null;
   /**
    * True when this is the first real code generation in a chat that already
@@ -190,6 +187,12 @@ type DeriveBuildSpecParams = {
    */
   modelContextWindowTokens?: number;
 };
+
+type PromptStrategyMetaForBuildSpec = Pick<
+  PromptStrategyMeta,
+  "strategy" | "promptType"
+> &
+  Partial<Pick<PromptStrategyMeta, "complexityScore">>;
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -820,10 +823,7 @@ function scoreContextPolicy(params: {
   routePlan: RoutePlan;
   routeRealization: RouteRealizationPolicy;
   preGenerationContracts: PreGenerationContractContext;
-  promptStrategyMeta?: Pick<
-    PromptStrategyMeta,
-    "strategy" | "promptType" | "complexityScore"
-  > | null;
+  promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilityHeavy: boolean;
 }): number {
   const {
@@ -887,10 +887,7 @@ function inferContextPolicy(params: {
   routePlan: RoutePlan;
   routeRealization: RouteRealizationPolicy;
   preGenerationContracts: PreGenerationContractContext;
-  promptStrategyMeta?: Pick<
-    PromptStrategyMeta,
-    "strategy" | "promptType" | "complexityScore"
-  > | null;
+  promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilityHeavy: boolean;
 }): { policy: BuildSpecContextPolicy; score: number } {
   const {
