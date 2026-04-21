@@ -11,7 +11,6 @@ const materializeImages = vi.hoisted(() => vi.fn());
 const runVerifierPass = vi.hoisted(() => vi.fn());
 const isVerifierPassEnabled = vi.hoisted(() => vi.fn());
 const buildPreviewHtml = vi.hoisted(() => vi.fn());
-const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
@@ -71,7 +70,6 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewHtml,
-  buildPreviewUrl,
 }));
 
 vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
@@ -150,7 +148,6 @@ describe("finalizeAndSaveVersion", () => {
     materializeImages.mockReset();
     runVerifierPass.mockReset();
     buildPreviewHtml.mockReset();
-    buildPreviewUrl.mockReset();
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
     addAssistantMessageAndCreateDraftVersion.mockReset();
@@ -278,7 +275,6 @@ describe("finalizeAndSaveVersion", () => {
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
     createGenerationTelemetryRecord.mockResolvedValue({ id: "telemetry_1" });
-    buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
   });
 
   describe("thinking persistence", () => {
@@ -481,7 +477,6 @@ describe("finalizeAndSaveVersion", () => {
     expect(result.previewUrl).toBeNull();
     expect(result.preflight.previewBlocked).toBe(true);
     expect(result.preflight.verificationBlocked).toBe(true);
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",
@@ -516,7 +511,6 @@ describe("finalizeAndSaveVersion", () => {
       "Automatic preflight could not build a renderable own-engine preview entrypoint.",
     );
     expect(result.preflight.primaryPreviewTarget).toBe("preview");
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",

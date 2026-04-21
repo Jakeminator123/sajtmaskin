@@ -5,7 +5,6 @@ const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
-const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const getScaffoldById = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/engine", () => ({
@@ -24,10 +23,6 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
     version,
     wasAutoAccepted: false,
   })),
-}));
-
-vi.mock("@/lib/gen/preview/build-preview-document", () => ({
-  buildPreviewUrl,
 }));
 
 vi.mock("@/lib/api/preview-url-contract", () => ({
@@ -80,7 +75,6 @@ describe("GET /api/engine/chats/[chatId]", () => {
     getChatByV0ChatIdForRequest.mockReset();
     getPreferredVersion.mockReset();
     getLatestVersion.mockReset();
-    buildPreviewUrl.mockReset();
     getScaffoldById.mockReset();
   });
 
@@ -120,7 +114,6 @@ describe("GET /api/engine/chats/[chatId]", () => {
     expect(json.latestVersion.previewUrl).toBeNull();
     expect(json.legacyShimPreviewUrl).toBeUndefined();
     expect(json.latestVersion.legacyShimPreviewUrl).toBeUndefined();
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
   it("returns null previewUrl for own-engine versions without preview_url", async () => {

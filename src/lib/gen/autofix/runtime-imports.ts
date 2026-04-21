@@ -8,9 +8,9 @@
  *  - snapshot repair (strip wrongly persisted files)
  */
 
-export const RUNTIME_PROVIDED_PREFIXES = ["@/components/ui/"] as const;
+const RUNTIME_PROVIDED_PREFIXES = ["@/components/ui/"] as const;
 
-export const RUNTIME_PROVIDED_EXACT = [
+const RUNTIME_PROVIDED_EXACT = [
   "@/lib/utils",
   "@/lib/hooks/use-mobile",
   "@/lib/hooks/use-toast",

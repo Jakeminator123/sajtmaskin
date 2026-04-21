@@ -3,7 +3,7 @@ import ts from "typescript";
 /** Local component paths that the LLM sometimes hallucinates as separate modules. */
 const STUB_PATH_RE = /^[@.]\/components\//;
 
-export function isStubModuleSpecifier(spec: string): boolean {
+function isStubModuleSpecifier(spec: string): boolean {
   return STUB_PATH_RE.test(spec);
 }
 
@@ -50,7 +50,7 @@ export function collectImportBindingRows(sf: ts.SourceFile): ImportBindingRow[] 
 /**
  * Removes named/default bindings from an import declaration, or drops the whole declaration.
  */
-export function pruneImportDeclarationBindings(
+function pruneImportDeclarationBindings(
   node: ts.ImportDeclaration,
   removeNames: Set<string>,
 ): ts.ImportDeclaration | undefined {

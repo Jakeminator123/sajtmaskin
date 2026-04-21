@@ -6,7 +6,6 @@ const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
 const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
-const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const maybeAutoAcceptTimedOutRepair = vi.hoisted(() =>
   vi.fn(async (v: unknown) => ({ version: v, wasAutoAccepted: false })),
 );
@@ -34,10 +33,6 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 
 vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs,
-}));
-
-vi.mock("@/lib/gen/preview/build-preview-document", () => ({
-  buildPreviewUrl,
 }));
 
 vi.mock("@/lib/db/client", () => ({
@@ -83,7 +78,6 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     getChatByV0ChatIdForRequest.mockReset();
     getVersionsByChat.mockReset();
     updateVersionPreviewUrl.mockReset();
-    buildPreviewUrl.mockReset();
     maybeAutoAcceptTimedOutRepair.mockReset();
     maybeAutoAcceptTimedOutRepair.mockImplementation(async (v: unknown) => ({
       version: v,
@@ -118,7 +112,6 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].previewUrl).toBeNull();
     expect(json.versions[0].legacyShimPreviewUrl).toBeUndefined();
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
   it("omits legacyShimPreviewUrl field for own-engine version rows", async () => {
@@ -136,8 +129,6 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
         promoted_at: null,
       },
     ]);
-    buildPreviewUrl.mockReturnValue("/api/preview-render?chatId=chat_1&versionId=ver_ok");
-
     const response = await GET(new Request("https://example.com/api/engine/chats/chat_1/versions"), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
@@ -147,7 +138,6 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].previewUrl).toBeNull();
     expect(json.versions[0].legacyShimPreviewUrl).toBeUndefined();
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
   it("returns empty versions when chat is not engine-backed and has no legacy DB mapping", async () => {
