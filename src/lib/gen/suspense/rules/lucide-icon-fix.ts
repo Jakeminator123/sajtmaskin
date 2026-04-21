@@ -1,7 +1,7 @@
 import { LUCIDE_ICONS, LUCIDE_BRAND_ICON_REPLACEMENTS } from "@/lib/gen/data/lucide-icons";
 import type { SuspenseRule, StreamContext } from "../transform";
 
-export const FALLBACK_ICON = "Circle";
+const FALLBACK_ICON = "Circle";
 
 /**
  * Matches `import { ... } from "lucide-react"` and validates each

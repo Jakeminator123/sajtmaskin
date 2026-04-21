@@ -93,7 +93,7 @@ const IMAGERY_PROMPT_PATTERN =
 const IMAGERY_PLACEHOLDER_PATTERN =
   /\/placeholder\.svg|UNSPLASH_PLACEHOLDER|via\.placeholder\.com|placehold\.co/i;
 
-export function followUpRequestsImagery(params: {
+function followUpRequestsImagery(params: {
   originalPrompt?: string;
   accumulatedContent?: string;
 }): boolean {

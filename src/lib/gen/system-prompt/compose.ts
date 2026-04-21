@@ -7,7 +7,7 @@
 
 let _cachedStaticCore: string | null = null;
 
-export function loadStaticCoreSync(): string {
+function loadStaticCoreSync(): string {
   if (_cachedStaticCore !== null) return _cachedStaticCore;
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { getStaticCoreFromWorkspace } = require("../static-core-loader") as typeof import("../static-core-loader");

@@ -149,8 +149,8 @@ export interface MaterializeImagesOptions {
   maxReplacements?: number;
 }
 
-export const DEFAULT_IMAGE_MATERIALIZATION_LIMIT = 3;
-export const IMAGE_MATERIALIZATION_CONCURRENCY = 2;
+const DEFAULT_IMAGE_MATERIALIZATION_LIMIT = 3;
+const IMAGE_MATERIALIZATION_CONCURRENCY = 2;
 
 type ImageResolution = {
   url: string;

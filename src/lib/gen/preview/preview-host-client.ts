@@ -45,7 +45,7 @@ export function describePreviewHostHttpFailure(params: {
  * - CLEANUP: admin-städning av föräldralösa workspaces; körs sällan så
  *   längre timeout är OK.
  */
-export const PREVIEW_HOST_CLIENT_TIMEOUTS_MS = {
+const PREVIEW_HOST_CLIENT_TIMEOUTS_MS = {
   start: 300_000,
   status: 15_000,
   verify: 300_000,

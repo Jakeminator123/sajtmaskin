@@ -1,7 +1,7 @@
 import ts from "typescript";
 
 /** Local component paths that the LLM sometimes hallucinates as separate modules. */
-export const STUB_PATH_RE = /^[@.]\/components\//;
+const STUB_PATH_RE = /^[@.]\/components\//;
 
 export function isStubModuleSpecifier(spec: string): boolean {
   return STUB_PATH_RE.test(spec);

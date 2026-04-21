@@ -90,7 +90,7 @@ export interface PromptAssistModelOption {
   label: string;
 }
 
-export const PROMPT_ASSIST_OFF_VALUE = "off";
+const PROMPT_ASSIST_OFF_VALUE = "off";
 
 const PROMPT_ASSIST_LABELS: Record<string, string> = {
   "openai/gpt-5.4": "OpenAI GPT-5.4",

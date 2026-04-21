@@ -111,27 +111,13 @@ export const STREAM_SAFETY_TIMEOUT_DEFAULT_MS = readIntEnv(
   rt.streamSafetyTimeoutMs.max,
 );
 
-export const ENGINE_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
-  rt.engineRouteMaxDurationSeconds.envKey,
-  rt.engineRouteMaxDurationSeconds.default,
-  rt.engineRouteMaxDurationSeconds.min,
-  rt.engineRouteMaxDurationSeconds.max,
-);
-
-export const ASSIST_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
-  rt.assistRouteMaxDurationSeconds.envKey,
-  rt.assistRouteMaxDurationSeconds.default,
-  rt.assistRouteMaxDurationSeconds.min,
-  rt.assistRouteMaxDurationSeconds.max,
-);
-
 export const SYNTAX_FIX_MAX_PASSES = repairPolicies.syntaxFixPasses;
 export const DETERMINISTIC_AUTOFIX_MAX_PASSES =
   repairPolicies.deterministicAutofixPasses;
 export const MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES =
   repairPolicies.manualRepairRouteLlmPasses;
 export const SERVER_REPAIR_MAX_PASSES = repairPolicies.serverRepairPasses;
-export const REPAIR_ACCEPT_TIMEOUT_MINUTES = repairPolicies.repairAcceptTimeoutMinutes;
+const REPAIR_ACCEPT_TIMEOUT_MINUTES = repairPolicies.repairAcceptTimeoutMinutes;
 export const REPAIR_ACCEPT_TIMEOUT_MS = REPAIR_ACCEPT_TIMEOUT_MINUTES * 60 * 1000;
 export const PARTIAL_FILE_REPAIR_MAX_ATTEMPTS =
   repairPolicies.partialFileRepairMaxAttempts;
