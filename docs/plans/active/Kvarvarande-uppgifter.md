@@ -49,6 +49,14 @@ Senast uppdaterad: 2026-04-20 efter cloud-loop (PR #69 — 21 commits) ovanpå m
 | **Block 2 — FIXA polish (10 prompt-regler i 2 commits)** | A6 + A7 + A8 + A10 + A15 + A16 + A18 / A11 + A12 + A13 | `83c0dfa4` `b51b0e2b` |
 | **Slutleverans** | Audit-mapp → `docs/reports/avklarade/`, denna fil uppdaterad, `STATUS-2026-04-20.md` skapad i roten, handoff orörd | (denna commit) |
 
+## Avklarat i LLM-flöde-audit 2026-04-21 (init/follow-up + env)
+
+| Vad | Var |
+|-----|-----|
+| **A1+A2 (follow-up brief läckage)** — `extractBriefSummary` persisterar nu `requestedCapabilities` + `domainProfile`, ny export `buildFollowUpBriefFromSnapshot` återskapar minimal brief från snapshot, `chat-message-stream-post.ts` använder den när inline-brief saknas. Kapabilitetsdriven dossier-pick fungerar nu på follow-up (var noll dossiers innan). 5 nya tester, 32/32 relaterade tester gröna. | `src/lib/own-engine/session/own-engine-build-session.ts`, `src/lib/gen/orchestration-snapshot.ts`, `src/lib/gen/orchestration-snapshot.test.ts`, `src/lib/api/engine/chats/chat-message-stream-post.ts` |
+| **Env-städ** — `.env.local` typo `_ASSE` → `_ASSERT=1`, raderade vestigials `LOG_PROMPTS`, `SAJTMASKIN_GENERATION_JOURNAL`, kommenterad `DEFAULT_SPEC_MODE`. Kommentar över `SAJTMASKIN_BUILD_SPEC_ENABLED` klargör att flaggan bara påverkar SSE-meta. | `.env.local` (gitignored, lokal) |
+| **Plan-filer skapade** för fortsatt LLM-kedje-städning (E1–E7, M1–M4, L1–L3) + körlista som index. | `docs/plans/active/{E,M,L1,L2,L3}-*.md`, lokalt körlista i `.cursor/plans/` |
+
 ## Avklarat i LLM-flöde Fas 2/3-leverans (2026-04-20)
 
 | Vad | Var |
