@@ -125,7 +125,8 @@ Senast uppdaterad: 2026-04-20 efter cloud-loop (PR #69 — 21 commits) ovanpå m
 | WSS/HMR till Fly — löst (stabil) | redan i drift |
 | P18: Landing-varning verifierad och stängd (Three/Fiber Clock-deprecation) | denna session |
 | Template-library pipeline: hydrate repo-cache | redan i drift |
-| Dossier-manifests: `recommendedScaffoldFamilies` → `recommendedScaffoldIds` | redan i drift |
+<!-- Borttaget 2026-04-21: `recommendedScaffoldFamilies` / `recommendedScaffoldIds` är v1-fält och finns inte i v2-dossier-manifest (`docs/schemas/strict/dossier.schema.json`). Raden var stale. -->
+
 | Schema-docs uppdaterade (README, scaffold-contract, glossary) | `7bdcc766c`, `5001347af` |
 | Planfiler konsoliderade, `halvfärdiga_filer/` borttagen | `fb53a87ea` |
 

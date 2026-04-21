@@ -1,4 +1,16 @@
 /**
+ * STATUS: LEGACY (v1-pipe). Refererade `scripts/dossiers/import-from-playwright.ts`
+ * och `import-from-light-catalog.ts` som togs bort 2026-04-20 i samband med
+ * dossier-pipeline v2-omstarten. Output `data/dossiers/_raw/` är gitignored
+ * och konsumeras inte längre av runtime.
+ *
+ * Specen körs inte automatiskt (ingen CI-yta), men kan användas som referens
+ * om man vill scrapea Vercel-templates manuellt för intag till en framtida
+ * dossier-curation. Migrera då skrivningen till `data/template-references/`.
+ *
+ * Plan för avveckling/migration: `docs/plans/active/dossier-cleanup-2026-04-21.md`.
+ *
+ * --- Original docstring (för historik) ---
  * Resilient catalog-only scrape: collects template (title, url, category) for
  * every Vercel use-case in the broad preset, writing an incremental output
  * after each category. No detail-page extraction (that can timeout and was
@@ -6,10 +18,6 @@
  *
  * Output: data/dossiers/_raw/playwright-catalog-light.json
  * Format: { scrapedAt, totalTemplates, byCategory: { <cat>: [{ title, url, categorySlug }] } }
- *
- * The transformer (scripts/dossiers/import-from-playwright.ts) picks this up
- * if the original `playwright-catalog.json` is missing — see the new
- * `import-from-light-catalog.ts` companion.
  */
 import { test, expect, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";

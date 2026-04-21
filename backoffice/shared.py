@@ -33,7 +33,10 @@ class BackofficeContext:
     # DEPRECATED: pekar på src/lib/gen/template-library/template-library.generated.json
     # som togs bort 2026-04-17 (4ba06d96e). Behålls bara för att inte bryta
     # scaffold_lifecycle.py (defensivt skrivet, läser tomt om filen saknas).
-    # Ny kod ska använda dossier-master.json via `data/dossiers/_index/master.json`.
+    # Ny kod ska INTE läsa template-library — för dossiers i v2, använd
+    # disk-walk av `data/dossiers/{hard,soft}/` (capability-driven, inget
+    # master-index). `data/dossiers/_index/capability-map.json` är en
+    # genererad view för backoffice/sanity, inte runtime-källa.
     template_lib_json: Path
     eval_latest: Path
     schema_md: Path
