@@ -117,8 +117,10 @@ export function buildPreviewHtml(files: CodeFile[], routePath?: string | null): 
  * Creates a preview URL for a given chatId + versionId.
  * Points to the /api/preview-render endpoint which serves the HTML.
  *
- * Returns `null` when `SAJTMASKIN_SHIM_PREVIEW_DISABLED` is truthy so no shim
- * URL is ever constructed; callers should fall back to the tier-2 VM preview.
+ * Returns `null` when shim preview is disabled — which is the **default**
+ * since 2026-04 (D4): operators must explicitly set
+ * `SAJTMASKIN_SHIM_PREVIEW_DISABLED=0` (or `false` / `off` / `no`) to opt
+ * back in. Callers should fall back to the tier-2 VM preview.
  */
 export function buildPreviewUrl(
   chatId: string,

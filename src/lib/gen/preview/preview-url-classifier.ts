@@ -101,49 +101,11 @@ export function hasTier2LivePreviewUrl(url: string | null | undefined): boolean 
   return isTier2LivePreviewUrl(url);
 }
 
-function previewUrlsEquivalent(
-  a: string | null | undefined,
-  b: string | null | undefined,
-): boolean {
-  const left = normalizePreviewUrl(a);
-  const right = normalizePreviewUrl(b);
-  if (!left || !right) return false;
-  if (left === right) return true;
-  try {
-    return new URL(left, PREVIEW_URL_BASE).href === new URL(right, PREVIEW_URL_BASE).href;
-  } catch {
-    return false;
-  }
-}
-
 export function resolveAlternatePreviewUrls(params: {
   storedLivePreviewUrl?: string | null;
 }): AlternatePreviewUrls {
   const storedLivePreviewUrl = normalizePreviewUrl(params.storedLivePreviewUrl);
   return {
     storedLivePreviewUrl,
-  };
-}
-
-export function buildAlternatePreviewBannerState(params: {
-  currentUrl: string | null | undefined;
-  alternatePreviewUrls?: AlternatePreviewUrls | null;
-}): { livePreviewUrl: string } | null {
-  const currentUrl = normalizePreviewUrl(params.currentUrl);
-  const livePreviewUrl = normalizePreviewUrl(params.alternatePreviewUrls?.storedLivePreviewUrl);
-
-  const offerTier2Preview = Boolean(
-    currentUrl &&
-      isCompatShimPathUrl(currentUrl) &&
-      livePreviewUrl &&
-      !previewUrlsEquivalent(currentUrl, livePreviewUrl),
-  );
-
-  if (!offerTier2Preview) {
-    return null;
-  }
-
-  return {
-    livePreviewUrl: livePreviewUrl!,
   };
 }
