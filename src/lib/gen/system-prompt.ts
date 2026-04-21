@@ -34,32 +34,25 @@
  * Canonical map: `docs/architecture/fas2-orchestration-and-build.md`.
  */
 
-import type { BuildIntent } from "@/lib/builder/build-intent";
-import type { PaletteState } from "@/lib/builder/palette";
-import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { debugLog } from "@/lib/utils/debug";
 import {
   deriveTier3BuildSpec,
   renderTier3BuildPlanBlock,
 } from "@/lib/integrations/tier3-build-spec";
 import { renderTier3F2DenyBlockLines } from "@/lib/integrations/tier3-sdk-deny";
-import type { BuildSpec } from "./build-spec";
-import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
 import type { ScaffoldVariant } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import { resolveGoogleFontImportName } from "./data/google-font-registry";
 import { resolveGuidanceBlocks, type ColorPalette } from "./guidance-resolvers";
 import { BUILD_INTENT_GUIDANCE } from "./intent-guidance";
-import type { RoutePlan } from "./route-plan";
-import type { ScaffoldId, ScaffoldManifest } from "./scaffolds/types";
+import type { ScaffoldId } from "./scaffolds/types";
 import {
   buildBudgetedSystemPrompt,
 } from "./tokens";
 import {
   defaultInjectionMode,
   getDossierFileContent,
-  type DossierSelectionResult,
 } from "./dossiers";
 import {
   DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS,
