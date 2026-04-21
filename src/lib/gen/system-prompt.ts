@@ -43,6 +43,9 @@ import {
   renderTier3BuildPlanBlock,
 } from "@/lib/integrations/tier3-build-spec";
 import { renderTier3F2DenyBlockLines } from "@/lib/integrations/tier3-sdk-deny";
+import { FEATURES } from "@/lib/config";
+import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
+import { renderErrorLogRagBlockLines } from "@/lib/gen/rag/error-log-retriever";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
@@ -172,6 +175,57 @@ export interface DesignReferenceAsset {
   note?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 2D — recurring failures block.
+//
+// Reads `logs/site-observability/<chatId>/latest/fix-patterns.json` and
+// renders a `### Recurring failures on this site` block so the MAIN
+// generator (not just the fixer) sees that it just made the same mistake
+// last time. Capped at 5 patterns + 600 chars; falls silently when budget
+// or signal is missing.
+// ---------------------------------------------------------------------------
+const RECURRING_BLOCK_MAX_PATTERNS = 5;
+const RECURRING_BLOCK_MAX_CHARS = 600;
+const RECURRING_BLOCK_MIN_OCCURRENCES = 2;
+
+export function renderRecurringFailuresBlockLines(
+  chatId: string | null | undefined,
+): string[] {
+  if (!chatId) return [];
+  let patterns: ReturnType<typeof readRecurringPatternsForChat>;
+  try {
+    patterns = readRecurringPatternsForChat(chatId);
+  } catch {
+    return [];
+  }
+  const eligible = patterns
+    .filter((p) => p.occurrences >= RECURRING_BLOCK_MIN_OCCURRENCES)
+    .slice(0, RECURRING_BLOCK_MAX_PATTERNS);
+  if (eligible.length === 0) return [];
+  const header = "### Recurring failures on this site";
+  const intro =
+    "These mistakes already happened on this site in earlier generations. " +
+    "Do NOT repeat them. The mechanical autofix and LLM-fixer have already " +
+    "patched them once; emitting them again costs another repair pass.";
+  const items = eligible.map((p) => {
+    const fileBit =
+      p.files && p.files.length > 0 ? ` — files: ${p.files
+        .slice(0, 2)
+        .map((f) => `\`${f.file}\``)
+        .join(", ")}` : "";
+    const exBit = p.example ? ` — last example: ${p.example.slice(0, 80)}` : "";
+    return `- \`${p.pattern}\` (×${p.occurrences})${fileBit}${exBit}`;
+  });
+  const block = [header, "", intro, "", ...items, ""];
+  // Char-cap: cut from the bottom item-by-item until under budget so the
+  // header/intro always survives.
+  while (block.join("\n").length > RECURRING_BLOCK_MAX_CHARS && block.length > 4) {
+    // Pop the last item (which is just before the trailing empty string).
+    block.splice(block.length - 2, 1);
+  }
+  return block;
+}
+
 export interface DynamicContextOptions {
   intent: BuildIntent;
   brief?: Brief | null;
@@ -196,6 +250,14 @@ export interface DynamicContextOptions {
   buildSpec?: BuildSpec | null;
   /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
+  /**
+   * Chat id — used for the Phase 2D `### Recurring failures on this site`
+   * block. Must be the real chat id (not a hashed seed) because we need it
+   * to read `logs/site-observability/<chatId>/latest/fix-patterns.json`.
+   * Optional so legacy callers (eval/runner, snapshot tests) compile
+   * unchanged; the block is silently skipped when missing.
+   */
+  chatId?: string | null;
   /** Verified shadcn usage examples matched to this request's capabilities. */
   componentReferences?: { name: string; code: string }[];
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
@@ -470,6 +532,7 @@ export function buildDynamicContext(
     generationMode,
     buildSpec,
     sessionSeed,
+    chatId,
     componentReferences,
   } = options;
 
@@ -1008,6 +1071,37 @@ export function buildDynamicContext(
       "- The finalize preflight runs a deterministic href ↔ route cross-check; mismatches surface as warnings in the version error log and may block future builds.",
     );
     parts.push("");
+
+    // Phase 2D — recurring failures block. Only on follow-ups (init has no
+    // historical patterns), only when the FEATURES.recurringPatternsInMainPrompt
+    // toggle is on, and only when there is real signal. Inserted right after
+    // the canonical-route-paths block so the model sees both "where to go"
+    // and "what not to repeat" together. See renderRecurringFailuresBlockLines.
+    if (isFollowUp && FEATURES.recurringPatternsInMainPrompt) {
+      const recurringLines = renderRecurringFailuresBlockLines(chatId);
+      if (recurringLines.length > 0) {
+        parts.push(...recurringLines);
+      }
+    }
+
+    // Phase 3.4 — Vector RAG block. When enabled, retrieves top-K
+    // similar past failures from the deterministic TF-IDF index built
+    // by `scripts/observability/index-error-log-rag.mjs` and renders
+    // them as `### Lessons from similar past builds`. Auto-rebuilt at
+    // npm run dev|build|start (see scripts/dev/next-runner.mjs hook).
+    // Capped at 800 chars; falls silently when index is empty/missing.
+    if (FEATURES.useErrorLogRag) {
+      const ragLines = renderErrorLogRagBlockLines({
+        prompt: userPrompt ?? "",
+        scaffoldId: resolvedScaffold?.id ?? buildSpec?.scaffoldId ?? null,
+        // lineageHash is not surfaced into DynamicContextOptions today; the
+        // retriever happily works without it. P26 follow-up could thread it
+        // through orchestration-snapshot.
+      });
+      if (ragLines.length > 0) {
+        parts.push(...ragLines);
+      }
+    }
   }
 
   // ── Tier-3 Integration Build Plan (F3 only) ────────────────────────────

@@ -66,6 +66,10 @@ data/*.db-shm
 data/*.db-wal
 data/uploads/
 
+# Runtime observability artefacts (error-log RAG index, etc.)
+# Per-machine; rebuild via `npm run rag:error-log:reindex` or auto-ingest hook.
+data/observability/
+
 # Lokalt arkiv (labs, gamla scripts) — håll borta från git-status
 /archive/
 

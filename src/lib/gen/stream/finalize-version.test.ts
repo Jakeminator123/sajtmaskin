@@ -28,6 +28,23 @@ const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 
+// Mock the FEATURES gate so SAJ-25 prune logic exercises in test (default ON).
+// Tests that need it OFF can override via vi.doMock per-test.
+vi.mock("@/lib/config", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/config")>("@/lib/config");
+  return {
+    ...actual,
+    FEATURES: {
+      ...actual.FEATURES,
+      consistentRepairPassIndex: true,
+      verifierRerunAfterFix: true,
+      skipDoubleValidateAndFixOnMerge: true,
+      recurringPatternsInMainPrompt: false,
+      useErrorLogRag: false,
+    },
+  };
+});
+
 vi.mock("@/lib/gen/autofix/pipeline", () => ({
   runAutoFix,
 }));
@@ -97,8 +114,10 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
 }));
 
+const pruneStaleVersionErrorLogs = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs,
+  pruneStaleVersionErrorLogs,
 }));
 
 vi.mock("@/lib/db/services/generation-telemetry", () => ({
@@ -162,6 +181,8 @@ describe("finalizeAndSaveVersion", () => {
     logGeneration.mockReset();
     failVersionVerification.mockReset();
     createEngineVersionErrorLogs.mockReset();
+    pruneStaleVersionErrorLogs.mockReset();
+    pruneStaleVersionErrorLogs.mockResolvedValue(0);
     createGenerationTelemetryRecord.mockReset();
     parseFilesFromContent.mockReset();
     mergeVersionFilesWithWarnings.mockReset();
@@ -1151,6 +1172,186 @@ describe("finalizeAndSaveVersion", () => {
                 reason: "light_followup_fast_policy",
               }),
             }),
+          }),
+        }),
+      );
+    });
+  });
+
+  // SAJ-25 — pruneStaleVersionErrorLogs acceptance.
+  describe("SAJ-25 — pruneStaleVersionErrorLogs", () => {
+    const baseFinalizeArgs = () => ({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_saj25",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    it("init pass (repairPassIndex=0) does NOT call prune even on clean finalize", async () => {
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 0,
+      });
+      expect(pruneStaleVersionErrorLogs).not.toHaveBeenCalled();
+    });
+
+    it("clean follow-up pass (repairPassIndex=1) calls prune with the version id and current pass index", async () => {
+      pruneStaleVersionErrorLogs.mockResolvedValue(2);
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledTimes(1);
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledWith("ver_1", 1);
+    });
+
+    it("prune failure is non-fatal — finalize still completes (best-effort)", async () => {
+      pruneStaleVersionErrorLogs.mockRejectedValue(new Error("transient db error"));
+      const result = await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+      expect(result.version.id).toBe("ver_1");
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Repair-loop hardening B — verifier re-run after LLM-fixer.
+  // Tests use vi.doMock to flip FEATURES.verifierRerunAfterFix per-case so
+  // the legacy optimistic-clear path is also covered.
+  describe("Phase 2B — verifier re-run after LLM-fixer", () => {
+    const verifierTriggeringBuildSpec = {
+      buildIntent: "website" as const,
+      generationMode: "init" as const,
+      changeScope: "redesign" as const,
+      scaffoldId: null,
+      routePlanSummary: "prompt:one-page:/",
+      stylePack: "brand-led",
+      qualityTarget: "premium" as const,
+      previewPolicy: "fidelity2" as const,
+      verificationPolicy: "strict" as const,
+      contextPolicy: "normal" as const,
+      referenceCategories: [],
+      forbiddenPatterns: [],
+      tokenBudgets: {
+        scaffoldChars: 36_000,
+        refsChars: 12_000,
+        systemContextChars: 48_000,
+      },
+      routeRealization: {
+        mode: "full" as const,
+        primaryRoutePath: "/",
+        fullRoutePaths: ["/"],
+        shellRoutePaths: [],
+      },
+    };
+
+    const baseArgs = () => ({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_2b",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      buildSpec: verifierTriggeringBuildSpec,
+    });
+
+    it("blocking → fix succeeds → rerun reports clean → no rerun-blocking findings persisted", async () => {
+      // First verifier call: 1 blocking finding.
+      // Second verifier call (rerun): 0 blocking findings.
+      runVerifierPass
+        .mockResolvedValueOnce({
+          blocking: [{ id: "missing-h1", detail: "page missing h1" }],
+          quality: [],
+        })
+        .mockResolvedValueOnce({ blocking: [], quality: [] });
+      runLlmFixer.mockResolvedValue({
+        fixedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <h1>Hello</h1>; }\n```',
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 50,
+      });
+      await finalizeAndSaveVersion(baseArgs());
+      // Two verifier calls: initial pass + rerun.
+      expect(runVerifierPass).toHaveBeenCalledTimes(2);
+      // Telemetry should reflect a clean rerun.
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            preflight: expect.objectContaining({
+              verifierBlocked: false,
+              verifierBlockingFindingCount: 0,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("blocking → fix succeeds → rerun reports still-blocking → keeps findings + verifierBlocked", async () => {
+      runVerifierPass
+        .mockResolvedValueOnce({
+          blocking: [{ id: "missing-h1", detail: "page missing h1" }],
+          quality: [],
+        })
+        .mockResolvedValueOnce({
+          blocking: [{ id: "missing-h1", detail: "page still missing h1" }],
+          quality: [],
+        });
+      runLlmFixer.mockResolvedValue({
+        fixedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Still missing h1</div>; }\n```',
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 50,
+      });
+      await finalizeAndSaveVersion(baseArgs());
+      expect(runVerifierPass).toHaveBeenCalledTimes(2);
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            preflight: expect.objectContaining({
+              verifierBlocked: true,
+              verifierBlockingFindingCount: 1,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("rerun failure → falls back to optimistic clear (legacy behaviour) so existing latency budgets are not regressed", async () => {
+      runVerifierPass
+        .mockResolvedValueOnce({
+          blocking: [{ id: "missing-h1", detail: "page missing h1" }],
+          quality: [],
+        })
+        .mockRejectedValueOnce(new Error("rerun aborted"));
+      runLlmFixer.mockResolvedValue({
+        fixedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <h1>Hello</h1>; }\n```',
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 50,
+      });
+      await finalizeAndSaveVersion(baseArgs());
+      expect(runVerifierPass).toHaveBeenCalledTimes(2);
+      // Optimistic clear means verifierBlocked goes false despite rerun fail.
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            preflight: expect.objectContaining({ verifierBlocked: false }),
           }),
         }),
       );

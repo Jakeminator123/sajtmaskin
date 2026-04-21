@@ -336,6 +336,12 @@ export function createOwnEngineGenerationStream(
         lineageHash,
         targetVersionId,
         lifecycleParentVersionId,
+        // SAJ-25: propagate repairPassIndex so finalize-version's `logPassId`
+        // bucket stops collapsing follow-up passes under `:repair-0:` and
+        // pruneStaleVersionErrorLogs can drop earlier-pass rows when the
+        // current pass clears `verificationBlocked`. Mirrors the value used
+        // in runOwnEngineStreamPostFinalize so both sides agree.
+        repairPassIndex: targetVersionId ? 1 : 0,
         accumulatedThinking: accumulatedThinkingRef?.current ?? null,
         ...extra,
       });
