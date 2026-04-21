@@ -284,8 +284,11 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
         else:
             st.info(
-                "Ingen eval-rapport hittades. Den gamla `scaffold_cli.py eval`-vägen är "
-                "avvecklad — använd `npm run eval` (kör eval-harnessen i `src/lib/gen/eval/`)."
+                "Ingen eval-rapport hittades. Sidan läser "
+                "`data/scaffold-eval/reports/scaffold-selection-latest.json` som genereras av "
+                "`npm run scaffolds:eval` (`scripts/scaffolds/eval-scaffold-selection.ts`). "
+                "OBS: `npm run eval` är en separat **own-engine eval-harness** "
+                "(`src/lib/gen/eval/cli.ts`) som skriver till `eval-output/*.md` — inte den här sidans datakälla."
             )
 
     elif page == "Orchestration Map":

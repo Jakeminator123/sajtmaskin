@@ -78,7 +78,7 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("F2 / F3 livscykel (2026-04)")
     st.markdown(
         """
-- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck"]`). Tier-3 SDK-imports
+- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck", "build"]` sedan 2026-04-20; var tidigare `["typecheck"]`). Tier-3 SDK-imports
   (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, …) strippas mekaniskt av `tier3-sdk-guard-fixer`.
 - **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. `integrationsBuild` quality gate (`["typecheck", "build"]`).
   Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 readiness mot

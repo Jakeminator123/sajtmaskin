@@ -61,6 +61,7 @@
     "baseline-deps:verify": "npx tsx scripts/deps/validate-baseline-npm-versions.ts",
     "baseline-deps:tree": "npx tsx scripts/deps/validate-baseline-npm-tree.ts",
     "eval": "npx tsx scripts/eval/run-eval.ts",
+    "scaffolds:eval": "npx tsx scripts/scaffolds/eval-scaffold-selection.ts",
     "eval:suite": "npx tsx src/lib/gen/eval/cli.ts",
     "eval:gate": "npx tsx src/lib/gen/eval/cli.ts --gate",
     "eval:baseline": "npx tsx src/lib/gen/eval/cli.ts --save-baseline",
