@@ -35,9 +35,9 @@ import {
   getLatestPendingReply as getLatestPendingReplyFromTooling,
   hasUserMessageAfter as hasUserMessageAfterFromTooling,
   isActionableToolPart,
-  openProjectEnvVarsPanel,
   buildAgentLogItems as buildAgentLogItemsFromTooling,
 } from "@/components/builder/BuilderMessageTooling";
+import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
 import { GenerationSummary } from "@/components/builder/GenerationSummary";
 import { VersionFeedback } from "@/components/builder/VersionFeedback";
 import { Streamdown } from "streamdown";
@@ -282,7 +282,6 @@ const MessageListComponent = ({
                         sendQuickReply(messageId, optionIndex, option, options)
                       }
                       quickReplyDisabled={quickReplyDisabled}
-                      lifecycleStage={lifecycleStage}
                     />
                   )}
 

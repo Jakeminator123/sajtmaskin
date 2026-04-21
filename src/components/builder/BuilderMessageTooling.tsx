@@ -48,17 +48,19 @@ type StructuredToolPartsProps = {
   pendingQuickReplyKey: string | null;
   onQuickReply?: QuickReplyHandler;
   quickReplyDisabled?: boolean;
+};
+
+type CompactToolPartsProps = StructuredToolPartsProps & {
   /**
    * F2 vs F3 lifecycle gate. Env / integrations buttons inside compact
-   * tool parts are hidden during F2 because the target panel is not
-   * mounted there.
+   * tool parts are hidden during F2 because the target panel
+   * (`ProjectEnvVarsPanel`) is not mounted there. Only used by
+   * `CompactToolParts`; structured rendering does not surface env actions.
    */
   lifecycleStage?:
     | import("@/lib/db/engine-version-lifecycle").EngineVersionLifecycleStage
     | null;
 };
-
-type CompactToolPartsProps = StructuredToolPartsProps;
 
 export type PendingReplyModalData = {
   key: string;
