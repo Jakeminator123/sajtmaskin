@@ -81,11 +81,18 @@ defaultvärden:
 
 | Profil | Checks | Var den används |
 |--------|--------|-----------------|
-| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck"]` | F2 quality gate (live-preview + bakgrunds-`server-verify` + repair re-check). |
+| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck", "build"]` | F2 quality gate (live-preview + bakgrunds-`server-verify` + repair re-check). |
 | `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build"]` | F3 / promotion-flödet (`/finalize-design`). |
 
-`next build` hör alltså inte till standard live-preview- eller standard
-background-verify-flödet — bara F3.
+`next build` ingår alltså i båda lanes sedan 2026-04-20 (Tier S #7 /
+`docs/plans/active/Kvarvarande-uppgifter.md` §1.5). F2-`build`-passet
+fångar Next-runtime-fel som typechecket inte ser — broken imports,
+runtime-crashes som compile:ar fint — *innan* preview-iframen renderar,
+vilket undviker "blank HTML"-incidenter. Kostar ~5–20 s extra per
+finalize och cirka +5–10 USD/mån i Fly-CPU. Default-fallback i
+`src/lib/gen/verify/quality-gate-checks.ts` matchar manifestet, så
+runtime kan inte tyst falla tillbaka till bara `typecheck`. För att
+kostnadsbegränsa, sätt arrayen till `["typecheck"]` i miljöns manifest.
 
 **Borttaget 2026-04:** `tier2`, `serverVerify`, `promotion`, `interactive`
 konsoliderades till `designPreview` + `integrationsBuild`. Lint-laden
