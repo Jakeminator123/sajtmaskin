@@ -87,20 +87,63 @@ export function isShellPageContent(content: string): boolean {
   return signals.filter(Boolean).length >= 2;
 }
 
+/**
+ * Capability flags surfaced from `InferredCapabilities` directly on the
+ * BuildSpec. Before 2026-04-21 callers had to pass `InferredCapabilities`
+ * (or a derived `capabilityHeavy` boolean) alongside the BuildSpec to make
+ * the same decision again — a duplicated information path between the
+ * orchestration layer and finalize. Exposing the canonical signal here
+ * lets downstream code read it from a single source.
+ *
+ * `signals` lists the human-readable capability keys that contributed to
+ * `heavy` being true; helpful for log triage and prompt-dump diffing.
+ */
+export interface BuildSpecCapabilityFlags {
+  heavy: boolean;
+  signals: string[];
+}
+
 export interface BuildSpec {
   buildIntent: BuildIntent;
   generationMode: BuildSpecGenerationMode;
   changeScope: BuildSpecChangeScope;
   scaffoldId: ScaffoldId | null;
   routePlanSummary: string;
+  /**
+   * Primary style direction. Picked by *score-based* matching across all
+   * stylepack vocabularies — not first-match-wins. Multi-cue prompts like
+   * "futuristic minimalist luxury landing" now resolve to whichever bucket
+   * collected the most signals, with a stable scaffold-derived fallback.
+   */
   stylePack: string;
+  /**
+   * Optional secondary style hint when two style families tied or were
+   * close. Surfaces in the system prompt so the model can blend.
+   * `null` when the primary scored cleanly above the runner-up.
+   *
+   * Optional on the type to stay compatible with hand-written `BuildSpec`
+   * literals in tests (only `deriveBuildSpec` guarantees the field).
+   */
+  stylePackSecondary?: string | null;
   qualityTarget: BuildSpecQualityTarget;
   previewPolicy: BuildSpecPreviewPolicy;
   verificationPolicy: BuildSpecVerificationPolicy;
   contextPolicy: BuildSpecContextPolicy;
+  /**
+   * Numerical score that drove `contextPolicy`. Useful for tuning and for
+   * downstream telemetry. Optional for the same reason as
+   * `stylePackSecondary` — hand-written test mocks may omit it.
+   */
+  contextPolicyScore?: number;
   referenceCategories: string[];
   forbiddenPatterns: string[];
   tokenBudgets: BuildSpecTokenBudgets;
+  /**
+   * Capability fingerprint derived from `InferredCapabilities`. Exposed on
+   * the spec so finalize/preflight don't need to recompute heaviness.
+   * Optional for compat with existing `BuildSpec` literals in tests.
+   */
+  capabilityFlags?: BuildSpecCapabilityFlags;
   routeRealization?: RouteRealizationPolicy;
 }
 
@@ -132,6 +175,16 @@ type DeriveBuildSpecParams = {
    * (`POST /api/engine/chats/[chatId]/finalize-design`).
    */
   previewPolicyOverride?: BuildSpecPreviewPolicy;
+  /**
+   * Optional input-context capacity (in tokens) of the model that will
+   * actually consume this generation. When provided, `tokenBudgets` are
+   * scaled relative to a 200k baseline so a 1M-window model can use a
+   * proportionally bigger `systemContextTokens` slice without us having
+   * to invent per-tier numbers per provider.
+   *
+   * Omit (or pass <= 0) to use the legacy default budgets unchanged.
+   */
+  modelContextWindowTokens?: number;
 };
 
 function escapeRegex(value: string): string {
