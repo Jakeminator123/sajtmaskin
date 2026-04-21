@@ -31,6 +31,7 @@ import {
 import { getPhaseRoutingSummary, resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
 import { incPartialFileRepair } from "@/lib/observability/metrics";
@@ -715,6 +716,28 @@ async function runFinalizeFastPath(params: {
         scaffoldId: params.resolvedScaffold?.id ?? null,
         resolvedTier: params.resolvedTier ?? null,
       });
+      // Phase 3.1 producer — feed the RAG NDJSON so retriever can surface
+      // these to future generations on similar inputs.
+      for (const finding of findings.blocking.slice(0, 5)) {
+        appendErrorLogEvent({
+          phase: "post-gen",
+          subphase: "verifier-pass",
+          creator: "verifier",
+          severity: "error",
+          fault: finding.id,
+          faultText: finding.detail,
+          fixText: null,
+          modelTier: resolvedTier ?? null,
+          model,
+          provider: "own-engine",
+          repairPassIndex,
+          result: "still-failing",
+          chatId,
+          versionId: null, // version not minted yet at this point
+          scaffoldId: params.resolvedScaffold?.id ?? null,
+          lineageHash: null, // not threaded into runFinalizeFastPath today
+        });
+      }
       onProgress?.("verifier", {
         phase: "done",
         durationMs: Date.now() - verifierStartedAt,
@@ -840,6 +863,36 @@ async function runFinalizeFastPath(params: {
             partial: repaired.partial,
             scaffoldId: params.resolvedScaffold?.id ?? null,
           });
+          // Phase 3.1 producer — emit a "fixed" / "noop" row per blocking
+          // finding so future RAG queries see what worked.
+          if (fixerImproved) {
+            for (const finding of findings.blocking.slice(0, 5)) {
+              appendErrorLogEvent({
+                phase: "post-gen",
+                subphase: "verifier-fixer",
+                creator: "llm-verifier-fixer",
+                fixer: "llm-verifier-fixer",
+                severity: "warning",
+                fault: finding.id,
+                faultText: finding.detail,
+                fixText: "verifier-fixer rewrote the offending file(s)",
+                modelTier: resolvedTier ?? null,
+                model,
+                provider: "own-engine",
+                repairPassIndex,
+                result:
+                  rerunBlockingCount === 0
+                    ? "fixed"
+                    : rerunBlockingCount === null
+                      ? "fixed"
+                      : "still-failing",
+                chatId,
+                versionId: null,
+                scaffoldId: params.resolvedScaffold?.id ?? null,
+                lineageHash: null,
+              });
+            }
+          }
           onProgress?.("verifier", {
             phase: "fixed",
             durationMs: Date.now() - verifierFixStartedAt,
