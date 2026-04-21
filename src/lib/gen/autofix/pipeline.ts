@@ -21,6 +21,7 @@ import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer"
 import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "./rules/r3f-vector-tuple-fixer";
+import { fixTypeOnlyImports } from "./rules/type-only-import-fixer";
 import {
   fixCnImportConflict,
   fixMissingMetadataImport,
@@ -493,6 +494,24 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] react-type-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3c-typeonly. type-only-import-fixer — convert `import { X }` to
+      // `import type { X }` when the binding is never used as a value
+      // (TS2749 prevention). Empirical hit logged in
+      // docs/plans/active/P31-feature-runtime-envs-and-f3-toggle.md.
+      try {
+        const typeOnlyResult = fixTypeOnlyImports(currentCode, file.path);
+        if (typeOnlyResult.fixed) {
+          currentCode = typeOnlyResult.code;
+          for (const fix of typeOnlyResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] type-only-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

@@ -13,6 +13,7 @@ import {
 import { fixCnImportConflict } from "@/lib/gen/autofix/rules/metadata-import-fixer";
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "@/lib/gen/autofix/rules/r3f-vector-tuple-fixer";
+import { fixTypeOnlyImports } from "@/lib/gen/autofix/rules/type-only-import-fixer";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
 import { fixReactHookImports } from "@/lib/gen/autofix/react-hook-import-fixer";
 import {
@@ -220,6 +221,14 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     if (r3fTupleResult.fixed) {
       content = r3fTupleResult.code;
       for (const fix of r3fTupleResult.fixes) {
+        fixes.push(fix);
+      }
+    }
+
+    const typeOnlyResult = fixTypeOnlyImports(content, file.path);
+    if (typeOnlyResult.fixed) {
+      content = typeOnlyResult.code;
+      for (const fix of typeOnlyResult.fixes) {
         fixes.push(fix);
       }
     }
