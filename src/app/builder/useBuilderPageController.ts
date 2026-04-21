@@ -101,7 +101,7 @@ export function useBuilderPageController() {
     hasLoadedInstructions, hasLoadedInstructionsOnce, lastActiveVersionIdRef,
     lastPaletteSavedRef, lastProjectIdRef,
     loadedGenerationSettingsChatRef, paletteLoadedRef, pendingBriefRef,
-    pendingInstructionsOnceRef, pendingInstructionsRef, pendingSpecRef,
+    pendingInstructionsOnceRef, pendingInstructionsRef,
     promptAssistContextKeyRef, promptFetchDoneRef,
     promptFetchInFlightRef,
   } = state;
@@ -209,7 +209,6 @@ export function useBuilderPageController() {
     pendingInstructionsRef: state.pendingInstructionsRef,
     pendingInstructionsOnceRef: state.pendingInstructionsOnceRef,
     pendingBriefRef: state.pendingBriefRef,
-    pendingSpecRef: state.pendingSpecRef,
     hasLoadedInstructions: state.hasLoadedInstructions,
     hasLoadedInstructionsOnce: state.hasLoadedInstructionsOnce,
     router,
@@ -256,7 +255,6 @@ export function useBuilderPageController() {
     appProjectId: state.appProjectId,
     appProjectName: state.appProjectName,
     applyInstructionsOnce: state.applyInstructionsOnce,
-    pendingSpecRef: state.pendingSpecRef,
     pendingInstructionsRef: state.pendingInstructionsRef,
     pendingInstructionsOnceRef: state.pendingInstructionsOnceRef,
     setSelectedVersionId: state.setSelectedVersionId,
@@ -659,7 +657,6 @@ export function useBuilderPageController() {
     if (!shouldResetChatState && !shouldResetResolvedPrompt) return;
 
     pendingBriefRef.current = null;
-    pendingSpecRef.current = null;
 
     if (shouldResetChatState) {
       setChatId(null);
@@ -682,7 +679,6 @@ export function useBuilderPageController() {
     promptId,
     promptParam,
     pendingBriefRef,
-    pendingSpecRef,
     promptFetchDoneRef,
     setChatId,
     setMessages,
@@ -1214,12 +1210,11 @@ export function useBuilderPageController() {
       /* ignore */
     }
     pendingBriefRef.current = null;
-    pendingSpecRef.current = null;
     setChatId(null);
     setCurrentPreviewUrl(null);
     setMessages([]);
     router.replace("/builder");
-  }, [chatId, isChatError, router, setChatId, setCurrentPreviewUrl, setMessages, pendingBriefRef, pendingSpecRef, setIsIntentionalReset]);
+  }, [chatId, isChatError, router, setChatId, setCurrentPreviewUrl, setMessages, pendingBriefRef, setIsIntentionalReset]);
 
   // External project id sync
   useEffect(() => {

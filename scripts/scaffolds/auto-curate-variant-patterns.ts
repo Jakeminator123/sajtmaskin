@@ -125,7 +125,7 @@ const SignaturePatternsSchema = z.object({
     .max(4),
 });
 
-type SignaturePatterns = z.infer<typeof SignaturePatternsSchema>;
+type _SignaturePatterns = z.infer<typeof SignaturePatternsSchema>;
 
 function buildSystemPrompt(): string {
   return `You are an expert UI/UX direction curator for "Sajtmaskin", an AI website builder.

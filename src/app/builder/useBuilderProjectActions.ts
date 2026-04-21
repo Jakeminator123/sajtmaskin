@@ -35,7 +35,6 @@ type Args = {
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
   pendingBriefRef: MutableRefObject<Record<string, unknown> | null>;
-  pendingSpecRef: MutableRefObject<object | null>;
   hasLoadedInstructions: MutableRefObject<boolean>;
   hasLoadedInstructionsOnce: MutableRefObject<boolean>;
   router: { replace: (url: string) => void; push: (url: string) => void };
@@ -84,7 +83,6 @@ export function useBuilderProjectActions({
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
   pendingBriefRef,
-  pendingSpecRef,
   hasLoadedInstructions,
   hasLoadedInstructionsOnce,
   router,
@@ -234,7 +232,6 @@ export function useBuilderProjectActions({
     pendingInstructionsRef.current = null;
     pendingInstructionsOnceRef.current = null;
     pendingBriefRef.current = null;
-    pendingSpecRef.current = null;
     hasLoadedInstructions.current = false;
     hasLoadedInstructionsOnce.current = false;
 
@@ -272,7 +269,6 @@ export function useBuilderProjectActions({
     pendingInstructionsRef,
     pendingInstructionsOnceRef,
     pendingBriefRef,
-    pendingSpecRef,
     hasLoadedInstructions,
     hasLoadedInstructionsOnce,
     setChatId,

@@ -73,7 +73,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   // Internal Sajtmaskin brand/theme preset used by the own engine.
   const [designTheme, setDesignTheme] = useState<DesignTheme>(DEFAULT_DESIGN_THEME);
   const [specMode] = useState(DEFAULT_SPEC_MODE);
-  const pendingSpecRef = useRef<object | null>(null);
   const pendingBriefRef = useRef<Record<string, unknown> | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
@@ -209,7 +208,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     designTheme,
     setDesignTheme,
     specMode,
-    pendingSpecRef,
     pendingBriefRef,
     showStructuredChat,
     setShowStructuredChat,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -48,42 +48,27 @@ export function PreviewPanelFrame({
 }: PreviewPanelFrameProps) {
   const [showOverlay, setShowOverlay] = useState(false);
   const [showTopBar, setShowTopBar] = useState(false);
-  const overlayTimerRef = useRef<number | null>(null);
-  const hardCapTimerRef = useRef<number | null>(null);
 
+  // Timer-driven overlay reveal. Top-bar + overlay are genuinely derived from
+  // timing (debounce + hard-cap) and cannot be computed purely from isLoading
+  // during render — so the eslint `set-state-in-effect` rule is acknowledged
+  // and intentionally bypassed here.
   useEffect(() => {
-    if (overlayTimerRef.current) {
-      window.clearTimeout(overlayTimerRef.current);
-      overlayTimerRef.current = null;
-    }
-    if (hardCapTimerRef.current) {
-      window.clearTimeout(hardCapTimerRef.current);
-      hardCapTimerRef.current = null;
-    }
-    if (!isLoading) {
-      setShowOverlay(false);
-      setShowTopBar(false);
-      return;
-    }
+    if (!isLoading) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- timer-driven reveal
     setShowTopBar(true);
-    overlayTimerRef.current = window.setTimeout(() => {
-      overlayTimerRef.current = null;
+    const overlayTimer = window.setTimeout(() => {
       setShowOverlay(true);
     }, LOADING_OVERLAY_DEBOUNCE_MS);
-    hardCapTimerRef.current = window.setTimeout(() => {
-      hardCapTimerRef.current = null;
+    const hardCapTimer = window.setTimeout(() => {
       setShowOverlay(false);
       setShowTopBar(false);
     }, LOADING_OVERLAY_HARD_CAP_MS);
     return () => {
-      if (overlayTimerRef.current) {
-        window.clearTimeout(overlayTimerRef.current);
-        overlayTimerRef.current = null;
-      }
-      if (hardCapTimerRef.current) {
-        window.clearTimeout(hardCapTimerRef.current);
-        hardCapTimerRef.current = null;
-      }
+      window.clearTimeout(overlayTimer);
+      window.clearTimeout(hardCapTimer);
+      setShowOverlay(false);
+      setShowTopBar(false);
     };
   }, [isLoading]);
 

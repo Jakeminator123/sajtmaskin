@@ -283,7 +283,6 @@ function main(): void {
 
   console.log(`[extract] ${drafts.length} drafts to consider`);
 
-  let processed = 0;
   let extracted = 0;
   let noCache = 0;
   let noFiles = 0;
@@ -294,7 +293,6 @@ function main(): void {
       noCache++;
       continue;
     }
-    processed++;
 
     const allFiles = walkRepo(repoDir);
     const files = selectFiles(repoDir, allFiles);

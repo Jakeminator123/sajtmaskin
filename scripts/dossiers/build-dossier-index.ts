@@ -12,7 +12,7 @@
  * follow-up task — see docs/schemas/strict/dossier.schema.json).
  */
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const WORKSPACE_ROOT = process.cwd();
