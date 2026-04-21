@@ -1,17 +1,24 @@
 ---
 id: dossier-cleanup-2026-04-21
 title: Dossier v2 — driftsupp + schema-härdning
-status: delvis-klar (kvar till cloudagent)
+status: avklarad-inline (cloudagent-rester splittade till egna filer)
 created: 2026-04-21
-last_updated: 2026-04-21
+closed: 2026-04-21
 priority: medium
 parent_plan: .cursor/plans/llm-chain-cleanup-2026-04-21.md
-parallel_safe_with: [E-easy-medium-layer, M-medium-hard-layer]
-blocked_by: []
-estimated_remaining_effort: ~6 timmar (Pass 1-rest + Pass 3)
+follow_up_files:
+  - docs/plans/active/cloudagent-paket-A-doc-rewrite.md
+  - docs/plans/active/cloudagent-paket-B-schema-validation.md
 ---
 
-# Dossier v2 — drift­fix + schema-härdning
+# Dossier v2 — drift­fix + schema-härdning (AVKLARAD)
+
+> **Status 2026-04-21:** Allt som var inline-fixbart är gjort i denna plan-fil och commitad. De två arbetspaketen som krävde cloudagent (Paket A — doc-omskrivningar, Paket B — schema-härdning) flyttades till egna standalone-filer:
+>
+> - [`cloudagent-paket-A-doc-rewrite.md`](../active/cloudagent-paket-A-doc-rewrite.md)
+> - [`cloudagent-paket-B-schema-validation.md`](../active/cloudagent-paket-B-schema-validation.md)
+>
+> Denna fil ligger i avklarat/ för historik. Innehållet nedan beskriver vad som gjordes och vad som flyttades.
 
 Tre granskningar (stale-arkeolog, förenkling/scheman, parity) gjorda 2026-04-21 fann 11 städkandidater. **SAFE** + **enkla MEDIUM** verkställdes 2026-04-21 i två pass. Det som återstår är (a) tre större doc-omskrivningar som kräver scope-beslut och (b) schema-härdningen — båda lämpade för cloudagent.
 

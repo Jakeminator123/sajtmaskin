@@ -1,0 +1,40 @@
+1) Jag vill att du går igenom commit-meddelanden och `diff`-ändringar för att identifiera buggar. Om det inte finns några buggar, vill jag ha högst fem, helst tre eller bara en, beroende på storlek och `impact score`. Jag vill också att eventuella quick wins noteras. Om det finns uppenbara förbättringar eller småfel som kan förbättra helheten, ska dessa också dokumenteras. Procentuell risk för buggar och `impact score` ska inkluderas.
+
+Jag vill specefikt att du försöker se till att pythonskritptet i roten av filen är ajour med verklighet.
+
+Målet med backendskriptet, det här `Streamlit`-skriptet, är att fungera som ett mer övergripande sätt att editera och pedagogiskt hjälpa mig som användare att förstå hur allt är uppbyggt. Det ska möjliggöra redigering utan att behöva använda `cursor` hela tiden. Om ändringar görs som påverkar flödet, samt dokumentation och schemafiler i mappen `schemass` eller under mappen `strict schemass`, ska det föreslås att ändringar görs där också, samt föreslå ändringar till den här backend `Streamlit`-appen. Allt detta ska sammanställas i ett meddelande.
+
+Du får ENBART skriva en rapport/rapportera. Du ska INTE editera kod elelr skapa nya brancher etc..
+
+
+Environment ready
+
+Worked for 2m 56s
+Buggrapport (commit 4357640)
+Sev	Fynd	Evidens	Buggrisk	Impact score
+Hög	Path traversal-skydd för --reference saknas i praktiken (trots commit-text)	scripts/dossiers/curate-from-reference.ts validerar --id men inte --reference (L45-63), och bygger sökväg direkt med join(REFERENCES_ROOT, args.reference) (L332-335)	52%	8/10
+Medium	Backoffice-översikt visar borttagna sidor (stale navigationskarta)	backoffice/pages/overview.py listar fortfarande "Research & Dossiers" + "Pipeline" (L22-23) efter att dessa sidor togs bort	68% (UX/förvirring)	5/10
+Låg/Medium	Icke-deterministiskt metadata-val i curate-script	readMetadata() väljer metaFiles[0] utan sortering (L109-116), vilket kan ge varierande input mellan körningar	34%	4/10
+Övergripande risknivå för buggar: 43% (måttlig)
+
+Quick wins (ingen kod ändrad av mig)
+Typ	Förslag	Effekt
+Quick win	Synka overview.py-listan med faktiska PAGE_SPECS	Tar bort direkt produktionsförvirring i Streamlit-appen
+Quick win	Lägg till strikt --reference-validering + resolve/prefix-check	Täpper säkerhets-/robusthetsglapp i curator-skriptet
+Quick win	Sortera metadatafiler före val (.sort())	Reproducerbara curation-resultat
+Specifikt om Python-skriptet i repo-roten
+/workspace/sajtmaskin_backoffice.py är ajour med verkligheten: det är en tunn entrypoint som bara startar run_backoffice_app och innehåller inga hårdkodade sidnamn.
+Jag verifierade även syntax på hela backoffice med python3 -m compileall (grön).
+
+Dokumentation / schema / Streamlit-sync som bör föreslås
+Område	Status	Föreslagen sync
+Backoffice-dokumentation	Stale	docs/architecture/scaffold-system.md (L292) nämner borttagna sidor; uppdatera sidlistan
+Dashboard-karta (domain-map)	Delvis stale	Codegen core-sektionen (config/dashboard/domain-map.json, runt L63+) bör inkludera flyttade controls (domain-rules, prompt-heuristic-tokens, SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT)
+docs/schemas / docs/schemas/strict	Ingen uppenbar kontraktsbrytning i denna diff	Ingen tvingande schemaändring nu; endast docs/backoffice-sync behövs
+Notering: Commit-meddelandet beskriver fler härdningar (t.ex. path-traversal guard + deterministisk metadata-sortering) än vad som syns i faktisk diff för curate-from-reference.ts, vilket i sig är en risk för falsk trygghet vid drift.
+
+---
+
+
+2)
+

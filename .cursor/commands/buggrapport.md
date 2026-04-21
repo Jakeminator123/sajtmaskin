@@ -107,7 +107,7 @@ linear_url: https://linear.app/sajtmaskin/issue/SAJ-42
 created_at: 2026-04-21T15:30:00+02:00
 labels: [Bug]
 priority: 3
-source: browser   # browser | manual | terminal | test
+source: browser   # browser | manual | terminal | test | cloud-agent
 ---
 
 # <samma titel som Linear-issuen>
@@ -157,6 +157,26 @@ Background Agents kör i en ephemeral VM. Det förändrar tre saker mot lokalt f
 
    Om en aktuell oavslutad issue matchar samma rotorsak → `save_comment` på den befintliga, skapa **inte** ny. Returnera vilken issue som uppdaterades.
 
-**Identifiera körkontext:** sätt `source` i frontmattern till `cloud-agent` (utöver `browser | manual | terminal | test`) när rapporten skapas av en Background Agent, så det är synligt i Linear-beskrivningens "skapad av"-kontext.
+**Identifiera körkontext + säkra synlighet:** när rapporten skapas av en Background Agent —
+
+- sätt `source: cloud-agent` i frontmattern på lokal mirror (utöver `browser | manual | terminal | test`).
+- lägg till `cloud-agent` i `labels` tillsammans med `Bug`/`Improvement`/`Feature` så rapporten matchar mönstret för övriga cloud-agent-issues (`SAJ-5` … `SAJ-21`) och kan filtreras separat i Linear.
+- sätt `assignee` till workspace-ägaren (`Jakob Eberg`, id `e8ba155b-5ccc-4a87-b324-bc1f583704c6`) — annars hamnar issuen utan ägare, syns inte i någons My Issues / Inbox och rapporten upplevs som "försvunnen" trots att Linear-anropet lyckades.
+
+```ts
+save_issue({
+  team: "Sajtmaskin",
+  title: "<titel>",
+  description: "<markdown>",
+  labels: ["Bug", "cloud-agent"],
+  assignee: "e8ba155b-5ccc-4a87-b324-bc1f583704c6",
+  // priority: 2,
+})
+```
 
 **Inga extra triggers nödvändiga.** Background Agents kör de uppgifter de fått. Om en task ska auto-fila buggar (t.ex. efter en misslyckad CI-körning), inkludera "kör `/buggrapport` om något misslyckades och rapporten inte redan finns i Linear" i task-prompten. Inget hook-script behövs.
+
+**Felsökning när 0 issues skapas trots "Successful" runs:** Cursor markerar en run som *Successful* så länge agent-processen avslutar utan exception — även om den aldrig anropade `save_issue`. Två vanliga orsaker:
+
+1. **Linear-MCP är inte auth:ad i Background Agent-kontot.** Pluginen är enabled i `.cursor/settings.json` (committad), men OAuth-token är per-user/agent. Verifiera via Cursor → Background Agents → autentisera Linear-pluginen för agenten.
+2. **Task-prompten ber inte agenten att fila.** Om uppgiften bara säger "läs diffen och sammanfatta" hamnar resultatet bara i Cursor-transcripten, inte i Linear. Om agenten ska fila — säg det explicit i task-prompten med en referens till `/buggrapport`-konventionen ovan.

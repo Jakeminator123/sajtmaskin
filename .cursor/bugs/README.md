@@ -29,7 +29,7 @@ linear_url: https://linear.app/sajtmaskin/issue/SAJ-42
 created_at: 2026-04-21T15:30:00+02:00
 labels: [Bug]
 priority: 3
-source: browser   # browser | manual | terminal | test
+source: browser   # browser | manual | terminal | test | cloud-agent
 ---
 
 # <samma titel som Linear-issuen>
