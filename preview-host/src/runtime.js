@@ -1388,9 +1388,32 @@ function isConnRefusedError(err) {
   return /ECONNREFUSED/i.test(msg);
 }
 
+/**
+ * P26: even when SAJTMASKIN_PREVIEW_DISABLE_HMR=true silences webpack's
+ * HMR plugin, Turbopack-based dev (Next 15+ default) still attempts
+ * `wss://vm-fly-jakem.fly.dev/<chatId>/_next/webpack-hmr` (or
+ * `/_next/turbopack-hmr`). Fly's edge can't reliably upgrade those WSS
+ * handshakes through the chatId prefix, so the browser console spams
+ * "WebSocket connection failed" multiple times per second. We stub these
+ * paths early with 404 so the browser stops retry-looping.
+ */
+const HMR_PATH_RE = /\/_next\/(?:webpack|turbopack)-hmr(?:\/|$|\?)/;
+function isHmrPath(pathname) {
+  if (!pathname) return false;
+  return HMR_PATH_RE.test(pathname);
+}
+function hmrSilencedForRequest() {
+  return (process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true") === "true";
+}
+
 async function proxyPreviewRequest(req, res, pathname, search = "") {
   const info = routeInfoFromPathname(pathname);
   if (!info) return false;
+  if (hmrSilencedForRequest() && isHmrPath(info.restPath)) {
+    res.writeHead(404, { "Content-Type": "text/plain", "Connection": "close" });
+    res.end("HMR disabled in tunneled preview");
+    return true;
+  }
   const state = getRuntimeStateForChat(info.chatId);
   if (!state.session) return false;
   if (state.running && state.runtimePort) {
@@ -1406,6 +1429,19 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
 async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   const info = routeInfoFromPathname(pathname);
   if (!info) return false;
+  if (hmrSilencedForRequest() && isHmrPath(info.restPath)) {
+    // Reject upgrade with a definitive 404 so the browser stops retrying
+    // every few seconds. Without this the WSS-attempt loop spams console.
+    try {
+      socket.write(
+        "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nHMR disabled in tunneled preview",
+      );
+    } catch {
+      // socket may already be closed; ignore
+    }
+    socket.destroy();
+    return true;
+  }
   const runtime = await ensureRuntimeForChat(info.chatId);
   if (!runtime) return false;
   rewriteRequestUrl(req, info.chatId, info.restPath, search);
