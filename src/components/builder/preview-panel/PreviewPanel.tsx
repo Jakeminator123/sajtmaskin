@@ -52,11 +52,11 @@ import {
 } from "./preview-route-helpers";
 import { findFileNodeByPath } from "./code-file-tree-utils";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   buildAlternatePreviewBannerState,
-  isCompatibilityShimPreviewUrl,
   isTier2LivePreviewUrl,
-} from "@/lib/gen/preview/legacy/compatibility-shim";
+} from "@/lib/gen/preview/preview-url-classifier";
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview/diagnostics";
 import { toast } from "sonner";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";

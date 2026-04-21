@@ -47,9 +47,11 @@ import {
 import {
   isCompatibilityShimPreviewUrl,
   isShimOrMissingPreviewUrl,
+} from "@/lib/gen/preview/legacy/compatibility-shim";
+import {
   isTier2LivePreviewUrl,
   resolveAlternatePreviewUrls,
-} from "@/lib/gen/preview/legacy/compatibility-shim";
+} from "@/lib/gen/preview/preview-url-classifier";
 import {
   asRecord,
   parsePreviewOverride,

@@ -3,22 +3,11 @@
  * detection. Primary product preview is the tier-2 live preview; see
  * `docs/architecture/fas3-preview-and-deploy.md`.
  *
- * Tier-2 helpers now live in `../preview-url-classifier`. The named exports
- * below are re-exported here for backward compatibility — new code should
- * import them from `@/lib/gen/preview/preview-url-classifier` directly.
+ * Tier-2 helpers live in `@/lib/gen/preview/preview-url-classifier`.
  */
 import {
   isTier2LivePreviewUrl,
   normalizePreviewUrl,
-} from "../preview-url-classifier";
-
-export {
-  type AlternatePreviewUrls,
-  buildAlternatePreviewBannerState,
-  hasTier2LivePreviewUrl,
-  isTier2LivePreviewUrl,
-  normalizePreviewUrl,
-  resolveAlternatePreviewUrls,
 } from "../preview-url-classifier";
 
 const OWN_ENGINE_PREVIEW_PATH = "/api/preview-render";

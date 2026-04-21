@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  isTier2LivePreviewUrl,
-  isShimOrMissingPreviewUrl,
-} from "./compatibility-shim";
+import { isShimOrMissingPreviewUrl } from "./compatibility-shim";
+import { isTier2LivePreviewUrl } from "../preview-url-classifier";
 
 // Composed at runtime so the secret scanner does not match the
 // canonical-name substring. Logical key documented in docs/ENV.md.

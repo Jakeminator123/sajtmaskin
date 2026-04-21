@@ -3,11 +3,11 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
-  isCompatibilityShimPreviewUrl,
   isTier2LivePreviewUrl,
   normalizePreviewUrl,
-} from "@/lib/gen/preview/legacy/compatibility-shim";
+} from "@/lib/gen/preview/preview-url-classifier";
 
 export type VersionLike = {
   versionId?: string | null;

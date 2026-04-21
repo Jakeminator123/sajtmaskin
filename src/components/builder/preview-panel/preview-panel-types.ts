@@ -4,7 +4,7 @@ import type {
   EngineVersionDisplayStatus,
   EngineVersionLifecycleStage,
 } from "@/lib/db/engine-version-lifecycle";
-import type { AlternatePreviewUrls } from "@/lib/gen/preview/legacy/compatibility-shim";
+import type { AlternatePreviewUrls } from "@/lib/gen/preview/preview-url-classifier";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
 
 export type CaptureResponse = {
