@@ -33,12 +33,24 @@ export default defineConfig([
     // Vendored / cached third-party trees (not maintained in this repo)
     "research/**/*",
     "data/external-template-pipeline/repo-cache/**/*",
+    // Vendored upstream repos used as reference material for the dossier /
+    // template pipeline (e.g. the full `next.js` checkout under `repos/`).
+    // Linting these pulls in their bundled `.js` (which triggers BABEL
+    // deopt warnings) and legacy `/* eslint-env */` comments that crash
+    // ESLint flat-config v10.
+    "data/template-references/**/*",
     // Dossier pipeline: raw scraped repos + AI-extracted vendored components
     // are not our code — they are inputs/outputs of the curation pipeline.
     "data/dossiers/_repo-cache/**/*",
     "data/dossiers/_raw/**/*",
-    "data/dossiers/*/components/**/*",
-    "data/dossiers/*/_removed/**/*",
+    // Match both the flat layout (`data/dossiers/<dossier>/components/...`)
+    // and the newer grouped layout (`data/dossiers/<group>/<dossier>/components/...`,
+    // e.g. `data/dossiers/soft/three-fiber-canvas/components/...`).
+    "data/dossiers/**/components/**/*",
+    "data/dossiers/**/_removed/**/*",
+    // Archived legacy dossier pipeline (snapshot frozen 2026-04-20). Not
+    // maintained — kept on disk for reference only.
+    "archive/**/*",
     ".cursor/bugs/**/*",
     "src/templates/**/*",
     ".next/**/*",
