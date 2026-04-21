@@ -155,14 +155,10 @@ export const serverSchema = z.object({
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),
   AUDIT_WEB_SEARCH: z.string().optional(),
-  SAJTMASKIN_BUILD_SPEC_ENABLED: z.string().optional(),
-  SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION: z.string().optional(),
-  SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT: z.string().optional(),
   SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS: z.string().optional(),
   SAJTMASKIN_FOLLOWUP_LIGHT_MAX_CHARS: z.string().optional(),
   SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY: z.string().optional(),
   SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW: z.string().optional(),
-  SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED: z.string().optional(),
   /** New dossier pipeline: read data/dossiers/_index/* and inject ## Available Dossiers + instructions into prompt. On in dev, off in prod by default. */
   SAJTMASKIN_DOSSIER_PIPELINE: z.string().optional(),
   /** When true/1, init generations may plan multiple routes but only fully realize the primary route while extras become lightweight shells. */

@@ -16,7 +16,7 @@ import { normalizeProviderError } from "@/lib/providers/errors/normalize-provide
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
-import { FEATURES, FOLLOW_UP_TUNING } from "@/lib/config";
+import { FOLLOW_UP_TUNING } from "@/lib/config";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import {
   canonicalModelIdToOwnModelId,
@@ -406,9 +406,9 @@ export async function handleMessageStreamRequest(
             followUpIntent,
             capabilityHeavy,
           });
-          const useLightFollowUpContext =
-            FEATURES.useFollowUpLightContext &&
-            followUpContextPolicy === "light";
+          // Historical `FEATURES.useFollowUpLightContext` flag was always on;
+          // light context is now driven purely by the derived policy.
+          const useLightFollowUpContext = followUpContextPolicy === "light";
           const manyFiles = previousFiles.length > 14;
           const designPinnedFiles = hasDesignFollowUpSignal(message)
             ? ["app/globals.css", "app/layout.tsx"]

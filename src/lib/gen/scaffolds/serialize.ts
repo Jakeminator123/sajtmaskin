@@ -1,5 +1,4 @@
 import type { ScaffoldManifest } from "./types";
-import { FEATURES } from "@/lib/config";
 import type { BuildSpecContextPolicy } from "../build-spec";
 import type { InferredCapabilities } from "../capability-inference";
 import type { RoutePlan } from "../route-plan";
@@ -116,7 +115,9 @@ export function serializeScaffoldForPrompt(
     return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}${roleSplit}\n\nUse the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** to match the user's request. You are not bound by the scaffold's existing section order, number of sections, or layout patterns. **Invent a unique page flow** that fits the user's specific business — a restaurant site should NOT look like a SaaS landing or a consultant portfolio. Vary section types, grid layouts, visual rhythm, and content hierarchy to genuinely reflect the domain.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Layout & Theme Files (adapt these, don't ignore)\n\n${layoutBlocks}\n\n**Page structure (app/page.tsx):** Do NOT copy a generic hero → cards → testimonials → CTA pattern. Instead, choose sections that genuinely serve this specific business. For example: a restaurant might lead with an atmosphere image + reservation CTA, then menu highlights, then location/hours. A creative studio might open with a bold project showcase grid. Let the user's domain drive the section choices.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${importExampleBlock}${hints}`;
   }
 
-  if (!FEATURES.useLightweightScaffoldSerialization || options.forceFullDump) {
+  // Historical `FEATURES.useLightweightScaffoldSerialization` flag was always
+  // on; kept only as a way for callers to force the full dump explicitly.
+  if (options.forceFullDump) {
     const ctx = buildFileContext({
       files: scaffold.files.map((f) => ({ path: f.path, content: f.content, language: inferLang(f.path) })),
       maxChars: 4000,

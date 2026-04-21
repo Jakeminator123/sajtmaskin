@@ -341,13 +341,13 @@ export const OPENCLAW = {
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
 
-  useBuildSpec: env.SAJTMASKIN_BUILD_SPEC_ENABLED !== "false",
-  useLightweightScaffoldSerialization:
-    env.SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION !== "false",
-  useFollowUpLightContext: env.SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT !== "false",
-  // Historical name: setting this to false disables the light fast-path
-  // optimization and forces finalize to stay on the deep path.
-  useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
+  // The following flags were always-on opt-outs that never saw production
+  // use. Hardcoded on in 2026-04-21 cleanup; the helpers themselves carry
+  // historical notes for reference:
+  //   useBuildSpec — see isBuildSpecEnabled() in build-spec.ts
+  //   useLightweightScaffoldSerialization — see scaffolds/serialize.ts
+  //   useFollowUpLightContext — see chat-message-stream-post.ts
+  //   useFinalizeDeepPath — see resolveFinalizePathPolicy in finalize-version.ts
 
   /**
    * New dossier pipeline (data/dossiers/). Reads master.json +

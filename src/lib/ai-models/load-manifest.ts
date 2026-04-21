@@ -160,7 +160,6 @@ const promptOrchestrationSchema = z.object({
     maxPromptHandoffChars: numericEnvSettingSchema,
     maxAiBriefPromptChars: numericEnvSettingSchema,
     maxAiChatMessageChars: numericEnvSettingSchema,
-    maxAiSpecPromptChars: numericEnvSettingSchema,
   }),
   softTargets: z.object({
     freeformChars: numericEnvSettingSchema,

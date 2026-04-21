@@ -1,7 +1,6 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
-import { FEATURES } from "@/lib/config";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
@@ -489,11 +488,8 @@ function resolveFinalizePathPolicy(params: {
   accumulatedContent?: string;
 }): FinalizePathPolicy {
   const { buildSpec, repairPassIndex, originalPrompt, accumulatedContent } = params;
-  if (!FEATURES.useFinalizeDeepPath) {
-    // Historical env naming: false here disables the light pipeline shortcut
-    // and keeps finalize on the full pipeline for every run.
-    return { runDeepPath: true, reason: "fast_path_disabled_by_flag" };
-  }
+  // Historical `FEATURES.useFinalizeDeepPath` flag was always on (opt-in
+  // fast path); kept the light-path shortcut as the default.
   if (repairPassIndex > 0) {
     return { runDeepPath: true, reason: "repair_pass" };
   }

@@ -126,8 +126,7 @@
             "warnChatSystemChars",
             "maxPromptHandoffChars",
             "maxAiBriefPromptChars",
-            "maxAiChatMessageChars",
-            "maxAiSpecPromptChars"
+            "maxAiChatMessageChars"
           ],
           "additionalProperties": false,
           "properties": {
@@ -137,8 +136,7 @@
             "warnChatSystemChars": { "$ref": "#/$defs/numericEnvSetting" },
             "maxPromptHandoffChars": { "$ref": "#/$defs/numericEnvSetting" },
             "maxAiBriefPromptChars": { "$ref": "#/$defs/numericEnvSetting" },
-            "maxAiChatMessageChars": { "$ref": "#/$defs/numericEnvSetting" },
-            "maxAiSpecPromptChars": { "$ref": "#/$defs/numericEnvSetting" }
+            "maxAiChatMessageChars": { "$ref": "#/$defs/numericEnvSetting" }
           }
         },
         "softTargets": {

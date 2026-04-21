@@ -346,12 +346,6 @@
         "default": 600000,
         "min": 2000,
         "max": 2000000
-      },
-      "maxAiSpecPromptChars": {
-        "envKey": "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
-        "default": 800000,
-        "min": 2000,
-        "max": 2000000
       }
     },
     "softTargets": {
