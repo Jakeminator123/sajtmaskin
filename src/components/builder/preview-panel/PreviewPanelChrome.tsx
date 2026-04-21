@@ -25,10 +25,6 @@ type SurfaceDescriptor = {
   badgeClassName: string;
 };
 
-type AlternatePreviewBannerState = {
-  livePreviewUrl: string;
-};
-
 interface PreviewPanelChromeProps {
   previewUrl: string | null;
   surfaceDescriptor: SurfaceDescriptor;
@@ -57,8 +53,6 @@ interface PreviewPanelChromeProps {
   isLoading: boolean;
   handleRefresh: () => void;
   handleOpenInNewTab: () => void;
-  alternatePreviewBanner: AlternatePreviewBannerState | null;
-  onNavigatePreviewUrl?: ((url: string) => void) | null;
   previewBuildError?: { stage: string; message: string } | null;
   previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
   isCodeView: boolean;
@@ -119,8 +113,6 @@ export function PreviewPanelChrome({
   isLoading,
   handleRefresh,
   handleOpenInNewTab,
-  alternatePreviewBanner,
-  onNavigatePreviewUrl,
   previewBuildError,
   previewProdBuild,
   isCodeView,
@@ -331,21 +323,6 @@ export function PreviewPanelChrome({
       <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
         {surfaceDescriptor.detail}
       </div>
-
-      {alternatePreviewBanner && onNavigatePreviewUrl ? (
-        <div className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-300">
-          <span>Live-preview med Next.js finns också för samma version.</span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 border-zinc-600 text-xs text-zinc-200 hover:bg-zinc-800"
-            onClick={() => onNavigatePreviewUrl(alternatePreviewBanner.livePreviewUrl)}
-          >
-            Byt till live-preview
-          </Button>
-        </div>
-      ) : null}
 
       {previewBuildError ? (
         <Alert variant="destructive" className="mx-4 mt-2 border-rose-900/55 bg-rose-950/45 text-rose-50">

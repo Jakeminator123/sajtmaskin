@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { httpStatusForPreviewSessionFailure } from "@/lib/gen/preview/preview-errors";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";

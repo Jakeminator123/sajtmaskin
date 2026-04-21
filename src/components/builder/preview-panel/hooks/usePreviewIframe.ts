@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
-import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import {
   detectOwnEnginePreviewIssue,
   type PreviewIssuePayload,

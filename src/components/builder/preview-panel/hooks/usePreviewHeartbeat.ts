@@ -5,7 +5,7 @@ import {
   postPreviewHeartbeat,
   postPreviewHibernate,
 } from "@/lib/builder/preview-session/api";
-import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 
 // Tid som tab får vara dold innan klienten begär hibernation av VM:en.
