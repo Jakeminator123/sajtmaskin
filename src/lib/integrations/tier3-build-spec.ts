@@ -34,6 +34,7 @@ import {
   type IntegrationDefinition,
 } from "@/lib/integrations/registry";
 import { partitionEnvKeysByTier } from "@/lib/integrations/placeholder-harmless";
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 
 export interface Tier3IntegrationRequirement {
   /** Integration key, matches `IntegrationDefinition.key`. */
@@ -202,6 +203,57 @@ function findIntegrationDefinition(
 }
 
 /**
+ * Shape used to decide whether an integration is backed by a runtime-
+ * installable dossier on disk. The F3 contract ("bygg integrationer") is
+ * only actionable when a hard-class dossier exists that actually implements
+ * the integration — otherwise F3 would ask the user for env keys that no
+ * generated file would ever consume (e.g. CLERK_SECRET_KEY without any
+ * clerk-auth dossier to wire it up).
+ *
+ * Backing is indicated by ANY of:
+ *  - dossier id starts with `<integration.key>-` or equals `<key>`
+ *    (e.g. stripe-checkout matches stripe)
+ *  - dossier's capability equals integration.category
+ *  - integration provider appears in the dossier's dependencies array
+ */
+interface DossierBackingIndex {
+  readonly matchers: ReadonlyArray<(def: IntegrationDefinition) => boolean>;
+}
+
+function buildDossierBackingIndex(): DossierBackingIndex {
+  const entries = getAllDossiers();
+  const matchers: Array<(def: IntegrationDefinition) => boolean> = [];
+  for (const entry of entries) {
+    const idLc = entry.id.toLowerCase();
+    const capabilityLc = entry.capability.toLowerCase();
+    const deps = (entry.dependencies ?? []).map((d) => d.toLowerCase());
+    matchers.push((def: IntegrationDefinition) => {
+      const keyLc = def.key.toLowerCase();
+      const providerLc = (def.provider ?? def.key).toLowerCase();
+      const categoryLc = def.category.toLowerCase();
+      if (idLc === keyLc || idLc.startsWith(`${keyLc}-`)) return true;
+      if (idLc === providerLc || idLc.startsWith(`${providerLc}-`)) return true;
+      if (capabilityLc === categoryLc) return true;
+      if (deps.some((d) => d === keyLc || d.includes(`/${keyLc}`) || d.startsWith(`${keyLc}`))) {
+        return true;
+      }
+      return false;
+    });
+  }
+  return { matchers };
+}
+
+function isIntegrationDossierBacked(
+  def: IntegrationDefinition,
+  index: DossierBackingIndex,
+): boolean {
+  for (const match of index.matchers) {
+    if (match(def)) return true;
+  }
+  return false;
+}
+
+/**
  * Build a Tier-3 spec from the contracts the orchestrator already inferred.
  * Only `chosen` (or unresolved-but-named) integrations contribute; `optional`
  * integrations without a status are skipped because the user hasn't asked
@@ -211,6 +263,7 @@ export function deriveTier3BuildSpec(
   contracts: PlanContracts,
 ): Tier3BuildSpec {
   const requirements: Tier3IntegrationRequirement[] = [];
+  const backingIndex = buildDossierBackingIndex();
 
   for (const integration of uniqueProviderIntegrations(contracts)) {
     if (integration.status === "optional") continue;
@@ -232,9 +285,21 @@ export function deriveTier3BuildSpec(
     const warnOnlyEnvKeys = enforcementHint
       ? tier3.filter((k) => enforcementHint[k] === "warn-only")
       : [];
-    const buildEnforcedTier3 = tier3.filter(
+    let buildEnforcedTier3 = tier3.filter(
       (k) => !featureRuntimeEnvKeys.includes(k) && !warnOnlyEnvKeys.includes(k),
     );
+    let effectiveWarnOnly = warnOnlyEnvKeys;
+
+    // Clamp against dossier-backing: if no hard-/soft-dossier implements this
+    // integration, we cannot generate code that consumes its env keys. F3
+    // asking for a real CLERK_SECRET_KEY when no clerk-auth dossier exists
+    // would block the build on a value no generated file would ever use.
+    // Downgrade to warn-only so the UI still surfaces the expected vars but
+    // F3 validation doesn't refuse to start.
+    if (!isIntegrationDossierBacked(def, backingIndex) && buildEnforcedTier3.length > 0) {
+      effectiveWarnOnly = [...warnOnlyEnvKeys, ...buildEnforcedTier3];
+      buildEnforcedTier3 = [];
+    }
 
     requirements.push({
       key: def.key,
@@ -243,7 +308,7 @@ export function deriveTier3BuildSpec(
       requiredRealEnvKeys: buildEnforcedTier3,
       placeholderOkEnvKeys: harmless,
       featureRuntimeEnvKeys,
-      warnOnlyEnvKeys,
+      warnOnlyEnvKeys: effectiveWarnOnly,
       buildInstructions: resolveBuildInstructions(def),
       setupGuide: def.setupGuide,
     });

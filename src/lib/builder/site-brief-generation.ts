@@ -21,6 +21,7 @@ import {
   AUTO_BRIEF_MODEL_OPENAI,
   BRIEF_MODEL,
 } from "@/lib/gen/defaults";
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 
 const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 81_920;
 
@@ -276,49 +277,112 @@ function resolveAnthropicBriefModelId(model: string): string {
   return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
 }
 
-const BRIEF_SYSTEM_PROMPT =
-  "You are a senior product designer + information architect. " +
-  "Convert the user request into a concise website brief that is immediately usable for implementation. " +
-  "Infer the most likely site type from the user request and adjust pages, sections, and content to fit. " +
-  "Be specific about pages/sections, visual direction, and copy direction. " +
-  "Include every key from the schema in your response — never omit a key. For nullable design-guidance fields (domainProfile, motionLevel, qualityBar, seasonalHints), set them to a real value when the request gives you signal, and set them to null (or [] for seasonalHints) when truly ambiguous. " +
-  "If a required value is unknown, use an empty string. " +
-  "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
-  "NOMINATIONS (scaffoldNomination, variantNomination):\n" +
-  "- These are HINTS for the orchestrator, not commitments. Be honest about confidence (0.0-1.0).\n" +
-  "- scaffoldNomination: pick from {base-nextjs, landing-page, saas-landing, portfolio, blog, dashboard, auth-pages, ecommerce, content-site, app-shell}. Use confidence < 0.5 when several would fit. Set to null only when the request is too vague to guess.\n" +
-  "- variantNomination: only nominate when scaffoldNomination is set. Variant ids live under config/scaffold-variants/<scaffold>/. If unsure of exact id, set to null.\n\n" +
-  "REQUESTED CAPABILITIES (drives dossier injection):\n" +
-  "- Declare the abstract capabilities the site explicitly needs. Each one is matched 1:1 against a dossier at runtime.\n" +
-  "- Only include a capability when the prompt CLEARLY asks for it. Pure visual/content sites should return [].\n" +
-  "- Common capabilities: 'payments' (checkout/subscription), 'auth' (login/signup), 'ai-chat' (chatbot/assistant), 'image-gen' (text-to-image), 'pricing-section' (plan comparison), 'visual-3d' (3D hero, R3F).\n" +
-  "- Use kebab-case. Cap at 6. Skip any capability you are not certain the user wants — false positives drag in env vars and dependencies.\n\n" +
-  "SCOPE AWARENESS (important):\n" +
-  "- Match the scope to the complexity of the user's request.\n" +
-  "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +
-  "- A detailed, structured request with many requirements should produce a multi-page brief (2-5 pages) with richer sections.\n" +
-  "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
-  "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.\n\n" +
-  "DESIGN GUIDANCE FIELDS (always present, set null/[] when ambiguous):\n" +
-  "- domainProfile: Go beyond generic labels. A heavy-metal band selling merch is 'heavy-metal-merch-store', not just 'ecommerce'. An artisan bakery is 'artisan-bakery', not 'restaurant'. Be specific — this drives structural hints. Use null only when no domain fits.\n" +
-  "- motionLevel: Match animation to the subject. A law firm → 'minimal'. A children's toy store → 'lively'. Most sites → 'moderate'. Use null only if truly ambiguous.\n" +
-  "- qualityBar: Visual density. A zen meditation studio → 'clean'. A SaaS landing page → 'premium'. A gaming/nightclub site → 'bold-dramatic'. Use null only if truly ambiguous.\n" +
-  "- seasonalHints: Only when the request has a clear seasonal or cultural theme (e.g. ['christmas', 'winter']). Use [] when not seasonal.\n\n" +
-  "VARIANT HINTS (when provided in the user message):\n" +
-  "- Use the scaffold variant as a design starting point for colorPalette, typography, and styleKeywords.\n" +
-  "- Adjust when the user's request clearly calls for a different direction.\n" +
-  "- If the variant says 'dark' but the user asks for a bright, airy site — follow the user.\n" +
-  "- If the variant has a font pairing and nothing in the prompt contradicts it — adopt it.\n" +
-  "- When variant hints contain explicit `Variant theme tokens` (background, primary, accent, etc.), copy them VERBATIM into `visualDirection.colorPalette` UNLESS the prompt explicitly mentions different colors. Map: variant background → palette.background, variant foreground → palette.text, variant primary → palette.primary, variant secondary → palette.secondary, variant accent → palette.accent.\n" +
-  "- When variant hints contain a font pairing, copy `heading` and `body` VERBATIM into `visualDirection.typography.headings` / `.body` UNLESS the prompt names a specific font.\n" +
-  "- Do NOT 'improve', 'modernize', or substitute variant tokens for trendier defaults — they are calibrated per scaffold variant. Echoing them keeps brief and downstream CSS aligned.\n\n" +
-  "PAGE COUNT (when the user message states an explicit number of pages):\n" +
-  "- If the user message contains a `User explicitly requested N pages` line, that count is a HARD CAP. Produce EXACTLY N entries in `pages`, never more. Pick the most important pages and merge sub-purposes into sections of those pages instead of spawning new entries.\n\n" +
-  "DELTA-BRIEF (when prior design context is provided):\n" +
-  "- You are updating a prior design, not starting from scratch.\n" +
-  "- Preserve aspects not explicitly changed by the new request (brand, structure, tone).\n" +
-  "- If the user says 'make it dark' — change palette/mood but keep pages, brand, and structure.\n" +
-  "- If the user describes a completely new site — treat it as a fresh brief, ignoring prior context.";
+/**
+ * Builds the bullet list of available capabilities shown to the brief-LLM.
+ *
+ * Reads the dossier registry at call time so the vocabulary always matches
+ * what is actually installable from disk (data/dossiers/{hard,soft}/). Previously
+ * this list was hardcoded inside BRIEF_SYSTEM_PROMPT and drifted out of sync —
+ * LLM learned to output "image-gen" / "auth" that no dossier backed, while
+ * ignoring real dossiers like faq-accordion, scroll-parallax, resend-contact-form.
+ *
+ * Output shape (one bullet per unique capability, alphabetically sorted):
+ *   - 'capability-id' (dossier-id: one-sentence summary)
+ *
+ * Two dossiers sharing a capability are collapsed onto one bullet; the one
+ * with defaultForCapability=true wins the sentence.
+ */
+function buildCapabilityBulletList(): string {
+  try {
+    const all = getAllDossiers();
+    if (all.length === 0) return "";
+
+    const byCap = new Map<string, { summary: string; dossierId: string }>();
+    for (const entry of all) {
+      if (!entry.capability) continue;
+      const firstSentence = entry.summary
+        ? entry.summary.split(/[.!?]\s/).shift()?.trim() ?? ""
+        : "";
+      const existing = byCap.get(entry.capability);
+      if (!existing || entry.defaultForCapability) {
+        byCap.set(entry.capability, {
+          summary: firstSentence,
+          dossierId: entry.id,
+        });
+      }
+    }
+
+    const sorted = [...byCap.entries()].sort(([a], [b]) => a.localeCompare(b));
+    return sorted
+      .map(([cap, { summary, dossierId }]) =>
+        summary
+          ? `  - '${cap}' (${dossierId}: ${summary})`
+          : `  - '${cap}' (${dossierId})`,
+      )
+      .join("\n");
+  } catch (err) {
+    // Defensive: if registry walk fails at runtime, fall back to no bullet list
+    // rather than crashing brief generation. The LLM will still receive the
+    // general guidance below.
+    debugLog("brief", "buildCapabilityBulletList failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return "";
+  }
+}
+
+function buildBriefSystemPrompt(): string {
+  const capabilityBullets = buildCapabilityBulletList();
+  const capabilityBlock = capabilityBullets
+    ? "- Capabilities currently available as dossiers (prefer these exact ids — capabilities outside this list are not backed by any dossier and will produce no code):\n" +
+      capabilityBullets +
+      "\n"
+    : "- Use kebab-case capability ids that describe concrete installable features.\n";
+  return (
+    "You are a senior product designer + information architect. " +
+    "Convert the user request into a concise website brief that is immediately usable for implementation. " +
+    "Infer the most likely site type from the user request and adjust pages, sections, and content to fit. " +
+    "Be specific about pages/sections, visual direction, and copy direction. " +
+    "Include every key from the schema in your response — never omit a key. For nullable design-guidance fields (domainProfile, motionLevel, qualityBar, seasonalHints), set them to a real value when the request gives you signal, and set them to null (or [] for seasonalHints) when truly ambiguous. " +
+    "If a required value is unknown, use an empty string. " +
+    "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
+    "NOMINATIONS (scaffoldNomination, variantNomination):\n" +
+    "- These are HINTS for the orchestrator, not commitments. Be honest about confidence (0.0-1.0).\n" +
+    "- scaffoldNomination: pick from {base-nextjs, landing-page, saas-landing, portfolio, blog, dashboard, auth-pages, ecommerce, content-site, app-shell}. Use confidence < 0.5 when several would fit. Set to null only when the request is too vague to guess.\n" +
+    "- variantNomination: only nominate when scaffoldNomination is set. Variant ids live under config/scaffold-variants/<scaffold>/. If unsure of exact id, set to null.\n\n" +
+    "REQUESTED CAPABILITIES (drives dossier injection):\n" +
+    "- Declare the abstract capabilities the site explicitly needs. Each one is matched 1:1 against a dossier at runtime.\n" +
+    "- Only include a capability when the prompt CLEARLY asks for it. Pure visual/content sites should return [].\n" +
+    capabilityBlock +
+    "- Use kebab-case. Cap at 6. Skip any capability you are not certain the user wants — false positives drag in env vars and dependencies.\n\n" +
+    "SCOPE AWARENESS (important):\n" +
+    "- Match the scope to the complexity of the user's request.\n" +
+    "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +
+    "- A detailed, structured request with many requirements should produce a multi-page brief (2-5 pages) with richer sections.\n" +
+    "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
+    "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.\n\n" +
+    "DESIGN GUIDANCE FIELDS (always present, set null/[] when ambiguous):\n" +
+    "- domainProfile: Go beyond generic labels. A heavy-metal band selling merch is 'heavy-metal-merch-store', not just 'ecommerce'. An artisan bakery is 'artisan-bakery', not 'restaurant'. Be specific — this drives structural hints. Use null only when no domain fits.\n" +
+    "- motionLevel: Match animation to the subject. A law firm → 'minimal'. A children's toy store → 'lively'. Most sites → 'moderate'. Use null only if truly ambiguous.\n" +
+    "- qualityBar: Visual density. A zen meditation studio → 'clean'. A SaaS landing page → 'premium'. A gaming/nightclub site → 'bold-dramatic'. Use null only if truly ambiguous.\n" +
+    "- seasonalHints: Only when the request has a clear seasonal or cultural theme (e.g. ['christmas', 'winter']). Use [] when not seasonal.\n\n" +
+    "VARIANT HINTS (when provided in the user message):\n" +
+    "- Use the scaffold variant as a design starting point for colorPalette, typography, and styleKeywords.\n" +
+    "- Adjust when the user's request clearly calls for a different direction.\n" +
+    "- If the variant says 'dark' but the user asks for a bright, airy site — follow the user.\n" +
+    "- If the variant has a font pairing and nothing in the prompt contradicts it — adopt it.\n" +
+    "- When variant hints contain explicit `Variant theme tokens` (background, primary, accent, etc.), copy them VERBATIM into `visualDirection.colorPalette` UNLESS the prompt explicitly mentions different colors. Map: variant background → palette.background, variant foreground → palette.text, variant primary → palette.primary, variant secondary → palette.secondary, variant accent → palette.accent.\n" +
+    "- When variant hints contain a font pairing, copy `heading` and `body` VERBATIM into `visualDirection.typography.headings` / `.body` UNLESS the prompt names a specific font.\n" +
+    "- Do NOT 'improve', 'modernize', or substitute variant tokens for trendier defaults — they are calibrated per scaffold variant. Echoing them keeps brief and downstream CSS aligned.\n\n" +
+    "PAGE COUNT (when the user message states an explicit number of pages):\n" +
+    "- If the user message contains a `User explicitly requested N pages` line, that count is a HARD CAP. Produce EXACTLY N entries in `pages`, never more. Pick the most important pages and merge sub-purposes into sections of those pages instead of spawning new entries.\n\n" +
+    "DELTA-BRIEF (when prior design context is provided):\n" +
+    "- You are updating a prior design, not starting from scratch.\n" +
+    "- Preserve aspects not explicitly changed by the new request (brand, structure, tone).\n" +
+    "- If the user says 'make it dark' — change palette/mood but keep pages, brand, and structure.\n" +
+    "- If the user describes a completely new site — treat it as a fresh brief, ignoring prior context."
+  );
+}
 
 function buildBriefUserPrompt(
   prompt: string,
@@ -469,6 +533,8 @@ export async function generateSiteBriefObject(
     maxTokens,
   });
 
+  const briefSystemPrompt = buildBriefSystemPrompt();
+
   if (resolvedProvider === "anthropic") {
     const directModel = createDirectModel(`anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`);
     try {
@@ -476,7 +542,7 @@ export async function generateSiteBriefObject(
         model: directModel,
         schema: siteBriefSchema,
         messages: [
-          { role: "system", content: BRIEF_SYSTEM_PROMPT },
+          { role: "system", content: briefSystemPrompt },
           { role: "user", content: userPrompt },
         ],
         maxRetries: 1,
@@ -517,7 +583,7 @@ export async function generateSiteBriefObject(
       model: directModel,
       schema: siteBriefSchema,
       messages: [
-        { role: "system", content: BRIEF_SYSTEM_PROMPT },
+        { role: "system", content: briefSystemPrompt },
         { role: "user", content: userPrompt },
       ],
       maxRetries: 1,

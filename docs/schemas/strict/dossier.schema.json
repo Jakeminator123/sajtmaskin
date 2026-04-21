@@ -32,7 +32,7 @@
       "minLength": 2,
       "maxLength": 60,
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-      "description": "Abstract capability matched against brief.requestedCapabilities. Examples: 'payments', 'auth', 'ai-chat', 'image-gen', 'pricing-section', 'visual-3d'. Free-form by design — keep the capability-map (data/dossiers/_index/capability-map.json) tidy."
+      "description": "Abstract capability matched against brief.requestedCapabilities. Free-form kebab-case. The canonical source of currently-defined capabilities is whatever is on disk; run `npm run dossiers:capability-map:write` to regenerate data/dossiers/_index/capability-map.json after adding or renaming. Prefer reusing an existing capability id (so multiple dossiers can compete under the same label, e.g. stripe-checkout + klarna-checkout both use 'payments') over coining a new one."
     },
     "codeFidelity": {
       "type": "string",

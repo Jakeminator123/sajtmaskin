@@ -47,6 +47,35 @@ describe("deriveTier3BuildSpec", () => {
   });
 
   it("falls back to integrationRegistry envVars when contract envVars is empty", () => {
+    // Uses Stripe because it is backed by the stripe-checkout dossier, so
+    // required env keys survive the dossier-backing clamp. Supabase (which
+    // used to be here) has no dossier yet and would correctly be downgraded
+    // to warn-only — see the dedicated clamp test below.
+    const spec = deriveTier3BuildSpec({
+      ...emptyContracts,
+      integrations: [
+        {
+          provider: "stripe",
+          name: "Stripe",
+          reason: "billing",
+          status: "chosen",
+          envVars: [],
+        },
+      ],
+    });
+
+    expect(spec.requirements).toHaveLength(1);
+    const req = spec.requirements[0];
+    expect(req.requiredRealEnvKeys).toContain("STRIPE_SECRET_KEY");
+    expect(req.placeholderOkEnvKeys).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+  });
+
+  it("downgrades unbacked integrations (no matching dossier) to warn-only", () => {
+    // Supabase is in integrationRegistry but no dossier on disk implements
+    // it — F3 would otherwise block on NEXT_PUBLIC_SUPABASE_URL even though
+    // nothing in generated code would consume it. Clamp moves the keys
+    // from requiredRealEnvKeys → warnOnlyEnvKeys so the UI still surfaces
+    // them but F3 validation doesn't refuse to start.
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -62,8 +91,9 @@ describe("deriveTier3BuildSpec", () => {
 
     expect(spec.requirements).toHaveLength(1);
     const req = spec.requirements[0];
-    expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_URL");
-    expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    expect(req.requiredRealEnvKeys).toEqual([]);
+    expect(req.warnOnlyEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_URL");
+    expect(req.warnOnlyEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
   });
 
   it("skips optional integrations", () => {
