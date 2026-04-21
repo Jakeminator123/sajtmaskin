@@ -1294,8 +1294,34 @@ export async function finalizeAndSaveVersion(
       const previous = await chatRepo.getChatOrchestrationSnapshot(chatId);
       const merged = mergePersistedOrchestrationSnapshots(previous, snap);
       await chatRepo.updateChatOrchestrationSnapshot(chatId, merged);
+      // P26: trace what we actually persisted so we can attribute later
+      // variant-flippar to either missing snapshot.variantId, intent
+      // classification or scaffold drift. Tysta info-loggar i prod;
+      // devLogAppend gör det synligt i builder-UI.
+      const persistedVariantId =
+        typeof merged.variantId === "string" ? merged.variantId : null;
+      const persistedScaffoldId =
+        typeof merged.scaffoldId === "string" ? merged.scaffoldId : null;
+      devLogAppend("in-progress", {
+        type: "orchestration.snapshot.persisted",
+        chatId,
+        versionId: version.id,
+        scaffoldId: persistedScaffoldId,
+        variantId: persistedVariantId,
+        hasVariantId: persistedVariantId !== null,
+      });
     } catch (e) {
-      console.warn("[orchestration-snapshot] Failed to persist:", e);
+      // P26: persistering är kritiskt för variant-locken på följande
+      // follow-up. Om det failar tappar vi continuity → variant flippar
+      // → "projektet är oigenkännligt"-känsla. Höjer från warn till error
+      // och rapporterar till devLog så det syns i builder-UI.
+      console.error("[orchestration-snapshot] Failed to persist:", e);
+      devLogAppend("in-progress", {
+        type: "orchestration.snapshot.persist_failed",
+        chatId,
+        versionId: version.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
     }
   }
   const scaffoldSelection =
