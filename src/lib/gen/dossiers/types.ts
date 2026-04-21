@@ -27,10 +27,31 @@ export type DossierComplexity = "simple" | "medium" | "advanced";
  */
 export type Capability = string;
 
+/**
+ * How strictly the F3 readiness gate enforces a given env var.
+ *
+ * - `"build"` (default when omitted): real value required before F3
+ *   ("Bygg integrationer") build can succeed at runtime. Stripe secrets,
+ *   Supabase URLs, database connections — anything where a placeholder
+ *   value crashes the deploy.
+ * - `"feature-runtime"`: the SDK is imported but the dossier's UI mounts a
+ *   configuration banner / popup at runtime when the value is missing or
+ *   placeholder. F3 reports this as a warning, not a blocker. The
+ *   "Klarna-button-with-popup" pattern.
+ * - `"warn-only"`: dossier code self-disables on empty value (e.g. the
+ *   component returns `null`). Not even a warning — info only.
+ *
+ * Read by `tier3-build-spec.ts` to partition `requiredRealEnvKeys` into
+ * blocking vs informational buckets.
+ */
+export type DossierEnvVarEnforcement = "build" | "feature-runtime" | "warn-only";
+
 export interface DossierEnvVar {
   key: string;
   required: boolean;
   purpose: string;
+  /** Defaults to `"build"` when omitted. */
+  enforcement?: DossierEnvVarEnforcement;
 }
 
 export interface DossierFile {

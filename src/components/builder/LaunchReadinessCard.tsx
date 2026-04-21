@@ -107,8 +107,25 @@ export function LaunchReadinessCard({
         <div className="mt-2 text-[11px] text-muted-foreground">Kontrollerar publiceringsstatus...</div>
       ) : readiness ? (
         <div className="mt-2 space-y-2">
-          {readiness.blockers.map((item) => renderItem(item, readiness.info.missingEnvKeys, isIntegrations))}
-          {readiness.warnings.map((item) => renderItem(item, readiness.info.missingEnvKeys, isIntegrations))}
+          {/* Phase-4: when dossier metadata is available, prefer the
+            * narrower `buildBlockingKeys` list so the env panel opens with
+            * only the keys that truly block F3 — not the broader 17-key
+            * detection set. Falls back to legacy `missingEnvKeys` when the
+            * field is absent (older readiness payloads). */}
+          {readiness.blockers.map((item) =>
+            renderItem(
+              item,
+              readiness.info.buildBlockingKeys ?? readiness.info.missingEnvKeys,
+              isIntegrations,
+            ),
+          )}
+          {readiness.warnings.map((item) =>
+            renderItem(
+              item,
+              readiness.info.buildBlockingKeys ?? readiness.info.missingEnvKeys,
+              isIntegrations,
+            ),
+          )}
 
           {readiness.info.lifecycleStatus ? (
             <div className="text-[11px] text-muted-foreground">

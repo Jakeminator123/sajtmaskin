@@ -11,17 +11,20 @@
     {
       "key": "RESEND_API_KEY",
       "required": true,
-      "purpose": "Server-side Resend authentication. Find it in the Resend dashboard under API Keys."
+      "enforcement": "feature-runtime",
+      "purpose": "Server-side Resend authentication. Find it in the Resend dashboard under API Keys. Route returns 503 with a clear message when missing so F3 build does not crash."
     },
     {
       "key": "EMAIL_FROM",
       "required": true,
-      "purpose": "From-address used in outgoing emails. Must be a verified domain in Resend (e.g. 'Site <noreply@yourdomain.com>')."
+      "enforcement": "feature-runtime",
+      "purpose": "From-address used in outgoing emails. Must be a verified domain in Resend (e.g. 'Site <noreply@yourdomain.com>'). Same 503-fallback as RESEND_API_KEY."
     },
     {
       "key": "CONTACT_EMAIL_TO",
       "required": true,
-      "purpose": "Inbox that receives form submissions. Free-form email address; Resend does not need to verify it."
+      "enforcement": "feature-runtime",
+      "purpose": "Inbox that receives form submissions. Free-form email address; Resend does not need to verify it. Same 503-fallback as RESEND_API_KEY."
     }
   ],
   "dependencies": ["resend"],

@@ -64,7 +64,12 @@
         "properties": {
           "key": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
           "required": { "type": "boolean" },
-          "purpose": { "type": "string", "minLength": 10, "maxLength": 240 }
+          "purpose": { "type": "string", "minLength": 10, "maxLength": 240 },
+          "enforcement": {
+            "type": "string",
+            "enum": ["build", "feature-runtime", "warn-only"],
+            "description": "How strictly the F3 readiness gate enforces this key. 'build' (default): real value required before F3 build can succeed. 'feature-runtime': SDK is imported but the dossier's UI shows a configuration banner / popup at runtime when the value is missing or a placeholder; F3 reports this as a warning, not a blocker (the Klarna-popup pattern). 'warn-only': dossier code self-disables when the value is empty (e.g. component returns null); not even a warning, just info. Omitted defaults to 'build' for backwards compatibility."
+          }
         }
       },
       "description": "External secrets needed at runtime. Empty array (or omitted) means soft-class-style self-contained dossier."

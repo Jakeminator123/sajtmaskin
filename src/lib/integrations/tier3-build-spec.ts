@@ -44,7 +44,9 @@ export interface Tier3IntegrationRequirement {
   provider: string;
   /**
    * Env keys that MUST have real values before F3 can succeed.
-   * Subset of `IntegrationDefinition.envVars` excluding placeholder-harmless keys.
+   * Subset of `IntegrationDefinition.envVars` excluding placeholder-harmless
+   * keys AND any key whose dossier metadata marked it `feature-runtime` /
+   * `warn-only` (those are surfaced separately below).
    */
   requiredRealEnvKeys: string[];
   /**
@@ -52,6 +54,19 @@ export interface Tier3IntegrationRequirement {
    * Subset of `IntegrationDefinition.envVars` matching `PLACEHOLDER_HARMLESS_ENV_KEYS`.
    */
   placeholderOkEnvKeys: string[];
+  /**
+   * Env keys whose dossier marks them `feature-runtime` — the SDK is
+   * imported but the dossier's UI shows a configuration banner / popup
+   * when the value is missing. F3 reports these as informational warnings.
+   * Empty when no dossier metadata is available (legacy callers).
+   */
+  featureRuntimeEnvKeys: string[];
+  /**
+   * Env keys whose dossier marks them `warn-only` — the dossier code
+   * self-disables on empty value. Surfaced only as info; never blocks.
+   * Empty when no dossier metadata is available.
+   */
+  warnOnlyEnvKeys: string[];
   /** 4-8 concrete build steps for the F3 LLM. */
   buildInstructions: string[];
   /** Vendor setup guide (re-exported from `IntegrationDefinition.setupGuide`). */
@@ -71,6 +86,16 @@ export interface Tier3ReadinessReport {
     key: string;
     name: string;
     missing: string[];
+  }>;
+  /**
+   * Per-integration breakdown of build-enforcement keys that were satisfied
+   * via a placeholder rather than a real value (only populated when
+   * `validateTier3Readiness` ran with `allowPlaceholdersForBuildKeys`).
+   */
+  placeholderUsedByIntegration?: Array<{
+    key: string;
+    name: string;
+    placeholdered: string[];
   }>;
 }
 
@@ -197,12 +222,33 @@ export function deriveTier3BuildSpec(
       : def.envVars;
     const { harmless, tier3 } = partitionEnvKeysByTier(envKeys);
 
+    // PlanContracts may carry per-key enforcement under a future schema
+    // extension. We read it defensively so callers that already pass it
+    // benefit immediately, while older callers see all keys treated as
+    // `build` (unchanged behaviour).
+    const enforcementHint = (
+      integration as PlanIntegrationContract & {
+        envEnforcement?: Record<string, "build" | "feature-runtime" | "warn-only">;
+      }
+    ).envEnforcement;
+    const featureRuntimeEnvKeys = enforcementHint
+      ? tier3.filter((k) => enforcementHint[k] === "feature-runtime")
+      : [];
+    const warnOnlyEnvKeys = enforcementHint
+      ? tier3.filter((k) => enforcementHint[k] === "warn-only")
+      : [];
+    const buildEnforcedTier3 = tier3.filter(
+      (k) => !featureRuntimeEnvKeys.includes(k) && !warnOnlyEnvKeys.includes(k),
+    );
+
     requirements.push({
       key: def.key,
       name: def.name,
       provider: def.provider ?? def.key,
-      requiredRealEnvKeys: tier3,
+      requiredRealEnvKeys: buildEnforcedTier3,
       placeholderOkEnvKeys: harmless,
+      featureRuntimeEnvKeys,
+      warnOnlyEnvKeys,
       buildInstructions: resolveBuildInstructions(def),
       setupGuide: def.setupGuide,
     });
@@ -217,26 +263,49 @@ export function deriveTier3BuildSpec(
  * `projectEnvVars` should already be decrypted (e.g. from
  * `getStoredProjectEnvVarMap`). A key is satisfied when it has a non-empty
  * trimmed value.
+ *
+ * `options.allowPlaceholdersForBuildKeys` (Phase 4 toggle): when true, a
+ * `build`-enforcement key counts as satisfied if it has a placeholder
+ * value in `placeholderEnvKeys`. The result still records which keys were
+ * placeholdered so the UI can show banners.
  */
 export function validateTier3Readiness(
   spec: Tier3BuildSpec,
   projectEnvVars: Record<string, string>,
+  options: {
+    allowPlaceholdersForBuildKeys?: boolean;
+    placeholderEnvKeys?: ReadonlySet<string>;
+  } = {},
 ): Tier3ReadinessReport {
   const missingByIntegration: Tier3ReadinessReport["missingByIntegration"] = [];
+  const placeholderUsedByIntegration: NonNullable<
+    Tier3ReadinessReport["placeholderUsedByIntegration"]
+  > = [];
+  const allowPlaceholders = options.allowPlaceholdersForBuildKeys === true;
+  const placeholderKeys = options.placeholderEnvKeys ?? new Set<string>();
 
   for (const req of spec.requirements) {
     const missing: string[] = [];
+    const placeholdered: string[] = [];
     for (const key of req.requiredRealEnvKeys) {
       const value = projectEnvVars[key];
-      if (typeof value !== "string" || value.trim() === "") {
-        missing.push(key);
+      const hasRealValue = typeof value === "string" && value.trim() !== "";
+      if (hasRealValue) continue;
+
+      if (allowPlaceholders && placeholderKeys.has(key)) {
+        placeholdered.push(key);
+        continue;
       }
+      missing.push(key);
     }
     if (missing.length > 0) {
-      missingByIntegration.push({
+      missingByIntegration.push({ key: req.key, name: req.name, missing });
+    }
+    if (placeholdered.length > 0) {
+      placeholderUsedByIntegration.push({
         key: req.key,
         name: req.name,
-        missing,
+        placeholdered,
       });
     }
   }
@@ -244,6 +313,9 @@ export function validateTier3Readiness(
   return {
     ready: missingByIntegration.length === 0,
     missingByIntegration,
+    ...(placeholderUsedByIntegration.length > 0
+      ? { placeholderUsedByIntegration }
+      : {}),
   };
 }
 

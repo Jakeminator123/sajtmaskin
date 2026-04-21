@@ -22,6 +22,9 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
+import { getProjectData } from "@/lib/db/services/projects";
+import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
+import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
@@ -67,6 +70,59 @@ function buildPlaceholderCoveredEnvWarning(keys: string[]): ChatReadinessItem {
     severity: "warning",
     action: "env",
   };
+}
+
+function buildFeatureRuntimeEnvInfo(keys: string[]): ChatReadinessItem {
+  return {
+    id: "feature-runtime-env",
+    title: `${keys.length} ${keys.length === 1 ? "funktion kräver" : "funktioner kräver"} konfiguration vid användning.`,
+    detail: `Sajten bygger och visas utan dessa, men respektive feature visar en konfigurations-banner när användaren aktiverar den: ${keys.join(", ")}`,
+    severity: "warning",
+    action: "env",
+  };
+}
+
+async function readAllowPlaceholdersInF3(
+  projectId: string | null | undefined,
+): Promise<boolean> {
+  if (!projectId) return false;
+  try {
+    const data = await getProjectData(projectId);
+    const meta = data?.meta as Record<string, unknown> | null | undefined;
+    const value = meta?.allowPlaceholdersInF3;
+    return value === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the dossier set used for the chat's most recent build, so the
+ * readiness route can overlay per-envVar `enforcement` tags (Phase 4 of
+ * the F3-readiness rework).
+ *
+ * Source: `chat.orchestration_snapshot.brief.requestedCapabilities`. When
+ * absent we fall back to `[]` — the resolver then defaults all keys to
+ * `enforcement: "build"` (legacy behaviour, no regression).
+ */
+function resolveSelectedDossiersFromSnapshot(
+  snapshot: unknown,
+): SelectedDossier[] {
+  if (!snapshot || typeof snapshot !== "object") return [];
+  const brief = (snapshot as { brief?: unknown }).brief;
+  if (!brief || typeof brief !== "object") return [];
+  const caps = (brief as { requestedCapabilities?: unknown })
+    .requestedCapabilities;
+  if (!Array.isArray(caps)) return [];
+  const requestedCapabilities = caps.filter(
+    (c): c is string => typeof c === "string",
+  );
+  if (requestedCapabilities.length === 0) return [];
+  try {
+    return selectDossiersForRequest({ requestedCapabilities }).selected;
+  } catch {
+    return [];
+  }
 }
 
 function buildLifecycleBlocker(status: string, summary?: string | null): ChatReadinessItem | null {
@@ -265,12 +321,31 @@ async function buildEngineReadiness(
     typeof version.lifecycle_stage === "string" ? version.lifecycle_stage : "design";
   const envGateActive = lifecycleStage === "integrations";
 
+  const allowPlaceholdersInF3 = envGateActive
+    ? await readAllowPlaceholdersInF3(chat.project_id)
+    : false;
+
+  const selectedDossiers = resolveSelectedDossiersFromSnapshot(
+    chat.orchestration_snapshot,
+  );
+
   const envRequirements = resolveEnvRequirementsFromVersionFiles(
     versionRows,
     projectEnv,
-    { lifecycleStage: envGateActive ? "integrations" : "design" },
+    {
+      lifecycleStage: envGateActive ? "integrations" : "design",
+      allowPlaceholdersInF3,
+      selectedDossiers,
+    },
   );
-  const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys, placeholderCoveredKeys } = envRequirements;
+  const {
+    requiredEnvKeys,
+    configuredEnvKeys,
+    missingEnvKeys,
+    placeholderCoveredKeys,
+    buildBlockingKeys,
+    featureRuntimeKeys,
+  } = envRequirements;
 
   if (envGateActive) {
     if (requiredEnvKeys.length > 0 && !chat.project_id) {
@@ -281,12 +356,20 @@ async function buildEngineReadiness(
         severity: "blocker",
         action: "env",
       });
-    } else if (missingEnvKeys.length > 0) {
-      blockers.push(buildMissingEnvBlocker(missingEnvKeys));
+    } else if (buildBlockingKeys.length > 0) {
+      // Phase 4: ONLY build-enforcement keys block. feature-runtime + warn-only
+      // surface as warnings or info. Falls back to legacy `missingEnvKeys`
+      // semantics when no enforcement metadata is present (keys default to
+      // build, so the two lists overlap fully on legacy callers).
+      blockers.push(buildMissingEnvBlocker(buildBlockingKeys));
     }
 
     if (placeholderCoveredKeys.length > 0) {
       warnings.push(buildPlaceholderCoveredEnvWarning(placeholderCoveredKeys));
+    }
+
+    if (featureRuntimeKeys.length > 0) {
+      warnings.push(buildFeatureRuntimeEnvInfo(featureRuntimeKeys));
     }
   }
 
@@ -325,6 +408,8 @@ async function buildEngineReadiness(
       configuredEnvKeys,
       missingEnvKeys,
       placeholderCoveredKeys,
+      buildBlockingKeys,
+      featureRuntimeKeys,
     },
   });
 }

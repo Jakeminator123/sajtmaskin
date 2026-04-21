@@ -11,7 +11,8 @@
     {
       "key": "OPENAI_API_KEY",
       "required": true,
-      "purpose": "Server-side OpenAI API authentication. Find it at platform.openai.com/api-keys."
+      "enforcement": "build",
+      "purpose": "Server-side OpenAI API authentication. Find it at platform.openai.com/api-keys. Tagged 'build' for safety; promote to 'feature-runtime' once the chat route guarantees a graceful 503 + UI banner when the key is missing instead of throwing at module load."
     }
   ],
   "dependencies": ["ai", "@ai-sdk/openai", "@ai-sdk/react"],

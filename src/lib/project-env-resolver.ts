@@ -30,6 +30,10 @@ import {
   detectIntegrationsFromVersionFiles,
   type DetectedIntegration,
 } from "@/lib/gen/detect-integrations";
+import type {
+  DossierEnvVarEnforcement,
+  SelectedDossier,
+} from "@/lib/gen/dossiers/types";
 
 export type ResolvedProjectEnv = {
   source: "app-project" | "none";
@@ -46,6 +50,23 @@ export type ResolvedProjectEnvRequirements = {
   missingEnvKeys: string[];
   /** Keys the user hasn't configured but that have a preview placeholder. */
   placeholderCoveredKeys: string[];
+  /**
+   * Subset of `requiredEnvKeys` whose enforcement is `"build"` AND that are
+   * actually missing (not configured AND not allowed via the F3 toggle when
+   * placeholder-covered). These are the only keys that block F3.
+   */
+  buildBlockingKeys: string[];
+  /**
+   * Keys whose dossier marks them `"feature-runtime"` (UI mounts a
+   * configuration banner / popup at runtime when missing). Surfaced as
+   * informational warnings, never as blockers.
+   */
+  featureRuntimeKeys: string[];
+  /**
+   * Keys whose dossier marks them `"warn-only"` (component self-disables
+   * on empty value). Surfaced only when missing from configured + placeholder.
+   */
+  warnOnlyKeys: string[];
 };
 
 export async function resolveProjectEnv(
@@ -93,26 +114,73 @@ function getPlaceholderKeys(): Set<string> {
   return _cachedPlaceholderKeys;
 }
 
+/**
+ * Build a flat enforcement lookup from all detected integrations. Per-key
+ * enforcement defaults to `"build"` (safe / pre-Phase-3 behaviour) when the
+ * detection pipeline did not have dossier metadata available.
+ */
+function flattenEnforcement(
+  integrations: DetectedIntegration[],
+): Map<string, DossierEnvVarEnforcement> {
+  const map = new Map<string, DossierEnvVarEnforcement>();
+  for (const integration of integrations) {
+    const enforcementMap = integration.envEnforcement ?? {};
+    for (const key of integration.envVars) {
+      if (map.has(key)) continue;
+      map.set(key, enforcementMap[key] ?? "build");
+    }
+  }
+  return map;
+}
+
 function resolveEnvRequirementsFromDetected(
   detectedIntegrations: DetectedIntegration[],
   env: ResolvedProjectEnv,
+  options: { allowPlaceholdersInF3?: boolean } = {},
 ): ResolvedProjectEnvRequirements {
   const requiredEnvKeys = dedupeStrings(
     detectedIntegrations.flatMap((integration) => integration.envVars ?? []),
   );
   const configuredEnvKeys = Array.from(env.configuredKeys);
   const placeholderKeys = getPlaceholderKeys();
+  const enforcement = flattenEnforcement(detectedIntegrations);
+  const allowPlaceholdersInF3 = options.allowPlaceholdersInF3 === true;
 
   const unconfigured = requiredEnvKeys.filter(
     (key) => !env.configuredKeys.has(key),
   );
 
+  // Bucket every key into its enforcement class so callers can present the
+  // right severity. A key can only be in one bucket.
+  const buildKeys = requiredEnvKeys.filter(
+    (key) => (enforcement.get(key) ?? "build") === "build",
+  );
+  const featureRuntimeKeys = requiredEnvKeys.filter(
+    (key) => enforcement.get(key) === "feature-runtime",
+  );
+  const warnOnlyKeys = requiredEnvKeys.filter(
+    (key) => enforcement.get(key) === "warn-only",
+  );
+
+  // `placeholderCoveredKeys` = keys that have a preview placeholder AND are
+  // unconfigured. They surface as a warning in the readiness card.
   const placeholderCoveredKeys = unconfigured.filter((key) =>
     placeholderKeys.has(key),
   );
+
+  // Truly absent (legacy meaning preserved): unconfigured AND no placeholder.
+  // Backwards compatible for callers that have not migrated.
   const missingEnvKeys = unconfigured.filter(
     (key) => !placeholderKeys.has(key),
   );
+
+  // Phase-4 narrowing: blocking-set is the unconfigured `build`-enforcement
+  // subset, minus placeholder-covered keys when the F3 toggle is on.
+  const buildBlockingKeys = buildKeys.filter((key) => {
+    if (env.configuredKeys.has(key)) return false;
+    if (allowPlaceholdersInF3 && placeholderKeys.has(key)) return false;
+    return true;
+  });
 
   return {
     detectedIntegrations,
@@ -120,17 +188,29 @@ function resolveEnvRequirementsFromDetected(
     configuredEnvKeys,
     missingEnvKeys,
     placeholderCoveredKeys,
+    buildBlockingKeys,
+    featureRuntimeKeys,
+    warnOnlyKeys,
   };
 }
 
 export function resolveEnvRequirementsFromVersionFiles(
   files: Array<{ path: string; content: string }>,
   env: ResolvedProjectEnv,
-  options: { lifecycleStage?: PreviewLifecycleStage } = {},
+  options: {
+    lifecycleStage?: PreviewLifecycleStage;
+    selectedDossiers?: SelectedDossier[];
+    allowPlaceholdersInF3?: boolean;
+  } = {},
 ): ResolvedProjectEnvRequirements {
   const detectedIntegrations = detectIntegrationsFromVersionFiles(
     files.map((f) => ({ name: f.path, content: f.content })),
-    { lifecycleStage: options.lifecycleStage },
+    {
+      lifecycleStage: options.lifecycleStage,
+      selectedDossiers: options.selectedDossiers,
+    },
   );
-  return resolveEnvRequirementsFromDetected(detectedIntegrations, env);
+  return resolveEnvRequirementsFromDetected(detectedIntegrations, env, {
+    allowPlaceholdersInF3: options.allowPlaceholdersInF3,
+  });
 }
