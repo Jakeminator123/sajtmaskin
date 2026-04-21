@@ -136,7 +136,8 @@ export function extractBriefSummaryFromSnapshot(
     typeof s.brandName === "string" ||
     (Array.isArray(s.styleKeywords) && s.styleKeywords.length > 0) ||
     (Array.isArray(s.toneKeywords) && s.toneKeywords.length > 0) ||
-    (Array.isArray(s.requestedCapabilities) && s.requestedCapabilities.length > 0);
+    (Array.isArray(s.requestedCapabilities) && s.requestedCapabilities.length > 0) ||
+    (typeof s.domainProfile === "object" && s.domainProfile !== null);
   if (!has) return null;
   const rawDomainProfile = s.domainProfile;
   const domainProfile =

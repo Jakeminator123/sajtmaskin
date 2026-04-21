@@ -278,6 +278,14 @@ describe("extractBriefSummaryFromSnapshot — capability/domain extraction", () 
     expect(out?.requestedCapabilities).toEqual(["auth"]);
   });
 
+  it("treats domainProfile-only briefSummary as has-content (regression: was null)", () => {
+    const out = extractBriefSummaryFromSnapshot({
+      briefSummary: { domainProfile: { domain: "hospitality", industry: "hotel" } },
+    });
+    expect(out).not.toBeNull();
+    expect(out?.domainProfile).toEqual({ domain: "hospitality", industry: "hotel" });
+  });
+
   it("ignores empty domainProfile object", () => {
     const out = extractBriefSummaryFromSnapshot({
       briefSummary: { projectTitle: "X", domainProfile: {} },
