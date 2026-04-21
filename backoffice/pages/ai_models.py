@@ -235,11 +235,6 @@ def _render_assist_brief_polish(man_path, manifest: dict[str, Any]) -> None:
         value=str(briefing.get("serverAutoAnthropic", "")),
         key="brief_auto_anthropic",
     )
-    spec_model = st.text_input(
-        "Äldre spec-first helper",
-        value=str(briefing.get("specModel", "")),
-        key="brief_spec_model",
-    )
     gateway_text = st.text_area(
         "User-facing assistmodeller (en per rad)",
         value="\n".join(prompt_allowed.get("gatewayClassModels") or []),
@@ -263,7 +258,6 @@ def _render_assist_brief_polish(man_path, manifest: dict[str, Any]) -> None:
         briefing["requestModel"] = request_model.strip()
         briefing["serverAutoOpenAI"] = auto_openai.strip()
         briefing["serverAutoAnthropic"] = auto_anthropic.strip()
-        briefing["specModel"] = spec_model.strip()
         write_json(man_path, manifest)
         st.success("Sparat assist / brief / polish.")
         st.rerun()
@@ -651,7 +645,7 @@ def _render_per_tier_policies(manifest: dict[str, Any]) -> None:
     st.markdown("### Tier-differentierade policys (sedan wave 2026-04-20)")
     st.caption(
         "Aktiveras av per-tier accessor-funktioner i `phase-routing.ts`/`engine.ts` (P26-uppföljning). "
-        "Gamla globala fält (`routeTimeouts`, `repairPolicies`, `briefing.specModel`) "
+        "Gamla globala fält (`routeTimeouts`, `repairPolicies`) "
         "kvarstår som fallback. Edit görs via manifest.json-tabben."
     )
 
