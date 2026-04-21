@@ -2020,7 +2020,9 @@ def _render_pipeline_tools(ctx: BackofficeContext) -> None:
         "sker nu från terminalen:\n\n"
         "- `npm run scaffolds:variant-embeddings` — bygg om embeddings för alla 21 variants\n"
         "- `npm run scaffolds:variant-patterns` — AI-curate `signaturePatterns`\n"
-        "- `npm run dossiers:rebuild` — bygg om dossier-index + recommendations + embeddings"
+        "- `npm run dossiers:curate -- --reference=<id> --class=<hard|soft> --id=<new>` — "
+        "AI-curate ett nytt dossier-utkast från `data/template-references/repos/`. "
+        "Inga dossier-embeddings längre — urvalet är capability-driven (v2)."
     )
 
 

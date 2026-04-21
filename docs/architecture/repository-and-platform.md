@@ -42,8 +42,8 @@ Detalj: [`.cursor/rules/repo-router.mdc`](../../.cursor/rules/repo-router.mdc) (
 
 2. **Vercel-mallar / externa referenser**
    - källa: `e2e/vercel-templates/*`
-   - rå dossier-pipeline: `data/dossiers/*` (`_raw/`, `_index/`, `_repo-cache/`)
-   - används för extern research, dossiers och scaffold research
+   - dossier-system v2: `data/dossiers/{hard,soft}/<id>/` (committed manifests + instructions + components) och `data/dossiers/_index/capability-map.json`
+   - input till AI-kuration: `data/template-references/{repos,_metadata}/` (gitignored, klonade Vercel-template-repos)
    - embeddings: `src/lib/gen/template-library/template-library-embeddings.json`
 
 3. **Scaffolds**
@@ -67,7 +67,7 @@ Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` �
 
 - Discovery pipeline, Playwright-spec och koppling till externa referenser/scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`scripts/README.md`](../../scripts/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
 - `e2e/vercel-templates/*` är **automatiserad extern intake**, inte runtime.
-- `data/dossiers/` är den nya kanoniska dossier-pipen (sedan 2026-04). Runtime own-engine läser dossiers via `_index/dossier-embeddings.json` (cosine-match) → `selectDossiersForRequest()` i `orchestrate.ts` → `## Available Dossiers` + `## Selected Dossier Instructions` i system prompt. Den gamla `data/external-template-pipeline/reference-library/` är borttagen. Generated artifacts (`template-library.generated.json`, `scaffold-research.generated.json`) finns kvar tills Fas 9 av roadmapen är genomförd. Se [dossier-pipeline-roadmap.md](./dossier-pipeline-roadmap.md).
+- `data/dossiers/{hard,soft}/<id>/` är den kanoniska dossier-platsen (v2 sedan 2026-04-20). Runtime own-engine läser manifests direkt och matchar `brief.requestedCapabilities` 1:1 mot dossiers via `selectDossiersForRequest()` i `orchestrate.ts` → `## Available Dossiers` + `## Selected Dossier Instructions` + `## Dossier Files To Emit Verbatim` i system prompt. **Inga embeddings, ingen domain-veto, inga cap.** Tre exempel ligger i poolen; resten av den auto-curated v1-poolen ligger i `archive/dossiers-legacy-2026-04-20/` (gitignored). Se [dossier-system.md](./dossier-system.md).
 
 ## Inspector / Playwright worker
 

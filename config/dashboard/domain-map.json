@@ -61,10 +61,12 @@
       ]
     },
     "Codegen core": {
-      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Den gamla `prompt-static/`-mappen + `codegen-static-prompt.json` togs bort 2026-04-18.",
+      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-editorer sedan 2026-04-21: domain rules (config/domain-rules.json), prompt heuristic tokens (config/prompt-heuristic-tokens.json) och env-toggle SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT.",
       "canonicalPaths": [
         "config/codegen-core-manifest.json",
-        "config/prompt-core/*.md (via fragments i JSON)"
+        "config/prompt-core/*.md (via fragments i JSON)",
+        "config/domain-rules.json",
+        "config/prompt-heuristic-tokens.json"
       ],
       "docsPaths": [
         "docs/architecture/fas2-orchestration-and-build.md",
@@ -72,7 +74,9 @@
       ],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts",
-        "src/lib/gen/system-prompt.ts"
+        "src/lib/gen/system-prompt.ts",
+        "src/lib/builder/domain-inference.ts",
+        "src/lib/builder/prompt-heuristics.ts"
       ]
     },
     "prompt-core": {
@@ -151,7 +155,7 @@
       ]
     },
     "Scaffold Lifecycle": {
-      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter -> dossier-kopplingar, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt beroendevaliderad scaffold-radering. Variants är det visuella uttrycket inom en scaffold; dossiers är de modulära byggklossarna (data/dossiers/) som dynamiskt injiceras i system-prompten via embedding-baserat val.",
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt beroendevaliderad scaffold-radering. Variants är det visuella uttrycket inom en scaffold. Dossiers (separat system, v2 sedan 2026-04-20) hanteras under 'Dossiers (legoklossar)'-sidan och injiceras deterministiskt baserat på brief.requestedCapabilities — inte embeddings.",
       "canonicalPaths": [
         "config/scaffold-variants/",
         "backoffice/pages/scaffold_lifecycle.py",
@@ -161,7 +165,7 @@
       ],
       "docsPaths": [
         "docs/schemas/scaffold-contract.md",
-        "docs/architecture/dossier-format.md",
+        "docs/architecture/dossier-system.md",
         ".cursor/rules/scaffold-rules.mdc"
       ],
       "codeReaders": [

@@ -164,7 +164,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY: z.string().optional(),
   SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW: z.string().optional(),
   SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED: z.string().optional(),
-  /** New dossier pipeline: read data/dossiers/_index/* and inject ## Available Dossiers + instructions into prompt. On in dev, off in prod by default. */
+  /** Dossier system v2: deterministic capability-driven selection from data/dossiers/{hard,soft}/ injected into prompt. On in dev, off in prod by default. See docs/architecture/dossier-system.md. */
   SAJTMASKIN_DOSSIER_PIPELINE: z.string().optional(),
   /** When true/1, init generations may plan multiple routes but only fully realize the primary route while extras become lightweight shells. */
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),

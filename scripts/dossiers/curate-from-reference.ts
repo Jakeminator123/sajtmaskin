@@ -329,7 +329,22 @@ ${sourcesBlock}`;
 async function main() {
   const args = parseArgs(process.argv);
 
-  const refDir = join(REFERENCES_ROOT, args.reference);
+  // Path-traversal guard on --reference. The script is local-only but CI/cron
+  // could pass user input; reject anything that escapes template-references/repos/.
+  if (
+    args.reference.includes("..") ||
+    args.reference.includes("/") ||
+    args.reference.includes("\\")
+  ) {
+    throw new Error(
+      `--reference must be a single directory name (no path segments). Got: ${args.reference}`,
+    );
+  }
+  const refDir = resolve(REFERENCES_ROOT, args.reference);
+  const sep = process.platform === "win32" ? "\\" : "/";
+  if (!refDir.startsWith(REFERENCES_ROOT + sep)) {
+    throw new Error(`--reference resolves outside template-references: ${refDir}`);
+  }
   if (!existsSync(refDir)) {
     throw new Error(`Reference repo not found: ${refDir}`);
   }

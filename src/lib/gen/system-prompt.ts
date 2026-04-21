@@ -852,11 +852,12 @@ export function buildDynamicContext(
         const content = getDossierFileContent(sel.entry.class, sel.entry.id, file.path);
         if (content === null) {
           // The dossier asked for verbatim injection but the file is missing
-          // on disk (or path-traversal blocked it). Don't silently drop it —
-          // missing integration glue would crash the generated site at runtime.
-          debugLog(
-            "GEN",
-            `[verbatim-missing] ${sel.entry.id}: file '${file.path}' was requested verbatim but cannot be read from data/dossiers/${sel.entry.class}/${sel.entry.id}/`,
+          // on disk (or path-traversal blocked it). Use console.warn (not
+          // debugLog, which is gated on DEBUG=true) — missing integration
+          // glue would crash the generated site at runtime, so the operator
+          // must see this even in production.
+          console.warn(
+            `[dossiers] verbatim-missing ${sel.entry.id}: file '${file.path}' was requested verbatim but cannot be read from data/dossiers/${sel.entry.class}/${sel.entry.id}/`,
           );
           continue;
         }

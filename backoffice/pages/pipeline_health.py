@@ -113,30 +113,10 @@ SCRIPTS: tuple[HealthScript, ...] = (
         requires_api=True,
         tags=("embeddings", "templates"),
     ),
-    HealthScript(
-        id="dossiers-rebuild",
-        label="Dossiers · rebuild (index + recommend + embeddings)",
-        command=("npm", "run", "dossiers:rebuild"),
-        description=(
-            "Kör `dossiers:index`, `dossiers:recommend:merge` och `dossiers:embeddings` "
-            "i kedja. Inkluderar OpenAI-anrop."
-        ),
-        cost="expensive",
-        requires_api=True,
-        tags=("dossiers",),
-    ),
-    HealthScript(
-        id="dossiers-full-pipeline",
-        label="Dossiers · full-pipeline",
-        command=("npm", "run", "dossiers:full-pipeline"),
-        description=(
-            "Hela dossier-pipelinen från scrape till embeddings. Kan ta tiotals "
-            "minuter — använd terminalen om du behöver följa loggen i realtid."
-        ),
-        cost="expensive",
-        requires_api=True,
-        tags=("dossiers",),
-    ),
+    # Dossier v2 (2026-04-20): no rebuild/full-pipeline scripts. The runtime
+    # walks data/dossiers/{hard,soft}/ directly. To curate a new dossier from
+    # a template-references repo, use the Dossiers page (AI-kuration tab) or
+    # `npm run dossiers:curate -- --reference=<id> --class=<hard|soft> --id=<new-id>`.
 )
 
 
