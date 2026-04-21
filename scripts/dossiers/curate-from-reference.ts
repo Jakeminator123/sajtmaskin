@@ -137,6 +137,44 @@ interface CurationOutput {
   instructions: string;
 }
 
+/**
+ * Lightweight runtime guard that mirrors the required-set of
+ * `docs/schemas/strict/dossier.schema.json`. We need this because the OpenAI
+ * call runs in non-strict json_schema mode (so optional fields can be omitted)
+ * — without it a malformed LLM response would slip straight into manifest.json.
+ * Throws with a concrete missing-field message; caller should let it bubble
+ * up so the script exits non-zero and the operator re-runs.
+ */
+function assertManifestShape(value: unknown): asserts value is CurationOutput {
+  if (!value || typeof value !== "object") {
+    throw new Error("LLM response is not a JSON object");
+  }
+  const root = value as Record<string, unknown>;
+  if (typeof root.instructions !== "string" || root.instructions.trim().length === 0) {
+    throw new Error("LLM response is missing `instructions` (non-empty string)");
+  }
+  const manifest = root.manifest as Record<string, unknown> | undefined;
+  if (!manifest || typeof manifest !== "object") {
+    throw new Error("LLM response is missing `manifest` object");
+  }
+  const requiredStringFields = ["id", "label", "capability", "summary", "lastVerified"] as const;
+  for (const field of requiredStringFields) {
+    if (typeof manifest[field] !== "string" || (manifest[field] as string).trim() === "") {
+      throw new Error(`Manifest is missing required string field: \`${field}\``);
+    }
+  }
+  if (manifest.codeFidelity !== "verbatim" && manifest.codeFidelity !== "rewritable") {
+    throw new Error(`Manifest \`codeFidelity\` must be 'verbatim' or 'rewritable' (got: ${String(manifest.codeFidelity)})`);
+  }
+  if (
+    manifest.complexity !== "simple" &&
+    manifest.complexity !== "medium" &&
+    manifest.complexity !== "advanced"
+  ) {
+    throw new Error(`Manifest \`complexity\` must be 'simple' | 'medium' | 'advanced' (got: ${String(manifest.complexity)})`);
+  }
+}
+
 async function callLLM(args: Args, sources: { name: string; body: string }[]): Promise<CurationOutput> {
   const apiKey = (process.env.OPENAI_API_KEY ?? "").trim();
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
@@ -202,7 +240,13 @@ ${sourcesBlock}`;
       type: "json_schema",
       json_schema: {
         name: "DossierCuration",
-        strict: true,
+        // strict mode requires every property to be in `required`, which would
+        // force the LLM to emit empty arrays for `envVars`/`dependencies`/`files`/
+        // `exposes` even on soft self-contained dossiers — and that contradicts
+        // `docs/schemas/strict/dossier.schema.json` (the canonical schema), where
+        // those fields are optional. We mirror the strict schema's required-set
+        // here and run a post-call sanity check (`assertManifestShape`) instead.
+        strict: false,
         schema: {
           type: "object",
           additionalProperties: false,
@@ -213,8 +257,7 @@ ${sourcesBlock}`;
               additionalProperties: false,
               required: [
                 "id", "label", "capability", "codeFidelity", "complexity",
-                "defaultForCapability", "summary", "envVars", "dependencies",
-                "files", "exposes", "lastVerified",
+                "summary", "lastVerified",
               ],
               properties: {
                 id: { type: "string" },
@@ -278,7 +321,9 @@ ${sourcesBlock}`;
 
   const content = response.choices[0]?.message?.content;
   if (!content) throw new Error("Empty response from OpenAI");
-  return JSON.parse(content) as CurationOutput;
+  const parsed: unknown = JSON.parse(content);
+  assertManifestShape(parsed);
+  return parsed;
 }
 
 async function main() {
