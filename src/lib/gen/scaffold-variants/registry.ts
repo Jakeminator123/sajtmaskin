@@ -166,10 +166,6 @@ function loadVariants(): ScaffoldVariant[] {
   return cachedVariants;
 }
 
-export function getAllScaffoldVariants(): ScaffoldVariant[] {
-  return loadVariants();
-}
-
 export function getVariantsForScaffold(scaffoldId: ScaffoldId | null | undefined): ScaffoldVariant[] {
   if (!scaffoldId) return [];
   return loadVariants().filter((variant) => variant.scaffoldId === scaffoldId);
@@ -187,6 +183,3 @@ export function getVariantById(
   );
 }
 
-export function clearScaffoldVariantCache(): void {
-  cachedVariants = null;
-}
