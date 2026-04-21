@@ -55,6 +55,19 @@ import {
   resolveVerifierPassPolicy,
   resolveFinalizePathPolicy,
 } from "./finalize-version/policies";
+import {
+  buildSyntaxFailureLog,
+  buildVerifierFailureLogs,
+} from "./finalize-version/failure-logs";
+import {
+  isPartialFileOutputIssue,
+  extractPartialFileNames,
+  formatPartialIssuesAsFixerErrors,
+} from "./finalize-version/partial-file";
+import {
+  type FinalizeStepTelemetryMap,
+  createFinalizeStepTelemetry,
+} from "./finalize-version/step-telemetry";
 
 export { EmptyGenerationError, PartialFileOutputError };
 
@@ -138,16 +151,6 @@ export interface FinalizeResult {
 
 const VERIFIER_REPAIR_TIMEOUT_MS = 60_000;
 
-type FinalizeStepStatus = "done" | "skipped" | "error";
-
-type FinalizeStepTelemetry = {
-  status: FinalizeStepStatus;
-  durationMs: number;
-  reason?: string;
-} & Record<string, unknown>;
-
-type FinalizeStepTelemetryMap = Partial<Record<OwnEnginePostStreamPhaseId, FinalizeStepTelemetry>>;
-
 type FinalizeSyntaxResult = Awaited<ReturnType<typeof validateAndFix>>;
 type FinalizePreflightResult = Awaited<ReturnType<typeof runFinalizePreflight>>;
 
@@ -170,118 +173,7 @@ interface FinalizeFastPathResult {
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 
-function buildSyntaxFailureLog(params: {
-  chatId: string;
-  versionId: string;
-  syntaxResult: FinalizeSyntaxResult;
-  logPassId: string;
-  repairPassIndex: number;
-  lineageHash?: string | null;
-}) {
-  const { chatId, versionId, syntaxResult, logPassId, repairPassIndex, lineageHash } = params;
-  if (syntaxResult.status === "passed") return null;
-
-  const message =
-    syntaxResult.status === "pipeline-error"
-      ? "Syntax validation pipeline failed before preflight could trust the generated files."
-      : "Syntax validation left blocking errors before preflight/preview.";
-
-  return {
-    chatId,
-    versionId,
-    level: "error" as const,
-    category: "syntax",
-    message,
-    meta: {
-      syntaxStatus: syntaxResult.status,
-      errorsBefore: syntaxResult.errorsBefore,
-      errorsAfter: syntaxResult.errorsAfter,
-      fixerUsed: syntaxResult.fixerUsed,
-      fixerImproved: syntaxResult.fixerImproved,
-      pipelineError: syntaxResult.pipelineError,
-      earlyStopReason: syntaxResult.earlyStopReason,
-      logPassId,
-      repairPassIndex,
-      lineageHash: lineageHash ?? null,
-    },
-  };
-}
-
-function buildVerifierFailureLogs(params: {
-  chatId: string;
-  versionId: string;
-  blockingFindings: Array<{ id: string; detail: string }>;
-  logPassId: string;
-  repairPassIndex: number;
-  lineageHash?: string | null;
-}) {
-  const { chatId, versionId, blockingFindings, logPassId, repairPassIndex, lineageHash } = params;
-  return blockingFindings.map((finding) => ({
-    chatId,
-    versionId,
-    level: "error" as const,
-    category: "quality-gate:verifier-blocking",
-    message: finding.detail,
-    meta: {
-      verifierFindingId: finding.id,
-      logPassId,
-      repairPassIndex,
-      lineageHash: lineageHash ?? null,
-    },
-  }));
-}
-
-function createFinalizeStepTelemetry(
-  startedAtMs: number,
-  status: FinalizeStepStatus,
-  extra?: Record<string, unknown>,
-): FinalizeStepTelemetry {
-  return {
-    status,
-    durationMs: Math.max(0, Date.now() - startedAtMs),
-    ...(extra ?? {}),
-  };
-}
-
-function isPartialFileOutputIssue(issue: FinalizePreflightIssue): boolean {
-  const message = issue.message.toLowerCase();
-  return (
-    message.includes("partial repair snippet") ||
-    message.includes("file excerpt instead of a complete file") ||
-    message.includes("overlapping import statements") ||
-    message.includes("nested import inside an unfinished import block")
-  );
-}
-
 const PARTIAL_FILE_REPAIR_TIMEOUT_MS = 60_000;
-
-function extractPartialFileNames(issues: string[]): string[] {
-  const files: string[] = [];
-  for (const issue of issues) {
-    const colonIdx = issue.indexOf(":");
-    if (colonIdx > 0) {
-      const candidate = issue.slice(0, colonIdx).trim();
-      if (candidate && /\.\w{2,4}$/.test(candidate)) files.push(candidate);
-    }
-  }
-  return [...new Set(files)];
-}
-
-function formatPartialIssuesAsFixerErrors(
-  partialFiles: string[],
-  issues: string[],
-): string[] {
-  const errors = partialFiles.map(
-    (f) =>
-      `${f}:1:1 CRITICAL: This file contains only a partial snippet or excerpt. Output the COMPLETE file from the first import to the last line.`,
-  );
-  for (const issue of issues) {
-    if (!errors.some((e) => issue.startsWith(e.split(":")[0]))) {
-      errors.push(issue);
-    }
-  }
-  return errors;
-}
 
 async function tryRepairPartialFileOutput(params: {
   contentForVersion: string;
