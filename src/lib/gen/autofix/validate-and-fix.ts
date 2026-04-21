@@ -10,18 +10,34 @@ import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
 import { normalizeErrorPattern, countByFixer, type FixEntry } from "./types";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { PreVmTypecheckSkipReason } from "@/lib/gen/preview/warm-typecheck";
+import type { PreVmEslintSkipReason } from "@/lib/gen/preview/warm-eslint";
 
 type ValidateFixStatus = "passed" | "partial" | "failed" | "pipeline-error";
 type ValidateFixEarlyStopReason = "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
 const VALIDATOR_UNAVAILABLE_NEEDLE = "Syntax validator unavailable:";
 const MAX_RESIDUAL_PATTERNS = 5;
 const TSC_REPAIR_TIMEOUT_MS = 60_000;
+const ESLINT_REPAIR_TIMEOUT_MS = 60_000;
 
 export type TscPassOutcome =
   | { ran: false; skipped: PreVmTypecheckSkipReason | "esbuild_failed"; durationMs: number }
   | {
       ran: true;
       diagnosticCount: number;
+      repaired: boolean;
+      durationMs: number;
+    };
+
+export type EslintPassOutcome =
+  | {
+      ran: false;
+      skipped: PreVmEslintSkipReason | "esbuild_failed" | "tsc_failed";
+      durationMs: number;
+    }
+  | {
+      ran: true;
+      errorCount: number;
+      warningCount: number;
       repaired: boolean;
       durationMs: number;
     };
@@ -46,6 +62,14 @@ export interface ValidateFixResult {
    * baseline to avoid running tsc on syntactically broken code).
    */
   tsc?: TscPassOutcome;
+  /**
+   * Outcome of the warm-eslint pass that runs after warm-tsc passes. Absent
+   * when either esbuild or tsc failed — eslint needs TS-valid input to
+   * avoid cascades of false-positive "undefined" errors. Feature-flag
+   * gated via `SAJTMASKIN_BLOCKING_ESLINT`; when disabled, reported as
+   * `{ ran: false, skipped: "feature_flag_disabled", ... }`.
+   */
+  eslint?: EslintPassOutcome;
 }
 
 export type ValidateFixProgressCallback = (event: {
@@ -59,7 +83,11 @@ export type ValidateFixProgressCallback = (event: {
     | "tsc-validating"
     | "tsc-fixing"
     | "tsc-passed"
-    | "tsc-skipped";
+    | "tsc-skipped"
+    | "eslint-validating"
+    | "eslint-fixing"
+    | "eslint-passed"
+    | "eslint-skipped";
   errorCount: number;
 }) => void;
 
@@ -255,6 +283,200 @@ async function runWarmTscPass(
 }
 
 /**
+ * Warm-eslint post-pass: runs `eslint . --max-warnings=<N>` against the
+ * warm scaffold cache after warm-tsc passes. Feature-flag gated via
+ * `SAJTMASKIN_BLOCKING_ESLINT`. When errors are found, runs a single
+ * LLM fixer round (same model/budget contract as tsc pass) followed by
+ * deterministic autofix. Fail-open on cache-cold / eslint-unavailable.
+ *
+ * Part of SAJ-28 / P34 Fas A+B. The fix closes the gap where eslint
+ * errors (e.g. `react-hooks/set-state-in-effect`) previously only ran in
+ * background verify-lane — too late to block the version from reaching
+ * the user's download.
+ */
+async function runWarmEslintPass(
+  contentForVersion: string,
+  opts: {
+    chatId: string;
+    model: string;
+    resolvedTier?: CanonicalModelId;
+    previewPolicy?: BuildSpecPreviewPolicy;
+    resolvedScaffold?: ScaffoldManifest | null;
+    forceEslint?: boolean;
+    onProgress?: ValidateFixProgressCallback;
+    pass: number;
+    budgetDeadline: number;
+  },
+): Promise<{
+  content: string;
+  eslint: EslintPassOutcome;
+  mechanicalFixesAdded: number;
+  llmFixesAdded: number;
+}> {
+  const startedAt = Date.now();
+  if (!opts.resolvedScaffold && !opts.forceEslint) {
+    opts.onProgress?.({ pass: opts.pass, phase: "eslint-skipped", errorCount: 0 });
+    return {
+      content: contentForVersion,
+      eslint: { ran: false, skipped: "no_files", durationMs: 0 },
+      mechanicalFixesAdded: 0,
+      llmFixesAdded: 0,
+    };
+  }
+  if (isBudgetExceeded(opts.budgetDeadline)) {
+    return {
+      content: contentForVersion,
+      eslint: { ran: false, skipped: "exception", durationMs: 0 },
+      mechanicalFixesAdded: 0,
+      llmFixesAdded: 0,
+    };
+  }
+  try {
+    const { runPreVmEslint, formatEslintIssuesForRepair } = await import(
+      "@/lib/gen/preview/warm-eslint"
+    );
+    const { parseCodeProject } = await import("@/lib/gen/parser");
+    const project = parseCodeProject(contentForVersion).files;
+    opts.onProgress?.({ pass: opts.pass, phase: "eslint-validating", errorCount: 0 });
+    const result = await runPreVmEslint({
+      scaffoldId: opts.resolvedScaffold?.id ?? null,
+      files: project,
+      force: opts.forceEslint === true,
+    });
+    if (result.skipped) {
+      opts.onProgress?.({ pass: opts.pass, phase: "eslint-skipped", errorCount: 0 });
+      devLogAppend("in-progress", {
+        type: "validate.eslint.skipped",
+        chatId: opts.chatId,
+        reason: result.skipped,
+        pass: opts.pass,
+      });
+      return {
+        content: contentForVersion,
+        eslint: { ran: false, skipped: result.skipped, durationMs: result.durationMs },
+        mechanicalFixesAdded: 0,
+        llmFixesAdded: 0,
+      };
+    }
+    const warningCount = result.issues.length - result.errorCount;
+    if (result.ok) {
+      opts.onProgress?.({ pass: opts.pass, phase: "eslint-passed", errorCount: 0 });
+      devLogAppend("in-progress", {
+        type: "validate.eslint.passed",
+        chatId: opts.chatId,
+        pass: opts.pass,
+        warningCount,
+        durationMs: result.durationMs,
+      });
+      return {
+        content: contentForVersion,
+        eslint: {
+          ran: true,
+          errorCount: 0,
+          warningCount,
+          repaired: false,
+          durationMs: result.durationMs,
+        },
+        mechanicalFixesAdded: 0,
+        llmFixesAdded: 0,
+      };
+    }
+
+    devLogAppend("in-progress", {
+      type: "validate.eslint.diagnostics",
+      chatId: opts.chatId,
+      errorCount: result.errorCount,
+      warningCount,
+      sample: formatEslintIssuesForRepair(result.issues).slice(0, 5),
+    });
+    opts.onProgress?.({
+      pass: opts.pass,
+      phase: "eslint-fixing",
+      errorCount: result.errorCount,
+    });
+
+    const fixerModel = opts.resolvedTier
+      ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
+      : undefined;
+    const fixerThinking = opts.resolvedTier
+      ? resolvePhaseThinking(opts.resolvedTier, "fixer")
+      : null;
+    const eslintFixAbort = new AbortController();
+    const remainingBudgetMs = Math.max(1_000, opts.budgetDeadline - Date.now());
+    const eslintFixTimeout = setTimeout(
+      () => eslintFixAbort.abort(),
+      Math.min(ESLINT_REPAIR_TIMEOUT_MS, remainingBudgetMs),
+    );
+    let mechanicalFixesAdded = 0;
+    let llmFixesAdded = 0;
+    try {
+      const errors = formatEslintIssuesForRepair(result.issues);
+      const repaired = await runLlmFixer(contentForVersion, errors, {
+        model: fixerModel,
+        thinking: fixerThinking?.thinking,
+        reasoningEffort: fixerThinking?.reasoningEffort,
+        recurringPatterns: readRecurringPatternsForChat(opts.chatId),
+        abortSignal: eslintFixAbort.signal,
+      });
+      if (repaired.success && repaired.fixedContent) {
+        llmFixesAdded += repaired.fixedFiles.length;
+        const reFixed = await runAutoFix(repaired.fixedContent, {
+          chatId: opts.chatId,
+          model: opts.model,
+          previewPolicy: opts.previewPolicy,
+        });
+        mechanicalFixesAdded += reFixed.fixes.length;
+        return {
+          content: reFixed.fixedContent,
+          eslint: {
+            ran: true,
+            errorCount: result.errorCount,
+            warningCount,
+            repaired: true,
+            durationMs: Date.now() - startedAt,
+          },
+          mechanicalFixesAdded,
+          llmFixesAdded,
+        };
+      }
+    } catch (repairErr) {
+      devLogAppend("in-progress", {
+        type: "validate.eslint.repair-error",
+        chatId: opts.chatId,
+        message: repairErr instanceof Error ? repairErr.message : String(repairErr),
+      });
+    } finally {
+      clearTimeout(eslintFixTimeout);
+    }
+
+    return {
+      content: contentForVersion,
+      eslint: {
+        ran: true,
+        errorCount: result.errorCount,
+        warningCount,
+        repaired: false,
+        durationMs: Date.now() - startedAt,
+      },
+      mechanicalFixesAdded,
+      llmFixesAdded,
+    };
+  } catch (err) {
+    devLogAppend("in-progress", {
+      type: "validate.eslint.error",
+      chatId: opts.chatId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return {
+      content: contentForVersion,
+      eslint: { ran: false, skipped: "exception", durationMs: Date.now() - startedAt },
+      mechanicalFixesAdded: 0,
+      llmFixesAdded: 0,
+    };
+  }
+}
+
+/**
  * Validates generated code via esbuild, and if syntax errors are found,
  * runs the mechanical → LLM → mechanical loop up to the configured pass
  * limit.  Returns the best available content together with structured
@@ -309,6 +531,12 @@ async function validateAndFixInner(
      * build always pays for the extra check.
      */
     forceTsc?: boolean;
+    /**
+     * Force the warm-eslint pass even when `SAJTMASKIN_BLOCKING_ESLINT`
+     * is disabled. Set by F3 (integrations) callers. Part of P34 / SAJ-28
+     * fix to close the eslint-fire-and-forget gap.
+     */
+    forceEslint?: boolean;
   },
 ): Promise<ValidateFixResult> {
   const onProgress = opts.onProgress;

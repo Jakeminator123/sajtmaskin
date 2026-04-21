@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from "fs";
 const CONNECTION_KEYS = [
   "POSTGRES_URL",
   "POSTGRES_URL_NON_POOLING",
+  "STORAGE_POSTGRES_URL",
+  "STORAGE_POSTGRES_URL_NON_POOLING",
   "DATABASE_URL",
 ];
 
@@ -78,10 +80,19 @@ export function inspectExplicitDbTargets(currentUrl, productionUrl) {
 }
 
 export function inspectDbTarget(env = process.env) {
+  const resolved = resolveConfiguredDbEnv(env);
   return inspectExplicitDbTargets(
-    env.POSTGRES_URL || env.POSTGRES_URL_NON_POOLING || env.DATABASE_URL,
+    resolved,
     readConnectionStringFromEnvFile(".env.vercel.production.pulled"),
   );
+}
+
+function resolveConfiguredDbEnv(env = process.env) {
+  for (const key of CONNECTION_KEYS) {
+    const value = normalizeEnvUrl(env[key]);
+    if (value) return value;
+  }
+  return undefined;
 }
 
 export function warnIfProdLikeReadTarget({ commandName = "db:read", env = process.env, logger = console } = {}) {
