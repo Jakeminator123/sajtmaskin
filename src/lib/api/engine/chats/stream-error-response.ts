@@ -94,3 +94,45 @@ export function buildStreamErrorResponse(
 // Re-export under a stable alias so future refactors can rename the params
 // type without breaking callers.
 export type BuildStreamErrorParams = BuildStreamErrorResponseParams;
+
+// ──────────────────────────────────────────────────────────────────────
+// Success-path wrap for engine chat stream responses.
+// ──────────────────────────────────────────────────────────────────────
+//
+// Both init and follow-up POST routes return the same shape on success:
+// SSE headers + wrapStreamForPromptToDoneMetric(engineStream) + attach
+// session cookie. Centralising it here keeps the two handlers focused on
+// their business logic.
+
+import { createSSEHeaders } from "@/lib/streaming";
+import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-done-stream";
+
+export interface BuildEngineStreamResponseParams {
+  engineStream: ReadableStream<Uint8Array>;
+  req: Request;
+  promptStartedAt: number;
+  kind: StreamErrorKind;
+  attachSessionCookie: (response: Response) => Response;
+  /** Additional headers to set on the SSE response (optional). */
+  extraHeaders?: HeadersInit;
+}
+
+export function buildEngineStreamResponse(
+  params: BuildEngineStreamResponseParams,
+): Response {
+  const headers = new Headers(createSSEHeaders());
+  if (params.extraHeaders) {
+    const extras = new Headers(params.extraHeaders);
+    extras.forEach((value, key) => headers.set(key, value));
+  }
+  return params.attachSessionCookie(
+    new Response(
+      wrapStreamForPromptToDoneMetric(params.engineStream, {
+        kind: params.kind,
+        promptStartedAt: params.promptStartedAt,
+        signal: params.req.signal,
+      }),
+      { headers },
+    ),
+  );
+}

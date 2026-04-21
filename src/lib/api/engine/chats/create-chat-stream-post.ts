@@ -7,7 +7,7 @@ import { createChatSchema } from "@/lib/validations/chatSchemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { prepareCredits } from "@/lib/credits/server";
-import { buildStreamErrorResponse } from "./stream-error-response";
+import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import {
   MAX_PROMPT_HANDOFF_CHARS,
@@ -834,20 +834,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           commitCredits: commitCreditsOnce,
         });
 
-        const engineHeaders = new Headers(createSSEHeaders());
         debugLog("engine", "Create chat pre-stream complete", {
           durationMs: Date.now() - requestStartedAt,
           mode: "own-engine",
           chatId: engineChat.id,
         });
-        return attachSessionCookie(new Response(
-          wrapStreamForPromptToDoneMetric(engineStream, {
-            kind: "init",
-            promptStartedAt: requestStartedAt,
-            signal: req.signal,
-          }),
-          { headers: engineHeaders },
-        ));
+        return buildEngineStreamResponse({
+          engineStream,
+          req,
+          promptStartedAt: requestStartedAt,
+          kind: "init",
+          attachSessionCookie,
+        });
       }
     } catch (err) {
       return buildStreamErrorResponse({
