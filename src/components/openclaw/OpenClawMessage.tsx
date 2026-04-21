@@ -16,12 +16,12 @@ export function OpenClawMessage({ msg }: { msg: Msg }) {
   const shouldRenderBubble = Boolean(parsed.visibleContent) || !action;
 
   return (
-    <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
-      <div className="max-w-[85%] space-y-2">
+    <div className={cn("flex w-full min-w-0", isUser ? "justify-end" : "justify-start")}>
+      <div className="min-w-0 max-w-[85%] space-y-2">
         {shouldRenderBubble ? (
           <div
             className={cn(
-              "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap",
+              "min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word",
               isUser
                 ? "rounded-br-md bg-cyan-400 text-slate-950"
                 : "rounded-bl-md border border-white/10 bg-white/5 text-slate-100",
@@ -77,7 +77,7 @@ function OpenClawActionCard({
   };
 
   return (
-    <div className="rounded-2xl border border-cyan-400/20 bg-slate-900/70 p-3 text-slate-100">
+    <div className="min-w-0 rounded-2xl border border-cyan-400/20 bg-slate-900/70 p-3 text-slate-100">
       <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-200/80">
         Fältförslag
       </p>
@@ -87,7 +87,7 @@ function OpenClawActionCard({
           ? "Fältet är låst just nu. Om det blir skrivbart kan du prova igen."
           : "Jag kan lägga in den här texten i fältet när du godkänner."}
       </p>
-      <div className="mt-2 max-h-32 overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 whitespace-pre-wrap text-slate-200">
+      <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 whitespace-pre-wrap wrap-break-word text-slate-200">
         {action.value}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">

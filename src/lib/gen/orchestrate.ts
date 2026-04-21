@@ -193,6 +193,15 @@ export interface OrchestrationInput {
     | "ambiguous-redesign"
     | "ambiguous-followup"
     | "neutral";
+  /**
+   * Project locale forwarded to {@link buildRoutePlan} for locale-alternate
+   * route dedupe. When omitted, we read `brief.locale` (forward-compatible
+   * with future brief schema additions) and finally fall back to "sv" — the
+   * value every Sajtmaskin scaffold currently emits via `<html lang="sv">`.
+   * Pass an explicit value (e.g. "en") to keep the English route variants
+   * (`/contact`, `/blog`, …) instead.
+   */
+  locale?: string;
 }
 
 export interface OrchestrationBase {
@@ -575,6 +584,20 @@ export async function resolveOrchestrationBase(
   const capabilityHints = buildCapabilityHints(capabilities);
   const componentReferences = [...officialRefs, ...communityRefs];
 
+  // Locale resolution priority:
+  //   1. Explicit `input.locale` (caller-overridable, e.g. CLI traces)
+  //   2. `brief.locale` if the brief schema already carries one
+  //   3. "sv" — every Sajtmaskin scaffold emits `<html lang="sv">`
+  // Without this wiring, buildRoutePlan would silently fall back to its
+  // own internal "sv" default and any future English brief would still
+  // see `/blogg`/`/kontakt` survive the locale-alternate dedupe.
+  const briefLocaleRaw = (brief as { locale?: unknown } | null | undefined)?.locale;
+  const briefLocale =
+    typeof briefLocaleRaw === "string" && briefLocaleRaw.trim().length > 0
+      ? briefLocaleRaw.trim()
+      : null;
+  const resolvedLocale = input.locale ?? briefLocale ?? "sv";
+
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
     buildIntent: effectiveBuildIntent,
@@ -582,6 +605,7 @@ export async function resolveOrchestrationBase(
     resolvedScaffold,
     generationMode: resolvedMode,
     existingRoutePaths,
+    locale: resolvedLocale,
   });
   const preGenerationContracts = inferPreGenerationContracts({
     prompt: input.contractsPrompt ?? prompt,

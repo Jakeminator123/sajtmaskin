@@ -86,6 +86,22 @@ describe("extractHrefsFromFiles", () => {
     expect(hrefs).toEqual([]);
   });
 
+  it("treats /#section, /# and /?query as same-page targets and skips them", () => {
+    // Pure hash and query targets resolve to pathname "/" — flagging them as
+    // mismatches against the actual routes is noise, not signal.
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/header.tsx",
+        [
+          `<a href="/#hero">Hero</a>`,
+          `<a href="/#">Top</a>`,
+          `<a href="/?ref=nav">Home with ref</a>`,
+        ].join("\n"),
+      ),
+    ]);
+    expect(hrefs).toEqual([]);
+  });
+
   it("skips non-JSX/TSX files even if they contain href-looking strings", () => {
     const hrefs = extractHrefsFromFiles([
       file("lib/site.ts", `export const latestPostPath = "/blog/foo";`),
@@ -181,6 +197,34 @@ describe("crossCheckHrefsAgainstRoutes", () => {
       "/blogg/[slug]",
     ]);
     expect(mismatches).toEqual([]);
+  });
+
+  it("does NOT flag /about?ref=foo or /about#cta when /about route exists", () => {
+    // Query strings and hash fragments are irrelevant to Next.js route
+    // resolution — the cross-check must strip them before matching, otherwise
+    // every CTA tracking-param link on a real route looks like a typo.
+    const hrefs = extractHrefsFromFiles([
+      file(
+        "components/cta.tsx",
+        [
+          `<a href="/about?ref=nav">About</a>`,
+          `<a href="/about#cta">About CTA</a>`,
+          `<a href="/about?ref=nav#cta">Both</a>`,
+        ].join("\n"),
+      ),
+    ]);
+    const mismatches = crossCheckHrefsAgainstRoutes(hrefs, ["/", "/about"]);
+    expect(mismatches).toEqual([]);
+  });
+
+  it("still flags /unknown?ref=foo when no matching route exists", () => {
+    // Stripping query/hash must not blind the check to genuine typos.
+    const hrefs = extractHrefsFromFiles([
+      file("components/cta.tsx", `<a href="/about?ref=nav">About</a>`),
+    ]);
+    const mismatches = crossCheckHrefsAgainstRoutes(hrefs, ["/", "/om"]);
+    expect(mismatches).toHaveLength(1);
+    expect(mismatches[0]?.basePath).toBe("/about");
   });
 
   it("does NOT crash on empty inputs", () => {

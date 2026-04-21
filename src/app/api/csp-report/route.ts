@@ -13,15 +13,29 @@
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 
+function summarizeReport(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "non-object payload";
+  const report =
+    (payload as { "csp-report"?: unknown })["csp-report"] ??
+    (payload as { cspReport?: unknown }).cspReport ??
+    payload;
+  if (!report || typeof report !== "object") return "no csp-report key";
+  const r = report as Record<string, unknown>;
+  const directive = r["violated-directive"] ?? r["effective-directive"] ?? "?";
+  const blocked = r["blocked-uri"] ?? "?";
+  const docUri = r["document-uri"] ?? "?";
+  return `directive=${String(directive)} blocked=${String(blocked)} doc=${String(docUri)}`;
+}
+
 export async function POST(req: Request) {
   return withRateLimit(req, "csp:report", async () => {
     try {
       const body = await req.json();
-      const report =
-        body && typeof body === "object" && "csp-report" in body
-          ? body["csp-report"]
-          : body;
-      console.warn("[CSP Violation]", JSON.stringify(report));
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[csp-report]", summarizeReport(body));
+      } else {
+        console.warn("[CSP Violation]", JSON.stringify(body));
+      }
     } catch {
       // Malformed report — ignore
     }
