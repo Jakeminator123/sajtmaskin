@@ -82,6 +82,7 @@ import {
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import {
+  buildFollowUpBriefFromSnapshot,
   extractBriefSummaryFromSnapshot,
   formatPriorDesignContext,
   prependOrchestrationContinuityToFollowUp,
@@ -763,7 +764,17 @@ export async function handleMessageStreamRequest(
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
-          brief: metaBrief,
+          // A1+A2 fix (2026-04-21): on follow-up, hydrate a minimal brief
+          // from the orchestration_snapshot when the client did not send
+          // one inline (delta-brief flows still set `metaBrief`). This
+          // restores capability-driven dossier selection on follow-ups —
+          // without it, `selectDossiersForRequest` got `brief: null` and
+          // dropped every capability the user originally asked for.
+          brief:
+            metaBrief ??
+            buildFollowUpBriefFromSnapshot(
+              engineChat.orchestration_snapshot as Record<string, unknown> | null,
+            ),
           themeColors: metaThemeColors,
           imageGenerations: resolvedImageGenerations,
           componentPalette: metaPalette,

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFollowUpBriefFromSnapshot,
+  extractBriefSummaryFromSnapshot,
   mergePersistedOrchestrationSnapshots,
   prependOrchestrationContinuityToFollowUp,
   sanitizeOrchestrationSnapshotForStorage,
@@ -211,5 +213,75 @@ describe("prependOrchestrationContinuityToFollowUp", () => {
 
   it("returns message unchanged when snapshot empty", () => {
     expect(prependOrchestrationContinuityToFollowUp("Hi", {})).toBe("Hi");
+  });
+});
+
+describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
+  it("returns null when snapshot has no briefSummary", () => {
+    expect(buildFollowUpBriefFromSnapshot(null)).toBeNull();
+    expect(buildFollowUpBriefFromSnapshot({})).toBeNull();
+    expect(buildFollowUpBriefFromSnapshot({ modelTier: "pro" })).toBeNull();
+  });
+
+  it("returns null when briefSummary has no usable fields", () => {
+    expect(
+      buildFollowUpBriefFromSnapshot({ briefSummary: { primaryCTA: "Boka" } }),
+    ).toBeNull();
+  });
+
+  it("hydrates requestedCapabilities + domainProfile so dossier-pick works on follow-up", () => {
+    const snapshot = {
+      briefSummary: {
+        projectTitle: "Hotel Solskenet",
+        brandName: "Solskenet AB",
+        requestedCapabilities: ["payments", "auth", "booking"],
+        domainProfile: { domain: "hospitality", industry: "hotel" },
+        // Fält som INTE ska propageras till brief-objektet (style/tone hör till
+        // continuity-blocket, inte till capability-driven dossier-pick).
+        styleKeywords: ["minimal", "warm"],
+      },
+    };
+    const brief = buildFollowUpBriefFromSnapshot(snapshot);
+    expect(brief).not.toBeNull();
+    expect(brief?.requestedCapabilities).toEqual(["payments", "auth", "booking"]);
+    expect(brief?.domainProfile).toEqual({ domain: "hospitality", industry: "hotel" });
+    expect(brief?.projectTitle).toBe("Hotel Solskenet");
+    expect(brief?.brandName).toBe("Solskenet AB");
+    expect(brief?.styleKeywords).toBeUndefined();
+  });
+
+  it("returns minimal brief with just requestedCapabilities when nothing else is set", () => {
+    const brief = buildFollowUpBriefFromSnapshot({
+      briefSummary: { requestedCapabilities: ["ai-chat"] },
+    });
+    expect(brief).toEqual({ requestedCapabilities: ["ai-chat"] });
+  });
+});
+
+describe("extractBriefSummaryFromSnapshot — capability/domain extraction", () => {
+  it("reads requestedCapabilities + domainProfile when present", () => {
+    const out = extractBriefSummaryFromSnapshot({
+      briefSummary: {
+        requestedCapabilities: ["payments"],
+        domainProfile: { domain: "ecommerce", industry: "retail" },
+      },
+    });
+    expect(out?.requestedCapabilities).toEqual(["payments"]);
+    expect(out?.domainProfile).toEqual({ domain: "ecommerce", industry: "retail" });
+  });
+
+  it("treats requestedCapabilities-only briefSummary as has-content", () => {
+    const out = extractBriefSummaryFromSnapshot({
+      briefSummary: { requestedCapabilities: ["auth"] },
+    });
+    expect(out).not.toBeNull();
+    expect(out?.requestedCapabilities).toEqual(["auth"]);
+  });
+
+  it("ignores empty domainProfile object", () => {
+    const out = extractBriefSummaryFromSnapshot({
+      briefSummary: { projectTitle: "X", domainProfile: {} },
+    });
+    expect(out?.domainProfile).toBeUndefined();
   });
 });
