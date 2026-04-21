@@ -25,7 +25,7 @@
  * NOTE: This is the *only* dossier script. The legacy 16-script pipeline
  * was archived 2026-04-20 to archive/dossiers-legacy-2026-04-20/scripts/.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import OpenAI from "openai";

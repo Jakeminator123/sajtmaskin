@@ -69,9 +69,24 @@ function loadEntry(klass: DossierClass, id: string): DossierEntry | null {
     parsed = JSON.parse(readFileSync(manifestPath, "utf-8")) as Record<string, unknown>;
   } catch (err) {
     console.warn(
-      `[dossiers] invalid JSON in ${manifestPath}: ${err instanceof Error ? err.message : err}`,
+      `[dossiers] invalid JSON in ${klass}/${id}/manifest.json — dossier excluded from pool. Error: ${
+        err instanceof Error ? err.message : err
+      }`,
     );
     return null;
+  }
+  // Surface manifests that are missing essential fields so curators notice
+  // them. We still load with safe defaults (so the pool isn't empty) but the
+  // dossier won't be selectable for any capability if `capability` is missing.
+  if (typeof parsed.capability !== "string" || parsed.capability.length === 0) {
+    console.warn(
+      `[dossiers] ${klass}/${id}/manifest.json missing required field 'capability' — dossier will never be selected. Edit and add a capability string.`,
+    );
+  }
+  if (typeof parsed.summary !== "string" || parsed.summary.length === 0) {
+    console.warn(
+      `[dossiers] ${klass}/${id}/manifest.json missing required field 'summary' — prompt block will be incomplete.`,
+    );
   }
   const entry: DossierEntry = {
     class: klass,

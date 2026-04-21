@@ -850,7 +850,16 @@ export function buildDynamicContext(
         const mode = defaultInjectionMode(file, sel.entry);
         if (mode !== "verbatim") continue;
         const content = getDossierFileContent(sel.entry.class, sel.entry.id, file.path);
-        if (content === null) continue;
+        if (content === null) {
+          // The dossier asked for verbatim injection but the file is missing
+          // on disk (or path-traversal blocked it). Don't silently drop it —
+          // missing integration glue would crash the generated site at runtime.
+          debugLog(
+            "GEN",
+            `[verbatim-missing] ${sel.entry.id}: file '${file.path}' was requested verbatim but cannot be read from data/dossiers/${sel.entry.class}/${sel.entry.id}/`,
+          );
+          continue;
+        }
         // Dossier files live under data/dossiers/<id>/components/<path-in-project>
         // The "components/" prefix is the dossier-internal staging dir; strip it
         // for the actual output path so files land at app/.../route.ts etc.

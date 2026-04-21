@@ -725,10 +725,18 @@ export async function finalizeOrchestrationPrompts(
   // ── Dossier capability vs final selection diff (v2 — capability-driven) ──
   // Logs which requested capabilities resolved to dossiers and which did not.
   // Useful for catching brief-LLM declaring capabilities that have no dossier.
+  // Both sides are lowercased to match how `selectDossiersForRequest`
+  // normalizes capabilities — otherwise a stray "Payments" in the brief would
+  // produce a false "unresolved" warning.
   const briefCaps = (brief as { requestedCapabilities?: unknown } | null | undefined)?.requestedCapabilities;
   if (Array.isArray(briefCaps) && briefCaps.length > 0 && base.dossierSelection) {
-    const requested = new Set(briefCaps.filter((c): c is string => typeof c === "string"));
-    const resolved = new Set(Object.keys(base.dossierSelection.byCapability));
+    const requested = new Set(
+      briefCaps
+        .filter((c): c is string => typeof c === "string")
+        .map((c) => c.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const resolved = new Set(Object.keys(base.dossierSelection.byCapability).map((c) => c.toLowerCase()));
     const unresolved = [...requested].filter((c) => !resolved.has(c));
     if (unresolved.length > 0) {
       console.info("[orchestrate] dossier_capability_unresolved", {

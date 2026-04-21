@@ -150,4 +150,39 @@ describe("buildDynamicContext + new dossier shape", () => {
     expect(result.context).not.toContain('file="checkout-button.tsx"');
     vi.restoreAllMocks();
   });
+
+  it("reads a real verbatim file from disk (no mocks) — exercises full registry path", async () => {
+    // The shipped stripe-checkout dossier has a verbatim api-route on disk;
+    // this guards against drift between the rendering code and the actual
+    // file layout under data/dossiers/.
+    const sel: DossierSelectionResult = {
+      ...BASE_SELECTION,
+      selected: [
+        {
+          ...BASE_SELECTION.selected[0]!,
+          entry: {
+            ...BASE_SELECTION.selected[0]!.entry,
+            files: [
+              {
+                path: "components/api/checkout-session/route.ts",
+                role: "server",
+                injectionMode: "verbatim",
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const result = await buildDynamicContext({
+      intent: "website",
+      generationMode: "init",
+      brief: { projectTitle: "Test" },
+      buildSpec: TINY_BUILD_SPEC,
+      scaffoldContext: "scaffold",
+      dossierSelection: sel,
+    });
+    expect(result.context).toContain("## Dossier Files To Emit Verbatim");
+    expect(result.context).toContain('file="api/checkout-session/route.ts"');
+    expect(result.context).toContain("import Stripe from");
+  });
 });
