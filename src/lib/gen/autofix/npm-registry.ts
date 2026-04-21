@@ -28,7 +28,6 @@ const REGISTRY_URL = "https://registry.npmjs.org";
 const CACHE_DIR = join(tmpdir(), "sajtmaskin-npm-cache");
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 1500;
-const MAX_CONCURRENT = 8;
 
 interface CachedEntry {
   /** Latest version enligt `dist-tags.latest`, eller null om paketet inte finns. */
@@ -129,24 +128,3 @@ export async function isVersionSpecValid(pkg: string, spec: string): Promise<boo
   return entry.versions.some((v) => v.startsWith(`${major}.`));
 }
 
-/**
- * Batch-uppslagning med concurrency-cap. Returnerar map från paket → spec
- * (`^X.Y.Z` eller null om paketet inte hittades).
- */
-export async function resolveLatestVersions(
-  pkgs: readonly string[],
-): Promise<Record<string, string | null>> {
-  const result: Record<string, string | null> = {};
-  let cursor = 0;
-  const workerCount = Math.min(MAX_CONCURRENT, Math.max(pkgs.length, 1));
-  await Promise.all(
-    Array.from({ length: workerCount }, async () => {
-      while (cursor < pkgs.length) {
-        const idx = cursor++;
-        const pkg = pkgs[idx];
-        result[pkg] = await resolveLatestVersion(pkg);
-      }
-    }),
-  );
-  return result;
-}
