@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { isShimOrMissingPreviewUrl } from "./compatibility-shim";
+import { isShimOrMissingPreviewUrl, isShimPreviewDisabled } from "./compatibility-shim";
 import { isTier2LivePreviewUrl } from "../preview-url-classifier";
+
+const SHIM_DISABLED_ENV_KEY = "SAJTMASKIN_SHIM_PREVIEW_DISABLED";
 
 // Composed at runtime so the secret scanner does not match the
 // canonical-name substring. Logical key documented in docs/ENV.md.
@@ -61,5 +63,40 @@ describe("compatibility-shim tier-2 detection (fly.dev default — I1)", () => {
 
   it("isShimOrMissingPreviewUrl returns false for tier-2 fly.dev URL by default", () => {
     expect(isShimOrMissingPreviewUrl("https://example.fly.dev")).toBe(false);
+  });
+});
+
+describe("isShimPreviewDisabled — defaults to TRUE (D4)", () => {
+  let originalEnv: string | undefined;
+
+  beforeEach(() => {
+    originalEnv = process.env[SHIM_DISABLED_ENV_KEY];
+    delete process.env[SHIM_DISABLED_ENV_KEY];
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env[SHIM_DISABLED_ENV_KEY];
+    } else {
+      process.env[SHIM_DISABLED_ENV_KEY] = originalEnv;
+    }
+  });
+
+  it("returns true when env var is unset (default-disabled)", () => {
+    expect(isShimPreviewDisabled()).toBe(true);
+  });
+
+  it("returns true when env var is set to a truthy value", () => {
+    for (const value of ["1", "true", "yes", "on", "TRUE", "anything-else"]) {
+      process.env[SHIM_DISABLED_ENV_KEY] = value;
+      expect(isShimPreviewDisabled()).toBe(true);
+    }
+  });
+
+  it("returns false only when env var is explicitly falsy", () => {
+    for (const value of ["0", "false", "off", "no", "FALSE", "  off  "]) {
+      process.env[SHIM_DISABLED_ENV_KEY] = value;
+      expect(isShimPreviewDisabled()).toBe(false);
+    }
   });
 });

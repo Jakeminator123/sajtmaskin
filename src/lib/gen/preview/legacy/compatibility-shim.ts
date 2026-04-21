@@ -13,18 +13,28 @@ import {
 const OWN_ENGINE_PREVIEW_PATH = "/api/preview-render";
 
 /**
- * When `SAJTMASKIN_SHIM_PREVIEW_DISABLED` is truthy, the legacy compatibility
- * (shim) preview is suppressed end-to-end:
+ * When the legacy compatibility (shim) preview is disabled, it is suppressed
+ * end-to-end:
  * - `buildPreviewUrl` returns null so no shim URL is ever constructed
  * - `/api/preview-render` returns HTTP 410 with an explanatory page
  * - `isShimOrMissingPreviewUrl` always returns true so the tier-2 VM
  *   bootstrap re-attempts even if a stale shim URL leaks in from persisted state
+ *
+ * Default: **disabled** (returns `true`). The canonical preview is the
+ * tier-2 Fly-VM live preview; the legacy `/api/preview-render` path is no
+ * longer minted by the engine APIs and is kept only as an emergency fallback.
+ *
+ * Operators can re-enable the shim path by setting
+ * `SAJTMASKIN_SHIM_PREVIEW_DISABLED` to a falsy value: `0`, `false`, `off`,
+ * or `no`. Any other value (including unset or truthy) keeps the shim
+ * disabled.
  */
 export function isShimPreviewDisabled(): boolean {
-  if (typeof process === "undefined" || !process.env) return false;
+  if (typeof process === "undefined" || !process.env) return true;
   const raw = process.env.SAJTMASKIN_SHIM_PREVIEW_DISABLED?.trim().toLowerCase();
-  if (!raw) return false;
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+  if (!raw) return true;
+  if (raw === "0" || raw === "false" || raw === "off" || raw === "no") return false;
+  return true;
 }
 
 export function isCompatibilityShimPreviewUrl(url: string | null | undefined): boolean {
