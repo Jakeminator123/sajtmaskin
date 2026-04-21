@@ -1,0 +1,30 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "three-fiber-canvas",
+  "label": "Three Fiber 3D Canvas",
+  "capability": "visual-3d",
+  "codeFidelity": "rewritable",
+  "complexity": "medium",
+  "defaultForCapability": true,
+  "summary": "SSR-safe React Three Fiber canvas wrapper with built-in error boundary, reduced-motion respect, DPR cap and renderer disposal. Use for decorative 3D mascots, hero animations and interactive showcases. The LLM may swap the scene contents (geometry, materials, animations) but should keep the wrapper's safety contract intact.",
+  "envVars": [],
+  "dependencies": [
+    "three",
+    "@react-three/fiber",
+    "@react-three/drei"
+  ],
+  "files": [
+    {
+      "path": "components/three-canvas-shell.tsx",
+      "role": "client"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "ThreeCanvasShell",
+      "type": "component",
+      "import": "@/components/three-canvas-shell"
+    }
+  ],
+  "lastVerified": "2026-04-21"
+}

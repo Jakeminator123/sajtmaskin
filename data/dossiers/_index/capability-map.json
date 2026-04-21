@@ -1,6 +1,6 @@
 {
   "$comment": "View of capability → dossier ids. Rebuild via the Dossiers page (Capability map tab → 'Bygg om') or by reading the manifests directly. Read-only at runtime; the registry walks data/dossiers/{hard,soft}/ directly. This file is here for backoffice listings + sanity check during curation.",
-  "generatedAt": "2026-04-21T00:00:00.000Z",
+  "generatedAt": "2026-04-21T03:55:00.000Z",
   "capabilities": {
     "payments": ["stripe-checkout"],
     "ai-chat": ["openai-chat"],
@@ -8,6 +8,7 @@
     "contact-form": ["resend-contact-form"],
     "analytics": ["vercel-analytics"],
     "faq-section": ["faq-accordion"],
-    "testimonials-section": ["testimonials-grid"]
+    "testimonials-section": ["testimonials-grid"],
+    "visual-3d": ["three-fiber-canvas"]
   }
 }
