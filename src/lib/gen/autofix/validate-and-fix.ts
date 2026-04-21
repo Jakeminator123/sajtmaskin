@@ -657,12 +657,44 @@ async function validateAndFixInner(
         currentContent = tscResult.content;
         totalMechanicalFixes += tscResult.mechanicalFixesAdded;
         totalLlmFixes += tscResult.llmFixesAdded;
+
+        // Eslint pass runs only after TS is clean (ran && diagnosticCount===0
+        // after repair, or ran with no diagnostics at all). TS-broken input
+        // would produce a flood of no-undef / import-resolution cascades
+        // that drown real lint errors.
+        const tscClean =
+          tscResult.tsc.ran &&
+          (tscResult.tsc.diagnosticCount === 0 || tscResult.tsc.repaired);
+        const eslintResult = tscClean
+          ? await runWarmEslintPass(currentContent, {
+              chatId: opts.chatId,
+              model: opts.model,
+              resolvedTier: opts.resolvedTier,
+              previewPolicy: opts.previewPolicy,
+              resolvedScaffold: opts.resolvedScaffold,
+              forceEslint: opts.forceEslint,
+              onProgress,
+              pass,
+              budgetDeadline,
+            })
+          : null;
+        if (eslintResult) {
+          currentContent = eslintResult.content;
+          totalMechanicalFixes += eslintResult.mechanicalFixesAdded;
+          totalLlmFixes += eslintResult.llmFixesAdded;
+        }
+
         return {
           content: currentContent,
           hadErrors: initialErrorCount > 0,
-          fixerUsed: fixerUsed || tscResult.llmFixesAdded > 0,
+          fixerUsed:
+            fixerUsed ||
+            tscResult.llmFixesAdded > 0 ||
+            (eslintResult?.llmFixesAdded ?? 0) > 0,
           fixerImproved:
-            fixerImproved || (tscResult.tsc.ran && tscResult.tsc.repaired),
+            fixerImproved ||
+            (tscResult.tsc.ran && tscResult.tsc.repaired) ||
+            (eslintResult?.eslint.ran === true && eslintResult.eslint.repaired),
           errorsBefore: initialErrorCount,
           errorsAfter: 0,
           passes: passCount,
@@ -673,6 +705,7 @@ async function validateAndFixInner(
           llmFixCount: totalLlmFixes,
           residualPatterns: [],
           tsc: tscResult.tsc,
+          eslint: eslintResult?.eslint,
         };
       }
 
@@ -858,6 +891,29 @@ async function validateAndFixInner(
           currentContent = tscResult.content;
           totalMechanicalFixes += tscResult.mechanicalFixesAdded;
           totalLlmFixes += tscResult.llmFixesAdded;
+
+          const tscClean =
+            tscResult.tsc.ran &&
+            (tscResult.tsc.diagnosticCount === 0 || tscResult.tsc.repaired);
+          const eslintResult = tscClean
+            ? await runWarmEslintPass(currentContent, {
+                chatId: opts.chatId,
+                model: opts.model,
+                resolvedTier: opts.resolvedTier,
+                previewPolicy: opts.previewPolicy,
+                resolvedScaffold: opts.resolvedScaffold,
+                forceEslint: opts.forceEslint,
+                onProgress,
+                pass,
+                budgetDeadline,
+              })
+            : null;
+          if (eslintResult) {
+            currentContent = eslintResult.content;
+            totalMechanicalFixes += eslintResult.mechanicalFixesAdded;
+            totalLlmFixes += eslintResult.llmFixesAdded;
+          }
+
           return {
             content: currentContent,
             hadErrors: true,
@@ -873,6 +929,7 @@ async function validateAndFixInner(
             llmFixCount: totalLlmFixes,
             residualPatterns: [],
             tsc: tscResult.tsc,
+            eslint: eslintResult?.eslint,
           };
         }
 

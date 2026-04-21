@@ -89,6 +89,9 @@ def render(ctx: BackofficeContext) -> None:
   `passed`, `tsc --noEmit` mot en varm scaffold-`node_modules`-cache. Båda valideringarna delar `fixBudgetMs` och
   samma `runLlmFixer`-loop med `phaseRouting.fixer`-modell + 60 s abort. Sedan 2026-04-20 är `pre_vm_typecheck`
   borta som eget steg och uppgår i `validate_syntax`. Aktiveras via `SAJTMASKIN_PRE_VM_TYPECHECK`; F3 kör alltid
+  warm-tsc. Efter tsc kör en **blockerande eslint-pass** om `SAJTMASKIN_BLOCKING_ESLINT=true` (default av) —
+  stänger SAJ-28 så eslint-errors fångas innan version sparas. `--max-warnings` styrs av
+  `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS` (default 20).
   med `forceTsc: true`. Fail-open vid kall cache. SSE-progress: `phase: "validating" | "fixing" | "tsc-validating"
   | "tsc-fixing" | "tsc-passed" | "tsc-skipped" | "passed" | "gave-up"`.
 - **Verifier-fynd → fixer (Wave 2 2026-04-20)**: blocking-fynd från `runVerifierPass` matas in i `runLlmFixer`

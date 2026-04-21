@@ -1,6 +1,6 @@
 # P34 — Blocking lint in the pre-save validation loop
 
-**Status:** Förslag. Glapp 1 (lint i bakgrundsgate) är redan gjord 2026-04-21 i samma runda.
+**Status:** Fas A+B implementerade 2026-04-21 — `warm-eslint.ts` + integration i `validateAndFix` finns bakom flaggan `SAJTMASKIN_BLOCKING_ESLINT`. F3 (integrationer) forcerar passet på. Default av i prod tills latens mätts i dev/preview.
 **Skapad:** 2026-04-21.
 
 ---
@@ -64,13 +64,13 @@ Esbuild + tsc fångar syntax/typfel. Om de finns kvar returnerar eslint en kaska
 
 ## Fas-plan
 
-| Fas | Vad | Risk | Effekt |
-|---|---|---|---|
-| **A** | Lägg `runEslintPass` som skelett utan inkoppling. Tester isolerade. | Låg | Ingen runtime-påverkan |
-| **B** | Koppla in i `validateAndFix` efter warm-tsc. Default AV via feature-flag `SAJTMASKIN_BLOCKING_ESLINT=true`. | Låg-medel | Ingen ändring tills flagga på |
-| **C** | Aktivera flaggan i dev + preview. Mäta latens-delta. | Medel | +5-15s per generering (måste mätas) |
-| **D** | Aktivera i prod om latens-budget håller. Flytta flaggan till manifestet. | Medel | Lint-errors fångas före version sparas |
-| **E** | Ta bort lint från bakgrundsgate (från glapp 1) — den är inte längre nödvändig när blocking-pass finns. | Låg | Sparar bakgrund-compute |
+| Fas | Vad | Risk | Effekt | Status |
+|---|---|---|---|---|
+| **A** | Lägg `runPreVmEslint` i `warm-eslint.ts` + `runWarmEslintPass` i `validate-and-fix.ts`. Tester isolerade. | Låg | Ingen runtime-påverkan | **Klar** 2026-04-21 |
+| **B** | Koppla in efter warm-tsc när tsc är clean. Default AV via `SAJTMASKIN_BLOCKING_ESLINT`. F3 forcerar på. | Låg-medel | Ingen ändring tills flagga på | **Klar** 2026-04-21 |
+| **C** | Aktivera flaggan i dev + preview. Mäta latens-delta. | Medel | +5-15s per generering (måste mätas) | Väntar på go |
+| **D** | Aktivera i prod om latens-budget håller. Flytta flaggan till manifestet. | Medel | Lint-errors fångas före version sparas | Väntar på C |
+| **E** | Ta bort lint från bakgrundsgate (från SAJ-28 glapp 1) när blocking-pass är default på. | Låg | Sparar bakgrund-compute | Väntar på D |
 
 ---
 

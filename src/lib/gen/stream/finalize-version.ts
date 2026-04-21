@@ -604,6 +604,9 @@ async function runFinalizeFastPath(params: {
     // forcing it on so the integrations build always pays for the check.
     resolvedScaffold,
     forceTsc: buildSpec?.previewPolicy === "fidelity3",
+    // P34 / SAJ-28: eslint pass mirrors tsc — feature-flag gated via
+    // `SAJTMASKIN_BLOCKING_ESLINT`; F3 (integrations) also forces it on.
+    forceEslint: buildSpec?.previewPolicy === "fidelity3",
     onProgress: (evt) => {
       onProgress?.("validate_syntax", {
         pass: evt.pass,
