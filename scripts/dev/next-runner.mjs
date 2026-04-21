@@ -207,6 +207,21 @@ async function maybeRunErrorLogRagIndexer() {
 
 await maybeStartWorker();
 await maybeRunErrorLogRagIndexer();
+
+// Refresh the fixer-registry snapshot the backoffice reads. Slow first run
+// (~3s for tsx warmup) but cached after — and we don't block on it.
+const FIXER_REGISTRY_DUMP_PATH = resolve(
+  __dirname, "..", "observability", "dump-fixer-registry.mjs",
+);
+if (existsSync(FIXER_REGISTRY_DUMP_PATH)) {
+  const dumpProc = spawn(process.execPath, [FIXER_REGISTRY_DUMP_PATH, "--quiet"], {
+    stdio: "ignore",
+    env,
+    detached: false,
+  });
+  dumpProc.on("error", () => {});
+  // Fire-and-forget; do not block dev/build/start.
+}
 printDevBanner();
 
 const nextBin = resolve(__dirname, "..", "..", "node_modules", "next", "dist", "bin", "next");

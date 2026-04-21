@@ -80,7 +80,9 @@
     "mirror:audit:json": "node scripts/audit/audit-shadcn-mirror-repos.mjs --json",
     "mirror:audit:strict": "node scripts/audit/audit-shadcn-mirror-repos.mjs --strict",
     "rag:error-log:reindex": "node scripts/observability/index-error-log-rag.mjs",
-    "rag:error-log:reindex:force": "node scripts/observability/index-error-log-rag.mjs --force"
+    "rag:error-log:reindex:force": "node scripts/observability/index-error-log-rag.mjs --force",
+    "fixers:dump": "node scripts/observability/dump-fixer-registry.mjs",
+    "observability:rebuild-all": "npm run rag:error-log:reindex:force && npm run fixers:dump"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
