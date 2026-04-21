@@ -28,7 +28,7 @@ Senast uppdaterad: 2026-04-21 efter wave `cursor/wave-2026-04-21-cleanup` (före
 
 ## Tidigare status (2026-04-20)
 
-Senast uppdaterad: 2026-04-20 efter 11 etapper (A-K) på master `9249a0994`. 1214/1214 tester gröna. Se `docs/plans/active/handoff-2026-04-20-next-session.md` för full handoff till nästa agent inkl. prompt-utkast.
+Senast uppdaterad: 2026-04-20 efter 11 etapper (A-K) på master `9249a0994`. 1214/1214 tester gröna. Se `docs/plans/avklarat/handoff-2026-04-20-next-session.md` för full handoff från den sessionen.
 
 ## Telemetri-blockad (vänta 1 vecka, sen plocka)
 
