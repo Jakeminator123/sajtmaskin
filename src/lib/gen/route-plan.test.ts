@@ -253,6 +253,78 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/om")).toBe(true);
   });
 
+  it("dedupes /blog↔/blogg when brief has /blogg and blog scaffold adds /blog (sv default)", () => {
+    const blogScaffold = getScaffoldById("blog");
+    expect(blogScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "En personlig blogg om kaffe och böcker.",
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/blogg", name: "Blogg", purpose: "Inlägg om vardagsro" },
+        ],
+      },
+      resolvedScaffold: blogScaffold,
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(paths).toContain("/blogg");
+    expect(paths).not.toContain("/blog");
+  });
+
+  it("dedupes /blog↔/blogg when prompt-pattern-added /blog meets brief /blogg", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Vi behöver en blog-sida för nyheter.",
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/blogg", name: "Blogg", purpose: "Nyheter" },
+        ],
+      },
+      resolvedScaffold: null,
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(paths).toContain("/blogg");
+    expect(paths).not.toContain("/blog");
+  });
+
+  it("keeps /blog when locale is explicitly en even with /blogg present", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "We need a blog page.",
+      brief: {
+        pages: [
+          { path: "/", name: "Home", purpose: "Landing" },
+          { path: "/blogg", name: "Blogg", purpose: "Posts" },
+        ],
+      },
+      resolvedScaffold: null,
+      locale: "en",
+    });
+    const paths = plan.routes.map((r) => r.path);
+    expect(paths).toContain("/blog");
+    expect(paths).not.toContain("/blogg");
+  });
+
+  it("preserves required=true from dropped variant onto kept locale alternate", () => {
+    const blogScaffold = getScaffoldById("blog");
+    expect(blogScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Personlig blogg.",
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/blogg", name: "Blogg", purpose: "Inlägg" },
+        ],
+      },
+      resolvedScaffold: blogScaffold,
+    });
+    const bloggRoute = plan.routes.find((r) => r.path === "/blogg");
+    expect(bloggRoute?.required).toBe(true);
+  });
+
   it("parseRoutePlanFromUnknown accepts legacy JSON with source only", () => {
     const parsed = parseRoutePlanFromUnknown({
       source: "brief",
@@ -418,6 +490,15 @@ describe("deduplicateLocaleAlternateRoutes", () => {
         "sv",
       ),
     ).toEqual(["/", "/om", "/tjanster"]);
+  });
+
+  it("dedupes /blog ↔ /blogg", () => {
+    expect(
+      deduplicateLocaleAlternateRoutes(["/", "/blog", "/blogg"], "sv"),
+    ).toEqual(["/", "/blogg"]);
+    expect(
+      deduplicateLocaleAlternateRoutes(["/", "/blog", "/blogg"], "en"),
+    ).toEqual(["/", "/blog"]);
   });
 
   it("leaves routes alone when only one variant is present", () => {

@@ -66,6 +66,8 @@ The plan may draw routes from:
 - `prompt` — prompt-pattern inference in `route-plan.ts`
 - `scaffold` — scaffold defaults that add real routes (for example blog/auth/commerce helpers)
 
+After all sources contribute, `buildRoutePlan()` runs `dedupePlannedRoutesInPlaceByLocale()` (since 2026-04-21) to collapse locale-alternate route pairs (`/blog`↔`/blogg`, `/contact`↔`/kontakt`, `/about`↔`/om`, `/services`↔`/tjanster`) down to the variant matching the project's resolved locale (default `sv`). This means scaffolds that contribute `/blog` plus a brief that defines `/blogg` will reach the LLM as a single `/blogg` route — the LLM should never see both variants. Scaffold authors do not need to worry about locale-alternate collisions.
+
 ## Current manifest shape
 
 `ScaffoldManifest` currently includes:

@@ -15,6 +15,11 @@ import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
+import {
+  crossCheckHrefsAgainstRoutes,
+  extractHrefsFromFiles,
+  formatMismatchMessage,
+} from "@/lib/gen/verify/href-route-cross-check";
 import { devLogAppend } from "@/lib/logging/devLog";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
@@ -631,6 +636,38 @@ export async function runFinalizePreflight({
     const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));
     const effectiveRoutePlan = routePlan ?? buildContractBackedRoutePlan(orchestrationContract);
     const missingPlannedRoutes = findMissingPlannedRoutes(effectiveRoutePlan, actualRoutes);
+
+    // Deterministic href ↔ actual-route cross-check. Today this only emits
+    // non-blocking warnings while we measure false-positive rate; the gate
+    // can be flipped to blocking via repairPolicies once the signal proves
+    // clean (see docs/plans/active/repair-loop-hardening.md).
+    const extractedHrefs = extractHrefsFromFiles(completeProjectFiles);
+    const hrefMismatches = crossCheckHrefsAgainstRoutes(extractedHrefs, actualRoutes);
+    if (hrefMismatches.length > 0) {
+      preflightIssues.push(
+        ...hrefMismatches.slice(0, 20).map((mismatch) =>
+          createIssue(
+            mismatch.file,
+            "warning",
+            formatMismatchMessage(mismatch),
+            "non_blocking_quality_warning",
+          )
+        ),
+      );
+      devLogAppend("in-progress", {
+        type: "href-route.cross-check",
+        chatId,
+        mismatchCount: hrefMismatches.length,
+        sample: hrefMismatches.slice(0, 5).map((m) => ({
+          file: m.file,
+          line: m.line,
+          basePath: m.basePath,
+          suggestion: m.suggestion,
+        })),
+        actualRouteCount: actualRoutes.length,
+      });
+    }
+
     if (missingPlannedRoutes.length > 0) {
       // Missing secondary routes should not block preview/Tier 2; autofix or follow-up can add them.
       preflightIssues.push(

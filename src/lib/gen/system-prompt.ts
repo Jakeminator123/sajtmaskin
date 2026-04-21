@@ -988,6 +988,24 @@ export function buildDynamicContext(
     parts.push(
       "- Generate routes in the project's primary language only. Do not emit both '/contact' and '/kontakt' — pick one based on the brief locale.",
     );
+
+    // Hard contract: list the canonical paths the LLM is allowed to use in
+    // navigation expressions. This catches the /blog vs /blogg failure mode
+    // where the LLM emits href="/blog/${slug}" against actual route /blogg.
+    // Mirror of the deterministic preflight check in
+    // src/lib/gen/verify/href-route-cross-check.ts.
+    const canonicalPaths = routePlan.routes.map((route) => route.path);
+    parts.push(
+      "",
+      "### Canonical route paths (use these EXACTLY in href/Link/router.push/redirect)",
+      "",
+      ...canonicalPaths.map((path) => `- \`${path}\``),
+      "",
+      "Hard rules for navigation expressions:",
+      "- Never invent paths that are not in the list above.",
+      "- For slug-based detail pages, reuse the listing route's path as prefix (e.g. if `/blogg` is listed, use `\\`/blogg/${slug}\\`` — never `\\`/blog/${slug}\\``).",
+      "- The finalize preflight runs a deterministic href ↔ route cross-check; mismatches surface as warnings in the version error log and may block future builds.",
+    );
     parts.push("");
   }
 

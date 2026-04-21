@@ -433,8 +433,15 @@ export function buildRoutePlan(params: {
   resolvedScaffold: ScaffoldManifest | null;
   generationMode?: "init" | "followUp";
   existingRoutePaths?: string[];
+  /**
+   * Project locale used to dedupe locale-alternate route pairs (e.g. /blogg vs
+   * /blog, /kontakt vs /contact). Defaults to "sv" because Sajtmaskin's
+   * generated sites render `<html lang="sv">` unless explicitly overridden.
+   * Pass "en" (or any non-sv locale) to keep English route variants instead.
+   */
+  locale?: string;
 }): RoutePlan {
-  const { prompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [] } = params;
+  const { prompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [], locale = "sv" } = params;
   const routes: PlannedRoute[] = [];
   const briefRoutes = buildRoutesFromBrief(brief);
   const hasBriefRoutes = briefRoutes.length > 0;
@@ -597,6 +604,11 @@ export function buildRoutePlan(params: {
     }
   }
 
+  // Dedupe locale-alternate route pairs (e.g. /blog ↔ /blogg) before the plan
+  // is serialized for the LLM. Without this, brief + scaffold can produce both
+  // variants and the LLM emits inconsistent links across them.
+  dedupePlannedRoutesInPlaceByLocale(routes, locale);
+
   const sources: RoutePlanSource[] = [];
   if (hasBriefRoutes) sources.push("brief");
   if (promptAddedRoutes || sources.length === 0) sources.push("prompt");
@@ -657,7 +669,56 @@ const LOCALE_ROUTE_PAIRS: Array<{ en: string; sv: string }> = [
   { en: "/contact", sv: "/kontakt" },
   { en: "/about", sv: "/om" },
   { en: "/services", sv: "/tjanster" },
+  { en: "/blog", sv: "/blogg" },
 ];
+
+/**
+ * In-place dedupe of locale-alternate `PlannedRoute` pairs (e.g. `/blog` vs
+ * `/blogg`) before the route plan is sent to the LLM. Without this, a brief
+ * defining `/blogg` plus a scaffold/prompt-pattern adding `/blog` produces a
+ * route plan with both variants — the LLM then often emits inconsistent
+ * `<Link href="/blog/${slug}">` against an actual `/blogg/[slug]` route,
+ * which fails the verifier's `navigation-placeholder-actions` rule.
+ *
+ * Kept route preserves its existing `name`, `intent`, and `required` flags;
+ * the dropped variant's `required` flag is OR-merged into the kept one.
+ */
+function dedupePlannedRoutesInPlaceByLocale(
+  routes: PlannedRoute[],
+  locale: string,
+): { droppedPaths: string[] } {
+  const lc = (locale ?? "sv").toLowerCase();
+  const isSwedish = lc.startsWith("sv");
+  const keepKey: "sv" | "en" = isSwedish ? "sv" : "en";
+  const dropKey: "sv" | "en" = isSwedish ? "en" : "sv";
+  const dropped: string[] = [];
+
+  for (const pair of LOCALE_ROUTE_PAIRS) {
+    const keepIndex = routes.findIndex(
+      (route) => normalizeRoutePath(route.path) === pair[keepKey],
+    );
+    const dropIndex = routes.findIndex(
+      (route) => normalizeRoutePath(route.path) === pair[dropKey],
+    );
+    if (keepIndex < 0 || dropIndex < 0) continue;
+
+    const dropRoute = routes[dropIndex]!;
+    const keepRoute = routes[keepIndex]!;
+    if (dropRoute.required) keepRoute.required = true;
+    routes.splice(dropIndex, 1);
+    dropped.push(pair[dropKey]);
+  }
+
+  if (dropped.length > 0) {
+    debugLog("GEN", "[route-plan] dropped duplicate locale-alternate routes", {
+      locale: lc,
+      kept: keepKey,
+      dropped,
+    });
+  }
+
+  return { droppedPaths: dropped };
+}
 
 export function deduplicateLocaleAlternateRoutes(
   routes: string[],
@@ -720,7 +781,7 @@ export function extractAppRoutePathsFromFilePaths(filePaths: string[]): string[]
   return Array.from(routes);
 }
 
-function routePatternToRegex(route: string): RegExp {
+export function routePatternToRegex(route: string): RegExp {
   const cleaned = normalizeRoutePath(route);
   if (cleaned === "/") return /^\/$/;
   const segments = cleaned.split("/").filter(Boolean);

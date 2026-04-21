@@ -237,6 +237,38 @@ describe("buildDynamicContext", () => {
       expect(profileIdx).toBeLessThan(routePlanIdx);
     });
 
+    it("emits canonical route paths section so the LLM uses exact href targets", async () => {
+      const routePlan = {
+        provenance: { primarySource: "brief" as const, sources: ["brief" as const] },
+        siteType: "brochure" as const,
+        reason: "Brief-defined Swedish blog routes",
+        routes: [
+          { path: "/", name: "Hem", intent: "Landningssida", required: true },
+          { path: "/blogg", name: "Blogg", intent: "Inlägg", required: true },
+        ],
+      };
+
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        routePlan,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("### Canonical route paths");
+      expect(context).toContain("`/blogg`");
+      expect(context).not.toContain("- `/blog`\n");
+      expect(context).toContain("Hard rules for navigation expressions:");
+      expect(context).toContain("Never invent paths");
+      expect(context).toContain("href ↔ route cross-check");
+    });
+
     it("describes init shell policy when route realization defers extra routes", async () => {
       const routePlan = {
         provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
