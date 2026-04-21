@@ -720,6 +720,19 @@ function dedupePlannedRoutesInPlaceByLocale(
   return { droppedPaths: dropped };
 }
 
+/**
+ * Path-list flavour of locale-alternate dedupe. Returns a fresh array with
+ * collapsed duplicates and preserves the input order.
+ *
+ * Production callers inside `buildRoutePlan()` use the richer in-place
+ * {@link dedupePlannedRoutesInPlaceByLocale} which preserves
+ * `name`/`intent`/`required` on the kept route. Use this string-list
+ * function only when you have a bare path array (e.g. tests or external
+ * consumers that don't carry full {@link PlannedRoute} objects).
+ *
+ * Both functions share {@link LOCALE_ROUTE_PAIRS} as the single source of
+ * truth for locale-alternate pairs.
+ */
 export function deduplicateLocaleAlternateRoutes(
   routes: string[],
   locale: string,
