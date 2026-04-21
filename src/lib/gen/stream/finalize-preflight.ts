@@ -12,7 +12,9 @@ import {
   type RoutePlan,
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
+import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
+import { FEATURES } from "@/lib/config";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import {
@@ -521,32 +523,81 @@ export async function runFinalizePreflight({
         errors: mergedSyntax.errors.slice(0, 8),
       });
 
-      const mergedFixResult = await validateAndFix(mergedProjectContent, {
-        chatId,
-        model: _model,
-        resolvedTier,
-        fixBudgetMs: 90_000,
-      });
-      if (mergedFixResult.fixerUsed || mergedFixResult.fixerImproved) {
-        devLogAppend("in-progress", {
-          type: "merged-syntax.fixer.result",
-          chatId,
-          fixerUsed: mergedFixResult.fixerUsed,
-          fixerImproved: mergedFixResult.fixerImproved,
-          errorsBefore: mergedFixResult.errorsBefore,
-          errorsAfter: mergedFixResult.errorsAfter,
-          status: mergedFixResult.status,
-          earlyStopReason: mergedFixResult.earlyStopReason,
-        });
-      }
-
-      if (mergedFixResult.fixerUsed && mergedFixResult.errorsAfter < mergedFixResult.errorsBefore) {
-        const fixedProject = parseCodeProject(mergedFixResult.content);
-        if (fixedProject.files.length > 0) {
-          finalFiles = fixedProject.files;
-          nextFilesJson = JSON.stringify(finalFiles);
-          mergedProjectContent = mergedFixResult.content;
+      // Repair-loop hardening C — skip the LLM-fixer escalation when only
+      // merged-syntax fails. Stream-syntax already passed (otherwise we
+      // would not be here) so merged-only failures are nearly always import
+      // re-stiging, comment stripping, or a duplicate export — all cleanly
+      // handled by the deterministic mechanical pipeline. Saves 1 (often
+      // wasted) LLM-fixer call per follow-up.
+      //
+      // Default ON (FEATURES.skipDoubleValidateAndFixOnMerge=true). Toggle
+      // off via SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE=false to
+      // restore the legacy validateAndFix behaviour during rollback.
+      if (FEATURES.skipDoubleValidateAndFixOnMerge) {
+        const mechanicalStartedAt = Date.now();
+        try {
+          const mechanicalResult = await runAutoFix(mergedProjectContent, {
+            chatId,
+            model: _model,
+            previewPolicy: undefined,
+          });
+          mergedProjectContent = mechanicalResult.fixedContent;
           mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+          devLogAppend("in-progress", {
+            type: "merged-syntax.mechanical-only.result",
+            chatId,
+            fixCount: mechanicalResult.fixes.length,
+            warningCount: mechanicalResult.warnings.length,
+            durationMs: Date.now() - mechanicalStartedAt,
+            stillInvalid: !mergedSyntax.valid,
+          });
+          if (mechanicalResult.fixes.length > 0) {
+            const fixedProject = parseCodeProject(mergedProjectContent);
+            if (fixedProject.files.length > 0) {
+              finalFiles = fixedProject.files;
+              nextFilesJson = JSON.stringify(finalFiles);
+            }
+          }
+        } catch (mechErr) {
+          console.warn(
+            "[merged-syntax] mechanical-only autofix failed, keeping invalid content:",
+            mechErr,
+          );
+          devLogAppend("in-progress", {
+            type: "merged-syntax.mechanical-only.error",
+            chatId,
+            message:
+              mechErr instanceof Error ? mechErr.message : "Unknown mechanical autofix error",
+          });
+        }
+      } else {
+        const mergedFixResult = await validateAndFix(mergedProjectContent, {
+          chatId,
+          model: _model,
+          resolvedTier,
+          fixBudgetMs: 90_000,
+        });
+        if (mergedFixResult.fixerUsed || mergedFixResult.fixerImproved) {
+          devLogAppend("in-progress", {
+            type: "merged-syntax.fixer.result",
+            chatId,
+            fixerUsed: mergedFixResult.fixerUsed,
+            fixerImproved: mergedFixResult.fixerImproved,
+            errorsBefore: mergedFixResult.errorsBefore,
+            errorsAfter: mergedFixResult.errorsAfter,
+            status: mergedFixResult.status,
+            earlyStopReason: mergedFixResult.earlyStopReason,
+          });
+        }
+
+        if (mergedFixResult.fixerUsed && mergedFixResult.errorsAfter < mergedFixResult.errorsBefore) {
+          const fixedProject = parseCodeProject(mergedFixResult.content);
+          if (fixedProject.files.length > 0) {
+            finalFiles = fixedProject.files;
+            nextFilesJson = JSON.stringify(finalFiles);
+            mergedProjectContent = mergedFixResult.content;
+            mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+          }
         }
       }
 
