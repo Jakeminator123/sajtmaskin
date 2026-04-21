@@ -588,12 +588,31 @@ export async function resolveOrchestrationBase(
   let dossierSelection: DossierSelectionResult | null = null;
   if (FEATURES.useDossierPipeline) {
     try {
-      dossierSelection = selectDossiersForRequest({ brief });
+      // P26: bridge inferred capabilities to dossier capability ids so
+      // dossiers trigger even when brief-LLM did not explicitly mark them.
+      // Currently: needs3D -> "visual-3d" (covers Three Fiber dossier).
+      // Adds capability to brief.requestedCapabilities; safe because
+      // selectDossiersForRequest just looks up dossier ids by capability.
+      const inferredCapabilityIds: string[] = [];
+      if (capabilities.needs3D) inferredCapabilityIds.push("visual-3d");
+      const briefCapsRaw = (brief as { requestedCapabilities?: unknown } | null | undefined)
+        ?.requestedCapabilities;
+      const briefCapsArray = Array.isArray(briefCapsRaw)
+        ? briefCapsRaw.filter((c): c is string => typeof c === "string")
+        : [];
+      const mergedCaps = Array.from(
+        new Set([...briefCapsArray.map((c) => c.toLowerCase()), ...inferredCapabilityIds]),
+      );
+      dossierSelection = selectDossiersForRequest({
+        brief,
+        requestedCapabilities: mergedCaps,
+      });
       if (dossierSelection.selected.length > 0) {
         console.info("[orchestrate] dossiers_selected", {
           count: dossierSelection.selected.length,
           poolSize: dossierSelection.poolSize,
           byCapability: dossierSelection.byCapability,
+          inferredCapabilityBridge: inferredCapabilityIds,
         });
       }
     } catch (err) {
