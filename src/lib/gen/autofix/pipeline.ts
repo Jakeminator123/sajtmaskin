@@ -73,162 +73,32 @@ export interface AutoFixContext {
 // Regex constants shared with repair-generated-files.ts (consolidated here)
 // ---------------------------------------------------------------------------
 
-const USE_CLIENT_DIRECTIVE_RE = /^["']use client["'];?\s*\n/;
-const STATIC_METADATA_EXPORT_RE =
-  /export\s+const\s+metadata(?:\s*:\s*Metadata)?\s*=\s*\{[\s\S]*?\n\};?\s*/m;
-const GENERATE_METADATA_EXPORT_RE = /\bexport\s+(?:async\s+)?function\s+generateMetadata\b/;
-const CLIENT_HOOKS_RE =
-  /\b(useState|useEffect|useCallback|useMemo|useRef|useContext|useReducer|useTransition|useOptimistic|useRouter|useSearchParams|usePathname|useParams|useSelectedLayoutSegment|useSelectedLayoutSegments|useFormStatus|useActionState)\b/;
-const EVENT_HANDLERS_RE =
-  /\b(onClick|onChange|onSubmit|onKeyDown|onKeyUp|onFocus|onBlur|onMouseEnter|onMouseLeave)\b/;
-const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
-const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
 const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
 const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
-const ICON_KEY_RE = /key=\{([A-Za-z_$][\w$]*)\.icon\}/g;
-const ICON_VALUE_RENDER_RE = /(\s*)\{([A-Za-z_$][\w$]*)\.icon\}(\s*)/g;
+// Local gate mirror for the tier2-preview-base-path fixer (fixer itself does
+// the same check, but this lets the pipeline skip the function call on
+// irrelevant files).
 const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
 
 // ---------------------------------------------------------------------------
-// Helpers for fixers consolidated from repair-generated-files.ts
+// Per-file fixers extracted into rules/ in 2026-04-21:
+//   rules/metadata-client-conflict-fixer.ts → fixMetadataClientConflict
+//   rules/icon-component-value-fixer.ts     → fixIconComponentValueMisuse
+//   rules/tier2-preview-base-path-fixer.ts  → ensureTier2PreviewBasePathInNextConfig
+// Re-exported for existing callers (repair-generated-files.ts).
 // ---------------------------------------------------------------------------
 
-function hasUseClientDirective(code: string): boolean {
-  return USE_CLIENT_DIRECTIVE_RE.test(code);
-}
+import { fixMetadataClientConflict } from "./rules/metadata-client-conflict-fixer";
+import { fixIconComponentValueMisuse } from "./rules/icon-component-value-fixer";
+import { ensureTier2PreviewBasePathInNextConfig } from "./rules/tier2-preview-base-path-fixer";
 
-function hasMetadataExport(code: string): boolean {
-  return STATIC_METADATA_EXPORT_RE.test(code) || GENERATE_METADATA_EXPORT_RE.test(code);
-}
-
-function needsUseClient(code: string): boolean {
-  return (
-    CLIENT_HOOKS_RE.test(code) ||
-    EVENT_HANDLERS_RE.test(code) ||
-    BROWSER_APIS_RE.test(code) ||
-    FRAMER_MOTION_IMPORT_RE.test(code)
-  );
-}
-
-function stripUseClientDirective(code: string): string {
-  return code.replace(USE_CLIENT_DIRECTIVE_RE, "");
-}
-
-function stripMetadataImport(code: string): string {
-  return code.replace(
-    /import\s+(type\s+)?\{([^}]*)\}\s+from\s+["']next["'];?\s*\n?/g,
-    (full, typePrefix: string | undefined, specifiers: string) => {
-      const remaining = specifiers
-        .split(",")
-        .map((part) => part.trim())
-        .filter(Boolean)
-        .filter((part) => part !== "Metadata" && part !== "type Metadata");
-      if (remaining.length === 0) return "";
-      const prefix = typePrefix ?? "";
-      return `import ${prefix}{ ${remaining.join(", ")} } from "next";\n`;
-    },
-  );
-}
-
-export function fixMetadataClientConflict(code: string, filePath: string): {
-  code: string;
-  fixed: boolean;
-  fixes: FixEntry[];
-} {
-  if (!hasUseClientDirective(code) || !hasMetadataExport(code)) {
-    return { code, fixed: false, fixes: [] };
-  }
-
-  if (!needsUseClient(code)) {
-    const nextCode = stripUseClientDirective(code);
-    return {
-      code: nextCode,
-      fixed: nextCode !== code,
-      fixes: nextCode !== code
-        ? [{
-            fixer: "metadata-client-conflict-fixer",
-            category: "mechanical",
-            description: 'Removed unnecessary "use client" directive from metadata file',
-            file: filePath,
-          }]
-        : [],
-    };
-  }
-
-  const withoutStaticMetadata = code.replace(STATIC_METADATA_EXPORT_RE, "");
-  if (withoutStaticMetadata !== code) {
-    const cleaned = stripMetadataImport(withoutStaticMetadata);
-    return {
-      code: cleaned,
-      fixed: true,
-      fixes: [{
-        fixer: "metadata-client-conflict-fixer",
-        category: "mechanical",
-        description: "Removed static metadata export from client component to keep App Router valid",
-        file: filePath,
-      }],
-    };
-  }
-
-  return { code, fixed: false, fixes: [] };
-}
-
-export function fixIconComponentValueMisuse(code: string, filePath: string): {
-  code: string;
-  fixed: boolean;
-  fixes: FixEntry[];
-} {
-  let nextCode = code;
-  let fixed = false;
-
-  nextCode = nextCode.replace(ICON_KEY_RE, (_full, itemName: string) => {
-    fixed = true;
-    return `key={typeof ${itemName}.icon === "string" ? ${itemName}.icon : (${itemName}.title ?? ${itemName}.label ?? ${itemName}.name ?? "icon-item")}`;
-  });
-
-  nextCode = nextCode.replace(ICON_VALUE_RENDER_RE, (full, prefix: string, itemName: string, suffix: string) => {
-    if (full.includes("<")) return full;
-    fixed = true;
-    return `${prefix}{typeof ${itemName}.icon === "string" ? ${itemName}.icon : <${itemName}.icon className="h-5 w-5" />}${suffix}`;
-  });
-
-  return {
-    code: nextCode,
-    fixed,
-    fixes: fixed
-      ? [{
-          fixer: "icon-component-value-fixer",
-          category: "mechanical",
-          description: "Replaced raw icon component values with stable key/render-safe JSX usage",
-          file: filePath,
-        }]
-      : [],
-  };
-}
-
-export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: string): {
-  code: string;
-  fixed: boolean;
-} {
-  if (!NEXT_CONFIG_FILE_RE.test(filePath.replace(/\\/g, "/"))) {
-    return { code, fixed: false };
-  }
-  if (code.includes("SAJTMASKIN_PREVIEW_BASE_PATH")) {
-    return { code, fixed: false };
-  }
-  if (/\bbasePath\s*:/.test(code)) {
-    return { code, fixed: false };
-  }
-  const re = /(const\s+nextConfig\s*(?::\s*NextConfig\s*)?=\s*\{)/;
-  if (!re.test(code)) {
-    return { code, fixed: false };
-  }
-  const nextCode = code.replace(
-    re,
-    `$1\n  ...(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim()\n    ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim() }\n    : {}),`,
-  );
-  return { code: nextCode, fixed: nextCode !== code };
-}
+// Re-export for other callers (repair-generated-files.ts) that still import
+// from the pipeline module.
+export {
+  fixMetadataClientConflict,
+  fixIconComponentValueMisuse,
+  ensureTier2PreviewBasePathInNextConfig,
+};
 
 /**
  * Run all mechanical (deterministic) fixers sequentially on accumulated content.
