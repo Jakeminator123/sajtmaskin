@@ -809,17 +809,6 @@ function deriveForbiddenPatterns(params: {
   return Array.from(patterns);
 }
 
-/**
- * Historically a `FEATURES.useBuildSpec` flag gated the BuildSpec-driven
- * pipeline. The "disabled" path was never used in practice so the flag is
- * now hardcoded on — this helper remains only as a stable export for
- * telemetry/SSE meta consumers (`own-engine-build-session`,
- * `pre-generation-contract-gate`, `plan-mode-response`).
- */
-export function isBuildSpecEnabled(): boolean {
-  return true;
-}
-
 export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
   const {
     prompt,

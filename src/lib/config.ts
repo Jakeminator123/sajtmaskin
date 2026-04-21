@@ -341,13 +341,12 @@ export const OPENCLAW = {
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
 
-  // The following flags were always-on opt-outs that never saw production
-  // use. Hardcoded on in 2026-04-21 cleanup; the helpers themselves carry
-  // historical notes for reference:
-  //   useBuildSpec — see isBuildSpecEnabled() in build-spec.ts
-  //   useLightweightScaffoldSerialization — see scaffolds/serialize.ts
-  //   useFollowUpLightContext — see chat-message-stream-post.ts
-  //   useFinalizeDeepPath — see resolveFinalizePathPolicy in finalize-version.ts
+  // Historical opt-out flags were always-on in practice and have been
+  // hardcoded (see 2026-04-21 cleanup):
+  //   useBuildSpec (+ isBuildSpecEnabled export — both gone)
+  //   useLightweightScaffoldSerialization (scaffolds/serialize.ts)
+  //   useFollowUpLightContext (chat-message-stream-post.ts)
+  //   useFinalizeDeepPath (resolveFinalizePathPolicy in finalize-version.ts)
 
   /**
    * New dossier pipeline (data/dossiers/). Reads master.json +
