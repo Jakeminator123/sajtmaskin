@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -66,50 +66,37 @@ export function PreviewPanelFrame({
   onForceRestart,
   children,
 }: PreviewPanelFrameProps) {
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [showTopBar, setShowTopBar] = useState(false);
-  const overlayTimerRef = useRef<number | null>(null);
-  const hardCapTimerRef = useRef<number | null>(null);
+  // Track timer outcomes rather than "what to show" directly. Visibility is
+  // derived from `isLoading` + these flags during render, which keeps the
+  // effect body free of synchronous setState calls (react-hooks/set-state-in-effect).
+  const [debounceElapsed, setDebounceElapsed] = useState(false);
+  const [hardCapReached, setHardCapReached] = useState(false);
 
   useEffect(() => {
-    if (overlayTimerRef.current) {
-      window.clearTimeout(overlayTimerRef.current);
-      overlayTimerRef.current = null;
-    }
-    if (hardCapTimerRef.current) {
-      window.clearTimeout(hardCapTimerRef.current);
-      hardCapTimerRef.current = null;
-    }
-    if (!isLoading) {
-      setShowOverlay(false);
-      setShowTopBar(false);
-      return;
-    }
-    setShowTopBar(true);
-    overlayTimerRef.current = window.setTimeout(() => {
-      overlayTimerRef.current = null;
-      setShowOverlay(true);
+    if (!isLoading) return;
+    const debounceId = window.setTimeout(() => {
+      setDebounceElapsed(true);
     }, LOADING_OVERLAY_DEBOUNCE_MS);
-    hardCapTimerRef.current = window.setTimeout(() => {
-      hardCapTimerRef.current = null;
-      setShowOverlay(false);
-      setShowTopBar(false);
+    const hardCapId = window.setTimeout(() => {
+      setHardCapReached(true);
     }, LOADING_OVERLAY_HARD_CAP_MS);
+    // Cleanup handles both (a) isLoading → false and (b) unmount. Resetting
+    // the flags here — rather than in the effect body — prepares for the
+    // next rising edge without cascading renders on the current one.
     return () => {
-      if (overlayTimerRef.current) {
-        window.clearTimeout(overlayTimerRef.current);
-        overlayTimerRef.current = null;
-      }
-      if (hardCapTimerRef.current) {
-        window.clearTimeout(hardCapTimerRef.current);
-        hardCapTimerRef.current = null;
-      }
+      window.clearTimeout(debounceId);
+      window.clearTimeout(hardCapId);
+      setDebounceElapsed(false);
+      setHardCapReached(false);
     };
   }, [isLoading]);
 
+  const topBarVisible = isLoading && !hardCapReached;
+  const overlayVisible = isLoading && debounceElapsed && !hardCapReached;
+
   return (
     <div className="relative h-full overflow-hidden bg-gray-950">
-      {showTopBar ? (
+      {topBarVisible ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-transparent"
@@ -117,7 +104,7 @@ export function PreviewPanelFrame({
           <div className="bg-primary/70 h-full w-full animate-pulse rounded-full" />
         </div>
       ) : null}
-      {showOverlay ? (
+      {overlayVisible ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px] transition-opacity">
           <div className="text-center">
             <Loader2 className="text-primary mx-auto mb-2 h-6 w-6 animate-spin" />

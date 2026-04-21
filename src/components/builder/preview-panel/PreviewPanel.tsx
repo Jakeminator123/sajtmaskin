@@ -732,14 +732,7 @@ export function PreviewPanel({
       className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
       badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
     };
-  }, [
-    viewMode,
-    isTier2LivePreview,
-    isV0Preview,
-    previewPending,
-    previewUrlPresent,
-    previewLifecycle,
-  ]);
+  }, [viewMode, isTier2LivePreview, isV0Preview, previewLifecycle]);
 
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = previewUrl ? buildPreviewSrc(previewUrl, refreshToken) : "";
