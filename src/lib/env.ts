@@ -168,6 +168,16 @@ export const serverSchema = z.object({
   SAJTMASKIN_DOSSIER_PIPELINE: z.string().optional(),
   /** When true/1, init generations may plan multiple routes but only fully realize the primary route while extras become lightweight shells. */
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
+  /** Repair-loop hardening (SAJ-25): propagate repairPassIndex on follow-up + prune stale error-log rows. On in dev, off in prod. */
+  SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX: z.string().optional(),
+  /** Repair-loop hardening B: re-run verifier-pass once after LLM-fixer to confirm fix actually addressed blocking findings. */
+  SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX: z.string().optional(),
+  /** Repair-loop hardening C: skip LLM-fixer escalation when only merged-syntax fails after stream-syntax passed. */
+  SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE: z.string().optional(),
+  /** Repair-loop hardening D: render `### Recurring failures on this site` in system-prompt for follow-ups. */
+  SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT: z.string().optional(),
+  /** Vector RAG over historical error-log rows. Auto-ingest hooks at npm run dev|build|start. */
+  SAJTMASKIN_USE_ERROR_LOG_RAG: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),

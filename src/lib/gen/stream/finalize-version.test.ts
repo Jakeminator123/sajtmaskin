@@ -28,6 +28,23 @@ const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 
+// Mock the FEATURES gate so SAJ-25 prune logic exercises in test (default ON).
+// Tests that need it OFF can override via vi.doMock per-test.
+vi.mock("@/lib/config", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/config")>("@/lib/config");
+  return {
+    ...actual,
+    FEATURES: {
+      ...actual.FEATURES,
+      consistentRepairPassIndex: true,
+      verifierRerunAfterFix: false,
+      skipDoubleValidateAndFixOnMerge: true,
+      recurringPatternsInMainPrompt: false,
+      useErrorLogRag: false,
+    },
+  };
+});
+
 vi.mock("@/lib/gen/autofix/pipeline", () => ({
   runAutoFix,
 }));
@@ -97,8 +114,10 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   failVersionVerification,
 }));
 
+const pruneStaleVersionErrorLogs = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs,
+  pruneStaleVersionErrorLogs,
 }));
 
 vi.mock("@/lib/db/services/generation-telemetry", () => ({
@@ -162,6 +181,8 @@ describe("finalizeAndSaveVersion", () => {
     logGeneration.mockReset();
     failVersionVerification.mockReset();
     createEngineVersionErrorLogs.mockReset();
+    pruneStaleVersionErrorLogs.mockReset();
+    pruneStaleVersionErrorLogs.mockResolvedValue(0);
     createGenerationTelemetryRecord.mockReset();
     parseFilesFromContent.mockReset();
     mergeVersionFilesWithWarnings.mockReset();
@@ -1154,6 +1175,49 @@ describe("finalizeAndSaveVersion", () => {
           }),
         }),
       );
+    });
+  });
+
+  // SAJ-25 — pruneStaleVersionErrorLogs acceptance.
+  describe("SAJ-25 — pruneStaleVersionErrorLogs", () => {
+    const baseFinalizeArgs = () => ({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_saj25",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    it("init pass (repairPassIndex=0) does NOT call prune even on clean finalize", async () => {
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 0,
+      });
+      expect(pruneStaleVersionErrorLogs).not.toHaveBeenCalled();
+    });
+
+    it("clean follow-up pass (repairPassIndex=1) calls prune with the version id and current pass index", async () => {
+      pruneStaleVersionErrorLogs.mockResolvedValue(2);
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledTimes(1);
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledWith("ver_1", 1);
+    });
+
+    it("prune failure is non-fatal — finalize still completes (best-effort)", async () => {
+      pruneStaleVersionErrorLogs.mockRejectedValue(new Error("transient db error"));
+      const result = await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+      expect(result.version.id).toBe("ver_1");
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledTimes(1);
     });
   });
 });

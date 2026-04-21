@@ -24,7 +24,10 @@ import {
 } from "@/lib/gen/verify/verifier-pass";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
-import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import {
+  createEngineVersionErrorLogs,
+  pruneStaleVersionErrorLogs,
+} from "@/lib/db/services/version-errors";
 import { getPhaseRoutingSummary, resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -1454,6 +1457,49 @@ export async function finalizeAndSaveVersion(
       logCount: preflightLogs.length,
       message: logErr instanceof Error ? logErr.message : "Unknown preflight log persistence error",
     });
+  }
+
+  // SAJ-25 — pruneStaleVersionErrorLogs:
+  //
+  // When the same `versionId` is re-finalised (follow-up / repair pass) and
+  // this pass is CLEAN (`!hasVerificationBlockingErrors`), drop rows from
+  // earlier passes whose `meta.repairPassIndex` is < currentRepairPassIndex.
+  // Without this prune the UI keeps rendering old blocking findings as a
+  // red "Fel"-badge on a fully-working preview.
+  //
+  // Best-effort, behind `FEATURES.consistentRepairPassIndex`. Never throws.
+  if (
+    FEATURES.consistentRepairPassIndex &&
+    repairPassIndex > 0 &&
+    !hasVerificationBlockingErrors
+  ) {
+    try {
+      const droppedCount = await pruneStaleVersionErrorLogs(
+        version.id,
+        repairPassIndex,
+      );
+      devLogAppend("in-progress", {
+        type: "version_error_log_pruned",
+        chatId,
+        versionId: version.id,
+        repairPassIndex,
+        droppedCount,
+        reason: "clean-followup",
+      });
+    } catch (pruneErr) {
+      console.warn(
+        "[finalize] pruneStaleVersionErrorLogs failed (non-fatal):",
+        pruneErr,
+      );
+      devLogAppend("in-progress", {
+        type: "version_error_log_pruned.error",
+        chatId,
+        versionId: version.id,
+        repairPassIndex,
+        message:
+          pruneErr instanceof Error ? pruneErr.message : "Unknown prune error",
+      });
+    }
   }
 
   try {
