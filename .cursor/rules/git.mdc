@@ -1,0 +1,6 @@
+---
+description: inga PRs
+alwaysApply: false
+---
+
+Skapa igna PRs för att skicka till github. Försök merga o mm öjligt i första hand, om du sjävl inte är på n avvikande branch oc här i något specialläge som uttryckligen uttryckts. Detta ska påpekas av dig om du då vill göra en PR och varför
