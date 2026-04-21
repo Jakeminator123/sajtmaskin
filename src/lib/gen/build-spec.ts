@@ -11,6 +11,19 @@ import {
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldId, ScaffoldManifest } from "./scaffolds/types";
+import {
+  REDESIGN_PATTERNS,
+  COPY_PATTERNS,
+  COPY_GUARD_PATTERNS,
+  LAYOUT_PATTERNS,
+  PAGE_ADDITION_PATTERNS,
+  TARGETED_REPAIR_PATTERNS,
+  IMAGE_FOLLOWUP_ESCAPE_PATTERNS,
+  SMALL_FOLLOW_UP_HINT_PATTERNS,
+  SMALL_FOLLOW_UP_TARGET_PATTERNS,
+  INTEGRATION_PATTERNS,
+  includesAny,
+} from "./build-spec/prompt-patterns";
 
 export type BuildSpecGenerationMode = "init" | "followUp";
 
@@ -133,127 +146,6 @@ type DeriveBuildSpecParams = {
    */
   previewPolicyOverride?: BuildSpecPreviewPolicy;
 };
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function wholeWordPatterns(values: readonly string[]): RegExp[] {
-  return values.map((value) => new RegExp(`\\b${escapeRegex(value)}\\b`, "i"));
-}
-
-function phrasePatterns(values: readonly string[]): RegExp[] {
-  return values.map((value) => {
-    const escaped = escapeRegex(value).replace(/\\ /g, "\\s+");
-    return new RegExp(`\\b${escaped}\\b`, "i");
-  });
-}
-
-const REDESIGN_PATTERNS = phrasePatterns([
-  "redesign",
-  "rebrand",
-  "restyle",
-  "start over",
-  "from scratch",
-  "helt ny riktning",
-  "gör om från grunden",
-]);
-
-const COPY_PATTERNS = wholeWordPatterns([
-  "copy",
-  "text",
-  "innehåll",
-  "content",
-  "headline",
-  "tagline",
-  "seo",
-  "meta",
-  "wording",
-]);
-
-const COPY_GUARD_PATTERNS = [
-  /\bbehåll(?:er)?\b.*\bdesign(?:en)?\b/i,
-  /\bbehåll(?:er)?\b.*\blayout(?:en)?\b/i,
-  /\bkeep\b.*\bdesign\b/i,
-  /\bkeep\b.*\blayout\b/i,
-  /\bwithout changing\b.*\bdesign\b/i,
-  /\bwithout changing\b.*\blayout\b/i,
-];
-
-const LAYOUT_PATTERNS = wholeWordPatterns([
-  "layout",
-  "spacing",
-  "färg",
-  "color",
-  "palette",
-  "hero",
-  "footer",
-  "header",
-  "animation",
-  "motion",
-  "design",
-  "visual",
-]);
-
-const PAGE_ADDITION_PATTERNS = [
-  /\badd(?: another)?(?: new)? (?:page|route)\b/i,
-  /\bcreate(?: another)?(?: new)? (?:page|route)\b/i,
-  /\bnew page\b/i,
-  /\bnew route\b/i,
-  /\blägg till sida\b/i,
-  /\blägg till (?:en |en ny |ny )?(?:sida|route)\b/i,
-  /\bny sida\b/i,
-  /\bny route\b/i,
-  /\b(?:pricing|blog|contact|about|services|products?) page\b/i,
-  /\bkontaktsida\b/i,
-];
-
-const TARGETED_REPAIR_PATTERNS = [
-  /\bauto-fix request\b/i,
-  /\btargeted repair\b/i,
-  /\bpersisted errors for this version\b/i,
-  /\bquality gate\b/i,
-];
-
-const IMAGE_FOLLOWUP_ESCAPE_PATTERNS = [
-  /\b(?:bild(?:en|er|erna)?|image(?:s|ry)?|foto(?:n)?|photo(?:s)?)\b/i,
-  /\bplaceholder(?:s|\.svg)?\b/i,
-  /\b(?:ai[- ]?bild|ai[- ]?image|generera bild|generate image)\b/i,
-  /\b(?:byt|ersätt|replace|swap).{0,20}(?:bild|image|hero[- ]?bild|hero[- ]?image|placeholder)\b/i,
-  /\b(?:materialisera|materialize)\b/i,
-];
-
-const SMALL_FOLLOW_UP_HINT_PATTERNS = [
-  ...wholeWordPatterns(["bara", "endast", "enbart", "only", "just", "snabbt", "liten", "lite", "minor", "small"]),
-  /\b(?:tighten|trim|justera|polera|byt bara|ändra bara|uppdatera bara)\b/i,
-];
-
-const SMALL_FOLLOW_UP_TARGET_PATTERNS = [
-  /\b(?:rubrik(?:en)?|titel(?:n)?|heading|copy|text|cta|spacing|marginal|padding|color|färg|font|button|knapp|hero|footer|header|ikon|icon)\b/i,
-];
-
-const INTEGRATION_PATTERNS = wholeWordPatterns([
-  "integration",
-  "api",
-  "database",
-  "databas",
-  "auth",
-  "stripe",
-  "supabase",
-  "prisma",
-  "drizzle",
-  "clerk",
-  "nextauth",
-  "auth0",
-  "openai",
-  "resend",
-  "redis",
-  "upstash",
-]);
-
-function includesAny(patterns: RegExp[], value: string): boolean {
-  return patterns.some((pattern) => pattern.test(value));
-}
 
 function buildRoutePlanSummary(routePlan: RoutePlan): string {
   const routes = routePlan.routes
