@@ -172,7 +172,7 @@ function buildDetectedIntegrationsCommentBlock(
 }
 
 /**
- * Build the user-visible `env.env` file body with per-tier section
+ * Build the user-visible `env.example` file body with per-tier section
  * comments. Layering and merge order follows {@link resolvePreviewEnvLayers}.
  */
 export async function buildProjectEnvFileContents(params: {
@@ -240,7 +240,7 @@ function extractGeneratedEnvLocal(files: FileEntry[]): string | null {
 }
 
 /**
- * Inject (or replace) the user-visible `env.env` artifact in `filesJson`.
+ * Inject (or replace) the user-visible `env.example` artifact in `filesJson`.
  *
  * Reads any `.env.local` the model emitted as the "generated" layer, then
  * builds the merged file body via {@link buildProjectEnvFileContents}.
