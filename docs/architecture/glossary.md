@@ -273,7 +273,7 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | scaffolds | Interna runtime-startpunkter | template-library, Vercel-mallar |
 | `Group` (ikon vs 3D) | Lucide exporterar ikonen `Group`; Three.js/`@react-three/fiber` använder `Group` som nod — samma PascalCase | Autofix får inte lägga till lucide-`Group` när filen redan har `import type { Group } from "three"` (jsx-checker känner igen `import type`) |
 | own-engine | Enda aktiva codegen-vägen | OpenClaw, gammal v0-runtime |
-| `backoffice` | Lokal Streamlit-app — startas via `python sajtmaskin_backoffice.py` (entrypoint relauncherar `streamlit run`). Källkod under `backoffice/` (`shared.py` + `pages/*`). Skriver till `config/`, läser från `config/`, `data/`, `logs/`. **Inte** Next.js API-server, **inte** Fly-VM/preview_host. | Next.js-runtime under `src/app/api/`, preview-VM (Fly), "dashboard" (legacy namn på samma sak) |
+| `backoffice` | Lokal Streamlit-app — kanonisk start: `npm run backoffice` (kör `scripts/dev/run-python.mjs` → `python sajtmaskin_backoffice.py`, entrypoint relauncherar `streamlit run`). Direktanrop `python(3) sajtmaskin_backoffice.py` fungerar också. Källkod under `backoffice/` (`shared.py` + `pages/*`). Skriver till `config/`, läser från `config/`, `data/`, `logs/`. **Inte** Next.js API-server, **inte** Fly-VM/preview_host. | Next.js-runtime under `src/app/api/`, preview-VM (Fly), "dashboard" (legacy namn på samma sak) |
 | OpenClaw / Sajtagenten | Separat assistent-/agentyta | Builderns LLM-flöde |
 | `appProjectId` | Användarprojektets id | `chatId`, `VERCEL_PROJECT_ID` |
 | `chatId` | Own-engine-chattens id | `appProjectId` |

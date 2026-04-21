@@ -78,26 +78,61 @@ const HREF_PATTERNS = [
 const NAV_HREF_RE = new RegExp(HREF_PATTERNS.join("|"), "g");
 
 /**
+ * Strip `?query` and `#fragment` from an href before any further analysis.
+ * Both segments are irrelevant to route resolution (Next.js routes match on
+ * pathname only) and would otherwise either falsely fail the matcher
+ * (`/about?ref=foo` vs `/about`) or mask genuine pure-anchor links from the
+ * skip-rule (`/#section` should be treated identically to `/#`).
+ *
+ * Order matters: `?` may appear before `#` in URLs, but never the other way
+ * around per RFC 3986. Cutting at whichever appears first yields the
+ * pathname unchanged for both `/about#section?x` and `/about?x#section`.
+ */
+function pathnameOnly(raw: string): string {
+  const queryIdx = raw.indexOf("?");
+  const hashIdx = raw.indexOf("#");
+  let cutAt = -1;
+  if (queryIdx !== -1 && hashIdx !== -1) cutAt = Math.min(queryIdx, hashIdx);
+  else if (queryIdx !== -1) cutAt = queryIdx;
+  else if (hashIdx !== -1) cutAt = hashIdx;
+  return cutAt === -1 ? raw : raw.slice(0, cutAt);
+}
+
+/**
  * Compute the static base of a href. For template literals like `/blogg/${slug}`
  * the base is the longest leading static path: `/blogg`. For pure static
  * hrefs, base equals the href itself. Trailing slashes are normalized.
+ *
+ * Query and hash fragments are stripped first so that `/about?ref=nav` and
+ * `/about#cta` both resolve against the `/about` route instead of producing
+ * false-positive cross-check warnings.
  */
 function staticBaseOfHref(raw: string): string {
   if (!raw.startsWith("/")) return raw;
-  const dollarIdx = raw.indexOf("${");
-  const trimmed = dollarIdx === -1 ? raw : raw.slice(0, dollarIdx);
+  const pathname = pathnameOnly(raw);
+  const dollarIdx = pathname.indexOf("${");
+  const trimmed = dollarIdx === -1 ? pathname : pathname.slice(0, dollarIdx);
   // Drop trailing slash and any partial dynamic segment leftovers.
   const cleaned = trimmed.replace(/\/+$/, "") || "/";
   return normalizeRoutePath(cleaned);
 }
 
-/** Hrefs we never validate against actual routes. */
+/**
+ * Hrefs we never validate against actual routes.
+ * Hash-only anchors (`/#section`, `/#`) and bare query targets (`/?ref=foo`
+ * resolving to root) are skipped because their pathname is `/` — the
+ * cross-check has no useful signal to add for a link to the current page.
+ */
 function shouldSkipHref(raw: string): boolean {
   if (!raw.startsWith("/")) return true;
   if (raw.startsWith("//")) return true; // protocol-relative external
   if (raw.startsWith("/api/")) return true; // API endpoints, not pages
   if (raw.startsWith("/_next/")) return true; // Next.js internals
-  if (raw === "/#") return true;
+  // Treat pure hash/query targets ("/#", "/#hero", "/?ref=nav") as skippable —
+  // the resolved pathname is "/" so cross-check has no useful signal to add.
+  const pathname = pathnameOnly(raw);
+  if (pathname === "/" && raw !== "/") return true;
+  if (pathname === "") return true;
   return false;
 }
 
