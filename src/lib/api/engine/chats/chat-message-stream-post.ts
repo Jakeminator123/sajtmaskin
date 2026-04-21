@@ -761,6 +761,13 @@ export async function handleMessageStreamRequest(
           // brief, så det behöver ingen rå-prompt.
           contractsPrompt: message,
           capabilitiesPrompt: message,
+          // P26: scaffold-matchern (embedding + keyword) får också rå message
+          // så embedding-API:t inte rejectas på `400 max 8192 tokens` när
+          // optimizedMessage är ~30k tecken med inbäddad filkontext, och så
+          // att keyword-fallback inte triggar APP_KEYWORDS via filcontextens
+          // text. Tidigare flippade en bildbyte landing-page → app-shell och
+          // promotade build_intent från website till app.
+          scaffoldMatchPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,

@@ -5,6 +5,7 @@ import {
 } from "@/lib/builder/promptOrchestration";
 import { FEATURES } from "@/lib/config";
 import {
+  HEAVY_CAPABILITY_KEYS,
   hasHeavyCapabilities,
   type InferredCapabilities,
 } from "./capability-inference";
@@ -87,20 +88,63 @@ export function isShellPageContent(content: string): boolean {
   return signals.filter(Boolean).length >= 2;
 }
 
+/**
+ * Capability flags surfaced from `InferredCapabilities` directly on the
+ * BuildSpec. Before 2026-04-21 callers had to pass `InferredCapabilities`
+ * (or a derived `capabilityHeavy` boolean) alongside the BuildSpec to make
+ * the same decision again — a duplicated information path between the
+ * orchestration layer and finalize. Exposing the canonical signal here
+ * lets downstream code read it from a single source.
+ *
+ * `signals` lists the human-readable capability keys that contributed to
+ * `heavy` being true; helpful for log triage and prompt-dump diffing.
+ */
+export interface BuildSpecCapabilityFlags {
+  heavy: boolean;
+  signals: string[];
+}
+
 export interface BuildSpec {
   buildIntent: BuildIntent;
   generationMode: BuildSpecGenerationMode;
   changeScope: BuildSpecChangeScope;
   scaffoldId: ScaffoldId | null;
   routePlanSummary: string;
+  /**
+   * Primary style direction. Picked by *score-based* matching across all
+   * stylepack vocabularies — not first-match-wins. Multi-cue prompts like
+   * "futuristic minimalist luxury landing" now resolve to whichever bucket
+   * collected the most signals, with a stable scaffold-derived fallback.
+   */
   stylePack: string;
+  /**
+   * Optional secondary style hint when two style families tied or were
+   * close. Surfaces in the system prompt so the model can blend.
+   * `null` when the primary scored cleanly above the runner-up.
+   *
+   * Optional on the type to stay compatible with hand-written `BuildSpec`
+   * literals in tests (only `deriveBuildSpec` guarantees the field).
+   */
+  stylePackSecondary?: string | null;
   qualityTarget: BuildSpecQualityTarget;
   previewPolicy: BuildSpecPreviewPolicy;
   verificationPolicy: BuildSpecVerificationPolicy;
   contextPolicy: BuildSpecContextPolicy;
+  /**
+   * Numerical score that drove `contextPolicy`. Useful for tuning and for
+   * downstream telemetry. Optional for the same reason as
+   * `stylePackSecondary` — hand-written test mocks may omit it.
+   */
+  contextPolicyScore?: number;
   referenceCategories: string[];
   forbiddenPatterns: string[];
   tokenBudgets: BuildSpecTokenBudgets;
+  /**
+   * Capability fingerprint derived from `InferredCapabilities`. Exposed on
+   * the spec so finalize/preflight don't need to recompute heaviness.
+   * Optional for compat with existing `BuildSpec` literals in tests.
+   */
+  capabilityFlags?: BuildSpecCapabilityFlags;
   routeRealization?: RouteRealizationPolicy;
 }
 
@@ -132,6 +176,16 @@ type DeriveBuildSpecParams = {
    * (`POST /api/engine/chats/[chatId]/finalize-design`).
    */
   previewPolicyOverride?: BuildSpecPreviewPolicy;
+  /**
+   * Optional input-context capacity (in tokens) of the model that will
+   * actually consume this generation. When provided, `tokenBudgets` are
+   * scaled relative to a 200k baseline so a 1M-window model can use a
+   * proportionally bigger `systemContextTokens` slice without us having
+   * to invent per-tier numbers per provider.
+   *
+   * Omit (or pass <= 0) to use the legacy default budgets unchanged.
+   */
+  modelContextWindowTokens?: number;
 };
 
 function escapeRegex(value: string): string {
@@ -208,6 +262,22 @@ const PAGE_ADDITION_PATTERNS = [
   /\bkontaktsida\b/i,
 ];
 
+/**
+ * Section/block/area cues. When present *without* an explicit page-word
+ * (`page` / `sida` / `route`) the user is asking for an in-page section,
+ * not a new route — vetoes `PAGE_ADDITION_PATTERNS`. See
+ * `isInPageSectionRequest` for the combined check.
+ */
+const SECTION_INSTEAD_OF_PAGE_PATTERNS = [
+  /\b(?:section|sektion|block|avsnitt|area|region|panel)\b/i,
+];
+
+const EXPLICIT_PAGE_WORD_PATTERNS = [
+  /\bpage\b/i,
+  /\broute\b/i,
+  /\bsida\b/i,
+];
+
 const TARGETED_REPAIR_PATTERNS = [
   /\bauto-fix request\b/i,
   /\btargeted repair\b/i,
@@ -253,6 +323,18 @@ const INTEGRATION_PATTERNS = wholeWordPatterns([
 
 function includesAny(patterns: RegExp[], value: string): boolean {
   return patterns.some((pattern) => pattern.test(value));
+}
+
+/**
+ * True when the prompt mentions a section/block/area cue but does NOT
+ * separately mention an explicit page word (`page` / `route` / `sida`).
+ * Used to veto `PAGE_ADDITION_PATTERNS` so prompts like
+ * `"add a pricing section"` resolve to `local-layout` instead of being
+ * misclassified as a new route.
+ */
+function isInPageSectionRequest(promptLower: string): boolean {
+  if (!includesAny(SECTION_INSTEAD_OF_PAGE_PATTERNS, promptLower)) return false;
+  return !includesAny(EXPLICIT_PAGE_WORD_PATTERNS, promptLower);
 }
 
 function buildRoutePlanSummary(routePlan: RoutePlan): string {
@@ -433,26 +515,108 @@ function effectiveInitRouteCount(params: {
   return routePlan.routes.length;
 }
 
-function inferStylePack(
-  prompt: string,
+/**
+ * Score-based stylepack vocabulary. Each (regex, weight) tuple contributes
+ * its weight to the bucket's score on a regex hit. The highest-scoring
+ * bucket wins; the runner-up surfaces as `stylePackSecondary` when the gap
+ * is narrow.
+ *
+ * Replaces the prior first-match-wins regex cascade where a prompt like
+ * `"futuristic minimalist luxury landing"` always resolved to `minimal`
+ * (the first regex), even when `luxury` was the dominant cue.
+ *
+ * Weight model: rare/distinctive cues (`brutalist`, `cyberpunk`, primary
+ * style names) score 5; supporting vocabulary (`refined`, `magazine`,
+ * `neon`) scores 1–2 so a single specific word still beats a flood of
+ * generic adjectives.
+ */
+const STYLE_PACK_VOCAB: Record<string, Array<{ pattern: RegExp; weight: number }>> = {
+  brutalist: [
+    { pattern: /\bbrutalist\b/i, weight: 5 },
+    { pattern: /\b(?:raw|harsh|monolith(?:ic)?|stark)\b/i, weight: 1 },
+  ],
+  editorial: [
+    { pattern: /\beditorial\b/i, weight: 5 },
+    { pattern: /\b(?:magazine|long[- ]?form|reading|journal(?:istic)?|serif heavy)\b/i, weight: 2 },
+    { pattern: /\b(?:typografi|typography focused)\b/i, weight: 1 },
+  ],
+  minimal: [
+    { pattern: /\bminimal(?:ist|istic)?\b/i, weight: 5 },
+    { pattern: /\b(?:clean|whitespace|airy|understated|sparse|stripped[- ]?back)\b/i, weight: 1 },
+  ],
+  luxury: [
+    { pattern: /\bluxury\b/i, weight: 5 },
+    { pattern: /\b(?:premium|exclusive|haute|couture|elegant|refined|sophisticated|opulent)\b/i, weight: 2 },
+    { pattern: /\b(?:gold|champagne|velvet|marble|noir)\b/i, weight: 1 },
+  ],
+  playful: [
+    { pattern: /\bplayful\b/i, weight: 5 },
+    { pattern: /\b(?:fun|quirky|cheerful|whimsical|cartoon|bouncy|leklust|lekfull)\b/i, weight: 2 },
+    { pattern: /\b(?:colorful|vibrant)\b/i, weight: 1 },
+  ],
+  retro: [
+    { pattern: /\b(?:retro|vintage|nostalgic|throwback)\b/i, weight: 5 },
+    { pattern: /\b(?:80s|90s|y2k|pixel(?:ated)?|crt|vhs|grain(?:y)?)\b/i, weight: 2 },
+  ],
+  futuristic: [
+    { pattern: /\b(?:futurist(?:ic)?|cyberpunk|sci[- ]?fi|space[- ]?age)\b/i, weight: 5 },
+    { pattern: /\b(?:neon|holograph(?:ic)?|glitch|matrix|hud|techno)\b/i, weight: 2 },
+    { pattern: /\b(?:dark|glow|gradient mesh)\b/i, weight: 1 },
+  ],
+};
+
+const STYLE_PACK_SECONDARY_GAP = 2;
+
+function scoreStylePackBuckets(prompt: string): Map<string, number> {
+  const promptLower = prompt.toLowerCase();
+  const scores = new Map<string, number>();
+  for (const [bucket, entries] of Object.entries(STYLE_PACK_VOCAB)) {
+    let score = 0;
+    for (const { pattern, weight } of entries) {
+      if (pattern.test(promptLower)) score += weight;
+    }
+    if (score > 0) scores.set(bucket, score);
+  }
+  return scores;
+}
+
+function inferStylePackFallback(
   buildIntent: BuildIntent,
   resolvedScaffold: ScaffoldManifest | null,
   changeScope: BuildSpecChangeScope,
 ): string {
-  const promptLower = prompt.toLowerCase();
-  if (/\bbrutalist\b/i.test(promptLower)) return "brutalist";
-  if (/\beditorial\b/i.test(promptLower)) return "editorial";
-  if (/\bminimal(?:ist)?\b/i.test(promptLower)) return "minimal";
-  if (/\bluxury\b/i.test(promptLower)) return "luxury";
-  if (/\bplayful\b/i.test(promptLower)) return "playful";
-  if (/\bretro\b|\bvintage\b/i.test(promptLower)) return "retro";
-  if (/\bfuturistic\b|\bcyberpunk\b/i.test(promptLower)) return "futuristic";
   if (resolvedScaffold?.id === "blog") return "editorial";
   if (resolvedScaffold?.id === "ecommerce") return "commerce";
   if (resolvedScaffold?.id === "saas-landing") return "saas";
   if (buildIntent === "app") return "app-product";
   if (changeScope === "copy") return "current-site";
   return "brand-led";
+}
+
+function inferStylePack(
+  prompt: string,
+  buildIntent: BuildIntent,
+  resolvedScaffold: ScaffoldManifest | null,
+  changeScope: BuildSpecChangeScope,
+): { primary: string; secondary: string | null } {
+  const scores = scoreStylePackBuckets(prompt);
+  const fallback = inferStylePackFallback(buildIntent, resolvedScaffold, changeScope);
+
+  if (scores.size === 0) {
+    return { primary: fallback, secondary: null };
+  }
+
+  const sorted = Array.from(scores.entries()).sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] - a[1];
+    return a[0].localeCompare(b[0]);
+  });
+  const [primary, primaryScore] = sorted[0]!;
+  const runnerUp = sorted[1];
+  const secondary =
+    runnerUp && primaryScore - runnerUp[1] < STYLE_PACK_SECONDARY_GAP
+      ? runnerUp[0]
+      : null;
+  return { primary, secondary };
 }
 
 function inferChangeScope(params: {
@@ -486,7 +650,12 @@ function inferChangeScope(params: {
   ) {
     return "integration";
   }
-  if (includesAny(PAGE_ADDITION_PATTERNS, promptLower)) return "page-addition";
+  if (
+    includesAny(PAGE_ADDITION_PATTERNS, promptLower) &&
+    !isInPageSectionRequest(promptLower)
+  ) {
+    return "page-addition";
+  }
   if (
     includesAny(COPY_PATTERNS, promptLower) &&
     (!includesAny(LAYOUT_PATTERNS, promptLower) || includesAny(COPY_GUARD_PATTERNS, promptLower))
@@ -615,6 +784,76 @@ export function deriveFollowUpContextPolicy(params: {
   return "normal";
 }
 
+/**
+ * Signal-summed weights for `inferContextPolicy`. The previous version was
+ * a binary OR over a handful of conditions; any single hit jumped straight
+ * from `normal` to `heavy` and the boundary cases (e.g. 4 vs 5 routes) were
+ * unnecessarily lossy.
+ *
+ * Now we sum signal weights and threshold:
+ *   - score >= HEAVY_THRESHOLD → "heavy"
+ *   - else → "normal"
+ *
+ * Weights are intentionally small integers so that a *combination* of
+ * mid-strength signals can still cross HEAVY without any single signal
+ * being decisive — except integrations, which alone are a strong indicator
+ * of "model needs the extra room to wire things together correctly".
+ */
+const CONTEXT_POLICY_HEAVY_THRESHOLD = 4;
+
+function scoreContextPolicy(params: {
+  generationMode: BuildSpecGenerationMode;
+  buildIntent: BuildIntent;
+  routePlan: RoutePlan;
+  routeRealization: RouteRealizationPolicy;
+  preGenerationContracts: PreGenerationContractContext;
+  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  capabilityHeavy: boolean;
+}): number {
+  const {
+    generationMode,
+    buildIntent,
+    routePlan,
+    routeRealization,
+    preGenerationContracts,
+    promptStrategyMeta,
+    capabilityHeavy,
+  } = params;
+  let score = 0;
+
+  if (generationMode === "init") score += 1;
+  if (buildIntent === "app") score += 2;
+  if (capabilityHeavy) score += 1;
+
+  if (
+    promptStrategyMeta?.strategy === "phase_plan_build_refine" ||
+    promptStrategyMeta?.strategy === "preserved"
+  ) {
+    score += 2;
+  }
+
+  const integrationCount = preGenerationContracts.contracts.integrations.length;
+  if (integrationCount > 0) score += 3;
+  if (integrationCount >= 3) score += 1;
+  if (preGenerationContracts.contracts.dataMode === "persisted") score += 2;
+
+  const routeCount = effectiveInitRouteCount({
+    generationMode,
+    routePlan,
+    routeRealization,
+  });
+  if (routeCount > 4) score += 2;
+  else if (routeCount >= 3) score += 1;
+
+  const routePlanHeavyStructure =
+    routePlan.siteType === "app-shell" ||
+    (routePlan.siteType === "content-heavy" && routeCount > 1) ||
+    (routePlan.provenance.primarySource === "scaffold" && routeCount >= 3);
+  if (routePlanHeavyStructure) score += 2;
+
+  return score;
+}
+
 function inferContextPolicy(params: {
   prompt: string;
   generationMode: BuildSpecGenerationMode;
@@ -625,60 +864,28 @@ function inferContextPolicy(params: {
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
   capabilityHeavy: boolean;
-}): BuildSpecContextPolicy {
+}): { policy: BuildSpecContextPolicy; score: number } {
   const {
     prompt,
     generationMode,
     changeScope,
-    buildIntent,
-    routePlan,
-    routeRealization,
-    preGenerationContracts,
-    promptStrategyMeta,
     capabilityHeavy,
   } = params;
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
     if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
-      return "normal";
+      return { policy: "normal", score: 0 };
     }
-    return deriveFollowUpContextPolicy({
-      prompt,
-      capabilityHeavy,
-    });
+    return {
+      policy: deriveFollowUpContextPolicy({ prompt, capabilityHeavy }),
+      score: 0,
+    };
   }
-  const routePlanHeavyStructure =
-    routePlan.siteType === "app-shell" ||
-    (routePlan.siteType === "content-heavy" &&
-      effectiveInitRouteCount({
-        generationMode,
-        routePlan,
-        routeRealization,
-      }) > 1) ||
-    (routePlan.provenance.primarySource === "scaffold" &&
-      effectiveInitRouteCount({
-        generationMode,
-        routePlan,
-        routeRealization,
-      }) >= 3);
 
-  const routeCount = effectiveInitRouteCount({
-    generationMode,
-    routePlan,
-    routeRealization,
-  });
-
-  if (
-    promptStrategyMeta?.strategy === "phase_plan_build_refine" ||
-    promptStrategyMeta?.strategy === "preserved" ||
-    buildIntent === "app" ||
-    routeCount > 4 ||
-    routePlanHeavyStructure ||
-    preGenerationContracts.contracts.integrations.length > 0 ||
-    preGenerationContracts.contracts.dataMode === "persisted"
-  ) {
-    return "heavy";
+  const score = scoreContextPolicy(params);
+  if (score >= CONTEXT_POLICY_HEAVY_THRESHOLD) {
+    return { policy: "heavy", score };
   }
-  return "normal";
+  return { policy: "normal", score };
 }
 
 /**
@@ -688,44 +895,73 @@ function inferContextPolicy(params: {
  * absolute numbers just need enough headroom that block pruning rarely fires
  * unless we're genuinely overflowing.
  *
- * Rationale (as of 2026-04):
- * - Largest scaffold (ecommerce) is ~7.3k tokens fully serialized.
- * - Modern context windows (GPT-5, Claude 4) are 200k+; even `heavy` here
- *   sits at ~80k and leaves plenty for chat history + completion tokens.
- * - `*Chars` mirrors via `CHARS_PER_TOKEN_ESTIMATE = 3.2` for refs and
- *   system context; `scaffoldChars` is intentionally tighter (~1.9 ratio)
- *   so the scaffold block can't dominate the dynamic context.
+ * **Model awareness (added 2026-04-21):** when the caller passes a
+ * `modelContextWindowTokens` value, all three token figures are scaled by
+ * `modelContextWindowTokens / MODEL_BUDGET_BASELINE_TOKENS`, clamped to
+ * `[MODEL_BUDGET_SCALE_MIN, MODEL_BUDGET_SCALE_MAX]`. This lets a 1M-window
+ * model spend ~3× the system-context tokens of a 200k baseline model
+ * without us hardcoding per-provider numbers. Char mirrors are recomputed
+ * from the scaled token figures via `CHARS_PER_TOKEN_RATIO_*`.
  */
-function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): BuildSpecTokenBudgets {
-  switch (contextPolicy) {
-    case "light":
-      return {
-        scaffoldTokens: 13_000,
-        refsTokens: 5_000,
-        systemContextTokens: 22_000,
-        scaffoldChars: 24_000,
-        refsChars: 16_000,
-        systemContextChars: 70_000,
-      };
-    case "heavy":
-      return {
-        scaffoldTokens: 32_000,
-        refsTokens: 16_000,
-        systemContextTokens: 80_000,
-        scaffoldChars: 60_000,
-        refsChars: 50_000,
-        systemContextChars: 256_000,
-      };
-    default:
-      return {
-        scaffoldTokens: 22_000,
-        refsTokens: 12_000,
-        systemContextTokens: 60_000,
-        scaffoldChars: 42_000,
-        refsChars: 38_000,
-        systemContextChars: 192_000,
-      };
-  }
+const MODEL_BUDGET_BASELINE_TOKENS = 200_000;
+const MODEL_BUDGET_SCALE_MIN = 0.6;
+const MODEL_BUDGET_SCALE_MAX = 3.0;
+const CHARS_PER_TOKEN_RATIO_SCAFFOLD = 24_000 / 13_000;
+const CHARS_PER_TOKEN_RATIO_REFS = 16_000 / 5_000;
+const CHARS_PER_TOKEN_RATIO_CONTEXT = 70_000 / 22_000;
+
+const BASE_TOKEN_BUDGETS: Record<BuildSpecContextPolicy, BuildSpecTokenBudgets> = {
+  light: {
+    scaffoldTokens: 13_000,
+    refsTokens: 5_000,
+    systemContextTokens: 22_000,
+    scaffoldChars: 24_000,
+    refsChars: 16_000,
+    systemContextChars: 70_000,
+  },
+  normal: {
+    scaffoldTokens: 22_000,
+    refsTokens: 12_000,
+    systemContextTokens: 60_000,
+    scaffoldChars: 42_000,
+    refsChars: 38_000,
+    systemContextChars: 192_000,
+  },
+  heavy: {
+    scaffoldTokens: 32_000,
+    refsTokens: 16_000,
+    systemContextTokens: 80_000,
+    scaffoldChars: 60_000,
+    refsChars: 50_000,
+    systemContextChars: 256_000,
+  },
+};
+
+function modelBudgetScale(modelContextWindowTokens: number | undefined): number {
+  if (!modelContextWindowTokens || modelContextWindowTokens <= 0) return 1;
+  const raw = modelContextWindowTokens / MODEL_BUDGET_BASELINE_TOKENS;
+  return Math.max(MODEL_BUDGET_SCALE_MIN, Math.min(MODEL_BUDGET_SCALE_MAX, raw));
+}
+
+function tokenBudgetsForContextPolicy(
+  contextPolicy: BuildSpecContextPolicy,
+  modelContextWindowTokens?: number,
+): BuildSpecTokenBudgets {
+  const base = BASE_TOKEN_BUDGETS[contextPolicy];
+  const scale = modelBudgetScale(modelContextWindowTokens);
+  if (scale === 1) return base;
+
+  const scaffoldTokens = Math.round((base.scaffoldTokens ?? 0) * scale);
+  const refsTokens = Math.round((base.refsTokens ?? 0) * scale);
+  const systemContextTokens = Math.round((base.systemContextTokens ?? 0) * scale);
+  return {
+    scaffoldTokens,
+    refsTokens,
+    systemContextTokens,
+    scaffoldChars: Math.round(scaffoldTokens * CHARS_PER_TOKEN_RATIO_SCAFFOLD),
+    refsChars: Math.round(refsTokens * CHARS_PER_TOKEN_RATIO_REFS),
+    systemContextChars: Math.round(systemContextTokens * CHARS_PER_TOKEN_RATIO_CONTEXT),
+  };
 }
 
 function deriveReferenceCategories(
@@ -813,6 +1049,22 @@ export function isBuildSpecEnabled(): boolean {
   return FEATURES.useBuildSpec;
 }
 
+function deriveCapabilityFlags(
+  capabilities: InferredCapabilities | null,
+): BuildSpecCapabilityFlags {
+  if (!capabilities) return { heavy: false, signals: [] };
+  // SINGLE SOURCE OF TRUTH: HEAVY_CAPABILITY_KEYS is also what
+  // `hasHeavyCapabilities()` checks. Previously this function maintained
+  // its own (broader) list which drifted apart from the canonical one,
+  // letting `signals` include capabilities that did not actually flip
+  // `heavy`. Reviewer caught the inconsistency 2026-04-21.
+  const signals = HEAVY_CAPABILITY_KEYS.filter((key) => capabilities[key] === true);
+  return {
+    heavy: hasHeavyCapabilities(capabilities),
+    signals: signals.map((key) => String(key)),
+  };
+}
+
 export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
   const {
     prompt,
@@ -826,9 +1078,11 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     isFirstCodeGeneration,
     existingShellRoutePaths,
     previewPolicyOverride,
+    modelContextWindowTokens,
   } = params;
 
-  const capabilityHeavy = capabilities ? hasHeavyCapabilities(capabilities) : false;
+  const capabilityFlags = deriveCapabilityFlags(capabilities);
+  const capabilityHeavy = capabilityFlags.heavy;
   const routeRealization = deriveRouteRealizationPolicy({
     generationMode,
     buildIntent,
@@ -860,7 +1114,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     previewPolicy,
     capabilityHeavy,
   });
-  const contextPolicy = inferContextPolicy({
+  const { policy: contextPolicy, score: contextPolicyScore } = inferContextPolicy({
     prompt,
     generationMode,
     changeScope,
@@ -872,17 +1126,21 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     capabilityHeavy,
   });
 
+  const styleResult = inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope);
+
   return {
     buildIntent,
     generationMode,
     changeScope,
     scaffoldId: resolvedScaffold?.id ?? null,
     routePlanSummary: buildRoutePlanSummary(routePlan),
-    stylePack: inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope),
+    stylePack: styleResult.primary,
+    stylePackSecondary: styleResult.secondary,
     qualityTarget,
     previewPolicy,
     verificationPolicy,
     contextPolicy,
+    contextPolicyScore,
     referenceCategories: deriveReferenceCategories(
       resolvedScaffold,
       routePlan,
@@ -894,7 +1152,8 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
       changeScope,
       previewPolicy,
     }),
-    tokenBudgets: tokenBudgetsForContextPolicy(contextPolicy),
+    tokenBudgets: tokenBudgetsForContextPolicy(contextPolicy, modelContextWindowTokens),
+    capabilityFlags,
     routeRealization,
   };
 }

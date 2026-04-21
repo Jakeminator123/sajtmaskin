@@ -35,6 +35,15 @@ export interface ScaffoldSearchResponse {
 let cachedEmbeddings: ScaffoldEmbeddingEntry[] | undefined;
 let embeddingLoadFailed = false;
 const EMBEDDING_TIMEOUT_MS = 5_000;
+/**
+ * P26 failsafe: hard cap on embedding-input length. text-embedding-3-large
+ * caps at 8192 tokens; one token is roughly 3-4 characters in mixed
+ * Swedish/English text, so 7000 chars leaves a safe margin even for
+ * worst-case dense tokens. Callers should already pass a short raw user
+ * message (see `OrchestrationInput.scaffoldMatchPrompt`) — this is the
+ * defense-in-depth catch when an unexpected long string slips through.
+ */
+const EMBEDDING_INPUT_HARD_CAP_CHARS = 7_000;
 
 function createEmbeddingAbortSignal(): AbortSignal | undefined {
   if (typeof AbortSignal === "undefined" || typeof AbortSignal.timeout !== "function") {
@@ -150,10 +159,20 @@ export async function searchScaffoldsWithDiagnostics(
   const embeddingSignal = createEmbeddingAbortSignal();
 
   let queryEmbedding: number[];
+  let embeddingInput = expandQuery(query);
+  if (embeddingInput.length > EMBEDDING_INPUT_HARD_CAP_CHARS) {
+    const originalLen = embeddingInput.length;
+    embeddingInput = embeddingInput.slice(0, EMBEDDING_INPUT_HARD_CAP_CHARS);
+    warnLog("scaffold", "embedding_query_truncated", {
+      originalChars: originalLen,
+      truncatedChars: embeddingInput.length,
+      capChars: EMBEDDING_INPUT_HARD_CAP_CHARS,
+    });
+  }
   try {
     const response = await openai.embeddings.create({
       model: SCAFFOLD_EMBEDDING_MODEL,
-      input: expandQuery(query),
+      input: embeddingInput,
       dimensions: SCAFFOLD_EMBEDDING_DIMENSIONS,
     }, embeddingSignal ? { signal: embeddingSignal } : undefined);
     if (!response.data?.[0]?.embedding) {

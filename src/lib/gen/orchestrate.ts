@@ -96,6 +96,17 @@ export interface OrchestrationInput {
    * dossier pick query reflect actual intent — not stale file context.
    */
   capabilitiesPrompt?: string;
+  /**
+   * Optional prompt used for scaffold matching (embedding + keyword) and
+   * `expandQuery`-based semantic search (defaults to `prompt`). P26: when
+   * stream callers pass `optimizedMessage` (~30k chars with wrapped file
+   * context) here, the embedding API rejects with `400 max 8192 tokens`
+   * and the keyword fallback finds APP_KEYWORDS in the file dump — flipping
+   * `landing-page` to `app-shell` on a follow-up that just asked to change
+   * a color/image. Stream callers must pass the *raw* user message so the
+   * matcher sees the actual intent, not the file context blob.
+   */
+  scaffoldMatchPrompt?: string;
   buildIntent: BuildIntent;
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
@@ -420,8 +431,12 @@ export async function resolveOrchestrationBase(
       topCandidates: [{ id: effectivePersistedScaffoldId, score: 1, source: "keyword" }],
     };
   } else if (scaffoldMode === "auto") {
+    // P26: scaffold matcher (embedding + keyword) must see the *raw* user
+    // message, not the wrapped optimizedMessage. See `scaffoldMatchPrompt`
+    // doc on `OrchestrationInput` for the full failure mode.
+    const scaffoldMatcherPrompt = input.scaffoldMatchPrompt ?? prompt;
     const [autoSelection, fetchedOfficialRefs, fetchedCommunityRefs] = await Promise.all([
-      matchScaffoldAuto(prompt, buildIntent, {
+      matchScaffoldAuto(scaffoldMatcherPrompt, buildIntent, {
         useEmbeddings: embeddingScaffoldMatch,
         queryContext: scaffoldQueryContext,
         capabilities,
@@ -443,6 +458,19 @@ export async function resolveOrchestrationBase(
         fallbackScaffoldId: resolvedScaffold?.id ?? null,
         method: scaffoldSelection.selectionMethod,
       });
+
+      // P26 (post-review note): tidigare hade vi här en fallback som
+      // återgick till `persistedScaffoldId` när embedding föll. Reviewer
+      // visade att den var död kod: vi når denna `auto`-gren bara när
+      // `effectivePersistedScaffoldId` är falsy, dvs antingen finns inget
+      // persisted-id eller `ignorePersistedScaffoldForMatch === true`. I
+      // båda fallen kunde fallback-vilkoret aldrig sätts. Borttaget för
+      // att undvika förvirring. Den ledande root-cause-fixen (A1: rå
+      // message till embedding via `scaffoldMatchPrompt`) hindrar de
+      // flesta embedding-fail i praktiken; om vi i framtiden vill täcka
+      // unlock-fallet (clear-redesign + embedding-fail → fall tillbaka
+      // ändå) ska det göras genom att lägga checken UTANFÖR auto-grenen,
+      // efter scaffold-resolutionen, inte härinne.
     }
 
   }
@@ -504,12 +532,35 @@ export async function resolveOrchestrationBase(
     [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
   }
 
-  const intentPromoted =
+  // P26: build_intent_promoted (website -> app) must not fire on follow-ups
+  // when the user already has a persisted non-app scaffold. A bug-fix prompt
+  // that happens to land on `app-shell` via keyword fallback would otherwise
+  // permanently flip the entire project's intent, route plan and BuildSpec
+  // policy. Init runs and explicit clear-redesign follow-ups still promote.
+  const wouldPromote =
     buildIntent === "website" &&
     scaffoldMode === "auto" &&
     isAppScaffold(resolvedScaffold?.id) &&
     scaffoldSelection.selectionConfidence !== "low";
+  const intentPromotionBlockedForFollowUp =
+    wouldPromote &&
+    resolvedMode === "followUp" &&
+    !!persistedScaffoldId &&
+    !ignorePersistedScaffoldForMatch &&
+    !isAppScaffold(persistedScaffoldId);
+  const intentPromoted = wouldPromote && !intentPromotionBlockedForFollowUp;
   const effectiveBuildIntent: BuildIntent = intentPromoted ? "app" : buildIntent;
+
+  if (intentPromotionBlockedForFollowUp) {
+    console.info("[orchestrate] intent_promotion_blocked_followup", {
+      chatId: input.chatId ?? null,
+      from: buildIntent,
+      wouldHaveBeen: "app",
+      scaffoldId: resolvedScaffold?.id,
+      persistedScaffoldId,
+      reason: "Follow-up runs do not flip project intent away from persisted non-app scaffold",
+    });
+  }
 
   if (intentPromoted) {
     console.info("[orchestrate] build_intent_promoted", {

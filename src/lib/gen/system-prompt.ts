@@ -591,13 +591,24 @@ export function buildDynamicContext(
       buildSpec.referenceCategories.length > 0
         ? buildSpec.referenceCategories.join(", ")
         : "general";
+    const styleDirection = buildSpec.stylePackSecondary
+      ? `${buildSpec.stylePack} (with hints of ${buildSpec.stylePackSecondary})`
+      : buildSpec.stylePack;
     const profileLines: string[] = [
       "## Generation Profile",
       "",
-      `- **Style direction:** ${buildSpec.stylePack}`,
+      `- **Style direction:** ${styleDirection}`,
       `- **Quality tier:** ${buildSpec.qualityTarget}`,
       `- **Reference families:** ${referenceFamilies}`,
     ];
+    if (
+      buildSpec.capabilityFlags?.heavy &&
+      (buildSpec.capabilityFlags.signals?.length ?? 0) > 0
+    ) {
+      profileLines.push(
+        `- **Capability signals:** ${buildSpec.capabilityFlags.signals.join(", ")}`,
+      );
+    }
     if (buildSpec.forbiddenPatterns.length > 0) {
       profileLines.push(
         `- **Forbidden patterns:** ${buildSpec.forbiddenPatterns.join(", ")}`,

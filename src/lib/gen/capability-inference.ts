@@ -206,17 +206,35 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
  * True when any capability flag indicates a non-trivial UI/product feature.
  * Used to prevent capability-heavy follow-ups from being treated as tiny tweaks.
  */
+/**
+ * Canonical list of capabilities that count as "heavy" — i.e. dimensions
+ * that justify routing to the higher context-policy tier or extra verifier
+ * passes. Single source of truth for both `hasHeavyCapabilities` (boolean
+ * answer) and `deriveCapabilityFlags` (which keys to surface in
+ * `BuildSpec.capabilityFlags.signals`).
+ *
+ * Keep this list in sync if you add new heavy capabilities — do NOT extend
+ * the consumer-side filter independently. (See review note 2026-04-21:
+ * `BuildSpec.capabilityFlags` previously listed `needsMotion` /
+ * `needsPhysics` / `needsCalendar` in `signals` even though
+ * `hasHeavyCapabilities` did not consider them heavy, which made `heavy`
+ * and `signals` describe two different definitions of "heavy".)
+ */
+export const HEAVY_CAPABILITY_KEYS = [
+  "needs3D",
+  "needsCarousel",
+  "needsCharts",
+  "needsPremiumVisuals",
+  "needsAppShell",
+  "needsDataUI",
+  "needsEcommerce",
+  "needsCommandSearch",
+] as const satisfies ReadonlyArray<keyof InferredCapabilities>;
+
+export type HeavyCapabilityKey = (typeof HEAVY_CAPABILITY_KEYS)[number];
+
 export function hasHeavyCapabilities(caps: InferredCapabilities): boolean {
-  return (
-    caps.needs3D ||
-    caps.needsCarousel ||
-    caps.needsCharts ||
-    caps.needsPremiumVisuals ||
-    caps.needsAppShell ||
-    caps.needsDataUI ||
-    caps.needsEcommerce ||
-    caps.needsCommandSearch
-  );
+  return HEAVY_CAPABILITY_KEYS.some((key) => caps[key] === true);
 }
 
 /**
