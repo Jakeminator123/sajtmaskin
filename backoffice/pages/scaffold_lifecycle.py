@@ -395,10 +395,6 @@ def _files_dir(ctx: BackofficeContext, scaffold_id: str) -> Path:
     return _scaffold_dir(ctx, scaffold_id) / "files"
 
 
-def _build_template_library_path(ctx: BackofficeContext) -> Path:
-    return ctx.repo_root / "scripts" / "template-library" / "build-template-library.ts"
-
-
 def _scaffold_export_name(scaffold_id: str) -> str:
     parts = [part for part in scaffold_id.split("-") if part]
     if not parts:
@@ -567,80 +563,6 @@ def _normalize_scaffold_union_semicolon(text: str) -> str:
     if not prefix.endswith(";"):
         prefix = prefix + ";"
     return prefix + text[idx:]
-
-
-def _remove_scaffold_record_entry(text: str, object_name: str, scaffold_id: str) -> str:
-    marker = f"const {object_name}: Record<ScaffoldId, string[]> = {{"
-    lines = text.splitlines(keepends=True)
-    marker_idx = next((idx for idx, line in enumerate(lines) if marker in line), None)
-    if marker_idx is None:
-        raise ValueError(f"Could not locate {object_name} in build-template-library.ts.")
-
-    key_pattern = re.compile(
-        rf'^\s*(?:"{re.escape(scaffold_id)}"|{re.escape(scaffold_id)}):\s*\[\s*$'
-    )
-    start = None
-    end = None
-    for idx in range(marker_idx + 1, len(lines)):
-        line = lines[idx]
-        if start is None and key_pattern.match(line):
-            start = idx
-            continue
-        if start is not None and re.match(r"^\s*\],\s*$", line):
-            end = idx
-            break
-        if start is None and re.match(r"^\s*};\s*$", line):
-            break
-
-    if start is None or end is None:
-        return text
-
-    del lines[start : end + 1]
-    return "".join(lines)
-
-
-def _upsert_scaffold_record_entry(
-    text: str,
-    object_name: str,
-    scaffold_id: str,
-    values: list[str],
-) -> str:
-    cleaned_values = _unique_preserving_order(values)
-    text = _remove_scaffold_record_entry(text, object_name, scaffold_id)
-    marker = f"const {object_name}: Record<ScaffoldId, string[]> = {{"
-    start = text.find(marker)
-    if start < 0:
-        raise ValueError(f"Could not locate {object_name} in build-template-library.ts.")
-    body_end = text.find("\n};", start)
-    if body_end < 0:
-        raise ValueError(f"Could not locate end of {object_name} in build-template-library.ts.")
-    entry = "\n".join(
-        [
-            f'  "{_escape_ts_string(scaffold_id)}": [',
-            *[f'    "{_escape_ts_string(value)}",' for value in cleaned_values],
-            "  ],",
-        ]
-    ) + "\n"
-    return text[: body_end + 1] + entry + text[body_end + 1 :]
-
-
-def _scaffold_record_entry_present(text: str, object_name: str, scaffold_id: str) -> bool:
-    marker = f"const {object_name}: Record<ScaffoldId, string[]> = {{"
-    start = text.find(marker)
-    if start < 0:
-        return False
-    body_end = text.find("\n};", start)
-    if body_end < 0:
-        return False
-    body = text[start:body_end]
-    return (
-        re.search(
-            rf'^\s*(?:"{re.escape(scaffold_id)}"|{re.escape(scaffold_id)}):\s*\[',
-            body,
-            flags=re.MULTILINE,
-        )
-        is not None
-    )
 
 
 def _render_tree_view(
@@ -1219,31 +1141,6 @@ def _update_embedding_locale_for_created_scaffold(
         write_text(path, updated)
 
 
-def _update_build_template_defaults_for_created_scaffold(
-    ctx: BackofficeContext,
-    *,
-    scaffold_id: str,
-    quality_checklist: list[str],
-    upgrade_targets: list[str],
-) -> None:
-    path = _build_template_library_path(ctx)
-    text = read_text(path)
-    updated = _upsert_scaffold_record_entry(
-        text,
-        "SCAFFOLD_CHECKLISTS",
-        scaffold_id,
-        quality_checklist,
-    )
-    updated = _upsert_scaffold_record_entry(
-        updated,
-        "SCAFFOLD_UPGRADE_TARGETS",
-        scaffold_id,
-        upgrade_targets,
-    )
-    if updated != text:
-        write_text(path, updated)
-
-
 def _create_scaffold(
     ctx: BackofficeContext,
     *,
@@ -1278,7 +1175,6 @@ def _create_scaffold(
         _types_path(ctx): read_text(_types_path(ctx)),
         _registry_path(ctx): read_text(_registry_path(ctx)),
         _embedding_locale_path(ctx): read_text(_embedding_locale_path(ctx)),
-        _build_template_library_path(ctx): read_text(_build_template_library_path(ctx)),
     }
 
     try:
@@ -1316,12 +1212,6 @@ def _create_scaffold(
             label=label,
             description=description,
             tags=tags,
-        )
-        _update_build_template_defaults_for_created_scaffold(
-            ctx,
-            scaffold_id=scaffold_id,
-            quality_checklist=quality_checklist,
-            upgrade_targets=upgrade_targets,
         )
 
         if create_start_variant:
@@ -1394,7 +1284,6 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
         st.markdown("- `ScaffoldId` + `SCAFFOLD_CLIENT_LIST` i `types.ts`")
         st.markdown("- import + registrering i `registry.ts`")
         st.markdown("- svensk embedding-locale i `scaffold-embedding-locale.ts`")
-        st.markdown("- build-säkra checklist/upgrade-target defaults i `build-template-library.ts`")
         st.markdown("- neutral startvariant i `config/scaffold-variants/` om du lämnar checkboxen på")
         st.markdown("Det som inte autokureras här är `matcher.ts`, `scaffold-aware-retry.ts`, eval-fall och dossier-rekommendationer.")
     form_key = f"create_scaffold_form_{source_scaffold_id}"
@@ -1652,24 +1541,11 @@ def _update_embedding_locale_for_deleted_scaffold(ctx: BackofficeContext, scaffo
         write_text(path, updated)
 
 
-def _update_build_template_defaults_for_deleted_scaffold(
-    ctx: BackofficeContext,
-    scaffold_id: str,
-) -> None:
-    path = _build_template_library_path(ctx)
-    text = read_text(path)
-    updated = _remove_scaffold_record_entry(text, "SCAFFOLD_CHECKLISTS", scaffold_id)
-    updated = _remove_scaffold_record_entry(updated, "SCAFFOLD_UPGRADE_TARGETS", scaffold_id)
-    if updated != text:
-        write_text(path, updated)
-
-
 def _scan_manual_code_references(ctx: BackofficeContext, scaffold_id: str) -> list[dict[str, Any]]:
     ignored = {
         _types_path(ctx).resolve(),
         _registry_path(ctx).resolve(),
         _embedding_locale_path(ctx).resolve(),
-        _build_template_library_path(ctx).resolve(),
     }
     results: list[dict[str, Any]] = []
     for root in (ctx.repo_root / "src", ctx.repo_root / "scripts", ctx.repo_root / "backoffice"):
@@ -1752,7 +1628,6 @@ def _scan_scaffold_dependencies(
     types_text = read_text(_types_path(ctx))
     registry_text = read_text(_registry_path(ctx))
     locale_text = read_text(_embedding_locale_path(ctx))
-    build_template_text = read_text(_build_template_library_path(ctx))
 
     registry_import_match = re.search(
         rf'^import \{{ (?P<alias>\w+) \}} from "\./{re.escape(scaffold_id)}/manifest";$',
@@ -1775,16 +1650,6 @@ def _scan_scaffold_dependencies(
             and re.search(rf"^\s*{re.escape(registry_alias)},$", registry_text, flags=re.MULTILINE)
         ),
         "embeddingLocalePresent": f'"{scaffold_id}"' in locale_text or f"{scaffold_id}:" in locale_text,
-        "buildTemplateChecklistPresent": _scaffold_record_entry_present(
-            build_template_text,
-            "SCAFFOLD_CHECKLISTS",
-            scaffold_id,
-        ),
-        "buildTemplateUpgradePresent": _scaffold_record_entry_present(
-            build_template_text,
-            "SCAFFOLD_UPGRADE_TARGETS",
-            scaffold_id,
-        ),
         "researchEntryPresent": research_entry_present,
         "embeddingsEntryPresent": embeddings_entry_present,
         "manualCodeReferences": _scan_manual_code_references(ctx, scaffold_id),
@@ -1852,13 +1717,6 @@ def _render_dependency_report(report: dict[str, Any]) -> None:
             "action": "Uppdateras automatiskt",
         },
         {
-            "dependency": "build-template-library.ts defaults",
-            "status": _status_text(
-                report["buildTemplateChecklistPresent"] or report["buildTemplateUpgradePresent"]
-            ),
-            "action": "Uppdateras automatiskt",
-        },
-        {
             "dependency": "referenceScaffoldIds in other variants",
             "status": _status_text(len(report["referenceHits"])),
             "action": "Varnas, men rensas inte automatiskt",
@@ -1920,7 +1778,6 @@ def _delete_scaffold(ctx: BackofficeContext, scaffold_id: str) -> None:
     _update_types_for_deleted_scaffold(ctx, scaffold_id)
     _update_registry_for_deleted_scaffold(ctx, scaffold_id)
     _update_embedding_locale_for_deleted_scaffold(ctx, scaffold_id)
-    _update_build_template_defaults_for_deleted_scaffold(ctx, scaffold_id)
     _clean_generated_scaffold_artifacts(ctx, scaffold_id)
 
 
@@ -1945,7 +1802,7 @@ def _render_delete_scaffold(
     _render_dependency_report(report)
 
     st.warning(
-        "Radering tar bort scaffold/variant-mappar, registry-länkar, embedding-locale och build-defaults. "
+        "Radering tar bort scaffold/variant-mappar, registry-länkar och embedding-locale. "
         "Direkta generated poster i scaffold research/embeddings tvättas också bort om de finns. "
         "Andra kodreferenser och `referenceScaffoldIds` måste fortfarande rensas manuellt."
     )
@@ -2051,7 +1908,7 @@ def render(ctx: BackofficeContext) -> None:
     with create_tab:
         st.subheader("Skapa ny scaffold")
         st.caption(
-            "Det här skapar scaffold-shell, registry-kopplingar, embedding-locale och build-säkra template-library-defaults. "
+            "Det här skapar scaffold-shell, registry-kopplingar och embedding-locale. "
             "Matcher/retry/eval-kurering görs separat."
         )
         _render_create_scaffold(ctx, manifests)

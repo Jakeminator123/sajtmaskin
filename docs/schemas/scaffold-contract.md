@@ -128,11 +128,14 @@ en del av runtime-registret.
 Create-flödet:
 
 - klonar `files/` från en vald källscaffold
-- skriver en ny `manifest.ts`
+- skriver en ny `manifest.ts` (innehåller `qualityChecklist` och `upgradeTargets` som inline-defaults)
 - patchar `ScaffoldId`, `SCAFFOLD_CLIENT_LIST`, `registry.ts` och
   `scaffold-embedding-locale.ts`
-- skriver build-säkra defaults i `scripts/template-library/build-template-library.ts`
 - kan skapa en neutral startvariant under `config/scaffold-variants/`
+
+`scripts/template-library/build-template-library.ts` togs bort 2026-04-17 (commit
+`4ba06d96e`); checklist/upgrade-defaults bor numera i scaffoldens egen
+`manifest.ts` istället för att speglas in i ett centralt build-skript.
 
 Delete-flödet gör motsvarande cleanup för samma lager, men lämnar fortfarande
 manuell kurering åt människor för:
