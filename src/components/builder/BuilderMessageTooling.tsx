@@ -10,6 +10,10 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 import { hasToolData, type AIElementsMessage, type MessagePart } from "@/lib/builder/messageAdapter";
+import {
+  openIntegrationsPanel,
+  openProjectEnvVarsPanel,
+} from "@/lib/builder/project-env-events";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Loader2 } from "lucide-react";
 import {
@@ -1412,14 +1416,7 @@ function getToolStateLabel(state: ToolUIPart["state"]) {
   }
 }
 
-function openIntegrationsPanel() {
-  window.dispatchEvent(new CustomEvent("integrations-panel-open"));
-}
-
-export function openProjectEnvVarsPanel(envKeys?: string[]) {
-  const payload = Array.isArray(envKeys) && envKeys.length > 0 ? { envKeys } : undefined;
-  window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail: payload }));
-}
+export { openIntegrationsPanel, openProjectEnvVarsPanel };
 
 function getPostCheckSummary(output: unknown): PostCheckSummary | null {
   if (!output || typeof output !== "object") return null;

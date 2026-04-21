@@ -8,23 +8,16 @@ import {
   type PlanPage,
   normalizePlanArtifact,
 } from "@/lib/gen/plan/schema";
+import {
+  openIntegrationsPanel,
+  openProjectEnvVarsPanel,
+} from "@/lib/builder/project-env-events";
 
 type Props = {
   rawPlan?: Record<string, unknown>;
   onApproveBuild?: (plan: Record<string, unknown>) => void | Promise<void>;
   approveDisabled?: boolean;
 };
-
-function openProjectEnvVarsPanel(envKeys?: string[]) {
-  if (typeof window === "undefined") return;
-  const payload = envKeys?.length ? { envKeys } : {};
-  window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail: payload }));
-}
-
-function openIntegrationsPanel() {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("integrations-panel-open"));
-}
 
 function siteTypeLabel(value?: PlanArtifact["siteType"]) {
   switch (value) {

@@ -5,6 +5,7 @@ import { AlertCircle, KeyRound, Loader2, RefreshCw, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import {
@@ -58,11 +59,6 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
-
-function openProjectEnvVarsPanel() {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail: {} }));
-}
 
 function levelBadgeVariant(level: string): "default" | "secondary" | "destructive" | "outline" {
   if (level === "error") return "destructive";
@@ -227,7 +223,7 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={openProjectEnvVarsPanel}>
+          <Button variant="outline" size="sm" onClick={() => openProjectEnvVarsPanel()}>
             <KeyRound className="mr-1 h-4 w-4" />
             Miljövariabler
           </Button>

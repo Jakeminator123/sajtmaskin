@@ -34,6 +34,7 @@ import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
+import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import {
   buildPromptSourceMessage,
@@ -960,14 +961,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onComposerAiFallback={handleComposerAiFallback}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               onF3MissingEnv={(payload) => {
-                window.dispatchEvent(
-                  new CustomEvent("project-env-vars-open", {
-                    detail: {
-                      envKeys: payload.missingByIntegration.flatMap(
-                        (entry) => entry.missing,
-                      ),
-                    },
-                  }),
+                openProjectEnvVarsPanel(
+                  payload.missingByIntegration.flatMap((entry) => entry.missing),
                 );
               }}
             />

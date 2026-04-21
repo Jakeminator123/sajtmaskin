@@ -8,18 +8,13 @@ import {
   deployReadinessBadgeClassName,
   formatDeployReadinessStatusLabel,
 } from "@/lib/builder/deploy-readiness-ui";
+import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
 import { cn } from "@/lib/utils";
 
 type Props = {
   readiness: ChatReadiness | null;
   isLoading?: boolean;
 };
-
-function openProjectEnvVarsPanel(envKeys?: string[]) {
-  if (typeof window === "undefined") return;
-  const payload = envKeys?.length ? { envKeys } : {};
-  window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail: payload }));
-}
 
 function renderItem(item: ChatReadinessItem, missingEnvKeys: string[]) {
   const isWarning = item.severity === "warning";
