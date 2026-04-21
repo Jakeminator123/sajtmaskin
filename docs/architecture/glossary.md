@@ -129,7 +129,7 @@ Samma ord, flera kontexter. Skriv full term när det finns risk för missförst�
 | `contracts` | Contract Plan (integrations) | Orchestration Contract (bindemedel) | full term |
 | `quality gate` | Finalize quality gate | Preview quality gate (verify lane) | "finalize" / "preview" quality gate |
 | `preflight` | `runFinalizePreflight()` | generellt "förkontroll" | Stor bokstav: "Preflight" |
-| `autofix` | Mekanisk pipeline | LLM-reparation | **mekanisk autofix** / **LLM-fix** |
+| `autofix` | Mekanisk pipeline (`FixCategory: mechanical`) | LLM-reparation (`FixCategory: llm`) | Skriv **mekanisk autofix** eller **LLM-fix**. Sandwich-mönstret (mekanisk → LLM → mekanisk → re-validera) körs i `validate-and-fix.ts` (per pass), `repair-loop.ts` (per pass, pre-LLM bara vid entry) och `partial_file_repair` (post-LLM per attempt; pre-LLM ärvs från finalize-pipens `autofix`-steg). Pre-LLM hoppas över på `alreadyMechanicallyFixed: true`; post-LLM hoppas över när LLM:en returnerar noop. Detaljer: `docs/llm/llm-chain-flowchart.md` § "Mekanisk ↔ LLM-fixer". |
 | `template-library` | Legacy artefakt-pipeline (deprecated) | builderns Mallar-tab eller scaffolds | undvik — använd "scaffold" eller "Mallar-tab" |
 | `shadcn` | UI primitives och registry items | Sajtmaskin-scaffold eller dossier | skriv `shadcn primitive`, `UI Recipe`, `Scaffold` eller `Dossier` |
 | `3D` / `game` | Dekorativ 3D (`visual-3d` / `physics-3d`) — `<Canvas>` som rör sig men ingen state/win/lose | Spelbar mini-game (`interactive-game` / `interactive-game-loop`) — state + loop + controls + collision + score + restart | full capability-id: `visual-3d` (decorative) · `physics-3d` (rigid bodies) · `interactive-game` (playable mechanic) |

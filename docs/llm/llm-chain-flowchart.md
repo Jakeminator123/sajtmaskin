@@ -75,12 +75,15 @@ Den här filen visar **vad som faktiskt händer** när en user-prompt går genom
         │ 1. url_expand                          │
         │ 2. autofix (mekanisk, ~24 fixers)      │
         │ 3. validate_syntax + warm tsc          │
-        │    → llm-fixer (loop, max 1-4 pass)    │
+        │    sandwich-loop (max 1–4 pass):       │
+        │      esbuild → LLM-fixer → mekanisk    │
+        │      → re-validera                     │
         │ 4. materialize_images                  │
         │ 5. verifier (guards + read-only LLM)   │
         │    → blocking → llm-fixer              │
         │ 6. parse_merge_preflight               │
         │ 7. partial-file repair (om behövs)     │
+        │    → LLM-fixer → mekanisk              │
         │ 8. PERSIST → engine_versions           │
         └────────┬───────────────────────────────┘
                  ▼
@@ -177,6 +180,33 @@ Dynamic context renderas i strikt prioritetsordning. När token-budget överskri
 ### Fas 2/3 — Finalize-pipeline
 
 `src/lib/gen/stream/finalize-pipeline-contract.ts` definierar 6 huvudfaser i `OWN_ENGINE_POST_STREAM_PIPELINE` (`url_expand` → `autofix` → `validate_syntax` → `materialize_images` → `verifier_pass` → `parse_merge_preflight`). Mellan faserna kan SSE-progress emittera mellan-events; `runner.ts` orchestrerar finare delsteg ovanpå dessa.
+
+#### Mekanisk ↔ LLM-fixer (sandwich-mönstret)
+
+Det ser vid första anblick udda ut att mekaniska fixers körs **både före och efter** LLM-fixern, men det är medvetet. Den fullständiga sekvensen i `validate_syntax`-loopen är:
+
+1. **Pre-LLM mekanisk** (`runAutoFix`).
+   Körs antingen som ett separat `autofix`-steg i finalize, eller som initial-pass i `validateAndFix` när callern inte redan gjort det. Cleanar trivialt brus (saknade imports, dubbla bindings, lucide-misuse, use-client-hint, …) så att LLM-fixern slipper bränna tokens på det. Hoppas över när `alreadyMechanicallyFixed: true` → idempotency-skydd mot dubbel-arbete.
+2. **LLM-fixer** (`runLlmFixer`).
+   Får in en pre-cleanad bas + diagnostik (esbuild-fel, tsc-diagnostik, verifier-blocking eller partial-file-issues) och gör semantisk reparation som regelbaserade fixers inte klarar.
+3. **Post-LLM mekanisk** (`runAutoFix` igen på `fixedContent`).
+   Körs **bara när LLM:en faktiskt levererade en `success`/`partial`-fix** — om fixern returnerar noop break:ar loopen direkt med `fixer_noop` utan onödig städning. När pass:et körs normaliserar det LLM:ens output: nya imports kan vara felordnade, `use client`-direktiv kan saknas, lucide-namn kan vara fel-kasade, m.m. Utan det här passet skulle nästa esbuild-validering tappa progress på trivialiteter LLM:en aldrig var menad att hantera.
+4. **Re-validera** (`validateGeneratedCode`).
+   Om felen minskat sparas `bestContent`; om de inte minskat early-stoppar loopen med `no_improvement`.
+
+Mönstret återanvänds i tre olika loopar — men *inte* identiskt; pre-LLM-passet ligger på olika nivå beroende på loop:
+
+| Loop | Owner | Pre-LLM mekanisk | Post-LLM mekanisk | Re-validera | Max LLM-pass per anrop | Källa till "fel" |
+|------|-------|------------------|--------------------|-------------|------------------------|------------------|
+| `validate_syntax` (finalize) | `src/lib/gen/autofix/validate-and-fix.ts` | I loopens initial-pass (skippad om `alreadyMechanicallyFixed`) | Per LLM-pass när fixer ≠ noop | `validateGeneratedCode` per pass | `SYNTAX_FIX_MAX_PASSES` (manifestets `syntaxFixPasses`, 1–4 per tier) | esbuild + warm-tsc-diagnostik |
+| `partial_file_repair` | `src/lib/gen/stream/finalize-version.ts` (`tryRepairPartialFileOutput`) | **Ingen i inner-loopen** — förlitar sig på `autofix`-steget tidigare i finalize | Per attempt direkt på `fixedContent` | Görs *utanför* loopen via efterföljande `runFinalizePreflight` | `PARTIAL_FILE_REPAIR_MAX_ATTEMPTS` (1) | parse/merge-preflight-issues |
+| `repair_loop` (post-VM) | `src/lib/gen/verify/repair-loop.ts` (`runRepairLoop`) | **En gång** vid loop-entry på `initialContent` (ingen `alreadyMechanicallyFixed`-flagga) | Per LLM-pass | `validateGeneratedCode` per pass | `SERVER_REPAIR_MAX_PASSES` *eller* `MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES` beroende på caller (≤4 vardera) | server-verify quality-gate (typecheck/build) |
+
+Bound-kolumnen visar maxantal **per anrop** — det totala värsta fallet över hela genereringen kan vara summan eller produkten beroende på hur callerna kedjar dem (se "LLM-anropsräkning per generering" nedan).
+
+Mekaniska passet är O(antal filer) och idempotent (täcks av `repair-generated-files.idempotency.test.ts` — verifierar att andra passet på samma input ger 0 nya fixar). LLM-passet är det enda som dominerar tidsbudgeten. Att köra mekanisk en gång till efter LLM kostar i praktiken inget men sparar en hel LLM-pass när residual-felet bara var en saknad import.
+
+Warm-tsc-passet (`runWarmTscPass` i `validate-and-fix.ts:98–255`) är en egen mini-sandwich som körs *efter* esbuild når `passed`: tsc-diagnostik → enkel LLM-fixer-runda → mekanisk → returnera. Den är inte loopad — en enda fix-runda och sedan rapporteras utfallet via `ValidateFixResult.tsc`.
 
 ### Fas 3 — Preview-handoff
 
