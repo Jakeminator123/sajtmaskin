@@ -30,6 +30,17 @@ export type MessageOptions = {
   scaffoldIdOverride?: string | null;
   /** Override the follow-up base version instead of using current builder selection. */
   engineBaseVersionIdOverride?: string | null;
+  /**
+   * F3 wiring: set on the auto-start that follows a successful
+   * `/finalize-design` call. Forwarded as `meta.lifecycleStage` so the
+   * server can derive the F3 BuildSpec.
+   */
+  lifecycleStageOverride?: "design" | "integrations";
+  /**
+   * F3 wiring: id of the F2 version this build is forked from. Forwarded
+   * as `meta.parentVersionId` and persisted on the new engine version.
+   */
+  parentVersionIdOverride?: string | null;
 };
 
 export type CreateChatLock = {

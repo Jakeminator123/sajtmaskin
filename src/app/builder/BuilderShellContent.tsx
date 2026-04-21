@@ -967,6 +967,22 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                   payload.missingByIntegration.flatMap((entry) => entry.missing),
                 );
               }}
+              onF3Ready={(payload) => {
+                // Auto-kick the F3 ("Bygg integrationer") generation as soon
+                // as `/finalize-design` greenlights the F2 version. The
+                // server reads `meta.lifecycleStage` + `meta.parentVersionId`
+                // from this send and forks a new engine_versions row with
+                // `lifecycle_stage = "integrations"` and `parent_version_id`
+                // set to the F2 version we just finalized.
+                void vm.sendMessage(
+                  "Bygg integrationer nu utifrån den finaliserade designversionen.",
+                  {
+                    lifecycleStageOverride: "integrations",
+                    parentVersionIdOverride: payload.parentVersionId,
+                    engineBaseVersionIdOverride: payload.parentVersionId,
+                  },
+                );
+              }}
             />
           </div>
           <div

@@ -260,6 +260,16 @@ export function useSendMessage(
         if (trimmedVersionId) {
           promptMeta.engineBaseVersionId = trimmedVersionId;
         }
+        if (options.lifecycleStageOverride) {
+          promptMeta.lifecycleStage = options.lifecycleStageOverride;
+        }
+        const trimmedParentVersionId =
+          typeof options.parentVersionIdOverride === "string"
+            ? options.parentVersionIdOverride.trim()
+            : null;
+        if (trimmedParentVersionId) {
+          promptMeta.parentVersionId = trimmedParentVersionId;
+        }
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelTierId = canonicalTier;
         promptMeta.buildProfile = MODEL_LABELS[canonicalTier];
