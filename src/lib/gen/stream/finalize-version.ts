@@ -27,8 +27,6 @@ import { getPhaseRoutingSummary, resolvePhaseModel, resolvePhaseThinking } from 
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
-import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
-import { incPartialFileRepair } from "@/lib/observability/metrics";
 import { buildFinalizePreflightLogBundle } from "./finalize-preflight-logs";
 import {
   type FinalizePreflightIssue,
@@ -59,15 +57,12 @@ import {
   buildSyntaxFailureLog,
   buildVerifierFailureLogs,
 } from "./finalize-version/failure-logs";
-import {
-  isPartialFileOutputIssue,
-  extractPartialFileNames,
-  formatPartialIssuesAsFixerErrors,
-} from "./finalize-version/partial-file";
+import { isPartialFileOutputIssue } from "./finalize-version/partial-file";
 import {
   type FinalizeStepTelemetryMap,
   createFinalizeStepTelemetry,
 } from "./finalize-version/step-telemetry";
+import { tryRepairPartialFileOutput } from "./finalize-version/partial-file-repair";
 
 export { EmptyGenerationError, PartialFileOutputError };
 
@@ -171,104 +166,6 @@ interface FinalizeFastPathResult {
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
   stepTelemetry: FinalizeStepTelemetryMap;
-}
-
-const PARTIAL_FILE_REPAIR_TIMEOUT_MS = 60_000;
-
-async function tryRepairPartialFileOutput(params: {
-  contentForVersion: string;
-  chatId: string;
-  resolvedTier?: CanonicalModelId;
-  partialFileIssues: string[];
-  previewPolicy?: BuildSpec["previewPolicy"];
-}): Promise<{
-  repairedContent: string | null;
-  attempts: number;
-  succeeded: boolean;
-  partialFiles: string[];
-}> {
-  const { contentForVersion, chatId, resolvedTier, partialFileIssues, previewPolicy } = params;
-  const partialFiles = extractPartialFileNames(partialFileIssues);
-  if (partialFiles.length === 0) {
-    return {
-      repairedContent: null,
-      attempts: 0,
-      succeeded: false,
-      partialFiles: [],
-    };
-  }
-
-  const fixerModel = resolvedTier
-    ? resolvePhaseModel(resolvedTier, "fixer").modelId
-    : undefined;
-  const fixerThinking = resolvedTier
-    ? resolvePhaseThinking(resolvedTier, "fixer")
-    : null;
-  const errors = formatPartialIssuesAsFixerErrors(partialFiles, partialFileIssues);
-  const maxAttempts = Math.max(1, PARTIAL_FILE_REPAIR_MAX_ATTEMPTS);
-  let attempts = 0;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    attempts = attempt;
-    const abort = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), PARTIAL_FILE_REPAIR_TIMEOUT_MS);
-    try {
-      const result = await runLlmFixer(contentForVersion, errors, {
-        model: fixerModel,
-        thinking: fixerThinking?.thinking,
-        reasoningEffort: fixerThinking?.reasoningEffort,
-        requiredFiles: partialFiles,
-        recurringPatterns: readRecurringPatternsForChat(chatId),
-        abortSignal: abort.signal,
-      });
-      if (!result.success && !result.partial) {
-        break;
-      }
-      // post-LLM mechanical pass on partial-file repair output. Required
-      // because LLM fixer may emit imports/structure that need normalization
-      // before parse/merge runs again.
-      const reFixed = await runAutoFix(result.fixedContent, { previewPolicy });
-      devLogAppend("in-progress", {
-        type: "partial-file-repair.outcome",
-        chatId,
-        attempts,
-        succeeded: true,
-        partialFiles,
-      });
-      try { incPartialFileRepair("success"); } catch {}
-      return {
-        repairedContent: reFixed.fixedContent,
-        attempts,
-        succeeded: true,
-        partialFiles,
-      };
-    } catch (err) {
-      devLogAppend("in-progress", {
-        type: "partial-file-repair.error",
-        chatId,
-        message: err instanceof Error ? err.message : "Unknown repair error",
-        partialFiles,
-        attempt,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  devLogAppend("in-progress", {
-    type: "partial-file-repair.outcome",
-    chatId,
-    attempts,
-    succeeded: false,
-    partialFiles,
-  });
-  try { incPartialFileRepair("fail"); } catch {}
-  return {
-    repairedContent: null,
-    attempts,
-    succeeded: false,
-    partialFiles,
-  };
 }
 
 function ensureNonEmptyGenerationContent(params: {
