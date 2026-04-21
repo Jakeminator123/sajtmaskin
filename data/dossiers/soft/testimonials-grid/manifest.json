@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "testimonials-grid",
+  "label": "Testimonials Grid",
+  "capability": "testimonials-section",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Three- to six-card grid of customer or guest testimonials. Each card has a quote, an author name, optional role/company, and optional avatar. No external dependencies; the card layout uses Tailwind primitives so it inherits the active scaffold's theme tokens automatically.",
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/testimonials-grid.tsx",
+      "role": "client"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "TestimonialsGrid",
+      "type": "component",
+      "import": "@/components/testimonials-grid"
+    }
+  ],
+  "lastVerified": "2026-04-21"
+}

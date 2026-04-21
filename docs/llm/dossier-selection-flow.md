@@ -168,7 +168,19 @@ Read-only vid runtime — dossier-registry walkar `data/dossiers/{hard,soft}/` d
 
 ## Nuvarande pool
 
-Per 2026-04-21: **3 dossiers** (`stripe-checkout`, `openai-chat`, `pricing-tier-table`). Magert. Påfyllning planerad i [`M-medium-hard-layer.md` M2](../plans/active/M-medium-hard-layer.md) — 5–10 nya dossiers för `auth`, `database`, `analytics`, `forms`, `cms`, `i18n`, `email-marketing`, `feature-flags`.
+Per 2026-04-21 (efter manuell påfyllning): **7 dossiers**.
+
+| Capability | Dossier | Klass | Konfiguration |
+|------------|---------|-------|----------------|
+| `payments` | `stripe-checkout` | hard | Behöver `STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` |
+| `ai-chat` | `openai-chat` | hard | Behöver `OPENAI_API_KEY` |
+| `pricing-section` | `pricing-tier-table` | soft | Självförsörjande |
+| `contact-form` | `resend-contact-form` | hard | Behöver `RESEND_API_KEY` + `EMAIL_FROM` + `CONTACT_EMAIL_TO` |
+| `analytics` | `vercel-analytics` | hard | Inga env-vars (Vercel injicerar token vid runtime) |
+| `faq-section` | `faq-accordion` | soft | Självförsörjande |
+| `testimonials-section` | `testimonials-grid` | soft | Självförsörjande |
+
+Vidare påfyllning planerad i [`M-medium-hard-layer.md` M2](../plans/active/M-medium-hard-layer.md) — kandidater: `auth` (Clerk), `database` (Drizzle/Postgres), `cms` (Sanity), `i18n` (next-intl), `email-marketing` (Resend broadcast), `feature-flags` (Vercel Flags).
 
 ## Felsökning
 
