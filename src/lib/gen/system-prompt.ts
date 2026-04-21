@@ -686,6 +686,8 @@ export function buildDynamicContext(
     parts.push(
       "## Scaffold Variant (this generation)",
       "",
+      "> **These are visual reference points, not a contract.** Adapt spacing, ordering, tone, and micro-details freely when it improves the result or better fits the user's brief. Keep the scaffold's route structure and component vocabulary intact — those remain load-bearing.",
+      "",
       `- **Variant:** ${effectiveVariant.label} (\`${effectiveVariant.id}\`)`,
       `- **Scaffold:** \`${effectiveVariant.scaffoldId}\``,
       `- **Color mode:** ${effectiveVariant.colorMode}`,
@@ -738,7 +740,9 @@ export function buildDynamicContext(
         }
       }
       if (sig.antiPatterns.length > 0) {
-        parts.push("- **Avoid for this variant:**");
+        parts.push(
+          "- **Patterns that typically don't fit this variant** (avoid unless the prompt specifically asks for them):",
+        );
         for (const anti of sig.antiPatterns.slice(0, 4)) {
           parts.push(`  - ${anti}`);
         }

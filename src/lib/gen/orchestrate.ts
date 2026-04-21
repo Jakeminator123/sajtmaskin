@@ -69,6 +69,7 @@ import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
 import { fetchCommunityBlocks } from "./data/community-registry-fetch";
 import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
+import type { RequestKindClass } from "./request-kind";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -214,6 +215,11 @@ export interface OrchestrationInput {
    * for 1M-window models. Omit to use legacy 200k-baseline budgets.
    */
   engineModelId?: string | null;
+  /**
+   * P32: follow-up request taxonomy (regex). Telemetry only until later phases
+   * branch the pipeline; does not change {@link deriveBuildSpec} yet.
+   */
+  requestKind?: RequestKindClass | null;
 }
 
 export interface OrchestrationBase {
@@ -411,6 +417,10 @@ export async function resolveOrchestrationBase(
   const intentSourcePrompt = input.capabilitiesPrompt ?? prompt;
   const capabilities = providedCapabilities ?? inferCapabilities(intentSourcePrompt);
   const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
+
+  // P32 Fas A: requestKind is propagated for downstream phases. Logging is
+  // owned by the call-site (devLog `request.kind.classified`) — orchestrate
+  // intentionally does not double-log to console.
 
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;

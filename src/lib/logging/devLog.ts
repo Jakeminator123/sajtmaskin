@@ -42,6 +42,7 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "server-verify.policy",
   "route-plan.preflight",
   "contracts.inferred",
+  "request.kind.classified",
   "contracts.clarification-requested",
   "version.created",
   "preflight.summary",

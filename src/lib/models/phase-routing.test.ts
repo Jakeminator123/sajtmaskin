@@ -136,6 +136,16 @@ describe("resolvePhaseThinking", () => {
     expect(resolvePhaseThinking("pro", "deploy-assistant").thinking).toBe(false);
   });
 
+  it("anthropic tier enables thinking on fixer and verifier (heavier Claude path)", () => {
+    expect(resolvePhaseThinking("anthropic", "fixer")).toEqual({
+      phase: "fixer",
+      thinking: true,
+      reasoningEffort: "medium",
+      reason: "manifest-phase-thinking",
+    });
+    expect(resolvePhaseThinking("anthropic", "verifier").thinking).toBe(true);
+  });
+
   it("raises planner/generator reasoning effort for higher tiers", () => {
     expect(resolvePhaseThinking("max", "planner").reasoningEffort).toBe("high");
     expect(resolvePhaseThinking("codex", "generator").reasoningEffort).toBe("high");

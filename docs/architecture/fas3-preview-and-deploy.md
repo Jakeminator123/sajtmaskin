@@ -163,8 +163,8 @@ Konsoliderat 2026-04 från fyra (`tier2`/`serverVerify`/`promotion`/`interactive
 
 | Profil | Checks | När |
 |---|---|---|
-| `designPreview` (F2) | `["typecheck", "build"]` | Efter finalize och i bakgrunds-server-verify. `build` lades till 2026-04-20 för att fånga Next-runtime-fel innan iframen renderar |
-| `integrationsBuild` (F3) | `["typecheck", "build"]` | I `/finalize-design`/promotion-flödet |
+| `designPreview` (F2) | `["typecheck", "build", "lint"]` | Efter finalize och i bakgrunds-server-verify. `build` lades till 2026-04-20, `lint` (`--max-warnings=20`) 2026-04-21. Se SAJ-28 / P34 för blockerande lint-variant. |
+| `integrationsBuild` (F3) | `["typecheck", "build", "lint"]` | I `/finalize-design`/promotion-flödet. Lint tillagd 2026-04-21. |
 
 Verify-lane returnerar även informativa checks: `install-cache-share` (node_modules-delning), `install-peer-fallback` (peer-konflikt fallback med `--legacy-peer-deps`).
 
@@ -180,7 +180,7 @@ Verify-lane returnerar även informativa checks: `install-cache-share` (node_mod
 
 ### Live-preview vs Verify (viktig skillnad)
 
-Preview-host kör **två separata lanes**: live-preview (iframe, `npm install` + `npm run dev`) och verify (typecheck + build). En version kan vara live i preview men ändå få verify-fail.
+Preview-host kör **två separata lanes**: live-preview (iframe, `npm install` + `npm run dev`) och verify (typecheck + build + lint). En version kan vara live i preview men ändå få verify-fail.
 
 ### Verifier-pass (Fas 2)
 

@@ -2,7 +2,7 @@
 
 Vad som händer från att Fas 1 levererar prompt + brief till att en version är sparad i databasen.
 
-**Senast uppdaterad:** 2026-04-20. **Kod är source of truth.** Ordlista: [glossary.md](./glossary.md).
+**Senast uppdaterad:** 2026-04-21. **Kod är source of truth.** Ordlista: [glossary.md](./glossary.md).
 
 ---
 
@@ -67,6 +67,9 @@ Relaterade: [fas1-startprompt-flow.md](./fas1-startprompt-flow.md), [fas3-previe
 | BuildSpec | `deriveBuildSpec()` | Ja |
 | Orchestration contract | `buildOrchestrationContract()` | Ja |
 | Scaffold-serialisering | `serializeScaffoldForPrompt()` med budget | Ja |
+| Request kind (P32 Fas A) | `classifyRequestKind()` på rå follow-up när filkontext finns | Ja (regex) |
+
+Follow-up: `OrchestrationInput.requestKind` sätts i `chat-message-stream-post.ts`, loggas som `[request_kind_classified]` och i dev-log (`request.kind.classified`). **Styr ännu inte** `deriveBuildSpec()` — se [P32-request-type-taxonomy.md](../plans/active/P32-request-type-taxonomy.md).
 
 ---
 

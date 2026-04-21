@@ -41,6 +41,7 @@ import {
   writeOrchestrationDynamicDump,
 } from "@/lib/gen/orchestrate";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
+import { classifyRequestKind } from "@/lib/gen/request-kind";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
@@ -751,6 +752,8 @@ export async function handleMessageStreamRequest(
           (PRIOR_QUALITY_TARGETS as readonly string[]).includes(rawPriorQualityTarget)
             ? (rawPriorQualityTarget as (typeof PRIOR_QUALITY_TARGETS)[number])
             : null;
+        const requestKindResult =
+          previousFiles.length > 0 ? classifyRequestKind(message) : null;
         const orchestrationInput = {
           prompt: optimizedMessage,
           routePlanPrompt: message,
@@ -810,9 +813,18 @@ export async function handleMessageStreamRequest(
           // Q5a: pass resolved engine model id so deriveBuildSpec scales
           // tokenBudgets to the model's actual context window.
           engineModelId: resolveEngineModelId(resolvedModelTier),
+          requestKind: requestKindResult?.kind ?? null,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
+        if (requestKindResult) {
+          devLogAppend("in-progress", {
+            type: "request.kind.classified",
+            chatId,
+            kind: requestKindResult.kind,
+            source: requestKindResult.source,
+          });
+        }
         debugLog("orchestration", "Follow-up orchestration base resolved", {
           chatId,
           durationMs: Date.now() - orchestrationStartedAt,
@@ -821,6 +833,7 @@ export async function handleMessageStreamRequest(
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
           serializeMode: orchestrationBase.serializeMode,
           routeCount: orchestrationBase.routePlan.routes.length,
+          requestKind: requestKindResult?.kind ?? null,
         });
         devLogAppend("in-progress", {
           type: "orchestration.resolved",

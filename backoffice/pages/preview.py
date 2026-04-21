@@ -78,9 +78,9 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("F2 / F3 livscykel (2026-04)")
     st.markdown(
         """
-- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck", "build"]` sedan 2026-04-20; var tidigare `["typecheck"]`). Tier-3 SDK-imports
+- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck", "build", "lint"]` sedan 2026-04-21; var `["typecheck", "build"]` 2026-04-20 → 2026-04-21, och bara `["typecheck"]` före 2026-04-20). Lint kör `--max-warnings=20` så tolereranta warnings inte fryser gate:n. Tier-3 SDK-imports
   (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, …) strippas mekaniskt av `tier3-sdk-guard-fixer`.
-- **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. `integrationsBuild` quality gate (`["typecheck", "build"]`).
+- **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. `integrationsBuild` quality gate (`["typecheck", "build", "lint"]`).
   Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 readiness mot
   projektets stored env-vars; returnerar `412` med `missingByIntegration` om någon `requiredRealEnvKeys` saknas.
 - **`engine_versions.lifecycle_stage`**: `"design"` (F2) eller `"integrations"` (F3). F3-versioner pekar på sin

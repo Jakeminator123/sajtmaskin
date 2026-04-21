@@ -61,7 +61,7 @@ Quality gate använder dessa check-id:n:
 | Check | Kommando |
 |------|----------|
 | `typecheck` | `npx tsc --noEmit` |
-| `lint` | `npx eslint . --max-warnings=0` |
+| `lint` | `npx eslint . --max-warnings=20` |
 | `build` | `npx next build` |
 
 Definitioner finns i `src/lib/gen/verify/quality-gate-checks.ts`.
@@ -81,10 +81,10 @@ defaultvärden:
 
 | Profil | Checks | Var den används |
 |--------|--------|-----------------|
-| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck", "build"]` | F2 quality gate (live-preview + bakgrunds-`server-verify` + repair re-check). |
-| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build"]` | F3 / promotion-flödet (`/finalize-design`). |
+| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck", "build", "lint"]` | F2 quality gate (live-preview + bakgrunds-`server-verify` + repair re-check). Lint tillagd 2026-04-21. |
+| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build", "lint"]` | F3 / promotion-flödet (`/finalize-design`). Lint tillagd 2026-04-21. |
 
-`next build` ingår alltså i båda lanes sedan 2026-04-20 (Tier S #7 /
+`next build` ingår i båda lanes sedan 2026-04-20 (Tier S #7 /
 `docs/plans/active/Kvarvarande-uppgifter.md` §1.5). F2-`build`-passet
 fångar Next-runtime-fel som typechecket inte ser — broken imports,
 runtime-crashes som compile:ar fint — *innan* preview-iframen renderar,
@@ -96,8 +96,12 @@ kostnadsbegränsa, sätt arrayen till `["typecheck"]` i miljöns manifest.
 
 **Borttaget 2026-04:** `tier2`, `serverVerify`, `promotion`, `interactive`
 konsoliderades till `designPreview` + `integrationsBuild`. Lint-laden
-försvann ur background-verify (tysta lint-fail blockerade verifiering utan
-att lägga värde).
+togs bort från background-verify tillfälligt (tysta lint-fail blockerade
+verifiering utan att lägga värde), och åter-infördes 2026-04-21 med
+`--max-warnings=20` så errors blockerar men warnings tolereras.
+Bakgrundsgate:n är dock fortfarande fire-and-forget — se SAJ-28 +
+`docs/plans/active/P34-blocking-lint-in-validate-and-fix.md` för plan att
+lyfta lint till blockerande `validateAndFix`-passet.
 
 ## När quality gate körs
 

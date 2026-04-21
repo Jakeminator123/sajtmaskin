@@ -132,7 +132,7 @@ describe("resolveRepairQualityGateChecks", () => {
   });
 
   it("falls back to F2 design-preview defaults when no explicit checks are provided", () => {
-    // Tier-2 default is now `typecheck + build` (since 2026-04-20).
-    expect(resolveRepairQualityGateChecks()).toEqual(["typecheck", "build"]);
+    // Tier-2 default is now `typecheck + build + lint` (lint added 2026-04-21).
+    expect(resolveRepairQualityGateChecks()).toEqual(["typecheck", "build", "lint"]);
   });
 });

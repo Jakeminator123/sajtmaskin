@@ -134,7 +134,7 @@ The repair layer can add a missing `export default`, but the safer path is to wr
 Avoid these recurring generation errors:
 - `package.json` MUST exist and list every third-party dependency used in the project. Omitting it causes install failures.
 - Pin dependency versions to a specific major range (e.g. `"framer-motion": "^12"`, `"three": "^0.176"`). Never use `"*"` or `"latest"`.
-- `useReducedMotion()` from framer-motion returns `boolean | null`. Always coerce to boolean before passing to props typed as `boolean` (e.g. `Boolean(useReducedMotion())`).
+- **Reduced motion:** every exported project ships `hooks/use-reduced-motion.ts` with a canonical `useReducedMotion(): boolean` that subscribes to `matchMedia("(prefers-reduced-motion: reduce)")`. Import it (`import { useReducedMotion } from "@/hooks/use-reduced-motion"`) for any component that gates animations — do NOT hand-roll a `useState + useEffect(() => setMounted(true), [])` guard (React 19 + eslint flag it as `react-hooks/set-state-in-effect`). Framer-motion's own `useReducedMotion()` returns `boolean | null` — if you use it, coerce with `Boolean(...)` before passing to boolean props.
 - When importing both a type and a value with the same name (e.g. `Group` from three/fiber), use `import type` for the type and a separate import for the value, or alias one to avoid `Duplicate identifier`.
 - Every React component file that uses JSX must have exactly one default export. Do not forget it and do not duplicate it.
 - Dynamic route segments in App Router use brackets: `app/product/[id]/page.tsx`, NOT `app/product/id/page.tsx`. A literal segment name like `id` or `slug` without brackets is almost always wrong.

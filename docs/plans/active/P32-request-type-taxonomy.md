@@ -1,6 +1,6 @@
 # P32 — Request-Type Taxonomy & Right-Sized Pipelines
 
-**Status:** Förslag — väntar på agreement innan implementation.
+**Status:** Fas A implementerad (2026-04-21) — regex-klassificering + loggning på follow-ups med filkontext; pipeline oförändrad. Fas B+ väntar.
 **Skapad:** 2026-04-21.
 **Triggad av:** SAJ-flödesrunda — användaren vill att olika typer av frågor får olika tunga rörelser ("text-edit" ≠ "ny sida" ≠ "fråga utan generering"). Ska minska wasted compute och göra svar snabbare utan att förlora kvalitet.
 
@@ -90,7 +90,7 @@ Bara när regex returnerar `ambiguous`. Input: `prompt + previousFileSummary[ut 
 
 | Fas | Vad | Risk | Estimerad effekt |
 |---|---|---|---|
-| **A** | Lägg till `RequestKind`-typ + `classifyRequestKind()` (regex-first) i ny modul `src/lib/gen/request-kind.ts`. Wira in i `OrchestrationInput`. **Bara klassifiera, inte förgrena.** Logga klassificering. | Låg | Mätbar baseline |
+| **A** | Lägg till `RequestKind`-typ + `classifyRequestKind()` (regex-first) i ny modul `src/lib/gen/request-kind.ts`. Wira in i `OrchestrationInput`. **Bara klassifiera, inte förgrena.** Logga klassificering. | Låg | Mätbar baseline — **klar** |
 | **B** | Q&A / Score-shortcut: när klass = `qa-or-score`, kortslut till assist-LLM via befintlig `/api/ai/chat` + returnera SSE utan filgenerering. UI-ändring: visa svar i chat utan version-card. | Medel — UI-yta + ny SSE-händelsetyp | Stor — sparar 30-90s per Q&A-prompt |
 | **C** | Micro-edit pipeline: när klass = `micro-edit`, sätt `contextPolicy: light`, `verificationPolicy: fast`, skip image-materialize om inga `<img>`-ändringar i diff. | Låg-medel | Medium — sparar 10-20s per micro-edit |
 | **D** | Multi-change wrap: när klass = `multi-change`, kör `splitMultiChangePrompt(prompt)` och rendera `## Requested Changes (1/N)` i prompt-wrappen. Ingen ny build per change. | Låg | Bättre LLM-fokus på kompositprompts |

@@ -163,6 +163,25 @@ describe("buildCompleteProject", () => {
     expect(pkg.devDependencies["eslint-config-next"]).toBe("16.2.3");
   });
 
+  it("ships a canonical use-reduced-motion hook so motion components avoid hand-rolled mounted guards", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <div />; }`,
+        language: "tsx",
+      },
+    ];
+    const files = buildCompleteProject(generated);
+    const hook = files.find((f) => f.path === "hooks/use-reduced-motion.ts");
+    expect(hook).toBeDefined();
+    expect(hook!.content).toContain('"use client"');
+    expect(hook!.content).toContain("prefers-reduced-motion: reduce");
+    expect(hook!.content).toContain("export function useReducedMotion");
+    expect(hook!.content).toContain("addEventListener");
+    expect(hook!.content).toContain("removeEventListener");
+  });
+
   it("baseline package.json passes peer-compatibility sanity checks", () => {
     const generated: CodeFile[] = [
       { path: "package.json", content: "{}", language: "json" },

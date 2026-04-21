@@ -257,11 +257,11 @@
           "reasoningEffort": "high"
         },
         "fixer": {
-          "thinking": false,
+          "thinking": true,
           "reasoningEffort": "medium"
         },
         "verifier": {
-          "thinking": false,
+          "thinking": true,
           "reasoningEffort": "medium"
         },
         "deploy-assistant": {
@@ -349,11 +349,13 @@
   "qualityGateTiers": {
     "designPreview": [
       "typecheck",
-      "build"
+      "build",
+      "lint"
     ],
     "integrationsBuild": [
       "typecheck",
-      "build"
+      "build",
+      "lint"
     ]
   },
   "promptOrchestration": {
