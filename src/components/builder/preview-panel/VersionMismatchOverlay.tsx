@@ -6,17 +6,27 @@ import { Button } from "@/components/ui/button";
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
 
 /**
- * Non-blocking overlay shown over the preview iframe during the transient
+ * Informational overlay shown over the preview iframe during the transient
  * window where the app has finalized a new version but the preview-VM is
  * still booting / rebuilding the previous one. Without it the iframe would
  * display ~5–10 seconds of white screen and the user can't tell whether
  * something broke or it's just restarting.
  *
+ * **Pointer-event behaviour:** the overlay uses `absolute inset-0` and
+ * therefore *does* block clicks/keyboard focus on the iframe while
+ * visible — that is intentional (interacting with a stale mid-boot
+ * preview is worse than waiting), not a bug. "Non-blocking" in the rest
+ * of this codebase refers to the app shell, not the iframe surface.
+ *
+ * **Stacking:** rendered at `z-30`, above the loading overlay (`z-10`)
+ * but suppressed by `PreviewPanelFrame` when `iframeError` is true so it
+ * never hides an actionable error state.
+ *
  * Type contract: {@link VersionMismatchOverlayPayload} (defined in
  * `src/lib/gen/preview/preview-host-client.ts`). Dispatch path is the
  * separate concern of whichever poll/SSE pipeline detects the mismatch
- * server-side; this component is the consumer half — render it whenever a
- * payload is set, hide it whenever it's null.
+ * server-side; this component is the consumer half — render it whenever
+ * a payload is set, hide it whenever it's null.
  *
  * Owner: P25b-rest (UX polish flyttad från P25). See
  * `docs/plans/avklarat/P25-builder-ui-and-csp-hygiene.md`.
@@ -32,8 +42,11 @@ export interface VersionMismatchOverlayProps {
 }
 
 function formatElapsed(msSinceMismatch: number): string {
-  if (msSinceMismatch < 1_000) return "<1s";
-  const seconds = Math.round(msSinceMismatch / 1_000);
+  // Clamp negatives — clock-skew between app/VM can produce a small
+  // negative diff which would otherwise render as "<1s" misleadingly.
+  const ms = Math.max(0, msSinceMismatch);
+  if (ms < 1_000) return "<1s";
+  const seconds = Math.round(ms / 1_000);
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const remSeconds = seconds % 60;
@@ -77,6 +90,7 @@ export function VersionMismatchOverlay({
                   Försök tar normalt ~10 sekunder. Tryck om det dröjer mer än 30s.
                 </span>
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   className="ml-auto h-7 border-amber-400/40 bg-amber-900/40 text-[11px] text-amber-50 hover:bg-amber-800/60"

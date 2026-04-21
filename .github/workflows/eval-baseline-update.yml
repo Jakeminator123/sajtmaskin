@@ -17,16 +17,15 @@ name: Eval Baseline Update
 #   - OPENAI_API_KEY  → consumed by the eval LLM calls.
 #
 # Behavior:
-#   1. Run `npm run eval` (no --gate, no --save-baseline) and capture exit.
-#      Hard-fail if the suite itself errors (network, missing env, etc.).
-#   2. Run `npm run eval:gate` to compare current vs. baseline. If gate
-#      returns non-zero we STOP — a regressing run must not overwrite the
-#      baseline (that would mask the regression).
-#   3. Run `npm run eval:baseline` to write the new snapshot.
-#   4. If `eval-baseline.json` actually changed, open a PR (draft) so the
-#      operator can review the deltas before merging. Direct push to master
-#      is intentionally avoided because baseline shifts can hide real
-#      regressions if accepted blindly.
+#   1. Run a SINGLE `cli.ts` invocation with `--gate` (and `--save-baseline`
+#      unless dry_run is true). cli.ts always runs the eval first, then
+#      compares against baseline; with --gate it exits 1 on regression
+#      BEFORE writing the new baseline (cli.ts:90-93). One invocation =
+#      one OpenAI billing run, not three.
+#   2. If the run succeeded and `eval-baseline.json` actually changed,
+#      open a PR (draft) so the operator can review the deltas before
+#      merging. Direct push to master is intentionally avoided because
+#      baseline shifts can hide real regressions if accepted blindly.
 
 on:
   workflow_dispatch:
@@ -77,28 +76,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run eval suite
-        run: npm run eval:suite
-
-      - name: Compare against baseline (gate)
-        id: gate
-        continue-on-error: true
-        run: npm run eval:gate
-
-      - name: Stop if eval gate failed
-        if: ${{ steps.gate.outcome == 'failure' }}
+      # Single combined invocation: cli.ts always runs the eval + comparison;
+      # `--gate` exits 1 on regression BEFORE the baseline write happens, and
+      # `--save-baseline` writes only if we got past --gate. One run = one
+      # OpenAI billing event (instead of three back-to-back runs).
+      - name: Run eval + gate (and save baseline unless dry-run)
         run: |
-          echo "::error::Eval gate failed. Refusing to overwrite baseline with a regressing run."
-          echo "Investigate the regression locally before re-running this workflow."
-          exit 1
-
-      - name: Save new baseline
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true' }}
-        run: npm run eval:baseline
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            npx tsx src/lib/gen/eval/cli.ts --gate
+          else
+            npx tsx src/lib/gen/eval/cli.ts --gate --save-baseline
+          fi
 
       - name: Detect baseline change
         id: diff
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         shell: bash
         run: |
           if git diff --quiet -- src/lib/gen/eval/eval-baseline.json; then

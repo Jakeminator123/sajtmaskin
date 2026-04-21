@@ -173,7 +173,14 @@ export function PreviewPanelFrame({
         title="Preview"
       />
 
-      {versionMismatchPayload ? (
+      {/*
+        Suppress the version-mismatch overlay when the iframe itself is in
+        an error state — the error overlay (z-10) carries the actionable
+        diagnostic, and stacking the mismatch overlay (z-30) on top would
+        falsely tell the user "preview is restarting" while the real state
+        is "iframe failed to load". Error wins.
+      */}
+      {versionMismatchPayload && !iframeError ? (
         <VersionMismatchOverlay
           payload={versionMismatchPayload}
           onForceRestart={onForceRestart}

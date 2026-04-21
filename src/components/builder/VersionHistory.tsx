@@ -776,7 +776,11 @@ export function VersionHistory({
                                 ? "Preview-VM kör en annan version än den valda. Klicka 'Återställ preview' eller vänta på återstart."
                                 : runtimeStatusForRow === "missing"
                                   ? "Ingen aktiv preview-VM för denna version. Starta en ny preview-session från knappraden."
-                                  : "Preview-VM körs."
+                                  : runtimeStatusForRow === "starting"
+                                    ? "Preview-VM startar — `npm install` + `next dev` kör i bakgrunden. Vanligtvis 30–90 s vid kall start."
+                                    : runtimeStatusForRow === "stopped"
+                                      ? "Preview-VM är stoppad. Starta en ny preview-session från knappraden för att återanvända versionen."
+                                      : "Preview-VM körs (Next.js dev-server svarar)."
                             }
                           >
                             {runtimeBadge.label}
