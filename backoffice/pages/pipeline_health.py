@@ -1,8 +1,10 @@
 """Pipeline Health — kör underhållsskript och se status per skript.
 
 Samlar de npm-skript som inte är automatiserade i dev-loopen (baseline-deps-
-verifiering, embeddings-uppdatering, dossier-rebuild, shadcn-sync) på en plats
-så man slipper komma ihåg terminalkommandon.
+verifiering, embeddings-uppdatering, shadcn-sync, scaffold-variants) på en
+plats så man slipper komma ihåg terminalkommandon. Dossier-curation körs
+manuellt per referens via Dossiers-sidan eller `npm run dossiers:curate`
+och har ingen knapp här (v2 är capability-driven utan rebuild-steg).
 
 Status persisteras i `data/backoffice/pipeline-health-state.json` så panelen
 överlever Streamlit-omstart och berättar när varje skript senast kördes och om
@@ -90,20 +92,11 @@ SCRIPTS: tuple[HealthScript, ...] = (
         output_path="config/scaffold-variants/_index/variant-embeddings.json",
         source_globs=("config/scaffold-variants/*/*.json",),
     ),
-    HealthScript(
-        id="dossiers-embeddings",
-        label="Dossiers · embeddings",
-        command=("npm", "run", "dossiers:embeddings"),
-        description=(
-            "Genererar dossier-embeddings via OpenAI. Behövs efter att nya dossiers "
-            "tagits in eller efter dossier-rebuild."
-        ),
-        cost="expensive",
-        requires_api=True,
-        tags=("embeddings", "dossiers"),
-        output_path="data/dossiers/_index/dossier-embeddings.json",
-        source_globs=("data/dossiers/_index/master.json",),
-    ),
+    # Dossier v2 (2026-04-20): no embeddings/rebuild step. The runtime walks
+    # data/dossiers/{hard,soft}/ directly and matches via deterministic
+    # capability rules. To curate a new dossier from a template-references
+    # repo, use the Dossiers page (AI-kuration tab) or
+    # `npm run dossiers:curate -- --reference=<id> --class=<hard|soft> --id=<new-id>`.
     HealthScript(
         id="templates-embeddings",
         label="Templates · embeddings",
@@ -113,10 +106,6 @@ SCRIPTS: tuple[HealthScript, ...] = (
         requires_api=True,
         tags=("embeddings", "templates"),
     ),
-    # Dossier v2 (2026-04-20): no rebuild/full-pipeline scripts. The runtime
-    # walks data/dossiers/{hard,soft}/ directly. To curate a new dossier from
-    # a template-references repo, use the Dossiers page (AI-kuration tab) or
-    # `npm run dossiers:curate -- --reference=<id> --class=<hard|soft> --id=<new-id>`.
 )
 
 
