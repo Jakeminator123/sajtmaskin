@@ -294,9 +294,8 @@ export function OpenClawChatPanel({
   }, []);
 
   const showAvatar = avatarMode && DID_AVATAR_AVAILABLE;
-  const avatarHeightClass = avatarExpanded ? "max-h-[380px]" : "max-h-[220px]";
   const panelWidthClass = avatarExpanded
-    ? "w-[min(440px,calc(100vw-1rem))]"
+    ? "w-[min(520px,calc(100vw-1rem))]"
     : "w-[min(380px,calc(100vw-1rem))]";
 
   return (
@@ -395,22 +394,17 @@ export function OpenClawChatPanel({
         </div>
       </div>
 
-      {/* Avatar video */}
+      {/* Avatar video — landscape, embedded card */}
       {showAvatar ? (
-        <div className="relative shrink-0 border-b border-white/10 bg-black/60">
-          <div
-            className={cn(
-              "relative mx-auto aspect-4/3 overflow-hidden transition-all duration-300",
-              avatarHeightClass,
-            )}
-          >
+        <div className="shrink-0 border-b border-white/10 bg-slate-950/40 px-3 pb-3 pt-3">
+          <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-lg shadow-black/20 transition-all duration-300">
             {avatar.avatarReady ? (
               <video
                 ref={avatar.videoRef}
                 autoPlay
                 playsInline
                 muted={avatar.connectionState !== "speaking"}
-                className="h-full w-full object-cover object-top"
+                className="h-full w-full object-cover"
               />
             ) : (
               <div className="flex h-full items-center justify-center">
@@ -439,13 +433,13 @@ export function OpenClawChatPanel({
             {avatar.connectionState === "speaking" && (
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-linear-to-r from-cyan-400 via-purple-400 to-cyan-400 opacity-80" />
             )}
-            {/* Floating expand toggle on the video itself (extra reachable target) */}
+            {/* Floating expand toggle on the video itself */}
             <button
               type="button"
               onClick={() => setAvatarExpanded((v) => !v)}
               className="absolute right-2 top-2 rounded-md bg-black/40 p-1 text-slate-200 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white"
-              aria-label={avatarExpanded ? "Förminska avatar" : "Förstora avatar"}
-              title={avatarExpanded ? "Förminska avatar" : "Förstora avatar"}
+              aria-label={avatarExpanded ? "Förminska panel" : "Förstora panel"}
+              title={avatarExpanded ? "Förminska panel" : "Förstora panel"}
             >
               {avatarExpanded ? (
                 <Minimize2 className="h-3 w-3" />
