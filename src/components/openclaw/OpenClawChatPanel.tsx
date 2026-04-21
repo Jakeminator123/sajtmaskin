@@ -108,14 +108,14 @@ export function OpenClawChatPanel({
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-400/20 bg-white/5 text-cyan-200">
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.2),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.16),transparent_35%)] px-4 py-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-white/5 text-cyan-200">
             <Bot className="h-4 w-4" />
           </div>
-          <div>
-            <p className="text-sm font-semibold leading-tight text-white">{content.assistantLabel}</p>
-            <p className="text-[10px] text-slate-300">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold leading-tight text-white">{content.assistantLabel}</p>
+            <p className="truncate text-[10px] text-slate-300">
               {avatar.connectionState === "speaking"
                 ? "Pratar..."
                 : avatar.connectionState === "connecting"
@@ -235,7 +235,7 @@ export function OpenClawChatPanel({
       </div>
 
       <div className="border-t border-white/10 px-3 py-2.5">
-        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+        <div className="flex min-w-0 items-end gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
           <textarea
             ref={inputRef}
             value={input}
@@ -243,7 +243,7 @@ export function OpenClawChatPanel({
             onKeyDown={handleKeyDown}
             placeholder={content.inputPlaceholder}
             rows={1}
-            className="max-h-24 flex-1 resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-slate-400"
+            className="max-h-24 min-w-0 flex-1 resize-none bg-transparent text-sm leading-relaxed text-white outline-none placeholder:text-slate-400"
           />
           {isStreaming ? (
             <button

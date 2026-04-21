@@ -494,8 +494,8 @@ export function VersionHistory({
     <div className="flex h-full flex-col">
       <div className="border-border border-b px-4 py-3">
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="font-semibold">Version History</h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate font-semibold">Version History</h3>
             <p className="text-muted-foreground mt-1 text-xs">
               {versions.length} version{versions.length !== 1 ? "s" : ""}
               {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ""}
@@ -842,7 +842,7 @@ export function VersionHistory({
                       )}
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center gap-1">
+                  <div className="mt-2 flex flex-wrap items-center gap-1">
                     {listPreviewUrl && (
                       <Button
                         variant="ghost"

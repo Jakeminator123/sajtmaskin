@@ -234,7 +234,7 @@ export function OpenClawChat() {
         className={cn(
           "origin-bottom-right self-end overflow-hidden transition-all duration-200 ease-out",
           isOpen
-            ? "pointer-events-auto max-h-[min(500px,calc(100vh-7rem))] scale-100 opacity-100"
+            ? "pointer-events-auto max-h-[min(640px,calc(100vh-5rem))] scale-100 opacity-100"
             : "max-h-0 scale-95 opacity-0",
         )}
       >
