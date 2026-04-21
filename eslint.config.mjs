@@ -90,7 +90,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["preview-host/**/*.js"],
+    files: ["preview-host/**/*.{js,mjs,cjs}"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },
@@ -115,7 +115,7 @@ export default defineConfig([
     files: [
       "scripts/**/*.{js,mjs,cjs,ts}",
       "e2e/**/*.ts",
-      "preview-host/**/*.js",
+      "preview-host/**/*.{js,mjs,cjs}",
     ],
     rules: {
       "no-console": "off",

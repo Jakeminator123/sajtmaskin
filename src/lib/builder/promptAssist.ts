@@ -143,11 +143,6 @@ function resolveBuildIntent(intent?: BuildIntent | null): BuildIntent {
   return "website";
 }
 
-function getBuildIntentIntro(intent?: BuildIntent | null): string {
-  const resolved = resolveBuildIntent(intent);
-  return BUILD_INTENT_GUIDANCE[resolved].summary;
-}
-
 function getBuildIntentInstructionLines(intent?: BuildIntent | null): string[] {
   const resolved = resolveBuildIntent(intent);
   return BUILD_INTENT_GUIDANCE[resolved].instructionLines;

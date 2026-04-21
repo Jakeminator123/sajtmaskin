@@ -18,7 +18,7 @@
  * Requires OPENAI_API_KEY in .env.local.
  */
 import "dotenv/config";
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import OpenAI from "openai";
 

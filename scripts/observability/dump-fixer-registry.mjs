@@ -24,7 +24,6 @@ const TS_FILE = path.join(ROOT, "src", "lib", "gen", "autofix", "fixer-registry.
 
 function quietLog(...args) {
   if (process.argv.includes("--quiet")) return;
-  // eslint-disable-next-line no-console
   console.info("[fixer-registry-dump]", ...args);
 }
 
@@ -57,7 +56,6 @@ function main() {
 try {
   process.exit(main());
 } catch (err) {
-  // eslint-disable-next-line no-console
   console.warn("[fixer-registry-dump] failed (non-fatal):", err?.message ?? err);
   process.exit(0);
 }

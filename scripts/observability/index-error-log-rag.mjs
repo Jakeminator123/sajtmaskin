@@ -37,7 +37,6 @@ const MAX_ROWS_FOR_INDEX = 5000; // tail-only, keeps memory + warm-load tiny.
 
 function log(...message) {
   if (QUIET) return;
-  // eslint-disable-next-line no-console
   console.info("[error-log-rag]", ...message);
 }
 
@@ -158,7 +157,6 @@ try {
   process.exit(main());
 } catch (err) {
   // Never fail next dev/build/start because the indexer crashed.
-  // eslint-disable-next-line no-console
   console.warn("[error-log-rag] indexer failed (non-fatal):", err?.message ?? err);
   try {
     writeMeta({
