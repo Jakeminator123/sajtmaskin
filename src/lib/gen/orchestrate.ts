@@ -140,7 +140,10 @@ export interface OrchestrationInput {
    */
   embeddingScaffoldMatch?: boolean;
   /** Optional prompt strategy metadata from builder orchestration. */
-  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  promptStrategyMeta?: Pick<
+    PromptStrategyMeta,
+    "strategy" | "promptType" | "complexityScore"
+  > | null;
   /** Existing App Router paths from previous version files (follow-up route freeze/clamp). */
   existingRoutePaths?: string[];
   /** Route paths whose existing content is a deferred shell page (auto-detected from file content). */
