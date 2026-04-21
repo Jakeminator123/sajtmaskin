@@ -1,8 +1,9 @@
 ---
 id: repair-loop-hardening
 title: Repair-loop hardening — versionId-konsistens, verifier-rerun, fix-pattern-RAG
-status: planerad
+status: levererad
 created: 2026-04-21
+delivered: 2026-04-21
 priority: medium
 parent_plan: .cursor/plans/href-route-safety-net_4b096470.plan.md
 parallel_safe_with: [L1-unified-repair-call, L2-prompt-kit]
@@ -121,3 +122,31 @@ C: låg — strikt minskar kostnad, rollback genom att alltid köra full kedja.
 D: mycket låg — text-injection med token-cap.
 
 Total risk: 4/10 (delspår körs separat per PR/commit).
+
+## Postamble — leverans 2026-04-21 (cloud-varldsklass)
+
+Alla fyra delspår (A, B, C, D) **plus** stretch-spår E är levererade på branch `cloud-varldsklass`. Branch är pushad men **inte** mergad till `master` (väntar på användaren).
+
+| # | Status | Commits |
+|---|---|---|
+| A — `repairPassIndex`-konsistens (SAJ-25) | ✅ | `387aa0d6 feat(repair-loop): SAJ-25 — repairPassIndex propagation + pruneStaleVersionErrorLogs` |
+| B — verifier re-run efter LLM-fixer | ✅ | `6144dd8a feat(verifier): re-run verifier-pass once after LLM-fixer succeeds (Phase 2B)` |
+| C — skippa dubbel `validateAndFix` på merge | ✅ | `65c37b1c feat(preflight): skip LLM-fixer on merged-only syntax fail (Phase 2C)` |
+| D — recurring patterns till huvudgeneratorn | ✅ | `4ac4af6b feat(system-prompt): inject recurring-failures block into main generator (Phase 2D)` |
+| E — Vector RAG + auto-ingest | ✅ | `86022856 feat(rag): vector RAG over error-log + auto-ingest hook` + `fa9d2ec8 feat(rag): wire error-log producer into verifier path` |
+
+**Tillägg utöver planen** (samma leverans):
+
+- **Fixer Registry** (`c75a1a48`) — single source of truth för alla ~40 fixers + parity-test + backoffice-sida.
+- **Backoffice-styrning** (`ef8cdbb2`) — tre nya Streamlit-sidor (Repair Loop, Fixer Registry, Error-log RAG) som låter användaren toggla flaggor och inspektera state.
+
+**Feature flags** (alla default ON i dev, OFF i prod tills field-tested):
+- `SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX`
+- `SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX`
+- `SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE` (default ON i båda)
+- `SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT`
+- `SAJTMASKIN_USE_ERROR_LOG_RAG`
+
+**Tester:** 852/852 vitest pass på `src/lib/{gen,db,logging,providers}/`. `npm run typecheck` clean. `npm run lint` 0 errors.
+
+Plan kan flyttas till `docs/plans/avklarat/` när användaren har bekräftat och mergat `cloud-varldsklass` till `master`.
