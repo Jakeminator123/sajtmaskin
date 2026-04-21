@@ -18,6 +18,14 @@ export interface InferredCapabilities {
    * explicitly, and consumers should treat absence as `false`.
    */
   needsPhysics?: boolean;
+  /**
+   * Subset of `needsMotion` for parallax patterns specifically. Distinguished
+   * because parallax has its own dossier pair (`scroll-parallax` and
+   * `pointer-parallax`) with safety contracts (reduced-motion + viewport
+   * units + pointer ownership) that the generic motion instruction does not
+   * cover. Optional for backwards compatibility with older fixtures.
+   */
+  needsParallax?: boolean;
   needsCharts: boolean;
   needsDatabase: boolean;
   needsAuth: boolean;
@@ -41,8 +49,22 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsMotion",
     patterns: [
-      /\b(animat|motion|framer|transition|fade|slide|parallax|stagger|entrance|animate|rörelse|animering|effekt|wow|premium|immersive|futurist)\b/i,
+      /\b(animat|motion|framer|transition|fade|slide|stagger|entrance|animate|rörelse|animering|effekt|wow|premium|immersive|futurist)\b/i,
       /\b(hover.*(effect|animation)|scroll.*(reveal|trigger|animat))\b/i,
+    ],
+  },
+  {
+    // Parallax has its own dossier pair (`scroll-parallax`, `pointer-parallax`)
+    // with safety contracts the generic motion instruction does not cover.
+    // Word `parallax` was deliberately moved out of the `needsMotion` rule so
+    // a parallax-specific prompt does not pull in the broader framer-motion
+    // entrance-animation guidance unless the prompt asks for both.
+    key: "needsParallax",
+    patterns: [
+      /\b(parallax|paralaks|parallax-?effekt|parallax-?scroll|parallax-?pointer|parallax på (scroll|mus|pointer))\b/i,
+      /\b(mouse.?parallax|pointer.?parallax|cursor.?parallax|mus.?parallax)\b/i,
+      /\b(följer (mus(en|pekaren)|cursor|pointer)|hover.?tilt|tilt.?card)\b/i,
+      /\b(scroll-?parallax|scroll-?driven|sticky.?parallax|pinned.?(section|parallax))\b/i,
     ],
   },
   {
@@ -155,6 +177,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     needsMotion: false,
     needs3D: false,
     needsPhysics: false,
+    needsParallax: false,
     needsCharts: false,
     needsDatabase: false,
     needsAuth: false,
@@ -182,6 +205,10 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   if (result.needs3D) result.needsMotion = true;
   if (result.needsPremiumVisuals) result.needsMotion = true;
   if (result.needsCalendar) result.needsForms = true;
+  // Parallax is a flavor of motion. Imply needsMotion so existing motion-
+  // aware paths (system prompt section, dependency completion of
+  // framer-motion) still trigger when only parallax was matched.
+  if (result.needsParallax) result.needsMotion = true;
 
   if (result.needsEcommerce) {
     // Unicode-aware boundaries: JS `\b` is ASCII-only, so `\bcafé\b` would
@@ -258,9 +285,14 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
       `- **3D/WebGL detected**: You MUST implement 3D elements using @react-three/fiber code — NEVER as placeholder SVGs or static images. Create a real \`<Canvas>\` scene with meshes, lighting, and camera. Wrap the Canvas component in \`"use client"\`. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. ${physicsClause} For **GLB/GLTF**, use useGLTF from drei and put assets under public/. **Reduced-motion trap (do NOT trip):** NEVER apply '${reducedMotionTrap}' on the entire Canvas — that hides the 3D layer for users with reduced-motion preference. Use 'motion-safe:'-prefixed animation classes on the inner mesh so the static scene still renders. If the requested 3D content is too complex, create a simplified but real Three.js version (rotating shape, abstract geometry, or particle system with the requested theme) rather than falling back to an image.`,
     );
   }
-  if (caps.needsMotion && !caps.needs3D) {
+  if (caps.needsMotion && !caps.needs3D && !caps.needsParallax) {
     lines.push(
       "- **Motion/animation requested**: Use framer-motion for entrance animations, scroll reveals, and microinteractions. Add framer-motion to deps.",
+    );
+  }
+  if (caps.needsParallax) {
+    lines.push(
+      "- **Parallax requested**: Use the parallax dossier(s) selected for this build. For scroll-driven parallax, wrap layers in `ScrollParallaxLayer` from `@/components/scroll-parallax-layer` (one section ref drives many sibling layers). For pointer/mouse parallax on DOM, use `PointerParallaxLayer` from `@/components/pointer-parallax-layer`. For pointer parallax inside a React Three Fiber scene, call `usePointerParallax(targetRef)` from `@/components/use-pointer-parallax` and read the returned ref inside `useFrame`. NEVER apply `motion-reduce:hidden` on the parallax layer itself — keep the content visible at its end-state when reduced motion is on. Add framer-motion to deps when scroll-parallax is in scope.",
     );
   }
   if (caps.needsCharts) {

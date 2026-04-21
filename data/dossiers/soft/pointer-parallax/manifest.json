@@ -1,0 +1,36 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "pointer-parallax",
+  "label": "Pointer / Mouse Parallax Hook",
+  "capability": "parallax-pointer",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Pointer-driven parallax hook usable from both DOM layers and React Three Fiber scenes. Provides usePointerParallax(targetRef) returning a ref-stable pointer position normalized to the target's bounding box, plus a PointerParallaxLayer wrapper for plain DOM transforms. Honors prefers-reduced-motion by freezing pointer to (0, 0). Use for hero hover-tilt cards, layered illustration depth, and sharing pointer state with three-fiber-canvas scenes.",
+  "envVars": [],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/use-pointer-parallax.tsx",
+      "role": "client"
+    },
+    {
+      "path": "components/pointer-parallax-layer.tsx",
+      "role": "client"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "usePointerParallax",
+      "type": "hook",
+      "import": "@/components/use-pointer-parallax"
+    },
+    {
+      "name": "PointerParallaxLayer",
+      "type": "component",
+      "import": "@/components/pointer-parallax-layer"
+    }
+  ],
+  "lastVerified": "2026-04-21",
+  "notes": "Sibling of scroll-parallax. Both target the parallax-* capability namespace. The hook returns a MutableRefObject so consumers can read pointer state inside useFrame (R3F) without triggering React re-renders — bridge to three-fiber-canvas dossier when 3D pointer-parallax is requested."
+}

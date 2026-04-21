@@ -73,6 +73,28 @@ describe("inferCapabilities", () => {
     expect(caps.needs3D).toBe(true);
     expect(caps.needsPhysics).toBe(false);
   });
+
+  it("detects scroll-parallax from English 'parallax scroll'", () => {
+    const caps = inferCapabilities("a landing page with parallax scroll effects");
+    expect(caps.needsParallax).toBe(true);
+    expect(caps.needsMotion).toBe(true);
+  });
+
+  it("detects pointer-parallax from Swedish 'följer muspekaren'", () => {
+    const caps = inferCapabilities("Hero-kort som följer muspekaren med parallax");
+    expect(caps.needsParallax).toBe(true);
+  });
+
+  it("detects parallax from generic 'parallax' keyword in Swedish", () => {
+    const caps = inferCapabilities("lägg till lite parallax på hjältesektionen");
+    expect(caps.needsParallax).toBe(true);
+  });
+
+  it("does NOT flag needsParallax for plain motion words", () => {
+    const caps = inferCapabilities("fade-in på alla sektioner när de scrolas in");
+    expect(caps.needsMotion).toBe(true);
+    expect(caps.needsParallax).toBe(false);
+  });
 });
 
 describe("buildCapabilityHints (pack-based)", () => {
@@ -90,12 +112,42 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).not.toContain("Motion/animation requested");
   });
 
-  it("includes motion hint when 3D is not active", () => {
+  it("includes motion hint when 3D is not active and parallax is not requested", () => {
+    const caps = inferCapabilities("a landing page with smooth fade-in transitions on scroll reveal");
+    expect(caps.needsMotion).toBe(true);
+    expect(caps.needs3D).toBe(false);
+    expect(caps.needsParallax).toBe(false);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("Motion/animation requested");
+  });
+
+  it("emits parallax-specific hint instead of generic motion when parallax is requested", () => {
     const caps = inferCapabilities("a landing page with parallax scroll effects");
+    expect(caps.needsParallax).toBe(true);
     expect(caps.needsMotion).toBe(true);
     expect(caps.needs3D).toBe(false);
     const hints = buildCapabilityHints(caps)!;
-    expect(hints).toContain("Motion/animation requested");
+    expect(hints).toContain("Parallax requested");
+    expect(hints).toContain("ScrollParallaxLayer");
+    expect(hints).not.toContain("Motion/animation requested");
+  });
+
+  it("parallax hint mentions both DOM and R3F integrations", () => {
+    const caps = inferCapabilities("Lägg till mouse-parallax på hero-kortet");
+    expect(caps.needsParallax).toBe(true);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("PointerParallaxLayer");
+    expect(hints).toContain("usePointerParallax");
+    expect(hints).toContain("useFrame");
+  });
+
+  it("parallax + 3D produces both 3D and parallax hints", () => {
+    const caps = inferCapabilities("3d hero with mouse-parallax that follows the cursor");
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsParallax).toBe(true);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("3D/WebGL");
+    expect(hints).toContain("Parallax requested");
   });
 
   it("generates hints for previously uncovered capabilities", () => {
