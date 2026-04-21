@@ -1,6 +1,9 @@
 export const DB_ENV_VARS = [
   "POSTGRES_URL",
   "POSTGRES_URL_NON_POOLING",
+  "STORAGE_POSTGRES_URL",
+  "STORAGE_POSTGRES_URL_NON_POOLING",
+  "DATABASE_URL",
 ] as const;
 
 type ResolveDbEnvOptions = {
