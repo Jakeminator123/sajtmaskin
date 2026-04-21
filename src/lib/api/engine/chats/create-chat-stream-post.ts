@@ -1,5 +1,4 @@
 import { createSSEHeaders } from "@/lib/streaming";
-import { recordPromptToDone } from "@/lib/observability/metrics";
 import {
   withPromptToDoneMetricResponse,
   wrapStreamForPromptToDoneMetric,
@@ -7,8 +6,8 @@ import {
 import { createChatSchema } from "@/lib/validations/chatSchemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
-import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { prepareCredits } from "@/lib/credits/server";
+import { buildStreamErrorResponse } from "./stream-error-response";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import {
   MAX_PROMPT_HANDOFF_CHARS,
@@ -21,7 +20,7 @@ import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation"
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/devLog";
-import { debugLog, errorLog } from "@/lib/utils/debug";
+import { debugLog } from "@/lib/utils/debug";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import {
@@ -851,32 +850,16 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         ));
       }
     } catch (err) {
-      errorLog("engine", `Create chat error (requestId=${requestId})`, err);
-      try {
-        recordPromptToDone(
-          Date.now() - requestStartedAt,
-          req.signal?.aborted ? "aborted" : "failed",
-          "init",
-        );
-      } catch {
-        // Telemetry is fail-safe.
-      }
-      const normalized = normalizeProviderError(err);
-      devLogAppend("latest", {
-        type: "comm.error.create",
-        message: normalized.message,
-        code: normalized.code,
+      return buildStreamErrorResponse({
+        err,
+        req,
+        requestId,
+        promptStartedAt: requestStartedAt,
+        kind: "init",
+        logLabel: "Create chat error",
+        devLogType: "comm.error.create",
+        attachSessionCookie,
       });
-      return attachSessionCookie(
-        NextResponse.json(
-          {
-            error: normalized.message,
-            code: normalized.code,
-            retryAfter: normalized.retryAfter ?? null,
-          },
-          { status: normalized.status },
-        ),
-      );
     }
   });
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { createSSEHeaders } from "@/lib/streaming";
-import { recordPromptToDone } from "@/lib/observability/metrics";
 import {
   withPromptToDoneMetricResponse,
   wrapStreamForPromptToDoneMetric,
@@ -11,9 +10,9 @@ import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
-import { debugLog, errorLog } from "@/lib/utils/debug";
-import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
+import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
+import { buildStreamErrorResponse } from "./stream-error-response";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { FOLLOW_UP_TUNING } from "@/lib/config";
@@ -1029,33 +1028,17 @@ export async function handleMessageStreamRequest(
           { headers: engineHeaders },
         ));
     } catch (err) {
-      errorLog("engine", `Send message error (requestId=${requestId})`, err);
-      try {
-        recordPromptToDone(
-          Date.now() - promptStartedAt,
-          req.signal?.aborted ? "aborted" : "failed",
-          "followup",
-        );
-      } catch {
-        // Telemetry is fail-safe.
-      }
-      const normalized = normalizeProviderError(err);
-      devLogAppend("latest", {
-        type: "comm.error.send",
-        chatId: null,
-        message: normalized.message,
-        code: normalized.code,
+      return buildStreamErrorResponse({
+        err,
+        req,
+        requestId,
+        promptStartedAt,
+        kind: "followup",
+        logLabel: "Send message error",
+        devLogType: "comm.error.send",
+        devLogExtras: { chatId: null },
+        attachSessionCookie,
       });
-      return attachSessionCookie(
-        NextResponse.json(
-          {
-            error: normalized.message,
-            code: normalized.code,
-            retryAfter: normalized.retryAfter ?? null,
-          },
-          { status: normalized.status },
-        ),
-      );
     }
   };
 
