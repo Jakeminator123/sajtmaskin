@@ -615,6 +615,76 @@ export function deriveFollowUpContextPolicy(params: {
   return "normal";
 }
 
+/**
+ * Signal-summed weights for `inferContextPolicy`. The previous version was
+ * a binary OR over a handful of conditions; any single hit jumped straight
+ * from `normal` to `heavy` and the boundary cases (e.g. 4 vs 5 routes) were
+ * unnecessarily lossy.
+ *
+ * Now we sum signal weights and threshold:
+ *   - score >= HEAVY_THRESHOLD → "heavy"
+ *   - else → "normal"
+ *
+ * Weights are intentionally small integers so that a *combination* of
+ * mid-strength signals can still cross HEAVY without any single signal
+ * being decisive — except integrations, which alone are a strong indicator
+ * of "model needs the extra room to wire things together correctly".
+ */
+const CONTEXT_POLICY_HEAVY_THRESHOLD = 4;
+
+function scoreContextPolicy(params: {
+  generationMode: BuildSpecGenerationMode;
+  buildIntent: BuildIntent;
+  routePlan: RoutePlan;
+  routeRealization: RouteRealizationPolicy;
+  preGenerationContracts: PreGenerationContractContext;
+  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  capabilityHeavy: boolean;
+}): number {
+  const {
+    generationMode,
+    buildIntent,
+    routePlan,
+    routeRealization,
+    preGenerationContracts,
+    promptStrategyMeta,
+    capabilityHeavy,
+  } = params;
+  let score = 0;
+
+  if (generationMode === "init") score += 1;
+  if (buildIntent === "app") score += 2;
+  if (capabilityHeavy) score += 1;
+
+  if (
+    promptStrategyMeta?.strategy === "phase_plan_build_refine" ||
+    promptStrategyMeta?.strategy === "preserved"
+  ) {
+    score += 2;
+  }
+
+  const integrationCount = preGenerationContracts.contracts.integrations.length;
+  if (integrationCount > 0) score += 3;
+  if (integrationCount >= 3) score += 1;
+  if (preGenerationContracts.contracts.dataMode === "persisted") score += 2;
+
+  const routeCount = effectiveInitRouteCount({
+    generationMode,
+    routePlan,
+    routeRealization,
+  });
+  if (routeCount > 4) score += 2;
+  else if (routeCount >= 3) score += 1;
+
+  const routePlanHeavyStructure =
+    routePlan.siteType === "app-shell" ||
+    (routePlan.siteType === "content-heavy" && routeCount > 1) ||
+    (routePlan.provenance.primarySource === "scaffold" && routeCount >= 3);
+  if (routePlanHeavyStructure) score += 2;
+
+  return score;
+}
+
 function inferContextPolicy(params: {
   prompt: string;
   generationMode: BuildSpecGenerationMode;
@@ -625,60 +695,28 @@ function inferContextPolicy(params: {
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
   capabilityHeavy: boolean;
-}): BuildSpecContextPolicy {
+}): { policy: BuildSpecContextPolicy; score: number } {
   const {
     prompt,
     generationMode,
     changeScope,
-    buildIntent,
-    routePlan,
-    routeRealization,
-    preGenerationContracts,
-    promptStrategyMeta,
     capabilityHeavy,
   } = params;
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
     if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
-      return "normal";
+      return { policy: "normal", score: 0 };
     }
-    return deriveFollowUpContextPolicy({
-      prompt,
-      capabilityHeavy,
-    });
+    return {
+      policy: deriveFollowUpContextPolicy({ prompt, capabilityHeavy }),
+      score: 0,
+    };
   }
-  const routePlanHeavyStructure =
-    routePlan.siteType === "app-shell" ||
-    (routePlan.siteType === "content-heavy" &&
-      effectiveInitRouteCount({
-        generationMode,
-        routePlan,
-        routeRealization,
-      }) > 1) ||
-    (routePlan.provenance.primarySource === "scaffold" &&
-      effectiveInitRouteCount({
-        generationMode,
-        routePlan,
-        routeRealization,
-      }) >= 3);
 
-  const routeCount = effectiveInitRouteCount({
-    generationMode,
-    routePlan,
-    routeRealization,
-  });
-
-  if (
-    promptStrategyMeta?.strategy === "phase_plan_build_refine" ||
-    promptStrategyMeta?.strategy === "preserved" ||
-    buildIntent === "app" ||
-    routeCount > 4 ||
-    routePlanHeavyStructure ||
-    preGenerationContracts.contracts.integrations.length > 0 ||
-    preGenerationContracts.contracts.dataMode === "persisted"
-  ) {
-    return "heavy";
+  const score = scoreContextPolicy(params);
+  if (score >= CONTEXT_POLICY_HEAVY_THRESHOLD) {
+    return { policy: "heavy", score };
   }
-  return "normal";
+  return { policy: "normal", score };
 }
 
 /**
@@ -688,44 +726,73 @@ function inferContextPolicy(params: {
  * absolute numbers just need enough headroom that block pruning rarely fires
  * unless we're genuinely overflowing.
  *
- * Rationale (as of 2026-04):
- * - Largest scaffold (ecommerce) is ~7.3k tokens fully serialized.
- * - Modern context windows (GPT-5, Claude 4) are 200k+; even `heavy` here
- *   sits at ~80k and leaves plenty for chat history + completion tokens.
- * - `*Chars` mirrors via `CHARS_PER_TOKEN_ESTIMATE = 3.2` for refs and
- *   system context; `scaffoldChars` is intentionally tighter (~1.9 ratio)
- *   so the scaffold block can't dominate the dynamic context.
+ * **Model awareness (added 2026-04-21):** when the caller passes a
+ * `modelContextWindowTokens` value, all three token figures are scaled by
+ * `modelContextWindowTokens / MODEL_BUDGET_BASELINE_TOKENS`, clamped to
+ * `[MODEL_BUDGET_SCALE_MIN, MODEL_BUDGET_SCALE_MAX]`. This lets a 1M-window
+ * model spend ~3× the system-context tokens of a 200k baseline model
+ * without us hardcoding per-provider numbers. Char mirrors are recomputed
+ * from the scaled token figures via `CHARS_PER_TOKEN_RATIO_*`.
  */
-function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): BuildSpecTokenBudgets {
-  switch (contextPolicy) {
-    case "light":
-      return {
-        scaffoldTokens: 13_000,
-        refsTokens: 5_000,
-        systemContextTokens: 22_000,
-        scaffoldChars: 24_000,
-        refsChars: 16_000,
-        systemContextChars: 70_000,
-      };
-    case "heavy":
-      return {
-        scaffoldTokens: 32_000,
-        refsTokens: 16_000,
-        systemContextTokens: 80_000,
-        scaffoldChars: 60_000,
-        refsChars: 50_000,
-        systemContextChars: 256_000,
-      };
-    default:
-      return {
-        scaffoldTokens: 22_000,
-        refsTokens: 12_000,
-        systemContextTokens: 60_000,
-        scaffoldChars: 42_000,
-        refsChars: 38_000,
-        systemContextChars: 192_000,
-      };
-  }
+const MODEL_BUDGET_BASELINE_TOKENS = 200_000;
+const MODEL_BUDGET_SCALE_MIN = 0.6;
+const MODEL_BUDGET_SCALE_MAX = 3.0;
+const CHARS_PER_TOKEN_RATIO_SCAFFOLD = 24_000 / 13_000;
+const CHARS_PER_TOKEN_RATIO_REFS = 16_000 / 5_000;
+const CHARS_PER_TOKEN_RATIO_CONTEXT = 70_000 / 22_000;
+
+const BASE_TOKEN_BUDGETS: Record<BuildSpecContextPolicy, BuildSpecTokenBudgets> = {
+  light: {
+    scaffoldTokens: 13_000,
+    refsTokens: 5_000,
+    systemContextTokens: 22_000,
+    scaffoldChars: 24_000,
+    refsChars: 16_000,
+    systemContextChars: 70_000,
+  },
+  normal: {
+    scaffoldTokens: 22_000,
+    refsTokens: 12_000,
+    systemContextTokens: 60_000,
+    scaffoldChars: 42_000,
+    refsChars: 38_000,
+    systemContextChars: 192_000,
+  },
+  heavy: {
+    scaffoldTokens: 32_000,
+    refsTokens: 16_000,
+    systemContextTokens: 80_000,
+    scaffoldChars: 60_000,
+    refsChars: 50_000,
+    systemContextChars: 256_000,
+  },
+};
+
+function modelBudgetScale(modelContextWindowTokens: number | undefined): number {
+  if (!modelContextWindowTokens || modelContextWindowTokens <= 0) return 1;
+  const raw = modelContextWindowTokens / MODEL_BUDGET_BASELINE_TOKENS;
+  return Math.max(MODEL_BUDGET_SCALE_MIN, Math.min(MODEL_BUDGET_SCALE_MAX, raw));
+}
+
+function tokenBudgetsForContextPolicy(
+  contextPolicy: BuildSpecContextPolicy,
+  modelContextWindowTokens?: number,
+): BuildSpecTokenBudgets {
+  const base = BASE_TOKEN_BUDGETS[contextPolicy];
+  const scale = modelBudgetScale(modelContextWindowTokens);
+  if (scale === 1) return base;
+
+  const scaffoldTokens = Math.round((base.scaffoldTokens ?? 0) * scale);
+  const refsTokens = Math.round((base.refsTokens ?? 0) * scale);
+  const systemContextTokens = Math.round((base.systemContextTokens ?? 0) * scale);
+  return {
+    scaffoldTokens,
+    refsTokens,
+    systemContextTokens,
+    scaffoldChars: Math.round(scaffoldTokens * CHARS_PER_TOKEN_RATIO_SCAFFOLD),
+    refsChars: Math.round(refsTokens * CHARS_PER_TOKEN_RATIO_REFS),
+    systemContextChars: Math.round(systemContextTokens * CHARS_PER_TOKEN_RATIO_CONTEXT),
+  };
 }
 
 function deriveReferenceCategories(
@@ -813,6 +880,30 @@ export function isBuildSpecEnabled(): boolean {
   return FEATURES.useBuildSpec;
 }
 
+function deriveCapabilityFlags(
+  capabilities: InferredCapabilities | null,
+): BuildSpecCapabilityFlags {
+  if (!capabilities) return { heavy: false, signals: [] };
+  const heavyKeys: Array<keyof InferredCapabilities> = [
+    "needsMotion",
+    "needs3D",
+    "needsPhysics",
+    "needsCharts",
+    "needsAppShell",
+    "needsDataUI",
+    "needsEcommerce",
+    "needsCarousel",
+    "needsPremiumVisuals",
+    "needsCalendar",
+    "needsCommandSearch",
+  ];
+  const signals = heavyKeys.filter((key) => capabilities[key] === true);
+  return {
+    heavy: hasHeavyCapabilities(capabilities) || signals.length > 0,
+    signals: signals.map((key) => String(key)),
+  };
+}
+
 export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
   const {
     prompt,
@@ -826,9 +917,11 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     isFirstCodeGeneration,
     existingShellRoutePaths,
     previewPolicyOverride,
+    modelContextWindowTokens,
   } = params;
 
-  const capabilityHeavy = capabilities ? hasHeavyCapabilities(capabilities) : false;
+  const capabilityFlags = deriveCapabilityFlags(capabilities);
+  const capabilityHeavy = capabilityFlags.heavy;
   const routeRealization = deriveRouteRealizationPolicy({
     generationMode,
     buildIntent,
@@ -860,7 +953,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     previewPolicy,
     capabilityHeavy,
   });
-  const contextPolicy = inferContextPolicy({
+  const { policy: contextPolicy, score: contextPolicyScore } = inferContextPolicy({
     prompt,
     generationMode,
     changeScope,
@@ -872,17 +965,21 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     capabilityHeavy,
   });
 
+  const styleResult = inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope);
+
   return {
     buildIntent,
     generationMode,
     changeScope,
     scaffoldId: resolvedScaffold?.id ?? null,
     routePlanSummary: buildRoutePlanSummary(routePlan),
-    stylePack: inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope),
+    stylePack: styleResult.primary,
+    stylePackSecondary: styleResult.secondary,
     qualityTarget,
     previewPolicy,
     verificationPolicy,
     contextPolicy,
+    contextPolicyScore,
     referenceCategories: deriveReferenceCategories(
       resolvedScaffold,
       routePlan,
@@ -894,7 +991,8 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
       changeScope,
       previewPolicy,
     }),
-    tokenBudgets: tokenBudgetsForContextPolicy(contextPolicy),
+    tokenBudgets: tokenBudgetsForContextPolicy(contextPolicy, modelContextWindowTokens),
+    capabilityFlags,
     routeRealization,
   };
 }
