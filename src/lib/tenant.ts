@@ -262,7 +262,7 @@ export async function getEngineChatByIdForRequest(
   return chat;
 }
 
-export async function getEngineVersionByIdForRequest(
+async function getEngineVersionByIdForRequest(
   req: Request,
   versionId: string,
   options?: { sessionId?: string },

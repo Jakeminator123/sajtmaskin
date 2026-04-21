@@ -40,16 +40,6 @@ export function resolveTier3StubPlaceholdersPath(cwd: string = process.cwd()): s
   return resolveFragmentPath(name, cwd);
 }
 
-/**
- * Backwards-compatible alias for callers that just want a path. Returns the
- * harmless fragment path; new callers should pick explicitly.
- * @deprecated Use {@link resolveHarmlessPlaceholdersPath} or
- *   {@link resolveTier3StubPlaceholdersPath}.
- */
-export function resolveGeneratedSitePlaceholdersPath(cwd: string = process.cwd()): string {
-  return resolveHarmlessPlaceholdersPath(cwd);
-}
-
 function readFragmentText(filePath: string): string {
   if (!existsSync(filePath)) {
     throw new Error(`[sajtmaskin] Missing generated-site placeholders file: ${filePath}`);

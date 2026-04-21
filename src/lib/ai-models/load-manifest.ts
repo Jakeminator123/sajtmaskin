@@ -443,7 +443,7 @@ export function getPreGenerationContractsConfigFromManifest(): PreGenerationCont
   return getAiModelsManifest().preGenerationContracts;
 }
 
-export function getWorkloadByIdFromManifest(
+function getWorkloadByIdFromManifest(
   workloadId: string,
 ): AiModelsManifest["workloads"][number] | undefined {
   return getAiModelsManifest().workloads.find((workload) => workload.id === workloadId);
