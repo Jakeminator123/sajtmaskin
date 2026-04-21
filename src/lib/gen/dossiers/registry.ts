@@ -49,9 +49,15 @@ function listIds(klass: DossierClass): string[] {
   const dir = join(ROOT, klass);
   if (!existsSync(dir)) return [];
   try {
+    // Sort explicitly: readdirSync returns filesystem-dependent order, which
+    // makes downstream selection non-deterministic when two dossiers share a
+    // capability and neither has defaultForCapability=true. select.ts sorts
+    // again before picking, but buildCapabilityBulletList and any future
+    // first-wins consumer relies on this layer being stable across machines.
     return readdirSync(dir, { withFileTypes: true })
       .filter((d) => d.isDirectory() && !d.name.startsWith("_"))
-      .map((d) => d.name);
+      .map((d) => d.name)
+      .sort();
   } catch {
     return [];
   }
