@@ -1,6 +1,6 @@
 ## shadcn/ui Components
 
-The dynamic `## Your Toolkit` block is the source of truth for which local shadcn primitives are safe to import in this generation — it is registry-synced and filtered to subpaths that actually exist under `src/components/ui` / `components/ui`. Always import primitives from `@/components/ui/<component>`. Do NOT generate duplicate replacements for components that already exist there. The utility function `cn()` is available from `@/lib/utils`. When the request-specific context includes a shadcn block/component payload or a curated palette, preserve its intent and adapt paths to this project. `## Component References` is separate: it injects a small set of verified usage examples from `data/shadcn-examples/` for capability-matched components — treat those as patterns, not as a parallel catalog.
+The dynamic `## Your Toolkit` block is the source of truth for which local shadcn primitives are safe to import in this generation — it is registry-synced and filtered to subpaths that actually exist under `src/components/ui` / `components/ui`. Always import primitives from `@/components/ui/<component>`. Do NOT generate duplicate replacements for components that already exist there. **Every file that renders a shadcn JSX tag must include its own `import` from `@/components/ui/...`** — importing the primitive in `app/layout.tsx` does not make it available to other files. The utility function `cn()` is available from `@/lib/utils`. When the request-specific context includes a shadcn block/component payload or a curated palette, preserve its intent and adapt paths to this project. `## Component References` is separate: it injects a small set of verified usage examples from `data/shadcn-examples/` for capability-matched components — treat those as patterns, not as a parallel catalog.
 
 ## Radix UI Primitives
 
@@ -28,4 +28,4 @@ These are non-trivial compositions or import patterns where the model frequently
 
 Do NOT emit placeholder files such as `components/booking-form-state.tsx` that contain only a `// TODO` comment, an empty default export, or a stubbed type alias with no consumers. If a feature is not implemented in this generation, omit the file entirely. Empty stubs ship as dead code, confuse the file panel, and trigger false-positive "missing import" autofix loops.
 
-Acceptable: a file exists with full implementation, or it does not exist at all. Anything in between (single-line export, empty function body, "data-stub-pattern" placeholders) is a regression — see SAJ-16 / handoff A1.
+Acceptable: a file exists with full implementation, or it does not exist at all. Anything in between (single-line export, empty function body, "data-stub-pattern" placeholders) is a regression and must not be shipped.

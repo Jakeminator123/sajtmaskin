@@ -68,6 +68,7 @@ import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-examp
 import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
 import { fetchCommunityBlocks } from "./data/community-registry-fetch";
 import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
+import { getModelContextWindowTokens } from "@/lib/models/context-window";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -202,6 +203,14 @@ export interface OrchestrationInput {
    * (`/contact`, `/blog`, …) instead.
    */
   locale?: string;
+  /**
+   * Concrete own-engine model ID that will consume this generation
+   * (e.g. `"gpt-5.4"`, `"claude-sonnet-4.6"`). When provided we look up
+   * the model's input context window via `getModelContextWindowTokens()`
+   * and pass it to `deriveBuildSpec()` so token budgets scale up to ~3×
+   * for 1M-window models. Omit to use legacy 200k-baseline budgets.
+   */
+  engineModelId?: string | null;
 }
 
 export interface OrchestrationBase {
@@ -627,6 +636,10 @@ export async function resolveOrchestrationBase(
     existingShellRoutePaths,
     previewPolicyOverride:
       input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
+    // Q5a (2026-04-21): scale token budgets based on the resolved
+    // model's input context window. Was implemented in build-spec but
+    // never wired — 1M-window models silently used 200k-baseline budgets.
+    modelContextWindowTokens: getModelContextWindowTokens(input.engineModelId),
   });
   const buildSpec = inheritQualityTargetFromPriorVersion(
     input.chatId,

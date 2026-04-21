@@ -234,6 +234,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   required?: boolean;
 }> = [
   { match: /^generation mode:/i, priority: 100, required: true },
+  { match: /^generation stage:/i, priority: 96, required: true },
   { match: /^custom instructions/i, priority: 100, required: true },
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },

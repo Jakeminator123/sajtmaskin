@@ -582,6 +582,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // brief→codegen drift. If preMatchVariant is null, async picker runs.
           // getVariantById fallback in orchestrate.ts re-picks if id is stale.
           persistedVariantId: preMatchVariant?.id ?? null,
+          // Q5a: pass resolved engine model id so deriveBuildSpec scales
+          // tokenBudgets to the model's actual context window.
+          engineModelId: resolveEngineModelId(resolvedModelTier),
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);

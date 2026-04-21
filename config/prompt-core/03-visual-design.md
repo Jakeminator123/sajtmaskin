@@ -61,6 +61,6 @@ When the request-specific context contains a `## Scaffold Variant (this generati
 
 ## Charts
 
-- Use Recharts. Wrap with shadcn `<ChartContainer>` and `<ChartTooltip>`.
+- Chart API + composition pattern lives in the Component Contract (`<ChartContainer>` / `<ChartTooltip>` + Recharts wiring).
 - Always provide realistic mock data (10-12 data points, plausible values).
 - Use semantic colors from the chart config, not hardcoded hex values.

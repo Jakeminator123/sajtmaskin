@@ -155,7 +155,10 @@ type DeriveBuildSpecParams = {
   resolvedScaffold: ScaffoldManifest | null;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
-  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  promptStrategyMeta?: Pick<
+    PromptStrategyMeta,
+    "strategy" | "promptType" | "complexityScore"
+  > | null;
   capabilities?: InferredCapabilities | null;
   /**
    * True when this is the first real code generation in a chat that already
@@ -799,7 +802,17 @@ export function deriveFollowUpContextPolicy(params: {
  * being decisive — except integrations, which alone are a strong indicator
  * of "model needs the extra room to wire things together correctly".
  */
-const CONTEXT_POLICY_HEAVY_THRESHOLD = 4;
+// Q5b (2026-04-21): lowered from 4 → 3 to push more borderline cases into
+// `heavy`. Combined with the new `complexityScore`-input below this nets
+// roughly 5–15% more requests on heavy budgets — accepted cost for fewer
+// "section truncated" pruning incidents on rich prompts. Backfill via env:
+// `SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD=4` restores the old behavior.
+const CONTEXT_POLICY_HEAVY_THRESHOLD =
+  Number.parseInt(process.env.SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD ?? "", 10) || 3;
+
+// Threshold at which `analyzeComplexity().score` from prompt orchestration
+// is treated as "high enough to add a heavy-bias signal".
+const COMPLEXITY_SCORE_HEAVY_BIAS_THRESHOLD = 4;
 
 function scoreContextPolicy(params: {
   generationMode: BuildSpecGenerationMode;
@@ -807,7 +820,10 @@ function scoreContextPolicy(params: {
   routePlan: RoutePlan;
   routeRealization: RouteRealizationPolicy;
   preGenerationContracts: PreGenerationContractContext;
-  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  promptStrategyMeta?: Pick<
+    PromptStrategyMeta,
+    "strategy" | "promptType" | "complexityScore"
+  > | null;
   capabilityHeavy: boolean;
 }): number {
   const {
@@ -830,6 +846,15 @@ function scoreContextPolicy(params: {
     promptStrategyMeta?.strategy === "preserved"
   ) {
     score += 2;
+  }
+
+  // Q5b: high prompt complexity (many bullets, sections, requirement keywords,
+  // attachments) gets a heavy-bias bump. analyzeComplexity returns 0–9.
+  if (
+    typeof promptStrategyMeta?.complexityScore === "number" &&
+    promptStrategyMeta.complexityScore >= COMPLEXITY_SCORE_HEAVY_BIAS_THRESHOLD
+  ) {
+    score += 1;
   }
 
   const integrationCount = preGenerationContracts.contracts.integrations.length;
@@ -862,7 +887,10 @@ function inferContextPolicy(params: {
   routePlan: RoutePlan;
   routeRealization: RouteRealizationPolicy;
   preGenerationContracts: PreGenerationContractContext;
-  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  promptStrategyMeta?: Pick<
+    PromptStrategyMeta,
+    "strategy" | "promptType" | "complexityScore"
+  > | null;
   capabilityHeavy: boolean;
 }): { policy: BuildSpecContextPolicy; score: number } {
   const {

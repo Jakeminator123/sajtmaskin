@@ -86,11 +86,15 @@ Härledd policy-bundle som styr körningen.
 
 ### Token-budgetar per `contextPolicy`
 
+Källa: `BASE_TOKEN_BUDGETS` i `src/lib/gen/build-spec.ts` (~rad 913).
+
 | Policy | scaffoldTokens | refsTokens | systemContextTokens |
 |---|---|---|---|
-| `light` | 11 250 | 3 750 | 15 000 |
-| `normal` | 18 000 | 9 000 | 40 000 |
-| `heavy` | 25 000 | 12 500 | 50 000 |
+| `light` | 13 000 | 5 000 | 22 000 |
+| `normal` | 22 000 | 12 000 | 60 000 |
+| `heavy` | 32 000 | 16 000 | 80 000 |
+
+Baserade på 200k-fönster. Skalas av `modelBudgetScale()` mellan **0.6×** och **3.0×** beroende på `modelContextWindowTokens` (1M-fönstermodeller får ~3× systemContextTokens). Char-mirrors räknas ut via `CHARS_PER_TOKEN_RATIO_*`.
 
 ---
 

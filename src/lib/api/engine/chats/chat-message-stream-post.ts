@@ -436,8 +436,11 @@ export async function handleMessageStreamRequest(
             includeStructuralInventory: true,
           });
 
-          const elementPreservationReminder =
-            "IMPORTANT: When you emit a file, your output FULLY REPLACES that file. Every section, media element (<video>, play buttons, <canvas>, <iframe>, <form>, 3D components), and interactive block from the previous version MUST appear in your output unless you were explicitly asked to remove it. The host will reject files where structural elements are missing.";
+          // Element Preservation Rule lives in the system prompt's
+          // `## Generation Mode: Follow-Up` block (richer version with
+          // examples). Previously also re-stated here as
+          // `elementPreservationReminder` — removed to avoid double-emit
+          // (Q11.1, see docs/plans/active/llm-flow-quickwins.md).
 
           if (skipIntentClassification) {
             optimizedMessage = wrapWithSection({
@@ -445,7 +448,6 @@ export async function handleMessageStreamRequest(
               introLines: [
                 "Apply the requested change precisely. Do not modify unrelated sections or files.",
                 "Return only the files you need to create or modify. Files you omit will be kept as-is.",
-                elementPreservationReminder,
               ],
               body: fileCtx.summary,
               divider: true,
@@ -471,7 +473,6 @@ export async function handleMessageStreamRequest(
                   followUpIntent === "clear-redesign"
                     ? "You may still reuse useful content or information architecture from the current project when relevant."
                     : "",
-                  elementPreservationReminder,
                 ],
                 body: fileCtx.summary,
               }),
@@ -806,6 +807,9 @@ export async function handleMessageStreamRequest(
           chatId,
           followUpIntent: previousFiles.length > 0 ? followUpIntent : undefined,
           priorQualityTarget,
+          // Q5a: pass resolved engine model id so deriveBuildSpec scales
+          // tokenBudgets to the model's actual context window.
+          engineModelId: resolveEngineModelId(resolvedModelTier),
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);

@@ -1,0 +1,113 @@
+Jag vill aha en animarad köttbille i tree.js eller fiber.. va fasen ska jag prompta.. Den ska vara ovanfrö heade och allt.. eller läskeburk föresten
+För att få AI-motorn att bygga en flygande 3D-snusdosa ovanför hela sidan räcker det att beskriva form, material och rörelse väldigt konkret. Till exempel:
+
+1. Beskriv objektet: “3D-snusdosa i guld/brons med logotyp i relief, lätt metallglans.”
+2. Säg var den ska synas: “Placera dosan i ett eget Canvas-lager som ligger över hela hero-sektionen (ovanpå rubrik och knappar).”
+3. Beskriv animationen: “Låt dosan sväva runt i mjuka banor, rotera långsamt och reagera lite på muspekarens rörelser. Lägg till svag skugga/glow så den känns integrerad.”
+4. Lägg till fallback: “Om reduced motion är aktiv, frys den till en stilla pose.”
+
+Vill du få exakt kod kan du också hänvisa till React Three Fiber-komponenten (som `FlyingSnusCan`) och be om import och montering i hero-sektionens container. Hojta om du vill att jag syr ihop en komplett snippet!
+Gör prompten årt mig.. Typ en cocacolaburk so msvävar över allt på förstasidan typ
+Självklart — här är en prompt du kan klistra in direkt:
+
+“Skapa ett fristående React Three Fiber-lager över hela hero-sektionen med en svävande 3D Coca-Cola-burk. Burken ska ha realistisk metallglans, tydlig logotyp och subtil kondens/glow. Använd mjuka, elliptiska rörelser över hela förstasidan ovanför rubriker och knappar, med långsam rotation och lätt respons på muspekarens rörelser. Lägg till en mjuk skugga/reflektion så den känns förankrad och inkludera reduced-motion-fallback där burken stannar i en elegant pose.”
+
+Säg till om du vill ha färdig kod också!
+Står ju bar a"
+Genererar 1 fil
+…
+flying-meatball-canvas.tsx
+258L".. Ingen av mina colaburkar..
+Det ser ut som AI:n håller på att skapa komponenten just nu (därav “Genererar 1 fil … flying-meatball-canvas.tsx”). Vänta någon minut så borde versionen dyka upp i förhandsvisningen. Om den inte syns efter en stund kan vi trigga en ny byggning eller kolla loggarna.
+nix
+Ok, då testar vi igen. Klistra in prompten ett varv till i builderns chatt (eller be explicit om att ersätta komponenten) och kör. Om filen fortfarande inte uppdateras efter ~1 min kan vi:
+
+1. Öppna versionshistoriken och se om byggningen fastnat (felmeddelanden brukar synas där).
+2. Kör “Generate again” så AI:n gör ett nytt försök.
+3. Om allt annat misslyckas kan jag hjälpa dig lägga in en färdig `CocaColaCan`-komponent manuellt.
+
+Säg till vilket spår du vill ta så guidar jag steg för steg.
+Vad är det faktisrt som agenten näs av? Altså massa gamma logg, sedan är meddelandet ett av flera kalsser.. tyc "heavy" eller "ligeht" eller vilka olikartade meddelande kan den få?
+Agenten tar emot vanliga chattmeddelanden (det du skriver), men i bakgrunden loggas även mer detaljerad körinfo—t.ex. “heavy” eller “light” beroende på hur resurskrävande en åtgärd var, kommandon som körs, felutskrifter osv. Dessa loggar hjälper teamet att förstå vad som hände under en byggning eller ett automatiskt steg, men själva agenten svarar bara på chattdelen och använder loggarna för att felsöka eller anpassa sig.
+hur "stor" tycker du denna förändringa är på sidan ?2 Kan du göra denna text responsiv mot om jag drar musen runt och omkring den? "Kaffe, böcker och lugn i ett stilla hörn av Linnéstaden"?"? Frå n1 - 100?
+Jag skulle säga att förändringen är runt 35/100 – en ganska tydlig visuell effekt men fortfarande lokal till hero-området. För att göra citatet responsivt mot muspekaren kan vi lägga ett absolut positionerat lager ovan texten som följer pekaren och driver en liten transform/blur/glow-reaktion i textens CSS. Vill du ha en konkret kodsnutt för det?
+Varöfr "förstår" den inte mig så bra? Altås det var ju texten och inte bakgrunden som jag ville ändra.. Ä det "motion"Det finns säkert andra saker, men just nu pratar vi om 3D. Om jag skulle vilja ha något som kräver en helt annan `depth` eller bibliotek, alltså en helt annan uppsättning. Vi har lagt till några autofixare för detta, men hur blir det om vi behöver något helt annat nästa gång? Kommer vi behöva gå igenom den här processen med varje paket som finns till `Next`?... något som måte in, eller lucid-react? Eller vad är det som gör att det inte "fattar" som du gör?
+Den automatiska byggaren tolkar bara det du skriver i prompten och har inga egna antaganden om vad som gäller för text vs bakgrund. När du beskrev “responsiv text” utan detaljer om hur den ska reagera försökte den fylla i luckorna med det den redan vet (t.ex. bakgrundseffekter). För att styra den bättre behöver du vara extremt konkret: “lägg `pointermove` på hero-texten, ändra `transform: translate/scale` med X värden från musen, använd CSS-variabler för glow” osv. Ju mer exakt, desto mindre chans att den “gissar fel”.
+
+När det gäller helt nya bibliotek (lucid-react, djupare 3D-stack m.m.) funkar det så här:
+1. Vi beskriver exakt vilket paket som ska installeras och varför.
+2. Vi anger importvägar och hur komponenten ska bäddas in.
+3. Om paketet inte finns i projektet kör vi en extra byggning så autofixaren kan lägga till det.
+
+Ibland räcker inte autofixen (om paketet kräver konfiguration eller server-side hooks). Då behöver vi manuellt lägga in koden eller justera `tsconfig`, `next.config` osv. Kort sagt: byggaren “fattar” när den har tydliga instruktioner och paketen är kompatibla, men nya depth-lager eller bibliotek kräver alltid en explicit beställning – ibland med efterföljande handpåläggning.
+Skriv en prompt som indirekt kräver en installation så ska jag prova
+Här är en formulering som indirekt kräver att AI-motorn installerar ett nytt bibliotek:
+
+“Lägg in ett interaktivt glasskulptur-lager ovanför hela hero-sektionen med React Three Fiber + react-three-drei. Skapa en glaspyramid med reflekterande IBL via `@react-three/drei` (OrbitControls, Environment och MeshTransmissionMaterial). Basen ska följa muspekaren med parallax, rotation och kromatisk dispersion. Om reduced motion är aktiverat ska du frysa den i en stilla pose men fortfarande rendera transmission-materialet. Montera komponenten i `Hero` och se till att alla nödvändiga imports och dependencies finns.”
+Ä r detta mycket "05:59:04.387 [prompt-cache] System prompt lengths { total: 99601, static: 43982, dynamic: 55584 }"? hur mkt i kronor är detta?
+Det där loggradet betyder bara att total prompt (systeminstruktioner + dynamiska delar) var ~99 601 tecken vid det tillfället. Det är ett internt mått på promptlängd, inte ett kvitto på kostnad i kronor. Kostnaden baseras på hur många token som faktiskt skickas genom modellen och vilket pris modellen har per 1 000 token. Så du kan inte översätta det loggradet direkt till pengar utan att veta modellen och den totala tokenvolymen för körningen.
+Vad tycker du är den sämsta aspekten av hur meddelandena och chatten skickas? Är det för många systemprompts, för mycket tidigare kontext eller för många dynamiska instruktioner? Vad säger du?
+Den jobbigaste delen är mängden dynamiska instruktioner som staplas på varandra. Ju fler lager (builderregler, roller, säkerhet, promptförstärkning), desto större risk att signalen blandas ut och att modellen svarar på fel nivå. Systemprompten är stor men statisk; den kan man leva med. Det är den ständiga injektionen av nya kontextblock som gör flödet tungrott och svårare att styra exakt.
+Har du fler tips. VI är i dev-läge. jag äger denna sajt
+Eftersom du kör i dev-läge kan du nyttja några saker mer aggressivt:
+
+1. **Var hyperkonkret i prompten** – beskriv exakt vilka filer, komponenter och effekter som ska ändras. Säg t.ex. “uppdatera `HeroHeading` i `components/hero.tsx` så texten roterar med `pointermove`” istället för “gör texten responsiv”.
+2. **Bryt upp arbetet** – be AI:n göra en sak i taget (installera paket → skapa komponent → montera). Det minskar risken att den hoppar mellan spår.
+3. **Låt loggarna guida** – efter varje generering, kolla loggutdraget. Ser du “TS2322” eller liknande, ge en snabb prompt som bara fixar den raden.
+4. **Cachesanera vid behov** – om buildern fastnar, töm chatten eller skapa en ny version så du slipper släpa runt gammal kontext.
+5. **Förbered fallback** – eftersom du äger sajten kan du alltid hoppa in manuellt: skapa filen i repo:t, kör `npm install` själv och trigga en ny deploy. Då får AI:n en frisk startpunkt nästa gång.
+
+Säg bara till vad du vill testa härnäst så tar vi det steg för steg.
+mm men jag enar som jag har orchistrerat hela mitt projekt med oliak prompt-delar som skciakr som "follow ups"
+Jag fattar – när man bygger upp ett helt promptflöde med uppföljningar blir det lätt att signalen spretar. Ett par sätt att hålla orkestreringen tajt:
+
+1. **Tagga varje del**: döp blocken till t.ex. `// hero-motion`, `// typography`, `// deployment`. Då blir det tydligt vad som hör ihop, både för dig och för modellen.
+2. **Håll “follow ups” små**: låt varje uppföljning göra exakt en sak. När en bugg dyker upp, skriv “Fix TS2322 … ändra bara X till Y”. Det gör det enklare att backa och förstå historiken.
+3. **Rotera kontexten**: när en uppföljning är klar, sammanfatta den och rensa bort gamla detaljinstruktioner. Annars växer prompten tills allt blir brus.
+4. **Automatisera sanity checks**: bygg en liten checklista i början (“Installera paket → skapa komponent → montera i Hero”) som varje follow-up refererar till. Då slipper du repetera samma grundinstruktioner.
+
+Vill du kan jag hjälpa till att paketera dina follow-ups i ett standardformat, så blir de enklare att underhålla.
+HUr kan du göra det?
+Jag kan ta fram ett enkelt “follow-up”-format åt dig. Till exempel:
+
+1. **Syfte:** en mening om vad som ska uppnås.
+2. **Scope:** vilka filer/komponenter/beroenden som får ändras.
+3. **Instruktioner:** numrerad lista med exakta steg (installera X, uppdatera Y, fixa TS-fel Z).
+4. **Exit-kriterium:** vad som ska vara sant när steget är klart (t.ex. “HeroHeading reagerar på musen utan lint-fel”).
+
+Vill du att jag skriver ett konkret exempel baserat på senaste glas-/textprompten?
+Så en ai-assistent ska lixom göra detta.. men mina 100k cache oc hannan kontext då. hur ska denna hanteras?
+För en AI-assistent med 90–100 k tecken i promptcachen gäller: håll varje uppföljning knivskarp så den bara beskriver aktuella ändringar, sammanfatta avslutade steg och rensa bort gammal detaljkontext löpande. Dela upp arbetet i små, taggade block (ett per fil/funktion) så det går att kasta och ersätta utan att hela promptstacken släpar efter. På så vis slipper du bära runt onödig historik, men behåller de delar som verkligen behövs för nästa steg.
+jam en det är ju jag som lixom råkat fixa så att allt orchistreras såhär
+Jag fattar — det är du som byggt upp hela orkestern, och då blir det lätt att promptstacken växer åt alla håll. Vill du att jag hjälper dig paketera om den i ett tydligt format (t.ex. numererade block, “done”-sammanfattningar, gemensam checklista) så att framtida follow-ups blir enklare att styra? Säg hur mycket du vill att jag tar över, så gör vi det på ditt sätt.
+hur ser det ut.. Vi fick kanske inte vår glaspyramid?
+Nej, någon glaspyramid syns inte i den aktuella versionen ännu. För att kontrollera kör du gärna “Versionshistorik” i buildern och se om senaste körningen ens skapade filen `components/glass-pyramid-canvas.tsx`/monterade den i Hero. Om den inte finns där behöver vi trigga en ny generering med prompten eller lägga in komponenten manuellt i projektet och importera den i `Hero`. Säg till vilket spår du vill köra så guidar jag dig igenom stegen.
+Kna du förkalar vad os mgick snett?
+Troligen gick bygget aldrig hela vägen: paketet `@react-three/drei` lades visserligen till och filen `glass-pyramid-canvas.tsx` skapades, men koden kapades mitt i (den slutar mitt i en `rotation.y`-rad) och komponenten monterades aldrig i `Hero`. När AI:n avbryts så där rullas inte ändringen ut i versionen, vilket är varför du varken ser glaspyramiden eller någon buildlogg om den. Vi kan antingen be buildern generera om samma steg (så den får chans att slutföra filen) eller stoppa in hela komponenten + import/montage manuellt för att vara säkra. Vilket vill du testa?
+körde "Autofix". Får se vad som sker då.. Men om inte annat provar jag igen
+Toppen, låt autofix köra klart och se om den får med glaspyramiden den här gången. Om den fortfarande saknas efter körningen tar vi ett nytt försök med en uppdelad prompt eller bygger in komponenten manuellt – hojta bara vad resultatet blir!
+Nu då? Känns som llmen får önödigtmycket annan kontext som den inte behöver elelr har jag fel?
+Jag håller med – promptstacken drar runt massor av historik just nu, så varje ny körning får onödigt brus. För att snabba upp flödet kan du börja rensa gamla follow-ups ur chatten, ha en kort initprompt (t.ex. “INSTALLERA X → SKAPA KOMPONENT Y → MONTERA I HERO”) och sedan lägga varje åtgärd i en egen, superkonkret uppföljning. Då blir signalen renare och modellen får bara det den behöver för steget du kör exakt då. Vill du att jag skriver ett färdigt “kort initprompt + två follow-ups”-paket åt dig?
+Skriv vad jag ska göra som DEV och ägare av sajtmaskin för att förbättra flödet ist
+För att förbättra flödet som dev/ägare:
+
+1. **Rensa promptstacken regelbundet** – behåll bara en kort initprompt + aktuella follow-ups. Arkivera gamla block i en separat “logg”-fil om du behöver historik.
+2. **Standardisera formatet** – skriv varje follow-up så här: `Syfte → Scope → Steg → Exit-kriterium`. Tagga blocken (t.ex. `[hero-motion]`, `[deps]`) så du enkelt kan lyfta ut/ersätta dem.
+3. **Sekvensera åtgärder** – kör install → komponent → montage som separata builder-steg. Det minskar risken att modellen gör allt på en gång och snubblar.
+4. **Lagra kritiska instruktioner i repo** – t.ex. en `PROMPTS.md` där du sparar basprompter och checklistor. Då slipper du dra runt dem i chatten varje gång.
+5. **Automatisera lint/build-feedback** – låt autofix eller egna skript mata in den kortaste möjliga “fix TSxxxx”-prompten så fort ett fel dyker upp, i stället för att låta det ligga och spä på kontexten.
+
+Följ det som en loop: rensa → startprompt → en uppgift i taget → logga klart → rensa. Då får både du och modellen renare signaler och mindre strul.
+varför funakr inte min parralax?
+Troligen händer inget för att parallaxlagret aldrig tas i bruk: `HeroParallaxContainer`-filen du skapade slutar mitt i en rad (ingen komplett `rotation.y`/`export`-hook), så Next kastar bort komponenten och den monteras aldrig runt hero-texten. Dessutom saknas CSS som läser `--parallax-shift/tilt`-variablerna, så även om JS körs skulle texten stå still. Lös det så här:
+
+1. Öppna `components/hero-parallax-container.tsx` och säkerställ att hookar, eventhandlers och export avslutas korrekt. Filen ska kompilera utan fel.
+2. Slå in hero-innehållet i `<HeroParallaxContainer>` och ge den `className` som sätter `will-change: transform` och läser variablerna (t.ex. `transform: translate(var(--parallax-shift-x), var(--parallax-shift-y)) rotateX(...)`).
+3. Lägg CSS i samma komponent eller i `globals.css` så textens wrapper faktiskt reagerar på variablerna.
+4. Kontrollera också `prefers-reduced-motion`: om systemet har det på kommer hooken att nollställa alla värden, så testa i ett fönster utan den inställningen.
+
+När filen är komplett och variablerna används i CSS ska parallaxen börja svara direkt på muspekaren.
+timeout? Trunkering.. vad tror du?
+Förmodligen båda: den tidigare genereringen kapade filen i mitten (trunkering), vilket gör att komponenten inte exporteras klart och Next ignorerar den. Samtidigt kan buildern ha timeout:at när promptstacken var stor, så koden hann aldrig skrivas färdigt. Säkraste lösningen är att öppna `components/hero-parallax-container.tsx`, komplettera resten av logic/exporten manuellt och se till att hero-sektionen faktiskt omsluts av komponenten – då slipper du att den faller bort vid nästa timeout.
+Vad ersätts det med istället? är det någon mxgräns på tecken.. måste va anan kontext som ersätter?
+Buildern jobbar alltid inom modellens token-tak (både system + din prompt + koden den försöker skriva). När allt inte får plats börjar modellen flörta med trunkering: d.v.s. den slutar mitt i filen och resten uteblir. Det är alltså ingen “ersättning” som läggs in – det som inte fick plats skrivs helt enkelt aldrig ut. Därför känns det som filen byts ut eller “annat tar plats”. Lösningen är att hålla promptstacken kort och jobba i små, separata block så varje körning ryms inom gränsen.

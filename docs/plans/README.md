@@ -28,6 +28,17 @@ När ett nytt riktigt arbetsspår startar:
 
 **Använd git-trackade filer här** i stället för Cursor-interna planfiler utanför repot — en sanning för teamet och CI.
 
+### Arkivering / radering är önskvärt
+
+`active/`-mappen ska representera **arbete som styr just nu** — inte ett museum. Så fort ett spår är avslutat:
+
+- **Levererat och stabilt** → `git mv` filen till `docs/plans/avklarat/` så historik bevaras. Lägg en kort `## Postamble`-paragraf med commit-hash + datum innan flytten.
+- **Daterad handoff/sessionsanteckning** (t.ex. `handoff-2026-MM-DD-next-session.md`) → `git rm` direkt när nästa session startat. Git-historiken bevarar innehållet; aktiv mapp ska inte vara en logg.
+- **Övergivet utkast** (planerades, blev aldrig påbörjat) → `git rm` med kort commit-message som förklarar varför.
+- **Pågående men sovande** (`blocked_by` annan plan) → behåll, men sätt `status: paused` i frontmatter så det syns i översikten.
+
+Riktmärke: om `active/` växer förbi ~10 filer är det ett tecken på att en städ-runda är försenad. Då är det helt OK att radera utkast som inte längre känns viktiga — git-historiken är alltid en knapp bort.
+
 ## Arkiv (`avklarat/`)
 
 - [`README.md`](./avklarat/README.md) — kort historiktabell och pekare. Om äldre planfiler saknas i trädet, använd git-historik i stället för att återskapa brutna länkar här.

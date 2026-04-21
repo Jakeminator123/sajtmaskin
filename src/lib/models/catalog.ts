@@ -24,6 +24,7 @@ export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
 /** Concrete model IDs for the own engine. */
 export const OWN_MODEL_IDS = [
   "gpt-5.4",
+  "gpt-5.4-mini",
   "gpt-5.3-codex",
   "gpt-5.2",
   "gpt-4.1",

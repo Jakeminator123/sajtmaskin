@@ -138,6 +138,8 @@ google-services.json
 # README:n committas så konventionen är synlig för agenter på andra maskiner.
 .cursor/bugs/*
 !.cursor/bugs/README.md
+.cursor/handoffs/*
+!.cursor/handoffs/README.md
 
 # Logs
 *.log
