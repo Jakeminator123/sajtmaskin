@@ -65,8 +65,6 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 |------|-----------|--------|
 | Raw Prompt | Obearbetad prompttext | kanonisk |
 | Prompt Formatting | Minimal wrapper (MÅL + TILLGÄNGLIGHET). Fallback — körs bara utan brief. | kanonisk |
-| ~~Prompt Rewrite~~ | LLM-driven förbättring (Förbättra). Borttagen — ersatt av Deep Brief → server-side expansion. | **borttagen** |
-| ~~Prompt Polish~~ | Lätt copy-editor (Skriv om). Borttagen — ersatt av Deep Brief → server-side expansion. | **borttagen** |
 | Prompt Orchestration | Strategi-/budget-/trunkerings-gate; väljer PromptStrategy | kanonisk |
 | Prompt Strategy | `direct`, `phase_plan_build_refine`, `preserved` | kanonisk |
 | Prompt Type | `wizard`, `freeform`, `technical`, `app`, `template`, etc. | kanonisk |
@@ -79,7 +77,6 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Fallback Brief | Deterministisk minimal brief utan LLM (variant-defaults + prompt-heuristik). Planerad men ej implementerad. | planerad |
 | Delta-Brief | Partiell brief-uppdatering vid `clear-redesign` follow-ups. `classifyFollowUpIntent() === "clear-redesign"` → kör `tryGenerateServerAutoBrief` med redesign-prompt + `priorDesignContext` (från `briefSummary` i snapshot) + variant-hints (pre-match). Ger Kod-LLM:en strukturerad designkontext vid redesigns istället för rått textmeddelande. | kanonisk |
 | Shallow / Prompt-only | Inget brief-objekt. Prompten wrappas av `formatPrompt()` (MÅL/TILLGÄNGLIGHET) och nyckelord extraheras heuristiskt av `buildDynamicInstructionAddendumFromPrompt()`. Legacy-fallback. | kanonisk |
-| ~~WebsiteSpec / SajtmaskinSpec~~ | Spec-first LLM-genererat strukturobjekt. `specMode` default false sedan Fas 1 världsklass. | **legacy** |
 | Build Intent | `template \| website \| app` — vad användaren vill bygga | kanonisk |
 | Build Method | `wizard \| category \| audit \| freeform \| kostnadsfri` — hur entry skedde | kanonisk |
 | Generation Mode | `init \| followUp` | kanonisk |
@@ -92,13 +89,6 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Core Rules | Oföränderliga produktregler från `config/prompt-core/*.md` (stack, format, beteende, a11y, import, visuell baseline, content voice). Läses av `static-core-loader.ts` via `config/codegen-core-manifest.json`. Ersätter "Static Core". Sedan 2026-04-18 ingår även `03-visual-design.md` och `04-coding-direction.md` som tidigare låg i den borttagna directive-cascaden. | kanonisk |
 | Static Core | Alias för Core Rules. Legacy-term — använd "Core Rules" i nya sammanhang. | alias |
 | Per-Request Signal Cascade | Prioritetsordning för designsignal: (1) brief explicit (colorPalette, typography, mustHave), (2) brief inferred (domainProfile, motionLevel, qualityBar), (3) guidance-resolvers heuristik, (4) statiska defaults i `prompt-core/`. Renderas i `## Design Priority`-blocket. Ersätter den tidigare "Directive Cascade" som hade en aspirationell substitutionsmotor som aldrig användes. | kanonisk |
-| ~~Directives~~ | Adaptiv promptmodul-katalog `config/prompt-directives/*.md` + `directive-loader.ts`. **Borttagen 2026-04-18**: bara 2 av 12 filer injicerades runtime. Innehållet flyttat till `prompt-core/03-visual-design.md` + `prompt-core/04-coding-direction.md`. Per-request signal lever i brief, scaffold-variant och guidance-resolvers. | **borttagen** |
-| ~~Directive Cascade~~ | 4-nivå resolution-modell. **Borttagen 2026-04-18** tillsammans med directive-katalogen. Ersatt av "Per-Request Signal Cascade". | **borttagen** |
-| ~~Prompt Assist (paraply)~~ | Otydligt samlingsnamn. Rewrite/Polish/model-picker borttagna. Deep Brief lever kvar. | **borttagen** |
-| ~~StructuredBrief~~ | Docs-synonym för Deep Brief | **döda** |
-| ~~simplifiedBriefSchema~~ | Borttaget brief-schema med 34 optionals, failade Anthropic >24 | **döda** |
-| ~~gateway (provider-etikett)~~ | Historisk synonym för "openai" i PromptAssistProvider. Nu `"openai"`. | **döda** |
-| ~~summarize (PromptStrategy)~~ | Aldrig producerad strategi, borttagen ur typen | **döda** |
 
 ---
 
@@ -142,10 +132,6 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Template-Library | Kuraterad referensartefakt byggd från externa Vercel-templates | kanonisk |
 | Dossier | Återanvändbar legokloss (capability-baserad) som injiceras i codegen-prompten. Per-dossier `manifest.json` + `instructions.md` + ev. komponenter. Klassifieras `hard` (behöver env-secrets) eller `soft` (självförsörjande). Två kod-fideliteter: `verbatim` (LLM emit:ar byte-exakt) eller `rewritable` (LLM får adaptera). Full spec: [`dossier-system.md`](./dossier-system.md). Schema: [`dossier.schema.json`](../schemas/strict/dossier.schema.json). Se även "Dossier System (v2)" nedan. | kanonisk |
 | Scaffold-Variant Inventarium | Beslutsunderlag i [`docs/architecture/scaffold-system.md`](./scaffold-system.md) — per-scaffold och per-variant tabell med kvalitet och förslag på cleanup. Inte runtime-data. | kanonisk |
-| ~~Capability Pack~~ | Borttaget. `buildCapabilityHints()` täcker behovet. | **borttaget** |
-| ~~Enhancement Pack~~ | Borttaget. Prompts styr via static core. | **borttaget** |
-| ~~DynamicContextAssembly~~ | Docs-synonym | **döda** |
-| ~~OwnEngineGenerator~~ | Docs-namn utan kodsymbol | **döda** |
 
 ---
 
@@ -184,7 +170,6 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Preflight | Teknisk kontroll inför preview: routing, filkonsistens, blocking | kanonisk |
 | Quality Gate | Binärt pass/fail-beslut. Två lanes (2026-04): `designPreview` (F2) och `integrationsBuild` (F3). | kanonisk |
 | Quality Gate Tiers | Manifeststyrda check-profiler i `config/ai_models/manifest.json` (`qualityGateTiers`). 4-lane-shapen (`tier2`/`serverVerify`/`promotion`/`interactive`) konsoliderades 2026-04 till `designPreview`/`integrationsBuild`. | kanonisk |
-| ~~`tier2` / `serverVerify` / `promotion` / `interactive` (lanes)~~ | Gamla lane-namn. Konsoliderade 2026-04. | **borttagna** — se `designPreview` / `integrationsBuild` |
 | `designPreview` (lane) | F2 quality gate. `["typecheck"]`. Kör efter finalize och i bakgrunds-`server-verify`. | kanonisk |
 | `integrationsBuild` (lane) | F3 quality gate. `["typecheck", "build"]`. Används vid promotion / "Bygg integrationer"-flödet. | kanonisk |
 | Server Verify | Asynkron verify + repair-loop efter finalize | kanonisk |
@@ -204,7 +189,6 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Post-Checks | Client-side post-genererings-orkestrering | kanonisk |
 | Engine Version Lifecycle | `draft`, `verifying`, `repairing`, `repair_available`, `failed`, `promoted` | kanonisk |
 | Scaffold Retry | Sen diagnos + scaffoldpivot-förslag vid misslyckad generation | kanonisk |
-| ~~PostChecksAndQualityGate~~ | Sammansatt docs-term | **döda** |
 
 ---
 
@@ -236,7 +220,6 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | `previewPending` | Finalize klar, preview väntas | kanonisk |
 | `previewUrlHint` | Temporär VM-hint, inte slutlig previewUrl | kanonisk |
 | `legacyShimPreviewUrl` | Shim-/fallback-URL | legacy |
-| ~~sandbox~~ (generell term) | Legacy-/compat-term | **legacy** — använd VM / `preview_host` |
 | Fidelity 2 / 3 | F2 = `previewPolicy: fidelity2` (design-loopen, npm install + next dev). F3 = `previewPolicy: fidelity3` (integrationer, install + build + dev). F3 triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design` (knappen "Bygg nu" i preview-panelens chrome). Auto-promotering från prompt-heuristik (t.ex. "deploy-ready", `RELEASE_CANDIDATE_PATTERNS`) borttagen 2026-04. **Sedan Block C3 (2026-04-21):** vid lyckad finalize-design auto-startas själva F3-genereringen via `useSendMessage` med `meta.lifecycleStage: "integrations"` + `meta.parentVersionId` (`BuilderShellContent.onF3Ready`) — användaren behöver alltså inte skicka ett separat chat-meddelande efter finalize. Knappen själv är disabled när `vm.isAnyStreaming` är true så ett dubbel-klick inte kan racea aktiv stream. | kanonisk |
 | LifecycleStage | `"design"` (F2) eller `"integrations"` (F3). Härleds från `BuildSpec.previewPolicy` vid version-insert och persisteras i `engine_versions.lifecycle_stage`. F3-versioner pekar på sin F2-fork via `engine_versions.parent_version_id`. | kanonisk |
 | Tier-3 Integration / "tredje gradens integration" | Integration vars env-keys måste ha riktiga värden för att fungera vid runtime (Stripe-secret, Supabase-URL, Redis, OpenAI, …). Per-key-klassificering i `src/lib/integrations/placeholder-harmless.ts`. **Sedan P31 (2026-04-21):** F3-gaten blockerar bara på keys där dossiern markerar `enforcement: "build"`. `feature-runtime` och `warn-only` rapporteras som warning/info. `allowPlaceholdersInF3`-toggle (på `project_data.meta`) lyfter dessutom placeholder-täckta `build`-keys ur blockersättet med tydlig varning. **Sedan 2026-04-21 kväll (dossier-brief-sync):** `deriveTier3BuildSpec` clampar dessutom mot dossier-backing — integrationer utan en matchande hard-/soft-dossier på disk nedgraderas automatiskt från `requiredRealEnvKeys` → `warnOnlyEnvKeys` (ingen generad fil skulle ändå konsumera nycklarna). Verifieras av `validateTier3Readiness` via både `/finalize-design` och `/readiness` (samma helper `resolveSelectedDossiersFromSnapshot` används av båda). | kanonisk |
@@ -336,13 +319,23 @@ Tagen läses av `tier3-build-spec.ts` och `project-env-resolver.ts`. Saknas tag 
 | `detectScaffoldMode()` | Var död kod, borttagen |
 | `applyScaffoldTraits()` | Borttagen, traits i manifest direkt |
 | `EXTENDED_CUSTOM_INSTRUCTIONS` | Borttagen; `LEGACY_EXTENDED_CUSTOM_INSTRUCTIONS` kvar som compat |
-| `simplifiedBriefSchema` | Borttaget; `siteBriefSchema` är enda schemat |
+| `simplifiedBriefSchema` / `StructuredBrief` | Borttagna brief-aliases; `siteBriefSchema` / Brief är kanoniska |
 | `GATEWAY_ASSIST_MODELS` | Borttagen re-export; använd `ASSIST_MODELS` |
-| `isGatewayAssistModel()` | Borttagen; ersatt av `isOpenAIAssistModel()` |
-| `SPEC_FILE_INSTRUCTION` | Borttagen ur init-flödet (specMode default false) |
+| `isGatewayAssistModel()` / gateway (provider-etikett) | Borttagna; ersatt av `isOpenAIAssistModel()` och `"openai"` |
+| `SPEC_FILE_INSTRUCTION` | Borttagen 2026-04-22 — inga callers kvar |
+| `WebsiteSpec / SajtmaskinSpec` / `processPromptWithSpec` / `briefToSpec` / `promptToSpec` / `/api/ai/spec` / `SPEC_MODEL` / `SAJTMASKIN_SPEC_MODEL` / `DEFAULT_SPEC_MODE` / `specMode`-query | Hela spec-first-kedjan borttagen 2026-04-22. Deep Brief är enda pre-generation-expansionen. |
+| `SAJTMASKIN_BUILD_SPEC_ENABLED` / `SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION` / `SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT` / `SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED` | Fyra dormant FEATURES-flaggor hårdkodade ON 2026-04-22. Env-keys borta. |
+| `isBuildSpecEnabled()` / `buildSpecEnabled` SSE-meta-fält | Borttagna 2026-04-22 tillsammans med `useBuildSpec`. |
+| `MAX_AI_SPEC_PROMPT_CHARS` / `maxAiSpecPromptChars` | Borttagna 2026-04-22 — bara deleted spec-route var konsument. |
+| `pendingSpecRef` (builder-hooks) | Borttagen 2026-04-22; ref sattes alltid till null, ingen reader. |
 | `RELEASE_CANDIDATE_PATTERNS` | Borttagen 2026-04. Auto-promotering till F3 från prompt-keywords ("deploy-ready", "production") togs bort när F3 blev en explicit knapp. |
 | `qualityGateTiers.tier2` / `serverVerify` / `promotion` / `interactive` | Borttagna 2026-04. Konsoliderade till `designPreview` (F2) + `integrationsBuild` (F3). |
 | `40-generated-site-integration-placeholders.env.txt` | Splittad 2026-04 i `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`. |
+| `Prompt Rewrite` / `Prompt Polish` / `Prompt Assist (paraply)` | Borttagna; ersatt av Deep Brief → server-side expansion. |
+| `Directives` / `Directive Cascade` | Borttagna 2026-04-18. Innehåll flyttat till `prompt-core/03-visual-design.md` + `prompt-core/04-coding-direction.md`. Ersatt av "Per-Request Signal Cascade". |
+| `summarize` (PromptStrategy) | Aldrig producerad strategi; borttagen ur typen. |
+| `Capability Pack` / `Enhancement Pack` / `DynamicContextAssembly` / `OwnEngineGenerator` / `PostChecksAndQualityGate` | Borttagna docs-termer utan kodsymbol; ersatt av ägande-moduler. |
+| `sandbox` (generell term) | Legacy-term — använd VM / `preview_host`. |
 
 ---
 
@@ -365,4 +358,4 @@ Tagen läses av `tier3-build-spec.ts` och `project-env-resolver.ts`. Saknas tag 
 
 ---
 
-Senast uppdaterad: 2026-04-18 (Directive cascade borttagen — 10 oanvända directive-filer + directive-loader.ts + manifest + 2 backoffice-pages raderade. visual-design och content-voice flyttade till prompt-core. "Per-Request Signal Cascade" ersätter "Directive Cascade" som term). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-22 (Cleanup-wave pass 1 — spec-first-kedjan + 4 dormant FEATURES-flaggor + `pendingSpecRef` + `SPEC_FILE_INSTRUCTION` borttagna på dagens master. 17 `~~strikethrough~~`-rader rensade ur huvudtabellerna; referenserna lever kvar i "Legacy som inte ska återintroduceras"). Versionhistorik finns i git.
