@@ -168,6 +168,12 @@ export interface MediaCatalogItem {
   source?: "user" | "stock";
   /** Attribution text for stock assets (photographer, provider). */
   credit?: string;
+  /**
+   * Semantic role of the asset. `logo` gets a dedicated header/footer note
+   * in the media-catalog system-prompt block; other values are rendered
+   * generically. Undefined falls back to the generic image treatment.
+   */
+  kind?: "logo" | "image" | "video";
 }
 
 export interface DesignReferenceAsset {
@@ -204,6 +210,16 @@ export interface DynamicContextOptions {
   componentReferences?: { name: string; code: string }[];
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
   dossierSelection?: DossierSelectionResult | null;
+  /**
+   * B3: structured build-out-request for a shell page. Rendered as a high-
+   * priority directive block so the model treats this follow-up as a targeted
+   * build-out rather than a regeneration of the whole site.
+   */
+  buildOut?: {
+    path: string;
+    intent?: string | null;
+    name?: string | null;
+  } | null;
 }
 
 function str(v: unknown): string {
@@ -238,6 +254,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   required?: boolean;
 }> = [
   { match: /^generation mode:/i, priority: 100, required: true },
+  { match: /^build-out request$/i, priority: 99, required: true },
   { match: /^custom instructions/i, priority: 100, required: true },
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
@@ -474,6 +491,7 @@ export function buildDynamicContext(
     buildSpec,
     sessionSeed,
     componentReferences,
+    buildOut,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -497,6 +515,27 @@ export function buildDynamicContext(
       "- Pay special attention to: `<video>` elements, video placeholder UIs (play buttons, poster images), `<canvas>`, `<iframe>`, `<form>`, 3D scenes (`<Canvas>`, `<Physics>`), inline SVGs, and custom media components.",
       "- \"Change the hero\" means change its styling/content — NOT remove the video player or media element inside it.",
       "- The host merge guard will reject your file and keep the old version if it detects structural elements were dropped. Write the complete file correctly the first time.",
+      "",
+    );
+  }
+
+  // ── Build-Out Request (targeted shell-route expansion) ─────────────────
+  if (buildOut?.path) {
+    const displayName = buildOut.name?.trim() || buildOut.path;
+    parts.push(
+      "## Build-Out Request",
+      "",
+      `The user clicked "build out" for the shell route **${buildOut.path}** (${displayName}). Expand ONLY this route with full content, copy, and interactive sections that match the rest of the site.`,
+      "",
+    );
+    if (buildOut.intent?.trim()) {
+      parts.push(
+        `Planned intent for this page (from the route plan): ${buildOut.intent.trim()}`,
+        "",
+      );
+    }
+    parts.push(
+      "Do NOT redesign unrelated pages or the global layout. Keep existing navigation, theme tokens, and shared components intact.",
       "",
     );
   }
@@ -1279,9 +1318,30 @@ export function buildDynamicContext(
       "Use the following media assets by their alias. The aliases will be expanded to full URLs during post-processing.",
       "",
     );
+    const hasStockCredits = mediaCatalog.some(
+      (item) => item.source === "stock" && item.credit,
+    );
+    const logoItem = mediaCatalog.find((item) => item.kind === "logo");
     for (const item of mediaCatalog.slice(0, 30)) {
       const altText = item.alt ? ` (${item.alt})` : "";
-      parts.push(`- \`{{${item.alias}}}\`${altText}`);
+      const creditSuffix =
+        item.source === "stock" && item.credit
+          ? ` — stock, credit: ${item.credit}`
+          : "";
+      const kindSuffix = item.kind === "logo" ? " — **LOGO**" : "";
+      parts.push(`- \`{{${item.alias}}}\`${altText}${creditSuffix}${kindSuffix}`);
+    }
+    if (logoItem) {
+      parts.push(
+        "",
+        `Place \`{{${logoItem.alias}}}\` in the site header (h-8 to h-12), the footer, and the contact page as an \`<img>\`. Do NOT replace the logo with plain text, an icon, or a placeholder.`,
+      );
+    }
+    if (hasStockCredits) {
+      parts.push(
+        "",
+        "When using stock media, include a small attribution line (e.g. in the footer or About section) such as `Photo: <credit>` for each stock asset actually rendered. Do not fabricate photographer names.",
+      );
     }
     parts.push("");
   }

@@ -145,6 +145,30 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
           confidence: scaffoldRetryData.confidence as "medium" | "high",
         }
       : null;
+  const shrinkRetryRoot =
+    root?.shrinkRetry && typeof root.shrinkRetry === "object"
+      ? (root.shrinkRetry as Record<string, unknown>)
+      : null;
+  const shrinkRetryNested =
+    nested?.shrinkRetry && typeof nested.shrinkRetry === "object"
+      ? (nested.shrinkRetry as Record<string, unknown>)
+      : null;
+  const shrinkRetryData = shrinkRetryNested ?? shrinkRetryRoot;
+  const shrinkRetry =
+    shrinkRetryData &&
+    Array.isArray(shrinkRetryData.files) &&
+    typeof shrinkRetryData.reason === "string" &&
+    typeof shrinkRetryData.retryPrompt === "string" &&
+    typeof shrinkRetryData.ctaLabel === "string"
+      ? {
+          files: shrinkRetryData.files.filter(
+            (value): value is string => typeof value === "string",
+          ),
+          reason: shrinkRetryData.reason,
+          retryPrompt: shrinkRetryData.retryPrompt,
+          ctaLabel: shrinkRetryData.ctaLabel,
+        }
+      : null;
   const routePlanRoot =
     root?.routePlan && typeof root.routePlan === "object"
       ? (root.routePlan as Record<string, unknown>)
@@ -167,6 +191,7 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
     !issueCategories &&
     !previewStart &&
     !scaffoldRetry &&
+    !shrinkRetry &&
     !routePlan
   ) {
     return null;
@@ -180,6 +205,7 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
     issueCategories,
     previewStart,
     scaffoldRetry,
+    shrinkRetry,
     routePlan,
   };
 }

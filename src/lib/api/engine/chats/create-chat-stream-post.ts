@@ -46,16 +46,11 @@ import {
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths, type MediaCatalogItem } from "@/lib/gen/system-prompt";
 import {
-  buildStockImageQueries,
-  fetchStockImages,
-  fetchStockVideos,
-  type StockImagePurpose,
-} from "@/lib/media/stock-providers";
-import {
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
+import { buildMediaCatalogForOrchestration } from "./build-media-catalog";
 import { createCommitCreditsOnce } from "./credits-handler";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
@@ -664,105 +659,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const metaPalette = parsedMeta.palette;
         const designReferences = summarizeDesignReferences(requestAttachments);
 
-        const mediaCatalog: MediaCatalogItem[] = requestAttachments
-          .filter((a) => a.mimeType?.startsWith("image/") || /\.(jpe?g|png|gif|webp|svg)$/i.test(a.url))
-          .map((a, i) => ({
-            alias: `USER_IMG_${i + 1}`,
-            url: a.url,
-            alt: a.purpose || a.filename || `User image ${i + 1}`,
-            source: "user" as const,
-          }));
-
-        // Stock-media fallback: top up with Unsplash when user assets are
-        // sparse (<3 images → hit at least 1 hero + 2 gallery). Pexels video
-        // is gated by ENABLE_PEXELS (default off); only adds a hero-loop when
-        // the user uploaded none of their own.
-        {
-          const userImageCount = mediaCatalog.length;
-          const briefLike = (metaBrief ?? {}) as Record<string, unknown>;
-          const briefOffer =
-            (typeof briefLike.oneSentencePitch === "string" && briefLike.oneSentencePitch) ||
-            (typeof briefLike.tagline === "string" && briefLike.tagline) ||
-            (typeof briefLike.description === "string" && briefLike.description) ||
-            optimizedMessage;
-          const briefCategoryId =
-            (typeof briefLike.categoryId === "string" && briefLike.categoryId) ||
-            (typeof briefLike.siteType === "string" && briefLike.siteType) ||
-            null;
-          const briefIndustry = typeof briefLike.industry === "string" ? briefLike.industry : null;
-
-          const purposes: StockImagePurpose[] = [];
-          if (userImageCount < 1) purposes.push("hero-image");
-          const galleryDeficit = Math.max(0, 2 - Math.max(0, userImageCount - (userImageCount < 1 ? 0 : 1)));
-          for (let i = 0; i < galleryDeficit; i += 1) purposes.push("gallery-image");
-
-          if (purposes.length > 0) {
-            const queries = buildStockImageQueries({
-              categoryId: briefCategoryId,
-              industry: briefIndustry,
-              offer: typeof briefOffer === "string" ? briefOffer : null,
-              purposes,
-            });
-            try {
-              const fetched = (
-                await Promise.all(queries.map((q) => fetchStockImages(q.query, 1)))
-              ).flat();
-              fetched.forEach((asset, i) => {
-                mediaCatalog.push({
-                  alias: `STOCK_IMG_${i + 1}`,
-                  url: asset.url,
-                  alt: asset.alt,
-                  source: "stock",
-                  credit: `${asset.credit.name} (${asset.credit.provider})`,
-                });
-              });
-              debugLog("orchestration", "Stock image fallback merged", {
-                requested: purposes.length,
-                received: fetched.length,
-                userImageCount,
-              });
-            } catch (err) {
-              debugLog("orchestration", "Stock image fallback failed (non-fatal)", {
-                err: err instanceof Error ? err.message : String(err),
-              });
-            }
-          }
-
-          const hasUserVideo = requestAttachments.some(
-            (a) => a.mimeType?.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(a.url),
-          );
-          if (!hasUserVideo) {
-            try {
-              const [videoQuery] = buildStockImageQueries({
-                categoryId: briefCategoryId,
-                industry: briefIndustry,
-                offer: typeof briefOffer === "string" ? briefOffer : null,
-                purposes: ["hero-image"],
-              });
-              if (videoQuery) {
-                const videos = await fetchStockVideos(videoQuery.query, 1);
-                videos.forEach((asset, i) => {
-                  mediaCatalog.push({
-                    alias: `STOCK_VID_${i + 1}`,
-                    url: asset.url,
-                    alt: asset.alt,
-                    source: "stock",
-                    credit: `${asset.credit.name} (${asset.credit.provider})`,
-                  });
-                });
-                if (videos.length > 0) {
-                  debugLog("orchestration", "Stock video fallback merged", {
-                    received: videos.length,
-                  });
-                }
-              }
-            } catch (err) {
-              debugLog("orchestration", "Stock video fallback failed (non-fatal)", {
-                err: err instanceof Error ? err.message : String(err),
-              });
-            }
-          }
-        }
+        const {
+          mediaCatalog,
+          urlMapOverrides: mediaCatalogUrlOverrides,
+        } = await buildMediaCatalogForOrchestration({
+          requestAttachments,
+          brief: metaBrief,
+          offerFallback: optimizedMessage,
+        });
 
         const orchestrationInput = {
           prompt: optimizedMessage,
@@ -975,13 +879,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         });
         const compressUrlsStartedAt = Date.now();
         const { compressed: enginePrompt, urlMap: baseUrlMap } = compressUrls(optimizedMessage);
-        // Merge media catalog aliases into the URL map so {{USER_IMG_n}} tokens expand in generated code
-        const urlMap: Record<string, string> = { ...baseUrlMap };
-        if (mediaCatalog.length > 0) {
-          for (const item of mediaCatalog) {
-            urlMap[item.alias] = item.url;
-          }
-        }
+        const urlMap: Record<string, string> = { ...baseUrlMap, ...mediaCatalogUrlOverrides };
         debugLog("engine", "Prompt URL compression complete", {
           durationMs: Date.now() - compressUrlsStartedAt,
           originalPromptLength: optimizedMessage.length,

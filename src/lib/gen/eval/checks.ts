@@ -25,8 +25,165 @@ export interface Tier2ReadinessInput {
   previewBlockingReason: string | null;
 }
 
-const BRACKET_PLACEHOLDER_RE =
-  /\[(?:Butiksnamn|Företagsnamn|Produktnamn|Pris|Kundens namn|Company Name|Product Name|Brand Name|Your (?:Company|Brand|Product))\]/gi;
+/**
+ * Known scaffold placeholder prefixes. When a file contains text of the
+ * form `[<prefix>...]`, the LLM did not replace the scaffold stub with real
+ * Swedish/English content. We keep the list explicit (not a generic
+ * `[A-Z...]`-regex) to avoid catching legitimate JSX patterns like
+ * `items[0]`, dynamic route segments in comments (`[slug]`), or code
+ * accessors. Update when a new scaffold introduces a new placeholder kind.
+ */
+export const BRACKET_PLACEHOLDER_PREFIXES: readonly string[] = [
+  // Brand / identity
+  "Butiksnamn",
+  "Företagsnamn",
+  "Produktnamn",
+  "Projektnamn",
+  "Brand Name",
+  "Company Name",
+  "Product Name",
+  "Your Company",
+  "Your Brand",
+  "Your Product",
+  // Pricing
+  "Pris",
+  "Priser",
+  "Paket",
+  "Inkluderat",
+  "Från",
+  // Content blocks
+  "Rubrik",
+  "Huvudrubrik",
+  "Ingress",
+  "Kort slagord",
+  "Kort förklaring",
+  "Kort ingress",
+  "Kort kundlöfte",
+  "Kort meta-beskrivning",
+  "Kort sammanfattning",
+  "Kort text",
+  "Kort företagsbeskrivning",
+  "Meta-beskrivning",
+  "Beskriv",
+  "1–2 meningar",
+  "1-2 meningar",
+  // Structural sections
+  "Sektion",
+  "Sektionsetikett",
+  "Etikett",
+  "Sidopanelens rubrik",
+  "Kolumn",
+  "Länk",
+  "Kategori",
+  "Erbjudande",
+  "Fördel",
+  "Nyckeltal",
+  "Punkt",
+  "Tjänst",
+  "Bransch",
+  "Ort",
+  // CTAs
+  "CTA",
+  "Primär CTA",
+  "Sekundär CTA",
+  // Trust / about
+  "Social proof",
+  "Förtroendesignal",
+  "Kundcitat",
+  "Kundens namn",
+  "Auktoriserad",
+  "Auktorisation",
+  "Namn på",
+  "X år",
+  "X specialister",
+  "Y+",
+  "År",
+  "av organ",
+  // Process
+  "Första kontakt",
+  "Behovsanalys",
+  "Förslag",
+  "Leverans",
+  "Hur kunden",
+  "Hur ni",
+  "Själva leveransen",
+  "Tydligt upplägg",
+  "Text som uppmanar",
+  // Contact
+  "Kontakt",
+  "Roll",
+  "Gatuadress",
+  "Postnummer",
+];
+
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Sort by length descending so longer, more specific prefixes match first
+// (e.g. "Primär CTA" before "CTA"). After the prefix we allow either `]`
+// (bare placeholder) or a non-identifier continuation (space, hyphen,
+// punctuation) followed by arbitrary text up to `]`. That prevents false
+// positives like `[CTAcomputed]` while still matching `[CTA-rubrik]`.
+const SORTED_PLACEHOLDER_PREFIXES = [...BRACKET_PLACEHOLDER_PREFIXES].sort(
+  (a, b) => b.length - a.length,
+);
+
+const BRACKET_PLACEHOLDER_RE = new RegExp(
+  `\\[(?:${SORTED_PLACEHOLDER_PREFIXES.map(escapeRegex).join("|")})(?:[-\\s,.:;!?/()"'][^\\]]*)?\\]`,
+  "gu",
+);
+
+/** Files considered critical for placeholder-blocking preview. */
+const CRITICAL_PLACEHOLDER_FILES = [
+  /(^|\/)app\/page\.tsx$/,
+  /(^|\/)src\/app\/page\.tsx$/,
+  /(^|\/)app\/layout\.tsx$/,
+  /(^|\/)src\/app\/layout\.tsx$/,
+];
+
+function isCriticalPlaceholderFile(filePath: string): boolean {
+  return CRITICAL_PLACEHOLDER_FILES.some((re) => re.test(filePath));
+}
+
+export interface PlaceholderHitSummary {
+  file: string;
+  count: number;
+  samples: string[];
+}
+
+/**
+ * Return per-file placeholder hit counts. Used by finalize-preflight to
+ * decide whether to block the preview (critical files only) and by the
+ * eval runner to score the no-placeholder gate.
+ */
+export function findBracketPlaceholderHits(files: CodeFile[]): PlaceholderHitSummary[] {
+  const summaries: PlaceholderHitSummary[] = [];
+  for (const file of files) {
+    const matches = file.content.match(BRACKET_PLACEHOLDER_RE);
+    if (!matches || matches.length === 0) continue;
+    const unique: string[] = [];
+    const seen = new Set<string>();
+    for (const match of matches) {
+      if (seen.has(match)) continue;
+      seen.add(match);
+      unique.push(match);
+      if (unique.length >= 5) break;
+    }
+    summaries.push({ file: file.path, count: matches.length, samples: unique });
+  }
+  return summaries;
+}
+
+/**
+ * Return placeholder hits that live in critical scaffold files (home page,
+ * layout). These are the ones finalize-preflight blocks the preview on.
+ */
+export function findCriticalPlaceholderHits(files: CodeFile[]): PlaceholderHitSummary[] {
+  return findBracketPlaceholderHits(files).filter((entry) =>
+    isCriticalPlaceholderFile(entry.file),
+  );
+}
 
 export function checkProjectSanity(files: CodeFile[]): CheckResult {
   const result = runProjectSanityChecks(files);
@@ -67,11 +224,8 @@ export function checkProjectSanity(files: CodeFile[]): CheckResult {
 }
 
 export function checkNoBracketPlaceholders(files: CodeFile[]): CheckResult {
-  let totalHits = 0;
-  for (const file of files) {
-    const matches = file.content.match(BRACKET_PLACEHOLDER_RE);
-    if (matches) totalHits += matches.length;
-  }
+  const hits = findBracketPlaceholderHits(files);
+  const totalHits = hits.reduce((sum, entry) => sum + entry.count, 0);
 
   if (totalHits === 0) {
     return {
@@ -82,10 +236,15 @@ export function checkNoBracketPlaceholders(files: CodeFile[]): CheckResult {
     };
   }
 
+  const sample = hits
+    .slice(0, 3)
+    .map((entry) => `${entry.file} (${entry.count})`)
+    .join("; ");
+
   return {
     name: "no-bracket-placeholders",
     passed: false,
-    message: `Found ${totalHits} bracket placeholder(s) that should be replaced with real content`,
+    message: `Found ${totalHits} bracket placeholder(s) that should be replaced with real content: ${sample}`,
     score: Math.max(0, 1 - totalHits * 0.25),
   };
 }

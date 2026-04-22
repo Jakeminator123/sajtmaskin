@@ -267,6 +267,18 @@ export function useSendMessage(
         promptMeta.modelId = engineModel;
         promptMeta.imageGenerations = enableImageGenerations;
 
+        // MessageOptions.meta — consumer-supplied extras (t.ex.
+        // `lifecycleStage: "integrations"` + `parentVersionId` från F3-trigger
+        // eller `buildOut: { path, intent, name }`) mergas sist så de kan
+        // överskriva defaults men hålls helt opt-in.
+        if (options.meta && typeof options.meta === "object") {
+          for (const [key, value] of Object.entries(options.meta)) {
+            if (value !== undefined) {
+              promptMeta[key] = value;
+            }
+          }
+        }
+
         requestBody = {
           message: finalMessage,
           modelId: selectedModelTier,

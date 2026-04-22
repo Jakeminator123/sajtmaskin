@@ -15,6 +15,11 @@ import {
   inferScaffoldRetrySuggestion,
   type ScaffoldRetrySuggestion,
 } from "@/lib/gen/scaffolds/scaffold-aware-retry";
+import {
+  buildShrinkRetrySuggestion,
+  hasCriticalShrink,
+  type ShrinkRetrySuggestion,
+} from "./shrink-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { isVerifierPassEnabled, runVerifierPass } from "@/lib/gen/verify/verifier-pass";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -27,9 +32,11 @@ import { debugLog, warnLog } from "@/lib/utils/debug";
 import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
 import { buildFinalizePreflightLogBundle } from "./finalize-preflight-logs";
 import {
+  createFinalizePreflightIssue,
   type FinalizePreflightIssue,
   runFinalizePreflight,
 } from "./finalize-preflight";
+import { buildPreviewStartContract } from "./preflight-contract";
 import { mergeGeneratedProjectFiles } from "./finalize-merge";
 import { injectIntegrationManifestIntoFilesJson } from "@/lib/integrations/inject-integration-manifest";
 import { injectProjectEnvFileIntoFilesJson } from "@/lib/gen/preview/project-env-file";
@@ -106,6 +113,19 @@ export interface FinalizeResult {
   preflight: PreviewPreflightSummary;
   /** Files whose new content was rejected (< 50% of prior size). Surfaced to user via SSE. */
   rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
+  /**
+   * Hardened retry suggestion when a critical page/layout file was shrunken
+   * and the scaffold fallback had to be kept. Consumed by the UI to display
+   * a "Försök igen med mer innehåll"-CTA and (optionally) auto-invoke it
+   * once per generation.
+   */
+  shrinkRetry: ShrinkRetrySuggestion | null;
+  /**
+   * Top verifier-blocking findings (max 5) surfaced from finalize preflight.
+   * Empty when no blocking findings were produced. Consumed by the UI to show
+   * the top 1–3 details in the post-check panel when verification was blocked.
+   */
+  verifierBlockingFindings: Array<{ id: string; detail: string }>;
 }
 
 interface FinalizePathPolicy {
@@ -259,6 +279,7 @@ interface FinalizeFastPathResult {
   previewBlockingReason: string | null;
   finalizedFilesForPreview: CodeFile[];
   scaffoldRetry: ScaffoldRetrySuggestion | null;
+  shrinkRetry: ShrinkRetrySuggestion | null;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
   stepTelemetry: FinalizeStepTelemetryMap;
   rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
@@ -1047,6 +1068,41 @@ async function runFinalizeFastPath(params: {
     }
   }
 
+  // Shrink-retry: when the merge-guard rejected a critical page/layout
+  // because the LLM emitted a stub, block preview and surface a hardened
+  // retry-prompt. Otherwise the scaffold-with-placeholders would leak to
+  // the user as if it were the finished sajt.
+  const shrinkRetry = buildShrinkRetrySuggestion(rejectedShrinks);
+  if (shrinkRetry) {
+    previewBlockingReason =
+      previewBlockingReason ??
+      "Modellen producerade ett för litet `app/page.tsx` — scaffold-platshållare kvar. Försök igen.";
+    const shrinkIssue = createFinalizePreflightIssue(
+      shrinkRetry.files[0] || "app/page.tsx",
+      "error",
+      `Shrink-guard: modellen skickade en kraftigt nedbantad version av ${
+        shrinkRetry.files.join(", ") || "app/page.tsx"
+      }. Preview blockad tills ny generering fyller platshållarna.`,
+      "code_structure_failure",
+    );
+    preflightIssues = [...preflightIssues, shrinkIssue];
+    preflightResult = {
+      ...preflightResult,
+      preflightIssues,
+      previewBlockingReason,
+      previewStart: buildPreviewStartContract({
+        issues: preflightIssues,
+        finalizedPreviewFileCount: finalizedFilesForPreview.length,
+      }),
+    };
+    devLogAppend("in-progress", {
+      type: "shrink-retry.suggested",
+      chatId,
+      files: shrinkRetry.files,
+      previewBlockingReason,
+    });
+  }
+
   stepTelemetry.parse_merge_preflight = createFinalizeStepTelemetry(
     parseMergePreflightStartedAt,
     "done",
@@ -1055,6 +1111,7 @@ async function runFinalizeFastPath(params: {
       issueCount: preflightIssues.length,
       previewBlocked: Boolean(previewBlockingReason),
       scaffoldRetrySuggested: scaffoldRetry?.suggestedScaffoldId ?? null,
+      shrinkRetrySuggested: shrinkRetry ? shrinkRetry.files : null,
     },
   );
 
@@ -1068,6 +1125,7 @@ async function runFinalizeFastPath(params: {
     previewBlockingReason,
     finalizedFilesForPreview,
     scaffoldRetry,
+    shrinkRetry,
     verifierBlockingFindings,
     stepTelemetry,
     rejectedShrinks,
@@ -1232,6 +1290,7 @@ export async function finalizeAndSaveVersion(
     previewBlockingReason,
     finalizedFilesForPreview,
     scaffoldRetry,
+    shrinkRetry,
     verifierBlockingFindings,
     stepTelemetry: fastPathStepTelemetry,
     rejectedShrinks,
@@ -1623,8 +1682,11 @@ export async function finalizeAndSaveVersion(
       issueCategories: [...new Set(preflightIssues.map((issue) => issue.category))],
       previewStart: preflightResult.previewStart,
       scaffoldRetry,
+      shrinkRetry,
       routePlan,
     },
     rejectedShrinks: rejectedShrinks ?? [],
+    shrinkRetry,
+    verifierBlockingFindings: verifierBlockingFindings ?? [],
   };
 }

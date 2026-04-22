@@ -129,6 +129,10 @@ export async function runPostGenerationChecks(params: {
   versionId: string;
   demoUrl?: string | null;
   preflight?: PreviewPreflightState | null;
+  /** Files rejected by the merge guard due to suspicious shrink. */
+  rejectedShrinks?: Array<{ file: string; previousSize: number; newSize: number }>;
+  /** Top verifier blocking findings from finalize. */
+  verifierBlockingFindings?: Array<{ id: string; detail: string }>;
   assistantMessageId: string;
   setMessages: SetMessages;
   streamQuality?: StreamQualitySignal;
@@ -140,6 +144,8 @@ export async function runPostGenerationChecks(params: {
     versionId,
     demoUrl,
     preflight,
+    rejectedShrinks = [],
+    verifierBlockingFindings = [],
     assistantMessageId,
     setMessages,
     streamQuality,
@@ -201,6 +207,8 @@ export async function runPostGenerationChecks(params: {
       sanityWarnings: baseline.sanityWarnings,
       imageValidation,
       resolvedDemoUrl: baseline.resolvedDemoUrl,
+      rejectedShrinks,
+      verifierBlockingFindings,
     });
 
     void persistVersionErrorLogs({

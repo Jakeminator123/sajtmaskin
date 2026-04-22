@@ -19,7 +19,10 @@ export const CANONICAL_MODEL_IDS = ["fast", "pro", "max", "codex", "anthropic"] 
 
 export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
 
-export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
+// "max" mappar mot buildProfiles.defaults.max (gpt-5.4) i manifestet —
+// bästa modellen för hemsideskapande. Kan fortfarande bytas per chat via
+// modell-väljaren i BuilderHeader ("Snabb"/"Lagom"/"Tanker"/"Kod Max"/"Anthropic").
+export const DEFAULT_MODEL_ID: CanonicalModelId = "max";
 
 /** Concrete model IDs for the own engine. */
 export const OWN_MODEL_IDS = [

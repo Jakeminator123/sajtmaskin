@@ -6,6 +6,8 @@ import {
   checkSeoPublishReadiness,
   checkTier2Readiness,
   checkVisualQuality,
+  findBracketPlaceholderHits,
+  findCriticalPlaceholderHits,
 } from "./checks";
 
 describe("checkProjectSanity", () => {
@@ -109,6 +111,51 @@ describe("checkNoBracketPlaceholders", () => {
     const result = checkNoBracketPlaceholders(files);
     expect(result.passed).toBe(false);
     expect(result.message).toContain("bracket placeholder");
+  });
+
+  it("detects Swedish scaffold placeholders like [Butiksnamn] and [Rubrik]", () => {
+    const files: CodeFile[] = [
+      {
+        path: "app/page.tsx",
+        content:
+          "export default function Page(){return <main><h1>[Rubrik som säger vad företaget gör]</h1><p>[Butiksnamn]</p></main>}",
+        language: "tsx",
+      },
+    ];
+    const hits = findBracketPlaceholderHits(files);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.count).toBeGreaterThanOrEqual(2);
+    expect(hits[0]!.samples.join(" ")).toContain("Rubrik");
+  });
+
+  it("does NOT flag benign JSX patterns like items[0] or dynamic route segments", () => {
+    const files: CodeFile[] = [
+      {
+        path: "app/page.tsx",
+        content:
+          "export default function Page(){ const items=['a','b']; return <main>{items[0]}<a href='/blog/[slug]'>link</a></main>}",
+        language: "tsx",
+      },
+    ];
+    const hits = findBracketPlaceholderHits(files);
+    expect(hits).toHaveLength(0);
+  });
+
+  it("treats app/page.tsx as critical and app/components/Foo.tsx as non-critical", () => {
+    const files: CodeFile[] = [
+      {
+        path: "app/page.tsx",
+        content: "<h1>[Huvudrubrik]</h1>",
+        language: "tsx",
+      },
+      {
+        path: "app/components/Foo.tsx",
+        content: "<p>[Ingress]</p>",
+        language: "tsx",
+      },
+    ];
+    const critical = findCriticalPlaceholderHits(files);
+    expect(critical.map((entry) => entry.file)).toEqual(["app/page.tsx"]);
   });
 });
 

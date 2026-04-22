@@ -133,6 +133,8 @@ export interface PostCheckArtifacts {
       status: "manual" | "pass" | "fail";
       expectation: string;
     }>;
+    rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
+    verifierBlockingFindings: Array<{ id: string; detail: string }>;
   };
   logItems: VersionErrorLogPayload[];
 }
@@ -277,6 +279,8 @@ export function buildPostCheckArtifacts(params: {
   sanityWarnings: SanityIssue[];
   imageValidation: ImageValidationResult | null;
   resolvedDemoUrl: string | null;
+  rejectedShrinks?: Array<{ file: string; previousSize: number; newSize: number }>;
+  verifierBlockingFindings?: Array<{ id: string; detail: string }>;
 }): PostCheckArtifacts {
   const {
     currentFileCount,
@@ -300,6 +304,8 @@ export function buildPostCheckArtifacts(params: {
     sanityWarnings,
     imageValidation,
     resolvedDemoUrl,
+    rejectedShrinks = [],
+    verifierBlockingFindings = [],
   } = params;
 
   const previewBlockingReason = getPreviewBlockingReason(preflight);
@@ -397,6 +403,11 @@ export function buildPostCheckArtifacts(params: {
   if (preflight?.scaffoldRetry) {
     steps.push(
       `Scaffold retry: byt från ${preflight.scaffoldRetry.currentScaffoldLabel} till ${preflight.scaffoldRetry.suggestedScaffoldLabel} om repair-turnen behöver en strukturpivot.`,
+    );
+  }
+  if (preflight?.shrinkRetry) {
+    steps.push(
+      `Shrink retry: ${preflight.shrinkRetry.reason} Försök igen med knappen i panelen.`,
     );
   }
   if (missingPlannedRoutes.length > 0) {
@@ -579,6 +590,8 @@ export function buildPostCheckArtifacts(params: {
     seoReview,
     seoSummary: summarizeSeoSignals(seoReview),
     regressionMatrix,
+    rejectedShrinks,
+    verifierBlockingFindings,
   };
 
   const logItems: VersionErrorLogPayload[] = [];

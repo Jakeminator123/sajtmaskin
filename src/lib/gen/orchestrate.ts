@@ -193,6 +193,17 @@ export interface OrchestrationInput {
     | "ambiguous-redesign"
     | "ambiguous-followup"
     | "neutral";
+  /**
+   * B3: Structured build-out-request for a specific shell route. Propagated
+   * into the dynamic system-prompt context so the model knows this follow-up
+   * is a targeted build-out of an existing placeholder (vs. generic edit or
+   * redesign). The `intent` + `name` come from the original `PlannedRoute`.
+   */
+  buildOut?: {
+    path: string;
+    intent?: string | null;
+    name?: string | null;
+  } | null;
 }
 
 export interface OrchestrationBase {
@@ -795,6 +806,7 @@ export async function finalizeOrchestrationPrompts(
     componentReferences: base.componentReferences,
     resolvedVariant,
     dossierSelection: base.dossierSelection,
+    buildOut: input.buildOut ?? null,
   };
 
   const dynamic = buildDynamicContext(dynamicOpts);

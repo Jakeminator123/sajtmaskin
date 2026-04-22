@@ -39,9 +39,50 @@ export type PostCheckPanelProps = {
   provisional: boolean;
   qualityGatePending: boolean;
   autoFixQueued: boolean;
+  /**
+   * Files whose updated output was rejected because the merge guard detected
+   * a suspicious shrink (< 50% of prior size). The old content was kept.
+   */
+  rejectedShrinks?: Array<{ file: string; previousSize: number; newSize: number }> | null;
+  /**
+   * Top verifier-blocking findings surfaced from finalize preflight. When
+   * present the version was flagged as verification-blocked even though it
+   * was saved.
+   */
+  verifierFindings?: Array<{ id: string; detail: string }> | null;
+  /**
+   * Scaffold-retry suggestion from finalize. When present we surface a
+   * "Byt scaffold"-CTA that re-issues the generation with a different
+   * scaffold family.
+   */
+  scaffoldRetry?: {
+    currentScaffoldLabel: string;
+    suggestedScaffoldLabel: string;
+    suggestedScaffoldId: string;
+    reason: string;
+  } | null;
+  onRetryWithScaffold?: (scaffoldId: string) => void;
+  /**
+   * Shrink-retry suggestion from finalize. Emitted when the merge-guard
+   * rejects critical scaffold files (e.g. `app/page.tsx`) because the model
+   * returned a drastically shrunken replacement. Surfacing the CTA gives
+   * the user a one-click retry with a hardened prompt.
+   */
+  shrinkRetry?: {
+    files: string[];
+    reason: string;
+    retryPrompt: string;
+    ctaLabel: string;
+  } | null;
+  onRetryAfterShrink?: (retryPrompt: string) => void;
 };
 
 export function PostCheckPanel(props: PostCheckPanelProps) {
+  const rejectedShrinks = props.rejectedShrinks ?? [];
+  const verifierFindings = props.verifierFindings ?? [];
+  const scaffoldRetry = props.scaffoldRetry ?? null;
+  const shrinkRetry = props.shrinkRetry ?? null;
+
   return (
     <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
       <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
@@ -69,6 +110,69 @@ export function PostCheckPanel(props: PostCheckPanelProps) {
             Status: preliminär version medan verifieringen slutförs
           </div>
         ) : null}
+        {rejectedShrinks.length > 0 && (
+          <div className="text-amber-300">
+            Avvisade krympningar: {rejectedShrinks.length} fil
+            {rejectedShrinks.length === 1 ? "" : "er"} behöll den förra
+            versionen eftersom modellen skickade en kraftigt nedbantad variant.
+            {rejectedShrinks.slice(0, 3).map((shrink) => (
+              <div key={shrink.file} className="text-muted-foreground/80 text-[11px]">
+                - {shrink.file} ({shrink.previousSize} → {shrink.newSize} tecken)
+              </div>
+            ))}
+            {rejectedShrinks.length > 3 && (
+              <div className="text-muted-foreground/60 text-[11px]">
+                …och {rejectedShrinks.length - 3} till
+              </div>
+            )}
+          </div>
+        )}
+        {verifierFindings.length > 0 && (
+          <div className="text-red-300">
+            Verifierare blockerade: {verifierFindings.length} fynd
+            <ul className="mt-0.5 space-y-0.5">
+              {verifierFindings.slice(0, 3).map((finding) => (
+                <li key={finding.id} className="text-muted-foreground/80 text-[11px]">
+                  - {finding.detail}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {shrinkRetry && props.onRetryAfterShrink && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded border border-amber-500/40 bg-amber-500/10 p-2">
+            <span className="text-amber-200">
+              {shrinkRetry.reason}
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                props.onRetryAfterShrink?.(shrinkRetry.retryPrompt)
+              }
+            >
+              {shrinkRetry.ctaLabel || "Försök igen"}
+            </Button>
+          </div>
+        )}
+        {scaffoldRetry && props.onRetryWithScaffold && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded border border-amber-500/40 bg-amber-500/10 p-2">
+            <span className="text-amber-200">
+              Förslag: byt från <strong>{scaffoldRetry.currentScaffoldLabel}</strong>{" "}
+              till <strong>{scaffoldRetry.suggestedScaffoldLabel}</strong>.
+              {scaffoldRetry.reason ? ` Orsak: ${scaffoldRetry.reason}` : ""}
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                props.onRetryWithScaffold?.(scaffoldRetry.suggestedScaffoldId)
+              }
+            >
+              Byt scaffold
+            </Button>
+          </div>
+        )}
         {props.previousVersionId && (
           <div>Föregående version: {props.previousVersionId}</div>
         )}

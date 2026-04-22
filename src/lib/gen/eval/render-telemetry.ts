@@ -14,7 +14,7 @@ export interface RenderOutcome {
   chatId: string;
   versionId: string;
   success: boolean;
-  source: "own-engine" | "v0" | "preview" | "unknown";
+  source: "own-engine" | "tier2-vm" | "v0" | "preview" | "unknown";
   demoUrl?: string;
   durationMs?: number;
   errorMessage?: string;

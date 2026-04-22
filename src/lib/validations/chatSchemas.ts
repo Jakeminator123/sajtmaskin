@@ -59,8 +59,24 @@ const briefMetaSchema = z
       })
       .passthrough()
       .optional(),
-    avoid: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
-    imagery: z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(16).optional(),
+    // Deep Brief producerar `avoid` som string[] (site-brief-generation.ts),
+    // medan wizard-/legacy-shape kan skicka en kommaseparerad sträng. Union
+    // håller båda formerna giltiga utan client-side shape-normalisering.
+    avoid: z
+      .union([
+        z.string().max(MAX_PROMPT_META_TEXT_CHARS),
+        z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(32),
+      ])
+      .optional(),
+    // Deep Brief emits an imagery-objekt (styleKeywords, suggestedSubjects,
+    // avoid…); wizard/legacy emits string[]. Union + passthrough ger båda
+    // formerna fri passage genom API-gränsen.
+    imagery: z
+      .union([
+        z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(16),
+        z.object({}).passthrough(),
+      ])
+      .optional(),
     oneSentencePitch: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
     targetAudience: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
     uniqueValueProposition: z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(16).optional(),
@@ -93,6 +109,21 @@ const promptMetaSchema = z
     promptSourceTechnical: z.boolean().optional(),
     promptSourcePreservePayload: z.boolean().optional(),
     brief: briefMetaSchema.optional(),
+    /**
+     * B3: Structured build-out-request från `shellRoute → onBuildOutRouteRequest`.
+     * Byggs i UI när användaren klickar "+"-ikonen bredvid en shell-route. Ger
+     * backend ett tydligt signal om att den här routen ska byggas ut (inte
+     * återgenereras) med ev. förberedd intent/name från PlannedRoute.
+     */
+    buildOut: z
+      .object({
+        path: z.string().max(MAX_PROMPT_META_LABEL_CHARS),
+        intent: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+        name: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
+      })
+      .partial()
+      .passthrough()
+      .optional(),
   })
   .partial()
   .passthrough();

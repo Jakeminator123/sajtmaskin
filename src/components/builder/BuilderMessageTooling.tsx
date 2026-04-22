@@ -44,6 +44,19 @@ type StructuredToolPartsProps = {
   pendingQuickReplyKey: string | null;
   onQuickReply?: QuickReplyHandler;
   quickReplyDisabled?: boolean;
+  /**
+   * Re-run generation with a different scaffold family. Wired from
+   * BuilderShellContent so the post-check panel can expose a "Byt scaffold"
+   * CTA when finalize reports a scaffold-retry suggestion.
+   */
+  onRetryWithScaffold?: (scaffoldId: string) => void;
+  /**
+   * Re-run generation with a hardened prompt when finalize reports a
+   * critical shrink (e.g. `app/page.tsx` returned way too small). Wired
+   * from BuilderShellContent so the post-check panel can expose a
+   * "Försök igen med mer innehåll"-CTA.
+   */
+  onRetryAfterShrink?: (retryPrompt: string) => void;
 };
 
 type CompactToolPartsProps = StructuredToolPartsProps;
@@ -96,6 +109,20 @@ type PostCheckSummary = {
   provisional: boolean;
   qualityGatePending: boolean;
   autoFixQueued: boolean;
+  rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
+  verifierFindings: Array<{ id: string; detail: string }>;
+  scaffoldRetry: {
+    currentScaffoldLabel: string;
+    suggestedScaffoldLabel: string;
+    suggestedScaffoldId: string;
+    reason: string;
+  } | null;
+  shrinkRetry: {
+    files: string[];
+    reason: string;
+    retryPrompt: string;
+    ctaLabel: string;
+  } | null;
 };
 
 type SeoReviewSummary = {
@@ -217,9 +244,11 @@ export function AgentLogCard({ items }: { items: AgentLogItem[] }) {
       <CollapsibleContent>
         <ul className="text-muted-foreground space-y-1 px-3 pb-3 text-xs">
           {items.map((item, index) => (
-            <li key={`agent-${index}`} className="flex gap-2">
-              <span className="bg-muted-foreground/70 mt-1 h-1.5 w-1.5 rounded-full" />
-              <span>{item.label}</span>
+            <li key={`agent-${index}`} className="flex min-w-0 gap-2">
+              <span className="bg-muted-foreground/70 mt-1 h-1.5 w-1.5 shrink-0 rounded-full" />
+              <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
+                {item.label}
+              </span>
             </li>
           ))}
         </ul>
@@ -236,6 +265,8 @@ export function StructuredToolParts({
   pendingQuickReplyKey,
   onQuickReply,
   quickReplyDisabled = false,
+  onRetryWithScaffold,
+  onRetryAfterShrink,
 }: StructuredToolPartsProps) {
   return (
     <>
@@ -314,7 +345,13 @@ export function StructuredToolParts({
                 output={tool.output}
                 errorText={typeof tool.errorText === "string" ? tool.errorText : undefined}
               />
-              {summaries.postCheck && <PostCheckPanel {...summaries.postCheck} />}
+              {summaries.postCheck && (
+                <PostCheckPanel
+                  {...summaries.postCheck}
+                  onRetryWithScaffold={onRetryWithScaffold}
+                  onRetryAfterShrink={onRetryAfterShrink}
+                />
+              )}
               {summaries.seo ? (
                 <ReviewBlock
                   variant="full"
@@ -1442,6 +1479,73 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
   const warningsValue = summary?.warnings ?? obj.warnings;
   const warningsCount = Array.isArray(warningsValue) ? warningsValue.length : toNumber(warningsValue);
 
+  const rejectedShrinksRaw = Array.isArray(obj.rejectedShrinks)
+    ? (obj.rejectedShrinks as Array<Record<string, unknown>>)
+    : [];
+  const rejectedShrinks = rejectedShrinksRaw
+    .map((entry) => ({
+      file: typeof entry.file === "string" ? entry.file : "",
+      previousSize: typeof entry.previousSize === "number" ? entry.previousSize : 0,
+      newSize: typeof entry.newSize === "number" ? entry.newSize : 0,
+    }))
+    .filter((entry) => entry.file.length > 0);
+
+  const verifierFindingsRaw = Array.isArray(obj.verifierBlockingFindings)
+    ? (obj.verifierBlockingFindings as Array<Record<string, unknown>>)
+    : [];
+  const verifierFindings = verifierFindingsRaw
+    .map((entry) => ({
+      id: typeof entry.id === "string" ? entry.id : "",
+      detail: typeof entry.detail === "string" ? entry.detail : "",
+    }))
+    .filter((entry) => entry.id.length > 0 && entry.detail.length > 0);
+
+  const preflight =
+    obj.preflight && typeof obj.preflight === "object"
+      ? (obj.preflight as Record<string, unknown>)
+      : null;
+  const scaffoldRetryRaw =
+    preflight?.scaffoldRetry && typeof preflight.scaffoldRetry === "object"
+      ? (preflight.scaffoldRetry as Record<string, unknown>)
+      : null;
+  const scaffoldRetry =
+    scaffoldRetryRaw &&
+    typeof scaffoldRetryRaw.currentScaffoldLabel === "string" &&
+    typeof scaffoldRetryRaw.suggestedScaffoldLabel === "string" &&
+    typeof scaffoldRetryRaw.suggestedScaffoldId === "string" &&
+    typeof scaffoldRetryRaw.reason === "string"
+      ? {
+          currentScaffoldLabel: scaffoldRetryRaw.currentScaffoldLabel,
+          suggestedScaffoldLabel: scaffoldRetryRaw.suggestedScaffoldLabel,
+          suggestedScaffoldId: scaffoldRetryRaw.suggestedScaffoldId,
+          reason: scaffoldRetryRaw.reason,
+        }
+      : null;
+
+  const shrinkRetryRaw =
+    preflight?.shrinkRetry && typeof preflight.shrinkRetry === "object"
+      ? (preflight.shrinkRetry as Record<string, unknown>)
+      : null;
+  const shrinkRetryFiles =
+    shrinkRetryRaw && Array.isArray(shrinkRetryRaw.files)
+      ? (shrinkRetryRaw.files as unknown[]).filter(
+          (entry): entry is string => typeof entry === "string" && entry.length > 0,
+        )
+      : [];
+  const shrinkRetry =
+    shrinkRetryRaw &&
+    shrinkRetryFiles.length > 0 &&
+    typeof shrinkRetryRaw.reason === "string" &&
+    typeof shrinkRetryRaw.retryPrompt === "string" &&
+    typeof shrinkRetryRaw.ctaLabel === "string"
+      ? {
+          files: shrinkRetryFiles,
+          reason: shrinkRetryRaw.reason,
+          retryPrompt: shrinkRetryRaw.retryPrompt,
+          ctaLabel: shrinkRetryRaw.ctaLabel,
+        }
+      : null;
+
   const summaryData: PostCheckSummary = {
     files: toNumber(summary?.files ?? obj.files),
     added: toNumber(summary?.added ?? obj.added),
@@ -1453,6 +1557,10 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
     provisional: Boolean(summary?.provisional ?? obj.provisional),
     qualityGatePending: Boolean(summary?.qualityGatePending ?? obj.qualityGatePending),
     autoFixQueued: Boolean(summary?.autoFixQueued ?? obj.autoFixQueued),
+    rejectedShrinks,
+    verifierFindings,
+    scaffoldRetry,
+    shrinkRetry,
   };
 
   const hasAnyValue = [
@@ -1466,6 +1574,10 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
     summaryData.provisional ? true : null,
     summaryData.qualityGatePending ? true : null,
     summaryData.autoFixQueued ? true : null,
+    summaryData.rejectedShrinks.length > 0 ? true : null,
+    summaryData.verifierFindings.length > 0 ? true : null,
+    summaryData.scaffoldRetry ? true : null,
+    summaryData.shrinkRetry ? true : null,
   ].some((value) => value !== null);
   return hasAnyValue ? summaryData : null;
 }

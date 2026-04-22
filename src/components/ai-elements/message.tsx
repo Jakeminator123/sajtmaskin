@@ -78,6 +78,7 @@ export function MessageContent({ children, className, role, style, ...props }: M
     <div
       className={cn(
         "max-w-[85%] min-w-0 flex-col gap-1.5 rounded-2xl px-4 py-3 text-sm leading-relaxed",
+        "break-words [overflow-wrap:anywhere]",
         isUser && "ml-auto shadow-sm",
         isAssistant && "bg-muted text-foreground border border-border/40 shadow-sm",
         className,
@@ -110,7 +111,7 @@ export function MessageResponse({ children, className, ...props }: MessageRespon
   return (
     <div
       className={cn(
-        "text-sm leading-relaxed overflow-hidden wrap-break-word",
+        "text-sm leading-relaxed overflow-hidden break-words [overflow-wrap:anywhere]",
         className,
       )}
       {...props}

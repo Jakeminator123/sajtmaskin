@@ -39,7 +39,6 @@ import {
   buildAgentLogItems as buildAgentLogItemsFromTooling,
 } from "@/components/builder/BuilderMessageTooling";
 import { GenerationSummary } from "@/components/builder/GenerationSummary";
-import { VersionFeedback } from "@/components/builder/VersionFeedback";
 import { Streamdown } from "streamdown";
 import { code as streamdownCode } from "@streamdown/code";
 
@@ -83,6 +82,17 @@ interface MessageListProps {
   onQuickReply?: (text: string, options?: { planMode?: boolean }) => Promise<void> | void;
   onApproveBuildPlan?: (plan: Record<string, unknown>) => Promise<void> | void;
   quickReplyDisabled?: boolean;
+  /**
+   * Re-run generation with a different scaffold family. Surfaced in the
+   * PostCheckPanel when finalize emits a scaffold-retry suggestion.
+   */
+  onRetryWithScaffold?: (scaffoldId: string) => void;
+  /**
+   * Re-run generation with a hardened retry prompt when finalize reports
+   * a critical shrink. Surfaced in the PostCheckPanel as a
+   * "Försök igen med mer innehåll"-CTA.
+   */
+  onRetryAfterShrink?: (retryPrompt: string) => void;
 }
 
 function hasGenerationContent(text: string): boolean {
@@ -98,6 +108,8 @@ const MessageListComponent = ({
   onQuickReply,
   onApproveBuildPlan,
   quickReplyDisabled = false,
+  onRetryWithScaffold,
+  onRetryAfterShrink,
 }: MessageListProps) => {
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
   const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
@@ -133,20 +145,6 @@ const MessageListComponent = ({
     () => getLatestEnvRequirementFromTooling(messages),
     [messages],
   );
-
-  const lastGenMessageIndex = useMemo(() => {
-    let last = -1;
-    for (let i = 0; i < messages.length; i++) {
-      const m = messages[i];
-      if (m.role !== "assistant") continue;
-      const text = m.parts
-        .filter((p): p is Extract<MessagePart, { type: "text" }> => p.type === "text")
-        .map((p) => p.text)
-        .join("");
-      if (hasGenerationContent(text)) last = i;
-    }
-    return last;
-  }, [messages]);
 
   useEffect(() => {
     const pendingKey = pendingReply?.key ?? null;
@@ -232,6 +230,10 @@ const MessageListComponent = ({
                 (p): p is Extract<MessagePart, { type: "source" }> => p.type === "source",
               )
             : [];
+          const retrySuggestionPart = message.parts.find(
+            (p): p is Extract<MessagePart, { type: "retry-suggestion" }> =>
+              p.type === "retry-suggestion",
+          );
 
           const textContent = textParts.map((p) => p.text).join("");
           const sources = showStructuredParts
@@ -269,6 +271,8 @@ const MessageListComponent = ({
                         sendQuickReply(messageId, optionIndex, option, options)
                       }
                       quickReplyDisabled={quickReplyDisabled}
+                      onRetryWithScaffold={onRetryWithScaffold}
+                      onRetryAfterShrink={onRetryAfterShrink}
                     />
                   )}
 
@@ -313,7 +317,7 @@ const MessageListComponent = ({
                       </PlanHeader>
                       <PlanContent>
                         {part.plan.content && (
-                          <p className="text-muted-foreground text-sm whitespace-pre-wrap">
+                          <p className="text-muted-foreground text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                             {part.plan.content}
                           </p>
                         )}
@@ -366,6 +370,23 @@ const MessageListComponent = ({
                   <CollapsibleUserMessage content={textContent} />
                 )}
 
+                {message.role === "assistant" && retrySuggestionPart && onRetryAfterShrink && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs">
+                    <span className="text-amber-200">
+                      {retrySuggestionPart.reason}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        onRetryAfterShrink?.(retrySuggestionPart.retryPrompt)
+                      }
+                    >
+                      {retrySuggestionPart.ctaLabel || "Försök igen"}
+                    </Button>
+                  </div>
+                )}
+
                 {showStructuredParts && message.role === "assistant" && sources.length > 0 && (
                   <Sources>
                     <SourcesTrigger count={sources.length} />
@@ -381,19 +402,6 @@ const MessageListComponent = ({
                   </Sources>
                 )}
 
-                {chatId &&
-                  versionId &&
-                  message.role === "assistant" &&
-                  messageIndex === lastGenMessageIndex &&
-                  !message.isStreaming &&
-                  hasGenerationContent(textContent) && (
-                    <VersionFeedback
-                      key={versionId}
-                      chatId={chatId}
-                      versionId={versionId}
-                      className="mt-2 pt-2 border-t border-zinc-700/50"
-                    />
-                  )}
               </MessageContent>
             </Message>
           );

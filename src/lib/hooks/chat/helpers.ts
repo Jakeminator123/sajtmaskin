@@ -421,6 +421,7 @@ function getUiPartKey(part: UiMessagePart): string | null {
     return candidate || null;
   }
   if (type === "plan") return "plan";
+  if (type === "retry-suggestion") return "retry-suggestion";
   if (type === "sources") return "sources";
   if (type === "source") {
     const candidate =

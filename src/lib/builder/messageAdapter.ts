@@ -27,7 +27,22 @@ type PlanStepDisplay =
     };
 type PlanPart = { type: "plan"; plan: PlanData; isStreaming?: boolean };
 
-export type MessagePart = TextPart | ReasoningPart | ToolPart | SourcesPart | SourcePart | PlanPart;
+export type RetrySuggestionPart = {
+  type: "retry-suggestion";
+  kind: string;
+  retryPrompt: string;
+  ctaLabel: string;
+  reason: string;
+};
+
+export type MessagePart =
+  | TextPart
+  | ReasoningPart
+  | ToolPart
+  | SourcesPart
+  | SourcePart
+  | PlanPart
+  | RetrySuggestionPart;
 
 export type AIElementsMessage = {
   id: string;
@@ -165,6 +180,21 @@ function normalizeUiPart(part: UiMessagePart): MessagePart | null {
 
   if (type.startsWith("tool")) {
     return { type: "tool", tool: normalizeToolPart(part) };
+  }
+
+  if (type === "retry-suggestion") {
+    const retryPrompt = typeof part.retryPrompt === "string" ? part.retryPrompt.trim() : "";
+    if (!retryPrompt) return null;
+    const ctaLabel =
+      typeof part.ctaLabel === "string" && part.ctaLabel.trim().length > 0
+        ? part.ctaLabel.trim()
+        : "Försök igen";
+    const reason =
+      typeof part.reason === "string" && part.reason.trim().length > 0
+        ? part.reason.trim()
+        : "Genereringen kom tillbaka tom. Försök igen.";
+    const kind = typeof part.kind === "string" && part.kind.trim().length > 0 ? part.kind : "retry";
+    return { type: "retry-suggestion", kind, retryPrompt, ctaLabel, reason };
   }
 
   return null;

@@ -90,11 +90,28 @@ export async function handleSseStream(
   let generationProgressStarted = false;
   let generationDoneProgressReceived = false;
   let pendingStreamErrorMessage: string | null = null;
+  let pendingStreamRetryHint: {
+    kind: string;
+    retryPrompt: string;
+    ctaLabel: string;
+    reason: string;
+  } | null = null;
   const postCheckQueue: Array<{
     chatId: string;
     versionId: string;
     demoUrl?: string | null;
     preflight?: PreviewPreflightState | null;
+    /**
+     * Files whose update was rejected by the merge guard. Surfaced in the
+     * post-check panel so the user understands why a page kept its previous
+     * content.
+     */
+    rejectedShrinks?: Array<{ file: string; previousSize: number; newSize: number }>;
+    /**
+     * Top verifier-blocking findings (max 3) lifted from finalize preflight.
+     * Shown as extra detail rows in the post-check panel when non-empty.
+     */
+    verifierBlockingFindings?: Array<{ id: string; detail: string }>;
   }> = [];
   const materializeQueue: Array<{ chatId: string; versionId: string }> = [];
   let streamQuality: StreamQualitySignal = { hasCriticalAnomaly: false, reasons: [] };
@@ -856,15 +873,28 @@ export async function handleSseStream(
                 (emptyGenerationReason.includes("empty_output")
                   ? "Own-engine genererade ingen användbar kod i det här försöket."
                   : "Genereringen avslutades utan version eller preview.");
+              const retryHintForBanner = pendingStreamRetryHint
+                ? {
+                    type: "retry-suggestion" as const,
+                    kind: pendingStreamRetryHint.kind,
+                    retryPrompt: pendingStreamRetryHint.retryPrompt,
+                    ctaLabel: pendingStreamRetryHint.ctaLabel,
+                    reason: pendingStreamRetryHint.reason,
+                  }
+                : null;
               setMessages((prev) =>
                 prev.map((m) => {
                   if (m.id !== assistantMessageId) return m;
+                  const nextUiParts = retryHintForBanner
+                    ? mergeUiParts(m.uiParts, [retryHintForBanner])
+                    : m.uiParts;
                   if ((m.content || "").trim().length > 0) {
-                    return { ...m, isStreaming: false };
+                    return { ...m, uiParts: nextUiParts, isStreaming: false };
                   }
                   return {
                     ...m,
                     content: `${explicitFailureMessage} Försök igen eller justera prompten.`,
+                    uiParts: nextUiParts,
                     isStreaming: false,
                   };
                 }),
@@ -1012,11 +1042,40 @@ export async function handleSseStream(
                 chatId: String(resolvedChatId),
                 versionId: String(resolvedVersionId),
               });
+              const rejectedShrinks = Array.isArray(doneData.rejectedShrinks)
+                ? (doneData.rejectedShrinks as Array<Record<string, unknown>>)
+                    .map((entry) => ({
+                      file: String(entry.file ?? ""),
+                      previousSize:
+                        typeof entry.previousSize === "number"
+                          ? entry.previousSize
+                          : 0,
+                      newSize:
+                        typeof entry.newSize === "number" ? entry.newSize : 0,
+                    }))
+                    .filter((entry) => entry.file)
+                : [];
+              const verifierBlockingFindings = Array.isArray(
+                doneData.verifierBlockingFindings,
+              )
+                ? (
+                    doneData.verifierBlockingFindings as Array<
+                      Record<string, unknown>
+                    >
+                  )
+                    .map((entry) => ({
+                      id: String(entry.id ?? ""),
+                      detail: String(entry.detail ?? ""),
+                    }))
+                    .filter((entry) => entry.id && entry.detail)
+                : [];
               postCheckQueue.push({
                 chatId: String(resolvedChatId),
                 versionId: String(resolvedVersionId),
                 demoUrl: effectiveDoneDemo,
                 preflight: donePreflight,
+                rejectedShrinks,
+                verifierBlockingFindings,
               });
             }
             break;
@@ -1028,6 +1087,29 @@ export async function handleSseStream(
                 : { message: data };
             pendingStreamErrorMessage = buildStreamErrorMessage(errorData);
             streamStats.errorEvents += 1;
+            const retryRaw = (errorData as Record<string, unknown>).retry;
+            if (retryRaw && typeof retryRaw === "object") {
+              const retryObj = retryRaw as Record<string, unknown>;
+              const retryPrompt =
+                typeof retryObj.retryPrompt === "string" ? retryObj.retryPrompt.trim() : "";
+              if (retryPrompt.length > 0) {
+                pendingStreamRetryHint = {
+                  kind:
+                    typeof retryObj.kind === "string" && retryObj.kind.trim().length > 0
+                      ? retryObj.kind
+                      : "retry",
+                  retryPrompt,
+                  ctaLabel:
+                    typeof retryObj.ctaLabel === "string" && retryObj.ctaLabel.trim().length > 0
+                      ? retryObj.ctaLabel
+                      : "Försök igen",
+                  reason:
+                    typeof retryObj.reason === "string" && retryObj.reason.trim().length > 0
+                      ? retryObj.reason
+                      : "Genereringen kom tillbaka tom. Försök igen.",
+                };
+              }
+            }
             break;
           }
         }
@@ -1108,6 +1190,8 @@ export async function handleSseStream(
       versionId: latestPostCheck.versionId,
       demoUrl: latestPostCheck.demoUrl ?? null,
       preflight: latestPostCheck.preflight ?? null,
+      rejectedShrinks: latestPostCheck.rejectedShrinks ?? [],
+      verifierBlockingFindings: latestPostCheck.verifierBlockingFindings ?? [],
       assistantMessageId,
       setMessages,
       streamQuality,

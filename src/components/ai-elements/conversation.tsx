@@ -126,10 +126,10 @@ export function ConversationScrollButton({
       onClick={scrollToBottom}
       aria-label="Scrolla ned till senaste meddelande"
       className={cn(
-        "fixed bottom-24 left-1/2 z-10 -translate-x-1/2",
-        "rounded-full bg-muted px-4 py-2 text-sm text-white shadow-lg",
-        "transition-colors hover:bg-muted/80",
-        "flex items-center gap-2",
+        "absolute bottom-3 left-1/2 z-10 -translate-x-1/2",
+        "rounded-full border border-border bg-background/90 px-3 py-1.5 text-xs text-foreground shadow-sm backdrop-blur",
+        "transition-colors hover:bg-muted",
+        "flex items-center gap-1.5",
         className,
       )}
       {...props}

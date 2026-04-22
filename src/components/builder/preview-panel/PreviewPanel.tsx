@@ -122,6 +122,7 @@ export function PreviewPanel({
   onInlineEditPrompt,
   onSuggestionClick,
   onBuildOutRouteRequest,
+  rejectedShrinkCount = 0,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
@@ -1015,6 +1016,7 @@ export function PreviewPanel({
         showImagesDisabledWarning={showImagesDisabledWarning}
         showImagesUnsupportedWarning={showImagesUnsupportedWarning}
         showExternalWarning={showExternalWarning}
+        rejectedShrinkCount={rejectedShrinkCount}
         simplified={simplified}
         inlineEditMode={inlineEditMode}
         handleToggleInlineEdit={onInlineEditPrompt ? handleToggleInlineEdit : undefined}
@@ -1101,10 +1103,12 @@ export function PreviewPanel({
           <div className="relative min-h-0 min-w-0 flex-1">
             {/*
               Medan VM:ens Next.js fortfarande bootar serverar preview-hosten
-              en blank starting-stub som annars skulle synas som en "tom"
-              iframe. Vi låter iframen vara mountad (så den kan ladda och
-              signalera `preview-ready`) men lägger en overlay med vår riktiga
-              GenerationProgress ovanpå tills vmReady blir true.
+              en blank starting-stub som postar `preview-starting`. Iframen
+              måste vara mountad under hela boot-fasen för att vi ska fånga
+              övergången till `preview-ready` när den riktiga sajten laddas,
+              så vi lägger en overlay med vår GenerationProgress ovanpå tills
+              `vmReady` blir true (dvs. när telemetri-hooken markerar det
+              efter ett mottaget `preview-ready`).
             */}
             {previewUrl && !vmReady && !iframeError ? (
               <div

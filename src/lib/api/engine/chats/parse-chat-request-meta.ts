@@ -55,6 +55,18 @@ export interface ParsedChatRequestMeta {
    * Stored as `engine_versions.parent_version_id`.
    */
   parentVersionId: string | null;
+  /**
+   * B3: Structured build-out-request from the preview chrome shell-route
+   * affordance. When present the orchestrator knows this is a targeted
+   * build-out of an existing shell page (not a regeneration of the whole
+   * site) and can surface `intent` + `name` from the original `PlannedRoute`
+   * to the system prompt instead of relying on free-text heuristics.
+   */
+  buildOut: {
+    path: string;
+    intent?: string | null;
+    name?: string | null;
+  } | null;
 }
 
 /**
@@ -93,5 +105,26 @@ export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
     lifecycleStage:
       metaString(meta, "lifecycleStage") === "integrations" ? "integrations" : "design",
     parentVersionId: metaString(meta, "parentVersionId")?.trim() || null,
+    buildOut: parseBuildOutMeta(meta),
   };
+}
+
+function parseBuildOutMeta(
+  meta: unknown,
+): ParsedChatRequestMeta["buildOut"] {
+  const obj = meta as Record<string, unknown> | null | undefined;
+  const raw = obj?.buildOut;
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  const path = typeof record.path === "string" ? record.path.trim() : "";
+  if (!path) return null;
+  const intent =
+    typeof record.intent === "string" && record.intent.trim().length > 0
+      ? record.intent.trim()
+      : null;
+  const name =
+    typeof record.name === "string" && record.name.trim().length > 0
+      ? record.name.trim()
+      : null;
+  return { path, intent, name };
 }

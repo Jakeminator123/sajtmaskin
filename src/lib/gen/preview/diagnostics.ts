@@ -33,6 +33,13 @@ export type ScaffoldRetryState = {
   confidence: "medium" | "high";
 };
 
+export type ShrinkRetryState = {
+  files: string[];
+  reason: string;
+  retryPrompt: string;
+  ctaLabel: string;
+};
+
 export type PreviewPreflightState = {
   previewBlocked: boolean;
   verificationBlocked: boolean;
@@ -41,6 +48,7 @@ export type PreviewPreflightState = {
   issueCategories?: PreflightIssueCategory[] | null;
   previewStart?: PreviewStartContract | null;
   scaffoldRetry?: ScaffoldRetryState | null;
+  shrinkRetry?: ShrinkRetryState | null;
   routePlan?: RoutePlan | null;
 };
 export type PreviewPreflightSummary = PreviewPreflightState & {

@@ -649,6 +649,22 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, [activeVersionSummary, vm.effectiveVersionsList]);
   const activeVersionIsLatest =
     !vm.activeVersionId || !vm.latestVersionId || vm.activeVersionId === vm.latestVersionId;
+  const rejectedShrinkCount = useMemo(() => {
+    for (let i = vm.messages.length - 1; i >= 0; i -= 1) {
+      const msg = vm.messages[i];
+      if (msg.role !== "assistant") continue;
+      const parts = msg.uiParts ?? [];
+      for (const part of parts) {
+        const type = typeof part.type === "string" ? part.type : "";
+        if (!type.includes("post-check")) continue;
+        const output = (part as Record<string, unknown>).output;
+        if (!output || typeof output !== "object") continue;
+        const rejected = (output as Record<string, unknown>).rejectedShrinks;
+        if (Array.isArray(rejected)) return rejected.length;
+      }
+    }
+    return 0;
+  }, [vm.messages]);
   const sendMessage = vm.sendMessage;
 
   const handleComposerAiFallback = useCallback(
@@ -723,6 +739,21 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     });
   }, []);
   const [enableAutofix, setEnableAutofix] = useState(true);
+  // Minimalist UI by default. "pro"-läget exponerar Composer/inspect/etc i
+  // preview-chrome. Läs från samma key som `ModeSelector` skriver.
+  const [simplifiedPreviewChrome, setSimplifiedPreviewChrome] = useState<boolean>(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("sajtmaskin-builder-mode");
+    setSimplifiedPreviewChrome(stored !== "pro");
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "sajtmaskin-builder-mode") {
+        setSimplifiedPreviewChrome(event.newValue !== "pro");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [tipPanelOpen, setTipPanelOpen] = useState(false);
   const [tipText, setTipText] = useState<string | null>(null);
@@ -1390,6 +1421,58 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [guardGuestGeneration, sendHelpMessage, vm.sendMessage, vm.setMessages, vm.messages],
   );
 
+  // C3: "Byt scaffold"-CTA från PostCheckPanel. Hittar senaste user-prompten
+  // och skickar om den med ett manuellt scaffold-override, så att
+  // `useSendMessage` piggybackar på scaffoldIdOverride-vägen (samma som
+  // useAutoFix använder för scaffoldRetry). Stabil id → useCallback-dep på
+  // messages/chatId + smartSendMessage.
+  const handleRetryWithScaffold = useCallback(
+    (scaffoldId: string) => {
+      const lastUserMessage = [...vm.messages]
+        .reverse()
+        .find((m) => m.role === "user" && typeof m.content === "string" && m.content.trim());
+      if (!lastUserMessage?.content) {
+        toast.error("Hittar ingen tidigare prompt att köra om.");
+        return;
+      }
+      toast.info("Kör om med nytt scaffold…");
+      void smartSendMessage(lastUserMessage.content, {
+        skipIntentClassification: true,
+        forceIntent: "build",
+        scaffoldModeOverride: "manual",
+        scaffoldIdOverride: scaffoldId,
+      });
+    },
+    [smartSendMessage, vm.messages],
+  );
+
+  // C3b: "Försök igen med mer innehåll" från PostCheckPanel när finalize
+  // rapporterar ett kritiskt shrink (t.ex. `app/page.tsx` blev drastiskt
+  // mindre än scaffoldversionen). Vi återanvänder senaste user-prompten
+  // men injicerar finalize-hardeningen som extra build-instruktion så
+  // modellen får klara direktiv om att fylla i alla platshållare.
+  const handleRetryAfterShrink = useCallback(
+    (retryPrompt: string) => {
+      const lastUserMessage = [...vm.messages]
+        .reverse()
+        .find((m) => m.role === "user" && typeof m.content === "string" && m.content.trim());
+      if (!lastUserMessage?.content) {
+        toast.error("Hittar ingen tidigare prompt att köra om.");
+        return;
+      }
+      const hardenedPrompt =
+        typeof retryPrompt === "string" && retryPrompt.trim().length > 0
+          ? `${lastUserMessage.content}\n\n---\n${retryPrompt}`
+          : lastUserMessage.content;
+      toast.info("Kör om med mer innehåll…");
+      void smartSendMessage(hardenedPrompt, {
+        skipIntentClassification: true,
+        forceIntent: "build",
+      });
+    },
+    [smartSendMessage, vm.messages],
+  );
+
   const smartCreateChat = useCallback(
     async (message: string, options?: Record<string, unknown>) => {
       if (!guardGuestGeneration()) return false;
@@ -1576,6 +1659,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       await smartSendMessage(prompt, {
         skipIntentClassification: true,
         forceIntent: "build",
+        meta: {
+          buildOut: {
+            path,
+            intent: intent ?? null,
+            name: name ?? null,
+          },
+        },
       });
     })();
   }, [guardGuestGeneration, smartSendMessage]);
@@ -1908,6 +1998,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 onQuickReply={handleQuickReply}
                 onApproveBuildPlan={handleApproveBuildPlan}
                 quickReplyDisabled={isBusy}
+                onRetryWithScaffold={handleRetryWithScaffold}
+                onRetryAfterShrink={handleRetryAfterShrink}
               />
               <TipCard
                 open={tipPanelOpen && vm.tipsEnabled}
@@ -2009,6 +2101,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 onQuickReply={handleQuickReply}
                 onApproveBuildPlan={handleApproveBuildPlan}
                 quickReplyDisabled={isBusy}
+                onRetryWithScaffold={handleRetryWithScaffold}
+                onRetryAfterShrink={handleRetryAfterShrink}
               />
               <TipCard
                 open={tipPanelOpen && vm.tipsEnabled}
@@ -2139,6 +2233,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               activeVersionStatus={activeVersionStatus}
               activeVersionSummary={activeVersionSummary?.verificationSummary ?? null}
               activeVersionIsLatest={activeVersionIsLatest}
+              rejectedShrinkCount={rejectedShrinkCount}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
               onNavigatePreviewUrl={(url) => {
                 vm.setCurrentPreviewUrl(url);
@@ -2158,7 +2253,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               placementMode={Boolean(pendingPlacementRequest)}
               pendingPlacementItem={pendingPlacementItem}
               onPlacementComplete={handlePlacementComplete}
-              simplified={false}
+              simplified={simplifiedPreviewChrome}
               onComposerAiFallback={handleComposerAiFallback}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               onF3MissingEnv={(payload) => {
@@ -2171,6 +2266,19 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                     },
                   }),
                 );
+              }}
+              onF3Ready={(payload) => {
+                // A3: F3 readiness-check passerad → kick:a igång själva
+                // integrations-generationen via follow-up-streamen.
+                // `meta.lifecycleStage: "integrations"` + `parentVersionId`
+                // läses av `chat-message-stream-post.ts` för F3-tool-gating.
+                toast.info("Startar integrationsbygget…");
+                void vm.sendMessage("Bygg integrationer enligt förberedda krav.", {
+                  meta: {
+                    lifecycleStage: "integrations",
+                    parentVersionId: payload.parentVersionId,
+                  },
+                });
               }}
               generationPhase={generationPhase}
               onInlineEditPrompt={(prompt, file) => {
@@ -2191,31 +2299,44 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               }}
               onSuggestionClick={(prompt) => void vm.sendMessage(prompt)}
               onBuildOutRouteRequest={({ path, intent, name }) => {
-                // Gäst-gating sker inuti smartSendMessage — vi visar toasten
-                // *efter* att vi försökt starta byggningen, men bara om
-                // gäst-gaten lät oss passera. Annars får användaren auth-
-                // modalen direkt.
                 const label = name?.trim() || path;
                 const purposeLine = intent?.trim()
                   ? `\n\nSyftet med sidan (från briefen): ${intent.trim()}`
                   : "";
                 const prompt = `Bygg ut sidan ${label} (${path}) med fullt innehåll och design som matchar resten av sajten.${purposeLine}`;
-                debugLog("AI", "build-out-request prompt built", {
+                debugLog("AI", "build-out-request received from shell-page", {
                   path,
-                  hasIntent: Boolean(intent?.trim()),
-                  hasName: Boolean(name?.trim()),
+                  intent: intent ?? null,
+                  name: name ?? null,
                 });
+                toast.info(`Bygger ut sidan ${label}…`);
                 void (async () => {
                   const guestOk = guardGuestGeneration();
                   if (!guestOk) {
                     toast.info("Logga in för att bygga ut fler sidor.");
                     return;
                   }
-                  toast.info(`Bygger ut sidan ${label}…`);
-                  await smartSendMessage(prompt, {
-                    skipIntentClassification: true,
-                    forceIntent: "build",
-                  });
+                  try {
+                    await smartSendMessage(prompt, {
+                      skipIntentClassification: true,
+                      forceIntent: "build",
+                      meta: {
+                        buildOut: {
+                          path,
+                          intent: intent ?? null,
+                          name: name ?? null,
+                        },
+                      },
+                    });
+                  } catch (err) {
+                    debugLog("AI", "build-out-request failed", {
+                      path,
+                      error: err instanceof Error ? err.message : String(err),
+                    });
+                    toast.error(
+                      `Kunde inte starta byggningen av ${label}. Försök igen.`,
+                    );
+                  }
                 })();
               }}
             />

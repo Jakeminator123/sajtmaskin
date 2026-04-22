@@ -121,8 +121,19 @@ export interface WizardBrief {
   };
   mustHave?: string[];
   pages?: Array<{ name: string; path: string }>;
-  avoid?: string;
-  imagery?: string[];
+  /**
+   * B1: Deep Brief och `system-prompt.ts`:s `strList(brief.avoid)` förväntar
+   * sig en lista. Tidigare shape (`string`) föll igenom tomt eftersom `strList`
+   * returnerar `[]` för strängar. Vi splittar på radbryt/komma i wizarden så
+   * modellen alltid får `Avoid`-blocket renderat.
+   */
+  avoid?: string[];
+  /**
+   * B1: `system-prompt.ts` plockar `brief.imagery.suggestedSubjects` (objekt-
+   * form). Wizard emitterar därför en `{suggestedSubjects: string[]}`-struktur
+   * i stället för ren `string[]` — annars blev `## Imagery`-blocket tomt.
+   */
+  imagery?: { suggestedSubjects?: string[] };
   /** First ~160 chars of offer — handy for hero sub-headline / meta desc. */
   oneSentencePitch?: string;
   /** Raw audience answer from wizard (overrides LLM extraction). */
@@ -227,8 +238,18 @@ export function buildWizardBrief(answers: WizardAnswers): WizardBrief {
   if (answers.tagline.trim()) brief.tagline = answers.tagline.trim();
   if (mustHave.length) brief.mustHave = mustHave;
   if (pages.length > 1) brief.pages = pages;
-  if (answers.avoid.trim()) brief.avoid = answers.avoid.trim();
-  if (answers.imagery.length) brief.imagery = [...answers.imagery];
+  // B1: dela upp free-text `avoid` på radbryt / komma så strList ser en lista
+  // och kan rendera ett `## Avoid`-block i system-prompten.
+  const avoidList = answers.avoid
+    .split(/[\n,]+/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+  if (avoidList.length) brief.avoid = avoidList;
+  // B1: `imagery` behöver vara objektform för att `## Imagery`-blocket ska
+  // fyllas (system-prompt.ts läser `brief.imagery.suggestedSubjects`).
+  if (answers.imagery.length) {
+    brief.imagery = { suggestedSubjects: [...answers.imagery] };
+  }
 
   // Split the single offer textarea into structured fields: pitch (first
   // sentence) + audience + USP. The free-text value remains available via

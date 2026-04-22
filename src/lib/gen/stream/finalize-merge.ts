@@ -77,8 +77,18 @@ export function mergeGeneratedProjectFiles({
       language: "tsx" as const,
     }));
 
-    const mergeResult = mergeVersionFilesWithWarnings(scaffoldBase, generatedFiles);
+    // Shrink- och structural-guards aktiveras även på initial-generation mot
+    // scaffold-basen. Annars kan en LLM-output som `<div className="pb-8"></div>`
+    // tyst ersätta scaffoldens fulla hem-sida och ge "tom sajt"-bugg där bara
+    // header/footer syns.
+    const mergeResult = mergeVersionFilesWithWarnings(scaffoldBase, generatedFiles, {
+      rejectSignificantShrinks: true,
+      rejectDroppedStructuralElements: true,
+    });
     const mergedFiles = mergeResult.files;
+    const rejectedShrinks = mergeResult.warnings
+      .filter((w) => w.type === "significant-shrink")
+      .map((w) => ({ file: w.file, previousSize: w.previousSize, newSize: w.newSize }));
     if (mergeResult.warnings.length > 0) {
       devLogAppend("in-progress", {
         type: "merge-warnings",
@@ -106,7 +116,7 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    return { filesJson: JSON.stringify(importResult.files), rejectedShrinks: [] };
+    return { filesJson: JSON.stringify(importResult.files), rejectedShrinks };
   }
 
   const crossFileResult = checkCrossFileImports(generatedFiles);

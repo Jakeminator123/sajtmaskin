@@ -16,6 +16,7 @@ import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
+import { findCriticalPlaceholderHits } from "@/lib/gen/eval/checks";
 import { devLogAppend } from "@/lib/logging/devLog";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
@@ -203,6 +204,21 @@ function createIssue(
   };
 }
 
+/**
+ * Public helper so finalize-version can synthesize preflight issues
+ * after the main preflight has already run (e.g. shrink-guard block,
+ * placeholder-verifier block). Keeps the category-resolution logic in
+ * one place.
+ */
+export function createFinalizePreflightIssue(
+  file: string,
+  severity: "error" | "warning",
+  message: string,
+  category?: PreflightIssueCategory | null,
+): FinalizePreflightIssue {
+  return createIssue(file, severity, message, category);
+}
+
 function buildContractBackedRoutePlan(
   orchestrationContract: OrchestrationContract | null | undefined,
 ): RoutePlan | null {
@@ -314,17 +330,33 @@ export default function ${funcName}Page() {
   const requestBuildOut = () => {
     if (typeof window === "undefined") return;
     const payload = { path: routePath, intent: routeIntent, name: routeName };
+    const message = { source: "sajtmaskin-preview", type: "build-out-request", payload };
+    let posted = false;
+    // Broadcast to both \`parent\` and \`top\` so the builder receives the
+    // request regardless of iframe nesting depth (preview-host wrappers,
+    // nested shims, etc.). Target "*" — parent is on a different origin.
     try {
       if (window.parent && window.parent !== window) {
-        window.parent.postMessage(
-          { source: "sajtmaskin-preview", type: "build-out-request", payload },
-          "*",
-        );
-        return;
+        window.parent.postMessage(message, "*");
+        posted = true;
       }
     } catch {
       // ignore cross-window postMessage failures
     }
+    try {
+      if (window.top && window.top !== window && window.top !== window.parent) {
+        window.top.postMessage(message, "*");
+        posted = true;
+      }
+    } catch {
+      // ignore cross-window postMessage failures
+    }
+    try {
+      console.info("[sajtmaskin-preview] build-out-request", { ...payload, posted });
+    } catch {
+      // ignore console failures (should not happen)
+    }
+    if (posted) return;
     // Fallback: previewn är öppnad i ny flik utan parent-window. Lägg
     // build-out-intentet i URL:en så att builder-appen kan plocka upp det
     // nästa gång användaren kommer tillbaka.
@@ -695,6 +727,39 @@ export async function runFinalizePreflight({
           ),
         );
       }
+    }
+
+    // Bracket-placeholder guard. If the LLM left scaffold stubs like
+    // `[Rubrik som säger ...]`, `[Tjänst 1]`, `[Bransch]`, `[Ort]` in
+    // critical files (app/page.tsx, app/layout.tsx) we treat that as a
+    // preview-blocking finalize error so the user is not shown a site
+    // with visible `[...]` placeholders. Non-critical files get a warning.
+    const placeholderHits = findCriticalPlaceholderHits(completeProjectFiles);
+    if (placeholderHits.length > 0) {
+      for (const hit of placeholderHits) {
+        const sample = hit.samples.slice(0, 3).join(", ");
+        preflightIssues.push(
+          createIssue(
+            hit.file,
+            "error",
+            `Bracket placeholder(s) left in scaffold output (${hit.count} hits): ${sample}`,
+            "code_structure_failure",
+          ),
+        );
+      }
+      if (!previewBlockingReason) {
+        const firstFile = placeholderHits[0]?.file ?? "app/page.tsx";
+        previewBlockingReason = `Placeholder-text kvar i ${firstFile} — modellen fyllde inte i scaffoldstubbarna.`;
+      }
+      devLogAppend("in-progress", {
+        type: "placeholder-guard.block",
+        chatId,
+        hits: placeholderHits.map((entry) => ({
+          file: entry.file,
+          count: entry.count,
+          samples: entry.samples,
+        })),
+      });
     }
 
     const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));

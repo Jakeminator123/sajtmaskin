@@ -169,6 +169,16 @@ export async function runOwnEngineStreamPostFinalize(params: {
         ...(finalized.rejectedShrinks.length > 0
           ? { rejectedShrinks: finalized.rejectedShrinks }
           : {}),
+        ...(finalized.shrinkRetry ? { shrinkRetry: finalized.shrinkRetry } : {}),
+        ...(finalized.verifierBlockingFindings &&
+        finalized.verifierBlockingFindings.length > 0
+          ? {
+              verifierBlockingFindings: finalized.verifierBlockingFindings.slice(
+                0,
+                3,
+              ),
+            }
+          : {}),
       }),
     ),
   );

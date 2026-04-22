@@ -58,6 +58,19 @@ export function PreviewPanelEmptyState({
     return <GenerationProgress phase={generationPhase ?? "brief"} />;
   }
 
+  // Visa progress direkt så fort vi har en chat/version men ännu ingen preview
+  // och inte heller väntar på input eller har ett byggfel — det undanröjer
+  // glappet mellan chat-skapande och första stream-eventet där skärmen
+  // annars stod blank.
+  if (
+    !isInitialEmpty &&
+    !awaitingInput &&
+    !sandboxBuildError &&
+    (Boolean(chatId) || Boolean(versionId) || Boolean(generationPhase))
+  ) {
+    return <GenerationProgress phase={generationPhase ?? "brief"} />;
+  }
+
   if (isInitialEmpty) {
     return <GenerationProgress phase={null} />;
   }

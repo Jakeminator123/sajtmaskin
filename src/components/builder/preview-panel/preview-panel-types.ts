@@ -139,6 +139,13 @@ export interface PreviewPanelProps {
       requiredRealEnvKeys: string[];
     }>;
   }) => void;
+  /**
+   * Count of files whose merge was rejected by the shrink-guard during
+   * finalize for the active version. Surfaced as a compact warning chip
+   * in the preview chrome so the user understands why the preview may
+   * still reflect scaffold copy on certain pages.
+   */
+  rejectedShrinkCount?: number;
 }
 
 /** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */

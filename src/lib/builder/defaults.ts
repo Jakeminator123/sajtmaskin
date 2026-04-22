@@ -51,14 +51,13 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
     value: "pro",
     label: "Lagom",
     description: "Mellanprofil. GPT-5.3 Codex för bra balans mellan kvalitet och hastighet.",
-    hint: "rekommenderad",
   },
   {
     value: "max",
     label: "Tanker",
     description:
-      "GPT-5.4 — resonemang/thinking som standard i strömmen (inte samma profil som «Kod Max»/codex nedan).",
-    hint: "dyr",
+      "GPT-5.4 — resonemang/thinking som standard i strömmen. Högst kvalitet för hemsideskapande.",
+    hint: "rekommenderad",
   },
   {
     value: "codex",

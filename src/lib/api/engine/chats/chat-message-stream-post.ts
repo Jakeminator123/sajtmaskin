@@ -48,6 +48,7 @@ import {
 } from "@/lib/gen/request-metadata";
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
 import { createCommitCreditsOnce } from "./credits-handler";
+import { buildMediaCatalogForOrchestration } from "./build-media-catalog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
@@ -686,6 +687,19 @@ export async function handleMessageStreamRequest(
 
         const promptForLlm = optimizedMessage;
 
+        // A1: Bygg mediaCatalog även på follow-up så stock-fallback + alias
+        // finns tillgängliga för modellen (tidigare tappades detta helt när
+        // användaren chattade vidare efter första turn:en).
+        const {
+          mediaCatalog: followUpMediaCatalog,
+          urlMapOverrides: followUpMediaCatalogOverrides,
+          userMediaUrls: followUpUserMediaUrls,
+        } = await buildMediaCatalogForOrchestration({
+          requestAttachments,
+          brief: metaBrief,
+          offerFallback: optimizedMessage,
+        });
+
         let engineIntent: BuildIntent =
           metaBuildIntent === "template" ||
           metaBuildIntent === "website" ||
@@ -761,6 +775,8 @@ export async function handleMessageStreamRequest(
           chatId,
           followUpIntent: previousFiles.length > 0 ? followUpIntent : undefined,
           priorQualityTarget,
+          mediaCatalog: followUpMediaCatalog,
+          buildOut: parsedMeta.buildOut,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -933,7 +949,8 @@ export async function handleMessageStreamRequest(
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
-        const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
+        const { compressed: enginePrompt, urlMap: baseUrlMap } = compressUrls(promptForLlm);
+        const urlMap: Record<string, string> = { ...baseUrlMap, ...followUpMediaCatalogOverrides };
         const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
         const effectiveGeneratorThinking =
           resolvedThinking && generatorThinking.thinking;
@@ -984,6 +1001,7 @@ export async function handleMessageStreamRequest(
           orchestrationContract: orchestrationBase.orchestrationContract,
           resolvedScaffold: resolvedScaffold ?? null,
           urlMap,
+          userMediaUrls: followUpUserMediaUrls.length > 0 ? followUpUserMediaUrls : undefined,
           commitCredits: commitCreditsOnce,
           previousFiles: previousFiles.length > 0 ? previousFiles : undefined,
           lineageHash,

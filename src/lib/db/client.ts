@@ -121,10 +121,15 @@ const pool = connectionString
       max: 10, // Maximum number of connections
       idleTimeoutMillis: 30000, // Close idle connections after 30s
       connectionTimeoutMillis: 10000, // Timeout for acquiring a connection
+      // TCP keepalive håller idle-connections vid liv så att
+      // Supabase-pooler/Neon inte tyst stänger dom under långa
+      // request-pauser (company-intel, brief, media-upload), vilket annars
+      // ger "Connection terminated unexpectedly" nästa gång vi kör en query.
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
     })
   : null;
 
-// Log pool errors for debugging (they don't throw by default)
 if (pool) {
   pool.on("error", (err) => {
     console.error("[db/client] Unexpected pool error:", err.message);

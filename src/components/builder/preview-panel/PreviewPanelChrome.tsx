@@ -1,15 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import {
   AlertCircle,
+  ChevronDown,
   CircleCheck,
   Code2,
   ExternalLink,
   FileText,
   LayoutGrid,
+  Monitor,
+  Pencil,
+  PlusCircle,
   Redo2,
   RefreshCw,
   Search,
+  Smartphone,
+  Tablet,
   Undo2,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -86,6 +93,13 @@ interface PreviewPanelChromeProps {
   showImagesDisabledWarning: boolean;
   showImagesUnsupportedWarning: boolean;
   showExternalWarning: boolean;
+  /**
+   * Antal filer i aktiv version vars uppdatering avvisades av
+   * shrink-guarden under finalize. Visas som en varnings-chip i
+   * preview-chromet så användaren förstår varför vissa sidor
+   * fortfarande visar scaffold-innehåll.
+   */
+  rejectedShrinkCount?: number;
   /** F3 trigger context — undefined props hide the button. */
   chatId?: string | null;
   versionId?: string | null;
@@ -148,12 +162,33 @@ export function PreviewPanelChrome({
   showImagesDisabledWarning,
   showImagesUnsupportedWarning,
   showExternalWarning,
+  rejectedShrinkCount = 0,
   chatId,
   versionId,
   lifecycleStage,
   onF3MissingEnv,
   onF3Ready,
+  previewDevice,
+  onPreviewDeviceChange,
+  shellRoutePaths,
+  onRequestBuildOutRoute,
+  simplified = false,
+  inlineEditMode = false,
+  handleToggleInlineEdit,
+  onSuggestionClick: _onSuggestionClick,
 }: PreviewPanelChromeProps) {
+  const shellPaths = new Set(shellRoutePaths ?? []);
+  const isShellRoute = (route: string) => shellPaths.has(route);
+  const [routesExpanded, setRoutesExpanded] = useState(false);
+  const deviceOptions: Array<{
+    key: "desktop" | "tablet" | "mobile";
+    label: string;
+    Icon: typeof Monitor;
+  }> = [
+    { key: "desktop", label: "Desktop", Icon: Monitor },
+    { key: "tablet", label: "Tablet", Icon: Tablet },
+    { key: "mobile", label: "Mobil", Icon: Smartphone },
+  ];
   const showF3Trigger =
     typeof chatId === "string" &&
     chatId.length > 0 &&
@@ -169,7 +204,7 @@ export function PreviewPanelChrome({
           {isOwnEnginePreview && !livePreviewUrlStored ? (
             <Badge
               variant="outline"
-              className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
+              className="border-[hsl(var(--status-warning)/0.35)] bg-[hsl(var(--status-warning)/0.1)] text-[11px] text-[hsl(var(--status-warning))]"
               title="Live-preview med Next.js i tier-2-runtime/VM är inte tillgänglig än — ofta miljö, npm install eller byggfel."
             >
               Live-preview väntar
@@ -178,10 +213,19 @@ export function PreviewPanelChrome({
           {previewUrl && isTier2LivePreview && !isOwnEnginePreview ? (
             <Badge
               variant="outline"
-              className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
+              className="border-primary/35 bg-primary/10 text-[11px] text-foreground"
               title="Next.js körs i tier-2-preview (VM / legacy preview-kontrakt) — motsvarar lokal utveckling."
             >
               Next.js
+            </Badge>
+          ) : null}
+          {rejectedShrinkCount > 0 ? (
+            <Badge
+              variant="outline"
+              className="border-[hsl(var(--status-warning)/0.35)] bg-[hsl(var(--status-warning)/0.1)] text-[11px] text-[hsl(var(--status-warning))]"
+              title="Finalize avvisade en eller flera filuppdateringar eftersom den nya versionen var drastiskt mindre än scaffold. Dessa sidor visar fortfarande scaffold-innehållet — kör genereringen igen för att få fullständigt innehåll."
+            >
+              Fallback-innehåll ({rejectedShrinkCount})
             </Badge>
           ) : null}
         </div>
@@ -192,9 +236,31 @@ export function PreviewPanelChrome({
               versionId={versionId ?? null}
               onMissingEnv={onF3MissingEnv}
               onReady={onF3Ready}
-              className="h-7 bg-violet-600 px-2 text-[12px] text-white hover:bg-violet-500"
+              className="h-7 bg-primary px-2 text-[12px] text-primary-foreground hover:bg-primary/90"
             />
           ) : null}
+          {handleToggleInlineEdit ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleToggleInlineEdit}
+              disabled={!previewUrl || placementMode || composerMode || inspectMode}
+              title={
+                inlineEditMode
+                  ? "Stäng inline-redigering"
+                  : "Klicka i previewn för att redigera direkt"
+              }
+              className={cn(
+                "text-gray-400 hover:text-white",
+                inlineEditMode && "bg-amber-900/40 text-amber-200 hover:text-amber-100",
+              )}
+            >
+              <Pencil className="mr-1 h-4 w-4" />
+              Inline
+            </Button>
+          ) : null}
+          {!simplified ? (
+            <>
           <Button
             variant="ghost"
             size="sm"
@@ -305,6 +371,8 @@ export function PreviewPanelChrome({
             <FileText className="mr-1 h-4 w-4" />
             Kodvy
           </Button>
+            </>
+          ) : null}
           {previewUrl && onClear ? (
             <Button
               variant="ghost"
@@ -406,30 +474,97 @@ export function PreviewPanelChrome({
       ) : null}
 
       {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0) ? (
-        <div className="border-b border-gray-800 bg-black/30 px-4 py-2">
-          <div className="mb-1 text-[11px] font-medium text-gray-300">Sidor i skapad preview</div>
-          <div className="flex flex-wrap gap-1.5">
-            {previewRoutesLoading && previewRoutes.length === 0 ? (
-              <span className="text-[11px] text-gray-500">Läser routes från versionens filer...</span>
-            ) : (
-              previewRoutes.map((route) => (
-                <Button
-                  key={route}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-6 border-gray-700 px-2 text-[11px] text-gray-300 hover:bg-gray-800 hover:text-white",
-                    activePreviewRoute === route && "border-sky-500/60 bg-sky-500/10 text-sky-200",
-                  )}
-                  onClick={() => handleNavigateRoute(route)}
-                  title={`Visa ${route}`}
-                >
-                  {route}
-                </Button>
-              ))
-            )}
+        <div className="border-b border-border/60 bg-card/40 px-4 py-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setRoutesExpanded((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              aria-expanded={routesExpanded}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-3 w-3 transition-transform",
+                  routesExpanded ? "rotate-0" : "-rotate-90",
+                )}
+              />
+              <span>Sidor</span>
+              {previewRoutes.length > 0 ? (
+                <span className="tabular-nums text-muted-foreground/70">
+                  {previewRoutes.length}
+                </span>
+              ) : null}
+            </button>
+            {previewDevice && onPreviewDeviceChange ? (
+              <div className="flex items-center gap-0.5 rounded-md border border-border/60 bg-background/60 p-0.5">
+                {deviceOptions.map(({ key, label, Icon }) => (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onPreviewDeviceChange(key)}
+                    title={label}
+                    aria-label={label}
+                    aria-pressed={previewDevice === key}
+                    className={cn(
+                      "h-6 w-6 rounded-sm p-0 text-muted-foreground hover:text-foreground",
+                      previewDevice === key && "bg-muted text-foreground",
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </Button>
+                ))}
+              </div>
+            ) : null}
           </div>
+          {routesExpanded ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {previewRoutesLoading && previewRoutes.length === 0 ? (
+                <span className="text-[11px] text-muted-foreground">Läser routes…</span>
+              ) : (
+                previewRoutes.map((route) => {
+                  const shell = isShellRoute(route);
+                  const active = activePreviewRoute === route;
+                  return (
+                    <span key={route} className="inline-flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-6 border-border/60 bg-background/60 px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground",
+                          active && "border-primary/50 bg-primary/10 text-foreground",
+                          shell && !active && "border-dashed",
+                        )}
+                        onClick={() => handleNavigateRoute(route)}
+                        title={
+                          shell
+                            ? `${route} — shellsida, kan byggas ut`
+                            : `Visa ${route}`
+                        }
+                      >
+                        {route}
+                      </Button>
+                      {shell && onRequestBuildOutRoute ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onRequestBuildOutRoute(route)}
+                          title={`Bygg ut ${route}`}
+                          aria-label={`Bygg ut ${route}`}
+                          className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <PlusCircle className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : null}
+                    </span>
+                  );
+                })
+              )}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

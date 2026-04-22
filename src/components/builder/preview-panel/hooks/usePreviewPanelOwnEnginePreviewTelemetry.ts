@@ -190,15 +190,18 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
       // identiteten ändras vid HMR/reload och postMessage då tappas bort.
       if (data.type === "build-out-request") {
         const path = typeof data.payload?.path === "string" ? data.payload.path : "";
+        const intentRaw = data.payload?.intent;
+        const nameRaw = data.payload?.name;
+        const intent = typeof intentRaw === "string" && intentRaw.trim().length > 0
+          ? intentRaw
+          : null;
+        const name = typeof nameRaw === "string" && nameRaw.trim().length > 0
+          ? nameRaw
+          : null;
+        if (process.env.NODE_ENV !== "production") {
+          console.info("[preview] build-out-request received", { path, intent, name });
+        }
         if (path && onBuildOutRouteRequest) {
-          const intentRaw = data.payload?.intent;
-          const nameRaw = data.payload?.name;
-          const intent = typeof intentRaw === "string" && intentRaw.trim().length > 0
-            ? intentRaw
-            : null;
-          const name = typeof nameRaw === "string" && nameRaw.trim().length > 0
-            ? nameRaw
-            : null;
           onBuildOutRouteRequest({ path, intent, name });
         }
         return;
@@ -225,7 +228,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
           chatId,
           versionId,
           success: true,
-          source: isOwnEnginePreview ? "own-engine" : "own-engine",
+          source: isOwnEnginePreview ? "own-engine" : "tier2-vm",
           demoUrl: previewUrl ?? undefined,
         });
         return;

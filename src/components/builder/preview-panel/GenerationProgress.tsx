@@ -29,9 +29,12 @@ const PHASE_TARGETS: Record<NonNullable<GenerationPhase>, { target: number; labe
 
 const TICK_MS = 50;
 const SMOOTH_FACTOR = 0.08;
-// Hur långt det tidsdrivna golvet kryper över tid (ease-out mot ~95 % på 45 s).
+// Tidsdrivet creep: snabb snap till ~1 % i första tickarna, sedan lugn
+// asymptotisk ramp mot 95 % så att en ~10 min bygg-körning landar runt ~92 %
+// och vi aldrig stannar synligt. Exponentialkurva: p(t) = CEIL * (1 - e^(-t/TAU)).
 const TIME_CEILING = 95;
-const TIME_CONSTANT_MS = 18_000;
+const TIME_CONSTANT_MS = 180_000; // ~3 min tidskonstant → ~92 % efter 10 min
+const INITIAL_FLOOR = 1; // visa alltid minst 1 % direkt när bygget startar
 
 interface GenerationProgressProps {
   phase?: GenerationPhase;
@@ -41,7 +44,7 @@ interface GenerationProgressProps {
 
 export function GenerationProgress({ phase, forceComplete, className }: GenerationProgressProps) {
   const [displayProgress, setDisplayProgress] = useState(0);
-  const [displayLabel, setDisplayLabel] = useState<string>("");
+  const [displayLabel, setDisplayLabel] = useState<string>("Skapar din sajt");
   const targetRef = useRef(0);
   const currentRef = useRef(0);
   const startedAtRef = useRef<number | null>(null);
@@ -64,10 +67,17 @@ export function GenerationProgress({ phase, forceComplete, className }: Generati
     }
     if (startedAtRef.current === null) {
       startedAtRef.current = Date.now();
+      // snappa omedelbart till 1 % så bannern inte blinkar upp med "0 %".
+      currentRef.current = INITIAL_FLOOR;
+      targetRef.current = INITIAL_FLOOR;
+      setDisplayProgress(INITIAL_FLOOR);
     }
     if (resolvedPhase) {
       lastPhaseRef.current = resolvedPhase;
       setDisplayLabel(PHASE_TARGETS[resolvedPhase].label);
+    } else {
+      // Ingen fas än — behåll default-texten; initialiseras redan via useState.
+      setDisplayLabel("Skapar din sajt");
     }
   }, [isIdle, resolvedPhase]);
 
@@ -85,10 +95,9 @@ export function GenerationProgress({ phase, forceComplete, className }: Generati
       } else {
         const startedAt = startedAtRef.current ?? Date.now();
         const elapsed = Date.now() - startedAt;
-        // Asymptotisk approach mot TIME_CEILING.
         const timeFloor = TIME_CEILING * (1 - Math.exp(-elapsed / TIME_CONSTANT_MS));
         const phaseTarget = resolvedPhase ? PHASE_TARGETS[resolvedPhase].target : 0;
-        target = Math.max(timeFloor, phaseTarget);
+        target = Math.max(INITIAL_FLOOR, timeFloor, phaseTarget);
       }
 
       targetRef.current = Math.max(targetRef.current, target);
@@ -117,37 +126,36 @@ export function GenerationProgress({ phase, forceComplete, className }: Generati
         className,
       )}
     >
-      <div className="flex w-full max-w-sm flex-col items-center gap-5">
-        {!isIdle && (
-          <>
-            <div className="text-4xl font-semibold tracking-tight text-foreground tabular-nums sm:text-5xl">
-              {pct}
-              <span className="ml-1 text-base font-medium text-muted-foreground align-top">%</span>
-            </div>
+      <div className="flex w-full max-w-md flex-col items-center gap-7">
+        <div className="flex items-baseline gap-1.5 text-foreground">
+          <span className="font-serif text-6xl font-normal tracking-tight tabular-nums sm:text-7xl">
+            {isIdle ? 0 : pct}
+          </span>
+          <span className="text-lg font-normal text-muted-foreground">%</span>
+        </div>
 
-            <div
-              className="h-[2px] w-full overflow-hidden rounded-full bg-border/60"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={pct}
-            >
-              <div
-                className="h-full rounded-full bg-foreground/90 transition-[width] duration-300 ease-out"
-                style={{ width: `${displayProgress}%` }}
-              />
-            </div>
-          </>
-        )}
+        <div
+          className="h-[3px] w-full overflow-hidden rounded-full bg-[hsl(var(--brand-sand))]"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={isIdle ? 0 : pct}
+        >
+          <div
+            className="h-full rounded-full bg-foreground transition-[width] duration-500"
+            style={{
+              width: isIdle ? "0%" : `${displayProgress}%`,
+              transitionTimingFunction: "var(--ease-out-soft, cubic-bezier(0.16, 1, 0.3, 1))",
+            }}
+          />
+        </div>
 
-        {!isIdle && (
-          <p
-            key={displayLabel}
-            className="text-sm font-medium text-muted-foreground motion-safe:animate-in motion-safe:fade-in-50 motion-safe:duration-300"
-          >
-            {displayLabel || "Skapar din sajt"}
-          </p>
-        )}
+        <p
+          key={displayLabel}
+          className="text-center text-sm tracking-wide text-muted-foreground motion-safe:animate-in motion-safe:fade-in-50 motion-safe:duration-500"
+        >
+          {isIdle ? "Redo att bygga" : displayLabel || "Skapar din sajt"}
+        </p>
       </div>
     </div>
   );
