@@ -618,6 +618,11 @@ export async function handleMessageStreamRequest(
             existingRoutePaths,
             existingShellRoutePaths,
             capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
+            // Bug 04#3 (2026-04-22 audit): plan mode måste också skicka
+            // engineModelId + lifecycleStage annars divergerar BuildSpec från
+            // huvudflödet (token-budget och F2/F3-policy).
+            engineModelId: resolveEngineModelId(resolvedModelTier),
+            lifecycleStage: parsedMeta.lifecycleStage,
           });
           debugLog("orchestration", "Follow-up plan orchestration prepared", {
             chatId,

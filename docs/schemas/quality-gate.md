@@ -41,7 +41,10 @@ Quality gate är alltså inte samma sak som:
 
 - mekaniska fixar (deterministisk autofix)
 - syntaxvalidering i finalize
-- verifier-pass (read-only LLM)
+- verifier-pass (hybrid: deterministiska checks + LLM-audit) — kör
+  regex-/AST-baserade guards (t.ex. `undefined-jsx-symbol`,
+  `motion-reduce-canvas-trap`, `motion-reduce-overlay-trap`) innan
+  LLM-passet och matar eventuella blocking findings in i fixern
 - live-previewns `npm run dev`
 
 ## Preview-lane vs verify-lane

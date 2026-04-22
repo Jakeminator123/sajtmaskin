@@ -9,44 +9,55 @@ import {
 
 export type { FollowUpIntentMode };
 
+// Unicode-aware look-arounds överallt. Default JS `\b` räknar `ä/ö/å` som
+// non-word, så `/\bändra\b/` matchade aldrig "ändra" och alla svenska
+// refine/vague-prompter föll silent till "neutral".
+// "byt" (utan "ut") saknades tidigare i refine och vague — enkla svenska
+// edits som "byt hero-bilden" tappade refine-signal.
 const FOLLOW_UP_REFINE_PATTERNS = [
-  /\b(förfina|förbättra|justera|uppdatera|ändra|byt ut|lägg till|fixa|trimma)\b/i,
-  /\b(refine|improve|update|adjust|tweak|fix|keep the current design)\b/i,
-  /\b(förfina nuvarande design|behåll nuvarande design)\b/i,
+  /(?<![\p{L}\p{N}_])(?:förfina|förbättra|justera|uppdatera|ändra|byt(?:er|t)?(?:\s+ut)?|lägg\s+till|fixa|trimma)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:refine|improve|update|adjust|tweak|fix|keep\s+the\s+current\s+design)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:förfina\s+nuvarande\s+design|behåll\s+nuvarande\s+design)(?![\p{L}\p{N}_])/iu,
 ];
 const FOLLOW_UP_REDESIGN_PATTERNS = [
-  /\b(redesign|rebrand|restyle|start over|from scratch)\b/i,
-  /\b(gör om från grunden|helt ny riktning|helt annan stil|byt stil helt)\b/i,
-  /\b(tydlig redesign|starta om från en ny grund)\b/i,
+  /(?<![\p{L}\p{N}_])(?:redesign|rebrand|restyle|start\s+over|from\s+scratch)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:gör\s+om\s+från\s+grunden|helt\s+ny\s+riktning|helt\s+annan\s+stil|byt\s+stil\s+helt)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:tydlig\s+redesign|starta\s+om\s+från\s+en\s+ny\s+grund)(?![\p{L}\p{N}_])/iu,
 ];
 const FOLLOW_UP_NEW_SITE_PATTERNS = [
-  /\b(hemsida|sajt|landningssida|startsida)\b/i,
-  /\b(website|site|homepage|landing page|one-pager)\b/i,
+  /(?<![\p{L}\p{N}_])(?:hemsida|sajt|landningssida|startsida)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:website|site|homepage|landing\s+page|one-pager)(?![\p{L}\p{N}_])/iu,
 ];
-const FOLLOW_UP_BUILD_PATTERNS = [/\b(bygg|skapa|gör|designa)\b/i, /\b(build|create|make|design)\b/i];
+const FOLLOW_UP_BUILD_PATTERNS = [
+  /(?<![\p{L}\p{N}_])(?:bygg|skapa|gör|designa)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:build|create|make|design)(?![\p{L}\p{N}_])/iu,
+];
 const FOLLOW_UP_SITE_BRIEF_INTENT_PATTERNS = [
-  /\b(vill ha|behöver|önskar|ska vara|ska innehålla)\b/i,
-  /\b(i want|we want|i need|we need|should include|needs to have)\b/i,
+  /(?<![\p{L}\p{N}_])(?:vill\s+ha|behöver|önskar|ska\s+vara|ska\s+innehålla)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:i\s+want|we\s+want|i\s+need|we\s+need|should\s+include|needs\s+to\s+have)(?![\p{L}\p{N}_])/iu,
 ];
 const FOLLOW_UP_SITE_BRIEF_REQUIREMENT_PATTERNS = [
-  /\b(3d|animation|bilder|bild|foton|photo|photos|image|images|video)\b/i,
-  /\b(hero|cta|galleri|gallery|booking|bokning|shop|e-handel|sortiment|meny)\b/i,
-  /\b(kontaktformulär|contact form|blogg|blog|sektioner|sections|sidor|pages)\b/i,
-  /\b(första sidan|startsidan|landing page|homepage|multi-page|flersidig|tre sidor|three pages)\b/i,
+  /(?<![\p{L}\p{N}_])(?:3d|animation|bilder|bild|foton|photo|photos|image|images|video)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:hero|cta|galleri|gallery|booking|bokning|shop|e-handel|sortiment|meny)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:kontaktformulär|contact\s+form|blogg|blog|sektioner|sections|sidor|pages)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:första\s+sidan|startsidan|landing\s+page|homepage|multi-page|flersidig|tre\s+sidor|three\s+pages)(?![\p{L}\p{N}_])/iu,
 ];
 const FOLLOW_UP_VAGUE_EDIT_PATTERNS = [
-  /\b(förbättra|förfina|justera|uppdatera|ändra|fixa|trimma)\b/i,
-  /\b(improve|refine|adjust|update|fix|polish|tweak)\b/i,
-  /\b(gör det bättre|kan du förbättra|kan du fixa|make it better|can you improve)\b/i,
+  /(?<![\p{L}\p{N}_])(?:förbättra|förfina|justera|uppdatera|ändra|fixa|trimma)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:improve|refine|adjust|update|fix|polish|tweak)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:gör\s+det\s+bättre|kan\s+du\s+förbättra|kan\s+du\s+fixa|make\s+it\s+better|can\s+you\s+improve)(?![\p{L}\p{N}_])/iu,
 ];
 const FOLLOW_UP_EXPLICIT_DIRECTION_PATTERNS = [
-  /\b(nuvarande design|behåll nuvarande design|samma design)\b/i,
-  /\b(current design|keep the current design|same design)\b/i,
+  /(?<![\p{L}\p{N}_])(?:nuvarande\s+design|behåll\s+nuvarande\s+design|samma\s+design)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:current\s+design|keep\s+the\s+current\s+design|same\s+design)(?![\p{L}\p{N}_])/iu,
 ];
 const FOLLOW_UP_SPECIFIC_TARGET_PATTERNS = [
-  /\b(hero|footer|header|nav|navigation|layout|spacing|copy|text|färg|color|bild|image|animation|knapp|button)\b/i,
-  /\b(section|sektion|card|kort|font|typografi|logo|cta|pricing|pris|kontakt|about|seo)\b/i,
-  /\b(page\.tsx|layout\.tsx|globals\.css|app\/|src\/)\b/i,
+  /(?<![\p{L}\p{N}_])(?:hero|footer|header|nav|navigation|layout|spacing|copy|text|färg|color|bild|image|animation|knapp|button)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:section|sektion|card|kort|font|typografi|logo|cta|pricing|pris|kontakt|about|seo)(?![\p{L}\p{N}_])/iu,
+  // "rubrik"/"title"/"headline" var tidigare okända targets — "Ändra rubriken
+  // till Hej" föll därför i ambiguous-followup fast det är en specifik edit.
+  /(?<![\p{L}\p{N}_])(?:rubrik|rubriken|title|titeln|headline|underrubrik|tagline|slogan)(?![\p{L}\p{N}_])/iu,
+  /\b(?:page\.tsx|layout\.tsx|globals\.css|app\/|src\/)\b/i,
 ];
 
 /**
@@ -96,10 +107,10 @@ function hasRedesignVerbNounCombo(message: string): boolean {
  * {@link classifyFollowUpIntent} returns neutral (e.g. user vocabulary differs).
  */
 const PERSISTED_SCAFFOLD_UNLOCK_SUPPLEMENT_PATTERNS: RegExp[] = [
-  /\bfull(?:\s+|-)?redesign\b/i,
-  /\b(total|complete|komplett)\s+redesign\b/i,
-  /\bgör\s+om\s+(?:hela\s+)?(?:sajten|webbplatsen|sidan)\b/i,
-  /\b(website|sajt|site)\s+from\s+scratch\b/i,
+  /(?<![\p{L}\p{N}_])full(?:\s+|-)?redesign(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:total|complete|komplett)\s+redesign(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])gör\s+om\s+(?:hela\s+)?(?:sajten|webbplatsen|sidan)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:website|sajt|site)\s+from\s+scratch(?![\p{L}\p{N}_])/iu,
 ];
 
 /**
@@ -170,7 +181,7 @@ function countPatternMatches(patterns: RegExp[], message: string): number {
  * visuella identiteten på en sajt som användaren bara ville utöka.
  */
 const NEW_BUILD_INTENT_PATTERNS: RegExp[] = [
-  /\b(ny hemsida|helt ny|from scratch|starta om|bygg om hela|gör om hela|redesign|rebrand|restyle)\b/i,
+  /(?<![\p{L}\p{N}_])(?:ny\s+hemsida|helt\s+ny|from\s+scratch|starta\s+om|bygg\s+om\s+hela|gör\s+om\s+hela|redesign|rebrand|restyle)(?![\p{L}\p{N}_])/iu,
 ];
 
 function looksLikeDetailedNewSiteBrief(message: string): boolean {

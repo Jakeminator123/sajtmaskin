@@ -78,4 +78,12 @@ describe("classifyRequestKind", () => {
   it("still classifies real questions starting with 'hur' as qa-or-score", () => {
     expect(classifyRequestKind("Hur fungerar din pipeline?").kind).toBe("qa-or-score");
   });
+
+  // 2026-04-22 audit (rapport 05): "trea" var en typo — cardinal "tre"
+  // matchade aldrig, så "tre ändringar" föll silent till local-layout.
+  it("detects multi-change when the prompt says 'tre ändringar'", () => {
+    expect(
+      classifyRequestKind("Gör tre ändringar: byt hero-bild, lägg till CTA, flytta testimonials").kind,
+    ).toBe("multi-change");
+  });
 });

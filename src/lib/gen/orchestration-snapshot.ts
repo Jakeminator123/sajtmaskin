@@ -186,6 +186,17 @@ export function buildFollowUpBriefFromSnapshot(
   if (summary.domainProfile) out.domainProfile = summary.domainProfile;
   if (summary.projectTitle) out.projectTitle = summary.projectTitle;
   if (summary.brandName) out.brandName = summary.brandName;
+  // Bug 07#3 (2026-04-22 audit): snapshot bevarar style/tone i briefSummary
+  // (flat shape: styleKeywords + toneKeywords), men utan rehydrering under
+  // de nycklar consumers läser (`brief.visualDirection.styleKeywords`,
+  // `brief.toneAndVoice`) tappade follow-ups hela art direction — init hade
+  // starkare designkontext än follow-up fast snapshot bar kontinuiteten.
+  if (summary.styleKeywords && summary.styleKeywords.length > 0) {
+    out.visualDirection = { styleKeywords: summary.styleKeywords };
+  }
+  if (summary.toneKeywords && summary.toneKeywords.length > 0) {
+    out.toneAndVoice = summary.toneKeywords;
+  }
   // Returning an empty object is worse than null — downstream guards
   // expect either a populated brief or no brief at all.
   if (Object.keys(out).length === 0) return null;

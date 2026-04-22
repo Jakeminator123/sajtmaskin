@@ -236,9 +236,14 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
         brandName: "Solskenet AB",
         requestedCapabilities: ["payments", "auth", "booking"],
         domainProfile: { domain: "hospitality", industry: "hotel" },
-        // Fält som INTE ska propageras till brief-objektet (style/tone hör till
-        // continuity-blocket, inte till capability-driven dossier-pick).
+        // Rapport 07#3 (2026-04-22 audit): style/tone måste rehydreras under
+        // de shape-nycklar consumers läser (system-prompt.ts läser
+        // `brief.visualDirection.styleKeywords` + `brief.toneAndVoice`;
+        // scaffold-query-context.ts samma). Continuity-prosan ersätter inte
+        // strukturerade fält — utan rehydrering tappade follow-ups hela art
+        // direction fast snapshot bevarade den.
         styleKeywords: ["minimal", "warm"],
+        toneKeywords: ["professionell", "välkomnande"],
       },
     };
     const brief = buildFollowUpBriefFromSnapshot(snapshot);
@@ -247,7 +252,21 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
     expect(brief?.domainProfile).toEqual({ domain: "hospitality", industry: "hotel" });
     expect(brief?.projectTitle).toBe("Hotel Solskenet");
     expect(brief?.brandName).toBe("Solskenet AB");
-    expect(brief?.styleKeywords).toBeUndefined();
+    expect(brief?.visualDirection).toEqual({ styleKeywords: ["minimal", "warm"] });
+    expect(brief?.toneAndVoice).toEqual(["professionell", "välkomnande"]);
+  });
+
+  it("hydrates style/tone when nothing else is present so art direction carries on follow-up", () => {
+    // Rapport 07#3: style/tone alone ska ge ett icke-tomt brief-objekt så
+    // att system-prompt.ts och scaffold-query-context.ts ser designfälten
+    // även när ingen capability-data finns i snapshot.
+    const brief = buildFollowUpBriefFromSnapshot({
+      briefSummary: { styleKeywords: ["editorial"], toneKeywords: ["confident"] },
+    });
+    expect(brief).toEqual({
+      visualDirection: { styleKeywords: ["editorial"] },
+      toneAndVoice: ["confident"],
+    });
   });
 
   it("returns minimal brief with just requestedCapabilities when nothing else is set", () => {

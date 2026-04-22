@@ -41,7 +41,9 @@ const EXTERNAL_FETCH_PHRASE = /\b(hämta\s+(?:från|ifrån)|ta\s+(?:från|ifrån
 // "Ändra färg och flytta knappen", silently downgrading multi-change to
 // unclassified.
 const MULTI_CHANGE = [
-  /(?<![\p{L}\p{N}_])(?:två|trea|fyra|fem|2|3|4|5)\s+(?:olika\s+)?(?:saker|ändringar|ändring|tasks|things)(?![\p{L}\p{N}_])/iu,
+  // "trea" var en typo: det svenska räkneordet "tre" matchade aldrig så
+  // "tre ändringar" / "tre saker" tappades silent till local-layout.
+  /(?<![\p{L}\p{N}_])(?:två|tre|fyra|fem|2|3|4|5)\s+(?:olika\s+)?(?:saker|ändringar|ändring|tasks|things)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])gör\s+(?:båda|alla|två)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:både|samt|och\s+också|plus|\+)(?![\p{L}\p{N}_]).*(?<![\p{L}\p{N}_])(?:ändra|byt|lägg|uppdatera|skapa|ta\s+bort|flytta)(?![\p{L}\p{N}_])/isu,
   /(?<![\p{L}\p{N}_])(?:ändra|byt|lägg|uppdatera|skapa|flytta)(?![\p{L}\p{N}_]).*(?<![\p{L}\p{N}_])och(?![\p{L}\p{N}_]).*(?<![\p{L}\p{N}_])(?:ändra|byt|lägg|uppdatera|skapa|flytta)(?![\p{L}\p{N}_])/isu,

@@ -35,7 +35,7 @@ import {
   runQualityGateOnExportable,
   shouldPromoteAfterRepair,
 } from "./preview-quality-gate";
-import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 import {
@@ -442,12 +442,14 @@ async function tryServerRepairLoop(params: {
 
   const originatingChat = await getChat(chatId).catch(() => null);
   const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
-  const fixerModel = originatingTier
-    ? resolvePhaseModel(originatingTier, "fixer").modelId
-    : undefined;
-  const fixerThinking = originatingTier
-    ? resolvePhaseThinking(originatingTier, "fixer")
-    : null;
+  // Bug 01#3 (2026-04-22 audit): fallback till default-tier (pro) när chat-
+  // modellen inte mappar till en känd canonical tier. Tidigare blev fixerModel
+  // `undefined` och runLlmFixer använde sin interna default — det bröt
+  // förutsägbarheten i manifestens phaseRouting (reparation och fas 2 kunde
+  // köra på olika tiers utan att det syntes i logs).
+  const fixerTier = originatingTier ?? DEFAULT_MODEL_ID;
+  const fixerModel = resolvePhaseModel(fixerTier, "fixer").modelId;
+  const fixerThinking = resolvePhaseThinking(fixerTier, "fixer");
 
   const repairLogContext = buildRepairLogContextLines({
     failedOutputs,

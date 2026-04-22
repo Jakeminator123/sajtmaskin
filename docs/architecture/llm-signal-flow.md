@@ -2,7 +2,7 @@
 
 Hur signallagren samspelar i create-chat, follow-up och repair, plus **vem äger vilken signal** (canonical source).
 
-**Senast uppdaterad:** 2026-04-20.
+**Senast uppdaterad:** 2026-04-22.
 
 För kontraktslika tabellen över lager, inputs och outputs: `docs/schemas/orchestration-signal-contract.md`.
 För matrisen över LLM-roller/modeller: `docs/schemas/llm-role-matrix.md`.
@@ -63,8 +63,7 @@ Varje signal i init-pipelinen har **exakt en canonical source**. Konsumenter lä
 | **Init-semantik (projektgrund)** | Deep Brief (`site-brief-generation.ts`) | `siteBriefSchema` | `create-chat-stream-post.ts`, `buildDynamicContext()` | Nej — brief-objektet via `meta.brief` är enda kanonisk signal |
 | **Globala designregler** | Core Rules (`config/prompt-core/`, inkl. `03-visual-design.md` + `04-coding-direction.md`) | markdown-filer | `static-core-loader.ts` → system prompt | Nej — directive cascade borttagen 2026-04-18 |
 | **Request-specifik designkontext** | `buildDynamicContext()` i `system-prompt.ts` | brief + scaffold + theme | codegen system prompt | Nej — brief-driven, inte omtolkad |
-| **Build intent (codegen)** | `BUILD_INTENT_GUIDANCE` i `system-prompt.ts` | lokal konstant | `buildDynamicContext()` | Assist-copy i `promptAssist.ts` ok (annat syfte) |
-| **Build intent (assist)** | `BUILD_INTENT_GUIDANCE` i `promptAssist.ts` | lokal konstant | rewrite/polish/addendum | Synka manuellt med codegen-versionen |
+| **Build intent (codegen + assist)** | `BUILD_INTENT_GUIDANCE` i `src/lib/gen/intent-guidance.ts` | delad konstant | `system-prompt.ts` (`buildDynamicContext()`) + `promptAssist.ts` (rewrite/polish/addendum) | Nej — en canonical konstant, båda ytor importerar den |
 | **Capability-inferens** | `capability-inference.ts` | regexar + manifest | `buildDynamicContext()`, `BuildSpec`, `follow-up-clarification` | Nej |
 | **Capability → dossier-bridge** | `orchestrate.ts` `inferredCapabilityIds` | hardcoded mapping | `selectDossiersForRequest({ requestedCapabilities })` | Nej — single source. 2026-04-21: `needs3D → visual-3d`, `needsParallax → [parallax-scroll, parallax-pointer]`, `needsPayments → payments` |
 | **Fallback-addendum (non-init)** | `promptAssist.ts` | `MOTION_GUIDANCE`, `VISUAL_IDENTITY_GUIDANCE`, `QUALITY_BAR_GUIDANCE` | `useInitBrief.ts` → `generateDynamicInstructions` vid brief-miss | Legacy-fallback, skippas vid init |
@@ -112,10 +111,17 @@ Deep brief matas in i scaffoldmatchningen via `ScaffoldQueryContext` (`briefPage
 
 Skiljer sig från create-chat på fyra sätt:
 
+
 1. user-turnen wrappas med continuity / current files / requested changes
 2. persisted scaffold kan återanvändas
 3. route plan fryser ofta befintliga routes i stället för att bygga ny IA från scratch
-4. **init-brief skickas inte med** — follow-ups förlitar sig på persisted scaffold, orchestration snapshot och tidigare filer
+4. **ingen ny full init-brief** — men en **minimerad snapshot-brief** hydreras
+   (A1/A2, 2026-04-21) via `buildFollowUpBriefFromSnapshot` när
+   `meta.brief` saknas. Snapshot-briefen bär `requestedCapabilities`,
+   `domainProfile`, `projectTitle`, `brandName` samt (sedan audit 2026-04-22)
+   `visualDirection.styleKeywords` + `toneAndVoice` så `system-prompt.ts`
+   och `scaffold-query-context.ts` ser samma designfält som init — utan att
+   återköra Deep Brief-LLM:en.
 
 ### Nuvarande follow-up-balans
 
@@ -161,5 +167,7 @@ Repair/fixer-output måste returnera **kompletta filer**, inte snippets. Runtime
 1. Deep Brief = **enda kanoniska semantiska expansionen** för init. Expandera en gång, exekvera många steg.
 2. Scaffold = **strukturhypotes**, inte ensam domänsanning.
 3. Route plan + contracts ska väga briefsignaler tyngre än scaffolddefaults när de krockar.
-4. Follow-ups ska **inte** bära init-brief — de utgår från persisted scaffold, orchestration snapshot och tidigare filer.
+4. Follow-ups ska **inte** återköra Deep Brief-LLM:en — men en minimerad
+   snapshot-brief hydreras från `briefSummary` (A1/A2) så kapabilitets-,
+   domän- och designsignaler lever vidare utan ny LLM-rundgång.
 5. Post-checks = sanningslager för vad som faktiskt genererades.

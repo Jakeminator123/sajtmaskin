@@ -94,9 +94,14 @@ def render(ctx: BackofficeContext) -> None:
   `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS` (default 20).
   med `forceTsc: true`. Fail-open vid kall cache. SSE-progress: `phase: "validating" | "fixing" | "tsc-validating"
   | "tsc-fixing" | "tsc-passed" | "tsc-skipped" | "passed" | "gave-up"`.
-- **Verifier-fynd → fixer (Wave 2 2026-04-20)**: blocking-fynd från `runVerifierPass` matas in i `runLlmFixer`
-  direkt efter verifier-passet. Lyckad fixer rensar `verifierBlockingFindings` så versionen inte markeras
-  blocked för fynd som redan reparerats. Tidigare paid-no-op pass.
+- **Verifier-pass är hybrid (2026-04-22)**: före LLM-auditen kör `runVerifierPass` nu deterministiska
+  guards i `verifier-pass.ts` — `undefined-jsx-symbol` (kollar JSX-taggar mot importerade/deklarerade
+  symboler, med TS-generic-registrering så `<T>` inte false-positivas), `motion-reduce-canvas-trap` och
+  `motion-reduce-overlay-trap`. `lazy(`-bailouten är smal: bara filer med `React.lazy(` eller `lazy`
+  importerat från `react`/`react-dom` skippas.
+- **Verifier-fynd → fixer (Wave 2 2026-04-20)**: blocking-fynd från `runVerifierPass` (både deterministiska
+  och LLM-reported) matas in i `runLlmFixer` direkt efter verifier-passet. Lyckad fixer rensar
+  `verifierBlockingFindings` så versionen inte markeras blocked för fynd som redan reparerats.
 - **Auto-repair på `build-error` (Wave 4 2026-04-20)**: `triggerBuildErrorRepair` är default ON i
   `development` + Vercel `preview`, default OFF i `production`. Override via `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1`.
 - **Placeholder-merge** (`src/lib/gen/preview/env-local.ts`): `harmless → tier3-stub → project-preview → user → generated`.

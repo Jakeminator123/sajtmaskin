@@ -59,6 +59,18 @@ describe("follow-up clarification intent classification", () => {
     // ner i andra grenar; ska inte plötsligt klassas som clear-redesign.
     expect(classifyFollowUpIntent("snyggare färgschema")).not.toBe("clear-redesign");
   });
+
+  // 2026-04-22 audit (rapport 05 + 06): Unicode-\b + "byt"-token regressionskydd.
+  // Innan fixen: ASCII `\b` matchade inte före `ä/ö/å`, så "Ändra rubriken…"
+  // föll till `neutral`. Nu plockas det upp som en riktig refine-prompt via
+  // refine-regexet för "ändra" + specifik target "rubrik".
+  it("classifies Swedish refine prompts with ä/ö/å as clear-refine", () => {
+    expect(classifyFollowUpIntent("Ändra rubriken till Hej")).toBe("clear-refine");
+  });
+
+  it("classifies bare 'byt'-edits as clear-refine (not neutral)", () => {
+    expect(classifyFollowUpIntent("Byt hero-bilden till en elefant")).toBe("clear-refine");
+  });
 });
 
 describe("hasDesignFollowUpSignal (Fix A)", () => {

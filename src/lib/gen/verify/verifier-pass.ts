@@ -235,14 +235,18 @@ export function checkUndefinedJsxSymbols(
     if (!/\.(t|j)sx$/i.test(f.path)) continue;
 
     // Bail on patterns that introduce components dynamically — we'd rather
-    // miss than false-positive.
-    if (
-      /\bcreateElement\s*\(/.test(f.content) ||
-      /\bReact\.lazy\s*\(/.test(f.content) ||
-      /\blazy\s*\(/.test(f.content)
-    ) {
-      continue;
-    }
+    // miss than false-positive. SAJ-33 (2026-04-22 audit): tidigare skippades
+    // hela filen så fort den innehöll bokstäverna `lazy(` (t.ex. en egen
+    // util `lazyRetry(...)` eller `db.users.lazy(...)`), vilket dolde
+    // verkliga undefined-JSX-symboler. Begränsa bailouten till `lazy(` som
+    // rimligen är React.lazy — antingen namespace-anropat eller importerat
+    // från "react" / "react-dom".
+    if (/\bcreateElement\s*\(/.test(f.content)) continue;
+    if (/\bReact\.lazy\s*\(/.test(f.content)) continue;
+    const lazyImportedFromReact =
+      /import\s*\{[^}]*\blazy\b[^}]*\}\s*from\s*['"]react['"]/.test(f.content) ||
+      /import\s*\{[^}]*\blazy\b[^}]*\}\s*from\s*['"]react-dom['"]/.test(f.content);
+    if (lazyImportedFromReact && /\blazy\s*\(/.test(f.content)) continue;
 
     const scrubbed = stripCommentsAndStrings(f.content);
     const declared = collectDeclaredIdentifiers(scrubbed);
@@ -364,6 +368,42 @@ function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
   const ENUM_DECL_RE = /\benum\s+([A-Za-z_$][\w$]*)/g;
   while ((m = ENUM_DECL_RE.exec(scrubbedSource)) !== null) {
     if (m[1]) declared.add(m[1]);
+  }
+
+  // SAJ-33 (2026-04-22 audit): TS generic type parameters (`function f<T>`,
+  // `class Foo<T, U>`, `interface Bar<T extends X>`, `type Baz<T> = …`, and
+  // arrow generics `<T,>(x) => …`) look like JSX opening tags to the coarse
+  // `JSX_OPENING_TAG` regex. Register the declared type-parameter names here
+  // so legitimate .tsx code with generics does not get flagged with
+  // `undefined-jsx-symbol: T` and block the quality gate.
+  const addGenericParams = (paramList: string) => {
+    for (const part of paramList.split(",")) {
+      const head = part
+        .trim()
+        .replace(/^readonly\s+/, "")
+        .match(/^([A-Za-z_$][\w$]*)/);
+      if (head && head[1]) declared.add(head[1]);
+    }
+  };
+  const FN_GENERIC_RE = /\bfunction\s*\*?\s*(?:[A-Za-z_$][\w$]*)?\s*<([^<>]+)>/g;
+  while ((m = FN_GENERIC_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) addGenericParams(m[1]);
+  }
+  const CLASS_IFACE_GENERIC_RE = /\b(?:class|interface)\s+[A-Za-z_$][\w$]*\s*<([^<>]+)>/g;
+  while ((m = CLASS_IFACE_GENERIC_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) addGenericParams(m[1]);
+  }
+  const TYPE_GENERIC_RE = /\btype\s+[A-Za-z_$][\w$]*\s*<([^<>]+)>\s*=/g;
+  while ((m = TYPE_GENERIC_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) addGenericParams(m[1]);
+  }
+  // Arrow-generic context: `<T,>(` or `<T extends X>(` — trailing `(` is
+  // required so ordinary JSX `<Foo>` never matches. Also covers the common
+  // `const useThing = <T,>(…) => …` and method-generic shapes.
+  const ARROW_GENERIC_RE =
+    /<\s*([A-Z][\w$]*(?:\s+extends\s+[^,<>]+)?(?:\s*=\s*[^,<>]+)?(?:\s*,\s*(?:[A-Z][\w$]*)(?:\s+extends\s+[^,<>]+)?(?:\s*=\s*[^,<>]+)?)*\s*,?\s*)>\s*\(/g;
+  while ((m = ARROW_GENERIC_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) addGenericParams(m[1]);
   }
 
   return declared;

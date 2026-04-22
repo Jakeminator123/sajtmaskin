@@ -248,6 +248,59 @@ describe("checkUndefinedJsxSymbols", () => {
     expect(present).toEqual([]);
   });
 
+  // SAJ-33 regressionsskydd (2026-04-22 audit) ──────────────────────────
+
+  it("does NOT flag TS generic type params in .tsx (`function f<T>()`)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/hooks.tsx",
+        content: [
+          "export function useBox<T>(value: T): T { return value; }",
+          "export function useRecord<K extends string, V>(k: K, v: V) {",
+          "  return { [k]: v };",
+          "}",
+          "export class Store<TData> { read(): TData { return null as TData; } }",
+          "export interface Bag<T, U = string> { value: T; label: U }",
+          "export type Pair<A, B> = { a: A; b: B };",
+          "export const useArrow = <TItem,>(item: TItem) => item;",
+          "export default function Page() { return <div>ok</div>; }",
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toEqual([]);
+  });
+
+  it("no longer bails on the whole file for a custom `lazy(` that is not React.lazy", () => {
+    // Utan fixen: hela filen skippades så `<Missing />` missades. Nu ska den
+    // flaggas eftersom `lazy(` här kommer från ett eget util-bibliotek.
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          'import { lazy as lazyRetry } from "@/lib/my-utils";',
+          "const noop = lazyRetry(() => null);",
+          "export default function Page() { return <Missing />; }",
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.detail).toContain("<Missing");
+  });
+
+  it("still bails safely when `lazy` is imported from react (React.lazy-equivalent)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          'import { lazy } from "react";',
+          'const Dyn = lazy(() => import("./dyn"));',
+          "export default function Page() { return <Dyn /> }",
+        ].join("\n"),
+      },
+    ]);
+    expect(findings).toEqual([]);
+  });
+
   it("caps total findings so a badly-formed file cannot flood the repair prompt", () => {
     const content = [
       "export default function Page() {",

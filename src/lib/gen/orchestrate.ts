@@ -399,7 +399,12 @@ export async function resolveOrchestrationBase(
   const officialRefsPromise = fetchMissingRegistryExamples(uniqueRefNames, localRefs)
     .then((fetched) => [...localRefs, ...fetched])
     .catch(() => localRefs);
-  const communityRefsPromise = fetchCommunityBlocks(capabilities, prompt).catch(() => []);
+  // Use intentSourcePrompt (same clean source that drives capability/scaffold
+  // signals) instead of the wrapped `prompt` — otherwise file-context-wrapping
+  // in optimizedMessage would poison `detectSectionTypes` and make us fetch
+  // community blocks based on historical file contents instead of the user's
+  // actual intent for this turn.
+  const communityRefsPromise = fetchCommunityBlocks(capabilities, intentSourcePrompt).catch(() => []);
   let officialRefs: ComponentReference[] = localRefs;
   let communityRefs: ComponentReference[] = [];
   let resolvedReferenceFetches = false;
@@ -492,7 +497,7 @@ export async function resolveOrchestrationBase(
     const knownIds = new Set(getScaffoldIds().map((id) => id.toLowerCase()));
     if (!knownIds.has(briefNomNorm)) {
       console.info("[orchestrate] scaffold_unknown_brief_nomination", {
-        mode: input.generationMode ?? "init",
+        mode: resolvedMode,
         briefNominated: briefScaffoldNom!.id,
         briefConfidence: briefScaffoldNom!.confidence ?? null,
         finalPick: resolvedScaffold!.id,
@@ -513,7 +518,7 @@ export async function resolveOrchestrationBase(
           ? "picker_default_low_brief_confidence"
           : "picker_override";
       console.info("[orchestrate] scaffold_drift", {
-        mode: input.generationMode ?? "init",
+        mode: resolvedMode,
         briefNominated: briefScaffoldNom!.id,
         briefConfidence: briefConfidenceValue,
         finalPick: resolvedScaffold!.id,

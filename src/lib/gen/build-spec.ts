@@ -510,12 +510,19 @@ function effectiveInitRouteCount(params: {
   generationMode: BuildSpecGenerationMode;
   routePlan: RoutePlan;
   routeRealization: RouteRealizationPolicy;
+  /**
+   * Bug 04#2 (2026-04-22 audit): använd samma `isEffectiveInit`-semantik
+   * som `deriveRouteRealizationPolicy`. Utan isFirstCodeGeneration fick
+   * follow-up + first-code-gen hela `routePlan.routes.length` inrapporterat
+   * till qualityTarget/scoreContextPolicy, vilket promotade run:en till
+   * premium/heavy även när realizationen faktiskt bara byggde primary-full
+   * med shell-sidor.
+   */
+  isFirstCodeGeneration?: boolean | null;
 }): number {
-  const { generationMode, routePlan, routeRealization } = params;
-  if (
-    generationMode === "init" &&
-    routeRealization.mode === "primary-full-with-shells"
-  ) {
+  const { generationMode, routePlan, routeRealization, isFirstCodeGeneration } = params;
+  const effectiveInit = isEffectiveInit({ generationMode, isFirstCodeGeneration });
+  if (effectiveInit && routeRealization.mode === "primary-full-with-shells") {
     return routeRealization.fullRoutePaths.length;
   }
   return routePlan.routes.length;
@@ -681,6 +688,7 @@ function inferQualityTarget(params: {
   preGenerationContracts: PreGenerationContractContext;
   /** Explicit override — F3 lifecycle stage forces release-candidate. */
   previewPolicy: BuildSpecPreviewPolicy;
+  isFirstCodeGeneration?: boolean | null;
 }): BuildSpecQualityTarget {
   const {
     buildIntent,
@@ -690,6 +698,7 @@ function inferQualityTarget(params: {
     routeRealization,
     preGenerationContracts,
     previewPolicy,
+    isFirstCodeGeneration,
   } = params;
   if (previewPolicy === "fidelity3") return "release-candidate";
 
@@ -702,6 +711,7 @@ function inferQualityTarget(params: {
     generationMode,
     routePlan,
     routeRealization,
+    isFirstCodeGeneration,
   });
   const premiumSignals =
     buildIntent === "app" ||
@@ -825,6 +835,7 @@ function scoreContextPolicy(params: {
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilityHeavy: boolean;
+  isFirstCodeGeneration?: boolean | null;
 }): number {
   const {
     generationMode,
@@ -834,6 +845,7 @@ function scoreContextPolicy(params: {
     preGenerationContracts,
     promptStrategyMeta,
     capabilityHeavy,
+    isFirstCodeGeneration,
   } = params;
   let score = 0;
 
@@ -866,6 +878,7 @@ function scoreContextPolicy(params: {
     generationMode,
     routePlan,
     routeRealization,
+    isFirstCodeGeneration,
   });
   if (routeCount > 4) score += 2;
   else if (routeCount >= 3) score += 1;
@@ -889,6 +902,7 @@ function inferContextPolicy(params: {
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilityHeavy: boolean;
+  isFirstCodeGeneration?: boolean | null;
 }): { policy: BuildSpecContextPolicy; score: number } {
   const {
     prompt,
@@ -1128,6 +1142,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     routeRealization,
     preGenerationContracts,
     previewPolicy,
+    isFirstCodeGeneration,
   });
   const verificationPolicy = inferVerificationPolicy({
     generationMode,
@@ -1145,6 +1160,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     preGenerationContracts,
     promptStrategyMeta,
     capabilityHeavy,
+    isFirstCodeGeneration,
   });
 
   const styleResult = inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope);

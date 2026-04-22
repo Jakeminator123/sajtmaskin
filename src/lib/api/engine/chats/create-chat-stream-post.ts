@@ -406,6 +406,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           brief: effectiveBrief,
           themeColors: parsedMeta.themeColors,
           promptStrategyMeta: strategyMeta,
+          // Bug 04#3 (2026-04-22 audit): plan mode skickade tidigare inte
+          // engineModelId/lifecycleStage. Det gav divergent BuildSpec mellan
+          // planerings-LLM (200k-baseline, default livscykel) och faktisk
+          // codegen (1M-fönster + F2/F3). Spegla samma fält som huvudflödet.
+          engineModelId: resolveEngineModelId(resolvedModelTier),
+          lifecycleStage: parsedMeta.lifecycleStage,
         });
         debugLog("orchestration", "Plan mode orchestration prepared", {
           durationMs: Date.now() - planOrchestrationStartedAt,
@@ -559,6 +565,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
         const orchestrationInput = {
           prompt: optimizedMessage,
+          // Bug 07#1 (2026-04-22 audit): init tappade tidigare alla rå-prompt-
+          // fält som follow-up skickar explicit. Det innebar att route-plan,
+          // build-spec och contract-inferens i init gick på `optimizedMessage`
+          // (wrappat med filkontext, guidance, templates) medan follow-up gick
+          // på rå `message`. Samma användaravsikt kunde därför få olika
+          // BuildSpec/route/contract-beslut beroende på mode. Spegla follow-
+          // upens rå-källor så signalerna blir konsekventa.
+          routePlanPrompt: message,
+          buildSpecPrompt: message,
+          contractsPrompt: message,
+          scaffoldMatchPrompt: message,
           // QW-1: capability inference (needsAuth/needsEcommerce/needsCharts…)
           // är keyword-baserad. Använd rå user-message så bifogade text-utdrag
           // (PDFs/.docx) inte triggar capabilities som skuggar prompt-intent.

@@ -508,7 +508,7 @@ LLM-generering
 """
         )
         st.caption(
-            "Preflight kan stoppa leverans före databasen. Verifier-pass i finalize är read-only och advisory (stoppar inte persist). Post-checks och quality gate körs efter att versionen har sparats, men quality gate hoppas över om post-checks redan har köat autofix. Serverrepair appliceras inte längre tyst: först `repair_available`, sedan `accept-repair` (eller timeout-autoaccept)."
+            "Preflight kan stoppa leverans före databasen. Verifier-pass i finalize är hybrid (deterministiska guards som `undefined-jsx-symbol` + LLM-audit) — blocking findings matas in i fixern men stoppar inte persist. Post-checks och quality gate körs efter att versionen har sparats, men quality gate hoppas över om post-checks redan har köat autofix. Serverrepair appliceras inte längre tyst: först `repair_available`, sedan `accept-repair` (eller timeout-autoaccept)."
         )
 
         st.divider()
