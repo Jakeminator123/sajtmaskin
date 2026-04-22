@@ -173,8 +173,3 @@ export function renderTier3F2DenyBlockLines(): string[] {
     return `  - ${category.label}: ${formatted}`;
   });
 }
-
-/** Test-only: clears the mtime cache so unit tests can re-read the JSON. */
-export function _resetTier3DenyCacheForTests(): void {
-  _cache = null;
-}

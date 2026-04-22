@@ -41,7 +41,7 @@ export const DEFAULT_OWN_MODEL_ID = getDefaultMaxTierOwnEngineModel() as OwnMode
  * Old model IDs that may exist in persisted data (localStorage, DB rows,
  * URL params). These are compatibility aliases, not separate active models.
  */
-export const LEGACY_ALIAS: Record<string, CanonicalModelId> = {
+const LEGACY_ALIAS: Record<string, CanonicalModelId> = {
   "v0-max-fast": "fast",
   "v0-1.5-sm": "fast",
   "v0-max": "fast",
@@ -52,7 +52,7 @@ export const LEGACY_ALIAS: Record<string, CanonicalModelId> = {
   "v0-gpt-5": "codex",
 };
 
-export const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS)[];
+const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS)[];
 
 /** Union of every model ID accepted as input (canonical + legacy). */
 export const ACCEPTED_MODEL_IDS = [

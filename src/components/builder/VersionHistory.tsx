@@ -49,7 +49,6 @@ type VersionSummary = {
   versionId?: string | null;
   previewUrl?: string | null;
   demoUrl?: string | null;
-  legacyShimPreviewUrl?: string | null;
   sandboxUrl?: string | null;
   createdAt?: string | Date | null;
   versionNumber?: number | null;
@@ -83,7 +82,6 @@ type RestoreVersionResponse = {
   success?: boolean;
   versionId?: string | null;
   demoUrl?: string | null;
-  legacyShimPreviewUrl?: string | null;
   error?: string;
 };
 
@@ -657,7 +655,6 @@ export function VersionHistory({
             );
             const listPreviewUrl =
               (tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm) ? tier2PreviewNorm : null) ??
-              normalizePreviewUrl(version.legacyShimPreviewUrl) ??
               normalizePreviewUrl(version.demoUrl);
             const qualityTierLabel =
               qualityTier === "production"

@@ -14,7 +14,6 @@ export type VersionLike = {
   id?: string | null;
   previewUrl?: string | null;
   demoUrl?: string | null;
-  legacyShimPreviewUrl?: string | null;
   /** Own-engine list uses `false`; legacy mapped V0 DB rows use `true`. */
   canPin?: boolean;
   versionNumber?: number | null;

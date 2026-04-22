@@ -126,10 +126,6 @@ const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
   ...ANTHROPIC_ASSIST_MODELS,
 ]);
 
-export function getPromptAssistModelOptions(): PromptAssistModelOption[] {
-  return PROMPT_ASSIST_MODEL_OPTIONS;
-}
-
 export function getPromptAssistModelLabel(model: string): string {
   return PROMPT_ASSIST_MODEL_OPTIONS.find((option) => option.value === model)?.label || model;
 }
@@ -172,9 +168,6 @@ export const DEFAULT_IMAGE_GENERATIONS = true;
  * struktur, särskilt för multi-page och scenes. Kostar lite tid (~5-15s extra)
  * men ger högre kvalitet. Användare kan toggla av per-chat i UI:t. */
 export const DEFAULT_THINKING = true;
-
-/** Default for spec mode in builder */
-export const DEFAULT_SPEC_MODE = false;
 
 /**
  * Core instructions — always relevant regardless of scaffold/engine.
@@ -320,10 +313,4 @@ const ALL_DEFAULTS = new Set([
 export function isDefaultCustomInstructions(value: string): boolean {
   return ALL_DEFAULTS.has(value.trim());
 }
-
-/** Spec file reference to append to system prompt when spec mode is active */
-export const SPEC_FILE_INSTRUCTION = `\n\n## Spec File
-- If sajtmaskin.spec.json exists in the project, treat it as the source of truth for business info, theme, pages, and constraints.
-- Do not contradict the spec unless the user explicitly asks.
-- When iterating, refer to the spec for context about the project.`;
 

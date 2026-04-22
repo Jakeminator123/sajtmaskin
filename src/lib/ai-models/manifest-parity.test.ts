@@ -98,7 +98,6 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(briefing.requestModel).toBeTruthy();
     expect(briefing.serverAutoOpenAI).toBeTruthy();
     expect(briefing.serverAutoAnthropic).toBeTruthy();
-    expect(briefing.specModel).toBeTruthy();
 
     expect(phaseRouting.fast.planner).toBeTruthy();
     expect(phaseRouting.pro.verifier).toBeTruthy();

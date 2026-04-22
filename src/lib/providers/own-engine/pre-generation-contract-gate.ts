@@ -1,7 +1,7 @@
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
-import { isBuildSpecEnabled, type BuildSpec } from "@/lib/gen/build-spec";
+import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
 import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
@@ -61,7 +61,6 @@ export function createPreGenerationContractGateReadableStream(
     promptReductionRatio: p.strategyMeta.reductionRatio,
     promptStrategyReason: p.strategyMeta.reason,
     promptComplexityScore: p.strategyMeta.complexityScore,
-    buildSpecEnabled: isBuildSpecEnabled(),
     buildSpec: p.buildSpec,
     systemPromptLength: 0,
     briefApplied: p.metaBriefApplied,

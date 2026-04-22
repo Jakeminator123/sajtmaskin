@@ -20,7 +20,6 @@ import {
   DEFAULT_PROMPT_ASSIST,
   DEFAULT_SCAFFOLD_ID,
   DEFAULT_SCAFFOLD_MODE,
-  DEFAULT_SPEC_MODE,
   DEFAULT_THINKING,
   getDefaultCustomInstructions,
   isDefaultCustomInstructions,
@@ -72,8 +71,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
   // Internal Sajtmaskin brand/theme preset used by the own engine.
   const [designTheme, setDesignTheme] = useState<DesignTheme>(DEFAULT_DESIGN_THEME);
-  const [specMode] = useState(DEFAULT_SPEC_MODE);
-  const pendingSpecRef = useRef<object | null>(null);
   const pendingBriefRef = useRef<Record<string, unknown> | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
@@ -208,8 +205,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setIsMediaEnabled,
     designTheme,
     setDesignTheme,
-    specMode,
-    pendingSpecRef,
     pendingBriefRef,
     showStructuredChat,
     setShowStructuredChat,

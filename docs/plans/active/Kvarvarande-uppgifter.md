@@ -1,6 +1,24 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-20 efter cloud-loop (PR #69 — 21 commits) ovanpå master `51751bd30`. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13. + 21 nya etapper (Block 0+1+2 i cloud-loopen).** Se `STATUS-2026-04-20.md` i repo-roten för fullständig sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+Senast uppdaterad: 2026-04-22 efter cleanup-wave pass 1+2 på dagens master (7 commits över P2/P5/P1/S3/knip/P3/docs). Tidigare uppdatering: 2026-04-20 efter cloud-loop (PR #69 — 21 commits) ovanpå master `51751bd30`. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13. + 21 nya etapper (Block 0+1+2 i cloud-loopen).** Se `STATUS-2026-04-20.md` i repo-roten för fullständig sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+
+## Avklarat i cleanup-wave pass 1+2 (2026-04-22)
+
+Kirurgisk uppföljning ovanpå den halvmergade 2026-04-21-waven (PR #81), körd direkt mot dagens master utan konflikter.
+
+| Commit | Vad | Varför |
+|---|---|---|
+| `refactor(cleanup/P2)` | Spec-first-kedjan borttagen: `/api/ai/spec`-route, `WebsiteSpec`/`SajtmaskinSpec`-typer + schema, `processPromptWithSpec`/`briefToSpec`/`promptToSpec`, `SPEC_MODEL`/`DEFAULT_SPEC_MODEL`/`DEFAULT_SPEC_MODE`, `SAJTMASKIN_SPEC_MODEL` + `SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS` env-keys, `briefing.specModel` i manifest + schema + zod + parity-test, `MAX_AI_SPEC_PROMPT_CHARS` export, `specMode`-query i kostnadsfri-page, `DEFAULT_SPEC_MODE`-state i useBuilderState, `spec-route` i model-trace, Streamlit-input i `backoffice/pages/ai_models.py`. `promptAssistContext.ts` 440 → 70 rader. | Hela kedjan markerad "borttagen" i glossary sedan Fas 1 världsklass men levde kvar som dödkod. Deep Brief är enda pre-generation-expansionen. |
+| `refactor(cleanup/P5)` | Fyra dormant FEATURES-flaggor hårdkodade ON: `useBuildSpec`, `useLightweightScaffoldSerialization`, `useFollowUpLightContext`, `useFinalizeDeepPath`. Tog bort `isBuildSpecEnabled()`-helper och SSE-meta-fältet `buildSpecEnabled` (3 callsites, 0 readers). 4 env-keys bort ur `env.ts` + `env-policy.json`. | Off-grenen flippades aldrig i produktion. |
+| `chore(cleanup/P1)` | `pendingSpecRef` bort (alla writes var `null`, reader branchade bort alltid false) — tråd genom 4 builder-hooks. `SPEC_FILE_INSTRUCTION` bort (noll callers). | Dödkodsrester från spec-first-borttagningen. |
+| `docs(cleanup/S3)` | 17 `~~strikethrough~~`-rader rensade ur glossary-huvudtabellerna (Fas 1/Fas 2/Fas 3/preview). Legacy-sektionen expanderad med allt från denna wave. | Mindre brus när man slår upp kanoniska termer. |
+| `chore(cleanup/knip)` | Downgraded intra-file-exports: `LEGACY_ALIAS`, `LEGACY_MODEL_IDS`, `EMPTY_VERIFIER_FINDINGS`, `promoteForcedBlockingFindings`, `isAutoRepairBuildErrorEnabled`. Raderade dead exports: `getPromptAssistModelOptions`, `resolvePlanModePlannerModelId`, `_resetTier3DenyCacheForTests`, `isServerVerifyInFlight`. | Knip-driven dead-export-purge på dagens master. |
+| `refactor(cleanup/P3)` | `legacyShimPreviewUrl`-fältet borttaget ur API-kontrakt + typer + UI-callers + test-fixtures. Servern satte alltid fältet till `null`, klienter läste det aldrig meningsfullt. Shim-preview-rutten (`/api/preview-render`, env-flaggad) är oförändrad. | Död API-kontrakt. 9 filer. |
+| `docs(cleanup/P6)` | Docs-sync: `legacyShimPreviewUrl`-raden rensad ur preview-sektionen i glossary. | Speglar koden. |
+
+Typecheck 0 fel, lint 0 fel, 1417/1417 tester gröna efter varje commit. Branchen: `cursor/cleanup-pass1-all` (PR #84 mot master).
+
+**Aktivt skippat denna wave** (semantisk konflikt-risk mot dagens master): `P7/R2` (system-prompt.ts split), `S1/T2` (build-spec.ts split), `U1/U2` (promptAssist.ts dedupe/extract), `R3/R3+` (finalize-version.ts split). Dessa filer har master-ändringar som skulle kräva semantisk hand-merge; principerna kan appliceras inom framtida commits när någon ändå rör de filerna.
 
 ## Öppna punkter (smal lista — 4 saker)
 
