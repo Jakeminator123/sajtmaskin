@@ -317,9 +317,9 @@ function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
     if (m[1]) declared.add(m[1]);
   }
 
-  // Destructured consts: `const { A, B: C } = obj;`
-  const DESTRUCT_RE = /\b(?:const|let|var)\s*\{([^}]+)\}\s*=/g;
-  while ((m = DESTRUCT_RE.exec(scrubbedSource)) !== null) {
+  // Object-destructured consts: `const { A, B: C } = obj;`
+  const OBJECT_DESTRUCT_RE = /\b(?:const|let|var)\s*\{([^}]+)\}\s*=/g;
+  while ((m = OBJECT_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
     const body = m[1];
     if (!body) continue;
     for (const part of body.split(",")) {
@@ -328,6 +328,26 @@ function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
       const alias = trimmed.split(/\s*:\s*/).pop();
       const id = alias?.trim();
       if (id && /^[A-Za-z_$][\w$]*$/.test(id)) declared.add(id);
+    }
+  }
+
+  // Array-destructured consts: `const [A, B = Default, ...rest] = tuple;`
+  // Handles the `const [Component, setComponent] = useState(Initial)` pattern
+  // plus holes (`const [, Second]`), defaults, and rest elements. Nested
+  // destructuring (`const [{ x }, [y]] = …`) is skipped — conservative.
+  const ARRAY_DESTRUCT_RE = /\b(?:const|let|var)\s*\[([^\]]+)\]\s*=/g;
+  while ((m = ARRAY_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
+    const body = m[1];
+    if (!body) continue;
+    for (const part of body.split(",")) {
+      let trimmed = part.trim();
+      if (!trimmed) continue; // hole, e.g. `const [, second] = …`
+      if (trimmed.startsWith("...")) trimmed = trimmed.slice(3).trim();
+      const eq = trimmed.indexOf("=");
+      if (eq !== -1) trimmed = trimmed.slice(0, eq).trim();
+      // Skip nested object/array patterns — conservative.
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) continue;
+      if (/^[A-Za-z_$][\w$]*$/.test(trimmed)) declared.add(trimmed);
     }
   }
 
