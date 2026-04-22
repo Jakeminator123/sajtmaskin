@@ -74,6 +74,37 @@ export function YourScene() {
 
 Mouse-responsive scenes should use a small client-only hook that records pointer state, then lerp the mesh toward it inside `useFrame`. Keep the hook in a separate file (`components/pointer-state.tsx`) so the wrapper stays generic.
 
+# Allowed primitives (allowlist)
+
+The scene may ONLY use the following. Anything else is almost certainly a hallucination — do NOT invent component names.
+
+**Lowercase R3F intrinsics (preferred for mascots / hero decor — zero extra imports needed):**
+
+- Meshes: `<mesh>`, `<group>`, `<points>`, `<lineSegments>`.
+- Geometries: `<boxGeometry>`, `<sphereGeometry>`, `<planeGeometry>`, `<cylinderGeometry>`, `<coneGeometry>`, `<torusGeometry>`, `<torusKnotGeometry>`, `<capsuleGeometry>`, `<ringGeometry>`, `<tetrahedronGeometry>`, `<icosahedronGeometry>`, `<octahedronGeometry>`, `<dodecahedronGeometry>`.
+- Materials: `<meshStandardMaterial>`, `<meshBasicMaterial>`, `<meshPhongMaterial>`, `<meshNormalMaterial>`, `<meshMatcapMaterial>`, `<meshLambertMaterial>`, `<shaderMaterial>`, `<lineBasicMaterial>`, `<pointsMaterial>`.
+- Lights: `<ambientLight>`, `<directionalLight>`, `<pointLight>`, `<spotLight>`, `<hemisphereLight>`.
+
+**Capitalised helpers — ONLY if explicitly imported from `@react-three/drei`** (import exactly what you use, nothing else):
+
+```tsx
+import {
+  Box, Sphere, Plane, Cylinder, Cone, Torus, TorusKnot, Capsule, Ring,
+  Tetrahedron, Icosahedron, Octahedron, Dodecahedron,
+  OrbitControls, PerspectiveCamera, OrthographicCamera,
+  Environment, ContactShadows, Float, Html, Text, Billboard,
+  MeshDistortMaterial, MeshWobbleMaterial, MeshTransmissionMaterial,
+} from "@react-three/drei";
+```
+
+**Avoid entirely (these names do NOT exist in `three`, `@react-three/fiber`, or `@react-three/drei`):**
+
+- `Cuboid`, `Cube`, `Block`, `Box3d`, `Sphere3d`, `Prism`, `Rectangle3d`, `Cylinder3d` — none of these exist. Use `<mesh><boxGeometry />...</mesh>` or `Box` from drei.
+- `Lucide`, `Icon3d`, `Emoji3d`, any generic wrapper name you cannot find in the import list above — they are hallucinations.
+- `RigidBody`, `Cuboid` (as a physics collider), `Ball` from `@react-three/rapier` — do NOT add physics. This dossier is for decorative animation only.
+
+Rule of thumb: every capitalised JSX tag in the generated scene MUST have a corresponding `import` statement at the top of the file. No exceptions. If you cannot remember the exact import, fall back to the lowercase `<mesh>` + `<xGeometry />` + `<xMaterial />` pattern shown in the scene example above.
+
 # UX rules
 
 - Decorative elements MUST be marked `aria-hidden="true"` (set via `ariaLabel=""` or via the `decorative` prop) so screen readers do not announce them.
