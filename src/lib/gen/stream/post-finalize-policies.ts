@@ -5,7 +5,7 @@ import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 import { isServerVerifyEligible } from "@/lib/gen/verify/server-verify";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 
-export function getPostFinalizePreviewStartContract(
+function getPostFinalizePreviewStartContract(
   finalized: FinalizeResult,
 ): PreviewStartContract {
   return finalized.preflight.previewStart ?? {

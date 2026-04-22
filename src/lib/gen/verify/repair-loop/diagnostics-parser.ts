@@ -31,7 +31,7 @@ export function toPosixPath(value: string): string {
   return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
 
-export function normalizeDiagnosticFile(raw: string): string | null {
+function normalizeDiagnosticFile(raw: string): string | null {
   const normalized = toPosixPath(raw.replace(/^file\s+/i, "").trim());
   if (!normalized || normalized.startsWith("http://") || normalized.startsWith("https://")) {
     return null;
@@ -45,7 +45,7 @@ export function normalizeDiagnosticFile(raw: string): string | null {
   return normalized.replace(/^\/+/, "");
 }
 
-export function parseNullableInt(value: string | undefined): number | null {
+function parseNullableInt(value: string | undefined): number | null {
   if (!value) return null;
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : null;

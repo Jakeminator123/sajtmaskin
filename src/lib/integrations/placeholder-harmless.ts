@@ -56,7 +56,7 @@ export const PLACEHOLDER_HARMLESS_ENV_KEYS: ReadonlySet<string> = new Set([
   "NEXT_PUBLIC_SANITY_DATASET",
 ]);
 
-export function isPlaceholderHarmless(envKey: string): boolean {
+function isPlaceholderHarmless(envKey: string): boolean {
   return PLACEHOLDER_HARMLESS_ENV_KEYS.has(envKey);
 }
 

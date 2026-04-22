@@ -53,7 +53,7 @@ const STOPWORDS = new Set([
   "will",
 ]);
 
-export function extractTokens(input: string): string[] {
+function extractTokens(input: string): string[] {
   return input
     .toLowerCase()
     .split(/[^a-z0-9åäö]+/i)

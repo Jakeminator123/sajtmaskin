@@ -30,7 +30,7 @@ const VerifierFindingsSchema = z.object({
 
 export type VerifierFindings = z.infer<typeof VerifierFindingsSchema>;
 
-export const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
+const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
   blocking: [],
   quality: [],
 };
@@ -73,7 +73,7 @@ export function formatVerifierFindingsAsFixerErrors(
  * Promote known production-quality issues from `quality` to `blocking` so they
  * cannot silently slip through when the LLM mis-classifies them.
  */
-export function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFindings {
+function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFindings {
   if (findings.quality.length === 0) return findings;
   const promoted: typeof findings.blocking = [];
   const remainingQuality: typeof findings.quality = [];

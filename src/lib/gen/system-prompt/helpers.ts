@@ -41,7 +41,7 @@ export function buildShadcnToolkitSummary(ctx?: {
  * dead-flat. Light variants get a soft top-left primary wash; dark variants
  * get a slightly heavier wash so depth is still readable on near-black.
  */
-export function buildFallbackBodyBackgroundImage(
+function buildFallbackBodyBackgroundImage(
   variant: ScaffoldVariant | null | undefined,
 ): string | null {
   const tokens = variant?.themeTokens;

@@ -410,7 +410,7 @@ const KEYWORD_STRENGTH_CAP = 12;
 const DEFAULT_EMBED_VS_KEYWORD_BIAS = 0.65;
 
 /** True → `matchScaffold()` does not use keyword lists; returns intent baseline only. */
-export function isScaffoldKeywordMatchDisabled(): boolean {
+function isScaffoldKeywordMatchDisabled(): boolean {
   const v = process.env.SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH?.trim().toLowerCase();
   if (!v) return false;
   return v === "0" || v === "false" || v === "off" || v === "disabled";
