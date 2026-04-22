@@ -171,7 +171,7 @@ function getSubjectPaletteGuidance(value: string): string[] {
 
 export type MotionProfile = "static" | "balanced" | "lively";
 
-function inferMotionProfile(params: {
+export function inferMotionProfile(params: {
   prompt?: string;
   tone?: string[];
   styleKeywords?: string[];
@@ -202,7 +202,7 @@ function inferMotionProfile(params: {
   return preferLively ? "lively" : "balanced";
 }
 
-function resolveMotionGuidance(
+export function resolveMotionGuidance(
   tone: string[],
   styleKeywords: string[],
   variant: "detailed" | "compact" = "detailed",
@@ -246,7 +246,7 @@ function resolveMotionGuidance(
 
 // ── Quality bar ───────────────────────────────────────────────────────────
 
-function resolveQualityBarGuidance(
+export function resolveQualityBarGuidance(
   tone: string[],
   styleKeywords: string[],
   variant: "detailed" | "compact" = "detailed",
@@ -270,7 +270,7 @@ function resolveQualityBarGuidance(
 
 // ── Domain structure & contract hints ─────────────────────────────────────
 
-function buildDomainStructureHints(domain: DomainProfile): string[] {
+export function buildDomainStructureHints(domain: DomainProfile): string[] {
   switch (domain) {
     case "restaurant":
       return [
@@ -338,7 +338,7 @@ function buildDomainStructureHints(domain: DomainProfile): string[] {
   }
 }
 
-function buildDomainContractHints(domain: DomainProfile): string[] {
+export function buildDomainContractHints(domain: DomainProfile): string[] {
   switch (domain) {
     case "restaurant":
     case "hotel":

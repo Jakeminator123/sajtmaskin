@@ -4,6 +4,13 @@ import { type DomainProfile, inferDomain } from "./domain-inference";
 import { SECTION_KEYWORDS, STYLE_KEYWORDS } from "./prompt-heuristics";
 import { getPromptAssistAllowedFromManifest } from "@/lib/ai-models/load-manifest";
 import { BUILD_INTENT_GUIDANCE } from "@/lib/gen/intent-guidance";
+import {
+  buildDomainContractHints,
+  buildDomainStructureHints,
+  inferMotionProfile,
+  resolveMotionGuidance,
+  resolveQualityBarGuidance,
+} from "@/lib/gen/guidance-resolvers";
 
 // OpenAI-class assist models (loaded from manifest).
 // "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
@@ -58,85 +65,8 @@ export function resolvePromptAssistProvider(model: string): PromptAssistProvider
 }
 
 // SECTION_KEYWORDS and STYLE_KEYWORDS imported from prompt-heuristics.ts
-
-type MotionProfile = "static" | "balanced" | "lively";
-
-const MOTION_STATIC_STRICT_KEYWORDS = [
-  "statisk",
-  "stillsam",
-  "ingen animation",
-  "inga animationer",
-  "undvik animationer",
-  "utan animation",
-  "no animation",
-  "no animations",
-  "avoid animation",
-  "avoid animations",
-  "no motion",
-  "motionless",
-  "static site",
-  "still website",
-  "still page",
-  "reduced motion only",
-] as const;
-
-const MOTION_STATIC_KEYWORDS = [
-  "minimal motion",
-  "subtle motion",
-  "calm",
-  "quiet",
-  "lugn",
-  "still",
-  "static",
-  "no effects",
-  "reduced motion",
-  "prefers-reduced-motion",
-] as const;
-
-const MOTION_LIVELY_KEYWORDS = [
-  "livlig",
-  "lively",
-  "animated",
-  "animerad",
-  "animerade",
-  "animation",
-  "animationer",
-  "motion",
-  "dynamic",
-  "interaktiv",
-  "energisk",
-  "energetic",
-  "parallax",
-  "stagger",
-  "scroll reveal",
-  "micro-interactions",
-  "wow",
-  "glow",
-  "floating",
-  "playful",
-] as const;
-
-const MOTION_LIVELY_STYLE_KEYWORDS = [
-  "animated",
-  "animerad",
-  "dynamic",
-  "motion",
-  "futuristic",
-  "neon",
-  "bold",
-  "dramatic",
-  "maximal",
-  "playful",
-] as const;
-
-const MOTION_STATIC_STYLE_KEYWORDS = [
-  "minimal",
-  "clean",
-  "simple",
-  "corporate",
-  "professional",
-  "quiet",
-] as const;
+// Motion keyword banks (static/lively/strict) and MotionProfile type live in
+// guidance-resolvers.ts — guidance helpers are imported at the top.
 
 function resolveBuildIntent(intent?: BuildIntent | null): BuildIntent {
   if (intent === "template" || intent === "app" || intent === "website") return intent;
@@ -152,22 +82,6 @@ function getBuildIntentInstructionLines(intent?: BuildIntent | null): string[] {
   const resolved = resolveBuildIntent(intent);
   return BUILD_INTENT_GUIDANCE[resolved].instructionLines;
 }
-
-const MOTION_GUIDANCE = {
-  detailed: [
-    "Add tasteful motion throughout: hover states, scroll-reveal animations (fade-in, slide-up), micro-interactions.",
-    "Include subtle motion in hero and at least 2 additional sections.",
-    "Use Tailwind animate-* utilities for simple motion and motion-safe/motion-reduce variants to respect user preferences.",
-    "Avoid custom @keyframes or @property CSS rules unless explicitly requested.",
-    "Respect prefers-reduced-motion for accessibility.",
-  ],
-  compact: [
-    "Add tasteful motion throughout: hover states, scroll-reveal animations, micro-interactions.",
-    "Include subtle motion in hero and at least 2 additional sections.",
-    "Use Tailwind animate-* utilities and motion-safe/motion-reduce variants.",
-    "Avoid custom @keyframes or @property CSS rules unless explicitly requested.",
-  ],
-};
 
 const VISUAL_IDENTITY_GUIDANCE = {
   detailed: [
@@ -185,21 +99,6 @@ const VISUAL_IDENTITY_GUIDANCE = {
   ],
 };
 
-const QUALITY_BAR_GUIDANCE = {
-  detailed: [
-    "Aim for a premium, layered look: cards with borders, soft shadows, glassy panels, depth.",
-    "Vary layouts: bento grids, split hero, stats row, logo wall, testimonial carousel, alternating sections.",
-    "Increase visual density with tasteful imagery, lucide-react icons, and decorative accents.",
-    "Avoid flat, empty sections; use section separators, background bands, or subtle gradients.",
-  ],
-  compact: [
-    "Aim for a premium, layered look: cards with borders, soft shadows, glassy panels.",
-    "Vary layouts: bento grids, split hero, stats row, logo wall, testimonial carousel.",
-    "Use lucide-react icons and decorative accents for visual richness.",
-    "Avoid flat, empty sections; use section separators or subtle gradients.",
-  ],
-};
-
 const IMAGE_DENSITY_GUIDANCE = [
   "Images in hero + at least 2 additional sections.",
   "Consistent aspect ratios and professional cropping throughout.",
@@ -208,94 +107,6 @@ const IMAGE_DENSITY_GUIDANCE = [
 // Domain profile is now provided by domain-inference.ts (canonical source).
 // buildDomainStructureHints / buildDomainContractHints remain here because
 // they produce prompt text specific to the addendum format.
-
-function buildDomainStructureHints(domain: DomainProfile): string[] {
-  switch (domain) {
-    case "restaurant":
-      return [
-        "Treat this as a hospitality/restaurant website, not an online store.",
-        "Strong default pages/sections: home, menu, about, contact, booking/reservation, opening hours, FAQ.",
-        "Do not introduce cart, checkout, product catalog, inventory, or payment-provider flows unless the user explicitly asks for online ordering.",
-        "Emphasize atmosphere, food/drink presentation, trust, practical visit information, and clear reservation/contact CTAs.",
-      ];
-    case "hotel":
-      return [
-        "Treat this as a hospitality/hotel website, not ecommerce.",
-        "Strong default pages/sections: home, rooms, amenities/spa, about, contact, booking, FAQ.",
-        "Focus on stay experience, location, rooms, amenities, and booking journey.",
-      ];
-    case "spa-salon":
-      return [
-        "Treat this as a service-booking website, not ecommerce.",
-        "Strong default pages/sections: home, services/treatments, about/team, contact, booking, FAQ.",
-        "Focus on treatments/services, trust, staff, ambience, and appointment booking CTAs.",
-      ];
-    case "clinic":
-      return [
-        "Treat this as a clinic/service website, not ecommerce.",
-        "Strong default pages/sections: home, services, practitioners/team, about, contact, booking/request appointment, FAQ.",
-        "Focus on trust, credentials, patient journey, and practical contact/booking information.",
-      ];
-    case "event-venue":
-      return [
-        "Treat this as a venue/hospitality website, not ecommerce.",
-        "Strong default pages/sections: home, venue spaces, events/packages, gallery, contact, booking inquiry, FAQ.",
-        "Focus on spaces, atmosphere, booking inquiry, logistics, and social proof.",
-      ];
-    case "ecommerce":
-      return [
-        "Treat this as a real online store/storefront.",
-        "Strong default pages/sections: home, product/category pages, cart, checkout, trust/returns/shipping information.",
-      ];
-    case "portfolio":
-      return [
-        "Treat this as a portfolio/showcase site.",
-        "Strong default pages/sections: home, selected work, about, services/contact, case studies or gallery.",
-      ];
-    case "saas":
-      return [
-        "Treat this as product/saas positioning or app-marketing.",
-        "Strong default pages/sections: home, features, pricing, FAQ, contact/demo CTA.",
-      ];
-    case "agency":
-      return [
-        "Treat this as an agency/services website.",
-        "Strong default pages/sections: home, services, about/team, case studies/portfolio, contact.",
-      ];
-    case "education":
-      return [
-        "Treat this as an education/course website.",
-        "Strong default pages/sections: home, courses/programs, about, instructors/team, enrollment/contact, FAQ.",
-      ];
-    case "real-estate":
-      return [
-        "Treat this as a real estate/property website.",
-        "Strong default pages/sections: home, listings/properties, about, agents/team, contact.",
-      ];
-    default:
-      return [];
-  }
-}
-
-function buildDomainContractHints(domain: DomainProfile): string[] {
-  switch (domain) {
-    case "restaurant":
-    case "hotel":
-    case "spa-salon":
-    case "clinic":
-    case "event-venue":
-      return [
-        "Booking/contact keywords in hospitality or service domains do not automatically imply Stripe, checkout, carts, or persisted database contracts.",
-        "If no real backend is explicitly requested, prefer static/reservation-request flows, contact forms, booking CTAs, or external-booking placeholders over local databases and payment providers.",
-      ];
-    case "ecommerce":
-      return [
-        "Ecommerce keywords do imply storefront/cart/checkout patterns and may justify payment/provider contracts.",
-      ];
-    default:
-      return [];
-  }
-}
 
 function buildPromptAssistObservations(
   originalPrompt: string,
@@ -329,85 +140,6 @@ function buildPromptAssistObservations(
 function hasAny(list: readonly string[], keywords: readonly string[]): boolean {
   const lower = list.map((s) => s.toLowerCase());
   return keywords.some((k) => lower.some((l) => l.includes(k)));
-}
-
-function inferMotionProfile(params: {
-  prompt?: string;
-  tone?: string[];
-  styleKeywords?: string[];
-  buildIntent?: BuildIntent;
-  preferLively?: boolean;
-}): MotionProfile {
-  const prompt = params.prompt ?? "";
-  const tone = params.tone ?? [];
-  const styleKeywords = params.styleKeywords ?? [];
-  const preferLively = params.preferLively ?? true;
-
-  const strictStaticHits = extractKeywordMatches(prompt, MOTION_STATIC_STRICT_KEYWORDS).length;
-  if (strictStaticHits > 0) return "static";
-
-  let staticScore = extractKeywordMatches(prompt, MOTION_STATIC_KEYWORDS).length;
-  let livelyScore = extractKeywordMatches(prompt, MOTION_LIVELY_KEYWORDS).length;
-
-  if (hasAny(tone, ["playful", "fun", "energetic", "lively", "lekfull"])) {
-    livelyScore += 1;
-  }
-  if (hasAny(tone, ["professional", "corporate", "minimal", "calm", "lugn", "serious", "formal"])) {
-    staticScore += 1;
-  }
-
-  if (hasAny(styleKeywords, MOTION_LIVELY_STYLE_KEYWORDS)) livelyScore += 1;
-  if (hasAny(styleKeywords, MOTION_STATIC_STYLE_KEYWORDS)) staticScore += 1;
-
-  if (params.buildIntent === "template") {
-    staticScore += 1;
-  }
-
-  if (livelyScore >= staticScore + 1) return "lively";
-  if (staticScore >= livelyScore + 1) return "static";
-  return preferLively ? "lively" : "balanced";
-}
-
-function resolveMotionGuidance(
-  tone: string[],
-  styleKeywords: string[],
-  variant: "detailed" | "compact" = "detailed",
-  profile: MotionProfile = "balanced",
-): string[] {
-  if (profile === "static") {
-    return [
-      "Keep motion minimal: only subtle hover and focus states.",
-      "Avoid scroll-reveal, autoplay, parallax, looping, and background animations.",
-      "Default to reduced motion (motion-reduce:animate-none) and respect prefers-reduced-motion.",
-      "Add data-animate hooks for future upgrades, but keep animations inactive for now.",
-    ];
-  }
-
-  let base = [...MOTION_GUIDANCE[variant]];
-  if (hasAny(tone, ["playful", "fun", "energetic", "lekfull"])) {
-    base.push("Use bouncy, playful micro-interactions and generous spring easing.");
-  }
-  if (hasAny(tone, ["professional", "corporate", "serious", "formal"])) {
-    base[0] = "Add restrained, professional motion: subtle fades and clean transitions only.";
-  }
-  if (hasAny(styleKeywords, ["minimal", "clean", "simple"])) {
-    base = base.filter((l) => !l.includes("at least 2"));
-  }
-  if (hasAny(styleKeywords, ["animated", "dynamic", "motion", "animerad"])) {
-    base.push("Go heavy on animations — scroll-triggered reveals, parallax, floating elements.");
-  }
-  if (profile === "lively") {
-    base.push(
-      "Add richer motion: staggered entrances, scroll-triggered reveals, gentle parallax, floating accents.",
-    );
-    base.push(
-      "For complex sequences, framer-motion is allowed; otherwise stick to Tailwind animate-* utilities.",
-    );
-  }
-  base.push(
-    "Use consistent animation hooks (data-animate, data-stagger, data-delay) so motion can be extended later.",
-  );
-  return base;
 }
 
 interface ColorPalette {
@@ -555,28 +287,6 @@ function getSubjectPaletteGuidance(value: string): string[] {
     ];
   }
   return [];
-}
-
-function resolveQualityBarGuidance(
-  tone: string[],
-  styleKeywords: string[],
-  variant: "detailed" | "compact" = "detailed",
-): string[] {
-  const base = [...QUALITY_BAR_GUIDANCE[variant]];
-  if (hasAny(styleKeywords, ["minimal", "clean", "simple"])) {
-    return [
-      "Aim for a clean, minimal look: generous whitespace, sharp typography, few decorative elements.",
-      "Use simple layouts: single-column hero, clean card grid, focused CTAs.",
-      "Avoid visual clutter; let content breathe with consistent spacing.",
-    ];
-  }
-  if (hasAny(styleKeywords, ["bold", "dramatic", "intense", "maximal"])) {
-    base.push("Go bold: oversized typography, full-bleed images, high-contrast sections.");
-  }
-  if (hasAny(tone, ["playful", "fun", "whimsical"])) {
-    base.push("Add personality: custom illustrations, emoji accents, or quirky layout variations.");
-  }
-  return base;
 }
 
 // ── End dynamic guidance resolvers ──────────────────────────────────────
