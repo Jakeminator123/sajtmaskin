@@ -400,6 +400,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const planOrchestrationStartedAt = Date.now();
         const planOrchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
+          // 2026-04-22 follow-up audit: plan mode saknade tidigare samma
+          // rå-signalpaket som huvudflödet fick i fix 07#1 — route-plan,
+          // BuildSpec, contracts, capability- och scaffold-match drevs av
+          // wrappad `optimizedMessage` i plan-LLM:n medan senare codegen
+          // fick rå `message`. Det riskerade planner-vs-codegen-drift när
+          // filkontext/bilagor i wrappen drog klassifiering åt annat håll.
+          routePlanPrompt: message,
+          buildSpecPrompt: message,
+          contractsPrompt: message,
+          scaffoldMatchPrompt: message,
+          capabilitiesPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: parsedMeta.scaffoldMode,
           scaffoldId: parsedMeta.scaffoldId,

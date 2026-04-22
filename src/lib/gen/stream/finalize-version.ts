@@ -29,7 +29,7 @@ import {
   pruneStaleVersionErrorLogs,
 } from "@/lib/db/services/version-errors";
 import { getPhaseRoutingSummary, resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
-import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { debugLog, warnLog } from "@/lib/utils/debug";
@@ -394,12 +394,13 @@ async function tryRepairPartialFileOutput(params: {
     };
   }
 
-  const fixerModel = resolvedTier
-    ? resolvePhaseModel(resolvedTier, "fixer").modelId
-    : undefined;
-  const fixerThinking = resolvedTier
-    ? resolvePhaseThinking(resolvedTier, "fixer")
-    : null;
+  // Bug 01#3-pattern (2026-04-22 follow-up audit): när resolvedTier saknas
+  // blev fixerModel `undefined` och runLlmFixer föll på sin interna default —
+  // phaseRouting.fixer var då inte längre garanterad. Samma fix som server-
+  // verify.ts: default till `pro`-tier så reparation alltid speglar manifestet.
+  const fixerTier = resolvedTier ?? DEFAULT_MODEL_ID;
+  const fixerModel = resolvePhaseModel(fixerTier, "fixer").modelId;
+  const fixerThinking = resolvePhaseThinking(fixerTier, "fixer");
   const errors = formatPartialIssuesAsFixerErrors(partialFiles, partialFileIssues);
   const maxAttempts = Math.max(1, PARTIAL_FILE_REPAIR_MAX_ATTEMPTS);
   let attempts = 0;
@@ -765,12 +766,12 @@ async function runFinalizeFastPath(params: {
         const fixerErrors = formatVerifierFindingsAsFixerErrors({
           blocking: findings.blocking,
         });
-        const fixerModel = resolvedTier
-          ? resolvePhaseModel(resolvedTier, "fixer").modelId
-          : undefined;
-        const fixerThinking = resolvedTier
-          ? resolvePhaseThinking(resolvedTier, "fixer")
-          : null;
+        // Samma DEFAULT_MODEL_ID-fallback som används i partial-file-repair
+        // ovan — fixerModel ska aldrig vara undefined så phaseRouting alltid
+        // följer manifestet (inte runLlmFixer:s interna default).
+        const verifierFixerTier = resolvedTier ?? DEFAULT_MODEL_ID;
+        const fixerModel = resolvePhaseModel(verifierFixerTier, "fixer").modelId;
+        const fixerThinking = resolvePhaseThinking(verifierFixerTier, "fixer");
         const verifierFixAbort = new AbortController();
         const verifierFixTimeout = setTimeout(
           () => verifierFixAbort.abort(),

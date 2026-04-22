@@ -383,9 +383,13 @@ export async function resolveOrchestrationBase(
   const capabilities = providedCapabilities ?? inferCapabilities(intentSourcePrompt);
   const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
 
-  // P32 Fas A: requestKind is propagated for downstream phases. Logging is
-  // owned by the call-site (devLog `request.kind.classified`) — orchestrate
-  // intentionally does not double-log to console.
+  // P32 Fas A: `requestKind` carried on `OrchestrationInput` for *future*
+  // branching in `deriveBuildSpec()`. Today it is logged at the call-site
+  // (devLog `request.kind.classified`) and does **not** alter the pipeline —
+  // see `docs/plans/active/P32-request-type-taxonomy.md` (Fas B is the step
+  // that wires it into BuildSpec). Multiple audit-rounds have flagged the
+  // apparent disconnect; keep the field + this explicit note until Fas B
+  // lands so the intent of the dead-looking signal is documented in code.
 
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;

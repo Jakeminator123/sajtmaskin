@@ -249,7 +249,10 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
     const brief = buildFollowUpBriefFromSnapshot(snapshot);
     expect(brief).not.toBeNull();
     expect(brief?.requestedCapabilities).toEqual(["payments", "auth", "booking"]);
-    expect(brief?.domainProfile).toEqual({ domain: "hospitality", industry: "hotel" });
+    // 2026-04-22 follow-up audit: rehydreras nu som slug-sträng eftersom
+    // system-prompt + guidance-resolvers förväntar `brief.domainProfile?: string`
+    // (object-formen slukades av str(...)-coercing i system-prompt).
+    expect(brief?.domainProfile).toBe("hospitality");
     expect(brief?.projectTitle).toBe("Hotel Solskenet");
     expect(brief?.brandName).toBe("Solskenet AB");
     expect(brief?.visualDirection).toEqual({ styleKeywords: ["minimal", "warm"] });

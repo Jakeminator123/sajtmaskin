@@ -26,7 +26,27 @@ export function routePathToPageFilePath(path: string): string {
 }
 
 function routePathToHrefExample(path: string): string {
-  return normalizeRoutePath(path).replace(/\[([^\]]+)\]/g, "$1");
+  const normalized = normalizeRoutePath(path);
+  // 2026-04-22 follow-up audit: tidigare renderade catch-all-segment
+  // (`[...slug]`, `[[...slug]]`) som `...slug` → `/blog/...slug`, vilket är
+  // en ogiltig preview-URL för shell-sidan (trasig CTA-länk i preview).
+  // Ersätt catch-all med `example`, optional catch-all med tomt segment,
+  // och vanlig dynamisk param med dess namn (oförändrat beteende).
+  return normalized
+    .replace(/\[\[\.\.\.[^\]]+\]\]/g, "")
+    .replace(/\[\.\.\.[^\]]+\]/g, "example")
+    .replace(/\[([^\]]+)\]/g, "$1")
+    .replace(/\/{2,}/g, "/")
+    .replace(/\/$/, "") || "/";
+}
+
+function toValidIdentifierPart(raw: string): string {
+  const stripped = raw.replace(/[^a-zA-Z0-9]/g, "");
+  if (!stripped) return "Planned";
+  // 2026-04-22 follow-up audit: tidigare kunde en titel som "3D" bli
+  // `function 3DPage()` — ogiltig TS/JS-identifierare (får inte börja med
+  // siffra). Prefix:a ett säkert tecken om första char är en siffra.
+  return /^[0-9]/.test(stripped) ? `Page${stripped}` : stripped;
 }
 
 function buildShellPageTitle(route: PlannedRoute): string {
@@ -59,7 +79,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
-export default function ${title.replace(/[^a-zA-Z0-9]/g, "") || "PlannedPage"}Page() {
+export default function ${toValidIdentifierPart(title)}Page() {
   return (
     <main className="min-h-[70vh] bg-[oklch(0.58_0.22_262)] text-white">
       <div className="mx-auto flex w-full max-w-6xl flex-col justify-center px-6 py-20">

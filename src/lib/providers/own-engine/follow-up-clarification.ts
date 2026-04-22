@@ -15,8 +15,14 @@ export type { FollowUpIntentMode };
 // "byt" (utan "ut") saknades tidigare i refine och vague — enkla svenska
 // edits som "byt hero-bilden" tappade refine-signal.
 const FOLLOW_UP_REFINE_PATTERNS = [
-  /(?<![\p{L}\p{N}_])(?:förfina|förbättra|justera|uppdatera|ändra|byt(?:er|t)?(?:\s+ut)?|lägg\s+till|fixa|trimma)(?![\p{L}\p{N}_])/iu,
-  /(?<![\p{L}\p{N}_])(?:refine|improve|update|adjust|tweak|fix|keep\s+the\s+current\s+design)(?![\p{L}\p{N}_])/iu,
+  // 2026-04-22 follow-up audit: `flytta` saknades (t.ex. "Flytta CTA-knappen
+  // under rubriken" → neutral). Lagt till som refine-signal — layout-edits
+  // utan specifik target hör hemma här.
+  /(?<![\p{L}\p{N}_])(?:förfina|förbättra|justera|uppdatera|ändra|byt(?:er|t)?(?:\s+ut)?|lägg\s+till|flytta(?:r|de|t)?|fixa|trimma)(?![\p{L}\p{N}_])/iu,
+  // Engelska refine-ord saknade `change` — vanligaste edit-verbet i engelska
+  // prompts. Lagt till både `change` och `move` (engelsk motsvarighet till
+  // `flytta`) så de två språken nu täcker samma fält.
+  /(?<![\p{L}\p{N}_])(?:refine|improve|change|move|update|adjust|tweak|fix|keep\s+the\s+current\s+design)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:förfina\s+nuvarande\s+design|behåll\s+nuvarande\s+design)(?![\p{L}\p{N}_])/iu,
 ];
 const FOLLOW_UP_REDESIGN_PATTERNS = [

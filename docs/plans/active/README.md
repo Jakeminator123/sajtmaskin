@@ -30,6 +30,18 @@ Flyttade till [`../avklarat/`](../avklarat/) av P27-validator efter sektion A+B+
 | `P27` | Sektion A+B+D körda (sektion C lämnad till användaren, sektion E commits till användaren) |
 | `parallel-execution-2026-04` | Wave-master arkiverad med closure-note. |
 
+## Avklarat i wave 2026-04-22 — LLM-flow-audit + follow-up
+
+Triage + fixar från 8 parallella audit-rapporter + 5 follow-up-rapporter. 20 verifierade buggar fixade totalt över två commit-vågor. Resten av fynden (~16) var by-design/doc-drift eller dubbletter.
+
+| Commit | Omfång |
+|---|---|
+| `a35eaa05e` | Orkestrering (community-prompt, telemetri-mode, init rå-fält, plan-mode model+lifecycle, snapshot-brief style/tone, effective-init-route-count); intent-klassning (unicode-\b, `tre`-typo, `byt`, `rubrik`); verifier (TS-generics, smal `lazy(`); fixer-fallback (server-verify); docs + backoffice-sync. |
+| `8de85797b` | `src/lib/utils/unicode-word-boundary.ts` canonical helper + 11 tester; `.cursor/rules/unicode-regex.mdc`; `scripts/dev/check-unicode-regex.mjs` preflight-guard; sista faktiska bug fixad (`naturmiljö` + `klippmiljö` i unsplash-query-fallback). |
+| *(denna session)* | Plan mode init+follow-up rå-signalpaket, plan-mode follow-up brief-hydrering, `fixerModel`-fallback i `finalize-version.ts` + `validate-and-fix.ts` (4 callsites), P32-kommentar förtydligad, `flytta`/`change`/`move` i refine, shell-page invalid identifier + catch-all route preview, `domainProfile` string-rehydrering. 7 nya fix, 884 tester gröna. |
+
+Detaljer: [`../../audit-reports/2026-04-22-llm-flow/SUMMARY.md`](../../../audit-reports/2026-04-22-llm-flow/SUMMARY.md) + `Kvarvarande-uppgifter.md` sektionen "Avklarat i LLM-flow-audit + follow-up (2026-04-22)".
+
 ## Avklarade i wave 2026-04-21
 
 Flyttade till [`../avklarat/`](../avklarat/) av städ-pass efter href↔route-säkerhetsnätet:

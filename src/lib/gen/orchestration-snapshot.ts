@@ -183,7 +183,18 @@ export function buildFollowUpBriefFromSnapshot(
   if (summary.requestedCapabilities && summary.requestedCapabilities.length > 0) {
     out.requestedCapabilities = summary.requestedCapabilities;
   }
-  if (summary.domainProfile) out.domainProfile = summary.domainProfile;
+  // 2026-04-22 follow-up audit: snapshot sparar `domainProfile` som object
+  // `{ domain, industry }` (se `extractBriefSummary` i
+  // `own-engine-build-session.ts`), men `system-prompt.ts` deklarerar
+  // `brief.domainProfile?: string` och kör `str(brief?.domainProfile)` —
+  // vilket returnerade tom sträng för object-formen, så follow-up-LLM:n
+  // tappade det domain-override från init som init-brief faktiskt bar.
+  // `guidance-resolvers.resolveGuidanceBlocks` förväntar också ett string-
+  // domänvärde (`briefDomainProfile as DomainProfile`). Rehydrera som
+  // slug-sträng så samma domain-signal lever över init→follow-up.
+  if (summary.domainProfile?.domain) {
+    out.domainProfile = summary.domainProfile.domain;
+  }
   if (summary.projectTitle) out.projectTitle = summary.projectTitle;
   if (summary.brandName) out.brandName = summary.brandName;
   // Bug 07#3 (2026-04-22 audit): snapshot bevarar style/tone i briefSummary

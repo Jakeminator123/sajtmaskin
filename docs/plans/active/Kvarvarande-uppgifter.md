@@ -1,6 +1,55 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-22 efter cleanup-wave pass 1+2 på dagens master (7 commits över P2/P5/P1/S3/knip/P3/docs). Tidigare uppdatering: 2026-04-20 efter cloud-loop (PR #69 — 21 commits) ovanpå master `51751bd30`. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13. + 21 nya etapper (Block 0+1+2 i cloud-loopen).** Se `STATUS-2026-04-20.md` i repo-roten för fullständig sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+Senast uppdaterad: 2026-04-22 efter LLM-flow-audit + follow-up-pass (commits `a35eaa05e` + `8de85797b` + follow-up), ovanpå cleanup-wave pass 1+2. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13. + 21 nya etapper (Block 0+1+2 i cloud-loopen).** Se `STATUS-2026-04-20.md` i repo-roten för fullständig sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+
+## Avklarat i LLM-flow-audit + follow-up (2026-04-22)
+
+Triage av 8 parallella audit-rapporter → 13 verifierade buggar fixade, 11 var by-design eller doc-drift. Sedan ett follow-up-pass där 5 nya agentrapporter triagerades mot master efter fixarna.
+
+**Commit a35eaa05e — första fix-vågen:**
+
+| Område | Vad |
+|---|---|
+| Orkestrering | `fetchCommunityBlocks` tar nu `intentSourcePrompt` istället för wrappad `prompt`; `scaffold_drift`/`scaffold_unknown_brief_nomination` loggar `resolvedMode`; init fick `routePlanPrompt`+`buildSpecPrompt`+`contractsPrompt`+`scaffoldMatchPrompt` precis som follow-up; plan mode fick `engineModelId`+`lifecycleStage`; `buildFollowUpBriefFromSnapshot` rehydrerar `visualDirection.styleKeywords` + `toneAndVoice`; `effectiveInitRouteCount` respekterar `isFirstCodeGeneration`. |
+| Intent-klassning | Alla svenska `\b`-regex i `follow-up-clarification.ts` och `request-kind.ts` konverterade till Unicode look-arounds; `MULTI_CHANGE` tog emot cardinalen `tre` (typo `trea` fixad); refine-patterns fick bare `byt`; specific-targets fick `rubrik/title/headline`. |
+| Verifier-pass | `checkUndefinedJsxSymbols` registrerar nu TS generic type params (`<T>`, `<TData, U extends X>` etc.); `lazy(`-bailout smalnades till `React.lazy` eller `lazy` importerat från `react`/`react-dom`. |
+| Fixer-fallback | `server-verify.ts` använder nu `DEFAULT_MODEL_ID` när chat-modell inte mappar till canonical tier. |
+| Docs + backoffice | `llm-signal-flow.md` speglar `buildFollowUpBriefFromSnapshot` + canonical `BUILD_INTENT_GUIDANCE`; `quality-gate.md` beskriver verifier-pass som hybrid; `backoffice/pages/preview.py` + `_ops_impl.py` uppdaterade. |
+
+Rapportsammanfattning: `audit-reports/2026-04-22-llm-flow/SUMMARY.md`.
+
+**Commit 8de85797b — Unicode-regex-grundinfrastruktur:**
+
+| Vad | Fil |
+|---|---|
+| Canonical helper: `uWord`, `uWordRegex`, `containsUnicodeWord`, `escapeRegexLiteral` + `UNICODE_WB_LEFT`/`RIGHT` | `src/lib/utils/unicode-word-boundary.ts` (+ 11 tester) |
+| Cursor-regel som varnar framtida agenter | `.cursor/rules/unicode-regex.mdc` |
+| Preflight-guard — failar om `\b` sitter direkt bredvid icke-ASCII-bokstav | `scripts/dev/check-unicode-regex.mjs` (inkopplad i `preflight:common`) |
+| Fixar sista kvarvarande riktiga bugg: `\bnaturmiljö\b` + `\bklippmiljö\b` | `src/lib/images/unsplash-query-fallback.ts` |
+
+**Follow-up-commit (denna session) — 5 nya audit-rapporter triagerade:**
+
+Av ~15 nya fynd från 5 parallella agenter var 7 äkta buggar, resten dubbletter/design-val/missförstånd (se "Fynd som inte är buggar" nedan).
+
+| Fix | Fil |
+|---|---|
+| Plan mode (init) fick samma rå-signalpaket som huvudflödet (`routePlanPrompt`+`buildSpecPrompt`+`contractsPrompt`+`scaffoldMatchPrompt`+`capabilitiesPrompt`) | `src/lib/api/engine/chats/create-chat-stream-post.ts` |
+| Plan mode (follow-up) fick `contractsPrompt`+`scaffoldMatchPrompt`+`capabilitiesPrompt` + snapshot-brief-hydrering via `buildFollowUpBriefFromSnapshot` | `src/lib/api/engine/chats/chat-message-stream-post.ts` |
+| `fixerModel` fallback till `DEFAULT_MODEL_ID` i alla 4 kvarvarande callsites (partial-file-repair, verifier-fixer, tsc-fixer, eslint-fixer, syntax-fixer) | `src/lib/gen/stream/finalize-version.ts` + `src/lib/gen/autofix/validate-and-fix.ts` |
+| P32-kommentaren i `orchestrate.ts` förtydligad att `requestKind` är medvetet inaktiv tills Fas B | `src/lib/gen/orchestrate.ts` |
+| `flytta`/`change`/`move` tillagda i refine-patterns (engelska + svenska layout-edits) | `src/lib/providers/own-engine/follow-up-clarification.ts` |
+| Shell-page-generator: ogiltig JS-identifierare om titel börjar med siffra (`3DPage` → `Page3D`); catch-all-route preview-URL (`/blog/...slug` → `/blog/example`) | `src/lib/gen/stream/finalize-preflight/shell-pages.ts` |
+| `domainProfile` rehydreras nu som slug-string istället för object så `system-prompt.ts`+`guidance-resolvers.ts` faktiskt ser domain-override från init→follow-up | `src/lib/gen/orchestration-snapshot.ts` |
+
+**Fynd som inte är buggar (återkommer i rapporter, dokumenteras här så triage inte måste göras om):**
+
+- `P32 requestKind` når inte `deriveBuildSpec` — **by design, Fas A only.** Se `P32-request-type-taxonomy.md`. Kommentaren i `orchestrate.ts` är nu förtydligad.
+- `classifyFollowUpIntentWithLlmFallback` ej inkopplad i runtime — **deliberate feature-flag**, planerat för P32 Fas F.
+- `inferContextPolicy`/`inferVerificationPolicy` använder inte `isFirstCodeGeneration` — **designval**; `isEffectiveInit` är medvetet begränsat till route-realization. Bredare semantik kräver aktivt designbeslut.
+- `fixerTier = originatingTier ?? DEFAULT_MODEL_ID` i `server-verify.ts` — **intentional**, bättre än `undefined`.
+- `useCreateChat` kör rå prompt när brief finns och `formatPrompt` när brief saknas — **by design** (brief bär semantiken).
+- Flaky 1/863 i `warm-eslint.test.ts` under bred parallell testsvit — känd race, passerar isolerat; inte relaterat till LLM-flödet.
+- `"Byt bild till en elefant. Gör också hela bakgrunden mörk"` → `clear-redesign` — **design call** (verb+noun-combo med `bakgrund`).
 
 ## Avklarat i cleanup-wave pass 1+2 (2026-04-22)
 

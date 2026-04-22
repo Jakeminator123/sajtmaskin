@@ -601,10 +601,25 @@ export async function handleMessageStreamRequest(
             prompt: optimizedMessage,
             routePlanPrompt: message,
             buildSpecPrompt: message,
+            // 2026-04-22 follow-up audit: plan-mode-vägen hade bara två av
+            // de fem rå-signalfälten (route-plan + build-spec). Contracts,
+            // scaffold-match och capability-inferens drevs av wrappad
+            // `optimizedMessage` → planner/codegen-drift. Spegla hela paketet.
+            contractsPrompt: message,
+            scaffoldMatchPrompt: message,
+            capabilitiesPrompt: message,
             buildIntent: planEngineIntent,
             scaffoldMode: metaScaffoldMode,
             scaffoldId: metaScaffoldId,
-            brief: metaBrief,
+            // 2026-04-22 follow-up audit: plan-mode-vägen saknade A1+A2
+            // snapshot-brief-hydrering som huvudflödet (~rad 788) fick.
+            // Plan-LLM:n gick därför på `null` brief medan senare codegen
+            // fick capability- och designsignaler rehydrerade från snapshot.
+            brief:
+              metaBrief ??
+              buildFollowUpBriefFromSnapshot(
+                engineChat.orchestration_snapshot as Record<string, unknown> | null,
+              ),
             themeColors: metaThemeColors,
             imageGenerations: resolvedImageGenerations,
             componentPalette: metaPalette,

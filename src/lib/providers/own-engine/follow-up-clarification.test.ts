@@ -71,6 +71,21 @@ describe("follow-up clarification intent classification", () => {
   it("classifies bare 'byt'-edits as clear-refine (not neutral)", () => {
     expect(classifyFollowUpIntent("Byt hero-bilden till en elefant")).toBe("clear-refine");
   });
+
+  // 2026-04-22 follow-up audit — gap i refine-patterns:
+  // "flytta" + engelska "change"/"move" saknades som refine-signaler,
+  // vilket gjorde rena layout-/edit-prompter till neutral.
+  it("classifies 'Flytta'-layout-edits as clear-refine", () => {
+    expect(classifyFollowUpIntent("Flytta CTA-knappen under rubriken")).toBe("clear-refine");
+  });
+
+  it("classifies English 'change'-edits as clear-refine", () => {
+    expect(classifyFollowUpIntent("Change the primary color to teal")).toBe("clear-refine");
+  });
+
+  it("classifies English 'move'-edits as clear-refine", () => {
+    expect(classifyFollowUpIntent("Move the pricing section above FAQ")).toBe("clear-refine");
+  });
 });
 
 describe("hasDesignFollowUpSignal (Fix A)", () => {

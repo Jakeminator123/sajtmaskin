@@ -2,7 +2,7 @@ import { runLlmFixer } from "./llm-fixer";
 import { runAutoFix } from "./pipeline";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
-import type { CanonicalModelId } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
 import { incEarlyStop, recordPhaseDuration } from "@/lib/observability/metrics";
@@ -203,12 +203,13 @@ async function runWarmTscPass(
       errorCount: result.diagnostics.length,
     });
 
-    const fixerModel = opts.resolvedTier
-      ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
-      : undefined;
-    const fixerThinking = opts.resolvedTier
-      ? resolvePhaseThinking(opts.resolvedTier, "fixer")
-      : null;
+    // Bug 01#3-pattern (2026-04-22 follow-up audit): fallback till
+    // DEFAULT_MODEL_ID så fixerModel aldrig är undefined — annars går
+    // runLlmFixer på intern default och phaseRouting.fixer-manifestet
+    // speglas inte i tsc-reparationsloopen.
+    const tscFixerTier = opts.resolvedTier ?? DEFAULT_MODEL_ID;
+    const fixerModel = resolvePhaseModel(tscFixerTier, "fixer").modelId;
+    const fixerThinking = resolvePhaseThinking(tscFixerTier, "fixer");
     const tscFixAbort = new AbortController();
     const remainingBudgetMs = Math.max(1_000, opts.budgetDeadline - Date.now());
     const tscFixTimeout = setTimeout(
@@ -395,12 +396,11 @@ async function runWarmEslintPass(
       errorCount: result.errorCount,
     });
 
-    const fixerModel = opts.resolvedTier
-      ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
-      : undefined;
-    const fixerThinking = opts.resolvedTier
-      ? resolvePhaseThinking(opts.resolvedTier, "fixer")
-      : null;
+    // Fallback till DEFAULT_MODEL_ID (se tsc-grenen ovan) så eslint-reparation
+    // följer samma phaseRouting-fixer-manifest även när resolvedTier saknas.
+    const eslintFixerTier = opts.resolvedTier ?? DEFAULT_MODEL_ID;
+    const fixerModel = resolvePhaseModel(eslintFixerTier, "fixer").modelId;
+    const fixerThinking = resolvePhaseThinking(eslintFixerTier, "fixer");
     const eslintFixAbort = new AbortController();
     const remainingBudgetMs = Math.max(1_000, opts.budgetDeadline - Date.now());
     const eslintFixTimeout = setTimeout(
@@ -759,12 +759,10 @@ async function validateAndFixInner(
       console.warn(`[engine] Pass ${pass}: ${validation.errors.length} syntax errors, attempting LLM fixer`);
 
       onProgress?.({ pass, phase: "fixing", errorCount: validation.errors.length });
-      const fixerModel = opts.resolvedTier
-        ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
-        : undefined;
-      const fixerThinking = opts.resolvedTier
-        ? resolvePhaseThinking(opts.resolvedTier, "fixer")
-        : null;
+      // Fallback till DEFAULT_MODEL_ID (se tsc-/eslint-grenarna ovan).
+      const syntaxFixerTier = opts.resolvedTier ?? DEFAULT_MODEL_ID;
+      const fixerModel = resolvePhaseModel(syntaxFixerTier, "fixer").modelId;
+      const fixerThinking = resolvePhaseThinking(syntaxFixerTier, "fixer");
       devLogAppend("in-progress", {
         type: "syntax-validation.fixer.start",
         chatId: opts.chatId,
