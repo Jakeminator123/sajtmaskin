@@ -275,13 +275,6 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       purpose: "Deep Brief generation before the first build.",
       active: promptAssistDeepActive,
     },
-    {
-      key: "spec-route",
-      label: "Spec route",
-      route: "/api/ai/spec",
-      purpose: "Defined, but not part of the normal builder flow today.",
-      active: false,
-    },
   ];
 
   const warnings: string[] = [];

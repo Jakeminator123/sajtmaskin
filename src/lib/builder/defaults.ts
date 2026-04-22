@@ -173,9 +173,6 @@ export const DEFAULT_IMAGE_GENERATIONS = true;
  * men ger högre kvalitet. Användare kan toggla av per-chat i UI:t. */
 export const DEFAULT_THINKING = true;
 
-/** Default for spec mode in builder */
-export const DEFAULT_SPEC_MODE = false;
-
 /**
  * Core instructions — always relevant regardless of scaffold/engine.
  * Covers tech stack, shadcn setup, language, and accessibility basics.

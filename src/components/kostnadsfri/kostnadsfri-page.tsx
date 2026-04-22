@@ -123,7 +123,6 @@ export function KostnadsfriPage({
           promptId,
           buildMethod: "kostnadsfri",
           buildIntent: "website",
-          specMode: "true",
         });
         router.push(`/builder?${params.toString()}`);
       } catch (err) {

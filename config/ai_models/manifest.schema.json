@@ -56,22 +56,20 @@
       "properties": {
         "defaults": {
           "type": "object",
-          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic", "specModel"],
+          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic"],
           "properties": {
             "requestModel": { "type": "string" },
             "serverAutoOpenAI": { "type": "string" },
-            "serverAutoAnthropic": { "type": "string" },
-            "specModel": { "type": "string" }
+            "serverAutoAnthropic": { "type": "string" }
           }
         },
         "envKeys": {
           "type": "object",
-          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic", "specModel"],
+          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic"],
           "properties": {
             "requestModel": { "type": "string" },
             "serverAutoOpenAI": { "type": "string" },
-            "serverAutoAnthropic": { "type": "string" },
-            "specModel": { "type": "string" }
+            "serverAutoAnthropic": { "type": "string" }
           }
         },
         "notes": { "type": "string" }
@@ -128,8 +126,7 @@
             "warnChatSystemChars",
             "maxPromptHandoffChars",
             "maxAiBriefPromptChars",
-            "maxAiChatMessageChars",
-            "maxAiSpecPromptChars"
+            "maxAiChatMessageChars"
           ],
           "additionalProperties": false,
           "properties": {
@@ -139,8 +136,7 @@
             "warnChatSystemChars": { "$ref": "#/$defs/numericEnvSetting" },
             "maxPromptHandoffChars": { "$ref": "#/$defs/numericEnvSetting" },
             "maxAiBriefPromptChars": { "$ref": "#/$defs/numericEnvSetting" },
-            "maxAiChatMessageChars": { "$ref": "#/$defs/numericEnvSetting" },
-            "maxAiSpecPromptChars": { "$ref": "#/$defs/numericEnvSetting" }
+            "maxAiChatMessageChars": { "$ref": "#/$defs/numericEnvSetting" }
           }
         },
         "softTargets": {
