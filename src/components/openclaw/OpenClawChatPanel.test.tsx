@@ -20,6 +20,6 @@ describe("OpenClawChatPanel", () => {
     expect(panel).toBeTruthy();
     expect(panel?.className).toContain("w-[min(380px,calc(100vw-1rem))]");
     expect(panel?.className).toContain("max-w-[calc(100vw-1rem)]");
-    expect(panel?.className).toContain("h-[min(580px,calc(100vh-7rem))]");
+    expect(panel?.className).toContain("h-[min(640px,calc(100vh-5rem))]");
   });
 });
