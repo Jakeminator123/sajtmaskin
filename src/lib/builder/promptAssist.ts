@@ -2,7 +2,6 @@ import type { BuildIntent } from "./build-intent";
 import type { ThemeColors } from "./theme-presets";
 import { type DomainProfile, inferDomain } from "./domain-inference";
 import { SECTION_KEYWORDS, STYLE_KEYWORDS } from "./prompt-heuristics";
-import { getPromptAssistAllowedFromManifest } from "@/lib/ai-models/load-manifest";
 import { BUILD_INTENT_GUIDANCE } from "@/lib/gen/intent-guidance";
 import {
   buildDomainContractHints,
@@ -12,57 +11,19 @@ import {
   resolveQualityBarGuidance,
 } from "@/lib/gen/guidance-resolvers";
 
-// OpenAI-class assist models (loaded from manifest).
-// "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
-export type PromptAssistProvider = "openai" | "anthropic";
-
-const promptAssistAllowed = getPromptAssistAllowedFromManifest();
-
-// `ASSIST_MODELS` and `ANTHROPIC_ASSIST_MODELS` are kept for historical reasons —
-// existing callers (and `manifest-parity.test.ts`) still read the split arrays.
-// New callers should prefer the unified `promptAssistAllowed.models` accessor
-// from `getPromptAssistAllowedFromManifest()`, which returns the union (provider
-// is implicit in the model-id prefix: `openai/`, `anthropic/`, `anthropic-direct/`).
-export const ASSIST_MODELS = Object.freeze([
-  ...promptAssistAllowed.gatewayClassModels,
-]);
-
-export const ANTHROPIC_ASSIST_MODELS = Object.freeze([
-  ...promptAssistAllowed.anthropicDirectModels,
-]);
-
-export function normalizeAssistModel(rawModel: string): string {
-  const raw = String(rawModel || "").trim();
-  if (!raw) return raw;
-  if (raw.startsWith("v0-")) return raw;
-  if (raw.includes("/")) return raw;
-  return `openai/${raw}`;
-}
-
-export function isOpenAIAssistModel(model: string): boolean {
-  return ASSIST_MODELS.includes(model);
-}
-
-export function isAnthropicAssistModel(model: string): boolean {
-  return ANTHROPIC_ASSIST_MODELS.includes(model);
-}
-
-export function isPromptAssistOff(model: string): boolean {
-  return model === "off";
-}
-
-export function isPromptAssistModelAllowed(model: string): boolean {
-  return (
-    isPromptAssistOff(model) ||
-    isOpenAIAssistModel(model) ||
-    isAnthropicAssistModel(model)
-  );
-}
-
-export function resolvePromptAssistProvider(model: string): PromptAssistProvider {
-  if (isAnthropicAssistModel(model) || model.startsWith("anthropic/")) return "anthropic";
-  return "openai";
-}
+// Re-exported so existing callers keep working. Canonical source:
+// `./prompt-assist-models.ts`.
+export {
+  ANTHROPIC_ASSIST_MODELS,
+  ASSIST_MODELS,
+  isAnthropicAssistModel,
+  isOpenAIAssistModel,
+  isPromptAssistModelAllowed,
+  isPromptAssistOff,
+  normalizeAssistModel,
+  resolvePromptAssistProvider,
+  type PromptAssistProvider,
+} from "./prompt-assist-models";
 
 // SECTION_KEYWORDS and STYLE_KEYWORDS imported from prompt-heuristics.ts
 // Motion keyword banks (static/lively/strict) and MotionProfile type live in
