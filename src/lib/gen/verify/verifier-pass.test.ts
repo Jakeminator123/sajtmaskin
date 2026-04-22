@@ -138,6 +138,46 @@ describe("checkUndefinedJsxSymbols", () => {
     expect(findings).toEqual([]);
   });
 
+  it("accepts components introduced via array destructuring (useState / tuple returns)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          'import { useState } from "react";',
+          'import InitialCard from "@/components/initial-card";',
+          "export default function Page() {",
+          "  const [Card, setCard] = useState(InitialCard);",
+          "  return <Card />;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("handles array destructuring with holes, defaults, and rest elements", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          'import DefaultCard from "@/components/default-card";',
+          "export default function Page() {",
+          "  const [, Second = DefaultCard, ...Rest] = [null, DefaultCard];",
+          "  return (",
+          "    <>",
+          "      <Second />",
+          "      <Rest />",
+          "    </>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
   it("ignores undefined-looking symbols that only appear inside comments or strings", () => {
     const findings = checkUndefinedJsxSymbols([
       {
