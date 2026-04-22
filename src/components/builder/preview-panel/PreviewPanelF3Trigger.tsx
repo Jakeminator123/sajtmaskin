@@ -31,6 +31,13 @@ export interface PreviewPanelF3TriggerProps {
     }>;
   }) => void;
   className?: string;
+  /**
+   * External "is the builder busy with another generation right now?" flag.
+   * Disables the trigger so a second `/finalize-design` call (and the
+   * follow-up auto-`sendMessage` from C3's `onReady`) cannot race the
+   * stream that the previous click is currently running.
+   */
+  isBusy?: boolean;
 }
 
 type FinalizeDesignResponse = {
@@ -62,6 +69,7 @@ export function PreviewPanelF3Trigger({
   onReady,
   onMissingEnv,
   className,
+  isBusy = false,
 }: PreviewPanelF3TriggerProps) {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -85,8 +93,23 @@ export function PreviewPanelF3Trigger({
           (sum, entry) => sum + entry.missing.length,
           0,
         );
+        // P26: surface the actual missing env-key names, not just a count,
+        // so the user knows which secrets to add. Tidigare gav bara
+        // räkning vilket lämnade användaren utan handlingsinformation.
+        const missingKeyList = missing
+          .flatMap((entry) =>
+            entry.missing.map((envKey) => `${envKey} (${entry.name})`),
+          )
+          .slice(0, 6);
+        const overflow = totalMissing > missingKeyList.length;
         toast.warning(
-          `Lägg in ${totalMissing} env-värde${totalMissing === 1 ? "" : "n"} innan du kan bygga integrationer.`,
+          `Saknar ${totalMissing} env-värde${totalMissing === 1 ? "" : "n"} för integrationsbygge`,
+          {
+            description: missingKeyList.length
+              ? `${missingKeyList.join(", ")}${overflow ? ", …" : ""}`
+              : undefined,
+            duration: 8000,
+          },
         );
         onMissingEnv?.({
           parentVersionId: data.parentVersionId,
@@ -122,8 +145,12 @@ export function PreviewPanelF3Trigger({
       size="sm"
       variant="default"
       onClick={handleClick}
-      disabled={isLoading}
-      title="Lyft sajten till F3 / fidelity 3 — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
+      disabled={isLoading || isBusy}
+      title={
+        isBusy
+          ? "En annan generering pågår — vänta tills den är klar innan du startar F3-bygget."
+          : "Lyft sajten till F3 / fidelity 3 — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
+      }
       className={className}
     >
       {isLoading ? (
@@ -131,7 +158,7 @@ export function PreviewPanelF3Trigger({
       ) : (
         <Wand2 className="h-4 w-4" />
       )}
-      <span className="ml-1.5">Bygg nu</span>
+      <span className="ml-1.5">Bygg integrationer</span>
     </Button>
   );
 }

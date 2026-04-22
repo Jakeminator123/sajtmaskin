@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
-import { createDirectModel } from "@/lib/builder/gateway-policy";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 

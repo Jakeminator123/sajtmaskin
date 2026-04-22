@@ -24,17 +24,13 @@ from backoffice.shared import (
     phase_thinking_defaults,
     phase_token_budget_entry,
     read_autofix_runtime_config,
-    read_env_flag,
     read_json,
-    write_env_flag,
     write_json,
     write_phase_thinking,
 )
 
 OPS_NAV_PAGES = (
     "Scaffolds",
-    "Research & Dossiers",
-    "Pipeline",
     "Eval",
     "Orchestration Map",
     "Autofix & Kvalitet",
@@ -243,144 +239,6 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
                     else:
                         st.info("Inga ändringar att spara.")
 
-    elif page == "Research & Dossiers":
-        st.header("Research & Dossiers")
-
-        st.info(
-            "Den gamla template-library-pipen (SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE + "
-            "SAJTMASKIN_VARIANT_STRUCTURAL_FILES) är avvecklad sedan 2026-04-17. "
-            "Per-integration-guidance hanteras nu av dossier-pipen "
-            "(`data/dossiers/_index/`) — se fliken **Dossiers** för aktiva dossiers, "
-            "embeddings och scaffold-rekommendationer."
-        )
-        st.divider()
-
-        st.subheader("Deferred Extra Init Routes")
-        defer_key = "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT"
-        defer_current = read_env_flag(ctx, defer_key)
-        defer_new = st.toggle(
-            "Aktivera plan-many/build-one för init-generering",
-            value=defer_current,
-            key="defer_extra_init_routes_toggle",
-            help=(
-                f"Styr env-flaggan `{defer_key}` i `.env.local`. När på får init-genereringar planera flera routes men bara fullt realisera primärrouten direkt. Extrasidor blir då shell-sidor med tydlig 'Skapa sida'-yta."
-            ),
-        )
-        if defer_new != defer_current:
-            if write_env_flag(ctx, defer_key, defer_new):
-                st.success(f"`{defer_key}` satt till `{'true' if defer_new else 'false'}` i `.env.local`.")
-                st.caption("Dev-servern kan behöva startas om för att ändringen ska gälla i runtime.")
-            else:
-                st.error("Kunde inte skriva till `.env.local`. Kontrollera filrättigheter.")
-        else:
-            st.caption(f"Nuvarande: `{defer_key}={'true' if defer_current else 'false'}`")
-        st.info(
-            "Rekommenderad kombination: ha runtime template guidance, variant structural files och deferred extra init routes på samtidigt. Då kan init ha en grand plan för flera routes, få in verkliga strukturmönster från kuraterade referenser, och ändå lägga största delen av budgeten på primärrouten medan extrasidor blir shells. Shells bevaras automatiskt i follow-ups om inte användaren explicit ber om att bygga ut dem."
-        )
-        st.divider()
-
-        st.subheader("Domänregler (domain-inference)")
-        domain_rules_path = ctx.repo_root / "config" / "domain-rules.json"
-        domain_rules = read_json(domain_rules_path)
-        if domain_rules and isinstance(domain_rules, list):
-            st.caption(
-                f"{len(domain_rules)} domäner. Runtime bygger regex från keywords_sv + keywords_en per domän. Ändra i tabellen och klicka Spara. Dev-server behöver startas om."
-            )
-            dr_rows = []
-            for rule in domain_rules:
-                dr_rows.append(
-                    {
-                        "domain": rule.get("domain", ""),
-                        "briefHint": rule.get("briefHint", ""),
-                        "keywords_sv": ", ".join(rule.get("keywords_sv", [])),
-                        "keywords_en": ", ".join(rule.get("keywords_en", [])),
-                    }
-                )
-            edited_domains = st.data_editor(
-                dr_rows,
-                use_container_width=True,
-                num_rows="dynamic",
-                key="domain_editor",
-            )
-            if st.button("Spara domänregler", key="save_domain_rules"):
-                out = []
-                for row in edited_domains:
-                    out.append(
-                        {
-                            "domain": row.get("domain", "").strip(),
-                            "briefHint": row.get("briefHint", "").strip(),
-                            "keywords_sv": [
-                                k.strip() for k in row.get("keywords_sv", "").split(",") if k.strip()
-                            ],
-                            "keywords_en": [
-                                k.strip() for k in row.get("keywords_en", "").split(",") if k.strip()
-                            ],
-                        }
-                    )
-                out = [r for r in out if r["domain"]]
-                domain_rules_path.write_text(
-                    json.dumps(out, indent=2, ensure_ascii=False) + "\n",
-                    encoding="utf-8",
-                )
-                st.success(f"Sparade {len(out)} domänregler till `config/domain-rules.json`.")
-        else:
-            st.warning("Kunde inte läsa `config/domain-rules.json`.")
-        st.divider()
-
-        st.subheader("Prompt-heuristik tokenlistor")
-        heuristic_path = ctx.repo_root / "config" / "prompt-heuristic-tokens.json"
-        heuristic_data = read_json(heuristic_path)
-        if heuristic_data and isinstance(heuristic_data, dict):
-            st.caption(
-                f"{len(heuristic_data)} kategorier. Styr vilka nyckelord som matchar i promptanalys. Ändra tokens och klicka Spara. Dev-server behöver startas om."
-            )
-            for cat_key, cat_val in heuristic_data.items():
-                desc = cat_val.get("description", "")
-                tokens = cat_val.get("tokens", [])
-                with st.expander(f"**{cat_key}** ({len(tokens)} tokens) — {desc}"):
-                    new_tokens = st.text_area(
-                        f"Tokens ({cat_key})",
-                        value=", ".join(tokens),
-                        key=f"heuristic_{cat_key}",
-                        height=80,
-                    )
-                    if st.button(f"Spara {cat_key}", key=f"save_heuristic_{cat_key}"):
-                        parsed = [t.strip() for t in new_tokens.split(",") if t.strip()]
-                        heuristic_data[cat_key]["tokens"] = parsed
-                        heuristic_path.write_text(
-                            json.dumps(heuristic_data, indent=2, ensure_ascii=False) + "\n",
-                            encoding="utf-8",
-                        )
-                        st.success(f"Sparade {len(parsed)} tokens för `{cat_key}`.")
-        else:
-            st.warning("Kunde inte läsa `config/prompt-heuristic-tokens.json`.")
-        st.divider()
-
-        # Catalog + template-library-statistiken har avlägsnats — den gamla
-        # external-template-pipen togs bort i 4ba06d96e (2026-04-17). Dossier-
-        # pipen är källan nu (se "Dossiers (legoklossar)"-sidan).
-        research_data = read_json(ctx.research_json)
-        if research_data and isinstance(research_data, dict):
-            scaffolds_research = research_data.get("scaffolds", {})
-            st.subheader(f"Scaffold research overrides ({len(scaffolds_research)} scaffolds)")
-            for sid, data in sorted(scaffolds_research.items()):
-                with st.expander(sid):
-                    st.json(data)
-        else:
-            st.info(
-                "Scaffold-research-data saknas. Den gamla template-library-pipen "
-                "är avvecklad — använd **Dossiers (legoklossar)** + **Källhälsa**-fliken där."
-            )
-
-    elif page == "Pipeline":
-        st.header("Scaffold & Template Pipeline (avvecklad)")
-        st.warning(
-            "Den gamla template-library-pipen avvecklades 2026-04-17 — `scaffold_cli.py`, "
-            "`scripts/template-library/`, `data/external-template-pipeline/` och denna sidas "
-            "knappar har flyttats till `legacy-stuff/`. Se `data/dossiers/` och fliken "
-            "**Dossiers (legoklossar)** för den nya pipen."
-        )
-
     elif page == "Eval":
         st.header("Scaffold Selection Eval")
         eval_data = read_json(ctx.eval_latest)
@@ -426,8 +284,11 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
         else:
             st.info(
-                "Ingen eval-rapport hittades. Den gamla `scaffold_cli.py eval`-vägen är "
-                "avvecklad — använd `npm run eval:suite` eller dossier-pipens egna evals."
+                "Ingen eval-rapport hittades. Sidan läser "
+                "`data/scaffold-eval/reports/scaffold-selection-latest.json` som genereras av "
+                "`npm run scaffolds:eval` (`scripts/scaffolds/eval-scaffold-selection.ts`). "
+                "OBS: `npm run eval` är en separat **own-engine eval-harness** "
+                "(`src/lib/gen/eval/cli.ts`) som skriver till `eval-output/*.md` — inte den här sidans datakälla."
             )
 
     elif page == "Orchestration Map":
@@ -572,7 +433,7 @@ ANVÄNDARENS PROMPT
         │    ├─ Env-signal (saknade nycklar → UI-hint)
         │    ├─ Server repair (mekanisk → LLM)
         │    └─ Autofix fallback
-        └─ Background server verify (typecheck + lint, asynkron)
+        └─ Background server verify (typecheck + build + lint, asynkron — lint 2026-04-21)
 ```
 """
         )

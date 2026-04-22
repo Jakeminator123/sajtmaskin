@@ -10,6 +10,10 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 import { hasToolData, type AIElementsMessage, type MessagePart } from "@/lib/builder/messageAdapter";
+import {
+  openIntegrationsPanel,
+  openProjectEnvVarsPanel,
+} from "@/lib/builder/project-env-events";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Loader2 } from "lucide-react";
 import {
@@ -59,7 +63,17 @@ type StructuredToolPartsProps = {
   onRetryAfterShrink?: (retryPrompt: string) => void;
 };
 
-type CompactToolPartsProps = StructuredToolPartsProps;
+type CompactToolPartsProps = StructuredToolPartsProps & {
+  /**
+   * F2 vs F3 lifecycle gate. Env / integrations buttons inside compact
+   * tool parts are hidden during F2 because the target panel
+   * (`ProjectEnvVarsPanel`) is not mounted there. Only used by
+   * `CompactToolParts`; structured rendering does not surface env actions.
+   */
+  lifecycleStage?:
+    | import("@/lib/db/engine-version-lifecycle").EngineVersionLifecycleStage
+    | null;
+};
 
 export type PendingReplyModalData = {
   key: string;
@@ -537,7 +551,9 @@ export function CompactToolParts({
   pendingQuickReplyKey,
   onQuickReply,
   quickReplyDisabled = false,
+  lifecycleStage = null,
 }: CompactToolPartsProps) {
+  const isIntegrations = lifecycleStage === "integrations";
   return (
     <>
       {toolParts.map((part, index) => {
@@ -742,18 +758,20 @@ export function CompactToolParts({
                 )}
               </>
             )}
-            <div className="mt-2 flex flex-wrap gap-2">
-              {!replyPrompt && projectEnvKeys.length > 0 && (
-                <Button size="sm" onClick={() => openProjectEnvVarsPanel(projectEnvKeys)}>
-                  Konfigurera miljövariabler
-                </Button>
-              )}
-              {!replyPrompt && (
-                <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
-                  Visa integrationer
-                </Button>
-              )}
-            </div>
+            {isIntegrations ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {!replyPrompt && projectEnvKeys.length > 0 && (
+                  <Button size="sm" onClick={() => openProjectEnvVarsPanel(projectEnvKeys)}>
+                    Konfigurera miljövariabler
+                  </Button>
+                )}
+                {!replyPrompt && (
+                  <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
+                    Visa integrationer
+                  </Button>
+                )}
+              </div>
+            ) : null}
           </div>
         );
       })}
@@ -1456,14 +1474,7 @@ function getToolStateLabel(state: ToolUIPart["state"]) {
   }
 }
 
-function openIntegrationsPanel() {
-  window.dispatchEvent(new CustomEvent("integrations-panel-open"));
-}
-
-export function openProjectEnvVarsPanel(envKeys?: string[]) {
-  const payload = Array.isArray(envKeys) && envKeys.length > 0 ? { envKeys } : undefined;
-  window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail: payload }));
-}
+export { openIntegrationsPanel, openProjectEnvVarsPanel };
 
 function getPostCheckSummary(output: unknown): PostCheckSummary | null {
   if (!output || typeof output !== "object") return null;

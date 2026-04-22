@@ -96,7 +96,10 @@ export function PreviewPanelInspectorDev({
         <>
           <div
             className={cn(
-              "absolute inset-0 z-20 cursor-crosshair bg-muted/30",
+              // SAJ-19 / C3: make placement mode unmistakable without hiding
+              // content. Brand-token overlay with a subtle ring so users
+              // register "inspect mode active" even when nothing is hovered.
+              "absolute inset-0 z-20 cursor-crosshair bg-primary/15 ring-2 ring-inset ring-primary/40",
               (iframeLoading || externalLoading) && "pointer-events-none",
             )}
             onClick={handlePlacementClick}
@@ -135,7 +138,9 @@ export function PreviewPanelInspectorDev({
         <>
           <div
             className={cn(
-              "absolute inset-0 z-20 cursor-crosshair bg-primary/5",
+              // SAJ-19 / C3: capture mode — same visibility bump, separate
+              // tint so it reads as distinct from placement mode.
+              "absolute inset-0 z-20 cursor-crosshair bg-accent/15 ring-2 ring-inset ring-accent/40",
               isCapturePending && "pointer-events-none",
             )}
             onClick={handleCaptureClick}

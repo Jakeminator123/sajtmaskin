@@ -31,7 +31,7 @@ const PACKAGE_JSON = `{
     "node": "${GENERATED_PROJECT_NODE_RANGE}"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
@@ -45,7 +45,7 @@ const PACKAGE_JSON = `{
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "tailwind-merge": "3.3.0",
-    "lucide-react": "1.8.0",
+    "lucide-react": "0.469.0",
     "next-themes": "0.4.6",
     "sonner": "2.0.7",
     "recharts": "2.15.4",
@@ -63,7 +63,6 @@ const PACKAGE_JSON = `{
     "three": "0.176.0",
     "@react-three/fiber": "9.1.2",
     "@react-three/drei": "10.7.7",
-    "@react-three/rapier": "2.2.0",
     "date-fns": "4.1.0"
   },
   "devDependencies": {
@@ -322,6 +321,40 @@ export function cn(...inputs: ClassValue[]) {
 }
 `;
 
+/**
+ * Canonical reduced-motion hook shipped with every exported project.
+ *
+ * Rationale: without this file, ad-hoc motion components often hand-roll
+ * a `useState(false) + useEffect(() => setMounted(true), [])` guard — a
+ * pattern that React 19 + eslint-plugin-react-hooks flags under
+ * \`react-hooks/set-state-in-effect\`. Subscribing to \`matchMedia\` is the
+ * explicitly-allowed shape (external store → setState is fine).
+ *
+ * Returns \`true\` on the server and on first render client-side to avoid
+ * hydration mismatches; flips to the live \`matchMedia\` result on mount.
+ */
+const LIB_USE_REDUCED_MOTION = `"use client";
+
+import { useEffect, useState } from "react";
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+export function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia(REDUCED_MOTION_QUERY);
+    setReduced(query.matches);
+    const handleChange = (event: MediaQueryListEvent) => setReduced(event.matches);
+    query.addEventListener("change", handleChange);
+    return () => query.removeEventListener("change", handleChange);
+  }, []);
+
+  return reduced;
+}
+`;
+
 /** Present from first unpack so \`tsc\` / editors agree with Next before first \`next dev\`. */
 const NEXT_ENV_D_TS = `/// <reference types="next" />
 /// <reference types="next/image-types/global" />
@@ -342,6 +375,7 @@ const SCAFFOLD_FILES: Record<string, string> = {
   "app/robots.ts": ROBOTS_TS,
   "app/sitemap.ts": SITEMAP_TS,
   "lib/utils.ts": LIB_UTILS,
+  "hooks/use-reduced-motion.ts": LIB_USE_REDUCED_MOTION,
 };
 
 const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for local development (not production secrets)

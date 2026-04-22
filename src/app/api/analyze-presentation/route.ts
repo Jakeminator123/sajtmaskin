@@ -12,7 +12,7 @@
 
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
-import { createDirectModel } from "@/lib/builder/gateway-policy";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import {

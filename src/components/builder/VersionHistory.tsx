@@ -5,7 +5,7 @@ import {
   resolveEngineVersionDisplayStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
-import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import {
   AlertCircle,
   CheckCircle,
@@ -105,6 +105,11 @@ interface VersionHistoryProps {
   versions?: VersionSummary[];
   /** Mutate function from parent's useVersions instance */
   mutateVersions?: () => void;
+  /**
+   * F2 vs F3 lifecycle gate. Forwarded to dialogs (e.g.
+   * VersionDiagnosticsDialog) that conditionally render env-panel actions.
+   */
+  lifecycleStage?: import("@/lib/db/engine-version-lifecycle").EngineVersionLifecycleStage | null;
 }
 
 export function VersionHistory({
@@ -116,6 +121,7 @@ export function VersionHistory({
   onToggleCollapse,
   versions: externalVersions,
   mutateVersions: externalMutate,
+  lifecycleStage = null,
 }: VersionHistoryProps) {
   const { user, isAuthenticated, hasGitHub, isInitialized, fetchUser } = useAuth();
   // Use parent-provided versions when available to avoid duplicate polling
@@ -488,8 +494,8 @@ export function VersionHistory({
     <div className="flex h-full flex-col">
       <div className="border-border border-b px-4 py-3">
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="font-semibold">Version History</h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate font-semibold">Version History</h3>
             <p className="text-muted-foreground mt-1 text-xs">
               {versions.length} version{versions.length !== 1 ? "s" : ""}
               {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ""}
@@ -597,6 +603,25 @@ export function VersionHistory({
                       : lifecycleStatus === "failed"
                         ? "Fel"
                         : "Draft";
+            // P25b-rest: surface what each lifecycle badge actually means in
+            // a hover-tooltip so users don't need to read the runbook to
+            // tell "Verifying" (background server-verify still running)
+            // apart from "Promoted" (released live) or "Fel" (verifier
+            // produced blocking findings — open the diagnostics dialog).
+            const lifecycleTooltip =
+              lifecycleStatus === "promoted"
+                ? "Publicerad live. Klart att deploya."
+                : lifecycleStatus === "verifying"
+                  ? "Server-verify kör i bakgrunden — typecheck/build mot scaffold-cache. Kan landa i 'Promoted' eller 'Fel' när den är klar."
+                  : lifecycleStatus === "repairing"
+                    ? "Server försöker reparera fel automatiskt. Vänta — utfallet rapporteras som 'Repair available' eller 'Fel'."
+                    : lifecycleStatus === "repair_available"
+                      ? "Reparerad version finns sparad och väntar på godkännande. Klicka för att se diff och acceptera."
+                      : lifecycleStatus === "retrying"
+                        ? "Ersatt av en nyare version innan denna hann verifieras klart."
+                        : lifecycleStatus === "failed"
+                          ? "Verifiering hittade blockerande fel. Öppna diagnostik-dialogen för detaljer."
+                          : "Draft. Inte verifierad eller publicerad än.";
             const lifecycleBadgeVariant =
               lifecycleStatus === "failed"
                 ? "destructive"
@@ -726,6 +751,7 @@ export function VersionHistory({
                         <Badge
                           variant={lifecycleBadgeVariant}
                           className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadgeClassName)}
+                          title={lifecycleTooltip}
                         >
                           {(lifecycleStatus === "verifying" || lifecycleStatus === "repairing") && (
                             <Loader2 className="h-3 w-3 animate-spin" />
@@ -745,12 +771,27 @@ export function VersionHistory({
                           <Badge
                             variant="outline"
                             className={cn("px-1.5 py-0 text-[10px]", runtimeBadge.className)}
+                            title={
+                              runtimeStatusForRow === "version_mismatch"
+                                ? "Preview-VM kör en annan version än den valda. Klicka 'Återställ preview' eller vänta på återstart."
+                                : runtimeStatusForRow === "missing"
+                                  ? "Ingen aktiv preview-VM för denna version. Starta en ny preview-session från knappraden."
+                                  : runtimeStatusForRow === "starting"
+                                    ? "Preview-VM startar — `npm install` + `next dev` kör i bakgrunden. Vanligtvis 30–90 s vid kall start."
+                                    : runtimeStatusForRow === "stopped"
+                                      ? "Preview-VM är stoppad. Starta en ny preview-session från knappraden för att återanvända versionen."
+                                      : "Preview-VM körs (Next.js dev-server svarar)."
+                            }
                           >
                             {runtimeBadge.label}
                           </Badge>
                         )}
                         {isPinned && (
-                          <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                          <Badge
+                            variant="secondary"
+                            className="px-1.5 py-0 text-[10px]"
+                            title="Pinnad version — visas alltid överst i listan tills du unpinnar."
+                          >
                             Pinned
                           </Badge>
                         )}
@@ -801,7 +842,7 @@ export function VersionHistory({
                       )}
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center gap-1">
+                  <div className="mt-2 flex flex-wrap items-center gap-1">
                     {listPreviewUrl && (
                       <Button
                         variant="ghost"
@@ -967,6 +1008,7 @@ export function VersionHistory({
         onOpenChange={(open) => {
           if (!open) setDiagnosticsVersionId(null);
         }}
+        lifecycleStage={lifecycleStage}
       />
       <Dialog
         open={Boolean(confirmRestoreVersion)}

@@ -424,7 +424,6 @@ export function useAutoFix(
         const chatTotal = autoFixAttemptsRef.current[chatKey]?.count ?? 0;
         if (chatTotal >= MAX_AUTOFIX_PER_CHAT) {
           if (typeof window !== "undefined") {
-            // eslint-disable-next-line no-console
             console.info(
               "[autofix] chat-cap reached",
               { chatId: payload.chatId, max: MAX_AUTOFIX_PER_CHAT, chatTotal },
@@ -437,7 +436,6 @@ export function useAutoFix(
         const reasonAttempts = autoFixAttemptsRef.current[reasonKey]?.count ?? 0;
         if (reasonAttempts >= MAX_ATTEMPTS_PER_REASON) {
           if (typeof window !== "undefined") {
-            // eslint-disable-next-line no-console
             console.info(
               "[autofix] reason-cap reached",
               { chatId: payload.chatId, reasonKey, max: MAX_ATTEMPTS_PER_REASON },

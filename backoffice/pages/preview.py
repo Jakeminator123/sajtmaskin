@@ -78,15 +78,27 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("F2 / F3 livscykel (2026-04)")
     st.markdown(
         """
-- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck"]`). Tier-3 SDK-imports
+- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck", "build", "lint"]` sedan 2026-04-21; var `["typecheck", "build"]` 2026-04-20 → 2026-04-21, och bara `["typecheck"]` före 2026-04-20). Lint kör `--max-warnings=20` så tolereranta warnings inte fryser gate:n. Tier-3 SDK-imports
   (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, …) strippas mekaniskt av `tier3-sdk-guard-fixer`.
-- **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. `integrationsBuild` quality gate (`["typecheck", "build"]`).
+- **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. `integrationsBuild` quality gate (`["typecheck", "build", "lint"]`).
   Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 readiness mot
   projektets stored env-vars; returnerar `412` med `missingByIntegration` om någon `requiredRealEnvKeys` saknas.
 - **`engine_versions.lifecycle_stage`**: `"design"` (F2) eller `"integrations"` (F3). F3-versioner pekar på sin
   F2-rot via `engine_versions.parent_version_id`.
-- **Pre-VM typecheck**: ny finalize-fas (`pre_vm_typecheck`) som kör `tsc --noEmit` mot en varm scaffold-`node_modules`-cache och
-  försöker en LLM-fix-pass innan filer går till VM. Aktiveras via `SAJTMASKIN_PRE_VM_TYPECHECK`; F3 kör alltid med `force=true`.
+- **Validate-step (esbuild + warm tsc)** — `validate_syntax`-fasen kör först esbuild-validering och, när esbuild når
+  `passed`, `tsc --noEmit` mot en varm scaffold-`node_modules`-cache. Båda valideringarna delar `fixBudgetMs` och
+  samma `runLlmFixer`-loop med `phaseRouting.fixer`-modell + 60 s abort. Sedan 2026-04-20 är `pre_vm_typecheck`
+  borta som eget steg och uppgår i `validate_syntax`. Aktiveras via `SAJTMASKIN_PRE_VM_TYPECHECK`; F3 kör alltid
+  warm-tsc. Efter tsc kör en **blockerande eslint-pass** om `SAJTMASKIN_BLOCKING_ESLINT=true` (default av) —
+  stänger SAJ-28 så eslint-errors fångas innan version sparas. `--max-warnings` styrs av
+  `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS` (default 20).
+  med `forceTsc: true`. Fail-open vid kall cache. SSE-progress: `phase: "validating" | "fixing" | "tsc-validating"
+  | "tsc-fixing" | "tsc-passed" | "tsc-skipped" | "passed" | "gave-up"`.
+- **Verifier-fynd → fixer (Wave 2 2026-04-20)**: blocking-fynd från `runVerifierPass` matas in i `runLlmFixer`
+  direkt efter verifier-passet. Lyckad fixer rensar `verifierBlockingFindings` så versionen inte markeras
+  blocked för fynd som redan reparerats. Tidigare paid-no-op pass.
+- **Auto-repair på `build-error` (Wave 4 2026-04-20)**: `triggerBuildErrorRepair` är default ON i
+  `development` + Vercel `preview`, default OFF i `production`. Override via `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1`.
 - **Placeholder-merge** (`src/lib/gen/preview/env-local.ts`): `harmless → tier3-stub → project-preview → user → generated`.
   Vid F3 hoppas tier-3-stub-laget över helt. Per-key-klassificering: `src/lib/integrations/placeholder-harmless.ts`.
 """

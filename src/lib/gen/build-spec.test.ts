@@ -591,6 +591,222 @@ Persisted errors for this version:
     }
     vi.resetModules();
   });
+
+  it("treats 'add a pricing section' as a local-layout edit, not a page-addition", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Add a pricing section to the homepage.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+    });
+    expect(spec.changeScope).toBe("local-layout");
+  });
+
+  it("still detects page-addition when an explicit page word follows the section cue", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Add a pricing section AND a separate contact page.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+    });
+    expect(spec.changeScope).toBe("page-addition");
+  });
+
+  it("treats Swedish section cues ('avsnitt', 'block', 'sektion') the same way", () => {
+    for (const prompt of [
+      "Lägg till ett pricing-block ovanför footern.",
+      "Lägg till ett testimonials-avsnitt.",
+      "Bygg in en ny sektion för referenser.",
+    ]) {
+      const spec = deriveBuildSpec({
+        prompt,
+        buildIntent: "website",
+        generationMode: "followUp",
+        resolvedScaffold: saasScaffold,
+        routePlan: marketingRoutePlan,
+        preGenerationContracts: emptyContracts,
+      });
+      expect(spec.changeScope).toBe("local-layout");
+    }
+  });
+
+  it("picks the highest-scoring stylepack instead of first-match", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Make it a futuristic minimalist luxury landing page with refined gold accents.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+    });
+    expect(spec.stylePack).toBe("luxury");
+  });
+
+  it("surfaces a secondary stylepack when the runner-up is close", () => {
+    const tighter = deriveBuildSpec({
+      prompt: "A luxury editorial layout for a refined magazine.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+    });
+    expect(tighter.stylePack).toBe("editorial");
+    expect(tighter.stylePackSecondary).toBe("luxury");
+  });
+
+  it("falls back to scaffold-derived stylepack when the prompt has no style cues", () => {
+    const blogScaffold: ScaffoldManifest = { ...saasScaffold, id: "blog", label: "Blog" };
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en sida för min hund.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: blogScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+    });
+    expect(spec.stylePack).toBe("editorial");
+    expect(spec.stylePackSecondary).toBeNull();
+  });
+
+  it("scales tokenBudgets up when the model has a larger context window", () => {
+    const integrationsContracts: PreGenerationContractContext = {
+      contracts: {
+        dataMode: "none",
+        integrations: [
+          { provider: "Redis", name: "Redis", reason: "cache", status: "chosen", envVars: [] },
+          { provider: "Clerk", name: "Clerk", reason: "auth", status: "chosen", envVars: [] },
+        ],
+        envVars: [],
+      },
+      unresolvedDecisions: [],
+      confirmedAnswers: [],
+    };
+    const baseline = deriveBuildSpec({
+      prompt: "Init med Redis och Clerk.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: integrationsContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+    const bigWindow = deriveBuildSpec({
+      prompt: "Init med Redis och Clerk.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: integrationsContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+      modelContextWindowTokens: 1_000_000,
+    });
+    expect(bigWindow.tokenBudgets.systemContextTokens).toBe(
+      Math.round((baseline.tokenBudgets.systemContextTokens ?? 0) * 3),
+    );
+    expect(bigWindow.tokenBudgets.scaffoldChars).toBeGreaterThan(
+      baseline.tokenBudgets.scaffoldChars,
+    );
+  });
+
+  it("clamps tokenBudgets to the 0.6x floor for tiny-window models", () => {
+    const tiny = deriveBuildSpec({
+      prompt: "Bygg en enkel landningssida.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      modelContextWindowTokens: 32_000,
+    });
+    expect(tiny.contextPolicy).toBe("normal");
+    expect(tiny.tokenBudgets.systemContextTokens).toBe(Math.round(60_000 * 0.6));
+  });
+
+  it("populates capabilityFlags from inferred capabilities", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Add a 3D hero with motion.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      capabilities: {
+        needsMotion: true,
+        needs3D: true,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: false,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: false,
+        needsEcommerce: false,
+        needsCarousel: false,
+        needsPremiumVisuals: false,
+        needsCalendar: false,
+        needsCommandSearch: false,
+        needsThemeToggle: false,
+      },
+    });
+    expect(spec.capabilityFlags?.heavy).toBe(true);
+    expect(spec.capabilityFlags?.signals).toContain("needs3D");
+    // needsMotion is intentionally NOT in `signals` — it is not part of
+    // `HEAVY_CAPABILITY_KEYS` (matches `hasHeavyCapabilities`).
+    expect(spec.capabilityFlags?.signals).not.toContain("needsMotion");
+  });
+
+  it("returns an empty capabilityFlags signal list when capabilities is null", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en sida.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+    });
+    expect(spec.capabilityFlags?.heavy).toBe(false);
+    expect(spec.capabilityFlags?.signals).toEqual([]);
+  });
+
+  it("exposes contextPolicyScore alongside contextPolicy", () => {
+    const heavy = deriveBuildSpec({
+      prompt: "Bygg dashboard med Stripe + Supabase.",
+      buildIntent: "app",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "app-shell",
+        reason: "test",
+        routes: [
+          { path: "/", name: "Dashboard", intent: "Main", required: true },
+          { path: "/billing", name: "Billing", intent: "B", required: true },
+          { path: "/settings", name: "Settings", intent: "S", required: true },
+        ],
+      },
+      preGenerationContracts: {
+        contracts: {
+          dataMode: "persisted",
+          integrations: [
+            { provider: "Stripe", name: "Stripe", reason: "billing", status: "chosen", envVars: [] },
+            { provider: "Supabase", name: "Supabase", reason: "db", status: "chosen", envVars: [] },
+          ],
+          envVars: [],
+        },
+        unresolvedDecisions: [],
+        confirmedAnswers: [],
+      },
+      promptStrategyMeta: { strategy: "phase_plan_build_refine", promptType: "freeform" },
+    });
+    expect(heavy.contextPolicy).toBe("heavy");
+    expect(heavy.contextPolicyScore ?? 0).toBeGreaterThanOrEqual(4);
+  });
 });
 
 describe("isShellPageContent", () => {

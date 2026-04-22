@@ -166,7 +166,12 @@ function stubForName(name: string): string {
   if (/^[a-z]/.test(name)) {
     return `export function ${name}(..._args: unknown[]) {\n  return null;\n}`;
   }
-  return `export function ${name}(props: Record<string, unknown>) {\n  return (\n    <div data-stub="${name}" style={{ padding: "2rem", border: "2px dashed #666", borderRadius: "0.5rem", color: "#999", textAlign: "center", fontSize: "0.875rem" }}>\n      [${name}]\n    </div>\n  );\n}`;
+  // PascalCase fallback — assumed to be a React component. Returns null so the
+  // preview never shows a visible dashed "[Name]" placeholder box that the user
+  // mistakes for a broken design. The stub still satisfies the import resolver
+  // + TypeScript binding; if the model's own file arrives in a later merge
+  // pass it can win over this placeholder. Grep for `autofix-stub:` to locate.
+  return `export function ${name}(_props: Record<string, unknown>) {\n  // autofix-stub:${name} — model did not emit a real implementation; rendering nothing.\n  return null;\n}`;
 }
 
 function createStubFile(

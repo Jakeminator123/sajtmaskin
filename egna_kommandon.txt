@@ -1,58 +1,57 @@
 ===================================================================
   SAJTMASKIN — EGNA KOMMANDON (snabbreferens)
+  Senast uppdaterad: 2026-04-21 (städ efter v2-omstart av dossier-pipen)
 ===================================================================
 
 ---  TEMPLATE-PIPELINE (LEGACY — avvecklad 2026-04-17)  ---
-#
+
 # Den gamla template-library-pipen (scrape Vercel -> generated.json -> runtime
 # guidance) har avvecklats helt. data/external-template-pipeline/, scripts/
 # template-library/, scaffold_cli.py och rebuild_artifacts.py ligger nu i
 # legacy-stuff/ utanfor repot. Backoffice-flikarna "Template pipeline" och
 # "Artifacts pipeline" ar avregistrerade. 11 npm scripts borttagna.
 #
-# Per-integration-guidance hanteras nu helt av dossier-pipen (data/dossiers/).
-# Kor `npm run dossiers:rebuild` i stallet for `artifacts:rebuild`.
+# Per-integration-guidance hanteras nu helt av dossier-pipen v2 (data/dossiers/).
 
 ---  SCAFFOLDS  ---
 
 npm run scaffolds:validate                 # Validera manifest-filer (vitest)
+
 # Note (2026-04-17): scaffolds:status / import / hydrate / build / embeddings /
 # eval / verify / all / curate / promote har avvecklats tillsammans med
 # scaffold_cli.py och external-template-pipeline. Variant-underhall sker via
-# scripts nedan + npm run dossiers:rebuild.
+# scripts nedan.
 
 ---  SCAFFOLD-VARIANTER  ---
 
-npm run scaffolds:variant-embeddings                                # Embeddings for alla 21 variants (OpenAI)
-npm run scaffolds:variant-patterns                                  # AI-curate signaturePatterns for alla variants
+npm run scaffolds:variant-embeddings       # Embeddings for alla 21 variants (OpenAI)
+npm run scaffolds:variant-patterns         # AI-curate signaturePatterns for alla variants
+npm run scaffolds:variant-patterns:dry     # Forhandsgranska utan att skriva
 
----  DOSSIERS (legoklossar: integrationer + UI-sektioner)  ---
+---  DOSSIERS v2 (legoklossar: integrationer + UI-sektioner)  ---
 
-# Status / overview:
-npm run dossiers:index                     # Bygg om master.json + by-category.json (snabbt)
-npm run dossiers:embeddings                # Regenerera dossier-embeddings.json (OpenAI, ~30 sek)
-npm run dossiers:rebuild                   # index + recommendations:merge + embeddings i sekvens
+# Inga embeddings, inget rebuild. Runtime walkar data/dossiers/{hard,soft}/
+# direkt. Capability-driven urval (deterministic) — det brief-LLM:n deklarerar
+# i requestedCapabilities -> matchande dossier injiceras 1:1.
+#
+# Pool idag (2026-04-21): 3 dossiers — stripe-checkout, openai-chat, pricing-tier-table.
+# Plan for utbyggnad: docs/plans/active/M-medium-hard-layer.md (M2).
 
-# AI-kurering (GPT-5.4 gor grovjobbet, $1-3 per batch):
-npm run dossiers:curate                    # Alla drafts (~12 min)
-npm run dossiers:curate -- --only=<id>     # En specifik draft
-npm run dossiers:curate -- --dry-run --only=<id>   # Forhandsgranska utan att skriva
-npm run dossiers:curate -- --limit=5       # Max 5 at gangen
-npm run dossiers:curate -- --force --only=<id>     # Re-kurera redan aktiv
+# AI-kurera EN dossier fran ett klonat referens-repo:
+npm run dossiers:curate -- --reference=<reference-id> --class=<hard|soft> --id=<dossier-id>
+# Exempel:
+#   npm run dossiers:curate -- --reference=auth-clerk-authentication-starter --class=hard --id=clerk
 
-# Smoke-test (verifiera att LLM-flodet plockar ratt dossiers):
-npx tsx scripts/dossiers/smoke-select.ts   # 5 realistiska prompts -> selected dossiers
+# Klonade referens-repon ligger i data/template-references/repos/.
+# Capability-map regenereras via backoffice "Dossiers" -> "Capability map" -> "Bygg om".
 
-# Pipeline-steg (sallan):
-npm run dossiers:scrape                    # Playwright: hamta katalog (~3 min, 419 templates)
-npm run dossiers:enrich                    # Playwright: hamta detaljer (~14 min)
-npm run dossiers:import                    # Importera enriched -> skiss-filer
-npm run dossiers:queue                     # Bygg _curation-queue.md
-npm run dossiers:promote                   # Promota fran curated-promotions.txt -> drafts
-npm run dossiers:clone-repos               # Shallow-klona alla draft-repon (~5 min, 290 MB)
-npm run dossiers:extract-files             # Extrahera filer + deps + env fran cache
-npm run dossiers:recommend:merge           # Regenerera scaffold-recommendations (bevara dina edits)
-npm run dossiers:recommend:force           # Skriv over scaffold-recommendations helt
+# AVVECKLADE v1-kommandon (existerar inte langre):
+# - dossiers:rebuild, dossiers:embeddings, dossiers:index
+# - dossiers:scrape, dossiers:enrich, dossiers:import, dossiers:queue
+# - dossiers:promote, dossiers:clone-repos, dossiers:extract-files
+# - dossiers:recommend:merge, dossiers:recommend:force
+# - smoke-select.ts
+# Allt detta ligger i archive/dossiers-legacy-2026-04-20/.
 
 ---  SHADCN-REGISTER  ---
 
@@ -72,12 +71,15 @@ npm run db:rows                            # Read-only COUNT(*) per utvald tabel
 
 npm run templates:local:refresh            # Sync + validering
 npm run templates:local:refresh:embeddings # Sync + validering + regenerera embeddings
+npm run templates:embeddings               # Bara embeddings
 
----  VERCEL-TEMPLATES DISCOVERY (Playwright)  ---
-#
-# Gamla `references:discover*`-skripten avvecklade. Anvand:
-npm run dossiers:scrape                    # Light-katalog (~3 min, ~419 templates)
-npm run dossiers:enrich                    # Detaljer per template (~14 min)
+---  VERCEL-TEMPLATES DISCOVERY (LEGACY)  ---
+
+# Den gamla Playwright-discovery-pipen (references:discover*, dossiers:scrape,
+# dossiers:enrich) ar avvecklad 2026-04-20. e2e/vercel-templates/scrape-catalog-light.spec.ts
+# finns kvar som referens-spec men koppling till v1-pipen ar dod (header-not).
+# For nya dossiers: klona repo manuellt till data/template-references/repos/
+# och kor `npm run dossiers:curate`.
 
 ---  DEV / TEST / TYPECHECK  ---
 
@@ -93,7 +95,7 @@ npm run eval                               # Kor eval-harnessen
 
 ---  BACKOFFICE  ---
 
-npm run backoffice                         # Starta Streamlit backoffice (scaffolds, pipeline, varianter, ops)
+npm run backoffice                         # Starta Streamlit backoffice (scaffolds, dossiers, observability, autofix)
 
 ---  ENV-HANTERING  ---
 
@@ -101,11 +103,25 @@ python scripts/env/manage_env.py           # Interaktiv env-kontrollpanel
 python scripts/env/manage_env.py audit     # Audit env-konfiguration
 python scripts/env/manage_env.py audit --strict  # Strict audit
 
+---  OBSERVABILITY  ---
+
+# Prometheus-metrics endpoint:
+curl http://localhost:3000/api/metrics -H "Authorization: Bearer $SAJTMASKIN_METRICS_TOKEN"
+# Streamlit-panel: backoffice -> "Observability"
+
 ---  VIKTIGA ENV-FLAGGOR  ---
 
-SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true # Defer extra routes till shells i init-generering.
-SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true # Kräv genererade JSON-artefakter (satt false lokalt om du inte byggt om).
-SAJTMASKIN_DEFAULT_THINKING=true           # Server-side default for reasoning/thinking.
+SAJTMASKIN_DOSSIER_PIPELINE=true|false              # Aktivera dossier-injektion (default: dev=on, prod=off)
+SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true|false    # Defer extra routes till shells i init-generering
+SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true|false    # Krav genererade JSON-artefakter
+SAJTMASKIN_DEFAULT_THINKING=true                    # Server-side default for reasoning/thinking
+SAJTMASKIN_STRICT_SYSTEM_PROMPT_ASSERT=1            # Hard fail vid prompt-korruption (anvand i CI)
+SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1                # Auto-repair vid VM build-error (default: dev/preview=on, prod=off)
+SAJTMASKIN_BUILD_SPEC_ENABLED=true|false            # Bara SSE-meta-fält, inte BuildSpec-koden (alltid pa)
+SAJTMASKIN_VERIFIER_PASS=1|0                        # Pa/av (default: pa, sta)
+SAJTMASKIN_PROMPT_DUMP=1                            # Dumpa promptar till data/prompt-dumps/
+GENERATIONSLOGG=1                                   # Skriv logs/generationslogg/
+SAJTMASKIN_DEV_LOG=true                             # Bredare dev-logg
 
 ===================================================================
   Kanonisk kalla: package.json (scripts), scripts/README.md

@@ -1,8 +1,111 @@
 from __future__ import annotations
 
+import json
+
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, read_json, render_where_panel, write_json
+from backoffice.shared import (
+    BackofficeContext,
+    read_env_flag,
+    read_json,
+    render_where_panel,
+    write_env_flag,
+    write_json,
+)
+
+
+def _section_domain_rules(ctx: BackofficeContext) -> None:
+    st.subheader("Domain rules (`config/domain-rules.json`)")
+    st.caption(
+        "Driver `domain-inference.ts`. Runtime bygger regex från `keywords_sv` + `keywords_en` "
+        "per domän för att klassificera prompter. Dev-server behöver startas om efter ändring."
+    )
+    path = ctx.repo_root / "config" / "domain-rules.json"
+    rules = read_json(path)
+    if not (rules and isinstance(rules, list)):
+        st.warning(f"Kunde inte läsa `{path.relative_to(ctx.repo_root)}`.")
+        return
+    rows = [
+        {
+            "domain": r.get("domain", ""),
+            "briefHint": r.get("briefHint", ""),
+            "keywords_sv": ", ".join(r.get("keywords_sv", [])),
+            "keywords_en": ", ".join(r.get("keywords_en", [])),
+        }
+        for r in rules
+    ]
+    edited = st.data_editor(
+        rows, width="stretch", num_rows="dynamic", key="codegen_core_domain_rules_editor",
+    )
+    if st.button("Spara domain rules", key="codegen_core_save_domain_rules"):
+        out = []
+        for row in edited:
+            domain = (row.get("domain") or "").strip()
+            if not domain:
+                continue
+            out.append(
+                {
+                    "domain": domain,
+                    "briefHint": (row.get("briefHint") or "").strip(),
+                    "keywords_sv": [k.strip() for k in (row.get("keywords_sv") or "").split(",") if k.strip()],
+                    "keywords_en": [k.strip() for k in (row.get("keywords_en") or "").split(",") if k.strip()],
+                }
+            )
+        path.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        st.success(f"Sparade {len(out)} domain rules.")
+
+
+def _section_heuristic_tokens(ctx: BackofficeContext) -> None:
+    st.subheader("Prompt heuristic tokens (`config/prompt-heuristic-tokens.json`)")
+    st.caption(
+        "Driver `prompt-heuristics.ts`. Styr vilka nyckelord som matchar i promptanalys. "
+        "Dev-server behöver startas om efter ändring."
+    )
+    path = ctx.repo_root / "config" / "prompt-heuristic-tokens.json"
+    data = read_json(path)
+    if not (data and isinstance(data, dict)):
+        st.warning(f"Kunde inte läsa `{path.relative_to(ctx.repo_root)}`.")
+        return
+    for cat_key, cat_val in data.items():
+        desc = cat_val.get("description", "")
+        tokens = cat_val.get("tokens", [])
+        with st.expander(f"**{cat_key}** ({len(tokens)} tokens) — {desc}"):
+            new_tokens = st.text_area(
+                f"Tokens ({cat_key})",
+                value=", ".join(tokens),
+                key=f"codegen_core_heuristic_{cat_key}",
+                height=80,
+            )
+            if st.button(f"Spara {cat_key}", key=f"codegen_core_save_heuristic_{cat_key}"):
+                parsed = [t.strip() for t in new_tokens.split(",") if t.strip()]
+                data[cat_key]["tokens"] = parsed
+                path.write_text(
+                    json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
+                )
+                st.success(f"Sparade {len(parsed)} tokens för `{cat_key}`.")
+
+
+def _section_defer_init_routes(ctx: BackofficeContext) -> None:
+    st.subheader("Deferred extra init routes")
+    key = "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT"
+    current = read_env_flag(ctx, key)
+    new = st.toggle(
+        "Plan-many / build-one för init-generering",
+        value=current,
+        key="codegen_core_defer_routes_toggle",
+        help=(
+            f"Styr `{key}` i `.env.local`. När på får init-genereringar planera flera routes men "
+            "bara fullt realisera primärrouten direkt; extrasidor blir shells med 'Skapa sida'-CTA."
+        ),
+    )
+    if new != current:
+        if write_env_flag(ctx, key, new):
+            st.success(f"`{key}` satt till `{'true' if new else 'false'}` i `.env.local`.")
+            st.caption("Dev-servern kan behöva startas om för att ändringen ska gälla i runtime.")
+        else:
+            st.error("Kunde inte skriva till `.env.local`. Kontrollera filrättigheter.")
+    else:
+        st.caption(f"Nuvarande: `{key}={'true' if current else 'false'}`")
 
 
 def render(ctx: BackofficeContext) -> None:
@@ -65,3 +168,10 @@ def render(ctx: BackofficeContext) -> None:
         st.rerun()
 
     st.caption("Tips: nya rader läggs till i tabellen; tom `sökväg` ignoreras vid spar.")
+
+    st.divider()
+    _section_domain_rules(ctx)
+    st.divider()
+    _section_heuristic_tokens(ctx)
+    st.divider()
+    _section_defer_init_routes(ctx)

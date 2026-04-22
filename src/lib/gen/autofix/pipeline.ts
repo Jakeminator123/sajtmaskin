@@ -20,6 +20,8 @@ import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
 import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
+import { fixR3FVectorTuples } from "./rules/r3f-vector-tuple-fixer";
+import { fixTypeOnlyImports } from "./rules/type-only-import-fixer";
 import {
   fixCnImportConflict,
   fixMissingMetadataImport,
@@ -33,6 +35,7 @@ import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
+import { validateAndUpgradeDeps } from "./dep-version-validator";
 import { runSecurityChecks } from "../security/run-security-checks";
 import { DETERMINISTIC_AUTOFIX_MAX_PASSES } from "../defaults";
 import type { FixEntry } from "./types";
@@ -72,162 +75,32 @@ export interface AutoFixContext {
 // Regex constants shared with repair-generated-files.ts (consolidated here)
 // ---------------------------------------------------------------------------
 
-const USE_CLIENT_DIRECTIVE_RE = /^["']use client["'];?\s*\n/;
-const STATIC_METADATA_EXPORT_RE =
-  /export\s+const\s+metadata(?:\s*:\s*Metadata)?\s*=\s*\{[\s\S]*?\n\};?\s*/m;
-const GENERATE_METADATA_EXPORT_RE = /\bexport\s+(?:async\s+)?function\s+generateMetadata\b/;
-const CLIENT_HOOKS_RE =
-  /\b(useState|useEffect|useCallback|useMemo|useRef|useContext|useReducer|useTransition|useOptimistic|useRouter|useSearchParams|usePathname|useParams|useSelectedLayoutSegment|useSelectedLayoutSegments|useFormStatus|useActionState)\b/;
-const EVENT_HANDLERS_RE =
-  /\b(onClick|onChange|onSubmit|onKeyDown|onKeyUp|onFocus|onBlur|onMouseEnter|onMouseLeave)\b/;
-const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
-const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
 const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
 const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
-const ICON_KEY_RE = /key=\{([A-Za-z_$][\w$]*)\.icon\}/g;
-const ICON_VALUE_RENDER_RE = /(\s*)\{([A-Za-z_$][\w$]*)\.icon\}(\s*)/g;
+// Local gate mirror for the tier2-preview-base-path fixer (fixer itself does
+// the same check, but this lets the pipeline skip the function call on
+// irrelevant files).
 const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
 
 // ---------------------------------------------------------------------------
-// Helpers for fixers consolidated from repair-generated-files.ts
+// Per-file fixers extracted into rules/ in 2026-04-21:
+//   rules/metadata-client-conflict-fixer.ts → fixMetadataClientConflict
+//   rules/icon-component-value-fixer.ts     → fixIconComponentValueMisuse
+//   rules/tier2-preview-base-path-fixer.ts  → ensureTier2PreviewBasePathInNextConfig
+// Re-exported for existing callers (repair-generated-files.ts).
 // ---------------------------------------------------------------------------
 
-function hasUseClientDirective(code: string): boolean {
-  return USE_CLIENT_DIRECTIVE_RE.test(code);
-}
+import { fixMetadataClientConflict } from "./rules/metadata-client-conflict-fixer";
+import { fixIconComponentValueMisuse } from "./rules/icon-component-value-fixer";
+import { ensureTier2PreviewBasePathInNextConfig } from "./rules/tier2-preview-base-path-fixer";
 
-function hasMetadataExport(code: string): boolean {
-  return STATIC_METADATA_EXPORT_RE.test(code) || GENERATE_METADATA_EXPORT_RE.test(code);
-}
-
-function needsUseClient(code: string): boolean {
-  return (
-    CLIENT_HOOKS_RE.test(code) ||
-    EVENT_HANDLERS_RE.test(code) ||
-    BROWSER_APIS_RE.test(code) ||
-    FRAMER_MOTION_IMPORT_RE.test(code)
-  );
-}
-
-function stripUseClientDirective(code: string): string {
-  return code.replace(USE_CLIENT_DIRECTIVE_RE, "");
-}
-
-function stripMetadataImport(code: string): string {
-  return code.replace(
-    /import\s+(type\s+)?\{([^}]*)\}\s+from\s+["']next["'];?\s*\n?/g,
-    (full, typePrefix: string | undefined, specifiers: string) => {
-      const remaining = specifiers
-        .split(",")
-        .map((part) => part.trim())
-        .filter(Boolean)
-        .filter((part) => part !== "Metadata" && part !== "type Metadata");
-      if (remaining.length === 0) return "";
-      const prefix = typePrefix ?? "";
-      return `import ${prefix}{ ${remaining.join(", ")} } from "next";\n`;
-    },
-  );
-}
-
-export function fixMetadataClientConflict(code: string, filePath: string): {
-  code: string;
-  fixed: boolean;
-  fixes: FixEntry[];
-} {
-  if (!hasUseClientDirective(code) || !hasMetadataExport(code)) {
-    return { code, fixed: false, fixes: [] };
-  }
-
-  if (!needsUseClient(code)) {
-    const nextCode = stripUseClientDirective(code);
-    return {
-      code: nextCode,
-      fixed: nextCode !== code,
-      fixes: nextCode !== code
-        ? [{
-            fixer: "metadata-client-conflict-fixer",
-            category: "mechanical",
-            description: 'Removed unnecessary "use client" directive from metadata file',
-            file: filePath,
-          }]
-        : [],
-    };
-  }
-
-  const withoutStaticMetadata = code.replace(STATIC_METADATA_EXPORT_RE, "");
-  if (withoutStaticMetadata !== code) {
-    const cleaned = stripMetadataImport(withoutStaticMetadata);
-    return {
-      code: cleaned,
-      fixed: true,
-      fixes: [{
-        fixer: "metadata-client-conflict-fixer",
-        category: "mechanical",
-        description: "Removed static metadata export from client component to keep App Router valid",
-        file: filePath,
-      }],
-    };
-  }
-
-  return { code, fixed: false, fixes: [] };
-}
-
-export function fixIconComponentValueMisuse(code: string, filePath: string): {
-  code: string;
-  fixed: boolean;
-  fixes: FixEntry[];
-} {
-  let nextCode = code;
-  let fixed = false;
-
-  nextCode = nextCode.replace(ICON_KEY_RE, (_full, itemName: string) => {
-    fixed = true;
-    return `key={typeof ${itemName}.icon === "string" ? ${itemName}.icon : (${itemName}.title ?? ${itemName}.label ?? ${itemName}.name ?? "icon-item")}`;
-  });
-
-  nextCode = nextCode.replace(ICON_VALUE_RENDER_RE, (full, prefix: string, itemName: string, suffix: string) => {
-    if (full.includes("<")) return full;
-    fixed = true;
-    return `${prefix}{typeof ${itemName}.icon === "string" ? ${itemName}.icon : <${itemName}.icon className="h-5 w-5" />}${suffix}`;
-  });
-
-  return {
-    code: nextCode,
-    fixed,
-    fixes: fixed
-      ? [{
-          fixer: "icon-component-value-fixer",
-          category: "mechanical",
-          description: "Replaced raw icon component values with stable key/render-safe JSX usage",
-          file: filePath,
-        }]
-      : [],
-  };
-}
-
-export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: string): {
-  code: string;
-  fixed: boolean;
-} {
-  if (!NEXT_CONFIG_FILE_RE.test(filePath.replace(/\\/g, "/"))) {
-    return { code, fixed: false };
-  }
-  if (code.includes("SAJTMASKIN_PREVIEW_BASE_PATH")) {
-    return { code, fixed: false };
-  }
-  if (/\bbasePath\s*:/.test(code)) {
-    return { code, fixed: false };
-  }
-  const re = /(const\s+nextConfig\s*(?::\s*NextConfig\s*)?=\s*\{)/;
-  if (!re.test(code)) {
-    return { code, fixed: false };
-  }
-  const nextCode = code.replace(
-    re,
-    `$1\n  ...(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim()\n    ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim() }\n    : {}),`,
-  );
-  return { code: nextCode, fixed: nextCode !== code };
-}
+// Re-export for other callers (repair-generated-files.ts) that still import
+// from the pipeline module.
+export {
+  fixMetadataClientConflict,
+  fixIconComponentValueMisuse,
+  ensureTier2PreviewBasePathInNextConfig,
+};
 
 /**
  * Run all mechanical (deterministic) fixers sequentially on accumulated content.
@@ -282,12 +155,16 @@ export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: s
  *  4h.  metadata-client-conflict-fixer — "use client" vs static metadata
  *  4i.  icon-component-value-fixer — icon key/render safety
  *  4j.  as-const-boolean-keys — TS inference for nav arrays
+ *  4j-r3f. r3f-vector-tuple-fixer — `as const` on R3F position/scale/rotation/args
  *  4k.  scroll-smooth fixers — CSS + HTML preview compat
  *  4l.  tier2-preview-basepath — next.config basePath injection
  *  5.   syntax-validator   — esbuild transform check (async)
  *  6.   jsx-checker        — tag matching + missing imports/exports
  *  7.   dep-completer      — collect third-party dependencies
  *  7b.  dep-merge          — merge collected deps into package.json
+ *  7c.  dep-version-validator — verify deps against live npm registry,
+ *                                bump invalid majors to ^latest. Last line of
+ *                                defense against "vit sida pga npm install ENOENT".
  *  8.   security checks    — sanitize suspicious payloads
  *
  * The full `runAutoFix()` wrapper may execute multiple deterministic passes
@@ -487,6 +364,24 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] react-type-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3c-typeonly. type-only-import-fixer — convert `import { X }` to
+      // `import type { X }` when the binding is never used as a value
+      // (TS2749 prevention). Empirical hit logged in
+      // docs/plans/active/P31-feature-runtime-envs-and-f3-toggle.md.
+      try {
+        const typeOnlyResult = fixTypeOnlyImports(currentCode, file.path);
+        if (typeOnlyResult.fixed) {
+          currentCode = typeOnlyResult.code;
+          for (const fix of typeOnlyResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] type-only-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
@@ -800,6 +695,24 @@ async function runAutoFixSinglePass(
         );
       }
 
+      // 4j-r3f. r3f-vector-tuple-fixer — promote 3-number arrays to tuples in
+      // React Three Fiber object fields so TS does not widen them to number[]
+      // (TS2322 at <mesh position={...}>). Empirical hit logged in
+      // docs/plans/active/P27-r3f-tuple-and-repair-feedback.md.
+      try {
+        const r3fResult = fixR3FVectorTuples(currentCode, file.path);
+        if (r3fResult.fixed) {
+          currentCode = r3fResult.code;
+          for (const fix of r3fResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] r3f-vector-tuple-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       // 4k. scroll-smooth HTML fixer
       if (HTML_SCROLL_SMOOTH_RE.test(currentCode)) {
         try {
@@ -965,6 +878,54 @@ async function runAutoFixSinglePass(
         }
       } catch {
         allWarnings.push("[package.json] dep-merge skipped: invalid JSON");
+      }
+    }
+  }
+
+  // 7c. dep-version-validator — verifierar package.json-deps mot npm-registret
+  // och rättar majors som inte finns publicerade (t.ex. LLM-hallucinerad version
+  // ELLER stale entry i KNOWN_PACKAGES). Är registret otillgängligt lämnas
+  // specen orörd. Detta är sista skyddet mot "vit sida pga `npm install` ENOENT".
+  {
+    const pkgIdx = fixedFiles.findIndex((f) => f.path === "package.json");
+    if (pkgIdx >= 0) {
+      try {
+        const pkg = JSON.parse(fixedFiles[pkgIdx].content) as {
+          dependencies?: Record<string, string>;
+          devDependencies?: Record<string, string>;
+        };
+        const hasDeps =
+          (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) ||
+          (pkg.devDependencies && Object.keys(pkg.devDependencies).length > 0);
+        if (hasDeps) {
+          const result = await validateAndUpgradeDeps({
+            dependencies: pkg.dependencies,
+            devDependencies: pkg.devDependencies,
+          });
+          if (result.corrections.length > 0) {
+            const updated = {
+              ...pkg,
+              ...(pkg.dependencies ? { dependencies: result.dependencies } : {}),
+              ...(pkg.devDependencies ? { devDependencies: result.devDependencies } : {}),
+            };
+            fixedFiles[pkgIdx] = {
+              ...fixedFiles[pkgIdx],
+              content: JSON.stringify(updated, null, 2),
+            };
+            for (const c of result.corrections) {
+              allFixes.push({
+                fixer: "dep-version-validator",
+                category: "mechanical",
+                description: `Bumped ${c.pkg} from ${c.from} to ${c.to} (${c.reason})`,
+                file: "package.json",
+              });
+            }
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `dep-version-validator threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
   }

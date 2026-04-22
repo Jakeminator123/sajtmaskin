@@ -63,7 +63,7 @@
 ## 4. Förebyggande (så detta "inte ska hända igen")
 
 1. **Preview-host i dev/prod:** Säkerställ `SAJTMASKIN_PREVIEW_HOST_BASE_URL` och att preview-host svarar på `/health` — annars blir användare kvar på shim som är känsligare för CDN.
-2. **Genererad kod:** Systemprompt / kontrakt ska kräva **startbar** Next-app och **placeholders** för env (se `pre-generation-contracts.ts`, `config/prompt-static/11-behavioral-rules.md`).
+2. **Genererad kod:** Systemprompt / kontrakt ska kräva **startbar** Next-app och **placeholders** för env (se `pre-generation-contracts.ts`, `config/prompt-core/01-behavioral-contract.md`).
 3. **Scaffold:** Ogiltiga npm-versioner i `package.json` bryter preview-host `npm install` — håll `project-scaffold.ts` / låsfiler i synk med npm.
 4. **Tester:** `preview.test.ts`, `preview-diagnostics.test.ts`, preview-host-/tier-2-relaterade tester vid ändringar i preview-kedjan.
 

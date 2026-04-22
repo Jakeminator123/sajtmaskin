@@ -109,12 +109,10 @@
     },
     "qualityGateTiers": {
       "type": "object",
-      "required": ["tier2", "serverVerify", "promotion", "interactive"],
+      "required": ["designPreview", "integrationsBuild"],
       "properties": {
-        "tier2": { "$ref": "#/$defs/qualityGateCheckArray" },
-        "serverVerify": { "$ref": "#/$defs/qualityGateCheckArray" },
-        "promotion": { "$ref": "#/$defs/qualityGateCheckArray" },
-        "interactive": { "$ref": "#/$defs/qualityGateCheckArray" }
+        "designPreview": { "$ref": "#/$defs/qualityGateCheckArray" },
+        "integrationsBuild": { "$ref": "#/$defs/qualityGateCheckArray" }
       }
     },
     "promptOrchestration": {

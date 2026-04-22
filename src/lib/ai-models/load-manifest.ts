@@ -73,6 +73,9 @@ const promptAssistSchema = z.object({
   allowed: z.object({
     gatewayClassModels: z.array(z.string()),
     anthropicDirectModels: z.array(z.string()),
+    // Unified view (union of gatewayClassModels + anthropicDirectModels).
+    // Preferred accessor for new callers — see getPromptAssistAllowedFromManifest().
+    models: z.array(z.string()).optional(),
   }),
   notes: z.string().optional(),
 });
@@ -368,11 +371,19 @@ export function getQualityToOwnEngineModels(): Record<QualityLevelFromManifest, 
 export function getPromptAssistAllowedFromManifest(): {
   gatewayClassModels: readonly string[];
   anthropicDirectModels: readonly string[];
+  /**
+   * Unified allow-list (gateway-class + anthropic-direct) with provider implicit in the id prefix.
+   * Falls back to the concatenation of the two legacy arrays when the manifest omits `models`,
+   * so consumers can safely rely on this field regardless of manifest revision.
+   */
+  models: readonly string[];
 } {
   const a = getAiModelsManifest().promptAssist.allowed;
+  const models = a.models ?? [...a.gatewayClassModels, ...a.anthropicDirectModels];
   return {
     gatewayClassModels: a.gatewayClassModels,
     anthropicDirectModels: a.anthropicDirectModels,
+    models,
   };
 }
 
@@ -435,7 +446,7 @@ export function getPreGenerationContractsConfigFromManifest(): PreGenerationCont
   return getAiModelsManifest().preGenerationContracts;
 }
 
-export function getWorkloadByIdFromManifest(
+function getWorkloadByIdFromManifest(
   workloadId: string,
 ): AiModelsManifest["workloads"][number] | undefined {
   return getAiModelsManifest().workloads.find((workload) => workload.id === workloadId);

@@ -11,7 +11,7 @@ import { z } from "zod";
 
 import { ROUTE_PLAN_SITE_TYPES } from "./route-plan";
 
-export const INTEGRATION_PROVIDERS = [
+const INTEGRATION_PROVIDERS = [
   "supabase",
   "stripe",
   "clerk",

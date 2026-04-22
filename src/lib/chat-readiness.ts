@@ -29,6 +29,19 @@ export type ChatReadinessInfo = {
   missingEnvKeys: string[];
   /** Keys not configured by user but covered by preview placeholders — deferred to publish. */
   placeholderCoveredKeys?: string[];
+  /**
+   * Phase-4 narrowing: subset of `missingEnvKeys` whose dossier marks them
+   * `enforcement: "build"` (truly blocking F3). When dossier metadata is
+   * unavailable the resolver defaults all keys to `build`, so this list is
+   * a superset of the strictly-build subset only on legacy runs.
+   */
+  buildBlockingKeys?: string[];
+  /**
+   * Phase-4: keys whose dossier marks them `enforcement: "feature-runtime"`
+   * — UI shows a configuration banner / popup at runtime when missing.
+   * Surfaced as informational warnings, never blockers.
+   */
+  featureRuntimeKeys?: string[];
 };
 
 export type ChatReadiness = {

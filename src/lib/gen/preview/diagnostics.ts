@@ -9,6 +9,7 @@ export type PreviewDiagnosticCode =
   | "render_route_chat_not_found"
   | "render_route_files_missing"
   | "render_route_no_renderable_component"
+  | "render_route_shim_disabled"
   | "preview_compile_error"
   | "preview_validation_error"
   | "preview_runtime_error"
@@ -117,6 +118,8 @@ export function describePreviewDiagnosticCode(code?: string | null): string | nu
       return "Preview-route hittade inga genererade filer.";
     case "render_route_no_renderable_component":
       return "Preview-route hittade ingen renderbar komponent.";
+    case "render_route_shim_disabled":
+      return "Shim-preview är avstängd via env-flagga; vänta på VM-preview.";
     case "preview_compile_error":
       return "Previewn kunde inte kompilera genererad kod.";
     case "preview_validation_error":
@@ -252,6 +255,7 @@ export function shouldAutoFixPreviewDiagnostic(code?: string | null): boolean {
       return true;
     case "render_route_version_not_found":
     case "render_route_chat_not_found":
+    case "render_route_shim_disabled":
     case "preview_transport_error":
     case "preview_ready_timeout":
     case "preview_document_unavailable":

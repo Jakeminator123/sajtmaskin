@@ -10,6 +10,7 @@ import { getOpenAIModel, isAnthropicModel } from "@/lib/gen/models";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
+import { incVerifierBlocking, recordPhaseDuration } from "@/lib/observability/metrics";
 
 /** OpenAI structured-output strict mode requires no optional object keys — keep paths inside `detail`. */
 const VerifierFindingsSchema = z.object({
@@ -42,6 +43,31 @@ const FORCE_BLOCKING_IDS = new Set<string>([
   "navigation-placeholder-actions",
   "footer-dead-links",
 ]);
+
+/**
+ * Format verifier blocking findings as fixer-style "errors" for `runLlmFixer`.
+ *
+ * The verifier returns free-form `detail` strings (often containing the file
+ * path inline). The fixer prompt expects errors that look like compiler
+ * output — `<file>:<line>:<col> <message>`. We can't always extract a real
+ * line/column from verifier output, so we synthesise `1:1` and prefix the
+ * detail with a marker so the fixer treats it as a quality blocker rather
+ * than a syntax error. The `id` is appended so downstream tooling can
+ * still map back to the verifier finding catalogue.
+ */
+export function formatVerifierFindingsAsFixerErrors(
+  findings: Pick<VerifierFindings, "blocking">,
+): string[] {
+  const lines: string[] = [];
+  for (const f of findings.blocking) {
+    const detail = f.detail.trim();
+    if (!detail) continue;
+    const looksLikePath = /^[A-Za-z0-9_./@-]+\.\w{1,5}:/.test(detail);
+    const prefix = looksLikePath ? "" : "verifier:1:1 ";
+    lines.push(`${prefix}[verifier:${f.id}] ${detail}`);
+  }
+  return lines;
+}
 
 /**
  * Promote known production-quality issues from `quality` to `blocking` so they
@@ -146,8 +172,22 @@ export async function runVerifierPass(
   codeProjectContent: string,
   opts: { resolvedTier: CanonicalModelId },
 ): Promise<VerifierFindings> {
+  const verifierStartedAt = Date.now();
+  const recordOnExit = (findings: VerifierFindings): VerifierFindings => {
+    try {
+      recordPhaseDuration("verifier", Date.now() - verifierStartedAt);
+      // Per-finding counter so the audit §3.1 question ("how often do
+      // FORCE_BLOCKING_IDS actually fire?") becomes a queryable metric.
+      // Only counts blocking findings — quality is advisory anyway.
+      for (const f of findings.blocking) incVerifierBlocking(f.id);
+    } catch {
+      // Telemetry must never break verification.
+    }
+    return findings;
+  };
+
   if (!isVerifierPassEnabled()) {
-    return EMPTY_VERIFIER_FINDINGS;
+    return recordOnExit(EMPTY_VERIFIER_FINDINGS);
   }
 
   const { files } = parseCodeProject(codeProjectContent);
@@ -156,7 +196,7 @@ export async function runVerifierPass(
 
   const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim());
   if (!hasKey) {
-    return deterministic;
+    return recordOnExit(deterministic);
   }
 
   const cfg = resolvePostGenerationVerifierConfig();
@@ -165,7 +205,7 @@ export async function runVerifierPass(
 
   const snippet = buildVerifierPromptSnippetFromFiles(files, cfg.snippetCharsPerFile);
   if (!snippet.trim()) {
-    return deterministic;
+    return recordOnExit(deterministic);
   }
 
   const system = `You are a read-only QA reviewer for a generated Next.js site (CodeProject).
@@ -202,17 +242,60 @@ Use those exact ids so downstream tooling can recognise them.`;
       prompt: `Review this generated project (snippets may be truncated):\n\n${snippet}`,
       maxOutputTokens: cfg.maxOutputTokens,
       abortSignal: controller.signal,
+      // Bound retries — verifier is read-only and skipped on failure, so wasting
+      // 8+ seconds re-attempting non-transient errors (e.g. insufficient_quota,
+      // rate_limit_exceeded, context_length_exceeded — see SAJ-5/B2) is pure
+      // latency cost. AI SDK default is 2; cap at 1 and rely on the catch
+      // block to short-circuit on the next call.
+      maxRetries: 1,
       ...(providerOptions ? { providerOptions } : {}),
     });
     const promoted = promoteForcedBlockingFindings(result.object);
-    return {
+    return recordOnExit({
       blocking: [...deterministic.blocking, ...promoted.blocking],
       quality: [...deterministic.quality, ...promoted.quality],
-    };
+    });
   } catch (err) {
-    console.warn("[verifier-pass] Non-fatal error, skipping:", err);
-    return deterministic;
+    if (isNonRetryableProviderError(err)) {
+      console.warn("[verifier-pass] Non-retryable provider error, skipping:", summariseProviderError(err));
+    } else {
+      console.warn("[verifier-pass] Non-fatal error, skipping:", err);
+    }
+    return recordOnExit(deterministic);
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+/**
+ * Classify provider errors that are NOT worth retrying — quota, auth,
+ * context-length etc. The verifier already retries once on transient errors;
+ * this helper just gives a clearer log line and signals to future callers
+ * (via NON_RETRYABLE_PROVIDER_CODES) which conditions should be treated as
+ * permanent within a single generation.
+ */
+const NON_RETRYABLE_PROVIDER_CODES = new Set([
+  "insufficient_quota",
+  "rate_limit_exceeded",
+  "context_length_exceeded",
+  "invalid_api_key",
+  "permission_denied",
+]);
+
+function isNonRetryableProviderError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { status?: number; statusCode?: number; code?: string; data?: { error?: { code?: string } } };
+  const status = typeof e.status === "number" ? e.status : typeof e.statusCode === "number" ? e.statusCode : undefined;
+  const code = typeof e.code === "string" ? e.code : e.data?.error?.code;
+  if (status && [401, 402, 403].includes(status)) return true;
+  if (status === 429 && code && NON_RETRYABLE_PROVIDER_CODES.has(code)) return true;
+  if (code && NON_RETRYABLE_PROVIDER_CODES.has(code)) return true;
+  return false;
+}
+
+function summariseProviderError(err: unknown): string {
+  if (!err || typeof err !== "object") return String(err);
+  const e = err as { status?: number; code?: string; message?: string };
+  const parts = [e.code, e.status ? `status=${e.status}` : null, e.message].filter(Boolean);
+  return parts.join(" | ");
 }

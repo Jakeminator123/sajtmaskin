@@ -24,7 +24,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 
 dotenv.config({ path: [".env.local", ".env"] });
-import { createDirectModel } from "../../src/lib/builder/gateway-policy";
+import { createDirectModel } from "../../src/lib/builder/direct-model";
 import {
   SEO_AI_VARIANTS,
   SEO_CITIES,

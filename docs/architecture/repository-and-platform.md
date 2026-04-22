@@ -21,7 +21,7 @@ Osäkra utkast kan ligga som egna filer under `active/` tills de flyttas till `a
 
 - **Git** bestämmer vad som följer med clone/PR; stora lokala kataloger (`logs/`, `data/`) är ofta ignorerade.
 - **`.cursorignore`** styr indexering i Cursor — inte samma som git.
-Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-indexing.mdc) (ignore-filer, workspace).
+Detalj: [`.cursor/rules/repo-router.mdc`](../../.cursor/rules/repo-router.mdc) (ignore-filer, workspace).
 
 ## Skript och scaffolds
 
@@ -30,7 +30,7 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 - **Research-skript** (`scripts/template-library/hamta_sidor_branch_emil.py`, `scripts/template-library/full_template_refresh.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
 - **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`): kanoniska entrypoints.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
-- **Prompt-dump-status** delas nu via `backoffice/shared.py` (med legacy re-export från `scripts/dashboard_shared.py`).
+- **Prompt-dump-status** delas via `backoffice/shared.py`.
 
 ### Tre separata mallspår
 
@@ -42,8 +42,8 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 
 2. **Vercel-mallar / externa referenser**
    - källa: `e2e/vercel-templates/*`
-   - rå pipeline: `data/external-template-pipeline/*`
-   - används för extern research, dossiers och scaffold research
+   - dossier-system v2: `data/dossiers/{hard,soft}/<id>/` (committed manifests + instructions + components) och `data/dossiers/_index/capability-map.json`
+   - input till AI-kuration: `data/template-references/{repos,_metadata}/` (gitignored, klonade Vercel-template-repos)
    - embeddings: `src/lib/gen/template-library/template-library-embeddings.json`
 
 3. **Scaffolds**
@@ -67,7 +67,7 @@ Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` �
 
 - Discovery pipeline, Playwright-spec och koppling till externa referenser/scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`scripts/README.md`](../../scripts/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
 - `e2e/vercel-templates/*` är **automatiserad extern intake**, inte runtime.
-- `data/external-template-pipeline/reference-library/` och dess **dossiers** är build-time researchmaterial. Runtime own-engine läser inte dossiers direkt; `build-template-library.ts` kondenserar dem först till `src/lib/gen/template-library/template-library.generated.json` och `src/lib/gen/scaffolds/scaffold-research.generated.json`, som sedan används som referens-/researchartefakter i scaffold- och promptflöden.
+- `data/dossiers/{hard,soft}/<id>/` är den kanoniska dossier-platsen (v2 sedan 2026-04-20). Runtime own-engine läser manifests direkt och matchar `brief.requestedCapabilities` 1:1 mot dossiers via `selectDossiersForRequest()` i `orchestrate.ts` → `## Available Dossiers` + `## Selected Dossier Instructions` + `## Dossier Files To Emit Verbatim` i system prompt. **Inga embeddings, ingen domain-veto, inga cap.** Tre exempel ligger i poolen; resten av den auto-curated v1-poolen ligger i `archive/dossiers-legacy-2026-04-20/` (gitignored). Se [dossier-system.md](./dossier-system.md).
 
 ## Inspector / Playwright worker
 
@@ -75,9 +75,9 @@ Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `pack
 
 ## Övrigt
 
-- **Konsoliderad backoffice (Streamlit)**: `sajtmaskin_backoffice.py` startar nu den samlade Streamlit-ytan. Kod och sidmoduler ligger under `backoffice/` och täcker både konfigurationspanel, overhead/admin och artifacts/pipeline.
-- **Legacy entrypoints**: `config/dashboard/app.py` och `scripts/scripts_dashboard.py` finns kvar som wrappers som öppnar samma konsoliderade app med annan startkontext.
-- **Delad dashboardlogik**: `backoffice/shared.py` är den kanoniska helperkällan för prompt-dumps, manifest, autofix-/quality-inställningar, repo-paths och scaffold-/pipelinehelpers. `scripts/dashboard_shared.py` och `config/dashboard/shared_overhead.py` är bara re-exports för bakåtkompatibilitet.
+- **Konsoliderad backoffice (Streamlit)**: kanonisk start är `npm run backoffice` (kör `scripts/dev/run-python.mjs` → `python sajtmaskin_backoffice.py`, plattformsoberoende). Direktanrop `python(3) sajtmaskin_backoffice.py` fungerar också. Entrypointen relauncherar via `streamlit run`. Kod och sidmoduler ligger under `backoffice/` och täcker både konfigurationspanel, overhead/admin och artifacts/pipeline.
+- **Legacy entrypoint**: `config/dashboard/app.py` finns kvar som wrapper som öppnar samma konsoliderade app med annan startkontext.
+- **Delad dashboardlogik**: `backoffice/shared.py` är den kanoniska helperkällan för prompt-dumps, manifest, autofix-/quality-inställningar, repo-paths och scaffold-/pipelinehelpers. `config/dashboard/shared_overhead.py` är ett re-export för bakåtkompatibilitet.
 - **Dashboardkarta**: `config/dashboard/domain-map.json` beskriver vilka kanoniska paths, docs och codeReaders varje vy hör till.
 - **Cursor slash-kommandon**: repo-lokala kommandon kan ligga i `.cursor/commands/` och användas via `/...` i Cursor-chatten, t.ex. `/avslutning` för slutstädning/sync/verify/ship.
 - **OpenClaw / Sajtagenten**: användarytan nere till höger lever i `src/components/openclaw/` och `src/app/api/openclaw/`. Det är en separat assistent-/agentyta, inte builderns own-engine.

@@ -73,6 +73,79 @@ describe("inferCapabilities", () => {
     expect(caps.needs3D).toBe(true);
     expect(caps.needsPhysics).toBe(false);
   });
+
+  it("detects scroll-parallax from English 'parallax scroll'", () => {
+    const caps = inferCapabilities("a landing page with parallax scroll effects");
+    expect(caps.needsParallax).toBe(true);
+    expect(caps.needsMotion).toBe(true);
+  });
+
+  it("detects pointer-parallax from Swedish 'följer muspekaren'", () => {
+    const caps = inferCapabilities("Hero-kort som följer muspekaren med parallax");
+    expect(caps.needsParallax).toBe(true);
+  });
+
+  it("detects parallax from generic 'parallax' keyword in Swedish", () => {
+    const caps = inferCapabilities("lägg till lite parallax på hjältesektionen");
+    expect(caps.needsParallax).toBe(true);
+  });
+
+  it("does NOT flag needsParallax for plain motion words", () => {
+    const caps = inferCapabilities("fade-in på alla sektioner när de scrolas in");
+    expect(caps.needsMotion).toBe(true);
+    expect(caps.needsParallax).toBe(false);
+  });
+
+  // ---- Phase 6: empirical phrasings the user wants to be reliable ----
+
+  it("phrase 'parallax-header i glas' triggers needsParallax + needsPremiumVisuals", () => {
+    const caps = inferCapabilities("Jag vill ha en parallax-header i glas");
+    expect(caps.needsParallax).toBe(true);
+    expect(caps.needsPremiumVisuals).toBe(true);
+  });
+
+  it("phrase 'mouse-parallax på hero-cardet' triggers needsParallax", () => {
+    const caps = inferCapabilities("Lägg till mouse-parallax på hero-cardet");
+    expect(caps.needsParallax).toBe(true);
+  });
+
+  it("phrase 'stripe-betalning som använder mina färger' triggers needsPayments", () => {
+    const caps = inferCapabilities(
+      "Jag vill ha en stripe-betalning som använder mina färger",
+    );
+    expect(caps.needsPayments).toBe(true);
+  });
+
+  it("Klarna and Swish trigger needsPayments", () => {
+    expect(inferCapabilities("Lägg in Klarna-betalning på checkout").needsPayments).toBe(true);
+    expect(inferCapabilities("Användaren ska kunna betala med Swish").needsPayments).toBe(true);
+  });
+
+  it("does NOT flag needsPayments for plain ecommerce wording without explicit payment provider", () => {
+    const caps = inferCapabilities("Visa produkter i en katalog, ingen kassa just nu");
+    expect(caps.needsPayments).toBe(false);
+  });
+
+  // ---- P31 follow-up bug #3: generic 'betala med X' / 'köpa med X' ----
+
+  it("'betala med kort' triggers needsPayments", () => {
+    expect(inferCapabilities("Användaren ska kunna betala med kort").needsPayments).toBe(true);
+    expect(inferCapabilities("Vi vill kunna betala med kreditkort på sidan").needsPayments).toBe(true);
+  });
+
+  it("'köpa med kort' / 'köp med stripe' triggers needsPayments", () => {
+    expect(inferCapabilities("Det ska gå att köpa med kort").needsPayments).toBe(true);
+    expect(inferCapabilities("Köp med stripe direkt på produktsidan").needsPayments).toBe(true);
+  });
+
+  it("does NOT trigger needsPayments on generic 'betala räkningen' style phrases", () => {
+    expect(inferCapabilities("Påminn kunden om att betala räkningen").needsPayments).toBe(false);
+    expect(inferCapabilities("Kostar att betala för parkering").needsPayments).toBe(false);
+  });
+
+  it("'kreditkort' alone (without provider) triggers needsPayments", () => {
+    expect(inferCapabilities("Vi tar kreditkort på plats").needsPayments).toBe(true);
+  });
 });
 
 describe("buildCapabilityHints (pack-based)", () => {
@@ -90,12 +163,52 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).not.toContain("Motion/animation requested");
   });
 
-  it("includes motion hint when 3D is not active", () => {
+  it("includes motion hint when 3D is not active and parallax is not requested", () => {
+    const caps = inferCapabilities("a landing page with smooth fade-in transitions on scroll reveal");
+    expect(caps.needsMotion).toBe(true);
+    expect(caps.needs3D).toBe(false);
+    expect(caps.needsParallax).toBe(false);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("Motion/animation requested");
+  });
+
+  it("emits parallax-specific hint instead of generic motion when parallax is requested", () => {
     const caps = inferCapabilities("a landing page with parallax scroll effects");
+    expect(caps.needsParallax).toBe(true);
     expect(caps.needsMotion).toBe(true);
     expect(caps.needs3D).toBe(false);
     const hints = buildCapabilityHints(caps)!;
-    expect(hints).toContain("Motion/animation requested");
+    expect(hints).toContain("Parallax requested");
+    expect(hints).toContain("ScrollParallaxLayer");
+    expect(hints).not.toContain("Motion/animation requested");
+  });
+
+  it("parallax hint mentions both DOM and R3F integrations", () => {
+    const caps = inferCapabilities("Lägg till mouse-parallax på hero-kortet");
+    expect(caps.needsParallax).toBe(true);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("PointerParallaxLayer");
+    expect(hints).toContain("usePointerParallax");
+    expect(hints).toContain("useFrame");
+  });
+
+  it("parallax + 3D produces both 3D and parallax hints", () => {
+    const caps = inferCapabilities("3d hero with mouse-parallax that follows the cursor");
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsParallax).toBe(true);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("3D/WebGL");
+    expect(hints).toContain("Parallax requested");
+  });
+
+  it("payments hint mentions Stripe checkout dossier components and key enforcement", () => {
+    const caps = inferCapabilities("Lägg in stripe-betalning för bokpaketen");
+    expect(caps.needsPayments).toBe(true);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("Payments requested");
+    expect(hints).toContain("CheckoutButton");
+    expect(hints).toContain("STRIPE_SECRET_KEY");
+    expect(hints).toContain("warn-only");
   });
 
   it("generates hints for previously uncovered capabilities", () => {

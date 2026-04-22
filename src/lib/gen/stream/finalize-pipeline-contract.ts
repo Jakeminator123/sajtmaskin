@@ -20,13 +20,8 @@ export const OWN_ENGINE_POST_STREAM_PIPELINE = [
   },
   {
     id: "validate_syntax",
-    label: "Syntax validation + targeted fix rounds",
-    labelSv: "Syntaxvalidering",
-  },
-  {
-    id: "pre_vm_typecheck",
-    label: "Pre-VM TypeScript typecheck against warm scaffold cache",
-    labelSv: "Pre-VM typecheck",
+    label: "Validate (esbuild syntax + warm tsc) + targeted fix rounds",
+    labelSv: "Validering (syntax + typecheck)",
   },
   {
     id: "materialize_images",
@@ -56,7 +51,6 @@ export const OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES: OwnEnginePostStreamPhaseId[] 
   "url_expand",
   "autofix",
   "validate_syntax",
-  "pre_vm_typecheck",
   "parse_merge_preflight",
 ];
 

@@ -34,18 +34,58 @@ export interface LockedVariantForFollowUpInput {
  *  - intent === 'clear-redesign'
  *  - prior-id eller scaffold-id saknas
  *  - prior-id inte längre resolvar i registret
+ *
+ * P26: varje skip-path loggas så vi kan attribuera variant-flippar i
+ * produktion till rätt orsak (saknad snapshot vs scaffold-byte vs
+ * intent-klassificering vs registrymismatch).
  */
 export function lockedVariantForFollowUp(
   input: LockedVariantForFollowUpInput,
 ): ScaffoldVariant | null {
-  if (input.intent === "clear-redesign") return null;
-  if (!input.scaffoldId || !input.priorVariantId) return null;
+  if (input.intent === "clear-redesign") {
+    console.info("[scaffold-variant] variant_lock_skip", {
+      reason: "clear_redesign_intent",
+      chatId: input.chatId ?? null,
+      scaffoldId: input.scaffoldId ?? null,
+      priorVariantId: input.priorVariantId ?? null,
+    });
+    return null;
+  }
+  if (!input.scaffoldId || !input.priorVariantId) {
+    console.info("[scaffold-variant] variant_lock_skip", {
+      reason: !input.scaffoldId ? "missing_scaffold_id" : "missing_prior_variant_id",
+      chatId: input.chatId ?? null,
+      scaffoldId: input.scaffoldId ?? null,
+      priorVariantId: input.priorVariantId ?? null,
+      intent: input.intent,
+    });
+    return null;
+  }
   const variant = getVariantById(
     input.scaffoldId as ScaffoldVariant["scaffoldId"],
     input.priorVariantId,
   );
-  if (!variant) return null;
-  if (variant.scaffoldId !== input.scaffoldId) return null;
+  if (!variant) {
+    console.info("[scaffold-variant] variant_lock_skip", {
+      reason: "prior_variant_unresolved",
+      chatId: input.chatId ?? null,
+      scaffoldId: input.scaffoldId,
+      priorVariantId: input.priorVariantId,
+      intent: input.intent,
+    });
+    return null;
+  }
+  if (variant.scaffoldId !== input.scaffoldId) {
+    console.info("[scaffold-variant] variant_lock_skip", {
+      reason: "scaffold_id_mismatch",
+      chatId: input.chatId ?? null,
+      scaffoldId: input.scaffoldId,
+      variantScaffoldId: variant.scaffoldId,
+      priorVariantId: input.priorVariantId,
+      intent: input.intent,
+    });
+    return null;
+  }
   return variant;
 }
 

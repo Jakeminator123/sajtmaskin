@@ -5,6 +5,8 @@ import { AlertCircle, KeyRound, Loader2, RefreshCw, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
+import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import {
@@ -57,12 +59,12 @@ type Props = {
   versionId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * F2 vs F3 lifecycle gate. The "Miljövariabler" shortcut targets a panel
+   * that only mounts in F3 — hide it during F2.
+   */
+  lifecycleStage?: EngineVersionLifecycleStage | null;
 };
-
-function openProjectEnvVarsPanel() {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail: {} }));
-}
 
 function levelBadgeVariant(level: string): "default" | "secondary" | "destructive" | "outline" {
   if (level === "error") return "destructive";
@@ -82,7 +84,14 @@ function formatTimestamp(value?: string | null) {
   });
 }
 
-export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange }: Props) {
+export function VersionDiagnosticsDialog({
+  chatId,
+  versionId,
+  open,
+  onOpenChange,
+  lifecycleStage = null,
+}: Props) {
+  const isIntegrations = lifecycleStage === "integrations";
   const [logs, setLogs] = useState<VersionDiagnosticsLog[]>([]);
   const [summary, setSummary] = useState<DiagnosticsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -227,10 +236,12 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={openProjectEnvVarsPanel}>
-            <KeyRound className="mr-1 h-4 w-4" />
-            Miljövariabler
-          </Button>
+          {isIntegrations ? (
+            <Button variant="outline" size="sm" onClick={() => openProjectEnvVarsPanel()}>
+              <KeyRound className="mr-1 h-4 w-4" />
+              Miljövariabler
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             size="sm"

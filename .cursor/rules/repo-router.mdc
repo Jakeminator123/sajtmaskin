@@ -1,103 +1,33 @@
 ---
-description: Snabb repo-router for Cursor och andra agenter
+description: Snabb repo-router + env/indexering
 alwaysApply: true
 ---
 
 # Repo router
 
-Detta ar en **tunn orienteringsregel** for det committade tradet pa `master`.
+Kod är source of truth om docs och kod skiljer sig. Anta inte att du ser ocommittade filer.
 
-- Starta med `README.md` i repo-roten.
-- Anvand `docs/architecture/repo-tree.md` som kanonisk rotkarta.
-- Las lokal README i berord mapp innan du andrar struktur.
-- Kod ar source of truth om docs och kod skiljer sig.
-- Anta inte att du ser lokala, privata eller ocommittade filer.
-
-## Startordning
-
-1. `README.md`
-2. `AGENTS.md`
-3. `.cursor/README.md`
-4. `docs/architecture/repo-tree.md`
-5. Domanspecifik dokumentation eller kodyta
+**Start:** `README.md` → `AGENTS.md` → `docs/architecture/repo-tree.md` → domänspecifik doc/kod.
 
 ## Router per uppgift
 
-### LLM-flode / generation
+| Uppgift | Borra här |
+|---------|-----------|
+| LLM / generation | `src/lib/gen/`, `src/lib/providers/own-engine/`, `docs/architecture/fas2-orchestration-and-build.md` |
+| Preview / VM | `preview-host/`, `src/lib/gen/preview/`, `src/components/builder/preview-panel/`, `fas3-preview-and-deploy.md` |
+| Builder UI / chat | `src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/` |
+| Deploy | `src/app/api/v0/deployments/route.ts`, `src/lib/deploy/`, `fas3-preview-and-deploy.md` |
+| Env / config | `docs/ENV.md`, `src/lib/env.ts`, `config/env-policy.json`, `config/ai_models/` |
+| Scaffolds | `src/lib/gen/scaffolds/`, `scripts/scaffolds/` |
 
-Borra har:
+## Env-policy
 
-- `src/lib/gen/`
-- `src/lib/providers/own-engine/`
-- `src/lib/own-engine/`
-- `docs/architecture/system-overview.md`
-- `docs/architecture/fas2-orchestration-and-build.md`
+Börja med `docs/ENV.md`, `src/lib/env.ts`, `config/env-policy.json`. Committa aldrig hemligheter. Uppdatera `.gitignore`/`.cursorignore` vid behov.
 
-**Heuristik:**
-- Delad pipeline, finalize, verifier, autofix = `src/lib/gen/`
-- Produktbana och providerkoppling = `src/lib/providers/own-engine/`
-- Boundary, sessioner, engine-specifik logik = `src/lib/own-engine/`
+## Indexeringshål
 
-### Preview / VM / runtime
+Sök missar ibland ignorerade paths — läs filer direkt: `data/external-template-pipeline/`, `.cursor/migration-archive/`, stora genererade under `src/lib/gen/`. Stora JSON: börja med närmaste README/manifest.
 
-Borra har:
+## Legacy
 
-- `preview-host/`
-- `src/lib/gen/preview/`
-- `src/lib/builder/preview-session/`
-- `src/components/builder/preview-panel/`
-- `docs/architecture/fas3-preview-and-deploy.md`
-
-### Builder UI / chat / appyta
-
-Borra har:
-
-- `src/app/builder/`
-- `src/components/builder/`
-- `src/components/ai-elements/`
-- `src/lib/hooks/chat/`
-
-### Deploy / publish
-
-Borra har:
-
-- `src/app/api/v0/deployments/route.ts`
-- `src/lib/deploy/`
-- `src/lib/vercelDeploy*`
-- `src/lib/project-env-resolver*`
-- `docs/architecture/fas3-preview-and-deploy.md`
-
-### Env / config / modeller
-
-Borra har:
-
-- `docs/ENV.md`
-- `src/lib/env.ts`
-- `config/env-policy.json`
-- `config/README.md`
-- `config/ai_models/`
-
-### Scaffolds / template-library / legacy v0-katalog
-
-Borra har:
-
-- `src/lib/gen/scaffolds/`
-- `src/lib/gen/template-library/`
-- `scripts/scaffolds/`
-- `scripts/template-library/`
-- `templates_v0/` endast om uppgiften uttryckligen galler arv eller katalogunderlag
-
-## Legacy- och naming-debt-regel
-
-- `templates_v0/` ar inte den primara produktbanan for runtimegenerering.
-- `v0` i namn kan vara legacy, naming debt eller API-routning — verifiera alltid mot koden.
-- Om du letar efter dagens produktbana for generation, borja i `own-engine` + `gen`, inte i `templates_v0/`.
-
-## Arbetsregel
-
-Nar du ar osaker pa var nagot bor:
-
-1. Las `docs/architecture/repo-tree.md`.
-2. Sok efter den mest lokala README:n.
-3. Folj importer och runtime-anvandning i koden.
-4. Prioritera committade, aktiva banor framfor historiska namn.
+`templates_v0/` är inte produktbanan — börja i `own-engine` + `gen`. `v0` i namn = legacy/naming debt — verifiera mot koden.

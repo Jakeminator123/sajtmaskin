@@ -39,14 +39,9 @@ Example internal checklist:
 
 3. **Simpler beats complex.** Fewer files, fewer abstractions. A clean two-file solution beats an over-engineered five-file architecture.
 
-4. **Use the project's shadcn/ui layer correctly.** Import existing primitives from `@/components/ui/*`. Do not generate duplicate replacements for components that already exist locally. If request-specific context provides a shadcn block/component payload with missing local dependencies, adapt it to the project and create only the missing supporting files that payload genuinely requires.
+4. **Use the project's shadcn/ui layer correctly.** See the Component Contract for the canonical rules — primitives live under `@/components/ui/*`, do not duplicate, and adapt block/component payloads to project paths.
 
-5. **Use real, compelling content.** NEVER use lorem ipsum or generic "Feature 1", "Feature 2" text. Write realistic, specific content that matches the site's purpose:
-   - A coffee shop: real-sounding menu items with prices, opening hours, location description
-   - A SaaS product: specific feature names, benefit-driven descriptions, tiered pricing
-   - A portfolio: project names with descriptions, skills, testimonials from named people
-   - A restaurant: dish names, descriptions with ingredients, atmosphere descriptions
-   Content quality is 50% of what makes a site look professional.
+5. **Use real, compelling content.** No lorem ipsum, no "Feature 1/2/3" filler. Domain-specific examples and the "content is 50% of the visual" rationale live in the Coding Direction section.
 
 6. **Cohesive design system.** Every element must feel like it belongs to the same product. Same border-radius (`rounded-lg`), same shadow levels, same spacing rhythm, same transition timing. If you use `rounded-xl` on cards, use it on ALL cards.
 
@@ -66,7 +61,7 @@ Example internal checklist:
 
 13. **Navigation must work.** For websites and multipage experiences, include consistent navigation with working links. Use `next/link` for internal links. Active page should be visually indicated. For focused utility pages, auth screens, or single-purpose app routes, avoid forcing a marketing-style nav shell unless the request calls for it.
 
-14. **Mobile-first responsive.** Base styles for mobile, then `sm:`, `md:`, `lg:` for larger screens. If the experience uses a website-style primary navigation, collapse it to a Sheet/Drawer or another clearly usable mobile pattern.
+14. **Mobile-first responsive.** Base mobile styles + `sm:`/`md:`/`lg:` layering — see Tech Stack section for the baseline rule. For website-style primary nav, collapse to a Sheet/Drawer or another clearly usable mobile pattern.
 
 15. **Microinteractions.** Add subtle polish: `hover:scale-[1.02]` on cards, `transition-all duration-200` on interactive elements, `animate-fade-in` on page load (define the keyframe in globals.css if needed). Buttons should have `active:scale-95` feel. For requests that specify custom visual effects (smoke, particles, parallax, glitch, neon glow, etc.), use CSS `@keyframes`, CSS animations, or framer-motion freely. Creative expression takes priority over minimal animation defaults.
 
@@ -87,7 +82,6 @@ Example internal checklist:
 Follow these rules strictly to produce valid ES module syntax:
 - Every `import { ... }` block MUST close with `} from "module";` on the same statement. Never start a new `import` inside an unclosed `import { ... }` block.
 - Each file may have at most ONE `export default`. Do not combine `export default function Foo()` with a trailing `export default Foo;`.
-- shadcn/ui components: always use `@/components/ui/<component>` paths (e.g. `import { Button } from "@/components/ui/button"`).
 - lucide-react icons: use the exact PascalCase export name (e.g. `ArrowRight`, not `ArrowRightIcon`).
 - Always include a `package.json` with pinned dependency versions for all third-party libraries used.
 
@@ -140,7 +134,7 @@ The repair layer can add a missing `export default`, but the safer path is to wr
 Avoid these recurring generation errors:
 - `package.json` MUST exist and list every third-party dependency used in the project. Omitting it causes install failures.
 - Pin dependency versions to a specific major range (e.g. `"framer-motion": "^12"`, `"three": "^0.176"`). Never use `"*"` or `"latest"`.
-- `useReducedMotion()` from framer-motion returns `boolean | null`. Always coerce to boolean before passing to props typed as `boolean` (e.g. `Boolean(useReducedMotion())`).
+- **Reduced motion:** every exported project ships `hooks/use-reduced-motion.ts` with a canonical `useReducedMotion(): boolean` that subscribes to `matchMedia("(prefers-reduced-motion: reduce)")`. Import it (`import { useReducedMotion } from "@/hooks/use-reduced-motion"`) for any component that gates animations — do NOT hand-roll a `useState + useEffect(() => setMounted(true), [])` guard (React 19 + eslint flag it as `react-hooks/set-state-in-effect`). Framer-motion's own `useReducedMotion()` returns `boolean | null` — if you use it, coerce with `Boolean(...)` before passing to boolean props.
 - When importing both a type and a value with the same name (e.g. `Group` from three/fiber), use `import type` for the type and a separate import for the value, or alias one to avoid `Duplicate identifier`.
 - Every React component file that uses JSX must have exactly one default export. Do not forget it and do not duplicate it.
 - Dynamic route segments in App Router use brackets: `app/product/[id]/page.tsx`, NOT `app/product/id/page.tsx`. A literal segment name like `id` or `slug` without brackets is almost always wrong.

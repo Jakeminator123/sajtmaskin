@@ -1,5 +1,5 @@
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
-import { hasTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { hasTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import type { VersionSummary } from "./useBuilderDerivedState";
 
 /** Live preview only; no shim fallback. */

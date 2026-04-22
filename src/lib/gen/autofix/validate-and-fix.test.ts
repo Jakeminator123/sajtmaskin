@@ -3,6 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const runLlmFixer = vi.hoisted(() => vi.fn());
 const runAutoFix = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
+const runPreVmTypecheck = vi.hoisted(() => vi.fn());
+const formatTypecheckDiagnosticsForRepair = vi.hoisted(() =>
+  vi.fn((diagnostics: Array<{ filePath: string; line: number; column: number; code: string; message: string }>) =>
+    diagnostics.map((d) => `${d.filePath}:${d.line}:${d.column} ${d.code}: ${d.message}`),
+  ),
+);
+const parseCodeProject = vi.hoisted(() => vi.fn((content: string) => ({ files: [{ path: "app/page.tsx", content }] })));
 
 vi.mock("./llm-fixer", () => ({
   runLlmFixer,
@@ -14,6 +21,15 @@ vi.mock("./pipeline", () => ({
 
 vi.mock("../retry/validate-syntax", () => ({
   validateGeneratedCode,
+}));
+
+vi.mock("@/lib/gen/preview/warm-typecheck", () => ({
+  runPreVmTypecheck,
+  formatTypecheckDiagnosticsForRepair,
+}));
+
+vi.mock("@/lib/gen/parser", () => ({
+  parseCodeProject,
 }));
 
 import { validateAndFix } from "./validate-and-fix";
@@ -30,8 +46,17 @@ describe("validateAndFix", () => {
     runLlmFixer.mockReset();
     runAutoFix.mockReset();
     validateGeneratedCode.mockReset();
+    runPreVmTypecheck.mockReset();
 
     runAutoFix.mockResolvedValue(emptyAutoFixResult);
+    // Default: warm-tsc is not provisioned — skip silently. Tests that
+    // exercise the tsc loop override per-call.
+    runPreVmTypecheck.mockResolvedValue({
+      ok: true,
+      skipped: "cache_cold",
+      diagnostics: [],
+      durationMs: 0,
+    });
   });
 
   it("returns explicit pipeline-error status when validation pipeline throws", async () => {
@@ -183,6 +208,153 @@ describe("validateAndFix", () => {
     expect(result.status).toBe("passed");
     expect(result.content).toBe(content);
     expect(result.mechanicalFixCount).toBe(0);
+  });
+
+  it("runs warm-tsc post-pass and feeds diagnostics into runLlmFixer when esbuild passes but tsc fails", async () => {
+    const cleanContent =
+      '```tsx file="app/page.tsx"\nexport default function P(){return <main/>}\n```';
+    validateGeneratedCode.mockResolvedValueOnce({ valid: true, errors: [] });
+    runPreVmTypecheck.mockResolvedValueOnce({
+      ok: false,
+      diagnostics: [
+        {
+          filePath: "app/page.tsx",
+          line: 1,
+          column: 1,
+          code: "TS2304",
+          message: "Cannot find name 'Foo'.",
+        },
+      ],
+      durationMs: 12,
+    });
+    runLlmFixer.mockResolvedValueOnce({
+      fixedContent: cleanContent,
+      fixedFiles: ["app/page.tsx"],
+      missingFiles: [],
+      partial: false,
+      success: true,
+      durationMs: 30,
+    });
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: cleanContent,
+      fixes: [],
+      warnings: [],
+      dependencies: {},
+    });
+
+    const result = await validateAndFix(cleanContent, {
+      chatId: "chat_tsc",
+      model: "gpt-5.4",
+      alreadyMechanicallyFixed: true,
+      resolvedScaffold: { id: "scaffold_x", files: [] } as never,
+    });
+
+    expect(runPreVmTypecheck).toHaveBeenCalledWith(
+      expect.objectContaining({ scaffoldId: "scaffold_x", force: false }),
+    );
+    expect(runLlmFixer).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([expect.stringContaining("TS2304")]),
+      expect.objectContaining({ abortSignal: expect.any(Object) }),
+    );
+    expect(result.status).toBe("passed");
+    expect(result.tsc).toEqual(
+      expect.objectContaining({ ran: true, repaired: true, diagnosticCount: 1 }),
+    );
+    expect(result.fixerUsed).toBe(true);
+  });
+
+  it("forces tsc when forceTsc=true even without scaffold", async () => {
+    const cleanContent =
+      '```tsx file="app/page.tsx"\nexport default function P(){return <main/>}\n```';
+    validateGeneratedCode.mockResolvedValueOnce({ valid: true, errors: [] });
+    runPreVmTypecheck.mockResolvedValueOnce({
+      ok: true,
+      diagnostics: [],
+      durationMs: 5,
+    });
+
+    const result = await validateAndFix(cleanContent, {
+      chatId: "chat_force_tsc",
+      model: "gpt-5.4",
+      alreadyMechanicallyFixed: true,
+      forceTsc: true,
+    });
+
+    expect(runPreVmTypecheck).toHaveBeenCalledWith(
+      expect.objectContaining({ force: true }),
+    );
+    expect(result.tsc).toEqual(
+      expect.objectContaining({ ran: true, diagnosticCount: 0, repaired: false }),
+    );
+  });
+
+  it("invokes the LLM fixer on the final pass too (regression: was dead code when pass === SYNTAX_FIX_MAX_PASSES)", async () => {
+    // Each pass: validate → fixer (improves) → reValidate (one fewer error).
+    // With the bug, the gave-up branch fired before the fixer on the final
+    // pass; with the fix, the fixer runs every pass within the loop budget.
+    // Manifest default for syntaxFixPasses is 4; we mock four full pass
+    // cycles (validate + reValidate) and four fixer responses.
+    const initialContent = '```tsx file="app/page.tsx"\nbroken\n```';
+    const improvedContent = '```tsx file="app/page.tsx"\nbetter\n```';
+
+    for (let pass = 1; pass <= 4; pass++) {
+      validateGeneratedCode
+        .mockResolvedValueOnce({
+          valid: false,
+          errors: Array.from({ length: 5 - (pass - 1) }, () => ({
+            file: "app/page.tsx",
+            line: pass,
+            column: 1,
+            message: `err pass${pass}`,
+          })),
+        })
+        .mockResolvedValueOnce({
+          valid: false,
+          errors: Array.from({ length: 5 - pass }, () => ({
+            file: "app/page.tsx",
+            line: pass,
+            column: 1,
+            message: `err pass${pass}`,
+          })),
+        });
+    }
+
+    for (let i = 0; i < 4; i++) {
+      runLlmFixer.mockResolvedValueOnce({
+        fixedContent: improvedContent,
+        fixedFiles: ["app/page.tsx"],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 10,
+      });
+    }
+
+    // runAutoFix is called once for the initial mech pass + once after each
+    // successful LLM fixer attempt = 1 + 4 = 5 invocations.
+    for (let i = 0; i < 5; i++) {
+      runAutoFix.mockResolvedValueOnce({
+        fixedContent: improvedContent,
+        fixes: [],
+        warnings: [],
+        dependencies: {},
+      });
+    }
+
+    const result = await validateAndFix(initialContent, {
+      chatId: "chat_multi_pass",
+      model: "gpt-5.4",
+    });
+
+    expect(runLlmFixer).toHaveBeenCalledTimes(4);
+    expect(result.passes).toBe(4);
+    expect(result.fixerUsed).toBe(true);
+    expect(result.fixerImproved).toBe(true);
+    // Final reValidate (pass 4) leaves 1 residual error, so we end "partial",
+    // never "passed", and never short-circuit before the fixer runs.
+    expect(result.status).toBe("partial");
+    expect(result.errorsAfter).toBe(1);
   });
 
   it("stops early when a fixer pass does not reduce error count", async () => {

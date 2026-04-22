@@ -1,7 +1,7 @@
 import { generateText } from "ai";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
-import { createDirectModel } from "@/lib/builder/gateway-policy";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import {
   FOLLOW_UP_INTENT_MODES,
   type FollowUpIntentMode,
@@ -298,13 +298,15 @@ export async function persistFollowUpClarification(params: {
 // ────────────────────────────────────────────────────────────────────────
 // P22: LLM safety net — när regex-pipen säger "neutral" men prompten är lång
 // (>= 80 ord) finns risk för verklig redesign-intent som ordet missar. Ringer
-// gpt-4.1 med 2s timeout som double-check. Cachas per chatId+messageHash så
-// samma meddelande aldrig betalar två gånger inom samma process.
+// gpt-5.4-mini med 2s timeout som double-check. Cachas per chatId+messageHash
+// så samma meddelande aldrig betalar två gånger inom samma process.
+// (Bytt från gpt-4.1 → gpt-5.4-mini 2026-04-21 — bättre reasoning, samma
+// prisklass; OpenAI:s migration guide rekommenderar denna ersättning.)
 // ────────────────────────────────────────────────────────────────────────
 
 const LLM_FALLBACK_MIN_WORDS = 80;
 const LLM_FALLBACK_TIMEOUT_MS = 2_000;
-const LLM_FALLBACK_MODEL = "openai/gpt-4.1";
+const LLM_FALLBACK_MODEL = "openai/gpt-5.4-mini";
 
 const _llmFallbackCache = new Map<string, FollowUpIntentMode>();
 

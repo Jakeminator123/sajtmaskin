@@ -4,7 +4,7 @@ import * as schema from "./schema";
 import { resolveConfiguredDbEnv } from "./env";
 
 const MISSING_DB_MESSAGE =
-  "Missing database connection string. Set POSTGRES_URL or POSTGRES_URL_NON_POOLING.";
+  "Missing database connection string. Set POSTGRES_URL, POSTGRES_URL_NON_POOLING, STORAGE_POSTGRES_URL, or STORAGE_POSTGRES_URL_NON_POOLING.";
 
 function isBuildPhase(): boolean {
   return (
@@ -113,26 +113,82 @@ function cleanConnectionString(connStr: string): string {
   }
 }
 
+/**
+ * Detect connection strings that route through pgbouncer / Supabase pooler.
+ * These poolers cap *concurrent sessions* aggressively (Supabase default
+ * is ~15 per project on free, ~60 on pro). When this app is serverless,
+ * each cold-start instance creates its own pg.Pool, so a `max: 10` setting
+ * across N concurrent functions can blow past the pooler limit and surface
+ * as `EMAXCONNSESSION: max clients reached` mid-stream — see SAJ-7 / B1.
+ *
+ * Pgbouncer in transaction mode also forbids long-lived sessions: short
+ * idle timeouts + small per-instance pool make a much better citizen.
+ */
+function looksPooled(connStr: string): boolean {
+  try {
+    const url = new URL(connStr);
+    if (url.searchParams.get("pgbouncer") === "true") return true;
+    // Supabase pooler hostname pattern + standard pgbouncer ports
+    if (url.hostname.includes("pooler.")) return true;
+    if (url.port === "6543" || url.port === "5433") return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function parsePositiveIntEnv(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const n = Number.parseInt(value.trim(), 10);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return n;
+}
+
+function resolvePoolMax(connStr: string): number {
+  const fromEnv = parsePositiveIntEnv(process.env.POSTGRES_POOL_MAX);
+  if (fromEnv !== undefined) return fromEnv;
+  // Conservative default for pooled connections (Supabase pgbouncer cap),
+  // larger when talking to direct Postgres so single-VM workloads can still
+  // burst. Both can be overridden via POSTGRES_POOL_MAX.
+  return looksPooled(connStr) ? 3 : 10;
+}
+
+function resolveIdleTimeoutMs(connStr: string): number {
+  const fromEnv = parsePositiveIntEnv(process.env.POSTGRES_POOL_IDLE_TIMEOUT_MS);
+  if (fromEnv !== undefined) return fromEnv;
+  // Pgbouncer in transaction mode dislikes long-lived sessions; close idle
+  // connections quickly so they return to the pooler. Direct Postgres can
+  // afford to keep them around longer.
+  return looksPooled(connStr) ? 5_000 : 30_000;
+}
+
 const pool = connectionString
   ? new Pool({
       connectionString: cleanConnectionString(connectionString),
       ssl: resolvePoolSslConfig(connectionString),
-      // Connection pool configuration for better reliability
-      max: 10, // Maximum number of connections
-      idleTimeoutMillis: 30000, // Close idle connections after 30s
-      connectionTimeoutMillis: 10000, // Timeout for acquiring a connection
-      // TCP keepalive håller idle-connections vid liv så att
-      // Supabase-pooler/Neon inte tyst stänger dom under långa
-      // request-pauser (company-intel, brief, media-upload), vilket annars
-      // ger "Connection terminated unexpectedly" nästa gång vi kör en query.
-      keepAlive: true,
-      keepAliveInitialDelayMillis: 10000,
+      max: resolvePoolMax(connectionString),
+      idleTimeoutMillis: resolveIdleTimeoutMs(connectionString),
+      connectionTimeoutMillis: 10000,
     })
   : null;
 
+// Log pool errors for debugging (they don't throw by default).
+// Tag EMAXCONNSESSION specifically so a regression of SAJ-7 (B1) is easy
+// to spot in Fly logs and a future operator can raise POSTGRES_POOL_MAX
+// or move to direct connection without spelunking.
 if (pool) {
   pool.on("error", (err) => {
-    console.error("[db/client] Unexpected pool error:", err.message);
+    const msg = err.message ?? String(err);
+    if (msg.includes("EMAXCONNSESSION") || msg.includes("max clients")) {
+      console.error(
+        "[db/client] Pooler capacity exhausted (EMAXCONNSESSION). " +
+          "Lower POSTGRES_POOL_MAX or move to direct Postgres for this instance. " +
+          "See SAJ-7 / handoff B1.",
+        msg,
+      );
+    } else {
+      console.error("[db/client] Unexpected pool error:", msg);
+    }
   });
 }
 

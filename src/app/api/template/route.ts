@@ -20,13 +20,50 @@ import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
 import {
   getLocalV0TemplateSourceById,
   loadLocalV0TemplateFiles,
+  type LocalV0TemplateSource,
 } from "@/lib/templates/local-v0-template-source";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
+import { devLogAppend } from "@/lib/logging/devLog";
 
 // Allow 5 minutes for own-engine generation
 export const maxDuration = 300;
+
+// P19 Steg 4: 30-dygnströskel för informationsvarning om äldre lokal v0-källa.
+// Informationsnivå — blockerar inte import, klienter väljer om varningen ska visas.
+const STALENESS_THRESHOLD_SECONDS = 60 * 60 * 24 * 30;
+
+type TemplateSourceMetadata = {
+  templateId: string;
+  timestamp: string | null;
+  ageSeconds: number | null;
+  stale: boolean;
+  sourceSlugs: string[];
+  categoryLabel: string | null;
+};
+
+function buildTemplateSourceMetadata(
+  source: LocalV0TemplateSource,
+  now: number = Date.now(),
+): TemplateSourceMetadata {
+  let ageSeconds: number | null = null;
+  if (source.timestamp) {
+    const parsed = Date.parse(source.timestamp);
+    if (Number.isFinite(parsed)) {
+      ageSeconds = Math.max(0, Math.floor((now - parsed) / 1000));
+    }
+  }
+  const stale = ageSeconds !== null && ageSeconds > STALENESS_THRESHOLD_SECONDS;
+  return {
+    templateId: source.templateId,
+    timestamp: source.timestamp,
+    ageSeconds,
+    stale,
+    sourceSlugs: [...source.sourceSlugs],
+    categoryLabel: source.categoryLabel,
+  };
+}
 
 const loadingMessages = [
   "Laddar template...",
@@ -313,6 +350,16 @@ export async function POST(request: NextRequest) {
         template: templateMeta,
       });
 
+      const sourceMetadata = buildTemplateSourceMetadata(localTemplateSource);
+      if (sourceMetadata.stale) {
+        devLogAppend("latest", {
+          type: "v0-import.stale-source",
+          templateId: sourceMetadata.templateId,
+          ageSeconds: sourceMetadata.ageSeconds,
+          timestamp: sourceMetadata.timestamp,
+        });
+      }
+
       try {
         await creditCheck.commit();
       } catch (error) {
@@ -323,14 +370,15 @@ export async function POST(request: NextRequest) {
         NextResponse.json({
           success: true,
           message: getRandomMessage(),
-            code: imported.code,
-            files: imported.files,
-            chatId: imported.chatId,
-            projectId: imported.projectId,
-            versionId: imported.versionId,
-            ...previewUrlField(imported.previewUrl),
-            model: imported.model,
+          code: imported.code,
+          files: imported.files,
+          chatId: imported.chatId,
+          projectId: imported.projectId,
+          versionId: imported.versionId,
+          ...previewUrlField(imported.previewUrl),
+          model: imported.model,
           cached: false,
+          source: sourceMetadata,
         }),
       );
     } catch (error) {

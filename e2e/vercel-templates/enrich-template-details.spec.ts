@@ -29,7 +29,7 @@
  */
 
 import { test, expect, type Page } from "@playwright/test";
-import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const RAW_ROOT = resolve(process.cwd(), "data", "dossiers", "_raw");

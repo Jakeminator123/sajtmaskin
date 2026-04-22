@@ -1,7 +1,9 @@
 /**
  * Shared quality gate executed through preview-host's isolated verify lane.
- * Default tier-2 gate: install + typecheck only. Build/lint available for
- * tier-3 / interactive / deploy paths via explicit `checks` override.
+ * Default F2 design-preview gate: install + typecheck + build (since
+ * 2026-04-20 — added `build` to catch Next-runtime errors before the
+ * preview iframe renders). Lint and other checks are available via
+ * explicit `checks` override.
  */
 import type { CodeFile } from "@/lib/gen/parser";
 import {
@@ -39,10 +41,20 @@ export class QualityGateNotConfiguredError extends Error {
 export const QUALITY_GATE_SETUP_HINT =
   "Sätt SAJTMASKIN_PREVIEW_HOST_BASE_URL till preview-hostens root-URL så att appen kan nå verify-lanen (inte /preview). Använd SAJTMASKIN_PREVIEW_HOST_API_KEY om preview-host kräver auth.";
 
+/**
+ * Quality-gate commands run on preview-host's verify-lane.
+ *
+ * `lint` uses `--max-warnings=20` (not `=0`) deliberately: errors ALWAYS
+ * fail the gate (e.g. `react-hooks/set-state-in-effect`, `no-undef`),
+ * while we tolerate a small pool of warnings (unused imports, minor a11y
+ * hints) so single `@typescript-eslint/no-unused-vars` drops don't freeze
+ * a whole generation. Raise the cap via env override if we ever want to
+ * be stricter.
+ */
 export const QUALITY_GATE_COMMANDS: Record<QualityGateCheck, string> = {
   typecheck: "npx tsc --noEmit",
   build: "npx next build",
-  lint: "npx eslint . --max-warnings=0",
+  lint: "npx eslint . --max-warnings=20",
 };
 
 function isSafeRelativePath(filePath: string): boolean {

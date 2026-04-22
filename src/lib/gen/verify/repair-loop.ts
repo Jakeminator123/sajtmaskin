@@ -1,6 +1,7 @@
 import path from "node:path";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
+import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
 import { buildLintRepairContextLines } from "./lint-output";
 import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
@@ -14,12 +15,14 @@ export type RepairEarlyStopReason =
   | "time_budget_exceeded"
   | null;
 
-export type RepairFailedOutput = {
-  check: string;
-  exitCode: number;
-  output: string;
-  durationMs?: number | null;
-};
+export type { RepairFailedOutput } from "./repair-loop/diagnostics-parser";
+import type { RepairFailedOutput } from "./repair-loop/diagnostics-parser";
+import {
+  parseDiagnosticsFromFailure,
+  parseFilesFromErrorLines,
+  toPosixPath,
+  uniqueContextLines,
+} from "./repair-loop/diagnostics-parser";
 
 export type RepairErrorManifestDiagnostic = {
   source: string;
@@ -63,6 +66,11 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   fixerModel?: string;
   fixerThinking?: boolean;
   fixerReasoningEffort?: ReasoningEffort;
+  // Återkommande felmönster från tidigare runs i samma chat-session.
+  // Anroparen läser via `readRecurringPatternsForChat(chatId)` (i
+  // `@/lib/logging/generation-log-writer`) och skickar in dem så LLM-fixern
+  // får signal att INTE upprepa fixar som redan misslyckats.
+  recurringPatterns?: RecurringFailurePattern[];
   onAttemptPromotion: (
     projectContent: string,
     method: RepairMethod,
@@ -78,113 +86,6 @@ type TargetedRepairBundle = {
   requiredFiles: string[];
   mergeBack: (fixerContent: string) => string;
 };
-
-function uniqueContextLines(values: string[], limit: number): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const value of values) {
-    const normalized = value.replace(/\s+/g, " ").trim();
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    result.push(normalized);
-    if (result.length >= limit) break;
-  }
-  return result;
-}
-
-function parseFilesFromErrorLines(lines: string[]): string[] {
-  const files = new Set<string>();
-  for (const line of lines) {
-    const fileMatch = line.match(/]\s*([^\s:]+\.\w{2,4}):/);
-    const groupedMatch = line.match(/^File:\s+([^\s]+)\s+\(/);
-    if (fileMatch?.[1]) files.add(fileMatch[1]);
-    if (groupedMatch?.[1]) files.add(groupedMatch[1]);
-  }
-  return [...files];
-}
-
-type ParsedRepairDiagnostic = {
-  file: string;
-  line: number | null;
-  column: number | null;
-  message: string;
-  source: string;
-};
-
-const STACK_LINE_PREFIX_RE = /^\s*(at|in)\s+/i;
-const NOISE_LINE_RE = /^(>|\|{2,}|npm (ERR|WARN)!|error Command failed)/i;
-const FILE_LINE_RE =
-  /^(?<file>(?:[A-Za-z]:)?[^:\n\r]+\.(?:[tj]sx?|jsx?|mjs|cjs|json|css|scss|mdx?))(?::(?<line>\d+))?(?::(?<column>\d+))?\s*-?\s*(?<message>.+)$/;
-const TS_DIAG_RE =
-  /^(?<file>(?:[A-Za-z]:)?[^:\n\r]+\.(?:[tj]sx?|jsx?|mjs|cjs|json|css|scss|mdx?))\((?<line>\d+),(?<column>\d+)\):\s*(?:error|warning)\s+TS\d+:\s*(?<message>.+)$/i;
-const BRACKET_PREFIX_RE = /^\[[^\]]+\]\s*/;
-
-function toPosixPath(value: string): string {
-  return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
-}
-
-function normalizeDiagnosticFile(raw: string): string | null {
-  const normalized = toPosixPath(raw.replace(/^file\s+/i, "").trim());
-  if (!normalized || normalized.startsWith("http://") || normalized.startsWith("https://")) {
-    return null;
-  }
-  if (normalized.includes("node_modules/")) return null;
-  const cwdMarker = "/sajtmaskin/";
-  const cwdIndex = normalized.toLowerCase().lastIndexOf(cwdMarker);
-  if (cwdIndex >= 0) {
-    return normalized.slice(cwdIndex + cwdMarker.length);
-  }
-  return normalized.replace(/^\/+/, "");
-}
-
-function parseNullableInt(value: string | undefined): number | null {
-  if (!value) return null;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function parseDiagnosticsFromFailure(failure: RepairFailedOutput): ParsedRepairDiagnostic[] {
-  const diagnostics: ParsedRepairDiagnostic[] = [];
-  const lines = failure.output.split("\n");
-  for (const rawLine of lines) {
-    const line = BRACKET_PREFIX_RE.test(rawLine)
-      ? rawLine.replace(BRACKET_PREFIX_RE, "").trim()
-      : rawLine.trim();
-    if (!line || line.length < 3) continue;
-    if (STACK_LINE_PREFIX_RE.test(line) || NOISE_LINE_RE.test(line)) continue;
-
-    const tsMatch = line.match(TS_DIAG_RE);
-    if (tsMatch?.groups) {
-      const file = normalizeDiagnosticFile(tsMatch.groups.file);
-      const message = tsMatch.groups.message?.trim();
-      if (!file || !message) continue;
-      diagnostics.push({
-        file,
-        line: parseNullableInt(tsMatch.groups.line),
-        column: parseNullableInt(tsMatch.groups.column),
-        message,
-        source: failure.check,
-      });
-      continue;
-    }
-
-    const fileLineMatch = line.match(FILE_LINE_RE);
-    if (fileLineMatch?.groups) {
-      const file = normalizeDiagnosticFile(fileLineMatch.groups.file);
-      const message = fileLineMatch.groups.message?.trim();
-      if (!file || !message || /^(error|warning)$/i.test(message)) continue;
-      diagnostics.push({
-        file,
-        line: parseNullableInt(fileLineMatch.groups.line),
-        column: parseNullableInt(fileLineMatch.groups.column),
-        message,
-        source: failure.check,
-      });
-      continue;
-    }
-  }
-  return diagnostics;
-}
 
 function buildImportGraph(content: string): {
   dependsOn: Map<string, Set<string>>;
@@ -596,6 +497,8 @@ export async function runRepairLoop<TPayload = unknown>(
           })
         : null;
 
+    const fixerInput = targetedBundle?.contentForFixer ?? content;
+    const contentBeforePass = content;
     const fixerAbort = new AbortController();
     const timeoutHandle = setTimeout(
       () => fixerAbort.abort(),
@@ -603,17 +506,14 @@ export async function runRepairLoop<TPayload = unknown>(
     );
     let fixerResult: Awaited<ReturnType<typeof runLlmFixer>>;
     try {
-      fixerResult = await runLlmFixer(
-        targetedBundle?.contentForFixer ?? content,
-        errorSummary,
-        {
-          model: params.fixerModel,
-          thinking: params.fixerThinking,
-          reasoningEffort: params.fixerReasoningEffort,
-          requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
-          abortSignal: fixerAbort.signal,
-        },
-      );
+      fixerResult = await runLlmFixer(fixerInput, errorSummary, {
+        model: params.fixerModel,
+        thinking: params.fixerThinking,
+        reasoningEffort: params.fixerReasoningEffort,
+        requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
+        recurringPatterns: params.recurringPatterns,
+        abortSignal: fixerAbort.signal,
+      });
     } finally {
       clearTimeout(timeoutHandle);
     }
@@ -643,11 +543,19 @@ export async function runRepairLoop<TPayload = unknown>(
       projectContent: content,
     });
     errorManifest = groupedAfterFix.errorManifest;
+    // The LLM "changed something" when either the raw output differs from
+    // the targeted input we handed it OR the post-autofix content differs
+    // from what the loop had at the top of this iteration. Either signal
+    // means the model did not regurgitate the same bytes verbatim.
+    const contentChanged =
+      fixerOutput !== fixerInput || content !== contentBeforePass;
     const stopReason = resolveServerRepairEarlyStopReason({
       fixerProducedOutput: true,
       errorsBefore,
       errorsAfter: syntaxResult.errors.length,
       timedOut: false,
+      contentChanged,
+      gateFailureSignals: repairContextLines.length,
     });
 
     if (syntaxResult.errors.length < bestErrorCount) {

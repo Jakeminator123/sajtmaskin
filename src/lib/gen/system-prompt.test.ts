@@ -158,7 +158,7 @@ describe("buildDynamicContext", () => {
       // Generic guidance fields (styleRules, sectionInventory, avoidPatterns,
       // worldClassRubric) were removed from variants 2026-04-17 (Val A) — the
       // variant block now relies on its high-signal design axes (motif, fonts,
-      // promptHints, themeTokens). See docs/architecture/scaffold-variants-inventory.md.
+      // promptHints, themeTokens). See docs/architecture/scaffold-system.md.
       const { context } = await buildDynamicContext({
         intent: "website",
         generationMode: "init",
@@ -235,6 +235,38 @@ describe("buildDynamicContext", () => {
       const routePlanIdx = context.indexOf("## Route Plan");
       expect(buildIntentIdx).toBeLessThan(profileIdx);
       expect(profileIdx).toBeLessThan(routePlanIdx);
+    });
+
+    it("emits canonical route paths section so the LLM uses exact href targets", async () => {
+      const routePlan = {
+        provenance: { primarySource: "brief" as const, sources: ["brief" as const] },
+        siteType: "brochure" as const,
+        reason: "Brief-defined Swedish blog routes",
+        routes: [
+          { path: "/", name: "Hem", intent: "Landningssida", required: true },
+          { path: "/blogg", name: "Blogg", intent: "Inlägg", required: true },
+        ],
+      };
+
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        routePlan,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("### Canonical route paths");
+      expect(context).toContain("`/blogg`");
+      expect(context).not.toContain("- `/blog`\n");
+      expect(context).toContain("Hard rules for navigation expressions:");
+      expect(context).toContain("Never invent paths");
+      expect(context).toContain("href ↔ route cross-check");
     });
 
     it("describes init shell policy when route realization defers extra routes", async () => {

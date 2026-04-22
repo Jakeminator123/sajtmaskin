@@ -20,291 +20,124 @@ import {
   searchScaffoldsWithDiagnostics,
   type ScaffoldSearchResponse,
 } from "./scaffold-search";
-const LANDING_KEYWORDS = [
-  "landing",
-  "landningssida",
-  "marketing",
-  "campaign",
-  "kampanj",
-  "startup",
-  "brand",
-  "varumärke",
-  "lansering",
-  "produktlansering",
-  "evenemang",
-  "event",
-  "promotion",
-  "erbjudande",
+import {
+  LANDING_KEYWORDS,
+  SAAS_KEYWORDS,
+  PORTFOLIO_KEYWORDS,
+  PORTFOLIO_MEDIA_KEYWORDS,
+  PORTFOLIO_ART_DIRECTION_KEYWORDS,
+  BLOG_KEYWORDS,
+  DASHBOARD_KEYWORDS,
+  APP_KEYWORDS,
+  AUTH_KEYWORDS,
+  ECOMMERCE_KEYWORDS,
+  CONTENT_KEYWORDS,
+  HOSPITALITY_SERVICE_KEYWORDS,
+  STRONG_ECOMMERCE_INTENT,
+} from "./keyword-banks";
+
+/**
+ * Professional-service domain keywords that route to the `business-services`
+ * scaffold. Split into STRONG (compound terms that are nearly unambiguous —
+ * kontorshotell, advokatbyrå, klinik…) and WEAK (single-word hints like
+ * konsult, jurist, byrå). Scoring: strong ×2 + weak ×1, so a single strong
+ * match is enough, or two weak matches together.
+ *
+ * Local to matcher.ts (not extracted to keyword-banks) because the scoring
+ * function `computeBusinessServicesScore` is tightly coupled to these banks.
+ */
+const BUSINESS_SERVICES_STRONG_KEYWORDS = [
+  "kontorshotell",
+  "kontorshotellet",
+  "kontorshotellssida",
+  "coworking",
+  "coworking space",
+  "flexkontor",
+  "kontorsgemenskap",
+  "advokatbyrå",
+  "advokatfirma",
+  "juristbyrå",
+  "juristfirma",
+  "juridisk rådgivning",
+  "redovisningsbyrå",
+  "redovisningsfirma",
+  "revisionsbyrå",
+  "revisionsfirma",
+  "reklambyrå",
+  "designbyrå",
+  "webbyrå",
+  "digitalbyrå",
+  "mediebyrå",
+  "kommunikationsbyrå",
+  "pr-byrå",
+  "eventbyrå",
+  "konsultbyrå",
+  "konsultbolag",
+  "konsultfirma",
+  "mäklarbyrå",
+  "mäklarfirma",
+  "fastighetsbolag",
+  "bemanningsföretag",
+  "bemanningsbolag",
+  "rekryteringsbyrå",
+  "rekryteringsfirma",
+  "arkitektbyrå",
+  "arkitektkontor",
+  "byggfirma",
+  "byggföretag",
+  "städfirma",
+  "städbolag",
+  "målerifirma",
+  "elfirma",
+  "takfirma",
+  "tandklinik",
+  "specialistklinik",
+  "läkarmottagning",
+  "veterinärklinik",
+  "tjänsteföretag",
+  "serviceföretag",
 ];
 
-const SAAS_KEYWORDS = [
-  "saas",
-  "software",
-  "platform",
-  "subscription",
-  "pricing",
-  "billing",
-  "product-led",
-  "product led",
-  "b2b",
-  "workspace",
-  "dashboard preview",
-  "free trial",
-  "mjukvara",
-  "plattform",
-  "abonnemang",
-  "pris",
-  "testperiod",
-];
-
-const PORTFOLIO_KEYWORDS = [
-  "portfolio",
-  "designer",
-  "developer",
-  "photographer",
-  "photo studio",
-  "creative",
-  "creator",
-  "personal",
-  "resume",
-  "cv",
-  "selected work",
-  "case study",
-  "case studies",
-  "founder profile",
-  "artist",
-  "stylist",
-  "copywriter",
-  "consultant profile",
-  "illustrator",
-  "videographer",
-  "portfolio site",
-  "fotograf",
-  "fotostudio",
-  "kreatör",
-  "personlig",
-  "case",
-  "influencer",
-  "content creator",
-  "samarbeten",
-];
-
-const PORTFOLIO_MEDIA_KEYWORDS = [
-  "photo",
-  "photos",
-  "image",
-  "images",
-  "foto",
-  "foton",
-  "bild",
-  "bilder",
-  "fotografi",
-  "fotografier",
-  "photography",
-];
-
-const PORTFOLIO_ART_DIRECTION_KEYWORDS = [
-  "gallery",
-  "galleri",
-  "editorial",
-  "utställning",
-  "exhibition",
-  "visuell",
-  "visual",
-  "estetisk",
-  "harmonisk",
-  "poetisk",
-  "curated",
-  "kurerad",
-];
-
-const BLOG_KEYWORDS = [
-  "blog",
-  "blogg",
-  "blogga",
-  "article",
-  "artikel",
-  "artiklar",
-  "post",
-  "inlägg",
-  "writer",
-  "författare",
-  "skribent",
-  "newsletter",
-  "nyhetsbrev",
-  "magazine",
-  "magasin",
-  "editorial",
-  "redaktion",
-  "tips",
-  "instruktioner",
-  "guide",
-  "guider",
-  "recept",
-  "dagbok",
-  "krönika",
-  "kolumn",
-];
-
-const DASHBOARD_KEYWORDS = [
-  "dashboard",
-  "instrumentpanel",
-  "analytics",
-  "analys",
-  "stats",
-  "statistik",
-  "metrics",
-  "mätvärden",
-  "overview",
-  "översikt",
-  "reports",
-  "rapport",
-  "rapporter",
-  "chart",
-  "diagram",
-  "table",
-  "tabell",
-  "kontrollpanel",
-  "nyckeltal",
-  "graf",
-  "grafer",
-  "sammanställning",
-];
-
-const APP_KEYWORDS = [
-  "admin",
-  "crm",
-  "panel",
-  "settings",
-  "inställningar",
-  "users",
-  "användare",
-  "sidebar",
-  "sidopanel",
-  "tool",
-  "verktyg",
-  "management",
-  "monitor",
-  "application",
-  "app",
-  "workspace",
-  "portal",
-  "backoffice",
-  "administrera",
-  "hantera",
-  "kontoinställningar",
-  "kontohantering",
-  "systemvy",
-  "översiktsvy",
-];
-
-const AUTH_KEYWORDS = [
-  "auth",
-  "login",
-  "inloggning",
-  "logga in",
-  "signup",
-  "sign up",
-  "registrera",
-  "registrering",
-  "register",
-  "password",
-  "lösenord",
-  "forgot password",
-  "glömt lösenord",
-  "reset password",
-  "återställ",
-  "autentisering",
-  "konto",
-  "skapa konto",
-  "verifiera",
-  "verifiering",
-  "tvåfaktor",
-];
-
-const ECOMMERCE_KEYWORDS = [
-  "ecommerce",
-  "e-commerce",
-  "e-handel",
-  "webshop",
-  "webbshop",
-  "webbutik",
-  "shop",
-  "butik",
-  "store",
-  "online store",
-  "nätbutik",
-  "product",
-  "produkt",
-  "produkter",
-  "cart",
-  "varukorg",
-  "kundvagn",
-  "checkout",
-  "kassa",
-  "betalning",
-  "order",
-  "beställning",
-  "inventory",
-  "lager",
-  "catalog",
-  "katalog",
-  "storefront",
-  "sortiment",
-  "säljer",
-  "köpa",
-  "köp",
-  "second-hand",
-  "secondhand",
-  "mode",
-  "kläder",
-  "accessoarer",
-  "skor",
-  "smycken",
-  "inredning",
-  "möbler",
-  "hudvård",
-  "kosmetik",
-];
-
-const CONTENT_KEYWORDS = [
-  "company",
-  "business",
-  "services",
-  "service",
-  "consulting",
-  "consultant",
-  "agency",
-  "corporate",
-  "homepage",
-  "home page",
-  "hemsida",
-  "webbplats",
-  "sajt",
-  "företag",
+const BUSINESS_SERVICES_WEAK_KEYWORDS = [
   "byrå",
-  "tjänster",
-  "tjänst",
-  "erbjuder",
-  "erbjudande",
-  "kontaktformulär",
-  "bokning",
-  "boka tid",
-  "öppettider",
-  "galleri",
-  "gallery",
-  "showcase",
-  "projekt",
-  "projects",
-  "referens",
-  "referenser",
-  "kundrecension",
-  "omdömen",
-  "team",
-  "vårt team",
-  "om oss",
+  "kontor",
+  "kontoret",
+  "mottagning",
+  "advokat",
+  "jurist",
+  "revision",
+  "revisor",
+  "redovisning",
+  "bokföring",
+  "konsult",
+  "arkitekt",
+  "mäklare",
+  "fastighetsmäklare",
+  "bemanning",
+  "rekrytering",
+  "takläggare",
+  "snickare",
+  "målare",
+  "rörmokare",
+  "elektriker",
+  "hantverkare",
+  "tandläkare",
+  "tandvård",
+  "klinik",
+  "vårdcentral",
+  "veterinär",
+  "fysioterapeut",
+  "psykolog",
+  "terapeut",
+  "lokala tjänster",
 ];
 
+/**
+ * Swedish SMB keywords. When a prompt contains several of these (frisör,
+ * salong, klippning…) the content-site scaffold gets a small boost so
+ * single-generic-keyword prompts land on a richer multi-page scaffold
+ * instead of the generic landing-page fallback.
+ */
 const SWEDISH_BUSINESS_KEYWORDS = [
   "frisör",
   "salong",
@@ -401,193 +234,6 @@ const SWEDISH_BUSINESS_KEYWORDS = [
   "upplev",
 ];
 
-/**
- * Domain keywords that indicate the site is a service/hospitality business,
- * NOT an online store. When these are present and ecommerce intent is weak,
- * the ecommerce scaffold should be vetoed in favor of landing-page or content-site.
- */
-const HOSPITALITY_SERVICE_KEYWORDS = [
-  "restaurang",
-  "restaurant",
-  "café",
-  "cafe",
-  "kafé",
-  "bistro",
-  "bar",
-  "pub",
-  "bakeri",
-  "bageri",
-  "bakery",
-  "konditori",
-  "pizzeria",
-  "hotell",
-  "hotel",
-  "hostel",
-  "bed and breakfast",
-  "b&b",
-  "spa",
-  "salong",
-  "salon",
-  "frisör",
-  "barber",
-  "tandläkare",
-  "dentist",
-  "clinic",
-  "klinik",
-  "veterinär",
-  "gym",
-  "yoga",
-  "pilates",
-  "massage",
-  "terapeut",
-  "therapist",
-  "catering",
-  "food truck",
-  "matrestaurang",
-  "meny",
-  "menu",
-  "boka bord",
-  "book a table",
-  "reservation",
-  "öppettider",
-  "opening hours",
-];
-
-/**
- * Professional-service domain keywords that route to the `business-services`
- * scaffold. Split into STRONG (compound terms that are nearly unambiguous —
- * kontorshotell, advokatbyrå, klinik…) and WEAK (single-word hints like
- * konsult, jurist, byrå). Scoring: strong ×2 + weak ×1 ≥ MIN_SCORE triggers
- * the scaffold, so a single strong match is enough, or two weak matches
- * together.
- *
- * Deliberately avoids keywords already covered by HOSPITALITY_SERVICE_KEYWORDS
- * (restaurang/hotell/café/bageri/bar/spa/salong/frisör/gym) so hospitality
- * prompts keep routing to content-site / landing-page as before.
- */
-const BUSINESS_SERVICES_STRONG_KEYWORDS = [
-  // office hotels / coworking
-  "kontorshotell",
-  "kontorshotellet",
-  "kontorshotellssida",
-  "coworking",
-  "coworking space",
-  "flexkontor",
-  "kontorsgemenskap",
-  // legal
-  "advokatbyrå",
-  "advokatfirma",
-  "juristbyrå",
-  "juristfirma",
-  "juridisk rådgivning",
-  // accounting / audit
-  "redovisningsbyrå",
-  "redovisningsfirma",
-  "revisionsbyrå",
-  "revisionsfirma",
-  // agencies
-  "reklambyrå",
-  "designbyrå",
-  "webbyrå",
-  "digitalbyrå",
-  "mediebyrå",
-  "kommunikationsbyrå",
-  "pr-byrå",
-  "eventbyrå",
-  // consulting
-  "konsultbyrå",
-  "konsultbolag",
-  "konsultfirma",
-  // real estate
-  "mäklarbyrå",
-  "mäklarfirma",
-  "fastighetsbolag",
-  // staffing
-  "bemanningsföretag",
-  "bemanningsbolag",
-  "rekryteringsbyrå",
-  "rekryteringsfirma",
-  // architecture
-  "arkitektbyrå",
-  "arkitektkontor",
-  // trades
-  "byggfirma",
-  "byggföretag",
-  "städfirma",
-  "städbolag",
-  "målerifirma",
-  "elfirma",
-  "takfirma",
-  // medical (non-hospitality)
-  "tandklinik",
-  "specialistklinik",
-  "läkarmottagning",
-  "veterinärklinik",
-  // generic anchors
-  "tjänsteföretag",
-  "serviceföretag",
-];
-
-const BUSINESS_SERVICES_WEAK_KEYWORDS = [
-  "byrå",
-  "kontor",
-  "kontoret",
-  "mottagning",
-  "advokat",
-  "jurist",
-  "revision",
-  "revisor",
-  "redovisning",
-  "bokföring",
-  "konsult",
-  "arkitekt",
-  "mäklare",
-  "fastighetsmäklare",
-  "bemanning",
-  "rekrytering",
-  "takläggare",
-  "snickare",
-  "målare",
-  "rörmokare",
-  "elektriker",
-  "hantverkare",
-  "tandläkare",
-  "tandvård",
-  "klinik",
-  "vårdcentral",
-  "veterinär",
-  "fysioterapeut",
-  "psykolog",
-  "terapeut",
-  "lokala tjänster",
-];
-
-function computeBusinessServicesScore(text: string): number {
-  const strong = countKeywordMatches(text, BUSINESS_SERVICES_STRONG_KEYWORDS);
-  const weak = countKeywordMatches(text, BUSINESS_SERVICES_WEAK_KEYWORDS);
-  return strong * 2 + weak;
-}
-
-/**
- * Strong ecommerce-intent keywords that override the hospitality veto.
- * Only if these appear alongside hospitality words should ecommerce still win.
- */
-const STRONG_ECOMMERCE_INTENT = [
-  "webshop",
-  "webbshop",
-  "e-handel",
-  "ecommerce",
-  "e-commerce",
-  "varukorg",
-  "kundvagn",
-  "cart",
-  "checkout",
-  "kassa",
-  "storefront",
-  "nätbutik",
-  "online store",
-];
-
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -600,6 +246,12 @@ function countKeywordMatches(text: string, keywords: readonly string[]): number 
     );
     return count + (pattern.test(text) ? 1 : 0);
   }, 0);
+}
+
+function computeBusinessServicesScore(text: string): number {
+  const strong = countKeywordMatches(text, BUSINESS_SERVICES_STRONG_KEYWORDS);
+  const weak = countKeywordMatches(text, BUSINESS_SERVICES_WEAK_KEYWORDS);
+  return strong * 2 + weak;
 }
 
 function countPortfolioSignalBoost(text: string): number {

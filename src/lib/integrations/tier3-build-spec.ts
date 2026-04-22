@@ -34,6 +34,7 @@ import {
   type IntegrationDefinition,
 } from "@/lib/integrations/registry";
 import { partitionEnvKeysByTier } from "@/lib/integrations/placeholder-harmless";
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 
 export interface Tier3IntegrationRequirement {
   /** Integration key, matches `IntegrationDefinition.key`. */
@@ -44,7 +45,9 @@ export interface Tier3IntegrationRequirement {
   provider: string;
   /**
    * Env keys that MUST have real values before F3 can succeed.
-   * Subset of `IntegrationDefinition.envVars` excluding placeholder-harmless keys.
+   * Subset of `IntegrationDefinition.envVars` excluding placeholder-harmless
+   * keys AND any key whose dossier metadata marked it `feature-runtime` /
+   * `warn-only` (those are surfaced separately below).
    */
   requiredRealEnvKeys: string[];
   /**
@@ -52,6 +55,19 @@ export interface Tier3IntegrationRequirement {
    * Subset of `IntegrationDefinition.envVars` matching `PLACEHOLDER_HARMLESS_ENV_KEYS`.
    */
   placeholderOkEnvKeys: string[];
+  /**
+   * Env keys whose dossier marks them `feature-runtime` — the SDK is
+   * imported but the dossier's UI shows a configuration banner / popup
+   * when the value is missing. F3 reports these as informational warnings.
+   * Empty when no dossier metadata is available (legacy callers).
+   */
+  featureRuntimeEnvKeys: string[];
+  /**
+   * Env keys whose dossier marks them `warn-only` — the dossier code
+   * self-disables on empty value. Surfaced only as info; never blocks.
+   * Empty when no dossier metadata is available.
+   */
+  warnOnlyEnvKeys: string[];
   /** 4-8 concrete build steps for the F3 LLM. */
   buildInstructions: string[];
   /** Vendor setup guide (re-exported from `IntegrationDefinition.setupGuide`). */
@@ -71,6 +87,16 @@ export interface Tier3ReadinessReport {
     key: string;
     name: string;
     missing: string[];
+  }>;
+  /**
+   * Per-integration breakdown of build-enforcement keys that were satisfied
+   * via a placeholder rather than a real value (only populated when
+   * `validateTier3Readiness` ran with `allowPlaceholdersForBuildKeys`).
+   */
+  placeholderUsedByIntegration?: Array<{
+    key: string;
+    name: string;
+    placeholdered: string[];
   }>;
 }
 
@@ -177,6 +203,57 @@ function findIntegrationDefinition(
 }
 
 /**
+ * Shape used to decide whether an integration is backed by a runtime-
+ * installable dossier on disk. The F3 contract ("bygg integrationer") is
+ * only actionable when a hard-class dossier exists that actually implements
+ * the integration — otherwise F3 would ask the user for env keys that no
+ * generated file would ever consume (e.g. CLERK_SECRET_KEY without any
+ * clerk-auth dossier to wire it up).
+ *
+ * Backing is indicated by ANY of:
+ *  - dossier id starts with `<integration.key>-` or equals `<key>`
+ *    (e.g. stripe-checkout matches stripe)
+ *  - dossier's capability equals integration.category
+ *  - integration provider appears in the dossier's dependencies array
+ */
+interface DossierBackingIndex {
+  readonly matchers: ReadonlyArray<(def: IntegrationDefinition) => boolean>;
+}
+
+function buildDossierBackingIndex(): DossierBackingIndex {
+  const entries = getAllDossiers();
+  const matchers: Array<(def: IntegrationDefinition) => boolean> = [];
+  for (const entry of entries) {
+    const idLc = entry.id.toLowerCase();
+    const capabilityLc = entry.capability.toLowerCase();
+    const deps = (entry.dependencies ?? []).map((d) => d.toLowerCase());
+    matchers.push((def: IntegrationDefinition) => {
+      const keyLc = def.key.toLowerCase();
+      const providerLc = (def.provider ?? def.key).toLowerCase();
+      const categoryLc = def.category.toLowerCase();
+      if (idLc === keyLc || idLc.startsWith(`${keyLc}-`)) return true;
+      if (idLc === providerLc || idLc.startsWith(`${providerLc}-`)) return true;
+      if (capabilityLc === categoryLc) return true;
+      if (deps.some((d) => d === keyLc || d.includes(`/${keyLc}`) || d.startsWith(`${keyLc}`))) {
+        return true;
+      }
+      return false;
+    });
+  }
+  return { matchers };
+}
+
+function isIntegrationDossierBacked(
+  def: IntegrationDefinition,
+  index: DossierBackingIndex,
+): boolean {
+  for (const match of index.matchers) {
+    if (match(def)) return true;
+  }
+  return false;
+}
+
+/**
  * Build a Tier-3 spec from the contracts the orchestrator already inferred.
  * Only `chosen` (or unresolved-but-named) integrations contribute; `optional`
  * integrations without a status are skipped because the user hasn't asked
@@ -186,6 +263,7 @@ export function deriveTier3BuildSpec(
   contracts: PlanContracts,
 ): Tier3BuildSpec {
   const requirements: Tier3IntegrationRequirement[] = [];
+  const backingIndex = buildDossierBackingIndex();
 
   for (const integration of uniqueProviderIntegrations(contracts)) {
     if (integration.status === "optional") continue;
@@ -197,12 +275,40 @@ export function deriveTier3BuildSpec(
       : def.envVars;
     const { harmless, tier3 } = partitionEnvKeysByTier(envKeys);
 
+    // PlanContracts may carry per-key enforcement (added to the schema in
+    // P31). When absent (older callers / legacy snapshots) every tier-3
+    // key falls back to `"build"` — the conservative pre-P31 default.
+    const enforcementHint = integration.envEnforcement;
+    const featureRuntimeEnvKeys = enforcementHint
+      ? tier3.filter((k) => enforcementHint[k] === "feature-runtime")
+      : [];
+    const warnOnlyEnvKeys = enforcementHint
+      ? tier3.filter((k) => enforcementHint[k] === "warn-only")
+      : [];
+    let buildEnforcedTier3 = tier3.filter(
+      (k) => !featureRuntimeEnvKeys.includes(k) && !warnOnlyEnvKeys.includes(k),
+    );
+    let effectiveWarnOnly = warnOnlyEnvKeys;
+
+    // Clamp against dossier-backing: if no hard-/soft-dossier implements this
+    // integration, we cannot generate code that consumes its env keys. F3
+    // asking for a real CLERK_SECRET_KEY when no clerk-auth dossier exists
+    // would block the build on a value no generated file would ever use.
+    // Downgrade to warn-only so the UI still surfaces the expected vars but
+    // F3 validation doesn't refuse to start.
+    if (!isIntegrationDossierBacked(def, backingIndex) && buildEnforcedTier3.length > 0) {
+      effectiveWarnOnly = [...warnOnlyEnvKeys, ...buildEnforcedTier3];
+      buildEnforcedTier3 = [];
+    }
+
     requirements.push({
       key: def.key,
       name: def.name,
       provider: def.provider ?? def.key,
-      requiredRealEnvKeys: tier3,
+      requiredRealEnvKeys: buildEnforcedTier3,
       placeholderOkEnvKeys: harmless,
+      featureRuntimeEnvKeys,
+      warnOnlyEnvKeys: effectiveWarnOnly,
       buildInstructions: resolveBuildInstructions(def),
       setupGuide: def.setupGuide,
     });
@@ -217,26 +323,49 @@ export function deriveTier3BuildSpec(
  * `projectEnvVars` should already be decrypted (e.g. from
  * `getStoredProjectEnvVarMap`). A key is satisfied when it has a non-empty
  * trimmed value.
+ *
+ * `options.allowPlaceholdersForBuildKeys` (Phase 4 toggle): when true, a
+ * `build`-enforcement key counts as satisfied if it has a placeholder
+ * value in `placeholderEnvKeys`. The result still records which keys were
+ * placeholdered so the UI can show banners.
  */
 export function validateTier3Readiness(
   spec: Tier3BuildSpec,
   projectEnvVars: Record<string, string>,
+  options: {
+    allowPlaceholdersForBuildKeys?: boolean;
+    placeholderEnvKeys?: ReadonlySet<string>;
+  } = {},
 ): Tier3ReadinessReport {
   const missingByIntegration: Tier3ReadinessReport["missingByIntegration"] = [];
+  const placeholderUsedByIntegration: NonNullable<
+    Tier3ReadinessReport["placeholderUsedByIntegration"]
+  > = [];
+  const allowPlaceholders = options.allowPlaceholdersForBuildKeys === true;
+  const placeholderKeys = options.placeholderEnvKeys ?? new Set<string>();
 
   for (const req of spec.requirements) {
     const missing: string[] = [];
+    const placeholdered: string[] = [];
     for (const key of req.requiredRealEnvKeys) {
       const value = projectEnvVars[key];
-      if (typeof value !== "string" || value.trim() === "") {
-        missing.push(key);
+      const hasRealValue = typeof value === "string" && value.trim() !== "";
+      if (hasRealValue) continue;
+
+      if (allowPlaceholders && placeholderKeys.has(key)) {
+        placeholdered.push(key);
+        continue;
       }
+      missing.push(key);
     }
     if (missing.length > 0) {
-      missingByIntegration.push({
+      missingByIntegration.push({ key: req.key, name: req.name, missing });
+    }
+    if (placeholdered.length > 0) {
+      placeholderUsedByIntegration.push({
         key: req.key,
         name: req.name,
-        missing,
+        placeholdered,
       });
     }
   }
@@ -244,6 +373,9 @@ export function validateTier3Readiness(
   return {
     ready: missingByIntegration.length === 0,
     missingByIntegration,
+    ...(placeholderUsedByIntegration.length > 0
+      ? { placeholderUsedByIntegration }
+      : {}),
   };
 }
 

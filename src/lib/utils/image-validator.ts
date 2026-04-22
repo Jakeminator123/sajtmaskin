@@ -11,7 +11,7 @@ import {
  * for broken/hallucinated URLs (e.g., non-existent Unsplash photos).
  *
  * Used by:
- * - POST /api/v0/chats/[chatId]/validate-images (auto-fix)
+ * - POST /api/engine/chats/[chatId]/validate-images (auto-fix)
  * - runPostGenerationChecks (reporting)
  */
 
@@ -207,10 +207,29 @@ async function findBrokenImages(
     : refs;
 
   const broken: BrokenImage[] = [];
+
+  // Fast-path: source.unsplash.com is permanently dead (shut down mid-2024).
+  // No HEAD round-trip — mark as 410 Gone and let findReplacements rewrite
+  // them via the Unsplash search API.
+  const headRefs: ImageRef[] = [];
+  for (const ref of refsToCheck) {
+    if (isDeadUnsplashSourceUrl(ref.url)) {
+      broken.push({
+        url: ref.url,
+        alt: ref.alt,
+        file: ref.file,
+        status: 410,
+        replacementUrl: null,
+      });
+    } else {
+      headRefs.push(ref);
+    }
+  }
+
   const batches: ImageRef[][] = [];
 
-  for (let i = 0; i < refsToCheck.length; i += MAX_CONCURRENT_CHECKS) {
-    batches.push(refsToCheck.slice(i, i + MAX_CONCURRENT_CHECKS));
+  for (let i = 0; i < headRefs.length; i += MAX_CONCURRENT_CHECKS) {
+    batches.push(headRefs.slice(i, i + MAX_CONCURRENT_CHECKS));
   }
 
   for (const batch of batches) {
@@ -244,6 +263,23 @@ async function findBrokenImages(
 function isUnsplashUrl(url: string): boolean {
   try {
     return new URL(url).hostname === "images.unsplash.com";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * source.unsplash.com was Unsplash's "random photo" CDN — fully shut down
+ * mid-2024. URLs return 502/connection-error and never recover. We detect
+ * them up-front so they get the Unsplash-replacement codepath even when
+ * a HEAD check would have already failed (HEAD is slow and the 410 is
+ * a known-dead signal).
+ *
+ * See SAJ-18 / handoff A3.
+ */
+function isDeadUnsplashSourceUrl(url: string): boolean {
+  try {
+    return new URL(url).hostname === "source.unsplash.com";
   } catch {
     return false;
   }
@@ -315,7 +351,9 @@ async function findReplacements(
 
   const updated = [...broken];
   for (const entry of updated) {
-    if (!isUnsplashUrl(entry.url)) continue;
+    // Replace both live-but-broken images.unsplash.com and the dead
+    // source.unsplash.com domain (SAJ-18 / A3).
+    if (!isUnsplashUrl(entry.url) && !isDeadUnsplashSourceUrl(entry.url)) continue;
     const orientation = inferUnsplashOrientationFromUrl(entry.url);
     const candidates = buildUnsplashSearchCandidates(entry.alt || "nature landscape");
     for (const query of candidates) {

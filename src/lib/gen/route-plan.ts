@@ -132,59 +132,7 @@ type BriefPageLike = {
   purpose?: unknown;
 };
 
-const WEBSITE_ROUTE_PATTERNS: Array<{
-  match: RegExp;
-  path: string;
-  name: string;
-  intent: string;
-}> = [
-  {
-    match: /\bom\s+oss\b/i,
-    path: "/om-oss",
-    name: "Om oss",
-    intent: "Build trust and explain the company or creator. File: app/om-oss/page.tsx",
-  },
-  {
-    match: /\b(about|company|story)\b/i,
-    path: "/om-oss",
-    name: "Om oss",
-    intent: "Build trust and explain the company or creator. Swedish slug: /om-oss. File: app/om-oss/page.tsx",
-  },
-  {
-    match: /\b(booking\s+page|bookings?\s+page|bokningssida|bokningssidan|bookings?|booking|boka|reservation|reserve)\b/i,
-    path: "/boka",
-    name: "Boka",
-    intent: "Provide a dedicated booking/reservation flow. File: app/boka/page.tsx",
-  },
-  { match: /\b(services?\s+page|tjänste?r?\s*sida|our services|våra tjänster)\b/i, path: "/tjanster", name: "Tjänster", intent: "Explain offers, packages, or capabilities. File: app/tjanster/page.tsx" },
-  { match: /\b(pricing|price|pris|priser|billing)\b/i, path: "/priser", name: "Priser", intent: "Show pricing, plans, or billing details. File: app/priser/page.tsx" },
-  { match: /\b(contact|kontakta|kontakt|kontaktsida|kontaktsidan)\b/i, path: "/kontakt", name: "Kontakt", intent: "Capture leads or contact requests. File: app/kontakt/page.tsx" },
-  { match: /\b(blog|blogg|articles?|newsletter)\b/i, path: "/blogg", name: "Blogg", intent: "Publish articles, updates, or editorial content. File: app/blogg/page.tsx" },
-  { match: /\b(docs|documentation|kunskapsbank|guide|guides)\b/i, path: "/docs", name: "Docs", intent: "Provide structured documentation or help content. File: app/docs/page.tsx" },
-  { match: /\b(support|help center|faq|kundservice)\b/i, path: "/support", name: "Support", intent: "Answer common questions and support flows. File: app/support/page.tsx" },
-  { match: /\b(portfolio|case study|case studies|work|projekt)\b/i, path: "/projekt", name: "Projekt", intent: "Show portfolio pieces, projects, or case studies. File: app/projekt/page.tsx" },
-  { match: /\b(team\s+page|employees|staff\s+page|medarbetare\s*sida|our team|vårt team)\b/i, path: "/teamet", name: "Teamet", intent: "Introduce people behind the company or product. File: app/teamet/page.tsx" },
-  { match: /\b(testimonial|reviews|recensioner|omdömen)\b/i, path: "/omdomen", name: "Omdömen", intent: "Show social proof and customer outcomes. File: app/omdomen/page.tsx" },
-  { match: /\b(shop|store|butik|products|product|catalog|katalog)\b/i, path: "/produkter", name: "Produkter", intent: "Show product catalog or product overview. File: app/produkter/page.tsx" },
-  { match: /\b(cart|varukorg)\b/i, path: "/varukorg", name: "Varukorg", intent: "Show selected products before checkout. File: app/varukorg/page.tsx" },
-  { match: /\b(checkout|kassa)\b/i, path: "/kassa", name: "Kassa", intent: "Complete the purchase flow. File: app/kassa/page.tsx" },
-];
-
-const APP_ROUTE_PATTERNS: Array<{
-  match: RegExp;
-  path: string;
-  name: string;
-  intent: string;
-}> = [
-  { match: /\b(settings|inställningar)\b/i, path: "/settings", name: "Settings", intent: "Manage account, workspace, or application settings." },
-  { match: /\b(user|users|team|members|användare)\b/i, path: "/users", name: "Users", intent: "Manage users, roles, or members." },
-  { match: /\b(billing|subscription|invoice|faktur)\b/i, path: "/billing", name: "Billing", intent: "Manage billing, subscriptions, or invoices." },
-  { match: /\b(analytics|metrics|statistik|analys)\b/i, path: "/analytics", name: "Analytics", intent: "Show analytics, metrics, or statistical dashboards." },
-  { match: /\b(report|reports|rapport|rapporter)\b/i, path: "/reports", name: "Reports", intent: "Show reports or exportable summaries." },
-  { match: /\b(sign.?up|register|registr(?:era|ering)?)\b/i, path: "/signup", name: "Signup", intent: "Provide account registration for the application." },
-  { match: /\b(forgot.?password|reset.?password|glömt lösenord|återställ)\b/i, path: "/forgot-password", name: "Forgot Password", intent: "Provide password recovery in the authentication flow." },
-  { match: /\b(login|inlogg|auth|sign.?in|logga in)\b/i, path: "/login", name: "Login", intent: "Provide authentication entry for the application." },
-];
+import { WEBSITE_ROUTE_PATTERNS, APP_ROUTE_PATTERNS } from "./route-plan/route-patterns";
 
 // Keep removal language explicit so "utan ..." copy/layout phrasing
 // does not silently delete routes during follow-ups.
@@ -433,8 +381,15 @@ export function buildRoutePlan(params: {
   resolvedScaffold: ScaffoldManifest | null;
   generationMode?: "init" | "followUp";
   existingRoutePaths?: string[];
+  /**
+   * Project locale used to dedupe locale-alternate route pairs (e.g. /blogg vs
+   * /blog, /kontakt vs /contact). Defaults to "sv" because Sajtmaskin's
+   * generated sites render `<html lang="sv">` unless explicitly overridden.
+   * Pass "en" (or any non-sv locale) to keep English route variants instead.
+   */
+  locale?: string;
 }): RoutePlan {
-  const { prompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [] } = params;
+  const { prompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [], locale = "sv" } = params;
   const routes: PlannedRoute[] = [];
   const briefRoutes = buildRoutesFromBrief(brief);
   const hasBriefRoutes = briefRoutes.length > 0;
@@ -597,6 +552,11 @@ export function buildRoutePlan(params: {
     }
   }
 
+  // Dedupe locale-alternate route pairs (e.g. /blog ↔ /blogg) before the plan
+  // is serialized for the LLM. Without this, brief + scaffold can produce both
+  // variants and the LLM emits inconsistent links across them.
+  dedupePlannedRoutesInPlaceByLocale(routes, locale);
+
   const sources: RoutePlanSource[] = [];
   if (hasBriefRoutes) sources.push("brief");
   if (promptAddedRoutes || sources.length === 0) sources.push("prompt");
@@ -657,8 +617,70 @@ const LOCALE_ROUTE_PAIRS: Array<{ en: string; sv: string }> = [
   { en: "/contact", sv: "/kontakt" },
   { en: "/about", sv: "/om" },
   { en: "/services", sv: "/tjanster" },
+  { en: "/blog", sv: "/blogg" },
 ];
 
+/**
+ * In-place dedupe of locale-alternate `PlannedRoute` pairs (e.g. `/blog` vs
+ * `/blogg`) before the route plan is sent to the LLM. Without this, a brief
+ * defining `/blogg` plus a scaffold/prompt-pattern adding `/blog` produces a
+ * route plan with both variants — the LLM then often emits inconsistent
+ * `<Link href="/blog/${slug}">` against an actual `/blogg/[slug]` route,
+ * which fails the verifier's `navigation-placeholder-actions` rule.
+ *
+ * Kept route preserves its existing `name`, `intent`, and `required` flags;
+ * the dropped variant's `required` flag is OR-merged into the kept one.
+ */
+function dedupePlannedRoutesInPlaceByLocale(
+  routes: PlannedRoute[],
+  locale: string,
+): { droppedPaths: string[] } {
+  const lc = (locale ?? "sv").toLowerCase();
+  const isSwedish = lc.startsWith("sv");
+  const keepKey: "sv" | "en" = isSwedish ? "sv" : "en";
+  const dropKey: "sv" | "en" = isSwedish ? "en" : "sv";
+  const dropped: string[] = [];
+
+  for (const pair of LOCALE_ROUTE_PAIRS) {
+    const keepIndex = routes.findIndex(
+      (route) => normalizeRoutePath(route.path) === pair[keepKey],
+    );
+    const dropIndex = routes.findIndex(
+      (route) => normalizeRoutePath(route.path) === pair[dropKey],
+    );
+    if (keepIndex < 0 || dropIndex < 0) continue;
+
+    const dropRoute = routes[dropIndex]!;
+    const keepRoute = routes[keepIndex]!;
+    if (dropRoute.required) keepRoute.required = true;
+    routes.splice(dropIndex, 1);
+    dropped.push(pair[dropKey]);
+  }
+
+  if (dropped.length > 0) {
+    debugLog("GEN", "[route-plan] dropped duplicate locale-alternate routes", {
+      locale: lc,
+      kept: keepKey,
+      dropped,
+    });
+  }
+
+  return { droppedPaths: dropped };
+}
+
+/**
+ * Path-list flavour of locale-alternate dedupe. Returns a fresh array with
+ * collapsed duplicates and preserves the input order.
+ *
+ * Production callers inside `buildRoutePlan()` use the richer in-place
+ * {@link dedupePlannedRoutesInPlaceByLocale} which preserves
+ * `name`/`intent`/`required` on the kept route. Use this string-list
+ * function only when you have a bare path array (e.g. tests or external
+ * consumers that don't carry full {@link PlannedRoute} objects).
+ *
+ * Both functions share {@link LOCALE_ROUTE_PAIRS} as the single source of
+ * truth for locale-alternate pairs.
+ */
 export function deduplicateLocaleAlternateRoutes(
   routes: string[],
   locale: string,
@@ -720,7 +742,7 @@ export function extractAppRoutePathsFromFilePaths(filePaths: string[]): string[]
   return Array.from(routes);
 }
 
-function routePatternToRegex(route: string): RegExp {
+export function routePatternToRegex(route: string): RegExp {
   const cleaned = normalizeRoutePath(route);
   if (cleaned === "/") return /^\/$/;
   const segments = cleaned.split("/").filter(Boolean);

@@ -1,9 +1,13 @@
 import { createSSEHeaders } from "@/lib/streaming";
+import {
+  withPromptToDoneMetricResponse,
+  wrapStreamForPromptToDoneMetric,
+} from "@/lib/observability/prompt-to-done-stream";
 import { createChatSchema } from "@/lib/validations/chatSchemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
-import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { prepareCredits } from "@/lib/credits/server";
+import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import {
   MAX_PROMPT_HANDOFF_CHARS,
@@ -16,7 +20,7 @@ import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation"
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/devLog";
-import { debugLog, errorLog } from "@/lib/utils/debug";
+import { debugLog } from "@/lib/utils/debug";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import {
@@ -639,7 +643,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           mode: "plan",
           chatId: plannerChat.id,
         });
-        return attachSessionCookie(planModeResponse);
+        return attachSessionCookie(
+          withPromptToDoneMetricResponse(planModeResponse, {
+            kind: "init",
+            promptStartedAt: requestStartedAt,
+            signal: req.signal,
+          }),
+        );
       }
 
       // ── Own Engine Path ───────────────────────────────────────────────
@@ -693,6 +703,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // brief→codegen drift. If preMatchVariant is null, async picker runs.
           // getVariantById fallback in orchestrate.ts re-picks if id is stale.
           persistedVariantId: preMatchVariant?.id ?? null,
+          // Q5a: pass resolved engine model id so deriveBuildSpec scales
+          // tokenBudgets to the model's actual context window.
+          engineModelId: resolveEngineModelId(resolvedModelTier),
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -815,9 +828,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             mode: "pre-generation-contract-gate",
             chatId: engineChat.id,
           });
-          return attachSessionCookie(new Response(contractGateStream, {
-            headers: createSSEHeaders(),
-          }));
+          return attachSessionCookie(new Response(
+            wrapStreamForPromptToDoneMetric(contractGateStream, {
+              kind: "init",
+              promptStartedAt: requestStartedAt,
+              signal: req.signal,
+            }),
+            { headers: createSSEHeaders() },
+          ));
         }
         const finalizePromptStartedAt = Date.now();
         const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
@@ -943,32 +961,30 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           commitCredits: commitCreditsOnce,
         });
 
-        const engineHeaders = new Headers(createSSEHeaders());
         debugLog("engine", "Create chat pre-stream complete", {
           durationMs: Date.now() - requestStartedAt,
           mode: "own-engine",
           chatId: engineChat.id,
         });
-        return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
+        return buildEngineStreamResponse({
+          engineStream,
+          req,
+          promptStartedAt: requestStartedAt,
+          kind: "init",
+          attachSessionCookie,
+        });
       }
     } catch (err) {
-      errorLog("engine", `Create chat error (requestId=${requestId})`, err);
-      const normalized = normalizeProviderError(err);
-      devLogAppend("latest", {
-        type: "comm.error.create",
-        message: normalized.message,
-        code: normalized.code,
+      return buildStreamErrorResponse({
+        err,
+        req,
+        requestId,
+        promptStartedAt: requestStartedAt,
+        kind: "init",
+        logLabel: "Create chat error",
+        devLogType: "comm.error.create",
+        attachSessionCookie,
       });
-      return attachSessionCookie(
-        NextResponse.json(
-          {
-            error: normalized.message,
-            code: normalized.code,
-            retryAfter: normalized.retryAfter ?? null,
-          },
-          { status: normalized.status },
-        ),
-      );
     }
   });
 }

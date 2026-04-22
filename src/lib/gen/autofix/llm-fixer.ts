@@ -5,7 +5,11 @@ import type { ReasoningEffort } from "../engine";
 import { toAnthropicEffort } from "../engine";
 import { getOpenAIModel, isAnthropicModel } from "../models";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "../parser";
-import { FIXER_SYSTEM_PROMPT, buildFixerUserPrompt } from "./fixer-prompt";
+import {
+  FIXER_SYSTEM_PROMPT,
+  buildFixerUserPrompt,
+  type RecurringFailurePattern,
+} from "./fixer-prompt";
 import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
 
 export interface FixerResult {
@@ -32,6 +36,11 @@ export async function runLlmFixer(
     maxTokens?: number;
     requiredFiles?: string[];
     abortSignal?: AbortSignal;
+    // Återkommande felmönster från tidigare runs i samma chat-session.
+    // Läses typiskt via `readRecurringPatternsForChat(chatId)` i
+    // `@/lib/logging/generation-log-writer`. Vi använder dem för att be
+    // LLM:en att INTE upprepa fixar som redan misslyckats N gånger.
+    recurringPatterns?: RecurringFailurePattern[];
   },
 ): Promise<FixerResult> {
   const start = performance.now();
@@ -39,6 +48,7 @@ export async function runLlmFixer(
   try {
     const userPrompt = buildFixerUserPrompt(content, errors, {
       requiredFiles: options?.requiredFiles,
+      recurringPatterns: options?.recurringPatterns,
     });
     const model = getOpenAIModel(options?.model ?? DEFAULT_FIXER_MODEL);
     const resolvedModelId = options?.model ?? DEFAULT_FIXER_MODEL;

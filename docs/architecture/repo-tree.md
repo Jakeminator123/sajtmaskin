@@ -11,10 +11,10 @@
 | `config/dashboard/` | Valfri **Streamlit**-GUI (`app.py`) för att redigera/överblicka samma material — **importeras inte** av Next.js. Detta är konfigurations-/översiktspanelen. Karta: [`config/dashboard/domain-map.json`](../../config/dashboard/domain-map.json). |
 | `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). Kanonisk arkitektur i `docs/architecture/`, backlog i `docs/plans/active/`. |
 | `research/` | Icke-runtime: äldre research/experiment och eventuella kvarvarande lokala arkiv. Den kanoniska external-template-pipelinen ligger inte här längre. |
-| `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite) plus kanonisk external-template-pipeline under `data/external-template-pipeline/`. Se [`docs/ENV.md`](../ENV.md). Ofta gitignorerad innehållsmässigt. |
+| `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite). Innehåller även dossier-systemet: `data/dossiers/{hard,soft}/<id>/` (committed manifests + instructions + components) samt `data/template-references/{repos,_metadata}/` (gitignored input till AI-kuration). Se [`dossier-system.md`](./dossier-system.md). |
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 3 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
-| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Innehåller fortfarande `scripts_dashboard.py` som legacy-entrypoint till den konsoliderade backoffice-appen. Undermappar: `db/`, `dev/`, `embeddings/`, `template-library/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`. |
+| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `template-library/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`. |
 | `archive/` | Icke-aktiva labb m.m. — [`archive/README.md`](../../archive/README.md) (t.ex. tidigare `scripts/labs/testning_scarf/`). |
 | `infra/` | OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |
 | `services/` | Hjälpprocesser (t.ex. inspector worker). |
@@ -39,7 +39,7 @@ Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan**
 | **Preview runtime / livscykel** | `src/lib/builder/preview-session/*`, `src/components/builder/preview-panel/*`, `src/lib/gen/preview/*` (ingen barrel-`index`; shim-URL: `preview/legacy/compatibility-shim`, HTML för `/api/preview-render`: `preview/build-preview-document`) |
 | **Generation engine** | `src/lib/gen/stream/*`, `src/lib/providers/own-engine/*`, `src/lib/own-engine/*` |
 | **DB / versioner / diagnostik** | `src/lib/db/*` — Postgres via Drizzle; **DB CRUD** i `src/lib/db/services/<domän>.ts` (importera t.ex. `@/lib/db/services/projects`, inte en gemensam barrel). Även `preview-diagnostics`, `eval`. |
-| **HTTP API (v0)** | `src/app/api/v0/chats/*`, övriga `src/app/api/*` |
+| **HTTP API** | `src/app/api/engine/chats/*` (chat-yta sedan P29 Fas 1B 2026-04-20), `src/app/api/v0/*` (kvarvarande Class C: deployments/projects/integrations), övriga `src/app/api/*` |
 
 ## Viktiga `src/lib/`-områden
 

@@ -5,6 +5,9 @@
     },
     "redis-development": {
       "enabled": true
+    },
+    "linear": {
+      "enabled": true
     }
   }
 }

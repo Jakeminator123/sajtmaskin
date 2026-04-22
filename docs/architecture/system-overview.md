@@ -19,7 +19,7 @@ Användarprompt
   → Version sparad i Postgres (`engine_versions.files_json`) → tier-2 preview (primärt `preview_host` / VM; shim endast legacy compat) → deploy (Vercel API)
 ```
 
-Mer detaljerad runtime-mermaid och modul-lista: [builder-generation.md](./builder-generation.md).
+Mer detaljerad runtime-mermaid och modul-lista: [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md).
 
 ## Own-engine preview vs «riktig» runtime
 
@@ -50,7 +50,7 @@ Canonical tabell och manifest: [`docs/schemas/model-build-profiles.md`](../schem
 
 ## Builder-entry (`BuildMethod`)
 
-Offentlig modell (detaljer): [`docs/schemas/builder-entry-contract.md`](../schemas/builder-entry-contract.md), [builder-generation.md](./builder-generation.md).
+Offentlig modell (detaljer): [`docs/schemas/builder-entry-contract.md`](../schemas/builder-entry-contract.md), [fas1-startprompt-flow.md](./fas1-startprompt-flow.md).
 
 | `BuildMethod` | Yta | Typiskt vid första render |
 |---------------|-----|---------------------------|
@@ -66,5 +66,5 @@ Tom `/builder` är **inte** en sjätte canonical metod — bootstrap. v0-templat
 
 - **Samlad terminologi:** [`docs/architecture/glossary.md`](../architecture/glossary.md) — alla begrepp med livscykelstatus.
 - **Index / buckets:** [`docs/plans/README.md`](../plans/README.md).
-- **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [builder-generation.md](./builder-generation.md) → [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md) → capstone ovan vid backlog-frågor.
+- **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [fas1-startprompt-flow.md](./fas1-startprompt-flow.md) → [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) → [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md) → capstone ovan vid backlog-frågor.
 - Handoffs sker i chatten; historik i git.

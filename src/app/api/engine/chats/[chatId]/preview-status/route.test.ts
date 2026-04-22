@@ -44,6 +44,14 @@ describe("GET preview-status (engine)", () => {
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
   });
 
+  it("returns 400 without versionId", async () => {
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("returns missing + preview_session_not_configured when tier-2 is disabled", async () => {
     isTier2PreviewConfigured.mockReturnValue(false);
 

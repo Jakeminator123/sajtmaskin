@@ -14,11 +14,11 @@ describe("resolvePhaseModel", () => {
     const verifier = resolvePhaseModel("fast", "verifier");
     const deploy = resolvePhaseModel("fast", "deploy-assistant");
 
-    expect(planner.modelId).toBe("gpt-4.1");
-    expect(generator.modelId).toBe("gpt-4.1");
-    expect(fixer.modelId).toBe("gpt-4.1");
-    expect(verifier.modelId).toBe("gpt-4.1");
-    expect(deploy.modelId).toBe("gpt-4.1");
+    expect(planner.modelId).toBe("gpt-5.4-mini");
+    expect(generator.modelId).toBe("gpt-5.4-mini");
+    expect(fixer.modelId).toBe("gpt-5.4-mini");
+    expect(verifier.modelId).toBe("gpt-5.4-mini");
+    expect(deploy.modelId).toBe("gpt-5.4-mini");
     expect(planner.reason).toBe("fast-tier-no-downgrade");
   });
 
@@ -52,15 +52,15 @@ describe("resolvePhaseModel", () => {
     expect(resolvePhaseModel("codex", "deploy-assistant").modelId).toBe("gpt-5.3-codex");
   });
 
-  it("uses Claude Sonnet across all phases in anthropic tier", () => {
+  it("anthropic tier uses Claude Opus for planner/generator and Sonnet for fixer/verifier", () => {
     const planner = resolvePhaseModel("anthropic", "planner");
     const verifier = resolvePhaseModel("anthropic", "verifier");
     const generator = resolvePhaseModel("anthropic", "generator");
     const fixer = resolvePhaseModel("anthropic", "fixer");
 
-    expect(planner.modelId).toBe("claude-sonnet-4.6");
+    expect(planner.modelId).toBe("claude-opus-4.6");
+    expect(generator.modelId).toBe("claude-opus-4.6");
     expect(verifier.modelId).toBe("claude-sonnet-4.6");
-    expect(generator.modelId).toBe("claude-sonnet-4.6");
     expect(fixer.modelId).toBe("claude-sonnet-4.6");
     expect(verifier.reason).toBe("anthropic-tier-unified");
   });
@@ -72,7 +72,7 @@ describe("resolvePhaseModel", () => {
       "gpt-5.3-codex",
     );
     expect(resolvePhaseModel("anthropic", "generator").modelId).toBe(
-      "claude-sonnet-4.6",
+      "claude-opus-4.6",
     );
   });
 });
@@ -91,8 +91,8 @@ describe("getPhaseRoutingSummary", () => {
       expect(summary).toHaveProperty(phase);
       expect(typeof summary[phase]).toBe("string");
     }
-    expect(summary.planner).toBe("gpt-4.1");
-    expect(summary.generator).toBe("gpt-4.1");
+    expect(summary.planner).toBe("gpt-5.4-mini");
+    expect(summary.generator).toBe("gpt-5.4-mini");
   });
 
   it("splits pro tier: all phases use gpt-5.3-codex", () => {
@@ -104,21 +104,21 @@ describe("getPhaseRoutingSummary", () => {
     expect(summary["deploy-assistant"]).toBe("gpt-5.3-codex");
   });
 
-  it("uses Claude for core phases; deploy-assistant stays gpt-4.1 (manifest)", () => {
+  it("anthropic tier: opus for planner/generator, sonnet elsewhere", () => {
     const summary = getPhaseRoutingSummary("anthropic");
-    expect(summary.planner).toBe("claude-sonnet-4.6");
-    expect(summary.generator).toBe("claude-sonnet-4.6");
+    expect(summary.planner).toBe("claude-opus-4.6");
+    expect(summary.generator).toBe("claude-opus-4.6");
     expect(summary.fixer).toBe("claude-sonnet-4.6");
     expect(summary.verifier).toBe("claude-sonnet-4.6");
-    expect(summary["deploy-assistant"]).toBe("gpt-4.1");
+    expect(summary["deploy-assistant"]).toBe("claude-sonnet-4.6");
   });
 });
 
 describe("resolvePhaseThinking", () => {
-  it("keeps fast tier planner thinking-off (low effort) and generator thinking-on (P21 manifest)", () => {
+  it("fast tier uses thinking on planner (low) and generator (medium) per manifest", () => {
     expect(resolvePhaseThinking("fast", "planner")).toEqual({
       phase: "planner",
-      thinking: false,
+      thinking: true,
       reasoningEffort: "low",
       reason: "manifest-phase-thinking",
     });
@@ -136,16 +136,26 @@ describe("resolvePhaseThinking", () => {
     expect(resolvePhaseThinking("pro", "deploy-assistant").thinking).toBe(false);
   });
 
+  it("anthropic tier enables thinking on fixer and verifier (heavier Claude path)", () => {
+    expect(resolvePhaseThinking("anthropic", "fixer")).toEqual({
+      phase: "fixer",
+      thinking: true,
+      reasoningEffort: "medium",
+      reason: "manifest-phase-thinking",
+    });
+    expect(resolvePhaseThinking("anthropic", "verifier").thinking).toBe(true);
+  });
+
   it("raises planner/generator reasoning effort for higher tiers", () => {
     expect(resolvePhaseThinking("max", "planner").reasoningEffort).toBe("high");
     expect(resolvePhaseThinking("codex", "generator").reasoningEffort).toBe("high");
     expect(resolvePhaseThinking("anthropic", "planner").reasoningEffort).toBe("high");
   });
 
-  it("max tier enables verifier thinking with medium reasoning effort", () => {
+  it("max tier verifier runs without thinking, medium reasoning effort", () => {
     expect(resolvePhaseThinking("max", "verifier")).toEqual({
       phase: "verifier",
-      thinking: true,
+      thinking: false,
       reasoningEffort: "medium",
       reason: "manifest-phase-thinking",
     });

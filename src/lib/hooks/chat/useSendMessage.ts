@@ -19,7 +19,8 @@ import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
-import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 
 export function useSendMessage(
   params: ChatMessagingParams,
@@ -259,6 +260,16 @@ export function useSendMessage(
             : activeVersionId?.trim();
         if (trimmedVersionId) {
           promptMeta.engineBaseVersionId = trimmedVersionId;
+        }
+        if (options.lifecycleStageOverride) {
+          promptMeta.lifecycleStage = options.lifecycleStageOverride;
+        }
+        const trimmedParentVersionId =
+          typeof options.parentVersionIdOverride === "string"
+            ? options.parentVersionIdOverride.trim()
+            : null;
+        if (trimmedParentVersionId) {
+          promptMeta.parentVersionId = trimmedParentVersionId;
         }
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelTierId = canonicalTier;

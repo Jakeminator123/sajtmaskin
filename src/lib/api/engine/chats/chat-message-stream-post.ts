@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { createSSEHeaders } from "@/lib/streaming";
+import {
+  withPromptToDoneMetricResponse,
+  wrapStreamForPromptToDoneMetric,
+} from "@/lib/observability/prompt-to-done-stream";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
-import { debugLog, errorLog } from "@/lib/utils/debug";
-import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
+import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
+import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { FEATURES, FOLLOW_UP_TUNING } from "@/lib/config";
@@ -36,6 +40,7 @@ import {
   writeOrchestrationDynamicDump,
 } from "@/lib/gen/orchestrate";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
+import { classifyRequestKind } from "@/lib/gen/request-kind";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
@@ -78,6 +83,7 @@ import {
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import {
+  buildFollowUpBriefFromSnapshot,
   extractBriefSummaryFromSnapshot,
   formatPriorDesignContext,
   prependOrchestrationContinuityToFollowUp,
@@ -156,6 +162,7 @@ export async function handleMessageStreamRequest(
     return response;
   };
   const runHandler = async () => {
+    const promptStartedAt = Date.now();
     try {
       const { chatId } = await ctx.params;
       const body = await req.json().catch(() => ({}));
@@ -213,9 +220,20 @@ export async function handleMessageStreamRequest(
         const metaScaffoldMode = parsedMeta.scaffoldMode;
         const metaScaffoldId = parsedMeta.scaffoldId;
         const metaThemeColors = parsedMeta.themeColors;
-        // Follow-ups do not carry the init brief. For clear-redesign follow-ups,
-        // a delta-brief is generated below. Otherwise brief stays null.
+        // Follow-ups do not carry the init brief inline. For clear-redesign
+        // follow-ups, a delta-brief is generated below. Otherwise `metaBrief`
+        // stays null — but the original brief still lives in the chat's
+        // orchestration_snapshot and is applied to the system prompt
+        // downstream. The hasPersistedBrief flag below lets the model-info
+        // panel ("Brief: applicerad / Systempromt: NK tecken" — SAJ-6/B5)
+        // surface that the brief is still in effect for follow-ups, not just
+        // for first prompts and clear-redesign deltas.
         let metaBrief: Record<string, unknown> | null = null;
+        const hasPersistedBrief = Boolean(
+          extractBriefSummaryFromSnapshot(
+            engineChat.orchestration_snapshot as Record<string, unknown> | null,
+          ),
+        );
         const metaDesignThemePreset = parsedMeta.designThemePreset;
         const metaPalette = parsedMeta.palette;
         const metaPromptAssistModel = parsedMeta.promptAssistModel;
@@ -320,10 +338,17 @@ export async function handleMessageStreamRequest(
           });
           return attachSessionCookie(
             new Response(
-              buildAwaitingClarificationStream({
-                chatId,
-                clarification: followUpClarification,
-              }),
+              wrapStreamForPromptToDoneMetric(
+                buildAwaitingClarificationStream({
+                  chatId,
+                  clarification: followUpClarification,
+                }),
+                {
+                  kind: "followup",
+                  promptStartedAt,
+                  signal: req.signal,
+                },
+              ),
               { headers: createSSEHeaders() },
             ),
           );
@@ -412,8 +437,11 @@ export async function handleMessageStreamRequest(
             includeStructuralInventory: true,
           });
 
-          const elementPreservationReminder =
-            "IMPORTANT: When you emit a file, your output FULLY REPLACES that file. Every section, media element (<video>, play buttons, <canvas>, <iframe>, <form>, 3D components), and interactive block from the previous version MUST appear in your output unless you were explicitly asked to remove it. The host will reject files where structural elements are missing.";
+          // Element Preservation Rule lives in the system prompt's
+          // `## Generation Mode: Follow-Up` block (richer version with
+          // examples). Previously also re-stated here as
+          // `elementPreservationReminder` — removed to avoid double-emit
+          // (Q11.1, see docs/plans/active/llm-flow-quickwins.md).
 
           if (skipIntentClassification) {
             optimizedMessage = wrapWithSection({
@@ -421,7 +449,6 @@ export async function handleMessageStreamRequest(
               introLines: [
                 "Apply the requested change precisely. Do not modify unrelated sections or files.",
                 "Return only the files you need to create or modify. Files you omit will be kept as-is.",
-                elementPreservationReminder,
               ],
               body: fileCtx.summary,
               divider: true,
@@ -447,7 +474,6 @@ export async function handleMessageStreamRequest(
                   followUpIntent === "clear-redesign"
                     ? "You may still reuse useful content or information architecture from the current project when relevant."
                     : "",
-                  elementPreservationReminder,
                 ],
                 body: fileCtx.summary,
               }),
@@ -643,7 +669,7 @@ export async function handleMessageStreamRequest(
             referenceAttachments: requestAttachments,
           });
 
-          return attachSessionCookie(createOwnEnginePlanModeResponse({
+          return attachSessionCookie(withPromptToDoneMetricResponse(createOwnEnginePlanModeResponse({
             pipelineStream: planPipelineStream,
             chatId,
             modelTier: resolvedModelTier,
@@ -680,6 +706,10 @@ export async function handleMessageStreamRequest(
             commitCredits: commitCreditsOnce,
             commitCreditsPosition: "before-done",
             normalizeQuestionToolCallIds: true,
+          }), {
+            kind: "followup",
+            promptStartedAt,
+            signal: req.signal,
           }));
         }
 
@@ -735,22 +765,40 @@ export async function handleMessageStreamRequest(
           (PRIOR_QUALITY_TARGETS as readonly string[]).includes(rawPriorQualityTarget)
             ? (rawPriorQualityTarget as (typeof PRIOR_QUALITY_TARGETS)[number])
             : null;
+        const requestKindResult =
+          previousFiles.length > 0 ? classifyRequestKind(message) : null;
         const orchestrationInput = {
           prompt: optimizedMessage,
           routePlanPrompt: message,
           buildSpecPrompt: message,
-          // QW-1: dossier-pick + contract-inferens + capability-inferens får
-          // rå message så file-context-wrappingen i optimizedMessage inte
-          // förgiftar deras semantiska beslut (t.ex. att import av Stripe i
-          // previousFiles skulle få contracts att gissa "ny stripe-integration",
-          // eller att en LoginForm-fil i context skulle pinna `needsAuth`).
-          dossierPickPrompt: message,
+          // QW-1: contract-inferens + capability-inferens får rå message så
+          // file-context-wrappingen i optimizedMessage inte förgiftar deras
+          // semantiska beslut (t.ex. att en LoginForm-fil i context skulle
+          // pinna `needsAuth`). Dossier-urvalet är capability-driven från
+          // brief, så det behöver ingen rå-prompt.
           contractsPrompt: message,
           capabilitiesPrompt: message,
+          // P26: scaffold-matchern (embedding + keyword) får också rå message
+          // så embedding-API:t inte rejectas på `400 max 8192 tokens` när
+          // optimizedMessage är ~30k tecken med inbäddad filkontext, och så
+          // att keyword-fallback inte triggar APP_KEYWORDS via filcontextens
+          // text. Tidigare flippade en bildbyte landing-page → app-shell och
+          // promotade build_intent från website till app.
+          scaffoldMatchPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
-          brief: metaBrief,
+          // A1+A2 fix (2026-04-21): on follow-up, hydrate a minimal brief
+          // from the orchestration_snapshot when the client did not send
+          // one inline (delta-brief flows still set `metaBrief`). This
+          // restores capability-driven dossier selection on follow-ups —
+          // without it, `selectDossiersForRequest` got `brief: null` and
+          // dropped every capability the user originally asked for.
+          brief:
+            metaBrief ??
+            buildFollowUpBriefFromSnapshot(
+              engineChat.orchestration_snapshot as Record<string, unknown> | null,
+            ),
           themeColors: metaThemeColors,
           imageGenerations: resolvedImageGenerations,
           componentPalette: metaPalette,
@@ -777,9 +825,21 @@ export async function handleMessageStreamRequest(
           priorQualityTarget,
           mediaCatalog: followUpMediaCatalog,
           buildOut: parsedMeta.buildOut,
+          // Q5a: pass resolved engine model id so deriveBuildSpec scales
+          // tokenBudgets to the model's actual context window.
+          engineModelId: resolveEngineModelId(resolvedModelTier),
+          requestKind: requestKindResult?.kind ?? null,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
+        if (requestKindResult) {
+          devLogAppend("in-progress", {
+            type: "request.kind.classified",
+            chatId,
+            kind: requestKindResult.kind,
+            source: requestKindResult.source,
+          });
+        }
         debugLog("orchestration", "Follow-up orchestration base resolved", {
           chatId,
           durationMs: Date.now() - orchestrationStartedAt,
@@ -788,6 +848,7 @@ export async function handleMessageStreamRequest(
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
           serializeMode: orchestrationBase.serializeMode,
           routeCount: orchestrationBase.routePlan.routes.length,
+          requestKind: requestKindResult?.kind ?? null,
         });
         devLogAppend("in-progress", {
           type: "orchestration.resolved",
@@ -865,6 +926,14 @@ export async function handleMessageStreamRequest(
           buildIntent: metaBuildIntent,
           buildMethod: metaBuildMethod,
           message: optimizedMessage,
+          // P26: also surface the raw user message (truncated to 500 chars)
+          // so devs can see exactly what the user typed without scrolling
+          // through the wrapped optimizedMessage. Bekräftar samtidigt att
+          // LLM:en faktiskt får råa intentet — det ligger sist i
+          // optimizedMessage under rubriken "Begärda ändringar".
+          rawMessage:
+            message.length > 500 ? `${message.slice(0, 500)}…` : message,
+          rawMessageLength: message.length,
           slug: metaBuildMethod || metaBuildIntent || undefined,
           promptType: promptOrchestration.strategyMeta.promptType,
           promptStrategy: promptOrchestration.strategyMeta.strategy,
@@ -909,13 +978,18 @@ export async function handleMessageStreamRequest(
               resolvedScaffold,
               strategyMeta: promptOrchestration.strategyMeta,
               buildSpec: orchestrationBase.buildSpec,
-              metaBriefApplied: Boolean(metaBrief),
+              metaBriefApplied: Boolean(metaBrief) || hasPersistedBrief,
               customInstructionsLength: trimmedSystem?.length ?? 0,
             }),
           );
-          return attachSessionCookie(new Response(contractGateStream, {
-            headers: createSSEHeaders(),
-          }));
+          return attachSessionCookie(new Response(
+            wrapStreamForPromptToDoneMetric(contractGateStream, {
+              kind: "followup",
+              promptStartedAt,
+              signal: req.signal,
+            }),
+            { headers: createSSEHeaders() },
+          ));
         }
         const finalizePromptStartedAt = Date.now();
         const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
@@ -988,7 +1062,7 @@ export async function handleMessageStreamRequest(
             orchestrationBase,
             buildSpec: orchestrationBase.buildSpec,
             engineSystemPromptLength: engineSystemPrompt.length,
-            metaBriefApplied: Boolean(metaBrief),
+            metaBriefApplied: Boolean(metaBrief) || hasPersistedBrief,
             customInstructionsLength: trimmedSystem?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
             variantId: finalized.variantId,
@@ -1015,27 +1089,25 @@ export async function handleMessageStreamRequest(
               : null,
         });
 
-        const engineHeaders = new Headers(createSSEHeaders());
-        return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
+        return buildEngineStreamResponse({
+          engineStream,
+          req,
+          promptStartedAt,
+          kind: "followup",
+          attachSessionCookie,
+        });
     } catch (err) {
-      errorLog("engine", `Send message error (requestId=${requestId})`, err);
-      const normalized = normalizeProviderError(err);
-      devLogAppend("latest", {
-        type: "comm.error.send",
-        chatId: null,
-        message: normalized.message,
-        code: normalized.code,
+      return buildStreamErrorResponse({
+        err,
+        req,
+        requestId,
+        promptStartedAt,
+        kind: "followup",
+        logLabel: "Send message error",
+        devLogType: "comm.error.send",
+        devLogExtras: { chatId: null },
+        attachSessionCookie,
       });
-      return attachSessionCookie(
-        NextResponse.json(
-          {
-            error: normalized.message,
-            code: normalized.code,
-            retryAfter: normalized.retryAfter ?? null,
-          },
-          { status: normalized.status },
-        ),
-      );
     }
   };
 

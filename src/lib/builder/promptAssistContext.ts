@@ -17,7 +17,7 @@
  */
 
 import { generateObject } from "ai";
-import { createDirectModel } from "@/lib/builder/gateway-policy";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import { z } from "zod";
 import { isOpenAIAssistModel, normalizeAssistModel } from "./promptAssist";
 import { SPEC_MODEL } from "@/lib/gen/defaults";

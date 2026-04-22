@@ -117,4 +117,26 @@ describe("fetchCommunityBlocks", () => {
     const result = await fetchCommunityBlocks(baseCaps(), "hero section with features");
     expect(result).toEqual([]);
   });
+
+  it("picks the same registry items for the same prompt across reruns (deterministic, was Math.random)", async () => {
+    // Capture which URLs the registry is asked to fetch for two identical
+    // (prompt, capability) inputs. Previously the picker used Math.random()
+    // which produced non-reproducible block recipes for the same prompt.
+    const seen: string[][] = [];
+    for (let run = 0; run < 2; run++) {
+      _clearCache();
+      const calls: string[] = [];
+      mockFetch.mockReset();
+      mockFetch.mockImplementation((url: string) => {
+        calls.push(url);
+        return Promise.resolve(makeResponse("hero1", "@shadcnblocks"));
+      });
+      await fetchCommunityBlocks(
+        baseCaps(),
+        "landing page with hero features pricing testimonials cta faq footer",
+      );
+      seen.push(calls.sort());
+    }
+    expect(seen[0]).toEqual(seen[1]);
+  });
 });

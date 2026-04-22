@@ -7,7 +7,7 @@
  */
 
 import { generateText } from "ai";
-import { createDirectModel } from "@/lib/builder/gateway-policy";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import type { Brief } from "@/lib/gen/system-prompt";
 import type { CompanyIntelResult } from "@/lib/builder/company-intel";
 

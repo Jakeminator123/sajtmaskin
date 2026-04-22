@@ -32,6 +32,17 @@ export type MessageOptions = {
   engineBaseVersionIdOverride?: string | null;
   /** Additional metadata merged into the request body's `meta` object. */
   meta?: Record<string, unknown>;
+  /**
+   * F3 wiring: set on the auto-start that follows a successful
+   * `/finalize-design` call. Forwarded as `meta.lifecycleStage` so the
+   * server can derive the F3 BuildSpec.
+   */
+  lifecycleStageOverride?: "design" | "integrations";
+  /**
+   * F3 wiring: id of the F2 version this build is forked from. Forwarded
+   * as `meta.parentVersionId` and persisted on the new engine version.
+   */
+  parentVersionIdOverride?: string | null;
 };
 
 export type CreateChatLock = {

@@ -61,7 +61,7 @@ export interface ScaffoldVariant {
    * not feature cards"). Only fields with high signal — generic guidance fields
    * (styleRules, sectionInventory, avoidPatterns, worldClassRubric) were removed
    * 2026-04-17 because the regelmotor-driven aggregation produced near-identical
-   * boilerplate across variants. See `docs/architecture/scaffold-variants-inventory.md`.
+   * boilerplate across variants. See `docs/architecture/scaffold-system.md`.
    */
   promptHints: string[];
   /**

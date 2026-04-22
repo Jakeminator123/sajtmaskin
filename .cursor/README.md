@@ -76,9 +76,9 @@ Kod är source of truth; strict schemas speglar kod, ersätter den inte.
 
 **Kanonisk Streamlit-app:** `backoffice/` (sidmoduler, delad logik i `backoffice/shared.py`).
 
-**Entrypoint:** `python sajtmaskin_backoffice.py` från repo-rot.
+**Entrypoint:** `npm run backoffice` från repo-rot (kanonisk, plattformsoberoende). Direktanrop `python(3) sajtmaskin_backoffice.py` fungerar också.
 
-**Legacy wrappers** (forwardar till `backoffice/`): `config/dashboard/app.py`, `scripts/scripts_dashboard.py`.
+**Legacy wrapper** (forwardar till `backoffice/`): `config/dashboard/app.py`.
 
 **Domänkarta:** `config/dashboard/domain-map.json` — mappar backoffice-vyer till kanoniska sökvägar, docs och kodsanningar.
 

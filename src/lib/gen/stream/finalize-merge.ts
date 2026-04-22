@@ -4,6 +4,7 @@ import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import
 import type { CodeFile } from "@/lib/gen/parser";
 import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { warnLog } from "@/lib/utils/debug";
 
 export interface MergeGeneratedProjectFilesParams {
   chatId: string;
@@ -17,6 +18,17 @@ export interface MergeGeneratedProjectFilesResult {
   filesJson: string;
   /** Files rejected by shrink-guard — surfaced to user so they know why edits were dropped. */
   rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
+  /**
+   * Files reverted by the structural-elements guard (Element Preservation Guard).
+   * Kept separate from `rejectedShrinks` because the user-facing reason is different:
+   * the new file dropped a high-value element (`<video>`, `<canvas>`, `<form>`,
+   * R3F `<Canvas>`, Rapier `<Physics>`, video/media component, section landmark).
+   * Without surfacing this, follow-ups like "byt hero till intro" silently fail.
+   */
+  rejectedStructural: Array<{
+    file: string;
+    droppedElements: Array<{ kind: string; label: string }>;
+  }>;
 }
 
 export function mergeGeneratedProjectFiles({
@@ -37,11 +49,26 @@ export function mergeGeneratedProjectFiles({
     const rejectedShrinks = mergeResult.warnings
       .filter((w) => w.type === "significant-shrink")
       .map((w) => ({ file: w.file, previousSize: w.previousSize, newSize: w.newSize }));
+    const rejectedStructural = mergeResult.warnings
+      .filter((w) => w.type === "structural-elements-dropped")
+      .map((w) => ({
+        file: w.file,
+        droppedElements: w.droppedElements ?? [],
+      }));
     if (mergeResult.warnings.length > 0) {
       devLogAppend("in-progress", {
         type: "merge-warnings",
         chatId,
         warnings: mergeResult.warnings,
+      });
+    }
+    if (rejectedStructural.length > 0) {
+      // Element Preservation Guard fired: log loud so the silent
+      // "byt hero till intro" follow-up bug is observable server-side too.
+      // Same payload is bubbled to the client via SSE `done.rejectedStructural`.
+      warnLog("engine", "Element Preservation Guard reverted follow-up file(s)", {
+        chatId,
+        rejectedStructural,
       });
     }
 
@@ -67,7 +94,7 @@ export function mergeGeneratedProjectFiles({
       }
     }
 
-    return { filesJson: JSON.stringify(finalFiles), rejectedShrinks };
+    return { filesJson: JSON.stringify(finalFiles), rejectedShrinks, rejectedStructural };
   }
 
   if (resolvedScaffold) {
@@ -89,6 +116,12 @@ export function mergeGeneratedProjectFiles({
     const rejectedShrinks = mergeResult.warnings
       .filter((w) => w.type === "significant-shrink")
       .map((w) => ({ file: w.file, previousSize: w.previousSize, newSize: w.newSize }));
+    const rejectedStructural = mergeResult.warnings
+      .filter((w) => w.type === "structural-elements-dropped")
+      .map((w) => ({
+        file: w.file,
+        droppedElements: w.droppedElements ?? [],
+      }));
     if (mergeResult.warnings.length > 0) {
       devLogAppend("in-progress", {
         type: "merge-warnings",
@@ -116,7 +149,11 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
-    return { filesJson: JSON.stringify(importResult.files), rejectedShrinks };
+    return {
+      filesJson: JSON.stringify(importResult.files),
+      rejectedShrinks,
+      rejectedStructural,
+    };
   }
 
   const crossFileResult = checkCrossFileImports(generatedFiles);
@@ -126,8 +163,12 @@ export function mergeGeneratedProjectFiles({
       chatId,
       fixes: crossFileResult.fixes,
     });
-    return { filesJson: JSON.stringify(crossFileResult.files), rejectedShrinks: [] };
+    return {
+      filesJson: JSON.stringify(crossFileResult.files),
+      rejectedShrinks: [],
+      rejectedStructural: [],
+    };
   }
 
-  return { filesJson: originalFilesJson, rejectedShrinks: [] };
+  return { filesJson: originalFilesJson, rejectedShrinks: [], rejectedStructural: [] };
 }

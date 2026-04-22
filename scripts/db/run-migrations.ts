@@ -12,8 +12,14 @@ function resolveConnectionString(): string {
   const url =
     process.env.POSTGRES_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.STORAGE_POSTGRES_URL ||
+    process.env.STORAGE_POSTGRES_URL_NON_POOLING ||
     "";
-  if (!url) throw new Error("No POSTGRES_URL configured");
+  if (!url) {
+    throw new Error(
+      "No database connection configured (expected POSTGRES_URL, POSTGRES_URL_NON_POOLING, STORAGE_POSTGRES_URL, or STORAGE_POSTGRES_URL_NON_POOLING).",
+    );
+  }
   return url;
 }
 

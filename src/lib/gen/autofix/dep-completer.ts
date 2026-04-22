@@ -39,6 +39,12 @@ const BUILTIN_PACKAGES = new Set([
  *
  * Keep majors aligned with `project-scaffold.ts` PACKAGE_JSON baseline —
  * `dep-completer.test.ts` enforces this automatically for all overlapping keys.
+ *
+ * NOTE: Sedan vi infört `dep-version-validator.ts` som kör mot live
+ * npm-registret är denna tabell BARA en snabb fast-path för vanliga paket.
+ * Om en post är stale (eller en major aldrig publicerats, t.ex. det historiska
+ * `lucide-react: "^1"`-felet) så fångar validatorn det och bumpar till
+ * `^latest`. Tabellen kan därmed vara mer "good enough" än "perfekt aktuell".
  */
 export const KNOWN_PACKAGES: Record<string, string> = {
   "recharts": "^2",
@@ -54,7 +60,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@hookform/resolvers": "^5",
   "@reduxjs/toolkit": "^2",
   "react-redux": "^9",
-  "lucide-react": "^1",
+  "lucide-react": "^0.469",
   "canvas-confetti": "^1.9",
   "radix-ui": "^1",
   "cmdk": "^1",

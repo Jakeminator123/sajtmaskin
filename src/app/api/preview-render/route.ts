@@ -4,6 +4,7 @@ import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
 import type { PreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
+import { isShimPreviewDisabled } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,24 @@ export const runtime = "nodejs";
  *   versionId — optional (uses latest version if omitted)
  */
 export async function GET(req: Request) {
+  if (isShimPreviewDisabled()) {
+    return new Response(
+      errorPage(
+        "Shim-preview avstängd",
+        "Den äldre kompatibilitets-previewn är avstängd via SAJTMASKIN_SHIM_PREVIEW_DISABLED. Vänta på att VM-previewen (tier-2) startar — den är den primära körbara ytan.",
+        "render_route_shim_disabled",
+      ),
+      {
+        status: 410,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+          "X-Preview-Source": "shim-disabled",
+        },
+      },
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const chatId = searchParams.get("chatId");
   const versionId = searchParams.get("versionId");

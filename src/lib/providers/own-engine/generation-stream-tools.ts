@@ -24,7 +24,7 @@ const ENV_TOOLS_F2_BLOCKED = new Set(["suggestIntegration", "requestEnvVar"]);
  * Maps AI SDK tool invocations from the codegen stream into builder-facing SSE
  * (`integration`, `tool-call`). Keeps `generation-stream.ts` focused on I/O loop.
  *
- * Blocking policy (see `docs/architecture/builder-generation.md` — "Own-engine verktyg"):
+ * Blocking policy (see `docs/architecture/llm-signal-flow.md` — "Codegen-verktyg" under create-chat init):
  * - `suggestIntegration` / `requestEnvVar`: informative only; emit SSE, do NOT call
  *   `setBlockingToolCall` — code must still generate in the same response.
  * - `askClarifyingQuestion`: blocking; calls `setBlockingToolCall` — real question

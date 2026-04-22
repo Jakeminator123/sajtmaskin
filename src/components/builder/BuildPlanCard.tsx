@@ -8,23 +8,23 @@ import {
   type PlanPage,
   normalizePlanArtifact,
 } from "@/lib/gen/plan/schema";
+import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
+import {
+  openIntegrationsPanel,
+  openProjectEnvVarsPanel,
+} from "@/lib/builder/project-env-events";
 
 type Props = {
   rawPlan?: Record<string, unknown>;
   onApproveBuild?: (plan: Record<string, unknown>) => void | Promise<void>;
   approveDisabled?: boolean;
+  /**
+   * F2 vs F3 lifecycle gate. Env / integrations panels only mount during
+   * the F3 "integrations" stage; in F2 the matching action buttons are
+   * hidden so they don't appear inert.
+   */
+  lifecycleStage?: EngineVersionLifecycleStage | null;
 };
-
-function openProjectEnvVarsPanel(envKeys?: string[]) {
-  if (typeof window === "undefined") return;
-  const payload = envKeys?.length ? { envKeys } : {};
-  window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail: payload }));
-}
-
-function openIntegrationsPanel() {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("integrations-panel-open"));
-}
 
 function siteTypeLabel(value?: PlanArtifact["siteType"]) {
   switch (value) {
@@ -57,10 +57,16 @@ function renderProviderRow(label: string, value?: string) {
   );
 }
 
-export function BuildPlanCard({ rawPlan, onApproveBuild, approveDisabled = false }: Props) {
+export function BuildPlanCard({
+  rawPlan,
+  onApproveBuild,
+  approveDisabled = false,
+  lifecycleStage = null,
+}: Props) {
   const plan = normalizePlanArtifact(rawPlan);
   if (!plan) return null;
 
+  const isIntegrations = lifecycleStage === "integrations";
   const requiredEnvKeys = (plan.contracts?.envVars ?? [])
     .filter((envVar) => envVar.required !== false)
     .map((envVar) => envVar.key);
@@ -189,7 +195,8 @@ export function BuildPlanCard({ rawPlan, onApproveBuild, approveDisabled = false
             </div>
           ) : null}
 
-          {(plan.contracts.integrations.length > 0 || requiredEnvKeys.length > 0) ? (
+          {isIntegrations &&
+          (plan.contracts.integrations.length > 0 || requiredEnvKeys.length > 0) ? (
             <div className="flex flex-wrap gap-2">
               {requiredEnvKeys.length > 0 ? (
                 <Button

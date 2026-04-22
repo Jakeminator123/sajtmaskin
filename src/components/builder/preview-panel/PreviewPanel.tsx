@@ -37,9 +37,9 @@ import { usePreviewIframe } from "./hooks/usePreviewIframe";
 import { usePreviewPanelCodeDrafts } from "./hooks/usePreviewPanelCodeDrafts";
 import { usePreviewPanelInspectCapture } from "./hooks/usePreviewPanelInspectCapture";
 import { usePreviewPanelInspectMapPlacement } from "./hooks/usePreviewPanelInspectMapPlacement";
-import { usePreviewPanelOwnEnginePreviewTelemetry } from "./hooks/usePreviewPanelOwnEnginePreviewTelemetry";
 import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
 import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
+import { usePreviewPanelOwnEnginePreviewTelemetry } from "./hooks/usePreviewPanelOwnEnginePreviewTelemetry";
 import type {
   BuildOutRouteRequestContext,
   ComposerAiFallbackPayload,
@@ -51,11 +51,8 @@ import { findFileNodeByPath } from "./code-file-tree-utils";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import { EditModeOverlay, type EditModeClickEvent } from "./EditModeOverlay";
 import { InlineEditPopup } from "./InlineEditPopup";
-import {
-  buildAlternatePreviewBannerState,
-  isCompatibilityShimPreviewUrl,
-  isTier2LivePreviewUrl,
-} from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview/diagnostics";
 import {
   buildOwnEngineRoutePreviewUrl,
@@ -116,6 +113,7 @@ export function PreviewPanel({
   simplified = false,
   onComposerAiFallback,
   lifecycleStage = null,
+  isBusy = false,
   onF3MissingEnv,
   onF3Ready,
   generationPhase,
@@ -191,10 +189,22 @@ export function PreviewPanel({
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
   const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const reportOwnEngineRenderFailureSinkRef = useRef<(payload: PreviewIssuePayload) => void>(() => {});
-  const reportOwnEngineRenderFailure = useCallback((payload: PreviewIssuePayload) => {
-    reportOwnEngineRenderFailureSinkRef.current(payload);
-  }, []);
+  // F1-shim telemetry sink. The legacy compatibility-shim path is no longer
+  // minted by the API, but `usePreviewIframe` still references this callback
+  // inside `if (isOwnEnginePreview)` guards for type compatibility.
+  //
+  // The `reportOwnEngineRenderFailureSinkRef` is the mutable ref that
+  // `usePreviewPanelOwnEnginePreviewTelemetry` populates each render — the
+  // parent passes a stable wrapper that reads `sinkRef.current` so
+  // `usePreviewIframe` can call the telemetry callback without introducing
+  // a render-cycle on every update.
+  const reportOwnEngineRenderFailureSinkRef = useRef<
+    (payload: PreviewIssuePayload) => void
+  >(() => {});
+  const reportOwnEngineRenderFailure = useCallback(
+    (payload: PreviewIssuePayload) => reportOwnEngineRenderFailureSinkRef.current(payload),
+    [],
+  );
 
   const buildPreviewSrc = useCallback((url: string, token?: number) => {
     let src = url;
@@ -241,7 +251,6 @@ export function PreviewPanel({
     setIframeDiagnosticCode,
     clearPreviewReadyTimer,
     handleIframeLoad,
-    hasEverLoaded: iframeHasEverLoaded,
     vmReady,
     markVmReady,
     notifyPreviewStarting,
@@ -815,42 +824,6 @@ export function PreviewPanel({
         badgeClassName: badgeMuted,
       };
     }
-    if (isOwnEnginePreview) {
-      if (previewLifecycle === "recovering") {
-        return {
-          label: "Live-preview",
-          detail:
-            "Förhandsgranskningen svarade inte som förväntat — vi kontrollerar och startar om vid behov.",
-          className: "",
-          badgeClassName: badgeAttention,
-        };
-      }
-      if (previewPending) {
-        return {
-          label: "Live-preview",
-          detail:
-            "Förhandsgranskningen startar eller laddar om. Vänta tills den är klar — då uppdateras live-preview automatiskt.",
-          className: "",
-          badgeClassName: badgeAttention,
-        };
-      }
-      if (!previewUrlPresent) {
-        return {
-          label: "Kompatibilitetsvy",
-          detail:
-            "VM-preview är primär previewväg. Den här kompatibilitetsvyn (äldre shim) är fallback tills live-preview finns.",
-          className: "",
-          badgeClassName: badgeMuted,
-        };
-      }
-      return {
-        label: "Kompatibilitetsvy",
-        detail:
-          "Du tittar på shim-/kompatibilitetsvyn. Live-preview med Next.js i VM är den primära körbara ytan — byt när tier-2-URL finns.",
-        className: "",
-        badgeClassName: badgeMuted,
-      };
-    }
     if (isTier2LivePreview) {
       if (previewLifecycle === "recovering") {
         return {
@@ -884,19 +857,7 @@ export function PreviewPanel({
       className: "",
       badgeClassName: badgeMuted,
     };
-  }, [
-    viewMode,
-    isOwnEnginePreview,
-    isTier2LivePreview,
-    isV0Preview,
-    previewPending,
-    previewUrlPresent,
-    previewLifecycle,
-  ]);
-
-  const alternatePreviewBanner = useMemo(() => {
-    return buildAlternatePreviewBannerState({ currentUrl: previewUrl, alternatePreviewUrls });
-  }, [previewUrl, alternatePreviewUrls]);
+  }, [viewMode, isTier2LivePreview, isV0Preview, previewLifecycle]);
 
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = previewUrl ? buildPreviewSrc(previewUrl, refreshToken) : "";
@@ -1005,8 +966,6 @@ export function PreviewPanel({
         isLoading={isLoading}
         handleRefresh={handleRefresh}
         handleOpenInNewTab={handleOpenInNewTab}
-        alternatePreviewBanner={alternatePreviewBanner}
-        onNavigatePreviewUrl={onNavigatePreviewUrl}
         previewBuildError={previewBuildError}
         previewProdBuild={previewProdBuild}
         isCodeView={isCodeView}
@@ -1024,6 +983,7 @@ export function PreviewPanel({
         chatId={chatId}
         versionId={versionId}
         lifecycleStage={lifecycleStage}
+        isBusy={isBusy}
         onF3MissingEnv={onF3MissingEnv}
         onF3Ready={onF3Ready}
       />
@@ -1133,7 +1093,6 @@ export function PreviewPanel({
               handleIframeLoad={handleIframeLoad}
               handleIframeError={handleIframeError}
               deviceMode={previewDevice}
-              hasEverLoaded={iframeHasEverLoaded}
             >
               {showComposerOverlay ? (
                 <PreviewPanelComposerOverlay

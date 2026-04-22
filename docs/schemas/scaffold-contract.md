@@ -66,6 +66,8 @@ The plan may draw routes from:
 - `prompt` — prompt-pattern inference in `route-plan.ts`
 - `scaffold` — scaffold defaults that add real routes (for example blog/auth/commerce helpers)
 
+After all sources contribute, `buildRoutePlan()` runs `dedupePlannedRoutesInPlaceByLocale()` (since 2026-04-21) to collapse locale-alternate route pairs (`/blog`↔`/blogg`, `/contact`↔`/kontakt`, `/about`↔`/om`, `/services`↔`/tjanster`) down to the variant matching the project's resolved locale (default `sv`). This means scaffolds that contribute `/blog` plus a brief that defines `/blogg` will reach the LLM as a single `/blogg` route — the LLM should never see both variants. Scaffold authors do not need to worry about locale-alternate collisions.
+
 ## Current manifest shape
 
 `ScaffoldManifest` currently includes:
@@ -128,11 +130,14 @@ en del av runtime-registret.
 Create-flödet:
 
 - klonar `files/` från en vald källscaffold
-- skriver en ny `manifest.ts`
+- skriver en ny `manifest.ts` (innehåller `qualityChecklist` och `upgradeTargets` som inline-defaults)
 - patchar `ScaffoldId`, `SCAFFOLD_CLIENT_LIST`, `registry.ts` och
   `scaffold-embedding-locale.ts`
-- skriver build-säkra defaults i `scripts/template-library/build-template-library.ts`
 - kan skapa en neutral startvariant under `config/scaffold-variants/`
+
+`scripts/template-library/build-template-library.ts` togs bort 2026-04-17 (commit
+`4ba06d96e`); checklist/upgrade-defaults bor numera i scaffoldens egen
+`manifest.ts` istället för att speglas in i ett centralt build-skript.
 
 Delete-flödet gör motsvarande cleanup för samma lager, men lämnar fortfarande
 manuell kurering åt människor för:
@@ -221,9 +226,9 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 
 **Status:** Borttagen från runtime. Tidigare körde `selectVariantStructuralFiles()` + `selectCapabilityStructuralFiles()` när `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true` och injicerade kod-excerpter under `## Structural References (this variant)` i system-prompten. Hela template-library-pipen (inklusive `resolveTemplateGuidance` + env-flagga `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`) avvecklades 2026-04-17.
 
-**Ersättare:** Per-integration- och stilexempel hanteras nu av dossier-pipen i `data/dossiers/_index/`. Aktivt via `SAJTMASKIN_DOSSIER_PIPELINE` (default `true` i development). Se `docs/architecture/llm-flow-end-to-end.md` för det aktuella flödet.
+**Ersättare:** Per-integration- och stilexempel hanteras nu av dossier-pipen v2 i `data/dossiers/{hard,soft}/<id>/`. `data/dossiers/_index/capability-map.json` är en genererad backoffice-view (inte runtime-källa) — runtime walkar `hard/` + `soft/` direkt och matchar via deterministisk capability-regel. Aktivt via `SAJTMASKIN_DOSSIER_PIPELINE` (default `true` i development). Se [`docs/llm/dossier-selection-flow.md`](../llm/dossier-selection-flow.md) för urvalsflödet och [`docs/architecture/dossier-system.md`](../architecture/dossier-system.md) för full spec.
 
-**För scaffold-variants:** stilbeskrivning sker via `signaturePatterns` (layouts/motifs/antiPatterns) per variant i `config/scaffold-variants/<scaffold>/<variant>.json`. Renderas i `## Scaffold Variant`-blocket av `system-prompt.ts`. Se `scaffold-schema.md` rad 22 för detaljer.
+**För scaffold-variants:** stilbeskrivning sker via `signaturePatterns` (layouts/motifs/antiPatterns) per variant i `config/scaffold-variants/<scaffold>/<variant>.json`. Renderas i `## Scaffold Variant`-blocket av `system-prompt.ts`. Se `../architecture/scaffold-system.md` för full inventarium.
 
 ## Font handling
 

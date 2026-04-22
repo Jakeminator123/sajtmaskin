@@ -49,7 +49,7 @@
   ],
   "buildProfiles": {
     "defaults": {
-      "fast": "gpt-4.1",
+      "fast": "gpt-5.4-mini",
       "pro": "gpt-5.3-codex",
       "max": "gpt-5.4",
       "codex": "gpt-5.3-codex",
@@ -64,7 +64,7 @@
     }
   },
   "qualityToOwnEngineModel": {
-    "light": "gpt-4.1",
+    "light": "gpt-5.4-mini",
     "standard": "gpt-5.3-codex",
     "pro": "gpt-5.3-codex",
     "premium": "gpt-5.4",
@@ -91,14 +91,24 @@
         "anthropic-direct/claude-haiku-4-5-20251001",
         "anthropic-direct/claude-sonnet-4-6",
         "anthropic-direct/claude-opus-4-6"
+      ],
+      "models": [
+        "openai/gpt-5.4",
+        "openai/gpt-5.3-codex",
+        "openai/gpt-5.2",
+        "anthropic/claude-opus-4.6",
+        "anthropic/claude-sonnet-4.6",
+        "anthropic-direct/claude-haiku-4-5-20251001",
+        "anthropic-direct/claude-sonnet-4-6",
+        "anthropic-direct/claude-opus-4-6"
       ]
     },
     "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*."
   },
   "briefing": {
     "defaults": {
-      "requestModel": "openai/gpt-5.2",
-      "serverAutoOpenAI": "openai/gpt-5.2",
+      "requestModel": "openai/gpt-5.4",
+      "serverAutoOpenAI": "openai/gpt-5.4",
       "serverAutoAnthropic": "anthropic/claude-sonnet-4.6",
       "specModel": "openai/gpt-5.4"
     },
@@ -120,8 +130,8 @@
         "deploy-assistant": "selected_build_model"
       },
       "pro": {
-        "planner": "selected_build_model",
-        "generator": "selected_build_model",
+        "planner": "gpt-5.3-codex",
+        "generator": "gpt-5.3-codex",
         "fixer": "selected_build_model",
         "verifier": "gpt-5.3-codex",
         "deploy-assistant": "gpt-5.3-codex"
@@ -141,17 +151,17 @@
         "deploy-assistant": "gpt-5.3-codex"
       },
       "anthropic": {
-        "planner": "selected_build_model",
-        "generator": "selected_build_model",
+        "planner": "claude-opus-4.6",
+        "generator": "claude-opus-4.6",
         "fixer": "selected_build_model",
         "verifier": "selected_build_model",
-        "deploy-assistant": "gpt-4.1"
+        "deploy-assistant": "claude-sonnet-4.6"
       }
     },
     "thinkingByTier": {
       "fast": {
         "planner": {
-          "thinking": false,
+          "thinking": true,
           "reasoningEffort": "low"
         },
         "generator": {
@@ -207,7 +217,7 @@
           "reasoningEffort": "medium"
         },
         "verifier": {
-          "thinking": true,
+          "thinking": false,
           "reasoningEffort": "medium"
         },
         "deploy-assistant": {
@@ -247,11 +257,11 @@
           "reasoningEffort": "high"
         },
         "fixer": {
-          "thinking": false,
+          "thinking": true,
           "reasoningEffort": "medium"
         },
         "verifier": {
-          "thinking": false,
+          "thinking": true,
           "reasoningEffort": "medium"
         },
         "deploy-assistant": {
@@ -263,25 +273,70 @@
     "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override."
   },
   "perTierRepairPolicies": {
-    "fast":      { "deterministicAutofixPasses": 1, "syntaxFixPasses": 2, "serverRepairPasses": 1 },
-    "pro":       { "deterministicAutofixPasses": 2, "syntaxFixPasses": 3, "serverRepairPasses": 2 },
-    "max":       { "deterministicAutofixPasses": 2, "syntaxFixPasses": 4, "serverRepairPasses": 2 },
-    "codex":     { "deterministicAutofixPasses": 2, "syntaxFixPasses": 4, "serverRepairPasses": 2 },
-    "anthropic": { "deterministicAutofixPasses": 2, "syntaxFixPasses": 3, "serverRepairPasses": 2 }
+    "fast": {
+      "deterministicAutofixPasses": 1,
+      "syntaxFixPasses": 2,
+      "serverRepairPasses": 1
+    },
+    "pro": {
+      "deterministicAutofixPasses": 2,
+      "syntaxFixPasses": 3,
+      "serverRepairPasses": 2
+    },
+    "max": {
+      "deterministicAutofixPasses": 2,
+      "syntaxFixPasses": 4,
+      "serverRepairPasses": 2
+    },
+    "codex": {
+      "deterministicAutofixPasses": 2,
+      "syntaxFixPasses": 4,
+      "serverRepairPasses": 2
+    },
+    "anthropic": {
+      "deterministicAutofixPasses": 2,
+      "syntaxFixPasses": 3,
+      "serverRepairPasses": 2
+    }
   },
   "perTierTimeouts": {
-    "fast":      { "engineRouteMaxDurationSeconds": 180, "verifierTimeoutMs": 120000 },
-    "pro":       { "engineRouteMaxDurationSeconds": 360, "verifierTimeoutMs": 120000 },
-    "max":       { "engineRouteMaxDurationSeconds": 800, "verifierTimeoutMs": 240000 },
-    "codex":     { "engineRouteMaxDurationSeconds": 800, "verifierTimeoutMs": 240000 },
-    "anthropic": { "engineRouteMaxDurationSeconds": 600, "verifierTimeoutMs": 120000 }
+    "fast": {
+      "engineRouteMaxDurationSeconds": 180,
+      "verifierTimeoutMs": 120000
+    },
+    "pro": {
+      "engineRouteMaxDurationSeconds": 360,
+      "verifierTimeoutMs": 120000
+    },
+    "max": {
+      "engineRouteMaxDurationSeconds": 800,
+      "verifierTimeoutMs": 240000
+    },
+    "codex": {
+      "engineRouteMaxDurationSeconds": 800,
+      "verifierTimeoutMs": 240000
+    },
+    "anthropic": {
+      "engineRouteMaxDurationSeconds": 600,
+      "verifierTimeoutMs": 120000
+    }
   },
   "perTierBriefing": {
-    "fast":      { "briefingModel": "openai/gpt-5.2" },
-    "pro":       { "briefingModel": "openai/gpt-5.3-codex" },
-    "max":       { "briefingModel": "openai/gpt-5.4" },
-    "codex":     { "briefingModel": "openai/gpt-5.4" },
-    "anthropic": { "briefingModel": "anthropic/claude-sonnet-4.6" }
+    "fast": {
+      "briefingModel": "openai/gpt-5.2"
+    },
+    "pro": {
+      "briefingModel": "openai/gpt-5.3-codex"
+    },
+    "max": {
+      "briefingModel": "openai/gpt-5.4"
+    },
+    "codex": {
+      "briefingModel": "openai/gpt-5.4"
+    },
+    "anthropic": {
+      "briefingModel": "anthropic/claude-sonnet-4.6"
+    }
   },
   "repairPolicies": {
     "deterministicAutofixPasses": 2,
@@ -292,8 +347,16 @@
     "partialFileRepairMaxAttempts": 1
   },
   "qualityGateTiers": {
-    "designPreview": ["typecheck"],
-    "integrationsBuild": ["typecheck", "build"]
+    "designPreview": [
+      "typecheck",
+      "build",
+      "lint"
+    ],
+    "integrationsBuild": [
+      "typecheck",
+      "build",
+      "lint"
+    ]
   },
   "promptOrchestration": {
     "hardCaps": {

@@ -7,6 +7,11 @@
 | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) | Kanonisk checklista — uppdaterad efter wave 2026-04-20 + konsolideringspass. |
 | [`P19-old-content-ingress.md`](./P19-old-content-ingress.md) | Konservativ hardening — kräver bevis innan kodändringar. |
 | [`P20-shadcn-ecosystem-next.md`](./P20-shadcn-ecosystem-next.md) | shadcn blocks + fonts strategi. Scaffold-toolkit redan levererat. |
+| [`P26-followup-orchestration-glitch.md`](./P26-followup-orchestration-glitch.md) | 7 PR-branches lokalt; `build_intent_promoted` triggar fortfarande i live-loggen 2026-04-21 — verifiera merge-status. |
+| [`P32-request-type-taxonomy.md`](./P32-request-type-taxonomy.md) | Förslag — 8-klass request-type-klassificering (Q&A/Score, External-fetch, Multi-change, Micro-edit, Local-layout, Page-addition, Redesign, Integration) → right-sized pipelines. Väntar på agreement. |
+| [`P33-shadcn-ecosystem-expansion.md`](./P33-shadcn-ecosystem-expansion.md) | Förslag — utbyggnad av shadcn-integrationen i 5 faser (fyll exempel-luckor, bredda capability-map, fler community-registries, embedding-retrieval, llms.txt-synk). Inga MCP-runtime-tools i scope. Väntar på agreement. |
+| [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | Fas A+B+C(delvis) 2026-04-21. `warm-eslint.ts` + integration i `validateAndFix` bakom `SAJTMASKIN_BLOCKING_ESLINT`. F3 forcerar på. Development env aktiverat på Vercel; preview kräver Dashboard pga CLI-begränsning. Mätning pågår när trafik kommer in. |
+| [`repair-loop-hardening.md`](./repair-loop-hardening.md) | Fyra delspår efter `8e617807b` (href↔route safety net): repairPassIndex-konsistens, verifier-rerun efter LLM-fixer, eliminera dubbel `validateAndFix` i preflight, fix-patterns till huvudgeneratorn. Steg A motsvarar Linear SAJ-25 (handoff klar i `.cursor/handoffs/`). |
 
 ## Avklarade i wave 2026-04-20
 
@@ -24,6 +29,19 @@ Flyttade till [`../avklarat/`](../avklarat/) av P27-validator efter sektion A+B+
 | `P26` | RunId-resolver i logger, reasoning-tokens-mätning, per-tier matris i `ModelTraceOverlay` |
 | `P27` | Sektion A+B+D körda (sektion C lämnad till användaren, sektion E commits till användaren) |
 | `parallel-execution-2026-04` | Wave-master arkiverad med closure-note. |
+
+## Avklarade i wave 2026-04-21
+
+Flyttade till [`../avklarat/`](../avklarat/) av städ-pass efter href↔route-säkerhetsnätet:
+
+| Plan | Levererade |
+|---|---|
+| `P30` | R3F vector-tuple autofix + LLM-fixer R3F-tips + gate-aware `no_improvement`-policy. |
+| `P31` | Dossier-driven F3 envs (build/feature-runtime/warn-only) + `allowPlaceholdersInF3`-toggle + TS2749 autofix + needsPayments capability + OpenClaw builder-tips. |
+
+**Raderade i samma städ-pass:**
+
+- `handoff-2026-04-20-next-session.md` — daterad sessionsanteckning, innehåll superseded av nuvarande `Kvarvarande-uppgifter.md` + git-historik.
 
 **Medvetet inte gjort i konsolideringen** (kvar som känd skuld i `Kvarvarande-uppgifter.md`):
 

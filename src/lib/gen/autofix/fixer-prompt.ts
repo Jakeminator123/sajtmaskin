@@ -22,8 +22,12 @@ Your job:
    - Do not render icon component references directly as raw values (e.g. {item.icon}).
    - Render icon components as JSX (e.g. <item.icon className="h-5 w-5" />).
    - Never use icon component values as React key; use stable text/id fields instead.
-7. If you truly cannot fix an error, keep the original code and add a // FIXME comment.
-8. If you change a file like app/page.tsx or components/foo.tsx, return the full file including imports and exports.
+7. React Three Fiber / three.js typing pitfalls (TS2322 on <mesh>/<group>/geometry props):
+   - Props \`position\`, \`scale\`, \`rotation\`, and 3-element \`args\` accept Vector3-like tuples. When you put a 3-number array in an OBJECT FIELD or VARIABLE (e.g. \`const drops = [{ position: [1,2,3] }]\`), TypeScript widens it to \`number[]\`. Suffix it with \`as const\`: \`{ position: [1,2,3] as const }\`. Inline JSX (\`<mesh position={[1,2,3]}>\`) is fine — only object/variable storage breaks.
+   - Use \`import type { Group, Mesh } from "three"\` for ref typings; do not redeclare them.
+   - For \`useRef\` on three primitives, prefer \`useRef<Group>(null)\` (not \`useRef<Group | null>\`); RTF accepts the resulting ref shape directly.
+8. If you truly cannot fix an error, keep the original code and add a // FIXME comment.
+9. If you change a file like app/page.tsx or components/foo.tsx, return the full file including imports and exports.
 
 Output: Only fenced code blocks with file="path". No explanations.`;
 
@@ -32,9 +36,24 @@ const DIAGNOSTIC_PREFIX_RE = /^\[([^\]]+)\]\s+(.+)$/;
 const MAX_PRIMARY_ERRORS = 40;
 const MAX_CONTEXT_LINES = 20;
 const MAX_REQUIRED_FILES = 20;
+const MAX_RECURRING_PATTERNS = 6;
+const MIN_RECURRING_OCCURRENCES = 2;
+
+/**
+ * En subset av `RunFixPattern` (i `@/lib/logging/generation-log-writer`)
+ * som fixer-prompten faktiskt bryr sig om. Vi håller typen lokal i
+ * autofix-paketet så detta paket inte beror på loggning för typing.
+ */
+export type RecurringFailurePattern = {
+  pattern: string;
+  occurrences: number;
+  files?: Array<{ file: string; count: number }>;
+  example?: string | null;
+};
 
 type FixerPromptOptions = {
   requiredFiles?: string[];
+  recurringPatterns?: RecurringFailurePattern[];
 };
 
 type StructuredFixerError = {
@@ -148,20 +167,50 @@ export function buildFixerUserPrompt(
     sections.push(...requiredFiles.map((filePath) => `- ${filePath}`));
   }
 
-  sections.push(
-    "",
-    "IMPORTANT:",
-    "- Return only changed files.",
-    "- Every returned file block must contain the complete file from first line to last line.",
-    "- Never return snippets, partial imports, or diff-style patches.",
-    "- Prioritize the listed files and resolve the primary blocking diagnostics before touching anything else.",
-    "",
-    "---",
-    "",
-    "Code:",
-    "",
-    content,
-  );
+  // Recurring failure patterns från tidigare fix-pass i samma chat-session.
+  // Filtrera bort enstaka förekomster (vi vill bara visa mönster som faktiskt
+  // upprepats) och topplista de N mest frekventa för att hålla prompten kort.
+  const recurringPatterns = (options?.recurringPatterns ?? [])
+    .filter(
+      (p) =>
+        p &&
+        typeof p.pattern === "string" &&
+        typeof p.occurrences === "number" &&
+        p.occurrences >= MIN_RECURRING_OCCURRENCES,
+    )
+    .slice(0, MAX_RECURRING_PATTERNS);
+  if (recurringPatterns.length > 0) {
+    sections.push(
+      "",
+      "Recurring failures across previous fix attempts on this site (DO NOT repeat the same fix that already failed — try a different approach):",
+    );
+    for (const pattern of recurringPatterns) {
+      const fileHints =
+        Array.isArray(pattern.files) && pattern.files.length > 0
+          ? ` in ${pattern.files
+              .slice(0, 3)
+              .map((f) => f.file)
+              .join(", ")}`
+          : "";
+      const example =
+        typeof pattern.example === "string" && pattern.example
+          ? ` (example: ${pattern.example.replace(/\s+/g, " ").slice(0, 140)})`
+          : "";
+      sections.push(
+        `- ${pattern.occurrences}× "${pattern.pattern}"${fileHints}${example}`,
+      );
+    }
+  }
+
+  sections.push("", "IMPORTANT:");
+  sections.push("- Return only changed files.");
+  sections.push("- Every returned file block must contain the complete file from first line to last line.");
+  sections.push("- Never return snippets, partial imports, or diff-style patches.");
+  sections.push("- Prioritize the listed files and resolve the primary blocking diagnostics before touching anything else.");
+  if (recurringPatterns.length > 0) {
+    sections.push("- For any recurring failure listed above, change the approach (different import path, different component, different type) instead of re-applying the same fix.");
+  }
+  sections.push("", "---", "", "Code:", "", content);
 
   return sections.join("\n");
 }

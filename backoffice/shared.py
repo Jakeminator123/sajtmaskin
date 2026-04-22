@@ -33,7 +33,10 @@ class BackofficeContext:
     # DEPRECATED: pekar på src/lib/gen/template-library/template-library.generated.json
     # som togs bort 2026-04-17 (4ba06d96e). Behålls bara för att inte bryta
     # scaffold_lifecycle.py (defensivt skrivet, läser tomt om filen saknas).
-    # Ny kod ska använda dossier-master.json via `data/dossiers/_index/master.json`.
+    # Ny kod ska INTE läsa template-library — för dossiers i v2, använd
+    # disk-walk av `data/dossiers/{hard,soft}/` (capability-driven, inget
+    # master-index). `data/dossiers/_index/capability-map.json` är en
+    # genererad view för backoffice/sanity, inte runtime-källa.
     template_lib_json: Path
     eval_latest: Path
     schema_md: Path
@@ -118,7 +121,7 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
         / "template-library"
         / "template-library.generated.json",
         eval_latest=root / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json",
-        schema_md=root / "docs" / "architecture" / "scaffold-schema.md",
+        schema_md=root / "docs" / "architecture" / "scaffold-system.md",
         error_log_csv=root / "logs" / "llm-segmentts-and-index" / "error-log.csv",
         autofix_hook_ts=root / "src" / "lib" / "hooks" / "chat" / "useAutoFix.ts",
     )
@@ -172,11 +175,11 @@ def sync_route_timeout_literals(
     engine_seconds: int,
     assist_seconds: int,
 ) -> int:
+    # /api/v0/chats/** removed in P29 Fas 1B (2026-04-20). Only the engine
+    # chat routes carry timeouts now; assist routes remain unchanged.
     route_targets = {
         "src/app/api/engine/chats/stream/route.ts": engine_seconds,
-        "src/app/api/v0/chats/stream/route.ts": engine_seconds,
         "src/app/api/engine/chats/[chatId]/stream/route.ts": engine_seconds,
-        "src/app/api/v0/chats/[chatId]/stream/route.ts": engine_seconds,
         "src/app/api/ai/chat/route.ts": assist_seconds,
         "src/app/api/ai/brief/route.ts": assist_seconds,
     }
@@ -629,6 +632,33 @@ def _load_json_file(path: Path) -> dict[str, Any] | None:
 def _normalize_bool_env(raw: str | None) -> bool:
     value = (raw or "").strip().lower()
     return value in {"1", "true", "yes"}
+
+
+# --- Env-driven endpoint resolvers --------------------------------------------
+# Helpers that turn environment variables into ready-to-use endpoint config for
+# Streamlit pages. Keep them small and side-effect-free; the UI layer decides
+# how to react when a value is missing.
+
+def resolve_metrics_endpoint() -> tuple[str, str | None]:
+    """Returns ``(base_url, token)`` for the ``/api/metrics`` endpoint.
+
+    Base URL preference order:
+      1. ``SAJTMASKIN_METRICS_BASE_URL``
+      2. ``SAJTMASKIN_BASE_URL``
+      3. ``http://localhost:3000`` (dev fallback)
+
+    Token comes from ``SAJTMASKIN_METRICS_TOKEN``. Returns ``token=None`` when
+    the env var is unset or empty so the caller can render its own UX.
+    """
+
+    base_url = (
+        os.environ.get("SAJTMASKIN_METRICS_BASE_URL", "").strip()
+        or os.environ.get("SAJTMASKIN_BASE_URL", "").strip()
+        or "http://localhost:3000"
+    )
+    base_url = base_url.rstrip("/")
+    token = os.environ.get("SAJTMASKIN_METRICS_TOKEN", "").strip() or None
+    return base_url, token
 
 
 def _parse_iso8601(value: str | None) -> datetime | None:

@@ -80,6 +80,31 @@ describe("promptOrchestration", () => {
     expect(result.strategyMeta.promptType).toBe("followup_technical");
   });
 
+  // Regression for SAJ-12 (handoff B4): freeform/kostnadsfri buildMethod no
+  // longer short-circuits follow-ups into "freeform" — the !isFirstPrompt
+  // gate now runs before the buildMethod-derived branches.
+  it("classifies freeform-launched follow-ups as followup_general (B4 regression)", () => {
+    const result = orchestratePromptMessage({
+      message: "Byt färg på hero-knappen till grön tack.",
+      buildMethod: "freeform",
+      buildIntent: "website",
+      isFirstPrompt: false,
+    });
+
+    expect(result.strategyMeta.promptType).toBe("followup_general");
+  });
+
+  it("classifies kostnadsfri-launched follow-ups as followup_general (B4 regression)", () => {
+    const result = orchestratePromptMessage({
+      message: "Lägg till en kontaktsektion under hero.",
+      buildMethod: "kostnadsfri",
+      buildIntent: "website",
+      isFirstPrompt: false,
+    });
+
+    expect(result.strategyMeta.promptType).toBe("followup_general");
+  });
+
   it("keeps full prompt body when over soft target but under hard cap (preserved strategy)", () => {
     const soft = 75_000;
     const body = `${"paragraph one with enough content.\n\n".repeat(2600)}UNIQUE_TAIL_MARKER_XYZ`;

@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { IntegrationSetupWizard } from "@/components/builder/IntegrationSetupWizard";
+import { F3PlaceholderToggle } from "@/components/builder/F3PlaceholderToggle";
 import { dispatchProjectEnvVarsUpdated } from "@/lib/builder/project-env-events";
 import { detectBusinessWorkflowPacks, type BusinessWorkflowPack } from "@/lib/gen/packs/business-packs";
 import {
@@ -1373,6 +1374,9 @@ export function ProjectEnvVarsPanel({
                   stället.
                 </div>
               )}
+
+              {/* Phase-5 toggle: opt the project into "F3 with placeholders". */}
+              <F3PlaceholderToggle projectId={appProjectId} />
 
               {(siteIntegrations.length > 0 || likelyRequiredEnvKeys.length > 0) && (
                 <div className="border-border rounded-md border p-2 text-xs">

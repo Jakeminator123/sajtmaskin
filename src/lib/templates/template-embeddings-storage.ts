@@ -5,7 +5,7 @@ import type { EmbeddingsFile } from "./template-embeddings-core";
 export type TemplateEmbeddingsStorageMode = "local";
 export type TemplateEmbeddingsStoragePreference = "local" | "auto";
 
-export const TEMPLATE_EMBEDDINGS_LOCAL_PATH = path.resolve(
+const TEMPLATE_EMBEDDINGS_LOCAL_PATH = path.resolve(
   process.cwd(),
   "src/lib/templates/template-embeddings.json",
 );

@@ -206,10 +206,13 @@ export interface ReasoningContentProps extends ComponentPropsWithoutRef<typeof C
 export function ReasoningContent({ children, className, ...props }: ReasoningContentProps) {
   return (
     <CollapsibleContent
-      className={cn("px-3 pb-3 text-sm leading-relaxed text-muted-foreground", className)}
+      className={cn(
+        "min-w-0 overflow-x-hidden px-3 pb-3 text-sm leading-relaxed text-muted-foreground wrap-break-word",
+        className,
+      )}
       {...props}
     >
-      <div className="border-t border-border pt-2">{children}</div>
+      <div className="min-w-0 border-t border-border pt-2">{children}</div>
     </CollapsibleContent>
   );
 }

@@ -104,9 +104,36 @@ export function useOpenClawChat() {
 
         if (!res.ok || !res.body) {
           const errText = await res.text().catch(() => "");
+          const ctype = res.headers.get("content-type") ?? "";
+          const looksLikeHtml =
+            ctype.includes("text/html") ||
+            errText.trimStart().startsWith("<!DOCTYPE") ||
+            errText.trimStart().startsWith("<html");
+          let detail = "";
+          if (errText && !looksLikeHtml) {
+            try {
+              const parsed = JSON.parse(errText);
+              const candidate =
+                (typeof parsed?.error === "string" && parsed.error) ||
+                (typeof parsed?.detail === "string" && parsed.detail) ||
+                (typeof parsed?.message === "string" && parsed.message) ||
+                "";
+              detail = candidate.slice(0, 280);
+            } catch {
+              detail = errText.replace(/\s+/g, " ").trim().slice(0, 280);
+            }
+          }
+          const friendly =
+            res.status === 404
+              ? "Sajtagent-tjansten svarar inte just nu (404). Kontrollera att dev-servern och OpenClaw-gatewayen ar igang."
+              : res.status === 503
+                ? "Sajtagenten ar tillfalligt avstangd (503)."
+                : res.status >= 500
+                  ? `Sajtagenten kunde inte svara (${res.status}). Forsok igen om en stund.`
+                  : `Hm, jag fick ett fel (${res.status}). Forsok igen om en stund.`;
           updateAssistantMessage(
             placeholderId,
-            `Hm, jag fick ett fel (${res.status}). Forsok igen om en stund.${errText ? `\n\n${errText}` : ""}`,
+            detail ? `${friendly}\n\n${detail}` : friendly,
           );
           setStreaming(false);
           return;

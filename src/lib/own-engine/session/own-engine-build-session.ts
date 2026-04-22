@@ -18,8 +18,18 @@ function extractBriefSummary(brief: Record<string, unknown> | null | undefined):
   const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v.trim() : undefined);
   const strList = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 6) : [];
+  // Capability list can be longer than 6 (Stripe + auth + analytics + ai-chat …).
+  // Cap at 16 to keep snapshot small but not lose coverage.
+  const capList = (v: unknown): string[] =>
+    Array.isArray(v)
+      ? v
+          .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+          .map((s) => s.trim().toLowerCase())
+          .slice(0, 16)
+      : [];
   const vis = brief.visualDirection as Record<string, unknown> | undefined;
   const palette = vis?.colorPalette as Record<string, unknown> | undefined;
+  const domainProfile = brief.domainProfile as Record<string, unknown> | undefined;
   return {
     projectTitle: str(brief.projectTitle) ?? str(brief.siteName),
     brandName: str(brief.brandName),
@@ -31,6 +41,18 @@ function extractBriefSummary(brief: Record<string, unknown> | null | undefined):
       secondary: str(palette.secondary),
       accent: str(palette.accent),
     } : undefined,
+    // Persist capability + domain so follow-ups can drive deterministic
+    // dossier selection (`selectDossiersForRequest`) without re-running
+    // Deep Brief. Without this, capability-driven dossiers are silently
+    // dropped on every follow-up — tracked as bug A1+A2 in the
+    // 2026-04-21 LLM-flow audit.
+    requestedCapabilities: capList(brief.requestedCapabilities),
+    domainProfile: domainProfile
+      ? {
+          domain: str(domainProfile.domain),
+          industry: str(domainProfile.industry),
+        }
+      : undefined,
   };
 }
 

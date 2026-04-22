@@ -17,11 +17,17 @@ Bulk-innehåll som tidigare låg här finns i **git-historik** (filer kan saknas
 | [`P26-observability-and-logging.md`](./P26-observability-and-logging.md) | `resolveRunDirFromContext` i `generation-log-writer.ts`, `extractReasoningTokens` i `generation-stream.ts`, per-tier 5×5 matris i `ModelTraceOverlay`. |
 | [`P27-validator.md`](./P27-validator.md) | Sektion A+B+D körda. Owner-file-konfliktscan grön. Sektion C (manuell browser-spotcheck) och sektion E (commits) lämnade till användaren. |
 
+## Wave 2026-04-20 (sen-pass)
+
+| Plan | Levererade |
+|---|---|
+| [`P29-v0-engine-consolidation.md`](./P29-v0-engine-consolidation.md) | Audit `03-konsolidering-pipeline.md` §3.4 helt stängd. Fas 1A (18 testlösa v0-chat-routes borta), Fas 1B (10 routes med UNIQUE tester migrerade till engine-side via 2 parallella write-subagents + alla 20 v0-filer + `v0-chats-compat.ts` borttagna), Fas 2-beslut (7 Class C-routes på `/api/v0/` är canonical permanent — ingen rename, dokumenterat i `engine-chats-path.ts` JSDoc + glossary). 1172/1172 tester gröna. |
+
 ## Äldre
 
 Äldre planfiler kan saknas i trädet men finns kvar i **git-historik**. Operativ sanning ligger nu i:
 
 - [`../../architecture/fas3-preview-and-deploy.md`](../../architecture/fas3-preview-and-deploy.md)
-- [`../../architecture/builder-generation.md`](../../architecture/builder-generation.md)
+- [`../../architecture/fas2-orchestration-and-build.md`](../../architecture/fas2-orchestration-and-build.md)
 
 När en äldre plan inte längre finns som fil: behandla README:n här som pekare och använd git-historik vid behov i stället för att återintroducera duplicerade roadmap-dokument.

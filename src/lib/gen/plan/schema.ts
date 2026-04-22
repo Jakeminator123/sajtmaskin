@@ -66,6 +66,15 @@ export type PlanIntegrationContract = {
   reason: string;
   status: "chosen" | "unresolved" | "optional";
   envVars?: string[];
+  /**
+   * Optional per-envVar enforcement classification (P31). When present,
+   * `tier3-build-spec.ts` partitions `requiredRealEnvKeys` into
+   * `featureRuntimeEnvKeys` / `warnOnlyEnvKeys` instead of treating every
+   * tier-3 key as build-blocking. Populated by callers that resolve
+   * dossier metadata (e.g. `finalize-design/route.ts`'s detection
+   * pipeline merged with `selectedDossiers`).
+   */
+  envEnforcement?: Record<string, "build" | "feature-runtime" | "warn-only">;
 };
 
 export type PlanEnvVarContract = {

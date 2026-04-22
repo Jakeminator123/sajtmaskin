@@ -43,6 +43,9 @@ import {
   renderTier3BuildPlanBlock,
 } from "@/lib/integrations/tier3-build-spec";
 import { renderTier3F2DenyBlockLines } from "@/lib/integrations/tier3-sdk-deny";
+import { FEATURES } from "@/lib/config";
+import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
+import { renderErrorLogRagBlockLines } from "@/lib/gen/rag/error-log-retriever";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
@@ -152,12 +155,12 @@ export interface Brief {
     reason: string;
     confidence: number;
   } | null;
-  /** Brief-LLM nominated dossiers (Fas 1.0). Hints — orchestrator's embedding pick decides. */
-  dossierNominations?: Array<{
-    id: string;
-    reason: string;
-    confidence: number;
-  }>;
+  /**
+   * Capabilities the brief-LLM declared the site needs (v2 dossier system).
+   * Each capability resolves to one dossier (or none) at runtime via
+   * `selectDossiersForRequest`. Free-form kebab-case strings.
+   */
+  requestedCapabilities?: string[];
 }
 
 export interface MediaCatalogItem {
@@ -180,6 +183,57 @@ export interface DesignReferenceAsset {
   kind: "figma" | "image";
   label: string;
   note?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2D — recurring failures block.
+//
+// Reads `logs/site-observability/<chatId>/latest/fix-patterns.json` and
+// renders a `### Recurring failures on this site` block so the MAIN
+// generator (not just the fixer) sees that it just made the same mistake
+// last time. Capped at 5 patterns + 600 chars; falls silently when budget
+// or signal is missing.
+// ---------------------------------------------------------------------------
+const RECURRING_BLOCK_MAX_PATTERNS = 5;
+const RECURRING_BLOCK_MAX_CHARS = 600;
+const RECURRING_BLOCK_MIN_OCCURRENCES = 2;
+
+export function renderRecurringFailuresBlockLines(
+  chatId: string | null | undefined,
+): string[] {
+  if (!chatId) return [];
+  let patterns: ReturnType<typeof readRecurringPatternsForChat>;
+  try {
+    patterns = readRecurringPatternsForChat(chatId);
+  } catch {
+    return [];
+  }
+  const eligible = patterns
+    .filter((p) => p.occurrences >= RECURRING_BLOCK_MIN_OCCURRENCES)
+    .slice(0, RECURRING_BLOCK_MAX_PATTERNS);
+  if (eligible.length === 0) return [];
+  const header = "### Recurring failures on this site";
+  const intro =
+    "These mistakes already happened on this site in earlier generations. " +
+    "Do NOT repeat them. The mechanical autofix and LLM-fixer have already " +
+    "patched them once; emitting them again costs another repair pass.";
+  const items = eligible.map((p) => {
+    const fileBit =
+      p.files && p.files.length > 0 ? ` — files: ${p.files
+        .slice(0, 2)
+        .map((f) => `\`${f.file}\``)
+        .join(", ")}` : "";
+    const exBit = p.example ? ` — last example: ${p.example.slice(0, 80)}` : "";
+    return `- \`${p.pattern}\` (×${p.occurrences})${fileBit}${exBit}`;
+  });
+  const block = [header, "", intro, "", ...items, ""];
+  // Char-cap: cut from the bottom item-by-item until under budget so the
+  // header/intro always survives.
+  while (block.join("\n").length > RECURRING_BLOCK_MAX_CHARS && block.length > 4) {
+    // Pop the last item (which is just before the trailing empty string).
+    block.splice(block.length - 2, 1);
+  }
+  return block;
 }
 
 export interface DynamicContextOptions {
@@ -206,6 +260,14 @@ export interface DynamicContextOptions {
   buildSpec?: BuildSpec | null;
   /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
+  /**
+   * Chat id — used for the Phase 2D `### Recurring failures on this site`
+   * block. Must be the real chat id (not a hashed seed) because we need it
+   * to read `logs/site-observability/<chatId>/latest/fix-patterns.json`.
+   * Optional so legacy callers (eval/runner, snapshot tests) compile
+   * unchanged; the block is silently skipped when missing.
+   */
+  chatId?: string | null;
   /** Verified shadcn usage examples matched to this request's capabilities. */
   componentReferences?: { name: string; code: string }[];
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
@@ -255,6 +317,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
 }> = [
   { match: /^generation mode:/i, priority: 100, required: true },
   { match: /^build-out request$/i, priority: 99, required: true },
+  { match: /^generation stage:/i, priority: 96, required: true },
   { match: /^custom instructions/i, priority: 100, required: true },
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
@@ -490,6 +553,7 @@ export function buildDynamicContext(
     generationMode,
     buildSpec,
     sessionSeed,
+    chatId,
     componentReferences,
     buildOut,
   } = options;
@@ -634,13 +698,24 @@ export function buildDynamicContext(
       buildSpec.referenceCategories.length > 0
         ? buildSpec.referenceCategories.join(", ")
         : "general";
+    const styleDirection = buildSpec.stylePackSecondary
+      ? `${buildSpec.stylePack} (with hints of ${buildSpec.stylePackSecondary})`
+      : buildSpec.stylePack;
     const profileLines: string[] = [
       "## Generation Profile",
       "",
-      `- **Style direction:** ${buildSpec.stylePack}`,
+      `- **Style direction:** ${styleDirection}`,
       `- **Quality tier:** ${buildSpec.qualityTarget}`,
       `- **Reference families:** ${referenceFamilies}`,
     ];
+    if (
+      buildSpec.capabilityFlags?.heavy &&
+      (buildSpec.capabilityFlags.signals?.length ?? 0) > 0
+    ) {
+      profileLines.push(
+        `- **Capability signals:** ${buildSpec.capabilityFlags.signals.join(", ")}`,
+      );
+    }
     if (buildSpec.forbiddenPatterns.length > 0) {
       profileLines.push(
         `- **Forbidden patterns:** ${buildSpec.forbiddenPatterns.join(", ")}`,
@@ -653,6 +728,8 @@ export function buildDynamicContext(
   if (effectiveVariant) {
     parts.push(
       "## Scaffold Variant (this generation)",
+      "",
+      "> **These are visual reference points, not a contract.** Adapt spacing, ordering, tone, and micro-details freely when it improves the result or better fits the user's brief. Keep the scaffold's route structure and component vocabulary intact — those remain load-bearing.",
       "",
       `- **Variant:** ${effectiveVariant.label} (\`${effectiveVariant.id}\`)`,
       `- **Scaffold:** \`${effectiveVariant.scaffoldId}\``,
@@ -706,7 +783,9 @@ export function buildDynamicContext(
         }
       }
       if (sig.antiPatterns.length > 0) {
-        parts.push("- **Avoid for this variant:**");
+        parts.push(
+          "- **Patterns that typically don't fit this variant** (avoid unless the prompt specifically asks for them):",
+        );
         for (const anti of sig.antiPatterns.slice(0, 4)) {
           parts.push(`  - ${anti}`);
         }
@@ -821,16 +900,20 @@ export function buildDynamicContext(
     parts.push(
       "## Available Dossiers",
       "",
-      `Selected from a pool of ${dossierSel.poolSize} active dossiers (legoklossar) for this generation. Use only what the user's prompt actually needs.`,
+      `Selected deterministically from the brief's requested capabilities (pool size: ${dossierSel.poolSize}). Each dossier maps to one capability the site needs.`,
       "",
     );
     for (const sel of dossierSel.selected) {
       const e = sel.entry;
-      const providers = e.providers && e.providers.length > 0
-        ? ` — providers: ${e.providers.map((p) => p.name).join(", ")}`
+      const configBadge = e.class === "hard"
+        ? sel.configured
+          ? " [configured]"
+          : " [UNCONFIGURED — render placeholder UI]"
         : "";
-      parts.push(`- **${e.label}** \`${e.id}\` (${e.kind}, ${e.category})${providers}`);
-      parts.push(`  - ${e.description}`);
+      parts.push(
+        `- **${e.label}** \`${e.id}\` (${e.class}, capability: ${e.capability}, ${e.codeFidelity})${configBadge}`,
+      );
+      parts.push(`  - ${e.summary}`);
     }
     parts.push("");
 
@@ -884,11 +967,22 @@ export function buildDynamicContext(
     ]);
     const verbatimFiles: VerbatimFile[] = [];
     for (const sel of dossierSel.selected) {
-      for (const file of sel.entry.files) {
-        const mode = file.injectionMode ?? defaultInjectionMode(file.kind, sel.entry.kind);
+      const files = sel.entry.files ?? [];
+      for (const file of files) {
+        const mode = defaultInjectionMode(file, sel.entry);
         if (mode !== "verbatim") continue;
-        const content = getDossierFileContent(sel.entry.id, file.path);
-        if (content === null) continue;
+        const content = getDossierFileContent(sel.entry.class, sel.entry.id, file.path);
+        if (content === null) {
+          // The dossier asked for verbatim injection but the file is missing
+          // on disk (or path-traversal blocked it). Use console.warn (not
+          // debugLog, which is gated on DEBUG=true) — missing integration
+          // glue would crash the generated site at runtime, so the operator
+          // must see this even in production.
+          console.warn(
+            `[dossiers] verbatim-missing ${sel.entry.id}: file '${file.path}' was requested verbatim but cannot be read from data/dossiers/${sel.entry.class}/${sel.entry.id}/`,
+          );
+          continue;
+        }
         // Dossier files live under data/dossiers/<id>/components/<path-in-project>
         // The "components/" prefix is the dossier-internal staging dir; strip it
         // for the actual output path so files land at app/.../route.ts etc.
@@ -1005,7 +1099,56 @@ export function buildDynamicContext(
     parts.push(
       "- Generate routes in the project's primary language only. Do not emit both '/contact' and '/kontakt' — pick one based on the brief locale.",
     );
+
+    // Hard contract: list the canonical paths the LLM is allowed to use in
+    // navigation expressions. This catches the /blog vs /blogg failure mode
+    // where the LLM emits href="/blog/${slug}" against actual route /blogg.
+    // Mirror of the deterministic preflight check in
+    // src/lib/gen/verify/href-route-cross-check.ts.
+    const canonicalPaths = routePlan.routes.map((route) => route.path);
+    parts.push(
+      "",
+      "### Canonical route paths (use these EXACTLY in href/Link/router.push/redirect)",
+      "",
+      ...canonicalPaths.map((path) => `- \`${path}\``),
+      "",
+      "Hard rules for navigation expressions:",
+      "- Never invent paths that are not in the list above.",
+      "- For slug-based detail pages, reuse the listing route's path as prefix (e.g. if `/blogg` is listed, use `\\`/blogg/${slug}\\`` — never `\\`/blog/${slug}\\``).",
+      "- The finalize preflight runs a deterministic href ↔ route cross-check; mismatches surface as warnings in the version error log and may block future builds.",
+    );
     parts.push("");
+
+    // Phase 2D — recurring failures block. Only on follow-ups (init has no
+    // historical patterns), only when the FEATURES.recurringPatternsInMainPrompt
+    // toggle is on, and only when there is real signal. Inserted right after
+    // the canonical-route-paths block so the model sees both "where to go"
+    // and "what not to repeat" together. See renderRecurringFailuresBlockLines.
+    if (isFollowUp && FEATURES.recurringPatternsInMainPrompt) {
+      const recurringLines = renderRecurringFailuresBlockLines(chatId);
+      if (recurringLines.length > 0) {
+        parts.push(...recurringLines);
+      }
+    }
+
+    // Phase 3.4 — Vector RAG block. When enabled, retrieves top-K
+    // similar past failures from the deterministic TF-IDF index built
+    // by `scripts/observability/index-error-log-rag.mjs` and renders
+    // them as `### Lessons from similar past builds`. Auto-rebuilt at
+    // npm run dev|build|start (see scripts/dev/next-runner.mjs hook).
+    // Capped at 800 chars; falls silently when index is empty/missing.
+    if (FEATURES.useErrorLogRag) {
+      const ragLines = renderErrorLogRagBlockLines({
+        prompt: userPrompt ?? "",
+        scaffoldId: resolvedScaffold?.id ?? buildSpec?.scaffoldId ?? null,
+        // lineageHash is not surfaced into DynamicContextOptions today; the
+        // retriever happily works without it. P26 follow-up could thread it
+        // through orchestration-snapshot.
+      });
+      if (ragLines.length > 0) {
+        parts.push(...ragLines);
+      }
+    }
   }
 
   // ── Tier-3 Integration Build Plan (F3 only) ────────────────────────────

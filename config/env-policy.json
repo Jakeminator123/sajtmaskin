@@ -30,6 +30,10 @@
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SAJTMASKIN_PRE_VM_TYPECHECK",
     "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
+    "SAJTMASKIN_BLOCKING_ESLINT",
+    "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
+    "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
+    "SAJTMASKIN_METRICS_TOKEN",
     "SAJTMASKIN_PREVIEW_HOST_API_KEY",
     "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
@@ -164,6 +168,7 @@
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_SHOW_THINKING",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
+    "SAJTMASKIN_METRICS_TOKEN",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
     "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
     "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
@@ -175,6 +180,9 @@
     "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
     "SAJTMASKIN_PRE_VM_TYPECHECK",
     "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
+    "SAJTMASKIN_BLOCKING_ESLINT",
+    "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
+    "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
@@ -332,6 +340,30 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Override directory for the per-scaffold typecheck cache (defaults to `<tmpdir>/sajtmaskin/typecheck-cache`). One subdirectory per scaffold id, each with its own `node_modules` + `tsconfig.json`."
+    },
+    {
+      "key": "SAJTMASKIN_BLOCKING_ESLINT",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Feature flag for the blocking eslint pass in `validateAndFix` (src/lib/gen/preview/warm-eslint.ts). Off by default — lint still runs in background verify-lane. When on, eslint runs after warm-tsc passes and feeds errors into the LLM fixer, closing SAJ-28. F3 generations force-run regardless. Fails open on cache-cold / eslint-unavailable."
+    },
+    {
+      "key": "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Override `--max-warnings` for the blocking eslint pass. Default 20. Errors always fail the gate; warnings only fail when count exceeds this cap. Set higher (e.g. 50) to be more lenient, or 0 to treat all warnings as gate failures."
+    },
+    {
+      "key": "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Controls the post-VM `triggerBuildErrorRepair` loop in `src/lib/gen/verify/server-verify.ts`. Default ON in `development` and Vercel `preview`, default OFF in `production`. Explicit `1`/`true`/`on`/`yes` or `0`/`false`/`off`/`no` overrides the per-environment default. Same `inflight` dedup as server-verify so the same versionId never repairs twice in parallel."
+    },
+    {
+      "key": "SAJTMASKIN_METRICS_TOKEN",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Bearer token required to access /api/metrics. Empty/unset = route returns 503 (disabled)."
     },
     {
       "key": "SAJTMASKIN_SHOW_THINKING",

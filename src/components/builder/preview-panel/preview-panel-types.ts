@@ -4,7 +4,7 @@ import type {
   EngineVersionDisplayStatus,
   EngineVersionLifecycleStage,
 } from "@/lib/db/engine-version-lifecycle";
-import type { AlternatePreviewUrls } from "@/lib/gen/preview/legacy/compatibility-shim";
+import type { AlternatePreviewUrls } from "@/lib/gen/preview/preview-url-classifier";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
 
 export type CaptureResponse = {
@@ -125,6 +125,13 @@ export interface PreviewPanelProps {
    * See `.cursor/rules/env-flow-f2-mute.mdc`.
    */
   lifecycleStage?: EngineVersionLifecycleStage | null;
+  /**
+   * Whether the builder shell is busy (creating chat, streaming a previous
+   * generation, loading a template, preparing a prompt). Forwarded down to
+   * `PreviewPanelF3Trigger` so a second "Bygg nu" click cannot race the
+   * F3 stream that the previous click is currently running.
+   */
+  isBusy?: boolean;
   /** Called when F3 trigger reports missing tier-3 env keys. */
   onF3MissingEnv?: (payload: {
     parentVersionId: string;

@@ -22,6 +22,8 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
+import { getProjectData } from "@/lib/db/services/projects";
+import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
@@ -68,6 +70,31 @@ function buildPlaceholderCoveredEnvWarning(keys: string[]): ChatReadinessItem {
     action: "env",
   };
 }
+
+function buildFeatureRuntimeEnvInfo(keys: string[]): ChatReadinessItem {
+  return {
+    id: "feature-runtime-env",
+    title: `${keys.length} ${keys.length === 1 ? "funktion kräver" : "funktioner kräver"} konfiguration vid användning.`,
+    detail: `Sajten bygger och visas utan dessa, men respektive feature visar en konfigurations-banner när användaren aktiverar den: ${keys.join(", ")}`,
+    severity: "warning",
+    action: "env",
+  };
+}
+
+async function readAllowPlaceholdersInF3(
+  projectId: string | null | undefined,
+): Promise<boolean> {
+  if (!projectId) return false;
+  try {
+    const data = await getProjectData(projectId);
+    const meta = data?.meta as Record<string, unknown> | null | undefined;
+    const value = meta?.allowPlaceholdersInF3;
+    return value === true;
+  } catch {
+    return false;
+  }
+}
+
 
 function buildLifecycleBlocker(status: string, summary?: string | null): ChatReadinessItem | null {
   if (status === "draft") {
@@ -265,12 +292,31 @@ async function buildEngineReadiness(
     typeof version.lifecycle_stage === "string" ? version.lifecycle_stage : "design";
   const envGateActive = lifecycleStage === "integrations";
 
+  const allowPlaceholdersInF3 = envGateActive
+    ? await readAllowPlaceholdersInF3(chat.project_id)
+    : false;
+
+  const selectedDossiers = resolveSelectedDossiersFromSnapshot(
+    chat.orchestration_snapshot,
+  );
+
   const envRequirements = resolveEnvRequirementsFromVersionFiles(
     versionRows,
     projectEnv,
-    { lifecycleStage: envGateActive ? "integrations" : "design" },
+    {
+      lifecycleStage: envGateActive ? "integrations" : "design",
+      allowPlaceholdersInF3,
+      selectedDossiers,
+    },
   );
-  const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys, placeholderCoveredKeys } = envRequirements;
+  const {
+    requiredEnvKeys,
+    configuredEnvKeys,
+    missingEnvKeys,
+    placeholderCoveredKeys,
+    buildBlockingKeys,
+    featureRuntimeKeys,
+  } = envRequirements;
 
   if (envGateActive) {
     if (requiredEnvKeys.length > 0 && !chat.project_id) {
@@ -281,12 +327,20 @@ async function buildEngineReadiness(
         severity: "blocker",
         action: "env",
       });
-    } else if (missingEnvKeys.length > 0) {
-      blockers.push(buildMissingEnvBlocker(missingEnvKeys));
+    } else if (buildBlockingKeys.length > 0) {
+      // Phase 4: ONLY build-enforcement keys block. feature-runtime + warn-only
+      // surface as warnings or info. Falls back to legacy `missingEnvKeys`
+      // semantics when no enforcement metadata is present (keys default to
+      // build, so the two lists overlap fully on legacy callers).
+      blockers.push(buildMissingEnvBlocker(buildBlockingKeys));
     }
 
     if (placeholderCoveredKeys.length > 0) {
       warnings.push(buildPlaceholderCoveredEnvWarning(placeholderCoveredKeys));
+    }
+
+    if (featureRuntimeKeys.length > 0) {
+      warnings.push(buildFeatureRuntimeEnvInfo(featureRuntimeKeys));
     }
   }
 
@@ -325,6 +379,8 @@ async function buildEngineReadiness(
       configuredEnvKeys,
       missingEnvKeys,
       placeholderCoveredKeys,
+      buildBlockingKeys,
+      featureRuntimeKeys,
     },
   });
 }

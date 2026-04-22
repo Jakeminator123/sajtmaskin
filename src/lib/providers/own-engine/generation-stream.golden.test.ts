@@ -108,6 +108,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     rejectedShrinks: [],
     shrinkRetry: null,
     verifierBlockingFindings: [],
+    rejectedStructural: [],
   };
 
   beforeEach(() => {

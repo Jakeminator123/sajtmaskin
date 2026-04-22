@@ -120,6 +120,8 @@ export interface BriefSummarySnapshot {
   brandName?: string;
   styleKeywords?: string[];
   toneKeywords?: string[];
+  requestedCapabilities?: string[];
+  domainProfile?: { domain?: string; industry?: string };
 }
 
 export function extractBriefSummaryFromSnapshot(
@@ -133,14 +135,61 @@ export function extractBriefSummaryFromSnapshot(
     typeof s.projectTitle === "string" ||
     typeof s.brandName === "string" ||
     (Array.isArray(s.styleKeywords) && s.styleKeywords.length > 0) ||
-    (Array.isArray(s.toneKeywords) && s.toneKeywords.length > 0);
+    (Array.isArray(s.toneKeywords) && s.toneKeywords.length > 0) ||
+    (Array.isArray(s.requestedCapabilities) && s.requestedCapabilities.length > 0) ||
+    (typeof s.domainProfile === "object" && s.domainProfile !== null);
   if (!has) return null;
+  const rawDomainProfile = s.domainProfile;
+  const domainProfile =
+    rawDomainProfile && typeof rawDomainProfile === "object"
+      ? (() => {
+          const d = rawDomainProfile as Record<string, unknown>;
+          const domain = typeof d.domain === "string" ? d.domain : undefined;
+          const industry = typeof d.industry === "string" ? d.industry : undefined;
+          return domain || industry ? { domain, industry } : undefined;
+        })()
+      : undefined;
   return {
     projectTitle: typeof s.projectTitle === "string" ? s.projectTitle : undefined,
     brandName: typeof s.brandName === "string" ? s.brandName : undefined,
     styleKeywords: Array.isArray(s.styleKeywords) ? (s.styleKeywords as string[]) : undefined,
     toneKeywords: Array.isArray(s.toneKeywords) ? (s.toneKeywords as string[]) : undefined,
+    requestedCapabilities: Array.isArray(s.requestedCapabilities)
+      ? (s.requestedCapabilities as string[])
+      : undefined,
+    domainProfile,
   };
+}
+
+/**
+ * Build a minimal brief object from snapshot for follow-ups so capability-
+ * driven dossier selection (and any other consumer that reads
+ * `brief.requestedCapabilities` / `brief.domainProfile`) keeps working
+ * after the first generation.
+ *
+ * Returns `null` if the snapshot does not have a usable briefSummary.
+ *
+ * Bug A1+A2 (2026-04-21 LLM-flow audit): without this, every follow-up
+ * gets `brief: null` → `selectDossiersForRequest` returns zero dossiers
+ * → integrations the user asked for in the init prompt are silently
+ * dropped on every follow-up.
+ */
+export function buildFollowUpBriefFromSnapshot(
+  snapshot: Record<string, unknown> | null | undefined,
+): Record<string, unknown> | null {
+  const summary = extractBriefSummaryFromSnapshot(snapshot);
+  if (!summary) return null;
+  const out: Record<string, unknown> = {};
+  if (summary.requestedCapabilities && summary.requestedCapabilities.length > 0) {
+    out.requestedCapabilities = summary.requestedCapabilities;
+  }
+  if (summary.domainProfile) out.domainProfile = summary.domainProfile;
+  if (summary.projectTitle) out.projectTitle = summary.projectTitle;
+  if (summary.brandName) out.brandName = summary.brandName;
+  // Returning an empty object is worse than null — downstream guards
+  // expect either a populated brief or no brief at all.
+  if (Object.keys(out).length === 0) return null;
+  return out;
 }
 
 export function formatPriorDesignContext(summary: BriefSummarySnapshot): string {

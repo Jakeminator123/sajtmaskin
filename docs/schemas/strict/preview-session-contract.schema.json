@@ -103,7 +103,6 @@
   "contracts": {
     "PreviewSessionPostApiJson": {
       "route": "/api/engine/chats/[chatId]/preview-session",
-      "compatRoute": "/api/v0/chats/[chatId]/preview-session",
       "type": "object",
       "required": [],
       "properties": {

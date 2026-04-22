@@ -1,5 +1,0 @@
-/**
- * Legacy compat — implementation lives in the engine route.
- */
-export { POST } from "@/app/api/engine/chats/[chatId]/versions/[versionId]/export/route";
-export const runtime = "nodejs";

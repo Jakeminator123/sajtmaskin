@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
-import { createDirectModel } from "@/lib/builder/gateway-policy";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import OpenAI from "openai";
 import { prepareCredits } from "@/lib/credits/server";
 import { getCreditCost, type CreditAction } from "@/lib/credits/pricing";

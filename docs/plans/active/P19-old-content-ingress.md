@@ -1,8 +1,8 @@
 # P19 — Old-content ingress hardening (konservativ)
 
-Status: Active
+Status: Active (Steg 1 + 2 + 4 KLARA 2026-04-20; Steg 3 öppen)
 Skapad: 2026-04-15
-Prioritet: Medel-hög
+Prioritet: Medel
 
 ## Problem
 
@@ -39,28 +39,34 @@ Detta måste angripas konservativt: först bevisa ingresspunkter, sedan små sä
 
 ## Genomförande
 
-### Steg 1 — Evidens och reproducerbarhet
+### Steg 1 — Evidens och reproducerbarhet — **DONE 2026-04-20**
 
-- Lägg till riktad loggning/telemetri för:
-  - när `reused_url` används
-  - vilken `engineBaseVersionId` som skickas i follow-up
-  - vilken versionsrad som faktiskt används av `resolveFollowUpPreviousFiles()`
-- Dokumentera 2-3 reproducerbara scenarier.
+- ✅ Ny Prometheus-räknare `sajtmaskin_ingress_event_total{type, reason}` exponerad via `incIngressEvent()` i `src/lib/observability/metrics.ts`. Reset i `resetMetricsForTest()`. Täcker:
+  - `preview_reused_url` — wired i `src/app/api/engine/chats/[chatId]/preview-session/route.ts` precis innan `startOutcome: "reused_url"`-svar (med `devLogAppend({ type: "preview.reused-url", chatId, versionId, previewUrl })`, URL trunkerad till 60 tecken).
+  - `followup_base_resolved{reason="explicit"|"preferred"|"latest"}` + per-branch räknarna `followup_base_explicit|preferred|latest` — wired i `resolveFollowUpPreviousFiles()` i `src/lib/gen/version-manager.ts`. Dubbel-räknare medvetet: `_resolved` ger en linje för dashboard, typade räknare ger drilldown utan label-join. Per call `devLogAppend({ type: "version-manager.followup-base", chatId, branch, versionId })`.
+- Alla telemetri-anrop wrappade i `try { ... } catch {}` så observability aldrig blockerar codegen eller preview-svar.
+- Reproducerbara scenarier dokumenteras separat när första analysfönstret rullats in.
 
-### Steg 2 — Konservativa skydd
+> **Status:** Klart 2026-04-20. Analysen av insamlad data är nästa steg (kopplas till Steg 3).
 
-- Invalidera `preview_url` när filer uppdateras på en version via `/files`-muteringar, så att nästa preview-bootstrap inte återanvänder stale URL.
-- Behåll befintligt resume-flöde via session-store, men undvik URL-genväg när innehåll ändrats.
+### Steg 2 — Konservativa skydd — **DONE 2026-04-20**
+
+- ✅ Ingress-punkt 1 stängd: `updateVersionFiles()` nollställer nu `preview_url` när filer muteras via `/api/engine/chats/[chatId]/files`. Levererat i commit `72837c500`. Nästa preview-session-request kortsluter inte längre till `startOutcome: "reused_url"` mot stale tier-2 VM-snapshot.
+- Befintligt resume-flöde via session-store oförändrat (URL-genvägen undviks bara vid faktisk filmutering, inte vid normal preview-bootstrap).
 
 ### Steg 3 — Transparens i follow-up-basen
 
 - Visa i UI/logg vilken basversion follow-up skickar (`engineBaseVersionId`).
 - Om bas inte är latest: ge tydlig signal ("du redigerar version X, inte senaste Y").
 
-### Steg 4 — v0-import freshness-signal
+> **Status:** Öppen. Subagent-fynd 2026-04-20 noterade att `9b1c5dc8` (unify active-version) löste *delvis* den race-condition som gjorde att fel bas valdes — men UX-transparensen återstår. Effort: ~4–8h.
 
-- Exponera importkällans timestamp/ursprung i import-respons eller metadata.
-- Lägg till enkel varning när lokal källa är äldre än förväntat tröskelvärde (informationsnivå, ej blockering).
+### Steg 4 — v0-import freshness-signal — **DONE 2026-04-20**
+
+- ✅ `/api/template` POST-respons innehåller nu ett `source`-objekt med `templateId`, `timestamp`, `ageSeconds`, `stale`, `sourceSlugs` och `categoryLabel`. Se `src/app/api/template/route.ts` (`buildTemplateSourceMetadata`).
+- ✅ Tröskel `STALENESS_THRESHOLD_SECONDS = 30 dygn` (module-level, intern). När `stale === true` skrivs en info-rad via `devLogAppend("latest", { type: "v0-import.stale-source", templateId, ageSeconds, timestamp })` — ej blockerande.
+- ✅ Saknad/oparsbar timestamp ger `ageSeconds: null, stale: false` (safe default). Existerande responsfält är oförändrade; fältet är additivt.
+- Klienter kan nu opt-in:a UI-varning. UX-exponering i builder är egen uppgift (ej del av denna plan).
 
 ### Steg 5 — Verifiering
 

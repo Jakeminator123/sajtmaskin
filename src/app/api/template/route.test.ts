@@ -14,6 +14,7 @@ const chatRepoAddMessage = vi.hoisted(() => vi.fn());
 const chatRepoCreateDraftVersion = vi.hoisted(() => vi.fn());
 const chatRepoUpdateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const chatRepoGetChat = vi.hoisted(() => vi.fn());
+const devLogAppend = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
   createProject,
@@ -55,6 +56,10 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
+}));
+
+vi.mock("@/lib/logging/devLog", () => ({
+  devLogAppend,
 }));
 
 vi.mock("@/lib/templates/template-data", () => ({
@@ -102,6 +107,7 @@ describe("POST /api/template", () => {
     chatRepoCreateDraftVersion.mockReset();
     chatRepoUpdateVersionPreviewUrl.mockReset();
     chatRepoGetChat.mockReset();
+    devLogAppend.mockReset();
 
     getCurrentUser.mockResolvedValue(null);
     resolveAppProjectIdForRequest.mockResolvedValue(null);
@@ -200,7 +206,17 @@ describe("POST /api/template", () => {
       projectId: "proj_new",
       versionId: "ver_import",
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_import",
+      source: {
+        templateId: "tmpl_1",
+        timestamp: "2026-04-05T12:00:00Z",
+        stale: false,
+        sourceSlugs: ["ai"],
+        categoryLabel: "AI",
+      },
     });
+    expect(typeof json.source.ageSeconds).toBe("number");
+    expect(json.source.ageSeconds).toBeGreaterThanOrEqual(0);
+    expect(devLogAppend).not.toHaveBeenCalled();
     expect(chatRepoCreateDraftVersion).toHaveBeenCalledWith(
       "chat_import",
       "msg_import",
@@ -291,5 +307,106 @@ describe("POST /api/template", () => {
     expect(chatRepoCreateDraftVersion).toHaveBeenCalled();
     expect(chatRepoUpdateVersionPreviewUrl).not.toHaveBeenCalled();
     expect(commitCredits).toHaveBeenCalled();
+  });
+
+  it("surfaces stale=true and emits a devLog entry when the local source is older than 30 days", async () => {
+    const staleTimestamp = "2025-01-01T00:00:00Z";
+    getLocalV0TemplateSourceById.mockResolvedValue({
+      templateId: "tmpl_1",
+      archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
+      sourceSlugs: ["ai"],
+      sourceLabelsSv: ["AI"],
+      categoryLabel: "AI",
+      timestamp: staleTimestamp,
+    });
+    loadLocalV0TemplateFiles.mockResolvedValue({
+      source: {
+        templateId: "tmpl_1",
+        archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
+        sourceSlugs: ["ai"],
+        sourceLabelsSv: ["AI"],
+        categoryLabel: "AI",
+        timestamp: staleTimestamp,
+      },
+      files: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <div>Repo</div>; }",
+          language: "tsx",
+        },
+      ],
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.source).toMatchObject({
+      templateId: "tmpl_1",
+      timestamp: staleTimestamp,
+      stale: true,
+    });
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "latest",
+      expect.objectContaining({
+        type: "v0-import.stale-source",
+        templateId: "tmpl_1",
+        timestamp: staleTimestamp,
+      }),
+    );
+  });
+
+  it("returns ageSeconds=null and stale=false when the source timestamp is missing", async () => {
+    getLocalV0TemplateSourceById.mockResolvedValue({
+      templateId: "tmpl_1",
+      archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
+      sourceSlugs: [],
+      sourceLabelsSv: [],
+      categoryLabel: null,
+      timestamp: null,
+    });
+    loadLocalV0TemplateFiles.mockResolvedValue({
+      source: {
+        templateId: "tmpl_1",
+        archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
+        sourceSlugs: [],
+        sourceLabelsSv: [],
+        categoryLabel: null,
+        timestamp: null,
+      },
+      files: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <div>Repo</div>; }",
+          language: "tsx",
+        },
+      ],
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.source).toEqual({
+      templateId: "tmpl_1",
+      timestamp: null,
+      ageSeconds: null,
+      stale: false,
+      sourceSlugs: [],
+      categoryLabel: null,
+    });
+    expect(devLogAppend).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 /**
  * Read-only: rad-uppskattning per tabell för dev/staging-granskning.
- * Användning: från repo-rot med `.env.local` som sätter POSTGRES_URL.
+ * Användning: från repo-rot med `.env.local` som sätter POSTGRES_URL
+ * (eller STORAGE_POSTGRES_URL alias).
  *
  *   npm run db:rows
  *
@@ -19,6 +20,8 @@ const allowInsecureSsl = process.argv.includes("--allow-insecure-ssl");
 const cs = normalizeEnvUrl(
   process.env.POSTGRES_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.STORAGE_POSTGRES_URL ||
+    process.env.STORAGE_POSTGRES_URL_NON_POOLING ||
     process.env.DATABASE_URL,
 );
 if (!cs) {

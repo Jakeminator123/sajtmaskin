@@ -18,6 +18,22 @@ export interface InferredCapabilities {
    * explicitly, and consumers should treat absence as `false`.
    */
   needsPhysics?: boolean;
+  /**
+   * Subset of `needsMotion` for parallax patterns specifically. Distinguished
+   * because parallax has its own dossier pair (`scroll-parallax` and
+   * `pointer-parallax`) with safety contracts (reduced-motion + viewport
+   * units + pointer ownership) that the generic motion instruction does not
+   * cover. Optional for backwards compatibility with older fixtures.
+   */
+  needsParallax?: boolean;
+  /**
+   * Prompt asks for a real payment flow (Stripe/Klarna/checkout). Bridges
+   * to the `payments` dossier capability so `stripe-checkout` is selected
+   * with high confidence, and so the F3 readiness gate knows which
+   * provider's keys are truly blocking. Optional for backwards
+   * compatibility with older fixtures.
+   */
+  needsPayments?: boolean;
   needsCharts: boolean;
   needsDatabase: boolean;
   needsAuth: boolean;
@@ -41,8 +57,45 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsMotion",
     patterns: [
-      /\b(animat|motion|framer|transition|fade|slide|parallax|stagger|entrance|animate|rörelse|animering|effekt|wow|premium|immersive|futurist)\b/i,
+      /\b(animat|motion|framer|transition|fade|slide|stagger|entrance|animate|rörelse|animering|effekt|wow|premium|immersive|futurist)\b/i,
       /\b(hover.*(effect|animation)|scroll.*(reveal|trigger|animat))\b/i,
+    ],
+  },
+  {
+    // Parallax has its own dossier pair (`scroll-parallax`, `pointer-parallax`)
+    // with safety contracts the generic motion instruction does not cover.
+    // Word `parallax` was deliberately moved out of the `needsMotion` rule so
+    // a parallax-specific prompt does not pull in the broader framer-motion
+    // entrance-animation guidance unless the prompt asks for both.
+    key: "needsParallax",
+    patterns: [
+      /\b(parallax|paralaks|parallax-?effekt|parallax-?scroll|parallax-?pointer|parallax-?header|parallax på (scroll|mus|pointer))\b/i,
+      /\b(mouse.?parallax|pointer.?parallax|cursor.?parallax|mus.?parallax)\b/i,
+      /\b(följer (mus(en|pekaren)|cursor|pointer)|hover.?tilt|tilt.?card)\b/i,
+      /\b(scroll-?parallax|scroll-?driven|sticky.?parallax|pinned.?(section|parallax))\b/i,
+    ],
+  },
+  {
+    // Real payment intent — Stripe, Klarna, checkout, "betalningsflöde",
+    // "betala med kort", "köpa med …". Bridges to the `payments` dossier
+    // capability so `stripe-checkout` (or future provider dossiers) is
+    // selected with high confidence and the F3 gate flags the right keys
+    // as blocking. Distinct from generic ecommerce wording
+    // (`needsEcommerce`) which still triggers product/cart/storefront
+    // patterns. The "betala med …" pattern is intentionally narrow —
+    // it requires a payment-instrument noun (`kort`, `swish`, `klarna`,
+    // `kreditkort`) so generic "betala räkningen"-phrases don't trigger.
+    key: "needsPayments",
+    patterns: [
+      /\b(stripe|stripe.?betalning|stripe.?checkout)\b/i,
+      /\b(klarna|swish|paypal|adyen|mollie|braintree)\b/i,
+      /\b(betalningsfl(o|ö)de|betalningsl(o|ö)sning|payment.?flow|checkout.?flow)\b/i,
+      /\b(card.?payment|kortbetalning|kortköp|kreditkort)\b/i,
+      /\b(prenumerationsbetalning|subscription.?billing|recurring.?billing)\b/i,
+      // "betala med kort/swish/klarna/kreditkort/visa/mastercard"
+      /\bbetala\s+med\s+(kort|kreditkort|swish|klarna|stripe|paypal|visa|mastercard|apple\s*pay|google\s*pay)\b/i,
+      // "köp(a) med kort/online/checkout" — narrow noun-list
+      /\bk(ö|o)p(a)?\s+med\s+(kort|kreditkort|stripe|klarna|swish|checkout)\b/i,
     ],
   },
   {
@@ -125,7 +178,7 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsPremiumVisuals",
     patterns: [
-      /\b(premium|luxury|glassmorphism|glass|neon|glow|gradient.?text|blur|frosted|modern.*design|sleek|elegant|sophisticated|futuristisk|exklusiv)\b/i,
+      /\b(premium|luxury|glassmorphism|glass|glas|neon|glow|gradient.?text|blur|frosted|modern.*design|sleek|elegant|sophisticated|futuristisk|exklusiv)\b/i,
       /\b(dark.?mode.*hero|spotlight|cinematic|atmospheric|immersive)\b/i,
       /\b(filmisk|filmiskt|cinematisk|cinematiskt|arkiv.?x|x-files|ufo|paranormal)\b/i,
     ],
@@ -155,6 +208,8 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     needsMotion: false,
     needs3D: false,
     needsPhysics: false,
+    needsParallax: false,
+    needsPayments: false,
     needsCharts: false,
     needsDatabase: false,
     needsAuth: false,
@@ -182,6 +237,10 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   if (result.needs3D) result.needsMotion = true;
   if (result.needsPremiumVisuals) result.needsMotion = true;
   if (result.needsCalendar) result.needsForms = true;
+  // Parallax is a flavor of motion. Imply needsMotion so existing motion-
+  // aware paths (system prompt section, dependency completion of
+  // framer-motion) still trigger when only parallax was matched.
+  if (result.needsParallax) result.needsMotion = true;
 
   if (result.needsEcommerce) {
     // Unicode-aware boundaries: JS `\b` is ASCII-only, so `\bcafé\b` would
@@ -206,17 +265,35 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
  * True when any capability flag indicates a non-trivial UI/product feature.
  * Used to prevent capability-heavy follow-ups from being treated as tiny tweaks.
  */
+/**
+ * Canonical list of capabilities that count as "heavy" — i.e. dimensions
+ * that justify routing to the higher context-policy tier or extra verifier
+ * passes. Single source of truth for both `hasHeavyCapabilities` (boolean
+ * answer) and `deriveCapabilityFlags` (which keys to surface in
+ * `BuildSpec.capabilityFlags.signals`).
+ *
+ * Keep this list in sync if you add new heavy capabilities — do NOT extend
+ * the consumer-side filter independently. (See review note 2026-04-21:
+ * `BuildSpec.capabilityFlags` previously listed `needsMotion` /
+ * `needsPhysics` / `needsCalendar` in `signals` even though
+ * `hasHeavyCapabilities` did not consider them heavy, which made `heavy`
+ * and `signals` describe two different definitions of "heavy".)
+ */
+export const HEAVY_CAPABILITY_KEYS = [
+  "needs3D",
+  "needsCarousel",
+  "needsCharts",
+  "needsPremiumVisuals",
+  "needsAppShell",
+  "needsDataUI",
+  "needsEcommerce",
+  "needsCommandSearch",
+] as const satisfies ReadonlyArray<keyof InferredCapabilities>;
+
+export type HeavyCapabilityKey = (typeof HEAVY_CAPABILITY_KEYS)[number];
+
 export function hasHeavyCapabilities(caps: InferredCapabilities): boolean {
-  return (
-    caps.needs3D ||
-    caps.needsCarousel ||
-    caps.needsCharts ||
-    caps.needsPremiumVisuals ||
-    caps.needsAppShell ||
-    caps.needsDataUI ||
-    caps.needsEcommerce ||
-    caps.needsCommandSearch
-  );
+  return HEAVY_CAPABILITY_KEYS.some((key) => caps[key] === true);
 }
 
 /**
@@ -240,9 +317,19 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
       `- **3D/WebGL detected**: You MUST implement 3D elements using @react-three/fiber code — NEVER as placeholder SVGs or static images. Create a real \`<Canvas>\` scene with meshes, lighting, and camera. Wrap the Canvas component in \`"use client"\`. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. ${physicsClause} For **GLB/GLTF**, use useGLTF from drei and put assets under public/. **Reduced-motion trap (do NOT trip):** NEVER apply '${reducedMotionTrap}' on the entire Canvas — that hides the 3D layer for users with reduced-motion preference. Use 'motion-safe:'-prefixed animation classes on the inner mesh so the static scene still renders. If the requested 3D content is too complex, create a simplified but real Three.js version (rotating shape, abstract geometry, or particle system with the requested theme) rather than falling back to an image.`,
     );
   }
-  if (caps.needsMotion && !caps.needs3D) {
+  if (caps.needsMotion && !caps.needs3D && !caps.needsParallax) {
     lines.push(
       "- **Motion/animation requested**: Use framer-motion for entrance animations, scroll reveals, and microinteractions. Add framer-motion to deps.",
+    );
+  }
+  if (caps.needsParallax) {
+    lines.push(
+      "- **Parallax requested**: Use the parallax dossier(s) selected for this build. For scroll-driven parallax, wrap layers in `ScrollParallaxLayer` from `@/components/scroll-parallax-layer` (one section ref drives many sibling layers). For pointer/mouse parallax on DOM, use `PointerParallaxLayer` from `@/components/pointer-parallax-layer`. For pointer parallax inside a React Three Fiber scene, call `usePointerParallax(targetRef)` from `@/components/use-pointer-parallax` and read the returned ref inside `useFrame`. NEVER apply `motion-reduce:hidden` on the parallax layer itself — keep the content visible at its end-state when reduced motion is on. Add framer-motion to deps when scroll-parallax is in scope.",
+    );
+  }
+  if (caps.needsPayments) {
+    lines.push(
+      "- **Payments requested**: Use the payments dossier selected for this build (typically `stripe-checkout`). Mount `<CheckoutButton>` from `@/components/checkout-button` on the pricing/buy CTA, and ship the `/api/checkout-session` server route as-is from the dossier. Treat `STRIPE_SECRET_KEY` as a build-blocking env (sajten kraschar utan), and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as warn-only (publishable, harmless placeholder OK). Style the button with the project's color tokens — do not import Stripe Elements UI; the dossier uses hosted Checkout.",
     );
   }
   if (caps.needsCharts) {

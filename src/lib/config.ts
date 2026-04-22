@@ -350,14 +350,14 @@ export const FEATURES = {
   useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
 
   /**
-   * New dossier pipeline (data/dossiers/). Reads master.json +
-   * dossier-embeddings.json + scaffold-recommendations.json at runtime,
-   * picks scaffold-agnostic dossiers via cosine + recommendation-boost,
-   * injects ## Available Dossiers + ## Selected Dossier Instructions
-   * blocks into the system prompt.
+   * Dossier pipeline (data/dossiers/{hard,soft}/). Deterministic capability-
+   * driven selection from `brief.requestedCapabilities`. Reads manifests
+   * directly off disk (no embeddings, no master.json). Injects
+   * `## Available Dossiers` + `## Selected Dossier Instructions` blocks into
+   * the system prompt.
    *
-   * Off by default in production (opt-in via env). On in development for
-   * easy local iteration. See docs/architecture/dossier-pipeline-roadmap.md.
+   * On by default in development. Off by default in production (opt-in) until
+   * the capability map is verified. See docs/architecture/dossier-system.md.
    */
   useDossierPipeline:
     env.SAJTMASKIN_DOSSIER_PIPELINE === "true" ||
@@ -365,8 +365,85 @@ export const FEATURES = {
     (env.SAJTMASKIN_DOSSIER_PIPELINE !== "false" &&
       env.NODE_ENV === "development"),
   deferExtraRoutesOnInit:
-    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT !== "false" &&
-    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT !== "0",
+    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "true" ||
+    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "1",
+
+  /**
+   * Repair-loop hardening — propagate `repairPassIndex: 1` whenever a
+   * follow-up/repair re-finalises an existing version (`targetVersionId` set)
+   * and best-effort prune stale error-log rows when the latest pass is clean.
+   *
+   * Symptom this guards against (SAJ-25): UI shows red "Fel"-badge on a
+   * fully-working preview because previous pass blocking findings stayed in
+   * `engine_version_error_logs` after the next pass cleared them.
+   *
+   * Default ON in development, OFF in production until field-tested for one
+   * full week. Toggle: `SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX`.
+   */
+  consistentRepairPassIndex:
+    env.SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX === "true" ||
+    env.SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX === "1" ||
+    (env.SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX !== "false" &&
+      env.NODE_ENV === "development"),
+
+  /**
+   * After the verifier-fixer LLM rewrites a file, re-run `runVerifierPass`
+   * once to confirm the fix actually addressed the blocking finding instead
+   * of optimistically clearing the array. Capped at 1 re-run to keep latency
+   * bounded.
+   *
+   * Default ON in development, OFF in production. Toggle:
+   * `SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX`.
+   */
+  verifierRerunAfterFix:
+    env.SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX === "true" ||
+    env.SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX === "1" ||
+    (env.SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX !== "false" &&
+      env.NODE_ENV === "development"),
+
+  /**
+   * When stream-syntax pass succeeded but merged-syntax fails, run only the
+   * mechanical autofix + esbuild revalidation — skip the LLM-fixer pass on
+   * merge. Merged-only failures are nearly always import-stigar or comment
+   * stripping that the deterministic pipeline lays back deterministically.
+   *
+   * Default ON everywhere (strict cost reduction, low correctness risk).
+   * Toggle: `SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE`.
+   */
+  skipDoubleValidateAndFixOnMerge:
+    env.SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE !== "false",
+
+  /**
+   * Inject `### Recurring failures on this site` block (top-5 patterns from
+   * `readRecurringPatternsForChat`) into the system-prompt during follow-up
+   * generations. Capped at 600 chars; falls silently when budget exhausted.
+   *
+   * Default ON in development, OFF in production until eval baseline confirms
+   * no regression. Toggle: `SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT`.
+   */
+  recurringPatternsInMainPrompt:
+    env.SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT === "true" ||
+    env.SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT === "1" ||
+    (env.SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT !== "false" &&
+      env.NODE_ENV === "development"),
+
+  /**
+   * Vector RAG over historical error-log rows. When ON, follow-up generation
+   * retrieves top-K similar past failures (per scaffoldId/lineageHash prefix)
+   * and renders them as `### Lessons from similar past builds` in the system
+   * prompt.
+   *
+   * Index is rebuilt automatically on `npm run dev|build|start` via the
+   * next-runner wrapper when the producer NDJSON has grown since last index.
+   *
+   * Default ON in development (when an embeddings provider is available),
+   * OFF in production. Toggle: `SAJTMASKIN_USE_ERROR_LOG_RAG`.
+   */
+  useErrorLogRag:
+    env.SAJTMASKIN_USE_ERROR_LOG_RAG === "true" ||
+    env.SAJTMASKIN_USE_ERROR_LOG_RAG === "1" ||
+    (env.SAJTMASKIN_USE_ERROR_LOG_RAG !== "false" &&
+      env.NODE_ENV === "development"),
   strictGeneratedArtifacts:
     env.NODE_ENV !== "test" &&
     env.SAJTMASKIN_STRICT_GENERATED_ARTIFACTS !== "false",
@@ -377,8 +454,10 @@ export const FEATURES = {
 
   useStripePayments: Boolean(SECRETS.stripeSecretKey),
 
-  // NOTE: Pexels is disabled - set ENABLE_PEXELS=true to re-enable
-  usePexels: Boolean(SECRETS.pexelsApiKey) && env.ENABLE_PEXELS === "true",
+  // NOTE: `usePexels` removed 2026-04-20 (audit §3.7). Had 0 callsites in
+  // runtime code — Unsplash is the active stock-image source. To re-enable
+  // Pexels: add an integration that reads `SECRETS.pexelsApiKey` directly,
+  // and (optionally) re-introduce the `ENABLE_PEXELS` env gate.
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
   useFigmaApi: Boolean(SECRETS.figmaAccessToken),
 

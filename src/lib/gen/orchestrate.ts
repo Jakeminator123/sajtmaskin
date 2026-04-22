@@ -9,18 +9,15 @@ import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
-import {
-  pickScaffoldVariantAsync,
-  getVariantById,
-  type ScaffoldVariant,
-} from "./scaffold-variants";
+import { getVariantById } from "./scaffold-variants";
+import { buildScaffoldQueryContext } from "./orchestrate/scaffold-query-context";
+import { resolveScaffoldVariant } from "./orchestrate/scaffold-variant-resolver";
 import { lockedVariantForFollowUp } from "./scaffold-variants/matcher";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
   getScaffoldById,
   getScaffoldIds,
   matchScaffoldAuto,
-  type ScaffoldQueryContext,
   type ScaffoldSelectionMeta,
 } from "./scaffolds";
 import {
@@ -69,6 +66,8 @@ import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-examp
 import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
 import { fetchCommunityBlocks } from "./data/community-registry-fetch";
 import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
+import { getModelContextWindowTokens } from "@/lib/models/context-window";
+import type { RequestKindClass } from "./request-kind";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -77,19 +76,11 @@ export interface OrchestrationInput {
   /** Optional prompt used for BuildSpec classification (defaults to `prompt`). */
   buildSpecPrompt?: string;
   /**
-   * Optional prompt used for dossier-pick embedding query (defaults to `prompt`).
+   * Optional prompt used for pre-generation contract inference (defaults to `prompt`).
    * QW-1: stream callers should pass the *raw* user message here, not the
    * file-context-wrapped optimizedMessage — wrapped prompts contain previous
-   * file content that drowns out the user's actual intent and biases dossier
-   * embedding ranking toward whatever libraries the previous files imported.
-   */
-  dossierPickPrompt?: string;
-  /**
-   * Optional prompt used for pre-generation contract inference (defaults to `prompt`).
-   * QW-1: same reasoning as `dossierPickPrompt` — wrapped prompts cause false
-   * positives where contract inference triggers on provider names that only
-   * appear because previous files imported them, not because the user wants
-   * that integration.
+   * file content that drowns out the user's actual intent and biases contract
+   * inference toward whatever libraries the previous files imported.
    */
   contractsPrompt?: string;
   /**
@@ -105,6 +96,17 @@ export interface OrchestrationInput {
    * dossier pick query reflect actual intent — not stale file context.
    */
   capabilitiesPrompt?: string;
+  /**
+   * Optional prompt used for scaffold matching (embedding + keyword) and
+   * `expandQuery`-based semantic search (defaults to `prompt`). P26: when
+   * stream callers pass `optimizedMessage` (~30k chars with wrapped file
+   * context) here, the embedding API rejects with `400 max 8192 tokens`
+   * and the keyword fallback finds APP_KEYWORDS in the file dump — flipping
+   * `landing-page` to `app-shell` on a follow-up that just asked to change
+   * a color/image. Stream callers must pass the *raw* user message so the
+   * matcher sees the actual intent, not the file context blob.
+   */
+  scaffoldMatchPrompt?: string;
   buildIntent: BuildIntent;
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
@@ -139,7 +141,11 @@ export interface OrchestrationInput {
    */
   embeddingScaffoldMatch?: boolean;
   /** Optional prompt strategy metadata from builder orchestration. */
-  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  promptStrategyMeta?: Pick<
+    PromptStrategyMeta,
+    "strategy" | "promptType"
+  > &
+    Partial<Pick<PromptStrategyMeta, "complexityScore">>;
   /** Existing App Router paths from previous version files (follow-up route freeze/clamp). */
   existingRoutePaths?: string[];
   /** Route paths whose existing content is a deferred shell page (auto-detected from file content). */
@@ -204,6 +210,28 @@ export interface OrchestrationInput {
     intent?: string | null;
     name?: string | null;
   } | null;
+  /**
+   * Project locale forwarded to {@link buildRoutePlan} for locale-alternate
+   * route dedupe. When omitted, we read `brief.locale` (forward-compatible
+   * with future brief schema additions) and finally fall back to "sv" — the
+   * value every Sajtmaskin scaffold currently emits via `<html lang="sv">`.
+   * Pass an explicit value (e.g. "en") to keep the English route variants
+   * (`/contact`, `/blog`, …) instead.
+   */
+  locale?: string;
+  /**
+   * Concrete own-engine model ID that will consume this generation
+   * (e.g. `"gpt-5.4"`, `"claude-sonnet-4.6"`). When provided we look up
+   * the model's input context window via `getModelContextWindowTokens()`
+   * and pass it to `deriveBuildSpec()` so token budgets scale up to ~3×
+   * for 1M-window models. Omit to use legacy 200k-baseline budgets.
+   */
+  engineModelId?: string | null;
+  /**
+   * P32: follow-up request taxonomy (regex). Telemetry only until later phases
+   * branch the pipeline; does not change {@link deriveBuildSpec} yet.
+   */
+  requestKind?: RequestKindClass | null;
 }
 
 export interface OrchestrationBase {
@@ -256,39 +284,6 @@ export function inheritQualityTargetFromPriorVersion(
     to: priorQualityTarget,
   });
   return { ...baseSpec, qualityTarget: priorQualityTarget };
-}
-
-function buildScaffoldQueryContext(
-  brief: Record<string, unknown> | null,
-): ScaffoldQueryContext | undefined {
-  if (!brief) return undefined;
-  const briefPages = Array.isArray((brief as { pages?: unknown }).pages)
-    ? ((brief as { pages?: Array<{ name?: unknown; path?: unknown; purpose?: unknown }> }).pages ?? [])
-        .slice(0, 10)
-        .map((page) => ({
-          name: typeof page.name === "string" ? page.name.trim() : undefined,
-          path: typeof page.path === "string" ? page.path.trim() : undefined,
-          purpose: typeof page.purpose === "string" ? page.purpose.trim() : undefined,
-        }))
-    : [];
-  const styleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } }).visualDirection?.styleKeywords)
-    ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords ?? [])
-        .filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
-        .slice(0, 12)
-    : [];
-  const domainHints: string[] = [];
-  const businessType = (brief as { businessType?: unknown }).businessType;
-  if (typeof businessType === "string" && businessType.trim()) domainHints.push(businessType.trim());
-  const industry = (brief as { industry?: unknown }).industry;
-  if (typeof industry === "string" && industry.trim()) domainHints.push(industry.trim());
-  if (briefPages.length === 0 && styleKeywords.length === 0 && domainHints.length === 0) {
-    return undefined;
-  }
-  return {
-    briefPages,
-    styleKeywords,
-    domainHints,
-  };
 }
 
 export function buildGenerationInputPackage(
@@ -402,6 +397,10 @@ export async function resolveOrchestrationBase(
   const capabilities = providedCapabilities ?? inferCapabilities(intentSourcePrompt);
   const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
 
+  // P32 Fas A: requestKind is propagated for downstream phases. Logging is
+  // owned by the call-site (devLog `request.kind.classified`) — orchestrate
+  // intentionally does not double-log to console.
+
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
@@ -442,8 +441,12 @@ export async function resolveOrchestrationBase(
       topCandidates: [{ id: effectivePersistedScaffoldId, score: 1, source: "keyword" }],
     };
   } else if (scaffoldMode === "auto") {
+    // P26: scaffold matcher (embedding + keyword) must see the *raw* user
+    // message, not the wrapped optimizedMessage. See `scaffoldMatchPrompt`
+    // doc on `OrchestrationInput` for the full failure mode.
+    const scaffoldMatcherPrompt = input.scaffoldMatchPrompt ?? prompt;
     const [autoSelection, fetchedOfficialRefs, fetchedCommunityRefs] = await Promise.all([
-      matchScaffoldAuto(prompt, buildIntent, {
+      matchScaffoldAuto(scaffoldMatcherPrompt, buildIntent, {
         useEmbeddings: embeddingScaffoldMatch,
         queryContext: scaffoldQueryContext,
         capabilities,
@@ -465,6 +468,19 @@ export async function resolveOrchestrationBase(
         fallbackScaffoldId: resolvedScaffold?.id ?? null,
         method: scaffoldSelection.selectionMethod,
       });
+
+      // P26 (post-review note): tidigare hade vi här en fallback som
+      // återgick till `persistedScaffoldId` när embedding föll. Reviewer
+      // visade att den var död kod: vi når denna `auto`-gren bara när
+      // `effectivePersistedScaffoldId` är falsy, dvs antingen finns inget
+      // persisted-id eller `ignorePersistedScaffoldForMatch === true`. I
+      // båda fallen kunde fallback-vilkoret aldrig sätts. Borttaget för
+      // att undvika förvirring. Den ledande root-cause-fixen (A1: rå
+      // message till embedding via `scaffoldMatchPrompt`) hindrar de
+      // flesta embedding-fail i praktiken; om vi i framtiden vill täcka
+      // unlock-fallet (clear-redesign + embedding-fail → fall tillbaka
+      // ändå) ska det göras genom att lägga checken UTANFÖR auto-grenen,
+      // efter scaffold-resolutionen, inte härinne.
     }
 
   }
@@ -526,12 +542,35 @@ export async function resolveOrchestrationBase(
     [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
   }
 
-  const intentPromoted =
+  // P26: build_intent_promoted (website -> app) must not fire on follow-ups
+  // when the user already has a persisted non-app scaffold. A bug-fix prompt
+  // that happens to land on `app-shell` via keyword fallback would otherwise
+  // permanently flip the entire project's intent, route plan and BuildSpec
+  // policy. Init runs and explicit clear-redesign follow-ups still promote.
+  const wouldPromote =
     buildIntent === "website" &&
     scaffoldMode === "auto" &&
     isAppScaffold(resolvedScaffold?.id) &&
     scaffoldSelection.selectionConfidence !== "low";
+  const intentPromotionBlockedForFollowUp =
+    wouldPromote &&
+    resolvedMode === "followUp" &&
+    !!persistedScaffoldId &&
+    !ignorePersistedScaffoldForMatch &&
+    !isAppScaffold(persistedScaffoldId);
+  const intentPromoted = wouldPromote && !intentPromotionBlockedForFollowUp;
   const effectiveBuildIntent: BuildIntent = intentPromoted ? "app" : buildIntent;
+
+  if (intentPromotionBlockedForFollowUp) {
+    console.info("[orchestrate] intent_promotion_blocked_followup", {
+      chatId: input.chatId ?? null,
+      from: buildIntent,
+      wouldHaveBeen: "app",
+      scaffoldId: resolvedScaffold?.id,
+      persistedScaffoldId,
+      reason: "Follow-up runs do not flip project intent away from persisted non-app scaffold",
+    });
+  }
 
   if (intentPromoted) {
     console.info("[orchestrate] build_intent_promoted", {
@@ -546,6 +585,20 @@ export async function resolveOrchestrationBase(
   const capabilityHints = buildCapabilityHints(capabilities);
   const componentReferences = [...officialRefs, ...communityRefs];
 
+  // Locale resolution priority:
+  //   1. Explicit `input.locale` (caller-overridable, e.g. CLI traces)
+  //   2. `brief.locale` if the brief schema already carries one
+  //   3. "sv" — every Sajtmaskin scaffold emits `<html lang="sv">`
+  // Without this wiring, buildRoutePlan would silently fall back to its
+  // own internal "sv" default and any future English brief would still
+  // see `/blogg`/`/kontakt` survive the locale-alternate dedupe.
+  const briefLocaleRaw = (brief as { locale?: unknown } | null | undefined)?.locale;
+  const briefLocale =
+    typeof briefLocaleRaw === "string" && briefLocaleRaw.trim().length > 0
+      ? briefLocaleRaw.trim()
+      : null;
+  const resolvedLocale = input.locale ?? briefLocale ?? "sv";
+
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
     buildIntent: effectiveBuildIntent,
@@ -553,6 +606,7 @@ export async function resolveOrchestrationBase(
     resolvedScaffold,
     generationMode: resolvedMode,
     existingRoutePaths,
+    locale: resolvedLocale,
   });
   const preGenerationContracts = inferPreGenerationContracts({
     prompt: input.contractsPrompt ?? prompt,
@@ -574,6 +628,10 @@ export async function resolveOrchestrationBase(
     existingShellRoutePaths,
     previewPolicyOverride:
       input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
+    // Q5a (2026-04-21): scale token budgets based on the resolved
+    // model's input context window. Was implemented in build-spec but
+    // never wired — 1M-window models silently used 200k-baseline budgets.
+    modelContextWindowTokens: getModelContextWindowTokens(input.engineModelId),
   });
   const buildSpec = inheritQualityTargetFromPriorVersion(
     input.chatId,
@@ -603,38 +661,46 @@ export async function resolveOrchestrationBase(
     });
   }
 
-  // Pool-modell: när dossier-pipen är på, plocka top dossiers via embedding +
-  // recommendation-boost. Misslyckad selektion (saknad fil, API-error) → null,
-  // system-prompt-block hoppas tyst över. Säker no-op om inga active dossiers.
+  // Deterministic dossier selection: brief.requestedCapabilities -> exact
+  // dossier per capability. No embeddings, no fuzzy match, no caps. The
+  // pipeline is gated by FEATURES.useDossierPipeline so it can be disabled
+  // per environment if the dossier pool is unhealthy.
   let dossierSelection: DossierSelectionResult | null = null;
   if (FEATURES.useDossierPipeline) {
     try {
-      // Build a compact route-plan summary if a plan exists. Helps the
-      // embedding query understand "user wants pricing page + login flow"
-      // beyond what the bare prompt says (Fas 1.0 fix).
-      const routePlanSummary = routePlan
-        ? `routes: ${routePlan.routes
-            .map((r) => `${r.path} (${r.intent})`)
-            .slice(0, 8)
-            .join(" | ")}`
-        : undefined;
-
-      dossierSelection = await selectDossiersForRequest({
-        prompt: input.dossierPickPrompt ?? prompt,
+      // P26: bridge inferred capabilities to dossier capability ids so
+      // dossiers trigger even when brief-LLM did not explicitly mark them.
+      // Currently: needs3D -> "visual-3d" (covers Three Fiber dossier).
+      // Adds capability to brief.requestedCapabilities; safe because
+      // selectDossiersForRequest just looks up dossier ids by capability.
+      const inferredCapabilityIds: string[] = [];
+      if (capabilities.needs3D) inferredCapabilityIds.push("visual-3d");
+      if (capabilities.needsParallax) {
+        // Both parallax dossiers are independently useful — selectDossiersForRequest
+        // picks one per capability, so listing both means we get the right one
+        // when the prompt mentions just one direction (scroll vs pointer) and
+        // both when the prompt is unspecific.
+        inferredCapabilityIds.push("parallax-scroll", "parallax-pointer");
+      }
+      if (capabilities.needsPayments) inferredCapabilityIds.push("payments");
+      const briefCapsRaw = (brief as { requestedCapabilities?: unknown } | null | undefined)
+        ?.requestedCapabilities;
+      const briefCapsArray = Array.isArray(briefCapsRaw)
+        ? briefCapsRaw.filter((c): c is string => typeof c === "string")
+        : [];
+      const mergedCaps = Array.from(
+        new Set([...briefCapsArray.map((c) => c.toLowerCase()), ...inferredCapabilityIds]),
+      );
+      dossierSelection = selectDossiersForRequest({
         brief,
-        scaffoldId: resolvedScaffold?.id ?? null,
-        scaffoldContext: resolvedScaffold
-          ? `Scaffold ${resolvedScaffold.label}. Tags: ${resolvedScaffold.tags.join(", ")}.`
-          : undefined,
-        capabilityHints: capabilityHints || undefined,
-        routePlanSummary,
+        requestedCapabilities: mergedCaps,
       });
       if (dossierSelection.selected.length > 0) {
         console.info("[orchestrate] dossiers_selected", {
           count: dossierSelection.selected.length,
           poolSize: dossierSelection.poolSize,
-          embeddingsUsed: dossierSelection.embeddingsUsed,
-          byCategory: dossierSelection.byCategory,
+          byCapability: dossierSelection.byCapability,
+          inferredCapabilityBridge: inferredCapabilityIds,
         });
       }
     } catch (err) {
@@ -660,40 +726,6 @@ export async function resolveOrchestrationBase(
     componentReferences,
     dossierSelection,
   };
-}
-
-async function resolveScaffoldVariant(
-  scaffoldId: string | null | undefined,
-  prompt: string,
-  brief: Record<string, unknown> | null,
-  generationMode: "init" | "followUp",
-  sessionSeed?: string,
-): Promise<ScaffoldVariant | null> {
-  const styleKeywords = Array.isArray(
-    (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords,
-  )
-    ? (
-        (
-          brief as { visualDirection?: { styleKeywords?: unknown[] } } | null
-        )?.visualDirection?.styleKeywords ?? []
-      )
-        .filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
-    : [];
-  const toneKeywords = Array.isArray((brief as { toneAndVoice?: unknown } | null)?.toneAndVoice)
-    ? (
-        (brief as { toneAndVoice?: unknown[] } | null)?.toneAndVoice ?? []
-      ).filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
-    : [];
-  // Embedding-driven variant pick when an OpenAI key + variant-embeddings.json
-  // are present. Falls back to keyword `pickScaffoldVariant` automatically.
-  return pickScaffoldVariantAsync({
-    prompt,
-    scaffoldId: (scaffoldId as ScaffoldVariant["scaffoldId"] | null | undefined) ?? null,
-    styleKeywords,
-    toneKeywords,
-    generationMode,
-    sessionSeed,
-  });
 }
 
 /**
@@ -763,23 +795,30 @@ export async function finalizeOrchestrationPrompts(
     });
   }
 
-  // ── Dossier nomination vs final selection diff (Fas 1.0) ────────────────
-  const briefDossierNoms = (brief as { dossierNominations?: Array<{ id?: string }> } | null | undefined)
-    ?.dossierNominations ?? [];
-  if (briefDossierNoms.length > 0 && base.dossierSelection) {
-    const nominatedIds = new Set(briefDossierNoms.map((n) => n.id).filter(Boolean));
-    const finalIds = new Set(base.dossierSelection.selected.map((s) => s.entry.id));
-    const matched = [...nominatedIds].filter((id) => finalIds.has(id!));
-    const briefOnly = [...nominatedIds].filter((id) => !finalIds.has(id!));
-    const embeddingOnly = [...finalIds].filter((id) => !nominatedIds.has(id));
-    console.info("[orchestrate] dossier_drift", {
-      mode: resolvedMode,
-      briefNominatedCount: nominatedIds.size,
-      finalSelectedCount: finalIds.size,
-      matched,
-      briefOnly,
-      embeddingOnly,
-    });
+  // ── Dossier capability vs final selection diff (v2 — capability-driven) ──
+  // Logs which requested capabilities resolved to dossiers and which did not.
+  // Useful for catching brief-LLM declaring capabilities that have no dossier.
+  // Both sides are lowercased to match how `selectDossiersForRequest`
+  // normalizes capabilities — otherwise a stray "Payments" in the brief would
+  // produce a false "unresolved" warning.
+  const briefCaps = (brief as { requestedCapabilities?: unknown } | null | undefined)?.requestedCapabilities;
+  if (Array.isArray(briefCaps) && briefCaps.length > 0 && base.dossierSelection) {
+    const requested = new Set(
+      briefCaps
+        .filter((c): c is string => typeof c === "string")
+        .map((c) => c.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const resolved = new Set(Object.keys(base.dossierSelection.byCapability).map((c) => c.toLowerCase()));
+    const unresolved = [...requested].filter((c) => !resolved.has(c));
+    if (unresolved.length > 0) {
+      console.info("[orchestrate] dossier_capability_unresolved", {
+        mode: resolvedMode,
+        requested: [...requested],
+        resolved: [...resolved],
+        unresolved,
+      });
+    }
   }
 
   const finalBuildIntent: BuildIntent = base.buildSpec.buildIntent;
@@ -803,6 +842,7 @@ export async function finalizeOrchestrationPrompts(
     userPrompt: input.prompt,
     generationMode: resolvedMode,
     sessionSeed: input.sessionSeed,
+    chatId: input.chatId ?? null,
     componentReferences: base.componentReferences,
     resolvedVariant,
     dossierSelection: base.dossierSelection,

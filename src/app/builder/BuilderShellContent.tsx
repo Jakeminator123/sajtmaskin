@@ -39,6 +39,7 @@ import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
+import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
@@ -1966,6 +1967,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <LaunchReadinessCard
               readiness={vm.deployReadiness}
               isLoading={vm.isDeployReadinessLoading}
+              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             />
             {vm.deployReadiness?.info?.lifecycleStage === "integrations" ? (
               <ProjectEnvVarsPanel
@@ -2000,6 +2002,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 quickReplyDisabled={isBusy}
                 onRetryWithScaffold={handleRetryWithScaffold}
                 onRetryAfterShrink={handleRetryAfterShrink}
+                lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               />
               <TipCard
                 open={tipPanelOpen && vm.tipsEnabled}
@@ -2085,13 +2088,30 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <LaunchReadinessCard
               readiness={vm.deployReadiness}
               isLoading={vm.isDeployReadinessLoading}
+              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             />
-            <ProjectEnvVarsPanel
-              externalProjectId={vm.externalProjectId}
-              appProjectId={vm.appProjectId}
-              chatId={vm.chatId}
-              activeVersionId={vm.activeVersionId}
-            />
+            {vm.deployReadiness?.info?.lifecycleStage === "integrations" ? (
+              <ProjectEnvVarsPanel
+                externalProjectId={vm.externalProjectId}
+                appProjectId={vm.appProjectId}
+                chatId={vm.chatId}
+                activeVersionId={vm.activeVersionId}
+              />
+            ) : (
+              <div className="border-border bg-muted/40 text-muted-foreground mx-3 mt-2 rounded-md border px-3 py-2 text-xs leading-relaxed">
+                <span className="text-foreground font-medium">
+                  Env-variabler:
+                </span>{" "}
+                auto-hanterade i{" "}
+                <code className="bg-background rounded px-1 py-0.5 text-[11px]">
+                  env.example
+                </code>{" "}
+                för det här projektet. Klicka{" "}
+                <span className="text-foreground font-medium">&quot;Bygg nu&quot;</span> i
+                previewen för att fylla i riktiga värden för externa
+                integrationer.
+              </div>
+            )}
             <div className="relative min-h-0 flex-1 overflow-hidden">
               <MessageList
                 chatId={vm.chatId}
@@ -2103,6 +2123,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 quickReplyDisabled={isBusy}
                 onRetryWithScaffold={handleRetryWithScaffold}
                 onRetryAfterShrink={handleRetryAfterShrink}
+                lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
               />
               <TipCard
                 open={tipPanelOpen && vm.tipsEnabled}
@@ -2256,29 +2277,36 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               simplified={simplifiedPreviewChrome}
               onComposerAiFallback={handleComposerAiFallback}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+              isBusy={isBusy}
               onF3MissingEnv={(payload) => {
-                window.dispatchEvent(
-                  new CustomEvent("project-env-vars-open", {
-                    detail: {
-                      envKeys: payload.missingByIntegration.flatMap(
-                        (entry) => entry.missing,
-                      ),
-                    },
-                  }),
+                // F2-mute caveat: the user is still in F2 when finalize-design
+                // returns 412, and `ProjectEnvVarsPanel` only mounts in F3
+                // (gated above on `lifecycleStage === "integrations"`). The
+                // event therefore has no listener until lifecycle flips —
+                // the toast in `PreviewPanelF3Trigger` is the primary user
+                // signal here. We still dispatch so the panel auto-opens with
+                // the right keys *if* it happens to be mounted (e.g. the
+                // operator already moved the version to F3 in another tab).
+                openProjectEnvVarsPanel(
+                  payload.missingByIntegration.flatMap((entry) => entry.missing),
                 );
               }}
               onF3Ready={(payload) => {
-                // A3: F3 readiness-check passerad → kick:a igång själva
-                // integrations-generationen via follow-up-streamen.
-                // `meta.lifecycleStage: "integrations"` + `parentVersionId`
-                // läses av `chat-message-stream-post.ts` för F3-tool-gating.
+                // A3 / master: kick:a igång F3 ("Bygg integrationer") direkt
+                // efter att `/finalize-design` greenlightat F2-versionen.
+                // `chat-message-stream-post.ts` forkar en ny engine_versions
+                // rad med `lifecycle_stage = "integrations"` och
+                // `parent_version_id` satt till F2-versionen vi just
+                // finaliserat.
                 toast.info("Startar integrationsbygget…");
-                void vm.sendMessage("Bygg integrationer enligt förberedda krav.", {
-                  meta: {
-                    lifecycleStage: "integrations",
-                    parentVersionId: payload.parentVersionId,
+                void vm.sendMessage(
+                  "Bygg integrationer nu utifrån den finaliserade designversionen.",
+                  {
+                    lifecycleStageOverride: "integrations",
+                    parentVersionIdOverride: payload.parentVersionId,
+                    engineBaseVersionIdOverride: payload.parentVersionId,
                   },
-                });
+                );
               }}
               generationPhase={generationPhase}
               onInlineEditPrompt={(prompt, file) => {
@@ -2356,6 +2384,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onToggleCollapse={vm.handleToggleVersionPanel}
               versions={vm.effectiveVersionsList}
               mutateVersions={vm.mutateVersions}
+              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             />
           </div>
         </div>

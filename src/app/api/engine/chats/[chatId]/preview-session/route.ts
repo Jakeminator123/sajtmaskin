@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { httpStatusForPreviewSessionFailure } from "@/lib/gen/preview/preview-errors";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
@@ -18,6 +18,8 @@ import {
   TIER2_PREVIEW_SETUP_HINT,
 } from "@/lib/gen/preview/tier2-config";
 import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
+import { devLogAppend } from "@/lib/logging/devLog";
+import { incIngressEvent } from "@/lib/observability/metrics";
 
 const postBodySchema = z.object({
   versionId: z.string().min(1).optional(),
@@ -115,9 +117,24 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         versionRow.preview_url.trim() &&
         isTier2LivePreviewUrl(versionRow.preview_url)
       ) {
+        const trimmedPreviewUrl = versionRow.preview_url.trim();
+        // P19 ingress 1: preview-session short-circuit. Wrapped + try/catch so
+        // telemetry can never block the response — same posture as other
+        // observability call-sites in this route.
+        try {
+          incIngressEvent("preview_reused_url");
+        } catch {}
+        try {
+          devLogAppend("latest", {
+            type: "preview.reused-url",
+            chatId,
+            versionId: versionRow.id,
+            previewUrl: trimmedPreviewUrl.slice(0, 60),
+          });
+        } catch {}
         return NextResponse.json({
           ok: true,
-          previewUrl: versionRow.preview_url.trim(),
+          previewUrl: trimmedPreviewUrl,
           previewSessionId: null,
           previewMode: null,
           previewTier: 2,

@@ -1,0 +1,37 @@
+---
+description: Agentregler vid scaffold-ändringar
+globs:
+  - src/lib/gen/scaffolds/**
+  - src/lib/gen/orchestrate.ts
+  - src/lib/gen/system-prompt.ts
+  - src/lib/gen/build-spec.ts
+  - scripts/scaffolds/**
+---
+
+# Scaffold-regler
+
+Full arkitekturdoc + inventering: `docs/architecture/scaffold-system.md`.
+
+## Regler
+
+1. Scaffold-filer bor under `scaffolds/<id>/files/` — redigera direkt.
+2. Manifest metadata i `scaffolds/<id>/manifest.ts`.
+3. Kör `npm run typecheck` + `npm run scaffolds:validate` efter ändringar.
+4. Ändra ALDRIG `serialize.ts`, `registry.ts`, `seo-defaults.ts` utan att förstå merge-pipeline.
+5. External research styrs via `npm run template-library:build`, inte manuellt.
+6. Innan du föreslår att lägga till/ta bort/slå ihop scaffolds — läs inventerings-docen.
+
+## 10 scaffolds (snabböversikt)
+
+| ID | Typ |
+|----|-----|
+| `base-nextjs` | marketing/simple |
+| `landing-page` | marketing/medium |
+| `saas-landing` | marketing/medium |
+| `portfolio` | editorial/medium |
+| `blog` | editorial/medium |
+| `dashboard` | app/advanced |
+| `auth-pages` | app/simple |
+| `ecommerce` | commerce/advanced |
+| `content-site` | marketing/medium |
+| `app-shell` | app/medium |

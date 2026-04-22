@@ -11,12 +11,16 @@ assertSafeWriteTarget({ commandName: "db:init" });
 const connectionString = normalizeEnvUrl(
   process.env.POSTGRES_URL ||
     process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.STORAGE_POSTGRES_URL ||
+    process.env.STORAGE_POSTGRES_URL_NON_POOLING ||
     process.env.DATABASE_URL,
 );
 
 if (!connectionString) {
   console.error("Missing database connection URL.");
-  console.error("Set POSTGRES_URL or POSTGRES_URL_NON_POOLING.");
+  console.error(
+    "Set POSTGRES_URL/POSTGRES_URL_NON_POOLING or STORAGE_POSTGRES_URL/STORAGE_POSTGRES_URL_NON_POOLING.",
+  );
   process.exit(1);
 }
 

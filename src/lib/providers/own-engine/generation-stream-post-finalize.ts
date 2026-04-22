@@ -179,6 +179,9 @@ export async function runOwnEngineStreamPostFinalize(params: {
               ),
             }
           : {}),
+        ...(finalized.rejectedStructural.length > 0
+          ? { rejectedStructural: finalized.rejectedStructural }
+          : {}),
       }),
     ),
   );

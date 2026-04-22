@@ -3,6 +3,7 @@ import { normalizeRoutePath } from "./utils";
 import { findPageFile, findCssFiles, findComponentFiles } from "./file-resolution";
 import { normalizePreviewCss, buildPreviewBaseCss } from "./css";
 import { buildPreviewScript } from "./script-builder";
+import { isShimPreviewDisabled } from "./legacy/compatibility-shim";
 
 const PREVIEW_BOOT_TIMEOUT_MS = 7_000;
 const TAILWIND_CDN_URL = "https://cdn.tailwindcss.com";
@@ -115,13 +116,19 @@ export function buildPreviewHtml(files: CodeFile[], routePath?: string | null): 
 /**
  * Creates a preview URL for a given chatId + versionId.
  * Points to the /api/preview-render endpoint which serves the HTML.
+ *
+ * Returns `null` when shim preview is disabled — which is the **default**
+ * since 2026-04 (D4): operators must explicitly set
+ * `SAJTMASKIN_SHIM_PREVIEW_DISABLED=0` (or `false` / `off` / `no`) to opt
+ * back in. Callers should fall back to the tier-2 VM preview.
  */
 export function buildPreviewUrl(
   chatId: string,
   versionId: string,
   projectId?: string | null,
   routePath?: string | null,
-): string {
+): string | null {
+  if (isShimPreviewDisabled()) return null;
   const params = new URLSearchParams({
     chatId,
     versionId,

@@ -33,7 +33,7 @@ vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest,
 }));
 
-vi.mock("@/lib/gen/preview/legacy/compatibility-shim", () => ({
+vi.mock("@/lib/gen/preview/preview-url-classifier", () => ({
   isTier2LivePreviewUrl,
 }));
 

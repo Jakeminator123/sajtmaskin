@@ -94,9 +94,24 @@ src/lib/gen/scaffolds/scaffold-research.generated.json
 
 # --- Loggar & skrot i roten ---
 #logs/*
+# Loggar är runtime-artefakter. Capping/retention sker i src/lib/logging/generation-log-writer.ts.
+# Vi exkluderar logs/-trädet från Cursor-indexet men whitelistar värdefulla snapshots.
+logs/*
 !logs/generationslogg/
 !logs/generationslogg/_latest.txt
 !logs/generationslogg/**/summary.md
+!logs/site-observability/
+!logs/site-observability/**/observability.json
+!logs/site-observability/**/fix-patterns.json
+
+
+# --- Template references (klonade Vercel-repos, input till AI-kuration) ---
+data/template-references/repos/**
+data/template-references/_metadata/**
+# --- Dossier-arkiv (gammal pipeline) ---
+archive/dossiers-legacy-2026-04-20/**
+
+
 manual_log/
 input_files_for_cursor/
 .preprompt_history.json

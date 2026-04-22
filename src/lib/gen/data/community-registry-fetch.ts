@@ -150,6 +150,25 @@ interface BlockCandidate {
   itemName: string;
 }
 
+/**
+ * Deterministic 32-bit string hash (DJB-style xor). Stable across processes
+ * and Node versions — used here to pick registry blocks reproducibly per
+ * (prompt, sectionType, namespace) instead of `Math.random()`. Same input
+ * always yields the same item, so reruns of the same prompt never produce
+ * different section recipes.
+ */
+function hashSeed(seed: string): number {
+  let hash = 5381;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) + hash) ^ seed.charCodeAt(i);
+  }
+  return hash >>> 0;
+}
+
+function pickDeterministic<T>(items: readonly T[], seed: string): T {
+  return items[hashSeed(seed) % items.length];
+}
+
 function selectCandidates(
   caps: InferredCapabilities,
   prompt: string,
@@ -174,7 +193,7 @@ function selectCandidates(
       if (count() >= limit || candidates.length >= MAX_COMMUNITY_BLOCKS) break;
       const items = registry.sectionMappings[sType];
       if (!items?.length) continue;
-      const pick = items[Math.floor(Math.random() * items.length)];
+      const pick = pickDeterministic(items, `${prompt}::${sType}::${registry.namespace}`);
       if (candidates.some((c) => c.itemName === pick && c.registry.namespace === registry.namespace)) continue;
       candidates.push({ registry, itemName: pick });
       inc();

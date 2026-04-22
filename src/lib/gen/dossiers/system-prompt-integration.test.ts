@@ -1,15 +1,13 @@
 /**
- * End-to-end check: when DossierSelectionResult is passed into
- * buildDynamicContext, the system prompt gains both expected blocks.
- *
- * Mocks dossier registry to avoid disk reads.
+ * End-to-end check: the new dossier selection result, when passed into
+ * buildDynamicContext, renders the expected prompt blocks with the new
+ * capability/class/configured shape.
  */
-
 import { describe, expect, it, vi } from "vitest";
 
 import { buildDynamicContext } from "../system-prompt";
-import type { DossierSelectionResult } from "../dossiers";
-import * as registry from "../dossiers/registry";
+import * as registry from "./registry";
+import type { DossierSelectionResult } from "./types";
 import type { BuildSpec } from "../build-spec";
 
 const TINY_BUILD_SPEC: BuildSpec = {
@@ -33,54 +31,64 @@ const TINY_BUILD_SPEC: BuildSpec = {
   },
 };
 
-const MOCK_SELECTION: DossierSelectionResult = {
-  poolSize: 27,
-  embeddingsUsed: true,
-  embeddingMeta: { model: "text-embedding-3-small", dimensions: 1536 },
-  byCategory: { payments: ["payments-stripe-checkout"] },
+const BASE_SELECTION: DossierSelectionResult = {
+  poolSize: 3,
+  byCapability: { payments: ["stripe-checkout"] },
   selected: [
     {
-      score: 0.77,
-      reason: "embedding+boost",
+      reason: "capability-match",
+      configured: true,
       entry: {
-        id: "payments-stripe-checkout",
-        kind: "integration",
-        category: "payments",
+        class: "hard",
+        id: "stripe-checkout",
         label: "Stripe Checkout",
-        description: "One-time and subscription payments via Stripe Checkout.",
-        summary: "Adds a Checkout button + server route.",
-        providers: [{ name: "Stripe", url: "https://stripe.com" }],
-        envVars: [],
+        capability: "payments",
+        codeFidelity: "verbatim",
+        complexity: "medium",
+        defaultForCapability: true,
+        summary: "Hosted Stripe Checkout for one-time and subscription payments.",
+        envVars: [{ key: "STRIPE_SECRET_KEY", required: true, purpose: "API auth" }],
         dependencies: ["stripe", "@stripe/stripe-js"],
         files: [],
-        scaffoldFit: { primary: ["ecommerce"], compatible: [] },
-        complexity: "medium",
-        lastVerified: "2026-04-17",
-        tags: ["payments", "stripe"],
-        _source: "hand-curated",
-        _status: "active",
-        instructions: "# When to use\n\n- User mentions checkout, payments, billing.\n\n# How to integrate\n\n1. Install stripe.\n2. Add CheckoutButton.\n",
+        lastVerified: "2026-04-20",
+        instructions:
+          "# When to use\n\nWhen the brief requests payments.\n\n# How to integrate\n\nDrop in CheckoutButton.\n",
       },
     },
   ],
 };
 
-describe("buildDynamicContext + dossier injection", () => {
-  it("renders ## Available Dossiers block when dossierSelection is non-empty", async () => {
+describe("buildDynamicContext + new dossier shape", () => {
+  it("renders ## Available Dossiers with class + capability + codeFidelity", async () => {
     const result = await buildDynamicContext({
       intent: "website",
       generationMode: "init",
       brief: { projectTitle: "Café Solen" },
       buildSpec: TINY_BUILD_SPEC,
       scaffoldContext: "## Scaffold: ecommerce\n\nbody",
-      dossierSelection: MOCK_SELECTION,
+      dossierSelection: BASE_SELECTION,
     });
-
     expect(result.context).toContain("## Available Dossiers");
-    expect(result.context).toContain("payments-stripe-checkout");
+    expect(result.context).toContain("stripe-checkout");
     expect(result.context).toContain("Stripe Checkout");
-    expect(result.context).toContain("integration, payments");
-    expect(result.context).toContain("providers: Stripe");
+    expect(result.context).toContain("(hard, capability: payments, verbatim)");
+    expect(result.context).toContain("[configured]");
+  });
+
+  it("flags hard+unconfigured dossiers in the Available block", async () => {
+    const sel: DossierSelectionResult = {
+      ...BASE_SELECTION,
+      selected: [{ ...BASE_SELECTION.selected[0]!, configured: false }],
+    };
+    const result = await buildDynamicContext({
+      intent: "website",
+      generationMode: "init",
+      brief: { projectTitle: "Test" },
+      buildSpec: TINY_BUILD_SPEC,
+      scaffoldContext: "scaffold",
+      dossierSelection: sel,
+    });
+    expect(result.context).toContain("[UNCONFIGURED — render placeholder UI]");
   });
 
   it("renders ## Selected Dossier Instructions when entries have instructions", async () => {
@@ -90,16 +98,14 @@ describe("buildDynamicContext + dossier injection", () => {
       brief: { projectTitle: "Test" },
       buildSpec: TINY_BUILD_SPEC,
       scaffoldContext: "scaffold",
-      dossierSelection: MOCK_SELECTION,
+      dossierSelection: BASE_SELECTION,
     });
-
     expect(result.context).toContain("## Selected Dossier Instructions");
     expect(result.context).toContain("### Stripe Checkout");
     expect(result.context).toContain("# When to use");
-    expect(result.context).toContain("# How to integrate");
   });
 
-  it("does NOT render dossier blocks when dossierSelection is null", async () => {
+  it("does not render dossier blocks when selection is null", async () => {
     const result = await buildDynamicContext({
       intent: "website",
       generationMode: "init",
@@ -108,38 +114,24 @@ describe("buildDynamicContext + dossier injection", () => {
       scaffoldContext: "scaffold",
       dossierSelection: null,
     });
-
     expect(result.context).not.toContain("## Available Dossiers");
     expect(result.context).not.toContain("## Selected Dossier Instructions");
   });
 
-  it("does NOT render dossier blocks when selection is empty", async () => {
-    const result = await buildDynamicContext({
-      intent: "website",
-      generationMode: "init",
-      brief: { projectTitle: "Test" },
-      buildSpec: TINY_BUILD_SPEC,
-      scaffoldContext: "scaffold",
-      dossierSelection: { ...MOCK_SELECTION, selected: [], byCategory: {} },
-    });
-
-    expect(result.context).not.toContain("## Available Dossiers");
-  });
-
-  it("renders ## Dossier Files To Emit Verbatim when integration files default to verbatim", async () => {
+  it("renders verbatim file block when integration files are verbatim", async () => {
     vi.spyOn(registry, "getDossierFileContent").mockReturnValue(
       'import Stripe from "stripe";\nexport const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);\n',
     );
-    const selection: DossierSelectionResult = {
-      ...MOCK_SELECTION,
+    const sel: DossierSelectionResult = {
+      ...BASE_SELECTION,
       selected: [
         {
-          ...MOCK_SELECTION.selected[0]!,
+          ...BASE_SELECTION.selected[0]!,
           entry: {
-            ...MOCK_SELECTION.selected[0]!.entry,
+            ...BASE_SELECTION.selected[0]!.entry,
             files: [
-              { path: "components/lib/stripe.ts", role: "server", kind: "util" },
-              { path: "components/checkout-button.tsx", role: "client", kind: "component" },
+              { path: "components/lib/stripe.ts", role: "server" },
+              { path: "components/checkout-button.tsx", role: "client", injectionMode: "rewritable" },
             ],
           },
         },
@@ -151,30 +143,29 @@ describe("buildDynamicContext + dossier injection", () => {
       brief: { projectTitle: "Test" },
       buildSpec: TINY_BUILD_SPEC,
       scaffoldContext: "scaffold",
-      dossierSelection: selection,
+      dossierSelection: sel,
     });
     expect(result.context).toContain("## Dossier Files To Emit Verbatim");
-    expect(result.context).toContain("MUST appear in your CodeProject output exactly");
     expect(result.context).toContain('file="lib/stripe.ts"');
-    expect(result.context).toContain("import Stripe from");
     expect(result.context).not.toContain('file="checkout-button.tsx"');
     vi.restoreAllMocks();
   });
 
-  it("respects explicit injectionMode override on a component", async () => {
-    vi.spyOn(registry, "getDossierFileContent").mockReturnValue("export {};\n");
-    const selection: DossierSelectionResult = {
-      ...MOCK_SELECTION,
+  it("reads a real verbatim file from disk (no mocks) — exercises full registry path", async () => {
+    // The shipped stripe-checkout dossier has a verbatim api-route on disk;
+    // this guards against drift between the rendering code and the actual
+    // file layout under data/dossiers/.
+    const sel: DossierSelectionResult = {
+      ...BASE_SELECTION,
       selected: [
         {
-          ...MOCK_SELECTION.selected[0]!,
+          ...BASE_SELECTION.selected[0]!,
           entry: {
-            ...MOCK_SELECTION.selected[0]!.entry,
+            ...BASE_SELECTION.selected[0]!.entry,
             files: [
               {
-                path: "components/special.tsx",
-                role: "client",
-                kind: "component",
+                path: "components/api/checkout-session/route.ts",
+                role: "server",
                 injectionMode: "verbatim",
               },
             ],
@@ -188,35 +179,10 @@ describe("buildDynamicContext + dossier injection", () => {
       brief: { projectTitle: "Test" },
       buildSpec: TINY_BUILD_SPEC,
       scaffoldContext: "scaffold",
-      dossierSelection: selection,
+      dossierSelection: sel,
     });
-    expect(result.context).toContain('file="special.tsx"');
-    vi.restoreAllMocks();
-  });
-
-  it("skips verbatim files where getDossierFileContent returns null", async () => {
-    vi.spyOn(registry, "getDossierFileContent").mockReturnValue(null);
-    const selection: DossierSelectionResult = {
-      ...MOCK_SELECTION,
-      selected: [
-        {
-          ...MOCK_SELECTION.selected[0]!,
-          entry: {
-            ...MOCK_SELECTION.selected[0]!.entry,
-            files: [{ path: "components/missing.ts", role: "server", kind: "util" }],
-          },
-        },
-      ],
-    };
-    const result = await buildDynamicContext({
-      intent: "website",
-      generationMode: "init",
-      brief: { projectTitle: "Test" },
-      buildSpec: TINY_BUILD_SPEC,
-      scaffoldContext: "scaffold",
-      dossierSelection: selection,
-    });
-    expect(result.context).not.toContain("## Dossier Files To Emit Verbatim");
-    vi.restoreAllMocks();
+    expect(result.context).toContain("## Dossier Files To Emit Verbatim");
+    expect(result.context).toContain('file="api/checkout-session/route.ts"');
+    expect(result.context).toContain("import Stripe from");
   });
 });

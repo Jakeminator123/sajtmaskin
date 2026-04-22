@@ -1,0 +1,29 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "scroll-parallax",
+  "label": "Scroll-Driven Parallax Layer",
+  "capability": "parallax-scroll",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Scroll-driven parallax layers using framer-motion's useScroll + useTransform. Provides a small client-side wrapper that maps scroll progress on a target ref to translateY/opacity/scale on a child layer, with prefers-reduced-motion respect and viewport-unit-based defaults so the effect scales across breakpoints. Use for hero backgrounds, layered SVG/image columns, or section-pinned reveal effects on either websites or app-shells.",
+  "envVars": [],
+  "dependencies": [
+    "framer-motion"
+  ],
+  "files": [
+    {
+      "path": "components/scroll-parallax-layer.tsx",
+      "role": "client"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "ScrollParallaxLayer",
+      "type": "component",
+      "import": "@/components/scroll-parallax-layer"
+    }
+  ],
+  "lastVerified": "2026-04-21",
+  "notes": "Sibling of pointer-parallax. Both target the parallax-* capability namespace. Keep the wrapper deliberately minimal so the LLM can paraphrase the inner layer freely; the safety contract (reduced-motion + viewport-unit defaults) lives in the wrapper."
+}

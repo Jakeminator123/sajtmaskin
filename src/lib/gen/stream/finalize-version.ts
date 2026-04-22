@@ -5,6 +5,7 @@ import { FEATURES } from "@/lib/config";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
+import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { expandUrls } from "@/lib/gen/url-compress";
 import type { PreviewPreflightSummary } from "@/lib/gen/preview/diagnostics";
@@ -17,19 +18,27 @@ import {
 } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import {
   buildShrinkRetrySuggestion,
-  hasCriticalShrink,
   type ShrinkRetrySuggestion,
 } from "./shrink-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
-import { isVerifierPassEnabled, runVerifierPass } from "@/lib/gen/verify/verifier-pass";
+import {
+  formatVerifierFindingsAsFixerErrors,
+  isVerifierPassEnabled,
+  runVerifierPass,
+} from "@/lib/gen/verify/verifier-pass";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
-import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import {
+  createEngineVersionErrorLogs,
+  pruneStaleVersionErrorLogs,
+} from "@/lib/db/services/version-errors";
 import { getPhaseRoutingSummary, resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
+import { incPartialFileRepair } from "@/lib/observability/metrics";
 import { buildFinalizePreflightLogBundle } from "./finalize-preflight-logs";
 import {
   createFinalizePreflightIssue,
@@ -126,6 +135,18 @@ export interface FinalizeResult {
    * the top 1–3 details in the post-check panel when verification was blocked.
    */
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
+  /**
+   * Files reverted by the Element Preservation Guard (structural elements
+   * such as `<video>`, `<canvas>`, `<form>`, R3F `<Canvas>`, Rapier
+   * `<Physics>`, video/media components, section landmarks). Without
+   * surfacing this, follow-ups like "byt hero till intro" silently fail
+   * because the guard keeps the previous file. Surfaced to user via SSE
+   * so the builder can render an explicit warning.
+   */
+  rejectedStructural: Array<{
+    file: string;
+    droppedElements: Array<{ kind: string; label: string }>;
+  }>;
 }
 
 interface FinalizePathPolicy {
@@ -137,124 +158,7 @@ interface FinalizePathPolicy {
     | "light_followup_fast_policy";
 }
 
-async function runPreVmTypecheckPhase(params: {
-  chatId: string;
-  contentForVersion: string;
-  buildSpec?: BuildSpec | null;
-  resolvedScaffold: ScaffoldManifest | null;
-  onProgress?: FinalizeProgressCallback;
-  stepTelemetry: FinalizeStepTelemetryMap;
-  setContent: (next: string) => void;
-}): Promise<void> {
-  const startedAt = Date.now();
-  params.onProgress?.("pre_vm_typecheck", { phase: "start" });
-  try {
-    const { runPreVmTypecheck, formatTypecheckDiagnosticsForRepair } = await import(
-      "@/lib/gen/preview/warm-typecheck"
-    );
-    const { parseCodeProject } = await import("@/lib/gen/parser");
-    const project = parseCodeProject(params.contentForVersion).files;
-    const result = await runPreVmTypecheck({
-      scaffoldId: params.resolvedScaffold?.id ?? null,
-      files: project,
-      force: params.buildSpec?.previewPolicy === "fidelity3",
-    });
-    if (result.skipped) {
-      params.onProgress?.("pre_vm_typecheck", {
-        phase: "done",
-        durationMs: result.durationMs,
-        skipped: result.skipped,
-      });
-      params.stepTelemetry.pre_vm_typecheck = {
-        status: "skipped",
-        durationMs: result.durationMs,
-        reason: result.skipped,
-      };
-      return;
-    }
-    if (result.ok) {
-      params.onProgress?.("pre_vm_typecheck", {
-        phase: "done",
-        durationMs: result.durationMs,
-        diagnosticCount: 0,
-      });
-      params.stepTelemetry.pre_vm_typecheck = {
-        status: "done",
-        durationMs: result.durationMs,
-        diagnosticCount: 0,
-      };
-      return;
-    }
-
-    devLogAppend("in-progress", {
-      type: "pre-vm-typecheck.diagnostics",
-      chatId: params.chatId,
-      diagnosticCount: result.diagnostics.length,
-      sample: result.diagnostics.slice(0, 5),
-    });
-
-    // Try one repair pass via the LLM fixer with diagnostics as input.
-    try {
-      const { runLlmFixer: runLlmFixerLazy } = await import(
-        "@/lib/gen/autofix/llm-fixer"
-      );
-      const errors = formatTypecheckDiagnosticsForRepair(result.diagnostics);
-      const repaired = await runLlmFixerLazy(params.contentForVersion, errors, {});
-      if (repaired.success && repaired.fixedContent) {
-        // post-LLM mechanical pass: cleans up artifacts the LLM fixer may have
-        // introduced (bare imports, missing aliases). Always required after a
-        // fresh LLM output — not idempotent with the outer autofix earlier in
-        // the pipeline because content has changed.
-        const reFixed = await runAutoFix(repaired.fixedContent, {
-          previewPolicy: params.buildSpec?.previewPolicy,
-        });
-        params.setContent(reFixed.fixedContent);
-        params.onProgress?.("pre_vm_typecheck", {
-          phase: "repaired",
-          durationMs: Date.now() - startedAt,
-          diagnosticCount: result.diagnostics.length,
-        });
-        params.stepTelemetry.pre_vm_typecheck = {
-          status: "done",
-          durationMs: Date.now() - startedAt,
-          diagnosticCount: result.diagnostics.length,
-          repaired: true,
-        };
-        return;
-      }
-    } catch (repairErr) {
-      devLogAppend("in-progress", {
-        type: "pre-vm-typecheck.repair-error",
-        chatId: params.chatId,
-        message: repairErr instanceof Error ? repairErr.message : String(repairErr),
-      });
-    }
-
-    // Repair did not run or did not improve — log and continue.
-    params.onProgress?.("pre_vm_typecheck", {
-      phase: "done",
-      durationMs: Date.now() - startedAt,
-      diagnosticCount: result.diagnostics.length,
-      repaired: false,
-    });
-    params.stepTelemetry.pre_vm_typecheck = {
-      status: "done",
-      durationMs: Date.now() - startedAt,
-      diagnosticCount: result.diagnostics.length,
-      repaired: false,
-    };
-  } catch (err) {
-    params.onProgress?.("pre_vm_typecheck", {
-      phase: "error",
-      durationMs: Date.now() - startedAt,
-    });
-    params.stepTelemetry.pre_vm_typecheck = {
-      status: "error",
-      durationMs: Date.now() - startedAt,
-      reason: err instanceof Error ? err.message : "unknown",
-    };
-  }
-}
+const VERIFIER_REPAIR_TIMEOUT_MS = 60_000;
 
 type FinalizeStepStatus = "done" | "skipped" | "error";
 
@@ -281,8 +185,12 @@ interface FinalizeFastPathResult {
   scaffoldRetry: ScaffoldRetrySuggestion | null;
   shrinkRetry: ShrinkRetrySuggestion | null;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
-  stepTelemetry: FinalizeStepTelemetryMap;
   rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
+  rejectedStructural: Array<{
+    file: string;
+    droppedElements: Array<{ kind: string; label: string }>;
+  }>;
+  stepTelemetry: FinalizeStepTelemetryMap;
 }
 
 function buildSyntaxFailureLog(params: {
@@ -526,6 +434,7 @@ async function tryRepairPartialFileOutput(params: {
         thinking: fixerThinking?.thinking,
         reasoningEffort: fixerThinking?.reasoningEffort,
         requiredFiles: partialFiles,
+        recurringPatterns: readRecurringPatternsForChat(chatId),
         abortSignal: abort.signal,
       });
       if (!result.success && !result.partial) {
@@ -542,6 +451,7 @@ async function tryRepairPartialFileOutput(params: {
         succeeded: true,
         partialFiles,
       });
+      try { incPartialFileRepair("success"); } catch {}
       return {
         repairedContent: reFixed.fixedContent,
         attempts,
@@ -568,6 +478,7 @@ async function tryRepairPartialFileOutput(params: {
     succeeded: false,
     partialFiles,
   });
+  try { incPartialFileRepair("fail"); } catch {}
   return {
     repairedContent: null,
     attempts,
@@ -708,6 +619,14 @@ async function runFinalizeFastPath(params: {
     resolvedTier,
     previewPolicy: buildSpec?.previewPolicy,
     alreadyMechanicallyFixed,
+    // Wave 3 consolidation: the warm-tsc pass now lives inside
+    // `validateAndFix` and runs after esbuild reaches `passed`. F3 keeps
+    // forcing it on so the integrations build always pays for the check.
+    resolvedScaffold,
+    forceTsc: buildSpec?.previewPolicy === "fidelity3",
+    // P34 / SAJ-28: eslint pass mirrors tsc — feature-flag gated via
+    // `SAJTMASKIN_BLOCKING_ESLINT`; F3 (integrations) also forces it on.
+    forceEslint: buildSpec?.previewPolicy === "fidelity3",
     onProgress: (evt) => {
       onProgress?.("validate_syntax", {
         pass: evt.pass,
@@ -724,6 +643,7 @@ async function runFinalizeFastPath(params: {
     errorsBefore: syntaxResult.errorsBefore,
     errorsAfter: syntaxResult.errorsAfter,
     result: syntaxResult.status,
+    tsc: syntaxResult.tsc ?? null,
   });
   stepTelemetry.validate_syntax = createFinalizeStepTelemetry(validateStartedAt, "done", {
     fixerUsed: syntaxResult.fixerUsed,
@@ -732,6 +652,7 @@ async function runFinalizeFastPath(params: {
     errorsAfter: syntaxResult.errorsAfter,
     earlyStopReason: syntaxResult.earlyStopReason,
     result: syntaxResult.status,
+    tsc: syntaxResult.tsc ?? null,
   });
 
   if (syntaxResult.fixerUsed || syntaxResult.status !== "passed") {
@@ -747,21 +668,6 @@ async function runFinalizeFastPath(params: {
       resolvedTier: params.resolvedTier ?? null,
     });
   }
-
-  // Pre-VM typecheck (warm scaffold cache). Fail-open: when the cache
-  // isn't provisioned in this environment we just continue. F3 gens
-  // force the check so the integrations build always pays for it.
-  await runPreVmTypecheckPhase({
-    chatId,
-    contentForVersion,
-    buildSpec,
-    resolvedScaffold,
-    onProgress,
-    stepTelemetry,
-    setContent: (next) => {
-      contentForVersion = next;
-    },
-  });
 
   ensureNonEmptyGenerationContent({
     contentForVersion,
@@ -833,6 +739,28 @@ async function runFinalizeFastPath(params: {
         scaffoldId: params.resolvedScaffold?.id ?? null,
         resolvedTier: params.resolvedTier ?? null,
       });
+      // Phase 3.1 producer — feed the RAG NDJSON so retriever can surface
+      // these to future generations on similar inputs.
+      for (const finding of findings.blocking.slice(0, 5)) {
+        appendErrorLogEvent({
+          phase: "post-gen",
+          subphase: "verifier-pass",
+          creator: "verifier",
+          severity: "error",
+          fault: finding.id,
+          faultText: finding.detail,
+          fixText: null,
+          modelTier: resolvedTier ?? null,
+          model,
+          provider: "own-engine",
+          repairPassIndex,
+          result: "still-failing",
+          chatId,
+          versionId: null, // version not minted yet at this point
+          scaffoldId: params.resolvedScaffold?.id ?? null,
+          lineageHash: null, // not threaded into runFinalizeFastPath today
+        });
+      }
       onProgress?.("verifier", {
         phase: "done",
         durationMs: Date.now() - verifierStartedAt,
@@ -844,6 +772,182 @@ async function runFinalizeFastPath(params: {
         blockingCount: findings.blocking.length,
         qualityCount: findings.quality.length,
       });
+
+      // Close the verifier feedback loop: when there are blocking findings,
+      // feed them straight back into the LLM fixer with the same prompt
+      // shape used for syntax/typecheck repairs. Previously these findings
+      // were only logged + used to set `verificationBlocked` — paying for
+      // the verifier model with no chance for a quick auto-fix.
+      if (findings.blocking.length > 0) {
+        const verifierFixStartedAt = Date.now();
+        onProgress?.("verifier", {
+          phase: "fixing",
+          findingsCount: findings.blocking.length,
+        });
+        const fixerErrors = formatVerifierFindingsAsFixerErrors({
+          blocking: findings.blocking,
+        });
+        const fixerModel = resolvedTier
+          ? resolvePhaseModel(resolvedTier, "fixer").modelId
+          : undefined;
+        const fixerThinking = resolvedTier
+          ? resolvePhaseThinking(resolvedTier, "fixer")
+          : null;
+        const verifierFixAbort = new AbortController();
+        const verifierFixTimeout = setTimeout(
+          () => verifierFixAbort.abort(),
+          VERIFIER_REPAIR_TIMEOUT_MS,
+        );
+        let fixerImproved = false;
+        try {
+          const repaired = await runLlmFixer(contentForVersion, fixerErrors, {
+            model: fixerModel,
+            thinking: fixerThinking?.thinking,
+            reasoningEffort: fixerThinking?.reasoningEffort,
+            recurringPatterns: readRecurringPatternsForChat(chatId),
+            abortSignal: verifierFixAbort.signal,
+          });
+          let rerunBlockingCount: number | null = null;
+          let rerunDurationMs: number | null = null;
+          if (repaired.success && repaired.fixedContent) {
+            const reFixed = await runAutoFix(repaired.fixedContent, {
+              chatId,
+              model,
+              previewPolicy: buildSpec?.previewPolicy,
+            });
+            contentForVersion = reFixed.fixedContent;
+            fixerImproved = true;
+
+            // Repair-loop hardening B (gated on FEATURES.verifierRerunAfterFix):
+            //
+            // Re-run the verifier ONCE on the fixed content to confirm the
+            // LLM actually addressed the blocking finding. Without this we
+            // optimistically cleared `verifierBlockingFindings` and could
+            // tell the UI "fixed" when nothing was fixed. Capped at one
+            // re-run + a 30 s timeout so latency stays bounded.
+            if (FEATURES.verifierRerunAfterFix) {
+              const rerunStartedAt = Date.now();
+              const rerunAbort = new AbortController();
+              const rerunTimeout = setTimeout(
+                () => rerunAbort.abort(),
+                VERIFIER_REPAIR_TIMEOUT_MS,
+              );
+              try {
+                const rerunFindings = await runVerifierPass(contentForVersion, {
+                  resolvedTier: verifierTier,
+                });
+                rerunDurationMs = Date.now() - rerunStartedAt;
+                rerunBlockingCount = rerunFindings.blocking.length;
+                // Trust the rerun: if the fixer truly fixed it the count is
+                // 0; if not the version stays verifier-blocked with the
+                // *current* findings (not the stale ones).
+                verifierBlockingFindings = rerunFindings.blocking.slice(0, 5);
+                devLogAppend("in-progress", {
+                  type: "verifier_rerun_after_fix",
+                  chatId,
+                  before: findings.blocking.length,
+                  after: rerunFindings.blocking.length,
+                  durationMs: rerunDurationMs,
+                  scaffoldId: params.resolvedScaffold?.id ?? null,
+                });
+              } catch (rerunErr) {
+                console.warn(
+                  "[verifier-pass] Re-run after fix failed (non-fatal):",
+                  rerunErr,
+                );
+                devLogAppend("in-progress", {
+                  type: "verifier_rerun_after_fix.error",
+                  chatId,
+                  message:
+                    rerunErr instanceof Error
+                      ? rerunErr.message
+                      : "Unknown verifier rerun error",
+                });
+                // Fall back to the optimistic clear so we do not regress
+                // behaviour when the rerun cannot complete.
+                verifierBlockingFindings = [];
+              } finally {
+                clearTimeout(rerunTimeout);
+              }
+            } else {
+              // Legacy optimistic clear (no rerun) — kept behind feature
+              // flag during rollout to avoid regressing latency budgets.
+              verifierBlockingFindings = [];
+            }
+          }
+          devLogAppend("in-progress", {
+            type: "verifier-pass.fixer",
+            chatId,
+            findingsBefore: findings.blocking.length,
+            findingsAfterRerun: rerunBlockingCount,
+            rerunDurationMs,
+            fixerImproved,
+            success: repaired.success,
+            partial: repaired.partial,
+            scaffoldId: params.resolvedScaffold?.id ?? null,
+          });
+          // Phase 3.1 producer — emit a "fixed" / "noop" row per blocking
+          // finding so future RAG queries see what worked.
+          if (fixerImproved) {
+            for (const finding of findings.blocking.slice(0, 5)) {
+              appendErrorLogEvent({
+                phase: "post-gen",
+                subphase: "verifier-fixer",
+                creator: "llm-verifier-fixer",
+                fixer: "llm-verifier-fixer",
+                severity: "warning",
+                fault: finding.id,
+                faultText: finding.detail,
+                fixText: "verifier-fixer rewrote the offending file(s)",
+                modelTier: resolvedTier ?? null,
+                model,
+                provider: "own-engine",
+                repairPassIndex,
+                result:
+                  rerunBlockingCount === 0
+                    ? "fixed"
+                    : rerunBlockingCount === null
+                      ? "fixed"
+                      : "still-failing",
+                chatId,
+                versionId: null,
+                scaffoldId: params.resolvedScaffold?.id ?? null,
+                lineageHash: null,
+              });
+            }
+          }
+          onProgress?.("verifier", {
+            phase: "fixed",
+            durationMs: Date.now() - verifierFixStartedAt,
+            findingsBefore: findings.blocking.length,
+            fixerImproved,
+          });
+        } catch (verifierFixErr) {
+          console.warn(
+            "[verifier-pass] Fixer pass failed, keeping advisory blockers:",
+            verifierFixErr,
+          );
+          devLogAppend("in-progress", {
+            type: "verifier-pass.fixer-error",
+            chatId,
+            message:
+              verifierFixErr instanceof Error
+                ? verifierFixErr.message
+                : "Unknown verifier fixer error",
+          });
+        } finally {
+          clearTimeout(verifierFixTimeout);
+        }
+        stepTelemetry.verifier = createFinalizeStepTelemetry(verifierStartedAt, "done", {
+          trigger: verifierPolicy.reason,
+          blockingCount: findings.blocking.length,
+          qualityCount: findings.quality.length,
+          fixerUsed: true,
+          fixerImproved,
+          findingsBefore: findings.blocking.length,
+          findingsAfter: verifierBlockingFindings.length,
+        });
+      }
     } catch (verifierErr) {
       console.warn("[verifier-pass] Non-fatal error, skipping:", verifierErr);
       onProgress?.("verifier", { phase: "error" });
@@ -879,7 +983,8 @@ async function runFinalizeFastPath(params: {
     previousFiles,
   });
   filesJson = mergeResult.filesJson;
-  const rejectedShrinks = mergeResult.rejectedShrinks;
+  let rejectedShrinks = mergeResult.rejectedShrinks;
+  let rejectedStructural = mergeResult.rejectedStructural;
 
   if (previousFiles && previousFiles.length > 0) {
     const previousContentLen = previousFiles.reduce((sum, f) => sum + (f.content?.length ?? 0), 0);
@@ -991,6 +1096,10 @@ async function runFinalizeFastPath(params: {
         previousFiles,
       });
       filesJson = remergeResult.filesJson;
+      // Concat shrink/structural rejections from the remerge so the SSE
+      // payload reflects the full picture across both merge passes.
+      rejectedShrinks = [...rejectedShrinks, ...remergeResult.rejectedShrinks];
+      rejectedStructural = [...rejectedStructural, ...remergeResult.rejectedStructural];
 
       preflightResult = await runFinalizePreflight({
         chatId,
@@ -1127,8 +1236,9 @@ async function runFinalizeFastPath(params: {
     scaffoldRetry,
     shrinkRetry,
     verifierBlockingFindings,
-    stepTelemetry,
     rejectedShrinks,
+    rejectedStructural,
+    stepTelemetry,
   };
 }
 
@@ -1292,8 +1402,9 @@ export async function finalizeAndSaveVersion(
     scaffoldRetry,
     shrinkRetry,
     verifierBlockingFindings,
-    stepTelemetry: fastPathStepTelemetry,
     rejectedShrinks,
+    rejectedStructural,
+    stepTelemetry: fastPathStepTelemetry,
   } = await runFinalizeFastPath({
     chatId,
     model,
@@ -1354,8 +1465,34 @@ export async function finalizeAndSaveVersion(
       const previous = await chatRepo.getChatOrchestrationSnapshot(chatId);
       const merged = mergePersistedOrchestrationSnapshots(previous, snap);
       await chatRepo.updateChatOrchestrationSnapshot(chatId, merged);
+      // P26: trace what we actually persisted so we can attribute later
+      // variant-flippar to either missing snapshot.variantId, intent
+      // classification or scaffold drift. Tysta info-loggar i prod;
+      // devLogAppend gör det synligt i builder-UI.
+      const persistedVariantId =
+        typeof merged.variantId === "string" ? merged.variantId : null;
+      const persistedScaffoldId =
+        typeof merged.scaffoldId === "string" ? merged.scaffoldId : null;
+      devLogAppend("in-progress", {
+        type: "orchestration.snapshot.persisted",
+        chatId,
+        versionId: version.id,
+        scaffoldId: persistedScaffoldId,
+        variantId: persistedVariantId,
+        hasVariantId: persistedVariantId !== null,
+      });
     } catch (e) {
-      console.warn("[orchestration-snapshot] Failed to persist:", e);
+      // P26: persistering är kritiskt för variant-locken på följande
+      // follow-up. Om det failar tappar vi continuity → variant flippar
+      // → "projektet är oigenkännligt"-känsla. Höjer från warn till error
+      // och rapporterar till devLog så det syns i builder-UI.
+      console.error("[orchestration-snapshot] Failed to persist:", e);
+      devLogAppend("in-progress", {
+        type: "orchestration.snapshot.persist_failed",
+        chatId,
+        versionId: version.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
     }
   }
   const scaffoldSelection =
@@ -1488,6 +1625,49 @@ export async function finalizeAndSaveVersion(
       logCount: preflightLogs.length,
       message: logErr instanceof Error ? logErr.message : "Unknown preflight log persistence error",
     });
+  }
+
+  // SAJ-25 — pruneStaleVersionErrorLogs:
+  //
+  // When the same `versionId` is re-finalised (follow-up / repair pass) and
+  // this pass is CLEAN (`!hasVerificationBlockingErrors`), drop rows from
+  // earlier passes whose `meta.repairPassIndex` is < currentRepairPassIndex.
+  // Without this prune the UI keeps rendering old blocking findings as a
+  // red "Fel"-badge on a fully-working preview.
+  //
+  // Best-effort, behind `FEATURES.consistentRepairPassIndex`. Never throws.
+  if (
+    FEATURES.consistentRepairPassIndex &&
+    repairPassIndex > 0 &&
+    !hasVerificationBlockingErrors
+  ) {
+    try {
+      const droppedCount = await pruneStaleVersionErrorLogs(
+        version.id,
+        repairPassIndex,
+      );
+      devLogAppend("in-progress", {
+        type: "version_error_log_pruned",
+        chatId,
+        versionId: version.id,
+        repairPassIndex,
+        droppedCount,
+        reason: "clean-followup",
+      });
+    } catch (pruneErr) {
+      console.warn(
+        "[finalize] pruneStaleVersionErrorLogs failed (non-fatal):",
+        pruneErr,
+      );
+      devLogAppend("in-progress", {
+        type: "version_error_log_pruned.error",
+        chatId,
+        versionId: version.id,
+        repairPassIndex,
+        message:
+          pruneErr instanceof Error ? pruneErr.message : "Unknown prune error",
+      });
+    }
   }
 
   try {
@@ -1688,5 +1868,6 @@ export async function finalizeAndSaveVersion(
     rejectedShrinks: rejectedShrinks ?? [],
     shrinkRetry,
     verifierBlockingFindings: verifierBlockingFindings ?? [],
+    rejectedStructural: rejectedStructural ?? [],
   };
 }

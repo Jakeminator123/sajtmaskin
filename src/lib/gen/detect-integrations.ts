@@ -17,6 +17,10 @@ import {
   tryParseIntegrationManifest,
 } from "@/lib/integrations/integration-manifest";
 import type { PreviewLifecycleStage } from "@/lib/gen/preview/env-local";
+import type {
+  DossierEnvVarEnforcement,
+  SelectedDossier,
+} from "@/lib/gen/dossiers/types";
 
 export type DetectedIntegration = {
   key: string;
@@ -24,6 +28,14 @@ export type DetectedIntegration = {
   provider?: string;
   intent: "env_vars" | "install" | "connect" | "configure";
   envVars: string[];
+  /**
+   * Per-key enforcement classification overlaid from selected-dossier
+   * metadata. Keys absent from this map default to `"build"` (the
+   * conservative pre-Phase-3 behaviour). Always populated when
+   * `detectIntegrationsFromVersionFiles` was given a `selectedDossiers`
+   * argument; may be empty otherwise.
+   */
+  envEnforcement?: Record<string, DossierEnvVarEnforcement>;
   status: string;
   setupGuide?: string;
 };
@@ -37,6 +49,15 @@ export type DetectIntegrationsOptions = {
    * is parked silently. F3 (`integrations`) runs the full pipeline.
    */
   lifecycleStage?: PreviewLifecycleStage;
+  /**
+   * Dossiers selected for the active build. When provided, every detected
+   * integration whose `provider`/`key` matches a selected dossier's
+   * `capability` or `id` inherits the dossier's per-envVar
+   * `enforcement` tag. Integrations without a matching selected dossier
+   * default to `"build"` enforcement (safe). Custom-env spillover always
+   * defaults to `"build"`.
+   */
+  selectedDossiers?: SelectedDossier[];
 };
 
 const ENV_VAR_PATTERN = /process\.env\.([A-Z][A-Z0-9_]{2,})/g;
@@ -300,13 +321,121 @@ function appendCustomEnvIntegrations(
   ];
 }
 
+type DossierEnforcementCluster = {
+  enforcementByKey: Map<string, DossierEnvVarEnforcement>;
+  /** All env keys this cluster owns — used to merge into matching integrations. */
+  allKeys: Set<string>;
+};
+
+/**
+ * Build per-dossier clusters of env-key enforcement. Each cluster represents
+ * one selected dossier's full env surface. We then merge clusters into
+ * detected integrations by env-key overlap (any-overlap = same vendor).
+ *
+ * Indexed per cluster (not flat per env-key) so we can ENRICH a detected
+ * integration's `envVars` with sibling keys the dossier knows about but
+ * the registry/regex did not surface (e.g. resend dossier ships
+ * `EMAIL_FROM`/`CONTACT_EMAIL_TO`, registry only knows `RESEND_API_KEY`).
+ */
+function buildEnvEnforcementClusters(
+  selectedDossiers: SelectedDossier[] | undefined,
+): DossierEnforcementCluster[] {
+  if (!selectedDossiers || selectedDossiers.length === 0) return [];
+  const clusters: DossierEnforcementCluster[] = [];
+  for (const selected of selectedDossiers) {
+    const envVars = selected.entry.envVars ?? [];
+    if (envVars.length === 0) continue;
+    const enforcementByKey = new Map<string, DossierEnvVarEnforcement>();
+    const allKeys = new Set<string>();
+    for (const env of envVars) {
+      enforcementByKey.set(env.key, env.enforcement ?? "build");
+      allKeys.add(env.key);
+    }
+    clusters.push({ enforcementByKey, allKeys });
+  }
+  return clusters;
+}
+
+/**
+ * Pick the dossier cluster with the MOST env-key overlap with the given
+ * integration's envVars. First-match was the original behaviour; that
+ * misclassifies when two dossiers share a generic env name (e.g.
+ * `DATABASE_URL` belongs to both Supabase and Prisma dossiers, and the
+ * registry's Supabase entry would silently inherit Prisma's enforcement
+ * map). Best-match by overlap count is deterministic and isolates
+ * cross-vendor name collisions to the single shared key.
+ *
+ * Ties (two clusters with equal overlap) keep the first cluster — that
+ * matches the original behaviour and is fine in practice because the
+ * caller's selectedDossiers ordering is stable per build.
+ */
+function findMatchingCluster(
+  envVars: string[],
+  clusters: DossierEnforcementCluster[],
+): DossierEnforcementCluster | undefined {
+  let bestCluster: DossierEnforcementCluster | undefined;
+  let bestOverlap = 0;
+  for (const cluster of clusters) {
+    let overlap = 0;
+    for (const key of envVars) {
+      if (cluster.allKeys.has(key)) overlap += 1;
+    }
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      bestCluster = cluster;
+    }
+  }
+  return bestCluster;
+}
+
+function applyEnforcementOverlay(
+  integrations: DetectedIntegration[],
+  clusters: DossierEnforcementCluster[],
+  hasSelectedDossiers: boolean,
+): DetectedIntegration[] {
+  if (!hasSelectedDossiers && integrations.every((i) => !i.envEnforcement)) {
+    return integrations;
+  }
+  return integrations.map((integration) => {
+    const cluster = findMatchingCluster(integration.envVars, clusters);
+
+    // Union of registry-detected env keys and dossier-extra env keys (when
+    // a dossier matched). Dossier wins on enforcement.
+    const seen = new Set(integration.envVars);
+    const mergedEnvVars = [...integration.envVars];
+    if (cluster) {
+      for (const key of cluster.allKeys) {
+        if (!seen.has(key)) {
+          mergedEnvVars.push(key);
+          seen.add(key);
+        }
+      }
+    }
+
+    const envEnforcement: Record<string, DossierEnvVarEnforcement> = {
+      ...(integration.envEnforcement ?? {}),
+    };
+    for (const envKey of mergedEnvVars) {
+      if (envEnforcement[envKey]) continue; // existing override wins
+      envEnforcement[envKey] = cluster?.enforcementByKey.get(envKey) ?? "build";
+    }
+    return { ...integration, envVars: mergedEnvVars, envEnforcement };
+  });
+}
+
 export function detectIntegrations(
   code: string,
   options: DetectIntegrationsOptions = {},
 ): DetectedIntegration[] {
   const base = runDetectionPipeline(code);
-  if (options.lifecycleStage === "design") return base;
-  return appendCustomEnvIntegrations(code, base);
+  const withCustomEnv =
+    options.lifecycleStage === "design" ? base : appendCustomEnvIntegrations(code, base);
+  const clusters = buildEnvEnforcementClusters(options.selectedDossiers);
+  return applyEnforcementOverlay(
+    withCustomEnv,
+    clusters,
+    Boolean(options.selectedDossiers && options.selectedDossiers.length > 0),
+  );
 }
 
 /**
@@ -314,7 +443,9 @@ export function detectIntegrations(
  * @param files — use `path` as `name` when wiring from version rows.
  * @param options — pass `lifecycleStage: "design"` from F2 callers to
  *   suppress regex custom-env spillover (manifest/registry detection
- *   still runs, since those are explicit).
+ *   still runs, since those are explicit). Pass `selectedDossiers` to
+ *   inherit per-envVar `enforcement` tags from the active dossier set
+ *   (Phase 3 of the F3-readiness rework).
  */
 export function detectIntegrationsFromVersionFiles(
   files: Array<{ name: string; content: string }>,
@@ -333,10 +464,18 @@ export function detectIntegrationsFromVersionFiles(
     .map((f) => `// File: ${f.name}\n${f.content}`)
     .join("\n\n");
 
+  const clusters = buildEnvEnforcementClusters(options.selectedDossiers);
+  const hasSelectedDossiers = Boolean(
+    options.selectedDossiers && options.selectedDossiers.length > 0,
+  );
+
   if (manifestParsed) {
     const fromManifest = detectedIntegrationsFromManifest(manifestParsed);
-    if (options.lifecycleStage === "design") return fromManifest;
-    return appendCustomEnvIntegrations(codeForScan, fromManifest);
+    const merged =
+      options.lifecycleStage === "design"
+        ? fromManifest
+        : appendCustomEnvIntegrations(codeForScan, fromManifest);
+    return applyEnforcementOverlay(merged, clusters, hasSelectedDossiers);
   }
 
   const combined = files.map((f) => `// File: ${f.name}\n${f.content}`).join("\n\n");

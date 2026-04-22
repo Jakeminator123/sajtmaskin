@@ -121,8 +121,9 @@ interface PexelsVideo {
 }
 
 export async function fetchStockVideos(q: StockQuery, count: number): Promise<StockAsset[]> {
-  // Pexels is gated behind the existing ENABLE_PEXELS flag + API key.
-  if (!FEATURES.usePexels || count <= 0) return [];
+  // Pexels is gated on the API key alone after the 2026-04-20 feature-flag
+  // audit (§3.7) that removed the unused `FEATURES.usePexels` flag.
+  if (!SECRETS.pexelsApiKey || count <= 0) return [];
 
   const key = cacheKey("pexels", q, count);
   const cached = cache.get(key);

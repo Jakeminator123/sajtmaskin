@@ -173,9 +173,9 @@ export const GenerationSummary = memo(function GenerationSummary({
         </div>
       )}
 
-      <div className="rounded-xl border border-border/50 bg-muted/60 overflow-hidden">
-        <div className="flex items-center justify-between px-3 py-2.5">
-          <div className="flex items-center gap-2">
+      <div className="min-w-0 rounded-xl border border-border/50 bg-muted/60 overflow-hidden">
+        <div className="flex min-w-0 items-center justify-between gap-2 px-3 py-2.5">
+          <div className="flex min-w-0 items-center gap-2">
             {isStreaming ? (
               <Loader2 className="size-3.5 animate-spin text-primary" />
             ) : (

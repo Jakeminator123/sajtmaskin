@@ -1,0 +1,42 @@
+---
+description: Pipeline-enkelhet + docs/schemas/backoffice-sync vid LLM-flödesändringar
+globs:
+  - sajtmaskin_backoffice.py
+  - backoffice/**
+  - config/codegen-core-manifest.json
+  - config/prompt-core/**
+  - config/integrations/**
+  - config/ai_models/**
+  - config/scaffold-variants/**
+  - src/lib/gen/**
+  - src/lib/providers/own-engine/**
+  - src/lib/models/**
+  - src/lib/builder/**
+  - docs/architecture/**
+  - docs/schemas/**
+---
+
+# Pipeline: enkelhet + docs-sync
+
+## Filosofi
+
+Färre rörliga delar, starkare första pass. Statisk prompt eller deterministisk datafil slår nytt orkestreringssteg. Återkommande fel → stärk systemprompt först. Autofix/repair-regler som sällan träffar → ta bort eller ersätt med prompt.
+
+## Docs-sync vid ändring
+
+Ändrar du pipeline-kod: **kod → verifiering → berörda docs/schemas i samma leverans.**
+
+| Område | Uppdatera |
+|--------|-----------|
+| Core Rules | `config/prompt-core/_READ_ME_FIRST.md`, `config/codegen-core-manifest.json` |
+| Tier-3 SDK deny-list | `config/integrations/tier3-sdk-deny.json`, glossary |
+| Modeller / routing / budget | `config/ai_models/_READ_ME_FIRST.md`, `manifest.json`, `docs/schemas/model-build-profiles.md` |
+| Generation / orchestrate | `fas2-orchestration-and-build.md`, `llm-signal-flow.md` |
+| Scaffold | `docs/schemas/scaffold-contract.md`, `docs/schemas/strict/scaffold-variant.schema.json` |
+| Preview / session | `docs/schemas/preview-session-contract.md`, `docs/schemas/strict/preview-session-contract.schema.json` |
+| Quality gate | `docs/schemas/quality-gate.md` |
+| Roller / signaler | `docs/schemas/llm-role-matrix.md`, `orchestration-signal-contract.md` |
+| **Schemas (strict)** | `docs/schemas/strict/*.schema.json` — machine-readable kontrakt, håll synkade mot TS-typer |
+| **Backoffice (Streamlit)** | `backoffice/` sidmoduler + `sajtmaskin_backoffice.py` — verifiera att paneler speglar faktisk runtime |
+
+Uppdatera bara det som faktiskt bröts. Kod är sanning — docs speglar, inte styr.

@@ -6,7 +6,7 @@
  * Hand-picked URLs that span auth + payments + db + ai + cms.
  */
 import { test } from "@playwright/test";
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 
 const SAMPLE_URLS = [

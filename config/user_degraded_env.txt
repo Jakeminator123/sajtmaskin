@@ -1,72 +1,34 @@
-# User-site preview: degraded / placeholder environment variables — policy
+# Generated user-site preview: degraded / placeholder env policy
 #
-# Purpose
-# -------
-# Explain why and how to inject *non-secret placeholders* into **generated user
-# projects** (not the Sajtmaskin app) so preview / VM runtime can start without
-# real integrations.
+# This file is human/agent documentation only — it is NOT parsed.
+# For the canonical narrative + merge order + F3 stripping, see:
+#   config/ai_models/_READ_ME_FIRST.md
+#   config/ai_models/00-overview.md
 #
-# Canonical KEY=value lists (dotenv-style, two layers since 2026-04)
-# ------------------------------------------------------------------
-# - **config/ai_models/40-harmless-placeholders.env.txt** — values that are
-#   safe to ship even in F3 ("bygg integrationer"): test/publishable keys,
-#   generic secrets, analytics IDs, search-only API keys.
-# - **config/ai_models/41-tier3-stub-placeholders.env.txt** — F2-only stubs
-#   (Stripe-secret, Supabase-URL, Clerk-secret, Redis URL, OpenAI, ...) that
-#   are STRIPPED from the F3 merge so the project must supply real values.
+# Source-of-truth pointers
+# ------------------------
+# - Per-key classification (harmless vs tier-3):
+#   src/lib/integrations/placeholder-harmless.ts
+# - KEY=value fragment files (merged into preview .env.local):
+#   config/ai_models/40-harmless-placeholders.env.txt   (always on)
+#   config/ai_models/41-tier3-stub-placeholders.env.txt (F2 on, F3 off)
+# - Merge logic + provenance layers:
+#   src/lib/gen/preview/env-local.ts (harmless -> tier3-stub -> project-preview -> user -> generated)
+# - F3 readiness gate (refuses F3 generation until every required real key is set):
+#   src/lib/integrations/tier3-build-spec.ts -> validateTier3Readiness()
+# - Parity tests that keep these surfaces in sync:
+#   src/lib/integrations/placeholder-harmless.parity.test.ts
+#   src/lib/integrations/registry-parity.test.ts
 #
-# Per-key classification ("harmless" vs "tier-3"):
-#   **src/lib/integrations/placeholder-harmless.ts**
+# Edge-case note (Redis / SQL / Auth0)
+# ------------------------------------
+# Generated code that creates Redis/DB clients at module scope and connects
+# eagerly may still time out on placeholder URLs. Prefer lazy clients or skip
+# init when the URL equals a known preview sentinel. Postgres-shaped URLs in
+# `41-` are local-only so `next dev` doesn't crash on `import postgres`.
 #
-# Both fragments are indexed from **config/ai_models/manifest.json** under
-# `generatedSiteIntegrationPlaceholders` so tooling and agents have one place
-# to look.
-#
-# Node helper (read files from disk — server/scripts only, not client bundles):
-#   **src/lib/ai-models/load-generated-site-placeholders.ts**
-#   - `readHarmlessPlaceholdersEnvText()`
-#   - `readTier3StubPlaceholdersEnvText()`
-#   - `readGeneratedSitePlaceholdersEnvText()` (combined; back-compat)
-#
-# Alignment with codegen (system prompt)
-# ----------------------------------------
-# - config/prompt-core/01-behavioral-contract.md (regel 7): mock data by
-#   default in F2; in F2 the model MUST NOT import tier-3 backend SDKs
-#   (stripped mechanically by `tier3-sdk-guard-fixer`). In F3 the
-#   `## Tier-3 Integration Build Plan` block in the system prompt drives
-#   the wiring.
-# - Generated apps should treat missing or placeholder secrets as *degraded mode*:
-#   UI and static routes render; side effects no-op or show an in-UI message —
-#   never crash the dev server on import.
-#
-# Section B/C notes (Redis, SQL, Auth0)
-# -------------------------------------
-# If generated code creates Redis/DB clients at module scope and connects
-# immediately, placeholders may still cause timeouts. Prefer lazy clients or
-# skip init when URL is missing or equals a known preview sentinel. For
-# Postgres-shaped URLs, empty `DATABASE_URL` often breaks migrate/build; the
-# fragment file supplies local-shaped URLs for preview only.
-#
-# This policy narrative file is *not* parsed by merge logic; it is human/agent
-# documentation. The KEY=value fragments are merged into the tier-2 preview
-# runtime's `.env.local` by `src/lib/gen/preview/env-local.ts` when preview
-# starts via `startPreviewSession`. The merge order is:
-# harmless → tier3-stub → project-preview → user → generated (later wins).
-# Tier-1 HTML shim and some non-builder helper flows do not use this merge path.
-#
-# F3 readiness gate
-# -----------------
-# When the user clicks "Bygg integrationer", `POST .../finalize-design`
-# derives a Tier3BuildSpec from the detected integrations and refuses to
-# start F3 until every `requiredRealEnvKeys` entry has a non-empty value
-# in the project env store (`validateTier3Readiness` in
-# `src/lib/integrations/tier3-build-spec.ts`).
-#
-# -----------------------------------------------------------------------------
-# Cross-reference
-# -----------------------------------------------------------------------------
-# - config/ai_models/manifest.json → generatedSiteIntegrationPlaceholders, workloads, qualityGateTiers
-# - config/env-policy.json → knownEmptyOk for *Sajtmaskin* app env (different target)
-# - src/lib/gen/contract/pre-generation-contracts.ts → PROVIDER_RULES (integration env names)
-# - src/lib/integrations/registry.ts → IntegrationDefinition (envVars per provider)
-# - src/lib/integrations/tier3-build-spec.ts → F3 build plan + readiness check
+# Different target than `config/env-policy.json`
+# -----------------------------------------------
+# `config/env-policy.json` classifies the *Sajtmaskin app's* runtime env
+# (BACKOFFICE_PASSWORD, VERCEL_TOKEN, etc.). Don't conflate the two — they
+# describe different processes.

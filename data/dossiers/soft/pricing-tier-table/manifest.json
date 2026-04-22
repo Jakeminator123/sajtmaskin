@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+  "id": "pricing-tier-table",
+  "label": "Pricing Tier Table",
+  "capability": "pricing-section",
+  "codeFidelity": "rewritable",
+  "complexity": "simple",
+  "defaultForCapability": true,
+  "summary": "Three- or four-column pricing table with feature comparison and a CTA per tier. Generic React component that accepts structured plan data and a CTA node per plan, so any backend integration (Stripe Checkout, custom signup, contact sales) can be plugged in without rewriting the UI.",
+  "envVars": [],
+  "dependencies": ["lucide-react"],
+  "files": [
+    {
+      "path": "components/pricing-tier-table.tsx",
+      "role": "client"
+    }
+  ],
+  "exposes": [
+    {
+      "name": "PricingTierTable",
+      "type": "component",
+      "import": "@/components/pricing-tier-table"
+    }
+  ],
+  "lastVerified": "2026-04-20"
+}
