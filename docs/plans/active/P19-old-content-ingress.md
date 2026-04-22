@@ -1,8 +1,10 @@
 # P19 — Old-content ingress hardening (konservativ)
 
-Status: Active (Steg 1 + 2 + 4 KLARA 2026-04-20; Steg 3 öppen)
-Skapad: 2026-04-15
-Prioritet: Medel
+**Status:** 3/5 steg klara. **Kvar: Steg 3** (UX-transparens — visa vilken basversion follow-up använder i UI + "du redigerar version X, inte senaste Y"-signal). Effort: 4–8h. Linear: SAJ-22.
+
+Historik: Steg 1 (ingress-telemetri), Steg 2 (preview_url invalidering vid filmutering), Steg 4 (v0-import freshness-metadata) alla levererade 2026-04-20. Resten av filen är bakgrund + evidens.
+
+Skapad: 2026-04-15 · Prioritet: Låg
 
 ## Problem
 

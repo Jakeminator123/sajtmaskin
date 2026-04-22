@@ -1,6 +1,12 @@
 # P34 — Blocking lint in the pre-save validation loop
 
-**Status:** Fas A+B+C(delvis) levererade 2026-04-21. `warm-eslint.ts` + integration i `validateAndFix` finns bakom flaggan `SAJTMASKIN_BLOCKING_ESLINT`. F3 (integrationer) forcerar passet på. Vercel `development` har flaggan aktiverad (`SAJTMASKIN_BLOCKING_ESLINT="true"`, verifierat via `vercel env pull`). Preview/production kräver separat aktivering via Vercel Dashboard (CLI 51.8.0 kräver explicit git-branch för preview-scope; master kan inte användas eftersom det är production-branch).
+**Status:** A+B klara, C delvis (development aktiverad). **Kvar:**
+- **Fas C-fortsättning** — aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Preview via Vercel Dashboard (CLI 51.8.0-begränsning) + mät latens-delta när trafik kommer in.
+- **Fas D** — aktivera i prod om latens-budget håller; flytta flaggan till manifestet.
+- **Fas E** — ta bort lint från bakgrundsgate (från SAJ-28 glapp 1) när blocking-pass är default på.
+
+Historik: Fas A (`runPreVmEslint` + `warm-eslint.ts`), Fas B (integration i `validateAndFix` bakom `SAJTMASKIN_BLOCKING_ESLINT`, F3 forcerar på) levererade 2026-04-21.
+
 **Skapad:** 2026-04-21.
 
 ---

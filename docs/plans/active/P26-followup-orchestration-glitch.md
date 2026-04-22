@@ -1,7 +1,9 @@
 # P26 — Follow-up Orchestration Glitch Remediation
 
-**Status:** kod levererad (7 PR-branches), väntar på review + push (2026-04-21 ~04:10).
-**Empirisk uppdatering 2026-04-21 ~07:30 (P30-session):** P26 PR1, PR2, PR4-PR7, PR9 är mergade i `master` (commits `e1180951e` m.fl.) — men `[orchestrate] build_intent_promoted { from: 'website', to: 'app', scaffoldId: 'app-shell', reason: 'Auto-selected app scaffold implies app intent for route planning and downstream context' }` triggar **fortfarande** på follow-ups i chat `cdc23879-f4c1-4398-b91b-5e1af020e34c`. Hypotes: PR1:s `scaffold_locked_to_persisted` early-return tar inte effekt eftersom kodvägen för auto-scaffold (utan persisted) fortfarande når `build_intent_promoted`-loggen i `orchestrate.ts`. Behöver isoleras i en P26-uppföljare.
+**Status:** 7/8 PR mergade (PR3 + PR8 cancelled). **Kvar: P26-uppföljare** — `[orchestrate] build_intent_promoted { from: 'website', to: 'app' }` triggar fortfarande på follow-ups (verifierat i chat `cdc23879-f4c1-4398-b91b-5e1af020e34c`, 2026-04-21). PR1:s `scaffold_locked_to_persisted` early-return tar inte effekt i auto-scaffold-grenen. Isolera i ny PR som tightar promotion-villkoret. Effort: ~2h.
+
+Historik: Full PR-lista + root cause + 7 mergade branches i sektionerna nedan — referens för uppföljaren. Två kvarvarande separata buggar: (1) `clear-redesign`-overklassificering på bildbyten (PR2 exponerar detta i `variant_lock_skip`-logg); (2) hydration error på landing-page pga SSR-tidsberoende. Båda utanför scope för P26 själv — egna issues.
+
 **Owner:** Cursor agent (Claude Opus 4.7)
 **Origin:** Empirisk testkörning av builder med Tänker-modellen, chatId `cdc23879-f4c1-4398-b91b-5e1af020e34c`
 

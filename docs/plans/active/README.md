@@ -1,73 +1,38 @@
-# Aktiva planer (`docs/plans/active/`)
+# Aktiva planer — konsoliderad översikt
 
-## Filer
+Senast uppdaterad: 2026-04-23. Alla öppna steg listas i enhetligt A/B/C/D-format. Varje planfil behåller sin detaljerade text — tabellen nedan är routern.
 
-| Fil | Status |
-|-----|--------|
-| [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) | Kanonisk checklista — uppdaterad efter wave 2026-04-20 + konsolideringspass. |
-| [`P19-old-content-ingress.md`](./P19-old-content-ingress.md) | Konservativ hardening — kräver bevis innan kodändringar. |
-| [`P20-shadcn-ecosystem-next.md`](./P20-shadcn-ecosystem-next.md) | shadcn blocks + fonts strategi. Scaffold-toolkit redan levererat. |
-| [`P26-followup-orchestration-glitch.md`](./P26-followup-orchestration-glitch.md) | 7 PR-branches lokalt; `build_intent_promoted` triggar fortfarande i live-loggen 2026-04-21 — verifiera merge-status. |
-| [`P32-request-type-taxonomy.md`](./P32-request-type-taxonomy.md) | Förslag — 8-klass request-type-klassificering (Q&A/Score, External-fetch, Multi-change, Micro-edit, Local-layout, Page-addition, Redesign, Integration) → right-sized pipelines. Väntar på agreement. |
-| [`P33-shadcn-ecosystem-expansion.md`](./P33-shadcn-ecosystem-expansion.md) | Förslag — utbyggnad av shadcn-integrationen i 5 faser (fyll exempel-luckor, bredda capability-map, fler community-registries, embedding-retrieval, llms.txt-synk). Inga MCP-runtime-tools i scope. Väntar på agreement. |
-| [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | Fas A+B+C(delvis) 2026-04-21. `warm-eslint.ts` + integration i `validateAndFix` bakom `SAJTMASKIN_BLOCKING_ESLINT`. F3 forcerar på. Development env aktiverat på Vercel; preview kräver Dashboard pga CLI-begränsning. Mätning pågår när trafik kommer in. |
-| [`repair-loop-hardening.md`](./repair-loop-hardening.md) | Fyra delspår efter `8e617807b` (href↔route safety net): repairPassIndex-konsistens, verifier-rerun efter LLM-fixer, eliminera dubbel `validateAndFix` i preflight, fix-patterns till huvudgeneratorn. Steg A motsvarar Linear SAJ-25 (handoff klar i `.cursor/handoffs/`). |
+## Öppna steg (sorterat efter prio + blocker)
 
-## Avklarade i wave 2026-04-20
+| # | Plan | Kvarvarande steg | Effort | Prio | Blocker |
+|---|------|------------------|--------|------|---------|
+| A | [`P26-followup-orchestration-glitch.md`](./P26-followup-orchestration-glitch.md) | P26-uppföljare: `build_intent_promoted` triggar fortfarande på follow-ups trots PR1-merge | ~2h | Hög | — |
+| B | [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | **C2** — aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Vercel Preview via Dashboard. **D** — aktivera i prod efter latens-mätning. **E** — ta bort lint från bakgrundsgate. | ~3h + mätning | Medel | Latens-data |
+| C | [`P19-old-content-ingress.md`](./P19-old-content-ingress.md) | **Steg 3** — UX-transparens för follow-up-basversion (SAJ-22) | 4-8h | Låg | UI-arbete |
+| D | [`dossier-brief-sync.md`](./dossier-brief-sync.md) | P1/P2 polish — frivilligt | — | Låg | — |
+| E | [`E-easy-medium-layer.md`](./E-easy-medium-layer.md) | **E1** follow-up-dubblett, **E2** isFollowUp-predicate, **E3** recurringQualityPatterns, **E4** imports-checklist, **E5** konsolidera react-fixers, **E6** strict assert i CI, **E7** variant-default | ~10h total | Medel | — |
+| F | [`M-medium-hard-layer.md`](./M-medium-hard-layer.md) | **M1** content-site→landing-page, **M2** fyll dossier-pool (5-10 nya), **M3** konsolidera 5 cross-file-import-fixers, **M4** syntaxFixPasses=1 | ~18-22h | Medel | M3 på telemetri |
+| G | [`L1-unified-repair-call.md`](./L1-unified-repair-call.md) | Slå ihop 4 LLM-fixer-anrop till ett `runUnifiedRepair()` | ~3 dagar | Medel | Telemetri-data |
+| H | [`L2-prompt-kit.md`](./L2-prompt-kit.md) | `prompt-kit/` med canonical `composePrompt()` — alla 4 LLM-anropssites går genom kompositor | ~4 dagar | Medel | — |
+| I | [`L3-dossier-variants.md`](./L3-dossier-variants.md) | Beslut: behöver dossiers variants-koncept? Utvärdera efter M2 | ~1 vecka (om ja) | Låg | **M2** |
+| J | [`cloudagent-paket-A-doc-rewrite.md`](./cloudagent-paket-A-doc-rewrite.md) | 3 dossier v1→v2 doc-omskrivningar (D3, D5, D7) — redo för cloudagent | ~3h | Låg | — |
+| K | [`cloudagent-paket-B-schema-validation.md`](./cloudagent-paket-B-schema-validation.md) | AJV-validator över dossier-manifest (7 steg) — redo för cloudagent | ~5h | Medel | — |
+| L | [`P32-request-type-taxonomy.md`](./P32-request-type-taxonomy.md) | Fas A klar. **B** Q&A-shortcut, **C** micro-edit-pipeline, **D** multi-change wrap, **E** external-fetch-tool, **F** LLM-fallback | Fas B: ~1 dag, C-F: se plan | Medel | Agreement |
+| M | [`P33-shadcn-ecosystem-expansion.md`](./P33-shadcn-ecosystem-expansion.md) | **A** fyll capability-luckor, **B** bredda capability-mapping, **C** fler community-registries, **D** embedding-retrieval, **E** llms.txt-synk | ~8h för A+B | Låg | Agreement |
 
-Flyttade till [`../avklarat/`](../avklarat/) av P27-validator efter sektion A+B+D + konsolideringspass:
+**Summa öppet arbete:** ~15-20 sidor verklig effort spritt på 13 spår. Ingen enskild plan kräver mer än en veckas insats. Flera kan göras parallellt (E ⇄ M ⇄ J/K är `parallel_safe`).
 
-| Plan | Levererade |
-|---|---|
-| `P21` | Per-tier `Repair`/`Timeouts`/`Briefing` i `manifest.json` |
-| `P21b` | Test-sync för P21:s `fast.planner`-ändring |
-| `P22` | Brief-guard, variant-lock, quality-target-arv, LLM safety net (helpers) |
-| `P22b` (konsoliderad) | Caller-wiring: `chatId` + `followUpIntent` + `priorQualityTarget` ärvt från `orchestration_snapshot.buildSpec` i `chat-message-stream-post.ts`. Aktiverar P22:s helpers runtime. (Plan-fil borttagen, leverans i parallel-execution closure note.) |
-| `P23` | Motion-reduce-trap-check, physics-keywords, route-dedup |
-| `P24` | AST-baserad `next.config`-patcher, korrekt `startOutcome`, `runId` end-to-end |
-| `P25` | CSP allow-list för Mixpanel, mjuk avatar-offline-state |
-| `P26` | RunId-resolver i logger, reasoning-tokens-mätning, per-tier matris i `ModelTraceOverlay` |
-| `P27` | Sektion A+B+D körda (sektion C lämnad till användaren, sektion E commits till användaren) |
-| `parallel-execution-2026-04` | Wave-master arkiverad med closure-note. |
+## Kanonisk checklista
 
-## Avklarat i wave 2026-04-22 — LLM-flow-audit + follow-up
+[`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) — kort smal lista (~4 öppna punkter) + telemetri-blockad + strategiska satsningar + bevarad historik över alla leverans-waves (2026-04-20, 2026-04-21, 2026-04-22, …).
 
-Triage + fixar från 8 parallella audit-rapporter + 5 follow-up-rapporter. 20 verifierade buggar fixade totalt över två commit-vågor. Resten av fynden (~16) var by-design/doc-drift eller dubbletter.
+## Avklarade waves
 
-| Commit | Omfång |
-|---|---|
-| `a35eaa05e` | Orkestrering (community-prompt, telemetri-mode, init rå-fält, plan-mode model+lifecycle, snapshot-brief style/tone, effective-init-route-count); intent-klassning (unicode-\b, `tre`-typo, `byt`, `rubrik`); verifier (TS-generics, smal `lazy(`); fixer-fallback (server-verify); docs + backoffice-sync. |
-| `8de85797b` | `src/lib/utils/unicode-word-boundary.ts` canonical helper + 11 tester; `.cursor/rules/unicode-regex.mdc`; `scripts/dev/check-unicode-regex.mjs` preflight-guard; sista faktiska bug fixad (`naturmiljö` + `klippmiljö` i unsplash-query-fallback). |
-| *(denna session)* | Plan mode init+follow-up rå-signalpaket, plan-mode follow-up brief-hydrering, `fixerModel`-fallback i `finalize-version.ts` + `validate-and-fix.ts` (4 callsites), P32-kommentar förtydligad, `flytta`/`change`/`move` i refine, shell-page invalid identifier + catch-all route preview, `domainProfile` string-rehydrering. 7 nya fix, 884 tester gröna. |
-
-Detaljer: [`../../audit-reports/2026-04-22-llm-flow/SUMMARY.md`](../../../audit-reports/2026-04-22-llm-flow/SUMMARY.md) + `Kvarvarande-uppgifter.md` sektionen "Avklarat i LLM-flow-audit + follow-up (2026-04-22)".
-
-## Avklarade i wave 2026-04-21
-
-Flyttade till [`../avklarat/`](../avklarat/) av städ-pass efter href↔route-säkerhetsnätet:
-
-| Plan | Levererade |
-|---|---|
-| `P30` | R3F vector-tuple autofix + LLM-fixer R3F-tips + gate-aware `no_improvement`-policy. |
-| `P31` | Dossier-driven F3 envs (build/feature-runtime/warn-only) + `allowPlaceholdersInF3`-toggle + TS2749 autofix + needsPayments capability + OpenClaw builder-tips. |
-
-**Raderade i samma städ-pass:**
-
-- `handoff-2026-04-20-next-session.md` — daterad sessionsanteckning, innehåll superseded av nuvarande `Kvarvarande-uppgifter.md` + git-historik.
-
-**Medvetet inte gjort i konsolideringen** (kvar som känd skuld i `Kvarvarande-uppgifter.md`):
-
-- **P25b** (UX polish): VersionHistory tooltips + `VersionMismatchOverlayPayload` overlay-rendering. Kräver visuell verifiering — inte kandidat för fast turnaround.
-- **P28** (pre-existing hygien): 7 test-failures + schema-parity + engine-test isolation. Lint-felet (P28 #6) togs in i konsolideringen; resten är pre-existing på master och kräver var-för-sig-investigation. Två stream-route-tester failar pga test-mock-drift (icke-mockad `createOwnEnginePipelineAndGenerationStream` + `tryGenerateServerAutoBrief`) — orelaterat till P22b:s wiring.
+- **2026-04-22** — LLM-flow-audit + 2 follow-up-pass. 20 verifierade buggar fixade över 3 commits (`a35eaa05e` + `8de85797b` + `3a2ec25d8`). Unicode-regex-grundinfrastruktur + CI-guard etablerad. Se [`../../../audit-reports/2026-04-22-llm-flow/SUMMARY.md`](../../../audit-reports/2026-04-22-llm-flow/SUMMARY.md) + `Kvarvarande-uppgifter.md` sektionen "Avklarat i LLM-flow-audit + follow-up (2026-04-22)".
+- **2026-04-22** — Cleanup-wave pass 1+2 (7 commits över P2/P5/P1/S3/knip/P3/docs). PR #84.
+- **2026-04-21** — `href↔route-safety-net` + P30 + P31 + `repair-loop-hardening` + `P20-shadcn-ecosystem-next`. Flyttade till [`../avklarat/`](../avklarat/).
+- **2026-04-20** — Cloud-loop PR #69 (21 commits, Block 0+1+2). STATUS-sammanfattning i repo-roten.
 
 ## Arkiverade P-filer
 
-| Fil | Anledning |
-|-----|-----------|
-| [`../archived/P17-unsplash-image-materialization.md`](../archived/P17-unsplash-image-materialization.md) | Felklassning implementerad (`e75325c9d`). |
-
-## Lägesöversikt (2026-04-15)
-
-Sessionen levererade: Unsplash-diagnostik, font-register (75 fonts), scaffold-aware komponentpool, `BUILD_INTENT_GUIDANCE`-extraktion, Fas 2 worldclass (kod + docs + schemas + backoffice-sync), P18-stängning (landing-varning), plankonsolidering och glossary-uppdatering.
-
-**4 öppna punkter kvar:** 2 shadcn-spår (blocks + fonts, medelprio), 1 old-content ingress (medel-hög), 1 eval-baseline (låg). Fas 2 betraktas som stängd; Fas 3 är påbörjad.
+Se [`../archived/`](../archived/) för historiska planer (`P17`, osv) och [`../avklarat/`](../avklarat/) för slutförda waves.

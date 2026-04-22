@@ -1,10 +1,8 @@
 # Plan — Synka brief-LLM, dossier-registret och integration-registret
 
+**Status:** Alla P0-problem åtgärdade 2026-04-21 (se [Gjorda ändringar](#gjorda-ändringar) i slutet av filen). **Kvar: P1/P2 polish-punkter** — frivilliga, låg prio. Core-synk (capability-map auto-gen, brief-LLM dynamic vocab, F3 clamp mot dossier-backing, schema-rensning) är levererad.
+
 Konkret åtgärdsplan baserad på iakttagelser från [`docs/devlogs/2026-04-21-kapten-krabba-run.md`](../../devlogs/2026-04-21-kapten-krabba-run.md). Varje rubrik är ett observerat problem med severity, fil-pekare och föreslagen fix.
-
-## Status (2026-04-21, kväll)
-
-Alla P0-problem är nu åtgärdade. Se [Gjorda ändringar](#gjorda-ändringar) i slutet. De återstående punkterna (P1/P2) är frivilliga polish-uppgifter.
 
 **Kärnregel som nu gäller hela systemet**: de enda dossiers som räknas i runtime är de som ligger under `data/dossiers/hard/<id>/` eller `data/dossiers/soft/<id>/`. Klass (hard/soft) bestäms av om env-variabler behövs. `capability`-fältet fungerar som kategori — flera dossiers kan dela capability (t.ex. en framtida `klarna-checkout` skulle ha `capability: "payments"` bredvid `stripe-checkout`), och `defaultForCapability: true` avgör vilken som vinner vid val.
 
