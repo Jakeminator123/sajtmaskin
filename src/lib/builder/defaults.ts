@@ -126,10 +126,6 @@ const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
   ...ANTHROPIC_ASSIST_MODELS,
 ]);
 
-export function getPromptAssistModelOptions(): PromptAssistModelOption[] {
-  return PROMPT_ASSIST_MODEL_OPTIONS;
-}
-
 export function getPromptAssistModelLabel(model: string): string {
   return PROMPT_ASSIST_MODEL_OPTIONS.find((option) => option.value === model)?.label || model;
 }

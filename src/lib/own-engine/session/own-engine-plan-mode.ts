@@ -48,10 +48,6 @@ export function dumpPlanModePlannerPrompts(
   );
 }
 
-export function resolvePlanModePlannerModelId(resolvedModelTier: CanonicalModelId): string {
-  return resolvePhaseModel(resolvedModelTier, "planner").modelId;
-}
-
 export function resolvePlanModePlannerSettings(
   resolvedModelTier: CanonicalModelId,
   requestedThinking: boolean,

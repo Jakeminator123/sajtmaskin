@@ -61,10 +61,6 @@ export function isServerVerifyEligible(versionId: string): boolean {
   return true;
 }
 
-export function isServerVerifyInFlight(versionId: string): boolean {
-  return inflight.has(versionId);
-}
-
 async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
   const preferred = (await getPreferredVersion(chatId).catch(() => null))
     ?? (await getLatestVersion(chatId).catch(() => null));
@@ -239,7 +235,7 @@ export async function triggerServerVerification(params: {
  * there too. Explicit `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1|true|false`
  * always wins over the default.
  */
-export function isAutoRepairBuildErrorEnabled(): boolean {
+function isAutoRepairBuildErrorEnabled(): boolean {
   const explicit = process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR?.trim().toLowerCase();
   if (explicit === "1" || explicit === "true" || explicit === "on" || explicit === "yes") {
     return true;
