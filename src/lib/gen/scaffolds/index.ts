@@ -1,3 +1,12 @@
+/**
+ * Public barrel for the scaffold system.
+ *
+ * Only symbols used from outside `src/lib/gen/scaffolds/` are exposed here.
+ * Registry helpers like `getAllScaffolds`/`getScaffoldIds` are consumed via
+ * direct imports from `./registry` by the few internal callers that need
+ * them; keeping them out of this barrel prevents accidental public uptake.
+ */
+
 export type {
   ScaffoldComplexity,
   ScaffoldFile,
@@ -6,11 +15,8 @@ export type {
   ScaffoldMode,
   ScaffoldSiteKind,
 } from "./types";
-export { getScaffoldById, getAllScaffolds, getScaffoldIds } from "./registry";
-export {
-  matchScaffold,
-  matchScaffoldAuto,
-} from "./matcher";
+export { getScaffoldById, getScaffoldIds } from "./registry";
+export { matchScaffold, matchScaffoldAuto } from "./matcher";
 export type {
   ScaffoldSelectionConfidence,
   ScaffoldQueryContext,

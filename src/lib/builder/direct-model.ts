@@ -1,6 +1,9 @@
 /**
- * AI model routing policy for prompt-assist routes.
- * Uses direct provider calls (OpenAI/Anthropic).
+ * Direct-provider LanguageModel factory for prompt-assist flows.
+ *
+ * Replaces the older `gateway-policy` module name (the AI Gateway itself is
+ * gone from runtime). All prompt-assist model calls go directly to
+ * OpenAI or Anthropic.
  */
 
 import { createOpenAI } from "@ai-sdk/openai";

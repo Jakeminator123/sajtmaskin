@@ -14,7 +14,7 @@ const MAX_IMPORTED_BINARY_BYTES = 32 * 1024 * 1024;
  * Prefix prepended to base64-encoded binary file content so that the preview-host
  * can distinguish text from binary when writing to the workspace filesystem.
  */
-export const BINARY_BASE64_PREFIX = "base64:";
+const BINARY_BASE64_PREFIX = "base64:";
 const BLOCKED_IMPORT_PREFIXES = [
   "node_modules/",
   ".git/",

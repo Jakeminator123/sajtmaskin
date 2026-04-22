@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
-import { createDirectModel } from "@/lib/builder/gateway-policy";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rateLimit";
 

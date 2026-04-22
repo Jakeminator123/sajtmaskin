@@ -9,18 +9,15 @@ import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
-import {
-  pickScaffoldVariantAsync,
-  getVariantById,
-  type ScaffoldVariant,
-} from "./scaffold-variants";
+import { getVariantById } from "./scaffold-variants";
+import { buildScaffoldQueryContext } from "./orchestrate/scaffold-query-context";
+import { resolveScaffoldVariant } from "./orchestrate/scaffold-variant-resolver";
 import { lockedVariantForFollowUp } from "./scaffold-variants/matcher";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
   getScaffoldById,
   getScaffoldIds,
   matchScaffoldAuto,
-  type ScaffoldQueryContext,
   type ScaffoldSelectionMeta,
 } from "./scaffolds";
 import {
@@ -273,39 +270,6 @@ export function inheritQualityTargetFromPriorVersion(
     to: priorQualityTarget,
   });
   return { ...baseSpec, qualityTarget: priorQualityTarget };
-}
-
-function buildScaffoldQueryContext(
-  brief: Record<string, unknown> | null,
-): ScaffoldQueryContext | undefined {
-  if (!brief) return undefined;
-  const briefPages = Array.isArray((brief as { pages?: unknown }).pages)
-    ? ((brief as { pages?: Array<{ name?: unknown; path?: unknown; purpose?: unknown }> }).pages ?? [])
-        .slice(0, 10)
-        .map((page) => ({
-          name: typeof page.name === "string" ? page.name.trim() : undefined,
-          path: typeof page.path === "string" ? page.path.trim() : undefined,
-          purpose: typeof page.purpose === "string" ? page.purpose.trim() : undefined,
-        }))
-    : [];
-  const styleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } }).visualDirection?.styleKeywords)
-    ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords ?? [])
-        .filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
-        .slice(0, 12)
-    : [];
-  const domainHints: string[] = [];
-  const businessType = (brief as { businessType?: unknown }).businessType;
-  if (typeof businessType === "string" && businessType.trim()) domainHints.push(businessType.trim());
-  const industry = (brief as { industry?: unknown }).industry;
-  if (typeof industry === "string" && industry.trim()) domainHints.push(industry.trim());
-  if (briefPages.length === 0 && styleKeywords.length === 0 && domainHints.length === 0) {
-    return undefined;
-  }
-  return {
-    briefPages,
-    styleKeywords,
-    domainHints,
-  };
 }
 
 export function buildGenerationInputPackage(
@@ -748,40 +712,6 @@ export async function resolveOrchestrationBase(
     componentReferences,
     dossierSelection,
   };
-}
-
-async function resolveScaffoldVariant(
-  scaffoldId: string | null | undefined,
-  prompt: string,
-  brief: Record<string, unknown> | null,
-  generationMode: "init" | "followUp",
-  sessionSeed?: string,
-): Promise<ScaffoldVariant | null> {
-  const styleKeywords = Array.isArray(
-    (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords,
-  )
-    ? (
-        (
-          brief as { visualDirection?: { styleKeywords?: unknown[] } } | null
-        )?.visualDirection?.styleKeywords ?? []
-      )
-        .filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
-    : [];
-  const toneKeywords = Array.isArray((brief as { toneAndVoice?: unknown } | null)?.toneAndVoice)
-    ? (
-        (brief as { toneAndVoice?: unknown[] } | null)?.toneAndVoice ?? []
-      ).filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
-    : [];
-  // Embedding-driven variant pick when an OpenAI key + variant-embeddings.json
-  // are present. Falls back to keyword `pickScaffoldVariant` automatically.
-  return pickScaffoldVariantAsync({
-    prompt,
-    scaffoldId: (scaffoldId as ScaffoldVariant["scaffoldId"] | null | undefined) ?? null,
-    styleKeywords,
-    toneKeywords,
-    generationMode,
-    sessionSeed,
-  });
 }
 
 /**

@@ -16,18 +16,11 @@ function asReadonly(arr: string[]): readonly string[] {
   return arr;
 }
 
-export const STRUCTURE_TOKENS = asReadonly(tokensJson.structure.tokens);
 export const DESIGN_TOKENS = asReadonly(tokensJson.design.tokens);
-export const CONTENT_TOKENS = asReadonly(tokensJson.content.tokens);
 export const SCOPE_MARKERS = asReadonly(tokensJson.scope.tokens);
 export const REQUIREMENT_MARKERS = asReadonly(tokensJson.requirements.tokens);
 export const SECTION_KEYWORDS = asReadonly(tokensJson.sections.tokens);
 export const STYLE_KEYWORDS = asReadonly(tokensJson.styles.tokens);
-
-export const STRUCTURED_PROMPT_TOKENS = [
-  ...STRUCTURE_TOKENS,
-  ...CONTENT_TOKENS,
-] as const;
 
 export function countTokenHits(text: string, tokens: readonly string[]): number {
   const lower = text.toLowerCase();
