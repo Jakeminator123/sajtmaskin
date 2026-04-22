@@ -24,7 +24,7 @@ Det här dokumentet är den mänskligt läsbara översikten över **vilka modell
 | Planner | LLM | används i plan mode för plan-/JSON-artifact, inte sajtkod | `src/lib/own-engine/session/own-engine-plan-mode.ts` |
 | Generator | LLM | genererar själva sajtkoden/projektfilerna | `src/lib/providers/own-engine/generation-stream.ts` |
 | LLM-fix (syntax fixer) | LLM | riktad kodreparation efter syntaxvalidering när mekaniska fixar inte räcker | `src/lib/gen/autofix/validate-and-fix.ts`, `src/lib/gen/autofix/llm-fixer.ts` |
-| Verifier | LLM | read-only verifiering/quality findings efter syntax och innan/under finalize (blocking = advisory, inte persist-gate) | `src/lib/gen/verify/verifier-pass.ts`, `src/lib/models/phase-routing.ts` |
+| Verifier | Hybrid (deterministic + LLM) | Kör först deterministiska guards (`undefined-jsx-symbol` med TS-generic-registrering, `motion-reduce-canvas-trap`, `motion-reduce-overlay-trap`) och därefter LLM-quality-findings. Blocking-fynd matas in i `runLlmFixer` via `formatVerifierFindingsAsFixerErrors()`. Advisory, inte persist-gate — men lyckad fixer rensar `verifierBlockingFindings`. | `src/lib/gen/verify/verifier-pass.ts`, `src/lib/models/phase-routing.ts` |
 | Deploy assistant | LLM-roll | hjälpfas i phase routing för deploy-/auxiliary-steg | `src/lib/models/phase-routing.ts` |
 
 ## Fasrouting

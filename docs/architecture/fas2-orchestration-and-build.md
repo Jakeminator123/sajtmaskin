@@ -286,6 +286,9 @@ Defaults: NextAuth Credentials om `needsAuth`; Stripe test-placeholders om betal
 | Route plan | Fri planering + ev. shell deferral | Shell preservation + frys |
 | Finalize path | Full (typiskt) | Light möjlig för small copy/layout |
 | Merge | Ren version | `mergeGeneratedProjectFiles` med `previousFiles` |
+| Rå-signalpaket in till `OrchestrationInput` | `routePlanPrompt`, `buildSpecPrompt`, `contractsPrompt`, `scaffoldMatchPrompt`, `capabilitiesPrompt` = rå `message` (paritet med follow-up sedan 2026-04-22) | Samma 5 fält. Plan-mode-grenen skickar samma paket (init + follow-up) sedan 2026-04-22 audit |
+| Brief | `meta.brief` (Deep Brief / Server Auto-Brief) | Ingen ny LLM-brief. `buildFollowUpBriefFromSnapshot()` hydrerar en minimal brief från `briefSummary` (requestedCapabilities, domainProfile-slug, visualDirection.styleKeywords, toneAndVoice, projectTitle, brandName) när `metaBrief` saknas |
+| `effectiveInitRouteCount` (driver `qualityTarget` + `contextPolicy`) | `init` | `followUp` räknas som "effective init" via `isEffectiveInit({ generationMode, isFirstCodeGeneration })` — första kodgen efter contract gate får samma route-count som riktig init |
 
 ---
 
