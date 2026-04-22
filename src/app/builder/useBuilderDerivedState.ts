@@ -9,8 +9,6 @@ export type VersionSummary = {
   versionId?: string | null;
   previewUrl?: string | null;
   demoUrl?: string | null;
-  /** Legacy shim URL for own-engine; primary live preview is `previewUrl`. */
-  legacyShimPreviewUrl?: string | null;
   createdAt?: string | Date | null;
   versionNumber?: number | null;
   previewPending?: boolean;
@@ -25,7 +23,6 @@ export type VersionSummary = {
 export type ChatData = {
   previewUrl?: string | null;
   demoUrl?: string | null;
-  legacyShimPreviewUrl?: string | null;
   latestVersion?: VersionSummary | null;
   v0ProjectId?: string | null;
 } | null;
@@ -86,7 +83,6 @@ export function useBuilderDerivedState({
       id: latest?.id || null,
       previewUrl: latest?.previewUrl ?? latest?.demoUrl ?? null,
       demoUrl: latest?.demoUrl ?? null,
-      legacyShimPreviewUrl: latest?.legacyShimPreviewUrl ?? null,
       createdAt: latest?.createdAt ?? new Date().toISOString(),
       versionNumber: latest?.versionNumber ?? null,
       previewPending: latest?.previewPending ?? false,
