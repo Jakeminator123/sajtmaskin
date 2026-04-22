@@ -318,9 +318,3 @@ export function isDefaultCustomInstructions(value: string): boolean {
   return ALL_DEFAULTS.has(value.trim());
 }
 
-/** Spec file reference to append to system prompt when spec mode is active */
-export const SPEC_FILE_INSTRUCTION = `\n\n## Spec File
-- If sajtmaskin.spec.json exists in the project, treat it as the source of truth for business info, theme, pages, and constraints.
-- Do not contradict the spec unless the user explicitly asks.
-- When iterating, refer to the spec for context about the project.`;
-

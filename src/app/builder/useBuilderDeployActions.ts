@@ -26,7 +26,6 @@ type Args = {
   appProjectId: string | null;
   appProjectName: string | null;
   applyInstructionsOnce: boolean;
-  pendingSpecRef: MutableRefObject<object | null>;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
   setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
@@ -69,7 +68,6 @@ export function useBuilderDeployActions({
   appProjectId,
   appProjectName,
   applyInstructionsOnce,
-  pendingSpecRef,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
   setSelectedVersionId,
@@ -379,26 +377,6 @@ export function useBuilderDeployActions({
         }
         toast.success("Instruktioner användes för versionen och rensades.");
       }
-      if (pendingSpecRef.current && data.chatId && data.versionId) {
-        try {
-          const specContent = JSON.stringify(pendingSpecRef.current, null, 2);
-          pendingSpecRef.current = null;
-          fetch(`${engineChatBaseUrl(data.chatId)}/files`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              versionId: data.versionId,
-              files: [{ name: "sajtmaskin.spec.json", content: specContent, locked: true }],
-            }),
-          }).catch((err) => {
-            debugLog("builder", "Failed to push spec file", err);
-          });
-        } catch (err) {
-          debugLog("builder", "Failed to serialize spec", err);
-          pendingSpecRef.current = null;
-        }
-      }
-
       if (data.chatId && data.versionId) {
         const { chatId: completedChatId, versionId } = data;
         validateCss(completedChatId, versionId)
@@ -517,7 +495,6 @@ export function useBuilderDeployActions({
       mutateVersions,
       persistVersionErrorLogs,
       triggerAutoFix,
-      pendingSpecRef,
       pendingInstructionsRef,
       pendingInstructionsOnceRef,
       setSelectedVersionId,
