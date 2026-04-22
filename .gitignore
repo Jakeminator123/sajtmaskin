@@ -271,3 +271,6 @@ playwright-light.log
 enrich-full.log
 smoke-enrich.log
 logs/variant-patterns-batch.log
+
+# Agent-session scratchpad (PR bodies, diff probes, cherry-pick logs)
+.cursor/tmp/

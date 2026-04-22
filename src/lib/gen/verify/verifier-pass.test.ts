@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkMotionReduceTrap } from "./verifier-pass";
+import { checkMotionReduceTrap, checkUndefinedJsxSymbols } from "./verifier-pass";
 
 const TRAP_CLASS = `motion-reduce` + `:hidden`;
 
@@ -59,5 +59,168 @@ describe("checkMotionReduceTrap", () => {
       { path: "app/globals.css", content: `.bad { /* ${TRAP_CLASS} */ }` },
     ]);
     expect(findings).toEqual([]);
+  });
+});
+
+describe("checkUndefinedJsxSymbols", () => {
+  it("flags a capitalised JSX tag that is neither imported nor declared (Cuboid regression)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          'import { Canvas } from "@react-three/fiber";',
+          "export default function Page() {",
+          "  return (",
+          "    <Canvas>",
+          "      <Cuboid args={[1, 1, 1]} />",
+          "    </Canvas>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("undefined-jsx-symbol");
+    expect(findings[0]?.detail).toContain("app/page.tsx");
+    expect(findings[0]?.detail).toContain("<Cuboid");
+  });
+
+  it("accepts components that are imported via named / default / namespace imports", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          'import React from "react";',
+          'import Hero from "@/components/hero";',
+          'import { Canvas } from "@react-three/fiber";',
+          'import { Box as DreiBox } from "@react-three/drei";',
+          'import * as Icons from "lucide-react";',
+          "export default function Page() {",
+          "  return (",
+          "    <>",
+          "      <Hero />",
+          "      <Canvas>",
+          "        <DreiBox />",
+          "      </Canvas>",
+          "      <Icons.Rocket />",
+          "    </>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("accepts components declared inside the file (function, const, class)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          "function LocalHero() { return <h1>hi</h1>; }",
+          "const LocalBadge = () => <span>new</span>;",
+          "class LocalCard extends React.Component { render() { return <div />; } }",
+          "export default function Page() {",
+          "  return (",
+          "    <main>",
+          "      <LocalHero />",
+          "      <LocalBadge />",
+          "      <LocalCard />",
+          "    </main>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("ignores undefined-looking symbols that only appear inside comments or strings", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          "// Usage example: <NotImported />",
+          "/* Another example: <AlsoNotImported /> */",
+          'const hint = "Avoid <MissingSymbol />";',
+          "export default function Page() { return <div>ok</div>; }",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("skips non-JSX files entirely", () => {
+    const findings = checkUndefinedJsxSymbols([
+      { path: "src/lib/util.ts", content: "export const x = 1; // <Cuboid />" },
+      { path: "app/globals.css", content: "body { color: red; }" },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("bails safely when the file uses React.lazy / createElement (dynamic components)", () => {
+    const findings = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          'import React from "react";',
+          'const DynamicThing = React.lazy(() => import("./thing"));',
+          "export default function Page() { return <DynamicThing /> }",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("handles namespaced JSX (Foo.Bar) by checking only the root symbol", () => {
+    const missing = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          "export default function Page() {",
+          "  return <Menu.Item />;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(missing).toHaveLength(1);
+    expect(missing[0]?.detail).toContain("<Menu");
+
+    const present = checkUndefinedJsxSymbols([
+      {
+        path: "app/page.tsx",
+        content: [
+          'import { Menu } from "@headlessui/react";',
+          "export default function Page() {",
+          "  return <Menu.Item />;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(present).toEqual([]);
+  });
+
+  it("caps total findings so a badly-formed file cannot flood the repair prompt", () => {
+    const content = [
+      "export default function Page() {",
+      "  return (",
+      "    <>",
+      ...Array.from({ length: 30 }, (_, i) => `      <Bogus${i} />`),
+      "    </>",
+      "  );",
+      "}",
+    ].join("\n");
+    const findings = checkUndefinedJsxSymbols([{ path: "app/page.tsx", content }], {
+      maxFindings: 5,
+    });
+    expect(findings).toHaveLength(5);
   });
 });

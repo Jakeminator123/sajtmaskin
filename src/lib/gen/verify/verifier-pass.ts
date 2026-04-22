@@ -126,6 +126,230 @@ const ELEMENT_WITH_CLASSNAME_RE =
   /<[A-Za-z][A-Za-z0-9]*\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`)/g;
 
 /**
+ * Strip JS/TS line and block comments plus string literals so downstream
+ * regex scans don't trip on capitalised words that appear inside text,
+ * error messages or type comments. Conservative: keeps whitespace and
+ * newlines so line-based regex still works on the scrubbed source.
+ */
+function stripCommentsAndStrings(source: string): string {
+  let out = "";
+  let i = 0;
+  const len = source.length;
+  while (i < len) {
+    const ch = source[i];
+    const next = source[i + 1];
+    // Line comment
+    if (ch === "/" && next === "/") {
+      const eol = source.indexOf("\n", i + 2);
+      const end = eol === -1 ? len : eol;
+      out += " ".repeat(end - i);
+      i = end;
+      continue;
+    }
+    // Block comment
+    if (ch === "/" && next === "*") {
+      const close = source.indexOf("*/", i + 2);
+      const end = close === -1 ? len : close + 2;
+      // Preserve newlines so error line numbers still roughly line up.
+      for (let j = i; j < end; j++) out += source[j] === "\n" ? "\n" : " ";
+      i = end;
+      continue;
+    }
+    // Double/single quoted string
+    if (ch === '"' || ch === "'") {
+      const quote = ch;
+      out += quote;
+      i++;
+      while (i < len) {
+        const c = source[i];
+        if (c === "\\" && i + 1 < len) {
+          out += "  ";
+          i += 2;
+          continue;
+        }
+        if (c === quote) {
+          out += quote;
+          i++;
+          break;
+        }
+        out += c === "\n" ? "\n" : " ";
+        i++;
+      }
+      continue;
+    }
+    // Template literal (no nested expression tracking — we just blank the
+    // contents; good enough to avoid false positives from code samples
+    // quoted in template strings).
+    if (ch === "`") {
+      out += "`";
+      i++;
+      while (i < len) {
+        const c = source[i];
+        if (c === "\\" && i + 1 < len) {
+          out += "  ";
+          i += 2;
+          continue;
+        }
+        if (c === "`") {
+          out += "`";
+          i++;
+          break;
+        }
+        out += c === "\n" ? "\n" : " ";
+        i++;
+      }
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * Deterministic check for undefined capitalised JSX component references.
+ *
+ * Catches the "model invented a component name" failure mode — e.g.
+ * `<Cuboid />` (drei/rapier confusion), `<Lucide />`, `<Box3d />` etc. —
+ * where the generated `.tsx` uses a symbol that is neither imported nor
+ * locally declared. TypeScript + ESLint will also catch it, but those
+ * run on the preview-host verify lane AFTER streaming; this runs in-app
+ * so the repair-loop can surface a precise, file+symbol-scoped finding
+ * to the fixer BEFORE the next verify round.
+ *
+ * Conservative by design: we skip files with dynamic patterns the simple
+ * scanner cannot interpret (re-exports, `React.lazy`, `createElement`)
+ * so false positives stay at zero. The cost of missing a real undefined
+ * symbol is bounded — tsc/eslint still catches it on the verify lane.
+ */
+export function checkUndefinedJsxSymbols(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+  options: { maxFindings?: number } = {},
+): VerifierFindings["blocking"] {
+  const maxFindings = options.maxFindings ?? 12;
+  const findings: VerifierFindings["blocking"] = [];
+
+  for (const f of files) {
+    if (findings.length >= maxFindings) break;
+    if (!f.path || !f.content) continue;
+    if (!/\.(t|j)sx$/i.test(f.path)) continue;
+
+    // Bail on patterns that introduce components dynamically — we'd rather
+    // miss than false-positive.
+    if (
+      /\bcreateElement\s*\(/.test(f.content) ||
+      /\bReact\.lazy\s*\(/.test(f.content) ||
+      /\blazy\s*\(/.test(f.content)
+    ) {
+      continue;
+    }
+
+    const scrubbed = stripCommentsAndStrings(f.content);
+    const declared = collectDeclaredIdentifiers(scrubbed);
+    const seen = new Set<string>();
+
+    const JSX_OPENING_TAG = /<([A-Z][A-Za-z0-9_$]*)(?:\.[A-Za-z0-9_$]+)*[\s/>]/g;
+    let match: RegExpExecArray | null;
+    while ((match = JSX_OPENING_TAG.exec(scrubbed)) !== null) {
+      const name = match[1];
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      if (declared.has(name)) continue;
+      if (ALWAYS_IN_SCOPE.has(name)) continue;
+      findings.push({
+        id: "undefined-jsx-symbol",
+        detail: `${f.path}: \`<${name} />\` is used but \`${name}\` is neither imported nor declared in this file. Either import it from the correct package or replace it with a supported element. (If the model meant a React Three Fiber primitive, use lowercase \`<mesh>\` + \`<boxGeometry>\`, or import \`Box\` from \`@react-three/drei\`.)`,
+      });
+      if (findings.length >= maxFindings) break;
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * Identifiers that are always considered in-scope for JSX even when not
+ * explicitly imported in the file. `React` is the classic case (old JSX
+ * transform, or namespaced access like `<React.Suspense>`). `Fragment`
+ * is included because some toolchains auto-inject it.
+ */
+const ALWAYS_IN_SCOPE = new Set<string>(["React", "Fragment"]);
+
+function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
+  const declared = new Set<string>();
+
+  // Named imports: `import { A, B as C, D } from "..."` (supports multi-line).
+  const NAMED_IMPORT_RE = /import\s+(?:[A-Za-z_$][\w$]*\s*,\s*)?\{([\s\S]*?)\}\s*from\s+['"][^'"]+['"]/g;
+  let m: RegExpExecArray | null;
+  while ((m = NAMED_IMPORT_RE.exec(scrubbedSource)) !== null) {
+    const body = m[1];
+    if (!body) continue;
+    for (const part of body.split(",")) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      const alias = trimmed.split(/\s+as\s+/).pop();
+      const id = alias?.trim().replace(/^type\s+/, "");
+      if (id && /^[A-Za-z_$][\w$]*$/.test(id)) declared.add(id);
+    }
+  }
+
+  // Default / namespace / side-effect-only imports.
+  const DEFAULT_IMPORT_RE = /import\s+([A-Za-z_$][\w$]*)(?:\s*,\s*(?:\{[\s\S]*?\}|\*\s+as\s+[A-Za-z_$][\w$]*))?\s+from\s+['"][^'"]+['"]/g;
+  while ((m = DEFAULT_IMPORT_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const NAMESPACE_IMPORT_RE = /import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]+['"]/g;
+  while ((m = NAMESPACE_IMPORT_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+
+  // Top-level-ish declarations: function, class, const/let/var NAME.
+  const FN_DECL_RE = /\b(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)/g;
+  while ((m = FN_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const CLASS_DECL_RE = /\b(?:export\s+(?:default\s+)?)?class\s+([A-Za-z_$][\w$]*)/g;
+  while ((m = CLASS_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const VAR_DECL_RE = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*[=:]/g;
+  while ((m = VAR_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+
+  // Destructured consts: `const { A, B: C } = obj;`
+  const DESTRUCT_RE = /\b(?:const|let|var)\s*\{([^}]+)\}\s*=/g;
+  while ((m = DESTRUCT_RE.exec(scrubbedSource)) !== null) {
+    const body = m[1];
+    if (!body) continue;
+    for (const part of body.split(",")) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      const alias = trimmed.split(/\s*:\s*/).pop();
+      const id = alias?.trim();
+      if (id && /^[A-Za-z_$][\w$]*$/.test(id)) declared.add(id);
+    }
+  }
+
+  // Type-only symbols also count — someone could JSX-reference a type
+  // in error; we want to still treat it as "defined" to avoid noise.
+  const TYPE_DECL_RE = /\btype\s+([A-Za-z_$][\w$]*)\s*=/g;
+  while ((m = TYPE_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const INTERFACE_DECL_RE = /\binterface\s+([A-Za-z_$][\w$]*)/g;
+  while ((m = INTERFACE_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const ENUM_DECL_RE = /\benum\s+([A-Za-z_$][\w$]*)/g;
+  while ((m = ENUM_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+
+  return declared;
+}
+
+/**
  * Deterministic check for the "motion-reduce trap": when a `<Canvas>` (or a
  * fixed full-screen overlay wrapping one) hides itself entirely under
  * `prefers-reduced-motion` instead of swapping to a static fallback. We
@@ -192,7 +416,11 @@ export async function runVerifierPass(
 
   const { files } = parseCodeProject(codeProjectContent);
   const motionTraps = checkMotionReduceTrap(files);
-  const deterministic: VerifierFindings = { blocking: motionTraps, quality: [] };
+  const undefinedJsx = checkUndefinedJsxSymbols(files);
+  const deterministic: VerifierFindings = {
+    blocking: [...motionTraps, ...undefinedJsx],
+    quality: [],
+  };
 
   const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim());
   if (!hasKey) {
