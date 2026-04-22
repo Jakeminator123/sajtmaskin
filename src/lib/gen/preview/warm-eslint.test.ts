@@ -36,7 +36,7 @@ describe("runPreVmEslint", () => {
   it("skips when feature flag is disabled (default)", async () => {
     const result = await runPreVmEslint({
       scaffoldId: "landing-page",
-      files: [{ path: "app/page.tsx", content: "export default () => null;" }],
+      files: [{ path: "app/page.tsx", content: "export default () => null;", language: "tsx" }],
     });
     expect(result.ok).toBe(true);
     expect(result.skipped).toBe("feature_flag_disabled");
@@ -58,7 +58,7 @@ describe("runPreVmEslint", () => {
     try {
       const result = await runPreVmEslint({
         scaffoldId: "landing-page",
-        files: [{ path: "app/page.tsx", content: "export default () => null;" }],
+        files: [{ path: "app/page.tsx", content: "export default () => null;", language: "tsx" }],
         force: true,
         cacheDirOverride: cacheDir,
       });
@@ -75,7 +75,7 @@ describe("runPreVmEslint", () => {
     try {
       const result = await runPreVmEslint({
         scaffoldId: "landing-page",
-        files: [{ path: "app/page.tsx", content: "export default () => null;" }],
+        files: [{ path: "app/page.tsx", content: "export default () => null;", language: "tsx" }],
         force: true,
         cacheDirOverride: cacheDir,
       });
@@ -93,7 +93,7 @@ describe("runPreVmEslint", () => {
     try {
       const result = await runPreVmEslint({
         scaffoldId: "landing-page",
-        files: [{ path: "app/page.tsx", content: "export default () => null;" }],
+        files: [{ path: "app/page.tsx", content: "export default () => null;", language: "tsx" }],
         force: true,
         cacheDirOverride: cacheDir,
       });
