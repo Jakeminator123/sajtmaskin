@@ -1070,10 +1070,6 @@ function deriveForbiddenPatterns(params: {
   return Array.from(patterns);
 }
 
-export function isBuildSpecEnabled(): boolean {
-  return FEATURES.useBuildSpec;
-}
-
 function deriveCapabilityFlags(
   capabilities: InferredCapabilities | null,
 ): BuildSpecCapabilityFlags {

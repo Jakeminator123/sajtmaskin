@@ -341,13 +341,15 @@ export const OPENCLAW = {
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
 
-  useBuildSpec: env.SAJTMASKIN_BUILD_SPEC_ENABLED !== "false",
-  useLightweightScaffoldSerialization:
-    env.SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION !== "false",
-  useFollowUpLightContext: env.SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT !== "false",
-  // Historical name: setting this to false disables the light fast-path
-  // optimization and forces finalize to stay on the deep path.
-  useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
+  // The four previously dormant flags below were hardcoded ON on 2026-04-22
+  // after confirming zero production off-toggles historically. Their env
+  // keys (SAJTMASKIN_BUILD_SPEC_ENABLED, …_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION,
+  // …_FOLLOWUP_LIGHT_CONTEXT, …_FINALIZE_DEEP_PATH_ENABLED) are no longer
+  // read — only callers reference the hardcoded constants now:
+  //   - BuildSpec derivation runs unconditionally in build-spec.ts
+  //   - Lightweight scaffold serialisation runs unconditionally
+  //   - Follow-up light context is driven by policy in chat-message-stream-post
+  //   - Finalize defaults to the light fast-path unless forceFull=true
 
   /**
    * Dossier pipeline (data/dossiers/{hard,soft}/). Deterministic capability-

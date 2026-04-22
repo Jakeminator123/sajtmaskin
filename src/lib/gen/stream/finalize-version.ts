@@ -493,11 +493,9 @@ function resolveFinalizePathPolicy(params: {
   accumulatedContent?: string;
 }): FinalizePathPolicy {
   const { buildSpec, repairPassIndex, originalPrompt, accumulatedContent } = params;
-  if (!FEATURES.useFinalizeDeepPath) {
-    // Historical env naming: false here disables the light pipeline shortcut
-    // and keeps finalize on the full pipeline for every run.
-    return { runDeepPath: true, reason: "fast_path_disabled_by_flag" };
-  }
+  // The historical `FEATURES.useFinalizeDeepPath` off-toggle was hardcoded ON
+  // (= light fast-path enabled) on 2026-04-22 after zero production off-
+  // toggles were observed. Repair passes always stay on the deep path below.
   if (repairPassIndex > 0) {
     return { runDeepPath: true, reason: "repair_pass" };
   }
