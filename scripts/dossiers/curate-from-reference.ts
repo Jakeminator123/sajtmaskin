@@ -30,6 +30,8 @@ import { join, resolve } from "node:path";
 
 import OpenAI from "openai";
 
+import { validateDossierManifest } from "../../src/lib/gen/dossiers/validate-manifest";
+
 const REPO_ROOT = resolve(process.cwd());
 const REFERENCES_ROOT = join(REPO_ROOT, "data", "template-references", "repos");
 const METADATA_ROOT = join(REPO_ROOT, "data", "template-references", "_metadata");
@@ -138,14 +140,22 @@ interface CurationOutput {
 }
 
 /**
- * Lightweight runtime guard that mirrors the required-set of
- * `docs/schemas/strict/dossier.schema.json`. We need this because the OpenAI
- * call runs in non-strict json_schema mode (so optional fields can be omitted)
- * — without it a malformed LLM response would slip straight into manifest.json.
- * Throws with a concrete missing-field message; caller should let it bubble
- * up so the script exits non-zero and the operator re-runs.
+ * Curation-output guard: same AJV validator as registry-runtime + CI + backoffice.
+ *
+ * Fas 2·D — single source of truth. Replaces the previous handwritten
+ * `assertManifestShape` which mirrored (and drifted from) the canonical
+ * `docs/schemas/strict/dossier.schema.json`. Now both paths converge on
+ * `validateDossierManifest`.
+ *
+ * We force `manifest.id` to `expectedId` BEFORE validation so the LLM's
+ * occasional id-typos don't cause rejection (caller already sets this again
+ * after curation — we do it here so the `id` regex + match check pass).
  */
-function assertManifestShape(value: unknown): asserts value is CurationOutput {
+function assertCurationOutput(
+  value: unknown,
+  expectedId: string,
+  klass: "hard" | "soft",
+): asserts value is CurationOutput {
   if (!value || typeof value !== "object") {
     throw new Error("LLM response is not a JSON object");
   }
@@ -153,25 +163,17 @@ function assertManifestShape(value: unknown): asserts value is CurationOutput {
   if (typeof root.instructions !== "string" || root.instructions.trim().length === 0) {
     throw new Error("LLM response is missing `instructions` (non-empty string)");
   }
-  const manifest = root.manifest as Record<string, unknown> | undefined;
-  if (!manifest || typeof manifest !== "object") {
+  if (!root.manifest || typeof root.manifest !== "object") {
     throw new Error("LLM response is missing `manifest` object");
   }
-  const requiredStringFields = ["id", "label", "capability", "summary", "lastVerified"] as const;
-  for (const field of requiredStringFields) {
-    if (typeof manifest[field] !== "string" || (manifest[field] as string).trim() === "") {
-      throw new Error(`Manifest is missing required string field: \`${field}\``);
-    }
-  }
-  if (manifest.codeFidelity !== "verbatim" && manifest.codeFidelity !== "rewritable") {
-    throw new Error(`Manifest \`codeFidelity\` must be 'verbatim' or 'rewritable' (got: ${String(manifest.codeFidelity)})`);
-  }
-  if (
-    manifest.complexity !== "simple" &&
-    manifest.complexity !== "medium" &&
-    manifest.complexity !== "advanced"
-  ) {
-    throw new Error(`Manifest \`complexity\` must be 'simple' | 'medium' | 'advanced' (got: ${String(manifest.complexity)})`);
+  // Coerce id before validation so the caller's --id argument wins over the
+  // LLM's guess and the kebab-case regex check passes consistently.
+  (root.manifest as Record<string, unknown>).id = expectedId;
+  const result = validateDossierManifest(root.manifest, { expectedId, class: klass });
+  if (!result.valid) {
+    throw new Error(
+      `LLM manifest failed schema validation:\n  - ${result.errors.join("\n  - ")}`,
+    );
   }
 }
 
@@ -322,7 +324,7 @@ ${sourcesBlock}`;
   const content = response.choices[0]?.message?.content;
   if (!content) throw new Error("Empty response from OpenAI");
   const parsed: unknown = JSON.parse(content);
-  assertManifestShape(parsed);
+  assertCurationOutput(parsed, args.id, args.class);
   return parsed;
 }
 

@@ -64,7 +64,7 @@
         "properties": {
           "key": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
           "required": { "type": "boolean" },
-          "purpose": { "type": "string", "minLength": 10, "maxLength": 240 },
+          "purpose": { "type": "string", "minLength": 10, "maxLength": 400, "description": "Short prose describing what the key does + how to get it. Keep ≤ ~240 chars when possible; hard max 400 to give room for enforcement-tagging rationales like 'tagged build because ...'." },
           "enforcement": {
             "type": "string",
             "enum": ["build", "feature-runtime", "warn-only"],
