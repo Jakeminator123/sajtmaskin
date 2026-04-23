@@ -1390,20 +1390,71 @@ function isConnRefusedError(err) {
 
 /**
  * P26: even when SAJTMASKIN_PREVIEW_DISABLE_HMR=true silences webpack's
- * HMR plugin, Turbopack-based dev (Next 15+ default) still attempts
+ * HMR plugin, Next 15's app-router Fast Refresh ships its OWN client
+ * (`next/dist/client/dev/hot-reloader/app/web-socket.js`) that attempts
  * `wss://vm-fly-jakem.fly.dev/<chatId>/_next/webpack-hmr` (or
- * `/_next/turbopack-hmr`). Fly's edge can't reliably upgrade those WSS
- * handshakes through the chatId prefix, so the browser console spams
- * "WebSocket connection failed" multiple times per second. We stub these
- * paths early with 404 so the browser stops retry-looping.
+ * `/_next/turbopack-hmr`). The client is bundled independently of
+ * `HotModuleReplacementPlugin`, so removing that plugin does not silence
+ * it. Previously we stubbed these paths with a 404 on upgrade, but the
+ * browser's HMR client treats that as a connection failure and retries
+ * every 2–5 seconds, spamming the console.
+ *
+ * Fix (2026-04-23): complete the WebSocket handshake (RFC 6455 101
+ * Switching Protocols) ourselves and then hold the socket open as a
+ * no-op — never send HMR events, silently drop any incoming frames.
+ * Browser considers itself connected and stops retrying. Hot-reload
+ * inside the preview VM is still disabled (Next's full reload on
+ * every new generation via `refreshToken` takes care of that instead).
+ *
+ * We do the handshake inline rather than pulling in `ws` as a dep so
+ * preview-host stays lean on Fly. Handshake = sha1(key + MAGIC) → base64.
  */
 const HMR_PATH_RE = /\/_next\/(?:webpack|turbopack)-hmr(?:\/|$|\?)/;
+const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
 function isHmrPath(pathname) {
   if (!pathname) return false;
   return HMR_PATH_RE.test(pathname);
 }
 function hmrSilencedForRequest() {
   return (process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true") === "true";
+}
+
+/**
+ * Complete a WebSocket upgrade handshake ourselves and hold the socket
+ * open without sending any frames. Returns `true` on success, `false` if
+ * the request didn't look like a valid WebSocket upgrade (caller should
+ * fall back to whatever 404/destroy path it would normally take).
+ */
+function acceptAndHoldWebSocket(req, socket) {
+  const key = req.headers["sec-websocket-key"];
+  if (typeof key !== "string" || key.length === 0) {
+    return false;
+  }
+  const accept = createHash("sha1").update(key + WS_GUID).digest("base64");
+  try {
+    socket.write(
+      "HTTP/1.1 101 Switching Protocols\r\n" +
+      "Upgrade: websocket\r\n" +
+      "Connection: Upgrade\r\n" +
+      `Sec-WebSocket-Accept: ${accept}\r\n` +
+      "\r\n",
+    );
+  } catch {
+    return false;
+  }
+  try {
+    socket.setNoDelay(true);
+    socket.setKeepAlive(true, 30_000);
+  } catch {
+    // Non-fatal — socket options are best-effort.
+  }
+  const drop = () => { /* silently discard any incoming data */ };
+  socket.on("data", drop);
+  socket.on("error", () => {
+    try { socket.destroy(); } catch { /* already closed */ }
+  });
+  return true;
 }
 
 async function proxyPreviewRequest(req, res, pathname, search = "") {
@@ -1430,16 +1481,15 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   const info = routeInfoFromPathname(pathname);
   if (!info) return false;
   if (hmrSilencedForRequest() && isHmrPath(info.restPath)) {
-    // Reject upgrade with a definitive 404 so the browser stops retrying
-    // every few seconds. Without this the WSS-attempt loop spams console.
-    try {
-      socket.write(
-        "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nHMR disabled in tunneled preview",
-      );
-    } catch {
-      // socket may already be closed; ignore
+    // Complete the handshake and hold the socket open silently. Browser
+    // sees a "connected" WebSocket and stops retry-spamming the console.
+    // See `acceptAndHoldWebSocket` JSDoc for the full rationale (replaces
+    // the earlier 404-stub which triggered the HMR client's retry loop).
+    if (acceptAndHoldWebSocket(req, socket)) {
+      return true;
     }
-    socket.destroy();
+    // Malformed upgrade request (no Sec-WebSocket-Key); close the socket.
+    try { socket.destroy(); } catch { /* already closed */ }
     return true;
   }
   const runtime = await ensureRuntimeForChat(info.chatId);

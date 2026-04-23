@@ -102,7 +102,9 @@ Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DI
 
 ### Next.config-patch (AST + regex-fallback)
 
-`patchNextConfigForPreviewBasePath` (i `src/runtime.js`) injicerar `basePath` + en `webpack`-mutator (som filtrerar bort `HotModuleReplacementPlugin` nar `SAJTMASKIN_PREVIEW_DISABLE_HMR=true`) i workspaceens `next.config.{ts,mjs,js}` vid varje boot. Detta tystar tidigare HMR-WebSocket-spam i Chrome-konsolen och fixar `basePath` for `/{chatId}`-prefixet.
+`patchNextConfigForPreviewBasePath` (i `src/runtime.js`) injicerar `basePath` + en `webpack`-mutator (som filtrerar bort `HotModuleReplacementPlugin` nar `SAJTMASKIN_PREVIEW_DISABLE_HMR=true`) i workspaceens `next.config.{ts,mjs,js}` vid varje boot. Detta fixar `basePath` for `/{chatId}`-prefixet.
+
+**HMR-WebSocket-tystnad (2026-04-23):** Next 15:s app-router Fast Refresh ship:ar en egen WebSocket-klient som *inte* sitter i `HotModuleReplacementPlugin`, sa plugin-filtret rackte inte. I stallet gor `proxyPreviewUpgrade` i `src/runtime.js` en inline RFC 6455 101-handshake (`acceptAndHoldWebSocket`) for upgrade-requester till `/_next/(webpack|turbopack)-hmr` och haller sedan socketen oppen utan att skicka frames. Browsern ser sig som ansluten och slutar retry:a. Ingen ny dep kravs; handshaken ar en 10-raders SHA1+base64-snutt. Satt `SAJTMASKIN_PREVIEW_DISABLE_HMR=false` om du behover akta HMR mot VM:en.
 
 Patchen kor i tva lager:
 
@@ -116,7 +118,7 @@ Patchen kor i tva lager:
 
 Snapshot-test for alla fem shapes finns i `scripts/test-patch.mjs` (`node scripts/test-patch.mjs`).
 
-Hot-reload mellan kod-andringar tappas medvetet — preview-host gor full iframe-reload via `refreshToken` vid varje ny generation anda. Satt `SAJTMASKIN_PREVIEW_DISABLE_HMR=false` om du behover HMR direkt mot VM:en.
+Hot-reload mellan kod-andringar tappas medvetet — preview-host gor full iframe-reload via `refreshToken` vid varje ny generation anda. Satt `SAJTMASKIN_PREVIEW_DISABLE_HMR=false` om du behover akta HMR direkt mot VM:en (slar av bade plugin-filtret och handshake-hold:en).
 
 ## Det som nu finns har
 
