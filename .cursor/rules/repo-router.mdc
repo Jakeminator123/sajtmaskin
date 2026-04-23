@@ -13,12 +13,14 @@ Kod är source of truth om docs och kod skiljer sig. Anta inte att du ser ocommi
 
 | Uppgift | Borra här |
 |---------|-----------|
-| LLM / generation | `src/lib/gen/`, `src/lib/providers/own-engine/`, `docs/architecture/fas2-orchestration-and-build.md` |
+| **Hur ska LLM-flödet se ut?** (målbild) | [`docs/architecture/llm-flow-target-worldclass.md`](../../docs/architecture/llm-flow-target-worldclass.md) |
+| LLM / generation | `src/lib/gen/` (post-OMTAG: `system-prompt/`, `build-spec/`, `stream/finalize-version/` är paket), `src/lib/providers/own-engine/`, `fas2-orchestration-and-build.md` |
 | Preview / VM | `preview-host/`, `src/lib/gen/preview/`, `src/components/builder/preview-panel/`, `fas3-preview-and-deploy.md` |
 | Builder UI / chat | `src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/` |
 | Deploy | `src/app/api/v0/deployments/route.ts`, `src/lib/deploy/`, `fas3-preview-and-deploy.md` |
 | Env / config | `docs/ENV.md`, `src/lib/env.ts`, `config/env-policy.json`, `config/ai_models/` |
 | Scaffolds | `src/lib/gen/scaffolds/`, `scripts/scaffolds/` |
+| Terminologi (snabbslag) | [`.cursor/rules/terminology.mdc`](./terminology.mdc) — full glossary i `docs/architecture/glossary.md` |
 
 ## Env-policy
 

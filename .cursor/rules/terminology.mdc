@@ -1,13 +1,13 @@
 ---
-description: Kärntermer, förväxlingar och signal-ownership
+description: Snabb förväxlingstabell + signal-ownership. Full glossary i docs/architecture/glossary.md
 alwaysApply: true
 ---
 
-# Terminology & signal ownership
+# Terminology snapshot
 
-**Kanonisk ordlista:** `docs/architecture/glossary.md`. **Ägarmatris + signalflöde:** `docs/architecture/llm-signal-flow.md`.
+**Full ordlista:** [`docs/architecture/glossary.md`](../../docs/architecture/glossary.md). **Målbild:** [`docs/architecture/llm-flow-target-worldclass.md`](../../docs/architecture/llm-flow-target-worldclass.md). **Signal-ägarmatris:** [`docs/architecture/llm-signal-flow.md`](../../docs/architecture/llm-signal-flow.md).
 
-**Grundregel:** kod är source of truth. Ny term bara om befintlig inte räcker — kolla glossaryn först. Ny/omdöpt term → uppdatera glossaryn samma leverans. Konsolidera hellre än ny jargong.
+**Grundregel:** kod är source of truth. Ny term bara om befintlig inte räcker — kolla glossaryn först. Konsolidera hellre än ny jargong.
 
 ## Signal-gate
 
@@ -18,10 +18,12 @@ Innan du lägger till en signal/ordlista/keyword-array: (1) finns canonical sour
 | Domän / site-type | `config/domain-rules.json` → `domain-inference.ts` |
 | Prompt-heuristik | `config/prompt-heuristic-tokens.json` → `prompt-heuristics.ts` |
 | Init-semantik | Deep Brief (`site-brief-generation.ts`) |
+| Follow-up-semantik | Snapshot-brief (`buildFollowUpBriefFromSnapshot`) — aldrig ny full Deep Brief |
 | Designregler | Core Rules (`config/prompt-core/`) + `buildDynamicContext` |
-| Build intent | `BUILD_INTENT_GUIDANCE` i `system-prompt.ts` |
+| Build intent | `BUILD_INTENT_GUIDANCE` i `intent-guidance.ts` |
+| Capability → dossier-bridge | `orchestrate.ts` `inferredCapabilityIds` |
 
-## Förväxlingstabell
+## Förväxlingstabell (skriv höger kolumn, undvik vänster)
 
 | Säg | Inte |
 |-----|------|
@@ -29,13 +31,20 @@ Innan du lägger till en signal/ordlista/keyword-array: (1) finns canonical sour
 | `preview` / `VM` / `preview_host` | sandbox (utom legacy) |
 | `template-library` | "mallar" om du menar katalogen |
 | `scaffolds` | mallar/templates (om runtime-startpunkter) |
-| `scaffold variant` | `scaffold family`, `style direction` (borttaget) |
-| `Deep Brief` | brief, StructuredBrief, PromptAssist-paraply |
-| `Prompt Rewrite` / `Prompt Polish` | "Prompt Assist" som paraply |
+| `scaffold variant` | scaffold family, style direction (borttaget) |
+| `Deep Brief` (init) / `Snapshot-Brief` (follow-up) | brief, StructuredBrief, PromptAssist-paraply |
+| **mekanisk autofix** / **LLM-fix** | "autofix" blandat ihop |
 | `previewUrl` | demoUrl (legacy) |
-| `mekanisk fix` / **mekanisk autofix** | "autofix" blandat med LLM-fix |
-| `LLM-fix` / **LLM-autofix** | "fixer", "syntax fixer" blandat |
 | `backoffice/` | "dashboard" (legacy) |
 | `Core Rules` | "prompt-static" (legacy) |
+| F2 (`fidelity2`) / F3 (`fidelity3`) | "tier 2" / "tier 3" (utom om du pratar om quality-gate-lanes) |
 
-**`v0`:** (1) `/api/v0/` API-routes (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
+## Tre meningar för fas-skillnaden
+
+- **Init** = bygg ny artifact graph (genesis). Full Deep Brief, scaffold-pick, dossier-pick, route-plan från scratch.
+- **Follow-up** = delta-operation på existerande graph. Snapshot-brief, fryst scaffold/variant, frysta routes (utom `clear-redesign`).
+- **F2 vs F3** = `previewPolicy: fidelity2` (design-loop, default) vs `fidelity3` (integrationer, explicit "Bygg integrationer"-knapp). F3-versioner pekar på sin F2-fork via `parent_version_id`.
+
+## `v0` betyder tre saker
+
+(1) `/api/v0/` API-versionering · (2) naming debt i symboler · (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.

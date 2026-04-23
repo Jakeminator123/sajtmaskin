@@ -22,6 +22,19 @@ globs:
 
 Färre rörliga delar, starkare första pass. Statisk prompt eller deterministisk datafil slår nytt orkestreringssteg. Återkommande fel → stärk systemprompt först. Autofix/repair-regler som sällan träffar → ta bort eller ersätt med prompt.
 
+**Världsklass-mål:** [`docs/architecture/llm-flow-target-worldclass.md`](../../docs/architecture/llm-flow-target-worldclass.md). Varje pipeline-PR ska respektera de fem singel-sanningskällorna (intent, prompt composition, runtime status, repair gate, F2/F3-skillnad).
+
+## Filer efter OMTAG 03 (2026-04-23)
+
+`system-prompt.ts`, `build-spec.ts`, `finalize-version.ts`, `promptAssist.ts` är nu **paket** (mappar med `index.ts` + sektion-/peer-filer). Importera från mappen, inte från en gammal toppfil.
+
+| Domän | Mapp |
+|-------|------|
+| Prompt assembly | `src/lib/gen/system-prompt/` (`compose.ts` + `sections/`) |
+| BuildSpec | `src/lib/gen/build-spec/` (`builder.ts`, `policy-inference.ts`, `prompt-patterns.ts`, `references.ts`, `route-realization.ts`, `style-pack.ts`, `token-budgets.ts`) |
+| Finalize-pipeline | `src/lib/gen/stream/finalize-version/` (`runner.ts` + phase/persist-helpers) |
+| Prompt assist | `src/lib/builder/promptAssist/` (efter U1/U2-extract) |
+
 ## Docs-sync vid ändring
 
 Ändrar du pipeline-kod: **kod → verifiering → berörda docs/schemas i samma leverans.**
@@ -38,5 +51,10 @@ Färre rörliga delar, starkare första pass. Statisk prompt eller deterministis
 | Roller / signaler | `docs/schemas/llm-role-matrix.md`, `orchestration-signal-contract.md` |
 | **Schemas (strict)** | `docs/schemas/strict/*.schema.json` — machine-readable kontrakt, håll synkade mot TS-typer |
 | **Backoffice (Streamlit)** | `backoffice/` sidmoduler + `sajtmaskin_backoffice.py` — verifiera att paneler speglar faktisk runtime |
+| **Glossary** | Bara om en term faktiskt ändras semantik. Ändringsnarrativ hör hemma i git-historiken, inte i tabellen. |
 
 Uppdatera bara det som faktiskt bröts. Kod är sanning — docs speglar, inte styr.
+
+## Repair-gate-regel (gap mot målbild)
+
+Innan du lägger till en ny call-site till `runLlmFixer`: kolla om ett av befintliga 5 ställen (verifier-fixer, partial-file-repair, syntax-fixer, tsc-fixer, eslint-fixer) kan utökas. Single repair gate är ett aktivt mål — se `L1-unified-repair-call.md`.

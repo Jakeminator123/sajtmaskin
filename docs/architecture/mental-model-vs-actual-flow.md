@@ -143,6 +143,22 @@ Den enda återstående medvetna gråzonen är "version visas i UI innan verify k
 
 ---
 
+## Återstående gap mot världsklass-målbilden
+
+För **vart vi siktar** (3-fasmodell, single repair gate, status event bus, init/follow-up som distinkta operationer): se [`llm-flow-target-worldclass.md`](./llm-flow-target-worldclass.md).
+
+Konkret nuvarande gap:
+
+| Område | Idag | Mål | Plan |
+|---|---|---|---|
+| **Repair-gate** | 5 callsites till `runLlmFixer` (verifier-fixer, partial-file-repair, syntax-fixer, tsc-fixer, eslint-fixer) | 1 RepairGate-modul med 3 buckets internt | `L1-unified-repair-call.md` (parkad — väntar telemetri) |
+| **Status event bus** | DB-flaggor + SSE-events parallellt; UI läser DB-flaggor via `resolveEngineVersionDisplayStatus` | UI läser projektion `selectVersionStatus(events)` (existerar sedan OMTAG fas 3·06) | `Kvarvarande-uppgifter.md` #11 |
+| **Brief-vägar** | klient-brief / server-auto-brief / snapshot-brief / fallback-addendum parallellexisterar | Sekventiell hierarki | P2 + P7 (öppna) |
+| **Verifier-pass placering** | Inline i finalize men hoppas över på fast-path | Antingen alltid inline (med budget) eller helt asynk | Audit §3.1 (telemetri-blockad) |
+| **Prompt-lager-konsolidering** | Deep Brief + Rewrite + Polish + formatPrompt + server-auto-brief | En kanonisk path | P7 (öppet) |
+
+---
+
 ## Var ska jag titta för djup-detaljer?
 
 - **Pre-LLM och prompt-komposition**: [`llm-flow-end-to-end.md`](./llm-flow-end-to-end.md)
