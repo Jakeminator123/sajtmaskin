@@ -1,5 +1,9 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+// Side-effect import: ensures the devLog-mirror subscriber is active
+// before `server-verify.policy` is emitted through the bus.
+import "@/lib/logging/event-bus-subscribers";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
@@ -399,6 +403,22 @@ export async function runOwnEngineStreamPostFinalize(params: {
     finalized,
     repairPassIndex,
   });
+  // OMTAG-06: the server-verify **policy decision** (run-or-skip) is
+  // retained as a devLog entry — it's not a verifier result, and the
+  // projection only cares about actual verifier outcomes. The policy
+  // line also seeds a bus event with `outcome: "skipped"` when we
+  // elected NOT to run, so the projection knows the verifier won't
+  // produce a follow-up `version.verifier.done`.
+  if (!serverVerifyDecision.run) {
+    emitBusEvent({
+      t: "version.verifier.done",
+      versionId: finalized.version.id,
+      chatId,
+      outcome: "skipped",
+      blocked: false,
+      reason: serverVerifyDecision.reason,
+    });
+  }
   devLogAppend("in-progress", {
     type: "server-verify.policy",
     chatId,

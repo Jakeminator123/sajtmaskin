@@ -27,6 +27,12 @@ import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-write
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+// Side-effect imports: wire default subscribers (devLog-mirror + DB
+// sink) so every `version.verifier.done`/`version.build.error` emit
+// below reaches both the legacy surfaces and the UI projection.
+import "@/lib/logging/event-bus-subscribers";
+import "@/lib/logging/event-bus-error-log-sink";
 import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
 import {
   isQualityGateConfigured,
@@ -130,21 +136,38 @@ export async function triggerServerVerification(params: {
       },
     });
 
+    // OMTAG-06: emit `version.verifier.done` as the canonical outcome
+    // signal. The DB sink subscriber (see `event-bus-error-log-sink.ts`)
+    // still persists the legacy `engine_version_error_logs` row via the
+    // same payload, so no downstream reader breaks.
+    const qualityGateMeta = buildServerVerifyQualityGateMeta({
+      passed,
+      results: gateResult.results,
+      verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
+      firstFailureCheck: gateResult.firstFailureCheck,
+      jobStartedAt: gateResult.jobStartedAt,
+      jobFinishedAt: gateResult.jobFinishedAt,
+      visualQA: visualQA ? compactVisualQAForQualityGateLog(visualQA) : undefined,
+    });
+    emitBusEvent({
+      t: "version.verifier.done",
+      versionId,
+      chatId,
+      outcome: passed ? "passed" : "failed",
+      blocked: !passed,
+      findings: passed
+        ? []
+        : gateResult.results
+            .filter((r) => !r.passed)
+            .map((r) => ({ id: r.check, detail: r.output?.slice(0, 200) ?? "" })),
+    });
     await createEngineVersionErrorLogs([{
       chatId,
       versionId,
       level: passed ? "info" : "error",
       category: "preflight:quality-gate",
       message: passed ? "Server verify passed." : "Server verify failed.",
-      meta: buildServerVerifyQualityGateMeta({
-        passed,
-        results: gateResult.results,
-        verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
-        firstFailureCheck: gateResult.firstFailureCheck,
-        jobStartedAt: gateResult.jobStartedAt,
-        jobFinishedAt: gateResult.jobFinishedAt,
-        visualQA: visualQA ? compactVisualQAForQualityGateLog(visualQA) : undefined,
-      }),
+      meta: qualityGateMeta,
     }]).catch((err) => {
       console.warn("[server-verify] Failed to persist quality gate summary log:", err);
     });
@@ -287,6 +310,21 @@ export async function triggerBuildErrorRepair(params: {
   const { chatId, versionId, buildError, onRepairAvailable } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
+  // OMTAG-06: surface the preview-VM build error as a first-class bus
+  // event. The projection will flip `phase` to "failed" until a clean
+  // repair pass lands and emits `version.saved` without blockers.
+  emitBusEvent({
+    t: "version.build.error",
+    versionId,
+    chatId,
+    error: {
+      stage: buildError.stage,
+      message: buildError.message,
+      failureCode: buildError.failureCode ?? null,
+    },
+    level: "error",
+    category: "preview-vm",
+  });
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) return;
     const codeFiles = await getVersionFiles(versionId);
