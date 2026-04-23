@@ -15,7 +15,7 @@ import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-
 import { fixR3FVectorTuples } from "@/lib/gen/autofix/rules/r3f-vector-tuple-fixer";
 import { fixTypeOnlyImports } from "@/lib/gen/autofix/rules/type-only-import-fixer";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
-import { fixReactHookImports } from "@/lib/gen/autofix/react-hook-import-fixer";
+import { fixReactAndNavigationImports } from "@/lib/gen/autofix/rules/react-import-consolidated";
 import {
   fixLucideImageMisuse,
   fixLucideLinkMisuse,
@@ -233,15 +233,35 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       }
     }
 
-    const hookResult = fixReactHookImports(content);
-    if (hookResult.fixed) {
-      content = hookResult.code;
-      fixes.push({
-        fixer: "react-hook-import-fixer",
-        category: "mechanical",
-        description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
-        file: file.path,
-      });
+    // Consolidated React default + hooks + next/navigation pass (E5). Emits
+    // one FixEntry per flavor that fired so telemetry IDs stay stable.
+    const consolidated = fixReactAndNavigationImports(content);
+    if (consolidated.fixed) {
+      content = consolidated.code;
+      if (consolidated.addedReactDefault) {
+        fixes.push({
+          fixer: "react-import-fixer",
+          category: "mechanical",
+          description: "Added missing React import",
+          file: file.path,
+        });
+      }
+      if (consolidated.addedReactHooks.length > 0) {
+        fixes.push({
+          fixer: "react-hook-import-fixer",
+          category: "mechanical",
+          description: `Added missing React hook imports: ${consolidated.addedReactHooks.join(", ")}`,
+          file: file.path,
+        });
+      }
+      if (consolidated.addedNavigationSymbols.length > 0) {
+        fixes.push({
+          fixer: "nextjs-navigation-import-fixer",
+          category: "mechanical",
+          description: `Added missing next/navigation imports: ${consolidated.addedNavigationSymbols.join(", ")}`,
+          file: file.path,
+        });
+      }
     }
 
     const reactTypeResult = fixMissingReactTypeImports(content);

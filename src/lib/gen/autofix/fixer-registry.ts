@@ -120,29 +120,35 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "react-import-fixer",
     category: "mechanical-import",
-    sourcePath: "src/lib/gen/autofix/react-import-fixer.ts",
+    sourcePath: "src/lib/gen/autofix/rules/react-import-consolidated.ts",
     targetFailureMode: "Missing `import React`",
     triggers: ["React reference without import"],
     status: "active",
     ownerPhase: "pre-syntax",
+    notes:
+      "E5 (OMTAG fas 2·C): consolidated with react-hook-import-fixer and " +
+      "nextjs-navigation-import-fixer into a single implementation. IDs " +
+      "preserved for stable telemetry/backoffice rendering.",
   },
   {
     id: "react-hook-import-fixer",
     category: "mechanical-import",
-    sourcePath: "src/lib/gen/autofix/react-hook-import-fixer.ts",
+    sourcePath: "src/lib/gen/autofix/rules/react-import-consolidated.ts",
     targetFailureMode: "Missing named React hook imports (useState etc.)",
     triggers: ["hook call without import"],
     status: "active",
     ownerPhase: "pre-syntax",
+    notes: "Shares implementation with react-import-fixer (see E5 notes).",
   },
   {
     id: "nextjs-navigation-import-fixer",
     category: "mechanical-import",
-    sourcePath: "src/lib/gen/autofix/nextjs-navigation-import-fixer.ts",
+    sourcePath: "src/lib/gen/autofix/rules/react-import-consolidated.ts",
     targetFailureMode: "Missing next/navigation hook imports (usePathname etc.)",
     triggers: ["next/navigation hook call without import"],
     status: "active",
     ownerPhase: "pre-syntax",
+    notes: "Shares implementation with react-import-fixer (see E5 notes).",
   },
   {
     id: "react-type-import-fixer",

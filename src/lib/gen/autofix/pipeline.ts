@@ -1,9 +1,7 @@
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
-import { fixReactImport } from "./react-import-fixer";
-import { fixReactHookImports } from "./react-hook-import-fixer";
-import { fixNextNavigationImports } from "./nextjs-navigation-import-fixer";
+import { fixReactAndNavigationImports } from "./rules/react-import-consolidated";
 import {
   buildProjectModuleExportIndex,
   fixImportedDeclarationConflicts,
@@ -113,9 +111,13 @@ export {
  *  imports in subtly different ways and each fixer is the smallest
  *  correct unit:
  *
- *  • Adding a missing import    → react-import-fixer, react-hook-import-fixer,
- *    when the symbol is used      react-type-import-fixer, next-image-import-fixer,
- *    but never imported.          next-og-image-response-import-fixer,
+ *  • Adding a missing import    → react-import-fixer + react-hook-import-fixer
+ *    when the symbol is used      + nextjs-navigation-import-fixer (all three
+ *    but never imported.          fronted by `rules/react-import-consolidated.ts`
+ *                                  — one implementation, three FixEntry IDs for
+ *                                  stable telemetry), react-type-import-fixer,
+ *                                  next-image-import-fixer,
+ *                                  next-og-image-response-import-fixer,
  *                                  metadata-import-fixer, metadata-route-import-fixer,
  *                                  cn-import-fixer, font-import-fixer.
  *
@@ -145,7 +147,10 @@ export {
  *  0.   escape-leakage-fixer — unwrap JSON-double-encoded file content
  *  1.   use-client-fixer   — prepend "use client" when client APIs detected
  *  2.   import-validator   — fix shadcn import paths
- *  3.   react-import-fixer — add missing `import React` + hooks + types
+ *  3.   react-import-consolidated — single pass that adds missing React
+ *         default + React hooks + next/navigation symbols (emits three
+ *         FixEntry IDs: react-import-fixer, react-hook-import-fixer,
+ *         nextjs-navigation-import-fixer)
  *  3b.  next-image / local-symbol import fixers
  *  4a.  metadata-import-fixer — Metadata type import
  *  4b.  metadata-route / cn-conflict / cn-import fixers
@@ -292,61 +297,44 @@ async function runAutoFixSinglePass(
         );
       }
 
-      // 3. react-import-fixer
+      // 3. Consolidated React + next/navigation import fixer (E5, OMTAG
+      // fas 2·C). One implementation in `rules/react-import-consolidated.ts`
+      // replaces three forked fixers (default React, React hooks, next/navigation
+      // symbols). The single call returns per-flavor results so we still emit
+      // three distinct `FixEntry`s — the fixer IDs, telemetry counters, and
+      // registry rows they feed are unchanged.
       try {
-        const riResult = fixReactImport(currentCode);
-        if (riResult.fixed) {
-          currentCode = riResult.code;
-          allFixes.push({
-            fixer: "react-import-fixer",
-            category: "mechanical",
-            description: "Added missing React import",
-            file: file.path,
-          });
+        const consolidated = fixReactAndNavigationImports(currentCode);
+        if (consolidated.fixed) {
+          currentCode = consolidated.code;
+          if (consolidated.addedReactDefault) {
+            allFixes.push({
+              fixer: "react-import-fixer",
+              category: "mechanical",
+              description: "Added missing React import",
+              file: file.path,
+            });
+          }
+          if (consolidated.addedReactHooks.length > 0) {
+            allFixes.push({
+              fixer: "react-hook-import-fixer",
+              category: "mechanical",
+              description: `Added missing React hook imports: ${consolidated.addedReactHooks.join(", ")}`,
+              file: file.path,
+            });
+          }
+          if (consolidated.addedNavigationSymbols.length > 0) {
+            allFixes.push({
+              fixer: "nextjs-navigation-import-fixer",
+              category: "mechanical",
+              description: `Added missing next/navigation imports: ${consolidated.addedNavigationSymbols.join(", ")}`,
+              file: file.path,
+            });
+          }
         }
       } catch (err) {
         allWarnings.push(
-          `[${file.path}] react-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      // 3b. react-hook-import-fixer — add missing named React hook imports (useState etc.)
-      try {
-        const hookResult = fixReactHookImports(currentCode);
-        if (hookResult.fixed) {
-          currentCode = hookResult.code;
-          allFixes.push({
-            fixer: "react-hook-import-fixer",
-            category: "mechanical",
-            description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
-            file: file.path,
-          });
-        }
-      } catch (err) {
-        allWarnings.push(
-          `[${file.path}] react-hook-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      // 3b-nav. nextjs-navigation-import-fixer — add missing usePathname/useRouter/etc.
-      // Mirrors react-hook-import-fixer for `next/navigation` because LLMs frequently
-      // call these hooks without an import, which causes ReferenceError at SSR
-      // (preview-VM 500 / whiteout). Run AFTER react-hook-import-fixer so the
-      // two never compete for the same import block.
-      try {
-        const navResult = fixNextNavigationImports(currentCode);
-        if (navResult.fixed) {
-          currentCode = navResult.code;
-          allFixes.push({
-            fixer: "nextjs-navigation-import-fixer",
-            category: "mechanical",
-            description: `Added missing next/navigation imports: ${navResult.addedSymbols.join(", ")}`,
-            file: file.path,
-          });
-        }
-      } catch (err) {
-        allWarnings.push(
-          `[${file.path}] nextjs-navigation-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+          `[${file.path}] react-import-consolidated threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
