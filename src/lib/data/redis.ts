@@ -13,8 +13,8 @@
  * User Sessions:
  *   {prefix}user:session:{userId}       → CachedUser JSON (TTL: 7 days)
  *
- * Rate Limiting:
- *   {prefix}ratelimit:{key}             → Counter (TTL: variable)
+ * Rate Limiting (separat fil): se `src/lib/rateLimit.ts` — Upstash REST +
+ * in-memory fallback. Denna fil hanterar inte rate-limit längre.
  *
  * General Cache:
  *   {prefix}cache:{key}                 → Any JSON (TTL: 1 hour default)
@@ -187,59 +187,6 @@ export async function updateCachedUserDiamonds(userId: string, diamonds: number)
     }
   } catch (error) {
     console.error("[Redis] Failed to update cached diamonds:", error);
-  }
-}
-
-// ============ Rate Limiting ============
-
-const RATE_LIMIT_PREFIX = `${REDIS_KEY_PREFIX}ratelimit:`;
-
-export async function checkRateLimit(
-  key: string,
-  maxRequests: number,
-  windowSeconds: number,
-): Promise<{ allowed: boolean; remaining: number; resetIn: number }> {
-  const redis = getRedis();
-
-  // If no Redis, allow all requests
-  if (!redis) {
-    return { allowed: true, remaining: maxRequests, resetIn: 0 };
-  }
-
-  const redisKey = `${RATE_LIMIT_PREFIX}${key}`;
-
-  try {
-    let current: number;
-    try {
-      current = await redis.incr(redisKey);
-    } catch (incrError) {
-      console.error("[Redis] Failed to increment rate limit counter:", incrError);
-      // On error, allow request but log warning
-      return { allowed: true, remaining: maxRequests, resetIn: 0 };
-    }
-
-    if (current === 1) {
-      // First request, set expiry
-      try {
-        await redis.expire(redisKey, windowSeconds);
-      } catch (expireError) {
-        console.error("[Redis] Failed to set expiry on rate limit key:", expireError);
-        // Continue anyway - expiry will be set on next request
-      }
-    }
-
-    const ttl = await redis.ttl(redisKey);
-    const remaining = Math.max(0, maxRequests - current);
-
-    return {
-      allowed: current <= maxRequests,
-      remaining,
-      resetIn: ttl > 0 ? ttl : windowSeconds,
-    };
-  } catch (error) {
-    console.error("[Redis] Rate limit check failed:", error);
-    // On error, allow the request
-    return { allowed: true, remaining: maxRequests, resetIn: 0 };
   }
 }
 

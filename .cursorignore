@@ -96,7 +96,7 @@ src/lib/gen/scaffolds/scaffold-research.generated.json
 #logs/*
 # Loggar är runtime-artefakter. Capping/retention sker i src/lib/logging/generation-log-writer.ts.
 # Vi exkluderar logs/-trädet från Cursor-indexet men whitelistar värdefulla snapshots.
-logs/*
+#logs/*
 !logs/generationslogg/
 !logs/generationslogg/_latest.txt
 !logs/generationslogg/**/summary.md
@@ -146,7 +146,7 @@ vercel_templates_levels/
 _sidor/
 research/_sidor/
 services/mpc/docs/**
-services/mpc/logs/
+#services/mpc/logs/
 next-env.d.ts
 # archive/scripts-labs-testning_scarf (labb under archive/ — se archive/README.md)
 #files_envars

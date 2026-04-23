@@ -1,0 +1,66 @@
+---
+description: Var agenter hittar per-körning- och per-chat-loggar när de ska live-rapportera vad som händer i bygget (F2/F3 generering, verifier, autofix, preview-host). Läs innan du påstår något om "vad som pågår just nu".
+alwaysApply: false
+---
+
+# Agent-observatory — hitta rätt logg
+
+När en agent ombeds live-rapportera vad som händer medan en användare bygger en sajt (prompt → generering → verifier → preview → deploy), **läs alltid loggen innan du svarar**. Gissa inte utifrån kod. Körningar finns på disk, inte i huvudet.
+
+## Källor (prioritet uppifrån)
+
+| Källa | När du använder den | Sökväg |
+|---|---|---|
+| **Per-run-mapp** (generationslogg) | "Vad hände i *denna* generering?" — timeline, LLM-anrop, verifier-pass, autofix-steg för en enskild körning | `logs/generationslogg/<YYYYMMDD-HHMMSS>-<kind>/` |
+| **Per-chat-observatory** | "Hur har *den här användarsajten* utvecklats över tid?" — senaste status + återkommande fel-patterns över flera körningar | `logs/site-observability/<chatId>/` |
+| **Kör→chat-index** | Slå upp *vilken* run-mapp som hör till en given chat | `logs/generationslogg/_index/chat-to-run.json` |
+| **Senaste (genväg)** | "Vad hände nyss?" | `logs/generationslogg/_latest.txt` → pekar på senaste run-mappen |
+| **Unrouted** | Events utan runId/chatId/slug hamnar här — konsultera bara om ingen annan källa gav svar | `logs/generationslogg/_unrouted/<bucket>/` |
+| **Prometheus / backoffice** | Aggregerade latenser (P50/P95) per fas, inte per körning | `/api/metrics` (bearer `SAJTMASKIN_METRICS_TOKEN`), visas i `backoffice/pages/observability.py` |
+
+## Per-run-mapp — filer och vad de säger
+
+```
+logs/generationslogg/20260421-090623-freeform/
+├── meta.json           ← chatId, slug, modelId, buildIntent, timestamps
+├── summary.md          ← människoläsbar rollup (första stället att läsa)
+├── timeline.ndjson     ← alla devLog-events i ordning (källdata)
+├── observability.json  ← strukturerad run-snapshot (status, highlights, faultFixSummary)
+├── fault-fix-index.csv ← varje fel + vilken fixer som löste det (+ .md-variant)
+└── fix-patterns.json   ← recurring patterns denna run
+```
+
+**Börja alltid med `summary.md`.** Borra i `timeline.ndjson` (jq / grep) om svaret inte finns där.
+
+## Per-chat-observatory — filer
+
+```
+logs/site-observability/<chatId>/
+├── history.ndjson      ← en rad per run: runId, status, highlights, faultFixSummary, recurringPatterns
+└── latest/
+    ├── _source_run.txt ← pekar på senaste per-run-mappen (ovan)
+    ├── observability.json
+    └── fix-patterns.json  ← används av LLM-fixern för "lessons learned" (SAJTMASKIN_USE_ERROR_LOG_RAG)
+```
+
+## Förutsättningar för att loggarna finns
+
+- `GENERATIONSLOGG=1` i `.env.local` (redan default lokalt). Utan flaggan skrivs ingenting.
+- `NODE_ENV !== "production"`. Prod skriver medvetet inga per-run-mappar.
+- Retention: senast 15 run-mappar + senast 5 chat-mappar. Äldre är LRU-prunade — gå inte och leta efter något som kan vara borta.
+
+## Do / Don't
+
+- **Do:** Innan du säger "den gör X nu" — hämta senaste run via `_latest.txt` och citera event-typ + timestamp.
+- **Do:** Använd `logs/generationslogg/_index/chat-to-run.json` för att mappa chatId (från URL eller användarens referens) → run-mapp.
+- **Don't:** Beskriv "vad som händer" utifrån kodläsning när loggen finns — kod beskriver kapacitet, logg beskriver vad som **faktiskt** hände.
+- **Don't:** Skriv nya loggkonsumenter runt kopior/speglingar. Följ pekare till `logs/generationslogg/<run>/` (se kommentar i `src/lib/logging/generation-log-writer.ts`).
+
+## Kodnav
+
+| Vill veta | Läs |
+|---|---|
+| Hur en event skrivs | `src/lib/logging/generation-log-writer.ts` (`writeGenerationLogEntry`) |
+| Vilka event-typer finns | `src/lib/logging/devLog.ts` (`CONSOLE_SUMMARY_ENABLED_TYPES`) |
+| Hur runId bildas | `site.start`-event i generation-stream:en |
+| Recurring-patterns i fixer | `readRecurringPatternsForChat` i samma writer |

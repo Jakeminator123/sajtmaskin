@@ -154,6 +154,17 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     ownerPhase: "pre-syntax",
   },
   {
+    id: "import-alias-type-syntax-fixer",
+    category: "mechanical-import",
+    sourcePath: "src/lib/gen/autofix/rules/import-alias-type-syntax-fixer.ts",
+    targetFailureMode: "Invalid `X as type Y` hybrid specifier rejected by SWC",
+    triggers: ["`<Ident> as type <Ident>` inside import specifier list"],
+    status: "active",
+    ownerPhase: "pre-syntax",
+    notes:
+      "Recurring pattern in site-observability (LucideIcon aliasing). Runs before type-only-import-fixer.",
+  },
+  {
     id: "type-only-import-fixer",
     category: "mechanical-import",
     sourcePath: "src/lib/gen/autofix/rules/type-only-import-fixer.ts",

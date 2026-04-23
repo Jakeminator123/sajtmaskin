@@ -26,6 +26,7 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "comm.tool_calls",
   "comm.integration_signals",
   "engine.integration_signals",
+  "orchestration.styleDirection",
   "autofix.result",
   "autofix.mechanical-residual",
   "syntax-validation.pass",
@@ -212,6 +213,10 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
     case "engine.integration_signals":
       if (countArray(entry, "integrations") !== null) details.push(`integrations=${countArray(entry, "integrations")}`);
       if (countArray(entry, "envVars") !== null) details.push(`envVars=${countArray(entry, "envVars")}`);
+      break;
+    case "orchestration.styleDirection":
+      if (readString(entry, "styleDirection")) details.push(`variant=${readString(entry, "styleDirection")}`);
+      if (readString(entry, "scaffoldId")) details.push(`scaffold=${readString(entry, "scaffoldId")}`);
       break;
     case "autofix.result":
       if (countArray(entry, "fixes") !== null) details.push(`fixes=${countArray(entry, "fixes")}`);

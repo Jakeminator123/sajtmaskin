@@ -22,6 +22,7 @@ import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-f
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "./rules/r3f-vector-tuple-fixer";
 import { fixTypeOnlyImports } from "./rules/type-only-import-fixer";
+import { fixImportAliasTypeHybrid } from "./rules/import-alias-type-syntax-fixer";
 import {
   fixCnImportConflict,
   fixMissingMetadataImport,
@@ -364,6 +365,25 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] react-type-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3c-alias-type-hybrid. import-alias-type-syntax-fixer — fix the
+      // invalid `X as type Y` hybrid specifier that the LLM occasionally
+      // emits. SWC rejects this outright so the file will not parse
+      // otherwise. Runs BEFORE type-only-import-fixer so the downstream
+      // conversion-to-`import type` sees a clean specifier list.
+      try {
+        const aliasHybridResult = fixImportAliasTypeHybrid(currentCode, file.path);
+        if (aliasHybridResult.fixed) {
+          currentCode = aliasHybridResult.code;
+          for (const fix of aliasHybridResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] import-alias-type-syntax-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

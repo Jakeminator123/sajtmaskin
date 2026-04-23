@@ -274,3 +274,12 @@ logs/variant-patterns-batch.log
 
 # Agent-session scratchpad (PR bodies, diff probes, cherry-pick logs)
 .cursor/tmp/
+
+.vercel
+.env*.local
+
+# Local agent-conversation dumps (often contain pasted .env secrets — NEVER commit)
+trött_agent.txt
+tr*_agent.txt
+*_agent_session.txt
+agent-session-*.txt
