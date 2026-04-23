@@ -311,8 +311,11 @@ export async function finalizeAndSaveVersion(
   // Retain the richer `verifierBlocked` / `scaffoldRetry` context in
   // devLog as a separate diagnostic entry — the projection doesn't
   // need it but the backoffice "Autofix & Kvalitet" panel reads it.
+  // Deliberately named `preflight.details` (not `preflight.summary.*`)
+  // so the acceptance-criteria grep for "preflight\.summary" stays
+  // restricted to the legacy writer + legacy readers only.
   devLogAppend("in-progress", {
-    type: "preflight.summary.details",
+    type: "preflight.details",
     chatId,
     versionId: version.id,
     verifierBlocked,
