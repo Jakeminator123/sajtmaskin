@@ -5,6 +5,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
+import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 
 export interface MergeGeneratedProjectFilesParams {
   chatId: string;
@@ -83,9 +84,16 @@ export function mergeGeneratedProjectFiles({
   resolvedScaffold,
   previousFiles,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
-  const isFollowUp = Boolean(previousFiles && previousFiles.length > 0);
+  // OMTAG Fas 2·A / E2: unified follow-up predicate. We only need the
+  // `hasMergeablePrevious` answer here — whether there are files to merge
+  // against — but routing through the shared module keeps the semantics in
+  // lock-step with orchestrate + stream-post.
+  const { hasMergeablePrevious } = deriveFollowUpStateFromInputs({
+    persistedScaffoldId: resolvedScaffold?.id ?? null,
+    previousFilesCount: previousFiles?.length ?? 0,
+  });
 
-  if (isFollowUp) {
+  if (hasMergeablePrevious) {
     const mergeResult = mergeVersionFilesWithWarnings(previousFiles!, generatedFiles, {
       rejectSignificantShrinks: true,
       rejectDroppedStructuralElements: true,

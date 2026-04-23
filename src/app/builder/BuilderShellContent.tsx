@@ -176,6 +176,39 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, [activeVersionSummary, vm.effectiveVersionsList]);
   const activeVersionIsLatest =
     !vm.activeVersionId || !vm.latestVersionId || vm.activeVersionId === vm.latestVersionId;
+  // P19 Steg 3 — transparency in follow-up base. When the user is focused
+  // on an older version, the next `sendMessage` carries `engineBaseVersionId
+  // = activeVersionId` (see useSendMessage.ts). Surface that decision in the
+  // chat composer so the user never sends an edit thinking they are on the
+  // latest. The badge prefers human-readable version numbers from the
+  // effective versions list and falls back to a shortened id for rows that
+  // still lack a versionNumber (e.g. brand-new rows seen before the first
+  // refetch).
+  const latestVersionSummary = useMemo(() => {
+    if (!vm.latestVersionId) return null;
+    return (
+      vm.effectiveVersionsList.find(
+        (version) =>
+          version.versionId === vm.latestVersionId || version.id === vm.latestVersionId,
+      ) ?? null
+    );
+  }, [vm.latestVersionId, vm.effectiveVersionsList]);
+  const followUpBaseInfo = useMemo(() => {
+    if (activeVersionIsLatest) return null;
+    if (!vm.activeVersionId || !vm.latestVersionId) return null;
+    const toDisplay = (
+      summary: { versionNumber?: number | null; versionId?: string | null; id?: string | null } | null,
+      fallbackId: string | null,
+    ): string => {
+      if (summary?.versionNumber) return `v${summary.versionNumber}`;
+      const id = summary?.versionId || summary?.id || fallbackId;
+      return id ? `#${id.slice(0, 6)}` : "okänd";
+    };
+    return {
+      baseLabel: toDisplay(activeVersionSummary, vm.activeVersionId),
+      latestLabel: toDisplay(latestVersionSummary, vm.latestVersionId),
+    };
+  }, [activeVersionIsLatest, activeVersionSummary, latestVersionSummary, vm.activeVersionId, vm.latestVersionId]);
   const sendMessage = vm.sendMessage;
 
   const handleComposerAiFallback = useCallback(
@@ -858,6 +891,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             currentCode={vm.currentPageCode}
             existingUiComponents={vm.existingUiComponents}
             continuePlanMode={Boolean(latestPendingReply?.planMode)}
+            followUpBaseInfo={followUpBaseInfo}
           />
           <DeployNameDialog
             open={vm.deployNameDialogOpen}
