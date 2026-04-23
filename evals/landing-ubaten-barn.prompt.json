@@ -1,0 +1,11 @@
+{
+  "id": "landing-ubaten-barn",
+  "prompt": "Barnvänlig webbplats för ubåts-museum i Karlskrona. Lekfull, stora bilder, enkel navigering (Hem, Upptäck, Besök, Boka skolklass). Ton: nyfiken, pedagogisk, svenska.",
+  "buildIntent": "website",
+  "expected": {
+    "scaffold": "landing-page",
+    "variant_any_of": ["editorial", "playful", "content-heavy"],
+    "min_routes": 1,
+    "acceptable_scaffolds": ["content-site"]
+  }
+}

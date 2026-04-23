@@ -1,0 +1,11 @@
+{
+  "id": "dashboard-internal",
+  "prompt": "Internt dashboard för order-tracking för ett fiktivt SaaS-bolag. KPI-kort, diagram över senaste 30 dagar, tabell med aktuella order, filter och sidopanel för navigering. Admin-känsla.",
+  "buildIntent": "app",
+  "expected": {
+    "scaffold": "dashboard",
+    "variant_any_of": ["analytics", "admin-panel"],
+    "min_routes": 1,
+    "acceptable_scaffolds": ["app-shell"]
+  }
+}

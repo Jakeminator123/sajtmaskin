@@ -98,6 +98,14 @@ data/external-template-pipeline/reports/**
 
 # run-eval / codegen harness markdown output (scripts/eval/run-eval.ts)
 eval-output/
+
+# OMTAG-02 eval baseline local runs — all per-branch/per-timestamp dirs under
+# evals/results/ are gitignored EXCEPT evals/results/baseline-master/ which is
+# the incheckade referensen. See evals/README.md.
+evals/results/*
+!evals/results/.gitkeep
+!evals/results/baseline-master/
+!evals/results/baseline-master/**
 # Legacy output dir (rename → eval-output/); safe to delete locally
 EGEN_MOTOR_V2/
 

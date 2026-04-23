@@ -1,0 +1,125 @@
+{
+  "timestamp": "2026-04-23T03:43:44.974Z",
+  "outputDir": "evals\\results\\baseline-master",
+  "baselineKind": "scaffold-selection-only",
+  "total": 10,
+  "results": [
+    {
+      "id": "agency-b2b",
+      "scaffold": "landing-page",
+      "expectedScaffold": "landing-page",
+      "match": true,
+      "acceptableHit": false,
+      "selectionMethod": "default",
+      "selectionConfidence": "low",
+      "durationMs": 707,
+      "runDurationMs": 2699
+    },
+    {
+      "id": "blog-minimalist",
+      "scaffold": "blog",
+      "expectedScaffold": "blog",
+      "match": true,
+      "acceptableHit": false,
+      "selectionMethod": "embedding",
+      "selectionConfidence": "medium",
+      "durationMs": 653,
+      "runDurationMs": 2586
+    },
+    {
+      "id": "dashboard-internal",
+      "scaffold": "dashboard",
+      "expectedScaffold": "dashboard",
+      "match": true,
+      "acceptableHit": false,
+      "selectionMethod": "agreement",
+      "selectionConfidence": "high",
+      "durationMs": 872,
+      "runDurationMs": 3293
+    },
+    {
+      "id": "ecommerce-skor",
+      "scaffold": "ecommerce",
+      "expectedScaffold": "ecommerce",
+      "match": true,
+      "acceptableHit": false,
+      "selectionMethod": "agreement",
+      "selectionConfidence": "medium",
+      "durationMs": 561,
+      "runDurationMs": 2425
+    },
+    {
+      "id": "landing-pulseframe",
+      "scaffold": "saas-landing",
+      "expectedScaffold": "landing-page",
+      "match": false,
+      "acceptableHit": true,
+      "selectionMethod": "embedding",
+      "selectionConfidence": "high",
+      "durationMs": 674,
+      "runDurationMs": 2748
+    },
+    {
+      "id": "landing-tvspelshall",
+      "scaffold": "landing-page",
+      "expectedScaffold": "landing-page",
+      "match": true,
+      "acceptableHit": false,
+      "selectionMethod": "default",
+      "selectionConfidence": "low",
+      "durationMs": 802,
+      "runDurationMs": 2858
+    },
+    {
+      "id": "landing-ubaten-barn",
+      "scaffold": "landing-page",
+      "expectedScaffold": "landing-page",
+      "match": true,
+      "acceptableHit": false,
+      "selectionMethod": "agreement",
+      "selectionConfidence": "medium",
+      "durationMs": 691,
+      "runDurationMs": 2774
+    },
+    {
+      "id": "portfolio-fotograf",
+      "scaffold": "portfolio",
+      "expectedScaffold": "portfolio",
+      "match": true,
+      "acceptableHit": false,
+      "selectionMethod": "agreement",
+      "selectionConfidence": "medium",
+      "durationMs": 639,
+      "runDurationMs": 2507
+    },
+    {
+      "id": "restaurant-nordic",
+      "scaffold": "landing-page",
+      "expectedScaffold": "landing-page",
+      "match": true,
+      "acceptableHit": false,
+      "selectionMethod": "default",
+      "selectionConfidence": "low",
+      "durationMs": 802,
+      "runDurationMs": 2632
+    },
+    {
+      "id": "saas-checkout",
+      "scaffold": "saas-landing",
+      "expectedScaffold": "saas-landing",
+      "match": true,
+      "acceptableHit": false,
+      "selectionMethod": "agreement",
+      "selectionConfidence": "high",
+      "durationMs": 731,
+      "runDurationMs": 2596
+    }
+  ],
+  "summary": {
+    "exactHits": 9,
+    "exactHitRatePercent": 90,
+    "acceptableHits": 10,
+    "acceptableHitRatePercent": 100,
+    "errors": 0
+  }
+}
