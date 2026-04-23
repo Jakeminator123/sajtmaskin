@@ -1,6 +1,8 @@
 # P26 — Follow-up Orchestration Glitch Remediation
 
-**Status:** 7/8 PR mergade (PR3 + PR8 cancelled). **Kvar: P26-uppföljare** — `[orchestrate] build_intent_promoted { from: 'website', to: 'app' }` triggar fortfarande på follow-ups (verifierat i chat `cdc23879-f4c1-4398-b91b-5e1af020e34c`, 2026-04-21). PR1:s `scaffold_locked_to_persisted` early-return tar inte effekt i auto-scaffold-grenen. Isolera i ny PR som tightar promotion-villkoret. Effort: ~2h.
+> **OMTAG-uppdatering 2026-04-23:** P26-uppföljaren (`build_intent_promoted` på follow-ups) ✅ **avklarad i OMTAG fas 2·A** via `resolveBuildIntentPromotion()`-pur funktion + 8 regressionstester. Även A4-raden (variant-lock) hanterad. **Kvarstående från ursprunglig PR-lista:** PR3 (quality-gate readiness probe), PR4 (HMR-spam mitigation), PR5 (raw-message-logging), PR6 (bygg-nu-UX), PR7 (backoffice build-template), PR8 (dossier re-embed — delvis gjord via OMTAG fas 2·B:s variant-embedding-regen), PR9 (three-fiber-dossier). Se [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/).
+
+**Status:** 7/8 PR mergade (PR3 + PR8 cancelled). **Tidigare P26-uppföljaren** (`[orchestrate] build_intent_promoted { from: 'website', to: 'app' }` på follow-ups) — nu åtgärdad i OMTAG fas 2·A (2026-04-23).
 
 Historik: Full PR-lista + root cause + 7 mergade branches i sektionerna nedan — referens för uppföljaren. Två kvarvarande separata buggar: (1) `clear-redesign`-overklassificering på bildbyten (PR2 exponerar detta i `variant_lock_skip`-logg); (2) hydration error på landing-page pga SSR-tidsberoende. Båda utanför scope för P26 själv — egna issues.
 

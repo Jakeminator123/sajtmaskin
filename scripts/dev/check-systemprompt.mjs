@@ -70,7 +70,7 @@ function checkMonolith() {
 const ok = checkManifest() ?? checkMonolith();
 if (!ok) {
   console.error(
-    "[check-systemprompt] Need config/codegen-static-prompt.json + prompt-static/*.md, or config/systemprompt.md (not extensionless config/systemprompt)",
+    "[check-systemprompt] Need config/codegen-core-manifest.json + config/prompt-core/*.md (canonical since 2026-04-18), or config/systemprompt.md fallback (not extensionless config/systemprompt). Legacy codegen-static-prompt.json + prompt-static/ are removed.",
   );
   process.exit(1);
 }

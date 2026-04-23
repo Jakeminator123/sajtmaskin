@@ -1,17 +1,23 @@
 ---
 id: medium-hard-layer
 title: LLM-kedjan — Medelsvåra (M1–M4)
-status: planerad
+status: partial
 created: 2026-04-21
+last_updated: 2026-04-23
 priority: medium
 parent_plan: .cursor/plans/llm-chain-cleanup-2026-04-21.md
 parallel_safe_with: [easy-medium-layer]
 blocked_by: []
-estimated_total_effort: ~16–22 timmar
-suggested_session: en hel dag fri eller dedikerat cloud-pass
+estimated_remaining_effort: —
 ---
 
 # Medelsvåra (M1–M4)
+
+> **OMTAG-uppdatering 2026-04-23:**
+> - **M1** (marketing-scaffold-merge content-site → landing-page): ✅ avklarad i OMTAG fas 2·B. Se [`../avklarat/omtag-2026-04-23/fas2-B-audit-before-after.md`](../avklarat/omtag-2026-04-23/fas2-B-audit-before-after.md).
+> - **M2** (fyll dossier-poolen): ⏸ parkerad. Dossier-kontraktet är nu stenhårt (fas 2·D AJV-validator), så M2 är unlocked — men medvetet timing-avvägd. Se [`../avklarat/omtag-2026-04-23/PARKED.md`](../avklarat/omtag-2026-04-23/PARKED.md).
+> - **M3** (konsolidera 5 cross-file-import-fixers): ⏸ parkerad, behöver telemetri efter OMTAG fas 2·C (react-fixers redan konsoliderade där).
+> - **M4** (`syntaxFixPasses: 1`): ❌ skippad. Eval-baselinen täcker inte syntax-fixer-pipen — gaten blir oprövbar. Ny eval-surface krävs för att återöppna. Se [`../avklarat/omtag-2026-04-23/fas2-C-m4-findings.md`](../avklarat/omtag-2026-04-23/fas2-C-m4-findings.md).
 
 Var och en kräver mer eftertanke och testning än E-lagret, men de är fortfarande kirurgiska. Inget kräver flera dagars arbete. Två av fyra är blockerade på telemetri-data (vänta tills ~2026-04-27 för stabil slutsats).
 

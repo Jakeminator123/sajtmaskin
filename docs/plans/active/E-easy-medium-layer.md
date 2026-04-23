@@ -1,17 +1,19 @@
 ---
 id: easy-medium-layer
 title: LLM-kedjan — Easy / medel-lager (E1–E7)
-status: planerad
+status: mostly-done
 created: 2026-04-21
+last_updated: 2026-04-23
 priority: medium
 parent_plan: .cursor/plans/llm-chain-cleanup-2026-04-21.md
 parallel_safe_with: [medium-hard-layer]
 blocked_by: []
-estimated_total_effort: ~10 timmar
-suggested_session: nästa iterativa session
+estimated_remaining_effort: ~2 timmar (endast E3)
 ---
 
 # Easy / medel-lager (E1–E7)
+
+> **OMTAG-uppdatering 2026-04-23:** E1 + E2 landade i OMTAG fas 2·A. E4 + E5 + E6 landade i OMTAG fas 2·C. E7 landade i OMTAG fas 2·B. **Endast E3 (`recurringQualityPatterns` in i codegen-prompten) återstår.** Se [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) för fullständig leverans.
 
 Småplockare som var och en tar < 2 h. Inget av detta kräver telemetri-vänta. Plockordning är fri — alla är oberoende, så perfekt för en enskild session där man vill rensa skuld utan att starta något stort.
 
