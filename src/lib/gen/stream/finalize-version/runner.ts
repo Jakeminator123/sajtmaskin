@@ -386,7 +386,13 @@ export async function finalizeAndSaveVersion(
     logNote,
   });
 
-  if (hasVerificationBlockingErrors) {
+  // 2026-04-23 (showcase-bug rootfix, fas D1): only pre-commit `failed` for
+  // preflight hard errors (syntax/parse/merge) — those are deterministic.
+  // Verifier-LLM blocking findings alone do NOT pre-commit: server-verify
+  // (with its real tsc+build) is the authority on terminal verification
+  // state. This prevents the "Fel"-badge from appearing before server-verify
+  // has actually confirmed anything. See docs/arch/version-status-state-machine.md.
+  if (hasVerificationBlockingPreflightErrors) {
     const failedVersion = await maybeFailVersionVerification({
       chatId,
       versionId: version.id,
@@ -397,6 +403,13 @@ export async function finalizeAndSaveVersion(
     if (failedVersion?.id) {
       version = failedVersion;
     }
+  } else if (verifierBlocked) {
+    devLogAppend("in-progress", {
+      type: "preflight.version.verifier-blocked-pending-server-verify",
+      chatId,
+      versionId: version.id,
+      verifierBlockingFindingCount: verifierBlockingFindings.length,
+    });
   }
 
   debugLog("finalize", "Finalize pipeline complete", {

@@ -14,6 +14,7 @@ import { fixCnImportConflict } from "@/lib/gen/autofix/rules/metadata-import-fix
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "@/lib/gen/autofix/rules/r3f-vector-tuple-fixer";
 import { fixTypeOnlyImports } from "@/lib/gen/autofix/rules/type-only-import-fixer";
+import { fixValueUsedFromTypeImport } from "@/lib/gen/autofix/rules/value-used-from-type-import-fixer";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
 import { fixReactAndNavigationImports } from "@/lib/gen/autofix/rules/react-import-consolidated";
 import {
@@ -229,6 +230,17 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     if (typeOnlyResult.fixed) {
       content = typeOnlyResult.code;
       for (const fix of typeOnlyResult.fixes) {
+        fixes.push(fix);
+      }
+    }
+
+    // Mirror of type-only-import-fixer — handles TS1361 (`import type { X }`
+    // used as a value). MUST run after typeOnlyResult so we don't undo its
+    // correct conversions.
+    const valueUsedResult = fixValueUsedFromTypeImport(content, file.path);
+    if (valueUsedResult.fixed) {
+      content = valueUsedResult.code;
+      for (const fix of valueUsedResult.fixes) {
         fixes.push(fix);
       }
     }

@@ -14,12 +14,14 @@ import {
   fixNextOgImageResponseImport,
 } from "./common-import-fixer";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
+import { fixDuplicateImportAndLocalTypeCollision } from "./rules/duplicate-import-local-type-collision-fixer";
 import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
 import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "./rules/r3f-vector-tuple-fixer";
 import { fixTypeOnlyImports } from "./rules/type-only-import-fixer";
+import { fixValueUsedFromTypeImport } from "./rules/value-used-from-type-import-fixer";
 import { fixImportAliasTypeHybrid } from "./rules/import-alias-type-syntax-fixer";
 import {
   fixCnImportConflict,
@@ -33,6 +35,7 @@ import { fixEscapeLeakage } from "./rules/escape-leakage-fixer";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
+import { fixDomBuiltinJsxTags } from "./rules/dom-builtin-jsx-fixer";
 import { runDepCompleter } from "./dep-completer";
 import { validateAndUpgradeDeps } from "./dep-version-validator";
 import { runSecurityChecks } from "../security/run-security-checks";
@@ -393,6 +396,26 @@ async function runAutoFixSinglePass(
         );
       }
 
+      // 3c-valueusedfromtype. value-used-from-type-import-fixer — mirror of
+      // type-only-import-fixer: convert `import type { X }` → `import { X }`
+      // when X is used in a value position (JSX, function call, new, member
+      // access). TS1361 prevention. Empirical hit 2026-04-23 (/showcase white
+      // page). MUST run after type-only-import-fixer so we don't undo correct
+      // conversions in the same pass.
+      try {
+        const valueUsedResult = fixValueUsedFromTypeImport(currentCode, file.path);
+        if (valueUsedResult.fixed) {
+          currentCode = valueUsedResult.code;
+          for (const fix of valueUsedResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] value-used-from-type-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       // 3d. next-image-import-fixer — add next/image when Image JSX is used without import
       try {
         const nextImageResult = fixNextImageImport(currentCode);
@@ -519,6 +542,30 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] duplicate-import-binding-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3i-2. duplicate-import-local-type-collision-fixer — handle two
+      // related patterns not covered by the binding-fixer above:
+      //   (a) same-source default imports with different local names
+      //       (e.g. `import X from "./m"; import Y from "./m";`)
+      //   (b) an imported binding colliding with a local type alias /
+      //       interface of the same name (duplicate-identifier error).
+      // Empirical hit 2026-04-23 in components/showcase-gallery.tsx.
+      try {
+        const typeCollisionResult = fixDuplicateImportAndLocalTypeCollision(
+          currentCode,
+          file.path,
+        );
+        if (typeCollisionResult.fixed) {
+          currentCode = typeCollisionResult.code;
+          for (const fix of typeCollisionResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] duplicate-import-local-type-collision-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
@@ -761,6 +808,28 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] syntax-validator threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 5.5. dom-builtin-jsx-fixer — rewrite DOM-interface JSX tags like
+      // <HTMLFormElement> to their lowercase HTML equivalents (<form>).
+      // MUST run before jsx-checker: otherwise jsx-checker will either warn
+      // and leave the bad tag, or (if the name ever left the denylist)
+      // try to generate a stub import for it. Empirical hit 2026-04-23.
+      try {
+        const domBuiltinResult = fixDomBuiltinJsxTags(currentCode, file.path);
+        if (domBuiltinResult.fixed) {
+          currentCode = domBuiltinResult.code;
+          for (const fix of domBuiltinResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+        for (const w of domBuiltinResult.warnings) {
+          allWarnings.push(w);
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] dom-builtin-jsx-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

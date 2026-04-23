@@ -754,10 +754,41 @@ describe("finalizeAndSaveVersion", () => {
         }),
       ]),
     );
-    // Verifier-blocking findings must also gate the version, not just be logged.
+    // 2026-04-23 (showcase-bug rootfix, fas D1): verifier-only blocking findings
+    // must NOT pre-commit `failed` anymore. Server-verify (real tsc/build) is
+    // the authority that decides terminal verification state. Verifier findings
+    // are still persisted as diagnostics above.
+    expect(failVersionVerification).not.toHaveBeenCalled();
+  });
+
+  it("(fas D1) preflight hard errors still pre-commit failed (unchanged path)", async () => {
+    // Preflight code-structure failures — distinct from verifier-LLM findings —
+    // ARE deterministic and should still immediately fail the version so
+    // the UI doesn't spin on "Verifying" for something that can't render.
+    runProjectSanityChecks.mockReturnValueOnce({
+      valid: false,
+      issues: [
+        {
+          file: "src/app/page.tsx",
+          severity: "error",
+          message: "Missing required export",
+        },
+      ],
+    });
+
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
     expect(failVersionVerification).toHaveBeenCalledWith(
       "ver_1",
-      expect.stringContaining("Verifier reported"),
+      expect.stringContaining("Automatic preflight"),
     );
   });
 

@@ -187,6 +187,16 @@ export async function triggerServerVerification(params: {
             "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
           meta: { serverOwned: true, diagnosticOnly: true },
         }]).catch(() => null);
+        // 2026-04-23 (showcase-bug rootfix, fas D2): terminal-state resolve.
+        // Since runner.ts no longer pre-commits `failed` for verifier-only
+        // blocking, server-verify is the authority that must set terminal
+        // state. A verifier-LLM/real-build mismatch (verifier flagged, tsc
+        // passed) still disallows promotion, so resolve to `failed` with a
+        // summary that distinguishes this case from a real build failure.
+        await failVersionVerification(
+          versionId,
+          "Verifier-LLM flagged blocking findings; server-verify gate passed. Manual review or repair required.",
+        ).catch(() => null);
         return;
       }
       await promoteVersion(versionId, "Automatic server verification passed.").catch(() => null);
@@ -225,6 +235,17 @@ export async function triggerServerVerification(params: {
           failedChecks: failedOutputs.map((f) => f.check),
         },
       }]).catch(() => null);
+      // 2026-04-23 (showcase-bug rootfix, fas D2): terminal-state resolve.
+      // See matching comment in the `passed` branch above. Here verifier-LLM
+      // and server-verify both agree the version is broken, so resolve to
+      // `failed` cleanly. `triggerBuildErrorRepair` can still flip this to
+      // `repair_available` later when the VM emits a build-error SSE.
+      await failVersionVerification(
+        versionId,
+        `Verifier-LLM blockers + server-verify gate failed (${failedOutputs
+          .map((f) => f.check)
+          .join(", ")}).`,
+      ).catch(() => null);
       return;
     }
 

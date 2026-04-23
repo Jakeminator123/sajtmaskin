@@ -44,6 +44,47 @@ const badgeVariants = cva("inline-flex items-center", {
 type BadgeProps = VariantProps<typeof badgeVariants>;
 ```
 
+**Counter-examples — what NOT to do.** These three mistakes caused a real bug where a generated `/showcase` route rendered as a white page (chat `341cdc37...`, 2026-04-23). Every one is deterministic and fixable upstream — do not ship them.
+
+```tsx
+// ❌ NEVER — TS1361. If an icon is used as JSX or as a value in data,
+// it MUST be a value import, not `import type`.
+import type { Building2, Camera } from "lucide-react";
+const features = [{ icon: Building2 }];   // TS1361 here
+<Camera className="h-4 w-4" />            // TS1361 here
+
+// ✅ CORRECT — value import.
+import { Building2, Camera } from "lucide-react";
+```
+
+```tsx
+// ❌ NEVER — HTMLFormElement is a DOM interface, not a React component.
+// Using it as a JSX tag is an unresolved symbol and Next build fails.
+<HTMLFormElement onSubmit={handleSubmit}>…</HTMLFormElement>
+
+// ✅ CORRECT — use the lowercase HTML tag.
+<form onSubmit={handleSubmit}>…</form>
+// If you need the DOM type in an event handler signature, use
+// `FormEvent<HTMLFormElement>`: `import type { FormEvent } from "react";`
+// then `function handleSubmit(e: FormEvent<HTMLFormElement>) {}`.
+```
+
+```tsx
+// ❌ NEVER — re-declaring an imported identifier as a local type causes
+// TS2300 duplicate-identifier errors AND shadows the import so the
+// runtime value is unreachable.
+import ShowcaseVehicle from "@/components/showcase-vehicle";
+export type ShowcaseVehicle = { make: string };
+
+// ✅ CORRECT — pick one: either the import IS the value (then the local
+// type must have a distinct name), or the module you are importing from
+// only exports a type (then use `import type`).
+import ShowcaseVehicleCard from "@/components/showcase-vehicle";
+export type ShowcaseVehicle = { make: string };
+// or:
+import type { ShowcaseVehicle } from "@/components/showcase-vehicle";
+```
+
 ## Compositions and High-Risk Usage Patterns
 
 These are non-trivial compositions or import patterns where the model frequently gets it wrong. The simple "this component exists, here is its tag" cases are already covered by the dynamic Toolkit block — only patterns with real failure modes live here.

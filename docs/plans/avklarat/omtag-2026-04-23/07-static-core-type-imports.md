@@ -96,3 +96,13 @@ Formulera dem i samma ton som befintliga regler i `02-component-contract.md` (ko
 ## Branch
 
 `omtag/07-static-core-type-imports`
+
+---
+
+## Follow-up 2026-04-23 — counter-examples tillagda
+
+**Gap:** Ursprungsleveransen (commit `2e8912107`) lade till tre **positive** exempel (LucideIcon-typ, ButtonProps, VariantProps) men inga explicita **counter-examples**. Den 2026-04-23 shippade en LLM-generering ett `app/showcase/page.tsx` med `import type { Building2, Camera, Car as CarFront }` + JSX/data-användning (TS1361), ett `<HTMLFormElement>` som JSX-tag, och en `import ShowcaseVehicle` + `export type ShowcaseVehicle` i samma fil. Blank `/showcase` i preview, 118s bakgrunds-repair-pass.
+
+**Rotorsak:** Positiva exempel räcker inte när LLM:en har en motverkande impuls (här: övergeneralisering av "type imports are safer"). Behövde explicit ❌-block.
+
+**Åtgärd:** Counter-example-avsnitt tillagt i `02-component-contract.md` under "Type-only Imports" (denna plan, fas B). Kompletterar deterministiska fixers som `value-used-from-type-import-fixer.ts`, `dom-builtin-jsx-fixer.ts`, `duplicate-import-local-type-collision-fixer.ts`, `type-only-module-default-import-fixer.ts` (samma plan, fas A). Se [`docs/devlogs/2026-04-23-showcase-bug-rootfix.md`](../../../devlogs/2026-04-23-showcase-bug-rootfix.md).

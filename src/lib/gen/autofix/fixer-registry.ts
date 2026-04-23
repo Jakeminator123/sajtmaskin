@@ -181,6 +181,62 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     notes: "Documented in docs/plans/active/P31-feature-runtime-envs-and-f3-toggle.md.",
   },
   {
+    id: "value-used-from-type-import-fixer",
+    category: "mechanical-import",
+    sourcePath: "src/lib/gen/autofix/rules/value-used-from-type-import-fixer.ts",
+    targetFailureMode: "TS1361 — type-only import used as runtime value (JSX, call, new, member)",
+    triggers: [
+      "`import type { X }` + `<X />` JSX, `X()`, `new X()`, or `X.foo` in same file",
+    ],
+    status: "active",
+    ownerPhase: "pre-syntax",
+    notes:
+      "Mirror of type-only-import-fixer (value↔type). Runs AFTER it so correct value→type conversions are not undone. Empirical hit 2026-04-23 (/showcase white page).",
+  },
+  {
+    id: "dom-builtin-jsx-fixer",
+    category: "mechanical-jsx",
+    sourcePath: "src/lib/gen/autofix/rules/dom-builtin-jsx-fixer.ts",
+    targetFailureMode:
+      "DOM interface names (HTMLFormElement, HTMLInputElement, …) used as JSX tags",
+    triggers: ["<HTMLxxxElement> or <SVGxxxElement> as JSX"],
+    status: "active",
+    ownerPhase: "pre-syntax",
+    notes:
+      "Rewrites to correct lowercase HTML tag via curated map; falls back to <div> + warning for unknown names. Uses a negative-lookbehind so `FormEvent<HTMLFormElement>` generic is left alone.",
+  },
+  {
+    id: "duplicate-import-local-type-collision-fixer",
+    category: "mechanical-import",
+    sourcePath:
+      "src/lib/gen/autofix/rules/duplicate-import-local-type-collision-fixer.ts",
+    targetFailureMode:
+      "Two default imports of same source with different local names; or import + local `export type` name collision (TS2300/TS2440)",
+    triggers: [
+      "`import A from \"./m\"; import B from \"./m\";`",
+      "`import X from \"./m\"; export type X = ...;` in same file",
+    ],
+    status: "active",
+    ownerPhase: "pre-syntax",
+    notes:
+      "Complements duplicate-import-binding-fixer (which handles same-name from different sources). Runs after it.",
+  },
+  {
+    id: "type-only-module-default-import-fixer",
+    category: "mechanical-import",
+    sourcePath:
+      "src/lib/gen/autofix/rules/type-only-module-default-import-fixer.ts",
+    targetFailureMode:
+      "Default import of a module that only `export type X` — no runtime default",
+    triggers: [
+      "`import X from \"@/components/foo\"` where `foo.tsx` only declares `export type X`",
+    ],
+    status: "active",
+    ownerPhase: "post-merge",
+    notes:
+      "Cross-file pass wired into finalize-merge.ts alongside checkCrossFileImports. Only drops when the default binding is unused as a value in the importer.",
+  },
+  {
     id: "next-image-import-fixer",
     category: "mechanical-import",
     sourcePath: "src/lib/gen/autofix/common-import-fixer.ts",

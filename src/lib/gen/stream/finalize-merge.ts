@@ -1,6 +1,7 @@
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { checkScaffoldImports } from "@/lib/gen/autofix/rules/scaffold-import-checker";
 import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
+import { fixTypeOnlyModuleDefaultImports } from "@/lib/gen/autofix/rules/type-only-module-default-import-fixer";
 import type { CodeFile } from "@/lib/gen/parser";
 import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -135,6 +136,20 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
+    // Post cross-file: drop default imports that resolve to modules which
+    // only `export type X` (TS1361 / missing-default-export). See
+    // `type-only-module-default-import-fixer.ts` header for the empirical
+    // showcase-gallery.tsx case.
+    const typeOnlyModuleResult = fixTypeOnlyModuleDefaultImports(finalFiles);
+    if (typeOnlyModuleResult.fixes.length > 0) {
+      finalFiles = typeOnlyModuleResult.files;
+      devLogAppend("in-progress", {
+        type: "type-only-module-default-import-fixer",
+        chatId,
+        fixes: typeOnlyModuleResult.fixes,
+      });
+    }
+
     if (resolvedScaffold) {
       const importResult = checkScaffoldImports(finalFiles, resolvedScaffold);
       finalFiles = importResult.files;
@@ -215,12 +230,22 @@ export function mergeGeneratedProjectFiles({
     }
 
     const crossFileResult = checkCrossFileImports(mergedFiles);
-    const afterCrossFile = crossFileResult.files;
+    let afterCrossFile = crossFileResult.files;
     if (crossFileResult.fixes.length > 0) {
       devLogAppend("in-progress", {
         type: "cross-file-import-checker",
         chatId,
         fixes: crossFileResult.fixes,
+      });
+    }
+
+    const typeOnlyModuleResult = fixTypeOnlyModuleDefaultImports(afterCrossFile);
+    if (typeOnlyModuleResult.fixes.length > 0) {
+      afterCrossFile = typeOnlyModuleResult.files;
+      devLogAppend("in-progress", {
+        type: "type-only-module-default-import-fixer",
+        chatId,
+        fixes: typeOnlyModuleResult.fixes,
       });
     }
 
@@ -243,14 +268,26 @@ export function mergeGeneratedProjectFiles({
   }
 
   const crossFileResult = checkCrossFileImports(generatedFiles);
+  let crossFileFiles = crossFileResult.files;
   if (crossFileResult.fixes.length > 0) {
     devLogAppend("in-progress", {
       type: "cross-file-import-checker",
       chatId,
       fixes: crossFileResult.fixes,
     });
+  }
+  const typeOnlyModuleResult = fixTypeOnlyModuleDefaultImports(crossFileFiles);
+  if (typeOnlyModuleResult.fixes.length > 0) {
+    crossFileFiles = typeOnlyModuleResult.files;
+    devLogAppend("in-progress", {
+      type: "type-only-module-default-import-fixer",
+      chatId,
+      fixes: typeOnlyModuleResult.fixes,
+    });
+  }
+  if (crossFileResult.fixes.length > 0 || typeOnlyModuleResult.fixes.length > 0) {
     return {
-      filesJson: JSON.stringify(crossFileResult.files),
+      filesJson: JSON.stringify(crossFileFiles),
       rejectedShrinks: [],
       rejectedStructural: [],
       scaffoldDefaultsBlocked: [],
