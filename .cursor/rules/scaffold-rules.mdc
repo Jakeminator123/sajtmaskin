@@ -33,5 +33,4 @@ Full arkitekturdoc + inventering: `docs/architecture/scaffold-system.md`.
 | `dashboard` | app/advanced |
 | `auth-pages` | app/simple |
 | `ecommerce` | commerce/advanced |
-| `content-site` | marketing/medium |
 | `app-shell` | app/medium |

@@ -8,7 +8,7 @@ Kanonisk kodsanning ligger fortfarande i:
 - `src/lib/models/phase-routing.ts`
 - `config/ai_models/manifest.json`
 - `src/lib/builder/site-brief-generation.ts`
-- `src/lib/builder/promptAssist.ts`
+- `src/lib/builder/prompt-assist/` (post-OMTAG-03 package; `runner.ts` orchestrator, `formatters.ts`, `domain-hints.ts`, `index.ts`)
 
 Det här dokumentet är den mänskligt läsbara översikten över **vilka modeller/roller som finns**, **när de används**, och **vad de producerar**.
 
@@ -16,8 +16,8 @@ Det här dokumentet är den mänskligt läsbara översikten över **vilka modell
 
 | Roll | Typ av steg | Primär funktion | Viktiga filer |
 |---|---|---|---|
-| Prompt polish | LLM | lätt copy-polish av prompten utan att lägga till ny scope | `src/lib/builder/promptAssist.ts`, `/api/ai/chat` |
-| Prompt rewrite / improve | LLM | skriver om och förbättrar prompten till en bättre byggprompt | `src/lib/builder/promptAssist.ts`, `/api/ai/chat` |
+| Prompt polish | LLM | lätt copy-polish av prompten utan att lägga till ny scope | `src/lib/builder/prompt-assist/`, `/api/ai/chat` |
+| Prompt rewrite / improve | LLM | skriver om och förbättrar prompten till en bättre byggprompt | `src/lib/builder/prompt-assist/`, `/api/ai/chat` |
 | Deep brief | LLM | bygger strukturerad site brief från användarprompten | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
 | Server auto-brief | LLM | kör Deep brief server-side när klienten inte redan skickat brief | `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/builder/server-auto-brief-policy.ts` |
 | Spec-first helper | Transform eller LLM-hjälproute | bygger spec från brief eller prompt för högre kvalitet i senare steg; normal builder bygger oftast spec lokalt från brief/prompt i stället för att kalla `/api/ai/spec` | `src/lib/builder/promptAssistContext.ts`, `src/app/api/ai/spec/route.ts` |
@@ -55,7 +55,7 @@ Två lager bearbetar prompten **före** kodgenerering:
 | Lager | Vad det gör | Var output hamnar | Kodfiler |
 |-------|-------------|-------------------|----------|
 | **Deep brief** (`/api/ai/brief`) | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kanonisk semantisk expansion för init. | `meta.brief` → systemprompten via `buildDynamicContext()`. Genererar ~15–20k tecken dynamisk kontext. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
-| **`formatPrompt()`** *(fallback)* | Enkel client-side formatter som wrappar text i `MÅL / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. Körs **bara** när Deep Brief inte är aktiv (assist off eller brief-generering misslyckades). | User-meddelandet i streamen (`message`-fältet). | `src/lib/builder/promptAssist.ts` (~rad 760) |
+| **`formatPrompt()`** *(fallback)* | Enkel client-side formatter som wrappar text i `MÅL / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. Körs **bara** när Deep Brief inte är aktiv (assist off eller brief-generering misslyckades). | User-meddelandet i streamen (`message`-fältet). | `src/lib/builder/prompt-assist/formatters.ts` (post-OMTAG-03 split) |
 
 Flödet vid freeform create-chat:
 

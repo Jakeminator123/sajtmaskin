@@ -10,8 +10,8 @@ Primary code sources:
 - `src/lib/gen/scaffolds/registry.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/scaffolds/serialize.ts`
-- `src/lib/gen/build-spec.ts`
-- `src/lib/gen/system-prompt.ts`
+- `src/lib/gen/build-spec/` (post-OMTAG-03 package; `builder.ts` orchestrator, `types.ts`, peer modules)
+- `src/lib/gen/system-prompt/` (post-OMTAG-03 package; `compose.ts` orchestrator + `sections/` peers)
 
 ## Core rule
 

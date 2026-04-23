@@ -23,8 +23,8 @@ Relaterade: [fas1-startprompt-flow.md](./fas1-startprompt-flow.md), [fas3-previe
 | Område | Fil |
 |---|---|
 | Orkestrering | `src/lib/gen/orchestrate.ts` + `src/lib/gen/orchestrate/{scaffold-query-context,scaffold-variant-resolver}.ts` |
-| BuildSpec | `src/lib/gen/build-spec.ts` + `src/lib/gen/build-spec/{prompt-patterns,regex-utils,derived-fields}.ts` |
-| System prompt | `src/lib/gen/system-prompt.ts` + `src/lib/gen/system-prompt/{types,budget,compose,helpers}.ts` |
+| BuildSpec | `src/lib/gen/build-spec/` (OMTAG 03: `builder.ts`, `types.ts`, `policy-inference.ts`, `prompt-patterns.ts`, `references.ts`, `route-realization.ts`, `style-pack.ts`, `token-budgets.ts`, `index.ts`). Gamla monoliten `build-spec.ts` borttagen. |
+| System prompt | `src/lib/gen/system-prompt/` (OMTAG 03: `compose.ts` orchestrator + `sections/` peers). Gamla monoliten `system-prompt.ts` borttagen. |
 | Tokenbudget / pruning | `src/lib/gen/tokens.ts` |
 | Core Rules loader | `src/lib/gen/static-core-loader.ts` |
 | Core Rules manifest | `config/codegen-core-manifest.json` |
@@ -34,7 +34,7 @@ Relaterade: [fas1-startprompt-flow.md](./fas1-startprompt-flow.md), [fas3-previe
 | Scaffold-val / matcher | `src/lib/gen/scaffolds/matcher.ts` + `src/lib/gen/scaffolds/keyword-banks.ts` |
 | Scaffold-serialisering | `src/lib/gen/scaffolds/serialize.ts` |
 | Route-plan | `src/lib/gen/route-plan.ts` + `src/lib/gen/route-plan/route-patterns.ts` |
-| Finalize | `src/lib/gen/stream/finalize-version.ts` + `src/lib/gen/stream/finalize-version/{errors,policies,failure-logs,partial-file,partial-file-repair,step-telemetry}.ts` |
+| Finalize | `src/lib/gen/stream/finalize-version/` (OMTAG 03: `runner.ts` orchestrator + phase + persist helpers). Gamla monoliten `finalize-version.ts` borttagen. |
 | Finalize-kontrakt (ordning) | `src/lib/gen/stream/finalize-pipeline-contract.ts` |
 | Finalize-preflight | `src/lib/gen/stream/finalize-preflight.ts` + `src/lib/gen/stream/finalize-preflight/shell-pages.ts` |
 | Deterministisk autofix | `src/lib/gen/autofix/pipeline.ts` + `src/lib/gen/autofix/rules/*.ts` |
@@ -77,7 +77,7 @@ Follow-up: `OrchestrationInput.requestKind` sätts i `chat-message-stream-post.t
 
 ---
 
-## BuildSpec (`build-spec.ts`)
+## BuildSpec (`build-spec/`)
 
 Härledd policy-bundle som styr körningen.
 
@@ -93,7 +93,7 @@ Härledd policy-bundle som styr körningen.
 
 ### Token-budgetar per `contextPolicy`
 
-Källa: `BASE_TOKEN_BUDGETS` i `src/lib/gen/build-spec.ts` (~rad 913).
+Källa: `BASE_TOKEN_BUDGETS` i `src/lib/gen/build-spec/token-budgets.ts` (efter OMTAG 03 split).
 
 | Policy | scaffoldTokens | refsTokens | systemContextTokens |
 |---|---|---|---|

@@ -58,7 +58,7 @@ A1+A2+A3+C som ett sammanhängande paket.
 
 ### PR2 — Variant lock fork-safe (P1, branch: `fix/P26-pr2-variant-lock-fork`)
 
-**A4.** `src/lib/gen/stream/finalize-version.ts` (~rad 1286): säkerställ att `orchestration_snapshot.variantId` ALLTID skrivs vid `site.done` (även init), så följande follow-up alltid har `priorVariantId`. `src/lib/gen/scaffold-variants/matcher.ts` + `src/lib/gen/orchestrate.ts` (rad 686-707): tightening av lock-logiken.
+**A4.** `src/lib/gen/stream/finalize-version/` (post-OMTAG-03 package — sök i `runner.ts` eller phase-helpers): säkerställ att `orchestration_snapshot.variantId` ALLTID skrivs vid `site.done` (även init), så följande follow-up alltid har `priorVariantId`. `src/lib/gen/scaffold-variants/matcher.ts` + `src/lib/gen/orchestrate.ts`: tightening av lock-logiken.
 
 ### PR3 — Quality-gate readiness probe (P1, branch: `fix/P26-pr3-quality-gate-readiness`)
 

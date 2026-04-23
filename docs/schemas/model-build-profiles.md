@@ -18,7 +18,7 @@ Primary code sources:
 - `src/lib/models/phase-routing.ts`
 - `src/lib/validations/chatSchemas.ts`
 - `src/lib/builder/defaults.ts`
-- `src/lib/builder/promptAssist.ts`
+- `src/lib/builder/prompt-assist/` (post-OMTAG-03 package)
 
 ## Three model lanes + one flag
 
