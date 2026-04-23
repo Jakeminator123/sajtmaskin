@@ -23,7 +23,7 @@
  *   but produces more thorough results for complex projects.
  */
 
-import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "./promptAssist";
+import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "./prompt-assist";
 import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";

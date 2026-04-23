@@ -57,7 +57,7 @@
         "src/lib/models/phase-routing.ts",
         "src/lib/gen/orchestrate.ts",
         "src/lib/providers/own-engine/generation-stream.ts",
-        "src/lib/gen/stream/finalize-version.ts"
+        "src/lib/gen/stream/finalize-version/runner.ts"
       ]
     },
     "Codegen core": {
@@ -74,7 +74,7 @@
       ],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts",
-        "src/lib/gen/system-prompt.ts",
+        "src/lib/gen/system-prompt/build-dynamic-context.ts",
         "src/lib/builder/domain-inference.ts",
         "src/lib/builder/prompt-heuristics.ts"
       ]
@@ -116,7 +116,7 @@
         "src/lib/gen/defaults.ts",
         "src/lib/builder/promptLimits.ts",
         "src/lib/builder/server-auto-brief-policy.ts",
-        "src/lib/gen/build-spec.ts",
+        "src/lib/gen/build-spec/builder.ts",
         "src/lib/own-engine/session/own-engine-pipeline-generation.ts",
         "src/lib/models/phase-routing.ts",
         "src/lib/builder/site-brief-generation.ts",

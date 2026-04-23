@@ -64,10 +64,10 @@ describe("fixer-registry", () => {
     }
   });
 
-  it("sourcePath always points to a path under src/lib/gen/autofix or finalize-version.ts/repair-loop.ts", () => {
+  it("sourcePath always points to a path under src/lib/gen/autofix or finalize-version/*/repair-loop.ts", () => {
     const allowedRoots = [
       "src/lib/gen/autofix/",
-      "src/lib/gen/stream/finalize-version.ts",
+      "src/lib/gen/stream/finalize-version/",
       "src/lib/gen/verify/",
     ];
     for (const entry of FIXER_REGISTRY) {

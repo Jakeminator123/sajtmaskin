@@ -3,7 +3,7 @@ import { requireNotBot } from "@/lib/botProtection";
 import { withRateLimit } from "@/lib/rateLimit";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
-import { normalizeAssistModel } from "@/lib/builder/promptAssist";
+import { normalizeAssistModel } from "@/lib/builder/prompt-assist";
 import {
   briefRequestSchema,
   generateSiteBriefObject,

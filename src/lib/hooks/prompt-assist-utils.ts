@@ -1,4 +1,4 @@
-import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
+import type { PromptAssistProvider } from "@/lib/builder/prompt-assist";
 
 export const PROMPT_ASSIST_TIMEOUT_MS = 600_000;
 

@@ -463,7 +463,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "llm-verifier-fixer",
     category: "llm-verifier",
-    sourcePath: "src/lib/gen/stream/finalize-version.ts",
+    sourcePath: "src/lib/gen/stream/finalize-version/verifier-phase.ts",
     targetFailureMode: "Verifier-blocking findings (SEO, a11y, semantics)",
     triggers: ["verifier blocking findings > 0"],
     status: "active",
@@ -476,7 +476,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "llm-partial-file-repair",
     category: "llm-partial-file",
-    sourcePath: "src/lib/gen/stream/finalize-version.ts",
+    sourcePath: "src/lib/gen/stream/finalize-version/partial-file.ts",
     targetFailureMode: "Truncated/partial file content from generation stream",
     triggers: ["preflight detects partial-file artefact"],
     status: "active",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "@/lib/builder/promptAssist";
+import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "@/lib/builder/prompt-assist";
 import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import { existsSync } from "node:fs";
 

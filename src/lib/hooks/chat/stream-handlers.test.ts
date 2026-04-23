@@ -20,8 +20,8 @@ vi.mock("@/lib/builder/sse", () => ({
   consumeSseResponse,
 }));
 
-vi.mock("@/lib/builder/promptAssist", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/builder/promptAssist")>();
+vi.mock("@/lib/builder/prompt-assist", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/builder/prompt-assist")>();
   return {
     ...actual,
     isPromptAssistOff: vi.fn(() => false),

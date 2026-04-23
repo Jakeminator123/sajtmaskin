@@ -12,7 +12,7 @@ import {
   isPromptAssistModelAllowed,
   normalizeAssistModel,
   resolvePromptAssistProvider,
-} from "@/lib/builder/promptAssist";
+} from "@/lib/builder/prompt-assist";
 import { createDirectModel, getTemperatureConfig } from "@/lib/builder/direct-model";
 import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
 import {

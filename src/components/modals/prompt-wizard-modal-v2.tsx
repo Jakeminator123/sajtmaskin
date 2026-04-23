@@ -61,7 +61,7 @@ import { useAuth } from "@/lib/auth/auth-store";
 import { StepVisual } from "@/components/modals/step-visual";
 import { CompetitorMap } from "@/components/modals/competitor-map";
 import { LocationPicker } from "@/components/modals/location-picker";
-import { formatPrompt } from "@/lib/builder/promptAssist";
+import { formatPrompt } from "@/lib/builder/prompt-assist";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import type { CompanyLookupResult } from "@/app/api/wizard/company-lookup/route";
 import type { Competitor } from "@/app/api/wizard/competitors/route";
