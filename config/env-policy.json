@@ -60,7 +60,6 @@
     "NEXT_PHASE",
     "RENDER",
     "SAJTMASKIN_DEV_LOG",
-    "SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS",
     "GENERATIONSLOGG",
     "SAJTMASKIN_VISUAL_QA",
     "AI_BRIEF_MAX_TOKENS",
@@ -158,7 +157,6 @@
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
-    "SAJTMASKIN_SHOW_THINKING",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SAJTMASKIN_METRICS_TOKEN",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
@@ -332,12 +330,6 @@
       "notes": "Bearer token required to access /api/metrics. Empty/unset = route returns 503 (disabled)."
     },
     {
-      "key": "SAJTMASKIN_SHOW_THINKING",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Legacy alias for SAJTMASKIN_DEFAULT_THINKING. Keep only for backward compatibility during env migration."
-    },
-    {
       "key": "VERCEL_TOKEN",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
@@ -450,12 +442,6 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "Development-only logging flag."
-    },
-    {
-      "key": "SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Development-only logging tuning."
     },
     {
       "key": "GENERATIONSLOGG",

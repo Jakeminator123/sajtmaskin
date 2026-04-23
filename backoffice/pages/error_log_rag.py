@@ -107,8 +107,8 @@ def render(ctx: BackofficeContext) -> None:
         if not ndjson.get("exists"):
             st.warning(
                 "Ingen producer-NDJSON ännu. Den skapas första gången en "
-                "verifier-blocking-finding eller mekanisk fix loggas och "
-                "`SAJTMASKIN_USE_ERROR_LOG_RAG=true`."
+                "verifier-blocking-finding eller mekanisk fix loggas "
+                "(RAG hårdkodat ON i development sedan omtag-04)."
             )
         else:
             st.json(ndjson)
@@ -135,8 +135,8 @@ def render(ctx: BackofficeContext) -> None:
     rows = _read_ndjson_rows(ctx.repo_root)
     if not rows:
         st.caption(
-            "Inga rader att analysera ännu. Aktivera "
-            "`SAJTMASKIN_USE_ERROR_LOG_RAG=true` och kör en generering."
+            "Inga rader att analysera ännu. RAG är hårdkodat ON i "
+            "development (omtag-04) — kör en generering och kom tillbaka."
         )
     else:
         counter = Counter()

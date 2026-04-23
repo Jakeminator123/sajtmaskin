@@ -3,15 +3,12 @@ import { isAffirmativeEnvValue } from "@/lib/env-affirmative";
 
 /**
  * Canonical own-engine thinking default.
- * Prefer SAJTMASKIN_DEFAULT_THINKING, but keep the older alias as a fallback
- * while existing environments are migrated.
+ *
+ * The legacy `SAJTMASKIN_SHOW_THINKING` alias was removed in omtag-04
+ * (2026-04-23) now that all deployed environments pass
+ * `SAJTMASKIN_DEFAULT_THINKING` directly.
  */
 export function getDefaultThinkingEnabled(): boolean {
   const env = getServerEnv();
-
-  if (typeof env.SAJTMASKIN_DEFAULT_THINKING === "string") {
-    return isAffirmativeEnvValue(env.SAJTMASKIN_DEFAULT_THINKING);
-  }
-
-  return isAffirmativeEnvValue(env.SAJTMASKIN_SHOW_THINKING);
+  return isAffirmativeEnvValue(env.SAJTMASKIN_DEFAULT_THINKING);
 }

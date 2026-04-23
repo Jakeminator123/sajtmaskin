@@ -17,7 +17,6 @@ type DevLogEntry = Record<string, unknown>;
 
 const MAX_LOG_CHARS = 1000;
 const DEFAULT_DOC_MAX_WORDS = 10_000;
-const MAX_DOC_MAX_WORDS = 20_000;
 const CHAT_SLUG_CACHE_LIMIT = 200;
 const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "site.start",
@@ -82,12 +81,6 @@ let latestSlug: string | null = null;
 
 function isAnyLocalLogEnabled(): boolean {
   return isDevLoggingEnabled() || isGenerationLogEnabled();
-}
-
-function resolveDocumentWordLimit(): number {
-  const raw = Number(process.env.SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS);
-  if (!Number.isFinite(raw)) return DEFAULT_DOC_MAX_WORDS;
-  return raw >= MAX_DOC_MAX_WORDS ? MAX_DOC_MAX_WORDS : DEFAULT_DOC_MAX_WORDS;
 }
 
 function truncateString(value: string, max: number): string {
@@ -437,7 +430,7 @@ function appendRollingLine(target: DevLogTarget, entry: DevLogEntry): void {
         ? fs.readFileSync(DEV_LOG_DOC_PATH, "utf8")
         : "";
       const docNext = `${docCurrent}${docBlock}`;
-      const docClipped = clipByWords(docNext, resolveDocumentWordLimit());
+      const docClipped = clipByWords(docNext, DEFAULT_DOC_MAX_WORDS);
       fs.writeFileSync(DEV_LOG_DOC_PATH, docClipped, "utf8");
     }
 

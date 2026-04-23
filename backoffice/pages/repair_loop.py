@@ -1,11 +1,12 @@
 """
 Repair-loop hardening dashboard — Phase 2 + 3 of cloud-varldsklass.
 
-Surfaces the new repair-loop feature flags, error-log producer status, and the
-last 20 prune / verifier-rerun telemetry events. Lets the user toggle the
-hardening flags from the UI (writes through to .env.local via shared.write_env_flag).
+Shows the (now hardcoded) repair-loop feature state, error-log producer
+status, and the last 20 prune / verifier-rerun telemetry events.
 
-Source of truth for flag names: src/lib/config.ts FEATURES.{...}.
+Source of truth: src/lib/config.ts FEATURES.{...}. The environment toggles
+below were removed in omtag-04 (2026-04-23); change the constants in
+config.ts to adjust behaviour.
 """
 
 from __future__ import annotations
@@ -16,38 +17,39 @@ from typing import Any
 
 import streamlit as st
 
-from backoffice.shared import (
-    BackofficeContext,
-    read_env_flag,
-    write_env_flag,
-)
+from backoffice.shared import BackofficeContext
 
 
-REPAIR_LOOP_FLAGS = (
+REPAIR_LOOP_HARDCODED = (
     (
-        "SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX",
+        "consistentRepairPassIndex",
         "Phase 2A — repairPassIndex propagation + pruneStaleVersionErrorLogs (SAJ-25)",
-        "Stops the red 'Fel' badge appearing on a clean follow-up by propagating repairPassIndex into finalize and pruning earlier-pass error-log rows when the latest pass is clean.",
+        "Stops the red 'Fel' badge on a clean follow-up by propagating repairPassIndex into finalize and pruning earlier-pass error-log rows when the latest pass is clean.",
+        "true",
     ),
     (
-        "SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX",
+        "verifierRerunAfterFix",
         "Phase 2B — verifier re-run after LLM-fixer",
         "After the verifier-fixer succeeds, re-run runVerifierPass once to confirm the fix actually addressed the blocking finding. Capped at 1 re-run + 30s timeout.",
+        "true",
     ),
     (
-        "SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE",
+        "skipDoubleValidateAndFixOnMerge",
         "Phase 2C — skip LLM-fixer escalation on merged-only syntax fail",
         "When stream-syntax already passed but merged-syntax fails, run only the deterministic mechanical autofix + esbuild revalidation. Saves an LLM-fixer call per follow-up.",
+        "true",
     ),
     (
-        "SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT",
+        "recurringPatternsInMainPrompt",
         "Phase 2D — recurring failures block in main system-prompt",
-        "Inject `### Recurring failures on this site` into the system-prompt for follow-ups so the codegen LLM (not just the fixer) sees what it just got wrong.",
+        "Inject `### Recurring failures on this site` into the system-prompt for follow-ups so the codegen LLM sees what it just got wrong.",
+        "NODE_ENV == development",
     ),
     (
-        "SAJTMASKIN_USE_ERROR_LOG_RAG",
+        "useErrorLogRag",
         "Phase 3 — vector RAG over error-log + auto-ingest",
         "Producer writes NDJSON, indexer rebuilds TF-IDF snapshot, retriever surfaces `### Lessons from similar past builds` in system-prompt. Auto-rebuilt at npm run dev|build|start.",
+        "NODE_ENV == development",
     ),
 )
 
@@ -96,33 +98,18 @@ def _read_error_log_meta(repo_root: Path) -> dict[str, Any] | None:
 
 
 def render(ctx: BackofficeContext) -> None:
-    st.header("Repair loop — feature flags + telemetri")
+    st.header("Repair loop — hardcoded state + telemetri")
     st.caption(
         "Source of truth: `src/lib/config.ts` → `FEATURES`. "
-        "Flag-toggles skriver direkt till `.env.local` (kräver omstart av `npm run dev`)."
+        "Flaggorna hårdkodades i omtag-04 (2026-04-23); ändra konstanterna "
+        "i `src/lib/config.ts` för att justera beteendet."
     )
 
-    st.subheader("Feature flags")
-    for env_key, label, helptext in REPAIR_LOOP_FLAGS:
-        current = read_env_flag(ctx, env_key)
-        cols = st.columns([4, 1])
-        with cols[0]:
-            st.markdown(f"**{label}**")
-            st.caption(helptext)
-            st.code(f"{env_key} = {'true' if current else 'false'}", language="bash")
-        with cols[1]:
-            new_value = st.toggle(
-                "På",
-                value=current,
-                key=f"toggle_{env_key}",
-                label_visibility="visible",
-            )
-            if new_value != current:
-                ok = write_env_flag(ctx, env_key, new_value)
-                if ok:
-                    st.success("Sparat. Starta om `npm run dev` för att aktivera.")
-                else:
-                    st.error("Kunde inte skriva till `.env.local`.")
+    st.subheader("Hardcoded feature state")
+    for feature_key, label, helptext, value in REPAIR_LOOP_HARDCODED:
+        st.markdown(f"**{label}**")
+        st.caption(helptext)
+        st.code(f"FEATURES.{feature_key} = {value}", language="typescript")
 
     st.divider()
     st.subheader("Error-log RAG indexer (Phase 3.2)")
