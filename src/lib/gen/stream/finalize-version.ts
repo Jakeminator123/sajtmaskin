@@ -1001,6 +1001,24 @@ async function runFinalizeFastPath(params: {
     originalPrompt,
   });
   filesJson = preflightResult.filesJson;
+  // OMTAG 1·05: scaffold-default blocking on LLM-only paths surfaces as a
+  // hard preflight error so the version is marked verification-blocked
+  // rather than silently serving a scaffold page.tsx under a user-specific
+  // layout.tsx ("Nordic Future Summit" bug class).
+  if (mergeResult.missingEmittedEssentials.length > 0) {
+    const blockedIssues: FinalizePreflightIssue[] = mergeResult.missingEmittedEssentials.map(
+      (path) => ({
+        file: path,
+        severity: "error" as const,
+        message: `LLM did not emit ${path}; scaffold default was blocked to prevent brand leak (OMTAG 05).`,
+        category: "code_structure_failure" as const,
+      }),
+    );
+    preflightResult = {
+      ...preflightResult,
+      preflightIssues: [...preflightResult.preflightIssues, ...blockedIssues],
+    };
+  }
   const envLifecycleStage =
     buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design";
   filesJson = injectIntegrationManifestIntoFilesJson(filesJson, {
@@ -1091,6 +1109,23 @@ async function runFinalizeFastPath(params: {
         originalPrompt,
       });
       filesJson = preflightResult.filesJson;
+      // OMTAG 1·05: re-check LLM-only paths after the partial-file repair
+      // remerge. If the repair LLM still didn't emit `app/page.tsx`, keep
+      // the preflight error live.
+      if (remergeResult.missingEmittedEssentials.length > 0) {
+        const blockedIssues: FinalizePreflightIssue[] = remergeResult.missingEmittedEssentials.map(
+          (path) => ({
+            file: path,
+            severity: "error" as const,
+            message: `LLM did not emit ${path}; scaffold default was blocked to prevent brand leak (OMTAG 05).`,
+            category: "code_structure_failure" as const,
+          }),
+        );
+        preflightResult = {
+          ...preflightResult,
+          preflightIssues: [...preflightResult.preflightIssues, ...blockedIssues],
+        };
+      }
       filesJson = injectIntegrationManifestIntoFilesJson(filesJson, {
         lifecycleStage: envLifecycleStage,
       });
