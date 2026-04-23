@@ -138,7 +138,9 @@ The script is intentionally one-at-a-time. Batch promotion was the source of poo
 
 Set `SAJTMASKIN_DOSSIER_PIPELINE=false` in any environment to skip dossier selection entirely. The `## Available Dossiers` block disappears from the system prompt; the rest of the pipeline is unaffected.
 
-Default: on in `development`, off in `preview`/`production` (opt-in via env).
+**Code default (if env is unset):** on in `development`, off in `preview`/`production` (opt-in via env). See fallback in `src/lib/config.ts`.
+
+**Current deploy status (as of 2026-04-23):** explicitly set to `true` on all three Vercel environments (Development, Preview, Production). The pipeline is active everywhere at runtime; to actually disable it on any environment you must remove the variable or set it to `false` on that specific target.
 
 ## Files at a glance
 
