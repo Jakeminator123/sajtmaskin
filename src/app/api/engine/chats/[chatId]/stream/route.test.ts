@@ -669,6 +669,9 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         previewBlockingReason: null,
       },
       contentForVersion: "<main>Updated follow-up</main>",
+      rejectedShrinks: [],
+      rejectedStructural: [],
+      crossFileStubs: [],
     });
     buildFileContext.mockReturnValue({
       summary: "## Existing Project Files\n\n- src/app/page.tsx",

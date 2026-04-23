@@ -5,6 +5,9 @@ import {
 } from "@/lib/gen/stream/post-finalize-policies";
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 
+const createEngineVersionErrorLogsMock = vi.hoisted(() =>
+  vi.fn<(payloads: unknown[]) => Promise<void>>(async () => undefined),
+);
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
 const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
@@ -24,6 +27,15 @@ const formatSSEEventMock = vi.hoisted(() =>
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getChat,
   updateVersionPreviewUrl,
+}));
+
+vi.mock("@/lib/db/services/version-errors", () => ({
+  createEngineVersionErrorLogs: createEngineVersionErrorLogsMock,
+}));
+
+vi.mock("@/lib/db/client", () => ({
+  db: new Proxy({}, { get() { return vi.fn(); } }),
+  dbConfigured: true,
 }));
 
 vi.mock("@/lib/logging/devLog", () => ({
@@ -105,6 +117,7 @@ const finalized = {
   },
   rejectedShrinks: [],
   rejectedStructural: [],
+  crossFileStubs: [],
 } as const;
 
 describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
@@ -409,6 +422,137 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         previewUrlHint: "https://vm-fly-jakem.fly.dev/chat_1",
       }),
     );
+  });
+
+  // plan-02 / STATUS-02: cross-file-import-checker stubs (run-2 in
+  // STATUS-01 — coffee-cup-3d.tsx → ./coffee-cup-scene auto-stubbed).
+  // Pre-fix the user saw a green "Promoted" badge with no signal that
+  // the 3D component was a hollow shell. Now each stub lands as a
+  // `warning`-level row in `engine_version_error_logs` under category
+  // `merge:cross-file-stub` and surfaces in `VersionDiagnosticsDialog`.
+  it("emits warning-level diagnostic row per cross-file-import-checker stub", async () => {
+    createEngineVersionErrorLogsMock.mockReset();
+    createEngineVersionErrorLogsMock.mockResolvedValue(undefined);
+    const finalizedWithStubs = {
+      ...finalized,
+      crossFileStubs: [
+        {
+          sourceFile: "components/coffee-cup-3d.tsx",
+          missingImport: "./coffee-cup-scene",
+          stubFile: "components/coffee-cup-scene.tsx",
+        },
+        {
+          sourceFile: "components/feature-grid.tsx",
+          missingImport: "./feature-card",
+          stubFile: "components/feature-card.tsx",
+        },
+      ],
+    };
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalizedWithStubs as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+      },
+      repairPassIndex: 0,
+    });
+
+    expect(createEngineVersionErrorLogsMock).toHaveBeenCalledTimes(1);
+    const firstCall = createEngineVersionErrorLogsMock.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    const payloads = firstCall![0] as unknown as Array<{
+      chatId: string;
+      versionId: string;
+      level: string;
+      category: string;
+      message: string;
+      meta: Record<string, unknown>;
+    }>;
+    expect(payloads).toHaveLength(2);
+    expect(payloads[0].level).toBe("warning");
+    expect(payloads[0].category).toBe("merge:cross-file-stub");
+    expect(payloads[0].message).toContain("./coffee-cup-scene");
+    expect(payloads[0].message).toContain("components/coffee-cup-3d.tsx");
+    expect(payloads[0].meta).toMatchObject({
+      sourceFile: "components/coffee-cup-3d.tsx",
+      missingImport: "./coffee-cup-scene",
+      stubFile: "components/coffee-cup-scene.tsx",
+      repairPassIndex: 0,
+    });
+    expect(payloads[1].meta).toMatchObject({
+      sourceFile: "components/feature-grid.tsx",
+      missingImport: "./feature-card",
+    });
+
+    // The same stub list is also surfaced on the `done` SSE so the
+    // builder-shell can render a "1 fil saknades och stubbades" hint
+    // before the diagnostics dialog is opened.
+    expect(formatSSEEventMock).toHaveBeenCalledWith(
+      "done",
+      expect.objectContaining({
+        crossFileStubs: expect.arrayContaining([
+          expect.objectContaining({ missingImport: "./coffee-cup-scene" }),
+        ]),
+      }),
+    );
+  });
+
+  it("does not emit warning rows when there are no cross-file stubs", async () => {
+    createEngineVersionErrorLogsMock.mockReset();
+    createEngineVersionErrorLogsMock.mockResolvedValue(undefined);
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+      },
+    });
+
+    expect(createEngineVersionErrorLogsMock).not.toHaveBeenCalled();
   });
 });
 

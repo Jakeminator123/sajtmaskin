@@ -1,4 +1,6 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
+import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { dbConfigured } from "@/lib/db/client";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 // Side-effect import: ensures the devLog-mirror subscriber is active
@@ -176,9 +178,46 @@ export async function runOwnEngineStreamPostFinalize(params: {
         ...(finalized.rejectedStructural.length > 0
           ? { rejectedStructural: finalized.rejectedStructural }
           : {}),
+        ...(finalized.crossFileStubs.length > 0
+          ? { crossFileStubs: finalized.crossFileStubs }
+          : {}),
       }),
     ),
   );
+
+  // plan-02 / STATUS-02: cross-file-import-checker stubs (e.g. coffee-cup-3d
+  // importerade `./coffee-cup-scene` som inte existerade → checker auto-stubbade
+  // den så bygget gick igenom, men användaren såg en tom shell). Innan den här
+  // patchen var det helt tyst i UI:t — nu landar varje stub som en `warning`-rad
+  // i `engine_version_error_logs` så `VersionDiagnosticsDialog` visar
+  // "1 fil saknades och stubbades" under category `merge:cross-file-stub`.
+  // Avsiktligt INTE `error` (bygget är shippable, bara hollow) och INTE event-bus
+  // `version.build.error` (vilket skulle ha satt `verificationBlocked = true`
+  // och brutit modal-truth). Direkt DB-skriv mot `createEngineVersionErrorLogs`
+  // är samma mönster som quality-gate-routens `quality-gate:superseded`-warnings.
+  if (finalized.crossFileStubs.length > 0 && dbConfigured) {
+    const warningPayloads = finalized.crossFileStubs.map((stub) => ({
+      chatId,
+      versionId: finalized.version.id,
+      level: "warning" as const,
+      category: "merge:cross-file-stub",
+      message: `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade målfil — auto-stubbade ${stub.stubFile}. Komponenten renderar tom tills LLM emitterar en riktig implementation.`,
+      meta: {
+        sourceFile: stub.sourceFile,
+        missingImport: stub.missingImport,
+        stubFile: stub.stubFile,
+        repairPassIndex,
+      },
+    }));
+    await createEngineVersionErrorLogs(warningPayloads).catch((err) => {
+      warnLog("engine", "Failed to persist cross-file-stub warnings", {
+        chatId,
+        versionId: finalized.version.id,
+        stubCount: finalized.crossFileStubs.length,
+        message: err instanceof Error ? err.message : "unknown",
+      });
+    });
+  }
 
   devLogAppend("in-progress", {
     type: "site.done",
