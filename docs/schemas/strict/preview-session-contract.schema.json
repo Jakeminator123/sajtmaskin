@@ -85,7 +85,7 @@
             "consumer": "DESIGN_PREVIEW_QUALITY_GATE_CHECKS"
           },
           "integrationsBuild": {
-            "checks": ["typecheck", "build"],
+            "checks": ["typecheck", "build", "lint"],
             "purpose": "F3 quality gate. Used by `/finalize-design` flow and promotion paths.",
             "consumer": "INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS"
           }

@@ -433,7 +433,7 @@ ANVÄNDARENS PROMPT
         │    ├─ Env-signal (saknade nycklar → UI-hint)
         │    ├─ Server repair (mekanisk → LLM)
         │    └─ Autofix fallback
-        └─ Background server verify (typecheck + build + lint, asynkron — lint 2026-04-21)
+        └─ Background server verify (typecheck — slimmad 2026-04-23; build/lint flyttade till pre-VM warm-cache)
 ```
 """
         )

@@ -171,7 +171,7 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Quality Gate | Binärt pass/fail-beslut. Två lanes (2026-04): `designPreview` (F2) och `integrationsBuild` (F3). | kanonisk |
 | Quality Gate Tiers | Manifeststyrda check-profiler i `config/ai_models/manifest.json` (`qualityGateTiers`). 4-lane-shapen (`tier2`/`serverVerify`/`promotion`/`interactive`) konsoliderades 2026-04 till `designPreview`/`integrationsBuild`. | kanonisk |
 | `designPreview` (lane) | F2 quality gate. `["typecheck"]`. Kör efter finalize och i bakgrunds-`server-verify`. | kanonisk |
-| `integrationsBuild` (lane) | F3 quality gate. `["typecheck", "build"]`. Används vid promotion / "Bygg integrationer"-flödet. | kanonisk |
+| `integrationsBuild` (lane) | F3 quality gate. `["typecheck", "build", "lint"]`. Används vid promotion / "Bygg integrationer"-flödet. | kanonisk |
 | Server Verify | Asynkron verify + repair-loop efter finalize | kanonisk |
 | Repair Loop Core (`runRepairLoop`) | Delad repair-kärna för server-verify och manuell `/repair` | kanonisk |
 | Warm Repair | Targeted repair där bara trasiga filer (+ imports) skickas till LLM-fixer | kanonisk |

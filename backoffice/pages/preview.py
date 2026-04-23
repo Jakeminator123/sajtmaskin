@@ -78,7 +78,7 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("F2 / F3 livscykel (2026-04)")
     st.markdown(
         """
-- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck", "build", "lint"]` sedan 2026-04-21; var `["typecheck", "build"]` 2026-04-20 → 2026-04-21, och bara `["typecheck"]` före 2026-04-20). Lint kör `--max-warnings=20` så tolereranta warnings inte fryser gate:n. Tier-3 SDK-imports
+- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck"]` sedan 2026-04-23; var `["typecheck", "build", "lint"]` 2026-04-21 → 2026-04-23, `["typecheck", "build"]` 2026-04-20 → 2026-04-21, `["typecheck"]` före 2026-04-20). `build`/`lint` flyttades till pre-VM warm-cache-passen i Sajtmaskin-backend (`warm-typecheck.ts` + `warm-eslint.ts`) som körs innan filerna når preview-host — samma diagnostik, ingen Fly-CPU-kostnad. Tier-3 SDK-imports
   (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, …) strippas mekaniskt av `tier3-sdk-guard-fixer`.
 - **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. `integrationsBuild` quality gate (`["typecheck", "build", "lint"]`).
   Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 readiness mot
