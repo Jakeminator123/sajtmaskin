@@ -33,7 +33,7 @@
 import ts from "typescript";
 import type { CodeFile } from "@/lib/gen/parser";
 import { createTsxSourceFile } from "./import-binding-ast";
-import type { FixEntry } from "../types";
+import { toFixEntries, type FixEntry, type FixEntryDraft } from "../types";
 
 const LOCAL_PREFIXES = ["@/", "./", "../"];
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
@@ -163,7 +163,7 @@ export function fixTypeOnlyModuleDefaultImports(
   const fileMap = new Map<string, CodeFile>();
   for (const f of files) fileMap.set(f.path, f);
 
-  const fixes: FixEntry[] = [];
+  const fixes: FixEntryDraft[] = [];
   let mutated = false;
 
   for (const file of files) {
@@ -246,5 +246,5 @@ export function fixTypeOnlyModuleDefaultImports(
   }
 
   if (!mutated) return { files, fixes: [] };
-  return { files: Array.from(fileMap.values()), fixes };
+  return { files: Array.from(fileMap.values()), fixes: toFixEntries(fixes, "post_merge") };
 }

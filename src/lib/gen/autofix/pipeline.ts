@@ -40,14 +40,14 @@ import { runDepCompleter } from "./dep-completer";
 import { validateAndUpgradeDeps } from "./dep-version-validator";
 import { runSecurityChecks } from "../security/run-security-checks";
 import { DETERMINISTIC_AUTOFIX_MAX_PASSES } from "../defaults";
-import type { FixEntry } from "./types";
+import { toFixEntries, type FixEntry, type FixEntryDraft } from "./types";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 /** @deprecated Use `FixEntry` from `./types` for new code. */
-export type AutoFixEntry = Omit<FixEntry, "category">;
+export type AutoFixEntry = Omit<FixEntryDraft, "category" | "lane">;
 
 export interface AutoFixResult {
   fixedContent: string;
@@ -187,7 +187,7 @@ async function runAutoFixSinglePass(
   content: string,
   context?: AutoFixContext,
 ): Promise<AutoFixResult> {
-  const allFixes: FixEntry[] = [];
+  const allFixes: FixEntryDraft[] = [];
   const allWarnings: string[] = [];
   let allDependencies: Record<string, string> = {};
 
@@ -1027,7 +1027,7 @@ async function runAutoFixSinglePass(
 
   return {
     fixedContent,
-    fixes: allFixes,
+    fixes: toFixEntries(allFixes, "mechanical"),
     warnings: allWarnings,
     dependencies: allDependencies,
   };

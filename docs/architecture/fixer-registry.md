@@ -34,6 +34,10 @@ interface FixerRegistryEntry {
 }
 ```
 
+`FixEntry` (runtime output from autofix/preflight) now also carries `lane` for
+telemetry filtering (`mechanical`, `static_gate`, `llm_repair`, `stream_suspense`,
+`post_merge`, `server_repair`). Canonical lane contracts: `docs/architecture/fixer-lanes.md`.
+
 See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 
 ## Categories

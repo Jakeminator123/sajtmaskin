@@ -23,7 +23,7 @@ import {
   fixLucideLinkMisuse,
 } from "@/lib/gen/autofix/rules/lucide-misuse-fixer";
 import { fixLayoutProviders } from "@/lib/gen/autofix/rules/layout-provider-fixer";
-import type { FixEntry } from "./types";
+import { toFixEntries, type FixEntry, type FixEntryDraft } from "./types";
 import {
   fixMetadataClientConflict,
   fixIconComponentValueMisuse,
@@ -37,7 +37,7 @@ const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
 /**
  * @deprecated Use `FixEntry` from `./types`. Kept for backwards compat.
  */
-export type RepairEntry = Omit<FixEntry, "category"> & { file: string };
+export type RepairEntry = Omit<FixEntryDraft, "category" | "lane"> & { file: string };
 
 /**
  * Run the canonical set of mechanical (deterministic) fixers on a parsed
@@ -52,7 +52,7 @@ export function repairGeneratedFiles(files: CodeFile[]): {
   files: CodeFile[];
   fixes: FixEntry[];
 } {
-  const fixes: FixEntry[] = [];
+  const fixes: FixEntryDraft[] = [];
   const exportIndex = buildProjectExportIndex(files);
   const moduleExportIndex = buildProjectModuleExportIndex(files);
 
@@ -346,8 +346,8 @@ export function repairGeneratedFiles(files: CodeFile[]): {
   const providerResult = fixLayoutProviders(repairedFiles);
   if (providerResult.fixes.length > 0) {
     fixes.push(...providerResult.fixes);
-    return { files: providerResult.files, fixes };
+    return { files: providerResult.files, fixes: toFixEntries(fixes, "post_merge") };
   }
 
-  return { files: repairedFiles, fixes };
+  return { files: repairedFiles, fixes: toFixEntries(fixes, "post_merge") };
 }
