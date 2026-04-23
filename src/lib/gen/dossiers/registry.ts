@@ -13,6 +13,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import type { DossierClass, DossierEntry } from "./types";
+import { validateDossierManifest } from "./validate-manifest";
 
 const ROOT = resolve(process.cwd(), "data", "dossiers");
 const CLASSES: readonly DossierClass[] = ["hard", "soft"] as const;
@@ -70,9 +71,9 @@ function loadEntry(klass: DossierClass, id: string): DossierEntry | null {
   const cacheKey = `${klass}/${id}`;
   const cached = _entryCache.get(cacheKey);
   if (cached && cached.mtimeMs === mtime) return cached.value;
-  let parsed: Record<string, unknown>;
+  let parsed: unknown;
   try {
-    parsed = JSON.parse(readFileSync(manifestPath, "utf-8")) as Record<string, unknown>;
+    parsed = JSON.parse(readFileSync(manifestPath, "utf-8"));
   } catch (err) {
     console.warn(
       `[dossiers] invalid JSON in ${klass}/${id}/manifest.json — dossier excluded from pool. Error: ${
@@ -81,43 +82,36 @@ function loadEntry(klass: DossierClass, id: string): DossierEntry | null {
     );
     return null;
   }
-  // Surface manifests that are missing essential fields so curators notice
-  // them. We still load with safe defaults (so the pool isn't empty) but the
-  // dossier won't be selectable for any capability if `capability` is missing.
-  if (typeof parsed.capability !== "string" || parsed.capability.length === 0) {
+  // Fas 2·D: strict AJV validation. Dossiers that don't match
+  // `docs/schemas/strict/dossier.schema.json` are REJECTED rather than
+  // silently loaded with safe defaults. A malformed manifest can't sneak
+  // into the prompt-injection pool anymore.
+  const result = validateDossierManifest(parsed, { expectedId: id, class: klass });
+  if (!result.valid) {
     console.warn(
-      `[dossiers] ${klass}/${id}/manifest.json missing required field 'capability' — dossier will never be selected. Edit and add a capability string.`,
+      `[dossiers] ${klass}/${id}/manifest.json failed schema validation — dossier excluded from pool:\n  - ${result.errors.join(
+        "\n  - ",
+      )}`,
     );
+    return null;
   }
-  if (typeof parsed.summary !== "string" || parsed.summary.length === 0) {
-    console.warn(
-      `[dossiers] ${klass}/${id}/manifest.json missing required field 'summary' — prompt block will be incomplete.`,
-    );
-  }
+  const data = result.data;
   const entry: DossierEntry = {
     class: klass,
     id,
-    label: typeof parsed.label === "string" ? parsed.label : id,
-    capability: typeof parsed.capability === "string" ? parsed.capability : "uncategorized",
-    codeFidelity:
-      parsed.codeFidelity === "verbatim" || parsed.codeFidelity === "rewritable"
-        ? parsed.codeFidelity
-        : klass === "hard"
-        ? "verbatim"
-        : "rewritable",
-    complexity:
-      parsed.complexity === "simple" || parsed.complexity === "advanced" ? parsed.complexity : "medium",
-    defaultForCapability: parsed.defaultForCapability === true,
-    summary: typeof parsed.summary === "string" ? parsed.summary : "",
-    envVars: Array.isArray(parsed.envVars) ? (parsed.envVars as DossierEntry["envVars"]) : undefined,
-    dependencies: Array.isArray(parsed.dependencies)
-      ? (parsed.dependencies as string[])
-      : undefined,
-    files: Array.isArray(parsed.files) ? (parsed.files as DossierEntry["files"]) : undefined,
-    exposes: Array.isArray(parsed.exposes) ? (parsed.exposes as DossierEntry["exposes"]) : undefined,
-    lastVerified: typeof parsed.lastVerified === "string" ? parsed.lastVerified : "",
-    sourceRepoUrl: typeof parsed.sourceRepoUrl === "string" ? parsed.sourceRepoUrl : undefined,
-    notes: typeof parsed.notes === "string" ? parsed.notes : undefined,
+    label: data.label,
+    capability: data.capability,
+    codeFidelity: data.codeFidelity,
+    complexity: data.complexity,
+    defaultForCapability: data.defaultForCapability === true,
+    summary: data.summary,
+    envVars: data.envVars,
+    dependencies: data.dependencies,
+    files: data.files,
+    exposes: data.exposes,
+    lastVerified: data.lastVerified,
+    sourceRepoUrl: data.sourceRepoUrl,
+    notes: data.notes,
   };
   _entryCache.set(cacheKey, { mtimeMs: mtime, value: entry });
   return entry;
