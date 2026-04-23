@@ -270,6 +270,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 delete copy.promptFormatted;
                 copy.promptStrategy = strategyMeta.strategy;
                 copy.promptType = strategyMeta.promptType;
+                copy.promptSource = strategyMeta.promptSource;
                 copy.promptBudgetTarget = strategyMeta.budgetTarget;
                 copy.promptOptimizedLength = strategyMeta.optimizedLength;
                 copy.promptReductionRatio = strategyMeta.reductionRatio;
@@ -283,6 +284,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             : {
                 promptStrategy: strategyMeta.strategy,
                 promptType: strategyMeta.promptType,
+                promptSource: strategyMeta.promptSource,
                 promptBudgetTarget: strategyMeta.budgetTarget,
                 promptOptimizedLength: strategyMeta.optimizedLength,
                 promptReductionRatio: strategyMeta.reductionRatio,
@@ -365,6 +367,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         message: optimizedMessage,
         slug: metaBuildMethod || metaBuildIntent || undefined,
         promptType: strategyMeta.promptType,
+        // Plan 03 (short): mirror promptSource into the init devlog so
+        // observability gets the same auto-repair vs user discriminator
+        // on init as it does on follow-ups (init is always "user" today
+        // since autofix only fires on existing chats, but we surface the
+        // field uniformly).
+        promptSource: strategyMeta.promptSource,
         promptStrategy: strategyMeta.strategy,
         promptBudgetTarget: strategyMeta.budgetTarget,
         originalLength: strategyMeta.originalLength,

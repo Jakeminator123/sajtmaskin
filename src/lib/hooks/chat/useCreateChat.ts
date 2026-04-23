@@ -248,9 +248,15 @@ export function useCreateChat(
           typeof meta?.promptOptimizedLength === "number" ? (meta.promptOptimizedLength as number) : null;
         if (promptStrategy && promptType && promptBudgetTarget !== null && promptOriginalLength !== null &&
           promptOptimizedLength !== null) {
+          // Plan 03 (short): "user" | "auto_repair" — default to "user" so
+          // legacy non-streaming responses without the field render as
+          // user-driven follow-ups (the previous behaviour).
+          const promptSource =
+            meta?.promptSource === "auto_repair" ? "auto_repair" : "user";
           appendPromptStrategyPart(setMessages, assistantMessageId, {
             strategy: promptStrategy,
             promptType,
+            promptSource,
             budgetTarget: promptBudgetTarget,
             originalLength: promptOriginalLength,
             optimizedLength: promptOptimizedLength,

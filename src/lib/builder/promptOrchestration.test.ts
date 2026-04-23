@@ -121,6 +121,59 @@ describe("promptOrchestration", () => {
     expect(result.finalMessage).toContain("Full text preserved");
   });
 
+  // ────────────────────────────────────────────────────────────────────
+  // Plan 03 (short): promptSource discriminator — auto_repair vs user
+  // ────────────────────────────────────────────────────────────────────
+
+  it("marks autofix-triggered passes as promptSource=auto_repair with auto_repair reason (plan 03)", () => {
+    // Synthetic auto-fix prompt mirrors what `useAutoFix.ts` (client) builds
+    // via `buildAutoFixPrompt`. The client also sets
+    // `promptSourceKind: "autofix"` + `preservePayload: true`. Without the
+    // plan-03 fix this would surface as `followup_technical` with reason
+    // `preserve_registry_payload` ("Registry-data bevarad oförändrad"), so
+    // the user could not tell it apart from a follow-up they typed.
+    const result = orchestratePromptMessage({
+      message:
+        "AUTO-FIX REQUEST — TARGETED REPAIR\n\nIssues detected: typecheck failed (exit 1).\n\nRules:\n1. Make the smallest change that fixes the listed issues.",
+      isFirstPrompt: false,
+      promptSourceKind: "autofix",
+      promptSourceTechnical: true,
+      promptSourcePreservePayload: true,
+    });
+
+    expect(result.strategyMeta.promptSource).toBe("auto_repair");
+    expect(result.strategyMeta.reason).toBe("auto_repair");
+  });
+
+  it("keeps user-driven followup_technical as promptSource=user (plan 03)", () => {
+    // Real user-driven follow-up that classifies as technical because of the
+    // `tsx`/`typescript` heuristic. Must NOT be re-labelled as auto_repair.
+    const result = orchestratePromptMessage({
+      message:
+        "Lägg till en kontaktform med valideringsfält i tsx — använd react-hook-form och visa typescript-typer i exemplet.",
+      isFirstPrompt: false,
+    });
+
+    expect(result.strategyMeta.promptType).toBe("followup_technical");
+    expect(result.strategyMeta.promptSource).toBe("user");
+    expect(result.strategyMeta.reason).not.toBe("auto_repair");
+  });
+
+  it("keeps user-driven followup_general as promptSource=user (plan 03)", () => {
+    // Reuses the smoke-confirmed phrasing from plan 01 that classifies as
+    // followup_general. Must stay user-driven and not pick up auto_repair.
+    const result = orchestratePromptMessage({
+      message: "Lägg till en kontaktsektion under hero.",
+      buildMethod: "freeform",
+      buildIntent: "website",
+      isFirstPrompt: false,
+    });
+
+    expect(result.strategyMeta.promptType).toBe("followup_general");
+    expect(result.strategyMeta.promptSource).toBe("user");
+    expect(result.strategyMeta.reason).not.toBe("auto_repair");
+  });
+
   it("uses section-aware handoff when content exceeds hard cap", () => {
     const cap = 8000;
     const chunk = "LINE_A\nLINE_B\nLINE_C\n\n";
