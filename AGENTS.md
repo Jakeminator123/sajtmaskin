@@ -1,75 +1,36 @@
 # Agent entry (Sajtmaskin)
 
-Tunn pekare — canonical innehåll ligger under `docs/` och `.cursor/`.
+Tunn pekare — canonical innehåll finns redan i `docs/` och `.cursor/rules/`.
 
-## Start här (i ordning)
+## Läs i denna ordning innan du börjar
 
-1. **Dokumentationsnav:** [`docs/README.md`](docs/README.md)
-2. **Snabb repokarta:** [`docs/architecture/repo-tree.md`](docs/architecture/repo-tree.md)
-3. **Kanonisk ordlista:** [`docs/architecture/glossary.md`](docs/architecture/glossary.md)
-4. **Terminologi (snabbreferens):** [`.cursor/rules/terminology.mdc`](.cursor/rules/terminology.mdc)
-5. **Cursor-regler-index:** [`.cursor/README.md`](.cursor/README.md)
-6. **Env:** [`config/env-policy.json`](config/env-policy.json), [`docs/ENV.md`](docs/ENV.md)
+1. [`docs/README.md`](docs/README.md) — dokumentationsnav
+2. [`docs/architecture/repo-tree.md`](docs/architecture/repo-tree.md) — repokarta
+3. [`docs/architecture/glossary.md`](docs/architecture/glossary.md) — kanonisk ordlista (~100 begrepp)
+4. [`.cursor/README.md`](.cursor/README.md) — fulla regel-index + prioriteringsordning
+5. [`.cursor/rules/terminology.mdc`](.cursor/rules/terminology.mdc) — snabb förväxlingstabell
+6. [`config/env-policy.json`](config/env-policy.json) + [`docs/ENV.md`](docs/ENV.md) — env-sanning
 
-Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera dem i glossaryn.
+## Kritiska regler att plocka upp tidigt
 
-## Operativa guardrails (kritiska för bakgrundsagenter)
+Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cursor/README.md):
 
-### Done-criteria per PR
+- **LLM-pipeline / gen:** [`gen-pipeline-simplicity.mdc`](.cursor/rules/gen-pipeline-simplicity.mdc), [`signal-ownership.mdc`](.cursor/rules/signal-ownership.mdc), [`scaffold-architecture.mdc`](.cursor/rules/scaffold-architecture.mdc), [`llm-pipeline-docs-sync.mdc`](.cursor/rules/llm-pipeline-docs-sync.mdc)
+- **Git / PR / commit:** [`session-git-docs.mdc`](.cursor/rules/session-git-docs.mdc), [`git.mdc`](.cursor/rules/git.mdc)
+- **Plattform:** [`platform-quirks.mdc`](.cursor/rules/platform-quirks.mdc) (Windows/PowerShell), [`unicode-regex.mdc`](.cursor/rules/unicode-regex.mdc)
+- **Cleanup / refactor:** [`cleanup-and-scope.mdc`](.cursor/rules/cleanup-and-scope.mdc), [`file-structure-conventions.mdc`](.cursor/rules/file-structure-conventions.mdc)
+- **Observability:** [`agent-observatory.mdc`](.cursor/rules/agent-observatory.mdc), [`useful-commands.mdc`](.cursor/rules/useful-commands.mdc)
+- **Språk / ton:** [`response-format.mdc`](.cursor/rules/response-format.mdc)
 
-Innan du öppnar PR ska allt detta vara uppfyllt:
+## Allmänt per-PR-klart
 
 - `npm run typecheck` → 0 errors
 - `npm run lint` → 0 errors
-- `npx vitest run` → alla existing tester gröna (notera testräknaren i PR-body)
-- `node scripts/dev/check-unicode-regex.mjs` → 0 violations om du rört regex
-- PR-body har Sammanfattning + Verifiering, avslutas med `DONE` på egen rad
-- `gh pr merge --auto --squash` aktiverat
-- Label satt som matchar spåret (se Konfliktzoner nedan)
+- `npx vitest run` → existing tester gröna
+- `node scripts/dev/check-unicode-regex.mjs` om du rört regex
+- Synk docs/schemas/backoffice enligt [`llm-pipeline-docs-sync.mdc`](.cursor/rules/llm-pipeline-docs-sync.mdc) vid pipeline-ändringar
+- Commit- och PR-hygien enligt [`git.mdc`](.cursor/rules/git.mdc) och [`session-git-docs.mdc`](.cursor/rules/session-git-docs.mdc)
 
-### Konfliktzoner — stäm av om flera agenter jobbar parallellt
+## Source-of-truth-regel
 
-Dessa filer är känsliga och rörs ofta av flera spår. Varje agent ska deklarera sitt revir i PR-body:
-
-- `src/lib/gen/*` (hot-files: `system-prompt*`, `build-spec*`, `stream/finalize-version*`, `autofix/**`, `scaffolds/matcher.ts`)
-- `src/lib/providers/own-engine/*`
-- `src/lib/hooks/chat/*`
-- `src/lib/builder/promptAssist*`
-- `src/lib/env.ts`, `src/lib/gen/config.ts`, `config/env-policy.json`
-- `src/lib/db/types.ts`, UI-badge-komponenter
-- `config/prompt-core/**`
-- Kanoniska arkitekturdocs under `docs/architecture/`
-
-### PR-konventioner
-
-- Branch: `agent/<kort-id>` (t.ex. `agent/fixer-consolidation`)
-- Label: matcha spåret (`eval-baseline`, `fixer-consolidation`, `wave-leftovers`, `status-unification`, `prompt-core-audit`)
-- En commit per logisk ändring. Efter varje commit: typecheck + lint + vitest isolerat grönt.
-- Branch protection på master kräver PR. Cloud-agenter bypass:ar inte — `--auto --squash` väntar på CI grönt + approval.
-- Om du är blockerad av konflikt eller icke-trivialt CI-fel: kommentera PR med "stopped: \<reason\>" och lämna ifred. Rör aldrig master direkt.
-
-### Plattform / språk
-
-- **Windows:** PowerShell är primär utvecklingsmiljö. Subprocesser som spawnar `npx`/`tsx` måste sätta `shell: true` på Windows — se [`scripts/observability/dump-fixer-registry.mjs`](scripts/observability/dump-fixer-registry.mjs) för mönster.
-- **Unicode-regex:** ASCII `\b` matchar inte `åäö`. Omge alltid med explicit `[A-Za-z_$]`-klass. Se [`.cursor/rules/unicode-regex.mdc`](.cursor/rules/unicode-regex.mdc) + [`src/lib/gen/autofix/rules/import-alias-type-syntax-fixer.ts`](src/lib/gen/autofix/rules/import-alias-type-syntax-fixer.ts) som referensmönster.
-- **Språk:** användarvänd text (docs, PR-body, kommentarer till användaren) på **svenska**. Kod, commit-meddelanden, test-labels, inline-kodkommentar: **engelska** enligt befintlig stil.
-
-### Relevanta regler per typ av arbete
-
-| Område | Viktigaste regler |
-|---|---|
-| LLM-pipeline / gen | [gen-pipeline-simplicity.mdc](.cursor/rules/gen-pipeline-simplicity.mdc), [signal-ownership.mdc](.cursor/rules/signal-ownership.mdc), [scaffold-architecture.mdc](.cursor/rules/scaffold-architecture.mdc), [llm-pipeline-docs-sync.mdc](.cursor/rules/llm-pipeline-docs-sync.mdc) |
-| Git / PR / commit | [session-git-docs.mdc](.cursor/rules/session-git-docs.mdc), [git.mdc](.cursor/rules/git.mdc) |
-| Plattform | [platform-quirks.mdc](.cursor/rules/platform-quirks.mdc), [unicode-regex.mdc](.cursor/rules/unicode-regex.mdc) |
-| Cleanup / refactor | [cleanup-and-scope.mdc](.cursor/rules/cleanup-and-scope.mdc), [file-structure-conventions.mdc](.cursor/rules/file-structure-conventions.mdc) |
-| Observability | [agent-observatory.mdc](.cursor/rules/agent-observatory.mdc), [useful-commands.mdc](.cursor/rules/useful-commands.mdc) |
-
-### Verifiera nedströms-effekter
-
-Ändring i pipeline-kod måste stämma mot:
-
-- `docs/schemas/strict/*.schema.json` (machine-readable kontrakt)
-- `docs/schemas/*.md` (human-readable kontrakt)
-- `backoffice/` (Streamlit-paneler måste reflektera faktisk runtime, inte ambition)
-
-Se [`llm-pipeline-docs-sync.mdc`](.cursor/rules/llm-pipeline-docs-sync.mdc).
+Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera dem i glossaryn.
