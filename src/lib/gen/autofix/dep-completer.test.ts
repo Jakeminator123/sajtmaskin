@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { KNOWN_PACKAGES, resolveKnownVersion, runDepCompleter } from "./dep-completer";
+import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
+import {
+  KNOWN_PACKAGES,
+  mergeMissingDependenciesIntoPackageJson,
+  resolveCapabilityDependencies,
+  resolveKnownVersion,
+  runDepCompleter,
+} from "./dep-completer";
 
 function extractLeadingMajor(versionSpec: string): number | null {
   const match = versionSpec.match(/\d+/);
@@ -98,5 +105,41 @@ describe("dep-completer", () => {
     const result = runDepCompleter('import { cn } from "@/lib/utils";\n');
     expect(result.dependencies["@/lib/utils"]).toBeUndefined();
     expect(Object.keys(result.dependencies)).toHaveLength(0);
+  });
+
+  it("sanity: visual-3d capability selection injects three-stack deps into package.json", () => {
+    const dossierSelection = selectDossiersForRequest({
+      requestedCapabilities: ["visual-3d"],
+    });
+    expect(dossierSelection.selected[0]?.entry.id).toBe("three-fiber-canvas");
+
+    const requestedCapabilities = Object.keys(dossierSelection.byCapability);
+    const capabilityDeps = resolveCapabilityDependencies(requestedCapabilities);
+    expect(capabilityDeps).toMatchObject({
+      three: KNOWN_PACKAGES.three,
+      "@react-three/fiber": KNOWN_PACKAGES["@react-three/fiber"],
+      "@react-three/drei": KNOWN_PACKAGES["@react-three/drei"],
+    });
+
+    const { packageJson, mergedCount } = mergeMissingDependenciesIntoPackageJson(
+      {
+        name: "site",
+        dependencies: {
+          next: "16.0.0",
+          react: "19.0.0",
+          "react-dom": "19.0.0",
+        },
+      },
+      capabilityDeps,
+    );
+    expect(mergedCount).toBe(3);
+    expect(packageJson.dependencies).toMatchObject({
+      next: "16.0.0",
+      react: "19.0.0",
+      "react-dom": "19.0.0",
+      three: KNOWN_PACKAGES.three,
+      "@react-three/fiber": KNOWN_PACKAGES["@react-three/fiber"],
+      "@react-three/drei": KNOWN_PACKAGES["@react-three/drei"],
+    });
   });
 });
