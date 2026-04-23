@@ -1,0 +1,121 @@
+{
+  "id": "landing-pulseframe",
+  "prompt": "Bygg en lyxig kamera-SaaS-landing för varumärket Pulseframe. Tydlig hero, feature-grid, prissättning och CTA mot en 'Boka demo'-knapp. Engelsk copy, silver + djupblå palett, stor serif-rubrik.",
+  "buildIntent": "website",
+  "expected": {
+    "scaffold": "landing-page",
+    "variant_any_of": [
+      "saas-hero",
+      "product-focused"
+    ],
+    "min_routes": 1,
+    "acceptable_scaffolds": [
+      "saas-landing"
+    ]
+  },
+  "phases": {
+    "scaffold_selection": {
+      "durationMs": 674,
+      "scaffoldId": "saas-landing",
+      "match": true,
+      "meta": {
+        "selectedScaffold": "saas-landing",
+        "selectionMethod": "embedding",
+        "selectionConfidence": "high",
+        "topCandidates": [
+          {
+            "id": "content-site",
+            "score": 0.25,
+            "source": "keyword"
+          },
+          {
+            "id": "saas-landing",
+            "score": 0.08333333333333333,
+            "source": "keyword"
+          },
+          {
+            "id": "landing-page",
+            "score": 0.08333333333333333,
+            "source": "keyword"
+          }
+        ],
+        "keywordScores": {
+          "auth-pages": 0,
+          "ecommerce": 0,
+          "dashboard": 0,
+          "app-shell": 0,
+          "saas-landing": 1,
+          "portfolio": 0,
+          "landing-page": 1,
+          "blog": 0,
+          "content-site": 3,
+          "base-nextjs": 0
+        },
+        "embeddingAvailable": true,
+        "embeddingFailed": false,
+        "embeddingTopResult": {
+          "id": "saas-landing",
+          "score": 0.6506829348427176
+        },
+        "semanticUnavailableReason": null,
+        "embeddingOverrideReason": "non_generic_strength_win",
+        "briefContextApplied": false
+      }
+    }
+  },
+  "scaffoldSelectionMeta": {
+    "selectedScaffold": "saas-landing",
+    "selectionMethod": "embedding",
+    "selectionConfidence": "high",
+    "topCandidates": [
+      {
+        "id": "content-site",
+        "score": 0.25,
+        "source": "keyword"
+      },
+      {
+        "id": "saas-landing",
+        "score": 0.08333333333333333,
+        "source": "keyword"
+      },
+      {
+        "id": "landing-page",
+        "score": 0.08333333333333333,
+        "source": "keyword"
+      }
+    ],
+    "keywordScores": {
+      "auth-pages": 0,
+      "ecommerce": 0,
+      "dashboard": 0,
+      "app-shell": 0,
+      "saas-landing": 1,
+      "portfolio": 0,
+      "landing-page": 1,
+      "blog": 0,
+      "content-site": 3,
+      "base-nextjs": 0
+    },
+    "embeddingAvailable": true,
+    "embeddingFailed": false,
+    "embeddingTopResult": {
+      "id": "saas-landing",
+      "score": 0.6506829348427176
+    },
+    "semanticUnavailableReason": null,
+    "embeddingOverrideReason": "non_generic_strength_win",
+    "briefContextApplied": false
+  },
+  "expectedMatch": {
+    "expectedScaffold": "landing-page",
+    "actualScaffold": "saas-landing",
+    "match": false,
+    "acceptableHit": true
+  },
+  "envSignals": {
+    "openAiKeyPresent": true,
+    "scaffoldKeywordMatchEnvRaw": null
+  },
+  "probeVersion": 1,
+  "notes": []
+}

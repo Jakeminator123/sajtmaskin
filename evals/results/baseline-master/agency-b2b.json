@@ -1,0 +1,122 @@
+{
+  "id": "agency-b2b",
+  "prompt": "B2B-konsultbyrå inom hållbarhet, hjälper tillverkande industri att mäta och sänka koldioxidavtryck. Hero, tjänster, case-studies, team, kontakt. Seriös, tillitsskapande ton.",
+  "buildIntent": "website",
+  "expected": {
+    "scaffold": "landing-page",
+    "variant_any_of": [
+      "b2b-professional",
+      "editorial"
+    ],
+    "min_routes": 2,
+    "acceptable_scaffolds": [
+      "saas-landing",
+      "content-site"
+    ]
+  },
+  "phases": {
+    "scaffold_selection": {
+      "durationMs": 707,
+      "scaffoldId": "landing-page",
+      "match": true,
+      "meta": {
+        "selectedScaffold": "landing-page",
+        "selectionMethod": "default",
+        "selectionConfidence": "low",
+        "topCandidates": [
+          {
+            "id": "saas-landing",
+            "score": 0.08333333333333333,
+            "source": "keyword"
+          },
+          {
+            "id": "portfolio",
+            "score": 0.08333333333333333,
+            "source": "keyword"
+          },
+          {
+            "id": "landing-page",
+            "score": 0.08333333333333333,
+            "source": "keyword"
+          }
+        ],
+        "keywordScores": {
+          "auth-pages": 0,
+          "ecommerce": 0,
+          "dashboard": 0,
+          "app-shell": 0,
+          "saas-landing": 1,
+          "portfolio": 1,
+          "landing-page": 1,
+          "blog": 0,
+          "content-site": 0,
+          "base-nextjs": 0
+        },
+        "embeddingAvailable": true,
+        "embeddingFailed": false,
+        "embeddingTopResult": {
+          "id": "saas-landing",
+          "score": 0.4265391429121924
+        },
+        "semanticUnavailableReason": null,
+        "embeddingOverrideReason": null,
+        "briefContextApplied": false
+      }
+    }
+  },
+  "scaffoldSelectionMeta": {
+    "selectedScaffold": "landing-page",
+    "selectionMethod": "default",
+    "selectionConfidence": "low",
+    "topCandidates": [
+      {
+        "id": "saas-landing",
+        "score": 0.08333333333333333,
+        "source": "keyword"
+      },
+      {
+        "id": "portfolio",
+        "score": 0.08333333333333333,
+        "source": "keyword"
+      },
+      {
+        "id": "landing-page",
+        "score": 0.08333333333333333,
+        "source": "keyword"
+      }
+    ],
+    "keywordScores": {
+      "auth-pages": 0,
+      "ecommerce": 0,
+      "dashboard": 0,
+      "app-shell": 0,
+      "saas-landing": 1,
+      "portfolio": 1,
+      "landing-page": 1,
+      "blog": 0,
+      "content-site": 0,
+      "base-nextjs": 0
+    },
+    "embeddingAvailable": true,
+    "embeddingFailed": false,
+    "embeddingTopResult": {
+      "id": "saas-landing",
+      "score": 0.4265391429121924
+    },
+    "semanticUnavailableReason": null,
+    "embeddingOverrideReason": null,
+    "briefContextApplied": false
+  },
+  "expectedMatch": {
+    "expectedScaffold": "landing-page",
+    "actualScaffold": "landing-page",
+    "match": true,
+    "acceptableHit": false
+  },
+  "envSignals": {
+    "openAiKeyPresent": true,
+    "scaffoldKeywordMatchEnvRaw": null
+  },
+  "probeVersion": 1,
+  "notes": []
+}

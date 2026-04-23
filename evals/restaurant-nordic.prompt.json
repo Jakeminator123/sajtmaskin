@@ -1,0 +1,11 @@
+{
+  "id": "restaurant-nordic",
+  "prompt": "Nordisk fine-dining restaurang 'Skog & Is' i Åre. Bokningsbar, visar säsongsmeny, vinpar och en chef-story. Stämning: varm, mörk, hantverk. Svenska.",
+  "buildIntent": "website",
+  "expected": {
+    "scaffold": "landing-page",
+    "variant_any_of": ["hospitality", "editorial"],
+    "min_routes": 2,
+    "acceptable_scaffolds": ["content-site"]
+  }
+}

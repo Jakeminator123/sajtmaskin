@@ -1,0 +1,121 @@
+{
+  "id": "dashboard-internal",
+  "prompt": "Internt dashboard för order-tracking för ett fiktivt SaaS-bolag. KPI-kort, diagram över senaste 30 dagar, tabell med aktuella order, filter och sidopanel för navigering. Admin-känsla.",
+  "buildIntent": "app",
+  "expected": {
+    "scaffold": "dashboard",
+    "variant_any_of": [
+      "analytics",
+      "admin-panel"
+    ],
+    "min_routes": 1,
+    "acceptable_scaffolds": [
+      "app-shell"
+    ]
+  },
+  "phases": {
+    "scaffold_selection": {
+      "durationMs": 872,
+      "scaffoldId": "dashboard",
+      "match": true,
+      "meta": {
+        "selectedScaffold": "dashboard",
+        "selectionMethod": "agreement",
+        "selectionConfidence": "high",
+        "topCandidates": [
+          {
+            "id": "dashboard",
+            "score": 0.25,
+            "source": "keyword"
+          },
+          {
+            "id": "app-shell",
+            "score": 0.16666666666666666,
+            "source": "keyword"
+          },
+          {
+            "id": "ecommerce",
+            "score": 0.08333333333333333,
+            "source": "keyword"
+          }
+        ],
+        "keywordScores": {
+          "auth-pages": 0,
+          "ecommerce": 1,
+          "dashboard": 3,
+          "app-shell": 2,
+          "saas-landing": 1,
+          "portfolio": 0,
+          "landing-page": 0,
+          "blog": 0,
+          "content-site": 1,
+          "base-nextjs": 0
+        },
+        "embeddingAvailable": true,
+        "embeddingFailed": false,
+        "embeddingTopResult": {
+          "id": "dashboard",
+          "score": 0.6019625411488311
+        },
+        "semanticUnavailableReason": null,
+        "embeddingOverrideReason": null,
+        "briefContextApplied": false
+      }
+    }
+  },
+  "scaffoldSelectionMeta": {
+    "selectedScaffold": "dashboard",
+    "selectionMethod": "agreement",
+    "selectionConfidence": "high",
+    "topCandidates": [
+      {
+        "id": "dashboard",
+        "score": 0.25,
+        "source": "keyword"
+      },
+      {
+        "id": "app-shell",
+        "score": 0.16666666666666666,
+        "source": "keyword"
+      },
+      {
+        "id": "ecommerce",
+        "score": 0.08333333333333333,
+        "source": "keyword"
+      }
+    ],
+    "keywordScores": {
+      "auth-pages": 0,
+      "ecommerce": 1,
+      "dashboard": 3,
+      "app-shell": 2,
+      "saas-landing": 1,
+      "portfolio": 0,
+      "landing-page": 0,
+      "blog": 0,
+      "content-site": 1,
+      "base-nextjs": 0
+    },
+    "embeddingAvailable": true,
+    "embeddingFailed": false,
+    "embeddingTopResult": {
+      "id": "dashboard",
+      "score": 0.6019625411488311
+    },
+    "semanticUnavailableReason": null,
+    "embeddingOverrideReason": null,
+    "briefContextApplied": false
+  },
+  "expectedMatch": {
+    "expectedScaffold": "dashboard",
+    "actualScaffold": "dashboard",
+    "match": true,
+    "acceptableHit": false
+  },
+  "envSignals": {
+    "openAiKeyPresent": true,
+    "scaffoldKeywordMatchEnvRaw": null
+  },
+  "probeVersion": 1,
+  "notes": []
+}
