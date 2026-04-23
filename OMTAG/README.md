@@ -114,17 +114,19 @@ Reject-format: kort lista `[fil]:[rad] — [vad saknas/övertramp]`.
 
 | Doc | Branch | Worktree | Status | Klar | Mergad |
 |---|---|---|---|---|---|
-| 01-embedding-diagnos | `omtag/01-embedding-diagnos` | main (lokalt) | **merged** | 2026-04-23 | `cb6d11f57` |
-| 02-eval-baseline | `omtag/02-eval-baseline` | `y0v0` | **merged** | 2026-04-23 | `cb6d11f57` |
-| 04-env-flag-collapse | `omtag/04-env-flag-collapse` | `ry8p` | **merged** | 2026-04-23 | `cb6d11f57` |
-| 07-static-core-type-imports | `omtag/07-static-core-type-imports` | `prms` | **merged** | 2026-04-23 | `cb6d11f57` |
-| 03-wave-split-heatspots | `omtag/03-wave-split-heatspots` | `omtag-03` | **in-progress** | | |
-| 05-scaffold-default-removal | `omtag/05-scaffold-default-removal` | `omtag-05` | **in-progress** | | |
-| fas2/D-dossier-contract | `omtag/fas2-D-dossier-contract` | `omtag-fas2D` | **in-progress** | | |
+| 01-embedding-diagnos | ~~`omtag/01-embedding-diagnos`~~ | main | **merged** | 2026-04-23 | `cb6d11f57` |
+| 02-eval-baseline | ~~`omtag/02-eval-baseline`~~ | ~~`y0v0`~~ | **merged** | 2026-04-23 | `cb6d11f57` |
+| 04-env-flag-collapse | ~~`omtag/04-env-flag-collapse`~~ | ~~`ry8p`~~ | **merged** | 2026-04-23 | `cb6d11f57` |
+| 07-static-core-type-imports | ~~`omtag/07-static-core-type-imports`~~ | `prms` | **merged** | 2026-04-23 | `cb6d11f57` |
+| fas2/D-dossier-contract | ~~`omtag/fas2-D-dossier-contract`~~ | ~~`omtag-fas2D`~~ | **merged** | 2026-04-23 natt | `0a0fbf488` |
+| 05-scaffold-default-removal | ~~`omtag/05-scaffold-default-removal`~~ | ~~`omtag-05`~~ | **merged** | 2026-04-23 natt | `d1bc644ae` |
+| 03-wave-split-heatspots | `omtag/03-wave-split-heatspots` | `omtag-03` | **pending** (för stor för natt) | | |
 | fas2/A-follow-up-integrity | | | pending (efter 03) | | |
-| fas2/B-scaffold-variant-cleanup | | | pending (efter 05) | | |
+| fas2/B-scaffold-variant-cleanup | | | **pending — starta först imorgon** | | |
 | fas2/C-autofix-import-hardening | | | pending (efter 02+03) | | |
 | 06-unified-status-eventbus | | | pending (fas 3) | | |
+
+Se `STATUS-2026-04-24-morning.md` i repo-roten för fullständig nattrapport.
 
 ---
 
