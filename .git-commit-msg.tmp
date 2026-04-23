@@ -1,0 +1,24 @@
+fix(scaffold-variants): corporate-grid default wins B2B prompts (OMTAG fas 2·B / E7)
+
+Landing-audit 2026-04-18 visade corporate-grid (default) = 0/20 wins trots
+att det var den tänkta B2B-defaulten. Root cause: pickScaffoldVariantAsync
+hash-roterade alltid mellan top-3 embedding-kandidater, så dominanta
+vinster försvann i tie-break-rotation.
+
+Väg A (guldrapportens rekommendation):
+
+1. corporate-grid.json: rikare description + keywords (compliance, fintech,
+   law, legal, accounting, advisory, företagskunder, redovisningsbyrå,
+   juridikbyrå, advokatbyrå, advokat, revisor, finanskonsult, konsultbolag)
+   + explicit B2B/enterprise-signal i signatureMotif och promptHints.
+2. Regenererade variant-embeddings.json (26 variants, samma
+   text-embedding-3-small/1536d).
+3. pickScaffoldVariantAsync: dominant-margin-regel — toppkandidat vinner
+   rakt av om cosine-ledet > 0.05; annars hash-roterar bland nära
+   kandidater.
+
+Post-fas2B audit: 20/20 exact matches (5 kärnvarianter × 4 expected-prompts
+per variant, 100 %). corporate-grid vinner samtliga 4 B2B-prompts.
+Default-rollen kvarstår (guldrapportens vink; Väg B ej aktiverad).
+
+Rapport: OMTAG/fas2-B-audit-before-after.md.
