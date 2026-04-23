@@ -905,7 +905,7 @@
       "codeEntry": [
         "src/app/api/ai/chat/route.ts",
         "src/lib/builder/gateway-policy.ts",
-        "src/lib/builder/promptAssist.ts"
+        "src/lib/builder/prompt-assist/runner.ts"
       ],
       "authEnv": [
         "OPENAI_API_KEY",
@@ -966,7 +966,7 @@
       "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
       "codeEntry": [
         "src/lib/gen/verifier-pass.ts",
-        "src/lib/gen/stream/finalize-version.ts",
+        "src/lib/gen/stream/finalize-version/verifier-phase.ts",
         "src/lib/models/phase-routing.ts"
       ],
       "authEnv": [
