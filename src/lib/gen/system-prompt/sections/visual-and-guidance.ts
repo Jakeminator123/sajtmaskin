@@ -14,10 +14,6 @@ function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
-function strList(v: unknown): string[] {
-  return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
-}
-
 export function renderVisualIdentityBlock(params: {
   themeOverride: ThemeColors | null | undefined;
   brief: Brief | null | undefined;
