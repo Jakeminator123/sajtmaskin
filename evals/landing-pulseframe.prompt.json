@@ -1,0 +1,11 @@
+{
+  "id": "landing-pulseframe",
+  "prompt": "Bygg en lyxig kamera-SaaS-landing för varumärket Pulseframe. Tydlig hero, feature-grid, prissättning och CTA mot en 'Boka demo'-knapp. Engelsk copy, silver + djupblå palett, stor serif-rubrik.",
+  "buildIntent": "website",
+  "expected": {
+    "scaffold": "landing-page",
+    "variant_any_of": ["saas-hero", "product-focused"],
+    "min_routes": 1,
+    "acceptable_scaffolds": ["saas-landing"]
+  }
+}

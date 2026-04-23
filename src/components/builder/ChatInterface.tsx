@@ -29,7 +29,7 @@ import {
 } from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Loader2, Plus, X } from "lucide-react";
+import { FileText, ImageIcon, Layers, Loader2, Plus, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
@@ -200,6 +200,7 @@ interface ChatInterfaceProps {
   currentCode?: string;
   existingUiComponents?: string[];
   continuePlanMode?: boolean;
+  followUpBaseInfo?: { baseLabel: string; latestLabel: string } | null;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -264,6 +265,7 @@ export function ChatInterface({
   currentCode,
   existingUiComponents,
   continuePlanMode = false,
+  followUpBaseInfo = null,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -855,6 +857,20 @@ export function ChatInterface({
 
   return (
     <div className="border-border bg-background border-t p-4">
+      {followUpBaseInfo && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="followup-base-badge"
+          className="border-amber-500/40 bg-amber-500/10 text-amber-200 mb-2 flex items-start gap-2 rounded-md border px-3 py-2 text-[11px]"
+        >
+          <Layers className="mt-0.5 size-3.5 shrink-0 text-amber-300" aria-hidden="true" />
+          <p>
+            Du redigerar <span className="font-semibold">{followUpBaseInfo.baseLabel}</span> — inte senaste{" "}
+            <span className="font-semibold">{followUpBaseInfo.latestLabel}</span>. Nästa meddelande bygger på denna bas.
+          </p>
+        </div>
+      )}
       <PromptInput
         value={input}
         onChange={handleInputChange}

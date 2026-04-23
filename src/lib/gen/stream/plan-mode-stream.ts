@@ -230,16 +230,8 @@ export function createPlanModeStream(params: {
         upstreamErrorMessage !== null ||
         (Array.isArray(planData?.blockers) && (planData.blockers as unknown[]).length > 0);
 
-      try {
-        await onResolved?.(planData, hasBlockers, accumulatedContent);
-      } catch (resolveErr) {
-        console.warn("[plan] onResolved callback failed:", resolveErr);
-      }
-      try {
-        await persistAssistantSummary(planData, hasBlockers);
-      } catch (persistErr) {
-        console.warn("[plan] persistAssistantSummary failed:", persistErr);
-      }
+      await onResolved?.(planData, hasBlockers, accumulatedContent);
+      await persistAssistantSummary(planData, hasBlockers);
 
       const shouldCommitCredits = upstreamErrorMessage === null;
 

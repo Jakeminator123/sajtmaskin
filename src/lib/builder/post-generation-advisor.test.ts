@@ -21,6 +21,6 @@ describe("post-generation-advisor", () => {
       type: "tool:awaiting-input",
       kind: "advisor-follow-up",
     });
-    expect(message.content).toContain("Första versionen är uppe");
+    expect(message.content).toContain("Din sajt är redo");
   });
 });

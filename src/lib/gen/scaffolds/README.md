@@ -4,10 +4,15 @@ Large generated JSON is cursorignored. Overview: [`../README.md`](../README.md) 
 
 ## What Lives Here
 
-This directory holds the 10 runtime scaffolds:
+This directory holds the 9 runtime scaffolds:
 
 `base-nextjs`, `landing-page`, `saas-landing`, `portfolio`, `blog`,
-`dashboard`, `auth-pages`, `ecommerce`, `content-site`, `app-shell`.
+`dashboard`, `auth-pages`, `ecommerce`, `app-shell`.
+
+> Historisk not: den tidigare marketing-scaffolden slogs ihop med
+> `landing-page` 2026-04-23 (OMTAG fas 2·B / M1). `warm-editorial` och
+> `minimalist-mag` lever nu som landing-page-varianter. Se
+> `docs/architecture/glossary.md` för detaljer.
 
 Each scaffold directory contains a `manifest.ts` plus template files. Those
 manifests are imported only through `registry.ts`; callers should not wire
@@ -22,7 +27,7 @@ when generating code.
 
 | File | Size | What it is |
 |------|------|-----------|
-| `scaffold-embeddings.json` | ~2 MB | OpenAI vectors for the 10 scaffolds. Used by `searchScaffolds()` when semantic fallback is needed. |
+| `scaffold-embeddings.json` | ~2 MB | OpenAI vectors for the 9 scaffolds. Used by `searchScaffolds()` when semantic fallback is needed. |
 | `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, `referenceTemplates`). Built from the external template-library pipeline. |
 
 ## Indexed files (readable by agents)

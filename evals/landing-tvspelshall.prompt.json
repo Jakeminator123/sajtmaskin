@@ -1,0 +1,11 @@
+{
+  "id": "landing-tvspelshall",
+  "prompt": "Retro-arkad tvspelshall i Malmö. Neonfärger, CRT-vibb, pixel-typografi. Sektioner: öppettider, spel-galleri, event, bokning av födelsedagskalas.",
+  "buildIntent": "website",
+  "expected": {
+    "scaffold": "landing-page",
+    "variant_any_of": ["editorial", "playful", "hero-focused"],
+    "min_routes": 1,
+    "acceptable_scaffolds": []
+  }
+}

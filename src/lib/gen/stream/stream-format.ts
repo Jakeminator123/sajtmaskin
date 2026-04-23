@@ -497,7 +497,7 @@ export function createCodeGenSSEStream(
               ensureGenerationStarted();
               enqueue(
                 createBuilderStreamEvent("error", {
-                  message: part.error instanceof Error ? part.error.message : "Strömningsfel",
+                  message: part.error instanceof Error ? part.error.message : "Stream error",
                 }),
               );
               break;
@@ -536,15 +536,6 @@ export function createCodeGenSSEStream(
               message: sawContentEvent
                 ? "Provider avbröt strömmen innan svaret var klart — försök igen eller byt modell."
                 : "Provider avbröt strömmen — försök igen eller byt modell.",
-              retry: {
-                kind: "provider-abort",
-                reason: sawContentEvent
-                  ? "Strömmen avbröts mitt i svaret."
-                  : "Providern avbröt innan något innehåll kom in.",
-                ctaLabel: "Försök igen",
-                retryPrompt:
-                  "FÖRSÖK IGEN — previous stream was aborted mid-response. Regenerate the full site output from scratch, emitting every file with its complete source inside the required `file=...` fence.",
-              },
             }),
           );
         } else if (!sawContentEvent && toolCallCounts.size === 0) {
@@ -558,13 +549,6 @@ export function createCodeGenSSEStream(
             createBuilderStreamEvent("error", {
               message:
                 "Model produced no text events (silent output). No code was emitted for this run.",
-              retry: {
-                kind: "silent-output",
-                reason: "Modellen svarade tomt. Inget innehåll genererades.",
-                ctaLabel: "Försök igen",
-                retryPrompt:
-                  "FÖRSÖK IGEN — emit complete file contents this time. Output each file with the required `file=...` fence and the full source. Do not reply with an empty message. Replace every bracketed placeholder in headings, paragraphs and captions with real copy in Swedish.",
-              },
             }),
           );
         }

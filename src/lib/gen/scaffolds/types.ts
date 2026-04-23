@@ -1,6 +1,5 @@
 export type ScaffoldId =
   | "base-nextjs"
-  | "content-site"
   | "app-shell"
   | "landing-page"
   | "saas-landing"
@@ -8,8 +7,7 @@ export type ScaffoldId =
   | "blog"
   | "dashboard"
   | "auth-pages"
-  | "ecommerce"
-  | "business-services";
+  | "ecommerce";
 
 export type ScaffoldMode = "off" | "auto" | "manual";
 
@@ -69,7 +67,5 @@ export const SCAFFOLD_CLIENT_LIST: ReadonlyArray<{ id: ScaffoldId; label: string
   { id: "dashboard", label: "Dashboard", description: "Analytics dashboard with charts, KPI cards, and data tables." },
   { id: "auth-pages", label: "Auth Pages", description: "Authentication pages: sign in, sign up, and password reset." },
   { id: "ecommerce", label: "E-handel", description: "E-commerce storefront with product grid, cart, and checkout." },
-  { id: "content-site", label: "Content Site", description: "Multi-section content site with hero, features, and testimonials." },
   { id: "app-shell", label: "App Shell", description: "Application shell with sidebar, settings, and workspace layout." },
-  { id: "business-services", label: "Business & Services", description: "Professional service site for offices, clinics, agencies, and consultants with services grid, process, pricing, and contact." },
 ] as const;

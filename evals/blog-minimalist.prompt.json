@@ -1,0 +1,11 @@
+{
+  "id": "blog-minimalist",
+  "prompt": "Minimalistisk personlig blogg för en gymnasielärare som skriver om matematik och pedagogik. Stilren typografi, lätt läsbar läsvy, enkel arkiv-lista. Svenska.",
+  "buildIntent": "website",
+  "expected": {
+    "scaffold": "blog",
+    "variant_any_of": ["minimal", "editorial"],
+    "min_routes": 2,
+    "acceptable_scaffolds": ["landing-page"]
+  }
+}

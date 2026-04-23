@@ -1,0 +1,6 @@
+{"t":"version.verifier.done","versionId":"ver_golden_1","chatId":"chat_golden","outcome":"skipped","blocked":false,"reason":"not_eligible","ts":"2026-04-23T18:15:01.010Z","id":"ev_mobsxdw3_d901w109","runId":"root"}
+{"t":"version.verifier.done","versionId":"ver_golden_1","chatId":"chat_thinking","outcome":"skipped","blocked":false,"reason":"not_eligible","ts":"2026-04-23T18:15:01.023Z","id":"ev_mobsxdwf_xj9qylnm","runId":"root"}
+{"t":"version.verifier.done","versionId":"ver_golden_1","chatId":"chat_golden","outcome":"skipped","blocked":false,"reason":"not_eligible","ts":"2026-04-23T18:15:43.888Z","id":"ev_mobsyaz4_71eq51m3","runId":"root"}
+{"t":"version.verifier.done","versionId":"ver_golden_1","chatId":"chat_thinking","outcome":"skipped","blocked":false,"reason":"not_eligible","ts":"2026-04-23T18:15:43.906Z","id":"ev_mobsyazn_81s93thh","runId":"root"}
+{"t":"version.verifier.done","versionId":"ver_golden_1","chatId":"chat_golden","outcome":"skipped","blocked":false,"reason":"not_eligible","ts":"2026-04-23T18:16:34.115Z","id":"ev_mobszdqb_9m7aq3hv","runId":"root"}
+{"t":"version.verifier.done","versionId":"ver_golden_1","chatId":"chat_thinking","outcome":"skipped","blocked":false,"reason":"not_eligible","ts":"2026-04-23T18:16:34.127Z","id":"ev_mobszdqn_r5q1ipho","runId":"root"}

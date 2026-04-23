@@ -51,7 +51,7 @@ describe("POST preview-heartbeat", () => {
       }),
       { params: Promise.resolve({ chatId: "c1" }) },
     );
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(404);
     const body = (await res.json()) as { ok: boolean; reason?: string };
     expect(body.ok).toBe(false);
     expect(body.reason).toBe("no_session");

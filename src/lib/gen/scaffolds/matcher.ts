@@ -31,209 +31,9 @@ import {
   APP_KEYWORDS,
   AUTH_KEYWORDS,
   ECOMMERCE_KEYWORDS,
-  CONTENT_KEYWORDS,
   HOSPITALITY_SERVICE_KEYWORDS,
   STRONG_ECOMMERCE_INTENT,
 } from "./keyword-banks";
-
-/**
- * Professional-service domain keywords that route to the `business-services`
- * scaffold. Split into STRONG (compound terms that are nearly unambiguous —
- * kontorshotell, advokatbyrå, klinik…) and WEAK (single-word hints like
- * konsult, jurist, byrå). Scoring: strong ×2 + weak ×1, so a single strong
- * match is enough, or two weak matches together.
- *
- * Local to matcher.ts (not extracted to keyword-banks) because the scoring
- * function `computeBusinessServicesScore` is tightly coupled to these banks.
- */
-const BUSINESS_SERVICES_STRONG_KEYWORDS = [
-  "kontorshotell",
-  "kontorshotellet",
-  "kontorshotellssida",
-  "coworking",
-  "coworking space",
-  "flexkontor",
-  "kontorsgemenskap",
-  "advokatbyrå",
-  "advokatfirma",
-  "juristbyrå",
-  "juristfirma",
-  "juridisk rådgivning",
-  "redovisningsbyrå",
-  "redovisningsfirma",
-  "revisionsbyrå",
-  "revisionsfirma",
-  "reklambyrå",
-  "designbyrå",
-  "webbyrå",
-  "digitalbyrå",
-  "mediebyrå",
-  "kommunikationsbyrå",
-  "pr-byrå",
-  "eventbyrå",
-  "konsultbyrå",
-  "konsultbolag",
-  "konsultfirma",
-  "mäklarbyrå",
-  "mäklarfirma",
-  "fastighetsbolag",
-  "bemanningsföretag",
-  "bemanningsbolag",
-  "rekryteringsbyrå",
-  "rekryteringsfirma",
-  "arkitektbyrå",
-  "arkitektkontor",
-  "byggfirma",
-  "byggföretag",
-  "städfirma",
-  "städbolag",
-  "målerifirma",
-  "elfirma",
-  "takfirma",
-  "tandklinik",
-  "specialistklinik",
-  "läkarmottagning",
-  "veterinärklinik",
-  "tjänsteföretag",
-  "serviceföretag",
-];
-
-const BUSINESS_SERVICES_WEAK_KEYWORDS = [
-  "byrå",
-  "kontor",
-  "kontoret",
-  "mottagning",
-  "advokat",
-  "jurist",
-  "revision",
-  "revisor",
-  "redovisning",
-  "bokföring",
-  "konsult",
-  "arkitekt",
-  "mäklare",
-  "fastighetsmäklare",
-  "bemanning",
-  "rekrytering",
-  "takläggare",
-  "snickare",
-  "målare",
-  "rörmokare",
-  "elektriker",
-  "hantverkare",
-  "tandläkare",
-  "tandvård",
-  "klinik",
-  "vårdcentral",
-  "veterinär",
-  "fysioterapeut",
-  "psykolog",
-  "terapeut",
-  "lokala tjänster",
-];
-
-/**
- * Swedish SMB keywords. When a prompt contains several of these (frisör,
- * salong, klippning…) the content-site scaffold gets a small boost so
- * single-generic-keyword prompts land on a richer multi-page scaffold
- * instead of the generic landing-page fallback.
- */
-const SWEDISH_BUSINESS_KEYWORDS = [
-  "frisör",
-  "salong",
-  "frisörsalong",
-  "klippning",
-  "styling",
-  "skönhet",
-  "restaurang",
-  "bistro",
-  "café",
-  "cafe",
-  "meny",
-  "lunch",
-  "à la carte",
-  "catering",
-  "matställe",
-  "bilverkstad",
-  "verkstad",
-  "reparation",
-  "reparationer",
-  "däckbyte",
-  "besiktning",
-  "mekaniker",
-  "yoga",
-  "yogastudio",
-  "meditation",
-  "retreat",
-  "retreats",
-  "pilates",
-  "gym",
-  "tränare",
-  "träning",
-  "advokat",
-  "advokatbyrå",
-  "advokatfirma",
-  "juridik",
-  "jurist",
-  "arbetsrätt",
-  "fastighetsrätt",
-  "affärsjuridik",
-  "takläggare",
-  "takläggning",
-  "fasad",
-  "renovering",
-  "hantverkare",
-  "snickare",
-  "snickeri",
-  "målare",
-  "rörmokare",
-  "elektriker",
-  "byggföretag",
-  "byggfirma",
-  "tandläkare",
-  "tandvård",
-  "klinik",
-  "vårdcentral",
-  "läkare",
-  "veterinär",
-  "redovisning",
-  "redovisningsbyrå",
-  "bokföring",
-  "revision",
-  "revisor",
-  "mäklare",
-  "fastighetsmäklare",
-  "fastighetsbolag",
-  "städfirma",
-  "städbolag",
-  "trädgård",
-  "trädgårdsskötsel",
-  "landskapsarkitekt",
-  "fotograf",
-  "fotostudio",
-  "konsult",
-  "konsultbolag",
-  "konsultfirma",
-  "arkitekt",
-  "arkitektbyrå",
-  "rekrytering",
-  "bemanning",
-  "eventbyrå",
-  "bröllop",
-  "florist",
-  "blomsterhandel",
-  "hundtrimmare",
-  "hundvakt",
-  "ridskola",
-  "ridning",
-  "danssskola",
-  "dans",
-  "musikskola",
-  "studiehjälp",
-  "nacka",
-  "upplev",
-];
-
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -246,12 +46,6 @@ function countKeywordMatches(text: string, keywords: readonly string[]): number 
     );
     return count + (pattern.test(text) ? 1 : 0);
   }, 0);
-}
-
-function computeBusinessServicesScore(text: string): number {
-  const strong = countKeywordMatches(text, BUSINESS_SERVICES_STRONG_KEYWORDS);
-  const weak = countKeywordMatches(text, BUSINESS_SERVICES_WEAK_KEYWORDS);
-  return strong * 2 + weak;
 }
 
 function countPortfolioSignalBoost(text: string): number {
@@ -322,14 +116,12 @@ function buildKeywordScores(
     countKeywordMatches(promptLower, PORTFOLIO_KEYWORDS) + countPortfolioSignalBoost(promptLower);
   const landingScore = countKeywordMatches(promptLower, LANDING_KEYWORDS);
   const blogScore = countKeywordMatches(promptLower, BLOG_KEYWORDS);
-  const contentScore = countKeywordMatches(promptLower, CONTENT_KEYWORDS);
 
   const hospitalityScore = countKeywordMatches(promptLower, HOSPITALITY_SERVICE_KEYWORDS);
   const strongEcommerceScore = countKeywordMatches(promptLower, STRONG_ECOMMERCE_INTENT);
   if (hospitalityScore > 0 && strongEcommerceScore === 0) {
     ecommerceScore = 0;
   }
-  const businessServicesScore = computeBusinessServicesScore(promptLower);
 
   const scores = [
     { id: "auth-pages", score: authScore },
@@ -340,8 +132,6 @@ function buildKeywordScores(
     { id: "portfolio", score: portfolioScore },
     { id: "landing-page", score: landingScore },
     { id: "blog", score: blogScore },
-    { id: "business-services", score: businessServicesScore },
-    { id: "content-site", score: contentScore },
     { id: "base-nextjs", score: 0 },
   ];
 
@@ -394,9 +184,6 @@ function applyBriefKeywordBoost(
   if (countKeywordMatches(combinedText, PORTFOLIO_KEYWORDS) > 0) addBoost("portfolio", 2);
   if (countKeywordMatches(combinedText, SAAS_KEYWORDS) > 0) addBoost("saas-landing", 2);
   if (countKeywordMatches(combinedText, LANDING_KEYWORDS) > 0) addBoost("landing-page", 2);
-  if (countKeywordMatches(combinedText, CONTENT_KEYWORDS) > 0) addBoost("content-site", 2);
-  const briefBusinessServicesScore = computeBusinessServicesScore(combinedText);
-  if (briefBusinessServicesScore > 0) addBoost("business-services", briefBusinessServicesScore);
 
   if (boosts.size === 0) return scores;
   return scores.map((entry) => ({
@@ -525,11 +312,6 @@ function pickBestScaffold(
 /**
  * Synchronous keyword-based scaffold matching.
  * Fast and deterministic -- used as the primary matcher.
- *
- * Swedish business prompts often contain only 1 generic keyword (e.g. "hemsida"),
- * but several domain-specific words ("frisör", "salong", "klippning"). The
- * SWEDISH_BUSINESS_KEYWORDS list boosts the content-site score so these prompts
- * land on a richer multi-page scaffold instead of a generic landing page.
  */
 export function matchScaffold(
   prompt: string,
@@ -552,7 +334,7 @@ export function matchScaffold(
     const strongEcommerceScore = countKeywordMatches(lower, STRONG_ECOMMERCE_INTENT);
     if (hospitalityScore > 0 && strongEcommerceScore === 0) {
       // Domain is hospitality/service — weak ecommerce signals (e.g. "produkt", "meny")
-      // are false positives. Fall through to landing-page/content-site matching.
+      // are false positives. Fall through to landing-page matching.
     } else {
       return getScaffoldById("ecommerce");
     }
@@ -576,36 +358,22 @@ export function matchScaffold(
     return getScaffoldById("app-shell");
   }
 
-
-
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
   const portfolioScore =
     countKeywordMatches(lower, PORTFOLIO_KEYWORDS) +
     countPortfolioSignalBoost(lower);
   const landingScore = countKeywordMatches(lower, LANDING_KEYWORDS);
   const blogScore = countKeywordMatches(lower, BLOG_KEYWORDS);
-  const businessServicesScore = computeBusinessServicesScore(lower);
 
-  const bestSpecific = pickBestScaffold([
+  const bestContent = pickBestScaffold([
     { id: "saas-landing", score: saasScore },
     { id: "portfolio", score: portfolioScore },
-    { id: "business-services", score: businessServicesScore },
     { id: "landing-page", score: landingScore },
     { id: "blog", score: blogScore },
   ]);
 
-  if (bestSpecific) {
-    return bestSpecific;
-  }
-
-  const contentBaseScore = countKeywordMatches(lower, CONTENT_KEYWORDS);
-  const businessBoost = Math.min(
-    countKeywordMatches(lower, SWEDISH_BUSINESS_KEYWORDS),
-    3,
-  );
-  const contentScore = contentBaseScore + businessBoost;
-  if (contentScore >= MIN_SCORE) {
-    return getScaffoldById("content-site");
+  if (bestContent) {
+    return bestContent;
   }
 
   if (buildIntent === "website" || buildIntent === "template") {

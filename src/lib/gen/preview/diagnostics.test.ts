@@ -35,13 +35,13 @@ describe("preview diagnostics helpers", () => {
       "Live-preview byggs fortfarande i VM.",
     );
     expect(describePreviewDiagnosticCode("preview_missing_url")).toBe(
-      "Preview-lank saknas for versionen.",
+      "Preview-länk saknas för versionen.",
     );
     expect(describePreviewDiagnosticCode("preview_ready_timeout")).toBe(
       "Previewn laddade inte klart innan timeout.",
     );
     expect(describePreviewDiagnosticCode("preview_document_unavailable")).toBe(
-      "Previewns iframe-dokument kunde inte lasas.",
+      "Previewns iframe-dokument kunde inte läsas.",
     );
   });
 

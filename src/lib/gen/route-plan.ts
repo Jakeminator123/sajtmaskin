@@ -229,8 +229,8 @@ function collectExplicitRouteRemovals(
 const EXPLICIT_ADD_ROUTE_PATTERNS = [
   /\b(?:add|create|make)\b[\s\S]{0,32}\b(?:new\s+)?(?:page|route)\b/i,
   /\b(?:new\s+)(?:page|route)\b/i,
-  /\b(?:lägg till|skapa)\b[\s\S]{0,32}\b(?:en\s+ny\s+|ny\s+)?(?:\w*sida|route)\b/i,
-  /\b(?:ny\s+)(?:\w*sida|route)\b/i,
+  /\b(?:lägg till|skapa)\b[\s\S]{0,32}\b(?:en\s+ny\s+|ny\s+)?(?:sida|route)\b/i,
+  /\b(?:ny\s+)(?:sida|route)\b/i,
 ];
 
 function hasExplicitAddRouteIntent(prompt: string): boolean {
@@ -309,23 +309,23 @@ function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: Scaff
   switch (resolvedScaffold?.id) {
     case "blog":
       pushRoute(routes, {
-        path: "/blogg",
-        name: "Blogg",
-        intent: "Keep an editorial route for articles and archives. File: app/blogg/page.tsx",
+        path: "/blog",
+        name: "Blog",
+        intent: "Keep an editorial route for articles and archives.",
         required: buildIntent !== "app",
       });
       break;
     case "ecommerce":
       pushRoute(routes, {
-        path: "/produkter",
-        name: "Produkter",
-        intent: "Keep a storefront route for the product catalog. File: app/produkter/page.tsx",
+        path: "/products",
+        name: "Products",
+        intent: "Keep a storefront route for the product catalog.",
         required: true,
       });
       pushRoute(routes, {
-        path: "/varukorg",
-        name: "Varukorg",
-        intent: "Keep a cart route for purchase flow continuity. File: app/varukorg/page.tsx",
+        path: "/cart",
+        name: "Cart",
+        intent: "Keep a cart route for purchase flow continuity.",
         required: false,
       });
       break;

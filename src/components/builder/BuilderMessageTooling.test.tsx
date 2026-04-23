@@ -199,11 +199,16 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("First failure: install")).toBeTruthy();
+    expect(screen.getByText("Första felet: install")).toBeTruthy();
     expect(screen.getByText("1.9s")).toBeTruthy();
     expect(screen.getByText("Total: 3.2s")).toBeTruthy();
     expect(screen.getByText("Start: 12:00:00Z • Slut: 12:00:03Z")).toBeTruthy();
-    expect(screen.getByText("Visual QA: 74/100 BELOW THRESHOLD")).toBeTruthy();
+    expect(
+      screen.getAllByText((_content, node) =>
+        node?.tagName === "DIV" &&
+        Boolean(node?.textContent?.match(/^Visuell QA:\s*74\/100\s*UNDER TRÖSKELVÄRDET\s*$/)),
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it("shows compact verify-lane summary without structured tool cards", () => {
@@ -253,10 +258,10 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Verify: FAIL")).toBeTruthy();
+    expect(screen.getByText("Verifiera: FEL")).toBeTruthy();
     expect(screen.getByText("build (1.8s)")).toBeTruthy();
     expect(screen.getByText("Detalj: Build failed: missing export")).toBeTruthy();
-    expect(screen.getByText("Total: 3.2s • First failure: build")).toBeTruthy();
+    expect(screen.getByText("Total: 3.2s • Första felet: build")).toBeTruthy();
     expect(screen.getByText("Start: 12:00:00Z • Slut: 12:00:03Z")).toBeTruthy();
     expect(screen.getByText("Visual QA: 74/100 BELOW THRESHOLD")).toBeTruthy();
   });
@@ -284,7 +289,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Verify: hoppades över")).toBeTruthy();
+    expect(screen.getByText("Verifiera: hoppades över")).toBeTruthy();
     expect(screen.getByText("Quality gate not configured")).toBeTruthy();
   });
 
@@ -308,7 +313,7 @@ describe("StructuredToolParts", () => {
       />,
     );
 
-    expect(screen.getByText("Verify: fel")).toBeTruthy();
+    expect(screen.getByText("Verifiera: fel")).toBeTruthy();
     expect(screen.getByText("Quality gate request failed (network error)")).toBeTruthy();
   });
 

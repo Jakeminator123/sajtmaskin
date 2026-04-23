@@ -1,0 +1,11 @@
+{
+  "id": "agency-b2b",
+  "prompt": "B2B-konsultbyrå inom hållbarhet, hjälper tillverkande industri att mäta och sänka koldioxidavtryck. Hero, tjänster, case-studies, team, kontakt. Seriös, tillitsskapande ton.",
+  "buildIntent": "website",
+  "expected": {
+    "scaffold": "landing-page",
+    "variant_any_of": ["b2b-professional", "editorial"],
+    "min_routes": 2,
+    "acceptable_scaffolds": ["saas-landing"]
+  }
+}

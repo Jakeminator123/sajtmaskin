@@ -48,7 +48,7 @@ describe("PreviewPanel", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("AI väntar på ditt svar")).toBeTruthy();
+      expect(screen.getByText("Behöver din input")).toBeTruthy();
     });
     expect(
       screen.getByText("Vilken del vill du att jag fokuserar på först?"),
@@ -57,34 +57,9 @@ describe("PreviewPanel", () => {
     expect(screen.getByText("Innehåll")).toBeTruthy();
   });
 
-  it("shows a verification state while a saved version is still verifying", async () => {
-    renderPreviewPanel({
-      previewUrl: null,
-      versionId: "ver_1",
-      activeVersionStatus: "verifying",
-      activeVersionSummary: "Automatic verification in progress.",
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText("Verifierar version")).toBeTruthy();
-    });
-    expect(screen.getByText("Automatic verification in progress.")).toBeTruthy();
-  });
-
-  it("shows a repaired-version handoff state instead of stale repairing", async () => {
-    renderPreviewPanel({
-      previewUrl: null,
-      versionId: "ver_1",
-      activeVersionStatus: "retrying",
-      activeVersionSummary: "Superseded by repaired version ver_2.",
-      activeVersionIsLatest: false,
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText("Byter till reparerad version")).toBeTruthy();
-    });
-    expect(screen.getByText("Superseded by repaired version ver_2.")).toBeTruthy();
-  });
+  // Note: "verifying" and "retrying" version-status surfaces were removed from
+  // the redesigned (Apple-minimal) PreviewPanelEmptyState. The matching tests
+  // were intentionally dropped during the master → frontend/christopher merge.
 
   it("keeps hook order stable when preview URL appears after the empty state", () => {
     vi.stubGlobal(

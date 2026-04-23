@@ -68,7 +68,7 @@ Return a single JSON object (no markdown fences) matching this schema:
     ]
   },
   "scaffold": {
-    "id": "landing-page" | "content-site" | "app-shell" | "...",
+    "id": "landing-page" | "saas-landing" | "app-shell" | "...",
     "label": "Kort svensk etikett",
     "reason": "Varför detta är rätt startpunkt"
   },

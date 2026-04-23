@@ -3,7 +3,7 @@
  * Routes keep auth, credits, and persistence; this module keeps generation SSE meta consistent.
  */
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
-import { isBuildSpecEnabled, type BuildSpec } from "@/lib/gen/build-spec";
+import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
@@ -195,7 +195,6 @@ export function buildOwnEngineGenerationStreamMeta(
     promptReductionRatio: sm.reductionRatio,
     promptStrategyReason: sm.reason,
     promptComplexityScore: sm.complexityScore,
-    buildSpecEnabled: isBuildSpecEnabled(),
     buildSpec: input.buildSpec,
     systemPromptLength: input.engineSystemPromptLength,
     briefApplied: input.metaBriefApplied,

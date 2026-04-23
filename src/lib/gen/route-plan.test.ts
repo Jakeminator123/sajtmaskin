@@ -15,64 +15,65 @@ describe("buildRoutePlan", () => {
     brief: undefined as undefined,
   };
 
-  it("maps Swedish om oss to /om-oss", () => {
+  it("maps Swedish om oss to /om", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
       prompt: "Vi behöver en tydlig sida om oss för byrån.",
     });
-    expect(plan.routes.some((r) => r.path === "/om-oss" && r.name === "Om oss")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/om" && r.name === "Om oss")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/about")).toBe(false);
   });
 
-  it("maps English about/company to /om-oss (Swedish slug)", () => {
+  it("maps English about/company to /about", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
       prompt: "Add an about page and our company story.",
     });
-    expect(plan.routes.some((r) => r.path === "/om-oss" && r.name === "Om oss")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/about" && r.name === "About")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/om")).toBe(false);
   });
 
-  it("does not add /tjanster for a simple one-page bakery prompt", () => {
+  it("does not add /services for a simple one-page bakery prompt", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
       prompt: "En enkelsidig landningssida för ett bageri i Majorna, Göteborg.",
     });
-    expect(plan.routes.some((r) => r.path === "/tjanster")).toBe(false);
-    expect(plan.routes.some((r) => r.path === "/teamet")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/services")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/team")).toBe(false);
     expect(plan.siteType).toBe("one-page");
   });
 
-  it("adds /tjanster when the prompt explicitly says services page", () => {
+  it("adds /services when the prompt explicitly says services page", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
       prompt: "Bygg en sajt med en services page där vi listar allt vi erbjuder.",
     });
-    expect(plan.routes.some((r) => r.path === "/tjanster")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/services")).toBe(true);
   });
 
-  it("does not add /blogg for incidental use of 'post' or 'article'", () => {
+  it("does not add /blog for incidental use of 'post' or 'article'", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
       prompt: "Vi ska posta information om vårt bageri online.",
     });
-    expect(plan.routes.some((r) => r.path === "/blogg")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/blog")).toBe(false);
   });
 
-  it("adds /blogg when the prompt explicitly says blogg", () => {
+  it("adds /blog when the prompt explicitly says blog", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
       prompt: "Sajten behöver en blogg där vi delar recept.",
     });
-    expect(plan.routes.some((r) => r.path === "/blogg")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
   });
 
-  it("maps booking intent to /boka instead of /kontakt", () => {
+  it("maps booking intent to /booking instead of /contact", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
       prompt: "Skapa en bokningssida för reservationer och tider.",
     });
-    expect(plan.routes.some((r) => r.path === "/boka")).toBe(true);
-    expect(plan.routes.some((r) => r.path === "/kontakt")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/booking")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(false);
   });
 
   it("normalizes colon-style dynamic brief paths into App Router segment syntax", () => {
@@ -154,7 +155,7 @@ describe("buildRoutePlan", () => {
     });
     expect(plan.provenance.primarySource).toBe("scaffold");
     expect(plan.provenance.sources).toEqual(["prompt", "scaffold"]);
-    expect(plan.routes.some((r) => r.path === "/blogg")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
   });
 
   it("follow-up keeps existing routes and does not add scaffold defaults by default", () => {
@@ -168,21 +169,21 @@ describe("buildRoutePlan", () => {
       existingRoutePaths: ["/", "/om"],
     });
     expect(plan.routes.map((r) => r.path)).toEqual(["/", "/om"]);
-    expect(plan.routes.some((r) => r.path === "/produkter")).toBe(false);
-    expect(plan.routes.some((r) => r.path === "/varukorg")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
     expect(plan.reason).toContain("Follow-up mode preserves existing App Router routes");
   });
 
   it("follow-up does not add routes from incidental keyword matches without explicit add intent", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
-      prompt: "Ändra kontakt-text i footern och uppdatera färgerna.",
+      prompt: "Ändra contact text i footern och uppdatera färgerna.",
       resolvedScaffold: getScaffoldById("landing-page"),
       generationMode: "followUp",
       existingRoutePaths: ["/", "/om"],
     });
     expect(plan.routes.map((r) => r.path)).toEqual(["/", "/om"]);
-    expect(plan.routes.some((r) => r.path === "/kontakt")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(false);
   });
 
   it("follow-up can still add explicitly requested new routes", () => {
@@ -190,19 +191,19 @@ describe("buildRoutePlan", () => {
     expect(ecommerceScaffold).not.toBeNull();
     const plan = buildRoutePlan({
       ...websiteBase,
-      prompt: "Lägg till en ny kontaktsida.",
+      prompt: "Lägg till en tydlig contact-sida.",
       resolvedScaffold: ecommerceScaffold,
       generationMode: "followUp",
       existingRoutePaths: ["/", "/om"],
     });
-    expect(plan.routes.some((r) => r.path === "/kontakt")).toBe(true);
-    expect(plan.routes.some((r) => r.path === "/produkter")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
   });
 
   it("merges brief routes with prompt-requested additions instead of early returning brief only", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
-      prompt: "Lägg till en tydlig blogg-sida.",
+      prompt: "Lägg till en tydlig blog-sida.",
       brief: {
         pages: [
           { path: "/", name: "Hem", purpose: "Landningssida" },
@@ -212,7 +213,7 @@ describe("buildRoutePlan", () => {
       resolvedScaffold: getScaffoldById("landing-page"),
     });
     expect(plan.routes.some((r) => r.path === "/om")).toBe(true);
-    expect(plan.routes.some((r) => r.path === "/blogg")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
     expect(plan.provenance.sources).toEqual(["brief", "prompt"]);
   });
 
@@ -234,9 +235,9 @@ describe("buildRoutePlan", () => {
       prompt: "Ta bort kontaktsidan och behåll resten oförändrat.",
       resolvedScaffold: getScaffoldById("landing-page"),
       generationMode: "followUp",
-      existingRoutePaths: ["/", "/kontakt", "/om"],
+      existingRoutePaths: ["/", "/contact", "/om"],
     });
-    expect(plan.routes.some((r) => r.path === "/kontakt")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(false);
     expect(plan.routes.some((r) => r.path === "/om")).toBe(true);
   });
 
@@ -246,9 +247,9 @@ describe("buildRoutePlan", () => {
       prompt: "Gor startsidan utan bokningskansla men behall kontaktsidan.",
       resolvedScaffold: getScaffoldById("landing-page"),
       generationMode: "followUp",
-      existingRoutePaths: ["/", "/kontakt", "/om"],
+      existingRoutePaths: ["/", "/contact", "/om"],
     });
-    expect(plan.routes.some((r) => r.path === "/kontakt")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/om")).toBe(true);
   });
 

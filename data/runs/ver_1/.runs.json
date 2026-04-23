@@ -1,0 +1,14 @@
+[
+  {
+    "runId": "root",
+    "versionId": "ver_1",
+    "startedAt": "2026-04-23T18:14:56.919Z",
+    "reason": "initial"
+  },
+  {
+    "runId": "repair-1",
+    "versionId": "ver_1",
+    "startedAt": "2026-04-23T18:14:57.008Z",
+    "reason": "finalize-repair-pass"
+  }
+]

@@ -83,15 +83,15 @@ describe("buildAutoFixPrompt", () => {
       meta: {
         scaffoldRetry: {
           currentScaffoldLabel: "Landing page",
-          suggestedScaffoldLabel: "Content site",
-          suggestedScaffoldId: "content-site",
+          suggestedScaffoldLabel: "Portfolio",
+          suggestedScaffoldId: "portfolio",
           reason: "The current structure fights the requested information density.",
         },
       },
     });
 
     expect(prompt).toContain("Current scaffold: Landing page");
-    expect(prompt).toContain("Suggested repair scaffold: Content site");
+    expect(prompt).toContain("Suggested repair scaffold: Portfolio");
     expect(prompt).toContain("The current structure fights the requested information density.");
   });
 
@@ -102,14 +102,14 @@ describe("buildAutoFixPrompt", () => {
       reasons: ["build failed"],
       repair: {
         scaffoldRetry: {
-          labels: ["Landing page", "Content site"],
+          labels: ["Landing page", "Portfolio"],
           reason: "The current structure fights the requested information density.",
         },
       },
     });
 
     expect(prompt).toContain("Current scaffold: Landing page");
-    expect(prompt).toContain("Suggested repair scaffold: Content site");
+    expect(prompt).toContain("Suggested repair scaffold: Portfolio");
   });
 
   it("renders verify-lane timing metadata from repair context", () => {

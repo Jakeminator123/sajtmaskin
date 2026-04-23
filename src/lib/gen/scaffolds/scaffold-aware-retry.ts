@@ -156,8 +156,8 @@ function suggestHeuristicScaffold(
         ? getScaffoldById("app-shell")
         : getScaffoldById("dashboard");
     }
-    if (currentScaffold.id === "landing-page" || currentScaffold.id === "base-nextjs") {
-      return getScaffoldById("content-site");
+    if (currentScaffold.id === "base-nextjs") {
+      return getScaffoldById("landing-page");
     }
   }
 

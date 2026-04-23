@@ -21,7 +21,6 @@ import {
   routePathToPageFilePath,
 } from "./finalize-preflight/shell-pages";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
-import { findCriticalPlaceholderHits } from "@/lib/gen/eval/checks";
 import {
   crossCheckHrefsAgainstRoutes,
   extractHrefsFromFiles,
@@ -214,21 +213,6 @@ function createIssue(
   };
 }
 
-/**
- * Public helper so finalize-version can synthesize preflight issues
- * after the main preflight has already run (e.g. shrink-guard block,
- * placeholder-verifier block). Keeps the category-resolution logic in
- * one place.
- */
-export function createFinalizePreflightIssue(
-  file: string,
-  severity: "error" | "warning",
-  message: string,
-  category?: PreflightIssueCategory | null,
-): FinalizePreflightIssue {
-  return createIssue(file, severity, message, category);
-}
-
 function buildContractBackedRoutePlan(
   orchestrationContract: OrchestrationContract | null | undefined,
 ): RoutePlan | null {
@@ -409,17 +393,6 @@ export async function runFinalizePreflight({
         language: file.language || inferCodeFenceLanguage(file.path),
       })),
     );
-
-    const preValidationAutofix = await runAutoFix(mergedProjectContent, { chatId, model: _model });
-    if (preValidationAutofix.fixedContent !== mergedProjectContent) {
-      mergedProjectContent = preValidationAutofix.fixedContent;
-      const reFixedProject = parseCodeProject(mergedProjectContent);
-      if (reFixedProject.files.length > 0) {
-        finalFiles = reFixedProject.files;
-        nextFilesJson = JSON.stringify(finalFiles);
-      }
-    }
-
     let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
     if (!mergedSyntax.valid) {
       devLogAppend("in-progress", {
@@ -436,9 +409,9 @@ export async function runFinalizePreflight({
       // handled by the deterministic mechanical pipeline. Saves 1 (often
       // wasted) LLM-fixer call per follow-up.
       //
-      // Default ON (FEATURES.skipDoubleValidateAndFixOnMerge=true). Toggle
-      // off via SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE=false to
-      // restore the legacy validateAndFix behaviour during rollback.
+      // Hardcoded ON (FEATURES.skipDoubleValidateAndFixOnMerge=true) since
+      // omtag-04 (2026-04-23). Revert via code if the legacy validateAndFix
+      // behaviour is ever needed again.
       if (FEATURES.skipDoubleValidateAndFixOnMerge) {
         const mechanicalStartedAt = Date.now();
         try {
@@ -588,39 +561,6 @@ export async function runFinalizePreflight({
           ),
         );
       }
-    }
-
-    // Bracket-placeholder guard. If the LLM left scaffold stubs like
-    // `[Rubrik som säger ...]`, `[Tjänst 1]`, `[Bransch]`, `[Ort]` in
-    // critical files (app/page.tsx, app/layout.tsx) we treat that as a
-    // preview-blocking finalize error so the user is not shown a site
-    // with visible `[...]` placeholders. Non-critical files get a warning.
-    const placeholderHits = findCriticalPlaceholderHits(completeProjectFiles);
-    if (placeholderHits.length > 0) {
-      for (const hit of placeholderHits) {
-        const sample = hit.samples.slice(0, 3).join(", ");
-        preflightIssues.push(
-          createIssue(
-            hit.file,
-            "error",
-            `Bracket placeholder(s) left in scaffold output (${hit.count} hits): ${sample}`,
-            "code_structure_failure",
-          ),
-        );
-      }
-      if (!previewBlockingReason) {
-        const firstFile = placeholderHits[0]?.file ?? "app/page.tsx";
-        previewBlockingReason = `Placeholder-text kvar i ${firstFile} — modellen fyllde inte i scaffoldstubbarna.`;
-      }
-      devLogAppend("in-progress", {
-        type: "placeholder-guard.block",
-        chatId,
-        hits: placeholderHits.map((entry) => ({
-          file: entry.file,
-          count: entry.count,
-          samples: entry.samples,
-        })),
-      });
     }
 
     const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));

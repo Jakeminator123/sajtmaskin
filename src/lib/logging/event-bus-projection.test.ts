@@ -1,0 +1,245 @@
+/**
+ * OMTAG-06 — `selectVersionStatus` projection tests.
+ *
+ * Ten scenarios (> 8 required by acceptance) covering every lifecycle
+ * branch the UI consumes from the bus:
+ *
+ *   1. empty stream → idle
+ *   2. streaming tokens → streaming
+ *   3. autofix + syntax + preflight clean → preflighting
+ *   4. preflight blocked → blocked
+ *   5. verifier failed → failed
+ *   6. repair started (no completion) → repairing
+ *   7. repair success (new pass clears blockers) → preflighting
+ *   8. build-error at end of stream → failed
+ *   9. done terminates → done
+ *  10. multi-run flush-fix (repair pass aggregation)
+ */
+
+import { describe, expect, it } from "vitest";
+import { selectVersionStatus } from "./event-bus-projection";
+import type { EngineEvent } from "./event-bus-types";
+
+const BASE = {
+  runId: "root",
+  versionId: "v1",
+  chatId: "c1",
+};
+
+function ev<T extends EngineEvent["t"]>(
+  t: T,
+  extra: Omit<Extract<EngineEvent, { t: T }>, "t" | "id" | "ts" | "versionId" | "chatId" | "runId"> &
+    Partial<{ id: string; ts: string; runId: string; versionId: string }>,
+): Extract<EngineEvent, { t: T }> {
+  return {
+    t,
+    id: extra.id ?? `${t}-${Math.random().toString(36).slice(2, 8)}`,
+    ts: extra.ts ?? "2026-04-23T10:00:00.000Z",
+    versionId: extra.versionId ?? BASE.versionId,
+    chatId: BASE.chatId,
+    runId: extra.runId ?? BASE.runId,
+    ...(extra as object),
+  } as Extract<EngineEvent, { t: T }>;
+}
+
+describe("selectVersionStatus", () => {
+  it("empty stream projects to idle", () => {
+    const status = selectVersionStatus([]);
+    expect(status).toEqual({
+      runId: null,
+      phase: "idle",
+      previewBlocked: false,
+      verificationBlocked: false,
+      repairPassIndex: 0,
+      lastBuildError: null,
+      eventCount: 0,
+      done: false,
+      verifierOutcome: null,
+    });
+  });
+
+  it("streaming token progress surfaces as streaming", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.stream.tokenProgress", { phase: "output", chars: 1024 }),
+    ]);
+    expect(status.phase).toBe("streaming");
+    expect(status.eventCount).toBe(2);
+    expect(status.runId).toBe("root");
+  });
+
+  it("clean autofix + syntax + preflight settles on preflighting", () => {
+    const status = selectVersionStatus([
+      ev("version.started", {}),
+      ev("version.autofix.result", { fixes: 3, warnings: 0, dependencies: 1 }),
+      ev("version.syntax.pass", { pass: 1, errors: 0, phase: "ok" }),
+      ev("version.preflight", {
+        filesChecked: 42,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+    ]);
+    expect(status.phase).toBe("preflighting");
+    expect(status.previewBlocked).toBe(false);
+    expect(status.verificationBlocked).toBe(false);
+  });
+
+  it("preflight blockers project to blocked even with a subsequent idle emit", () => {
+    const status = selectVersionStatus([
+      ev("version.started", {}),
+      ev("version.preflight", {
+        filesChecked: 10,
+        issueCount: 2,
+        errorCount: 2,
+        warningCount: 0,
+        previewBlocked: true,
+        verificationBlocked: true,
+        previewBlockingReason: "missing-app-shell",
+      }),
+    ]);
+    expect(status.phase).toBe("blocked");
+    expect(status.previewBlocked).toBe(true);
+    expect(status.verificationBlocked).toBe(true);
+  });
+
+  it("verifier failure surfaces as failed", () => {
+    const status = selectVersionStatus([
+      ev("version.started", {}),
+      ev("version.preflight", {
+        filesChecked: 10,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", {
+        outcome: "failed",
+        blocked: true,
+        findings: [{ id: "build", detail: "npm run build failed" }],
+      }),
+    ]);
+    expect(status.phase).toBe("failed");
+    expect(status.verifierOutcome).toBe("failed");
+    expect(status.verificationBlocked).toBe(true);
+  });
+
+  it("repair started without completion projects to repairing", () => {
+    const status = selectVersionStatus([
+      ev("version.started", {}),
+      ev("version.verifier.done", { outcome: "failed", blocked: true }),
+      ev("version.repair.started", {
+        reason: "quality-gate-failed",
+        trigger: "server-verify",
+        runId: "repair-1",
+      }),
+      ev("version.repair.passIndex", { passIndex: 1, runId: "repair-1" }),
+    ]);
+    expect(status.phase).toBe("repairing");
+    expect(status.repairPassIndex).toBe(1);
+    expect(status.runId).toBe("repair-1");
+  });
+
+  it("repair success clears blockers after clean save", () => {
+    const status = selectVersionStatus([
+      ev("version.verifier.done", { outcome: "failed", blocked: true }),
+      ev("version.repair.started", { reason: "build-error", trigger: "build-error", runId: "repair-1" }),
+      ev("version.repair.passIndex", { passIndex: 1, runId: "repair-1" }),
+      ev("version.saved", {
+        previewBlocked: false,
+        verificationBlocked: false,
+        runId: "repair-1",
+      }),
+    ]);
+    expect(status.phase).toBe("preflighting");
+    expect(status.verificationBlocked).toBe(false);
+    expect(status.repairPassIndex).toBe(1);
+    expect(status.lastBuildError).toBeNull();
+  });
+
+  it("build-error at end of stream projects to failed and keeps error", () => {
+    const status = selectVersionStatus([
+      ev("version.started", {}),
+      ev("version.preflight", {
+        filesChecked: 10,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.build.error", {
+        error: { stage: "install", message: "pnpm install failed", failureCode: "EPERM" },
+        level: "error",
+      }),
+    ]);
+    expect(status.phase).toBe("failed");
+    expect(status.lastBuildError).toEqual({
+      stage: "install",
+      message: "pnpm install failed",
+      failureCode: "EPERM",
+    });
+    expect(status.verificationBlocked).toBe(true);
+  });
+
+  it("`version.done` terminates the stream regardless of prior blockers", () => {
+    const status = selectVersionStatus([
+      ev("version.started", {}),
+      ev("version.preflight", {
+        filesChecked: 10,
+        issueCount: 5,
+        errorCount: 5,
+        warningCount: 0,
+        previewBlocked: true,
+        verificationBlocked: true,
+      }),
+      ev("version.done", { durationMs: 12345, previewUrl: "https://example.test" }),
+    ]);
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
+    // Blockers are still reflected — the projection never lies about
+    // whether the version was blocked, it just marks the stream as done.
+    expect(status.previewBlocked).toBe(true);
+  });
+
+  it("multi-run aggregation (repair-pass flush-fix) preserves every event", () => {
+    const status = selectVersionStatus([
+      // Original run.
+      ev("version.started", { runId: "root" }),
+      ev("version.preflight", {
+        filesChecked: 10,
+        issueCount: 1,
+        errorCount: 1,
+        warningCount: 0,
+        previewBlocked: true,
+        verificationBlocked: true,
+        runId: "root",
+      }),
+      ev("version.verifier.done", { outcome: "failed", blocked: true, runId: "root" }),
+      // Repair pass — new runId, but same versionId.
+      ev("version.repair.started", {
+        reason: "quality-gate-failed",
+        trigger: "server-verify",
+        runId: "repair-1",
+      }),
+      ev("version.repair.passIndex", { passIndex: 1, runId: "repair-1" }),
+      ev("version.saved", {
+        previewBlocked: false,
+        verificationBlocked: false,
+        runId: "repair-1",
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false, runId: "repair-1" }),
+      ev("version.done", { durationMs: 30_000, runId: "repair-1" }),
+    ]);
+    // Flush-fix: old timeline-writer would have only kept 2 events in
+    // the repair folder. The bus aggregates both runs; done wins.
+    expect(status.phase).toBe("done");
+    expect(status.eventCount).toBe(8);
+    expect(status.repairPassIndex).toBe(1);
+    expect(status.verifierOutcome).toBe("passed");
+    expect(status.runId).toBe("repair-1");
+  });
+});

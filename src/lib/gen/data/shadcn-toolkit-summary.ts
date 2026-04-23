@@ -79,7 +79,6 @@ const SCAFFOLD_PRIMARY_GROUPS: Partial<Record<ScaffoldId, readonly string[]>> = 
   ecommerce: ["Core primitives", "Navigation & shell", "Forms & inputs", "Data, charts & collections", "Overlays & reveals", "Feedback & status"],
   "app-shell": ["Core primitives", "Navigation & shell", "Forms & inputs", "Data, charts & collections", "Overlays & reveals", "Feedback & status", "Search, command & date picking"],
   "auth-pages": ["Core primitives", "Forms & inputs", "Feedback & status"],
-  "content-site": ["Core primitives", "Navigation & shell", "Data, charts & collections"],
   "base-nextjs": [],
 };
 

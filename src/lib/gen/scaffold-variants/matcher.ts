@@ -339,12 +339,32 @@ export async function pickScaffoldVariantAsync(
 
   // Only consider candidates that actually cleared the floor; otherwise the
   // hash-modulo could land on a variant lacking embeddings entirely.
-  const topCandidates = ranked
-    .filter((entry) => entry.score >= VARIANT_EMBEDDING_MIN_SCORE)
-    .slice(0, 3);
-  if (topCandidates.length === 0) {
+  const qualifying = ranked.filter(
+    (entry) => entry.score >= VARIANT_EMBEDDING_MIN_SCORE,
+  );
+  if (qualifying.length === 0) {
     return pickScaffoldVariant(input);
   }
+
+  // Rotera bara mellan toppvarianter som faktiskt är *nära varandra*.
+  // Tidigare: `slice(0, 3)` och alltid hash-modulo over top-3 — gav
+  // corporate-grid 0/20 i 2026-04-18 landing-audit trots att dess
+  // embedding-cosine var högst för B2B/consulting-prompts (OMTAG fas 2·B / E7).
+  // Nu: kräv att toppresultatet inte leder över #2 med mer än
+  // `VARIANT_DOMINANT_MARGIN` för att rotationen ska slå in; annars vinner
+  // toppen rakt av. Bevarar variation mellan sessioner när cosine-fältet är
+  // jämnt men skyddar dominanta embedding-vinster.
+  const VARIANT_DOMINANT_MARGIN = 0.05;
+  const top = qualifying[0]!;
+  if (
+    qualifying.length === 1 ||
+    top.score - qualifying[1]!.score >= VARIANT_DOMINANT_MARGIN
+  ) {
+    return top.variant;
+  }
+  const tiedCandidates = qualifying
+    .filter((entry) => top.score - entry.score < VARIANT_DOMINANT_MARGIN)
+    .slice(0, 3);
   const hash = hashSeed(buildVariantSeedKey(input));
-  return topCandidates[hash % topCandidates.length]?.variant ?? variants[0] ?? null;
+  return tiedCandidates[hash % tiedCandidates.length]?.variant ?? top.variant;
 }

@@ -26,7 +26,7 @@ describe("matchScaffold", () => {
     const prompt =
       "Jag vill ha en hemsida för restaurangen Marias matrestaurang med meny, om oss, bokning och kontakt.";
 
-    expect(matchScaffold(prompt, "website")?.id).toBe("content-site");
+    expect(matchScaffold(prompt, "website")?.id).toBe("landing-page");
   });
 
   it("does not route restaurant prompts with product-like words to ecommerce", () => {
@@ -62,30 +62,7 @@ describe("matchScaffold", () => {
     const prompt =
       "Bygg en företagshemsida för ett konsultbolag med galleri, tjänster, testimonials och kontakt.";
 
-    expect(matchScaffold(prompt, "website")?.id).toBe("business-services");
-  });
-
-  it("routes kontorshotell prompts to the business-services scaffold", () => {
-    const prompt =
-      "Bygg en hemsida för DG97 Kontorshotell på Drottninggatan i Stockholm med tjänster, priser, team och kontakt.";
-
-    expect(matchScaffold(prompt, "website")?.id).toBe("business-services");
-  });
-
-  it("routes advokatbyrå and redovisningsbyrå prompts to business-services", () => {
-    expect(
-      matchScaffold("Hemsida för en advokatbyrå specialiserad på arbetsrätt.", "website")?.id,
-    ).toBe("business-services");
-    expect(
-      matchScaffold("Sajt åt vår redovisningsbyrå med paket och bokföring.", "website")?.id,
-    ).toBe("business-services");
-  });
-
-  it("routes klinik prompts with service context to business-services", () => {
-    const prompt =
-      "En hemsida för en specialistklinik med mottagning, team, priser och kontakt i Stockholm.";
-
-    expect(matchScaffold(prompt, "website")?.id).toBe("business-services");
+    expect(matchScaffold(prompt, "website")?.id).toBe("landing-page");
   });
 
   it("keeps website intent on content scaffolds for app-like cinematic marketing prompts", () => {
@@ -111,12 +88,12 @@ describe("matchScaffold", () => {
     });
 
     const result = await matchScaffoldAuto(
-      "Bygg en företagshemsida med tjänster, kontakt och om oss.",
+      "Bygg en företagshemsida för ett konsultbolag med tjänster, kontakt och om oss.",
       "website",
     );
 
-    expect(result.scaffold?.id).toBe("content-site");
-    expect(result.meta.selectionConfidence).toBe("medium");
+    expect(result.scaffold?.id).toBe("landing-page");
+    expect(result.meta.selectionConfidence).toBe("low");
     expect(result.meta.semanticUnavailableReason).toBe("missing_api_key");
   });
 
@@ -142,7 +119,7 @@ describe("matchScaffold", () => {
 
     expect(result.scaffold?.id).toBe("portfolio");
     expect(result.meta.selectionMethod).toBe("embedding");
-    expect(result.meta.embeddingOverrideReason).toBe("non_generic_strength_win");
+    expect(result.meta.embeddingOverrideReason).toBe("generic_keyword_override");
   });
 
   it("does not override a generic keyword pick when embedding score is below generic threshold", async () => {
@@ -165,8 +142,8 @@ describe("matchScaffold", () => {
       "website",
     );
 
-    expect(result.scaffold?.id).toBe("portfolio");
-    expect(result.meta.selectionMethod).toBe("embedding");
+    expect(result.scaffold?.id).toBe("landing-page");
+    expect(result.meta.selectionMethod).toBe("default");
   });
 
   it("uses brief query context to boost scaffold keyword matching", async () => {

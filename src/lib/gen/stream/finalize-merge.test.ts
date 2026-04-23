@@ -1,0 +1,203 @@
+/**
+ * OMTAG 1·05 — tests för scaffold-default-blockering av `app/page.tsx`.
+ *
+ * Innan fixen: om LLM skrev om `app/layout.tsx` men inte `app/page.tsx`,
+ * persisterade mergen scaffold-defaultens page.tsx under användarens
+ * layout. Resultat: "Nordic Future Summit"-innehåll under en ny brand.
+ *
+ * Efter fixen: scaffold-defaultens `app/page.tsx` EXCLUDERAS ur merge-basen.
+ * Om LLM inte emittade sin egen page.tsx hamnar den inte i det slutliga
+ * filesJson:t och finalize-version markerar versionen verification-blocked
+ * via en ny preflight-issue i category `code_structure_failure`.
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
+import { mergeGeneratedProjectFiles } from "./finalize-merge";
+
+vi.mock("@/lib/logging/devLog", () => ({
+  devLogAppend: vi.fn(),
+  devLogFinalizeSite: vi.fn(),
+}));
+vi.mock("@/lib/utils/debug", () => ({
+  warnLog: vi.fn(),
+  debugLog: vi.fn(),
+  infoLog: vi.fn(),
+  errorLog: vi.fn(),
+}));
+vi.mock("@/lib/gen/autofix/rules/scaffold-import-checker", () => ({
+  checkScaffoldImports: (files: unknown) => ({ files, fixes: [] }),
+}));
+vi.mock("@/lib/gen/autofix/rules/cross-file-import-checker", () => ({
+  checkCrossFileImports: (files: unknown) => ({ files, fixes: [] }),
+}));
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  getPreferredVersion: vi.fn(),
+  getLatestVersion: vi.fn(),
+  getVersionById: vi.fn(),
+}));
+vi.mock("@/lib/observability/metrics", () => ({
+  incIngressEvent: vi.fn(),
+}));
+
+function makeScaffold(): ScaffoldManifest {
+  return {
+    id: "test-scaffold",
+    label: "Test Scaffold",
+    description: "test",
+    version: "1.0.0",
+    siteKind: "landing-page",
+    features: [],
+    promptHints: [],
+    files: [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <div>Scaffold default</div>; }",
+      },
+      {
+        path: "app/layout.tsx",
+        content:
+          "export default function Layout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+      },
+      {
+        path: "app/globals.css",
+        content: "/* scaffold globals */",
+      },
+      {
+        path: "tailwind.config.ts",
+        content: "export default {};",
+      },
+    ],
+  } as unknown as ScaffoldManifest;
+}
+
+describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("flags missingEmittedEssentials when LLM skipped app/page.tsx on init", () => {
+    const scaffold = makeScaffold();
+    const generatedFiles = [
+      {
+        path: "app/layout.tsx",
+        content:
+          "export default function Layout({ children }: { children: React.ReactNode }) { return <html lang='sv'><body className='bg-stone-950'>{children}</body></html>; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c1",
+      originalFilesJson: "[]",
+      generatedFiles,
+      resolvedScaffold: scaffold,
+      previousFiles: undefined,
+    });
+
+    expect(result.scaffoldDefaultsBlocked).toEqual([
+      { path: "app/page.tsx", emittedByLlm: false },
+    ]);
+    expect(result.missingEmittedEssentials).toEqual(["app/page.tsx"]);
+
+    // Final merged files should NOT contain a page.tsx (scaffold-default was blocked).
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{ path: string }>;
+    const paths = new Set(mergedFiles.map((f) => f.path));
+    expect(paths.has("app/page.tsx")).toBe(false);
+    expect(paths.has("app/layout.tsx")).toBe(true);
+    expect(paths.has("app/globals.css")).toBe(true);
+    expect(paths.has("tailwind.config.ts")).toBe(true);
+  });
+
+  it("accepts LLM-emitted app/page.tsx and does not flag it as missing", () => {
+    const scaffold = makeScaffold();
+    const generatedFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>Brand site for Pulseframe</h1>; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c2",
+      originalFilesJson: "[]",
+      generatedFiles,
+      resolvedScaffold: scaffold,
+      previousFiles: undefined,
+    });
+
+    expect(result.scaffoldDefaultsBlocked).toEqual([
+      { path: "app/page.tsx", emittedByLlm: true },
+    ]);
+    expect(result.missingEmittedEssentials).toEqual([]);
+
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const page = mergedFiles.find((f) => f.path === "app/page.tsx");
+    expect(page).toBeDefined();
+    expect(page!.content).toContain("Pulseframe");
+    expect(page!.content).not.toContain("Scaffold default");
+  });
+
+  it("does not engage scaffold-default-block on follow-up merges", () => {
+    // Follow-up path: previousFiles drives the merge base, scaffold isn't used.
+    const scaffold = makeScaffold();
+    const previousFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>Prior version</h1>; }",
+        language: "tsx",
+      },
+    ];
+    const generatedFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>New version</h1>; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c3",
+      originalFilesJson: JSON.stringify(previousFiles),
+      generatedFiles,
+      resolvedScaffold: scaffold,
+      previousFiles,
+    });
+
+    expect(result.scaffoldDefaultsBlocked).toEqual([]);
+    expect(result.missingEmittedEssentials).toEqual([]);
+
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const page = mergedFiles.find((f) => f.path === "app/page.tsx");
+    expect(page).toBeDefined();
+    expect(page!.content).toContain("New version");
+  });
+
+  it("keeps `app/layout.tsx` as a legitimate scaffold default (not blacklisted)", () => {
+    // Layout is NOT in the blacklist — LLMs skip it often and the scaffold's
+    // layout is usually the right choice. This test pins that decision so a
+    // future expansion of LLM_ONLY_PATHS doesn't regress it silently.
+    const scaffold = makeScaffold();
+    const generatedFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>Pulseframe</h1>; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c4",
+      originalFilesJson: "[]",
+      generatedFiles,
+      resolvedScaffold: scaffold,
+      previousFiles: undefined,
+    });
+
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    const layout = mergedFiles.find((f) => f.path === "app/layout.tsx");
+    expect(layout).toBeDefined();
+    expect(layout!.content).toContain("html");
+  });
+});
