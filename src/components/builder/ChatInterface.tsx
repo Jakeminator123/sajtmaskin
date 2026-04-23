@@ -29,7 +29,7 @@ import {
 } from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Loader2, Plus, X } from "lucide-react";
+import { FileText, ImageIcon, Layers, Loader2, Plus, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
@@ -200,6 +200,13 @@ interface ChatInterfaceProps {
   currentCode?: string;
   existingUiComponents?: string[];
   continuePlanMode?: boolean;
+  /**
+   * P19 Steg 3 — basversions-indikator. When the active (selected) version
+   * differs from the latest version, the composer shows a badge explaining
+   * which base the next follow-up will be sent against. `null` means the
+   * user is on the latest version and no badge is rendered.
+   */
+  followUpBaseInfo?: { baseLabel: string; latestLabel: string } | null;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -264,6 +271,7 @@ export function ChatInterface({
   currentCode,
   existingUiComponents,
   continuePlanMode = false,
+  followUpBaseInfo,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -855,6 +863,28 @@ export function ChatInterface({
 
   return (
     <div className="border-border bg-background border-t p-4">
+      {followUpBaseInfo && (
+        // P19 Steg 3 — basversions-indikator. The composer sends the next
+        // follow-up against the currently active version (see
+        // `useSendMessage.ts` — `engineBaseVersionId` is populated from
+        // `activeVersionId`). Surface that so the user never assumes they
+        // are on the latest. Uses amber since this is an "attention" state,
+        // not an error state.
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="followup-base-badge"
+          className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200"
+        >
+          <Layers className="mt-0.5 size-3.5 shrink-0 text-amber-300" aria-hidden="true" />
+          <p>
+            Du redigerar <span className="font-semibold">{followUpBaseInfo.baseLabel}</span> — inte senaste
+            {" "}
+            <span className="font-semibold">{followUpBaseInfo.latestLabel}</span>. Nästa meddelande bygger på
+            denna bas.
+          </p>
+        </div>
+      )}
       <PromptInput
         value={input}
         onChange={handleInputChange}
