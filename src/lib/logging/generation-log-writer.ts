@@ -86,6 +86,10 @@ type RunObservabilitySnapshot = {
   buildMethod: string | null;
   promptStrategy: string | null;
   promptType: string | null;
+  // Plan 03 (short): "user" vs "auto_repair" — surfaced so the
+  // observatory can filter auto-repair passes out of follow-up
+  // statistics. Mirrors PromptStrategyMeta.promptSource.
+  promptSource: string | null;
   preflight: Record<string, unknown> | null;
   verifier: Record<string, unknown> | null;
   serverVerify: Record<string, unknown> | null;
@@ -423,6 +427,8 @@ function buildMeta(entries: StoredGenerationEntry[]): Record<string, unknown> {
     imageGenerations: findLastBoolean(entries, "imageGenerations"),
     promptStrategy: readString(latestRequest?.data.promptStrategy) ?? findLastString(entries, "promptStrategy"),
     promptType: readString(latestRequest?.data.promptType) ?? findLastString(entries, "promptType"),
+    // Plan 03 (short): mirrors devLog `comm.request.{create,followup}.promptSource`.
+    promptSource: readString(latestRequest?.data.promptSource) ?? findLastString(entries, "promptSource"),
     buildIntent: findLastString(entries, "buildIntent"),
     buildMethod: findLastString(entries, "buildMethod"),
     durationMs: readNumber(done?.data.durationMs),
@@ -1478,6 +1484,7 @@ function buildRunObservabilitySnapshot(runId: string, entries: StoredGenerationE
     buildMethod: readString(meta.buildMethod),
     promptStrategy: readString(meta.promptStrategy),
     promptType: readString(meta.promptType),
+    promptSource: readString(meta.promptSource),
     preflight: (meta.preflight as Record<string, unknown> | null) ?? null,
     verifier: (meta.verifier as Record<string, unknown> | null) ?? null,
     serverVerify: (meta.serverVerify as Record<string, unknown> | null) ?? null,
@@ -1614,6 +1621,7 @@ function buildSummary(dir: string, entries: StoredGenerationEntry[]): string {
     `- Bilder: ${String(meta.imageGenerations ?? "-")}`,
     `- Promptstrategi: ${readString(meta.promptStrategy) || "-"}`,
     `- Prompttyp: ${readString(meta.promptType) || "-"}`,
+    `- Promptkälla: ${readString(meta.promptSource) || "-"}`,
     `- Build intent: ${readString(meta.buildIntent) || "-"}`,
     `- Build method: ${readString(meta.buildMethod) || "-"}`,
     "",

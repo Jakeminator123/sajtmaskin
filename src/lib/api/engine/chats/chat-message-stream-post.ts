@@ -547,6 +547,7 @@ export async function handleMessageStreamRequest(
                   delete copy.promptFormatted;
                   copy.promptStrategy = promptOrchestration.strategyMeta.strategy;
                   copy.promptType = promptOrchestration.strategyMeta.promptType;
+                  copy.promptSource = promptOrchestration.strategyMeta.promptSource;
                   copy.promptBudgetTarget = promptOrchestration.strategyMeta.budgetTarget;
                   copy.promptOptimizedLength = promptOrchestration.strategyMeta.optimizedLength;
                   copy.promptReductionRatio = promptOrchestration.strategyMeta.reductionRatio;
@@ -557,6 +558,7 @@ export async function handleMessageStreamRequest(
               : {
                   promptStrategy: promptOrchestration.strategyMeta.strategy,
                   promptType: promptOrchestration.strategyMeta.promptType,
+                  promptSource: promptOrchestration.strategyMeta.promptSource,
                   promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
                   promptOptimizedLength: promptOrchestration.strategyMeta.optimizedLength,
                   promptReductionRatio: promptOrchestration.strategyMeta.reductionRatio,
@@ -956,6 +958,10 @@ export async function handleMessageStreamRequest(
           rawMessageLength: message.length,
           slug: metaBuildMethod || metaBuildIntent || undefined,
           promptType: promptOrchestration.strategyMeta.promptType,
+          // Plan 03 (short): observability/backoffice can now filter
+          // auto-repair passes out of follow-up statistics by reading
+          // `promptSource` directly from the comm.request.followup row.
+          promptSource: promptOrchestration.strategyMeta.promptSource,
           promptStrategy: promptOrchestration.strategyMeta.strategy,
           promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
           originalLength: promptOrchestration.strategyMeta.originalLength,

@@ -40,6 +40,7 @@ function parseSseEvents(raw: string): Array<{ event: string; data: unknown }> {
 const strategyMeta: PromptStrategyMeta = {
   strategy: "direct",
   promptType: "freeform",
+  promptSource: "user",
   budgetTarget: 8000,
   originalLength: 10,
   optimizedLength: 10,
