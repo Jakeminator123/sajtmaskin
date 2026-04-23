@@ -71,7 +71,7 @@ Flödet vid freeform create-chat:
 
 ## Viktiga noter
 
-- `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering. Planner/generator kräver nu både den vanliga builder-togglen och att fasen är aktiverad i `phaseRouting.thinkingByTier`; fixer/verifier/manual repair/server verify använder fasinställningen direkt. `SAJTMASKIN_SHOW_THINKING` finns bara kvar som legacy-alias för äldre miljöer.
+- `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering. Planner/generator kräver nu både den vanliga builder-togglen och att fasen är aktiverad i `phaseRouting.thinkingByTier`; fixer/verifier/manual repair/server verify använder fasinställningen direkt. Legacy-aliaset `SAJTMASKIN_SHOW_THINKING` togs bort i omtag-04 (2026-04-23); använd `SAJTMASKIN_DEFAULT_THINKING`.
 - Prompt assist, Deep brief och spec-first ligger **utanför** phase-routingtabellen och fungerar mer som för-/pre-generation-lager.
 - Deep brief och server auto-brief bygger **samma typ av structured brief**, men startas från olika ställen i kedjan.
 - `specMode` är nu `false` som standard; spec-layer-koden finns kvar men körs inte i freeform-flödet.

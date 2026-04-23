@@ -169,22 +169,17 @@ def render(ctx: BackofficeContext) -> None:
             st.dataframe(filtered, use_container_width=True, hide_index=True, height=400)
 
     # ── Follow-up tuning ────────────────────────────────────────────────
-    st.subheader("Follow-up tuning")
+    st.subheader("Follow-up tuning (hårdkodat)")
     st.caption(
-        "Styr hur mycket kontext follow-up-prompter bär. "
-        "Sätts via env-variabler (`SAJTMASKIN_FOLLOWUP_*`). "
-        "Defaults i `src/lib/config.ts` → `FOLLOW_UP_TUNING`."
+        "Konstanter i `src/lib/config.ts` → `FOLLOW_UP_TUNING`. "
+        "Env-overridesen (`SAJTMASKIN_FOLLOWUP_*`) togs bort i omtag-04 "
+        "(2026-04-23) — ändra koden för att justera."
     )
-    tuning_env = {
-        "SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS": ("Antal senaste user+assistant-par i chatthistorik", "4"),
-        "SAJTMASKIN_FOLLOWUP_LIGHT_MAX_CHARS": ("Max tecken filkontext (light policy)", "32000"),
-        "SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY": ("Max filer med innehåll (>14 filer, light)", "4"),
-        "SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW": ("Max filer med innehåll (<=14 filer, light)", "6"),
-    }
-    import os
-    rows = []
-    for key, (desc, default) in tuning_env.items():
-        current = os.environ.get(key, "")
-        rows.append({"Env": key, "Beskrivning": desc, "Default": default, "Aktuellt": current or f"(default: {default})"})
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    tuning_constants = [
+        {"Konstant": "FOLLOW_UP_TUNING.maxRecentHistoryPairs", "Beskrivning": "Antal senaste user+assistant-par i chatthistorik", "Värde": "4"},
+        {"Konstant": "FOLLOW_UP_TUNING.lightContextMaxChars", "Beskrivning": "Max tecken filkontext (light policy)", "Värde": "32 000"},
+        {"Konstant": "FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles", "Beskrivning": "Max filer med innehåll (>14 filer, light)", "Värde": "4"},
+        {"Konstant": "FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles", "Beskrivning": "Max filer med innehåll (<=14 filer, light)", "Värde": "6"},
+    ]
+    st.dataframe(tuning_constants, use_container_width=True, hide_index=True)
 

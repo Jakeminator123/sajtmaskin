@@ -409,9 +409,9 @@ export async function runFinalizePreflight({
       // handled by the deterministic mechanical pipeline. Saves 1 (often
       // wasted) LLM-fixer call per follow-up.
       //
-      // Default ON (FEATURES.skipDoubleValidateAndFixOnMerge=true). Toggle
-      // off via SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE=false to
-      // restore the legacy validateAndFix behaviour during rollback.
+      // Hardcoded ON (FEATURES.skipDoubleValidateAndFixOnMerge=true) since
+      // omtag-04 (2026-04-23). Revert via code if the legacy validateAndFix
+      // behaviour is ever needed again.
       if (FEATURES.skipDoubleValidateAndFixOnMerge) {
         const mechanicalStartedAt = Date.now();
         try {
