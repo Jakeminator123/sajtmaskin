@@ -4,25 +4,32 @@ Senast uppdaterad: 2026-04-23 (efter OMTAG-waven). Alla öppna steg listas i enh
 
 > **Stor händelse 2026-04-23:** 11 uppdrag i OMTAG-waven mergade. Se arkivet [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) och rotfilen `STATUS-2026-04-23-omtag-complete.md`. Flera planer här nedan har delvis bockats av — se top-note i respektive plan-fil.
 
-## Öppna steg (sorterat efter prio + blocker)
+## Öppna steg (konsoliderat efter 2026-04-23-städ)
 
-| # | Plan | Kvarvarande steg | Effort | Prio | Blocker |
-|---|------|------------------|--------|------|---------|
-| A | [`P26-followup-orchestration-glitch.md`](./P26-followup-orchestration-glitch.md) | PR1+PR2 (A-fix + variant-lock) avklarade i OMTAG fas 2·A. PR3–PR9 (quality-gate probe, HMR-spam, raw-message-log, bygg-nu-UX, backoffice build-template, dossier re-embed, three-fiber-dossier) kvarstår. | varierar | Medel | Individuell per PR |
-| B | [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | **C2** — aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Vercel Preview. **D** — aktivera i prod efter latens-mätning. **E** — ta bort lint från bakgrundsgate. | ~3h + mätning | Medel | Latens-data |
-| C | [`dossier-brief-sync.md`](./dossier-brief-sync.md) | P1/P2 polish — frivilligt | — | Låg | — |
-| D | [`E-easy-medium-layer.md`](./E-easy-medium-layer.md) | ~~E1~~ · ~~E2~~ · ~~E4~~ · ~~E5~~ · ~~E6~~ · ~~E7~~ avklarade i OMTAG 2026-04-23. **E3** (`recurringQualityPatterns`) kvar. | ~2h | Medel | — |
-| E | [`M-medium-hard-layer.md`](./M-medium-hard-layer.md) | ~~M1~~ avklarad i OMTAG fas 2·B. **M2** fyll dossier-pool (5-10 nya) — parkerad tills kontraktet stabiliserats. **M3** konsolidera 5 cross-file-import-fixers — parkerad på telemetri. **M4** syntaxFixPasses=1 — skippad (ej testbart med nuvarande eval). | varierande | Medel | Se `avklarat/omtag-2026-04-23/fas2-C-m4-findings.md` |
-| F | [`L1-unified-repair-call.md`](./L1-unified-repair-call.md) | Slå ihop 4 LLM-fixer-anrop till ett `runUnifiedRepair()` | ~3 dagar | Medel | **Parkerad** per OMTAG `PARKED.md` — telemetri-data först |
-| G | [`L2-prompt-kit.md`](./L2-prompt-kit.md) | `prompt-kit/` med canonical `composePrompt()` över alla 4 LLM-callsites | ~4 dagar | Medel | **Parkerad** — system-prompt splittad 2026-04-23 (OMTAG 03), settle först |
-| H | [`L3-dossier-variants.md`](./L3-dossier-variants.md) | Behöver dossiers variants-koncept? Utvärdera efter M2 | ~1 vecka | Låg | **Parkerad** — M2 + observationstid |
-| I | [`cloudagent-paket-A-doc-rewrite.md`](./cloudagent-paket-A-doc-rewrite.md) | 3 dossier v1→v2 doc-omskrivningar (D3, D5, D7) | ~3h | Låg | — (pipeline-paket-B klart i OMTAG fas 2·D) |
-| J | [`P32-request-type-taxonomy.md`](./P32-request-type-taxonomy.md) | Fas A klar. **B** Q&A-shortcut, **C** micro-edit-pipeline, **D** multi-change wrap, **E** external-fetch-tool, **F** LLM-fallback | varierande | Medel | **Fas B-F parkerade** per OMTAG `PARKED.md` |
-| K | [`P33-shadcn-ecosystem-expansion.md`](./P33-shadcn-ecosystem-expansion.md) | **A** fyll capability-luckor, **B** bredda capability-mapping, **C** fler community-registries, **D** embedding-retrieval, **E** llms.txt-synk | ~8h för A+B | Låg | **Parkerad** — produktbeslut |
+### Aktiva (icke-parkerade)
 
-**Summa öppet icke-parkerat arbete:** `P26` rest-PRs + `P34` aktivering + `E3` + dossier-brief polish + `cloudagent-paket-A` + `P32 Fas B` om avparkerat. ~1-2 veckor total.
+| # | Plan | Kvarvarande steg | Prio |
+|---|------|------------------|------|
+| A | [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | **C2** — aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Vercel Preview via Dashboard. **D** — aktivera i prod efter latens. **E** — ta bort lint från bakgrundsgate. | Medel |
+| B | [`cloudagent-paket-A-doc-rewrite.md`](./cloudagent-paket-A-doc-rewrite.md) | 3 dossier v1→v2 doc-omskrivningar (D3, D5, D7) — redo för cloudagent. | Låg |
+| C | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #7 | **E3** — `recurringQualityPatterns` in i codegen-prompt. Enda kvarvarande från E-laget. ~2h. | Medel |
+| D | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #8 | **P26 rest** — PR3–9 från ursprungliga P26-paketet (quality-gate probe, HMR-spam, raw-msg-log, bygg-nu-UX, backoffice build-template, three-fiber-dossier). | Låg–Medel per PR |
+| E | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #9 | **Core-split v2:** `orchestrate.ts` (912) + `route-plan.ts` (742) splittas enligt samma mönster som OMTAG 03. | Medel |
+| F | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #11 | **Event-bus UI-flip** — UI läser `selectVersionStatus(events)` istället för DB-flaggor. | Medel |
 
-**Parkerat per `avklarat/omtag-2026-04-23/PARKED.md`:** L1, L2, L3, M2, P32 B–F, M3, P33, WebContainers — avvakta tills gatekeeper-villkor uppfyllda.
+### Paused per OMTAG `PARKED.md`
+
+| # | Plan | Gatekeeper |
+|---|------|------------|
+| G | [`L1-unified-repair-call.md`](./L1-unified-repair-call.md) | Telemetri-data + stabilt repo |
+| H | [`L2-prompt-kit.md`](./L2-prompt-kit.md) | system-prompt-splittningen (OMTAG 03) settle:ad |
+| I | [`L3-dossier-variants.md`](./L3-dossier-variants.md) | M2 + observationstid |
+| J | [`P32-request-type-taxonomy.md`](./P32-request-type-taxonomy.md) Fas B–F | Stabil follow-up-semantik (✅) + bredare eval-surface |
+| K | [`P33-shadcn-ecosystem-expansion.md`](./P33-shadcn-ecosystem-expansion.md) | Produktbeslut + core-split klart |
+
+**Summa aktivt öppet arbete:** A–F (icke-parkerat) ≈ 1–2 veckor.
+
+**Städat 2026-04-23 (efter OMTAG):** `E-easy-medium-layer.md`, `M-medium-hard-layer.md`, `P26-followup-orchestration-glitch.md`, `P19-old-content-ingress.md`, `dossier-brief-sync.md`, `cloudagent-paket-B-schema-validation.md` → arkiverade. Se [`../avklarat/omtag-2026-04-23/INDEX.md`](../avklarat/omtag-2026-04-23/INDEX.md).
 
 ## Kanonisk checklista
 

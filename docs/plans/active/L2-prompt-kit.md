@@ -1,15 +1,17 @@
 ---
 id: L2
 title: PromptKit — standardiserat prompt-skick + signal-cascade per LLM-anrop
-status: planerad
+status: paused
 created: 2026-04-21
+paused: 2026-04-23
+paused_by: OMTAG-2026-04-23 (se ../avklarat/omtag-2026-04-23/PARKED.md)
 priority: medium
 parent_plan: .cursor/plans/llm-chain-cleanup-2026-04-21.md
 parallel_safe_with: [L1-unified-repair-call]
 blocked_by: []
 owner_files:
   - src/lib/gen/prompt-kit/  (ny mapp)
-  - src/lib/gen/system-prompt.ts (refaktor i mindre pass)
+  - src/lib/gen/system-prompt/ (post-OMTAG-03 paket; tidigare monolit)
   - src/lib/gen/autofix/llm-fixer.ts (consumer-byte)
   - src/lib/gen/verify/verifier-pass.ts (consumer-byte)
   - src/lib/builder/site-brief-generation.ts (consumer-byte)
@@ -17,6 +19,8 @@ read_only_files:
   - docs/architecture/llm-flow-end-to-end.md
   - docs/architecture/llm-signal-flow.md
 ---
+
+> **Paused 2026-04-23:** Parkerad per OMTAG-waven. `system-prompt.ts` är nu splittad (OMTAG fas 1·03) — låt det settla innan PromptKit ovanpå. Se [`../avklarat/omtag-2026-04-23/PARKED.md`](../avklarat/omtag-2026-04-23/PARKED.md).
 
 # L2 — PromptKit
 

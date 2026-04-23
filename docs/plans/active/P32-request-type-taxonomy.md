@@ -1,6 +1,8 @@
 # P32 — Request-Type Taxonomy & Right-Sized Pipelines
 
-**Status:** Fas A implementerad (2026-04-21) — regex-klassificering + loggning på follow-ups med filkontext; pipeline oförändrad. Fas B+ väntar.
+> **Fas B–F paused 2026-04-23:** Parkerade per OMTAG-waven. Kräver stabil follow-up-semantik (fas 2·A ✅) + eval-baseline på bredare surface (fas 0·02 etablerad — minimal, kan behöva utvidgas). Se [`../avklarat/omtag-2026-04-23/PARKED.md`](../avklarat/omtag-2026-04-23/PARKED.md).
+
+**Status:** Fas A implementerad (2026-04-21) — regex-klassificering + loggning på follow-ups med filkontext; pipeline oförändrad. **Fas B–F paused.**
 **Skapad:** 2026-04-21.
 **Triggad av:** SAJ-flödesrunda — användaren vill att olika typer av frågor får olika tunga rörelser ("text-edit" ≠ "ny sida" ≠ "fråga utan generering"). Ska minska wasted compute och göra svar snabbare utan att förlora kvalitet.
 

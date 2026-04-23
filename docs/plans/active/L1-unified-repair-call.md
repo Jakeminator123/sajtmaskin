@@ -1,8 +1,10 @@
 ---
 id: L1
 title: Unified repair-call — slå ihop fyra LLM-fixer-anrop till ett
-status: planerad
+status: paused
 created: 2026-04-21
+paused: 2026-04-23
+paused_by: OMTAG-2026-04-23 (se ../avklarat/omtag-2026-04-23/PARKED.md)
 priority: medium
 parent_plan: .cursor/plans/llm-chain-cleanup-2026-04-21.md
 parallel_safe_with: [L2-prompt-kit]
@@ -15,10 +17,12 @@ owner_files:
   - src/lib/gen/autofix/validate-and-fix.ts
   - src/lib/gen/verify/verifier-pass.ts
   - src/lib/gen/verify/repair-loop.ts
-  - src/lib/gen/stream/finalize-version.ts
+  - src/lib/gen/stream/finalize-version/ (paket efter OMTAG 03-split)
 read_only_files:
   - src/lib/gen/autofix/fixer-prompt.ts
 ---
+
+> **Paused 2026-04-23:** Parkerad per OMTAG-waven eftersom den kräver telemetri-data + stabilt repo. Note att `src/lib/gen/stream/finalize-version.ts` nu är splittad till paket `finalize-version/` (OMTAG fas 1·03) — owner_files uppdaterad. Se [`../avklarat/omtag-2026-04-23/PARKED.md`](../avklarat/omtag-2026-04-23/PARKED.md).
 
 # L1 — Unified repair-call
 

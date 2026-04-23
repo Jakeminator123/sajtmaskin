@@ -1,6 +1,10 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-22 efter LLM-flow-audit + follow-up-pass (commits `a35eaa05e` + `8de85797b` + follow-up), ovanpå cleanup-wave pass 1+2. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13. + 21 nya etapper (Block 0+1+2 i cloud-loopen).** Se `STATUS-2026-04-20.md` i repo-roten för fullständig sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+Senast uppdaterad: 2026-04-23 efter OMTAG-waven (11 uppdrag mergade). Tidigare: 2026-04-22 efter LLM-flow-audit + follow-up-pass. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** Se `STATUS-2026-04-23-omtag-complete.md` (senast) + `STATUS-2026-04-20.md` i repo-roten + [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) för fullständig wave-sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+
+## Avklarat i OMTAG-waven (2026-04-23)
+
+11 uppdrag över 9 agenter i 3 faser. Kärnresultat: 4 monoliter splittade (system-prompt.ts, build-spec.ts, promptAssist.ts, finalize-version.ts → paket), eval-baseline etablerad, 11 env-flaggor borta, dossier-AJV-validator wire:ad, scaffold-default-block för app/page.tsx ("Nordic Future Summit"-klassen), follow-up-predicate konsoliderad, unified status event-bus, content-site→landing-page merged. Detaljer + kördokument: [`../avklarat/omtag-2026-04-23/INDEX.md`](../avklarat/omtag-2026-04-23/INDEX.md). Slutrapport med +delta mot gpt-rapport: `STATUS-2026-04-23-omtag-complete.md` i repo-rot.
 
 ## Avklarat i LLM-flow-audit + follow-up (2026-04-22)
 
@@ -69,16 +73,21 @@ Typecheck 0 fel, lint 0 fel, 1417/1417 tester gröna efter varje commit. Branche
 
 **Aktivt skippat denna wave** (semantisk konflikt-risk mot dagens master): `P7/R2` (system-prompt.ts split), `S1/T2` (build-spec.ts split), `U1/U2` (promptAssist.ts dedupe/extract), `R3/R3+` (finalize-version.ts split). Dessa filer har master-ändringar som skulle kräva semantisk hand-merge; principerna kan appliceras inom framtida commits när någon ändå rör de filerna.
 
-## Öppna punkter (smal lista — 4 saker)
+## Öppna punkter (smal lista)
 
 | # | Område | Beskrivning | Prio | Blocker |
 |---|--------|-------------|------|---------|
 | 1 | UX (P25b-rest) | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. | Låg | Visuell verifiering — [SAJ-23](https://linear.app/sajtmaskin/issue/SAJ-23) |
-| 2 | Ingress (P19 Steg 3) | UX-transparens vid follow-up-bas != latest ("du redigerar version X, inte senaste Y"). | Låg | UI-arbete (4–8h) — [SAJ-22](https://linear.app/sajtmaskin/issue/SAJ-22) |
-| 3 | Eval | Automatisk baseline-uppdatering (CI-script för eval-svit). | Låg | — |
-| 4 | Pre-existing test failures | 4 fail på master (phase-routing 3, model-selection 1) — inte rörda i cloud-loopen. **Dossier-failet borta 2026-04-20** efter v2-refactor (gamla testfilen ersatt). | Medel | Egen PR |
+| 2 | ~~Ingress (P19 Steg 3)~~ | ~~UX-transparens vid follow-up-bas != latest.~~ **Klart via OMTAG fas 2·A 2026-04-23** (amber basversions-badge i chat-composer). | — | — |
+| 3 | Eval | Automatisk baseline-uppdatering (CI-script för eval-svit). Grund etablerad via OMTAG fas 0·02; CI-gate kvar. | Låg | — |
+| 4 | Pre-existing test failures | 4 fail på master (phase-routing 3, model-selection 1) — inte rörda. **Dossier-failet borta 2026-04-20** efter v2-refactor. | Medel | Egen PR |
 | 5 | shadcn (P20 Nivå 3) | Uppströms `registry:font`-ingestion (fullt format). CI-MVP-validering klar 2026-04-20. | Låg | Inte blockerande |
 | 6 | shadcn (P20 Nivå 2) | Uppströms `registry:block`-integration (fullt format). Deterministic-pick shrink-leverans klar 2026-04-20. | Låg | Inte blockerande |
+| 7 | **E3 — recurring quality-patterns** | Flytta 3–5 senaste verifier-fynd per chat in i nästa codegen-prompt som "Quality patterns to avoid" (mönstra efter `recurringFailurePatterns` i `fixer-prompt.ts`). Enda kvarvarande från `E-easy-medium-layer.md` (arkiverad). ~2h effort. Acceptans: 1 verifier-fixer-anrop sparat/followup mätbart via `sajtmaskin_verifier_blocking_total`. | Medel | — |
+| 8 | **P26-rest: PR3–9** | Kvarstående från ursprungliga P26-paketet efter OMTAG fas 2·A (se `../avklarat/omtag-2026-04-23/P19-old-content-ingress.md` och arkiverad P26): PR3 quality-gate readiness probe (HEAD 200 innan gate startar), PR4 HMR-spam mitigation (webpack-hmr → 404-stub), PR5 raw-message logging, PR6 bygg-nu UX-copy, PR7 backoffice scaffold_lifecycle FileNotFound fix, PR8 dossier re-embed (delvis gjord via fas 2·B variant-embeddings), PR9 three-fiber-dossier (kan redan finnas i `soft/three-fiber-canvas`). | Låg–Medel per PR | Individuell |
+| 9 | **Core-simplification: `orchestrate.ts` + `route-plan.ts`** | Gpt-rapporten (2026-04-23): dessa är 912 + 742 rader. Ej adresserade av OMTAG 03 (endast `orchestrate/{scaffold-query-context,scaffold-variant-resolver}.ts` och `route-plan/route-patterns.ts` extraherades). Kandidater för nästa split-våg — samma mönster som OMTAG 03. | Medel | Egen agent-session |
+| 10 | **Core-simplification: `config/ai_models/manifest.json`** | ~1023 rader. Delningskandidat per phase-routing-grupp. | Låg | Telemetri-data |
+| 11 | **Event-bus UI-flip** | `selectVersionStatus(events)`-projektion finns (OMTAG fas 3·06) men UI läser fortfarande gamla DB-flaggor via `resolveEngineVersionDisplayStatus`. Rör `BuilderShellContent.tsx` + `preview-panel` SSE-handling. | Medel | — |
 
 > Tidigare punkt #1 (`Source_Sans_3`-violation) löstes 2026-04-20 i cloud-loopen, commit `808735e2`.
 

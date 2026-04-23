@@ -1,6 +1,8 @@
 # P33 — shadcn-ekosystem-expansion
 
-**Status:** Förslag — väntar på agreement innan implementation.
+> **Paused 2026-04-23:** Parkerad per OMTAG-waven. Feature-breddning, inte kärnkonsolidering — vänta tills orchestrate.ts + route-plan.ts splittats. Se [`../avklarat/omtag-2026-04-23/PARKED.md`](../avklarat/omtag-2026-04-23/PARKED.md).
+
+**Status:** Paused — väntar på agreement + kärnkonsolidering innan implementation.
 **Skapad:** 2026-04-21.
 **Triggad av:** SAJ-flödesrunda — användaren vill ha mer av shadcn-katalogen tillgängligt för codegen-LLM:en (idag ser den bara en delmängd) utan att bygga full MCP-integration.
 
