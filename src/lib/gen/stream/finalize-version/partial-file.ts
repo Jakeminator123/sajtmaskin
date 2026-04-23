@@ -1,3 +1,4 @@
+// TODO(plan-09): kandidat för borttagning — partial-file-repair är övergångskod och ska dö när single-repair-gate + starkare basmodell täcker snippet-fel.
 /**
  * Partial-file output detection + repair.
  *

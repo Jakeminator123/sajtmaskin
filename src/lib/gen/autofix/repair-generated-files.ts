@@ -1,3 +1,4 @@
+// TODO(plan-09): kandidat för borttagning — wrappern duplicerar stora delar av runAutoFixSinglePass och bör dö efter konsolidering till en fixer-entrypoint.
 import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,
