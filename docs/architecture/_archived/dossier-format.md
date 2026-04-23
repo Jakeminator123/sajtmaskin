@@ -54,7 +54,7 @@ data/dossiers/
   ],
   "scaffoldFit": {
     "primary": ["ecommerce", "saas-landing"],
-    "compatible": ["landing-page", "content-site", "blog", "portfolio"]
+    "compatible": ["landing-page", "blog", "portfolio"]
   },
   "_source": "hand-curated",
   "complexity": "medium",

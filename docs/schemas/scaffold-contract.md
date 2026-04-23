@@ -107,7 +107,6 @@ Supporting subtypes:
 Current `ScaffoldId` values:
 
 - `base-nextjs`
-- `content-site`
 - `app-shell`
 - `landing-page`
 - `saas-landing`

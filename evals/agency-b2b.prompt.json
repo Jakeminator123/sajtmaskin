@@ -6,6 +6,6 @@
     "scaffold": "landing-page",
     "variant_any_of": ["b2b-professional", "editorial"],
     "min_routes": 2,
-    "acceptable_scaffolds": ["saas-landing", "content-site"]
+    "acceptable_scaffolds": ["saas-landing"]
   }
 }

@@ -7,6 +7,14 @@
  * scoring logic; this module is data-only.
  */
 
+/**
+ * The legacy content-marketing scaffold was merged into `landing-page`
+ * 2026-04-23 (OMTAG fas 2·B / M1). Its former keyword bank
+ * (`CONTENT_KEYWORDS`) is folded into this list: content, innehåll, gallery,
+ * galleri, showcase, work, projekt, projects, stories, feature, solution,
+ * tjänst were unique to that bank and are now shared. See
+ * `docs/architecture/glossary.md` for the migration note.
+ */
 export const LANDING_KEYWORDS = [
   "landing",
   "marketing",
@@ -31,6 +39,18 @@ export const LANDING_KEYWORDS = [
   "byrå",
   "tjänster",
   "kampanj",
+  "content",
+  "innehåll",
+  "gallery",
+  "galleri",
+  "showcase",
+  "work",
+  "projekt",
+  "projects",
+  "stories",
+  "feature",
+  "solution",
+  "tjänst",
 ];
 
 export const SAAS_KEYWORDS = [
@@ -237,48 +257,10 @@ export const ECOMMERCE_KEYWORDS = [
 ];
 
 
-export const CONTENT_KEYWORDS = [
-  "content",
-  "innehåll",
-  "gallery",
-  "galleri",
-  "showcase",
-  "work",
-  "projekt",
-  "projects",
-  "stories",
-  "landing",
-  "marketing",
-  "startup",
-  "company",
-  "business",
-  "brand",
-  "hemsida",
-  "webbplats",
-  "sajt",
-  "företag",
-  "byrå",
-  "fotograf",
-  "saas",
-  "software",
-  "pricing",
-  "subscription",
-  "tier",
-  "feature",
-  "product",
-  "service",
-  "solution",
-  "plattform",
-  "tjänst",
-  "mjukvara",
-  "pris",
-  "abonnemang",
-];
-
 /**
  * Domain keywords that indicate the site is a service/hospitality business,
  * NOT an online store. When these are present and ecommerce intent is weak,
- * the ecommerce scaffold should be vetoed in favor of landing-page or content-site.
+ * the ecommerce scaffold should be vetoed in favor of landing-page.
  */
 export const HOSPITALITY_SERVICE_KEYWORDS = [
   "restaurang",

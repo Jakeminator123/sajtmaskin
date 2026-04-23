@@ -1,6 +1,6 @@
 {
   "id": "warm-editorial",
-  "scaffoldId": "content-site",
+  "scaffoldId": "landing-page",
   "label": "Warm Editorial",
   "description": "Broader content-first variant for publishing, CMS-led sites, and service storytelling.",
   "keywords": [
@@ -64,6 +64,5 @@
     "blog-blog-with-agility-cms-and-next-js",
     "blog-clean-next-js-sanity-app",
     "blog-launchpad-next-js-strapi-starter"
-  ],
-  "default": true
+  ]
 }

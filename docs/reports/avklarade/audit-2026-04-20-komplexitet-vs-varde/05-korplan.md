@@ -185,7 +185,7 @@ Ingen blockerande databehov, kör parallellt med insamlingen i 2A.
 | **Fas 1: POC** | 1 vecka | Validera att `@webcontainer/api` kan boota Next.js 16 + en av era enklare scaffolds (`landing-page`) |
 | **Fas 2: Identifiera blockers** | 1 vecka | Inventera vilka deps (`@react-three/rapier`, `pdf-parse`, `sharp`) som kräver native — märk scaffolds som "WC-compatible" eller "VM-only" |
 | **Fas 3: Hybridkontrakt** | 1 vecka | Refaktorera `preview-session`-API:et så den abstraherar VM/WebContainer (samma kontrakt utåt) |
-| **Fas 4: Migrera lätta scaffolds** | 1 vecka | `landing-page`, `saas-landing`, `blog`, `content-site` → WebContainers default |
+| **Fas 4: Migrera lätta scaffolds** | 1 vecka | `landing-page`, `saas-landing`, `blog` → WebContainers default |
 | **Fas 5: Mätning + tuning** | 1 vecka | Mät P50, jämför mot baseline, justera fallback-policy |
 | **Fas 6: Stäng Fly-VM (eller behåll bara för VM-only-scaffolds)** | (genomförs efter månadsdata) | Beroende på data |
 

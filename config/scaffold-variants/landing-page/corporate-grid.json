@@ -3,20 +3,36 @@
   "id": "corporate-grid",
   "scaffoldId": "landing-page",
   "label": "Corporate Grid",
-  "description": "Trust-heavy B2B and consulting landing pages with clean hierarchy, neutral surfaces, and precise grid alignment. Best for agencies, enterprise services, and professional firms where credibility and clarity outweigh decorative flair.",
+  "description": "B2B, enterprise and consulting landing pages for agencies, law firms, finance and professional services. Emphasizes trust signals, partner logos, case studies, and formal credibility — built for compliance, enterprise SaaS, accounting, legal and management consulting where clients need reassurance before action.",
   "keywords": [
     "b2b",
     "consulting",
+    "consultancy",
     "agency",
     "corporate",
     "enterprise",
     "trust",
     "professional",
+    "compliance",
+    "fintech",
+    "law",
+    "legal",
+    "accounting",
+    "advisory",
+    "management consulting",
     "byrå",
     "företag",
+    "företagskunder",
     "redovisning",
+    "redovisningsbyrå",
     "juridik",
-    "finans"
+    "juridikbyrå",
+    "advokatbyrå",
+    "advokat",
+    "revisor",
+    "finans",
+    "finanskonsult",
+    "konsultbolag"
   ],
   "fontPairings": [
     {
@@ -28,11 +44,12 @@
       "body": "IBM Plex Sans"
     }
   ],
-  "signatureMotif": "precise grid alignment, neutral surfaces, and partner-proof rhythm",
+  "signatureMotif": "B2B trust signals, partner logos, enterprise case studies, and measured consulting hierarchy on a precise neutral grid",
   "colorMode": "light",
   "promptHints": [
-    "Lead with business clarity, partner trust, and a measured hierarchy rather than expressive atmospherics.",
-    "Prefer proof blocks (metrics, logos, case studies) over decorative illustration cards.",
+    "Use this variant for B2B, enterprise, consulting, agency, finance, legal, accounting and professional-services prompts where trust and formal credibility matter more than expressive atmospherics.",
+    "Lead with business clarity, partner trust, and a measured hierarchy — not lifestyle mood, startup velocity, or local warmth.",
+    "Prefer proof blocks (KPI metrics, client logos, case studies, compliance badges) over decorative illustration cards.",
     "Keep font weights restrained — bold for headings, regular for body. Avoid playful type mixing."
   ],
   "signaturePatterns": {
