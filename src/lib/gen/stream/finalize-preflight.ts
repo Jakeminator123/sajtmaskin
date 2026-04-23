@@ -214,6 +214,69 @@ function createIssue(
   };
 }
 
+type FinalizePreflightPassId =
+  | "tier2_hygiene"
+  | "project_sanity"
+  | "seo_preflight"
+  | "href_route_cross_check";
+
+type FinalizePreflightPassResult = {
+  pass: FinalizePreflightPassId;
+  issues: FinalizePreflightIssue[];
+};
+
+type FinalizePreflightAllResult = {
+  issues: FinalizePreflightIssue[];
+  passes: FinalizePreflightPassResult[];
+  unresolvedImportFallbackUsed: boolean;
+  sanityValid: boolean;
+  sanityIssuesForLog: ReturnType<typeof runProjectSanityChecks>["issues"];
+  hrefMismatches: ReturnType<typeof crossCheckHrefsAgainstRoutes>;
+};
+
+function runFinalizePreflightAll(params: {
+  files: CodeFile[];
+  actualRoutes: string[];
+}): FinalizePreflightAllResult {
+  const tier2Issues = collectTier2HygieneIssues(params.files);
+
+  const sanity = runProjectSanityChecks(params.files);
+  const sanityIssues = sanity.issues.map((issue) =>
+    createIssue(issue.file, issue.severity, issue.message, issue.category),
+  );
+
+  const seoIssues = runSeoPreflightChecks(params.files).map((issue) =>
+    createIssue(issue.file || "seo", issue.severity, issue.message, issue.category),
+  );
+
+  const extractedHrefs = extractHrefsFromFiles(params.files);
+  const hrefMismatches = crossCheckHrefsAgainstRoutes(extractedHrefs, params.actualRoutes);
+  const hrefIssues = hrefMismatches.slice(0, 20).map((mismatch) =>
+    createIssue(
+      mismatch.file,
+      "warning",
+      formatMismatchMessage(mismatch),
+      "non_blocking_quality_warning",
+    ),
+  );
+
+  const passes: FinalizePreflightPassResult[] = [
+    { pass: "tier2_hygiene", issues: tier2Issues },
+    { pass: "project_sanity", issues: sanityIssues },
+    { pass: "seo_preflight", issues: seoIssues },
+    { pass: "href_route_cross_check", issues: hrefIssues },
+  ];
+
+  return {
+    issues: passes.flatMap((pass) => pass.issues),
+    passes,
+    unresolvedImportFallbackUsed: sanity.unresolvedImportFallbackUsed,
+    sanityValid: sanity.valid,
+    sanityIssuesForLog: sanity.issues,
+    hrefMismatches,
+  };
+}
+
 function buildContractBackedRoutePlan(
   orchestrationContract: OrchestrationContract | null | undefined,
 ): RoutePlan | null {
@@ -532,22 +595,17 @@ export async function runFinalizePreflight({
     // preview/bootstrap does not need to rebuild it again.
     nextFilesJson = JSON.stringify(completeProjectFiles);
     preflightFileCount = completeProjectFiles.length;
-    preflightIssues.push(...collectTier2HygieneIssues(completeProjectFiles));
-    const sanity = runProjectSanityChecks(completeProjectFiles);
-    if (sanity.unresolvedImportFallbackUsed) {
+    const actualRoutes = extractAppRoutePathsFromFilePaths(
+      completeProjectFiles.map((file) => file.path),
+    );
+    const preflightAll = runFinalizePreflightAll({
+      files: completeProjectFiles,
+      actualRoutes,
+    });
+    preflightIssues.push(...preflightAll.issues);
+    if (preflightAll.unresolvedImportFallbackUsed) {
       unresolvedImportFallbackUsed = true;
     }
-    preflightIssues = [
-      ...preflightIssues,
-      ...sanity.issues.map((issue) => createIssue(issue.file, issue.severity, issue.message, issue.category)),
-    ];
-    const seoIssues = runSeoPreflightChecks(completeProjectFiles);
-    preflightIssues = [
-      ...preflightIssues,
-      ...seoIssues.map((issue) =>
-        createIssue(issue.file || "seo", issue.severity, issue.message, issue.category)
-      ),
-    ];
 
     const appPagePath = resolveAppPagePath(completeProjectFiles);
     if (appPagePath) {
@@ -564,7 +622,6 @@ export async function runFinalizePreflight({
       }
     }
 
-    const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));
     const effectiveRoutePlan = routePlan ?? buildContractBackedRoutePlan(orchestrationContract);
     const missingPlannedRoutes = findMissingPlannedRoutes(effectiveRoutePlan, actualRoutes);
 
@@ -572,19 +629,8 @@ export async function runFinalizePreflight({
     // non-blocking warnings while we measure false-positive rate; the gate
     // can be flipped to blocking via repairPolicies once the signal proves
     // clean (see docs/plans/active/repair-loop-hardening.md).
-    const extractedHrefs = extractHrefsFromFiles(completeProjectFiles);
-    const hrefMismatches = crossCheckHrefsAgainstRoutes(extractedHrefs, actualRoutes);
+    const hrefMismatches = preflightAll.hrefMismatches;
     if (hrefMismatches.length > 0) {
-      preflightIssues.push(
-        ...hrefMismatches.slice(0, 20).map((mismatch) =>
-          createIssue(
-            mismatch.file,
-            "warning",
-            formatMismatchMessage(mismatch),
-            "non_blocking_quality_warning",
-          )
-        ),
-      );
       devLogAppend("in-progress", {
         type: "href-route.cross-check",
         chatId,
@@ -632,12 +678,12 @@ export async function runFinalizePreflight({
         issues: orchestrationContractIssues.slice(0, 10),
       });
     }
-    if (sanity.issues.length > 0) {
+    if (preflightAll.sanityIssuesForLog.length > 0) {
       devLogAppend("in-progress", {
         type: "project-sanity",
         chatId,
-        valid: sanity.valid,
-        issues: sanity.issues.slice(0, 20),
+        valid: preflightAll.sanityValid,
+        issues: preflightAll.sanityIssuesForLog.slice(0, 20),
         completeProjectFiles: completeProjectFiles.length,
       });
     }

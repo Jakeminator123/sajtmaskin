@@ -20,6 +20,9 @@ export class SuspenseLineProcessor {
   private context: StreamContext;
 
   constructor(rules?: SuspenseRule[], context?: StreamContext) {
+    // Single suspense-lane entrypoint: ad-hoc rule lists should be injected
+    // through this constructor, while default production flow always starts
+    // from createDefaultRules().
     this.rules = rules ?? createDefaultRules();
     this.context = context ?? {};
   }

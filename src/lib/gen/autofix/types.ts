@@ -1,3 +1,5 @@
+import { resolveFixLane, type FixLane } from "./lanes";
+
 /**
  * Canonical types for the phase-3 autofix system.
  *
@@ -14,9 +16,27 @@ export type FixCategory = "mechanical" | "llm";
 export interface FixEntry {
   fixer: string;
   category: FixCategory;
+  lane?: FixLane;
   description: string;
   file?: string;
   line?: number;
+}
+
+export type FixEntryDraft = Omit<FixEntry, "lane"> & { lane?: FixLane };
+
+export function toFixEntry(entry: FixEntryDraft, fallbackLane: FixLane): FixEntry {
+  return {
+    ...entry,
+    lane: resolveFixLane({
+      fixer: entry.fixer,
+      lane: entry.lane,
+      fallbackLane,
+    }),
+  };
+}
+
+export function toFixEntries(entries: FixEntryDraft[], fallbackLane: FixLane): FixEntry[] {
+  return entries.map((entry) => toFixEntry(entry, fallbackLane));
 }
 
 export interface ResidualError {
