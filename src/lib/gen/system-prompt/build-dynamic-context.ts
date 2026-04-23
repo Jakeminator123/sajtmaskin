@@ -84,6 +84,7 @@ import {
   renderMediaCatalogBlock,
   renderSeoBlock,
 } from "./sections/imagery-media-seo";
+import { renderRequiredImportsChecklistBlock } from "./sections/required-imports-checklist";
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -195,6 +196,17 @@ export function buildDynamicContext(
       chatId,
       userPrompt,
       resolvedScaffold,
+    }),
+  );
+  // E4 (OMTAG fas 2·C) — deterministic shadcn imports checklist. Placed
+  // right after the route plan so the LLM has scaffold + route context
+  // in mind when it reads which components are about to be in play.
+  // Stops `autofix.heavy_load` from being triggered by forgotten imports
+  // of components the model demonstrably knows how to use.
+  parts.push(
+    ...renderRequiredImportsChecklistBlock({
+      routePlan,
+      capabilityHints,
     }),
   );
   parts.push(...renderTier3IntegrationBlock({ buildSpec, preGenerationContracts }));
