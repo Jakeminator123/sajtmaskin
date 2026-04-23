@@ -15,7 +15,7 @@ Tunn pekare — canonical innehåll finns redan i `docs/` och `.cursor/rules/`.
 
 Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cursor/README.md):
 
-- **LLM-pipeline / gen:** [`gen-pipeline-simplicity.mdc`](.cursor/rules/gen-pipeline-simplicity.mdc), [`signal-ownership.mdc`](.cursor/rules/signal-ownership.mdc), [`scaffold-architecture.mdc`](.cursor/rules/scaffold-architecture.mdc), [`llm-pipeline-docs-sync.mdc`](.cursor/rules/llm-pipeline-docs-sync.mdc)
+- **LLM-pipeline / gen:** [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc), [`signal-ownership.mdc`](.cursor/rules/signal-ownership.mdc), [`scaffold-architecture.mdc`](.cursor/rules/scaffold-architecture.mdc), [`llm-pipeline-docs-sync.mdc`](.cursor/rules/llm-pipeline-docs-sync.mdc)
 - **Git / PR / commit:** [`session-git-docs.mdc`](.cursor/rules/session-git-docs.mdc), [`git.mdc`](.cursor/rules/git.mdc)
 - **Plattform:** [`platform-quirks.mdc`](.cursor/rules/platform-quirks.mdc) (Windows/PowerShell), [`unicode-regex.mdc`](.cursor/rules/unicode-regex.mdc)
 - **Cleanup / refactor:** [`cleanup-and-scope.mdc`](.cursor/rules/cleanup-and-scope.mdc), [`file-structure-conventions.mdc`](.cursor/rules/file-structure-conventions.mdc)

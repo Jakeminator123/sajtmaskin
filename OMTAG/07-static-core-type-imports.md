@@ -28,7 +28,7 @@ Autofix har just fått #39 `import-alias-type-syntax-fixer` (commit `997f280f7`)
 |---|---|
 | 2–3 nya exempel-block i `02-component-contract.md` | Lägga till nya autofix-regler |
 | Ev. en rad i `00-core-contract.md` som pekar dit | Ändra `system-prompt.ts`-kod |
-| `.cursor/rules/gen-pipeline-simplicity.mdc` consulted (se punkt "stärk prompten istället för ny autofix") | Röra någon `.ts`-fil |
+| `.cursor/rules/pipeline-rules.mdc` consulted (se punkt "stärk prompten istället för ny autofix") | Röra någon `.ts`-fil |
 
 ## Inputs
 
@@ -36,7 +36,7 @@ Autofix har just fått #39 `import-alias-type-syntax-fixer` (commit `997f280f7`)
 2. `config/prompt-core/00-core-contract.md` — hitta platsen som hänvisar till component-contract
 3. `src/lib/gen/autofix/rules/import-alias-type-syntax-fixer.ts` — se exakt vilket mönster #39 plockar (det ska exemplet motverka)
 4. `src/lib/gen/autofix/rules/type-only-import-fixer.ts` — samma för dess mönster
-5. `.cursor/rules/gen-pipeline-simplicity.mdc`
+5. `.cursor/rules/pipeline-rules.mdc`
 6. `STATUS-2026-04-20.md` Block 2 — ser hur tidigare prompt-core-regler formulerades
 
 ## Exempel att lägga in (förslag — finjustera mot faktiska fixermönster)

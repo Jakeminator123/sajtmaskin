@@ -37,7 +37,7 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 |-------|---------|-------|
 | [llm-pipeline-docs-sync.mdc](rules/llm-pipeline-docs-sync.mdc) | LLM-pipeline, backoffice, config, schemas | Synka kod ↔ docs/schemas vid pipeline-ändringar |
 | [signal-ownership.mdc](rules/signal-ownership.mdc) | builder, gen, hooks, config | Varje signal har exakt en canonical source |
-| [gen-pipeline-simplicity.mdc](rules/gen-pipeline-simplicity.mdc) | gen, prompt-static | Färre lager, bättre första pass |
+| [pipeline-rules.mdc](rules/pipeline-rules.mdc) | gen, prompt-static | Färre lager, bättre första pass + docs-sync vid pipeline-ändringar |
 | [file-structure-conventions.mdc](rules/file-structure-conventions.mdc) | src/lib | Filnamn, mappstruktur, namngivning |
 | [scaffold-architecture.mdc](rules/scaffold-architecture.mdc) | scaffolds, orchestrate, builder, backoffice | Scaffold-systemets arkitektur och flöde |
 | [openclaw-bridge.mdc](rules/openclaw-bridge.mdc) | openclaw-bridge | OpenClaw inbox/outbox (opt-in) |

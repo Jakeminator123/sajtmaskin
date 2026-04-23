@@ -5,7 +5,7 @@
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ innehåller nu främst legacy wrappers och stöddata till den konsoliderade Streamlit-backoffice-appen.",
     "backoffice": "Kanonisk Python-kod för den konsoliderade Streamlit-backoffice-appen: delad helperlogik, sidmoduler och huvudskal.",
     "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md.",
-    ".cursor": "Cursor-projektregler och skills. 13 regler: 4 generella (`terminology`, `session-git-docs`, `repo-env-indexing`, `cleanup-and-scope`), 6 glob-triggrade (`llm-pipeline-docs-sync`, `signal-ownership`, `gen-pipeline-simplicity`, `file-structure-conventions`, `scaffold-architecture`, `openclaw-bridge`), 3 manuella (`useful-commands`, `platform-quirks`, `subagent-verification`). Ett slash-kommando: `/avslutning`."
+    ".cursor": "Cursor-projektregler och skills. 13 regler: 4 generella (`terminology`, `session-git-docs`, `repo-env-indexing`, `cleanup-and-scope`), 6 glob-triggrade (`llm-pipeline-docs-sync`, `signal-ownership`, `pipeline-rules`, `file-structure-conventions`, `scaffold-architecture`, `openclaw-bridge`), 3 manuella (`useful-commands`, `platform-quirks`, `subagent-verification`). Ett slash-kommando: `/avslutning`."
   },
   "pages": {
     "Översikt": {
@@ -265,7 +265,7 @@
         ".cursor/rules/cleanup-and-scope.mdc",
         ".cursor/rules/llm-pipeline-docs-sync.mdc",
         ".cursor/rules/signal-ownership.mdc",
-        ".cursor/rules/gen-pipeline-simplicity.mdc",
+        ".cursor/rules/pipeline-rules.mdc",
         ".cursor/rules/file-structure-conventions.mdc",
         ".cursor/rules/scaffold-rules.mdc",
         ".cursor/rules/openclaw-bridge.mdc",

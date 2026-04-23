@@ -96,7 +96,7 @@ finalize-version/
 
 1. `gh pr view 81 --json body,commits` för att läsa PR #81-bodyn och commit-listan
 2. Ursprungliga Wave-grenen om den finns kvar: `git log cursor/wave-2026-04-21-cleanup` (om lokal/remote-ref finns)
-3. `.cursor/rules/gen-pipeline-simplicity.mdc` — läs innan du splittar så att du inte adderar indirection
+3. `.cursor/rules/pipeline-rules.mdc` — läs innan du splittar så att du inte adderar indirection (omdöpt från `gen-pipeline-simplicity.mdc`; samma filosofi)
 4. `.cursor/rules/file-structure-conventions.mdc`
 
 ## Exekveringssteg (per fil)
