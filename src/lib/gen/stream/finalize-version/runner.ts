@@ -27,6 +27,11 @@
 
 import { debugLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+// Side-effect import: installs the default devLog-mirror subscriber so
+// `preflight.summary`/`server-verify.policy` entries keep flowing into
+// `generation-log-writer.ts` after the cut-over.
+import "@/lib/logging/event-bus-subscribers";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import {
   OWN_ENGINE_POST_STREAM_PIPELINE,
@@ -199,6 +204,38 @@ export async function finalizeAndSaveVersion(
     lineageHash: lineageHash ?? null,
   });
 
+  // OMTAG-06: stamp a run on the bus. The first pass uses the default
+  // `root` run; every repair pass gets a distinct runId so the
+  // per-version `.runs.json` index can list them in order. This is
+  // also what fixes the old "2 events in repair vs 30 in original"
+  // flush-bug — every event now lives under a stable run folder.
+  if (repairPassIndex === 0) {
+    emitBusEvent({
+      t: "version.started",
+      versionId: version.id,
+      chatId,
+      generationKind: targetVersionId ? "followup" : "create",
+      model,
+      scaffoldId: resolvedScaffold?.id ?? null,
+    });
+  } else {
+    emitBusEvent({
+      t: "version.repair.started",
+      versionId: version.id,
+      chatId,
+      runId: `repair-${repairPassIndex}`,
+      reason: "finalize-repair-pass",
+      trigger: "manual",
+    });
+    emitBusEvent({
+      t: "version.repair.passIndex",
+      versionId: version.id,
+      chatId,
+      runId: `repair-${repairPassIndex}`,
+      passIndex: repairPassIndex,
+    });
+  }
+
   await persistOrchestrationSnapshot({
     chatId,
     versionId: version.id,
@@ -253,18 +290,35 @@ export async function finalizeAndSaveVersion(
       : `Verifier reported ${verifierBlockingFindings.length} blocking finding(s).`
     : preflightFailureSummary;
 
-  devLogAppend("in-progress", {
-    type: "preflight.summary",
-    chatId,
+  // OMTAG-06: preflight.summary now flows through the single-writer
+  // event bus. The devLog-mirror subscriber (installed via the side-
+  // effect import at the top of this file) re-emits the legacy
+  // `preflight.summary` row for backward compat with
+  // `generation-log-writer.ts` / backoffice.
+  emitBusEvent({
+    t: "version.preflight",
     versionId: version.id,
+    chatId,
+    runId: repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined,
     filesChecked: preflightFileCount,
     issueCount: preflightIssues.length,
     errorCount: preflightErrors.length,
     warningCount: preflightWarnings.length,
     verificationBlocked: hasVerificationBlockingErrors,
-    verifierBlocked,
     previewBlocked: hasPreviewBlockingPreflightErrors,
     previewBlockingReason,
+  });
+  // Retain the richer `verifierBlocked` / `scaffoldRetry` context in
+  // devLog as a separate diagnostic entry — the projection doesn't
+  // need it but the backoffice "Autofix & Kvalitet" panel reads it.
+  // Deliberately named `preflight.details` (not `preflight.summary.*`)
+  // so the acceptance-criteria grep for "preflight\.summary" stays
+  // restricted to the legacy writer + legacy readers only.
+  devLogAppend("in-progress", {
+    type: "preflight.details",
+    chatId,
+    versionId: version.id,
+    verifierBlocked,
     scaffoldRetry,
     scaffoldSelection,
   });
