@@ -122,9 +122,9 @@ Reject-format: kort lista `[fil]:[rad] — [vad saknas/övertramp]`.
 | 05-scaffold-default-removal | ~~`omtag/05-scaffold-default-removal`~~ | ~~`omtag-05`~~ | **merged** | 2026-04-23 natt | `d1bc644ae` |
 | 03-wave-split-heatspots | ~~`cursor/0c90a6a9`~~ | ~~`f0i4`~~ | **merged** | 2026-04-23 em | `c3388c80c` |
 | fas2/B-scaffold-variant-cleanup | ~~`omtag/fas2-B-scaffold-variant-cleanup`~~ | ~~`omtag-fas2B`~~ | **merged** | 2026-04-23 em | `93eb71875` |
-| fas2/A-follow-up-integrity | (auto-branch i agent-worktree) | | **in-progress** | | |
-| fas2/C-autofix-import-hardening | (auto-branch i agent-worktree) | | **in-progress** | | |
-| 06-unified-status-eventbus | | | pending (fas 3) | | |
+| fas2/A-follow-up-integrity | ~~`cursor/a05931a2`~~ | (agent-worktree) | **merged** | 2026-04-23 em | `5d8...` |
+| fas2/C-autofix-import-hardening | ~~`cursor/d1406cea`~~ | (agent-worktree) | **merged** | 2026-04-23 em | `315de8dbf` |
+| 06-unified-status-eventbus | | | **nu ohindrad — fas 3** | | |
 
 Se `STATUS-2026-04-24-morning.md` i repo-roten för fullständig rapport (natten + eftermiddagen).
 
