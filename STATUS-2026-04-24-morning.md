@@ -1,6 +1,12 @@
-# OMTAG nattrapport — 2026-04-23 → 2026-04-24 morgon
+# OMTAG nattrapport — 2026-04-23 → 2026-04-24 morgon + eftermiddag
 
-> **TL;DR:** Fas 0 (4 agenter) + fas 1·05 + fas 2·D landade och pushades till `origin/master`. Fas 1·03 lämnad orörd (för stort för natt). Fas 2·A/B/C och fas 3 väntar. Repot är strukturellt betydligt bättre än 36h sedan — första gången det finns en eval-baseline att mäta kvalitetsdrift mot.
+> **TL;DR (natt):** Fas 0 (4 agenter) + fas 1·05 + fas 2·D landade och pushades till `origin/master`. Fas 1·03 lämnad orörd (för stort för natt). Fas 2·A/B/C och fas 3 väntar.
+>
+> **TL;DR (eftermiddag 2026-04-23 12:50):** Fas 1·03 (wave-split, 9 commits, 4 monoliter splittrade) + fas 2·B (content-site→landing-page + corporate-grid-default-fix) mergade på master `c4b509c24`. En konflikt på `build-spec.ts` löst manuellt (2·B:s `content-site`-removal applicerad på 03:s nya `build-spec/references.ts`). Eval-baseline oförändrad (9/10 exact, 10/10 acceptable, 0 regressions). **Fas 2·A + 2·C nu ohindrade** och kan startas parallellt.
+
+---
+
+## Nattens leveranser (avslutade tidigare — oförändrade)
 
 ---
 
@@ -115,5 +121,63 @@ cb6d11f57 omtag(orchestration): fas 2 docs + parked list
 ---
 
 **Om något gick sönder över natten:** `git reset --hard 25353da70` återställer till din nattutgångspunkt. All nattens arbete är pushat så ingenting förloras — men jag rekommenderar inte reset innan du läst igenom state:n först.
+
+---
+
+## Eftermiddag 2026-04-23 — OMTAG 03 + fas 2·B mergade
+
+| Merge | Commits | Resultat |
+|---|---|---|
+| **fas 2·B** `93eb71875` | 3 | content-site→landing-page (40 filer), E7 corporate-grid 4/4 B2B (från 0/20 i audit 2026-04-18), totalt 20/20 exact matches. 16 412+/16 038− (mest embedding-regen). Rapport: `OMTAG/fas2-B-audit-before-after.md`. |
+| **fas 1·03** `c3388c80c` | 9 | 4 monoliter splittade med `git mv` + peer-extract (blame bevarad). system-prompt.ts 1 469→259 max, build-spec.ts 1 103→316, promptAssist.ts 877→199, finalize-version.ts 1 768→374. Follow-up commit uppdaterade config-pekare (domain-map.json + manifest.json + fixer-registry.ts). Ingen beteendeändring. |
+| **konfliktfix** (i merge-commit) | — | `case "content-site":` i nya `build-spec/references.ts` rad 35 raderad; 2·B:s ändring applicerad på 03:s nya plats. |
+| **lint-polish** `c4b509c24` | 1 | unused `strList`-helper borttagen i system-prompt/sections/visual-and-guidance.ts |
+
+Verifiering på merge-HEAD `c4b509c24`:
+
+| Check | Resultat |
+|---|---|
+| `npm run typecheck` | clean |
+| `npm run lint` | clean |
+| `npx vitest run src/lib/gen src/lib/builder` | 994/994 passerar |
+| `node scripts/evals/run-baseline.mjs` | 9/10 exact · 10/10 acceptable · 0 regressions |
+
+Remote: branches `cursor/0c90a6a9` + `omtag/fas2-B-scaffold-variant-cleanup` borttagna från origin. Lokala branches kvarhållna tills worktree-agentsessioner stängs (`f0i4`, `omtag-fas2B`).
+
+## Status per OMTAG-uppdrag efter eftermiddagens merges
+
+| Uppdrag | Status |
+|---|---|
+| Fas 0 (01/02/04/07) | ✅ mergad i natt |
+| Fas 1·05 scaffold-default-removal | ✅ mergad i natt |
+| Fas 1·03 wave-split-heatspots | ✅ mergad eftermiddag |
+| Fas 2·D dossier-contract | ✅ mergad i natt |
+| Fas 2·B scaffold-variant-cleanup | ✅ mergad eftermiddag |
+| **Fas 2·A follow-up-integrity** | 🟡 **nu ohindrad** — redo att startas |
+| **Fas 2·C autofix-import-hardening** | 🟡 **nu ohindrad** — redo att startas parallellt med 2·A |
+| Fas 3·06 unified-status-eventbus | ⏸ väntar på 2·A + 2·C |
+
+## Git-state 2026-04-23 eftermiddag
+
+```
+c4b509c24 chore(lint): remove unused strList helper
+c3388c80c merge cursor/0c90a6a9 (OMTAG 03) - split 4 monoliter
+93eb71875 merge omtag/fas2-B-scaffold-variant-cleanup
+b422093c6 refactor(omtag): update config/code references (03 follow-up)
+83c347ec3 refactor(omtag): extract finalize-version/ step 2/2
+df875521b refactor(omtag): move finalize-version.ts step 1/2
+780315366 refactor(omtag): extract prompt-assist/ step 2/2
+e038ec46c refactor(omtag): move promptAssist.ts step 1/3
+ca3606f7e refactor(omtag): extract build-spec/ step 2/2
+fd03f45eb refactor(omtag): move build-spec.ts step 1/2
+1e20e3775 refactor(omtag): extract system-prompt/ peers step 2/2
+6ced23c44 refactor(omtag): move system-prompt.ts step 1/2
+3a509e59c fix(scaffold-variants): corporate-grid default wins B2B
+32f3a5c4f refactor(scaffolds): merge legacy content-site into landing-page
+1025d7b83 docs: fix broken gen-pipeline-simplicity.mdc references
+(... natten + utgångspunkt ...)
+```
+
+`origin/master` synkad med lokal.
 
 **Tack för din tid och tilliten. — Claude**
