@@ -449,44 +449,45 @@ export async function handleMessageStreamRequest(
             includeStructuralInventory: true,
           });
 
-          // Element Preservation Rule lives in the system prompt's
-          // `## Generation Mode: Follow-Up` block (richer version with
-          // examples). Previously also re-stated here as
-          // `elementPreservationReminder` — removed to avoid double-emit
-          // (Q11.1, see docs/plans/active/llm-flow-quickwins.md).
+          // OMTAG Fas 2·A / E1: follow-up rules live in the system prompt's
+          // `## Generation Mode: Follow-Up` block (intro.ts). Previously this
+          // user-turn section restated the same guidance (~4 lines × 2 branches
+          // = ~900 chars) as `elementPreservationReminder` + the intro lines
+          // below. We keep only (a) a single pointer to the system-prompt
+          // section so the LLM can re-anchor, and (b) genuinely unique
+          // guidance — the `clear-redesign` aggressive-rewrite lines, which
+          // are NOT in the system prompt. Measured saving: ~250 tokens per
+          // non-redesign follow-up (see docs/plans/active/llm-flow-quickwins.md
+          // Q11.1 and gpt_review/filer/E-easy-medium-layer.md E1).
+          const FOLLOW_UP_SYSTEM_POINTER =
+            "(Follow-up rules: see system prompt § Generation Mode: Follow-Up.)";
 
           if (skipIntentClassification) {
             optimizedMessage = wrapWithSection({
               heading: PROMPT_WRAPPER_HEADINGS.existingProjectFilesReference,
               introLines: [
                 "Apply the requested change precisely. Do not modify unrelated sections or files.",
-                "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+                FOLLOW_UP_SYSTEM_POINTER,
               ],
               body: fileCtx.summary,
               divider: true,
               trailingBody: optimizedMessage,
             });
           } else {
+            const redesignLines =
+              followUpIntent === "clear-redesign"
+                ? [
+                    "The user wants a genuine redesign of the existing site, not a small refinement.",
+                    "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed.",
+                    "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files.",
+                    "Do not preserve the previous design language unless the user explicitly asked to keep parts of it.",
+                    "You may still reuse useful content or information architecture from the current project when relevant.",
+                  ]
+                : [FOLLOW_UP_SYSTEM_POINTER];
             optimizedMessage = [
               wrapWithSection({
                 heading: PROMPT_WRAPPER_HEADINGS.followUpEditingMode,
-                introLines: [
-                  followUpIntent === "clear-redesign"
-                    ? "The user wants a genuine redesign of the existing site, not a small refinement."
-                    : "You are editing an existing project, not starting over.",
-                  followUpIntent === "clear-redesign"
-                    ? "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed."
-                    : "Apply the user's requested changes directly to the current files below.",
-                  followUpIntent === "clear-redesign"
-                    ? "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files."
-                    : "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
-                  followUpIntent === "clear-redesign"
-                    ? "Do not preserve the previous design language unless the user explicitly asked to keep parts of it."
-                    : "Return only the files you need to create or modify. Files you omit will be kept as-is.",
-                  followUpIntent === "clear-redesign"
-                    ? "You may still reuse useful content or information architecture from the current project when relevant."
-                    : "",
-                ],
+                introLines: redesignLines,
                 body: fileCtx.summary,
               }),
               "",
