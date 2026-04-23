@@ -132,7 +132,9 @@ describe("resolveRepairQualityGateChecks", () => {
   });
 
   it("falls back to F2 design-preview defaults when no explicit checks are provided", () => {
-    // Tier-2 default is now `typecheck + build + lint` (lint added 2026-04-21).
-    expect(resolveRepairQualityGateChecks()).toEqual(["typecheck", "build", "lint"]);
+    // F2 default slimmed to `typecheck` only on 2026-04-23 since warm-tsc
+    // + warm-eslint now run pre-VM in the Sajtmaskin backend. See
+    // `quality-gate-checks.ts` for the full rationale.
+    expect(resolveRepairQualityGateChecks()).toEqual(["typecheck"]);
   });
 });

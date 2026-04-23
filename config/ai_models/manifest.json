@@ -346,9 +346,7 @@
   },
   "qualityGateTiers": {
     "designPreview": [
-      "typecheck",
-      "build",
-      "lint"
+      "typecheck"
     ],
     "integrationsBuild": [
       "typecheck",

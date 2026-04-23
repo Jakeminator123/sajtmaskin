@@ -84,18 +84,23 @@ defaultvärden:
 
 | Profil | Checks | Var den används |
 |--------|--------|-----------------|
-| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck", "build", "lint"]` | F2 quality gate (live-preview + bakgrunds-`server-verify` + repair re-check). Lint tillagd 2026-04-21. |
+| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck"]` | F2 quality gate (live-preview + bakgrunds-`server-verify` + repair re-check). Slimmad 2026-04-23. |
 | `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build", "lint"]` | F3 / promotion-flödet (`/finalize-design`). Lint tillagd 2026-04-21. |
 
-`next build` ingår i båda lanes sedan 2026-04-20 (Tier S #7 /
-`docs/plans/active/Kvarvarande-uppgifter.md` §1.5). F2-`build`-passet
-fångar Next-runtime-fel som typechecket inte ser — broken imports,
-runtime-crashes som compile:ar fint — *innan* preview-iframen renderar,
-vilket undviker "blank HTML"-incidenter. Kostar ~5–20 s extra per
-finalize och cirka +5–10 USD/mån i Fly-CPU. Default-fallback i
-`src/lib/gen/verify/quality-gate-checks.ts` matchar manifestet, så
-runtime kan inte tyst falla tillbaka till bara `typecheck`. För att
-kostnadsbegränsa, sätt arrayen till `["typecheck"]` i miljöns manifest.
+**2026-04-23 förändring av F2-lanen.** `build` och `lint` togs bort från
+F2 på VMn eftersom motsvarande pass nu körs pre-VM i Sajtmaskin-backendens
+Node-process (`src/lib/gen/preview/warm-typecheck.ts` +
+`src/lib/gen/preview/warm-eslint.ts`) via en varm scaffold-cache. De
+passen matar LLM-fixer-loopen med samma diagnostik och kan laga felen
+innan filerna ens skickas till preview-host. F2 på VMn behåller bara
+`typecheck` som billigt skyddsnät (fail-open om warm-cachen är kall).
+Gav ~5–20 s snabbare finalize + cirka -5–10 USD/mån i Fly-CPU. F3
+(`INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS`) är oförändrad eftersom
+integrations-bygget måste producera en valid Next build.
+
+Revert: sätt `qualityGateTiers.designPreview` till
+`["typecheck", "build", "lint"]` i `config/ai_models/manifest.json` om
+du behöver VM-build-skyddsnätet igen (t.ex. vid debug av Next-runtime-fel).
 
 **Borttaget 2026-04:** `tier2`, `serverVerify`, `promotion`, `interactive`
 konsoliderades till `designPreview` + `integrationsBuild`. Lint-laden

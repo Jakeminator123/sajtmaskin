@@ -39,17 +39,24 @@ function sanitizeTierChecks(
 
 const qualityGateTiers = getQualityGateTiersFromManifest();
 
-// Defaults match the manifest baseline: both lanes run typecheck + build
-// since 2026-04-20. Used as fallback if the manifest array is empty / drops
-// to only invalid check names. Override in `config/ai_models/manifest.json`
-// `qualityGateTiers.designPreview` if you need to disable `build` for cost
-// reasons (e.g. set to `["typecheck"]` only). The schema in
+// Defaults match the manifest baseline.
+//
+// 2026-04-23 change — F2 `designPreview` reduced to `typecheck` only.
+// Rationale: `build` and `lint` in F2 cost ~5–20 s of Fly-CPU per finalize
+// and are almost fully redundant with the pre-VM passes that now run in
+// the Sajtmaskin backend process (`src/lib/gen/preview/warm-typecheck.ts`
+// and `src/lib/gen/preview/warm-eslint.ts`) BEFORE files are shipped to
+// preview-host. Those warm passes feed the LLM-fixer loop with the same
+// tsc/eslint diagnostics and can repair them inline. The on-VM typecheck
+// remains as a cheap safety net in case warm-cache is cold (fail-open).
+// F3 (`integrationsBuild`) keeps the full `typecheck + build + lint` set
+// because integrations builds must actually produce a valid Next build.
+//
+// Override in `config/ai_models/manifest.json` `qualityGateTiers.designPreview`
+// if you want `build`/`lint` back on the VM (e.g. while debugging a
+// particular Next-runtime failure). The schema in
 // `config/ai_models/manifest.schema.json` requires both lane keys.
-// Defaults match the manifest baseline: lint was added 2026-04-21 so
-// eslint errors (e.g. `react-hooks/set-state-in-effect`, `no-undef`) no
-// longer slip through to the downloaded project. See P34 plan for the
-// blocking-lint variant that moves lint into validateAndFix itself.
-const DEFAULT_DESIGN_PREVIEW = ["typecheck", "build", "lint"] as const;
+const DEFAULT_DESIGN_PREVIEW = ["typecheck"] as const;
 const DEFAULT_INTEGRATIONS_BUILD = ["typecheck", "build", "lint"] as const;
 
 export const DESIGN_PREVIEW_QUALITY_GATE_CHECKS = sanitizeTierChecks(

@@ -163,8 +163,8 @@ Konsoliderat 2026-04 från fyra (`tier2`/`serverVerify`/`promotion`/`interactive
 
 | Profil | Checks | När |
 |---|---|---|
-| `designPreview` (F2) | `["typecheck", "build", "lint"]` | Efter finalize och i bakgrunds-server-verify. `build` lades till 2026-04-20, `lint` (`--max-warnings=20`) 2026-04-21. Se SAJ-28 / P34 för blockerande lint-variant. |
-| `integrationsBuild` (F3) | `["typecheck", "build", "lint"]` | I `/finalize-design`/promotion-flödet. Lint tillagd 2026-04-21. |
+| `designPreview` (F2) | `["typecheck"]` | Efter finalize och i bakgrunds-server-verify. Slimmad 2026-04-23: `build` och `lint` flyttade till pre-VM warm-cache-passen (`warm-typecheck.ts` + `warm-eslint.ts`) i Sajtmaskin-backend. Sparar ~5–20 s Fly-CPU per finalize. |
+| `integrationsBuild` (F3) | `["typecheck", "build", "lint"]` | I `/finalize-design`/promotion-flödet. F3 betalar alltid för full build. Lint tillagd 2026-04-21. |
 
 Verify-lane returnerar även informativa checks: `install-cache-share` (node_modules-delning), `install-peer-fallback` (peer-konflikt fallback med `--legacy-peer-deps`).
 
