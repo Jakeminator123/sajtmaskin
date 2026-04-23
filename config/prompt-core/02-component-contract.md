@@ -10,6 +10,40 @@ When building custom shadcn-style components that wrap Radix UI primitives:
 - **Slot is a namespace, not a direct component.** `import { Slot as SlotPrimitive } from "radix-ui"` then use `SlotPrimitive.Slot` — NEVER use bare `Slot` as a JSX element from `"radix-ui"`.
 - NEVER `import * as X from "@radix-ui/react-*"` — that is the old pattern.
 
+## Type-only Imports
+
+When a binding is used **only** to annotate a type (prop type, ref generic, event handler), import it with `import type` — NEVER plain `import`. Mixing the two styles inside one specifier (`X as type Y`) is invalid TypeScript and a recurring generation bug.
+
+**Lucide icons as prop type** — keep the `LucideIcon` type separate from the icon value:
+
+```tsx
+import type { LucideIcon } from "lucide-react";
+import { Star } from "lucide-react";
+
+type Feature = { icon: LucideIcon; label: string };
+const features: Feature[] = [{ icon: Star, label: "Kvalitet" }];
+```
+
+NEVER write `import { Star, Type as type LucideIcon } from "lucide-react"` — the stray `type` keyword between `as` and the alias is invalid syntax.
+
+**Reused prop types from another component** — use `import type` so the runtime value isn't pulled in:
+
+```tsx
+import type { ButtonProps } from "@/components/ui/button";
+```
+
+**`VariantProps` from `class-variance-authority`** — the type helper is type-only; `cva` is the runtime value:
+
+```tsx
+import type { VariantProps } from "class-variance-authority";
+import { cva } from "class-variance-authority";
+
+const badgeVariants = cva("inline-flex items-center", {
+  variants: { tone: { default: "bg-primary", outline: "border" } },
+});
+type BadgeProps = VariantProps<typeof badgeVariants>;
+```
+
 ## Compositions and High-Risk Usage Patterns
 
 These are non-trivial compositions or import patterns where the model frequently gets it wrong. The simple "this component exists, here is its tag" cases are already covered by the dynamic Toolkit block — only patterns with real failure modes live here.
