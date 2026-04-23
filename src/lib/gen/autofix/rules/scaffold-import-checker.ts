@@ -1,3 +1,4 @@
+// TODO(plan-09): kandidat för borttagning — scaffold-import-checker är en defensiv merge-era guard som kan dö om scaffold-defaults fasas ut helt.
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { CodeFile } from "@/lib/gen/parser";
 

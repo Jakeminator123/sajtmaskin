@@ -1,3 +1,4 @@
+// TODO(plan-09): kandidat för borttagning — legacy fallback-grenen validateAndFix-on-merge är dödkod när skipDoubleValidateAndFixOnMerge är hardcoded ON.
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/export/project-scaffold";
