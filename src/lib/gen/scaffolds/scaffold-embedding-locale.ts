@@ -133,20 +133,6 @@ export const SCAFFOLD_EMBEDDING_LOCALE: Record<ScaffoldId, ScaffoldEmbeddingLoca
       "handla online",
     ],
   },
-  "content-site": {
-    labelSv: "Innehållssajt",
-    descriptionSv:
-      "Innehållsförst med hero, funktioner, omdömen och sidfot — bra för landningssidor, portfolio och bloggstruktur.",
-    keywordsSv: [
-      "innehåll",
-      "företagssajt",
-      "landningssida",
-      "om oss",
-      "tjänster",
-      "kundcase",
-      "förtroende",
-    ],
-  },
   "app-shell": {
     labelSv: "App-skalet",
     descriptionSv:

@@ -10,7 +10,6 @@
  */
 import type { ScaffoldManifest, ScaffoldId } from "./types";
 import { baseNextjsManifest } from "./base-nextjs/manifest";
-import { contentSiteManifest } from "./content-site/manifest";
 import { appShellManifest } from "./app-shell/manifest";
 import { landingPageManifest } from "./landing-page/manifest";
 import { saasLandingManifest } from "./saas-landing/manifest";
@@ -22,6 +21,9 @@ import { ecommerceManifest } from "./ecommerce/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 import { applyScaffoldSeoDefaults } from "./seo-defaults";
 
+// The legacy marketing scaffold (former id was merged into `landing-page`
+// 2026-04-23 in OMTAG fas 2·B / M1 — see docs/architecture/glossary.md for
+// details).
 const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   baseNextjsManifest,
   landingPageManifest,
@@ -31,7 +33,6 @@ const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   dashboardManifest,
   authPagesManifest,
   ecommerceManifest,
-  contentSiteManifest,
   appShellManifest,
 ];
 

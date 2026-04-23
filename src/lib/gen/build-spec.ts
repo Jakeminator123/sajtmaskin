@@ -1015,7 +1015,6 @@ function deriveReferenceCategories(
       categories.add("starter");
       break;
     case "landing-page":
-    case "content-site":
       categories.add("marketing-sites");
       break;
     case "saas-landing":

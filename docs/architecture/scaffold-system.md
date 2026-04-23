@@ -1,27 +1,31 @@
 # Scaffold-systemet — Schema och Inventarium
 
-**Senast uppdaterad:** 2026-04-20. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`).
+**Senast uppdaterad:** 2026-04-23. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`).
 
 Detta dokument täcker både runtime-arkitekturen (steg, typer, pipeline) och per-scaffold/per-variant inventariumet med kvalitetsbedömning.
 
 ---
 
-## 1. De tio scaffolds — översikt
+## 1. De nio scaffolds — översikt
 
 | ID | Label | siteKind | complexity | allowedBuildIntents | Variants | Default-variant |
 |---|---|---|---|---|---|---|
 | `base-nextjs` | Base Next.js | marketing | simple | website, template | 4 | `starter-neutral` |
-| `landing-page` | Landing Page | marketing | medium | website, template | **5** | `corporate-grid` |
+| `landing-page` | Landing Page | marketing | medium | website, template | **7** | `corporate-grid` |
 | `saas-landing` | SaaS Landing | marketing | medium | website, template | 2 | `friendly-saas` |
 | `portfolio` | Portfolio | editorial | medium | website, template | 2 | `minimal-studio` |
 | `blog` | Blog | editorial | medium | website, template | 2 | `editorial-serif` |
 | `dashboard` | Dashboard | app | advanced | app | 2 | `glass-frosted` |
 | `auth-pages` | Auth Pages | app | simple | website, app, template | 1 | `clean-auth` |
 | `ecommerce` | E-handel | commerce | advanced | website, template | 3 | `megastore-clean` |
-| `content-site` | Content Site | marketing | medium | website, template | 1 | `warm-editorial` |
 | `app-shell` | App Shell | app | medium | app | 2 | `clean-utility` |
 
-**Totalt:** 10 scaffolds, 26 variants. Variants ojämnt fördelade.
+**Totalt:** 9 scaffolds, 26 variants. Variants ojämnt fördelade.
+
+> Historisk not (2026-04-23, OMTAG fas 2·B / M1): den tidigare marketing-scaffolden
+> för multi-section brand storytelling slogs ihop med `landing-page`. Dess två
+> varianter (`warm-editorial`, `minimalist-mag`) flyttades till landing-page. Se
+> `docs/architecture/glossary.md` § Legacy för detaljer.
 
 ### Variant-detaljer (sammanfattning)
 
@@ -35,11 +39,13 @@ Per scaffold finns en eller flera variants med design-axes (label, description, 
 
 ## 2. Konsoliderings-rekommendationer (öppna)
 
-### 2.1 `content-site` ↔ `landing-page`
+### 2.1 ~~Landing-familjens sammanslagning~~ (avklarad 2026-04-23)
 
-**Fakta:** Båda `siteKind: marketing`, `complexity: medium`, samma `allowedBuildIntents`. `content-site.description` säger "Great for landing pages, portfolios, and blogs" — direkt överlapp. `content-site` har 1 variant; `landing-page` har 5. Båda matchas av `LANDING_KEYWORDS` och `CONTENT_KEYWORDS` i `matcher.ts` — keyword-listorna delar 7 ord.
-
-**Rekommendation:** Slå ihop. Flytta `warm-editorial` som sjätte landing-page-variant. Ta bort content-site-scaffolden. **−1 scaffold.**
+Den tidigare marketing-scaffolden för multi-section brand storytelling slogs
+ihop med `landing-page` i OMTAG fas 2·B / M1. `LANDING_KEYWORDS` absorberade
+det gamla `CONTENT_KEYWORDS`-banket, och de två varianterna
+(`warm-editorial`, `minimalist-mag`) flyttades till `landing-page`. Se
+`docs/architecture/glossary.md` § Legacy.
 
 ### 2.2 `dashboard` ↔ `app-shell`
 
@@ -199,7 +205,6 @@ Se [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) för fin
 | `dashboard` | app | advanced | dashboard-app | operations-analytics | app | auth, navigation-shell, tables, charts |
 | `auth-pages` | app | simple | auth-surface | authentication | website, app | login, signup, password-reset |
 | `ecommerce` | commerce | advanced | commerce-storefront | product-catalog | website, template | product-grid, cart, checkout, product-detail |
-| `content-site` | marketing | medium | content-marketing-site | brand-storytelling | website, template | hero, feature-sections, testimonials, cta |
 | `app-shell` | app | medium | application-shell | workspace-tools | app | auth, sidebar-layout, settings, dash-widgets |
 
 ---

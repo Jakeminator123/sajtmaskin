@@ -36,7 +36,6 @@
         "dashboard",
         "auth-pages",
         "ecommerce",
-        "content-site",
         "app-shell"
       ],
       "description": "Which scaffold this variant belongs to. Must match the parent directory name."

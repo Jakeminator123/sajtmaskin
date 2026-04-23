@@ -17,34 +17,17 @@ Var och en kräver mer eftertanke och testning än E-lagret, men de är fortfara
 
 ---
 
-## M1 — Konsolidera `content-site` → `landing-page`
+## M1 — Marketing-scaffold-merge (→ landing-page)
 
-**Status:** Klar att börja (ej blockerad).
+**Status:** Avklarad 2026-04-23 (OMTAG fas 2·B). Före/efter-rapport:
+`OMTAG/fas2-B-audit-before-after.md`. Glossary-legacy-entry:
+`docs/architecture/glossary.md` § Legacy.
 
-**Problem (`scaffold-system.md` §2.1):** Båda har `siteKind: marketing`, `complexity: medium`, samma `allowedBuildIntents`. `content-site.description` säger "Great for landing pages, portfolios, and blogs" — direkt överlapp. `LANDING_KEYWORDS` och `CONTENT_KEYWORDS` delar 7 ord. `content-site` har 1 variant (`warm-editorial`), `landing-page` har 5.
-
-**Lösning:**
-1. Flytta `warm-editorial` som 6:e variant under `landing-page`.
-2. Ta bort `content-site`-scaffolden från registry.
-3. Migrera matcher-regler — addera `content-site`-keywords till `LANDING_KEYWORDS`.
-4. **Migration för existerande chats** med `scaffoldId: "content-site"`:
-   - SQL-migration: `UPDATE engine_chats SET orchestration_snapshot = jsonb_set(orchestration_snapshot, '{scaffoldId}', '"landing-page"') WHERE orchestration_snapshot->>'scaffoldId' = 'content-site';`
-   - Eller en runtime-fallback i `getScaffoldById` som mappar gamla id:t (bakåtkompat).
-
-**Filer:**
-- `src/lib/gen/scaffolds/registry.ts`
-- `src/lib/gen/scaffolds/types.ts`
-- `src/lib/gen/scaffolds/content-site/` (radera)
-- `config/scaffold-variants/warm-editorial.json` → `config/scaffold-variants/landing-page-warm-editorial.json`
-- `src/lib/gen/scaffolds/matcher.ts`
-- `src/lib/db/migrations/` (ny migration)
-
-**Acceptansgränser:**
-- 0 träffar på `"content-site"` i kod-sökning efter migration.
-- Existerande chats med gammalt scaffold-id resolveras till landing-page.
-- Eval-svit unchanged eller bättre.
-
-**Effort:** 4 h kod + 1 h test/migration.
+Kortfattat: den tidigare marketing-scaffolden med siteKind `marketing` +
+complexity `medium` + brand-storytelling-profile slogs ihop med
+`landing-page`. `LANDING_KEYWORDS` absorberade det gamla
+`CONTENT_KEYWORDS`-banket; `warm-editorial` och `minimalist-mag` lever nu
+som landing-page-varianter.
 
 ---
 

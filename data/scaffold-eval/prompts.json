@@ -4,7 +4,7 @@
     "prompt": "Create a one-page website for a local cleaning company with a hero, services, testimonials and contact CTA.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["hero", "cta", "services"],
     "mustNotBe": ["dashboard", "auth-pages", "app-shell"]
   },
@@ -22,7 +22,7 @@
     "prompt": "Need a homepage for a construction firm. Keep it corporate, with trust badges and quote request CTA.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["hero", "trust-signals", "cta"],
     "mustNotBe": ["blog", "dashboard"]
   },
@@ -31,7 +31,7 @@
     "prompt": "Generate a company site for a law office with one main page and clear call-to-action buttons.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["hero", "about", "cta"],
     "mustNotBe": ["dashboard", "ecommerce"]
   },
@@ -40,7 +40,7 @@
     "prompt": "Create a startup landing page that highlights benefits and collects leads.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["saas-landing", "content-site"],
+    "acceptableScaffolds": ["saas-landing", "landing-page"],
     "mustHaveFeatures": ["hero", "benefits", "lead-capture"],
     "mustNotBe": ["auth-pages", "dashboard"]
   },
@@ -58,7 +58,7 @@
     "prompt": "Create a B2B software website describing product modules, ROI, integrations and demo booking.",
     "buildIntent": "website",
     "expectedScaffold": "saas-landing",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["features", "integrations", "cta"],
     "mustNotBe": ["portfolio", "auth-pages"]
   },
@@ -85,7 +85,7 @@
     "prompt": "Create a software subscription landing page with enterprise plan and FAQ.",
     "buildIntent": "website",
     "expectedScaffold": "saas-landing",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["pricing", "faq", "cta"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -94,7 +94,7 @@
     "prompt": "Build a portfolio website for a freelance photographer with project gallery and contact page.",
     "buildIntent": "website",
     "expectedScaffold": "portfolio",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["gallery", "projects", "contact"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -103,7 +103,7 @@
     "prompt": "Create a personal portfolio for a product designer with selected case studies.",
     "buildIntent": "website",
     "expectedScaffold": "portfolio",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["case-studies", "about", "contact"],
     "mustNotBe": ["ecommerce", "dashboard"]
   },
@@ -112,7 +112,7 @@
     "prompt": "Need a portfolio for a videographer, visual-first design, gallery and booking CTA.",
     "buildIntent": "website",
     "expectedScaffold": "portfolio",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["gallery", "showcase", "cta"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -121,7 +121,7 @@
     "prompt": "Build a resume and portfolio site for a frontend developer with project highlights.",
     "buildIntent": "website",
     "expectedScaffold": "portfolio",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["projects", "resume", "contact"],
     "mustNotBe": ["ecommerce", "dashboard"]
   },
@@ -130,7 +130,7 @@
     "prompt": "Create a showcase site for an illustrator with curated works and biography.",
     "buildIntent": "website",
     "expectedScaffold": "portfolio",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["gallery", "bio", "cta"],
     "mustNotBe": ["app-shell", "dashboard"]
   },
@@ -139,7 +139,7 @@
     "prompt": "Build a blog website with article list, categories and newsletter signup.",
     "buildIntent": "website",
     "expectedScaffold": "blog",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["article-list", "categories", "newsletter"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -148,7 +148,7 @@
     "prompt": "Create an editorial magazine site focused on long-form stories and author pages.",
     "buildIntent": "website",
     "expectedScaffold": "blog",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["editorial", "articles", "authors"],
     "mustNotBe": ["ecommerce", "app-shell"]
   },
@@ -157,7 +157,7 @@
     "prompt": "Need a tech blog with post cards, tags, and a featured article section.",
     "buildIntent": "website",
     "expectedScaffold": "blog",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["posts", "tags", "featured"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -166,7 +166,7 @@
     "prompt": "Build a content hub for startup insights with resources and newsletter CTA.",
     "buildIntent": "website",
     "expectedScaffold": "blog",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["articles", "resources", "newsletter"],
     "mustNotBe": ["dashboard", "ecommerce"]
   },
@@ -175,7 +175,7 @@
     "prompt": "Create a publishing-style website with clean reading experience and topic pages.",
     "buildIntent": "website",
     "expectedScaffold": "blog",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["reading", "topics", "posts"],
     "mustNotBe": ["auth-pages", "app-shell"]
   },
@@ -310,7 +310,7 @@
     "prompt": "Build an ecommerce storefront with product grid, cart and checkout.",
     "buildIntent": "website",
     "expectedScaffold": "ecommerce",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["products", "cart", "checkout"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -319,7 +319,7 @@
     "prompt": "Create an online store for sports gear with categories and product detail pages.",
     "buildIntent": "website",
     "expectedScaffold": "ecommerce",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["storefront", "catalog", "product-detail"],
     "mustNotBe": ["blog", "dashboard"]
   },
@@ -328,7 +328,7 @@
     "prompt": "Need a webshop with inventory display, order flow and payment experience.",
     "buildIntent": "website",
     "expectedScaffold": "ecommerce",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["inventory", "checkout", "orders"],
     "mustNotBe": ["portfolio", "auth-pages"]
   },
@@ -337,7 +337,7 @@
     "prompt": "Build a product catalog site with featured products and shopping cart.",
     "buildIntent": "website",
     "expectedScaffold": "ecommerce",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["catalog", "products", "cart"],
     "mustNotBe": ["dashboard", "blog"]
   },
@@ -346,7 +346,7 @@
     "prompt": "Create an e-commerce site for home decor with category pages and checkout.",
     "buildIntent": "website",
     "expectedScaffold": "ecommerce",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["store", "categories", "checkout"],
     "mustNotBe": ["app-shell", "auth-pages"]
   },
@@ -391,7 +391,7 @@
     "prompt": "Jag vill ha en hemsida för en restaurang som heter Jakobs Matrestaurang med meny, om oss, bokning och kontakt.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["menu", "contact", "booking"],
     "mustNotBe": ["ecommerce", "dashboard", "auth-pages"]
   },
@@ -400,7 +400,7 @@
     "prompt": "Skapa en sajt för ett boutiquehotell med rum, spa, restaurang och bokning.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["rooms", "spa", "booking"],
     "mustNotBe": ["ecommerce", "dashboard", "auth-pages"]
   },
@@ -409,7 +409,7 @@
     "prompt": "Bygg en hemsida för ett café med öppettider, meny och om oss.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["menu", "hours", "about"],
     "mustNotBe": ["ecommerce", "dashboard"]
   },
@@ -418,7 +418,7 @@
     "prompt": "Create a website for a hair salon with services, booking and gallery.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["content-site", "portfolio"],
+    "acceptableScaffolds": ["landing-page", "portfolio"],
     "mustHaveFeatures": ["services", "booking", "gallery"],
     "mustNotBe": ["ecommerce", "dashboard", "auth-pages"]
   },
@@ -427,7 +427,7 @@
     "prompt": "Need a site for an event venue with capacity info, booking form and photo gallery.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["venue", "booking", "gallery"],
     "mustNotBe": ["ecommerce", "auth-pages"]
   },
@@ -435,7 +435,7 @@
     "id": "contentsite_01",
     "prompt": "Create a brand content website with hero, feature sections and testimonials.",
     "buildIntent": "website",
-    "expectedScaffold": "content-site",
+    "expectedScaffold": "landing-page",
     "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["hero", "features", "testimonials"],
     "mustNotBe": ["dashboard", "auth-pages"]
@@ -444,7 +444,7 @@
     "id": "contentsite_02",
     "prompt": "Build a multi-section company site with services, process and contact.",
     "buildIntent": "website",
-    "expectedScaffold": "content-site",
+    "expectedScaffold": "landing-page",
     "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["services", "process", "contact"],
     "mustNotBe": ["dashboard", "ecommerce"]
@@ -453,7 +453,7 @@
     "id": "contentsite_03",
     "prompt": "Need a polished website for a consulting agency with trust content and CTA.",
     "buildIntent": "website",
-    "expectedScaffold": "content-site",
+    "expectedScaffold": "landing-page",
     "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["about", "social-proof", "cta"],
     "mustNotBe": ["app-shell", "auth-pages"]
@@ -462,7 +462,7 @@
     "id": "contentsite_04",
     "prompt": "Create a modern website for a SaaS partner agency with sections and references.",
     "buildIntent": "website",
-    "expectedScaffold": "content-site",
+    "expectedScaffold": "landing-page",
     "acceptableScaffolds": ["saas-landing", "landing-page"],
     "mustHaveFeatures": ["sections", "references", "cta"],
     "mustNotBe": ["dashboard", "auth-pages"]
@@ -471,7 +471,7 @@
     "id": "contentsite_05",
     "prompt": "Build a website with many reusable sections for a media production company.",
     "buildIntent": "website",
-    "expectedScaffold": "content-site",
+    "expectedScaffold": "landing-page",
     "acceptableScaffolds": ["portfolio", "landing-page"],
     "mustHaveFeatures": ["sections", "showcase", "contact"],
     "mustNotBe": ["dashboard", "auth-pages"]
@@ -490,7 +490,7 @@
     "prompt": "Need a very simple baseline project to extend later, keep it lightweight.",
     "buildIntent": "template",
     "expectedScaffold": "base-nextjs",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["minimal", "starter"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -517,7 +517,7 @@
     "prompt": "Create a website for a gym with plans, class schedule and contact form.",
     "buildIntent": "website",
     "expectedScaffold": "landing-page",
-    "acceptableScaffolds": ["content-site", "saas-landing"],
+    "acceptableScaffolds": ["landing-page", "saas-landing"],
     "mustHaveFeatures": ["plans", "cta", "sections"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -526,7 +526,7 @@
     "prompt": "Build a creator economy site with memberships and pricing tiers.",
     "buildIntent": "website",
     "expectedScaffold": "saas-landing",
-    "acceptableScaffolds": ["content-site", "landing-page"],
+    "acceptableScaffolds": ["landing-page", "landing-page"],
     "mustHaveFeatures": ["pricing", "benefits", "cta"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -544,7 +544,7 @@
     "prompt": "Create a knowledge base style content site with articles and guides.",
     "buildIntent": "website",
     "expectedScaffold": "blog",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["articles", "guides", "searchable-content"],
     "mustNotBe": ["dashboard", "ecommerce"]
   },
@@ -571,7 +571,7 @@
     "prompt": "Create an online catalog for fashion products with checkout.",
     "buildIntent": "website",
     "expectedScaffold": "ecommerce",
-    "acceptableScaffolds": ["content-site"],
+    "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["catalog", "products", "checkout"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -579,7 +579,7 @@
     "id": "cross_08",
     "prompt": "Build an agency website that is section-rich and easy to expand with more pages.",
     "buildIntent": "website",
-    "expectedScaffold": "content-site",
+    "expectedScaffold": "landing-page",
     "acceptableScaffolds": ["landing-page"],
     "mustHaveFeatures": ["sections", "expandable", "cta"],
     "mustNotBe": ["dashboard", "auth-pages"]

@@ -4,9 +4,10 @@ import { lockedVariantForFollowUp, pickScaffoldVariant } from "./matcher";
 import { getVariantsForScaffold } from "./registry";
 
 describe("pickScaffoldVariant", () => {
-  it("prefers the default variant when the prompt is underspecified", () => {
+  it("picks corporate-grid when the prompt carries strong b2b/consulting keywords", () => {
     const variant = pickScaffoldVariant({
-      prompt: "Build a clean company website",
+      prompt:
+        "Build a professional b2b consulting corporate landing page for an enterprise agency",
       scaffoldId: "landing-page",
       generationMode: "init",
       sessionSeed: "seed-1",

@@ -31,7 +31,6 @@ import {
   APP_KEYWORDS,
   AUTH_KEYWORDS,
   ECOMMERCE_KEYWORDS,
-  CONTENT_KEYWORDS,
   HOSPITALITY_SERVICE_KEYWORDS,
   STRONG_ECOMMERCE_INTENT,
 } from "./keyword-banks";
@@ -117,7 +116,6 @@ function buildKeywordScores(
     countKeywordMatches(promptLower, PORTFOLIO_KEYWORDS) + countPortfolioSignalBoost(promptLower);
   const landingScore = countKeywordMatches(promptLower, LANDING_KEYWORDS);
   const blogScore = countKeywordMatches(promptLower, BLOG_KEYWORDS);
-  const contentScore = countKeywordMatches(promptLower, CONTENT_KEYWORDS);
 
   const hospitalityScore = countKeywordMatches(promptLower, HOSPITALITY_SERVICE_KEYWORDS);
   const strongEcommerceScore = countKeywordMatches(promptLower, STRONG_ECOMMERCE_INTENT);
@@ -134,7 +132,6 @@ function buildKeywordScores(
     { id: "portfolio", score: portfolioScore },
     { id: "landing-page", score: landingScore },
     { id: "blog", score: blogScore },
-    { id: "content-site", score: contentScore },
     { id: "base-nextjs", score: 0 },
   ];
 
@@ -187,7 +184,6 @@ function applyBriefKeywordBoost(
   if (countKeywordMatches(combinedText, PORTFOLIO_KEYWORDS) > 0) addBoost("portfolio", 2);
   if (countKeywordMatches(combinedText, SAAS_KEYWORDS) > 0) addBoost("saas-landing", 2);
   if (countKeywordMatches(combinedText, LANDING_KEYWORDS) > 0) addBoost("landing-page", 2);
-  if (countKeywordMatches(combinedText, CONTENT_KEYWORDS) > 0) addBoost("content-site", 2);
 
   if (boosts.size === 0) return scores;
   return scores.map((entry) => ({
@@ -338,7 +334,7 @@ export function matchScaffold(
     const strongEcommerceScore = countKeywordMatches(lower, STRONG_ECOMMERCE_INTENT);
     if (hospitalityScore > 0 && strongEcommerceScore === 0) {
       // Domain is hospitality/service — weak ecommerce signals (e.g. "produkt", "meny")
-      // are false positives. Fall through to landing-page/content-site matching.
+      // are false positives. Fall through to landing-page matching.
     } else {
       return getScaffoldById("ecommerce");
     }
@@ -378,11 +374,6 @@ export function matchScaffold(
 
   if (bestContent) {
     return bestContent;
-  }
-
-  const contentScore = countKeywordMatches(lower, CONTENT_KEYWORDS);
-  if (contentScore >= MIN_SCORE) {
-    return getScaffoldById("content-site");
   }
 
   if (buildIntent === "website" || buildIntent === "template") {

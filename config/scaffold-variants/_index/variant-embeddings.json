@@ -15428,7 +15428,7 @@
     },
     {
       "id": "minimalist-mag",
-      "scaffoldId": "content-site",
+      "scaffoldId": "landing-page",
       "embedding": [
         0.0292816162109375,
         0.01824951171875,
@@ -16970,7 +16970,7 @@
     },
     {
       "id": "warm-editorial",
-      "scaffoldId": "content-site",
+      "scaffoldId": "landing-page",
       "embedding": [
         0.049896240234375,
         0.01346588134765625,

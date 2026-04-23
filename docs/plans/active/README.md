@@ -11,7 +11,7 @@ Senast uppdaterad: 2026-04-23. Alla öppna steg listas i enhetligt A/B/C/D-forma
 | C | [`P19-old-content-ingress.md`](./P19-old-content-ingress.md) | **Steg 3** — UX-transparens för follow-up-basversion (SAJ-22) | 4-8h | Låg | UI-arbete |
 | D | [`dossier-brief-sync.md`](./dossier-brief-sync.md) | P1/P2 polish — frivilligt | — | Låg | — |
 | E | [`E-easy-medium-layer.md`](./E-easy-medium-layer.md) | **E1** follow-up-dubblett, **E2** isFollowUp-predicate, **E3** recurringQualityPatterns, **E4** imports-checklist, **E5** konsolidera react-fixers, **E6** strict assert i CI, **E7** variant-default | ~10h total | Medel | — |
-| F | [`M-medium-hard-layer.md`](./M-medium-hard-layer.md) | **M1** content-site→landing-page, **M2** fyll dossier-pool (5-10 nya), **M3** konsolidera 5 cross-file-import-fixers, **M4** syntaxFixPasses=1 | ~18-22h | Medel | M3 på telemetri |
+| F | [`M-medium-hard-layer.md`](./M-medium-hard-layer.md) | ~~**M1** marketing-scaffold-merge~~ (avklarad 2026-04-23, OMTAG fas 2·B), **M2** fyll dossier-pool (5-10 nya), **M3** konsolidera 5 cross-file-import-fixers, **M4** syntaxFixPasses=1 | ~18-22h | Medel | M3 på telemetri |
 | G | [`L1-unified-repair-call.md`](./L1-unified-repair-call.md) | Slå ihop 4 LLM-fixer-anrop till ett `runUnifiedRepair()` | ~3 dagar | Medel | Telemetri-data |
 | H | [`L2-prompt-kit.md`](./L2-prompt-kit.md) | `prompt-kit/` med canonical `composePrompt()` — alla 4 LLM-anropssites går genom kompositor | ~4 dagar | Medel | — |
 | I | [`L3-dossier-variants.md`](./L3-dossier-variants.md) | Beslut: behöver dossiers variants-koncept? Utvärdera efter M2 | ~1 vecka (om ja) | Låg | **M2** |

@@ -6,6 +6,6 @@
     "scaffold": "blog",
     "variant_any_of": ["minimal", "editorial"],
     "min_routes": 2,
-    "acceptable_scaffolds": ["content-site"]
+    "acceptable_scaffolds": ["landing-page"]
   }
 }

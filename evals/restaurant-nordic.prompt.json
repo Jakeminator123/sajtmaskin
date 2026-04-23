@@ -6,6 +6,6 @@
     "scaffold": "landing-page",
     "variant_any_of": ["hospitality", "editorial"],
     "min_routes": 2,
-    "acceptable_scaffolds": ["content-site"]
+    "acceptable_scaffolds": []
   }
 }

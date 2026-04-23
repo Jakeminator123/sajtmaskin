@@ -450,7 +450,6 @@ ANVÄNDARENS PROMPT
             "dashboard": "Admin Dashboard",
             "auth-pages": "Authentication",
             "app-shell": "SaaS / Multi-Tenant",
-            "content-site": "Marketing Sites / CMS",
             "base-nextjs": "Starter",
         }
         rows = []
