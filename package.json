@@ -9,7 +9,7 @@
     "node": "22.22.2"
   },
   "scripts": {
-    "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs",
+    "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-autofix-load.mjs",
     "predev": "npm run preflight:common && npm run shadcn:sync:soft && node scripts/dev/refresh-token.mjs && node scripts/db/db-init.mjs",
     "dev": "node scripts/dev/next-runner.mjs dev",
     "dev:clean": "node scripts/dev/clean-next-cache.mjs && npm run dev",
