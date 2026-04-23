@@ -66,6 +66,7 @@ import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
 import { fetchCommunityBlocks } from "./data/community-registry-fetch";
 import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
+import { deriveFollowUpStateFromInputs } from "./follow-up-predicate";
 import type { RequestKindClass } from "./request-kind";
 
 export interface OrchestrationInput {
@@ -218,6 +219,16 @@ export interface OrchestrationInput {
    * branch the pipeline; does not change {@link deriveBuildSpec} yet.
    */
   requestKind?: RequestKindClass | null;
+  /**
+   * OMTAG Fas 2·A / E2: number of previously-persisted files resolved for
+   * this chat's follow-up base version. Optional so legacy callers compile
+   * unchanged. When present, feeds {@link deriveFollowUpStateFromInputs}
+   * alongside `persistedScaffoldId` to resolve `generationMode` consistently
+   * with `finalize-merge.ts` (the P26 edge case
+   * `persistedScaffoldId !== null && previousFilesCount === 0` used to split
+   * the two call-sites).
+   */
+  previousFilesCount?: number;
 }
 
 export interface OrchestrationBase {
@@ -242,6 +253,60 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
+}
+
+/**
+ * P26 / OMTAG Fas 2·A — pure helper for the `build_intent_promoted` gate.
+ *
+ * Before PR1 landed, an auto-scaffold fallback to `app-shell` on a follow-up
+ * could flip a `website` project's build intent to `app` permanently,
+ * drowning out every subsequent turn's route plan and build spec. PR1
+ * introduced a block: on follow-up runs that already carry a persisted
+ * non-app scaffold, the promotion is suppressed. This helper exposes the
+ * pure boolean logic so the decision is unit-testable in isolation instead
+ * of hidden inside the big orchestrate function.
+ *
+ * Init runs and explicit `clear-redesign` follow-ups (where the caller sets
+ * `ignorePersistedScaffoldForMatch`) are still allowed to promote.
+ */
+export interface BuildIntentPromotionInput {
+  buildIntent: BuildIntent;
+  scaffoldMode: "auto" | "manual" | "off";
+  resolvedScaffoldId: string | null;
+  selectionConfidence: "high" | "medium" | "low" | null;
+  resolvedMode: "init" | "followUp";
+  persistedScaffoldId: string | null | undefined;
+  ignorePersistedScaffoldForMatch: boolean;
+}
+
+export interface BuildIntentPromotionDecision {
+  /** Promotion criteria satisfied before the follow-up guard. */
+  wouldPromote: boolean;
+  /** Promotion suppressed because we are on a follow-up with a persisted non-app scaffold. */
+  blockedForFollowUp: boolean;
+  /** Final answer — whether the effective build intent should be promoted to `app`. */
+  promoted: boolean;
+}
+
+export function resolveBuildIntentPromotion(
+  input: BuildIntentPromotionInput,
+): BuildIntentPromotionDecision {
+  const wouldPromote =
+    input.buildIntent === "website" &&
+    input.scaffoldMode === "auto" &&
+    isAppScaffold(input.resolvedScaffoldId) &&
+    input.selectionConfidence !== "low";
+  const blockedForFollowUp =
+    wouldPromote &&
+    input.resolvedMode === "followUp" &&
+    !!input.persistedScaffoldId &&
+    !input.ignorePersistedScaffoldForMatch &&
+    !isAppScaffold(input.persistedScaffoldId);
+  return {
+    wouldPromote,
+    blockedForFollowUp,
+    promoted: wouldPromote && !blockedForFollowUp,
+  };
 }
 
 /**
@@ -381,7 +446,20 @@ export async function resolveOrchestrationBase(
   // pin needsAuth/needsEcommerce to whatever the previous version imported.
   const intentSourcePrompt = input.capabilitiesPrompt ?? prompt;
   const capabilities = providedCapabilities ?? inferCapabilities(intentSourcePrompt);
-  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
+  // OMTAG Fas 2·A / E2: a single predicate decides follow-up semantics.
+  // When the caller passes an explicit `generationMode` (stream-post does),
+  // respect it. Otherwise, fall back to the unified predicate using
+  // `previousFilesCount` if known — or `persistedScaffoldId` as a best-effort
+  // signal for legacy callers that omit both. This keeps orchestrate and
+  // finalize-merge in agreement on the P26 edge case (scaffold pinned, no
+  // files yet) instead of disagreeing via separate truthy-checks.
+  const { isOrchestrationFollowUp } = deriveFollowUpStateFromInputs({
+    persistedScaffoldId,
+    previousFilesCount:
+      input.previousFilesCount ?? (persistedScaffoldId ? 1 : 0),
+  });
+  const resolvedMode: "init" | "followUp" =
+    generationMode ?? (isOrchestrationFollowUp ? "followUp" : "init");
 
   // P32 Fas A: `requestKind` carried on `OrchestrationInput` for *future*
   // branching in `deriveBuildSpec()`. Today it is logged at the call-site
@@ -537,23 +615,24 @@ export async function resolveOrchestrationBase(
     [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
   }
 
-  // P26: build_intent_promoted (website -> app) must not fire on follow-ups
-  // when the user already has a persisted non-app scaffold. A bug-fix prompt
-  // that happens to land on `app-shell` via keyword fallback would otherwise
-  // permanently flip the entire project's intent, route plan and BuildSpec
-  // policy. Init runs and explicit clear-redesign follow-ups still promote.
-  const wouldPromote =
-    buildIntent === "website" &&
-    scaffoldMode === "auto" &&
-    isAppScaffold(resolvedScaffold?.id) &&
-    scaffoldSelection.selectionConfidence !== "low";
+  // P26 (OMTAG Fas 2·A guard): `build_intent_promoted` (website -> app) must
+  // not fire on follow-ups when the user already has a persisted non-app
+  // scaffold. A bug-fix prompt that happens to land on `app-shell` via
+  // keyword fallback would otherwise permanently flip the entire project's
+  // intent, route plan and BuildSpec policy. Pure helper below so the
+  // decision is unit-testable in isolation.
+  const intentPromotionDecision = resolveBuildIntentPromotion({
+    buildIntent,
+    scaffoldMode,
+    resolvedScaffoldId: resolvedScaffold?.id ?? null,
+    selectionConfidence: scaffoldSelection.selectionConfidence ?? null,
+    resolvedMode,
+    persistedScaffoldId,
+    ignorePersistedScaffoldForMatch,
+  });
   const intentPromotionBlockedForFollowUp =
-    wouldPromote &&
-    resolvedMode === "followUp" &&
-    !!persistedScaffoldId &&
-    !ignorePersistedScaffoldForMatch &&
-    !isAppScaffold(persistedScaffoldId);
-  const intentPromoted = wouldPromote && !intentPromotionBlockedForFollowUp;
+    intentPromotionDecision.blockedForFollowUp;
+  const intentPromoted = intentPromotionDecision.promoted;
   const effectiveBuildIntent: BuildIntent = intentPromoted ? "app" : buildIntent;
 
   if (intentPromotionBlockedForFollowUp) {
