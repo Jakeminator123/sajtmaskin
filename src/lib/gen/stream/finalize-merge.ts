@@ -54,6 +54,21 @@ export interface MergeGeneratedProjectFilesResult {
    * site assembled from scaffold defaults.
    */
   missingEmittedEssentials: string[];
+  /**
+   * Imports the LLM made to local files that did not exist in the merged
+   * file set. `cross-file-import-checker` auto-stubbed each of them so the
+   * build doesn't die — but the stubs render `null`, meaning the user sees
+   * a hollow shell where the real component should have been (the canonical
+   * STATUS-01 example: `coffee-cup-3d.tsx → ./coffee-cup-scene` was stubbed
+   * silently, so the "3D scene" feature was visually missing without any
+   * user-facing signal). Surfacing this as a `warning`-severity log row in
+   * the version diagnostics modal lets the user understand "1 file saknades
+   * och stubbades" instead of believing the generation succeeded fully.
+   *
+   * Plan-02 / STATUS-02: not an `error` — the build IS shippable; just
+   * incomplete relative to what the LLM intended.
+   */
+  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
 }
 
 /**
@@ -168,6 +183,7 @@ export function mergeGeneratedProjectFiles({
       rejectedStructural,
       scaffoldDefaultsBlocked: [],
       missingEmittedEssentials: [],
+      crossFileStubs: crossFileResult.fixes,
     };
   }
 
@@ -264,6 +280,7 @@ export function mergeGeneratedProjectFiles({
       rejectedStructural: [],
       scaffoldDefaultsBlocked,
       missingEmittedEssentials,
+      crossFileStubs: crossFileResult.fixes,
     };
   }
 
@@ -292,6 +309,7 @@ export function mergeGeneratedProjectFiles({
       rejectedStructural: [],
       scaffoldDefaultsBlocked: [],
       missingEmittedEssentials: [],
+      crossFileStubs: crossFileResult.fixes,
     };
   }
 
@@ -301,5 +319,6 @@ export function mergeGeneratedProjectFiles({
     rejectedStructural: [],
     scaffoldDefaultsBlocked: [],
     missingEmittedEssentials: [],
+    crossFileStubs: crossFileResult.fixes,
   };
 }

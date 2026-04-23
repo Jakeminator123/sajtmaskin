@@ -154,6 +154,7 @@ export async function finalizeAndSaveVersion(
     verifierBlockingFindings,
     rejectedShrinks,
     rejectedStructural,
+    crossFileStubs,
     stepTelemetry: fastPathStepTelemetry,
   } = await runFinalizeFastPath({
     chatId,
@@ -457,5 +458,6 @@ export async function finalizeAndSaveVersion(
     },
     rejectedShrinks: rejectedShrinks ?? [],
     rejectedStructural: rejectedStructural ?? [],
+    crossFileStubs: crossFileStubs ?? [],
   };
 }

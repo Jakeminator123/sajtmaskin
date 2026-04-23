@@ -116,11 +116,27 @@ export function selectVersionStatus(events: EngineEvent[]): VersionStatus {
         phaseSignals.push("preflighting");
         break;
 
-      case "version.build.error":
-        lastBuildError = event.error;
-        verificationBlocked = true;
-        phaseSignals.push("blocked");
+      case "version.build.error": {
+        // plan-02 / STATUS-02: only `error`-severity build events flip
+        // the projection into `blocked`/`failed`. `warning`/`info` rows
+        // (e.g. `merge:cross-file-stub` stubbings, SEO notes from the
+        // quality-gate) live in `engine_version_error_logs` for the
+        // diagnostics modal but must not turn the streaming status
+        // panel red — the build itself is still shippable. Pre-fix,
+        // any subscriber emitting via `emitVersionErrorLogs` with
+        // `level: "warning"` silently locked the version into
+        // `verificationBlocked = true`, which is exactly the
+        // "false-red" failure mode plan 01 was hunting.
+        const level = event.level ?? "error";
+        if (level === "error") {
+          lastBuildError = event.error;
+          verificationBlocked = true;
+          phaseSignals.push("blocked");
+        }
+        // Non-error levels are observability only — they don't
+        // contribute to the phase signal stream.
         break;
+      }
 
       case "version.done":
         done = true;

@@ -610,6 +610,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
       contentForVersion: "<main>Hello runtime lane</main>",
       rejectedShrinks: [],
       rejectedStructural: [],
+      crossFileStubs: [],
     });
 
     const request = new Request("https://example.com/api/engine/chats/stream", {

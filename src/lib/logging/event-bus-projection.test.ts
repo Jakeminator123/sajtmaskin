@@ -205,6 +205,105 @@ describe("selectVersionStatus", () => {
     expect(status.previewBlocked).toBe(true);
   });
 
+  // ── plan-02 / STATUS-02 regression tests ──────────────────────────
+  // These lock down the "modal-truth" invariants that smoke-1 confirmed
+  // already work in HEAD. They guard against future projection drift
+  // where async F3 / non-blocking warnings would silently override a
+  // clean F2 finalize and turn the streaming status panel red.
+
+  it("plan-02: design_preview_skip_verify keeps a clean F2 stream out of failed/blocked", () => {
+    // Mirrors run-2/run-3 from STATUS-01: F2 finalize emits a clean
+    // preflight + saved, then the post-finalize policy emits
+    // `version.verifier.done outcome=skipped, reason=design_preview_skip_verify`
+    // (see `runOwnEngineStreamPostFinalize`). The projection must
+    // not interpret "skipped" as "failed" and must not flip
+    // verificationBlocked.
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.saved", {
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", {
+        outcome: "skipped",
+        blocked: false,
+        reason: "design_preview_skip_verify",
+      }),
+    ]);
+    expect(status.phase).not.toBe("failed");
+    expect(status.phase).not.toBe("blocked");
+    expect(status.verificationBlocked).toBe(false);
+    expect(status.previewBlocked).toBe(false);
+    expect(status.verifierOutcome).toBe("skipped");
+    expect(status.lastBuildError).toBeNull();
+  });
+
+  it("plan-02: warning-level build events do not overshadow a clean F2 finalize", () => {
+    // Cross-file-import-checker stubs and other "shippable but hollow"
+    // findings flow through the bus as `version.build.error` events
+    // with `level: "warning"`. The projection must keep the F2
+    // streaming status benign — only `level: "error"` rows are allowed
+    // to flip the phase to blocked/failed.
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.saved", {
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.build.error", {
+        error: { stage: "merge:cross-file-stub", message: "1 fil saknades och stubbades" },
+        level: "warning",
+        category: "merge:cross-file-stub",
+      }),
+    ]);
+    expect(status.phase).not.toBe("failed");
+    expect(status.phase).not.toBe("blocked");
+    expect(status.verificationBlocked).toBe(false);
+    expect(status.lastBuildError).toBeNull();
+  });
+
+  it("plan-02: error-level build events still flip the projection to failed", () => {
+    // Counter-test: confirm we didn't accidentally neuter the error
+    // path. A genuine build failure (no `level` defaults to "error")
+    // must still mark the version blocked + failed.
+    const status = selectVersionStatus([
+      ev("version.started", {}),
+      ev("version.preflight", {
+        filesChecked: 5,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.build.error", {
+        error: { stage: "next-build", message: "TS2305: Module has no exported member 'ButtonProps'" },
+      }),
+    ]);
+    expect(status.phase).toBe("failed");
+    expect(status.verificationBlocked).toBe(true);
+    expect(status.lastBuildError).toEqual({
+      stage: "next-build",
+      message: "TS2305: Module has no exported member 'ButtonProps'",
+    });
+  });
+
   it("multi-run aggregation (repair-pass flush-fix) preserves every event", () => {
     const status = selectVersionStatus([
       // Original run.

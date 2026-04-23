@@ -40,24 +40,30 @@ function ThinkingOverlayContent() {
 
   const current = FACTS[factIndex];
 
+  // Layout note (plan-02 / STATUS-01): tidigare positionerad `absolute
+  // inset-x-0 bottom-16` vilket lade overlay:n ovanpå nederkanten av
+  // `MessageList` och dolde de senaste streamade reasoning/agentlog-raderna
+  // medan AI genererade. Flyttad till ett kompakt header-band längst upp
+  // (`top-2`) så den inte konkurrerar med chat-strömmen om vertikal
+  // skärmyta. `pointer-events-none` behålls så den inte blockerar klick.
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-16 z-10 flex flex-col items-center gap-4 px-4 py-6">
-      <div className="relative flex items-center gap-3">
-        <Loader2 className="text-primary h-5 w-5 animate-spin" />
-        <span className="text-muted-foreground text-sm">AI genererar...</span>
-      </div>
-
+    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-4">
       <div
+        className="border-border/60 bg-background/85 text-muted-foreground flex max-w-md items-center gap-3 rounded-full border px-3 py-1.5 shadow-sm backdrop-blur-sm"
         aria-live="polite"
-        className={`max-w-sm text-center transition-opacity duration-300 ${
-          fadeIn ? "opacity-100" : "opacity-0"
-        }`}
       >
-        <p className="text-muted-foreground/60 text-xs">
-          <span className="text-foreground/80 font-medium">{current.company}</span>
+        <Loader2 className="text-primary h-3.5 w-3.5 shrink-0 animate-spin" />
+        <span className="text-xs font-medium">AI genererar</span>
+        <span className="text-muted-foreground/40 text-xs">·</span>
+        <span
+          className={`text-muted-foreground/70 truncate text-xs transition-opacity duration-300 ${
+            fadeIn ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <span className="text-foreground/70 font-medium">{current.company}</span>
           {" — "}
           {current.fact}
-        </p>
+        </span>
       </div>
     </div>
   );

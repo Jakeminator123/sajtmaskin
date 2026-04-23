@@ -107,6 +107,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     },
     rejectedShrinks: [],
     rejectedStructural: [],
+    crossFileStubs: [],
   };
 
   beforeEach(() => {
