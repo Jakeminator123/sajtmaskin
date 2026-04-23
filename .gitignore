@@ -294,3 +294,6 @@ agent-session-*.txt
 
 # OMTAG-06: unified event-bus NDJSON mirrors + per-version run index
 data/runs/
+
+# Local scratch space (zip extractions, ad-hoc orchestrator notes, etc.)
+.tmp/
