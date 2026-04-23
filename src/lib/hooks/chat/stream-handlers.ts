@@ -1,5 +1,5 @@
 import { consumeSseResponse } from "@/lib/builder/sse";
-import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
+import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/prompt-assist";
 import type {
   AutoFixPayload,
   PreviewBuildErrorPayload,

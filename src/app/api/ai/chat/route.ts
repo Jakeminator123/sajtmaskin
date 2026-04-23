@@ -13,7 +13,7 @@ import {
   isPromptAssistModelAllowed,
   normalizeAssistModel,
   resolvePromptAssistProvider,
-} from "@/lib/builder/promptAssist";
+} from "@/lib/builder/prompt-assist";
 import {
   createDirectModel,
   getTemperatureConfig,

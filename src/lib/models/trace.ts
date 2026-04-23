@@ -13,7 +13,7 @@ import {
   normalizeAssistModel,
   resolvePromptAssistProvider,
   type PromptAssistProvider,
-} from "@/lib/builder/promptAssist";
+} from "@/lib/builder/prompt-assist";
 import {
   DEFAULT_MODEL_ID,
   MODEL_LABELS,

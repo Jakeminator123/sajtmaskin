@@ -6,7 +6,7 @@ import {
   isPromptAssistOff,
   normalizeAssistModel,
   resolvePromptAssistProvider,
-} from "@/lib/builder/promptAssist";
+} from "@/lib/builder/prompt-assist";
 import { ASSIST_MODEL } from "@/lib/gen/defaults";
 import { debugLog } from "@/lib/utils/debug";
 import { useCallback } from "react";
