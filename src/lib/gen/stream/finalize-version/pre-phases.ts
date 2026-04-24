@@ -50,6 +50,7 @@ export async function runAutofixPrePhase(params: {
   contentForVersion: string;
   chatId: string;
   model: string;
+  requestedCapabilities?: string[];
   buildSpec?: BuildSpec | null;
   resolvedScaffold: ScaffoldManifest | null;
   resolvedTier?: CanonicalModelId;
@@ -60,6 +61,7 @@ export async function runAutofixPrePhase(params: {
     runAutofix,
     chatId,
     model,
+    requestedCapabilities,
     buildSpec,
     resolvedScaffold,
     resolvedTier,
@@ -93,6 +95,7 @@ export async function runAutofixPrePhase(params: {
     const autoFixResult = await runAutoFix(contentForVersion, {
       chatId,
       model,
+      requestedCapabilities,
       previewPolicy: buildSpec?.previewPolicy,
     });
     contentForVersion = autoFixResult.fixedContent;

@@ -490,7 +490,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       message: string;
       meta: Record<string, unknown>;
     }>;
-    expect(payloads).toHaveLength(2);
+    expect(payloads).toHaveLength(3);
     expect(payloads[0].level).toBe("warning");
     expect(payloads[0].category).toBe("merge:cross-file-stub");
     expect(payloads[0].message).toContain("./coffee-cup-scene");
@@ -505,6 +505,13 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       sourceFile: "components/feature-grid.tsx",
       missingImport: "./feature-card",
     });
+    expect(payloads[2].category).toBe("merge:cross-file-stub-3d-capability");
+    expect(payloads[2].message).toContain("3D-fil stubbed utan visual-3d capability");
+    expect(payloads[2].meta).toMatchObject({
+      sourceFile: "components/coffee-cup-3d.tsx",
+      missingImport: "./coffee-cup-scene",
+      requestedCapabilities: [],
+    });
 
     // The same stub list is also surfaced on the `done` SSE so the
     // builder-shell can render a "1 fil saknades och stubbades" hint
@@ -517,6 +524,59 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         ]),
       }),
     );
+  });
+
+  it("skips extra 3d capability warning when visual-3d is already requested", async () => {
+    createEngineVersionErrorLogsMock.mockReset();
+    createEngineVersionErrorLogsMock.mockResolvedValue(undefined);
+    const finalizedWithStubs = {
+      ...finalized,
+      requestedCapabilities: ["visual-3d"],
+      crossFileStubs: [
+        {
+          sourceFile: "components/coffee-cup-3d.tsx",
+          missingImport: "./coffee-cup-scene",
+          stubFile: "components/coffee-cup-scene.tsx",
+        },
+      ],
+    };
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalizedWithStubs as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+      },
+      repairPassIndex: 0,
+    });
+
+    expect(createEngineVersionErrorLogsMock).toHaveBeenCalledTimes(1);
+    const payloads = createEngineVersionErrorLogsMock.mock.calls[0]?.[0] as Array<{
+      category: string;
+    }>;
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]?.category).toBe("merge:cross-file-stub");
   });
 
   it("does not emit warning rows when there are no cross-file stubs", async () => {

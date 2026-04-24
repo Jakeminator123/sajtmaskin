@@ -32,6 +32,32 @@ export type PostFinalizeSse = {
   safeEnqueue: (data: Uint8Array) => void;
 };
 
+const THREE_D_STUB_NAME_RE = /3d|three|webgl|canvas-?scene/i;
+
+function normalizeRequestedCapabilities(input: unknown): string[] {
+  if (!Array.isArray(input) || input.length === 0) return [];
+  return Array.from(
+    new Set(
+      input
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function matchesThreeDStubPattern(stub: {
+  sourceFile: string;
+  missingImport: string;
+  stubFile: string;
+}): boolean {
+  return (
+    THREE_D_STUB_NAME_RE.test(stub.stubFile) ||
+    THREE_D_STUB_NAME_RE.test(stub.sourceFile) ||
+    THREE_D_STUB_NAME_RE.test(stub.missingImport)
+  );
+}
+
 function resolvePreviewUrlHint(chatId: string, previewWillRun: boolean): string | null {
   if (!previewWillRun) return null;
   const baseUrl = getPreviewHostBaseUrl();
@@ -79,6 +105,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
     recoveredAfterStreamAbort = false,
     repairPassIndex = 0,
   } = params;
+  const requestedCapabilities = normalizeRequestedCapabilities(
+    (finalized as FinalizeResult & { requestedCapabilities?: unknown }).requestedCapabilities,
+  );
+  const hasVisual3dCapability = requestedCapabilities.includes("visual-3d");
 
   // Lager 4 av F2-mute (se .cursor/rules/env-flow-f2-mute.mdc):
   // post-finalize kod-scan av Stripe/Upstash/etc. emitterade tidigare
@@ -209,11 +239,32 @@ export async function runOwnEngineStreamPostFinalize(params: {
         repairPassIndex,
       },
     }));
-    await createEngineVersionErrorLogs(warningPayloads).catch((err) => {
+    const missingCapabilityWarnings =
+      hasVisual3dCapability
+        ? []
+        : finalized.crossFileStubs
+            .filter(matchesThreeDStubPattern)
+            .map((stub) => ({
+              chatId,
+              versionId: finalized.version.id,
+              level: "warning" as const,
+              category: "merge:cross-file-stub-3d-capability",
+              message:
+                "3D-fil stubbed utan visual-3d capability — overväg att be med 'capability-add' explicit.",
+              meta: {
+                sourceFile: stub.sourceFile,
+                missingImport: stub.missingImport,
+                stubFile: stub.stubFile,
+                requestedCapabilities,
+                repairPassIndex,
+              },
+            }));
+    const allWarningPayloads = [...warningPayloads, ...missingCapabilityWarnings];
+    await createEngineVersionErrorLogs(allWarningPayloads).catch((err) => {
       warnLog("engine", "Failed to persist cross-file-stub warnings", {
         chatId,
         versionId: finalized.version.id,
-        stubCount: finalized.crossFileStubs.length,
+        stubCount: allWarningPayloads.length,
         message: err instanceof Error ? err.message : "unknown",
       });
     });

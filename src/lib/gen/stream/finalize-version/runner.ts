@@ -54,6 +54,45 @@ import type {
   FinalizeStepTelemetryMap,
 } from "./types";
 
+function normalizeCapabilityIds(input: unknown): string[] {
+  if (!Array.isArray(input) || input.length === 0) return [];
+  return Array.from(
+    new Set(
+      input
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function resolveRequestedCapabilitiesFromStreamMeta(
+  streamMeta: Record<string, unknown> | null | undefined,
+): string[] {
+  const fromTopLevel = normalizeCapabilityIds(streamMeta?.requestedCapabilities);
+  if (fromTopLevel.length > 0) return fromTopLevel;
+
+  const briefSummary =
+    streamMeta?.briefSummary &&
+    typeof streamMeta.briefSummary === "object" &&
+    !Array.isArray(streamMeta.briefSummary)
+      ? (streamMeta.briefSummary as Record<string, unknown>)
+      : null;
+  const fromBriefSummary = normalizeCapabilityIds(briefSummary?.requestedCapabilities);
+  if (fromBriefSummary.length > 0) return fromBriefSummary;
+
+  const inferredCapabilities =
+    streamMeta?.capabilities &&
+    typeof streamMeta.capabilities === "object" &&
+    !Array.isArray(streamMeta.capabilities)
+      ? (streamMeta.capabilities as Record<string, unknown>)
+      : null;
+  if (inferredCapabilities?.needs3D === true) {
+    return ["visual-3d"];
+  }
+  return [];
+}
+
 export async function finalizeAndSaveVersion(
   params: FinalizeParams,
 ): Promise<FinalizeResult> {
@@ -82,6 +121,9 @@ export async function finalizeAndSaveVersion(
     targetVersionId,
     lifecycleParentVersionId,
   } = params;
+  const requestedCapabilities = resolveRequestedCapabilitiesFromStreamMeta(
+    orchestrationStreamMeta as Record<string, unknown> | null | undefined,
+  );
 
   const finalizePath = resolveFinalizePathPolicy({
     buildSpec,
@@ -124,6 +166,7 @@ export async function finalizeAndSaveVersion(
     contentForVersion,
     chatId,
     model,
+    requestedCapabilities,
     buildSpec,
     resolvedScaffold,
     resolvedTier,
@@ -459,5 +502,6 @@ export async function finalizeAndSaveVersion(
     rejectedShrinks: rejectedShrinks ?? [],
     rejectedStructural: rejectedStructural ?? [],
     crossFileStubs: crossFileStubs ?? [],
+    ...(requestedCapabilities.length > 0 ? { requestedCapabilities } : {}),
   };
 }

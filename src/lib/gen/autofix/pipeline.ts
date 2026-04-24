@@ -36,7 +36,11 @@ import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { fixDomBuiltinJsxTags } from "./rules/dom-builtin-jsx-fixer";
-import { runDepCompleter } from "./dep-completer";
+import {
+  mergeMissingDependenciesIntoPackageJson,
+  resolveCapabilityDependencies,
+  runDepCompleter,
+} from "./dep-completer";
 import { validateAndUpgradeDeps } from "./dep-version-validator";
 import { runSecurityChecks } from "../security/run-security-checks";
 import { DETERMINISTIC_AUTOFIX_MAX_PASSES } from "../defaults";
@@ -67,6 +71,11 @@ export interface AutoFixContext {
    * occasional false-positive strip in test harnesses.
    */
   previewPolicy?: BuildSpecPreviewPolicy;
+  /**
+   * Canonical capability ids for deterministic dependency-injection.
+   * Example: `visual-3d` -> `three` + `@react-three/fiber` + `@react-three/drei`.
+   */
+  requestedCapabilities?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -926,30 +935,32 @@ async function runAutoFixSinglePass(
     fixedFiles.push({ ...file, content: currentCode });
   }
 
-  // 7b. merge collected dependencies into package.json
+  // 7b. merge collected dependencies into package.json.
+  // Capability-driven dependency injection (plan-07 short): when the
+  // orchestration metadata marks e.g. `visual-3d`, inject the dossier deps
+  // deterministically even if the LLM forgot the imports.
+  const capabilityDependencies = resolveCapabilityDependencies(
+    context?.requestedCapabilities,
+  );
+  if (Object.keys(capabilityDependencies).length > 0) {
+    allDependencies = { ...capabilityDependencies, ...allDependencies };
+  }
   if (Object.keys(allDependencies).length > 0) {
     const pkgIdx = fixedFiles.findIndex((f) => f.path === "package.json");
     if (pkgIdx >= 0) {
       try {
-        const pkg = JSON.parse(fixedFiles[pkgIdx].content);
-        const deps = (pkg.dependencies ?? {}) as Record<string, string>;
-        let merged = 0;
-        for (const [name, version] of Object.entries(allDependencies)) {
-          if (!deps[name]) {
-            deps[name] = version;
-            merged++;
-          }
-        }
-        if (merged > 0) {
-          pkg.dependencies = deps;
+        const pkg = JSON.parse(fixedFiles[pkgIdx].content) as Record<string, unknown>;
+        const { packageJson: mergedPackageJson, mergedCount } =
+          mergeMissingDependenciesIntoPackageJson(pkg, allDependencies);
+        if (mergedCount > 0) {
           fixedFiles[pkgIdx] = {
             ...fixedFiles[pkgIdx],
-            content: JSON.stringify(pkg, null, 2),
+            content: JSON.stringify(mergedPackageJson, null, 2),
           };
           allFixes.push({
             fixer: "dep-completer",
             category: "mechanical",
-            description: `Pinned ${merged} missing ${merged === 1 ? "dependency" : "dependencies"} in package.json`,
+            description: `Pinned ${mergedCount} missing ${mergedCount === 1 ? "dependency" : "dependencies"} in package.json`,
             file: "package.json",
           });
         }
