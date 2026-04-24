@@ -40,8 +40,11 @@
           },
           "reason": {
             "type": "string",
-            "enum": ["verbatim_content_drift"],
-            "description": "Orsak till restore. Idag alltid 'verbatim_content_drift'."
+            "enum": [
+              "verbatim_content_drift",
+              "verbatim_file_missing_in_llm_output"
+            ],
+            "description": "Orsak till restore. 'verbatim_content_drift' = LLM modifierade en verbatim-fil. 'verbatim_file_missing_in_llm_output' = LLM glömde emit:a en verbatim-fil och vi pushade canonical content."
           }
         }
       }

@@ -24,6 +24,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { RoutePlan } from "@/lib/gen/route-plan";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
@@ -73,6 +74,12 @@ export async function runFinalizeFastPath(params: {
    * Whether the downstream quality gate includes `typecheck`.
    */
   qualityGateChecksIncludesTypecheck: boolean;
+  /**
+   * Dossiers vars verbatim-filer ska skyddas vid merge. Trådas vidare
+   * till `runPreflightPhase`. Default tom array (verbatim-policy körs men
+   * hittar inga skyddade filer).
+   */
+  selectedDossiers?: DossierEntry[];
 }): Promise<FinalizeFastPathResult> {
   const {
     chatId,
@@ -91,6 +98,7 @@ export async function runFinalizeFastPath(params: {
     alreadyMechanicallyFixed,
     willRunQualityGate,
     qualityGateChecksIncludesTypecheck,
+    selectedDossiers,
   } = params;
   let contentForVersion = params.contentForVersion;
   const stepTelemetry: FinalizeStepTelemetryMap = {};
@@ -252,6 +260,7 @@ export async function runFinalizeFastPath(params: {
     previousFiles,
     contentForVersion,
     onProgress,
+    selectedDossiers,
   });
 
   return {

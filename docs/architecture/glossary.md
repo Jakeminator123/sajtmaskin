@@ -167,8 +167,8 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Scaffold Retry | Sen diagnos + scaffoldpivot-förslag vid misslyckad generation | kanonisk |
 | `verbatim_content_drift` | Reason-kod i `dossier_verbatim_restored`-event: LLM modifierade en verbatim-fil och systemet tvingades återställa det kanoniska innehållet. Emitteras av `verbatim-policy.ts`. | kanonisk |
 | `warmTscSkipped` | Boolean i `site.done`-devLog: `true` när warm-tsc hoppades över i `validate_syntax` eftersom quality gate planerades köra tsc ändå. Latency-vinst-mätning (wave 7). | kanonisk |
-| `previewPreWarm` | FEATURE-flagga (planerad): Fly.io pre-warm av preview-VM innan kodgenereringen är klar, för att reducera VM-cold-start-latens. Styrs via feature-toggle (wave 7, bakom eval). | alias |
-| `recurringPatternsInCreatePrompt` | FEATURE-flagga (planerad): Injicera recurring failure patterns även på init/create-generering (idag bara på follow-ups). Bakom eval-gate tills signal/noise-kvoten verifierats. | alias |
+| `previewPreWarm` | FEATURE-flagga (implementerad, default `false`): Fly.io pre-warm av preview-VM vid chat-init för att reducera VM-cold-start-latens. Triggas opportunistiskt (fire-and-forget) när `buildIntent === "website"`. Aktiveras via env för opt-in (wave 7, bakom eval). | alias |
+| `recurringPatternsInCreatePrompt` | FEATURE-flagga (implementerad, default `false`): Injicera recurring failure patterns även på init/create-generering (idag bara på follow-ups). Bakom eval-gate tills signal/noise-kvoten verifierats. | alias |
 
 ---
 
