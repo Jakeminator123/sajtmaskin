@@ -6,10 +6,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Must mock before importing the module under test.
-const mockGetDossierFileContent = vi.fn<
-  [string, string, string],
-  string | null
->();
+// Vitest v4 syntax: single type-arg is the full function signature.
+const mockGetDossierFileContent =
+  vi.fn<(klass: string, id: string, relPath: string) => string | null>();
 vi.mock("./registry", () => ({
   getDossierFileContent: (...args: [string, string, string]) =>
     mockGetDossierFileContent(...args),

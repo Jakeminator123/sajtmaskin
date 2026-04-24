@@ -159,7 +159,7 @@ describe("validateImages", () => {
       // 404 ska inte trigga GET-fallback. headCheck-retry kan dock ge en
       // till HEAD-call vid >=500 — men 404 räknas som "definitivt broken".
       const getCalls = fetchSpy.mock.calls.filter(
-        (call) => (call[1] as RequestInit | undefined)?.method === "GET",
+        (call: unknown[]) => (call[1] as RequestInit | undefined)?.method === "GET",
       );
       expect(getCalls).toHaveLength(0);
     });
