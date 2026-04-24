@@ -297,3 +297,6 @@ data/runs/
 
 # Local scratch space (zip extractions, ad-hoc orchestrator notes, etc.)
 .tmp/
+
+# Cursor-agent run logs from orchestrator background tasks (pure observability noise)
+docs/plans/**/*.run.log.jsonl

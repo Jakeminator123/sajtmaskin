@@ -13,6 +13,7 @@
 - **Init-flow friction:** prompt från `/` landar i chat-input på `/builder` men auto-submittar **inte**. Användaren måste klicka send manuellt. Avsiktligt eller bugg? → flaggas till plan 02-spåret.
 - **ThinkingOverlay layout-bug:** `src/components/builder/ThinkingOverlay.tsx` är positionerad `absolute inset-x-0 bottom-16` av chat-panelens container i `BuilderShellContent.tsx:851-872`. Den ligger ovanpå de nedersta meddelandena i `MessageList` — alltså döljer den nyligen-streamad reasoning/agentlog visuellt medan AI:n genererar. `pointer-events-none` så klickar går igenom men text blockeras. → bör fixas i samband med plan 02-agentens UI-pass (alternativt en separat liten commit).
 - **Element-register edit utan effekt:** Användaren tryckte på `elementregister`-knappen, editerade `heron`-elementet och ändrade "morgon" → "dag". Tillbaka i preview hände **ingenting** — varken committ-bekräftelse eller refresh av iframe. Antingen committas inte ändringen, eller också saknas HMR-koppling från element-register till preview-iframen. → utanför plan 12:s scope, men bör flaggas som follow-up-bug efter wave 3.
+- **`versionId: null` i frontend requests:** Nätverkspanel visade en `versionId: null`-rad bland en svärm av `preview-status?versionId=ed0025b9-...` requests. Race condition mellan versionsbyte ELLER state-loss vid HMR. Frontend bör inte skicka `?versionId=null` — antingen vänta in värdet eller skippa requesten. → plan 02-territorium (svag signalering om "jag vet inte vilken version"). Inte värt eskalering till `full`.
 
 ---
 
