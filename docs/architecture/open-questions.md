@@ -256,17 +256,29 @@ CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter
 
 ---
 
-### 15. ❌ Build-integrations frågar om STRIPE_SECRET_KEY även när Stripe inte är i koden
+### 15. ❌ Hard-dossier env-vars false-promptas trots att deps saknas — 2 callsites
 
-**Verifierat 2026-04-24 (chat `b71dafb3`, version efter chain-of-thought-add):** Användaren tryckte "Bygg integrationer"-knappen. UI:t prompade om STRIPE_SECRET_KEY trots att:
-- Live VM HTML: **0 träffar** på `stripe`, `checkout`, `payment`
-- package.json saknar `stripe`-dependency (chain-of-thought-runden la bara `ai` + `@ai-sdk/react`)
+**Verifierat 2026-04-24 (chat `b71dafb3`, två separata symptomer):**
 
-**Trolig rotsorsak:** Build-integrations-flödet visar env-vars för **alla hard-dossiers i registrn** (10 st), inte bara de som faktiskt är aktiva i versionen. Användaren får frågan om secrets för dossiers de inte använder.
+**Symptom A — "Bygg integrationer"-knapp (UI):** Prompade om STRIPE_SECRET_KEY trots att Live VM HTML har 0 träffar på `stripe`/`checkout`/`payment`.
 
-**Korrekt beteende:** Skanna versionens `package.json` + filer för dossier-fingerprints (`stripe`, `@clerk/nextjs`, `@sentry/nextjs`, etc) → bara visa env-prompt för de som faktiskt finns i koden.
+**Symptom B — `POST /api/.../finalize-design` returnerar 412:**
+```
+"Tunga integrationer kräver riktiga env-variabler innan F3 kan köras."
+missingByIntegration: [{key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"]}]
+requirements: [{key: "algolia", name: "Algolia", requiredRealEnvKeys: []}]
+```
+Live VM HTML har **0 träffar** på `clerk`, `algolia`, `sign-in`, `sign-up`, `search-index`. Sajten har INTE Clerk eller Algolia installerat. F3-gate vägrar promote pga falskt missing-env-fynd.
 
-**Plan-koppling:** Inte plan 11/12-scope. UI/build-integrations-fix. Värd egen 30-min-task efter wave 5.
+**Bekräftad rotsorsak:** Båda callsites (build-integrations-knapp + `finalize-design`-endpoint) använder samma resolver som listar env-vars för **alla hard-dossiers i registrn** (10 st: stripe, clerk, sentry, openai, resend, mailchimp, plausible, vercel-analytics + ai-chat). De skannar inte versionens faktiska `package.json`-deps eller fil-imports.
+
+`PreviewPanelF3Trigger.tsx:79` är den UI-callsite som triggar 412-flödet.
+
+**Korrekt beteende:** Skanna versionens `package.json` + fil-imports för dossier-fingerprints (`stripe`, `@clerk/nextjs`, `@sentry/nextjs`, `algoliasearch`, etc) → bara prompta för env-vars för de dossiers som faktiskt finns i koden. Eller: skanna `requestedCapabilities` på orchestration-base som plan 06 producerar.
+
+**Severity:** **HIGH** — det här blockerar F3-promotion för 99% av sajter (de flesta använder bara 0-2 hard-dossiers, men gate begär secrets för 10).
+
+**Plan-koppling:** **Plan 12-prio** (PromptKit reducerad — istället: dossier-requirement-resolver-fix). Eller egen "post-wave-5 high-prio fix".
 
 ---
 
