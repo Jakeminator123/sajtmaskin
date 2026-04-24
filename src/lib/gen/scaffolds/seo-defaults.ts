@@ -33,7 +33,17 @@ import { warnLog } from "@/lib/utils/debug";
 
 const SEO_SITE_URL_ENV = "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL";
 
-let warnedAboutMissingSeoSiteUrl = false;
+/**
+ * Cross-module-instance warn-once flag. Lives on `globalThis` so Next dev
+ * HMR + edge/node runtime split (which both re-import this module) doesn't
+ * reset the flag and spam the console with the same warning per scaffold
+ * (registry.ts maps over 9 scaffolds, each calling this function).
+ *
+ * Reset semantics: only on full process restart, which is correct — we
+ * want exactly one warn per process lifetime.
+ */
+const WARN_FLAG_KEY = "__sajtmaskinSeoDefaultsWarned" as const;
+type WarnFlagHolder = { [WARN_FLAG_KEY]?: boolean };
 
 function readSeoSiteUrl(): string | null {
   const fromEnv = process.env[SEO_SITE_URL_ENV]?.trim();
@@ -42,8 +52,9 @@ function readSeoSiteUrl(): string | null {
 }
 
 function warnOnceAboutMissingSeoSiteUrl(): void {
-  if (warnedAboutMissingSeoSiteUrl) return;
-  warnedAboutMissingSeoSiteUrl = true;
+  const holder = globalThis as unknown as WarnFlagHolder;
+  if (holder[WARN_FLAG_KEY]) return;
+  holder[WARN_FLAG_KEY] = true;
   warnLog("scaffold", "seo_defaults_disabled", {
     reason: `${SEO_SITE_URL_ENV} unset — scaffold SEO files (robots/sitemap/opengraph) and layout metadata enrichment are disabled. Set the env var (e.g. when promoting to fidelity3) to activate.`,
   });
