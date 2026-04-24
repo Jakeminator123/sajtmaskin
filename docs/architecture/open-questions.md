@@ -143,6 +143,43 @@ Variant spelar ingen roll. **Systematisk generation-quality-bugg.** LLM:n return
 
 ---
 
+### 8. ❌ scaffoldVariant lockas inte mellan init och follow-up
+
+**Antagande:** När en follow-up körs på en chat med befintlig version ska systemet låsa till samma `scaffoldVariant` som init valde, så sajten inte byter utseende mellan användarens prompts.
+
+**Verifierat falskt 2026-04-23 (chat `b71dafb3`):** Init valde `corporate-grid`. Follow-up försökte locka och gav upp:
+
+```
+[scaffold-variant] variant_lock_skip {
+  reason: 'missing_prior_variant_id',
+  scaffoldId: 'landing-page',
+  priorVariantId: null,
+  intent: 'neutral'
+}
+```
+
+Sedan valde follow-up `warm-local` istället. Sajten har därmed olika look mellan v1 och v2, även för en trivial "lägg till mer innehåll"-prompt.
+
+**Sannolik rotsorsak (samma kod-område som page.tsx-loss):** `resolveOrchestrationBase` (eller `engine_versions`-persistens) sparar inte `scaffoldVariantId` på versionen. Vid follow-up läses `priorVariantId: null` från base.
+
+**Konfirmerade variants:** `corporate-grid`, `warm-local`, `editorial-lux`, `bold-startup`, `minimalist-mag` — minst 5 finns i `src/lib/gen/scaffold-variants/`. Variant-systemet är inte trasigt; bara persistensen.
+
+**Plan-koppling:** **Lägg till i investigation-agentens scope** OCH plan 11. Är troligen samma fix som page.tsx-loss eftersom båda bor i samma persistens-/merge-kedja.
+
+---
+
+### 9. ❓ CSP frame-src blocking i builder
+
+**Loggrad:** `[csp-report] directive=frame-src blocked= doc=http://localhost:3000/builder?chatId=b71dafb3...`
+
+**Vad vi vet:** Något försökte ladda ett iframe i builder-sidan som CSP `frame-src` blockerade. Tomt `blocked=` (URL ej inkluderad i rapporten).
+
+**Vad vi inte vet:** Vad var iframen? Preview-iframen mot `vm-fly-jakem.fly.dev`? Eller en injicerad analytics-iframe?
+
+**Hur verifiera:** Lägg till browser DevTools Network-flik filter på `frame` när detta reproducerar.
+
+---
+
 ## Hur använda denna fil
 
 1. **Innan du säger "det buggar"** — kolla om det är listat här. Om ja → läs vad vi vet, lägg till nya datapunkter.
