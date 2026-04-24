@@ -413,7 +413,7 @@ export async function runFinalizePreflight({
   originalPrompt: _originalPrompt,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   let nextFilesJson = filesJson;
-  let preflightIssues: FinalizePreflightIssue[] = [];
+  const preflightIssues: FinalizePreflightIssue[] = [];
   let preflightFileCount = 0;
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
