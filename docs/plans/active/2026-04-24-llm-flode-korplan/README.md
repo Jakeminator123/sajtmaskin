@@ -3,6 +3,10 @@ status: active
 created: 2026-04-24
 revised: 2026-04-24 (efter deep-prefab feedback + 4-agents verifieringspass)
 revised2: 2026-04-24 (status-uppdatering efter 7 waves levererade; backoffice + strict schemas tillagda)
+revised3: 2026-04-24 (final review-fixes: selectedDossiers trådning + schema-enum + glossary-precision)
+finalCommit: c538d89a0
+totalCommits: 11 (på llm-flode över master)
+verification: npx tsc --noEmit src/ + backoffice/ = 0 fel; 98+ vitest tester pass
 branch: llm-flode
 trigger: långbänk efter user-rapport om körning eb152443-2660-4042-a2a0-e5c156b928ed + deep-prefab review (sparat i `svar_gpt`)
 ---
@@ -23,7 +27,9 @@ trigger: långbänk efter user-rapport om körning eb152443-2660-4042-a2a0-e5c15
 | Wave 3b | F2/F3-kontrakt doc-fix + UI-badges + previewBlocked-rensning + soft-assert | Spår 0 | — |
 | Wave 5 | Lucide-checklist + recurring-patterns-flag + shrink-telemetri | Spår 5 | llm-fixer.test.ts |
 | Wave 6 | Verbatim-restore i merge + cross-file-stub-telemetri + förstärkt prompt | Spår 4 | verbatim-policy.test.ts |
-| Wave 7 | Skip dubbel tsc (`warmTscSkipped`) + Fly pre-warm bakom flagga | Spår 6 (säkra vinster) | finalize-version.test.ts |
+| Wave 7 | Skip dubbel tsc (`warmTscSkipped`) + Fly pre-warm bakom flagga | Spår 6 (säkra vinster) | finalize-version.test.ts, validate-and-fix.test.ts, preview-prewarm.test.ts |
+| Wave 8 | Backoffice telemetri-sida + 5 strikta event-schemas + glossary | Cross-cutting | python -m ast OK |
+| Review-fix | `selectedDossiers` trådning från orchestration → merge + schema-enum + glossary-precision | Spår 4 + 6 | full vitest passar |
 
 ### Vad som INTE levererades (framtida)
 
