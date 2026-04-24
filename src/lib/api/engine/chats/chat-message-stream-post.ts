@@ -30,6 +30,10 @@ import {
 } from "@/lib/gen/contract/clarification";
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
 import { hasHeavyCapabilities, inferCapabilities } from "@/lib/gen/capability-inference";
+import {
+  detectFollowUpCapabilities,
+  type FollowUpCapabilityDetection,
+} from "@/lib/builder/follow-up-capability-detection";
 import { deriveFollowUpContextPolicy, isShellPageContent } from "@/lib/gen/build-spec";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
@@ -331,6 +335,26 @@ export async function handleMessageStreamRequest(
         const followUpIntent = hasFollowUpBase && !skipIntentClassification
           ? classifyFollowUpIntent(message)
           : "neutral";
+        // Plan 06 (2026-04-24): detect dossier-mappable capabilities in the
+        // follow-up text so `selectDossiersForRequest` actually sees the
+        // signal even when the snapshot-hydrated brief and the keyword-based
+        // `inferCapabilities` pass both miss it (Plan 01 smoke run 2). Skip
+        // when intent classification is suppressed (auto-repair / payload
+        // preservation passes) — those re-enter the same pipeline and would
+        // otherwise re-trigger capability injection on every repair pass.
+        const followUpCapabilityDetection: FollowUpCapabilityDetection =
+          hasFollowUpBase && !skipIntentClassification
+            ? detectFollowUpCapabilities(message)
+            : { capabilities: [], capabilityIds: [], tierByCapability: {}, wordCount: 0 };
+        if (followUpCapabilityDetection.capabilityIds.length > 0) {
+          devLogAppend("in-progress", {
+            type: "followup.capability.detected",
+            chatId,
+            followUpIntent,
+            capabilityIds: followUpCapabilityDetection.capabilityIds,
+            tierByCapability: followUpCapabilityDetection.tierByCapability,
+          });
+        }
         const followUpClarification = hasFollowUpBase && !skipIntentClassification
           ? resolveFollowUpClarification(message)
           : null;
@@ -650,6 +674,18 @@ export async function handleMessageStreamRequest(
             existingRoutePaths,
             existingShellRoutePaths,
             capabilities: hasFollowUpBase ? inferCapabilities(message) : undefined,
+            // Plan 06: forward detected dossier capabilities + tier map so
+            // plan-mode planning sees the same dossier injection picture as
+            // the main codegen flow (otherwise the planner would build a
+            // task list ignorant of e.g. a `kontaktform`-add).
+            requestedDossierCapabilities:
+              hasFollowUpBase && followUpCapabilityDetection.capabilityIds.length > 0
+                ? followUpCapabilityDetection.capabilityIds
+                : undefined,
+            requestedCapabilityTiers:
+              hasFollowUpBase && followUpCapabilityDetection.capabilityIds.length > 0
+                ? followUpCapabilityDetection.tierByCapability
+                : undefined,
             // Bug 04#3 (2026-04-22 audit): plan mode måste också skicka
             // engineModelId + lifecycleStage annars divergerar BuildSpec från
             // huvudflödet (token-budget och F2/F3-policy).
@@ -839,6 +875,18 @@ export async function handleMessageStreamRequest(
           existingRoutePaths,
           existingShellRoutePaths,
           capabilities: hasFollowUpBase ? inferCapabilities(message) : undefined,
+          // Plan 06 (2026-04-24): see `followUpCapabilityDetection` above.
+          // Caller-provided ids merge into orchestrate's capability bridge so
+          // dossiers actually get selected on follow-ups even when the
+          // snapshot-rebuilt brief carried no capabilities.
+          requestedDossierCapabilities:
+            hasFollowUpBase && followUpCapabilityDetection.capabilityIds.length > 0
+              ? followUpCapabilityDetection.capabilityIds
+              : undefined,
+          requestedCapabilityTiers:
+            hasFollowUpBase && followUpCapabilityDetection.capabilityIds.length > 0
+              ? followUpCapabilityDetection.tierByCapability
+              : undefined,
           lifecycleStage: parsedMeta.lifecycleStage,
           // P22b: chatId + followUpIntent + priorQualityTarget aktiverar P22:s
           // helpers runtime (`inheritQualityTargetFromPriorVersion` i deriveBuildSpec
