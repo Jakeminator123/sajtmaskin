@@ -482,7 +482,14 @@ export async function flushRedisCache(): Promise<number> {
         // för Upstash men säkert ändå.
         try {
           deleted += await redis.unlink(...keys);
-        } catch {
+        } catch (unlinkErr) {
+          // BUG-FIX 2026-04-24 (test-agent #4): tidigare svalde `catch {}`
+          // alla fel inklusive auth/timeout/WRONGTYPE. Logga orsaken så vi
+          // ser i loggar varför fallback triggade — och om DEL ALSO failar
+          // bubblar det upp till outer catch (som returnerar -1).
+          console.warn(
+            `[Redis] UNLINK failed (${unlinkErr instanceof Error ? unlinkErr.message : String(unlinkErr)}); falling back to DEL.`,
+          );
           deleted += await redis.del(...keys);
         }
       }

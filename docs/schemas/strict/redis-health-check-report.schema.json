@@ -4,12 +4,14 @@
   "title": "Redis Health Check Report",
   "description": "JSON-payload på stdout från `scripts/db/redis-health-check.mjs`. Konsumeras av `backoffice/pages/redis_health.py` (subprocess.run + json.loads). Två-grenat: (1) success med full payload; (2) fail-grenar (creds saknas eller ping-fail). VIKTIGT: testar ENDAST Upstash REST-klienten (`@upstash/redis`) — inte ioredis/TCP-vägen som app-cache använder. Source of truth: scripts/db/redis-health-check.mjs.",
   "oneOf": [
-    { "$ref": "#/definitions/successReport" },
+    { "$ref": "#/definitions/fullReport" },
     { "$ref": "#/definitions/credsMissingReport" },
-    { "$ref": "#/definitions/pingFailReport" }
+    { "$ref": "#/definitions/pingFailReport" },
+    { "$ref": "#/definitions/fatalErrorReport" }
   ],
   "definitions": {
-    "successReport": {
+    "fullReport": {
+      "description": "Full rapport — PING lyckades och probe kördes. `ok` reflekterar probe-resultat (kan vara false om write/read/del failade) men strukturen är komplett.",
       "type": "object",
       "required": [
         "ok",
@@ -22,7 +24,7 @@
         "prefixes",
         "probe"
       ],
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
         "ok": {
           "type": "boolean",
@@ -84,6 +86,7 @@
       }
     },
     "credsMissingReport": {
+      "description": "UPSTASH_REDIS_REST_URL / TOKEN saknas. Minimal payload, target är explicit null.",
       "type": "object",
       "required": ["ok", "error", "target"],
       "additionalProperties": false,
@@ -91,6 +94,17 @@
         "ok": { "type": "boolean", "enum": [false] },
         "error": { "type": "string" },
         "target": { "type": "null" }
+      }
+    },
+    "fatalErrorReport": {
+      "description": "Oväntat fatal-fel under run() — fångas av .catch i toppen. Stack är required (skiljer mot credsMissing/pingFail).",
+      "type": "object",
+      "required": ["ok", "error", "stack"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean", "enum": [false] },
+        "error": { "type": "string" },
+        "stack": { "type": "string" }
       }
     },
     "pingFailReport": {

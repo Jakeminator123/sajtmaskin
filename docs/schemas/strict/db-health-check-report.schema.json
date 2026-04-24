@@ -4,12 +4,14 @@
   "title": "DB Health Check Report",
   "description": "JSON-payload på stdout från `scripts/db/db-health-check.mjs`. Konsumeras av `backoffice/pages/database_health.py` (subprocess.run + json.loads) och kan användas av CI / cron-jobb. Kontraktet är tre-grenat: (1) success — full rapport med tabeller och index; (2) connection-fail — minimal payload med error; (3) config-fail — bara `ok: false` + `error`. Source of truth: scripts/db/db-health-check.mjs.",
   "oneOf": [
-    { "$ref": "#/definitions/successReport" },
+    { "$ref": "#/definitions/fullReport" },
     { "$ref": "#/definitions/connectionFailReport" },
-    { "$ref": "#/definitions/configFailReport" }
+    { "$ref": "#/definitions/configFailReport" },
+    { "$ref": "#/definitions/fatalErrorReport" }
   ],
   "definitions": {
-    "successReport": {
+    "fullReport": {
+      "description": "Full rapport — anslutning lyckades och alla tabeller granskades. `ok` kan vara true (allt grönt) eller false (saknade tabeller/index/probe-fel) men strukturen är komplett.",
       "type": "object",
       "required": [
         "ok",
@@ -22,7 +24,7 @@
         "missing_indexes",
         "extra_indexes"
       ],
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
         "ok": {
           "type": "boolean",
@@ -87,6 +89,7 @@
       }
     },
     "configFailReport": {
+      "description": "Config-fail — inga creds eller URL-parsing failade. Bara minimal payload.",
       "type": "object",
       "required": ["ok", "error"],
       "additionalProperties": false,
@@ -96,6 +99,17 @@
           "type": "string",
           "description": "T.ex. 'Missing database connection URL.'"
         }
+      }
+    },
+    "fatalErrorReport": {
+      "description": "Oväntat fatal-fel under run() — fångas av .catch i toppen och loggar JSON med error+stack. Skiljer sig exklusivt från configFail genom att stack är required.",
+      "type": "object",
+      "required": ["ok", "error", "stack"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean", "enum": [false] },
+        "error": { "type": "string" },
+        "stack": { "type": "string" }
       }
     },
     "connectionStatus": {

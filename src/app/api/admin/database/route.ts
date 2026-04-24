@@ -268,11 +268,17 @@ export async function POST(req: NextRequest) {
       }
 
       let imported = 0;
+      let failed = 0;
+      let skipped = 0;
+      const failures: Array<{ templateId: string; error: string }> = [];
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30);
 
       for (const t of templates as ImportTemplate[]) {
-        if (!t.templateId || !t.chatId) continue;
+        if (!t.templateId || !t.chatId) {
+          skipped++;
+          continue;
+        }
         try {
           await db
             .insert(templateCache)
@@ -303,15 +309,29 @@ export async function POST(req: NextRequest) {
             });
           imported++;
         } catch (err) {
+          failed++;
+          const errMsg = err instanceof Error ? err.message : String(err);
+          failures.push({ templateId: t.templateId, error: errMsg });
           console.error("[Admin] Failed to import template:", t.templateId, err);
         }
       }
 
-      console.info(`[Admin] Imported ${imported} templates`);
+      // BUG-FIX 2026-04-24 (test-agent rapport): tidigare alltid `success: true`
+      // även när enstaka inserts failade. Nu reflekteras `failed` i success.
+      const allOk = failed === 0;
+      console.info(
+        `[Admin] Imported ${imported} templates (failed: ${failed}, skipped: ${skipped})`,
+      );
       return NextResponse.json({
-        success: true,
+        success: allOk,
+        partialSuccess: !allOk && imported > 0,
         imported,
-        message: `Imported ${imported} templates`,
+        failed,
+        skipped,
+        failures: failed > 0 ? failures : undefined,
+        message: allOk
+          ? `Imported ${imported} templates`
+          : `Imported ${imported}/${imported + failed} templates (${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ""})`,
       });
     }
 

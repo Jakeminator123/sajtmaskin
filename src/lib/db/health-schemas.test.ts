@@ -104,6 +104,68 @@ describe("db-health-check-report.schema.json", () => {
     const ok = validateDbHealth({ ok: true });
     expect(ok).toBe(false);
   });
+
+  it("validerar full-rapport med ok=false (saknade tabeller)", () => {
+    // Tidigare bug: schema accepterade ok som vilken boolean som helst på
+    // success-grenen. Nu med additionalProperties:false måste alla fält
+    // matcha exakt — verifierar att ok=false-fall (delvis grön) validerar.
+    const fixture = {
+      ok: false,
+      timestamp: "2026-04-24T10:00:00.000Z",
+      target: "postgresql://postgres.x:***@host.example.com:5432/postgres",
+      is_prod_like: false,
+      connection: { ok: true, latency_ms: 200, error: null },
+      summary: {
+        total_tables_expected: 31,
+        total_tables_present: 30,
+        total_tables_missing: 1,
+        total_table_probe_failures: 0,
+        total_rows_estimate: 13405,
+        total_indexes_missing: 0,
+        total_indexes_extra: 0,
+      },
+      tables: [{ name: "lost_table", exists: false }],
+      missing_indexes: [],
+      extra_indexes: [],
+    };
+    const ok = validateDbHealth(fixture);
+    expect(ok, fmt(validateDbHealth.errors)).toBe(true);
+  });
+
+  it("validerar fatal-error-payload (med stack)", () => {
+    const fixture = {
+      ok: false,
+      error: "Unexpected: connection terminated unexpectedly",
+      stack: "Error: ...\n    at run (scripts/db/db-health-check.mjs:495)",
+    };
+    const ok = validateDbHealth(fixture);
+    expect(ok, fmt(validateDbHealth.errors)).toBe(true);
+  });
+
+  it("avvisar tablerow med okänt fält (additionalProperties strict)", () => {
+    const fixture = {
+      ok: true,
+      timestamp: "2026-04-24T10:00:00.000Z",
+      target: "x",
+      is_prod_like: false,
+      connection: { ok: true, latency_ms: 1, error: null },
+      summary: {
+        total_tables_expected: 1,
+        total_tables_present: 1,
+        total_tables_missing: 0,
+        total_table_probe_failures: 0,
+        total_rows_estimate: 0,
+        total_indexes_missing: 0,
+        total_indexes_extra: 0,
+      },
+      tables: [{ name: "x", exists: true, garbage_field: "should_not_validate" }],
+      missing_indexes: [],
+      extra_indexes: [],
+      garbage_top_level: "also_should_not_validate",
+    };
+    const ok = validateDbHealth(fixture);
+    expect(ok).toBe(false);
+  });
 });
 
 describe("redis-health-check-report.schema.json", () => {
@@ -205,6 +267,61 @@ describe("redis-health-check-report.schema.json", () => {
     };
     const ok = validateRedisHealth(fixture);
     expect(ok).toBe(false);
+  });
+
+  it("validerar ping-fail-payload (minimal struktur)", () => {
+    const fixture = {
+      ok: false,
+      timestamp: "2026-04-24T08:55:00.000Z",
+      target: "https://x.upstash.io",
+      runtime_env: "production",
+      key_prefix: "prod:",
+      connection: { ok: false, latency_ms: 5000, error: "ETIMEDOUT" },
+    };
+    const ok = validateRedisHealth(fixture);
+    expect(ok, fmt(validateRedisHealth.errors)).toBe(true);
+  });
+
+  it("validerar fatal-error-payload (med stack)", () => {
+    const fixture = {
+      ok: false,
+      error: "Unexpected: ...",
+      stack: "Error: ...\n    at run (scripts/db/redis-health-check.mjs:308)",
+    };
+    const ok = validateRedisHealth(fixture);
+    expect(ok, fmt(validateRedisHealth.errors)).toBe(true);
+  });
+
+  it("validerar prefix-bucket med error satt", () => {
+    const fixture = {
+      ok: true,
+      timestamp: "2026-04-24T08:55:00.000Z",
+      target: "https://x.upstash.io",
+      runtime_env: "development",
+      key_prefix: "dev:",
+      connection: { ok: true, latency_ms: 100, error: null },
+      summary: { total_keys: 0, total_prefix_buckets: 1, probe_round_trip_ms: 0 },
+      prefixes: [
+        {
+          label: "broken_bucket",
+          pattern: "dev:broken:*",
+          scope: "env",
+          latency_ms: 0,
+          key_count: null,
+          sample_keys: [],
+          truncated: false,
+          error: "WRONGTYPE Operation against a key holding the wrong kind of value",
+        },
+      ],
+      probe: {
+        key: "dev:health:probe:1",
+        write: { ok: true, latency_ms: 1 },
+        read: { ok: true, latency_ms: 1, value_matches: true },
+        delete: { ok: true, latency_ms: 1 },
+      },
+    };
+    const ok = validateRedisHealth(fixture);
+    expect(ok, fmt(validateRedisHealth.errors)).toBe(true);
   });
 });
 

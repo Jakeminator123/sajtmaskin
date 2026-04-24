@@ -30,7 +30,8 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from backoffice.shared import BackofficeContext
+from backoffice.observability_io import load_tail_ndjson
+from backoffice.shared import BackofficeContext, read_json, render_where_panel
 
 _DEFAULT_TIMEOUT_S = 60
 _PERF_INDEX_TIMEOUT_S = 300  # CREATE INDEX kan ta tid på stora tabeller
@@ -141,50 +142,11 @@ def _run_perf_indexes(ctx: BackofficeContext, *, reason: str, dry_run: bool) -> 
 
 
 def _load_perf_audit_log(ctx: BackofficeContext, max_rows: int = 50) -> list[dict[str, Any]]:
-    path = ctx.repo_root / _PERF_AUDIT_REL
-    if not path.is_file():
-        return []
-    rows: list[dict[str, Any]] = []
-    try:
-        with path.open("rb") as fh:
-            fh.seek(0, 2)
-            size = fh.tell()
-            chunk = min(size, 256_000)
-            fh.seek(size - chunk)
-            tail = fh.read().decode("utf-8", errors="replace")
-        lines = [ln for ln in tail.splitlines() if ln.strip()]
-        for ln in lines[-max_rows:]:
-            try:
-                rows.append(json.loads(ln))
-            except json.JSONDecodeError:
-                continue
-    except OSError:
-        return []
-    return rows
+    return load_tail_ndjson(ctx.repo_root / _PERF_AUDIT_REL, max_rows=max_rows)
 
 
 def _load_snapshots(ctx: BackofficeContext, max_rows: int = 200) -> list[dict[str, Any]]:
-    path = ctx.repo_root / _SNAPSHOT_REL
-    if not path.is_file():
-        return []
-    rows: list[dict[str, Any]] = []
-    try:
-        # Läs sista N rader effektivt
-        with path.open("rb") as fh:
-            fh.seek(0, 2)
-            size = fh.tell()
-            chunk = min(size, 256_000)
-            fh.seek(size - chunk)
-            tail = fh.read().decode("utf-8", errors="replace")
-        lines = [ln for ln in tail.splitlines() if ln.strip()]
-        for ln in lines[-max_rows:]:
-            try:
-                rows.append(json.loads(ln))
-            except json.JSONDecodeError:
-                continue
-    except OSError:
-        return []
-    return rows
+    return load_tail_ndjson(ctx.repo_root / _SNAPSHOT_REL, max_rows=max_rows)
 
 
 def _format_target(payload: dict[str, Any]) -> str:
@@ -201,6 +163,15 @@ def render(ctx: BackofficeContext) -> None:
         "längre ner finns ett **APPLY-flöde** som muterar DB:n (skapar "
         "saknade index). APPLY kräver motivering + bekräftelse + audit-logg."
     )
+
+    # "Var ligger detta?"-panel — speglar mönstret från overview.py så
+    # canonical paths från config/dashboard/domain-map.json blir synliga.
+    domain_map = (
+        read_json(ctx.domain_map_json)
+        if ctx.domain_map_json.is_file()
+        else {"pages": {}, "repoSiblings": {}}
+    )
+    render_where_panel("Databashälsa", domain_map)
 
     with st.expander("Vad gör sidan?", expanded=False):
         st.markdown(

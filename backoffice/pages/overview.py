@@ -29,6 +29,8 @@ CONFIG_NAV_PAGES = (
     "Error-log RAG",
     "Pipeline Health",
     "Observability",
+    "Databashälsa",
+    "Redis-hälsa",
     "Projekt-admin (radera)",
     "Mental modell",
 )
