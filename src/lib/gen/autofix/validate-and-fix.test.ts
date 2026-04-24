@@ -289,6 +289,26 @@ describe("validateAndFix", () => {
     );
   });
 
+  it("skips warm-tsc when skipWarmTsc=true (quality-gate will typecheck later)", async () => {
+    const cleanContent =
+      '```tsx file="app/page.tsx"\nexport default function P(){return <main/>}\n```';
+    validateGeneratedCode.mockResolvedValueOnce({ valid: true, errors: [] });
+
+    const result = await validateAndFix(cleanContent, {
+      chatId: "chat_skip_tsc",
+      model: "gpt-5.4",
+      alreadyMechanicallyFixed: true,
+      resolvedScaffold: { id: "scaffold_x", files: [] } as never,
+      skipWarmTsc: true,
+    });
+
+    expect(runPreVmTypecheck).not.toHaveBeenCalled();
+    expect(result.tsc).toEqual(
+      expect.objectContaining({ ran: false, skipped: "quality_gate_planned" }),
+    );
+    expect(result.status).toBe("passed");
+  });
+
   it("invokes the LLM fixer on the final pass too (regression: was dead code when pass === SYNTAX_FIX_MAX_PASSES)", async () => {
     // Each pass: validate → fixer (improves) → reValidate (one fewer error).
     // With the bug, the gave-up branch fired before the fixer on the final

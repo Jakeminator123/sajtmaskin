@@ -64,6 +64,15 @@ export async function runFinalizeFastPath(params: {
    * redundant initial mechanical pass.
    */
   alreadyMechanicallyFixed: boolean;
+  /**
+   * True when a later quality-gate lane (client and/or async) is expected
+   * to run for this generation.
+   */
+  willRunQualityGate: boolean;
+  /**
+   * Whether the downstream quality gate includes `typecheck`.
+   */
+  qualityGateChecksIncludesTypecheck: boolean;
 }): Promise<FinalizeFastPathResult> {
   const {
     chatId,
@@ -80,9 +89,12 @@ export async function runFinalizeFastPath(params: {
     finalizePath,
     repairPassIndex,
     alreadyMechanicallyFixed,
+    willRunQualityGate,
+    qualityGateChecksIncludesTypecheck,
   } = params;
   let contentForVersion = params.contentForVersion;
   const stepTelemetry: FinalizeStepTelemetryMap = {};
+  const skipWarmTsc = willRunQualityGate && qualityGateChecksIncludesTypecheck;
 
   ensureNonEmptyGenerationContent({
     contentForVersion,
@@ -105,7 +117,8 @@ export async function runFinalizeFastPath(params: {
     // `validateAndFix` and runs after esbuild reaches `passed`. F3 keeps
     // forcing it on so the integrations build always pays for the check.
     resolvedScaffold,
-    forceTsc: buildSpec?.previewPolicy === "fidelity3",
+    forceTsc: !skipWarmTsc && buildSpec?.previewPolicy === "fidelity3",
+    skipWarmTsc,
     // P34 / SAJ-28: eslint pass mirrors tsc — feature-flag gated via
     // `SAJTMASKIN_BLOCKING_ESLINT`; F3 (integrations) also forces it on.
     forceEslint: buildSpec?.previewPolicy === "fidelity3",

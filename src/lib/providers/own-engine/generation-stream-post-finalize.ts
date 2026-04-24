@@ -211,6 +211,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         ...(finalized.crossFileStubs.length > 0
           ? { crossFileStubs: finalized.crossFileStubs }
           : {}),
+        warmTscSkipped: finalized.warmTscSkipped === true,
       }),
     ),
   );
@@ -285,6 +286,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     // available at this callsite yet.
     f2TimeMs: null,
     f3TimeMs: null,
+    warmTscSkipped: finalized.warmTscSkipped === true,
   });
   devLogFinalizeSite();
   await commitCredits();

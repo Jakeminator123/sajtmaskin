@@ -70,6 +70,12 @@ export interface FinalizeParams {
    * deltas (e.g. fast-tier responses).
    */
   accumulatedThinking?: string | null;
+  /**
+   * True when a downstream quality-gate lane is expected to run later
+   * (client post-checks and/or async verify path). Allows finalize fast-path
+   * to skip duplicate warm-tsc in safe cases.
+   */
+  willRunQualityGate?: boolean;
 }
 
 export interface FinalizeResult {
@@ -113,6 +119,8 @@ export interface FinalizeResult {
     dossierId?: string;
     capability?: string;
   }>;
+  /** True when warm-tsc was intentionally skipped because a later quality gate will typecheck. */
+  warmTscSkipped?: boolean;
 }
 
 export interface FinalizePathPolicy {

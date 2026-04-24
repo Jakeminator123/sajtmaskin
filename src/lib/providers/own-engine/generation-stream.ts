@@ -343,6 +343,10 @@ export function createOwnEngineGenerationStream(
         // in runOwnEngineStreamPostFinalize so both sides agree.
         repairPassIndex: targetVersionId ? 1 : 0,
         accumulatedThinking: accumulatedThinkingRef?.current ?? null,
+        // Builder client always runs post-check quality-gate after `done`
+        // (or after queued autofix), so finalize can safely skip duplicate
+        // warm-tsc when that lane already includes `typecheck`.
+        willRunQualityGate: true,
         ...extra,
       });
 

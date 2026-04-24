@@ -340,6 +340,8 @@ export const OPENCLAW = {
  */
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
+  // P6 latency track: opportunistic Fly VM pre-warm on chat init.
+  previewPreWarm: false,
 
   // The four previously dormant flags below were hardcoded ON on 2026-04-22
   // after confirming zero production off-toggles historically. Their env

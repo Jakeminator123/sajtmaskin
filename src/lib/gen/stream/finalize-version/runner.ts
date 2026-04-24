@@ -38,6 +38,7 @@ import {
   OWN_ENGINE_POST_STREAM_PIPELINE,
   type OwnEnginePostStreamPhaseId,
 } from "../finalize-pipeline-contract";
+import { postFinalizeQualityGateIncludesTypecheck } from "../post-finalize-policies";
 import { runFinalizeFastPath } from "./fast-path";
 import { resolveFinalizePathPolicy } from "./policy";
 import { runAutofixPrePhase, runUrlExpandPhase } from "./pre-phases";
@@ -121,6 +122,7 @@ export async function finalizeAndSaveVersion(
     lineageHash,
     targetVersionId,
     lifecycleParentVersionId,
+    willRunQualityGate = false,
   } = params;
   const requestedCapabilities = resolveRequestedCapabilitiesFromStreamMeta(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
@@ -229,6 +231,9 @@ export async function finalizeAndSaveVersion(
     finalizePath,
     repairPassIndex,
     alreadyMechanicallyFixed: autofixSucceeded,
+    willRunQualityGate,
+    qualityGateChecksIncludesTypecheck:
+      willRunQualityGate && postFinalizeQualityGateIncludesTypecheck(buildSpec),
   });
   contentForVersion = fastPathContent;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
@@ -529,6 +534,7 @@ export async function finalizeAndSaveVersion(
     rejectedShrinks: rejectedShrinks ?? [],
     rejectedStructural: rejectedStructural ?? [],
     crossFileStubs: crossFileStubs ?? [],
+    warmTscSkipped: syntaxResult.tsc?.ran === false && syntaxResult.tsc.skipped === "quality_gate_planned",
     ...(requestedCapabilities.length > 0 ? { requestedCapabilities } : {}),
   };
 }

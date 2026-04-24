@@ -476,6 +476,98 @@ describe("finalizeAndSaveVersion", () => {
     });
   });
 
+  it("skips warm-tsc when downstream quality-gate will run typecheck", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      willRunQualityGate: true,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(validateAndFix).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        skipWarmTsc: true,
+      }),
+    );
+  });
+
+  it("keeps warm-tsc enabled when downstream quality-gate is not planned", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      willRunQualityGate: false,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(validateAndFix).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        skipWarmTsc: false,
+      }),
+    );
+  });
+
   it("emits no preview URL when tier-2 preview is blocked and shim path is removed", async () => {
     runProjectSanityChecks.mockReturnValue({
       valid: false,

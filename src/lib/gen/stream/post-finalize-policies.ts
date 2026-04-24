@@ -4,6 +4,11 @@ import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 import { isServerVerifyEligible } from "@/lib/gen/verify/server-verify";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
+import {
+  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
+  type QualityGateCheck,
+} from "@/lib/gen/verify/quality-gate-checks";
 
 export function getPostFinalizePreviewStartContract(
   finalized: FinalizeResult,
@@ -44,6 +49,21 @@ export function shouldTriggerPostFinalizeServerVerify(params: {
   repairPassIndex?: number;
 }): boolean {
   return resolvePostFinalizeServerVerifyDecision(params).run;
+}
+
+export function getPostFinalizeQualityGateChecks(
+  buildSpec: BuildSpec | null | undefined,
+): readonly QualityGateCheck[] {
+  if (buildSpec?.previewPolicy === "fidelity3") {
+    return INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS;
+  }
+  return DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
+}
+
+export function postFinalizeQualityGateIncludesTypecheck(
+  buildSpec: BuildSpec | null | undefined,
+): boolean {
+  return getPostFinalizeQualityGateChecks(buildSpec).includes("typecheck");
 }
 
 export type ServerVerifyDecision = {

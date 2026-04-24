@@ -18,7 +18,11 @@ const TSC_REPAIR_TIMEOUT_MS = 60_000;
 const ESLINT_REPAIR_TIMEOUT_MS = 60_000;
 
 export type TscPassOutcome =
-  | { ran: false; skipped: PreVmTypecheckSkipReason | "esbuild_failed"; durationMs: number }
+  | {
+      ran: false;
+      skipped: PreVmTypecheckSkipReason | "esbuild_failed" | "quality_gate_planned";
+      durationMs: number;
+    }
   | {
       ran: true;
       diagnosticCount: number;
@@ -506,6 +510,11 @@ async function validateAndFixInner(
      */
     forceTsc?: boolean;
     /**
+     * Skip warm-tsc entirely because a downstream quality gate is expected
+     * to run `typecheck` shortly after finalize.
+     */
+    skipWarmTsc?: boolean;
+    /**
      * Force the warm-eslint pass even when `SAJTMASKIN_BLOCKING_ESLINT`
      * is disabled. Set by F3 (integrations) callers. Part of P34 / SAJ-28
      * fix to close the eslint-fire-and-forget gap.
@@ -617,17 +626,31 @@ async function validateAndFixInner(
           phase: "passed",
           errorCount: 0,
         });
-        const tscResult = await runWarmTscPass(currentContent, {
-          chatId: opts.chatId,
-          model: opts.model,
-          resolvedTier: opts.resolvedTier,
-          previewPolicy: opts.previewPolicy,
-          resolvedScaffold: opts.resolvedScaffold,
-          forceTsc: opts.forceTsc,
-          onProgress,
-          pass,
-          budgetDeadline,
-        });
+        const tscResult = opts.skipWarmTsc
+          ? (() => {
+              onProgress?.({ pass, phase: "tsc-skipped", errorCount: 0 });
+              return {
+                content: currentContent,
+                tsc: {
+                  ran: false as const,
+                  skipped: "quality_gate_planned" as const,
+                  durationMs: 0,
+                },
+                mechanicalFixesAdded: 0,
+                llmFixesAdded: 0,
+              };
+            })()
+          : await runWarmTscPass(currentContent, {
+              chatId: opts.chatId,
+              model: opts.model,
+              resolvedTier: opts.resolvedTier,
+              previewPolicy: opts.previewPolicy,
+              resolvedScaffold: opts.resolvedScaffold,
+              forceTsc: opts.forceTsc,
+              onProgress,
+              pass,
+              budgetDeadline,
+            });
         currentContent = tscResult.content;
         totalMechanicalFixes += tscResult.mechanicalFixesAdded;
         totalLlmFixes += tscResult.llmFixesAdded;
@@ -841,17 +864,31 @@ async function validateAndFixInner(
         if (reValidation.valid) {
           console.info(`[engine] Pass ${pass}: LLM fixer resolved all errors`);
           onProgress?.({ pass, phase: "passed", errorCount: 0 });
-          const tscResult = await runWarmTscPass(currentContent, {
-            chatId: opts.chatId,
-            model: opts.model,
-            resolvedTier: opts.resolvedTier,
-            previewPolicy: opts.previewPolicy,
-            resolvedScaffold: opts.resolvedScaffold,
-            forceTsc: opts.forceTsc,
-            onProgress,
-            pass,
-            budgetDeadline,
-          });
+          const tscResult = opts.skipWarmTsc
+            ? (() => {
+                onProgress?.({ pass, phase: "tsc-skipped", errorCount: 0 });
+                return {
+                  content: currentContent,
+                  tsc: {
+                    ran: false as const,
+                    skipped: "quality_gate_planned" as const,
+                    durationMs: 0,
+                  },
+                  mechanicalFixesAdded: 0,
+                  llmFixesAdded: 0,
+                };
+              })()
+            : await runWarmTscPass(currentContent, {
+                chatId: opts.chatId,
+                model: opts.model,
+                resolvedTier: opts.resolvedTier,
+                previewPolicy: opts.previewPolicy,
+                resolvedScaffold: opts.resolvedScaffold,
+                forceTsc: opts.forceTsc,
+                onProgress,
+                pass,
+                budgetDeadline,
+              });
           currentContent = tscResult.content;
           totalMechanicalFixes += tscResult.mechanicalFixesAdded;
           totalLlmFixes += tscResult.llmFixesAdded;
