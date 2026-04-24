@@ -139,17 +139,23 @@ export function PreviewPanelF3Trigger({
     }
   }, [chatId, versionId, onReady, onMissingEnv]);
 
+  // Block the click if we don't yet have a concrete versionId — otherwise
+  // the request body becomes `{}` and the server can't anchor the F3 step
+  // to a parent version. Discovered in Wave 5 race-condition audit.
+  const noVersion = !versionId;
   return (
     <Button
       type="button"
       size="sm"
       variant="default"
       onClick={handleClick}
-      disabled={isLoading || isBusy}
+      disabled={isLoading || isBusy || noVersion}
       title={
         isBusy
           ? "En annan generering pågår — vänta tills den är klar innan du startar F3-bygget."
-          : "Lyft sajten till F3 / fidelity 3 — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
+          : noVersion
+            ? "Vänta tills första versionen är skapad innan du startar F3-bygget."
+            : "Lyft sajten till F3 / fidelity 3 — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
       }
       className={className}
     >

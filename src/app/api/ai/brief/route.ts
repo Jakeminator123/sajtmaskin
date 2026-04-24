@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireNotBot } from "@/lib/botProtection";
 import { withRateLimit } from "@/lib/rateLimit";
+import { getRequestUserId } from "@/lib/tenant";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { normalizeAssistModel } from "@/lib/builder/prompt-assist";
@@ -42,6 +43,15 @@ export async function POST(req: Request) {
     try {
       const botError = requireNotBot(req);
       if (botError) return botError;
+
+      // Same auth gate as `/api/ai/chat`: this endpoint runs full LLM
+      // generation against paid provider keys, so anonymous and guest
+      // sessions must not be able to consume it. Discovered in Wave 5
+      // security audit (2026-04-24).
+      const userId = await getRequestUserId(req);
+      if (!userId || userId.startsWith("guest:")) {
+        return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+      }
 
       const body = await req.json().catch(() => null);
       const parsed = briefRequestSchema.safeParse(body);

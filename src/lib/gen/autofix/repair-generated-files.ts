@@ -35,11 +35,6 @@ const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
 const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
 
 /**
- * @deprecated Use `FixEntry` from `./types`. Kept for backwards compat.
- */
-export type RepairEntry = Omit<FixEntryDraft, "category" | "lane"> & { file: string };
-
-/**
  * Run the canonical set of mechanical (deterministic) fixers on a parsed
  * `CodeFile[]` array.  This is a thin wrapper that applies the same fixer
  * set as `runAutoFixSinglePass` in pipeline.ts, adapted for the pre-parsed

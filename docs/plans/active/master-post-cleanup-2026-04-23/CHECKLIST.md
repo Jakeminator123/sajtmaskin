@@ -56,6 +56,18 @@ Status: 2026-04-24 (efter Wave 5 verify Run A + Run B + 4 hot-fixes)
 - [x] **Fix #3 — Server-repair logg-tydlighet:** "Kvarvarande fel: 0" är esbuild-syntax-counter, inte tsc. Lade till `remainingErrorsSource` + `syntaxCleanGateFailed` i meta + tydligare meddelande i UI ("0 syntaxfel (esbuild) — men quality gate (typecheck/build) failar fortfarande").
 - [x] **Fix #4 — Backoffice overview.py sync:** `CONFIG_NAV_PAGES` hade out-of-sync sidnamn ("Research & Dossiers", "Pipeline" → riktiga namn).
 
+## Buggjakt-runda 2026-04-24 (kväll) — 7 fixar
+
+5 parallella audit-agenter över olika spår: LLM partial-files, image matching, säkerhet, race conditions, dead code. Implementerade fixar:
+
+- [x] **Fix #5 — `validateCompleteFiles` i `runLlmFixer`:** LLM-fixern returnerade tidigare partial files (saknad `}`, ellipsis-tail, length-shrink) som mergades direkt — bug-klassen bakom Run A typecheck-fail. Lade till pre-merge-validering med 3 heuristiker (50%-shrink, tail-placeholder, balanced delimiters med string/comment-aware brace counter). Incomplete files exkluderas från merge + flaggas i `incompleteFiles`-fältet på FixerResult.
+- [x] **Fix #6 — Gymnastik-bildmatchning:** Lade till svenska→engelska mappningar i `unsplash-query-fallback.ts` för `gymnastik`, `gymnastiklokal`, `gymnastikhall`, `barngymnastik`, `ungdomsgymnastik`, `vuxengymnastik`, `trampolinhall`, `trampolinpark`, `akrobatik`. Bias mot "gymnastics" / "kids gymnastics" / "trampoline park" istället för "gym" (weightlifting).
+- [x] **Fix #7 — Auth på `/api/ai/brief`:** Endpointen körde full LLM-brief-generering utan inloggningskrav (gäst-tillgänglig). Lade till `getRequestUserId`-gate identisk med `/api/ai/chat` (401 för guest:/saknad userId).
+- [x] **Fix #8 — Rate-limit på `/api/stripe/checkout`:** Wrappade handlern i `withRateLimit("stripe:checkout")` så inloggade klienter inte kan spamma Stripe med checkout-sessions.
+- [x] **Fix #9 — F3-trigger disabled utan versionId:** `PreviewPanelF3Trigger` skickade `body: {}` om `versionId` var null → server kunde inte ankra parent-version. Disablar nu knappen med tydlig title.
+- [x] **Fix #10 — Retry-timeout cleanup i `useBuilderVmPreview`:** `scheduleTransientRetry` skapade `setTimeout` utan att spara id:t → stale retries kunde fyra mot gammal version efter chat-byte. Track i `pendingRetryTimeoutsRef` + cleanup vid effekt-unmount.
+- [x] **Fix #11 — Död type-export `RepairEntry`:** Tog bort den deprecerade type-aliasen i `repair-generated-files.ts` (0 användningar i codebase, ersatt av `FixEntry`).
+
 ## Verifierat i UI (live 2026-04-24)
 
 - [x] Plan 02: modal-truth — alla 3 runs grön/ärlig + truth-mismatch nu fixad
@@ -80,11 +92,15 @@ Status: 2026-04-24 (efter Wave 5 verify Run A + Run B + 4 hot-fixes)
 - ❓ #9 CSP iframe empty src (UI-cleanup)
 - ❓ #11 Inspector scroll-lock (UI-cleanup)
 - 💡 #13 Promoted → Fidelity rename (UI-rename)
-- 🆕 **A.** Hero-bildmatchning fel för "gymnastik"-prompts (LLM tolkar som "gym/weightlifting") → bildprompt-hint
-- 🆕 **B.** Repair-LLM returnerar partial files / saknar `}` (samma klass som tidigare "ButtonProps") → behöver complete-files validering i `runLlmFixer`
-- 🆕 **C.** Hydration error i Sajtmaskin-skalet (preexisting, ej från genererad sajt)
-- 🆕 **D.** Streamlit-backoffice saknar Plan 11/12-info ("scaffold-required-files", "variant-lock", "history.ndjson") — operatörsverktyg out-of-sync
-- 🆕 **E.** Strikta zod-schemas saknas på root av `createChatSchema`/`sendMessageSchema` etc. (5 schemas föreslagna att strikta först — se Wave5-audit för lista)
+- ✅ ~~A. Bildmatchning gymnastik~~ — fixad (Fix #6)
+- ✅ ~~B. Repair-LLM partial files~~ — fixad (Fix #5)
+- ⚠️ **C.** Hydration error i Sajtmaskin-skalet (preexisting, ej från genererad sajt)
+- ⚠️ **D.** Streamlit-backoffice saknar Plan 11/12-info — operatörsverktyg gradvis out-of-sync
+- ⚠️ **E.** Strikta zod-schemas saknas på `createChatSchema`/`sendMessageSchema` etc. (5 schemas föreslagna)
+- 🚨 **F. SÄKERHET:** `/api/openclaw/chat` + `/api/did/chat` är öppna LLM-proxies (ingen auth). HÖG kostnads/missbruk-risk. Ej fixad — kräver verifiering av om mönstret är avsiktligt (gateway-token) eller en miss.
+- ⚠️ **G. SÄKERHET:** `/api/analyze-website` ingen auth → kostnads-spam mot OpenAI + indirekt server-driven URL-fetcher
+- ⚠️ **H. SÄKERHET:** `/api/uploads/[filename]` filservering utan auth (om filnamn är gissningsbara läcker innehåll)
+- ⚠️ **I.** Race conditions i builder: `useChatReadiness` polls med null versionId, chat-hooks "hold"-fönster glapp, mutateVersions utan mutateChat (3 separata fynd)
 
 ## Wave 5 Status: KLAR ✅
 

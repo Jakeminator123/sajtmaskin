@@ -16,9 +16,115 @@ export interface FixerResult {
   fixedContent: string;
   fixedFiles: string[];
   missingFiles: string[];
+  /**
+   * Files that the LLM returned but with strong signals of truncation /
+   * partial output (length shrink > 50%, ellipsis-tail, unbalanced braces).
+   * These are excluded from the merge to avoid corrupting the project.
+   * Same class of bug as the historic "ButtonProps" + "missing }" cases.
+   */
+  incompleteFiles: Array<{ path: string; reason: string }>;
   partial: boolean;
   success: boolean;
   durationMs: number;
+}
+
+/**
+ * Detect partial / truncated files in LLM repair output BEFORE merging
+ * them into the project. esbuild syntax-pass runs after merge, which is
+ * too late — a truncated file with a missing `}` corrupts downstream
+ * compilation while server-repair logs report "0 syntax errors remain".
+ */
+function validateCompleteFiles(
+  originalByPath: Map<string, string>,
+  fixedFiles: CodeFile[],
+): { incomplete: Array<{ path: string; reason: string }> } {
+  const incomplete: Array<{ path: string; reason: string }> = [];
+  const tailPlaceholder =
+    /(\/\/\s*\.{3}|\/\*\s*(rest|remaining|unchanged|truncated)[^*]*\*\/|\.{3}\s*$|\/\/\s*rest\s+(of\s+)?(the\s+)?(code|file)\s+(unchanged|here)|\/\/\s*\(.*?unchanged.*?\))/i;
+
+  for (const fixed of fixedFiles) {
+    const path = fixed.path.trim();
+    if (!path) continue;
+    const orig = originalByPath.get(path);
+
+    // Reject substantial shrink; LLMs often skip "boring" middle parts.
+    if (orig && fixed.content.length < orig.length * 0.5 && orig.length > 200) {
+      incomplete.push({
+        path,
+        reason: `shrink_below_50pct (orig=${orig.length}, fixed=${fixed.content.length})`,
+      });
+      continue;
+    }
+
+    // Reject ellipsis / "rest unchanged" tail markers.
+    const tail = fixed.content.trimEnd().slice(-160);
+    if (tailPlaceholder.test(tail)) {
+      incomplete.push({ path, reason: "ellipsis_or_rest_unchanged_tail" });
+      continue;
+    }
+
+    // Naive delimiter balance check. False positives possible inside
+    // strings/regex but catches the common "missing }" truncation.
+    if (!balancedDelimiters(fixed.content)) {
+      incomplete.push({ path, reason: "unbalanced_delimiters" });
+      continue;
+    }
+  }
+  return { incomplete };
+}
+
+function balancedDelimiters(src: string): boolean {
+  let brace = 0;
+  let paren = 0;
+  let bracket = 0;
+  let inSingle = false;
+  let inDouble = false;
+  let inBacktick = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    const next = src[i + 1];
+    if (inLineComment) {
+      if (c === "\n") inLineComment = false;
+      continue;
+    }
+    if (inBlockComment) {
+      if (c === "*" && next === "/") {
+        inBlockComment = false;
+        i++;
+      }
+      continue;
+    }
+    if (inSingle) {
+      if (c === "\\") { i++; continue; }
+      if (c === "'") inSingle = false;
+      continue;
+    }
+    if (inDouble) {
+      if (c === "\\") { i++; continue; }
+      if (c === '"') inDouble = false;
+      continue;
+    }
+    if (inBacktick) {
+      if (c === "\\") { i++; continue; }
+      if (c === "`") inBacktick = false;
+      continue;
+    }
+    if (c === "/" && next === "/") { inLineComment = true; i++; continue; }
+    if (c === "/" && next === "*") { inBlockComment = true; i++; continue; }
+    if (c === "'") { inSingle = true; continue; }
+    if (c === '"') { inDouble = true; continue; }
+    if (c === "`") { inBacktick = true; continue; }
+    if (c === "{") brace++;
+    else if (c === "}") brace--;
+    else if (c === "(") paren++;
+    else if (c === ")") paren--;
+    else if (c === "[") bracket++;
+    else if (c === "]") bracket--;
+    if (brace < 0 || paren < 0 || bracket < 0) return false;
+  }
+  return brace === 0 && paren === 0 && bracket === 0;
 }
 
 type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
@@ -84,14 +190,36 @@ export async function runLlmFixer(
         fixedContent: content,
         fixedFiles: [],
         missingFiles: [],
+        incompleteFiles: [],
         partial: false,
         success: false,
         durationMs: performance.now() - start,
       };
     }
 
-    const mergedContent = mergeFixedFiles(content, fixedProject.files);
-    const fixedPaths = [...new Set(fixedProject.files.map((f) => f.path.trim()).filter(Boolean))];
+    // Pre-merge completeness check. If the LLM returned partial files,
+    // exclude them so we don't corrupt the project with truncated code.
+    const originalProject = parseCodeProject(content);
+    const originalByPath = new Map(
+      originalProject.files.map((f) => [f.path.trim(), f.content]),
+    );
+    const { incomplete } = validateCompleteFiles(originalByPath, fixedProject.files);
+    const incompletePathSet = new Set(incomplete.map((i) => i.path));
+    const acceptedFixedFiles = fixedProject.files.filter(
+      (f) => !incompletePathSet.has(f.path.trim()),
+    );
+
+    if (incomplete.length > 0) {
+      console.warn(
+        "[llm-fixer] excluded incomplete files from merge:",
+        incomplete.map((i) => `${i.path} (${i.reason})`).join(", "),
+      );
+    }
+
+    const mergedContent = mergeFixedFiles(content, acceptedFixedFiles);
+    const fixedPaths = [
+      ...new Set(acceptedFixedFiles.map((f) => f.path.trim()).filter(Boolean)),
+    ];
     const requiredFiles = [
       ...new Set((options?.requiredFiles ?? []).map((f) => f.trim()).filter(Boolean)),
     ];
@@ -102,13 +230,19 @@ export async function runLlmFixer(
         : requiredFiles.filter((filePath) => !fixedPathSet.has(filePath));
     const allRequiredFilesAddressed =
       requiredFiles.length === 0 || missingFiles.length === 0;
-    const success = fixedPaths.length > 0 && allRequiredFilesAddressed;
-    const partial = fixedPaths.length > 0 && !allRequiredFilesAddressed;
+    // partial = either some required files weren't addressed, or some
+    // returned files were rejected as incomplete.
+    const partial =
+      (fixedPaths.length > 0 && !allRequiredFilesAddressed) ||
+      incomplete.length > 0;
+    // success requires all required files AND no incomplete-file rejections.
+    const success = fixedPaths.length > 0 && allRequiredFilesAddressed && incomplete.length === 0;
 
     return {
       fixedContent: mergedContent,
       fixedFiles: fixedPaths,
       missingFiles,
+      incompleteFiles: incomplete,
       partial,
       success,
       durationMs: performance.now() - start,
@@ -122,6 +256,7 @@ export async function runLlmFixer(
       fixedContent: content,
       fixedFiles: [],
       missingFiles: [],
+      incompleteFiles: [],
       partial: false,
       success: false,
       durationMs: performance.now() - start,
