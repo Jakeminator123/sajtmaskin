@@ -1,6 +1,6 @@
 # Checklista — master-post-cleanup-2026-04-23
 
-Status: 2026-04-24 (uppdaterad löpande)
+Status: 2026-04-24 (uppdaterad efter wave 5 plan-10 + plan-11 merge)
 
 ## Wave 0 — Koordinator (denna chatt)
 - [x] Plan 00 — head-lock + full/short/skip-tabell · STATUS-00 finns
@@ -23,9 +23,9 @@ Status: 2026-04-24 (uppdaterad löpande)
 - [x] Plan 09 — legacy-ripout + backoffice-drift + config pruning · merged (direct)
 
 ## Wave 5
-- [ ] Plan 10 — latency budgets + observatorie-routing-fixar · agent kör
-- [ ] Plan 11 — scaffold-required-files-check + variant-lock + capability-modify-existing · agent kör
-- [ ] Plan 12 — PromptKit canonical composer · väntar på 11
+- [x] Plan 10 — latency budgets + observatorie-routing-fixar · merged (PR #96)
+- [x] Plan 11 — scaffold-required-files-check + variant-lock + capability-modify-existing · merged (PR #97)
+- [ ] Plan 12 — PromptKit / slug-bounce / #15 dossier-env-resolver · väntar
 
 ## Mellanrunda — investigation + hot-fixes
 - [x] Investigation — page.tsx-loss root-cause · merged (PR #95)
@@ -36,7 +36,8 @@ Status: 2026-04-24 (uppdaterad löpande)
 - [x] STATUS-10-CANDIDATES (latency + observatorie-läckage) · committat
 - [x] STATUS-DOSSIER-CONFUSION-AUDIT · committat
 - [x] STATUS-BACKOFFICE-DRIFT · committat
-- [x] open-questions.md · 13 frågor, 5 resolved, 1 borttagen, 7 aktiva
+- [x] STATUS-INVESTIGATE-PAGETSX-LOSS · committat
+- [x] open-questions.md · 17 frågor, 8 resolved, 9 aktiva
 
 ## Verifierat i UI
 - [x] Plan 02: modal-truth — 3 av 3 init-runs grön/ärlig
@@ -46,13 +47,23 @@ Status: 2026-04-24 (uppdaterad löpande)
 - [x] Plan 07: dossier-injection — three-canvas-shell.tsx + floating-coffee-overlay.tsx + three-deps i package.json
 - [x] Plan 09: backoffice — fixer_registry visar nya lane-färger
 
-## Kvarstående bugs (tracked i open-questions.md)
-- #2 Blitz/browser-side preview (long-term, post-wave-5)
-- #4 Observatorie-routing-läckage (plan 10 fixar)
-- #5 page.tsx-loss (plan 11 fixar)
-- #7 THREE Context Lost (cosmetic, IDE-noise sannolikt)
-- #8 scaffoldVariant ej lockad (plan 11 fixar)
-- #9 CSP iframe empty src (UI-cleanup, post-wave-5)
-- #11 Inspector scroll-lock (UI-cleanup, post-wave-5)
-- #12 Follow-up modify-existing (plan 11 fixar)
-- #13 Promoted → Fidelity rename (UI-rename, post-wave-5)
+## Återstående bugs (tracked i open-questions.md)
+- ❌ #15 Hard-dossier env-vars false-promptas (HIGH severity, blockerar F3) → **plan 12 eller manual fix**
+- ❌ #14 Slug-route bouncer hem (LLM-redirect-bug) → plan 12 PromptKit-regel
+- 🚀 #16 game/interactive capability-tier (KRAFTIG FÖRBÄTTRING, ny capability) → ny plan post-wave-5
+- 💡 #17 Inline integrations-onboarding (UX-feature) → ny plan post-wave-5
+- ❓ #2 Blitz/browser-side preview (long-term) → post-wave-5 spike
+- ❓ #7 THREE Context Lost (cosmetic, IDE-noise sannolikt)
+- ❓ #9 CSP iframe empty src (UI-cleanup)
+- ❓ #11 Inspector scroll-lock (UI-cleanup)
+- 💡 #13 Promoted → Fidelity rename (UI-rename, post-wave-5)
+
+## Granskning klar
+- [x] Lokal = origin (allt pushat)
+- [x] `npm run typecheck` 0 errors efter wave 5
+- [x] 7 wave-5-relaterade test-filer: **106 tester passerade**
+- [x] Plan-10/11 fixar verifierade i kod (grep mot specifika identifierare)
+
+## Pågående osäkerhet
+- backoffice/Streamlit kan behöva mindre uppdateringar för plan-10:s `autoRepairCount` + `followupCount`-split (om någon page läser `history.ndjson` direkt)
+- `pipeline_health.py` läser INTE history.ndjson i nuvarande implementation (per plan-10 STATUS-10), så troligen ingen åtgärd behövs
