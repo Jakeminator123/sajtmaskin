@@ -557,7 +557,7 @@ async function tryServerRepairLoop(params: {
   if (loopResult.remainingErrors === 0) {
     await failVersionVerification(
       versionId,
-      "Server repair: syntax clean but quality gate still failing.",
+      "Server repair: syntax clean (esbuild) but quality gate (typecheck/build) still failing.",
     ).catch(() => null);
     logRepairOutcome(
       chatId,
@@ -570,13 +570,14 @@ async function tryServerRepairLoop(params: {
       verifyContext,
       fixerModel,
       loopResult.errorManifest,
+      { remainingErrorsSource: "esbuild_syntax", syntaxCleanGateFailed: true },
     );
     return;
   }
 
   await failVersionVerification(
     versionId,
-    `Server repair incomplete (${loopResult.remainingErrors} errors remain).`,
+    `Server repair incomplete (${loopResult.remainingErrors} esbuild syntax errors remain).`,
   ).catch(() => null);
   logRepairOutcome(
     chatId,
@@ -589,6 +590,7 @@ async function tryServerRepairLoop(params: {
     verifyContext,
     fixerModel,
     loopResult.errorManifest,
+    { remainingErrorsSource: "esbuild_syntax", syntaxCleanGateFailed: false },
   );
 }
 
@@ -608,21 +610,34 @@ function logRepairOutcome(
   },
   fixerModelId?: string | null,
   errorManifest?: RepairErrorManifest | null,
+  outcomeQualifier?: {
+    remainingErrorsSource?: "esbuild_syntax" | "quality_gate";
+    syntaxCleanGateFailed?: boolean;
+  },
 ) {
+  // The "remainingErrors" counter reflects esbuild parse errors, not the
+  // quality-gate (tsc/build/eslint) outcome. When syntax is clean but the
+  // gate still fails we surface that explicitly so logs/UI don't read as
+  // "0 errors but somehow not promoted" (the historic confusing case).
+  const message = repaired
+    ? `Server repair succeeded (${method}).`
+    : outcomeQualifier?.syntaxCleanGateFailed
+      ? `Server repair incomplete (${method}, syntax clean but quality gate still failing${earlyStopReason ? `, ${earlyStopReason}` : ""}).`
+      : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} esbuild syntax errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`;
   createEngineVersionErrorLogs([{
     chatId,
     versionId,
     level: repaired ? "info" : "warning",
     category: "server-repair",
-    message: repaired
-      ? `Server repair succeeded (${method}).`
-      : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`,
+    message,
     meta: {
       ...buildServerRepairOutcomeMeta({
         method,
         llmPasses,
         repaired,
         remainingErrors,
+        remainingErrorsSource: outcomeQualifier?.remainingErrorsSource,
+        syntaxCleanGateFailed: outcomeQualifier?.syntaxCleanGateFailed,
         earlyStopReason,
         verifyLaneDurationMs: verifyContext?.verifyLaneDurationMs ?? 0,
         firstFailureCheck: verifyContext?.firstFailureCheck ?? null,

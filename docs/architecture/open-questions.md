@@ -4,7 +4,24 @@ Levande dokument för **antaganden** vi gör i koden eller pratet om systemet, m
 
 **Princip:** Säg inte bara "det buggar". Förstå **varför**. Om vi inte vet — det hör hemma här.
 
-> Skapad: 2026-04-23 efter master-post-cleanup wave 1–4 + DB-pool-fyndet.
+> Skapad: 2026-04-23 efter master-post-cleanup wave 1–4 + DB-pool-fyndet.  
+> Senast uppdaterad: 2026-04-24 efter Wave 5 verify Run A + Run B + 4 hot-fixes.
+
+## Verifierat / fixat 2026-04-24 (Wave 5 verify + hot-fixes)
+
+- ✅ **#1 Redis** — verifierat fungera (Redis cache hit i loggar för `pWxuGXN_pRJS61wCBtF3k`).
+- ✅ **Lansering truth mismatch** (top-bar "Redo att publicera" + version-history "Repairing"): `buildLifecycleBlocker` saknade `repairing`-grenen. Fixad.
+- ✅ **Init-prompt friction** (Plan 01): `useBuilderPageController` auto-startade bara `kostnadsfri`-flödet. Utökade till `freeform` också. Skicka 1 gång räcker nu.
+- ✅ **Server-repair "Kvarvarande fel: 0" är förvirrande:** Det är esbuild-syntax-counter, inte tsc. Lade till `remainingErrorsSource` + `syntaxCleanGateFailed` i meta + tydligare meddelande i UI.
+- ✅ **Backoffice overview.py CONFIG_NAV_PAGES out-of-sync:** "Research & Dossiers"/"Pipeline" → riktiga sidnamn.
+
+## Nya frågor / buggar 2026-04-24
+
+- ⚠️ **A. Bildmatchning för svensk "gymnastik":** LLM/bildmaterialiseraren tolkar "gymnastiklokal" som amerikanskt gym (weightlifting), inte barngymnastik/akrobatik/trampolin. Hero på Trampolin Studio fick en man med skivstång. Bör adresseras i bildprompt-strategi eller scaffold-hint.
+- ⚠️ **B. Repair-LLM returnerar partial files (samma klass som "ButtonProps"):** site-header.tsx hade saknad `}` efter LLM-pass. `runLlmFixer` validerar `parseCodeProject().files.length > 0` men inte att varje fil är komplett (balanced braces / no truncation). Förslag: lägg till complete-files-check i `runLlmFixer` (se Wave5-audit för detaljer).
+- ⚠️ **C. Hydration error i Sajtmaskin-skalet** (preexisting, ej från genererad sajt). Synlig i Next.js dev-overlay som "1 Issue".
+- ⚠️ **D. Streamlit-backoffice out-of-sync med Plan 11/12:** Saknar info om scaffold-required-files, variant-lock, `history.ndjson`-fält. Operatörsverktyg uppdateras inte automatiskt när TS-koden ändras.
+- ⚠️ **E. Strikta zod-schemas saknas:** `createChatSchema`/`sendMessageSchema` strippar okända fält tyst. `meta` är `.passthrough()`. Lossy ytor (5 schemas att strikta först — se Wave5-audit för lista).
 
 ---
 

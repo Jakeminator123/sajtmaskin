@@ -73,5 +73,16 @@
   "terminal.integrated.automationProfile.windows": {
     "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
     "args": ["-NoLogo", "-NoProfile"]
+  },
+  "terminal.integrated.cwd": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin",
+
+  // Statisk PATH-prepend som gäller ALLA terminaler i workspace:
+  // - default-profil (laddar PROFILE) → får Volta först via båda
+  // - automation-profil (-NoProfile) → får Volta först via env nedan
+  // - background agents (.cursor/environment.json) → ärver env nedan
+  // Tar bort behovet av manuell `$env:Path = User + Machine`-injektion i
+  // worktree-agent-skript.
+  "terminal.integrated.env.windows": {
+    "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}"
   }
 }

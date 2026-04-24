@@ -1,0 +1,27 @@
+Wave 5 verify: 4 hot-fixes + docs konsolidering
+
+Live smoke-test (Trampolin Studio init + auto-FU + medlemspriser sub-route)
+verifierade att alla 13 master-post-cleanup-planer fungerar i praktiken.
+Hittade 4 buggar som åtgärdas här:
+
+1. Lansering truth mismatch (top-bar "Redo att publicera" vs version-history
+   "Repairing"): readiness-routens buildLifecycleBlocker saknade
+   repairing-grenen.
+
+2. Init-prompt friction (Plan 01 öppen): useBuilderPageController auto-startade
+   bara kostnadsfri-flödet, inte freeform. Användare slipper klicka Send 2 ggr.
+
+3. Server-repair "Kvarvarande fel: 0" är esbuild-syntax-counter, inte tsc.
+   Förvirrande när typecheck failar samtidigt. Lade till remainingErrorsSource +
+   syntaxCleanGateFailed i meta + tydligare meddelande i UI.
+
+4. Backoffice overview.py CONFIG_NAV_PAGES out-of-sync med faktiska sidnamn.
+
+Docs konsolidering: flyttade 60+ KLARA STATUS/CLOUD-REVIEW/PROMPT-filer till
+docs/plans/avklarat/master-post-cleanup-2026-04-23/ med substruktur
+(status/, planspec/, waves/, audit-reports/, investigate/, meta/). Behåller
+aktivt: CHECKLIST.md, README.md, STATUS-12, fixer-matrix, WORLD-CLASS-LLM-FLOW,
+STATUS-WAVE5-VERIFY-RUN-A/B (nya).
+
+Open-questions.md uppdaterad med 5 nya buggar/frågor (bildmatchning,
+repair-LLM partial files, hydration error, backoffice out-of-sync, lossy zod).

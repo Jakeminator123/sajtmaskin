@@ -1486,11 +1486,13 @@ export function useBuilderPageController() {
     setPreviewRefreshToken(Date.now());
   }, [promptAssistContextKeyRef, promptFetchDoneRef, setPreviewRefreshToken]);
 
-  // Auto-start generation for kostnadsfri flow
+  // Auto-start generation for prompt-handoff flows from landing page.
+  // Triggers when user submitted a prompt on `/` and was navigated to /builder
+  // with a promptId in the URL — both `kostnadsfri` and `freeform` are valid handoffs.
   useEffect(() => {
     if (!isAuthenticated) return;
     if (templateId) return;
-    if (buildMethod !== "kostnadsfri") return;
+    if (buildMethod !== "kostnadsfri" && buildMethod !== "freeform") return;
     if (!resolvedPrompt) return;
     if (chatId) return;
     if (autoGenerateTriggeredRef.current) return;
