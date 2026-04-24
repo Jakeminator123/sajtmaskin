@@ -12,6 +12,7 @@ import streamlit as st
 
 from backoffice.shared import (
     BackofficeContext,
+    _escape_ts_string,
     get_all_manifests,
     read_json,
     read_text,
@@ -369,10 +370,6 @@ def _unique_preserving_order(values: list[str]) -> list[str]:
         seen.add(lower)
         result.append(value)
     return result
-
-
-def _escape_ts_string(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _render_ts_string_array(values: list[str], *, indent: str = "  ") -> str:

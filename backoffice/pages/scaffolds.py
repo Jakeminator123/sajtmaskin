@@ -7,7 +7,12 @@ import re
 import pandas as pd
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, get_all_manifests, read_json
+from backoffice.shared import (
+    BackofficeContext,
+    _escape_ts_string,
+    get_all_manifests,
+    read_json,
+)
 
 
 def _parse_ts_string_array(text: str, field: str) -> list[str]:
@@ -16,10 +21,6 @@ def _parse_ts_string_array(text: str, field: str) -> list[str]:
     if not m:
         return []
     return re.findall(r'"([^"]*)"', m.group(1))
-
-
-def _escape_ts_string(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _write_ts_string_array(text: str, field: str, values: list[str]) -> str:
