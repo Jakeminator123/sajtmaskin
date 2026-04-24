@@ -468,8 +468,6 @@ export async function resolveOrchestrationBase(
         useEmbeddings: embeddingScaffoldMatch,
         queryContext: scaffoldQueryContext,
         capabilities,
-        generationMode: resolvedMode,
-        brief,
       }),
       officialRefsPromise,
       communityRefsPromise,

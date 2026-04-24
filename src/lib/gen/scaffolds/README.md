@@ -34,7 +34,7 @@ when generating code.
 
 | File | What it does |
 |------|-------------|
-| `registry.ts` | Imports the 10 manifests and merges in generated research overrides. This is the single source of truth for runtime scaffold objects. |
+| `registry.ts` | Imports the 9 manifests (see `BASE_SCAFFOLDS`) and merges in generated research overrides. This is the single source of truth for runtime scaffold objects. |
 | `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. `id` is scaffoldens kanoniska runtime-nyckel; äldre docs kan fortfarande nämna `family` som legacy-alias. |
 | `matcher.ts` | Primary keyword-based scaffold matching. `matchScaffoldAuto()` uses keyword matching first and only uses embeddings when the keyword result is missing or too generic. |
 | `serialize.ts` | `serializeScaffoldForPrompt()` — turns the resolved scaffold into prompt context. |

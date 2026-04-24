@@ -419,6 +419,12 @@ function defaultScaffoldForIntent(buildIntent?: BuildIntent | null): ScaffoldMan
   if (buildIntent === "website" || buildIntent === "template") {
     return getScaffoldById("landing-page")!;
   }
+  // B1: app-intent must default to app-shell, not base-nextjs, when keyword
+  // matching is disabled (`SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off`) and
+  // embeddings are unavailable / score below the override threshold.
+  if (buildIntent === "app") {
+    return getScaffoldById("app-shell")!;
+  }
   return getScaffoldById("base-nextjs")!;
 }
 
@@ -554,8 +560,6 @@ export async function matchScaffoldAuto(
     useEmbeddings?: boolean;
     queryContext?: ScaffoldQueryContext;
     capabilities?: InferredCapabilities;
-    generationMode?: "init" | "followUp";
-    brief?: Record<string, unknown> | null;
   } = {},
 ): Promise<ScaffoldSelectionResult> {
   const useEmbeddings = options.useEmbeddings ?? true;

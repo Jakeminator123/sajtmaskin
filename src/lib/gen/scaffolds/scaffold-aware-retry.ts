@@ -45,6 +45,9 @@ interface InferScaffoldRetryParams {
 const APP_SCAFFOLD_IDS = new Set(["dashboard", "app-shell"]);
 
 function hasRouteCount(files: CodeFile[], minimum: number): boolean {
+  // Dual-support: counts routes in either `app/`- or `src/app/`-rooted output.
+  // Scaffolds always use `app/`, but post-merge LLM output may be either —
+  // see `validateScaffoldManifest` JSDoc for the policy.
   const routeFiles = files.filter((file) =>
     /(^|\/)app\/.+\/page\.(tsx|jsx|ts|js)$/.test(file.path) || file.path === "app/page.tsx" || file.path === "src/app/page.tsx",
   );
@@ -173,8 +176,22 @@ function suggestHeuristicScaffold(
   return null;
 }
 
+/**
+ * SAJ-38: returns the historical success rate for retries that landed on
+ * `suggestedId`. The rate is currently *not* conditioned on which scaffold
+ * the retry pivoted away from — `generation_telemetry` only records the
+ * scaffold that was actually used (`scaffoldId`) and a flag
+ * (`scaffoldRetryUsed`), not the prior scaffold. To make the rate
+ * meaningful per pivot pair we'd need a `scaffold_retry_from_id` column.
+ * Until then this is a per-target rate; callers should treat it that way.
+ *
+ * SAJ-57 (UPSTREAM BLOCKER): `scaffoldRetryUsed` is currently hardcoded
+ * to `false` in `persist-telemetry.ts` because no upstream signal flags a
+ * generation as a retry attempt. As a result this query **always** returns
+ * `null` regardless of how many retries have happened. Fixing SAJ-57 is a
+ * prerequisite for this function to return real numbers.
+ */
 export async function getHistoricalRetrySuccess(
-  currentId: string,
   suggestedId: string,
 ): Promise<number | null> {
   try {
@@ -206,7 +223,7 @@ export async function getHistoricalRetrySuccess(
 async function withHistoricalRate(
   base: Omit<ScaffoldRetrySuggestion, "historicalRetrySuccessRate">,
 ): Promise<ScaffoldRetrySuggestion> {
-  const rate = await getHistoricalRetrySuccess(base.currentScaffoldId, base.suggestedScaffoldId);
+  const rate = await getHistoricalRetrySuccess(base.suggestedScaffoldId);
   return { ...base, historicalRetrySuccessRate: rate ?? undefined };
 }
 

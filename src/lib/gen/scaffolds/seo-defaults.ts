@@ -1,6 +1,30 @@
 import type { ScaffoldFile, ScaffoldManifest } from "./types";
+import { warnLog } from "@/lib/utils/debug";
 
-const SEO_DEFAULT_SITE_URL = "https://example.com";
+/**
+ * B3: scaffold SEO defaults must not leak `https://example.com` into the
+ * final generated site. Operators can set `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL`
+ * to a real preview/production URL; otherwise we fall back to the historical
+ * `https://example.com` placeholder and warn once so it shows up in logs.
+ *
+ * The serialize/prompt layer also instructs the LLM to rewrite scaffold
+ * placeholders, but this env-driven default removes the leak vector when
+ * the model forgets.
+ */
+function resolveSeoDefaultSiteUrl(): string {
+  const fromEnv = process.env.SAJTMASKIN_SCAFFOLD_SEO_SITE_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (!warnedAboutPlaceholderSiteUrl) {
+    warnedAboutPlaceholderSiteUrl = true;
+    warnLog("scaffold", "seo_default_site_url_placeholder", {
+      reason: "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL is unset; scaffold SEO files use https://example.com placeholder",
+    });
+  }
+  return "https://example.com";
+}
+
+let warnedAboutPlaceholderSiteUrl = false;
+const SEO_DEFAULT_SITE_URL = resolveSeoDefaultSiteUrl();
 
 const ROBOTS_FILE: ScaffoldFile = {
   path: "app/robots.ts",
@@ -110,10 +134,24 @@ function extractMetadataExpression(
   key: "title" | "description",
   fallback: string,
 ): string {
+  // SAJ-39: only single-line, single-token values are safe to splice into
+  // the enriched metadata block. Multi-line template literals, object
+  // expressions, and trailing-comment patterns get the fallback so we
+  // never produce broken JS by capturing only the first line.
   const pattern = new RegExp(`${key}:\\s*([^\\n,]+)`);
   const match = metadataBody.match(pattern);
-  const value = match?.[1]?.trim();
-  return value && value.length > 0 ? value : fallback;
+  const rawValue = match?.[1]?.trim() ?? "";
+  if (!rawValue) return fallback;
+
+  const startsWithBacktick = rawValue.startsWith("`");
+  const endsWithBacktick = rawValue.endsWith("`");
+  if (startsWithBacktick !== endsWithBacktick) return fallback;
+
+  const startsWithBrace = rawValue.startsWith("{");
+  const endsWithBrace = rawValue.endsWith("}");
+  if (startsWithBrace !== endsWithBrace) return fallback;
+
+  return rawValue;
 }
 
 function enrichLayoutMetadata(layoutContent: string): string {
@@ -175,6 +213,10 @@ export function applyScaffoldSeoDefaults(scaffold: ScaffoldManifest): ScaffoldMa
   files = ensureSeoScaffoldFile(files, SITEMAP_FILE);
   files = ensureSeoScaffoldFile(files, OPENGRAPH_IMAGE_FILE);
 
+  // Dual-support intentional: scaffolds always use `app/layout.tsx`, but this
+  // function also runs on merged scaffold + LLM-emitted output where the
+  // user's project may be `src/app/`-rooted. Do NOT collapse to a single
+  // path — see JSDoc on `validateScaffoldManifest` for the policy.
   files = files.map((file) => {
     if (file.path !== "app/layout.tsx" && file.path !== "src/app/layout.tsx") {
       return file;

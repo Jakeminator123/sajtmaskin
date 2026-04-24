@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { matchScaffold, matchScaffoldAuto } from "./matcher";
+import { matchScaffold, matchScaffoldAuto, type ScaffoldQueryContext } from "./matcher";
+import { inferCapabilities } from "../capability-inference";
 
 export interface ScaffoldEvalCase {
   id: string;
@@ -12,6 +13,13 @@ export interface ScaffoldEvalCase {
   mustHaveFeatures?: string[];
   mustNotBe?: string[];
   previewOutcome?: "ok" | "white";
+  /**
+   * SAJ-46/SAJ-56: optional brief context so eval cases can mirror what
+   * orchestrate.ts feeds into matchScaffoldAuto in production. When set,
+   * `runScaffoldSelectionEval` forwards these to the matcher so eval scores
+   * reflect real selection behaviour, not a stripped-down baseline.
+   */
+  queryContext?: ScaffoldQueryContext;
 }
 
 export interface ScaffoldEvalCaseResult {
@@ -88,8 +96,15 @@ export async function runScaffoldSelectionEval(
   for (const entry of cases) {
     const buildIntent = entry.buildIntent ?? "website";
     const keyword = matchScaffold(entry.prompt, buildIntent);
+    // SAJ-46/SAJ-56: align eval with `orchestrate.ts` — pass capabilities
+    // (always inferable from the prompt) and queryContext (if the case
+    // ships one). Otherwise eval measures a sanitized matcher path that
+    // never runs in production.
+    const capabilities = inferCapabilities(entry.prompt);
     const semantic = await matchScaffoldAuto(entry.prompt, buildIntent, {
       useEmbeddings: true,
+      capabilities,
+      queryContext: entry.queryContext,
     });
     const semanticTop3 = semantic.meta.topCandidates.map((candidate) => candidate.id);
     const keywordTop1 = keyword?.id ?? null;
