@@ -47,6 +47,11 @@ def _orch_ts_sources(ctx: BackofficeContext) -> dict[str, Any]:
         / "lib"
         / "builder"
         / "promptOrchestration.ts",
+        "Capability tiers": ctx.repo_root
+        / "src"
+        / "lib"
+        / "builder"
+        / "follow-up-capability-detection.ts",
         "SerializeMode": ctx.scaffolds_dir / "serialize.ts",
         "BuildSpec policies": ctx.repo_root / "src" / "lib" / "gen" / "build-spec.ts",
     }
@@ -335,12 +340,22 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
             "PromptStrategy",
             "Prompt-budget/trunkerings-strategi",
         )
+        _load_union(
+            "PromptType / PromptStrategy",
+            "PromptSource",
+            "Promptkälla för telemetry/UX (`user` eller `auto_repair`).",
+        )
         _load_union("ScaffoldId / ScaffoldMode", "ScaffoldId", "Vilken scaffold (10 st)")
         _load_union("ScaffoldId / ScaffoldMode", "ScaffoldMode", "Hur scaffolden väljs")
         _load_union(
             "ScaffoldId / ScaffoldMode",
             "ScaffoldSiteKind",
             "Scaffold site-kategori",
+        )
+        _load_union(
+            "Capability tiers",
+            "CapabilitySpecificityTier",
+            "Follow-up capability-tier (`generic` | `specific` | `beyond-dossier`).",
         )
         _load_union(
             "ScaffoldId / ScaffoldMode",
