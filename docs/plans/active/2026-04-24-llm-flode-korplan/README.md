@@ -2,11 +2,47 @@
 status: active
 created: 2026-04-24
 revised: 2026-04-24 (efter deep-prefab feedback + 4-agents verifieringspass)
+revised2: 2026-04-24 (status-uppdatering efter 7 waves levererade; backoffice + strict schemas tillagda)
 branch: llm-flode
 trigger: långbänk efter user-rapport om körning eb152443-2660-4042-a2a0-e5c156b928ed + deep-prefab review (sparat i `svar_gpt`)
 ---
 
 # Körplan — LLM-flöde 2026-04-24 (REVIDERAD)
+
+## Status efter exekvering (2026-04-24)
+
+**7 waves levererade på `llm-flode`-branchen.**
+
+### Waves och täckning
+
+| Wave | Innehåll | Spår | Test-coverage |
+|------|----------|------|---------------|
+| Wave 1 | `llm_fixer_aborted`-event + AbortError-separation | Spår 0 + 5 | llm-fixer.test.ts |
+| Wave 2 | Variant-snapshot sanitize-allowlist MAX_KEYS=80 + merge-skydd | Spår 1 | orchestration-snapshot.test.ts |
+| Wave 3 | HEAD GET-fallback + `imageMaterializationMs`-rename + dup-alt-warning | Spår 3 | image-validator.test.ts |
+| Wave 3b | F2/F3-kontrakt doc-fix + UI-badges + previewBlocked-rensning + soft-assert | Spår 0 | — |
+| Wave 5 | Lucide-checklist + recurring-patterns-flag + shrink-telemetri | Spår 5 | llm-fixer.test.ts |
+| Wave 6 | Verbatim-restore i merge + cross-file-stub-telemetri + förstärkt prompt | Spår 4 | verbatim-policy.test.ts |
+| Wave 7 | Skip dubbel tsc (`warmTscSkipped`) + Fly pre-warm bakom flagga | Spår 6 (säkra vinster) | finalize-version.test.ts |
+
+### Vad som INTE levererades (framtida)
+
+- **Spår 2 — F2 Product Postcheck:** Playwright-arbete (3–4 dagar). Ingen kod skriven.
+- **Spår 6 D–F (riskabla latens):** Reasoning-budget-byte, scaffold-delta, prompt-cache — bakom eval-gate.
+- **`f2TimeMs` / `f3TimeMs`:** Markerade TODO i `generation-stream-post-finalize.ts`. Emitteras som null idag.
+- **`image_replaced_with_placeholder` → devLog:** Fortfarande via `debugLog` (console). Kräver portering.
+- **`dossier_stub_created` som standalone devLog-event:** Emitteras via DB-warnings idag.
+
+### Backoffice + schemas (denna leverans)
+
+- `backoffice/pages/llm_flode_telemetry.py` — ny observability-sida för wave-telemetri
+- `docs/schemas/strict/llm-fixer-aborted.schema.json`
+- `docs/schemas/strict/dossier-verbatim-restored.schema.json`
+- `docs/schemas/strict/image-replaced-with-placeholder.schema.json` (forward-deklaration)
+- `docs/schemas/strict/llm-fixer-partial-response.schema.json`
+- `docs/schemas/strict/dossier-stub-created.schema.json` (forward-deklaration)
+- `docs/schemas/strict/README.md` — uppdaterad med tabell för nya schemas
+- `docs/architecture/glossary.md` — nya termer: `verbatim_content_drift`, `warmTscSkipped`, `f2TimeMs`, `f3TimeMs`, `previewPreWarm`, `recurringPatternsInCreatePrompt`
 
 Konsoliderad körplan från **9 audit-pass totalt** (5 första + 4 verifierings-passes efter deep-prefab feedback) över en single-shot create-körning som tog **7 min 7 sek** wall-clock + auto-repair-loop. Original-planen 5 spår omprioriterades till **7 spår** efter att deep-prefab-agenten påpekade att P0 (F2/F3-kontrakt) saknades och att tidigare spår hade fel filsökväg/MAX_KEYS-värde.
 
@@ -31,15 +67,15 @@ Konsoliderad körplan från **9 audit-pass totalt** (5 första + 4 verifierings-
 
 ## Spår (router, ny ordning)
 
-| # | Fil | Spår | Estimerad insats | Beroenden |
-|---|-----|------|---|---|
-| **0** | [`00-f2-f3-kontrakt.md`](./00-f2-f3-kontrakt.md) | **F2/F3-kontrakt** — kommentar-drift, separera Runtime/Product/Build, telemetri-uppdelning | 1–2 dagar | INGA — gör först |
-| **1** | [`01-variant-snapshot-persistens.md`](./01-variant-snapshot-persistens.md) | **Variant-snapshot** — testdriven rotorsak + sanitize-allowlist + merge-skydd + failsafe i call-site | 1–2 dagar | INGA — kan parallellt med P0 |
-| **2** | [`02-product-postcheck.md`](./02-product-postcheck.md) | **F2 Product Postcheck** — Playwright DOM-checks (anchors, naturalWidth, CTA, mobil, fake forms) | 3–4 dagar | P0 (för Versionsdiagnostik UI) |
-| **3** | [`03-bildminimum.md`](./03-bildminimum.md) | **Bildminimum** — HEAD GET-fallback, placeholder, telemetri-rename, dup-alt-warning | 2 dagar | INGA — kan parallellt |
-| **4** | [`04-dossier-hard-soft-enforcement.md`](./04-dossier-hard-soft-enforcement.md) | **Dossier hard/soft** — verbatim restore i merge + refuse-stub + manifest-closure + compat-matrix | 2–3 dagar | INGA — kan parallellt |
-| **5** | [`05-autofix-gating.md`](./05-autofix-gating.md) | **Autofix-gating** — LLM-fixer abort-event, Lucide-checklist, recurring-patterns, repair-adaptive | 2 dagar | INGA — kan parallellt |
-| **6** | [`06-latens-och-scaffold-delta.md`](./06-latens-och-scaffold-delta.md) | **Latens** — säkra vinster nu (skip dubbel tsc, pre-warm, streaming-validation) + riskabla bakom eval | Säkra: 1-2 dagar / Riskabla: 5-7 dagar | Ev. P0 (telemetri-separation) |
+| # | Fil | Spår | Status | Levererat |
+|---|-----|------|--------|-----------|
+| **0** | [`00-f2-f3-kontrakt.md`](./00-f2-f3-kontrakt.md) | **F2/F3-kontrakt** | ✅ KLART (waves 1+3b) | doc-fix + UI-badges + previewBlocked-rensning + soft-assert |
+| **1** | [`01-variant-snapshot-persistens.md`](./01-variant-snapshot-persistens.md) | **Variant-snapshot** | ✅ KLART (wave 2) | testdriven; MAX_KEYS=80 sanitize-allowlist + merge-protection |
+| **2** | [`02-product-postcheck.md`](./02-product-postcheck.md) | **F2 Product Postcheck** | ⏸ FRAMTIDA WAVE | inte i denna leverans (Playwright-arbete, 3–4 dagar) |
+| **3** | [`03-bildminimum.md`](./03-bildminimum.md) | **Bildminimum** | ✅ KLART (wave 3) | HEAD GET-fallback + placeholder + dup-alt + prompt-regel |
+| **4** | [`04-dossier-hard-soft-enforcement.md`](./04-dossier-hard-soft-enforcement.md) | **Dossier hard/soft** | ✅ KLART (wave 6) | verbatim-restore + cross-file-stub-telemetri + förstärkt prompt |
+| **5** | [`05-autofix-gating.md`](./05-autofix-gating.md) | **Autofix-gating** | ✅ KLART (waves 1+5) | abort-event + retry + Lucide-checklist + recurring-flag + shrink-telemetri |
+| **6** | [`06-latens-och-scaffold-delta.md`](./06-latens-och-scaffold-delta.md) | **Latens** | ✅ SÄKRA KLART (wave 7) / ⏸ RISKABLA FRAMTIDA | skip dubbel tsc + Fly pre-warm bakom flagga |
 
 ## Prioritetsordning (deep-prefab-agentens förslag, validerad)
 

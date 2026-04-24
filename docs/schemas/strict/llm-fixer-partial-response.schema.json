@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "llm-fixer-partial-response.schema.json",
+  "title": "llm_fixer_partial_response",
+  "description": "Emitteras av src/lib/gen/autofix/llm-fixer.ts via devLogAppend när LLM returnerade filer men en delmängd bedömdes som ofullständiga (truncated marker, noop, etc.) och exkluderades från mergen. Signal: LLM genererade för många filer på en gång → shrink-indikator. Skrivs till logs/generationslogg/<run>/timeline.ndjson.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "excludedFiles", "totalFixedFilesAttempted"],
+  "properties": {
+    "type": {
+      "const": "llm_fixer_partial_response",
+      "description": "Diskriminant: alltid strängen 'llm_fixer_partial_response'."
+    },
+    "excludedFiles": {
+      "type": "array",
+      "description": "Lista med filer som exkluderades från mergen p.g.a. ofullständigt LLM-svar.",
+      "items": {
+        "type": "object",
+        "description": "Information om en exkluderad fil.",
+        "additionalProperties": true,
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Filsökväg (relativ projektrot)."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Orsak till exkludering (t.ex. 'truncated', 'noop', 'incomplete')."
+          }
+        }
+      }
+    },
+    "totalFixedFilesAttempted": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Totalt antal filer som LLM försökte returnera (inklusive exkluderade)."
+    }
+  }
+}

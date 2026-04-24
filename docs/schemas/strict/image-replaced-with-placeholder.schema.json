@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "image-replaced-with-placeholder.schema.json",
+  "title": "image_replaced_with_placeholder",
+  "description": "Dokumenterar strukturen för image_replaced_with_placeholder-eventen. OBS: i nuvarande implementation (src/lib/utils/image-validator.ts) skrivs detta via debugLog (console.info), INTE via devLogAppend. Schemaet är en forward-deklaration för när eventen porteras till devLogAppend. Kräver SAJTMASKIN_DEBUG=images för att synas i konsolen.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "originalUrl"],
+  "properties": {
+    "type": {
+      "const": "image_replaced_with_placeholder",
+      "description": "Diskriminant: alltid strängen 'image_replaced_with_placeholder'."
+    },
+    "originalUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Den ursprungliga bild-URL som inte kunde materialiseras och ersattes med en placeholder."
+    },
+    "alt": {
+      "type": ["string", "null"],
+      "description": "Alt-texten för bilden (om tillgänglig vid telemetri-tidpunkt)."
+    }
+  }
+}

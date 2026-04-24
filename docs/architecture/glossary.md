@@ -165,6 +165,10 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Post-Checks | Client-side post-genererings-orkestrering | kanonisk |
 | Engine Version Lifecycle | `draft` → `verifying` → `repairing` → `repair_available` / `failed` / `promoted` | kanonisk |
 | Scaffold Retry | Sen diagnos + scaffoldpivot-förslag vid misslyckad generation | kanonisk |
+| `verbatim_content_drift` | Reason-kod i `dossier_verbatim_restored`-event: LLM modifierade en verbatim-fil och systemet tvingades återställa det kanoniska innehållet. Emitteras av `verbatim-policy.ts`. | kanonisk |
+| `warmTscSkipped` | Boolean i `site.done`-devLog: `true` när warm-tsc hoppades över i `validate_syntax` eftersom quality gate planerades köra tsc ändå. Latency-vinst-mätning (wave 7). | kanonisk |
+| `previewPreWarm` | FEATURE-flagga (planerad): Fly.io pre-warm av preview-VM innan kodgenereringen är klar, för att reducera VM-cold-start-latens. Styrs via feature-toggle (wave 7, bakom eval). | alias |
+| `recurringPatternsInCreatePrompt` | FEATURE-flagga (planerad): Injicera recurring failure patterns även på init/create-generering (idag bara på follow-ups). Bakom eval-gate tills signal/noise-kvoten verifierats. | alias |
 
 ---
 
@@ -196,6 +200,8 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | `VersionMismatchOverlay` | UX-komponent mellan ny version sparad och preview-VM reload. **Dispatch-vägen ej wirad** | kanonisk |
 | `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR` | Default ON i dev/Vercel preview, OFF i prod. Loopar `build-error` SSE in i `runRepairLoop` | kanonisk |
 | EnvVar enforcement (P31) | Per envVar i hard-dossier: `build` (default) / `feature-runtime` / `warn-only`. Styr F3-gate | kanonisk |
+| `f2TimeMs` | Planerad telemetri-distinktion: tid i ms för F2-fasen (design-loop, validate + preflight). Fält i `site.done`-devLog. **Idag null** — TODO-markerat i `generation-stream-post-finalize.ts`. | kanonisk |
+| `f3TimeMs` | Planerad telemetri-distinktion: tid i ms för F3-fasen (integrationer, build + verify). Fält i `site.done`-devLog. **Idag null** — aktiveras när F2/F3-telemetri-uppdelning implementeras. | kanonisk |
 
 ---
 
