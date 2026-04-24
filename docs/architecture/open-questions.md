@@ -194,6 +194,35 @@ CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter
 
 ---
 
+### 12. ❌ Follow-up modifierar inte existing capability-output (re-injicerar istället)
+
+**Antagande:** En follow-up som "gör pricken till en kaffekopp" ska modifiera existing 3D-scen-fil (`floating-coffee-overlay.tsx`), inte skapa parallella filer.
+
+**Verifierat falskt 2026-04-24 (chat `b71dafb3`, v3 efter kaffekopp-prompten):**
+
+| Förväntat | Faktiskt |
+|---|---|
+| `floating-coffee-overlay.tsx` modifieras till kaffekopp + pour-animation | Filen orörd — gamla bubblan kvar |
+| LLM lägger `onPointerEnter` + `useFrame` för pour-animation | 0 träffar i live HTML |
+| `mug` / `coffee-cup` / `pour` i koden | 0 träffar |
+| 1 fil ändrad | 2 NYA filer skapade (`three-canvas-shell.tsx` + `canvas-error-boundary.tsx`) |
+
+**Symptom:** Plan 06:s capability-classifier triggade `capability-add` (för "3D" finns i prompten). Plan 07:s injection-väg aktiverades och re-injicerade dossier-shell + error-boundary istället för att modifiera existing scene-file.
+
+**Trolig rotsorsak:**
+- Follow-up-systempromptens "Current File Contents"-sektion inkluderar troligen inte `floating-coffee-overlay.tsx` (eller LLM ignorerar den)
+- Det finns ingen "capability-modify-existing"-väg i plan 06/07. Bara `capability-add` (= injicera) eller `capability-refresh` (= ny generation)
+- LLM tolkar "gör pricken till X" som "skapa X" istället för "modifiera existing scen att vara X"
+
+**Vad som behövs:**
+- Plan 06: identifiera när follow-up-prompt refererar EXISTING capability-output (`pricken`, `bubblan`, `den`) → markera som `capability-modify`, inte `capability-add`
+- Plan 07: när `capability-modify` triggas, INTE re-injicera dossier; istället peka LLM till existing scen-fil + uppmuntra modify
+- Eller: i system-prompt för follow-ups ALLTID inkludera capability-output-filer från base-version (även om delta är liten)
+
+**Plan-koppling:** **Plan 11/12-prio.** Adderar till investigation-agentens fyndlista som related issue (samma kod-område — `OrchestrationBase` saknar "modify-existing"-signal).
+
+---
+
 ### 11. 🟡 Inspector låser sidans scroll — kan bara markera top-of-page
 
 **Antagande:** Plan 02 fixade inspector-buggen (scroll-to-top vid aktivering).
@@ -238,6 +267,27 @@ CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter
 **Stress-test-kandidater (nästa runda för verification):**
 - Modifiera existing 3D-fil: `gör pricken till en 3D-kaffekopp som häller kaffe ner i en mugg när jag nuddar den med musen` → tier `specific` förväntas
 - Beyond-dossier: `gör pricken till en 3D-kaffekopp med physics — den ska studsa när jag knuffar den med musen` → tier `beyond-dossier` förväntas (physics-marker)
+
+---
+
+### 13. 💡 UX-förslag: byt "Promoted" → "Fidelity 2" / "Fidelity 3"
+
+**Användarens observation 2026-04-24:** Badge-texten "Promoted" är förvirrande. Den signalerar "denna är live-preview-versionen", inte "F3 verifierat". Användare antar att "Promoted" = "klar för deploy", men det stämmer bara om F3 också grönade.
+
+**Förslag:**
+- `Fidelity 2` — preview bootar, sidan renderar, F2-checks gröna
+- `Fidelity 3` — F2 + build/integrations/typecheck verifierade
+- `Fel` — F3 hittade blocking findings
+- (skippa "Fidelity 1" = init-state, inte värdefull att visa)
+
+På svenska: "Trohetsgrad 2" / "Trohetsgrad 3".
+
+**Vad det löser:**
+- Användare förstår vad badge betyder utan att läsa runbook
+- Tydligare signal när server-verify är klar (F2 → F3-grön/röd)
+- Matchar terminology som redan finns i kod (`fidelityTier`, `qualityTarget`)
+
+**Plan-koppling:** Inte plan 11/12-scope (UI-rename, inte logik). Plan 13 eller egen 30-min-task efter wave 5. Värd att samla med andra terminology-rensningar i `docs/architecture/glossary.md`.
 
 ---
 
