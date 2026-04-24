@@ -43,27 +43,29 @@ Levande dokument för **antaganden** vi gör i koden eller pratet om systemet, m
 
 ---
 
-### 2. ❓ Preview-host VM — Blitz-container i browsern?
+### 2. ❓ Preview-host VM — Blitz-container i browsern? (HÅLLS AKTIV)
 
 **Antagande:** "Vi har en Blitz-container där VM:en körs i användarens browser."
 
-**Vad vi vet:**
-- Live-preview-URL:er pekar mot `vm-fly-jakem.fly.dev/<chatId>` (sett i smoke-runs).
-- Det är en **fly.io-VM**, inte en browser-side container (WebContainers / StackBlitz / Bolt-style).
-- `src/lib/gen/preview/preview-host-client.ts` pratar HTTP/WS med VM:en.
+**Verifierat 2026-04-23:** Nuvarande implementation är **fly.io-VM** (`vm-fly-jakem.fly.dev/<chatId>`), inte browser-side container. Användaren har explicit tydliggjort att browser-side execution (WebContainers / StackBlitz / Bolt-stil) är ett **långsiktigt mål** som vi vill kunna integrera efter wave 5.
 
-**Vad vi inte vet:**
-- Var kom "Blitz"-tanken ifrån? Är det en gammal idé som aldrig implementerades?
-- Om vi vill ha browser-side execution (WebContainers/Bolt-stil) — har vi det som långsiktigt mål? I så fall är fly.io-VM:n en mellanlösning.
-- Hur många concurrent VMs klarar fly.io-uppsättningen? När maxar vi den?
-- Pool-management i fly.io-laget (separat från Postgres-poolen).
+**Designmål användaren vill ha:**
+- Användaren kan se sin genererade sajt köra i sin egen browser-tab utan fly.io-mellanled
+- Snabbare iteration (ingen VM-cold-start)
+- Lägre infrastruktur-kostnad
+- Enklare offline-utveckling
 
-**Hur verifiera:**
-1. Läs `src/lib/gen/preview/preview-host-client.ts` + fly.io-config (om i repot)
-2. Kolla `docs/architecture/preview-white-screen-runbook.md` — har den ett VM-pool-avsnitt?
-3. Be ops/devops-agent skissa nuvarande arkitektur
+**Tekniska kandidater:**
+- WebContainers (StackBlitz tech) — Node.js i browser via WASM
+- Bolt-stil sandbox-iframe med pre-built bundles
+- esbuild WASM in-browser bundling
 
-**Plan-koppling:** Inte i wave 1–9-scope. Långsiktig produktstrategifråga.
+**Hur integrera utan att bryta nuvarande:**
+1. Behåll fly.io som default-fallback
+2. Feature-flag `SAJTMASKIN_PREVIEW_PROVIDER=webcontainer` för att opta in
+3. Båda providers implementerar samma `PreviewHostClient`-interface
+
+**Plan-koppling:** **Nytt projekt efter wave 5.** Inte plan 10/11/12-scope. Värd egen design-doc + spike. Användaren vill hålla spåret öppet — INTE arkivera frågan när wave 5 är klar.
 
 ---
 
