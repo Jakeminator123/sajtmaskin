@@ -76,7 +76,9 @@ See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 ## Adding a new fixer
 
 1. Implement and wire into the appropriate runner (`pipeline.ts` for mechanical,
-   `finalize-version.ts` for verifier-pass branch, `repair-loop.ts` for server-repair).
+   `finalize-version/runner.ts` for verifier-pass branch, `repair-loop.ts` for server-repair).
+   Note: the original `finalize-version.ts` monolith was split during OMTAG 03; the
+   verifier-pass logic now lives under `src/lib/gen/stream/finalize-version/`.
 2. Append a `FixerRegistryEntry` in `fixer-registry.ts` with full metadata.
 3. The parity test (`fixer-registry.test.ts`) enforces:
    - Unique IDs

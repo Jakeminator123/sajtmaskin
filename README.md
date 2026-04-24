@@ -4,7 +4,7 @@ Detta är repo-rotens **snabba ingång** för människor och LLM:er som arbetar 
 
 Syftet är inte att duplicera hela `docs/`, utan att ge en stabil **första orientering** över det committade trädet. Kod är alltid source of truth.
 
-> Galler den **committade** versionen av repot pa `master` per **2026-04-15**. Lokala, ocommittade eller privata filer kan finnas utan att synas har.
+> Galler den **committade** versionen av repot pa `master` per **2026-04-24** (efter master-post-cleanup Wave 5 + 11 hot-fixes — se taggen `MILSTOLPE-2026-04-24-master-cleanup-wave5`). Lokala, ocommittade eller privata filer kan finnas utan att synas har.
 
 ## Borja har
 

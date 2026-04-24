@@ -105,7 +105,7 @@ Baserade på 200k-fönster. Skalas av `modelBudgetScale()` mellan **0.6×** och 
 
 ---
 
-## System Prompt (`system-prompt.ts`)
+## System Prompt (`system-prompt/` — paket efter OMTAG 03)
 
 ```
 ┌──── STATISK KÄRNA (prefix-cache) ────────────┐
@@ -125,7 +125,7 @@ Baserade på 200k-fönster. Skalas av `modelBudgetScale()` mellan **0.6×** och 
 |---|---|---|
 | System (Core Rules) | `codegen-core-manifest.json` + `prompt-core/*.md` (inkl. `03-visual-design.md` + `04-coding-direction.md`) | `getStaticCoreFromWorkspace()` |
 | System (dynamisk kontext) | Scaffold, route plan, contracts, brief, capabilities, refs, BuildSpec-signaler, guidance-resolvers | `buildDynamicContext()` |
-| Separator | `SYSTEM_PROMPT_SEPARATOR` | `system-prompt.ts` |
+| Separator | `SYSTEM_PROMPT_SEPARATOR` | `system-prompt/compose.ts` |
 | User-turn | Senaste prompten (ev. URL-komprimerad) | API → pipeline |
 | Chathistorik | Tidigare user/assistant-meddelanden | Chat-repo → pipeline |
 
@@ -229,7 +229,8 @@ Blocking-fynd matas in i `runLlmFixer` direkt efter verifier-passet via `formatV
 Utöver klassiska sanity- och SEO-checkar kör preflight två deterministiska route-kontroller som speglar / kompletterar verifier-LLM:n:
 
 - **Saknade routes** (`findMissingPlannedRoutes`): planerade routes som inte fick någon page-fil → `non_blocking_quality_warning`.
-- **href ↔ route cross-check** (`crossCheckHrefsAgainstRoutes` i `src/lib/gen/verify/href-route-cross-check.ts`): skannar genererade `.tsx`/`.jsx` efter `<Link href>`, `href=""`, `router.push()`, `redirect()` och flaggar interna hrefs som inte matchar någon faktisk route. Template literals (`` `/blogg/${slug}` ``) accepteras när motsvarande dynamisk route finns. Suggestions baseras på Levenshtein ≤ 2. Idag emitteras dessa som warnings; gate-flip till `error` planeras i [`docs/plans/active/repair-loop-hardening.md`](../plans/active/repair-loop-hardening.md).
+- **href ↔ route cross-check** (`crossCheckHrefsAgainstRoutes` i `src/lib/gen/verify/href-route-cross-check.ts`): skannar genererade `.tsx`/`.jsx` efter `<Link href>`, `href=""`, `router.push()`, `redirect()` och flaggar interna hrefs som inte matchar någon faktisk route. Template literals (`` `/blogg/${slug}` ``) accepteras när motsvarande dynamisk route finns. Suggestions baseras på Levenshtein ≤ 2. Idag emitteras dessa som warnings; gate-flip till `error` planeras i [`docs/plans/avklarat/repair-loop-hardening.md`](../plans/avklarat/repair-loop-hardening.md).
+- **Plan 11 home-route-gate + count-parity**: `finalize-preflight.ts` blockerar promotion om scaffold-required `app/page.tsx` (eller `src/app/page.tsx`) saknas eller har trivialt innehåll, och kontrollerar att `completeProjectFiles.length === nextFilesJson.length` (paritet mellan parsed code-project och materialiserad fil-bag). Båda gates landade i Wave 5.
 
 Preventivt: `buildRoutePlan()` dedupar locale-alternates (`/blog ↔ /blogg`, `/contact ↔ /kontakt`, `/about ↔ /om`, `/services ↔ /tjanster`) innan route-planen serialiseras till LLM:n, och system-prompten får en *Canonical route paths*-sektion med exakta tillåtna paths. Detta är två lager skydd: planlagret minskar förvirring innan generering, finalize-checken fångar resten.
 

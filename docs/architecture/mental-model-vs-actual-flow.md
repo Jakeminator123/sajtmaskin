@@ -77,7 +77,7 @@ Tre paralella vägar — bara en av dem triggar automatisk repair, och **inte i 
 
 3. **Manuell `/api/.../repair`** — tillgänglig men kräver klick.
 
-### Nuvarande verklighet ✅ (opt-in)
+### Nuvarande verklighet ✅ (default ON i dev/preview, OFF i prod)
 
 Ny exporterad funktion **`triggerBuildErrorRepair`** i [`server-verify.ts`](../../src/lib/gen/verify/server-verify.ts), gated av `isAutoRepairBuildErrorEnabled()`. **Sedan denna leverans (Wave 4):** default ON i `development` + Vercel `preview`, default OFF i `production`. `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1|true|false|on|off|yes|no` overridar default explicit. Hookad i [`generation-stream-post-finalize.ts`](../../src/lib/providers/own-engine/generation-stream-post-finalize.ts) på båda `build-error`-emit-platserna. När loopen är aktiv:
 
@@ -88,7 +88,7 @@ Ny exporterad funktion **`triggerBuildErrorRepair`** i [`server-verify.ts`](../.
    - Kallar `tryServerRepairLoop` → mekanisk autofix → ev. LLM-fixer → repass quality-gate
 3. Om repair lyckas: `version-repair-available` SSE → UI visar "Acceptera repair"-knapp (samma flow som server-verify-baserad repair)
 
-**Default off** för säkerhet — testa i dev först, sätt `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1` i staging, validera att repair-loopen inte stör live-preview boot, sen rulla ut till prod.
+**Default ON i dev + Vercel preview, OFF i prod.** Sätt `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1` explicit i prod när repair-loopens beteende är validerat och du vill rulla ut globalt.
 
 ---
 

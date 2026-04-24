@@ -60,7 +60,11 @@ Signal-ägarmatris: [`llm-signal-flow.md`](./llm-signal-flow.md).
 | Build Intent | `template` / `website` / `app` — vad användaren vill bygga | kanonisk |
 | Build Method | `wizard` / `category` / `audit` / `freeform` / `kostnadsfri` — entry-källa | kanonisk |
 | Generation Mode | `init` / `followUp` | kanonisk |
-| Follow-up Intent | `clear-refine` / `clear-redesign` / `ambiguous-redesign` / `ambiguous-followup` / `neutral` från `classifyFollowUpIntent` (regex) | kanonisk |
+| Follow-up Intent | `clear-refine` / `clear-redesign` / `ambiguous-redesign` / `ambiguous-followup` / `neutral` / **`capability-add`** / **`capability-modify`** från `classifyFollowUpIntent` (regex + LLM-fallback ≥80 ord). Plan 12 lade till `capability-modify` för "ändra/förenkla befintlig komponent". Källa: `src/lib/gen/follow-up-intent-types.ts`. | kanonisk |
+| Event Bus | `src/lib/logging/event-bus*.ts` — engine-events (`emit`-API) som projekteras till `versionStatus` via `selectVersionStatus(events)`. UI ska gradvis flippa från DB-flaggor till denna projektion (Plan 06 / OMTAG fas 3). | kanonisk |
+| Scaffold-Required-Files Gate | Plan 11: `finalize-preflight.ts` blockerar promotion om scaffold-deklarerade kärnfiler (t.ex. `app/page.tsx`) saknas eller har trivialt innehåll. | kanonisk |
+| Count-Parity Gate | Plan 11: `finalize-preflight.ts` kontrollerar att `completeProjectFiles.length === nextFilesJson.length` (parsed code-project = materialiserad fil-bag). | kanonisk |
+| Variant-Lock | Plan 11/12: scaffold-variant väljs deterministiskt vid init och låses för follow-ups inom samma chat så stilen inte driver mellan rundor. | kanonisk |
 | Plan Mode | Planner-LLM med plan-artefakt; `PlanPhase`: plan/build/refine/verify/done | kanonisk |
 | Build Profile | `fast` · `pro` · `max` · `codex` · `anthropic` — UI-tier för codegen | kanonisk |
 | Generation Phase | `planner` · `generator` · `fixer` · `verifier` · `deploy-assistant` — per-fas modellrouting | kanonisk |
