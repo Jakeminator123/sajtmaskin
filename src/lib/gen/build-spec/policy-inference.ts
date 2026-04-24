@@ -11,6 +11,7 @@ import {
   looksDesignHeavyMessage,
   type PromptStrategyMeta,
 } from "@/lib/builder/promptOrchestration";
+import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { PreGenerationContractContext } from "../contract/pre-generation-contracts";
 import type { RoutePlan } from "../route-plan";
 import type { ScaffoldManifest } from "../scaffolds/types";
@@ -196,7 +197,7 @@ function isExplicitSmallFollowUpPrompt(prompt: string): boolean {
 export function deriveFollowUpContextPolicy(params: {
   prompt: string;
   skipIntentClassification?: boolean;
-  followUpIntent?: "clear-redesign" | "clear-refine" | "ambiguous-redesign" | "ambiguous-followup" | "neutral";
+  followUpIntent?: FollowUpIntentMode;
   capabilityHeavy: boolean;
 }): BuildSpecContextPolicy {
   const {
