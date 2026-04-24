@@ -256,6 +256,20 @@ CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter
 
 ---
 
+### 15. ❌ Build-integrations frågar om STRIPE_SECRET_KEY även när Stripe inte är i koden
+
+**Verifierat 2026-04-24 (chat `b71dafb3`, version efter chain-of-thought-add):** Användaren tryckte "Bygg integrationer"-knappen. UI:t prompade om STRIPE_SECRET_KEY trots att:
+- Live VM HTML: **0 träffar** på `stripe`, `checkout`, `payment`
+- package.json saknar `stripe`-dependency (chain-of-thought-runden la bara `ai` + `@ai-sdk/react`)
+
+**Trolig rotsorsak:** Build-integrations-flödet visar env-vars för **alla hard-dossiers i registrn** (10 st), inte bara de som faktiskt är aktiva i versionen. Användaren får frågan om secrets för dossiers de inte använder.
+
+**Korrekt beteende:** Skanna versionens `package.json` + filer för dossier-fingerprints (`stripe`, `@clerk/nextjs`, `@sentry/nextjs`, etc) → bara visa env-prompt för de som faktiskt finns i koden.
+
+**Plan-koppling:** Inte plan 11/12-scope. UI/build-integrations-fix. Värd egen 30-min-task efter wave 5.
+
+---
+
 ### 14. ❌ Slug-route bouncer hem efter 1-2 sek — VERIFIERAT MEKANISM
 
 **Verifierat 2026-04-24 (chat `b71dafb3`, version `1b235ac4`, slug `/afrikanska-bonor`):**
