@@ -102,6 +102,20 @@ export async function runFinalizeFastPath(params: {
   } = params;
   let contentForVersion = params.contentForVersion;
   const stepTelemetry: FinalizeStepTelemetryMap = {};
+  // Wave 7 latens-vinst (~60s sparat per körning):
+  // Om quality-gate kommer köra typecheck efteråt, hoppa över warm-tsc i finalize.
+  //
+  // FOTNOT (operativ risk): Om quality-gate sedan SKIP:as sent (t.ex. via
+  // post-finalize-policy `design_preview_skip_verify` på F2-init med 0 preflight-fel),
+  // har vi VARKEN warm-tsc-resultat NOR QG-resultat. Det är en medveten
+  // trade-off för F2-design-preview där default är att skippa verify ändå —
+  // men det är en lucka man ska känna till.
+  //
+  // Backoffice `llm_flode_telemetry.py` exponerar `warmTscSkipped`-rate i
+  // `site.done`-events så vi kan mäta om luckan blir verklig i prod. Om
+  // skip-rate blir hög + samtidigt design_preview_skip_verify körs ofta:
+  // överväg fall-back-strategi i framtida wave (kör warm-tsc om policy
+  // visar att QG skippas).
   const skipWarmTsc = willRunQualityGate && qualityGateChecksIncludesTypecheck;
 
   ensureNonEmptyGenerationContent({

@@ -107,7 +107,7 @@ function resolveRequestedCapabilitiesFromStreamMeta(
  * matchar (samma logik som prompt-injection använder). Tomt resultat ⇒
  * verbatim-policy kör med [] vilket är säkert (no-op).
  */
-function resolveSelectedDossiersFromStreamMeta(
+export function resolveSelectedDossiersFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
 ): DossierEntry[] {
   const capabilities = resolveRequestedCapabilitiesFromStreamMeta(streamMeta);
@@ -117,6 +117,13 @@ function resolveSelectedDossiersFromStreamMeta(
     return selection.selected.map((s) => s.entry);
   } catch (err) {
     console.warn("[finalize] resolveSelectedDossiersFromStreamMeta failed:", err);
+    // Telemetri: tyst-fail till [] gör att verbatim-policy de facto blir
+    // avstängd för denna körning. Operativt vill vi spåra om det blir vanligt.
+    devLogAppend("in-progress", {
+      type: "verbatim_policy_dossier_resolution_failed",
+      capabilitiesCount: capabilities.length,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }
