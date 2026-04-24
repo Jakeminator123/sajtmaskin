@@ -328,25 +328,44 @@ async function runTier2VerifyLane(params: {
   setMessages: SetMessages;
   mutateVersions?: () => void;
   onAutoFix?: (payload: AutoFixPayload) => void;
+  previewPolicy?: "fidelity2" | "fidelity3";
 }) {
-  const { chatId, versionId, assistantMessageId, setMessages, mutateVersions, onAutoFix } = params;
+  const {
+    chatId,
+    versionId,
+    assistantMessageId,
+    setMessages,
+    mutateVersions,
+    onAutoFix,
+    previewPolicy = "fidelity2",
+  } = params;
   const toolCallId = `quality-gate:${versionId}`;
+  const checks = DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
     type: "tool:quality-gate",
     toolName: "Quality gate",
     toolCallId,
     state: "input-streaming",
-    input: { chatId, versionId, checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS },
+    input: { chatId, versionId, checks },
   } as UiMessagePart);
 
   try {
+    if (previewPolicy === "fidelity2" && checks.includes("build")) {
+      console.warn(
+        "[F2 contract violation] build belongs to F3 (integrationsBuild). " +
+          "This call site sends build to designPreview gate. Investigate.",
+        { chatId, versionId, checks },
+      );
+      // Soft landing: warning-only during telemetry week.
+    }
+
     const res = await fetch(
       `${engineChatBaseUrl(chatId)}/quality-gate`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS }),
+        body: JSON.stringify({ versionId, checks }),
       },
     );
 

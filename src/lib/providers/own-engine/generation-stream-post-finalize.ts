@@ -278,6 +278,11 @@ export async function runOwnEngineStreamPostFinalize(params: {
     previewDeferred: previewWillRun,
     previewBlocked,
     durationMs: Date.now() - engineStartedAt,
+    // TODO(F2/F3 telemetry split): this row is emitted before `preview-ready`
+    // and before quality-gate completion, so precise split timings are not
+    // available at this callsite yet.
+    f2TimeMs: null,
+    f3TimeMs: null,
   });
   devLogFinalizeSite();
   await commitCredits();

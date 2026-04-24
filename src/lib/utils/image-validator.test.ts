@@ -78,3 +78,63 @@ describe("extractImageRefs", () => {
     expect(extractImageRefs(files)).toEqual([]);
   });
 });
+
+describe("validateImages", () => {
+  it("adds duplicate_alt warning for repeated descriptive alt texts", async () => {
+    const files: TextFile[] = [
+      {
+        name: "app/page.tsx",
+        content: `
+          export default function Page() {
+            return (
+              <>
+                <img src="https://cdn.example.com/a.jpg" alt="Porträtt av teammedlem i studio" />
+                <img src="https://cdn.example.com/b.jpg" alt="porträtt av teammedlem i studio" />
+              </>
+            );
+          }
+        `,
+      },
+    ];
+
+    const result = await validateImages({
+      files,
+      autoFix: false,
+      unsplashAccessKey: null,
+      skipUrls: new Set([
+        "https://cdn.example.com/a.jpg",
+        "https://cdn.example.com/b.jpg",
+      ]),
+    });
+
+    expect(result.warnings).toContain(
+      '[duplicate_alt] Alt-text "porträtt av teammedlem i studio" repeats 2 times — gallery items should be unique',
+    );
+  });
+
+  it("replaces unreplaced broken images with placeholder URL", async () => {
+    const files: TextFile[] = [
+      {
+        name: "app/page.tsx",
+        content: `
+          export default function Page() {
+            return (
+              <img src="https://source.unsplash.com/random/1200x800?portrait" alt="Porträtt av Emilia Eberg" />
+            );
+          }
+        `,
+      },
+    ];
+
+    const result = await validateImages({
+      files,
+      autoFix: true,
+      unsplashAccessKey: null,
+    });
+
+    expect(result.replacedCount).toBe(1);
+    expect(result.files[0]?.content).toContain(
+      "/api/placeholder?w=1200&h=800&label=Portr%C3%A4tt%20av%20Emilia%20Eberg",
+    );
+  });
+});

@@ -403,6 +403,7 @@ export const FEATURES = {
    * branch in prod.
    */
   recurringPatternsInMainPrompt: env.NODE_ENV === "development",
+  recurringPatternsInCreatePrompt: false,
 
   /**
    * Vector RAG over historical error-log rows. When ON, follow-up generation

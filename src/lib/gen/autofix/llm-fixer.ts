@@ -222,6 +222,11 @@ export async function runLlmFixer(
         "[llm-fixer] excluded incomplete files from merge:",
         incomplete.map((i) => `${i.path} (${i.reason})`).join(", "),
       );
+      devLogAppend("in-progress", {
+        type: "llm_fixer_partial_response",
+        excludedFiles: incomplete,
+        totalFixedFilesAttempted: fixedProject.files.length,
+      });
     }
 
     const mergedContent = mergeFixedFiles(content, acceptedFixedFiles);
