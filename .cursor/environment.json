@@ -1,0 +1,9 @@
+{
+  "install": "npm ci --no-audit --no-fund",
+  "start": "node scripts/db/db-init.mjs || true",
+  "terminals": [
+    { "name": "dev", "command": "npm run dev" },
+    { "name": "typecheck", "command": "npm run typecheck" },
+    { "name": "lint", "command": "npm run lint" }
+  ]
+}

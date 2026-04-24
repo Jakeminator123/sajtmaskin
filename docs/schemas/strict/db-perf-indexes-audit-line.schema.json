@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "db-perf-indexes-audit-line.schema.json",
+  "title": "DB Perf-Indexes Audit Log Line",
+  "description": "En rad i NDJSON-loggen `data/observability/db-perf-indexes-runs.ndjson` (en JSON per körning av `scripts/db/add-performance-indexes.mjs`). Skrivs både vid CLI-körning, predev auto-applicering, och via backoffice-knappen. Source of truth: scripts/db/add-performance-indexes.mjs (audit-block i `run()`).",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "dry_run",
+    "target_redacted",
+    "created",
+    "already",
+    "skipped",
+    "failed",
+    "runtime_env"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 (UTC) när migrationen kördes."
+    },
+    "dry_run": {
+      "type": "boolean",
+      "description": "true om --dry-run flaggan användes (ingen DDL kördes)."
+    },
+    "reason": {
+      "type": ["string", "null"],
+      "description": "Användarens motivering (--reason). null när ingen reason gavs (t.ex. CLI-körning utan flagga). Backoffice-knappen kräver minst 10 tecken."
+    },
+    "target_redacted": {
+      "type": "string",
+      "description": "Connection-string med lösenord ersatt av ***."
+    },
+    "created": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Antal nya index som skapades."
+    },
+    "already": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Antal index som redan fanns (inkl. covering-aware dedupe-träffar)."
+    },
+    "skipped": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Antal index som hoppades över (t.ex. tabell saknades)."
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Antal CREATE INDEX-anrop som returnerade fel."
+    },
+    "failures": {
+      "type": "array",
+      "description": "Detaljer per failed-rad. Utelämnad när failed=0.",
+      "items": {
+        "type": "object",
+        "required": ["name", "message"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "process_user": {
+      "type": ["string", "null"],
+      "description": "USER eller USERNAME env från processen som körde migrationen."
+    },
+    "runtime_env": {
+      "type": "string",
+      "description": "VERCEL_ENV (production/preview) eller 'development' / 'production' baserat på NODE_ENV."
+    }
+  }
+}

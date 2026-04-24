@@ -5,7 +5,7 @@
  * Resolves scaffold, builds system prompt context, and returns everything
  * needed so that callers never diverge in what signals reach the model.
  */
-import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
+import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
@@ -48,11 +48,8 @@ import {
   buildOrchestrationContract,
   type OrchestrationContract,
 } from "./orchestration-contract";
-import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "./prompt-dump";
 import {
   type GenerationInputPackage,
-  computeLineageHash,
-  serializePackageForDump,
 } from "./generation-input-package";
 import {
   deriveBuildSpec,
@@ -68,6 +65,27 @@ import { fetchCommunityBlocks } from "./data/community-registry-fetch";
 import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
 import type { RequestKindClass } from "./request-kind";
+import type { FollowUpIntentMode } from "./follow-up-intent-types";
+import type { CapabilitySpecificityTier } from "@/lib/builder/follow-up-capability-detection";
+import { isAppScaffold } from "@/lib/builder/build-intent";
+import {
+  buildGenerationInputPackage,
+  writeOrchestrationDynamicDump,
+} from "./orchestrate/generation-package";
+import {
+  inheritQualityTargetFromPriorVersion,
+  resolveBuildIntentPromotion,
+} from "./orchestrate/policy-helpers";
+export type {
+  BuildIntentPromotionDecision,
+  BuildIntentPromotionInput,
+} from "./orchestrate/policy-helpers";
+export {
+  buildGenerationInputPackage,
+  inheritQualityTargetFromPriorVersion,
+  resolveBuildIntentPromotion,
+  writeOrchestrationDynamicDump,
+};
 
 export interface OrchestrationInput {
   prompt: string;
@@ -191,14 +209,44 @@ export interface OrchestrationInput {
   /**
    * P22: previously persisted follow-up intent for this chat. Used by
    * the variant-lock helper — `clear-redesign` allows fresh matching,
-   * everything else reuses the prior variant.
+   * everything else reuses the prior variant. Plan 06 added
+   * `capability-add` for follow-ups that name a dossier capability.
    */
-  followUpIntent?:
-    | "clear-refine"
-    | "clear-redesign"
-    | "ambiguous-redesign"
-    | "ambiguous-followup"
-    | "neutral";
+  followUpIntent?: FollowUpIntentMode;
+  /**
+   * Plan 06 (2026-04-24): explicit dossier capability ids the caller
+   * detected on the follow-up text (via `detectFollowUpCapabilities`).
+   * Merged into the brief-derived + inferred-capability bridge before
+   * `selectDossiersForRequest` runs, so follow-ups that name a capability
+   * (3D, contact-form, payments, …) actually inject a dossier even when
+   * the snapshot-hydrated brief and the keyword-based `inferCapabilities`
+   * pass both miss the signal.
+   */
+  requestedDossierCapabilities?: string[];
+  /**
+   * Plan 06: per-capability specificity tier (`generic` / `specific` /
+   * `beyond-dossier`) computed by `detectFollowUpCapabilities`. Surfaced
+   * back on `OrchestrationBase.requestedCapabilityTiers` so Plan 07 (3D
+   * capability paths) knows whether to render the dossier verbatim, layer
+   * custom code on top, or treat the dossier as a base for a fully custom
+   * scene. Plan 06 itself does NOT mutate package.json, scaffold-files or
+   * dossier-internals based on tier — that is plan 07 territory.
+   */
+  requestedCapabilityTiers?: Record<string, CapabilitySpecificityTier>;
+  /**
+   * Plan 11 / open-question #12: signal that the caller classified this
+   * follow-up as `capability-modify` (the user named a dossier
+   * capability AND referenced an existing on-page element such as
+   * "pricken" / "den 3D-grejen"). When set, the dossier-shell branch is
+   * suppressed and `buildDynamicContext` renders an explicit "modify
+   * existing capability files" hint instead, so the LLM mutates the
+   * working scene file rather than re-injecting a placeholder shell on
+   * top of it.
+   */
+  capabilityModifyHint?: {
+    capabilityIds: string[];
+    references: string[];
+  } | null;
   /**
    * B3: Structured build-out-request for a specific shell route. Propagated
    * into the dynamic system-prompt context so the model knows this follow-up
@@ -248,6 +296,48 @@ export interface OrchestrationBase {
   componentReferences: ComponentReference[];
   /** Selected dossiers when FEATURES.useDossierPipeline is on, else null/undefined. Optional to keep test fixtures backward-compatible. */
   dossierSelection?: DossierSelectionResult | null;
+  /**
+   * Plan 06 (2026-04-24): per-capability specificity tier resolved for this
+   * orchestration. Populated when the caller supplied
+   * `requestedCapabilityTiers` (typically follow-ups going through
+   * `detectFollowUpCapabilities`). Plan 07 reads this to decide whether to
+   * generate a custom scene/file on top of a dossier shell.
+   *
+   * Captured at the `OrchestrationBase` level (not on `DossierSelectionResult`)
+   * because plan 06's hard constraints exclude touching `src/lib/gen/dossiers/**`
+   * — the tier metadata lives alongside the selection rather than inside it.
+   */
+  requestedCapabilityTiers?: Record<string, CapabilitySpecificityTier>;
+  /**
+   * Plan 11 / open-question #8: scaffold variant id carried along the
+   * orchestration base so follow-ups have a deterministic place to read
+   * the previous variant from without re-parsing
+   * `orchestration_snapshot.variantId` at each callsite.
+   *
+   * Populated from `OrchestrationInput.persistedVariantId` when present,
+   * else `null` (fresh init or a follow-up whose snapshot lost the id —
+   * `lockedVariantForFollowUp` will fall back to the scaffold default
+   * in that case).
+   *
+   * The final variant actually used by the codegen LLM is
+   * `FinalizedOrchestrationContext.variantId`; this field exposes the
+   * *prior* (locked) candidate before the matcher gets a chance to
+   * release it. Keeping both lets us trace `prior → locked → final`
+   * variant transitions in telemetry without requiring a new column on
+   * `engine_versions` (the user's stop rule for Bug 2).
+   */
+  scaffoldVariantId: string | null;
+  /**
+   * Plan 11 / open-question #12: forwarded from
+   * {@link OrchestrationInput.capabilityModifyHint} so downstream
+   * `buildDynamicContext` / `renderCapabilityModifyHintBlock` can emit
+   * the "modify existing scene file" instruction without needing a
+   * second source of truth.
+   */
+  capabilityModifyHint: {
+    capabilityIds: string[];
+    references: string[];
+  } | null;
 }
 
 export interface FinalizedOrchestrationContext {
@@ -256,96 +346,6 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
-}
-
-/**
- * P22: när vi kör en follow-up och en tidigare accepterad version finns
- * (med en `qualityTarget` i sin orchestration-snapshot) ska vi ärva det
- * värdet i stället för att räkna om från scratch. Det stoppar dubbel-
- * loggen `quality_target_promoted_for_multipage` på samma chat och säkrar
- * att senare turns inte plötsligt ändrar kvalitetstak.
- *
- * Faller tillbaka till `baseSpec` oförändrat när:
- *  - `generationMode !== "followUp"`
- *  - inget `priorQualityTarget` finns
- *  - värdet redan matchar baseSpec
- */
-export function inheritQualityTargetFromPriorVersion(
-  chatId: string | null | undefined,
-  baseSpec: BuildSpec,
-  priorQualityTarget?: BuildSpecQualityTarget | null,
-): BuildSpec {
-  if (baseSpec.generationMode !== "followUp") return baseSpec;
-  if (!priorQualityTarget) return baseSpec;
-  if (priorQualityTarget === baseSpec.qualityTarget) return baseSpec;
-  console.info("[orchestrate] quality_target_inherited_from_prior_version", {
-    chatId: chatId ?? null,
-    from: baseSpec.qualityTarget,
-    to: priorQualityTarget,
-  });
-  return { ...baseSpec, qualityTarget: priorQualityTarget };
-}
-
-export function buildGenerationInputPackage(
-  base: OrchestrationBase,
-  input: OrchestrationInput,
-  finalized: FinalizedOrchestrationContext,
-): GenerationInputPackage {
-  const lineageHash = computeLineageHash({
-    userPrompt: input.prompt,
-    brief: input.brief,
-    scaffoldMode: input.scaffoldMode ?? "auto",
-    scaffoldContext: base.scaffoldContext,
-    routePlan: base.routePlan,
-    preGenerationContracts: base.preGenerationContracts,
-    buildSpec: base.buildSpec,
-    capabilityHints: base.capabilityHints,
-    customInstructions: input.customInstructions ?? null,
-    themeColors: input.themeColors ?? null,
-    componentPalette: input.componentPalette ?? null,
-    designReferences: input.designReferences ?? null,
-    variantId: finalized.variantId,
-  });
-
-  return {
-    ...base,
-    userPrompt: input.prompt,
-    brief: (input.brief as Record<string, unknown>) ?? null,
-    scaffoldMode: input.scaffoldMode ?? "auto",
-    engineSystemPrompt: finalized.engineSystemPrompt,
-    dynamicContext: finalized.dynamicContext,
-    dynamicContextPruning: finalized.dynamicContextPruning,
-    dynamicContextBlocks: finalized.dynamicContextBlocks,
-    variantId: finalized.variantId,
-    lineageHash,
-  };
-}
-
-export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void {
-  writeLatestPromptDump(
-    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
-    {
-      "latest.md": pkg.dynamicContext,
-      "generation-input-package.json": JSON.stringify(
-        serializePackageForDump(pkg),
-        null,
-        2,
-      ),
-    },
-    {
-      lineageHash: pkg.lineageHash,
-      buildIntent: pkg.buildSpec.buildIntent,
-      scaffoldId: pkg.resolvedScaffold?.id ?? null,
-      buildSpecChangeScope: pkg.buildSpec.changeScope,
-      buildSpecContextPolicy: pkg.buildSpec.contextPolicy,
-      buildSpecPreviewPolicy: pkg.buildSpec.previewPolicy,
-      promptLength: pkg.userPrompt.length,
-      dynamicContextBudgetTokens: pkg.dynamicContextPruning.budgetTokens,
-      dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
-      dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
-      variantId: pkg.variantId ?? null,
-    },
-  );
 }
 
 /**
@@ -450,8 +450,6 @@ export async function resolveOrchestrationBase(
         useEmbeddings: embeddingScaffoldMatch,
         queryContext: scaffoldQueryContext,
         capabilities,
-        generationMode: resolvedMode,
-        brief,
       }),
       officialRefsPromise,
       communityRefsPromise,
@@ -688,8 +686,20 @@ export async function resolveOrchestrationBase(
       const briefCapsArray = Array.isArray(briefCapsRaw)
         ? briefCapsRaw.filter((c): c is string => typeof c === "string")
         : [];
+      // Plan 06 (2026-04-24): caller-provided ids from
+      // `detectFollowUpCapabilities` cover the 13 dossier capabilities the
+      // P26 inferred-capability bridge does not (contact-form, carousel,
+      // testimonials-section, …). Order: brief → inferred → caller, with
+      // dedup so the same capability doesn't double up downstream.
+      const callerProvidedCapabilityIds = (input.requestedDossierCapabilities ?? [])
+        .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+        .map((c) => c.trim().toLowerCase());
       const mergedCaps = Array.from(
-        new Set([...briefCapsArray.map((c) => c.toLowerCase()), ...inferredCapabilityIds]),
+        new Set([
+          ...briefCapsArray.map((c) => c.toLowerCase()),
+          ...inferredCapabilityIds,
+          ...callerProvidedCapabilityIds,
+        ]),
       );
       dossierSelection = selectDossiersForRequest({
         brief,
@@ -701,6 +711,8 @@ export async function resolveOrchestrationBase(
           poolSize: dossierSelection.poolSize,
           byCapability: dossierSelection.byCapability,
           inferredCapabilityBridge: inferredCapabilityIds,
+          callerProvidedCapabilities: callerProvidedCapabilityIds,
+          requestedCapabilityTiers: input.requestedCapabilityTiers ?? null,
         });
       }
     } catch (err) {
@@ -725,6 +737,9 @@ export async function resolveOrchestrationBase(
     serializeMode: resolvedSerializeMode,
     componentReferences,
     dossierSelection,
+    requestedCapabilityTiers: input.requestedCapabilityTiers,
+    scaffoldVariantId: input.persistedVariantId ?? null,
+    capabilityModifyHint: input.capabilityModifyHint ?? null,
   };
 }
 
@@ -847,6 +862,7 @@ export async function finalizeOrchestrationPrompts(
     resolvedVariant,
     dossierSelection: base.dossierSelection,
     buildOut: input.buildOut ?? null,
+    capabilityModifyHint: base.capabilityModifyHint,
   };
 
   const dynamic = buildDynamicContext(dynamicOpts);

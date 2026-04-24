@@ -120,8 +120,6 @@ export const serverSchema = z.object({
   SAJTMASKIN_PREVIEW_HOST_API_KEY: z.string().optional(),
   /** Canonical server-side default for own-engine reasoning/thinking when the client omits an explicit toggle. */
   SAJTMASKIN_DEFAULT_THINKING: z.string().optional(),
-  /** Legacy alias for SAJTMASKIN_DEFAULT_THINKING; kept during env migration. */
-  SAJTMASKIN_SHOW_THINKING: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
@@ -147,8 +145,6 @@ export const serverSchema = z.object({
   SAJTMASKIN_BRIEF_MODEL: z.string().optional(),
   SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI: z.string().optional(),
   SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC: z.string().optional(),
-  SAJTMASKIN_SPEC_MODEL: z.string().optional(),
-
   // v0 Design System
   DESIGN_SYSTEM_ID: z.string().optional(),
 
@@ -156,28 +152,10 @@ export const serverSchema = z.object({
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),
   AUDIT_WEB_SEARCH: z.string().optional(),
-  SAJTMASKIN_BUILD_SPEC_ENABLED: z.string().optional(),
-  SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION: z.string().optional(),
-  SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT: z.string().optional(),
-  SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS: z.string().optional(),
-  SAJTMASKIN_FOLLOWUP_LIGHT_MAX_CHARS: z.string().optional(),
-  SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY: z.string().optional(),
-  SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW: z.string().optional(),
-  SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED: z.string().optional(),
-  /** Dossier system v2: deterministic capability-driven selection from data/dossiers/{hard,soft}/ injected into prompt. On in dev, off in prod by default. See docs/architecture/dossier-system.md. */
+  /** Dossier system v2: deterministic capability-driven selection from data/dossiers/{hard,soft}/ injected into prompt. Default is on unless explicitly set to false/0. See docs/architecture/dossier-system.md. */
   SAJTMASKIN_DOSSIER_PIPELINE: z.string().optional(),
   /** When true/1, init generations may plan multiple routes but only fully realize the primary route while extras become lightweight shells. */
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
-  /** Repair-loop hardening (SAJ-25): propagate repairPassIndex on follow-up + prune stale error-log rows. On in dev, off in prod. */
-  SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX: z.string().optional(),
-  /** Repair-loop hardening B: re-run verifier-pass once after LLM-fixer to confirm fix actually addressed blocking findings. */
-  SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX: z.string().optional(),
-  /** Repair-loop hardening C: skip LLM-fixer escalation when only merged-syntax fails after stream-syntax passed. */
-  SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE: z.string().optional(),
-  /** Repair-loop hardening D: render `### Recurring failures on this site` in system-prompt for follow-ups. */
-  SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT: z.string().optional(),
-  /** Vector RAG over historical error-log rows. Auto-ingest hooks at npm run dev|build|start. */
-  SAJTMASKIN_USE_ERROR_LOG_RAG: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
@@ -186,7 +164,6 @@ export const serverSchema = z.object({
   AUTH_DEBUG: z.string().optional(),
   DEBUG: z.string().optional(),
   SAJTMASKIN_DEV_LOG: z.string().optional(),
-  SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS: z.string().optional(),
   GENERATIONSLOGG: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),

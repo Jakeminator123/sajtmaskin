@@ -260,6 +260,7 @@ describe("generation-log writer", () => {
     const fakeRunDir = path.join(rootDir, fakeRunDirName);
     fs.mkdirSync(fakeRunDir, { recursive: true });
     fs.mkdirSync(indexDir, { recursive: true });
+    const resolvedRootDir = fs.realpathSync(rootDir);
     fs.writeFileSync(
       path.join(indexDir, "chat-to-run.json"),
       JSON.stringify({ abc: fakeRunDirName }),
@@ -269,13 +270,14 @@ describe("generation-log writer", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const resolved = resolveRunDirFromContext({ chatId: "abc" });
-    expect(resolved).toBe(fakeRunDir);
+    expect(resolved).toBe(path.join(resolvedRootDir, fakeRunDirName));
 
     const stale = resolveRunDirFromContext({ chatId: "missing" });
-    expect(stale).toBeNull();
+    expect(stale).toBe(path.join(resolvedRootDir, "_unrouted", "chat-missing"));
+    expect(fs.existsSync(stale as string)).toBe(true);
 
     const slugBucket = resolveRunDirFromContext({ slug: "Some Slug!" });
-    expect(slugBucket).toBe(path.join(rootDir, "_unrouted", "some-slug"));
+    expect(slugBucket).toBe(path.join(resolvedRootDir, "_unrouted", "some-slug"));
     expect(fs.existsSync(slugBucket as string)).toBe(true);
 
     expect(
@@ -285,5 +287,120 @@ describe("generation-log writer", () => {
     ).toBe(false);
 
     warnSpy.mockRestore();
+  });
+
+  it("binds site.chatId to the latest run instead of stale slug buckets", async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
+    process.chdir(tempDir);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
+    vi.stubEnv("GENERATIONSLOGG", "1");
+
+    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+
+    devLogStartGeneration({
+      message: "Bygg en tydlig startsida",
+      modelId: "gpt-5.4",
+      slug: "clear-home",
+      generationKind: "create",
+    });
+    // Init-pathen emitterar ofta styleDirection före chatId.
+    devLogAppend("in-progress", {
+      type: "orchestration.styleDirection",
+      styleDirection: "corporate-grid",
+    });
+    devLogAppend("in-progress", {
+      type: "site.chatId",
+      chatId: "chat_bind",
+    });
+    devLogAppend("in-progress", {
+      type: "comm.request.create",
+      chatId: "chat_bind",
+      modelId: "gpt-5.4",
+      promptType: "init_general",
+    });
+    devLogAppend("latest", {
+      type: "site.done",
+      chatId: "chat_bind",
+      versionId: "ver_bind",
+      durationMs: 450,
+    });
+
+    const rootDir = path.join(tempDir, "logs", "generationslogg");
+    const latestDirName = fs.readFileSync(path.join(rootDir, "_latest.txt"), "utf8").trim();
+    const runTimeline = fs.readFileSync(
+      path.join(rootDir, latestDirName, "timeline.ndjson"),
+      "utf8",
+    );
+    expect(runTimeline).toContain('"type":"site.chatId"');
+    expect(runTimeline).toContain('"type":"comm.request.create"');
+
+    const styleBucketTimeline = path.join(
+      rootDir,
+      "_unrouted",
+      "orchestration-styledirection",
+      "timeline.ndjson",
+    );
+    if (fs.existsSync(styleBucketTimeline)) {
+      const styleBucket = fs.readFileSync(styleBucketTimeline, "utf8");
+      expect(styleBucket).not.toContain('"type":"site.chatId"');
+      expect(styleBucket).not.toContain('"type":"comm.request.create"');
+    }
+
+    const chatIndex = JSON.parse(
+      fs.readFileSync(path.join(rootDir, "_index", "chat-to-run.json"), "utf8"),
+    ) as Record<string, string>;
+    expect(chatIndex.chat_bind).toBe(latestDirName);
+  });
+
+  it("tracks followups and auto-repair runs separately in site history", async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
+    process.chdir(tempDir);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
+    vi.stubEnv("GENERATIONSLOGG", "1");
+
+    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+
+    const runFollowup = (versionId: string, promptSource: "user" | "auto_repair") => {
+      devLogStartGeneration({
+        message: `Follow-up ${versionId}`,
+        modelId: "gpt-5.4",
+        slug: "chat-stats",
+        chatId: "chat_stats",
+        generationKind: "followup",
+      });
+      devLogAppend("in-progress", {
+        type: "comm.request.followup",
+        chatId: "chat_stats",
+        promptSource,
+      });
+      devLogAppend("latest", {
+        type: "site.done",
+        chatId: "chat_stats",
+        versionId,
+        durationMs: 250,
+      });
+    };
+
+    runFollowup("ver_1", "user");
+    runFollowup("ver_2", "auto_repair");
+
+    const historyLines = fs
+      .readFileSync(
+        path.join(tempDir, "logs", "site-observability", "chat_stats", "history.ndjson"),
+        "utf8",
+      )
+      .trim()
+      .split(/\r?\n/)
+      .filter(Boolean);
+    const latest = JSON.parse(historyLines.at(-1) ?? "{}") as {
+      promptSource?: string;
+      followupCount?: number;
+      autoRepairCount?: number;
+    };
+    expect(latest.promptSource).toBe("auto_repair");
+    expect(latest.followupCount).toBe(1);
+    expect(latest.autoRepairCount).toBe(1);
   });
 });

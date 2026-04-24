@@ -12,6 +12,7 @@ import streamlit as st
 
 from backoffice.shared import (
     BackofficeContext,
+    _escape_ts_string,
     get_all_manifests,
     read_json,
     read_text,
@@ -227,25 +228,25 @@ def _variants_by_scaffold(variants: list[dict[str, Any]]) -> dict[str, list[dict
 
 
 def _load_dossier_lookup(ctx: BackofficeContext) -> tuple[dict[str, dict[str, Any]], str | None]:
-    for source_path in (ctx.template_lib_json, ctx.catalog_json):
-        if not source_path.is_file():
-            continue
-        try:
-            payload = read_json(source_path)
-        except Exception:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        entries = payload.get("entries")
-        if not isinstance(entries, list):
-            continue
-        lookup = {
-            str(entry.get("id")).strip(): entry
-            for entry in entries
-            if isinstance(entry, dict) and str(entry.get("id", "")).strip()
-        }
-        if lookup:
-            return lookup, source_path.relative_to(ctx.repo_root).as_posix()
+    source_path = ctx.catalog_json
+    if not source_path.is_file():
+        return {}, None
+    try:
+        payload = read_json(source_path)
+    except Exception:
+        return {}, None
+    if not isinstance(payload, dict):
+        return {}, None
+    entries = payload.get("entries")
+    if not isinstance(entries, list):
+        return {}, None
+    lookup = {
+        str(entry.get("id")).strip(): entry
+        for entry in entries
+        if isinstance(entry, dict) and str(entry.get("id", "")).strip()
+    }
+    if lookup:
+        return lookup, source_path.relative_to(ctx.repo_root).as_posix()
     return {}, None
 
 
@@ -369,10 +370,6 @@ def _unique_preserving_order(values: list[str]) -> list[str]:
         seen.add(lower)
         result.append(value)
     return result
-
-
-def _escape_ts_string(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _render_ts_string_array(values: list[str], *, indent: str = "  ") -> str:

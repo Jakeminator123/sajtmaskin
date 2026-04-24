@@ -421,12 +421,18 @@ export async function handleSseStream(
               typeof meta.promptStrategyReason === "string" ? meta.promptStrategyReason : "";
             const promptComplexityScore =
               typeof meta.promptComplexityScore === "number" ? meta.promptComplexityScore : 0;
+            // Plan 03 (short): SSE meta now carries `promptSource` ("user" |
+            // "auto_repair"). Default to "user" so legacy meta payloads
+            // missing the field render exactly as before.
+            const promptSource =
+              meta.promptSource === "auto_repair" ? "auto_repair" : "user";
 
             if (promptStrategy && promptType && promptBudgetTarget !== null && promptOriginalLength !== null &&
               promptOptimizedLength !== null) {
               appendPromptStrategyPart(setMessages, assistantMessageId, {
                 strategy: promptStrategy,
                 promptType,
+                promptSource,
                 budgetTarget: promptBudgetTarget,
                 originalLength: promptOriginalLength,
                 optimizedLength: promptOptimizedLength,

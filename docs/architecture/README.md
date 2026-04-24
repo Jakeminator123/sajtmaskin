@@ -1,12 +1,13 @@
 # Arkitektur — översikt
 
-**Senast uppdaterad:** 2026-04-20.
+**Senast uppdaterad:** 2026-04-23.
 
 Ingångssida för arkitekturdokumentationen.
 
 - **Kod är alltid source of truth.**
 - Fasnamn (Fas 1 / Fas 2 / Fas 3) är kanoniska. "Steg 3/4/5" och "Fas 4" används inte längre.
 - Hierarki vid konflikt: `docs/schemas/strict/*.schema.json` > `docs/schemas/*.md` > docs/architecture > backoffice (`sajtmaskin_backoffice.py`).
+- **Vart vi siktar:** [`llm-flow-target-worldclass.md`](./llm-flow-target-worldclass.md) — norra stjärna för LLM-flödet (3-fasmodell, single repair gate, status event bus, init/follow-up som distinkta operationer).
 
 ---
 
@@ -35,9 +36,10 @@ Komplement:
 
 | Dokument | Vad det täcker |
 |---|---|
+| [**llm-flow-target-worldclass.md**](./llm-flow-target-worldclass.md) | **Målbild** — vart LLM-flödet siktar (3-fasmodell, single repair gate, status event bus, init/follow-up som distinkta operationer). Använd som referens vid PR-review och triage. |
 | [llm-flow-end-to-end.md](./llm-flow-end-to-end.md) | "Vad händer när användaren skickar en prompt?" — kort end-to-end |
 | [llm-signal-flow.md](./llm-signal-flow.md) | Hur signallager samspelar + ägarmatris (canonical source per signal) |
-| [mental-model-vs-actual-flow.md](./mental-model-vs-actual-flow.md) | Användarintuition vs verklig implementation (system-prompt assert, autofix, repair, escape) |
+| [mental-model-vs-actual-flow.md](./mental-model-vs-actual-flow.md) | Användarintuition vs verklig implementation + gap mot målbild |
 | [followup-design-intent-gap.md](./followup-design-intent-gap.md) | Varför design-intent follow-ups ibland missar `globals.css` |
 
 ---

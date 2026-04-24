@@ -341,13 +341,15 @@ export const OPENCLAW = {
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
 
-  useBuildSpec: env.SAJTMASKIN_BUILD_SPEC_ENABLED !== "false",
-  useLightweightScaffoldSerialization:
-    env.SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION !== "false",
-  useFollowUpLightContext: env.SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT !== "false",
-  // Historical name: setting this to false disables the light fast-path
-  // optimization and forces finalize to stay on the deep path.
-  useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
+  // The four previously dormant flags below were hardcoded ON on 2026-04-22
+  // after confirming zero production off-toggles historically. Their env
+  // keys (SAJTMASKIN_BUILD_SPEC_ENABLED, …_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION,
+  // …_FOLLOWUP_LIGHT_CONTEXT, …_FINALIZE_DEEP_PATH_ENABLED) are no longer
+  // read — only callers reference the hardcoded constants now:
+  //   - BuildSpec derivation runs unconditionally in build-spec.ts
+  //   - Lightweight scaffold serialisation runs unconditionally
+  //   - Follow-up light context is driven by policy in chat-message-stream-post
+  //   - Finalize defaults to the light fast-path unless forceFull=true
 
   /**
    * Dossier pipeline (data/dossiers/{hard,soft}/). Deterministic capability-
@@ -356,14 +358,15 @@ export const FEATURES = {
    * `## Available Dossiers` + `## Selected Dossier Instructions` blocks into
    * the system prompt.
    *
-   * On by default in development. Off by default in production (opt-in) until
-   * the capability map is verified. See docs/architecture/dossier-system.md.
+   * On by default in runtime environments. Set
+   * `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) to opt out explicitly.
+   * Tests keep it off by default for deterministic unit-import latency.
+   * See docs/architecture/dossier-system.md.
    */
   useDossierPipeline:
-    env.SAJTMASKIN_DOSSIER_PIPELINE === "true" ||
-    env.SAJTMASKIN_DOSSIER_PIPELINE === "1" ||
-    (env.SAJTMASKIN_DOSSIER_PIPELINE !== "false" &&
-      env.NODE_ENV === "development"),
+    env.NODE_ENV !== "test" &&
+    env.SAJTMASKIN_DOSSIER_PIPELINE !== "false" &&
+    env.SAJTMASKIN_DOSSIER_PIPELINE !== "0",
   deferExtraRoutesOnInit:
     env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "true" ||
     env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "1",
@@ -372,78 +375,44 @@ export const FEATURES = {
    * Repair-loop hardening — propagate `repairPassIndex: 1` whenever a
    * follow-up/repair re-finalises an existing version (`targetVersionId` set)
    * and best-effort prune stale error-log rows when the latest pass is clean.
-   *
-   * Symptom this guards against (SAJ-25): UI shows red "Fel"-badge on a
-   * fully-working preview because previous pass blocking findings stayed in
-   * `engine_version_error_logs` after the next pass cleared them.
-   *
-   * Default ON in development, OFF in production until field-tested for one
-   * full week. Toggle: `SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX`.
+   * Hardcoded ON since SAJ-25 (omtag-04, 2026-04-23).
    */
-  consistentRepairPassIndex:
-    env.SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX === "true" ||
-    env.SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX === "1" ||
-    (env.SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX !== "false" &&
-      env.NODE_ENV === "development"),
+  consistentRepairPassIndex: true,
 
   /**
    * After the verifier-fixer LLM rewrites a file, re-run `runVerifierPass`
-   * once to confirm the fix actually addressed the blocking finding instead
-   * of optimistically clearing the array. Capped at 1 re-run to keep latency
-   * bounded.
-   *
-   * Default ON in development, OFF in production. Toggle:
-   * `SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX`.
+   * once to confirm the fix actually addressed the blocking finding. Capped
+   * at 1 re-run to keep latency bounded. Hardcoded ON (omtag-04, 2026-04-23).
    */
-  verifierRerunAfterFix:
-    env.SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX === "true" ||
-    env.SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX === "1" ||
-    (env.SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX !== "false" &&
-      env.NODE_ENV === "development"),
+  verifierRerunAfterFix: true,
 
   /**
    * When stream-syntax pass succeeded but merged-syntax fails, run only the
    * mechanical autofix + esbuild revalidation — skip the LLM-fixer pass on
-   * merge. Merged-only failures are nearly always import-stigar or comment
-   * stripping that the deterministic pipeline lays back deterministically.
-   *
-   * Default ON everywhere (strict cost reduction, low correctness risk).
-   * Toggle: `SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE`.
+   * merge. Hardcoded ON (strict cost reduction, low correctness risk).
    */
-  skipDoubleValidateAndFixOnMerge:
-    env.SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE !== "false",
+  skipDoubleValidateAndFixOnMerge: true,
 
   /**
    * Inject `### Recurring failures on this site` block (top-5 patterns from
    * `readRecurringPatternsForChat`) into the system-prompt during follow-up
    * generations. Capped at 600 chars; falls silently when budget exhausted.
-   *
-   * Default ON in development, OFF in production until eval baseline confirms
-   * no regression. Toggle: `SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT`.
+   * Hardcoded to dev-default (on in development, off in production) after
+   * removing the SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT override in
+   * omtag-04. Eval-baseline (omtag-02) gates any future change to this
+   * branch in prod.
    */
-  recurringPatternsInMainPrompt:
-    env.SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT === "true" ||
-    env.SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT === "1" ||
-    (env.SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT !== "false" &&
-      env.NODE_ENV === "development"),
+  recurringPatternsInMainPrompt: env.NODE_ENV === "development",
 
   /**
    * Vector RAG over historical error-log rows. When ON, follow-up generation
    * retrieves top-K similar past failures (per scaffoldId/lineageHash prefix)
    * and renders them as `### Lessons from similar past builds` in the system
-   * prompt.
-   *
-   * Index is rebuilt automatically on `npm run dev|build|start` via the
-   * next-runner wrapper when the producer NDJSON has grown since last index.
-   *
-   * Default ON in development (when an embeddings provider is available),
-   * OFF in production. Toggle: `SAJTMASKIN_USE_ERROR_LOG_RAG`.
+   * prompt. Hardcoded to dev-default (on in development, off in production)
+   * after removing the SAJTMASKIN_USE_ERROR_LOG_RAG override in omtag-04.
+   * Auto-ingest hooks at `npm run dev|build|start` still run unchanged.
    */
-  useErrorLogRag:
-    env.SAJTMASKIN_USE_ERROR_LOG_RAG === "true" ||
-    env.SAJTMASKIN_USE_ERROR_LOG_RAG === "1" ||
-    (env.SAJTMASKIN_USE_ERROR_LOG_RAG !== "false" &&
-      env.NODE_ENV === "development"),
+  useErrorLogRag: env.NODE_ENV === "development",
   strictGeneratedArtifacts:
     env.NODE_ENV !== "test" &&
     env.SAJTMASKIN_STRICT_GENERATED_ARTIFACTS !== "false",
@@ -479,19 +448,13 @@ export const FEATURES = {
 } as const;
 
 /**
- * Follow-up tuning — configurable via env or backoffice.
- * Controls how much context follow-up prompts carry.
+ * Follow-up tuning — hardcoded constants (omtag-04, 2026-04-23).
+ * Previously SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS / _LIGHT_MAX_CHARS /
+ * _LIGHT_FILES_MANY / _LIGHT_FILES_FEW but never overridden in prod.
  */
 export const FOLLOW_UP_TUNING = {
-  maxRecentHistoryPairs: clampInt(env.SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS, 1, 20, 4),
-  lightContextMaxChars: clampInt(env.SAJTMASKIN_FOLLOWUP_LIGHT_MAX_CHARS, 8_000, 200_000, 32_000),
-  lightContextMaxFilesManyFiles: clampInt(env.SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY, 1, 12, 4),
-  lightContextMaxFilesFewFiles: clampInt(env.SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW, 1, 12, 6),
+  maxRecentHistoryPairs: 4,
+  lightContextMaxChars: 32_000,
+  lightContextMaxFilesManyFiles: 4,
+  lightContextMaxFilesFewFiles: 6,
 } as const;
-
-function clampInt(raw: string | undefined, min: number, max: number, fallback: number): number {
-  if (!raw) return fallback;
-  const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
-}

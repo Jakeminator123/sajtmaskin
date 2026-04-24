@@ -38,7 +38,7 @@ Conservative rollout rule:
 | `external-template-pipeline-contract.md` | Scrape/import/hydrate/build/embedding pipeline for external template research. |
 | `integrations-and-data.md` | DB tables, request validation, template-library schema surfaces. |
 | `chat-message-ui-parts.md` | Structured builder message parts (plan-review cards) in own-engine chat storage. |
-| `strict/` | Machine-oriented JSON schemas: `preview-session-contract.schema.json`, `scaffold-variant.schema.json`, `structural-references.schema.json`. |
+| `strict/` | Machine-oriented JSON schemas: `preview-session-contract.schema.json`, `scaffold-variant.schema.json`, `dossier.schema.json`, `plan-file.schema.json`, `db-health-check-report.schema.json`, `redis-health-check-report.schema.json`, `db-perf-indexes-audit-line.schema.json`. |
 
 Only stable, canonical schema docs belong in this folder. Exploratory schema
 notes belong in `docs/plans/active/` until they are promoted here or

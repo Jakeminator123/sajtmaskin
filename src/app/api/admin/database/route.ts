@@ -152,10 +152,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "flush-redis") {
-      const success = await flushRedisCache();
+      // BUG-FIX 2026-04-24: flushRedisCache rensar nu BARA REDIS_KEY_PREFIX-scope
+      // (dev:/preview:/prod:) — inte hela databasen som tidigare. Returvärdet
+      // är antalet raderade nycklar (eller -1 vid fel).
+      const deleted = await flushRedisCache();
+      const success = deleted >= 0;
       return NextResponse.json({
         success,
-        message: success ? "Redis cache flushed" : "Failed to flush Redis",
+        deleted: success ? deleted : null,
+        message: success
+          ? `Redis cache flushed (${deleted} nycklar i denna miljö)`
+          : "Failed to flush Redis",
       });
     }
 
@@ -178,11 +185,23 @@ export async function POST(req: NextRequest) {
         await db.delete(users).where(sql`true`);
       }
 
-      await flushRedisCache();
+      // BUG-FIX 2026-04-24 (test-agent rapport): tidigare ignorerades
+      // returvärdet från flushRedisCache helt — `success: true` kunde
+      // returneras även när Redis-flushen failade. Nu härleds success.
+      const flushed = await flushRedisCache();
       clearUploadsFolder();
 
-      console.info("[Admin] Reset all databases");
-      return NextResponse.json({ success: true, message: "All data cleared" });
+      const redisOk = flushed >= 0;
+      console.info(
+        `[Admin] Reset all databases (Redis: ${redisOk ? `${flushed} keys flushed` : "FAILED"})`,
+      );
+      return NextResponse.json({
+        success: redisOk,
+        message: redisOk
+          ? `All data cleared (Redis: ${flushed} keys i denna miljö)`
+          : "Database cleared but Redis flush failed — check server logs",
+        redisFlushedKeys: redisOk ? flushed : null,
+      });
     }
 
     if (action === "clear-uploads") {
@@ -249,11 +268,17 @@ export async function POST(req: NextRequest) {
       }
 
       let imported = 0;
+      let failed = 0;
+      let skipped = 0;
+      const failures: Array<{ templateId: string; error: string }> = [];
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30);
 
       for (const t of templates as ImportTemplate[]) {
-        if (!t.templateId || !t.chatId) continue;
+        if (!t.templateId || !t.chatId) {
+          skipped++;
+          continue;
+        }
         try {
           await db
             .insert(templateCache)
@@ -284,15 +309,29 @@ export async function POST(req: NextRequest) {
             });
           imported++;
         } catch (err) {
+          failed++;
+          const errMsg = err instanceof Error ? err.message : String(err);
+          failures.push({ templateId: t.templateId, error: errMsg });
           console.error("[Admin] Failed to import template:", t.templateId, err);
         }
       }
 
-      console.info(`[Admin] Imported ${imported} templates`);
+      // BUG-FIX 2026-04-24 (test-agent rapport): tidigare alltid `success: true`
+      // även när enstaka inserts failade. Nu reflekteras `failed` i success.
+      const allOk = failed === 0;
+      console.info(
+        `[Admin] Imported ${imported} templates (failed: ${failed}, skipped: ${skipped})`,
+      );
       return NextResponse.json({
-        success: true,
+        success: allOk,
+        partialSuccess: !allOk && imported > 0,
         imported,
-        message: `Imported ${imported} templates`,
+        failed,
+        skipped,
+        failures: failed > 0 ? failures : undefined,
+        message: allOk
+          ? `Imported ${imported} templates`
+          : `Imported ${imported}/${imported + failed} templates (${failed} failed${skipped > 0 ? `, ${skipped} skipped` : ""})`,
       });
     }
 
@@ -364,11 +403,11 @@ export async function POST(req: NextRequest) {
       const results: {
         vercel: { deleted: number; errors: string[] };
         database: { deleted: number };
-        redis: { success: boolean };
+        redis: { success: boolean; deleted: number };
       } = {
         vercel: { deleted: 0, errors: [] },
         database: { deleted: 0 },
-        redis: { success: false },
+        redis: { success: false, deleted: 0 },
       };
 
       const vercelToken = pickVercelAccessTokenFromEnv();
@@ -426,13 +465,25 @@ export async function POST(req: NextRequest) {
         : await db.delete(users).where(sql`true`).returning({ id: users.id });
       results.database.deleted += deletedUsers.length;
 
-      results.redis.success = await flushRedisCache();
+      // BUG-FIX 2026-04-24: prefix-scoped flush (se `flushRedisCache` JSDoc).
+      const flushedKeys = await flushRedisCache();
+      results.redis.success = flushedKeys >= 0;
+      results.redis.deleted = flushedKeys >= 0 ? flushedKeys : 0;
       clearUploadsFolder();
 
+      // BUG-FIX 2026-04-24 (test-agent rapport): tidigare hardcoded
+      // `success: true` även när redis.success var false eller vercel
+      // hade fel. Nu härleds top-level success från delresultaten.
+      const allOk =
+        results.redis.success && results.vercel.errors.length === 0;
+
       return NextResponse.json({
-        success: true,
+        success: allOk,
+        partialSuccess: !allOk,
         results,
-        message: `Mega cleanup: ${results.vercel.deleted} Vercel, ${results.database.deleted} DB rows`,
+        message: `Mega cleanup: ${results.vercel.deleted} Vercel, ${results.database.deleted} DB rows, ${results.redis.deleted} Redis keys${
+          allOk ? "" : " (med fel — se results)"
+        }`,
       });
     }
 
@@ -479,12 +530,20 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // BUG-FIX 2026-04-24 (review-agent): tidigare alltid success: true
+        // även om enstaka projekt-deletes failade. Speglar samma härlednings-
+        // mönster som import-templates / mega-cleanup.
+        const allOk = errors.length === 0;
         return NextResponse.json({
-          success: true,
+          success: allOk,
+          partialSuccess: !allOk && deleted.length > 0,
           deleted: deleted.length,
           total: vercelProjects.length,
+          failed: errors.length,
           errors,
-          message: `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects`,
+          message: allOk
+            ? `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects`
+            : `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects (${errors.length} failed)`,
         });
       } catch (err) {
         return NextResponse.json({
@@ -580,6 +639,7 @@ function getUploadsInfo(): {
 function clearUploadsFolder(): {
   success: boolean;
   deletedCount: number;
+  failedCount: number;
   freedSpace: string;
   error?: string;
 } {
@@ -587,11 +647,12 @@ function clearUploadsFolder(): {
     const uploadsDir = getUploadsDir();
 
     if (!fs.existsSync(uploadsDir)) {
-      return { success: true, deletedCount: 0, freedSpace: "0 B" };
+      return { success: true, deletedCount: 0, failedCount: 0, freedSpace: "0 B" };
     }
 
     const files = fs.readdirSync(uploadsDir);
     let deletedCount = 0;
+    let failedCount = 0;
     let freedBytes = 0;
 
     for (const file of files) {
@@ -604,14 +665,20 @@ function clearUploadsFolder(): {
           deletedCount++;
         }
       } catch (err) {
+        // BUG-FIX 2026-04-24 (review-agent): tidigare räknades inte
+        // misslyckade deletes — funktionen returnerade success: true ändå.
+        failedCount++;
         console.error(`[Admin] Failed to delete file ${file}:`, err);
       }
     }
 
-    console.info(`[Admin] Cleared uploads: ${deletedCount} files, ${formatBytes(freedBytes)} freed`);
+    console.info(
+      `[Admin] Cleared uploads: ${deletedCount} files, ${formatBytes(freedBytes)} freed (failed: ${failedCount})`,
+    );
     return {
-      success: true,
+      success: failedCount === 0,
       deletedCount,
+      failedCount,
       freedSpace: formatBytes(freedBytes),
     };
   } catch (err) {
@@ -619,6 +686,7 @@ function clearUploadsFolder(): {
     return {
       success: false,
       deletedCount: 0,
+      failedCount: 0,
       freedSpace: "0 B",
       error: "Failed to clear uploads folder",
     };

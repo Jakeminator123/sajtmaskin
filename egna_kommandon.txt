@@ -1,6 +1,6 @@
 ===================================================================
   SAJTMASKIN — EGNA KOMMANDON (snabbreferens)
-  Senast uppdaterad: 2026-04-21 (städ efter v2-omstart av dossier-pipen)
+  Senast uppdaterad: 2026-04-24 (eval-cleanup + schema-drift-soft i predev)
 ===================================================================
 
 ---  TEMPLATE-PIPELINE (LEGACY — avvecklad 2026-04-17)  ---
@@ -66,6 +66,12 @@ npm run db:migrate                         # Kor SQL-migrationer fran src/lib/db
 npm run db:push                            # Drizzle-kit push (guardad mot prod)
 npm run db:check                           # Read-only sanity-koll av kerntabeller
 npm run db:rows                            # Read-only COUNT(*) per utvald tabell
+npm run db:health                          # Dedupe-aware halsokoll (rader, indexes, RLS)
+npm run db:perf-indexes                    # Lagga till performance-indexes (idempotent)
+npm run db:perf-indexes:dry                # Forhandsgranska utan att skriva
+npm run db:schema-drift                    # Verifiera schema.ts <-> db-init.mjs <-> migrations (vitest)
+npm run db:schema-drift:soft               # Samma men varnar bara (anvands automatiskt i predev)
+npm run redis:health                       # Halsokoll mot Redis-instansen
 
 ---  V0-MALLAR (builderns Mallar-tab, lokal data)  ---
 
@@ -89,9 +95,19 @@ npm run lint                               # ESLint
 npm run test:ci                            # Vitest i CI-lage
 npm run devtest                            # typecheck + validate + test + lint
 
----  EVAL  ---
+---  EVAL (tre system, latta att blanda ihop — se src/lib/gen/eval/README.md)  ---
 
-npm run eval                               # Kor eval-harnessen
+# Codegen-eval (kor LLM mot 15 prompts, ~15 min, kostar OPENAI-quota):
+npm run eval:suite                         # Bara kora, ingen baseline-jamforelse
+npm run eval:gate                          # Kora + gate (exit 1 vid regression)
+npm run eval:baseline                      # Kora + spara ny baseline (efter avsiktlig forbattring)
+
+# Klassisk wrapper (samma motor + scorecard + markdown-rapport till eval-output/):
+npm run eval                               # Human-debug-format
+
+# Bara scaffold-pickern (snabb + billig, lokala embeddings):
+npm run scaffolds:eval                     # Skriver data/scaffold-eval/reports/scaffold-selection-latest.json
+                                           # Lases av backoffice "Eval"-sidan
 
 ---  BACKOFFICE  ---
 
@@ -111,7 +127,7 @@ curl http://localhost:3000/api/metrics -H "Authorization: Bearer $SAJTMASKIN_MET
 
 ---  VIKTIGA ENV-FLAGGOR  ---
 
-SAJTMASKIN_DOSSIER_PIPELINE=true|false              # Aktivera dossier-injektion (default: dev=on, prod=off)
+SAJTMASKIN_DOSSIER_PIPELINE=true|false              # Aktivera dossier-injektion (default: on, sätt false/0 för opt-out)
 SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true|false    # Defer extra routes till shells i init-generering
 SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true|false    # Krav genererade JSON-artefakter
 SAJTMASKIN_DEFAULT_THINKING=true                    # Server-side default for reasoning/thinking

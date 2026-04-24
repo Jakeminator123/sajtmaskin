@@ -189,6 +189,10 @@ export function buildOwnEngineGenerationStreamMeta(
     unresolvedContractDecisions: orch.preGenerationContracts.unresolvedDecisions,
     promptStrategy: sm.strategy,
     promptType: sm.promptType,
+    // Plan 03 (short): "user" | "auto_repair" — exposed in the SSE meta
+    // so client-side `stream-handlers.ts` can show "Källa: Auto-repair
+    // (server-driven)" on the Prompt strategy tool part.
+    promptSource: sm.promptSource,
     promptBudgetTarget: sm.budgetTarget,
     promptOriginalLength: sm.originalLength,
     promptOptimizedLength: sm.optimizedLength,

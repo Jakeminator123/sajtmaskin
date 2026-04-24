@@ -63,24 +63,6 @@ export async function getProject(id: string): Promise<ProjectWithData> {
 }
 
 // Create new project
-async function parseJsonOrThrow(
-  response: Response,
-  fallbackMessage: string,
-): Promise<Record<string, unknown>> {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    const preview = await response.text().catch(() => "");
-    throw new Error(
-      `${fallbackMessage} (HTTP ${response.status}${preview ? ` – ${preview.slice(0, 120)}` : ""})`,
-    );
-  }
-  try {
-    return (await response.json()) as Record<string, unknown>;
-  } catch {
-    throw new Error(`${fallbackMessage} (invalid JSON, HTTP ${response.status})`);
-  }
-}
-
 export async function createProject(
   name: string,
   category?: string,
@@ -91,13 +73,13 @@ export async function createProject(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, category, description }),
   });
-  const data = await parseJsonOrThrow(response, "Failed to create project");
+  const data = await response.json();
 
   if (!data.success) {
-    throw new Error((data.error as string | undefined) || "Failed to create project");
+    throw new Error(data.error || "Failed to create project");
   }
 
-  return data.project as Project;
+  return data.project;
 }
 
 // Update project
@@ -136,6 +118,7 @@ export async function saveProjectData(
     /** Canonical preview URL (preferred over deprecated `demoUrl`). */
     previewUrl?: string;
     /** @deprecated Prefer `previewUrl` in new code. */
+    // TODO(after-wave-5): drop after deadline 2026-Q3 if no inbound payloads.
     demoUrl?: string;
     currentCode?: string;
     files?: PersistedFile[];

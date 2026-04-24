@@ -254,6 +254,7 @@ export async function runFinalizeFastPath(params: {
     verifierBlockingFindings,
     rejectedShrinks: preflightOutcome.rejectedShrinks,
     rejectedStructural: preflightOutcome.rejectedStructural,
+    crossFileStubs: preflightOutcome.crossFileStubs,
     stepTelemetry: {
       ...stepTelemetry,
       parse_merge_preflight: preflightOutcome.stepTelemetry,

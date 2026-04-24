@@ -7,6 +7,27 @@ export interface ScaffoldManifestIssue {
   message: string;
 }
 
+/**
+ * SAJ-43 clarification — scaffold layout is `app/`-rooted by design.
+ *
+ * Two distinct layers in this codebase use different rules:
+ *
+ *  - **Scaffolds** (this module + `src/lib/gen/scaffolds/<id>/files/`) are
+ *    Sajtmaskin's internal manifest format. They MUST use `app/`-prefix
+ *    (Next.js root layout). All 9 current scaffolds follow this. The check
+ *    below fails loud if a future scaffold drifts to `src/app/`.
+ *
+ *  - **LLM-emitted project files** (the actual user-generated site) MAY use
+ *    EITHER `app/` or `src/app/`. Several runtime code paths intentionally
+ *    accept both — see `seo-defaults.ts` (`enrichLayoutMetadata`),
+ *    `scaffold-aware-retry.ts` (`hasRouteCount`),
+ *    `serialize.ts` (`scoreCriticalFile`),
+ *    `finalize-preflight.ts` (`HOME_PAGE_REQUIRED_PATHS`),
+ *    `builder/page-blocks-catalog.ts` (`PAGE_BLOCKS_TARGET_FILE_CANDIDATES`),
+ *    plus editor + analyze paths. Do NOT remove `src/app/`-branches in those
+ *    files — they exist because users may have v0-imported or pre-existing
+ *    `src/app/`-rooted projects, and removing them would break those flows.
+ */
 export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldManifestIssue[] {
   const issues: ScaffoldManifestIssue[] = [];
   const filePaths = scaffold.files.map((file) => file.path);
@@ -17,6 +38,18 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
       scaffoldId: scaffold.id,
       severity: "error",
       message: "Scaffold contains duplicate file paths",
+    });
+  }
+
+  // SAJ-43 regression guard: scaffolds must use `app/`-prefix, not `src/app/`.
+  // LLM-emitted output is allowed both (see JSDoc above), but our scaffold
+  // manifests are an internal contract that this validator enforces.
+  const srcAppFiles = scaffold.files.filter((file) => file.path.startsWith("src/app/"));
+  if (srcAppFiles.length > 0) {
+    issues.push({
+      scaffoldId: scaffold.id,
+      severity: "error",
+      message: `Scaffold manifests must use \`app/\`-prefix, not \`src/app/\`. Drifted files: ${srcAppFiles.map((f) => f.path).join(", ")}`,
     });
   }
 

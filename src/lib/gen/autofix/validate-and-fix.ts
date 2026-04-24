@@ -1,10 +1,8 @@
-import { runLlmFixer } from "./llm-fixer";
+import { resolveLlmRepairConfig, runLlmRepairGate } from "./llm-repair-gate";
 import { runAutoFix } from "./pipeline";
-import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
-import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
 import { incEarlyStop, recordPhaseDuration } from "@/lib/observability/metrics";
 import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
 import { normalizeErrorPattern, countByFixer, type FixEntry } from "./types";
@@ -203,29 +201,19 @@ async function runWarmTscPass(
       errorCount: result.diagnostics.length,
     });
 
-    const fixerModel = opts.resolvedTier
-      ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
-      : undefined;
-    const fixerThinking = opts.resolvedTier
-      ? resolvePhaseThinking(opts.resolvedTier, "fixer")
-      : null;
-    const tscFixAbort = new AbortController();
     const remainingBudgetMs = Math.max(1_000, opts.budgetDeadline - Date.now());
-    const tscFixTimeout = setTimeout(
-      () => tscFixAbort.abort(),
-      Math.min(TSC_REPAIR_TIMEOUT_MS, remainingBudgetMs),
-    );
     let mechanicalFixesAdded = 0;
     let llmFixesAdded = 0;
     try {
       const errors = formatTypecheckDiagnosticsForRepair(result.diagnostics);
-      const repaired = await runLlmFixer(contentForVersion, errors, {
-        model: fixerModel,
-        thinking: fixerThinking?.thinking,
-        reasoningEffort: fixerThinking?.reasoningEffort,
-        recurringPatterns: readRecurringPatternsForChat(opts.chatId),
-        abortSignal: tscFixAbort.signal,
+      const repairGate = await runLlmRepairGate({
+        content: contentForVersion,
+        errors,
+        chatId: opts.chatId,
+        timeoutMs: Math.min(TSC_REPAIR_TIMEOUT_MS, remainingBudgetMs),
+        resolvedTier: opts.resolvedTier,
       });
+      const repaired = repairGate.result;
       if (repaired.success && repaired.fixedContent) {
         llmFixesAdded += repaired.fixedFiles.length;
         const reFixed = await runAutoFix(repaired.fixedContent, {
@@ -252,8 +240,6 @@ async function runWarmTscPass(
         chatId: opts.chatId,
         message: repairErr instanceof Error ? repairErr.message : String(repairErr),
       });
-    } finally {
-      clearTimeout(tscFixTimeout);
     }
 
     return {
@@ -395,29 +381,19 @@ async function runWarmEslintPass(
       errorCount: result.errorCount,
     });
 
-    const fixerModel = opts.resolvedTier
-      ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
-      : undefined;
-    const fixerThinking = opts.resolvedTier
-      ? resolvePhaseThinking(opts.resolvedTier, "fixer")
-      : null;
-    const eslintFixAbort = new AbortController();
     const remainingBudgetMs = Math.max(1_000, opts.budgetDeadline - Date.now());
-    const eslintFixTimeout = setTimeout(
-      () => eslintFixAbort.abort(),
-      Math.min(ESLINT_REPAIR_TIMEOUT_MS, remainingBudgetMs),
-    );
     let mechanicalFixesAdded = 0;
     let llmFixesAdded = 0;
     try {
       const errors = formatEslintIssuesForRepair(result.issues);
-      const repaired = await runLlmFixer(contentForVersion, errors, {
-        model: fixerModel,
-        thinking: fixerThinking?.thinking,
-        reasoningEffort: fixerThinking?.reasoningEffort,
-        recurringPatterns: readRecurringPatternsForChat(opts.chatId),
-        abortSignal: eslintFixAbort.signal,
+      const repairGate = await runLlmRepairGate({
+        content: contentForVersion,
+        errors,
+        chatId: opts.chatId,
+        timeoutMs: Math.min(ESLINT_REPAIR_TIMEOUT_MS, remainingBudgetMs),
+        resolvedTier: opts.resolvedTier,
       });
+      const repaired = repairGate.result;
       if (repaired.success && repaired.fixedContent) {
         llmFixesAdded += repaired.fixedFiles.length;
         const reFixed = await runAutoFix(repaired.fixedContent, {
@@ -445,8 +421,6 @@ async function runWarmEslintPass(
         chatId: opts.chatId,
         message: repairErr instanceof Error ? repairErr.message : String(repairErr),
       });
-    } finally {
-      clearTimeout(eslintFixTimeout);
     }
 
     return {
@@ -759,12 +733,8 @@ async function validateAndFixInner(
       console.warn(`[engine] Pass ${pass}: ${validation.errors.length} syntax errors, attempting LLM fixer`);
 
       onProgress?.({ pass, phase: "fixing", errorCount: validation.errors.length });
-      const fixerModel = opts.resolvedTier
-        ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
-        : undefined;
-      const fixerThinking = opts.resolvedTier
-        ? resolvePhaseThinking(opts.resolvedTier, "fixer")
-        : null;
+      const syntaxRepairConfig = resolveLlmRepairConfig(opts.resolvedTier);
+      const fixerModel = syntaxRepairConfig.fixerModel;
       devLogAppend("in-progress", {
         type: "syntax-validation.fixer.start",
         chatId: opts.chatId,
@@ -786,21 +756,15 @@ async function validateAndFixInner(
         }
 
         const remainingBudgetMs = budgetDeadline - Date.now();
-        const fixerAbort = new AbortController();
-        const timeoutHandle = setTimeout(() => fixerAbort.abort(), remainingBudgetMs);
-        let fixerResult: Awaited<ReturnType<typeof runLlmFixer>>;
-        try {
-          fixerResult = await runLlmFixer(currentContent, errorSummary, {
-            model: fixerModel,
-            thinking: fixerThinking?.thinking,
-            reasoningEffort: fixerThinking?.reasoningEffort,
-            requiredFiles: brokenFiles,
-            recurringPatterns: readRecurringPatternsForChat(opts.chatId),
-            abortSignal: fixerAbort.signal,
-          });
-        } finally {
-          clearTimeout(timeoutHandle);
-        }
+        const repairGate = await runLlmRepairGate({
+          content: currentContent,
+          errors: errorSummary,
+          chatId: opts.chatId,
+          timeoutMs: remainingBudgetMs,
+          requiredFiles: brokenFiles,
+          config: syntaxRepairConfig,
+        });
+        const fixerResult = repairGate.result;
 
         const canRetry = fixerResult.success || fixerResult.partial;
         if (!canRetry) {

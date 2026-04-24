@@ -1,14 +1,26 @@
 # LLM-flöde end-to-end (Fas 1)
 
-**Senast uppdaterad:** 2026-04-20.
+**Senast uppdaterad:** 2026-04-23.
 **Syfte:** kort, praktiskt svar på "vad händer när användaren skickar en prompt?".
-**Scope:** Fas 1 (förberedelse). För Fas 2/3 se [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) och [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md).
+**Scope:** Fas 1 (förberedelse). För Fas 2/3 se [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) och [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md). För **målbild** (vart vi siktar): [`llm-flow-target-worldclass.md`](./llm-flow-target-worldclass.md).
 
 ---
 
 ## En mening
 
 > En användarprompt går genom **Deep Brief** (1 LLM-anrop) som returnerar strukturerad brief + nomineringar; `orchestrate.ts` plockar **scaffold + variant + dossiers**; allt komponeras till en system-prompt med **Core Rules**-prefix + dynamisk del; codegen-LLM:n får detta + ursprungliga prompten och bygger sajten.
+
+## Init vs Follow-up — kortast möjligt
+
+| | Init | Follow-up |
+|---|---|---|
+| Operation | **Genesis** — bygg ny artifact graph | **Delta** — operation på existerande graph |
+| Brief | Full Deep Brief (LLM) | Snapshot-brief från `briefSummary` (ingen LLM-runda) |
+| Scaffold/variant | Embedding + brief.nomination | Frusen via `persistedScaffoldId` / `persistedVariantId` (utom `clear-redesign`) |
+| Routes | Fri planering | Frusna mot existerande filer |
+| Quality target | Färsk inferens | Ärvs från prior version |
+
+**Implikation:** follow-up är inte "nästan init". Det är en delta-operation med samma build-motor men ärvt kontrakt. Se [`llm-flow-target-worldclass.md`](./llm-flow-target-worldclass.md) för målbild.
 
 ---
 

@@ -1,5 +1,11 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
+import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { dbConfigured } from "@/lib/db/client";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+// Side-effect import: ensures the devLog-mirror subscriber is active before
+// `server-verify.policy` is emitted through the bus.
+import "@/lib/logging/event-bus-subscribers";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
@@ -25,6 +31,32 @@ export type PostFinalizeSse = {
   enc: TextEncoder;
   safeEnqueue: (data: Uint8Array) => void;
 };
+
+const THREE_D_STUB_NAME_RE = /3d|three|webgl|canvas-?scene/i;
+
+function normalizeRequestedCapabilities(input: unknown): string[] {
+  if (!Array.isArray(input) || input.length === 0) return [];
+  return Array.from(
+    new Set(
+      input
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function matchesThreeDStubPattern(stub: {
+  sourceFile: string;
+  missingImport: string;
+  stubFile: string;
+}): boolean {
+  return (
+    THREE_D_STUB_NAME_RE.test(stub.stubFile) ||
+    THREE_D_STUB_NAME_RE.test(stub.sourceFile) ||
+    THREE_D_STUB_NAME_RE.test(stub.missingImport)
+  );
+}
 
 function resolvePreviewUrlHint(chatId: string, previewWillRun: boolean): string | null {
   if (!previewWillRun) return null;
@@ -73,6 +105,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
     recoveredAfterStreamAbort = false,
     repairPassIndex = 0,
   } = params;
+  const requestedCapabilities = normalizeRequestedCapabilities(
+    (finalized as FinalizeResult & { requestedCapabilities?: unknown }).requestedCapabilities,
+  );
+  const hasVisual3dCapability = requestedCapabilities.includes("visual-3d");
 
   // Lager 4 av F2-mute (se .cursor/rules/env-flow-f2-mute.mdc):
   // post-finalize kod-scan av Stripe/Upstash/etc. emitterade tidigare
@@ -182,9 +218,67 @@ export async function runOwnEngineStreamPostFinalize(params: {
         ...(finalized.rejectedStructural.length > 0
           ? { rejectedStructural: finalized.rejectedStructural }
           : {}),
+        ...(finalized.crossFileStubs.length > 0
+          ? { crossFileStubs: finalized.crossFileStubs }
+          : {}),
       }),
     ),
   );
+
+  // plan-02 / STATUS-02: cross-file-import-checker stubs (e.g. coffee-cup-3d
+  // importerade `./coffee-cup-scene` som inte existerade → checker auto-stubbade
+  // den så bygget gick igenom, men användaren såg en tom shell). Innan den här
+  // patchen var det helt tyst i UI:t — nu landar varje stub som en `warning`-rad
+  // i `engine_version_error_logs` så `VersionDiagnosticsDialog` visar
+  // "1 fil saknades och stubbades" under category `merge:cross-file-stub`.
+  // Avsiktligt INTE `error` (bygget är shippable, bara hollow) och INTE event-bus
+  // `version.build.error` (vilket skulle ha satt `verificationBlocked = true`
+  // och brutit modal-truth). Direkt DB-skriv mot `createEngineVersionErrorLogs`
+  // är samma mönster som quality-gate-routens `quality-gate:superseded`-warnings.
+  if (finalized.crossFileStubs.length > 0 && dbConfigured) {
+    const warningPayloads = finalized.crossFileStubs.map((stub) => ({
+      chatId,
+      versionId: finalized.version.id,
+      level: "warning" as const,
+      category: "merge:cross-file-stub",
+      message: `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade målfil — auto-stubbade ${stub.stubFile}. Komponenten renderar tom tills LLM emitterar en riktig implementation.`,
+      meta: {
+        sourceFile: stub.sourceFile,
+        missingImport: stub.missingImport,
+        stubFile: stub.stubFile,
+        repairPassIndex,
+      },
+    }));
+    const missingCapabilityWarnings =
+      hasVisual3dCapability
+        ? []
+        : finalized.crossFileStubs
+            .filter(matchesThreeDStubPattern)
+            .map((stub) => ({
+              chatId,
+              versionId: finalized.version.id,
+              level: "warning" as const,
+              category: "merge:cross-file-stub-3d-capability",
+              message:
+                "3D-fil stubbed utan visual-3d capability — overväg att be med 'capability-add' explicit.",
+              meta: {
+                sourceFile: stub.sourceFile,
+                missingImport: stub.missingImport,
+                stubFile: stub.stubFile,
+                requestedCapabilities,
+                repairPassIndex,
+              },
+            }));
+    const allWarningPayloads = [...warningPayloads, ...missingCapabilityWarnings];
+    await createEngineVersionErrorLogs(allWarningPayloads).catch((err) => {
+      warnLog("engine", "Failed to persist cross-file-stub warnings", {
+        chatId,
+        versionId: finalized.version.id,
+        stubCount: allWarningPayloads.length,
+        message: err instanceof Error ? err.message : "unknown",
+      });
+    });
+  }
 
   devLogAppend("in-progress", {
     type: "site.done",
@@ -409,6 +503,26 @@ export async function runOwnEngineStreamPostFinalize(params: {
     finalized,
     repairPassIndex,
   });
+  const resolvedVerificationPolicy =
+    !serverVerifyDecision.run && serverVerifyDecision.reason === "design_preview_skip_verify"
+      ? "design_preview_skip_verify"
+      : buildSpec.verificationPolicy;
+  // OMTAG-06: the server-verify **policy decision** (run-or-skip) is
+  // retained as a devLog entry — it's not a verifier result, and the
+  // projection only cares about actual verifier outcomes. The policy
+  // line also seeds a bus event with `outcome: "skipped"` when we
+  // elected NOT to run, so the projection knows the verifier won't
+  // produce a follow-up `version.verifier.done`.
+  if (!serverVerifyDecision.run) {
+    emitBusEvent({
+      t: "version.verifier.done",
+      versionId: finalized.version.id,
+      chatId,
+      outcome: "skipped",
+      blocked: false,
+      reason: serverVerifyDecision.reason,
+    });
+  }
   devLogAppend("in-progress", {
     type: "server-verify.policy",
     chatId,
@@ -416,7 +530,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     run: serverVerifyDecision.run,
     reason: serverVerifyDecision.reason,
     diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
-    verificationPolicy: buildSpec.verificationPolicy,
+    verificationPolicy: resolvedVerificationPolicy,
     qualityTarget: buildSpec.qualityTarget,
     buildIntent: buildSpec.buildIntent,
     changeScope: buildSpec.changeScope,

@@ -1,9 +1,62 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createConnection } from "node:net";
 import { dirname, resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parse as parseDotenv } from "dotenv";
+
+const IS_WIN = process.platform === "win32";
+
+const trackedChildren = new Set();
+function trackChild(child) {
+  if (!child || typeof child.pid !== "number") return child;
+  trackedChildren.add(child);
+  child.once("exit", () => trackedChildren.delete(child));
+  return child;
+}
+
+function killTree(pid) {
+  if (!pid) return;
+  if (IS_WIN) {
+    try {
+      spawnSync("taskkill", ["/F", "/T", "/PID", String(pid)], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
+    } catch {}
+  } else {
+    try { process.kill(-pid, "SIGTERM"); } catch {}
+    try { process.kill(pid, "SIGTERM"); } catch {}
+  }
+}
+
+function killAllTrackedChildren() {
+  for (const child of trackedChildren) {
+    killTree(child.pid);
+  }
+  trackedChildren.clear();
+}
+
+let cleanupRan = false;
+function installCleanupHandlers() {
+  const cleanup = (signal) => {
+    if (cleanupRan) return;
+    cleanupRan = true;
+    try { killWorker(); } catch {}
+    killAllTrackedChildren();
+    if (signal === "exit") return;
+    process.exit(signal === "SIGINT" ? 130 : signal === "SIGTERM" ? 143 : 1);
+  };
+  process.on("SIGINT", () => cleanup("SIGINT"));
+  process.on("SIGTERM", () => cleanup("SIGTERM"));
+  process.on("SIGHUP", () => cleanup("SIGHUP"));
+  process.on("SIGBREAK", () => cleanup("SIGBREAK"));
+  process.on("exit", () => cleanup("exit"));
+  process.on("uncaughtException", (err) => {
+    console.error("[next-runner] uncaught:", err);
+    cleanup("uncaughtException");
+  });
+}
 
 const args = process.argv.slice(2);
 const nextCommand = args[0];
@@ -98,11 +151,12 @@ let workerRestarts = 0;
 const MAX_WORKER_RESTARTS = 5;
 
 function spawnWorker() {
-  const wp = spawn(process.execPath, [WORKER_SCRIPT], {
+  const wp = trackChild(spawn(process.execPath, [WORKER_SCRIPT], {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...env, PORT: WORKER_PORT },
     detached: false,
-  });
+    windowsHide: true,
+  }));
 
   wp.stdout.on("data", (chunk) => {
     const line = chunk.toString().trim();
@@ -117,6 +171,7 @@ function spawnWorker() {
   wp.on("exit", (code) => {
     if (workerProcess !== wp) return;
     workerProcess = null;
+    if (cleanupRan) return;
     if (code !== 0 && code !== null && workerRestarts < MAX_WORKER_RESTARTS) {
       workerRestarts++;
       const delay = Math.min(1000 * workerRestarts, 5000);
@@ -136,10 +191,7 @@ function killWorker() {
   if (!workerProcess) return;
   const wp = workerProcess;
   workerProcess = null;
-  try { wp.kill("SIGTERM"); } catch {}
-  setTimeout(() => {
-    try { wp.kill("SIGKILL"); } catch {}
-  }, 3000);
+  killTree(wp.pid);
 }
 
 async function maybeStartWorker() {
@@ -186,11 +238,12 @@ const RAG_INDEXER_PATH = resolve(__dirname, "..", "observability", "index-error-
 async function maybeRunErrorLogRagIndexer() {
   if (!existsSync(RAG_INDEXER_PATH)) return;
   const startedAt = Date.now();
-  const ragProc = spawn(process.execPath, [RAG_INDEXER_PATH, "--quiet"], {
+  const ragProc = trackChild(spawn(process.execPath, [RAG_INDEXER_PATH, "--quiet"], {
     stdio: "ignore",
     env,
     detached: false,
-  });
+    windowsHide: true,
+  }));
   await new Promise((resolveOuter) => {
     let done = false;
     const finish = () => {
@@ -201,9 +254,7 @@ async function maybeRunErrorLogRagIndexer() {
       resolveOuter();
     };
     const timeout = setTimeout(() => {
-      try {
-        ragProc.kill("SIGTERM");
-      } catch {}
+      killTree(ragProc.pid);
       console.info("\x1b[35m[error-log-rag]\x1b[0m indexer skipped (timeout 5s, non-fatal)");
       finish();
     }, 5000);
@@ -220,6 +271,8 @@ async function maybeRunErrorLogRagIndexer() {
 
 // ── Start Next.js ──
 
+installCleanupHandlers();
+
 await maybeStartWorker();
 await maybeRunErrorLogRagIndexer();
 
@@ -229,29 +282,35 @@ const FIXER_REGISTRY_DUMP_PATH = resolve(
   __dirname, "..", "observability", "dump-fixer-registry.mjs",
 );
 if (existsSync(FIXER_REGISTRY_DUMP_PATH)) {
-  const dumpProc = spawn(process.execPath, [FIXER_REGISTRY_DUMP_PATH, "--quiet"], {
+  const dumpProc = trackChild(spawn(process.execPath, [FIXER_REGISTRY_DUMP_PATH, "--quiet"], {
     stdio: "ignore",
     env,
     detached: false,
-  });
+    windowsHide: true,
+  }));
   dumpProc.on("error", () => {});
   // Fire-and-forget; do not block dev/build/start.
 }
 printDevBanner();
 
 const nextBin = resolve(__dirname, "..", "..", "node_modules", "next", "dist", "bin", "next");
-const child = spawn(process.execPath, [nextBin, ...args], { stdio: "inherit", env });
+const child = trackChild(spawn(process.execPath, [nextBin, ...args], {
+  stdio: "inherit",
+  env,
+  windowsHide: true,
+}));
 
 child.on("error", (error) => {
   console.error(error);
-  killWorker();
+  cleanupRan = true;
+  try { killWorker(); } catch {}
+  killAllTrackedChildren();
   process.exit(1);
 });
 
 child.on("exit", (code) => {
-  killWorker();
+  cleanupRan = true;
+  try { killWorker(); } catch {}
+  killAllTrackedChildren();
   process.exit(code ?? 1);
 });
-
-process.on("SIGINT", () => { killWorker(); });
-process.on("SIGTERM", () => { killWorker(); });

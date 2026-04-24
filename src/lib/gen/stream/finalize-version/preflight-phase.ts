@@ -61,6 +61,14 @@ export interface PreflightPhaseResult {
     file: string;
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
+  /**
+   * Cross-file imports that resolved to missing files and were silently
+   * stubbed by `cross-file-import-checker`. Bubbled to `FinalizeResult` so
+   * post-finalize can persist a `warning`-level row in the version
+   * diagnostics modal (plan-02 / STATUS-02 — coffee-cup-3d-style "looks
+   * shipped, actually hollow" anti-pattern).
+   */
+  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
   stepTelemetry: FinalizeStepTelemetry;
 }
 
@@ -115,6 +123,7 @@ export async function runPreflightPhase(params: {
   filesJson = mergeResult.filesJson;
   let rejectedShrinks = mergeResult.rejectedShrinks;
   let rejectedStructural = mergeResult.rejectedStructural;
+  let crossFileStubs = mergeResult.crossFileStubs;
 
   if (previousFiles && previousFiles.length > 0) {
     const previousContentLen = previousFiles.reduce((sum, f) => sum + (f.content?.length ?? 0), 0);
@@ -248,6 +257,7 @@ export async function runPreflightPhase(params: {
       // payload reflects the full picture across both merge passes.
       rejectedShrinks = [...rejectedShrinks, ...remergeResult.rejectedShrinks];
       rejectedStructural = [...rejectedStructural, ...remergeResult.rejectedStructural];
+      crossFileStubs = [...crossFileStubs, ...remergeResult.crossFileStubs];
 
       preflightResult = await runFinalizePreflight({
         chatId,
@@ -364,6 +374,7 @@ export async function runPreflightPhase(params: {
     scaffoldRetry,
     rejectedShrinks,
     rejectedStructural,
+    crossFileStubs,
     stepTelemetry,
   };
 }

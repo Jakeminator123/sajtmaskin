@@ -1534,11 +1534,14 @@ export function useBuilderPageController() {
     setEntryIntentActive,
   ]);
 
-  // Auto-start generation for entry flows that already handed off a prompt
+  // Auto-start generation for prompt-handoff flows that should skip the
+  // freeform needs-analysis chat seed.
   useEffect(() => {
     if (!isAuthenticated) return;
     if (!entryIntentActive) return;
     if (buildMethod === "freeform") return;
+    if (templateId) return;
+    if (buildMethod !== "kostnadsfri") return;
     if (!resolvedPrompt) return;
     if (chatId) return;
     if (autoGenerateTriggeredRef.current) return;
@@ -1550,7 +1553,7 @@ export function useBuilderPageController() {
       void promptActions.requestCreateChat(resolvedPrompt!);
     }, 500);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, entryIntentActive, buildMethod, resolvedPrompt, chatId, setSelectedModelTier, promptActions]);
+  }, [isAuthenticated, entryIntentActive, templateId, buildMethod, resolvedPrompt, chatId, setSelectedModelTier, promptActions]);
 
   // =====================================================================
   // Return view model

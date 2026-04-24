@@ -109,6 +109,7 @@ export function renderRoutePlanBlock(params: {
     "- Never invent paths that are not in the list above.",
     "- For slug-based detail pages, reuse the listing route's path as prefix (e.g. if `/blogg` is listed, use `\\`/blogg/${slug}\\`` — never `\\`/blog/${slug}\\``).",
     "- The finalize preflight runs a deterministic href ↔ route cross-check; mismatches surface as warnings in the version error log and may block future builds.",
+    "- Sub-routes (anything other than `/`) MUST NOT auto-redirect back to `/`. Even when the scaffold is one-page-marketing, sub-routes are intentional and must render their own content. NEVER emit `router.push('/')`, `redirect('/')`, or `window.location.href = '/'` inside a sub-route page, layout, or client component on mount. The only legitimate redirect-on-mount target from a sub-route is to a sibling sub-route after a real user action (e.g. successful form submit) — never the root.",
   );
   parts.push("");
 

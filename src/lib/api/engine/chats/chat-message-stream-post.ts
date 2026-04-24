@@ -15,7 +15,7 @@ import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
-import { FEATURES, FOLLOW_UP_TUNING } from "@/lib/config";
+import { FOLLOW_UP_TUNING } from "@/lib/config";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import {
   canonicalModelIdToOwnModelId,
@@ -30,6 +30,10 @@ import {
 } from "@/lib/gen/contract/clarification";
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
 import { hasHeavyCapabilities, inferCapabilities } from "@/lib/gen/capability-inference";
+import {
+  detectFollowUpCapabilities,
+  type FollowUpCapabilityDetection,
+} from "@/lib/builder/follow-up-capability-detection";
 import { deriveFollowUpContextPolicy, isShellPageContent } from "@/lib/gen/build-spec";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
@@ -298,6 +302,7 @@ export async function handleMessageStreamRequest(
           chatId,
           metaEngineBaseVersionId,
         );
+        const hasFollowUpBase = previousFiles.length > 0;
         const existingRoutePaths =
           previousFiles.length > 0
             ? extractAppRoutePathsFromFilePaths(previousFiles.map((file) => file.path))
@@ -319,7 +324,38 @@ export async function handleMessageStreamRequest(
         const followUpIntent = previousFiles.length > 0 && !skipIntentClassification
           ? classifyFollowUpIntent(message)
           : "neutral";
-        const followUpClarification = previousFiles.length > 0 && !skipIntentClassification
+        // Plan 06 (2026-04-24): detect dossier-mappable capabilities in the
+        // follow-up text so `selectDossiersForRequest` actually sees the
+        // signal even when the snapshot-hydrated brief and the keyword-based
+        // `inferCapabilities` pass both miss it (Plan 01 smoke run 2). Skip
+        // when intent classification is suppressed (auto-repair / payload
+        // preservation passes) — those re-enter the same pipeline and would
+        // otherwise re-trigger capability injection on every repair pass.
+        const followUpCapabilityDetection: FollowUpCapabilityDetection =
+          hasFollowUpBase && !skipIntentClassification
+            ? detectFollowUpCapabilities(message)
+            : {
+                capabilities: [],
+                capabilityIds: [],
+                tierByCapability: {},
+                wordCount: 0,
+                referencesExistingCapability: false,
+                modifyReferenceMatches: [],
+              };
+        if (followUpCapabilityDetection.capabilityIds.length > 0) {
+          devLogAppend("in-progress", {
+            type: "followup.capability.detected",
+            chatId,
+            followUpIntent,
+            capabilityIds: followUpCapabilityDetection.capabilityIds,
+            tierByCapability: followUpCapabilityDetection.tierByCapability,
+            referencesExistingCapability:
+              followUpCapabilityDetection.referencesExistingCapability,
+            modifyReferenceMatches:
+              followUpCapabilityDetection.modifyReferenceMatches,
+          });
+        }
+        const followUpClarification = hasFollowUpBase && !skipIntentClassification
           ? resolveFollowUpClarification(message)
           : null;
         if (followUpClarification) {
@@ -420,7 +456,6 @@ export async function handleMessageStreamRequest(
             capabilityHeavy,
           });
           const useLightFollowUpContext =
-            FEATURES.useFollowUpLightContext &&
             followUpContextPolicy === "light";
           const manyFiles = previousFiles.length > 14;
           const designPinnedFiles = hasDesignFollowUpSignal(message)
@@ -534,6 +569,7 @@ export async function handleMessageStreamRequest(
                   delete copy.promptFormatted;
                   copy.promptStrategy = promptOrchestration.strategyMeta.strategy;
                   copy.promptType = promptOrchestration.strategyMeta.promptType;
+                  copy.promptSource = promptOrchestration.strategyMeta.promptSource;
                   copy.promptBudgetTarget = promptOrchestration.strategyMeta.budgetTarget;
                   copy.promptOptimizedLength = promptOrchestration.strategyMeta.optimizedLength;
                   copy.promptReductionRatio = promptOrchestration.strategyMeta.reductionRatio;
@@ -544,6 +580,7 @@ export async function handleMessageStreamRequest(
               : {
                   promptStrategy: promptOrchestration.strategyMeta.strategy,
                   promptType: promptOrchestration.strategyMeta.promptType,
+                  promptSource: promptOrchestration.strategyMeta.promptSource,
                   promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
                   promptOptimizedLength: promptOrchestration.strategyMeta.optimizedLength,
                   promptReductionRatio: promptOrchestration.strategyMeta.reductionRatio,
@@ -618,7 +655,43 @@ export async function handleMessageStreamRequest(
             promptStrategyMeta: promptOrchestration.strategyMeta,
             existingRoutePaths,
             existingShellRoutePaths,
-            capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
+            capabilities: hasFollowUpBase ? inferCapabilities(message) : undefined,
+            // Plan 06: forward detected dossier capabilities + tier map so
+            // plan-mode planning sees the same dossier injection picture as
+            // the main codegen flow (otherwise the planner would build a
+            // task list ignorant of e.g. a `kontaktform`-add).
+            //
+            // Plan 11 / open-question #12: same `capability-modify`
+            // suppression as the codegen orchestration below — re-injecting
+            // the dossier shell would mislead the planner into emitting a
+            // task list that adds a fresh shell on top of the existing one.
+            requestedDossierCapabilities:
+              hasFollowUpBase &&
+              followUpCapabilityDetection.capabilityIds.length > 0 &&
+              followUpIntent !== "capability-modify"
+                ? followUpCapabilityDetection.capabilityIds
+                : undefined,
+            requestedCapabilityTiers:
+              hasFollowUpBase &&
+              followUpCapabilityDetection.capabilityIds.length > 0 &&
+              followUpIntent !== "capability-modify"
+                ? followUpCapabilityDetection.tierByCapability
+                : undefined,
+            capabilityModifyHint:
+              hasFollowUpBase &&
+              followUpIntent === "capability-modify" &&
+              followUpCapabilityDetection.capabilityIds.length > 0
+                ? {
+                    capabilityIds: followUpCapabilityDetection.capabilityIds,
+                    references:
+                      followUpCapabilityDetection.modifyReferenceMatches,
+                  }
+                : null,
+            // Bug 04#3 (2026-04-22 audit): plan mode måste också skicka
+            // engineModelId + lifecycleStage annars divergerar BuildSpec från
+            // huvudflödet (token-budget och F2/F3-policy).
+            engineModelId: resolveEngineModelId(resolvedModelTier),
+            lifecycleStage: parsedMeta.lifecycleStage,
           });
           debugLog("orchestration", "Follow-up plan orchestration prepared", {
             chatId,
@@ -814,7 +887,41 @@ export async function handleMessageStreamRequest(
           ignorePersistedScaffoldForMatch,
           existingRoutePaths,
           existingShellRoutePaths,
-          capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
+          capabilities: hasFollowUpBase ? inferCapabilities(message) : undefined,
+          // Plan 06 (2026-04-24): see `followUpCapabilityDetection` above.
+          // Caller-provided ids merge into orchestrate's capability bridge so
+          // dossiers actually get selected on follow-ups even when the
+          // snapshot-rebuilt brief carried no capabilities.
+          //
+          // Plan 11 / open-question #12: when the follow-up was classified
+          // as `capability-modify` (user references an existing on-page
+          // element such as "pricken" / "den 3D-grejen" alongside a
+          // capability keyword) we suppress this re-injection on purpose
+          // — the dossier shell already exists in the previous version
+          // and re-emitting it would duplicate the mount on top of the
+          // user's working scene file. The `capabilityModifyHint` below
+          // restores the directional signal in a different shape.
+          requestedDossierCapabilities:
+            hasFollowUpBase &&
+            followUpCapabilityDetection.capabilityIds.length > 0 &&
+            followUpIntent !== "capability-modify"
+              ? followUpCapabilityDetection.capabilityIds
+              : undefined,
+          requestedCapabilityTiers:
+            hasFollowUpBase &&
+            followUpCapabilityDetection.capabilityIds.length > 0 &&
+            followUpIntent !== "capability-modify"
+              ? followUpCapabilityDetection.tierByCapability
+              : undefined,
+          capabilityModifyHint:
+            hasFollowUpBase &&
+            followUpIntent === "capability-modify" &&
+            followUpCapabilityDetection.capabilityIds.length > 0
+              ? {
+                  capabilityIds: followUpCapabilityDetection.capabilityIds,
+                  references: followUpCapabilityDetection.modifyReferenceMatches,
+                }
+              : null,
           lifecycleStage: parsedMeta.lifecycleStage,
           // P22b: chatId + followUpIntent + priorQualityTarget aktiverar P22:s
           // helpers runtime (`inheritQualityTargetFromPriorVersion` i deriveBuildSpec
@@ -936,6 +1043,10 @@ export async function handleMessageStreamRequest(
           rawMessageLength: message.length,
           slug: metaBuildMethod || metaBuildIntent || undefined,
           promptType: promptOrchestration.strategyMeta.promptType,
+          // Plan 03 (short): observability/backoffice can now filter
+          // auto-repair passes out of follow-up statistics by reading
+          // `promptSource` directly from the comm.request.followup row.
+          promptSource: promptOrchestration.strategyMeta.promptSource,
           promptStrategy: promptOrchestration.strategyMeta.strategy,
           promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
           originalLength: promptOrchestration.strategyMeta.originalLength,

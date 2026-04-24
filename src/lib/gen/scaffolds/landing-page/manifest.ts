@@ -26,6 +26,7 @@ export const landingPageManifest: ScaffoldManifest = {
     "Use this scaffold for local businesses, company sites, campaign pages, and service-led websites.",
     "Keep the overall rhythm: strong hero, content sections that match the actual business, and a clear CTA.",
     "Replace all scaffold copy, section types, and imagery to genuinely reflect the user's business — a bakery should feel warm, a law firm authoritative, a startup energetic.",
+    "Sub-routes (slug pages, individual blog posts, om-sidor, sitemap-pages) MUST stand on their own — even though this scaffold is one-page-marketing, never auto-redirect from a sub-route back to '/'. Do NOT call router.push('/'), redirect('/'), or window.location.href = '/' inside a sub-route page or its client components. If the user lands on /afrikanska-bonor, render that page in full.",
   ],
   qualityChecklist: [
     "Hero headline is specific to user's business — not generic marketing filler.",

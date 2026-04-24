@@ -66,7 +66,10 @@ import {
   renderScaffoldResearchBlock,
   renderToolkitBlock,
 } from "./sections/scaffold-and-toolkit";
-import { renderDossierBlocks } from "./sections/dossiers";
+import {
+  renderCapabilityModifyHintBlock,
+  renderDossierBlocks,
+} from "./sections/dossiers";
 import { renderRoutePlanBlock } from "./sections/route-plan";
 import {
   renderPreGenerationContractsBlock,
@@ -123,6 +126,7 @@ export function buildDynamicContext(
     sessionSeed,
     chatId,
     componentReferences,
+    buildOut,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -168,6 +172,26 @@ export function buildDynamicContext(
 
   const parts: string[] = [];
   parts.push(...renderGenerationModeBlock(isFollowUp));
+  // ── Build-Out Request (targeted shell-route expansion) ─────────────────
+  if (buildOut?.path) {
+    const displayName = buildOut.name?.trim() || buildOut.path;
+    parts.push(
+      "## Build-Out Request",
+      "",
+      `The user clicked "build out" for the shell route **${buildOut.path}** (${displayName}). Expand ONLY this route with full content, copy, and interactive sections that match the rest of the site.`,
+      "",
+    );
+    if (buildOut.intent?.trim()) {
+      parts.push(
+        `Planned intent for this page (from the route plan): ${buildOut.intent.trim()}`,
+        "",
+      );
+    }
+    parts.push(
+      "Do NOT redesign unrelated pages or the global layout. Keep existing navigation, theme tokens, and shared components intact.",
+      "",
+    );
+  }
   parts.push(...renderCustomInstructionsBlock(customInstructions));
   parts.push(...renderF2ContractBlock(buildSpec));
   parts.push(...renderBuildIntentBlock(intent));
@@ -188,6 +212,12 @@ export function buildDynamicContext(
     }),
   );
   parts.push(...renderDossierBlocks(options.dossierSelection));
+  // Plan 11 / open-question #12: when the follow-up was classified as
+  // `capability-modify` the dossier branch above is intentionally
+  // empty (upstream suppresses `requestedDossierCapabilities`). Restore
+  // a directional signal to the LLM so it knows to mutate the existing
+  // scene file rather than fall back to a generic dossier-less render.
+  parts.push(...renderCapabilityModifyHintBlock(options.capabilityModifyHint));
   parts.push(
     ...renderRoutePlanBlock({
       routePlan,

@@ -98,6 +98,14 @@ data/external-template-pipeline/reports/**
 
 # run-eval / codegen harness markdown output (scripts/eval/run-eval.ts)
 eval-output/
+
+# OMTAG-02 eval baseline local runs — all per-branch/per-timestamp dirs under
+# evals/results/ are gitignored EXCEPT evals/results/baseline-master/ which is
+# the incheckade referensen. See evals/README.md.
+evals/results/*
+!evals/results/.gitkeep
+!evals/results/baseline-master/
+!evals/results/baseline-master/**
 # Legacy output dir (rename → eval-output/); safe to delete locally
 EGEN_MOTOR_V2/
 
@@ -251,7 +259,6 @@ UTLÅTANDE_DEEP_BREEF.txt
 
 # OpenClaw bridge (local agent communication, never commit)
 .cursor/openclaw-bridge/
-reviews/
 sajtmaskin.zip
 
 
@@ -272,3 +279,25 @@ playwright-light.log
 enrich-full.log
 smoke-enrich.log
 logs/variant-patterns-batch.log
+
+# Agent-session scratchpad (PR bodies, diff probes, cherry-pick logs)
+.cursor/tmp/
+
+.vercel
+.env*.local
+
+# Local agent-conversation dumps (often contain pasted .env secrets — NEVER commit)
+trött_agent.txt
+tr*_agent.txt
+*_agent_session.txt
+agent-session-*.txt
+
+# OMTAG-06: unified event-bus NDJSON mirrors + per-version run index
+data/runs/
+
+# Local scratch space (zip extractions, ad-hoc orchestrator notes, etc.)
+.tmp/
+
+# Cursor-agent run logs from orchestrator background tasks (pure observability noise)
+docs/plans/**/*.run.log.jsonl
+docs/plans/**/run.log.jsonl

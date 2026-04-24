@@ -1,3 +1,4 @@
+// TODO(plan-09): kvar tills nästa cleanup — partial-file-repair är aktiv i preflight-fasen och tas bort först när single-repair-gate ersätter den.
 /**
  * Partial-file output detection + repair.
  *

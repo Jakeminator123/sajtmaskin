@@ -30,14 +30,6 @@ class BackofficeContext:
     research_json: Path
     embeddings_json: Path
     catalog_json: Path
-    # DEPRECATED: pekar på src/lib/gen/template-library/template-library.generated.json
-    # som togs bort 2026-04-17 (4ba06d96e). Behålls bara för att inte bryta
-    # scaffold_lifecycle.py (defensivt skrivet, läser tomt om filen saknas).
-    # Ny kod ska INTE läsa template-library — för dossiers i v2, använd
-    # disk-walk av `data/dossiers/{hard,soft}/` (capability-driven, inget
-    # master-index). `data/dossiers/_index/capability-map.json` är en
-    # genererad view för backoffice/sanity, inte runtime-källa.
-    template_lib_json: Path
     eval_latest: Path
     schema_md: Path
     error_log_csv: Path
@@ -114,12 +106,6 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
         / "external-template-pipeline"
         / "reference-library"
         / "catalog.json",
-        template_lib_json=root
-        / "src"
-        / "lib"
-        / "gen"
-        / "template-library"
-        / "template-library.generated.json",
         eval_latest=root / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json",
         schema_md=root / "docs" / "architecture" / "scaffold-system.md",
         error_log_csv=root / "logs" / "llm-segmentts-and-index" / "error-log.csv",
@@ -292,6 +278,17 @@ def read_autofix_runtime_config(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _escape_ts_string(value: str) -> str:
+    """Escape a Python string for safe inlining into a TypeScript string literal.
+
+    Used by `backoffice/pages/scaffolds.py` and `backoffice/pages/scaffold_lifecycle.py`
+    when rewriting `manifest.ts` files from the backoffice UI. Both files used to
+    keep their own identical copy — consolidated here so the two surfaces don't
+    drift apart.
+    """
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 MODEL_LABELS = {
     "openai/gpt-5.4": "OpenAI GPT-5.4",
     "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
@@ -328,6 +325,7 @@ AVAILABLE_PHASE_MODELS = (
     "gpt-4.1",
     "gpt-5.2",
     "gpt-5.4",
+    "gpt-5.4-mini",
     "gpt-5.3-codex",
     "claude-sonnet-4.6",
     "claude-opus-4.6",

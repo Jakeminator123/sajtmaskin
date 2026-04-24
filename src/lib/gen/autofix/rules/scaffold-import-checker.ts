@@ -1,3 +1,4 @@
+// TODO(plan-09): kvar tills nästa cleanup — fortfarande aktiv i finalize-merge och kan först dö när scaffold-merge-guarden ersatts.
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { CodeFile } from "@/lib/gen/parser";
 

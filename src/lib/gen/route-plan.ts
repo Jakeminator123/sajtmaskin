@@ -1,6 +1,18 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { debugLog } from "@/lib/utils/debug";
 import type { ScaffoldManifest } from "./scaffolds/types";
+import { dedupePlannedRoutesInPlaceByLocale, deduplicateLocaleAlternateRoutes } from "./route-plan/locale-dedupe";
+import { extractAppRoutePathsFromFilePaths, normalizeRoutePath } from "./route-plan/path-utils";
+import {
+  applyPromptPatterns,
+  applyScaffoldDefaults,
+  buildRoutesFromBrief,
+  collectExplicitRouteRemovals,
+  detectExplicitPageCount,
+  hasExplicitAddRouteIntent,
+  upsertRoute,
+} from "./route-plan/planning-helpers";
+import { findMissingRequiredRoutes, routePatternToRegex } from "./route-plan/route-matchers";
+import { WEBSITE_ROUTE_PATTERNS, APP_ROUTE_PATTERNS } from "./route-plan/route-patterns";
 
 export const ROUTE_PLAN_SITE_TYPES = [
   "one-page",
@@ -126,252 +138,11 @@ export function parseRoutePlanFromUnknown(data: Record<string, unknown> | null |
   };
 }
 
-type BriefPageLike = {
-  path?: unknown;
-  name?: unknown;
-  purpose?: unknown;
-};
-
-import { WEBSITE_ROUTE_PATTERNS, APP_ROUTE_PATTERNS } from "./route-plan/route-patterns";
-
-// Keep removal language explicit so "utan ..." copy/layout phrasing
-// does not silently delete routes during follow-ups.
-const ROUTE_REMOVAL_VERB_RE =
-  /\b(remove|delete|drop|ta bort|plocka bort|radera)\b/i;
-const ROUTE_REMOVAL_CONTEXT_RE =
-  /\b(page|pages|route|routes|sida|sidor|sidan|sidorna)\b|[a-zåäö]+sida(?:n|rna)?\b/i;
-const ROUTE_PATH_MENTION_RE = /\/[a-z0-9/_-]*/gi;
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-export function normalizeRoutePath(value: string): string {
-  if (!value) return "/";
-  const trimmed = value.trim();
-  if (trimmed === "/") return "/";
-  const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  const normalizedSegments = withLeadingSlash
-    .replace(/\/{2,}/g, "/")
-    .split("/")
-    .map((segment) => {
-      if (!segment.startsWith(":")) return segment;
-      const paramName = segment.slice(1).trim();
-      return paramName ? `[${paramName}]` : segment;
-    })
-    .join("/");
-  return normalizedSegments.replace(/\/$/, "") || "/";
-}
-
-function inferPathFromPageName(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return "/";
-  if (/^(home|hem|start|startsida|homepage)$/i.test(trimmed)) return "/";
-  const normalized = trimmed
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  if (!normalized) return "/";
-  return normalizeRoutePath(`/${normalized}`);
-}
-
-function pushRoute(routes: PlannedRoute[], route: PlannedRoute): void {
-  const normalizedPath = normalizeRoutePath(route.path);
-  const existing = routes.find((item) => item.path === normalizedPath);
-  if (existing) {
-    if (!existing.intent && route.intent) existing.intent = route.intent;
-    existing.required = existing.required || route.required;
-    return;
-  }
-  routes.push({
-    ...route,
-    path: normalizedPath,
-  });
-}
-
-function collectExplicitRouteRemovals(
-  prompt: string,
-  buildIntent: BuildIntent,
-  existingPaths: string[],
-): Set<string> {
-  const removals = new Set<string>();
-  const normalizedExisting = new Set(existingPaths.map((path) => normalizeRoutePath(path)));
-  if (!ROUTE_REMOVAL_VERB_RE.test(prompt)) return removals;
-
-  for (const rawPath of prompt.match(ROUTE_PATH_MENTION_RE) ?? []) {
-    const normalized = normalizeRoutePath(rawPath);
-    if (normalized !== "/" && normalizedExisting.has(normalized)) {
-      removals.add(normalized);
-    }
-  }
-
-  // Keep keyword-based removals conservative: require route/page wording in the same prompt.
-  if (!ROUTE_REMOVAL_CONTEXT_RE.test(prompt)) return removals;
-
-  const candidatePatterns =
-    buildIntent === "app"
-      ? [...APP_ROUTE_PATTERNS, ...WEBSITE_ROUTE_PATTERNS]
-      : [...WEBSITE_ROUTE_PATTERNS, ...APP_ROUTE_PATTERNS];
-
-  for (const candidate of candidatePatterns) {
-    if (candidate.path === "/") continue;
-    if (!normalizedExisting.has(candidate.path)) continue;
-    if (candidate.match.test(prompt)) {
-      removals.add(candidate.path);
-    }
-  }
-
-  return removals;
-}
-
-const EXPLICIT_ADD_ROUTE_PATTERNS = [
-  /\b(?:add|create|make)\b[\s\S]{0,32}\b(?:new\s+)?(?:page|route)\b/i,
-  /\b(?:new\s+)(?:page|route)\b/i,
-  /\b(?:lägg till|skapa)\b[\s\S]{0,32}\b(?:en\s+ny\s+|ny\s+)?(?:sida|route)\b/i,
-  /\b(?:ny\s+)(?:sida|route)\b/i,
-];
-
-function hasExplicitAddRouteIntent(prompt: string): boolean {
-  return EXPLICIT_ADD_ROUTE_PATTERNS.some((pattern) => pattern.test(prompt));
-}
-
 function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanSiteType {
   if (buildIntent === "app") return "app-shell";
   if (routeCount <= 1) return "one-page";
   if (routeCount <= 5) return "brochure";
   return "content-heavy";
-}
-
-const EXPLICIT_PAGE_COUNT_RE =
-  /\b(\d{1,2})\s*(?:sidor|sida|pages?|routes?|vyer?|views?)\b/i;
-
-/**
- * Detect when the user explicitly states a page count ("3 sidor", "5 pages").
- * Returns the count or null when no match is found.
- */
-export function detectExplicitPageCount(prompt: string): number | null {
-  const match = prompt.match(EXPLICIT_PAGE_COUNT_RE);
-  if (!match) return null;
-  const count = parseInt(match[1]!, 10);
-  return count >= 1 && count <= 20 ? count : null;
-}
-
-function buildRoutesFromBrief(
-  brief: Record<string, unknown> | null | undefined,
-): PlannedRoute[] {
-  const pages = Array.isArray((brief as { pages?: unknown })?.pages)
-    ? ((brief as { pages?: BriefPageLike[] }).pages ?? [])
-    : [];
-  if (pages.length === 0) return [];
-
-  const routes: PlannedRoute[] = [];
-  for (const page of pages.slice(0, 10)) {
-    const explicitPath = asString(page?.path);
-    const inferredPath = inferPathFromPageName(asString(page?.name));
-    const path = normalizeRoutePath(explicitPath || inferredPath || "/");
-    const name = asString(page?.name) || (path === "/" ? "Home" : "Page");
-    const purpose = asString(page?.purpose);
-    const intent = purpose
-      ? `Route purpose: ${purpose}`
-      : `Implement the ${name} route.`;
-    pushRoute(routes, {
-      path,
-      name,
-      intent,
-      required: true,
-    });
-  }
-  return routes;
-}
-
-function applyPromptPatterns(
-  prompt: string,
-  patterns: Array<{ match: RegExp; path: string; name: string; intent: string }>,
-  routes: PlannedRoute[],
-): boolean {
-  const before = new Set(routes.map((route) => normalizeRoutePath(route.path)));
-  for (const pattern of patterns) {
-    if (pattern.match.test(prompt)) {
-      pushRoute(routes, {
-        path: pattern.path,
-        name: pattern.name,
-        intent: pattern.intent,
-        required: true,
-      });
-    }
-  }
-  return routes.some((route) => !before.has(normalizeRoutePath(route.path)));
-}
-
-function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: ScaffoldManifest | null, routes: PlannedRoute[]) {
-  switch (resolvedScaffold?.id) {
-    case "blog":
-      pushRoute(routes, {
-        path: "/blog",
-        name: "Blog",
-        intent: "Keep an editorial route for articles and archives.",
-        required: buildIntent !== "app",
-      });
-      break;
-    case "ecommerce":
-      pushRoute(routes, {
-        path: "/products",
-        name: "Products",
-        intent: "Keep a storefront route for the product catalog.",
-        required: true,
-      });
-      pushRoute(routes, {
-        path: "/cart",
-        name: "Cart",
-        intent: "Keep a cart route for purchase flow continuity.",
-        required: false,
-      });
-      break;
-    case "auth-pages":
-      pushRoute(routes, {
-        path: "/login",
-        name: "Login",
-        intent: "Keep a dedicated authentication entry route.",
-        required: true,
-      });
-      pushRoute(routes, {
-        path: "/signup",
-        name: "Signup",
-        intent: "Keep a dedicated registration route when auth is in scope.",
-        required: false,
-      });
-      break;
-    case "dashboard":
-      if (buildIntent === "app") {
-        pushRoute(routes, {
-          path: "/analytics",
-          name: "Analytics",
-          intent: "Dashboard apps benefit from an analytics or metrics route.",
-          required: false,
-        });
-        pushRoute(routes, {
-          path: "/settings",
-          name: "Settings",
-          intent: "App shells should usually expose at least one management/settings route.",
-          required: false,
-        });
-      }
-      break;
-    case "app-shell":
-      if (buildIntent === "app") {
-        pushRoute(routes, {
-          path: "/settings",
-          name: "Settings",
-          intent: "App shells should usually expose at least one management/settings route.",
-          required: false,
-        });
-      }
-      break;
-    default:
-      break;
-  }
 }
 
 export function buildRoutePlan(params: {
@@ -427,7 +198,7 @@ export function buildRoutePlan(params: {
         continue;
       }
       const isRoot = existingPath === "/";
-      pushRoute(routes, {
+      upsertRoute(routes, {
         path: existingPath,
         name: routeNameFromPath(existingPath),
         intent: isRoot
@@ -448,12 +219,12 @@ export function buildRoutePlan(params: {
       for (const briefRoute of briefRoutes) {
         const normalizedBriefPath = normalizeRoutePath(briefRoute.path);
         if (!existingSet.has(normalizedBriefPath)) continue;
-        pushRoute(routes, briefRoute);
+        upsertRoute(routes, briefRoute);
         briefRoutePaths.add(normalizedBriefPath);
       }
     } else {
       for (const briefRoute of briefRoutes) {
-        pushRoute(routes, briefRoute);
+        upsertRoute(routes, briefRoute);
         briefRoutePaths.add(normalizeRoutePath(briefRoute.path));
       }
     }
@@ -461,7 +232,7 @@ export function buildRoutePlan(params: {
 
   if (buildIntent === "app") {
     if (!useFollowUpFreeze && !hasBriefRoutes) {
-      pushRoute(routes, {
+      upsertRoute(routes, {
         path: "/",
         name: "Dashboard",
         intent: "Use the root route as the main product workspace or dashboard.",
@@ -474,7 +245,7 @@ export function buildRoutePlan(params: {
     }
   } else {
     if (!useFollowUpFreeze && !hasBriefRoutes) {
-      pushRoute(routes, {
+      upsertRoute(routes, {
         path: "/",
         name: "Home",
         intent: "Use the root route for the primary landing page or homepage.",
@@ -490,7 +261,7 @@ export function buildRoutePlan(params: {
   // Ensure a root route exists even when brief pages didn't map to `/`.
   // A multi-page site without `/` leads to broken IA and missing homepage.
   if (!useFollowUpFreeze && !routes.some((r) => normalizeRoutePath(r.path) === "/")) {
-    pushRoute(routes, {
+    upsertRoute(routes, {
       path: "/",
       name: buildIntent === "app" ? "Dashboard" : "Home",
       intent: buildIntent === "app"
@@ -606,199 +377,18 @@ export function buildRoutePlan(params: {
   };
 }
 
-/**
- * Locale-alternate route pairs that mean the same destination in different
- * languages. When the generator (LLM) emits both variants we keep only the
- * one that matches the project's resolved locale so navigation, sitemaps,
- * and internal linking stay coherent. Sv-default for sajtmaskin's typical
- * Swedish builds.
- */
-const LOCALE_ROUTE_PAIRS: Array<{ en: string; sv: string }> = [
-  { en: "/contact", sv: "/kontakt" },
-  { en: "/about", sv: "/om" },
-  { en: "/services", sv: "/tjanster" },
-  { en: "/blog", sv: "/blogg" },
-];
-
-/**
- * In-place dedupe of locale-alternate `PlannedRoute` pairs (e.g. `/blog` vs
- * `/blogg`) before the route plan is sent to the LLM. Without this, a brief
- * defining `/blogg` plus a scaffold/prompt-pattern adding `/blog` produces a
- * route plan with both variants — the LLM then often emits inconsistent
- * `<Link href="/blog/${slug}">` against an actual `/blogg/[slug]` route,
- * which fails the verifier's `navigation-placeholder-actions` rule.
- *
- * Kept route preserves its existing `name`, `intent`, and `required` flags;
- * the dropped variant's `required` flag is OR-merged into the kept one.
- */
-function dedupePlannedRoutesInPlaceByLocale(
-  routes: PlannedRoute[],
-  locale: string,
-): { droppedPaths: string[] } {
-  const lc = (locale ?? "sv").toLowerCase();
-  const isSwedish = lc.startsWith("sv");
-  const keepKey: "sv" | "en" = isSwedish ? "sv" : "en";
-  const dropKey: "sv" | "en" = isSwedish ? "en" : "sv";
-  const dropped: string[] = [];
-
-  for (const pair of LOCALE_ROUTE_PAIRS) {
-    const keepIndex = routes.findIndex(
-      (route) => normalizeRoutePath(route.path) === pair[keepKey],
-    );
-    const dropIndex = routes.findIndex(
-      (route) => normalizeRoutePath(route.path) === pair[dropKey],
-    );
-    if (keepIndex < 0 || dropIndex < 0) continue;
-
-    const dropRoute = routes[dropIndex]!;
-    const keepRoute = routes[keepIndex]!;
-    if (dropRoute.required) keepRoute.required = true;
-    routes.splice(dropIndex, 1);
-    dropped.push(pair[dropKey]);
-  }
-
-  if (dropped.length > 0) {
-    debugLog("GEN", "[route-plan] dropped duplicate locale-alternate routes", {
-      locale: lc,
-      kept: keepKey,
-      dropped,
-    });
-  }
-
-  return { droppedPaths: dropped };
-}
-
-/**
- * Path-list flavour of locale-alternate dedupe. Returns a fresh array with
- * collapsed duplicates and preserves the input order.
- *
- * Production callers inside `buildRoutePlan()` use the richer in-place
- * {@link dedupePlannedRoutesInPlaceByLocale} which preserves
- * `name`/`intent`/`required` on the kept route. Use this string-list
- * function only when you have a bare path array (e.g. tests or external
- * consumers that don't carry full {@link PlannedRoute} objects).
- *
- * Both functions share {@link LOCALE_ROUTE_PAIRS} as the single source of
- * truth for locale-alternate pairs.
- */
-export function deduplicateLocaleAlternateRoutes(
-  routes: string[],
-  locale: string,
-): string[] {
-  if (!Array.isArray(routes) || routes.length === 0) return [];
-  const lc = (locale ?? "sv").toLowerCase();
-  const isSwedish = lc.startsWith("sv");
-  const keepKey: "sv" | "en" = isSwedish ? "sv" : "en";
-  const dropKey: "sv" | "en" = isSwedish ? "en" : "sv";
-  const normalized = routes.map((r) => normalizeRoutePath(r));
-  const present = new Set(normalized);
-  const dropped: string[] = [];
-  for (const pair of LOCALE_ROUTE_PAIRS) {
-    if (present.has(pair[keepKey]) && present.has(pair[dropKey])) {
-      present.delete(pair[dropKey]);
-      dropped.push(pair[dropKey]);
-    }
-  }
-  if (dropped.length > 0) {
-    debugLog("GEN", "[route-plan] dropped duplicate locale-alternate routes", {
-      locale: lc,
-      kept: keepKey,
-      dropped,
-    });
-  }
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const path of normalized) {
-    if (!present.has(path)) continue;
-    if (seen.has(path)) continue;
-    seen.add(path);
-    result.push(path);
-  }
-  return result;
-}
-
-export function extractAppRoutePathsFromFilePaths(filePaths: string[]): string[] {
-  const routes = new Set<string>();
-  for (const rawFilePath of filePaths) {
-    const rawName = rawFilePath.replace(/^\/+/, "");
-    if (/^page\.(t|j)sx?$/.test(rawName)) {
-      routes.add("/");
-      continue;
-    }
-    let rest: string | null = null;
-    if (rawName.startsWith("src/app/")) rest = rawName.slice("src/app/".length);
-    if (rawName.startsWith("app/")) rest = rawName.slice("app/".length);
-    if (!rest) continue;
-    if (!/page\.(t|j)sx?$/.test(rest)) continue;
-    const parts = rest.split("/");
-    parts.pop();
-    const segments = parts
-      .filter(Boolean)
-      .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")))
-      .filter((segment) => !segment.startsWith("@"));
-    const route = `/${segments.join("/")}`;
-    routes.add(route === "/" ? "/" : route.replace(/\/+$/, ""));
-  }
-  return Array.from(routes);
-}
-
-export function routePatternToRegex(route: string): RegExp {
-  const cleaned = normalizeRoutePath(route);
-  if (cleaned === "/") return /^\/$/;
-  const segments = cleaned.split("/").filter(Boolean);
-  let pattern = "^";
-  for (const segment of segments) {
-    if (segment.startsWith("[[...") && segment.endsWith("]]")) {
-      pattern += "(?:/.*)?";
-      break;
-    }
-    if (segment.startsWith("[...") && segment.endsWith("]")) {
-      pattern += "/.+";
-      continue;
-    }
-    if (segment.startsWith("[") && segment.endsWith("]")) {
-      pattern += "/[^/]+";
-      continue;
-    }
-    const escaped = segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    pattern += `/${escaped}`;
-  }
-  pattern += "$";
-  return new RegExp(pattern);
-}
-
-function dynamicPrefixCoversPath(actualRoute: string, plannedPath: string): boolean {
-  const actual = normalizeRoutePath(actualRoute);
-  const planned = normalizeRoutePath(plannedPath);
-  if (actual === planned) return true;
-
-  const segments = actual.split("/").filter(Boolean);
-  const firstDynamicIndex = segments.findIndex(
-    (segment) =>
-      (segment.startsWith("[") && segment.endsWith("]")) ||
-      (segment.startsWith("[...") && segment.endsWith("]")) ||
-      (segment.startsWith("[[...") && segment.endsWith("]]")),
-  );
-  if (firstDynamicIndex < 0) return false;
-
-  const prefixSegments = segments.slice(0, firstDynamicIndex);
-  const prefixPath = prefixSegments.length > 0 ? `/${prefixSegments.join("/")}` : "/";
-  return planned === prefixPath;
-}
-
 export function findMissingPlannedRoutes(
   routePlan: RoutePlan | null | undefined,
   actualRoutes: string[],
 ): PlannedRoute[] {
   if (!routePlan || routePlan.routes.length === 0) return [];
-  const normalizedActualRoutes = actualRoutes.map((route) => normalizeRoutePath(route));
-  const matchers = normalizedActualRoutes.map(routePatternToRegex);
-  return routePlan.routes.filter((route) => {
-    if (!route.required) return false;
-    const plannedPath = normalizeRoutePath(route.path);
-    return !matchers.some((matcher, index) => {
-      if (matcher.test(plannedPath)) return true;
-      return dynamicPrefixCoversPath(normalizedActualRoutes[index]!, plannedPath);
-    });
-  });
+  return findMissingRequiredRoutes(routePlan.routes, actualRoutes);
 }
+
+export {
+  deduplicateLocaleAlternateRoutes,
+  detectExplicitPageCount,
+  extractAppRoutePathsFromFilePaths,
+  normalizeRoutePath,
+  routePatternToRegex,
+};

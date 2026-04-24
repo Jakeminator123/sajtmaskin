@@ -7,10 +7,12 @@ vi.mock("@/lib/utils/debug", () => ({
 
 import {
   buildAutoFixPrompt,
+  buildPromptStrategySteps,
   finalizeStreamStats,
   initStreamStats,
   mergeStreamingText,
 } from "./helpers";
+import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 
 describe("mergeStreamingText", () => {
   it("does not drop a short corrective chunk that incidentally overlaps the tail", () => {
@@ -153,5 +155,58 @@ describe("buildAutoFixPrompt", () => {
     expect(prompt).toContain("every returned file MUST be complete from first line to last line");
     expect(prompt).toContain("NEVER return snippets, diff hunks, partial import sections, or excerpted fragments");
     expect(prompt).toContain('Every `file="..."` block is a complete file, not a partial snippet.');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Plan 03 (short): UI rendering of auto_repair vs user prompt strategy.
+// ─────────────────────────────────────────────────────────────────────────
+
+describe("buildPromptStrategySteps", () => {
+  function metaFor(
+    overrides: Partial<PromptStrategyMeta> = {},
+  ): PromptStrategyMeta {
+    return {
+      strategy: "direct",
+      promptType: "followup_technical",
+      promptSource: "user",
+      budgetTarget: 4000,
+      originalLength: 1200,
+      optimizedLength: 1200,
+      reductionRatio: 0,
+      reason: "within_budget",
+      phaseHints: [],
+      complexityScore: 0,
+      wasChanged: false,
+      ...overrides,
+    };
+  }
+
+  it("surfaces 'Källa: Auto-repair (server-driven)' when promptSource=auto_repair", () => {
+    const steps = buildPromptStrategySteps(
+      metaFor({ promptSource: "auto_repair", reason: "auto_repair" }),
+    );
+
+    // Source line must appear FIRST so the user immediately sees it.
+    expect(steps[0]).toBe("Källa: Auto-repair (server-driven)");
+    expect(steps).toContain(
+      "Typ: auto-repair (klassad som followup_technical)",
+    );
+    expect(steps).toContain("Orsak: Auto-repair efter typecheck/quality-gate");
+    // Must NOT fall back to the misleading legacy text.
+    expect(steps).not.toContain("Orsak: Registry-data bevarad oförändrad");
+  });
+
+  it("does not show the auto-repair source line for user-driven follow-ups", () => {
+    const steps = buildPromptStrategySteps(
+      metaFor({
+        promptSource: "user",
+        promptType: "followup_technical",
+        reason: "within_budget",
+      }),
+    );
+
+    expect(steps).not.toContain("Källa: Auto-repair (server-driven)");
+    expect(steps).toContain("Typ: followup_technical");
   });
 });

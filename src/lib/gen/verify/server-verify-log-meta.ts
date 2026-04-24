@@ -130,6 +130,15 @@ type BuildServerRepairOutcomeMetaParams = {
   llmPasses: number;
   repaired: boolean;
   remainingErrors?: number;
+  /**
+   * Source of the `remainingErrors` count. esbuild = parse/syntax pass,
+   * quality_gate = tsc/build/eslint result. Without this label, callers
+   * can't tell why "0 errors remain" sometimes coexists with a failed
+   * promotion (a syntax-clean run still failed quality gate).
+   */
+  remainingErrorsSource?: "esbuild_syntax" | "quality_gate";
+  /** True when esbuild syntax is clean but typecheck/build still failed. */
+  syntaxCleanGateFailed?: boolean;
   earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
   verifyLaneDurationMs: number;
   firstFailureCheck: string | null;
@@ -147,6 +156,8 @@ export function buildServerRepairOutcomeMeta(
     llmPasses,
     repaired,
     remainingErrors,
+    remainingErrorsSource,
+    syntaxCleanGateFailed,
     earlyStopReason,
     verifyLaneDurationMs,
     firstFailureCheck,
@@ -161,6 +172,8 @@ export function buildServerRepairOutcomeMeta(
     llmPasses,
     repaired,
     remainingErrors,
+    ...(remainingErrorsSource ? { remainingErrorsSource } : {}),
+    ...(typeof syntaxCleanGateFailed === "boolean" ? { syntaxCleanGateFailed } : {}),
     earlyStopReason,
     durationMs: verifyLaneDurationMs,
     verifyLaneDurationMs,

@@ -1,3 +1,4 @@
+// TODO(plan-09): kvar tills nästa cleanup — verifier-fasen är aktiv; legacy optimistic-clear-grenen kan dö först när rerun-gaten förenklas helt.
 /**
  * Verifier-pass phase for `runFinalizeFastPath`: runs the verifier,
  * optionally feeds blocking findings back to the LLM fixer, re-runs the
@@ -11,14 +12,12 @@
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { FEATURES } from "@/lib/config";
-import { DEFAULT_MODEL_ID, type CanonicalModelId } from "@/lib/models/catalog";
-import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
-import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
+import type { CanonicalModelId } from "@/lib/models/catalog";
+import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import {
   formatVerifierFindingsAsFixerErrors,
   runVerifierPass,
 } from "@/lib/gen/verify/verifier-pass";
-import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
 import { devLogAppend } from "@/lib/logging/devLog";
 import type { AutoFixResult } from "@/lib/gen/autofix/pipeline";
@@ -140,26 +139,16 @@ export async function runVerifierPhase(params: {
       const fixerErrors = formatVerifierFindingsAsFixerErrors({
         blocking: findings.blocking,
       });
-      // Samma DEFAULT_MODEL_ID-fallback som används i partial-file-repair
-      // ovan — fixerModel ska aldrig vara undefined så phaseRouting alltid
-      // följer manifestet (inte runLlmFixer:s interna default).
-      const verifierFixerTier = resolvedTier ?? DEFAULT_MODEL_ID;
-      const fixerModel = resolvePhaseModel(verifierFixerTier, "fixer").modelId;
-      const fixerThinking = resolvePhaseThinking(verifierFixerTier, "fixer");
-      const verifierFixAbort = new AbortController();
-      const verifierFixTimeout = setTimeout(
-        () => verifierFixAbort.abort(),
-        VERIFIER_REPAIR_TIMEOUT_MS,
-      );
       let fixerImproved = false;
       try {
-        const repaired = await runLlmFixer(contentForVersion, fixerErrors, {
-          model: fixerModel,
-          thinking: fixerThinking?.thinking,
-          reasoningEffort: fixerThinking?.reasoningEffort,
-          recurringPatterns: readRecurringPatternsForChat(chatId),
-          abortSignal: verifierFixAbort.signal,
+        const repairGate = await runLlmRepairGate({
+          content: contentForVersion,
+          errors: fixerErrors,
+          chatId,
+          timeoutMs: VERIFIER_REPAIR_TIMEOUT_MS,
+          resolvedTier,
         });
+        const repaired = repairGate.result;
         let rerunBlockingCount: number | null = null;
         let rerunDurationMs: number | null = null;
         if (repaired.success && repaired.fixedContent) {
@@ -284,8 +273,6 @@ export async function runVerifierPhase(params: {
               ? verifierFixErr.message
               : "Unknown verifier fixer error",
         });
-      } finally {
-        clearTimeout(verifierFixTimeout);
       }
       stepTelemetry = createFinalizeStepTelemetry(verifierStartedAt, "done", {
         trigger: reason,

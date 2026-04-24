@@ -860,8 +860,21 @@ function extractToolSteps(tool: Partial<ToolUIPart> & { input?: unknown }) {
       if (typeof obj.method === "string" && obj.method.trim()) {
         lines.push(`Metod: ${obj.method.trim()}`);
       }
-      if (typeof obj.remainingErrors === "number" && Number.isFinite(obj.remainingErrors)) {
-        lines.push(`Kvarvarande fel: ${obj.remainingErrors}`);
+      const syntaxCleanGateFailed = obj.syntaxCleanGateFailed === true;
+      if (syntaxCleanGateFailed) {
+        lines.push("Kvarvarande fel: 0 syntaxfel (esbuild) — men quality gate (typecheck/build) failar fortfarande");
+      } else if (typeof obj.remainingErrors === "number" && Number.isFinite(obj.remainingErrors)) {
+        const sourceLabel =
+          obj.remainingErrorsSource === "esbuild_syntax"
+            ? "syntax (esbuild)"
+            : obj.remainingErrorsSource === "quality_gate"
+              ? "quality gate"
+              : null;
+        lines.push(
+          sourceLabel
+            ? `Kvarvarande fel: ${obj.remainingErrors} (${sourceLabel})`
+            : `Kvarvarande fel: ${obj.remainingErrors}`,
+        );
       }
       if (typeof obj.improvedSyntax === "boolean") {
         lines.push(`Syntax förbättrades: ${obj.improvedSyntax ? "ja" : "nej"}`);

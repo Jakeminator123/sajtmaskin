@@ -59,6 +59,96 @@ describe("follow-up clarification intent classification", () => {
     // ner i andra grenar; ska inte plötsligt klassas som clear-redesign.
     expect(classifyFollowUpIntent("snyggare färgschema")).not.toBe("clear-redesign");
   });
+
+  // 2026-04-22 audit (rapport 05 + 06): Unicode-\b + "byt"-token regressionskydd.
+  // Innan fixen: ASCII `\b` matchade inte före `ä/ö/å`, så "Ändra rubriken…"
+  // föll till `neutral`. Nu plockas det upp som en riktig refine-prompt via
+  // refine-regexet för "ändra" + specifik target "rubrik".
+  it("classifies Swedish refine prompts with ä/ö/å as clear-refine", () => {
+    expect(classifyFollowUpIntent("Ändra rubriken till Hej")).toBe("clear-refine");
+  });
+
+  it("classifies bare 'byt'-edits as clear-refine (not neutral)", () => {
+    expect(classifyFollowUpIntent("Byt hero-bilden till en elefant")).toBe("clear-refine");
+  });
+
+  // 2026-04-22 follow-up audit — gap i refine-patterns:
+  // "flytta" + engelska "change"/"move" saknades som refine-signaler,
+  // vilket gjorde rena layout-/edit-prompter till neutral.
+  it("classifies 'Flytta'-layout-edits as clear-refine", () => {
+    expect(classifyFollowUpIntent("Flytta CTA-knappen under rubriken")).toBe("clear-refine");
+  });
+
+  it("classifies English 'change'-edits as clear-refine", () => {
+    expect(classifyFollowUpIntent("Change the primary color to teal")).toBe("clear-refine");
+  });
+
+  it("classifies English 'move'-edits as clear-refine", () => {
+    expect(classifyFollowUpIntent("Move the pricing section above FAQ")).toBe("clear-refine");
+  });
+
+  // Plan 06 (2026-04-24): capability-add must beat clear-refine when the
+  // prompt asks to ADD a dossier-mappable feature. The smoke run 2 prompt
+  // was the headline failure — it survived as `neutral` and produced an
+  // empty 3D-shell. Now it routes through capability-add → orchestrate
+  // sees `requestedDossierCapabilities: ['visual-3d']` → three-fiber-canvas
+  // dossier is injected → package.json gets three/r3f deps (plan 07).
+  it("classifies the smoke run 2 3D follow-up as capability-add", () => {
+    expect(
+      classifyFollowUpIntent("Skapa en 3d-kaffekopp som hoovrar och flyger ovanför"),
+    ).toBe("capability-add");
+  });
+
+  it("classifies 'lägg till en kontaktform' as capability-add (not clear-refine)", () => {
+    expect(classifyFollowUpIntent("lägg till en kontaktform")).toBe("capability-add");
+  });
+
+  it("classifies English 'add a contact form' as capability-add", () => {
+    expect(classifyFollowUpIntent("add a contact form at the bottom")).toBe("capability-add");
+  });
+
+  it("classifies 'lägg till physics-simulation av studsande tomater' as capability-add", () => {
+    expect(
+      classifyFollowUpIntent("lägg till physics-simulation av studsande tomater"),
+    ).toBe("capability-add");
+  });
+
+  it("does not flip 'ändra färgen på knappen' to capability-add (no capability noun)", () => {
+    // Pre-existing Fix B classification (verb+noun design combo) takes this
+    // through `clear-redesign` before capability-add even runs. The point of
+    // the test is that capability-add does NOT swallow plain colour edits.
+    expect(classifyFollowUpIntent("ändra färgen på knappen")).not.toBe("capability-add");
+  });
+
+  it("does not flip 'Move the pricing section above FAQ' to capability-add (move verb, no add)", () => {
+    expect(classifyFollowUpIntent("Move the pricing section above FAQ")).toBe("clear-refine");
+  });
+
+  // Plan 11 / open-question #12: capability-modify must beat capability-add
+  // when the prompt names a capability AND points at an existing on-page
+  // element. Without this branch the LLM would re-inject the dossier shell
+  // on top of the working scene file (chat `b71dafb3` smoke run B).
+  it("classifies 'gör pricken till en 3d-kaffekopp …' as capability-modify (plan 11)", () => {
+    expect(
+      classifyFollowUpIntent(
+        "gör pricken till en 3d-kaffekopp som häller kaffe när jag nuddar den med musen",
+      ),
+    ).toBe("capability-modify");
+  });
+
+  it("classifies 'byt ut bubblan mot en 3d-kaffekopp' as capability-modify (plan 11)", () => {
+    expect(
+      classifyFollowUpIntent("byt ut bubblan mot en 3d-kaffekopp"),
+    ).toBe("capability-modify");
+  });
+
+  it("keeps fresh add prompts on capability-add even if they mention 3d (plan 11)", () => {
+    // No modify-reference token → must remain capability-add so the
+    // dossier shell still gets injected on a true add.
+    expect(
+      classifyFollowUpIntent("lägg till en 3d-kaffekopp som hoovrar ovanför"),
+    ).toBe("capability-add");
+  });
 });
 
 describe("hasDesignFollowUpSignal (Fix A)", () => {

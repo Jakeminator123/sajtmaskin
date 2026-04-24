@@ -39,10 +39,6 @@ export function usePreviewPanelInspectMapPlacement(options: {
   iframeLoading: boolean;
   externalLoading: boolean;
   iframeRef: RefObject<HTMLIFrameElement | null>;
-  buildPreviewSrc: (url: string, token?: number) => string;
-  setIframeLoading: Dispatch<SetStateAction<boolean>>;
-  setIframeError: Dispatch<SetStateAction<boolean>>;
-  setIframeErrorMessage: Dispatch<SetStateAction<string | null>>;
   fetchFilesForRegistry: () => void | Promise<void>;
   setInspectStatus: Dispatch<SetStateAction<string | null>>;
   setLastCodeMatch: Dispatch<SetStateAction<RegistryMatch | null>>;
@@ -59,10 +55,6 @@ export function usePreviewPanelInspectMapPlacement(options: {
     iframeLoading,
     externalLoading,
     iframeRef,
-    buildPreviewSrc,
-    setIframeLoading,
-    setIframeError,
-    setIframeErrorMessage,
     fetchFilesForRegistry,
     setInspectStatus,
     setLastCodeMatch,
@@ -149,13 +141,13 @@ export function usePreviewPanelInspectMapPlacement(options: {
       const next = !prev;
       const requestToken = ++inspectFetchTokenRef.current;
       if (next) {
-        setIframeLoading(true);
-        setIframeError(false);
-        setIframeErrorMessage(null);
-        const iframe = iframeRef.current;
-        if (iframe) {
-          iframe.src = buildPreviewSrc(previewUrl, Date.now());
-        }
+        // plan-02 / STATUS-01-fynd: tidigare `iframe.src = buildPreviewSrc(...)`
+        // här återladdade preview-iframen vid inspect-toggle, vilket nollställde
+        // dess scroll-position och fick användarens sida att "scrolla upp" ~0.5s
+        // efter att Inspektera-knappen aktiverats. Element-map hämtas via
+        // `/api/inspector-element-map` mot `previewUrl` direkt och behöver inte
+        // en ren iframe-state. Den parallella useEffect:en nedan fortsätter
+        // dessutom trigga delayed map-fetch när previewUrl/versionId ändras.
         void fetchFilesForRegistry();
         const container = iframeRef.current?.parentElement;
         const w = container?.clientWidth || 1280;
@@ -175,15 +167,11 @@ export function usePreviewPanelInspectMapPlacement(options: {
     setLastCodeMatch(null);
     setInspectStatus("Laddar elementkarta...");
   }, [
-    buildPreviewSrc,
     previewUrl,
     fetchFilesForRegistry,
     fetchElementMap,
     inspectorEnabled,
     iframeRef,
-    setIframeLoading,
-    setIframeError,
-    setIframeErrorMessage,
     setInspectStatus,
     setLastCodeMatch,
   ]);

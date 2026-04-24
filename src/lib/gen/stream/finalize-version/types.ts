@@ -114,6 +114,15 @@ export interface FinalizeResult {
    * Apple-minimal builder to render the "blocked by verifier" callout.
    */
   verifierBlockingFindings?: Array<{ id: string; detail: string }>;
+  /**
+   * Cross-file imports the LLM made to local files that did not exist —
+   * `cross-file-import-checker` auto-stubbed them so the build passes,
+   * but the rendered component is hollow. Surfaced as `warning`-level
+   * rows in the version diagnostics modal so users understand "1 fil
+   * saknades och stubbades" instead of believing the generation succeeded
+   * fully (plan-02 / STATUS-02; coffee-cup-3d-style anti-pattern).
+   */
+  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
 }
 
 export interface FinalizePathPolicy {
@@ -156,6 +165,8 @@ export interface FinalizeFastPathResult {
     file: string;
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
+  /** See `FinalizeResult.crossFileStubs`. */
+  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 

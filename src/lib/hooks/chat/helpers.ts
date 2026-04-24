@@ -877,6 +877,13 @@ function formatPromptStrategyReason(reason: string): string {
     empty_prompt: "Tom prompt",
     preserve_registry_payload: "Registry-data bevarad oförändrad",
     technical_content_preserved: "Tekniskt innehåll bevarat",
+    // Plan 03 (short): surfaced when the pass was triggered automatically by
+    // the client autofix loop / verifier-driven repair instead of by the user
+    // typing a follow-up. Replaces the misleading "Registry-data bevarad
+    // oförändrad" line that appeared on auto-repair passes before because
+    // `promptSourcePreservePayload: true` aliased onto the registry-payload
+    // branch.
+    auto_repair: "Auto-repair efter typecheck/quality-gate",
     force_phase_threshold: "Mycket lång prompt — fasadläge (Plan → Build → Polish)",
     high_complexity: "Hög komplexitet — fasadläge",
     over_budget_summarized: "Över mjuk gräns — prompt sammandragen",
@@ -892,7 +899,13 @@ function formatPromptStrategyReason(reason: string): string {
   return map[reason] ?? reason;
 }
 
-function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
+/**
+ * Exported for unit tests (plan 03). Render the per-step labels the UI shows
+ * under the "Prompt strategy" tool part. Auto-repair passes get an explicit
+ * "Källa: Auto-repair (server-driven)" line so the user can tell them apart
+ * from a follow-up they typed themselves.
+ */
+export function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
   const strategyLabel =
     meta.strategy === "phase_plan_build_refine"
       ? "fasad (Plan -> Build -> Polish)"
@@ -905,7 +918,17 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
       ? `Langd: ${meta.originalLength} → ${meta.optimizedLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget})`
       : `Langd: ${meta.originalLength} tecken (mjuk orkestreringsgräns ~${meta.budgetTarget} innan ev. sammandragning)`;
 
-  const steps = [`Prompt optimerad: ${strategyLabel}`, `Typ: ${meta.promptType}`, lengthLine];
+  const steps: string[] = [];
+  if (meta.promptSource === "auto_repair") {
+    // Show the source first so the user immediately sees it's not their pass.
+    steps.push("Källa: Auto-repair (server-driven)");
+  }
+  steps.push(`Prompt optimerad: ${strategyLabel}`);
+  const typeLine =
+    meta.promptSource === "auto_repair"
+      ? `Typ: auto-repair (klassad som ${meta.promptType})`
+      : `Typ: ${meta.promptType}`;
+  steps.push(typeLine, lengthLine);
   if (meta.reason) steps.push(`Orsak: ${formatPromptStrategyReason(meta.reason)}`);
   // Do not duplicate "Genererar innehåll och filer…" here — the engine progress tool
   // (generation / streaming) already emits the same line when output starts.

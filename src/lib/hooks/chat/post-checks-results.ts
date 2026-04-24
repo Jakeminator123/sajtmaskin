@@ -65,6 +65,7 @@ export interface PostCheckArtifacts {
       warnings: number;
       provisional: boolean;
       /** @deprecated Renamed to verifyPending — kept for backward-compatible JSON. */
+      // TODO(after-wave-5): drop after deadline 2026-Q3 if no inbound payloads.
       qualityGatePending: boolean;
       autoFixQueued: boolean;
       qualityTier: QualityTier;
@@ -81,6 +82,7 @@ export interface PostCheckArtifacts {
     previousVersionId: string | null;
     demoUrl: string | null;
     provisional: boolean;
+    // TODO(after-wave-5): drop after deadline 2026-Q3 if no inbound payloads.
     qualityGatePending: boolean;
     autoFixQueued: boolean;
     qualityGate: {

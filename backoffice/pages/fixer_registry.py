@@ -53,6 +53,15 @@ CATEGORY_COLORS = {
     "verifier-pass": "#7c3aed",
 }
 
+LANE_COLORS = {
+    "mechanical": "#2563eb",
+    "static_gate": "#9a3412",
+    "llm_repair": "#dc2626",
+    "stream_suspense": "#0d9488",
+    "post_merge": "#a16207",
+    "server_repair": "#7c3aed",
+}
+
 
 def _badge(label: str, color: str) -> str:
     return (
@@ -102,10 +111,14 @@ def render(ctx: BackofficeContext) -> None:
             )
             for entry in by_category[category]:
                 with st.expander(f"`{entry['id']}` — {entry['targetFailureMode']}"):
+                    lane = str(entry.get("lane") or "unknown")
+                    lane_badge = _badge(lane, LANE_COLORS.get(lane, "#525252"))
                     st.markdown(
                         f"**Phase:** `{entry.get('ownerPhase', '?')}` &nbsp;&nbsp; "
+                        f"**Lane:** {lane_badge} &nbsp;&nbsp; "
                         f"**Status:** `{entry.get('status', 'unknown')}` &nbsp;&nbsp; "
-                        f"**Source:** `{entry.get('sourcePath', '?')}`"
+                        f"**Source:** `{entry.get('sourcePath', '?')}`",
+                        unsafe_allow_html=True,
                     )
                     triggers = entry.get("triggers") or []
                     if triggers:
@@ -132,6 +145,7 @@ def render(ctx: BackofficeContext) -> None:
                 {
                     "id": e.get("id"),
                     "category": e.get("category"),
+                    "lane": e.get("lane"),
                     "phase": e.get("ownerPhase"),
                     "status": e.get("status"),
                     "targetFailureMode": e.get("targetFailureMode"),

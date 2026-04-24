@@ -102,6 +102,17 @@ export async function computeScaffoldScores(): Promise<ScaffoldScore[]> {
         byScaffold.set(id, stats);
       }
 
+      // SAJ-49: exclude rows where `previewSuccess` is null (timeout, abort,
+      // hibernate, or any case where the preview lifecycle never produced a
+      // confirmed pass/fail signal). Counting null as "miss" punished
+      // scaffolds for infrastructure noise. Now `totalGenerations` and
+      // `successRate` reflect only confirmed outcomes; pending/unknown rows
+      // are observed via meta-telemetry instead, not folded into ranking.
+      if (row.previewSuccess === null) {
+        // Skip — keep `feedbackTotal` / `preflightErrorSum` / retry counters
+        // out of confirmed-outcomes scope as well so the slice is consistent.
+        continue;
+      }
       stats.totalGenerations += 1;
       if (row.previewSuccess === true) stats.successCount += 1;
       const fb = parseFeedbackRating(row.userFeedback);
@@ -111,7 +122,16 @@ export async function computeScaffoldScores(): Promise<ScaffoldScore[]> {
       }
       stats.preflightErrorSum += row.preflightErrorCount ?? 0;
       if (row.scaffoldRetryUsed === true) stats.retryCount += 1;
-      if (row.scaffoldSelectionMethod === "embedding") stats.embeddingSelections += 1;
+      // SAJ-53: `agreement` means keyword + embedding-top1 picked the same
+      // scaffold, so semantics actively contributed to the decision. Count
+      // it alongside `embedding` so `embeddingShare` reflects when the
+      // matcher leaned on semantic signal at all (not only override wins).
+      if (
+        row.scaffoldSelectionMethod === "embedding" ||
+        row.scaffoldSelectionMethod === "agreement"
+      ) {
+        stats.embeddingSelections += 1;
+      }
     }
 
     const results: ScaffoldScore[] = [];

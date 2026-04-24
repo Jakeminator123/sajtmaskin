@@ -37,6 +37,7 @@ export interface V0WebhookEvent {
     versionId?: string;
     deploymentId?: string;
     /** @deprecated Prefer previewUrl in inbound payloads; both accepted during dual-key phase. */
+    // TODO(after-wave-5): drop after deadline 2026-Q3 if no inbound payloads.
     demoUrl?: string;
     previewUrl?: string;
     url?: string;

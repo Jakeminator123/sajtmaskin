@@ -133,6 +133,14 @@ const SCOPED_PACKAGE_PREFIXES: Record<string, string> = {
   "@radix-ui/react-": "^1",
 };
 
+const CAPABILITY_DEPENDENCY_REQUIREMENTS: Record<string, string[]> = {
+  "visual-3d": [
+    "three",
+    "@react-three/fiber",
+    "@react-three/drei",
+  ],
+};
+
 export function resolveKnownVersion(pkg: string): string | undefined {
   const direct = KNOWN_PACKAGES[pkg];
   if (direct) return direct;
@@ -156,6 +164,59 @@ function isBuiltin(pkg: string): boolean {
     if (pkg.startsWith(`${b}/`)) return true;
   }
   return false;
+}
+
+function normalizeCapabilityList(requestedCapabilities: string[] | null | undefined): string[] {
+  if (!Array.isArray(requestedCapabilities) || requestedCapabilities.length === 0) return [];
+  return Array.from(
+    new Set(
+      requestedCapabilities
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
+export function resolveCapabilityDependencies(
+  requestedCapabilities: string[] | null | undefined,
+): Record<string, string> {
+  const deps: Record<string, string> = {};
+  for (const capability of normalizeCapabilityList(requestedCapabilities)) {
+    const requiredPackages = CAPABILITY_DEPENDENCY_REQUIREMENTS[capability];
+    if (!requiredPackages) continue;
+    for (const pkg of requiredPackages) {
+      const version = resolveKnownVersion(pkg);
+      if (version) deps[pkg] = version;
+    }
+  }
+  return deps;
+}
+
+function toDependencyRecord(input: unknown): Record<string, string> {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  return Object.fromEntries(
+    Object.entries(input as Record<string, unknown>).filter(
+      ([, value]) => typeof value === "string" && value.trim().length > 0,
+    ),
+  ) as Record<string, string>;
+}
+
+export function mergeMissingDependenciesIntoPackageJson(
+  packageJson: Record<string, unknown>,
+  missingDependencies: Record<string, string>,
+): { packageJson: Record<string, unknown>; mergedCount: number } {
+  const nextPackageJson = { ...packageJson };
+  const dependencies = toDependencyRecord(nextPackageJson.dependencies);
+  let mergedCount = 0;
+  for (const [name, version] of Object.entries(missingDependencies)) {
+    if (dependencies[name]) continue;
+    dependencies[name] = version;
+    mergedCount += 1;
+  }
+  if (mergedCount > 0) {
+    nextPackageJson.dependencies = dependencies;
+  }
+  return { packageJson: nextPackageJson, mergedCount };
 }
 
 /**

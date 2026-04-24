@@ -25,12 +25,15 @@ Conservative rollout:
 
 ## Available Schemas
 
-| Schema | Validates | Source of truth |
-|--------|-----------|-----------------|
-| `scaffold-variant.schema.json` | `config/scaffold-variants/<scaffoldId>/*.json` | `src/lib/gen/scaffold-variants/types.ts` |
-| `structural-references.schema.json` | `VariantStructuralFilesSelection` (prompt-dump output) | `src/lib/gen/scaffold-variants/structural-files.ts` |
-| `preview-session-contract.schema.json` | Preview session objects | See file |
-| `plan-file.schema.json` | YAML frontmatter for `docs/plans/active/P*.md` | `docs/plans/active/parallel-execution-2026-04.md` (master orchestrator) |
+| Schema | Validates | Source of truth | Runtime check? |
+|--------|-----------|-----------------|----------------|
+| `dossier.schema.json` | `data/dossiers/<class>/<id>/manifest.json` | `src/lib/gen/dossiers/types.ts` + `validate-manifest.ts` | **Yes** — AJV in `validate-manifest.ts` |
+| `scaffold-variant.schema.json` | `config/scaffold-variants/<scaffoldId>/*.json` | `src/lib/gen/scaffold-variants/types.ts` | Editor-only (runtime in `registry.ts`) |
+| `preview-session-contract.schema.json` | Preview session objects (machine-readable spec, not a draft-07 schema) | See file | No — TS contracts are source of truth |
+| `plan-file.schema.json` | YAML frontmatter for `docs/plans/active/P*.md` | Manual / P27 master orchestrator | No automated runner today |
+| `db-health-check-report.schema.json` | stdout-payload from `scripts/db/db-health-check.mjs` | `scripts/db/db-health-check.mjs` | CI: AJV mot fixtures (`src/lib/db/health-schemas.test.ts`). Ingen live-DB-validering i CI; manuell roundtrip-validering kan köras lokalt med `node scripts/db/db-health-check.mjs \| ajv …` |
+| `redis-health-check-report.schema.json` | stdout-payload from `scripts/db/redis-health-check.mjs` | `scripts/db/redis-health-check.mjs` | CI: AJV mot fixtures. Manuell live-roundtrip lokalt. |
+| `db-perf-indexes-audit-line.schema.json` | One NDJSON line per run of `scripts/db/add-performance-indexes.mjs` (logged to `data/observability/db-perf-indexes-runs.ndjson`) | `scripts/db/add-performance-indexes.mjs` | CI: AJV mot fixtures. NDJSON-rader skrivs av skriptet vid varje körning men valideras inte runtime. |
 
 ### scaffold-variant.schema.json
 

@@ -77,7 +77,7 @@ Tre paralella vägar — bara en av dem triggar automatisk repair, och **inte i 
 
 3. **Manuell `/api/.../repair`** — tillgänglig men kräver klick.
 
-### Nuvarande verklighet ✅ (opt-in)
+### Nuvarande verklighet ✅ (default ON i dev/preview, OFF i prod)
 
 Ny exporterad funktion **`triggerBuildErrorRepair`** i [`server-verify.ts`](../../src/lib/gen/verify/server-verify.ts), gated av `isAutoRepairBuildErrorEnabled()`. **Sedan denna leverans (Wave 4):** default ON i `development` + Vercel `preview`, default OFF i `production`. `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1|true|false|on|off|yes|no` overridar default explicit. Hookad i [`generation-stream-post-finalize.ts`](../../src/lib/providers/own-engine/generation-stream-post-finalize.ts) på båda `build-error`-emit-platserna. När loopen är aktiv:
 
@@ -88,7 +88,7 @@ Ny exporterad funktion **`triggerBuildErrorRepair`** i [`server-verify.ts`](../.
    - Kallar `tryServerRepairLoop` → mekanisk autofix → ev. LLM-fixer → repass quality-gate
 3. Om repair lyckas: `version-repair-available` SSE → UI visar "Acceptera repair"-knapp (samma flow som server-verify-baserad repair)
 
-**Default off** för säkerhet — testa i dev först, sätt `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1` i staging, validera att repair-loopen inte stör live-preview boot, sen rulla ut till prod.
+**Default ON i dev + Vercel preview, OFF i prod.** Sätt `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1` explicit i prod när repair-loopens beteende är validerat och du vill rulla ut globalt.
 
 ---
 
@@ -140,6 +140,22 @@ Tre verkliga uppkomstkällor identifierade och **alla nu blockerade**:
 | LLM-fixer kontextbredd | ⚠️ Litet | Endast `error.file/line/message` + targeted bundle. Att lägga in build-output (`npm run dev`-stderr) i kontexten skulle hjälpa svåra fall |
 
 Den enda återstående medvetna gråzonen är "version visas i UI innan verify klar" — det är en UX-tradeoff. Allt annat på listan är antingen åtgärdat, dokumenterat med uttalad orsak, eller spårningsbart via telemetri.
+
+---
+
+## Återstående gap mot världsklass-målbilden
+
+För **vart vi siktar** (3-fasmodell, single repair gate, status event bus, init/follow-up som distinkta operationer): se [`llm-flow-target-worldclass.md`](./llm-flow-target-worldclass.md).
+
+Konkret nuvarande gap:
+
+| Område | Idag | Mål | Plan |
+|---|---|---|---|
+| **Repair-gate** | 5 callsites till `runLlmFixer` (verifier-fixer, partial-file-repair, syntax-fixer, tsc-fixer, eslint-fixer) | 1 RepairGate-modul med 3 buckets internt | `L1-unified-repair-call.md` (parkad — väntar telemetri) |
+| **Status event bus** | DB-flaggor + SSE-events parallellt; UI läser DB-flaggor via `resolveEngineVersionDisplayStatus` | UI läser projektion `selectVersionStatus(events)` (existerar sedan OMTAG fas 3·06) | `Kvarvarande-uppgifter.md` #11 |
+| **Brief-vägar** | klient-brief / server-auto-brief / snapshot-brief / fallback-addendum parallellexisterar | Sekventiell hierarki | P2 + P7 (öppna) |
+| **Verifier-pass placering** | Inline i finalize men hoppas över på fast-path | Antingen alltid inline (med budget) eller helt asynk | Audit §3.1 (telemetri-blockad) |
+| **Prompt-lager-konsolidering** | Deep Brief + Rewrite + Polish + formatPrompt + server-auto-brief | En kanonisk path | P7 (öppet) |
 
 ---
 

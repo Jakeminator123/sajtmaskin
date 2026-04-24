@@ -1,17 +1,93 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-20 efter cloud-loop (PR #69 — 21 commits) ovanpå master `51751bd30`. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13. + 21 nya etapper (Block 0+1+2 i cloud-loopen).** Se `STATUS-2026-04-20.md` i repo-roten för fullständig sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+Senast uppdaterad: 2026-04-23 efter OMTAG-waven (11 uppdrag mergade). Tidigare: 2026-04-22 efter LLM-flow-audit + follow-up-pass. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** Se [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md) (senast) + [`../../status-archive/STATUS-2026-04-20.md`](../../status-archive/STATUS-2026-04-20.md) + [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) för fullständig wave-sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
 
-## Öppna punkter (smal lista — 4 saker)
+## Avklarat i OMTAG-waven (2026-04-23)
+
+11 uppdrag över 9 agenter i 3 faser. Kärnresultat: 4 monoliter splittade (system-prompt.ts, build-spec.ts, promptAssist.ts, finalize-version.ts → paket), eval-baseline etablerad, 11 env-flaggor borta, dossier-AJV-validator wire:ad, scaffold-default-block för app/page.tsx ("Nordic Future Summit"-klassen), follow-up-predicate konsoliderad, unified status event-bus, content-site→landing-page merged. Detaljer + kördokument: [`../avklarat/omtag-2026-04-23/meta/INDEX.md`](../avklarat/omtag-2026-04-23/meta/INDEX.md). Slutrapport med +delta mot gpt-rapport: [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md).
+
+## Avklarat i LLM-flow-audit + follow-up (2026-04-22)
+
+Triage av 8 parallella audit-rapporter → 13 verifierade buggar fixade, 11 var by-design eller doc-drift. Sedan ett follow-up-pass där 5 nya agentrapporter triagerades mot master efter fixarna.
+
+**Commit a35eaa05e — första fix-vågen:**
+
+| Område | Vad |
+|---|---|
+| Orkestrering | `fetchCommunityBlocks` tar nu `intentSourcePrompt` istället för wrappad `prompt`; `scaffold_drift`/`scaffold_unknown_brief_nomination` loggar `resolvedMode`; init fick `routePlanPrompt`+`buildSpecPrompt`+`contractsPrompt`+`scaffoldMatchPrompt` precis som follow-up; plan mode fick `engineModelId`+`lifecycleStage`; `buildFollowUpBriefFromSnapshot` rehydrerar `visualDirection.styleKeywords` + `toneAndVoice`; `effectiveInitRouteCount` respekterar `isFirstCodeGeneration`. |
+| Intent-klassning | Alla svenska `\b`-regex i `follow-up-clarification.ts` och `request-kind.ts` konverterade till Unicode look-arounds; `MULTI_CHANGE` tog emot cardinalen `tre` (typo `trea` fixad); refine-patterns fick bare `byt`; specific-targets fick `rubrik/title/headline`. |
+| Verifier-pass | `checkUndefinedJsxSymbols` registrerar nu TS generic type params (`<T>`, `<TData, U extends X>` etc.); `lazy(`-bailout smalnades till `React.lazy` eller `lazy` importerat från `react`/`react-dom`. |
+| Fixer-fallback | `server-verify.ts` använder nu `DEFAULT_MODEL_ID` när chat-modell inte mappar till canonical tier. |
+| Docs + backoffice | `llm-signal-flow.md` speglar `buildFollowUpBriefFromSnapshot` + canonical `BUILD_INTENT_GUIDANCE`; `quality-gate.md` beskriver verifier-pass som hybrid; `backoffice/pages/preview.py` + `_ops_impl.py` uppdaterade. |
+
+Rapportsammanfattning: `audit-reports/2026-04-22-llm-flow/SUMMARY.md`.
+
+**Commit 8de85797b — Unicode-regex-grundinfrastruktur:**
+
+| Vad | Fil |
+|---|---|
+| Canonical helper: `uWord`, `uWordRegex`, `containsUnicodeWord`, `escapeRegexLiteral` + `UNICODE_WB_LEFT`/`RIGHT` | `src/lib/utils/unicode-word-boundary.ts` (+ 11 tester) |
+| Cursor-regel som varnar framtida agenter | `.cursor/rules/unicode-regex.mdc` |
+| Preflight-guard — failar om `\b` sitter direkt bredvid icke-ASCII-bokstav | `scripts/dev/check-unicode-regex.mjs` (inkopplad i `preflight:common`) |
+| Fixar sista kvarvarande riktiga bugg: `\bnaturmiljö\b` + `\bklippmiljö\b` | `src/lib/images/unsplash-query-fallback.ts` |
+
+**Follow-up-commit (denna session) — 5 nya audit-rapporter triagerade:**
+
+Av ~15 nya fynd från 5 parallella agenter var 7 äkta buggar, resten dubbletter/design-val/missförstånd (se "Fynd som inte är buggar" nedan).
+
+| Fix | Fil |
+|---|---|
+| Plan mode (init) fick samma rå-signalpaket som huvudflödet (`routePlanPrompt`+`buildSpecPrompt`+`contractsPrompt`+`scaffoldMatchPrompt`+`capabilitiesPrompt`) | `src/lib/api/engine/chats/create-chat-stream-post.ts` |
+| Plan mode (follow-up) fick `contractsPrompt`+`scaffoldMatchPrompt`+`capabilitiesPrompt` + snapshot-brief-hydrering via `buildFollowUpBriefFromSnapshot` | `src/lib/api/engine/chats/chat-message-stream-post.ts` |
+| `fixerModel` fallback till `DEFAULT_MODEL_ID` i alla 4 kvarvarande callsites (partial-file-repair, verifier-fixer, tsc-fixer, eslint-fixer, syntax-fixer) | `src/lib/gen/stream/finalize-version.ts` + `src/lib/gen/autofix/validate-and-fix.ts` |
+| P32-kommentaren i `orchestrate.ts` förtydligad att `requestKind` är medvetet inaktiv tills Fas B | `src/lib/gen/orchestrate.ts` |
+| `flytta`/`change`/`move` tillagda i refine-patterns (engelska + svenska layout-edits) | `src/lib/providers/own-engine/follow-up-clarification.ts` |
+| Shell-page-generator: ogiltig JS-identifierare om titel börjar med siffra (`3DPage` → `Page3D`); catch-all-route preview-URL (`/blog/...slug` → `/blog/example`) | `src/lib/gen/stream/finalize-preflight/shell-pages.ts` |
+| `domainProfile` rehydreras nu som slug-string istället för object så `system-prompt.ts`+`guidance-resolvers.ts` faktiskt ser domain-override från init→follow-up | `src/lib/gen/orchestration-snapshot.ts` |
+
+**Fynd som inte är buggar (återkommer i rapporter, dokumenteras här så triage inte måste göras om):**
+
+- `P32 requestKind` når inte `deriveBuildSpec` — **by design, Fas A only.** Se `P32-request-type-taxonomy.md`. Kommentaren i `orchestrate.ts` är nu förtydligad.
+- `classifyFollowUpIntentWithLlmFallback` ej inkopplad i runtime — **deliberate feature-flag**, planerat för P32 Fas F.
+- `inferContextPolicy`/`inferVerificationPolicy` använder inte `isFirstCodeGeneration` — **designval**; `isEffectiveInit` är medvetet begränsat till route-realization. Bredare semantik kräver aktivt designbeslut.
+- `fixerTier = originatingTier ?? DEFAULT_MODEL_ID` i `server-verify.ts` — **intentional**, bättre än `undefined`.
+- `useCreateChat` kör rå prompt när brief finns och `formatPrompt` när brief saknas — **by design** (brief bär semantiken).
+- Flaky 1/863 i `warm-eslint.test.ts` under bred parallell testsvit — känd race, passerar isolerat; inte relaterat till LLM-flödet.
+- `"Byt bild till en elefant. Gör också hela bakgrunden mörk"` → `clear-redesign` — **design call** (verb+noun-combo med `bakgrund`).
+
+## Avklarat i cleanup-wave pass 1+2 (2026-04-22)
+
+Kirurgisk uppföljning ovanpå den halvmergade 2026-04-21-waven (PR #81), körd direkt mot dagens master utan konflikter.
+
+| Commit | Vad | Varför |
+|---|---|---|
+| `refactor(cleanup/P2)` | Spec-first-kedjan borttagen: `/api/ai/spec`-route, `WebsiteSpec`/`SajtmaskinSpec`-typer + schema, `processPromptWithSpec`/`briefToSpec`/`promptToSpec`, `SPEC_MODEL`/`DEFAULT_SPEC_MODEL`/`DEFAULT_SPEC_MODE`, `SAJTMASKIN_SPEC_MODEL` + `SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS` env-keys, `briefing.specModel` i manifest + schema + zod + parity-test, `MAX_AI_SPEC_PROMPT_CHARS` export, `specMode`-query i kostnadsfri-page, `DEFAULT_SPEC_MODE`-state i useBuilderState, `spec-route` i model-trace, Streamlit-input i `backoffice/pages/ai_models.py`. `promptAssistContext.ts` 440 → 70 rader. | Hela kedjan markerad "borttagen" i glossary sedan Fas 1 världsklass men levde kvar som dödkod. Deep Brief är enda pre-generation-expansionen. |
+| `refactor(cleanup/P5)` | Fyra dormant FEATURES-flaggor hårdkodade ON: `useBuildSpec`, `useLightweightScaffoldSerialization`, `useFollowUpLightContext`, `useFinalizeDeepPath`. Tog bort `isBuildSpecEnabled()`-helper och SSE-meta-fältet `buildSpecEnabled` (3 callsites, 0 readers). 4 env-keys bort ur `env.ts` + `env-policy.json`. | Off-grenen flippades aldrig i produktion. |
+| `chore(cleanup/P1)` | `pendingSpecRef` bort (alla writes var `null`, reader branchade bort alltid false) — tråd genom 4 builder-hooks. `SPEC_FILE_INSTRUCTION` bort (noll callers). | Dödkodsrester från spec-first-borttagningen. |
+| `docs(cleanup/S3)` | 17 `~~strikethrough~~`-rader rensade ur glossary-huvudtabellerna (Fas 1/Fas 2/Fas 3/preview). Legacy-sektionen expanderad med allt från denna wave. | Mindre brus när man slår upp kanoniska termer. |
+| `chore(cleanup/knip)` | Downgraded intra-file-exports: `LEGACY_ALIAS`, `LEGACY_MODEL_IDS`, `EMPTY_VERIFIER_FINDINGS`, `promoteForcedBlockingFindings`, `isAutoRepairBuildErrorEnabled`. Raderade dead exports: `getPromptAssistModelOptions`, `resolvePlanModePlannerModelId`, `_resetTier3DenyCacheForTests`, `isServerVerifyInFlight`. | Knip-driven dead-export-purge på dagens master. |
+| `refactor(cleanup/P3)` | `legacyShimPreviewUrl`-fältet borttaget ur API-kontrakt + typer + UI-callers + test-fixtures. Servern satte alltid fältet till `null`, klienter läste det aldrig meningsfullt. Shim-preview-rutten (`/api/preview-render`, env-flaggad) är oförändrad. | Död API-kontrakt. 9 filer. |
+| `docs(cleanup/P6)` | Docs-sync: `legacyShimPreviewUrl`-raden rensad ur preview-sektionen i glossary. | Speglar koden. |
+
+Typecheck 0 fel, lint 0 fel, 1417/1417 tester gröna efter varje commit. Branchen: `cursor/cleanup-pass1-all` (PR #84 mot master).
+
+**Aktivt skippat denna wave** (semantisk konflikt-risk mot dagens master): `P7/R2` (system-prompt.ts split), `S1/T2` (build-spec.ts split), `U1/U2` (promptAssist.ts dedupe/extract), `R3/R3+` (finalize-version.ts split). Dessa filer har master-ändringar som skulle kräva semantisk hand-merge; principerna kan appliceras inom framtida commits när någon ändå rör de filerna.
+
+## Öppna punkter (smal lista)
 
 | # | Område | Beskrivning | Prio | Blocker |
 |---|--------|-------------|------|---------|
 | 1 | UX (P25b-rest) | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. | Låg | Visuell verifiering — [SAJ-23](https://linear.app/sajtmaskin/issue/SAJ-23) |
-| 2 | Ingress (P19 Steg 3) | UX-transparens vid follow-up-bas != latest ("du redigerar version X, inte senaste Y"). | Låg | UI-arbete (4–8h) — [SAJ-22](https://linear.app/sajtmaskin/issue/SAJ-22) |
-| 3 | Eval | Automatisk baseline-uppdatering (CI-script för eval-svit). | Låg | — |
-| 4 | Pre-existing test failures | 4 fail på master (phase-routing 3, model-selection 1) — inte rörda i cloud-loopen. **Dossier-failet borta 2026-04-20** efter v2-refactor (gamla testfilen ersatt). | Medel | Egen PR |
+| 2 | ~~Ingress (P19 Steg 3)~~ | ~~UX-transparens vid follow-up-bas != latest.~~ **Klart via OMTAG fas 2·A 2026-04-23** (amber basversions-badge i chat-composer). | — | — |
+| 3 | Eval | ~~Automatisk baseline-uppdatering (CI-script för eval-svit). Grund etablerad via OMTAG fas 0·02; CI-gate kvar.~~ **Klart 2026-04-24:** veckovis `eval-baseline-update.yml` (måndag 04:11 UTC) kör `cli.ts --gate --save-baseline` och öppnar draft-PR vid förbättring. PR-triggered eval:gate saknas medvetet (kostnad). Lokalt `npm run eval:baseline` är nu också `--gate --save-baseline` (förhindrar att råka commita regression). Se `src/lib/gen/eval/README.md`. | — | — |
+| 4 | Pre-existing test failures | 4 fail på master (phase-routing 3, model-selection 1) — inte rörda. **Dossier-failet borta 2026-04-20** efter v2-refactor. | Medel | Egen PR |
 | 5 | shadcn (P20 Nivå 3) | Uppströms `registry:font`-ingestion (fullt format). CI-MVP-validering klar 2026-04-20. | Låg | Inte blockerande |
 | 6 | shadcn (P20 Nivå 2) | Uppströms `registry:block`-integration (fullt format). Deterministic-pick shrink-leverans klar 2026-04-20. | Låg | Inte blockerande |
+| 7 | **E3 — recurring quality-patterns** | Flytta 3–5 senaste verifier-fynd per chat in i nästa codegen-prompt som "Quality patterns to avoid" (mönstra efter `recurringFailurePatterns` i `fixer-prompt.ts`). Enda kvarvarande från `E-easy-medium-layer.md` (arkiverad). ~2h effort. Acceptans: 1 verifier-fixer-anrop sparat/followup mätbart via `sajtmaskin_verifier_blocking_total`. | Medel | — |
+| 8 | **P26-rest: PR3–9** | Kvarstående från ursprungliga P26-paketet efter OMTAG fas 2·A (se `../avklarat/omtag-2026-04-23/P19-old-content-ingress.md` och arkiverad P26): PR3 quality-gate readiness probe (HEAD 200 innan gate startar), ~~PR4 HMR-spam mitigation~~ **klart 2026-04-23** via inline RFC 6455 101-handshake i `proxyPreviewUpgrade` (404-stubben visade sig trigga HMR-klientens retry-loop; handshake-and-hold tystar konsolen), PR5 raw-message logging, PR6 bygg-nu UX-copy, PR7 backoffice scaffold_lifecycle FileNotFound fix, PR8 dossier re-embed (delvis gjord via fas 2·B variant-embeddings), PR9 three-fiber-dossier (kan redan finnas i `soft/three-fiber-canvas`). | Låg–Medel per PR | Individuell |
+| 9 | **Core-simplification: `orchestrate.ts` + `route-plan.ts`** | Gpt-rapporten (2026-04-23): dessa är 912 + 742 rader. Ej adresserade av OMTAG 03 (endast `orchestrate/{scaffold-query-context,scaffold-variant-resolver}.ts` och `route-plan/route-patterns.ts` extraherades). Kandidater för nästa split-våg — samma mönster som OMTAG 03. | Medel | Egen agent-session |
+| 10 | **Core-simplification: `config/ai_models/manifest.json`** | ~1023 rader. Delningskandidat per phase-routing-grupp. | Låg | Telemetri-data |
+| 11 | **Event-bus UI-flip** | `selectVersionStatus(events)`-projektion finns (OMTAG fas 3·06) men UI läser fortfarande gamla DB-flaggor via `resolveEngineVersionDisplayStatus`. Rör `BuilderShellContent.tsx` + `preview-panel` SSE-handling. | Medel | — |
 
 > Tidigare punkt #1 (`Source_Sans_3`-violation) löstes 2026-04-20 i cloud-loopen, commit `808735e2`.
 

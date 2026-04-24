@@ -92,15 +92,48 @@ describe("detectIntegrations + selectedDossiers enforcement overlay", () => {
     expect(stripe?.envEnforcement?.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY).toBe("warn-only");
   });
 
-  it("defaults to build enforcement for integrations without a matching dossier", () => {
+  it("downgrades to warn-only for integrations without a matching dossier when selectedDossiers were resolved (plan-12 #15)", () => {
+    // Pre-plan-12: an orphan Stripe import in code (or a phantom @clerk/nextjs
+    // entry the LLM left in package.json) would default every detected env
+    // key to "build" even when the user's snapshot has no payments / auth
+    // capability. That blocked F2 readiness + F3 finalize-design with
+    // false-positive STRIPE_SECRET_KEY / CLERK_SECRET_KEY prompts. New
+    // behaviour: when the caller passed a snapshot-resolved dossier set
+    // and no dossier matches the integration, downgrade to "warn-only" so
+    // the keys are still surfaced (informational) but never block the build.
     const detected = detectIntegrations(STRIPE_CODE, {
       selectedDossiers: [RESEND_DOSSIER], // mismatched dossier
     });
     const stripe = detected.find((d) => d.provider === "stripe");
     expect(stripe).toBeDefined();
     for (const key of stripe?.envVars ?? []) {
-      expect(stripe?.envEnforcement?.[key]).toBe("build");
+      expect(stripe?.envEnforcement?.[key]).toBe("warn-only");
     }
+  });
+
+  it("downgrades to warn-only when snapshot resolves to empty selectedDossiers (slug-only chat)", () => {
+    // The bug scenario from chat b71dafb3 (2026-04-24): user asks for a
+    // slug page, requestedCapabilities is empty, snapshot resolves to
+    // selectedDossiers: []. We still want detected integrations (e.g. an
+    // orphan Stripe import) to surface as warn-only, not as build blockers.
+    const detected = detectIntegrations(STRIPE_CODE, { selectedDossiers: [] });
+    const stripe = detected.find((d) => d.provider === "stripe");
+    expect(stripe).toBeDefined();
+    for (const key of stripe?.envVars ?? []) {
+      expect(stripe?.envEnforcement?.[key]).toBe("warn-only");
+    }
+  });
+
+  it("legacy callers (no selectedDossiers option) keep build defaults for back-compat", () => {
+    // When the caller did not resolve a snapshot at all, we cannot tell
+    // whether the integration is wanted or not — fall back to the
+    // pre-plan-12 conservative "build" default. This branch keeps the
+    // detect-integrations contract stable for tests/consumers that have
+    // not migrated to the snapshot resolver.
+    const detected = detectIntegrations(STRIPE_CODE);
+    const stripe = detected.find((d) => d.provider === "stripe");
+    expect(stripe).toBeDefined();
+    expect(stripe?.envEnforcement).toBeUndefined();
   });
 
   it("custom-env spillover always defaults to build enforcement", () => {

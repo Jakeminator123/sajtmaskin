@@ -13,7 +13,6 @@ import {
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { FEATURES } from "@/lib/config";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import {
@@ -119,6 +118,74 @@ function resolveAppPagePath(files: Array<{ path: string }>): string | null {
   return exact ?? null;
 }
 
+/**
+ * Plan 11 / open-question #5 hard gate: the user-visible Home route must
+ * always exist with non-trivial content after preflight assembly.
+ *
+ * `LLM_ONLY_PATHS` in `finalize-merge.ts` deliberately strips
+ * `app/page.tsx` from the scaffold base so the LLM is forced to emit a
+ * branded version; without a safety net here, an LLM that forgets the
+ * file ships a 6-file project with an empty `<main>` to disk (Run A +
+ * Run B in `STATUS-INVESTIGATE-PAGETSX-LOSS.md`). We block persist with
+ * `code_structure_failure` instead of letting that happen silently.
+ *
+ * "Non-trivial" = > 200 chars of rendered content body after stripping
+ * imports, exports, and JSX braces. Picked empirically from observed
+ * "blank" pages (~80–120 chars of import + skeleton vs ~600+ for any
+ * real branded landing) so a sparse but real page (e.g. `<Hero />`-
+ * only) still passes.
+ */
+const HOME_PAGE_MIN_RENDERED_CHARS = 200;
+const HOME_PAGE_REQUIRED_PATHS = ["app/page.tsx", "src/app/page.tsx"] as const;
+
+function measureRenderedContentLength(content: string): number {
+  // Strip imports/exports + obvious whitespace so a 60-line file of
+  // imports + a `return null` doesn't count as "content".
+  const stripped = content
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "")
+    .replace(/^\s*import[^;]*;?\s*$/gm, "")
+    .replace(/^\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|const|let|var)\s/gm, "")
+    .replace(/[{}();,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped.length;
+}
+
+function findHomePageFile(
+  files: Array<{ path: string; content: string }>,
+): { path: string; content: string } | null {
+  const wantsNorm = new Set<string>(HOME_PAGE_REQUIRED_PATHS);
+  for (const file of files) {
+    const norm = file.path.replace(/\\/g, "/");
+    if (wantsNorm.has(norm)) return { path: norm, content: file.content };
+  }
+  return null;
+}
+
+function buildMissingHomeRouteIssue(
+  detected: { path: string; content: string } | null,
+): FinalizePreflightIssue | null {
+  if (!detected) {
+    return createIssue(
+      "app/page.tsx",
+      "error",
+      "Required home route is missing — neither app/page.tsx nor src/app/page.tsx exists in the merged file set. Scaffold defaults are blocked from filling this slot (LLM_ONLY_PATHS); the LLM must emit it.",
+      "code_structure_failure",
+    );
+  }
+  const renderedLength = measureRenderedContentLength(detected.content);
+  if (renderedLength < HOME_PAGE_MIN_RENDERED_CHARS) {
+    return createIssue(
+      detected.path,
+      "error",
+      `Home route renders trivial content (≈${renderedLength} chars after stripping imports/JSX braces; threshold ${HOME_PAGE_MIN_RENDERED_CHARS}). Likely empty <main> or skeleton-only output. Block persist instead of shipping a blank site.`,
+      "code_structure_failure",
+    );
+  }
+  return null;
+}
+
 function normPath(p: string): string {
   return p.replace(/\\/g, "/");
 }
@@ -210,6 +277,69 @@ function createIssue(
     severity,
     message,
     category: resolvePreflightIssueCategory({ file, severity, message, category }),
+  };
+}
+
+type FinalizePreflightPassId =
+  | "tier2_hygiene"
+  | "project_sanity"
+  | "seo_preflight"
+  | "href_route_cross_check";
+
+type FinalizePreflightPassResult = {
+  pass: FinalizePreflightPassId;
+  issues: FinalizePreflightIssue[];
+};
+
+type FinalizePreflightAllResult = {
+  issues: FinalizePreflightIssue[];
+  passes: FinalizePreflightPassResult[];
+  unresolvedImportFallbackUsed: boolean;
+  sanityValid: boolean;
+  sanityIssuesForLog: ReturnType<typeof runProjectSanityChecks>["issues"];
+  hrefMismatches: ReturnType<typeof crossCheckHrefsAgainstRoutes>;
+};
+
+function runFinalizePreflightAll(params: {
+  files: CodeFile[];
+  actualRoutes: string[];
+}): FinalizePreflightAllResult {
+  const tier2Issues = collectTier2HygieneIssues(params.files);
+
+  const sanity = runProjectSanityChecks(params.files);
+  const sanityIssues = sanity.issues.map((issue) =>
+    createIssue(issue.file, issue.severity, issue.message, issue.category),
+  );
+
+  const seoIssues = runSeoPreflightChecks(params.files).map((issue) =>
+    createIssue(issue.file || "seo", issue.severity, issue.message, issue.category),
+  );
+
+  const extractedHrefs = extractHrefsFromFiles(params.files);
+  const hrefMismatches = crossCheckHrefsAgainstRoutes(extractedHrefs, params.actualRoutes);
+  const hrefIssues = hrefMismatches.slice(0, 20).map((mismatch) =>
+    createIssue(
+      mismatch.file,
+      "warning",
+      formatMismatchMessage(mismatch),
+      "non_blocking_quality_warning",
+    ),
+  );
+
+  const passes: FinalizePreflightPassResult[] = [
+    { pass: "tier2_hygiene", issues: tier2Issues },
+    { pass: "project_sanity", issues: sanityIssues },
+    { pass: "seo_preflight", issues: seoIssues },
+    { pass: "href_route_cross_check", issues: hrefIssues },
+  ];
+
+  return {
+    issues: passes.flatMap((pass) => pass.issues),
+    passes,
+    unresolvedImportFallbackUsed: sanity.unresolvedImportFallbackUsed,
+    sanityValid: sanity.valid,
+    sanityIssuesForLog: sanity.issues,
+    hrefMismatches,
   };
 }
 
@@ -341,7 +471,7 @@ function collectOrchestrationContractIssues(
 export async function runFinalizePreflight({
   chatId,
   model: _model,
-  resolvedTier,
+  resolvedTier: _resolvedTier,
   filesJson,
   buildSpec = null,
   routePlan = null,
@@ -349,7 +479,7 @@ export async function runFinalizePreflight({
   originalPrompt: _originalPrompt,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   let nextFilesJson = filesJson;
-  let preflightIssues: FinalizePreflightIssue[] = [];
+  const preflightIssues: FinalizePreflightIssue[] = [];
   let preflightFileCount = 0;
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
@@ -412,72 +542,48 @@ export async function runFinalizePreflight({
       // Hardcoded ON (FEATURES.skipDoubleValidateAndFixOnMerge=true) since
       // omtag-04 (2026-04-23). Revert via code if the legacy validateAndFix
       // behaviour is ever needed again.
-      if (FEATURES.skipDoubleValidateAndFixOnMerge) {
-        const mechanicalStartedAt = Date.now();
-        try {
-          const mechanicalResult = await runAutoFix(mergedProjectContent, {
-            chatId,
-            model: _model,
-            previewPolicy: undefined,
-          });
-          mergedProjectContent = mechanicalResult.fixedContent;
-          mergedSyntax = await validateGeneratedCode(mergedProjectContent);
-          devLogAppend("in-progress", {
-            type: "merged-syntax.mechanical-only.result",
-            chatId,
-            fixCount: mechanicalResult.fixes.length,
-            warningCount: mechanicalResult.warnings.length,
-            durationMs: Date.now() - mechanicalStartedAt,
-            stillInvalid: !mergedSyntax.valid,
-          });
-          if (mechanicalResult.fixes.length > 0) {
-            const fixedProject = parseCodeProject(mergedProjectContent);
-            if (fixedProject.files.length > 0) {
-              finalFiles = fixedProject.files;
-              nextFilesJson = JSON.stringify(finalFiles);
-            }
-          }
-        } catch (mechErr) {
-          console.warn(
-            "[merged-syntax] mechanical-only autofix failed, keeping invalid content:",
-            mechErr,
-          );
-          devLogAppend("in-progress", {
-            type: "merged-syntax.mechanical-only.error",
-            chatId,
-            message:
-              mechErr instanceof Error ? mechErr.message : "Unknown mechanical autofix error",
-          });
-        }
-      } else {
-        const mergedFixResult = await validateAndFix(mergedProjectContent, {
+      if (!FEATURES.skipDoubleValidateAndFixOnMerge) {
+        devLogAppend("in-progress", {
+          type: "merged-syntax.mechanical-only.unexpected-flag-state",
+          chatId,
+          skipDoubleValidateAndFixOnMerge: FEATURES.skipDoubleValidateAndFixOnMerge,
+        });
+      }
+      const mechanicalStartedAt = Date.now();
+      try {
+        const mechanicalResult = await runAutoFix(mergedProjectContent, {
           chatId,
           model: _model,
-          resolvedTier,
-          fixBudgetMs: 90_000,
+          previewPolicy: undefined,
         });
-        if (mergedFixResult.fixerUsed || mergedFixResult.fixerImproved) {
-          devLogAppend("in-progress", {
-            type: "merged-syntax.fixer.result",
-            chatId,
-            fixerUsed: mergedFixResult.fixerUsed,
-            fixerImproved: mergedFixResult.fixerImproved,
-            errorsBefore: mergedFixResult.errorsBefore,
-            errorsAfter: mergedFixResult.errorsAfter,
-            status: mergedFixResult.status,
-            earlyStopReason: mergedFixResult.earlyStopReason,
-          });
-        }
-
-        if (mergedFixResult.fixerUsed && mergedFixResult.errorsAfter < mergedFixResult.errorsBefore) {
-          const fixedProject = parseCodeProject(mergedFixResult.content);
+        mergedProjectContent = mechanicalResult.fixedContent;
+        mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+        devLogAppend("in-progress", {
+          type: "merged-syntax.mechanical-only.result",
+          chatId,
+          fixCount: mechanicalResult.fixes.length,
+          warningCount: mechanicalResult.warnings.length,
+          durationMs: Date.now() - mechanicalStartedAt,
+          stillInvalid: !mergedSyntax.valid,
+        });
+        if (mechanicalResult.fixes.length > 0) {
+          const fixedProject = parseCodeProject(mergedProjectContent);
           if (fixedProject.files.length > 0) {
             finalFiles = fixedProject.files;
             nextFilesJson = JSON.stringify(finalFiles);
-            mergedProjectContent = mergedFixResult.content;
-            mergedSyntax = await validateGeneratedCode(mergedProjectContent);
           }
         }
+      } catch (mechErr) {
+        console.warn(
+          "[merged-syntax] mechanical-only autofix failed, keeping invalid content:",
+          mechErr,
+        );
+        devLogAppend("in-progress", {
+          type: "merged-syntax.mechanical-only.error",
+          chatId,
+          message:
+            mechErr instanceof Error ? mechErr.message : "Unknown mechanical autofix error",
+        });
       }
 
       if (!mergedSyntax.valid) {
@@ -531,22 +637,81 @@ export async function runFinalizePreflight({
     // preview/bootstrap does not need to rebuild it again.
     nextFilesJson = JSON.stringify(completeProjectFiles);
     preflightFileCount = completeProjectFiles.length;
-    preflightIssues.push(...collectTier2HygieneIssues(completeProjectFiles));
-    const sanity = runProjectSanityChecks(completeProjectFiles);
-    if (sanity.unresolvedImportFallbackUsed) {
+
+    // Plan 11 / open-question #5: hard gate on missing or trivial home
+    // route AFTER scaffold + UI-component assembly. This must fire even
+    // if `LLM_ONLY_PATHS` already emitted `missingEmittedEssentials`
+    // upstream because the user's complaint is "blank promoted site",
+    // and the only way that can happen is if `completeProjectFiles`
+    // reaches persist without a renderable Home route.
+    const homePageGateIssue = buildMissingHomeRouteIssue(
+      findHomePageFile(completeProjectFiles),
+    );
+    if (homePageGateIssue) {
+      preflightIssues.push(homePageGateIssue);
+      devLogAppend("in-progress", {
+        type: "preflight.home-route.blocked",
+        chatId,
+        file: homePageGateIssue.file,
+        message: homePageGateIssue.message,
+        completeProjectFileCount: completeProjectFiles.length,
+      });
+    }
+
+    // Plan 11 / Bug 1·2 — count-parity assertion. Historic 26-vs-6
+    // drift (commit 7a6a6d589) had `preflightFileCount` reporting the
+    // assembled count while `nextFilesJson` still pointed at the
+    // pre-assembly array. The fix landed but there is no invariant
+    // guarding against future regressions. Now: if
+    // `JSON.parse(nextFilesJson).length !== preflightFileCount`,
+    // emit a hard error and let the caller block persist in strict mode.
+    let persistedFileCount: number | null = null;
+    try {
+      const persistedParsed = JSON.parse(nextFilesJson) as unknown;
+      if (Array.isArray(persistedParsed)) {
+        persistedFileCount = persistedParsed.length;
+      }
+    } catch {
+      persistedFileCount = null;
+    }
+    if (
+      persistedFileCount !== null &&
+      persistedFileCount !== preflightFileCount
+    ) {
+      const message = `Preflight file count drift: counted ${preflightFileCount} files but nextFilesJson serializes ${persistedFileCount}. Refusing silent persist (plan 11 / count parity invariant).`;
+      preflightIssues.push(
+        createIssue(
+          "preflight",
+          "error",
+          message,
+          "code_structure_failure",
+        ),
+      );
+      devLogAppend("in-progress", {
+        type: "preflight.count-parity.failed",
+        chatId,
+        preflightFileCount,
+        persistedFileCount,
+      });
+    }
+    devLogAppend("in-progress", {
+      type: "preflight.summary",
+      chatId,
+      filesChecked: preflightFileCount,
+      persistedFilesCount: persistedFileCount,
+      hasHomeRouteBlock: Boolean(homePageGateIssue),
+    });
+    const actualRoutes = extractAppRoutePathsFromFilePaths(
+      completeProjectFiles.map((file) => file.path),
+    );
+    const preflightAll = runFinalizePreflightAll({
+      files: completeProjectFiles,
+      actualRoutes,
+    });
+    preflightIssues.push(...preflightAll.issues);
+    if (preflightAll.unresolvedImportFallbackUsed) {
       unresolvedImportFallbackUsed = true;
     }
-    preflightIssues = [
-      ...preflightIssues,
-      ...sanity.issues.map((issue) => createIssue(issue.file, issue.severity, issue.message, issue.category)),
-    ];
-    const seoIssues = runSeoPreflightChecks(completeProjectFiles);
-    preflightIssues = [
-      ...preflightIssues,
-      ...seoIssues.map((issue) =>
-        createIssue(issue.file || "seo", issue.severity, issue.message, issue.category)
-      ),
-    ];
 
     const appPagePath = resolveAppPagePath(completeProjectFiles);
     if (appPagePath) {
@@ -563,7 +728,6 @@ export async function runFinalizePreflight({
       }
     }
 
-    const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));
     const effectiveRoutePlan = routePlan ?? buildContractBackedRoutePlan(orchestrationContract);
     const missingPlannedRoutes = findMissingPlannedRoutes(effectiveRoutePlan, actualRoutes);
 
@@ -571,19 +735,8 @@ export async function runFinalizePreflight({
     // non-blocking warnings while we measure false-positive rate; the gate
     // can be flipped to blocking via repairPolicies once the signal proves
     // clean (see docs/plans/active/repair-loop-hardening.md).
-    const extractedHrefs = extractHrefsFromFiles(completeProjectFiles);
-    const hrefMismatches = crossCheckHrefsAgainstRoutes(extractedHrefs, actualRoutes);
+    const hrefMismatches = preflightAll.hrefMismatches;
     if (hrefMismatches.length > 0) {
-      preflightIssues.push(
-        ...hrefMismatches.slice(0, 20).map((mismatch) =>
-          createIssue(
-            mismatch.file,
-            "warning",
-            formatMismatchMessage(mismatch),
-            "non_blocking_quality_warning",
-          )
-        ),
-      );
       devLogAppend("in-progress", {
         type: "href-route.cross-check",
         chatId,
@@ -631,12 +784,12 @@ export async function runFinalizePreflight({
         issues: orchestrationContractIssues.slice(0, 10),
       });
     }
-    if (sanity.issues.length > 0) {
+    if (preflightAll.sanityIssuesForLog.length > 0) {
       devLogAppend("in-progress", {
         type: "project-sanity",
         chatId,
-        valid: sanity.valid,
-        issues: sanity.issues.slice(0, 20),
+        valid: preflightAll.sanityValid,
+        issues: preflightAll.sanityIssuesForLog.slice(0, 20),
         completeProjectFiles: completeProjectFiles.length,
       });
     }

@@ -80,6 +80,9 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
   const previewBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
   const [previewBootstrapRetryNonce, setPreviewBootstrapRetryNonce] = useState(0);
   const previewBootstrapTransientAttemptsRef = useRef<Map<string, number>>(new Map());
+  // Pending transient-retry timeouts so we can cancel them on cleanup
+  // (chat/version switch, unmount). See scheduleTransientRetry below.
+  const pendingRetryTimeoutsRef = useRef<number[]>([]);
   const [forcedPreviewRestartKey, setForcedPreviewRestartKey] = useState<string | null>(null);
   const lastPreviewBootstrapSyncAtRef = useRef(0);
 
@@ -260,9 +263,16 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
           const next = prev + 1;
           previewBootstrapTransientAttemptsRef.current.set(key, next);
           if (next <= 4) {
-            window.setTimeout(() => {
+            // Track the timeout id so the effect cleanup can clear it.
+            // Without this, a chat/version switch leaves stale retries
+            // pending which then bump previewBootstrapRetryNonce and
+            // trigger spurious effect re-runs against the old version.
+            // Discovered in Wave 5 race-condition audit.
+            const retryId = window.setTimeout(() => {
+              if (cancelled || previewBootstrapGenRef.current !== gen) return;
               setPreviewBootstrapRetryNonce((n) => n + 1);
             }, delayMs);
+            pendingRetryTimeoutsRef.current.push(retryId);
           } else {
             finishBootstrapFailure(
               finalFailure ?? {
@@ -417,6 +427,12 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
       cancelled = true;
       ac.abort();
       clearTimeout(tid);
+      // Cancel any pending transient retries so they don't fire against
+      // a stale chat/version. (See scheduleTransientRetry above.)
+      for (const id of pendingRetryTimeoutsRef.current) {
+        clearTimeout(id);
+      }
+      pendingRetryTimeoutsRef.current = [];
     };
   }, [
     isAuthenticated,

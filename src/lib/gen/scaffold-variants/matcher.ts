@@ -1,7 +1,11 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { getVariantsForScaffold, getVariantById } from "./registry";
+import {
+  getDefaultVariantForScaffold,
+  getVariantsForScaffold,
+  getVariantById,
+} from "./registry";
 import { getBlockedVariantIds } from "./eval-blocklist";
 import type { PickScaffoldVariantInput, ScaffoldVariant } from "./types";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
@@ -51,15 +55,37 @@ export function lockedVariantForFollowUp(
     });
     return null;
   }
-  if (!input.scaffoldId || !input.priorVariantId) {
+  if (!input.scaffoldId) {
     console.info("[scaffold-variant] variant_lock_skip", {
-      reason: !input.scaffoldId ? "missing_scaffold_id" : "missing_prior_variant_id",
+      reason: "missing_scaffold_id",
       chatId: input.chatId ?? null,
-      scaffoldId: input.scaffoldId ?? null,
+      scaffoldId: null,
       priorVariantId: input.priorVariantId ?? null,
       intent: input.intent,
     });
     return null;
+  }
+  // Plan 11 / open-question #8: when the snapshot lost the prior
+  // variantId (e.g. chat created before variant tracking landed, or a
+  // shallow merge wrote `null` over an earlier value), do NOT release
+  // the matcher into a fresh keyword/embedding pick — that produced
+  // the `corporate-grid → warm-local` mid-chat flips users complained
+  // about. Fall back to the scaffold's default variant instead so the
+  // look stays stable across turns. `clear-redesign` intent is handled
+  // above and intentionally skips this fallback.
+  if (!input.priorVariantId) {
+    const fallback = getDefaultVariantForScaffold(
+      input.scaffoldId as ScaffoldVariant["scaffoldId"],
+    );
+    console.info("[scaffold-variant] variant_lock_fallback", {
+      reason: "missing_prior_variant_id",
+      chatId: input.chatId ?? null,
+      scaffoldId: input.scaffoldId,
+      priorVariantId: null,
+      intent: input.intent,
+      fallbackVariantId: fallback?.id ?? null,
+    });
+    return fallback;
   }
   const variant = getVariantById(
     input.scaffoldId as ScaffoldVariant["scaffoldId"],

@@ -79,10 +79,36 @@ describe("lockedVariantForFollowUp (P22)", () => {
     expect(result).toBeNull();
   });
 
-  it("returns null when prior variant id is missing", () => {
+  it("plan-11 bug 2: falls back to the scaffold default variant when prior variant id is missing on a follow-up", () => {
+    // Plan 11 / open-question #8 regression: previously this returned
+    // `null`, releasing the matcher into a fresh keyword/embedding pick
+    // and causing `corporate-grid → warm-local` flips mid-chat. Now we
+    // anchor to the scaffold's default so the look stays stable across
+    // turns even when the prior variant id is lost from the snapshot.
     const result = lockedVariantForFollowUp({
       chatId: "chat-x",
       intent: "clear-refine",
+      scaffoldId: "landing-page",
+      priorVariantId: null,
+    });
+    expect(result).not.toBeNull();
+    expect(result?.scaffoldId).toBe("landing-page");
+    // Determinism: a second call with identical inputs returns the same variant.
+    const second = lockedVariantForFollowUp({
+      chatId: "chat-x",
+      intent: "clear-refine",
+      scaffoldId: "landing-page",
+      priorVariantId: null,
+    });
+    expect(second?.id).toBe(result?.id);
+  });
+
+  it("plan-11 bug 2: still returns null on clear-redesign even when prior variant id is missing", () => {
+    // Redesign intent must keep its escape hatch — fallback only fires
+    // for stable-style intents (clear-refine / capability-add / neutral).
+    const result = lockedVariantForFollowUp({
+      chatId: "chat-x",
+      intent: "clear-redesign",
       scaffoldId: "landing-page",
       priorVariantId: null,
     });

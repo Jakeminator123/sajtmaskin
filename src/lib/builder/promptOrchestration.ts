@@ -28,9 +28,23 @@ export type PromptType =
   | "followup_technical"
   | "unknown";
 
+/**
+ * Distinguishes a *user-driven* prompt from a *server/client-driven repair pass*.
+ *
+ * Plan 03 (short scope, 2026-04-23): client-side autofix and verifier-driven
+ * repair re-enter the same chat-message pipeline as a regular follow-up. Before
+ * this discriminator was added the UI showed "Typ: followup_technical / Orsak:
+ * Registry-data bevarad oförändrad" which made auto-repair indistinguishable
+ * from a real user follow-up. `promptSource` lets the UI (and observability
+ * snapshot) show that the pass was triggered automatically, not by the user.
+ */
+export type PromptSource = "user" | "auto_repair";
+
 export type PromptStrategyMeta = {
   strategy: PromptStrategy;
   promptType: PromptType;
+  /** See {@link PromptSource}. */
+  promptSource: PromptSource;
   budgetTarget: number;
   originalLength: number;
   optimizedLength: number;
@@ -444,15 +458,29 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
     reason = `${reason}_hard_cap`;
   }
 
+  // Plan 03 (short): autofix-driven passes re-enter this orchestrator with the
+  // same shape as user prompts, so by classification they look like a normal
+  // `followup_technical` with `preserve_registry_payload` reason. We still
+  // want the *budget* + *strategy* logic to run unchanged (the headline is
+  // genuinely a "preserved" technical handoff), but the UI must show the user
+  // that the pass was server/client-driven, not provoked by them. We carry
+  // that as a distinct `promptSource` field and override the surfaced
+  // `reason` so reason-mapping in the UI never falls back to the cryptic
+  // "Registry-data bevarad oförändrad" line for an auto-repair pass.
+  const promptSource: PromptSource =
+    input.promptSourceKind === "autofix" ? "auto_repair" : "user";
+  const surfacedReason = promptSource === "auto_repair" ? "auto_repair" : reason;
+
   const optimizedLength = optimizedMessage.length;
   const meta: PromptStrategyMeta = {
     strategy,
     promptType,
+    promptSource,
     budgetTarget,
     originalLength,
     optimizedLength,
     reductionRatio: reductionRatio(originalLength, optimizedLength),
-    reason,
+    reason: surfacedReason,
     phaseHints,
     complexityScore,
     wasChanged: optimizedMessage !== normalizedMessage,

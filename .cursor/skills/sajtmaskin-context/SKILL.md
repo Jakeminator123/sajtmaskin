@@ -7,10 +7,11 @@ description: Quick domain/context skill for Sajtmaskin. Use when working on buil
 
 ## Read first
 
-1. `docs/architecture/glossary.md` — canonical glossary
+1. `docs/architecture/glossary.md` — canonical glossary (slim, ~100 termer)
 2. `.cursor/rules/terminology.mdc` — confusion table + signal ownership
-3. `docs/README.md` — doc navigation
-4. `docs/plans/README.md` — status and decisions
+3. `docs/architecture/llm-flow-target-worldclass.md` — **målbild** för LLM-flödet (3-fasmodell, single repair gate, init/follow-up som distinkta operationer)
+4. `docs/README.md` — doc navigation
+5. `docs/plans/active/Kvarvarande-uppgifter.md` — aktuella öppna punkter
 
 ## Guardrails
 

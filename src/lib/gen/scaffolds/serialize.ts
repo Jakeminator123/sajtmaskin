@@ -159,6 +159,8 @@ function scoreCriticalFile(path: string): number {
   const normalized = path.replace(/\\/g, "/");
   const matchedIdx = CRITICAL_PATH_PATTERNS.findIndex((pattern) => pattern.test(normalized));
   if (matchedIdx !== -1) return matchedIdx;
+  // Dual-support: both prefixes accepted because LLM-emitted output may be
+  // either `app/`- or `src/app/`-rooted (see `validateScaffoldManifest` JSDoc).
   if (normalized.startsWith("app/") || normalized.startsWith("src/app/")) return 20;
   return 50;
 }

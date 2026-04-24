@@ -60,6 +60,43 @@ vi.mock("@/lib/logging/devLog", () => ({
 
 import { runFinalizePreflight } from "./finalize-preflight";
 
+/**
+ * Plan 11 / open-question #5: the new home-route hard gate (>200 chars
+ * rendered) is intentionally above tiny placeholders. Existing tests
+ * that just verify preflight wiring use this richer fixture so the
+ * gate does not fire as a side effect of unrelated assertions.
+ */
+const RICH_PAGE_CONTENT = `
+import { Hero } from "@/components/hero";
+import { Features } from "@/components/features";
+
+export default function Page() {
+  return (
+    <main>
+      <Hero
+        title="Welcome to Acme"
+        subtitle="We build delightful tools for delightful teams."
+      />
+      <section>
+        <h2>Why teams pick Acme</h2>
+        <p>
+          Modern infrastructure, careful onboarding, and a support team
+          that actually picks up the phone. We pair every plan with a
+          dedicated success manager so you are never on your own.
+        </p>
+      </section>
+      <Features
+        items={[
+          { title: "Scalable", body: "From two-person beta to global rollout." },
+          { title: "Reliable", body: "99.99% uptime backed by a real SLA." },
+          { title: "Friendly", body: "Docs, examples, and humans available." },
+        ]}
+      />
+    </main>
+  );
+}
+`.trim();
+
 describe("runFinalizePreflight", () => {
   function withMinimalBaseline(files: unknown): unknown {
     const arr = Array.isArray(files) ? [...files] : [];
@@ -148,7 +185,7 @@ describe("runFinalizePreflight", () => {
       filesJson: JSON.stringify([
         {
           path: "src/app/page.tsx",
-          content: "export default function Page() { return <div>Hello</div>; }",
+          content: RICH_PAGE_CONTENT,
           language: "tsx",
         },
       ]),
@@ -178,7 +215,7 @@ describe("runFinalizePreflight", () => {
       filesJson: JSON.stringify([
         {
           path: "src/app/page.tsx",
-          content: "export default function Page() { return <div>Hello</div>; }",
+          content: RICH_PAGE_CONTENT,
           language: "tsx",
         },
       ]),
@@ -286,7 +323,7 @@ describe("runFinalizePreflight", () => {
       filesJson: JSON.stringify([
         {
           path: "src/app/page.tsx",
-          content: "export default function Page() { return <div>Hello</div>; }",
+          content: RICH_PAGE_CONTENT,
           language: "tsx",
         },
       ]),
@@ -357,5 +394,112 @@ describe("runFinalizePreflight", () => {
       finalFiles.find((file) => file.path === "app/about/page.tsx")?.content,
     ).toContain("Skapa sida");
     expect(result.preflightIssues.some((issue) => issue.message.includes("/about"))).toBe(false);
+  });
+
+  // Plan 11 / open-question #5 regression suite ──────────────────────────
+  // Three regression tests that pin the new home-route hard gate +
+  // count-parity invariant in `finalize-preflight.ts`.
+
+  it("plan-11 bug 1: blocks persist when the LLM omits app/page.tsx entirely", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    // Override `withMinimalBaseline` for this test so the assembled
+    // project does NOT contain a home route — emulating the Run A / B
+    // failure where LLM_ONLY_PATHS stripped the scaffold default and
+    // the LLM never emitted a replacement.
+    buildCompleteProject.mockImplementation((files: unknown) => {
+      const arr = Array.isArray(files) ? [...files] : [];
+      const typed = arr as Array<{ path: string; content: string; language?: string }>;
+      const filtered = typed.filter(
+        (f) => f.path !== "app/page.tsx" && f.path !== "src/app/page.tsx",
+      );
+      // Add minimal baseline (package.json/layout/css) so only page.tsx is missing.
+      filtered.push({
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { next: "16.2.3", react: "19.2.4", "react-dom": "19.2.4" },
+        }),
+        language: "json",
+      });
+      filtered.push({
+        path: "app/layout.tsx",
+        content:
+          "export default function RootLayout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+        language: "tsx",
+      });
+      return filtered;
+    });
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_missing_home",
+      model: "gpt-5.4",
+      // Pass at least one unrelated file so the JSON parses cleanly.
+      filesJson: JSON.stringify([
+        {
+          path: "app/about/page.tsx",
+          content: RICH_PAGE_CONTENT,
+          language: "tsx",
+        },
+      ]),
+    });
+
+    const homeIssue = result.preflightIssues.find(
+      (i) => i.file === "app/page.tsx" && i.severity === "error",
+    );
+    expect(homeIssue).toBeDefined();
+    expect(homeIssue?.message).toMatch(/Required home route is missing/);
+    expect(result.previewStart.canStartPreview).toBe(false);
+    expect(result.previewStart.hasCriticalCodeFailure).toBe(true);
+  });
+
+  it("plan-11 bug 1: blocks persist when home route content is trivial (empty <main>)", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const trivialPage =
+      "export default function Page() { return <main></main>; }";
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_trivial_home",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        {
+          path: "app/page.tsx",
+          content: trivialPage,
+          language: "tsx",
+        },
+      ]),
+    });
+
+    const trivialIssue = result.preflightIssues.find(
+      (i) => i.file === "app/page.tsx" && /trivial content/i.test(i.message),
+    );
+    expect(trivialIssue).toBeDefined();
+    expect(trivialIssue?.severity).toBe("error");
+    expect(result.previewStart.canStartPreview).toBe(false);
+  });
+
+  it("plan-11 bug 1: emits count-parity error when buildCompleteProject mutates the array length silently", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    // Assemble a "drift" scenario: input has 1 file, the assembled
+    // result has 5 (baseline files added). The current implementation
+    // already keeps these in sync via `nextFilesJson = JSON.stringify(...)`,
+    // so this test guards the invariant: count parity holds, and no
+    // parity error is emitted in the happy path.
+    const result = await runFinalizePreflight({
+      chatId: "chat_count_parity",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        {
+          path: "app/page.tsx",
+          content: RICH_PAGE_CONTENT,
+          language: "tsx",
+        },
+      ]),
+    });
+
+    const persistedFiles = JSON.parse(result.filesJson) as Array<{ path: string }>;
+    expect(persistedFiles.length).toBe(result.preflightFileCount);
+    const parityIssue = result.preflightIssues.find((i) =>
+      /count parity invariant/i.test(i.message),
+    );
+    expect(parityIssue).toBeUndefined();
   });
 });

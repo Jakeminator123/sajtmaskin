@@ -46,10 +46,21 @@ const EMBEDDING_TIMEOUT_MS = 5_000;
 const EMBEDDING_INPUT_HARD_CAP_CHARS = 7_000;
 
 function createEmbeddingAbortSignal(): AbortSignal | undefined {
-  if (typeof AbortSignal === "undefined" || typeof AbortSignal.timeout !== "function") {
+  if (typeof AbortSignal === "undefined") {
     return undefined;
   }
-  return AbortSignal.timeout(EMBEDDING_TIMEOUT_MS);
+  if (typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(EMBEDDING_TIMEOUT_MS);
+  }
+  // SAJ-50: fallback for runtimes (older Node, certain edge bundles) where
+  // `AbortSignal.timeout` is missing. Without this, the embedding call ran
+  // with no timeout and could hang well past the documented 5s budget.
+  if (typeof AbortController === "undefined") {
+    return undefined;
+  }
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), EMBEDDING_TIMEOUT_MS).unref?.();
+  return controller.signal;
 }
 
 function loadEmbeddings(): ScaffoldEmbeddingEntry[] {
@@ -102,7 +113,9 @@ function expandQuery(query: string): string {
     ...ENGLISH_TO_SWEDISH_HINTS.filter(({ match }) => match.test(query)).map(({ hint }) => hint),
   ];
   if (hints.length === 0) return query;
-  return `${query}\n\nRelated search terms: ${Array.from(new Set(hints)).join(", ")}`;
+  // SAJ-41: prefix hints (not suffix) so the bilingual signal survives the
+  // EMBEDDING_INPUT_HARD_CAP_CHARS truncation when query+brief are long.
+  return `Related search terms: ${Array.from(new Set(hints)).join(", ")}\n\n${query}`;
 }
 
 /**
@@ -160,9 +173,11 @@ export async function searchScaffoldsWithDiagnostics(
 
   let queryEmbedding: number[];
   let embeddingInput = expandQuery(query);
+  let embeddingTruncated = false;
   if (embeddingInput.length > EMBEDDING_INPUT_HARD_CAP_CHARS) {
     const originalLen = embeddingInput.length;
     embeddingInput = embeddingInput.slice(0, EMBEDDING_INPUT_HARD_CAP_CHARS);
+    embeddingTruncated = true;
     warnLog("scaffold", "embedding_query_truncated", {
       originalChars: originalLen,
       truncatedChars: embeddingInput.length,
@@ -189,10 +204,14 @@ export async function searchScaffoldsWithDiagnostics(
       };
     }
     queryEmbedding = response.data[0].embedding;
+    // SAJ-35: log the actual embedded-input size, not just the raw query
+    // length, so telemetry reflects truncation/expansion.
     debugLog("scaffold", "Embedding query completed", {
       durationMs: Date.now() - embeddingStartedAt,
       topK,
       queryChars: query.length,
+      embeddingInputChars: embeddingInput.length,
+      truncated: embeddingTruncated,
     });
   } catch (err) {
     warnLog("scaffold", "Embedding API call failed", {
@@ -223,13 +242,28 @@ export async function searchScaffoldsWithDiagnostics(
     .sort((a, b) => b.score - a.score);
 
   const results: ScaffoldSearchResult[] = [];
+  const orphanScoredIds: string[] = [];
   for (const { id, score } of scored) {
     if (results.length >= topK) break;
     const scaffold = getScaffoldById(id);
-    if (scaffold) results.push({ scaffold, score });
+    if (scaffold) {
+      results.push({ scaffold, score });
+    } else {
+      orphanScoredIds.push(id);
+    }
   }
 
   const unmappedIds = scored.length > 0 && results.length === 0;
+
+  if (unmappedIds) {
+    // SAJ-54: surface which embedding ids are orphaned so operators can
+    // tell whether to regenerate `scaffold-embeddings.json` vs roll back
+    // a registry change. Top-3 is enough — usually the same root cause.
+    warnLog("scaffold", "scaffold_embeddings_registry_mismatch", {
+      orphanIds: orphanScoredIds.slice(0, 3),
+      totalScored: scored.length,
+    });
+  }
 
   return {
     results,
@@ -238,7 +272,9 @@ export async function searchScaffoldsWithDiagnostics(
       available: !unmappedIds,
       failed: false,
       unavailableReason: unmappedIds ? "registry_mismatch" : null,
-      errorMessage: unmappedIds ? "All scored IDs missing from scaffold registry — embedding file may be stale" : null,
+      errorMessage: unmappedIds
+        ? `All scored IDs missing from scaffold registry — embedding file may be stale (orphan ids: ${orphanScoredIds.slice(0, 3).join(", ")}${orphanScoredIds.length > 3 ? "…" : ""})`
+        : null,
       durationMs: Date.now() - embeddingStartedAt,
     },
   };

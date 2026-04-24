@@ -86,6 +86,10 @@ type RunObservabilitySnapshot = {
   buildMethod: string | null;
   promptStrategy: string | null;
   promptType: string | null;
+  // Plan 03 (short): "user" vs "auto_repair" — surfaced so the
+  // observatory can filter auto-repair passes out of follow-up
+  // statistics. Mirrors PromptStrategyMeta.promptSource.
+  promptSource: string | null;
   preflight: Record<string, unknown> | null;
   verifier: Record<string, unknown> | null;
   serverVerify: Record<string, unknown> | null;
@@ -207,6 +211,28 @@ function writeChatToRunIndex(map: Record<string, string>): void {
     );
   } catch {
     /* best-effort; index is a recovery aid only */
+  }
+}
+
+function isWithinUnroutedDir(dir: string): boolean {
+  const relative = path.relative(UNROUTED_DIR, dir);
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+function ensureUnroutedBucketDir(bucketSlug: string): string | null {
+  if (!bucketSlug) return null;
+  const bucketDir = path.join(UNROUTED_DIR, bucketSlug);
+  try {
+    const isNewBucket = !fs.existsSync(bucketDir);
+    fs.mkdirSync(bucketDir, { recursive: true });
+    if (isNewBucket) {
+      // LRU-prune: cap antalet bucketar under _unrouted/. Förut växte
+      // detta linjärt med antalet unika orphan-event-slugs.
+      lruPruneSubdirs(UNROUTED_DIR, MAX_UNROUTED_BUCKETS);
+    }
+    return bucketDir;
+  } catch {
+    return null;
   }
 }
 
@@ -423,6 +449,8 @@ function buildMeta(entries: StoredGenerationEntry[]): Record<string, unknown> {
     imageGenerations: findLastBoolean(entries, "imageGenerations"),
     promptStrategy: readString(latestRequest?.data.promptStrategy) ?? findLastString(entries, "promptStrategy"),
     promptType: readString(latestRequest?.data.promptType) ?? findLastString(entries, "promptType"),
+    // Plan 03 (short): mirrors devLog `comm.request.{create,followup}.promptSource`.
+    promptSource: readString(latestRequest?.data.promptSource) ?? findLastString(entries, "promptSource"),
     buildIntent: findLastString(entries, "buildIntent"),
     buildMethod: findLastString(entries, "buildMethod"),
     durationMs: readNumber(done?.data.durationMs),
@@ -1478,6 +1506,7 @@ function buildRunObservabilitySnapshot(runId: string, entries: StoredGenerationE
     buildMethod: readString(meta.buildMethod),
     promptStrategy: readString(meta.promptStrategy),
     promptType: readString(meta.promptType),
+    promptSource: readString(meta.promptSource),
     preflight: (meta.preflight as Record<string, unknown> | null) ?? null,
     verifier: (meta.verifier as Record<string, unknown> | null) ?? null,
     serverVerify: (meta.serverVerify as Record<string, unknown> | null) ?? null,
@@ -1507,17 +1536,60 @@ function updateSiteObservability(runDir: string, snapshot: RunObservabilitySnaps
   const existing = fs.existsSync(historyPath)
     ? fs.readFileSync(historyPath, "utf8").split(/\r?\n/).filter(Boolean)
     : [];
-  const nextRecord = JSON.stringify({
+  const existingRecords = existing
+    .map((line) => {
+      try {
+        const parsed = JSON.parse(line) as unknown;
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? (parsed as Record<string, unknown>)
+          : null;
+      } catch {
+        return null;
+      }
+    })
+    .filter((record): record is Record<string, unknown> => Boolean(record))
+    .filter((record) => readString(record.runId) !== snapshot.runId);
+
+  const nextPromptSource = snapshot.promptSource;
+  const nextGenerationKind = snapshot.generationKind;
+  const nextIsAutoRepair = nextPromptSource === "auto_repair";
+  const nextIsFollowup = nextGenerationKind === "followup" && !nextIsAutoRepair;
+
+  let followupCount = 0;
+  let autoRepairCount = 0;
+  for (const record of existingRecords) {
+    const countedFollowups = readNumber(record.followupCount);
+    const countedAutoRepairs = readNumber(record.autoRepairCount);
+    if (countedFollowups !== null) followupCount = countedFollowups;
+    if (countedAutoRepairs !== null) autoRepairCount = countedAutoRepairs;
+    if (countedFollowups !== null || countedAutoRepairs !== null) continue;
+    const promptSource = readString(record.promptSource);
+    const generationKind = readString(record.generationKind);
+    if (promptSource === "auto_repair") {
+      autoRepairCount += 1;
+      continue;
+    }
+    if (generationKind === "followup") {
+      followupCount += 1;
+    }
+  }
+
+  const nextRecord = {
     runId: snapshot.runId,
     versionId: snapshot.versionId,
     status: snapshot.status,
     updatedAt: snapshot.updatedAt,
+    generationKind: nextGenerationKind,
+    promptSource: nextPromptSource,
+    followupCount: followupCount + (nextIsFollowup ? 1 : 0),
+    autoRepairCount: autoRepairCount + (nextIsAutoRepair ? 1 : 0),
     highlights: snapshot.highlights,
     faultFixSummary: snapshot.faultFixSummary,
     recurringPatterns: snapshot.recurringPatterns.slice(0, 10),
-  });
-  const deduped = [...existing.filter((line) => !line.includes(`"runId":"${snapshot.runId}"`)), nextRecord]
-    .slice(-MAX_SITE_HISTORY_RUNS);
+  };
+  const deduped = [...existingRecords, nextRecord]
+    .slice(-MAX_SITE_HISTORY_RUNS)
+    .map((record) => JSON.stringify(record));
   fs.writeFileSync(historyPath, deduped.join("\n") + "\n", "utf8");
 
   // Dedup: timeline/meta/summary/fault-fix-index.{csv,md} skrevs förut till
@@ -1614,6 +1686,7 @@ function buildSummary(dir: string, entries: StoredGenerationEntry[]): string {
     `- Bilder: ${String(meta.imageGenerations ?? "-")}`,
     `- Promptstrategi: ${readString(meta.promptStrategy) || "-"}`,
     `- Prompttyp: ${readString(meta.promptType) || "-"}`,
+    `- Promptkälla: ${readString(meta.promptSource) || "-"}`,
     `- Build intent: ${readString(meta.buildIntent) || "-"}`,
     `- Build method: ${readString(meta.buildMethod) || "-"}`,
     "",
@@ -1686,10 +1759,11 @@ function resolveLatestRunDirFromDisk(): string | null {
  *  1. `runId` — used as the run-folder name directly when it matches an
  *     existing directory under {@link ROOT_DIR}.
  *  2. `chatId` — looks up the persistent chat-to-run index written every
- *     time `site.start` mints a new run.
- *  3. `slug` — falls back to a stable bucket under {@link UNROUTED_DIR} so
- *     events with no run context still land somewhere inspectable instead
- *     of being dropped silently.
+ *     time `site.start` mints a new run. If no mapping exists yet, the event
+ *     lands in `_unrouted/chat-<chatId>/` instead of a generic slug bucket.
+ *  3. `slug` — falls back to a stable bucket under {@link UNROUTED_DIR} when
+ *     no chat/run context exists, so events still land somewhere inspectable
+ *     instead of being dropped silently.
  *
  * Returns `null` only when none of the three keys can be resolved (which is
  * the explicit "no context at all" case the caller is expected to handle).
@@ -1716,22 +1790,12 @@ export function resolveRunDirFromContext(params: {
       const dir = path.join(ROOT_DIR, mapped);
       if (fs.existsSync(dir)) return dir;
     }
+    const chatBucket = normalizeSlug(`chat-${chatId}`);
+    return chatBucket ? ensureUnroutedBucketDir(chatBucket) : null;
   }
 
   if (slug) {
-    const fallbackDir = path.join(UNROUTED_DIR, slug);
-    try {
-      const isNewBucket = !fs.existsSync(fallbackDir);
-      if (isNewBucket) {
-        fs.mkdirSync(fallbackDir, { recursive: true });
-        // LRU-prune: cap antalet bucketar under _unrouted/. Förut växte
-        // detta linjärt med antalet unika orphan-event-slugs.
-        lruPruneSubdirs(UNROUTED_DIR, MAX_UNROUTED_BUCKETS);
-      }
-      return fallbackDir;
-    } catch {
-      return null;
-    }
+    return ensureUnroutedBucketDir(slug);
   }
 
   return null;
@@ -1766,12 +1830,27 @@ function resolveRunDir(entry: StoredGenerationEntry): string | null {
     return dir;
   }
 
+  // `site.chatId` arrives right after init chat creation and binds the
+  // concrete chatId to the already-minted run folder from `site.start`.
+  if (type === "site.chatId" && chatId) {
+    const latestRunDir = resolveLatestRunDirFromDisk();
+    if (latestRunDir && fs.existsSync(latestRunDir) && !isWithinUnroutedDir(latestRunDir)) {
+      runDirByChatId.set(chatId, latestRunDir);
+      if (slug) runDirBySlug.set(slug, latestRunDir);
+      recordChatToRun(chatId, path.basename(latestRunDir));
+      return latestRunDir;
+    }
+  }
+
   // Most specific: explicit runId on the event.
   if (runId) {
     const fromRun = runDirByRunId.get(runId);
     if (fromRun && fs.existsSync(fromRun)) {
       if (chatId) runDirByChatId.set(chatId, fromRun);
       if (slug) runDirBySlug.set(slug, fromRun);
+      if (chatId && !isWithinUnroutedDir(fromRun)) {
+        recordChatToRun(chatId, path.basename(fromRun));
+      }
       return fromRun;
     }
     if (fromRun && !fs.existsSync(fromRun)) {
@@ -1783,10 +1862,30 @@ function resolveRunDir(entry: StoredGenerationEntry): string | null {
     const fromChat = runDirByChatId.get(chatId);
     if (fromChat && fs.existsSync(fromChat)) {
       if (slug) runDirBySlug.set(slug, fromChat);
+      if (!isWithinUnroutedDir(fromChat)) {
+        recordChatToRun(chatId, path.basename(fromChat));
+      }
       return fromChat;
     }
     if (fromChat && !fs.existsSync(fromChat)) {
       runDirByChatId.delete(chatId);
+    }
+  }
+
+  // Disk-backed recovery (chat→run index) before slug fallback so stale
+  // `_unrouted/*` slug-cache entries don't steal events that have chat context.
+  if (chatId || runId) {
+    const recoveredFromContext = resolveRunDirFromContext({ chatId, runId, slug: null });
+    if (recoveredFromContext) {
+      if (chatId) runDirByChatId.set(chatId, recoveredFromContext);
+      if (runId) runDirByRunId.set(runId, recoveredFromContext);
+      if (slug && !isWithinUnroutedDir(recoveredFromContext)) {
+        runDirBySlug.set(slug, recoveredFromContext);
+      }
+      if (chatId && !isWithinUnroutedDir(recoveredFromContext)) {
+        recordChatToRun(chatId, path.basename(recoveredFromContext));
+      }
+      return recoveredFromContext;
     }
   }
 
@@ -1801,12 +1900,8 @@ function resolveRunDir(entry: StoredGenerationEntry): string | null {
     }
   }
 
-  // Fallback: recover from HMR / process restart by consulting the
-  // persistent chat-to-run index (or the unrouted slug bucket) before we
-  // give up. Cross-contamination is avoided because the index only contains
-  // chatId → run-folder mappings recorded by `site.start`; a stale entry
-  // simply misses (file no longer exists) and we drop through.
-  const recovered = resolveRunDirFromContext({ chatId, runId, slug });
+  // Slug-only fallback for orphaned events with no run/chat context.
+  const recovered = resolveRunDirFromContext({ slug });
   if (recovered) {
     if (chatId) runDirByChatId.set(chatId, recovered);
     if (slug) runDirBySlug.set(slug, recovered);
@@ -1848,6 +1943,7 @@ export function writeGenerationLogEntry(params: {
     };
     const runDir = resolveRunDir(entry);
     if (!runDir) return;
+    fs.mkdirSync(runDir, { recursive: true });
 
     const timelinePath = path.join(runDir, TIMELINE_FILE);
     appendNdjsonLine(timelinePath, entry);

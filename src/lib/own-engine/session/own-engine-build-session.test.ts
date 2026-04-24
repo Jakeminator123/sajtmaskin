@@ -10,6 +10,7 @@ import {
 const strategyMeta: PromptStrategyMeta = {
   strategy: "direct",
   promptType: "freeform",
+  promptSource: "user",
   budgetTarget: 1000,
   originalLength: 10,
   optimizedLength: 10,
@@ -94,6 +95,8 @@ function minimalOrchestrationBase(): OrchestrationBase {
     serializeMode: null,
     componentReferences: [],
     capabilityHints: undefined,
+    scaffoldVariantId: null,
+    capabilityModifyHint: null,
   };
 }
 

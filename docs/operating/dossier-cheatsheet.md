@@ -17,9 +17,11 @@ OBS: scaffold-systemet (separat från dossiers) **använder fortfarande embeddin
 ## Toggle on/off
 
 ```
-SAJTMASKIN_DOSSIER_PIPELINE=true   # på (default i development)
-SAJTMASKIN_DOSSIER_PIPELINE=false  # av (default i production)
+SAJTMASKIN_DOSSIER_PIPELINE=true   # på (kod-default i alla miljöer)
+SAJTMASKIN_DOSSIER_PIPELINE=false  # av (explicit opt-out)
 ```
+
+**Nuvarande deploy-status (sedan 2026-04-23):** explicit satt till `true` på alla tre Vercel-miljöer (Development / Preview / Production), så pipelinen är aktiv överallt.
 
 Sätt i `.env.local` lokalt eller via `vercel env add SAJTMASKIN_DOSSIER_PIPELINE` per miljö.
 

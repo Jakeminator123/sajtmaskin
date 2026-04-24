@@ -1,9 +1,7 @@
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
-import { fixReactImport } from "./react-import-fixer";
-import { fixReactHookImports } from "./react-hook-import-fixer";
-import { fixNextNavigationImports } from "./nextjs-navigation-import-fixer";
+import { fixReactAndNavigationImports } from "./rules/react-import-consolidated";
 import {
   buildProjectModuleExportIndex,
   fixImportedDeclarationConflicts,
@@ -16,12 +14,15 @@ import {
   fixNextOgImageResponseImport,
 } from "./common-import-fixer";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
+import { fixDuplicateImportAndLocalTypeCollision } from "./rules/duplicate-import-local-type-collision-fixer";
 import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
 import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "./rules/r3f-vector-tuple-fixer";
 import { fixTypeOnlyImports } from "./rules/type-only-import-fixer";
+import { fixValueUsedFromTypeImport } from "./rules/value-used-from-type-import-fixer";
+import { fixImportAliasTypeHybrid } from "./rules/import-alias-type-syntax-fixer";
 import {
   fixCnImportConflict,
   fixMissingMetadataImport,
@@ -34,18 +35,23 @@ import { fixEscapeLeakage } from "./rules/escape-leakage-fixer";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
-import { runDepCompleter } from "./dep-completer";
+import { fixDomBuiltinJsxTags } from "./rules/dom-builtin-jsx-fixer";
+import {
+  mergeMissingDependenciesIntoPackageJson,
+  resolveCapabilityDependencies,
+  runDepCompleter,
+} from "./dep-completer";
 import { validateAndUpgradeDeps } from "./dep-version-validator";
 import { runSecurityChecks } from "../security/run-security-checks";
 import { DETERMINISTIC_AUTOFIX_MAX_PASSES } from "../defaults";
-import type { FixEntry } from "./types";
+import { toFixEntries, type FixEntry, type FixEntryDraft } from "./types";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 /** @deprecated Use `FixEntry` from `./types` for new code. */
-export type AutoFixEntry = Omit<FixEntry, "category">;
+export type AutoFixEntry = Omit<FixEntryDraft, "category" | "lane">;
 
 export interface AutoFixResult {
   fixedContent: string;
@@ -65,6 +71,11 @@ export interface AutoFixContext {
    * occasional false-positive strip in test harnesses.
    */
   previewPolicy?: BuildSpecPreviewPolicy;
+  /**
+   * Canonical capability ids for deterministic dependency-injection.
+   * Example: `visual-3d` -> `three` + `@react-three/fiber` + `@react-three/drei`.
+   */
+  requestedCapabilities?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -112,9 +123,13 @@ export {
  *  imports in subtly different ways and each fixer is the smallest
  *  correct unit:
  *
- *  • Adding a missing import    → react-import-fixer, react-hook-import-fixer,
- *    when the symbol is used      react-type-import-fixer, next-image-import-fixer,
- *    but never imported.          next-og-image-response-import-fixer,
+ *  • Adding a missing import    → react-import-fixer + react-hook-import-fixer
+ *    when the symbol is used      + nextjs-navigation-import-fixer (all three
+ *    but never imported.          fronted by `rules/react-import-consolidated.ts`
+ *                                  — one implementation, three FixEntry IDs for
+ *                                  stable telemetry), react-type-import-fixer,
+ *                                  next-image-import-fixer,
+ *                                  next-og-image-response-import-fixer,
  *                                  metadata-import-fixer, metadata-route-import-fixer,
  *                                  cn-import-fixer, font-import-fixer.
  *
@@ -144,7 +159,10 @@ export {
  *  0.   escape-leakage-fixer — unwrap JSON-double-encoded file content
  *  1.   use-client-fixer   — prepend "use client" when client APIs detected
  *  2.   import-validator   — fix shadcn import paths
- *  3.   react-import-fixer — add missing `import React` + hooks + types
+ *  3.   react-import-consolidated — single pass that adds missing React
+ *         default + React hooks + next/navigation symbols (emits three
+ *         FixEntry IDs: react-import-fixer, react-hook-import-fixer,
+ *         nextjs-navigation-import-fixer)
  *  3b.  next-image / local-symbol import fixers
  *  4a.  metadata-import-fixer — Metadata type import
  *  4b.  metadata-route / cn-conflict / cn-import fixers
@@ -178,7 +196,7 @@ async function runAutoFixSinglePass(
   content: string,
   context?: AutoFixContext,
 ): Promise<AutoFixResult> {
-  const allFixes: FixEntry[] = [];
+  const allFixes: FixEntryDraft[] = [];
   const allWarnings: string[] = [];
   let allDependencies: Record<string, string> = {};
 
@@ -291,61 +309,44 @@ async function runAutoFixSinglePass(
         );
       }
 
-      // 3. react-import-fixer
+      // 3. Consolidated React + next/navigation import fixer (E5, OMTAG
+      // fas 2·C). One implementation in `rules/react-import-consolidated.ts`
+      // replaces three forked fixers (default React, React hooks, next/navigation
+      // symbols). The single call returns per-flavor results so we still emit
+      // three distinct `FixEntry`s — the fixer IDs, telemetry counters, and
+      // registry rows they feed are unchanged.
       try {
-        const riResult = fixReactImport(currentCode);
-        if (riResult.fixed) {
-          currentCode = riResult.code;
-          allFixes.push({
-            fixer: "react-import-fixer",
-            category: "mechanical",
-            description: "Added missing React import",
-            file: file.path,
-          });
+        const consolidated = fixReactAndNavigationImports(currentCode);
+        if (consolidated.fixed) {
+          currentCode = consolidated.code;
+          if (consolidated.addedReactDefault) {
+            allFixes.push({
+              fixer: "react-import-fixer",
+              category: "mechanical",
+              description: "Added missing React import",
+              file: file.path,
+            });
+          }
+          if (consolidated.addedReactHooks.length > 0) {
+            allFixes.push({
+              fixer: "react-hook-import-fixer",
+              category: "mechanical",
+              description: `Added missing React hook imports: ${consolidated.addedReactHooks.join(", ")}`,
+              file: file.path,
+            });
+          }
+          if (consolidated.addedNavigationSymbols.length > 0) {
+            allFixes.push({
+              fixer: "nextjs-navigation-import-fixer",
+              category: "mechanical",
+              description: `Added missing next/navigation imports: ${consolidated.addedNavigationSymbols.join(", ")}`,
+              file: file.path,
+            });
+          }
         }
       } catch (err) {
         allWarnings.push(
-          `[${file.path}] react-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      // 3b. react-hook-import-fixer — add missing named React hook imports (useState etc.)
-      try {
-        const hookResult = fixReactHookImports(currentCode);
-        if (hookResult.fixed) {
-          currentCode = hookResult.code;
-          allFixes.push({
-            fixer: "react-hook-import-fixer",
-            category: "mechanical",
-            description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
-            file: file.path,
-          });
-        }
-      } catch (err) {
-        allWarnings.push(
-          `[${file.path}] react-hook-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      // 3b-nav. nextjs-navigation-import-fixer — add missing usePathname/useRouter/etc.
-      // Mirrors react-hook-import-fixer for `next/navigation` because LLMs frequently
-      // call these hooks without an import, which causes ReferenceError at SSR
-      // (preview-VM 500 / whiteout). Run AFTER react-hook-import-fixer so the
-      // two never compete for the same import block.
-      try {
-        const navResult = fixNextNavigationImports(currentCode);
-        if (navResult.fixed) {
-          currentCode = navResult.code;
-          allFixes.push({
-            fixer: "nextjs-navigation-import-fixer",
-            category: "mechanical",
-            description: `Added missing next/navigation imports: ${navResult.addedSymbols.join(", ")}`,
-            file: file.path,
-          });
-        }
-      } catch (err) {
-        allWarnings.push(
-          `[${file.path}] nextjs-navigation-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+          `[${file.path}] react-import-consolidated threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
@@ -367,6 +368,25 @@ async function runAutoFixSinglePass(
         );
       }
 
+      // 3c-alias-type-hybrid. import-alias-type-syntax-fixer — fix the
+      // invalid `X as type Y` hybrid specifier that the LLM occasionally
+      // emits. SWC rejects this outright so the file will not parse
+      // otherwise. Runs BEFORE type-only-import-fixer so the downstream
+      // conversion-to-`import type` sees a clean specifier list.
+      try {
+        const aliasHybridResult = fixImportAliasTypeHybrid(currentCode, file.path);
+        if (aliasHybridResult.fixed) {
+          currentCode = aliasHybridResult.code;
+          for (const fix of aliasHybridResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] import-alias-type-syntax-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       // 3c-typeonly. type-only-import-fixer — convert `import { X }` to
       // `import type { X }` when the binding is never used as a value
       // (TS2749 prevention). Empirical hit logged in
@@ -382,6 +402,26 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] type-only-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3c-valueusedfromtype. value-used-from-type-import-fixer — mirror of
+      // type-only-import-fixer: convert `import type { X }` → `import { X }`
+      // when X is used in a value position (JSX, function call, new, member
+      // access). TS1361 prevention. Empirical hit 2026-04-23 (/showcase white
+      // page). MUST run after type-only-import-fixer so we don't undo correct
+      // conversions in the same pass.
+      try {
+        const valueUsedResult = fixValueUsedFromTypeImport(currentCode, file.path);
+        if (valueUsedResult.fixed) {
+          currentCode = valueUsedResult.code;
+          for (const fix of valueUsedResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] value-used-from-type-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
@@ -511,6 +551,30 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] duplicate-import-binding-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3i-2. duplicate-import-local-type-collision-fixer — handle two
+      // related patterns not covered by the binding-fixer above:
+      //   (a) same-source default imports with different local names
+      //       (e.g. `import X from "./m"; import Y from "./m";`)
+      //   (b) an imported binding colliding with a local type alias /
+      //       interface of the same name (duplicate-identifier error).
+      // Empirical hit 2026-04-23 in components/showcase-gallery.tsx.
+      try {
+        const typeCollisionResult = fixDuplicateImportAndLocalTypeCollision(
+          currentCode,
+          file.path,
+        );
+        if (typeCollisionResult.fixed) {
+          currentCode = typeCollisionResult.code;
+          for (const fix of typeCollisionResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] duplicate-import-local-type-collision-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 
@@ -756,6 +820,28 @@ async function runAutoFixSinglePass(
         );
       }
 
+      // 5.5. dom-builtin-jsx-fixer — rewrite DOM-interface JSX tags like
+      // <HTMLFormElement> to their lowercase HTML equivalents (<form>).
+      // MUST run before jsx-checker: otherwise jsx-checker will either warn
+      // and leave the bad tag, or (if the name ever left the denylist)
+      // try to generate a stub import for it. Empirical hit 2026-04-23.
+      try {
+        const domBuiltinResult = fixDomBuiltinJsxTags(currentCode, file.path);
+        if (domBuiltinResult.fixed) {
+          currentCode = domBuiltinResult.code;
+          for (const fix of domBuiltinResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+        for (const w of domBuiltinResult.warnings) {
+          allWarnings.push(w);
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] dom-builtin-jsx-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       // 6. jsx-checker (fix missing imports & default export)
       try {
         const jsxResult = runJsxChecker(currentCode);
@@ -849,30 +935,32 @@ async function runAutoFixSinglePass(
     fixedFiles.push({ ...file, content: currentCode });
   }
 
-  // 7b. merge collected dependencies into package.json
+  // 7b. merge collected dependencies into package.json.
+  // Capability-driven dependency injection (plan-07 short): when the
+  // orchestration metadata marks e.g. `visual-3d`, inject the dossier deps
+  // deterministically even if the LLM forgot the imports.
+  const capabilityDependencies = resolveCapabilityDependencies(
+    context?.requestedCapabilities,
+  );
+  if (Object.keys(capabilityDependencies).length > 0) {
+    allDependencies = { ...capabilityDependencies, ...allDependencies };
+  }
   if (Object.keys(allDependencies).length > 0) {
     const pkgIdx = fixedFiles.findIndex((f) => f.path === "package.json");
     if (pkgIdx >= 0) {
       try {
-        const pkg = JSON.parse(fixedFiles[pkgIdx].content);
-        const deps = (pkg.dependencies ?? {}) as Record<string, string>;
-        let merged = 0;
-        for (const [name, version] of Object.entries(allDependencies)) {
-          if (!deps[name]) {
-            deps[name] = version;
-            merged++;
-          }
-        }
-        if (merged > 0) {
-          pkg.dependencies = deps;
+        const pkg = JSON.parse(fixedFiles[pkgIdx].content) as Record<string, unknown>;
+        const { packageJson: mergedPackageJson, mergedCount } =
+          mergeMissingDependenciesIntoPackageJson(pkg, allDependencies);
+        if (mergedCount > 0) {
           fixedFiles[pkgIdx] = {
             ...fixedFiles[pkgIdx],
-            content: JSON.stringify(pkg, null, 2),
+            content: JSON.stringify(mergedPackageJson, null, 2),
           };
           allFixes.push({
             fixer: "dep-completer",
             category: "mechanical",
-            description: `Pinned ${merged} missing ${merged === 1 ? "dependency" : "dependencies"} in package.json`,
+            description: `Pinned ${mergedCount} missing ${mergedCount === 1 ? "dependency" : "dependencies"} in package.json`,
             file: "package.json",
           });
         }
@@ -950,7 +1038,7 @@ async function runAutoFixSinglePass(
 
   return {
     fixedContent,
-    fixes: allFixes,
+    fixes: toFixEntries(allFixes, "mechanical"),
     warnings: allWarnings,
     dependencies: allDependencies,
   };

@@ -25,8 +25,39 @@ The main application database source of truth is:
 
 Operational SQL/bootstrap behavior also exists in:
 
-- `scripts/db/db-init.mjs`
-- `scripts/db/check-dev-db.mjs` (lokal anslutningskoll via `npm run db:check`)
+- `scripts/db/db-init.mjs` — CREATE TABLE/INDEX runtime (körs via `npm run db:init` + `predev`-hook)
+- `scripts/db/check-dev-db.mjs` — lokal anslutningskoll via `npm run db:check`
+- `scripts/db/db-row-overview.mjs` — rad-uppskattning per tabell via `npm run db:rows`
+
+### Observability scripts (read-only diagnostik + idempotent migrations)
+
+Tre scripts som backofficens "Databashälsa"-sida och CI använder:
+
+- `scripts/db/db-health-check.mjs` (`npm run db:health`) — read-only diagnos
+  av tabeller, rader, index-status. Producerar JSON på stdout enligt
+  [`docs/schemas/strict/db-health-check-report.schema.json`](./strict/db-health-check-report.schema.json).
+  Exit-kod: 0 om allt OK, 1 om saknade tabeller / index / probe-fel.
+- `scripts/db/add-performance-indexes.mjs` (`npm run db:perf-indexes`) —
+  idempotent + dedupe-aware migration som skapar saknade FK-index. Audit-
+  logg till `data/observability/db-perf-indexes-runs.ndjson` enligt
+  [`docs/schemas/strict/db-perf-indexes-audit-line.schema.json`](./strict/db-perf-indexes-audit-line.schema.json).
+  Auto-applicering på `npm run dev` via `predev`-hooken.
+- `scripts/db/drop-legacy-index-aliases.mjs` (`npm run db:drop-legacy-aliases`) —
+  opt-in cleanup av legacy-namngivna index. Default dry-run; `--apply` krävs.
+  Audit-logg till `data/observability/db-drop-aliases-runs.ndjson`.
+
+Drift-skydd: `src/lib/db/schema-drift.test.ts` validerar att Drizzle-schemat
+matchar runtime-källorna (db-init.mjs, perf-indexes-script, SQL-migrations,
+samt db-health-check-konstanterna). Körs i `npm run test:ci`.
+
+### Redis observability
+
+- `scripts/db/redis-health-check.mjs` (`npm run redis:health`) — read-only
+  diagnos av Upstash Redis via HTTP/REST-klienten. Producerar JSON enligt
+  [`docs/schemas/strict/redis-health-check-report.schema.json`](./strict/redis-health-check-report.schema.json).
+  Testar BARA REST-vägen (rate-limit + diagnos). App-cache, sessioner och
+  deploy-status pubsub går via ioredis (TCP) som inte valideras här —
+  använd `/api/health` för TCP-statusen.
 
 Important rule:
 

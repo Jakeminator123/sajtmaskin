@@ -40,24 +40,33 @@ function ThinkingOverlayContent() {
 
   const current = FACTS[factIndex];
 
+  // Layout history:
+  // - Original: `absolute inset-x-0 bottom-16 z-10` — covered the *last*
+  //   streamed messages in MessageList while AI was generating.
+  // - Plan 02 fix: moved to `top-2` (still absolute inside MessageList's
+  //   container) — covered the *first* messages instead. User reported it
+  //   was still hiding agentlog content.
+  // - Now (post-plan-02 follow-up): rendered as a normal flex row OUTSIDE
+  //   MessageList's container in BuilderShellContent. Takes its own line
+  //   between the env-variable card and the chat stream — covers nothing.
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-16 z-10 flex flex-col items-center gap-4 px-4 py-6">
-      <div className="relative flex items-center gap-3">
-        <Loader2 className="text-primary h-5 w-5 animate-spin" />
-        <span className="text-muted-foreground text-sm">AI genererar...</span>
-      </div>
-
+    <div className="border-border/40 flex justify-center border-b px-4 py-1.5">
       <div
+        className="text-muted-foreground flex max-w-md items-center gap-3 truncate"
         aria-live="polite"
-        className={`max-w-sm text-center transition-opacity duration-300 ${
-          fadeIn ? "opacity-100" : "opacity-0"
-        }`}
       >
-        <p className="text-muted-foreground/60 text-xs">
-          <span className="text-foreground/80 font-medium">{current.company}</span>
+        <Loader2 className="text-primary h-3.5 w-3.5 shrink-0 animate-spin" />
+        <span className="text-xs font-medium">AI genererar</span>
+        <span className="text-muted-foreground/40 text-xs">·</span>
+        <span
+          className={`text-muted-foreground/70 truncate text-xs transition-opacity duration-300 ${
+            fadeIn ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <span className="text-foreground/70 font-medium">{current.company}</span>
           {" — "}
           {current.fact}
-        </p>
+        </span>
       </div>
     </div>
   );

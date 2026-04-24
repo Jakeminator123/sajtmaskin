@@ -1,0 +1,191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "db-health-check-report.schema.json",
+  "title": "DB Health Check Report",
+  "description": "JSON-payload på stdout från `scripts/db/db-health-check.mjs`. Konsumeras av `backoffice/pages/database_health.py` (subprocess.run + json.loads) och kan användas av CI / cron-jobb. Kontraktet är tre-grenat: (1) success — full rapport med tabeller och index; (2) connection-fail — minimal payload med error; (3) config-fail — bara `ok: false` + `error`. Source of truth: scripts/db/db-health-check.mjs.",
+  "oneOf": [
+    { "$ref": "#/definitions/fullReport" },
+    { "$ref": "#/definitions/connectionFailReport" },
+    { "$ref": "#/definitions/configFailReport" },
+    { "$ref": "#/definitions/fatalErrorReport" }
+  ],
+  "definitions": {
+    "fullReport": {
+      "description": "Full rapport — anslutning lyckades och alla tabeller granskades. `ok` kan vara true (allt grönt) eller false (saknade tabeller/index/probe-fel) men strukturen är komplett.",
+      "type": "object",
+      "required": [
+        "ok",
+        "timestamp",
+        "target",
+        "is_prod_like",
+        "connection",
+        "summary",
+        "tables",
+        "missing_indexes",
+        "extra_indexes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "description": "true om connection OK + inga tabeller saknas + inga probe-fel + inga saknade index. Speglas i exit-kod (0 om true, 1 om false)."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 (UTC) när rapporten genererades."
+        },
+        "target": {
+          "type": "string",
+          "description": "Redacted connection-string (lösenord ersatt med ***)."
+        },
+        "is_prod_like": {
+          "type": "boolean",
+          "description": "true om aktuell DB-target matchar `.env.vercel.production.pulled` — UI:t markerar med ⚠️."
+        },
+        "connection": { "$ref": "#/definitions/connectionStatus" },
+        "summary": { "$ref": "#/definitions/summary" },
+        "tables": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/tableEntry" }
+        },
+        "missing_indexes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/indexRef" }
+        },
+        "extra_indexes": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/indexRef" }
+        },
+        "snapshot_error": {
+          "type": "string",
+          "description": "Om --snapshot kördes men NDJSON-write failade. Best-effort, påverkar inte ok."
+        }
+      }
+    },
+    "connectionFailReport": {
+      "type": "object",
+      "required": ["ok", "timestamp", "target", "connection", "tables"],
+      "additionalProperties": true,
+      "properties": {
+        "ok": { "type": "boolean", "enum": [false] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "target": { "type": "string" },
+        "is_prod_like": { "type": "boolean" },
+        "connection": {
+          "type": "object",
+          "required": ["ok", "latency_ms", "error"],
+          "properties": {
+            "ok": { "type": "boolean", "enum": [false] },
+            "latency_ms": { "type": "number" },
+            "error": { "type": "string" }
+          }
+        },
+        "tables": {
+          "type": "array",
+          "maxItems": 0,
+          "description": "Tom vid connection-fail."
+        }
+      }
+    },
+    "configFailReport": {
+      "description": "Config-fail — inga creds eller URL-parsing failade. Bara minimal payload.",
+      "type": "object",
+      "required": ["ok", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean", "enum": [false] },
+        "error": {
+          "type": "string",
+          "description": "T.ex. 'Missing database connection URL.'"
+        }
+      }
+    },
+    "fatalErrorReport": {
+      "description": "Oväntat fatal-fel under run() — fångas av .catch i toppen och loggar JSON med error+stack. Skiljer sig exklusivt från configFail genom att stack är required.",
+      "type": "object",
+      "required": ["ok", "error", "stack"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean", "enum": [false] },
+        "error": { "type": "string" },
+        "stack": { "type": "string" }
+      }
+    },
+    "connectionStatus": {
+      "type": "object",
+      "required": ["ok", "latency_ms"],
+      "properties": {
+        "ok": { "type": "boolean" },
+        "latency_ms": { "type": "number", "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_tables_expected",
+        "total_tables_present",
+        "total_tables_missing",
+        "total_table_probe_failures",
+        "total_rows_estimate",
+        "total_indexes_missing",
+        "total_indexes_extra"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "total_tables_expected": { "type": "integer", "minimum": 0 },
+        "total_tables_present": { "type": "integer", "minimum": 0 },
+        "total_tables_missing": { "type": "integer", "minimum": 0 },
+        "total_table_probe_failures": { "type": "integer", "minimum": 0 },
+        "total_rows_estimate": { "type": "integer", "minimum": 0 },
+        "total_indexes_missing": { "type": "integer", "minimum": 0 },
+        "total_indexes_extra": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "indexRef": {
+      "type": "object",
+      "required": ["table", "index"],
+      "additionalProperties": false,
+      "properties": {
+        "table": { "type": "string" },
+        "index": { "type": "string" }
+      }
+    },
+    "tableEntry": {
+      "type": "object",
+      "required": ["name", "exists"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z_][a-z0-9_]*$"
+        },
+        "exists": { "type": "boolean" },
+        "has_pk": { "type": "boolean" },
+        "indexes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "expected_indexes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "missing_indexes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "aliased_indexes": {
+          "type": "object",
+          "description": "Karta från förväntat indexnamn → faktiskt namn i DB:n (covering-aware dedupe).",
+          "additionalProperties": { "type": "string" }
+        },
+        "row_count_estimate": { "type": ["integer", "number"] },
+        "row_count_exact": { "type": ["integer", "null"] },
+        "exact_count_latency_ms": { "type": ["number", "null"] },
+        "probe_latency_ms": { "type": ["number", "null"] },
+        "probe_error": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

@@ -236,6 +236,54 @@
         "scripts/audit/audit-shadcn-mirror-repos.mjs"
       ]
     },
+    "Databashälsa": {
+      "summary": "Read-only diagnos av Postgres-tabeller och index + APPLY-flöde för saknade index (idempotent CREATE INDEX IF NOT EXISTS, audit-loggat). Kör scripts/db/db-health-check.mjs via subprocess. Stödskript: scripts/db/add-performance-indexes.mjs (perf-migration), scripts/db/drop-legacy-index-aliases.mjs (opt-in cleanup). Auto-applicering på `npm run dev` via predev-hooken.",
+      "canonicalPaths": [
+        "backoffice/pages/database_health.py",
+        "scripts/db/db-health-check.mjs",
+        "scripts/db/add-performance-indexes.mjs",
+        "scripts/db/drop-legacy-index-aliases.mjs",
+        "src/lib/db/schema.ts"
+      ],
+      "docsPaths": [
+        "docs/architecture/data-layer-overview.md",
+        "lineage/2026-04-24-langbank-databas-redis-observability.md",
+        "lineage/2026-04-24-langbank-perf-indexes-auto-och-knapp.md"
+      ],
+      "humanSchemaPaths": [
+        "docs/schemas/integrations-and-data.md"
+      ],
+      "strictSchemaPaths": [
+        "docs/schemas/strict/db-health-check-report.schema.json",
+        "docs/schemas/strict/db-perf-indexes-audit-line.schema.json"
+      ],
+      "codeReaders": [
+        "src/lib/db/schema-drift.test.ts",
+        "backoffice/test_database_health_smoke.py",
+        "src/app/api/admin/database/route.ts"
+      ]
+    },
+    "Redis-hälsa": {
+      "summary": "Read-only diagnos av Upstash Redis via HTTP/REST-klienten (`@upstash/redis`). PING + INFO + per-prefix-buckets med env-scoped SCAN (dev:/preview:/prod:) + write/read/del-probe. Visar inte ioredis/TCP-klienten som app-cache och deploy-pubsub använder — för det, `/api/health` eller server-loggar.",
+      "canonicalPaths": [
+        "backoffice/pages/redis_health.py",
+        "scripts/db/redis-health-check.mjs",
+        "src/lib/data/redis.ts",
+        "src/lib/redis-pubsub.ts",
+        "src/lib/rateLimit.ts"
+      ],
+      "docsPaths": [
+        "docs/architecture/data-layer-overview.md"
+      ],
+      "humanSchemaPaths": [],
+      "strictSchemaPaths": [
+        "docs/schemas/strict/redis-health-check-report.schema.json"
+      ],
+      "codeReaders": [
+        "backoffice/test_database_health_smoke.py",
+        "src/app/api/health/route.ts"
+      ]
+    },
     "user_degraded_env": {
       "summary": "Policytext för degraded/placeholder-miljö i användarprojekt. Lista med nycklar pekas från manifest m.m.",
       "canonicalPaths": [

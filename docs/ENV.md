@@ -45,13 +45,15 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | D-ID avatar (mAIa Klo) | `NEXT_PUBLIC_AVATAR_AGENT_ID`, `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | Aktiverar videokamera-togglen i OpenClaw-widgeten och `/avatar`-pilotytan. Utan dem fungerar widgeten som ren textchatt. Origins måste vara allowlistade i D-ID Studio. |
 | Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | Preview-sessioner kör nu via preview-host / Fly. Detaljer: `fas3-preview-and-deploy.md`. |
 | Pre-VM typecheck | `SAJTMASKIN_PRE_VM_TYPECHECK=true`, ev. `SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT` | Aktiverar `tsc --noEmit` mot varm scaffold-cache före VM. F3-genereringar tvingar alltid på den. Fail-open vid kall cache. Källa: `src/lib/gen/preview/warm-typecheck.ts`. |
+| Pre-VM eslint | `SAJTMASKIN_BLOCKING_ESLINT=true`, ev. `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS=20` | Aktiverar `eslint` mot samma warm-cache efter att warm-tsc passerar. Fail-open vid kall cache. Samma cache-rot som warm-typecheck (`SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT`). Källa: `src/lib/gen/preview/warm-eslint.ts`. Provisioneras via `npm run provision:warm-cache` (se `scripts/provision-warm-cache.ts`). |
+| F2/F3 quality gate på VM | **Inte env** — ligger i `config/ai_models/manifest.json` → `qualityGateTiers` | `designPreview` (F2) och `integrationsBuild` (F3) är listor av `typecheck` / `build` / `lint`. Läses i `src/lib/gen/verify/quality-gate-checks.ts`. Ändring åker med repo-commit, ingen Vercel-variabel behövs. |
 | F2/F3 placeholder-fragments | (inga env-vars; två filer i `config/ai_models/`) | F2 mergar `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`. F3 (`/finalize-design`) stripar tier-3-stubben och kräver riktiga värden via stored project env vars. Per-key-klassificering: `src/lib/integrations/placeholder-harmless.ts`. |
 | Statisk Visual QA (heuristik) | `SAJTMASKIN_VISUAL_QA` satt till `1` eller `true` | Efter att **alla** verify-lanekontroller passerat kan appen köra `analyzeVisualQuality` på exportabla filer (ingen screenshot). Resultatet syns i quality-gate-svar och kan loggas kompakt i `preflight:quality-gate`-meta. Standard är av. Läses direkt från `process.env` i `src/lib/gen/visual-qa.ts`, inte via `serverSchema` i `env.ts`. |
-| LLM reasoning/thinking | `SAJTMASKIN_DEFAULT_THINKING=true` | Kanonisk server-side default för reasoning/thinking-flaggan i kodgenerering. Gäller när klienten inte skickar ett explicit val. `SAJTMASKIN_SHOW_THINKING` stöds bara som legacy-alias under migrering av äldre miljöer. |
-| Dossier pipeline (v2) | `SAJTMASKIN_DOSSIER_PIPELINE=true` | Aktiverar deterministic capability-driven dossier-urval. Läser `data/dossiers/{hard,soft}/<id>/manifest.json` direkt och matchar `brief.requestedCapabilities` 1:1 mot dossiers. Injicerar `## Available Dossiers` + `## Selected Dossier Instructions` + `## Dossier Files To Emit Verbatim` i system-prompten. **På i development**, opt-in i production. Inga tuning-knoppar — det finns inga fler `DOSSIER_*`-variabler. Se [`docs/architecture/dossier-system.md`](architecture/dossier-system.md). |
+| LLM reasoning/thinking | `SAJTMASKIN_DEFAULT_THINKING=true` | Kanonisk server-side default för reasoning/thinking-flaggan i kodgenerering. Gäller när klienten inte skickar ett explicit val. Legacy-aliaset `SAJTMASKIN_SHOW_THINKING` togs bort i omtag-04 (2026-04-23). |
+| Dossier pipeline (v2) | `SAJTMASKIN_DOSSIER_PIPELINE=true` | Aktiverar deterministic capability-driven dossier-urval. Läser `data/dossiers/{hard,soft}/<id>/manifest.json` direkt och matchar `brief.requestedCapabilities` 1:1 mot dossiers. Injicerar `## Available Dossiers` + `## Selected Dossier Instructions` + `## Dossier Files To Emit Verbatim` i system-prompten. **Kod-default:** på i alla miljöer; stäng av explicit med `SAJTMASKIN_DOSSIER_PIPELINE=false` eller `0` (fallback i `src/lib/config.ts`). **Deploy-status sedan 2026-04-23:** explicit satt till `true` på alla tre Vercel-miljöer (Development / Preview / Production). Inga tuning-knoppar — det finns inga fler `DOSSIER_*`-variabler. Se [`docs/architecture/dossier-system.md`](architecture/dossier-system.md). |
 | Klient-autofix-tak | `NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=2`, `NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON=1`, `NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS=300000` | Styr klient-driven autofix i [`useAutoFix.ts`](../src/lib/hooks/chat/useAutoFix.ts). Max-per-chat hindrar oändliga repair-loopar. Max-per-reason hindrar samma fel-typ från att försöka fler gånger än tillåtet. NEXT_PUBLIC_-prefix krävs eftersom värdena läses i klient-bundlen. |
 | Deferred extra init routes | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true` | Opt-in för att låta init-genereringar (inklusive `isFirstCodeGeneration`-fallet efter scaffold/contract-gate) planera flera routes men bara fullt realisera primärrouten direkt. Extrasidor blir då giltiga shells med tydlig `Skapa sida`-yta. På follow-up bevaras shells automatiskt om inte användaren explicit ber om att bygga ut en specifik sida. Default av. |
-| Lokal dev-logg | `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod); `GENERATIONSLOGG` styr generationsloggen | Runtime-only, inte i Zod-schemat. `logs/generationslogg/` behåller bara de 3 senaste körningarna. `SAJTMASKIN_LOG` / `file-logger.ts` är borttagna (2026-04, oanvänd). |
+| Lokal dev-logg | `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod); `GENERATIONSLOGG` styr generationsloggen | Runtime-only, inte i Zod-schemat. `logs/generationslogg/` behåller bara de 3 senaste körningarna. `SAJTMASKIN_LOG` / `file-logger.ts` är borttagna (2026-04). `SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS` togs bort i omtag-04 (hårdkodat 10 000 ord). |
 | Postgres-pool | `POSTGRES_POOL_MAX`, `POSTGRES_POOL_IDLE_TIMEOUT_MS` | Override för pool-storlek + idle-timeout per processinstans i [`src/lib/db/client.ts`](../src/lib/db/client.ts). Default väljs automatiskt: pooled connection (Supabase pgbouncer / `?pgbouncer=true` / hostname `pooler.*` / port 6543/5433) får `max=3` + idle 5s, direkt Postgres får `max=10` + idle 30s. Sätt `POSTGRES_POOL_MAX` lägre om du ser `EMAXCONNSESSION: max clients` i Fly-loggar (SAJ-7 / B1). |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
 
@@ -66,6 +68,28 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | **Vercel-managed** | Nycklar som plattformen eller Next sätter (t.ex. `NODE_ENV`, `VERCEL_URL`) — **pusha inte** egna värden från laptop om policyn säger motsatsen; se `classification: vercel_managed` i `env-policy.json`. |
 
 `.vercel/.env.*.local` från `vercel env pull` är **snapshot**, inte kanon.
+
+---
+
+## Borttagna flaggor (omtag-04, 2026-04-23)
+
+Följande `SAJTMASKIN_*`-flaggor togs bort från `serverSchema` (`src/lib/env.ts`) och `config/env-policy.json`. Beteendet lever kvar som hårdkodade konstanter i `src/lib/config.ts` (`FEATURES`, `FOLLOW_UP_TUNING`) eller `src/lib/logging/devLog.ts`.
+
+| Borttagen flagga | Ersatt av | Effekt |
+|---|---|---|
+| `SAJTMASKIN_SHOW_THINKING` | `SAJTMASKIN_DEFAULT_THINKING` | Legacy-alias borttaget; sätt den kanoniska flaggan direkt. |
+| `SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX` | `FEATURES.consistentRepairPassIndex = true` | SAJ-25-härdningen är alltid på. |
+| `SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX` | `FEATURES.verifierRerunAfterFix = true` | Verifier-rerun efter LLM-fixer är alltid på. |
+| `SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE` | `FEATURES.skipDoubleValidateAndFixOnMerge = true` | Mekanisk-only på merged-syntax-fail är alltid på. |
+| `SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT` | `FEATURES.recurringPatternsInMainPrompt = NODE_ENV === "development"` | Bevarar dev-on/prod-off-defaulten; ändras i kod. |
+| `SAJTMASKIN_USE_ERROR_LOG_RAG` | `FEATURES.useErrorLogRag = NODE_ENV === "development"` | Samma — RAG är på i dev, av i prod. |
+| `SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS` | `FOLLOW_UP_TUNING.maxRecentHistoryPairs = 4` | Konstant. |
+| `SAJTMASKIN_FOLLOWUP_LIGHT_MAX_CHARS` | `FOLLOW_UP_TUNING.lightContextMaxChars = 32_000` | Konstant. |
+| `SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY` | `FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles = 4` | Konstant. |
+| `SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW` | `FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles = 6` | Konstant. |
+| `SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS` | `DEFAULT_DOC_MAX_WORDS = 10_000` i `devLog.ts` | Konstant. |
+
+Behöver du ändra beteende nu? Justera koden (och läs `docs/plans/avklarat/omtag-2026-04-23/` när OMTAG-arbetet är mergat).
 
 ---
 
@@ -121,7 +145,7 @@ Filen tar bort behovet av att fråga användaren om env-variabler i chatten unde
 | **F2** (`design`) | Alla harmless-placeholders **+** tier-3-stubs **+** projekt-preview-tokens. Användaren ser exakt vilka nycklar projektet kan tänkas använda. Ingen interaktion krävs — preview-VM:en bootar oberoende av denna fil. | `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt` + `project-preview-env.ts` |
 | **F3** (`integrations`) | Tier-3-stubs strippas. Värden från env-panelen (`projectEnvVars` i DB) mergas in som "user"-lager. Saknade tier-3 nycklar surfar som blockers via [`src/lib/integrations/tier3-build-spec.ts`](../src/lib/integrations/tier3-build-spec.ts). | Som F2 utan tier-3 + DB-lagrade `projectEnvVars` + ev. modell-emitterad `.env.local` |
 
-`env.example` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i sandboxen — det är `.env.local` som faktiskt boot:ar previewen, `env.example` är **användarsynlig spegling** + förklaringsdokument. Detaljer: [`src/lib/gen/stream/finalize-version.ts`](../src/lib/gen/stream/finalize-version.ts) (kallar `injectProjectEnvFileIntoFilesJson`).
+`env.example` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i sandboxen — det är `.env.local` som faktiskt boot:ar previewen, `env.example` är **användarsynlig spegling** + förklaringsdokument. Detaljer: [`src/lib/gen/stream/finalize-version/`](../src/lib/gen/stream/finalize-version/) (post-OMTAG-03 package; `runner.ts` kallar `injectProjectEnvFileIntoFilesJson`).
 
 ### Regelkontrakt: F2-tystnad
 

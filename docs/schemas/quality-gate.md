@@ -229,6 +229,43 @@ flowchart TD
     acceptRepair --> promoted
 ```
 
+## Server-repair outcome metadata (Wave 5 hot-fix #3)
+
+`buildServerRepairOutcomeMeta` i `src/lib/gen/verify/server-verify-log-meta.ts`
+producerar `repair-outcome`-loggar med följande fält:
+
+| Fält | Typ | Beskrivning |
+|---|---|---|
+| `method` | `"deterministic" \| "llm"` | Vilken repair-strategi som kördes |
+| `llmPasses` | `number` | Antal LLM-fixer-anrop i loopen |
+| `repaired` | `boolean` | True om gate passerade efter repair |
+| `remainingErrors` | `number?` | Antal kvarvarande **esbuild-syntax**-fel — ej tsc/build |
+| `remainingErrorsSource` | `"esbuild_syntax" \| "quality_gate"` | Vilken pass siffran kommer från (Wave 5) |
+| `syntaxCleanGateFailed` | `boolean` | True när esbuild = 0 men typecheck/build fortfarande failar (Wave 5) |
+| `earlyStopReason` | `"fixer_noop" \| "no_improvement" \| "time_budget_exceeded" \| null` | Varför loopen bröts |
+
+**Varför detta finns:** Tidigare loggar visade "Kvarvarande fel: 0" samtidigt
+som typecheck failade. Det beror på att `remainingErrors` läses från
+`validateGeneratedCode` (esbuild parse), inte från quality-gaten. Wave 5
+lade till `remainingErrorsSource` + `syntaxCleanGateFailed` så UI/loggar
+kan disambigueras: "0 syntaxfel (esbuild) — men quality gate failar fortfarande".
+
+## LLM-fixer incomplete-files-skydd (Wave 5 hot-fix #5)
+
+`runLlmFixer` i `src/lib/gen/autofix/llm-fixer.ts` validerar varje returnerad
+fil **före merge** med `validateCompleteFiles`. Filer som flaggas som ofullständiga
+exkluderas från merge och rapporteras tillbaka i `FixerResult.incompleteFiles`:
+
+| `reason` | Heuristik |
+|---|---|
+| `shrink_below_50pct` | Ny fil < 50 % av originalets längd (för originalfiler ≥ 200 tecken) |
+| `ellipsis_or_rest_unchanged_tail` | Slutar med `// ...`, `/* rest unchanged */`, `// rest of the code unchanged` etc. |
+| `unbalanced_delimiters` | `{` `(` `[` obalanserade (string/comment-aware räknare) |
+
+Detta är klassen av bugg bakom historiska "missing `}`"- och "ButtonProps"-incidenter:
+LLM:n returnerade en partial file som mergades direkt och korrumperade projektet
+medan esbuild-passet senare rapporterade 0 fel.
+
 ## Dokumentationsstatus
 
 Quality gate finns redan dokumenterad, men utspritt:

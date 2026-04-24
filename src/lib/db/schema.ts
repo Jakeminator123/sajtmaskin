@@ -6,6 +6,7 @@ import {
   jsonb,
   boolean,
   uniqueIndex,
+  index,
   integer,
   serial,
 } from "drizzle-orm/pg-core";
@@ -26,15 +27,21 @@ export const projects = pgTable(
   }),
 );
 
-export const chats = pgTable("chats", {
-  id: text("id").primaryKey(),
-  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
-  v0ChatId: text("v0_chat_id").notNull().unique(),
-  v0ProjectId: text("v0_project_id").notNull(),
-  webUrl: text("web_url"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const chats = pgTable(
+  "chats",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    v0ChatId: text("v0_chat_id").notNull().unique(),
+    v0ProjectId: text("v0_project_id").notNull(),
+    webUrl: text("web_url"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    projectIdx: index("idx_chats_project").on(table.projectId),
+  }),
+);
 
 export const versions = pgTable(
   "versions",
@@ -52,97 +59,144 @@ export const versions = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    // Unique constraint to prevent duplicate versions per chat
-    chatVersionIdx: uniqueIndex("versions_chat_version_idx").on(table.chatId, table.v0VersionId),
+    // OBS: Indexnamnet matchar den runtime-skapade versionen i db-init.mjs
+    // (`idx_versions_chat_v0_version_unique`) — annars uppstår drift som
+    // schema-drift-testet fångar (skulle ge två fysiska index på samma kolumner).
+    chatVersionIdx: uniqueIndex("idx_versions_chat_v0_version_unique").on(
+      table.chatId,
+      table.v0VersionId,
+    ),
+    chatIdx: index("idx_versions_chat_id").on(table.chatId),
   }),
 );
 
-export const versionErrorLogs = pgTable("version_error_logs", {
-  id: text("id").primaryKey(),
-  chat_id: text("chat_id")
-    .references(() => chats.id, { onDelete: "cascade" })
-    .notNull(),
-  version_id: text("version_id")
-    .references(() => versions.id, { onDelete: "cascade" })
-    .notNull(),
-  v0_version_id: text("v0_version_id"),
-  level: text("level").notNull(),
-  category: text("category"),
-  message: text("message").notNull(),
-  meta: jsonb("meta"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const versionErrorLogs = pgTable(
+  "version_error_logs",
+  {
+    id: text("id").primaryKey(),
+    chat_id: text("chat_id")
+      .references(() => chats.id, { onDelete: "cascade" })
+      .notNull(),
+    version_id: text("version_id")
+      .references(() => versions.id, { onDelete: "cascade" })
+      .notNull(),
+    v0_version_id: text("v0_version_id"),
+    level: text("level").notNull(),
+    category: text("category"),
+    message: text("message").notNull(),
+    meta: jsonb("meta"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    chatIdx: index("idx_version_error_logs_chat_id").on(table.chat_id),
+    versionIdx: index("idx_version_error_logs_version_id").on(table.version_id),
+  }),
+);
 
-export const deployments = pgTable("deployments", {
-  id: text("id").primaryKey(),
-  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
-  chatId: text("chat_id")
-    .references(() => chats.id, { onDelete: "cascade" })
-    .notNull(),
-  versionId: text("version_id")
-    .references(() => versions.id, { onDelete: "cascade" })
-    .notNull(),
-  v0DeploymentId: text("v0_deployment_id"),
-  vercelDeploymentId: text("vercel_deployment_id"),
-  vercelProjectId: text("vercel_project_id"),
-  inspectorUrl: text("inspector_url"),
-  url: text("url"),
-  domain: text("domain"),
-  status: varchar("status", { length: 50 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const deployments = pgTable(
+  "deployments",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    chatId: text("chat_id")
+      .references(() => chats.id, { onDelete: "cascade" })
+      .notNull(),
+    versionId: text("version_id")
+      .references(() => versions.id, { onDelete: "cascade" })
+      .notNull(),
+    v0DeploymentId: text("v0_deployment_id"),
+    vercelDeploymentId: text("vercel_deployment_id"),
+    vercelProjectId: text("vercel_project_id"),
+    inspectorUrl: text("inspector_url"),
+    url: text("url"),
+    domain: text("domain"),
+    status: varchar("status", { length: 50 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    chatIdx: index("idx_deployments_chat_id").on(table.chatId),
+    projectIdx: index("idx_deployments_project").on(table.projectId),
+    versionIdx: index("idx_deployments_version").on(table.versionId),
+    vercelDeploymentIdx: index("idx_deployments_vercel_deployment_id").on(
+      table.vercelDeploymentId,
+    ),
+  }),
+);
 
 // ============================================================================
 // APP DATABASE TABLES (formerly SQLite)
 // ============================================================================
 
-export const appProjects = pgTable("app_projects", {
-  id: text("id").primaryKey(),
-  user_id: text("user_id"),
-  session_id: text("session_id"),
-  name: text("name").notNull(),
-  category: text("category"),
-  description: text("description"),
-  thumbnail_path: text("thumbnail_path"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+export const appProjects = pgTable(
+  "app_projects",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id"),
+    session_id: text("session_id"),
+    name: text("name").notNull(),
+    category: text("category"),
+    description: text("description"),
+    thumbnail_path: text("thumbnail_path"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("idx_app_projects_user_id").on(table.user_id),
+    sessionIdx: index("idx_app_projects_session_id").on(table.session_id),
+  }),
+);
 
-export const promptHandoffs = pgTable("prompt_handoffs", {
-  id: text("id").primaryKey(),
-  prompt: text("prompt").notNull(),
-  source: text("source"),
-  project_id: text("project_id"),
-  user_id: text("user_id"),
-  session_id: text("session_id"),
-  consumed_at: timestamp("consumed_at"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const promptHandoffs = pgTable(
+  "prompt_handoffs",
+  {
+    id: text("id").primaryKey(),
+    prompt: text("prompt").notNull(),
+    source: text("source"),
+    project_id: text("project_id"),
+    user_id: text("user_id"),
+    session_id: text("session_id"),
+    consumed_at: timestamp("consumed_at"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    createdIdx: index("idx_prompt_handoffs_created_at").on(table.created_at),
+    consumedIdx: index("idx_prompt_handoffs_consumed_at").on(table.consumed_at),
+    userIdx: index("idx_prompt_handoffs_user").on(table.user_id),
+  }),
+);
 
-export const promptLogs = pgTable("prompt_logs", {
-  id: text("id").primaryKey(),
-  event: text("event").notNull(),
-  user_id: text("user_id"),
-  session_id: text("session_id"),
-  app_project_id: text("app_project_id"),
-  v0_project_id: text("v0_project_id"),
-  chat_id: text("chat_id"),
-  prompt_original: text("prompt_original"),
-  prompt_formatted: text("prompt_formatted"),
-  system_prompt: text("system_prompt"),
-  prompt_assist_model: text("prompt_assist_model"),
-  prompt_assist_deep: boolean("prompt_assist_deep"),
-  prompt_assist_mode: text("prompt_assist_mode"),
-  build_intent: text("build_intent"),
-  build_method: text("build_method"),
-  model_tier: text("model_tier"),
-  image_generations: boolean("image_generations"),
-  thinking: boolean("thinking"),
-  attachments_count: integer("attachments_count"),
-  meta: jsonb("meta"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const promptLogs = pgTable(
+  "prompt_logs",
+  {
+    id: text("id").primaryKey(),
+    event: text("event").notNull(),
+    user_id: text("user_id"),
+    session_id: text("session_id"),
+    app_project_id: text("app_project_id"),
+    v0_project_id: text("v0_project_id"),
+    chat_id: text("chat_id"),
+    prompt_original: text("prompt_original"),
+    prompt_formatted: text("prompt_formatted"),
+    system_prompt: text("system_prompt"),
+    prompt_assist_model: text("prompt_assist_model"),
+    prompt_assist_deep: boolean("prompt_assist_deep"),
+    prompt_assist_mode: text("prompt_assist_mode"),
+    build_intent: text("build_intent"),
+    build_method: text("build_method"),
+    model_tier: text("model_tier"),
+    image_generations: boolean("image_generations"),
+    thinking: boolean("thinking"),
+    attachments_count: integer("attachments_count"),
+    meta: jsonb("meta"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    createdIdx: index("idx_prompt_logs_created_at").on(table.created_at),
+    chatIdx: index("idx_prompt_logs_chat").on(table.chat_id),
+    userCreatedIdx: index("idx_prompt_logs_user_created").on(table.user_id, table.created_at),
+  }),
+);
 
 export const projectData = pgTable("project_data", {
   project_id: text("project_id")
@@ -158,44 +212,64 @@ export const projectData = pgTable("project_data", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const projectFiles = pgTable("project_files", {
-  id: serial("id").primaryKey(),
-  project_id: text("project_id")
-    .notNull()
-    .references(() => appProjects.id, { onDelete: "cascade" }),
-  path: text("path").notNull(),
-  size_bytes: integer("size_bytes"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const projectFiles = pgTable(
+  "project_files",
+  {
+    id: serial("id").primaryKey(),
+    project_id: text("project_id")
+      .notNull()
+      .references(() => appProjects.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    size_bytes: integer("size_bytes"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    projectIdx: index("idx_project_files_project").on(table.project_id),
+  }),
+);
 
-export const images = pgTable("images", {
-  id: serial("id").primaryKey(),
-  project_id: text("project_id")
-    .notNull()
-    .references(() => appProjects.id, { onDelete: "cascade" }),
-  filename: text("filename").notNull(),
-  file_path: text("file_path").notNull(),
-  original_name: text("original_name"),
-  mime_type: text("mime_type"),
-  size_bytes: integer("size_bytes"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const images = pgTable(
+  "images",
+  {
+    id: serial("id").primaryKey(),
+    project_id: text("project_id")
+      .notNull()
+      .references(() => appProjects.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    file_path: text("file_path").notNull(),
+    original_name: text("original_name"),
+    mime_type: text("mime_type"),
+    size_bytes: integer("size_bytes"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    projectIdx: index("idx_images_project").on(table.project_id),
+  }),
+);
 
-export const mediaLibrary = pgTable("media_library", {
-  id: serial("id").primaryKey(),
-  user_id: text("user_id").notNull(),
-  filename: text("filename").notNull(),
-  original_name: text("original_name").notNull(),
-  file_path: text("file_path").notNull(),
-  blob_url: text("blob_url"),
-  mime_type: text("mime_type").notNull(),
-  file_type: text("file_type").notNull(),
-  size_bytes: integer("size_bytes").notNull(),
-  description: text("description"),
-  tags: jsonb("tags"),
-  project_id: text("project_id"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const mediaLibrary = pgTable(
+  "media_library",
+  {
+    id: serial("id").primaryKey(),
+    user_id: text("user_id").notNull(),
+    filename: text("filename").notNull(),
+    original_name: text("original_name").notNull(),
+    file_path: text("file_path").notNull(),
+    blob_url: text("blob_url"),
+    mime_type: text("mime_type").notNull(),
+    file_type: text("file_type").notNull(),
+    size_bytes: integer("size_bytes").notNull(),
+    description: text("description"),
+    tags: jsonb("tags"),
+    project_id: text("project_id"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("idx_media_library_user_id").on(table.user_id),
+    projectIdx: index("idx_media_library_project_id").on(table.project_id),
+    userCreatedIdx: index("idx_media_library_user_created").on(table.user_id, table.created_at),
+  }),
+);
 
 export const users = pgTable(
   "users",
@@ -248,6 +322,8 @@ export const userIntegrations = pgTable(
       table.project_id,
       table.integration_type,
     ),
+    userIdx: index("idx_user_integrations_user_id").on(table.user_id),
+    projectIdx: index("idx_user_integrations_project_id").on(table.project_id),
   }),
 );
 
@@ -273,6 +349,11 @@ export const transactions = pgTable(
     stripeSessionIdx: uniqueIndex("transactions_stripe_session_idx").on(
       table.stripe_session_id,
     ),
+    userIdx: index("idx_transactions_user_id").on(table.user_id),
+    userCreatedIdx: index("idx_transactions_user_created").on(
+      table.user_id,
+      table.created_at,
+    ),
   }),
 );
 
@@ -291,32 +372,38 @@ export const guestUsage = pgTable(
   }),
 );
 
-export const companyProfiles = pgTable("company_profiles", {
-  id: serial("id").primaryKey(),
-  project_id: text("project_id"),
-  company_name: text("company_name").notNull(),
-  industry: text("industry"),
-  location: text("location"),
-  existing_website: text("existing_website"),
-  website_analysis: text("website_analysis"),
-  site_likes: text("site_likes"),
-  site_dislikes: text("site_dislikes"),
-  site_feedback: text("site_feedback"),
-  target_audience: text("target_audience"),
-  purposes: text("purposes"),
-  special_wishes: text("special_wishes"),
-  color_palette_name: text("color_palette_name"),
-  color_primary: text("color_primary"),
-  color_secondary: text("color_secondary"),
-  color_accent: text("color_accent"),
-  competitor_insights: text("competitor_insights"),
-  industry_trends: text("industry_trends"),
-  research_sources: text("research_sources"),
-  inspiration_sites: text("inspiration_sites"),
-  voice_transcript: text("voice_transcript"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+export const companyProfiles = pgTable(
+  "company_profiles",
+  {
+    id: serial("id").primaryKey(),
+    project_id: text("project_id"),
+    company_name: text("company_name").notNull(),
+    industry: text("industry"),
+    location: text("location"),
+    existing_website: text("existing_website"),
+    website_analysis: text("website_analysis"),
+    site_likes: text("site_likes"),
+    site_dislikes: text("site_dislikes"),
+    site_feedback: text("site_feedback"),
+    target_audience: text("target_audience"),
+    purposes: text("purposes"),
+    special_wishes: text("special_wishes"),
+    color_palette_name: text("color_palette_name"),
+    color_primary: text("color_primary"),
+    color_secondary: text("color_secondary"),
+    color_accent: text("color_accent"),
+    competitor_insights: text("competitor_insights"),
+    industry_trends: text("industry_trends"),
+    research_sources: text("research_sources"),
+    inspiration_sites: text("inspiration_sites"),
+    voice_transcript: text("voice_transcript"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    projectIdx: index("idx_company_profiles_project").on(table.project_id),
+  }),
+);
 
 export const templateCache = pgTable(
   "template_cache",
@@ -361,33 +448,50 @@ export const registryCache = pgTable(
   }),
 );
 
-export const pageViews = pgTable("page_views", {
-  id: serial("id").primaryKey(),
-  path: text("path").notNull(),
-  session_id: text("session_id"),
-  user_id: text("user_id"),
-  ip_address: text("ip_address"),
-  user_agent: text("user_agent"),
-  referrer: text("referrer"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const pageViews = pgTable(
+  "page_views",
+  {
+    id: serial("id").primaryKey(),
+    path: text("path").notNull(),
+    session_id: text("session_id"),
+    user_id: text("user_id"),
+    ip_address: text("ip_address"),
+    user_agent: text("user_agent"),
+    referrer: text("referrer"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    createdIdx: index("idx_page_views_created_at").on(table.created_at),
+    pathIdx: index("idx_page_views_path").on(table.path),
+  }),
+);
 
-export const userAudits = pgTable("user_audits", {
-  id: serial("id").primaryKey(),
-  user_id: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  url: text("url").notNull(),
-  domain: text("domain").notNull(),
-  company_name: text("company_name"),
-  score_overall: integer("score_overall"),
-  score_seo: integer("score_seo"),
-  score_ux: integer("score_ux"),
-  score_performance: integer("score_performance"),
-  score_security: integer("score_security"),
-  audit_result: text("audit_result").notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const userAudits = pgTable(
+  "user_audits",
+  {
+    id: serial("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    domain: text("domain").notNull(),
+    company_name: text("company_name"),
+    score_overall: integer("score_overall"),
+    score_seo: integer("score_seo"),
+    score_ux: integer("score_ux"),
+    score_performance: integer("score_performance"),
+    score_security: integer("score_security"),
+    audit_result: text("audit_result").notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("idx_user_audits_user_id").on(table.user_id),
+    userCreatedIdx: index("idx_user_audits_user_created").on(
+      table.user_id,
+      table.created_at,
+    ),
+  }),
+);
 
 // ============================================================================
 // KOSTNADSFRI PAGES (mail-link flow)
@@ -427,24 +531,38 @@ export const engineChats = pgTable("engine_chats", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const engineMessages = pgTable("engine_messages", {
-  id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
-  role: text("role").notNull(),
-  content: text("content").notNull(),
-  uiParts: jsonb("ui_parts").$type<Record<string, unknown>[] | null>(),
-  tokenCount: integer("token_count"),
-  /**
-   * Concatenated reasoning / chain-of-thought captured during streaming
-   * for assistant messages whose model emits `reasoning-delta` parts.
-   * Persisted so the builder UI can re-show the thinking section after a
-   * page refresh (F5) instead of only displaying it during the live
-   * stream. Nullable for messages with no reasoning (user messages,
-   * fast-tier responses, etc.).
-   */
-  thinking: text("thinking"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const engineMessages = pgTable(
+  "engine_messages",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    content: text("content").notNull(),
+    uiParts: jsonb("ui_parts").$type<Record<string, unknown>[] | null>(),
+    tokenCount: integer("token_count"),
+    /**
+     * Concatenated reasoning / chain-of-thought captured during streaming
+     * for assistant messages whose model emits `reasoning-delta` parts.
+     * Persisted so the builder UI can re-show the thinking section after a
+     * page refresh (F5) instead of only displaying it during the live
+     * stream. Nullable for messages with no reasoning (user messages,
+     * fast-tier responses, etc.).
+     */
+    thinking: text("thinking"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    /**
+     * Hot path: getChat() läser meddelandelistan per chat ordnad på
+     * created_at. Utan det här indexet blir det sequential scan.
+     * Långbänk 2026-04-24.
+     */
+    chatCreatedIdx: index("idx_engine_messages_chat_created").on(
+      table.chatId,
+      table.createdAt,
+    ),
+  }),
+);
 
 export const engineVersions = pgTable(
   "engine_versions",
@@ -485,108 +603,157 @@ export const engineVersions = pgTable(
       table.chatId,
       table.versionNumber,
     ),
+    chatCreatedIdx: index("idx_engine_versions_chat_created").on(
+      table.chatId,
+      table.createdAt,
+    ),
   }),
 );
 
-export const engineGenerationLogs = pgTable("engine_generation_logs", {
-  id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
-  model: text("model").notNull(),
-  promptTokens: integer("prompt_tokens"),
-  completionTokens: integer("completion_tokens"),
-  durationMs: integer("duration_ms"),
-  success: boolean("success").notNull().default(true),
-  errorMessage: text("error_message"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const engineGenerationLogs = pgTable(
+  "engine_generation_logs",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    promptTokens: integer("prompt_tokens"),
+    completionTokens: integer("completion_tokens"),
+    durationMs: integer("duration_ms"),
+    success: boolean("success").notNull().default(true),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    chatCreatedIdx: index("idx_engine_generation_logs_chat_created").on(
+      table.chatId,
+      table.createdAt,
+    ),
+  }),
+);
 
-export const engineVersionErrorLogs = pgTable("engine_version_error_logs", {
-  id: text("id").primaryKey(),
-  chat_id: text("chat_id")
-    .references(() => engineChats.id, { onDelete: "cascade" })
-    .notNull(),
-  version_id: text("version_id")
-    .references(() => engineVersions.id, { onDelete: "cascade" })
-    .notNull(),
-  v0_version_id: text("v0_version_id"),
-  level: text("level").notNull(),
-  category: text("category"),
-  message: text("message").notNull(),
-  meta: jsonb("meta"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const engineVersionErrorLogs = pgTable(
+  "engine_version_error_logs",
+  {
+    id: text("id").primaryKey(),
+    chat_id: text("chat_id")
+      .references(() => engineChats.id, { onDelete: "cascade" })
+      .notNull(),
+    version_id: text("version_id")
+      .references(() => engineVersions.id, { onDelete: "cascade" })
+      .notNull(),
+    v0_version_id: text("v0_version_id"),
+    level: text("level").notNull(),
+    category: text("category"),
+    message: text("message").notNull(),
+    meta: jsonb("meta"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    chatIdx: index("idx_engine_version_error_logs_chat_id").on(table.chat_id),
+    versionIdx: index("idx_engine_version_error_logs_version_id").on(table.version_id),
+  }),
+);
 
-export const generationTelemetry = pgTable("generation_telemetry", {
-  id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
-  versionId: text("version_id").references(() => engineVersions.id, { onDelete: "cascade" }),
-  scaffoldId: text("scaffold_id"),
-  scaffoldAlternatives: jsonb("scaffold_alternatives").$type<string[] | null>(),
-  scaffoldSelectionMethod: text("scaffold_selection_method"),
-  scaffoldSelectionConfidence: text("scaffold_selection_confidence"),
-  briefInfluencedSelection: boolean("brief_influenced_selection").default(false).notNull(),
-  model: text("model").notNull(),
-  modelTier: text("model_tier"),
-  buildIntent: text("build_intent"),
-  buildMethod: text("build_method"),
-  promptClassification: text("prompt_classification"),
-  retryCount: integer("retry_count").default(0).notNull(),
-  autofixApplied: boolean("autofix_applied").default(false).notNull(),
-  syntaxFixerUsed: boolean("syntax_fixer_used").default(false).notNull(),
-  preflightErrorCount: integer("preflight_error_count").default(0).notNull(),
-  preflightWarningCount: integer("preflight_warning_count").default(0).notNull(),
-  seoIssueCount: integer("seo_issue_count").default(0).notNull(),
-  previewSuccess: boolean("preview_success"),
-  previewBlockingReason: text("preview_blocking_reason"),
-  qualityGateResult: text("quality_gate_result"),
-  deployResult: text("deploy_result"),
-  durationMs: integer("duration_ms"),
-  promptTokens: integer("prompt_tokens"),
-  completionTokens: integer("completion_tokens"),
-  fileCount: integer("file_count"),
-  scaffoldRetryUsed: boolean("scaffold_retry_used").default(false).notNull(),
-  scaffoldRetrySuggested: text("scaffold_retry_suggested"),
-  userFeedback: text("user_feedback"),
-  meta: jsonb("meta"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const generationTelemetry = pgTable(
+  "generation_telemetry",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    versionId: text("version_id").references(() => engineVersions.id, { onDelete: "cascade" }),
+    scaffoldId: text("scaffold_id"),
+    scaffoldAlternatives: jsonb("scaffold_alternatives").$type<string[] | null>(),
+    scaffoldSelectionMethod: text("scaffold_selection_method"),
+    scaffoldSelectionConfidence: text("scaffold_selection_confidence"),
+    briefInfluencedSelection: boolean("brief_influenced_selection").default(false).notNull(),
+    model: text("model").notNull(),
+    modelTier: text("model_tier"),
+    buildIntent: text("build_intent"),
+    buildMethod: text("build_method"),
+    promptClassification: text("prompt_classification"),
+    retryCount: integer("retry_count").default(0).notNull(),
+    autofixApplied: boolean("autofix_applied").default(false).notNull(),
+    syntaxFixerUsed: boolean("syntax_fixer_used").default(false).notNull(),
+    preflightErrorCount: integer("preflight_error_count").default(0).notNull(),
+    preflightWarningCount: integer("preflight_warning_count").default(0).notNull(),
+    seoIssueCount: integer("seo_issue_count").default(0).notNull(),
+    previewSuccess: boolean("preview_success"),
+    previewBlockingReason: text("preview_blocking_reason"),
+    qualityGateResult: text("quality_gate_result"),
+    deployResult: text("deploy_result"),
+    durationMs: integer("duration_ms"),
+    promptTokens: integer("prompt_tokens"),
+    completionTokens: integer("completion_tokens"),
+    fileCount: integer("file_count"),
+    scaffoldRetryUsed: boolean("scaffold_retry_used").default(false).notNull(),
+    scaffoldRetrySuggested: text("scaffold_retry_suggested"),
+    userFeedback: text("user_feedback"),
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    chatIdx: index("idx_generation_telemetry_chat").on(table.chatId),
+    versionIdx: index("idx_generation_telemetry_version").on(table.versionId),
+    createdIdx: index("idx_generation_telemetry_created").on(table.createdAt),
+  }),
+);
 
-export const versionComments = pgTable("version_comments", {
-  id: text("id").primaryKey(),
-  versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
-  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
-  userId: text("user_id"),
-  authorName: text("author_name"),
-  content: text("content").notNull(),
-  resolved: boolean("resolved").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const versionComments = pgTable(
+  "version_comments",
+  {
+    id: text("id").primaryKey(),
+    versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
+    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    userId: text("user_id"),
+    authorName: text("author_name"),
+    content: text("content").notNull(),
+    resolved: boolean("resolved").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    versionIdx: index("idx_version_comments_version").on(table.versionId),
+    chatIdx: index("idx_version_comments_chat").on(table.chatId),
+  }),
+);
 
-export const versionApprovals = pgTable("version_approvals", {
-  id: text("id").primaryKey(),
-  versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
-  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
-  userId: text("user_id"),
-  approverName: text("approver_name"),
-  status: text("status").notNull().default("pending"),
-  comment: text("comment"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const versionApprovals = pgTable(
+  "version_approvals",
+  {
+    id: text("id").primaryKey(),
+    versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
+    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    userId: text("user_id"),
+    approverName: text("approver_name"),
+    status: text("status").notNull().default("pending"),
+    comment: text("comment"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    versionIdx: index("idx_version_approvals_version").on(table.versionId),
+    chatIdx: index("idx_version_approvals_chat").on(table.chatId),
+  }),
+);
 
 // ---------------------------------------------------------------------------
 
-export const domainOrders = pgTable("domain_orders", {
-  id: text("id").primaryKey(),
-  project_id: text("project_id").notNull(),
-  domain: text("domain").notNull(),
-  order_id: text("order_id"),
-  customer_price: integer("customer_price"),
-  vercel_cost: integer("vercel_cost"),
-  currency: text("currency"),
-  status: text("status"),
-  years: integer("years"),
-  domain_added_to_project: boolean("domain_added_to_project").default(false).notNull(),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
+export const domainOrders = pgTable(
+  "domain_orders",
+  {
+    id: text("id").primaryKey(),
+    project_id: text("project_id").notNull(),
+    domain: text("domain").notNull(),
+    order_id: text("order_id"),
+    customer_price: integer("customer_price"),
+    vercel_cost: integer("vercel_cost"),
+    currency: text("currency"),
+    status: text("status"),
+    years: integer("years"),
+    domain_added_to_project: boolean("domain_added_to_project").default(false).notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    projectIdx: index("idx_domain_orders_project").on(table.project_id),
+    orderIdx: index("idx_domain_orders_order").on(table.order_id),
+  }),
+);

@@ -135,6 +135,49 @@ describe("deriveTier3BuildSpec", () => {
     expect(spec.requirements).toHaveLength(1);
   });
 
+  it("respects upstream warn-only envEnforcement so unbacked integrations don't block F3 (plan-12 #15)", () => {
+    // End-to-end check for the chat-b71dafb3 scenario: detect-integrations
+    // marks orphan Stripe + Clerk imports as warn-only when no matching
+    // dossier was selected (via the new applyEnforcementOverlay default).
+    // tier3-build-spec must honour that classification so every required
+    // real env key is empty → validateTier3Readiness reports ready.
+    const spec = deriveTier3BuildSpec({
+      ...emptyContracts,
+      integrations: [
+        {
+          provider: "stripe",
+          name: "Stripe",
+          reason: "orphan import",
+          status: "chosen",
+          envVars: ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
+          envEnforcement: {
+            STRIPE_SECRET_KEY: "warn-only",
+            NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "warn-only",
+          },
+        },
+        {
+          provider: "clerk",
+          name: "Clerk",
+          reason: "orphan import",
+          status: "chosen",
+          envVars: ["CLERK_SECRET_KEY"],
+          envEnforcement: { CLERK_SECRET_KEY: "warn-only" },
+        },
+      ],
+    });
+
+    const stripe = spec.requirements.find((r) => r.key === "stripe");
+    const clerk = spec.requirements.find((r) => r.key === "clerk");
+    expect(stripe?.requiredRealEnvKeys).toEqual([]);
+    expect(stripe?.warnOnlyEnvKeys).toContain("STRIPE_SECRET_KEY");
+    expect(clerk?.requiredRealEnvKeys).toEqual([]);
+    expect(clerk?.warnOnlyEnvKeys).toContain("CLERK_SECRET_KEY");
+
+    const readiness = validateTier3Readiness(spec, {});
+    expect(readiness.ready).toBe(true);
+    expect(readiness.missingByIntegration).toEqual([]);
+  });
+
   it("sorts requirements by key for stable output", () => {
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,

@@ -1,3 +1,5 @@
+import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
+
 export function chooseUnsplashOrientation(
   width: number,
   height: number,
@@ -86,15 +88,38 @@ const QUERY_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\bnaturligt ljus\b/giu, "natural light"],
   [/\bvarma farger\b/giu, "warm colors"],
   [/\bvarma färger\b/giu, "warm colors"],
-  [/\bnaturmiljö\b/giu, "nature"],
+  // ASCII `\b` fungerar inte före/efter svenska ä/ö/å (klassisk JS-fälla,
+  // se `src/lib/utils/unicode-word-boundary.ts`). Ord som slutar med ö får
+  // aldrig en word→non-word-övergång, så `/\bnaturmiljö\b/` returnerade
+  // tyst `false` fast inputen innehöll ordet. `uWordRegex` bygger samma
+  // "ordgräns"-semantik med Unicode-lookarounds och fungerar för alla språk.
+  [uWordRegex("naturmiljö", "giu"), "nature"],
   [/\bnaturlandskap\b/giu, "nature landscape"],
   [/\bmedelhav(?:s)?\b/giu, "mediterranean"],
-  [/\bklippmiljö\b/giu, "cliffs"],
+  [uWordRegex("klippmiljö", "giu"), "cliffs"],
   [/\bklippor\b/giu, "cliffs"],
   [/\bgrönska\b/giu, "greenery"],
   [/\bljusdetaljer\b/giu, "light details"],
   [/\bneonreflexer\b/giu, "neon reflections"],
   [/\bskymningen\b/giu, "twilight"],
+  // Svenska "gymnastik" ≠ engelska "gym". Utan mappning får
+  // gymnastiklokaler/barngymnastik-sajter Unsplash-bilder på vuxna med
+  // skivstänger (verifierat 2026-04-24, Trampolin Studio-test).
+  [uWordRegex("gymnastiklokal", "giu"), "gymnastics gym hall"],
+  [uWordRegex("gymnastikhall", "giu"), "gymnastics gym hall"],
+  [uWordRegex("gymnastikförening", "giu"), "gymnastics club youth"],
+  [uWordRegex("gymnastikforening", "giu"), "gymnastics club youth"],
+  [uWordRegex("barngymnastik", "giu"), "kids gymnastics children"],
+  [uWordRegex("ungdomsgymnastik", "giu"), "youth gymnastics teens"],
+  [uWordRegex("vuxengymnastik", "giu"), "adult gymnastics fitness"],
+  [uWordRegex("trampolinhall", "giu"), "trampoline park indoor"],
+  [uWordRegex("trampolinpark", "giu"), "trampoline park"],
+  [uWordRegex("akrobatik", "giu"), "acrobatics performance"],
+  [uWordRegex("artistik", "giu"), "artistic gymnastics"],
+  // Generic "gymnastik" alone — avoid translating to "gym" which Unsplash
+  // ranks as weightlifting/fitness equipment. Use plural English form
+  // which biases toward sports gymnastics imagery.
+  [uWordRegex("gymnastik", "giu"), "gymnastics sport"],
 ];
 
 function stripLeadingProperName(raw: string): string {

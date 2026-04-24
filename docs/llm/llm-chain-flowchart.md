@@ -47,7 +47,7 @@ Den här filen visar **vad som faktiskt händer** när en user-prompt går genom
                          │
                          ▼
                 ┌─────────────────────────────────────┐
-                │ system-prompt.ts                    │
+                │ system-prompt/ (paket: compose.ts)  │
                 │ ┌──── STATIC CORE (prefix-cache)──┐ │
                 │ │  config/prompt-core/*.md         │ │
                 │ └──────────────────────────────────┘ │
@@ -115,7 +115,7 @@ Den här filen visar **vad som faktiskt händer** när en user-prompt går genom
 Klassificering:
 
 - `generationKind`: `"init"` om ingen `chatId`-historik, annars `"followup"`.
-- `followUpIntent`: classifier i `follow-up-clarification.ts` (regex + LLM-fallback om `>= 80 ord`). Möjliga värden: `neutral` / `clear-refine` / `clear-redesign`.
+- `followUpIntent`: classifier i `follow-up-clarification.ts` (regex + LLM-fallback om `>= 80 ord`). Möjliga värden enligt `follow-up-intent-types.ts`: `neutral`, `clear-refine`, `clear-redesign`, `capability-add`, `capability-modify`, `ambiguous-redesign`, `ambiguous-followup`. Plan 12 lade till capability-modify-existing-spåret som kompletterar capability-add med "ändra/förenkla befintlig komponent"-semantik.
 - `previousFiles.length`: räknas från senast sparade version. Driver `generationMode` i orchestrate.
 
 ### Fas 1 — Brief
@@ -155,7 +155,7 @@ Output: `GenerationInputPackage` (debug-dump i `data/prompt-dumps/orchestration-
 
 ### Fas 2 — System-prompt-komposition
 
-`src/lib/gen/system-prompt.ts`:
+`src/lib/gen/system-prompt/compose.ts` (entry: `src/lib/gen/system-prompt/index.ts`):
 
 ```
 composeEngineSystemPrompt() returnerar:
@@ -176,7 +176,7 @@ Dynamic context renderas i strikt prioritetsordning. När token-budget överskri
 
 ### Fas 2/3 — Finalize-pipeline
 
-`src/lib/gen/stream/finalize-pipeline-contract.ts` definierar 8 steg. Mellan steg kan SSE-progress emittera mellan-events.
+`src/lib/gen/stream/finalize-pipeline-contract.ts` definierar 6 huvudfaser i `OWN_ENGINE_POST_STREAM_PIPELINE` (`url_expand` → `autofix` → `validate_syntax` → `materialize_images` → `verifier_pass` → `parse_merge_preflight`). Mellan faserna kan SSE-progress emittera mellan-events; `runner.ts` orchestrerar finare delsteg ovanpå dessa.
 
 ### Fas 3 — Preview-handoff
 

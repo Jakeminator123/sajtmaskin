@@ -40,10 +40,10 @@ function buildEmbeddingText(scaffold: ScaffoldManifest): string {
     `Byggintentioner (sv): ${intents.sv}`,
     `Prompt hints (en): ${scaffold.promptHints.join("; ")}`,
     `Quality checklist: ${scaffold.qualityChecklist?.join("; ") ?? ""}`,
-    `Upgrade targets: ${scaffold.research?.upgradeTargets.join("; ") ?? ""}`,
+    `Upgrade targets: ${scaffold.research?.upgradeTargets?.join("; ") ?? ""}`,
     `Reference templates: ${
       scaffold.research?.referenceTemplates
-        .map((template) => `${template.title} (${template.categorySlug})`)
+        ?.map((template) => `${template.title} (${template.categorySlug})`)
         .join("; ") ?? ""
     }`,
     `Files: ${filePaths}`,

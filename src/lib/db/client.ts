@@ -162,7 +162,29 @@ function resolveIdleTimeoutMs(connStr: string): number {
   return looksPooled(connStr) ? 5_000 : 30_000;
 }
 
-const pool = connectionString
+/**
+ * HMR-survivable pool cache.
+ *
+ * Next.js dev re-evaluates this module on every Fast Refresh, which would
+ * otherwise create a fresh `new Pool(...)` per rebuild and leak sessions
+ * against Supabase pgbouncer (free tier cap ~15). After 5–10 HMR cycles
+ * the pooler smashes with `EMAXCONNSESSION` and every subsequent API call
+ * returns 500 — UI surfaces it as "Chat not found" / "Försök reparera sidan".
+ *
+ * Stash the pool on `globalThis` so it survives HMR. Same pattern as the
+ * Prisma client recommendation. Production cold-starts hit `undefined` and
+ * create the pool exactly once per instance — unchanged from before.
+ *
+ * Diagnosed 2026-04-23 via SAJ-7 / B1 handoff during master-post-cleanup
+ * smoke. Earlier prod-path fix lived in commit 3a4decf0 but did not cover
+ * the dev HMR path.
+ */
+type GlobalWithPool = typeof globalThis & {
+  __sajtmaskinPgPool__?: Pool | null;
+};
+const globalForPool = globalThis as GlobalWithPool;
+
+const pool = (globalForPool.__sajtmaskinPgPool__ ??= connectionString
   ? new Pool({
       connectionString: cleanConnectionString(connectionString),
       ssl: resolvePoolSslConfig(connectionString),
@@ -170,7 +192,7 @@ const pool = connectionString
       idleTimeoutMillis: resolveIdleTimeoutMs(connectionString),
       connectionTimeoutMillis: 10000,
     })
-  : null;
+  : null);
 
 // Log pool errors for debugging (they don't throw by default).
 // Tag EMAXCONNSESSION specifically so a regression of SAJ-7 (B1) is easy

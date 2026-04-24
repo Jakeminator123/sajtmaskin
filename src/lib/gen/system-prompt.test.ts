@@ -267,6 +267,14 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("Hard rules for navigation expressions:");
       expect(context).toContain("Never invent paths");
       expect(context).toContain("href ↔ route cross-check");
+      // Plan-12 fix (#14): sub-route bouncer rule must be present in the
+      // canonical-route-paths block so the LLM never emits an auto-redirect
+      // from a slug page back to '/'. Bug repro chat 2026-04-24:
+      // /afrikanska-bonor rendered then router.push('/') in useEffect.
+      expect(context).toContain("Sub-routes");
+      expect(context).toContain("router.push('/')");
+      expect(context).toContain("redirect('/')");
+      expect(context).toContain("window.location.href = '/'");
     });
 
     it("describes init shell policy when route realization defers extra routes", async () => {

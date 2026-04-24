@@ -20,6 +20,11 @@ import dossierSchema from "../../../../docs/schemas/strict/dossier.schema.json";
 import type { DossierClass, DossierEntry } from "./types";
 
 const ajv = new Ajv({ allErrors: true, allowUnionTypes: true, strict: false });
+// Silence repeated `unknown format "uri" ignored in schema` warnings without
+// adding the full `ajv-formats` dependency. We don't actually need uri format
+// validation here — sourceRepoUrl is curator-supplied and string-typed is
+// enough. Registering as no-op just stops the warning at compile time.
+ajv.addFormat("uri", true);
 const _validate: ValidateFunction = ajv.compile(dossierSchema);
 
 export interface DossierValidationContext {
