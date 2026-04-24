@@ -21,33 +21,25 @@ Levande dokument för **antaganden** vi gör i koden eller pratet om systemet, m
 
 ## Aktiva frågor
 
-### 1. ❓ Redis cache — vet vi ens om den körs?
+### 1. ❌ Redis cache — vet vi ens om den körs?
 
-**Antagande:** `useRedisCache` styr brief-cache + rate-limit + preview-session-store. Vi har använt det som om det vore aktivt.
+**Antagande:** `useRedisCache` styr brief-cache + rate-limit + preview-session-store. Vi var osäkra på om den var no-op:ad i dev.
 
-**Vad vi vet:**
-- `src/lib/data/redis.ts` är client-wrapper (sannolikt ioredis eller upstash REST).
-- Brief-cache (`src/lib/api/ai/brief-cache.ts`) cacher 24h.
-- Rate-limit (`src/lib/rateLimit.ts`) använder Redis när tillgänglig.
-- Preview-session-store (`src/lib/gen/preview/session-store.ts`) lagrar sessions.
+**Verifierat 2026-04-23 (chatId `b71dafb3`):** Redis körs aktivt mot Upstash. Lazy-init när någon route faktiskt behöver den (inte vid server-boot).
 
-**Vad vi inte vet:**
-- Är `REDIS_URL` / `UPSTASH_REDIS_REST_URL` satt i `.env.local`?
-- Faller systemet tyst tillbaka till in-memory om Redis saknas, eller failas hela features?
-- I dev — använder vi någonsin Redis, eller är allt no-op?
-- Andra-agentens fynd: "FEATURES.useRedisCache = false → cachen no-op:ar tyst" — antyder att Redis är OFF i dev.
+```
+01:20:41.727 [DB] [Redis] Creating client { host: 'alert-silkworm-17000.upstash.io', port: 6379, ... }
+01:20:41.826 [DB] [Redis] Connected
+01:20:42.237 [DB] [Redis] Ready
+```
 
-**Hur verifiera:**
-1. `Get-Content .env.local | Select-String "REDIS"` — finns nyckel?
-2. Lägg till en log-rad i Redis-init: "Redis enabled" / "Redis disabled (in-memory fallback)"
-3. Prometheus-metrics: lägg till counter `sajtmaskin_redis_op_total{result="hit|miss|fallback"}`
+**Konfiguration:** `REDIS_URL` (eller `UPSTASH_REDIS_REST_URL`) finns i `.env.local`. Tidigare antagande "Redis off i dev" var felaktigt — andra agentens diagnos byggde på en gammal session.
 
-**Konsekvens om det faktiskt är off i dev:**
-- Brief-cache no-op:ar → varje smoke-run-retry-prompt går till LLM på nytt (kostnadsfråga, inte korrekthet)
-- Rate-limit kan vara global no-op (alla users delar)
-- Preview-session-store sparar i process-memory → förlorad efter HMR / dev-restart
-
-**Plan-koppling:** Plan 10 (latency budgets) och Plan 11 (unified repair) bör adressera detta — verifiera om Redis faktiskt sparar tid.
+**Sekundärbugg fortfarande:** brief-cache-hits skriver fail till `_unrouted/brief-cache-hit/timeline.ndjson` (ENOENT — directory existerar inte). Cachen FUNGERAR men telemetri-loggen failar tyst:
+```
+[generationslogg] writeGenerationLogEntry failed: ENOENT ... \brief-cache-hit\timeline.ndjson
+```
+→ Plan 10-fynd (observatory writer ska mkdir innan write).
 
 ---
 
@@ -101,19 +93,27 @@ Levande dokument för **antaganden** vi gör i koden eller pratet om systemet, m
 
 ---
 
-### 5. ❓ Scaffolds — saknar de ett enhetligt minimi-fil-kontrakt?
+### 5. ❌ Scaffolds — saknar enhetligt minimi-fil-kontrakt (REPRODUCERBAR BUGG)
 
-**Antagande:** Varje scaffold levererar samma minsta uppsättning filer (`app/page.tsx`, `app/layout.tsx`, `app/globals.css`, etc.).
+**Antagande:** Scaffold-kontrakt garanterar att deklarerade filer landar i final version.
 
-**Verifierat delvis falskt.** Användaren noterade att struktur/layout skiljer sig mellan scaffolds när hen tittade i `src/lib/gen/scaffolds/{landing-page,base-nextjs,...}/files/`.
+**Verifierat falskt — REPRODUCERBAR i 2 av 2 init-runs.**
 
-**Specifik skada:** Run A (kaffe-init) genererade en sajt UTAN `app/page.tsx`. Layouten renderade bara header + footer + tomt `<main>`-skal. Sajten "promotades" som grön men var helt tom. Cross-file-import-checker fångade inte detta för `page.tsx` är auto-discovered av Next.js, inte importerad.
+| Run | chatId | scaffoldVariant | page.tsx genererad? | site-footer.tsx? |
+|---|---|---|---|---|
+| A | `1fa58609` | `editorial-lux` | ❌ NEJ | ✅ Ja |
+| B (denna) | `b71dafb3` | `corporate-grid` | ❌ NEJ | ❌ NEJ |
+
+Variant spelar ingen roll. **Systematisk generation-quality-bugg.** LLM:n returnerar inte alltid alla scaffold-filer i sin CodeProject-output, och merge-pipelinen tappar bort dem tyst.
+
+**Specifik skada:** Sajten "promotas" grön men är helt tom (`<main>` är 936 tecken skal-wrapper, 0 sektioner, 0 headings, 0 images). Cross-file-import-checker fångar inte detta för `page.tsx` är auto-discovered av Next.js, inte importerad.
 
 **Vad som behövs:**
-- En **scaffold-required-files-check** som validerar "om scaffold deklarerar `app/page.tsx` så MÅSTE final version ha den med non-trivial content"
-- Enhetligt fil-kontrakt mellan alla 9 scaffolds
+- **Scaffold-required-files-check** som validerar "om scaffold deklarerar `app/page.tsx` (och liknande core-routes) så MÅSTE final version ha den med non-trivial content"
+- Lägg som blocking-finding i `runFinalizePreflightAll()` (efter plan-05:s konsolidering)
+- Enhetligt fil-kontrakt mellan alla 9 scaffolds (per användarens önskemål)
 
-**Plan-koppling:** Plan 11 (unified repair) eller en ny plan efter wave 5.
+**Plan-koppling:** **HIGH-PRIO för plan 11 (unified repair)** eller egen ny plan. Detta är den enskilda största user-impact-buggen vi hittat.
 
 ---
 
