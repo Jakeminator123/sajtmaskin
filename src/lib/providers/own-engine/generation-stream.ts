@@ -347,6 +347,12 @@ export function createOwnEngineGenerationStream(
         // (or after queued autofix), so finalize can safely skip duplicate
         // warm-tsc when that lane already includes `typecheck`.
         willRunQualityGate: true,
+        // Wave 7 R2 guard: stark signal att quality-gate faktiskt är
+        // planerad. Utan denna flagga kör finalize warm-tsc ändå även om
+        // `willRunQualityGate` råkar vara true — se fast-path.ts för
+        // guard-logik. Builder-streamen är det enda callsite idag som
+        // garanterat har post-check quality-gate efter `done`.
+        qualityGatePlanned: true,
         ...extra,
       });
 

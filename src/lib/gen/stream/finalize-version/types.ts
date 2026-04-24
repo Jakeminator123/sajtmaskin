@@ -76,6 +76,16 @@ export interface FinalizeParams {
    * to skip duplicate warm-tsc in safe cases.
    */
   willRunQualityGate?: boolean;
+  /**
+   * Strong signal from the callsite that a quality-gate lane is **planned**
+   * for this generation (not only heuristically expected). When omitted or
+   * false, finalize keeps warm-tsc even if `willRunQualityGate` is true —
+   * prevents the “skip warm tsc + late QG skip” blind spot.
+   *
+   * Production builder stream sets this to `true` together with
+   * `willRunQualityGate: true`.
+   */
+  qualityGatePlanned?: boolean;
 }
 
 export interface FinalizeResult {

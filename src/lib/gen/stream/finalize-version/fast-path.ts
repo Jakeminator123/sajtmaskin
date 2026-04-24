@@ -67,13 +67,28 @@ export async function runFinalizeFastPath(params: {
   alreadyMechanicallyFixed: boolean;
   /**
    * True when a later quality-gate lane (client and/or async) is expected
-   * to run for this generation.
+   * to run for this generation. Heuristik — ensam INTE tillräcklig för
+   * warm-tsc-skip (se `qualityGatePlanned` nedan).
    */
   willRunQualityGate: boolean;
   /**
    * Whether the downstream quality gate includes `typecheck`.
    */
   qualityGateChecksIncludesTypecheck: boolean;
+  /**
+   * Stark signal från callsiten att quality-gate faktiskt är **planerad**
+   * (inte bara heuristiskt förväntad). Wave 7 R2 guard — utan explicit
+   * `qualityGatePlanned === true` kör vi ALLTID warm-tsc i finalize.
+   *
+   * Motiv: `willRunQualityGate` sattes tidigare lite optimistiskt som
+   * `true` per default i builder-streamen. Om quality-gate senare
+   * hoppades över (t.ex. via `design_preview_skip_verify`-policy på
+   * F2-init) hade vi varken warm-tsc- ELLER QG-resultat = tyst lucka.
+   * Med denna guard krävs två signaler samtidigt för att skippa:
+   *   (1) `qualityGatePlanned === true` (callsite vet att QG kommer köra)
+   *   (2) `qualityGateChecksIncludesTypecheck === true` (QG täcker tsc)
+   */
+  qualityGatePlanned?: boolean;
   /**
    * Dossiers vars verbatim-filer ska skyddas vid merge. Trådas vidare
    * till `runPreflightPhase`. Default tom array (verbatim-policy körs men
@@ -98,25 +113,26 @@ export async function runFinalizeFastPath(params: {
     alreadyMechanicallyFixed,
     willRunQualityGate,
     qualityGateChecksIncludesTypecheck,
+    qualityGatePlanned,
     selectedDossiers,
   } = params;
   let contentForVersion = params.contentForVersion;
   const stepTelemetry: FinalizeStepTelemetryMap = {};
-  // Wave 7 latens-vinst (~60s sparat per körning):
-  // Om quality-gate kommer köra typecheck efteråt, hoppa över warm-tsc i finalize.
+  // Wave 7 R2 guard: warm-tsc skippas BARA när callsiten explicit flaggar
+  // att quality-gate är planerad OCH kommer köra typecheck. Utan båda
+  // signalerna: kör warm-tsc ändå (säker fallback).
   //
-  // FOTNOT (operativ risk): Om quality-gate sedan SKIP:as sent (t.ex. via
-  // post-finalize-policy `design_preview_skip_verify` på F2-init med 0 preflight-fel),
-  // har vi VARKEN warm-tsc-resultat NOR QG-resultat. Det är en medveten
-  // trade-off för F2-design-preview där default är att skippa verify ändå —
-  // men det är en lucka man ska känna till.
+  // Detta ersätter tidigare heuristik (`willRunQualityGate` ensam), som
+  // kunde lämna oss utan varken warm-tsc eller QG-resultat om quality-gate
+  // senare hoppades över (t.ex. via `design_preview_skip_verify`-policy på
+  // F2-init med 0 preflight-fel).
   //
-  // Backoffice `llm_flode_telemetry.py` exponerar `warmTscSkipped`-rate i
-  // `site.done`-events så vi kan mäta om luckan blir verklig i prod. Om
-  // skip-rate blir hög + samtidigt design_preview_skip_verify körs ofta:
-  // överväg fall-back-strategi i framtida wave (kör warm-tsc om policy
-  // visar att QG skippas).
-  const skipWarmTsc = willRunQualityGate && qualityGateChecksIncludesTypecheck;
+  // Telemetri: `warmTscSkipped` i `site.done` exponeras via backoffice
+  // `llm_flode_telemetry.py` så vi kan mäta skip-rate över tid.
+  const skipWarmTsc =
+    qualityGatePlanned === true &&
+    willRunQualityGate &&
+    qualityGateChecksIncludesTypecheck;
 
   ensureNonEmptyGenerationContent({
     contentForVersion,

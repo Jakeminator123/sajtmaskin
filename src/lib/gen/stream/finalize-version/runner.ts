@@ -156,6 +156,7 @@ export async function finalizeAndSaveVersion(
     targetVersionId,
     lifecycleParentVersionId,
     willRunQualityGate = false,
+    qualityGatePlanned = false,
   } = params;
   const requestedCapabilities = resolveRequestedCapabilitiesFromStreamMeta(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
@@ -267,6 +268,9 @@ export async function finalizeAndSaveVersion(
     willRunQualityGate,
     qualityGateChecksIncludesTypecheck:
       willRunQualityGate && postFinalizeQualityGateIncludesTypecheck(buildSpec),
+    // Wave 7 R2 guard: stark signal för warm-tsc-skip. Utan denna = kör
+    // warm-tsc ändå. Se fast-path.ts för motivering.
+    qualityGatePlanned,
     // Wave 6 verbatim-restore — tråda in faktiska valda dossiers så
     // applyDossierVerbatimPolicy kan skydda Stripe/Clerk/Sentry-glue
     // från tyst korruption när LLM omformar verbatim-filer.
