@@ -2,6 +2,7 @@ import { generateText } from "ai";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { createDirectModel } from "@/lib/builder/direct-model";
+import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import {
   FOLLOW_UP_INTENT_MODES,
   type FollowUpIntentMode,
@@ -233,6 +234,19 @@ export function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   if (isUnderspecifiedFollowUp(trimmed)) {
     return "ambiguous-followup";
   }
+  // Plan 06 (2026-04-24): capability-add beats clear-refine when the prompt
+  // names a dossier-mappable capability. Without this branch a follow-up
+  // like "lägg till en kontaktform" classified as `clear-refine` because
+  // "lägg till" is a refine verb — and downstream variant-lock + dossier
+  // selection both treat refine as "no capability change", so the dossier
+  // never got injected. Plan 01 smoke run 2 ("Skapa en 3d-kaffekopp som
+  // hoovrar och flyger ovanför") was the headline failure: the prompt
+  // detects `visual-3d` here and now routes through capability-add instead
+  // of falling all the way to neutral.
+  const capabilityDetection = detectFollowUpCapabilities(trimmed);
+  if (capabilityDetection.capabilityIds.length > 0) {
+    return "capability-add";
+  }
   if (FOLLOW_UP_REFINE_PATTERNS.some((pattern) => pattern.test(trimmed))) {
     return "clear-refine";
   }
@@ -374,7 +388,8 @@ async function defaultLlmCaller(message: string, signal: AbortSignal): Promise<s
     temperature: 0,
     system:
       "Du klassar svenska och engelska follow-up-prompts på en webbsajt-byggare. " +
-      "Returnera EXAKT en av etiketterna: clear-refine, clear-redesign, ambiguous-redesign, ambiguous-followup, neutral. " +
+      "Returnera EXAKT en av etiketterna: clear-refine, clear-redesign, ambiguous-redesign, ambiguous-followup, capability-add, neutral. " +
+      "Använd `capability-add` när användaren ber om att LÄGGA TILL en helt ny kapabilitet/feature (3D-scen, kontaktformulär, betalning, FAQ, pristabell etc.) ovanpå den existerande sajten. " +
       "Inget annat ord, ingen punkt.",
     prompt: message,
   });
