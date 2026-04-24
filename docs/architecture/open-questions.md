@@ -256,6 +256,55 @@ CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter
 
 ---
 
+### 16. 🚀 KRAFTIG FÖRBÄTTRING: capability-system saknar `game`/`interactive`-tier
+
+**Användar-observation 2026-04-24:** Genererade en TV-spelshemsida med pacman-spel på tredje sidan. Spelets visuella delar renderar (canvas, board, sprites) → F2 OK. Men **spelet går inte att spela** — game-loop, keyboard-handlers, collision-detection saknas i koden. F2-modal säger "fungerar" eftersom sidan visuellt bootar.
+
+**Rotsorsak:** Capability-systemet täcker:
+- `visual-3d` (three-fiber)
+- `payments`, `auth`, `analytics`, `error-tracking` (hard-integrations)
+- `carousel`, `faq-section`, `pricing-section`, `parallax`, `marquee` (soft UI-pattern)
+
+Men INGET för **interaktiv state-management + input-loops:**
+- spel (pacman, snake, breakout, chess)
+- whiteboard / paint / drawing-canvas
+- realtime-collaboration UI
+- multi-step animationer styrda av användarinput
+
+**Förslag — ny capability + dossier:**
+- Capability: `game` eller `interactive-canvas`
+- Soft dossier: `interactive-canvas-shell` med pre-built `useGameLoop()` + `useKeyboardInput()` + `useCollision()`-hooks
+- LLM-instruktion: "om capability `game` triggas, MÅSTE du implementera game-loop med `useFrame`/`useEffect` + state + input-handlers, INTE bara visuell board"
+
+**Signifikans:** **HÖG.** Detta är ny capability-class som öppnar en helt ny site-typ för Sajtmaskin (interaktiva sajter, inte bara marketing/SaaS). Värd egen plan EFTER wave 5.
+
+**Plan-koppling:** **Kan möjligen ersätta delar av plan 12** (om PromptKit-scope reduceras). Annars egen ny plan.
+
+---
+
+### 17. 💡 UX-design: inline integrations-manual när användaren mountar dossier-komponent
+
+**Användar-design 2026-04-24 (utomordentligt insiktsfullt):**
+
+> "Om jag genererar en sajt och vill ha Stripe för att ta betalt för mina cd-skivor, ska jag kunna få den produktionsklar genom att trycka på 'bygg nu'... När jag trycker på Stripe-betalningsmodalen ska det komma upp en liten text. Om det inte finns ett bättre flöde i planerna, där det står: 'Vad kul, du vill integrera Stripe. Här följer en manual. Gå till www.stripe.com/dev'... Den sista fasen med alla integrationer kan jag ta nästan sist innan jag är klar med hela projektet."
+
+**Förslag — onboarding-tooltip per dossier-komponent:**
+- När användaren klickar på en mountad hard-dossier-komponent (CheckoutButton, ChatPanel, NewsletterForm, etc) i preview/inspector → visa tooltip/popover med integrations-manual
+- Innehåll: "Du har lagt till {dossier.label}. För att gå live behöver du: {dossier.envVars}. [Skapa konto på {provider}](url) → kopiera nyckeln hit"
+- Gör det till en **graceful degradation** istället för en gate: F2 fungerar utan secrets (med banners/disabled-states i komponenten), F3 är när du fyllt i
+
+**Existerar delvis:** Hard-dossiers har `envVars[].purpose` med beskrivande text. Men UI ytar bara secrets-prompten på F3-knappen, inte inline på själva komponenten.
+
+**Nytt UI-mönster:** På hover/klick på dossier-komponent i inspector-läge → popover med:
+- Dossier-label + summary
+- Lista med env-vars + purpose (varför, var hitta)
+- Länk till provider-onboarding
+- "Aktivera när jag är klar"-knapp som markerar dossiern som ready-when-deploy
+
+**Plan-koppling:** Inte plan 11/12-scope. Egen post-wave-5 design-plan ("integrations-onboarding-flow").
+
+---
+
 ### 15. ❌ Hard-dossier env-vars false-promptas trots att deps saknas — 2 callsites
 
 **Verifierat 2026-04-24 (chat `b71dafb3`, två separata symptomer):**
