@@ -47,6 +47,18 @@ export interface FollowUpCapabilityDetection {
   tierByCapability: Record<string, CapabilitySpecificityTier>;
   /** Effective word count of the trimmed message (used for tier sizing). */
   wordCount: number;
+  /**
+   * Plan 11 / open-question #12: true when the prompt names a dossier
+   * capability AND uses a `MODIFY_REFERENCE_MARKERS` token (e.g.
+   * "pricken", "bubblan", "den 3D-grejen"). The caller should treat the
+   * follow-up as `capability-modify` rather than `capability-add` and
+   * suppress dossier-shell re-injection — the existing scene file
+   * already exists, the LLM should mutate it instead of overwriting it
+   * with a placeholder shell.
+   */
+  referencesExistingCapability: boolean;
+  /** The actual modify-reference tokens that triggered `referencesExistingCapability`. */
+  modifyReferenceMatches: string[];
 }
 
 /**
@@ -114,6 +126,57 @@ const REFINE_OR_MOVE_VERB_PATTERNS: RegExp[] = [
 
 function hasRefineOrMoveVerb(message: string): boolean {
   return REFINE_OR_MOVE_VERB_PATTERNS.some((re) => re.test(message));
+}
+
+/**
+ * Plan 11 / open-question #12: anaphoric / deictic references to a
+ * capability output that already exists on the site. When one of these
+ * appears alongside a capability keyword, the user is asking to MODIFY
+ * the existing scene/feature, not add a new one — re-injecting the
+ * dossier shell would clobber the working `floating-coffee-overlay.tsx`
+ * with a generic placeholder.
+ *
+ * Concrete failure that motivated this:
+ *
+ *   "gör pricken till en kaffekopp som häller kaffe när jag nuddar
+ *    den med musen"
+ *
+ *   - `kaffekopp` keyword → visual-3d capability detected.
+ *   - Prior pipeline classified as `capability-add` → re-injected
+ *     `three-fiber-canvas` dossier shell + error-boundary on top of
+ *     the working `floating-coffee-overlay.tsx`. The user saw the new
+ *     shell render an empty canvas and thought the site broke.
+ *
+ * Pattern-design constraints:
+ *   - Must require a STANDALONE word (not a substring of another) so
+ *     "denna" / "dental" don't false-fire.
+ *   - Must include nominal references the user actually says out loud
+ *     when pointing at an on-page element ("pricken", "bubblan",
+ *     "figuren", "scenen", "sak/grej + 3D-modifier").
+ *   - Bare pronouns "den" / "det" alone are too noisy (every Swedish
+ *     sentence uses them) — we require them with a specific
+ *     verbal/positional context ("gör den till", "byt ut den mot",
+ *     "den där", "den som"). Stricter than capability-add patterns
+ *     because false positives here suppress dossier injection — the
+ *     opposite failure mode from capability-add.
+ */
+const MODIFY_REFERENCE_MARKERS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(?:pricken|bubblan|figuren|scenen|kuben|sfären|formen|ikonen|elementet|widgeten)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:3d[-\s]?(?:saken|grejen|grejjen|grejet|grejjet|grejer|modellen|figuren|elementet))(?![\p{L}\p{N}_])/iu,
+  // Demonstrative + verb of transformation ("gör den till X", "byt ut den mot Y",
+  // "ändra den så att …"). The pronoun anchors the change to an existing element.
+  /(?<![\p{L}\p{N}_])(?:gör\s+(?:den|det|dem)\s+(?:till|så\s+att|en|ett))(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:byt\s+ut\s+(?:den|det|dem)\s+(?:mot|till|med))(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:ändra\s+(?:den|det|dem)\s+(?:till|så))(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:den\s+(?:där|som|jag\s+(?:har|gjorde|skapade)))(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:befintliga|existerande|nuvarande)\s+\p{L}+(?![\p{L}\p{N}_])/iu,
+  // English equivalents — narrow set because "the X" is too noisy alone.
+  /(?<![\p{L}\p{N}_])(?:turn\s+(?:it|that|the\s+\p{L}+)\s+into|change\s+(?:it|that|the\s+\p{L}+)\s+(?:to|into)|make\s+(?:it|that|the\s+\p{L}+)\s+(?:into|a))(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:the\s+(?:existing|current)\s+\p{L}+)(?![\p{L}\p{N}_])/iu,
+];
+
+function findModifyReferenceMatches(message: string): string[] {
+  return findMatches(message, MODIFY_REFERENCE_MARKERS);
 }
 
 const SPECIFIC_BEHAVIOR_MARKERS: RegExp[] = [
@@ -187,8 +250,23 @@ export function detectFollowUpCapabilities(message: string): FollowUpCapabilityD
   const trimmed = String(message ?? "").trim();
   const wordCount = countWords(trimmed);
   if (!trimmed) {
-    return { capabilities: [], capabilityIds: [], tierByCapability: {}, wordCount: 0 };
+    return {
+      capabilities: [],
+      capabilityIds: [],
+      tierByCapability: {},
+      wordCount: 0,
+      referencesExistingCapability: false,
+      modifyReferenceMatches: [],
+    };
   }
+
+  // Plan 11 / open-question #12: pre-compute modify-reference matches so
+  // a prompt like "gör pricken till en kaffekopp …" can flag
+  // `referencesExistingCapability` even when the verb is `gör`/`turn into`
+  // (which the ADD_VERB_PATTERNS list also matches). The follow-up
+  // pipeline will branch on this flag to suppress dossier-shell
+  // re-injection when both signals are present.
+  const modifyReferenceMatches = findModifyReferenceMatches(trimmed);
 
   // See ADD_VERB_PATTERNS for the rationale: refine/move prompts that happen
   // to mention dossier-mappable nouns ("Move the pricing section above FAQ")
@@ -197,9 +275,23 @@ export function detectFollowUpCapabilities(message: string): FollowUpCapabilityD
   const addVerbPresent = hasAddVerb(trimmed);
   const refineOrMoveVerbPresent = hasRefineOrMoveVerb(trimmed);
   const veryShortNounOnly = wordCount <= 4;
-  const allowDetection = addVerbPresent || (veryShortNounOnly && !refineOrMoveVerbPresent);
+  // Plan 11 / open-question #12: a modify-reference is itself a strong
+  // detection trigger ("byt ut den mot en kaffekopp" has no add verb and
+  // no refine verb that the existing pipeline tolerates, but is plainly
+  // a capability-modify request and must reach the dossier branch).
+  const allowDetection =
+    addVerbPresent ||
+    (veryShortNounOnly && !refineOrMoveVerbPresent) ||
+    modifyReferenceMatches.length > 0;
   if (!allowDetection) {
-    return { capabilities: [], capabilityIds: [], tierByCapability: {}, wordCount };
+    return {
+      capabilities: [],
+      capabilityIds: [],
+      tierByCapability: {},
+      wordCount,
+      referencesExistingCapability: false,
+      modifyReferenceMatches: [],
+    };
   }
 
   const detections: DetectedCapability[] = [];
@@ -243,10 +335,19 @@ export function detectFollowUpCapabilities(message: string): FollowUpCapabilityD
     }
   }
 
+  // Plan 11 / open-question #12: only flag `referencesExistingCapability`
+  // when at least one capability was actually detected. A bare "byt ut
+  // den mot något snyggare" without a capability noun is not a dossier
+  // signal at all and should fall through to refine/redesign classifiers.
+  const referencesExistingCapability =
+    capabilityIds.length > 0 && modifyReferenceMatches.length > 0;
+
   return {
     capabilities: detections,
     capabilityIds,
     tierByCapability,
     wordCount,
+    referencesExistingCapability,
+    modifyReferenceMatches,
   };
 }

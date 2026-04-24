@@ -142,6 +142,21 @@ export interface DynamicContextOptions {
   componentReferences?: { name: string; code: string }[];
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
   dossierSelection?: DossierSelectionResult | null;
+  /**
+   * Plan 11 / open-question #12: when the follow-up was classified as
+   * `capability-modify` (user named a dossier capability AND referenced
+   * an existing on-page element such as "pricken" / "den 3D-grejen"),
+   * the dossier-shell pipeline is intentionally suppressed upstream and
+   * this hint instead instructs the LLM to mutate the existing scene
+   * file rather than emit a fresh placeholder shell. Rendered as a
+   * dedicated block by `renderCapabilityModifyHintBlock` so the
+   * instruction is visible without competing with the regular dossier
+   * "Available Dossiers" list.
+   */
+  capabilityModifyHint?: {
+    capabilityIds: string[];
+    references: string[];
+  } | null;
 }
 
 /** Observability for dynamic-context token budgeting (`buildBudgetedSystemPrompt`). */

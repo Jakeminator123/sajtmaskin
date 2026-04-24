@@ -231,6 +231,20 @@ export interface OrchestrationInput {
    */
   requestedCapabilityTiers?: Record<string, CapabilitySpecificityTier>;
   /**
+   * Plan 11 / open-question #12: signal that the caller classified this
+   * follow-up as `capability-modify` (the user named a dossier
+   * capability AND referenced an existing on-page element such as
+   * "pricken" / "den 3D-grejen"). When set, the dossier-shell branch is
+   * suppressed and `buildDynamicContext` renders an explicit "modify
+   * existing capability files" hint instead, so the LLM mutates the
+   * working scene file rather than re-injecting a placeholder shell on
+   * top of it.
+   */
+  capabilityModifyHint?: {
+    capabilityIds: string[];
+    references: string[];
+  } | null;
+  /**
    * Project locale forwarded to {@link buildRoutePlan} for locale-alternate
    * route dedupe. When omitted, we read `brief.locale` (forward-compatible
    * with future brief schema additions) and finally fall back to "sv" — the
@@ -290,6 +304,36 @@ export interface OrchestrationBase {
    * — the tier metadata lives alongside the selection rather than inside it.
    */
   requestedCapabilityTiers?: Record<string, CapabilitySpecificityTier>;
+  /**
+   * Plan 11 / open-question #8: scaffold variant id carried along the
+   * orchestration base so follow-ups have a deterministic place to read
+   * the previous variant from without re-parsing
+   * `orchestration_snapshot.variantId` at each callsite.
+   *
+   * Populated from `OrchestrationInput.persistedVariantId` when present,
+   * else `null` (fresh init or a follow-up whose snapshot lost the id —
+   * `lockedVariantForFollowUp` will fall back to the scaffold default
+   * in that case).
+   *
+   * The final variant actually used by the codegen LLM is
+   * `FinalizedOrchestrationContext.variantId`; this field exposes the
+   * *prior* (locked) candidate before the matcher gets a chance to
+   * release it. Keeping both lets us trace `prior → locked → final`
+   * variant transitions in telemetry without requiring a new column on
+   * `engine_versions` (the user's stop rule for Bug 2).
+   */
+  scaffoldVariantId: string | null;
+  /**
+   * Plan 11 / open-question #12: forwarded from
+   * {@link OrchestrationInput.capabilityModifyHint} so downstream
+   * `buildDynamicContext` / `renderCapabilityModifyHintBlock` can emit
+   * the "modify existing scene file" instruction without needing a
+   * second source of truth.
+   */
+  capabilityModifyHint: {
+    capabilityIds: string[];
+    references: string[];
+  } | null;
 }
 
 export interface FinalizedOrchestrationContext {
@@ -715,6 +759,8 @@ export async function resolveOrchestrationBase(
     componentReferences,
     dossierSelection,
     requestedCapabilityTiers: input.requestedCapabilityTiers,
+    scaffoldVariantId: input.persistedVariantId ?? null,
+    capabilityModifyHint: input.capabilityModifyHint ?? null,
   };
 }
 
@@ -835,6 +881,7 @@ export async function finalizeOrchestrationPrompts(
     componentReferences: base.componentReferences,
     resolvedVariant,
     dossierSelection: base.dossierSelection,
+    capabilityModifyHint: base.capabilityModifyHint,
   };
 
   const dynamic = buildDynamicContext(dynamicOpts);

@@ -245,6 +245,16 @@ export function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   // of falling all the way to neutral.
   const capabilityDetection = detectFollowUpCapabilities(trimmed);
   if (capabilityDetection.capabilityIds.length > 0) {
+    // Plan 11 / open-question #12: "gör pricken till en kaffekopp …"
+    // names a capability AND points at an existing on-page element. The
+    // user wants the existing scene/feature mutated, not a brand new
+    // dossier shell injected on top of it. Downstream the
+    // `capability-modify` branch suppresses dossier-shell re-injection
+    // and instead points the LLM at the existing scene file with a
+    // "modify this" hint.
+    if (capabilityDetection.referencesExistingCapability) {
+      return "capability-modify";
+    }
     return "capability-add";
   }
   if (FOLLOW_UP_REFINE_PATTERNS.some((pattern) => pattern.test(trimmed))) {

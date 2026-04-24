@@ -95,6 +95,8 @@ function minimalOrchestrationBase(): OrchestrationBase {
     serializeMode: null,
     componentReferences: [],
     capabilityHints: undefined,
+    scaffoldVariantId: null,
+    capabilityModifyHint: null,
   };
 }
 

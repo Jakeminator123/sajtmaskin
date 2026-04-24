@@ -179,3 +179,83 @@ describe("detectFollowUpCapabilities — multiple capabilities", () => {
     expect(result.capabilityIds).toContain("pricing-section");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Plan 11 / open-question #12: capability-modify vs capability-add
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Background: chat `b71dafb3` (Plan 01 smoke run B) generated a working
+// `floating-coffee-overlay.tsx` on the init turn. The user then wrote
+//
+//   "gör pricken till en kaffekopp som häller kaffe när jag nuddar
+//    den med musen"
+//
+// Capability detection fired `visual-3d` from "kaffekopp" — correctly —
+// but the follow-up was classified as `capability-add`, which made
+// `selectDossiersForRequest` re-inject the `three-fiber-canvas` dossier
+// shell + an error-boundary on top of the working overlay file. The
+// user's preview rendered an empty canvas where the working scene used
+// to be.
+//
+// These tests assert the new `referencesExistingCapability` signal so
+// the upstream pipeline can route the prompt through `capability-modify`
+// (suppressing dossier-shell re-injection) instead.
+describe("detectFollowUpCapabilities — plan 11 bug 3: capability-modify reference markers", () => {
+  it("flags referencesExistingCapability when 'pricken' appears alongside a 3d capability noun", () => {
+    // The user is mutating the existing 3D output ("pricken") into a new
+    // form. The "3d-kaffekopp" token fires `visual-3d` detection AND
+    // "pricken" is a MODIFY_REFERENCE_MARKERS hit — the combination must
+    // route to capability-modify, not capability-add.
+    const result = detectFollowUpCapabilities(
+      "gör pricken till en 3d-kaffekopp som häller kaffe när jag nuddar den med musen",
+    );
+    expect(result.capabilityIds).toContain("visual-3d");
+    expect(result.referencesExistingCapability).toBe(true);
+    expect(result.modifyReferenceMatches.length).toBeGreaterThan(0);
+  });
+
+  it("flags referencesExistingCapability when 'bubblan' references the existing scene", () => {
+    const result = detectFollowUpCapabilities(
+      "byt ut bubblan mot en 3d-kaffekopp",
+    );
+    expect(result.capabilityIds).toContain("visual-3d");
+    expect(result.referencesExistingCapability).toBe(true);
+  });
+
+  it("flags referencesExistingCapability for 'den 3D-grejen' shorthand", () => {
+    const result = detectFollowUpCapabilities(
+      "ändra den 3D-grejen så den roterar långsammare",
+    );
+    expect(result.capabilityIds).toContain("visual-3d");
+    expect(result.referencesExistingCapability).toBe(true);
+  });
+
+  it("does NOT flag referencesExistingCapability for a fresh capability-add prompt", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till en 3d-kaffekopp som hoovrar och flyger ovanför",
+    );
+    expect(result.capabilityIds).toContain("visual-3d");
+    expect(result.referencesExistingCapability).toBe(false);
+    expect(result.modifyReferenceMatches).toEqual([]);
+  });
+
+  it("does NOT flag referencesExistingCapability when the modify-reference appears without a capability noun", () => {
+    // Bare "byt ut den" with no dossier-mappable noun is a refine intent
+    // and must not trigger the capability-modify branch — otherwise we'd
+    // suppress dossier injection on prompts that never named a
+    // capability in the first place.
+    const result = detectFollowUpCapabilities(
+      "byt ut den mot något snyggare",
+    );
+    expect(result.capabilityIds).toEqual([]);
+    expect(result.referencesExistingCapability).toBe(false);
+  });
+
+  it("flags referencesExistingCapability for English 'turn it into' phrasing", () => {
+    const result = detectFollowUpCapabilities(
+      "turn it into a 3d coffee cup that pours when I hover",
+    );
+    expect(result.capabilityIds).toContain("visual-3d");
+    expect(result.referencesExistingCapability).toBe(true);
+  });
+});

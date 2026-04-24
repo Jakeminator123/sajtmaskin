@@ -189,7 +189,7 @@ describe("finalizeAndSaveVersion", () => {
     validateGeneratedCode.mockReset();
 
     runAutoFix.mockResolvedValue({
-      fixedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      fixedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       fixes: [],
       warnings: [],
       dependencies: [],
@@ -203,7 +203,7 @@ describe("finalizeAndSaveVersion", () => {
       durationMs: 0,
     });
     validateAndFix.mockResolvedValue({
-      content: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      content: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       hadErrors: false,
       fixerUsed: false,
       fixerImproved: false,
@@ -216,7 +216,7 @@ describe("finalizeAndSaveVersion", () => {
     });
     expandUrls.mockImplementation((value: string) => value);
     materializeImages.mockResolvedValue({
-      content: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      content: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       replacedCount: 0,
       skippedCount: 0,
       resolvedUrls: new Set<string>(),
@@ -252,7 +252,7 @@ describe("finalizeAndSaveVersion", () => {
         },
         {
           path: "src/app/page.tsx",
-          content: "export default function Page() { return <div>Hello</div>; }",
+          content: "export default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }",
           language: "tsx",
         },
       ]),
@@ -306,7 +306,7 @@ describe("finalizeAndSaveVersion", () => {
     it("forwards accumulatedThinking into the draft persist call (new version path)", async () => {
       await finalizeAndSaveVersion({
         accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
         chatId: "chat_1",
         model: "gpt-5.4",
         resolvedScaffold: null,
@@ -327,7 +327,7 @@ describe("finalizeAndSaveVersion", () => {
     it("forwards accumulatedThinking when updating an existing version (repair path)", async () => {
       await finalizeAndSaveVersion({
         accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
         chatId: "chat_1",
         model: "gpt-5.4",
         resolvedScaffold: null,
@@ -347,7 +347,7 @@ describe("finalizeAndSaveVersion", () => {
     it("passes thinking: null when no reasoning was collected", async () => {
       await finalizeAndSaveVersion({
         accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
         chatId: "chat_1",
         model: "gpt-5.4",
         resolvedScaffold: null,
@@ -362,7 +362,7 @@ describe("finalizeAndSaveVersion", () => {
     it("normalizes empty-string accumulatedThinking to null", async () => {
       await finalizeAndSaveVersion({
         accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
         chatId: "chat_1",
         model: "gpt-5.4",
         resolvedScaffold: null,
@@ -379,7 +379,7 @@ describe("finalizeAndSaveVersion", () => {
   it("does not call addMessage for assistant rows (avoids orphan assistant without version)", async () => {
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -395,7 +395,7 @@ describe("finalizeAndSaveVersion", () => {
   it("persists orchestration snapshot when orchestrationStreamMeta is provided", async () => {
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -417,7 +417,7 @@ describe("finalizeAndSaveVersion", () => {
     });
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -438,7 +438,7 @@ describe("finalizeAndSaveVersion", () => {
     await expect(
       finalizeAndSaveVersion({
         accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
         chatId: "chat_1",
         model: "gpt-5.4",
         resolvedScaffold: null,
@@ -461,7 +461,7 @@ describe("finalizeAndSaveVersion", () => {
 
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -490,7 +490,7 @@ describe("finalizeAndSaveVersion", () => {
 
     const result = await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -522,7 +522,7 @@ describe("finalizeAndSaveVersion", () => {
 
     const result = await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -560,7 +560,7 @@ describe("finalizeAndSaveVersion", () => {
 
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: {
@@ -593,7 +593,7 @@ describe("finalizeAndSaveVersion", () => {
   it("skips merge and scaffold import checks for non-scaffold first generations", async () => {
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -617,7 +617,7 @@ describe("finalizeAndSaveVersion", () => {
 
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -655,7 +655,7 @@ describe("finalizeAndSaveVersion", () => {
   it("persists a dedicated syntax diagnostic when validation still has blocking errors", async () => {
     validateAndFix.mockResolvedValueOnce({
       content:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       hadErrors: true,
       fixerUsed: false,
       fixerImproved: false,
@@ -669,7 +669,7 @@ describe("finalizeAndSaveVersion", () => {
 
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -707,7 +707,7 @@ describe("finalizeAndSaveVersion", () => {
 
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       buildIntent: "website",
@@ -778,7 +778,7 @@ describe("finalizeAndSaveVersion", () => {
 
     await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -794,7 +794,7 @@ describe("finalizeAndSaveVersion", () => {
 
   it("feeds verifier blocking findings into runLlmFixer (closes verifier feedback loop)", async () => {
     const cleanContent =
-      '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```';
+      '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```';
     runVerifierPass.mockResolvedValueOnce({
       blocking: [
         {
@@ -888,7 +888,7 @@ describe("finalizeAndSaveVersion", () => {
     await expect(
       finalizeAndSaveVersion({
         accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
         chatId: "chat_1",
         model: "gpt-5.4",
         resolvedScaffold: null,
@@ -904,7 +904,7 @@ describe("finalizeAndSaveVersion", () => {
 
   it("repairs partial file output via LLM fixer and persists when second preflight passes", async () => {
     const cleanContent =
-      '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```';
+      '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```';
     runProjectSanityChecks
       .mockReturnValueOnce({
         valid: false,
@@ -948,7 +948,7 @@ describe("finalizeAndSaveVersion", () => {
 
     const result = await finalizeAndSaveVersion({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_1",
       model: "gpt-5.4",
       buildIntent: "website",
@@ -1026,7 +1026,7 @@ describe("finalizeAndSaveVersion", () => {
     it("init with premium quality target records preflight_passed and full default telemetry", async () => {
       const result = await finalizeAndSaveVersion({
         accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
         chatId: "chat_1",
         model: "gpt-5.4",
         buildIntent: "website",
@@ -1097,7 +1097,7 @@ describe("finalizeAndSaveVersion", () => {
     it("skips verifier when standard init has no verifier signal", async () => {
       await finalizeAndSaveVersion({
         accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
         chatId: "chat_1",
         model: "gpt-5.4",
         buildIntent: "website",
@@ -1152,7 +1152,7 @@ describe("finalizeAndSaveVersion", () => {
     it("follow-up with fast verification skips materializeImages and records light light_followup telemetry", async () => {
       await finalizeAndSaveVersion({
         accumulatedContent:
-          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
         chatId: "chat_1",
         model: "gpt-5.4",
         buildIntent: "website",
@@ -1213,7 +1213,7 @@ describe("finalizeAndSaveVersion", () => {
   describe("SAJ-25 — pruneStaleVersionErrorLogs", () => {
     const baseFinalizeArgs = () => ({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_saj25",
       model: "gpt-5.4",
       resolvedScaffold: null,
@@ -1284,7 +1284,7 @@ describe("finalizeAndSaveVersion", () => {
 
     const baseArgs = () => ({
       accumulatedContent:
-        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       chatId: "chat_2b",
       model: "gpt-5.4",
       resolvedScaffold: null,

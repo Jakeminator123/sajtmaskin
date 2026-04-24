@@ -118,6 +118,74 @@ function resolveAppPagePath(files: Array<{ path: string }>): string | null {
   return exact ?? null;
 }
 
+/**
+ * Plan 11 / open-question #5 hard gate: the user-visible Home route must
+ * always exist with non-trivial content after preflight assembly.
+ *
+ * `LLM_ONLY_PATHS` in `finalize-merge.ts` deliberately strips
+ * `app/page.tsx` from the scaffold base so the LLM is forced to emit a
+ * branded version; without a safety net here, an LLM that forgets the
+ * file ships a 6-file project with an empty `<main>` to disk (Run A +
+ * Run B in `STATUS-INVESTIGATE-PAGETSX-LOSS.md`). We block persist with
+ * `code_structure_failure` instead of letting that happen silently.
+ *
+ * "Non-trivial" = > 200 chars of rendered content body after stripping
+ * imports, exports, and JSX braces. Picked empirically from observed
+ * "blank" pages (~80–120 chars of import + skeleton vs ~600+ for any
+ * real branded landing) so a sparse but real page (e.g. `<Hero />`-
+ * only) still passes.
+ */
+const HOME_PAGE_MIN_RENDERED_CHARS = 200;
+const HOME_PAGE_REQUIRED_PATHS = ["app/page.tsx", "src/app/page.tsx"] as const;
+
+function measureRenderedContentLength(content: string): number {
+  // Strip imports/exports + obvious whitespace so a 60-line file of
+  // imports + a `return null` doesn't count as "content".
+  const stripped = content
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "")
+    .replace(/^\s*import[^;]*;?\s*$/gm, "")
+    .replace(/^\s*export\s+(?:default\s+)?(?:async\s+)?(?:function|const|let|var)\s/gm, "")
+    .replace(/[{}();,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return stripped.length;
+}
+
+function findHomePageFile(
+  files: Array<{ path: string; content: string }>,
+): { path: string; content: string } | null {
+  const wantsNorm = new Set<string>(HOME_PAGE_REQUIRED_PATHS);
+  for (const file of files) {
+    const norm = file.path.replace(/\\/g, "/");
+    if (wantsNorm.has(norm)) return { path: norm, content: file.content };
+  }
+  return null;
+}
+
+function buildMissingHomeRouteIssue(
+  detected: { path: string; content: string } | null,
+): FinalizePreflightIssue | null {
+  if (!detected) {
+    return createIssue(
+      "app/page.tsx",
+      "error",
+      "Required home route is missing — neither app/page.tsx nor src/app/page.tsx exists in the merged file set. Scaffold defaults are blocked from filling this slot (LLM_ONLY_PATHS); the LLM must emit it.",
+      "code_structure_failure",
+    );
+  }
+  const renderedLength = measureRenderedContentLength(detected.content);
+  if (renderedLength < HOME_PAGE_MIN_RENDERED_CHARS) {
+    return createIssue(
+      detected.path,
+      "error",
+      `Home route renders trivial content (≈${renderedLength} chars after stripping imports/JSX braces; threshold ${HOME_PAGE_MIN_RENDERED_CHARS}). Likely empty <main> or skeleton-only output. Block persist instead of shipping a blank site.`,
+      "code_structure_failure",
+    );
+  }
+  return null;
+}
+
 function normPath(p: string): string {
   return p.replace(/\\/g, "/");
 }
@@ -569,6 +637,70 @@ export async function runFinalizePreflight({
     // preview/bootstrap does not need to rebuild it again.
     nextFilesJson = JSON.stringify(completeProjectFiles);
     preflightFileCount = completeProjectFiles.length;
+
+    // Plan 11 / open-question #5: hard gate on missing or trivial home
+    // route AFTER scaffold + UI-component assembly. This must fire even
+    // if `LLM_ONLY_PATHS` already emitted `missingEmittedEssentials`
+    // upstream because the user's complaint is "blank promoted site",
+    // and the only way that can happen is if `completeProjectFiles`
+    // reaches persist without a renderable Home route.
+    const homePageGateIssue = buildMissingHomeRouteIssue(
+      findHomePageFile(completeProjectFiles),
+    );
+    if (homePageGateIssue) {
+      preflightIssues.push(homePageGateIssue);
+      devLogAppend("in-progress", {
+        type: "preflight.home-route.blocked",
+        chatId,
+        file: homePageGateIssue.file,
+        message: homePageGateIssue.message,
+        completeProjectFileCount: completeProjectFiles.length,
+      });
+    }
+
+    // Plan 11 / Bug 1·2 — count-parity assertion. Historic 26-vs-6
+    // drift (commit 7a6a6d589) had `preflightFileCount` reporting the
+    // assembled count while `nextFilesJson` still pointed at the
+    // pre-assembly array. The fix landed but there is no invariant
+    // guarding against future regressions. Now: if
+    // `JSON.parse(nextFilesJson).length !== preflightFileCount`,
+    // emit a hard error and let the caller block persist in strict mode.
+    let persistedFileCount: number | null = null;
+    try {
+      const persistedParsed = JSON.parse(nextFilesJson) as unknown;
+      if (Array.isArray(persistedParsed)) {
+        persistedFileCount = persistedParsed.length;
+      }
+    } catch {
+      persistedFileCount = null;
+    }
+    if (
+      persistedFileCount !== null &&
+      persistedFileCount !== preflightFileCount
+    ) {
+      const message = `Preflight file count drift: counted ${preflightFileCount} files but nextFilesJson serializes ${persistedFileCount}. Refusing silent persist (plan 11 / count parity invariant).`;
+      preflightIssues.push(
+        createIssue(
+          "preflight",
+          "error",
+          message,
+          "code_structure_failure",
+        ),
+      );
+      devLogAppend("in-progress", {
+        type: "preflight.count-parity.failed",
+        chatId,
+        preflightFileCount,
+        persistedFileCount,
+      });
+    }
+    devLogAppend("in-progress", {
+      type: "preflight.summary",
+      chatId,
+      filesChecked: preflightFileCount,
+      persistedFilesCount: persistedFileCount,
+      hasHomeRouteBlock: Boolean(homePageGateIssue),
+    });
     const actualRoutes = extractAppRoutePathsFromFilePaths(
       completeProjectFiles.map((file) => file.path),
     );

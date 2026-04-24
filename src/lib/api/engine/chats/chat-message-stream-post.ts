@@ -345,7 +345,14 @@ export async function handleMessageStreamRequest(
         const followUpCapabilityDetection: FollowUpCapabilityDetection =
           hasFollowUpBase && !skipIntentClassification
             ? detectFollowUpCapabilities(message)
-            : { capabilities: [], capabilityIds: [], tierByCapability: {}, wordCount: 0 };
+            : {
+                capabilities: [],
+                capabilityIds: [],
+                tierByCapability: {},
+                wordCount: 0,
+                referencesExistingCapability: false,
+                modifyReferenceMatches: [],
+              };
         if (followUpCapabilityDetection.capabilityIds.length > 0) {
           devLogAppend("in-progress", {
             type: "followup.capability.detected",
@@ -353,6 +360,10 @@ export async function handleMessageStreamRequest(
             followUpIntent,
             capabilityIds: followUpCapabilityDetection.capabilityIds,
             tierByCapability: followUpCapabilityDetection.tierByCapability,
+            referencesExistingCapability:
+              followUpCapabilityDetection.referencesExistingCapability,
+            modifyReferenceMatches:
+              followUpCapabilityDetection.modifyReferenceMatches,
           });
         }
         const followUpClarification = hasFollowUpBase && !skipIntentClassification
@@ -678,14 +689,33 @@ export async function handleMessageStreamRequest(
             // plan-mode planning sees the same dossier injection picture as
             // the main codegen flow (otherwise the planner would build a
             // task list ignorant of e.g. a `kontaktform`-add).
+            //
+            // Plan 11 / open-question #12: same `capability-modify`
+            // suppression as the codegen orchestration below — re-injecting
+            // the dossier shell would mislead the planner into emitting a
+            // task list that adds a fresh shell on top of the existing one.
             requestedDossierCapabilities:
-              hasFollowUpBase && followUpCapabilityDetection.capabilityIds.length > 0
+              hasFollowUpBase &&
+              followUpCapabilityDetection.capabilityIds.length > 0 &&
+              followUpIntent !== "capability-modify"
                 ? followUpCapabilityDetection.capabilityIds
                 : undefined,
             requestedCapabilityTiers:
-              hasFollowUpBase && followUpCapabilityDetection.capabilityIds.length > 0
+              hasFollowUpBase &&
+              followUpCapabilityDetection.capabilityIds.length > 0 &&
+              followUpIntent !== "capability-modify"
                 ? followUpCapabilityDetection.tierByCapability
                 : undefined,
+            capabilityModifyHint:
+              hasFollowUpBase &&
+              followUpIntent === "capability-modify" &&
+              followUpCapabilityDetection.capabilityIds.length > 0
+                ? {
+                    capabilityIds: followUpCapabilityDetection.capabilityIds,
+                    references:
+                      followUpCapabilityDetection.modifyReferenceMatches,
+                  }
+                : null,
             // Bug 04#3 (2026-04-22 audit): plan mode måste också skicka
             // engineModelId + lifecycleStage annars divergerar BuildSpec från
             // huvudflödet (token-budget och F2/F3-policy).
@@ -879,14 +909,36 @@ export async function handleMessageStreamRequest(
           // Caller-provided ids merge into orchestrate's capability bridge so
           // dossiers actually get selected on follow-ups even when the
           // snapshot-rebuilt brief carried no capabilities.
+          //
+          // Plan 11 / open-question #12: when the follow-up was classified
+          // as `capability-modify` (user references an existing on-page
+          // element such as "pricken" / "den 3D-grejen" alongside a
+          // capability keyword) we suppress this re-injection on purpose
+          // — the dossier shell already exists in the previous version
+          // and re-emitting it would duplicate the mount on top of the
+          // user's working scene file. The `capabilityModifyHint` below
+          // restores the directional signal in a different shape.
           requestedDossierCapabilities:
-            hasFollowUpBase && followUpCapabilityDetection.capabilityIds.length > 0
+            hasFollowUpBase &&
+            followUpCapabilityDetection.capabilityIds.length > 0 &&
+            followUpIntent !== "capability-modify"
               ? followUpCapabilityDetection.capabilityIds
               : undefined,
           requestedCapabilityTiers:
-            hasFollowUpBase && followUpCapabilityDetection.capabilityIds.length > 0
+            hasFollowUpBase &&
+            followUpCapabilityDetection.capabilityIds.length > 0 &&
+            followUpIntent !== "capability-modify"
               ? followUpCapabilityDetection.tierByCapability
               : undefined,
+          capabilityModifyHint:
+            hasFollowUpBase &&
+            followUpIntent === "capability-modify" &&
+            followUpCapabilityDetection.capabilityIds.length > 0
+              ? {
+                  capabilityIds: followUpCapabilityDetection.capabilityIds,
+                  references: followUpCapabilityDetection.modifyReferenceMatches,
+                }
+              : null,
           lifecycleStage: parsedMeta.lifecycleStage,
           // P22b: chatId + followUpIntent + priorQualityTarget aktiverar P22:s
           // helpers runtime (`inheritQualityTargetFromPriorVersion` i deriveBuildSpec

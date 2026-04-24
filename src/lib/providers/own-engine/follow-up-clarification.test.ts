@@ -123,6 +123,32 @@ describe("follow-up clarification intent classification", () => {
   it("does not flip 'Move the pricing section above FAQ' to capability-add (move verb, no add)", () => {
     expect(classifyFollowUpIntent("Move the pricing section above FAQ")).toBe("clear-refine");
   });
+
+  // Plan 11 / open-question #12: capability-modify must beat capability-add
+  // when the prompt names a capability AND points at an existing on-page
+  // element. Without this branch the LLM would re-inject the dossier shell
+  // on top of the working scene file (chat `b71dafb3` smoke run B).
+  it("classifies 'gör pricken till en 3d-kaffekopp …' as capability-modify (plan 11)", () => {
+    expect(
+      classifyFollowUpIntent(
+        "gör pricken till en 3d-kaffekopp som häller kaffe när jag nuddar den med musen",
+      ),
+    ).toBe("capability-modify");
+  });
+
+  it("classifies 'byt ut bubblan mot en 3d-kaffekopp' as capability-modify (plan 11)", () => {
+    expect(
+      classifyFollowUpIntent("byt ut bubblan mot en 3d-kaffekopp"),
+    ).toBe("capability-modify");
+  });
+
+  it("keeps fresh add prompts on capability-add even if they mention 3d (plan 11)", () => {
+    // No modify-reference token → must remain capability-add so the
+    // dossier shell still gets injected on a true add.
+    expect(
+      classifyFollowUpIntent("lägg till en 3d-kaffekopp som hoovrar ovanför"),
+    ).toBe("capability-add");
+  });
 });
 
 describe("hasDesignFollowUpSignal (Fix A)", () => {
