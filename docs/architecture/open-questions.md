@@ -256,6 +256,26 @@ CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter
 
 ---
 
+### 14. ❌ Slug-route bouncer hem efter 1-2 sek
+
+**Verifierat 2026-04-24 (chat `b71dafb3`, version `1b235ac4`):** Användaren bad LLM skapa slug-sida `snedsträck-afrikanska-bönor`. Generation gick: 36 filer (4 nya), preflight 0 errors, status `done`. Klick på länken visar sidan 1-2 sek, sedan bounce till hemsidan.
+
+**Live VM-test:** Alla URL-varianter (`snedstrack-afrikanska-bonor`, med å/ä/ö, med trailing slash) ger **äkta 404** (ingen Location-header → ingen server-side redirect).
+
+**Mismatch:** Versionen säger den har 36 filer + slug-route. Preview-host serverar inte den.
+
+**Tre kandidat-rotsorsaker (icke-verifierade — krävde dev-server som stängdes):**
+
+1. **Variant av page.tsx-loss för dynamiska routes** — `LLM_ONLY_PATHS` täcker bara `app/page.tsx`, inte `app/<slug>/page.tsx`. LLM:n förväntas skriva slug-page från noll men kan ha missat den.
+2. **Filnamn med svenska tecken** — LLM gjorde `app/snedsträck-afrikanska-bönor/page.tsx` (å/ä/ö), preview-host:s URL→file-mapping normaliserar inte → 404 trots att fil finns.
+3. **`redirect('/')` i slug-page** — LLM lade over-eager error-redirect. Förklarar "page shows briefly then bounce" exakt: initial render → useEffect/redirect → hem.
+
+**Mest troligt:** #3 (matchar user-symptom bäst).
+
+**Plan-koppling:** Plan 11:s scaffold-required-files-check + capability-modify-existing kan delvis fånga detta. Men en specifik test för `app/<dynamic>/page.tsx`-existens behöver läggas till. Möjligen plan 12 eller follow-up.
+
+---
+
 ### 13. 💡 UX-förslag: byt "Promoted" → "Fidelity 2" / "Fidelity 3"
 
 **Användarens observation 2026-04-24:** Badge-texten "Promoted" är förvirrande. Den signalerar "denna är live-preview-versionen", inte "F3 verifierat". Användare antar att "Promoted" = "klar för deploy", men det stämmer bara om F3 också grönade.
