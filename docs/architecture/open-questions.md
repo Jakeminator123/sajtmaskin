@@ -194,6 +194,34 @@ CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter
 
 ---
 
+### 10. ✅ Dossier-injection-mönstret för `visual-3d` — VERIFIED end-to-end
+
+**Antagande:** Capability-detection → dossier-selektion → injection → LLM-scen-overlay → mount fungerar för 3D-prompts.
+
+**Verifierat 2026-04-24 (chat `b71dafb3`):** End-to-end-flödet bekräftat. Pattern dokumenterat här för framtida agent-referens.
+
+**Prompt:** `"lägg till en 3D-figur som svävar ovanpå hela sidan när man scrollar"`
+
+**Pipeline-trace:**
+
+| Steg | Komponent | Beslut |
+|---|---|---|
+| 1 | `detectFollowUpCapabilities()` (`src/lib/builder/follow-up-capability-detection.ts`, plan 06) | Vokabulär-match: `3D` → `visual-3d`. Beteende-markörer: `svävar`, `scrollar`. |
+| 2 | Tier-resolver | tier = `specific` (> 8 ord + beteende-markörer, men inga beyond-markörer som `physics`/`@react-three/rapier`). |
+| 3 | `classifyFollowUpIntent()` (`src/lib/providers/own-engine/follow-up-clarification.ts`, plan 06) | `followUpIntent: capability-add` (inte `neutral`). UI visar `Capabilities: Motion, 3D, Physics`. |
+| 4 | `selectDossiersForRequest()` (`src/lib/gen/dossiers/select.ts`) | `visual-3d` → returnerade `three-fiber-canvas` (har `defaultForCapability: true`). |
+| 5 | System-prompt-builder (`src/lib/gen/system-prompt/sections/dossiers.ts`) | Injicerade `manifest.json`-summary + hela `instructions.md` + dossier-shell-fil. |
+| 6 | LLM (gpt-5.3-codex) | Genererade `floating-coffee-overlay.tsx` (62L) som monterar `<ThreeCanvasShell>`-shellen från dossiern. |
+| 7 | finalize-merge | Inkluderade `three-canvas-stage.tsx` (27L) från dossier + LLM:s `floating-coffee-overlay.tsx` + modifierad `layout.tsx` (91L) med global mount. |
+| 8 | `dep-completer` (plan 07, `src/lib/gen/autofix/dep-completer.ts`) | Lade `three: ^0.176`, `@react-three/fiber: ^9`, `@react-three/drei: ^10` i `package.json` — deterministiskt baserat på `visual-3d` i `requestedCapabilities`. |
+| 9 | Preview-host VM | Renderade animerad 3D-bubbla globalt. ✅ |
+
+**Stress-test-kandidater (nästa runda för verification):**
+- Modifiera existing 3D-fil: `gör pricken till en 3D-kaffekopp som häller kaffe ner i en mugg när jag nuddar den med musen` → tier `specific` förväntas
+- Beyond-dossier: `gör pricken till en 3D-kaffekopp med physics — den ska studsa när jag knuffar den med musen` → tier `beyond-dossier` förväntas (physics-marker)
+
+---
+
 ## Hur använda denna fil
 
 1. **Innan du säger "det buggar"** — kolla om det är listat här. Om ja → läs vad vi vet, lägg till nya datapunkter.
