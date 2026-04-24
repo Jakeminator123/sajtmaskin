@@ -126,7 +126,7 @@ Reject-format: kort lista `[fil]:[rad] — [vad saknas/övertramp]`.
 | fas2/C-autofix-import-hardening | ~~`cursor/d1406cea`~~ | (agent-worktree) | **merged** | 2026-04-23 em | `315de8dbf` |
 | 06-unified-status-eventbus | | | **nu ohindrad — fas 3** | | |
 
-Se `STATUS-2026-04-24-morning.md` i repo-roten för fullständig rapport (natten + eftermiddagen).
+Se [`../status/STATUS-2026-04-24-morning.md`](../status/STATUS-2026-04-24-morning.md) för fullständig rapport (natten + eftermiddagen).
 
 ---
 

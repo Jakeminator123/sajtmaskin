@@ -2,7 +2,7 @@
 
 Senast uppdaterad: 2026-04-23 (efter OMTAG-waven). Alla öppna steg listas i enhetligt A/B/C/D-format. Varje planfil behåller sin detaljerade text — tabellen nedan är routern.
 
-> **Stor händelse 2026-04-23:** 11 uppdrag i OMTAG-waven mergade. Se arkivet [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) och rotfilen `STATUS-2026-04-23-omtag-complete.md`. Flera planer här nedan har delvis bockats av — se top-note i respektive plan-fil.
+> **Stor händelse 2026-04-23:** 11 uppdrag i OMTAG-waven mergade. Se arkivet [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) och slutrapporten [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md). Flera planer här nedan har delvis bockats av — se top-note i respektive plan-fil.
 
 ## Öppna steg (konsoliderat efter 2026-04-23-städ)
 
@@ -37,7 +37,7 @@ Senast uppdaterad: 2026-04-23 (efter OMTAG-waven). Alla öppna steg listas i enh
 
 ## Avklarade waves
 
-- **2026-04-23** — **OMTAG-waven** (11 uppdrag, 9 cloud-agenter över 3 faser). Fas 0: embedding-hygien + eval-baseline + env-flag-collapse + type-only-imports. Fas 1: wave-split (4 monoliter→paket) + scaffold-default-block. Fas 2: follow-up-predicate + scaffold-cleanup + autofix-härdning + dossier-AJV. Fas 3: unified-status-eventbus. Arkiv: [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/). Slutbedömning: `STATUS-2026-04-23-omtag-complete.md` i repo-rot.
+- **2026-04-23** — **OMTAG-waven** (11 uppdrag, 9 cloud-agenter över 3 faser). Fas 0: embedding-hygien + eval-baseline + env-flag-collapse + type-only-imports. Fas 1: wave-split (4 monoliter→paket) + scaffold-default-block. Fas 2: follow-up-predicate + scaffold-cleanup + autofix-härdning + dossier-AJV. Fas 3: unified-status-eventbus. Arkiv: [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/). Slutbedömning: [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md).
 - **2026-04-22** — LLM-flow-audit + 2 follow-up-pass. 20 verifierade buggar fixade över 3 commits (`a35eaa05e` + `8de85797b` + `3a2ec25d8`). Unicode-regex-grundinfrastruktur + CI-guard etablerad. Se [`../../../audit-reports/2026-04-22-llm-flow/SUMMARY.md`](../../../audit-reports/2026-04-22-llm-flow/SUMMARY.md) + `Kvarvarande-uppgifter.md` sektionen "Avklarat i LLM-flow-audit + follow-up (2026-04-22)".
 - **2026-04-22** — Cleanup-wave pass 1+2 (7 commits över P2/P5/P1/S3/knip/P3/docs). PR #84.
 - **2026-04-21** — `href↔route-safety-net` + P30 + P31 + `repair-loop-hardening` + `P20-shadcn-ecosystem-next`. Flyttade till [`../avklarat/`](../avklarat/).

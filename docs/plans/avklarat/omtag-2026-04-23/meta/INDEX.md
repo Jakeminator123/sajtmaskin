@@ -76,7 +76,7 @@ Start-commit: `25353da70` (2026-04-23 morgon). Slut-commit efter merge av 06: `0
 
 ## Effekt på master
 
-Se rotfilen [`STATUS-2026-04-23-omtag-complete.md`](../../../../STATUS-2026-04-23-omtag-complete.md) för konkret före/efter-bedömning mot gpt-rapportens siffror.
+Se slutrapporten [`STATUS-2026-04-23-omtag-complete.md`](../status/STATUS-2026-04-23-omtag-complete.md) för konkret före/efter-bedömning mot gpt-rapportens siffror.
 
 ## Parkerat för nästa ronda
 
