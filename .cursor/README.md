@@ -71,6 +71,8 @@ Kod är source of truth; strict schemas speglar kod, ersätter den inte.
 ## Slash-kommandon (`.cursor/commands/*.md`)
 
 - `/avslutning` = stäng arbete: review, scoped cleanup, docs-/schema-/backoffice-sync, verifiering, commit + push. Hanterar både vanligt slutpass och stängning av hela arbetsspår.
+- `/buggrapport` = skapa Linear-issue i team Sajtmaskin med label Bug + lokal mirror i `.cursor/bugs/`.
+- `/långbänk` = lång orkestrator-session där flera tunga subagents körs **parallellt** över olika spår med rätt modell per spår, sedan sammanfattning + glasklar-fixar + verifiering + leverans. Tar en mapp som underlag eller frågar dig om scope. Förvänta 20–60 min wall-clock.
 
 ## Backoffice
 
