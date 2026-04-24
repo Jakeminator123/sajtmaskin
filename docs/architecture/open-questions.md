@@ -256,23 +256,35 @@ CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter
 
 ---
 
-### 14. ❌ Slug-route bouncer hem efter 1-2 sek
+### 14. ❌ Slug-route bouncer hem efter 1-2 sek — VERIFIERAT MEKANISM
 
-**Verifierat 2026-04-24 (chat `b71dafb3`, version `1b235ac4`):** Användaren bad LLM skapa slug-sida `snedsträck-afrikanska-bönor`. Generation gick: 36 filer (4 nya), preflight 0 errors, status `done`. Klick på länken visar sidan 1-2 sek, sedan bounce till hemsidan.
+**Verifierat 2026-04-24 (chat `b71dafb3`, version `1b235ac4`, slug `/afrikanska-bonor`):**
 
-**Live VM-test:** Alla URL-varianter (`snedstrack-afrikanska-bonor`, med å/ä/ö, med trailing slash) ger **äkta 404** (ingen Location-header → ingen server-side redirect).
+| Steg | Vad händer |
+|---|---|
+| 1 | User klickar `/afrikanska-bonor`-länk |
+| 2 | Server returnerar **200, 52 KB HTML** med Suspense fallback `"Laddar sidan om afrikanska bönor..."` |
+| 3 | SSR renderar `<main>` 1, `<section>` 1, `<h1>` 1, 12 `<p>` — fullt content |
+| 4 | Client hydrate börjar |
+| 5 | **`useEffect` med `router.push("/")` eller `redirect("/")` i client-component triggar** |
+| 6 | Next.js `RedirectErrorBoundary` + `RedirectBoundary` fångar (bekräftat i HTML JS-stacktrace) |
+| 7 | Navigation till `/` (1-2 sek efter visad sida) |
 
-**Mismatch:** Versionen säger den har 36 filer + slug-route. Preview-host serverar inte den.
+**Bevis från HTML-build:**
+```
+RedirectErrorBoundary (/data/workspaces/.../app-page.runtime.dev.js:65:65384)
+RedirectBoundary (/data/workspaces/.../app-page.runtime.dev.js:65:62915)
+```
 
-**Tre kandidat-rotsorsaker (icke-verifierade — krävde dev-server som stängdes):**
+Båda boundaries är compileras in **bara om koden använder `redirect()`/`router.push()`-anrop**. Sidan finns + renderas korrekt — det är **client-side redirect** som boucer.
 
-1. **Variant av page.tsx-loss för dynamiska routes** — `LLM_ONLY_PATHS` täcker bara `app/page.tsx`, inte `app/<slug>/page.tsx`. LLM:n förväntas skriva slug-page från noll men kan ha missat den.
-2. **Filnamn med svenska tecken** — LLM gjorde `app/snedsträck-afrikanska-bönor/page.tsx` (å/ä/ö), preview-host:s URL→file-mapping normaliserar inte → 404 trots att fil finns.
-3. **`redirect('/')` i slug-page** — LLM lade over-eager error-redirect. Förklarar "page shows briefly then bounce" exakt: initial render → useEffect/redirect → hem.
+**Rotsorsak (LLM-output-bug, inte system-bug):**
+LLM:n tolkade scaffoldens `siteKind: "marketing"` + `structureProfile: "one-page-marketing"` som "om någon hamnar på sub-route → bouca hem till one-page-versionen". Det är ett pedagogiskt missförstånd — landing-page får ha sub-routes (sitemap, blog-posts, om-sidor).
 
-**Mest troligt:** #3 (matchar user-symptom bäst).
-
-**Plan-koppling:** Plan 11:s scaffold-required-files-check + capability-modify-existing kan delvis fånga detta. Men en specifik test för `app/<dynamic>/page.tsx`-existens behöver läggas till. Möjligen plan 12 eller follow-up.
+**Plan-koppling:**
+- Plan 11:s scaffold-required-files-check fångar inte detta (sidan finns + har content)
+- **Plan 12 (PromptKit) ska adressera:** lägg system-prompt-regel "om sub-route skapas i landing-page-scaffold, INGEN client-side redirect till `/` från sub-route — låt sidan stå för sig själv"
+- Alternativt: scaffold-policy-test som scannar generated code för `router.push("/")` eller `redirect("/")` i sub-routes och flaggar som warning
 
 ---
 
