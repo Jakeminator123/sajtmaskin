@@ -111,7 +111,7 @@ curl http://localhost:3000/api/metrics -H "Authorization: Bearer $SAJTMASKIN_MET
 
 ---  VIKTIGA ENV-FLAGGOR  ---
 
-SAJTMASKIN_DOSSIER_PIPELINE=true|false              # Aktivera dossier-injektion (default: dev=on, prod=off)
+SAJTMASKIN_DOSSIER_PIPELINE=true|false              # Aktivera dossier-injektion (default: on, sätt false/0 för opt-out)
 SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true|false    # Defer extra routes till shells i init-generering
 SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true|false    # Krav genererade JSON-artefakter
 SAJTMASKIN_DEFAULT_THINKING=true                    # Server-side default for reasoning/thinking

@@ -8,6 +8,7 @@
 export type PlanPhase = "plan" | "build" | "refine" | "verify" | "done";
 
 /** @deprecated Use "refine" — kept for backward compat with stored artifacts. */
+// TODO(after-wave-5): drop after deadline 2026-Q3 if no inbound payloads.
 export type PlanPhaseLegacy = PlanPhase | "polish";
 
 function coercePlanPhase(value: string): PlanPhase | null {
@@ -95,6 +96,7 @@ export type PlanContracts = {
 export type PlanScaffoldChoice = {
   id?: string;
   /** @deprecated Legacy alias from older stored plan artifacts; prefer `id`. */
+  // TODO(after-wave-5): drop after deadline 2026-Q3 if no inbound payloads.
   family?: string;
   label: string;
   reason?: string;

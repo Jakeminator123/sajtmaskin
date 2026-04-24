@@ -128,6 +128,7 @@ export type VersionEntry = {
   id?: string | null;
   previewUrl?: string | null;
   /** @deprecated Prefer `previewUrl` from API responses. */
+  // TODO(after-wave-5): drop after deadline 2026-Q3 if no inbound payloads.
   demoUrl?: string | null;
   createdAt?: string | null;
   versionNumber?: number | null;

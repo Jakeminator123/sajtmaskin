@@ -121,11 +121,11 @@ Före 2026-04-21-fixen tappades capabilities tyst på follow-up — alla integra
 ## Hur disable:as systemet?
 
 ```
-SAJTMASKIN_DOSSIER_PIPELINE=false  # av (kod-default i preview/production om env saknas)
-SAJTMASKIN_DOSSIER_PIPELINE=true   # på (kod-default i development)
+SAJTMASKIN_DOSSIER_PIPELINE=false  # av (explicit opt-out)
+SAJTMASKIN_DOSSIER_PIPELINE=true   # på (kod-default i alla miljöer)
 ```
 
-**Nuvarande deploy-status (sedan 2026-04-23):** explicit satt till `true` på alla tre Vercel-miljöer — pipelinen är aktiv överallt, inte bara i dev. För att stänga av den i en specifik miljö måste du antingen ta bort variabeln på den target:en eller sätta den till `false` där.
+**Nuvarande deploy-status (sedan 2026-04-23):** explicit satt till `true` på alla tre Vercel-miljöer — pipelinen är aktiv överallt. För att stänga av den i en specifik miljö, sätt den till `false` eller `0`.
 
 Hela `## Available Dossiers`-blocket försvinner från system-prompten. Inget annat påverkas. Sätt `false` om dossier-pool blir ohälsosam (t.ex. många unconfigured-dossiers spam:ar prompten).
 

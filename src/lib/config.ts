@@ -358,14 +358,15 @@ export const FEATURES = {
    * `## Available Dossiers` + `## Selected Dossier Instructions` blocks into
    * the system prompt.
    *
-   * On by default in development. Off by default in production (opt-in) until
-   * the capability map is verified. See docs/architecture/dossier-system.md.
+   * On by default in runtime environments. Set
+   * `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) to opt out explicitly.
+   * Tests keep it off by default for deterministic unit-import latency.
+   * See docs/architecture/dossier-system.md.
    */
   useDossierPipeline:
-    env.SAJTMASKIN_DOSSIER_PIPELINE === "true" ||
-    env.SAJTMASKIN_DOSSIER_PIPELINE === "1" ||
-    (env.SAJTMASKIN_DOSSIER_PIPELINE !== "false" &&
-      env.NODE_ENV === "development"),
+    env.NODE_ENV !== "test" &&
+    env.SAJTMASKIN_DOSSIER_PIPELINE !== "false" &&
+    env.SAJTMASKIN_DOSSIER_PIPELINE !== "0",
   deferExtraRoutesOnInit:
     env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "true" ||
     env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "1",
