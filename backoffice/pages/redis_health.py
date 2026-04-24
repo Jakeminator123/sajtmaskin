@@ -101,10 +101,27 @@ def _load_snapshots(ctx: BackofficeContext, max_rows: int = 200) -> list[dict[st
 
 
 def render(ctx: BackofficeContext) -> None:
-    st.title("Redis-hälsa")
+    st.title("Redis-hälsa (Upstash REST)")
     st.caption(
-        "Read-only diagnos av Upstash Redis (HTTP/REST via `@upstash/redis`). "
+        "Diagnos av Upstash Redis via **HTTP/REST-klienten** (`@upstash/redis`). "
         "Self-test skriver/läser/raderar en hälsonyckel — i övrigt inga mutationer."
+    )
+
+    # BUG-FIX 2026-04-24 (rapport från test-agenter): tidigare versioner av
+    # denna sida lät det se ut som "är Redis OK?" rent generellt. I själva
+    # verket använder appen TVÅ klienter mot samma Upstash-instans:
+    #
+    #   - `ioredis` (TCP, REDIS_URL/KV_URL): app-cache, sessioner,
+    #     project-files, video-jobs, preview-sessions, deploy-status pubsub
+    #   - `@upstash/redis` (HTTP/REST): rate-limiting + denna hälsokoll
+    #
+    # Samma databas, olika transport — REST-failure = pubsub kan ändå funka,
+    # och TCP-failure = denna sida visar grön. Både är "äkta Redis".
+    st.warning(
+        "ℹ️ **Denna sida testar bara HTTP/REST-vägen.** App-cache, sessioner, "
+        "deploy-status pubsub m.m. går via `ioredis` (TCP) som **inte** valideras "
+        "här. För TCP-statusen, kolla `/api/health` eller server-loggar för "
+        "`[Redis] Connected` / `[Redis] Connection error`."
     )
 
     with st.expander("Vad gör sidan?", expanded=False):
@@ -205,9 +222,11 @@ def _render_payload(payload: dict[str, Any]) -> None:
     prefixes = payload.get("prefixes") or []
     rows = []
     for p in prefixes:
+        scope = p.get("scope", "?")
         rows.append(
             {
                 "Bucket": p.get("label"),
+                "Scope": "🔒 env" if scope == "env" else "🌐 global",
                 "Pattern": p.get("pattern"),
                 "Antal": p.get("key_count") if p.get("key_count") is not None else "?",
                 "SCAN ms": p.get("latency_ms"),
@@ -219,8 +238,10 @@ def _render_payload(payload: dict[str, Any]) -> None:
     df = pd.DataFrame(rows)
     st.dataframe(df, use_container_width=True, hide_index=True)
     st.caption(
-        "**SCAN trunkeras efter ~50k nycklar** för att inte hänga backoffice. "
-        "Om en bucket markeras med ⚠️ är dess `Antal` ett _undre_ estimat."
+        "**🔒 env** = pattern prefixad med denna miljös key-prefix (siffran "
+        "avser bara denna miljö). **🌐 global** = pattern saknar miljöprefix "
+        "(siffran kan blanda dev/preview/prod). "
+        "**SCAN trunkeras efter ~50k nycklar** för att inte hänga backoffice."
     )
 
     with st.expander("Råa JSON-svaret (för debug)", expanded=False):

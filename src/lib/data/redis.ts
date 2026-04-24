@@ -440,17 +440,73 @@ export async function getRedisInfo(): Promise<{
   }
 }
 
-export async function flushRedisCache(): Promise<boolean> {
+/**
+ * Rensa cache för **denna miljö** (`REDIS_KEY_PREFIX`-scoped).
+ *
+ * BUG-FIX 2026-04-24: tidigare gjorde denna funktion `FLUSHDB` som rensar
+ * HELA logical Redis-databasen — vilket betyder att en admin-knapp i dev
+ * skulle radera prod-cachen också (Upstash-instansen delas mellan miljöer
+ * och bara `REDIS_KEY_PREFIX` separerar dem).
+ *
+ * Nu skannar vi `${REDIS_KEY_PREFIX}*` med SCAN och raderar matchande
+ * nycklar i batchar via UNLINK (icke-blockerande, samma som DEL men async
+ * från Redis perspektiv). Andra miljöers nycklar lämnas helt orörda.
+ *
+ * Säkerhetsmarginal: hård cap på 100k nycklar per anrop. Om någon avsiktligt
+ * vill köra "stor flush" kan de upprepa anropet — men en oavsiktlig knapp-
+ * tryckning kan inte rensa miljontals nycklar i en runda.
+ *
+ * Returns: antal raderade nycklar (eller -1 vid fel).
+ */
+export async function flushRedisCache(): Promise<number> {
   const redis = getRedis();
-  if (!redis) return false;
+  if (!redis) return -1;
+
+  const SCOPE = `${REDIS_KEY_PREFIX}*`;
+  const HARD_CAP = 100_000;
+  const BATCH = 500;
+
+  let cursor = "0";
+  let deleted = 0;
+  let iterations = 0;
+  const MAX_ITERATIONS = 1000;
 
   try {
-    await redis.flushdb();
-    // Cache flushed successfully
-    return true;
+    do {
+      const [nextCursor, keys] = await redis.scan(cursor, "MATCH", SCOPE, "COUNT", BATCH);
+      cursor = nextCursor;
+
+      if (keys.length > 0) {
+        // UNLINK = icke-blockerande DEL (frigör i bakgrundstråd). Faller
+        // tillbaka till DEL om Redis-versionen är < 4.0 — inte aktuellt
+        // för Upstash men säkert ändå.
+        try {
+          deleted += await redis.unlink(...keys);
+        } catch {
+          deleted += await redis.del(...keys);
+        }
+      }
+
+      if (deleted >= HARD_CAP) {
+        console.warn(
+          `[Redis] flushRedisCache hit HARD_CAP (${HARD_CAP}); stopping. Re-run if more keys remain.`,
+        );
+        break;
+      }
+      iterations += 1;
+      if (iterations >= MAX_ITERATIONS) {
+        console.warn(
+          `[Redis] flushRedisCache hit MAX_ITERATIONS (${MAX_ITERATIONS}); stopping.`,
+        );
+        break;
+      }
+    } while (cursor !== "0");
+
+    console.info(`[Redis] Flushed ${deleted} keys matching ${SCOPE}`);
+    return deleted;
   } catch (error) {
-    console.error("[Redis] Failed to flush cache:", error);
-    return false;
+    console.error("[Redis] Failed to flush prefix-scoped cache:", error);
+    return -1;
   }
 }
 

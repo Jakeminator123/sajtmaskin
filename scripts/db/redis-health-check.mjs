@@ -75,24 +75,35 @@ const KEY_PREFIX =
 
 // Kategorier vi grupperar nycklar i. Måste hållas i synk med
 // src/lib/data/redis.ts och src/lib/api/ai/brief-cache.ts.
+//
+// BUG-FIX 2026-04-24: tidigare började alla pattern med `*` (wildcard) vilket
+// fångade nycklar från ALLA miljöer (dev:/preview:/prod:) trots att UI:t
+// visar "denna miljö" — `total_keys_in_buckets` blandades cross-env.
+// Nu prefixas pattern med faktisk `KEY_PREFIX` så siffrorna stämmer.
+//
+// Två "shared" buckets är OK att mäta cross-env (rate-limit har eget
+// namnschema; health:probe rensas snabbt) — markerade i `scope`-fältet.
 const TRACKED_PREFIX_BUCKETS = [
-  // Per-miljö (dev:/preview:/prod:)
-  { label: "user:session", pattern: `*user:session:*` },
-  { label: "cache", pattern: `*cache:*` },
-  { label: "audit", pattern: `*audit:*` },
-  { label: "audit_list", pattern: `*audit_list:*` },
-  { label: "project:files", pattern: `*project:files:*` },
-  { label: "project:meta", pattern: `*project:meta:*` },
-  { label: "video:job", pattern: `*video:job:*` },
-  { label: "preview", pattern: `*preview:*` },
-  { label: "preview-session:session", pattern: `*preview-session:session:*` },
-  { label: "sandbox-preview:session", pattern: `*sandbox-preview:session:*` }, // legacy
-  { label: "prompt_handoff", pattern: `*prompt_handoff:*` },
-  { label: "brief:v1", pattern: `*brief:v1:*` },
-  // Sajtmaskin rate-limit (annorlunda key-namespace, inkluderar miljöprefix)
-  { label: "ratelimit (sajtmaskin)", pattern: `sajtmaskin:*ratelimit:*` },
-  // Health-probe (ska egentligen aldrig dröja sig kvar — TTL=30s)
-  { label: "health:probe", pattern: `*health:probe:*` },
+  { scope: "env", label: "user:session", suffix: "user:session:*" },
+  { scope: "env", label: "cache", suffix: "cache:*" },
+  { scope: "env", label: "audit", suffix: "audit:*" },
+  { scope: "env", label: "audit_list", suffix: "audit_list:*" },
+  { scope: "env", label: "project:files", suffix: "project:files:*" },
+  { scope: "env", label: "project:meta", suffix: "project:meta:*" },
+  { scope: "env", label: "video:job", suffix: "video:job:*" },
+  { scope: "env", label: "preview", suffix: "preview:*" },
+  { scope: "env", label: "preview-session:session", suffix: "preview-session:session:*" },
+  { scope: "env", label: "sandbox-preview:session (legacy)", suffix: "sandbox-preview:session:*" },
+  { scope: "env", label: "prompt_handoff", suffix: "prompt_handoff:*" },
+  { scope: "env", label: "brief:v1", suffix: "brief:v1:*" },
+  { scope: "env", label: "health:probe", suffix: "health:probe:*" },
+  // Rate-limit har eget namnschema som inkluderar miljöprefix internt
+  // (`sajtmaskin:<env>:ratelimit:...`). Vi kan därför scope:a det env-säkert.
+  {
+    scope: "global",
+    label: "ratelimit (sajtmaskin, denna miljö)",
+    rawPattern: () => `sajtmaskin:${KEY_PREFIX.replace(/:$/, "")}:ratelimit:*`,
+  },
 ];
 
 const redis = new Redis({ url: restUrl, token: restToken });
@@ -188,13 +199,21 @@ async function run() {
   const dbsize = await timed(() => redis.dbsize());
   const total_keys = dbsize.error ? null : Number(dbsize.result);
 
-  // 3) Per-prefix-buckets
+  // 3) Per-prefix-buckets — env-scoped (BUG-FIX 2026-04-24).
+  // Bucket-pattern byggs nu med `KEY_PREFIX` så siffrorna avser
+  // ENBART denna miljö, inte cross-env wildcard som tidigare.
   const prefixes = [];
   for (const bucket of TRACKED_PREFIX_BUCKETS) {
-    const t = await timed(() => scanCount(bucket.pattern));
+    const pattern =
+      bucket.rawPattern?.() ??
+      (bucket.scope === "env"
+        ? `${KEY_PREFIX}${bucket.suffix}`
+        : bucket.suffix);
+    const t = await timed(() => scanCount(pattern));
     prefixes.push({
       label: bucket.label,
-      pattern: bucket.pattern,
+      pattern,
+      scope: bucket.scope,
       latency_ms: t.latency_ms,
       key_count: t.error ? null : t.result.count,
       sample_keys: t.error ? [] : t.result.sample,

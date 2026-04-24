@@ -152,10 +152,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "flush-redis") {
-      const success = await flushRedisCache();
+      // BUG-FIX 2026-04-24: flushRedisCache rensar nu BARA REDIS_KEY_PREFIX-scope
+      // (dev:/preview:/prod:) — inte hela databasen som tidigare. Returvärdet
+      // är antalet raderade nycklar (eller -1 vid fel).
+      const deleted = await flushRedisCache();
+      const success = deleted >= 0;
       return NextResponse.json({
         success,
-        message: success ? "Redis cache flushed" : "Failed to flush Redis",
+        deleted: success ? deleted : null,
+        message: success
+          ? `Redis cache flushed (${deleted} nycklar i denna miljö)`
+          : "Failed to flush Redis",
       });
     }
 
@@ -364,11 +371,11 @@ export async function POST(req: NextRequest) {
       const results: {
         vercel: { deleted: number; errors: string[] };
         database: { deleted: number };
-        redis: { success: boolean };
+        redis: { success: boolean; deleted: number };
       } = {
         vercel: { deleted: 0, errors: [] },
         database: { deleted: 0 },
-        redis: { success: false },
+        redis: { success: false, deleted: 0 },
       };
 
       const vercelToken = pickVercelAccessTokenFromEnv();
@@ -426,7 +433,10 @@ export async function POST(req: NextRequest) {
         : await db.delete(users).where(sql`true`).returning({ id: users.id });
       results.database.deleted += deletedUsers.length;
 
-      results.redis.success = await flushRedisCache();
+      // BUG-FIX 2026-04-24: prefix-scoped flush (se `flushRedisCache` JSDoc).
+      const flushedKeys = await flushRedisCache();
+      results.redis.success = flushedKeys >= 0;
+      results.redis.deleted = flushedKeys >= 0 ? flushedKeys : 0;
       clearUploadsFolder();
 
       return NextResponse.json({

@@ -110,7 +110,13 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   chats: [{ name: "idx_chats_project", columns: ["project_id"] }],
   versions: [
     { name: "idx_versions_chat_id", columns: ["chat_id"] },
-    { name: "versions_chat_version_idx", columns: ["chat_id", "v0_version_id"] },
+    // 2026-04-24: synkad med schema.ts (`idx_versions_chat_v0_version_unique`).
+    // Tidigare hette det `versions_chat_version_idx` här men det finns inte
+    // i någon runtime-källa.
+    {
+      name: "idx_versions_chat_v0_version_unique",
+      columns: ["chat_id", "v0_version_id"],
+    },
   ],
   version_error_logs: [
     { name: "idx_version_error_logs_chat_id", columns: ["chat_id"] },
@@ -416,8 +422,22 @@ async function run() {
     .filter((t) => t.exists)
     .reduce((sum, t) => sum + (t.row_count_estimate || 0), 0);
 
+  const totalTablesMissing = tables.filter((t) => !t.exists).length;
+  const tableProbeFailures = tables.filter(
+    (t) => t.exists && t.probe_error,
+  ).length;
+
   const out = {
-    ok: connTest.error === null && allMissingIndexes.length === 0,
+    // BUG-FIX 2026-04-24: tidigare ignorerades saknade tabeller helt — `ok`
+    // kunde vara `true` även när hälften av tabellerna saknades. Nu räknas
+    // saknade tabeller OCH probe-fel (kunde inte göra SELECT 1 LIMIT 1) som
+    // hälsoproblem. Index-saknande är fortsatt en del av `ok` för att
+    // backoffice-knappen "Applicera index" ska göras synligt aktuell.
+    ok:
+      connTest.error === null &&
+      totalTablesMissing === 0 &&
+      tableProbeFailures === 0 &&
+      allMissingIndexes.length === 0,
     timestamp: startedAt,
     target: redactConnectionString(connectionString),
     is_prod_like: inspection.isProdLike,
@@ -425,7 +445,8 @@ async function run() {
     summary: {
       total_tables_expected: EXPECTED_TABLES.length,
       total_tables_present: tables.filter((t) => t.exists).length,
-      total_tables_missing: tables.filter((t) => !t.exists).length,
+      total_tables_missing: totalTablesMissing,
+      total_table_probe_failures: tableProbeFailures,
       total_rows_estimate: totalRows,
       total_indexes_missing: allMissingIndexes.length,
       total_indexes_extra: extraIndexes.length,

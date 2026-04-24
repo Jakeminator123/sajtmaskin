@@ -199,8 +199,9 @@ def _format_target(payload: dict[str, Any]) -> str:
 def render(ctx: BackofficeContext) -> None:
     st.title("Databashälsa")
     st.caption(
-        "Read-only diagnos av Postgres (Supabase). Kör `scripts/db/db-health-check.mjs` "
-        "via subprocess. Inga skrivningar görs av denna sida."
+        "Diagnos av Postgres (Supabase). **Hälsokollen är read-only**, men "
+        "längre ner finns ett **APPLY-flöde** som muterar DB:n (skapar "
+        "saknade index). APPLY kräver motivering + bekräftelse + audit-logg."
     )
 
     with st.expander("Vad gör sidan?", expanded=False):
@@ -271,10 +272,33 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
 
     cols = st.columns(5)
     cols[0].metric("Connection ms", conn.get("latency_ms", "—"))
-    cols[1].metric("Tabeller (närv/förv)", f"{summary.get('total_tables_present', '—')}/{summary.get('total_tables_expected', '—')}")
+    cols[1].metric(
+        "Tabeller (närv/förv)",
+        f"{summary.get('total_tables_present', '—')}/{summary.get('total_tables_expected', '—')}",
+        delta=(
+            None
+            if summary.get("total_tables_missing", 0) == 0
+            else f"-{summary['total_tables_missing']} saknas"
+        ),
+        delta_color="inverse",
+    )
     cols[2].metric("Rader (estimate)", f"{summary.get('total_rows_estimate', 0):,}".replace(",", " "))
     cols[3].metric("Saknade index", summary.get("total_indexes_missing", 0))
     cols[4].metric("Extra index", summary.get("total_indexes_extra", 0))
+
+    # BUG-FIX 2026-04-24 (rapport från test-agent): saknad tabell ska göra
+    # toppstatusen NOT-ok, inte bara index-gap. db-health-skriptet sköter
+    # ok-flaggan nu, men UI:t måste också skrika om tabeller saknas.
+    if summary.get("total_tables_missing", 0) > 0:
+        st.error(
+            f"⚠️ **{summary['total_tables_missing']} förväntade tabeller saknas i DB:n.** "
+            "Kör `npm run db:init` för att skapa dem (säker — `CREATE TABLE IF NOT EXISTS`)."
+        )
+    if summary.get("total_table_probe_failures", 0) > 0:
+        st.error(
+            f"⚠️ **{summary['total_table_probe_failures']} tabeller kunde inte queryas** "
+            "(SELECT 1 LIMIT 1 misslyckades). Se `Probe-fel`-kolumnen nedan för detaljer."
+        )
 
     if missing_indexes:
         st.error(

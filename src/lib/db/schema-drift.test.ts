@@ -170,4 +170,97 @@ describe("schema-drift mellan schema.ts, db-init.mjs och add-performance-indexes
     const missing = required.filter((r) => !perfIndexes.has(r));
     expect(missing, `Saknade hot-path-index i add-performance-indexes.mjs`).toEqual([]);
   });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // BUG-FIX 2026-04-24 (rapport från flera test-agenter): db-health-check.mjs
+  // har egna konstanter (EXPECTED_TABLES + EXPECTED_INDEXES_WITH_COLUMNS) som
+  // var en **tredje sanning** utan paritetsskydd. Drift där skulle inte ha
+  // failat det tidigare drift-testet — nu fångas det här.
+  // ───────────────────────────────────────────────────────────────────────
+
+  const dbHealthSrc = readFile(join(REPO_ROOT, "scripts/db/db-health-check.mjs"));
+
+  function parseExpectedTablesArray(source: string): Set<string> {
+    // Matchar `const EXPECTED_TABLES = [` block och plockar ut alla strängar
+    const m = source.match(/const\s+EXPECTED_TABLES\s*=\s*\[([\s\S]*?)\]/);
+    if (!m) return new Set();
+    const inside = m[1];
+    const tables = new Set<string>();
+    const tableRe = /["']([a-z_][a-z0-9_]*)["']/g;
+    let mm: RegExpExecArray | null;
+    while ((mm = tableRe.exec(inside))) {
+      tables.add(mm[1]);
+    }
+    return tables;
+  }
+
+  function parseExpectedIndexNames(source: string): Set<string> {
+    // Matchar `EXPECTED_INDEXES_WITH_COLUMNS = { ... }` block och plockar
+    // ut alla `name: "..."` värden.
+    const m = source.match(
+      /const\s+EXPECTED_INDEXES_WITH_COLUMNS\s*=\s*\{([\s\S]*?)\n\};/,
+    );
+    if (!m) return new Set();
+    const inside = m[1];
+    const indexes = new Set<string>();
+    const nameRe = /name:\s*["']([a-z_][a-z0-9_]*)["']/g;
+    let mm: RegExpExecArray | null;
+    while ((mm = nameRe.exec(inside))) {
+      indexes.add(mm[1]);
+    }
+    return indexes;
+  }
+
+  it("EXPECTED_TABLES i db-health-check.mjs matchar pgTable() i schema.ts", () => {
+    const dbHealthExpected = parseExpectedTablesArray(dbHealthSrc);
+    expect(
+      dbHealthExpected.size,
+      "EXPECTED_TABLES verkar tom — har konstantens namn ändrats?",
+    ).toBeGreaterThan(20);
+
+    const inSchemaButNotHealthCheck = [...drizzleTables].filter(
+      (t) => !dbHealthExpected.has(t),
+    );
+    if (inSchemaButNotHealthCheck.length > 0) {
+      throw new Error(
+        `Tabeller i schema.ts saknas i db-health-check.mjs (EXPECTED_TABLES):\n  - ${inSchemaButNotHealthCheck.join("\n  - ")}\n\n` +
+          `Lägg till dem i EXPECTED_TABLES så backoffice "Databashälsa" kan visa dem. ` +
+          `Annars blir de osynliga för operatörer.`,
+      );
+    }
+
+    const inHealthCheckButNotSchema = [...dbHealthExpected].filter(
+      (t) => !drizzleTables.has(t),
+    );
+    if (inHealthCheckButNotSchema.length > 0) {
+      throw new Error(
+        `Tabeller i db-health-check.mjs (EXPECTED_TABLES) saknas i schema.ts:\n  - ${inHealthCheckButNotSchema.join("\n  - ")}\n\n` +
+          `Endera lägg till pgTable()-deklaration i schema.ts eller ta bort raden ` +
+          `från EXPECTED_TABLES (om tabellen är legacy).`,
+      );
+    }
+  });
+
+  it("EXPECTED_INDEXES_WITH_COLUMNS i db-health-check.mjs har inga okända namn", () => {
+    const dbHealthIndexes = parseExpectedIndexNames(dbHealthSrc);
+    expect(
+      dbHealthIndexes.size,
+      "EXPECTED_INDEXES_WITH_COLUMNS verkar tom — har konstantens namn ändrats?",
+    ).toBeGreaterThan(15);
+
+    // Varje index här bör finnas i någon källa (schema.ts deklaration ELLER
+    // någon CREATE INDEX i runtime). Annars listar backoffice ett "förväntat"
+    // index som inget kan skapa — falsk drift.
+    const allKnown = new Set([
+      ...drizzleIndexes,
+      ...allRuntimeIndexes,
+    ]);
+    const orphan = [...dbHealthIndexes].filter((i) => !allKnown.has(i));
+    if (orphan.length > 0) {
+      throw new Error(
+        `Index i db-health-check.mjs (EXPECTED_INDEXES_WITH_COLUMNS) finns inte i schema.ts eller någon runtime-källa:\n  - ${orphan.join("\n  - ")}\n\n` +
+          `Backoffice skulle visa dem som "saknade" för evigt eftersom inget skript kan skapa dem.`,
+      );
+    }
+  });
 });
