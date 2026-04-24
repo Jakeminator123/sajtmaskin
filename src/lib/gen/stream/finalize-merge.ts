@@ -7,6 +7,8 @@ import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
+import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
 
 export interface MergeGeneratedProjectFilesParams {
   chatId: string;
@@ -14,6 +16,18 @@ export interface MergeGeneratedProjectFilesParams {
   generatedFiles: CodeFile[];
   resolvedScaffold: ScaffoldManifest | null;
   previousFiles?: CodeFile[];
+  /**
+   * Dossiers active for this generation. When provided, verbatim-mode files
+   * are restored to their canonical on-disk content after merge if the LLM
+   * drifted or omitted them.
+   *
+   * TODO(P5+): thread `selectedDossiers` from upstream orchestration context
+   * (e.g. via `orchestrationStreamMeta.dossierIds` → `getDossierById`) so
+   * this param is always populated. Currently not available at this callsite
+   * without significant pipeline threading — the policy function is wired but
+   * the upstream caller (`preflight-phase.ts`) doesn't yet pass dossiers.
+   */
+  selectedDossiers?: DossierEntry[];
 }
 
 export interface MergeGeneratedProjectFilesResult {
@@ -68,7 +82,14 @@ export interface MergeGeneratedProjectFilesResult {
    * Plan-02 / STATUS-02: not an `error` — the build IS shippable; just
    * incomplete relative to what the LLM intended.
    */
-  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
+  crossFileStubs: Array<{
+    sourceFile: string;
+    missingImport: string;
+    stubFile: string;
+    /** Present when the missing import matches a dossier exposes entry. */
+    dossierId?: string;
+    capability?: string;
+  }>;
 }
 
 /**
@@ -99,6 +120,7 @@ export function mergeGeneratedProjectFiles({
   generatedFiles,
   resolvedScaffold,
   previousFiles,
+  selectedDossiers,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
   // OMTAG Fas 2·A / E2: unified follow-up predicate. We only need the
   // `hasMergeablePrevious` answer here — whether there are files to merge
@@ -177,8 +199,14 @@ export function mergeGeneratedProjectFiles({
       }
     }
 
+    const verbatimResult1 = applyDossierVerbatimPolicy({
+      llmFiles: finalFiles,
+      selectedDossiers: selectedDossiers ?? [],
+      chatId,
+    });
+
     return {
-      filesJson: JSON.stringify(finalFiles),
+      filesJson: JSON.stringify(verbatimResult1.files),
       rejectedShrinks,
       rejectedStructural,
       scaffoldDefaultsBlocked: [],
@@ -274,8 +302,14 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
+    const verbatimResult2 = applyDossierVerbatimPolicy({
+      llmFiles: importResult.files,
+      selectedDossiers: selectedDossiers ?? [],
+      chatId,
+    });
+
     return {
-      filesJson: JSON.stringify(importResult.files),
+      filesJson: JSON.stringify(verbatimResult2.files),
       rejectedShrinks: [],
       rejectedStructural: [],
       scaffoldDefaultsBlocked,
@@ -303,8 +337,13 @@ export function mergeGeneratedProjectFiles({
     });
   }
   if (crossFileResult.fixes.length > 0 || typeOnlyModuleResult.fixes.length > 0) {
+    const verbatimResult3 = applyDossierVerbatimPolicy({
+      llmFiles: crossFileFiles,
+      selectedDossiers: selectedDossiers ?? [],
+      chatId,
+    });
     return {
-      filesJson: JSON.stringify(crossFileFiles),
+      filesJson: JSON.stringify(verbatimResult3.files),
       rejectedShrinks: [],
       rejectedStructural: [],
       scaffoldDefaultsBlocked: [],
@@ -313,8 +352,18 @@ export function mergeGeneratedProjectFiles({
     };
   }
 
+  // No merges or fixes — still apply verbatim policy on the raw generated files.
+  const parsedOriginal: CodeFile[] = JSON.parse(originalFilesJson);
+  const verbatimResult4 = applyDossierVerbatimPolicy({
+    llmFiles: parsedOriginal,
+    selectedDossiers: selectedDossiers ?? [],
+    chatId,
+  });
+  const hasVerbatimRestorations = verbatimResult4.restored.length > 0;
   return {
-    filesJson: originalFilesJson,
+    filesJson: hasVerbatimRestorations
+      ? JSON.stringify(verbatimResult4.files)
+      : originalFilesJson,
     rejectedShrinks: [],
     rejectedStructural: [],
     scaffoldDefaultsBlocked: [],

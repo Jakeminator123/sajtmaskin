@@ -68,7 +68,13 @@ export interface PreflightPhaseResult {
    * diagnostics modal (plan-02 / STATUS-02 — coffee-cup-3d-style "looks
    * shipped, actually hollow" anti-pattern).
    */
-  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
+  crossFileStubs: Array<{
+    sourceFile: string;
+    missingImport: string;
+    stubFile: string;
+    dossierId?: string;
+    capability?: string;
+  }>;
   stepTelemetry: FinalizeStepTelemetry;
 }
 

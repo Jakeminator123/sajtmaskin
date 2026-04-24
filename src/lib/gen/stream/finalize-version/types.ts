@@ -103,8 +103,16 @@ export interface FinalizeResult {
    * rows in the version diagnostics modal so users understand "1 fil
    * saknades och stubbades" instead of believing the generation succeeded
    * fully (plan-02 / STATUS-02; coffee-cup-3d-style anti-pattern).
+   * `dossierId` and `capability` are present when the missing import
+   * matched a dossier `exposes` entry (dossier integration gap).
    */
-  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
+  crossFileStubs: Array<{
+    sourceFile: string;
+    missingImport: string;
+    stubFile: string;
+    dossierId?: string;
+    capability?: string;
+  }>;
 }
 
 export interface FinalizePathPolicy {
@@ -148,7 +156,13 @@ export interface FinalizeFastPathResult {
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
   /** See `FinalizeResult.crossFileStubs`. */
-  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
+  crossFileStubs: Array<{
+    sourceFile: string;
+    missingImport: string;
+    stubFile: string;
+    dossierId?: string;
+    capability?: string;
+  }>;
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 

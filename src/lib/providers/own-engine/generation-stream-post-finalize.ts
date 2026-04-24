@@ -237,6 +237,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
         missingImport: stub.missingImport,
         stubFile: stub.stubFile,
         repairPassIndex,
+        dossierId: stub.dossierId ?? null,
+        capability: stub.capability ?? null,
       },
     }));
     const missingCapabilityWarnings =
