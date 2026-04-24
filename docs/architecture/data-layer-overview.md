@@ -64,6 +64,28 @@ Designval: vi vill inte att Vercel-deploys triggar DB-DDL automatiskt.
 Det skulle skapa risk för att en oavsiktlig deploy kör en migration
 mot prod under hög trafik.
 
+**Predev-kedjans struktur (medvetet):**
+
+```
+predev = preflight:common
+      && shadcn:sync:soft         ← failar tyst, dev startar ändå
+      && refresh-token            ← hard
+      && db-init.mjs              ← HARD (tabellerna är essentiella)
+      && db:perf-indexes:soft     ← failar tyst (index = optimization)
+```
+
+`db-init.mjs` är **hard** med flit: om det failar finns inga tabeller,
+så att fortsätta till perf-indexes vore meningslöst — appen kan ändå
+inte starta. `db:perf-indexes:soft` är "soft" eftersom index är en
+optimering (utan dem fungerar appen, bara långsammare).
+
+**Schema-drift fångas av automatisk test:**
+`src/lib/db/schema-drift.test.ts` kör i `npm run test:ci` och fångar
+när Drizzle-schemat deklarerar ett index/tabell som inte motsvaras av
+någon runtime-källa (`db-init.mjs`, `add-performance-indexes.mjs`,
+eller `src/lib/db/migrations/*.sql`). Förhindrar att deklarerade index
+aldrig faktiskt skapas i DB:n.
+
 ### Hot-path-tabeller (de som måste vara snabba)
 
 | Tabell | Hot path | Krav |

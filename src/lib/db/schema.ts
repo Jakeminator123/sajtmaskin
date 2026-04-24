@@ -59,7 +59,13 @@ export const versions = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    chatVersionIdx: uniqueIndex("versions_chat_version_idx").on(table.chatId, table.v0VersionId),
+    // OBS: Indexnamnet matchar den runtime-skapade versionen i db-init.mjs
+    // (`idx_versions_chat_v0_version_unique`) — annars uppstår drift som
+    // schema-drift-testet fångar (skulle ge två fysiska index på samma kolumner).
+    chatVersionIdx: uniqueIndex("idx_versions_chat_v0_version_unique").on(
+      table.chatId,
+      table.v0VersionId,
+    ),
     chatIdx: index("idx_versions_chat_id").on(table.chatId),
   }),
 );

@@ -31,6 +31,8 @@
     "db:perf-indexes": "node scripts/db/add-performance-indexes.mjs",
     "db:perf-indexes:dry": "node scripts/db/add-performance-indexes.mjs --dry-run",
     "db:perf-indexes:soft": "node scripts/db/add-performance-indexes.mjs --reason auto:predev || echo [db:perf-indexes] Soft-skipped (se data/observability/db-perf-indexes-runs.ndjson)",
+    "db:drop-legacy-aliases": "node scripts/db/drop-legacy-index-aliases.mjs",
+    "db:drop-legacy-aliases:apply": "node scripts/db/drop-legacy-index-aliases.mjs --apply",
     "redis:health": "node scripts/db/redis-health-check.mjs",
     "test": "vitest",
     "test:ci": "vitest run",
