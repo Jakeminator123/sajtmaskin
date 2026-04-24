@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "site-done-telemetry.schema.json",
+  "title": "site.done",
+  "description": "Emitteras av src/lib/providers/own-engine/generation-stream-post-finalize.ts via devLogAppend när hela generation-pipelinen avslutats. Innehåller fas-timings + preview-status + nya wave-7-fält (f2TimeMs/f3TimeMs/warmTscSkipped). Skrivs till logs/generationslogg/<run>/timeline.ndjson.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["type", "chatId", "versionId", "durationMs"],
+  "properties": {
+    "type": { "const": "site.done" },
+    "chatId": { "type": "string", "minLength": 1 },
+    "versionId": { "type": ["string", "null"] },
+    "durationMs": { "type": "number", "minimum": 0 },
+    "previewUrl": { "type": ["string", "null"] },
+    "previewBlocked": { "type": "boolean" },
+    "previewDeferred": { "type": "boolean" },
+    "f2TimeMs": {
+      "type": ["number", "null"],
+      "description": "Wave 7 telemetri (planerad mätpunkt): tid från site.start till första preview_ready. Idag null tills mätpunkter wireas (TODO i generation-stream-post-finalize.ts)."
+    },
+    "f3TimeMs": {
+      "type": ["number", "null"],
+      "description": "Wave 7 telemetri (planerad mätpunkt): tid från preview_ready till sista quality-gate-resultat. Idag null tills mätpunkter wireas."
+    },
+    "warmTscSkipped": {
+      "type": "boolean",
+      "description": "Wave 7: true om validate_syntax warm-tsc hoppades över för att downstream quality-gate kommer köra typecheck. Mäter latens-vinst-rate."
+    }
+  }
+}

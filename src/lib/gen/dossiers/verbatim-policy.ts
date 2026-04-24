@@ -48,7 +48,12 @@ export function applyDossierVerbatimPolicy(params: {
       if (effectiveMode !== "verbatim") continue;
 
       const canonical = getDossierFileContent(dossier.class, dossier.id, file.path);
-      if (!canonical) continue; // Cannot verify — leave as-is.
+      if (!canonical) {
+        console.warn(
+          `[verbatim-policy] dossier ${dossier.id} declares verbatim file ${file.path} but disk content is unavailable - verbatim policy skipped for this file`,
+        );
+        continue; // Cannot verify — leave as-is.
+      }
 
       // Strip the dossier-internal "components/" staging prefix to match the
       // output path the system-prompt tells the LLM to emit at.

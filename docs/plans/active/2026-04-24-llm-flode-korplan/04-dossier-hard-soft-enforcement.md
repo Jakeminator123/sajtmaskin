@@ -6,6 +6,12 @@ prio: P4 (preventiv kvalitet — viktigare ju fler dossiers vi lägger till)
 estimat: 2–3 dagar
 ---
 
+> **Status efter wave 6 (commit 8994fc36c) + review-fix (commit c538d89a0):**
+> Spår 4 är levererat. `applyDossierVerbatimPolicy` körs nu i
+> `src/lib/gen/stream/finalize-merge.ts` med riktiga `selectedDossiers` trådade
+> från orchestration. Texten nedan är original-planen som visar VAD som
+> implementerades. Alla "Risk"-avsnitt avser pre-wave-6-läget.
+
 # Spår 4 — Dossier hard/soft kontrakt-enforcement
 
 ## Bakgrund

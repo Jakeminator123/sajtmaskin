@@ -35,7 +35,7 @@ Conservative rollout:
 | `redis-health-check-report.schema.json` | stdout-payload from `scripts/db/redis-health-check.mjs` | `scripts/db/redis-health-check.mjs` | CI: AJV mot fixtures. Manuell live-roundtrip lokalt. |
 | `db-perf-indexes-audit-line.schema.json` | One NDJSON line per run of `scripts/db/add-performance-indexes.mjs` (logged to `data/observability/db-perf-indexes-runs.ndjson`) | `scripts/db/add-performance-indexes.mjs` | CI: AJV mot fixtures. NDJSON-rader skrivs av skriptet vid varje körning men valideras inte runtime. |
 
-### LLM-flöde telemetri-event schemas (wave 1–7, 2026-04-24)
+### LLM-flöde telemetri-event schemas
 
 Dessa schemas dokumenterar events som introducerats i LLM-flöde-körplanen. Events
 skrivs via `devLogAppend` till `logs/generationslogg/*/timeline.ndjson` (kräver
@@ -46,6 +46,7 @@ skrivs via `devLogAppend` till `logs/generationslogg/*/timeline.ndjson` (kräver
 | `llm-fixer-aborted.schema.json` | `llm_fixer_aborted` | `src/lib/gen/autofix/llm-fixer.ts` | `devLogAppend` → NDJSON | No — observability-only |
 | `dossier-verbatim-restored.schema.json` | `dossier_verbatim_restored` | `src/lib/gen/dossiers/verbatim-policy.ts` | `devLogAppend` → NDJSON | No — observability-only |
 | `llm-fixer-partial-response.schema.json` | `llm_fixer_partial_response` | `src/lib/gen/autofix/llm-fixer.ts` | `devLogAppend` → NDJSON | No — observability-only |
+| `site-done-telemetry.schema.json` | `site.done` (subset-kontrakt för telemetri) | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | `devLogAppend` → NDJSON | No — observability-only |
 | `image-replaced-with-placeholder.schema.json` | `image_replaced_with_placeholder` | `src/lib/utils/image-validator.ts` | **`debugLog` (console)** — ej NDJSON | No — forward-deklaration |
 | `dossier-stub-created.schema.json` | `dossier_stub_created` / `crossFileStubs` | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | **DB** (`engine_version_error_logs`, category `merge:cross-file-stub`) | No — forward-deklaration |
 

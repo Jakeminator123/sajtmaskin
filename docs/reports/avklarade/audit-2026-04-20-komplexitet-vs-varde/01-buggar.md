@@ -91,6 +91,8 @@ Källor: `docs/plans/active/P27-validator.md` blocking_note, `docs/plans/active/
 
 ---
 
+> **Historisk notering (policy upphävd 2026-04-23):** Avsnittet nedan var korrekt vid audit-datumet 2026-04-20, men nuvarande policy är F2 `designPreview = ["typecheck"]` och `build` är reserverat för F3 `integrationsBuild`.
+
 ### §1.5 Quality-gate kör bara `typecheck` på F2 — inte `build` — **DONE 2026-04-20**
 
 | Fält | Värde |

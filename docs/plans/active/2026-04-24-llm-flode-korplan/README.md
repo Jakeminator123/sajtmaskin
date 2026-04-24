@@ -101,7 +101,8 @@ Konsoliderad körplan från **9 audit-pass totalt** (5 första + 4 verifierings-
 
 Dessa kan plockas i en första PR utan att vänta på hela körplanen:
 
-- **Spår 0:** doc-kommentar i `preview-quality-gate.ts` L3-6 säger fel om F2 default
+> **Status 2026-04-24:** Alla glasklara fynd från första passet är levererade.
+
 - **Spår 3:** `imageMaterialization` → `imageMaterializationMs` (telemetri-rename)
 - **Spår 5:** `AbortError`-skiljd från övriga fel + `llm_fixer_aborted`-event
 - **Spår 4:** Manifest import-closure-validering
