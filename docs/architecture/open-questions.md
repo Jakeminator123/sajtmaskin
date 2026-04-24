@@ -168,15 +168,27 @@ Sedan valde follow-up `warm-local` istället. Sajten har därmed olika look mell
 
 ---
 
-### 9. ❓ CSP frame-src blocking i builder
+### 9. 🟡 CSP frame-src violation — iframe med tom src
 
-**Loggrad:** `[csp-report] directive=frame-src blocked= doc=http://localhost:3000/builder?chatId=b71dafb3...`
+**Loggrad (server):** `[csp-report] directive=frame-src blocked= doc=http://localhost:3000/builder?chatId=b71dafb3...`
 
-**Vad vi vet:** Något försökte ladda ett iframe i builder-sidan som CSP `frame-src` blockerade. Tomt `blocked=` (URL ej inkluderad i rapporten).
+**Browser-rapport:** `Framing '' violates the following report-only Content Security Policy directive: "frame-src 'self' *.vusercontent.net *.vercel.run *.vercel.app https://vm-fly-jakem.fly.dev https://fly.dev https://*.fly.dev"`
 
-**Vad vi inte vet:** Vad var iframen? Preview-iframen mot `vm-fly-jakem.fly.dev`? Eller en injicerad analytics-iframe?
+**Tolkning:** Källan är **tom string `''`** — något försöker montera en `<iframe>` med:
+- tom `src=""` (browser tolkar som "ladda current URL" → rekursiv frame)
+- `src="about:blank"` (utan `'self'` mot blank-källa)
+- en `javascript:` URL (sällan)
 
-**Hur verifiera:** Lägg till browser DevTools Network-flik filter på `frame` när detta reproducerar.
+CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter till enforcing-mode kommer detta att blockera den iframen.
+
+**Troliga kandidater:**
+- Hidden `<iframe>` för clipboard/print/download i builder-UI
+- Element-inspector mount-point (har sett relaterade buggar tidigare)
+- Vercel speed-insights / web-analytics widget injection
+
+**Hur verifiera:** Sök i `src/components/builder/**` efter `<iframe`-användning utan src-attribute eller med `src=""`. Eller sätt CSP till enforcing temporärt och se vilken UI-komponent som breaker.
+
+**Plan-koppling:** Inte plan 11/12-scope. Värd egen 30-min-task för en framtida UI-cleanup-pass.
 
 ---
 
