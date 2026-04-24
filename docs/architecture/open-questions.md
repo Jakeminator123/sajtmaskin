@@ -194,6 +194,25 @@ CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter
 
 ---
 
+### 11. 🟡 Inspector låser sidans scroll — kan bara markera top-of-page
+
+**Antagande:** Plan 02 fixade inspector-buggen (scroll-to-top vid aktivering).
+
+**Verifierat 2026-04-24:** Plan 02:s fix funkar (no scroll-reset). Men en **sekundär bugg** har avslöjats:
+
+- När inspektera-läget är aktivt går det **inte att scrolla sidan** (varken med wheel, page-down, eller drag)
+- Inspector-worker markerar block med tooltip (t.ex. `<p> "12+" .text-2xl.font-semibold`) på hover — fungerar ✅
+- **Men:** eftersom scroll är blockerad kan användaren bara markera element som syns i initial viewport
+- Element längre ner på sidan är otillgängliga
+
+**Trolig rotsorsak:** Inspector-overlayens `<div>` har troligen `overflow: hidden` eller intercepterar scroll-events utan att proxa dem vidare till underliggande iframe-content. Eller body får `overflow: hidden` när inspector aktiveras.
+
+**Filer att kolla:** `src/components/builder/preview-panel/PreviewPanel.tsx` (plan 02 rörde denna), `src/components/builder/preview-panel/hooks/usePreviewPanelInspectMapPlacement.ts` (plan 02 rörde denna), eventuellt globala body-style-mutationer.
+
+**Plan-koppling:** Inte plan 11/12-scope (de är specifika fixes från investigation). Värd egen 30-min-task — kan slås ihop med open-question #9 (CSP frame-src) som båda rör inspector/iframe-interaktion.
+
+---
+
 ### 10. ✅ Dossier-injection-mönstret för `visual-3d` — VERIFIED end-to-end
 
 **Antagande:** Capability-detection → dossier-selektion → injection → LLM-scen-overlay → mount fungerar för 3D-prompts.
