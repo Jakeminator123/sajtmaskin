@@ -68,6 +68,8 @@ import { selectDossiersForRequest, type DossierSelectionResult } from "./dossier
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
 import { deriveFollowUpStateFromInputs } from "./follow-up-predicate";
 import type { RequestKindClass } from "./request-kind";
+import type { FollowUpIntentMode } from "./follow-up-intent-types";
+import type { CapabilitySpecificityTier } from "@/lib/builder/follow-up-capability-detection";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -189,14 +191,30 @@ export interface OrchestrationInput {
   /**
    * P22: previously persisted follow-up intent for this chat. Used by
    * the variant-lock helper — `clear-redesign` allows fresh matching,
-   * everything else reuses the prior variant.
+   * everything else reuses the prior variant. Plan 06 added
+   * `capability-add` for follow-ups that name a dossier capability.
    */
-  followUpIntent?:
-    | "clear-refine"
-    | "clear-redesign"
-    | "ambiguous-redesign"
-    | "ambiguous-followup"
-    | "neutral";
+  followUpIntent?: FollowUpIntentMode;
+  /**
+   * Plan 06 (2026-04-24): explicit dossier capability ids the caller
+   * detected on the follow-up text (via `detectFollowUpCapabilities`).
+   * Merged into the brief-derived + inferred-capability bridge before
+   * `selectDossiersForRequest` runs, so follow-ups that name a capability
+   * (3D, contact-form, payments, …) actually inject a dossier even when
+   * the snapshot-hydrated brief and the keyword-based `inferCapabilities`
+   * pass both miss the signal.
+   */
+  requestedDossierCapabilities?: string[];
+  /**
+   * Plan 06: per-capability specificity tier (`generic` / `specific` /
+   * `beyond-dossier`) computed by `detectFollowUpCapabilities`. Surfaced
+   * back on `OrchestrationBase.requestedCapabilityTiers` so Plan 07 (3D
+   * capability paths) knows whether to render the dossier verbatim, layer
+   * custom code on top, or treat the dossier as a base for a fully custom
+   * scene. Plan 06 itself does NOT mutate package.json, scaffold-files or
+   * dossier-internals based on tier — that is plan 07 territory.
+   */
+  requestedCapabilityTiers?: Record<string, CapabilitySpecificityTier>;
   /**
    * Project locale forwarded to {@link buildRoutePlan} for locale-alternate
    * route dedupe. When omitted, we read `brief.locale` (forward-compatible
@@ -245,6 +263,18 @@ export interface OrchestrationBase {
   componentReferences: ComponentReference[];
   /** Selected dossiers when FEATURES.useDossierPipeline is on, else null/undefined. Optional to keep test fixtures backward-compatible. */
   dossierSelection?: DossierSelectionResult | null;
+  /**
+   * Plan 06 (2026-04-24): per-capability specificity tier resolved for this
+   * orchestration. Populated when the caller supplied
+   * `requestedCapabilityTiers` (typically follow-ups going through
+   * `detectFollowUpCapabilities`). Plan 07 reads this to decide whether to
+   * generate a custom scene/file on top of a dossier shell.
+   *
+   * Captured at the `OrchestrationBase` level (not on `DossierSelectionResult`)
+   * because plan 06's hard constraints exclude touching `src/lib/gen/dossiers/**`
+   * — the tier metadata lives alongside the selection rather than inside it.
+   */
+  requestedCapabilityTiers?: Record<string, CapabilitySpecificityTier>;
 }
 
 export interface FinalizedOrchestrationContext {
@@ -762,8 +792,20 @@ export async function resolveOrchestrationBase(
       const briefCapsArray = Array.isArray(briefCapsRaw)
         ? briefCapsRaw.filter((c): c is string => typeof c === "string")
         : [];
+      // Plan 06 (2026-04-24): caller-provided ids from
+      // `detectFollowUpCapabilities` cover the 13 dossier capabilities the
+      // P26 inferred-capability bridge does not (contact-form, carousel,
+      // testimonials-section, …). Order: brief → inferred → caller, with
+      // dedup so the same capability doesn't double up downstream.
+      const callerProvidedCapabilityIds = (input.requestedDossierCapabilities ?? [])
+        .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+        .map((c) => c.trim().toLowerCase());
       const mergedCaps = Array.from(
-        new Set([...briefCapsArray.map((c) => c.toLowerCase()), ...inferredCapabilityIds]),
+        new Set([
+          ...briefCapsArray.map((c) => c.toLowerCase()),
+          ...inferredCapabilityIds,
+          ...callerProvidedCapabilityIds,
+        ]),
       );
       dossierSelection = selectDossiersForRequest({
         brief,
@@ -775,6 +817,8 @@ export async function resolveOrchestrationBase(
           poolSize: dossierSelection.poolSize,
           byCapability: dossierSelection.byCapability,
           inferredCapabilityBridge: inferredCapabilityIds,
+          callerProvidedCapabilities: callerProvidedCapabilityIds,
+          requestedCapabilityTiers: input.requestedCapabilityTiers ?? null,
         });
       }
     } catch (err) {
@@ -799,6 +843,7 @@ export async function resolveOrchestrationBase(
     serializeMode: resolvedSerializeMode,
     componentReferences,
     dossierSelection,
+    requestedCapabilityTiers: input.requestedCapabilityTiers,
   };
 }
 

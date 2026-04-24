@@ -86,6 +86,43 @@ describe("follow-up clarification intent classification", () => {
   it("classifies English 'move'-edits as clear-refine", () => {
     expect(classifyFollowUpIntent("Move the pricing section above FAQ")).toBe("clear-refine");
   });
+
+  // Plan 06 (2026-04-24): capability-add must beat clear-refine when the
+  // prompt asks to ADD a dossier-mappable feature. The smoke run 2 prompt
+  // was the headline failure — it survived as `neutral` and produced an
+  // empty 3D-shell. Now it routes through capability-add → orchestrate
+  // sees `requestedDossierCapabilities: ['visual-3d']` → three-fiber-canvas
+  // dossier is injected → package.json gets three/r3f deps (plan 07).
+  it("classifies the smoke run 2 3D follow-up as capability-add", () => {
+    expect(
+      classifyFollowUpIntent("Skapa en 3d-kaffekopp som hoovrar och flyger ovanför"),
+    ).toBe("capability-add");
+  });
+
+  it("classifies 'lägg till en kontaktform' as capability-add (not clear-refine)", () => {
+    expect(classifyFollowUpIntent("lägg till en kontaktform")).toBe("capability-add");
+  });
+
+  it("classifies English 'add a contact form' as capability-add", () => {
+    expect(classifyFollowUpIntent("add a contact form at the bottom")).toBe("capability-add");
+  });
+
+  it("classifies 'lägg till physics-simulation av studsande tomater' as capability-add", () => {
+    expect(
+      classifyFollowUpIntent("lägg till physics-simulation av studsande tomater"),
+    ).toBe("capability-add");
+  });
+
+  it("does not flip 'ändra färgen på knappen' to capability-add (no capability noun)", () => {
+    // Pre-existing Fix B classification (verb+noun design combo) takes this
+    // through `clear-redesign` before capability-add even runs. The point of
+    // the test is that capability-add does NOT swallow plain colour edits.
+    expect(classifyFollowUpIntent("ändra färgen på knappen")).not.toBe("capability-add");
+  });
+
+  it("does not flip 'Move the pricing section above FAQ' to capability-add (move verb, no add)", () => {
+    expect(classifyFollowUpIntent("Move the pricing section above FAQ")).toBe("clear-refine");
+  });
 });
 
 describe("hasDesignFollowUpSignal (Fix A)", () => {
