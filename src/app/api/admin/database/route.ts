@@ -185,11 +185,23 @@ export async function POST(req: NextRequest) {
         await db.delete(users).where(sql`true`);
       }
 
-      await flushRedisCache();
+      // BUG-FIX 2026-04-24 (test-agent rapport): tidigare ignorerades
+      // returvärdet från flushRedisCache helt — `success: true` kunde
+      // returneras även när Redis-flushen failade. Nu härleds success.
+      const flushed = await flushRedisCache();
       clearUploadsFolder();
 
-      console.info("[Admin] Reset all databases");
-      return NextResponse.json({ success: true, message: "All data cleared" });
+      const redisOk = flushed >= 0;
+      console.info(
+        `[Admin] Reset all databases (Redis: ${redisOk ? `${flushed} keys flushed` : "FAILED"})`,
+      );
+      return NextResponse.json({
+        success: redisOk,
+        message: redisOk
+          ? `All data cleared (Redis: ${flushed} keys i denna miljö)`
+          : "Database cleared but Redis flush failed — check server logs",
+        redisFlushedKeys: redisOk ? flushed : null,
+      });
     }
 
     if (action === "clear-uploads") {
@@ -439,10 +451,19 @@ export async function POST(req: NextRequest) {
       results.redis.deleted = flushedKeys >= 0 ? flushedKeys : 0;
       clearUploadsFolder();
 
+      // BUG-FIX 2026-04-24 (test-agent rapport): tidigare hardcoded
+      // `success: true` även när redis.success var false eller vercel
+      // hade fel. Nu härleds top-level success från delresultaten.
+      const allOk =
+        results.redis.success && results.vercel.errors.length === 0;
+
       return NextResponse.json({
-        success: true,
+        success: allOk,
+        partialSuccess: !allOk,
         results,
-        message: `Mega cleanup: ${results.vercel.deleted} Vercel, ${results.database.deleted} DB rows`,
+        message: `Mega cleanup: ${results.vercel.deleted} Vercel, ${results.database.deleted} DB rows, ${results.redis.deleted} Redis keys${
+          allOk ? "" : " (med fel — se results)"
+        }`,
       });
     }
 

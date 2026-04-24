@@ -248,6 +248,15 @@ async function run() {
       `[db:drop-legacy-aliases] Klart. dropped=${dropped} would_drop=${wouldDrop} aborted=${aborted} kept=${kept} skipped=${skipped}`,
     );
 
+    // BUG-FIX 2026-04-24 (test-agent rapport): tidigare avslutade detta
+    // skript alltid med exit 0 även om någon legacy-alias gick till
+    // `abort`/`error`-state. CI/cron som förlitade sig på exit-kod kunde
+    // inte upptäcka problemen. Nu speglar exit-koden om något oväntat
+    // hände.
+    if (aborted > 0) {
+      process.exitCode = 1;
+    }
+
     // Audit-logg
     try {
       await mkdir(dirname(AUDIT_LOG_PATH), { recursive: true });

@@ -49,7 +49,11 @@ if (!restUrl || !restToken) {
       target: null,
     }),
   );
-  process.exit(0);
+  // BUG-FIX 2026-04-24 (test-agent rapport): tidigare exit 0 även när
+  // creds saknas — cron/övervakning kunde inte detektera config-fel.
+  // Backoffice läser stdout oavsett exit-kod (subprocess.run capture_output)
+  // så denna ändring bryter inte UI-flödet.
+  process.exit(1);
 }
 
 function redactUrl(u) {
@@ -176,7 +180,9 @@ async function run() {
         connection: { ok: false, latency_ms: ping.latency_ms, error: ping.error },
       }),
     );
-    process.exit(0);
+    // BUG-FIX 2026-04-24: speglar ok=false i exit-koden så cron/CI kan
+    // upptäcka anslutningsfel. Backoffice är opåverkat (läser stdout).
+    process.exit(1);
   }
 
   // 2) Server-info (best-effort — vissa Upstash-planer begränsar INFO)
@@ -294,7 +300,9 @@ async function run() {
   }
 
   console.log(JSON.stringify(out));
-  process.exit(0);
+  // BUG-FIX 2026-04-24: speglar `out.ok` i exit-koden — tidigare alltid 0
+  // även när ok=false. Säker för backoffice (läser stdout regardless).
+  process.exit(out.ok ? 0 : 1);
 }
 
 run().catch((err) => {

@@ -6,15 +6,16 @@ beroenden innan de visas i UI:t.
 
 Testar:
   - Modulerna importerar utan exceptions
-  - Alla _render_*-funktioner finns och är callable
+  - Alla _render_* / _run_* / _load_* funktioner finns och är callable
   - Skript-konstanter (_HEALTH_SCRIPT_REL, _PERF_INDEX_SCRIPT_REL,
-    _PERF_AUDIT_REL) pekar på filer som faktiskt finns på disk
+    _SNAPSHOT_REL, _PERF_AUDIT_REL) pekar på rimliga sökvägar
   - npm-scripts som backoffice-knappen kan komma att kalla finns i
     package.json (samma mönster som test_pipeline_health_script_parity)
-  - Audit-loggens minimum-reason-längd matchar Python-koden
+  - Reason-input-tröskel (minst 10 tecken) verkar finnas i koden
+  - Nya sidor är registrerade i navigation + query-aliasen funkar
 
 Speglar mönstret i `test_pipeline_health_script_parity.py`.
-Långbänk-uppföljning 2026-04-24.
+Långbänk-uppföljning 2026-04-24 (utökad efter test-agent-rapport).
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ class DatabaseHealthSmokeTests(unittest.TestCase):
         self.assertTrue(callable(database_health._run_health_check))
         self.assertTrue(callable(database_health._run_perf_indexes))
         self.assertTrue(callable(database_health._load_perf_audit_log))
+        self.assertTrue(callable(database_health._load_snapshots))
 
     def test_referenced_scripts_exist(self) -> None:
         from backoffice.pages import database_health
@@ -67,6 +69,20 @@ class DatabaseHealthSmokeTests(unittest.TestCase):
                 f"Saknat npm-script: {required} (refererad i database_health.py)",
             )
 
+    def test_reason_minimum_length_consistent(self) -> None:
+        """Den röda APPLY-knappen kräver minst 10 tecken motivering. Om
+        tröskeln ändras i en fil utan att andra texter (UI hjälp + docstring)
+        synkas blir det förvirrande för operatörer. Verifiera att 10-tröskeln
+        finns i koden."""
+        path = REPO_ROOT / "backoffice/pages/database_health.py"
+        source = path.read_text(encoding="utf-8")
+        self.assertIn(
+            "len(reason.strip()) >= 10",
+            source,
+            "Minimum-reason-tröskeln (10 tecken) hittades inte i database_health.py — "
+            "har den ändrats? Uppdatera även hjälptexten och denna test om så.",
+        )
+
 
 class RedisHealthSmokeTests(unittest.TestCase):
     def test_module_imports_without_errors(self) -> None:
@@ -85,6 +101,19 @@ class RedisHealthSmokeTests(unittest.TestCase):
         self.assertTrue(
             path.is_file(),
             f"backoffice/pages/redis_health.py refererar {redis_health._HEALTH_SCRIPT_REL} som inte finns",
+        )
+
+    def test_redis_health_npm_script_exists(self) -> None:
+        """`npm run redis:health` är dokumenterat — kontrollera att det inte
+        glider bort från `package.json`."""
+        package = json.loads(
+            (REPO_ROOT / "package.json").read_text(encoding="utf-8")
+        )
+        scripts = set(package.get("scripts", {}).keys())
+        self.assertIn(
+            "redis:health",
+            scripts,
+            "Saknat npm-script: redis:health (CLI-motsvarighet till backoffice-sidan)",
         )
 
 
