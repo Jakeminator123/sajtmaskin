@@ -82,16 +82,20 @@ Konsoliderad körplan från **9 audit-pass totalt** (5 första + 4 verifierings-
 | **4** | [`04-dossier-hard-soft-enforcement.md`](./04-dossier-hard-soft-enforcement.md) | **Dossier hard/soft** | ✅ KLART (wave 6) | verbatim-restore + cross-file-stub-telemetri + förstärkt prompt |
 | **5** | [`05-autofix-gating.md`](./05-autofix-gating.md) | **Autofix-gating** | ✅ KLART (waves 1+5) | abort-event + retry + Lucide-checklist + recurring-flag + shrink-telemetri |
 | **6** | [`06-latens-och-scaffold-delta.md`](./06-latens-och-scaffold-delta.md) | **Latens** | ✅ SÄKRA KLART (wave 7) / ⏸ RISKABLA FRAMTIDA | skip dubbel tsc + Fly pre-warm bakom flagga |
+| **7** | [`07-f2-ux-slo-matbarhet.md`](./07-f2-ux-slo-matbarhet.md) | **F2 UX SLO + dashboard** *(GPT-5-rapport komplement)* | ⏸ KÖR EFTER SPÅR 02 | aggregator + dashboard + veckovis CI ovanpå spår 02s primitiver |
+| **8** | [`08-future-recovery-lane-collapse.md`](./08-future-recovery-lane-collapse.md) | **Recovery-lane collapse** *(GPT-5-rapport komplement)* | ⏸ FRAMTIDA — efter 30 dagars wave 1-8 SLO-data | konsolidera 3 repair-paths till EN; trigger-villkor dokumenterat |
 
-## Prioritetsordning (deep-prefab-agentens förslag, validerad)
+## Prioritetsordning (deep-prefab-agentens förslag, validerad + GPT-5-komplement)
 
-1. **P0 spår 0** — Kontraktet. Gör resten begripligt.
-2. **P1 spår 1** — Variant-bug. Glasklar kvalitetsfix.
-3. **P2 spår 2** — Product Postcheck. Största user-impact-vinst.
-4. **P3 spår 3** — Bildminimum. Synligt för user direkt (Unsplash-404).
-5. **P4 spår 4** — Dossier hard/soft. Preventiv kvalitet, säkerhetsrisk för Stripe/Clerk.
-6. **P5 spår 5** — Autofix-gating. Sparar 4 min auto-repair per problemfall.
-7. **P6 spår 6** — Latens. Säkra vinster nu, riskabla bakom eval.
+1. **P0 spår 0** — Kontraktet. Gör resten begripligt. ✅
+2. **P1 spår 1** — Variant-bug. Glasklar kvalitetsfix. ✅
+3. **P2 spår 2** — Product Postcheck. Största user-impact-vinst. ⏸
+4. **P2.5 spår 7** — F2-UX SLO. Aggregator ovanpå P2 (GPT-5-komplement). ⏸
+5. **P3 spår 3** — Bildminimum. Synligt för user direkt. ✅
+6. **P4 spår 4** — Dossier hard/soft. Preventiv kvalitet. ✅
+7. **P5 spår 5** — Autofix-gating. Sparar auto-repair-tid. ✅
+8. **P6 spår 6** — Latens. Säkra vinster nu, riskabla bakom eval. ✅/⏸
+9. **P7 spår 8** — Recovery-lane collapse. Framtida — efter ≥ 30 dagars SLO-data (GPT-5-komplement). ⏸
 
 ## Glasklara fynd som kan göras direkt (utan dialog)
 
