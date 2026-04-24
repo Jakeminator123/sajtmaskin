@@ -5,7 +5,7 @@
  * Resolves scaffold, builds system prompt context, and returns everything
  * needed so that callers never diverge in what signals reach the model.
  */
-import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
+import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
@@ -47,11 +47,8 @@ import {
   buildOrchestrationContract,
   type OrchestrationContract,
 } from "./orchestration-contract";
-import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "./prompt-dump";
 import {
   type GenerationInputPackage,
-  computeLineageHash,
-  serializePackageForDump,
 } from "./generation-input-package";
 import {
   deriveBuildSpec,
@@ -70,6 +67,24 @@ import { deriveFollowUpStateFromInputs } from "./follow-up-predicate";
 import type { RequestKindClass } from "./request-kind";
 import type { FollowUpIntentMode } from "./follow-up-intent-types";
 import type { CapabilitySpecificityTier } from "@/lib/builder/follow-up-capability-detection";
+import {
+  buildGenerationInputPackage,
+  writeOrchestrationDynamicDump,
+} from "./orchestrate/generation-package";
+import {
+  inheritQualityTargetFromPriorVersion,
+  resolveBuildIntentPromotion,
+} from "./orchestrate/policy-helpers";
+export type {
+  BuildIntentPromotionDecision,
+  BuildIntentPromotionInput,
+} from "./orchestrate/policy-helpers";
+export {
+  buildGenerationInputPackage,
+  inheritQualityTargetFromPriorVersion,
+  resolveBuildIntentPromotion,
+  writeOrchestrationDynamicDump,
+};
 
 export interface OrchestrationInput {
   prompt: string;
@@ -283,150 +298,6 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
-}
-
-/**
- * P26 / OMTAG Fas 2·A — pure helper for the `build_intent_promoted` gate.
- *
- * Before PR1 landed, an auto-scaffold fallback to `app-shell` on a follow-up
- * could flip a `website` project's build intent to `app` permanently,
- * drowning out every subsequent turn's route plan and build spec. PR1
- * introduced a block: on follow-up runs that already carry a persisted
- * non-app scaffold, the promotion is suppressed. This helper exposes the
- * pure boolean logic so the decision is unit-testable in isolation instead
- * of hidden inside the big orchestrate function.
- *
- * Init runs and explicit `clear-redesign` follow-ups (where the caller sets
- * `ignorePersistedScaffoldForMatch`) are still allowed to promote.
- */
-export interface BuildIntentPromotionInput {
-  buildIntent: BuildIntent;
-  scaffoldMode: "auto" | "manual" | "off";
-  resolvedScaffoldId: string | null;
-  selectionConfidence: "high" | "medium" | "low" | null;
-  resolvedMode: "init" | "followUp";
-  persistedScaffoldId: string | null | undefined;
-  ignorePersistedScaffoldForMatch: boolean;
-}
-
-export interface BuildIntentPromotionDecision {
-  /** Promotion criteria satisfied before the follow-up guard. */
-  wouldPromote: boolean;
-  /** Promotion suppressed because we are on a follow-up with a persisted non-app scaffold. */
-  blockedForFollowUp: boolean;
-  /** Final answer — whether the effective build intent should be promoted to `app`. */
-  promoted: boolean;
-}
-
-export function resolveBuildIntentPromotion(
-  input: BuildIntentPromotionInput,
-): BuildIntentPromotionDecision {
-  const wouldPromote =
-    input.buildIntent === "website" &&
-    input.scaffoldMode === "auto" &&
-    isAppScaffold(input.resolvedScaffoldId) &&
-    input.selectionConfidence !== "low";
-  const blockedForFollowUp =
-    wouldPromote &&
-    input.resolvedMode === "followUp" &&
-    !!input.persistedScaffoldId &&
-    !input.ignorePersistedScaffoldForMatch &&
-    !isAppScaffold(input.persistedScaffoldId);
-  return {
-    wouldPromote,
-    blockedForFollowUp,
-    promoted: wouldPromote && !blockedForFollowUp,
-  };
-}
-
-/**
- * P22: när vi kör en follow-up och en tidigare accepterad version finns
- * (med en `qualityTarget` i sin orchestration-snapshot) ska vi ärva det
- * värdet i stället för att räkna om från scratch. Det stoppar dubbel-
- * loggen `quality_target_promoted_for_multipage` på samma chat och säkrar
- * att senare turns inte plötsligt ändrar kvalitetstak.
- *
- * Faller tillbaka till `baseSpec` oförändrat när:
- *  - `generationMode !== "followUp"`
- *  - inget `priorQualityTarget` finns
- *  - värdet redan matchar baseSpec
- */
-export function inheritQualityTargetFromPriorVersion(
-  chatId: string | null | undefined,
-  baseSpec: BuildSpec,
-  priorQualityTarget?: BuildSpecQualityTarget | null,
-): BuildSpec {
-  if (baseSpec.generationMode !== "followUp") return baseSpec;
-  if (!priorQualityTarget) return baseSpec;
-  if (priorQualityTarget === baseSpec.qualityTarget) return baseSpec;
-  console.info("[orchestrate] quality_target_inherited_from_prior_version", {
-    chatId: chatId ?? null,
-    from: baseSpec.qualityTarget,
-    to: priorQualityTarget,
-  });
-  return { ...baseSpec, qualityTarget: priorQualityTarget };
-}
-
-export function buildGenerationInputPackage(
-  base: OrchestrationBase,
-  input: OrchestrationInput,
-  finalized: FinalizedOrchestrationContext,
-): GenerationInputPackage {
-  const lineageHash = computeLineageHash({
-    userPrompt: input.prompt,
-    brief: input.brief,
-    scaffoldMode: input.scaffoldMode ?? "auto",
-    scaffoldContext: base.scaffoldContext,
-    routePlan: base.routePlan,
-    preGenerationContracts: base.preGenerationContracts,
-    buildSpec: base.buildSpec,
-    capabilityHints: base.capabilityHints,
-    customInstructions: input.customInstructions ?? null,
-    themeColors: input.themeColors ?? null,
-    componentPalette: input.componentPalette ?? null,
-    designReferences: input.designReferences ?? null,
-    variantId: finalized.variantId,
-  });
-
-  return {
-    ...base,
-    userPrompt: input.prompt,
-    brief: (input.brief as Record<string, unknown>) ?? null,
-    scaffoldMode: input.scaffoldMode ?? "auto",
-    engineSystemPrompt: finalized.engineSystemPrompt,
-    dynamicContext: finalized.dynamicContext,
-    dynamicContextPruning: finalized.dynamicContextPruning,
-    dynamicContextBlocks: finalized.dynamicContextBlocks,
-    variantId: finalized.variantId,
-    lineageHash,
-  };
-}
-
-export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void {
-  writeLatestPromptDump(
-    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
-    {
-      "latest.md": pkg.dynamicContext,
-      "generation-input-package.json": JSON.stringify(
-        serializePackageForDump(pkg),
-        null,
-        2,
-      ),
-    },
-    {
-      lineageHash: pkg.lineageHash,
-      buildIntent: pkg.buildSpec.buildIntent,
-      scaffoldId: pkg.resolvedScaffold?.id ?? null,
-      buildSpecChangeScope: pkg.buildSpec.changeScope,
-      buildSpecContextPolicy: pkg.buildSpec.contextPolicy,
-      buildSpecPreviewPolicy: pkg.buildSpec.previewPolicy,
-      promptLength: pkg.userPrompt.length,
-      dynamicContextBudgetTokens: pkg.dynamicContextPruning.budgetTokens,
-      dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
-      dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
-      variantId: pkg.variantId ?? null,
-    },
-  );
 }
 
 /**
