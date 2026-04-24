@@ -183,3 +183,29 @@ export function getVariantById(
   );
 }
 
+/**
+ * Plan 11 / open-question #8: deterministic fallback variant when a
+ * follow-up has lost its `priorVariantId` (snapshot persisted before
+ * variant tracking landed, or stale snapshot merged with `null`).
+ *
+ * Returns:
+ *   1. The variant flagged `default: true` for the scaffold, if any.
+ *   2. Otherwise, the first variant in registry-sorted order (alphabetic
+ *      filename) — guarantees a stable pick across requests.
+ *   3. `null` only when the scaffold has zero variants registered.
+ *
+ * Used by {@link lockedVariantForFollowUp} to avoid releasing the
+ * matcher into a fresh embedding pick on follow-ups, which used to
+ * flip `corporate-grid → warm-local` mid-chat.
+ */
+export function getDefaultVariantForScaffold(
+  scaffoldId: ScaffoldId | null | undefined,
+): ScaffoldVariant | null {
+  if (!scaffoldId) return null;
+  const variants = getVariantsForScaffold(scaffoldId);
+  if (variants.length === 0) return null;
+  const explicit = variants.find((variant) => variant.default === true);
+  if (explicit) return explicit;
+  return variants[0]!;
+}
+

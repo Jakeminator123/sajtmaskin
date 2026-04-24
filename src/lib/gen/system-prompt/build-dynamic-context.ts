@@ -66,7 +66,10 @@ import {
   renderScaffoldResearchBlock,
   renderToolkitBlock,
 } from "./sections/scaffold-and-toolkit";
-import { renderDossierBlocks } from "./sections/dossiers";
+import {
+  renderCapabilityModifyHintBlock,
+  renderDossierBlocks,
+} from "./sections/dossiers";
 import { renderRoutePlanBlock } from "./sections/route-plan";
 import {
   renderPreGenerationContractsBlock,
@@ -188,6 +191,12 @@ export function buildDynamicContext(
     }),
   );
   parts.push(...renderDossierBlocks(options.dossierSelection));
+  // Plan 11 / open-question #12: when the follow-up was classified as
+  // `capability-modify` the dossier branch above is intentionally
+  // empty (upstream suppresses `requestedDossierCapabilities`). Restore
+  // a directional signal to the LLM so it knows to mutate the existing
+  // scene file rather than fall back to a generic dossier-less render.
+  parts.push(...renderCapabilityModifyHintBlock(options.capabilityModifyHint));
   parts.push(
     ...renderRoutePlanBlock({
       routePlan,

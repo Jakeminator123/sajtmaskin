@@ -15,6 +15,13 @@
  *    that maps onto a dossier capability (3D, contact-form, payments, …).
  *    Keeps scaffold/variant locked (delta) but signals downstream that
  *    `selectDossiersForRequest` should receive the detected capability ids.
+ *  - `capability-modify` (Plan 11, open-question #12): user references an
+ *    EXISTING capability output ("pricken", "bubblan", "den 3D-grejen")
+ *    while asking to mutate its behaviour. Behaves like `capability-add`
+ *    for variant-lock purposes but downstream the dossier-shell injection
+ *    is suppressed — the LLM is pointed at the existing scene file with
+ *    a "modify this" instruction so we do not re-emit a placeholder
+ *    shell on top of the user's actual feature.
  *  - `neutral`: no signal classifiable by the regex pipeline.
  */
 export type FollowUpIntentMode =
@@ -23,6 +30,7 @@ export type FollowUpIntentMode =
   | "ambiguous-redesign"
   | "ambiguous-followup"
   | "capability-add"
+  | "capability-modify"
   | "neutral";
 
 export const FOLLOW_UP_INTENT_MODES: ReadonlySet<FollowUpIntentMode> = new Set([
@@ -31,5 +39,6 @@ export const FOLLOW_UP_INTENT_MODES: ReadonlySet<FollowUpIntentMode> = new Set([
   "ambiguous-redesign",
   "ambiguous-followup",
   "capability-add",
+  "capability-modify",
   "neutral",
 ]);

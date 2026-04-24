@@ -161,3 +161,69 @@ export function renderDossierBlocks(
 
   return parts;
 }
+
+/**
+ * Plan 11 / open-question #12: when the follow-up was classified as
+ * `capability-modify`, the upstream pipeline suppresses
+ * `requestedDossierCapabilities` so the dossier-shell branch goes silent.
+ * That alone would leave the LLM with no signal at all about the
+ * referenced capability. This block restores the signal in a different
+ * shape: it tells the model the user is pointing at an EXISTING on-page
+ * element and that the right move is to mutate the existing scene file
+ * (already present in the previous-files context) rather than emit a
+ * fresh dossier shell on top of it.
+ *
+ * Rationale (Plan 01 smoke run B / chat `b71dafb3`):
+ *
+ *   "gör pricken till en kaffekopp som häller kaffe när jag nuddar
+ *    den med musen"
+ *
+ *   - Capability detection fired `visual-3d` from "kaffekopp".
+ *   - Without modify-reference detection the prompt was classified as
+ *     `capability-add` → `selectDossiersForRequest` re-injected the
+ *     `three-fiber-canvas` dossier shell + error-boundary on top of the
+ *     working `floating-coffee-overlay.tsx`. The user saw the new shell
+ *     render an empty canvas and thought the entire site broke.
+ *
+ *   - With this block the model gets the capability ids and the
+ *     reference tokens that triggered the classification; combined with
+ *     the previous-files context already supplied by the generation
+ *     pipeline, that is enough for the model to locate the existing
+ *     scene file and mutate it.
+ */
+export function renderCapabilityModifyHintBlock(
+  hint: { capabilityIds: string[]; references: string[] } | null | undefined,
+): string[] {
+  if (!hint) return [];
+  const capabilityIds = (hint.capabilityIds ?? []).filter(
+    (id) => typeof id === "string" && id.trim().length > 0,
+  );
+  const references = (hint.references ?? []).filter(
+    (ref) => typeof ref === "string" && ref.trim().length > 0,
+  );
+  if (capabilityIds.length === 0) return [];
+
+  const capabilityList = capabilityIds.map((id) => `\`${id}\``).join(", ");
+  const referenceList =
+    references.length > 0
+      ? references.map((ref) => `\`${ref}\``).join(", ")
+      : "(no explicit token captured — the user used a generic deictic such as \"den\")";
+
+  const parts: string[] = [];
+  parts.push(
+    "## Modify Existing Capability — Do NOT Re-Inject Dossier Shell",
+    "",
+    `The user is referring to an EXISTING on-page capability output. Detected capabilities: ${capabilityList}. Reference tokens that triggered this classification: ${referenceList}.`,
+    "",
+    "**What this means for your code output:**",
+    "",
+    "1. The previous version's files are listed in the file context further down — locate the scene/feature file that implements the referenced capability (e.g. for `visual-3d` look for `floating-*-overlay.tsx`, `*-canvas.tsx`, `*-scene.tsx`, `*-three.tsx`, or whatever component already mounts the dossier on the existing site).",
+    "2. **Modify that existing file in place.** Emit it again as a CodeProject block at the same path with your behavioural change applied. Do not invent a new shell file alongside it.",
+    "3. Do **not** emit a fresh dossier shell, error-boundary wrapper, or `Suspense` boilerplate — those already exist in the previous version. Re-emitting them would duplicate the mount and the user would see two copies (or a stale shell on top of the working one).",
+    "4. Keep the rest of the previously-generated files intact unless the requested change forces a knock-on edit (e.g. updating `app/page.tsx` to pass a new prop).",
+    "",
+    "If you genuinely cannot find the existing capability file in the previous-files context, fall back to a minimal shell — but say so explicitly in the chat reply so the user knows the prior file was missing.",
+    "",
+  );
+  return parts;
+}

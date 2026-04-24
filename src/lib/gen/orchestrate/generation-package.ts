@@ -19,6 +19,8 @@ interface OrchestrationBaseLike {
   componentReferences: GenerationInputPackage["componentReferences"];
   dossierSelection?: GenerationInputPackage["dossierSelection"];
   requestedCapabilityTiers?: GenerationInputPackage["requestedCapabilityTiers"];
+  scaffoldVariantId: GenerationInputPackage["scaffoldVariantId"];
+  capabilityModifyHint: GenerationInputPackage["capabilityModifyHint"];
 }
 
 interface OrchestrationInputLike {
