@@ -489,7 +489,7 @@ export async function finalizeAndSaveVersion(
     autofix: resolveStepDurationMs("autofix"),
     urlExpand: resolveStepDurationMs("url_expand"),
     syntaxValidation: resolveStepDurationMs("validate_syntax"),
-    imageMaterialization: resolveStepDurationMs("materialize_images"),
+    imageMaterializationMs: resolveStepDurationMs("materialize_images"),
     verifier: resolveStepDurationMs("verifier"),
     parseMergePreflight: resolveStepDurationMs("parse_merge_preflight"),
     totalMs: Math.max(0, Date.now() - finalizePipelineStartedAt),

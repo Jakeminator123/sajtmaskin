@@ -19,12 +19,15 @@ import {
   findMissingInstructionsHeadingsPartitioned,
   RECOMMENDED_INSTRUCTIONS_HEADINGS,
   REQUIRED_INSTRUCTIONS_HEADINGS,
+  validateDossierImportClosure,
   validateDossierManifest,
 } from "../../src/lib/gen/dossiers/validate-manifest";
 import type { DossierClass, DossierFile } from "../../src/lib/gen/dossiers/types";
+import { landingPageManifest } from "../../src/lib/gen/scaffolds/landing-page/manifest";
 
 const ROOT = resolve(process.cwd(), "data", "dossiers");
 const CLASSES: readonly DossierClass[] = ["hard", "soft"] as const;
+const SCAFFOLD_FILE_SET = new Set(landingPageManifest.files.map((f) => f.path));
 
 interface ValidRow {
   id: string;
@@ -48,6 +51,7 @@ function listDossierDirs(klass: DossierClass): Array<{ id: string; dir: string }
 function main(): void {
   const validRows: ValidRow[] = [];
   let schemaFailures = 0;
+  let importClosureFailures = 0;
 
   for (const klass of CLASSES) {
     for (const { id, dir } of listDossierDirs(klass)) {
@@ -72,6 +76,20 @@ function main(): void {
         console.error(`✗ ${klass}/${id}`);
         for (const e of result.errors) console.error(`    ${e}`);
         schemaFailures++;
+        continue;
+      }
+      const closureIssues = validateDossierImportClosure(result.data, dir, SCAFFOLD_FILE_SET);
+      if (closureIssues.length > 0) {
+        console.error(`✗ ${klass}/${id}: import closure`);
+        for (const issue of closureIssues) {
+          console.error(
+            `    ${issue.dossierFile}: "${issue.missingImport}" (${issue.reason})`,
+          );
+        }
+        importClosureFailures += closureIssues.length;
+        // Hoppa över denna dossier helt — den ska inte räknas som "valid"
+        // i nedströms cross-cutting-checks (defaults, instructions.md,
+        // verbatim) eftersom dess imports inte är slutna.
         continue;
       }
       console.log(`✓ ${klass}/${id}`);
@@ -168,8 +186,16 @@ function main(): void {
     console.log("✓ alla verbatim-filer finns på disk");
   }
 
+  if (importClosureFailures === 0) {
+    console.log("✓ import closure (dossierfiler refererar bara till kända filer/runtime)");
+  }
+
   const totalFailures =
-    schemaFailures + defaultErrors.length + headingErrors.length + verbatimErrors.length;
+    schemaFailures +
+    importClosureFailures +
+    defaultErrors.length +
+    headingErrors.length +
+    verbatimErrors.length;
   if (totalFailures > 0) {
     console.error(
       `\n${totalFailures} validation error(s) across ${validRows.length} valid + ${schemaFailures} rejected dossier(s).`,

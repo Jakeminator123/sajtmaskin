@@ -8,6 +8,9 @@
  *   - instructions.md heading check
  */
 import { describe, it, expect } from "vitest";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   findDuplicateDefaults,
@@ -15,6 +18,7 @@ import {
   findMissingInstructionsHeadingsPartitioned,
   RECOMMENDED_INSTRUCTIONS_HEADINGS,
   REQUIRED_INSTRUCTIONS_HEADINGS,
+  validateDossierImportClosure,
   validateDossierManifest,
 } from "./validate-manifest";
 
@@ -161,5 +165,52 @@ describe("findMissingInstructionsHeadingsPartitioned", () => {
     const md = `# When to use\n# How to integrate\n# Verification checklist (per lastVerified)\n`;
     const result = findMissingInstructionsHeadingsPartitioned(md);
     expect(result.missingRecommended).not.toContain("Verification");
+  });
+});
+
+describe("validateDossierImportClosure", () => {
+  it("returnerar inga issues för three-fiber-canvas", () => {
+    const manifest = JSON.parse(
+      readFileSync("data/dossiers/soft/three-fiber-canvas/manifest.json", "utf8"),
+    );
+    const issues = validateDossierImportClosure(
+      manifest,
+      "data/dossiers/soft/three-fiber-canvas",
+      new Set(["app/page.tsx", "app/layout.tsx"]),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("flaggar saknad transitive import", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "dossier-import-closure-"));
+    try {
+      mkdirSync(join(tempRoot, "components"), { recursive: true });
+      writeFileSync(
+        join(tempRoot, "components/foo.tsx"),
+        `import { Bar } from "@/components/bar";
+
+export function Foo() {
+  return <Bar />;
+}
+`,
+        "utf8",
+      );
+      const issues = validateDossierImportClosure(
+        {
+          files: [{ path: "components/foo.tsx", role: "client" }],
+        },
+        tempRoot,
+        new Set(["app/page.tsx", "app/layout.tsx"]),
+      );
+      expect(issues).toEqual([
+        {
+          dossierFile: "components/foo.tsx",
+          missingImport: "@/components/bar",
+          reason: "not_in_files",
+        },
+      ]);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });
