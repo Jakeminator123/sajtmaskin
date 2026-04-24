@@ -1,4 +1,4 @@
-// TODO(plan-09): kandidat för borttagning — wrappern duplicerar stora delar av runAutoFixSinglePass och bör dö efter konsolidering till en fixer-entrypoint.
+// TODO(plan-09): kvar tills nästa cleanup — wrappern används fortfarande brett i preflight/preview/export och kan dö först efter entrypoint-konsolidering.
 import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,

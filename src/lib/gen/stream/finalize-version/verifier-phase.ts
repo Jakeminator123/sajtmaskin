@@ -1,4 +1,4 @@
-// TODO(plan-09): kandidat för borttagning — legacy "optimistic clear" fallback bakom verifierRerunAfterFix kan tas bort när flaggan förblir hardcoded ON.
+// TODO(plan-09): kvar tills nästa cleanup — verifier-fasen är aktiv; legacy optimistic-clear-grenen kan dö först när rerun-gaten förenklas helt.
 /**
  * Verifier-pass phase for `runFinalizeFastPath`: runs the verifier,
  * optionally feeds blocking findings back to the LLM fixer, re-runs the
