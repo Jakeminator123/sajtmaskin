@@ -1,70 +1,116 @@
 ---
 status: active
 created: 2026-04-24
+revised: 2026-04-24 (efter deep-prefab feedback + 4-agents verifieringspass)
 branch: llm-flode
-trigger: långbänk efter user-rapport om körning eb152443-2660-4042-a2a0-e5c156b928ed
+trigger: långbänk efter user-rapport om körning eb152443-2660-4042-a2a0-e5c156b928ed + deep-prefab review (sparat i `svar_gpt`)
 ---
 
-# Körplan — LLM-flöde 2026-04-24
+# Körplan — LLM-flöde 2026-04-24 (REVIDERAD)
 
-Konsoliderad körplan från 5 parallella audits + egen telemetri-analys av en single-shot create-körning som tog **7 min 7 sek** wall-clock (4 min reasoning + auto-repair-loop som triggades av en LLM-fixer-buggg). Dokumenterar 5 distinkta spår med konkreta fil-radnivå-fynd och **patch-riktningar** (inte färdig kod — den lämnas till nästa pass när vi vet vilka spår vi prioriterar).
+Konsoliderad körplan från **9 audit-pass totalt** (5 första + 4 verifierings-passes efter deep-prefab feedback) över en single-shot create-körning som tog **7 min 7 sek** wall-clock + auto-repair-loop. Original-planen 5 spår omprioriterades till **7 spår** efter att deep-prefab-agenten påpekade att P0 (F2/F3-kontrakt) saknades och att tidigare spår hade fel filsökväg/MAX_KEYS-värde.
 
-## Bakgrund
+## Vad ändrades sedan v1?
 
-User skapade en landing-page om "Emilia & Jakob" via builder. Resultat: bra estetik, men:
+| v1-namn | v2-namn | Ändring |
+|---|---|---|
+| (saknas) | **`00-f2-f3-kontrakt.md`** | **NYTT P0** — lås om målbilden innan resten löses |
+| `01-variant-snapshot-persistens.md` | `01-variant-snapshot-persistens.md` | **KORRIGERAT** — fel filsökväg + MAX_KEYS=10-11 var fel; faktisk är `src/lib/gen/orchestration-snapshot.ts` med MAX_KEYS=80. Dessutom test-driven verifiering FÖRST. |
+| `02-llm-tid-scaffold-delta.md` | `06-latens-och-scaffold-delta.md` | **DEPRIORITERAT** till P6, uppdelad i säkra vinster (gör direkt) vs riskabla (bakom eval) |
+| (saknas) | **`02-product-postcheck.md`** | **NYTT P2** — F2 Product Postcheck (bilder, anchors, mobil, CTA) — saknas helt idag |
+| `03-dossier-kompatibilitet.md` | `04-dossier-hard-soft-enforcement.md` | **REFOKUSERAD** — verifiering visade att merge inte enforcer verbatim, LLM vinner alltid. Större risk än bara manifest-validering. |
+| `04-bildflode.md` | `03-bildminimum.md` | **DELAD** — minimum (HEAD-fix, placeholder, telemetri-rename) i denna runda. AI-bildgen/`[image_prompt:]` flyttas till framtida spår. |
+| `05-autofix-gating.md` | `05-autofix-gating.md` | **OFÖRÄNDRAD** — fortfarande P5, mestadels rätt i v1 |
 
-- **7:07 wall-clock** (4 min av det = `gpt-5.3-codex thinking=true reasoning`)
-- **31 deterministiska autofixar** triggade `autofix.heavy_load` — som bara loggades, inte åtgärdades
-- **`[llm-fixer] failed: This operation was aborted`** tystades — felet (`LucideIcon` TS2749) upptäcktes 5 min senare av server-verify och triggade auto-repair (~4 min extra)
-- **Variant `editorial-lux`** valdes vid create men flippades till **`corporate-grid`** vid auto-repair pga `variant_lock_fallback: missing_prior_variant_id` — `orchestration.snapshot.persisted` skriver alltid `variantId: null`
-- **`https://images.unsplash.com/photo-1541544181051-e46607d3d8a4`** blev röd 404 i nätverkspanelen — `validate-images` returnerade 200 utan att HEAD-pinga
-- **`imageGenerations: true`** men 0 AI-bilder skapades — flaggan styr inget i prompten
+## Vad raderades
 
-Lineage-källa: `logs/generationslogg/{20260424-131916-website,20260424-133001-website}/` + `logs/site-observability/eb152443-.../`.
+- **Zip i `~/Downloads/llm-flode-nasta-omgang-2026-04-24.zip`** — raderad (innehöll v1-planer som var felaktiga)
+- **Gamla `02-llm-tid-scaffold-delta.md`** — ersatt av nya `06-latens-och-scaffold-delta.md`
+- **Gamla `03-dossier-kompatibilitet.md`** — ersatt av nya `04-dossier-hard-soft-enforcement.md`
+- **Gamla `04-bildflode.md`** — ersatt av nya `03-bildminimum.md`
 
-## Spår (router)
+## Spår (router, ny ordning)
 
-| # | Fil | Spår | Estimerad insats |
-|---|-----|------|---|
-| 1 | [`01-variant-snapshot-persistens.md`](./01-variant-snapshot-persistens.md) | **Variant-lock-bug** — `variantId: null` i snapshot leder till variant-flips mellan create och followup | 1–2 dagar |
-| 2 | [`02-llm-tid-scaffold-delta.md`](./02-llm-tid-scaffold-delta.md) | **Reducera LLM-tid** — scaffold som "given context"-delta + reasoning-budget + dubbelkörd tsc | 3–5 dagar (mer arkitektur) |
-| 3 | [`03-dossier-kompatibilitet.md`](./03-dossier-kompatibilitet.md) | **Dossier-kompat-test** — säkerställ att alla 17 dossiers fungerar med alla scaffolds | 2–3 dagar |
-| 4 | [`04-bildflode.md`](./04-bildflode.md) | **Bilder** — HEAD-validering, `[image_prompt:]`-implementation, deduplicering, telemetri-rename | 2 dagar |
-| 5 | [`05-autofix-gating.md`](./05-autofix-gating.md) | **Autofix-gating** — heavy_load triggar åtgärd; LLM-fixer abort eskalerar; Lucide i checklist | 2 dagar |
+| # | Fil | Spår | Estimerad insats | Beroenden |
+|---|-----|------|---|---|
+| **0** | [`00-f2-f3-kontrakt.md`](./00-f2-f3-kontrakt.md) | **F2/F3-kontrakt** — kommentar-drift, separera Runtime/Product/Build, telemetri-uppdelning | 1–2 dagar | INGA — gör först |
+| **1** | [`01-variant-snapshot-persistens.md`](./01-variant-snapshot-persistens.md) | **Variant-snapshot** — testdriven rotorsak + sanitize-allowlist + merge-skydd + failsafe i call-site | 1–2 dagar | INGA — kan parallellt med P0 |
+| **2** | [`02-product-postcheck.md`](./02-product-postcheck.md) | **F2 Product Postcheck** — Playwright DOM-checks (anchors, naturalWidth, CTA, mobil, fake forms) | 3–4 dagar | P0 (för Versionsdiagnostik UI) |
+| **3** | [`03-bildminimum.md`](./03-bildminimum.md) | **Bildminimum** — HEAD GET-fallback, placeholder, telemetri-rename, dup-alt-warning | 2 dagar | INGA — kan parallellt |
+| **4** | [`04-dossier-hard-soft-enforcement.md`](./04-dossier-hard-soft-enforcement.md) | **Dossier hard/soft** — verbatim restore i merge + refuse-stub + manifest-closure + compat-matrix | 2–3 dagar | INGA — kan parallellt |
+| **5** | [`05-autofix-gating.md`](./05-autofix-gating.md) | **Autofix-gating** — LLM-fixer abort-event, Lucide-checklist, recurring-patterns, repair-adaptive | 2 dagar | INGA — kan parallellt |
+| **6** | [`06-latens-och-scaffold-delta.md`](./06-latens-och-scaffold-delta.md) | **Latens** — säkra vinster nu (skip dubbel tsc, pre-warm, streaming-validation) + riskabla bakom eval | Säkra: 1-2 dagar / Riskabla: 5-7 dagar | Ev. P0 (telemetri-separation) |
 
-## Prioritetsordning (förslag)
+## Prioritetsordning (deep-prefab-agentens förslag, validerad)
 
-1. **Spår 1 (variant-bug)** — glasklar bugg, liten yta, hög effekt på user-perception av "mitt design ändrades plötsligt".
-2. **Spår 5 (autofix-gating)** — sparar 4 min auto-repair-tid per problemfall + ger telemetri vi sedan kan använda för spår 2-priorisering.
-3. **Spår 4 (bilder)** — användaren såg redan röda 404:or; stock-foto-personer mot "Emilia & Jakob" är ett tydligt kvalitetsproblem.
-4. **Spår 3 (dossiers)** — preventiv kvalitet; spelar mer roll när dossier-poolen växer.
-5. **Spår 2 (LLM-tid)** — största potentiella vinst (3-4 min per körning) men störst designändring; gör efter att 1+5 stabiliserat telemetrin.
+1. **P0 spår 0** — Kontraktet. Gör resten begripligt.
+2. **P1 spår 1** — Variant-bug. Glasklar kvalitetsfix.
+3. **P2 spår 2** — Product Postcheck. Största user-impact-vinst.
+4. **P3 spår 3** — Bildminimum. Synligt för user direkt (Unsplash-404).
+5. **P4 spår 4** — Dossier hard/soft. Preventiv kvalitet, säkerhetsrisk för Stripe/Clerk.
+6. **P5 spår 5** — Autofix-gating. Sparar 4 min auto-repair per problemfall.
+7. **P6 spår 6** — Latens. Säkra vinster nu, riskabla bakom eval.
 
-## Glasklara fynd som kan göras direkt (utan diskussion)
+## Glasklara fynd som kan göras direkt (utan dialog)
 
 Dessa kan plockas i en första PR utan att vänta på hela körplanen:
 
-- **Spår 4: rename `imageMaterialization` → `imageMaterializationMs`** i `src/lib/gen/stream/finalize-version/runner.ts` rad 486–496. Mätarvärdet är millisekunder, inte antal bilder. Förvirrar.
-- **Spår 5: utöka `dossier_stub_created` telemetri** i `src/lib/providers/own-engine/generation-stream-post-finalize.ts` rad 235–240 med `dossierId` + `capability`. Nytt fält i existerande logg-rad.
-- **Spår 5: skilj `AbortError` från övriga fel** i `src/lib/gen/autofix/llm-fixer.ts` rad 250–264 + lägg till `llm_fixer_aborted`-event med `durationMs` (redan i scope).
+- **Spår 0:** doc-kommentar i `preview-quality-gate.ts` L3-6 säger fel om F2 default
+- **Spår 3:** `imageMaterialization` → `imageMaterializationMs` (telemetri-rename)
+- **Spår 5:** `AbortError`-skiljd från övriga fel + `llm_fixer_aborted`-event
+- **Spår 4:** Manifest import-closure-validering
+- **Spår 6:** Skip dubbel tsc när quality-gate kommer köra det ändå
 
-## Glasklara — kräver lite tankearbete men ej arkitekturdiskussion
+## Större spår — kräver dialog/eval
 
-- **Spår 3: utöka `validate-manifest.ts`** med import-closure-validering. Dossier-manifestet ska validera att alla `@/`-imports i `files[]`-koden antingen finns i samma `files[]` eller i scaffold-fröet eller är en runtime-provided import. Förslag: ny `validateDossierImportClosure(manifest, scaffoldFileSet)` i samma modul, anropad från `scripts/dossiers/validate-all.ts`.
-- **Spår 5: lägg Lucide-checklist i prompten**. Ny sektion bredvid `renderRequiredImportsChecklistBlock` i `src/lib/gen/system-prompt/sections/`. Ca 50 vanligaste Lucide-ikoner grupperade per usecase (UI-controls, navigation, status, social, brands).
+- **Spår 0 D2:** assertion mot F2 + build-kombination (kan låsa befintliga callsites om någon)
+- **Spår 1 A1:** PROTECTED-keys allowlist i sanitize (efter T1 bevisat hypotes A)
+- **Spår 2:** Hela Playwright-postcheck (3-4 dagar, ny verifieringsnivå)
+- **Spår 4 A1:** Verbatim-restore i merge (kan stoppa berättigade LLM-anpassningar)
+- **Spår 5 A2:** Heavy-load tröskel ≥20 → regen-loop (kan dubbla wall-clock)
+- **Spår 6 D-F:** Reasoning-budget-byte, scaffold-delta, prompt-cache (kräver eval-pipeline)
 
-## Kräver dialog (innan PR)
+## Vad denna körplan INTE täcker
 
-- **Spår 2: ändra `pro.generator` reasoningEffort `high` → `medium`** i `config/ai_models/manifest.json` rad 189. Det här är *defaulten* för alla create-pro-körningar. Stor effekt på allt.
-- **Spår 2: scaffold-as-delta** är en hel arkitekturändring av prompt-strategi. Behöver designdoc + opt-in-flagga + A/B-eval innan default-byte.
-
-## Avgränsningar (vad denna körplan INTE täcker)
-
-- 3D-kvalitet (orb istället för stylized-personer) — det är dossier-design, inte pipeline-bug. Kan tas i separat dossier-uplift.
-- Quality-gate-tid (66 s) — det är mestadels Fly-VM cold start + `npm install`. Kräver infra-arbete (min-instances), inte kod.
-- Brief-tid (25 s) — `gpt-5.4` med vision på en attached bild. Acceptabelt för det den gör (extraherar struktur från bild).
-- Sora/DALL-E faktisk integration — kräver separat scope (kostnad, säkerhet, kvalitetsgate). Spår 4 stoppar bara vid att *trigga* mekanismen.
+- 3D-kvalitet (orb istället för stylized-personer) — dossier-design
+- Quality-gate-tid på Fly-VM (66s) — infra-arbete
+- Brief-tid (25s) — `gpt-5.4` med vision
+- Sora/DALL-E faktisk integration — separat scope (kostnad, säkerhet, kvalitetsgate)
+- PromptKit, unified repair mega-refactor — paus enligt deep-agent
 
 ## Källor (audit-output bevarad)
 
-5 audit-agenter kördes parallellt på `claude-4.6-sonnet-medium-thinking` 2026-04-24. Råsvar finns i samtals-historik (chat-uuid sparad i `.cursor/projects/`). Sammanfattningar inarbetade i respektive spår-fil.
+**Första pass (5 agenter):** alla `claude-4.6-sonnet-medium-thinking`, `readonly: true`. Råsvar bevarade i konversation:
+1. Variant-rotorsak
+2. LLM-tid + scaffold-delta
+3. Dossier-kompatibilitet
+4. Bildflöde
+5. Autofix-gating
+
+**Verifierings-pass (4 agenter):** alla `claude-4.6-sonnet-medium-thinking`, `readonly: true`. Råsvar bevarade i konversation:
+- V1: F2/F3-kontrakt — bekräftade kommentar-drift, avfärdade nuvarande build-i-F2
+- V2: Variant-rotorsak — upptäckte fel filsökväg + MAX_KEYS=80
+- V3: F2 Product Postcheck — bekräftade saknad
+- V4: Hard/soft dossier — bekräftade merge-enforcement-gap
+
+**Deep-prefab-agentens feedback:** sparat lokalt i `svar_gpt` (root). Inspirerade hela P0-omprioritering + spår 02 + delningen av spår 03 + deprioriteringen av spår 06.
+
+## Exekvering — föreslaget upplägg
+
+Efter att den här revisionen är committad och pushad föreslår jag följande **execution model**:
+
+**Sequential (en agent åt gången på `llm-flode`):**
+- P0 (spår 0) FÖRST — alla andra spår berör Versionsdiagnostik UI eller telemetri-separation som P0 sätter
+
+**Parallellt (best-of-n-runner med isolerade worktrees):**
+Efter P0 landat, lansera 3-4 parallella worktree-agenter:
+- Worktree 1: Spår 1 (variant) — gpt-5.3-codex-high-fast (kod + tester)
+- Worktree 2: Spår 3 (bildminimum) — composer-2-fast (mestadels enkla edits)
+- Worktree 3: Spår 5 (autofix-gating) — gpt-5.3-codex-high-fast
+- Worktree 4: Spår 4 (dossier) — claude-4.6-sonnet (kräver kvalitativt resonemang)
+
+**Sekventiellt efter dessa landat:**
+- Spår 2 (Product Postcheck, 3-4 dagar) — egen runda
+- Spår 6 (latens) — säkra vinster i en runda, riskabla bakom eval i framtida runda
+
+Vänta dock på din input innan exekvering.
