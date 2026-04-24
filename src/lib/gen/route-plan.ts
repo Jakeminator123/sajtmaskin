@@ -2,6 +2,15 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import { dedupePlannedRoutesInPlaceByLocale, deduplicateLocaleAlternateRoutes } from "./route-plan/locale-dedupe";
 import { extractAppRoutePathsFromFilePaths, normalizeRoutePath } from "./route-plan/path-utils";
+import {
+  applyPromptPatterns,
+  applyScaffoldDefaults,
+  buildRoutesFromBrief,
+  collectExplicitRouteRemovals,
+  detectExplicitPageCount,
+  hasExplicitAddRouteIntent,
+  upsertRoute,
+} from "./route-plan/planning-helpers";
 import { findMissingRequiredRoutes, routePatternToRegex } from "./route-plan/route-matchers";
 import { WEBSITE_ROUTE_PATTERNS, APP_ROUTE_PATTERNS } from "./route-plan/route-patterns";
 
@@ -129,233 +138,11 @@ export function parseRoutePlanFromUnknown(data: Record<string, unknown> | null |
   };
 }
 
-type BriefPageLike = {
-  path?: unknown;
-  name?: unknown;
-  purpose?: unknown;
-};
-
-// Keep removal language explicit so "utan ..." copy/layout phrasing
-// does not silently delete routes during follow-ups.
-const ROUTE_REMOVAL_VERB_RE =
-  /\b(remove|delete|drop|ta bort|plocka bort|radera)\b/i;
-const ROUTE_REMOVAL_CONTEXT_RE =
-  /\b(page|pages|route|routes|sida|sidor|sidan|sidorna)\b|[a-zåäö]+sida(?:n|rna)?\b/i;
-const ROUTE_PATH_MENTION_RE = /\/[a-z0-9/_-]*/gi;
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function inferPathFromPageName(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return "/";
-  if (/^(home|hem|start|startsida|homepage)$/i.test(trimmed)) return "/";
-  const normalized = trimmed
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  if (!normalized) return "/";
-  return normalizeRoutePath(`/${normalized}`);
-}
-
-function pushRoute(routes: PlannedRoute[], route: PlannedRoute): void {
-  const normalizedPath = normalizeRoutePath(route.path);
-  const existing = routes.find((item) => item.path === normalizedPath);
-  if (existing) {
-    if (!existing.intent && route.intent) existing.intent = route.intent;
-    existing.required = existing.required || route.required;
-    return;
-  }
-  routes.push({
-    ...route,
-    path: normalizedPath,
-  });
-}
-
-function collectExplicitRouteRemovals(
-  prompt: string,
-  buildIntent: BuildIntent,
-  existingPaths: string[],
-): Set<string> {
-  const removals = new Set<string>();
-  const normalizedExisting = new Set(existingPaths.map((path) => normalizeRoutePath(path)));
-  if (!ROUTE_REMOVAL_VERB_RE.test(prompt)) return removals;
-
-  for (const rawPath of prompt.match(ROUTE_PATH_MENTION_RE) ?? []) {
-    const normalized = normalizeRoutePath(rawPath);
-    if (normalized !== "/" && normalizedExisting.has(normalized)) {
-      removals.add(normalized);
-    }
-  }
-
-  // Keep keyword-based removals conservative: require route/page wording in the same prompt.
-  if (!ROUTE_REMOVAL_CONTEXT_RE.test(prompt)) return removals;
-
-  const candidatePatterns =
-    buildIntent === "app"
-      ? [...APP_ROUTE_PATTERNS, ...WEBSITE_ROUTE_PATTERNS]
-      : [...WEBSITE_ROUTE_PATTERNS, ...APP_ROUTE_PATTERNS];
-
-  for (const candidate of candidatePatterns) {
-    if (candidate.path === "/") continue;
-    if (!normalizedExisting.has(candidate.path)) continue;
-    if (candidate.match.test(prompt)) {
-      removals.add(candidate.path);
-    }
-  }
-
-  return removals;
-}
-
-const EXPLICIT_ADD_ROUTE_PATTERNS = [
-  /\b(?:add|create|make)\b[\s\S]{0,32}\b(?:new\s+)?(?:page|route)\b/i,
-  /\b(?:new\s+)(?:page|route)\b/i,
-  /\b(?:lägg till|skapa)\b[\s\S]{0,32}\b(?:en\s+ny\s+|ny\s+)?(?:sida|route)\b/i,
-  /\b(?:ny\s+)(?:sida|route)\b/i,
-];
-
-function hasExplicitAddRouteIntent(prompt: string): boolean {
-  return EXPLICIT_ADD_ROUTE_PATTERNS.some((pattern) => pattern.test(prompt));
-}
-
 function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanSiteType {
   if (buildIntent === "app") return "app-shell";
   if (routeCount <= 1) return "one-page";
   if (routeCount <= 5) return "brochure";
   return "content-heavy";
-}
-
-const EXPLICIT_PAGE_COUNT_RE =
-  /\b(\d{1,2})\s*(?:sidor|sida|pages?|routes?|vyer?|views?)\b/i;
-
-/**
- * Detect when the user explicitly states a page count ("3 sidor", "5 pages").
- * Returns the count or null when no match is found.
- */
-export function detectExplicitPageCount(prompt: string): number | null {
-  const match = prompt.match(EXPLICIT_PAGE_COUNT_RE);
-  if (!match) return null;
-  const count = parseInt(match[1]!, 10);
-  return count >= 1 && count <= 20 ? count : null;
-}
-
-function buildRoutesFromBrief(
-  brief: Record<string, unknown> | null | undefined,
-): PlannedRoute[] {
-  const pages = Array.isArray((brief as { pages?: unknown })?.pages)
-    ? ((brief as { pages?: BriefPageLike[] }).pages ?? [])
-    : [];
-  if (pages.length === 0) return [];
-
-  const routes: PlannedRoute[] = [];
-  for (const page of pages.slice(0, 10)) {
-    const explicitPath = asString(page?.path);
-    const inferredPath = inferPathFromPageName(asString(page?.name));
-    const path = normalizeRoutePath(explicitPath || inferredPath || "/");
-    const name = asString(page?.name) || (path === "/" ? "Home" : "Page");
-    const purpose = asString(page?.purpose);
-    const intent = purpose
-      ? `Route purpose: ${purpose}`
-      : `Implement the ${name} route.`;
-    pushRoute(routes, {
-      path,
-      name,
-      intent,
-      required: true,
-    });
-  }
-  return routes;
-}
-
-function applyPromptPatterns(
-  prompt: string,
-  patterns: Array<{ match: RegExp; path: string; name: string; intent: string }>,
-  routes: PlannedRoute[],
-): boolean {
-  const before = new Set(routes.map((route) => normalizeRoutePath(route.path)));
-  for (const pattern of patterns) {
-    if (pattern.match.test(prompt)) {
-      pushRoute(routes, {
-        path: pattern.path,
-        name: pattern.name,
-        intent: pattern.intent,
-        required: true,
-      });
-    }
-  }
-  return routes.some((route) => !before.has(normalizeRoutePath(route.path)));
-}
-
-function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: ScaffoldManifest | null, routes: PlannedRoute[]) {
-  switch (resolvedScaffold?.id) {
-    case "blog":
-      pushRoute(routes, {
-        path: "/blog",
-        name: "Blog",
-        intent: "Keep an editorial route for articles and archives.",
-        required: buildIntent !== "app",
-      });
-      break;
-    case "ecommerce":
-      pushRoute(routes, {
-        path: "/products",
-        name: "Products",
-        intent: "Keep a storefront route for the product catalog.",
-        required: true,
-      });
-      pushRoute(routes, {
-        path: "/cart",
-        name: "Cart",
-        intent: "Keep a cart route for purchase flow continuity.",
-        required: false,
-      });
-      break;
-    case "auth-pages":
-      pushRoute(routes, {
-        path: "/login",
-        name: "Login",
-        intent: "Keep a dedicated authentication entry route.",
-        required: true,
-      });
-      pushRoute(routes, {
-        path: "/signup",
-        name: "Signup",
-        intent: "Keep a dedicated registration route when auth is in scope.",
-        required: false,
-      });
-      break;
-    case "dashboard":
-      if (buildIntent === "app") {
-        pushRoute(routes, {
-          path: "/analytics",
-          name: "Analytics",
-          intent: "Dashboard apps benefit from an analytics or metrics route.",
-          required: false,
-        });
-        pushRoute(routes, {
-          path: "/settings",
-          name: "Settings",
-          intent: "App shells should usually expose at least one management/settings route.",
-          required: false,
-        });
-      }
-      break;
-    case "app-shell":
-      if (buildIntent === "app") {
-        pushRoute(routes, {
-          path: "/settings",
-          name: "Settings",
-          intent: "App shells should usually expose at least one management/settings route.",
-          required: false,
-        });
-      }
-      break;
-    default:
-      break;
-  }
 }
 
 export function buildRoutePlan(params: {
@@ -411,7 +198,7 @@ export function buildRoutePlan(params: {
         continue;
       }
       const isRoot = existingPath === "/";
-      pushRoute(routes, {
+      upsertRoute(routes, {
         path: existingPath,
         name: routeNameFromPath(existingPath),
         intent: isRoot
@@ -432,12 +219,12 @@ export function buildRoutePlan(params: {
       for (const briefRoute of briefRoutes) {
         const normalizedBriefPath = normalizeRoutePath(briefRoute.path);
         if (!existingSet.has(normalizedBriefPath)) continue;
-        pushRoute(routes, briefRoute);
+        upsertRoute(routes, briefRoute);
         briefRoutePaths.add(normalizedBriefPath);
       }
     } else {
       for (const briefRoute of briefRoutes) {
-        pushRoute(routes, briefRoute);
+        upsertRoute(routes, briefRoute);
         briefRoutePaths.add(normalizeRoutePath(briefRoute.path));
       }
     }
@@ -445,7 +232,7 @@ export function buildRoutePlan(params: {
 
   if (buildIntent === "app") {
     if (!useFollowUpFreeze && !hasBriefRoutes) {
-      pushRoute(routes, {
+      upsertRoute(routes, {
         path: "/",
         name: "Dashboard",
         intent: "Use the root route as the main product workspace or dashboard.",
@@ -458,7 +245,7 @@ export function buildRoutePlan(params: {
     }
   } else {
     if (!useFollowUpFreeze && !hasBriefRoutes) {
-      pushRoute(routes, {
+      upsertRoute(routes, {
         path: "/",
         name: "Home",
         intent: "Use the root route for the primary landing page or homepage.",
@@ -474,7 +261,7 @@ export function buildRoutePlan(params: {
   // Ensure a root route exists even when brief pages didn't map to `/`.
   // A multi-page site without `/` leads to broken IA and missing homepage.
   if (!useFollowUpFreeze && !routes.some((r) => normalizeRoutePath(r.path) === "/")) {
-    pushRoute(routes, {
+    upsertRoute(routes, {
       path: "/",
       name: buildIntent === "app" ? "Dashboard" : "Home",
       intent: buildIntent === "app"
@@ -598,4 +385,10 @@ export function findMissingPlannedRoutes(
   return findMissingRequiredRoutes(routePlan.routes, actualRoutes);
 }
 
-export { deduplicateLocaleAlternateRoutes, extractAppRoutePathsFromFilePaths, normalizeRoutePath, routePatternToRegex };
+export {
+  deduplicateLocaleAlternateRoutes,
+  detectExplicitPageCount,
+  extractAppRoutePathsFromFilePaths,
+  normalizeRoutePath,
+  routePatternToRegex,
+};
