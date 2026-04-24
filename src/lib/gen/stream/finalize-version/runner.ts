@@ -418,6 +418,9 @@ export async function finalizeAndSaveVersion(
     preflightWarnings,
     hasPreviewBlockingPreflightErrors,
     hasVerificationBlockingErrors,
+    // SAJ-59: explicit so persist-telemetry can distinguish preflight-block
+    // from verifier-only-block when populating `qualityGateResult`.
+    hasPreflightVerificationErrors: hasVerificationBlockingPreflightErrors,
     previewBlockingReason,
     startedAt,
     tokenUsage,

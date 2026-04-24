@@ -111,12 +111,35 @@ export async function GET(
                 url: vd.url || undefined,
                 inspectorUrl: vd.inspectorUrl || undefined,
               });
-            } catch {}
+            } catch (persistErr) {
+              // SAJ-58: client got the new status via SSE, but the DB row
+              // didn't update. List/API consumers reading `deployments`
+              // will then show stale state. Surface in logs so we can spot
+              // the divergence; clients still see the live SSE stream.
+              console.warn(
+                "[deployments-sse] updateDeploymentStatus failed; DB may lag Vercel",
+                {
+                  deploymentId,
+                  vercelDeploymentId,
+                  attemptedStatus: mapped.status,
+                  error: persistErr instanceof Error ? persistErr.message : String(persistErr),
+                },
+              );
+            }
 
             if (TERMINAL_STATUSES.has(mapped.status)) {
               close();
             }
-          } catch {}
+          } catch (pollErr) {
+            // SAJ-58: a single Vercel-poll failure shouldn't kill the loop
+            // (transient 429/5xx are common), but silent swallowing meant
+            // we couldn't tell tight retry-loops apart from real outages.
+            console.warn("[deployments-sse] poll iteration failed", {
+              deploymentId,
+              vercelDeploymentId,
+              error: pollErr instanceof Error ? pollErr.message : String(pollErr),
+            });
+          }
         }
       };
 

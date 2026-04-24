@@ -33,6 +33,15 @@ export async function persistTelemetryRecord(params: {
   preflightWarnings: Array<{ message: string }>;
   hasPreviewBlockingPreflightErrors: boolean;
   hasVerificationBlockingErrors: boolean;
+  /**
+   * SAJ-59: explicit signal for "preflight had verification-blocking errors"
+   * — used to populate `qualityGateResult` with `preflight_failed` vs
+   * `verifier_failed` distinct values. Without it we can't tell whether
+   * `hasVerificationBlockingErrors` came from preflight or verifier-only.
+   * Defaults to `hasVerificationBlockingErrors && !verifierBlocked` if the
+   * caller doesn't pass it (back-compat).
+   */
+  hasPreflightVerificationErrors?: boolean;
   previewBlockingReason: string | null;
   startedAt: number;
   tokenUsage?: { prompt?: number; completion?: number };
@@ -156,13 +165,36 @@ export async function persistTelemetryRecord(params: {
       preflightWarningCount: preflightWarnings.length,
       previewSuccess: !hasPreviewBlockingPreflightErrors,
       previewBlockingReason,
-      qualityGateResult: hasVerificationBlockingErrors
-        ? "preflight_failed"
-        : "preflight_passed",
+      // SAJ-59: distinguish preflight-block from verifier-only block.
+      // Previously a verifier-only failure (e.g. ESLint via verifier-LLM,
+      // not a preflight error) was persisted as `preflight_failed`, which
+      // is misleading for backoffice/analytics queries that filter on
+      // `quality_gate_result`. Tri-state now:
+      //   - `preflight_failed` : preflight verification blocked
+      //   - `verifier_failed`  : preflight passed, verifier blocked the row
+      //   - `preflight_passed` : both clean
+      qualityGateResult: (() => {
+        if (!hasVerificationBlockingErrors) return "preflight_passed";
+        const preflightVerificationFailed =
+          params.hasPreflightVerificationErrors ?? !verifierBlocked;
+        return preflightVerificationFailed ? "preflight_failed" : "verifier_failed";
+      })(),
       durationMs: Date.now() - startedAt,
       promptTokens: tokenUsage?.prompt ?? null,
       completionTokens: tokenUsage?.completion ?? null,
       fileCount: preflightFileCount,
+      // SAJ-57 (KNOWN GAP): `scaffoldRetryUsed` should mark "this generation
+      // followed an earlier `scaffoldRetrySuggested` pivot". The signal does
+      // not exist at this layer — `persist-telemetry` only sees the row that
+      // SUGGESTS the retry, not the next generation that ACTS on it. As a
+      // result both downstream consumers (`getHistoricalRetrySuccess` per
+      // SAJ-38, and `scaffold-scoring.retryCount`) read this column and
+      // currently always get `false`. A correct fix needs upstream context
+      // (chat repair pipeline) to flag "this generation is a retry attempt"
+      // and pass that flag in here. Leaving hardcoded `false` to avoid
+      // false-positive signal until that wiring exists; do NOT change to
+      // `Boolean(scaffoldRetry)` — that would mean "row that suggested",
+      // which inverts the column's semantics for consumers.
       scaffoldRetryUsed: false,
       scaffoldRetrySuggested: scaffoldRetry?.suggestedScaffoldId ?? null,
       meta: telemetryMeta,
