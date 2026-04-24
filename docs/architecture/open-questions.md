@@ -119,20 +119,6 @@ Variant spelar ingen roll. **Systematisk generation-quality-bugg.** LLM:n return
 
 ---
 
-### 6. ❓ AJV `format: "uri"` warning på dossier-schema
-
-**Antagande:** Strict schemas validerar perfekt.
-
-**Vad vi ser:** `unknown format "uri" ignored in schema at path "#/properties/sourceRepoUrl"` × 2 per server-start. AJV Draft-07 hanterar inte `format: "uri"` inbyggt utan `ajv-formats`.
-
-**Konsekvens:** Validering av `sourceRepoUrl` är effektivt strängare än specat (ingen format-check). Inte en bugg, men inkonsekvent.
-
-**Fix:** 1-rader — antingen `ajv-formats` plugin-load eller `format: "url"` som AJV känner till.
-
-**Plan-koppling:** Trivial, kan göras i plan 12 eller separat micro-commit.
-
----
-
 ### 7. ❓ `THREE.WebGLRenderer: Context Lost` — IDE-noise eller riktig bugg?
 
 **Antagande:** Det här kommer från Cursor IDE:s egen WebGL-inspektor, inte din genererade sajt.
