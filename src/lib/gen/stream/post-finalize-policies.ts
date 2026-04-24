@@ -94,6 +94,15 @@ export function resolvePostFinalizeServerVerifyDecision(params: {
   const previewStart = getPostFinalizePreviewStartContract(finalized);
   const hasNonBlockingWarnings = previewStart.issueCounts.non_blocking_quality_warning > 0;
   const verificationBlocked = finalized.preflight.verificationBlocked === true;
+  const preflightErrorCount =
+    typeof finalized.preflight.errorCount === "number" && Number.isFinite(finalized.preflight.errorCount)
+      ? finalized.preflight.errorCount
+      : null;
+  const isFidelity2Init =
+    buildSpec.previewPolicy === "fidelity2" && buildSpec.generationMode === "init";
+  if (isFidelity2Init && preflightErrorCount === 0 && !verificationBlocked) {
+    return { run: false, reason: "design_preview_skip_verify" };
+  }
 
   if (
     buildSpec.previewPolicy === "fidelity3" ||

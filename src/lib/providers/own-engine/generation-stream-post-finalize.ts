@@ -493,6 +493,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
     finalized,
     repairPassIndex,
   });
+  const resolvedVerificationPolicy =
+    !serverVerifyDecision.run && serverVerifyDecision.reason === "design_preview_skip_verify"
+      ? "design_preview_skip_verify"
+      : buildSpec.verificationPolicy;
   // OMTAG-06: the server-verify **policy decision** (run-or-skip) is
   // retained as a devLog entry — it's not a verifier result, and the
   // projection only cares about actual verifier outcomes. The policy
@@ -516,7 +520,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     run: serverVerifyDecision.run,
     reason: serverVerifyDecision.reason,
     diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
-    verificationPolicy: buildSpec.verificationPolicy,
+    verificationPolicy: resolvedVerificationPolicy,
     qualityTarget: buildSpec.qualityTarget,
     buildIntent: buildSpec.buildIntent,
     changeScope: buildSpec.changeScope,

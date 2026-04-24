@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  LATENCY_BUDGET_PHASES,
   OBSERVED_PHASES,
   getPrometheusMetrics,
   incBriefCache,
   incEarlyStop,
   incFixerCall,
+  observePhase,
   incIngressEvent,
   incPartialFileRepair,
   incVerifierBlocking,
@@ -42,11 +44,35 @@ describe("observability/metrics", () => {
     expect(OBSERVED_PHASES).not.toContain("pre_vm_typecheck");
   });
 
+  it("exposes latency-budget phase names for init/followup instrumentation", () => {
+    expect(LATENCY_BUDGET_PHASES).toEqual([
+      "brief",
+      "codegen",
+      "autofix",
+      "syntax-validate",
+      "preflight",
+      "persist",
+      "preview-start",
+      "quality-gate",
+    ]);
+  });
+
   it("records phase duration with the phase label", async () => {
     recordPhaseDuration("validate_syntax", 1234);
     const text = await getPrometheusMetrics();
     expect(text).toContain("sajtmaskin_phase_duration_ms");
     expect(text).toMatch(/phase="validate_syntax"/);
+    expect(text).toMatch(/kind="unknown"/);
+  });
+
+  it("observePhase records latency-budget timing with an explicit init/followup kind", async () => {
+    await observePhase({ phase: "persist", kind: "followup" }, async () => {
+      // no-op
+    });
+    const text = await getPrometheusMetrics();
+    expect(text).toMatch(
+      /sajtmaskin_phase_duration_ms_count\{[^}]*phase="persist"[^}]*kind="followup"[^}]*\}\s+1/,
+    );
   });
 
   it("counts fixer calls partitioned by fixer + outcome", async () => {
