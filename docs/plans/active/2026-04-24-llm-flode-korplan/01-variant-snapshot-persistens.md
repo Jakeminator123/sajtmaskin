@@ -212,6 +212,11 @@ const persistedVariantId =
 
 `readLastResolvedVariantFromHistory` läser senaste `orchestration.styleDirection`-event från `engine_chat_events` (eller motsvarande). Det är **inte** matcher.ts som läser NDJSON — det är call-site som tråder in extra data.
 
+## Framtida arbete (M1 failsafe)
+
+- TODO lagd i `chat-message-stream-post.ts`: om `snapshotVariantId` är `null`, läs senaste resolve:ade `orchestration.styleDirection` från persistad event-historik för chatten som fallback.
+- Avgränsning i denna wave: A+B-fixar levereras först; event-history-läsare för follow-up-call-site kräver separat implementation.
+
 ## Acceptanskriterier
 
 - [ ] T1, T2, T3 finns och bevisar/avfärdar Hypotes A.

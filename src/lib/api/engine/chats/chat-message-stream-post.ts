@@ -837,6 +837,10 @@ export async function handleMessageStreamRequest(
           snapshotRecord && typeof snapshotRecord.variantId === "string"
             ? (snapshotRecord.variantId as string)
             : null;
+        // TODO(plan-01/failsafe): if snapshotVariantId is null, consider reading
+        // latest resolved `orchestration.styleDirection` for this chat from the
+        // persisted event history as a continuity fallback. Not implemented here
+        // yet because this call-site currently has no local event-history reader.
         // P22b: ärv qualityTarget från senaste accepterad versions buildSpec
         // (lagrad i orchestration_snapshot). `inheritQualityTargetFromPriorVersion`
         // i orchestrate.ts är no-op om värdet saknas eller redan matchar baseSpec.
