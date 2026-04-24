@@ -1,4 +1,3 @@
-// TODO(plan-09): kandidat för borttagning — legacy fallback-grenen validateAndFix-on-merge är dödkod när skipDoubleValidateAndFixOnMerge är hardcoded ON.
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/export/project-scaffold";
@@ -14,7 +13,6 @@ import {
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { FEATURES } from "@/lib/config";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import {
@@ -405,7 +403,7 @@ function collectOrchestrationContractIssues(
 export async function runFinalizePreflight({
   chatId,
   model: _model,
-  resolvedTier,
+  resolvedTier: _resolvedTier,
   filesJson,
   buildSpec = null,
   routePlan = null,
@@ -476,72 +474,48 @@ export async function runFinalizePreflight({
       // Hardcoded ON (FEATURES.skipDoubleValidateAndFixOnMerge=true) since
       // omtag-04 (2026-04-23). Revert via code if the legacy validateAndFix
       // behaviour is ever needed again.
-      if (FEATURES.skipDoubleValidateAndFixOnMerge) {
-        const mechanicalStartedAt = Date.now();
-        try {
-          const mechanicalResult = await runAutoFix(mergedProjectContent, {
-            chatId,
-            model: _model,
-            previewPolicy: undefined,
-          });
-          mergedProjectContent = mechanicalResult.fixedContent;
-          mergedSyntax = await validateGeneratedCode(mergedProjectContent);
-          devLogAppend("in-progress", {
-            type: "merged-syntax.mechanical-only.result",
-            chatId,
-            fixCount: mechanicalResult.fixes.length,
-            warningCount: mechanicalResult.warnings.length,
-            durationMs: Date.now() - mechanicalStartedAt,
-            stillInvalid: !mergedSyntax.valid,
-          });
-          if (mechanicalResult.fixes.length > 0) {
-            const fixedProject = parseCodeProject(mergedProjectContent);
-            if (fixedProject.files.length > 0) {
-              finalFiles = fixedProject.files;
-              nextFilesJson = JSON.stringify(finalFiles);
-            }
-          }
-        } catch (mechErr) {
-          console.warn(
-            "[merged-syntax] mechanical-only autofix failed, keeping invalid content:",
-            mechErr,
-          );
-          devLogAppend("in-progress", {
-            type: "merged-syntax.mechanical-only.error",
-            chatId,
-            message:
-              mechErr instanceof Error ? mechErr.message : "Unknown mechanical autofix error",
-          });
-        }
-      } else {
-        const mergedFixResult = await validateAndFix(mergedProjectContent, {
+      if (!FEATURES.skipDoubleValidateAndFixOnMerge) {
+        devLogAppend("in-progress", {
+          type: "merged-syntax.mechanical-only.unexpected-flag-state",
+          chatId,
+          skipDoubleValidateAndFixOnMerge: FEATURES.skipDoubleValidateAndFixOnMerge,
+        });
+      }
+      const mechanicalStartedAt = Date.now();
+      try {
+        const mechanicalResult = await runAutoFix(mergedProjectContent, {
           chatId,
           model: _model,
-          resolvedTier,
-          fixBudgetMs: 90_000,
+          previewPolicy: undefined,
         });
-        if (mergedFixResult.fixerUsed || mergedFixResult.fixerImproved) {
-          devLogAppend("in-progress", {
-            type: "merged-syntax.fixer.result",
-            chatId,
-            fixerUsed: mergedFixResult.fixerUsed,
-            fixerImproved: mergedFixResult.fixerImproved,
-            errorsBefore: mergedFixResult.errorsBefore,
-            errorsAfter: mergedFixResult.errorsAfter,
-            status: mergedFixResult.status,
-            earlyStopReason: mergedFixResult.earlyStopReason,
-          });
-        }
-
-        if (mergedFixResult.fixerUsed && mergedFixResult.errorsAfter < mergedFixResult.errorsBefore) {
-          const fixedProject = parseCodeProject(mergedFixResult.content);
+        mergedProjectContent = mechanicalResult.fixedContent;
+        mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+        devLogAppend("in-progress", {
+          type: "merged-syntax.mechanical-only.result",
+          chatId,
+          fixCount: mechanicalResult.fixes.length,
+          warningCount: mechanicalResult.warnings.length,
+          durationMs: Date.now() - mechanicalStartedAt,
+          stillInvalid: !mergedSyntax.valid,
+        });
+        if (mechanicalResult.fixes.length > 0) {
+          const fixedProject = parseCodeProject(mergedProjectContent);
           if (fixedProject.files.length > 0) {
             finalFiles = fixedProject.files;
             nextFilesJson = JSON.stringify(finalFiles);
-            mergedProjectContent = mergedFixResult.content;
-            mergedSyntax = await validateGeneratedCode(mergedProjectContent);
           }
         }
+      } catch (mechErr) {
+        console.warn(
+          "[merged-syntax] mechanical-only autofix failed, keeping invalid content:",
+          mechErr,
+        );
+        devLogAppend("in-progress", {
+          type: "merged-syntax.mechanical-only.error",
+          chatId,
+          message:
+            mechErr instanceof Error ? mechErr.message : "Unknown mechanical autofix error",
+        });
       }
 
       if (!mergedSyntax.valid) {

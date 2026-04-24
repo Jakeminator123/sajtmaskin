@@ -18,6 +18,7 @@ Source-of-truth for the format: docs/architecture/dossier-system.md
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,6 +34,9 @@ SOFT_ROOT = DOSSIER_ROOT / "soft"
 INDEX_ROOT = DOSSIER_ROOT / "_index"
 CAPABILITY_MAP_PATH = INDEX_ROOT / "capability-map.json"
 TEMPLATE_REFS_ROOT = REPO_ROOT / "data" / "template-references" / "repos"
+CAPABILITY_TIERS_PATH = (
+    REPO_ROOT / "src" / "lib" / "builder" / "follow-up-capability-detection.ts"
+)
 
 REQUIRED_FIELDS = ("id", "label", "capability", "codeFidelity", "complexity", "summary", "lastVerified")
 
@@ -149,6 +153,22 @@ def _rebuild_capability_map(dossiers: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _extract_ts_union_values(path: Path, type_name: str) -> list[str]:
+    if not path.exists():
+        return []
+    text = path.read_text(encoding="utf-8")
+    pattern = rf"type\s+{re.escape(type_name)}\s*=\s*([^;]+);"
+    match = re.search(pattern, text, re.DOTALL)
+    if not match:
+        return []
+    values: list[str] = []
+    for token in match.group(1).split("|"):
+        value = token.strip().strip('"').strip("'")
+        if value:
+            values.append(value)
+    return values
+
+
 def _section_overview(dossiers: list[dict[str, Any]]) -> None:
     st.subheader("Översikt")
     hard = [d for d in dossiers if d["_class"] == "hard"]
@@ -253,6 +273,26 @@ def _section_enforcement_overview(dossiers: list[dict[str, Any]]) -> None:
     st.dataframe(rows, width="stretch", hide_index=True)
 
 
+def _section_capability_tiers() -> None:
+    st.subheader("Capability tiers (plan 06)")
+    tiers = _extract_ts_union_values(CAPABILITY_TIERS_PATH, "CapabilitySpecificityTier")
+    if not tiers:
+        st.warning(
+            "Kunde inte läsa CapabilitySpecificityTier från "
+            "`src/lib/builder/follow-up-capability-detection.ts`."
+        )
+        return
+    st.caption(
+        "Tier-signalerna sätts i follow-up-detektionen och lagras i "
+        "`requestedCapabilityTiers` i orchestration-signalen."
+    )
+    st.dataframe(
+        [{"tier": tier} for tier in tiers],
+        width="stretch",
+        hide_index=True,
+    )
+
+
 def _section_capability_map(dossiers: list[dict[str, Any]]) -> None:
     st.subheader("Capability map")
     st.caption(
@@ -346,7 +386,15 @@ def render(ctx) -> None:  # ctx kept for backoffice signature parity
 
     dossiers = _walk_all_dossiers()
     tabs = st.tabs(
-        ["Översikt", "Lista", "Enforcement", "Redigera", "Capability map", "AI-kuration"]
+        [
+            "Översikt",
+            "Lista",
+            "Enforcement",
+            "Capability tiers",
+            "Redigera",
+            "Capability map",
+            "AI-kuration",
+        ]
     )
     with tabs[0]:
         _section_overview(dossiers)
@@ -355,8 +403,10 @@ def render(ctx) -> None:  # ctx kept for backoffice signature parity
     with tabs[2]:
         _section_enforcement_overview(dossiers)
     with tabs[3]:
-        _section_edit(dossiers)
+        _section_capability_tiers()
     with tabs[4]:
-        _section_capability_map(dossiers)
+        _section_edit(dossiers)
     with tabs[5]:
+        _section_capability_map(dossiers)
+    with tabs[6]:
         _section_curate()

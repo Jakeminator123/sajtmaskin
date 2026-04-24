@@ -118,6 +118,7 @@ export async function saveProjectData(
     /** Canonical preview URL (preferred over deprecated `demoUrl`). */
     previewUrl?: string;
     /** @deprecated Prefer `previewUrl` in new code. */
+    // TODO(after-wave-5): drop after deadline 2026-Q3 if no inbound payloads.
     demoUrl?: string;
     currentCode?: string;
     files?: PersistedFile[];

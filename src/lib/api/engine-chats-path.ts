@@ -10,8 +10,8 @@
  *
  * **Other `/api/v0/**` segments are NOT chat-compat — they are the canonical
  * permanent URL for those features.** Specifically (P29 Fas 2 decision
- * 2026-04-20): `init-registry`, `integrations/vercel/projects`,
- * `projects/instructions`, `projects/[projectId]/env-vars`, and
+ * 2026-04-20): `init-registry`, `projects/instructions`,
+ * `projects/[projectId]/env-vars`, and
  * `deployments/**` live on `/api/v0/` because they have no engine equivalent
  * and renaming them to `/api/legacy/v0/*` would be cosmetic-only with real
  * client-deploy coordination cost. Treat the `/api/v0/` prefix as canonical

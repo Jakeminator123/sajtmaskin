@@ -152,7 +152,7 @@ export const serverSchema = z.object({
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),
   AUDIT_WEB_SEARCH: z.string().optional(),
-  /** Dossier system v2: deterministic capability-driven selection from data/dossiers/{hard,soft}/ injected into prompt. On in dev, off in prod by default. See docs/architecture/dossier-system.md. */
+  /** Dossier system v2: deterministic capability-driven selection from data/dossiers/{hard,soft}/ injected into prompt. Default is on unless explicitly set to false/0. See docs/architecture/dossier-system.md. */
   SAJTMASKIN_DOSSIER_PIPELINE: z.string().optional(),
   /** When true/1, init generations may plan multiple routes but only fully realize the primary route while extras become lightweight shells. */
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
