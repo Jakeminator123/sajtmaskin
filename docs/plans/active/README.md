@@ -18,6 +18,7 @@ Senast uppdaterad: 2026-04-24 (efter långbänk-trio databas/redis/observability
 | F | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #11 | **Event-bus UI-flip** — UI läser `selectVersionStatus(events)` istället för DB-flaggor. | Medel |
 | L | [`KRAVER-DIALOG-2026-04-24.md`](./KRAVER-DIALOG-2026-04-24.md) | 7 punkter från långbänk-trion (databas/Redis observability) som kräver dialog: mega-cleanup ordering, TOCTOU-races, env-konvent, NDJSON-precision, refaktor-koordinering, fler strict schemas. | Låg–Medel |
 | M | [`OPEN-THREADS-SCAFFOLDS-2026-04-24.md`](./OPEN-THREADS-SCAFFOLDS-2026-04-24.md) | 7 trådar från scaffolds + telemetri-bugjakt (SAJ-34→SAJ-59): SEO-defaults vid fidelity3-promotion (huvudfråga), scaffold-retry brief-context, matcher-kwNorm, scoring wire/keep/delete, scaffoldRetryUsed-upstream, sv-locale-routing, latency-mätning. | Låg–Medel |
+| N | [`2026-04-24-llm-flode-korplan/`](./2026-04-24-llm-flode-korplan/README.md) | **5 spår från LLM-flöde-långbänk** (chat `eb152443`): variant-snapshot-bug, scaffold-as-delta, dossier-compat-test, bildflöde, autofix-gating. Glasklara fynd kan lyftas direkt; större spår kräver dialog. | Hög–Medel per spår |
 
 ### Paused per OMTAG `PARKED.md`
 
