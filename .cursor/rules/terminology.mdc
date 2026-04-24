@@ -36,6 +36,7 @@ Innan du lägger till en signal/ordlista/keyword-array: (1) finns canonical sour
 | **mekanisk autofix** / **LLM-fix** | "autofix" blandat ihop |
 | `previewUrl` | demoUrl (legacy) |
 | `backoffice/` | "dashboard" (legacy) |
+| `sajtmaskin_backoffice.py` (entry-skriptet i repo-roten — startar Streamlit-appen via `npm run backoffice`) | när Jake säger "backoffice", "streamlit", "pythonskriptet i roten", "backoffice-frontenden" — det är ALLTID denna entry. Du behöver inte titta i den vid varje fråga, men vet vad ordet refererar till. Sidkoden ligger i `backoffice/pages/*.py`. |
 | `Core Rules` | "prompt-static" (legacy) |
 | F2 (`fidelity2`) / F3 (`fidelity3`) | "tier 2" / "tier 3" (utom om du pratar om quality-gate-lanes) |
 

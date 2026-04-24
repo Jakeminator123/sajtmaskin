@@ -226,7 +226,8 @@ Samma ord, flera kontexter. Skriv full term när det finns risk för missförst�
 | scaffolds | Interna runtime-startpunkter | template-library, Vercel-mallar |
 | `Group` (lucide vs three) | Lucide ikon vs Three.js noden — samma PascalCase. Autofix får inte lägga till lucide-`Group` när filen har `import type { Group } from "three"` | — |
 | own-engine | Enda aktiva codegen-vägen | OpenClaw, gammal v0-runtime |
-| `backoffice` | Lokal Streamlit-app — start: `npm run backoffice` | Next.js API-server, preview-VM, "dashboard" (legacy) |
+| `backoffice` | Lokal Streamlit-app — start: `npm run backoffice` (entry-skript: `sajtmaskin_backoffice.py` i repo-roten, sidkod under `backoffice/pages/*.py`) | Next.js API-server, preview-VM, "dashboard" (legacy) |
+| `sajtmaskin_backoffice.py` | Entry-skript för backoffice (alias-namn). När operatören säger "backoffice", "streamlit", "pythonskriptet i roten", "backoffice-frontenden" syftar de på det här skriptet. Behöver inte läsas vid varje fråga. | "backoffice/" (mapp med sidkod, inte entry) |
 | OpenClaw / Sajtagenten | Separat assistent-/agentyta | Builderns LLM-flöde |
 | `appProjectId` vs `chatId` | App-project = användarens projekt; chat = own-engine-konversation | `VERCEL_PROJECT_ID` (det är något helt annat) |
 

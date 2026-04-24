@@ -530,12 +530,20 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // BUG-FIX 2026-04-24 (review-agent): tidigare alltid success: true
+        // även om enstaka projekt-deletes failade. Speglar samma härlednings-
+        // mönster som import-templates / mega-cleanup.
+        const allOk = errors.length === 0;
         return NextResponse.json({
-          success: true,
+          success: allOk,
+          partialSuccess: !allOk && deleted.length > 0,
           deleted: deleted.length,
           total: vercelProjects.length,
+          failed: errors.length,
           errors,
-          message: `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects`,
+          message: allOk
+            ? `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects`
+            : `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects (${errors.length} failed)`,
         });
       } catch (err) {
         return NextResponse.json({
@@ -631,6 +639,7 @@ function getUploadsInfo(): {
 function clearUploadsFolder(): {
   success: boolean;
   deletedCount: number;
+  failedCount: number;
   freedSpace: string;
   error?: string;
 } {
@@ -638,11 +647,12 @@ function clearUploadsFolder(): {
     const uploadsDir = getUploadsDir();
 
     if (!fs.existsSync(uploadsDir)) {
-      return { success: true, deletedCount: 0, freedSpace: "0 B" };
+      return { success: true, deletedCount: 0, failedCount: 0, freedSpace: "0 B" };
     }
 
     const files = fs.readdirSync(uploadsDir);
     let deletedCount = 0;
+    let failedCount = 0;
     let freedBytes = 0;
 
     for (const file of files) {
@@ -655,14 +665,20 @@ function clearUploadsFolder(): {
           deletedCount++;
         }
       } catch (err) {
+        // BUG-FIX 2026-04-24 (review-agent): tidigare räknades inte
+        // misslyckade deletes — funktionen returnerade success: true ändå.
+        failedCount++;
         console.error(`[Admin] Failed to delete file ${file}:`, err);
       }
     }
 
-    console.info(`[Admin] Cleared uploads: ${deletedCount} files, ${formatBytes(freedBytes)} freed`);
+    console.info(
+      `[Admin] Cleared uploads: ${deletedCount} files, ${formatBytes(freedBytes)} freed (failed: ${failedCount})`,
+    );
     return {
-      success: true,
+      success: failedCount === 0,
       deletedCount,
+      failedCount,
       freedSpace: formatBytes(freedBytes),
     };
   } catch (err) {
@@ -670,6 +686,7 @@ function clearUploadsFolder(): {
     return {
       success: false,
       deletedCount: 0,
+      failedCount: 0,
       freedSpace: "0 B",
       error: "Failed to clear uploads folder",
     };

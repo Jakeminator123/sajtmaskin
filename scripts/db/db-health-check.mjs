@@ -212,7 +212,11 @@ const connectionString = normalizeEnvUrl(
 );
 
 if (!connectionString) {
-  console.error(
+  // BUG-FIX 2026-04-24 (review-agent): tidigare console.error gjorde att
+  // backoffice (som läser stdout via subprocess.run) bara såg tomt svar
+  // och tappade konfig-fail-grenens schema. Skicka JSON till stdout så
+  // database_health.py kan rendera felet meningsfullt.
+  console.log(
     JSON.stringify({ ok: false, error: "Missing database connection URL." }),
   );
   process.exit(1);
@@ -491,7 +495,9 @@ async function run() {
 }
 
 run().catch(async (err) => {
-  console.error(JSON.stringify({ ok: false, error: err.message, stack: err.stack }));
+  // BUG-FIX 2026-04-24: stdout (inte stderr) så backoffice ser fatal-payload.
+  // Speglar fatalErrorReport-grenen i strict schema (kräver stack).
+  console.log(JSON.stringify({ ok: false, error: err.message, stack: err.stack }));
   try {
     await pool.end();
   } catch {}
