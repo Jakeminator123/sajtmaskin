@@ -40,16 +40,19 @@ function ThinkingOverlayContent() {
 
   const current = FACTS[factIndex];
 
-  // Layout note (plan-02 / STATUS-01): tidigare positionerad `absolute
-  // inset-x-0 bottom-16` vilket lade overlay:n ovanpå nederkanten av
-  // `MessageList` och dolde de senaste streamade reasoning/agentlog-raderna
-  // medan AI genererade. Flyttad till ett kompakt header-band längst upp
-  // (`top-2`) så den inte konkurrerar med chat-strömmen om vertikal
-  // skärmyta. `pointer-events-none` behålls så den inte blockerar klick.
+  // Layout history:
+  // - Original: `absolute inset-x-0 bottom-16 z-10` — covered the *last*
+  //   streamed messages in MessageList while AI was generating.
+  // - Plan 02 fix: moved to `top-2` (still absolute inside MessageList's
+  //   container) — covered the *first* messages instead. User reported it
+  //   was still hiding agentlog content.
+  // - Now (post-plan-02 follow-up): rendered as a normal flex row OUTSIDE
+  //   MessageList's container in BuilderShellContent. Takes its own line
+  //   between the env-variable card and the chat stream — covers nothing.
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center px-4">
+    <div className="border-border/40 flex justify-center border-b px-4 py-1.5">
       <div
-        className="border-border/60 bg-background/85 text-muted-foreground flex max-w-md items-center gap-3 rounded-full border px-3 py-1.5 shadow-sm backdrop-blur-sm"
+        className="text-muted-foreground flex max-w-md items-center gap-3 truncate"
         aria-live="polite"
       >
         <Loader2 className="text-primary h-3.5 w-3.5 shrink-0 animate-spin" />

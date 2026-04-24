@@ -848,6 +848,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               integrationer.
             </div>
           )}
+          <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           <div className="relative min-h-0 flex-1 overflow-hidden">
             <MessageList
               chatId={vm.chatId}
@@ -868,7 +869,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onRefresh={handleRefreshTip}
               onClose={() => setTipPanelOpen(false)}
             />
-            <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           </div>
           <ChatInterface
             chatId={vm.chatId}
