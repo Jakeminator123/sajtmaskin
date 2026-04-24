@@ -74,7 +74,11 @@
     "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
     "args": ["-NoLogo", "-NoProfile"]
   },
-  "terminal.integrated.cwd": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin",
+  // Ingen `terminal.integrated.cwd` här. En explicit cwd — även
+  // "${workspaceFolder}" — kan i Cursor Agent / remote få hostens Windows-sökväg
+  // sammanslagen med /workspace/ → "/workspace/C:\Users\...". Utebliven nyckel
+  // = standard: starta i faktisk workspace-rot i varje miljö. (Behöver du alltid
+  // en viss katalog lokalt, sätt i User settings.json, inte i denna fil.)
 
   // Statisk PATH-prepend som gäller ALLA terminaler i workspace:
   // - default-profil (laddar PROFILE) → får Volta först via båda
