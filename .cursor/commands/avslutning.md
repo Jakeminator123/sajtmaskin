@@ -33,6 +33,14 @@ Om `git status` visar pre-existerande modifieringar som inte hör till din sessi
 ## Mål
 
 1. **Granska** ändringarna med code-review-ögon: buggrisker, regressionsrisker, överdrivna docs och missad verifiering.
+   - **Bug-audit-checklista** (kör i den utsträckning det är relevant för det som rörts):
+     - **Död kod** — funktioner/exports utan call-sites: `rg "<funktionsnamn>"` ger bara filen själv? Föreslå borttagning eller wire-up.
+     - **Tysta error-paths** — `catch {}` utan logging, `?? null` som maskerar fel, `return []` vid saknad fil/dir för kritiska id.
+     - **Telemetri-fält som hardcodas** — sök `<flagga>: false` i `persist*.ts` och fråga om värdet borde komma från caller-kontext.
+     - **Filvägs-konventioner** — innan du "låser" en path-prefix (`app/` vs `src/app/`, etc.): grep:a HELA repot för andra prefix; om båda används avsiktligt, dokumentera det istället för att förenkla bort.
+     - **Schema-drift** — när du ändrar TS-typer / zod-schemas / DB-schema / JSON Schema: kontrollera de andra tre.
+     - **Auth-yta** — om du rört `src/app/api/`: är `getCurrentUser` / `withAuth` / `withRateLimit` aktivt på routen?
+     - **Dublett-koll mot Linear** innan ny issue/rapport — `list_issues` med 2-4 nyckelord, eller grep:a `.cursor/bugs/` lokalt. Skapa kommentar på existerande hellre än ny issue.
 2. **Städa inom berört scope:**
    - Ta bort tydligt död/duplicerad kod eller missvisande text.
    - Rensa halv-ersatta parallellspår: temporära hjälpfunktioner, dubbla beslutsvägar, gammal text som beskriver den ersatta vägen.
