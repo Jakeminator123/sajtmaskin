@@ -705,6 +705,91 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
     ).toBe(true);
   });
 
+  it("skips verify for clean fidelity2 init even when preview reports non-blocking warnings", () => {
+    const finalizedWithWarnings = {
+      ...finalized,
+      preflight: {
+        ...finalized.preflight,
+        issueCount: 1,
+        errorCount: 0,
+        warningCount: 1,
+        previewStart: {
+          ...finalized.preflight.previewStart,
+          issueCounts: {
+            ...finalized.preflight.previewStart.issueCounts,
+            non_blocking_quality_warning: 2,
+          },
+        },
+      },
+    };
+    expect(
+      resolvePostFinalizeServerVerifyDecision({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 48_000,
+            refsChars: 24_000,
+            systemContextChars: 96_000,
+          },
+        },
+        finalized: finalizedWithWarnings as never,
+      }),
+    ).toEqual({
+      run: false,
+      reason: "design_preview_skip_verify",
+    });
+  });
+
+  it("still runs verify for clean fidelity3 init flows", () => {
+    const finalizedClean = {
+      ...finalized,
+      preflight: {
+        ...finalized.preflight,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+      },
+    };
+    expect(
+      resolvePostFinalizeServerVerifyDecision({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "release-candidate",
+          previewPolicy: "fidelity3",
+          verificationPolicy: "strict",
+          contextPolicy: "normal",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 48_000,
+            refsChars: 24_000,
+            systemContextChars: 96_000,
+          },
+        },
+        finalized: finalizedClean as never,
+      }),
+    ).toEqual({
+      run: true,
+      reason: "policy_match",
+    });
+  });
+
   it("skips low-risk standard website flows when nothing indicates extra verify value", () => {
     expect(
       shouldTriggerPostFinalizeServerVerify({
@@ -806,6 +891,7 @@ describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {
         type: "server-verify.policy",
         run: false,
         reason: "design_preview_skip_verify",
+        verificationPolicy: "design_preview_skip_verify",
       }),
     );
   });

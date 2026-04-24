@@ -37,6 +37,18 @@ const PROMPT_TO_DONE_BUCKETS_MS = [
 
 export type PromptToDoneOutcome = "done" | "failed" | "aborted";
 export type PromptToDoneKind = "init" | "followup";
+export type LatencyBudgetKind = PromptToDoneKind | "unknown";
+export const LATENCY_BUDGET_PHASES = [
+  "brief",
+  "codegen",
+  "autofix",
+  "syntax-validate",
+  "preflight",
+  "persist",
+  "preview-start",
+  "quality-gate",
+] as const;
+export type LatencyBudgetPhase = (typeof LATENCY_BUDGET_PHASES)[number];
 
 /**
  * P19 ingress telemetry — old-content ingress paths we want to attribute
@@ -90,7 +102,7 @@ function initMetrics(): MetricsBundle {
   const phaseDuration = new prom.Histogram({
     name: "sajtmaskin_phase_duration_ms",
     help: "Duration of a Sajtmaskin pipeline phase, in milliseconds.",
-    labelNames: ["phase"],
+    labelNames: ["phase", "kind"],
     buckets: PHASE_DURATION_BUCKETS_MS,
     registers: [register],
   });
@@ -186,7 +198,31 @@ export function recordPhaseDuration(
   _attrs?: Record<string, string>,
 ): void {
   if (!Number.isFinite(durationMs) || durationMs < 0) return;
-  metrics.phaseDuration.observe({ phase }, durationMs);
+  const kind =
+    _attrs?.kind === "init" || _attrs?.kind === "followup"
+      ? _attrs.kind
+      : "unknown";
+  metrics.phaseDuration.observe({ phase, kind }, durationMs);
+}
+
+export async function observePhase<T>(
+  params: {
+    phase: LatencyBudgetPhase;
+    kind: PromptToDoneKind;
+    attrs?: Record<string, string>;
+  },
+  run: () => Promise<T> | T,
+): Promise<T> {
+  const startedAt = Date.now();
+  try {
+    return await run();
+  } finally {
+    recordPhaseDuration(
+      params.phase,
+      Math.max(0, Date.now() - startedAt),
+      { ...(params.attrs ?? {}), kind: params.kind },
+    );
+  }
 }
 
 export function incFixerCall(

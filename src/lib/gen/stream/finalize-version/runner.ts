@@ -28,6 +28,7 @@
 import { debugLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+import { observePhase, recordPhaseDuration } from "@/lib/observability/metrics";
 // Side-effect import: installs the default devLog-mirror subscriber so
 // `preflight.summary`/`server-verify.policy` entries keep flowing into
 // `generation-log-writer.ts` after the cut-over.
@@ -131,6 +132,10 @@ export async function finalizeAndSaveVersion(
     originalPrompt,
     accumulatedContent,
   });
+  const latencyBudgetKind: "init" | "followup" =
+    buildSpec?.generationMode === "followUp" || Boolean(targetVersionId)
+      ? "followup"
+      : "init";
   let telemetryRecordId: string | null = null;
   const finalizeStepTelemetry: FinalizeStepTelemetryMap = {};
   const resolveStepDurationMs = (step: OwnEnginePostStreamPhaseId): number => {
@@ -146,6 +151,11 @@ export async function finalizeAndSaveVersion(
     finalizePath: finalizePath.runDeepPath ? "full" : "light",
     finalizePathReason: finalizePath.reason,
   });
+  recordPhaseDuration(
+    "codegen",
+    Math.max(0, finalizePipelineStartedAt - startedAt),
+    { kind: latencyBudgetKind },
+  );
 
   // 1. URL expansion — runs before autofix so {{MEDIA_N}} aliases inside
   // import paths are rewritten to real URLs before any deterministic
@@ -161,18 +171,22 @@ export async function finalizeAndSaveVersion(
   // idempotent: validateAndFix downstream is told to skip its initial mechanical
   // pass (alreadyMechanicallyFixed: true) since nothing between here and there
   // mutates contentForVersion.
-  const autofixPhase = await runAutofixPrePhase({
-    runAutofix,
-    contentForVersion,
-    chatId,
-    model,
-    requestedCapabilities,
-    buildSpec,
-    resolvedScaffold,
-    resolvedTier,
-    onProgress,
-    stepTelemetry: finalizeStepTelemetry,
-  });
+  const autofixPhase = await observePhase(
+    { phase: "autofix", kind: latencyBudgetKind },
+    () =>
+      runAutofixPrePhase({
+        runAutofix,
+        contentForVersion,
+        chatId,
+        model,
+        requestedCapabilities,
+        buildSpec,
+        resolvedScaffold,
+        resolvedTier,
+        onProgress,
+        stepTelemetry: finalizeStepTelemetry,
+      }),
+  );
   contentForVersion = autofixPhase.contentForVersion;
   const autofixSucceeded = autofixPhase.autofixSucceeded;
   const {
@@ -218,10 +232,17 @@ export async function finalizeAndSaveVersion(
   });
   contentForVersion = fastPathContent;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
+  recordPhaseDuration("syntax-validate", resolveStepDurationMs("validate_syntax"), {
+    kind: latencyBudgetKind,
+  });
+  recordPhaseDuration("preflight", resolveStepDurationMs("parse_merge_preflight"), {
+    kind: latencyBudgetKind,
+  });
 
   // 5–6. Persist assistant + version atomically after merge/preflight.
   // When targetVersionId is set (autofix / repair), update existing version in-place
   // instead of minting a new version number.
+  const persistStartedAt = Date.now();
   const thinkingForPersist =
     typeof params.accumulatedThinking === "string" && params.accumulatedThinking.length > 0
       ? params.accumulatedThinking
@@ -455,6 +476,9 @@ export async function finalizeAndSaveVersion(
       verifierBlockingFindingCount: verifierBlockingFindings.length,
     });
   }
+  recordPhaseDuration("persist", Math.max(0, Date.now() - persistStartedAt), {
+    kind: latencyBudgetKind,
+  });
 
   debugLog("finalize", "Finalize pipeline complete", {
     chatId,
