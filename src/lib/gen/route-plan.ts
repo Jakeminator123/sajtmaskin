@@ -1,6 +1,9 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { debugLog } from "@/lib/utils/debug";
 import type { ScaffoldManifest } from "./scaffolds/types";
+import { dedupePlannedRoutesInPlaceByLocale, deduplicateLocaleAlternateRoutes } from "./route-plan/locale-dedupe";
+import { extractAppRoutePathsFromFilePaths, normalizeRoutePath } from "./route-plan/path-utils";
+import { findMissingRequiredRoutes, routePatternToRegex } from "./route-plan/route-matchers";
+import { WEBSITE_ROUTE_PATTERNS, APP_ROUTE_PATTERNS } from "./route-plan/route-patterns";
 
 export const ROUTE_PLAN_SITE_TYPES = [
   "one-page",
@@ -132,8 +135,6 @@ type BriefPageLike = {
   purpose?: unknown;
 };
 
-import { WEBSITE_ROUTE_PATTERNS, APP_ROUTE_PATTERNS } from "./route-plan/route-patterns";
-
 // Keep removal language explicit so "utan ..." copy/layout phrasing
 // does not silently delete routes during follow-ups.
 const ROUTE_REMOVAL_VERB_RE =
@@ -144,23 +145,6 @@ const ROUTE_PATH_MENTION_RE = /\/[a-z0-9/_-]*/gi;
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-export function normalizeRoutePath(value: string): string {
-  if (!value) return "/";
-  const trimmed = value.trim();
-  if (trimmed === "/") return "/";
-  const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  const normalizedSegments = withLeadingSlash
-    .replace(/\/{2,}/g, "/")
-    .split("/")
-    .map((segment) => {
-      if (!segment.startsWith(":")) return segment;
-      const paramName = segment.slice(1).trim();
-      return paramName ? `[${paramName}]` : segment;
-    })
-    .join("/");
-  return normalizedSegments.replace(/\/$/, "") || "/";
 }
 
 function inferPathFromPageName(name: string): string {
@@ -606,199 +590,12 @@ export function buildRoutePlan(params: {
   };
 }
 
-/**
- * Locale-alternate route pairs that mean the same destination in different
- * languages. When the generator (LLM) emits both variants we keep only the
- * one that matches the project's resolved locale so navigation, sitemaps,
- * and internal linking stay coherent. Sv-default for sajtmaskin's typical
- * Swedish builds.
- */
-const LOCALE_ROUTE_PAIRS: Array<{ en: string; sv: string }> = [
-  { en: "/contact", sv: "/kontakt" },
-  { en: "/about", sv: "/om" },
-  { en: "/services", sv: "/tjanster" },
-  { en: "/blog", sv: "/blogg" },
-];
-
-/**
- * In-place dedupe of locale-alternate `PlannedRoute` pairs (e.g. `/blog` vs
- * `/blogg`) before the route plan is sent to the LLM. Without this, a brief
- * defining `/blogg` plus a scaffold/prompt-pattern adding `/blog` produces a
- * route plan with both variants — the LLM then often emits inconsistent
- * `<Link href="/blog/${slug}">` against an actual `/blogg/[slug]` route,
- * which fails the verifier's `navigation-placeholder-actions` rule.
- *
- * Kept route preserves its existing `name`, `intent`, and `required` flags;
- * the dropped variant's `required` flag is OR-merged into the kept one.
- */
-function dedupePlannedRoutesInPlaceByLocale(
-  routes: PlannedRoute[],
-  locale: string,
-): { droppedPaths: string[] } {
-  const lc = (locale ?? "sv").toLowerCase();
-  const isSwedish = lc.startsWith("sv");
-  const keepKey: "sv" | "en" = isSwedish ? "sv" : "en";
-  const dropKey: "sv" | "en" = isSwedish ? "en" : "sv";
-  const dropped: string[] = [];
-
-  for (const pair of LOCALE_ROUTE_PAIRS) {
-    const keepIndex = routes.findIndex(
-      (route) => normalizeRoutePath(route.path) === pair[keepKey],
-    );
-    const dropIndex = routes.findIndex(
-      (route) => normalizeRoutePath(route.path) === pair[dropKey],
-    );
-    if (keepIndex < 0 || dropIndex < 0) continue;
-
-    const dropRoute = routes[dropIndex]!;
-    const keepRoute = routes[keepIndex]!;
-    if (dropRoute.required) keepRoute.required = true;
-    routes.splice(dropIndex, 1);
-    dropped.push(pair[dropKey]);
-  }
-
-  if (dropped.length > 0) {
-    debugLog("GEN", "[route-plan] dropped duplicate locale-alternate routes", {
-      locale: lc,
-      kept: keepKey,
-      dropped,
-    });
-  }
-
-  return { droppedPaths: dropped };
-}
-
-/**
- * Path-list flavour of locale-alternate dedupe. Returns a fresh array with
- * collapsed duplicates and preserves the input order.
- *
- * Production callers inside `buildRoutePlan()` use the richer in-place
- * {@link dedupePlannedRoutesInPlaceByLocale} which preserves
- * `name`/`intent`/`required` on the kept route. Use this string-list
- * function only when you have a bare path array (e.g. tests or external
- * consumers that don't carry full {@link PlannedRoute} objects).
- *
- * Both functions share {@link LOCALE_ROUTE_PAIRS} as the single source of
- * truth for locale-alternate pairs.
- */
-export function deduplicateLocaleAlternateRoutes(
-  routes: string[],
-  locale: string,
-): string[] {
-  if (!Array.isArray(routes) || routes.length === 0) return [];
-  const lc = (locale ?? "sv").toLowerCase();
-  const isSwedish = lc.startsWith("sv");
-  const keepKey: "sv" | "en" = isSwedish ? "sv" : "en";
-  const dropKey: "sv" | "en" = isSwedish ? "en" : "sv";
-  const normalized = routes.map((r) => normalizeRoutePath(r));
-  const present = new Set(normalized);
-  const dropped: string[] = [];
-  for (const pair of LOCALE_ROUTE_PAIRS) {
-    if (present.has(pair[keepKey]) && present.has(pair[dropKey])) {
-      present.delete(pair[dropKey]);
-      dropped.push(pair[dropKey]);
-    }
-  }
-  if (dropped.length > 0) {
-    debugLog("GEN", "[route-plan] dropped duplicate locale-alternate routes", {
-      locale: lc,
-      kept: keepKey,
-      dropped,
-    });
-  }
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const path of normalized) {
-    if (!present.has(path)) continue;
-    if (seen.has(path)) continue;
-    seen.add(path);
-    result.push(path);
-  }
-  return result;
-}
-
-export function extractAppRoutePathsFromFilePaths(filePaths: string[]): string[] {
-  const routes = new Set<string>();
-  for (const rawFilePath of filePaths) {
-    const rawName = rawFilePath.replace(/^\/+/, "");
-    if (/^page\.(t|j)sx?$/.test(rawName)) {
-      routes.add("/");
-      continue;
-    }
-    let rest: string | null = null;
-    if (rawName.startsWith("src/app/")) rest = rawName.slice("src/app/".length);
-    if (rawName.startsWith("app/")) rest = rawName.slice("app/".length);
-    if (!rest) continue;
-    if (!/page\.(t|j)sx?$/.test(rest)) continue;
-    const parts = rest.split("/");
-    parts.pop();
-    const segments = parts
-      .filter(Boolean)
-      .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")))
-      .filter((segment) => !segment.startsWith("@"));
-    const route = `/${segments.join("/")}`;
-    routes.add(route === "/" ? "/" : route.replace(/\/+$/, ""));
-  }
-  return Array.from(routes);
-}
-
-export function routePatternToRegex(route: string): RegExp {
-  const cleaned = normalizeRoutePath(route);
-  if (cleaned === "/") return /^\/$/;
-  const segments = cleaned.split("/").filter(Boolean);
-  let pattern = "^";
-  for (const segment of segments) {
-    if (segment.startsWith("[[...") && segment.endsWith("]]")) {
-      pattern += "(?:/.*)?";
-      break;
-    }
-    if (segment.startsWith("[...") && segment.endsWith("]")) {
-      pattern += "/.+";
-      continue;
-    }
-    if (segment.startsWith("[") && segment.endsWith("]")) {
-      pattern += "/[^/]+";
-      continue;
-    }
-    const escaped = segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    pattern += `/${escaped}`;
-  }
-  pattern += "$";
-  return new RegExp(pattern);
-}
-
-function dynamicPrefixCoversPath(actualRoute: string, plannedPath: string): boolean {
-  const actual = normalizeRoutePath(actualRoute);
-  const planned = normalizeRoutePath(plannedPath);
-  if (actual === planned) return true;
-
-  const segments = actual.split("/").filter(Boolean);
-  const firstDynamicIndex = segments.findIndex(
-    (segment) =>
-      (segment.startsWith("[") && segment.endsWith("]")) ||
-      (segment.startsWith("[...") && segment.endsWith("]")) ||
-      (segment.startsWith("[[...") && segment.endsWith("]]")),
-  );
-  if (firstDynamicIndex < 0) return false;
-
-  const prefixSegments = segments.slice(0, firstDynamicIndex);
-  const prefixPath = prefixSegments.length > 0 ? `/${prefixSegments.join("/")}` : "/";
-  return planned === prefixPath;
-}
-
 export function findMissingPlannedRoutes(
   routePlan: RoutePlan | null | undefined,
   actualRoutes: string[],
 ): PlannedRoute[] {
   if (!routePlan || routePlan.routes.length === 0) return [];
-  const normalizedActualRoutes = actualRoutes.map((route) => normalizeRoutePath(route));
-  const matchers = normalizedActualRoutes.map(routePatternToRegex);
-  return routePlan.routes.filter((route) => {
-    if (!route.required) return false;
-    const plannedPath = normalizeRoutePath(route.path);
-    return !matchers.some((matcher, index) => {
-      if (matcher.test(plannedPath)) return true;
-      return dynamicPrefixCoversPath(normalizedActualRoutes[index]!, plannedPath);
-    });
-  });
+  return findMissingRequiredRoutes(routePlan.routes, actualRoutes);
 }
+
+export { deduplicateLocaleAlternateRoutes, extractAppRoutePathsFromFilePaths, normalizeRoutePath, routePatternToRegex };
