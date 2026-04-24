@@ -391,9 +391,9 @@ function findMatchingCluster(
 function applyEnforcementOverlay(
   integrations: DetectedIntegration[],
   clusters: DossierEnforcementCluster[],
-  hasSelectedDossiers: boolean,
+  selectedDossiersProvided: boolean,
 ): DetectedIntegration[] {
-  if (!hasSelectedDossiers && integrations.every((i) => !i.envEnforcement)) {
+  if (!selectedDossiersProvided && integrations.every((i) => !i.envEnforcement)) {
     return integrations;
   }
   return integrations.map((integration) => {
@@ -412,12 +412,31 @@ function applyEnforcementOverlay(
       }
     }
 
+    // Plan-12 fix (#15): when the caller supplied a snapshot-resolved
+    // dossier set AND no dossier matches this detected integration, the
+    // user did not actually request the integration via a capability.
+    // Defaulting unmatched keys to "build" caused F2 readiness + F3
+    // finalize-design to falsely block on STRIPE_SECRET_KEY / CLERK_SECRET_KEY
+    // for slug-only landing pages (chat b71dafb3, 2026-04-24). Downgrade
+    // to "warn-only" so the keys are still surfaced (informational) but
+    // never block the build. Custom-env spillover keeps "build" because
+    // it represents the user's own process.env.* references that we have
+    // no way to classify. Cluster-matched siblings without an explicit
+    // enforcement entry still default to "build" — the dossier accepts
+    // responsibility for keys it ships.
+    const integrationHasNoBacking =
+      selectedDossiersProvided && !cluster && integration.key !== "custom-env";
+    const unbackedFallback: DossierEnvVarEnforcement = integrationHasNoBacking
+      ? "warn-only"
+      : "build";
+
     const envEnforcement: Record<string, DossierEnvVarEnforcement> = {
       ...(integration.envEnforcement ?? {}),
     };
     for (const envKey of mergedEnvVars) {
       if (envEnforcement[envKey]) continue; // existing override wins
-      envEnforcement[envKey] = cluster?.enforcementByKey.get(envKey) ?? "build";
+      envEnforcement[envKey] =
+        cluster?.enforcementByKey.get(envKey) ?? unbackedFallback;
     }
     return { ...integration, envVars: mergedEnvVars, envEnforcement };
   });
@@ -431,10 +450,15 @@ export function detectIntegrations(
   const withCustomEnv =
     options.lifecycleStage === "design" ? base : appendCustomEnvIntegrations(code, base);
   const clusters = buildEnvEnforcementClusters(options.selectedDossiers);
+  // Plan-12 fix (#15): treat "snapshot resolved with empty selections"
+  // (selectedDossiers: []) the same as "snapshot resolved with N selections"
+  // for the purpose of the warn-only downgrade. The previous truthiness
+  // check (`length > 0`) collapsed both into the legacy "default to build"
+  // branch, leaving slug-only chats with the same false-positive blockers.
   return applyEnforcementOverlay(
     withCustomEnv,
     clusters,
-    Boolean(options.selectedDossiers && options.selectedDossiers.length > 0),
+    options.selectedDossiers !== undefined,
   );
 }
 
@@ -465,9 +489,9 @@ export function detectIntegrationsFromVersionFiles(
     .join("\n\n");
 
   const clusters = buildEnvEnforcementClusters(options.selectedDossiers);
-  const hasSelectedDossiers = Boolean(
-    options.selectedDossiers && options.selectedDossiers.length > 0,
-  );
+  // See note in `detectIntegrations` — `!== undefined` distinguishes
+  // "snapshot resolved" (even if empty) from "no snapshot info available".
+  const selectedDossiersProvided = options.selectedDossiers !== undefined;
 
   if (manifestParsed) {
     const fromManifest = detectedIntegrationsFromManifest(manifestParsed);
@@ -475,7 +499,7 @@ export function detectIntegrationsFromVersionFiles(
       options.lifecycleStage === "design"
         ? fromManifest
         : appendCustomEnvIntegrations(codeForScan, fromManifest);
-    return applyEnforcementOverlay(merged, clusters, hasSelectedDossiers);
+    return applyEnforcementOverlay(merged, clusters, selectedDossiersProvided);
   }
 
   const combined = files.map((f) => `// File: ${f.name}\n${f.content}`).join("\n\n");
