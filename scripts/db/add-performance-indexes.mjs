@@ -1,14 +1,26 @@
 /**
  * Performance index migration — 2026-04-24 långbänk.
  *
- * Idempotent: alla `CREATE INDEX IF NOT EXISTS`. Säker att köra om-och-om-igen
- * mot dev OCH prod. Använder INTE `CONCURRENTLY` för att fungera i transaktion;
- * tabellerna är små nog (engine_messages: tusentals rader) att kort write-lock
- * är acceptabelt. Om du har miljontals rader: kör manuellt med CONCURRENTLY.
+ * Idempotent: alla `CREATE INDEX IF NOT EXISTS` + dedupe-aware (hoppar över
+ * index som redan täcks av annat namn på samma kolumner). Säker att köra
+ * om-och-om-igen mot dev OCH prod. Använder INTE `CONCURRENTLY` för att
+ * fungera i transaktion; tabellerna är små nog (engine_messages: tusentals
+ * rader) att kort write-lock är acceptabelt. Om du har miljontals rader:
+ * kör manuellt med CONCURRENTLY.
  *
  * Kör:
- *   npm run db:perf-indexes        # rekommenderad väg
- *   node scripts/db/add-performance-indexes.mjs
+ *   npm run db:perf-indexes                              # apply
+ *   npm run db:perf-indexes:dry                          # dry-run
+ *   node scripts/db/add-performance-indexes.mjs --reason "auto: predev"
+ *
+ * Auto-körning:
+ *   - `npm run dev` triggar `predev` som inkluderar denna migration
+ *     (samma mönster som `db:init`). Säker eftersom skriptet är idempotent
+ *     och dev pekar mot dev-DB:n via `.env.local`.
+ *   - I prod: backoffice-sidan "Databashälsa" har en knapp som kräver
+ *     skriftlig motivering ("varför kör du detta?") + bekräftelse innan
+ *     den triggar denna migration. Audit-logg skrivs till
+ *     `data/observability/db-perf-indexes-runs.ndjson`.
  *
  * Bakgrund: `src/lib/db/schema.ts` deklarerar FK-relationer men Postgres
  * skapar INTE automatiskt index på FK-kolumner. Hot-path-queries som
@@ -20,19 +32,26 @@
  */
 import { Pool } from "pg";
 import { config } from "dotenv";
+import { mkdir, appendFile } from "fs/promises";
+import { dirname, join } from "path";
 import { assertSafeWriteTarget, normalizeEnvUrl } from "./db-target-guard.mjs";
 
 config({ path: ".env.local" });
 
 assertSafeWriteTarget({ commandName: "db:perf-indexes" });
 
-const connectionString = normalizeEnvUrl(
-  process.env.POSTGRES_URL ||
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.STORAGE_POSTGRES_URL ||
-    process.env.STORAGE_POSTGRES_URL_NON_POOLING ||
-    process.env.DATABASE_URL,
+const AUDIT_LOG_PATH = join(
+  process.cwd(),
+  "data/observability/db-perf-indexes-runs.ndjson",
 );
+
+// normalizeEnvUrl: trims, fångar uninterpolerade `${VAR}`-värden från env-puller
+const connectionString =
+  normalizeEnvUrl(process.env.POSTGRES_URL) ||
+  normalizeEnvUrl(process.env.POSTGRES_URL_NON_POOLING) ||
+  normalizeEnvUrl(process.env.STORAGE_POSTGRES_URL) ||
+  normalizeEnvUrl(process.env.STORAGE_POSTGRES_URL_NON_POOLING) ||
+  normalizeEnvUrl(process.env.DATABASE_URL);
 
 if (!connectionString) {
   console.error("[db:perf-indexes] Missing database connection URL.");
@@ -247,6 +266,23 @@ const PERF_INDEXES = [
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
+/**
+ * Plocka ut värdet från `--reason "..."` eller `--reason=...`. Används för
+ * audit-loggen så vi kan svara på "varför kördes denna migration kl 03:14
+ * i lördags?". `predev`-anropet skickar `--reason auto:predev`; backoffice-
+ * knappen skickar användarens skrivna motivering.
+ */
+function parseReasonArg() {
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === "--reason" && i + 1 < args.length) return args[i + 1];
+    const m = args[i].match(/^--reason=(.+)$/);
+    if (m) return m[1];
+  }
+  return null;
+}
+const REASON = parseReasonArg();
+
 async function tableExists(name) {
   const { rows } = await pool.query(
     `SELECT 1 FROM information_schema.tables WHERE table_name = $1 LIMIT 1`,
@@ -371,11 +407,47 @@ async function run() {
     console.info(
       `[db:perf-indexes] Klart. created=${created} already=${already} skipped=${skipped} failed=${failures.length}`,
     );
+
+    // Audit-logg — alltid (även dry-run) så vi vet vem som körde vad och varför.
+    // Best-effort; en misslyckad write här ska inte misslyckas hela migrationen.
+    try {
+      await mkdir(dirname(AUDIT_LOG_PATH), { recursive: true });
+      const entry = {
+        timestamp: new Date().toISOString(),
+        dry_run: DRY_RUN,
+        reason: REASON,
+        target_redacted: redactConnectionString(connectionString),
+        created,
+        already,
+        skipped,
+        failed: failures.length,
+        failures: failures.length > 0 ? failures : undefined,
+        process_user: process.env.USER || process.env.USERNAME || null,
+        runtime_env:
+          process.env.VERCEL_ENV ||
+          (process.env.NODE_ENV === "production" ? "production" : "development"),
+      };
+      await appendFile(AUDIT_LOG_PATH, JSON.stringify(entry) + "\n");
+    } catch (auditErr) {
+      console.warn(
+        `[db:perf-indexes] Audit-logg kunde inte skrivas (${auditErr.message}); migrationen lyckades ändå.`,
+      );
+    }
+
     if (failures.length > 0) {
       process.exitCode = 1;
     }
   } finally {
     await pool.end();
+  }
+}
+
+function redactConnectionString(connStr) {
+  try {
+    const url = new URL(connStr);
+    return `${url.protocol}//${url.username}:***@${url.host}${url.pathname}`;
+  } catch {
+    return "(invalid URL)";
   }
 }
 

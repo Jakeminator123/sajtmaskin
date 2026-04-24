@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
-"""Databashälsa — visa alla tabeller, indexstatus och en "testa allt"-knapp.
+"""Databashälsa — visa alla tabeller, indexstatus och kör migrationer säkert.
 
-Read-only Streamlit-sida som anropar `scripts/db/db-health-check.mjs`
-(Node-script) via subprocess. Sidan VISAR resultatet — den ändrar aldrig
-databasen själv. Saknade index → en knapp som föreslår att köra
-`npm run db:perf-indexes` (men kör det inte själv; användaren bestämmer).
+Streamlit-sida med tre delar:
+  1. **Hälso-koll** (read-only): kör `scripts/db/db-health-check.mjs` via
+     subprocess och visar tabell-status + saknade index.
+  2. **Applicera index** (mutation, gated): "röd knapp" som kör
+     `scripts/db/add-performance-indexes.mjs` (idempotent + dedupe-aware).
+     Kräver minst 10 teckens motivering + bekräftelse innan apply blir aktiv.
+     Audit-logg skrivs till `data/observability/db-perf-indexes-runs.ndjson`.
+  3. **Historik**: linjegrafer från snapshot-NDJSON (rader, latens, missing).
 
-Snapshots sparas i `data/observability/db-health-snapshots.ndjson` när
-"Spara snapshot"-rutan är ikryssad. Historiken renderas som linjegrafer
-(rader per tabell över tid + connection-latens).
+Auto-applicering: `npm run dev` triggar `predev` som kör perf-indexes som
+soft-step (failar inte dev-server om migrationen krånglar). I prod körs
+ingenting automatiskt — knappen är den enda triggern.
+
+Designprincip: användaren kan vara icke-teknisk. Vi gör det medvetet
+SVÅRT att råka klicka apply (text-ruta + checkbox). Skriptet är säkert
+även vid "olyckliga" klick (idempotent), men friktionen tvingar reflektion.
 """
 
 from __future__ import annotations
@@ -27,9 +35,11 @@ import streamlit as st
 from backoffice.shared import BackofficeContext
 
 _DEFAULT_TIMEOUT_S = 60
+_PERF_INDEX_TIMEOUT_S = 300  # CREATE INDEX kan ta tid på stora tabeller
 _HEALTH_SCRIPT_REL = "scripts/db/db-health-check.mjs"
 _PERF_INDEX_SCRIPT_REL = "scripts/db/add-performance-indexes.mjs"
 _SNAPSHOT_REL = "data/observability/db-health-snapshots.ndjson"
+_PERF_AUDIT_REL = "data/observability/db-perf-indexes-runs.ndjson"
 
 
 def _resolve_node_command() -> tuple[str, ...] | None:
@@ -88,6 +98,71 @@ def _run_health_check(ctx: BackofficeContext, *, snapshot: bool, exact_count: bo
     if proc.stderr:
         payload.setdefault("client_stderr_tail", proc.stderr[-2000:])
     return payload
+
+
+def _run_perf_indexes(ctx: BackofficeContext, *, reason: str, dry_run: bool) -> dict[str, Any]:
+    """Kör add-performance-indexes.mjs med audit-reason. Returnerar parsed result."""
+    node = _resolve_node_command()
+    if node is None:
+        return {"ok": False, "error": "node finns inte på PATH."}
+
+    args: list[str] = list(node) + [
+        str(ctx.repo_root / _PERF_INDEX_SCRIPT_REL),
+        "--reason",
+        reason,
+    ]
+    if dry_run:
+        args.append("--dry-run")
+
+    started = time.time()
+    try:
+        proc = subprocess.run(
+            args,
+            cwd=str(ctx.repo_root),
+            capture_output=True,
+            text=True,
+            timeout=_PERF_INDEX_TIMEOUT_S,
+            shell=False,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "error": f"Migrationen timade ut efter {_PERF_INDEX_TIMEOUT_S}s.",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": f"Misslyckades starta node: {exc}"}
+
+    elapsed = time.time() - started
+    return {
+        "ok": proc.returncode == 0,
+        "exit_code": proc.returncode,
+        "stdout_tail": proc.stdout[-4000:],
+        "stderr_tail": proc.stderr[-4000:],
+        "elapsed_sec": round(elapsed, 2),
+    }
+
+
+def _load_perf_audit_log(ctx: BackofficeContext, max_rows: int = 50) -> list[dict[str, Any]]:
+    path = ctx.repo_root / _PERF_AUDIT_REL
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    try:
+        with path.open("rb") as fh:
+            fh.seek(0, 2)
+            size = fh.tell()
+            chunk = min(size, 256_000)
+            fh.seek(size - chunk)
+            tail = fh.read().decode("utf-8", errors="replace")
+        lines = [ln for ln in tail.splitlines() if ln.strip()]
+        for ln in lines[-max_rows:]:
+            try:
+                rows.append(json.loads(ln))
+            except json.JSONDecodeError:
+                continue
+    except OSError:
+        return []
+    return rows
 
 
 def _load_snapshots(ctx: BackofficeContext, max_rows: int = 200) -> list[dict[str, Any]]:
@@ -165,6 +240,9 @@ flaggas det med ⚠️. Sidan är read-only så det är säkert, men bra att vet
         st.info("Tryck **Testa allt nu** för att köra första hälso-kollen.")
     else:
         _render_payload(payload, ctx)
+
+    st.divider()
+    _render_perf_index_button(ctx, payload)
 
     st.divider()
     _render_history(ctx)
@@ -248,6 +326,159 @@ def _render_payload(payload: dict[str, Any], ctx: BackofficeContext) -> None:
 
     with st.expander("Råa JSON-svaret (för debug)", expanded=False):
         st.json(payload)
+
+
+def _render_perf_index_button(ctx: BackofficeContext, payload: dict[str, Any] | None) -> None:
+    """Röd knapp: skapa saknade index. Kräver motivering + bekräftelse + audit-logg.
+
+    Designprincip: användaren kan vara icke-teknisk. Vi gör det medvetet
+    SVÅRT att råka klicka — text-rutan tvingar reflektion, kryss-rutan
+    bekräftar att man läst varningen, och targetet visas i klartext.
+    Skriptet i sig (`add-performance-indexes.mjs`) är idempotent + dedupe-
+    aware, så även "olyckliga" klick är säkra. Audit-logg skrivs alltid.
+    """
+    st.subheader("🔧 Applicera saknade index")
+
+    missing_count = 0
+    if payload:
+        missing_count = (payload.get("summary") or {}).get("total_indexes_missing", 0)
+        target = payload.get("target", "(okänd)")
+        is_prod_like = payload.get("is_prod_like", False)
+    else:
+        target = "(okänd — tryck Testa allt nu först)"
+        is_prod_like = False
+
+    if missing_count == 0 and payload is not None:
+        st.success(
+            "✅ Inga saknade index. Den här knappen är gråad — det finns inget att applicera."
+        )
+
+    with st.expander("Vad gör knappen?", expanded=False):
+        st.markdown(
+            """
+**Vad körs:** `node scripts/db/add-performance-indexes.mjs --reason "<din motivering>"`
+
+**Vad händer:**
+- Skriptet skapar alla index som backoffice-checken markerat som "saknade" ovan.
+- Skriptet är **idempotent** (`CREATE INDEX IF NOT EXISTS`) — om något redan
+  finns hoppas det över. Du kan trycka den 100 gånger utan skada.
+- Det är **dedupe-aware** — om ett index med annat namn redan täcker samma
+  kolumner, hoppas det över istället för att skapa en duplikat.
+- Skriptet **ändrar inte data** i tabellerna. Det skapar bara index, vilket
+  Postgres bygger i bakgrunden och gör queries snabbare.
+- En audit-rad skrivs till `data/observability/db-perf-indexes-runs.ndjson`
+  med tidsstämpel, din motivering, och resultatet.
+
+**Vad kan gå fel:**
+- DB:n är otillgänglig → migrationen failar tyst, audit-logg visar varför.
+- Två agenter försöker skapa samma index samtidigt → en av dem får
+  "already exists" och hoppar över. Inget skadligt händer.
+- Indexet tar längre tid att bygga än 5 minuter → timeout. På små tabeller
+  (< 100k rader) bör det aldrig hända.
+
+**När du ska klicka:**
+- När hälsokollen ovan visar saknade index OCH du noterar att appen är slö.
+- Efter en schema-migration som lagt till nya tabeller.
+- Som rutin efter större deploys.
+
+**När du INTE ska klicka:**
+- Om du inte har kollat att DB-pekaren ovan stämmer (`.env.local` POSTGRES_URL).
+- Om appen pågår en stor write-burst (t.ex. mass-import). Vänta tills lugnt.
+            """
+        )
+
+    st.markdown(
+        f"**Mål-DB:** `{target}`"
+        + (" ⚠️ **PROD-LIKE — extra försiktig!**" if is_prod_like else "")
+    )
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        reason = st.text_input(
+            "Varför kör du detta? (loggas i audit-NDJSON)",
+            value="",
+            placeholder="Ex: 'Hälsokollen visade 17 saknade index efter dagens deploy'",
+            help="Skriv minst 10 tecken. Tomt eller för kort → knappen är inaktiv.",
+            key="perf_idx_reason",
+        )
+    with col2:
+        st.write("")  # spacer
+        st.write("")  # spacer
+        confirmed = st.checkbox(
+            "Jag förstår vad knappen gör",
+            value=False,
+            key="perf_idx_confirmed",
+        )
+
+    valid_reason = isinstance(reason, str) and len(reason.strip()) >= 10
+    can_run = valid_reason and confirmed
+
+    btn_col1, btn_col2 = st.columns([1, 1])
+    with btn_col1:
+        if st.button(
+            "🔍 Dry-run (se exakt vad som skulle göras)",
+            disabled=not valid_reason,
+            help="Säker — skapar inga index, bara visar.",
+            key="perf_idx_dry",
+        ):
+            with st.spinner("Kör dry-run…"):
+                result = _run_perf_indexes(ctx, reason=reason.strip(), dry_run=True)
+            st.session_state["perf_idx_last_result"] = {"mode": "dry_run", **result}
+    with btn_col2:
+        # Använd type="primary" för att markera den som "huvudknapp" (visuellt röd/blå
+        # beroende på Streamlit-tema). Vi simulerar "röd" genom att namnet är tydligt.
+        if st.button(
+            "⚡ APPLY — skapa saknade index nu",
+            type="primary",
+            disabled=not can_run,
+            help=("Bocka i bekräftelsen + minst 10 tecken motivering" if not can_run else None),
+            key="perf_idx_apply",
+        ):
+            with st.spinner("Applicerar — kan ta upp till 5 min på stora tabeller…"):
+                result = _run_perf_indexes(ctx, reason=reason.strip(), dry_run=False)
+            st.session_state["perf_idx_last_result"] = {"mode": "apply", **result}
+
+    last = st.session_state.get("perf_idx_last_result")
+    if last:
+        mode_label = "DRY-RUN" if last.get("mode") == "dry_run" else "APPLY"
+        if last.get("ok"):
+            st.success(
+                f"✅ {mode_label} klar på {last.get('elapsed_sec', '?')}s (exit {last.get('exit_code', '?')})"
+            )
+        else:
+            st.error(
+                f"❌ {mode_label} failade — {last.get('error') or 'se stdout/stderr nedan'}"
+            )
+        with st.expander(f"{mode_label}: stdout/stderr (för debug)", expanded=not last.get("ok")):
+            if last.get("stdout_tail"):
+                st.code(last["stdout_tail"], language="bash")
+            if last.get("stderr_tail"):
+                st.caption("stderr:")
+                st.code(last["stderr_tail"], language="bash")
+
+    # Audit-historik (alla kör — auto-predev + manuella)
+    audit_rows = _load_perf_audit_log(ctx, max_rows=20)
+    if audit_rows:
+        with st.expander(f"Audit-logg (sista {len(audit_rows)} körningar)", expanded=False):
+            display_rows = []
+            for entry in reversed(audit_rows):  # nyast först
+                display_rows.append(
+                    {
+                        "Tidsstämpel": entry.get("timestamp", "?"),
+                        "Läge": "DRY-RUN" if entry.get("dry_run") else "APPLY",
+                        "Skapade": entry.get("created", 0),
+                        "Fanns": entry.get("already", 0),
+                        "Failade": entry.get("failed", 0),
+                        "Av": entry.get("process_user") or "?",
+                        "Miljö": entry.get("runtime_env", "?"),
+                        "Motivering": entry.get("reason") or "(ingen)",
+                    }
+                )
+            st.dataframe(
+                pd.DataFrame(display_rows),
+                use_container_width=True,
+                hide_index=True,
+            )
 
 
 def _render_history(ctx: BackofficeContext) -> None:

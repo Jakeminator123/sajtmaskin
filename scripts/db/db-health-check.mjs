@@ -461,7 +461,12 @@ async function run() {
 
   console.log(JSON.stringify(out));
   await pool.end();
-  process.exit(out.ok ? 0 : 0); // alltid 0 — vi rapporterar status i JSON
+  // Exit-kod speglar `out.ok` så CI-pipelines / cron-jobb / health-monitorer
+  // kan upptäcka när något är fel (saknat index, connection error, etc).
+  // Backoffice-sidan parser stdout oavsett exit-kod så denna ändring
+  // bryter inte database_health.py. För användning där exit alltid ska
+  // vara 0 (t.ex. info-only logging), kör med `|| true` i shell.
+  process.exit(out.ok ? 0 : 1);
 }
 
 run().catch(async (err) => {

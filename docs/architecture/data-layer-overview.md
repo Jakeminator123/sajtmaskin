@@ -4,7 +4,27 @@
 > ligger, vad det kostar, och hur du själv kan kolla att allt är OK.
 >
 > Långbänk 2026-04-24 — se `lineage/2026-04-24-långbänk-databas-redis-observability.md`
-> för körlogg.
+> för körlogg. Uppföljning samma dag (auto-update + röd knapp + bug-fix) i
+> `lineage/2026-04-24-langbank-perf-indexes-auto-och-knapp.md`.
+
+## ⚠️ Läs detta först (om du är osäker på databaser)
+
+Den här filen + backoffice-sidorna **Databashälsa** och **Redis-hälsa** är
+skrivna för dig som **inte** är expert på Postgres/Redis. Tre saker att veta:
+
+1. **Inget på dessa sidor förstör data.** Hälso-kollarna är read-only.
+   Den enda mutation som finns är "Applicera index"-knappen, som bara
+   skapar nya **index** (sökregister) — den ändrar inte en enda rad.
+2. **Index är idempotent.** Klicka knappen 100 gånger — Postgres skapar
+   bara det som inte redan finns. Det går inte att råka göra dubbletter.
+3. **Allt loggas.** Varje gång knappen körs (eller `npm run dev`-auto-
+   körningen kör den) sparas en rad i `data/observability/db-perf-indexes-runs.ndjson`
+   med tidsstämpel, vem, varför, och vad som hände. Du kan alltid backa
+   och se vem som gjorde vad.
+
+Om något känns konstigt: tryck **inget**, läs den här filen, fråga.
+Det är aldrig brådskande att applicera index — appen funkar utan dem,
+bara långsammare.
 
 ## TL;DR — vad ligger var?
 
@@ -26,6 +46,23 @@ Postgres-protokollet rakt av. Det är därför Supabase-dashboardens räknare
 `src/lib/db/schema.ts` är källan för Drizzle-typerna (TypeScript) och
 `scripts/db/db-init.mjs` är källan för faktiska CREATE TABLE-satser. De ska
 hållas i synk; **Databashälsa-sidan i backofficen flaggar drift**.
+
+### Auto-applicering av perf-index
+
+**Lokalt (`npm run dev`):** `predev`-kedjan kör automatiskt
+`scripts/db/add-performance-indexes.mjs --reason auto:predev` som ett
+**soft-step** — om migrationen failar (nätverksproblem, lock, etc.)
+fortsätter dev-servern att starta ändå. Allt loggas i audit-NDJSON.
+Detta speglar mönstret som redan finns för `db:init.mjs`.
+
+**I produktion (Vercel):** Ingen automatik. Migrationen körs **bara**
+om du:
+- Manuellt kör `npm run db:perf-indexes` från CLI mot prod-DB:n, eller
+- Trycker "APPLY"-knappen på backoffice "Databashälsa"-sidan
+
+Designval: vi vill inte att Vercel-deploys triggar DB-DDL automatiskt.
+Det skulle skapa risk för att en oavsiktlig deploy kör en migration
+mot prod under hög trafik.
 
 ### Hot-path-tabeller (de som måste vara snabba)
 
@@ -144,6 +181,7 @@ Mappade mot Redis-skill-reglerna:
 | `npm run db:health` | CLI | Samma som backofficen, JSON-svar i terminal |
 | `npm run db:perf-indexes:dry` | CLI | Se vilka index som SKULLE skapas utan att göra det |
 | `npm run db:perf-indexes` | CLI | Faktiskt skapa saknade index (idempotent, säkert mot prod) |
+| `npm run db:perf-indexes:soft` | CLI / `predev` | Som ovan men felar tyst (auto-applicering) |
 | `npm run redis:health` | CLI | Redis-statusen i JSON |
 | `/api/health` | HTTP | Snabb live-check (Redis + features) |
 | `/api/metrics` | HTTP | Prometheus-expo (renderas i Observability-sidan) |
