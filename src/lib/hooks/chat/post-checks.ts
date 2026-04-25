@@ -73,6 +73,99 @@ async function validateImages(params: {
   }
 }
 
+type ProductPostcheckWarning = {
+  code: string;
+  message: string;
+  selector?: string | null;
+  text?: string | null;
+  href?: string | null;
+  src?: string | null;
+  alt?: string | null;
+  formId?: string | null;
+};
+
+type ProductPostcheckResult = {
+  ok?: boolean;
+  skipped?: boolean;
+  skippedReason?: string | null;
+  warnings?: ProductPostcheckWarning[];
+  warningCount?: number;
+  productBlocked?: boolean;
+  durationMs?: number;
+  checkedUrl?: string | null;
+};
+
+async function runProductPostcheckApi(params: {
+  chatId: string;
+  versionId: string;
+  previewUrl: string | null;
+  signal: AbortSignal;
+}): Promise<ProductPostcheckResult | null> {
+  const { chatId, versionId, previewUrl, signal } = params;
+  try {
+    const response = await fetch(
+      `${engineChatBaseUrl(chatId)}/product-postcheck`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId, previewUrl }),
+        signal,
+      },
+    );
+    if (!response.ok) return null;
+    return (await response.json()) as ProductPostcheckResult;
+  } catch {
+    return null;
+  }
+}
+
+function buildProductPostcheckLogItems(
+  result: ProductPostcheckResult | null,
+): VersionErrorLogPayload[] {
+  if (!result) return [];
+  if (result.skipped) {
+    return [
+      {
+        level: "info",
+        category: "product_postcheck.skipped",
+        message: "F2 Product Postcheck skipped.",
+        meta: {
+          skippedReason: result.skippedReason ?? "unknown",
+          durationMs: result.durationMs ?? null,
+          checkedUrl: result.checkedUrl ?? null,
+        },
+      },
+    ];
+  }
+
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  const logs: VersionErrorLogPayload[] = warnings.map((warning) => ({
+    level: "warning" as const,
+    category: `product_postcheck.${warning.code || "warning"}`,
+    message: warning.message || "F2 Product Postcheck warning.",
+    meta: {
+      ...warning,
+      durationMs: result.durationMs ?? null,
+      checkedUrl: result.checkedUrl ?? null,
+    },
+  }));
+  logs.unshift({
+    level: warnings.length > 0 ? "warning" : "info",
+    category: "product_postcheck.summary",
+    message:
+      warnings.length > 0
+        ? `F2 Product Postcheck found ${warnings.length} warning(s).`
+        : "F2 Product Postcheck passed.",
+    meta: {
+      warningCount: warnings.length,
+      productBlocked: result.productBlocked === true,
+      durationMs: result.durationMs ?? null,
+      checkedUrl: result.checkedUrl ?? null,
+    },
+  });
+  return logs;
+}
+
 const ENV_LOOKUP_RE = /\b[A-Z][A-Z0-9_]{2,}\b/g;
 const ENV_ERROR_HINTS = [
   "environment variable",
@@ -174,9 +267,18 @@ export async function runPostGenerationChecks(params: {
       versionId,
       signal: controller.signal,
     });
+    const productPostcheck = await runProductPostcheckApi({
+      chatId,
+      versionId,
+      previewUrl: baseline.resolvedDemoUrl ?? null,
+      signal: controller.signal,
+    });
     const warnings = [...baseline.warnings];
     if (imageValidation?.warnings?.length) {
       warnings.push(...imageValidation.warnings);
+    }
+    if (!productPostcheck?.skipped && productPostcheck?.warnings?.length) {
+      warnings.push(...productPostcheck.warnings.map((warning) => `Product: ${warning.message}`));
     }
 
     const artifacts = buildPostCheckArtifacts({
@@ -206,7 +308,7 @@ export async function runPostGenerationChecks(params: {
     void persistVersionErrorLogs({
       chatId,
       versionId,
-      logs: artifacts.logItems,
+      logs: [...artifacts.logItems, ...buildProductPostcheckLogItems(productPostcheck)],
     });
 
     if (artifacts.autoFixReasons.length > 0) {

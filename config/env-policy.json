@@ -24,6 +24,7 @@
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
+    "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SAJTMASKIN_PRE_VM_TYPECHECK",
     "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
@@ -158,6 +159,7 @@
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
+    "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SAJTMASKIN_METRICS_TOKEN",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
@@ -288,6 +290,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "When true/1, init generations may still plan multiple routes but should fully realize only the primary route while extra planned routes start as lightweight shells. Default off."
+    },
+    {
+      "key": "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview"],
+      "notes": "Opt-in. Enables server-side F2 Product Postcheck via Playwright for trusted preview URLs only (localhost / configured preview-host / vm-fly-jakem.fly.dev). Produces product_postcheck.* warnings in existing version diagnostics; does not block F2 rendering and does not run F3 build/lint/typecheck."
     },
     {
       "key": "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",

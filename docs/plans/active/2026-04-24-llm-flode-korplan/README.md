@@ -33,7 +33,9 @@ trigger: långbänk efter user-rapport om körning eb152443-2660-4042-a2a0-e5c15
 
 ### Vad som INTE levererades (framtida)
 
-- **Spår 2 — F2 Product Postcheck:** Playwright-arbete (3–4 dagar). Ingen kod skriven.
+- **Spår 2 — F2 Product Postcheck:** MVP levererad på branch `f2-product-postcheck`.
+  Kvar utanför MVP: eventuellt worker-extraktion, SLO-aggregator (spår 7) och hårdare
+  policy efter observationstid.
 - **Spår 6 D–F (riskabla latens):** Reasoning-budget-byte, scaffold-delta, prompt-cache — bakom eval-gate.
 - **`f2TimeMs` / `f3TimeMs`:** Markerade TODO i `generation-stream-post-finalize.ts`. Emitteras som null idag.
 - **`image_replaced_with_placeholder` → devLog:** Fortfarande via `debugLog` (console). Kräver portering.
@@ -77,7 +79,7 @@ Konsoliderad körplan från **9 audit-pass totalt** (5 första + 4 verifierings-
 |---|-----|------|--------|-----------|
 | **0** | [`00-f2-f3-kontrakt.md`](./00-f2-f3-kontrakt.md) | **F2/F3-kontrakt** | ✅ KLART (waves 1+3b) | doc-fix + UI-badges + previewBlocked-rensning + soft-assert |
 | **1** | [`01-variant-snapshot-persistens.md`](./01-variant-snapshot-persistens.md) | **Variant-snapshot** | ✅ KLART (wave 2) | testdriven; MAX_KEYS=80 sanitize-allowlist + merge-protection |
-| **2** | [`02-product-postcheck.md`](./02-product-postcheck.md) | **F2 Product Postcheck** | ⏸ FRAMTIDA WAVE | inte i denna leverans (Playwright-arbete, 3–4 dagar) |
+| **2** | [`02-product-postcheck.md`](./02-product-postcheck.md) | **F2 Product Postcheck** | ✅ MVP (branch `f2-product-postcheck`) | server-only runner + API route + feature flag + warnings i befintlig Versionsdiagnostik |
 | **3** | [`03-bildminimum.md`](./03-bildminimum.md) | **Bildminimum** | ✅ KLART (wave 3) | HEAD GET-fallback + placeholder + dup-alt + prompt-regel |
 | **4** | [`04-dossier-hard-soft-enforcement.md`](./04-dossier-hard-soft-enforcement.md) | **Dossier hard/soft** | ✅ KLART (wave 6) | verbatim-restore + cross-file-stub-telemetri + förstärkt prompt |
 | **5** | [`05-autofix-gating.md`](./05-autofix-gating.md) | **Autofix-gating** | ✅ KLART (waves 1+5) | abort-event + retry + Lucide-checklist + recurring-flag + shrink-telemetri |
@@ -89,7 +91,7 @@ Konsoliderad körplan från **9 audit-pass totalt** (5 första + 4 verifierings-
 
 1. **P0 spår 0** — Kontraktet. Gör resten begripligt. ✅
 2. **P1 spår 1** — Variant-bug. Glasklar kvalitetsfix. ✅
-3. **P2 spår 2** — Product Postcheck. Största user-impact-vinst. ⏸
+3. **P2 spår 2** — Product Postcheck. Största user-impact-vinst. ✅ MVP
 4. **P2.5 spår 7** — F2-UX SLO. Aggregator ovanpå P2 (GPT-5-komplement). ⏸
 5. **P3 spår 3** — Bildminimum. Synligt för user direkt. ✅
 6. **P4 spår 4** — Dossier hard/soft. Preventiv kvalitet. ✅
@@ -112,7 +114,8 @@ Dessa kan plockas i en första PR utan att vänta på hela körplanen:
 
 - **Spår 0 D2:** assertion mot F2 + build-kombination (kan låsa befintliga callsites om någon)
 - **Spår 1 A1:** PROTECTED-keys allowlist i sanitize (efter T1 bevisat hypotes A)
-- **Spår 2:** Hela Playwright-postcheck (3-4 dagar, ny verifieringsnivå)
+- **Spår 2 (post-MVP):** Worker-extraktion/hårdare policy efter observationstid om
+  Playwright cold-start eller flake-rate kräver det.
 - **Spår 4 A1:** Verbatim-restore i merge (kan stoppa berättigade LLM-anpassningar)
 - **Spår 5 A2:** Heavy-load tröskel ≥20 → regen-loop (kan dubbla wall-clock)
 - **Spår 6 D-F:** Reasoning-budget-byte, scaffold-delta, prompt-cache (kräver eval-pipeline)

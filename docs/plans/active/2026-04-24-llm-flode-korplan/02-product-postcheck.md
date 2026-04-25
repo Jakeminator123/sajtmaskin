@@ -1,12 +1,20 @@
 ---
-status: active
+status: implemented-mvp
 created: 2026-04-24
 spår: 2 av 7 (LLM-flöde-körplan, NY efter deep-prefab feedback)
 prio: P2 (största user-impact-vinst — fångar Unsplash-404, broken nav, fake forms)
 estimat: 3–4 dagar (ny verifieringsnivå, kräver headless-browser i pipeline)
+implemented: 2026-04-25 (MVP på branch f2-product-postcheck)
 ---
 
 # Spår 2 — F2 Product Postcheck (verifiera att synliga saker fungerar)
+
+> **Status 2026-04-25:** MVP implementerat på `f2-product-postcheck`.
+> Server-only runner + API-route bakom `SAJTMASKIN_F2_PRODUCT_POSTCHECK=false`
+> default, URL-allowlist, fail-open `product_postcheck.skipped`, befintlig
+> `engine_version_error_logs`/Versionsdiagnostik-yta återanvänds. Ingen ny
+> DB-tabell/migration/persistensmodell. Product Postcheck är warnings/status,
+> inte F3 build/lint/typecheck.
 
 ## Bakgrund
 

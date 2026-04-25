@@ -156,6 +156,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_DOSSIER_PIPELINE: z.string().optional(),
   /** When true/1, init generations may plan multiple routes but only fully realize the primary route while extras become lightweight shells. */
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
+  /** F2 Product Postcheck: server-side Playwright DOM checks for preview URLs. Default off. */
+  SAJTMASKIN_F2_PRODUCT_POSTCHECK: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),

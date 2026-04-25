@@ -12,7 +12,7 @@ telemetri-events som introducerats i LLM-flöde-körplanen 2026-04-24:
 
 Separat hantering (se respektive notering i sidans sektioner):
   - ``image_replaced_with_placeholder`` — skrivs via ``debugLog`` (console), ej i NDJSON.
-    Kräver ``SAJTMASKIN_DEBUG=images`` + manuell logparsning.
+    Kräver ``DEBUG=images`` + manuell logparsning.
   - ``dossier_stub_created`` — emitteras via ``engine_version_error_logs`` i DB
     under category ``merge:cross-file-stub``, ej som standalone devLog-event.
 
@@ -304,7 +304,7 @@ def _render_image_replaced(run_dirs: list[Path]) -> None:
     st.subheader("Bild ersatt med placeholder (`image_replaced_with_placeholder`)")
     st.caption(
         "**Loggas via `debugLog` (console), inte via `devLogAppend` → syns INTE i timeline.ndjson.** "
-        "Kräver `SAJTMASKIN_DEBUG=images` i `.env.local` och manuell läsning av serverloggen. "
+        "Kräver `DEBUG=images` i `.env.local` och manuell läsning av serverloggen. "
         "Schema: `docs/schemas/strict/image-replaced-with-placeholder.schema.json`."
     )
     st.info(
