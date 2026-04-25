@@ -165,6 +165,10 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Post-Checks | Client-side post-genererings-orkestrering | kanonisk |
 | Engine Version Lifecycle | `draft` → `verifying` → `repairing` → `repair_available` / `failed` / `promoted` | kanonisk |
 | Scaffold Retry | Sen diagnos + scaffoldpivot-förslag vid misslyckad generation | kanonisk |
+| `verbatim_content_drift` | Reason-kod i `dossier_verbatim_restored`-event: LLM modifierade en verbatim-fil och systemet tvingades återställa det kanoniska innehållet. Emitteras av `verbatim-policy.ts`. | kanonisk |
+| `warmTscSkipped` | Boolean i `site.done`-devLog: `true` när warm-tsc hoppades över i `validate_syntax` eftersom quality gate planerades köra tsc ändå. Latency-vinst-mätning (wave 7). | kanonisk |
+| `previewPreWarm` | FEATURE-flagga (implementerad, default `false`): Fly.io pre-warm av preview-VM vid chat-init för att reducera VM-cold-start-latens. Triggas opportunistiskt (fire-and-forget) när `buildIntent === "website"`. Aktiveras via env för opt-in (wave 7, bakom eval). | alias |
+| `recurringPatternsInCreatePrompt` | FEATURE-flagga (implementerad, default `false`): Injicera recurring failure patterns även på init/create-generering (idag bara på follow-ups). Kräver även `FEATURES.recurringPatternsInMainPrompt === true` för att blocket faktiskt ska injiceras (gate i `route-plan.ts`). Bakom eval-gate tills signal/noise-kvoten verifierats. | alias |
 
 ---
 
@@ -184,7 +188,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Tier3BuildSpec | Strukturerat F3-byggkontrakt med per-integration `requiredRealEnvKeys`, `placeholderOkEnvKeys`, `featureRuntimeEnvKeys`, `warnOnlyEnvKeys`, `buildInstructions[]`, `setupGuide` | kanonisk |
 | `placeholderHarmless` | Boolean per env-key. Harmlösa keys (Stripe-publishable, AUTH_SECRET, GA-id) får placeholdras även i F3 | kanonisk |
 | `allowPlaceholdersInF3` | Toggle på `project_data.meta`. När true: placeholder-täckta build-keys passerar F3-gaten med varning | kanonisk |
-| Validate-step | Konsoliderat finalize-steg `validate_syntax`: esbuild-syntax + warm tsc + LLM-fixer-loop. F3 sätter `forceTsc: true` | kanonisk |
+| Validate-step | Konsoliderat finalize-steg `validate_syntax`: esbuild-syntax + warm tsc + LLM-fixer-loop. F3 sätter `forceTsc: true`. Wave 7: warm tsc kan hoppas över via `skipWarmTsc` när `quality_gate_planned` redan signalerar kommande tsc i quality gate. | kanonisk |
 | F2 SDK Guard | Mekanisk fixer som strippar tier-3 SDK-imports från F2-output (Stripe/Supabase/Clerk/Auth.js/Redis/OpenAI/...). Deny-lista: `config/integrations/tier3-sdk-deny.json` | kanonisk |
 | F2 Contract (system-prompt) | Hård sektion i system-prompten (`## Generation Stage: F2 / Design (HARD CONTRACT)`) som förbjuder tier-3 SDKs i F2 | kanonisk |
 | Project env file (`env.example`) | Auto-genererad användarsynlig hjälpfil i `versions.files_json`. Listar harmless + tier-3 stub placeholders. Next.js läser INTE filen | kanonisk |
@@ -196,6 +200,8 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | `VersionMismatchOverlay` | UX-komponent mellan ny version sparad och preview-VM reload. **Dispatch-vägen ej wirad** | kanonisk |
 | `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR` | Default ON i dev/Vercel preview, OFF i prod. Loopar `build-error` SSE in i `runRepairLoop` | kanonisk |
 | EnvVar enforcement (P31) | Per envVar i hard-dossier: `build` (default) / `feature-runtime` / `warn-only`. Styr F3-gate | kanonisk |
+| `f2TimeMs` | Planerad telemetri-distinktion: tid i ms för F2-fasen (design-loop, validate + preflight). Fält i `site.done`-devLog. **Idag null** — TODO-markerat i `generation-stream-post-finalize.ts`. | kanonisk |
+| `f3TimeMs` | Planerad telemetri-distinktion: tid i ms för F3-fasen (integrationer, build + verify). Fält i `site.done`-devLog. **Idag null** — aktiveras när F2/F3-telemetri-uppdelning implementeras. | kanonisk |
 
 ---
 

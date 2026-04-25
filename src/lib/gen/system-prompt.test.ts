@@ -267,6 +267,10 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("Hard rules for navigation expressions:");
       expect(context).toContain("Never invent paths");
       expect(context).toContain("href ↔ route cross-check");
+      expect(context).toContain("### Lucide icons commonly needed");
+      expect(context).toContain(
+        'CRITICAL: Each icon used in JSX MUST be imported from "lucide-react".',
+      );
       // Plan-12 fix (#14): sub-route bouncer rule must be present in the
       // canonical-route-paths block so the LLM never emits an auto-redirect
       // from a slug page back to '/'. Bug repro chat 2026-04-24:

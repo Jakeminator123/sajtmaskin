@@ -201,6 +201,34 @@ export function getDossierFileContent(
   return text;
 }
 
+export interface DossierExposesInfo {
+  dossierId: string;
+  klass: DossierClass;
+  capability: string;
+  importPath: string;
+}
+
+/**
+ * Returns dossier info if `importPath` matches any dossier's `exposes[].import`.
+ * Used by cross-file-import-checker to identify stubs for dossier-exposed paths
+ * and attach observability metadata instead of silently creating generic stubs.
+ */
+export function getDossierExposesByImportPath(importPath: string): DossierExposesInfo | null {
+  for (const dossier of getAllDossiers()) {
+    for (const expose of dossier.exposes ?? []) {
+      if (expose.import === importPath) {
+        return {
+          dossierId: dossier.id,
+          klass: dossier.class,
+          capability: dossier.capability,
+          importPath: expose.import,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 /** Build the {capability → [ids]} map. Used for backoffice listing. */
 export function getCapabilityMap(): Record<string, string[]> {
   const map: Record<string, string[]> = {};

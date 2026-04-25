@@ -7,11 +7,15 @@ import {
   isDenylistedStubDefaultName,
   removeImportDeclarations,
 } from "./import-binding-ast";
+import { getDossierExposesByImportPath } from "@/lib/gen/dossiers/registry";
 
 interface CrossFileImportFix {
   sourceFile: string;
   missingImport: string;
   stubFile: string;
+  /** Set when the missing import matches a dossier `exposes[].import`. */
+  dossierId?: string;
+  capability?: string;
 }
 
 const LOCAL_PREFIXES = ["@/", "./", "../"];
@@ -310,10 +314,33 @@ export function checkCrossFileImports(
     const fallbackName = deriveComponentName(projectPath);
     const stubContent = createStubFile(source, merged, fallbackName);
 
+    // Check whether this missing import is a dossier-exposed path. If so,
+    // log a warning for observability — the LLM should have emitted the real
+    // file, or imported from the correct dossier path. We still create the
+    // stub (pipeline must not break), but the warning signals a dossier gap.
+    // TODO(P5+ wave): gate stub creation behind FEATURES.refuseDossierStubs
+    // and throw a loud error instead of creating a silent null-render stub.
+    const dossierMatch = getDossierExposesByImportPath(source);
+    if (dossierMatch) {
+      console.warn(
+        `[cross-file-import-checker] dossier_exposed_path stubbed: import "${source}" ` +
+          `from dossier "${dossierMatch.dossierId}" (capability: ${dossierMatch.capability}) ` +
+          `was not emitted by the LLM. A null-render stub was created at ${stubPath}. ` +
+          `This is likely a dossier integration gap.`,
+      );
+    }
+
     fileMap.set(stubPath, { path: stubPath, content: stubContent, language: "tsx" });
 
     for (const importer of importers) {
-      fixes.push({ sourceFile: importer, missingImport: source, stubFile: stubPath });
+      fixes.push({
+        sourceFile: importer,
+        missingImport: source,
+        stubFile: stubPath,
+        ...(dossierMatch
+          ? { dossierId: dossierMatch.dossierId, capability: dossierMatch.capability }
+          : {}),
+      });
     }
   }
 

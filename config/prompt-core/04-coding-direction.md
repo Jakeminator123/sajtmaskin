@@ -56,6 +56,10 @@ Do NOT use the following well-known free test videos, regardless of how convenie
 
 - For placeholder images use either `images.unsplash.com/photo-<id>?...` direct CDN URLs (resolved post-generation by the image-materializer) or named placeholder services with topic-relevant queries. **NEVER** emit `https://source.unsplash.com/...` URLs — that domain was shut down in mid-2024 and every such URL ships as a broken image. Avoid generic `/placeholder.svg` filler when the subject is clear enough to query.
 - Always set descriptive `alt` text — the alt is the fallback when the image fails or is replaced later by the validator.
+- When the user prompt mentions specific persons (names like "Emilia Eberg", ages like "40 år", or descriptions like "blond woman"), do NOT use Unsplash URLs of stock-photo people. Either:
+  - Use `<Image src="/api/placeholder?label=Emilia" alt="Porträtt av Emilia" />` so the user sees a deliberate placeholder, OR
+  - Mark the section as data-demo-only so postcheck can flag it as "fake content".
+- This is a prompt-rule, not a hard gate. Postchecks will catch broken/wrong-person images and either replace with placeholder or warn.
 
 ### React Three Fiber Canvas placement (A6/A7/A8)
 

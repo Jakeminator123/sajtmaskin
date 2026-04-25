@@ -84,6 +84,8 @@ export function renderDossierBlocks(
       "",
       "Concrete usage instructions for each selected dossier. Adapt to the user's request — do not paste blindly.",
       "",
+      "For dossier files whose `codeFidelity` is **rewritable**: you MAY adapt these files, but you MUST preserve all `export` statements (named + default) listed in the dossier's `exposes`. Failure to export an exposed name will cause cross-file-import-checker to log a `dossier_exposed_path` warning.",
+      "",
     );
     for (const sel of withInstructions) {
       parts.push(`### ${sel.entry.label} (\`${sel.entry.id}\`)`, "");
@@ -145,6 +147,8 @@ export function renderDossierBlocks(
       "## Dossier Files To Emit Verbatim",
       "",
       "The following files come from selected dossier integrations and **MUST appear in your CodeProject output exactly as written below**. Do not paraphrase, refactor, rename, or remove any line — these contain integration glue (auth, webhooks, SDK init) where deviation breaks the integration. Adjust only environment-variable comments if the user already provided a replacement value.",
+      "",
+      "Files marked **VERBATIM** below MUST be emitted exactly as shown. Any modification will be silently restored to the canonical version on save. If you need to ADAPT behavior, use a separate file or wrap the verbatim component.",
       "",
       "Emit one CodeProject block per file with the exact path shown.",
       "",

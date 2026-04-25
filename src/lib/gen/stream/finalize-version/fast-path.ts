@@ -24,6 +24,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { RoutePlan } from "@/lib/gen/route-plan";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
@@ -64,6 +65,36 @@ export async function runFinalizeFastPath(params: {
    * redundant initial mechanical pass.
    */
   alreadyMechanicallyFixed: boolean;
+  /**
+   * True when a later quality-gate lane (client and/or async) is expected
+   * to run for this generation. Heuristik — ensam INTE tillräcklig för
+   * warm-tsc-skip (se `qualityGatePlanned` nedan).
+   */
+  willRunQualityGate: boolean;
+  /**
+   * Whether the downstream quality gate includes `typecheck`.
+   */
+  qualityGateChecksIncludesTypecheck: boolean;
+  /**
+   * Stark signal från callsiten att quality-gate faktiskt är **planerad**
+   * (inte bara heuristiskt förväntad). Wave 7 R2 guard — utan explicit
+   * `qualityGatePlanned === true` kör vi ALLTID warm-tsc i finalize.
+   *
+   * Motiv: `willRunQualityGate` sattes tidigare lite optimistiskt som
+   * `true` per default i builder-streamen. Om quality-gate senare
+   * hoppades över (t.ex. via `design_preview_skip_verify`-policy på
+   * F2-init) hade vi varken warm-tsc- ELLER QG-resultat = tyst lucka.
+   * Med denna guard krävs två signaler samtidigt för att skippa:
+   *   (1) `qualityGatePlanned === true` (callsite vet att QG kommer köra)
+   *   (2) `qualityGateChecksIncludesTypecheck === true` (QG täcker tsc)
+   */
+  qualityGatePlanned?: boolean;
+  /**
+   * Dossiers vars verbatim-filer ska skyddas vid merge. Trådas vidare
+   * till `runPreflightPhase`. Default tom array (verbatim-policy körs men
+   * hittar inga skyddade filer).
+   */
+  selectedDossiers?: DossierEntry[];
 }): Promise<FinalizeFastPathResult> {
   const {
     chatId,
@@ -80,9 +111,28 @@ export async function runFinalizeFastPath(params: {
     finalizePath,
     repairPassIndex,
     alreadyMechanicallyFixed,
+    willRunQualityGate,
+    qualityGateChecksIncludesTypecheck,
+    qualityGatePlanned,
+    selectedDossiers,
   } = params;
   let contentForVersion = params.contentForVersion;
   const stepTelemetry: FinalizeStepTelemetryMap = {};
+  // Wave 7 R2 guard: warm-tsc skippas BARA när callsiten explicit flaggar
+  // att quality-gate är planerad OCH kommer köra typecheck. Utan båda
+  // signalerna: kör warm-tsc ändå (säker fallback).
+  //
+  // Detta ersätter tidigare heuristik (`willRunQualityGate` ensam), som
+  // kunde lämna oss utan varken warm-tsc eller QG-resultat om quality-gate
+  // senare hoppades över (t.ex. via `design_preview_skip_verify`-policy på
+  // F2-init med 0 preflight-fel).
+  //
+  // Telemetri: `warmTscSkipped` i `site.done` exponeras via backoffice
+  // `llm_flode_telemetry.py` så vi kan mäta skip-rate över tid.
+  const skipWarmTsc =
+    qualityGatePlanned === true &&
+    willRunQualityGate &&
+    qualityGateChecksIncludesTypecheck;
 
   ensureNonEmptyGenerationContent({
     contentForVersion,
@@ -105,7 +155,8 @@ export async function runFinalizeFastPath(params: {
     // `validateAndFix` and runs after esbuild reaches `passed`. F3 keeps
     // forcing it on so the integrations build always pays for the check.
     resolvedScaffold,
-    forceTsc: buildSpec?.previewPolicy === "fidelity3",
+    forceTsc: !skipWarmTsc && buildSpec?.previewPolicy === "fidelity3",
+    skipWarmTsc,
     // P34 / SAJ-28: eslint pass mirrors tsc — feature-flag gated via
     // `SAJTMASKIN_BLOCKING_ESLINT`; F3 (integrations) also forces it on.
     forceEslint: buildSpec?.previewPolicy === "fidelity3",
@@ -239,6 +290,7 @@ export async function runFinalizeFastPath(params: {
     previousFiles,
     contentForVersion,
     onProgress,
+    selectedDossiers,
   });
 
   return {

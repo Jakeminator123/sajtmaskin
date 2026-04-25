@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const streamTextMock = vi.hoisted(() => vi.fn());
 const getOpenAIModelMock = vi.hoisted(() => vi.fn(() => ({ id: "mock-model" })));
+const devLogAppendMock = vi.hoisted(() => vi.fn());
 
 vi.mock("ai", () => ({
   streamText: streamTextMock,
@@ -11,12 +12,17 @@ vi.mock("../models", () => ({
   getOpenAIModel: getOpenAIModelMock,
 }));
 
+vi.mock("@/lib/logging/devLog", () => ({
+  devLogAppend: devLogAppendMock,
+}));
+
 import { runLlmFixer } from "./llm-fixer";
 
 describe("runLlmFixer merge behavior", () => {
   beforeEach(() => {
     streamTextMock.mockReset();
     getOpenAIModelMock.mockClear();
+    devLogAppendMock.mockReset();
   });
 
   it("merges fixed files deterministically by parsed path", async () => {
@@ -114,5 +120,36 @@ describe("runLlmFixer merge behavior", () => {
     expect(prompt).toContain("Files that likely need edits first:");
     expect(prompt).toContain("- app/page.tsx");
     expect(prompt).toContain("- components/site-header.tsx");
+  });
+
+  it("logs partial-response telemetry when incomplete files are excluded", async () => {
+    const originalLong = "export const longText = `" + "a".repeat(300) + "`;";
+    const original = [
+      '```ts file="app/page.ts"',
+      originalLong,
+      "```",
+    ].join("\n");
+    const llmOutput = [
+      '```ts file="app/page.ts"',
+      "export const longText = `short`;",
+      "```",
+    ].join("\n");
+    streamTextMock.mockReturnValue({
+      text: Promise.resolve(llmOutput),
+    });
+
+    const result = await runLlmFixer(original, ["app/page.ts:1:1 broken"]);
+
+    expect(result.success).toBe(false);
+    expect(result.partial).toBe(true);
+    expect(result.incompleteFiles).toHaveLength(1);
+    expect(result.incompleteFiles[0]?.reason).toContain("shrink_below_50pct");
+    expect(devLogAppendMock).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "llm_fixer_partial_response",
+        totalFixedFilesAttempted: 1,
+      }),
+    );
   });
 });

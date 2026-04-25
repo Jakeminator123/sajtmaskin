@@ -14,8 +14,11 @@
  * See OMTAG/fas2/D-dossier-contract.md for the full contract and rationale.
  */
 import Ajv, { type ValidateFunction } from "ajv";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import dossierSchema from "../../../../docs/schemas/strict/dossier.schema.json";
+import { isRuntimeProvidedImport } from "../autofix/runtime-imports";
 
 import type { DossierClass, DossierEntry } from "./types";
 
@@ -47,6 +50,14 @@ export type DossierValidationErr = {
 };
 
 export type DossierValidationResult = DossierValidationOk | DossierValidationErr;
+
+export type DossierManifest = Pick<DossierEntry, "files">;
+
+export interface ImportClosureIssue {
+  dossierFile: string;
+  missingImport: string;
+  reason: "not_in_files" | "not_in_scaffold";
+}
 
 /**
  * Validate a parsed manifest against the strict JSON schema + expected id.
@@ -90,6 +101,129 @@ export function validateDossierManifest(
     data: raw as DossierValidationOk["data"],
     warnings: [],
   };
+}
+
+const CODE_IMPORT_RE = /import\s+(?:[^"']*from\s+)?["']([^"']+)["']/g;
+const CODE_FILE_RE = /\.(?:[cm]?[jt]sx?)$/i;
+const RESOLUTION_CANDIDATES = [
+  "",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  "/index.ts",
+  "/index.tsx",
+  "/index.js",
+  "/index.jsx",
+  "/index.mjs",
+  "/index.cjs",
+] as const;
+
+function normalizeFilePath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/^\/+/, "");
+}
+
+/**
+ * Local copy of cross-file import normalization used in autofix.
+ * We intentionally keep this helper local to avoid coupling validator logic
+ * to autofix internals.
+ */
+function normalizeImportToProjectPath(source: string, importerPath: string): string {
+  if (source.startsWith("@/")) return source.slice(2);
+
+  const importerDir = importerPath.includes("/")
+    ? importerPath.slice(0, importerPath.lastIndexOf("/"))
+    : ".";
+  const parts = [...importerDir.split("/"), ...source.split("/")];
+  const resolved: string[] = [];
+  for (const part of parts) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      resolved.pop();
+      continue;
+    }
+    resolved.push(part);
+  }
+  return resolved.join("/");
+}
+
+function hasResolvedPath(fileSet: Set<string>, basePath: string): boolean {
+  for (const suffix of RESOLUTION_CANDIDATES) {
+    const candidate = normalizeFilePath(`${basePath}${suffix}`);
+    if (fileSet.has(candidate)) return true;
+    if (fileSet.has(normalizeFilePath(`src/${candidate}`))) return true;
+  }
+  return false;
+}
+
+/**
+ * Validates transitive import closure for dossier component files.
+ *
+ * All `@/` and relative imports must resolve to either:
+ *  - files inside this dossier manifest (`manifest.files`)
+ *  - files provided by the scaffold seed (`scaffoldFileSet`)
+ *  - known runtime-provided imports (`isRuntimeProvidedImport`)
+ */
+export function validateDossierImportClosure(
+  manifest: DossierManifest,
+  dossierRoot: string,
+  scaffoldFileSet: Set<string>,
+): ImportClosureIssue[] {
+  const issues: ImportClosureIssue[] = [];
+  const manifestFiles = manifest.files ?? [];
+  const dossierFileSet = new Set(manifestFiles.map((f) => normalizeFilePath(f.path)));
+  const normalizedScaffoldSet = new Set(Array.from(scaffoldFileSet, normalizeFilePath));
+
+  for (const fileEntry of manifestFiles) {
+    if (!CODE_FILE_RE.test(fileEntry.path)) continue;
+
+    const fullPath = join(dossierRoot, fileEntry.path);
+    if (!existsSync(fullPath)) continue;
+
+    const source = readFileSync(fullPath, "utf8");
+    CODE_IMPORT_RE.lastIndex = 0;
+
+    let match: RegExpExecArray | null = null;
+    while ((match = CODE_IMPORT_RE.exec(source)) !== null) {
+      const importPath = match[1];
+      const isProjectImport =
+        importPath.startsWith("@/") ||
+        importPath.startsWith("./") ||
+        importPath.startsWith("../");
+
+      if (!isProjectImport) {
+        if (!isRuntimeProvidedImport(importPath)) {
+          // External package imports are validated separately via `dependencies`.
+          // We intentionally keep this check non-blocking in import-closure.
+        }
+        continue;
+      }
+
+      const normalizedImportPath = normalizeImportToProjectPath(
+        importPath,
+        normalizeFilePath(fileEntry.path),
+      );
+
+      if (hasResolvedPath(dossierFileSet, normalizedImportPath)) continue;
+      if (hasResolvedPath(normalizedScaffoldSet, normalizedImportPath)) continue;
+      if (
+        isRuntimeProvidedImport(importPath) ||
+        isRuntimeProvidedImport(`@/${normalizedImportPath}`)
+      ) {
+        continue;
+      }
+
+      issues.push({
+        dossierFile: fileEntry.path,
+        missingImport: importPath,
+        reason: normalizedImportPath.startsWith("app/") ? "not_in_scaffold" : "not_in_files",
+      });
+    }
+  }
+
+  return issues;
 }
 
 /**

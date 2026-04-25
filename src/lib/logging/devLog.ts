@@ -55,6 +55,9 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "scaffold-retry.suggested",
   "site.done",
   "site.message.done",
+  "llm_fixer_aborted",
+  "dossier_verbatim_restored",
+  "llm_fixer_partial_response",
   "comm.error.create",
 ]);
 

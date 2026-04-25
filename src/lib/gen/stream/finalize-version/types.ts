@@ -70,6 +70,22 @@ export interface FinalizeParams {
    * deltas (e.g. fast-tier responses).
    */
   accumulatedThinking?: string | null;
+  /**
+   * True when a downstream quality-gate lane is expected to run later
+   * (client post-checks and/or async verify path). Allows finalize fast-path
+   * to skip duplicate warm-tsc in safe cases.
+   */
+  willRunQualityGate?: boolean;
+  /**
+   * Strong signal from the callsite that a quality-gate lane is **planned**
+   * for this generation (not only heuristically expected). When omitted or
+   * false, finalize keeps warm-tsc even if `willRunQualityGate` is true —
+   * prevents the “skip warm tsc + late QG skip” blind spot.
+   *
+   * Production builder stream sets this to `true` together with
+   * `willRunQualityGate: true`.
+   */
+  qualityGatePlanned?: boolean;
 }
 
 export interface FinalizeResult {
@@ -103,8 +119,18 @@ export interface FinalizeResult {
    * rows in the version diagnostics modal so users understand "1 fil
    * saknades och stubbades" instead of believing the generation succeeded
    * fully (plan-02 / STATUS-02; coffee-cup-3d-style anti-pattern).
+   * `dossierId` and `capability` are present when the missing import
+   * matched a dossier `exposes` entry (dossier integration gap).
    */
-  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
+  crossFileStubs: Array<{
+    sourceFile: string;
+    missingImport: string;
+    stubFile: string;
+    dossierId?: string;
+    capability?: string;
+  }>;
+  /** True when warm-tsc was intentionally skipped because a later quality gate will typecheck. */
+  warmTscSkipped?: boolean;
 }
 
 export interface FinalizePathPolicy {
@@ -148,7 +174,13 @@ export interface FinalizeFastPathResult {
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
   /** See `FinalizeResult.crossFileStubs`. */
-  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
+  crossFileStubs: Array<{
+    sourceFile: string;
+    missingImport: string;
+    stubFile: string;
+    dossierId?: string;
+    capability?: string;
+  }>;
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 

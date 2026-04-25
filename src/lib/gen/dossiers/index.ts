@@ -4,9 +4,11 @@ export {
   getDossiersByCapability,
   getDossierInstructions,
   getDossierFileContent,
+  getDossierExposesByImportPath,
   getCapabilityMap,
   clearDossierRegistryCache,
 } from "./registry";
+export type { DossierExposesInfo } from "./registry";
 
 export { selectDossiersForRequest } from "./select";
 export type { SelectDossiersOptions } from "./select";

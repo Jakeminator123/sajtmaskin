@@ -24,6 +24,7 @@ import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { inferScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { warnLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -68,7 +69,13 @@ export interface PreflightPhaseResult {
    * diagnostics modal (plan-02 / STATUS-02 — coffee-cup-3d-style "looks
    * shipped, actually hollow" anti-pattern).
    */
-  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
+  crossFileStubs: Array<{
+    sourceFile: string;
+    missingImport: string;
+    stubFile: string;
+    dossierId?: string;
+    capability?: string;
+  }>;
   stepTelemetry: FinalizeStepTelemetry;
 }
 
@@ -85,6 +92,12 @@ export async function runPreflightPhase(params: {
   previousFiles?: CodeFile[];
   contentForVersion: string;
   onProgress?: FinalizeProgressCallback;
+  /**
+   * Dossiers vars verbatim-filer ska skyddas mot LLM-omskrivning i merge.
+   * Trådas in från finalize-runner som härleder via orchestrationStreamMeta.
+   * Om tom: verbatim-policy körs men hittar inga dossiers att skydda.
+   */
+  selectedDossiers?: DossierEntry[];
 }): Promise<PreflightPhaseResult> {
   const {
     chatId,
@@ -98,6 +111,7 @@ export async function runPreflightPhase(params: {
     orchestrationContract,
     previousFiles,
     onProgress,
+    selectedDossiers,
   } = params;
   let contentForVersion = params.contentForVersion;
 
@@ -119,6 +133,7 @@ export async function runPreflightPhase(params: {
     generatedFiles,
     resolvedScaffold,
     previousFiles,
+    selectedDossiers,
   });
   filesJson = mergeResult.filesJson;
   let rejectedShrinks = mergeResult.rejectedShrinks;
@@ -251,6 +266,7 @@ export async function runPreflightPhase(params: {
         generatedFiles: reGeneratedFiles,
         resolvedScaffold,
         previousFiles,
+        selectedDossiers,
       });
       filesJson = remergeResult.filesJson;
       // Concat shrink/structural rejections from the remerge so the SSE

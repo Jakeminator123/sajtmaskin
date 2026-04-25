@@ -211,6 +211,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         ...(finalized.crossFileStubs.length > 0
           ? { crossFileStubs: finalized.crossFileStubs }
           : {}),
+        warmTscSkipped: finalized.warmTscSkipped === true,
       }),
     ),
   );
@@ -237,6 +238,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
         missingImport: stub.missingImport,
         stubFile: stub.stubFile,
         repairPassIndex,
+        dossierId: stub.dossierId ?? null,
+        capability: stub.capability ?? null,
       },
     }));
     const missingCapabilityWarnings =
@@ -278,6 +281,27 @@ export async function runOwnEngineStreamPostFinalize(params: {
     previewDeferred: previewWillRun,
     previewBlocked,
     durationMs: Date.now() - engineStartedAt,
+    // PLANERADE FÄLT (idag null) — F2/F3 telemetry split:
+    //
+    // Denna site.done-rad emitteras FÖRE preview-ready och FÖRE quality-gate
+    // completion, så vi har inte exakta split-timings tillgängliga vid den
+    // här callsite-en. Fälten är medvetet inkluderade som null så att
+    // backoffice (llm_flode_telemetry.py) och strict-schemat
+    // (site-done-telemetry.schema.json som tillåter `["number","null"]`) kan
+    // börja titta efter dem utan format-byte när mätpunkterna wireas in.
+    //
+    // För att fylla dem behövs nya mätpunkter:
+    //   - f2TimeMs: tid från site.start till första `preview_ready`-event
+    //     (kräver sample-callback i preview-host-client eller event-bus-listener)
+    //   - f3TimeMs: tid från preview_ready till sista quality-gate-resultat
+    //     (kräver instrumentering kring runTier2VerifyLane i post-checks.ts)
+    //
+    // Se framtida wave i körplanen:
+    //   - docs/plans/active/2026-04-24-llm-flode-korplan/06-latens-och-scaffold-delta.md § E1
+    //   - docs/plans/active/2026-04-24-llm-flode-korplan/07-f2-ux-slo-matbarhet.md
+    f2TimeMs: null,
+    f3TimeMs: null,
+    warmTscSkipped: finalized.warmTscSkipped === true,
   });
   devLogFinalizeSite();
   await commitCredits();

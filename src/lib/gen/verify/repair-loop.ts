@@ -3,6 +3,7 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import type { RecurringFailurePattern } from "@/lib/gen/autofix/fixer-prompt";
 import { parseCodeProject, serializeCodeProject } from "@/lib/gen/parser";
+import { AUTOFIX_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
 import { buildLintRepairContextLines } from "./lint-output";
 import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
 import type { ReasoningEffort } from "@/lib/gen/engine";
@@ -66,6 +67,7 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   fixerModel?: string;
   fixerThinking?: boolean;
   fixerReasoningEffort?: ReasoningEffort;
+  fixerMaxTokens?: number;
   // Återkommande felmönster från tidigare runs i samma chat-session.
   // Anroparen läser via `readRecurringPatternsForChat(chatId)` (i
   // `@/lib/logging/generation-log-writer`) och skickar in dem så LLM-fixern
@@ -499,32 +501,50 @@ export async function runRepairLoop<TPayload = unknown>(
 
     const fixerInput = targetedBundle?.contentForFixer ?? content;
     const contentBeforePass = content;
-    const fixerAbort = new AbortController();
-    const timeoutHandle = setTimeout(
-      () => fixerAbort.abort(),
-      Math.max(1_000, params.llmTimeoutMs),
-    );
-    let fixerResult: Awaited<ReturnType<typeof runLlmFixer>>;
-    try {
-      fixerResult = await runLlmFixer(fixerInput, errorSummary, {
-        model: params.fixerModel,
-        thinking: params.fixerThinking,
-        reasoningEffort: params.fixerReasoningEffort,
-        requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
-        recurringPatterns: params.recurringPatterns,
-        abortSignal: fixerAbort.signal,
-      });
-    } finally {
-      clearTimeout(timeoutHandle);
+    const originalMaxTokens = params.fixerMaxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS;
+    const reducedMaxTokens = Math.max(1, Math.floor(originalMaxTokens * 0.5));
+    let timedOut = false;
+    let fixerAttemptCount = 0;
+    const runFixerAttempt = async (
+      attemptErrors: string[],
+      maxTokens: number,
+    ): Promise<Awaited<ReturnType<typeof runLlmFixer>>> => {
+      const fixerAbort = new AbortController();
+      const timeoutHandle = setTimeout(
+        () => fixerAbort.abort(),
+        Math.max(1_000, params.llmTimeoutMs),
+      );
+      fixerAttemptCount++;
+      try {
+        const result = await runLlmFixer(fixerInput, attemptErrors, {
+          model: params.fixerModel,
+          thinking: params.fixerThinking,
+          reasoningEffort: params.fixerReasoningEffort,
+          maxTokens,
+          requiredFiles: targetedBundle?.requiredFiles ?? brokenFiles,
+          recurringPatterns: params.recurringPatterns,
+          abortSignal: fixerAbort.signal,
+        });
+        timedOut = fixerAbort.signal.aborted;
+        return result;
+      } finally {
+        clearTimeout(timeoutHandle);
+      }
+    };
+
+    let fixerResult = await runFixerAttempt(errorSummary, originalMaxTokens);
+    if (fixerResult.aborted) {
+      console.warn("[repair-loop] LLM-fixer aborted, retrying with reduced budget");
+      fixerResult = await runFixerAttempt(errorSummary.slice(0, 3), reducedMaxTokens);
     }
-    llmPasses++;
+    llmPasses += fixerAttemptCount;
 
     if (!fixerResult.success && !fixerResult.partial) {
       const stopReason = resolveServerRepairEarlyStopReason({
         fixerProducedOutput: false,
         errorsBefore,
         errorsAfter: errorsBefore,
-        timedOut: fixerAbort.signal.aborted,
+        timedOut,
       });
       earlyStopReason = stopReason === "continue" ? null : stopReason;
       break;
