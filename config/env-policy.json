@@ -174,6 +174,7 @@
     "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
+    "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
     "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
     "SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS",
@@ -316,6 +317,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Override `--max-warnings` for the blocking eslint pass. Default 20. Errors always fail the gate; warnings only fail when count exceeds this cap. Set higher (e.g. 50) to be more lenient, or 0 to treat all warnings as gate failures."
+    },
+    {
+      "key": "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Opt-in. Default unset → `applyScaffoldSeoDefaults` (src/lib/gen/scaffolds/seo-defaults.ts) is a noop and no SEO files (robots/sitemap/opengraph) are injected. When set to a real site URL → robots/sitemap/opengraph are injected and `app/layout.tsx` metadata is enriched with `metadataBase`/`alternates`/`openGraph`/`twitter`. **Should NOT be set in development or fidelity1/2 design previews** — SEO belongs to Bygg / fidelity3-promotion. Per-project/per-generation siteUrl is planned (see `docs/plans/active/SEO-F3-PROMOTION-NEXT-PR.md`); this env is the global single-tenant fallback."
     },
     {
       "key": "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
