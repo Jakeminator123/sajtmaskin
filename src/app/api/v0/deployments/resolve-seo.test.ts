@@ -81,6 +81,70 @@ describe("resolveDeploySeoOptions", () => {
     });
   });
 
+  // Regression for explicit-noop semantics. Body `siteUrl: null` must
+  // ALWAYS opt out for this single deploy — the previous implementation
+  // used `??` which silently fell through to persisted siteUrl when only
+  // `siteUrl: null` was sent (without an `optIn` flag).
+  describe("body siteUrl=null explicit-noop", () => {
+    it("body { siteUrl: null } (no optIn) returns null even when persisted opted in", () => {
+      const result = resolveDeploySeoOptions(
+        { siteUrl: null },
+        {
+          optIn: true,
+          siteUrl: "https://persisted.example.com",
+          brand: { companyName: "Persisted Co" },
+          lastSetAt: "2026-04-26T00:00:00Z",
+        },
+      );
+      expect(result).toBeNull();
+    });
+
+    it("body { siteUrl: null } returns null when persisted opted out too", () => {
+      const result = resolveDeploySeoOptions(
+        { siteUrl: null },
+        {
+          optIn: false,
+          siteUrl: null,
+          brand: null,
+          lastSetAt: null,
+        },
+      );
+      expect(result).toBeNull();
+    });
+
+    it("body { siteUrl: null, brand: {...} } still opts out (brand alone can't rescue)", () => {
+      const result = resolveDeploySeoOptions(
+        { siteUrl: null, brand: { companyName: "Body Co" } },
+        {
+          optIn: true,
+          siteUrl: "https://persisted.example.com",
+          brand: null,
+          lastSetAt: null,
+        },
+      );
+      expect(result).toBeNull();
+    });
+
+    it("body { optIn: true, siteUrl: null } returns null (defensive — zod normally rejects this)", () => {
+      // The zod schema's superRefine rejects optIn=true with siteUrl=null
+      // before this resolver is reached, but the resolver must still
+      // return null defensively if such a value somehow arrives.
+      // Statically valid (optIn and siteUrl are independently optional/
+      // nullable in the schema); only the runtime cross-field check
+      // forbids the combination.
+      const result = resolveDeploySeoOptions(
+        { optIn: true, siteUrl: null },
+        {
+          optIn: true,
+          siteUrl: "https://persisted.example.com",
+          brand: null,
+          lastSetAt: null,
+        },
+      );
+      expect(result).toBeNull();
+    });
+  });
+
   describe("persisted-only", () => {
     it("returns persisted siteUrl + brand when optIn=true and no body override", () => {
       const result = resolveDeploySeoOptions(undefined, {

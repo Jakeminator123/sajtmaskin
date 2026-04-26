@@ -15,6 +15,14 @@
  * Returns `null` when the resolved opt-in is OFF, so the caller can
  * short-circuit without invoking the apply-step. This keeps deploy
  * files byte-identical to today when the user hasn't opted in.
+ *
+ * Body explicit-noop: `siteUrl: null` (with or without `optIn`) is
+ * always honored as opt-out for this single deploy, regardless of
+ * persisted preferences. The Zod schema (`seoPreferencesSchema`)
+ * distinguishes `null` (explicit) from `undefined` (omitted), and so
+ * does this resolver — `??` is NOT used on `siteUrl` because that
+ * collapses both into the persisted fallback. Mirrors
+ * `applySeoToProjectFiles({ siteUrl: null })` semantics.
  */
 
 import type { SeoOptions } from "@/lib/gen/scaffolds/seo-defaults";
@@ -31,12 +39,24 @@ export function resolveDeploySeoOptions(
     if (bodySeo.optIn === false) {
       return null;
     }
+    // Explicit body siteUrl=null is always an opt-out, regardless of
+    // optIn omission or persisted state. Must run BEFORE the persisted
+    // fallback below — `??` would treat null and undefined the same
+    // and silently re-enable persisted SEO, which violates the
+    // documented "explicit-noop" contract.
+    if (bodySeo.siteUrl === null) {
+      return null;
+    }
     if (bodySeo.optIn === true && bodySeo.siteUrl) {
       return {
         siteUrl: bodySeo.siteUrl,
         brand: bodySeo.brand ?? undefined,
       };
     }
+    // optIn omitted and siteUrl is undefined (not explicitly null):
+    // defer to persisted for opt-in flag, use body fields as overrides
+    // where present. Body brand=null is honored as "clear brand" via
+    // the same `?? undefined` pattern downstream.
     if (persisted.optIn && (bodySeo.siteUrl ?? persisted.siteUrl)) {
       const siteUrl = bodySeo.siteUrl ?? persisted.siteUrl;
       if (!siteUrl) return null;
