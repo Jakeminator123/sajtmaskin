@@ -197,16 +197,27 @@ function extractLocalDeclarations(code: string): Set<string> {
   return names;
 }
 
+/**
+ * Symbols we accept into the export index.
+ *
+ * SAJ-61 broadened this from "ALL_CAPS | camelCase | strict-PascalCase" to
+ * "any valid TS/JS identifier" because the strict PascalCase regex
+ * (`[A-Z][a-z][A-Za-z0-9]*`) excluded:
+ *   - acronym-PascalCase like `APIBanner`, `HTTPStatusCard`,
+ *     `URLProvider` (`[A-Z][A-Z]…`)
+ *   - single-letter exports like `X`, `Y` (3D scene primitives)
+ *
+ * False positives are still bounded:
+ *   - the file-level filter (`isIndexableSharedFile`) keeps `app/`,
+ *     `components/ui/`, `node_modules/`, autofix stubs out
+ *   - `fixMissingLocalSymbolImports` only auto-imports when **exactly one**
+ *     indexable file exports the symbol — multiple kandidater are left
+ *     for the structured repair-loop, never auto-guessed
+ *   - `symbolLooksUsed` requires the symbol to actually appear as a
+ *     value/type reference in the importing file
+ */
 function isEligibleSharedSymbol(name: string): boolean {
-  // ALL_CAPS_CONST
-  if (/^[A-Z][A-Z0-9_]*$/.test(name)) return true;
-  // camelCase (functions, hooks, lower-case consts)
-  if (/^[a-z][A-Za-z0-9]*$/.test(name)) return true;
-  // PascalCase (React components, types, classes) — SAJ-61 broadening so
-  // generated `components/<name>.tsx` exports become indexable for the
-  // missing-symbol auto-import path. Filtered to the indexable file set
-  // above (`isIndexableSharedFile`), so app/ and node_modules/ never feed in.
-  return /^[A-Z][a-z][A-Za-z0-9]*$/.test(name);
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
 }
 
 /**

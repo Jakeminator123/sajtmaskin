@@ -25,6 +25,7 @@ import type { AutoFixResult } from "@/lib/gen/autofix/pipeline";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
 import {
   VERIFIER_REPAIR_TIMEOUT_MS,
+  VERIFIER_RERUN_TIMEOUT_MS,
   type FinalizeProgressCallback,
   type FinalizeStepTelemetry,
 } from "./types";
@@ -176,9 +177,14 @@ export async function runVerifierPhase(params: {
           if (FEATURES.verifierRerunAfterFix) {
             const rerunStartedAt = Date.now();
             const rerunAbort = new AbortController();
+            // SAJ-61 review fix: use the dedicated 30s rerun budget
+            // instead of the (now 120s) repair budget. The rerun is
+            // read-only — re-evaluating findings, not rewriting files —
+            // so it should not inherit any future bumps to the repair
+            // timeout.
             const rerunTimeout = setTimeout(
               () => rerunAbort.abort(),
-              VERIFIER_REPAIR_TIMEOUT_MS,
+              VERIFIER_RERUN_TIMEOUT_MS,
             );
             try {
               const rerunFindings = await runVerifierPass(contentForVersion, {

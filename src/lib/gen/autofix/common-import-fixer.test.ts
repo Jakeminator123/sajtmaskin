@@ -381,6 +381,40 @@ describe("common-import-fixer", () => {
       expect(exportIndex.get("products")).toEqual(["@/data/products"]);
     });
 
+    it("indexes acronym-PascalCase, ALL_CAPS, and single-letter exports (SAJ-61 review)", () => {
+      const files: CodeFile[] = [
+        {
+          path: "components/api-banner.tsx",
+          content:
+            "export function APIBanner() { return <aside />; }\n" +
+            "export const HTTPStatusCard = () => null;\n",
+          language: "tsx",
+        },
+        {
+          path: "lib/constants.ts",
+          content:
+            "export const API = '/api';\n" +
+            "export const UI = 'shadcn';\n" +
+            "export const HTTP = 'https';\n",
+          language: "ts",
+        },
+        {
+          path: "components/three-axis.tsx",
+          content: "export const X = 1;\nexport const Y = 2;\n",
+          language: "tsx",
+        },
+      ];
+
+      const exportIndex = buildProjectExportIndex(files);
+      expect(exportIndex.get("APIBanner")).toEqual(["@/components/api-banner"]);
+      expect(exportIndex.get("HTTPStatusCard")).toEqual(["@/components/api-banner"]);
+      expect(exportIndex.get("API")).toEqual(["@/lib/constants"]);
+      expect(exportIndex.get("UI")).toEqual(["@/lib/constants"]);
+      expect(exportIndex.get("HTTP")).toEqual(["@/lib/constants"]);
+      expect(exportIndex.get("X")).toEqual(["@/components/three-axis"]);
+      expect(exportIndex.get("Y")).toEqual(["@/components/three-axis"]);
+    });
+
     it("does not index node_modules paths if any sneak in", () => {
       const files: CodeFile[] = [
         {

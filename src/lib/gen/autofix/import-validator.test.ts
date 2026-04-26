@@ -143,4 +143,28 @@ describe("import-validator (SAJ-61 namespace + LucideIcon)", () => {
     const result = runImportValidator(code);
     expect(result.code).not.toContain("LucideIcon");
   });
+
+  it("regression: still adds LucideIcon when an existing lucide-react type import is multiline / unparseable", () => {
+    // Multiline `import type { ... }` would not match the merge regex
+    // (which only grabs single-line patterns). Previously the unparseable
+    // line caused `importedNames.add("LucideIcon")` to fire WITHOUT any
+    // import being added — the second-chance "fresh import" branch then
+    // never ran and the file shipped without LucideIcon. Now the code
+    // falls through to a fresh `import type` line.
+    const code = [
+      "import type {",
+      "  LucideProps,",
+      '} from "lucide-react";',
+      "",
+      "type Feature = { icon: LucideIcon; props: LucideProps };",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+    expect(result.code).toContain("LucideIcon");
+    expect(
+      result.fixes.some((f) =>
+        f.description.includes("type import for LucideIcon"),
+      ),
+    ).toBe(true);
+  });
 });

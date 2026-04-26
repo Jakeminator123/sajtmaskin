@@ -193,6 +193,9 @@ export interface FinalizeFastPathResult {
 }
 
 /**
+ * Budget for the LLM repair gate (rewriting offending files) triggered
+ * by verifier blocking findings.
+ *
  * SAJ-61 c5: bumped from 60_000 ms to 120_000 ms because the verifier-fix
  * step routinely needs to rewrite multiple component files when the
  * blocker is `build-breaking-missing-imports`. The previous budget
@@ -202,3 +205,16 @@ export interface FinalizeFastPathResult {
  * but eliminates the false aborts that were leaving blockers in place.
  */
 export const VERIFIER_REPAIR_TIMEOUT_MS = 120_000;
+
+/**
+ * Budget for the read-only verifier rerun that confirms the LLM-repair
+ * actually fixed the blockers. Distinct from `VERIFIER_REPAIR_TIMEOUT_MS`:
+ * the rerun does not rewrite files, it only re-evaluates findings, so it
+ * should not inherit the (longer) repair budget when that one bumps.
+ *
+ * 30s mirrors the original "capped at one re-run + a 30 s timeout" design
+ * note in `verifier-phase.ts`. Using a separate constant prevents future
+ * adjustments to the repair budget from accidentally doubling the rerun
+ * latency.
+ */
+export const VERIFIER_RERUN_TIMEOUT_MS = 30_000;

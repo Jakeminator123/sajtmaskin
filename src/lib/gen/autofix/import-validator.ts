@@ -609,31 +609,51 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
     /(?::\s*|<\s*|\bAs\s+|,\s*|\|\s*|\bextends\s+|=\s*)LucideIcon\b/.test(code) ||
     /\bLucideIcon\s*[<|,>;)\]]/.test(code);
   if (usesLucideIcon && !importedNames.has("LucideIcon")) {
+    // SAJ-61 review fix: only mark LucideIcon as "imported" once we have
+    // either successfully merged into an existing lucide-react type import
+    // or scheduled a brand-new `import type` line. Previously this flag was
+    // set unconditionally, so an unparseable existing import (e.g. multi-
+    // line shape that didn't match the brace regex) would silently skip
+    // the merge AND swallow any later attempt to add the import.
     const existingTypeOnly = lines.findIndex(
       (l) =>
         /from\s+["']lucide-react["']/.test(l) &&
         /import\s+type\s+\{/.test(l),
     );
+    let added = false;
     if (existingTypeOnly >= 0) {
       const line = lines[existingTypeOnly];
       const braceMatch = line.match(/^(\s*import\s+type\s+\{)([^}]*)(\}\s+from\s+["']lucide-react["'].*)$/);
-      if (braceMatch && !braceMatch[2].includes("LucideIcon")) {
-        lines[existingTypeOnly] = `${braceMatch[1]}${braceMatch[2].trimEnd()}, LucideIcon ${braceMatch[3]}`;
-        fixes.push({
-          fixer: "import-validator",
-          description: "Added missing LucideIcon to existing lucide-react type import",
-          line: existingTypeOnly + 1,
-        });
+      if (braceMatch) {
+        if (braceMatch[2].includes("LucideIcon")) {
+          // Defensive: already present even though `importedNames` did not
+          // know about it (e.g. unusual whitespace fooled the earlier
+          // regex). Treat as imported, do not add.
+          added = true;
+        } else {
+          lines[existingTypeOnly] = `${braceMatch[1]}${braceMatch[2].trimEnd()}, LucideIcon ${braceMatch[3]}`;
+          fixes.push({
+            fixer: "import-validator",
+            description: "Added missing LucideIcon to existing lucide-react type import",
+            line: existingTypeOnly + 1,
+          });
+          added = true;
+        }
       }
-    } else {
+      // braceMatch === null → existing line shape is unparseable, fall
+      // through to the "fresh import" branch below so we still satisfy the
+      // missing import.
+    }
+    if (!added) {
       newImports.push('import type { LucideIcon } from "lucide-react"');
       fixes.push({
         fixer: "import-validator",
         description: "Added missing type import for LucideIcon from lucide-react",
         line: 0,
       });
+      added = true;
     }
-    importedNames.add("LucideIcon");
+    if (added) importedNames.add("LucideIcon");
   }
 
   if (missingHooks.size > 0) {
