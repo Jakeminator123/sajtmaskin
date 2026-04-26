@@ -35,6 +35,17 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
+import { getProjectData } from "@/lib/db/services/projects";
+import {
+  readSeoPreferencesFromMeta,
+  seoPreferencesSchema,
+  type SeoPreferences,
+  type SeoPreferencesPersisted,
+} from "@/lib/projects/preferences-schema";
+import {
+  applySeoToProjectFiles,
+  type SeoOptions,
+} from "@/lib/gen/scaffolds/seo-defaults";
 
 export const runtime = "nodejs";
 
@@ -359,7 +370,70 @@ const createDeploymentSchema = z.object({
   precheckOnly: z.boolean().optional(),
   /** Felsökning: hoppa över applyPreDeployFixes; env-krav beräknas på rå snapshot. */
   skipAutoFix: z.boolean().optional(),
+  /**
+   * SEO opt-in for this deploy (PR-B / "Bygg-dialog → SEO-paket").
+   * Body-override wins over `project_data.meta.seo`. Same validation as
+   * `PATCH /api/projects/[id]/preferences` (https-URL, locale-format,
+   * `optIn=true` requires siteUrl).
+   *
+   * Omitting `seo` falls back to persisted `meta.seo` from the project.
+   * If neither body nor meta opts in, the deploy uses the env-fallback
+   * (`SAJTMASKIN_SCAFFOLD_SEO_SITE_URL`) — which is unset by default,
+   * so deploy files are identical to today.
+   */
+  seo: seoPreferencesSchema.optional(),
 });
+
+/**
+ * Resolve effective SEO options for a deploy. Precedence:
+ *   1. Body-override (`seo` in POST body) — opt-in for this build only.
+ *   2. Persisted `project_data.meta.seo` — saved from previous deploys.
+ *   3. No options → core helper falls back to env (single-tenant fallback).
+ *
+ * Returns `null` when the resolved opt-in is OFF, so the caller can short-
+ * circuit without invoking the apply-step. This keeps deploy-files
+ * byte-identical to today when the user hasn't opted in.
+ *
+ * Body `siteUrl: null` is honored as explicit-noop — the user explicitly
+ * disabled SEO for this single deploy even though preferences may say
+ * opt-in. Mirrors `applySeoToProjectFiles({ siteUrl: null })` semantics.
+ */
+function resolveDeploySeoOptions(
+  bodySeo: SeoPreferences | undefined,
+  persisted: SeoPreferencesPersisted,
+): SeoOptions | null {
+  // Explicit body-override has highest priority.
+  if (bodySeo !== undefined) {
+    if (bodySeo.optIn === false) {
+      // Explicit opt-out for this deploy.
+      return null;
+    }
+    if (bodySeo.optIn === true && bodySeo.siteUrl) {
+      return {
+        siteUrl: bodySeo.siteUrl,
+        brand: bodySeo.brand ?? undefined,
+      };
+    }
+    // optIn omitted but other fields present (e.g. partial body) — defer
+    // to persisted state for opt-in flag, use body fields for overrides.
+    if (persisted.optIn && (bodySeo.siteUrl ?? persisted.siteUrl)) {
+      const siteUrl = bodySeo.siteUrl ?? persisted.siteUrl;
+      if (!siteUrl) return null;
+      const brand =
+        bodySeo.brand !== undefined ? (bodySeo.brand ?? undefined) : (persisted.brand ?? undefined);
+      return { siteUrl, brand };
+    }
+    return null;
+  }
+  // No body-override → fall back to persisted preferences.
+  if (persisted.optIn && persisted.siteUrl) {
+    return {
+      siteUrl: persisted.siteUrl,
+      brand: persisted.brand ?? undefined,
+    };
+  }
+  return null;
+}
 
 export async function POST(req: Request) {
   return withRateLimit(req, "deployment:create", async () => {
@@ -385,6 +459,7 @@ export async function POST(req: Request) {
         projectId,
         precheckOnly,
         skipAutoFix,
+        seo: bodySeo,
       } = validationResult.data;
       const skipPreDeployAutoFix = shouldSkipPreDeployAutoFix(skipAutoFix);
       const resolvedImageStrategy: ImageAssetStrategy =
@@ -453,6 +528,17 @@ export async function POST(req: Request) {
       const textFiles = codeFiles.map((f) => ({ name: f.path, content: f.content }));
 
       const projectEnv = await resolveProjectEnv(engineProjectId ?? null);
+
+      // Read persisted SEO preferences from `project_data.meta.seo`. Body
+      // override (parsed above as `bodySeo`) wins over persisted; both fall
+      // back to the env-flag in the SEO core helper. Guarded so that a
+      // missing project_data row doesn't fail the deploy.
+      const persistedProjectData = await getProjectData(engineProjectId).catch(() => null);
+      const persistedSeo = readSeoPreferencesFromMeta(
+        (persistedProjectData?.meta as Record<string, unknown> | null | undefined) ?? null,
+      );
+      const resolvedSeoOptions = resolveDeploySeoOptions(bodySeo, persistedSeo);
+
       const { files: fixedFiles, fixesApplied, warnings, invalidFiles } = runPreDeployFixPipeline(
         textFiles,
         skipPreDeployAutoFix,
@@ -543,9 +629,39 @@ export async function POST(req: Request) {
           deployReadiness,
         });
 
+        // PR-B: apply project-specific SEO (robots/sitemap/opengraph +
+        // layout metadata) when the user opted in via Bygg-dialog or
+        // persisted preferences. Runs after pre-deploy auto-fix so SEO
+        // files participate in image-asset materialization below, but
+        // before the Vercel call so the deploy gets the enriched files.
+        // No-op when `resolvedSeoOptions` is null → deploy-files identical
+        // to today.
+        const seoApplyResult = resolvedSeoOptions
+          ? applySeoToProjectFiles(fixedFiles, resolvedSeoOptions)
+          : { applied: false as const, files: fixedFiles, source: "explicit-noop" as const, siteUrl: null, injected: [] as string[], enriched: [] as string[] };
+        if (seoApplyResult.applied) {
+          console.info("[deploy] SEO injected", {
+            siteUrl: seoApplyResult.siteUrl,
+            source: seoApplyResult.source,
+            injected: seoApplyResult.injected,
+            enriched: seoApplyResult.enriched,
+          });
+          devLogAppend("latest", {
+            type: "site.deploy.seo-applied",
+            chatId,
+            versionId,
+            deploymentId,
+            siteUrl: seoApplyResult.siteUrl,
+            source: seoApplyResult.source,
+            injected: seoApplyResult.injected,
+            enriched: seoApplyResult.enriched,
+          });
+        }
+        const filesForDeploy = seoApplyResult.applied ? seoApplyResult.files : fixedFiles;
+
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
         const imageAssets = await materializeImagesInTextFiles({
-            files: fixedFiles,
+            files: filesForDeploy,
             strategy: resolvedImageStrategy,
             blobToken,
           namespace: { chatId, versionId },
@@ -620,6 +736,15 @@ export async function POST(req: Request) {
             imageStrategyUsed: imageAssets.strategyUsed,
           imageAssetsSummary: imageAssets.summary,
           imageAssetsWarnings: imageAssets.warnings,
+          seo: seoApplyResult.applied
+            ? {
+                applied: true,
+                siteUrl: seoApplyResult.siteUrl,
+                source: seoApplyResult.source,
+                injected: seoApplyResult.injected,
+                enriched: seoApplyResult.enriched,
+              }
+            : { applied: false },
         });
       } catch (deployErr) {
         await updateDeploymentStatus(deploymentId, "error");
