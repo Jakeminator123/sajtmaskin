@@ -222,8 +222,16 @@ base manifest (per scaffold-mapp, t.ex. blog/manifest.ts)
    └─ scaffold-research.generated.json → upgradeTargets, referenceTemplates
         │
         ▼
-2. applyScaffoldSeoDefaults()
+2. applyScaffoldSeoDefaults(scaffold, options?)
    └─ seo-defaults.ts → SEO-metadata
+      │
+      ├─ no options + env unset      → noop (default-safe; ingen example.com-leak)
+      ├─ no options + env set        → env-fallback (single-tenant)
+      ├─ options.siteUrl (string)    → override env (per-projekt, PR-B-konsument)
+      ├─ options.siteUrl: null       → explicit noop även om env satt
+      └─ options.brand               → fyller layout-metadata-fallbacks
+                                        (scaffold-content vinner för title/description;
+                                         brand vinner för locale)
         │
         ▼
 ALL_SCAFFOLDS (registry.ts)
