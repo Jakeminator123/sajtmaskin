@@ -39,9 +39,8 @@ import { getProjectData } from "@/lib/db/services/projects";
 import {
   readSeoPreferencesFromMeta,
   seoPreferencesSchema,
-  type SeoPreferences,
-  type SeoPreferencesPersisted,
 } from "@/lib/projects/preferences-schema";
+import { resolveDeploySeoOptions } from "./resolve-seo";
 import {
   applySeoToProjectFiles,
   type SeoOptions,
@@ -383,57 +382,6 @@ const createDeploymentSchema = z.object({
    */
   seo: seoPreferencesSchema.optional(),
 });
-
-/**
- * Resolve effective SEO options for a deploy. Precedence:
- *   1. Body-override (`seo` in POST body) — opt-in for this build only.
- *   2. Persisted `project_data.meta.seo` — saved from previous deploys.
- *   3. No options → core helper falls back to env (single-tenant fallback).
- *
- * Returns `null` when the resolved opt-in is OFF, so the caller can short-
- * circuit without invoking the apply-step. This keeps deploy-files
- * byte-identical to today when the user hasn't opted in.
- *
- * Body `siteUrl: null` is honored as explicit-noop — the user explicitly
- * disabled SEO for this single deploy even though preferences may say
- * opt-in. Mirrors `applySeoToProjectFiles({ siteUrl: null })` semantics.
- */
-function resolveDeploySeoOptions(
-  bodySeo: SeoPreferences | undefined,
-  persisted: SeoPreferencesPersisted,
-): SeoOptions | null {
-  // Explicit body-override has highest priority.
-  if (bodySeo !== undefined) {
-    if (bodySeo.optIn === false) {
-      // Explicit opt-out for this deploy.
-      return null;
-    }
-    if (bodySeo.optIn === true && bodySeo.siteUrl) {
-      return {
-        siteUrl: bodySeo.siteUrl,
-        brand: bodySeo.brand ?? undefined,
-      };
-    }
-    // optIn omitted but other fields present (e.g. partial body) — defer
-    // to persisted state for opt-in flag, use body fields for overrides.
-    if (persisted.optIn && (bodySeo.siteUrl ?? persisted.siteUrl)) {
-      const siteUrl = bodySeo.siteUrl ?? persisted.siteUrl;
-      if (!siteUrl) return null;
-      const brand =
-        bodySeo.brand !== undefined ? (bodySeo.brand ?? undefined) : (persisted.brand ?? undefined);
-      return { siteUrl, brand };
-    }
-    return null;
-  }
-  // No body-override → fall back to persisted preferences.
-  if (persisted.optIn && persisted.siteUrl) {
-    return {
-      siteUrl: persisted.siteUrl,
-      brand: persisted.brand ?? undefined,
-    };
-  }
-  return null;
-}
 
 export async function POST(req: Request) {
   return withRateLimit(req, "deployment:create", async () => {
