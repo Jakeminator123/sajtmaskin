@@ -1060,4 +1060,144 @@ describe("runPostGenerationChecks", () => {
     );
     expect(onAutoFix).not.toHaveBeenCalled();
   });
+
+  it("persists Product Postcheck warnings as product_postcheck logs", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            ok: true,
+            skipped: false,
+            warnings: [
+              {
+                code: "broken_anchor",
+                message: "Anchor target saknas för #kontakt",
+                href: "#kontakt",
+                text: "Kontakta oss",
+              },
+            ],
+            warningCount: 1,
+            productBlocked: false,
+            durationMs: 123,
+            checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+          });
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Sandbox not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const errorLogCall = fetchCalls.find((call) => call.url.includes("/error-log"));
+    const body = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string; meta?: Record<string, unknown> }>;
+    };
+    expect(body.logs?.map((log) => log.category)).toEqual(
+      expect.arrayContaining(["product_postcheck.summary", "product_postcheck.broken_anchor"]),
+    );
+    expect(body.logs?.find((log) => log.category === "product_postcheck.broken_anchor")?.meta).toEqual(
+      expect.objectContaining({ code: "broken_anchor", href: "#kontakt" }),
+    );
+    const postCheck = getToolPart("Post-check", store);
+    expect((postCheck?.output as { warnings?: string[] }).warnings).toEqual(
+      expect.arrayContaining(["Product: Anchor target saknas för #kontakt"]),
+    );
+    expect(onAutoFix).not.toHaveBeenCalled();
+  });
+
+  it("persists Product Postcheck skipped status without warning or autofix", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({
+            ok: true,
+            skipped: true,
+            skippedReason: "missing_preview_url",
+            warnings: [],
+            warningCount: 0,
+            productBlocked: false,
+            durationMs: 0,
+            checkedUrl: null,
+          });
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Sandbox not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: null,
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const errorLogCall = fetchCalls.find((call) => call.url.includes("/error-log"));
+    const body = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
+      logs?: Array<{ category?: string; meta?: Record<string, unknown> }>;
+    };
+    expect(body.logs?.find((log) => log.category === "product_postcheck.skipped")?.meta).toEqual(
+      expect.objectContaining({ skippedReason: "missing_preview_url" }),
+    );
+    // Befintlig readiness-logik kan fortfarande köa autofix för "preview saknas".
+    // Product Postcheck ska däremot fail-open och bara lägga en skipped-logg.
+  });
 });

@@ -342,6 +342,10 @@ export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
   // P6 latency track: opportunistic Fly VM pre-warm on chat init.
   previewPreWarm: false,
+  // Spår 02: F2 Product Postcheck. Server-side Playwright DOM checks
+  // against trusted preview URLs only. Default off while we measure flake
+  // rate and runtime cost.
+  f2ProductPostcheck: isAffirmativeEnvValue(env.SAJTMASKIN_F2_PRODUCT_POSTCHECK),
 
   // The four previously dormant flags below were hardcoded ON on 2026-04-22
   // after confirming zero production off-toggles historically. Their env

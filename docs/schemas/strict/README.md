@@ -37,9 +37,11 @@ Conservative rollout:
 
 ### LLM-flöde telemetri-event schemas
 
-Dessa schemas dokumenterar events som introducerats i LLM-flöde-körplanen. Events
-skrivs via `devLogAppend` till `logs/generationslogg/*/timeline.ndjson` (kräver
-`GENERATIONSLOGG=true`). Backoffice-sidan `LLM-flöde telemetri` läser och aggregerar dem.
+Dessa schemas dokumenterar events/signaler som introducerats i LLM-flöde-körplanen.
+De flesta skrivs via `devLogAppend` till `logs/generationslogg/*/timeline.ndjson`
+(kräver `GENERATIONSLOGG=true`), men vissa skrivs till befintlig DB-diagnostik
+eller debug-logg. Kanal anges per rad. Backoffice-sidan `LLM-flöde telemetri`
+läser och aggregerar de NDJSON-signaler den kan se.
 
 | Schema | Event type | Emitteras av | Kanal | Runtime check? |
 |--------|-----------|--------------|-------|----------------|
@@ -47,6 +49,7 @@ skrivs via `devLogAppend` till `logs/generationslogg/*/timeline.ndjson` (kräver
 | `dossier-verbatim-restored.schema.json` | `dossier_verbatim_restored` | `src/lib/gen/dossiers/verbatim-policy.ts` | `devLogAppend` → NDJSON | No — observability-only |
 | `llm-fixer-partial-response.schema.json` | `llm_fixer_partial_response` | `src/lib/gen/autofix/llm-fixer.ts` | `devLogAppend` → NDJSON | No — observability-only |
 | `site-done-telemetry.schema.json` | `site.done` (subset-kontrakt för telemetri) | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | `devLogAppend` → NDJSON | No — observability-only |
+| `product-postcheck.schema.json` | `product_postcheck.*` | `src/lib/gen/verify/product-postcheck.ts` + `src/lib/hooks/chat/post-checks.ts` | `engine_version_error_logs` via befintlig `persistVersionErrorLogs()` | No — observability-only |
 | `image-replaced-with-placeholder.schema.json` | `image_replaced_with_placeholder` | `src/lib/utils/image-validator.ts` | **`debugLog` (console)** — ej NDJSON | No — forward-deklaration |
 | `dossier-stub-created.schema.json` | `dossier_stub_created` / `crossFileStubs` | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | **DB** (`engine_version_error_logs`, category `merge:cross-file-stub`) | No — forward-deklaration |
 

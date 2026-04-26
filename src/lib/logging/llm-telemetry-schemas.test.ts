@@ -115,4 +115,62 @@ describe("LLM telemetri strict schemas", () => {
       expect(validate(payload)).toBe(true);
     });
   });
+
+  describe("product-postcheck.schema.json", () => {
+    const validate = ajv.compile(loadSchema("product-postcheck.schema.json"));
+
+    it("matchar product_postcheck.summary", () => {
+      const payload = {
+        level: "warning",
+        category: "product_postcheck.summary",
+        message: "F2 Product Postcheck found 1 warning(s).",
+        meta: {
+          warningCount: 1,
+          productBlocked: false,
+          durationMs: 1234,
+          checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        },
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
+    it("matchar product_postcheck.broken_image", () => {
+      const payload = {
+        level: "warning",
+        category: "product_postcheck.broken_image",
+        message: "Bilden laddade inte",
+        meta: {
+          code: "broken_image",
+          src: "https://images.example/broken.jpg",
+          alt: "Porträtt",
+          durationMs: 42,
+          checkedUrl: "http://localhost:3000/preview",
+        },
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
+    it("matchar product_postcheck.skipped", () => {
+      const payload = {
+        level: "info",
+        category: "product_postcheck.skipped",
+        message: "F2 Product Postcheck skipped.",
+        meta: {
+          skippedReason: "url_not_allowed",
+          durationMs: 0,
+          checkedUrl: "https://example.com",
+        },
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
+    it("kastar icke-product-kategori", () => {
+      const payload = {
+        level: "warning",
+        category: "quality-gate:typecheck",
+        message: "Wrong lane",
+      };
+      expect(validate(payload)).toBe(false);
+    });
+  });
 });
