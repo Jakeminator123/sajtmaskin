@@ -150,6 +150,76 @@ function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFind
   };
 }
 
+const DETAIL_FILE_PATH_RE = /\b([A-Za-z0-9_./-]+\.(?:tsx?|jsx?))\b/g;
+const DETAIL_HASH_HREF_RE = /\bhref\s*=\s*\{?\s*(["'`])(#[-A-Za-z0-9_:]+)\1/g;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function fileContainsId(content: string, id: string): boolean {
+  const escaped = escapeRegExp(id);
+  const idAttr = new RegExp(
+    String.raw`\bid\s*=\s*(?:"${escaped}"|'${escaped}'|\{\s*(?:"${escaped}"|'${escaped}'|` +
+      "`" +
+      escaped +
+      "`" +
+      String.raw`)\s*\})`,
+  );
+  return idAttr.test(content);
+}
+
+function extractDetailFilePaths(detail: string): string[] {
+  DETAIL_FILE_PATH_RE.lastIndex = 0;
+  const files = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = DETAIL_FILE_PATH_RE.exec(detail)) !== null) {
+    if (match[1]) files.add(match[1].replace(/\\/g, "/"));
+  }
+  return [...files];
+}
+
+function extractDetailHashHrefs(detail: string): string[] {
+  DETAIL_HASH_HREF_RE.lastIndex = 0;
+  const hashes = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = DETAIL_HASH_HREF_RE.exec(detail)) !== null) {
+    if (match[2]) hashes.add(match[2]);
+  }
+  return [...hashes];
+}
+
+function isValidInPageHashNavigationFinding(
+  detail: string,
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): boolean {
+  const hashHrefs = extractDetailHashHrefs(detail);
+  if (hashHrefs.length === 0) return false;
+
+  const mentionedFiles = extractDetailFilePaths(detail);
+  if (mentionedFiles.length === 0) return false;
+
+  const fileMap = new Map(files.map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]));
+  return hashHrefs.every((hash) => {
+    const id = hash.slice(1);
+    return mentionedFiles.some((path) => fileContainsId(fileMap.get(path) ?? "", id));
+  });
+}
+
+export function suppressValidInPageAnchorNavigationFindings(
+  findings: VerifierFindings,
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): VerifierFindings {
+  const shouldKeep = (finding: { id: string; detail: string }) =>
+    finding.id !== "navigation-placeholder-actions" ||
+    !isValidInPageHashNavigationFinding(finding.detail, files);
+
+  return {
+    blocking: findings.blocking.filter(shouldKeep),
+    quality: findings.quality.filter(shouldKeep),
+  };
+}
+
 type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
 type JsonObject = { [key: string]: JsonValue | undefined };
 type ProviderOptionsRecord = Record<string, JsonObject>;
@@ -597,7 +667,10 @@ Use those exact ids so downstream tooling can recognise them.`;
       maxRetries: 1,
       ...(providerOptions ? { providerOptions } : {}),
     });
-    const promoted = promoteForcedBlockingFindings(result.object);
+    const promoted = suppressValidInPageAnchorNavigationFindings(
+      promoteForcedBlockingFindings(result.object),
+      files,
+    );
     return recordOnExit({
       blocking: [...deterministic.blocking, ...promoted.blocking],
       quality: [...deterministic.quality, ...promoted.quality],

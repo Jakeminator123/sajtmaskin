@@ -4,6 +4,7 @@ import {
   checkUndefinedJsxSymbols,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
+  suppressValidInPageAnchorNavigationFindings,
 } from "./verifier-pass";
 
 const TRAP_CLASS = `motion-reduce` + `:hidden`;
@@ -373,6 +374,58 @@ describe("formatVerifierFindingsAsFixerErrors", () => {
     expect(lines[0]).not.toMatch(/^verifier:1:1/);
     expect(lines[0]).toContain("[verifier:navigation-placeholder-actions]");
     expect(lines[0]).toContain("components/site-header.tsx:");
+  });
+});
+
+describe("suppressValidInPageAnchorNavigationFindings", () => {
+  it("does not block game controls that point to an existing in-page area", () => {
+    const findings = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail:
+              'app/spel/page.tsx: "Starta spelet" and "Omstarta spelet" use href="#spelomrade".',
+          },
+        ],
+        quality: [],
+      },
+      [
+        {
+          path: "app/spel/page.tsx",
+          content: [
+            "export default function SpelPage() {",
+            '  return <section id="spelomrade">spel</section>;',
+            "}",
+          ].join("\n"),
+        },
+      ],
+    );
+
+    expect(findings.blocking).toEqual([]);
+    expect(findings.quality).toEqual([]);
+  });
+
+  it("keeps hash navigation findings when the target id is missing", () => {
+    const findings = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail: 'app/spel/page.tsx: "Starta spelet" uses href="#spelomrade".',
+          },
+        ],
+        quality: [],
+      },
+      [
+        {
+          path: "app/spel/page.tsx",
+          content: "export default function SpelPage() { return <main />; }",
+        },
+      ],
+    );
+
+    expect(findings.blocking).toHaveLength(1);
   });
 });
 

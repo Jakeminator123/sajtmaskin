@@ -56,6 +56,34 @@ describe("common-import-fixer", () => {
     expect(result.code).toContain('import { navigation } from "@/lib/site-data";');
   });
 
+  it("does not auto-import an exported symbol when the file declares a local type with the same name", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/lane.tsx",
+        content: "export default function Lane() { return <div />; }",
+        language: "tsx",
+      },
+      {
+        path: "components/chimp-game.tsx",
+        content: [
+          "type Lane = 0 | 1 | 2;",
+          "const lanes: Lane[] = [0, 1, 2];",
+          "export function ChimpGame() {",
+          "  return <div>{lanes.length}</div>;",
+          "}",
+        ].join("\n"),
+        language: "tsx",
+      },
+    ];
+
+    const exportIndex = buildProjectExportIndex(files);
+    const result = fixMissingLocalSymbolImports(files[1]!.content, files[1]!.path, exportIndex);
+
+    expect(result.fixed).toBe(false);
+    expect(result.addedSymbols).toEqual([]);
+    expect(result.code).not.toContain("@/components/lane");
+  });
+
   it("adds missing ReactNode type import", () => {
     const code = `export default function CartProvider({ children }: { children: ReactNode }) {\n  return <>{children}</>;\n}`;
     const result = fixMissingReactTypeImports(code);
