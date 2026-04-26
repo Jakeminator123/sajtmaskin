@@ -84,6 +84,10 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
     blocking: Array<{ id: string; detail: string }>;
   }) =>
     findings.blocking.map((f) => `[verifier:${f.id}] ${f.detail}`),
+  // SAJ-61 c5: file-path extractor consumed by `verifier-phase` to seed
+  // `runLlmRepairGate({ requiredFiles })`. The unit tests don't care
+  // about the exact list, just that the export exists.
+  extractFilePathsFromVerifierFindings: () => [] as string[],
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
@@ -1670,7 +1674,13 @@ describe("finalizeAndSaveVersion", () => {
       );
     });
 
-    it("rerun failure → falls back to optimistic clear (legacy behaviour) so existing latency budgets are not regressed", async () => {
+    it("SAJ-61 c5: rerun failure → keeps the original blockers so UI does not lie 'fixed'", async () => {
+      // Pre-SAJ-61 the rerun-failure branch fell through to an optimistic
+      // clear (`verifierBlockingFindings = []`). That meant the UI saw
+      // `verifierBlocked: false` even though the verifier never had a chance
+      // to confirm anything was actually fixed. The new behaviour is to
+      // keep the original blocking findings — the version stays correctly
+      // verifier-blocked until a clean rerun says otherwise.
       runVerifierPass
         .mockResolvedValueOnce({
           blocking: [{ id: "missing-h1", detail: "page missing h1" }],
@@ -1688,11 +1698,10 @@ describe("finalizeAndSaveVersion", () => {
       });
       await finalizeAndSaveVersion(baseArgs());
       expect(runVerifierPass).toHaveBeenCalledTimes(2);
-      // Optimistic clear means verifierBlocked goes false despite rerun fail.
       expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           meta: expect.objectContaining({
-            preflight: expect.objectContaining({ verifierBlocked: false }),
+            preflight: expect.objectContaining({ verifierBlocked: true }),
           }),
         }),
       );

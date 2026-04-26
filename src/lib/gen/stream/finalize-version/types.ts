@@ -192,4 +192,13 @@ export interface FinalizeFastPathResult {
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 
-export const VERIFIER_REPAIR_TIMEOUT_MS = 60_000;
+/**
+ * SAJ-61 c5: bumped from 60_000 ms to 120_000 ms because the verifier-fix
+ * step routinely needs to rewrite multiple component files when the
+ * blocker is `build-breaking-missing-imports`. The previous budget
+ * tripped abort early enough that the repair returned `success: false`
+ * even when a slower model would have completed cleanly. Doubling the
+ * window costs at most one extra minute on the (rare) genuine timeouts
+ * but eliminates the false aborts that were leaving blockers in place.
+ */
+export const VERIFIER_REPAIR_TIMEOUT_MS = 120_000;

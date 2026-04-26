@@ -54,6 +54,11 @@ const FORCE_BLOCKING_IDS = new Set<string>([
  * detail with a marker so the fixer treats it as a quality blocker rather
  * than a syntax error. The `id` is appended so downstream tooling can
  * still map back to the verifier finding catalogue.
+ *
+ * SAJ-61 c5: when the finding is `build-breaking-missing-imports` the
+ * detail is a Markdown bullet list of `- <file>: uses X but does not
+ * import Y`. Split each bullet into its own fixer error line so the LLM
+ * sees one structured row per offending file instead of a wall of text.
  */
 export function formatVerifierFindingsAsFixerErrors(
   findings: Pick<VerifierFindings, "blocking">,
@@ -62,11 +67,58 @@ export function formatVerifierFindingsAsFixerErrors(
   for (const f of findings.blocking) {
     const detail = f.detail.trim();
     if (!detail) continue;
+
+    if (f.id === "build-breaking-missing-imports") {
+      const bullets = detail
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("- "))
+        .map((line) => line.replace(/^-\s+/, ""));
+      if (bullets.length > 0) {
+        for (const bullet of bullets) {
+          const filePathMatch = bullet.match(/^([A-Za-z0-9_./@-]+\.\w{1,5})\s*[:\u2014\-]/);
+          const prefix = filePathMatch
+            ? `${filePathMatch[1]}:1:1 `
+            : "verifier:1:1 ";
+          lines.push(`${prefix}[verifier:${f.id}] ${bullet}`);
+        }
+        continue;
+      }
+    }
+
     const looksLikePath = /^[A-Za-z0-9_./@-]+\.\w{1,5}:/.test(detail);
     const prefix = looksLikePath ? "" : "verifier:1:1 ";
     lines.push(`${prefix}[verifier:${f.id}] ${detail}`);
   }
   return lines;
+}
+
+/**
+ * Extract the unique set of file paths referenced inside verifier blocking
+ * findings. Used to seed `runLlmRepairGate({ requiredFiles })` so the LLM
+ * fixer knows which files must come back complete in its output. Stays
+ * conservative: relies on `<path>.<ext>` matching, never fabricates paths.
+ */
+export function extractFilePathsFromVerifierFindings(
+  findings: Pick<VerifierFindings, "blocking">,
+): string[] {
+  const files = new Set<string>();
+  const re = /\b([A-Za-z0-9_./-]+\.[A-Za-z]{1,5})\b/g;
+  for (const f of findings.blocking) {
+    const detail = f.detail ?? "";
+    if (!detail) continue;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(detail)) !== null) {
+      const candidate = match[1];
+      if (!candidate) continue;
+      // Skip dotfiles and version-like tokens (e.g. "1.2.3"). We only
+      // care about emitted source file references.
+      if (/^\d/.test(candidate)) continue;
+      if (!/\.(?:tsx?|jsx?|css|scss|json|mjs|cjs)$/i.test(candidate)) continue;
+      files.add(candidate);
+    }
+  }
+  return [...files];
 }
 
 /**
