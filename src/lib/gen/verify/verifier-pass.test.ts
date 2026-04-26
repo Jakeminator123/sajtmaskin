@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { checkMotionReduceTrap, checkUndefinedJsxSymbols } from "./verifier-pass";
+import {
+  checkMotionReduceTrap,
+  checkUndefinedJsxSymbols,
+  extractFilePathsFromVerifierFindings,
+  formatVerifierFindingsAsFixerErrors,
+} from "./verifier-pass";
 
 const TRAP_CLASS = `motion-reduce` + `:hidden`;
 
@@ -315,5 +320,142 @@ describe("checkUndefinedJsxSymbols", () => {
       maxFindings: 5,
     });
     expect(findings).toHaveLength(5);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// SAJ-61 P0/c5: structured fixer errors + file-path extraction
+// ─────────────────────────────────────────────────────────────────────────
+
+describe("formatVerifierFindingsAsFixerErrors", () => {
+  it("splits build-breaking-missing-imports bullets into one fixer line per file", () => {
+    const detail = [
+      "Multiple files use symbols that are not imported, causing TypeScript/build failures:",
+      "- components/site-header.tsx: uses `useReducedMotion()` but does not import it from `@/hooks/use-reduced-motion`.",
+      "- components/floating-cta.tsx: uses `motion.aside` but does not import `motion` from `framer-motion`.",
+      "- app/spel/page.tsx: type `Benefit` references `LucideIcon` but `LucideIcon` is not imported from `lucide-react`.",
+    ].join("\n");
+
+    const lines = formatVerifierFindingsAsFixerErrors({
+      blocking: [{ id: "build-breaking-missing-imports", detail }],
+    });
+
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(/components\/site-header\.tsx:1:1 \[verifier:build-breaking-missing-imports\]/);
+    expect(lines[0]).toContain("useReducedMotion");
+    expect(lines[1]).toMatch(/components\/floating-cta\.tsx:1:1 \[verifier:build-breaking-missing-imports\]/);
+    expect(lines[2]).toMatch(/app\/spel\/page\.tsx:1:1 \[verifier:build-breaking-missing-imports\]/);
+  });
+
+  it("falls back to the legacy single-line format when there are no bullets", () => {
+    const lines = formatVerifierFindingsAsFixerErrors({
+      blocking: [
+        { id: "missing-required-files", detail: "Generated project lacks app/page.tsx" },
+      ],
+    });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("[verifier:missing-required-files]");
+    expect(lines[0]).toContain("Generated project lacks app/page.tsx");
+  });
+
+  it("preserves the inline-path detection used today (no synthesized prefix)", () => {
+    const lines = formatVerifierFindingsAsFixerErrors({
+      blocking: [
+        {
+          id: "navigation-placeholder-actions",
+          detail: "components/site-header.tsx: CTA `<Button />` lacks an href",
+        },
+      ],
+    });
+    expect(lines).toHaveLength(1);
+    // The detail already starts with a path:line-shape, so the formatter
+    // must not synthesize an extra `verifier:1:1 ` prefix in front of it.
+    expect(lines[0]).not.toMatch(/^verifier:1:1/);
+    expect(lines[0]).toContain("[verifier:navigation-placeholder-actions]");
+    expect(lines[0]).toContain("components/site-header.tsx:");
+  });
+});
+
+describe("extractFilePathsFromVerifierFindings", () => {
+  it("extracts unique file paths referenced inside blocking findings", () => {
+    const detail = [
+      "- components/site-header.tsx: uses `useReducedMotion()` but does not import it from `@/hooks/use-reduced-motion`.",
+      "- components/floating-cta.tsx: uses `motion.aside` but does not import `motion` from `framer-motion`.",
+      "- components/floating-cta.tsx: also uses `useReducedMotion()` without import.",
+    ].join("\n");
+
+    const files = extractFilePathsFromVerifierFindings({
+      blocking: [{ id: "build-breaking-missing-imports", detail }],
+    });
+
+    expect(files.sort()).toEqual([
+      "components/floating-cta.tsx",
+      "components/site-header.tsx",
+    ]);
+  });
+
+  it("ignores version-like and dotfile tokens", () => {
+    const detail = [
+      "Build failed at 1.2.3 caused by app/page.tsx",
+      "(see .env.local for misconfigured variables)",
+    ].join(" ");
+
+    const files = extractFilePathsFromVerifierFindings({
+      blocking: [{ id: "build-error", detail }],
+    });
+
+    expect(files).toEqual(["app/page.tsx"]);
+  });
+
+  it("returns an empty list when no file paths are referenced", () => {
+    const files = extractFilePathsFromVerifierFindings({
+      blocking: [{ id: "design-quality", detail: "Hero section is empty" }],
+    });
+    expect(files).toEqual([]);
+  });
+
+  it("regression: extracts paths from EVERY blocking entry, not only the first (no /g lastIndex leak)", () => {
+    // The shared `/g` regex previously kept its `lastIndex` between
+    // findings, so paths near the start of the second `detail` could
+    // be silently skipped. Two findings here, with the second one's
+    // first path appearing well before the offset where iteration on
+    // the first detail stopped — both must show up in the result.
+    const firstDetail = [
+      "Multiple files use symbols that are not imported, causing TypeScript/build failures:",
+      "- components/site-header.tsx: uses `useReducedMotion()` but does not import it.",
+      "- components/floating-cta.tsx: uses `motion.aside` but does not import `motion` from `framer-motion`.",
+      "- components/home-hero.tsx: uses `useReducedMotion()` and multiple `motion.*` elements without imports.",
+      "- components/turtle-game.tsx: uses `useReducedMotion()` and multiple `motion.div` elements.",
+    ].join("\n");
+    const secondDetail = [
+      "app/spel/page.tsx: type `Benefit` references `LucideIcon` but it is not imported from `lucide-react`.",
+    ].join("\n");
+
+    const files = extractFilePathsFromVerifierFindings({
+      blocking: [
+        { id: "build-breaking-missing-imports", detail: firstDetail },
+        { id: "build-breaking-missing-imports", detail: secondDetail },
+      ],
+    });
+
+    expect(files.sort()).toEqual([
+      "app/spel/page.tsx",
+      "components/floating-cta.tsx",
+      "components/home-hero.tsx",
+      "components/site-header.tsx",
+      "components/turtle-game.tsx",
+    ]);
+  });
+
+  it("is idempotent across repeated invocations (no shared state leak)", () => {
+    const findings = {
+      blocking: [
+        { id: "build-error", detail: "components/foo.tsx: missing import" },
+      ],
+    };
+    const a = extractFilePathsFromVerifierFindings(findings);
+    const b = extractFilePathsFromVerifierFindings(findings);
+    expect(a).toEqual(b);
+    expect(a).toEqual(["components/foo.tsx"]);
   });
 });

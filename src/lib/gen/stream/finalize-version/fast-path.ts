@@ -44,6 +44,23 @@ import type {
   FinalizeStepTelemetryMap,
 } from "./types";
 
+/**
+ * Mirror of `isFeatureFlagEnabled` in
+ * `src/lib/gen/preview/warm-typecheck.ts`. When `SAJTMASKIN_PRE_VM_TYPECHECK`
+ * is truthy the operator wants pre-VM typecheck regardless of any
+ * quality-gate-planning skip — preventing the white-preview bug where a
+ * later QG lane was supposed to catch missing-imports/typecheck failures
+ * but the build was already shipped to the user.
+ *
+ * Kept local (rather than imported) so this guard is self-contained and
+ * does not pull `node:os`/`node:fs` into modules that don't already use
+ * them; the truthy normalization is intentionally identical.
+ */
+function isPreVmTypecheckForcedByEnv(): boolean {
+  const raw = process.env.SAJTMASKIN_PRE_VM_TYPECHECK?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
 export async function runFinalizeFastPath(params: {
   chatId: string;
   model: string;
@@ -122,6 +139,12 @@ export async function runFinalizeFastPath(params: {
   // att quality-gate är planerad OCH kommer köra typecheck. Utan båda
   // signalerna: kör warm-tsc ändå (säker fallback).
   //
+  // SAJ-61 P0/c3: When `SAJTMASKIN_PRE_VM_TYPECHECK` is truthy the env
+  // is the operator's explicit "always typecheck before VM" signal. It
+  // must override the QG-planned skip so an F2 build with broken types
+  // never reaches the preview as a white page. Mirrors the truthy-value
+  // normalization in `src/lib/gen/preview/warm-typecheck.ts`.
+  //
   // Detta ersätter tidigare heuristik (`willRunQualityGate` ensam), som
   // kunde lämna oss utan varken warm-tsc eller QG-resultat om quality-gate
   // senare hoppades över (t.ex. via `design_preview_skip_verify`-policy på
@@ -129,7 +152,9 @@ export async function runFinalizeFastPath(params: {
   //
   // Telemetri: `warmTscSkipped` i `site.done` exponeras via backoffice
   // `llm_flode_telemetry.py` så vi kan mäta skip-rate över tid.
+  const envForcesPreVmTypecheck = isPreVmTypecheckForcedByEnv();
   const skipWarmTsc =
+    !envForcesPreVmTypecheck &&
     qualityGatePlanned === true &&
     willRunQualityGate &&
     qualityGateChecksIncludesTypecheck;

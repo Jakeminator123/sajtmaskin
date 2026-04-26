@@ -131,6 +131,14 @@ export interface FinalizeResult {
   }>;
   /** True when warm-tsc was intentionally skipped because a later quality gate will typecheck. */
   warmTscSkipped?: boolean;
+  /**
+   * Verifier LLM blocking findings carried out of `runFinalizeFastPath`.
+   * Used by the post-finalize lane to gate the preview/VM lane on
+   * build-breaking import/typecheck issues — a vit preview is worse than
+   * "preview blockerad, repair krävs". See SAJ-61. Empty array when the
+   * verifier ran clean or was skipped.
+   */
+  verifierBlockingFindings?: Array<{ id: string; detail: string }>;
 }
 
 export interface FinalizePathPolicy {
@@ -184,4 +192,29 @@ export interface FinalizeFastPathResult {
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 
-export const VERIFIER_REPAIR_TIMEOUT_MS = 60_000;
+/**
+ * Budget for the LLM repair gate (rewriting offending files) triggered
+ * by verifier blocking findings.
+ *
+ * SAJ-61 c5: bumped from 60_000 ms to 120_000 ms because the verifier-fix
+ * step routinely needs to rewrite multiple component files when the
+ * blocker is `build-breaking-missing-imports`. The previous budget
+ * tripped abort early enough that the repair returned `success: false`
+ * even when a slower model would have completed cleanly. Doubling the
+ * window costs at most one extra minute on the (rare) genuine timeouts
+ * but eliminates the false aborts that were leaving blockers in place.
+ */
+export const VERIFIER_REPAIR_TIMEOUT_MS = 120_000;
+
+/**
+ * Budget for the read-only verifier rerun that confirms the LLM-repair
+ * actually fixed the blockers. Distinct from `VERIFIER_REPAIR_TIMEOUT_MS`:
+ * the rerun does not rewrite files, it only re-evaluates findings, so it
+ * should not inherit the (longer) repair budget when that one bumps.
+ *
+ * 30s mirrors the original "capped at one re-run + a 30 s timeout" design
+ * note in `verifier-phase.ts`. Using a separate constant prevents future
+ * adjustments to the repair budget from accidentally doubling the rerun
+ * latency.
+ */
+export const VERIFIER_RERUN_TIMEOUT_MS = 30_000;
