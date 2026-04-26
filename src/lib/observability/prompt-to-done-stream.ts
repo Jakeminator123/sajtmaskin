@@ -72,14 +72,25 @@ export function wrapStreamForPromptToDoneMetric(
     }
   };
 
-  const record = (fallback: "failed" | "aborted") => {
+  // `cause` distinguishes the two terminal paths so we can map them to
+  // the right `site.aborted.reason`:
+  //   - "graceful": flush() ran — the source stream closed without
+  //     erroring but never produced a `done` frame. Reason
+  //     `stream_closed_without_done`.
+  //   - "pipe-error": pipeTo() rejected — the source stream itself
+  //     errored mid-flight (provider RST, network blip, AI SDK threw).
+  //     Reason `stream_error`.
+  // `signal.aborted` is checked independently and wins regardless of
+  // cause: a request cancelled by the client always classifies as
+  // `client_disconnect` even if the underlying pipe also errored.
+  const record = (cause: "graceful" | "pipe-error") => {
     if (recorded) return;
     recorded = true;
     const outcome = sawDone
       ? "done"
       : signal?.aborted
         ? "aborted"
-        : fallback;
+        : "failed";
     try {
       recordPromptToDone(Date.now() - promptStartedAt, outcome, kind);
     } catch {
@@ -88,7 +99,7 @@ export function wrapStreamForPromptToDoneMetric(
     if (outcome === "aborted") {
       emitAbortLog("client_disconnect");
     } else if (outcome === "failed") {
-      emitAbortLog(fallback === "failed" ? "stream_closed_without_done" : "stream_error");
+      emitAbortLog(cause === "pipe-error" ? "stream_error" : "stream_closed_without_done");
     }
   };
 
@@ -114,16 +125,16 @@ export function wrapStreamForPromptToDoneMetric(
       controller.enqueue(chunk);
     },
     flush() {
-      // Called when the source stream closes gracefully. If we never
-      // saw `done`, treat it as "failed" (codegen short-circuited).
-      record("failed");
+      // Source stream closed gracefully. If we never saw `done`, the
+      // codegen pipeline short-circuited — emit `stream_closed_without_done`.
+      record("graceful");
     },
   });
 
-  // Fire-and-forget pipe. Any source-side error surfaces here and we
-  // record with "failed" (or "aborted" if the request was cancelled).
+  // Fire-and-forget pipe. Any source-side error surfaces here — emit
+  // `stream_error` (or `client_disconnect` when signal.aborted wins).
   source.pipeTo(transform.writable).catch(() => {
-    record("failed");
+    record("pipe-error");
   });
 
   return transform.readable;
