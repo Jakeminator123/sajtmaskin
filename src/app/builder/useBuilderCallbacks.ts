@@ -80,6 +80,25 @@ export function useBuilderCallbacks({
     await sendMessage(prompt);
   }, [chatId, currentPreviewUrl, sendMessage]);
 
+  // P0 stream-abort recovery (2026-04-26). When the chat is versionless +
+  // aborted, the only valid action is "restart generation" — the dead
+  // chatId carries no version, no scaffold-lock, and any followup against
+  // it would trigger variant_lock_fallback (priorVariantId:null). Sending
+  // the user back to the start screen with `restartedFrom=<chatId>` lets
+  // the start handler stamp `restartedFromChatId` lineage on the new chat
+  // (read by the orchestrator for telemetry; see
+  // `docs/architecture/llm-flow-target-worldclass.md` § "Versionless
+  // restart"). Implementation today: navigate to /builder?restartedFrom=
+  // ; wiring of restartedFromChatId into the chat-create payload is
+  // handled in a follow-up commit so this commit stays UI-only.
+  const handleRestartGeneration = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams();
+    if (chatId) params.set("restartedFrom", chatId);
+    const search = params.toString();
+    window.location.href = search.length > 0 ? `/builder?${search}` : "/builder";
+  }, [chatId]);
+
   const handleVersionSelect = useCallback(
     (versionId: string, demoUrl?: string) => {
       setSelectedVersionId(versionId);
@@ -126,6 +145,7 @@ export function useBuilderCallbacks({
   return {
     handleClearPreview,
     handleFixPreview,
+    handleRestartGeneration,
     handleVersionSelect,
     handleToggleVersionPanel,
   };

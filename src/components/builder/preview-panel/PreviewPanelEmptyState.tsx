@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Loader2, MessageCircleQuestion, Wand2 } from "lucide-react";
+import { AlertCircle, Loader2, MessageCircleQuestion, RotateCcw, Wand2 } from "lucide-react";
 import type { EngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,15 @@ interface PreviewPanelEmptyStateProps {
   activeVersionSummary?: string | null;
   activeVersionIsLatest?: boolean;
   onFixPreview?: (() => void) | null;
+  /**
+   * P0 stream-abort recovery (2026-04-26). True when the most recent
+   * generation/repair stream for this chat died before any version was
+   * created. Forces the action area into "Starta om generation" mode
+   * and suppresses the "Försök reparera preview" button (there is
+   * nothing to repair).
+   */
+  versionlessAborted?: boolean;
+  onRestartGeneration?: (() => void) | null;
 }
 
 export function PreviewPanelEmptyState({
@@ -37,6 +46,8 @@ export function PreviewPanelEmptyState({
   activeVersionSummary,
   activeVersionIsLatest = true,
   onFixPreview,
+  versionlessAborted = false,
+  onRestartGeneration,
 }: PreviewPanelEmptyStateProps) {
   const isInitialEmpty = !chatId && !versionId && !externalLoading;
   const normalizedAwaitingQuestion =
@@ -49,6 +60,8 @@ export function PreviewPanelEmptyState({
     .slice(0, 6);
   const title = previewBuildError
     ? "Live-preview misslyckades"
+    : versionlessAborted
+      ? "Genereringen avbröts"
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
       ? "Byter till reparerad version"
       : previewLifecycle === "recovering"
@@ -68,6 +81,8 @@ export function PreviewPanelEmptyState({
           : "Ingen förhandsvisning ännu";
   const subtitle = previewBuildError
     ? `Steg: ${previewBuildError.stage}. ${previewBuildError.message}`
+    : versionlessAborted
+      ? "Strömmen avbröts innan en version sparades. Den här chatten kan inte repareras — starta om genereringen i en ny chat."
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
       ? activeVersionSummary || "En nyare reparerad version tar över som den aktuella previewn."
       : previewLifecycle === "recovering"
@@ -85,18 +100,33 @@ export function PreviewPanelEmptyState({
           : isInitialEmpty
             ? "Skriv en prompt till vänster så genererar vi första preview."
             : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
+  // P0 stream-abort recovery (2026-04-26). When the chat is versionless +
+  // aborted, the only valid action is "restart generation" (which the
+  // parent maps to a fresh chat with restartedFromChatId lineage). The
+  // "repair preview" button is suppressed so the user cannot send a
+  // followup_general into a chat that has nothing to repair.
+  const showRestartAction = Boolean(
+    versionlessAborted && onRestartGeneration && !externalLoading && !previewPending,
+  );
   const showFixAction = Boolean(
-    onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput && !previewPending,
+    !versionlessAborted &&
+      onFixPreview &&
+      !externalLoading &&
+      !isInitialEmpty &&
+      !awaitingInput &&
+      !previewPending,
   );
   const EmptyIcon = previewBuildError
     ? AlertCircle
-    : previewPending
-      ? Loader2
-      : awaitingInput
-        ? MessageCircleQuestion
-        : isInitialEmpty
-          ? Wand2
-          : AlertCircle;
+    : versionlessAborted
+      ? RotateCcw
+      : previewPending
+        ? Loader2
+        : awaitingInput
+          ? MessageCircleQuestion
+          : isInitialEmpty
+            ? Wand2
+            : AlertCircle;
 
   return (
     <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
@@ -126,6 +156,12 @@ export function PreviewPanelEmptyState({
             <p className="text-xs text-amber-200/80">Svara i chatten till vänster för att fortsätta.</p>
           )}
         </div>
+      ) : null}
+      {showRestartAction ? (
+        <Button className="mt-4" onClick={onRestartGeneration!} disabled={externalLoading}>
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Starta om generation
+        </Button>
       ) : null}
       {showFixAction ? (
         <Button className="mt-4" onClick={onFixPreview!} disabled={externalLoading}>
