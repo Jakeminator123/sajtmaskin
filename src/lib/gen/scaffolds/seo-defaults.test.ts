@@ -586,4 +586,85 @@ export const metadata: Metadata = {};
       expect(layout?.content).toContain('metadataBase: new URL("https://kund.se")');
     });
   });
+
+  /**
+   * Regression for index-mismatch in the `enriched` calculation.
+   *
+   * Previous implementation post-filtered to layout-files but kept
+   * using the post-filter index to look up `next` (which is indexed
+   * against full inputFiles). The bug was hidden whenever a layout
+   * sat at position 0, because `next[0]` then happened to be the
+   * layout itself — so the comparison was accidentally correct.
+   *
+   * These tests construct inputs where the layout is NOT at index 0,
+   * which exposes the off-by-array bug:
+   *
+   *   inputFiles = [package.json, app/layout.tsx]
+   *   filtered   = [app/layout.tsx]              (filter idx = 0)
+   *   next[0]    = package.json                  (full-array idx = 0)
+   *   → bug: compares layout vs package.json (always !==), so it
+   *     reports `enriched=["app/layout.tsx"]` even when layout is
+   *     unchanged (idempotent / already-enriched layout).
+   */
+  describe("enriched list (regression: layout not at index 0)", () => {
+    it("returns enriched=[] when an already-enriched layout is at position 1+", () => {
+      const alreadyEnriched = `import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://already.se"),
+  alternates: { canonical: "/" },
+  openGraph: { title: "x" },
+  twitter: { card: "summary" },
+};
+`;
+      const files: ProjectTextFile[] = [
+        { name: "package.json", content: `{ "name": "test" }` },
+        { name: "app/page.tsx", content: `export default function P() { return null; }` },
+        { name: "app/layout.tsx", content: alreadyEnriched },
+      ];
+      const result = applySeoToProjectFiles(files, {
+        siteUrl: "https://kund.se",
+      });
+      expect(result.applied).toBe(true);
+      expect(result.enriched).toEqual([]);
+      const layout = result.files.find((f) => f.name === "app/layout.tsx");
+      expect(layout?.content).toBe(alreadyEnriched);
+    });
+
+    it("reports correct enriched key when layout at non-zero index actually changes", () => {
+      const minimalLayout = `import type { Metadata } from "next";
+
+export const metadata: Metadata = {};
+`;
+      const files: ProjectTextFile[] = [
+        { name: "package.json", content: `{ "name": "test" }` },
+        { name: "app/layout.tsx", content: minimalLayout },
+      ];
+      const result = applySeoToProjectFiles(files, {
+        siteUrl: "https://kund.se",
+      });
+      expect(result.enriched).toEqual(["app/layout.tsx"]);
+    });
+
+    it("returns enriched=[] when layout has no metadata block (enrich is no-op) at non-zero index", () => {
+      // No `export const metadata` → findMetadataObjectRange returns
+      // null → enrichLayoutMetadata is no-op. Bug-version would
+      // misreport this as enriched because next[0]=package.json
+      // !== layout content.
+      const noMetadataLayout = `export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return <html><body>{children}</body></html>;
+}
+`;
+      const files: ProjectTextFile[] = [
+        { name: "package.json", content: `{ "name": "test" }` },
+        { name: "app/layout.tsx", content: noMetadataLayout },
+      ];
+      const result = applySeoToProjectFiles(files, {
+        siteUrl: "https://kund.se",
+      });
+      expect(result.enriched).toEqual([]);
+      const layout = result.files.find((f) => f.name === "app/layout.tsx");
+      expect(layout?.content).toBe(noMetadataLayout);
+    });
+  });
 });

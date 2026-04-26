@@ -376,17 +376,25 @@ function applySeoCore(
   const seoFiles = buildSeoFileMap(siteUrl);
   const existingPaths = new Set(inputFiles.map((f) => f.key));
 
+  // Build `enriched` inline with the map so we compare the layout's old
+  // content to its actual new content. The previous implementation
+  // filtered to layout-only afterwards but kept using the filtered idx
+  // to look up `next`, which is indexed against the FULL inputFiles
+  // array — that's only correct when every layout sits at position 0
+  // in the input, and silently mis-attributes "enriched" when a layout
+  // is at any other position (e.g. idempotent re-runs against project
+  // files that have a non-layout file first).
+  const enriched: string[] = [];
   const next: SeoTargetFile[] = inputFiles.map((file) => {
     if (LAYOUT_PATHS.has(file.key)) {
-      return { key: file.key, content: enrichLayoutMetadata(file.content, siteUrl, brand) };
+      const newContent = enrichLayoutMetadata(file.content, siteUrl, brand);
+      if (newContent !== file.content) {
+        enriched.push(file.key);
+      }
+      return { key: file.key, content: newContent };
     }
     return file;
   });
-
-  const enriched = inputFiles
-    .filter((file) => LAYOUT_PATHS.has(file.key))
-    .filter((file, idx) => next[idx]?.content !== file.content)
-    .map((file) => file.key);
 
   const injected: string[] = [];
   for (const [path, content] of seoFiles) {
