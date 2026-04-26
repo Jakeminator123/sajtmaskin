@@ -198,12 +198,45 @@ function extractLocalDeclarations(code: string): Set<string> {
 }
 
 function isEligibleSharedSymbol(name: string): boolean {
+  // ALL_CAPS_CONST
   if (/^[A-Z][A-Z0-9_]*$/.test(name)) return true;
-  return /^[a-z][A-Za-z0-9]*$/.test(name);
+  // camelCase (functions, hooks, lower-case consts)
+  if (/^[a-z][A-Za-z0-9]*$/.test(name)) return true;
+  // PascalCase (React components, types, classes) — SAJ-61 broadening so
+  // generated `components/<name>.tsx` exports become indexable for the
+  // missing-symbol auto-import path. Filtered to the indexable file set
+  // above (`isIndexableSharedFile`), so app/ and node_modules/ never feed in.
+  return /^[A-Z][a-z][A-Za-z0-9]*$/.test(name);
 }
 
-function isSharedDataFile(path: string): boolean {
-  return /(^|\/)(lib|data)\//.test(path.replace(/\\/g, "/"));
+/**
+ * Files whose named exports we index for the auto-import path
+ * (`fixMissingLocalSymbolImports`).
+ *
+ * Inclusions reflect "real importable code surface" of a generated artifact:
+ *   - hooks/      — `useReducedMotion` and friends
+ *   - components/ — generated React components (PascalCase exports)
+ *   - lib/        — shared config/data/utilities (legacy default lane)
+ *   - data/       — shared data modules
+ *   - utils/      — shared util modules
+ *
+ * Exclusions:
+ *   - components/ui/      — shadcn lane wins (`SHADCN_COMPONENTS` map +
+ *                           `import-validator.detectMissingImports`); avoiding
+ *                           this prevents fighting shadcn over the same names
+ *   - app/                — pages export `metadata` and the page component
+ *                           itself, which are not import targets for siblings
+ *   - node_modules/       — never source of generated artifacts
+ *   - autofix-stub:*      — dossier/cross-file-checker placeholders are not
+ *                           canonical sources; they exist to satisfy the
+ *                           resolver until the real file arrives
+ */
+function isIndexableSharedFile(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  if (/(^|\/)node_modules\//.test(normalized)) return false;
+  if (/(^|\/)app\//.test(normalized)) return false;
+  if (/(^|\/)components\/ui\//.test(normalized)) return false;
+  return /(^|\/)(hooks|components|lib|data|utils)\//.test(normalized);
 }
 
 function toAliasImportPath(path: string): string {
@@ -242,7 +275,8 @@ export function buildProjectExportIndex(files: CodeFile[]): ExportIndex {
 
   for (const file of files) {
     if (!/\.(tsx?|jsx?)$/i.test(file.path)) continue;
-    if (!isSharedDataFile(file.path)) continue;
+    if (!isIndexableSharedFile(file.path)) continue;
+    if (file.content.includes("autofix-stub:")) continue;
 
     const importPath = toAliasImportPath(file.path);
     const exportNames = new Set<string>();
