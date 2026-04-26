@@ -66,7 +66,22 @@ visa falska "saknade index"-larm.
 **Varför inte fixat:** ingen aktuell drift, kantfall. Tar 5 minuter när
 det blir relevant.
 
-### 4. 🟨 `run-migrations.ts` stödjer inte DATABASE_URL
+### 4. ✅ `run-migrations.ts` stödjer inte DATABASE_URL — LÖST i PR #106 (2026-04-26)
+
+> **Status:** klar. Adresserad i PR
+> [#106](https://github.com/Jakeminator123/sajtmaskin/pull/106) (commit
+> `a1028475b`). `scripts/db/run-migrations.ts` delegerar nu till
+> `resolveConfiguredDbEnv` + `DB_ENV_VARS` från `src/lib/db/env.ts`,
+> vilket plockar upp `DATABASE_URL` som femte alias och får
+> placeholder-/quote-saneringen gratis. Fel-meddelandet listar alla
+> fem aliases från en sanning. Regression-anchor i
+> `scripts/db/run-migrations.test.ts` (4 vitest-fall). En ESM
+> entry-point-guard tillåter import från test utan att trigga
+> `main()` / DB-anslutning. Den bredare "env-konvent-städ"-PR:n som
+> täcker hela `scripts/db/` (t.ex. att deduplicera den parallella
+> `resolveConfiguredDbEnv`-implementationen i `db-target-guard.mjs`)
+> ligger fortfarande kvar som öppen fråga, men är inte längre
+> blockerande för punkt 4.
 
 **Var:** `scripts/db/run-migrations.ts` rad 11-24.
 
@@ -133,7 +148,11 @@ av dessa filer börjar konsumeras av flera ställen.
 - **Punkt 1** — nästa gång admin-flödet ses över, eller om mega-cleanup
   körs och Vercel failar i prod (då är det akut).
 - **Punkt 2-3** — när vi flyttar till parallell migration-körning från CI.
-- **Punkt 4** — vid nästa env-konvent-städ.
+- **Punkt 4** — ✅ klar (PR #106, 2026-04-26). Den bredare
+  `scripts/db/`-städningen som ursprungligen var nämnd som "samla i en
+  env-konvent-städ-PR" återstår dock — t.ex. dedupliceringen av
+  `resolveConfiguredDbEnv` mellan `src/lib/db/env.ts` och
+  `db-target-guard.mjs`.
 - **Punkt 5** — när någon klagar på "varför saknas en snapshot ibland".
 - **Punkt 6** — så snart eval/backoffice-split-agentens shared.py är settled.
 - **Punkt 7** — när vi tar nästa runda strict schemas.
