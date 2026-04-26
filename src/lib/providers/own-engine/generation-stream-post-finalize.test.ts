@@ -45,6 +45,11 @@ vi.mock("@/lib/logging/devLog", () => ({
 
 vi.mock("@/lib/gen/preview/should-start-preview", () => ({
   shouldStartOwnEnginePreview,
+  // SAJ-61 c4: post-finalize-policies imports the build-breaking gate
+  // via this module. Tests don't exercise the gate themselves so the
+  // mock returns false (no gate firing), preserving existing semantics.
+  hasBuildBreakingVerifierFindings: () => false,
+  isBuildBreakingFinding: () => false,
 }));
 
 vi.mock("@/lib/gen/parser", () => ({
