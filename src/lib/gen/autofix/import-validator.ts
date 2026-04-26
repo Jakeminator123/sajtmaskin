@@ -469,6 +469,9 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
         importedNames.add(asMatch ? asMatch[2] : spec.trim());
       }
     }
+
+    const namespaceMatch = line.match(/^\s*import\s+\*\s+as\s+(\w+)\s+from\s+/);
+    if (namespaceMatch) importedNames.add(namespaceMatch[1]);
   }
 
   const jsxTagRe = /<([A-Z][A-Za-z0-9]*)\b/g;
@@ -557,6 +560,80 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
         });
       }
     }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // SAJ-61 P0/c2: JSX namespace usage (e.g. `<motion.div>` / `<motion.aside>`).
+  // The default `jsxTagRe` only matches PascalCase tags, so `motion.div`
+  // sneaks past — the LLM emits bare `motion.X` JSX without the
+  // accompanying `import { motion } from "framer-motion"`. Look up the
+  // namespace root (`motion`) in `KNOWN_MODULE_SPECIFIERS` and add the
+  // canonical named import when none is present.
+  // ───────────────────────────────────────────────────────────────────────
+  // `motion.div`, `motion.aside`, `motion.section` — `motion` is the
+  // namespace root (lowercase), the second segment is a native HTML tag
+  // (also lowercase) or a custom subcomponent (PascalCase). We only care
+  // about the root, so match either.
+  const jsxNamespaceRe = /<([a-z][A-Za-z0-9]*)\.[A-Za-z][\w$]*/g;
+  const namespaceRoots = new Set<string>();
+  for (const m of code.matchAll(jsxNamespaceRe)) {
+    namespaceRoots.add(m[1]);
+  }
+  for (const ns of namespaceRoots) {
+    if (importedNames.has(ns)) continue;
+    let resolvedModule: string | null = null;
+    for (const [modulePath, names] of Object.entries(KNOWN_MODULE_SPECIFIERS)) {
+      if (names.includes(ns)) {
+        resolvedModule = modulePath;
+        break;
+      }
+    }
+    if (!resolvedModule) continue;
+    newImports.push(`import { ${ns} } from "${resolvedModule}"`);
+    fixes.push({
+      fixer: "import-validator",
+      description: `Added missing namespace import for <${ns}.*> from ${resolvedModule}`,
+      line: 0,
+    });
+    importedNames.add(ns);
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // SAJ-61 P0/c3: `LucideIcon` is the canonical React component type from
+  // lucide-react. Generated code uses it as a type field on prop / config
+  // shapes (`{ icon: LucideIcon }`, `Array<{ icon: LucideIcon }>`). Add the
+  // type-only import when used but not imported. Kept separate from value
+  // imports so it never accidentally becomes a runtime symbol.
+  // ───────────────────────────────────────────────────────────────────────
+  const usesLucideIcon =
+    /(?::\s*|<\s*|\bAs\s+|,\s*|\|\s*|\bextends\s+|=\s*)LucideIcon\b/.test(code) ||
+    /\bLucideIcon\s*[<|,>;)\]]/.test(code);
+  if (usesLucideIcon && !importedNames.has("LucideIcon")) {
+    const existingTypeOnly = lines.findIndex(
+      (l) =>
+        /from\s+["']lucide-react["']/.test(l) &&
+        /import\s+type\s+\{/.test(l),
+    );
+    if (existingTypeOnly >= 0) {
+      const line = lines[existingTypeOnly];
+      const braceMatch = line.match(/^(\s*import\s+type\s+\{)([^}]*)(\}\s+from\s+["']lucide-react["'].*)$/);
+      if (braceMatch && !braceMatch[2].includes("LucideIcon")) {
+        lines[existingTypeOnly] = `${braceMatch[1]}${braceMatch[2].trimEnd()}, LucideIcon ${braceMatch[3]}`;
+        fixes.push({
+          fixer: "import-validator",
+          description: "Added missing LucideIcon to existing lucide-react type import",
+          line: existingTypeOnly + 1,
+        });
+      }
+    } else {
+      newImports.push('import type { LucideIcon } from "lucide-react"');
+      fixes.push({
+        fixer: "import-validator",
+        description: "Added missing type import for LucideIcon from lucide-react",
+        line: 0,
+      });
+    }
+    importedNames.add("LucideIcon");
   }
 
   if (missingHooks.size > 0) {
