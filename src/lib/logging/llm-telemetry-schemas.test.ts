@@ -86,6 +86,66 @@ describe("LLM telemetri strict schemas", () => {
     });
   });
 
+  describe("site-aborted.schema.json", () => {
+    const validate = ajv.compile(loadSchema("site-aborted.schema.json"));
+
+    it("matchar provider-abort efter content (full payload)", () => {
+      const payload = {
+        type: "site.aborted",
+        chatId: "chat_abc123",
+        versionId: null,
+        reason: "provider_aborted_after_content",
+        kind: "init",
+        elapsedMs: 84230,
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
+    it("rejectar okänd kind-enum (skydd mot drift mot PromptToDoneKind)", () => {
+      const payload = {
+        type: "site.aborted",
+        reason: "client_disconnect",
+        kind: "create",
+      };
+      expect(validate(payload)).toBe(false);
+    });
+
+    it("matchar minimum-payload (bara type + reason)", () => {
+      const payload = {
+        type: "site.aborted",
+        reason: "stream_closed_without_done",
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
+    it("matchar staleness_inferred från generation-log-writer", () => {
+      const payload = {
+        type: "site.aborted",
+        chatId: "chat_xyz",
+        versionId: null,
+        reason: "staleness_inferred",
+        stalenessMs: 1_800_001,
+      };
+      expect(validate(payload)).toBe(true);
+    });
+
+    it("kastar okänd reason-enum", () => {
+      const payload = {
+        type: "site.aborted",
+        reason: "made_up_reason",
+      };
+      expect(validate(payload)).toBe(false);
+    });
+
+    it("kastar fel discriminant-värde", () => {
+      const payload = {
+        type: "site.failed",
+        reason: "stream_error",
+      };
+      expect(validate(payload)).toBe(false);
+    });
+  });
+
   describe("site-done-telemetry.schema.json", () => {
     const validate = ajv.compile(loadSchema("site-done-telemetry.schema.json"));
 

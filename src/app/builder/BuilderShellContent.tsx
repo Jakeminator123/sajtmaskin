@@ -990,6 +990,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               awaitingInputOptions={latestPendingReply?.options ?? []}
               onClear={handleClearPreview}
               onFixPreview={vm.handleFixPreview}
+              versionlessAborted={vm.versionlessAborted}
+              onRestartGeneration={vm.handleRestartGeneration}
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               placementMode={Boolean(pendingPlacementRequest)}

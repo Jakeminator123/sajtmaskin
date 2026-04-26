@@ -115,6 +115,17 @@ export interface BuildEngineStreamResponseParams {
   attachSessionCookie: (response: Response) => Response;
   /** Additional headers to set on the SSE response (optional). */
   extraHeaders?: HeadersInit;
+  /**
+   * P0 stream-abort recovery (2026-04-26). Threaded through to
+   * `wrapStreamForPromptToDoneMetric` so the wrapper can emit a
+   * `site.aborted` devLog row when the stream closes without seeing
+   * a terminal `done` SSE frame (transport abort, server-restart,
+   * source pipe error). Init streams may not have a chatId yet at
+   * call time — callers may pass null/undefined and the wrapper will
+   * skip the devLog row but still record the prompt-to-done metric.
+   */
+  chatId?: string | null;
+  versionId?: string | null;
 }
 
 export function buildEngineStreamResponse(
@@ -131,6 +142,8 @@ export function buildEngineStreamResponse(
         kind: params.kind,
         promptStartedAt: params.promptStartedAt,
         signal: params.req.signal,
+        chatId: params.chatId ?? null,
+        versionId: params.versionId ?? null,
       }),
       { headers },
     ),

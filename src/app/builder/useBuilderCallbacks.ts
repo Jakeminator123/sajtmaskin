@@ -80,6 +80,24 @@ export function useBuilderCallbacks({
     await sendMessage(prompt);
   }, [chatId, currentPreviewUrl, sendMessage]);
 
+  // P0 stream-abort recovery (2026-04-26). When the chat is versionless +
+  // aborted, the only valid action is "restart generation" — the dead
+  // chatId carries no version, no scaffold-lock, and any followup against
+  // it would trigger variant_lock_fallback (priorVariantId:null). Sending
+  // the user back to the start screen with `?restartedFrom=<chatId>`
+  // gives a clean blank entry that cannot mistakenly send `followup_general`
+  // into the dead chatId. The query param itself is currently unused on the
+  // server side — `restartedFromChatId` lineage stamping is tracked in
+  // `docs/architecture/open-questions.md` (§ "Versionless restart lineage")
+  // and is intentionally out of scope for the P0 UX fix.
+  const handleRestartGeneration = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams();
+    if (chatId) params.set("restartedFrom", chatId);
+    const search = params.toString();
+    window.location.href = search.length > 0 ? `/builder?${search}` : "/builder";
+  }, [chatId]);
+
   const handleVersionSelect = useCallback(
     (versionId: string, demoUrl?: string) => {
       setSelectedVersionId(versionId);
@@ -126,6 +144,7 @@ export function useBuilderCallbacks({
   return {
     handleClearPreview,
     handleFixPreview,
+    handleRestartGeneration,
     handleVersionSelect,
     handleToggleVersionPanel,
   };

@@ -202,6 +202,8 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | EnvVar enforcement (P31) | Per envVar i hard-dossier: `build` (default) / `feature-runtime` / `warn-only`. Styr F3-gate | kanonisk |
 | `f2TimeMs` | Planerad telemetri-distinktion: tid i ms för F2-fasen (design-loop, validate + preflight). Fält i `site.done`-devLog. **Idag null** — TODO-markerat i `generation-stream-post-finalize.ts`. | kanonisk |
 | `f3TimeMs` | Planerad telemetri-distinktion: tid i ms för F3-fasen (integrationer, build + verify). Fält i `site.done`-devLog. **Idag null** — aktiveras när F2/F3-telemetri-uppdelning implementeras. | kanonisk |
+| `site.aborted` | Telemetri-event när stream rivs **innan** version skapats — provider-abort, klient-disconnect, transport-fel, eller stale `in_progress` > 30 min. Olikt `site.done` (lyckad finalize) och `site.failed` (verifier-rejected real content). Strict schema: [`site-aborted.schema.json`](../schemas/strict/site-aborted.schema.json). Resolver: `generation-log-writer.resolveStatusDetails` mappar till `meta.status = "aborted"`. | kanonisk |
+| Versionless chat | Chat utan `versionId`-rad i DB — strömmen abortades innan finalize hann persista version. **Kan inte repairas**, bara restartas. Server-409 (`error: "versionless_chat_aborted"`) blockar `followup_general` mot dessa. UI visar "Starta om generation" istället för "Försök reparera preview". `useVersions` slutar polla när `chatStatus.status === "aborted" && !chatStatus.hasVersion`. | kanonisk |
 
 ---
 

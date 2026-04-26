@@ -1,3 +1,4 @@
+import { devLogAppend } from "@/lib/logging/devLog";
 import {
   type PromptToDoneKind,
   recordPromptToDone,
@@ -29,9 +30,20 @@ export function wrapStreamForPromptToDoneMetric(
     kind: PromptToDoneKind;
     promptStartedAt: number;
     signal?: AbortSignal;
+    /**
+     * P0 stream-abort recovery (2026-04-26). When provided, the wrapper
+     * will emit a `site.aborted` devLog row whenever the stream closes
+     * without seeing the terminal `event: done` SSE frame (transport
+     * abort, server-restart, source pipe error). This is the read-side
+     * complement to `stream-format.ts` which only emits abort for
+     * provider-aborts mid-iteration. Without `chatId` we still record
+     * the prompt-to-done metric but skip the devLog row (no run scope).
+     */
+    chatId?: string | null;
+    versionId?: string | null;
   },
 ): ReadableStream<Uint8Array> {
-  const { kind, promptStartedAt, signal } = opts;
+  const { kind, promptStartedAt, signal, chatId, versionId } = opts;
   const decoder = new TextDecoder();
   // `event: done\n` is the SSE frame-header written by formatSSEEvent.
   // We scan decoded chunks for this literal. Frames always start with
@@ -44,18 +56,50 @@ export function wrapStreamForPromptToDoneMetric(
   let sawDone = false;
   let recorded = false;
 
-  const record = (fallback: "failed" | "aborted") => {
+  const emitAbortLog = (reason: "client_disconnect" | "stream_closed_without_done" | "stream_error") => {
+    if (sawDone || !chatId) return;
+    try {
+      devLogAppend("in-progress", {
+        type: "site.aborted",
+        chatId: chatId ?? null,
+        versionId: versionId ?? null,
+        reason,
+        kind,
+        elapsedMs: Date.now() - promptStartedAt,
+      });
+    } catch {
+      // Logging is fail-safe — never break codegen on observability errors.
+    }
+  };
+
+  // `cause` distinguishes the two terminal paths so we can map them to
+  // the right `site.aborted.reason`:
+  //   - "graceful": flush() ran — the source stream closed without
+  //     erroring but never produced a `done` frame. Reason
+  //     `stream_closed_without_done`.
+  //   - "pipe-error": pipeTo() rejected — the source stream itself
+  //     errored mid-flight (provider RST, network blip, AI SDK threw).
+  //     Reason `stream_error`.
+  // `signal.aborted` is checked independently and wins regardless of
+  // cause: a request cancelled by the client always classifies as
+  // `client_disconnect` even if the underlying pipe also errored.
+  const record = (cause: "graceful" | "pipe-error") => {
     if (recorded) return;
     recorded = true;
     const outcome = sawDone
       ? "done"
       : signal?.aborted
         ? "aborted"
-        : fallback;
+        : "failed";
     try {
       recordPromptToDone(Date.now() - promptStartedAt, outcome, kind);
     } catch {
       // Telemetry is fail-safe — never break codegen on observe errors.
+    }
+    if (outcome === "aborted") {
+      emitAbortLog("client_disconnect");
+    } else if (outcome === "failed") {
+      emitAbortLog(cause === "pipe-error" ? "stream_error" : "stream_closed_without_done");
     }
   };
 
@@ -81,16 +125,16 @@ export function wrapStreamForPromptToDoneMetric(
       controller.enqueue(chunk);
     },
     flush() {
-      // Called when the source stream closes gracefully. If we never
-      // saw `done`, treat it as "failed" (codegen short-circuited).
-      record("failed");
+      // Source stream closed gracefully. If we never saw `done`, the
+      // codegen pipeline short-circuited — emit `stream_closed_without_done`.
+      record("graceful");
     },
   });
 
-  // Fire-and-forget pipe. Any source-side error surfaces here and we
-  // record with "failed" (or "aborted" if the request was cancelled).
+  // Fire-and-forget pipe. Any source-side error surfaces here — emit
+  // `stream_error` (or `client_disconnect` when signal.aborted wins).
   source.pipeTo(transform.writable).catch(() => {
-    record("failed");
+    record("pipe-error");
   });
 
   return transform.readable;
@@ -108,6 +152,8 @@ export function withPromptToDoneMetricResponse(
     kind: PromptToDoneKind;
     promptStartedAt: number;
     signal?: AbortSignal;
+    chatId?: string | null;
+    versionId?: string | null;
   },
 ): Response {
   if (!resp.body) return resp;

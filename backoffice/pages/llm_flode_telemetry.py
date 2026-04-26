@@ -9,6 +9,7 @@ telemetri-events som introducerats i LLM-flöde-körplanen 2026-04-24:
   - ``llm_fixer_partial_response`` (wave 1/5) — excludedFiles per session
   - ``site.done`` → ``warmTscSkipped``        (wave 7)   — latency-vinst-mätning
   - ``site.done`` → ``f2TimeMs`` / ``f3TimeMs``           (wave 7)   — fas-uppdelad latens (TODO i källan)
+  - ``site.aborted``               (P0 2026-04-26) — stream-/transport-/provider-abort innan version
 
 Separat hantering (se respektive notering i sidans sektioner):
   - ``image_replaced_with_placeholder`` — skrivs via ``debugLog`` (console), ej i NDJSON.
@@ -144,6 +145,73 @@ def _render_llm_fixer_aborted(run_dirs: list[Path]) -> None:
             }
         )
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+
+def _render_site_aborted(run_dirs: list[Path]) -> None:
+    st.subheader("Stream-aborter (`site.aborted`)")
+    st.caption(
+        "Emitteras när en generation/repair-stream rivs **innan en version skapats** — "
+        "transport-disconnect, provider-abort, stream_closed_without_done, eller staleness-inferred. "
+        "Skiljer sig från `site.done` (lyckad finalize) och `site.failed` (verifier-rejected real content). "
+        "Schema: `docs/schemas/strict/site-aborted.schema.json`."
+    )
+    events = _collect_events_by_type(run_dirs, "site.aborted")
+    if not events:
+        st.info(
+            "Inga `site.aborted`-events hittade i de senaste körningarna. "
+            "Emitteras av `stream-format.ts` + `prompt-to-done-stream.ts` + "
+            "`generation-log-writer.resolveStatusDetails` (lazy staleness)."
+        )
+        return
+
+    versionless = [e for e in events if not e.get("versionId")]
+    has_version = [e for e in events if e.get("versionId")]
+    elapsed = [_rnum(e.get("elapsedMs")) for e in events if _rnum(e.get("elapsedMs")) is not None]
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Totalt aborts", len(events))
+    col2.metric("Versionless (kan inte repairas)", len(versionless))
+    col3.metric("Med version (repair-able)", len(has_version))
+
+    if elapsed:
+        col4, col5 = st.columns(2)
+        col4.metric("Snitt elapsedMs", _fmt_ms(sum(elapsed) / len(elapsed)))  # type: ignore[arg-type]
+        col5.metric("Max elapsedMs", _fmt_ms(max(elapsed)))
+
+    reason_counts: dict[str, int] = {}
+    for e in events:
+        reason = str(e.get("reason", "unknown"))
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+    if reason_counts:
+        st.markdown("**Fördelning per `reason`**")
+        reason_rows = [
+            {"Reason": r, "Antal": c, "Andel": _pct(c, len(events))}
+            for r, c in sorted(reason_counts.items(), key=lambda x: -x[1])
+        ]
+        st.dataframe(pd.DataFrame(reason_rows), hide_index=True, use_container_width=True)
+
+    rows = []
+    for e in events:
+        version_id = e.get("versionId")
+        rows.append(
+            {
+                "Tid": e.get("_ts", "")[:19],
+                "Run": e.get("_run", ""),
+                "Chat": (e.get("chatId") or e.get("_slug") or "")[:36],
+                "Reason": e.get("reason", "—"),
+                "Kind": e.get("kind", "—"),
+                "Versionless": "ja" if not version_id else "nej",
+                "elapsedMs": _fmt_ms(_rnum(e.get("elapsedMs"))),
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+    if versionless:
+        st.warning(
+            f"{len(versionless)} versionless-abort(er) — chatten saknar version och kan **inte** repairas. "
+            "UI ska visa 'Starta om generation', inte 'Försök reparera preview'. "
+            "Server-409 blockar `followup_general` mot dessa chats."
+        )
 
 
 def _render_dossier_verbatim_restored(run_dirs: list[Path]) -> None:
@@ -390,6 +458,9 @@ def render(ctx: BackofficeContext) -> None:
     )
 
     st.divider()
+    _render_site_aborted(run_dirs)
+
+    st.divider()
     _render_llm_fixer_aborted(run_dirs)
 
     st.divider()
@@ -424,7 +495,7 @@ Events skrivs via `devLogAppend(target, {...})` i TypeScript-källan och hamnar 
 {"ts": "ISO8601", "target": "in-progress|latest", "slug": "...", "summary": "...", "data": {"type": "event_type", ...}}
 ```
 
-**Strict schemas:** `docs/schemas/strict/llm-fixer-aborted.schema.json` m.fl.
+**Strict schemas:** `docs/schemas/strict/llm-fixer-aborted.schema.json`, `site-aborted.schema.json` m.fl.
 
 **Undantag:**
 - `image_replaced_with_placeholder` → `debugLog` (console, ej NDJSON)

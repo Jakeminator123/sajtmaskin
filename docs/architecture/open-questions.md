@@ -23,6 +23,10 @@ Levande dokument för **antaganden** vi gör i koden eller pratet om systemet, m
 - ⚠️ **D. Streamlit-backoffice out-of-sync med Plan 11/12:** Saknar info om scaffold-required-files, variant-lock, `history.ndjson`-fält. Operatörsverktyg uppdateras inte automatiskt när TS-koden ändras.
 - ⚠️ **E. Strikta zod-schemas saknas:** `createChatSchema`/`sendMessageSchema` strippar okända fält tyst. `meta` är `.passthrough()`. Lossy ytor (5 schemas att strikta först — se Wave5-audit för lista).
 
+## Nya frågor / buggar 2026-04-26
+
+- ⚠️ **F. Versionless restart lineage:** P0-fix för stream-abort UX (commit `7855116b9`) navigerar användaren till `/builder?restartedFrom=<chatId>` när chatten är versionless + aborted. Query-parametern plockas **inte** upp av `deriveBuilderEntryState` idag — `restartedFromChatId` stämplas alltså inte på den nya chatten. UX:en är räddad (användaren kommer till en ren start-yta), men telemetrin/lineage-grafen mellan döda och nya chats finns inte. Wiring kräver: (1) läs `restartedFrom` i `builder-entry.ts`, (2) skicka som `restartedFromChatId` i create-chat-payload, (3) persistera i `engine_chats`-raden, (4) emittera i orchestration-telemetrin. Out of scope för P0-fix:en.
+
 ---
 
 ## Statusguide

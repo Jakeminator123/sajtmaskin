@@ -525,6 +525,23 @@ export function createCodeGenSSEStream(
             "aborted_by_provider",
             (eventCounts.get("aborted_by_provider") ?? 0) + 1,
           );
+          // P0 stream-abort recovery (2026-04-26). Emit a strict-schema
+          // `site.aborted` so generation-log-writer.resolveStatus can flip
+          // the run to status=aborted and the backoffice/UI surfaces the
+          // run as transport-aborted (not "in_progress" forever, not
+          // "failed" — failed is reserved for verifier rejects of a real
+          // content payload). Reason distinguishes between "we got nothing"
+          // and "we got a partial payload then got cut". Target is
+          // "in-progress" so it lands in the active run's timeline.ndjson
+          // (alongside the stream.summary that follows).
+          devLogAppend("in-progress", {
+            type: "site.aborted",
+            chatId: typeof meta?.chatId === "string" ? meta.chatId : null,
+            versionId: typeof meta?.versionId === "string" ? meta.versionId : null,
+            reason: sawContentEvent
+              ? "provider_aborted_after_content"
+              : "provider_aborted_no_content",
+          });
           enqueue(
             createBuilderStreamEvent("progress", {
               step: "generation",
@@ -592,6 +609,17 @@ export function createCodeGenSSEStream(
           reasoningHeartbeatTimer = null;
         }
         summarizeStream("error");
+        // P0 stream-abort recovery (2026-04-26). Same emit as the explicit
+        // `abort` part above, but for the generic catch path (provider
+        // returned an error, network blip, AI SDK threw mid-iteration). We
+        // still want resolveStatus to flip to aborted instead of leaving
+        // the run as in_progress until staleness-detection rescues it.
+        devLogAppend("in-progress", {
+          type: "site.aborted",
+          chatId: typeof meta?.chatId === "string" ? meta.chatId : null,
+          versionId: typeof meta?.versionId === "string" ? meta.versionId : null,
+          reason: "stream_error",
+        });
         try {
           enqueue(
             createBuilderStreamEvent("error", {
