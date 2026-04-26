@@ -21,10 +21,14 @@ function req(body: unknown): Request {
   });
 }
 
+function setF2ProductPostcheck(value: boolean): void {
+  (FEATURES as unknown as { f2ProductPostcheck: boolean }).f2ProductPostcheck = value;
+}
+
 describe("POST product-postcheck", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    FEATURES.f2ProductPostcheck = false;
+    setF2ProductPostcheck(false);
   });
 
   it("feature flag off => skipped utan DB/Playwright-körning", async () => {
@@ -39,7 +43,7 @@ describe("POST product-postcheck", () => {
   });
 
   it("feature flag on + missing previewUrl => skipped", async () => {
-    FEATURES.f2ProductPostcheck = true;
+    setF2ProductPostcheck(true);
     const res = await POST(req({ versionId: "v1", previewUrl: null }), {
       params: Promise.resolve({ chatId: "chat_1" }),
     });
@@ -50,7 +54,7 @@ describe("POST product-postcheck", () => {
   });
 
   it("feature flag on + preview URL => kör server-helper efter version-scope-check", async () => {
-    FEATURES.f2ProductPostcheck = true;
+    setF2ProductPostcheck(true);
     getVersion.mockResolvedValue({ version: { id: "v1" } });
     runProductPostcheck.mockResolvedValue({
       ok: true,
@@ -79,7 +83,7 @@ describe("POST product-postcheck", () => {
   });
 
   it("scope miss => 404", async () => {
-    FEATURES.f2ProductPostcheck = true;
+    setF2ProductPostcheck(true);
     getVersion.mockResolvedValue(null);
     const res = await POST(req({ versionId: "v1", previewUrl: "https://vm-fly-jakem.fly.dev/chat_1" }), {
       params: Promise.resolve({ chatId: "chat_1" }),
