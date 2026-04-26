@@ -899,6 +899,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             deployNameError={vm.deployNameError}
             isDeploying={vm.isDeploying}
             isSaving={false}
+            projectId={vm.appProjectId ?? null}
             onDeployNameChange={(value) => {
               vm.setDeployNameInput(value);
               if (vm.deployNameError) vm.setDeployNameError(null);
