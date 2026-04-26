@@ -413,4 +413,49 @@ describe("extractFilePathsFromVerifierFindings", () => {
     });
     expect(files).toEqual([]);
   });
+
+  it("regression: extracts paths from EVERY blocking entry, not only the first (no /g lastIndex leak)", () => {
+    // The shared `/g` regex previously kept its `lastIndex` between
+    // findings, so paths near the start of the second `detail` could
+    // be silently skipped. Two findings here, with the second one's
+    // first path appearing well before the offset where iteration on
+    // the first detail stopped — both must show up in the result.
+    const firstDetail = [
+      "Multiple files use symbols that are not imported, causing TypeScript/build failures:",
+      "- components/site-header.tsx: uses `useReducedMotion()` but does not import it.",
+      "- components/floating-cta.tsx: uses `motion.aside` but does not import `motion` from `framer-motion`.",
+      "- components/home-hero.tsx: uses `useReducedMotion()` and multiple `motion.*` elements without imports.",
+      "- components/turtle-game.tsx: uses `useReducedMotion()` and multiple `motion.div` elements.",
+    ].join("\n");
+    const secondDetail = [
+      "app/spel/page.tsx: type `Benefit` references `LucideIcon` but it is not imported from `lucide-react`.",
+    ].join("\n");
+
+    const files = extractFilePathsFromVerifierFindings({
+      blocking: [
+        { id: "build-breaking-missing-imports", detail: firstDetail },
+        { id: "build-breaking-missing-imports", detail: secondDetail },
+      ],
+    });
+
+    expect(files.sort()).toEqual([
+      "app/spel/page.tsx",
+      "components/floating-cta.tsx",
+      "components/home-hero.tsx",
+      "components/site-header.tsx",
+      "components/turtle-game.tsx",
+    ]);
+  });
+
+  it("is idempotent across repeated invocations (no shared state leak)", () => {
+    const findings = {
+      blocking: [
+        { id: "build-error", detail: "components/foo.tsx: missing import" },
+      ],
+    };
+    const a = extractFilePathsFromVerifierFindings(findings);
+    const b = extractFilePathsFromVerifierFindings(findings);
+    expect(a).toEqual(b);
+    expect(a).toEqual(["components/foo.tsx"]);
+  });
 });

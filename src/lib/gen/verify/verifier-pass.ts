@@ -103,10 +103,17 @@ export function extractFilePathsFromVerifierFindings(
   findings: Pick<VerifierFindings, "blocking">,
 ): string[] {
   const files = new Set<string>();
+  // SAJ-61 review fix: a single shared `/g` RegExp leaks `lastIndex` across
+  // iterations of `findings.blocking`, which can cause `re.exec(detail)` on
+  // the second finding to start scanning from somewhere in the middle of
+  // its string — silently dropping any path that appears before that
+  // offset. Reset `lastIndex` per finding (or instantiate per-iteration);
+  // we choose reset because the regex is small and reuse is cheap.
   const re = /\b([A-Za-z0-9_./-]+\.[A-Za-z]{1,5})\b/g;
   for (const f of findings.blocking) {
     const detail = f.detail ?? "";
     if (!detail) continue;
+    re.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = re.exec(detail)) !== null) {
       const candidate = match[1];
