@@ -418,7 +418,7 @@ function findLastBoolean(entries: StoredGenerationEntry[], key: string): boolean
 }
 
 // Lazy staleness coercion. If a run lacks site.done AND lacks site.aborted AND
-// the last entry is older than this threshold, resolveStatus returns "aborted"
+// the last entry is older than this threshold, resolveStatusDetails returns "aborted"
 // with reason "staleness_inferred". This catches orphaned in_progress runs
 // where the stream died before any abort-emit had a chance to write
 // (e.g. server-restart mid-stream, hard process kill). The threshold is
@@ -515,13 +515,6 @@ function resolveStatusDetails(
     return { status: "aborted", reason: "staleness_inferred" };
   }
   return { status: "in_progress", reason: null };
-}
-
-function resolveStatus(
-  entries: StoredGenerationEntry[],
-  options: { now?: number; stalenessMs?: number } = {},
-): string {
-  return resolveStatusDetails(entries, options).status;
 }
 
 function buildMeta(entries: StoredGenerationEntry[]): Record<string, unknown> {
@@ -1772,7 +1765,7 @@ export function readRecurringPatternsForChat(
  *  - `failed` — finalize ran but verifier rejected; UI may offer repair.
  *  - `in_progress` — still streaming; UI keeps polling.
  *  - `error_signal` / `awaiting_input` / `partial_file_output` /
- *    `empty_generation` — pre-existing categories from resolveStatus.
+ *    `empty_generation` — pre-existing categories from resolveStatusDetails.
  */
 export function readRunStatusForChat(
   chatId: string | null | undefined,
