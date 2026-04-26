@@ -25,7 +25,7 @@
  * deploying — the panel itself only edits the in-memory form value.
  */
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -46,6 +46,16 @@ type Props = {
    * valid; optIn=true requires a non-empty siteUrl that parses as a URL).
    */
   onValidityChange?: (valid: boolean) => void;
+  /**
+   * Notify parent when the user actually interacts with the panel (toggles
+   * the switch or types in the URL field). Fetch-seeded values do NOT
+   * count as user-interaction — this distinction lets the parent decide
+   * whether to send `seo` in the deploy body or fall back to persisted
+   * preferences. Without this guard, a fast Publicera-click before the
+   * fetch returns would overwrite persisted opt-in with the default
+   * (false) state. See SEO-F3-PROMOTION-NEXT-PR.md regression notes.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
   disabled?: boolean;
   className?: string;
 };
@@ -77,13 +87,24 @@ export function SeoOptInPanel({
   value,
   onChange,
   onValidityChange,
+  onDirtyChange,
   disabled,
   className,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Tracks whether the user has touched the controls. Fetch-seeded
+  // values must NOT mark dirty — see `onDirtyChange` JSDoc.
+  const dirtyRef = useRef(false);
   const switchId = useId();
   const inputId = useId();
+
+  const markDirty = useCallback(() => {
+    if (!dirtyRef.current) {
+      dirtyRef.current = true;
+      onDirtyChange?.(true);
+    }
+  }, [onDirtyChange]);
 
   // Load persisted preferences once on mount and seed parent state.
   useEffect(() => {
@@ -127,16 +148,18 @@ export function SeoOptInPanel({
 
   const onToggle = useCallback(
     (next: boolean) => {
+      markDirty();
       onChange({ ...value, optIn: next });
     },
-    [onChange, value],
+    [markDirty, onChange, value],
   );
 
   const onUrlChange = useCallback(
     (next: string) => {
+      markDirty();
       onChange({ ...value, siteUrl: next });
     },
-    [onChange, value],
+    [markDirty, onChange, value],
   );
 
   const showUrlError = value.optIn && value.siteUrl.trim().length > 0 && !urlValid;

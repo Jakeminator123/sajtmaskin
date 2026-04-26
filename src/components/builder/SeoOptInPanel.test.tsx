@@ -27,11 +27,13 @@ function Harness({
   projectId = "proj_1",
   onChangeSpy,
   onValiditySpy,
+  onDirtySpy,
   initial,
 }: {
   projectId?: string | null;
   onChangeSpy?: (next: SeoFormValue) => void;
   onValiditySpy?: (valid: boolean) => void;
+  onDirtySpy?: (dirty: boolean) => void;
   initial?: SeoFormValue;
 }) {
   const [value, setValue] = useState<SeoFormValue>(
@@ -46,6 +48,7 @@ function Harness({
         onChangeSpy?.(next);
       }}
       onValidityChange={onValiditySpy}
+      onDirtyChange={onDirtySpy}
     />
   );
 }
@@ -180,5 +183,79 @@ describe("SeoOptInPanel", () => {
       />,
     );
     expect(onValidity).toHaveBeenLastCalledWith(true);
+  });
+
+  /**
+   * Regression for the persist-fetch race condition.
+   *
+   * Without dirty-tracking, a user clicking Publicera before the
+   * panel's preferences-fetch completed would emit `seo: { optIn: false }`
+   * as the deploy payload — overwriting persisted opt-in with the
+   * default state. The dirty-flag stays false during fetch-seed and
+   * only flips when the user actually toggles the switch or types in
+   * the URL.
+   */
+  describe("dirty-tracking (regression: persist-fetch race)", () => {
+    it("does not emit dirty=true when fetch seeds parent state", async () => {
+      globalThis.fetch = vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            preferences: {
+              seo: {
+                optIn: true,
+                siteUrl: "https://persisted.example.com",
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch;
+
+      const onDirty = vi.fn<(dirty: boolean) => void>();
+      const onChange = vi.fn<(next: SeoFormValue) => void>();
+      render(<Harness onDirtySpy={onDirty} onChangeSpy={onChange} />);
+
+      // Wait for the fetch-seed onChange so we know the seed completed.
+      await waitFor(() => {
+        expect(onChange).toHaveBeenCalledWith({
+          optIn: true,
+          siteUrl: "https://persisted.example.com",
+        });
+      });
+
+      // Dirty should never have been called with true purely from seeding.
+      const dirtyTrueCalls = onDirty.mock.calls.filter(([v]) => v === true);
+      expect(dirtyTrueCalls).toHaveLength(0);
+    });
+
+    it("emits dirty=true when the user types in the URL field", () => {
+      const onDirty = vi.fn<(dirty: boolean) => void>();
+      render(
+        <Harness
+          initial={{ optIn: true, siteUrl: "" }}
+          onDirtySpy={onDirty}
+        />,
+      );
+      const input = screen.getByLabelText(/Sajtens URL/i);
+      fireEvent.change(input, { target: { value: "https://example.com" } });
+      expect(onDirty).toHaveBeenCalledWith(true);
+    });
+
+    it("only fires onDirtyChange once even with multiple user edits", () => {
+      const onDirty = vi.fn<(dirty: boolean) => void>();
+      render(
+        <Harness
+          initial={{ optIn: true, siteUrl: "" }}
+          onDirtySpy={onDirty}
+        />,
+      );
+      const input = screen.getByLabelText(/Sajtens URL/i);
+      fireEvent.change(input, { target: { value: "https://a.com" } });
+      fireEvent.change(input, { target: { value: "https://ab.com" } });
+      fireEvent.change(input, { target: { value: "https://abc.com" } });
+      const dirtyTrueCalls = onDirty.mock.calls.filter(([v]) => v === true);
+      expect(dirtyTrueCalls).toHaveLength(1);
+    });
   });
 });

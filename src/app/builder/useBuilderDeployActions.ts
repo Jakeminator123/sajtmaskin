@@ -286,7 +286,7 @@ export function useBuilderDeployActions({
   );
 
   const handleConfirmDeploy = useCallback(async (
-    payload?: { seo: { optIn: boolean; siteUrl: string } },
+    payload?: { seo?: { optIn: boolean; siteUrl: string } },
   ) => {
     if (isDeploying || isDeployNameSaving) return;
     const rawName = deployNameInput.trim();
