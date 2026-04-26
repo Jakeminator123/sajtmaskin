@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
-import { shouldStartOwnEnginePreview } from "./should-start-preview";
+import {
+  hasBuildBreakingVerifierFindings,
+  isBuildBreakingFinding,
+  shouldStartOwnEnginePreview,
+} from "./should-start-preview";
 
 function previewStartContract(overrides?: Partial<PreviewStartContract>): PreviewStartContract {
   return {
@@ -62,5 +66,114 @@ describe("shouldStartOwnEnginePreview", () => {
         parsedFileCount: 1,
       }),
     ).toBe(true);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // SAJ-61 P0/c4: build-breaking verifier blockers gate the preview
+  // ─────────────────────────────────────────────────────────────────────
+
+  it("is false when a build-breaking verifier finding is reported", () => {
+    expect(
+      shouldStartOwnEnginePreview({
+        isPreviewConfigured: true,
+        previewStart: previewStartContract(),
+        parsedFileCount: 1,
+        verifierHasBuildBreakingFindings: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("is true when only design quality findings exist (gate doesn't fire)", () => {
+    expect(
+      shouldStartOwnEnginePreview({
+        isPreviewConfigured: true,
+        previewStart: previewStartContract(),
+        parsedFileCount: 1,
+        verifierHasBuildBreakingFindings: false,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("isBuildBreakingFinding", () => {
+  it("classifies the canonical missing-imports finding", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "build-breaking-missing-imports",
+        detail: "components/floating-cta.tsx uses motion but does not import it",
+      }),
+    ).toBe(true);
+  });
+
+  it("classifies typecheck blockers from server-verify", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "typecheck",
+        detail:
+          "components/home-hero.tsx(81,10): error TS2552: Cannot find name 'motion'. Did you mean 'reducedMotion'?",
+      }),
+    ).toBe(true);
+  });
+
+  it("classifies missing-module errors", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "typecheck",
+        detail: "src/x.ts(1,1): error TS2307: Cannot find module 'foo' or its corresponding type declarations.",
+      }),
+    ).toBe(true);
+  });
+
+  it("classifies bad re-exports", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "build-error",
+        detail: "Module \"./bar\": LucideIcon is not exported from lucide-react",
+      }),
+    ).toBe(true);
+  });
+
+  it("does NOT classify quality / design findings", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "unused-import-shadowing-risk",
+        detail: "components/turtle-game.tsx imports GameStatus but also declares a local type GameStatus.",
+      }),
+    ).toBe(false);
+  });
+
+  it("does NOT classify suspicious-nonstandard findings", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "suspicious-nonstandard-component-import",
+        detail: "components/floating-cta.tsx imports AnimatePresence from @/components/animate-presence...",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("hasBuildBreakingVerifierFindings", () => {
+  it("returns false for empty/undefined input", () => {
+    expect(hasBuildBreakingVerifierFindings(undefined)).toBe(false);
+    expect(hasBuildBreakingVerifierFindings(null)).toBe(false);
+    expect(hasBuildBreakingVerifierFindings([])).toBe(false);
+  });
+
+  it("returns true when at least one finding is build-breaking", () => {
+    expect(
+      hasBuildBreakingVerifierFindings([
+        { id: "design-quality", detail: "low contrast" },
+        { id: "build-breaking-missing-imports", detail: "motion missing" },
+      ]),
+    ).toBe(true);
+  });
+
+  it("returns false when all findings are non-blocking", () => {
+    expect(
+      hasBuildBreakingVerifierFindings([
+        { id: "design-quality", detail: "low contrast" },
+        { id: "unused-import-shadowing-risk", detail: "shadowing" },
+      ]),
+    ).toBe(false);
   });
 });

@@ -1,5 +1,8 @@
 import type { BuildSpec } from "@/lib/gen/build-spec";
-import { shouldStartOwnEnginePreview } from "@/lib/gen/preview/should-start-preview";
+import {
+  hasBuildBreakingVerifierFindings,
+  shouldStartOwnEnginePreview,
+} from "@/lib/gen/preview/should-start-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 import { isServerVerifyEligible } from "@/lib/gen/verify/server-verify";
@@ -40,7 +43,46 @@ export function shouldTriggerPostFinalizePreview(params: {
     isPreviewConfigured: isTier2PreviewConfigured(),
     previewStart: getPostFinalizePreviewStartContract(params.finalized),
     parsedFileCount: params.parsedFileCount,
+    verifierHasBuildBreakingFindings: hasBuildBreakingVerifierFindings(
+      params.finalized.verifierBlockingFindings,
+    ),
   });
+}
+
+/**
+ * Public reason string surfaced through the SSE `done` event when the
+ * post-finalize preview lane refuses to start because of a build-breaking
+ * verifier blocker. UI maps this to "Preview blockerad av TypeScript/importfel".
+ */
+export const VERIFIER_BUILD_BREAKING_PREVIEW_REASON = "verifier-build-breaking" as const;
+
+/**
+ * Resolve the preview-blocked envelope used by `runOwnEngineStreamPostFinalize`'s
+ * `done` event. Mirrors what `finalized.preflight` already exposes but ORs
+ * the verifier build-breaking signal on top so the UI sees a single,
+ * coherent block decision.
+ */
+export function resolvePostFinalizePreviewBlockedState(params: {
+  finalized: FinalizeResult;
+}): {
+  previewBlocked: boolean;
+  previewBlockingReason: string | null;
+} {
+  const verifierBlocked = hasBuildBreakingVerifierFindings(
+    params.finalized.verifierBlockingFindings,
+  );
+  const baselineBlocked = params.finalized.preflight.previewBlocked === true;
+  const baselineReason = params.finalized.preflight.previewBlockingReason ?? null;
+  if (baselineBlocked) {
+    return { previewBlocked: true, previewBlockingReason: baselineReason };
+  }
+  if (verifierBlocked) {
+    return {
+      previewBlocked: true,
+      previewBlockingReason: VERIFIER_BUILD_BREAKING_PREVIEW_REASON,
+    };
+  }
+  return { previewBlocked: false, previewBlockingReason: baselineReason };
 }
 
 export function shouldTriggerPostFinalizeServerVerify(params: {

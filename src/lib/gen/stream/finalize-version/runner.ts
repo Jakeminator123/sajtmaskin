@@ -577,6 +577,7 @@ export async function finalizeAndSaveVersion(
     rejectedShrinks: rejectedShrinks ?? [],
     rejectedStructural: rejectedStructural ?? [],
     crossFileStubs: crossFileStubs ?? [],
+    verifierBlockingFindings: verifierBlockingFindings ?? [],
     warmTscSkipped: syntaxResult.tsc?.ran === false && syntaxResult.tsc.skipped === "quality_gate_planned",
     ...(requestedCapabilities.length > 0 ? { requestedCapabilities } : {}),
   };

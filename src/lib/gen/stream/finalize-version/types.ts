@@ -131,6 +131,14 @@ export interface FinalizeResult {
   }>;
   /** True when warm-tsc was intentionally skipped because a later quality gate will typecheck. */
   warmTscSkipped?: boolean;
+  /**
+   * Verifier LLM blocking findings carried out of `runFinalizeFastPath`.
+   * Used by the post-finalize lane to gate the preview/VM lane on
+   * build-breaking import/typecheck issues — a vit preview is worse than
+   * "preview blockerad, repair krävs". See SAJ-61. Empty array when the
+   * verifier ran clean or was skipped.
+   */
+  verifierBlockingFindings?: Array<{ id: string; detail: string }>;
 }
 
 export interface FinalizePathPolicy {

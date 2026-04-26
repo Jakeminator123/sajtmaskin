@@ -13,6 +13,7 @@ import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 import { getPreviewHostBaseUrl, isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
+  resolvePostFinalizePreviewBlockedState,
   resolvePostFinalizeServerVerifyDecision,
   shouldTriggerPostFinalizePreview,
 } from "@/lib/gen/stream/post-finalize-policies";
@@ -175,7 +176,13 @@ export async function runOwnEngineStreamPostFinalize(params: {
     }
   }
 
-  const previewBlocked = finalized.preflight.previewBlocked;
+  // SAJ-61 P0/c4: when the verifier flagged build-breaking findings the
+  // generated artifact cannot render. `resolvePostFinalizePreviewBlockedState`
+  // ORs that signal on top of the existing preflight `previewBlocked` so
+  // the SSE `done` envelope, devLog, and downstream UI status all see one
+  // coherent decision (and the same `previewBlockingReason` string).
+  const previewBlockedState = resolvePostFinalizePreviewBlockedState({ finalized });
+  const previewBlocked = previewBlockedState.previewBlocked;
   const previewWillRun = shouldTriggerPostFinalizePreview({
     finalized,
     parsedFileCount: parsedForPreview.length,
@@ -194,9 +201,9 @@ export async function runOwnEngineStreamPostFinalize(params: {
         previewPending: previewWillRun,
         shimPreviewUrl: null,
         preflight: finalized.preflight,
-        previewBlocked: finalized.preflight.previewBlocked,
+        previewBlocked,
         verificationBlocked: finalized.preflight.verificationBlocked,
-        previewBlockingReason: finalized.preflight.previewBlockingReason,
+        previewBlockingReason: previewBlockedState.previewBlockingReason,
         releaseState: finalized.version.release_state,
         verificationState: finalized.version.verification_state,
         verificationSummary: finalized.version.verification_summary,
