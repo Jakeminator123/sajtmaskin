@@ -70,9 +70,8 @@ export interface PreviewPanelProps {
   /**
    * P0 stream-abort recovery (2026-04-26). Click handler bound to the
    * "Starta om generation" button shown when `versionlessAborted` is
-   * true. Implementations are expected to spawn a *new* chat that
-   * carries `restartedFromChatId` lineage back to the dead chat —
-   * never reuse the dead chatId for a follow-up post.
+   * true. Implementations are expected to spawn a *new* chat — never
+   * reuse the dead chatId for a follow-up post.
    */
   onRestartGeneration?: () => void;
   refreshToken?: number;

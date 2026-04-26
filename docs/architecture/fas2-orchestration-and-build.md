@@ -205,7 +205,7 @@ Streamen kan landa i tre slut-tillstånd. `generation-log-writer.resolveStatusDe
 | **aborted (versionless)** | Stream rivs INNAN version persistas — provider-abort utan content, klient-disconnect, transport-fel, eller stale `in_progress` > 30 min | `site.aborted` med `reason ∈ {provider_aborted_no_content, provider_aborted_after_content, stream_closed_without_done, stream_error, client_disconnect, staleness_inferred}` | `aborted` | reason från `site.aborted` | **Nej** — chatten har ingen `versionId` |
 | **aborted (versionless lazy)** | Status-resolver upptäcker stale `in_progress` (> 30 min sedan senaste entry) utan terminal-event | inget — resolver inferera vid läsning | `aborted` | `staleness_inferred` | Nej |
 
-**Versionless chat-policy**: en chat utan `versionId` kan inte repairas, bara restartas. Server blockar `followup_general` mot sådana chats med HTTP 409 (`error: "versionless_chat_aborted"`) i `chat-message-stream-post.ts`. UI byter "Försök reparera preview" mot "Starta om generation" som öppnar en ny chat med `?restartedFrom=<chatId>` i URL:en (länkar lineage utan att återanvända döda chatten).
+**Versionless chat-policy**: en chat utan `versionId` kan inte repairas, bara restartas. Server blockar `followup_general` mot sådana chats med HTTP 409 (`error: "versionless_chat_aborted"`) i `chat-message-stream-post.ts`. UI byter "Försök reparera preview" mot "Starta om generation" som navigerar till en ny `/builder?restartedFrom=<chatId>`-entry. Query-parametern är idag bara en cosmetic markör — server-side `restartedFromChatId`-lineage är `out of scope` för P0-fix:en (se `docs/architecture/open-questions.md`).
 
 **Var emitteras `site.aborted`?**
 

@@ -33,8 +33,8 @@
     },
     "kind": {
       "type": "string",
-      "enum": ["create", "followup", "plan"],
-      "description": "Vilken stream-typ som abortades. Speglar generationKind från devLogStartGeneration."
+      "enum": ["init", "followup"],
+      "description": "Vilken stream-typ som abortades. Speglar `PromptToDoneKind` i `src/lib/observability/metrics.ts`. 'init' = första generation från start-prompten. 'followup' = follow-up/repair-pass mot existerande chat."
     },
     "elapsedMs": {
       "type": "number",

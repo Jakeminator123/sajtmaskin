@@ -102,9 +102,9 @@ export function PreviewPanelEmptyState({
             : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
   // P0 stream-abort recovery (2026-04-26). When the chat is versionless +
   // aborted, the only valid action is "restart generation" (which the
-  // parent maps to a fresh chat with restartedFromChatId lineage). The
-  // "repair preview" button is suppressed so the user cannot send a
-  // followup_general into a chat that has nothing to repair.
+  // parent maps to a fresh chat). The "repair preview" button is
+  // suppressed so the user cannot send a followup_general into a chat
+  // that has nothing to repair.
   const showRestartAction = Boolean(
     versionlessAborted && onRestartGeneration && !externalLoading && !previewPending,
   );

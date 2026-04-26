@@ -213,9 +213,8 @@ export async function handleMessageStreamRequest(
       // priorVariantId:null and trigger a variant_lock_fallback against
       // a chat that has no scaffold-lock to lock to. Hard 409 stops the
       // race at the door — the client is expected to spawn a new chat
-      // (with restartedFromChatId lineage) instead. Read-only check;
-      // the fallback "no log on disk" path is treated as live (we err
-      // on letting through, never on blocking).
+      // instead. Read-only check; the fallback "no log on disk" path is
+      // treated as live (we err on letting through, never on blocking).
       const existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id).catch(() => []);
       if (existingVersionsForChat.length === 0) {
         const runStatus = readRunStatusForChat(engineChat.id);

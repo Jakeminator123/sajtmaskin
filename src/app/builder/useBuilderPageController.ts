@@ -139,10 +139,10 @@ export function useBuilderPageController() {
   // and the most recent run is in `aborted` status, we treat it as
   // "versionless aborted" — the preview empty-state shows "Starta om
   // generation" instead of "Försök reparera preview", and the parent
-  // component will route a click into a fresh chat (with
-  // restartedFromChatId lineage) rather than a followup_general against
-  // the dead chatId. Failed runs (verifier rejected real content) do
-  // NOT count here — those still have a version to repair.
+  // component will route a click into a fresh chat rather than a
+  // followup_general against the dead chatId. Failed runs (verifier
+  // rejected real content) do NOT count here — those still have a
+  // version to repair.
   const versionlessAborted = useMemo(() => {
     if (Array.isArray(versions) && versions.length > 0) return false;
     if (!chatStatus) return false;

@@ -84,13 +84,12 @@ export function useBuilderCallbacks({
   // aborted, the only valid action is "restart generation" — the dead
   // chatId carries no version, no scaffold-lock, and any followup against
   // it would trigger variant_lock_fallback (priorVariantId:null). Sending
-  // the user back to the start screen with `restartedFrom=<chatId>` lets
-  // the start handler stamp `restartedFromChatId` lineage on the new chat
-  // (read by the orchestrator for telemetry; see
-  // `docs/architecture/llm-flow-target-worldclass.md` § "Versionless
-  // restart"). Implementation today: navigate to /builder?restartedFrom=
-  // ; wiring of restartedFromChatId into the chat-create payload is
-  // handled in a follow-up commit so this commit stays UI-only.
+  // the user back to the start screen with `?restartedFrom=<chatId>`
+  // gives a clean blank entry that cannot mistakenly send `followup_general`
+  // into the dead chatId. The query param itself is currently unused on the
+  // server side — `restartedFromChatId` lineage stamping is tracked in
+  // `docs/architecture/open-questions.md` (§ "Versionless restart lineage")
+  // and is intentionally out of scope for the P0 UX fix.
   const handleRestartGeneration = useCallback(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams();

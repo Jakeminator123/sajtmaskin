@@ -95,10 +95,19 @@ describe("LLM telemetri strict schemas", () => {
         chatId: "chat_abc123",
         versionId: null,
         reason: "provider_aborted_after_content",
-        kind: "create",
+        kind: "init",
         elapsedMs: 84230,
       };
       expect(validate(payload)).toBe(true);
+    });
+
+    it("rejectar okänd kind-enum (skydd mot drift mot PromptToDoneKind)", () => {
+      const payload = {
+        type: "site.aborted",
+        reason: "client_disconnect",
+        kind: "create",
+      };
+      expect(validate(payload)).toBe(false);
     });
 
     it("matchar minimum-payload (bara type + reason)", () => {
