@@ -215,7 +215,15 @@ export async function handleMessageStreamRequest(
       // race at the door — the client is expected to spawn a new chat
       // instead. Read-only check; the fallback "no log on disk" path is
       // treated as live (we err on letting through, never on blocking).
-      const existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id).catch(() => []);
+      // The try/catch is defensive against repo-stub mismatches in tests
+      // and against transient DB errors — both should fail open (let the
+      // followup through) rather than 500 the route.
+      let existingVersionsForChat: Awaited<ReturnType<typeof chatRepo.getVersionsByChat>> = [];
+      try {
+        existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id);
+      } catch {
+        existingVersionsForChat = [];
+      }
       if (existingVersionsForChat.length === 0) {
         const runStatus = readRunStatusForChat(engineChat.id);
         if (runStatus && runStatus.status === "aborted" && !runStatus.versionId) {

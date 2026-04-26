@@ -161,7 +161,17 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json).toEqual({ versions: [] });
+    expect(json.versions).toEqual([]);
+    // P0 stream-abort recovery (2026-04-26). Even when the chat is not
+    // engine-backed and has no legacy mapping, the route always emits a
+    // chatStatus envelope so useVersions can decide whether to keep
+    // polling. With no run log on disk we default to in_progress.
+    expect(json.chatStatus).toEqual({
+      status: "in_progress",
+      statusReason: null,
+      hasVersion: false,
+      updatedAt: null,
+    });
   });
 
   it("persists preview URLs for own-engine versions", async () => {
