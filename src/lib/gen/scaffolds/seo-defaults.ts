@@ -1,8 +1,9 @@
 import type { ScaffoldFile, ScaffoldManifest } from "./types";
 import { warnLog } from "@/lib/utils/debug";
+import type { SeoBrand } from "@/lib/projects/preferences-schema";
 
 /**
- * Scaffold SEO defaults — opt-in policy.
+ * Scaffold SEO defaults — opt-in policy with optional per-project override.
  *
  * Historical context (B3 + SAJ-39 + SAJ-43): this module used to *always*
  * inject `app/robots.ts`, `app/sitemap.ts`, `app/opengraph-image.tsx` and
@@ -12,23 +13,32 @@ import { warnLog } from "@/lib/utils/debug";
  * production lifecycle (fidelity3), not to the design lifecycle (fidelity1/2)
  * where users iterate on look & feel.
  *
- * New policy (idiot-safe by default):
- *   - If `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL` is **unset**, the function is a
- *     **noop** — no SEO files injected, no metadata enrichment. The scaffold
- *     is returned unchanged. This eliminates the `example.com` leak vector
- *     entirely on dev / fidelity1-2 / preview environments.
- *   - If the env var is **set** (typical for fidelity3 / production export),
- *     the SEO files and metadata enrichment are injected with the real
- *     URL.
+ * Policy (idiot-safe by default):
+ *   - **No options + env unset** → noop. Nothing injected, nothing
+ *     enriched. The default-safe path; no `example.com` placeholder can
+ *     leak because nothing is injected.
+ *   - **No options + env set** → inject SEO files + enrich layout
+ *     metadata with the env-derived siteUrl. Single-tenant fallback used
+ *     when one Vercel-deploy serves one production domain.
+ *   - **`options.siteUrl` (string)** → override env. Caller picked the
+ *     domain for this generation.
+ *   - **`options.siteUrl: null`** → explicit noop. Caller wants SEO off
+ *     for this generation even if env is set.
+ *   - **`options.brand`** → overrides title/description/locale fallbacks
+ *     in `enrichLayoutMetadata` when the scaffold's `app/layout.tsx`
+ *     doesn't already define those fields. Existing scaffold-content
+ *     wins; brand only fills gaps. (Locale is the exception: brand wins
+ *     because the scaffold's metadata has no locale today — the previous
+ *     hardcoded `"sv_SE"` is replaced by `brand.locale` if provided.)
  *
- * Operators see a single warn at boot if the env var is missing, so the
- * gap is visible. Backoffice → "Scaffold Performance" page surfaces the
- * same warning for ops visibility.
+ * Operators see a single warn at boot if the env-fallback path is hit
+ * with no env set, so the gap is visible. Backoffice → "Scaffold
+ * Performance" page surfaces the disabled state.
  *
- * NOTE: the policy distinction is enforced *here*, not by callers. The
- * scaffold registry calls `applyScaffoldSeoDefaults` unconditionally
- * (see `registry.ts`); this module decides whether to actually inject.
- * That keeps the integration point trivial and idempotent.
+ * Pipeline-koppling (calling with options) is PR-B scope. PR-A only
+ * adds the helper signature + tests; `registry.ts` still calls
+ * `applyScaffoldSeoDefaults(scaffold)` (no options) so behaviour is
+ * unchanged for existing generations.
  */
 
 const SEO_SITE_URL_ENV = "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL";
@@ -58,6 +68,40 @@ function warnOnceAboutMissingSeoSiteUrl(): void {
   warnLog("scaffold", "seo_defaults_disabled", {
     reason: `${SEO_SITE_URL_ENV} unset — scaffold SEO files (robots/sitemap/opengraph) and layout metadata enrichment are disabled. Set the env var (e.g. when promoting to fidelity3) to activate.`,
   });
+}
+
+/**
+ * Options for `applyScaffoldSeoDefaults` and `getScaffoldSeoDefaultsStatus`.
+ *
+ * - `siteUrl: string` → override env-derived siteUrl for this call.
+ * - `siteUrl: null` → explicit noop (don't inject SEO even if env is set).
+ * - `siteUrl: undefined` (or omitted) → fall back to env (existing behavior).
+ * - `brand` → optional overrides for layout metadata fallbacks.
+ */
+export type SeoOptions = {
+  siteUrl?: string | null;
+  brand?: SeoBrand | null;
+};
+
+type ResolvedSeoSiteUrl =
+  | { siteUrl: string; source: "override" | "env" }
+  | { siteUrl: null; source: "explicit-noop" | "env-missing" };
+
+function resolveSeoSiteUrl(options?: SeoOptions): ResolvedSeoSiteUrl {
+  if (options) {
+    if (options.siteUrl === null) {
+      return { siteUrl: null, source: "explicit-noop" };
+    }
+    if (typeof options.siteUrl === "string" && options.siteUrl.trim().length > 0) {
+      return {
+        siteUrl: options.siteUrl.trim().replace(/\/$/, ""),
+        source: "override",
+      };
+    }
+  }
+  const fromEnv = readSeoSiteUrl();
+  if (fromEnv) return { siteUrl: fromEnv, source: "env" };
+  return { siteUrl: null, source: "env-missing" };
 }
 
 function buildRobotsFile(siteUrl: string): ScaffoldFile {
@@ -194,7 +238,15 @@ function extractMetadataExpression(
   return rawValue;
 }
 
-function enrichLayoutMetadata(layoutContent: string, siteUrl: string): string {
+function jsonStringSafe(value: string): string {
+  return JSON.stringify(value);
+}
+
+function enrichLayoutMetadata(
+  layoutContent: string,
+  siteUrl: string,
+  brand?: SeoBrand,
+): string {
   const range = findMetadataObjectRange(layoutContent);
   if (!range) return layoutContent;
 
@@ -208,11 +260,25 @@ function enrichLayoutMetadata(layoutContent: string, siteUrl: string): string {
     return layoutContent;
   }
 
-  const titleExpr = extractMetadataExpression(metadataBody, "title", `"Website"`);
+  // Brand-data fills the title/description fallbacks (scaffold-content
+  // wins via `extractMetadataExpression` if it already declares either).
+  // Locale is the exception: brand wins because the scaffold metadata
+  // has no locale field today, so `brand.locale` replaces the previous
+  // hardcoded "sv_SE".
+  const titleFallback = brand?.companyName
+    ? jsonStringSafe(brand.companyName)
+    : `"Website"`;
+  const descriptionSource = brand?.tagline ?? brand?.description;
+  const descriptionFallback = descriptionSource
+    ? jsonStringSafe(descriptionSource)
+    : `"Generated website with Next.js"`;
+  const locale = brand?.locale ?? "sv_SE";
+
+  const titleExpr = extractMetadataExpression(metadataBody, "title", titleFallback);
   const descriptionExpr = extractMetadataExpression(
     metadataBody,
     "description",
-    `"Generated website with Next.js"`,
+    descriptionFallback,
   );
   const enrichedMetadata = `{
   title: ${titleExpr},
@@ -233,7 +299,7 @@ function enrichLayoutMetadata(layoutContent: string, siteUrl: string): string {
         alt: "Website preview image",
       },
     ],
-    locale: "sv_SE",
+    locale: "${locale}",
     type: "website",
   },
   twitter: {
@@ -248,27 +314,37 @@ function enrichLayoutMetadata(layoutContent: string, siteUrl: string): string {
 }
 
 /**
- * Apply scaffold SEO defaults — opt-in via `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL`.
+ * Apply scaffold SEO defaults.
  *
- * - Without env var → returns the scaffold UNCHANGED (no SEO files injected,
- *   no layout metadata enrichment). The default-safe path: no `example.com`
- *   placeholder can leak because nothing is injected.
- * - With env var set → injects `app/robots.ts`, `app/sitemap.ts`,
- *   `app/opengraph-image.tsx` (idempotently — only if the scaffold doesn't
- *   already define them) and enriches `app/layout.tsx` (or `src/app/layout.tsx`)
- *   with `metadataBase` / `alternates` / `openGraph` / `twitter`.
+ * See module JSDoc above for the full opt-in policy. In short:
  *
- * Recommended fidelity3 wiring: set the env var in the production / preview
- * deploy where the real domain is known. For dev / fidelity1-2 the env var
- * stays unset and SEO defaults are silent — `Scaffold Performance` page in
- * backoffice surfaces the disabled state.
+ * - `applyScaffoldSeoDefaults(scaffold)` (no options) → env-fallback,
+ *   identical to pre-PR-A behaviour. Used by `registry.ts`.
+ * - `applyScaffoldSeoDefaults(scaffold, { siteUrl })` → override env.
+ * - `applyScaffoldSeoDefaults(scaffold, { siteUrl: null })` → explicit
+ *   noop even if env is set.
+ * - `applyScaffoldSeoDefaults(scaffold, { brand })` → fills layout
+ *   metadata fallbacks with brand fields (scaffold-content still wins
+ *   for title/description; brand wins for locale).
+ *
+ * Pipeline-koppling that calls with project-specific options is PR-B
+ * scope; PR-A only adds the option-aware signature + tests.
  */
-export function applyScaffoldSeoDefaults(scaffold: ScaffoldManifest): ScaffoldManifest {
-  const siteUrl = readSeoSiteUrl();
-  if (!siteUrl) {
-    warnOnceAboutMissingSeoSiteUrl();
+export function applyScaffoldSeoDefaults(
+  scaffold: ScaffoldManifest,
+  options?: SeoOptions,
+): ScaffoldManifest {
+  const resolved = resolveSeoSiteUrl(options);
+  if (resolved.siteUrl === null) {
+    if (resolved.source === "env-missing") {
+      // Only warn in env-fallback path. Caller-driven explicit-noop is a
+      // deliberate choice and shouldn't trigger an operator warning.
+      warnOnceAboutMissingSeoSiteUrl();
+    }
     return scaffold;
   }
+  const { siteUrl } = resolved;
+  const brand = options?.brand ?? undefined;
 
   let files = [...scaffold.files];
   files = ensureSeoScaffoldFile(files, buildRobotsFile(siteUrl));
@@ -285,7 +361,7 @@ export function applyScaffoldSeoDefaults(scaffold: ScaffoldManifest): ScaffoldMa
     }
     return {
       ...file,
-      content: enrichLayoutMetadata(file.content, siteUrl),
+      content: enrichLayoutMetadata(file.content, siteUrl, brand),
     };
   });
 
@@ -296,14 +372,21 @@ export function applyScaffoldSeoDefaults(scaffold: ScaffoldManifest): ScaffoldMa
 }
 
 /**
- * Test/backoffice helper — exposes whether SEO defaults are currently active
- * without leaking the env var directly. Used by the `Scaffold Performance`
- * panel to surface the disabled state.
+ * Test/backoffice helper — exposes whether SEO defaults would be active
+ * for a given options shape (or for the env-fallback path when no options
+ * are provided). Used by the `Scaffold Performance` panel to surface the
+ * disabled state, and by tests/UI to preview whether opt-in would inject
+ * SEO without actually running it.
  */
-export function getScaffoldSeoDefaultsStatus(): {
+export function getScaffoldSeoDefaultsStatus(options?: SeoOptions): {
   enabled: boolean;
   siteUrl: string | null;
+  source: ResolvedSeoSiteUrl["source"];
 } {
-  const siteUrl = readSeoSiteUrl();
-  return { enabled: siteUrl !== null, siteUrl };
+  const resolved = resolveSeoSiteUrl(options);
+  return {
+    enabled: resolved.siteUrl !== null,
+    siteUrl: resolved.siteUrl,
+    source: resolved.source,
+  };
 }
