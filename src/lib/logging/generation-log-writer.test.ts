@@ -24,6 +24,8 @@ describe("generation-log writer", () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
     vi.stubEnv("GENERATIONSLOGG", "1");
+    vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "abc123repohead");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "master");
 
     const { devLogAppend, devLogStartGeneration } = await import("./devLog");
 
@@ -160,6 +162,9 @@ describe("generation-log writer", () => {
     const meta = JSON.parse(fs.readFileSync(path.join(runDir, "meta.json"), "utf8")) as {
       versionId?: string;
       status?: string;
+      repoHead?: string | null;
+      repoBranch?: string | null;
+      repoIdentityCapturedAt?: string;
     };
 
     expect(summary).toContain("# Generationslogg");
@@ -196,6 +201,11 @@ describe("generation-log writer", () => {
     expect(globalCsv).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     expect(meta.versionId).toBe("ver_1");
     expect(meta.status).toBe("done");
+    expect(meta.repoHead).toBe("abc123repohead");
+    expect(meta.repoBranch).toBe("master");
+    expect(meta.repoIdentityCapturedAt).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+    );
   });
 
   it("retains only the latest MAX_RUN_DIRS (15) generation folders", async () => {
