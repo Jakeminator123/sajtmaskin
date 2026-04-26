@@ -194,6 +194,32 @@ Returnerar `createCodeGenSSEStream()` → SSE.
 | `error` | Felmeddelande |
 | `done` | Token-användning + `previewPending` |
 
+### Stream lifecycle: done, failed, aborted
+
+Streamen kan landa i tre slut-tillstånd. `generation-log-writer.resolveStatusDetails` mappar tillstånden till `meta.status` + `meta.statusReason` som UI och backoffice läser via `/versions` (fältet `chatStatus`) respektive `meta.json`.
+
+| Slut-tillstånd | Trigger | Event som loggas till `timeline.ndjson` | `meta.status` | `meta.statusReason` | Repair-able? |
+|---|---|---|---|---|---|
+| **done** | LLM:s `finishReason !== "abort"`, finalize lyckas, version skapas | `site.done` (innehåller `versionId`, `durationMs`, etc.) | `done` | `null` | n/a — versionen finns |
+| **failed** | Verifier underkänner, partial-file-repair ger upp, eller persist throws → version markeras `verification_failed` men finns i DB | `site.failed` med `reason` | `failed` | reason från `site.failed` | Ja — versionId finns, follow-up kan repairas |
+| **aborted (versionless)** | Stream rivs INNAN version persistas — provider-abort utan content, klient-disconnect, transport-fel, eller stale `in_progress` > 30 min | `site.aborted` med `reason ∈ {provider_aborted_no_content, provider_aborted_after_content, stream_closed_without_done, stream_error, client_disconnect, staleness_inferred}` | `aborted` | reason från `site.aborted` | **Nej** — chatten har ingen `versionId` |
+| **aborted (versionless lazy)** | Status-resolver upptäcker stale `in_progress` (> 30 min sedan senaste entry) utan terminal-event | inget — resolver inferera vid läsning | `aborted` | `staleness_inferred` | Nej |
+
+**Versionless chat-policy**: en chat utan `versionId` kan inte repairas, bara restartas. Server blockar `followup_general` mot sådana chats med HTTP 409 (`error: "versionless_chat_aborted"`) i `chat-message-stream-post.ts`. UI byter "Försök reparera preview" mot "Starta om generation" som öppnar en ny chat med `?restartedFrom=<chatId>` i URL:en (länkar lineage utan att återanvända döda chatten).
+
+**Var emitteras `site.aborted`?**
+
+| Källa | Reason | Note |
+|---|---|---|
+| `src/lib/gen/stream/stream-format.ts` | `provider_aborted_no_content` / `provider_aborted_after_content` | AI SDK `part.type === "abort"` — provider rev streamen |
+| `src/lib/gen/stream/stream-format.ts` | `stream_error` | Generic catch — pipe-fel under formatering |
+| `src/lib/observability/prompt-to-done-stream.ts` | `client_disconnect` / `stream_closed_without_done` / `stream_error` | Wrapper observerar att `done`-event aldrig skickades |
+| `src/lib/logging/generation-log-writer.ts` (resolver) | `staleness_inferred` | Lazy detection när någon läser `meta.json`/`/versions`, ingen separat event-rad |
+
+Strict schema: [`docs/schemas/strict/site-aborted.schema.json`](../schemas/strict/site-aborted.schema.json). Backoffice-vy: `LLM-flöde telemetri → Stream-aborter`.
+
+**Polling-stop-kontrakt**: `useVersions`-hooken kollar `chatStatus.status === "aborted" && !chatStatus.hasVersion` och sätter `refreshInterval = 0`. Detta förhindrar evig polling på döda versionless chats. Om en version senare skapas (omöjligt idag, men kontraktet är defensivt), återupptas pollningen automatiskt eftersom `chatStatus.hasVersion` då blir `true`.
+
 ---
 
 ## Finalize-pipeline (efter LLM-stream)
