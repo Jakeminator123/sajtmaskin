@@ -1,38 +1,44 @@
 # SEO + F3-promotion — exakt spec för nästa PR(s)
 
-**Bransch (denna PR — bara dokumentation):** `seo-f3-promotion-ux`
-**Status:** specifikation klar, väntar på godkännande av implementationsordning.
+**Status 2026-04-26:** ✅ **PR-A klar** (mergad i PR #103) och ✅ **PR-B
+klar** (mergad i PR #105 → master `854bb9a31`). Implementationen är
+levererad enligt specifikationen nedan. Detta dokument lämnas kvar
+som referens för design-besluten + acceptanskriterierna som faktiskt
+verifierades i mergad kod.
 
-Denna fil är **planeringsdokument**, inte kod. Implementeras som **två
-separata PRs** (B + UI) eller **en sammanslagen PR**, beroende på vad
-användaren väljer efter dialog. Det enda som är klart i `seo-f3-promotion-ux`-
-branchen idag är dokumentation (env-doc + open-threads-uppdatering + denna
-fil).
-
----
-
-## Beslut som krävs INNAN implementation
-
-**Q1.** Vill du köra **PR-A först (backend-preferences)** så pipen är
-färdig att ta emot per-projekt-data, och sen PR-B (UI) i en andra runda?
-Eller hellre **PR-AB samlad** (atomic, men större)?
-
-**Q2.** Är `project_data.meta.seo`-strukturen (jsonb) acceptabel? Eller
-ska vi ha det i deploy-body **enbart** (transient, inte persisterat)?
-- **`meta.seo` (persisterat):** användaren slipper fylla i samma siteUrl
-  vid varje Bygg. UI laddar förvalda värden.
-- **Bara deploy-body (transient):** simpelt, men dålig UX om man bygger
-  flera versioner — måste fylla i varje gång.
-- **Min rekommendation:** `meta.seo` persistens + deploy-body kan
-  override:a för "engångsbygge med annan domän".
-
-**Q3.** Brand-overrides — ska de auto-fyllas från `chat.meta.brief` vid
-PR-AB, eller är det acceptabelt att UI visar tomma fält tills användaren
-fyller i? Auto-fyll är bättre UX men kräver brief-läsning i komponenten.
+**Kvar (parkerat, inte aktivt arbete):**
+- **Brand-fields UI v2** — `seoBrandSchema` med `companyName`/`tagline`/
+  `description`/`locale` finns redan i `preferences-schema.ts`, persisteras
+  via API och appliceras av `enrichLayoutMetadata`. Vad som saknas är UI
+  i Bygg-dialogen för att låta användaren editera dem. Wire-formatet
+  ändras inte när detta läggs till — `SeoOptInPanel` kan utökas i
+  bakåtkompatibel takt.
+- **Live-smoke polish** — Vercel-preview från PR #105 är skyddad av
+  Deployment Protection, så HTTP-smoke kräver bypass-token eller
+  `vercel curl`. Det blockerar inte merge men är nyttigt för
+  framtida E2E-testning av deploy-routens SEO-svar.
+- **Eventuell docs/statusuppdatering** — denna fil + open-threads
+  + README är synkade nu (2026-04-26).
 
 ---
 
-## PR-A — Backend preferences (utan UI)
+## Historiska beslut (besvarade vid implementation)
+
+- **Q1 — PR-A före PR-B:** Vald. PR-A (#103) levererade
+  `seoPreferencesSchema` + `applyScaffoldSeoDefaults({ siteUrl, brand })`
+  + GET/PATCH `/api/projects/[id]/preferences` utan UI. PR-B (#105) la
+  till UI + deploy-time-koppling.
+- **Q2 — `project_data.meta.seo` (persistens) + deploy-body override:**
+  Vald. Server-side precedence: deploy-body > `meta.seo` > env-fallback,
+  implementerad i `resolveDeploySeoOptions`.
+- **Q3 — Brand auto-fyllning från `chat.meta.brief`:** Skjutet. v1-UI
+  exponerar bara `optIn` + `siteUrl`. Brand persisteras via API och
+  appliceras av enrich-helpern, men UI för editering är "v2" (se
+  parkerat ovan).
+
+---
+
+## PR-A — Backend preferences (utan UI) — ✅ **MERGAD** (PR #103)
 
 ### Filer som ska ändras
 
@@ -112,25 +118,25 @@ ingen call-site använder param ännu. `registry.ts:70` fortsätter anropa
 betyder att PR-A är **rent additivt**, ingen befintlig generation
 påverkas.
 
-### Acceptanskriterier (PR-A)
+### Acceptanskriterier (PR-A) — alla bockade ✅
 
-- [ ] `applyScaffoldSeoDefaults(scaffold, { siteUrl: "https://x.se" })`
+- [x] `applyScaffoldSeoDefaults(scaffold, { siteUrl: "https://x.se" })`
       injicerar SEO-filer med "https://x.se" oavsett env.
-- [ ] `applyScaffoldSeoDefaults(scaffold, { siteUrl: null })` är noop
+- [x] `applyScaffoldSeoDefaults(scaffold, { siteUrl: null })` är noop
       även om env är satt (explicit override att stänga av).
-- [ ] `applyScaffoldSeoDefaults(scaffold)` (ingen options) → identiskt
+- [x] `applyScaffoldSeoDefaults(scaffold)` (ingen options) → identiskt
       beteende som idag (env-baserat).
-- [ ] `applyScaffoldSeoDefaults(scaffold, { brand })` ersätter `title`,
+- [x] `applyScaffoldSeoDefaults(scaffold, { brand })` ersätter `title`,
       `description`, `locale` i layout-metadata.
-- [ ] `GET /api/projects/:id/preferences` returnerar `seo`-objekt med
+- [x] `GET /api/projects/:id/preferences` returnerar `seo`-objekt med
       defaults (`optIn:false`, `siteUrl:null`, `brand:null`) för projekt
       som inte satt något än.
-- [ ] `PATCH /api/projects/:id/preferences` med `seo`-payload persisterar
+- [x] `PATCH /api/projects/:id/preferences` med `seo`-payload persisterar
       i `project_data.meta.seo`.
-- [ ] `PATCH` med `optIn:true` + `siteUrl:null` → 400.
-- [ ] `PATCH` med invalid `siteUrl` (ingen `https://`, eller invalid URL)
+- [x] `PATCH` med `optIn:true` + `siteUrl:null` → 400.
+- [x] `PATCH` med invalid `siteUrl` (ingen `https://`, eller invalid URL)
       → 400.
-- [ ] Befintliga generation/preview-flöden påverkas inte (regression-test:
+- [x] Befintliga generation/preview-flöden påverkas inte (regression-test:
       `npm run typecheck` + `npx vitest run src/lib/gen/scaffolds` grönt).
 
 ### Tester (PR-A)
@@ -151,9 +157,12 @@ påverkas.
 
 ---
 
-## PR-B — UI Bygg-dialog + pipeline-koppling
+## PR-B — UI Bygg-dialog + pipeline-koppling — ✅ **MERGAD** (PR #105 → master `854bb9a31`)
 
-**Förutsätter PR-A är mergad.** Ingen DB-migration. Ingen LLM-flow-refactor.
+**Levererat med deploy-time injection (Variant B)** — `applySeoToProjectFiles`
+extraherades ur scaffold-wrappern och körs i `/api/v0/deployments`-routen
+efter `runPreDeployFixPipeline` men före `materializeImagesInTextFiles`.
+Ingen LLM-flow-refactor, ingen finalize-runner-ändring.
 
 ### Filer som ska ändras
 
@@ -178,20 +187,29 @@ Två-stegs läsning i `useBuilderDeployActions`:
 3. På "Bygg" → PATCHa preferences (sparar till nästa gång) + skicka
    `seo`-state i deploy-body (omedelbar effekt).
 
-### Acceptanskriterier (PR-B)
+### Acceptanskriterier (PR-B) — levererade ✅
 
-- [ ] `DeployNameDialog` visar `SeoOptInPanel` med default OFF.
-- [ ] PÅ + tom siteUrl → "Bygg"-knappen disabled, inline-fel "Domän krävs".
-- [ ] Egen domän verifierad → siteUrl-input förvalt med den.
-- [ ] Ingen egen domän + Sajtmaskin-subdomän finns → siteUrl-input förvalt
-      med subdomänen + gul varning "Pekar mot Sajtmaskin-subdomän".
-- [ ] Brand-fält förvalfyllda från `chat.meta.brief` (om tillgängligt).
-- [ ] "Bygg" PATCHar `preferences.seo` + POSTar `/api/v0/deployments`
-      med `seo`-payload.
-- [ ] Genererad sajt har `app/robots.ts` med rätt domän, `app/layout.tsx`
-      har `metadataBase: new URL(<siteUrl>)`, `title: <brand.companyName>`.
-- [ ] SEO AV (default) → ingen `app/robots.ts` etc i deploy. Verifierat
-      genom snapshot-test mot Vercel-projekt-filer.
+- [x] `DeployNameDialog` visar `SeoOptInPanel` med default OFF.
+- [x] PÅ + tom siteUrl → "Publicera"-knappen disabled, inline-fel
+      "Ange URL för att aktivera SEO".
+- [x] Persisterad domän förvalfyller siteUrl-input via fetch-seed (utan
+      att markera dirty — race-condition-fix i commit `a642320d8`).
+- [ ] Egen domän verifierad → siteUrl-input förvalt med den. *(parkerat:
+      domain-aware auto-fyllning väntar på UX-koppling)*
+- [ ] Ingen egen domän + Sajtmaskin-subdomän finns → varning "Pekar mot
+      Sajtmaskin-subdomän". *(parkerat: kräver subdomain-resolver)*
+- [ ] Brand-fält i UI förvalfyllda från `chat.meta.brief`. *(parkerat
+      för v2 — schema/persistens/apply finns, UI saknas)*
+- [x] "Publicera" PATCHar `preferences.seo` (best-effort) + POSTar
+      `/api/v0/deployments` med `seo`-payload när användaren rört panelen.
+- [x] Genererad sajt har `app/robots.ts` med rätt domän + `app/layout.tsx`
+      med `metadataBase: new URL(<siteUrl>)` + brand-fallbacks. Verifierat
+      av 33 seo-defaults-tester (env-fallback, override, brand, idempotens,
+      icke-noll layout-position, src/app/-prefix).
+- [x] SEO AV (default) → deploy-filer byte-identiska med innan PR-B
+      (explicit-noop-grenen i `applySeoToProjectFiles`).
+- [x] Body `siteUrl: null` honoreras som explicit-noop över persisted
+      opt-in (commit `5a899ec0b` + 4 regression-tester).
 
 ### Tester (PR-B)
 
@@ -210,39 +228,29 @@ Två-stegs läsning i `useBuilderDeployActions`:
 
 ---
 
-## Vad denna PR (`seo-f3-promotion-ux` branch idag) levererar
+## Leveranshistorik
 
-**Bara dokumentation** — ingen kod. Konkret:
+| PR | Innehåll | Mergad |
+|----|----------|--------|
+| #102 | Docs/plan/env-policy (denna fil + OPEN-THREADS section 1 + ENV.md + env-policy) | 2026-04-25 |
+| #103 | PR-A: backend preferences + `seoPreferencesSchema` + `applyScaffoldSeoDefaults` options-stöd + `applySeoToProjectFiles` extraktion + 30 seo-defaults-tester + 15 preferences-API-tester | 2026-04-25 |
+| #105 | PR-B: `SeoOptInPanel` + `DeployNameDialog`-koppling + `useBuilderDeployActions` plumbing + `/api/v0/deployments` SEO-resolver + 12 resolve-seo-tester + 12 SeoOptInPanel-tester + 3 fixar (siteUrl=null explicit-noop, enriched-list-index, persist-fetch race) | 2026-04-26 (master `854bb9a31`) |
 
-1. `docs/ENV.md` — `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL` dokumenterad i
-   "Vanliga tillägg"-tabellen med opt-in-semantik + F3-disclaimer.
-2. `config/env-policy.json` — env-keyn lagd i både `knownEmptyOk` och
-   `entries` med klassificering `optional_runtime` + notes som varnar mot
-   F1/F2-användning.
-3. `docs/plans/active/OPEN-THREADS-SCAFFOLDS-2026-04-24.md` — sektion 1
-   uppdaterad med beslutad approach (Bygg = aktiveringspunkt) + komplett
-   UX-beskrivning + edge-cases (saknad domän, senare kopplad domän).
-4. `docs/plans/active/SEO-F3-PROMOTION-NEXT-PR.md` — denna fil. Exakt
-   spec för PR-A och PR-B.
-5. `docs/plans/active/README.md` — router-tabellens M-rad uppdateras med
-   pekare till denna spec-fil.
-
-**Inget av följande:**
-
-- Ingen ändring i `applyScaffoldSeoDefaults`-funktionssignaturen.
-- Ingen ny komponent eller UI-ändring.
-- Ingen `preferences`-API-ändring.
-- Ingen DB-migration (och kommer inte heller behövas i PR-A — `meta`
-  är jsonb).
-- Ingen pipeline-koppling.
+**Totalt på master:** 72 SEO-tester gröna, typecheck rent, deploy-time
+SEO-injection live.
 
 ---
 
-## Nästa steg efter denna doc-PR mergad
+## Kvarvarande arbete (parkerat — startas inte automatiskt)
 
-1. Användaren beslutar Q1–Q3 ovan.
-2. Branch `seo-f3-promotion-ux` lever vidare för PR-A (eller PR-AB
-   sammanslagen) — **eller** vi mergar denna doc-PR till master och
-   skapar nya branches per implementations-PR. Användarens preferens.
-3. Implementations-PR(s) levereras med acceptanskriterier + tester
-   enligt detta dokument.
+1. **Brand-fields UI v2.** Lägg `companyName`/`tagline`/`description`/
+   `locale`-fält i `SeoOptInPanel` (collapsible). Schema, API-persistens
+   och `enrichLayoutMetadata`-applicering finns redan från PR-A. Wire-
+   formatet ändras inte → bakåtkompatibelt tillägg.
+2. **Live-smoke polish.** Vercel-preview är skyddad av Deployment
+   Protection — full E2E-smoke kräver bypass-token eller `vercel curl`.
+   Eventuellt skript/runbook för "smoke en preview-deploy med SEO ON +
+   verifiera robots.txt/sitemap.xml + opengraph".
+3. **Domain-aware auto-fyllning** (om/när det behövs): hämta verifierade
+   domäner och Sajtmaskin-subdomän till siteUrl-prefilling med varning
+   för subdomain-fallback.

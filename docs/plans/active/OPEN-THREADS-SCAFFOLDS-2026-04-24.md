@@ -1,9 +1,10 @@
 # Öppna trådar — scaffolds + SEO + telemetri (2026-04-24)
 
-**Status 2026-04-26:** SEO docs/plan-spåret från PR #102 är klart. Själva
-SEO-funktionen är inte implementerad ännu; PR-A (backend preferences) och
-PR-B (UI Bygg-dialog + pipeline-koppling) återstår enligt
-`SEO-F3-PROMOTION-NEXT-PR.md`.
+**Status 2026-04-26 (sen):** ✅ SEO-spåret är klart. PR #102 (docs/plan)
++ PR #103 (PR-A backend) + PR #105 (PR-B UI + deploy-time injection)
+mergade. Master `854bb9a31`. Kvar parkerat: brand-fields UI v2 +
+live-smoke polish — se `SEO-F3-PROMOTION-NEXT-PR.md` "Kvarvarande
+arbete". Övriga trådar (2–7) status oförändrad.
 
 Saker som flera agentvågor av buggrapporter (SAJ-34 → SAJ-59) genererade
 men där fixen kräver antingen produktbeslut, en bredare arbetsspår-design,
@@ -23,7 +24,7 @@ eller bocka av i en commit.
 
 | # | Tråd | Linear | Blockad |
 |---|------|--------|---------|
-| 1 | SEO-defaults vid fidelity3-promotion | (ny — ej i Linear än) | ✅ docs/plan PR #102; 🟧 implementation PR-A/PR-B kvar |
+| 1 | SEO-defaults vid fidelity3-promotion | (ny — ej i Linear än) | ✅ KLAR — PR #102 (docs) + #103 (PR-A) + #105 (PR-B). Kvar parkerat: brand-UI v2 + live-smoke polish. |
 | 2 | scaffold-retry saknar brief-context | SAJ-37, SAJ-42 | 🟧 |
 | 3 | matcher kwNorm vs matchScaffold ojämn underlag | SAJ-44 | 🟥 |
 | 4 | scaffold-scoring wire/keep/delete | SAJ-55 | 🟨 (data) |
@@ -33,11 +34,29 @@ eller bocka av i en commit.
 
 ---
 
-## 1. 🟥 SEO-defaults vid fidelity3-promotion (huvudfråga)
+## 1. ✅ SEO-defaults vid fidelity3-promotion (huvudfråga) — LEVERERAD
 
-**Status efter PR #102:** Docs/plan är levererad. Ingen SEO-produktfunktion
-är levererad ännu: per-projekt SEO-preferences, Bygg-dialogens opt-in och
-pipeline-kopplingen återstår som PR-A/PR-B.
+**Status 2026-04-26:** Klar.
+
+- **PR #102** (docs/plan) — env-policy, OPEN-THREADS sektion 1,
+  `SEO-F3-PROMOTION-NEXT-PR.md`.
+- **PR #103** (PR-A backend) — `seoPreferencesSchema`,
+  `applyScaffoldSeoDefaults({ siteUrl, brand })`, `applySeoToProjectFiles`-
+  extraktion, GET/PATCH `/api/projects/[id]/preferences` med `seo`-fält,
+  persistens i `project_data.meta.seo`.
+- **PR #105** (PR-B UI + pipeline) — `SeoOptInPanel` i Bygg-dialogen,
+  `useBuilderDeployActions` plumbar `seo` i deploy-body, deploy-time
+  SEO-injection i `/api/v0/deployments` med precedence body > meta > env.
+  Inkluderar 3 fixar (siteUrl=null explicit-noop, enriched-list-index,
+  persist-fetch race) och totalt 72 gröna SEO-tester på master
+  (`854bb9a31`).
+
+**Kvar parkerat (inte aktivt arbete):** brand-fields UI v2 + live-smoke
+polish — se `SEO-F3-PROMOTION-NEXT-PR.md` sektionen "Kvarvarande
+arbete".
+
+**Historik nedan bevarad** för framtida referens om varför designen blev
+som den blev.
 
 ### Nuvarande läge (efter commit `ca0ed498f` + `7f07bee86`)
 
