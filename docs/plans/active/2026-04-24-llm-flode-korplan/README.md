@@ -4,6 +4,7 @@ created: 2026-04-24
 revised: 2026-04-24 (efter deep-prefab feedback + 4-agents verifieringspass)
 revised2: 2026-04-24 (status-uppdatering efter 7 waves levererade; backoffice + strict schemas tillagda)
 revised3: 2026-04-24 (final review-fixes: selectedDossiers trådning + schema-enum + glossary-precision)
+revised4: 2026-04-26 (repo-hygien efter mergade PR #101 och #103; framtida spår kvar aktiva)
 finalCommit: c538d89a0
 totalCommits: 11 (på llm-flode över master)
 verification: npx tsc --noEmit src/ + backoffice/ = 0 fel; 98+ vitest tester pass
@@ -15,7 +16,8 @@ trigger: långbänk efter user-rapport om körning eb152443-2660-4042-a2a0-e5c15
 
 ## Status efter exekvering (2026-04-24)
 
-**7 waves levererade på `llm-flode`-branchen.**
+**7 waves levererade och mergade via PR #101. F2 Product Postcheck MVP är
+levererad via PR #103, med feature flag default OFF.**
 
 ### Waves och täckning
 
@@ -33,10 +35,15 @@ trigger: långbänk efter user-rapport om körning eb152443-2660-4042-a2a0-e5c15
 
 ### Vad som INTE levererades (framtida)
 
-- **Spår 2 — F2 Product Postcheck:** MVP levererad på branch `f2-product-postcheck`.
+- **Spår 2 — F2 Product Postcheck:** MVP levererad via PR #103
+  (`f2-product-postcheck`), feature flag default OFF.
   Kvar utanför MVP: eventuellt worker-extraktion, SLO-aggregator (spår 7) och hårdare
   policy efter observationstid.
 - **Spår 6 D–F (riskabla latens):** Reasoning-budget-byte, scaffold-delta, prompt-cache — bakom eval-gate.
+- **Spår 7 — F2 UX SLO:** Framtida. Kräver observation/aggregator ovanpå
+  Product Postcheck-primitiverna; inte levererad av PR #103.
+- **Spår 8 — Recovery-lane collapse:** Framtida. Kräver minst 30 dagars
+  SLO-data och separat design; inte del av PR #101/#103.
 - **`f2TimeMs` / `f3TimeMs`:** Markerade TODO i `generation-stream-post-finalize.ts`. Emitteras som null idag.
 - **`image_replaced_with_placeholder` → devLog:** Fortfarande via `debugLog` (console). Kräver portering.
 - **`dossier_stub_created` som standalone devLog-event:** Emitteras via DB-warnings idag.
@@ -79,24 +86,24 @@ Konsoliderad körplan från **9 audit-pass totalt** (5 första + 4 verifierings-
 |---|-----|------|--------|-----------|
 | **0** | [`00-f2-f3-kontrakt.md`](./00-f2-f3-kontrakt.md) | **F2/F3-kontrakt** | ✅ KLART (waves 1+3b) | doc-fix + UI-badges + previewBlocked-rensning + soft-assert |
 | **1** | [`01-variant-snapshot-persistens.md`](./01-variant-snapshot-persistens.md) | **Variant-snapshot** | ✅ KLART (wave 2) | testdriven; MAX_KEYS=80 sanitize-allowlist + merge-protection |
-| **2** | [`02-product-postcheck.md`](./02-product-postcheck.md) | **F2 Product Postcheck** | ✅ MVP (branch `f2-product-postcheck`) | server-only runner + API route + feature flag + warnings i befintlig Versionsdiagnostik |
+| **2** | [`02-product-postcheck.md`](./02-product-postcheck.md) | **F2 Product Postcheck** | ✅ MVP levererad (PR #103, flag default OFF) | server-only runner + API route + feature flag + warnings i befintlig Versionsdiagnostik |
 | **3** | [`03-bildminimum.md`](./03-bildminimum.md) | **Bildminimum** | ✅ KLART (wave 3) | HEAD GET-fallback + placeholder + dup-alt + prompt-regel |
 | **4** | [`04-dossier-hard-soft-enforcement.md`](./04-dossier-hard-soft-enforcement.md) | **Dossier hard/soft** | ✅ KLART (wave 6) | verbatim-restore + cross-file-stub-telemetri + förstärkt prompt |
 | **5** | [`05-autofix-gating.md`](./05-autofix-gating.md) | **Autofix-gating** | ✅ KLART (waves 1+5) | abort-event + retry + Lucide-checklist + recurring-flag + shrink-telemetri |
-| **6** | [`06-latens-och-scaffold-delta.md`](./06-latens-och-scaffold-delta.md) | **Latens** | ✅ SÄKRA KLART (wave 7) / ⏸ RISKABLA FRAMTIDA | skip dubbel tsc + Fly pre-warm bakom flagga |
-| **7** | [`07-f2-ux-slo-matbarhet.md`](./07-f2-ux-slo-matbarhet.md) | **F2 UX SLO + dashboard** *(GPT-5-rapport komplement)* | ⏸ KÖR EFTER SPÅR 02 | aggregator + dashboard + veckovis CI ovanpå spår 02s primitiver |
+| **6** | [`06-latens-och-scaffold-delta.md`](./06-latens-och-scaffold-delta.md) | **Latens** | ✅ SÄKRA KLART (wave 7) / ⏸ RISKABLA DELAR FRAMTIDA | skip dubbel tsc + Fly pre-warm bakom flagga; D-F kräver eval-gate |
+| **7** | [`07-f2-ux-slo-matbarhet.md`](./07-f2-ux-slo-matbarhet.md) | **F2 UX SLO + dashboard** *(GPT-5-rapport komplement)* | ⏸ FRAMTIDA — efter spår 02 MVP/observation | aggregator + dashboard + veckovis CI ovanpå spår 02s primitiver |
 | **8** | [`08-future-recovery-lane-collapse.md`](./08-future-recovery-lane-collapse.md) | **Recovery-lane collapse** *(GPT-5-rapport komplement)* | ⏸ FRAMTIDA — efter 30 dagars wave 1-8 SLO-data | konsolidera 3 repair-paths till EN; trigger-villkor dokumenterat |
 
 ## Prioritetsordning (deep-prefab-agentens förslag, validerad + GPT-5-komplement)
 
 1. **P0 spår 0** — Kontraktet. Gör resten begripligt. ✅
 2. **P1 spår 1** — Variant-bug. Glasklar kvalitetsfix. ✅
-3. **P2 spår 2** — Product Postcheck. Största user-impact-vinst. ✅ MVP
-4. **P2.5 spår 7** — F2-UX SLO. Aggregator ovanpå P2 (GPT-5-komplement). ⏸
+3. **P2 spår 2** — Product Postcheck. Största user-impact-vinst. ✅ MVP via PR #103
+4. **P2.5 spår 7** — F2-UX SLO. Aggregator ovanpå P2 (GPT-5-komplement). ⏸ framtida
 5. **P3 spår 3** — Bildminimum. Synligt för user direkt. ✅
 6. **P4 spår 4** — Dossier hard/soft. Preventiv kvalitet. ✅
 7. **P5 spår 5** — Autofix-gating. Sparar auto-repair-tid. ✅
-8. **P6 spår 6** — Latens. Säkra vinster nu, riskabla bakom eval. ✅/⏸
+8. **P6 spår 6** — Latens. Säkra vinster nu, riskabla bakom eval. ✅/⏸ framtida riskdelar
 9. **P7 spår 8** — Recovery-lane collapse. Framtida — efter ≥ 30 dagars SLO-data (GPT-5-komplement). ⏸
 
 ## Glasklara fynd som kan göras direkt (utan dialog)

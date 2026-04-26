@@ -1,5 +1,10 @@
 # Öppna trådar — scaffolds + SEO + telemetri (2026-04-24)
 
+**Status 2026-04-26:** SEO docs/plan-spåret från PR #102 är klart. Själva
+SEO-funktionen är inte implementerad ännu; PR-A (backend preferences) och
+PR-B (UI Bygg-dialog + pipeline-koppling) återstår enligt
+`SEO-F3-PROMOTION-NEXT-PR.md`.
+
 Saker som flera agentvågor av buggrapporter (SAJ-34 → SAJ-59) genererade
 men där fixen kräver antingen produktbeslut, en bredare arbetsspår-design,
 eller väntar på data. Punkter sorterade efter typ av blockad.
@@ -18,7 +23,7 @@ eller bocka av i en commit.
 
 | # | Tråd | Linear | Blockad |
 |---|------|--------|---------|
-| 1 | SEO-defaults vid fidelity3-promotion | (ny — ej i Linear än) | 🟥 |
+| 1 | SEO-defaults vid fidelity3-promotion | (ny — ej i Linear än) | ✅ docs/plan PR #102; 🟧 implementation PR-A/PR-B kvar |
 | 2 | scaffold-retry saknar brief-context | SAJ-37, SAJ-42 | 🟧 |
 | 3 | matcher kwNorm vs matchScaffold ojämn underlag | SAJ-44 | 🟥 |
 | 4 | scaffold-scoring wire/keep/delete | SAJ-55 | 🟨 (data) |
@@ -29,6 +34,10 @@ eller bocka av i en commit.
 ---
 
 ## 1. 🟥 SEO-defaults vid fidelity3-promotion (huvudfråga)
+
+**Status efter PR #102:** Docs/plan är levererad. Ingen SEO-produktfunktion
+är levererad ännu: per-projekt SEO-preferences, Bygg-dialogens opt-in och
+pipeline-kopplingen återstår som PR-A/PR-B.
 
 ### Nuvarande läge (efter commit `ca0ed498f` + `7f07bee86`)
 
