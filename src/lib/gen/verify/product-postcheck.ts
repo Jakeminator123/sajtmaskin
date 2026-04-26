@@ -248,11 +248,13 @@ export async function runProductPostcheck(params: {
 
   const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   let browser: Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>> | null = null;
+  let page: Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>> | null = null;
+  let mobilePage: Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>> | null = null;
 
   try {
     const { chromium } = await import("playwright");
     browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage({
+    page = await browser.newPage({
       viewport: { width: 1280, height: 900 },
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
@@ -328,7 +330,7 @@ export async function runProductPostcheck(params: {
       };
     });
 
-    const mobilePage = await browser.newPage({ viewport: { width: 375, height: 667 } });
+    mobilePage = await browser.newPage({ viewport: { width: 375, height: 667 } });
     await mobilePage.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     const mobileMenu = await mobilePage.evaluate<MobileMenuCheck>(async () => {
       const candidates = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).filter((button) => {
@@ -369,6 +371,8 @@ export async function runProductPostcheck(params: {
     console.warn("[product-postcheck] skipped:", err);
     return skippedResult(reason, Date.now() - startedAt, previewUrl);
   } finally {
+    await mobilePage?.close().catch(() => {});
+    await page?.close().catch(() => {});
     await browser?.close().catch(() => {});
   }
 }

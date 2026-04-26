@@ -28,6 +28,7 @@ import type {
   StreamQualitySignal,
   VersionErrorLogPayload,
 } from "./types";
+import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 
 async function persistVersionErrorLogs(params: {
   chatId: string;
@@ -72,28 +73,6 @@ async function validateImages(params: {
     return null;
   }
 }
-
-type ProductPostcheckWarning = {
-  code: string;
-  message: string;
-  selector?: string | null;
-  text?: string | null;
-  href?: string | null;
-  src?: string | null;
-  alt?: string | null;
-  formId?: string | null;
-};
-
-type ProductPostcheckResult = {
-  ok?: boolean;
-  skipped?: boolean;
-  skippedReason?: string | null;
-  warnings?: ProductPostcheckWarning[];
-  warningCount?: number;
-  productBlocked?: boolean;
-  durationMs?: number;
-  checkedUrl?: string | null;
-};
 
 async function runProductPostcheckApi(params: {
   chatId: string;
