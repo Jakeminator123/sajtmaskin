@@ -563,6 +563,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             kind: "init",
             promptStartedAt: requestStartedAt,
             signal: req.signal,
+            chatId: plannerChat.id,
           }),
         );
       }
@@ -749,6 +750,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               kind: "init",
               promptStartedAt: requestStartedAt,
               signal: req.signal,
+              chatId: engineChat.id,
             }),
             { headers: createSSEHeaders() },
           ));
@@ -892,6 +894,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           promptStartedAt: requestStartedAt,
           kind: "init",
           attachSessionCookie,
+          chatId: engineChat.id,
         });
       }
     } catch (err) {

@@ -10,6 +10,7 @@ import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
+import { readRunStatusForChat } from "@/lib/logging/generation-log-writer";
 import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
@@ -204,6 +205,40 @@ export async function handleMessageStreamRequest(
         );
       }
 
+      // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
+      // If the most recent generation/repair stream for this chat died
+      // before producing a version (provider abort, transport reset,
+      // server-restart, lazy-staleness), there is nothing to repair: a
+      // followup_general here would route into the variant matcher with
+      // priorVariantId:null and trigger a variant_lock_fallback against
+      // a chat that has no scaffold-lock to lock to. Hard 409 stops the
+      // race at the door — the client is expected to spawn a new chat
+      // (with restartedFromChatId lineage) instead. Read-only check;
+      // the fallback "no log on disk" path is treated as live (we err
+      // on letting through, never on blocking).
+      const existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id).catch(() => []);
+      if (existingVersionsForChat.length === 0) {
+        const runStatus = readRunStatusForChat(engineChat.id);
+        if (runStatus && runStatus.status === "aborted" && !runStatus.versionId) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                error: "versionless_chat_aborted",
+                message:
+                  "Den här chatten har ingen version att reparera — generationen avbröts. Starta om i en ny chat.",
+                chatStatus: {
+                  status: runStatus.status,
+                  statusReason: runStatus.statusReason,
+                  hasVersion: false,
+                  updatedAt: runStatus.updatedAt,
+                },
+              },
+              { status: 409 },
+            ),
+          );
+        }
+      }
+
       const resolvedModelId = modelSelection.modelId;
         const resolvedModelTier = modelSelection.modelTier;
         const buildProfileId = getBuildProfileId(resolvedModelTier);
@@ -394,6 +429,7 @@ export async function handleMessageStreamRequest(
                   kind: "followup",
                   promptStartedAt,
                   signal: req.signal,
+                  chatId,
                 },
               ),
               { headers: createSSEHeaders() },
@@ -812,6 +848,7 @@ export async function handleMessageStreamRequest(
             kind: "followup",
             promptStartedAt,
             signal: req.signal,
+            chatId,
           }));
         }
 
@@ -1117,6 +1154,7 @@ export async function handleMessageStreamRequest(
               kind: "followup",
               promptStartedAt,
               signal: req.signal,
+              chatId,
             }),
             { headers: createSSEHeaders() },
           ));
@@ -1223,6 +1261,7 @@ export async function handleMessageStreamRequest(
           promptStartedAt,
           kind: "followup",
           attachSessionCookie,
+          chatId,
         });
     } catch (err) {
       return buildStreamErrorResponse({

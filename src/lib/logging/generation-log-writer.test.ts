@@ -352,6 +352,127 @@ describe("generation-log writer", () => {
     expect(chatIndex.chat_bind).toBe(latestDirName);
   });
 
+  // P0 stream-abort recovery (2026-04-26). Three regression tests asserting
+  // that resolveStatusDetails (read-side status resolver) flips to
+  // status=aborted in the three abort scenarios that left chats orphaned
+  // in_progress before the fix:
+  //   1. site.aborted event landed (provider/connection abort)
+  //   2. no terminal event landed AND last entry > STALE_IN_PROGRESS_MS
+  //      (server-restart, OOM, hard kill — emit-side never fired)
+  //   3. recent in_progress without terminal event stays in_progress
+  //      (no false-positive flip while the run is actually still alive)
+  it("flips status to aborted when a site.aborted event was emitted", async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
+    process.chdir(tempDir);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
+    vi.stubEnv("GENERATIONSLOGG", "1");
+
+    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+    const { readRunStatusForChat } = await import("./generation-log-writer");
+
+    devLogStartGeneration({
+      message: "Bygg en sida som dör i stream",
+      modelId: "gpt-5.4",
+      slug: "abort-test",
+      chatId: "chat_abort_emit",
+      generationKind: "create",
+    });
+    devLogAppend("in-progress", {
+      type: "comm.request.create",
+      chatId: "chat_abort_emit",
+      promptType: "init_general",
+    });
+    devLogAppend("in-progress", {
+      type: "site.aborted",
+      chatId: "chat_abort_emit",
+      versionId: null,
+      reason: "provider_aborted_no_content",
+    });
+
+    const status = readRunStatusForChat("chat_abort_emit");
+    expect(status).not.toBeNull();
+    expect(status!.status).toBe("aborted");
+    expect(status!.statusReason).toBe("provider_aborted_no_content");
+    expect(status!.versionId).toBeNull();
+  });
+
+  it("infers aborted status when a stale in_progress run never received a terminal event", async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
+    process.chdir(tempDir);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
+    vi.stubEnv("GENERATIONSLOGG", "1");
+
+    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+    const writerModule = await import("./generation-log-writer");
+
+    devLogStartGeneration({
+      message: "Stream som server-restart killade",
+      modelId: "gpt-5.4",
+      slug: "stale-test",
+      chatId: "chat_stale",
+      generationKind: "create",
+    });
+    devLogAppend("in-progress", {
+      type: "comm.request.create",
+      chatId: "chat_stale",
+      promptType: "init_general",
+    });
+
+    // Hand-roll a stale entry by rewriting the timeline.ndjson timestamps.
+    // We can't `vi.useFakeTimers` here because devLogAppend records ISO
+    // timestamps via `new Date().toISOString()` directly, and its sync I/O
+    // layer doesn't honour fake-timer ticks. Backdating the file is the
+    // cheapest representative path.
+    const rootDir = path.join(tempDir, "logs", "generationslogg");
+    const latestDirName = fs.readFileSync(path.join(rootDir, "_latest.txt"), "utf8").trim();
+    const timelinePath = path.join(rootDir, latestDirName, "timeline.ndjson");
+    const oldTs = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 60min ago
+    const lines = fs.readFileSync(timelinePath, "utf8").trim().split(/\r?\n/);
+    const rewritten = lines
+      .map((line) => {
+        const parsed = JSON.parse(line) as { ts?: string };
+        return JSON.stringify({ ...parsed, ts: oldTs });
+      })
+      .join("\n");
+    fs.writeFileSync(timelinePath, rewritten + "\n", "utf8");
+
+    const status = writerModule.readRunStatusForChat("chat_stale");
+    expect(status).not.toBeNull();
+    expect(status!.status).toBe("aborted");
+    expect(status!.statusReason).toBe("staleness_inferred");
+  });
+
+  it("keeps a recent in_progress run as in_progress (no false-positive aborted flip)", async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
+    process.chdir(tempDir);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
+    vi.stubEnv("GENERATIONSLOGG", "1");
+
+    const { devLogAppend, devLogStartGeneration } = await import("./devLog");
+    const { readRunStatusForChat } = await import("./generation-log-writer");
+
+    devLogStartGeneration({
+      message: "Stream som fortfarande lever",
+      modelId: "gpt-5.4",
+      slug: "live-test",
+      chatId: "chat_live",
+      generationKind: "create",
+    });
+    devLogAppend("in-progress", {
+      type: "comm.request.create",
+      chatId: "chat_live",
+      promptType: "init_general",
+    });
+
+    const status = readRunStatusForChat("chat_live");
+    expect(status).not.toBeNull();
+    expect(status!.status).toBe("in_progress");
+    expect(status!.versionId).toBeNull();
+  });
+
   it("tracks followups and auto-repair runs separately in site history", async () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
     process.chdir(tempDir);
