@@ -10,6 +10,7 @@ Sajtmaskin har **tre olika "eval"-system** som det är lätt att blanda ihop. De
 | Uppdatera baseline efter en avsiktlig förbättring | `npm run eval:baseline` | ~15 min | Samma som ovan |
 | Få en human-läsbar rapport + scorecard | `npm run eval` | ~15 min | Samma som ovan |
 | Bara mäta att scaffold-pickern väljer rätt | `npm run scaffolds:eval` | ~10 sek | Bara embeddings (snabbt + billigt) |
+| Köra gate manuellt från driftpanelen | `Backoffice → Overhead → Eval → Kör eval:gate` | ~15-45+ min | OPENAI-quota för 15 prompts |
 
 ## De tre eval-systemen
 
@@ -50,6 +51,8 @@ npm run eval:baseline   # köra + exit 1 vid regression OCH spara ny baseline (-
 
 > **OBS:** detta är **inte** wirat in på `pull_request`-trigger — varje PR skulle dra OPENAI-quota. Designval. Om du vill ha det i framtiden: kostnadsuppskatta först.
 
+**Backoffice:** `Backoffice → Overhead → Eval` har en bekräftad knapp för `npm run eval:gate`. Den laddar `.env.local` in i subprocess-env, kör från repo-roten och sparar en datumstämplad markdownrapport under `docs/evals/`. Den kör aldrig `eval:baseline` och uppdaterar därför inte `eval-baseline.json`.
+
 ### 2. Klassisk eval — `npm run eval`
 
 **Vad:** wrapper kring samma `runEval()` MEN lägger till:
@@ -73,13 +76,13 @@ npm run eval:baseline   # köra + exit 1 vid regression OCH spara ny baseline (-
 - `src/lib/gen/scaffolds/scaffold-eval.ts` — kärnan
 - Output: `data/scaffold-eval/reports/scaffold-selection-latest.json`
 
-**Var datan visas:** `Backoffice → Overhead → Eval`-sidan läser `scaffold-selection-latest.json`. Det är **scaffold-pickerns** korrekthet du ser där, inte codegen-evalen.
+**Var datan visas:** `Backoffice → Overhead → Eval`-sidan läser `scaffold-selection-latest.json` för scaffold-eval. Samma sida visar också codegen-baseline-status och kan köra `eval:gate`, men de två systemen är separata.
 
 **När köra:** efter att du justerat scaffold-keywords, embeddings, eller variant-konfiguration. Kostar i princip inget (lokala embeddings + keyword-matching).
 
 ## Vanliga förvirringar
 
-- **"Vad visar backoffice-Eval-sidan?"** — *scaffold-selection-eval* (#3 ovan), inte codegen-eval. Codegen-evalens resultat ligger som JSON i `eval-baseline.json` och som markdown i `eval-output/` (gitignored).
+- **"Vad visar backoffice-Eval-sidan?"** — både *scaffold-selection-eval* (#3 ovan) och codegen-evalens baseline/gate-rapporter. Scaffold-tabellen är inte codegen-eval; codegen-knappen kör `eval:gate` och skriver rapporter till `docs/evals/`.
 - **"Varför saknas eval-baseline.json sometimes?"** — den är committad så den ska alltid finnas. Om den inte finns: kör `npm run eval:baseline` en gång för att skapa den, och commita resultatet.
 - **"Failar `eval:gate` om baseline saknas?"** — nej, den varnar bara ("No baseline found"). Bara faktiska regressions failar.
 - **"Är `npm run eval` (utan suffix) samma sak som `eval:suite`?"** — nej. Båda kör samma `runEval()`-motor, men `eval` skriver till `eval-output/` med scorecard, `eval:suite` skriver inget men jämför mot baseline. Använd `eval:gate` för CI-typ-flöden, `eval` för human-debug.

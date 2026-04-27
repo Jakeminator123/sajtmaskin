@@ -7,11 +7,155 @@ fullständig förklaring av kostnad/användning).
 from __future__ import annotations
 
 import json
+import os
+import re
+import shutil
+import subprocess
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import streamlit as st
 
 from backoffice.shared import BackofficeContext, read_json
+
+
+ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+
+
+def _resolve_command(command: tuple[str, ...]) -> list[str]:
+    if not command:
+        return []
+    resolved = shutil.which(command[0])
+    return [resolved, *command[1:]] if resolved else list(command)
+
+
+def _load_env_file(path: Path, env: dict[str, str]) -> None:
+    if not path.is_file():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key or key in env:
+            continue
+        env[key] = value.strip().strip('"').strip("'")
+
+
+def _strip_ansi(value: str) -> str:
+    return ANSI_RE.sub("", value)
+
+
+def _eval_reports_dir(ctx: BackofficeContext) -> Path:
+    return ctx.repo_root / "docs" / "evals"
+
+
+def _latest_eval_reports(ctx: BackofficeContext) -> list[Path]:
+    reports_dir = _eval_reports_dir(ctx)
+    if not reports_dir.is_dir():
+        return []
+    return sorted(reports_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+
+
+def _write_eval_gate_report(
+    ctx: BackofficeContext,
+    *,
+    command: tuple[str, ...],
+    exit_code: int,
+    elapsed_sec: float,
+    output: str,
+    started_at: datetime,
+) -> Path:
+    reports_dir = _eval_reports_dir(ctx)
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    stamp = started_at.astimezone().strftime("%Y-%m-%d-%H%M")
+    report_path = reports_dir / f"{stamp}-codegen-eval-gate.md"
+    status = "PASS" if exit_code == 0 else "FAIL"
+    cleaned_output = _strip_ansi(output).strip()
+    report_path.write_text(
+        "\n".join(
+            [
+                f"# Codegen eval gate - {stamp}",
+                "",
+                f"- Command: `{' '.join(command)}`",
+                f"- Exit code: `{exit_code}`",
+                f"- Gate result: `{status}`",
+                f"- Runtime: `{elapsed_sec:.1f}s`",
+                f"- Started: `{started_at.isoformat()}`",
+                "- Baseline update: not performed by this backoffice gate runner",
+                "",
+                "## Output",
+                "",
+                "```text",
+                cleaned_output,
+                "```",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+        newline="\n",
+    )
+    return report_path
+
+
+def _run_eval_gate(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
+    command = ("npm", "run", "eval:gate")
+    started_at = datetime.now(timezone.utc)
+    started = time.time()
+    env = os.environ.copy()
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    _load_env_file(ctx.env_local, env)
+
+    stdout = ""
+    stderr = ""
+    exit_code = -99
+    try:
+        proc = subprocess.run(
+            _resolve_command(command),
+            cwd=str(ctx.repo_root),
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            check=False,
+            shell=False,
+            env=env,
+        )
+        stdout = proc.stdout or ""
+        stderr = proc.stderr or ""
+        exit_code = proc.returncode
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+        stderr = (exc.stderr if isinstance(exc.stderr, str) else "") + (
+            f"\n[backoffice] Timed out after {timeout_s}s"
+        )
+        exit_code = -1
+    except FileNotFoundError as exc:
+        stderr = f"Saknar binär ({command[0]}): {exc}"
+        exit_code = -2
+    except Exception as exc:  # pragma: no cover - defensive UI helper
+        stderr = f"Oväntat fel: {exc}"
+        exit_code = -3
+
+    elapsed_sec = time.time() - started
+    output = "\n".join(part for part in [stdout, stderr] if part)
+    report_path = _write_eval_gate_report(
+        ctx,
+        command=command,
+        exit_code=exit_code,
+        elapsed_sec=elapsed_sec,
+        output=output,
+        started_at=started_at,
+    )
+    return {
+        "exitCode": exit_code,
+        "elapsedSec": round(elapsed_sec, 1),
+        "reportPath": report_path,
+        "outputTail": _strip_ansi(output)[-6000:],
+    }
 
 
 def render(ctx: BackofficeContext) -> None:
@@ -74,7 +218,8 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("Codegen-eval (separat system)")
     st.caption(
         "Codegen-evalen mäter hela LLM-pipelinen för 15 fasta prompts (~15 min, "
-        "kostar OPENAI-quota). Den lever i `src/lib/gen/eval/` och kör mot `eval-baseline.json`."
+        "kostar OPENAI-quota). Den lever i `src/lib/gen/eval/` och kör mot `eval-baseline.json`. "
+        "Backoffice-knappen nedan kör gate-läget och sparar en rapport under `docs/evals/`."
     )
     baseline_path = ctx.repo_root / "src" / "lib" / "gen" / "eval" / "eval-baseline.json"
     if baseline_path.is_file():
@@ -104,3 +249,60 @@ def render(ctx: BackofficeContext) -> None:
             "Ingen `eval-baseline.json` hittad. Kör `npm run eval:baseline` lokalt en gång "
             "för att skapa den (kostar OPENAI-quota för 15 prompts)."
         )
+
+    st.markdown("### Kör codegen-eval gate")
+    st.warning(
+        "`eval:gate` är dyr/långsam och kan ta 45+ minuter på stora outputs. "
+        "Den här knappen uppdaterar aldrig `eval-baseline.json`; den sparar bara en rapport."
+    )
+    timeout_min = st.number_input(
+        "Timeout (minuter)",
+        min_value=20,
+        max_value=180,
+        value=90,
+        step=10,
+        help="Backoffice väntar synkront medan npm-kommandot kör.",
+    )
+    confirmed = st.checkbox(
+        "Jag vill köra `npm run eval:gate` och förstår att det använder LLM-quota.",
+        key="codegen_eval_gate_confirm",
+    )
+    if st.button(
+        "Kör eval:gate och spara rapport",
+        type="primary",
+        disabled=not confirmed,
+        key="codegen_eval_gate_run",
+    ):
+        with st.spinner("Kör npm run eval:gate ... lämna fliken öppen."):
+            result = _run_eval_gate(ctx, timeout_s=int(timeout_min * 60))
+        st.session_state["codegen_eval_gate_last_result"] = result
+        st.rerun()
+
+    last_result = st.session_state.get("codegen_eval_gate_last_result")
+    if isinstance(last_result, dict):
+        code = last_result.get("exitCode")
+        report_path = last_result.get("reportPath")
+        rel_report = (
+            report_path.relative_to(ctx.repo_root).as_posix()
+            if isinstance(report_path, Path)
+            else str(report_path)
+        )
+        if code == 0:
+            st.success(f"Senaste eval:gate passerade. Rapport: `{rel_report}`")
+        else:
+            st.error(f"Senaste eval:gate failade med exit code `{code}`. Rapport: `{rel_report}`")
+        st.caption(f"Körtid: {last_result.get('elapsedSec', '?')}s")
+        with st.expander("Output-tail", expanded=False):
+            st.code(str(last_result.get("outputTail", "")), language="text")
+
+    reports = _latest_eval_reports(ctx)
+    st.markdown("### Sparade codegen-eval-rapporter")
+    if reports:
+        options = {p.relative_to(ctx.repo_root).as_posix(): p for p in reports[:20]}
+        selected = st.selectbox("Rapport", list(options.keys()), key="codegen_eval_report_pick")
+        picked = options[selected]
+        st.caption(f"Senast ändrad: {datetime.fromtimestamp(picked.stat().st_mtime).isoformat()}")
+        with st.expander("Visa rapport", expanded=False):
+            st.markdown(picked.read_text(encoding="utf-8"))
+    else:
+        st.info("Inga rapporter hittades ännu under `docs/evals/`.")
