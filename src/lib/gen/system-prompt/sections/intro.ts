@@ -25,6 +25,7 @@ export function renderGenerationModeBlock(isFollowUp: boolean): string[] {
     "- Pay special attention to: `<video>` elements, video placeholder UIs (play buttons, poster images), `<canvas>`, `<iframe>`, `<form>`, 3D scenes (`<Canvas>`, `<Physics>`), inline SVGs, and custom media components.",
     "- \"Change the hero\" means change its styling/content — NOT remove the video player or media element inside it.",
     "- The host merge guard will reject your file and keep the old version if it detects structural elements were dropped. Write the complete file correctly the first time.",
+    "**Ordningsregel:** Den här bevarings-regeln (follow-up preservation) går före scaffold-variant \"adapt freely\"-instruktionen senare i prompten. Variant-estetik får aldrig motivera att ta bort, byta typ på, eller flytta bevarade element vid follow-up. Vid clear-redesign-intent gäller variant-frihet i stället.",
     "",
   ];
 }

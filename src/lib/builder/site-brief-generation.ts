@@ -78,7 +78,7 @@ const siteBriefSchema = z.object({
   oneSentencePitch: z.string().describe("A single sentence describing what the site is about"),
   targetAudience: z.string().describe("Primary audience / persona"),
   primaryCallToAction: z.string().describe('Main CTA label, e.g. "Book a demo"'),
-  toneAndVoice: z.array(z.string()).min(2).max(8).describe("Tone keywords"),
+  toneAndVoice: z.array(z.string()).min(1).max(8).describe("Tone keywords"),
   pages: z
     .array(
       z.object({
@@ -93,14 +93,14 @@ const siteBriefSchema = z.object({
               bullets: z.array(z.string()).min(1).max(8),
             }),
           )
-          .min(3)
+          .min(1)
           .max(14),
       }),
     )
     .min(1)
     .max(10),
   visualDirection: z.object({
-    styleKeywords: z.array(z.string()).min(3).max(12),
+    styleKeywords: z.array(z.string()).min(2).max(12),
     colorPalette: z.object({
       primary: z.string().describe("Hex or CSS color"),
       secondary: z.string().describe("Hex or CSS color"),
@@ -460,6 +460,14 @@ export async function generateSiteBriefObject(
     variantHints,
     priorDesignContext,
   );
+  const promptLength = userPrompt?.length ?? 0;
+  const dynamicMaxTokens =
+    promptLength < 200
+      ? Math.min(ENV_MAX_TOKENS, 8_000)
+      : promptLength < 1_000
+        ? Math.min(ENV_MAX_TOKENS, 24_000)
+        : ENV_MAX_TOKENS;
+  const outputTokenCap = Math.min(maxTokens, dynamicMaxTokens);
   const briefSource = normalizeBriefLogSource(source);
 
   debugLog("AI", "Brief model call started (same request, direct provider)", {
@@ -473,6 +481,8 @@ export async function generateSiteBriefObject(
     temperature: typeof temperature === "number" ? temperature : null,
     imageGenerations,
     maxTokens,
+    dynamicMaxTokens,
+    outputTokenCap,
   });
   devLogAppend("latest", {
     type: "assist.brief.request",
@@ -482,6 +492,8 @@ export async function generateSiteBriefObject(
     prompt,
     imageGenerations,
     maxTokens,
+    dynamicMaxTokens,
+    outputTokenCap,
   });
 
   if (resolvedProvider === "anthropic") {
@@ -497,7 +509,7 @@ export async function generateSiteBriefObject(
           { role: "user", content: userPrompt },
         ],
         maxRetries: 1,
-        maxOutputTokens: maxTokens,
+        maxOutputTokens: outputTokenCap,
         abortSignal,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
@@ -519,7 +531,7 @@ export async function generateSiteBriefObject(
             { role: "user", content: userPrompt },
           ],
           maxRetries: 1,
-          maxOutputTokens: Math.min(maxTokens, 40_960),
+          maxOutputTokens: Math.min(outputTokenCap, 40_960),
           abortSignal,
           ...getTemperatureConfig(normalizedModel, temperature),
         });
@@ -565,7 +577,7 @@ export async function generateSiteBriefObject(
         { role: "user", content: userPrompt },
       ],
       maxRetries: 1,
-      maxOutputTokens: maxTokens,
+      maxOutputTokens: outputTokenCap,
       abortSignal,
       ...getTemperatureConfig(normalizedModel, temperature),
     });
@@ -587,7 +599,7 @@ export async function generateSiteBriefObject(
           { role: "user", content: userPrompt },
         ],
         maxRetries: 1,
-        maxOutputTokens: Math.min(maxTokens, 40_960),
+        maxOutputTokens: Math.min(outputTokenCap, 40_960),
         abortSignal,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
