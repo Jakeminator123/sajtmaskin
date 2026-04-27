@@ -7,6 +7,9 @@ linear: null
 
 # Kvarvarande "kräver dialog"-punkter — 2026-04-24
 
+> Dialog/backlog-gate, inte vanlig implementationplan. Punkterna ska inte
+> smygfixas i cleanup-pass utan ägarbeslut eller separat scope.
+
 Saker som review-agenterna rapporterade under databas/Redis-långbänkarna
 (2026-04-24, commits `7df01a991` … `4bd511264`) som vi medvetet INTE
 fixade i samma runda. Dessa kräver antingen affärsbeslut, ett bredare

@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 created: 2026-04-24
 spår: 0 av 7 (LLM-flöde-körplan, P0 — INSPÄRRA FÖRST)
 prio: P0 (gör resten begripligt)

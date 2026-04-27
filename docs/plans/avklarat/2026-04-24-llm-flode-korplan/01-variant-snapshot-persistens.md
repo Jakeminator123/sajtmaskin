@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 created: 2026-04-24
 revision: 2026-04-24 (KORRIGERAD — fel filsökväg + fel MAX_KEYS i v1; verifiering visade `src/lib/gen/orchestration-snapshot.ts` med MAX_KEYS=80)
 spår: 1 av 7 (LLM-flöde-körplan)

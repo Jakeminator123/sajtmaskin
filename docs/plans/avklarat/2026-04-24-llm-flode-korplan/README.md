@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 created: 2026-04-24
 revised: 2026-04-24 (efter deep-prefab feedback + 4-agents verifieringspass)
 revised2: 2026-04-24 (status-uppdatering efter 7 waves levererade; backoffice + strict schemas tillagda)

@@ -1,5 +1,5 @@
 ---
-status: active (deprioriterad — bakom eval)
+status: done
 created: 2026-04-24
 spår: 6 av 7 (LLM-flöde-körplan, NEDPRIORITERAD efter deep-prefab feedback)
 prio: P6 (största potentiella vinst men kvalitetsrisk; måste bakom eval)

@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 created: 2026-04-24
 spår: 3 av 7 (LLM-flöde-körplan, REVIDERAD efter deep-prefab feedback)
 prio: P3 (synligt för user; minimum först, AI-bildgen senare)

@@ -35,6 +35,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | F | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #11 | **Event-bus UI-flip** — UI läser `selectVersionStatus(events)` istället för DB-flaggor. | Medel |
 | L | [`KRAVER-DIALOG-2026-04-24.md`](./KRAVER-DIALOG-2026-04-24.md) | 7 punkter från långbänk-trion (databas/Redis observability) som kräver dialog: mega-cleanup ordering, TOCTOU-races, env-konvent, NDJSON-precision, refaktor-koordinering, fler strict schemas. | Låg–Medel |
 | M | [`OPEN-THREADS-SCAFFOLDS-2026-04-24.md`](./OPEN-THREADS-SCAFFOLDS-2026-04-24.md) | 6 öppna trådar: scaffold-retry brief-context, matcher-kwNorm, scoring wire/keep/delete, scaffoldRetryUsed-upstream, sv-locale-routing, latency-mätning. SEO-spec (PR-A #103 + PR-B #105 ✅) arkiverad → [`../avklarat/SEO-F3-PROMOTION-NEXT-PR.md`](../avklarat/SEO-F3-PROMOTION-NEXT-PR.md). | Låg–Medel |
+| N | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) | Utred och lås separation mellan användar-follow-up och auto-repair-lane så stale repair inte krockar med ny user-turn. | Medel |
 
 ### Paused per OMTAG `PARKED.md` — ligger i [`./parked/`](./parked/)
 

@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 created: 2026-04-24
 spår: 4 av 7 (LLM-flöde-körplan, REVIDERAD efter deep-prefab feedback + verifiering)
 prio: P4 (preventiv kvalitet — viktigare ju fler dossiers vi lägger till)

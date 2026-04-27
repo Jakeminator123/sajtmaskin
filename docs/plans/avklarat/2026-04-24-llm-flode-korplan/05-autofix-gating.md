@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 created: 2026-04-24
 spår: 5 av 5 (LLM-flöde-körplan)
 prio: P2 (sparar 4 min auto-repair per problemfall + ger telemetri för spår 2)
