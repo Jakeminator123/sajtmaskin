@@ -2,13 +2,14 @@ import { generateCode } from "../engine";
 import { ENGINE_MAX_OUTPUT_TOKENS } from "../defaults";
 import { dumpOwnEngineCodegenFromFullSystem } from "../prompt-dump";
 import { prepareGenerationContext } from "../orchestrate";
-import { parseCodeProject } from "../parser";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "../parser";
 import { runAutoFix } from "../autofix/pipeline";
 import { DEFAULT_MODEL } from "../models";
 import { buildCompleteProject } from "../export/project-scaffold";
 import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reader";
 import { runFinalizePreflight } from "../stream/finalize-preflight";
 import { runSeoPreflightChecks } from "../validation/seo-preflight";
+import { partitionGeneratedFilesForProtectedPaths } from "../scaffolds/protected-paths";
 import { EVAL_PROMPTS, type EvalPrompt } from "./prompts";
 import {
   checkProjectSanity,
@@ -63,6 +64,86 @@ const CRITICAL_EVAL_CHECKS = new Set([
   "imports",
   "syntax",
 ]);
+
+/**
+ * Sources used by the per-prompt gate checks in `evaluatePrompt`.
+ *
+ * Pre-2026-04-27 the harness ran every check against the raw LLM
+ * emission (`project.files` / `fixedContent`). That meant
+ * `SCAFFOLD_PROTECTED_PATHS` (which drops broken JSX-in-`.ts`
+ * `app/api/placeholder/route.ts` emissions before they ever persist)
+ * could not improve the eval score: the broken file was filtered out
+ * of the canonical persist payload but the syntax check still saw it
+ * in the raw output. Eval reported a runtime-correct fix as a failure.
+ *
+ * `deriveEvalCheckSources` returns three views so each check can pick
+ * the right one:
+ *
+ * - `rawFiles` — the LLM's post-mechanical-autofix emission. Use for
+ *   *content quality* checks where the LLM's output itself is the
+ *   signal: `no-bracket-placeholders`, `responsive`, `accessibility`,
+ *   `semantic-tokens`. Also kept as the authoritative count for
+ *   `file-count` because users care how many files the model produced,
+ *   not how many `buildCompleteProject` injected.
+ *
+ * - `canonicalFiles` — the user-emitted subset of the post-preflight
+ *   payload (i.e. what `engineVersions.files_json` would persist),
+ *   excluding scaffold-defaults that `buildCompleteProject` adds for
+ *   missing infrastructure files. Use for *runtime correctness* checks
+ *   where the persisted payload is the truth: `project-sanity`,
+ *   `imports`, `required-files`, `exports`, and (via
+ *   `canonicalContent`) `syntax`.
+ *
+ * - `canonicalContent` — `serializeCodeProject(canonicalFiles)`, the
+ *   syntax-check input matching `canonicalFiles`.
+ *
+ * - `droppedProtectedPaths` — paths the protected-paths guard removed
+ *   between raw and canonical. Surfaced for telemetry only; not a
+ *   blocker by itself (the canonical payload still has them, with the
+ *   scaffold default content).
+ */
+export interface EvalCheckSources {
+  rawFiles: CodeFile[];
+  canonicalFiles: CodeFile[];
+  canonicalContent: string;
+  droppedProtectedPaths: string[];
+}
+
+export function deriveEvalCheckSources(params: {
+  rawFiles: CodeFile[];
+  preflightFilesJson: string;
+}): EvalCheckSources {
+  const { rawFiles, preflightFilesJson } = params;
+
+  const partition = partitionGeneratedFilesForProtectedPaths(rawFiles);
+  const droppedProtectedPaths = partition.dropped.map((f) => f.path);
+
+  let canonicalAll: CodeFile[] = [];
+  try {
+    const parsed = JSON.parse(preflightFilesJson) as Array<{
+      path: string;
+      content: string;
+      language?: string;
+    }>;
+    canonicalAll = parsed.map((file) => ({
+      ...file,
+      language: file.language || "tsx",
+    }));
+  } catch {
+    canonicalAll = [];
+  }
+
+  const userEmittedPaths = new Set(rawFiles.map((f) => f.path));
+  const canonicalFiles = canonicalAll.filter((f) => userEmittedPaths.has(f.path));
+  const canonicalContent = serializeCodeProject(canonicalFiles);
+
+  return {
+    rawFiles,
+    canonicalFiles,
+    canonicalContent,
+    droppedProtectedPaths,
+  };
+}
 
 export function resolveEvalPassOutcome(params: {
   checks: CheckResult[];
@@ -167,23 +248,45 @@ async function evaluatePrompt(
     filesJson: JSON.stringify(project.files),
   });
 
+  const sources = deriveEvalCheckSources({
+    rawFiles: project.files,
+    preflightFilesJson: preflight.filesJson,
+  });
+
+  if (sources.droppedProtectedPaths.length > 0) {
+    // Telemetry-only. The protected-paths guard removed these LLM
+    // emissions from the canonical persist payload upstream; eval gate
+    // checks therefore measure the scaffold-version content, not the
+    // raw LLM-broken version. Logged so eval-report readers can
+    // distinguish "model emitted a broken protected path but the
+    // pipeline corrected it" (acceptable) from "model emitted an
+    // unrelated bug" (real regression).
+    console.info(
+      `[eval] ${evalPrompt.id}: dropped scaffold-protected paths from canonical eval input: ${sources.droppedProtectedPaths.join(", ")}`,
+    );
+  }
+
   const checks: CheckResult[] = [
-    checkProjectSanity(project.files),
-    checkNoBracketPlaceholders(project.files),
+    checkProjectSanity(sources.canonicalFiles),
+    checkNoBracketPlaceholders(sources.rawFiles),
     checkSeoPublishReadiness(seoIssues),
     checkTier2Readiness(preflight),
     checkVisualQuality(completeProjectFiles),
-    checkFileCount(project.files, evalPrompt.expected.minFiles, evalPrompt.expected.maxFiles),
-    checkRequiredFiles(project.files, evalPrompt.expected.requiredFiles),
-    checkExports(project.files),
-    checkImports(project.files, evalPrompt.expected.requiredImports),
-    checkResponsive(project.files),
-    checkAccessibility(project.files),
-    checkSemanticTokens(project.files),
+    checkFileCount(
+      sources.rawFiles,
+      evalPrompt.expected.minFiles,
+      evalPrompt.expected.maxFiles,
+    ),
+    checkRequiredFiles(sources.canonicalFiles, evalPrompt.expected.requiredFiles),
+    checkExports(sources.canonicalFiles),
+    checkImports(sources.canonicalFiles, evalPrompt.expected.requiredImports),
+    checkResponsive(sources.rawFiles),
+    checkAccessibility(sources.rawFiles),
+    checkSemanticTokens(sources.rawFiles),
   ];
 
   if (evalPrompt.expected.shouldCompile) {
-    checks.push(await checkSyntax(fixedContent));
+    checks.push(await checkSyntax(sources.canonicalContent));
   }
 
   const totalScore =

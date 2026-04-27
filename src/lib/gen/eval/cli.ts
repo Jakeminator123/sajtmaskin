@@ -1,6 +1,7 @@
 import { runEval } from "./runner";
 import { formatEvalReport } from "./report";
 import { loadBaseline, saveBaseline, compareWithBaseline } from "./baseline";
+import { EVAL_PROMPTS } from "./prompts";
 
 function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
@@ -73,13 +74,43 @@ function formatComparison(
   return lines.join("\n");
 }
 
+function parsePromptFilter(args: string[]): string[] | null {
+  const idx = args.findIndex((a) => a === "--prompts" || a.startsWith("--prompts="));
+  if (idx === -1) return null;
+  const flag = args[idx];
+  const rawValue = flag.includes("=") ? flag.slice(flag.indexOf("=") + 1) : args[idx + 1];
+  if (!rawValue) return null;
+  return rawValue
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const shouldSaveBaseline = args.includes("--save-baseline");
   const gateMode = args.includes("--gate");
+  const promptFilter = parsePromptFilter(args);
 
-  console.log("Running eval suite...");
-  const report = await runEval();
+  let prompts = EVAL_PROMPTS;
+  if (promptFilter && promptFilter.length > 0) {
+    const wanted = new Set(promptFilter);
+    prompts = EVAL_PROMPTS.filter((p) => wanted.has(p.id));
+    const missing = [...wanted].filter(
+      (id) => !EVAL_PROMPTS.some((p) => p.id === id),
+    );
+    if (missing.length > 0) {
+      console.error(
+        `Unknown prompt id(s): ${missing.join(", ")}. Available: ${EVAL_PROMPTS.map((p) => p.id).join(", ")}`,
+      );
+      process.exit(2);
+    }
+    console.log(`Running subset: ${prompts.map((p) => p.id).join(", ")}`);
+  } else {
+    console.log("Running eval suite...");
+  }
+
+  const report = await runEval({ prompts });
   console.log(formatEvalReport(report));
 
   const baseline = await loadBaseline();
