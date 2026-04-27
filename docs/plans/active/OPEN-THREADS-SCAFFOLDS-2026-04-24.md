@@ -138,7 +138,7 @@ DOKUMENTERAD i `docs/ENV.md` + `config/env-policy.json` (klart
 
 **Per-projekt/per-generation siteUrl byggs som nästa steg:** flow
 beskrivet under "Bygg-dialog UX" nedan. Specifik PR-spec i separat fil:
-`docs/plans/active/SEO-F3-PROMOTION-NEXT-PR.md`.
+`docs/plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md`.
 
 ### Bygg-dialog UX (planerad — ej implementerad än)
 
@@ -226,7 +226,7 @@ när Bygg-flödet är på plats och vi kan se faktiska användarmönster.
 
 ### Konkret implementations-spec
 
-Se `docs/plans/active/SEO-F3-PROMOTION-NEXT-PR.md` för exakt vilka filer
+Se `docs/plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md` för exakt vilka filer
 som ändras, API-fält, acceptanskriterier och tester.
 
 ---
