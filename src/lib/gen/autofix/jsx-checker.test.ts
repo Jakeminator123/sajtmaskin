@@ -111,4 +111,94 @@ export default function CoffeeBeanBody() {
       fixes.some((f) => f.description?.includes("RapierRigidBody")),
     ).toBe(false);
   });
+
+  // SAJ-63: TS generics like `useState<GamePhase>(…)` were treated as JSX
+  // openings, producing phantom imports from non-existent files and
+  // "Tag mismatch for <GamePhase>" warnings. Same root cause as SAJ-61b but
+  // for `type`/`interface`/`class` declarations rather than `Lane`-style
+  // type aliases captured by the original local-decl guard.
+  it("does not phantom-import a TS type used in generic position with local declaration", () => {
+    const code = `
+"use client";
+import { useState } from "react";
+
+type GamePhase = "idle" | "playing" | "finished";
+type SausageType = "classic" | "crispy" | "burnt";
+
+export default function KorvGame() {
+  const [phase, setPhase] = useState<GamePhase>("idle");
+  const [type, setType] = useState<SausageType>("classic");
+  return <div>{phase} {type}</div>;
+}
+`.trim();
+    const { code: out, fixes, warnings } = runJsxChecker(code);
+    expect(out).not.toMatch(/from "@\/components\/game-phase"/);
+    expect(out).not.toMatch(/from "@\/components\/sausage-type"/);
+    expect(
+      fixes.some(
+        (f) =>
+          f.description?.includes("GamePhase") ||
+          f.description?.includes("SausageType"),
+      ),
+    ).toBe(false);
+    expect(
+      warnings.some((w) => w.includes("Tag mismatch for <GamePhase>")),
+    ).toBe(false);
+    expect(
+      warnings.some((w) => w.includes("Tag mismatch for <SausageType>")),
+    ).toBe(false);
+  });
+
+  it("respects local interface and class declarations the same way", () => {
+    const code = `
+interface ButtonProps { label: string }
+class Logger { log() {} }
+
+export default function Demo() {
+  const ref = useRef<ButtonProps>(null);
+  const log = useRef<Logger>(null);
+  return <div />;
+}
+`.trim();
+    const { code: out } = runJsxChecker(code);
+    expect(out).not.toMatch(/from "@\/components\/button-props"/);
+    expect(out).not.toMatch(/from "@\/components\/logger"/);
+  });
+
+  // SAJ-63: hook files (use-*.ts/tsx, /hooks/*) are named-export hooks, not
+  // components. The default-export heuristic produced a noisy false positive
+  // `No default export found` warning on every such file.
+  it("skips default-export check for use-* hook files", () => {
+    const code = `
+"use client";
+import { useEffect, useState } from "react";
+
+export function useReducedMotion() {
+  const [v, setV] = useState(false);
+  useEffect(() => { setV(true); }, []);
+  return v;
+}
+`.trim();
+    const { warnings: noPath } = runJsxChecker(code);
+    // Without filePath, the legacy behaviour kicks in (warning emitted).
+    expect(
+      noPath.some((w) => w.includes("No default export found")),
+    ).toBe(true);
+
+    const { warnings: hookWarnings } = runJsxChecker(
+      code,
+      "hooks/use-reduced-motion.ts",
+    );
+    expect(
+      hookWarnings.some((w) => w.includes("No default export found")),
+    ).toBe(false);
+
+    const { warnings: prefixedHookWarnings } = runJsxChecker(
+      code,
+      "components/use-pointer.tsx",
+    );
+    expect(
+      prefixedHookWarnings.some((w) => w.includes("No default export found")),
+    ).toBe(false);
+  });
 });
