@@ -234,6 +234,21 @@ ALL_SCAFFOLDS (registry.ts)
 
 ---
 
+## 7b. File merge policy vid generation
+
+`mergeGeneratedProjectFiles()` i [`src/lib/gen/stream/finalize-merge.ts`](../../src/lib/gen/stream/finalize-merge.ts) styr hur scaffold-filer och LLM-emitterade filer kombineras till final `files_json`. Två motsatta path-set styr policyn:
+
+| Set | Beteende | Default-innehåll |
+|-----|----------|------------------|
+| `LLM_ONLY_PATHS` | Scaffold-versionen **filtreras bort**. Om LLM inte emitterar en egen version saknas filen → versionen markeras verification-blocked via `missingEmittedEssentials`. | `app/page.tsx`, `src/app/page.tsx` |
+| `SCAFFOLD_PROTECTED_PATHS` | LLM-emissionen **filtreras bort**. Scaffold-default (init) eller previous-version (follow-up) vinner alltid. Logg: `scaffold-protected-overwrite-blocked`. | `app/api/placeholder/route.ts` |
+
+`SCAFFOLD_PROTECTED_PATHS` är endast för rena utility-filer utan brand/copy/affärslogik. `app/api/placeholder/route.ts` lades till 2026-04-27 efter att eval-rapporten visade att 6/13 fail-prompts berodde på att LLM:n regenererade filen som JSX i `.ts` (`Expected ">" but found "style"`). Att låsa scaffold-versionen är deterministiskt och byter inte några brand-relaterade beslut.
+
+Lägg endast till nya entries om filen är ren utility (verifierad korrekt scaffold-version, ingen kund vill anpassa).
+
+---
+
 ## 8. Variant signature patterns
 
 Sedan 2026-04-17 ersätter `signaturePatterns` (konkreta layouts/motifs/antiPatterns) de fyra borttagna guidance-fälten. Fylls i av `scripts/scaffolds/auto-curate-variant-patterns.ts` (GPT-5.4 + Zod). Renderas i `## Scaffold Variant`-blocket.

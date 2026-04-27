@@ -20,6 +20,7 @@ Full arkitekturdoc + inventering: `docs/architecture/scaffold-system.md`.
 4. Ändra ALDRIG `serialize.ts`, `registry.ts`, `seo-defaults.ts` utan att förstå merge-pipeline.
 5. Externa referenser/scaffold-research styrs via dossier-pipen (`npm run dossiers:curate` + `npm run dossiers:validate-all`), inte gamla template-library-script.
 6. Innan du föreslår att lägga till/ta bort/slå ihop scaffolds — läs inventerings-docen.
+7. **Merge-policy**: `LLM_ONLY_PATHS` (scaffold-default blockas, LLM måste emittera, t.ex. `app/page.tsx`) och `SCAFFOLD_PROTECTED_PATHS` (LLM-emission droppas, scaffold/previous vinner, t.ex. `app/api/placeholder/route.ts`) i [`finalize-merge.ts`](../../src/lib/gen/stream/finalize-merge.ts). Lägg ENDAST till i `SCAFFOLD_PROTECTED_PATHS` för rena utility-filer utan brand/copy/business. Detaljer: `docs/architecture/scaffold-system.md` § 7b.
 
 ## 9 scaffolds (snabböversikt)
 
