@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { FEATURES } from "@/lib/config";
+import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { runProductPostcheck } from "@/lib/gen/verify/product-postcheck";
 
@@ -13,6 +14,10 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  return withRateLimit(req, "engine:product-postcheck", () => handlePOST(req, ctx));
+}
+
+async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
     const body = await req.json().catch(() => ({}));

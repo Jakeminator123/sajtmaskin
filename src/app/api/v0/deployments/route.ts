@@ -712,88 +712,90 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const chatId = searchParams.get("chatId");
+  return withRateLimit(req, "v0:deployments-list", async () => {
+    try {
+      const { searchParams } = new URL(req.url);
+      const chatId = searchParams.get("chatId");
 
-    if (!chatId) {
-      return NextResponse.json({ error: "chatId query parameter is required" }, { status: 400 });
-    }
-
-    let chat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!chat) chat = await getChatByIdForRequest(req, chatId);
-
-    if (!chat) {
-      return NextResponse.json({ deployments: [] });
-    }
-
-    const internalChatId = chat.id;
-
-    const result = await db
-      .select()
-      .from(deployments)
-      .where(eq(deployments.chatId, internalChatId))
-      .orderBy(desc(deployments.createdAt));
-    const refreshedById = new Map<
-      string,
-      {
-        status: ReturnType<typeof mapVercelReadyStateToStatus>["status"];
-        url: string | null;
-        inspectorUrl: string | null;
-        vercelProjectId: string | null;
+      if (!chatId) {
+        return NextResponse.json({ error: "chatId query parameter is required" }, { status: 400 });
       }
-    >();
 
-    const latestRefreshCandidate = result.find((d) => {
-      const status = String(d.status || "pending");
-      const isTerminal = status === "ready" || status === "error" || status === "cancelled";
-      return Boolean(d.vercelDeploymentId) && !isTerminal;
-    });
+      let chat = await getChatByV0ChatIdForRequest(req, chatId);
+      if (!chat) chat = await getChatByIdForRequest(req, chatId);
 
-    if (latestRefreshCandidate?.vercelDeploymentId) {
-      try {
-        const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
-        const mapped = mapVercelReadyStateToStatus(vercel.readyState);
-
-        await updateDeploymentStatus(latestRefreshCandidate.id, mapped.status, {
-          url: vercel.url ?? undefined,
-          inspectorUrl: vercel.inspectorUrl ?? undefined,
-          vercelProjectId: vercel.vercelProjectId ?? undefined,
-        });
-
-        refreshedById.set(latestRefreshCandidate.id, {
-          status: mapped.status,
-          url: vercel.url ?? latestRefreshCandidate.url ?? null,
-          inspectorUrl: vercel.inspectorUrl ?? latestRefreshCandidate.inspectorUrl ?? null,
-          vercelProjectId: vercel.vercelProjectId ?? latestRefreshCandidate.vercelProjectId ?? null,
-        });
-      } catch (err) {
-        console.error("Failed to refresh latest deployment in list:", err);
+      if (!chat) {
+        return NextResponse.json({ deployments: [] });
       }
-    }
 
-    return NextResponse.json({
-      deployments: result.map((d) => {
-        const refreshed = refreshedById.get(d.id);
-        return {
-          id: d.id,
-          chatId: d.chatId,
-          versionId: d.versionId,
-          status: refreshed?.status ?? d.status,
-          url: refreshed?.url ?? d.url,
-          inspectorUrl: refreshed?.inspectorUrl ?? d.inspectorUrl,
-          vercelDeploymentId: d.vercelDeploymentId,
-          vercelProjectId: refreshed?.vercelProjectId ?? d.vercelProjectId,
-          createdAt: d.createdAt,
-          updatedAt: d.updatedAt,
-        };
-      }),
-    });
-  } catch (err) {
-    console.error("Get deployments error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
+      const internalChatId = chat.id;
+
+      const result = await db
+        .select()
+        .from(deployments)
+        .where(eq(deployments.chatId, internalChatId))
+        .orderBy(desc(deployments.createdAt));
+      const refreshedById = new Map<
+        string,
+        {
+          status: ReturnType<typeof mapVercelReadyStateToStatus>["status"];
+          url: string | null;
+          inspectorUrl: string | null;
+          vercelProjectId: string | null;
+        }
+      >();
+
+      const latestRefreshCandidate = result.find((d) => {
+        const status = String(d.status || "pending");
+        const isTerminal = status === "ready" || status === "error" || status === "cancelled";
+        return Boolean(d.vercelDeploymentId) && !isTerminal;
+      });
+
+      if (latestRefreshCandidate?.vercelDeploymentId) {
+        try {
+          const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
+          const mapped = mapVercelReadyStateToStatus(vercel.readyState);
+
+          await updateDeploymentStatus(latestRefreshCandidate.id, mapped.status, {
+            url: vercel.url ?? undefined,
+            inspectorUrl: vercel.inspectorUrl ?? undefined,
+            vercelProjectId: vercel.vercelProjectId ?? undefined,
+          });
+
+          refreshedById.set(latestRefreshCandidate.id, {
+            status: mapped.status,
+            url: vercel.url ?? latestRefreshCandidate.url ?? null,
+            inspectorUrl: vercel.inspectorUrl ?? latestRefreshCandidate.inspectorUrl ?? null,
+            vercelProjectId: vercel.vercelProjectId ?? latestRefreshCandidate.vercelProjectId ?? null,
+          });
+        } catch (err) {
+          console.error("Failed to refresh latest deployment in list:", err);
+        }
+      }
+
+      return NextResponse.json({
+        deployments: result.map((d) => {
+          const refreshed = refreshedById.get(d.id);
+          return {
+            id: d.id,
+            chatId: d.chatId,
+            versionId: d.versionId,
+            status: refreshed?.status ?? d.status,
+            url: refreshed?.url ?? d.url,
+            inspectorUrl: refreshed?.inspectorUrl ?? d.inspectorUrl,
+            vercelDeploymentId: d.vercelDeploymentId,
+            vercelProjectId: refreshed?.vercelProjectId ?? d.vercelProjectId,
+            createdAt: d.createdAt,
+            updatedAt: d.updatedAt,
+          };
+        }),
+      });
+    } catch (err) {
+      console.error("Get deployments error:", err);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
+      );
+    }
+  });
 }

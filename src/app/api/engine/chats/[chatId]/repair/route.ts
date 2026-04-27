@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
@@ -102,6 +103,13 @@ function normalizeRepairContextLines(lines: string[] | undefined, label: string)
 }
 
 export async function POST(
+  req: Request,
+  ctx: { params: Promise<{ chatId: string }> },
+) {
+  return withRateLimit(req, "engine:repair", () => handlePOST(req, ctx));
+}
+
+async function handlePOST(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
 ) {

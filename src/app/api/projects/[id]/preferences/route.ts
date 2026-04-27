@@ -16,6 +16,7 @@
  * `/save` endpoint.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { withRateLimit } from "@/lib/rateLimit";
 import {
   getProjectByIdForOwner,
   getProjectData,
@@ -63,7 +64,13 @@ function mergeSeoPatch(
   };
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: NextRequest, routeContext: RouteParams) {
+  return withRateLimit(request, "preferences:patch", () =>
+    handlePATCH(request, routeContext),
+  );
+}
+
+async function handlePATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const user = await getCurrentUser(request);
@@ -142,7 +149,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, routeContext: RouteParams) {
+  return withRateLimit(request, "preferences:get", () =>
+    handleGET(request, routeContext),
+  );
+}
+
+async function handleGET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const user = await getCurrentUser(request);

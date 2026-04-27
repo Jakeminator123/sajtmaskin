@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
@@ -113,6 +114,10 @@ async function isLatestVersionForChat(chatId: string, versionId: string): Promis
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  return withRateLimit(req, "engine:quality-gate", () => handlePOST(req, ctx));
+}
+
+async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
 
