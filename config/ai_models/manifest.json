@@ -109,12 +109,14 @@
     "defaults": {
       "requestModel": "openai/gpt-5.4",
       "serverAutoOpenAI": "openai/gpt-5.4",
-      "serverAutoAnthropic": "anthropic/claude-sonnet-4.6"
+      "serverAutoAnthropic": "anthropic/claude-sonnet-4.6",
+      "specModel": "openai/gpt-5.4"
     },
     "envKeys": {
       "requestModel": "SAJTMASKIN_BRIEF_MODEL",
       "serverAutoOpenAI": "SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI",
-      "serverAutoAnthropic": "SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC"
+      "serverAutoAnthropic": "SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC",
+      "specModel": "SAJTMASKIN_SPEC_MODEL"
     },
     "notes": "Structured pre-build helpers. requestModel is the default for /api/ai/brief. serverAuto* control create-chat fallback when the client did not already send a brief."
   },
@@ -346,7 +348,9 @@
   },
   "qualityGateTiers": {
     "designPreview": [
-      "typecheck"
+      "typecheck",
+      "build",
+      "lint"
     ],
     "integrationsBuild": [
       "typecheck",
@@ -394,6 +398,12 @@
       },
       "maxAiChatMessageChars": {
         "envKey": "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
+        "default": 600000,
+        "min": 2000,
+        "max": 2000000
+      },
+      "maxAiSpecPromptChars": {
+        "envKey": "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
         "default": 600000,
         "min": 2000,
         "max": 2000000

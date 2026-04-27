@@ -303,6 +303,16 @@ function usesReactLazy(content: string): boolean {
   return [...reactLazyNames].some((name) => new RegExp(String.raw`\b${escapeRegExp(name)}\s*\(`).test(content));
 }
 
+function isLikelyTypeScriptGeneric(content: string, matchStart: number): boolean {
+  const end = content.indexOf(">", matchStart);
+  if (end === -1) return false;
+  const tagLike = content.slice(matchStart, end + 1);
+  if (/^<[A-Z][A-Za-z0-9]*\s+extends\b/.test(tagLike)) return true;
+  if (/^<[A-Z][A-Za-z0-9]*,/.test(tagLike)) return true;
+  const next = content.slice(end + 1).match(/\S/)?.[0];
+  return /^<[A-Z][A-Za-z0-9]*>$/.test(tagLike) && (next === "(" || next === "{");
+}
+
 /**
  * Deterministic check for the "motion-reduce trap": when a `<Canvas>` (or a
  * fixed full-screen overlay wrapping one) hides itself entirely under
@@ -362,6 +372,7 @@ export function checkUndefinedJsxSymbols(
     const declaredSymbols = collectDeclaredJsxSymbols(stripped);
     for (const match of stripped.matchAll(JSX_TAG_RE)) {
       const symbol = match[1];
+      if (typeof match.index === "number" && isLikelyTypeScriptGeneric(stripped, match.index)) continue;
       if (!symbol || declaredSymbols.has(symbol)) continue;
       findings.push({
         id: "undefined-jsx-symbol",

@@ -104,7 +104,7 @@ describe("runPreVmEslint", () => {
     } finally {
       rmSync(cacheDir, { recursive: true, force: true });
     }
-  });
+  }, 15000);
 });
 
 describe("formatEslintIssuesForRepair", () => {

@@ -159,7 +159,7 @@ export function PreviewPanelEmptyState({
       : sandboxPending
       ? "Startar VM-preview"
       : awaitingInput
-        ? "AI väntar på ditt svar"
+        ? "Behöver din input"
         : isInitialEmpty
           ? "Välkommen"
           : externalLoading
