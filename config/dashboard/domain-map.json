@@ -310,7 +310,7 @@
         "backoffice/pages/eval_page.py",
         "src/lib/gen/eval/",
         "src/lib/gen/eval/eval-baseline.json",
-        "data/scaffold-eval/reports/scaffold-selection-latest.json",
+        "data/scaffold-eval/reports/scaffold-selection-latest.json (genererad lokalt av npm run scaffolds:eval, ej i CI)",
         "docs/evals/"
       ],
       "docsPaths": [
