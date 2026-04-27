@@ -47,9 +47,16 @@ function normalizeLiteralPath(raw: string): { rel: string; kind: "file" | "dir" 
 //    rule file is restructured is a wrong-coupling. The domain-map may
 //    still reference them as "where to look" hints, but their existence is
 //    not a contract.
+//
+// 3. `data/scaffold-eval/reports/**` — per-machine eval output written by
+//    `npm run scaffolds:eval` (scripts/scaffolds/eval-scaffold-selection.ts
+//    and eval-landing-variants.ts). The backoffice "Eval"-page reads the
+//    latest local JSON report; the file is not produced on a clean CI
+//    checkout. Same wrong-coupling as `logs/**`.
 function isRuntimeArtifactPath(rel: string): boolean {
   if (rel === "logs" || rel.startsWith("logs/")) return true;
   if (rel === ".cursor" || rel.startsWith(".cursor/")) return true;
+  if (rel.startsWith("data/scaffold-eval/reports/")) return true;
   return false;
 }
 
