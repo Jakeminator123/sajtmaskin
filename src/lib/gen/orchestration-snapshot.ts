@@ -219,7 +219,7 @@ export function buildFollowUpBriefFromSnapshot(
   }
   // 2026-04-22 follow-up audit: snapshot sparar `domainProfile` som object
   // `{ domain, industry }` (se `extractBriefSummary` i
-  // `own-engine-build-session.ts`), men `system-prompt.ts` deklarerar
+  // `own-engine-build-session.ts`), men `system-prompt/` deklarerar
   // `brief.domainProfile?: string` och kör `str(brief?.domainProfile)` —
   // vilket returnerade tom sträng för object-formen, så follow-up-LLM:n
   // tappade det domain-override från init som init-brief faktiskt bar.

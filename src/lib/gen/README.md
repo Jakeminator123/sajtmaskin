@@ -24,7 +24,7 @@ Builder/API prompt
            │    └─ BuildSpec / token budgets / policy
            │
            └─ finalizeOrchestrationPrompts()
-                └─ buildDynamicContext()  (system-prompt.ts)
+                └─ buildDynamicContext()  (system-prompt/)
                      ├─ capability hints
                      ├─ scaffold context
                      ├─ route plan + pre-generation contracts
@@ -62,7 +62,7 @@ Files in `gen/` follow the LLM pipeline's three phases:
 | File | Phase | Role |
 |------|-------|------|
 | `orchestrate.ts` | 2 | Canonical fan-in: scaffold selection, route planning, contract inference, BuildSpec, prompt assembly. |
-| `system-prompt.ts` | 2 | Builds dynamic prompt context and composes the final engine system prompt. |
+| `system-prompt/` | 2 | Builds dynamic prompt context and composes the final engine system prompt. |
 | `engine.ts` | 2 | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
 | `generation-input-package.ts` | 2 | `GenerationInputPackage` type, `computeLineageHash()`, dump serialization. |
 | `build-spec.ts` | 2 | Derives `BuildSpec` (policy, budgets, quality targets) from all inputs. |

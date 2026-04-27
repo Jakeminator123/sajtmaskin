@@ -50,7 +50,7 @@ function truncateToTokenBudget(text: string, maxTokens: number): string {
 
 /**
  * Builds a system prompt from a static core + prioritized dynamic blocks.
- * Block priorities come from `CONTEXT_BLOCK_PRIORITY_RULES` in `system-prompt.ts`
+ * Block priorities come from `CONTEXT_BLOCK_PRIORITY_RULES` in `system-prompt/pruning.ts`
  * (higher = kept longer). Lower-priority blocks are dropped first when exceeding
  * `dynamicBudgetTokens`. Required blocks may be truncated instead of dropped.
  */
