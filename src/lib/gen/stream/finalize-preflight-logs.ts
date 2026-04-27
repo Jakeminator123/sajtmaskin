@@ -48,9 +48,25 @@ export function buildFinalizePreflightLogBundle({
 }: BuildFinalizePreflightLogBundleParams): FinalizePreflightLogBundle {
   const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
   const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
-  const hasVerificationBlockingPreflightErrors = !previewStart.canStartPreview;
   const hasPreviewBlockingPreflightErrors =
-    !previewStart.canStartPreview && previewStart.primaryPreviewTarget === "none";
+    !previewStart.canStartPreview &&
+    previewStart.primaryPreviewTarget === "none" &&
+    previewStart.blockingCategories.some((category) =>
+      category === "code_structure_failure" ||
+      category === "dependency_install_failure" ||
+      category === "env_config_missing" ||
+      category === "shim_preview_failure",
+    );
+  // F2/F3 contract: previewBlocked is reserved for preview-readiness blockers
+  // only (kategorierna ovan). Build/lint/typecheck-fel tillhör publish/build
+  // signaling och hanteras separat (planen 00-f2-f3-kontrakt.md föreslår
+  // publishBlocked/publishBlockingReason som nytt fält i framtida wave).
+  // För närvarande är `hasVerificationBlockingPreflightErrors` en kvarleva
+  // som alltid speglar preview-blocking — vi behåller fältet i return-objektet
+  // för bakåtkompatibilitet men sätter det medvetet till samma värde så
+  // ingen downstream-konsument tror att vi har en separat F3-signal.
+  // TODO: när publishBlocked introduceras, ersätt detta alias med riktig logik.
+  const hasVerificationBlockingPreflightErrors = hasPreviewBlockingPreflightErrors;
 
   const preflightLogs: FinalizeVersionErrorLog[] = [
     {
@@ -120,24 +136,16 @@ export function buildFinalizePreflightLogBundle({
         primaryPreviewTarget: previewStart.primaryPreviewTarget,
       },
     });
-  } else if (hasVerificationBlockingPreflightErrors) {
-    preflightLogs.push({
-      chatId,
-      versionId,
-      level: "warning",
-      category: "preview",
-      message: "Preview is available, but automatic preflight found verification-blocking issues.",
-      meta: {
-        source: "finalize-preflight",
-        previewCode: "preflight_verification_blocked",
-        previewStage: "preflight",
-        previewBlocked: false,
-        verificationBlocked: true,
-        previewFileCount: finalizedPreviewFileCount,
-        primaryPreviewTarget: previewStart.primaryPreviewTarget,
-      },
-    });
   }
+  // Tidigare fanns en `else if (hasVerificationBlockingPreflightErrors)`-gren
+  // här som loggade "preview is available, but verification-blocking issues".
+  // Den kunde aldrig nås efter F2/F3-kontraktets uppdelning eftersom
+  // hasVerificationBlockingPreflightErrors alltid är samma som
+  // hasPreviewBlockingPreflightErrors (se kommentar ovan). Borttagen 2026-04-24
+  // som del av Wave 3b (P0). Återinför när publishBlocked-fältet introduceras.
+  // (`finalizedPreviewFileCount` är fortfarande kopplad i function-signaturen
+  // för framtida bruk.)
+  void finalizedPreviewFileCount;
 
   if (scaffoldRetry) {
     preflightLogs.push({
@@ -178,9 +186,7 @@ export function buildFinalizePreflightLogBundle({
     preflightLogs,
     preflightFailureSummary: hasPreviewBlockingPreflightErrors
       ? "Automatic preflight found preview-blocking issues."
-      : hasVerificationBlockingPreflightErrors
-        ? "Automatic preflight found live-preview-blocking issues."
-        : previewStart.shimBlocked
+      : previewStart.shimBlocked
           ? "Automatic preflight found preview preparation issues."
           : "Automatic preflight completed.",
   };

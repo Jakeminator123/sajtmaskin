@@ -236,20 +236,21 @@ export async function runPreVmEslint(
       durationMs: Date.now() - startedAt,
     };
   } catch (err) {
+    // ESLint-process crashed (cache cold, missing config, etc.). Same logic
+    // as warm-typecheck.ts: do NOT bubble a synthetic `(pre-vm-eslint)`
+    // diagnostic through the repair loop — it is not a real code-level lint
+    // error and only wastes an LLM-fixer call.
+    if (process.env.SAJTMASKIN_DEV_LOG) {
+      console.warn(
+        "[warm-eslint] exception (skipping repair):",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
     return {
       ok: true,
       skipped: "exception",
-      issues: [
-        {
-          file: "(pre-vm-eslint)",
-          line: 0,
-          column: 0,
-          severity: "error",
-          ruleId: null,
-          message: err instanceof Error ? err.message : String(err),
-        },
-      ],
-      errorCount: 1,
+      issues: [],
+      errorCount: 0,
       durationMs: Date.now() - startedAt,
     };
   } finally {

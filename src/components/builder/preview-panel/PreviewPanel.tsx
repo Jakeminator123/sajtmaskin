@@ -90,6 +90,8 @@ export function PreviewPanel({
   isLoading: externalLoading = false,
   onClear,
   onFixPreview,
+  versionlessAborted = false,
+  onRestartGeneration,
   refreshToken,
   onFilesSaved,
   imageGenerationsEnabled = true,
@@ -907,6 +909,8 @@ export function PreviewPanel({
       <PreviewPanelEmptyState
         chatId={chatId}
         versionId={versionId}
+        versionlessAborted={versionlessAborted}
+        onRestartGeneration={onRestartGeneration}
         externalLoading={externalLoading}
         awaitingInput={awaitingInput}
         awaitingInputQuestion={awaitingInputQuestion}

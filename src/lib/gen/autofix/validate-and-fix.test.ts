@@ -289,6 +289,26 @@ describe("validateAndFix", () => {
     );
   });
 
+  it("skips warm-tsc when skipWarmTsc=true (quality-gate will typecheck later)", async () => {
+    const cleanContent =
+      '```tsx file="app/page.tsx"\nexport default function P(){return <main/>}\n```';
+    validateGeneratedCode.mockResolvedValueOnce({ valid: true, errors: [] });
+
+    const result = await validateAndFix(cleanContent, {
+      chatId: "chat_skip_tsc",
+      model: "gpt-5.4",
+      alreadyMechanicallyFixed: true,
+      resolvedScaffold: { id: "scaffold_x", files: [] } as never,
+      skipWarmTsc: true,
+    });
+
+    expect(runPreVmTypecheck).not.toHaveBeenCalled();
+    expect(result.tsc).toEqual(
+      expect.objectContaining({ ran: false, skipped: "quality_gate_planned" }),
+    );
+    expect(result.status).toBe("passed");
+  });
+
   it("invokes the LLM fixer on the final pass too (regression: was dead code when pass === SYNTAX_FIX_MAX_PASSES)", async () => {
     // Each pass: validate → fixer (improves) → reValidate (one fewer error).
     // With the bug, the gave-up branch fired before the fixer on the final
@@ -357,36 +377,41 @@ describe("validateAndFix", () => {
     expect(result.errorsAfter).toBe(1);
   });
 
-  it("stops early when a fixer pass does not reduce error count", async () => {
-    validateGeneratedCode
-      .mockResolvedValueOnce({
-        valid: false,
-        errors: [{ file: "app/page.tsx", line: 10, column: 5, message: "Unexpected token" }],
-      })
-      .mockResolvedValueOnce({
-        valid: false,
-        errors: [{ file: "app/page.tsx", line: 10, column: 5, message: "Unexpected token" }],
+  it("uses all syntax-fix passes before giving up on repeated no-improvement", async () => {
+    for (let pass = 1; pass <= 4; pass++) {
+      validateGeneratedCode
+        .mockResolvedValueOnce({
+          valid: false,
+          errors: [{ file: "app/page.tsx", line: pass, column: 5, message: "Unexpected token" }],
+        })
+        .mockResolvedValueOnce({
+          valid: false,
+          errors: [{ file: "app/page.tsx", line: pass, column: 5, message: "Unexpected token" }],
+        });
+    }
+
+    for (let pass = 1; pass <= 4; pass++) {
+      runLlmFixer.mockResolvedValueOnce({
+        fixedContent:
+          "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main>still broken</main>\n```",
+        fixedFiles: ["app/page.tsx"],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 35,
       });
+    }
 
-    runLlmFixer.mockResolvedValueOnce({
-      fixedContent:
-        "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main>still broken</main>\n```",
-      fixedFiles: ["app/page.tsx"],
-      missingFiles: [],
-      partial: false,
-      success: true,
-      durationMs: 35,
-    });
-
-    runAutoFix
-      .mockResolvedValueOnce(emptyAutoFixResult)
-      .mockResolvedValueOnce({
+    runAutoFix.mockResolvedValueOnce(emptyAutoFixResult);
+    for (let pass = 1; pass <= 4; pass++) {
+      runAutoFix.mockResolvedValueOnce({
         fixedContent:
           "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main>still broken</main>\n```",
         fixes: [],
         warnings: [],
         dependencies: {},
       });
+    }
 
     const result = await validateAndFix(
       "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <div>broken</div>\n```",
@@ -396,13 +421,79 @@ describe("validateAndFix", () => {
       },
     );
 
-    expect(runLlmFixer).toHaveBeenCalledTimes(1);
-    expect(validateGeneratedCode).toHaveBeenCalledTimes(2);
+    expect(runLlmFixer).toHaveBeenCalledTimes(4);
+    expect(validateGeneratedCode).toHaveBeenCalledTimes(8);
     expect(result.status).toBe("failed");
+    expect(result.passes).toBe(4);
     expect(result.fixerUsed).toBe(true);
     expect(result.fixerImproved).toBe(false);
     expect(result.earlyStopReason).toBe("no_improvement");
     expect(result.errorsAfter).toBe(1);
     expect(result.residualPatterns.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("restarts next pass from bestContent after a regression", async () => {
+    const bestContent =
+      '```tsx file="app/page.tsx"\nexport default function Page(){return <main>best</main>}\n```';
+    const worseContent =
+      '```tsx file="app/page.tsx"\nexport default function Page(){return <main>worse</main>\n```';
+
+    validateGeneratedCode
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [{ file: "app/page.tsx", line: 1, column: 1, message: "one error" }],
+      })
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          { file: "app/page.tsx", line: 1, column: 1, message: "error a" },
+          { file: "app/page.tsx", line: 2, column: 1, message: "error b" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [{ file: "app/page.tsx", line: 1, column: 1, message: "one error" }],
+      });
+
+    runLlmFixer
+      .mockResolvedValueOnce({
+        fixedContent: worseContent,
+        fixedFiles: ["app/page.tsx"],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 10,
+      })
+      .mockResolvedValueOnce({
+        fixedContent: "",
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: false,
+        durationMs: 10,
+      });
+
+    runAutoFix
+      .mockResolvedValueOnce({
+        fixedContent: bestContent,
+        fixes: [],
+        warnings: [],
+        dependencies: {},
+      })
+      .mockResolvedValueOnce({
+        fixedContent: worseContent,
+        fixes: [],
+        warnings: [],
+        dependencies: {},
+      });
+
+    const result = await validateAndFix(bestContent, {
+      chatId: "chat_regression",
+      model: "gpt-5.4",
+    });
+
+    expect(validateGeneratedCode).toHaveBeenNthCalledWith(3, bestContent);
+    expect(validateGeneratedCode).not.toHaveBeenNthCalledWith(3, worseContent);
+    expect(result.earlyStopReason).toBe("fixer_noop");
   });
 });

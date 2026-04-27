@@ -54,7 +54,7 @@ Important code sources of truth include:
 - `src/lib/own-engine/*`, `src/lib/providers/own-engine/*`, `src/lib/gen/*` — kanoniska kallytor for den egna generationmotorn och dess delade karna.
 - `src/lib/gen/scaffolds/types.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
-- `src/lib/gen/template-library/types.ts`
+- `src/lib/gen/dossiers/types.ts`
 - `package.json`
 
 ### Environment variable management

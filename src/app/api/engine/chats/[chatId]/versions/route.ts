@@ -16,6 +16,42 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
+import { readRunStatusForChat } from "@/lib/logging/generation-log-writer";
+
+// P0 stream-abort recovery (2026-04-26). The `/versions` route is the
+// canonical poll surface used by useVersions. By piggy-backing the chat's
+// most recent run status here we avoid a second round-trip and let the
+// hook stop polling the moment the server says "this chat is dead and
+// has no version" — which is the whole point of the P0 fix.
+type ChatRunStatus = {
+  status: string;
+  statusReason: string | null;
+  hasVersion: boolean;
+  updatedAt: string | null;
+};
+
+function buildChatRunStatus(chatId: string, hasVersion: boolean): ChatRunStatus {
+  const runStatus = readRunStatusForChat(chatId);
+  if (!runStatus) {
+    // No log on disk yet (idle/never generated, or generation-log disabled
+    // entirely). Default to in_progress so the hook keeps its normal
+    // polling cadence — the alternative ("aborted") would falsely freeze
+    // a brand-new chat. hasVersion still wins downstream: the UI's
+    // "versionless+aborted → no repair" rule is gated on BOTH flags.
+    return {
+      status: "in_progress",
+      statusReason: null,
+      hasVersion,
+      updatedAt: null,
+    };
+  }
+  return {
+    status: runStatus.status,
+    statusReason: runStatus.statusReason,
+    hasVersion,
+    updatedAt: runStatus.updatedAt,
+  };
+}
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -46,7 +82,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         }
       }
     }
-    if (engineVersions.length > 0) {
+    if (engineChat && engineVersions.length > 0) {
       const versionsList = engineVersions.map((v) => ({
           id: v.id,
           versionId: v.id,
@@ -66,7 +102,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           promotedAt: v.promoted_at,
           canPin: false,
       }));
-      return NextResponse.json({ versions: versionsList });
+      return NextResponse.json({
+        versions: versionsList,
+        chatStatus: buildChatRunStatus(engineChat.id, true),
+      });
     }
 
     const mappedV0Chat = await getChatByV0ChatIdForRequest(req, chatId);
@@ -98,11 +137,18 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             repairAvailableAt: null,
             canPin: true,
           })),
+          chatStatus: buildChatRunStatus(mappedV0Chat.id, true),
         });
       }
     }
 
-    return NextResponse.json({ versions: [] });
+    return NextResponse.json({
+      versions: [],
+      // No version yet for this chat. The status decides whether the UI
+      // should keep polling (in_progress) or stop and show "Starta om
+      // generation" (aborted/failed).
+      chatStatus: buildChatRunStatus(engineChat?.id ?? chatId, false),
+    });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },

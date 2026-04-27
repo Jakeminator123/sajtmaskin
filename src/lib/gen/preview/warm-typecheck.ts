@@ -194,18 +194,21 @@ export async function runPreVmTypecheck(
       durationMs: Date.now() - startedAt,
     };
   } catch (err) {
+    // Tsc-process crashed (different from "tsc reported diagnostics"). The
+    // synthetic `(pre-vm-typecheck)` diagnostic was previously bubbled to
+    // the repair loop, which then fed an LLM-fixer with text that looks
+    // like a TS error but isn't tied to any real source location. That
+    // wastes a fixer call and can prompt nonsense edits. Now: log + skip.
+    if (process.env.SAJTMASKIN_DEV_LOG) {
+      console.warn(
+        "[warm-typecheck] exception (skipping repair):",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
     return {
       ok: true,
       skipped: "exception",
-      diagnostics: [
-        {
-          filePath: "(pre-vm-typecheck)",
-          line: 0,
-          column: 0,
-          code: "TS0",
-          message: err instanceof Error ? err.message : String(err),
-        },
-      ],
+      diagnostics: [],
       durationMs: Date.now() - startedAt,
     };
   } finally {

@@ -111,7 +111,19 @@ export async function tryRepairPartialFileOutput(params: {
         recurringPatterns: readRecurringPatternsForChat(chatId),
         abortSignal: abort.signal,
       });
-      if (!result.success && !result.partial) {
+      if (!result.success) {
+        // partial output is also treated as a no-success here: a partial
+        // file would just re-trigger the same partial-output preflight
+        // issue on the next pass and falsely report "succeeded".
+        if (result.partial) {
+          devLogAppend("in-progress", {
+            type: "partial-file-repair.partial-output",
+            chatId,
+            attempt,
+            missingFiles: result.missingFiles ?? [],
+            fixedFiles: result.fixedFiles ?? [],
+          });
+        }
         break;
       }
       // post-LLM mechanical pass on partial-file repair output. Required

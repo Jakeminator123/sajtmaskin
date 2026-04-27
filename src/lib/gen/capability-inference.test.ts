@@ -68,6 +68,10 @@ describe("inferCapabilities", () => {
     expect(caps.needsPhysics).toBe(true);
   });
 
+  it("detects English flying/hovering vocabulary for needsPhysics", () => {
+    expect(inferCapabilities("a chimp that hovers").needsPhysics).toBe(true);
+  });
+
   it("does not flag physics for plain 3D corner art", () => {
     const caps = inferCapabilities("en 3d-bild i hörnet");
     expect(caps.needs3D).toBe(true);

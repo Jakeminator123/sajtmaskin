@@ -1,8 +1,9 @@
 import type { ScaffoldFile, ScaffoldManifest } from "./types";
 import { warnLog } from "@/lib/utils/debug";
+import type { SeoBrand } from "@/lib/projects/preferences-schema";
 
 /**
- * Scaffold SEO defaults — opt-in policy.
+ * Scaffold SEO defaults — opt-in policy with optional per-project override.
  *
  * Historical context (B3 + SAJ-39 + SAJ-43): this module used to *always*
  * inject `app/robots.ts`, `app/sitemap.ts`, `app/opengraph-image.tsx` and
@@ -12,23 +13,36 @@ import { warnLog } from "@/lib/utils/debug";
  * production lifecycle (fidelity3), not to the design lifecycle (fidelity1/2)
  * where users iterate on look & feel.
  *
- * New policy (idiot-safe by default):
- *   - If `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL` is **unset**, the function is a
- *     **noop** — no SEO files injected, no metadata enrichment. The scaffold
- *     is returned unchanged. This eliminates the `example.com` leak vector
- *     entirely on dev / fidelity1-2 / preview environments.
- *   - If the env var is **set** (typical for fidelity3 / production export),
- *     the SEO files and metadata enrichment are injected with the real
- *     URL.
+ * Two callers for the same core logic:
  *
- * Operators see a single warn at boot if the env var is missing, so the
- * gap is visible. Backoffice → "Scaffold Performance" page surfaces the
- * same warning for ops visibility.
+ * 1. **`applyScaffoldSeoDefaults(scaffold, options?)`** — scaffold-wrapper.
+ *    Used by `registry.ts` for the eager env-fallback path. PR-A added the
+ *    options-aware signature; PR-A behavior is unchanged.
+ * 2. **`applySeoToProjectFiles(files, options)`** — file-level core. Used
+ *    by `/api/v0/deployments/route.ts` (PR-B) to inject SEO into deploy
+ *    files when the user opts in via the Bygg-dialog.
  *
- * NOTE: the policy distinction is enforced *here*, not by callers. The
- * scaffold registry calls `applyScaffoldSeoDefaults` unconditionally
- * (see `registry.ts`); this module decides whether to actually inject.
- * That keeps the integration point trivial and idempotent.
+ * Policy (idiot-safe by default):
+ *   - **No options + env unset** → noop. Nothing injected, nothing
+ *     enriched. The default-safe path; no `example.com` placeholder can
+ *     leak because nothing is injected.
+ *   - **No options + env set** → inject SEO files + enrich layout
+ *     metadata with the env-derived siteUrl. Single-tenant fallback used
+ *     when one Vercel-deploy serves one production domain.
+ *   - **`options.siteUrl` (string)** → override env. Caller picked the
+ *     domain for this generation/deploy.
+ *   - **`options.siteUrl: null`** → explicit noop. Caller wants SEO off
+ *     for this generation/deploy even if env is set.
+ *   - **`options.brand`** → overrides title/description/locale fallbacks
+ *     in `enrichLayoutMetadata` when the project's `app/layout.tsx`
+ *     doesn't already define those fields. Existing layout content
+ *     wins; brand only fills gaps. (Locale is the exception: brand wins
+ *     because the scaffold's metadata has no locale today — the previous
+ *     hardcoded `"sv_SE"` is replaced by `brand.locale` if provided.)
+ *
+ * Operators see a single warn at boot if the env-fallback path is hit
+ * with no env set, so the gap is visible. Backoffice → "Scaffold
+ * Performance" page surfaces the disabled state.
  */
 
 const SEO_SITE_URL_ENV = "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL";
@@ -60,10 +74,54 @@ function warnOnceAboutMissingSeoSiteUrl(): void {
   });
 }
 
-function buildRobotsFile(siteUrl: string): ScaffoldFile {
-  return {
-    path: "app/robots.ts",
-    content: `import type { MetadataRoute } from "next";
+/**
+ * Options for `applyScaffoldSeoDefaults`, `applySeoToProjectFiles`, and
+ * `getScaffoldSeoDefaultsStatus`.
+ *
+ * - `siteUrl: string` → override env-derived siteUrl for this call.
+ * - `siteUrl: null` → explicit noop (don't inject SEO even if env is set).
+ * - `siteUrl: undefined` (or omitted) → fall back to env (existing behavior).
+ * - `brand` → optional overrides for layout metadata fallbacks.
+ */
+export type SeoOptions = {
+  siteUrl?: string | null;
+  brand?: SeoBrand | null;
+};
+
+type ResolvedSeoSiteUrl =
+  | { siteUrl: string; source: "override" | "env" }
+  | { siteUrl: null; source: "explicit-noop" | "env-missing" };
+
+function resolveSeoSiteUrl(options?: SeoOptions): ResolvedSeoSiteUrl {
+  if (options) {
+    if (options.siteUrl === null) {
+      return { siteUrl: null, source: "explicit-noop" };
+    }
+    if (typeof options.siteUrl === "string" && options.siteUrl.trim().length > 0) {
+      return {
+        siteUrl: options.siteUrl.trim().replace(/\/$/, ""),
+        source: "override",
+      };
+    }
+  }
+  const fromEnv = readSeoSiteUrl();
+  if (fromEnv) return { siteUrl: fromEnv, source: "env" };
+  return { siteUrl: null, source: "env-missing" };
+}
+
+/**
+ * Generic file-shape used both by scaffold manifests
+ * (`{ path, content }`) and by the deploy-pipeline text-file format
+ * (`{ name, content }`). Internal core operates on this shape.
+ */
+type SeoTargetFile = {
+  /** File path / name. */
+  key: string;
+  content: string;
+};
+
+function buildRobotsContent(siteUrl: string): string {
+  return `import type { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -74,14 +132,11 @@ export default function robots(): MetadataRoute.Robots {
     sitemap: "${siteUrl}/sitemap.xml",
   };
 }
-`,
-  };
+`;
 }
 
-function buildSitemapFile(siteUrl: string): ScaffoldFile {
-  return {
-    path: "app/sitemap.ts",
-    content: `import type { MetadataRoute } from "next";
+function buildSitemapContent(siteUrl: string): string {
+  return `import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -93,14 +148,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 }
-`,
-  };
+`;
 }
 
-function buildOpenGraphImageFile(): ScaffoldFile {
-  return {
-    path: "app/opengraph-image.tsx",
-    content: `import { ImageResponse } from "next/og";
+function buildOpenGraphImageContent(): string {
+  return `import { ImageResponse } from "next/og";
 
 export const size = {
   width: 1200,
@@ -135,15 +187,20 @@ export default function OpenGraphImage() {
     },
   );
 }
-`,
-  };
+`;
 }
 
-function ensureSeoScaffoldFile(files: ScaffoldFile[], file: ScaffoldFile): ScaffoldFile[] {
-  if (files.some((entry) => entry.path === file.path)) {
-    return files;
-  }
-  return [...files, file];
+/**
+ * Files added when SEO is active. Keyed by canonical path.
+ * Each entry is built lazily so we never produce the placeholder content
+ * during a noop call.
+ */
+function buildSeoFileMap(siteUrl: string): Map<string, string> {
+  return new Map([
+    ["app/robots.ts", buildRobotsContent(siteUrl)],
+    ["app/sitemap.ts", buildSitemapContent(siteUrl)],
+    ["app/opengraph-image.tsx", buildOpenGraphImageContent()],
+  ]);
 }
 
 function findMetadataObjectRange(layoutContent: string): { start: number; end: number } | null {
@@ -194,7 +251,15 @@ function extractMetadataExpression(
   return rawValue;
 }
 
-function enrichLayoutMetadata(layoutContent: string, siteUrl: string): string {
+function jsonStringSafe(value: string): string {
+  return JSON.stringify(value);
+}
+
+function enrichLayoutMetadata(
+  layoutContent: string,
+  siteUrl: string,
+  brand?: SeoBrand,
+): string {
   const range = findMetadataObjectRange(layoutContent);
   if (!range) return layoutContent;
 
@@ -208,11 +273,25 @@ function enrichLayoutMetadata(layoutContent: string, siteUrl: string): string {
     return layoutContent;
   }
 
-  const titleExpr = extractMetadataExpression(metadataBody, "title", `"Website"`);
+  // Brand-data fills the title/description fallbacks (existing content
+  // wins via `extractMetadataExpression` if it already declares either).
+  // Locale is the exception: brand wins because the scaffold metadata
+  // has no locale field today, so `brand.locale` replaces the previous
+  // hardcoded "sv_SE".
+  const titleFallback = brand?.companyName
+    ? jsonStringSafe(brand.companyName)
+    : `"Website"`;
+  const descriptionSource = brand?.tagline ?? brand?.description;
+  const descriptionFallback = descriptionSource
+    ? jsonStringSafe(descriptionSource)
+    : `"Generated website with Next.js"`;
+  const locale = brand?.locale ?? "sv_SE";
+
+  const titleExpr = extractMetadataExpression(metadataBody, "title", titleFallback);
   const descriptionExpr = extractMetadataExpression(
     metadataBody,
     "description",
-    `"Generated website with Next.js"`,
+    descriptionFallback,
   );
   const enrichedMetadata = `{
   title: ${titleExpr},
@@ -233,7 +312,7 @@ function enrichLayoutMetadata(layoutContent: string, siteUrl: string): string {
         alt: "Website preview image",
       },
     ],
-    locale: "sv_SE",
+    locale: "${locale}",
     type: "website",
   },
   twitter: {
@@ -247,63 +326,217 @@ function enrichLayoutMetadata(layoutContent: string, siteUrl: string): string {
   return `${layoutContent.slice(0, range.start)}${enrichedMetadata}${layoutContent.slice(range.end + 1)}`;
 }
 
+const LAYOUT_PATHS = new Set(["app/layout.tsx", "src/app/layout.tsx"]);
+
 /**
- * Apply scaffold SEO defaults — opt-in via `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL`.
+ * Core SEO injection — operates on a generic file shape so both
+ * scaffold-time and deploy-time callers can reuse it.
  *
- * - Without env var → returns the scaffold UNCHANGED (no SEO files injected,
- *   no layout metadata enrichment). The default-safe path: no `example.com`
- *   placeholder can leak because nothing is injected.
- * - With env var set → injects `app/robots.ts`, `app/sitemap.ts`,
- *   `app/opengraph-image.tsx` (idempotently — only if the scaffold doesn't
- *   already define them) and enriches `app/layout.tsx` (or `src/app/layout.tsx`)
- *   with `metadataBase` / `alternates` / `openGraph` / `twitter`.
+ * Idempotent: existing files at the SEO paths are kept verbatim.
+ * Layout enrichment also short-circuits when the metadata block
+ * already contains `metadataBase`/`alternates`/`openGraph`/`twitter`.
  *
- * Recommended fidelity3 wiring: set the env var in the production / preview
- * deploy where the real domain is known. For dev / fidelity1-2 the env var
- * stays unset and SEO defaults are silent — `Scaffold Performance` page in
- * backoffice surfaces the disabled state.
+ * Returns:
+ *   - `applied: false` and `files === inputFiles` (same reference) when the
+ *     resolver decides we shouldn't inject (env-missing or explicit-noop).
+ *   - `applied: true` and a NEW `files` array when SEO is injected.
+ *     `injected` lists which paths were added; `enriched` lists which
+ *     existing files were modified.
  */
-export function applyScaffoldSeoDefaults(scaffold: ScaffoldManifest): ScaffoldManifest {
-  const siteUrl = readSeoSiteUrl();
-  if (!siteUrl) {
-    warnOnceAboutMissingSeoSiteUrl();
-    return scaffold;
-  }
-
-  let files = [...scaffold.files];
-  files = ensureSeoScaffoldFile(files, buildRobotsFile(siteUrl));
-  files = ensureSeoScaffoldFile(files, buildSitemapFile(siteUrl));
-  files = ensureSeoScaffoldFile(files, buildOpenGraphImageFile());
-
-  // Dual-support intentional: scaffolds always use `app/layout.tsx`, but this
-  // function also runs on merged scaffold + LLM-emitted output where the
-  // user's project may be `src/app/`-rooted. Do NOT collapse to a single
-  // path — see JSDoc on `validateScaffoldManifest` for the policy.
-  files = files.map((file) => {
-    if (file.path !== "app/layout.tsx" && file.path !== "src/app/layout.tsx") {
-      return file;
+function applySeoCore(
+  inputFiles: ReadonlyArray<SeoTargetFile>,
+  options: SeoOptions | undefined,
+): {
+  applied: boolean;
+  files: SeoTargetFile[];
+  source: ResolvedSeoSiteUrl["source"];
+  siteUrl: string | null;
+  injected: string[];
+  enriched: string[];
+} {
+  const resolved = resolveSeoSiteUrl(options);
+  if (resolved.siteUrl === null) {
+    if (resolved.source === "env-missing") {
+      // Only warn in env-fallback path. Caller-driven explicit-noop is a
+      // deliberate choice and shouldn't trigger an operator warning.
+      warnOnceAboutMissingSeoSiteUrl();
     }
     return {
-      ...file,
-      content: enrichLayoutMetadata(file.content, siteUrl),
+      applied: false,
+      files: inputFiles as SeoTargetFile[],
+      source: resolved.source,
+      siteUrl: null,
+      injected: [],
+      enriched: [],
     };
+  }
+
+  const { siteUrl } = resolved;
+  const brand = options?.brand ?? undefined;
+  const seoFiles = buildSeoFileMap(siteUrl);
+  const existingPaths = new Set(inputFiles.map((f) => f.key));
+
+  // Build `enriched` inline with the map so we compare the layout's old
+  // content to its actual new content. The previous implementation
+  // filtered to layout-only afterwards but kept using the filtered idx
+  // to look up `next`, which is indexed against the FULL inputFiles
+  // array — that's only correct when every layout sits at position 0
+  // in the input, and silently mis-attributes "enriched" when a layout
+  // is at any other position (e.g. idempotent re-runs against project
+  // files that have a non-layout file first).
+  const enriched: string[] = [];
+  const next: SeoTargetFile[] = inputFiles.map((file) => {
+    if (LAYOUT_PATHS.has(file.key)) {
+      const newContent = enrichLayoutMetadata(file.content, siteUrl, brand);
+      if (newContent !== file.content) {
+        enriched.push(file.key);
+      }
+      return { key: file.key, content: newContent };
+    }
+    return file;
   });
 
+  const injected: string[] = [];
+  for (const [path, content] of seoFiles) {
+    if (existingPaths.has(path)) continue;
+    next.push({ key: path, content });
+    injected.push(path);
+  }
+
   return {
-    ...scaffold,
-    files,
+    applied: true,
+    files: next,
+    source: resolved.source,
+    siteUrl,
+    injected,
+    enriched,
   };
 }
 
 /**
- * Test/backoffice helper — exposes whether SEO defaults are currently active
- * without leaking the env var directly. Used by the `Scaffold Performance`
- * panel to surface the disabled state.
+ * Apply scaffold SEO defaults.
+ *
+ * See module JSDoc above for the full opt-in policy. In short:
+ *
+ * - `applyScaffoldSeoDefaults(scaffold)` (no options) → env-fallback,
+ *   identical to pre-PR-A behaviour. Used by `registry.ts`.
+ * - `applyScaffoldSeoDefaults(scaffold, { siteUrl })` → override env.
+ * - `applyScaffoldSeoDefaults(scaffold, { siteUrl: null })` → explicit
+ *   noop even if env is set.
+ * - `applyScaffoldSeoDefaults(scaffold, { brand })` → fills layout
+ *   metadata fallbacks with brand fields (existing content still wins
+ *   for title/description; brand wins for locale).
+ *
+ * Pipeline-koppling that calls with project-specific options is now wired
+ * through `applySeoToProjectFiles` in PR-B (deploy-time).
  */
-export function getScaffoldSeoDefaultsStatus(): {
+export function applyScaffoldSeoDefaults(
+  scaffold: ScaffoldManifest,
+  options?: SeoOptions,
+): ScaffoldManifest {
+  const inputFiles: SeoTargetFile[] = scaffold.files.map((f) => ({
+    key: f.path,
+    content: f.content,
+  }));
+  const result = applySeoCore(inputFiles, options);
+  if (!result.applied) {
+    return scaffold;
+  }
+  const files: ScaffoldFile[] = result.files.map((f) => ({
+    path: f.key,
+    content: f.content,
+  }));
+  return { ...scaffold, files };
+}
+
+/**
+ * Project file shape used by deploy pipelines (e.g. the body of
+ * `/api/v0/deployments/route.ts`'s `textFiles`). Keyed by `name` instead
+ * of `path` because that's what the deploy code already passes around.
+ */
+export type ProjectTextFile = {
+  name: string;
+  content: string;
+};
+
+export type ApplySeoToProjectFilesResult = {
+  /** True when SEO was actually applied (override/env path). */
+  applied: boolean;
+  /** New files array. Same reference as input when `applied === false`. */
+  files: ProjectTextFile[];
+  /** Where the resolved siteUrl came from (or why it was skipped). */
+  source: ResolvedSeoSiteUrl["source"];
+  siteUrl: string | null;
+  /** Paths that were newly inserted (e.g. `app/robots.ts`). */
+  injected: string[];
+  /** Paths whose content was rewritten (e.g. `app/layout.tsx`). */
+  enriched: string[];
+};
+
+/**
+ * Deploy-time SEO injector — applies the same policy as
+ * `applyScaffoldSeoDefaults` but on a generic `ProjectTextFile[]` shape so
+ * it can run after `runPreDeployFixPipeline` in `/api/v0/deployments/route.ts`.
+ *
+ * Used by PR-B's "Bygg-dialog → SEO opt-in" flow:
+ *   1. UI lets the user toggle SEO + supply `siteUrl` + `brand`.
+ *   2. Deploy body posts `seo: { siteUrl, brand }` (or omits it).
+ *   3. Route resolves the effective options (body > meta.seo > env).
+ *   4. This function injects/enriches files just before the Vercel call.
+ *
+ * Identical resolution semantics to the scaffold-wrapper:
+ *   - `options.siteUrl: null` → explicit noop, even if env is set.
+ *   - `options` omitted → env-fallback (warns once if env is missing).
+ *
+ * Idempotency: pre-existing `app/robots.ts` etc. are kept verbatim, and
+ * `app/layout.tsx` enrichment short-circuits when full metadata already
+ * exists. Safe to call on already-SEO'd projects.
+ */
+export function applySeoToProjectFiles(
+  files: ReadonlyArray<ProjectTextFile>,
+  options?: SeoOptions,
+): ApplySeoToProjectFilesResult {
+  const inputFiles: SeoTargetFile[] = files.map((f) => ({
+    key: f.name,
+    content: f.content,
+  }));
+  const result = applySeoCore(inputFiles, options);
+  if (!result.applied) {
+    return {
+      applied: false,
+      files: files as ProjectTextFile[],
+      source: result.source,
+      siteUrl: result.siteUrl,
+      injected: [],
+      enriched: [],
+    };
+  }
+  return {
+    applied: true,
+    files: result.files.map((f) => ({ name: f.key, content: f.content })),
+    source: result.source,
+    siteUrl: result.siteUrl,
+    injected: result.injected,
+    enriched: result.enriched,
+  };
+}
+
+/**
+ * Test/backoffice helper — exposes whether SEO defaults would be active
+ * for a given options shape (or for the env-fallback path when no options
+ * are provided). Used by the `Scaffold Performance` panel to surface the
+ * disabled state, and by tests/UI to preview whether opt-in would inject
+ * SEO without actually running it.
+ */
+export function getScaffoldSeoDefaultsStatus(options?: SeoOptions): {
   enabled: boolean;
   siteUrl: string | null;
+  source: ResolvedSeoSiteUrl["source"];
 } {
-  const siteUrl = readSeoSiteUrl();
-  return { enabled: siteUrl !== null, siteUrl };
+  const resolved = resolveSeoSiteUrl(options);
+  return {
+    enabled: resolved.siteUrl !== null,
+    siteUrl: resolved.siteUrl,
+    source: resolved.source,
+  };
 }

@@ -6,11 +6,9 @@
  *  1. **Design preview lane** (`DESIGN_PREVIEW_QUALITY_GATE_CHECKS`):
  *     Runs on preview-host right after F2 generation via the client's
  *     `runTier2VerifyLane` in `post-checks.ts`. Also used by background
- *     `triggerServerVerification` after finalize. Since 2026-04-20:
- *     `typecheck + build` (was just `typecheck`). The added `build`
- *     catches Next-runtime errors *before* the preview iframe renders,
- *     avoiding "blank HTML"-incidents at the cost of ~5-20s per finalize
- *     and a small Fly-CPU bump. Audit `01-buggar.md` §1.5 / Tier S #7.
+ *     `triggerServerVerification` after finalize. Since 2026-04-23:
+ *     `typecheck` only in F2 (`designPreview`). `build` is reserved for
+ *     F3 (`integrationsBuild`) where integrations must pass full build/lint.
  *
  *  2. **Integrations build lane** (`INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS`):
  *     Used for F3 ("bygg integrationer") and deploy-promotion paths.

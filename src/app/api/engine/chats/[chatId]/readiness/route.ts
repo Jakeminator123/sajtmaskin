@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRateLimit } from "@/lib/rateLimit";
 import {
   failVersionVerification,
   getLatestVersion,
@@ -398,6 +399,10 @@ async function buildEngineReadiness(
 }
 
 export async function GET(request: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  return withRateLimit(request, "engine:readiness", () => handleGET(request, ctx));
+}
+
+async function handleGET(request: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
     const { searchParams } = new URL(request.url);

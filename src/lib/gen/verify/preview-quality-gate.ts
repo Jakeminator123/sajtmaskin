@@ -1,9 +1,10 @@
 /**
  * Shared quality gate executed through preview-host's isolated verify lane.
- * Default F2 design-preview gate: install + typecheck + build (since
- * 2026-04-20 — added `build` to catch Next-runtime errors before the
- * preview iframe renders). Lint and other checks are available via
- * explicit `checks` override.
+ * Default F2 design-preview gate: typecheck only (since 2026-04-23).
+ * `build` is reserved for F3 (`integrationsBuild`).
+ * Manifest `config/ai_models/manifest.json` (`qualityGateTiers`) is the
+ * source of truth. Lint and other checks are available via explicit
+ * `checks` override.
  */
 import type { CodeFile } from "@/lib/gen/parser";
 import {

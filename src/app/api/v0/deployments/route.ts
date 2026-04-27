@@ -35,6 +35,13 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
+import { getProjectData } from "@/lib/db/services/projects";
+import {
+  readSeoPreferencesFromMeta,
+  seoPreferencesSchema,
+} from "@/lib/projects/preferences-schema";
+import { resolveDeploySeoOptions } from "./resolve-seo";
+import { applySeoToProjectFiles } from "@/lib/gen/scaffolds/seo-defaults";
 
 export const runtime = "nodejs";
 
@@ -359,6 +366,18 @@ const createDeploymentSchema = z.object({
   precheckOnly: z.boolean().optional(),
   /** Felsökning: hoppa över applyPreDeployFixes; env-krav beräknas på rå snapshot. */
   skipAutoFix: z.boolean().optional(),
+  /**
+   * SEO opt-in for this deploy (PR-B / "Bygg-dialog → SEO-paket").
+   * Body-override wins over `project_data.meta.seo`. Same validation as
+   * `PATCH /api/projects/[id]/preferences` (https-URL, locale-format,
+   * `optIn=true` requires siteUrl).
+   *
+   * Omitting `seo` falls back to persisted `meta.seo` from the project.
+   * If neither body nor meta opts in, the deploy uses the env-fallback
+   * (`SAJTMASKIN_SCAFFOLD_SEO_SITE_URL`) — which is unset by default,
+   * so deploy files are identical to today.
+   */
+  seo: seoPreferencesSchema.optional(),
 });
 
 export async function POST(req: Request) {
@@ -385,6 +404,7 @@ export async function POST(req: Request) {
         projectId,
         precheckOnly,
         skipAutoFix,
+        seo: bodySeo,
       } = validationResult.data;
       const skipPreDeployAutoFix = shouldSkipPreDeployAutoFix(skipAutoFix);
       const resolvedImageStrategy: ImageAssetStrategy =
@@ -453,6 +473,17 @@ export async function POST(req: Request) {
       const textFiles = codeFiles.map((f) => ({ name: f.path, content: f.content }));
 
       const projectEnv = await resolveProjectEnv(engineProjectId ?? null);
+
+      // Read persisted SEO preferences from `project_data.meta.seo`. Body
+      // override (parsed above as `bodySeo`) wins over persisted; both fall
+      // back to the env-flag in the SEO core helper. Guarded so that a
+      // missing project_data row doesn't fail the deploy.
+      const persistedProjectData = await getProjectData(engineProjectId).catch(() => null);
+      const persistedSeo = readSeoPreferencesFromMeta(
+        (persistedProjectData?.meta as Record<string, unknown> | null | undefined) ?? null,
+      );
+      const resolvedSeoOptions = resolveDeploySeoOptions(bodySeo, persistedSeo);
+
       const { files: fixedFiles, fixesApplied, warnings, invalidFiles } = runPreDeployFixPipeline(
         textFiles,
         skipPreDeployAutoFix,
@@ -543,9 +574,39 @@ export async function POST(req: Request) {
           deployReadiness,
         });
 
+        // PR-B: apply project-specific SEO (robots/sitemap/opengraph +
+        // layout metadata) when the user opted in via Bygg-dialog or
+        // persisted preferences. Runs after pre-deploy auto-fix so SEO
+        // files participate in image-asset materialization below, but
+        // before the Vercel call so the deploy gets the enriched files.
+        // No-op when `resolvedSeoOptions` is null → deploy-files identical
+        // to today.
+        const seoApplyResult = resolvedSeoOptions
+          ? applySeoToProjectFiles(fixedFiles, resolvedSeoOptions)
+          : { applied: false as const, files: fixedFiles, source: "explicit-noop" as const, siteUrl: null, injected: [] as string[], enriched: [] as string[] };
+        if (seoApplyResult.applied) {
+          console.info("[deploy] SEO injected", {
+            siteUrl: seoApplyResult.siteUrl,
+            source: seoApplyResult.source,
+            injected: seoApplyResult.injected,
+            enriched: seoApplyResult.enriched,
+          });
+          devLogAppend("latest", {
+            type: "site.deploy.seo-applied",
+            chatId,
+            versionId,
+            deploymentId,
+            siteUrl: seoApplyResult.siteUrl,
+            source: seoApplyResult.source,
+            injected: seoApplyResult.injected,
+            enriched: seoApplyResult.enriched,
+          });
+        }
+        const filesForDeploy = seoApplyResult.applied ? seoApplyResult.files : fixedFiles;
+
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
         const imageAssets = await materializeImagesInTextFiles({
-            files: fixedFiles,
+            files: filesForDeploy,
             strategy: resolvedImageStrategy,
             blobToken,
           namespace: { chatId, versionId },
@@ -620,6 +681,15 @@ export async function POST(req: Request) {
             imageStrategyUsed: imageAssets.strategyUsed,
           imageAssetsSummary: imageAssets.summary,
           imageAssetsWarnings: imageAssets.warnings,
+          seo: seoApplyResult.applied
+            ? {
+                applied: true,
+                siteUrl: seoApplyResult.siteUrl,
+                source: seoApplyResult.source,
+                injected: seoApplyResult.injected,
+                enriched: seoApplyResult.enriched,
+              }
+            : { applied: false },
         });
       } catch (deployErr) {
         await updateDeploymentStatus(deploymentId, "error");
@@ -642,88 +712,90 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const chatId = searchParams.get("chatId");
+  return withRateLimit(req, "v0:deployments-list", async () => {
+    try {
+      const { searchParams } = new URL(req.url);
+      const chatId = searchParams.get("chatId");
 
-    if (!chatId) {
-      return NextResponse.json({ error: "chatId query parameter is required" }, { status: 400 });
-    }
-
-    let chat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!chat) chat = await getChatByIdForRequest(req, chatId);
-
-    if (!chat) {
-      return NextResponse.json({ deployments: [] });
-    }
-
-    const internalChatId = chat.id;
-
-    const result = await db
-      .select()
-      .from(deployments)
-      .where(eq(deployments.chatId, internalChatId))
-      .orderBy(desc(deployments.createdAt));
-    const refreshedById = new Map<
-      string,
-      {
-        status: ReturnType<typeof mapVercelReadyStateToStatus>["status"];
-        url: string | null;
-        inspectorUrl: string | null;
-        vercelProjectId: string | null;
+      if (!chatId) {
+        return NextResponse.json({ error: "chatId query parameter is required" }, { status: 400 });
       }
-    >();
 
-    const latestRefreshCandidate = result.find((d) => {
-      const status = String(d.status || "pending");
-      const isTerminal = status === "ready" || status === "error" || status === "cancelled";
-      return Boolean(d.vercelDeploymentId) && !isTerminal;
-    });
+      let chat = await getChatByV0ChatIdForRequest(req, chatId);
+      if (!chat) chat = await getChatByIdForRequest(req, chatId);
 
-    if (latestRefreshCandidate?.vercelDeploymentId) {
-      try {
-        const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
-        const mapped = mapVercelReadyStateToStatus(vercel.readyState);
-
-        await updateDeploymentStatus(latestRefreshCandidate.id, mapped.status, {
-          url: vercel.url ?? undefined,
-          inspectorUrl: vercel.inspectorUrl ?? undefined,
-          vercelProjectId: vercel.vercelProjectId ?? undefined,
-        });
-
-        refreshedById.set(latestRefreshCandidate.id, {
-          status: mapped.status,
-          url: vercel.url ?? latestRefreshCandidate.url ?? null,
-          inspectorUrl: vercel.inspectorUrl ?? latestRefreshCandidate.inspectorUrl ?? null,
-          vercelProjectId: vercel.vercelProjectId ?? latestRefreshCandidate.vercelProjectId ?? null,
-        });
-      } catch (err) {
-        console.error("Failed to refresh latest deployment in list:", err);
+      if (!chat) {
+        return NextResponse.json({ deployments: [] });
       }
-    }
 
-    return NextResponse.json({
-      deployments: result.map((d) => {
-        const refreshed = refreshedById.get(d.id);
-        return {
-          id: d.id,
-          chatId: d.chatId,
-          versionId: d.versionId,
-          status: refreshed?.status ?? d.status,
-          url: refreshed?.url ?? d.url,
-          inspectorUrl: refreshed?.inspectorUrl ?? d.inspectorUrl,
-          vercelDeploymentId: d.vercelDeploymentId,
-          vercelProjectId: refreshed?.vercelProjectId ?? d.vercelProjectId,
-          createdAt: d.createdAt,
-          updatedAt: d.updatedAt,
-        };
-      }),
-    });
-  } catch (err) {
-    console.error("Get deployments error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
+      const internalChatId = chat.id;
+
+      const result = await db
+        .select()
+        .from(deployments)
+        .where(eq(deployments.chatId, internalChatId))
+        .orderBy(desc(deployments.createdAt));
+      const refreshedById = new Map<
+        string,
+        {
+          status: ReturnType<typeof mapVercelReadyStateToStatus>["status"];
+          url: string | null;
+          inspectorUrl: string | null;
+          vercelProjectId: string | null;
+        }
+      >();
+
+      const latestRefreshCandidate = result.find((d) => {
+        const status = String(d.status || "pending");
+        const isTerminal = status === "ready" || status === "error" || status === "cancelled";
+        return Boolean(d.vercelDeploymentId) && !isTerminal;
+      });
+
+      if (latestRefreshCandidate?.vercelDeploymentId) {
+        try {
+          const vercel = await getVercelDeployment(latestRefreshCandidate.vercelDeploymentId);
+          const mapped = mapVercelReadyStateToStatus(vercel.readyState);
+
+          await updateDeploymentStatus(latestRefreshCandidate.id, mapped.status, {
+            url: vercel.url ?? undefined,
+            inspectorUrl: vercel.inspectorUrl ?? undefined,
+            vercelProjectId: vercel.vercelProjectId ?? undefined,
+          });
+
+          refreshedById.set(latestRefreshCandidate.id, {
+            status: mapped.status,
+            url: vercel.url ?? latestRefreshCandidate.url ?? null,
+            inspectorUrl: vercel.inspectorUrl ?? latestRefreshCandidate.inspectorUrl ?? null,
+            vercelProjectId: vercel.vercelProjectId ?? latestRefreshCandidate.vercelProjectId ?? null,
+          });
+        } catch (err) {
+          console.error("Failed to refresh latest deployment in list:", err);
+        }
+      }
+
+      return NextResponse.json({
+        deployments: result.map((d) => {
+          const refreshed = refreshedById.get(d.id);
+          return {
+            id: d.id,
+            chatId: d.chatId,
+            versionId: d.versionId,
+            status: refreshed?.status ?? d.status,
+            url: refreshed?.url ?? d.url,
+            inspectorUrl: refreshed?.inspectorUrl ?? d.inspectorUrl,
+            vercelDeploymentId: d.vercelDeploymentId,
+            vercelProjectId: refreshed?.vercelProjectId ?? d.vercelProjectId,
+            createdAt: d.createdAt,
+            updatedAt: d.updatedAt,
+          };
+        }),
+      });
+    } catch (err) {
+      console.error("Get deployments error:", err);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
+      );
+    }
+  });
 }

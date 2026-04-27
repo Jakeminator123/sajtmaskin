@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
+import { SeoOptInPanel, type SeoFormValue } from "./SeoOptInPanel";
 
 type DeployNameDialogProps = {
   open: boolean;
@@ -17,9 +19,29 @@ type DeployNameDialogProps = {
   deployNameError: string | null;
   isDeploying: boolean;
   isSaving: boolean;
+  /**
+   * Project id used by the SEO panel to read/seed persisted preferences.
+   * Optional — if absent the SEO panel still renders but won't preload
+   * a persisted value.
+   */
+  projectId?: string | null;
   onDeployNameChange: (value: string) => void;
   onCancel: () => void;
-  onConfirm: () => void;
+  /**
+   * Called with the form values when the user clicks Publicera.
+   *
+   * `seo` is the (optional) SEO preferences for this single deploy.
+   * It's only set when the user actually interacted with the SEO
+   * panel; if they left it untouched, `seo` is `undefined` and the
+   * server falls back to persisted `project_data.meta.seo`. This
+   * avoids a race where a fast Publicera-click before the panel's
+   * persisted-fetch returns would overwrite a saved opt-in with the
+   * default (false) state.
+   *
+   * The deploy handler is responsible for persisting `seo` (when
+   * present) before triggering the deploy.
+   */
+  onConfirm: (payload: { seo?: SeoFormValue }) => void;
 };
 
 export function DeployNameDialog({
@@ -28,11 +50,35 @@ export function DeployNameDialog({
   deployNameError,
   isDeploying,
   isSaving,
+  projectId,
   onDeployNameChange,
   onCancel,
   onConfirm,
 }: DeployNameDialogProps) {
   const disabled = isDeploying || isSaving;
+
+  const [seoValue, setSeoValue] = useState<SeoFormValue>({
+    optIn: false,
+    siteUrl: "",
+  });
+  const [seoValid, setSeoValid] = useState<boolean>(true);
+  // Track whether the user actually interacted with the SEO panel.
+  // Stays false during fetch-seed of persisted preferences. Only
+  // included in the deploy payload when true.
+  const [seoDirty, setSeoDirty] = useState<boolean>(false);
+
+  // Reset form on (re)open so previous attempt doesn't leak across
+  // sessions. The panel will re-seed from persisted preferences on
+  // next mount.
+  useEffect(() => {
+    if (open) {
+      setSeoValue({ optIn: false, siteUrl: "" });
+      setSeoValid(true);
+      setSeoDirty(false);
+    }
+  }, [open]);
+
+  const canConfirm = !disabled && seoValid;
 
   return (
     <Dialog open={open} onOpenChange={(open) => { if (!open) onCancel(); }}>
@@ -58,11 +104,31 @@ export function DeployNameDialog({
             {deployNameError && <div className="text-xs text-destructive">{deployNameError}</div>}
             <p className="text-[11px] text-muted-foreground/60">Det här blir adressen folk skriver in för att besöka din sajt.</p>
           </div>
+          <SeoOptInPanel
+            projectId={projectId ?? null}
+            value={seoValue}
+            onChange={setSeoValue}
+            onValidityChange={setSeoValid}
+            onDirtyChange={setSeoDirty}
+            disabled={disabled}
+          />
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 space-y-1">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Kostnad:</span> 20 credits för publicering
+            </p>
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Hosting:</span> 10 credits/månad för att hålla sajten live
+            </p>
+          </div>
           <div className="flex items-center justify-end gap-2">
             <Button variant="outline" size="sm" onClick={onCancel} disabled={disabled}>
               Avbryt
             </Button>
-            <Button size="sm" onClick={onConfirm} disabled={disabled}>
+            <Button
+              size="sm"
+              onClick={() => onConfirm({ seo: seoDirty ? seoValue : undefined })}
+              disabled={!canConfirm}
+            >
               {isSaving || isDeploying ? (
                 <>
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

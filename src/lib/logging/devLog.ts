@@ -55,6 +55,10 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "scaffold-retry.suggested",
   "site.done",
   "site.message.done",
+  "site.aborted",
+  "llm_fixer_aborted",
+  "dossier_verbatim_restored",
+  "llm_fixer_partial_response",
   "comm.error.create",
 ]);
 
@@ -311,6 +315,16 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
         if (p) details.push(`preview=${truncateInline(p, 70)}`);
       }
       if (readBoolean(entry, "awaitingInput") !== null) details.push(`awaitingInput=${readBoolean(entry, "awaitingInput")}`);
+      break;
+    case "site.aborted":
+      // P0 stream-abort recovery (2026-04-26). Surface enough to read a stuck
+      // chat at a glance without opening the timeline. `reason` is the
+      // strict-schema enum from docs/schemas/strict/site-aborted.schema.json;
+      // `kind` mirrors generationKind so we can tell init aborts from
+      // follow-up aborts in console scrollback.
+      if (readString(entry, "reason")) details.push(`reason=${readString(entry, "reason")}`);
+      if (readString(entry, "kind")) details.push(`kind=${readString(entry, "kind")}`);
+      if (readNumber(entry, "elapsedMs") !== null) details.push(`elapsedMs=${readNumber(entry, "elapsedMs")}`);
       break;
     default:
       break;

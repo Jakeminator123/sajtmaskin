@@ -7,7 +7,8 @@ Core Rules never vary per request. They define stack, output format, component c
 ## What is **not** here
 
 ### Per-request signal lives in `buildDynamicContext()` (TypeScript)
-The app assembles request-specific context in `buildDynamicContext()` in `src/lib/gen/system-prompt.ts`:
+The app assembles request-specific context in `buildDynamicContext()` in `src/lib/gen/system-prompt/build-dynamic-context.ts`
+(after the Omtag 2026-04-23 the legacy single-file `system-prompt.ts` was split into a `system-prompt/` package — sections live under `system-prompt/sections/*.ts`):
 
 - Custom instructions from the builder UI
 - Build intent rules (template / website / app)

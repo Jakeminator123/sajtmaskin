@@ -216,5 +216,5 @@ Borttaget (2026-04-20): Dossier-pipeline v1 (auto-curate, embeddings, scaffold-r
 | Brief-LLM deklarerar capability som inte har en dossier | `selectDossiersForRequest` skippar tyst — capability bara hoppas över, inte krasch |
 | Hard-dossier saknar env-vars i preview | Markeras `configured: false` → system-prompt instruerar codegen-LLM att rendera placeholder-UI istället för krasch |
 | Två dossiers delar samma capability | `defaultForCapability=true` vinner. Annars id-sort (deterministic). Redaktion fångar duplicering via `capability-map.json` |
-| Dossier-filer krockar med scaffold-filer (samma path) | `system-prompt.ts`-rad 827-841: `SCAFFOLD_RESERVED_PATHS` skippar dossier-verbatim på `app/layout.tsx`, `package.json`, etc. + loggar varning |
+| Dossier-filer krockar med scaffold-filer (samma path) | `src/lib/gen/system-prompt/sections/dossiers.ts` (ca rad 19 och 123): `SCAFFOLD_RESERVED_PATHS` skippar dossier-verbatim på `app/layout.tsx`, `package.json`, etc. + loggar varning |
 | Lägga till en ny capability utan att uppdatera brief-LLM-prompten | Brief-LLM:n returnerar då aldrig kapabiliteten → dossiern injiceras aldrig. Backoffice "Capability map"-tab visar verifierbart vilka capabilities som finns |

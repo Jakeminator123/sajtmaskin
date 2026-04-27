@@ -1,5 +1,11 @@
 # Öppna trådar — scaffolds + SEO + telemetri (2026-04-24)
 
+**Status 2026-04-26 (sen):** ✅ SEO-spåret är klart. PR #102 (docs/plan)
++ PR #103 (PR-A backend) + PR #105 (PR-B UI + deploy-time injection)
+mergade. Master `854bb9a31`. Kvar parkerat: brand-fields UI v2 +
+live-smoke polish — se `SEO-F3-PROMOTION-NEXT-PR.md` "Kvarvarande
+arbete". Övriga trådar (2–7) status oförändrad.
+
 Saker som flera agentvågor av buggrapporter (SAJ-34 → SAJ-59) genererade
 men där fixen kräver antingen produktbeslut, en bredare arbetsspår-design,
 eller väntar på data. Punkter sorterade efter typ av blockad.
@@ -18,7 +24,7 @@ eller bocka av i en commit.
 
 | # | Tråd | Linear | Blockad |
 |---|------|--------|---------|
-| 1 | SEO-defaults vid fidelity3-promotion | (ny — ej i Linear än) | 🟥 |
+| 1 | SEO-defaults vid fidelity3-promotion | (ny — ej i Linear än) | ✅ KLAR — PR #102 (docs) + #103 (PR-A) + #105 (PR-B). Kvar parkerat: brand-UI v2 + live-smoke polish. |
 | 2 | scaffold-retry saknar brief-context | SAJ-37, SAJ-42 | 🟧 |
 | 3 | matcher kwNorm vs matchScaffold ojämn underlag | SAJ-44 | 🟥 |
 | 4 | scaffold-scoring wire/keep/delete | SAJ-55 | 🟨 (data) |
@@ -28,7 +34,29 @@ eller bocka av i en commit.
 
 ---
 
-## 1. 🟥 SEO-defaults vid fidelity3-promotion (huvudfråga)
+## 1. ✅ SEO-defaults vid fidelity3-promotion (huvudfråga) — LEVERERAD
+
+**Status 2026-04-26:** Klar.
+
+- **PR #102** (docs/plan) — env-policy, OPEN-THREADS sektion 1,
+  `SEO-F3-PROMOTION-NEXT-PR.md`.
+- **PR #103** (PR-A backend) — `seoPreferencesSchema`,
+  `applyScaffoldSeoDefaults({ siteUrl, brand })`, `applySeoToProjectFiles`-
+  extraktion, GET/PATCH `/api/projects/[id]/preferences` med `seo`-fält,
+  persistens i `project_data.meta.seo`.
+- **PR #105** (PR-B UI + pipeline) — `SeoOptInPanel` i Bygg-dialogen,
+  `useBuilderDeployActions` plumbar `seo` i deploy-body, deploy-time
+  SEO-injection i `/api/v0/deployments` med precedence body > meta > env.
+  Inkluderar 3 fixar (siteUrl=null explicit-noop, enriched-list-index,
+  persist-fetch race) och totalt 72 gröna SEO-tester på master
+  (`854bb9a31`).
+
+**Kvar parkerat (inte aktivt arbete):** brand-fields UI v2 + live-smoke
+polish — se `SEO-F3-PROMOTION-NEXT-PR.md` sektionen "Kvarvarande
+arbete".
+
+**Historik nedan bevarad** för framtida referens om varför designen blev
+som den blev.
 
 ### Nuvarande läge (efter commit `ca0ed498f` + `7f07bee86`)
 
@@ -96,29 +124,110 @@ mutation av filerna, inte en del av initial generation.
   har idempotens-check (`ensureSeoScaffoldFile` skippar om filen finns) —
   fungerar det vid post-merge?
 
-### Min rekommenderade approach (för dialog)
+### Beslutad approach (2026-04-25)
 
-**Single-tenant först (status quo):** behåll nuvarande env-flagga som
-default. Det fungerar för 80%-fallet (en domän per produktion).
+**Bygg / Fidelity 3-promotion = aktiveringspunkten för SEO.** SEO ska
+ALDRIG injectas i Fidelity 1/2 / design-preview — bara när användaren
+aktivt promotear till produktion.
 
-**Multi-tenant senare (om/när det blir verkligt):** introducera en
-`applyProjectSpecificSeoDefaults(scaffold, { siteUrl, brandName })`-helper
-som tar URL per anrop. Den kan köras i en separat fidelity3-pipeline-step
-efter `finalize-version` när vi vet projektets domän. Den nuvarande
-`applyScaffoldSeoDefaults` blir då en thin wrapper för "global env-fallback".
+**Den nuvarande env-flaggan `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL` kvarstår
+som global/per-process fallback** för single-tenant Vercel-deploys
+(t.ex. om man kör en dedikerad Vercel-instans per kund). Den är
+DOKUMENTERAD i `docs/ENV.md` + `config/env-policy.json` (klart
+2026-04-25). Den ska INTE sättas i dev / F1 / F2.
 
-**Företagsprofil-data:** användarens `brief` har troligen `companyName`,
-`tagline` etc. Vi kan utöka SEO-injektering att använda dessa i `title`,
-`description`, `openGraph` och i `OpenGraphImage`-renderingen. Det är en
-separat förbättring som passar in när vi gör multi-tenant-pivoten.
+**Per-projekt/per-generation siteUrl byggs som nästa steg:** flow
+beskrivet under "Bygg-dialog UX" nedan. Specifik PR-spec i separat fil:
+`docs/plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md`.
 
-### Konkreta nästa steg
+### Bygg-dialog UX (planerad — ej implementerad än)
 
-1. **Beslut A–D ovan** — produktdialog.
-2. **Om single-tenant räcker just nu:** dokumentera env-variabeln i
-   `docs/ENV.md` + `config/env-policy.json` med exempel.
-3. **Om multi-tenant:** skapa Linear-issue "SEO@fidelity3 multi-tenant pipe"
-   med design-spec.
+När användaren klickar **Bygg** (`onDeployProduction` → `handleOpenDeployDialog`
+i `useBuilderDeployActions.ts`) ska `DeployNameDialog` utökas med:
+
+```
+[ Deploy-namn-input — befintlig ]
+
+▸ SEO-paket (valfritt)
+  ☐ Inkludera robots, sitemap, Open Graph och metadata
+
+  Om PÅ:
+  Domän:    [_________________________]
+            (förvalt: egen domän om kopplad,
+             annars Sajtmaskin-subdomän,
+             annars manuellt)
+
+  Brand-data (auto-fyllt från brief, redigerbart):
+  Företagsnamn:  [_____________]
+  Tagline:       [_____________]
+  Beskrivning:   [_____________]
+  Locale:        [sv_SE / en_US / …]
+
+[Avbryt]  [Bygg]
+```
+
+**Beteende:**
+
+- **Default OFF** — användaren måste aktivt välja in. Eliminerar
+  oavsiktlig leak av Sajtmaskin-subdomän som canonical URL i sökmotorer.
+- **Domän-auto-fyll-prioritet:**
+  1. Egen domän om `domains`-tabellen har en `verified=true`-rad för
+     projektet → använd den.
+  2. Annars: Sajtmaskin-subdomän (`<projektnamn>.sajtmaskin.app`) → varna
+     att SEO då pekar mot subdomänen och måste uppdateras vid kopplad
+     domän.
+  3. Annars: tom input — användaren måste fylla i för att kunna fortsätta
+     med SEO PÅ.
+- **Brand-data hämtas från `chat.meta.brief.companyName/tagline/description`
+  + `brief.locale`** om tillgängligt. Användaren kan editera och spara.
+- **Persisteras i `project_data.meta`** (jsonb, ingen DB-migration):
+  ```json
+  {
+    "seo": {
+      "optIn": true,
+      "siteUrl": "https://kundens-domän.se",
+      "brand": {
+        "companyName": "Kunden AB",
+        "tagline": "Sveriges bästa exempel",
+        "description": "...",
+        "locale": "sv_SE"
+      },
+      "lastSetAt": "2026-04-25T..."
+    }
+  }
+  ```
+
+### Vad händer om domän saknas
+
+- **SEO PÅ + tom siteUrl-input** → Bygg-knappen disabled tills användaren
+  fyller i, ELLER togglar SEO av.
+- **SEO PÅ + Sajtmaskin-subdomän vald** → bygget går igenom, men UI
+  visar gul varning: "SEO pekar mot Sajtmaskin-subdomänen. Uppdatera vid
+  kopplad domän." En framtida `DomainManager`-koppling kan automatiskt
+  trigga `seo.siteUrl`-uppdatering.
+- **SEO AV** → ingen siteUrl behövs. Pipen kör `applyScaffoldSeoDefaults`
+  utan override → faller tillbaka till env-flaggan → om env också unset
+  → noop. Inga SEO-filer.
+
+### Vad händer om användaren senare kopplar egen domän
+
+**Två scenarier:**
+
+1. **SEO redan injicerat med Sajtmaskin-subdomän:** filerna ligger nu
+   i deployen med fel canonical URL. Lösning: när en domän verifieras
+   via `DomainManager`, fråga användaren "Vill du uppdatera SEO-paketet
+   till nya domänen?" → om ja, kör en re-generation eller post-deploy
+   patch (utanför scope för denna PR).
+2. **SEO inte injicerat:** trivialt — vid nästa Bygg, är egen domän nu
+   default i input.
+
+Båda scenarierna täcks INTE av denna första PR. De är uppföljnings-PRs
+när Bygg-flödet är på plats och vi kan se faktiska användarmönster.
+
+### Konkret implementations-spec
+
+Se `docs/plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md` för exakt vilka filer
+som ändras, API-fält, acceptanskriterier och tester.
 
 ---
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   renderRequiredImportsChecklistBlock,
+  renderLucideIconsReminderBlock,
   __testing,
 } from "./required-imports-checklist";
 import type { RoutePlan } from "../../route-plan";
@@ -118,5 +119,21 @@ describe("renderRequiredImportsChecklistBlock", () => {
     for (const baseline of __testing.BASELINE_GROUPS) {
       expect(groups).toContain(baseline);
     }
+  });
+});
+
+describe("renderLucideIconsReminderBlock", () => {
+  it("renders grouped icon reminders and the critical import note", () => {
+    const block = renderLucideIconsReminderBlock();
+    const joined = block.join("\n");
+    expect(block[0]).toBe("### Lucide icons commonly needed");
+    expect(joined).toContain("- UI controls: Plus, Minus, X, Check");
+    expect(joined).toContain("- Navigation: Menu, ArrowRight, ArrowLeft");
+    expect(joined).toContain(
+      'CRITICAL: Each icon used in JSX MUST be imported from "lucide-react".',
+    );
+    expect(joined).toContain(
+      'Example: import { Menu, X, ArrowRight, Sparkles } from "lucide-react";',
+    );
   });
 });

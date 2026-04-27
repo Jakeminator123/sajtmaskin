@@ -114,7 +114,7 @@ const RULES: CapabilityRule[] = [
       // so `\båker\b` would never match inside "som åker omkring" (the leading
       // `å` is not an ASCII word char). Mirrors the boundary trick used for
       // ecommerce/hospitality vetoes in `inferCapabilities` below.
-      /(?:^|[^\p{L}\p{N}])(?:åker omkring|svävar|flyger|drivs av gravity|bouncing|kolliderar|fysik|gravitation)(?=[^\p{L}\p{N}]|$)/iu,
+      /(?:^|[^\p{L}\p{N}])(?:åker omkring|svävar|flyger|drivs av gravity|bouncing|kolliderar|fysik|gravitation|flying|flies|floats|floating|hovers|hovering|levitate|levitates|levitating)(?=[^\p{L}\p{N}]|$)/iu,
     ],
   },
   {

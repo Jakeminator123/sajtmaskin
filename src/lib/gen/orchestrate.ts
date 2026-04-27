@@ -89,6 +89,12 @@ export {
 
 export interface OrchestrationInput {
   prompt: string;
+  /**
+   * User's original message before any wrapping/optimization. Used downstream
+   * by `inferScaffoldRetrySuggestion` to avoid P26-poisoning where wrapped
+   * prompts confuse scaffold-suggestion regex.
+   */
+  rawPrompt?: string;
   /** Optional prompt used specifically for route-planning inference (defaults to `prompt`). */
   routePlanPrompt?: string;
   /** Optional prompt used for BuildSpec classification (defaults to `prompt`). */
@@ -681,6 +687,19 @@ export async function resolveOrchestrationBase(
         inferredCapabilityIds.push("parallax-scroll", "parallax-pointer");
       }
       if (capabilities.needsPayments) inferredCapabilityIds.push("payments");
+      // Audit D 2026-04-27: capability-inference RULES detect 18 cap-keys but
+      // only 3 had a dossier bridge. The 3 below have a 1:1 dossier-capability
+      // match in `data/dossiers/_index/capability-map.json`, so adding a
+      // bridge is safe — `selectDossiersForRequest` deduplicates against
+      // brief + caller-provided ids and picks at most one dossier per
+      // capability. Wider cap-keys without 1:1 dossiers (needsForms,
+      // needsCharts, needsDatabase, needsAppShell, needsEcommerce,
+      // needsPremiumVisuals, needsCalendar, needsThemeToggle, needsDataUI,
+      // needsMotion) are intentionally not bridged here — those map to
+      // scaffold/system-prompt concerns, not single dossiers.
+      if (capabilities.needsAuth) inferredCapabilityIds.push("auth");
+      if (capabilities.needsCarousel) inferredCapabilityIds.push("carousel");
+      if (capabilities.needsCommandSearch) inferredCapabilityIds.push("command-search");
       const briefCapsRaw = (brief as { requestedCapabilities?: unknown } | null | undefined)
         ?.requestedCapabilities;
       const briefCapsArray = Array.isArray(briefCapsRaw)

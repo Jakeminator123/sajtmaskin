@@ -27,8 +27,8 @@ read_only_files:
 I dag finns fyra LLM-anrop som alla går till samma `phaseRouting.fixer`-modell men anropar `runLlmFixer` separat:
 
 1. **Syntax-fixer-loop** (`validate-and-fix.ts`) — esbuild-fel + warm-tsc-fel matas in, upp till `syntaxFixPasses` (3–4) gånger.
-2. **Verifier-blocking-fixer** (`verifier-pass.ts` → `runLlmFixer` direkt efter pass).
-3. **Partial-file-repair** (`finalize-version.ts` — om preflight hittar avhuggna filer).
+2. **Verifier-blocking-fixer** (`verifier-phase.ts` → repair-gate direkt efter pass).
+3. **Partial-file-repair** (`finalize-version/` — om preflight hittar avhuggna filer).
 4. **Server-repair-loop** (`repair-loop.ts` — manuell + bakgrunds-server-verify, upp till 4 anrop).
 
 Varje anrop bygger sin egen prompt, har sin egen reasoning-fas (5–15 sek), sin egen output-stream. **I värsta fall: 4–11 fixer-anrop per generering**, alla mot samma modell, ofta med överlappande input.

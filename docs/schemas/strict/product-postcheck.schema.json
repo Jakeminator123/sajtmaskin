@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "product-postcheck.schema.json",
+  "title": "F2 Product Postcheck",
+  "description": "Subset-kontrakt för product_postcheck.* logs. Product Postcheck kör DOM-/iframe-nära F2-kontroller (anchors, bilder, CTA, mobilmeny, formulär) bakom feature flag. Det är warnings/status, inte F3 build/lint/typecheck.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["level", "category", "message"],
+  "properties": {
+    "level": {
+      "type": "string",
+      "enum": ["info", "warning", "error"]
+    },
+    "category": {
+      "type": "string",
+      "pattern": "^product_postcheck\\."
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "meta": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "warningCount": { "type": "integer", "minimum": 0 },
+        "productBlocked": { "type": "boolean" },
+        "durationMs": { "type": ["number", "null"], "minimum": 0 },
+        "checkedUrl": { "type": ["string", "null"] },
+        "skippedReason": { "type": ["string", "null"] },
+        "code": {
+          "type": "string",
+          "enum": [
+            "broken_anchor",
+            "broken_image",
+            "cta_no_handler",
+            "mobile_menu_failed",
+            "fake_form"
+          ]
+        },
+        "href": { "type": ["string", "null"] },
+        "src": { "type": ["string", "null"] },
+        "alt": { "type": ["string", "null"] },
+        "selector": { "type": ["string", "null"] },
+        "text": { "type": ["string", "null"] },
+        "formId": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

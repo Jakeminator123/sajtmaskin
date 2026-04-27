@@ -650,6 +650,37 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, [activeVersionSummary, vm.effectiveVersionsList]);
   const activeVersionIsLatest =
     !vm.activeVersionId || !vm.latestVersionId || vm.activeVersionId === vm.latestVersionId;
+  const followUpBaseInfo = useMemo(() => {
+    if (activeVersionIsLatest || !vm.activeVersionId || !vm.latestVersionId) return null;
+    const formatVersionLabel = (
+      version:
+        | {
+            versionNumber?: number | null;
+            versionId?: string | null;
+            id?: string | null;
+          }
+        | null,
+      fallbackId: string,
+    ) => {
+      if (typeof version?.versionNumber === "number") return `version ${version.versionNumber}`;
+      return (version?.versionId ?? version?.id ?? fallbackId).slice(0, 8);
+    };
+    const latestVersion =
+      vm.effectiveVersionsList.find(
+        (version) => version.versionId === vm.latestVersionId || version.id === vm.latestVersionId,
+      ) ?? null;
+
+    return {
+      baseLabel: formatVersionLabel(activeVersionSummary, vm.activeVersionId),
+      latestLabel: formatVersionLabel(latestVersion, vm.latestVersionId),
+    };
+  }, [
+    activeVersionIsLatest,
+    activeVersionSummary,
+    vm.activeVersionId,
+    vm.effectiveVersionsList,
+    vm.latestVersionId,
+  ]);
   const rejectedShrinkCount = useMemo(() => {
     for (let i = vm.messages.length - 1; i >= 0; i -= 1) {
       const msg = vm.messages[i];
@@ -2019,6 +2050,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               initialPrompt={vm.initialPrompt}
               onCreateChat={smartCreateChat}
               onSendMessage={smartSendMessage}
+              onStartFromRegistry={vm.handleStartFromRegistry}
               onRequestPlacement={handleRequestPlacement}
               onStartFromTemplate={vm.handleStartFromTemplate}
               onPaletteSelection={vm.handlePaletteSelection}
@@ -2034,6 +2066,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               currentCode={vm.currentPageCode}
               existingUiComponents={vm.existingUiComponents}
               continuePlanMode={Boolean(latestPendingReply?.planMode)}
+              followUpBaseInfo={followUpBaseInfo}
             />
           </>
         );
@@ -2140,6 +2173,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               initialPrompt={vm.initialPrompt}
               onCreateChat={smartCreateChat}
               onSendMessage={smartSendMessage}
+              onStartFromRegistry={vm.handleStartFromRegistry}
               onRequestPlacement={handleRequestPlacement}
               onStartFromTemplate={vm.handleStartFromTemplate}
               onPaletteSelection={vm.handlePaletteSelection}
@@ -2155,6 +2189,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               currentCode={vm.currentPageCode}
               existingUiComponents={vm.existingUiComponents}
               continuePlanMode={Boolean(latestPendingReply?.planMode)}
+              followUpBaseInfo={followUpBaseInfo}
             />
           </div>
         )}
@@ -2174,6 +2209,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           deployNameError={vm.deployNameError}
           isDeploying={vm.isDeploying}
           isSaving={false}
+          projectId={vm.appProjectId ?? null}
           onDeployNameChange={(value) => {
             vm.setDeployNameInput(value);
             if (vm.deployNameError) vm.setDeployNameError(null);
@@ -2269,6 +2305,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               awaitingInputOptions={latestPendingReply?.options ?? []}
               onClear={handleClearPreview}
               onFixPreview={vm.handleFixPreview}
+              versionlessAborted={vm.versionlessAborted}
+              onRestartGeneration={vm.handleRestartGeneration}
               onFilesSaved={vm.handleFilesSaved}
               refreshToken={vm.previewRefreshToken}
               placementMode={Boolean(pendingPlacementRequest)}

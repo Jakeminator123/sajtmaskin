@@ -54,6 +54,11 @@ const FORCE_BLOCKING_IDS = new Set<string>([
  * detail with a marker so the fixer treats it as a quality blocker rather
  * than a syntax error. The `id` is appended so downstream tooling can
  * still map back to the verifier finding catalogue.
+ *
+ * SAJ-61 c5: when the finding is `build-breaking-missing-imports` the
+ * detail is a Markdown bullet list of `- <file>: uses X but does not
+ * import Y`. Split each bullet into its own fixer error line so the LLM
+ * sees one structured row per offending file instead of a wall of text.
  */
 export function formatVerifierFindingsAsFixerErrors(
   findings: Pick<VerifierFindings, "blocking">,
@@ -62,11 +67,65 @@ export function formatVerifierFindingsAsFixerErrors(
   for (const f of findings.blocking) {
     const detail = f.detail.trim();
     if (!detail) continue;
+
+    if (f.id === "build-breaking-missing-imports") {
+      const bullets = detail
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith("- "))
+        .map((line) => line.replace(/^-\s+/, ""));
+      if (bullets.length > 0) {
+        for (const bullet of bullets) {
+          const filePathMatch = bullet.match(/^([A-Za-z0-9_./@-]+\.\w{1,5})\s*[:\u2014\-]/);
+          const prefix = filePathMatch
+            ? `${filePathMatch[1]}:1:1 `
+            : "verifier:1:1 ";
+          lines.push(`${prefix}[verifier:${f.id}] ${bullet}`);
+        }
+        continue;
+      }
+    }
+
     const looksLikePath = /^[A-Za-z0-9_./@-]+\.\w{1,5}:/.test(detail);
     const prefix = looksLikePath ? "" : "verifier:1:1 ";
     lines.push(`${prefix}[verifier:${f.id}] ${detail}`);
   }
   return lines;
+}
+
+/**
+ * Extract the unique set of file paths referenced inside verifier blocking
+ * findings. Used to seed `runLlmRepairGate({ requiredFiles })` so the LLM
+ * fixer knows which files must come back complete in its output. Stays
+ * conservative: relies on `<path>.<ext>` matching, never fabricates paths.
+ */
+export function extractFilePathsFromVerifierFindings(
+  findings: Pick<VerifierFindings, "blocking">,
+): string[] {
+  const files = new Set<string>();
+  // SAJ-61 review fix: a single shared `/g` RegExp leaks `lastIndex` across
+  // iterations of `findings.blocking`, which can cause `re.exec(detail)` on
+  // the second finding to start scanning from somewhere in the middle of
+  // its string — silently dropping any path that appears before that
+  // offset. Reset `lastIndex` per finding (or instantiate per-iteration);
+  // we choose reset because the regex is small and reuse is cheap.
+  const re = /(^|[^@A-Za-z0-9_./-])([@A-Za-z0-9_./-]+\.[A-Za-z]{1,5})\b/g;
+  for (const f of findings.blocking) {
+    const detail = f.detail ?? "";
+    if (!detail) continue;
+    re.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(detail)) !== null) {
+      const candidate = match[2];
+      if (!candidate) continue;
+      // Skip dotfiles and version-like tokens (e.g. "1.2.3"). We only
+      // care about emitted source file references.
+      if (/^\d/.test(candidate)) continue;
+      if (!/\.(?:tsx?|jsx?|css|scss|json|mjs|cjs)$/i.test(candidate)) continue;
+      files.add(candidate);
+    }
+  }
+  return [...files];
 }
 
 /**
@@ -88,6 +147,76 @@ export function promoteForcedBlockingFindings(findings: VerifierFindings): Verif
   return {
     blocking: [...findings.blocking, ...promoted],
     quality: remainingQuality,
+  };
+}
+
+const DETAIL_FILE_PATH_RE = /(^|[^@A-Za-z0-9_./-])([@A-Za-z0-9_./-]+\.(?:tsx?|jsx?))\b/g;
+const DETAIL_HASH_HREF_RE = /\bhref\s*(?:=\s*\{?\s*)?(["'`])(#[-A-Za-z0-9_:]+)\1/g;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function fileContainsId(content: string, id: string): boolean {
+  const escaped = escapeRegExp(id);
+  const idAttr = new RegExp(
+    String.raw`\bid\s*=\s*(?:"${escaped}"|'${escaped}'|\{\s*(?:"${escaped}"|'${escaped}'|` +
+      "`" +
+      escaped +
+      "`" +
+      String.raw`)\s*\})`,
+  );
+  return idAttr.test(content);
+}
+
+function extractDetailFilePaths(detail: string): string[] {
+  DETAIL_FILE_PATH_RE.lastIndex = 0;
+  const files = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = DETAIL_FILE_PATH_RE.exec(detail)) !== null) {
+    if (match[2]) files.add(match[2].replace(/\\/g, "/"));
+  }
+  return [...files];
+}
+
+function extractDetailHashHrefs(detail: string): string[] {
+  DETAIL_HASH_HREF_RE.lastIndex = 0;
+  const hashes = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = DETAIL_HASH_HREF_RE.exec(detail)) !== null) {
+    if (match[2]) hashes.add(match[2]);
+  }
+  return [...hashes];
+}
+
+function isValidInPageHashNavigationFinding(
+  detail: string,
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): boolean {
+  const hashHrefs = extractDetailHashHrefs(detail);
+  if (hashHrefs.length === 0) return false;
+
+  const mentionedFiles = extractDetailFilePaths(detail);
+  if (mentionedFiles.length === 0) return false;
+
+  const fileMap = new Map(files.map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]));
+  return hashHrefs.every((hash) => {
+    const id = hash.slice(1);
+    return mentionedFiles.some((path) => fileContainsId(fileMap.get(path) ?? "", id));
+  });
+}
+
+export function suppressValidInPageAnchorNavigationFindings(
+  findings: VerifierFindings,
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): VerifierFindings {
+  const shouldKeep = (finding: { id: string; detail: string }) =>
+    finding.id !== "navigation-placeholder-actions" ||
+    !isValidInPageHashNavigationFinding(finding.detail, files);
+
+  return {
+    blocking: findings.blocking.filter(shouldKeep),
+    quality: findings.quality.filter(shouldKeep),
   };
 }
 
@@ -124,6 +253,55 @@ const CANVAS_WITH_CLASSNAME_RE =
   /<Canvas\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|\{[^}]*\})/g;
 const ELEMENT_WITH_CLASSNAME_RE =
   /<[A-Za-z][A-Za-z0-9]*\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`)/g;
+const JSX_TAG_RE = /<(?!\/)([A-Z][A-Za-z0-9]*)(?:\.[A-Za-z][A-Za-z0-9]*)?(?=[\s/>])/g;
+const BUILT_IN_JSX_SYMBOLS = new Set(["Fragment", "React", "Suspense"]);
+
+function stripCommentsAndStrings(content: string): string {
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, (match) => " ".repeat(match.length))
+    .replace(/\/\/[^\n\r]*/g, (match) => " ".repeat(match.length))
+    .replace(/(["'`])(?:\\[\s\S]|(?!\1)[\s\S])*?\1/g, (match) => " ".repeat(match.length));
+}
+
+function collectDeclaredJsxSymbols(content: string): Set<string> {
+  const symbols = new Set<string>(BUILT_IN_JSX_SYMBOLS);
+  const add = (value: string | undefined) => {
+    if (value && /^[A-Z]/.test(value)) symbols.add(value);
+  };
+
+  for (const match of content.matchAll(/import\s+([A-Za-z_$][\w$]*)\s*(?:,|\s+from\b)/g)) add(match[1]);
+  for (const match of content.matchAll(/import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\b/g)) add(match[1]);
+  for (const match of content.matchAll(/import\s*\{([^}]+)\}\s*from\b/g)) {
+    for (const part of (match[1] ?? "").split(",")) {
+      const [, alias, named] = part.trim().match(/\bas\s+([A-Za-z_$][\w$]*)$/) ?? [];
+      add(alias ?? part.trim().match(/^([A-Za-z_$][\w$]*)/)?.[1] ?? named);
+    }
+  }
+
+  for (const match of content.matchAll(/\b(?:function|class)\s+([A-Z][A-Za-z0-9_$]*)\b/g)) add(match[1]);
+  for (const match of content.matchAll(/\b(?:const|let|var)\s+([A-Z][A-Za-z0-9_$]*)\b/g)) add(match[1]);
+  for (const match of content.matchAll(/\b(?:const|let|var)\s+\[([^\]]+)\]\s*=/g)) {
+    for (const part of (match[1] ?? "").split(",")) {
+      const name = part.trim().replace(/^\.\.\./, "").split("=")[0]?.trim();
+      add(name?.match(/^([A-Z][A-Za-z0-9_$]*)/)?.[1]);
+    }
+  }
+
+  return symbols;
+}
+
+function usesReactLazy(content: string): boolean {
+  if (/\bReact\.lazy\s*\(/.test(content) || /\bReact\.createElement\s*\(/.test(content)) return true;
+  const reactLazyNames = new Set<string>();
+  for (const match of content.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']react["']/g)) {
+    for (const part of (match[1] ?? "").split(",")) {
+      const trimmed = part.trim();
+      if (!/\blazy\b/.test(trimmed)) continue;
+      reactLazyNames.add(trimmed.match(/\bas\s+([A-Za-z_$][\w$]*)$/)?.[1] ?? "lazy");
+    }
+  }
+  return [...reactLazyNames].some((name) => new RegExp(String.raw`\b${escapeRegExp(name)}\s*\(`).test(content));
+}
 
 /**
  * Deterministic check for the "motion-reduce trap": when a `<Canvas>` (or a
@@ -168,9 +346,37 @@ export function checkMotionReduceTrap(
   return findings;
 }
 
+export function checkUndefinedJsxSymbols(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+  opts: { maxFindings?: number } = {},
+): VerifierFindings["blocking"] {
+  const maxFindings = opts.maxFindings ?? 12;
+  const findings: VerifierFindings["blocking"] = [];
+
+  for (const file of files) {
+    if (!file.path || !file.content) continue;
+    if (!/\.(t|j)sx$/i.test(file.path)) continue;
+    if (usesReactLazy(file.content)) continue;
+
+    const stripped = stripCommentsAndStrings(file.content);
+    const declaredSymbols = collectDeclaredJsxSymbols(stripped);
+    for (const match of stripped.matchAll(JSX_TAG_RE)) {
+      const symbol = match[1];
+      if (!symbol || declaredSymbols.has(symbol)) continue;
+      findings.push({
+        id: "undefined-jsx-symbol",
+        detail: `${file.path}: JSX tag <${symbol}> is used but the symbol is neither imported nor declared in this file.`,
+      });
+      if (findings.length >= maxFindings) return findings;
+    }
+  }
+
+  return findings;
+}
+
 export async function runVerifierPass(
   codeProjectContent: string,
-  opts: { resolvedTier: CanonicalModelId },
+  opts: { resolvedTier: CanonicalModelId; abortSignal?: AbortSignal },
 ): Promise<VerifierFindings> {
   const verifierStartedAt = Date.now();
   const recordOnExit = (findings: VerifierFindings): VerifierFindings => {
@@ -191,8 +397,11 @@ export async function runVerifierPass(
   }
 
   const { files } = parseCodeProject(codeProjectContent);
-  const motionTraps = checkMotionReduceTrap(files);
-  const deterministic: VerifierFindings = { blocking: motionTraps, quality: [] };
+  const deterministicBlocking = [
+    ...checkMotionReduceTrap(files),
+    ...checkUndefinedJsxSymbols(files),
+  ];
+  const deterministic: VerifierFindings = { blocking: deterministicBlocking, quality: [] };
 
   const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim());
   if (!hasKey) {
@@ -213,13 +422,31 @@ Return structured findings only. Do not output code fixes.
 - blocking: issues that likely break build, types, imports, or critical runtime (wrong paths, missing exports, obvious TS errors). Put file paths inside detail when relevant.
 - quality: important but non-blocking (a11y gaps, weak SEO, fragile patterns).
 
+NOT blocking (do not flag these as blocking even if they look like placeholder navigation):
+- Hash anchor links (href="#some-id") when there is a matching id="some-id" element in the same page route. These are valid in-page navigation, especially on game/interactive routes.
+- "Skip to content"-style accessibility anchors.
+
 The following production-quality issues MUST be reported as blocking (not quality), because they break the user-facing contract of a marketing/SaaS site even when the build succeeds:
 - CTA / primary buttons or links that have no real destination (no \`href\`, \`href="#"\`, empty \`href\`, or no \`onClick\`). Use the id "navigation-placeholder-actions" and list the file + element labels in detail.
 - Footer links pointing to \`href="#"\` or empty href. Use the id "footer-dead-links" and list the file in detail.
+Detail format discipline:
+- detail: max 2 sentences. Cite file path and element label or selector only. No advice/suggestions preamble. No reasoning prose. Bad: "I would suggest reviewing the navigation because the CTA seems weak". Good: "components/hero.tsx Button label='Boka demo'".
 Use those exact ids so downstream tooling can recognise them.`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), cfg.timeoutMs);
+  // Forward an external abortSignal (e.g. verifier-phase rerun timeout) into
+  // the same controller so the caller can actually cancel the verifier call,
+  // not just the wrapper.
+  const externalAbort = opts.abortSignal;
+  const onExternalAbort = () => controller.abort();
+  if (externalAbort) {
+    if (externalAbort.aborted) {
+      controller.abort();
+    } else {
+      externalAbort.addEventListener("abort", onExternalAbort, { once: true });
+    }
+  }
   let providerOptions: ProviderOptionsRecord | undefined;
   if (thinkingConfig.thinking) {
     providerOptions = isAnthropicModel(modelId)
@@ -250,7 +477,10 @@ Use those exact ids so downstream tooling can recognise them.`;
       maxRetries: 1,
       ...(providerOptions ? { providerOptions } : {}),
     });
-    const promoted = promoteForcedBlockingFindings(result.object);
+    const promoted = suppressValidInPageAnchorNavigationFindings(
+      promoteForcedBlockingFindings(result.object),
+      files,
+    );
     return recordOnExit({
       blocking: [...deterministic.blocking, ...promoted.blocking],
       quality: [...deterministic.quality, ...promoted.quality],
@@ -264,6 +494,9 @@ Use those exact ids so downstream tooling can recognise them.`;
     return recordOnExit(deterministic);
   } finally {
     clearTimeout(timeoutId);
+    if (externalAbort) {
+      externalAbort.removeEventListener("abort", onExternalAbort);
+    }
   }
 }
 

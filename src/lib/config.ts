@@ -340,6 +340,12 @@ export const OPENCLAW = {
  */
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
+  // P6 latency track: opportunistic Fly VM pre-warm on chat init.
+  previewPreWarm: false,
+  // Spår 02: F2 Product Postcheck. Server-side Playwright DOM checks
+  // against trusted preview URLs only. Default off while we measure flake
+  // rate and runtime cost.
+  f2ProductPostcheck: isAffirmativeEnvValue(env.SAJTMASKIN_F2_PRODUCT_POSTCHECK),
 
   // The four previously dormant flags below were hardcoded ON on 2026-04-22
   // after confirming zero production off-toggles historically. Their env
@@ -392,6 +398,14 @@ export const FEATURES = {
    * merge. Hardcoded ON (strict cost reduction, low correctness risk).
    */
   skipDoubleValidateAndFixOnMerge: true,
+  /**
+   * Safety valve: allow one tight-budget LLM repair attempt when merged-syntax
+   * still fails after a no-op mechanical pass. Enabled so a stray `}`-class
+   * model output (the v2/flying-can class of failures) gets one structured
+   * repair shot before preview is blocked. Cost: at most one extra LLM
+   * fixer call per generation that hits the merged-syntax-invalid branch.
+   */
+  escalateMergeSyntaxToLlm: true,
 
   /**
    * Inject `### Recurring failures on this site` block (top-5 patterns from
@@ -403,6 +417,7 @@ export const FEATURES = {
    * branch in prod.
    */
   recurringPatternsInMainPrompt: env.NODE_ENV === "development",
+  recurringPatternsInCreatePrompt: false,
 
   /**
    * Vector RAG over historical error-log rows. When ON, follow-up generation

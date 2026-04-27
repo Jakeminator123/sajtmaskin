@@ -147,7 +147,11 @@ export function useBuilderDeployActions({
   );
 
   const deployActiveVersionToVercel = useCallback(
-    async (target: "production" | "preview" = "production", projectName?: string) => {
+    async (
+      target: "production" | "preview" = "production",
+      projectName?: string,
+      seo?: { optIn: boolean; siteUrl: string },
+    ) => {
       if (!chatId) {
         toast.error("Ingen chat vald");
         return;
@@ -172,6 +176,13 @@ export function useBuilderDeployActions({
           toast.error("Blob storage saknas – deploy körs med externa bild-URL:er.");
         }
 
+        const seoPayload =
+          seo && seo.optIn
+            ? { seo: { optIn: true as const, siteUrl: seo.siteUrl.trim() } }
+            : seo
+              ? { seo: { optIn: false as const } }
+              : {};
+
         const response = await fetch("/api/v0/deployments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -182,6 +193,7 @@ export function useBuilderDeployActions({
             target,
             imageStrategy: resolvedStrategy,
             ...(projectName?.trim() ? { projectName: projectName.trim() } : {}),
+            ...seoPayload,
           }),
         });
 
@@ -275,7 +287,9 @@ export function useBuilderDeployActions({
     [chatId, activeVersionId, deployReadiness, isDeploying, isMediaEnabled, enableBlobMedia, appProjectId, setIsDeploying, setLastDeployVercelProjectId, setActiveDeploymentId, setDomainManagerOpen, persistVersionErrorLogs],
   );
 
-  const handleConfirmDeploy = useCallback(async () => {
+  const handleConfirmDeploy = useCallback(async (
+    payload?: { seo?: { optIn: boolean; siteUrl: string } },
+  ) => {
     if (isDeploying || isDeployNameSaving) return;
     const rawName = deployNameInput.trim();
     const nextName = rawName || resolveSuggestedProjectName();
@@ -299,7 +313,26 @@ export function useBuilderDeployActions({
       }
     }
 
-    await deployActiveVersionToVercel("production", nextName);
+    // Persist SEO preferences best-effort before deploying. Failure here
+    // shouldn't block the deploy — the body override still wins on the
+    // server side via `resolveDeploySeoOptions`.
+    if (appProjectId && payload?.seo) {
+      const seoPatch = payload.seo.optIn
+        ? { optIn: true as const, siteUrl: payload.seo.siteUrl.trim() }
+        : { optIn: false as const };
+      try {
+        await fetch(`/api/projects/${encodeURIComponent(appProjectId)}/preferences`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ seo: seoPatch }),
+        });
+      } catch (error) {
+        debugLog("builder", "Failed to persist SEO preferences", error);
+      }
+    }
+
+    await deployActiveVersionToVercel("production", nextName, payload?.seo);
   }, [
     isDeploying,
     isDeployNameSaving,

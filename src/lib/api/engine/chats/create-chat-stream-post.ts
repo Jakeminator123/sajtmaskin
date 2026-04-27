@@ -1,4 +1,5 @@
 import { createSSEHeaders } from "@/lib/streaming";
+import { FEATURES } from "@/lib/config";
 import {
   withPromptToDoneMetricResponse,
   wrapStreamForPromptToDoneMetric,
@@ -56,6 +57,7 @@ import {
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
 import { buildMediaCatalogForOrchestration } from "./build-media-catalog";
 import { createCommitCreditsOnce } from "./credits-handler";
+import { schedulePreviewPreWarm } from "./preview-prewarm";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -518,6 +520,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const planOrchestrationStartedAt = Date.now();
         const planOrchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
+          rawPrompt: message,
+          // 2026-04-22 follow-up audit: plan mode saknade tidigare samma
+          // rå-signalpaket som huvudflödet fick i fix 07#1 — route-plan,
+          // BuildSpec, contracts, capability- och scaffold-match drevs av
+          // wrappad `optimizedMessage` i plan-LLM:n medan senare codegen
+          // fick rå `message`. Det riskerade planner-vs-codegen-drift när
+          // filkontext/bilagor i wrappen drog klassifiering åt annat håll.
+          routePlanPrompt: message,
+          buildSpecPrompt: message,
+          contractsPrompt: message,
+          scaffoldMatchPrompt: message,
+          capabilitiesPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: parsedMeta.scaffoldMode,
           scaffoldId: parsedMeta.scaffoldId,
@@ -656,6 +670,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             kind: "init",
             promptStartedAt: requestStartedAt,
             signal: req.signal,
+            chatId: plannerChat.id,
           }),
         );
       }
@@ -688,6 +703,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
         const orchestrationInput = {
           prompt: optimizedMessage,
+          rawPrompt: message,
+          // Bug 07#1 (2026-04-22 audit): init tappade tidigare alla rå-prompt-
+          // fält som follow-up skickar explicit. Det innebar att route-plan,
+          // build-spec och contract-inferens i init gick på `optimizedMessage`
+          // (wrappat med filkontext, guidance, templates) medan follow-up gick
+          // på rå `message`. Samma användaravsikt kunde därför få olika
+          // BuildSpec/route/contract-beslut beroende på mode. Spegla follow-
+          // upens rå-källor så signalerna blir konsekventa.
+          routePlanPrompt: message,
+          buildSpecPrompt: message,
+          contractsPrompt: message,
+          scaffoldMatchPrompt: message,
           // QW-1: capability inference (needsAuth/needsEcommerce/needsCharts…)
           // är keyword-baserad. Använd rå user-message så bifogade text-utdrag
           // (PDFs/.docx) inte triggar capabilities som skuggar prompt-intent.
@@ -841,6 +868,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               kind: "init",
               promptStartedAt: requestStartedAt,
               signal: req.signal,
+              chatId: engineChat.id,
             }),
             { headers: createSSEHeaders() },
           ));
@@ -891,6 +919,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         devLogAppend("in-progress", {
           type: "site.chatId",
           chatId: engineChat.id,
+        });
+        schedulePreviewPreWarm({
+          enabled: FEATURES.previewPreWarm,
+          buildIntent: engineIntent,
+          chatId: engineChat.id,
+          scaffoldFiles: resolvedScaffold?.files ?? [],
         });
         devLogAppend("in-progress", {
           type: "contracts.inferred",
@@ -958,6 +992,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }),
           engineModel,
           optimizedMessage,
+          rawPrompt: message,
           engineIntent,
           buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,
@@ -980,6 +1015,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           promptStartedAt: requestStartedAt,
           kind: "init",
           attachSessionCookie,
+          chatId: engineChat.id,
         });
       }
     } catch (err) {

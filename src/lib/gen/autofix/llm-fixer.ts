@@ -11,6 +11,7 @@ import {
   type RecurringFailurePattern,
 } from "./fixer-prompt";
 import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
+import { devLogAppend } from "@/lib/logging/devLog";
 
 export interface FixerResult {
   fixedContent: string;
@@ -25,6 +26,12 @@ export interface FixerResult {
   incompleteFiles: Array<{ path: string; reason: string }>;
   partial: boolean;
   success: boolean;
+  /**
+   * True om körningen avbröts via AbortSignal/timeout. Skiljs från andra
+   * fel så att anroparen kan eskalera direkt till repair-loop istället
+   * för att vänta på server-verify.
+   */
+  aborted?: boolean;
   durationMs: number;
 }
 
@@ -193,6 +200,7 @@ export async function runLlmFixer(
         incompleteFiles: [],
         partial: false,
         success: false,
+        aborted: false,
         durationMs: performance.now() - start,
       };
     }
@@ -214,6 +222,11 @@ export async function runLlmFixer(
         "[llm-fixer] excluded incomplete files from merge:",
         incomplete.map((i) => `${i.path} (${i.reason})`).join(", "),
       );
+      devLogAppend("in-progress", {
+        type: "llm_fixer_partial_response",
+        excludedFiles: incomplete,
+        totalFixedFilesAttempted: fixedProject.files.length,
+      });
     }
 
     const mergedContent = mergeFixedFiles(content, acceptedFixedFiles);
@@ -245,13 +258,25 @@ export async function runLlmFixer(
       incompleteFiles: incomplete,
       partial,
       success,
+      aborted: false,
       durationMs: performance.now() - start,
     };
   } catch (err) {
-    console.error(
-      "[llm-fixer] failed:",
-      err instanceof Error ? err.message : err,
-    );
+    const isAbort =
+      err instanceof Error &&
+      (err.name === "AbortError" || /aborted/i.test(err.message));
+    const message = err instanceof Error ? err.message : String(err);
+    if (isAbort) {
+      console.error("[llm-fixer] aborted (AbortSignal/timeout):", message);
+      devLogAppend("in-progress", {
+        type: "llm_fixer_aborted",
+        durationMs: performance.now() - start,
+        errorsCount: errors.length,
+        requiredFilesCount: options?.requiredFiles?.length ?? 0,
+      });
+    } else {
+      console.error("[llm-fixer] failed:", message);
+    }
     return {
       fixedContent: content,
       fixedFiles: [],
@@ -259,6 +284,7 @@ export async function runLlmFixer(
       incompleteFiles: [],
       partial: false,
       success: false,
+      aborted: isAbort,
       durationMs: performance.now() - start,
     };
   }

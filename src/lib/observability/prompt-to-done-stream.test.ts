@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { formatSSEEvent } from "@/lib/streaming";
 import {
   getPrometheusMetrics,
   resetMetricsForTest,
 } from "./metrics";
 import { wrapStreamForPromptToDoneMetric } from "./prompt-to-done-stream";
+import * as devLogModule from "@/lib/logging/devLog";
 
 function sseSource(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -154,5 +155,93 @@ describe("observability/prompt-to-done-stream", () => {
       /sajtmaskin_prompt_to_done_ms_count\{[^}]*outcome="done"[^}]*kind="init"[^}]*\}\s+(\d+)/,
     );
     expect(match?.[1]).toBe("1");
+  });
+
+  // P0 stream-abort recovery (2026-04-26). Regression tests for the
+  // graceful-close vs pipe-error classification — the original `record`
+  // implementation always emitted `stream_closed_without_done` because
+  // its discriminator (`fallback`) was identical for both paths.
+  describe("site.aborted reason classification", () => {
+    function captureAbortLogs(): {
+      reasons: () => string[];
+      restore: () => void;
+    } {
+      const reasons: string[] = [];
+      const spy = vi.spyOn(devLogModule, "devLogAppend").mockImplementation(
+        ((_target: unknown, payload: unknown) => {
+          if (
+            payload &&
+            typeof payload === "object" &&
+            (payload as { type?: unknown }).type === "site.aborted"
+          ) {
+            const reason = (payload as { reason?: unknown }).reason;
+            if (typeof reason === "string") reasons.push(reason);
+          }
+        }) as unknown as typeof devLogModule.devLogAppend,
+      );
+      return {
+        reasons: () => reasons,
+        restore: () => spy.mockRestore(),
+      };
+    }
+
+    it("graceful close without done frame → stream_closed_without_done", async () => {
+      const capture = captureAbortLogs();
+      const source = sseSource([formatSSEEvent("error", { message: "oops" })]);
+      const wrapped = wrapStreamForPromptToDoneMetric(source, {
+        kind: "init",
+        promptStartedAt: Date.now() - 10,
+        chatId: "chat_graceful",
+      });
+      await drain(wrapped);
+      await settle();
+      capture.restore();
+
+      expect(capture.reasons()).toEqual(["stream_closed_without_done"]);
+    });
+
+    it("source pipe error → stream_error (regression: was wrongly stream_closed_without_done)", async () => {
+      const capture = captureAbortLogs();
+      const wrapped = wrapStreamForPromptToDoneMetric(erroringSource(), {
+        kind: "init",
+        promptStartedAt: Date.now(),
+        chatId: "chat_pipe_err",
+      });
+      await drain(wrapped).catch(() => undefined);
+      await settle();
+      capture.restore();
+
+      expect(capture.reasons()).toEqual(["stream_error"]);
+    });
+
+    it("client_disconnect wins over pipe-error when signal is aborted", async () => {
+      const capture = captureAbortLogs();
+      const controller = new AbortController();
+      controller.abort();
+      const wrapped = wrapStreamForPromptToDoneMetric(erroringSource(), {
+        kind: "followup",
+        promptStartedAt: Date.now(),
+        signal: controller.signal,
+        chatId: "chat_aborted",
+      });
+      await drain(wrapped).catch(() => undefined);
+      await settle();
+      capture.restore();
+
+      expect(capture.reasons()).toEqual(["client_disconnect"]);
+    });
+
+    it("emits no devLog row when chatId is missing (no run scope)", async () => {
+      const capture = captureAbortLogs();
+      const wrapped = wrapStreamForPromptToDoneMetric(erroringSource(), {
+        kind: "init",
+        promptStartedAt: Date.now(),
+      });
+      await drain(wrapped).catch(() => undefined);
+      await settle();
+      capture.restore();
+
+      expect(capture.reasons()).toEqual([]);
+    });
   });
 });

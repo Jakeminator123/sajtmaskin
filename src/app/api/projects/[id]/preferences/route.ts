@@ -1,17 +1,22 @@
 /**
  * Project preferences endpoint.
  *
- * Lightweight `PATCH` for boolean toggles persisted in `project_data.meta`.
- * Today: `allowPlaceholdersInF3` only — added in Phase 5 of the F3-readiness
- * rework so the UI can opt the project into "use placeholders even for
- * tier-3 keys at F3 build time".
+ * Lightweight `PATCH`/`GET` for project-scoped settings persisted in
+ * `project_data.meta`. Today covers:
+ *
+ * - `allowPlaceholdersInF3` (boolean) — added in the F3-readiness rework
+ *   so the UI can opt the project into "use placeholders even for tier-3
+ *   keys at F3 build time".
+ * - `seo` (SEO opt-in + siteUrl + brand-overrides) — added in PR-A of the
+ *   SEO-F3-promotion track. Persists what the future Bygg-dialog will
+ *   write. Pipeline-koppling that *reads* this is PR-B scope.
  *
  * This route deliberately does NOT touch chat / files / messages so it is
  * safe to call from any panel without race conditions against the larger
  * `/save` endpoint.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
+import { withRateLimit } from "@/lib/rateLimit";
 import {
   getProjectByIdForOwner,
   getProjectData,
@@ -19,14 +24,17 @@ import {
 } from "@/lib/db/services/projects";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
+import {
+  projectPreferencesPatchSchema,
+  readSeoPreferencesFromMeta,
+  SEO_PREFERENCES_DEFAULTS,
+  type SeoPreferences,
+  type SeoPreferencesPersisted,
+} from "@/lib/projects/preferences-schema";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
-
-const preferencesSchema = z.object({
-  allowPlaceholdersInF3: z.boolean().optional(),
-});
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -34,7 +42,35 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+/**
+ * Merge an inbound (Zod-validated) `seo` patch with the persisted shape.
+ *
+ * - Omitted fields keep their persisted value (true PATCH semantics —
+ *   the UI can update one field without resending the whole object).
+ * - Explicit `null` clears a field (caller can remove a previously set
+ *   siteUrl or brand).
+ * - `lastSetAt` is always refreshed when *any* SEO field is touched.
+ */
+function mergeSeoPatch(
+  patch: SeoPreferences,
+  persisted: SeoPreferencesPersisted,
+  now: string,
+): SeoPreferencesPersisted {
+  return {
+    optIn: patch.optIn !== undefined ? patch.optIn : persisted.optIn,
+    siteUrl: patch.siteUrl !== undefined ? patch.siteUrl : persisted.siteUrl,
+    brand: patch.brand !== undefined ? patch.brand : persisted.brand,
+    lastSetAt: now,
+  };
+}
+
+export async function PATCH(request: NextRequest, routeContext: RouteParams) {
+  return withRateLimit(request, "preferences:patch", () =>
+    handlePATCH(request, routeContext),
+  );
+}
+
+async function handlePATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const user = await getCurrentUser(request);
@@ -52,7 +88,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const parsed = preferencesSchema.safeParse(body);
+    const parsed = projectPreferencesPatchSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { success: false, error: "Validation failed", details: parsed.error.issues },
@@ -67,6 +103,31 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       existingMeta.allowPlaceholdersInF3 = parsed.data.allowPlaceholdersInF3;
     }
 
+    if (parsed.data.seo !== undefined) {
+      const existingSeo = readSeoPreferencesFromMeta(existingMeta);
+      const merged = mergeSeoPatch(
+        parsed.data.seo,
+        existingSeo,
+        new Date().toISOString(),
+      );
+      // Cross-field check on the merged result: even if the inbound
+      // patch alone would pass schema validation (e.g. only `optIn:true`
+      // sent while siteUrl is already persisted), we re-check the
+      // post-merge invariant so we never persist an inconsistent state.
+      // Schema-level superRefine catches the inbound case; this guard
+      // covers future patch shapes that might bypass it.
+      if (merged.optIn === true && !merged.siteUrl) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "siteUrl is required when SEO opt-in is enabled",
+          },
+          { status: 400 },
+        );
+      }
+      existingMeta.seo = merged;
+    }
+
     await saveProjectData({
       project_id: id,
       meta: existingMeta,
@@ -76,6 +137,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       success: true,
       preferences: {
         allowPlaceholdersInF3: existingMeta.allowPlaceholdersInF3 === true,
+        seo: readSeoPreferencesFromMeta(existingMeta),
       },
     });
   } catch (error) {
@@ -87,7 +149,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(request: NextRequest, routeContext: RouteParams) {
+  return withRateLimit(request, "preferences:get", () =>
+    handleGET(request, routeContext),
+  );
+}
+
+async function handleGET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const user = await getCurrentUser(request);
@@ -110,6 +178,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       success: true,
       preferences: {
         allowPlaceholdersInF3: meta.allowPlaceholdersInF3 === true,
+        // Defaults kept centralized in the schema module so future fields
+        // get a single source of truth.
+        seo: data ? readSeoPreferencesFromMeta(meta) : { ...SEO_PREFERENCES_DEFAULTS },
       },
     });
   } catch (error) {

@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "llm-fixer-aborted.schema.json",
+  "title": "llm_fixer_aborted",
+  "description": "Emitteras av src/lib/gen/autofix/llm-fixer.ts via devLogAppend när ett AbortError eller timeout inträffar under LLM-fix-anropet. Skrivs till logs/generationslogg/<run>/timeline.ndjson. Source-of-truth: src/lib/gen/autofix/llm-fixer.ts (catch-blocket).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "durationMs", "errorsCount", "requiredFilesCount"],
+  "properties": {
+    "type": {
+      "const": "llm_fixer_aborted",
+      "description": "Diskriminant: alltid strängen 'llm_fixer_aborted'."
+    },
+    "durationMs": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Tid i millisekunder från fixer-start till AbortError, beräknad med performance.now()."
+    },
+    "errorsCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Antal syntaxfel som skickades in till fixern vid abort-tillfället."
+    },
+    "requiredFilesCount": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Antal filer i options.requiredFiles vid abort-tillfället. 0 om ingen requiredFiles angavs."
+    }
+  }
+}

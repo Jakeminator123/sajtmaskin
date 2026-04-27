@@ -9,6 +9,7 @@ import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-genera
 import { inferPreGenerationContracts } from "@/lib/gen/contract/pre-generation-contracts";
 import { buildRoutePlan } from "@/lib/gen/route-plan";
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
+import { buildGenerationInputPackage } from "@/lib/gen/orchestrate/generation-package";
 
 const minimalCapabilities: InferredCapabilities = {
   needsMotion: false,
@@ -193,5 +194,36 @@ describe("orchestration integration (matchScaffold → deriveBuildSpec)", () => 
     expect(spec.contextPolicy).toBe("normal");
     expect(spec.verificationPolicy).toBe("standard");
     expect(spec.previewPolicy).toBe("fidelity2");
+  });
+
+  it("preserves rawPrompt separately from optimized userPrompt", () => {
+    const pkg = buildGenerationInputPackage(
+      {
+        resolvedScaffold: null,
+        orchestrationContract: {},
+        routePlan: { routes: [] },
+        preGenerationContracts: emptyContracts,
+        capabilities: minimalCapabilities,
+        buildSpec: { buildIntent: "website" },
+        serializeMode: null,
+        componentReferences: [],
+        scaffoldVariantId: null,
+        capabilityModifyHint: null,
+      } as never,
+      {
+        prompt: "WRAPPED optimized prompt with file context",
+        rawPrompt: "Vad tycker du om hero-sektionen?",
+      },
+      {
+        engineSystemPrompt: "system",
+        dynamicContext: "dynamic",
+        dynamicContextPruning: { budgetTokens: 1, usedTokens: 1, droppedBlockKeys: [] },
+        dynamicContextBlocks: [],
+        variantId: null,
+      } as never,
+    );
+
+    expect(pkg.userPrompt).toBe("WRAPPED optimized prompt with file context");
+    expect(pkg.rawPrompt).toBe("Vad tycker du om hero-sektionen?");
   });
 });

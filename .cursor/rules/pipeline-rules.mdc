@@ -33,7 +33,7 @@ Färre rörliga delar, starkare första pass. Statisk prompt eller deterministis
 | Prompt assembly | `src/lib/gen/system-prompt/` (`compose.ts` + `sections/`) |
 | BuildSpec | `src/lib/gen/build-spec/` (`builder.ts`, `policy-inference.ts`, `prompt-patterns.ts`, `references.ts`, `route-realization.ts`, `style-pack.ts`, `token-budgets.ts`) |
 | Finalize-pipeline | `src/lib/gen/stream/finalize-version/` (`runner.ts` + phase/persist-helpers) |
-| Prompt assist | `src/lib/builder/promptAssist/` (efter U1/U2-extract) |
+| Prompt assist | `src/lib/builder/prompt-assist/` |
 
 ## Docs-sync vid ändring
 
@@ -57,4 +57,4 @@ Uppdatera bara det som faktiskt bröts. Kod är sanning — docs speglar, inte s
 
 ## Repair-gate-regel (gap mot målbild)
 
-Innan du lägger till en ny call-site till `runLlmFixer`: kolla om ett av befintliga 5 ställen (verifier-fixer, partial-file-repair, syntax-fixer, tsc-fixer, eslint-fixer) kan utökas. Single repair gate är ett aktivt mål — se `L1-unified-repair-call.md`.
+Innan du lägger till en ny call-site till `runLlmFixer`: kolla om befintlig repair-gate (`llm-repair-gate.ts`), verifier-loop eller partial-file-repair kan utökas. Single repair gate är ett aktivt mål — se `L1-unified-repair-call.md`.

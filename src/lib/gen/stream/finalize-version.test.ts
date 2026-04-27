@@ -84,6 +84,10 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
     blocking: Array<{ id: string; detail: string }>;
   }) =>
     findings.blocking.map((f) => `[verifier:${f.id}] ${f.detail}`),
+  // SAJ-61 c5: file-path extractor consumed by `verifier-phase` to seed
+  // `runLlmRepairGate({ requiredFiles })`. The unit tests don't care
+  // about the exact list, just that the export exists.
+  extractFilePathsFromVerifierFindings: () => [] as string[],
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
@@ -474,6 +478,316 @@ describe("finalizeAndSaveVersion", () => {
       event: "autofix",
       data: expect.objectContaining({ phase: "done", fixes: 0, warnings: 0 }),
     });
+  });
+
+  it("skips warm-tsc when downstream quality-gate will run typecheck AND qualityGatePlanned is true (R2 guard)", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      willRunQualityGate: true,
+      qualityGatePlanned: true,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(validateAndFix).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        skipWarmTsc: true,
+      }),
+    );
+  });
+
+  it("R2 guard: keeps warm-tsc ON when willRunQualityGate=true but qualityGatePlanned is missing", async () => {
+    // Regression test för R2-guarden: utan explicit qualityGatePlanned får
+    // finalize INTE skippa warm-tsc. Stoppar den "tysta luckan" där
+    // willRunQualityGate sätts optimistiskt upstream men quality-gate sedan
+    // hoppas över sent (t.ex. design_preview_skip_verify) — då har vi
+    // varken warm-tsc- eller QG-resultat.
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      willRunQualityGate: true,
+      // qualityGatePlanned MEDVETET UTELÄMNAT — defaultar till false.
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(validateAndFix).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        skipWarmTsc: false,
+      }),
+    );
+  });
+
+  it("R2 guard: keeps warm-tsc ON when qualityGatePlanned=false even with willRunQualityGate=true", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      willRunQualityGate: true,
+      qualityGatePlanned: false,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(validateAndFix).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        skipWarmTsc: false,
+      }),
+    );
+  });
+
+  it("keeps warm-tsc enabled when downstream quality-gate is not planned", async () => {
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      willRunQualityGate: false,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(validateAndFix).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        skipWarmTsc: false,
+      }),
+    );
+  });
+
+  it("SAJ-61: SAJTMASKIN_PRE_VM_TYPECHECK=true forces warm-tsc on even when QG-planned skip would normally fire", async () => {
+    // Setup: same shape as the "skips warm-tsc when downstream quality-gate
+    // will run typecheck AND qualityGatePlanned is true" baseline. The only
+    // difference is the env override, which must invert the decision so the
+    // operator's "always typecheck before VM" signal wins.
+    const previous = process.env.SAJTMASKIN_PRE_VM_TYPECHECK;
+    process.env.SAJTMASKIN_PRE_VM_TYPECHECK = "true";
+    try {
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: ["marketing-sites"],
+          forbiddenPatterns: ["leave_bracket_placeholders"],
+          tokenBudgets: {
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
+          },
+          routeRealization: {
+            mode: "full",
+            primaryRoutePath: "/",
+            fullRoutePaths: ["/"],
+            shellRoutePaths: [],
+          },
+        },
+        resolvedScaffold: null,
+        willRunQualityGate: true,
+        qualityGatePlanned: true,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(validateAndFix).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          skipWarmTsc: false,
+        }),
+      );
+    } finally {
+      if (previous === undefined) {
+        delete process.env.SAJTMASKIN_PRE_VM_TYPECHECK;
+      } else {
+        process.env.SAJTMASKIN_PRE_VM_TYPECHECK = previous;
+      }
+    }
+  });
+
+  it("SAJ-61: SAJTMASKIN_PRE_VM_TYPECHECK=false leaves QG-planned skip intact", async () => {
+    const previous = process.env.SAJTMASKIN_PRE_VM_TYPECHECK;
+    process.env.SAJTMASKIN_PRE_VM_TYPECHECK = "false";
+    try {
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: ["marketing-sites"],
+          forbiddenPatterns: ["leave_bracket_placeholders"],
+          tokenBudgets: {
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
+          },
+          routeRealization: {
+            mode: "full",
+            primaryRoutePath: "/",
+            fullRoutePaths: ["/"],
+            shellRoutePaths: [],
+          },
+        },
+        resolvedScaffold: null,
+        willRunQualityGate: true,
+        qualityGatePlanned: true,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(validateAndFix).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          skipWarmTsc: true,
+        }),
+      );
+    } finally {
+      if (previous === undefined) {
+        delete process.env.SAJTMASKIN_PRE_VM_TYPECHECK;
+      } else {
+        process.env.SAJTMASKIN_PRE_VM_TYPECHECK = previous;
+      }
+    }
   });
 
   it("emits no preview URL when tier-2 preview is blocked and shim path is removed", async () => {
@@ -1360,7 +1674,13 @@ describe("finalizeAndSaveVersion", () => {
       );
     });
 
-    it("rerun failure → falls back to optimistic clear (legacy behaviour) so existing latency budgets are not regressed", async () => {
+    it("SAJ-61 c5: rerun failure → keeps the original blockers so UI does not lie 'fixed'", async () => {
+      // Pre-SAJ-61 the rerun-failure branch fell through to an optimistic
+      // clear (`verifierBlockingFindings = []`). That meant the UI saw
+      // `verifierBlocked: false` even though the verifier never had a chance
+      // to confirm anything was actually fixed. The new behaviour is to
+      // keep the original blocking findings — the version stays correctly
+      // verifier-blocked until a clean rerun says otherwise.
       runVerifierPass
         .mockResolvedValueOnce({
           blocking: [{ id: "missing-h1", detail: "page missing h1" }],
@@ -1378,11 +1698,10 @@ describe("finalizeAndSaveVersion", () => {
       });
       await finalizeAndSaveVersion(baseArgs());
       expect(runVerifierPass).toHaveBeenCalledTimes(2);
-      // Optimistic clear means verifierBlocked goes false despite rerun fail.
       expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           meta: expect.objectContaining({
-            preflight: expect.objectContaining({ verifierBlocked: false }),
+            preflight: expect.objectContaining({ verifierBlocked: true }),
           }),
         }),
       );

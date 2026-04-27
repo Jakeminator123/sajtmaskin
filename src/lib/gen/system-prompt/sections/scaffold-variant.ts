@@ -101,7 +101,7 @@ export function renderDesignPriorityBlock(): string[] {
     "1. User-locked theme tokens (if set in builder UI) — absolute, never override",
     "2. Brief visual direction (colorPalette, typography, tone, domainProfile) — primary design intent",
     "3. Scaffold Variant defaults (theme tokens, font pairings, signature motif, prompt hints) — fallback when brief is silent",
-    "4. Directive defaults — placeholder values from directive files, used when neither brief nor variant provides guidance",
+    "4. Static core defaults — fallback values from Core Rules when neither brief nor variant provides guidance",
     "",
   ];
 }

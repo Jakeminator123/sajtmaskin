@@ -1,6 +1,7 @@
+import { generateText } from "ai";
 import { NextResponse } from "next/server";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
-import { createSSEHeaders } from "@/lib/streaming";
+import { createSSEHeaders, formatSSEEvent } from "@/lib/streaming";
 import {
   withPromptToDoneMetricResponse,
   wrapStreamForPromptToDoneMetric,
@@ -10,6 +11,7 @@ import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
+import { readRunStatusForChat } from "@/lib/logging/generation-log-writer";
 import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
@@ -104,12 +106,45 @@ import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapp
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
+import { createDirectModel } from "@/lib/builder/direct-model";
 
 // ── Follow-up history management ──────────────────────────────────────────
 
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 
 const CODE_BLOCK_HEAVY_THRESHOLD = 500;
+const QA_SHORTCIRCUIT_MODEL = canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
+
+async function generateQaShortCircuitText(params: {
+  optimizedMessage: string;
+  signal: AbortSignal;
+}): Promise<string> {
+  const result = await generateText({
+    model: createDirectModel(QA_SHORTCIRCUIT_MODEL),
+    abortSignal: params.signal,
+    prompt:
+      "Användaren har ställt en fråga om sin sajt. Svara koncist (max 4 meningar) baserat på följande kontext:\n\n" +
+      params.optimizedMessage,
+  });
+  return result.text.trim();
+}
+
+function buildQaShortCircuitStream(params: {
+  chatId: string;
+  text: string;
+}): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(formatSSEEvent("chatId", { id: params.chatId })));
+      controller.enqueue(encoder.encode(formatSSEEvent("content", { text: params.text })));
+      controller.enqueue(
+        encoder.encode(formatSSEEvent("done", { chatId: params.chatId, versionId: null })),
+      );
+      controller.close();
+    },
+  });
+}
 
 /**
  * QW-4: bevara assistant-prosa innan första file-blocket. Designrationale
@@ -202,6 +237,47 @@ export async function handleMessageStreamRequest(
         return attachSessionCookie(
           NextResponse.json({ error: "Chat not found" }, { status: 404 }),
         );
+      }
+
+      // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
+      // If the most recent generation/repair stream for this chat died
+      // before producing a version (provider abort, transport reset,
+      // server-restart, lazy-staleness), there is nothing to repair: a
+      // followup_general here would route into the variant matcher with
+      // priorVariantId:null and trigger a variant_lock_fallback against
+      // a chat that has no scaffold-lock to lock to. Hard 409 stops the
+      // race at the door — the client is expected to spawn a new chat
+      // instead. Read-only check; the fallback "no log on disk" path is
+      // treated as live (we err on letting through, never on blocking).
+      // The try/catch is defensive against repo-stub mismatches in tests
+      // and against transient DB errors — both should fail open (let the
+      // followup through) rather than 500 the route.
+      let existingVersionsForChat: Awaited<ReturnType<typeof chatRepo.getVersionsByChat>> = [];
+      try {
+        existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id);
+      } catch {
+        existingVersionsForChat = [];
+      }
+      if (existingVersionsForChat.length === 0) {
+        const runStatus = readRunStatusForChat(engineChat.id);
+        if (runStatus && runStatus.status === "aborted" && !runStatus.versionId) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                error: "versionless_chat_aborted",
+                message:
+                  "Den här chatten har ingen version att reparera — generationen avbröts. Starta om i en ny chat.",
+                chatStatus: {
+                  status: runStatus.status,
+                  statusReason: runStatus.statusReason,
+                  hasVersion: false,
+                  updatedAt: runStatus.updatedAt,
+                },
+              },
+              { status: 409 },
+            ),
+          );
+        }
       }
 
       const resolvedModelId = modelSelection.modelId;
@@ -383,6 +459,7 @@ export async function handleMessageStreamRequest(
                   kind: "followup",
                   promptStartedAt,
                   signal: req.signal,
+                  chatId,
                 },
               ),
               { headers: createSSEHeaders() },
@@ -637,6 +714,7 @@ export async function handleMessageStreamRequest(
           const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
+            rawPrompt: message,
             routePlanPrompt: message,
             buildSpecPrompt: message,
             buildIntent: planEngineIntent,
@@ -783,6 +861,7 @@ export async function handleMessageStreamRequest(
             kind: "followup",
             promptStartedAt,
             signal: req.signal,
+            chatId,
           }));
         }
 
@@ -821,6 +900,10 @@ export async function handleMessageStreamRequest(
           snapshotRecord && typeof snapshotRecord.variantId === "string"
             ? (snapshotRecord.variantId as string)
             : null;
+        // TODO(plan-01/failsafe): if snapshotVariantId is null, consider reading
+        // latest resolved `orchestration.styleDirection` for this chat from the
+        // persisted event history as a continuity fallback. Not implemented here
+        // yet because this call-site currently has no local event-history reader.
         // P22b: ärv qualityTarget från senaste accepterad versions buildSpec
         // (lagrad i orchestration_snapshot). `inheritQualityTargetFromPriorVersion`
         // i orchestrate.ts är no-op om värdet saknas eller redan matchar baseSpec.
@@ -838,10 +921,47 @@ export async function handleMessageStreamRequest(
           (PRIOR_QUALITY_TARGETS as readonly string[]).includes(rawPriorQualityTarget)
             ? (rawPriorQualityTarget as (typeof PRIOR_QUALITY_TARGETS)[number])
             : null;
-        const requestKindResult =
-          previousFiles.length > 0 ? classifyRequestKind(message) : null;
+        const requestKindResult = hasFollowUpBase ? classifyRequestKind(message) : null;
+        if (requestKindResult?.kind === "qa-or-score") {
+          devLogAppend("in-progress", {
+            type: "request.kind.shortcircuit",
+            chatId,
+            kind: requestKindResult.kind,
+            reason: "qa-or-score-no-codegen",
+          });
+          try {
+            const assistantText = await generateQaShortCircuitText({
+              optimizedMessage,
+              signal: req.signal,
+            });
+            await chatRepo.addMessage(chatId, "assistant", assistantText).catch(() => null);
+            const qaStream = buildQaShortCircuitStream({
+              chatId,
+              text: assistantText,
+            });
+            return attachSessionCookie(new Response(
+              wrapStreamForPromptToDoneMetric(qaStream, {
+                kind: "followup",
+                promptStartedAt,
+                signal: req.signal,
+                chatId,
+              }),
+              { headers: createSSEHeaders() },
+            ));
+          } catch (err) {
+            devLogAppend("in-progress", {
+              type: "request.kind.shortcircuit.fallback",
+              chatId,
+              kind: requestKindResult.kind,
+              reason: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+        // P32 Fas B next step: external-fetch needs web-search integration
+        // before it can short-circuit safely; keep it on normal codegen for now.
         const orchestrationInput = {
           prompt: optimizedMessage,
+          rawPrompt: message,
           routePlanPrompt: message,
           buildSpecPrompt: message,
           // QW-1: contract-inferens + capability-inferens får rå message så
@@ -1098,6 +1218,7 @@ export async function handleMessageStreamRequest(
               kind: "followup",
               promptStartedAt,
               signal: req.signal,
+              chatId,
             }),
             { headers: createSSEHeaders() },
           ));
@@ -1180,6 +1301,7 @@ export async function handleMessageStreamRequest(
           }),
           engineModel,
           optimizedMessage,
+          rawPrompt: message,
           engineIntent,
           buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,
@@ -1206,6 +1328,7 @@ export async function handleMessageStreamRequest(
           promptStartedAt,
           kind: "followup",
           attachSessionCookie,
+          chatId,
         });
     } catch (err) {
       return buildStreamErrorResponse({

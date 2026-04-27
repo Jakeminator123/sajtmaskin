@@ -1,27 +1,13 @@
 # Strict Schemas
 
-This folder contains machine-oriented schema artifacts for Sajtmaskin.
-
-Purpose:
-
-- give dashboard/tooling a cleaner contract surface
-- support parity tests and path validation
-- stay diff-friendly and conservative
-- enable editor autocomplete and inline validation for JSON config files
+Machine-oriented contract mirrors for Sajtmaskin.
 
 Rules:
 
-- strict schema files must be backed by real code sources of truth
-- strict schema files do **not** replace runtime truth in code
-- prefer JSON or similarly machine-readable formats
-- keep one concern per file
-
-Conservative rollout:
-
-- human-readable schema docs remain in `docs/schemas/*.md`
-- new machine-oriented contract mirrors go here under `strict/`
-- do not move the whole human layer into a `human/` subfolder unless the churn
-  is justified and all references are updated together
+- Back every schema with a real code source of truth.
+- Do not treat strict schemas as runtime truth when code disagrees.
+- Prefer one concern per JSON Schema file.
+- Keep human explanations in `docs/schemas/*.md`.
 
 ## Available Schemas
 
@@ -35,7 +21,30 @@ Conservative rollout:
 | `redis-health-check-report.schema.json` | stdout-payload from `scripts/db/redis-health-check.mjs` | `scripts/db/redis-health-check.mjs` | CI: AJV mot fixtures. Manuell live-roundtrip lokalt. |
 | `db-perf-indexes-audit-line.schema.json` | One NDJSON line per run of `scripts/db/add-performance-indexes.mjs` (logged to `data/observability/db-perf-indexes-runs.ndjson`) | `scripts/db/add-performance-indexes.mjs` | CI: AJV mot fixtures. NDJSON-rader skrivs av skriptet vid varje körning men valideras inte runtime. |
 
-### scaffold-variant.schema.json
+### LLM-flöde telemetri-event schemas
+
+Dessa schemas dokumenterar events/signaler som introducerats i LLM-flöde-körplanen.
+De flesta skrivs via `devLogAppend` till `logs/generationslogg/*/timeline.ndjson`
+(kräver `GENERATIONSLOGG=true`), men vissa skrivs till befintlig DB-diagnostik
+eller debug-logg. Kanal anges per rad. Backoffice-sidan `LLM-flöde telemetri`
+läser och aggregerar de NDJSON-signaler den kan se.
+
+| Schema | Event type | Emitteras av | Kanal | Runtime check? |
+|--------|-----------|--------------|-------|----------------|
+| `llm-fixer-aborted.schema.json` | `llm_fixer_aborted` | `src/lib/gen/autofix/llm-fixer.ts` | `devLogAppend` → NDJSON | No — observability-only |
+| `dossier-verbatim-restored.schema.json` | `dossier_verbatim_restored` | `src/lib/gen/dossiers/verbatim-policy.ts` | `devLogAppend` → NDJSON | No — observability-only |
+| `llm-fixer-partial-response.schema.json` | `llm_fixer_partial_response` | `src/lib/gen/autofix/llm-fixer.ts` | `devLogAppend` → NDJSON | No — observability-only |
+| `site-done-telemetry.schema.json` | `site.done` (subset-kontrakt för telemetri) | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | `devLogAppend` → NDJSON | No — observability-only |
+| `site-aborted.schema.json` | `site.aborted` (transport-/connection-/provider-abort innan version skapats) | `src/lib/gen/stream/stream-format.ts`, `src/lib/observability/prompt-to-done-stream.ts`, `src/lib/logging/generation-log-writer.ts` (staleness) | `devLogAppend` → NDJSON | No — observability-only; konsumeras av `resolveStatusDetails` → `status=aborted` |
+| `product-postcheck.schema.json` | `product_postcheck.*` | `src/lib/gen/verify/product-postcheck.ts` + `src/lib/hooks/chat/post-checks.ts` | `engine_version_error_logs` via befintlig `persistVersionErrorLogs()` | No — observability-only |
+| `image-replaced-with-placeholder.schema.json` | `image_replaced_with_placeholder` | `src/lib/utils/image-validator.ts` | **`debugLog` (console)** — ej NDJSON | No — forward-deklaration |
+| `dossier-stub-created.schema.json` | `dossier_stub_created` / `crossFileStubs` | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` | **DB** (`engine_version_error_logs`, category `merge:cross-file-stub`) | No — forward-deklaration |
+
+**Obs för `image-replaced-with-placeholder` och `dossier-stub-created`:** dessa schemas
+är forward-deklarationer — de dokumenterar den planerade event-strukturen men de
+emitteras ännu inte via `devLogAppend` till NDJSON. Se respektive schema-fil för detaljer.
+
+### `scaffold-variant.schema.json`
 
 Validates scaffold variant JSON files — the visual expressions (typography,
 color palette, motif, prompt hints) that a scaffold can take.
@@ -61,7 +70,7 @@ The schema enforces:
 
 - Required fields: `id`, `scaffoldId`, `label`, `signatureMotif`, `colorMode`, `keywords`, `fontPairings`, `promptHints`
 - `id` must be kebab-case
-- `scaffoldId` must be one of the 10 known scaffold IDs
+- `scaffoldId` must be one of the current runtime scaffold IDs
 - Array length limits on all list fields
 - `colorMode` restricted to `light` | `dark` | `either`
 

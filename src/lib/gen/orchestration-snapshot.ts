@@ -9,6 +9,14 @@ const SENSITIVE_KEY_SUBSTR = /pass|secret|token|auth|cookie|credential|apikey|ap
 const MAX_STRING = 12_000;
 const MAX_DEPTH = 8;
 const MAX_KEYS = 80;
+const PROTECTED_TOP_LEVEL_KEYS = [
+  "variantId",
+  "scaffoldId",
+  "lineageHash",
+  "versionId",
+  "chatId",
+] as const;
+const PROTECTED_TOP_LEVEL_KEY_SET = new Set<string>(PROTECTED_TOP_LEVEL_KEYS as readonly string[]);
 
 function truncateString(s: string): string {
   if (s.length <= MAX_STRING) return s;
@@ -22,7 +30,25 @@ export function sanitizeOrchestrationSnapshotForStorage(
 ): Record<string, unknown> {
   if (depth > MAX_DEPTH || keyCount.n > MAX_KEYS) return {};
   const out: Record<string, unknown> = {};
+  // Keep stable top-level identity fields even when large nested payloads
+  // (for example buildSpec/integrations) consume the key budget.
+  if (depth === 0) {
+    for (const key of PROTECTED_TOP_LEVEL_KEYS) {
+      if (!(key in input)) continue;
+      const value = input[key];
+      if (
+        value === null ||
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        out[key] = value;
+      }
+    }
+  }
+  if (keyCount.n > MAX_KEYS) return out;
   for (const [k, v] of Object.entries(input)) {
+    if (depth === 0 && PROTECTED_TOP_LEVEL_KEY_SET.has(k)) continue;
     if (keyCount.n > MAX_KEYS) break;
     if (SENSITIVE_KEY_SUBSTR.test(k)) continue;
     keyCount.n += 1;
@@ -105,6 +131,14 @@ export function mergePersistedOrchestrationSnapshots(
   }
 
   const merged = { ...base, ...next };
+  // Protect stable identity fields from null-overwrites in later finalize
+  // passes that lost these values during sanitization.
+  if (typeof base.variantId === "string" && next.variantId === null) {
+    merged.variantId = base.variantId;
+  }
+  if (typeof base.scaffoldId === "string" && next.scaffoldId === null) {
+    merged.scaffoldId = base.scaffoldId;
+  }
   const prevBuildSpec = base.buildSpec;
   const nextBuildSpec = next.buildSpec;
   if (isPlainObjectRecord(prevBuildSpec) && isPlainObjectRecord(nextBuildSpec)) {

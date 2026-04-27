@@ -1,27 +1,31 @@
-# Scaffold-systemet — Schema och Inventarium
+# Scaffold-systemet
 
-**Senast uppdaterad:** 2026-04-20. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`).
+**Senast uppdaterad:** 2026-04-27. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
 
-Detta dokument täcker både runtime-arkitekturen (steg, typer, pipeline) och per-scaffold/per-variant inventariumet med kvalitetsbedömning.
+Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar med dossiers. Rent kontrakt finns i [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md).
 
 ---
 
-## 1. De tio scaffolds — översikt
+## 1. De nio scaffolds — översikt
 
 | ID | Label | siteKind | complexity | allowedBuildIntents | Variants | Default-variant |
 |---|---|---|---|---|---|---|
 | `base-nextjs` | Base Next.js | marketing | simple | website, template | 4 | `starter-neutral` |
-| `landing-page` | Landing Page | marketing | medium | website, template | **5** | `corporate-grid` |
+| `landing-page` | Landing Page | marketing | medium | website, template | **7** | `corporate-grid` |
 | `saas-landing` | SaaS Landing | marketing | medium | website, template | 2 | `friendly-saas` |
 | `portfolio` | Portfolio | editorial | medium | website, template | 2 | `minimal-studio` |
 | `blog` | Blog | editorial | medium | website, template | 2 | `editorial-serif` |
 | `dashboard` | Dashboard | app | advanced | app | 2 | `glass-frosted` |
 | `auth-pages` | Auth Pages | app | simple | website, app, template | 1 | `clean-auth` |
 | `ecommerce` | E-handel | commerce | advanced | website, template | 3 | `megastore-clean` |
-| `content-site` | Content Site | marketing | medium | website, template | 1 | `warm-editorial` |
 | `app-shell` | App Shell | app | medium | app | 2 | `clean-utility` |
 
-**Totalt:** 10 scaffolds, 26 variants. Variants ojämnt fördelade.
+**Totalt:** 9 scaffolds, 26 variants. Variants ojämnt fördelade.
+
+> Historisk not (2026-04-23, OMTAG fas 2·B / M1): den tidigare marketing-scaffolden
+> för multi-section brand storytelling slogs ihop med `landing-page`. Dess två
+> varianter (`warm-editorial`, `minimalist-mag`) flyttades till landing-page. Se
+> `docs/architecture/glossary.md` § Legacy för detaljer.
 
 ### Variant-detaljer (sammanfattning)
 
@@ -35,11 +39,13 @@ Per scaffold finns en eller flera variants med design-axes (label, description, 
 
 ## 2. Konsoliderings-rekommendationer (öppna)
 
-### 2.1 `content-site` ↔ `landing-page`
+### 2.1 ~~Landing-familjens sammanslagning~~ (avklarad 2026-04-23)
 
-**Fakta:** Båda `siteKind: marketing`, `complexity: medium`, samma `allowedBuildIntents`. `content-site.description` säger "Great for landing pages, portfolios, and blogs" — direkt överlapp. `content-site` har 1 variant; `landing-page` har 5. Båda matchas av `LANDING_KEYWORDS` och `CONTENT_KEYWORDS` i `matcher.ts` — keyword-listorna delar 7 ord.
-
-**Rekommendation:** Slå ihop. Flytta `warm-editorial` som sjätte landing-page-variant. Ta bort content-site-scaffolden. **−1 scaffold.**
+Den tidigare marketing-scaffolden för multi-section brand storytelling slogs
+ihop med `landing-page` i OMTAG fas 2·B / M1. `LANDING_KEYWORDS` absorberade
+det gamla `CONTENT_KEYWORDS`-banket, och de två varianterna
+(`warm-editorial`, `minimalist-mag`) flyttades till `landing-page`. Se
+`docs/architecture/glossary.md` § Legacy.
 
 ### 2.2 `dashboard` ↔ `app-shell`
 
@@ -59,35 +65,28 @@ Per scaffold finns en eller flera variants med design-axes (label, description, 
 
 ---
 
-## 3. Pipeline — hur variants byggs
+## 3. Pipeline — nuläge
 
 ```
-Vercel-templates (skrapad data)
+Prompt / Deep Brief
         │
-        ▼
-data/dossiers/<id>/  (sedan dossier-pipen migrerad 2026-04)
-   ├─ manifest.json    ← per-template metadata + selectedFiles
-   ├─ summary.md
-   └─ selected_files/  ← faktiska TSX/CSS-utdrag
+        ├─ scaffold match → src/lib/gen/scaffolds/*
+        │       └─ scaffold-variant → config/scaffold-variants/*
         │
-        │ scripts/template-library/build-template-library.ts
-        ▼
-src/lib/gen/template-library/template-library.generated.json
-   (97 entries med runtimeGuidance från regelmotor)
-        │
-        │ scripts/scaffolds/derive-variants-from-dossiers.ts
-        │ (21 hand-skrivna BLUEPRINTS med design-axes)
-        ▼
-config/scaffold-variants/<scaffoldId>/<variantId>.json
-   (rena design-axes; guidance-fält borttagna 2026-04-17)
+        └─ capability inference → selected dossiers
+                └─ data/dossiers/{hard,soft}/<id>/
 ```
 
 | Lager | Källa | Kvalitet |
 |---|---|---|
-| Dossier `selectedFiles` | Skrapad riktig Vercel-kod | Hög — riktig kod, används i `## Structural References` när enabled |
-| Dossier `strengths`, `signals`, `recommendedScaffoldIds` | Kuration | Hög |
-| Dossier `summary`, `description` | Skrapad | Hög |
-| Variant `design-axes` | Hand-skrivna BLUEPRINTS | Hög — specifika, scaffold-relevanta |
+| Scaffold | `src/lib/gen/scaffolds/<id>/manifest.ts` + `files/` | Startstruktur, routes, baseline-filer, checklistor |
+| Variant | `config/scaffold-variants/<scaffoldId>/<variantId>.json` | Visuellt uttryck: motif, fontpar, theme tokens, prompt hints |
+| Dossier | `data/dossiers/{hard,soft}/<id>/` | Capability-bunden referens/instruktion, validerad mot strict schema |
+| Research/embeddings | Genererade artefakter under `src/lib/gen/scaffolds/` och `config/scaffold-variants/_index/` | Stöd för matchning och prioritering, inte ny sanningskälla |
+
+Legacy external-template/template-library-flöden är historik; se
+[`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md)
+om du behöver läsa äldre research-data.
 
 ---
 
@@ -98,9 +97,9 @@ config/scaffold-variants/<scaffoldId>/<variantId>.json
 | 1 | VAD ska byggas? | `BuildIntent` | `template` / `website` / `app` |
 | 2 | HUR kom requesten in? | `BuildMethod` | `wizard` / `category` / `audit` / `freeform` / `kostnadsfri` |
 | 2 | Prompt-typ | `PromptType` | `wizard` / `freeform` / `template` / `audit` / `followup_*` |
-| 3 | VILKEN startstruktur? | `ScaffoldMode` + `ScaffoldId` | `off` / `auto` / `manual` × 10 scaffold-ids |
+| 3 | VILKEN startstruktur? | `ScaffoldMode` + `ScaffoldId` | `off` / `auto` / `manual` × 9 scaffold-ids |
 | 4 | HUR MYCKET styr scaffolden? | `ScaffoldSerializeMode` | `structural` / `inspirational` (init/followUp + contextPolicy) |
-| 5 | VAD BERIKAR scaffolden? | Buildtime artifacts | `template-library.generated.json`, `scaffold-research.generated.json`, `scaffold-embeddings.json` |
+| 5 | VAD BERIKAR scaffolden? | Buildtime/runtime stöddata | dossiers, `scaffold-research.generated.json`, scaffold/variant embeddings |
 
 ---
 
@@ -141,7 +140,7 @@ Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `Rout
 ### STEG 6 — Pre-generation Contracts (`pre-generation-contracts.ts`)
 Auth, Payment, Database, Env vars, Integrations. Output: `contracts[]`, `unresolvedDecisions[]`, `confirmedAnswers[]`.
 
-### STEG 7 — Build Spec (`build-spec.ts`)
+### STEG 7 — Build Spec (`src/lib/gen/build-spec/`)
 `contextPolicy` (`light` / `normal` / `heavy`), `qualityTarget`, `previewPolicy`, `verificationPolicy`, `tokenBudgets.{scaffoldChars, scaffoldTokens}`. Se [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) för token-budget-tabellen.
 
 ### STEG 8 — Orchestration Contract (`orchestration-contract.ts`)
@@ -158,7 +157,7 @@ Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRo
 
 `selectCriticalScaffoldFiles()` prioriterar baserat på kritiska patterns + route-relevans + capability-relevans.
 
-### STEG 10 — System Prompt (`system-prompt.ts`)
+### STEG 10 — System Prompt (`src/lib/gen/system-prompt/`)
 
 ```
 Core Rules (config/prompt-core/*.md via codegen-core-manifest.json):
@@ -199,7 +198,6 @@ Se [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) för fin
 | `dashboard` | app | advanced | dashboard-app | operations-analytics | app | auth, navigation-shell, tables, charts |
 | `auth-pages` | app | simple | auth-surface | authentication | website, app | login, signup, password-reset |
 | `ecommerce` | commerce | advanced | commerce-storefront | product-catalog | website, template | product-grid, cart, checkout, product-detail |
-| `content-site` | marketing | medium | content-marketing-site | brand-storytelling | website, template | hero, feature-sections, testimonials, cta |
 | `app-shell` | app | medium | application-shell | workspace-tools | app | auth, sidebar-layout, settings, dash-widgets |
 
 ---
@@ -217,14 +215,37 @@ base manifest (per scaffold-mapp, t.ex. blog/manifest.ts)
    └─ scaffold-research.generated.json → upgradeTargets, referenceTemplates
         │
         ▼
-2. applyScaffoldSeoDefaults()
+2. applyScaffoldSeoDefaults(scaffold, options?)
    └─ seo-defaults.ts → SEO-metadata
+      │
+      ├─ no options + env unset      → noop (default-safe; ingen example.com-leak)
+      ├─ no options + env set        → env-fallback (single-tenant)
+      ├─ options.siteUrl (string)    → override env (per-projekt, PR-B-konsument)
+      ├─ options.siteUrl: null       → explicit noop även om env satt
+      └─ options.brand               → fyller layout-metadata-fallbacks
+                                        (scaffold-content vinner för title/description;
+                                         brand vinner för locale)
         │
         ▼
 ALL_SCAFFOLDS (registry.ts)
 ```
 
 `applyScaffoldTraits()` borttagen 2026-04 — traits konsoliderade direkt i varje manifest.ts.
+
+---
+
+## 7b. File merge policy vid generation
+
+`mergeGeneratedProjectFiles()` i [`src/lib/gen/stream/finalize-merge.ts`](../../src/lib/gen/stream/finalize-merge.ts) styr hur scaffold-filer och LLM-emitterade filer kombineras till final `files_json`. Två motsatta path-set styr policyn:
+
+| Set | Beteende | Default-innehåll |
+|-----|----------|------------------|
+| `LLM_ONLY_PATHS` | Scaffold-versionen **filtreras bort**. Om LLM inte emitterar en egen version saknas filen → versionen markeras verification-blocked via `missingEmittedEssentials`. | `app/page.tsx`, `src/app/page.tsx` |
+| `SCAFFOLD_PROTECTED_PATHS` | LLM-emissionen **filtreras bort**. Scaffold-default (init) eller previous-version (follow-up) vinner alltid. Logg: `scaffold-protected-overwrite-blocked`. | `app/api/placeholder/route.ts` |
+
+`SCAFFOLD_PROTECTED_PATHS` är endast för rena utility-filer utan brand/copy/affärslogik. `app/api/placeholder/route.ts` lades till 2026-04-27 efter att eval-rapporten visade att 6/13 fail-prompts berodde på att LLM:n regenererade filen som JSX i `.ts` (`Expected ">" but found "style"`). Att låsa scaffold-versionen är deterministiskt och byter inte några brand-relaterade beslut.
+
+Lägg endast till nya entries om filen är ren utility (verifierad korrekt scaffold-version, ingen kund vill anpassa).
 
 ---
 
@@ -250,7 +271,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 | Runtime-registry | `src/lib/gen/scaffolds/registry.ts` | `BASE_SCAFFOLDS` array |
 | Variant-typ | `src/lib/gen/scaffold-variants/types.ts` | Vid fältborttagning |
 | Variant-registry | `src/lib/gen/scaffold-variants/registry.ts` | Parser-kod |
-| Build-skript | `scripts/scaffolds/derive-variants-from-dossiers.ts` | BLUEPRINTS array |
+| Variant-skript | `scripts/scaffolds/auto-curate-variant-patterns.ts`, `generate-variant-embeddings.ts` | Signature patterns + embeddings |
 | Matcher | `src/lib/gen/scaffolds/matcher.ts` | Keyword-listor, `defaultScaffoldForIntent` |
 | Embeddings | `src/lib/gen/scaffolds/scaffold-embeddings.json` | Regenereras via `npm run scaffolds:embeddings` |
 | Backoffice | `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`, `research.py` | Kontroller, sidolist |
@@ -263,29 +284,18 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 ## 10. Verktyg
 
-### Scaffold-pipeline (npm-scripts via `scaffold_cli.py`)
+### Scaffold / dossier / variant
 
 | Kommando | Vad |
 |---|---|
-| `npm run scaffolds:status/import/hydrate/build/embeddings/eval/verify/all` | Kanonisk CLI |
-| `npm run scaffolds:promote` | Skapar ny scaffold från dossier |
-| `npm run scaffolds:curate` | Rangordnar template-library-entries som kandidater |
+| `npm run scaffolds:validate` | Validerar scaffold-manifest via test |
+| `npm run scaffolds:embeddings:check` | Kontrollerar scaffold-embeddings inför build |
 | `npm run scaffolds:eval` | Eval-harness för scaffold-matchern |
-
-### Template-library
-
-| Kommando | Vad |
-|---|---|
-| `npm run template-library:build` | → `template-library.generated.json` + `scaffold-research.generated.json` |
-| `npm run template-pipeline:refresh` | Full pipeline: scrape → import → hydrate → build → embeddings |
-| `npm run template-library:validate-runtime` | Validerar genererade artefakter |
-
-### Embeddings
-
-| Kommando | Vad |
-|---|---|
-| `npm run scaffolds:embeddings` | Runtime scaffold-matchning |
-| `npm run template-library:embeddings` | Template-library |
+| `npm run scaffolds:embeddings` | Regenererar runtime scaffold-embeddings |
+| `npm run scaffolds:variant-embeddings` | Regenererar variant-embeddings |
+| `npm run scaffolds:variant-patterns` | Kuraterar variant signature patterns |
+| `npm run dossiers:curate` | Kuraterar externa referenser till dossier-pipen |
+| `npm run dossiers:validate-all` | Validerar dossier-manifest + invariants |
 
 ### Backoffice
 
@@ -298,7 +308,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 | Fil | Vad |
 |---|---|
 | `config/codegen-core-manifest.json` | Fragment-lista för Core Rules |
-| `config/prompt-core/*.md` | 6 Core Rules-filer (inkl. `_READ_ME_FIRST.md`) |
+| `config/prompt-core/*.md` | Core Rules-fragment (manifestet styr exakt lista) |
 | `config/integrations/tier3-sdk-deny.json` | F2 SDK guard + F2 contract-block |
 | `config/ai_models/manifest.json` | Build profiles, token-budgetar, embedding-index, phase routing, `qualityGateTiers` (`designPreview` / `integrationsBuild`) |
 | `config/ai_models/40-harmless-placeholders.env.txt` | Placeholder env vars OK i F3 |
@@ -313,5 +323,5 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 - [Fas 2 — Orkestrering och Build](./fas2-orchestration-and-build.md)
 - [LLM Signal Flow](./llm-signal-flow.md)
 - Variant-typ: `src/lib/gen/scaffold-variants/types.ts`
-- Build-skript: `scripts/scaffolds/derive-variants-from-dossiers.ts`
+- Variant-skript: `scripts/scaffolds/auto-curate-variant-patterns.ts`
 - Backoffice: `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`

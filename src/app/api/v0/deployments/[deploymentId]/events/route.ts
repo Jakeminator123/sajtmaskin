@@ -6,6 +6,7 @@ import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDe
 import { updateDeploymentStatus } from "@/lib/deployment";
 import { createRedisSubscriber, deployStatusChannel } from "@/lib/redis-pubsub";
 import { getChatByIdForRequest } from "@/lib/tenant";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -17,180 +18,182 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ deploymentId: string }> },
 ) {
-  const { deploymentId } = await params;
+  return withRateLimit(req, "v0:deployments-events", async () => {
+    const { deploymentId } = await params;
 
-  const result = await db
-    .select()
-    .from(deployments)
-    .where(eq(deployments.id, deploymentId))
-    .limit(1);
+    const result = await db
+      .select()
+      .from(deployments)
+      .where(eq(deployments.id, deploymentId))
+      .limit(1);
 
-  if (result.length === 0) {
-    return new Response(JSON.stringify({ error: "Not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const deployment = result[0];
-  const ownedChat = await getChatByIdForRequest(req, deployment.chatId);
-  if (!ownedChat) {
-    return new Response(JSON.stringify({ error: "Not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-  const encoder = new TextEncoder();
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      let closed = false;
-      let pollStarted = false;
-      let sub: ReturnType<typeof createRedisSubscriber> = null;
-
-      function send(data: Record<string, unknown>) {
-        if (closed) return;
-        try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-        } catch {
-          closed = true;
-        }
-      }
-
-      function close() {
-        if (closed) return;
-        closed = true;
-        try {
-          controller.close();
-        } catch {}
-      }
-
-      function disconnectSubscriber() {
-        if (!sub) return;
-        sub.unsubscribe().catch(() => {});
-        sub.disconnect();
-        sub = null;
-      }
-
-      send({
-        status: deployment.status ?? "pending",
-        url: deployment.url,
-        inspectorUrl: deployment.inspectorUrl,
+    if (result.length === 0) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
       });
+    }
 
-      const currentStatus = (deployment.status as string) ?? "pending";
-      if (TERMINAL_STATUSES.has(currentStatus)) {
-        close();
-        return;
-      }
+    const deployment = result[0];
+    const ownedChat = await getChatByIdForRequest(req, deployment.chatId);
+    if (!ownedChat) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const encoder = new TextEncoder();
 
-      const vercelDeploymentId = deployment.vercelDeploymentId;
-      if (!vercelDeploymentId) {
-        close();
-        return;
-      }
+    const stream = new ReadableStream({
+      async start(controller) {
+        let closed = false;
+        let pollStarted = false;
+        let sub: ReturnType<typeof createRedisSubscriber> = null;
 
-      // Fallback: poll Vercel API when Redis is unavailable or fails
-      const poll = async () => {
-        while (!closed) {
-          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-          if (closed) break;
-
+        function send(data: Record<string, unknown>) {
+          if (closed) return;
           try {
-            const vd = await getVercelDeployment(vercelDeploymentId);
-            const mapped = mapVercelReadyStateToStatus(vd.readyState);
-
-            send({
-              status: mapped.status,
-              url: vd.url ? `https://${vd.url}` : null,
-              inspectorUrl: vd.inspectorUrl,
-            });
-
-            try {
-              await updateDeploymentStatus(deploymentId, mapped.status, {
-                url: vd.url || undefined,
-                inspectorUrl: vd.inspectorUrl || undefined,
-              });
-            } catch (persistErr) {
-              // SAJ-58: client got the new status via SSE, but the DB row
-              // didn't update. List/API consumers reading `deployments`
-              // will then show stale state. Surface in logs so we can spot
-              // the divergence; clients still see the live SSE stream.
-              console.warn(
-                "[deployments-sse] updateDeploymentStatus failed; DB may lag Vercel",
-                {
-                  deploymentId,
-                  vercelDeploymentId,
-                  attemptedStatus: mapped.status,
-                  error: persistErr instanceof Error ? persistErr.message : String(persistErr),
-                },
-              );
-            }
-
-            if (TERMINAL_STATUSES.has(mapped.status)) {
-              close();
-            }
-          } catch (pollErr) {
-            // SAJ-58: a single Vercel-poll failure shouldn't kill the loop
-            // (transient 429/5xx are common), but silent swallowing meant
-            // we couldn't tell tight retry-loops apart from real outages.
-            console.warn("[deployments-sse] poll iteration failed", {
-              deploymentId,
-              vercelDeploymentId,
-              error: pollErr instanceof Error ? pollErr.message : String(pollErr),
-            });
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          } catch {
+            closed = true;
           }
         }
-      };
 
-      function startPollingFallback() {
-        if (pollStarted || closed) return;
-        pollStarted = true;
-        void poll();
-      }
-
-      req.signal.addEventListener("abort", () => {
-        disconnectSubscriber();
-        close();
-      });
-
-      sub = createRedisSubscriber();
-      if (sub) {
-        const channel = deployStatusChannel(vercelDeploymentId);
-
-        sub.subscribe(channel).catch(() => {
-          disconnectSubscriber();
-          startPollingFallback();
-        });
-
-        sub.on("message", (_ch: string, message: string) => {
+        function close() {
+          if (closed) return;
+          closed = true;
           try {
-            const data = JSON.parse(message);
-            send(data);
-            if (TERMINAL_STATUSES.has(data.status)) {
-              disconnectSubscriber();
-              close();
-            }
+            controller.close();
           } catch {}
+        }
+
+        function disconnectSubscriber() {
+          if (!sub) return;
+          sub.unsubscribe().catch(() => {});
+          sub.disconnect();
+          sub = null;
+        }
+
+        send({
+          status: deployment.status ?? "pending",
+          url: deployment.url,
+          inspectorUrl: deployment.inspectorUrl,
         });
 
-        sub.on("error", () => {
+        const currentStatus = (deployment.status as string) ?? "pending";
+        if (TERMINAL_STATUSES.has(currentStatus)) {
+          close();
+          return;
+        }
+
+        const vercelDeploymentId = deployment.vercelDeploymentId;
+        if (!vercelDeploymentId) {
+          close();
+          return;
+        }
+
+        // Fallback: poll Vercel API when Redis is unavailable or fails
+        const poll = async () => {
+          while (!closed) {
+            await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+            if (closed) break;
+
+            try {
+              const vd = await getVercelDeployment(vercelDeploymentId);
+              const mapped = mapVercelReadyStateToStatus(vd.readyState);
+
+              send({
+                status: mapped.status,
+                url: vd.url ? `https://${vd.url}` : null,
+                inspectorUrl: vd.inspectorUrl,
+              });
+
+              try {
+                await updateDeploymentStatus(deploymentId, mapped.status, {
+                  url: vd.url || undefined,
+                  inspectorUrl: vd.inspectorUrl || undefined,
+                });
+              } catch (persistErr) {
+                // SAJ-58: client got the new status via SSE, but the DB row
+                // didn't update. List/API consumers reading `deployments`
+                // will then show stale state. Surface in logs so we can spot
+                // the divergence; clients still see the live SSE stream.
+                console.warn(
+                  "[deployments-sse] updateDeploymentStatus failed; DB may lag Vercel",
+                  {
+                    deploymentId,
+                    vercelDeploymentId,
+                    attemptedStatus: mapped.status,
+                    error: persistErr instanceof Error ? persistErr.message : String(persistErr),
+                  },
+                );
+              }
+
+              if (TERMINAL_STATUSES.has(mapped.status)) {
+                close();
+              }
+            } catch (pollErr) {
+              // SAJ-58: a single Vercel-poll failure shouldn't kill the loop
+              // (transient 429/5xx are common), but silent swallowing meant
+              // we couldn't tell tight retry-loops apart from real outages.
+              console.warn("[deployments-sse] poll iteration failed", {
+                deploymentId,
+                vercelDeploymentId,
+                error: pollErr instanceof Error ? pollErr.message : String(pollErr),
+              });
+            }
+          }
+        };
+
+        function startPollingFallback() {
+          if (pollStarted || closed) return;
+          pollStarted = true;
+          void poll();
+        }
+
+        req.signal.addEventListener("abort", () => {
           disconnectSubscriber();
-          startPollingFallback();
+          close();
         });
 
-        return;
-      }
+        sub = createRedisSubscriber();
+        if (sub) {
+          const channel = deployStatusChannel(vercelDeploymentId);
 
-      startPollingFallback();
-    },
-  });
+          sub.subscribe(channel).catch(() => {
+            disconnectSubscriber();
+            startPollingFallback();
+          });
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-    },
+          sub.on("message", (_ch: string, message: string) => {
+            try {
+              const data = JSON.parse(message);
+              send(data);
+              if (TERMINAL_STATUSES.has(data.status)) {
+                disconnectSubscriber();
+                close();
+              }
+            } catch {}
+          });
+
+          sub.on("error", () => {
+            disconnectSubscriber();
+            startPollingFallback();
+          });
+
+          return;
+        }
+
+        startPollingFallback();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
   });
 }

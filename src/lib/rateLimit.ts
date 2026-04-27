@@ -74,6 +74,18 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   // v0 Platform API - separate limit to track v0 usage specifically
   "v0:generate": { maxRequests: 20, windowMs: 60 * 1000 },
   "v0:stream": { maxRequests: 30, windowMs: 60 * 1000 },
+  // B1.4 — distinct buckets per route so a tight repair-loop on one chat
+  // doesn't exhaust the budget for unrelated polls (deployment status,
+  // readiness, etc.) on another chat.
+  "v0:deployments-list": { maxRequests: 60, windowMs: 60 * 1000 },
+  "v0:deployments-single": { maxRequests: 60, windowMs: 60 * 1000 },
+  "v0:deployments-events": { maxRequests: 60, windowMs: 60 * 1000 },
+  "engine:quality-gate": { maxRequests: 12, windowMs: 60 * 1000 },
+  "engine:repair": { maxRequests: 12, windowMs: 60 * 1000 },
+  "engine:readiness": { maxRequests: 60, windowMs: 60 * 1000 },
+  "engine:product-postcheck": { maxRequests: 12, windowMs: 60 * 1000 },
+  "preferences:get": { maxRequests: 60, windowMs: 60 * 1000 },
+  "preferences:patch": { maxRequests: 20, windowMs: 60 * 1000 },
 };
 
 let _cachedRedis: Redis | null = null;

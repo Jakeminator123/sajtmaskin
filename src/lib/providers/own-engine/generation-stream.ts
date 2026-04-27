@@ -84,6 +84,7 @@ export interface GenerationStreamParams {
   meta: GenerationStreamMeta;
   engineModel: string;
   optimizedMessage: string;
+  rawPrompt?: string;
   engineIntent: BuildIntent;
   buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
@@ -118,6 +119,7 @@ export function createOwnEngineGenerationStream(
     meta,
     engineModel,
     optimizedMessage,
+    rawPrompt,
     engineIntent,
     buildSpec,
     routePlan,
@@ -320,7 +322,7 @@ export function createOwnEngineGenerationStream(
         chatId,
         model: engineModel,
         resolvedTier,
-        originalPrompt: optimizedMessage,
+        originalPrompt: rawPrompt ?? optimizedMessage,
         buildIntent: engineIntent,
         buildSpec,
         routePlan,
@@ -346,6 +348,16 @@ export function createOwnEngineGenerationStream(
         // in runOwnEngineStreamPostFinalize so both sides agree.
         repairPassIndex: targetVersionId ? 1 : 0,
         accumulatedThinking: accumulatedThinkingRef?.current ?? null,
+        // Builder client always runs post-check quality-gate after `done`
+        // (or after queued autofix), so finalize can safely skip duplicate
+        // warm-tsc when that lane already includes `typecheck`.
+        willRunQualityGate: true,
+        // Wave 7 R2 guard: stark signal att quality-gate faktiskt är
+        // planerad. Utan denna flagga kör finalize warm-tsc ändå även om
+        // `willRunQualityGate` råkar vara true — se fast-path.ts för
+        // guard-logik. Builder-streamen är det enda callsite idag som
+        // garanterat har post-check quality-gate efter `done`.
+        qualityGatePlanned: true,
         ...extra,
       });
 

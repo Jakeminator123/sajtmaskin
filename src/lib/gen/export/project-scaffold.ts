@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
     Math.max(parseInt(params.get("height") || params.get("h") || "400", 10) || 400, 1),
     2000,
   );
-  const text = params.get("text") || \`\${width} × \${height}\`;
+  const text = params.get("label") || params.get("text") || \`\${width} × \${height}\`;
   const fontSize = Math.max(12, Math.min(24, width / 20));
   const subFontSize = Math.max(10, Math.min(14, width / 30));
 

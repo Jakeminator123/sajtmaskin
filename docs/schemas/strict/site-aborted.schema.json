@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "site-aborted.schema.json",
+  "title": "site.aborted",
+  "description": "Emitteras när en generation/repair-stream rivs innan en version skapats (transport-/connection-/provider-abort). Skiljer sig från `site.done` (lyckad finalize) och `comm.error.create|send` (pre-stream-fel som returnerar JSON istället för stream). Skrivs via devLogAppend till logs/generationslogg/<run>/timeline.ndjson. Konsumeras av generation-log-writer.resolveStatus → 'aborted', samt UI-/backoffice-views för 'avbruten körning'. Lägg INTE till mer betydelse i denna event — använd `site.failed` om generationen producerade content men finalize/verifier underkände den.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "reason"],
+  "properties": {
+    "type": {
+      "const": "site.aborted",
+      "description": "Diskriminant: alltid strängen 'site.aborted'."
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "client_disconnect",
+        "provider_aborted_no_content",
+        "provider_aborted_after_content",
+        "stream_closed_without_done",
+        "stream_error",
+        "staleness_inferred"
+      ],
+      "description": "Strikt orsakskategori. 'client_disconnect' = req.signal.aborted (browser stängd, server-restart). 'provider_aborted_no_content' / '*_after_content' = AI SDK part.type === 'abort'. 'stream_closed_without_done' = source-strömmen flush:ade utan att skicka 'event: done'. 'stream_error' = pipe-fel. 'staleness_inferred' = lazy detection: status-resolver såg in_progress + updatedAt > stalenessThresholdMs."
+    },
+    "chatId": {
+      "type": ["string", "null"],
+      "description": "Chat-id om känt vid emit-tillfället. Null när transport-aborten sker innan handlern hunnit skriva chatId till loggen."
+    },
+    "versionId": {
+      "type": ["string", "null"],
+      "description": "Version-id om en versionsrad redan skapats vid abort-tillfället. Null betyder versionless-abort (UI ska visa 'Starta om' istället för 'Reparera')."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["init", "followup"],
+      "description": "Vilken stream-typ som abortades. Speglar `PromptToDoneKind` i `src/lib/observability/metrics.ts`. 'init' = första generation från start-prompten. 'followup' = follow-up/repair-pass mot existerande chat."
+    },
+    "elapsedMs": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Millisekunder från promptStartedAt till abort. Endast satt när scope vet om timing."
+    },
+    "stalenessMs": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Endast för reason='staleness_inferred'. Antal ms mellan sista entry och stale-detection-tidpunkten."
+    },
+    "slug": {
+      "type": ["string", "null"],
+      "description": "Run-slug. Sätts av enrichEntryWithSlug i devLog.ts."
+    }
+  }
+}

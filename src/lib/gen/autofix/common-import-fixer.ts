@@ -197,13 +197,57 @@ function extractLocalDeclarations(code: string): Set<string> {
   return names;
 }
 
+/**
+ * Symbols we accept into the export index.
+ *
+ * SAJ-61 broadened this from "ALL_CAPS | camelCase | strict-PascalCase" to
+ * "any valid TS/JS identifier" because the strict PascalCase regex
+ * (`[A-Z][a-z][A-Za-z0-9]*`) excluded:
+ *   - acronym-PascalCase like `APIBanner`, `HTTPStatusCard`,
+ *     `URLProvider` (`[A-Z][A-Z]…`)
+ *   - single-letter exports like `X`, `Y` (3D scene primitives)
+ *
+ * False positives are still bounded:
+ *   - the file-level filter (`isIndexableSharedFile`) keeps `app/`,
+ *     `components/ui/`, `node_modules/`, autofix stubs out
+ *   - `fixMissingLocalSymbolImports` only auto-imports when **exactly one**
+ *     indexable file exports the symbol — multiple kandidater are left
+ *     for the structured repair-loop, never auto-guessed
+ *   - `symbolLooksUsed` requires the symbol to actually appear as a
+ *     value/type reference in the importing file
+ */
 function isEligibleSharedSymbol(name: string): boolean {
-  if (/^[A-Z][A-Z0-9_]*$/.test(name)) return true;
-  return /^[a-z][A-Za-z0-9]*$/.test(name);
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
 }
 
-function isSharedDataFile(path: string): boolean {
-  return /(^|\/)(lib|data)\//.test(path.replace(/\\/g, "/"));
+/**
+ * Files whose named exports we index for the auto-import path
+ * (`fixMissingLocalSymbolImports`).
+ *
+ * Inclusions reflect "real importable code surface" of a generated artifact:
+ *   - hooks/      — `useReducedMotion` and friends
+ *   - components/ — generated React components (PascalCase exports)
+ *   - lib/        — shared config/data/utilities (legacy default lane)
+ *   - data/       — shared data modules
+ *   - utils/      — shared util modules
+ *
+ * Exclusions:
+ *   - components/ui/      — shadcn lane wins (`SHADCN_COMPONENTS` map +
+ *                           `import-validator.detectMissingImports`); avoiding
+ *                           this prevents fighting shadcn over the same names
+ *   - app/                — pages export `metadata` and the page component
+ *                           itself, which are not import targets for siblings
+ *   - node_modules/       — never source of generated artifacts
+ *   - autofix-stub:*      — dossier/cross-file-checker placeholders are not
+ *                           canonical sources; they exist to satisfy the
+ *                           resolver until the real file arrives
+ */
+function isIndexableSharedFile(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  if (/(^|\/)node_modules\//.test(normalized)) return false;
+  if (/(^|\/)app\//.test(normalized)) return false;
+  if (/(^|\/)components\/ui\//.test(normalized)) return false;
+  return /(^|\/)(hooks|components|lib|data|utils)\//.test(normalized);
 }
 
 function toAliasImportPath(path: string): string {
@@ -242,7 +286,8 @@ export function buildProjectExportIndex(files: CodeFile[]): ExportIndex {
 
   for (const file of files) {
     if (!/\.(tsx?|jsx?)$/i.test(file.path)) continue;
-    if (!isSharedDataFile(file.path)) continue;
+    if (!isIndexableSharedFile(file.path)) continue;
+    if (file.content.includes("autofix-stub:")) continue;
 
     const importPath = toAliasImportPath(file.path);
     const exportNames = new Set<string>();

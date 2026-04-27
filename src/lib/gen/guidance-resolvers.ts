@@ -2,10 +2,10 @@
  * Dynamic guidance resolvers for code generation system prompts.
  *
  * These produce request-specific guidance blocks for motion, visual identity,
- * quality bar, and domain structure — consumed directly by `buildDynamicContext()`
- * in `system-prompt.ts`.
+ * quality bar, and domain structure — consumed directly by the system-prompt
+ * package's dynamic context builder.
  *
- * Previously these lived in `promptAssist.ts` and were wired through a
+ * Previously these lived in the prompt-assist package and were wired through a
  * client-side addendum. Now they are server-side only.
  */
 

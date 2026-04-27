@@ -28,7 +28,7 @@ import {
 } from "@/lib/gen/verify/quality-gate-checks";
 
 describe("config/ai_models/manifest.json parity", () => {
-  it("parses and matches promptAssist allowlists in promptAssist.ts", () => {
+  it("parses and matches prompt-assist allowlists", () => {
     const m = getAiModelsManifest();
     const allowed = getPromptAssistAllowedFromManifest();
 
@@ -152,7 +152,7 @@ describe("config/ai_models/manifest.json parity", () => {
     const verifier = m.workloads.find((w) => w.id === "post_generation_verifier");
 
     expect(verifier?.invocation).toBe("ai_generateObject");
-    expect(verifier?.codeEntry).toContain("src/lib/gen/verifier-pass.ts");
+    expect(verifier?.codeEntry).toContain("src/lib/gen/verify/verifier-pass.ts");
     expect(m.workloads.some((w) => w.id === "post_generation_polish")).toBe(false);
   });
 });

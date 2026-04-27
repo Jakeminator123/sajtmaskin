@@ -87,7 +87,10 @@ import {
   renderMediaCatalogBlock,
   renderSeoBlock,
 } from "./sections/imagery-media-seo";
-import { renderRequiredImportsChecklistBlock } from "./sections/required-imports-checklist";
+import {
+  renderLucideIconsReminderBlock,
+  renderRequiredImportsChecklistBlock,
+} from "./sections/required-imports-checklist";
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -239,6 +242,7 @@ export function buildDynamicContext(
       capabilityHints,
     }),
   );
+  parts.push(...renderLucideIconsReminderBlock());
   parts.push(...renderTier3IntegrationBlock({ buildSpec, preGenerationContracts }));
   parts.push(...renderPreGenerationContractsBlock(preGenerationContracts));
   parts.push(...renderBriefBlocks(brief));

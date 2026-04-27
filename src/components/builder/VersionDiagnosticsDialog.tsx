@@ -45,6 +45,9 @@ type DiagnosticsSummary = {
   byCategory?: Record<string, number>;
   latestPreviewCode?: string | null;
   latestPreviewStage?: string | null;
+  latestPreflight?: VersionDiagnosticsLog | null;
+  latestQualityGate?: VersionDiagnosticsLog | null;
+  latestRender?: VersionDiagnosticsLog | null;
 };
 
 type DiagnosticsResponse = {
@@ -65,6 +68,51 @@ type Props = {
    */
   lifecycleStage?: EngineVersionLifecycleStage | null;
 };
+
+type BadgeTone = "green" | "yellow" | "red" | "gray";
+type LaneStatus = {
+  label: string;
+  tone: BadgeTone;
+};
+
+const RUNTIME_LOG_CATEGORIES = new Set(["preview", "render-telemetry", "preview-status"]);
+const PRODUCT_LOG_CATEGORIES = new Set([
+  "images",
+  "seo",
+  "analytics",
+  "editorial",
+  "business-workflows",
+  "navigation",
+  "routes",
+  "route-plan",
+  "project-sanity",
+  "react",
+]);
+
+function getCategory(log: VersionDiagnosticsLog): string {
+  return typeof log.category === "string" ? log.category.trim() : "";
+}
+
+function readMetaObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function statusBadgeClass(tone: BadgeTone): string {
+  if (tone === "green") return "border-emerald-500/40 bg-emerald-500/10 text-emerald-100";
+  if (tone === "yellow") return "border-amber-500/40 bg-amber-500/10 text-amber-100";
+  if (tone === "red") return "border-red-500/40 bg-red-500/10 text-red-100";
+  return "text-muted-foreground";
+}
+
+function isProductCategory(category: string): boolean {
+  if (!category) return false;
+  if (PRODUCT_LOG_CATEGORIES.has(category)) return true;
+  return (
+    category.startsWith("product_postcheck") ||
+    category.startsWith("validate-images") ||
+    category.startsWith("quality-gate:product")
+  );
+}
 
 function levelBadgeVariant(level: string): "default" | "secondary" | "destructive" | "outline" {
   if (level === "error") return "destructive";
@@ -173,6 +221,112 @@ export function VersionDiagnosticsDialog({
     [activeLogs],
   );
 
+  const runtimeStatus = useMemo<LaneStatus>(() => {
+    const latestPreviewCode =
+      typeof summary?.latestPreviewCode === "string" ? summary.latestPreviewCode.trim() : "";
+    if (latestPreviewCode === "preview_ready") {
+      return { label: "OK ✓", tone: "green" };
+    }
+    if (latestPreviewCode === "preview_waiting_for_vm") {
+      return { label: "Pending …", tone: "gray" };
+    }
+
+    const runtimeLogs = activeLogs.filter((log) => RUNTIME_LOG_CATEGORIES.has(getCategory(log)));
+    const hasRuntimeError = runtimeLogs.some((log) => log.level === "error");
+    const latestPreflightMeta = readMetaObject(summary?.latestPreflight?.meta);
+    const preflightPreviewBlocked =
+      typeof latestPreflightMeta?.previewBlocked === "boolean"
+        ? latestPreflightMeta.previewBlocked
+        : false;
+    const preflightPreviewStart = readMetaObject(latestPreflightMeta?.previewStart);
+    const canStartPreview =
+      typeof preflightPreviewStart?.canStartPreview === "boolean"
+        ? preflightPreviewStart.canStartPreview
+        : null;
+
+    if (preflightPreviewBlocked || hasRuntimeError) {
+      return { label: "Failed ✗", tone: "red" };
+    }
+    if (canStartPreview === true || latestPreviewCode || runtimeLogs.length > 0) {
+      return { label: "Pending …", tone: "gray" };
+    }
+    return { label: "Pending …", tone: "gray" };
+  }, [activeLogs, summary?.latestPreviewCode, summary?.latestPreflight?.meta]);
+
+  const productStatus = useMemo<LaneStatus>(() => {
+    const productLogs = activeLogs.filter((log) => isProductCategory(getCategory(log)));
+    if (productLogs.length === 0) {
+      return { label: "Not run —", tone: "gray" };
+    }
+    const warningCount = productLogs.filter(
+      (log) => log.level === "warning" || log.level === "error",
+    ).length;
+    if (warningCount > 0) {
+      return { label: `${warningCount} warnings ⚠`, tone: "yellow" };
+    }
+    return { label: "OK ✓", tone: "green" };
+  }, [activeLogs]);
+
+  const buildStatus = useMemo<LaneStatus>(() => {
+    const checks: Record<"typecheck" | "build" | "lint", "unknown" | "passed" | "failed"> = {
+      typecheck: "unknown",
+      build: "unknown",
+      lint: "unknown",
+    };
+
+    for (const log of activeLogs) {
+      const category = getCategory(log);
+      if (category === "preflight:quality-gate") {
+        const meta = readMetaObject(log.meta);
+        const metaChecks = Array.isArray(meta?.checks) ? meta.checks : [];
+        for (const check of metaChecks) {
+          const checkMeta = readMetaObject(check);
+          const checkName = checkMeta?.check;
+          const checkPassed = checkMeta?.passed;
+          if (
+            (checkName === "typecheck" || checkName === "build" || checkName === "lint") &&
+            typeof checkPassed === "boolean"
+          ) {
+            checks[checkName] = checkPassed ? "passed" : "failed";
+          }
+        }
+      }
+      if (!category.startsWith("quality-gate:")) continue;
+      const checkName = category.slice("quality-gate:".length);
+      if (checkName !== "typecheck" && checkName !== "build" && checkName !== "lint") continue;
+      if (log.level === "error") {
+        checks[checkName] = "failed";
+      } else if (checks[checkName] === "unknown" && log.level === "info") {
+        checks[checkName] = "passed";
+      }
+    }
+
+    const known =
+      checks.typecheck !== "unknown" || checks.build !== "unknown" || checks.lint !== "unknown";
+    const failedTypecheck = checks.typecheck === "failed";
+    const failedBuildOrLint = checks.build === "failed" || checks.lint === "failed";
+    const allF3ChecksPassed =
+      checks.typecheck === "passed" &&
+      checks.build === "passed" &&
+      checks.lint === "passed";
+
+    if (failedTypecheck) {
+      return { label: "Failed ✗", tone: "red" };
+    }
+    if (failedBuildOrLint) {
+      // F2 may still be fine while F3 build/lint is not.
+      return { label: "Failed ✗", tone: "yellow" };
+    }
+    if (allF3ChecksPassed) {
+      return { label: "OK ✓", tone: "green" };
+    }
+    if (!known) {
+      return { label: "Unchecked —", tone: "gray" };
+    }
+    // Typical F2 state: typecheck done, build/lint not executed yet.
+    return { label: "Unchecked —", tone: "gray" };
+  }, [activeLogs]);
+
   const canAutoFix = activeLogs.some((log) => log.level === "error" || log.level === "warning");
   const hasHistoricalLogs = logs.length > activeLogs.length;
 
@@ -205,6 +359,18 @@ export function VersionDiagnosticsDialog({
             Samlar verifiering, previewfel och andra loggar för den valda versionen.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className={statusBadgeClass(runtimeStatus.tone)}>
+            Runtime: {runtimeStatus.label}
+          </Badge>
+          <Badge variant="outline" className={statusBadgeClass(productStatus.tone)}>
+            Product: {productStatus.label}
+          </Badge>
+          <Badge variant="outline" className={statusBadgeClass(buildStatus.tone)}>
+            Build: {buildStatus.label}
+          </Badge>
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">Loggar: {summary?.activeTotal ?? activeLogs.length}</Badge>

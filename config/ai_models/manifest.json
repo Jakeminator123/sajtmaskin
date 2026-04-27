@@ -109,16 +109,14 @@
     "defaults": {
       "requestModel": "openai/gpt-5.4",
       "serverAutoOpenAI": "openai/gpt-5.4",
-      "serverAutoAnthropic": "anthropic/claude-sonnet-4.6",
-      "specModel": "openai/gpt-5.4"
+      "serverAutoAnthropic": "anthropic/claude-sonnet-4.6"
     },
     "envKeys": {
       "requestModel": "SAJTMASKIN_BRIEF_MODEL",
       "serverAutoOpenAI": "SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI",
-      "serverAutoAnthropic": "SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC",
-      "specModel": "SAJTMASKIN_SPEC_MODEL"
+      "serverAutoAnthropic": "SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC"
     },
-    "notes": "Structured pre-build helpers. requestModel is the default for /api/ai/brief. serverAuto* control create-chat fallback when the client did not already send a brief. specModel is for the older spec-first helper."
+    "notes": "Structured pre-build helpers. requestModel is the default for /api/ai/brief. serverAuto* control create-chat fallback when the client did not already send a brief."
   },
   "phaseRouting": {
     "defaultByTier": {
@@ -348,9 +346,7 @@
   },
   "qualityGateTiers": {
     "designPreview": [
-      "typecheck",
-      "build",
-      "lint"
+      "typecheck"
     ],
     "integrationsBuild": [
       "typecheck",
@@ -399,12 +395,6 @@
       "maxAiChatMessageChars": {
         "envKey": "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
         "default": 600000,
-        "min": 2000,
-        "max": 2000000
-      },
-      "maxAiSpecPromptChars": {
-        "envKey": "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
-        "default": 800000,
         "min": 2000,
         "max": 2000000
       }
@@ -913,7 +903,7 @@
       "codeEntry": [
         "src/app/api/ai/chat/route.ts",
         "src/lib/builder/gateway-policy.ts",
-        "src/lib/builder/promptAssist.ts"
+        "src/lib/builder/prompt-assist/runner.ts"
       ],
       "authEnv": [
         "OPENAI_API_KEY",
@@ -973,8 +963,8 @@
       "invocation": "ai_generateObject",
       "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
       "codeEntry": [
-        "src/lib/gen/verifier-pass.ts",
-        "src/lib/gen/stream/finalize-version.ts",
+        "src/lib/gen/verify/verifier-pass.ts",
+        "src/lib/gen/stream/finalize-version/verifier-phase.ts",
         "src/lib/models/phase-routing.ts"
       ],
       "authEnv": [

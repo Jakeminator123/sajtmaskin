@@ -11,12 +11,12 @@ alwaysApply: false
 
 | Kommando | Vad |
 |----------|-----|
-| `npm run dev` | Starta lokalt (predev kör db:init + shadcn:sync:soft) |
+| `npm run dev` | Starta lokalt (predev kör preflight, schema-drift soft, shadcn sync, token refresh, db:init + perf-index soft) |
 | `npm run dev:clean` | Rensa .next/cache + starta (vid 404-routes, efter reinstall) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run test:ci` | Hela Vitest-sviten |
 | `npm run lint` | ESLint |
-| `npm run devtest` | typecheck + scaffolds:validate + test + lint |
+| `npm run devtest` | typecheck + scaffolds:validate + dossiers:validate-all + test + lint |
 
 ## Databas
 
@@ -24,6 +24,7 @@ alwaysApply: false
 |----------|-----|
 | `npm run db:init` | Bootstrap + SQL-migrationer |
 | `npm run db:check` | Read-only sanity-koll |
+| `npm run db:migrate` | Kör SQL-migrationer via gemensam DB-env-resolver |
 | `npm run db:push` | Guardad Drizzle push |
 
 ## Scaffolds & templates
@@ -31,8 +32,10 @@ alwaysApply: false
 | Kommando | Vad |
 |----------|-----|
 | `npm run scaffolds:validate` | Snabb manifestvalidering |
-| `npm run scaffolds:all` | Hela scaffold-flödet |
-| `npm run template-pipeline:refresh` | Full extern template-pipeline |
+| `npm run scaffolds:embeddings:check` | Kontrollera scaffold-embeddings inför build |
+| `npm run scaffolds:eval` | Utvärdera scaffold-selection |
+| `npm run dossiers:curate` | Kurera externa referenser till dossier-pipen |
+| `npm run dossiers:validate-all` | Validera dossier-artefakter |
 | `npm run typography:validate-pairings` | Font-pairing CI |
 
 ## Plans & env

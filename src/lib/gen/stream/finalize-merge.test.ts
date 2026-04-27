@@ -201,3 +201,195 @@ describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
     expect(layout!.content).toContain("html");
   });
 });
+
+/**
+ * SCAFFOLD_PROTECTED_PATHS — counterpart to LLM_ONLY_PATHS.
+ *
+ * Locks the canonical scaffold version of pure-utility files (no brand/copy
+ * content) so an LLM emission of the same path is dropped before merge. The
+ * flagship case is `app/api/placeholder/route.ts`: the scaffold ships a
+ * correct SVG generator, but LLMs frequently regenerate the file with JSX
+ * syntax (`<svg style="...">` inside a `.ts` file), producing
+ * `Expected ">" but found "style"` syntax errors that block tier-2 readiness.
+ *
+ * In the 2026-04-27 baseline-after-revert eval this single path explained
+ * 6 of 13 failing prompts. Keeping the scaffold version is the deterministic
+ * fix.
+ */
+describe("SCAFFOLD_PROTECTED_PATHS — scaffold-default lock for utility files", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const SCAFFOLD_PLACEHOLDER_CONTENT =
+    'import { NextRequest } from "next/server";\nexport async function GET(_req: NextRequest) {\n  return new Response("<svg/>", { headers: { "Content-Type": "image/svg+xml" } });\n}\n';
+
+  // Faux LLM emission with JSX inside a .ts file — what we observed
+  // breaking the eval for 6 prompts on 2026-04-27.
+  const BROKEN_LLM_PLACEHOLDER_CONTENT =
+    'import { NextRequest } from "next/server";\n\nexport async function GET(req: NextRequest) {\n  return (\n    <svg style="background:black">\n      <rect />\n    </svg>\n  );\n}\n';
+
+  function makeScaffoldWithPlaceholderRoute(): ScaffoldManifest {
+    const base = makeScaffold();
+    return {
+      ...base,
+      files: [
+        ...base.files,
+        {
+          path: "app/api/placeholder/route.ts",
+          content: SCAFFOLD_PLACEHOLDER_CONTENT,
+        },
+      ],
+    } as ScaffoldManifest;
+  }
+
+  it("drops LLM emission of scaffold-protected path on init merge so scaffold default persists", () => {
+    const scaffold = makeScaffoldWithPlaceholderRoute();
+    const generatedFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>Brand</h1>; }",
+        language: "tsx",
+      },
+      {
+        path: "app/api/placeholder/route.ts",
+        content: BROKEN_LLM_PLACEHOLDER_CONTENT,
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-protected-1",
+      originalFilesJson: "[]",
+      generatedFiles,
+      resolvedScaffold: scaffold,
+      previousFiles: undefined,
+    });
+
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{
+      path: string;
+      content: string;
+    }>;
+    const placeholder = mergedFiles.find(
+      (f) => f.path === "app/api/placeholder/route.ts",
+    );
+    expect(placeholder).toBeDefined();
+    expect(placeholder!.content).toBe(SCAFFOLD_PLACEHOLDER_CONTENT);
+    expect(placeholder!.content).not.toContain('style="background:black"');
+  });
+
+  it("drops LLM emission of scaffold-protected path on follow-up merge so previous version persists", () => {
+    const scaffold = makeScaffoldWithPlaceholderRoute();
+    const previousFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>Prior</h1>; }",
+        language: "tsx",
+      },
+      {
+        path: "app/api/placeholder/route.ts",
+        content: SCAFFOLD_PLACEHOLDER_CONTENT,
+        language: "tsx",
+      },
+    ];
+    const generatedFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>New</h1>; }",
+        language: "tsx",
+      },
+      {
+        path: "app/api/placeholder/route.ts",
+        content: BROKEN_LLM_PLACEHOLDER_CONTENT,
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-protected-2",
+      originalFilesJson: JSON.stringify(previousFiles),
+      generatedFiles,
+      resolvedScaffold: scaffold,
+      previousFiles,
+    });
+
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{
+      path: string;
+      content: string;
+    }>;
+    const placeholder = mergedFiles.find(
+      (f) => f.path === "app/api/placeholder/route.ts",
+    );
+    expect(placeholder).toBeDefined();
+    expect(placeholder!.content).toBe(SCAFFOLD_PLACEHOLDER_CONTENT);
+    const page = mergedFiles.find((f) => f.path === "app/page.tsx");
+    expect(page!.content).toContain("New");
+  });
+
+  it("drops scaffold-protected paths from the no-scaffold/no-merge fallback branch", () => {
+    // Edge case: when there is no scaffold, no follow-up base, and no
+    // cross-file/type-only fixes, mergeGeneratedProjectFiles falls through
+    // to a branch that reads `originalFilesJson` directly. Before fix:
+    // SCAFFOLD_PROTECTED_PATHS filter was only applied to `generatedFiles`,
+    // so a protected path embedded in `originalFilesJson` would slip past.
+    const originalFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>x</h1>; }",
+        language: "tsx",
+      },
+      {
+        path: "app/api/placeholder/route.ts",
+        content: BROKEN_LLM_PLACEHOLDER_CONTENT,
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-protected-fallback",
+      originalFilesJson: JSON.stringify(originalFiles),
+      generatedFiles: [],
+      resolvedScaffold: null,
+      previousFiles: undefined,
+    });
+
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{ path: string }>;
+    const placeholder = mergedFiles.find(
+      (f) => f.path === "app/api/placeholder/route.ts",
+    );
+    expect(placeholder).toBeUndefined();
+    expect(mergedFiles.find((f) => f.path === "app/page.tsx")).toBeDefined();
+  });
+
+  it("does not affect non-protected paths", () => {
+    const scaffold = makeScaffoldWithPlaceholderRoute();
+    const generatedFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>Brand</h1>; }",
+        language: "tsx",
+      },
+      {
+        path: "app/layout.tsx",
+        content:
+          "export default function Layout({ children }: { children: React.ReactNode }) { return <html lang='sv'><body className='bg-stone-950'>{children}</body></html>; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-protected-3",
+      originalFilesJson: "[]",
+      generatedFiles,
+      resolvedScaffold: scaffold,
+      previousFiles: undefined,
+    });
+
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{
+      path: string;
+      content: string;
+    }>;
+    const layout = mergedFiles.find((f) => f.path === "app/layout.tsx");
+    expect(layout!.content).toContain("bg-stone-950");
+  });
+});

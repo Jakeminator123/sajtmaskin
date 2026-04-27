@@ -1,26 +1,35 @@
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
+import { pathToFileURL } from "url";
 import { Pool } from "pg";
 import { config } from "dotenv";
 import { assertSafeWriteTarget } from "./db-target-guard.mjs";
+import { DB_ENV_VARS, resolveConfiguredDbEnv } from "../../src/lib/db/env";
 
 config({ path: ".env.local" });
 
 const MIGRATIONS_DIR = join(process.cwd(), "src/lib/db/migrations");
 
-function resolveConnectionString(): string {
-  const url =
-    process.env.POSTGRES_URL ||
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.STORAGE_POSTGRES_URL ||
-    process.env.STORAGE_POSTGRES_URL_NON_POOLING ||
-    "";
-  if (!url) {
+// Delegated to the shared resolver in `src/lib/db/env.ts` so this script
+// honours the same env-var convention as the runtime app and the read-side
+// guards in `db-target-guard.mjs`. That includes `DATABASE_URL` (the
+// "standard" Postgres alias used by some hosts and by Drizzle's own docs)
+// in addition to the `POSTGRES_URL*` and `STORAGE_POSTGRES_URL*` aliases
+// Vercel's Postgres integration emits. Without this, `npm run db:migrate`
+// would silently fail with a "no connection configured" error against
+// envs that only set `DATABASE_URL`.
+export function resolveConnectionString(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const resolved = resolveConfiguredDbEnv(env, {
+    warnOnUninterpolated: env.NODE_ENV === "development",
+  });
+  if (!resolved) {
     throw new Error(
-      "No database connection configured (expected POSTGRES_URL, POSTGRES_URL_NON_POOLING, STORAGE_POSTGRES_URL, or STORAGE_POSTGRES_URL_NON_POOLING).",
+      `No database connection configured (expected one of: ${DB_ENV_VARS.join(", ")}).`,
     );
   }
-  return url;
+  return resolved.connectionString;
 }
 
 function resolveSsl() {
@@ -84,7 +93,24 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error("Migration failed:", err);
-  process.exit(1);
-});
+// Only run migrations when invoked directly via `npx tsx scripts/db/run-migrations.ts`.
+// Importing this module from a test (or any other tooling) must not trigger a
+// real DB connection or call `process.exit`. We compare URL strings (rather
+// than filesystem paths) because Windows backslash/forward-slash and casing
+// differences make raw path equality unreliable across `tsx` invocations.
+function isInvokedDirectly(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(entry).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isInvokedDirectly()) {
+  main().catch((err) => {
+    console.error("Migration failed:", err);
+    process.exit(1);
+  });
+}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
@@ -12,7 +13,10 @@ import {
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
-import { QUALITY_GATE_CHECK_VALUES } from "@/lib/gen/verify/quality-gate-checks";
+import {
+  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  QUALITY_GATE_CHECK_VALUES,
+} from "@/lib/gen/verify/quality-gate-checks";
 import type { VisualQAResult } from "@/lib/gen/verify/visual-qa";
 import {
   describeQualityGateVerification,
@@ -38,11 +42,15 @@ export const maxDuration = 300;
 
 const requestSchema = z.object({
   versionId: z.string().min(1),
+  // Default to the canonical F2 design-preview lane (`DESIGN_PREVIEW_QUALITY_GATE_CHECKS`)
+  // so that if `manifest.json` `qualityGateTiers.designPreview` is widened
+  // (e.g. to add `lint`), the route default tracks it instead of silently
+  // staying on a hardcoded `["typecheck"]`.
   checks: z
     .array(z.enum(QUALITY_GATE_CHECK_VALUES))
     .min(1, "At least one quality gate check is required.")
     .optional()
-    .default(["typecheck"]),
+    .default([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS]),
 });
 
 type GateResult = {
@@ -106,6 +114,10 @@ async function isLatestVersionForChat(chatId: string, versionId: string): Promis
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  return withRateLimit(req, "engine:quality-gate", () => handlePOST(req, ctx));
+}
+
+async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     const { chatId } = await ctx.params;
 
@@ -172,6 +184,36 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           visualQA,
         };
 
+        const verificationSummary = buildVerificationSummary(results);
+        // Check superseded BEFORE persisting the regular logs so we don't
+        // pile error rows on a version that no longer represents the
+        // chat's head; the superseded path persists its own scoped log.
+        const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
+        if (!stillLatest) {
+          await markVersionSupersededByRepair(internalVersionId).catch((err) => {
+            console.warn("[quality-gate] Failed to mark superseded version:", err);
+          });
+          await createEngineVersionErrorLogs([
+            {
+              chatId,
+              versionId: internalVersionId,
+              level: "warning",
+              category: "quality-gate:superseded",
+              message: "Quality gate finished after a newer version was created; skipping state mutation.",
+              meta: {
+                verificationSummary,
+                serverOwned: false,
+              },
+            },
+          ]).catch((err) => {
+            console.warn("[quality-gate] Failed to persist superseded log:", err);
+          });
+          return NextResponse.json({
+            ...gateResult,
+            superseded: true,
+          });
+        }
+
         const logs = [
           {
             chatId,
@@ -209,33 +251,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         if (logs.length > 0 && dbConfigured) {
           await createEngineVersionErrorLogs(logs).catch((err) => {
             console.warn("[quality-gate] Failed to persist error logs:", err);
-          });
-        }
-
-        const verificationSummary = buildVerificationSummary(results);
-        const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
-        if (!stillLatest) {
-          await markVersionSupersededByRepair(internalVersionId).catch((err) => {
-            console.warn("[quality-gate] Failed to mark superseded version:", err);
-          });
-          await createEngineVersionErrorLogs([
-            {
-              chatId,
-              versionId: internalVersionId,
-              level: "warning",
-              category: "quality-gate:superseded",
-              message: "Quality gate finished after a newer version was created; skipping state mutation.",
-              meta: {
-                verificationSummary,
-                serverOwned: false,
-              },
-            },
-          ]).catch((err) => {
-            console.warn("[quality-gate] Failed to persist superseded log:", err);
-          });
-          return NextResponse.json({
-            ...gateResult,
-            superseded: true,
           });
         }
         if (gateResult.passed) {

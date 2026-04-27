@@ -78,6 +78,23 @@ export interface PreviewPanelProps {
   isLoading?: boolean;
   onClear?: () => void;
   onFixPreview?: () => void;
+  /**
+   * P0 stream-abort recovery (2026-04-26). When true, the most recent
+   * generation/repair stream for this chat died before any version was
+   * created (provider abort, transport reset, server-restart, staleness).
+   * The empty-state surface uses this to suppress the "Försök reparera
+   * preview" button (which would route into followup_general against a
+   * non-existent version and trigger variant_lock_fallback) and offer
+   * "Starta om generation" instead.
+   */
+  versionlessAborted?: boolean;
+  /**
+   * P0 stream-abort recovery (2026-04-26). Click handler bound to the
+   * "Starta om generation" button shown when `versionlessAborted` is
+   * true. Implementations are expected to spawn a *new* chat — never
+   * reuse the dead chatId for a follow-up post.
+   */
+  onRestartGeneration?: () => void;
   refreshToken?: number;
   onFilesSaved?: () => void;
   imageGenerationsEnabled?: boolean;

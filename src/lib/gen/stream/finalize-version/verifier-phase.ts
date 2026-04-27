@@ -15,6 +15,7 @@ import { FEATURES } from "@/lib/config";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import {
+  extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
   runVerifierPass,
 } from "@/lib/gen/verify/verifier-pass";
@@ -24,6 +25,7 @@ import type { AutoFixResult } from "@/lib/gen/autofix/pipeline";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
 import {
   VERIFIER_REPAIR_TIMEOUT_MS,
+  VERIFIER_RERUN_TIMEOUT_MS,
   type FinalizeProgressCallback,
   type FinalizeStepTelemetry,
 } from "./types";
@@ -139,6 +141,14 @@ export async function runVerifierPhase(params: {
       const fixerErrors = formatVerifierFindingsAsFixerErrors({
         blocking: findings.blocking,
       });
+      // SAJ-61 c5: feed the structured file list to the repair gate so
+      // the LLM treats the named files as required outputs (the merge
+      // keeps unchanged files anyway, but `requiredFiles` lets the
+      // fixer prompt focus on them and the partial-file detector
+      // notice if any get truncated).
+      const requiredFiles = extractFilePathsFromVerifierFindings({
+        blocking: findings.blocking,
+      });
       let fixerImproved = false;
       try {
         const repairGate = await runLlmRepairGate({
@@ -147,6 +157,7 @@ export async function runVerifierPhase(params: {
           chatId,
           timeoutMs: VERIFIER_REPAIR_TIMEOUT_MS,
           resolvedTier,
+          ...(requiredFiles.length > 0 ? { requiredFiles } : {}),
         });
         const repaired = repairGate.result;
         let rerunBlockingCount: number | null = null;
@@ -166,13 +177,23 @@ export async function runVerifierPhase(params: {
           if (FEATURES.verifierRerunAfterFix) {
             const rerunStartedAt = Date.now();
             const rerunAbort = new AbortController();
+            // SAJ-61 review fix: use the dedicated 30s rerun budget
+            // instead of the (now 120s) repair budget. The rerun is
+            // read-only — re-evaluating findings, not rewriting files —
+            // so it should not inherit any future bumps to the repair
+            // timeout.
             const rerunTimeout = setTimeout(
               () => rerunAbort.abort(),
-              VERIFIER_REPAIR_TIMEOUT_MS,
+              VERIFIER_RERUN_TIMEOUT_MS,
             );
             try {
+              // Forward the rerun controller's signal so the 30s timeout
+              // actually cancels the in-flight verifier call (previously
+              // the controller was created but never used — the call kept
+              // running until its own internal cfg.timeoutMs expired).
               const rerunFindings = await runVerifierPass(contentForVersion, {
                 resolvedTier: verifierTier,
+                abortSignal: rerunAbort.signal,
               });
               rerunDurationMs = Date.now() - rerunStartedAt;
               rerunBlockingCount = rerunFindings.blocking.length;
@@ -201,17 +222,28 @@ export async function runVerifierPhase(params: {
                     ? rerunErr.message
                     : "Unknown verifier rerun error",
               });
-              // Fall back to the optimistic clear so we do not regress
-              // behaviour when the rerun cannot complete.
-              verifierBlockingFindings = [];
+              // SAJ-61 c5: previously we fell through to an optimistic
+              // clear so the version status flipped to "fixed" even when
+              // the rerun never finished. That is the bug — UI then
+              // showed a green badge while the underlying blockers were
+              // still present (build-breaking imports). Keep the
+              // pre-fix `verifierBlockingFindings` so the version
+              // remains correctly marked verifier-blocked. The repaired
+              // content can still ship; the blockers list just stays
+              // accurate.
+              // Intentionally leave `verifierBlockingFindings` unchanged.
             } finally {
               clearTimeout(rerunTimeout);
             }
-          } else {
-            // Legacy optimistic clear (no rerun) — kept behind feature
-            // flag during rollout to avoid regressing latency budgets.
-            verifierBlockingFindings = [];
           }
+          // Removed legacy `else { verifierBlockingFindings = []; }` branch.
+          // The "optimistic clear" without re-running the verifier flipped
+          // the UI to "fixed" even when the LLM fixer had only swapped one
+          // build-breaking import for another. `FEATURES.verifierRerunAfterFix`
+          // is hardcoded ON in production today; if the flag is ever flipped
+          // off again, the correct fallback is to leave `verifierBlockingFindings`
+          // unchanged (same as the rerun-throw path above), not to claim the
+          // findings vanished.
         }
         devLogAppend("in-progress", {
           type: "verifier-pass.fixer",

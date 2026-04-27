@@ -2,6 +2,7 @@ import {
   buildUnsplashSearchCandidates,
   inferUnsplashOrientationFromUrl,
 } from "@/lib/images/unsplash-query-fallback";
+import { debugLog } from "@/lib/utils/debug";
 
 /**
  * Image URL Validator
@@ -82,6 +83,21 @@ function findSemanticImageWarnings(refs: ImageRef[]): string[] {
       `[semantic-image] Kontrollera att bilden verkligen matchar motivet i ${ref.file}: "${ref.alt}" använder extern Unsplash-bild som kan vara semantiskt fel trots giltig URL.`,
     );
   }
+
+  const altCounts = new Map<string, number>();
+  for (const ref of refs) {
+    const norm = ref.alt.toLowerCase().trim();
+    if (norm.length < 10) continue;
+    altCounts.set(norm, (altCounts.get(norm) ?? 0) + 1);
+  }
+  for (const [alt, count] of altCounts) {
+    if (count > 1) {
+      warnings.push(
+        `[duplicate_alt] Alt-text "${alt}" repeats ${count} times — gallery items should be unique`,
+      );
+    }
+  }
+
   return warnings;
 }
 
@@ -156,26 +172,72 @@ export function extractImageRefs(files: TextFile[]): ImageRef[] {
 // URL VALIDATION (server-side HEAD check)
 // ═══════════════════════════════════════════════════════════════
 
-const HEAD_TIMEOUT_MS = 8_000;
+const HEAD_TIMEOUT_MS = 3_000;
+const GET_FALLBACK_TIMEOUT_MS = 5_000;
 const HEAD_RETRY_COUNT = 1;
 const MAX_CONCURRENT_CHECKS = 6;
 
-async function headCheckOnce(url: string): Promise<number | "error"> {
+async function fetchStatusOnce(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<number | "error"> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), HEAD_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
-      method: "HEAD",
+      ...init,
       signal: controller.signal,
-      redirect: "follow",
-      headers: { "User-Agent": "sajtmaskin/1.0 image-check" },
     });
+    // Avbryt body-streamen direkt så vi inte buffrar hela svaret i minne
+    // när servern ignorerar Range-headern på GET-fallback (vissa CDN gör det
+    // och returnerar full bild på 200KB-2MB istället för 1KB). Vi behöver
+    // bara status-koden.
+    try {
+      await res.body?.cancel();
+    } catch {
+      // ignore — vi har redan vad vi behöver
+    }
     return res.status;
   } catch {
     return "error";
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function headCheckOnce(url: string): Promise<number | "error"> {
+  const headStatus = await fetchStatusOnce(
+    url,
+    {
+      method: "HEAD",
+      redirect: "follow",
+      headers: { "User-Agent": "sajtmaskin/1.0 image-check" },
+    },
+    HEAD_TIMEOUT_MS,
+  );
+
+  if (headStatus === 405 || headStatus === 501) {
+    return fetchStatusOnce(
+      url,
+      {
+        method: "GET",
+        redirect: "follow",
+        headers: {
+          "User-Agent": "sajtmaskin/1.0 image-check",
+          Range: "bytes=0-1023",
+        },
+      },
+      GET_FALLBACK_TIMEOUT_MS,
+    );
+  }
+
+  return headStatus;
+}
+
+function buildPlaceholderReplacementUrl(alt: string): string {
+  const label = alt.trim() || "Missing image";
+  return `/api/placeholder?w=1200&h=800&label=${encodeURIComponent(label)}`;
 }
 
 async function headCheck(url: string): Promise<number | "error"> {
@@ -378,7 +440,18 @@ function applyReplacements(
   files: TextFile[],
   broken: BrokenImage[],
 ): { files: TextFile[]; replacedCount: number } {
-  const replacements = broken.filter((b) => b.replacementUrl);
+  const replacements = broken
+    .map((entry) => {
+      const isPlaceholder = !entry.replacementUrl;
+      return {
+        ...entry,
+        replacementUrl: entry.replacementUrl ?? buildPlaceholderReplacementUrl(entry.alt),
+        isPlaceholder,
+      };
+    })
+    .filter((entry): entry is BrokenImage & { replacementUrl: string; isPlaceholder: boolean } =>
+      Boolean(entry.replacementUrl),
+    );
   if (replacements.length === 0) return { files, replacedCount: 0 };
 
   // Sort longest URL first to prevent shorter URLs from corrupting longer ones
@@ -386,15 +459,21 @@ function applyReplacements(
   const sorted = [...replacements].sort((a, b) => b.url.length - a.url.length);
 
   let replacedCount = 0;
+  const emittedPlaceholderTelemetry = new Set<string>();
   const updatedFiles = files.map((f) => {
     let content = f.content;
     for (const entry of sorted) {
-      if (entry.replacementUrl) {
-        const parts = content.split(entry.url);
-        const occurrences = parts.length - 1;
-        if (occurrences > 0) {
-          content = parts.join(entry.replacementUrl);
-          replacedCount += occurrences;
+      const parts = content.split(entry.url);
+      const occurrences = parts.length - 1;
+      if (occurrences > 0) {
+        content = parts.join(entry.replacementUrl);
+        replacedCount += occurrences;
+        if (entry.isPlaceholder && !emittedPlaceholderTelemetry.has(entry.url)) {
+          debugLog("images", "image_replaced_with_placeholder", {
+            originalUrl: entry.url,
+            alt: entry.alt,
+          });
+          emittedPlaceholderTelemetry.add(entry.url);
         }
       }
     }
@@ -451,7 +530,7 @@ export async function validateImages(params: {
 
   if (replacedCount > 0) {
     warnings.push(
-      `Ersatte ${replacedCount} trasig(a) bild-URL:er med Unsplash-alternativ.`,
+      `Ersatte ${replacedCount} trasig(a) bild-URL:er med tillgängliga ersättningar.`,
     );
   }
 

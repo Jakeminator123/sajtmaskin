@@ -38,7 +38,10 @@ import {
   OWN_ENGINE_POST_STREAM_PIPELINE,
   type OwnEnginePostStreamPhaseId,
 } from "../finalize-pipeline-contract";
+import { postFinalizeQualityGateIncludesTypecheck } from "../post-finalize-policies";
 import { runFinalizeFastPath } from "./fast-path";
+import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { resolveFinalizePathPolicy } from "./policy";
 import { runAutofixPrePhase, runUrlExpandPhase } from "./pre-phases";
 import {
@@ -94,6 +97,37 @@ function resolveRequestedCapabilitiesFromStreamMeta(
   return [];
 }
 
+/**
+ * Wave 6 verbatim-restore: härled vilka dossiers som faktiskt valdes
+ * för denna generering så att verbatim-policy kan skydda Stripe/Clerk-glue
+ * från LLM-omskrivning vid merge.
+ *
+ * Strategi: använd resolveRequestedCapabilitiesFromStreamMeta för att få
+ * capability-listan, kör selectDossiers för att hämta de dossiers som
+ * matchar (samma logik som prompt-injection använder). Tomt resultat ⇒
+ * verbatim-policy kör med [] vilket är säkert (no-op).
+ */
+export function resolveSelectedDossiersFromStreamMeta(
+  streamMeta: Record<string, unknown> | null | undefined,
+): DossierEntry[] {
+  const capabilities = resolveRequestedCapabilitiesFromStreamMeta(streamMeta);
+  if (capabilities.length === 0) return [];
+  try {
+    const selection = selectDossiersForRequest({ requestedCapabilities: capabilities });
+    return selection.selected.map((s) => s.entry);
+  } catch (err) {
+    console.warn("[finalize] resolveSelectedDossiersFromStreamMeta failed:", err);
+    // Telemetri: tyst-fail till [] gör att verbatim-policy de facto blir
+    // avstängd för denna körning. Operativt vill vi spåra om det blir vanligt.
+    devLogAppend("in-progress", {
+      type: "verbatim_policy_dossier_resolution_failed",
+      capabilitiesCount: capabilities.length,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return [];
+  }
+}
+
 export async function finalizeAndSaveVersion(
   params: FinalizeParams,
 ): Promise<FinalizeResult> {
@@ -121,6 +155,8 @@ export async function finalizeAndSaveVersion(
     lineageHash,
     targetVersionId,
     lifecycleParentVersionId,
+    willRunQualityGate = false,
+    qualityGatePlanned = false,
   } = params;
   const requestedCapabilities = resolveRequestedCapabilitiesFromStreamMeta(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
@@ -229,6 +265,18 @@ export async function finalizeAndSaveVersion(
     finalizePath,
     repairPassIndex,
     alreadyMechanicallyFixed: autofixSucceeded,
+    willRunQualityGate,
+    qualityGateChecksIncludesTypecheck:
+      willRunQualityGate && postFinalizeQualityGateIncludesTypecheck(buildSpec),
+    // Wave 7 R2 guard: stark signal för warm-tsc-skip. Utan denna = kör
+    // warm-tsc ändå. Se fast-path.ts för motivering.
+    qualityGatePlanned,
+    // Wave 6 verbatim-restore — tråda in faktiska valda dossiers så
+    // applyDossierVerbatimPolicy kan skydda Stripe/Clerk/Sentry-glue
+    // från tyst korruption när LLM omformar verbatim-filer.
+    selectedDossiers: resolveSelectedDossiersFromStreamMeta(
+      orchestrationStreamMeta as Record<string, unknown> | null | undefined,
+    ),
   });
   contentForVersion = fastPathContent;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
@@ -489,7 +537,7 @@ export async function finalizeAndSaveVersion(
     autofix: resolveStepDurationMs("autofix"),
     urlExpand: resolveStepDurationMs("url_expand"),
     syntaxValidation: resolveStepDurationMs("validate_syntax"),
-    imageMaterialization: resolveStepDurationMs("materialize_images"),
+    imageMaterializationMs: resolveStepDurationMs("materialize_images"),
     verifier: resolveStepDurationMs("verifier"),
     parseMergePreflight: resolveStepDurationMs("parse_merge_preflight"),
     totalMs: Math.max(0, Date.now() - finalizePipelineStartedAt),
@@ -529,6 +577,8 @@ export async function finalizeAndSaveVersion(
     rejectedShrinks: rejectedShrinks ?? [],
     rejectedStructural: rejectedStructural ?? [],
     crossFileStubs: crossFileStubs ?? [],
+    verifierBlockingFindings: verifierBlockingFindings ?? [],
+    warmTscSkipped: syntaxResult.tsc?.ran === false && syntaxResult.tsc.skipped === "quality_gate_planned",
     ...(requestedCapabilities.length > 0 ? { requestedCapabilities } : {}),
   };
 }

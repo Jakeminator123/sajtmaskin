@@ -175,8 +175,8 @@ Scaffolds may be enriched with curated reference data through:
 This metadata may improve search, matching, and upgrade decisions, but it does
 not create a second runtime scaffold registry.
 
-When present, `research.referenceTemplates` is now also consumed by prompt
-assembly (`system-prompt.ts`) as budgeted "Reference inspirations" alongside
+When present, `research.referenceTemplates` is consumed by prompt assembly
+(`src/lib/gen/system-prompt/`) as budgeted "Reference inspirations" alongside
 `qualityChecklist` and `upgradeTargets`.
 
 ## Serialization rule
@@ -228,7 +228,7 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 
 **Ersättare:** Per-integration- och stilexempel hanteras nu av dossier-pipen v2 i `data/dossiers/{hard,soft}/<id>/`. `data/dossiers/_index/capability-map.json` är en genererad backoffice-view (inte runtime-källa) — runtime walkar `hard/` + `soft/` direkt och matchar via deterministisk capability-regel. Aktivt via `SAJTMASKIN_DOSSIER_PIPELINE` (default på; sätt `false`/`0` för opt-out). Se [`docs/llm/dossier-selection-flow.md`](../llm/dossier-selection-flow.md) för urvalsflödet och [`docs/architecture/dossier-system.md`](../architecture/dossier-system.md) för full spec.
 
-**För scaffold-variants:** stilbeskrivning sker via `signaturePatterns` (layouts/motifs/antiPatterns) per variant i `config/scaffold-variants/<scaffold>/<variant>.json`. Renderas i `## Scaffold Variant`-blocket av `system-prompt.ts`. Se `../architecture/scaffold-system.md` för full inventarium.
+**För scaffold-variants:** stilbeskrivning sker via `signaturePatterns` (layouts/motifs/antiPatterns) per variant i `config/scaffold-variants/<scaffold>/<variant>.json`. Renderas i `## Scaffold Variant`-blocket av `src/lib/gen/system-prompt/`. Se `../architecture/scaffold-system.md` för full inventarium.
 
 ## Font handling
 

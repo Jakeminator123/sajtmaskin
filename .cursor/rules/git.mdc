@@ -3,4 +3,9 @@ description: inga PRs
 alwaysApply: false
 ---
 
-Skapa igna PRs för att skicka till github. Försök merga o mm öjligt i första hand, om du sjävl inte är på n avvikande branch oc här i något specialläge som uttryckligen uttryckts. Detta ska påpekas av dig om du då vill göra en PR och varför
+# Git
+
+- Skapa inte PRs om användaren inte uttryckligen ber om det.
+- Commit, push och merge bara på explicit begäran.
+- Om du ändå bedömer att en PR behövs: säg varför först och invänta OK.
+- Om användaren ber om merge och du står på rätt branch: försök mergea direkt enligt aktuell git-säkerhetsrutin.

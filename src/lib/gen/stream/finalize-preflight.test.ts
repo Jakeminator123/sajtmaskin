@@ -8,6 +8,7 @@ const runProjectSanityChecks = vi.hoisted(() => vi.fn());
 const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 const runLlmFixer = vi.hoisted(() => vi.fn());
+const runLlmRepairGate = vi.hoisted(() => vi.fn());
 const runSeoPreflightChecks = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/autofix/pipeline", () => ({
@@ -46,6 +47,10 @@ vi.mock("@/lib/gen/autofix/llm-fixer", () => ({
   runLlmFixer,
 }));
 
+vi.mock("@/lib/gen/autofix/llm-repair-gate", () => ({
+  runLlmRepairGate,
+}));
+
 vi.mock("@/lib/gen/post-process/image-materializer", () => ({
   materializeImages: vi.fn(),
 }));
@@ -59,6 +64,8 @@ vi.mock("@/lib/logging/devLog", () => ({
 }));
 
 import { runFinalizePreflight } from "./finalize-preflight";
+import { FEATURES } from "@/lib/config";
+import { serializeCodeProject } from "@/lib/gen/parser";
 
 /**
  * Plan 11 / open-question #5: the new home-route hard gate (>200 chars
@@ -166,6 +173,7 @@ describe("runFinalizePreflight", () => {
     parseFilesFromContent.mockReset();
     validateGeneratedCode.mockReset();
     runLlmFixer.mockReset();
+    runLlmRepairGate.mockReset();
 
     repairGeneratedFiles.mockImplementation((files: unknown) => ({ files, fixes: [] }));
     buildCompleteProject.mockImplementation((files: unknown) => withMinimalBaseline(files));
@@ -173,7 +181,9 @@ describe("runFinalizePreflight", () => {
     runSeoPreflightChecks.mockReturnValue([]);
     validateGeneratedCode.mockResolvedValue({ valid: true, errors: [] });
     runLlmFixer.mockResolvedValue({ success: false });
+    runLlmRepairGate.mockResolvedValue({ result: { success: false }, fixerModel: "gpt-5.4" });
     runAutoFix.mockResolvedValue({ fixedContent: "", fixes: [], warnings: [], dependencies: [] });
+    (FEATURES as { escalateMergeSyntaxToLlm: boolean }).escalateMergeSyntaxToLlm = false;
   });
 
   it("marks preview as blocked when no renderable page can be built", async () => {
@@ -233,7 +243,7 @@ describe("runFinalizePreflight", () => {
     expect(result.previewStart.canStartPreview).toBe(true);
   });
 
-  it("keeps preview unblocked when only project sanity reports verification issues", async () => {
+  it("sets a preview blocking reason when project sanity reports critical code issues", async () => {
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     runProjectSanityChecks.mockReturnValue({
       valid: false,
@@ -252,13 +262,15 @@ describe("runFinalizePreflight", () => {
       filesJson: JSON.stringify([
         {
           path: "src/app/page.tsx",
-          content: "export default function Page() { return <div>Hello</div>; }",
+          content: RICH_PAGE_CONTENT,
           language: "tsx",
         },
       ]),
     });
 
-    expect(result.previewBlockingReason).toBeNull();
+    expect(result.previewBlockingReason).toBe(
+      "Automatic preflight blocked preview: src/app/page.tsx: Missing required export",
+    );
     expect(result.preflightIssues).toContainEqual({
       file: "src/app/page.tsx",
       severity: "error",
@@ -267,6 +279,131 @@ describe("runFinalizePreflight", () => {
     });
     expect(result.previewStart.canStartPreview).toBe(false);
     expect(result.previewStart.primaryPreviewTarget).toBe("none");
+  });
+
+  it("sets a preview blocking reason for merged syntax errors", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    validateGeneratedCode
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          {
+            file: "components/flying-can-scene.tsx",
+            line: 24,
+            column: 0,
+            message: 'Unexpected "}"',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          {
+            file: "components/flying-can-scene.tsx",
+            line: 24,
+            column: 0,
+            message: 'Unexpected "}"',
+          },
+        ],
+      });
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_syntax",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        {
+          path: "app/page.tsx",
+          content: RICH_PAGE_CONTENT,
+          language: "tsx",
+        },
+        {
+          path: "components/flying-can-scene.tsx",
+          content: "export function FlyingCanScene() {\n  return <div />;\n}\n}",
+          language: "tsx",
+        },
+      ]),
+    });
+
+    expect(result.previewBlockingReason).toBe(
+      'Automatic preflight blocked preview: components/flying-can-scene.tsx: Merged syntax error line 24:0 — Unexpected "}"',
+    );
+    expect(result.previewStart.canStartPreview).toBe(false);
+  });
+
+  it("escalates merged syntax to LLM once when mechanical pass is a no-op", async () => {
+    (FEATURES as { escalateMergeSyntaxToLlm: boolean }).escalateMergeSyntaxToLlm = true;
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const repairedContent = serializeCodeProject([
+      {
+        path: "app/page.tsx",
+        content: RICH_PAGE_CONTENT,
+        language: "tsx",
+      },
+      {
+        path: "components/flying-can-scene.tsx",
+        content: "export function FlyingCanScene() {\n  return <div />;\n}\n",
+        language: "tsx",
+      },
+    ]);
+    validateGeneratedCode
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          {
+            file: "components/flying-can-scene.tsx",
+            line: 24,
+            column: 0,
+            message: 'Unexpected "}"',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          {
+            file: "components/flying-can-scene.tsx",
+            line: 24,
+            column: 0,
+            message: 'Unexpected "}"',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ valid: true, errors: [] });
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent: "invalid merged content",
+      fixes: [],
+      warnings: [],
+      dependencies: [],
+    });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        success: true,
+        partial: false,
+        fixedContent: repairedContent,
+      },
+      fixerModel: "gpt-5.4",
+    });
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_merge_escalation",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        {
+          path: "app/page.tsx",
+          content: RICH_PAGE_CONTENT,
+          language: "tsx",
+        },
+        {
+          path: "components/flying-can-scene.tsx",
+          content: "export function FlyingCanScene() {\n  return <div />;\n}\n}",
+          language: "tsx",
+        },
+      ]),
+    });
+
+    expect(runLlmRepairGate).toHaveBeenCalledTimes(1);
+    expect(result.previewBlockingReason).toBeNull();
+    expect(result.previewStart.canStartPreview).toBe(true);
   });
 
   it("preserves explicit sanity categories instead of falling back to message heuristics", async () => {

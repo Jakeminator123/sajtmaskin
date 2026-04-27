@@ -134,10 +134,25 @@ export function useBuilderPageController() {
     [state.messages],
   );
 
-  const { versions, mutate: mutateVersions } = useVersions(chatHooksChatId, {
+  const { versions, chatStatus, mutate: mutateVersions } = useVersions(chatHooksChatId, {
     isGenerating: isAnyStreamingEarly,
     pauseWhileGenerating: true,
   });
+
+  // P0 stream-abort recovery (2026-04-26). When the chat has no versions
+  // and the most recent run is in `aborted` status, we treat it as
+  // "versionless aborted" — the preview empty-state shows "Starta om
+  // generation" instead of "Försök reparera preview", and the parent
+  // component will route a click into a fresh chat rather than a
+  // followup_general against the dead chatId. Failed runs (verifier
+  // rejected real content) do NOT count here — those still have a
+  // version to repair.
+  const versionlessAborted = useMemo(() => {
+    if (Array.isArray(versions) && versions.length > 0) return false;
+    if (!chatStatus) return false;
+    if (chatStatus.hasVersion) return false;
+    return chatStatus.status === "aborted";
+  }, [versions, chatStatus]);
 
   const repairAvailableToastShownRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -1717,9 +1732,11 @@ export function useBuilderPageController() {
     // Preview / version callbacks
     handleClearPreview: builderCallbacks.handleClearPreview,
     handleFixPreview: builderCallbacks.handleFixPreview,
+    handleRestartGeneration: builderCallbacks.handleRestartGeneration,
     handleVersionSelect: builderCallbacks.handleVersionSelect,
     handleToggleVersionPanel: builderCallbacks.handleToggleVersionPanel,
     handleFilesSaved,
+    versionlessAborted,
 
   };
 }

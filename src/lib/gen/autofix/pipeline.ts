@@ -844,7 +844,7 @@ async function runAutoFixSinglePass(
 
       // 6. jsx-checker (fix missing imports & default export)
       try {
-        const jsxResult = runJsxChecker(currentCode);
+        const jsxResult = runJsxChecker(currentCode, file.path);
         currentCode = jsxResult.code;
         for (const fix of jsxResult.fixes) {
           allFixes.push({ ...fix, category: "mechanical", file: file.path });

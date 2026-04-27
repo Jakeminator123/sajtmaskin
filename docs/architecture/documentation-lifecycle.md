@@ -20,7 +20,7 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 | Område | Här hör | Hit hör inte |
 |--------|---------|--------------|
 | `docs/architecture/` | Kanoniska översikter + glossary + denna fil | Tillfälliga scratch |
-| `docs/schemas/` | Stabila schema-beskrivningar för människor + `strict/` för maskinorienterade kontrakt (sanning i kod) | Osäkra utkast |
+| `docs/schemas/` | Stabila schema-beskrivningar för människor + `strict/` för maskinorienterade kontrakt (kod är sanning) | Osäkra utkast |
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
 | `docs/plans/archived/` | Reverterade eller inaktuella planer som behålls som referens | Aktiva planer |
 | `docs/old/` | [`README.md`](../old/README.md) — pekare; tidigare innehåll i git-historik | Nytt arbetsmaterial |
@@ -50,4 +50,4 @@ Konservativ lagerregel:
 
 ## Historik
 
-Hela `docs/architecture/archive/` (inkl. tidigare `pre-2026-03-consolidation/`) finns **inte** i trädet längre. Återställ vid behov med `git log` / `git show` på historiska sökvägar under `docs/architecture/archive/`.
+Äldre arkitekturmaterial som fortfarande behövs ligger under `docs/architecture/_archived/`. Ännu äldre `docs/architecture/archive/` (inkl. tidigare `pre-2026-03-consolidation/`) finns **inte** i trädet längre. Återställ vid behov med `git log` / `git show`.

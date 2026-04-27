@@ -104,7 +104,7 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 4. For hard dossiers, check `process.env` for required envVars → mark `configured: true|false`.
 5. Eagerly load `instructions.md` for selected dossiers.
 
-Output: `DossierSelectionResult` consumed by `system-prompt.ts` to render three blocks:
+Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to render three blocks:
 
 - `## Available Dossiers` — compact list of selected dossiers.
 - `## Selected Dossier Instructions` — full `instructions.md` per dossier.
@@ -153,7 +153,7 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` in any environment to skip dossier selec
 | `src/lib/gen/dossiers/registry.ts` | Disk reader + mtime cache |
 | `src/lib/gen/dossiers/select.ts` | Deterministic capability-driven selection |
 | `src/lib/gen/dossiers/types.ts` | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult` |
-| `src/lib/gen/system-prompt.ts` | Renders the three dossier blocks into the system prompt |
+| `src/lib/gen/system-prompt/` | Renders the three dossier blocks into the system prompt |
 | `scripts/dossiers/curate-from-reference.ts` | The single AI-curation script |
 | `backoffice/pages/dossiers.py` | Backoffice UI for browsing + editing + curating |
 | `archive/dossiers-legacy-2026-04-20/` | Old 96-dossier pool, 16-script pipeline, scaffold-recommendations, embeddings |

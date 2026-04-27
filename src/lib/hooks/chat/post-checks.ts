@@ -28,6 +28,7 @@ import type {
   StreamQualitySignal,
   VersionErrorLogPayload,
 } from "./types";
+import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 
 async function persistVersionErrorLogs(params: {
   chatId: string;
@@ -71,6 +72,77 @@ async function validateImages(params: {
   } catch {
     return null;
   }
+}
+
+async function runProductPostcheckApi(params: {
+  chatId: string;
+  versionId: string;
+  previewUrl: string | null;
+  signal: AbortSignal;
+}): Promise<ProductPostcheckResult | null> {
+  const { chatId, versionId, previewUrl, signal } = params;
+  try {
+    const response = await fetch(
+      `${engineChatBaseUrl(chatId)}/product-postcheck`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId, previewUrl }),
+        signal,
+      },
+    );
+    if (!response.ok) return null;
+    return (await response.json()) as ProductPostcheckResult;
+  } catch {
+    return null;
+  }
+}
+
+function buildProductPostcheckLogItems(
+  result: ProductPostcheckResult | null,
+): VersionErrorLogPayload[] {
+  if (!result) return [];
+  if (result.skipped) {
+    return [
+      {
+        level: "info",
+        category: "product_postcheck.skipped",
+        message: "F2 Product Postcheck skipped.",
+        meta: {
+          skippedReason: result.skippedReason ?? "unknown",
+          durationMs: result.durationMs ?? null,
+          checkedUrl: result.checkedUrl ?? null,
+        },
+      },
+    ];
+  }
+
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  const logs: VersionErrorLogPayload[] = warnings.map((warning) => ({
+    level: "warning" as const,
+    category: `product_postcheck.${warning.code || "warning"}`,
+    message: warning.message || "F2 Product Postcheck warning.",
+    meta: {
+      ...warning,
+      durationMs: result.durationMs ?? null,
+      checkedUrl: result.checkedUrl ?? null,
+    },
+  }));
+  logs.unshift({
+    level: warnings.length > 0 ? "warning" : "info",
+    category: "product_postcheck.summary",
+    message:
+      warnings.length > 0
+        ? `F2 Product Postcheck found ${warnings.length} warning(s).`
+        : "F2 Product Postcheck passed.",
+    meta: {
+      warningCount: warnings.length,
+      productBlocked: result.productBlocked === true,
+      durationMs: result.durationMs ?? null,
+      checkedUrl: result.checkedUrl ?? null,
+    },
+  });
+  return logs;
 }
 
 const ENV_LOOKUP_RE = /\b[A-Z][A-Z0-9_]{2,}\b/g;
@@ -180,9 +252,18 @@ export async function runPostGenerationChecks(params: {
       versionId,
       signal: controller.signal,
     });
+    const productPostcheck = await runProductPostcheckApi({
+      chatId,
+      versionId,
+      previewUrl: baseline.resolvedDemoUrl ?? null,
+      signal: controller.signal,
+    });
     const warnings = [...baseline.warnings];
     if (imageValidation?.warnings?.length) {
       warnings.push(...imageValidation.warnings);
+    }
+    if (!productPostcheck?.skipped && productPostcheck?.warnings?.length) {
+      warnings.push(...productPostcheck.warnings.map((warning) => `Product: ${warning.message}`));
     }
 
     const artifacts = buildPostCheckArtifacts({
@@ -206,6 +287,7 @@ export async function runPostGenerationChecks(params: {
       sanityErrors: baseline.sanityErrors,
       sanityWarnings: baseline.sanityWarnings,
       imageValidation,
+      productPostcheck,
       resolvedDemoUrl: baseline.resolvedDemoUrl,
       rejectedShrinks,
       verifierBlockingFindings,
@@ -214,7 +296,7 @@ export async function runPostGenerationChecks(params: {
     void persistVersionErrorLogs({
       chatId,
       versionId,
-      logs: artifacts.logItems,
+      logs: [...artifacts.logItems, ...buildProductPostcheckLogItems(productPostcheck)],
     });
 
     if (artifacts.autoFixReasons.length > 0) {
@@ -248,6 +330,7 @@ export async function runPostGenerationChecks(params: {
         autoFixQueued: artifacts.autoFixQueued,
         qualityTier: artifacts.qualityTier,
         warningReasons: artifacts.warningReasons,
+        productBlocked: productPostcheck?.productBlocked === true,
       }),
     );
 
@@ -336,25 +419,44 @@ async function runTier2VerifyLane(params: {
   setMessages: SetMessages;
   mutateVersions?: () => void;
   onAutoFix?: (payload: AutoFixPayload) => void;
+  previewPolicy?: "fidelity2" | "fidelity3";
 }) {
-  const { chatId, versionId, assistantMessageId, setMessages, mutateVersions, onAutoFix } = params;
+  const {
+    chatId,
+    versionId,
+    assistantMessageId,
+    setMessages,
+    mutateVersions,
+    onAutoFix,
+    previewPolicy = "fidelity2",
+  } = params;
   const toolCallId = `quality-gate:${versionId}`;
+  const checks = DESIGN_PREVIEW_QUALITY_GATE_CHECKS;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
     type: "tool:quality-gate",
     toolName: "Quality gate",
     toolCallId,
     state: "input-streaming",
-    input: { chatId, versionId, checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS },
+    input: { chatId, versionId, checks },
   } as UiMessagePart);
 
   try {
+    if (previewPolicy === "fidelity2" && checks.includes("build")) {
+      console.warn(
+        "[F2 contract violation] build belongs to F3 (integrationsBuild). " +
+          "This call site sends build to designPreview gate. Investigate.",
+        { chatId, versionId, checks },
+      );
+      // Soft landing: warning-only during telemetry week.
+    }
+
     const res = await fetch(
       `${engineChatBaseUrl(chatId)}/quality-gate`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS }),
+        body: JSON.stringify({ versionId, checks }),
       },
     );
 

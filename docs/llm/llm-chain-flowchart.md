@@ -183,7 +183,7 @@ Dynamic context renderas i strikt prioritetsordning. När token-budget överskri
 `src/lib/providers/own-engine/generation-stream-post-finalize.ts`:
 
 1. `done`-SSE skickas så fort version sparats.
-2. `triggerServerVerification` — bakgrunds-quality-gate (typecheck + build i F2 sedan 2026-04-20).
+2. `triggerServerVerification` — bakgrunds-quality-gate (F2 = typecheck only; build är reserverat för F3 `integrationsBuild`).
 3. `triggerBuildErrorRepair` — auto-repair på preview-VM `build-error` (default ON i dev/preview, OFF i prod).
 4. `version-repair-available` SSE → UI visar accept-knapp om repair lyckades.
 

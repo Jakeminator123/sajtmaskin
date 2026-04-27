@@ -13,6 +13,7 @@ import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 import { getPreviewHostBaseUrl, isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
+  resolvePostFinalizePreviewBlockedState,
   resolvePostFinalizeServerVerifyDecision,
   shouldTriggerPostFinalizePreview,
 } from "@/lib/gen/stream/post-finalize-policies";
@@ -175,7 +176,13 @@ export async function runOwnEngineStreamPostFinalize(params: {
     }
   }
 
-  const previewBlocked = finalized.preflight.previewBlocked;
+  // SAJ-61 P0/c4: when the verifier flagged build-breaking findings the
+  // generated artifact cannot render. `resolvePostFinalizePreviewBlockedState`
+  // ORs that signal on top of the existing preflight `previewBlocked` so
+  // the SSE `done` envelope, devLog, and downstream UI status all see one
+  // coherent decision (and the same `previewBlockingReason` string).
+  const previewBlockedState = resolvePostFinalizePreviewBlockedState({ finalized });
+  const previewBlocked = previewBlockedState.previewBlocked;
   const previewWillRun = shouldTriggerPostFinalizePreview({
     finalized,
     parsedFileCount: parsedForPreview.length,
@@ -194,9 +201,9 @@ export async function runOwnEngineStreamPostFinalize(params: {
         previewPending: previewWillRun,
         shimPreviewUrl: null,
         preflight: finalized.preflight,
-        previewBlocked: finalized.preflight.previewBlocked,
+        previewBlocked,
         verificationBlocked: finalized.preflight.verificationBlocked,
-        previewBlockingReason: finalized.preflight.previewBlockingReason,
+        previewBlockingReason: previewBlockedState.previewBlockingReason,
         releaseState: finalized.version.release_state,
         verificationState: finalized.version.verification_state,
         verificationSummary: finalized.version.verification_summary,
@@ -221,6 +228,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         ...(finalized.crossFileStubs.length > 0
           ? { crossFileStubs: finalized.crossFileStubs }
           : {}),
+        warmTscSkipped: finalized.warmTscSkipped === true,
       }),
     ),
   );
@@ -247,6 +255,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
         missingImport: stub.missingImport,
         stubFile: stub.stubFile,
         repairPassIndex,
+        dossierId: stub.dossierId ?? null,
+        capability: stub.capability ?? null,
       },
     }));
     const missingCapabilityWarnings =
@@ -288,6 +298,27 @@ export async function runOwnEngineStreamPostFinalize(params: {
     previewDeferred: previewWillRun,
     previewBlocked,
     durationMs: Date.now() - engineStartedAt,
+    // PLANERADE FÄLT (idag null) — F2/F3 telemetry split:
+    //
+    // Denna site.done-rad emitteras FÖRE preview-ready och FÖRE quality-gate
+    // completion, så vi har inte exakta split-timings tillgängliga vid den
+    // här callsite-en. Fälten är medvetet inkluderade som null så att
+    // backoffice (llm_flode_telemetry.py) och strict-schemat
+    // (site-done-telemetry.schema.json som tillåter `["number","null"]`) kan
+    // börja titta efter dem utan format-byte när mätpunkterna wireas in.
+    //
+    // För att fylla dem behövs nya mätpunkter:
+    //   - f2TimeMs: tid från site.start till första `preview_ready`-event
+    //     (kräver sample-callback i preview-host-client eller event-bus-listener)
+    //   - f3TimeMs: tid från preview_ready till sista quality-gate-resultat
+    //     (kräver instrumentering kring runTier2VerifyLane i post-checks.ts)
+    //
+    // Se framtida wave i körplanen:
+    //   - docs/plans/avklarat/2026-04-24-llm-flode-korplan/06-latens-och-scaffold-delta.md § E1
+    //   - docs/plans/avklarat/2026-04-24-llm-flode-korplan/07-f2-ux-slo-matbarhet.md
+    f2TimeMs: null,
+    f3TimeMs: null,
+    warmTscSkipped: finalized.warmTscSkipped === true,
   });
   devLogFinalizeSite();
   await commitCredits();

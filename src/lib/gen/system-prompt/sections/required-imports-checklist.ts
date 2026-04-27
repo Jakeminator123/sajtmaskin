@@ -132,6 +132,15 @@ const ROUTE_TO_GROUPS: ReadonlyArray<{ prefixes: readonly string[]; groups: read
   { prefixes: ["/search", "/sok", "/sök"], groups: ["command", "dialog"] },
 ];
 
+const COMMON_LUCIDE_ICONS = {
+  "UI controls": ["Plus", "Minus", "X", "Check", "ChevronDown", "ChevronRight", "ChevronLeft", "ChevronUp"],
+  Navigation: ["Menu", "ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown", "ExternalLink", "Home"],
+  Status: ["Info", "AlertCircle", "AlertTriangle", "CheckCircle", "XCircle", "Loader", "Clock"],
+  Social: ["Github", "Twitter", "Linkedin", "Facebook", "Instagram", "Mail", "Phone", "MapPin"],
+  "Common UI": ["Search", "Settings", "User", "Users", "Heart", "Star", "Eye", "EyeOff", "Download", "Upload", "Share", "Copy", "Edit", "Trash"],
+  "Brands/Tech": ["Sparkles", "Zap", "Wand", "Bot", "Brain", "Cpu"],
+} as const;
+
 function collectGroups(params: RequiredImportsChecklistParams): ChecklistGroup[] {
   const selected = new Set<ChecklistGroup>(BASELINE_GROUPS);
 
@@ -235,9 +244,23 @@ export function renderRequiredImportsChecklistBlock(
   ];
 }
 
+export function renderLucideIconsReminderBlock(): string[] {
+  return [
+    "### Lucide icons commonly needed",
+    "",
+    ...Object.entries(COMMON_LUCIDE_ICONS).map(
+      ([category, iconNames]) => `- ${category}: ${iconNames.join(", ")}`,
+    ),
+    "",
+    "CRITICAL: Each icon used in JSX MUST be imported from \"lucide-react\". Group all lucide imports in ONE statement at top of file. Example: import { Menu, X, ArrowRight, Sparkles } from \"lucide-react\";",
+    "",
+  ];
+}
+
 /** Exposed for tests only. */
 export const __testing = {
   collectGroups,
   GROUP_COMPONENTS,
   BASELINE_GROUPS,
+  COMMON_LUCIDE_ICONS,
 };

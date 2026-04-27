@@ -7,6 +7,8 @@ import { mergeVersionFilesWithWarnings } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
+import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
 
 export interface MergeGeneratedProjectFilesParams {
   chatId: string;
@@ -14,6 +16,18 @@ export interface MergeGeneratedProjectFilesParams {
   generatedFiles: CodeFile[];
   resolvedScaffold: ScaffoldManifest | null;
   previousFiles?: CodeFile[];
+  /**
+   * Dossiers active for this generation. When provided, verbatim-mode files
+   * are restored to their canonical on-disk content after merge if the LLM
+   * drifted or omitted them.
+   *
+   * TODO(P5+): thread `selectedDossiers` from upstream orchestration context
+   * (e.g. via `orchestrationStreamMeta.dossierIds` → `getDossierById`) so
+   * this param is always populated. Currently not available at this callsite
+   * without significant pipeline threading — the policy function is wired but
+   * the upstream caller (`preflight-phase.ts`) doesn't yet pass dossiers.
+   */
+  selectedDossiers?: DossierEntry[];
 }
 
 export interface MergeGeneratedProjectFilesResult {
@@ -68,7 +82,14 @@ export interface MergeGeneratedProjectFilesResult {
    * Plan-02 / STATUS-02: not an `error` — the build IS shippable; just
    * incomplete relative to what the LLM intended.
    */
-  crossFileStubs: Array<{ sourceFile: string; missingImport: string; stubFile: string }>;
+  crossFileStubs: Array<{
+    sourceFile: string;
+    missingImport: string;
+    stubFile: string;
+    /** Present when the missing import matches a dossier exposes entry. */
+    dossierId?: string;
+    capability?: string;
+  }>;
 }
 
 /**
@@ -93,13 +114,79 @@ function isLlmOnlyPath(path: string): boolean {
   return LLM_ONLY_PATHS.has(path.replace(/\\/g, "/"));
 }
 
+/**
+ * Paths whose content MUST come from the scaffold default (or the previous
+ * persisted version on follow-up). LLM emissions targeting these paths are
+ * dropped before merge.
+ *
+ * Why this exists: LLMs frequently regenerate `app/api/placeholder/route.ts`
+ * as JSX-like syntax (`<svg style="...">`) inside a `.ts` file because the
+ * scaffold version contains a `<svg ...>` template literal. The result is
+ * `Expected ">" but found "style"` syntax errors that block tier-2 readiness.
+ * In the 2026-04-27 baseline-after-revert eval, this single path explained
+ * 6 of 13 failing prompts (coffee-shop, restaurant, agency, booking-service,
+ * multi-page-brochure, consultant-landing).
+ *
+ * Add new entries ONLY when:
+ *   1. The file is pure utility — no brand, copy, design, or business logic.
+ *   2. The scaffold-shipped version is verified correct.
+ *   3. Customers will not need to customize it per project.
+ *
+ * Counterpart of `LLM_ONLY_PATHS` (which forces the LLM to emit the file).
+ */
+const SCAFFOLD_PROTECTED_PATHS: ReadonlySet<string> = new Set([
+  "app/api/placeholder/route.ts",
+]);
+
+function isScaffoldProtectedPath(path: string): boolean {
+  return SCAFFOLD_PROTECTED_PATHS.has(path.replace(/\\/g, "/"));
+}
+
+function partitionGeneratedFilesForProtectedPaths(generatedFiles: CodeFile[]): {
+  kept: CodeFile[];
+  dropped: CodeFile[];
+} {
+  const kept: CodeFile[] = [];
+  const dropped: CodeFile[] = [];
+  for (const file of generatedFiles) {
+    if (isScaffoldProtectedPath(file.path)) {
+      dropped.push(file);
+    } else {
+      kept.push(file);
+    }
+  }
+  return { kept, dropped };
+}
+
 export function mergeGeneratedProjectFiles({
   chatId,
   originalFilesJson,
-  generatedFiles,
+  generatedFiles: rawGeneratedFiles,
   resolvedScaffold,
   previousFiles,
+  selectedDossiers,
 }: MergeGeneratedProjectFilesParams): MergeGeneratedProjectFilesResult {
+  // SCAFFOLD_PROTECTED_PATHS: drop LLM emissions targeting paths that must
+  // come from the scaffold default. This guard runs BEFORE merge so both the
+  // init branch (scaffold-base wins) and the follow-up branch (previousFiles
+  // wins) keep the canonical version. See note on `SCAFFOLD_PROTECTED_PATHS`.
+  const protectedPartition =
+    partitionGeneratedFilesForProtectedPaths(rawGeneratedFiles);
+  if (protectedPartition.dropped.length > 0) {
+    const droppedPaths = protectedPartition.dropped.map((f) => f.path);
+    warnLog(
+      "engine",
+      "Scaffold-protected paths emitted by LLM — dropping LLM versions to keep scaffold/previous default",
+      { chatId, droppedPaths },
+    );
+    devLogAppend("in-progress", {
+      type: "scaffold-protected-overwrite-blocked",
+      chatId,
+      droppedPaths,
+    });
+  }
+  const generatedFiles = protectedPartition.kept;
+
   // OMTAG Fas 2·A / E2: unified follow-up predicate. We only need the
   // `hasMergeablePrevious` answer here — whether there are files to merge
   // against — but routing through the shared module keeps the semantics in
@@ -177,8 +264,14 @@ export function mergeGeneratedProjectFiles({
       }
     }
 
+    const verbatimResult1 = applyDossierVerbatimPolicy({
+      llmFiles: finalFiles,
+      selectedDossiers: selectedDossiers ?? [],
+      chatId,
+    });
+
     return {
-      filesJson: JSON.stringify(finalFiles),
+      filesJson: JSON.stringify(verbatimResult1.files),
       rejectedShrinks,
       rejectedStructural,
       scaffoldDefaultsBlocked: [],
@@ -274,8 +367,14 @@ export function mergeGeneratedProjectFiles({
       });
     }
 
+    const verbatimResult2 = applyDossierVerbatimPolicy({
+      llmFiles: importResult.files,
+      selectedDossiers: selectedDossiers ?? [],
+      chatId,
+    });
+
     return {
-      filesJson: JSON.stringify(importResult.files),
+      filesJson: JSON.stringify(verbatimResult2.files),
       rejectedShrinks: [],
       rejectedStructural: [],
       scaffoldDefaultsBlocked,
@@ -303,8 +402,13 @@ export function mergeGeneratedProjectFiles({
     });
   }
   if (crossFileResult.fixes.length > 0 || typeOnlyModuleResult.fixes.length > 0) {
+    const verbatimResult3 = applyDossierVerbatimPolicy({
+      llmFiles: crossFileFiles,
+      selectedDossiers: selectedDossiers ?? [],
+      chatId,
+    });
     return {
-      filesJson: JSON.stringify(crossFileFiles),
+      filesJson: JSON.stringify(verbatimResult3.files),
       rejectedShrinks: [],
       rejectedStructural: [],
       scaffoldDefaultsBlocked: [],
@@ -313,8 +417,43 @@ export function mergeGeneratedProjectFiles({
     };
   }
 
+  // No merges or fixes — still apply verbatim policy on the raw generated files.
+  // The top-of-function SCAFFOLD_PROTECTED_PATHS filter operates on
+  // `generatedFiles`, but this fallback branch reads `originalFilesJson`
+  // directly. Without re-applying the filter here, an LLM emission that
+  // landed in `originalFilesJson` (e.g. a partial-file-repair snapshot,
+  // legacy no-scaffold callsite) could bypass the guard and ship broken
+  // utility content. Filter again to keep the invariant.
+  const parsedOriginal: CodeFile[] = JSON.parse(originalFilesJson);
+  const originalPartition =
+    partitionGeneratedFilesForProtectedPaths(parsedOriginal);
+  if (originalPartition.dropped.length > 0) {
+    const droppedPaths = originalPartition.dropped.map((f) => f.path);
+    warnLog(
+      "engine",
+      "Scaffold-protected paths in originalFilesJson fallback — dropping LLM versions",
+      { chatId, droppedPaths },
+    );
+    devLogAppend("in-progress", {
+      type: "scaffold-protected-overwrite-blocked",
+      chatId,
+      droppedPaths,
+      branch: "no-merge-no-fixes-fallback",
+    });
+  }
+  const safeOriginal = originalPartition.kept;
+  const verbatimResult4 = applyDossierVerbatimPolicy({
+    llmFiles: safeOriginal,
+    selectedDossiers: selectedDossiers ?? [],
+    chatId,
+  });
+  const hasVerbatimRestorations = verbatimResult4.restored.length > 0;
+  const hasFilteredOriginal = originalPartition.dropped.length > 0;
   return {
-    filesJson: originalFilesJson,
+    filesJson:
+      hasVerbatimRestorations || hasFilteredOriginal
+        ? JSON.stringify(verbatimResult4.files)
+        : originalFilesJson,
     rejectedShrinks: [],
     rejectedStructural: [],
     scaffoldDefaultsBlocked: [],

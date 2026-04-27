@@ -14,9 +14,19 @@ När en agent ombeds live-rapportera vad som händer medan en användare bygger 
 | **Per-run-mapp** (generationslogg) | "Vad hände i *denna* generering?" — timeline, LLM-anrop, verifier-pass, autofix-steg för en enskild körning | `logs/generationslogg/<YYYYMMDD-HHMMSS>-<kind>/` |
 | **Per-chat-observatory** | "Hur har *den här användarsajten* utvecklats över tid?" — senaste status + återkommande fel-patterns över flera körningar | `logs/site-observability/<chatId>/` |
 | **Kör→chat-index** | Slå upp *vilken* run-mapp som hör till en given chat | `logs/generationslogg/_index/chat-to-run.json` |
-| **Senaste (genväg)** | "Vad hände nyss?" | `logs/generationslogg/_latest.txt` → pekar på senaste run-mappen |
+| **Senaste (genväg)** | "Vad hände nyss?" — genväg till senaste skrivna run, inte bevis för att runnen gäller aktuell kod | `logs/generationslogg/_latest.txt` → pekar på senaste run-mappen |
 | **Unrouted** | Events utan runId/chatId/slug hamnar här — konsultera bara om ingen annan källa gav svar | `logs/generationslogg/_unrouted/<bucket>/` |
 | **Prometheus / backoffice** | Aggregerade latenser (P50/P95) per fas, inte per körning | `/api/metrics` (bearer `SAJTMASKIN_METRICS_TOKEN`), visas i `backoffice/pages/observability.py` |
+
+## Kodidentitet och gamla runs
+
+`_latest.txt` är bara en pekare till senaste run-mappen på disk. Den säger inte att runnen kördes mot aktuell `master`, aktuell fix eller senaste merge.
+
+Innan du använder en run som bevis efter en fix/merge: jämför runnens timestamp (`meta.json.startedAt` / mappnamnet) med när fixen eller mergen skedde. Om `meta.json` innehåller `repoHead`, `repoBranch` och `repoIdentityCapturedAt`, citera dem också.
+
+Gamla runs får användas som historik/baseline. De får inte beskrivas som post-fix-regression eller bevis mot aktuell kod om de startade före fixen/mergen eller saknar matchande repo-identitet.
+
+Saknas `repoHead`/`repoBranch` i runnen efter en fix/merge: säg uttryckligen **låg evidens** och be om ny generation från uppdaterad branch innan du kallar det regression.
 
 ## Per-run-mapp — filer och vad de säger
 
@@ -51,7 +61,7 @@ logs/site-observability/<chatId>/
 
 ## Do / Don't
 
-- **Do:** Innan du säger "den gör X nu" — hämta senaste run via `_latest.txt` och citera event-typ + timestamp.
+- **Do:** Innan du säger "den gör X nu" — hämta senaste run via `_latest.txt`, kontrollera att run-tiden är efter relevant fix/merge, och citera event-typ + timestamp.
 - **Do:** Använd `logs/generationslogg/_index/chat-to-run.json` för att mappa chatId (från URL eller användarens referens) → run-mapp.
 - **Don't:** Beskriv "vad som händer" utifrån kodläsning när loggen finns — kod beskriver kapacitet, logg beskriver vad som **faktiskt** hände.
 - **Don't:** Skriv nya loggkonsumenter runt kopior/speglingar. Följ pekare till `logs/generationslogg/<run>/` (se kommentar i `src/lib/logging/generation-log-writer.ts`).

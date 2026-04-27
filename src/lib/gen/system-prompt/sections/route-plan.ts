@@ -118,7 +118,10 @@ export function renderRoutePlanBlock(params: {
   // toggle is on, and only when there is real signal. Inserted right after
   // the canonical-route-paths block so the model sees both "where to go"
   // and "what not to repeat" together. See renderRecurringFailuresBlockLines.
-  if (isFollowUp && FEATURES.recurringPatternsInMainPrompt) {
+  if (
+    (isFollowUp || (FEATURES.recurringPatternsInCreatePrompt && chatId)) &&
+    FEATURES.recurringPatternsInMainPrompt
+  ) {
     const recurringLines = renderRecurringFailuresBlockLines(chatId);
     if (recurringLines.length > 0) {
       parts.push(...recurringLines);

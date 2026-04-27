@@ -73,6 +73,7 @@ export function buildPostCheckSummary(params: {
   autoFixQueued?: boolean;
   qualityTier?: QualityTier;
   warningReasons?: string[];
+  productBlocked?: boolean;
 }) {
   const {
     changes,
@@ -84,6 +85,7 @@ export function buildPostCheckSummary(params: {
     autoFixQueued = false,
     qualityTier = "none",
     warningReasons = [],
+    productBlocked = false,
   } = params;
   const lines: string[] = [];
 
@@ -123,7 +125,11 @@ export function buildPostCheckSummary(params: {
   });
 
   if (warningReasons.length > 0) {
-    lines.push(`Icke-kritiska observationer: ${warningReasons.join(", ")}`);
+    lines.push(`Observationer: ${warningReasons.join(", ")}`);
+  }
+
+  if (productBlocked) {
+    lines.push("Produktkontroll: blockerande problem hittades — F3 disablas tills F2-previewn fungerar.");
   }
 
   const tierLabel = QUALITY_TIER_LABELS[qualityTier];

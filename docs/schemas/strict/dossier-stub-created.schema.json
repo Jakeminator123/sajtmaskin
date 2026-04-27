@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "dossier-stub-created.schema.json",
+  "title": "dossier_stub_created",
+  "description": "Dokumenterar strukturen för cross-file-stub-eventen (internt kallad 'crossFileStubs'). OBS: i nuvarande implementation persisteras detta som engine_version_error_logs-warnings i databasen (category: 'merge:cross-file-stub'), INTE som standalone devLog-event. Schemaet är en forward-deklaration. Source-of-truth: src/lib/gen/stream/finalize-version/types.ts (FinalizeResult.crossFileStubs) + src/lib/providers/own-engine/generation-stream-post-finalize.ts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "sourceFile", "missingImport", "stubFile"],
+  "properties": {
+    "type": {
+      "const": "dossier_stub_created",
+      "description": "Diskriminant: alltid strängen 'dossier_stub_created'."
+    },
+    "sourceFile": {
+      "type": "string",
+      "description": "Filen som innehöll en import till en lokal fil som inte existerade."
+    },
+    "missingImport": {
+      "type": "string",
+      "description": "Den saknade importens sökväg (t.ex. './coffee-cup-scene')."
+    },
+    "stubFile": {
+      "type": "string",
+      "description": "Sökväg till den auto-stubbade filen som skapades för att bygget ska passera."
+    },
+    "dossierId": {
+      "type": ["string", "null"],
+      "description": "ID för den dossier vars exposes-entry matchade den saknade importen. Null om importen inte kopplas till en dossier."
+    },
+    "capability": {
+      "type": ["string", "null"],
+      "description": "Capability-strängen (t.ex. 'visual-3d') kopplad till dossieren. Null om inte dossier-relaterat."
+    }
+  }
+}

@@ -36,6 +36,7 @@ export type OwnEnginePipelineAndGenerationInput = {
   meta: GenerationStreamMeta;
   engineModel: string;
   optimizedMessage: string;
+  rawPrompt?: string;
   engineIntent: BuildIntent;
   buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
@@ -104,6 +105,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     meta: { ...input.meta, thinking: effectiveThinking },
     engineModel: input.engineModel,
     optimizedMessage: input.optimizedMessage,
+    rawPrompt: input.rawPrompt,
     engineIntent: input.engineIntent,
     buildSpec: input.buildSpec,
     routePlan: input.routePlan,

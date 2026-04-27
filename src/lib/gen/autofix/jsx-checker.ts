@@ -207,6 +207,17 @@ function extractLocalDeclarations(code: string): Set<string> {
   for (const m of code.matchAll(FUNC_RE)) {
     decls.add(m[1]);
   }
+  // SAJ-63: also capture `type Foo = ...`, `interface Foo`, `class Foo` so
+  // jsx-checker does not (a) emit phantom imports for names that are local TS
+  // types used in generic position (`useState<GamePhase>(...)` paired with
+  // `type GamePhase = "idle" | "playing" | "finished"`) and (b) raise tag-
+  // mismatch warnings for those same TS-generic positions.
+  // Direct follow-up to SAJ-61b (which only covered `type Lane = ...` via the
+  // import path) — this also hardens `checkTagMatching` and `interface`/`class`.
+  const TYPE_RE = /(?:type|interface|class)\s+([A-Z]\w*)\b/g;
+  for (const m of code.matchAll(TYPE_RE)) {
+    decls.add(m[1]);
+  }
   return decls;
 }
 
@@ -221,8 +232,14 @@ function findLastImportLine(lines: string[]): number {
 /**
  * Simple tag-matching check: count opening and closing tags.
  * Returns warnings for any components with mismatched counts.
+ *
+ * SAJ-63: takes `localDecls` so a name that is locally a TS `type`/`interface`/
+ * `class` (and therefore appears in a generic position like `useState<X>(…)`,
+ * not as a JSX tag) is excluded from mismatch counting. Without this, TS
+ * generics produce false positive `Tag mismatch for <X>: 1 opening vs 0 closing`
+ * warnings that drive autofix into a phantom-import loop.
  */
-function checkTagMatching(code: string): string[] {
+function checkTagMatching(code: string, localDecls: Set<string>): string[] {
   const warnings: string[] = [];
   const openCounts = new Map<string, number>();
   const closeCounts = new Map<string, number>();
@@ -241,6 +258,7 @@ function checkTagMatching(code: string): string[] {
 
   const allTags = new Set([...openCounts.keys(), ...closeCounts.keys()]);
   for (const tag of allTags) {
+    if (localDecls.has(tag)) continue;
     const open = openCounts.get(tag) ?? 0;
     const close = closeCounts.get(tag) ?? 0;
     if (open !== close) {
@@ -423,7 +441,25 @@ function fixMissingDefaultExport(code: string): {
   };
 }
 
-export function runJsxChecker(code: string): {
+/**
+ * SAJ-63: hook files (e.g. `hooks/use-reduced-motion.ts`, `use-pointer.tsx`)
+ * are not React components — they are functions named `useX` that return
+ * primitives or refs. The default-export check is meaningless for them and
+ * produced a noisy false positive `No default export found — could not
+ * determine component to export` in run 20260427-095232-freeform.
+ */
+function isHookFilePath(filePath: string | undefined): boolean {
+  if (!filePath) return false;
+  const lower = filePath.toLowerCase();
+  if (lower.includes("/hooks/")) return true;
+  const basename = lower.split(/[\\/]/).pop() ?? "";
+  return /^use-[a-z]/.test(basename);
+}
+
+export function runJsxChecker(
+  code: string,
+  filePath?: string,
+): {
   code: string;
   fixes: AutoFixEntry[];
   warnings: string[];
@@ -431,17 +467,28 @@ export function runJsxChecker(code: string): {
   const fixes: AutoFixEntry[] = [];
   const warnings: string[] = [];
 
-  warnings.push(...checkTagMatching(code));
+  // SAJ-63: compute localDecls once and share with checkTagMatching so TS
+  // generic positions (`useState<GamePhase>(…)` paired with a local
+  // `type GamePhase`) do not produce phantom `Tag mismatch` warnings.
+  const localDecls = extractLocalDeclarations(code);
+
+  warnings.push(...checkTagMatching(code, localDecls));
 
   const importResult = fixMissingImports(code);
   let currentCode = importResult.code;
   fixes.push(...importResult.fixes);
   warnings.push(...importResult.warnings);
 
-  const exportResult = fixMissingDefaultExport(currentCode);
-  currentCode = exportResult.code;
-  fixes.push(...exportResult.fixes);
-  warnings.push(...exportResult.warnings);
+  // SAJ-63: skip default-export check for hook files. A `use-*.ts(x)` file
+  // (or any file under `/hooks/`) is by convention a named-export hook, not
+  // a component, and the heuristic that walks for "last function returning
+  // JSX" is meaningless there.
+  if (!isHookFilePath(filePath)) {
+    const exportResult = fixMissingDefaultExport(currentCode);
+    currentCode = exportResult.code;
+    fixes.push(...exportResult.fixes);
+    warnings.push(...exportResult.warnings);
+  }
 
   return { code: currentCode, fixes, warnings };
 }
