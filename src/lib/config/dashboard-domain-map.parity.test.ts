@@ -56,7 +56,11 @@ function normalizeLiteralPath(raw: string): { rel: string; kind: "file" | "dir" 
 function isRuntimeArtifactPath(rel: string): boolean {
   if (rel === "logs" || rel.startsWith("logs/")) return true;
   if (rel === ".cursor" || rel.startsWith(".cursor/")) return true;
-  if (rel.startsWith("data/scaffold-eval/reports/")) return true;
+  if (
+    rel === "data/scaffold-eval/reports" ||
+    rel.startsWith("data/scaffold-eval/reports/")
+  )
+    return true;
   return false;
 }
 
