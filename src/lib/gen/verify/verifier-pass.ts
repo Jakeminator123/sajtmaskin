@@ -583,7 +583,7 @@ export function checkMotionReduceTrap(
 
 export async function runVerifierPass(
   codeProjectContent: string,
-  opts: { resolvedTier: CanonicalModelId },
+  opts: { resolvedTier: CanonicalModelId; abortSignal?: AbortSignal },
 ): Promise<VerifierFindings> {
   const verifierStartedAt = Date.now();
   const recordOnExit = (findings: VerifierFindings): VerifierFindings => {
@@ -637,6 +637,18 @@ Use those exact ids so downstream tooling can recognise them.`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), cfg.timeoutMs);
+  // Forward an external abortSignal (e.g. verifier-phase rerun timeout) into
+  // the same controller so the caller can actually cancel the verifier call,
+  // not just the wrapper.
+  const externalAbort = opts.abortSignal;
+  const onExternalAbort = () => controller.abort();
+  if (externalAbort) {
+    if (externalAbort.aborted) {
+      controller.abort();
+    } else {
+      externalAbort.addEventListener("abort", onExternalAbort, { once: true });
+    }
+  }
   let providerOptions: ProviderOptionsRecord | undefined;
   if (thinkingConfig.thinking) {
     providerOptions = isAnthropicModel(modelId)
@@ -684,6 +696,9 @@ Use those exact ids so downstream tooling can recognise them.`;
     return recordOnExit(deterministic);
   } finally {
     clearTimeout(timeoutId);
+    if (externalAbort) {
+      externalAbort.removeEventListener("abort", onExternalAbort);
+    }
   }
 }
 

@@ -187,8 +187,13 @@ export async function runVerifierPhase(params: {
               VERIFIER_RERUN_TIMEOUT_MS,
             );
             try {
+              // Forward the rerun controller's signal so the 30s timeout
+              // actually cancels the in-flight verifier call (previously
+              // the controller was created but never used — the call kept
+              // running until its own internal cfg.timeoutMs expired).
               const rerunFindings = await runVerifierPass(contentForVersion, {
                 resolvedTier: verifierTier,
+                abortSignal: rerunAbort.signal,
               });
               rerunDurationMs = Date.now() - rerunStartedAt;
               rerunBlockingCount = rerunFindings.blocking.length;

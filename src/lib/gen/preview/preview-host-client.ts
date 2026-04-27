@@ -165,6 +165,13 @@ export type PreviewHostDestroyErr = {
 export type PreviewHostHibernateOk = {
   ok: true;
   hibernated: boolean;
+  /**
+   * `true` when the preview host returned 404 — i.e. the session was already
+   * gone or never existed. Treated as ok (the caller wanted it stopped) but
+   * surfaced separately so misconfigured PREVIEW_HOST_BASE_URL doesn't look
+   * like an idempotent no-op.
+   */
+  notFound?: boolean;
 };
 
 export type PreviewHostHibernateErr = {
@@ -460,7 +467,13 @@ export async function hibernatePreviewHostSession(params: {
     });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (res.status === 404) {
-      return { ok: true, hibernated: false };
+      // Distinguish "session never existed" / "already gone" from a real
+      // hibernate. Previously this returned `{ ok: true, hibernated: false }`
+      // identically to a successful no-op call, which silently masked
+      // misconfigured base URLs (a 404 on the wrong host looked the same as
+      // an idempotent miss). Caller treats `notFound: true` as still ok but
+      // can log it as a config-suspicion signal.
+      return { ok: true, hibernated: false, notFound: true };
     }
     if (!res.ok) {
       const msg = describePreviewHostHttpFailure({

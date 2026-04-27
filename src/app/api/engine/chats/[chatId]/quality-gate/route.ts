@@ -12,7 +12,10 @@ import {
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
-import { QUALITY_GATE_CHECK_VALUES } from "@/lib/gen/verify/quality-gate-checks";
+import {
+  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  QUALITY_GATE_CHECK_VALUES,
+} from "@/lib/gen/verify/quality-gate-checks";
 import type { VisualQAResult } from "@/lib/gen/verify/visual-qa";
 import {
   describeQualityGateVerification,
@@ -38,11 +41,15 @@ export const maxDuration = 300;
 
 const requestSchema = z.object({
   versionId: z.string().min(1),
+  // Default to the canonical F2 design-preview lane (`DESIGN_PREVIEW_QUALITY_GATE_CHECKS`)
+  // so that if `manifest.json` `qualityGateTiers.designPreview` is widened
+  // (e.g. to add `lint`), the route default tracks it instead of silently
+  // staying on a hardcoded `["typecheck"]`.
   checks: z
     .array(z.enum(QUALITY_GATE_CHECK_VALUES))
     .min(1, "At least one quality gate check is required.")
     .optional()
-    .default(["typecheck"]),
+    .default([...DESIGN_PREVIEW_QUALITY_GATE_CHECKS]),
 });
 
 type GateResult = {
