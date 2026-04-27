@@ -418,17 +418,42 @@ export function mergeGeneratedProjectFiles({
   }
 
   // No merges or fixes — still apply verbatim policy on the raw generated files.
+  // The top-of-function SCAFFOLD_PROTECTED_PATHS filter operates on
+  // `generatedFiles`, but this fallback branch reads `originalFilesJson`
+  // directly. Without re-applying the filter here, an LLM emission that
+  // landed in `originalFilesJson` (e.g. a partial-file-repair snapshot,
+  // legacy no-scaffold callsite) could bypass the guard and ship broken
+  // utility content. Filter again to keep the invariant.
   const parsedOriginal: CodeFile[] = JSON.parse(originalFilesJson);
+  const originalPartition =
+    partitionGeneratedFilesForProtectedPaths(parsedOriginal);
+  if (originalPartition.dropped.length > 0) {
+    const droppedPaths = originalPartition.dropped.map((f) => f.path);
+    warnLog(
+      "engine",
+      "Scaffold-protected paths in originalFilesJson fallback — dropping LLM versions",
+      { chatId, droppedPaths },
+    );
+    devLogAppend("in-progress", {
+      type: "scaffold-protected-overwrite-blocked",
+      chatId,
+      droppedPaths,
+      branch: "no-merge-no-fixes-fallback",
+    });
+  }
+  const safeOriginal = originalPartition.kept;
   const verbatimResult4 = applyDossierVerbatimPolicy({
-    llmFiles: parsedOriginal,
+    llmFiles: safeOriginal,
     selectedDossiers: selectedDossiers ?? [],
     chatId,
   });
   const hasVerbatimRestorations = verbatimResult4.restored.length > 0;
+  const hasFilteredOriginal = originalPartition.dropped.length > 0;
   return {
-    filesJson: hasVerbatimRestorations
-      ? JSON.stringify(verbatimResult4.files)
-      : originalFilesJson,
+    filesJson:
+      hasVerbatimRestorations || hasFilteredOriginal
+        ? JSON.stringify(verbatimResult4.files)
+        : originalFilesJson,
     rejectedShrinks: [],
     rejectedStructural: [],
     scaffoldDefaultsBlocked: [],

@@ -326,6 +326,41 @@ describe("SCAFFOLD_PROTECTED_PATHS — scaffold-default lock for utility files",
     expect(page!.content).toContain("New");
   });
 
+  it("drops scaffold-protected paths from the no-scaffold/no-merge fallback branch", () => {
+    // Edge case: when there is no scaffold, no follow-up base, and no
+    // cross-file/type-only fixes, mergeGeneratedProjectFiles falls through
+    // to a branch that reads `originalFilesJson` directly. Before fix:
+    // SCAFFOLD_PROTECTED_PATHS filter was only applied to `generatedFiles`,
+    // so a protected path embedded in `originalFilesJson` would slip past.
+    const originalFiles = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page() { return <h1>x</h1>; }",
+        language: "tsx",
+      },
+      {
+        path: "app/api/placeholder/route.ts",
+        content: BROKEN_LLM_PLACEHOLDER_CONTENT,
+        language: "tsx",
+      },
+    ];
+
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-protected-fallback",
+      originalFilesJson: JSON.stringify(originalFiles),
+      generatedFiles: [],
+      resolvedScaffold: null,
+      previousFiles: undefined,
+    });
+
+    const mergedFiles = JSON.parse(result.filesJson) as Array<{ path: string }>;
+    const placeholder = mergedFiles.find(
+      (f) => f.path === "app/api/placeholder/route.ts",
+    );
+    expect(placeholder).toBeUndefined();
+    expect(mergedFiles.find((f) => f.path === "app/page.tsx")).toBeDefined();
+  });
+
   it("does not affect non-protected paths", () => {
     const scaffold = makeScaffoldWithPlaceholderRoute();
     const generatedFiles = [
