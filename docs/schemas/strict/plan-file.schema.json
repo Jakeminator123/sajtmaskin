@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://sajtmaskin.se/schemas/plan-file.schema.json",
   "title": "Sajtmaskin Plan File Frontmatter",
-  "description": "YAML frontmatter contract for docs/plans/active/P*.md. Backoffice 'Parallel plans' page parses this; P27-validator asserts compliance.",
+  "description": "YAML frontmatter contract for docs/plans/active/P*.md. Mirrors the plan lifecycle guidance and the historical P27 validator contract; no automated runner is wired today.",
   "type": "object",
   "required": [
     "id",

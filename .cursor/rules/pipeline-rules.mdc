@@ -48,7 +48,7 @@ Färre rörliga delar, starkare första pass. Statisk prompt eller deterministis
 | Scaffold | `docs/schemas/scaffold-contract.md`, `docs/schemas/strict/scaffold-variant.schema.json` |
 | Preview / session | `docs/schemas/preview-session-contract.md`, `docs/schemas/strict/preview-session-contract.schema.json` |
 | Quality gate | `docs/schemas/quality-gate.md` |
-| Roller / signaler | `docs/schemas/llm-role-matrix.md`, `orchestration-signal-contract.md` |
+| Roller / signaler | `docs/schemas/llm-role-matrix.md`, `docs/schemas/orchestration-signal-contract.md` |
 | **Schemas (strict)** | `docs/schemas/strict/*.schema.json` — machine-readable kontrakt, håll synkade mot TS-typer |
 | **Backoffice (Streamlit)** | `backoffice/` sidmoduler + `sajtmaskin_backoffice.py` — verifiera att paneler speglar faktisk runtime |
 | **Glossary** | Bara om en term faktiskt ändras semantik. Ändringsnarrativ hör hemma i git-historiken, inte i tabellen. |

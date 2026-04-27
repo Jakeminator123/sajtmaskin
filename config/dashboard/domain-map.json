@@ -5,7 +5,7 @@
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ innehåller nu främst legacy wrappers och stöddata till den konsoliderade Streamlit-backoffice-appen.",
     "backoffice": "Kanonisk Python-kod för den konsoliderade Streamlit-backoffice-appen: delad helperlogik, sidmoduler och huvudskal.",
     "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md.",
-    ".cursor": "Cursor-projektregler och skills. 13 regler: 4 generella (`terminology`, `session-git-docs`, `repo-env-indexing`, `cleanup-and-scope`), 6 glob-triggrade (`llm-pipeline-docs-sync`, `signal-ownership`, `pipeline-rules`, `file-structure-conventions`, `scaffold-architecture`, `openclaw-bridge`), 3 manuella (`useful-commands`, `platform-quirks`, `subagent-verification`). Ett slash-kommando: `/avslutning`."
+    ".cursor": "Cursor-projektregler och skills. 15 regler: 5 generella (`builder-coexistence`, `repo-router`, `response-format`, `terminology`, `workflow`), 5 glob-triggrade (`env-flow-f2-mute`, `openclaw-bridge`, `pipeline-rules`, `plan-lifecycle`, `scaffold-rules`) och 5 manuella (`agent-observatory`, `git`, `platform-quirks`, `unicode-regex`, `useful-commands`). Slash-kommandon: `/avslutning`, `/buggrapport`, `/långbänk`."
   },
   "pages": {
     "Översikt": {
@@ -324,21 +324,23 @@
       ]
     },
     "Cursor-agenter": {
-      "summary": "Ordlista, struktur och aktiv backlog — alla 13 projektregler + arkitektur + en samlad planfil. Ett slash-kommando: /avslutning.",
+      "summary": "Ordlista, struktur och aktiv backlog — alla 15 projektregler + arkitektur + en samlad planfil. Slash-kommandon: /avslutning, /buggrapport, /långbänk.",
       "canonicalPaths": [
-        ".cursor/rules/terminology.mdc",
-        ".cursor/rules/session-git-docs.mdc",
-        ".cursor/rules/repo-env-indexing.mdc",
-        ".cursor/rules/cleanup-and-scope.mdc",
-        ".cursor/rules/llm-pipeline-docs-sync.mdc",
-        ".cursor/rules/signal-ownership.mdc",
-        ".cursor/rules/pipeline-rules.mdc",
-        ".cursor/rules/file-structure-conventions.mdc",
-        ".cursor/rules/scaffold-rules.mdc",
+        ".cursor/rules/agent-observatory.mdc",
+        ".cursor/rules/builder-coexistence.mdc",
+        ".cursor/rules/env-flow-f2-mute.mdc",
+        ".cursor/rules/git.mdc",
         ".cursor/rules/openclaw-bridge.mdc",
-        ".cursor/rules/useful-commands.mdc",
+        ".cursor/rules/pipeline-rules.mdc",
+        ".cursor/rules/plan-lifecycle.mdc",
         ".cursor/rules/platform-quirks.mdc",
-        ".cursor/rules/subagent-verification.mdc",
+        ".cursor/rules/repo-router.mdc",
+        ".cursor/rules/response-format.mdc",
+        ".cursor/rules/scaffold-rules.mdc",
+        ".cursor/rules/terminology.mdc",
+        ".cursor/rules/useful-commands.mdc",
+        ".cursor/rules/unicode-regex.mdc",
+        ".cursor/rules/workflow.mdc",
         "docs/architecture/repository-and-platform.md"
       ],
       "docsPaths": [
