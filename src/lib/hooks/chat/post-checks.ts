@@ -281,6 +281,7 @@ export async function runPostGenerationChecks(params: {
       sanityErrors: baseline.sanityErrors,
       sanityWarnings: baseline.sanityWarnings,
       imageValidation,
+      productPostcheck,
       resolvedDemoUrl: baseline.resolvedDemoUrl,
     });
 
@@ -321,6 +322,7 @@ export async function runPostGenerationChecks(params: {
         autoFixQueued: artifacts.autoFixQueued,
         qualityTier: artifacts.qualityTier,
         warningReasons: artifacts.warningReasons,
+        productBlocked: productPostcheck?.productBlocked === true,
       }),
     );
 

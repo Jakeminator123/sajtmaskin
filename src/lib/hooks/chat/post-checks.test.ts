@@ -1061,7 +1061,7 @@ describe("runPostGenerationChecks", () => {
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 
-  it("persists Product Postcheck warnings as product_postcheck logs", async () => {
+  it("persists Product Postcheck blockers as product_postcheck logs and output", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
     const files = buildHealthyFiles();
@@ -1088,14 +1088,12 @@ describe("runPostGenerationChecks", () => {
             skipped: false,
             warnings: [
               {
-                code: "broken_anchor",
-                message: "Anchor target saknas för #kontakt",
-                href: "#kontakt",
-                text: "Kontakta oss",
+                code: "mobile_menu_failed",
+                message: "Mobilmeny kunde inte verifieras: hamburger_button_did_not_change_dom_or_aria",
               },
             ],
             warningCount: 1,
-            productBlocked: false,
+            productBlocked: true,
             durationMs: 123,
             checkedUrl: "https://vm-fly-jakem.fly.dev/chat_1",
           });
@@ -1125,15 +1123,21 @@ describe("runPostGenerationChecks", () => {
       logs?: Array<{ category?: string; meta?: Record<string, unknown> }>;
     };
     expect(body.logs?.map((log) => log.category)).toEqual(
-      expect.arrayContaining(["product_postcheck.summary", "product_postcheck.broken_anchor"]),
+      expect.arrayContaining(["product_postcheck.summary", "product_postcheck.mobile_menu_failed"]),
     );
-    expect(body.logs?.find((log) => log.category === "product_postcheck.broken_anchor")?.meta).toEqual(
-      expect.objectContaining({ code: "broken_anchor", href: "#kontakt" }),
+    expect(body.logs?.find((log) => log.category === "product_postcheck.summary")?.meta).toEqual(
+      expect.objectContaining({ productBlocked: true }),
+    );
+    expect(body.logs?.find((log) => log.category === "product_postcheck.mobile_menu_failed")?.meta).toEqual(
+      expect.objectContaining({ code: "mobile_menu_failed" }),
     );
     const postCheck = getToolPart("Post-check", store);
+    expect(((postCheck?.output as { summary?: { productBlocked?: boolean } }).summary)?.productBlocked).toBe(true);
+    expect((postCheck?.output as { productPostcheck?: { productBlocked?: boolean } }).productPostcheck?.productBlocked).toBe(true);
     expect((postCheck?.output as { warnings?: string[] }).warnings).toEqual(
-      expect.arrayContaining(["Product: Anchor target saknas för #kontakt"]),
+      expect.arrayContaining(["Product: Mobilmeny kunde inte verifieras: hamburger_button_did_not_change_dom_or_aria"]),
     );
+    expect(store.getAssistant()?.content).toContain("Produktkontroll: blockerande problem hittades");
     expect(onAutoFix).not.toHaveBeenCalled();
   });
 

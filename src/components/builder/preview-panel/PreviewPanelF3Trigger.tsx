@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 
 export interface PreviewPanelF3TriggerProps {
   chatId: string;
@@ -56,6 +57,24 @@ type FinalizeDesignResponse = {
   message?: string;
 };
 
+type DiagnosticsResponse = {
+  logs?: Array<{
+    category?: string | null;
+    meta?: unknown;
+  }>;
+};
+
+function hasBlockingProductPostcheck(data: DiagnosticsResponse | null): boolean {
+  const logs = Array.isArray(data?.logs) ? data.logs : [];
+  return logs.some((log) => {
+    if (log.category !== "product_postcheck.summary") return false;
+    const meta = log.meta && typeof log.meta === "object"
+      ? (log.meta as Record<string, unknown>)
+      : null;
+    return meta?.productBlocked === true;
+  });
+}
+
 /**
  * Minimal "Bygg integrationer" (F3) trigger button. Calls the
  * `/finalize-design` validator and surfaces missing env keys via toast +
@@ -72,8 +91,45 @@ export function PreviewPanelF3Trigger({
   isBusy = false,
 }: PreviewPanelF3TriggerProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [productBlocked, setProductBlocked] = useState(false);
+
+  useEffect(() => {
+    if (!chatId || !versionId) {
+      setProductBlocked(false);
+      return;
+    }
+    let active = true;
+    const controller = new AbortController();
+    const loadProductStatus = async () => {
+      try {
+        const response = await fetch(
+          `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+          { signal: controller.signal },
+        );
+        const data = (await response.json().catch(() => null)) as DiagnosticsResponse | null;
+        if (active && response.ok) {
+          setProductBlocked(hasBlockingProductPostcheck(data));
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        if (active) setProductBlocked(false);
+      }
+    };
+    void loadProductStatus();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [chatId, versionId]);
 
   const handleClick = useCallback(async () => {
+    if (productBlocked) {
+      toast.warning("F3 är spärrad av Product Postcheck.", {
+        description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
+        duration: 8000,
+      });
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await fetch(
@@ -137,24 +193,27 @@ export function PreviewPanelF3Trigger({
     } finally {
       setIsLoading(false);
     }
-  }, [chatId, versionId, onReady, onMissingEnv]);
+  }, [chatId, versionId, onReady, onMissingEnv, productBlocked]);
 
   // Block the click if we don't yet have a concrete versionId — otherwise
   // the request body becomes `{}` and the server can't anchor the F3 step
   // to a parent version. Discovered in Wave 5 race-condition audit.
   const noVersion = !versionId;
+  const disabledByProduct = productBlocked && !noVersion;
   return (
     <Button
       type="button"
       size="sm"
       variant="default"
       onClick={handleClick}
-      disabled={isLoading || isBusy || noVersion}
+      disabled={isLoading || isBusy || noVersion || disabledByProduct}
       title={
         isBusy
           ? "En annan generering pågår — vänta tills den är klar innan du startar F3-bygget."
           : noVersion
             ? "Vänta tills första versionen är skapad innan du startar F3-bygget."
+            : disabledByProduct
+              ? "Product Postcheck hittade blockerande F2-previewproblem. Åtgärda dem innan du startar F3-bygget."
             : "Lyft sajten till F3 / fidelity 3 — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
       }
       className={className}

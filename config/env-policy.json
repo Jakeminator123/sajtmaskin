@@ -295,7 +295,7 @@
       "key": "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview"],
-      "notes": "Opt-in. Enables server-side F2 Product Postcheck via Playwright for trusted preview URLs only (localhost / configured preview-host / vm-fly-jakem.fly.dev). Produces product_postcheck.* warnings in existing version diagnostics; does not block F2 rendering and does not run F3 build/lint/typecheck."
+      "notes": "Opt-in. Enables server-side F2 Product Postcheck via Playwright for trusted preview URLs only (localhost / configured preview-host / vm-fly-jakem.fly.dev). Produces product_postcheck.* warnings in existing version diagnostics; does not block F2 rendering. Blocking product findings can keep the F3 trigger disabled until the visible preview works."
     },
     {
       "key": "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",

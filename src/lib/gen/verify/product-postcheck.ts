@@ -71,6 +71,11 @@ type MobileMenuCheck =
   | { status: "passed" }
   | { status: "failed"; reason: string };
 
+export type ProductDomEvaluation = {
+  warnings: ProductPostcheckWarning[];
+  productBlocked: boolean;
+};
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_ALLOWED_HOSTS = new Set([
   "localhost",
@@ -131,7 +136,7 @@ function warning(
 export function evaluateProductDomSnapshot(
   snapshot: DomSnapshot,
   mobileMenu: MobileMenuCheck,
-): ProductPostcheckWarning[] {
+): ProductDomEvaluation {
   const warnings: ProductPostcheckWarning[] = [];
 
   for (const anchor of snapshot.anchors) {
@@ -205,7 +210,12 @@ export function evaluateProductDomSnapshot(
     );
   }
 
-  return warnings;
+  const brokenAnchorCount = warnings.filter((item) => item.code === "broken_anchor").length;
+  const productBlocked =
+    warnings.some((item) => item.code === "mobile_menu_failed") ||
+    brokenAnchorCount >= 2;
+
+  return { warnings, productBlocked };
 }
 
 export function productPostcheckSkipReasonFromError(err: unknown): ProductPostcheckSkipReason {
@@ -355,14 +365,14 @@ export async function runProductPostcheck(params: {
       return { status: "failed", reason: "hamburger_button_did_not_change_dom_or_aria" };
     });
 
-    const warnings = evaluateProductDomSnapshot(snapshot, mobileMenu);
+    const evaluation = evaluateProductDomSnapshot(snapshot, mobileMenu);
     return {
       ok: true,
       skipped: false,
       skippedReason: null,
-      warnings,
-      warningCount: warnings.length,
-      productBlocked: false,
+      warnings: evaluation.warnings,
+      warningCount: evaluation.warnings.length,
+      productBlocked: evaluation.productBlocked,
       durationMs: Date.now() - startedAt,
       checkedUrl: previewUrl,
     };

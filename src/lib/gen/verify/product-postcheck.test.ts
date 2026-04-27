@@ -3,10 +3,12 @@ import {
   evaluateProductDomSnapshot,
   isAllowedProductPostcheckUrl,
   productPostcheckSkipReasonFromError,
+  type ProductDomEvaluation,
   type ProductPostcheckWarning,
 } from "./product-postcheck";
 
-function codes(warnings: ProductPostcheckWarning[]): string[] {
+function codes(input: ProductPostcheckWarning[] | ProductDomEvaluation): string[] {
+  const warnings = Array.isArray(input) ? input : input.warnings;
   return warnings.map((warning) => warning.code).sort();
 }
 
@@ -26,7 +28,7 @@ describe("isAllowedProductPostcheckUrl", () => {
 
 describe("evaluateProductDomSnapshot", () => {
   it("reports broken anchors", () => {
-    const warnings = evaluateProductDomSnapshot(
+    const evaluation = evaluateProductDomSnapshot(
       {
         anchors: [{ href: "#missing", text: "Till sektion", targetExists: false }],
         images: [],
@@ -36,12 +38,13 @@ describe("evaluateProductDomSnapshot", () => {
       { status: "not_applicable" },
     );
 
-    expect(codes(warnings)).toEqual(["broken_anchor"]);
-    expect(warnings[0]?.href).toBe("#missing");
+    expect(codes(evaluation)).toEqual(["broken_anchor"]);
+    expect(evaluation.warnings[0]?.href).toBe("#missing");
+    expect(evaluation.productBlocked).toBe(false);
   });
 
   it("reports broken images with naturalWidth 0", () => {
-    const warnings = evaluateProductDomSnapshot(
+    const evaluation = evaluateProductDomSnapshot(
       {
         anchors: [],
         images: [
@@ -58,12 +61,13 @@ describe("evaluateProductDomSnapshot", () => {
       { status: "not_applicable" },
     );
 
-    expect(codes(warnings)).toEqual(["broken_image"]);
-    expect(warnings[0]?.src).toContain("broken.jpg");
+    expect(codes(evaluation)).toEqual(["broken_image"]);
+    expect(evaluation.warnings[0]?.src).toContain("broken.jpg");
+    expect(evaluation.productBlocked).toBe(false);
   });
 
   it("reports CTA buttons and links without targets/actions", () => {
-    const warnings = evaluateProductDomSnapshot(
+    const evaluation = evaluateProductDomSnapshot(
       {
         anchors: [],
         images: [],
@@ -100,11 +104,12 @@ describe("evaluateProductDomSnapshot", () => {
       { status: "not_applicable" },
     );
 
-    expect(codes(warnings)).toEqual(["cta_no_handler", "cta_no_handler"]);
+    expect(codes(evaluation)).toEqual(["cta_no_handler", "cta_no_handler"]);
+    expect(evaluation.productBlocked).toBe(false);
   });
 
   it("reports fake forms", () => {
-    const warnings = evaluateProductDomSnapshot(
+    const evaluation = evaluateProductDomSnapshot(
       {
         anchors: [],
         images: [],
@@ -125,7 +130,8 @@ describe("evaluateProductDomSnapshot", () => {
       { status: "not_applicable" },
     );
 
-    expect(codes(warnings)).toEqual(["fake_form"]);
+    expect(codes(evaluation)).toEqual(["fake_form"]);
+    expect(evaluation.productBlocked).toBe(false);
   });
 
   it("reports mobile menu failure but ignores not_applicable", () => {
@@ -139,7 +145,26 @@ describe("evaluateProductDomSnapshot", () => {
     );
 
     expect(codes(failed)).toEqual(["mobile_menu_failed"]);
-    expect(skipped).toEqual([]);
+    expect(failed.productBlocked).toBe(true);
+    expect(skipped).toEqual({ warnings: [], productBlocked: false });
+  });
+
+  it("blocks when several internal anchors are broken", () => {
+    const evaluation = evaluateProductDomSnapshot(
+      {
+        anchors: [
+          { href: "#missing-a", text: "A", targetExists: false },
+          { href: "#missing-b", text: "B", targetExists: false },
+        ],
+        images: [],
+        ctas: [],
+        forms: [],
+      },
+      { status: "not_applicable" },
+    );
+
+    expect(codes(evaluation)).toEqual(["broken_anchor", "broken_anchor"]);
+    expect(evaluation.productBlocked).toBe(true);
   });
 });
 

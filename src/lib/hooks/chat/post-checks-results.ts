@@ -25,6 +25,7 @@ import type {
   VersionErrorLogPayload,
 } from "./types";
 import type { QualityTier } from "@/lib/db/engine-version-lifecycle";
+import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 
 export interface ImageValidationResult {
   valid?: boolean;
@@ -69,6 +70,7 @@ export interface PostCheckArtifacts {
       qualityGatePending: boolean;
       autoFixQueued: boolean;
       qualityTier: QualityTier;
+      productBlocked: boolean;
     };
     preflight?: PreviewPreflightState | null;
     warnings: string[];
@@ -79,6 +81,7 @@ export interface PostCheckArtifacts {
     suspiciousUseCalls: SuspiciousUseCall[];
     designTokens: DesignTokenSummary | null;
     imageValidation: ImageValidationResult | null;
+    productPostcheck: ProductPostcheckResult | null;
     previousVersionId: string | null;
     demoUrl: string | null;
     provisional: boolean;
@@ -278,6 +281,7 @@ export function buildPostCheckArtifacts(params: {
   sanityErrors: SanityIssue[];
   sanityWarnings: SanityIssue[];
   imageValidation: ImageValidationResult | null;
+  productPostcheck?: ProductPostcheckResult | null;
   resolvedDemoUrl: string | null;
 }): PostCheckArtifacts {
   const {
@@ -301,6 +305,7 @@ export function buildPostCheckArtifacts(params: {
     sanityErrors,
     sanityWarnings,
     imageValidation,
+    productPostcheck = null,
     resolvedDemoUrl,
   } = params;
 
@@ -381,6 +386,9 @@ export function buildPostCheckArtifacts(params: {
     );
   } else if (imageValidation?.total && imageValidation.total > 0) {
     steps.push(`Bilder: alla ${imageValidation.total} URL:er giltiga ✓`);
+  }
+  if (productPostcheck?.productBlocked) {
+    steps.push("Produktkontroll: blockerande synliga produktproblem hittades.");
   }
 
   const finalDemoUrl = imageValidation?.demoUrl || resolvedDemoUrl;
@@ -487,6 +495,7 @@ export function buildPostCheckArtifacts(params: {
   if (imageValidation?.warnings?.some((warning) => warning.includes("[semantic-image]"))) {
     warningReasons.push("misstankt irrelevanta bilder");
   }
+  if (productPostcheck?.productBlocked) warningReasons.push("produktkontroll blockerar F3");
 
   const autoFixReasons = criticalReasons;
   const autoFixQueued = criticalReasons.length > 0;
@@ -553,6 +562,7 @@ export function buildPostCheckArtifacts(params: {
       qualityGatePending: verifyPending,
       autoFixQueued,
       qualityTier,
+      productBlocked: productPostcheck?.productBlocked === true,
     },
     preflight,
     warnings,
@@ -563,6 +573,7 @@ export function buildPostCheckArtifacts(params: {
     suspiciousUseCalls,
     designTokens,
     imageValidation,
+    productPostcheck,
     previousVersionId,
     demoUrl: finalDemoUrl,
     provisional: provisionalVersion,
