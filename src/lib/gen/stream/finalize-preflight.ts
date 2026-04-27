@@ -13,6 +13,7 @@ import {
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
+import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import { FEATURES } from "@/lib/config";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import {
@@ -559,6 +560,7 @@ export async function runFinalizePreflight({
           skipDoubleValidateAndFixOnMerge: FEATURES.skipDoubleValidateAndFixOnMerge,
         });
       }
+      let mechanicalFixCount: number | null = null;
       const mechanicalStartedAt = Date.now();
       try {
         const mechanicalResult = await runAutoFix(mergedProjectContent, {
@@ -566,6 +568,7 @@ export async function runFinalizePreflight({
           model: _model,
           previewPolicy: undefined,
         });
+        mechanicalFixCount = mechanicalResult.fixes.length;
         mergedProjectContent = mechanicalResult.fixedContent;
         mergedSyntax = await validateGeneratedCode(mergedProjectContent);
         devLogAppend("in-progress", {
@@ -594,6 +597,63 @@ export async function runFinalizePreflight({
           message:
             mechErr instanceof Error ? mechErr.message : "Unknown mechanical autofix error",
         });
+      }
+
+      if (
+        !mergedSyntax.valid &&
+        FEATURES.escalateMergeSyntaxToLlm &&
+        mechanicalFixCount === 0
+      ) {
+        const errorsBefore = mergedSyntax.errors.length;
+        const requiredFiles = [
+          ...new Set(
+            mergedSyntax.errors
+              .map((error) => error.file)
+              .filter((file): file is string => Boolean(file)),
+          ),
+        ];
+        try {
+          const repairGate = await runLlmRepairGate({
+            content: mergedProjectContent,
+            errors: mergedSyntax.errors.map(
+              (error) => `${error.file}:${error.line}:${error.column} ${error.message}`,
+            ),
+            chatId,
+            timeoutMs: 60_000,
+            ...(requiredFiles.length > 0 ? { requiredFiles } : {}),
+          });
+          const repairResult = repairGate.result;
+          let errorsAfter = errorsBefore;
+          let fixed = false;
+          if (
+            (repairResult.success || repairResult.partial) &&
+            typeof repairResult.fixedContent === "string"
+          ) {
+            const llmValidation = await validateGeneratedCode(repairResult.fixedContent);
+            errorsAfter = llmValidation.errors.length;
+            if (llmValidation.valid || errorsAfter < errorsBefore) {
+              mergedProjectContent = repairResult.fixedContent;
+              mergedSyntax = llmValidation;
+              const repairedProject = parseCodeProject(mergedProjectContent);
+              finalFiles = repairedProject.files;
+              nextFilesJson = JSON.stringify(finalFiles);
+              fixed = true;
+            }
+          }
+          devLogAppend("in-progress", {
+            type: "merged-syntax.llm-escalation",
+            chatId,
+            errorsBefore,
+            errorsAfter,
+            fixed,
+          });
+        } catch (llmErr) {
+          devLogAppend("in-progress", {
+            type: "merged-syntax.llm-escalation.error",
+            chatId,
+            message: llmErr instanceof Error ? llmErr.message : "Unknown LLM escalation error",
+          });
+        }
       }
 
       if (!mergedSyntax.valid) {
