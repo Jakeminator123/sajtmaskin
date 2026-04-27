@@ -963,7 +963,7 @@
       "invocation": "ai_generateObject",
       "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
       "codeEntry": [
-        "src/lib/gen/verifier-pass.ts",
+        "src/lib/gen/verify/verifier-pass.ts",
         "src/lib/gen/stream/finalize-version/verifier-phase.ts",
         "src/lib/models/phase-routing.ts"
       ],
