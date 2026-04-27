@@ -937,6 +937,9 @@ async function validateAndFixInner(
         console.info(`[engine] Pass ${pass}: errors reduced ${validation.errors.length} -> ${reValidation.errors.length}`);
         if (reValidation.errors.length >= validation.errors.length) {
           if (pass < SYNTAX_FIX_MAX_PASSES) {
+            if (reValidation.errors.length > validation.errors.length) {
+              currentContent = bestContent;
+            }
             devLogAppend("in-progress", {
               type: "syntax-validation.no-improvement.retrying",
               chatId: opts.chatId,

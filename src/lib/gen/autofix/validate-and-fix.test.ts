@@ -431,4 +431,69 @@ describe("validateAndFix", () => {
     expect(result.errorsAfter).toBe(1);
     expect(result.residualPatterns.length).toBeGreaterThanOrEqual(0);
   });
+
+  it("restarts next pass from bestContent after a regression", async () => {
+    const bestContent =
+      '```tsx file="app/page.tsx"\nexport default function Page(){return <main>best</main>}\n```';
+    const worseContent =
+      '```tsx file="app/page.tsx"\nexport default function Page(){return <main>worse</main>\n```';
+
+    validateGeneratedCode
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [{ file: "app/page.tsx", line: 1, column: 1, message: "one error" }],
+      })
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          { file: "app/page.tsx", line: 1, column: 1, message: "error a" },
+          { file: "app/page.tsx", line: 2, column: 1, message: "error b" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [{ file: "app/page.tsx", line: 1, column: 1, message: "one error" }],
+      });
+
+    runLlmFixer
+      .mockResolvedValueOnce({
+        fixedContent: worseContent,
+        fixedFiles: ["app/page.tsx"],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 10,
+      })
+      .mockResolvedValueOnce({
+        fixedContent: "",
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: false,
+        durationMs: 10,
+      });
+
+    runAutoFix
+      .mockResolvedValueOnce({
+        fixedContent: bestContent,
+        fixes: [],
+        warnings: [],
+        dependencies: {},
+      })
+      .mockResolvedValueOnce({
+        fixedContent: worseContent,
+        fixes: [],
+        warnings: [],
+        dependencies: {},
+      });
+
+    const result = await validateAndFix(bestContent, {
+      chatId: "chat_regression",
+      model: "gpt-5.4",
+    });
+
+    expect(validateGeneratedCode).toHaveBeenNthCalledWith(3, bestContent);
+    expect(validateGeneratedCode).not.toHaveBeenNthCalledWith(3, worseContent);
+    expect(result.earlyStopReason).toBe("fixer_noop");
+  });
 });
