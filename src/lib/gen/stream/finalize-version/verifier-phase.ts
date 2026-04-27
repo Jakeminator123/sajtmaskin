@@ -230,11 +230,15 @@ export async function runVerifierPhase(params: {
             } finally {
               clearTimeout(rerunTimeout);
             }
-          } else {
-            // Legacy optimistic clear (no rerun) — kept behind feature
-            // flag during rollout to avoid regressing latency budgets.
-            verifierBlockingFindings = [];
           }
+          // Removed legacy `else { verifierBlockingFindings = []; }` branch.
+          // The "optimistic clear" without re-running the verifier flipped
+          // the UI to "fixed" even when the LLM fixer had only swapped one
+          // build-breaking import for another. `FEATURES.verifierRerunAfterFix`
+          // is hardcoded ON in production today; if the flag is ever flipped
+          // off again, the correct fallback is to leave `verifierBlockingFindings`
+          // unchanged (same as the rerun-throw path above), not to claim the
+          // findings vanished.
         }
         devLogAppend("in-progress", {
           type: "verifier-pass.fixer",

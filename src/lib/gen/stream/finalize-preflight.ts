@@ -599,11 +599,14 @@ export async function runFinalizePreflight({
         });
       }
 
-      if (
-        !mergedSyntax.valid &&
-        FEATURES.escalateMergeSyntaxToLlm &&
-        mechanicalFixCount === 0
-      ) {
+      // Escalate to LLM repair whenever merged syntax is still invalid after
+      // the mechanical pass. Previous version required mechanicalFixCount === 0
+      // which (a) missed the throw case (count stays null) and (b) silently
+      // skipped escalation when mechanical applied unrelated fixes (e.g. an
+      // import) but the underlying brace/parse error remained. The failure
+      // mode that motivated this gate (the v2/flying-can `Unexpected "}"`)
+      // happens precisely when mechanical can't see the brace context.
+      if (!mergedSyntax.valid && FEATURES.escalateMergeSyntaxToLlm) {
         const errorsBefore = mergedSyntax.errors.length;
         const requiredFiles = [
           ...new Set(
