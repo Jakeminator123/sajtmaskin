@@ -744,8 +744,14 @@
     {
       "key": "SAJTMASKIN_VERIFIER_PASS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
-      "notes": "Feature flag for post-generation verifier pass."
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Feature flag for post-generation verifier pass. Explicitly set on all three Vercel targets so verifier runs the same way locally (.env.local), on preview deploys, and on production."
+    },
+    {
+      "key": "SAJTMASKIN_DOSSIER_PIPELINE",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Deterministic capability-driven dossier pipeline. Code-default is on (see src/lib/config.ts). Explicitly set to true on all three Vercel targets per docs/ENV.md (deploy-status 2026-04-23). Set to 'false'/'0' to disable. No tuning knobs."
     },
     {
       "key": "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
