@@ -26,6 +26,8 @@ Innan du använder en run som bevis efter en fix/merge: jämför runnens timesta
 
 Gamla runs får användas som historik/baseline. De får inte beskrivas som post-fix-regression eller bevis mot aktuell kod om de startade före fixen/mergen eller saknar matchande repo-identitet.
 
+Saknas `repoHead`/`repoBranch` i runnen efter en fix/merge: säg uttryckligen **låg evidens** och be om ny generation från uppdaterad branch innan du kallar det regression.
+
 ## Per-run-mapp — filer och vad de säger
 
 ```

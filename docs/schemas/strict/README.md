@@ -1,27 +1,13 @@
 # Strict Schemas
 
-This folder contains machine-oriented schema artifacts for Sajtmaskin.
-
-Purpose:
-
-- give dashboard/tooling a cleaner contract surface
-- support parity tests and path validation
-- stay diff-friendly and conservative
-- enable editor autocomplete and inline validation for JSON config files
+Machine-oriented contract mirrors for Sajtmaskin.
 
 Rules:
 
-- strict schema files must be backed by real code sources of truth
-- strict schema files do **not** replace runtime truth in code
-- prefer JSON or similarly machine-readable formats
-- keep one concern per file
-
-Conservative rollout:
-
-- human-readable schema docs remain in `docs/schemas/*.md`
-- new machine-oriented contract mirrors go here under `strict/`
-- do not move the whole human layer into a `human/` subfolder unless the churn
-  is justified and all references are updated together
+- Back every schema with a real code source of truth.
+- Do not treat strict schemas as runtime truth when code disagrees.
+- Prefer one concern per JSON Schema file.
+- Keep human explanations in `docs/schemas/*.md`.
 
 ## Available Schemas
 
@@ -58,7 +44,7 @@ läser och aggregerar de NDJSON-signaler den kan se.
 är forward-deklarationer — de dokumenterar den planerade event-strukturen men de
 emitteras ännu inte via `devLogAppend` till NDJSON. Se respektive schema-fil för detaljer.
 
-### scaffold-variant.schema.json
+### `scaffold-variant.schema.json`
 
 Validates scaffold variant JSON files — the visual expressions (typography,
 color palette, motif, prompt hints) that a scaffold can take.
@@ -84,7 +70,7 @@ The schema enforces:
 
 - Required fields: `id`, `scaffoldId`, `label`, `signatureMotif`, `colorMode`, `keywords`, `fontPairings`, `promptHints`
 - `id` must be kebab-case
-- `scaffoldId` must be one of the 10 known scaffold IDs
+- `scaffoldId` must be one of the current runtime scaffold IDs
 - Array length limits on all list fields
 - `colorMode` restricted to `light` | `dark` | `either`
 

@@ -406,6 +406,33 @@ describe("suppressValidInPageAnchorNavigationFindings", () => {
     expect(findings.quality).toEqual([]);
   });
 
+  it("accepts prose verifier details that describe href without an equals sign", () => {
+    const findings = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail:
+              'app/spel/page.tsx: "Starta spelet" points to href "#spelomrade" in the game area.',
+          },
+        ],
+        quality: [],
+      },
+      [
+        {
+          path: "app/spel/page.tsx",
+          content: [
+            "export default function SpelPage() {",
+            '  return <section id="spelomrade">spel</section>;',
+            "}",
+          ].join("\n"),
+        },
+      ],
+    );
+
+    expect(findings.blocking).toEqual([]);
+  });
+
   it("keeps hash navigation findings when the target id is missing", () => {
     const findings = suppressValidInPageAnchorNavigationFindings(
       {

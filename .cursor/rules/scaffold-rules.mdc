@@ -3,8 +3,8 @@ description: Agentregler vid scaffold-ändringar
 globs:
   - src/lib/gen/scaffolds/**
   - src/lib/gen/orchestrate.ts
-  - src/lib/gen/system-prompt.ts
-  - src/lib/gen/build-spec.ts
+  - src/lib/gen/system-prompt/**
+  - src/lib/gen/build-spec/**
   - scripts/scaffolds/**
 ---
 
@@ -14,14 +14,14 @@ Full arkitekturdoc + inventering: `docs/architecture/scaffold-system.md`.
 
 ## Regler
 
-1. Scaffold-filer bor under `scaffolds/<id>/files/` — redigera direkt.
-2. Manifest metadata i `scaffolds/<id>/manifest.ts`.
+1. Scaffold-filer bor under `src/lib/gen/scaffolds/<id>/files/` — redigera direkt.
+2. Manifest metadata i `src/lib/gen/scaffolds/<id>/manifest.ts`.
 3. Kör `npm run typecheck` + `npm run scaffolds:validate` efter ändringar.
 4. Ändra ALDRIG `serialize.ts`, `registry.ts`, `seo-defaults.ts` utan att förstå merge-pipeline.
-5. External research styrs via `npm run template-library:build`, inte manuellt.
+5. Externa referenser/scaffold-research styrs via dossier-pipen (`npm run dossiers:curate` + `npm run dossiers:validate-all`), inte gamla template-library-script.
 6. Innan du föreslår att lägga till/ta bort/slå ihop scaffolds — läs inventerings-docen.
 
-## 10 scaffolds (snabböversikt)
+## 9 scaffolds (snabböversikt)
 
 | ID | Typ |
 |----|-----|

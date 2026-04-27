@@ -1,12 +1,12 @@
 # Arkitektur — översikt
 
-**Senast uppdaterad:** 2026-04-23.
+**Senast uppdaterad:** 2026-04-27.
 
 Ingångssida för arkitekturdokumentationen.
 
 - **Kod är alltid source of truth.**
 - Fasnamn (Fas 1 / Fas 2 / Fas 3) är kanoniska. "Steg 3/4/5" och "Fas 4" används inte längre.
-- Hierarki vid konflikt: `docs/schemas/strict/*.schema.json` > `docs/schemas/*.md` > docs/architecture > backoffice (`sajtmaskin_backoffice.py`).
+- Dokumenthierarki vid konflikt: `docs/schemas/strict/*.schema.json` > `docs/schemas/*.md` > docs/architecture > backoffice (`sajtmaskin_backoffice.py`). Kod vinner fortfarande över alla docs.
 - **Vart vi siktar:** [`llm-flow-target-worldclass.md`](./llm-flow-target-worldclass.md) — norra stjärna för LLM-flödet (3-fasmodell, single repair gate, status event bus, init/follow-up som distinkta operationer).
 
 ---

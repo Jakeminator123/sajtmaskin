@@ -41,10 +41,7 @@ import {
   seoPreferencesSchema,
 } from "@/lib/projects/preferences-schema";
 import { resolveDeploySeoOptions } from "./resolve-seo";
-import {
-  applySeoToProjectFiles,
-  type SeoOptions,
-} from "@/lib/gen/scaffolds/seo-defaults";
+import { applySeoToProjectFiles } from "@/lib/gen/scaffolds/seo-defaults";
 
 export const runtime = "nodejs";
 

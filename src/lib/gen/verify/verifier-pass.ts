@@ -151,7 +151,7 @@ function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFind
 }
 
 const DETAIL_FILE_PATH_RE = /\b([A-Za-z0-9_./-]+\.(?:tsx?|jsx?))\b/g;
-const DETAIL_HASH_HREF_RE = /\bhref\s*=\s*\{?\s*(["'`])(#[-A-Za-z0-9_:]+)\1/g;
+const DETAIL_HASH_HREF_RE = /\bhref\s*(?:=\s*\{?\s*)?(["'`])(#[-A-Za-z0-9_:]+)\1/g;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

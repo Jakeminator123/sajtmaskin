@@ -220,7 +220,7 @@ Output: `RoutePlan { routes[], siteType, provenance }`.
 | Klient skapar chatt | `src/lib/hooks/chat/useCreateChat.ts` |
 | Follow-up skickar | `src/lib/hooks/chat/useSendMessage.ts` |
 | Init brief-orchestration | `src/lib/hooks/chat/useInitBrief.ts` |
-| Prompt-formatering | `src/lib/builder/promptAssist.ts` |
+| Prompt-formatering | `src/lib/builder/prompt-assist/` |
 | Deep Brief | `src/lib/builder/site-brief-generation.ts` |
 | Auto-brief policy | `src/lib/builder/server-auto-brief-policy.ts` |
 | Orchestration | `src/lib/gen/orchestrate.ts` |

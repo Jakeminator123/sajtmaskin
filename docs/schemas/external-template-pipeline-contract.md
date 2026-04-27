@@ -1,9 +1,14 @@
 # External Template Pipeline Contract
 
+**Status:** Legacy reference. The active runtime path is `scaffolds` +
+`dossiers`; do not use this document as the source of truth for scaffold
+selection, dossier validation, or current npm scripts. Keep it only for older
+external-template research artifacts.
+
 ## Scope
 
-This document defines the canonical contract for the external-template pipeline
-used to curate Vercel template references and scaffold research metadata.
+This document records the historical external-template pipeline used to curate
+Vercel template references and scaffold research metadata.
 
 It covers:
 

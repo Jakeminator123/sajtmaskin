@@ -1,8 +1,8 @@
-# Scaffold-systemet — Schema och Inventarium
+# Scaffold-systemet
 
-**Senast uppdaterad:** 2026-04-23. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`).
+**Senast uppdaterad:** 2026-04-27. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
 
-Detta dokument täcker både runtime-arkitekturen (steg, typer, pipeline) och per-scaffold/per-variant inventariumet med kvalitetsbedömning.
+Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar med dossiers. Rent kontrakt finns i [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md).
 
 ---
 
@@ -65,35 +65,28 @@ det gamla `CONTENT_KEYWORDS`-banket, och de två varianterna
 
 ---
 
-## 3. Pipeline — hur variants byggs
+## 3. Pipeline — nuläge
 
 ```
-Vercel-templates (skrapad data)
+Prompt / Deep Brief
         │
-        ▼
-data/dossiers/<id>/  (sedan dossier-pipen migrerad 2026-04)
-   ├─ manifest.json    ← per-template metadata + selectedFiles
-   ├─ summary.md
-   └─ selected_files/  ← faktiska TSX/CSS-utdrag
+        ├─ scaffold match → src/lib/gen/scaffolds/*
+        │       └─ scaffold-variant → config/scaffold-variants/*
         │
-        │ scripts/template-library/build-template-library.ts
-        ▼
-src/lib/gen/template-library/template-library.generated.json
-   (97 entries med runtimeGuidance från regelmotor)
-        │
-        │ scripts/scaffolds/derive-variants-from-dossiers.ts
-        │ (21 hand-skrivna BLUEPRINTS med design-axes)
-        ▼
-config/scaffold-variants/<scaffoldId>/<variantId>.json
-   (rena design-axes; guidance-fält borttagna 2026-04-17)
+        └─ capability inference → selected dossiers
+                └─ data/dossiers/{hard,soft}/<id>/
 ```
 
 | Lager | Källa | Kvalitet |
 |---|---|---|
-| Dossier `selectedFiles` | Skrapad riktig Vercel-kod | Hög — riktig kod, används i `## Structural References` när enabled |
-| Dossier `strengths`, `signals`, `recommendedScaffoldIds` | Kuration | Hög |
-| Dossier `summary`, `description` | Skrapad | Hög |
-| Variant `design-axes` | Hand-skrivna BLUEPRINTS | Hög — specifika, scaffold-relevanta |
+| Scaffold | `src/lib/gen/scaffolds/<id>/manifest.ts` + `files/` | Startstruktur, routes, baseline-filer, checklistor |
+| Variant | `config/scaffold-variants/<scaffoldId>/<variantId>.json` | Visuellt uttryck: motif, fontpar, theme tokens, prompt hints |
+| Dossier | `data/dossiers/{hard,soft}/<id>/` | Capability-bunden referens/instruktion, validerad mot strict schema |
+| Research/embeddings | Genererade artefakter under `src/lib/gen/scaffolds/` och `config/scaffold-variants/_index/` | Stöd för matchning och prioritering, inte ny sanningskälla |
+
+Legacy external-template/template-library-flöden är historik; se
+[`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md)
+om du behöver läsa äldre research-data.
 
 ---
 
@@ -104,9 +97,9 @@ config/scaffold-variants/<scaffoldId>/<variantId>.json
 | 1 | VAD ska byggas? | `BuildIntent` | `template` / `website` / `app` |
 | 2 | HUR kom requesten in? | `BuildMethod` | `wizard` / `category` / `audit` / `freeform` / `kostnadsfri` |
 | 2 | Prompt-typ | `PromptType` | `wizard` / `freeform` / `template` / `audit` / `followup_*` |
-| 3 | VILKEN startstruktur? | `ScaffoldMode` + `ScaffoldId` | `off` / `auto` / `manual` × 10 scaffold-ids |
+| 3 | VILKEN startstruktur? | `ScaffoldMode` + `ScaffoldId` | `off` / `auto` / `manual` × 9 scaffold-ids |
 | 4 | HUR MYCKET styr scaffolden? | `ScaffoldSerializeMode` | `structural` / `inspirational` (init/followUp + contextPolicy) |
-| 5 | VAD BERIKAR scaffolden? | Buildtime artifacts | `template-library.generated.json`, `scaffold-research.generated.json`, `scaffold-embeddings.json` |
+| 5 | VAD BERIKAR scaffolden? | Buildtime/runtime stöddata | dossiers, `scaffold-research.generated.json`, scaffold/variant embeddings |
 
 ---
 
@@ -147,7 +140,7 @@ Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `Rout
 ### STEG 6 — Pre-generation Contracts (`pre-generation-contracts.ts`)
 Auth, Payment, Database, Env vars, Integrations. Output: `contracts[]`, `unresolvedDecisions[]`, `confirmedAnswers[]`.
 
-### STEG 7 — Build Spec (`build-spec.ts`)
+### STEG 7 — Build Spec (`src/lib/gen/build-spec/`)
 `contextPolicy` (`light` / `normal` / `heavy`), `qualityTarget`, `previewPolicy`, `verificationPolicy`, `tokenBudgets.{scaffoldChars, scaffoldTokens}`. Se [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) för token-budget-tabellen.
 
 ### STEG 8 — Orchestration Contract (`orchestration-contract.ts`)
@@ -164,7 +157,7 @@ Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRo
 
 `selectCriticalScaffoldFiles()` prioriterar baserat på kritiska patterns + route-relevans + capability-relevans.
 
-### STEG 10 — System Prompt (`system-prompt.ts`)
+### STEG 10 — System Prompt (`src/lib/gen/system-prompt/`)
 
 ```
 Core Rules (config/prompt-core/*.md via codegen-core-manifest.json):
@@ -263,7 +256,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 | Runtime-registry | `src/lib/gen/scaffolds/registry.ts` | `BASE_SCAFFOLDS` array |
 | Variant-typ | `src/lib/gen/scaffold-variants/types.ts` | Vid fältborttagning |
 | Variant-registry | `src/lib/gen/scaffold-variants/registry.ts` | Parser-kod |
-| Build-skript | `scripts/scaffolds/derive-variants-from-dossiers.ts` | BLUEPRINTS array |
+| Variant-skript | `scripts/scaffolds/auto-curate-variant-patterns.ts`, `generate-variant-embeddings.ts` | Signature patterns + embeddings |
 | Matcher | `src/lib/gen/scaffolds/matcher.ts` | Keyword-listor, `defaultScaffoldForIntent` |
 | Embeddings | `src/lib/gen/scaffolds/scaffold-embeddings.json` | Regenereras via `npm run scaffolds:embeddings` |
 | Backoffice | `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`, `research.py` | Kontroller, sidolist |
@@ -276,29 +269,18 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 ## 10. Verktyg
 
-### Scaffold-pipeline (npm-scripts via `scaffold_cli.py`)
+### Scaffold / dossier / variant
 
 | Kommando | Vad |
 |---|---|
-| `npm run scaffolds:status/import/hydrate/build/embeddings/eval/verify/all` | Kanonisk CLI |
-| `npm run scaffolds:promote` | Skapar ny scaffold från dossier |
-| `npm run scaffolds:curate` | Rangordnar template-library-entries som kandidater |
+| `npm run scaffolds:validate` | Validerar scaffold-manifest via test |
+| `npm run scaffolds:embeddings:check` | Kontrollerar scaffold-embeddings inför build |
 | `npm run scaffolds:eval` | Eval-harness för scaffold-matchern |
-
-### Template-library
-
-| Kommando | Vad |
-|---|---|
-| `npm run template-library:build` | → `template-library.generated.json` + `scaffold-research.generated.json` |
-| `npm run template-pipeline:refresh` | Full pipeline: scrape → import → hydrate → build → embeddings |
-| `npm run template-library:validate-runtime` | Validerar genererade artefakter |
-
-### Embeddings
-
-| Kommando | Vad |
-|---|---|
-| `npm run scaffolds:embeddings` | Runtime scaffold-matchning |
-| `npm run template-library:embeddings` | Template-library |
+| `npm run scaffolds:embeddings` | Regenererar runtime scaffold-embeddings |
+| `npm run scaffolds:variant-embeddings` | Regenererar variant-embeddings |
+| `npm run scaffolds:variant-patterns` | Kuraterar variant signature patterns |
+| `npm run dossiers:curate` | Kuraterar externa referenser till dossier-pipen |
+| `npm run dossiers:validate-all` | Validerar dossier-manifest + invariants |
 
 ### Backoffice
 
@@ -311,7 +293,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 | Fil | Vad |
 |---|---|
 | `config/codegen-core-manifest.json` | Fragment-lista för Core Rules |
-| `config/prompt-core/*.md` | 6 Core Rules-filer (inkl. `_READ_ME_FIRST.md`) |
+| `config/prompt-core/*.md` | Core Rules-fragment (manifestet styr exakt lista) |
 | `config/integrations/tier3-sdk-deny.json` | F2 SDK guard + F2 contract-block |
 | `config/ai_models/manifest.json` | Build profiles, token-budgetar, embedding-index, phase routing, `qualityGateTiers` (`designPreview` / `integrationsBuild`) |
 | `config/ai_models/40-harmless-placeholders.env.txt` | Placeholder env vars OK i F3 |
@@ -326,5 +308,5 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 - [Fas 2 — Orkestrering och Build](./fas2-orchestration-and-build.md)
 - [LLM Signal Flow](./llm-signal-flow.md)
 - Variant-typ: `src/lib/gen/scaffold-variants/types.ts`
-- Build-skript: `scripts/scaffolds/derive-variants-from-dossiers.ts`
+- Variant-skript: `scripts/scaffolds/auto-curate-variant-patterns.ts`
 - Backoffice: `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`

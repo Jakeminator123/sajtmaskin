@@ -1,30 +1,19 @@
 # Schemas
 
-This folder is the canonical schema area for Sajtmaskin.
+`docs/schemas/` is the contract layer for Sajtmaskin. Code still wins; these
+files explain or mirror code-backed surfaces.
 
-**Terminology:** Builder **model lanes** (Byggmodell / Förbättra / Skriv om / Thinking)
-and **template vs scaffold** naming live in `.cursor/rules/terminology.mdc`. This
-folder documents **contracts and field shapes** only — not the full product glossary.
+## Two Layers
 
-## Two layers
+| Layer | Path | Role |
+|---|---|---|
+| Human contracts | `docs/schemas/*.md` | Stable explanations: fields, ownership, boundaries, intent. |
+| Strict contracts | `docs/schemas/strict/*.schema.json` | Machine-readable mirrors for tooling, parity tests, dashboards and editor validation. |
 
-This area now has two explicit schema layers:
+Do not add a `human/` subfolder unless there is a clear migration reason and
+all references move in the same change.
 
-- **Human-readable schema docs**: the stable Markdown files directly under
-  `docs/schemas/`. These explain contracts, field meaning, and boundaries for
-  humans.
-- **Strict schemas**: machine-oriented, diff-friendly files under
-  `docs/schemas/strict/`. These are intended for tooling, parity checks, and
-  dashboards that need a cleaner contract surface.
-
-Conservative rollout rule:
-
-- existing stable Markdown docs stay at the top level for now
-- new machine-readable contract artifacts go under `strict/`
-- do **not** bulk-move the human docs into a `human/` subfolder unless the path
-  churn is justified and references are updated in one sweep
-
-## What lives here
+## Human Contract Docs
 
 | File | Domain |
 |------|--------|
@@ -35,25 +24,21 @@ Conservative rollout rule:
 | `preview-session-contract.md` | Preview/session identifiers, preview URLs, verify-lane boundary, sandbox wording policy. |
 | `orchestration-signal-contract.md` | Signal layers: prompt formatting, scaffold match, route plan, capabilities, contracts, dynamic context, post-checks. |
 | `llm-role-matrix.md` | LLM roles: prompt assist, deep brief, planner, generator, fixer, verifier, deploy-assistant. |
-| `external-template-pipeline-contract.md` | Scrape/import/hydrate/build/embedding pipeline for external template research. |
-| `integrations-and-data.md` | DB tables, request validation, template-library schema surfaces. |
+| `external-template-pipeline-contract.md` | Legacy external-template research contract; not the runtime scaffold or dossier path. |
+| `integrations-and-data.md` | DB tables, request validation, integration/data schema surfaces. |
 | `chat-message-ui-parts.md` | Structured builder message parts (plan-review cards) in own-engine chat storage. |
-| `strict/` | Machine-oriented JSON schemas: `preview-session-contract.schema.json`, `scaffold-variant.schema.json`, `dossier.schema.json`, `plan-file.schema.json`, `db-health-check-report.schema.json`, `redis-health-check-report.schema.json`, `db-perf-indexes-audit-line.schema.json`. |
+| `strict/` | Machine-oriented schemas. See [`strict/README.md`](strict/README.md) for the complete list. |
 
 Only stable, canonical schema docs belong in this folder. Exploratory schema
 notes belong in `docs/plans/active/` until they are promoted here or
 superseded; **historical** notes may exist in git under `docs/plans/avklarat/`
 (see [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).
 
-## Related configuration (not schema definitions)
+## Not Schema Definitions
 
-The **own-engine system prompt** is not a "schema" doc in this folder; it is
-configured as Core Rules (`config/codegen-core-manifest.json` +
-`config/prompt-core/*.md` — 5 fragments incl. visual-design and
-coding-direction). The directive cascade (`config/prompt-directives/` +
-`directive-loader.ts`) was removed 2026-04-18; the two used files are now
-plain core fragments. Full pipeline context (loader, checks, debug dumps,
-fallbacks) is summarized in
+The own-engine system prompt lives in Core Rules
+(`config/codegen-core-manifest.json` + `config/prompt-core/*.md`), not here.
+Pipeline behavior is documented in
 [`docs/architecture/fas2-orchestration-and-build.md`](../architecture/fas2-orchestration-and-build.md).
 
 For runtime scaffold input specifically, also read `scaffold-contract.md`.
@@ -61,9 +46,12 @@ For runtime scaffold input specifically, also read `scaffold-contract.md`.
 For signal flow and how these layers interact in init/follow-up/repair, also
 read `docs/architecture/llm-signal-flow.md`.
 
-## Code sources of truth
+## Code Sources Of Truth
 
-Runtime truth: same core files as [`docs/README.md`](../README.md) § Source of truth (models, `chatSchemas`, `db/schema`, scaffolds, template-library). Schema-specific extras: `src/lib/gen/plan/schema.ts`, `data/external-template-pipeline/reference-library/schema.template-manifest.json`.
+Runtime truth: same core files as [`docs/README.md`](../README.md) § Source
+of truth. Schema-specific extras include `src/lib/gen/plan/schema.ts` and the
+runtime validators that import strict schemas, e.g.
+`src/lib/gen/dossiers/validate-manifest.ts`.
 
 Strict schemas are still mirrors of code-backed contracts, not replacements for
 the runtime source of truth.

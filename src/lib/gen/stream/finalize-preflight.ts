@@ -280,6 +280,16 @@ function createIssue(
   };
 }
 
+function describePreviewBlockFromIssues(
+  issues: FinalizePreflightIssue[],
+): string | null {
+  const blockingIssue = issues.find(
+    (issue) => issue.severity === "error" && issue.category !== "non_blocking_quality_warning",
+  );
+  if (!blockingIssue) return null;
+  return `Automatic preflight blocked preview: ${blockingIssue.file}: ${blockingIssue.message}`;
+}
+
 type FinalizePreflightPassId =
   | "tier2_hygiene"
   | "project_sanity"
@@ -797,6 +807,10 @@ export async function runFinalizePreflight({
       issues: preflightIssues,
       finalizedPreviewFileCount: finalizedFilesForPreview.length,
     });
+    if (!previewStart.canStartPreview) {
+      previewBlockingReason =
+        previewBlockingReason ?? describePreviewBlockFromIssues(preflightIssues);
+    }
   } catch (preflightErr) {
     const message =
       preflightErr instanceof Error

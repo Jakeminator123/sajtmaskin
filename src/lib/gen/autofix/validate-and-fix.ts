@@ -936,6 +936,16 @@ async function validateAndFixInner(
 
         console.info(`[engine] Pass ${pass}: errors reduced ${validation.errors.length} -> ${reValidation.errors.length}`);
         if (reValidation.errors.length >= validation.errors.length) {
+          if (pass < SYNTAX_FIX_MAX_PASSES) {
+            devLogAppend("in-progress", {
+              type: "syntax-validation.no-improvement.retrying",
+              chatId: opts.chatId,
+              pass,
+              errorsBefore: validation.errors.length,
+              errorsAfter: reValidation.errors.length,
+            });
+            continue;
+          }
           earlyStopReason = "no_improvement";
           try { incEarlyStop("no_improvement", "validate_syntax"); } catch {}
           onProgress?.({ pass, phase: "gave-up", errorCount: reValidation.errors.length });

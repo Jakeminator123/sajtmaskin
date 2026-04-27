@@ -233,7 +233,7 @@ describe("runFinalizePreflight", () => {
     expect(result.previewStart.canStartPreview).toBe(true);
   });
 
-  it("keeps preview unblocked when only project sanity reports verification issues", async () => {
+  it("sets a preview blocking reason when project sanity reports critical code issues", async () => {
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     runProjectSanityChecks.mockReturnValue({
       valid: false,
@@ -252,13 +252,15 @@ describe("runFinalizePreflight", () => {
       filesJson: JSON.stringify([
         {
           path: "src/app/page.tsx",
-          content: "export default function Page() { return <div>Hello</div>; }",
+          content: RICH_PAGE_CONTENT,
           language: "tsx",
         },
       ]),
     });
 
-    expect(result.previewBlockingReason).toBeNull();
+    expect(result.previewBlockingReason).toBe(
+      "Automatic preflight blocked preview: src/app/page.tsx: Missing required export",
+    );
     expect(result.preflightIssues).toContainEqual({
       file: "src/app/page.tsx",
       severity: "error",
@@ -267,6 +269,55 @@ describe("runFinalizePreflight", () => {
     });
     expect(result.previewStart.canStartPreview).toBe(false);
     expect(result.previewStart.primaryPreviewTarget).toBe("none");
+  });
+
+  it("sets a preview blocking reason for merged syntax errors", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    validateGeneratedCode
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          {
+            file: "components/flying-can-scene.tsx",
+            line: 24,
+            column: 0,
+            message: 'Unexpected "}"',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [
+          {
+            file: "components/flying-can-scene.tsx",
+            line: 24,
+            column: 0,
+            message: 'Unexpected "}"',
+          },
+        ],
+      });
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_syntax",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        {
+          path: "app/page.tsx",
+          content: RICH_PAGE_CONTENT,
+          language: "tsx",
+        },
+        {
+          path: "components/flying-can-scene.tsx",
+          content: "export function FlyingCanScene() {\n  return <div />;\n}\n}",
+          language: "tsx",
+        },
+      ]),
+    });
+
+    expect(result.previewBlockingReason).toBe(
+      'Automatic preflight blocked preview: components/flying-can-scene.tsx: Merged syntax error line 24:0 — Unexpected "}"',
+    );
+    expect(result.previewStart.canStartPreview).toBe(false);
   });
 
   it("preserves explicit sanity categories instead of falling back to message heuristics", async () => {

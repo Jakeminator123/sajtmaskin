@@ -1,8 +1,8 @@
 /**
  * Dossier manifest validator — the ONE source of truth for manifest shape.
  *
- * Replaces three drift-prone validators:
- *   - docs/schemas/strict/dossier.schema.json (was IDE-only, never run at runtime)
+ * Consolidates three drift-prone contract surfaces:
+ *   - docs/schemas/strict/dossier.schema.json (now compiled by AJV here)
  *   - backoffice/pages/dossiers.py _validate_manifest (handwritten Python)
  *   - scripts/dossiers/curate-from-reference.ts assertManifestShape (mini-version)
  *

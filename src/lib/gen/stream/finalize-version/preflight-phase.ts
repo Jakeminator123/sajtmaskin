@@ -374,7 +374,7 @@ export async function runPreflightPhase(params: {
     {
       fileCount: preflightFileCount,
       issueCount: preflightIssues.length,
-      previewBlocked: Boolean(previewBlockingReason),
+      previewBlocked: !preflightResult.previewStart.canStartPreview,
       scaffoldRetrySuggested: scaffoldRetry?.suggestedScaffoldId ?? null,
     },
   );

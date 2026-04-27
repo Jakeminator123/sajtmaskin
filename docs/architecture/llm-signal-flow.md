@@ -57,17 +57,17 @@ Varje signal i init-pipelinen har **exakt en canonical source**. Konsumenter lä
 
 | Signal / fråga | Canonical source | Data/config | Konsumenter | Får dupliceras? |
 |---|---|---|---|---|
-| **Domän / site-type** | `domain-inference.ts` | `config/domain-rules.json` | `site-brief-generation.ts`, `promptAssist.ts` (fallback) | Nej — alla ska importera `inferDomain` / `inferSiteTypeHintFromDomain` |
+| **Domän / site-type** | `domain-inference.ts` | `config/domain-rules.json` | `site-brief-generation.ts`, `src/lib/builder/prompt-assist/` (fallback) | Nej — alla ska importera `inferDomain` / `inferSiteTypeHintFromDomain` |
 | **Structured-prompt heuristik** | `prompt-heuristics.ts` | `config/prompt-heuristic-tokens.json` | `promptOrchestration.ts` | Nej — alla ska importera delade tokens + `countTokenHits` |
-| **Keyword-extraktion (formatering)** | `prompt-heuristics.ts` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `promptAssist.ts` (`formatPrompt`, addendum) | Nej — importera, inte duplicera |
+| **Keyword-extraktion (formatering)** | `prompt-heuristics.ts` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `src/lib/builder/prompt-assist/` (`formatPrompt`, addendum) | Nej — importera, inte duplicera |
 | **Init-semantik (projektgrund)** | Deep Brief (`site-brief-generation.ts`) | `siteBriefSchema` | `create-chat-stream-post.ts`, `buildDynamicContext()` | Nej — brief-objektet via `meta.brief` är enda kanonisk signal |
 | **Globala designregler** | Core Rules (`config/prompt-core/`, inkl. `03-visual-design.md` + `04-coding-direction.md`) | markdown-filer | `static-core-loader.ts` → system prompt | Nej — directive cascade borttagen 2026-04-18 |
-| **Request-specifik designkontext** | `buildDynamicContext()` i `system-prompt.ts` | brief + scaffold + theme | codegen system prompt | Nej — brief-driven, inte omtolkad |
-| **Build intent (codegen + assist)** | `BUILD_INTENT_GUIDANCE` i `src/lib/gen/intent-guidance.ts` | delad konstant | `system-prompt.ts` (`buildDynamicContext()`) + `promptAssist.ts` (rewrite/polish/addendum) | Nej — en canonical konstant, båda ytor importerar den |
+| **Request-specifik designkontext** | `buildDynamicContext()` i `src/lib/gen/system-prompt/` | brief + scaffold + theme | codegen system prompt | Nej — brief-driven, inte omtolkad |
+| **Build intent (codegen + assist)** | `BUILD_INTENT_GUIDANCE` i `src/lib/gen/intent-guidance.ts` | delad konstant | `src/lib/gen/system-prompt/` (`buildDynamicContext()`) + `src/lib/builder/prompt-assist/` | Nej — en canonical konstant, båda ytor importerar den |
 | **Capability-inferens** | `capability-inference.ts` | regexar + manifest | `buildDynamicContext()`, `BuildSpec`, `follow-up-clarification` | Nej |
 | **Capability → dossier-bridge** | `orchestrate.ts` `inferredCapabilityIds` | hardcoded mapping | `selectDossiersForRequest({ requestedCapabilities })` | Nej — single source. 2026-04-21: `needs3D → visual-3d`, `needsParallax → [parallax-scroll, parallax-pointer]`, `needsPayments → payments` |
-| **Fallback-addendum (non-init)** | `promptAssist.ts` | `MOTION_GUIDANCE`, `VISUAL_IDENTITY_GUIDANCE`, `QUALITY_BAR_GUIDANCE` | `useInitBrief.ts` → `generateDynamicInstructions` vid brief-miss | Legacy-fallback, skippas vid init |
-| **User-message formattering (fallback)** | `formatPrompt()` i `promptAssist.ts` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `useCreateChat.ts` (bara utan brief) | Fallback — init skickar rå text |
+| **Fallback-addendum (non-init)** | `src/lib/builder/prompt-assist/` | `MOTION_GUIDANCE`, `VISUAL_IDENTITY_GUIDANCE`, `QUALITY_BAR_GUIDANCE` | `useInitBrief.ts` → `generateDynamicInstructions` vid brief-miss | Legacy-fallback, skippas vid init |
+| **User-message formattering (fallback)** | `formatPrompt()` i `src/lib/builder/prompt-assist/` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `useCreateChat.ts` (bara utan brief) | Fallback — init skickar rå text |
 | **Init Brief hook** | `useInitBrief.ts` | `generateDynamicInstructions` | `useBuilderPageController.ts` | Hook — konsumerar `/api/ai/brief` + fallback addendum |
 
 ### Princip
@@ -97,7 +97,7 @@ config/*.json      = editerbar data (domain rules, ai models, env policy)
 3. Server Auto-Brief är fallback när klienten inte skickar brief — körs för underspecificerade init-prompts (inkl. korta vaga website-prompts), hoppas över för audit, technical, follow-up och redan tydligt strukturerade prompts.
 4. Scaffoldval körs i `resolveOrchestrationBase()` via `matchScaffoldAuto()`.
 5. Route plan, contracts och BuildSpec byggs — översätter briefens semantik till exekvering snarare än att uppfinna ny vision.
-6. Dynamic context byggs i `system-prompt.ts`. `## Your Toolkit` byggs från registry-synkade `SHADCN_COMPONENTS`-mappen, filtrerad mot vilka `@/components/ui/*`-subpaths som faktiskt finns lokalt; `## Component References` lägger separat till capability-matchade kodexempel från `data/shadcn-examples/`.
+6. Dynamic context byggs i `src/lib/gen/system-prompt/`. `## Your Toolkit` byggs från registry-synkade `SHADCN_COMPONENTS`-mappen, filtrerad mot vilka `@/components/ui/*`-subpaths som faktiskt finns lokalt; `## Component References` lägger separat till capability-matchade kodexempel från `data/shadcn-examples/`.
 7. Generatorn kör. Modellvalet kommer från `phaseRouting.defaultByTier`, och planner/generator hämtar phase-specifik thinking / `reasoningEffort` från `phaseRouting.thinkingByTier`. **Codegen-verktyg:** `suggestIntegration` och `requestEnvVar` är informativa (UI-signal, ingen paus); endast `askClarifyingQuestion` sätter blocking/`awaitingInput`.
 8. Finalize, post-checks, preview-start och quality gate sker efteråt.
 
@@ -119,7 +119,7 @@ Skiljer sig från create-chat på fyra sätt:
    (A1/A2, 2026-04-21) via `buildFollowUpBriefFromSnapshot` när
    `meta.brief` saknas. Snapshot-briefen bär `requestedCapabilities`,
    `domainProfile`, `projectTitle`, `brandName` samt (sedan audit 2026-04-22)
-   `visualDirection.styleKeywords` + `toneAndVoice` så `system-prompt.ts`
+   `visualDirection.styleKeywords` + `toneAndVoice` så `src/lib/gen/system-prompt/`
    och `scaffold-query-context.ts` ser samma designfält som init — utan att
    återköra Deep Brief-LLM:en.
 
