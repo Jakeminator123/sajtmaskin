@@ -72,7 +72,10 @@ def _write_eval_gate_report(
 ) -> Path:
     reports_dir = _eval_reports_dir(ctx)
     reports_dir.mkdir(parents=True, exist_ok=True)
-    stamp = started_at.astimezone().strftime("%Y-%m-%d-%H%M")
+    # Second-level granularity prevents silent overwrite when two runs land
+    # in the same minute (e.g. fast-failing binary-missing + immediate retry,
+    # double-click on the gate button, parallel operators).
+    stamp = started_at.astimezone().strftime("%Y-%m-%d-%H%M%S")
     report_path = reports_dir / f"{stamp}-codegen-eval-gate.md"
     status = "PASS" if exit_code == 0 else "FAIL"
     cleaned_output = _strip_ansi(output).strip()
