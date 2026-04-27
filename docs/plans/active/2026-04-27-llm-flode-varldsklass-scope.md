@@ -21,7 +21,7 @@ Den här filen är **nästa sessions anchor**. Den summerar målbilden från ext
 | # | Lager | Canonical kod | Senaste verifierade gap |
 |---|---|---|---|
 | 1 | Brief / intent | `src/lib/gen/site-brief-generation.ts` + `src/lib/gen/orchestrate.ts` (`requestKind`) | `requestKind` loggas men styr inte `deriveBuildSpec` (P32 Fas B) → frågor blir full regen |
-| 2 | Orkestrering | `src/lib/gen/orchestrate.ts`, `src/lib/gen/scaffolds/scaffold-search.ts`, `src/lib/gen/dossiers/select.ts` | 3 olika init/follow-up-bedömningar i `orchestrate.ts` kan divergera; `inferScaffoldRetrySuggestion` får wrappad `optimizedMessage` istället för rå prompt (P26-poisoning) |
+| 2 | Orkestrering | `src/lib/gen/orchestrate.ts`, `src/lib/gen/scaffolds/scaffold-search.ts`, `src/lib/gen/dossiers/select.ts` | 3 olika init/follow-up-bedömningar i `orchestrate.ts` kan divergera; `inferScaffoldRetrySuggestion` får wrappad `optimizedMessage` istället för rå prompt (P26-poisoning); **Audit D (2026-04-27): cap-bridge nu utökad till 6 cap-keys** (`needs3D`, `needsParallax`, `needsPayments`, `needsAuth`, `needsCarousel`, `needsCommandSearch`); 12 övriga cap-keys förblir scaffold/system-prompt-concerns |
 | 3 | LLM Codegen | `src/lib/providers/own-engine/`, `src/lib/gen/system-prompt/` | LLM får producera "Parallax" som litterärt innehåll (literal-tolkning); ingen kreativ-vs-strukturell separation i prompt |
 | 4 | Deterministisk autofix | `src/lib/gen/autofix/*` | `runAutoFix.rebuildContent` global `replace` kan uppdatera fel fil; LLM-fixer balanced-delimiters kan acceptera ofullständig fil |
 | 5 | Pre-VM typecheck / verifier | `src/lib/gen/preview/warm-typecheck.ts`, `src/lib/gen/verify/verifier-pass.ts` | `href-route-cross-check` är line-by-line och missar multi-line `href` (efter denna sessions broadening är detalj-regex bättre, men route-check kvar) |
@@ -45,17 +45,19 @@ Den här filen är **nästa sessions anchor**. Den summerar målbilden från ext
 
 ## Glasklara fynd från audit-pass (denna session) — sortering
 
-### Levererat 2026-04-27 (commits `d8525cbd6` … `dded81259`)
+### Levererat 2026-04-27 (commits `d8525cbd6` … `3bf9bb829`)
 
-1. SAJ-61b verifier suppress för giltiga in-page hash-anchors + `Lane`-konflikt-test
-2. Docs/test refs `promptAssist.ts` → `prompt-assist/`-paket
-3. Manifest verifier-pass `codeEntry`-path
-4. `validateAndFix` rollback till `bestContent` vid regression
-5. `needsPhysics` regex utvidgad för engelska flying/floating-verb
-6. `FEATURES.escalateMergeSyntaxToLlm = true`
-7. Batch: partial-file repair, quality-gate stillLatest-check, profile-link auth, project upload-limits
-8. Merge-preflight escalates LLM repair på **alla** `!valid` syntax; warm-tsc/eslint exception → empty diagnostics; verifier-phase legacy "optimistic clear" borttagen
-9. `runVerifierPass` accepterar abortSignal som verifier-phase rerun nu propagerar; preview-host hibernate 404 → `notFound: true`; F2 quality-gate route default → `DESIGN_PREVIEW_QUALITY_GATE_CHECKS`
+1. SAJ-61b verifier suppress för giltiga in-page hash-anchors + `Lane`-konflikt-test (`d8525cbd6`)
+2. Docs/test refs `promptAssist.ts` → `prompt-assist/`-paket (`a95c83a6c`)
+3. Manifest verifier-pass `codeEntry`-path (`76fcaa7ba`)
+4. `validateAndFix` rollback till `bestContent` vid regression (`f37dc74ed`)
+5. `needsPhysics` regex utvidgad för engelska flying/floating-verb (`169863855`)
+6. `FEATURES.escalateMergeSyntaxToLlm = true` (`f2a3cf0b5`)
+7. Batch: partial-file repair, quality-gate stillLatest-check, profile-link auth, project upload-limits (`e00a231ab`)
+8. Merge-preflight escalates LLM repair på **alla** `!valid` syntax; warm-tsc/eslint exception → empty diagnostics; verifier-phase legacy "optimistic clear" borttagen (`7fce679c2`)
+9. `runVerifierPass` accepterar abortSignal som verifier-phase rerun nu propagerar; preview-host hibernate 404 → `notFound: true`; F2 quality-gate route default → `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` (`dded81259`)
+10. **2 layout-distinkta landing-page-varianter** (`hero-fullbleed-bg`, `asymmetric-stack`) + 26→28 variant-embeddings regenererade. Adresserar Audit E-fyndet att 5/7 existerande varianter delar split-hero-topologi. Plus rate-limit på 9 oskyddade routes (oavsiktligt med-committat) (`4621dd2f4`)
+11. Cap-bridge: `needsAuth` → `auth`, `needsCarousel` → `carousel`, `needsCommandSearch` → `command-search` i `orchestrate.ts` `inferredCapabilityIds`. Adresserar Audit D-fyndet att 18 cap-keys infereras men bara 3 hade dossier-bridge (`3bf9bb829`)
 
 ### Kvar — kräver designval (Wave 4 nästa session)
 
@@ -68,7 +70,7 @@ Den här filen är **nästa sessions anchor**. Den summerar målbilden från ext
 ### Kvar — säkerhet (Wave 5)
 
 - **B1.1** `/api/uploads/media/*` lacks auth + `ACAO:*` (designval — VM behöver okänd origin?)
-- **B1.4** Missing `withRateLimit` på deploy GET/SSE/single, `quality-gate`, `repair`, `readiness`, preferences GET/PATCH, product-postcheck
+- ~~**B1.4** Missing `withRateLimit` på deploy GET/SSE/single, `quality-gate`, `repair`, `readiness`, preferences GET/PATCH, product-postcheck~~ → **landat 2026-04-27 (`4621dd2f4`)** med separata buckets per route
 - **B1.5** `/api/metrics` accepterar `?token=` (visible in logs) — flytta till `Authorization`-header
 - **B1.6** Quality-gate JSON returnerar full `output` (12k logs/check)
 - **B1.7** 500-errors returnerar `error.message` cleartext på flera routes
@@ -111,7 +113,7 @@ Hård e2e-gate som extern review beskrev — vad ska finnas för att vi kan säg
 |---|---|---|---|
 | **4a** | `src/lib/gen/orchestrate.ts` (requestKind → buildSpec) | Medel — designval krävs | 1 commit |
 | **4b** | `src/lib/db/chat-repository-pg.ts` + `src/lib/hooks/chat/*` (latest-semantik) | Medel — UI-copy + kod | 1-2 commits |
-| **5a** | API-routes utan rate-limit (10 routes) | Låg — additiv middleware | 1 commit |
+| ~~**5a**~~ | ~~API-routes utan rate-limit (10 routes)~~ | ~~Låg~~ | ✅ **landat 2026-04-27 (`4621dd2f4`)** |
 | **5b** | `/api/uploads/media/*` auth + ACAO | Hög — designval, kan bryta VM | inte denna runda |
 | **6** | `meta.json` previewBlockingReason; `templates_v0/`-städ | Låg | 1 commit |
 | **Eval** | `scripts/eval/baseline.ts` MVP | Medel — kräver fixed prompt-set | 1 commit |
