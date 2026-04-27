@@ -410,6 +410,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const planOrchestrationStartedAt = Date.now();
         const planOrchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
+          rawPrompt: message,
           // 2026-04-22 follow-up audit: plan mode saknade tidigare samma
           // rå-signalpaket som huvudflödet fick i fix 07#1 — route-plan,
           // BuildSpec, contracts, capability- och scaffold-match drevs av
@@ -587,6 +588,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
         const orchestrationInput = {
           prompt: optimizedMessage,
+          rawPrompt: message,
           // Bug 07#1 (2026-04-22 audit): init tappade tidigare alla rå-prompt-
           // fält som follow-up skickar explicit. Det innebar att route-plan,
           // build-spec och contract-inferens i init gick på `optimizedMessage`
@@ -873,6 +875,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }),
           engineModel,
           optimizedMessage,
+          rawPrompt: message,
           engineIntent,
           buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,

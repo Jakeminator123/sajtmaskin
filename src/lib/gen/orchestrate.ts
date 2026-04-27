@@ -88,6 +88,12 @@ export {
 
 export interface OrchestrationInput {
   prompt: string;
+  /**
+   * User's original message before any wrapping/optimization. Used downstream
+   * by `inferScaffoldRetrySuggestion` to avoid P26-poisoning where wrapped
+   * prompts confuse scaffold-suggestion regex.
+   */
+  rawPrompt?: string;
   /** Optional prompt used specifically for route-planning inference (defaults to `prompt`). */
   routePlanPrompt?: string;
   /** Optional prompt used for BuildSpec classification (defaults to `prompt`). */

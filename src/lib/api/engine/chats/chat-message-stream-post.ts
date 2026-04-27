@@ -1,6 +1,7 @@
+import { generateText } from "ai";
 import { NextResponse } from "next/server";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
-import { createSSEHeaders } from "@/lib/streaming";
+import { createSSEHeaders, formatSSEEvent } from "@/lib/streaming";
 import {
   withPromptToDoneMetricResponse,
   wrapStreamForPromptToDoneMetric,
@@ -105,12 +106,45 @@ import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapp
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
+import { createDirectModel } from "@/lib/builder/direct-model";
 
 // ── Follow-up history management ──────────────────────────────────────────
 
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 
 const CODE_BLOCK_HEAVY_THRESHOLD = 500;
+const QA_SHORTCIRCUIT_MODEL = canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
+
+async function generateQaShortCircuitText(params: {
+  optimizedMessage: string;
+  signal: AbortSignal;
+}): Promise<string> {
+  const result = await generateText({
+    model: createDirectModel(QA_SHORTCIRCUIT_MODEL),
+    abortSignal: params.signal,
+    prompt:
+      "Användaren har ställt en fråga om sin sajt. Svara koncist (max 4 meningar) baserat på följande kontext:\n\n" +
+      params.optimizedMessage,
+  });
+  return result.text.trim();
+}
+
+function buildQaShortCircuitStream(params: {
+  chatId: string;
+  text: string;
+}): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(formatSSEEvent("chatId", { id: params.chatId })));
+      controller.enqueue(encoder.encode(formatSSEEvent("content", { text: params.text })));
+      controller.enqueue(
+        encoder.encode(formatSSEEvent("done", { chatId: params.chatId, versionId: null })),
+      );
+      controller.close();
+    },
+  });
+}
 
 /**
  * QW-4: bevara assistant-prosa innan första file-blocket. Designrationale
@@ -693,6 +727,7 @@ export async function handleMessageStreamRequest(
           const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
+            rawPrompt: message,
             routePlanPrompt: message,
             buildSpecPrompt: message,
             // 2026-04-22 follow-up audit: plan-mode-vägen hade bara två av
@@ -904,8 +939,46 @@ export async function handleMessageStreamRequest(
             : null;
         const requestKindResult =
           hasFollowUpBase ? classifyRequestKind(message) : null;
+        if (requestKindResult?.kind === "qa-or-score") {
+          devLogAppend("in-progress", {
+            type: "request.kind.shortcircuit",
+            chatId,
+            kind: requestKindResult.kind,
+            reason: "qa-or-score-no-codegen",
+          });
+          try {
+            const assistantText = await generateQaShortCircuitText({
+              optimizedMessage,
+              signal: req.signal,
+            });
+            await chatRepo.addMessage(chatId, "assistant", assistantText).catch(() => null);
+            const qaStream = buildQaShortCircuitStream({
+              chatId,
+              text: assistantText,
+            });
+            return attachSessionCookie(new Response(
+              wrapStreamForPromptToDoneMetric(qaStream, {
+                kind: "followup",
+                promptStartedAt,
+                signal: req.signal,
+                chatId,
+              }),
+              { headers: createSSEHeaders() },
+            ));
+          } catch (err) {
+            devLogAppend("in-progress", {
+              type: "request.kind.shortcircuit.fallback",
+              chatId,
+              kind: requestKindResult.kind,
+              reason: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+        // P32 Fas B next step: external-fetch needs web-search integration
+        // before it can short-circuit safely; keep it on normal codegen for now.
         const orchestrationInput = {
           prompt: optimizedMessage,
+          rawPrompt: message,
           routePlanPrompt: message,
           buildSpecPrompt: message,
           // QW-1: contract-inferens + capability-inferens får rå message så
@@ -1243,6 +1316,7 @@ export async function handleMessageStreamRequest(
           }),
           engineModel,
           optimizedMessage,
+          rawPrompt: message,
           engineIntent,
           buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,

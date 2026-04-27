@@ -16,6 +16,8 @@ import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-p
 export interface GenerationInputPackage extends OrchestrationBase {
   /** User-turn text that shaped orchestration/system assembly for this run. */
   userPrompt: string;
+  /** User's original message before prompt-assist wrapping/optimization. */
+  rawPrompt: string;
   /** Deep Brief when available. */
   brief: Record<string, unknown> | null;
   /** Scaffold selection mode used for this generation. */
@@ -88,6 +90,7 @@ export function serializePackageForDump(
   return {
     lineageHash: pkg.lineageHash,
     userPrompt: pkg.userPrompt,
+    rawPrompt: pkg.rawPrompt,
     brief: pkg.brief,
     scaffoldMode: pkg.scaffoldMode,
     scaffoldId: pkg.resolvedScaffold?.id ?? null,

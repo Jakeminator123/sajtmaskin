@@ -25,6 +25,7 @@ interface OrchestrationBaseLike {
 
 interface OrchestrationInputLike {
   prompt: string;
+  rawPrompt?: string;
   brief?: Record<string, unknown> | null;
   scaffoldMode?: "auto" | "manual" | "off";
   customInstructions?: string;
@@ -65,6 +66,7 @@ export function buildGenerationInputPackage(
   return {
     ...base,
     userPrompt: input.prompt,
+    rawPrompt: input.rawPrompt ?? input.prompt,
     brief: (input.brief as Record<string, unknown>) ?? null,
     scaffoldMode: input.scaffoldMode ?? "auto",
     engineSystemPrompt: finalized.engineSystemPrompt,

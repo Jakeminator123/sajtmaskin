@@ -84,6 +84,7 @@ export interface GenerationStreamParams {
   meta: GenerationStreamMeta;
   engineModel: string;
   optimizedMessage: string;
+  rawPrompt?: string;
   engineIntent: BuildIntent;
   buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
@@ -117,6 +118,7 @@ export function createOwnEngineGenerationStream(
     meta,
     engineModel,
     optimizedMessage,
+    rawPrompt,
     engineIntent,
     buildSpec,
     routePlan,
@@ -318,7 +320,7 @@ export function createOwnEngineGenerationStream(
         chatId,
         model: engineModel,
         resolvedTier,
-        originalPrompt: optimizedMessage,
+        originalPrompt: rawPrompt ?? optimizedMessage,
         buildIntent: engineIntent,
         buildSpec,
         routePlan,
