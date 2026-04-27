@@ -135,4 +135,38 @@ Tills dess: varje merge mot `master` som rör `src/lib/gen/` ska köra eval-base
 
 ---
 
-**Nästa steg:** Wave 4a (`requestKind` → `deriveBuildSpec`) kräver designval från Jake (vilka requestKinds blockerar codegen). När det är beslutat går implementationen snabbt.
+## Beslut 2026-04-27 (orkestratorn tog dessa under långbänken)
+
+Användaren gav fria händer att besluta i designvalsfrågorna. 13 beslut, ordnade efter spår:
+
+### Implementations-beslut (kommer/redan i kod)
+
+| # | Område | Beslut | Status |
+|---|---|---|---|
+| **A** | Q&A-shortcut (B2.1, P32 Fas B) | `requestKind === "qa-or-score"` på follow-up → kortslut till assist-LLM-svar, **ingen** brief/orchestration/codegen. Fallback till normal väg om assist-LLM failar. `external-fetch` väntar på web-search-integration. | Implementeras nu (agent `1d38e942`) |
+| **B** | Init/follow-up canonical signal (B2.5) | Canonical = `messageRole === "user" && chatHistory.length === 0`. De andra två platserna i `orchestrate.ts` refaktoreras till härledningar. | Lämnas som separat refactor — kräver inte denna runda |
+| **C** | rawPrompt-trådning (B2.7) | Lägg `rawPrompt: string` i `OrchestrationInput`, `inferScaffoldRetrySuggestion` läser raw istället för optimized. Eliminerar P26-poisoning. | Implementeras nu (agent `1d38e942`) |
+| **D** | "latest"-tvetydighet (B3.1) | Behåll `latest` i kod = highest `created_at`. Inför ny term `recommendedBaseVersionId` för "best follow-up base". UI-copy: "Senaste version" default + valbar "rekommenderad bas" i versions-picker. | Lämnas till nästa session — UI-arbete |
+| **E** | preview-status null versionId (B3.2) | Inte ett designval — kräver bug-trace. | Filas som /buggrapport vid tillfälle |
+| **F** | `/api/uploads/media/*` auth (B1.1) | Lägg auth-check via Authorization-header (bearer signed by app). Behåll `ACAO:*` (VM behöver okänd origin). | Lämnas till nästa session — design-risk |
+| **G** | Assist-addendum vs Core Rules (audit) | Addendum complements only, never overrides. | Implementerat i `1a16ac63` (Coding Direction collapse) |
+| **H** | Brief+inferred guidance dedup (audit) | Conditional skip i `renderGuidanceBlocks` när brief redan fyllt ton/motion. | Lämnas till nästa session — medel risk |
+| **I** | Variant "adapt freely" vs preservation (audit) | Preservation wins on follow-up except clear-redesign. | Implementerat i `1a16ac63` (intro.ts ordningsregel) |
+| **J** | Kontext-trunkering för fixer (audit) | Behåll full projekt-kontext NU. Latency-spår senare. | Inget kod-arbete |
+| **K** | SEO/copy som blocking (audit) | Aldrig blocking — alltid quality. Status quo. | Inget kod-arbete |
+| **L** | Full IA vs progressiv brief (audit) | Schema-relax (steg 1) implementerat. Progressiv brief (steg 2) senare. | Implementerat i `1a16ac63` (siteBriefSchema) |
+| **M** | requestKind injicerad i brief-prompt (audit) | Obsolet eftersom A (Q&A-shortcut) hindrar brief-anrop helt vid Q&A. | Inget kod-arbete |
+
+### Sammanfattning
+
+- **5 beslut redan i kod** (G, I, L via `1a16ac63`; A, C via `1d38e942`)
+- **3 beslut "inget kod-arbete"** (J, K, M)
+- **5 beslut för senare sessioner** (B, D, E, F, H) — alla dokumenterade här som anchor
+
+Designprinciper bakom besluten:
+
+1. **LLM får vara kreativ men aldrig vara enda kvalitetsgarantin.** Q&A-shortcut (A) säger "när användaren frågar, generera inget".
+2. **Status får aldrig ljuga.** UI-copy (D) ändras innan kod refactoras — copy är cheap, code-rename är dyrt.
+3. **Konservatism vid osäkerhet.** F (media auth) lämnas eftersom design-risken är hög + det går att göra senare utan att låsa sig.
+4. **Inga UI-ändringar utan användardialog.** D, E är UI-tunga — väntar på Jake.
+5. **Backend-additionen ska aldrig vara en regression.** A:s shortcut har hard fallback till befintlig codegen-väg om assist-LLM failar.
