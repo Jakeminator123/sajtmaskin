@@ -36,6 +36,7 @@ import {
   buildCapabilityHints,
   type InferredCapabilities,
 } from "./capability-inference";
+import { resolveDossierCapabilitiesFromInferredCapabilities } from "./capability-dossier-bridge";
 import { buildRoutePlan } from "./route-plan";
 import type { RoutePlan } from "./route-plan";
 import {
@@ -691,34 +692,8 @@ export async function resolveOrchestrationBase(
   let dossierSelection: DossierSelectionResult | null = null;
   if (FEATURES.useDossierPipeline) {
     try {
-      // P26: bridge inferred capabilities to dossier capability ids so
-      // dossiers trigger even when brief-LLM did not explicitly mark them.
-      // Currently: needs3D -> "visual-3d" (covers Three Fiber dossier).
-      // Adds capability to brief.requestedCapabilities; safe because
-      // selectDossiersForRequest just looks up dossier ids by capability.
-      const inferredCapabilityIds: string[] = [];
-      if (capabilities.needs3D) inferredCapabilityIds.push("visual-3d");
-      if (capabilities.needsParallax) {
-        // Both parallax dossiers are independently useful — selectDossiersForRequest
-        // picks one per capability, so listing both means we get the right one
-        // when the prompt mentions just one direction (scroll vs pointer) and
-        // both when the prompt is unspecific.
-        inferredCapabilityIds.push("parallax-scroll", "parallax-pointer");
-      }
-      if (capabilities.needsPayments) inferredCapabilityIds.push("payments");
-      // Audit D 2026-04-27: capability-inference RULES detect 18 cap-keys but
-      // only 3 had a dossier bridge. The 3 below have a 1:1 dossier-capability
-      // match in `data/dossiers/_index/capability-map.json`, so adding a
-      // bridge is safe — `selectDossiersForRequest` deduplicates against
-      // brief + caller-provided ids and picks at most one dossier per
-      // capability. Wider cap-keys without 1:1 dossiers (needsForms,
-      // needsCharts, needsDatabase, needsAppShell, needsEcommerce,
-      // needsPremiumVisuals, needsCalendar, needsThemeToggle, needsDataUI,
-      // needsMotion) are intentionally not bridged here — those map to
-      // scaffold/system-prompt concerns, not single dossiers.
-      if (capabilities.needsAuth) inferredCapabilityIds.push("auth");
-      if (capabilities.needsCarousel) inferredCapabilityIds.push("carousel");
-      if (capabilities.needsCommandSearch) inferredCapabilityIds.push("command-search");
+      const inferredCapabilityIds =
+        resolveDossierCapabilitiesFromInferredCapabilities(capabilities);
       const briefCapsRaw = (brief as { requestedCapabilities?: unknown } | null | undefined)
         ?.requestedCapabilities;
       const briefCapsArray = Array.isArray(briefCapsRaw)
