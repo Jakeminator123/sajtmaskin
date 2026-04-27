@@ -172,6 +172,36 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           visualQA,
         };
 
+        const verificationSummary = buildVerificationSummary(results);
+        // Check superseded BEFORE persisting the regular logs so we don't
+        // pile error rows on a version that no longer represents the
+        // chat's head; the superseded path persists its own scoped log.
+        const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
+        if (!stillLatest) {
+          await markVersionSupersededByRepair(internalVersionId).catch((err) => {
+            console.warn("[quality-gate] Failed to mark superseded version:", err);
+          });
+          await createEngineVersionErrorLogs([
+            {
+              chatId,
+              versionId: internalVersionId,
+              level: "warning",
+              category: "quality-gate:superseded",
+              message: "Quality gate finished after a newer version was created; skipping state mutation.",
+              meta: {
+                verificationSummary,
+                serverOwned: false,
+              },
+            },
+          ]).catch((err) => {
+            console.warn("[quality-gate] Failed to persist superseded log:", err);
+          });
+          return NextResponse.json({
+            ...gateResult,
+            superseded: true,
+          });
+        }
+
         const logs = [
           {
             chatId,
@@ -209,33 +239,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         if (logs.length > 0 && dbConfigured) {
           await createEngineVersionErrorLogs(logs).catch((err) => {
             console.warn("[quality-gate] Failed to persist error logs:", err);
-          });
-        }
-
-        const verificationSummary = buildVerificationSummary(results);
-        const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
-        if (!stillLatest) {
-          await markVersionSupersededByRepair(internalVersionId).catch((err) => {
-            console.warn("[quality-gate] Failed to mark superseded version:", err);
-          });
-          await createEngineVersionErrorLogs([
-            {
-              chatId,
-              versionId: internalVersionId,
-              level: "warning",
-              category: "quality-gate:superseded",
-              message: "Quality gate finished after a newer version was created; skipping state mutation.",
-              meta: {
-                verificationSummary,
-                serverOwned: false,
-              },
-            },
-          ]).catch((err) => {
-            console.warn("[quality-gate] Failed to persist superseded log:", err);
-          });
-          return NextResponse.json({
-            ...gateResult,
-            superseded: true,
           });
         }
         if (gateResult.passed) {

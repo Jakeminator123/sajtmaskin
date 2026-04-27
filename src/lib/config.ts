@@ -400,10 +400,12 @@ export const FEATURES = {
   skipDoubleValidateAndFixOnMerge: true,
   /**
    * Safety valve: allow one tight-budget LLM repair attempt when merged-syntax
-   * still fails after a no-op mechanical pass. Default OFF to keep current
-   * cost/latency behaviour unchanged unless explicitly enabled.
+   * still fails after a no-op mechanical pass. Enabled so a stray `}`-class
+   * model output (the v2/flying-can class of failures) gets one structured
+   * repair shot before preview is blocked. Cost: at most one extra LLM
+   * fixer call per generation that hits the merged-syntax-invalid branch.
    */
-  escalateMergeSyntaxToLlm: false,
+  escalateMergeSyntaxToLlm: true,
 
   /**
    * Inject `### Recurring failures on this site` block (top-5 patterns from

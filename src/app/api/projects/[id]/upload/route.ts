@@ -8,6 +8,20 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+// Mirror media-upload limits so project image uploads can't bypass them
+// by hitting the legacy project-scoped endpoint.
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 MB (matches Vercel Blob preview budget)
+const ALLOWED_MIME_TYPES: ReadonlyArray<string> = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  "image/x-icon",
+  "image/vnd.microsoft.icon",
+];
+
 // POST /api/projects/[id]/upload - Upload image
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -32,6 +46,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (!file) {
       return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 });
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `File too large (max ${Math.floor(MAX_FILE_SIZE / (1024 * 1024))} MB)`,
+        },
+        { status: 413 },
+      );
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { success: false, error: `Unsupported file type: ${file.type || "unknown"}` },
+        { status: 415 },
+      );
     }
 
     // Generate unique filename
