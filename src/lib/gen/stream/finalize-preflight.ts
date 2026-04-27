@@ -14,6 +14,7 @@ import {
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
+import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 import { FEATURES } from "@/lib/config";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import {
@@ -505,6 +506,40 @@ export async function runFinalizePreflight({
       JSON.parse(nextFilesJson) as Array<{ path: string; content: string; language?: string }>
     ).map((file) => ({ ...file, language: file.language || "tsx" }));
 
+    // GUARD 0 — last-line defence for SCAFFOLD_PROTECTED_PATHS.
+    //
+    // `mergeGeneratedProjectFiles` (upstream of this function) already
+    // partitions LLM-broken protected paths out of `generatedFiles` before
+    // merging with the scaffold base. Empirically (eval restaurant /
+    // booking-service / multi-page-brochure / consultant-landing
+    // 2026-04-27) we still see broken `app/api/placeholder/route.ts`
+    // arriving here, which means *some* upstream code path either
+    //   (a) bypasses partitionGeneratedFilesForProtectedPaths in merge, or
+    //   (b) re-introduces the LLM emission between merge and preflight.
+    //
+    // Until that source is pinned, run partition once on the parsed
+    // input. `buildCompleteProject` lower in this function injects the
+    // scaffold default for any path that ends up missing, so dropping
+    // is safe — we will never persist a route.ts without route.ts.
+    {
+      const partition = partitionGeneratedFilesForProtectedPaths(finalFiles);
+      if (partition.dropped.length > 0) {
+        const droppedPaths = partition.dropped.map((f) => f.path);
+        finalFiles = partition.kept;
+        nextFilesJson = JSON.stringify(finalFiles);
+        console.warn(
+          "[finalize-preflight] Initial post-merge files contained scaffold-protected paths — dropped to keep scaffold default",
+          { chatId, droppedPaths },
+        );
+        devLogAppend("in-progress", {
+          type: "scaffold-protected-overwrite-blocked",
+          chatId,
+          branch: "post-merge-initial-parse",
+          droppedPaths,
+        });
+      }
+    }
+
     const shellFill = ensureDeferredRouteShells({ files: finalFiles, routePlan, buildSpec });
     finalFiles = shellFill.files;
     if (shellFill.addedPaths.length > 0) {
@@ -582,7 +617,29 @@ export async function runFinalizePreflight({
         if (mechanicalResult.fixes.length > 0) {
           const fixedProject = parseCodeProject(mergedProjectContent);
           if (fixedProject.files.length > 0) {
-            finalFiles = fixedProject.files;
+            // Belt-and-braces: mechanical autofix is deterministic and
+            // unlikely to (re)emit `app/api/placeholder/route.ts`, but
+            // mirror the post-LLM-escalation guard so any future fixer
+            // that does mutate the project payload cannot bypass
+            // SCAFFOLD_PROTECTED_PATHS via this code path.
+            const partition =
+              partitionGeneratedFilesForProtectedPaths(fixedProject.files);
+            finalFiles = partition.kept;
+            if (partition.dropped.length > 0) {
+              const droppedPaths = partition.dropped.map((f) => f.path);
+              mergedProjectContent = serializeCodeProject(finalFiles);
+              mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+              console.warn(
+                "[finalize-preflight] Mechanical autofix output contained scaffold-protected paths — dropped to keep scaffold default",
+                { chatId, droppedPaths },
+              );
+              devLogAppend("in-progress", {
+                type: "scaffold-protected-overwrite-blocked",
+                chatId,
+                branch: "post-merge-mechanical",
+                droppedPaths,
+              });
+            }
             nextFilesJson = JSON.stringify(finalFiles);
           }
         }
@@ -638,7 +695,34 @@ export async function runFinalizePreflight({
               mergedProjectContent = repairResult.fixedContent;
               mergedSyntax = llmValidation;
               const repairedProject = parseCodeProject(mergedProjectContent);
-              finalFiles = repairedProject.files;
+              // Block the post-merge LLM-escalation bypass of
+              // SCAFFOLD_PROTECTED_PATHS: runLlmRepairGate is given the
+              // merged project (which contains the canonical scaffold
+              // version of protected paths after finalize-merge's
+              // partition) and can re-emit broken JSX-in-`.ts` versions
+              // while fixing unrelated syntax errors. Drop those LLM
+              // emissions; `buildCompleteProject` lower in this function
+              // re-injects the scaffold default for any path that's
+              // missing afterwards.
+              const partition =
+                partitionGeneratedFilesForProtectedPaths(repairedProject.files);
+              finalFiles = partition.kept;
+              if (partition.dropped.length > 0) {
+                const droppedPaths = partition.dropped.map((f) => f.path);
+                mergedProjectContent = serializeCodeProject(finalFiles);
+                mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+                errorsAfter = mergedSyntax.errors.length;
+                console.warn(
+                  "[finalize-preflight] LLM-escalation re-emitted scaffold-protected paths — dropped to keep scaffold default",
+                  { chatId, droppedPaths },
+                );
+                devLogAppend("in-progress", {
+                  type: "scaffold-protected-overwrite-blocked",
+                  chatId,
+                  branch: "post-merge-llm-escalation",
+                  droppedPaths,
+                });
+              }
               nextFilesJson = JSON.stringify(finalFiles);
               fixed = true;
             }

@@ -9,6 +9,7 @@ import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
+import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 
 export interface MergeGeneratedProjectFilesParams {
   chatId: string;
@@ -115,48 +116,12 @@ function isLlmOnlyPath(path: string): boolean {
 }
 
 /**
- * Paths whose content MUST come from the scaffold default (or the previous
- * persisted version on follow-up). LLM emissions targeting these paths are
- * dropped before merge.
+ * SCAFFOLD_PROTECTED_PATHS — counterpart of `LLM_ONLY_PATHS`.
  *
- * Why this exists: LLMs frequently regenerate `app/api/placeholder/route.ts`
- * as JSX-like syntax (`<svg style="...">`) inside a `.ts` file because the
- * scaffold version contains a `<svg ...>` template literal. The result is
- * `Expected ">" but found "style"` syntax errors that block tier-2 readiness.
- * In the 2026-04-27 baseline-after-revert eval, this single path explained
- * 6 of 13 failing prompts (coffee-shop, restaurant, agency, booking-service,
- * multi-page-brochure, consultant-landing).
- *
- * Add new entries ONLY when:
- *   1. The file is pure utility — no brand, copy, design, or business logic.
- *   2. The scaffold-shipped version is verified correct.
- *   3. Customers will not need to customize it per project.
- *
- * Counterpart of `LLM_ONLY_PATHS` (which forces the LLM to emit the file).
+ * Source of truth + partition helper now live in
+ * `@/lib/gen/scaffolds/protected-paths`. See that module for context on
+ * why the set is shared with server-verify and the manual repair route.
  */
-const SCAFFOLD_PROTECTED_PATHS: ReadonlySet<string> = new Set([
-  "app/api/placeholder/route.ts",
-]);
-
-function isScaffoldProtectedPath(path: string): boolean {
-  return SCAFFOLD_PROTECTED_PATHS.has(path.replace(/\\/g, "/"));
-}
-
-function partitionGeneratedFilesForProtectedPaths(generatedFiles: CodeFile[]): {
-  kept: CodeFile[];
-  dropped: CodeFile[];
-} {
-  const kept: CodeFile[] = [];
-  const dropped: CodeFile[] = [];
-  for (const file of generatedFiles) {
-    if (isScaffoldProtectedPath(file.path)) {
-      dropped.push(file);
-    } else {
-      kept.push(file);
-    }
-  }
-  return { kept, dropped };
-}
 
 export function mergeGeneratedProjectFiles({
   chatId,

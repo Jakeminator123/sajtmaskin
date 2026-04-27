@@ -28,6 +28,12 @@ import { buildExportableProject } from "@/lib/gen/export/build-exportable-projec
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+import { devLogAppend } from "@/lib/logging/devLog";
+import { warnLog } from "@/lib/utils/debug";
+import {
+  partitionGeneratedFilesForProtectedPaths,
+  reinjectProtectedPathsFromFallback,
+} from "@/lib/gen/scaffolds/protected-paths";
 // Side-effect imports: wire default subscribers (devLog-mirror + DB
 // sink) so every `version.verifier.done`/`version.build.error` emit
 // below reaches both the legacy surfaces and the UI projection.
@@ -415,7 +421,48 @@ async function tryServerRepairLoop(params: {
   const initialContent = serializeCodeProject(exportable);
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
-    const repairedFiles = parseCodeProject(projectContent).files;
+    const rawRepairedFiles = parseCodeProject(projectContent).files;
+    // Block the server-repair bypass of SCAFFOLD_PROTECTED_PATHS: even if
+    // the LLM regenerates `app/api/placeholder/route.ts` (the JSX-in-`.ts`
+    // failure mode that motivated the protected set) and the quality gate
+    // happens to pass, never persist the LLM version. Re-inject the path
+    // from `codeFiles` (the pre-repair persisted version) which already
+    // carries the canonical scaffold/previous content. See
+    // `@/lib/gen/scaffolds/protected-paths` for context.
+    const protectedPartition =
+      partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
+    const reinjection = reinjectProtectedPathsFromFallback({
+      kept: protectedPartition.kept,
+      droppedPaths: protectedPartition.dropped.map((f) => f.path),
+      fallbackFiles: codeFiles,
+    });
+    const repairedFiles = reinjection.files;
+    if (protectedPartition.dropped.length > 0) {
+      const droppedPaths = protectedPartition.dropped.map((f) => f.path);
+      warnLog(
+        "engine",
+        "Scaffold-protected paths emitted by repair LLM — dropped from saveRepairedFiles input",
+        {
+          chatId,
+          versionId,
+          droppedPaths,
+          reinjected: reinjection.reinjected,
+          stillMissing: reinjection.stillMissing,
+          branch: "server-repair",
+          method,
+        },
+      );
+      devLogAppend("in-progress", {
+        type: "scaffold-protected-overwrite-blocked",
+        chatId,
+        versionId,
+        branch: "server-repair",
+        method,
+        droppedPaths,
+        reinjected: reinjection.reinjected,
+        stillMissing: reinjection.stillMissing,
+      });
+    }
     const exportableForGate = await buildExportableProject(repairedFiles);
     const decision = await shouldPromoteAfterRepair({
       chatId,

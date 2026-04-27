@@ -247,6 +247,23 @@ ALL_SCAFFOLDS (registry.ts)
 
 Lägg endast till nya entries om filen är ren utility (verifierad korrekt scaffold-version, ingen kund vill anpassa).
 
+### Källa och konsumenter (2026-04-27 P0)
+
+`SCAFFOLD_PROTECTED_PATHS` + partition/reinjection-helpers bor i [`src/lib/gen/scaffolds/protected-paths.ts`](../../src/lib/gen/scaffolds/protected-paths.ts) — en gemensam källa för alla pipelines som persisterar `files_json`:
+
+| Pipeline | Callsite | Källa |
+|---|---|---|
+| Init / follow-up merge | `mergeGeneratedProjectFiles` partition | `finalize-merge.ts` |
+| Post-merge preflight (initial parse + post-mekanisk-autofix + post-LLM-escalation) | tre guards i `runFinalizePreflight` med `branch: "post-merge-…"` | `finalize-preflight.ts` |
+| Server-verify auto-repair (quality-gate eller VM build-error) | `tryPromoteAfterGate` partition + reinject från `codeFiles` | `server-verify.ts` |
+| Manuell repair-knapp | `promoteIfPostRepairGatePasses` partition + reinject från persisterad `version.files_json` | `app/api/engine/chats/[chatId]/repair/route.ts` |
+
+Ny path läggs ENDAST i `SCAFFOLD_PROTECTED_PATHS`-set:et i `protected-paths.ts`. Alla fyra pipelines plockar då upp den automatiskt — inget mer att synka.
+
+### Eval-mätning (2026-04-27)
+
+`src/lib/gen/eval/runner.ts` mäter gate-checks (`syntax`, `project-sanity`, `imports`, `required-files`, `exports`) på den **canonical persist-payloaden** efter `runFinalizePreflight`, inte på raw LLM-stream. `deriveEvalCheckSources` i samma fil ger ett `userEmittedPaths`-subset av `preflight.filesJson`, så scaffold-defaults som `buildCompleteProject` injicerar inte räknas mot `file-count` etc. Det innebär att ett LLM-emitterat `app/api/placeholder/route.ts` med JSX-i-`.ts` som droppas av guarden inte längre rapporteras som eval-syntax-fel — bara reella content-buggar i LLM-owned filer (`app/page.tsx` etc.) faller eval-gaten.
+
 ---
 
 ## 8. Variant signature patterns
