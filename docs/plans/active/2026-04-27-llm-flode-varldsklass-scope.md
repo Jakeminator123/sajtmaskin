@@ -1,6 +1,8 @@
 ---
+id: 2026-04-27-llm-flode-varldsklass-scope
 status: scope
 created: 2026-04-27
+linear: null
 trigger: /långbänk efter session 897ab640 — användarens externa review beskrev målbild i 10 lager
 context_links:
   - .cursor/rules/terminology.mdc

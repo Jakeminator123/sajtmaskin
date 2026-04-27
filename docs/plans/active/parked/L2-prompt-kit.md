@@ -3,6 +3,7 @@ id: L2
 title: PromptKit — standardiserat prompt-skick + signal-cascade per LLM-anrop
 status: paused
 created: 2026-04-21
+linear: null
 paused: 2026-04-23
 paused_by: OMTAG-2026-04-23 (se ../avklarat/omtag-2026-04-23/PARKED.md)
 priority: medium

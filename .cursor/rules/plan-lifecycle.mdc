@@ -1,0 +1,84 @@
+---
+description: Plan-fil livscykel — när planer ska skapas, parkas, avklaras och raderas
+globs:
+  - docs/plans/**
+  - .cursor/bugs/**
+---
+
+# Plan-fil livscykel
+
+Planfiler dokumenterar pågående arbete. Rådande tillstånd avgör mapp. Linear är fortsatt källa till sanning för status — denna regel styr **var i workspace:t** filen bor.
+
+## Mappar
+
+| Mapp | Vad |
+|---|---|
+| `docs/plans/active/` | Pågående arbete eller redo-att-startas |
+| `docs/plans/active/parked/` | Planerat men väntar på gate (annan plan, milstolpe, beslut) |
+| `docs/plans/avklarat/` | Implementerat och mergat — historik |
+| `docs/plans/archived/` | Gammalt material som inte ska aktiveras igen |
+
+## Frontmatter-krav (minimum)
+
+```yaml
+---
+id: <kort-slug>           # P34, OPEN-THREADS, 2026-04-27-långbänk, etc.
+status: active|paused|redo-för-cloudagent|scope|done
+created: YYYY-MM-DD
+linear: SAJ-<n> | null    # null om ingen issue (t.ex. lokal scope-doc)
+---
+```
+
+Index-/router-filer får sakna frontmatter (`README.md`, `Kvarvarande-uppgifter.md`).
+
+## När flytta?
+
+| Tillstånd | Mapp | Trigger |
+|---|---|---|
+| Aktivt arbete denna vecka | `active/` | — |
+| Väntar på annan plan/beslut/milstolpe | `active/parked/` | när gate identifierad; lägg `paused: YYYY-MM-DD` + gate-anteckning |
+| Mergat med commit-länk | `avklarat/` | när PR mergat och CI grönt; behåll commit-hash i frontmatter eller body |
+| Inte aktuellt mer (skrotat) | `archived/` | manuellt beslut |
+
+## "Halvändrad"-definition
+
+Plan utan commit-progress på 14 dagar **OCH** `status: active` ska:
+
+1. Parkas (med `paused: YYYY-MM-DD` + gate-anteckning), eller
+2. Avklaras med "abandonerad"-noter, eller
+3. Få färsk progressanteckning av ägaren
+
+Aldrig lämnas i `active/` utan kommentar.
+
+## Linear-bridge
+
+| Händelse | Aktion |
+|---|---|
+| Plan har Linear-issue | Sätt `linear: SAJ-<n>` i frontmatter |
+| Plan flyttas till `avklarat/` | Kommentera Linear-issue med commit-länk + stäng issue |
+| Plan parkas | Kommentera Linear-issue om varför + sätt prio låg |
+| Plan utan Linear-koppling | OK för scope-/audit-/lokala docs (`linear: null`) |
+
+## Bug-rapporter (`.cursor/bugs/`)
+
+Mappen är **gitignored** (lokal mirror, Linear är sanning). Egen kontrakt:
+
+| Händelse | Aktion |
+|---|---|
+| Ny bugg → `/buggrapport` skapar lokal fil + Linear-issue | Filnamn: `YYYY-MM-DD_HHMM_<LINEAR-ID>_<slug>.md` |
+| Bugg åtgärdad och mergad | **Radera lokal fil** — Linear behåller historik. Se [`.cursor/bugs/README.md`](../bugs/README.md). |
+| Agent vill rapportera bug | Måste först grep:a `.cursor/bugs/` för dubletter |
+
+## Naming
+
+- Datumprefix: `YYYY-MM-DD-<slug>.md` för tidsbundna scope-/audit-docs
+- ID-prefix: `<P-ID>-<slug>.md` när planen är döpt efter ett internt projekt-ID (P34, P32 osv)
+- kebab-case alltid
+
+## Anti-mönster
+
+- **Halvfärdiga planer som ligger kvar i `active/` utan progress** → parka eller avklara
+- **Planer med `status: done` i `active/`** → flytta till `avklarat/`
+- **Bug-rapporter kvar lokalt efter fix** → radera; Linear sköter historik
+- **Ny plan utan frontmatter** → fyll i minimum innan första commit
+- **Linear-issue utan motsvarande planfil för stora arbetsspår** → skapa scope-doc i `active/` med `linear: SAJ-<n>`

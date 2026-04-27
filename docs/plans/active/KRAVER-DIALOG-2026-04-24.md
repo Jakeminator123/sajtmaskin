@@ -1,3 +1,10 @@
+---
+id: KRAVER-DIALOG-2026-04-24
+status: active
+created: 2026-04-24
+linear: null
+---
+
 # Kvarvarande "kräver dialog"-punkter — 2026-04-24
 
 Saker som review-agenterna rapporterade under databas/Redis-långbänkarna

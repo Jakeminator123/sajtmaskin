@@ -3,6 +3,7 @@ id: L1
 title: Unified repair-call — slå ihop fyra LLM-fixer-anrop till ett
 status: paused
 created: 2026-04-21
+linear: null
 paused: 2026-04-23
 paused_by: OMTAG-2026-04-23 (se ../avklarat/omtag-2026-04-23/PARKED.md)
 priority: medium

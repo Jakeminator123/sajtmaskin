@@ -2,6 +2,19 @@
 
 Senast uppdaterad: 2026-04-27 (arkivering av korplan + SEO-spec; ny scope-doc [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) är nästa sessions anchor). Alla öppna steg listas i enhetligt A/B/C/D-format. Varje planfil behåller sin detaljerade text — tabellen nedan är routern.
 
+## Lifecycle (snabb)
+
+Full kontrakt: [`.cursor/rules/plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc).
+
+| Tillstånd | Mapp |
+|---|---|
+| Aktivt eller redo-att-startas | `active/` |
+| Väntar på gate | `active/parked/` |
+| Mergat — historik | `avklarat/` |
+| Skrotat | `archived/` |
+
+Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`). Index-filer (denna README, `Kvarvarande-uppgifter.md`) får sakna frontmatter. Plan utan commit-progress på 14 dagar ska parkas, avklaras eller få färsk progress-anteckning.
+
 > **Stor händelse 2026-04-23:** 11 uppdrag i OMTAG-waven mergade. Se arkivet [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) och slutrapporten [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md). Flera planer här nedan har delvis bockats av — se top-note i respektive plan-fil.
 
 ## Scope-anchor (nästa session)

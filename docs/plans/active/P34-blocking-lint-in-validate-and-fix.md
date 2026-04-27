@@ -1,3 +1,10 @@
+---
+id: P34
+status: active
+created: 2026-04-21
+linear: SAJ-28
+---
+
 # P34 — Blocking lint in the pre-save validation loop
 
 **Status:** A+B klara, C delvis (development aktiverad). **Kvar:**
