@@ -131,6 +131,7 @@ services/mpc/logs/
 .idea/
 .DS_Store
 Thumbs.db
+.vscode.bak/
 # Cursor-specific (plans are session-specific, mcp.json is shared)
 .cursor/plans/
 .cursor/documents/
