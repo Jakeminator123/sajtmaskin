@@ -9,7 +9,9 @@ alwaysApply: true
 
 Vid **städa/ta bort/flytta/refaktor**: utför, inte bara lista. Radera duplicat och död kod. Fixa importer, länkar och env-referenser i samma svep. Städning ≠ fri omorganisation — smalna scope vid vag begäran.
 
-**Enkelhet:** Färre begrepp, klarare vägar. Förenkling får inte ske på bekostnad av kvalitet.
+**Enkelhet:** Färre begrepp, klarare vägar. Förenkling får inte ske på bekostnad av kvalitet. Om en förenkling kräver pipeline-/arkitekturbeslut: notera fyndet i plan/rapport, smyg inte in det i cleanup.
+
+**Namnskuggor:** Introducera inga nya filnamn, routes, config-nycklar eller docs-termer som skuggar glossaryns § Namnskuggor eller legacy-namn. Vid rename: uppdatera importer, tester, docs i samma PR — pausa om bred diff.
 
 Steg: spåra beroenden → utför → uppdatera referenser → `npm run typecheck` (+ test). Överstyr "minimal diff" vid explicit städ-request.
 
