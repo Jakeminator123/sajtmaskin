@@ -304,8 +304,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
     //     (kräver instrumentering kring runTier2VerifyLane i post-checks.ts)
     //
     // Se framtida wave i körplanen:
-    //   - docs/plans/active/2026-04-24-llm-flode-korplan/06-latens-och-scaffold-delta.md § E1
-    //   - docs/plans/active/2026-04-24-llm-flode-korplan/07-f2-ux-slo-matbarhet.md
+    //   - docs/plans/avklarat/2026-04-24-llm-flode-korplan/06-latens-och-scaffold-delta.md § E1
+    //   - docs/plans/avklarat/2026-04-24-llm-flode-korplan/07-f2-ux-slo-matbarhet.md
     f2TimeMs: null,
     f3TimeMs: null,
     warmTscSkipped: finalized.warmTscSkipped === true,

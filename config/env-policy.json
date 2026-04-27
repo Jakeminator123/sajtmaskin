@@ -331,7 +331,7 @@
       "key": "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["preview", "production"],
-      "notes": "Opt-in. Default unset → `applyScaffoldSeoDefaults` (src/lib/gen/scaffolds/seo-defaults.ts) is a noop and no SEO files (robots/sitemap/opengraph) are injected. When set to a real site URL → robots/sitemap/opengraph are injected and `app/layout.tsx` metadata is enriched with `metadataBase`/`alternates`/`openGraph`/`twitter`. **Should NOT be set in development or fidelity1/2 design previews** — SEO belongs to Bygg / fidelity3-promotion. Per-project/per-generation siteUrl is planned (see `docs/plans/active/SEO-F3-PROMOTION-NEXT-PR.md`); this env is the global single-tenant fallback."
+      "notes": "Opt-in. Default unset → `applyScaffoldSeoDefaults` (src/lib/gen/scaffolds/seo-defaults.ts) is a noop and no SEO files (robots/sitemap/opengraph) are injected. When set to a real site URL → robots/sitemap/opengraph are injected and `app/layout.tsx` metadata is enriched with `metadataBase`/`alternates`/`openGraph`/`twitter`. **Should NOT be set in development or fidelity1/2 design previews** — SEO belongs to Bygg / fidelity3-promotion. Per-project/per-generation siteUrl is planned (see `docs/plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md`); this env is the global single-tenant fallback."
     },
     {
       "key": "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",

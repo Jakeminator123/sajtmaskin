@@ -5,7 +5,7 @@
  * schema is shared between:
  *
  * - `src/app/api/projects/[id]/preferences/route.ts` (GET/PATCH validation)
- * - future Bygg-dialog UI (PR-B in `docs/plans/active/SEO-F3-PROMOTION-NEXT-PR.md`)
+ * - future Bygg-dialog UI (PR-B in `docs/plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md`)
  *
  * Keeping the schema here (not next to the route) lets the future UI pull
  * the same Zod types without depending on `src/app/`-internals.
