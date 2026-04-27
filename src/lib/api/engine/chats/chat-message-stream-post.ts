@@ -41,6 +41,7 @@ import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildGenerationInputPackage,
   finalizeOrchestrationPrompts,
+  type OrchestrationInput,
   prepareGenerationContext,
   resolveOrchestrationBase,
   writeOrchestrationDynamicDump,
@@ -57,7 +58,7 @@ import {
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
-import { parseChatRequestMeta } from "./parse-chat-request-meta";
+import { parseChatRequestMeta, type ParsedChatRequestMeta } from "./parse-chat-request-meta";
 import { createCommitCreditsOnce } from "./credits-handler";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -182,6 +183,117 @@ function buildBoundedChatHistory(messages: Array<{ role: string; content: string
   );
   const recent = filtered.slice(-recentCount);
   return [...older, ...recent];
+}
+
+type FollowUpOrchestrationInputMode = "plan" | "codegen";
+
+interface BuildFollowUpOrchestrationInputParams {
+  mode: FollowUpOrchestrationInputMode;
+  optimizedMessage: string;
+  message: string;
+  buildIntent: BuildIntent;
+  parsedMeta: Pick<
+    ParsedChatRequestMeta,
+    | "brief"
+    | "themeColors"
+    | "palette"
+    | "designThemePreset"
+    | "scaffoldMode"
+    | "scaffoldId"
+    | "lifecycleStage"
+  >;
+  resolvedImageGenerations: boolean;
+  designReferences: OrchestrationInput["designReferences"];
+  persistedScaffoldId: string | null;
+  previousFilesCount: number;
+  hasFollowUpBase: boolean;
+  ignorePersistedScaffoldForMatch: boolean;
+  promptStrategyMeta: OrchestrationInput["promptStrategyMeta"];
+  existingRoutePaths: string[];
+  existingShellRoutePaths: string[];
+  followUpCapabilityDetection: FollowUpCapabilityDetection;
+  followUpIntent: OrchestrationInput["followUpIntent"] | null;
+  orchestrationSnapshot: Record<string, unknown> | null;
+  engineModelId: string;
+  persistedVariantId?: string | null;
+  contractAnswers?: OrchestrationInput["contractAnswers"];
+  customInstructions?: string;
+  chatId?: string;
+  priorQualityTarget?: OrchestrationInput["priorQualityTarget"];
+  requestKind?: OrchestrationInput["requestKind"];
+}
+
+function buildFollowUpOrchestrationInput(
+  params: BuildFollowUpOrchestrationInputParams,
+): OrchestrationInput {
+  const detectedDossierCapabilities =
+    params.hasFollowUpBase &&
+    params.followUpCapabilityDetection.capabilityIds.length > 0 &&
+    params.followUpIntent !== "capability-modify";
+  const capabilityModifyHint =
+    params.hasFollowUpBase &&
+    params.followUpIntent === "capability-modify" &&
+    params.followUpCapabilityDetection.capabilityIds.length > 0
+      ? {
+          capabilityIds: params.followUpCapabilityDetection.capabilityIds,
+          references: params.followUpCapabilityDetection.modifyReferenceMatches,
+        }
+      : null;
+
+  const commonInput: OrchestrationInput = {
+    prompt: params.optimizedMessage,
+    rawPrompt: params.message,
+    routePlanPrompt: params.message,
+    buildSpecPrompt: params.message,
+    contractsPrompt: params.message,
+    capabilitiesPrompt: params.message,
+    scaffoldMatchPrompt: params.message,
+    buildIntent: params.buildIntent,
+    scaffoldMode: params.parsedMeta.scaffoldMode,
+    scaffoldId: params.parsedMeta.scaffoldId,
+    brief:
+      params.parsedMeta.brief ??
+      buildFollowUpBriefFromSnapshot(params.orchestrationSnapshot),
+    themeColors: params.parsedMeta.themeColors,
+    imageGenerations: params.resolvedImageGenerations,
+    componentPalette: params.parsedMeta.palette,
+    designThemePreset: params.parsedMeta.designThemePreset,
+    designReferences: params.designReferences,
+    persistedScaffoldId: params.persistedScaffoldId,
+    previousFilesCount: params.previousFilesCount,
+    generationMode: params.hasFollowUpBase ? "followUp" : undefined,
+    isFirstCodeGeneration:
+      !params.hasFollowUpBase && Boolean(params.persistedScaffoldId),
+    ignorePersistedScaffoldForMatch: params.ignorePersistedScaffoldForMatch,
+    promptStrategyMeta: params.promptStrategyMeta,
+    existingRoutePaths: params.existingRoutePaths,
+    existingShellRoutePaths: params.existingShellRoutePaths,
+    capabilities: params.hasFollowUpBase ? inferCapabilities(params.message) : undefined,
+    requestedDossierCapabilities: detectedDossierCapabilities
+      ? params.followUpCapabilityDetection.capabilityIds
+      : undefined,
+    requestedCapabilityTiers: detectedDossierCapabilities
+      ? params.followUpCapabilityDetection.tierByCapability
+      : undefined,
+    capabilityModifyHint,
+    engineModelId: params.engineModelId,
+    lifecycleStage: params.parsedMeta.lifecycleStage,
+  };
+
+  if (params.mode === "plan") {
+    return commonInput;
+  }
+
+  return {
+    ...commonInput,
+    persistedVariantId: params.persistedVariantId,
+    contractAnswers: params.contractAnswers,
+    customInstructions: params.customInstructions,
+    chatId: params.chatId,
+    followUpIntent: params.hasFollowUpBase ? params.followUpIntent ?? undefined : undefined,
+    priorQualityTarget: params.priorQualityTarget,
+    requestKind: params.requestKind ?? null,
+  };
 }
 
 /** Follow-up chat stream (own-engine). Route files set `runtime` / `maxDuration`. */
@@ -725,81 +837,29 @@ export async function handleMessageStreamRequest(
             planEngineIntent = "app";
           }
           const planOrchestrationStartedAt = Date.now();
-          const planOrchestration = await prepareGenerationContext({
-            prompt: optimizedMessage,
-            rawPrompt: message,
-            routePlanPrompt: message,
-            buildSpecPrompt: message,
-            // 2026-04-22 follow-up audit: plan-mode-vägen hade bara två av
-            // de fem rå-signalfälten (route-plan + build-spec). Contracts,
-            // scaffold-match och capability-inferens drevs av wrappad
-            // `optimizedMessage` → planner/codegen-drift. Spegla hela paketet.
-            contractsPrompt: message,
-            scaffoldMatchPrompt: message,
-            capabilitiesPrompt: message,
-            buildIntent: planEngineIntent,
-            scaffoldMode: metaScaffoldMode,
-            scaffoldId: metaScaffoldId,
-            // 2026-04-22 follow-up audit: plan-mode-vägen saknade A1+A2
-            // snapshot-brief-hydrering som huvudflödet (~rad 788) fick.
-            // Plan-LLM:n gick därför på `null` brief medan senare codegen
-            // fick capability- och designsignaler rehydrerade från snapshot.
-            brief:
-              metaBrief ??
-              buildFollowUpBriefFromSnapshot(
+          const planOrchestration = await prepareGenerationContext(
+            buildFollowUpOrchestrationInput({
+              mode: "plan",
+              optimizedMessage,
+              message,
+              buildIntent: planEngineIntent,
+              parsedMeta,
+              resolvedImageGenerations,
+              designReferences,
+              persistedScaffoldId,
+              previousFilesCount: previousFiles.length,
+              hasFollowUpBase,
+              ignorePersistedScaffoldForMatch,
+              promptStrategyMeta: promptOrchestration.strategyMeta,
+              existingRoutePaths,
+              existingShellRoutePaths,
+              followUpCapabilityDetection,
+              followUpIntent,
+              orchestrationSnapshot:
                 engineChat.orchestration_snapshot as Record<string, unknown> | null,
-              ),
-            themeColors: metaThemeColors,
-            imageGenerations: resolvedImageGenerations,
-            componentPalette: metaPalette,
-            designThemePreset: metaDesignThemePreset,
-            designReferences,
-            persistedScaffoldId,
-            previousFilesCount: previousFiles.length,
-            generationMode: hasFollowUpBase ? ("followUp" as const) : undefined,
-            isFirstCodeGeneration: !hasFollowUpBase && Boolean(persistedScaffoldId),
-            ignorePersistedScaffoldForMatch,
-            promptStrategyMeta: promptOrchestration.strategyMeta,
-            existingRoutePaths,
-            existingShellRoutePaths,
-            capabilities: hasFollowUpBase ? inferCapabilities(message) : undefined,
-            // Plan 06: forward detected dossier capabilities + tier map so
-            // plan-mode planning sees the same dossier injection picture as
-            // the main codegen flow (otherwise the planner would build a
-            // task list ignorant of e.g. a `kontaktform`-add).
-            //
-            // Plan 11 / open-question #12: same `capability-modify`
-            // suppression as the codegen orchestration below — re-injecting
-            // the dossier shell would mislead the planner into emitting a
-            // task list that adds a fresh shell on top of the existing one.
-            requestedDossierCapabilities:
-              hasFollowUpBase &&
-              followUpCapabilityDetection.capabilityIds.length > 0 &&
-              followUpIntent !== "capability-modify"
-                ? followUpCapabilityDetection.capabilityIds
-                : undefined,
-            requestedCapabilityTiers:
-              hasFollowUpBase &&
-              followUpCapabilityDetection.capabilityIds.length > 0 &&
-              followUpIntent !== "capability-modify"
-                ? followUpCapabilityDetection.tierByCapability
-                : undefined,
-            capabilityModifyHint:
-              hasFollowUpBase &&
-              followUpIntent === "capability-modify" &&
-              followUpCapabilityDetection.capabilityIds.length > 0
-                ? {
-                    capabilityIds: followUpCapabilityDetection.capabilityIds,
-                    references:
-                      followUpCapabilityDetection.modifyReferenceMatches,
-                  }
-                : null,
-            // Bug 04#3 (2026-04-22 audit): plan mode måste också skicka
-            // engineModelId + lifecycleStage annars divergerar BuildSpec från
-            // huvudflödet (token-budget och F2/F3-policy).
-            engineModelId: resolveEngineModelId(resolvedModelTier),
-            lifecycleStage: parsedMeta.lifecycleStage,
-          });
+              engineModelId: resolveEngineModelId(resolvedModelTier),
+            }),
+          );
           debugLog("orchestration", "Follow-up plan orchestration prepared", {
             chatId,
             durationMs: Date.now() - planOrchestrationStartedAt,
@@ -976,103 +1036,33 @@ export async function handleMessageStreamRequest(
         }
         // P32 Fas B next step: external-fetch needs web-search integration
         // before it can short-circuit safely; keep it on normal codegen for now.
-        const orchestrationInput = {
-          prompt: optimizedMessage,
-          rawPrompt: message,
-          routePlanPrompt: message,
-          buildSpecPrompt: message,
-          // QW-1: contract-inferens + capability-inferens får rå message så
-          // file-context-wrappingen i optimizedMessage inte förgiftar deras
-          // semantiska beslut (t.ex. att en LoginForm-fil i context skulle
-          // pinna `needsAuth`). Dossier-urvalet är capability-driven från
-          // brief, så det behöver ingen rå-prompt.
-          contractsPrompt: message,
-          capabilitiesPrompt: message,
-          // P26: scaffold-matchern (embedding + keyword) får också rå message
-          // så embedding-API:t inte rejectas på `400 max 8192 tokens` när
-          // optimizedMessage är ~30k tecken med inbäddad filkontext, och så
-          // att keyword-fallback inte triggar APP_KEYWORDS via filcontextens
-          // text. Tidigare flippade en bildbyte landing-page → app-shell och
-          // promotade build_intent från website till app.
-          scaffoldMatchPrompt: message,
+        const orchestrationInput = buildFollowUpOrchestrationInput({
+          mode: "codegen",
+          optimizedMessage,
+          message,
           buildIntent: engineIntent,
-          scaffoldMode: metaScaffoldMode,
-          scaffoldId: metaScaffoldId,
-          // A1+A2 fix (2026-04-21): on follow-up, hydrate a minimal brief
-          // from the orchestration_snapshot when the client did not send
-          // one inline (delta-brief flows still set `metaBrief`). This
-          // restores capability-driven dossier selection on follow-ups —
-          // without it, `selectDossiersForRequest` got `brief: null` and
-          // dropped every capability the user originally asked for.
-          brief:
-            metaBrief ??
-            buildFollowUpBriefFromSnapshot(
-              engineChat.orchestration_snapshot as Record<string, unknown> | null,
-            ),
-          themeColors: metaThemeColors,
-          imageGenerations: resolvedImageGenerations,
-          componentPalette: metaPalette,
-          designThemePreset: metaDesignThemePreset,
+          parsedMeta,
+          resolvedImageGenerations,
           designReferences,
           persistedScaffoldId,
+          previousFilesCount: previousFiles.length,
+          hasFollowUpBase,
+          ignorePersistedScaffoldForMatch,
+          promptStrategyMeta: promptOrchestration.strategyMeta,
+          existingRoutePaths,
+          existingShellRoutePaths,
+          followUpCapabilityDetection,
+          followUpIntent,
+          orchestrationSnapshot:
+            engineChat.orchestration_snapshot as Record<string, unknown> | null,
+          engineModelId: resolveEngineModelId(resolvedModelTier),
           persistedVariantId: snapshotVariantId,
           contractAnswers: contractAnswerContext.confirmedAnswers,
           customInstructions: trimmedSystem || undefined,
-          promptStrategyMeta: promptOrchestration.strategyMeta,
-          previousFilesCount: previousFiles.length,
-          generationMode: hasFollowUpBase ? ("followUp" as const) : undefined,
-          isFirstCodeGeneration: !hasFollowUpBase && Boolean(persistedScaffoldId),
-          ignorePersistedScaffoldForMatch,
-          existingRoutePaths,
-          existingShellRoutePaths,
-          capabilities: hasFollowUpBase ? inferCapabilities(message) : undefined,
-          // Plan 06 (2026-04-24): see `followUpCapabilityDetection` above.
-          // Caller-provided ids merge into orchestrate's capability bridge so
-          // dossiers actually get selected on follow-ups even when the
-          // snapshot-rebuilt brief carried no capabilities.
-          //
-          // Plan 11 / open-question #12: when the follow-up was classified
-          // as `capability-modify` (user references an existing on-page
-          // element such as "pricken" / "den 3D-grejen" alongside a
-          // capability keyword) we suppress this re-injection on purpose
-          // — the dossier shell already exists in the previous version
-          // and re-emitting it would duplicate the mount on top of the
-          // user's working scene file. The `capabilityModifyHint` below
-          // restores the directional signal in a different shape.
-          requestedDossierCapabilities:
-            hasFollowUpBase &&
-            followUpCapabilityDetection.capabilityIds.length > 0 &&
-            followUpIntent !== "capability-modify"
-              ? followUpCapabilityDetection.capabilityIds
-              : undefined,
-          requestedCapabilityTiers:
-            hasFollowUpBase &&
-            followUpCapabilityDetection.capabilityIds.length > 0 &&
-            followUpIntent !== "capability-modify"
-              ? followUpCapabilityDetection.tierByCapability
-              : undefined,
-          capabilityModifyHint:
-            hasFollowUpBase &&
-            followUpIntent === "capability-modify" &&
-            followUpCapabilityDetection.capabilityIds.length > 0
-              ? {
-                  capabilityIds: followUpCapabilityDetection.capabilityIds,
-                  references: followUpCapabilityDetection.modifyReferenceMatches,
-                }
-              : null,
-          lifecycleStage: parsedMeta.lifecycleStage,
-          // P22b: chatId + followUpIntent + priorQualityTarget aktiverar P22:s
-          // helpers runtime (`inheritQualityTargetFromPriorVersion` i deriveBuildSpec
-          // och `lockedVariantForFollowUp` i resolveScaffoldVariant). Utan dessa
-          // är helpers dead code: tester gröna, produktion oförändrad.
           chatId,
-          followUpIntent: hasFollowUpBase ? followUpIntent : undefined,
           priorQualityTarget,
-          // Q5a: pass resolved engine model id so deriveBuildSpec scales
-          // tokenBudgets to the model's actual context window.
-          engineModelId: resolveEngineModelId(resolvedModelTier),
           requestKind: requestKindResult?.kind ?? null,
-        };
+        });
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
         if (requestKindResult) {
