@@ -73,7 +73,7 @@ Alla med fullständiga tester. Registrerade i [`fixer-registry.ts`](../../src/li
 
 ### Fas B — Prompt-core counter-examples
 
-Tre ❌-block i [`02-component-contract.md`](../../config/prompt-core/02-component-contract.md) som explicit visar **vad man inte får göra** (icons med `import type`, `<HTMLFormElement>` som JSX, `import X` + `export type X`-kollision). Follow-up-not tillagd i [`omtag-07-static-core-type-imports.md`](../plans/avklarat/omtag-2026-04-23/07-static-core-type-imports.md).
+Tre ❌-block i [`02-component-contract.md`](../../config/prompt-core/02-component-contract.md) som explicit visar **vad man inte får göra** (icons med `import type`, `<HTMLFormElement>` som JSX, `import X` + `export type X`-kollision). Follow-up-not tillagd i [`omtag-07-static-core-type-imports.md`](../plans/avklarat/omtag-2026-04-23/planspec/07-static-core-type-imports.md).
 
 ### Fas C — Warm-cache provisionering
 

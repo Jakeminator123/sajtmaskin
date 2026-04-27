@@ -64,9 +64,9 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
 
 Per-fil `injectionMode` overrider dossier-nivåns `codeFidelity`. Så en `rewritable`-dossier kan ha en (1) fil markerad `verbatim` (eller vice versa).
 
-## Tre prompt-block (system-prompt.ts)
+## Tre prompt-block (`system-prompt/`)
 
-När minst en dossier väljs renderar `system-prompt.ts` följande:
+När minst en dossier väljs renderar `src/lib/gen/system-prompt/` följande:
 
 ### 1. `## Available Dossiers`
 
@@ -182,7 +182,7 @@ Per 2026-04-21 (efter manuell påfyllning): **7 dossiers**.
 | `faq-section` | `faq-accordion` | soft | Självförsörjande |
 | `testimonials-section` | `testimonials-grid` | soft | Självförsörjande |
 
-Vidare påfyllning planerad i [`M-medium-hard-layer.md` M2](../plans/active/M-medium-hard-layer.md) — kandidater: `auth` (Clerk), `database` (Drizzle/Postgres), `cms` (Sanity), `i18n` (next-intl), `email-marketing` (Resend broadcast), `feature-flags` (Vercel Flags).
+Vidare påfyllning planerades i [`M-medium-hard-layer.md` M2](../plans/avklarat/omtag-2026-04-23/source-gpt-review/M-medium-hard-layer.md) — kandidater: `auth` (Clerk), `database` (Drizzle/Postgres), `cms` (Sanity), `i18n` (next-intl), `email-marketing` (Resend broadcast), `feature-flags` (Vercel Flags).
 
 ## Felsökning
 

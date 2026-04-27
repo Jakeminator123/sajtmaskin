@@ -203,7 +203,7 @@ Dynamic context renderas i strikt prioritetsordning. När token-budget överskri
 | Server-repair (efter `done`) | 0 | upp till 4 (`serverRepairPasses` × `manualRepairRouteLlmPasses`) |
 | **Summa** | **2–3** | **9–13** |
 
-Plan för att kapa värsta fallet ligger i [`L1-unified-repair-call.md`](../plans/active/L1-unified-repair-call.md).
+Plan för att kapa värsta fallet ligger i [`L1-unified-repair-call.md`](../plans/active/parked/L1-unified-repair-call.md).
 
 ---
 

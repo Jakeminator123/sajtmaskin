@@ -2,7 +2,7 @@
 
 Kronologisk redogörelse av en testkörning genom egen-motorn (Tanker/max, skrivfritt-flöde). Fyra genereringar landade på samma `chatId` plus ett avbrutet fidelity-3-försök. Syftet var att bevaka pipelinen utan att ingripa.
 
-> Åtgärdsplan för identifierade problem: [`docs/plans/active/dossier-brief-sync.md`](../plans/active/dossier-brief-sync.md).
+> Åtgärdsplan för identifierade problem: [`docs/plans/avklarat/dossier-brief-sync.md`](../plans/avklarat/dossier-brief-sync.md).
 
 ## Setup
 
@@ -138,19 +138,19 @@ Bonus-fynd: `components/surf-snake-game.tsx` (240 rader, 11 KB) finns från init
 
 ## Vad gick dåligt — kort matris
 
-- **Brief-LLM:n känner till capabilities som inte finns** (`image-gen`, `auth`) och **missar 6 av 11 dossiers** som finns på disk. Hardkodad lista i [`src/lib/builder/site-brief-generation.ts:294`](../../src/lib/builder/site-brief-generation.ts) — se [P0](../plans/active/dossier-brief-sync.md#p0-dossier-vokabulär-mismatch).
-- **Dossier-schemat självt** ([`docs/schemas/strict/dossier.schema.json`](../../docs/schemas/strict/dossier.schema.json) rad 35) reciterar samma gamla hårdkodade capability-exempel. Tredje källa ur synk. Se [P0 schema-sync](../plans/active/dossier-brief-sync.md#p0-tre-parallella-kataloger-ur-synk).
-- **`data/dossiers/_index/capability-map.json`** — en tredje katalog (10 capabilities → 11 dossier-ids). Kommenteras som "backoffice listings + sanity check during curation" men är inte uppdaterad/automatisk. Se samma [P0](../plans/active/dossier-brief-sync.md#p0-tre-parallella-kataloger-ur-synk).
-- **Fidelity-3 ber om Clerk/Contentful/MongoDB** som ingen dossier backar — två parallella kataloger ([`registry.ts`](../../src/lib/integrations/registry.ts) med 24 entries vs dossiers med 11). Se [P0](../plans/active/dossier-brief-sync.md#p0-fidelity-3-bryter-mot-dossier-poolen).
-- **Follow-up återväljer aldrig dossiers** — `followup_technical` + `direct` hoppar `useInitBrief`. Three.js-wrappern fick uppfinnas från scratch trots att `three-fiber-canvas`-dossiern hade passat. Se [P1](../plans/active/dossier-brief-sync.md#p1-follow-ups-hoppar-över-dossier-omval).
-- **Autofix fabrikerar synliga stub-komponenter** i run 2 för `Point`, `Direction`, `PaddlingCaptain`. Modellens riktiga fil ersätts med en streckad ruta. Se [P0](../plans/active/dossier-brief-sync.md#p0-autofix-stub-fabrikering-förstör-genererad-3d).
-- **Slug-derivering kollapsar till `orchestration-styledirection`** istället för en site-baserad slug. [`devLog.ts deriveSlugFromEntry()`](../../src/lib/logging/devLog.ts) plockar `type` som fallback. Se [P1](../plans/active/dossier-brief-sync.md#p1-slug-derivering-kollapsar).
-- **`Prompt formatting result changed:false`** är vilseledande när brief är aktiv. Se [P1](../plans/active/dossier-brief-sync.md#p1-prompt-formatting-loggraden-är-vilseledande).
-- **`tsc-skipped` när `resolvedScaffold == null && !forceTsc`** — typecheck hoppas tyst. Se [P1](../plans/active/dossier-brief-sync.md#p1-tsc-tyst-skippas).
-- **WS HMR i preview_host (Fly) failas konstant** — `wss://.../{chatId}/_next/webpack-hmr` får inte upgrade. Floodar konsolen. Se [P2](../plans/active/dossier-brief-sync.md#p2-ws-hmr-prefix-mismatch-i-preview_host).
-- **Verifier-finding `footer-dead-links`** är false-positive när snippet saknas — borde degraderas till `warning/skipped`. Se [P2](../plans/active/dossier-brief-sync.md#p2-verifier-blind-findings-rapporteras-som-error).
-- **`a11y-duplicate-id`** (run 4) — shadcn Input-tillägget återanvände en existerande section-id. Verifiern fångade det, men autofix-passet rörde det inte. Se [P2](../plans/active/dossier-brief-sync.md#p2-autofix-ignorerar-a11y-findings).
-- **D-ID avatar CORS** från `localhost:3000` → agent `v2_agt_h5geNb9N` saknar allowed origin. Se [P2](../plans/active/dossier-brief-sync.md#p2-d-id-avatar-cors-i-lokal-dev).
+- **Brief-LLM:n känner till capabilities som inte finns** (`image-gen`, `auth`) och **missar 6 av 11 dossiers** som finns på disk. Hardkodad lista i [`src/lib/builder/site-brief-generation.ts:294`](../../src/lib/builder/site-brief-generation.ts) — se [P0](../plans/avklarat/dossier-brief-sync.md#p0-dossier-vokabulär-mismatch).
+- **Dossier-schemat självt** ([`docs/schemas/strict/dossier.schema.json`](../../docs/schemas/strict/dossier.schema.json) rad 35) reciterar samma gamla hårdkodade capability-exempel. Tredje källa ur synk. Se [P0 schema-sync](../plans/avklarat/dossier-brief-sync.md#p0-tre-parallella-kataloger-ur-synk).
+- **`data/dossiers/_index/capability-map.json`** — en tredje katalog (10 capabilities → 11 dossier-ids). Kommenteras som "backoffice listings + sanity check during curation" men är inte uppdaterad/automatisk. Se samma [P0](../plans/avklarat/dossier-brief-sync.md#p0-tre-parallella-kataloger-ur-synk).
+- **Fidelity-3 ber om Clerk/Contentful/MongoDB** som ingen dossier backar — två parallella kataloger ([`registry.ts`](../../src/lib/integrations/registry.ts) med 24 entries vs dossiers med 11). Se [P0](../plans/avklarat/dossier-brief-sync.md#p0-fidelity-3-bryter-mot-dossier-poolen).
+- **Follow-up återväljer aldrig dossiers** — `followup_technical` + `direct` hoppar `useInitBrief`. Three.js-wrappern fick uppfinnas från scratch trots att `three-fiber-canvas`-dossiern hade passat. Se [P1](../plans/avklarat/dossier-brief-sync.md#p1-follow-ups-hoppar-över-dossier-omval).
+- **Autofix fabrikerar synliga stub-komponenter** i run 2 för `Point`, `Direction`, `PaddlingCaptain`. Modellens riktiga fil ersätts med en streckad ruta. Se [P0](../plans/avklarat/dossier-brief-sync.md#p0-autofix-stub-fabrikering-förstör-genererad-3d).
+- **Slug-derivering kollapsar till `orchestration-styledirection`** istället för en site-baserad slug. [`devLog.ts deriveSlugFromEntry()`](../../src/lib/logging/devLog.ts) plockar `type` som fallback. Se [P1](../plans/avklarat/dossier-brief-sync.md#p1-slug-derivering-kollapsar).
+- **`Prompt formatting result changed:false`** är vilseledande när brief är aktiv. Se [P1](../plans/avklarat/dossier-brief-sync.md#p1-prompt-formatting-loggraden-är-vilseledande).
+- **`tsc-skipped` när `resolvedScaffold == null && !forceTsc`** — typecheck hoppas tyst. Se [P1](../plans/avklarat/dossier-brief-sync.md#p1-tsc-tyst-skippas).
+- **WS HMR i preview_host (Fly) failas konstant** — `wss://.../{chatId}/_next/webpack-hmr` får inte upgrade. Floodar konsolen. Se [P2](../plans/avklarat/dossier-brief-sync.md#p2-ws-hmr-prefix-mismatch-i-preview_host).
+- **Verifier-finding `footer-dead-links`** är false-positive när snippet saknas — borde degraderas till `warning/skipped`. Se [P2](../plans/avklarat/dossier-brief-sync.md#p2-verifier-blind-findings-rapporteras-som-error).
+- **`a11y-duplicate-id`** (run 4) — shadcn Input-tillägget återanvände en existerande section-id. Verifiern fångade det, men autofix-passet rörde det inte. Se [P2](../plans/avklarat/dossier-brief-sync.md#p2-autofix-ignorerar-a11y-findings).
+- **D-ID avatar CORS** från `localhost:3000` → agent `v2_agt_h5geNb9N` saknar allowed origin. Se [P2](../plans/avklarat/dossier-brief-sync.md#p2-d-id-avatar-cors-i-lokal-dev).
 
 ## Verifier-fynd per körning
 
@@ -218,4 +218,4 @@ Tidigt i sessionen tolkade jag `model: gpt-5.4` på follow-upen som att en lätt
 
 ## Nästa steg
 
-Se [`docs/plans/active/dossier-brief-sync.md`](../plans/active/dossier-brief-sync.md) för åtgärdsplanen, severity-grupperad.
+Se [`docs/plans/avklarat/dossier-brief-sync.md`](../plans/avklarat/dossier-brief-sync.md) för åtgärdsplanen, severity-grupperad.
