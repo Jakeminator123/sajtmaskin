@@ -433,6 +433,33 @@ describe("suppressValidInPageAnchorNavigationFindings", () => {
     expect(findings.blocking).toEqual([]);
   });
 
+  it("accepts scoped package-style paths when validating in-page hash navigation", () => {
+    const findings = suppressValidInPageAnchorNavigationFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail:
+              '@myorg/components/Hero.tsx: "Start" uses href="#hero-start".',
+          },
+        ],
+        quality: [],
+      },
+      [
+        {
+          path: "@myorg/components/Hero.tsx",
+          content: [
+            "export function Hero() {",
+            '  return <section id="hero-start">start</section>;',
+            "}",
+          ].join("\n"),
+        },
+      ],
+    );
+
+    expect(findings.blocking).toEqual([]);
+  });
+
   it("keeps hash navigation findings when the target id is missing", () => {
     const findings = suppressValidInPageAnchorNavigationFindings(
       {

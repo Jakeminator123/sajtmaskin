@@ -150,7 +150,7 @@ function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFind
   };
 }
 
-const DETAIL_FILE_PATH_RE = /\b([A-Za-z0-9_./-]+\.(?:tsx?|jsx?))\b/g;
+const DETAIL_FILE_PATH_RE = /(^|[^@A-Za-z0-9_./-])([@A-Za-z0-9_./-]+\.(?:tsx?|jsx?))\b/g;
 const DETAIL_HASH_HREF_RE = /\bhref\s*(?:=\s*\{?\s*)?(["'`])(#[-A-Za-z0-9_:]+)\1/g;
 
 function escapeRegExp(value: string): string {
@@ -174,7 +174,7 @@ function extractDetailFilePaths(detail: string): string[] {
   const files = new Set<string>();
   let match: RegExpExecArray | null;
   while ((match = DETAIL_FILE_PATH_RE.exec(detail)) !== null) {
-    if (match[1]) files.add(match[1].replace(/\\/g, "/"));
+    if (match[2]) files.add(match[2].replace(/\\/g, "/"));
   }
   return [...files];
 }
