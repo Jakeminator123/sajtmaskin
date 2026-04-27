@@ -474,6 +474,23 @@ describe("extractFilePathsFromVerifierFindings", () => {
     ]);
   });
 
+  it("extracts scoped package-style paths referenced inside blocking findings", () => {
+    const files = extractFilePathsFromVerifierFindings({
+      blocking: [
+        {
+          id: "build-error",
+          detail:
+            "@myorg/components/Hero.tsx: missing export used by app/page.tsx",
+        },
+      ],
+    });
+
+    expect(files.sort()).toEqual([
+      "@myorg/components/Hero.tsx",
+      "app/page.tsx",
+    ]);
+  });
+
   it("ignores version-like and dotfile tokens", () => {
     const detail = [
       "Build failed at 1.2.3 caused by app/page.tsx",

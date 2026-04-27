@@ -109,14 +109,14 @@ export function extractFilePathsFromVerifierFindings(
   // its string — silently dropping any path that appears before that
   // offset. Reset `lastIndex` per finding (or instantiate per-iteration);
   // we choose reset because the regex is small and reuse is cheap.
-  const re = /\b([A-Za-z0-9_./-]+\.[A-Za-z]{1,5})\b/g;
+  const re = /(^|[^@A-Za-z0-9_./-])([@A-Za-z0-9_./-]+\.[A-Za-z]{1,5})\b/g;
   for (const f of findings.blocking) {
     const detail = f.detail ?? "";
     if (!detail) continue;
     re.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = re.exec(detail)) !== null) {
-      const candidate = match[1];
+      const candidate = match[2];
       if (!candidate) continue;
       // Skip dotfiles and version-like tokens (e.g. "1.2.3"). We only
       // care about emitted source file references.
