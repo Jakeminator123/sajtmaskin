@@ -1,5 +1,6 @@
 import type { PreflightIssueCategory } from "@/lib/gen/stream/preflight-contract";
 import type { CodeFile } from "@/lib/gen/parser";
+import { isRuntimeProvidedImport } from "@/lib/gen/autofix/runtime-imports";
 
 export interface SanityIssue {
   file: string;
@@ -208,7 +209,7 @@ export function runProjectSanityChecks(
     for (const match of file.content.matchAll(IMPORT_RE)) {
       const source = match[1];
       if (!source.startsWith("@/") && !source.startsWith("./") && !source.startsWith("../")) continue;
-      if (source.startsWith("@/components/ui/") || source === "@/lib/utils") continue;
+      if (isRuntimeProvidedImport(source)) continue;
 
       const projectPath = normalizeToProjectPath(source, file.path);
       if (!fileExists(fileMap, projectPath)) {

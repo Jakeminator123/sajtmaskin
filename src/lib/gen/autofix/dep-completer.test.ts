@@ -79,6 +79,26 @@ describe("dep-completer", () => {
     expect(result.dependencies["@react-three/drei"]).toBe(KNOWN_PACKAGES["@react-three/drei"]);
   });
 
+  it("adds Vercel Analytics from the curated allowlist", () => {
+    const result = runDepCompleter(
+      'import { Analytics } from "@vercel/analytics/react";\n',
+    );
+    expect(result.dependencies["@vercel/analytics"]).toBe(
+      KNOWN_PACKAGES["@vercel/analytics"],
+    );
+    expect(result.unknownPackages).not.toContain("@vercel/analytics");
+  });
+
+  it("adds next-mdx-remote from the curated allowlist", () => {
+    const result = runDepCompleter(
+      'import { MDXRemote } from "next-mdx-remote/rsc";\n',
+    );
+    expect(result.dependencies["next-mdx-remote"]).toBe(
+      KNOWN_PACKAGES["next-mdx-remote"],
+    );
+    expect(result.unknownPackages).not.toContain("next-mdx-remote");
+  });
+
   it("adds a few common app packages used by generated projects", () => {
     const result = runDepCompleter(
       [

@@ -76,7 +76,7 @@ const CRITICAL_EVAL_CHECKS = new Set([
  * of the canonical persist payload but the syntax check still saw it
  * in the raw output. Eval reported a runtime-correct fix as a failure.
  *
- * `deriveEvalCheckSources` returns three views so each check can pick
+ * `deriveEvalCheckSources` returns four views so each check can pick
  * the right one:
  *
  * - `rawFiles` — the LLM's post-mechanical-autofix emission. Use for
@@ -86,16 +86,19 @@ const CRITICAL_EVAL_CHECKS = new Set([
  *   `file-count` because users care how many files the model produced,
  *   not how many `buildCompleteProject` injected.
  *
- * - `canonicalFiles` — the user-emitted subset of the post-preflight
- *   payload (i.e. what `engineVersions.files_json` would persist),
- *   excluding scaffold-defaults that `buildCompleteProject` adds for
- *   missing infrastructure files. Use for *runtime correctness* checks
- *   where the persisted payload is the truth: `project-sanity`,
- *   `imports`, `required-files`, `exports`, and (via
- *   `canonicalContent`) `syntax`.
+ * - `canonicalRuntimeFiles` — full post-preflight payload. Use for
+ *   runtime-readiness checks where deterministic additions from
+ *   preflight (`package.json`, materialized helper files, etc.) are
+ *   part of the truth: `project-sanity`, `imports`, `required-files`,
+ *   `exports`, and (via `canonicalContent`) `syntax`.
  *
- * - `canonicalContent` — `serializeCodeProject(canonicalFiles)`, the
- *   syntax-check input matching `canonicalFiles`.
+ * - `canonicalFiles` — the user-emitted subset of the post-preflight
+ *   payload. Kept for diagnostics and for future checks that need to
+ *   distinguish model-authored files from deterministic scaffold /
+ *   preflight additions.
+ *
+ * - `canonicalContent` — `serializeCodeProject(canonicalRuntimeFiles)`,
+ *   the syntax-check input matching the runtime payload.
  *
  * - `droppedProtectedPaths` — paths the protected-paths guard removed
  *   between raw and canonical. Surfaced for telemetry only; not a
@@ -104,6 +107,7 @@ const CRITICAL_EVAL_CHECKS = new Set([
  */
 export interface EvalCheckSources {
   rawFiles: CodeFile[];
+  canonicalRuntimeFiles: CodeFile[];
   canonicalFiles: CodeFile[];
   canonicalContent: string;
   droppedProtectedPaths: string[];
@@ -134,11 +138,13 @@ export function deriveEvalCheckSources(params: {
   }
 
   const userEmittedPaths = new Set(rawFiles.map((f) => f.path));
-  const canonicalFiles = canonicalAll.filter((f) => userEmittedPaths.has(f.path));
-  const canonicalContent = serializeCodeProject(canonicalFiles);
+  const canonicalRuntimeFiles = canonicalAll;
+  const canonicalFiles = canonicalRuntimeFiles.filter((f) => userEmittedPaths.has(f.path));
+  const canonicalContent = serializeCodeProject(canonicalRuntimeFiles);
 
   return {
     rawFiles,
+    canonicalRuntimeFiles,
     canonicalFiles,
     canonicalContent,
     droppedProtectedPaths,
@@ -237,15 +243,36 @@ async function evaluatePrompt(
   // outer autofix in finalize-version.ts but without the surrounding pipeline.
   const { fixedContent } = await runAutoFix(content);
   const project = parseCodeProject(fixedContent);
+  // Dynamic import keeps runner.test.ts able to import pure helpers
+  // without pulling the finalize stack (and its database side imports)
+  // into the test process.
+  const { mergeGeneratedProjectFiles } = await import("../stream/finalize-merge");
+  const mergeResult = mergeGeneratedProjectFiles({
+    chatId: `eval_${evalPrompt.id}`,
+    originalFilesJson: JSON.stringify(project.files),
+    generatedFiles: project.files,
+    resolvedScaffold: generationInput.resolvedScaffold,
+  });
+  const mergedFiles = (
+    JSON.parse(mergeResult.filesJson) as Array<{
+      path: string;
+      content: string;
+      language?: string;
+    }>
+  ).map((file) => ({ ...file, language: file.language || "tsx" }));
   const completeProjectFiles = buildCompleteProject(
-    project.files,
-    collectRequiredUiComponents(project.files),
+    mergedFiles,
+    collectRequiredUiComponents(mergedFiles),
   );
   const seoIssues = runSeoPreflightChecks(completeProjectFiles);
   const preflight = await runFinalizePreflight({
     chatId: `eval_${evalPrompt.id}`,
     model,
-    filesJson: JSON.stringify(project.files),
+    filesJson: mergeResult.filesJson,
+    buildSpec: generationInput.buildSpec,
+    routePlan: generationInput.routePlan,
+    orchestrationContract: generationInput.orchestrationContract,
+    originalPrompt: evalPrompt.prompt,
   });
 
   const sources = deriveEvalCheckSources({
@@ -267,7 +294,7 @@ async function evaluatePrompt(
   }
 
   const checks: CheckResult[] = [
-    checkProjectSanity(sources.canonicalFiles),
+    checkProjectSanity(sources.canonicalRuntimeFiles),
     checkNoBracketPlaceholders(sources.rawFiles),
     checkSeoPublishReadiness(seoIssues),
     checkTier2Readiness(preflight),
@@ -277,9 +304,9 @@ async function evaluatePrompt(
       evalPrompt.expected.minFiles,
       evalPrompt.expected.maxFiles,
     ),
-    checkRequiredFiles(sources.canonicalFiles, evalPrompt.expected.requiredFiles),
-    checkExports(sources.canonicalFiles),
-    checkImports(sources.canonicalFiles, evalPrompt.expected.requiredImports),
+    checkRequiredFiles(sources.canonicalRuntimeFiles, evalPrompt.expected.requiredFiles),
+    checkExports(sources.canonicalRuntimeFiles),
+    checkImports(sources.canonicalRuntimeFiles, evalPrompt.expected.requiredImports),
     checkResponsive(sources.rawFiles),
     checkAccessibility(sources.rawFiles),
     checkSemanticTokens(sources.rawFiles),

@@ -183,6 +183,9 @@ function createStubFile(
   specifiers: ImportSpecifiers,
   fallbackName: string,
 ): string {
+  const semanticHelper = createSemanticMissingComponentHelper(importPath, specifiers);
+  if (semanticHelper) return semanticHelper;
+
   if (specifiers.isTypeOnly) {
     return `// Type-only stub for ${importPath}\nexport {};\n`;
   }
@@ -219,6 +222,150 @@ function createStubFile(
 
   lines.push("");
   return lines.join("\n");
+}
+
+function uniqueExportNames(specifiers: ImportSpecifiers, fallbackName: string): string[] {
+  const names = new Set<string>();
+  for (const name of specifiers.namedImports) {
+    if (/^[A-Z_$a-z][\w$]*$/.test(name)) names.add(name);
+  }
+  if (names.size === 0 && !specifiers.defaultImport) names.add(fallbackName);
+  return [...names];
+}
+
+/**
+ * Minimal real helpers for common hallucinated `@/components/*` imports.
+ *
+ * These are intentionally not null-render stubs: they provide visible,
+ * harmless UI for generic helper imports the model often assumes exist
+ * (`@/components/icon`, `@/components/date`). This keeps canonical
+ * output runnable without hiding missing visuals behind empty placeholders.
+ */
+function createSemanticMissingComponentHelper(
+  importPath: string,
+  specifiers: ImportSpecifiers,
+): string | null {
+  const normalized = importPath.replace(/\\/g, "/");
+  if (normalized === "@/components/icon") {
+    const namedExports = uniqueExportNames(specifiers, "Icon").filter((name) => name !== "Icon");
+    const extraExports = namedExports
+      .map(
+        (name) => `export function ${name}(props: IconProps) {
+  return <Icon {...props} name={props.name ?? "${name}"} />;
+}`,
+      )
+      .join("\n\n");
+    return `"use client";
+
+import {
+  Activity,
+  ArrowRight,
+  BarChart3,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  HelpCircle,
+  LineChart,
+  Search,
+  Sparkles,
+  Star,
+  User,
+  type LucideIcon,
+} from "lucide-react";
+
+const ICONS: Record<string, LucideIcon> = {
+  activity: Activity,
+  arrow: ArrowRight,
+  arrowright: ArrowRight,
+  barchart: BarChart3,
+  barchart3: BarChart3,
+  calendar: Calendar,
+  check: CheckCircle2,
+  clock: Clock,
+  creditcard: CreditCard,
+  date: Calendar,
+  default: Sparkles,
+  help: HelpCircle,
+  linechart: LineChart,
+  search: Search,
+  sparkles: Sparkles,
+  star: Star,
+  user: User,
+};
+
+export interface IconProps {
+  name?: string;
+  className?: string;
+  size?: number;
+  "aria-hidden"?: boolean;
+}
+
+export function Icon({ name = "default", className, size = 20, ...props }: IconProps) {
+  const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const Component = ICONS[key] ?? ICONS.default;
+  return <Component className={className} size={size} aria-hidden={props["aria-hidden"] ?? true} />;
+}
+
+${extraExports ? `${extraExports}\n\n` : ""}export default Icon;
+`;
+  }
+
+  if (normalized === "@/components/date") {
+    const namedExports = uniqueExportNames(specifiers, "DateDisplay").filter(
+      (name) => name !== "DateDisplay",
+    );
+    const extraExports = namedExports
+      .map(
+        (name) => `export function ${name}(props: DateDisplayProps) {
+  return <DateDisplay {...props} />;
+}`,
+      )
+      .join("\n\n");
+    return `"use client";
+
+export type DateLike = Date | string | number | null | undefined;
+
+export interface DateDisplayProps {
+  value?: DateLike;
+  date?: DateLike;
+  label?: string;
+  className?: string;
+}
+
+function formatDate(value: DateLike): string {
+  if (value === null || value === undefined || value === "") return "Välj datum";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("sv-SE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function toDateTime(value: DateLike): string | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}
+
+export function DateDisplay({ value, date, label, className }: DateDisplayProps) {
+  const resolvedValue = value ?? date;
+  return (
+    <time className={className} dateTime={toDateTime(resolvedValue)}>
+      {label ? label + ": " : ""}
+      {formatDate(resolvedValue)}
+    </time>
+  );
+}
+
+${extraExports ? `${extraExports}\n\n` : ""}export default DateDisplay;
+`;
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------

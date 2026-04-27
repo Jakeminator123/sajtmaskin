@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { checkCrossFileImports } from "./cross-file-import-checker";
+import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import type { CodeFile } from "@/lib/gen/parser";
 
 describe("checkCrossFileImports", () => {
@@ -47,6 +48,91 @@ describe("checkCrossFileImports", () => {
     expect(result.fixes.length).toBeGreaterThan(0);
     const stub = result.files.find((f) => f.path === "components/unique-missing-widget.tsx");
     expect(stub?.content).toContain("UniqueMissingWidget");
+  });
+
+  it("materializes a real icon helper for hallucinated @/components/icon imports", () => {
+    const statsCard: CodeFile = {
+      path: "components/stats-card.tsx",
+      language: "tsx",
+      content: [
+        'import { Icon } from "@/components/icon";',
+        "",
+        "export function StatsCard() {",
+        '  return <div><Icon name="calendar" className="size-4" /> Bookings</div>;',
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([statsCard]);
+    const helper = result.files.find((f) => f.path === "components/icon.tsx");
+
+    expect(helper).toBeDefined();
+    expect(helper?.content).toContain("export function Icon");
+    expect(helper?.content).toContain("lucide-react");
+    expect(helper?.content).not.toContain("autofix-stub");
+    expect(helper?.content).not.toContain("return null");
+    const sanity = runProjectSanityChecks(result.files, {
+      scaffoldBaselineCoversPackageJson: true,
+    });
+    expect(
+      sanity.issues.filter((issue) => issue.message.includes("@/components/icon")),
+    ).toEqual([]);
+  });
+
+  it("materializes a real date helper for hallucinated @/components/date imports", () => {
+    const bookingFlow: CodeFile = {
+      path: "components/booking-flow.tsx",
+      language: "tsx",
+      content: [
+        'import { DatePicker } from "@/components/date";',
+        "",
+        "export function BookingFlow() {",
+        '  return <DatePicker value="2026-04-27" className="text-sm" />;',
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([bookingFlow]);
+    const helper = result.files.find((f) => f.path === "components/date.tsx");
+
+    expect(helper).toBeDefined();
+    expect(helper?.content).toContain("export function DateDisplay");
+    expect(helper?.content).toContain("export function DatePicker");
+    expect(helper?.content).not.toContain("autofix-stub");
+    expect(helper?.content).not.toContain("return null");
+    const sanity = runProjectSanityChecks(result.files, {
+      scaffoldBaselineCoversPackageJson: true,
+    });
+    expect(
+      sanity.issues.filter((issue) => issue.message.includes("@/components/date")),
+    ).toEqual([]);
+  });
+
+  it("does not stub runtime-provided hooks like @/lib/hooks/use-mobile", () => {
+    const sidebar: CodeFile = {
+      path: "components/ui/sidebar.tsx",
+      language: "tsx",
+      content: [
+        '"use client";',
+        'import { useIsMobile } from "@/lib/hooks/use-mobile";',
+        "",
+        "export function Sidebar() {",
+        "  const mobile = useIsMobile();",
+        "  return <aside data-mobile={mobile} />;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([sidebar]);
+
+    expect(result.files.some((f) => f.path === "lib/hooks/use-mobile.tsx")).toBe(false);
+    expect(result.fixes.some((f) => f.missingImport === "@/lib/hooks/use-mobile")).toBe(false);
+    const sanity = runProjectSanityChecks(result.files, {
+      scaffoldBaselineCoversPackageJson: true,
+    });
+    expect(
+      sanity.issues.filter((issue) => issue.message.includes("@/lib/hooks/use-mobile")),
+    ).toEqual([]);
   });
 
   it("strips denylisted default imports like HTMLFormElement without stubbing", () => {

@@ -113,7 +113,10 @@ describe("resolveEvalPassOutcome", () => {
  *      `LLM_ONLY_PATHS` and never gets a scaffold default) → eval
  *      syntax FAILS.
  *   C. Unresolved local import that survives into the canonical
- *      payload → `checkProjectSanity` on `canonicalFiles` FAILS.
+ *      runtime payload → `checkProjectSanity` FAILS.
+ *   D. Deterministic materialized helper in canonical runtime payload
+ *      resolves the same import even though the helper was not part of
+ *      raw LLM output.
  */
 describe("deriveEvalCheckSources — eval mätpunkt = canonical, ej raw", () => {
   const VALID_TS = `import { NextRequest } from "next/server";
@@ -206,7 +209,7 @@ export async function GET(_request: NextRequest) {
     expect(sources.canonicalContent).toContain("style=>broken");
   });
 
-  it("C — unresolved local import in canonical payload → project-sanity FAIL", () => {
+  it("C — unresolved local import in canonical runtime payload → project-sanity FAIL", () => {
     const rawFiles = [
       file(
         "app/page.tsx",
@@ -228,9 +231,41 @@ export async function GET(_request: NextRequest) {
       rawFiles,
       preflightFilesJson: JSON.stringify(preflightFiles),
     });
-    const sanity = checkProjectSanity(sources.canonicalFiles);
+    const sanity = checkProjectSanity(sources.canonicalRuntimeFiles);
     expect(sanity.passed).toBe(false);
     expect(sanity.message.toLowerCase()).toContain("@/components/icon");
+  });
+
+  it("D — deterministic materialized helper in canonical runtime payload resolves local import", () => {
+    const rawFiles = [
+      file(
+        "app/page.tsx",
+        `import { Icon } from "@/components/icon";\nexport default function Page(){return <Icon/>;}\n`,
+      ),
+    ];
+    const preflightFiles = [
+      file(
+        "app/page.tsx",
+        `import { Icon } from "@/components/icon";\nexport default function Page(){return <Icon/>;}\n`,
+      ),
+      // Added by deterministic preflight/cross-file repair. It should
+      // be included for runtime-readiness checks even though it was not
+      // emitted by the LLM.
+      file(
+        "components/icon.tsx",
+        `export function Icon(){return <span aria-hidden="true" />;}\nexport default Icon;\n`,
+      ),
+      file("package.json", '{"name":"test"}', "json"),
+    ];
+
+    const sources = deriveEvalCheckSources({
+      rawFiles,
+      preflightFilesJson: JSON.stringify(preflightFiles),
+    });
+    expect(sources.canonicalFiles.map((f) => f.path)).toEqual(["app/page.tsx"]);
+    expect(sources.canonicalRuntimeFiles.map((f) => f.path)).toContain("components/icon.tsx");
+    const sanity = checkProjectSanity(sources.canonicalRuntimeFiles);
+    expect(sanity.passed).toBe(true);
   });
 
   it("infrastructure-only canonical files are excluded from user-emitted view", () => {
@@ -259,6 +294,7 @@ export async function GET(_request: NextRequest) {
       preflightFilesJson: "not-valid-json",
     });
     expect(sources.canonicalFiles).toEqual([]);
+    expect(sources.canonicalRuntimeFiles).toEqual([]);
     expect(sources.canonicalContent).toBe("");
   });
 });

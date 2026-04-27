@@ -1,9 +1,30 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { runProjectSanityChecks } from "./project-sanity";
+import type { CodeFile } from "@/lib/gen/parser";
 
 describe("runProjectSanityChecks", () => {
   afterEach(() => {
     delete process.env.SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS;
+  });
+
+  it("treats runtime-provided imports as resolved", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/ui/sidebar.tsx",
+        language: "tsx",
+        content: [
+          '"use client";',
+          'import { useIsMobile } from "@/lib/hooks/use-mobile";',
+          "export function Sidebar() {",
+          "  const mobile = useIsMobile();",
+          "  return <aside data-mobile={mobile} />;",
+          "}",
+        ].join("\n"),
+      },
+      { path: "package.json", language: "json", content: '{"dependencies":{}}' },
+    ];
+    const result = runProjectSanityChecks(files);
+    expect(result.issues.filter((issue) => issue.message.includes("use-mobile"))).toEqual([]);
   });
 
   it("flags files that look like partial repair snippets", () => {
