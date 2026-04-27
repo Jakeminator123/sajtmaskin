@@ -192,6 +192,117 @@ function normPath(p: string): string {
   return p.replace(/\\/g, "/");
 }
 
+const HOME_ROUTE_RECOVERY_PATH = "app/page.tsx";
+const HOME_ROUTE_RECOVERY_TIMEOUT_MS = 60_000;
+
+function formatRoutePlanForHomeRecovery(routePlan: RoutePlan | null | undefined): string {
+  if (!routePlan || routePlan.routes.length === 0) return "Route plan: unavailable";
+  const routes = routePlan.routes
+    .slice(0, 8)
+    .map((route) => {
+      const required = route.required ? "required" : "optional";
+      return `${route.path} (${route.name}; ${required}) — ${route.intent}`;
+    })
+    .join("; ");
+  return `Route plan: siteType=${routePlan.siteType}; routes=${routes}`;
+}
+
+function formatBuildSpecForHomeRecovery(buildSpec: BuildSpec | null | undefined): string {
+  if (!buildSpec) return "Build spec: unavailable";
+  return [
+    `Build spec: intent=${buildSpec.buildIntent}`,
+    `mode=${buildSpec.generationMode}`,
+    `scaffoldId=${buildSpec.scaffoldId ?? "unknown"}`,
+    `stylePack=${buildSpec.stylePack}`,
+    `qualityTarget=${buildSpec.qualityTarget}`,
+    `routePlanSummary=${buildSpec.routePlanSummary}`,
+  ].join("; ");
+}
+
+function summarizeFilesForHomeRecovery(files: CodeFile[]): string {
+  const paths = files.map((file) => normPath(file.path)).sort();
+  const sample = paths.slice(0, 24).join(", ");
+  return `Existing generated files (${paths.length}): ${sample}${paths.length > 24 ? ", ..." : ""}`;
+}
+
+async function tryRecoverMissingHomeRoute(params: {
+  chatId: string;
+  resolvedTier?: CanonicalModelId;
+  files: CodeFile[];
+  originalPrompt?: string;
+  buildSpec: BuildSpec | null | undefined;
+  routePlan: RoutePlan | null | undefined;
+}): Promise<{ files: CodeFile[]; recovered: boolean; attempted: boolean; message?: string }> {
+  if (findHomePageFile(params.files)) {
+    return { files: params.files, recovered: false, attempted: false };
+  }
+
+  const content = serializeCodeProject(params.files);
+  const errors = [
+    `${HOME_ROUTE_RECOVERY_PATH}:1:1 CRITICAL: Required home route is missing. Create a complete Next.js App Router page at ${HOME_ROUTE_RECOVERY_PATH}. The scaffold default is blocked by LLM_ONLY_PATHS and must not be used as a silent fallback.`,
+    "The recovered page must be a real branded startsida with hero, CTA, and relevant sections; never return an empty, trivial, placeholder, or skeleton-only page.",
+    `Original prompt / brief: ${params.originalPrompt?.trim() || "unavailable"}`,
+    formatBuildSpecForHomeRecovery(params.buildSpec),
+    formatRoutePlanForHomeRecovery(params.routePlan),
+    summarizeFilesForHomeRecovery(params.files),
+  ];
+
+  try {
+    const repairGate = await runLlmRepairGate({
+      content,
+      errors,
+      chatId: params.chatId,
+      timeoutMs: HOME_ROUTE_RECOVERY_TIMEOUT_MS,
+      requiredFiles: [HOME_ROUTE_RECOVERY_PATH],
+      resolvedTier: params.resolvedTier,
+    });
+    const repairResult = repairGate.result;
+    if (!repairResult.success || typeof repairResult.fixedContent !== "string") {
+      return {
+        files: params.files,
+        recovered: false,
+        attempted: true,
+        message:
+          repairResult.missingFiles?.length
+            ? `missing required files: ${repairResult.missingFiles.join(", ")}`
+            : "repair gate did not return a successful app/page.tsx",
+      };
+    }
+
+    const recoveredProject = parseCodeProject(repairResult.fixedContent);
+    const protectedPartition =
+      partitionGeneratedFilesForProtectedPaths(recoveredProject.files);
+    const recoveredFiles = protectedPartition.kept;
+    if (protectedPartition.dropped.length > 0) {
+      const droppedPaths = protectedPartition.dropped.map((file) => file.path);
+      devLogAppend("in-progress", {
+        type: "scaffold-protected-overwrite-blocked",
+        chatId: params.chatId,
+        branch: "home-route-recovery",
+        droppedPaths,
+      });
+    }
+    const recoveredHome = findHomePageFile(recoveredFiles);
+    if (!recoveredHome || normPath(recoveredHome.path) !== HOME_ROUTE_RECOVERY_PATH) {
+      return {
+        files: params.files,
+        recovered: false,
+        attempted: true,
+        message: "repair gate output did not include app/page.tsx",
+      };
+    }
+
+    return { files: recoveredFiles, recovered: true, attempted: true };
+  } catch (error) {
+    return {
+      files: params.files,
+      recovered: false,
+      attempted: true,
+      message: error instanceof Error ? error.message : "unknown home route recovery error",
+    };
+  }
+}
+
 /** Catch Tier-2 / export foot-guns (missing next, broken package.json, etc.). */
 function collectTier2HygieneIssues(files: CodeFile[]): FinalizePreflightIssue[] {
   const issues: FinalizePreflightIssue[] = [];
@@ -753,6 +864,54 @@ export async function runFinalizePreflight({
             )
           ),
         );
+      }
+    }
+
+    const homeRecovery = await tryRecoverMissingHomeRoute({
+      chatId,
+      resolvedTier: _resolvedTier,
+      files: finalFiles,
+      originalPrompt: _originalPrompt,
+      buildSpec,
+      routePlan,
+    });
+    if (homeRecovery.attempted) {
+      if (homeRecovery.recovered) {
+        finalFiles = homeRecovery.files;
+        nextFilesJson = JSON.stringify(finalFiles);
+        mergedProjectContent = serializeCodeProject(
+          finalFiles.map((file) => ({
+            ...file,
+            language: file.language || inferCodeFenceLanguage(file.path),
+          })),
+        );
+        mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+        devLogAppend("in-progress", {
+          type: "home-route-recovery.succeeded",
+          chatId,
+          path: HOME_ROUTE_RECOVERY_PATH,
+          fileCount: finalFiles.length,
+          syntaxValid: mergedSyntax.valid,
+        });
+        if (!mergedSyntax.valid) {
+          preflightIssues.push(
+            ...mergedSyntax.errors.slice(0, 20).map((error) =>
+              createIssue(
+                error.file,
+                "error",
+                `Home route recovery produced syntax error line ${error.line}:${error.column} — ${error.message}`,
+                "code_structure_failure",
+              )
+            ),
+          );
+        }
+      } else {
+        devLogAppend("in-progress", {
+          type: "home-route-recovery.failed",
+          chatId,
+          path: HOME_ROUTE_RECOVERY_PATH,
+          message: homeRecovery.message ?? "unknown failure",
+        });
       }
     }
 
