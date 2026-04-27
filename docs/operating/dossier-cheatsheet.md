@@ -108,7 +108,7 @@ archive/dossiers-legacy-2026-04-20/      ← gamla pipen, gitignored, läses int
 |---|---|
 | Lägg till capability LLM kan deklarera | `src/lib/builder/site-brief-generation.ts` (BRIEF_SYSTEM_PROMPT) |
 | Ändra urvalsalgoritm | `src/lib/gen/dossiers/select.ts` |
-| Ändra hur dossiers renderas i prompten | `src/lib/gen/system-prompt.ts` (rad ~770-895) |
+| Ändra hur dossiers renderas i prompten | `src/lib/gen/system-prompt/` |
 | Ändra schema | `docs/schemas/strict/dossier.schema.json` + `src/lib/gen/dossiers/types.ts` |
 | Backoffice-UI | `backoffice/pages/dossiers.py` |
 

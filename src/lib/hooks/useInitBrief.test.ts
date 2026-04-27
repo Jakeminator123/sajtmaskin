@@ -9,7 +9,7 @@ vi.mock("sonner", () => ({
   }),
 }));
 
-vi.mock("@/lib/builder/promptAssist", () => ({
+vi.mock("@/lib/builder/prompt-assist", () => ({
   buildDynamicInstructionAddendumFromBrief: () => "",
   buildDynamicInstructionAddendumFromPrompt: () => "",
   isOpenAIAssistModel: () => true,

@@ -5,7 +5,7 @@
  * editable source. This file re-exports typed arrays for TypeScript consumers.
  *
  * Consumers:
- * - promptAssist.ts        formatPrompt / addendum keyword extraction
+ * - prompt-assist/                 fallback addendum keyword extraction
  * - server-auto-brief-policy.ts   "looks structured" check
  * - promptOrchestration.ts        complexity analysis / design-heavy detection
  */

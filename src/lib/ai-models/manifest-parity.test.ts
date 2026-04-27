@@ -28,7 +28,7 @@ import {
 } from "@/lib/gen/verify/quality-gate-checks";
 
 describe("config/ai_models/manifest.json parity", () => {
-  it("parses and matches promptAssist allowlists in promptAssist.ts", () => {
+  it("parses and matches prompt-assist allowlists", () => {
     const m = getAiModelsManifest();
     const allowed = getPromptAssistAllowedFromManifest();
 
