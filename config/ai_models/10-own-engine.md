@@ -20,7 +20,7 @@ Env-nycklar finns i **`buildProfiles.envKeys`** (samma som tidigare `SAJTMASKIN_
 ## Anthropic: `4.6` i kod → `4-6` mot API
 
 - Intern ID kan vara `claude-sonnet-4.6` eller `claude-opus-4.6`.
-- [`getOpenAIModel`](../../src/lib/gen/models.ts) och [`createDirectModel`](../../src/lib/builder/gateway-policy.ts) ersätter **sista** `x.y` med `x-y` innan anrop till Anthropic SDK.
+- [`getOpenAIModel`](../../src/lib/gen/models.ts) och [`createDirectModel`](../../src/lib/builder/direct-model.ts) ersätter **sista** `x.y` med `x-y` innan anrop till Anthropic SDK.
 
 För **officiella Claude API-modell-ID** (direkt API, inte gateway), se [Models overview](https://platform.claude.com/docs/en/about-claude/models/overview) — t.ex. `claude-opus-4-6`, `claude-sonnet-4-6`. Själva anropet beskrivs i [Messages API](https://docs.anthropic.com/en/api/messages).
 

@@ -14,7 +14,7 @@ Tillåtna värden kommer från **`manifest.json` → `promptAssist.allowed`** vi
 
 `PromptAssistProvider` i `promptAssist.ts` är `"openai" | "anthropic"`. Tidigare hette OpenAI-grenen `"gateway"` — den etiketten är borttagen ur typen och all runtime-kod sedan Fas 1 världsklass. HTTP-scheman i `/api/ai/brief` och `/api/ai/chat` accepterar fortfarande `"gateway"` i request-body under en övergångsperiod och normaliserar det till `"openai"` server-side.
 
-Anropet går till [`createDirectModel`](../../src/lib/builder/gateway-policy.ts), som använder **`OPENAI_API_KEY`** för `openai/*` och **`ANTHROPIC_API_KEY`** för `anthropic/*`.
+Anropet går till [`createDirectModel`](../../src/lib/builder/direct-model.ts), som använder **`OPENAI_API_KEY`** för `openai/*` och **`ANTHROPIC_API_KEY`** för `anthropic/*`.
 
 ## Standard assist / polish
 

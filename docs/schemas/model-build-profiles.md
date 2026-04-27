@@ -159,7 +159,7 @@ Important current nuance:
 
 - prompt assist does **not** use the v0 Model API
 - the `"gateway"` provider label has been replaced by `"openai"` in runtime code (HTTP schemas still accept `"gateway"` for backwards compat and normalize server-side)
-- the prompt-assist implementation constructs direct OpenAI/Anthropic AI SDK clients in `src/lib/builder/gateway-policy.ts`
+- the prompt-assist implementation constructs direct OpenAI/Anthropic AI SDK clients in `src/lib/builder/direct-model.ts`
 - in practice, "gateway-class" selection in the manifest currently means a manifest-approved
   model string plus direct provider client construction in the route implementation
 

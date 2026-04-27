@@ -826,7 +826,7 @@
         "min": 4096,
         "max": 262144
       },
-      "anthropicModelIdNormalization": "Trailing version segments like 4.6 in claude-sonnet-4.6 are sent to the API as 4-6 (regex in gen/models.ts and gateway-policy.ts).",
+      "anthropicModelIdNormalization": "Trailing version segments like 4.6 in claude-sonnet-4.6 are sent to the API as 4-6 (regex in gen/models.ts and builder/direct-model.ts).",
       "docLinks": [
         {
           "vendor": "Vercel",
@@ -902,7 +902,7 @@
       "provider": "openai_anthropic_direct",
       "codeEntry": [
         "src/app/api/ai/chat/route.ts",
-        "src/lib/builder/gateway-policy.ts",
+        "src/lib/builder/direct-model.ts",
         "src/lib/builder/prompt-assist/runner.ts"
       ],
       "authEnv": [
