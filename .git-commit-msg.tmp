@@ -1,0 +1,34 @@
+chore(repo): rensa worktrees + konsolidera lösa kör-dokument
+
+Användaren begärde bred upprensning av "för mycket löst i repot".
+
+Worktrees:
+- Stängde alla 21 cursor-worktrees (gamla audit-rXX, audit-wave5-*,
+  plan-08..12, plan-investigate-pagetsx-loss, 6 agent-sandbox-worktrees).
+  Alla uncommittade ändringar stash:ade per worktree innan removal.
+  Bara huvud-checkouten (master) kvar nu.
+- Frigör ~10 GB disk + tar bort cognitive load.
+
+Branches:
+- 66 → 21 lokala branches.
+- Raderade 5 "gone"-upstream branches.
+- Raderade 40 lokala branches utan upstream som hörde till klart
+  arbete (audit-rXX, audit-wave5-*, plan-XX, agent/*, gamla cursor/*,
+  ch-vm-hardening — frontend-redesign-experiment som inte mergades).
+- Återstående 21 branches har alla upstream på origin (säkra).
+
+Konsolidering av lösa kör-dokument:
+- Flyttade `lineage/` (3 filer på repo-rot) →
+  `docs/plans/avklarat/master-post-cleanup-2026-04-23/lineage/`
+- Flyttade `STATUS-FINISHING-FIXES-2026-04-24.md` (lös i avklarat-rooten)
+  → `status/`-undermappen där den hör hemma.
+- Skapade `docs/plans/active/parked/` och flyttade 5 "Paused per OMTAG
+  PARKED.md"-planer dit (L1, L2, L3, P32, P33). README uppdaterad med
+  parked/-länkar.
+
+Active-mappen efter städ: 6 lösa md-filer + parked/-undermapp.
+Inget förlorat — allt mergat-arbete finns kvar på origin, och
+worktree-stash:arna kan plockas tillbaka med `git stash list`.
+
+Notera: master är fortfarande typecheck-trasig från `9e63c01b2 "tillbaka"`
+(orphaned verifier-pass refactor). Separat fix kommer.

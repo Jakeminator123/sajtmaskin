@@ -23,15 +23,15 @@ Senast uppdaterad: 2026-04-27 (arkivering av korplan + SEO-spec; ny scope-doc [`
 | L | [`KRAVER-DIALOG-2026-04-24.md`](./KRAVER-DIALOG-2026-04-24.md) | 7 punkter från långbänk-trion (databas/Redis observability) som kräver dialog: mega-cleanup ordering, TOCTOU-races, env-konvent, NDJSON-precision, refaktor-koordinering, fler strict schemas. | Låg–Medel |
 | M | [`OPEN-THREADS-SCAFFOLDS-2026-04-24.md`](./OPEN-THREADS-SCAFFOLDS-2026-04-24.md) | 6 öppna trådar: scaffold-retry brief-context, matcher-kwNorm, scoring wire/keep/delete, scaffoldRetryUsed-upstream, sv-locale-routing, latency-mätning. SEO-spec (PR-A #103 + PR-B #105 ✅) arkiverad → [`../avklarat/SEO-F3-PROMOTION-NEXT-PR.md`](../avklarat/SEO-F3-PROMOTION-NEXT-PR.md). | Låg–Medel |
 
-### Paused per OMTAG `PARKED.md`
+### Paused per OMTAG `PARKED.md` — ligger i [`./parked/`](./parked/)
 
 | # | Plan | Gatekeeper |
 |---|------|------------|
-| G | [`L1-unified-repair-call.md`](./L1-unified-repair-call.md) | Telemetri-data + stabilt repo |
-| H | [`L2-prompt-kit.md`](./L2-prompt-kit.md) | system-prompt-splittningen (OMTAG 03) settle:ad |
-| I | [`L3-dossier-variants.md`](./L3-dossier-variants.md) | M2 + observationstid |
-| J | [`P32-request-type-taxonomy.md`](./P32-request-type-taxonomy.md) Fas B–F | Stabil follow-up-semantik (✅) + bredare eval-surface |
-| K | [`P33-shadcn-ecosystem-expansion.md`](./P33-shadcn-ecosystem-expansion.md) | Produktbeslut + core-split klart |
+| G | [`parked/L1-unified-repair-call.md`](./parked/L1-unified-repair-call.md) | Telemetri-data + stabilt repo |
+| H | [`parked/L2-prompt-kit.md`](./parked/L2-prompt-kit.md) | system-prompt-splittningen (OMTAG 03) settle:ad |
+| I | [`parked/L3-dossier-variants.md`](./parked/L3-dossier-variants.md) | M2 + observationstid |
+| J | [`parked/P32-request-type-taxonomy.md`](./parked/P32-request-type-taxonomy.md) Fas B–F | Stabil follow-up-semantik (✅) + bredare eval-surface |
+| K | [`parked/P33-shadcn-ecosystem-expansion.md`](./parked/P33-shadcn-ecosystem-expansion.md) | Produktbeslut + core-split klart |
 
 **Summa aktivt öppet arbete:** A–F (icke-parkerat) ≈ 1–2 veckor.
 
