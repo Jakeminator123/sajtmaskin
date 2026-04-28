@@ -12,19 +12,22 @@
 
 import rulesJson from "@/../config/domain-rules.json";
 
-export type DomainProfile =
-  | "restaurant"
-  | "hotel"
-  | "spa-salon"
-  | "clinic"
-  | "event-venue"
-  | "ecommerce"
-  | "portfolio"
-  | "saas"
-  | "agency"
-  | "education"
-  | "real-estate"
-  | "general";
+export const DOMAIN_PROFILES = [
+  "restaurant",
+  "hotel",
+  "spa-salon",
+  "clinic",
+  "event-venue",
+  "ecommerce",
+  "portfolio",
+  "saas",
+  "agency",
+  "education",
+  "real-estate",
+  "general",
+] as const;
+
+export type DomainProfile = (typeof DOMAIN_PROFILES)[number];
 
 interface DomainRule {
   domain: DomainProfile;

@@ -19,8 +19,25 @@ import { buildPromptAssistObservations } from "./domain-hints";
 import { buildSharedAddendumBlocks } from "./shared-addendum";
 
 // Brief is intentionally loose (LLM JSON); narrow at use sites with helpers below.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- see above
-type Brief = any;
+type Brief = Record<string, unknown>;
+
+function asRecord(value: unknown): Brief {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Brief)
+    : {};
+}
+
+function asString(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function asStringList(v: unknown): string[] {
+  return Array.isArray(v) ? v.map((x) => asString(x)).filter(Boolean) : [];
+}
+
+function asRecordList(v: unknown): Brief[] {
+  return Array.isArray(v) ? v.map(asRecord) : [];
+}
 
 // `buildRewriteSystemPrompt`, `buildPolishSystemPrompt`, and
 // `buildPromptFromBrief` were removed 2026-04-21 together with
@@ -39,9 +56,6 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
 }): string {
   const { brief, originalPrompt, imageGenerations, buildIntent, themeOverride } = params;
   const intentLines = getBuildIntentInstructionLines(buildIntent);
-  const asString = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
-  const asStringList = (v: unknown): string[] =>
-    Array.isArray(v) ? v.map((x) => asString(x)).filter(Boolean) : [];
 
   const projectTitle = asString(brief.projectTitle) || asString(brief.siteName) || "Website";
   const brandName = asString(brief.brandName);
@@ -49,7 +63,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   const audience = asString(brief.targetAudience);
   const tone = asStringList(brief.toneAndVoice);
 
-  const pages: Brief[] = Array.isArray(brief.pages) ? brief.pages : [];
+  const pages = asRecordList(brief.pages);
   const isSinglePage = pages.length === 1 && asString(pages[0]?.path) === "/";
   const pageLines = pages
     .slice(0, 8)
@@ -57,7 +71,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
       const name = asString(p?.name) || "Page";
       const path = asString(p?.path) || "/";
       const purpose = asString(p?.purpose);
-      const sections: Brief[] = Array.isArray(p?.sections) ? p.sections : [];
+      const sections = asRecordList(p?.sections);
       const sectionLines = sections.slice(0, 12).map((s) => {
         const type = asString(s?.type) || "section";
         const heading = asString(s?.heading);
@@ -72,16 +86,17 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
     })
     .join("\n");
 
-  const imagery = brief?.imagery || {};
+  const imagery = asRecord(brief.imagery);
   const imageryNotes = [
-    ...asStringList(imagery?.styleNotes),
-    ...asStringList(imagery?.subjects),
-    ...asStringList(imagery?.shotTypes),
+    ...asStringList(imagery.styleNotes),
+    ...asStringList(imagery.subjects),
+    ...asStringList(imagery.shotTypes),
   ].filter(Boolean);
 
   const mustHave = asStringList(brief.mustHave).slice(0, 10);
   const avoid = asStringList(brief.avoid).slice(0, 8);
-  const styleKeywords = asStringList(brief?.visualDirection?.styleKeywords);
+  const visualDirection = asRecord(brief.visualDirection);
+  const styleKeywords = asStringList(visualDirection.styleKeywords);
   const { domainBlock, domainContractHints, motionBlock, themeBlock, imageryBlock } =
     buildSharedAddendumBlocks({
       originalPrompt,
@@ -90,7 +105,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
       styleKeywords,
       imageGenerations,
       themeOverride,
-      basePalette: brief?.visualDirection?.colorPalette || {},
+      basePalette: asRecord(visualDirection.colorPalette),
       domainSignal: [projectTitle, brandName, pitch, audience, originalPrompt, pageLines]
         .filter(Boolean)
         .join(" "),
