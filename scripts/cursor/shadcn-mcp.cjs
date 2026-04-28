@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * Shadcn MCP entry for Cursor: no machine-specific paths in .cursor/mcp.json.
  * Prepends the directory of the current Node binary to PATH (or spawns npx
@@ -40,12 +41,19 @@ if (!npxPath) {
   process.exit(1);
 }
 
-const child = spawn(npxPath, ["-y", "shadcn@latest", "mcp"], {
-  stdio: "inherit",
-  env,
-  // .cmd on Windows: avoid shell; full path to npx.cmd is reliable.
-  shell: false,
-});
+const npxArgs = ["-y", "shadcn@latest", "mcp"];
+const child =
+  process.platform === "win32"
+    ? spawn(
+        process.env.ComSpec || "cmd.exe",
+        ["/d", "/s", "/c", `"${npxPath}" ${npxArgs.join(" ")}`],
+        { stdio: "inherit", env },
+      )
+    : spawn(npxPath, npxArgs, {
+        stdio: "inherit",
+        env,
+        shell: false,
+      });
 
 child.on("error", (err) => {
   console.error("[shadcn-mcp] spawn error:", err.message);
