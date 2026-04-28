@@ -1564,7 +1564,7 @@ describe("finalizeAndSaveVersion", () => {
       expect(pruneStaleVersionErrorLogs).toHaveBeenCalledWith("ver_1", 1);
     });
 
-    it("preflight hard errors still prevent pruning older repair-pass logs", async () => {
+    it("current preflight errors still prevent pruning older repair-pass logs", async () => {
       runProjectSanityChecks.mockReturnValueOnce({
         valid: false,
         issues: [
@@ -1574,6 +1574,30 @@ describe("finalizeAndSaveVersion", () => {
             message: "Missing required export",
           },
         ],
+      });
+
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+
+      expect(pruneStaleVersionErrorLogs).not.toHaveBeenCalled();
+    });
+
+    it("syntax validation failures prevent pruning older repair-pass logs", async () => {
+      validateAndFix.mockResolvedValueOnce({
+        content:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+        hadErrors: true,
+        fixerUsed: false,
+        fixerImproved: false,
+        errorsBefore: 2,
+        errorsAfter: 2,
+        passes: 1,
+        status: "failed",
+        pipelineError: null,
+        earlyStopReason: "no_improvement",
       });
 
       await finalizeAndSaveVersion({

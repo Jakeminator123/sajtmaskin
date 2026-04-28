@@ -396,6 +396,8 @@ export async function finalizeAndSaveVersion(
   // signal in here and use the effective flag for telemetry, generation log
   // status, and `failVersionVerification` below.
   const verifierBlocked = verifierBlockingFindings.length > 0;
+  const hasCurrentPreflightBlockers =
+    preflightErrors.length > 0 || syntaxResult.status === "failed";
   const hasVerificationBlockingErrors =
     hasVerificationBlockingPreflightErrors || verifierBlocked;
   const verificationFailureSummary = verifierBlocked
@@ -450,7 +452,7 @@ export async function finalizeAndSaveVersion(
     chatId,
     versionId: version.id,
     repairPassIndex,
-    hasCurrentPreflightBlockers: hasVerificationBlockingPreflightErrors,
+    hasCurrentPreflightBlockers,
   });
 
   telemetryRecordId = await persistTelemetryRecord({
