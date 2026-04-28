@@ -221,8 +221,15 @@ export async function POST(req: Request) {
 
   const localResult = await localElementMap(body.url, vpW, vpH, maxElements);
   if (localResult.ok) {
-    const data = await localResult.json();
-    cache.set(key, { data, ts: Date.now() });
+    const data = (await localResult.json()) as { success?: boolean; unavailable?: boolean };
+    // PR-F3 review-fix: only cache real successful captures. Pre-PR-F3 the
+    // catch-block returned 502 (`localResult.ok === false`), which skipped
+    // cache.set. After PR-F3 we return 200 with `unavailable: true` for
+    // expected misses, which would have been cached for 60s and starved
+    // the client's retry loop. Gate cache writes on `data.success === true`.
+    if (data.success === true) {
+      cache.set(key, { data, ts: Date.now() });
+    }
     return NextResponse.json(data);
   }
 

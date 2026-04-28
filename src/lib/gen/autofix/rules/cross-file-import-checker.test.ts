@@ -174,6 +174,41 @@ describe("checkCrossFileImports", () => {
     expect(rewireFix?.rewireTarget).toBe("components/three-canvas-shell");
   });
 
+  it("PR-A1 review-lock: deterministic suffix order when multiple siblings exist", () => {
+    // Review-fynd: REWIRE_SUFFIX_VARIANTS-ordningen styr vilken sibling som
+    // vinner när flera matchar. Lås beteendet i test så framtida reordering
+    // inte ändrar produktionsval i tysthet.
+    const overlay: CodeFile = {
+      path: "components/foo-overlay.tsx",
+      language: "tsx",
+      content: [
+        '"use client";',
+        'import { Foo } from "@/components/foo";',
+        "export function FooOverlay() { return <Foo />; }",
+      ].join("\n"),
+    };
+    const fooShell: CodeFile = {
+      path: "components/foo-shell.tsx",
+      language: "tsx",
+      content: ["export function Foo() { return null; }"].join("\n"),
+    };
+    const fooContext: CodeFile = {
+      path: "components/foo-context.tsx",
+      language: "tsx",
+      content: ["export function Foo() { return null; }"].join("\n"),
+    };
+
+    const result = checkCrossFileImports([overlay, fooShell, fooContext]);
+
+    const updatedOverlay = result.files.find(
+      (f) => f.path === "components/foo-overlay.tsx",
+    );
+    // `-shell` ranks higher than `-context` in REWIRE_SUFFIX_VARIANTS, so
+    // the rewire must always pick `-shell` deterministically.
+    expect(updatedOverlay?.content).toContain('"@/components/foo-shell"');
+    expect(updatedOverlay?.content).not.toContain('"@/components/foo-context"');
+  });
+
   it("falls back to stub when no fuzzy sibling exists", () => {
     const page: CodeFile = {
       path: "app/page.tsx",
