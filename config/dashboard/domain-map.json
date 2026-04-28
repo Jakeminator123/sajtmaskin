@@ -147,7 +147,7 @@
         "src/lib/gen/scaffolds/registry.ts",
         "src/lib/gen/scaffolds/matcher.ts",
         "src/lib/gen/scaffolds/serialize.ts",
-        "src/lib/gen/route-plan.ts",
+        "src/lib/gen/route-plan/index.ts",
         "src/lib/gen/contract/pre-generation-contracts.ts",
         "src/lib/gen/orchestrate.ts",
         "src/lib/providers/own-engine/follow-up-clarification.ts",
