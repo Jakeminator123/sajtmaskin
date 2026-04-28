@@ -151,6 +151,13 @@ export function loadVariantInputs(rootDir: string): {
     if (!parsed || typeof parsed !== "object") continue;
     const pairings = (parsed as Record<string, unknown>).fontPairings;
     if (pairings === undefined) continue;
+    if (!Array.isArray(pairings)) {
+      loadErrors.push({
+        filePath: file,
+        error: "fontPairings must be an array",
+      });
+      continue;
+    }
     variants.push({ filePath: file, pairings });
   }
 
@@ -159,6 +166,14 @@ export function loadVariantInputs(rootDir: string): {
 
 async function main(): Promise<void> {
   const rootDir = path.resolve(process.cwd(), "config/scaffold-variants");
+
+  if (!fs.existsSync(rootDir)) {
+    console.error(
+      `[typography:validate-pairings] root directory not found: ${relPath(rootDir)}`,
+    );
+    process.exit(1);
+  }
+
   const { variants, loadErrors } = loadVariantInputs(rootDir);
   const known = buildKnownFontNameSet();
   const violations = validateVariantFonts(variants, known);
@@ -168,12 +183,20 @@ async function main(): Promise<void> {
   );
 
   if (loadErrors.length > 0) {
-    console.warn(
+    console.error(
       `[typography:validate-pairings] ${loadErrors.length} variant file(s) could not be parsed:`,
     );
     for (const err of loadErrors) {
-      console.warn(`  - ${relPath(err.filePath)}: ${err.error}`);
+      console.error(`  - ${relPath(err.filePath)}: ${err.error}`);
     }
+    process.exit(1);
+  }
+
+  if (variants.length === 0) {
+    console.error(
+      `[typography:validate-pairings] no variant files with fontPairings found under ${relPath(rootDir)}`,
+    );
+    process.exit(1);
   }
 
   if (violations.length === 0) {
