@@ -12,8 +12,8 @@
  *   syntax validator, jsx checker, dep version validator.
  * - `llm-*` — LLM-backed repair. Costs reasoning tokens. Triggered when a
  *   validator failed.
- * - `verifier-*` — verifier-pass + verifier-fixer (optional re-verify when
- *   `FEATURES.verifierRerunAfterFix` is on).
+ * - `verifier-*` — verifier-pass + verifier-fixer (always re-verifies once
+ *   after the fixer rewrites a file; see `verifier-phase.ts`).
  * - `repair-loop-*` — server-side repair loop (`repair-loop.ts`).
  *
  * Backoffice (`backoffice/pages/fixer_registry.py`) renders this list as a
@@ -532,8 +532,8 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     ownerPhase: "verifier",
     telemetryCounter: 'sajtmaskin_fixer_call_total{phase="verifier"}',
     notes:
-      "When FEATURES.verifierRerunAfterFix=true the verifier re-runs once " +
-      "after this fixer pass to confirm the fix actually addressed the finding.",
+      "The verifier re-runs once after this fixer pass to confirm the fix " +
+      "actually addressed the finding (unconditional since 2026-04-28).",
   },
   {
     id: "llm-partial-file-repair",

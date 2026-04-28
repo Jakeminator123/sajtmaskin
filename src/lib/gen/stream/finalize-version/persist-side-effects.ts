@@ -14,7 +14,6 @@
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
-import { FEATURES } from "@/lib/config";
 import { devLogAppend } from "@/lib/logging/devLog";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import {
@@ -253,12 +252,9 @@ export async function pruneStaleLogsIfCleanRepair(params: {
   // Without this prune the UI keeps rendering old blocking findings as a
   // red "Fel"-badge on a fully-working preview.
   //
-  // Best-effort, behind `FEATURES.consistentRepairPassIndex`. Never throws.
-  if (
-    !FEATURES.consistentRepairPassIndex ||
-    repairPassIndex <= 0 ||
-    hasVerificationBlockingErrors
-  ) {
+  // Best-effort. Never throws. Was hardcoded ON via the now-removed
+  // FEATURES.consistentRepairPassIndex flag (inlined 2026-04-28).
+  if (repairPassIndex <= 0 || hasVerificationBlockingErrors) {
     return;
   }
   try {

@@ -15,7 +15,6 @@ import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
-import { FEATURES } from "@/lib/config";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import {
   buildShellPageContent,
@@ -699,16 +698,8 @@ export async function runFinalizePreflight({
       // handled by the deterministic mechanical pipeline. Saves 1 (often
       // wasted) LLM-fixer call per follow-up.
       //
-      // Hardcoded ON (FEATURES.skipDoubleValidateAndFixOnMerge=true) since
-      // omtag-04 (2026-04-23). Revert via code if the legacy validateAndFix
-      // behaviour is ever needed again.
-      if (!FEATURES.skipDoubleValidateAndFixOnMerge) {
-        devLogAppend("in-progress", {
-          type: "merged-syntax.mechanical-only.unexpected-flag-state",
-          chatId,
-          skipDoubleValidateAndFixOnMerge: FEATURES.skipDoubleValidateAndFixOnMerge,
-        });
-      }
+      // Inlined unconditionally 2026-04-28 (was hardcoded ON since
+      // omtag-04 / 2026-04-23 via FEATURES.skipDoubleValidateAndFixOnMerge).
       const mechanicalStartedAt = Date.now();
       try {
         const mechanicalResult = await runAutoFix(mergedProjectContent, {
@@ -775,7 +766,10 @@ export async function runFinalizePreflight({
       // import) but the underlying brace/parse error remained. The failure
       // mode that motivated this gate (the v2/flying-can `Unexpected "}"`)
       // happens precisely when mechanical can't see the brace context.
-      if (!mergedSyntax.valid && FEATURES.escalateMergeSyntaxToLlm) {
+      //
+      // Inlined unconditionally 2026-04-28 (was hardcoded ON since omtag-04
+      // via FEATURES.escalateMergeSyntaxToLlm).
+      if (!mergedSyntax.valid) {
         const errorsBefore = mergedSyntax.errors.length;
         const requiredFiles = [
           ...new Set(

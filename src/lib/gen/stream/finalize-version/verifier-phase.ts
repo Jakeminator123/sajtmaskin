@@ -1,13 +1,22 @@
 /**
  * Verifier-pass phase for `runFinalizeFastPath`: runs the verifier,
- * optionally feeds blocking findings back to the LLM fixer, re-runs the
- * verifier on the fixed content (when `FEATURES.verifierRerunAfterFix`),
- * and emits error-log-RAG events along the way.
+ * feeds blocking findings back to the LLM fixer, and re-runs the
+ * verifier once on the fixed content to confirm the fix actually
+ * addressed the blocking finding. Emits error-log-RAG events along
+ * the way.
+ *
+ * Success semantics (`verifier-pass.fixer` log row):
+ *   `success` is TRUE only when the LLM repair-gate succeeded AND the
+ *   re-run shows strictly fewer blocking findings than the initial
+ *   pass. A re-run that crashes (count remains `null`) or shows
+ *   `>= initial` blockers counts as `success: false` — earlier code
+ *   copied `repaired.success` as-is, which produced false-positive
+ *   `success: true` rows when findings actually grew (postmortem
+ *   2026-04-28 run `20260428-041927-freeform`).
  */
 
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
-import { FEATURES } from "@/lib/config";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import {
@@ -161,86 +170,69 @@ export async function runVerifierPhase(params: {
         if (repaired.success && repaired.fixedContent) {
           const reFixed = await runAutoFix(repaired.fixedContent);
           contentForVersion = reFixed.fixedContent;
-          fixerImproved = true;
 
-          // Repair-loop hardening B (gated on FEATURES.verifierRerunAfterFix):
-          //
           // Re-run the verifier ONCE on the fixed content to confirm the
           // LLM actually addressed the blocking finding. Without this we
           // optimistically cleared `verifierBlockingFindings` and could
           // tell the UI "fixed" when nothing was fixed. Capped at one
           // re-run + a 30 s timeout so latency stays bounded.
-          if (FEATURES.verifierRerunAfterFix) {
-            const rerunStartedAt = Date.now();
-            const rerunAbort = new AbortController();
-            // SAJ-61 review fix: use the dedicated 30s rerun budget
-            // instead of the (now 120s) repair budget. The rerun is
-            // read-only — re-evaluating findings, not rewriting files —
-            // so it should not inherit any future bumps to the repair
-            // timeout.
-            const rerunTimeout = setTimeout(
-              () => rerunAbort.abort(),
-              VERIFIER_RERUN_TIMEOUT_MS,
+          //
+          // Hardcoded ON since omtag-04 (2026-04-23). Throw → keep the
+          // pre-fix findings (rerunBlockingCount stays null, treated as
+          // unverified, not fixed).
+          const rerunStartedAt = Date.now();
+          const rerunAbort = new AbortController();
+          const rerunTimeout = setTimeout(
+            () => rerunAbort.abort(),
+            VERIFIER_RERUN_TIMEOUT_MS,
+          );
+          try {
+            const rerunFindings = await runVerifierPass(contentForVersion, {
+              resolvedTier: verifierTier,
+              abortSignal: rerunAbort.signal,
+            });
+            rerunDurationMs = Date.now() - rerunStartedAt;
+            rerunBlockingCount = rerunFindings.blocking.length;
+            verifierBlockingFindings = rerunFindings.blocking.slice(0, 5);
+            devLogAppend("in-progress", {
+              type: "verifier_rerun_after_fix",
+              chatId,
+              before: findings.blocking.length,
+              after: rerunFindings.blocking.length,
+              durationMs: rerunDurationMs,
+              scaffoldId: resolvedScaffold?.id ?? null,
+            });
+          } catch (rerunErr) {
+            console.warn(
+              "[verifier-pass] Re-run after fix failed (non-fatal):",
+              rerunErr,
             );
-            try {
-              // Forward the rerun controller's signal so the 30s timeout
-              // actually cancels the in-flight verifier call (previously
-              // the controller was created but never used — the call kept
-              // running until its own internal cfg.timeoutMs expired).
-              const rerunFindings = await runVerifierPass(contentForVersion, {
-                resolvedTier: verifierTier,
-                abortSignal: rerunAbort.signal,
-              });
-              rerunDurationMs = Date.now() - rerunStartedAt;
-              rerunBlockingCount = rerunFindings.blocking.length;
-              // Trust the rerun: if the fixer truly fixed it the count is
-              // 0; if not the version stays verifier-blocked with the
-              // *current* findings (not the stale ones).
-              verifierBlockingFindings = rerunFindings.blocking.slice(0, 5);
-              devLogAppend("in-progress", {
-                type: "verifier_rerun_after_fix",
-                chatId,
-                before: findings.blocking.length,
-                after: rerunFindings.blocking.length,
-                durationMs: rerunDurationMs,
-                scaffoldId: resolvedScaffold?.id ?? null,
-              });
-            } catch (rerunErr) {
-              console.warn(
-                "[verifier-pass] Re-run after fix failed (non-fatal):",
-                rerunErr,
-              );
-              devLogAppend("in-progress", {
-                type: "verifier_rerun_after_fix.error",
-                chatId,
-                message:
-                  rerunErr instanceof Error
-                    ? rerunErr.message
-                    : "Unknown verifier rerun error",
-              });
-              // SAJ-61 c5: previously we fell through to an optimistic
-              // clear so the version status flipped to "fixed" even when
-              // the rerun never finished. That is the bug — UI then
-              // showed a green badge while the underlying blockers were
-              // still present (build-breaking imports). Keep the
-              // pre-fix `verifierBlockingFindings` so the version
-              // remains correctly marked verifier-blocked. The repaired
-              // content can still ship; the blockers list just stays
-              // accurate.
-              // Intentionally leave `verifierBlockingFindings` unchanged.
-            } finally {
-              clearTimeout(rerunTimeout);
-            }
+            devLogAppend("in-progress", {
+              type: "verifier_rerun_after_fix.error",
+              chatId,
+              message:
+                rerunErr instanceof Error
+                  ? rerunErr.message
+                  : "Unknown verifier rerun error",
+            });
+            // Intentionally leave `verifierBlockingFindings` unchanged
+            // (pre-fix findings stay so the version remains correctly
+            // marked verifier-blocked).
+          } finally {
+            clearTimeout(rerunTimeout);
           }
-          // Removed legacy `else { verifierBlockingFindings = []; }` branch.
-          // The "optimistic clear" without re-running the verifier flipped
-          // the UI to "fixed" even when the LLM fixer had only swapped one
-          // build-breaking import for another. `FEATURES.verifierRerunAfterFix`
-          // is hardcoded ON in production today; if the flag is ever flipped
-          // off again, the correct fallback is to leave `verifierBlockingFindings`
-          // unchanged (same as the rerun-throw path above), not to claim the
-          // findings vanished.
         }
+        // Postmortem 2026-04-28 run `20260428-041927-freeform`:
+        // `success` was previously copied straight from `repaired.success`
+        // (the LLM-merge succeeded), which made `success: true` rows fire
+        // even when re-run findings GREW from 2 → 3. Anchor `success` (and
+        // `fixerImproved`) on the rerun count instead so telemetry matches
+        // observable reality.
+        const fixerOutcomeSuccess =
+          repaired.success &&
+          rerunBlockingCount !== null &&
+          rerunBlockingCount < findings.blocking.length;
+        fixerImproved = fixerOutcomeSuccess;
         devLogAppend("in-progress", {
           type: "verifier-pass.fixer",
           chatId,
@@ -248,12 +240,15 @@ export async function runVerifierPhase(params: {
           findingsAfterRerun: rerunBlockingCount,
           rerunDurationMs,
           fixerImproved,
-          success: repaired.success,
+          success: fixerOutcomeSuccess,
           partial: repaired.partial,
+          repairGateSuccess: repaired.success,
           scaffoldId: resolvedScaffold?.id ?? null,
         });
-        // Phase 3.1 producer — emit a "fixed" / "noop" row per blocking
-        // finding so future RAG queries see what worked.
+        // Phase 3.1 producer — emit a "fixed" / "still-failing" row per
+        // blocking finding so future RAG queries see what worked.
+        // `rerunBlockingCount === null` (rerun crashed) is unverified, not
+        // fixed — earlier code mapped it to "fixed" which lied to RAG.
         if (fixerImproved) {
           for (const finding of findings.blocking.slice(0, 5)) {
             appendErrorLogEvent({
@@ -269,12 +264,7 @@ export async function runVerifierPhase(params: {
               model,
               provider: "own-engine",
               repairPassIndex,
-              result:
-                rerunBlockingCount === 0
-                  ? "fixed"
-                  : rerunBlockingCount === null
-                    ? "fixed"
-                    : "still-failing",
+              result: rerunBlockingCount === 0 ? "fixed" : "still-failing",
               chatId,
               versionId: null,
               scaffoldId: resolvedScaffold?.id ?? null,

@@ -64,7 +64,6 @@ vi.mock("@/lib/logging/devLog", () => ({
 }));
 
 import { runFinalizePreflight } from "./finalize-preflight";
-import { FEATURES } from "@/lib/config";
 import { serializeCodeProject } from "@/lib/gen/parser";
 
 /**
@@ -183,7 +182,6 @@ describe("runFinalizePreflight", () => {
     runLlmFixer.mockResolvedValue({ success: false });
     runLlmRepairGate.mockResolvedValue({ result: { success: false }, fixerModel: "gpt-5.4" });
     runAutoFix.mockResolvedValue({ fixedContent: "", fixes: [], warnings: [], dependencies: [] });
-    (FEATURES as { escalateMergeSyntaxToLlm: boolean }).escalateMergeSyntaxToLlm = false;
   });
 
   it("marks preview as blocked when no renderable page can be built", async () => {
@@ -331,7 +329,6 @@ describe("runFinalizePreflight", () => {
   });
 
   it("escalates merged syntax to LLM once when mechanical pass is a no-op", async () => {
-    (FEATURES as { escalateMergeSyntaxToLlm: boolean }).escalateMergeSyntaxToLlm = true;
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     const repairedContent = serializeCodeProject([
       {

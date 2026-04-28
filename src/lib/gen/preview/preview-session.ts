@@ -144,12 +144,6 @@ export type StartPreviewSessionOptions = {
    * becomes ineffective). Defaults to `"design"` when omitted.
    */
   lifecycleStage?: PreviewLifecycleStage;
-  /**
-   * Opportunistic pre-warm boot (no persisted version yet). Allows callers
-   * to start a sandbox with scaffold seed files before finalize creates the
-   * first version row.
-   */
-  precache?: boolean;
 };
 
 /**
@@ -202,8 +196,7 @@ async function runStartPreviewSession(
     typeof options?.versionIdForSession === "string" && options.versionIdForSession.trim()
       ? options.versionIdForSession.trim()
       : null;
-  const isPrecache = options?.precache === true;
-  const hostVersionId = vid ?? (isPrecache ? "__preview-prewarm__" : null);
+  const hostVersionId = vid;
 
   if (cid && options?.forceRestart) {
     // forceRestart is the user's signal that the previous sandbox should
@@ -375,7 +368,7 @@ async function runStartPreviewSession(
       ok: false,
       error: {
         stage: "preview-start",
-        message: "preview_host tier requires chatId and versionIdForSession (or precache).",
+        message: "preview_host tier requires chatId and versionIdForSession.",
       },
     };
   }

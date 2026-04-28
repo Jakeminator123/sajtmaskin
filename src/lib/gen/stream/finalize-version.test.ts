@@ -27,17 +27,16 @@ const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 
-// Mock the FEATURES gate so SAJ-25 prune logic exercises in test (default ON).
-// Tests that need it OFF can override via vi.doMock per-test.
+// Mock the FEATURES gate so optional dossier RAG / recurring-patterns
+// blocks stay deterministic in tests. The repair-pass / verifier-rerun /
+// merge-syntax-escalation flags were inlined 2026-04-28 and no longer
+// need overrides here.
 vi.mock("@/lib/config", async () => {
   const actual = await vi.importActual<typeof import("@/lib/config")>("@/lib/config");
   return {
     ...actual,
     FEATURES: {
       ...actual.FEATURES,
-      consistentRepairPassIndex: true,
-      verifierRerunAfterFix: true,
-      skipDoubleValidateAndFixOnMerge: true,
       recurringPatternsInMainPrompt: false,
       useErrorLogRag: false,
     },
@@ -132,8 +131,10 @@ vi.mock("@/lib/gen/retry/validate-syntax", () => ({
   validateGeneratedCode,
 }));
 
+const devLogAppend = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/logging/devLog", () => ({
-  devLogAppend: vi.fn(),
+  devLogAppend,
 }));
 
 vi.mock("@/lib/utils/debug", () => ({
@@ -1555,8 +1556,8 @@ describe("finalizeAndSaveVersion", () => {
   });
 
   // Repair-loop hardening B — verifier re-run after LLM-fixer.
-  // Tests use vi.doMock to flip FEATURES.verifierRerunAfterFix per-case so
-  // the legacy optimistic-clear path is also covered.
+  // The re-run is unconditional (was hardcoded ON via the now-removed
+  // FEATURES.verifierRerunAfterFix flag, inlined 2026-04-28).
   describe("Phase 2B — verifier re-run after LLM-fixer", () => {
     const verifierTriggeringBuildSpec = {
       buildIntent: "website" as const,
@@ -1660,6 +1661,53 @@ describe("finalizeAndSaveVersion", () => {
           }),
         }),
       );
+    });
+
+    it("postmortem 2026-04-28: rerun reports REGRESSION (3>2) → success:false in devLog (was true)", async () => {
+      // Postmortem run `20260428-041927-freeform`: the verifier-pass.fixer
+      // devLog row was emitted with `success: true` even when
+      // `findingsAfterRerun: 3` exceeded `findingsBefore: 2`. That gave UI
+      // and telemetry a false-positive "fixed" signal. The fix anchors
+      // `success` on `rerunBlockingCount < findings.blocking.length`.
+      runVerifierPass
+        .mockResolvedValueOnce({
+          blocking: [
+            { id: "missing-h1", detail: "page missing h1" },
+            { id: "missing-meta", detail: "page missing meta" },
+          ],
+          quality: [],
+        })
+        .mockResolvedValueOnce({
+          blocking: [
+            { id: "missing-h1", detail: "page missing h1" },
+            { id: "missing-meta", detail: "page missing meta" },
+            { id: "broken-import", detail: "extra blocker added" },
+          ],
+          quality: [],
+        });
+      runLlmFixer.mockResolvedValue({
+        fixedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <h1>Still bad</h1>; }\n```',
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 50,
+      });
+      devLogAppend.mockClear();
+      await finalizeAndSaveVersion(baseArgs());
+      expect(runVerifierPass).toHaveBeenCalledTimes(2);
+      const fixerLogCalls = devLogAppend.mock.calls.filter(
+        (call) =>
+          call[1] && typeof call[1] === "object" && (call[1] as { type?: string }).type === "verifier-pass.fixer",
+      );
+      expect(fixerLogCalls).toHaveLength(1);
+      const fixerLogPayload = fixerLogCalls[0]?.[1] as Record<string, unknown>;
+      expect(fixerLogPayload.success).toBe(false);
+      expect(fixerLogPayload.fixerImproved).toBe(false);
+      expect(fixerLogPayload.findingsBefore).toBe(2);
+      expect(fixerLogPayload.findingsAfterRerun).toBe(3);
+      expect(fixerLogPayload.repairGateSuccess).toBe(true);
     });
 
     it("SAJ-61 c5: rerun failure → keeps the original blockers so UI does not lie 'fixed'", async () => {

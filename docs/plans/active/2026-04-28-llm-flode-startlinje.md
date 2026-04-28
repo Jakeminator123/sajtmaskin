@@ -53,10 +53,12 @@ Postmortem från en annan körning samma dag finns under repo-roten ([`postmorte
 
 | Spår | Vad | Källa | Var i kod |
 |---|---|---|---|
-| P0a | `verifier-pass.fixer` får inte logga `success=true` när `findingsAfterRerun > findingsBefore` | Postmortem run `20260428-041927-freeform` | `src/lib/gen/stream/finalize-version/verifier-phase.ts` (rad ~145–253) |
+| ~~P0a~~ ✅ **FIXAD 2026-04-28 långbänk** | `verifier-pass.fixer` får inte logga `success=true` när `findingsAfterRerun > findingsBefore` — anchor `success` + `fixerImproved` på `rerunBlockingCount < findings.blocking.length`; RAG-`result` ger `still-failing` när rerun crashed (var `fixed`) | Postmortem run `20260428-041927-freeform` | `src/lib/gen/stream/finalize-version/verifier-phase.ts` + ny regression-test i `finalize-version.test.ts` |
 | P0b | Versionsdiagnostik-UI blandar tre tidslager (initial preflight, preview lifecycle, server verify) → "Fel: 3" trots `passed` | Postmortem | `src/app/api/engine/chats/[chatId]/versions/[versionId]/error-log/route.ts` + UI-konsumer |
 | P0c | `repairPassIndex` låst på 1 vid in-place repair → stale `engine_version_error_logs`-rader behålls; "Repair-Pass-Index Pruning" (glossary) wirad bara delvis | PR #118 r2-03, postmortem | `src/lib/gen/stream/finalize-version/persist-side-effects.ts` `pruneStaleLogsIfCleanRepair` + caller |
 | P0d | `provider_aborted_no_content`-stream → ingen retry/fallback. Användaren ser `site.aborted` utan möjlighet att starta om automatiskt | Tidigare triage + tidigare runs | `src/lib/gen/stream/stream-format.ts` (`abort` branch) + `useSendMessage` |
+
+**Sidostädning samma långbänk:** 5 hardcoded-permanent ON/OFF-flaggor inlinade — `consistentRepairPassIndex`, `verifierRerunAfterFix`, `skipDoubleValidateAndFixOnMerge`, `escalateMergeSyntaxToLlm` (alla ON sedan omtag-04 / 2026-04-23), `previewPreWarm` (alltid `false`). `preview-prewarm.ts` + dess test raderade. `precache`-fält + `__preview-prewarm__`-gren rensade ur `preview-session.ts`. Dead exports (`isEffectiveInit`, `SHELL_PAGE_FINGERPRINT`) tagna ur `build-spec/`-barrel. Gör repair/fixer-kedjan enklare utan att ändra runtime-beteende.
 
 ### P1 — Init/follow-up-konsistens
 

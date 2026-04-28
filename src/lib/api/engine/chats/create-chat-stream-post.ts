@@ -1,5 +1,4 @@
 import { createSSEHeaders } from "@/lib/streaming";
-import { FEATURES } from "@/lib/config";
 import {
   withPromptToDoneMetricResponse,
   wrapStreamForPromptToDoneMetric,
@@ -56,7 +55,6 @@ import {
 } from "@/lib/gen/request-metadata";
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
 import { createCommitCreditsOnce } from "./credits-handler";
-import { schedulePreviewPreWarm } from "./preview-prewarm";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -803,12 +801,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         devLogAppend("in-progress", {
           type: "site.chatId",
           chatId: engineChat.id,
-        });
-        schedulePreviewPreWarm({
-          enabled: FEATURES.previewPreWarm,
-          buildIntent: engineIntent,
-          chatId: engineChat.id,
-          scaffoldFiles: resolvedScaffold?.files ?? [],
         });
         devLogAppend("in-progress", {
           type: "contracts.inferred",

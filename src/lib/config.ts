@@ -340,8 +340,6 @@ export const OPENCLAW = {
  */
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
-  // P6 latency track: opportunistic Fly VM pre-warm on chat init.
-  previewPreWarm: false,
   // Spår 02: F2 Product Postcheck. Server-side Playwright DOM checks
   // against trusted preview URLs only. Default off while we measure flake
   // rate and runtime cost.
@@ -377,35 +375,14 @@ export const FEATURES = {
     env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "true" ||
     env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "1",
 
-  /**
-   * Repair-loop hardening — propagate `repairPassIndex: 1` whenever a
-   * follow-up/repair re-finalises an existing version (`targetVersionId` set)
-   * and best-effort prune stale error-log rows when the latest pass is clean.
-   * Hardcoded ON since SAJ-25 (omtag-04, 2026-04-23).
-   */
-  consistentRepairPassIndex: true,
-
-  /**
-   * After the verifier-fixer LLM rewrites a file, re-run `runVerifierPass`
-   * once to confirm the fix actually addressed the blocking finding. Capped
-   * at 1 re-run to keep latency bounded. Hardcoded ON (omtag-04, 2026-04-23).
-   */
-  verifierRerunAfterFix: true,
-
-  /**
-   * When stream-syntax pass succeeded but merged-syntax fails, run only the
-   * mechanical autofix + esbuild revalidation — skip the LLM-fixer pass on
-   * merge. Hardcoded ON (strict cost reduction, low correctness risk).
-   */
-  skipDoubleValidateAndFixOnMerge: true,
-  /**
-   * Safety valve: allow one tight-budget LLM repair attempt when merged-syntax
-   * still fails after a no-op mechanical pass. Enabled so a stray `}`-class
-   * model output (the v2/flying-can class of failures) gets one structured
-   * repair shot before preview is blocked. Cost: at most one extra LLM
-   * fixer call per generation that hits the merged-syntax-invalid branch.
-   */
-  escalateMergeSyntaxToLlm: true,
+  // Inlined 2026-04-28 (LLM-flow simplification långbänk):
+  //   consistentRepairPassIndex      (repair-pass-index propagation + stale-log prune)
+  //   verifierRerunAfterFix          (rerun is unconditional, see verifier-phase.ts)
+  //   skipDoubleValidateAndFixOnMerge (merge mechanical-only is unconditional)
+  //   escalateMergeSyntaxToLlm       (LLM escalation always runs when merge invalid)
+  //   previewPreWarm                 (was always disabled, schedule helper removed)
+  // None of these had a working OFF-path in production since omtag-04
+  // (2026-04-23) — the conditionals were dead code branches.
 
   /**
    * Inject `### Recurring failures on this site` block (top-5 patterns from
