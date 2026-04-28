@@ -85,7 +85,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Orchestration Input | Alla inputs till orkestreraren | kanonisk |
 | Orchestration Base | Resolved scaffold + route plan + contracts + BuildSpec | kanonisk |
 | Finalized Orchestration | Dynamic context + engineSystemPrompt färdiga | kanonisk |
-| Scaffold | Runtime-startpunkt (10 st). Metadata i `manifest.ts`, filer under `files/` | kanonisk |
+| Scaffold | Runtime-startpunkt (9 st). Metadata i `manifest.ts`, filer under `files/` | kanonisk |
 | Scaffold Selection | Keyword + capability-boost → embedding challenge | kanonisk |
 | Capability (dossier) | Sträng i `brief.requestedCapabilities`. 1:1 mot dossier (default-tie-break via `defaultForCapability`) | kanonisk |
 | Capability Map | Snabbklass: auth/ecommerce/forms/3D/motion/charts/physics | kanonisk |

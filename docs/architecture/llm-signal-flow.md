@@ -93,8 +93,8 @@ config/*.json      = editerbar data (domain rules, ai models, env policy)
 ## Create-chat (`init`)
 
 1. Buildern tar emot användarprompten.
-2. **Deep Brief** genereras som det kanoniska semantiska expansionssteget. Brief-objektet skickas via `meta.brief`; brief-deriverad prose ska **inte** dubblera samma semantik i `system`/`customInstructions`.
-3. Server Auto-Brief är fallback när klienten inte skickar brief — körs för underspecificerade init-prompts (inkl. korta vaga website-prompts), hoppas över för audit, technical, follow-up och redan tydligt strukturerade prompts.
+2. **Deep Brief** genereras som det kanoniska semantiska expansionssteget. Brief-objektet skickas via `meta.brief`; brief-deriverad prose ska **inte** dubblera samma semantik i `system`/`customInstructions`. `siteBriefSchema` bär även init-signaler som `domainProfile`, `motionLevel`, `qualityBar`, `seasonalHints` och `requestedCapabilities` så `buildDynamicContext()` slipper uppfinna dem senare.
+3. Server Auto-Brief är fallback när klienten inte skickar brief — körs för init-prompts utan client-brief (även strukturerade website-prompts), men hoppas över för audit, technical/preserved payload och follow-up.
 4. Scaffoldval körs i `resolveOrchestrationBase()` via `matchScaffoldAuto()`.
 5. Route plan, contracts och BuildSpec byggs — översätter briefens semantik till exekvering snarare än att uppfinna ny vision.
 6. Dynamic context byggs i `src/lib/gen/system-prompt/`. `## Your Toolkit` byggs från registry-synkade `SHADCN_COMPONENTS`-mappen, filtrerad mot vilka `@/components/ui/*`-subpaths som faktiskt finns lokalt; `## Component References` lägger separat till capability-matchade kodexempel från `data/shadcn-examples/`.
