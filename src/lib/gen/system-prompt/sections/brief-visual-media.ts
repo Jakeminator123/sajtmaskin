@@ -9,6 +9,7 @@
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import { isDomainProfile } from "@/lib/builder/domain-inference";
 import { resolveGuidanceBlocks, type ColorPalette } from "../../guidance-resolvers";
 import type { Brief, DesignReferenceAsset, MediaCatalogItem } from "../types";
 
@@ -206,7 +207,7 @@ export function renderGuidanceBlocks(params: {
   const parts: string[] = [];
 
   if (guidance.domainProfile !== "general") {
-    const domainSource = brief?.domainProfile
+    const domainSource = brief?.domainProfile && isDomainProfile(brief.domainProfile)
       ? "from brief"
       : "inferred from prompt keywords";
     parts.push(

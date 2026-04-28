@@ -70,6 +70,10 @@ function buildRules(
 
 const DOMAIN_RULES: DomainRule[] = buildRules(rulesJson);
 
+export function isDomainProfile(value: string): value is DomainProfile {
+  return (DOMAIN_PROFILES as readonly string[]).includes(value);
+}
+
 export function inferDomain(prompt: string): DomainProfile {
   const lower = prompt.toLowerCase();
   for (const rule of DOMAIN_RULES) {

@@ -19,4 +19,20 @@ describe("buildDynamicContext", () => {
       expect(result.context).toContain(`\`${path}\``);
     }
   });
+
+  it("ignores invalid brief domainProfile values and falls back to canonical inference", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Bygg en hemsida för en frisörsalong i Malmö",
+      generationMode: "init",
+      brief: {
+        domainProfile: "hospitality",
+        visualDirection: { styleKeywords: ["modern", "varm"] },
+        toneAndVoice: ["professionell"],
+      },
+    });
+
+    expect(result.context).toContain("Domain profile (inferred from prompt keywords): **spa-salon**.");
+    expect(result.context).not.toContain("**hospitality**");
+  });
 });
