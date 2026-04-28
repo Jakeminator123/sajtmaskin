@@ -1,12 +1,34 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isServerVerifyExpectedForLifecycle,
   resolveEngineVersionLifecycleStatus,
   resolveEngineVersionDisplayStatus,
   canExposeEnginePreview,
   selectPreferredEngineVersion,
   resolveQualityTier,
 } from "./engine-version-lifecycle";
+
+describe("isServerVerifyExpectedForLifecycle", () => {
+  it("returns true for integrations (F3) rows", () => {
+    expect(isServerVerifyExpectedForLifecycle({ lifecycleStage: "integrations" })).toBe(true);
+  });
+
+  it("returns false for design (F2) rows — server-verify is skipped by policy", () => {
+    expect(isServerVerifyExpectedForLifecycle({ lifecycleStage: "design" })).toBe(false);
+  });
+
+  it("returns false (defaults to design) for legacy rows without lifecycleStage", () => {
+    expect(isServerVerifyExpectedForLifecycle({})).toBe(false);
+    expect(isServerVerifyExpectedForLifecycle(null)).toBe(false);
+    expect(isServerVerifyExpectedForLifecycle(undefined)).toBe(false);
+  });
+
+  it("reads snake_case lifecycle_stage too", () => {
+    expect(isServerVerifyExpectedForLifecycle({ lifecycle_stage: "integrations" })).toBe(true);
+    expect(isServerVerifyExpectedForLifecycle({ lifecycle_stage: "design" })).toBe(false);
+  });
+});
 
 describe("resolveEngineVersionLifecycleStatus", () => {
   it("returns draft for new version", () => {

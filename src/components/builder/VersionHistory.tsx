@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  isServerVerifyExpectedForLifecycle,
   resolveEngineVersionDisplayStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
@@ -60,6 +61,14 @@ type VersionSummary = {
   promotedAt?: string | Date | null;
   pinned?: boolean;
   canPin?: boolean;
+  /**
+   * Lifecycle stage from `engine_versions.lifecycle_stage`. Threaded so
+   * tooltip/label can tell F2 design rows ("Klar — server-verify körs
+   * först vid Bygg integrationer") apart from F3 integrations rows
+   * ("Verifying"). When missing, defaults to "design" via
+   * `resolveEngineVersionLifecycleStage`.
+   */
+  lifecycleStage?: string | null;
 };
 
 type BlobExportResponse = {
@@ -577,6 +586,7 @@ export function VersionHistory({
                 versionNumber: version.versionNumber,
                 releaseState: version.releaseState,
                 verificationState: version.verificationState,
+                lifecycleStage: version.lifecycleStage,
               },
               versionList.map((entry) => ({
                 versionId: entry.versionId,
@@ -585,13 +595,24 @@ export function VersionHistory({
                 versionNumber: entry.versionNumber,
                 releaseState: entry.releaseState,
                 verificationState: entry.verificationState,
+                lifecycleStage: entry.lifecycleStage,
               })),
             );
+            const willRunServerVerify = isServerVerifyExpectedForLifecycle({
+              lifecycleStage: version.lifecycleStage,
+            });
+            // Postmortem 2026-04-28: F2 design-versioner kör inte server-verify
+            // (`design_preview_skip_verify`) — visa "Klar" istället för
+            // "Verifying" för dem så UI inte påstår en bakgrundskörning som
+            // aldrig sker. F3-integrationsversioner kör verify aktivt och
+            // behåller "Verifying"-labeln.
             const lifecycleLabel =
               lifecycleStatus === "promoted"
                 ? "Promoted"
                 : lifecycleStatus === "verifying"
-                  ? "Verifying"
+                  ? willRunServerVerify
+                    ? "Verifying"
+                    : "Klar"
                   : lifecycleStatus === "repairing"
                     ? "Repairing"
                     : lifecycleStatus === "repair_available"
@@ -610,7 +631,9 @@ export function VersionHistory({
               lifecycleStatus === "promoted"
                 ? "Publicerad live. Klart att deploya."
                 : lifecycleStatus === "verifying"
-                  ? "Server-verify kör i bakgrunden — typecheck/build mot scaffold-cache. Kan landa i 'Promoted' eller 'Fel' när den är klar."
+                  ? willRunServerVerify
+                    ? "Server-verify kör i bakgrunden — typecheck/build mot scaffold-cache. Kan landa i 'Promoted' eller 'Fel' när den är klar."
+                    : "Design-preview klar. Server-verify körs först när du klickar 'Bygg integrationer'."
                   : lifecycleStatus === "repairing"
                     ? "Server försöker reparera fel automatiskt. Vänta — utfallet rapporteras som 'Repair available' eller 'Fel'."
                     : lifecycleStatus === "repair_available"
@@ -625,11 +648,13 @@ export function VersionHistory({
                 ? "destructive"
                 : lifecycleStatus === "promoted"
                   ? "default"
-                  : lifecycleStatus === "retrying" ||
-                      lifecycleStatus === "repairing" ||
-                      lifecycleStatus === "repair_available"
-                    ? "outline"
-                    : "secondary";
+                  : lifecycleStatus === "verifying" && !willRunServerVerify
+                    ? "secondary"
+                    : lifecycleStatus === "retrying" ||
+                        lifecycleStatus === "repairing" ||
+                        lifecycleStatus === "repair_available"
+                      ? "outline"
+                      : "secondary";
             const lifecycleBadgeClassName =
               lifecycleStatus === "retrying"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"

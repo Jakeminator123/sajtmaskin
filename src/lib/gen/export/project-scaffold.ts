@@ -74,6 +74,9 @@ const PACKAGE_JSON = `{
     "@types/react-dom": "19.1.2",
     "@tailwindcss/postcss": "4.1.5",
     "tailwindcss": "4.1.5"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
   }
 }`;
 
@@ -399,6 +402,10 @@ const BASELINE_PINNED_DEPS = [
 /**
  * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
  * and core tooling survive thin LLM output (zip export / preview runtime use the same merge).
+ *
+ * `overrides` are merged with the baseline winning on conflicts. The postcss
+ * override (`^8.5.10`) closes the GHSA-qx2v-qp2m-jg93 audit warning that
+ * Next 16.x's transitive postcss otherwise triggers on user `npm audit`.
  */
 export function mergePackageJsonWithBaseline(
   model: Record<string, unknown>,
@@ -408,9 +415,11 @@ export function mergePackageJsonWithBaseline(
   const bScripts = (b.scripts as Record<string, string> | undefined) ?? {};
   const bDep = (b.dependencies as Record<string, string> | undefined) ?? {};
   const bDevDep = (b.devDependencies as Record<string, string> | undefined) ?? {};
+  const bOverrides = (b.overrides as Record<string, string> | undefined) ?? {};
   const mScripts = (model.scripts as Record<string, string> | undefined) ?? {};
   const mDep = (model.dependencies as Record<string, string> | undefined) ?? {};
   const mDevDep = (model.devDependencies as Record<string, string> | undefined) ?? {};
+  const mOverrides = (model.overrides as Record<string, string> | undefined) ?? {};
 
   const dependencies: Record<string, string> = {
     ...bDep,
@@ -429,6 +438,7 @@ export function mergePackageJsonWithBaseline(
     scripts: { ...bScripts, ...mScripts },
     dependencies,
     devDependencies: { ...bDevDep, ...mDevDep },
+    overrides: { ...mOverrides, ...bOverrides },
   };
 }
 
