@@ -5,7 +5,7 @@ status: paused
 created: 2026-04-21
 linear: null
 paused: 2026-04-23
-paused_by: OMTAG-2026-04-23 (se ../avklarat/omtag-2026-04-23/PARKED.md)
+paused_by: OMTAG-2026-04-23 (se ../../avklarat/omtag-2026-04-23/meta/PARKED.md)
 priority: medium
 parent_plan: .cursor/plans/llm-chain-cleanup-2026-04-21.md
 parallel_safe_with: [L2-prompt-kit]
@@ -23,7 +23,7 @@ read_only_files:
   - src/lib/gen/autofix/fixer-prompt.ts
 ---
 
-> **Paused 2026-04-23:** Parkerad per OMTAG-waven eftersom den kräver telemetri-data + stabilt repo. Note att `src/lib/gen/stream/finalize-version.ts` nu är splittad till paket `finalize-version/` (OMTAG fas 1·03) — owner_files uppdaterad. Se [`../avklarat/omtag-2026-04-23/PARKED.md`](../avklarat/omtag-2026-04-23/PARKED.md).
+> **Paused 2026-04-23:** Parkerad per OMTAG-waven eftersom den kräver telemetri-data + stabilt repo. Note att `src/lib/gen/stream/finalize-version.ts` nu är splittad till paket `finalize-version/` (OMTAG fas 1·03) — owner_files uppdaterad. Se [`../../avklarat/omtag-2026-04-23/meta/PARKED.md`](../../avklarat/omtag-2026-04-23/meta/PARKED.md).
 
 # L1 — Unified repair-call
 

@@ -58,7 +58,7 @@ Rapport: [`docs/evals/2026-04-27-p0-protected-path-v4.md`](../../evals/2026-04-2
 - `@/components/icon` saknas
 - `@vercel/analytics` används men är inte pinnat i `package.json`
 
-Detta är ett separat P1-spår: [`2026-04-27-canonical-import-dependency-readiness.md`](../active/2026-04-27-canonical-import-dependency-readiness.md)
+Detta är ett separat P1-spår: [`2026-04-27-canonical-import-dependency-readiness.md`](./2026-04-27-canonical-import-dependency-readiness.md)
 
 ## Ej gjort här
 
