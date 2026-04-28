@@ -1,5 +1,0 @@
-
-export function Button(_props: Record<string, unknown>) {
-  // autofix-stub:Button — model did not emit a real implementation; rendering nothing.
-  return null;
-}

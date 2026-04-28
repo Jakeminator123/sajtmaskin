@@ -1,5 +1,0 @@
-{
-  "extends": "../tsconfig.json",
-  "include": ["repro-value-import.tsx", "repro-import-type.tsx"],
-  "exclude": []
-}

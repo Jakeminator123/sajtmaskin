@@ -2,6 +2,7 @@ import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import {
   findNearestIcon,
+  isLucideTypeOnlyExport,
   parseSpecifier,
 } from "@/lib/gen/suspense/rules/lucide-icon-fix";
 import type { AutoFixEntry } from "./pipeline";
@@ -273,19 +274,25 @@ function fixLucideImports(code: string): { code: string; fixes: AutoFixEntry[] }
       if (specifiers.length === 0) return fullMatch;
 
       let changed = false;
-      const fixedSpecs = specifiers.map((raw) => {
+      const fixedSpecs = specifiers.flatMap((raw) => {
         const { imported, local } = parseSpecifier(raw);
 
-        if (LUCIDE_ICONS.has(imported)) return raw;
+        if (isLucideTypeOnlyExport(imported) || isLucideTypeOnlyExport(local)) {
+          changed = true;
+          return [];
+        }
+
+        if (LUCIDE_ICONS.has(imported)) return [raw];
 
         changed = true;
         const nearest = findNearestIcon(imported);
 
-        if (nearest === local) return nearest;
-        return `${nearest} as ${local}`;
+        if (nearest === local) return [nearest];
+        return [`${nearest} as ${local}`];
       });
 
       if (!changed) return fullMatch;
+      if (fixedSpecs.length === 0) return "";
 
       const hasNewlines = rawNames.includes("\n");
       const joined = hasNewlines

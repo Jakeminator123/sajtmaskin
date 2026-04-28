@@ -167,4 +167,53 @@ describe("import-validator (SAJ-61 namespace + LucideIcon)", () => {
       ),
     ).toBe(true);
   });
+
+  it("regression: does not rewrite LucideIcon to a fallback runtime icon alias", () => {
+    const code = [
+      '"use client";',
+      'import { LucideIcon, Flame } from "lucide-react";',
+      "",
+      "type FeatureCard = {",
+      "  icon: LucideIcon;",
+      "  title: string;",
+      "};",
+      "",
+      'const cards: FeatureCard[] = [{ icon: Flame, title: "Grill" }];',
+      "",
+      "export default function HomePage() {",
+      "  return <Flame aria-hidden />;",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+
+    expect(result.code).toContain('import type { LucideIcon } from "lucide-react"');
+    expect(result.code).toContain('import { Flame } from "lucide-react"');
+    expect(result.code).not.toContain("Circle as LucideIcon");
+    expect(result.code).not.toContain('import { LucideIcon, Flame } from "lucide-react"');
+  });
+
+  it("regression: removes existing Circle as LucideIcon aliases before adding the type import", () => {
+    const code = [
+      '"use client";',
+      'import { Circle as LucideIcon, Flame } from "lucide-react";',
+      "",
+      "type FeatureCard = {",
+      "  icon: LucideIcon;",
+      "  title: string;",
+      "};",
+      "",
+      'const cards: FeatureCard[] = [{ icon: Flame, title: "Grill" }];',
+      "",
+      "export default function HomePage() {",
+      "  return <Flame aria-hidden />;",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+
+    expect(result.code).toContain('import type { LucideIcon } from "lucide-react"');
+    expect(result.code).toContain('import { Flame } from "lucide-react"');
+    expect(result.code).not.toContain("Circle as LucideIcon");
+  });
 });
