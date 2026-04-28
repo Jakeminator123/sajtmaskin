@@ -306,14 +306,37 @@ export function renderComponentReferencesBlock(
   componentReferences: { name: string; code: string }[] | undefined,
 ): string[] {
   if (!componentReferences || componentReferences.length === 0) return [];
+  const summarizeImports = (code: string): string[] => {
+    const imports = code
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("import "))
+      .slice(0, 8);
+    return imports.length > 0 ? imports : ["(no imports detected)"];
+  };
+  const summarizeExports = (code: string): string[] => {
+    const exports = Array.from(
+      code.matchAll(/\bexport\s+(?:default\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/g),
+      (match) => match[1],
+    );
+    return Array.from(new Set(exports)).slice(0, 6);
+  };
   const parts: string[] = [
     "## Component References",
     "",
-    "Verified usage examples for components relevant to this request. Adapt these patterns to the site — do not copy verbatim.",
+    "Verified usage examples for components relevant to this request. Use these as compact API/pattern hints only — do not copy verbatim.",
     "",
   ];
-  for (const ref of componentReferences.slice(0, 5)) {
-    parts.push(`### ${ref.name}`, "", "```tsx", ref.code, "```", "");
+  for (const ref of componentReferences.slice(0, 3)) {
+    const imports = summarizeImports(ref.code);
+    const exports = summarizeExports(ref.code);
+    parts.push(`### ${ref.name}`, "");
+    parts.push("- Import/API hints:");
+    parts.push(...imports.map((line) => `  - \`${line}\``));
+    if (exports.length > 0) {
+      parts.push(`- Exported symbols: ${exports.map((name) => `\`${name}\``).join(", ")}`);
+    }
+    parts.push("- Adapt the layout idea and component API. Do not paste the full example code.", "");
   }
   return parts;
 }

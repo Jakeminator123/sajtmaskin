@@ -374,6 +374,32 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("field");
     });
 
+    it("keeps component references compact instead of injecting full example source", async () => {
+      const longExample = [
+        "import Link from \"next/link\";",
+        "import { Button } from \"@/components/ui/button\";",
+        "",
+        "export default function HugeExample() {",
+        "  return <section>",
+        "    <Button asChild><Link href=\"/\">Start</Link></Button>",
+        "  </section>;",
+        "}",
+        "x".repeat(20_000),
+      ].join("\n");
+
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        buildSpec: lightFollowUpSpec,
+        componentReferences: [{ name: "@example/huge", code: longExample }],
+      });
+
+      expect(context).toContain("## Component References");
+      expect(context).toContain("Import/API hints");
+      expect(context).toContain("HugeExample");
+      expect(context).not.toContain("x".repeat(100));
+    });
+
     it("describes follow-up work as editing the current project state", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
