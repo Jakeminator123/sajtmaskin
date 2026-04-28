@@ -63,16 +63,15 @@ export interface PreflightPhaseResult {
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
   /**
-   * Cross-file imports that resolved to missing files and were silently
-   * stubbed by `cross-file-import-checker`. Bubbled to `FinalizeResult` so
-   * post-finalize can persist a `warning`-level row in the version
-   * diagnostics modal (plan-02 / STATUS-02 — coffee-cup-3d-style "looks
-   * shipped, actually hollow" anti-pattern).
+   * Cross-file imports that resolved to missing files. The checker either
+   * stubs them or rewires obvious sibling-name mistakes; post-finalize
+   * persists a `warning`-level diagnostics row for both cases.
    */
   crossFileStubs: Array<{
     sourceFile: string;
     missingImport: string;
     stubFile: string;
+    rewireTarget?: string;
     dossierId?: string;
     capability?: string;
   }>;

@@ -5,7 +5,7 @@ import { AlertCircle, KeyRound, Loader2, RefreshCw, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { selectActiveErrorLogs } from "@/app/api/engine/chats/[chatId]/versions/[versionId]/error-log/summary";
+import { selectActiveErrorLogs } from "@/lib/builder/version-diagnostics-summary";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";

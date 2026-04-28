@@ -584,6 +584,67 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     expect(payloads[0]?.category).toBe("merge:cross-file-stub");
   });
 
+  it("emits rewire diagnostics without saying a stub was created", async () => {
+    createEngineVersionErrorLogsMock.mockReset();
+    createEngineVersionErrorLogsMock.mockResolvedValue(undefined);
+    const finalizedWithRewire = {
+      ...finalized,
+      crossFileStubs: [
+        {
+          sourceFile: "components/flying-drum-overlay.tsx",
+          missingImport: "@/components/three-canvas",
+          stubFile: "@/components/three-canvas-shell",
+          rewireTarget: "components/three-canvas-shell",
+        },
+      ],
+    };
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalizedWithRewire as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "fast",
+        contextPolicy: "light",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+      },
+      repairPassIndex: 0,
+    });
+
+    expect(createEngineVersionErrorLogsMock).toHaveBeenCalledTimes(1);
+    const payloads = createEngineVersionErrorLogsMock.mock.calls[0]?.[0] as Array<{
+      category: string;
+      message: string;
+      meta: Record<string, unknown>;
+    }>;
+    expect(payloads).toHaveLength(1);
+    expect(payloads[0]?.category).toBe("merge:cross-file-rewire");
+    expect(payloads[0]?.message).toContain("rewired");
+    expect(payloads[0]?.message).not.toContain("auto-stubbade");
+    expect(payloads[0]?.meta).toMatchObject({
+      rewireTarget: "components/three-canvas-shell",
+      stubFile: "@/components/three-canvas-shell",
+    });
+  });
+
   it("does not emit warning rows when there are no cross-file stubs", async () => {
     createEngineVersionErrorLogsMock.mockReset();
     createEngineVersionErrorLogsMock.mockResolvedValue(undefined);

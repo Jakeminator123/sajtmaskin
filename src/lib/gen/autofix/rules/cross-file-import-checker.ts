@@ -13,6 +13,8 @@ interface CrossFileImportFix {
   sourceFile: string;
   missingImport: string;
   stubFile: string;
+  /** Existing project path used instead of creating a null-render stub. */
+  rewireTarget?: string;
   /** Set when the missing import matches a dossier `exposes[].import`. */
   dossierId?: string;
   capability?: string;
@@ -22,6 +24,25 @@ const LOCAL_PREFIXES = ["@/", "./", "../"];
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 const INDEX_EXTENSIONS = EXTENSIONS.map((ext) => `/index${ext}`);
 const CANDIDATES = [...EXTENSIONS, ...INDEX_EXTENSIONS];
+
+/**
+ * Common suffix/prefix variants the LLM frequently mixes up when emitting
+ * imports. Order matters slightly: longer suffixes first so we don't
+ * accidentally match `-canvas` inside `-canvas-shell`.
+ */
+const REWIRE_SUFFIX_VARIANTS = [
+  "-canvas-shell",
+  "-canvas",
+  "-shell",
+  "-component",
+  "-wrapper",
+  "-container",
+  "-provider",
+  "-context",
+  "-overlay",
+  "-scene",
+  "-runtime",
+] as const;
 
 function isLocalImport(source: string): boolean {
   return LOCAL_PREFIXES.some((p) => source.startsWith(p));
@@ -59,6 +80,93 @@ function deriveComponentName(importPath: string): string {
   return segment
     .replace(/[-_](\w)/g, (_, c: string) => c.toUpperCase())
     .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+/**
+ * Try to find an existing project file that the missing import most likely
+ * meant. Returns the existing project path (without extension) when an
+ * obvious suffix/prefix sibling exists. Conservative on purpose: we never
+ * rewire to a file that is itself a stub fallback or has an unrelated
+ * basename root.
+ */
+function findRewireTarget(
+  missingProjectPath: string,
+  fileMap: Map<string, CodeFile>,
+): string | null {
+  const lastSlash = missingProjectPath.lastIndexOf("/");
+  const dir = lastSlash >= 0 ? missingProjectPath.slice(0, lastSlash) : "";
+  const basename = lastSlash >= 0 ? missingProjectPath.slice(lastSlash + 1) : missingProjectPath;
+  if (!basename) return null;
+
+  const candidateBases = new Set<string>();
+
+  // 1. The model imported the "core" name; the real file has a suffix.
+  for (const suffix of REWIRE_SUFFIX_VARIANTS) {
+    candidateBases.add(`${basename}${suffix}`);
+  }
+  // 2. The model imported a suffixed name; the real file is unsuffixed.
+  for (const suffix of REWIRE_SUFFIX_VARIANTS) {
+    if (basename.endsWith(suffix) && basename.length > suffix.length) {
+      candidateBases.add(basename.slice(0, -suffix.length));
+    }
+  }
+
+  const tryProbe = (probedDir: string, probedBase: string): string | null => {
+    const root = probedDir ? `${probedDir}/${probedBase}` : probedBase;
+    if (fileMap.has(root)) return root.replace(/\.(tsx|ts|jsx|js)$/, "");
+    for (const ext of EXTENSIONS) {
+      if (fileMap.has(root + ext)) return root;
+    }
+    for (const indexExt of INDEX_EXTENSIONS) {
+      if (fileMap.has(root + indexExt)) return root;
+    }
+    return null;
+  };
+
+  for (const candidateBase of candidateBases) {
+    const direct = tryProbe(dir, candidateBase);
+    if (direct) return direct;
+    // Some scaffolds live under `src/` — probe the mirrored path too.
+    const srcDir = dir.startsWith("src/") ? dir : `src/${dir}`.replace(/\/$/, "");
+    const mirrored = tryProbe(srcDir, candidateBase);
+    if (mirrored) return mirrored;
+  }
+  return null;
+}
+
+/**
+ * Convert a resolved project path back to an import specifier in the same
+ * style the importer used. Preserves `@/` aliases and falls back to leaving
+ * the path as-is when the source spec was relative — relative-import rewire
+ * is intentionally not handled here to keep the change minimal.
+ */
+function projectPathToImportSpec(
+  resolvedProjectPath: string,
+  originalSpec: string,
+): string | null {
+  if (originalSpec.startsWith("@/")) {
+    const cleaned = resolvedProjectPath.replace(/^src\//, "");
+    return `@/${cleaned}`;
+  }
+  return null;
+}
+
+/**
+ * Replace `from "<oldSpec>"` (and side-effect `import "<oldSpec>"`) with
+ * `<newSpec>` while preserving the original quote style. The pattern is
+ * scoped to import statements only.
+ */
+function rewireImportSpecInSource(
+  content: string,
+  oldSpec: string,
+  newSpec: string,
+): string {
+  const escaped = oldSpec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const fromPattern = new RegExp(`(\\bfrom\\s+['"])${escaped}(['"])`, "g");
+  const sideEffectPattern = new RegExp(`(\\bimport\\s+['"])${escaped}(['"])`, "g");
+  return content
+    .replace(fromPattern, `$1${newSpec}$2`)
+    .replace(sideEffectPattern, `$1${newSpec}$2`);
 }
 
 interface ImportSpecifiers {
@@ -406,6 +514,7 @@ export function checkCrossFileImports(
     if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
 
     const sf = createTsxSourceFile(file.path, file.content);
+    let rewiredContent: string | null = null;
     for (const st of sf.statements) {
       if (!ts.isImportDeclaration(st)) continue;
 
@@ -418,6 +527,33 @@ export function checkCrossFileImports(
           ? projectPath
           : `${projectPath}.tsx`;
       if (fileMap.has(stubPath)) continue;
+
+      // Prefer an obvious sibling import over a null-render stub.
+      // Example: `@/components/three-canvas` can mean the existing
+      // `@/components/three-canvas-shell`.
+      const rewireResolved = findRewireTarget(projectPath, fileMap);
+      const rewireSpec =
+        rewireResolved !== null
+          ? projectPathToImportSpec(rewireResolved, meta.moduleSpecifier)
+          : null;
+      if (rewireResolved && rewireSpec) {
+        const baseContent: string = rewiredContent ?? file.content;
+        const nextContent = rewireImportSpecInSource(
+          baseContent,
+          meta.moduleSpecifier,
+          rewireSpec,
+        );
+        if (nextContent !== baseContent) {
+          rewiredContent = nextContent;
+          fixes.push({
+            sourceFile: file.path,
+            missingImport: meta.moduleSpecifier,
+            stubFile: rewireSpec,
+            rewireTarget: rewireResolved,
+          });
+          continue;
+        }
+      }
 
       const spec = importSpecifiersFromDeclaration(st);
       const source = meta.moduleSpecifier;
@@ -432,6 +568,12 @@ export function checkCrossFileImports(
           importers: [file.path],
           specs: [spec],
         });
+      }
+    }
+    if (rewiredContent !== null) {
+      const updated = fileMap.get(file.path);
+      if (updated) {
+        fileMap.set(file.path, { ...updated, content: rewiredContent });
       }
     }
   }

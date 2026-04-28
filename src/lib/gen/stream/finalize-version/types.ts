@@ -113,12 +113,10 @@ export interface FinalizeResult {
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
   /**
-   * Cross-file imports the LLM made to local files that did not exist —
-   * `cross-file-import-checker` auto-stubbed them so the build passes,
-   * but the rendered component is hollow. Surfaced as `warning`-level
-   * rows in the version diagnostics modal so users understand "1 fil
-   * saknades och stubbades" instead of believing the generation succeeded
-   * fully (plan-02 / STATUS-02; coffee-cup-3d-style anti-pattern).
+   * Cross-file imports the LLM made to local files that did not exist.
+   * Most are auto-stubbed; obvious sibling-name mistakes may instead be
+   * rewired and carry `rewireTarget`. Surfaced as `warning`-level rows in
+   * the version diagnostics modal.
    * `dossierId` and `capability` are present when the missing import
    * matched a dossier `exposes` entry (dossier integration gap).
    */
@@ -126,6 +124,7 @@ export interface FinalizeResult {
     sourceFile: string;
     missingImport: string;
     stubFile: string;
+    rewireTarget?: string;
     dossierId?: string;
     capability?: string;
   }>;
@@ -186,6 +185,7 @@ export interface FinalizeFastPathResult {
     sourceFile: string;
     missingImport: string;
     stubFile: string;
+    rewireTarget?: string;
     dossierId?: string;
     capability?: string;
   }>;

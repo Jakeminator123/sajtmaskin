@@ -135,6 +135,68 @@ describe("checkCrossFileImports", () => {
     ).toEqual([]);
   });
 
+  it("rewires @/components/three-canvas to @/components/three-canvas-shell when the shell file exists", () => {
+    const overlay: CodeFile = {
+      path: "components/flying-drum-overlay.tsx",
+      language: "tsx",
+      content: [
+        '"use client";',
+        'import { ThreeCanvasShell } from "@/components/three-canvas";',
+        "",
+        "export function FlyingDrumOverlay() {",
+        "  return <ThreeCanvasShell decorative className=\"size-full\" />;",
+        "}",
+      ].join("\n"),
+    };
+    const shell: CodeFile = {
+      path: "components/three-canvas-shell.tsx",
+      language: "tsx",
+      content: [
+        '"use client";',
+        "export function ThreeCanvasShell(props: { children?: unknown }) {",
+        "  return null;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([overlay, shell]);
+
+    const updatedOverlay = result.files.find(
+      (f) => f.path === "components/flying-drum-overlay.tsx",
+    );
+    expect(updatedOverlay?.content).toContain('"@/components/three-canvas-shell"');
+    expect(updatedOverlay?.content).not.toContain('"@/components/three-canvas"');
+    expect(result.files.some((f) => f.path === "components/three-canvas.tsx")).toBe(false);
+    const rewireFix = result.fixes.find(
+      (f) => f.missingImport === "@/components/three-canvas",
+    );
+    expect(rewireFix).toBeDefined();
+    expect(rewireFix?.rewireTarget).toBe("components/three-canvas-shell");
+  });
+
+  it("falls back to stub when no fuzzy sibling exists", () => {
+    const page: CodeFile = {
+      path: "app/page.tsx",
+      language: "tsx",
+      content: [
+        'import { TotallyMadeUpThing } from "@/components/totally-made-up-thing";',
+        "export default function Page() { return null; }",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+
+    const stub = result.files.find(
+      (f) => f.path === "components/totally-made-up-thing.tsx",
+    );
+    expect(stub).toBeDefined();
+    expect(stub?.content).toContain("autofix-stub");
+    const fix = result.fixes.find(
+      (f) => f.missingImport === "@/components/totally-made-up-thing",
+    );
+    expect(fix?.rewireTarget).toBeUndefined();
+  });
+
   it("strips denylisted default imports like HTMLFormElement without stubbing", () => {
     const page: CodeFile = {
       path: "app/form.tsx",

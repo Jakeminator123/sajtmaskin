@@ -132,12 +132,9 @@ export interface MergeGeneratedProjectFilesResult {
    * Imports the LLM made to local files that did not exist in the merged
    * file set. `cross-file-import-checker` auto-stubbed each of them so the
    * build doesn't die — but the stubs render `null`, meaning the user sees
-   * a hollow shell where the real component should have been (the canonical
-   * STATUS-01 example: `coffee-cup-3d.tsx → ./coffee-cup-scene` was stubbed
-   * silently, so the "3D scene" feature was visually missing without any
-   * user-facing signal). Surfacing this as a `warning`-severity log row in
-   * the version diagnostics modal lets the user understand "1 file saknades
-   * och stubbades" instead of believing the generation succeeded fully.
+   * a hollow shell where the real component should have been. When an obvious
+   * sibling exists, the checker may instead rewrite the import path and set
+   * `rewireTarget`.
    *
    * Plan-02 / STATUS-02: not an `error` — the build IS shippable; just
    * incomplete relative to what the LLM intended.
@@ -146,6 +143,7 @@ export interface MergeGeneratedProjectFilesResult {
     sourceFile: string;
     missingImport: string;
     stubFile: string;
+    rewireTarget?: string;
     /** Present when the missing import matches a dossier exposes entry. */
     dossierId?: string;
     capability?: string;

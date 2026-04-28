@@ -51,7 +51,9 @@ function matchesThreeDStubPattern(stub: {
   sourceFile: string;
   missingImport: string;
   stubFile: string;
+  rewireTarget?: string;
 }): boolean {
+  if (stub.rewireTarget) return false;
   return (
     THREE_D_STUB_NAME_RE.test(stub.stubFile) ||
     THREE_D_STUB_NAME_RE.test(stub.sourceFile) ||
@@ -234,21 +236,27 @@ export async function runOwnEngineStreamPostFinalize(params: {
   // och brutit modal-truth). Direkt DB-skriv mot `createEngineVersionErrorLogs`
   // är samma mönster som quality-gate-routens `quality-gate:superseded`-warnings.
   if (finalized.crossFileStubs.length > 0 && dbConfigured) {
-    const warningPayloads = finalized.crossFileStubs.map((stub) => ({
-      chatId,
-      versionId: finalized.version.id,
-      level: "warning" as const,
-      category: "merge:cross-file-stub",
-      message: `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade målfil — auto-stubbade ${stub.stubFile}. Komponenten renderar tom tills LLM emitterar en riktig implementation.`,
-      meta: {
-        sourceFile: stub.sourceFile,
-        missingImport: stub.missingImport,
-        stubFile: stub.stubFile,
-        repairPassIndex,
-        dossierId: stub.dossierId ?? null,
-        capability: stub.capability ?? null,
-      },
-    }));
+    const warningPayloads = finalized.crossFileStubs.map((stub) => {
+      const isRewire = typeof stub.rewireTarget === "string" && stub.rewireTarget.trim().length > 0;
+      return {
+        chatId,
+        versionId: finalized.version.id,
+        level: "warning" as const,
+        category: isRewire ? "merge:cross-file-rewire" : "merge:cross-file-stub",
+        message: isRewire
+          ? `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade exakt målfil — rewired till befintliga ${stub.stubFile}.`
+          : `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade målfil — auto-stubbade ${stub.stubFile}. Komponenten renderar tom tills LLM emitterar en riktig implementation.`,
+        meta: {
+          sourceFile: stub.sourceFile,
+          missingImport: stub.missingImport,
+          stubFile: stub.stubFile,
+          rewireTarget: stub.rewireTarget ?? null,
+          repairPassIndex,
+          dossierId: stub.dossierId ?? null,
+          capability: stub.capability ?? null,
+        },
+      };
+    });
     const missingCapabilityWarnings =
       hasVisual3dCapability
         ? []

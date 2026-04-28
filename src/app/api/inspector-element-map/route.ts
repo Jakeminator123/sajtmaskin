@@ -30,6 +30,14 @@ function cacheKey(url: string, w: number, h: number): string {
   return `${url}|${w}x${h}`;
 }
 
+/** Expected "inspector capture is unavailable right now" response. */
+function unavailableResponse(reason: string): NextResponse {
+  return NextResponse.json(
+    { success: false, unavailable: true, error: reason },
+    { status: 200 },
+  );
+}
+
 async function tryWorkerElementMap(
   url: string,
   vpW: number,
@@ -77,7 +85,14 @@ async function localElementMap(
   vpH: number,
   maxElements: number,
 ): Promise<NextResponse> {
-  const { chromium } = await import("playwright");
+  let chromium: typeof import("playwright").chromium;
+  try {
+    ({ chromium } = await import("playwright"));
+  } catch {
+    return unavailableResponse(
+      "Inspector worker is not running and the local Playwright fallback is not installed.",
+    );
+  }
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
   try {
     browser = await chromium.launch({ headless: true });
@@ -150,7 +165,9 @@ async function localElementMap(
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Local element map failed";
-    return NextResponse.json({ success: false, error: msg }, { status: 502 });
+    // Capture failures are expected during preview warmup (navigation
+    // timeout, VM not ready, target route 404 for sub-paths).
+    return unavailableResponse(msg);
   } finally {
     if (browser) await browser.close().catch(() => {});
   }

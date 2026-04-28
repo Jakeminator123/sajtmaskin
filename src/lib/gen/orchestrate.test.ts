@@ -31,14 +31,34 @@ function makeBuildSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
 }
 
 describe("inheritQualityTargetFromPriorVersion (P22)", () => {
-  it("returns prior qualityTarget on follow-up runs instead of recomputed value", () => {
+  it("inherits prior qualityTarget upward (e.g. standard base, premium prior)", () => {
     const baseSpec = makeBuildSpec({
       generationMode: "followUp",
-      qualityTarget: "release-candidate" satisfies BuildSpecQualityTarget,
+      qualityTarget: "standard" satisfies BuildSpecQualityTarget,
     });
     const result = inheritQualityTargetFromPriorVersion("chat-1", baseSpec, "premium");
     expect(result.qualityTarget).toBe("premium");
     expect(result).not.toBe(baseSpec);
+  });
+
+  it("does NOT inherit when prior target would lower rank (premium base, standard prior)", () => {
+    const baseSpec = makeBuildSpec({
+      generationMode: "followUp",
+      qualityTarget: "premium",
+    });
+    const result = inheritQualityTargetFromPriorVersion("chat-1", baseSpec, "standard");
+    expect(result).toBe(baseSpec);
+    expect(result.qualityTarget).toBe("premium");
+  });
+
+  it("does NOT inherit when prior would lower release-candidate (F3) → premium", () => {
+    const baseSpec = makeBuildSpec({
+      generationMode: "followUp",
+      qualityTarget: "release-candidate",
+    });
+    const result = inheritQualityTargetFromPriorVersion("chat-1", baseSpec, "premium");
+    expect(result).toBe(baseSpec);
+    expect(result.qualityTarget).toBe("release-candidate");
   });
 
   it("leaves baseSpec untouched when no prior qualityTarget is provided", () => {
