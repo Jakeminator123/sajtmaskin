@@ -32,7 +32,7 @@ from backoffice.shared import BackofficeContext
 REPAIR_LOOP_INLINED_HISTORY = (
     (
         "Phase 2A — repairPassIndex propagation + pruneStaleVersionErrorLogs (SAJ-25)",
-        "Stops the red 'Fel' badge on a clean follow-up by propagating repairPassIndex into finalize and pruning earlier-pass error-log rows when the latest pass is clean. Inlined 2026-04-28 (was FEATURES.consistentRepairPassIndex).",
+        "Stops stale diagnostics from keeping a clean follow-up red by propagating repairPassIndex into finalize and pruning earlier-pass error-log rows when the latest pass has no preflight/syntax blockers. Verifier-only findings stay on the latest pass but no longer keep older rows active. Inlined 2026-04-28 (was FEATURES.consistentRepairPassIndex).",
     ),
     (
         "Phase 2B — verifier re-run after LLM-fixer",

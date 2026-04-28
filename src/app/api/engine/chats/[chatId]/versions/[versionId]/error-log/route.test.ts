@@ -51,4 +51,54 @@ describe("buildErrorLogSummary", () => {
     expect(summary.activeByLevel?.warning).toBe(1);
     expect(summary.latestPreviewCode).toBe("preview_ready");
   });
+
+  it("does not keep older passless quality-gate errors active after a newer clean pass", () => {
+    const logs = [
+      {
+        level: "info",
+        category: "preflight:summary",
+        message: "new pass ok",
+        meta: { logPassId: "pass-new" },
+      },
+      {
+        level: "error",
+        category: "preflight:quality-gate",
+        message: "older server verify failed",
+        meta: { checks: [{ check: "typecheck", passed: false }] },
+      },
+      {
+        level: "error",
+        category: "preflight:summary",
+        message: "older preflight failed",
+        meta: { logPassId: "pass-old" },
+      },
+    ];
+
+    const summary = buildErrorLogSummary(logs);
+    expect(summary.latestPassId).toBe("pass-new");
+    expect(summary.activeTotal).toBe(1);
+    expect(summary.activeByLevel?.error).toBe(0);
+  });
+
+  it("keeps passless lifecycle logs active when they are newer than the latest pass", () => {
+    const logs = [
+      {
+        level: "error",
+        category: "preflight:quality-gate",
+        message: "current server verify failed",
+        meta: { checks: [{ check: "typecheck", passed: false }] },
+      },
+      {
+        level: "info",
+        category: "preflight:summary",
+        message: "new pass ok",
+        meta: { logPassId: "pass-new" },
+      },
+    ];
+
+    const summary = buildErrorLogSummary(logs);
+    expect(summary.latestPassId).toBe("pass-new");
+    expect(summary.activeTotal).toBe(2);
+    expect(summary.activeByLevel?.error).toBe(1);
+  });
 });

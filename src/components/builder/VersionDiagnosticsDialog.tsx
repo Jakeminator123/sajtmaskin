@@ -5,6 +5,7 @@ import { AlertCircle, KeyRound, Loader2, RefreshCw, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { selectActiveErrorLogs } from "@/app/api/engine/chats/[chatId]/versions/[versionId]/error-log/summary";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { openProjectEnvVarsPanel } from "@/lib/builder/project-env-events";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
@@ -186,20 +187,7 @@ export function VersionDiagnosticsDialog({
   }, [open, chatId, versionId, reloadToken]);
 
   const activeLogs = useMemo(() => {
-    if (!summary?.latestPassId) return logs;
-    return logs.filter((log) => {
-      const passId =
-        log.meta && typeof log.meta === "object"
-          ? (log.meta as Record<string, unknown>).logPassId
-          : null;
-      if (passId === summary.latestPassId) return true;
-      if (passId !== null) return false;
-      const cat = typeof log.category === "string" ? log.category : "";
-      return cat.startsWith("quality-gate:") ||
-        cat === "preflight:quality-gate" ||
-        cat === "preview" ||
-        cat === "render-telemetry";
-    });
+    return selectActiveErrorLogs(logs, summary?.latestPassId ?? null);
   }, [logs, summary?.latestPassId]);
 
   const groupedLogs = useMemo(() => {
@@ -374,7 +362,7 @@ export function VersionDiagnosticsDialog({
 
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">Loggar: {summary?.activeTotal ?? activeLogs.length}</Badge>
-          <Badge variant="outline">Fel: {summary?.activeByLevel?.error ?? 0}</Badge>
+          <Badge variant="outline">Loggfel: {summary?.activeByLevel?.error ?? 0}</Badge>
           <Badge variant="outline">Varningar: {summary?.activeByLevel?.warning ?? 0}</Badge>
           <Badge variant="outline">Info: {summary?.activeByLevel?.info ?? 0}</Badge>
           {summary?.latestPreviewCode ? (

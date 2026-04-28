@@ -241,20 +241,26 @@ export async function pruneStaleLogsIfCleanRepair(params: {
   chatId: string;
   versionId: string;
   repairPassIndex: number;
-  hasVerificationBlockingErrors: boolean;
+  hasPreflightVerificationBlockingErrors: boolean;
 }): Promise<void> {
-  const { chatId, versionId, repairPassIndex, hasVerificationBlockingErrors } = params;
+  const {
+    chatId,
+    versionId,
+    repairPassIndex,
+    hasPreflightVerificationBlockingErrors,
+  } = params;
   // SAJ-25 — pruneStaleVersionErrorLogs:
   //
   // When the same `versionId` is re-finalised (follow-up / repair pass) and
-  // this pass is CLEAN (`!hasVerificationBlockingErrors`), drop rows from
+  // this pass has no deterministic preflight/syntax blockers, drop rows from
   // earlier passes whose `meta.repairPassIndex` is < currentRepairPassIndex.
-  // Without this prune the UI keeps rendering old blocking findings as a
-  // red "Fel"-badge on a fully-working preview.
+  // Verifier-only findings remain visible for the current pass, but must not
+  // keep stale older-pass rows alive and make the diagnostics UI look worse
+  // than the latest pass actually is.
   //
   // Best-effort. Never throws. Was hardcoded ON via the now-removed
   // FEATURES.consistentRepairPassIndex flag (inlined 2026-04-28).
-  if (repairPassIndex <= 0 || hasVerificationBlockingErrors) {
+  if (repairPassIndex <= 0 || hasPreflightVerificationBlockingErrors) {
     return;
   }
   try {

@@ -7,10 +7,32 @@ export type ErrorLogRow = {
   meta?: unknown;
 };
 
-function readLogPassId(meta: unknown): string | null {
+export function readLogPassId(meta: unknown): string | null {
   if (!meta || typeof meta !== "object") return null;
   const value = (meta as Record<string, unknown>).logPassId;
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function isPasslessLifecycleLog(log: ErrorLogRow): boolean {
+  const cat = typeof log.category === "string" ? log.category : "";
+  return cat.startsWith("quality-gate:") ||
+    cat === "preflight:quality-gate" ||
+    cat === "preview" ||
+    cat === "render-telemetry";
+}
+
+export function selectActiveErrorLogs<T extends ErrorLogRow>(logs: T[], latestPassId: string | null): T[] {
+  if (latestPassId === null) return logs;
+
+  const latestPassIndex = logs.findIndex((log) => readLogPassId(log.meta) === latestPassId);
+  return logs.filter((log, index) => {
+    if (readLogPassId(log.meta) === latestPassId) return true;
+    if (readLogPassId(log.meta) !== null) return false;
+    // Passless lifecycle rows are emitted after finalize (preview / server-verify).
+    // Keep only rows newer than the latest pass marker; older passless rows belong
+    // to historical attempts and should not keep the current diagnostics red.
+    return latestPassIndex >= 0 && index < latestPassIndex && isPasslessLifecycleLog(log);
+  });
 }
 
 export function buildErrorLogSummary(logs: ErrorLogRow[]) {
@@ -30,18 +52,7 @@ export function buildErrorLogSummary(logs: ErrorLogRow[]) {
   }
 
   const latestPassId = logs.map((log) => readLogPassId(log.meta)).find((id) => id) ?? null;
-  const activeLogs =
-    latestPassId === null
-      ? logs
-      : logs.filter((log) => {
-          if (readLogPassId(log.meta) === latestPassId) return true;
-          if (readLogPassId(log.meta) !== null) return false;
-          const cat = typeof log.category === "string" ? log.category : "";
-          return cat.startsWith("quality-gate:") ||
-            cat === "preflight:quality-gate" ||
-            cat === "preview" ||
-            cat === "render-telemetry";
-        });
+  const activeLogs = selectActiveErrorLogs(logs, latestPassId);
   const activeByLevel = { info: 0, warning: 0, error: 0 };
   for (const log of activeLogs) {
     const level =

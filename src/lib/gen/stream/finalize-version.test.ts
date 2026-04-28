@@ -1543,6 +1543,48 @@ describe("finalizeAndSaveVersion", () => {
       expect(pruneStaleVersionErrorLogs).toHaveBeenCalledWith("ver_1", 1);
     });
 
+    it("verifier-only blockers do not prevent pruning older repair-pass logs", async () => {
+      runVerifierPass.mockResolvedValueOnce({
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail: "src/app/page.tsx: CTA href is empty",
+          },
+        ],
+        quality: [],
+      });
+
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledTimes(1);
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledWith("ver_1", 1);
+    });
+
+    it("preflight hard errors still prevent pruning older repair-pass logs", async () => {
+      runProjectSanityChecks.mockReturnValueOnce({
+        valid: false,
+        issues: [
+          {
+            file: "src/app/page.tsx",
+            severity: "error",
+            message: "Missing required export",
+          },
+        ],
+      });
+
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+
+      expect(pruneStaleVersionErrorLogs).not.toHaveBeenCalled();
+    });
+
     it("prune failure is non-fatal — finalize still completes (best-effort)", async () => {
       pruneStaleVersionErrorLogs.mockRejectedValue(new Error("transient db error"));
       const result = await finalizeAndSaveVersion({

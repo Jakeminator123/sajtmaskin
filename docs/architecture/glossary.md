@@ -159,7 +159,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Repair Accept Timeout | Manifeststyrd `repairAcceptTimeoutMinutes` för auto-accept | kanonisk |
 | Repair Error Manifest | Strukturerat felunderlag per fil (diagnostics + import-impact) | kanonisk |
 | Fixer Registry | Single source of truth för alla ~40 fixers i `fixer-registry.ts`. Backoffice-sida `Fixer Registry` läser snapshot | kanonisk |
-| Repair-Pass-Index Pruning | Best-effort delete av äldre `engine_version_error_logs` när repair på samma `versionId` är clean. Adresserar SAJ-25 | kanonisk |
+| Repair-Pass-Index Pruning | Best-effort delete av äldre `engine_version_error_logs` när repair på samma `versionId` saknar preflight-/syntaxblockers. Verifier-only-fynd i senaste passet behålls, men stoppar inte städning av äldre pass. Adresserar SAJ-25 | kanonisk |
 | Install Cache Share | Verify-lane signal: `node_modules` delning via dependency fingerprint | kanonisk |
 | Install Peer Fallback | Verify-lane signal: peer-konflikt + `--legacy-peer-deps` | kanonisk |
 | Post-Checks | Client-side post-genererings-orkestrering | kanonisk |
