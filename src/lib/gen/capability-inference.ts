@@ -89,6 +89,8 @@ const RULES: CapabilityRule[] = [
     patterns: [
       /\b(stripe|stripe.?betalning|stripe.?checkout)\b/i,
       /\b(klarna|swish|paypal|adyen|mollie|braintree)\b/i,
+      /\bcheckout\b/i,
+      /\bkassa\b/i,
       /\b(betalningsfl(o|ö)de|betalningsl(o|ö)sning|payment.?flow|checkout.?flow)\b/i,
       /\b(card.?payment|kortbetalning|kortköp|kreditkort)\b/i,
       /\b(prenumerationsbetalning|subscription.?billing|recurring.?billing)\b/i,
@@ -166,7 +168,7 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsEcommerce",
     patterns: [
-      /\b(ecommerce|e-?commerce|e-?handel|shop|store|cart|varukorg|checkout|kassa|product|produkt|storefront|webshop|payment)\b/i,
+      /\b(ecommerce|e-?commerce|e-?handel|shop|store|cart|varukorg|product|produkt|storefront|webshop)\b/i,
     ],
   },
   {

@@ -27,6 +27,7 @@ describe("inferCapabilities", () => {
   it("detects forms + ecommerce without false positives on hospitality", () => {
     const caps = inferCapabilities("Build a webshop with a checkout form and product pages");
     expect(caps.needsEcommerce).toBe(true);
+    expect(caps.needsPayments).toBe(true);
     expect(caps.needsForms).toBe(true);
   });
 
@@ -126,7 +127,9 @@ describe("inferCapabilities", () => {
   });
 
   it("does NOT flag needsPayments for plain ecommerce wording without explicit payment provider", () => {
-    const caps = inferCapabilities("Visa produkter i en katalog, ingen kassa just nu");
+    const caps = inferCapabilities(
+      "Visa produkter i en katalog utan onlinebetalning i MVP",
+    );
     expect(caps.needsPayments).toBe(false);
   });
 
