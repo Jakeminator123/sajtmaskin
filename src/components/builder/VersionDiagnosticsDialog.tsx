@@ -76,7 +76,7 @@ type LaneStatus = {
   tone: BadgeTone;
 };
 
-const RUNTIME_LOG_CATEGORIES = new Set(["preview", "render-telemetry", "preview-status"]);
+const RUNTIME_LOG_CATEGORIES = new Set(["preview", "render-telemetry"]);
 const PRODUCT_LOG_CATEGORIES = new Set([
   "images",
   "seo",

@@ -450,7 +450,7 @@ export async function finalizeAndSaveVersion(
     chatId,
     versionId: version.id,
     repairPassIndex,
-    hasPreflightVerificationBlockingErrors: hasVerificationBlockingPreflightErrors,
+    hasCurrentPreflightBlockers: hasVerificationBlockingPreflightErrors,
   });
 
   telemetryRecordId = await persistTelemetryRecord({

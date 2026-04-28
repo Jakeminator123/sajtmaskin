@@ -241,13 +241,13 @@ export async function pruneStaleLogsIfCleanRepair(params: {
   chatId: string;
   versionId: string;
   repairPassIndex: number;
-  hasPreflightVerificationBlockingErrors: boolean;
+  hasCurrentPreflightBlockers: boolean;
 }): Promise<void> {
   const {
     chatId,
     versionId,
     repairPassIndex,
-    hasPreflightVerificationBlockingErrors,
+    hasCurrentPreflightBlockers,
   } = params;
   // SAJ-25 — pruneStaleVersionErrorLogs:
   //
@@ -260,7 +260,7 @@ export async function pruneStaleLogsIfCleanRepair(params: {
   //
   // Best-effort. Never throws. Was hardcoded ON via the now-removed
   // FEATURES.consistentRepairPassIndex flag (inlined 2026-04-28).
-  if (repairPassIndex <= 0 || hasPreflightVerificationBlockingErrors) {
+  if (repairPassIndex <= 0 || hasCurrentPreflightBlockers) {
     return;
   }
   try {
