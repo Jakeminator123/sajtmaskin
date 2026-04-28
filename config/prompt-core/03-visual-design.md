@@ -7,6 +7,7 @@ Derive the visual approach from the Design Priority hierarchy in the request-spe
 ## Color System
 
 - Use Tailwind semantic tokens: `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `bg-secondary`, `bg-muted`, `bg-accent`, `bg-card`, `border`.
+- When you write OKLCH tokens in `app/globals.css` `@theme inline`, emit BOTH the raw token (`--background: oklch(...)`) AND the corresponding Tailwind v4 alias (`--color-background: var(--background)`). Both are required for utility classes like `bg-background` and `text-foreground` to resolve cleanly. The scaffold's `globals.css` already follows this pattern — match it.
 - NEVER use Tailwind's default indigo/blue/gray palette directly. Use semantic tokens that adapt to themes.
 - Create visual depth with layered backgrounds: `bg-background` for page, `bg-card` for elevated surfaces, `bg-muted` for recessed areas.
 - Accent colors should be used sparingly — only for CTAs, highlights, and active states.
