@@ -1,17 +1,105 @@
 /**
- * Visual Identity + Design References + guidance blocks (domain, motion,
- * quality, seasonal).
+ * Consolidated sections:
+ * - brief.ts
+ * - visual-and-guidance.ts
+ * - imagery-media-seo.ts
  *
- * Split out of `system-prompt.ts` (OMTAG-03 wave-rest) — no behavior change.
+ * Grouped during OMTAG-03 style refactor — no behavior change.
  */
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { resolveGuidanceBlocks, type ColorPalette } from "../../guidance-resolvers";
-import type { Brief, DesignReferenceAsset } from "../types";
+import type { Brief, DesignReferenceAsset, MediaCatalogItem } from "../types";
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+function strList(v: unknown): string[] {
+  return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
+}
+
+export function renderBriefBlocks(brief: Brief | null | undefined): string[] {
+  if (!brief) return [];
+
+  const parts: string[] = [];
+
+  // ── Project Context (from brief) ────────────────────────────────────────
+  const title = str(brief.projectTitle) || str(brief.siteName) || "Website";
+  const brand = str(brief.brandName);
+  const pitch = str(brief.oneSentencePitch) || str(brief.tagline);
+  const audience = str(brief.targetAudience);
+  const cta = str(brief.primaryCallToAction);
+  const tone = strList(brief.toneAndVoice);
+
+  const ctxLines: string[] = [
+    `## Project Context`,
+    "",
+    `- **Title:** ${title}`,
+  ];
+  if (brand) ctxLines.push(`- **Brand:** ${brand}`);
+  if (pitch) ctxLines.push(`- **Pitch:** ${pitch}`);
+  if (audience) ctxLines.push(`- **Audience:** ${audience}`);
+  if (cta) ctxLines.push(`- **Primary CTA:** ${cta}`);
+  if (tone.length) ctxLines.push(`- **Tone:** ${tone.join(", ")}`);
+  ctxLines.push("");
+
+  parts.push(...ctxLines);
+
+  // Pages & Sections — only when the brief carries section-level detail
+  // that goes beyond what Route Plan already provides (path + name + intent).
+  const pages = Array.isArray(brief.pages) ? brief.pages : [];
+  const pagesWithSections = pages.filter(
+    (p) => Array.isArray(p?.sections) && p.sections.length > 0,
+  );
+  if (pagesWithSections.length > 0) {
+    parts.push("## Pages & Sections", "");
+    for (const p of pagesWithSections.slice(0, 10)) {
+      const name = str(p?.name) || "Page";
+      const path = str(p?.path) || "/";
+      const purpose = str(p?.purpose);
+      parts.push(`- **${name}** (\`${path}\`)${purpose ? ` — ${purpose}` : ""}`);
+      const sections = Array.isArray(p?.sections) ? p.sections : [];
+      for (const s of sections.slice(0, 14)) {
+        const type = str(s?.type) || "section";
+        const heading = str(s?.heading);
+        const bullets = strList(s?.bullets).slice(0, 8);
+        const bulletText = bullets.length > 0 ? `: ${bullets.join("; ")}` : "";
+        parts.push(`  - ${type}${heading ? ` — ${heading}` : ""}${bulletText}`);
+      }
+    }
+    parts.push("");
+  }
+
+  // Must-have / avoid
+  const mustHave = strList(brief.mustHave).slice(0, 10);
+  const avoid = strList(brief.avoid).slice(0, 8);
+  if (mustHave.length > 0) {
+    parts.push("## Must Have", "", ...mustHave.map((m) => `- ${m}`), "");
+  }
+  if (avoid.length > 0) {
+    parts.push("## Avoid", "", ...avoid.map((a) => `- ${a}`), "");
+  }
+
+  // UX & UI notes from brief
+  const uiComponents = strList(brief.uiNotes?.components).slice(0, 16);
+  const uiInteractions = strList(brief.uiNotes?.interactions).slice(0, 16);
+  const uiAccessibility = strList(brief.uiNotes?.accessibility).slice(0, 16);
+  if (uiComponents.length > 0 || uiInteractions.length > 0 || uiAccessibility.length > 0) {
+    parts.push("## UX & UI Notes", "");
+    if (uiComponents.length > 0) {
+      parts.push("**Components:**", ...uiComponents.map((c) => `- ${c}`), "");
+    }
+    if (uiInteractions.length > 0) {
+      parts.push("**Interactions:**", ...uiInteractions.map((i) => `- ${i}`), "");
+    }
+    if (uiAccessibility.length > 0) {
+      parts.push("**Accessibility:**", ...uiAccessibility.map((a) => `- ${a}`), "");
+    }
+  }
+
+  return parts;
 }
 
 export function renderVisualIdentityBlock(params: {
@@ -171,5 +259,75 @@ export function renderGuidanceBlocks(params: {
   // through the `## Design Priority` hierarchy emitted earlier in the
   // dynamic context.
 
+  return parts;
+}
+
+export function renderImageryBlock(params: {
+  brief: Brief | null | undefined;
+  styleKeywords: string[];
+}): string[] {
+  const { brief, styleKeywords } = params;
+  // ── Imagery (brief-specific only) ──────────────────────────────────────
+  // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
+  // (those already feed Scaffold Variant selection). Keep only concrete image subjects/notes.
+  if (!brief?.imagery) return [];
+  const visualKwSet = new Set(styleKeywords.map((k) => k.toLowerCase()));
+  const imgStyleKw = strList(brief.imagery.styleKeywords).filter(
+    (k) => !visualKwSet.has(k.toLowerCase()),
+  );
+  const imgNotes = [
+    ...imgStyleKw,
+    ...strList(brief.imagery.suggestedSubjects),
+    ...strList(brief.imagery.styleNotes),
+  ].filter(Boolean);
+  if (imgNotes.length === 0) return [];
+  return ["## Imagery (from brief)", "", ...imgNotes.map((n) => `- ${n}`), ""];
+}
+
+export function renderMediaCatalogBlock(
+  mediaCatalog: MediaCatalogItem[] | undefined,
+): string[] {
+  if (!mediaCatalog || mediaCatalog.length === 0) return [];
+  const parts: string[] = [
+    "## Media Catalog",
+    "",
+    "Use the following media assets by their alias. The aliases will be expanded to full URLs during post-processing.",
+    "",
+  ];
+  for (const item of mediaCatalog.slice(0, 30)) {
+    const altText = item.alt ? ` (${item.alt})` : "";
+    parts.push(`- \`{{${item.alias}}}\`${altText}`);
+  }
+  parts.push("");
+  return parts;
+}
+
+export function renderComponentReferencesBlock(
+  componentReferences: { name: string; code: string }[] | undefined,
+): string[] {
+  if (!componentReferences || componentReferences.length === 0) return [];
+  const parts: string[] = [
+    "## Component References",
+    "",
+    "Verified usage examples for components relevant to this request. Adapt these patterns to the site — do not copy verbatim.",
+    "",
+  ];
+  for (const ref of componentReferences.slice(0, 5)) {
+    parts.push(`### ${ref.name}`, "", "```tsx", ref.code, "```", "");
+  }
+  return parts;
+}
+
+export function renderSeoBlock(brief: Brief | null | undefined): string[] {
+  if (!brief?.seo) return [];
+  const seoTitle = str(brief.seo.titleTemplate);
+  const seoDesc = str(brief.seo.metaDescription);
+  const seoKw = strList(brief.seo.keywords);
+  if (!seoTitle && !seoDesc && seoKw.length === 0) return [];
+  const parts: string[] = ["## SEO", ""];
+  if (seoTitle) parts.push(`- **Title template:** ${seoTitle}`);
+  if (seoDesc) parts.push(`- **Meta description:** ${seoDesc}`);
+  if (seoKw.length > 0) parts.push(`- **Keywords:** ${seoKw.join(", ")}`);
+  parts.push("");
   return parts;
 }
