@@ -1,5 +1,4 @@
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
-import { checkScaffoldImports } from "@/lib/gen/autofix/rules/scaffold-import-checker";
 import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
 import { fixTypeOnlyModuleDefaultImports } from "@/lib/gen/autofix/rules/type-only-module-default-import-fixer";
 import type { CodeFile } from "@/lib/gen/parser";
@@ -10,6 +9,66 @@ import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
+
+interface ImportFix {
+  file: string;
+  addedImport: string;
+  component: string;
+}
+
+function checkScaffoldImports(
+  files: CodeFile[],
+  scaffold: ScaffoldManifest,
+): { files: CodeFile[]; fixes: ImportFix[] } {
+  const layoutFile = files.find(
+    (f) => f.path === "app/layout.tsx" || f.path === "src/app/layout.tsx",
+  );
+  if (!layoutFile) return { files, fixes: [] };
+
+  const scaffoldComponents = scaffold.files
+    .filter((f) => f.path.startsWith("components/"))
+    .map((f) => {
+      const exportMatch = f.content.match(
+        /export\s+(?:default\s+)?function\s+(\w+)/,
+      );
+      if (!exportMatch) return null;
+      return {
+        name: exportMatch[1],
+        importPath: `@/${f.path.replace(/\.tsx$/, "")}`,
+      };
+    })
+    .filter(Boolean) as Array<{ name: string; importPath: string }>;
+
+  const fixes: ImportFix[] = [];
+  let layoutContent = layoutFile.content;
+
+  for (const comp of scaffoldComponents) {
+    const jsxRe = new RegExp(`<${comp.name}[\\s/>]`);
+    const isReferenced = jsxRe.test(layoutContent);
+    const importRe = new RegExp(
+      `import\\s+(?:(?:\\{[^}]*\\b${comp.name}\\b[^}]*\\})|(?:${comp.name}))\\s+from\\s+`,
+    );
+    const isImported = importRe.test(layoutContent);
+
+    if (isReferenced && !isImported) {
+      const importLine = `import { ${comp.name} } from "${comp.importPath}";\n`;
+      layoutContent = importLine + layoutContent;
+      fixes.push({
+        file: layoutFile.path,
+        addedImport: importLine.trim(),
+        component: comp.name,
+      });
+    }
+  }
+
+  if (fixes.length === 0) return { files, fixes };
+
+  const updatedFiles = files.map((f) =>
+    f.path === layoutFile.path ? { ...f, content: layoutContent } : f,
+  );
+
+  return { files: updatedFiles, fixes };
+}
 
 export interface MergeGeneratedProjectFilesParams {
   chatId: string;

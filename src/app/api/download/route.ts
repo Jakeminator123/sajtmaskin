@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildZipBufferFromEngineVersion } from "@/lib/gen/export/engine-version-zip";
 import JSZip from "jszip";
 import { extractContent } from "@/lib/backoffice/content-extractor";
 import { generateBackofficeFiles } from "@/lib/backoffice/template-generator";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
+import { getVersionById } from "@/lib/db/chat-repository-pg";
+import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
+import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 
 /**
  * Download endpoint with optional backoffice injection
@@ -15,6 +17,28 @@ import { sanitizeProjectPath } from "@/lib/utils/path-utils";
  * GET params: chatId, versionId, includeBackoffice
  * POST body: { chatId, versionId, includeBackoffice, password }
  */
+
+async function buildZipBufferFromEngineVersion(
+  chatId: string,
+  versionId: string,
+): Promise<ArrayBuffer | null> {
+  const version = await getVersionById(versionId);
+  if (!version || version.chat_id !== chatId) {
+    return null;
+  }
+  const files = parseCodeFilesFromFilesJson(version.files_json);
+  if (!files || files.length === 0) {
+    return null;
+  }
+  const completeProject = await buildExportableProject(files);
+  const zip = new JSZip();
+  for (const file of completeProject) {
+    const path = typeof file.path === "string" ? file.path.trim() : "";
+    if (!path || typeof file.content !== "string") continue;
+    zip.file(path, file.content);
+  }
+  return zip.generateAsync({ type: "arraybuffer" });
+}
 
 async function processDownload(
   chatId: string,

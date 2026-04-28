@@ -92,7 +92,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "use-client-fixer",
     category: "mechanical-misc",
-    sourcePath: "src/lib/gen/autofix/use-client-fixer.ts",
+    sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Missing `\"use client\"` directive on client components",
     triggers: ["client hooks", "event handlers", "browser APIs", "framer-motion import"],
     status: "active",
@@ -356,7 +356,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "tailwind-font-arbitrary-fixer",
     category: "mechanical-tailwind",
-    sourcePath: "src/lib/gen/autofix/rules/tailwind-font-arbitrary-fixer.ts",
+    sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Unsupported font-[family-name:var(--x)] arbitrary class",
     triggers: ["font-[family-name:var(--…)] in className"],
     status: "active",
@@ -475,7 +475,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "syntax-validator",
     category: "validator-syntax",
-    sourcePath: "src/lib/gen/autofix/syntax-validator.ts",
+    sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Esbuild transform errors per file",
     triggers: ["esbuild transform fail"],
     status: "active",
