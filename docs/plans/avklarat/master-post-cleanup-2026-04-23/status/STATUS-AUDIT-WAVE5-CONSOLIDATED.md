@@ -2,7 +2,7 @@
 
 **Datum:** 2026-04-24  
 **Konsoliderat av:** orkestrator-agent  
-**Källrapporter:** AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04, AUDIT-05 (audit-reports/)  
+**Källrapporter:** AUDIT-01, AUDIT-02, AUDIT-03, AUDIT-04, AUDIT-05 — original-filerna raderades i 2026-04-28-städ (denna konsolidaten ersätter dem; full text finns i git-historik om någon detalj behövs).  
 **Master-prompt-rapporter:** Opus + Codex dog utan att producera rapport (master-prompten med 9 sektioner var för stort scope för en enda agent)
 
 ## TL;DR

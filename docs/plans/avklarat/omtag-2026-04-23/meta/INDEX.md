@@ -54,7 +54,7 @@ Koordinerad återställning efter Wave 2026-04-22. Kördes som 9 agenter i 3 fas
 
 ### Källmaterial från extern rapport
 
-`source-gpt-review/` — guldrapporten (`pro_gpt.txt`, 175 KB) + den kondenserade assessment-filen (`repo_assessment_2026-04-23.md`) + de 16 plan-filer den härledde från, som OMTAG fas 2-kördokumenten (A/B/C/D) konsumerade som inputs.
+`source-gpt-review/` — den kondenserade assessment-filen (`repo_assessment_2026-04-23.md`) som OMTAG fas 2-kördokumenten (A/B/C/D) konsumerade som inputs. Original-källmaterialet (chat-rådump + 13 plan-dubletter) raderades i 2026-04-28-städ — alla planer låg redan kanoniskt under `planspec/`, `active/parked/`, eller `active/`, och rådumpen täcktes av assessment-filen + git-historik.
 
 ## Commits i OMTAG-waven (kronologiskt)
 

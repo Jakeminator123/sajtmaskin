@@ -182,7 +182,7 @@ Per 2026-04-21 (efter manuell påfyllning): **7 dossiers**.
 | `faq-section` | `faq-accordion` | soft | Självförsörjande |
 | `testimonials-section` | `testimonials-grid` | soft | Självförsörjande |
 
-Vidare påfyllning planerades i [`M-medium-hard-layer.md` M2](../plans/avklarat/omtag-2026-04-23/source-gpt-review/M-medium-hard-layer.md) — kandidater: `auth` (Clerk), `database` (Drizzle/Postgres), `cms` (Sanity), `i18n` (next-intl), `email-marketing` (Resend broadcast), `feature-flags` (Vercel Flags).
+Vidare påfyllning planerades i [`M-medium-hard-layer.md` M2](../plans/avklarat/omtag-2026-04-23/planspec/M-medium-hard-layer.md) — kandidater: `auth` (Clerk), `database` (Drizzle/Postgres), `cms` (Sanity), `i18n` (next-intl), `email-marketing` (Resend broadcast), `feature-flags` (Vercel Flags).
 
 ## Felsökning
 
