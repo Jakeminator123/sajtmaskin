@@ -9,7 +9,7 @@ paused_by: OMTAG-2026-04-23
 
 # P33 — shadcn-ekosystem-expansion
 
-> **Paused 2026-04-23:** Parkerad per OMTAG-waven. Feature-breddning, inte kärnkonsolidering — vänta tills orchestrate.ts + route-plan.ts splittats. Se [`../avklarat/omtag-2026-04-23/PARKED.md`](../avklarat/omtag-2026-04-23/PARKED.md).
+> **Paused 2026-04-23:** Parkerad per OMTAG-waven. Feature-breddning, inte kärnkonsolidering — vänta tills orchestrate.ts + route-plan.ts splittats. Se [`../../avklarat/omtag-2026-04-23/meta/PARKED.md`](../../avklarat/omtag-2026-04-23/meta/PARKED.md).
 
 **Status:** Paused — väntar på agreement + kärnkonsolidering innan implementation.
 **Skapad:** 2026-04-21.

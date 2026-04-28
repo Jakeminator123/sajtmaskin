@@ -51,7 +51,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 **Städat 2026-04-27:** `2026-04-24-llm-flode-korplan/` (alla 7 waves via PR #101+103 ✅) + `SEO-F3-PROMOTION-NEXT-PR.md` (PR-A #103 + PR-B #105 ✅) → arkiverade i [`../avklarat/`](../avklarat/).
 
-**Städat 2026-04-23 (efter OMTAG):** `E-easy-medium-layer.md`, `M-medium-hard-layer.md`, `P26-followup-orchestration-glitch.md`, `P19-old-content-ingress.md`, `dossier-brief-sync.md`, `cloudagent-paket-B-schema-validation.md` → arkiverade. Se [`../avklarat/omtag-2026-04-23/INDEX.md`](../avklarat/omtag-2026-04-23/INDEX.md).
+**Städat 2026-04-23 (efter OMTAG):** `E-easy-medium-layer.md`, `M-medium-hard-layer.md`, `P26-followup-orchestration-glitch.md`, `P19-old-content-ingress.md`, `dossier-brief-sync.md`, `cloudagent-paket-B-schema-validation.md` → arkiverade. Se [`../avklarat/omtag-2026-04-23/meta/INDEX.md`](../avklarat/omtag-2026-04-23/meta/INDEX.md).
 
 ## Kanonisk checklista
 
