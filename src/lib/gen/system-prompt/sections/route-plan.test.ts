@@ -8,7 +8,7 @@ vi.mock("../recurring-failures", () => ({
   renderRecurringFailuresBlockLines: renderRecurringFailuresBlockLinesMock,
 }));
 
-import { renderRoutePlanBlock } from "./route-plan";
+import { renderRoutePlanBlock } from "./routing-and-tooling";
 
 function makeRoutePlan(): RoutePlan {
   return {

@@ -56,41 +56,35 @@ import {
   renderF2ContractBlock,
   renderGenerationModeBlock,
   renderGenerationProfileBlock,
-} from "./sections/intro";
+  renderPreGenerationContractsBlock,
+  renderTier3IntegrationBlock,
+} from "./sections/session-contracts";
 import {
   renderDesignPriorityBlock,
-  renderScaffoldVariantBlock,
-} from "./sections/scaffold-variant";
-import {
   renderScaffoldContextBlock,
   renderScaffoldResearchBlock,
+  renderScaffoldVariantBlock,
   renderToolkitBlock,
-} from "./sections/scaffold-and-toolkit";
+} from "./sections/scaffold-stack";
 import {
   renderCapabilityModifyHintBlock,
   renderDossierBlocks,
 } from "./sections/dossiers";
-import { renderRoutePlanBlock } from "./sections/route-plan";
-import {
-  renderPreGenerationContractsBlock,
-  renderTier3IntegrationBlock,
-} from "./sections/contracts";
-import { renderBriefBlocks } from "./sections/brief";
-import {
-  renderDesignReferencesBlock,
-  renderGuidanceBlocks,
-  renderVisualIdentityBlock,
-} from "./sections/visual-and-guidance";
-import {
-  renderComponentReferencesBlock,
-  renderImageryBlock,
-  renderMediaCatalogBlock,
-  renderSeoBlock,
-} from "./sections/imagery-media-seo";
 import {
   renderLucideIconsReminderBlock,
   renderRequiredImportsChecklistBlock,
-} from "./sections/required-imports-checklist";
+  renderRoutePlanBlock,
+} from "./sections/routing-and-tooling";
+import {
+  renderBriefBlocks,
+  renderComponentReferencesBlock,
+  renderDesignReferencesBlock,
+  renderGuidanceBlocks,
+  renderImageryBlock,
+  renderMediaCatalogBlock,
+  renderSeoBlock,
+  renderVisualIdentityBlock,
+} from "./sections/brief-visual-media";
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
