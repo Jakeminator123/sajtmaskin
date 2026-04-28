@@ -46,6 +46,22 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.scripts.build).toBe("next build");
   });
 
+  it("ships postcss override so user `npm audit` stays clean (GHSA-qx2v-qp2m-jg93)", () => {
+    const merged = mergePackageJsonWithBaseline({}, { dependencies: {} }) as {
+      overrides: Record<string, string>;
+    };
+    expect(merged.overrides.postcss).toBe("^8.5.10");
+  });
+
+  it("baseline overrides win when the model emits a conflicting postcss override", () => {
+    const merged = mergePackageJsonWithBaseline(
+      { overrides: { postcss: "8.0.0", foo: "1.0.0" } } as Record<string, unknown>,
+      { dependencies: {} },
+    ) as { overrides: Record<string, string> };
+    expect(merged.overrides.postcss).toBe("^8.5.10");
+    expect(merged.overrides.foo).toBe("1.0.0");
+  });
+
   it("pins lucide and three / @react-three/* to baseline so model cannot downgrade load-bearing deps", () => {
     const model = {
       dependencies: {
