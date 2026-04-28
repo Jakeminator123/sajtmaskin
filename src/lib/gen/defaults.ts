@@ -125,6 +125,20 @@ export const ASSIST_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
   rt.assistRouteMaxDurationSeconds.max,
 );
 
+export const LLM_FIXER_TIMEOUT_MS = readIntEnv(
+  "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
+  90_000,
+  15_000,
+  300_000,
+);
+
+export const LLM_FIXER_RETRY_TIMEOUT_MS = readIntEnv(
+  "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
+  120_000,
+  15_000,
+  300_000,
+);
+
 export const SYNTAX_FIX_MAX_PASSES = repairPolicies.syntaxFixPasses;
 export const DETERMINISTIC_AUTOFIX_MAX_PASSES =
   repairPolicies.deterministicAutofixPasses;

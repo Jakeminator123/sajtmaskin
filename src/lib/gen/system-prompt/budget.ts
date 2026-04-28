@@ -29,6 +29,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^layout & theme files/i, priority: 85 },
   { match: /^import reference/i, priority: 75 },
   { match: /^route plan$/i, priority: 90, required: true },
+  { match: /^scaffold-default files$/i, priority: 90, required: true },
   { match: /^required imports checklist$/i, priority: 83 },
   { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^available dossiers$/i, priority: 87 },

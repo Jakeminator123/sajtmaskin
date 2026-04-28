@@ -76,6 +76,14 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
     });
   }
 
+  if (!scaffold.files.some((file) => file.path === "app/icon.svg")) {
+    issues.push({
+      scaffoldId: scaffold.id,
+      severity: "warning",
+      message: "Scaffold is missing app/icon.svg default favicon",
+    });
+  }
+
   if (!scaffold.files.some((file) => file.path === "app/page.tsx")) {
     issues.push({
       scaffoldId: scaffold.id,

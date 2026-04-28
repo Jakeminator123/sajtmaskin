@@ -38,6 +38,7 @@
 import type { CodeFile } from "@/lib/gen/parser";
 
 export const SCAFFOLD_PROTECTED_PATHS: ReadonlySet<string> = new Set([
+  "app/icon.svg",
   "app/api/placeholder/route.ts",
 ]);
 

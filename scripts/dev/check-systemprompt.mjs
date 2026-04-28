@@ -12,6 +12,8 @@ const MIN_CHARS = 500;
 
 const coreManifestPath = path.join(root, "config", "codegen-core-manifest.json");
 const legacyManifestPath = path.join(root, "config", "codegen-static-prompt.json");
+const localEnvPath = path.join(root, ".env.local");
+const scaffoldSeoSiteUrlEnv = "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL";
 
 function checkManifestFile(manifestPath) {
   if (!fs.existsSync(manifestPath)) return null;
@@ -67,6 +69,14 @@ function checkMonolith() {
   return null;
 }
 
+function localEnvHasKey(key) {
+  if (process.env[key]?.trim()) return true;
+  if (!fs.existsSync(localEnvPath)) return false;
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^\\s*(?:export\\s+)?${escaped}\\s*=\\s*.+`, "m");
+  return pattern.test(fs.readFileSync(localEnvPath, "utf8"));
+}
+
 const ok = checkManifest() ?? checkMonolith();
 if (!ok) {
   console.error(
@@ -76,3 +86,9 @@ if (!ok) {
 }
 
 console.log("[check-systemprompt] OK:", ok);
+
+if (!localEnvHasKey(scaffoldSeoSiteUrlEnv)) {
+  console.info(
+    `[scaffold] seo_defaults_disabled { reason: '${scaffoldSeoSiteUrlEnv} unset — scaffold SEO files (robots/sitemap/opengraph) and layout metadata enrichment are disabled. Set the env var when promoting to fidelity3.' }`,
+  );
+}

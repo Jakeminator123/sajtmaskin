@@ -215,7 +215,11 @@ base manifest (per scaffold-mapp, t.ex. blog/manifest.ts)
    └─ scaffold-research.generated.json → upgradeTargets, referenceTemplates
         │
         ▼
-2. applyScaffoldSeoDefaults(scaffold, options?)
+2. withDefaultIcon(scaffold)
+   └─ registry.ts → adds protected `app/icon.svg` favicon default
+      │
+      ▼
+3. applyScaffoldSeoDefaults(scaffold, options?)
    └─ seo-defaults.ts → SEO-metadata
       │
       ├─ no options + env unset      → noop (default-safe; ingen example.com-leak)
@@ -241,9 +245,9 @@ ALL_SCAFFOLDS (registry.ts)
 | Set | Beteende | Default-innehåll |
 |-----|----------|------------------|
 | `LLM_ONLY_PATHS` | Scaffold-versionen **filtreras bort**. Om LLM inte emitterar en egen version saknas filen → versionen markeras verification-blocked via `missingEmittedEssentials`. | `app/page.tsx`, `src/app/page.tsx` |
-| `SCAFFOLD_PROTECTED_PATHS` | LLM-emissionen **filtreras bort**. Scaffold-default (init) eller previous-version (follow-up) vinner alltid. Logg: `scaffold-protected-overwrite-blocked`. | `app/api/placeholder/route.ts` |
+| `SCAFFOLD_PROTECTED_PATHS` | LLM-emissionen **filtreras bort**. Scaffold-default (init) eller previous-version (follow-up) vinner alltid. Logg: `scaffold-protected-overwrite-blocked`. | `app/icon.svg`, `app/api/placeholder/route.ts` |
 
-`SCAFFOLD_PROTECTED_PATHS` är endast för rena utility-filer utan brand/copy/affärslogik. `app/api/placeholder/route.ts` lades till 2026-04-27 efter att eval-rapporten visade att 6/13 fail-prompts berodde på att LLM:n regenererade filen som JSX i `.ts` (`Expected ">" but found "style"`). Att låsa scaffold-versionen är deterministiskt och byter inte några brand-relaterade beslut.
+`SCAFFOLD_PROTECTED_PATHS` är endast för rena utility-filer utan brand/copy/affärslogik. `app/api/placeholder/route.ts` lades till 2026-04-27 efter att eval-rapporten visade att 6/13 fail-prompts berodde på att LLM:n regenererade filen som JSX i `.ts` (`Expected ">" but found "style"`). `app/icon.svg` är en minimal favicon-default som tar bort preview-404 utan att bära kundspecifik brand. Att låsa scaffold-versionen är deterministiskt och byter inte några brand-relaterade beslut.
 
 Lägg endast till nya entries om filen är ren utility (verifierad korrekt scaffold-version, ingen kund vill anpassa).
 

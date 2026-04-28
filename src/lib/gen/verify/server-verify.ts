@@ -49,7 +49,11 @@ import {
 } from "./preview-quality-gate";
 import { DEFAULT_MODEL_ID, ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
-import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
+import {
+  LLM_FIXER_RETRY_TIMEOUT_MS,
+  LLM_FIXER_TIMEOUT_MS,
+  SERVER_REPAIR_MAX_PASSES,
+} from "@/lib/gen/defaults";
 import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
@@ -574,7 +578,8 @@ async function tryServerRepairLoop(params: {
     failedOutputs,
     contextLines: repairLogContext.contextLines,
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,
-    llmTimeoutMs: 60_000,
+    llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
+    llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
     fixerModel,
     fixerThinking: fixerThinking?.thinking,
     fixerReasoningEffort: fixerThinking?.reasoningEffort,

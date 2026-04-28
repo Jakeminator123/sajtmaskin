@@ -23,7 +23,11 @@ import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-write
 import { devLogAppend } from "@/lib/logging/devLog";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
-import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
+import {
+  LLM_FIXER_RETRY_TIMEOUT_MS,
+  LLM_FIXER_TIMEOUT_MS,
+  MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
+} from "@/lib/gen/defaults";
 import {
   partitionGeneratedFilesForProtectedPaths,
   reinjectProtectedPathsFromFallback,
@@ -42,7 +46,6 @@ import {
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-const MANUAL_REPAIR_LLM_TIMEOUT_MS = 60_000;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
@@ -331,7 +334,8 @@ async function handlePOST(
       failedOutputs: normalizedFailures,
       contextLines: gateErrorLines,
       maxLlmPasses: MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
-      llmTimeoutMs: MANUAL_REPAIR_LLM_TIMEOUT_MS,
+      llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
+      llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
       fixerModel,
       fixerThinking: fixerThinking?.thinking,
       fixerReasoningEffort: fixerThinking?.reasoningEffort,

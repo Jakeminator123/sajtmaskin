@@ -39,6 +39,7 @@
  */
 
 import { debugLog } from "@/lib/utils/debug";
+import { SCAFFOLD_PROTECTED_PATHS } from "../scaffolds/protected-paths";
 import { pickScaffoldVariant } from "../scaffold-variants";
 import { BUILD_INTENT_GUIDANCE } from "../intent-guidance";
 import {
@@ -92,6 +93,20 @@ function str(v: unknown): string {
 
 function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
+}
+
+function renderScaffoldProtectedPathsBlock(): string[] {
+  const paths = Array.from(SCAFFOLD_PROTECTED_PATHS).sort();
+  if (paths.length === 0) return [];
+
+  return [
+    [
+      "## Scaffold-default files",
+      "",
+      "Do NOT emit these files. They are owned by the scaffold runtime, and generated copies are dropped before save:",
+      ...paths.map((path) => `- \`${path}\``),
+    ].join("\n"),
+  ];
 }
 
 /**
@@ -204,6 +219,7 @@ export function buildDynamicContext(
       resolvedScaffold,
     }),
   );
+  parts.push(...renderScaffoldProtectedPathsBlock());
   // E4 (OMTAG fas 2·C) — deterministic shadcn imports checklist. Placed
   // right after the route plan so the LLM has scaffold + route context
   // in mind when it reads which components are about to be in play.

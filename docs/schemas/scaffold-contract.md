@@ -53,6 +53,13 @@ scaffold into:
 This is then combined with route plan, contracts, brief, design/theme context,
 and other request-specific data.
 
+Some scaffold files are protected utility defaults rather than LLM-owned
+content. `SCAFFOLD_PROTECTED_PATHS` in `src/lib/gen/scaffolds/protected-paths.ts`
+is injected into dynamic context and enforced in persist paths: if the LLM emits
+those paths, its copies are dropped and the scaffold/previous-version files win.
+Current protected defaults include `app/icon.svg` and
+`app/api/placeholder/route.ts`.
+
 `RoutePlan` is separate from the scaffold itself. It includes **`provenance`**:
 
 - **`primarySource`** — `brief` if the brief pages drive structure; else `scaffold` if scaffold defaults added routes beyond prompt inference; else `prompt`.

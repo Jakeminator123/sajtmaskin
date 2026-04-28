@@ -36,6 +36,13 @@ const KNOWN_MODULE_SPECIFIERS: Record<string, string[]> = {
   "@/lib/utils": ["cn"],
 };
 
+const LUCIDE_TYPE_ONLY_IMPORTS = [
+  "IconNode",
+  "LucideIcon",
+  "LucideProps",
+  "SVGAttributes",
+] as const;
+
 function guessModuleForSpecifiers(specifiers: string[]): string | null {
   for (const [mod, known] of Object.entries(KNOWN_MODULE_SPECIFIERS)) {
     if (specifiers.every((s) => known.includes(s))) return mod;
@@ -284,8 +291,9 @@ function fixLucideImports(code: string): { code: string; fixes: AutoFixEntry[] }
 
         if (LUCIDE_ICONS.has(imported)) return [raw];
 
-        changed = true;
         const nearest = findNearestIcon(imported);
+        if (!nearest) return [raw];
+        changed = true;
 
         if (nearest === local) return [nearest];
         return [`${nearest} as ${local}`];
@@ -302,7 +310,7 @@ function fixLucideImports(code: string): { code: string; fixes: AutoFixEntry[] }
       const replacedNames = specifiers
         .filter((raw) => {
           const { imported } = parseSpecifier(raw);
-          return !LUCIDE_ICONS.has(imported);
+          return !LUCIDE_ICONS.has(imported) && findNearestIcon(imported) !== null;
         })
         .map((raw) => parseSpecifier(raw).imported);
 
@@ -606,61 +614,57 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
   }
 
   // ───────────────────────────────────────────────────────────────────────
-  // SAJ-61 P0/c3: `LucideIcon` is the canonical React component type from
-  // lucide-react. Generated code uses it as a type field on prop / config
-  // shapes (`{ icon: LucideIcon }`, `Array<{ icon: LucideIcon }>`). Add the
-  // type-only import when used but not imported. Kept separate from value
-  // imports so it never accidentally becomes a runtime symbol.
+  // SAJ-61 P0/c3: Lucide exposes component and prop types. Generated code
+  // often value-imports them before using them in type positions. Move these
+  // names to a type-only import so the value import fixer does not delete the
+  // binding and leave a `Cannot find name` diagnostic behind.
   // ───────────────────────────────────────────────────────────────────────
-  const usesLucideIcon =
-    /(?::\s*|<\s*|\bAs\s+|,\s*|\|\s*|\bextends\s+|=\s*)LucideIcon\b/.test(code) ||
-    /\bLucideIcon\s*[<|,>;)\]]/.test(code);
-  if (usesLucideIcon && !importedNames.has("LucideIcon")) {
-    // SAJ-61 review fix: only mark LucideIcon as "imported" once we have
-    // either successfully merged into an existing lucide-react type import
-    // or scheduled a brand-new `import type` line. Previously this flag was
-    // set unconditionally, so an unparseable existing import (e.g. multi-
-    // line shape that didn't match the brace regex) would silently skip
-    // the merge AND swallow any later attempt to add the import.
+  const lucideTypesNeeded = LUCIDE_TYPE_ONLY_IMPORTS.filter((typeName) => {
+    const used = new RegExp(`\\b${typeName}\\b`).test(code);
+    return used && !importedNames.has(typeName);
+  });
+  if (lucideTypesNeeded.length > 0) {
     const existingTypeOnly = lines.findIndex(
       (l) =>
         /from\s+["']lucide-react["']/.test(l) &&
         /import\s+type\s+\{/.test(l),
     );
-    let added = false;
+    const pendingTypeImports = new Set(lucideTypesNeeded);
     if (existingTypeOnly >= 0) {
       const line = lines[existingTypeOnly];
       const braceMatch = line.match(/^(\s*import\s+type\s+\{)([^}]*)(\}\s+from\s+["']lucide-react["'].*)$/);
       if (braceMatch) {
-        if (braceMatch[2].includes("LucideIcon")) {
-          // Defensive: already present even though `importedNames` did not
-          // know about it (e.g. unusual whitespace fooled the earlier
-          // regex). Treat as imported, do not add.
-          added = true;
-        } else {
-          lines[existingTypeOnly] = `${braceMatch[1]}${braceMatch[2].trimEnd()}, LucideIcon ${braceMatch[3]}`;
+        const existingSpecs = braceMatch[2]
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean);
+        for (const typeName of lucideTypesNeeded) {
+          if (existingSpecs.includes(typeName)) pendingTypeImports.delete(typeName);
+        }
+        if (pendingTypeImports.size > 0) {
+          const merged = [...existingSpecs, ...pendingTypeImports].join(", ");
+          lines[existingTypeOnly] = `${braceMatch[1]} ${merged} ${braceMatch[3]}`;
           fixes.push({
             fixer: "import-validator",
-            description: "Added missing LucideIcon to existing lucide-react type import",
+            description: `Added missing lucide-react type import(s): ${[...pendingTypeImports].join(", ")}`,
             line: existingTypeOnly + 1,
           });
-          added = true;
+          pendingTypeImports.clear();
         }
       }
       // braceMatch === null → existing line shape is unparseable, fall
       // through to the "fresh import" branch below so we still satisfy the
       // missing import.
     }
-    if (!added) {
-      newImports.push('import type { LucideIcon } from "lucide-react"');
+    if (pendingTypeImports.size > 0) {
+      newImports.push(`import type { ${[...pendingTypeImports].join(", ")} } from "lucide-react"`);
       fixes.push({
         fixer: "import-validator",
-        description: "Added missing type import for LucideIcon from lucide-react",
+        description: `Added missing type import(s) for ${[...pendingTypeImports].join(", ")} from lucide-react`,
         line: 0,
       });
-      added = true;
     }
-    if (added) importedNames.add("LucideIcon");
+    for (const typeName of lucideTypesNeeded) importedNames.add(typeName);
   }
 
   if (missingHooks.size > 0) {
