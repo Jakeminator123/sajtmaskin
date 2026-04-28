@@ -21,7 +21,7 @@ Innan du lägger till en signal/ordlista/keyword-array: (1) finns canonical sour
 | Follow-up-semantik | Snapshot-brief (`buildFollowUpBriefFromSnapshot`) — aldrig ny full Deep Brief |
 | Designregler | Core Rules (`config/prompt-core/`) + `buildDynamicContext` |
 | Build intent | `BUILD_INTENT_GUIDANCE` i `intent-guidance.ts` |
-| Capability → dossier-bridge | `orchestrate.ts` `inferredCapabilityIds` |
+| Capability → dossier-bridge | `capability-dossier-bridge.ts` (`INFERRED_CAPABILITY_DOSSIER_BRIDGE` + `resolveDossierCapabilitiesFromInferredCapabilities`); konsumeras i `orchestrate.ts` som `inferredCapabilityIds` |
 
 ## Förväxlingstabell (skriv höger kolumn, undvik vänster)
 

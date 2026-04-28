@@ -1,12 +1,8 @@
-// TODO(plan-09): kvar tills nästa cleanup — verifier-fasen är aktiv; legacy optimistic-clear-grenen kan dö först när rerun-gaten förenklas helt.
 /**
  * Verifier-pass phase for `runFinalizeFastPath`: runs the verifier,
  * optionally feeds blocking findings back to the LLM fixer, re-runs the
  * verifier on the fixed content (when `FEATURES.verifierRerunAfterFix`),
  * and emits error-log-RAG events along the way.
- *
- * Split out of `finalize-version.ts` (OMTAG-03 wave-rest) — no behavior
- * change.
  */
 
 import type { BuildSpec } from "@/lib/gen/build-spec";
