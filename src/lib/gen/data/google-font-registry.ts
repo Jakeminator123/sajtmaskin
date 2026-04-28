@@ -70,9 +70,11 @@ export const GOOGLE_FONT_REGISTRY: Record<string, GoogleFontEntry> = {
   Libre_Baskerville: { displayName: "Libre Baskerville", variable: "--font-serif", category: "serif" },
   Crimson_Text: { displayName: "Crimson Text", variable: "--font-serif", category: "serif" },
   EB_Garamond: { displayName: "EB Garamond", variable: "--font-serif", category: "serif" },
+  Instrument_Serif: { displayName: "Instrument Serif", variable: "--font-display", category: "serif" },
 
   // — Display —
   Bebas_Neue: { displayName: "Bebas Neue", variable: "--font-display", category: "display" },
+  Tenor_Sans: { displayName: "Tenor Sans", variable: "--font-display", category: "display" },
 
   // — Mono —
   Geist_Mono: { displayName: "Geist Mono", variable: "--font-mono", category: "mono" },
