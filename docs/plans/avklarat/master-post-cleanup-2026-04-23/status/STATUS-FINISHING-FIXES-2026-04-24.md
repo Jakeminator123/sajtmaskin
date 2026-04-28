@@ -76,6 +76,6 @@ Använd i stället `WORKTREE-RUNBOOK.md` för begränsad parallellkörning.
 
 ## Extra filer i paketet
 
-- `WORLD-CLASS-LLM-FLOW.md` — en ren, instruerande målbild för init/follow-up i tre faser
+- ~~`WORLD-CLASS-LLM-FLOW.md`~~ — raderad i 2026-04-28-städ (innehållet täcktes av `docs/architecture/llm-flow-target-worldclass.md`)
 - `WORKTREE-RUNBOOK.md` — hur du kör detta med Cursor Cloud Agents / worktrees utan att skapa onödiga konflikter
-- `DIFF-FROM-PREVIOUS-ZIP.md` — vad som faktiskt ändrats jämfört med förra paketet
+- ~~`DIFF-FROM-PREVIOUS-ZIP.md`~~ — raderad i 2026-04-28-städ (engångsanteckning, ingen återanvändning)
