@@ -99,6 +99,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             v.repaired_files_json.trim().length > 0,
           repairAvailableAt: v.repair_available_at,
           promotedAt: v.promoted_at,
+          // Postmortem follow-up: VersionHistory-tooltip i frontend läser
+          // `lifecycleStage` för att skilja F2-design-rader (där server-verify
+          // är skipped via `design_preview_skip_verify`) från F3-integrations-
+          // rader. När fältet inte mappas hit försvinner det till `undefined`
+          // i UI:t och `isServerVerifyExpectedForLifecycle` defaultar till
+          // `false`, vilket tystade "Verifying"-labeln för F3-rader.
+          lifecycleStage: v.lifecycle_stage,
           canPin: false,
       }));
       return NextResponse.json({
