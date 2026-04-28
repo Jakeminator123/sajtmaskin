@@ -80,9 +80,9 @@ Följande `SAJTMASKIN_*`-flaggor togs bort från `serverSchema` (`src/lib/env.ts
 | Borttagen flagga | Ersatt av | Effekt |
 |---|---|---|
 | `SAJTMASKIN_SHOW_THINKING` | `SAJTMASKIN_DEFAULT_THINKING` | Legacy-alias borttaget; sätt den kanoniska flaggan direkt. |
-| `SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX` | `FEATURES.consistentRepairPassIndex = true` | SAJ-25-härdningen är alltid på. |
-| `SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX` | `FEATURES.verifierRerunAfterFix = true` | Verifier-rerun efter LLM-fixer är alltid på. |
-| `SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE` | `FEATURES.skipDoubleValidateAndFixOnMerge = true` | Mekanisk-only på merged-syntax-fail är alltid på. |
+| `SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX` | inlinad i `persist-side-effects.ts` | SAJ-25-härdningen är ovillkorlig (FEATURES.consistentRepairPassIndex togs bort 2026-04-28). |
+| `SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX` | inlinad i `verifier-phase.ts` | Verifier-rerun efter LLM-fixer är ovillkorlig (FEATURES.verifierRerunAfterFix togs bort 2026-04-28). |
+| `SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE` | inlinad i `finalize-preflight.ts` | Mekanisk-only på merged-syntax-fail är ovillkorlig (FEATURES.skipDoubleValidateAndFixOnMerge togs bort 2026-04-28). |
 | `SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT` | `FEATURES.recurringPatternsInMainPrompt = NODE_ENV === "development"` | Bevarar dev-on/prod-off-defaulten; ändras i kod. |
 | `SAJTMASKIN_USE_ERROR_LOG_RAG` | `FEATURES.useErrorLogRag = NODE_ENV === "development"` | Samma — RAG är på i dev, av i prod. |
 | `SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS` | `FOLLOW_UP_TUNING.maxRecentHistoryPairs = 4` | Konstant. |

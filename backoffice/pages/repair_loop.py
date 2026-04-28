@@ -1,12 +1,17 @@
 """
 Repair-loop hardening dashboard — Phase 2 + 3 of cloud-varldsklass.
 
-Shows the (now hardcoded) repair-loop feature state, error-log producer
+Shows the (still-tunable) repair-loop feature state, error-log producer
 status, and the last 20 prune / verifier-rerun telemetry events.
 
-Source of truth: src/lib/config.ts FEATURES.{...}. The environment toggles
-below were removed in omtag-04 (2026-04-23); change the constants in
-config.ts to adjust behaviour.
+Source of truth: src/lib/config.ts FEATURES.{...}.
+
+Phase 2A/2B/2C feature flags (consistentRepairPassIndex,
+verifierRerunAfterFix, skipDoubleValidateAndFixOnMerge) were removed
+from FEATURES on 2026-04-28 (LLM-flow simplification långbänk) — the
+behaviour they gated is now unconditional code in verifier-phase.ts,
+finalize-preflight.ts, and persist-side-effects.ts. The environment
+toggles for those flags were already removed in omtag-04 (2026-04-23).
 """
 
 from __future__ import annotations
@@ -20,25 +25,27 @@ import streamlit as st
 from backoffice.shared import BackofficeContext
 
 
-REPAIR_LOOP_HARDCODED = (
+# Phases 2A–2C were inlined 2026-04-28 (no longer FEATURES entries);
+# only the still-tunable phases are listed here. The history rows below
+# stay so readers can map repair-loop telemetry back to the phase that
+# produced it.
+REPAIR_LOOP_INLINED_HISTORY = (
     (
-        "consistentRepairPassIndex",
         "Phase 2A — repairPassIndex propagation + pruneStaleVersionErrorLogs (SAJ-25)",
-        "Stops the red 'Fel' badge on a clean follow-up by propagating repairPassIndex into finalize and pruning earlier-pass error-log rows when the latest pass is clean.",
-        "true",
+        "Stops the red 'Fel' badge on a clean follow-up by propagating repairPassIndex into finalize and pruning earlier-pass error-log rows when the latest pass is clean. Inlined 2026-04-28 (was FEATURES.consistentRepairPassIndex).",
     ),
     (
-        "verifierRerunAfterFix",
         "Phase 2B — verifier re-run after LLM-fixer",
-        "After the verifier-fixer succeeds, re-run runVerifierPass once to confirm the fix actually addressed the blocking finding. Capped at 1 re-run + 30s timeout.",
-        "true",
+        "After the verifier-fixer succeeds, re-run runVerifierPass once to confirm the fix actually addressed the blocking finding. Capped at 1 re-run + 30s timeout. Inlined 2026-04-28 (was FEATURES.verifierRerunAfterFix).",
     ),
     (
-        "skipDoubleValidateAndFixOnMerge",
         "Phase 2C — skip LLM-fixer escalation on merged-only syntax fail",
-        "When stream-syntax already passed but merged-syntax fails, run only the deterministic mechanical autofix + esbuild revalidation. Saves an LLM-fixer call per follow-up.",
-        "true",
+        "When stream-syntax already passed but merged-syntax fails, run only the deterministic mechanical autofix + esbuild revalidation. Saves an LLM-fixer call per follow-up. Inlined 2026-04-28 (was FEATURES.skipDoubleValidateAndFixOnMerge).",
     ),
+)
+
+
+REPAIR_LOOP_HARDCODED = (
     (
         "recurringPatternsInMainPrompt",
         "Phase 2D — recurring failures block in main system-prompt",
@@ -101,11 +108,18 @@ def render(ctx: BackofficeContext) -> None:
     st.header("Repair loop — hardcoded state + telemetri")
     st.caption(
         "Source of truth: `src/lib/config.ts` → `FEATURES`. "
-        "Flaggorna hårdkodades i omtag-04 (2026-04-23); ändra konstanterna "
-        "i `src/lib/config.ts` för att justera beteendet."
+        "Phases 2A/2B/2C inlinades 2026-04-28 — beteendet är ovillkorligt i "
+        "`verifier-phase.ts`, `finalize-preflight.ts` och `persist-side-effects.ts`. "
+        "För Phase 2D + Phase 3 (kvar i FEATURES): ändra konstanterna i `src/lib/config.ts`."
     )
 
-    st.subheader("Hardcoded feature state")
+    st.subheader("Inlined unconditional behaviour (post-2026-04-28)")
+    for label, helptext in REPAIR_LOOP_INLINED_HISTORY:
+        st.markdown(f"**{label}**")
+        st.caption(helptext)
+        st.code("// inlined — no FEATURES toggle", language="typescript")
+
+    st.subheader("Tunable feature state")
     for feature_key, label, helptext, value in REPAIR_LOOP_HARDCODED:
         st.markdown(f"**{label}**")
         st.caption(helptext)
