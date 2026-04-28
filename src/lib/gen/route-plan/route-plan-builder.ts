@@ -1,7 +1,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import type { ScaffoldManifest } from "./scaffolds/types";
-import { dedupePlannedRoutesInPlaceByLocale, deduplicateLocaleAlternateRoutes } from "./route-plan/locale-dedupe";
-import { extractAppRoutePathsFromFilePaths, normalizeRoutePath } from "./route-plan/path-utils";
+import type { ScaffoldManifest } from "../scaffolds/types";
+import { dedupePlannedRoutesInPlaceByLocale } from "./locale-dedupe";
+import { normalizeRoutePath } from "./path-utils";
 import {
   applyPromptPatterns,
   applyScaffoldDefaults,
@@ -10,133 +10,9 @@ import {
   detectExplicitPageCount,
   hasExplicitAddRouteIntent,
   upsertRoute,
-} from "./route-plan/planning-helpers";
-import { findMissingRequiredRoutes, routePatternToRegex } from "./route-plan/route-matchers";
-import { WEBSITE_ROUTE_PATTERNS, APP_ROUTE_PATTERNS } from "./route-plan/route-patterns";
-
-export const ROUTE_PLAN_SITE_TYPES = [
-  "one-page",
-  "brochure",
-  "content-heavy",
-  "app-shell",
-] as const;
-export type RoutePlanSiteType = (typeof ROUTE_PLAN_SITE_TYPES)[number];
-
-export function isRoutePlanSiteType(value: unknown): value is RoutePlanSiteType {
-  return (
-    typeof value === "string" &&
-    (ROUTE_PLAN_SITE_TYPES as readonly string[]).includes(value)
-  );
-}
-
-export type RoutePlanSource = "brief" | "prompt" | "scaffold";
-
-/** Ordered route-plan contributors (e.g. prompt patterns then scaffold defaults). */
-export interface RoutePlanProvenance {
-  /** Drives planning UX and BuildSpec: brief wins, else scaffold if it changed IA, else prompt. */
-  primarySource: RoutePlanSource;
-  /** All sources that contributed routes or structure (stable order). */
-  sources: RoutePlanSource[];
-}
-
-export interface PlannedRoute {
-  path: string;
-  name: string;
-  intent: string;
-  required: boolean;
-}
-
-export interface RoutePlan {
-  provenance: RoutePlanProvenance;
-  siteType: RoutePlanSiteType;
-  reason: string;
-  routes: PlannedRoute[];
-  /** Set when the user explicitly stated a page count ("3 sidor"). */
-  explicitPageCount?: number;
-}
-
-export function isRoutePlanSource(value: unknown): value is RoutePlanSource {
-  return value === "brief" || value === "prompt" || value === "scaffold";
-}
-
-/** Null-safe primary source; supports legacy persisted payloads that only had `source`. */
-export function getRoutePlanPrimarySource(
-  plan: RoutePlan | { provenance?: RoutePlanProvenance; source?: RoutePlanSource } | null | undefined,
-): RoutePlanSource | null {
-  if (!plan) return null;
-  if ("provenance" in plan && plan.provenance?.primarySource) {
-    return plan.provenance.primarySource;
-  }
-  if ("source" in plan && isRoutePlanSource((plan as { source?: unknown }).source)) {
-    return (plan as { source: RoutePlanSource }).source;
-  }
-  return null;
-}
-
-/**
- * Parse a loose JSON object into RoutePlan, accepting legacy `{ source }` or new `{ provenance }`.
- */
-export function parseRoutePlanFromUnknown(data: Record<string, unknown> | null | undefined): RoutePlan | null {
-  if (!data || typeof data !== "object") return null;
-  const siteType = data.siteType;
-  const reason = data.reason;
-  const routesRaw = data.routes;
-  if (!isRoutePlanSiteType(siteType)) {
-    return null;
-  }
-  if (typeof reason !== "string" || !Array.isArray(routesRaw)) return null;
-
-  let provenance: RoutePlanProvenance | undefined;
-  const prov = data.provenance;
-  if (prov && typeof prov === "object" && !Array.isArray(prov)) {
-    const p = prov as Record<string, unknown>;
-    const primary = p.primarySource;
-    const sources = p.sources;
-    if (
-      isRoutePlanSource(primary) &&
-      Array.isArray(sources) &&
-      sources.length > 0 &&
-      sources.every(isRoutePlanSource)
-    ) {
-      provenance = { primarySource: primary, sources: [...sources] };
-    }
-  }
-  if (!provenance && isRoutePlanSource(data.source)) {
-    provenance = { primarySource: data.source, sources: [data.source] };
-  }
-  if (!provenance) return null;
-
-  const routes: PlannedRoute[] = [];
-  for (const item of routesRaw) {
-    if (!item || typeof item !== "object") continue;
-    const r = item as Record<string, unknown>;
-    if (typeof r.path !== "string") continue;
-    const path = normalizeRoutePath(r.path);
-    const name =
-      typeof r.name === "string" && r.name.trim()
-        ? r.name.trim()
-        : path === "/"
-          ? "Home"
-          : path.split("/").filter(Boolean).join(" ") || "Route";
-    const intent =
-      typeof r.intent === "string" && r.intent.trim()
-        ? r.intent.trim()
-        : `Implement the ${name} route as planned.`;
-    routes.push({
-      path,
-      name,
-      intent,
-      required: typeof r.required === "boolean" ? r.required : false,
-    });
-  }
-
-  return {
-    provenance,
-    siteType,
-    reason,
-    routes,
-  };
-}
+} from "./planning-helpers";
+import { APP_ROUTE_PATTERNS, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
+import type { PlannedRoute, RoutePlan, RoutePlanSiteType, RoutePlanSource } from "./route-plan-types";
 
 function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanSiteType {
   if (buildIntent === "app") return "app-shell";
@@ -376,19 +252,3 @@ export function buildRoutePlan(params: {
       : {}),
   };
 }
-
-export function findMissingPlannedRoutes(
-  routePlan: RoutePlan | null | undefined,
-  actualRoutes: string[],
-): PlannedRoute[] {
-  if (!routePlan || routePlan.routes.length === 0) return [];
-  return findMissingRequiredRoutes(routePlan.routes, actualRoutes);
-}
-
-export {
-  deduplicateLocaleAlternateRoutes,
-  detectExplicitPageCount,
-  extractAppRoutePathsFromFilePaths,
-  normalizeRoutePath,
-  routePatternToRegex,
-};
