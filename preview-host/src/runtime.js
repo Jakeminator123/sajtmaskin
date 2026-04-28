@@ -295,14 +295,28 @@ function runShellCommand(command, options) {
 }
 
 function resolveInstallCommand(filesJson) {
-  const hasPnpmLock = typeof filesJson?.["pnpm-lock.yaml"] === "string";
+  const hasPnpmLock =
+    typeof filesJson?.["pnpm-lock.yaml"] === "string" ||
+    typeof filesJson?.["pnpm-lock.yml"] === "string";
   if (hasPnpmLock) {
     return {
       command: "pnpm install --frozen-lockfile --no-optional",
       successLabel: "pnpm install passed.",
       logLabel: "pnpm install --frozen-lockfile",
-      fallbackCommand: null,
-      fallbackLogLabel: null,
+      fallbackCommand: "pnpm install --no-frozen-lockfile --no-optional",
+      fallbackLogLabel: "pnpm install --no-frozen-lockfile",
+      alwaysAllowFallback: true,
+    };
+  }
+  const hasYarnLock = typeof filesJson?.["yarn.lock"] === "string";
+  if (hasYarnLock) {
+    return {
+      command: "yarn install --frozen-lockfile --ignore-optional",
+      successLabel: "yarn install passed.",
+      logLabel: "yarn install --frozen-lockfile",
+      fallbackCommand: "yarn install --ignore-optional",
+      fallbackLogLabel: "yarn install",
+      alwaysAllowFallback: true,
     };
   }
   const hasPackageLock = typeof filesJson?.["package-lock.json"] === "string";
@@ -364,19 +378,23 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
   }
 
   const peerConflictDetected = isPeerDependencyInstallFailure(primary.output);
-  if (peerConflictDetected && install.fallbackCommand) {
+  if ((peerConflictDetected || install.alwaysAllowFallback) && install.fallbackCommand) {
     const fallback = await runAttempt(install.fallbackCommand);
     if (fallback.exitCode === 0) {
+      const warning =
+        peerConflictDetected
+          ? `[quality-warning] Peer dependency conflict detected. Compatibility fallback used: ${install.fallbackLogLabel}.`
+          : `[quality-warning] Primary install failed. Compatibility fallback used: ${install.fallbackLogLabel}.`;
       return {
         passed: true,
         exitCode: 0,
         durationMs: primary.durationMs + fallback.durationMs,
         output: [
           install.successLabel,
-          `[quality-warning] Peer dependency conflict detected. Compatibility fallback used: ${install.fallbackLogLabel}.`,
+          warning,
         ].join("\n"),
         usedFallback: true,
-        peerConflictDetected: true,
+        peerConflictDetected,
       };
     }
 
@@ -392,7 +410,7 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
         fallback.clippedOutput || `(No install output captured; exit ${fallback.exitCode}).`,
       ].join("\n"),
       usedFallback: true,
-      peerConflictDetected: true,
+      peerConflictDetected,
     };
   }
 
@@ -746,7 +764,7 @@ function trimSnippet(input) {
 
 function dependencyFingerprint(filesJson) {
   const hash = createHash("sha256");
-  for (const key of ["package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock"]) {
+  for (const key of ["package.json", "package-lock.json", "pnpm-lock.yaml", "pnpm-lock.yml", "yarn.lock"]) {
     if (typeof filesJson[key] === "string") {
       hash.update(key);
       hash.update("\n");
@@ -884,9 +902,12 @@ async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
       "utf8",
     );
     if (installResult.usedFallback) {
+      const fallbackReason = installResult.peerConflictDetected
+        ? "encountered peer dependency conflicts"
+        : "primary install failed";
       await appendRuntimeLog(
         sandboxId,
-        `${install.logLabel} encountered peer dependency conflicts; fallback ${install.fallbackLogLabel} succeeded.`,
+        `${install.logLabel} ${fallbackReason}; fallback ${install.fallbackLogLabel} succeeded.`,
       );
       await appendRuntimeLog(
         sandboxId,
