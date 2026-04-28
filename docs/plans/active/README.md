@@ -1,6 +1,6 @@
 # Aktiva planer — konsoliderad översikt
 
-Senast uppdaterad: 2026-04-27 (arkivering av korplan + SEO-spec; ny scope-doc [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) är nästa sessions anchor). Alla öppna steg listas i enhetligt A/B/C/D-format. Varje planfil behåller sin detaljerade text — tabellen nedan är routern.
+Senast uppdaterad: 2026-04-28 (ny startlinje [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) efter hardening-PR mergat på master `8181f87e4`). Alla öppna steg listas i enhetligt A/B/C/D-format. Varje planfil behåller sin detaljerade text — tabellen nedan är routern.
 
 ## Lifecycle (snabb)
 
@@ -19,7 +19,8 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 ## Scope-anchor (nästa session)
 
-[`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) — 10-lagers målbild från extern review. Wave 4 (designval B2.x) + Wave 5 (säkerhet) + Wave 6 (observability) är nästa spår.
+- **Startlinje 2026-04-28:** [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) — konsoliderad superlista efter hardening-PR (`3475484e9`, `8181f87e4`), inkl. PR #117/#118-fynd, postmortem-koppling och föreslagen agent-fördelning A/B/C/D över P0-P4. **Läs först innan nytt LLM-flöde-arbete startar.**
+- **10-lagers målbild:** [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) — extern review. Wave 4 (designval B2.x) + Wave 5 (säkerhet) + Wave 6 (observability) är nästa spår.
 
 ## Öppna steg (konsoliderat efter 2026-04-27-städ)
 
@@ -27,6 +28,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 | # | Plan | Kvarvarande steg | Prio |
 |---|------|------------------|------|
+| O | [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) | **P0–P4** superlista över verifier-status-semantik, init/follow-up-konsistens, latency/parallellisering, prompt-kvalitet och observability. Föreslår agent-fördelning A/B/C/D. | **Hög (anchor för nästa runda)** |
 | A | [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | **C2** — aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Vercel Preview via Dashboard. **D** — aktivera i prod efter latens. **E** — ta bort lint från bakgrundsgate. | Medel |
 | B | [`cloudagent-paket-A-doc-rewrite.md`](./cloudagent-paket-A-doc-rewrite.md) | 3 dossier v1→v2 doc-omskrivningar (D3, D5, D7) — redo för cloudagent. | Låg |
 | C | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #7 | **E3** — `recurringQualityPatterns` in i codegen-prompt. Enda kvarvarande från E-laget. ~2h. | Medel |
@@ -47,7 +49,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | J | [`parked/P32-request-type-taxonomy.md`](./parked/P32-request-type-taxonomy.md) Fas B–F | Stabil follow-up-semantik (✅) + bredare eval-surface |
 | K | [`parked/P33-shadcn-ecosystem-expansion.md`](./parked/P33-shadcn-ecosystem-expansion.md) | Produktbeslut + core-split klart |
 
-**Summa aktivt öppet arbete:** A–F (icke-parkerat) ≈ 1–2 veckor.
+**Summa aktivt öppet arbete:** A–F + O (icke-parkerat) ≈ 1–2 veckor; **O** är ny startlinje 2026-04-28 och konsoliderar nästa rundas LLM-flöde-arbete.
 
 **Städat 2026-04-27:** `2026-04-24-llm-flode-korplan/` (alla 7 waves via PR #101+103 ✅) + `SEO-F3-PROMOTION-NEXT-PR.md` (PR-A #103 + PR-B #105 ✅) → arkiverade i [`../avklarat/`](../avklarat/).
 
