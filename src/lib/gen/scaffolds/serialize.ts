@@ -22,7 +22,8 @@ const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
   "Never leave literal brackets, curly-brace tokens, or obvious scaffold boilerplate in the final output.",
 ].join(" ");
 
-const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 20_000;
+const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 10_000;
+const INSPIRATIONAL_LAYOUT_FILE_BUDGET_CHARS = 2_400;
 
 function extractImportBlock(content: string, filePath: string): string {
   const lines = content.split("\n");
@@ -104,7 +105,7 @@ export function serializeScaffoldForPrompt(
     );
     const layoutBlocks = renderSelectedScaffoldFiles(
       layoutAndStyleFiles,
-      Math.min(maxChars, 4_000),
+      Math.min(maxChars, INSPIRATIONAL_LAYOUT_FILE_BUDGET_CHARS),
     );
 
     const pageFile = scaffold.files.find(
@@ -235,6 +236,29 @@ function buildScaffoldFileTree(scaffold: ScaffoldManifest): string {
   return scaffold.files.map((file) => `- ${file.path}`).join("\n");
 }
 
+function extractExportSummary(content: string): string {
+  const exports = Array.from(
+    content.matchAll(/\bexport\s+(?:default\s+)?(?:async\s+)?(?:function|const|class|interface|type)\s+([A-Za-z_$][\w$]*)/g),
+    (match) => match[1],
+  );
+  const unique = Array.from(new Set(exports)).slice(0, 6);
+  return unique.length > 0 ? `; exports: ${unique.join(", ")}` : "";
+}
+
+function renderOmittedScaffoldFiles(
+  files: Array<{ path: string; content: string }>,
+  reason: "prompt budget" | "length",
+): string {
+  if (files.length === 0) return "";
+  const lines = files.map((file) => (
+    `- \`${file.path}\` omitted for ${reason} (${file.content.length} chars${extractExportSummary(file.content)})`
+  ));
+  return [
+    "_Additional scaffold files omitted. Do not infer missing JSX from partial snippets; create complete files from the file paths, imports, and request context._",
+    ...lines,
+  ].join("\n");
+}
+
 function renderSelectedScaffoldFiles(
   files: Array<{ path: string; content: string }>,
   maxChars: number,
@@ -245,15 +269,8 @@ function renderSelectedScaffoldFiles(
   for (const file of files) {
     const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
     if (usedChars + block.length > maxChars) {
-      const remaining = Math.max(0, maxChars - usedChars - 200);
-      if (remaining > 200) {
-        const truncated = file.content.slice(0, remaining);
-        blocks.push(`\`\`\`${inferLang(file.path)} file="${file.path}"\n${truncated}\n// ... truncated\n\`\`\``);
-      }
-      const omitted = files.length - blocks.length;
-      if (omitted > 0) {
-        blocks.push(`_${omitted} additional critical scaffold file${omitted > 1 ? "s" : ""} omitted for prompt budget_`);
-      }
+      const omittedSummary = renderOmittedScaffoldFiles(files.slice(files.indexOf(file)), "prompt budget");
+      if (omittedSummary) blocks.push(omittedSummary);
       break;
     }
     blocks.push(block);
@@ -270,15 +287,8 @@ function renderScaffoldFiles(scaffold: ScaffoldManifest, maxChars = 140_000): st
   for (const file of scaffold.files) {
     const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
     if (usedChars + block.length > maxChars) {
-      if (usedChars === 0) {
-        const truncated = file.content.substring(0, maxChars - 200);
-        blocks.push(`\`\`\`${inferLang(file.path)} file="${file.path}"\n${truncated}\n// ... truncated\n\`\`\``);
-        usedChars = maxChars;
-      }
-      const omitted = scaffold.files.length - blocks.length;
-      if (omitted > 0) {
-        blocks.push(`_${omitted} additional scaffold file${omitted > 1 ? "s" : ""} omitted for length_`);
-      }
+      const omittedSummary = renderOmittedScaffoldFiles(scaffold.files.slice(scaffold.files.indexOf(file)), "length");
+      if (omittedSummary) blocks.push(omittedSummary);
       break;
     }
 

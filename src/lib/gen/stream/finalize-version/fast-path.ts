@@ -83,6 +83,13 @@ export async function runFinalizeFastPath(params: {
    */
   alreadyMechanicallyFixed: boolean;
   /**
+   * Deterministic autofix had to rewrite many issues before this phase.
+   * Treat this as an upstream-instability signal: skip read-only verifier
+   * work for this pass and let syntax/preflight/recovery produce the
+   * actionable blocker first.
+   */
+  autoFixHeavyLoad?: boolean;
+  /**
    * True when a later quality-gate lane (client and/or async) is expected
    * to run for this generation. Heuristik — ensam INTE tillräcklig för
    * warm-tsc-skip (se `qualityGatePlanned` nedan).
@@ -128,6 +135,7 @@ export async function runFinalizeFastPath(params: {
     finalizePath,
     repairPassIndex,
     alreadyMechanicallyFixed,
+    autoFixHeavyLoad = false,
     willRunQualityGate,
     qualityGateChecksIncludesTypecheck,
     qualityGatePlanned,
@@ -282,9 +290,18 @@ export async function runFinalizeFastPath(params: {
     finalizePath,
     repairPassIndex,
   });
+  const verifierSkippedByHeavyLoad = autoFixHeavyLoad && verifierPolicy.run;
+  if (verifierSkippedByHeavyLoad) {
+    devLogAppend("in-progress", {
+      type: "verifier.skipped",
+      chatId,
+      reason: "autofix_heavy_load",
+      repairPassIndex,
+    });
+  }
   const verifierOutcome = await runVerifierPhase({
-    enabled: verifierPolicy.run,
-    reason: verifierPolicy.reason,
+    enabled: verifierPolicy.run && !verifierSkippedByHeavyLoad,
+    reason: verifierSkippedByHeavyLoad ? "autofix_heavy_load" : verifierPolicy.reason,
     chatId,
     model,
     resolvedTier,

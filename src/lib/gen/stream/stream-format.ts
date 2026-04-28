@@ -51,6 +51,7 @@ function resolveReasoningText(part: {
 
 const LEAKED_THINKING_OPEN_TAG = "<thinking>";
 const LEAKED_THINKING_CLOSE_TAG = "</thinking>";
+const FIRST_CONTENT_TOKEN_SLOW_MS = 120_000;
 
 function isPotentialLeadingThinkingPrefix(value: string): boolean {
   const afterLeadingWhitespace = value.replace(/^\s+/, "");
@@ -189,6 +190,7 @@ export function createCodeGenSSEStream(
       let emittedGenerationStart = false;
       let emittedReasoningWait = false;
       let emittedOutputWait = false;
+      let emittedFirstTokenSlow = false;
       let sawContentEvent = false;
       let abortedByProvider = false;
       let accumulatedThinking = "";
@@ -389,6 +391,26 @@ export function createCodeGenSSEStream(
                   reasoningHeartbeatTimer = setInterval(() => {
                     const elapsed = Math.round((Date.now() - (firstReasoningTokenAt ?? streamStartedAt)) / 1000);
                     debugLog("engine", `thinking... ${elapsed}s`);
+                    const elapsedMs = Date.now() - (firstReasoningTokenAt ?? streamStartedAt);
+                    if (!emittedFirstTokenSlow && firstContentTokenAt === null && elapsedMs >= FIRST_CONTENT_TOKEN_SLOW_MS) {
+                      emittedFirstTokenSlow = true;
+                      devLogAppend("in-progress", {
+                        type: "engine.first_token_slow",
+                        chatId: typeof meta?.chatId === "string" ? meta.chatId : null,
+                        versionId: typeof meta?.versionId === "string" ? meta.versionId : null,
+                        elapsedMs,
+                        thresholdMs: FIRST_CONTENT_TOKEN_SLOW_MS,
+                        model: typeof meta?.modelId === "string" ? meta.modelId : null,
+                      });
+                      enqueue(
+                        createBuilderStreamEvent("progress", {
+                          step: "generation",
+                          phase: "reasoning-slow",
+                          elapsedMs,
+                          thresholdMs: FIRST_CONTENT_TOKEN_SLOW_MS,
+                        }),
+                      );
+                    }
                   }, 15_000);
                 }
               }

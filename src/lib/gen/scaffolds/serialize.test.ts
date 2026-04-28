@@ -94,4 +94,28 @@ describe("serializeScaffoldForPrompt", () => {
 
     expect(out).toContain('file="components/login-form.tsx"');
   });
+
+  it("omits oversized scaffold files instead of emitting truncated TSX snippets", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "landing-page",
+      label: "Oversized scaffold",
+      description: "A scaffold used for truncation tests.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/layout.tsx", content: makeLongFile("HugeLayout") },
+        { path: "components/site-header.tsx", content: makeLongFile("HugeHeader") },
+      ],
+    };
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 4_000,
+      contextPolicy: "normal",
+    });
+
+    expect(out).not.toContain("// ... truncated");
+    expect(out).toContain("omitted for prompt budget");
+    expect(out).toContain("components/site-header.tsx");
+  });
 });

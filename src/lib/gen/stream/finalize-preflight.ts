@@ -233,13 +233,16 @@ async function tryRecoverMissingHomeRoute(params: {
   buildSpec: BuildSpec | null | undefined;
   routePlan: RoutePlan | null | undefined;
 }): Promise<{ files: CodeFile[]; recovered: boolean; attempted: boolean; message?: string }> {
-  if (findHomePageFile(params.files)) {
+  const detectedHome = findHomePageFile(params.files);
+  const homeIssue = buildMissingHomeRouteIssue(detectedHome);
+  if (!homeIssue) {
     return { files: params.files, recovered: false, attempted: false };
   }
 
   const content = serializeCodeProject(params.files);
   const errors = [
-    `${HOME_ROUTE_RECOVERY_PATH}:1:1 CRITICAL: Required home route is missing. Create a complete Next.js App Router page at ${HOME_ROUTE_RECOVERY_PATH}. The scaffold default is blocked by LLM_ONLY_PATHS and must not be used as a silent fallback.`,
+    `${HOME_ROUTE_RECOVERY_PATH}:1:1 CRITICAL: ${homeIssue.message}`,
+    `Create or replace ${HOME_ROUTE_RECOVERY_PATH} with a complete Next.js App Router page. The scaffold default is blocked by LLM_ONLY_PATHS and must not be used as a silent fallback.`,
     "The recovered page must be a real branded startsida with hero, CTA, and relevant sections; never return an empty, trivial, placeholder, or skeleton-only page.",
     `Original prompt / brief: ${params.originalPrompt?.trim() || "unavailable"}`,
     formatBuildSpecForHomeRecovery(params.buildSpec),
@@ -706,7 +709,6 @@ export async function runFinalizePreflight({
           skipDoubleValidateAndFixOnMerge: FEATURES.skipDoubleValidateAndFixOnMerge,
         });
       }
-      let mechanicalFixCount: number | null = null;
       const mechanicalStartedAt = Date.now();
       try {
         const mechanicalResult = await runAutoFix(mergedProjectContent, {
@@ -714,7 +716,6 @@ export async function runFinalizePreflight({
           model: _model,
           previewPolicy: undefined,
         });
-        mechanicalFixCount = mechanicalResult.fixes.length;
         mergedProjectContent = mechanicalResult.fixedContent;
         mergedSyntax = await validateGeneratedCode(mergedProjectContent);
         devLogAppend("in-progress", {

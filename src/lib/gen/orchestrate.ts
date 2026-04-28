@@ -677,8 +677,12 @@ export async function resolveOrchestrationBase(
     const scaffoldBudgetChars =
       buildSpec.tokenBudgets.scaffoldChars ??
       estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
+    const promptScaffoldBudgetChars =
+      resolvedSerializeMode === "inspirational"
+        ? Math.min(scaffoldBudgetChars, 10_000)
+        : scaffoldBudgetChars;
     scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, resolvedSerializeMode, {
-      maxChars: scaffoldBudgetChars,
+      maxChars: promptScaffoldBudgetChars,
       contextPolicy: buildSpec.contextPolicy,
       routePlan,
       capabilities,

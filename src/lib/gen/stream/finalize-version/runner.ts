@@ -265,6 +265,7 @@ export async function finalizeAndSaveVersion(
     finalizePath,
     repairPassIndex,
     alreadyMechanicallyFixed: autofixSucceeded,
+    autoFixHeavyLoad,
     willRunQualityGate,
     qualityGateChecksIncludesTypecheck:
       willRunQualityGate && postFinalizeQualityGateIncludesTypecheck(buildSpec),
