@@ -1,5 +1,4 @@
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactAndNavigationImports } from "./rules/react-import-consolidated";
 import {
@@ -16,7 +15,6 @@ import {
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
 import { fixDuplicateImportAndLocalTypeCollision } from "./rules/duplicate-import-local-type-collision-fixer";
 import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse-fixer";
-import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
 import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "./rules/r3f-vector-tuple-fixer";
@@ -33,7 +31,6 @@ import { fixFontImport } from "./rules/font-import-fixer";
 import { fixTier3SdkImports } from "./rules/tier3-sdk-guard-fixer";
 import { fixEscapeLeakage } from "./rules/escape-leakage-fixer";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
-import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { fixDomBuiltinJsxTags } from "./rules/dom-builtin-jsx-fixer";
 import {
@@ -76,6 +73,155 @@ export interface AutoFixContext {
    * Example: `visual-3d` -> `three` + `@react-three/fiber` + `@react-three/drei`.
    */
   requestedCapabilities?: string[];
+}
+
+const CLIENT_HOOKS =
+  /\b(useState|useEffect|useCallback|useMemo|useRef|useContext|useReducer|useTransition|useOptimistic)\b/;
+const EVENT_HANDLERS =
+  /\b(onClick|onChange|onSubmit|onKeyDown|onKeyUp|onFocus|onBlur|onMouseEnter|onMouseLeave)\b/;
+const BROWSER_APIS =
+  /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
+const USE_CLIENT_RE = /^["']use client["'];?\s*$/;
+
+function isClientExtension(filename: string): boolean {
+  return /\.(tsx|jsx)$/.test(filename);
+}
+
+function hasUseClientDirective(code: string): boolean {
+  const lines = code.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("/*")) continue;
+    return USE_CLIENT_RE.test(trimmed);
+  }
+  return false;
+}
+
+function needsUseClient(code: string): boolean {
+  return (
+    CLIENT_HOOKS.test(code) ||
+    EVENT_HANDLERS.test(code) ||
+    BROWSER_APIS.test(code)
+  );
+}
+
+function fixUseClient(
+  code: string,
+  filename: string,
+): { code: string; fixed: boolean } {
+  if (!isClientExtension(filename)) {
+    return { code, fixed: false };
+  }
+
+  if (hasUseClientDirective(code)) {
+    return { code, fixed: false };
+  }
+
+  if (!needsUseClient(code)) {
+    return { code, fixed: false };
+  }
+
+  return { code: `"use client";\n\n${code}`, fixed: true };
+}
+
+const FONT_FAMILY_ARBITRARY_RE =
+  /className="([^"]*)font-\[family-name:var\(--([a-zA-Z0-9-]+)\)\]([^"]*)"/g;
+
+function fixTailwindFontArbitrary(
+  code: string,
+): { code: string; fixed: boolean; count: number } {
+  let count = 0;
+
+  const result = code.replace(
+    FONT_FAMILY_ARBITRARY_RE,
+    (_match, before: string, varName: string, after: string) => {
+      count++;
+      const cleanBefore = before.trim();
+      const cleanAfter = after.trim();
+      const remainingClasses = [cleanBefore, cleanAfter]
+        .filter(Boolean)
+        .join(" ");
+
+      const classAttr = remainingClasses ? `className="${remainingClasses}"` : "";
+      const styleAttr = `style={{ fontFamily: "var(--${varName})" }}`;
+
+      return [classAttr, styleAttr].filter(Boolean).join(" ");
+    },
+  );
+
+  return { code: result, fixed: count > 0, count };
+}
+
+interface SyntaxValidation {
+  valid: boolean;
+  errors: Array<{ line: number; column: number; message: string }>;
+}
+
+type Loader = "tsx" | "ts" | "jsx" | "js" | "css";
+
+const EXT_TO_LOADER: Record<string, Loader> = {
+  ".tsx": "tsx",
+  ".ts": "ts",
+  ".jsx": "jsx",
+  ".js": "js",
+  ".css": "css",
+};
+
+function inferLoader(filename: string): Loader | undefined {
+  const dot = filename.lastIndexOf(".");
+  if (dot === -1) return undefined;
+  return EXT_TO_LOADER[filename.slice(dot)];
+}
+
+async function getEsbuild() {
+  try {
+    return await import("esbuild");
+  } catch {
+    return null;
+  }
+}
+
+async function validateSyntax(
+  code: string,
+  filename: string,
+): Promise<SyntaxValidation> {
+  const loader = inferLoader(filename);
+  if (!loader) return { valid: true, errors: [] };
+
+  const esbuild = await getEsbuild();
+  if (!esbuild) return { valid: true, errors: [] };
+
+  try {
+    await esbuild.transform(code, {
+      loader,
+      jsx: loader === "tsx" || loader === "jsx" ? "preserve" : undefined,
+      logLevel: "silent",
+    });
+    return { valid: true, errors: [] };
+  } catch (err: unknown) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "errors" in err &&
+      Array.isArray((err as { errors: unknown[] }).errors)
+    ) {
+      const failure = err as {
+        errors: Array<{ text: string; location?: { line: number; column: number } | null }>;
+      };
+      return {
+        valid: false,
+        errors: failure.errors.map((e) => ({
+          line: e.location?.line ?? 0,
+          column: e.location?.column ?? 0,
+          message: e.text,
+        })),
+      };
+    }
+    return {
+      valid: false,
+      errors: [{ line: 0, column: 0, message: String(err) }],
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -803,9 +949,8 @@ async function runAutoFixSinglePass(
         }
       }
 
-      // 5. syntax-validator (async, dynamically imported to avoid Turbopack bundling esbuild)
+      // 5. syntax-validator (esbuild transform check)
       try {
-        const { validateSyntax } = await import("./syntax-validator");
         const syntaxResult: SyntaxValidation = await validateSyntax(currentCode, file.path);
         if (!syntaxResult.valid) {
           for (const e of syntaxResult.errors) {

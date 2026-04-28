@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const runAutoFix = vi.hoisted(() => vi.fn());
 const runLlmFixer = vi.hoisted(() => vi.fn());
 const validateAndFix = vi.hoisted(() => vi.fn());
-const checkScaffoldImports = vi.hoisted(() => vi.fn());
 const checkCrossFileImports = vi.hoisted(() => vi.fn());
 const runProjectSanityChecks = vi.hoisted(() => vi.fn());
 const expandUrls = vi.hoisted(() => vi.fn());
@@ -55,10 +54,6 @@ vi.mock("@/lib/gen/autofix/llm-fixer", () => ({
 
 vi.mock("@/lib/gen/autofix/validate-and-fix", () => ({
   validateAndFix,
-}));
-
-vi.mock("@/lib/gen/autofix/rules/scaffold-import-checker", () => ({
-  checkScaffoldImports,
 }));
 
 vi.mock("@/lib/gen/autofix/rules/cross-file-import-checker", () => ({
@@ -166,7 +161,6 @@ describe("finalizeAndSaveVersion", () => {
     runAutoFix.mockReset();
     runLlmFixer.mockReset();
     validateAndFix.mockReset();
-    checkScaffoldImports.mockReset();
     checkCrossFileImports.mockReset();
     runProjectSanityChecks.mockReset();
     expandUrls.mockReset();
@@ -266,10 +260,6 @@ describe("finalizeAndSaveVersion", () => {
       warnings: [],
     }));
     checkCrossFileImports.mockImplementation((files: unknown) => ({
-      files,
-      fixes: [],
-    }));
-    checkScaffoldImports.mockImplementation((files: unknown) => ({
       files,
       fixes: [],
     }));
@@ -901,7 +891,6 @@ describe("finalizeAndSaveVersion", () => {
       ]),
       { rejectSignificantShrinks: true, rejectDroppedStructuralElements: true },
     );
-    expect(checkScaffoldImports).toHaveBeenCalled();
   });
 
   it("skips merge and scaffold import checks for non-scaffold first generations", async () => {
@@ -916,7 +905,6 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(mergeVersionFilesWithWarnings).not.toHaveBeenCalled();
-    expect(checkScaffoldImports).not.toHaveBeenCalled();
     expect(checkCrossFileImports).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
