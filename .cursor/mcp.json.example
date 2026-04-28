@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "shadcn": {
-      "command": "npx",
-      "args": ["shadcn@latest", "mcp"]
+      "command": "node",
+      "args": ["${workspaceFolder}/scripts/cursor/shadcn-mcp.cjs"]
     },
     "v0": {
       "url": "https://mcp.v0.dev"

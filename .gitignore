@@ -132,10 +132,10 @@ services/mpc/logs/
 .DS_Store
 Thumbs.db
 .vscode.bak/
-# Cursor-specific (plans are session-specific, mcp.json is shared)
+# Cursor-specific (plans are session-specific)
 .cursor/plans/
 .cursor/documents/
-# Local MCP config (can hold tokens); committed template: .cursor/mcp.json.example
+# Local Cursor MCP (IDE only; not read by Next/own-engine). May hold tokens or machine paths; template: .cursor/mcp.json.example
 .cursor/mcp.json
 
 # OAuth / mobile secret dumps (never commit real files)
