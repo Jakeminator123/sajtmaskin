@@ -1,0 +1,16 @@
+{
+  "name": "ts2749-repro-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "lucide-react": "0.469.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "@types/react": "19.1.2",
+    "@types/react-dom": "19.1.2",
+    "@types/node": "22.15.18"
+  }
+}

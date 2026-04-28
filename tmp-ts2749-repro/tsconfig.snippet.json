@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["actual-game-page-snippet.tsx"],
+  "exclude": []
+}

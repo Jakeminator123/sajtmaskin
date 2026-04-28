@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+@theme inline {
+  --background: oklch(0.985 0.01 35);
+  --foreground: oklch(0.24 0.02 28);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.02 28);
+  --primary: oklch(0.59 0.22 28);
+  --primary-foreground: oklch(0.99 0.01 35);
+  --secondary: oklch(0.965 0.05 152);
+  --secondary-foreground: oklch(0.3 0.07 152);
+  --muted: oklch(0.965 0.01 35);
+  --muted-foreground: oklch(0.48 0.02 28);
+  --accent: oklch(0.92 0.09 194);
+  --accent-foreground: oklch(0.26 0.05 194);
+  --border: oklch(0.9 0.015 28);
+  --ring: oklch(0.59 0.22 28);
+  --radius: 1rem;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at top left, color-mix(in oklab, var(--primary) 12%, transparent) 0%, transparent 38%),
+      radial-gradient(circle at bottom right, color-mix(in oklab, var(--accent) 12%, transparent) 0%, transparent 42%),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, white 78%, var(--secondary) 22%) 0%,
+        color-mix(in oklab, white 90%, var(--background) 10%) 28%,
+        var(--background) 100%
+      );
+    background-attachment: fixed;
+  }
+
+  a {
+    text-underline-offset: 0.22em;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 40%, white);
+    color: var(--foreground);
+  }
+}
+
+.font-display {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+}
+
+.section-shell {
+  width: min(100% - 1.5rem, 76rem);
+  margin-inline: auto;
+}
+
+.section-padding {
+  padding-block: clamp(4rem, 8vw, 7rem);
+}
+
+.surface-panel {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--card) 96%, var(--accent) 4%),
+      color-mix(in oklab, var(--card) 90%, var(--secondary) 10%)
+    );
+  border: 1px solid color-mix(in oklab, var(--border) 84%, var(--accent) 16%);
+  box-shadow:
+    0 24px 80px -40px color-mix(in oklab, var(--foreground) 18%, transparent),
+    0 8px 24px -18px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+.surface-panel-strong {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--card) 91%, var(--primary) 9%),
+      color-mix(in oklab, var(--card) 89%, var(--accent) 11%)
+    );
+  border: 1px solid color-mix(in oklab, var(--border) 76%, var(--primary) 24%);
+  box-shadow:
+    0 28px 90px -46px color-mix(in oklab, var(--primary) 26%, transparent),
+    0 10px 24px -18px color-mix(in oklab, var(--foreground) 14%, transparent);
+}
+
+.grid-lines {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--border) 76%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--border) 76%, transparent) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.soft-vignette {
+  background:
+    radial-gradient(circle at center, transparent 48%, color-mix(in oklab, var(--background) 70%, transparent) 100%);
+}
+
+.glow-chip {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--accent) 22%, transparent),
+    0 10px 34px -20px color-mix(in oklab, var(--accent) 34%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  [data-animate] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
