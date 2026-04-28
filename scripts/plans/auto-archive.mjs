@@ -6,10 +6,9 @@
  * `docs/plans/active/` rensat genom att flagga (eller flytta) plan-filer
  * vars status-rad signalerar att de är klara.
  *
- * Pragmatisk variant istället för audit-rapportens YAML-frontmatter-approach
- * — våra plan-filer använder prosa-status ("Status: DONE 2026-04-20",
- * "Status: Stängd", "Status: Closed"), inte frontmatter. Detta script
- * matchar prosa-mönstret + skippar `Kvarvarande-uppgifter.md`/`README.md`
+ * Pragmatisk variant: stödjer både YAML-frontmatter `status: ...` och äldre
+ * prosa-status ("Status: DONE 2026-04-20", "Status: Stängd", "Status: Closed").
+ * Scriptet skippar `Kvarvarande-uppgifter.md`/`README.md`
  * (levande listor som aldrig ska flyttas).
  *
  * Default: dry-run. Visa vilka som SKULLE flyttas. `--apply` kör `git mv`.
@@ -56,6 +55,20 @@ const DONE_PATTERNS = [
 ];
 
 const ACTIVE_PATTERN = /^Status:\s*\*?\*?Active\b/im;
+const FRONTMATTER_STATUS_PATTERN = /^status:\s*("?)([^"\n#]+)\1\s*(?:#.*)?$/im;
+
+function normalizeStatus(value) {
+  return value.trim().toLowerCase();
+}
+
+function extractFrontmatterStatus(header) {
+  if (!header.startsWith("---")) return null;
+  const end = header.indexOf("\n---", 3);
+  if (end === -1) return null;
+  const frontmatter = header.slice(3, end);
+  const match = frontmatter.match(FRONTMATTER_STATUS_PATTERN);
+  return match ? normalizeStatus(match[2]) : null;
+}
 
 function readHeader(filePath) {
   try {
@@ -73,6 +86,18 @@ function classifyPlan(filePath, fileName) {
   const header = readHeader(filePath);
   if (!header.trim()) {
     return { kind: "skip", reason: "empty file" };
+  }
+  const frontmatterStatus = extractFrontmatterStatus(header);
+  if (frontmatterStatus) {
+    if (["done", "closed", "stängd", "avslutad"].includes(frontmatterStatus)) {
+      return { kind: "archive", reason: `frontmatter status=${frontmatterStatus}` };
+    }
+    if (frontmatterStatus === "active") {
+      return { kind: "active", reason: "frontmatter status=active" };
+    }
+    if (frontmatterStatus === "paused" || frontmatterStatus === "parked") {
+      return { kind: "skip", reason: `frontmatter status=${frontmatterStatus}` };
+    }
   }
   if (ACTIVE_PATTERN.test(header)) {
     return { kind: "active", reason: "Status: Active" };
@@ -117,6 +142,29 @@ function gitMove(fromAbs, toAbs) {
   });
 }
 
+function preflightArchiveTargets(candidates) {
+  const collisions = [];
+  for (const p of candidates) {
+    const target = join(ARCHIVE_DIR, p.name);
+    try {
+      if (statSync(target).isFile()) {
+        collisions.push({ ...p, target });
+      }
+    } catch {
+      // Missing target is the expected happy path.
+    }
+  }
+  if (collisions.length === 0) return;
+
+  console.error(
+    `[plans:archive] refusing to apply: ${collisions.length} archive target(s) already exist:`,
+  );
+  for (const p of collisions) {
+    console.error(`  - ${p.name} -> ${relative(REPO_ROOT, p.target).replace(/\\/g, "/")}`);
+  }
+  process.exit(1);
+}
+
 function main() {
   const apply = process.argv.includes("--apply");
   const plans = listActivePlans();
@@ -157,6 +205,8 @@ function main() {
     );
     return;
   }
+
+  preflightArchiveTargets(buckets.archive);
 
   for (const p of buckets.archive) {
     const target = join(ARCHIVE_DIR, p.name);
