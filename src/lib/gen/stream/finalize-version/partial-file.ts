@@ -1,26 +1,20 @@
-// TODO(plan-09): kvar tills nästa cleanup — partial-file-repair är aktiv i preflight-fasen och tas bort först när single-repair-gate ersätter den.
 /**
  * Partial-file output detection + repair.
  *
  * When preflight flags a file as a partial repair snippet (common failure
- * mode on mid-tier follow-ups), we hand those file names back to the LLM
- * fixer with a concrete "emit the complete file" instruction, then run
- * the deterministic autofix again. Capped at
+ * mode on mid-tier follow-ups), we hand those file names back to the
+ * unified `runLlmRepairGate` with a concrete "emit the complete file"
+ * instruction, then run the deterministic autofix again. Capped at
  * `PARTIAL_FILE_REPAIR_MAX_ATTEMPTS` attempts so a broken model can't
  * spin forever.
- *
- * Split out of `finalize-version.ts` (OMTAG-03 wave-rest) — no behavior
- * change.
  */
 
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
+import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
 import { devLogAppend } from "@/lib/logging/devLog";
-import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
 import { incPartialFileRepair } from "@/lib/observability/metrics";
-import { DEFAULT_MODEL_ID, type CanonicalModelId } from "@/lib/models/catalog";
-import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
+import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { FinalizePreflightIssue } from "../finalize-preflight";
 
@@ -87,29 +81,20 @@ export async function tryRepairPartialFileOutput(params: {
     };
   }
 
-  // Bug 01#3-pattern (2026-04-22 follow-up audit): när resolvedTier saknas
-  // blev fixerModel `undefined` och runLlmFixer föll på sin interna default —
-  // phaseRouting.fixer var då inte längre garanterad. Samma fix som server-
-  // verify.ts: default till `pro`-tier så reparation alltid speglar manifestet.
-  const fixerTier = resolvedTier ?? DEFAULT_MODEL_ID;
-  const fixerModel = resolvePhaseModel(fixerTier, "fixer").modelId;
-  const fixerThinking = resolvePhaseThinking(fixerTier, "fixer");
   const errors = formatPartialIssuesAsFixerErrors(partialFiles, partialFileIssues);
   const maxAttempts = Math.max(1, PARTIAL_FILE_REPAIR_MAX_ATTEMPTS);
   let attempts = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     attempts = attempt;
-    const abort = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), PARTIAL_FILE_REPAIR_TIMEOUT_MS);
     try {
-      const result = await runLlmFixer(contentForVersion, errors, {
-        model: fixerModel,
-        thinking: fixerThinking?.thinking,
-        reasoningEffort: fixerThinking?.reasoningEffort,
+      const { result } = await runLlmRepairGate({
+        content: contentForVersion,
+        errors,
+        chatId,
+        timeoutMs: PARTIAL_FILE_REPAIR_TIMEOUT_MS,
         requiredFiles: partialFiles,
-        recurringPatterns: readRecurringPatternsForChat(chatId),
-        abortSignal: abort.signal,
+        resolvedTier,
       });
       if (!result.success) {
         // partial output is also treated as a no-success here: a partial
@@ -152,8 +137,6 @@ export async function tryRepairPartialFileOutput(params: {
         partialFiles,
         attempt,
       });
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
