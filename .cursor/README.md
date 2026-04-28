@@ -26,6 +26,7 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 
 | Regel | Syfte |
 |-------|-------|
+| [agent-worktree.mdc](rules/agent-worktree.mdc) | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
 | [builder-coexistence.mdc](rules/builder-coexistence.mdc) | Agent får inte navigera till användarens aktiva builder-URL |
 | [repo-router.mdc](rules/repo-router.mdc) | Snabb repo-router + env/indexering |
 | [response-format.mdc](rules/response-format.mdc) | Hur agenten svarar — kort, matris/flöde, svenska vid behov |
