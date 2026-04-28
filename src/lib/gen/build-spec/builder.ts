@@ -113,6 +113,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
   });
   const previewPolicy = previewPolicyOverride ?? inferPreviewPolicy();
   const qualityTarget = inferQualityTarget({
+    prompt,
     buildIntent,
     generationMode,
     resolvedScaffold,

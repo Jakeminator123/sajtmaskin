@@ -46,6 +46,70 @@ export type PromptStrategyMetaForBuildSpec = Pick<
 > &
   Partial<Pick<PromptStrategyMeta, "complexityScore">>;
 
+/**
+ * Promotionsord som signalerar att användaren förväntar sig en visuellt
+ * ambitiös, detaljrik leverans. Träffar trippar `qualityTarget = "premium"`
+ * även när strukturella signaler (routes, integrations, scaffold-id) saknas.
+ *
+ * Hålls smal med vilja — ord som "site", "snabb", "enkel" får inte ligga här.
+ * Lägg gärna till nya ord vid behov, men logga `quality_target_promoted_for_keyword`
+ * i prod först och se om det matchar något verkligt mönster.
+ */
+const QUALITY_PREMIUM_KEYWORDS = [
+  // svenska
+  "snygg",
+  "snyggt",
+  "snygga",
+  "påkostad",
+  "påkostat",
+  "lyxig",
+  "lyxigt",
+  "exklusiv",
+  "exklusivt",
+  "rockig",
+  "rockigt",
+  "atmosfärisk",
+  "atmosfäriskt",
+  "stämningsfull",
+  "stämningsfullt",
+  "dramatisk",
+  "dramatiskt",
+  "detaljrik",
+  "detaljrikt",
+  // english (svenska "premium" täcker engelska "premium" via samma sträng)
+  "premium",
+  "luxury",
+  "luxurious",
+  "elegant",
+  "polished",
+  "atmospheric",
+  "moody",
+  "dramatic",
+  "high-end",
+  "boutique",
+  "editorial",
+  "cinematic",
+  "immersive",
+] as const;
+
+function escapeRegExpLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchQualityPremiumKeyword(prompt: string): string | null {
+  if (!prompt) return null;
+  const lower = prompt.toLowerCase();
+  for (const word of QUALITY_PREMIUM_KEYWORDS) {
+    // Word-boundary respekterande svensk diakritik. Inte ASCII-`\b`.
+    const pattern = new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])${escapeRegExpLiteral(word.toLowerCase())}(?:[^\\p{L}\\p{N}]|$)`,
+      "iu",
+    );
+    if (pattern.test(lower)) return word;
+  }
+  return null;
+}
+
 export function inferChangeScope(params: {
   prompt: string;
   generationMode: BuildSpecGenerationMode;
@@ -94,6 +158,7 @@ export function inferChangeScope(params: {
 }
 
 export function inferQualityTarget(params: {
+  prompt: string;
   buildIntent: BuildIntent;
   generationMode: BuildSpecGenerationMode;
   resolvedScaffold: ScaffoldManifest | null;
@@ -105,6 +170,7 @@ export function inferQualityTarget(params: {
   isFirstCodeGeneration?: boolean | null;
 }): BuildSpecQualityTarget {
   const {
+    prompt,
     buildIntent,
     generationMode,
     resolvedScaffold,
@@ -148,6 +214,20 @@ export function inferQualityTarget(params: {
       buildIntent,
       generationMode,
       scaffoldId: resolvedScaffold?.id ?? null,
+      from: "standard",
+      to: "premium",
+    });
+    return "premium";
+  }
+
+  const matchedWord =
+    generationMode === "init" ? matchQualityPremiumKeyword(prompt) : null;
+  if (matchedWord) {
+    console.info("[build-spec] quality_target_promoted_for_keyword", {
+      matchedWord,
+      generationMode,
+      scaffoldId: resolvedScaffold?.id ?? null,
+      buildIntent,
       from: "standard",
       to: "premium",
     });
