@@ -6,6 +6,7 @@
 - Dialogs MUST have `DialogDescription` (or `aria-describedby`). Use `sr-only` if not visually needed.
 - Images MUST have `alt` text. Decorative images use `alt=""` with `aria-hidden="true"`.
 - Form inputs MUST have associated `<Label>` elements or `aria-label`.
+- Every `<input>`, `<select>`, and `<textarea>` MUST have a stable `id` and `name` attribute, with the `<Label htmlFor="...">` (or wrapped `<Label>`) pointing at the same `id`. For login, signup, checkout, and contact forms, set relevant `autocomplete` values (`email`, `current-password`, `new-password`, `name`, `tel`, `street-address`, `cc-number`, etc.) so password managers and browser autofill work.
 - Use `aria-live` regions for dynamic content updates (toasts, loading states, live search results).
 - Respect `prefers-reduced-motion` — wrap animations with `motion-safe:` and provide `motion-reduce:` fallbacks.
 - Color contrast must meet WCAG 2.1 AA (4.5:1 for normal text, 3:1 for large text).
@@ -132,8 +133,7 @@ The repair layer can add a missing `export default`, but the safer path is to wr
 ### Known Pitfalls
 
 Avoid these recurring generation errors:
-- `package.json` MUST exist and list every third-party dependency used in the project. Omitting it causes install failures.
-- Pin dependency versions to a specific major range (e.g. `"framer-motion": "^12"`, `"three": "^0.176"`). Never use `"*"` or `"latest"`.
+- `package.json` is **merge-format**: emit it ONLY when you add a new third-party dependency that isn't already in the scaffold baseline. When you do emit it, list ONLY the new dependencies (so the host can merge), pinned to a specific major range (e.g. `"framer-motion": "^12"`, `"three": "^0.176"`). Never use `"*"` or `"latest"`. The scaffold baseline already provides every dep that comes pre-installed; re-listing them risks downgrading versions the scaffold pinned for compatibility.
 - **Reduced motion:** every exported project ships `hooks/use-reduced-motion.ts` with a canonical `useReducedMotion(): boolean` that subscribes to `matchMedia("(prefers-reduced-motion: reduce)")`. Import it (`import { useReducedMotion } from "@/hooks/use-reduced-motion"`) for any component that gates animations — do NOT hand-roll a `useState + useEffect(() => setMounted(true), [])` guard (React 19 + eslint flag it as `react-hooks/set-state-in-effect`). Framer-motion's own `useReducedMotion()` returns `boolean | null` — if you use it, coerce with `Boolean(...)` before passing to boolean props.
 - When importing both a type and a value with the same name (e.g. `Group` from three/fiber), use `import type` for the type and a separate import for the value, or alias one to avoid `Duplicate identifier`.
 - Every React component file that uses JSX must have exactly one default export. Do not forget it and do not duplicate it.

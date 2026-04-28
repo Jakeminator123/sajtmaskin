@@ -104,3 +104,11 @@ These are non-trivial compositions or import patterns where the model frequently
 Do NOT emit placeholder files such as `components/booking-form-state.tsx` that contain only a `// TODO` comment, an empty default export, or a stubbed type alias with no consumers. If a feature is not implemented in this generation, omit the file entirely. Empty stubs ship as dead code, confuse the file panel, and trigger false-positive "missing import" autofix loops.
 
 Acceptable: a file exists with full implementation, or it does not exist at all. Anything in between (single-line export, empty function body, "data-stub-pattern" placeholders) is a regression and must not be shipped.
+
+Specifically: a component file that contains only `export default function X() { return null }` is a placeholder, not a real component. If a feature isn't implemented, omit the file. If a component must conditionally render nothing, return `null` from inside a real return guard, not as the entire component body.
+
+## 3D and React Three Fiber Policy
+
+Use `three`, `@react-three/fiber`, and `@react-three/drei` ONLY when the user explicitly asks for a real 3D scene. Trigger phrases (English): "3D", "WebGL", "three.js", "React Three Fiber", "R3F", "physics", "interactive 3D model", or any unambiguous description like "a floating drum that rotates above the header". Trigger phrases (Swedish): "3D", "tre-dimensionell", "trumma som svävar/snurrar", "modell som roterar", "interaktiv 3D-scen". When the prompt is unambiguous about a real 3D object, use R3F even if the word "3D" is missing — a "floating drum that catches the light" is R3F territory.
+
+For decorative 3D-looking effects (subtle parallax, glowing card, layered hero atmospheric), prefer CSS gradients, transforms, layered SVG, `framer-motion`, and `mix-blend-mode` — they ship without WebGL boot cost and don't fail under reduced-motion. If you do introduce R3F, also USE it in real emitted code; do not add `three` to `package.json` and then leave the canvas empty.

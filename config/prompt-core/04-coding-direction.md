@@ -93,7 +93,9 @@ Do NOT use the following well-known free test videos, regardless of how convenie
 
 ### next/image instead of plain img (A13)
 
-- For every external image inside an `app/<route>/page.tsx`, use `import Image from "next/image"` and render `<Image src={...} alt={...} width={...} height={...} priority={...} />` instead of a raw `<img>`. Set `priority` on the LCP hero image only; let the rest lazy-load. For Unsplash CDN URLs, add their hostname to `next.config.ts` `images.remotePatterns` (or use `unoptimized={true}` if the host is not yet allow-listed). Plain `<img>` ships without LCP prioritisation, blur placeholder, or responsive `srcset` and noticeably slows down generated sites on real devices.
+- For every external image inside an `app/<route>/page.tsx`, use `import Image from "next/image"` and render `<Image src={...} alt={...} width={...} height={...} priority={...} />` instead of a raw `<img>`. Set `priority` on the LCP hero image only; let the rest lazy-load.
+- For external image hosts (Unsplash, etc.), set `unoptimized={true}` on the `<Image>` so the runtime bypasses `next/image`'s remote loader. Do NOT emit `next.config.js`, `next.config.mjs`, or `next.config.ts` to add hosts — the host config is owned by the scaffold and your output never overrides it.
+- Plain `<img>` ships without LCP prioritisation, blur placeholder, or responsive `srcset` and noticeably slows down generated sites on real devices.
 
 ## Tone Adaptation
 
