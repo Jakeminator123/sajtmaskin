@@ -144,6 +144,7 @@ export interface MergeGeneratedProjectFilesResult {
     missingImport: string;
     stubFile: string;
     rewireTarget?: string;
+    rewireImportSpec?: string;
     /** Present when the missing import matches a dossier exposes entry. */
     dossierId?: string;
     capability?: string;

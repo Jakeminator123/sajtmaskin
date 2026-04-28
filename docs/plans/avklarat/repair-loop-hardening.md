@@ -22,6 +22,12 @@ read_only_files:
 
 # Repair-loop hardening
 
+> Historisk plan. Runtime-sanning efter 2026-04-28 finns i
+> `docs/plans/active/2026-04-28-llm-flode-startlinje.md`,
+> `docs/architecture/glossary.md` och `docs/ENV.md`. Feature-flaggorna i
+> postamblet nedan är numera borttagna eller inlinade; använd inte denna fil
+> som aktuell driftinstruktion.
+
 ## Bakgrund
 
 Levererad i förra spåret (`href-route-safety-net`):

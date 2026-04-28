@@ -51,7 +51,7 @@ Tools skulle göra "ta bort 3D", "lägg till route", "höj qualityTarget" till *
 | Wave | Tools | Motivering |
 |---|---|---|
 | **Wave 1** | `removeCapability` + `addRoute` | Direkt löser två P0-bugs från 2026-04-28 (3D-spöket, route-buggen). Båda kan implementeras som pre-codegen mutations utan att röra själva LLM-streamen. |
-| Wave 2 | `setQualityTarget` + `pickScaffoldVariant` | Designkvalitet — komplement till PR-D2 (qualityTarget premium-sticky). |
+| Wave 2 | `setQualityTarget` + `pickScaffoldVariant` | Designkvalitet — komplement till qualityTarget-rank (premium-sticky). |
 | Wave 3 | `addCheckoutDemoUI` | F2-säker UI-pattern. |
 | Wave 4 (kräver utvärdering) | `validateGeneratedFiles` | Hög potentiell vinst men loop-risk; behöver eval-baseline + tight loop-cap. |
 

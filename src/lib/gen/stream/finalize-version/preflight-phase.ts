@@ -72,6 +72,7 @@ export interface PreflightPhaseResult {
     missingImport: string;
     stubFile: string;
     rewireTarget?: string;
+    rewireImportSpec?: string;
     dossierId?: string;
     capability?: string;
   }>;

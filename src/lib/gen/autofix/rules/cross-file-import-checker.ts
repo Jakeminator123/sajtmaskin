@@ -15,6 +15,8 @@ interface CrossFileImportFix {
   stubFile: string;
   /** Existing project path used instead of creating a null-render stub. */
   rewireTarget?: string;
+  /** Import specifier written into `sourceFile` when `rewireTarget` is set. */
+  rewireImportSpec?: string;
   /** Set when the missing import matches a dossier `exposes[].import`. */
   dossierId?: string;
   capability?: string;
@@ -143,10 +145,26 @@ function findRewireTarget(
 function projectPathToImportSpec(
   resolvedProjectPath: string,
   originalSpec: string,
+  importerPath: string,
 ): string | null {
   if (originalSpec.startsWith("@/")) {
     const cleaned = resolvedProjectPath.replace(/^src\//, "");
     return `@/${cleaned}`;
+  }
+  if (originalSpec.startsWith("./") || originalSpec.startsWith("../")) {
+    const importerDir = importerPath.includes("/")
+      ? importerPath.slice(0, importerPath.lastIndexOf("/"))
+      : "";
+    const fromParts = importerDir.split("/").filter(Boolean);
+    const toParts = resolvedProjectPath.split("/").filter(Boolean);
+    while (fromParts.length > 0 && toParts.length > 0 && fromParts[0] === toParts[0]) {
+      fromParts.shift();
+      toParts.shift();
+    }
+    const relativeParts = [...fromParts.map(() => ".."), ...toParts];
+    const relative = relativeParts.join("/");
+    if (!relative) return null;
+    return relative.startsWith("..") ? relative : `./${relative}`;
   }
   return null;
 }
@@ -534,7 +552,7 @@ export function checkCrossFileImports(
       const rewireResolved = findRewireTarget(projectPath, fileMap);
       const rewireSpec =
         rewireResolved !== null
-          ? projectPathToImportSpec(rewireResolved, meta.moduleSpecifier)
+          ? projectPathToImportSpec(rewireResolved, meta.moduleSpecifier, file.path)
           : null;
       if (rewireResolved && rewireSpec) {
         const baseContent: string = rewiredContent ?? file.content;
@@ -548,8 +566,9 @@ export function checkCrossFileImports(
           fixes.push({
             sourceFile: file.path,
             missingImport: meta.moduleSpecifier,
-            stubFile: rewireSpec,
+            stubFile: rewireResolved,
             rewireTarget: rewireResolved,
+            rewireImportSpec: rewireSpec,
           });
           continue;
         }

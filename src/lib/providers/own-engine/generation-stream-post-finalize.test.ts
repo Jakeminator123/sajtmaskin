@@ -593,8 +593,9 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         {
           sourceFile: "components/flying-drum-overlay.tsx",
           missingImport: "@/components/three-canvas",
-          stubFile: "@/components/three-canvas-shell",
+          stubFile: "components/three-canvas-shell",
           rewireTarget: "components/three-canvas-shell",
+          rewireImportSpec: "@/components/three-canvas-shell",
         },
       ],
     };
@@ -637,11 +638,12 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     }>;
     expect(payloads).toHaveLength(1);
     expect(payloads[0]?.category).toBe("merge:cross-file-rewire");
-    expect(payloads[0]?.message).toContain("rewired");
+    expect(payloads[0]?.message).toContain("pekades om");
     expect(payloads[0]?.message).not.toContain("auto-stubbade");
     expect(payloads[0]?.meta).toMatchObject({
       rewireTarget: "components/three-canvas-shell",
-      stubFile: "@/components/three-canvas-shell",
+      rewireImportSpec: "@/components/three-canvas-shell",
+      stubFile: "components/three-canvas-shell",
     });
   });
 

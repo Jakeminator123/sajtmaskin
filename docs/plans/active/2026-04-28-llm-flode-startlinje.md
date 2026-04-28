@@ -45,7 +45,7 @@ Postmortem från en annan körning samma dag finns under repo-roten ([`postmorte
 | `logs/generationslogg/<run>/` | Per-run timeline + observability + fault-fix-index |
 | `logs/site-observability/<chatId>/` | Per-chat history över flera versioner |
 | `docs/plans/active/2026-04-27-llm-flode-varldsklass-scope.md` | Föregående scope-anchor (10-lager målbild) |
-| `docs/plans/active/2026-04-27-followup-vs-autorepair-lane-collision.md` | Existerande aktiv plan över repair vs follow-up — **överlappar P0c nedan** |
+| `docs/plans/active/2026-04-27-followup-vs-autorepair-lane-collision.md` | Existerande aktiv plan över användar-follow-up vs auto-repair-lane — relaterar till **P1d** nedan |
 
 ## Superlista — prio + agentinstruktion
 

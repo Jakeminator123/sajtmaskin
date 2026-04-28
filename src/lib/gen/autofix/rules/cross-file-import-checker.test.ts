@@ -172,9 +172,48 @@ describe("checkCrossFileImports", () => {
     );
     expect(rewireFix).toBeDefined();
     expect(rewireFix?.rewireTarget).toBe("components/three-canvas-shell");
+    expect(rewireFix?.rewireImportSpec).toBe("@/components/three-canvas-shell");
+    expect(rewireFix?.stubFile).toBe("components/three-canvas-shell");
   });
 
-  it("PR-A1 review-lock: deterministic suffix order when multiple siblings exist", () => {
+  it("rewires relative sibling imports before falling back to stubs", () => {
+    const overlay: CodeFile = {
+      path: "components/flying-drum-overlay.tsx",
+      language: "tsx",
+      content: [
+        '"use client";',
+        'import { ThreeCanvasShell } from "./three-canvas";',
+        "",
+        "export function FlyingDrumOverlay() {",
+        "  return <ThreeCanvasShell decorative className=\"size-full\" />;",
+        "}",
+      ].join("\n"),
+    };
+    const shell: CodeFile = {
+      path: "components/three-canvas-shell.tsx",
+      language: "tsx",
+      content: [
+        '"use client";',
+        "export function ThreeCanvasShell(props: { children?: unknown }) {",
+        "  return null;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([overlay, shell]);
+
+    const updatedOverlay = result.files.find(
+      (f) => f.path === "components/flying-drum-overlay.tsx",
+    );
+    expect(updatedOverlay?.content).toContain('"./three-canvas-shell"');
+    expect(result.files.some((f) => f.path === "components/three-canvas.tsx")).toBe(false);
+    const rewireFix = result.fixes.find((f) => f.missingImport === "./three-canvas");
+    expect(rewireFix?.rewireTarget).toBe("components/three-canvas-shell");
+    expect(rewireFix?.rewireImportSpec).toBe("./three-canvas-shell");
+    expect(rewireFix?.stubFile).toBe("components/three-canvas-shell");
+  });
+
+  it("keeps deterministic suffix order when multiple siblings exist", () => {
     // Review-fynd: REWIRE_SUFFIX_VARIANTS-ordningen styr vilken sibling som
     // vinner när flera matchar. Lås beteendet i test så framtida reordering
     // inte ändrar produktionsval i tysthet.

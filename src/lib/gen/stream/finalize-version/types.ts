@@ -125,6 +125,7 @@ export interface FinalizeResult {
     missingImport: string;
     stubFile: string;
     rewireTarget?: string;
+    rewireImportSpec?: string;
     dossierId?: string;
     capability?: string;
   }>;
@@ -186,6 +187,7 @@ export interface FinalizeFastPathResult {
     missingImport: string;
     stubFile: string;
     rewireTarget?: string;
+    rewireImportSpec?: string;
     dossierId?: string;
     capability?: string;
   }>;

@@ -9,10 +9,10 @@ supersedes: null
 
 # Pixelkällaren-eval och uppföljning av LLM-flöde-bugfix-koreografin
 
-Konsoliderad uppföljning efter master `fbeb9321a` (PR-A1/A2/D2/F3/G + reviewfixar levererade). Innehåller:
+Konsoliderad uppföljning efter master `fbeb9321a` (rewire-before-stub, direct iframe nav, qualityTarget-rank, inspector unavailable-200 och reviewfixar levererade). Innehåller:
 
 1. Pixelkällaren-prompten som **eval-fixture / regressionstest** för 2026-04-28-fixarna.
-2. Återstående spår från [`llm-flode_varldsklass_bugfix-koreografi`](./2026-04-28-llm-flode-startlinje.md) som inte levererades i ett svep (PR-B, PR-C, PR-D1/D3, PR-E).
+2. Återstående spår från [`llm-flode_varldsklass_bugfix-koreografi`](./2026-04-28-llm-flode-startlinje.md): versionstatus, lane separation/capability cleanup, variant-/3D-policy och systemprompt-komprimering.
 3. Två nya spår som inkom från extern review-summary: **"appig"-variant** och **form-a11y-policy**.
 
 ## Kontext
@@ -21,10 +21,10 @@ Två faser har levererats på master:
 
 | Commit | Innehåll |
 |---|---|
-| `8ab3b9df5` | "städa status- och preview-edgecases" — tog in PR-A1 (rewire-before-stub), PR-A2 (direct iframe nav), PR-D2 (qualityTarget rank), PR-F3 (inspector 200), och annan agents diagnostik-summary-städ |
-| `fbeb9321a` | Reviewfixar (cache-guard på PR-F3, collision-test på PR-A1) + PR-G scope-doc + `.cursor/commands/explore.md` |
+| `8ab3b9df5` | "städa status- och preview-edgecases" — tog in rewire-before-stub, direct iframe nav, qualityTarget-rank, inspector unavailable-200 och diagnostik-summary-städ |
+| `fbeb9321a` | Reviewfixar (cache-guard på inspector unavailable-200, collision-test på rewire-before-stub) + scope-doc + `.cursor/commands/explore.md` |
 
-Det som **inte** levererades: PR-B (status state-machine + raw/final), PR-C (lane separation + capability cleanup), PR-D1 (variant blacklist), PR-D3 (F2 3D-policy), PR-E (system prompt komprimering).
+Det som **inte** levererades: status state-machine + raw/final, lane separation + capability cleanup, variant blacklist, F2 3D-policy och systemprompt-komprimering.
 
 ## Pixelkällaren — eval-fixture
 
@@ -78,16 +78,16 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 
 ### Vad prompten ska bevisa
 
-| PR | Bevis |
+| Spår | Bevis |
 |---|---|
-| PR-A1 (rewire-before-stub) | Om LLM importerar `@/components/three-canvas` ska autofix rewira till `-shell` (om den finns) — men ännu hellre: prompt + dossier-policy ska få LLM att inte importera Three alls |
-| PR-A2 (route navigation) | Klick på `/login` i route-selector ska ladda `/login` (inte startsidan) |
-| PR-D2 (qualityTarget rank) | "premium gaming-app", "hög designkvalitet" → `qualityTarget: premium`. Inheritance får inte sänka det |
-| PR-F3 (inspector unavailable-200) | Network-panelen ska inte visa röda 502 under preview-warmup |
+| Rewire-before-stub | Om LLM importerar `@/components/three-canvas` ska autofix rewira till `-shell` (om den finns) — men ännu hellre: prompt + dossier-policy ska få LLM att inte importera Three alls |
+| Route navigation | Klick på `/login` i route-selector ska ladda `/login` (inte startsidan) |
+| QualityTarget-rank | "premium gaming-app", "hög designkvalitet" → `qualityTarget: premium`. Inheritance får inte sänka det |
+| Inspector unavailable-200 | Network-panelen ska inte visa röda 502 under preview-warmup |
 
 ### Förväntat misslyckande på dagens master
 
-| Mätning | Förväntat värde idag | Förväntat värde efter PR-D1/D3/E |
+| Mätning | Förväntat värde idag | Förväntat värde efter variant-/3D-/prompt-spåren |
 |---|---|---|
 | Variantval | corporate-grid (krockar med "appig gaming") | gaming/dashboard-variant |
 | 3D-deps i package.json | three + @react-three/fiber + drei (inte begärda) | Inga R3F-deps |
@@ -100,7 +100,7 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 1. **Manuell test (säkraste):** Skicka prompten i builder-UI på en ren chat, observera generationslogg + version-zip. Jämför mot tabellen ovan.
 2. **Automatisk eval (senare):** Lägg in prompten i `evals/runs/pixelkallaren-2026-04-28.json` och kör `npm run eval:run`. Kräver att eval-runnern kan klassa "appig"/"neon"/"id-name-label" som mätbara dimensioner.
 
-## Spår 1 — PR-B1: Versionstatus state-machine
+## Spår 1 — Versionstatus state-machine
 
 **Insikt från extern review:** vokabuläret `current | superseded | failed | verifying | promoted | repair_available | draft` är klart och kan läggas direkt på en pure helper.
 
@@ -113,7 +113,7 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 
 **Risk:** Medel — central UI-state. Mitigeras av pure helper + tabell-driven test.
 
-## Spår 2 — PR-B2: Raw vs final i chatten
+## Spår 2 — Raw vs final i chatten
 
 **Bevis:** `version-803b0845 (1).zip` visade trasig TSX i chatten medan finala filer typecheckade. Användare tror final kod är trasig.
 
@@ -125,7 +125,7 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 
 **Risk:** Låg-medel.
 
-## Spår 3 — PR-C: Lane separation + capability cleanup
+## Spår 3 — Lane separation + capability cleanup
 
 | Del | Beskrivning |
 |---|---|
@@ -134,7 +134,7 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 
 **Bevis:** logg från 2026-04-28 visar `dossiers_selected.byCapability: { "visual-3d": ["three-fiber-canvas"] }` på follow-ups som INTE bad om 3D.
 
-## Spår 4 — PR-D1: Variant blacklist + ny "appig"-variant
+## Spår 4 — Variant blacklist + ny "appig"-variant
 
 | Del | Beskrivning |
 |---|---|
@@ -148,7 +148,7 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 - `config/scaffold-variants/landing-page/gaming-neon.json` (ny)
 - `config/scaffold-variants/landing-page/corporate-grid.json` (lägg `excludeWhen`)
 
-## Spår 5 — PR-D3: F2 3D-policy
+## Spår 5 — F2 3D-policy
 
 | Del | Beskrivning |
 |---|---|
@@ -161,7 +161,7 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 - `data/dossiers/soft/three-fiber-canvas/` → F3-only
 - `data/dossiers/soft/faux-3d/` (ny)
 
-## Spår 6 — PR-E: System prompt komprimering
+## Spår 6 — Systemprompt-komprimering
 
 Total: 78–98k chars per follow-up. Subcommits per sektion (eval-baseline-gated).
 
@@ -187,35 +187,35 @@ Total: 78–98k chars per follow-up. Subcommits per sektion (eval-baseline-gated
 ```mermaid
 flowchart TD
     Eval[Pixelkallaren eval]
-    PRB1[PR-B1: status state-machine]
-    PRB2[PR-B2: raw vs final]
-    PRC[PR-C: lane + capability cleanup]
-    PRD1[PR-D1: variant blacklist + appig variant]
-    PRD3[PR-D3: F2 3D-policy]
-    PRE[PR-E: system prompt komprimering]
-    PRF[Form a11y-policy]
+    statusState[Status state-machine]
+    rawFinal[Raw vs final]
+    laneCleanup[Lane + capability cleanup]
+    variantTrack[Variant blacklist + appig variant]
+    f2ThreeD[F2 3D-policy]
+    promptCompress[Systemprompt-komprimering]
+    formA11y[Form a11y-policy]
 
-    Eval --> PRD1
-    Eval --> PRD3
-    Eval --> PRF
-    PRB1 --> PRB2
-    PRC --> PRD3
-    PRD1 --> PRD3
-    PRD3 --> PRE
+    Eval --> variantTrack
+    Eval --> f2ThreeD
+    Eval --> formA11y
+    statusState --> rawFinal
+    laneCleanup --> f2ThreeD
+    variantTrack --> f2ThreeD
+    f2ThreeD --> promptCompress
 ```
 
 - **Eval-fixturen körs först** — ger baseline för designspår.
-- PR-B1/B2 kan köras parallellt med D1/D3.
-- PR-E är slutspår — kräver eval-baseline.
+- Statusspåren kan köras parallellt med variant-/3D-spåren.
+- Systemprompt-komprimering är slutspår — kräver eval-baseline.
 
-## Per-PR DoD
+## DoD per leverans
 
 | Krav | Bevis |
 |---|---|
 | `npx tsc --noEmit` | 0 errors |
 | Riktade vitest | grön |
 | ReadLints | 0 errors på ändrade filer |
-| Pixelkällaren-eval mätningar (om relevant) | Före/efter-rapport i PR-body |
+| Pixelkällaren-eval mätningar (om relevant) | Före/efter-rapport i leveranssammanfattning |
 | Origin-check `0 0` | Bevisat i commit-meddelande |
 | Glossary uppdaterad | Vid ny term |
 
