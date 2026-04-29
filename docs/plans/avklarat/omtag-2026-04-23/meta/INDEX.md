@@ -16,21 +16,25 @@ Koordinerad återställning efter Wave 2026-04-22. Kördes som 9 agenter i 3 fas
 
 ## Innehåll i arkivet
 
-### Kördokument (ursprungliga)
+### Kördokument (konsoliderade)
 
-| Uppdrag | Fas | Filen | Status |
-|---|---|---|---|
-| 01 embedding-diagnos | 0 | `01-embedding-diagnos.md` + `01-FINDINGS.md` | ✅ klar |
-| 02 eval-baseline | 0 | `02-eval-baseline.md` | ✅ klar (baseline committad i `evals/results/baseline-master/`) |
-| 04 env-flag-collapse | 0 | `04-env-flag-collapse.md` | ✅ klar (11 flaggor → konstanter) |
-| 07 static-core-type-imports | 0 | `07-static-core-type-imports.md` | ✅ klar |
-| 03 wave-split-heatspots | 1 | `03-wave-split-heatspots.md` | ✅ klar (4 monoliter splittade) |
-| 05 scaffold-default-removal | 1 | `05-scaffold-default-removal.md` | ✅ klar ("Nordic Future Summit"-klassen fixad) |
-| fas2·A follow-up-integrity | 2 | `fas2/A-follow-up-integrity.md` | ✅ klar |
-| fas2·B scaffold-variant-cleanup | 2 | `fas2/B-scaffold-variant-cleanup.md` + `fas2-B-audit-before-after.md` | ✅ klar (content-site merged, corporate-grid 4/4 B2B) |
-| fas2·C autofix-import-hardening | 2 | `fas2/C-autofix-import-hardening.md` + `fas2-C-m4-findings.md` | ✅ klar (M4 skippad, dokumenterat) |
-| fas2·D dossier-contract | 2 | `fas2/D-dossier-contract.md` + `cloudagent-paket-B-schema-validation.md` | ✅ klar (AJV-validator wire:ad) |
-| 06 unified-status-eventbus | 3 | `06-unified-status-eventbus.md` | ✅ klar (event-bus + projection + .runs.json) |
+Detaljerade kördokument för uppdragen rensades 2026-04-29 för att minska
+planbrus. Tabellen nedan är arkivets kanoniska sammanfattning; använd
+git-historik om du behöver de gamla per-uppdragsfilerna.
+
+| Uppdrag | Fas | Status |
+|---|---|---|
+| 01 embedding-diagnos | 0 | ✅ klar |
+| 02 eval-baseline | 0 | ✅ klar (baseline committad i `evals/results/baseline-master/`) |
+| 04 env-flag-collapse | 0 | ✅ klar (11 flaggor → konstanter) |
+| 07 static-core-type-imports | 0 | ✅ klar |
+| 03 wave-split-heatspots | 1 | ✅ klar (4 monoliter splittade) |
+| 05 scaffold-default-removal | 1 | ✅ klar ("Nordic Future Summit"-klassen fixad) |
+| fas2·A follow-up-integrity | 2 | ✅ klar |
+| fas2·B scaffold-variant-cleanup | 2 | ✅ klar (content-site merged, corporate-grid 4/4 B2B) |
+| fas2·C autofix-import-hardening | 2 | ✅ klar (M4 skippad, dokumenterat) |
+| fas2·D dossier-contract | 2 | ✅ klar (AJV-validator wire:ad) |
+| 06 unified-status-eventbus | 3 | ✅ klar (event-bus + projection + .runs.json) |
 
 ### Ramar + parkeringslista
 
@@ -50,6 +54,7 @@ Koordinerad återställning efter Wave 2026-04-22. Kördes som 9 agenter i 3 fas
 
 | Fil | Innehåll |
 |---|---|
+| `../status/STATUS-2026-04-23-omtag-complete.md` | Slutbedömning efter merge av hela OMTAG-waven |
 | `STATUS-2026-04-24-morning.md` | Kronologisk rapport natt + eftermiddag 2026-04-23 (OMTAG 0 → fas 2 komplett) |
 
 ### Källmaterial från extern rapport
@@ -95,4 +100,7 @@ Se slutrapporten [`STATUS-2026-04-23-omtag-complete.md`](../status/STATUS-2026-0
 
 ## Hur detta arkiv konsumeras
 
-Vid frågor om "vad gjorde OMTAG?": läs `README.md` + `STATUS-2026-04-24-morning.md`. För djupdykning i ett specifikt spår: läs respektive kördokument + dess rapport. För forskning i vad rapport-agenten kom fram till: `source-gpt-review/`.
+Vid frågor om "vad gjorde OMTAG?": läs denna indexfil, `README.md`,
+`PARKED.md` och slutrapporten. För forskning i vad rapport-agenten kom fram
+till: `source-gpt-review/`. Per-uppdragsdokumenten finns i git-historiken men
+ska inte återintroduceras som aktiva planfiler.

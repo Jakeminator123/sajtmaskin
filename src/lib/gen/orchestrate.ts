@@ -648,6 +648,7 @@ export async function resolveOrchestrationBase(
     preGenerationContracts,
     promptStrategyMeta,
     capabilities,
+    brief,
     isFirstCodeGeneration: input.isFirstCodeGeneration,
     existingShellRoutePaths,
     previewPolicyOverride:

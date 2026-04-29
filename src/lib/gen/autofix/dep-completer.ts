@@ -1,4 +1,5 @@
 import type { AutoFixEntry } from "./pipeline";
+import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 
 /**
  * Static `import … from "pkg"` sources. Supports scoped npm packages (`@scope/name`);
@@ -120,14 +121,6 @@ const SCOPED_PACKAGE_PREFIXES: Record<string, string> = {
   "@radix-ui/react-": "^1",
 };
 
-const CAPABILITY_DEPENDENCY_REQUIREMENTS: Record<string, string[]> = {
-  "visual-3d": [
-    "three",
-    "@react-three/fiber",
-    "@react-three/drei",
-  ],
-};
-
 export function resolveKnownVersion(pkg: string): string | undefined {
   const direct = KNOWN_PACKAGES[pkg];
   if (direct) return direct;
@@ -164,16 +157,39 @@ function normalizeCapabilityList(requestedCapabilities: string[] | null | undefi
   );
 }
 
+function parseManifestDependencySpec(raw: string): { pkg: string; version: string | null } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { pkg: "", version: null };
+  if (trimmed.startsWith("@")) {
+    const match = trimmed.match(/^(@[^/\s]+\/[^@\s]+)(?:@(.+))?$/);
+    return { pkg: match?.[1] ?? trimmed, version: match?.[2] ?? null };
+  }
+  const match = trimmed.match(/^([^@\s]+)(?:@(.+))?$/);
+  return { pkg: match?.[1] ?? trimmed, version: match?.[2] ?? null };
+}
+
 export function resolveCapabilityDependencies(
   requestedCapabilities: string[] | null | undefined,
 ): Record<string, string> {
   const deps: Record<string, string> = {};
-  for (const capability of normalizeCapabilityList(requestedCapabilities)) {
-    const requiredPackages = CAPABILITY_DEPENDENCY_REQUIREMENTS[capability];
-    if (!requiredPackages) continue;
-    for (const pkg of requiredPackages) {
+  const capabilities = normalizeCapabilityList(requestedCapabilities);
+  if (capabilities.length === 0) return deps;
+
+  const selection = selectDossiersForRequest({ requestedCapabilities: capabilities });
+  for (const selected of selection.selected) {
+    for (const rawPkg of selected.entry.dependencies ?? []) {
+      const { pkg, version: manifestVersion } = parseManifestDependencySpec(rawPkg);
+      if (!pkg) continue;
+      if (isBuiltin(pkg)) continue;
       const version = resolveKnownVersion(pkg);
-      if (version) deps[pkg] = version;
+      if (version) {
+        deps[pkg] = version;
+      } else {
+        // Manifest dependencies are curated runtime contract. If the central
+        // allowlist lacks a version, use the manifest range when present;
+        // otherwise let dep-version-validator resolve `latest` to ^<version>.
+        deps[pkg] = manifestVersion?.trim() || "latest";
+      }
     }
   }
   return deps;

@@ -48,13 +48,13 @@ Rekommendation: kör som **4 + 4 spår**, men inte som åtta oberoende implement
 | Spår | Status | Viktig slutsats |
 |---|---|---|
 | A1 v0-mallar | Klar 2026-04-29 | `templates_v0/` är lokal intake/referensbank, inte runtime. Runtime-sanning är `src/lib/templates/*` för Mallar-tabben och `src/lib/gen/scaffolds/registry.ts` för promptstyrd generation. Råa ZIP:ar, bilder, Playwright-login och v0-scraping ska inte kopplas direkt till production/codegen. |
-| A2 dossiers | Ej startad | — |
-| A3 scaffolds | Ej startad | — |
-| A4 variants/fonts/shadcn | Ej startad | — |
+| A2 dossiers | Klar 2026-04-29 | Runtime läser `data/dossiers/{hard,soft}` direkt via diskregistry + deterministic capability-select. Viktigaste glapp: manifest-`dependencies` används inte deterministiskt för de flesta dossiers; `files[].path` saknar explicit targetPath/canonical path-regel. |
+| A3 scaffolds | Klar 2026-04-29 | `src/lib/gen/scaffolds/registry.ts` + 9 manifests är runtime source of truth. Formatet är konkret men init är fortfarande prompt-first/inspirational; `app/page.tsx` är LLM-only, så huvudytan måste genereras av modellen. |
+| A4 variants/fonts/shadcn | Klar 2026-04-29 | Variant-fonts är promptmaterial, inte deterministiskt materialiserade. Baseline-scaffolds startar med `Inter`; font-import-fixer hjälper först när modellen redan använder fontfunktionen. Shadcn metadata är tom men `code` används för compact refs. |
 | B1 prompt size/latency | Ej startad | — |
-| B2 Deep Brief signal chain | Ej startad | — |
-| B3 build/finalize/repair | Ej startad | — |
-| B4 simple creative path | Ej startad | — |
+| B2 Deep Brief signal chain | Klar 2026-04-29 | Brief når prompten, scaffold/variant och dossiers, men inte BuildSpec-policy starkt nog: `qualityBar=premium` kan ändå bli `qualityTarget=standard`, `visualDirection` kan divergera från `stylePack`, snapshot kan tappa pages/sections/qualityBar. |
+| B3 build/finalize/repair | Klar 2026-04-29 | Robustheten är stark men LLM-fix kan triggas från flera vägar: syntax/tsc/eslint, verifier, partial-file, home-route recovery, merged-syntax escalation, VM build-error och server-verify. Behov: repair-budget ledger + mer samlad repair-gate + dedupade mekaniska pass. |
+| B4 simple creative path | Klar 2026-04-29 | Det finns ingen init-light lane för enkla websites. Kandidat: låg-risk `simpleWebsitePath` för website/template + 1 route + inga heavy capabilities/contracts/dossiers → kortare Dynamic Context + materialiserad scaffold-baseline, men behåll autofix/validate/preflight/F2. |
 
 ## Gemensam rapportmall
 

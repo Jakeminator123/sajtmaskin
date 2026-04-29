@@ -19,6 +19,7 @@ import {
   inferPreviewPolicy,
   inferQualityTarget,
   inferVerificationPolicy,
+  type BuildSpecBriefSignals,
   type PromptStrategyMetaForBuildSpec,
 } from "./policy-inference";
 import {
@@ -47,6 +48,7 @@ type DeriveBuildSpecParams = {
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilities?: InferredCapabilities | null;
+  brief?: BuildSpecBriefSignals;
   /**
    * True when this is the first real code generation in a chat that already
    * has a persistedScaffoldId (e.g. after a contract-gate turn).
@@ -88,6 +90,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     preGenerationContracts,
     promptStrategyMeta = null,
     capabilities = null,
+    brief = null,
     isFirstCodeGeneration,
     existingShellRoutePaths,
     previewPolicyOverride,
@@ -122,6 +125,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     preGenerationContracts,
     previewPolicy,
     isFirstCodeGeneration,
+    brief,
   });
   const verificationPolicy = inferVerificationPolicy({
     generationMode,
@@ -140,9 +144,10 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     promptStrategyMeta,
     capabilityHeavy,
     isFirstCodeGeneration,
+    brief,
   });
 
-  const styleResult = inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope);
+  const styleResult = inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope, brief);
 
   return {
     buildIntent,

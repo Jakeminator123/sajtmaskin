@@ -117,6 +117,65 @@ describe("deriveBuildSpec", () => {
     });
   });
 
+  it("promotes init quality from Deep Brief qualityBar", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en hemsida för en ljudbutik.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+      brief: {
+        qualityBar: "premium",
+      },
+    });
+
+    expect(spec.qualityTarget).toBe("premium");
+    expect(spec.contextPolicy).toBe("normal");
+  });
+
+  it("uses Deep Brief visual direction when inferring style pack", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en hemsida för en ljudbutik.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+      brief: {
+        visualDirection: {
+          styleKeywords: ["editorial", "noir"],
+          typography: { headings: "Playfair Display", body: "Inter" },
+        },
+        toneAndVoice: ["atmospheric"],
+      },
+    });
+
+    expect(spec.stylePack).toBe("editorial");
+    expect(spec.stylePackSecondary).toBeNull();
+  });
+
+  it("uses bold-dramatic brief quality as a heavy-context signal", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en hemsida för en ljudbutik.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+      brief: {
+        qualityBar: "bold-dramatic",
+        motionLevel: "lively",
+      },
+    });
+
+    expect(spec.qualityTarget).toBe("premium");
+    expect(spec.contextPolicy).toBe("heavy");
+  });
+
   it("uses normal context by default for narrow follow-up edits", () => {
     const spec = deriveBuildSpec({
       prompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",

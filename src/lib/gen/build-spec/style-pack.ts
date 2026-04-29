@@ -7,6 +7,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import type { BuildSpecChangeScope } from "./types";
+import type { BuildSpecBriefSignals } from "./policy-inference";
 
 /**
  * Score-based stylepack vocabulary. Each (regex, weight) tuple contributes
@@ -91,8 +92,18 @@ export function inferStylePack(
   buildIntent: BuildIntent,
   resolvedScaffold: ScaffoldManifest | null,
   changeScope: BuildSpecChangeScope,
+  brief?: BuildSpecBriefSignals,
 ): { primary: string; secondary: string | null } {
-  const scores = scoreStylePackBuckets(prompt);
+  const briefStylePrompt = [
+    ...(brief?.visualDirection?.styleKeywords ?? []),
+    ...(brief?.toneAndVoice ?? []),
+    brief?.visualDirection?.typography?.headings ?? "",
+    brief?.visualDirection?.typography?.body ?? "",
+    brief?.domainProfile ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const scores = scoreStylePackBuckets([prompt, briefStylePrompt].filter(Boolean).join(" "));
   const fallback = inferStylePackFallback(buildIntent, resolvedScaffold, changeScope);
 
   if (scores.size === 0) {

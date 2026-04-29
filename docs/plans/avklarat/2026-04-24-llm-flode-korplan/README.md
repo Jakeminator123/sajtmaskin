@@ -80,19 +80,23 @@ Konsoliderad körplan från **9 audit-pass totalt** (5 första + 4 verifierings-
 - **Gamla `03-dossier-kompatibilitet.md`** — ersatt av nya `04-dossier-hard-soft-enforcement.md`
 - **Gamla `04-bildflode.md`** — ersatt av nya `03-bildminimum.md`
 
-## Spår (router, ny ordning)
+## Spår (konsoliderad router)
+
+Detaljfilerna för spår 0-8 rensades 2026-04-29. Tabellen nedan är den
+kanoniska arkivsammanfattningen; använd git-historik om du behöver den gamla
+per-spårtexten.
 
 | # | Fil | Spår | Status | Levererat |
 |---|-----|------|--------|-----------|
-| **0** | [`00-f2-f3-kontrakt.md`](./00-f2-f3-kontrakt.md) | **F2/F3-kontrakt** | ✅ KLART (waves 1+3b) | doc-fix + UI-badges + previewBlocked-rensning + soft-assert |
-| **1** | [`01-variant-snapshot-persistens.md`](./01-variant-snapshot-persistens.md) | **Variant-snapshot** | ✅ KLART (wave 2) | testdriven; MAX_KEYS=80 sanitize-allowlist + merge-protection |
-| **2** | [`02-product-postcheck.md`](./02-product-postcheck.md) | **F2 Product Postcheck** | ✅ MVP levererad (PR #103, flag default OFF) | server-only runner + API route + feature flag + warnings i befintlig Versionsdiagnostik |
-| **3** | [`03-bildminimum.md`](./03-bildminimum.md) | **Bildminimum** | ✅ KLART (wave 3) | HEAD GET-fallback + placeholder + dup-alt + prompt-regel |
-| **4** | [`04-dossier-hard-soft-enforcement.md`](./04-dossier-hard-soft-enforcement.md) | **Dossier hard/soft** | ✅ KLART (wave 6) | verbatim-restore + cross-file-stub-telemetri + förstärkt prompt |
-| **5** | [`05-autofix-gating.md`](./05-autofix-gating.md) | **Autofix-gating** | ✅ KLART (waves 1+5) | abort-event + retry + Lucide-checklist + recurring-flag + shrink-telemetri |
-| **6** | [`06-latens-och-scaffold-delta.md`](./06-latens-och-scaffold-delta.md) | **Latens** | ✅ SÄKRA KLART (wave 7) / ⏸ RISKABLA DELAR FRAMTIDA | skip dubbel tsc + Fly pre-warm bakom flagga; D-F kräver eval-gate |
-| **7** | [`07-f2-ux-slo-matbarhet.md`](./07-f2-ux-slo-matbarhet.md) | **F2 UX SLO + dashboard** *(GPT-5-rapport komplement)* | ⏸ FRAMTIDA — efter spår 02 MVP/observation | aggregator + dashboard + veckovis CI ovanpå spår 02s primitiver |
-| **8** | [`08-future-recovery-lane-collapse.md`](./08-future-recovery-lane-collapse.md) | **Recovery-lane collapse** *(GPT-5-rapport komplement)* | ⏸ FRAMTIDA — efter 30 dagars wave 1-8 SLO-data | konsolidera 3 repair-paths till EN; trigger-villkor dokumenterat |
+| **0** | `00-f2-f3-kontrakt` | **F2/F3-kontrakt** | ✅ KLART (waves 1+3b) | doc-fix + UI-badges + previewBlocked-rensning + soft-assert |
+| **1** | `01-variant-snapshot-persistens` | **Variant-snapshot** | ✅ KLART (wave 2) | testdriven; MAX_KEYS=80 sanitize-allowlist + merge-protection |
+| **2** | `02-product-postcheck` | **F2 Product Postcheck** | ✅ MVP levererad (PR #103, flag default OFF) | server-only runner + API route + feature flag + warnings i befintlig Versionsdiagnostik |
+| **3** | `03-bildminimum` | **Bildminimum** | ✅ KLART (wave 3) | HEAD GET-fallback + placeholder + dup-alt + prompt-regel |
+| **4** | `04-dossier-hard-soft-enforcement` | **Dossier hard/soft** | ✅ KLART (wave 6) | verbatim-restore + cross-file-stub-telemetri + förstärkt prompt |
+| **5** | `05-autofix-gating` | **Autofix-gating** | ✅ KLART (waves 1+5) | abort-event + retry + Lucide-checklist + recurring-flag + shrink-telemetri |
+| **6** | `06-latens-och-scaffold-delta` | **Latens** | ✅ SÄKRA KLART (wave 7) / ⏸ RISKABLA DELAR FRAMTIDA | skip dubbel tsc + Fly pre-warm bakom flagga; D-F kräver eval-gate |
+| **7** | `07-f2-ux-slo-matbarhet` | **F2 UX SLO + dashboard** *(GPT-5-rapport komplement)* | ⏸ FRAMTIDA — efter spår 02 MVP/observation | aggregator + dashboard + veckovis CI ovanpå spår 02s primitiver |
+| **8** | `08-future-recovery-lane-collapse` | **Recovery-lane collapse** *(GPT-5-rapport komplement)* | ⏸ FRAMTIDA — efter 30 dagars wave 1-8 SLO-data | konsolidera 3 repair-paths till EN; trigger-villkor dokumenterat |
 
 ## Prioritetsordning (deep-prefab-agentens förslag, validerad + GPT-5-komplement)
 

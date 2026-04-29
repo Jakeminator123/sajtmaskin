@@ -162,4 +162,13 @@ describe("dep-completer", () => {
       "@react-three/drei": KNOWN_PACKAGES["@react-three/drei"],
     });
   });
+
+  it("injects dependencies declared by selected dossier manifests", () => {
+    const deps = resolveCapabilityDependencies(["payments", "auth", "contact-form"]);
+
+    expect(deps.stripe).toBe("latest");
+    expect(deps["@stripe/stripe-js"]).toBe("latest");
+    expect(deps["@clerk/nextjs"]).toBe("latest");
+    expect(deps.resend).toBe("latest");
+  });
 });

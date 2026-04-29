@@ -46,6 +46,20 @@ export type PromptStrategyMetaForBuildSpec = Pick<
 > &
   Partial<Pick<PromptStrategyMeta, "complexityScore">>;
 
+export type BuildSpecBriefSignals = {
+  qualityBar?: "clean" | "premium" | "bold-dramatic" | string | null;
+  motionLevel?: "minimal" | "moderate" | "lively" | string | null;
+  domainProfile?: string | null;
+  visualDirection?: {
+    styleKeywords?: string[] | null;
+    typography?: {
+      headings?: string | null;
+      body?: string | null;
+    } | null;
+  } | null;
+  toneAndVoice?: string[] | null;
+} | null;
+
 /**
  * Promotionsord som signalerar att användaren förväntar sig en visuellt
  * ambitiös, detaljrik leverans. Träffar trippar `qualityTarget = "premium"`
@@ -168,6 +182,7 @@ export function inferQualityTarget(params: {
   /** Explicit override — F3 lifecycle stage forces release-candidate. */
   previewPolicy: BuildSpecPreviewPolicy;
   isFirstCodeGeneration?: boolean | null;
+  brief?: BuildSpecBriefSignals;
 }): BuildSpecQualityTarget {
   const {
     prompt,
@@ -179,8 +194,25 @@ export function inferQualityTarget(params: {
     preGenerationContracts,
     previewPolicy,
     isFirstCodeGeneration,
+    brief,
   } = params;
   if (previewPolicy === "fidelity3") return "release-candidate";
+
+  const briefQualityBar =
+    typeof brief?.qualityBar === "string" ? brief.qualityBar.trim() : "";
+  if (
+    generationMode === "init" &&
+    (briefQualityBar === "premium" || briefQualityBar === "bold-dramatic")
+  ) {
+    console.info("[build-spec] quality_target_promoted_for_brief_quality_bar", {
+      qualityBar: briefQualityBar,
+      generationMode,
+      buildIntent,
+      from: "standard",
+      to: "premium",
+    });
+    return "premium";
+  }
 
   const advancedScaffoldId =
     resolvedScaffold?.id === "dashboard" ||
@@ -330,6 +362,7 @@ function scoreContextPolicy(params: {
   promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilityHeavy: boolean;
   isFirstCodeGeneration?: boolean | null;
+  brief?: BuildSpecBriefSignals;
 }): number {
   const {
     generationMode,
@@ -340,12 +373,16 @@ function scoreContextPolicy(params: {
     promptStrategyMeta,
     capabilityHeavy,
     isFirstCodeGeneration,
+    brief,
   } = params;
   let score = 0;
 
   if (generationMode === "init") score += 1;
   if (buildIntent === "app") score += 2;
   if (capabilityHeavy) score += 1;
+  if (generationMode === "init" && brief?.qualityBar === "bold-dramatic") score += 2;
+  else if (generationMode === "init" && brief?.qualityBar === "premium") score += 1;
+  if (generationMode === "init" && brief?.motionLevel === "lively") score += 1;
 
   if (
     promptStrategyMeta?.strategy === "phase_plan_build_refine" ||
@@ -397,6 +434,7 @@ export function inferContextPolicy(params: {
   promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilityHeavy: boolean;
   isFirstCodeGeneration?: boolean | null;
+  brief?: BuildSpecBriefSignals;
 }): { policy: BuildSpecContextPolicy; score: number } {
   const {
     prompt,
