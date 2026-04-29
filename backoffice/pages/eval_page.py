@@ -65,6 +65,8 @@ def _write_eval_gate_report(
     ctx: BackofficeContext,
     *,
     command: tuple[str, ...],
+    report_slug: str,
+    title: str,
     exit_code: int,
     elapsed_sec: float,
     output: str,
@@ -76,13 +78,13 @@ def _write_eval_gate_report(
     # in the same minute (e.g. fast-failing binary-missing + immediate retry,
     # double-click on the gate button, parallel operators).
     stamp = started_at.astimezone().strftime("%Y-%m-%d-%H%M%S")
-    report_path = reports_dir / f"{stamp}-codegen-eval-gate.md"
+    report_path = reports_dir / f"{stamp}-{report_slug}.md"
     status = "PASS" if exit_code == 0 else "FAIL"
     cleaned_output = _strip_ansi(output).strip()
     report_path.write_text(
         "\n".join(
             [
-                f"# Codegen eval gate - {stamp}",
+                f"# {title} - {stamp}",
                 "",
                 f"- Command: `{' '.join(command)}`",
                 f"- Exit code: `{exit_code}`",
@@ -105,8 +107,14 @@ def _write_eval_gate_report(
     return report_path
 
 
-def _run_eval_gate(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
-    command = ("npm", "run", "eval:gate")
+def _run_eval_command(
+    ctx: BackofficeContext,
+    *,
+    command: tuple[str, ...],
+    timeout_s: int,
+    report_slug: str,
+    title: str,
+) -> dict[str, Any]:
     started_at = datetime.now(timezone.utc)
     started = time.time()
     env = os.environ.copy()
@@ -148,6 +156,8 @@ def _run_eval_gate(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
     report_path = _write_eval_gate_report(
         ctx,
         command=command,
+        report_slug=report_slug,
+        title=title,
         exit_code=exit_code,
         elapsed_sec=elapsed_sec,
         output=output,
@@ -159,6 +169,26 @@ def _run_eval_gate(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
         "reportPath": report_path,
         "outputTail": _strip_ansi(output)[-6000:],
     }
+
+
+def _run_eval_gate(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
+    return _run_eval_command(
+        ctx,
+        command=("npm", "run", "eval:gate"),
+        timeout_s=timeout_s,
+        report_slug="codegen-eval-gate",
+        title="Codegen eval gate",
+    )
+
+
+def _run_eval_smoke(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
+    return _run_eval_command(
+        ctx,
+        command=("npm", "run", "eval:smoke"),
+        timeout_s=timeout_s,
+        report_slug="codegen-eval-smoke",
+        title="Codegen eval smoke",
+    )
 
 
 def render(ctx: BackofficeContext) -> None:
@@ -221,8 +251,9 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("Codegen-eval (separat system)")
     st.caption(
         "Codegen-evalen mäter hela LLM-pipelinen för 15 fasta prompts (~15 min, "
-        "kostar OPENAI-quota). Den lever i `src/lib/gen/eval/` och kör mot `eval-baseline.json`. "
-        "Backoffice-knappen nedan kör gate-läget och sparar en rapport under `docs/evals/`."
+        "kostar OPENAI-quota). `eval:smoke` kör 3 prompts och visar prompt/preflight-telemetri. "
+        "Båda lever i `src/lib/gen/eval/`; gate-läget jämför mot `eval-baseline.json`. "
+        "Backoffice-knapparna sparar rapporter under `docs/evals/`."
     )
     baseline_path = ctx.repo_root / "src" / "lib" / "gen" / "eval" / "eval-baseline.json"
     if baseline_path.is_file():
@@ -253,10 +284,11 @@ def render(ctx: BackofficeContext) -> None:
             "för att skapa den (kostar OPENAI-quota för 15 prompts)."
         )
 
-    st.markdown("### Kör codegen-eval gate")
+    st.markdown("### Kör codegen-eval")
     st.warning(
-        "`eval:gate` är dyr/långsam och kan ta 45+ minuter på stora outputs. "
-        "Den här knappen uppdaterar aldrig `eval-baseline.json`; den sparar bara en rapport."
+        "`eval:smoke` är snabbare men fortfarande LLM-quota. `eval:gate` är dyr/långsam "
+        "och kan ta 45+ minuter på stora outputs. Knapparna uppdaterar aldrig "
+        "`eval-baseline.json`; de sparar bara rapporter."
     )
     timeout_min = st.number_input(
         "Timeout (minuter)",
@@ -267,19 +299,31 @@ def render(ctx: BackofficeContext) -> None:
         help="Backoffice väntar synkront medan npm-kommandot kör.",
     )
     confirmed = st.checkbox(
-        "Jag vill köra `npm run eval:gate` och förstår att det använder LLM-quota.",
+        "Jag vill köra codegen-eval och förstår att det använder LLM-quota.",
         key="codegen_eval_gate_confirm",
     )
-    if st.button(
-        "Kör eval:gate och spara rapport",
-        type="primary",
-        disabled=not confirmed,
-        key="codegen_eval_gate_run",
-    ):
-        with st.spinner("Kör npm run eval:gate ... lämna fliken öppen."):
-            result = _run_eval_gate(ctx, timeout_s=int(timeout_min * 60))
-        st.session_state["codegen_eval_gate_last_result"] = result
-        st.rerun()
+    run_col1, run_col2 = st.columns(2)
+    with run_col1:
+        if st.button(
+            "Kör eval:smoke (3 prompts)",
+            disabled=not confirmed,
+            key="codegen_eval_smoke_run",
+        ):
+            with st.spinner("Kör npm run eval:smoke ... lämna fliken öppen."):
+                result = _run_eval_smoke(ctx, timeout_s=int(timeout_min * 60))
+            st.session_state["codegen_eval_gate_last_result"] = result
+            st.rerun()
+    with run_col2:
+        if st.button(
+            "Kör eval:gate (15 prompts)",
+            type="primary",
+            disabled=not confirmed,
+            key="codegen_eval_gate_run",
+        ):
+            with st.spinner("Kör npm run eval:gate ... lämna fliken öppen."):
+                result = _run_eval_gate(ctx, timeout_s=int(timeout_min * 60))
+            st.session_state["codegen_eval_gate_last_result"] = result
+            st.rerun()
 
     last_result = st.session_state.get("codegen_eval_gate_last_result")
     if isinstance(last_result, dict):

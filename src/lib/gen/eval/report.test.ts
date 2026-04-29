@@ -1,6 +1,35 @@
 import { describe, expect, it } from "vitest";
 import { formatEvalReport } from "./report";
-import type { EvalReport } from "./runner";
+import type { EvalReport, EvalResult } from "./runner";
+
+function evalResult(overrides: Partial<EvalResult>): EvalResult {
+  return {
+    promptId: "coffee-shop",
+    generationTimeMs: 900,
+    fileCount: 4,
+    scaffoldId: "landing-page",
+    variantId: "corporate-grid",
+    promptSize: {
+      totalChars: 40_000,
+      totalEstimatedTokens: 12_000,
+      dynamicContextChars: 10_000,
+      droppedBlocks: 0,
+      largestBlocks: [],
+    },
+    preflight: {
+      errors: 0,
+      warnings: 0,
+      previewBlocked: false,
+      previewBlockingReason: null,
+    },
+    droppedProtectedPaths: [],
+    checks: [],
+    totalScore: 0.6,
+    passed: false,
+    blockingChecks: ["tier2-readiness"],
+    ...overrides,
+  };
+}
 
 describe("formatEvalReport", () => {
   it("prints blocking failure summary when blockers exist", () => {
@@ -8,15 +37,7 @@ describe("formatEvalReport", () => {
       timestamp: "2026-04-03T12:00:00.000Z",
       model: "gpt-5.4",
       results: [
-        {
-          promptId: "coffee-shop",
-          generationTimeMs: 900,
-          fileCount: 4,
-          checks: [],
-          totalScore: 0.6,
-          passed: false,
-          blockingChecks: ["tier2-readiness"],
-        },
+        evalResult({}),
       ],
       summary: {
         total: 1,

@@ -7,6 +7,7 @@ Sajtmaskin har **tre olika "eval"-system** som det är lätt att blanda ihop. De
 | Vill du … | Kör | Tid | Pengar |
 |---|---|---|---|
 | Verifiera att codegen-pipelinen inte regressat | `npm run eval:gate` | ~15 min | OPENAI-quota för 15 prompts |
+| Snabbare produktlik smoke med 3 prompts + prompt/preflight telemetry | `npm run eval:smoke` | ~3–8 min | OPENAI-quota för 3 prompts |
 | Uppdatera baseline efter en avsiktlig förbättring | `npm run eval:baseline` | ~15 min | Samma som ovan |
 | Få en human-läsbar rapport + scorecard | `npm run eval` | ~15 min | Samma som ovan |
 | Bara mäta att scaffold-pickern väljer rätt | `npm run scaffolds:eval` | ~10 sek | Bara embeddings (snabbt + billigt) |
@@ -16,7 +17,7 @@ Sajtmaskin har **tre olika "eval"-system** som det är lätt att blanda ihop. De
 
 ### 1. Codegen-eval — `npm run eval:suite` / `eval:gate` / `eval:baseline`
 
-**Vad:** kör hela orkestreringen + LLM-codegen för 15 fasta prompts (`coffee-shop`, `dashboard`, `portfolio`, `blog`, `pricing`, `auth`, `ecommerce`, `restaurant`, `agency`, `settings`, `booking-service`, `multi-page-brochure`, `saas-dashboard`, `content-heavy-blog`, `consultant-landing`).
+**Vad:** kör hela orkestreringen + LLM-codegen för 15 fasta prompts (`coffee-shop`, `dashboard`, `portfolio`, `blog`, `pricing`, `auth`, `ecommerce`, `restaurant`, `agency`, `settings`, `booking-service`, `multi-page-brochure`, `saas-dashboard`, `content-heavy-blog`, `consultant-landing`). `eval:smoke` kör en snabbare delmängd (`coffee-shop`, `restaurant`, `portfolio`) och rapporterar samma prompt/preflight-telemetri.
 
 För varje prompt körs 12 deterministiska checks (sanity, syntax, exports, imports, accessibility, semantic-tokens, …) plus ev. en `syntax`-check när `shouldCompile: true`.
 
@@ -66,6 +67,17 @@ npm run eval:baseline   # köra + exit 1 vid regression OCH spara ny baseline (-
 - `src/lib/gen/eval/report.ts` — markdown-formattering
 
 **När köra:** när du vill ha en mänskligt läsbar översikt utan att uppdatera baseline. Bra för manuell granskning av en lokal förbättring innan du flyttar den till baseline-CI:n.
+
+### Realism-gap mot vanlig builder-generering
+
+Codegen-evalen är mer produktlik än scaffold-eval, men den är fortfarande inte en riktig builder-session:
+
+- Den kör `prepareGenerationContext()` + `generateCode()` och preflight-liknande checks.
+- Den persistar ingen chat/version, drar inga credits och startar ingen preview-VM.
+- Den kör inte exakt client-brief/server-auto-brief-vägen från create-chat-routen.
+- Den mäter nu `promptSize`, största dynamic blocks, preflight errors/warnings, preview-block och skyddade paths så skillnaden mot manuella generationer blir lättare att se.
+
+För slutlig produktverifiering: kör samma prompt manuellt i lokal builder och jämför mot evalrapportens `Prompt / Preflight Telemetry`.
 
 ### 3. Scaffold-selection-eval — `npm run scaffolds:eval`
 

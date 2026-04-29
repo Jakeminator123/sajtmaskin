@@ -35,8 +35,8 @@ export function formatEvalReport(report: EvalReport): string {
     );
   }
 
-  lines.push("| # | Prompt | Score | Files | Time | Status | Issues |");
-  lines.push("|---|--------|-------|-------|------|--------|--------|");
+  lines.push("| # | Prompt | Score | Files | Prompt | Preflight | Time | Status | Issues |");
+  lines.push("|---|--------|-------|-------|--------|-----------|------|--------|--------|");
 
   for (let i = 0; i < report.results.length; i++) {
     const r = report.results[i];
@@ -47,12 +47,19 @@ export function formatEvalReport(report: EvalReport): string {
       .join("; ");
     const blocking =
       r.blockingChecks.length > 0 ? ` blockers=${r.blockingChecks.join(",")}` : "";
+    const promptSize = `${Math.round(r.promptSize.totalEstimatedTokens / 100) / 10}k tok`;
+    const preflight =
+      r.preflight.errors > 0 || r.preflight.warnings > 0 || r.preflight.previewBlocked
+        ? `${r.preflight.errors}E/${r.preflight.warnings}W${r.preflight.previewBlocked ? " blocked" : ""}`
+        : "ok";
 
     lines.push(
       `| ${pad(String(i + 1), 1)} ` +
         `| ${pad(r.promptId, 6)} ` +
         `| ${pad(pct(r.totalScore), 5)} ` +
         `| ${pad(String(r.fileCount), 5)} ` +
+        `| ${pad(promptSize, 7)} ` +
+        `| ${pad(preflight, 9)} ` +
         `| ${pad(fmtTime(r.generationTimeMs), 4)} ` +
         `| ${pad(status, 6)} ` +
         `| ${failedChecks}${blocking} |`,
@@ -74,6 +81,21 @@ export function formatEvalReport(report: EvalReport): string {
       }
       lines.push("");
     }
+  }
+
+  lines.push("## Prompt / Preflight Telemetry", "");
+  for (const r of report.results) {
+    const largest = r.promptSize.largestBlocks
+      .slice(0, 3)
+      .map((block) => `${block.title} ${block.chars}c${block.kept ? "" : " dropped"}`)
+      .join("; ");
+    lines.push(
+      `- **${r.promptId}**: scaffold=${r.scaffoldId ?? "none"}, variant=${r.variantId ?? "none"}, ` +
+        `prompt=${r.promptSize.totalChars} chars/~${r.promptSize.totalEstimatedTokens} tokens, ` +
+        `dynamic=${r.promptSize.dynamicContextChars} chars, droppedBlocks=${r.promptSize.droppedBlocks}, ` +
+        `preflight=${r.preflight.errors}E/${r.preflight.warnings}W${r.preflight.previewBlocked ? " preview-blocked" : ""}` +
+        (largest ? `, largest: ${largest}` : ""),
+    );
   }
 
   return lines.join("\n");

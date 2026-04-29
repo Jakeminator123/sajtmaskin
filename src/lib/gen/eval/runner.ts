@@ -32,6 +32,22 @@ export interface EvalResult {
   promptId: string;
   generationTimeMs: number;
   fileCount: number;
+  scaffoldId: string | null;
+  variantId: string | null;
+  promptSize: {
+    totalChars: number;
+    totalEstimatedTokens: number;
+    dynamicContextChars: number;
+    droppedBlocks: number;
+    largestBlocks: Array<{ title: string; chars: number; kept: boolean }>;
+  };
+  preflight: {
+    errors: number;
+    warnings: number;
+    previewBlocked: boolean;
+    previewBlockingReason: string | null;
+  };
+  droppedProtectedPaths: string[];
   checks: CheckResult[];
   totalScore: number;
   passed: boolean;
@@ -331,6 +347,26 @@ async function evaluatePrompt(
     promptId: evalPrompt.id,
     generationTimeMs,
     fileCount: project.files.length,
+    scaffoldId: generationInput.resolvedScaffold?.id ?? null,
+    variantId: generationInput.variantId ?? null,
+    promptSize: {
+      totalChars: generationInput.promptSize.total.chars,
+      totalEstimatedTokens: generationInput.promptSize.total.estimatedTokens,
+      dynamicContextChars: generationInput.promptSize.dynamicContext.chars,
+      droppedBlocks: generationInput.promptSize.dynamicBudget.droppedBlocks,
+      largestBlocks: generationInput.promptSize.blocks.largest.slice(0, 5).map((block) => ({
+        title: block.title,
+        chars: block.chars,
+        kept: block.kept,
+      })),
+    },
+    preflight: {
+      errors: preflight.preflightIssues.filter((issue) => issue.severity === "error").length,
+      warnings: preflight.preflightIssues.filter((issue) => issue.severity === "warning").length,
+      previewBlocked: !preflight.previewStart.canStartPreview,
+      previewBlockingReason: preflight.previewBlockingReason,
+    },
+    droppedProtectedPaths: sources.droppedProtectedPaths,
     checks,
     totalScore,
     passed: passOutcome.passed,
@@ -365,6 +401,22 @@ export async function runEval(
         promptId: evalPrompt.id,
         generationTimeMs: 0,
         fileCount: 0,
+        scaffoldId: null,
+        variantId: null,
+        promptSize: {
+          totalChars: 0,
+          totalEstimatedTokens: 0,
+          dynamicContextChars: 0,
+          droppedBlocks: 0,
+          largestBlocks: [],
+        },
+        preflight: {
+          errors: 1,
+          warnings: 0,
+          previewBlocked: true,
+          previewBlockingReason: err instanceof Error ? err.message : "generation_failed",
+        },
+        droppedProtectedPaths: [],
         checks: [
           {
             name: "generation",

@@ -1,14 +1,19 @@
-import { runEval } from "./runner";
-import { formatEvalReport } from "./report";
-import { loadBaseline, saveBaseline, compareWithBaseline } from "./baseline";
-import { EVAL_PROMPTS } from "./prompts";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import type { compareWithBaseline as compareWithBaselineFn } from "./baseline";
+import type { EVAL_PROMPTS as EVAL_PROMPTS_TYPE } from "./prompts";
+
+const SMOKE_PROMPT_IDS = ["coffee-shop", "restaurant", "portfolio"] as const;
+type BaselineComparison = ReturnType<typeof compareWithBaselineFn>;
+type EvalPrompts = typeof EVAL_PROMPTS_TYPE;
 
 function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
 function formatComparison(
-  comparison: ReturnType<typeof compareWithBaseline>,
+  comparison: BaselineComparison,
 ): string {
   const lines: string[] = [
     "",
@@ -74,6 +79,19 @@ function formatComparison(
   return lines.join("\n");
 }
 
+function loadDotEnvLocal(): void {
+  const envPath = join(process.cwd(), ".env.local");
+  if (!existsSync(envPath)) return;
+  for (const rawLine of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#") || !line.includes("=")) continue;
+    const [rawKey, ...valueParts] = line.split("=");
+    const key = rawKey.trim();
+    if (!key || process.env[key] !== undefined) continue;
+    process.env[key] = valueParts.join("=").trim().replace(/^["']|["']$/g, "");
+  }
+}
+
 function parsePromptFilter(args: string[]): string[] | null {
   const idx = args.findIndex((a) => a === "--prompts" || a.startsWith("--prompts="));
   if (idx === -1) return null;
@@ -87,12 +105,26 @@ function parsePromptFilter(args: string[]): string[] | null {
 }
 
 async function main(): Promise<void> {
+  loadDotEnvLocal();
+  const [
+    { runEval },
+    { formatEvalReport },
+    { loadBaseline, saveBaseline, compareWithBaseline },
+    { EVAL_PROMPTS },
+  ] = await Promise.all([
+    import("./runner"),
+    import("./report"),
+    import("./baseline"),
+    import("./prompts"),
+  ]);
+
   const args = process.argv.slice(2);
   const shouldSaveBaseline = args.includes("--save-baseline");
   const gateMode = args.includes("--gate");
-  const promptFilter = parsePromptFilter(args);
+  const smokeMode = args.includes("--smoke");
+  const promptFilter = smokeMode ? [...SMOKE_PROMPT_IDS] : parsePromptFilter(args);
 
-  let prompts = EVAL_PROMPTS;
+  let prompts: EvalPrompts[number][] = EVAL_PROMPTS;
   if (promptFilter && promptFilter.length > 0) {
     const wanted = new Set(promptFilter);
     prompts = EVAL_PROMPTS.filter((p) => wanted.has(p.id));
@@ -105,7 +137,9 @@ async function main(): Promise<void> {
       );
       process.exit(2);
     }
-    console.log(`Running subset: ${prompts.map((p) => p.id).join(", ")}`);
+    console.log(
+      `${smokeMode ? "Running realistic smoke subset" : "Running subset"}: ${prompts.map((p) => p.id).join(", ")}`,
+    );
   } else {
     console.log("Running eval suite...");
   }
