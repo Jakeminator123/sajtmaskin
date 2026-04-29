@@ -86,6 +86,14 @@ describe("classifySimpleWebsitePath", () => {
     ).toBe("multi_route_signal");
   });
 
+  it("allows slash-separated descriptors that are not route paths", () => {
+    expect(base({ prompt: "Bygg en restaurang/café-sida i Malmö." }).reason).toBe("enabled");
+    expect(base({ prompt: "Bygg portfolio/CV för en designer." }).reason).toBe("enabled");
+    expect(base({ prompt: "Bygg en UI/UX-byrå-sida." }).reason).toBe("enabled");
+    expect(base({ prompt: "Bygg en HTML/CSS-kurssida." }).reason).toBe("enabled");
+    expect(base({ prompt: "Bygg en B2B/B2C-landningssida." }).reason).toBe("enabled");
+  });
+
   it("rejects heavy capabilities", () => {
     expect(
       base({

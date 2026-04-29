@@ -2,6 +2,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
+import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
 
 export type SimpleWebsitePathReason =
   | "enabled"
@@ -35,10 +36,18 @@ const SIMPLE_SCAFFOLD_IDS = new Set([
 
 const MAX_SIMPLE_PROMPT_CHARS = 420;
 
-const INTEGRATION_OR_CONTRACT_RE =
-  /\b(auth|login|konto|stripe|checkout|payment|betalning|database|postgres|supabase|prisma|drizzle|cms|admin|dashboard|api\b|webhook|integration|mailchimp|resend|sentry|analytics|plausible|clerk|openai|chatbot)\b/i;
-const MULTI_ROUTE_RE =
-  /(?:\/[a-z0-9åäö][\wåäö-]*|\b(flera|separata|separate|multi-?page|flersidig|undersid(?:a|or)|sub-?pages?)\b)/i;
+const INTEGRATION_OR_CONTRACT_RE = uWordRegex(
+  "auth|login|konto|stripe|checkout|payment|betalning|database|postgres|supabase|prisma|drizzle|cms|admin|dashboard|api|webhook|integration(?:er)?|mailchimp|resend|sentry|analytics|plausible|clerk|openai|chatbot",
+);
+const MULTI_ROUTE_WORD_RE = uWordRegex(
+  "flera|separata|separate|multi-?page|flersidig|undersid(?:a|or)|sub-?pages?",
+);
+const ROUTE_PATH_RE =
+  /(?:^|[\s("'`])\/[a-z0-9åäö][a-z0-9åäö-]*(?:\/[a-z0-9åäö][a-z0-9åäö-]*)*(?=$|[\s,.;:!?)]|["'`])/iu;
+
+function hasMultiRouteSignal(prompt: string): boolean {
+  return MULTI_ROUTE_WORD_RE.test(prompt) || ROUTE_PATH_RE.test(prompt);
+}
 
 function hasHeavyCapability(capabilities: InferredCapabilities): boolean {
   return Boolean(
@@ -100,7 +109,7 @@ export function classifySimpleWebsitePath(params: {
   if (!SIMPLE_SCAFFOLD_IDS.has(scaffoldId)) {
     return { enabled: false, reason: "unsupported_scaffold", scaffoldId };
   }
-  if (MULTI_ROUTE_RE.test(params.prompt)) {
+  if (hasMultiRouteSignal(params.prompt)) {
     return { enabled: false, reason: "multi_route_signal", scaffoldId };
   }
   if (hasHeavyCapability(params.capabilities)) {
