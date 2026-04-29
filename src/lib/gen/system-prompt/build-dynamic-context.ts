@@ -77,6 +77,7 @@ import {
   renderRoutePlanBlock,
 } from "./sections/routing-and-tooling";
 import {
+  renderBriefLockedDesignValuesBlock,
   renderBriefBlocks,
   renderComponentReferencesBlock,
   renderDesignReferencesBlock,
@@ -187,6 +188,12 @@ export function buildDynamicContext(
   parts.push(...renderF2ContractBlock(buildSpec));
   parts.push(...renderBuildIntentBlock(intent));
   parts.push(...renderGenerationProfileBlock(buildSpec));
+  parts.push(
+    ...renderBriefLockedDesignValuesBlock({
+      brief,
+      themeOverride,
+    }),
+  );
   parts.push(...renderScaffoldVariantBlock(effectiveVariant));
   parts.push(...renderDesignPriorityBlock());
 

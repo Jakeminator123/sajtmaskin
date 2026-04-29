@@ -154,6 +154,19 @@ export interface BriefSummarySnapshot {
   brandName?: string;
   styleKeywords?: string[];
   toneKeywords?: string[];
+  qualityBar?: string;
+  motionLevel?: string;
+  colorPalette?: {
+    primary?: string;
+    secondary?: string;
+    accent?: string;
+    background?: string;
+    text?: string;
+  };
+  typography?: {
+    headings?: string;
+    body?: string;
+  };
   requestedCapabilities?: string[];
   domainProfile?: { domain?: string; industry?: string };
 }
@@ -165,15 +178,9 @@ export function extractBriefSummaryFromSnapshot(
   const bs = snapshot.briefSummary;
   if (!bs || typeof bs !== "object") return null;
   const s = bs as Record<string, unknown>;
-  const has =
-    typeof s.projectTitle === "string" ||
-    typeof s.brandName === "string" ||
-    (Array.isArray(s.styleKeywords) && s.styleKeywords.length > 0) ||
-    (Array.isArray(s.toneKeywords) && s.toneKeywords.length > 0) ||
-    (Array.isArray(s.requestedCapabilities) && s.requestedCapabilities.length > 0) ||
-    (typeof s.domainProfile === "object" && s.domainProfile !== null);
-  if (!has) return null;
   const rawDomainProfile = s.domainProfile;
+  const rawColorPalette = s.colorPalette;
+  const rawTypography = s.typography;
   const domainProfile =
     rawDomainProfile && typeof rawDomainProfile === "object"
       ? (() => {
@@ -183,11 +190,50 @@ export function extractBriefSummaryFromSnapshot(
           return domain || industry ? { domain, industry } : undefined;
         })()
       : undefined;
+  const colorPalette =
+    rawColorPalette && typeof rawColorPalette === "object"
+      ? (() => {
+          const p = rawColorPalette as Record<string, unknown>;
+          const primary = typeof p.primary === "string" ? p.primary : undefined;
+          const secondary = typeof p.secondary === "string" ? p.secondary : undefined;
+          const accent = typeof p.accent === "string" ? p.accent : undefined;
+          const background = typeof p.background === "string" ? p.background : undefined;
+          const text = typeof p.text === "string" ? p.text : undefined;
+          return primary || secondary || accent || background || text
+            ? { primary, secondary, accent, background, text }
+            : undefined;
+        })()
+      : undefined;
+  const typography =
+    rawTypography && typeof rawTypography === "object"
+      ? (() => {
+          const t = rawTypography as Record<string, unknown>;
+          const headings = typeof t.headings === "string" ? t.headings : undefined;
+          const body = typeof t.body === "string" ? t.body : undefined;
+          return headings || body ? { headings, body } : undefined;
+        })()
+      : undefined;
+  const has =
+    typeof s.projectTitle === "string" ||
+    typeof s.brandName === "string" ||
+    typeof s.qualityBar === "string" ||
+    typeof s.motionLevel === "string" ||
+    (Array.isArray(s.styleKeywords) && s.styleKeywords.length > 0) ||
+    (Array.isArray(s.toneKeywords) && s.toneKeywords.length > 0) ||
+    Boolean(colorPalette) ||
+    Boolean(typography) ||
+    (Array.isArray(s.requestedCapabilities) && s.requestedCapabilities.length > 0) ||
+    Boolean(domainProfile);
+  if (!has) return null;
   return {
     projectTitle: typeof s.projectTitle === "string" ? s.projectTitle : undefined,
     brandName: typeof s.brandName === "string" ? s.brandName : undefined,
     styleKeywords: Array.isArray(s.styleKeywords) ? (s.styleKeywords as string[]) : undefined,
     toneKeywords: Array.isArray(s.toneKeywords) ? (s.toneKeywords as string[]) : undefined,
+    qualityBar: typeof s.qualityBar === "string" ? s.qualityBar : undefined,
+    motionLevel: typeof s.motionLevel === "string" ? s.motionLevel : undefined,
+    colorPalette,
+    typography,
     requestedCapabilities: Array.isArray(s.requestedCapabilities)
       ? (s.requestedCapabilities as string[])
       : undefined,
@@ -239,9 +285,22 @@ export function buildFollowUpBriefFromSnapshot(
   if (summary.styleKeywords && summary.styleKeywords.length > 0) {
     out.visualDirection = { styleKeywords: summary.styleKeywords };
   }
+  if (summary.colorPalette || summary.typography) {
+    const currentVisual =
+      out.visualDirection && typeof out.visualDirection === "object"
+        ? (out.visualDirection as Record<string, unknown>)
+        : {};
+    out.visualDirection = {
+      ...currentVisual,
+      ...(summary.colorPalette ? { colorPalette: summary.colorPalette } : {}),
+      ...(summary.typography ? { typography: summary.typography } : {}),
+    };
+  }
   if (summary.toneKeywords && summary.toneKeywords.length > 0) {
     out.toneAndVoice = summary.toneKeywords;
   }
+  if (summary.qualityBar) out.qualityBar = summary.qualityBar;
+  if (summary.motionLevel) out.motionLevel = summary.motionLevel;
   // Returning an empty object is worse than null — downstream guards
   // expect either a populated brief or no brief at all.
   if (Object.keys(out).length === 0) return null;
@@ -256,6 +315,8 @@ export function formatPriorDesignContext(summary: BriefSummarySnapshot): string 
   if (summary.brandName) lines.push(`- Brand: ${summary.brandName}`);
   if (summary.styleKeywords?.length) lines.push(`- Style: ${summary.styleKeywords.join(", ")}`);
   if (summary.toneKeywords?.length) lines.push(`- Tone: ${summary.toneKeywords.join(", ")}`);
+  if (summary.qualityBar) lines.push(`- Quality: ${summary.qualityBar}`);
+  if (summary.motionLevel) lines.push(`- Motion: ${summary.motionLevel}`);
   return lines.join("\n");
 }
 

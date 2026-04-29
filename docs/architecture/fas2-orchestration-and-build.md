@@ -134,18 +134,19 @@ Baserade på 200k-fönster. Skalas av `modelBudgetScale()` mellan **0.6×** och 
 1. Generation Mode (vid follow-up)
 2. Custom instructions + Build Intent
 3. Generation Profile (style pack, quality, forbidden patterns)
-4. Scaffold Variant (typografi, motif, theme tokens)
-5. Design Priority (locked theme → brief → variant → scaffold CSS)
-6. Scaffold (serialiserade filer)
-7. Scaffold Research Priorities (checklist, upgrade targets)
-8. Your Toolkit (shadcn + capability hints + palett)
-9. Route Plan
-10. Pre-generation Contracts (data mode, providers, env vars)
-11. Project Context (brief-fält, pages, must-have/avoid)
-12. Visual Identity + Design References
-13. Imagery + Media Catalog
-14. Component References (upp till 5 fenced shadcn-exempel)
-15. SEO
+4. Brief-Locked Design Values (briefens designvärden vinner över variant/scaffold)
+5. Scaffold Variant (typografi, motif, theme tokens)
+6. Design Priority (locked theme → brief → variant → scaffold CSS)
+7. Scaffold (serialiserade filer)
+8. Scaffold Research Priorities (checklist, upgrade targets)
+9. Your Toolkit (shadcn + capability hints + palett)
+10. Route Plan
+11. Pre-generation Contracts (data mode, providers, env vars)
+12. Project Context (brief-fält, pages, must-have/avoid)
+13. Visual Identity + Design References
+14. Imagery + Media Catalog
+15. Component References (upp till 5 fenced shadcn-exempel)
+16. SEO
 
 `## Structural References` är **borttaget 2026-04-17** — strukturella exempel sköts av dossier-pipen v2 (`data/dossiers/{hard,soft}/<id>/`). `data/dossiers/_index/capability-map.json` är en genererad backoffice-view, inte en runtime-källa.
 
@@ -314,7 +315,7 @@ Defaults: NextAuth Credentials om `needsAuth`; Stripe test-placeholders om betal
 | Finalize path | Full (typiskt) | Light möjlig för small copy/layout |
 | Merge | Ren version | `mergeGeneratedProjectFiles` med `previousFiles` |
 | Rå-signalpaket in till `OrchestrationInput` | `routePlanPrompt`, `buildSpecPrompt`, `contractsPrompt`, `scaffoldMatchPrompt`, `capabilitiesPrompt` = rå `message` (paritet med follow-up sedan 2026-04-22) | Samma 5 fält. Plan-mode-grenen skickar samma paket (init + follow-up) sedan 2026-04-22 audit |
-| Brief | `meta.brief` (Deep Brief / Server Auto-Brief) | Ingen ny LLM-brief. `buildFollowUpBriefFromSnapshot()` hydrerar en minimal brief från `briefSummary` (requestedCapabilities, domainProfile-slug, visualDirection.styleKeywords, toneAndVoice, projectTitle, brandName) när `metaBrief` saknas |
+| Brief | `meta.brief` (Deep Brief / Server Auto-Brief) | Ingen ny LLM-brief. `buildFollowUpBriefFromSnapshot()` hydrerar en minimal brief från `briefSummary` (requestedCapabilities, domainProfile-slug, visualDirection.styleKeywords, toneAndVoice, qualityBar, motionLevel, colorPalette, typography, projectTitle, brandName) när `metaBrief` saknas |
 | `effectiveInitRouteCount` (driver `qualityTarget` + `contextPolicy`) | `init` | `followUp` räknas som "effective init" via `isEffectiveInit({ generationMode, isFirstCodeGeneration })` — första kodgen efter contract gate får samma route-count som riktig init |
 
 ---

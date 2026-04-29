@@ -36,4 +36,115 @@ describe("buildDynamicContext", () => {
     expect(result.context).toContain("Domain profile (inferred from prompt keywords): **spa-salon**.");
     expect(result.context).not.toContain("**hospitality**");
   });
+
+  it("renders Brief-Locked Design Values before conflicting scaffold variant cues", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Bygg en varm premium restaurangsida med livlig rörelse",
+      generationMode: "init",
+      brief: {
+        domainProfile: "restaurant",
+        qualityBar: "premium",
+        motionLevel: "lively",
+        toneAndVoice: ["varm", "inbjudande"],
+        visualDirection: {
+          styleKeywords: ["warm", "editorial", "premium"],
+          colorPalette: {
+            primary: "#f59e0b",
+            secondary: "#7c2d12",
+            accent: "#fde68a",
+            background: "#fff7ed",
+            text: "#1f1308",
+          },
+          typography: {
+            headings: "serif editorial",
+            body: "humanist sans",
+          },
+        },
+        mustHave: ["atmosfärisk hero", "boknings-CTA"],
+        avoid: ["kall corporate-känsla"],
+      },
+      resolvedVariant: {
+        id: "corporate-grid",
+        scaffoldId: "landing-page",
+        label: "Corporate Grid",
+        description: "Bright B2B consulting pages.",
+        keywords: ["corporate", "b2b"],
+        fontPairings: [{ heading: "Manrope", body: "Inter" }],
+        signatureMotif: "enterprise grid and restrained blue accents",
+        colorMode: "light",
+        promptHints: ["Prefer measured consulting hierarchy."],
+        signaturePatterns: {
+          layouts: ["strict corporate grid"],
+          motifs: ["cool blue accents"],
+          antiPatterns: ["avoid editorial mood"],
+        },
+        themeTokens: {
+          primary: "oklch(0.56 0.14 250)",
+        },
+      },
+    });
+
+    const briefIdx = result.context.indexOf("## Brief-Locked Design Values");
+    const variantIdx = result.context.indexOf("## Scaffold Variant (this generation)");
+    expect(briefIdx).toBeGreaterThanOrEqual(0);
+    expect(variantIdx).toBeGreaterThan(briefIdx);
+    expect(result.context).toContain("- **Visual direction:** warm, editorial, premium");
+    expect(result.context).toContain("- **Quality bar:** premium");
+    expect(result.context).toContain("- **Motion level:** lively");
+    expect(result.context).toContain("If the variant says dark/corporate/minimal");
+    expect(result.context).toContain("follow the brief");
+  });
+
+  it("keeps Brief-Locked Design Values before scaffold variant when token budget is tight", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Bygg en varm premium restaurangsida",
+      generationMode: "init",
+      brief: {
+        qualityBar: "premium",
+        motionLevel: "lively",
+        toneAndVoice: ["varm"],
+        visualDirection: {
+          styleKeywords: ["warm", "editorial"],
+          colorPalette: { primary: "#f59e0b" },
+        },
+      },
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        contextPolicy: "light",
+        verificationPolicy: "fast",
+        previewPolicy: "fidelity2",
+        qualityTarget: "premium",
+        scaffoldId: "landing-page",
+        routePlanSummary: "1 route",
+        stylePack: "editorial",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 1_000,
+          refsChars: 1_000,
+          systemContextChars: 4_800,
+          systemContextTokens: 1_500,
+        },
+      },
+      resolvedVariant: {
+        id: "corporate-grid",
+        scaffoldId: "landing-page",
+        label: "Corporate Grid",
+        keywords: [],
+        fontPairings: [],
+        signatureMotif: "corporate",
+        colorMode: "light",
+        promptHints: ["corporate grid ".repeat(80)],
+      },
+    });
+
+    const briefBlock = result.blocks.find((block) => block.title === "Brief-Locked Design Values");
+    const variantBlock = result.blocks.find((block) => block.title === "Scaffold Variant (this generation)");
+    expect(briefBlock).toMatchObject({ required: true, kept: true });
+    expect(variantBlock?.priority).toBeLessThan(briefBlock?.priority ?? 0);
+  });
 });

@@ -227,6 +227,11 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
     expect(
       buildFollowUpBriefFromSnapshot({ briefSummary: { primaryCTA: "Boka" } }),
     ).toBeNull();
+    expect(
+      buildFollowUpBriefFromSnapshot({
+        briefSummary: { colorPalette: {}, typography: {}, domainProfile: {} },
+      }),
+    ).toBeNull();
   });
 
   it("hydrates requestedCapabilities + domainProfile so dossier-pick works on follow-up", () => {
@@ -244,6 +249,19 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
         // direction fast snapshot bevarade den.
         styleKeywords: ["minimal", "warm"],
         toneKeywords: ["professionell", "välkomnande"],
+        qualityBar: "premium",
+        motionLevel: "lively",
+        colorPalette: {
+          primary: "#f59e0b",
+          secondary: "#7c2d12",
+          accent: "#fde68a",
+          background: "#fff7ed",
+          text: "#1f1308",
+        },
+        typography: {
+          headings: "serif editorial",
+          body: "humanist sans",
+        },
       },
     };
     const brief = buildFollowUpBriefFromSnapshot(snapshot);
@@ -255,8 +273,23 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
     expect(brief?.domainProfile).toBe("hospitality");
     expect(brief?.projectTitle).toBe("Hotel Solskenet");
     expect(brief?.brandName).toBe("Solskenet AB");
-    expect(brief?.visualDirection).toEqual({ styleKeywords: ["minimal", "warm"] });
+    expect(brief?.visualDirection).toEqual({
+      styleKeywords: ["minimal", "warm"],
+      colorPalette: {
+        primary: "#f59e0b",
+        secondary: "#7c2d12",
+        accent: "#fde68a",
+        background: "#fff7ed",
+        text: "#1f1308",
+      },
+      typography: {
+        headings: "serif editorial",
+        body: "humanist sans",
+      },
+    });
     expect(brief?.toneAndVoice).toEqual(["professionell", "välkomnande"]);
+    expect(brief?.qualityBar).toBe("premium");
+    expect(brief?.motionLevel).toBe("lively");
   });
 
   it("hydrates style/tone when nothing else is present so art direction carries on follow-up", () => {
@@ -306,6 +339,22 @@ describe("extractBriefSummaryFromSnapshot — capability/domain extraction", () 
     });
     expect(out).not.toBeNull();
     expect(out?.domainProfile).toEqual({ domain: "hospitality", industry: "hotel" });
+  });
+
+  it("reads design values used by Brief-Locked Design Values from snapshot", () => {
+    const out = extractBriefSummaryFromSnapshot({
+      briefSummary: {
+        qualityBar: "bold-dramatic",
+        motionLevel: "lively",
+        colorPalette: { primary: "#111111", background: "#fef3c7" },
+        typography: { headings: "display serif", body: "sans" },
+      },
+    });
+    expect(out).not.toBeNull();
+    expect(out?.qualityBar).toBe("bold-dramatic");
+    expect(out?.motionLevel).toBe("lively");
+    expect(out?.colorPalette).toMatchObject({ primary: "#111111", background: "#fef3c7" });
+    expect(out?.typography).toEqual({ headings: "display serif", body: "sans" });
   });
 
   it("ignores empty domainProfile object", () => {

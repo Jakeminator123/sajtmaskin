@@ -2,7 +2,7 @@
 
 Hur signallagren samspelar i create-chat, follow-up och repair, plus **vem äger vilken signal** (canonical source).
 
-**Senast uppdaterad:** 2026-04-22.
+**Senast uppdaterad:** 2026-04-29.
 
 För kontraktslika tabellen över lager, inputs och outputs: `docs/schemas/orchestration-signal-contract.md`.
 För matrisen över LLM-roller/modeller: `docs/schemas/llm-role-matrix.md`.
@@ -62,7 +62,7 @@ Varje signal i init-pipelinen har **exakt en canonical source**. Konsumenter lä
 | **Keyword-extraktion (formatering)** | `prompt-heuristics.ts` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `src/lib/builder/prompt-assist/` (`formatPrompt`, addendum) | Nej — importera, inte duplicera |
 | **Init-semantik (projektgrund)** | Deep Brief (`site-brief-generation.ts`) | `siteBriefSchema` | `create-chat-stream-post.ts`, `buildDynamicContext()` | Nej — brief-objektet via `meta.brief` är enda kanonisk signal |
 | **Globala designregler** | Core Rules (`config/prompt-core/`, inkl. `03-visual-design.md` + `04-coding-direction.md`) | markdown-filer | `static-core-loader.ts` → system prompt | Nej — directive cascade borttagen 2026-04-18 |
-| **Request-specifik designkontext** | `buildDynamicContext()` i `src/lib/gen/system-prompt/` | brief + scaffold + theme | codegen system prompt | Nej — brief-driven, inte omtolkad |
+| **Request-specifik designkontext** | `buildDynamicContext()` i `src/lib/gen/system-prompt/` | brief + scaffold + theme | codegen system prompt (`## Brief-Locked Design Values` före variant) | Nej — brief-driven, inte omtolkad |
 | **Build intent (codegen + assist)** | `BUILD_INTENT_GUIDANCE` i `src/lib/gen/intent-guidance.ts` | delad konstant | `src/lib/gen/system-prompt/` (`buildDynamicContext()`) + `src/lib/builder/prompt-assist/` | Nej — en canonical konstant, båda ytor importerar den |
 | **Capability-inferens** | `capability-inference.ts` | regexar + manifest | `buildDynamicContext()`, `BuildSpec`, `follow-up-clarification` | Nej |
 | **Capability → dossier-bridge** | `src/lib/gen/capability-dossier-bridge.ts` | deklarativ map | `orchestrate.ts` → `selectDossiersForRequest({ requestedCapabilities })` | Nej — single source. Bridge-mappar inferred flags till dossier capability-id:n innan urval |
@@ -97,7 +97,7 @@ config/*.json      = editerbar data (domain rules, ai models, env policy)
 3. Server Auto-Brief är fallback när klienten inte skickar brief — körs för init-prompts utan client-brief (även strukturerade website-prompts), men hoppas över för audit, technical/preserved payload och follow-up.
 4. Scaffoldval körs i `resolveOrchestrationBase()` via `matchScaffoldAuto()`.
 5. Route plan, contracts och BuildSpec byggs — översätter briefens semantik till exekvering snarare än att uppfinna ny vision.
-6. Dynamic context byggs i `src/lib/gen/system-prompt/`. `## Your Toolkit` byggs från registry-synkade `SHADCN_COMPONENTS`-mappen, filtrerad mot vilka `@/components/ui/*`-subpaths som faktiskt finns lokalt; `## Component References` lägger separat till capability-matchade kodexempel från `data/shadcn-examples/`.
+6. Dynamic context byggs i `src/lib/gen/system-prompt/`. När briefen bär designvärden renderas `## Brief-Locked Design Values` före `## Scaffold Variant (this generation)` och med högre pruning-prioritet, så variantens tema/font/motif bara är fallback när briefen är tyst. `## Your Toolkit` byggs från registry-synkade `SHADCN_COMPONENTS`-mappen, filtrerad mot vilka `@/components/ui/*`-subpaths som faktiskt finns lokalt; `## Component References` lägger separat till capability-matchade kodexempel från `data/shadcn-examples/`.
 7. Generatorn kör. Modellvalet kommer från `phaseRouting.defaultByTier`, och planner/generator hämtar phase-specifik thinking / `reasoningEffort` från `phaseRouting.thinkingByTier`. **Codegen-verktyg:** `suggestIntegration` och `requestEnvVar` är informativa (UI-signal, ingen paus); endast `askClarifyingQuestion` sätter blocking/`awaitingInput`.
 8. Finalize, post-checks, preview-start och quality gate sker efteråt.
 
@@ -118,10 +118,11 @@ Skiljer sig från create-chat på fyra sätt:
 4. **ingen ny full init-brief** — men en **minimerad snapshot-brief** hydreras
    (A1/A2, 2026-04-21) via `buildFollowUpBriefFromSnapshot` när
    `meta.brief` saknas. Snapshot-briefen bär `requestedCapabilities`,
-   `domainProfile`, `projectTitle`, `brandName` samt (sedan audit 2026-04-22)
-   `visualDirection.styleKeywords` + `toneAndVoice` så `src/lib/gen/system-prompt/`
-   och `scaffold-query-context.ts` ser samma designfält som init — utan att
-   återköra Deep Brief-LLM:en.
+   `domainProfile`, `projectTitle`, `brandName`, `visualDirection.styleKeywords`,
+   `toneAndVoice` samt (sedan 2026-04-29) `qualityBar`, `motionLevel`,
+   `colorPalette` och `typography` så `src/lib/gen/system-prompt/` och
+   `scaffold-query-context.ts` ser samma designfält som init — utan att återköra
+   Deep Brief-LLM:en.
 
 ### Nuvarande follow-up-balans
 

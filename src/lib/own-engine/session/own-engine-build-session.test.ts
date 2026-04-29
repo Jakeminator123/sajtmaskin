@@ -203,4 +203,53 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
     expect("chatPrivacy" in meta).toBe(false);
     expect("scaffoldLabel" in meta).toBe(false);
   });
+
+  it("persists brief design values for follow-up snapshot rehydration", () => {
+    const meta = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "new-chat",
+      chatPrivacy: "private",
+      scaffoldLabel: null,
+      metaBriefApplied: true,
+      metaBrief: {
+        projectTitle: "Hotel Solskenet",
+        brandName: "Solskenet",
+        domainProfile: "hospitality",
+        motionLevel: "lively",
+        qualityBar: "premium",
+        toneAndVoice: ["varm", "välkomnande"],
+        visualDirection: {
+          styleKeywords: ["warm", "editorial"],
+          colorPalette: {
+            primary: "#f59e0b",
+            background: "#fff7ed",
+            text: "#1f1308",
+          },
+          typography: {
+            headings: "serif editorial",
+            body: "humanist sans",
+          },
+        },
+      },
+    });
+
+    expect(meta.briefSummary).toMatchObject({
+      projectTitle: "Hotel Solskenet",
+      brandName: "Solskenet",
+      domainProfile: { domain: "hospitality" },
+      motionLevel: "lively",
+      qualityBar: "premium",
+      toneKeywords: ["varm", "välkomnande"],
+      styleKeywords: ["warm", "editorial"],
+      colorPalette: {
+        primary: "#f59e0b",
+        background: "#fff7ed",
+        text: "#1f1308",
+      },
+      typography: {
+        headings: "serif editorial",
+        body: "humanist sans",
+      },
+    });
+  });
 });

@@ -103,6 +103,82 @@ export function renderBriefBlocks(brief: Brief | null | undefined): string[] {
   return parts;
 }
 
+export function renderBriefLockedDesignValuesBlock(params: {
+  brief: Brief | null | undefined;
+  themeOverride: ThemeColors | null | undefined;
+}): string[] {
+  const { brief, themeOverride } = params;
+  if (!brief) return [];
+
+  const styleKeywords = strList(brief.visualDirection?.styleKeywords).slice(0, 10);
+  const tone = strList(brief.toneAndVoice).slice(0, 8);
+  const qualityBar = str(brief.qualityBar);
+  const motionLevel = str(brief.motionLevel);
+  const palette = brief.visualDirection?.colorPalette;
+  const typography = brief.visualDirection?.typography;
+  const domainProfile = str(brief.domainProfile);
+  const avoid = strList(brief.avoid).slice(0, 5);
+  const mustHave = strList(brief.mustHave).slice(0, 5);
+  const hasThemeOverride = Boolean(
+    themeOverride?.primary || themeOverride?.secondary || themeOverride?.accent,
+  );
+
+  const hasBriefDesignSignal =
+    styleKeywords.length > 0 ||
+    tone.length > 0 ||
+    qualityBar ||
+    motionLevel ||
+    palette?.primary ||
+    palette?.secondary ||
+    palette?.accent ||
+    palette?.background ||
+    palette?.text ||
+    typography?.headings ||
+    typography?.body ||
+    domainProfile ||
+    avoid.length > 0 ||
+    mustHave.length > 0;
+
+  if (!hasBriefDesignSignal) return [];
+
+  const parts: string[] = [
+    "## Brief-Locked Design Values",
+    "",
+    "These values are the highest design source for this generation after user-locked theme tokens. Use scaffold variant cues only as fallback or structural inspiration when they do not conflict.",
+  ];
+
+  if (hasThemeOverride) {
+    parts.push("- **User-locked theme tokens:** present; they override this block for exact color token values.");
+  }
+  if (styleKeywords.length > 0) parts.push(`- **Visual direction:** ${styleKeywords.join(", ")}`);
+  if (tone.length > 0) parts.push(`- **Tone:** ${tone.join(", ")}`);
+  if (qualityBar) parts.push(`- **Quality bar:** ${qualityBar}`);
+  if (motionLevel) parts.push(`- **Motion level:** ${motionLevel}`);
+  if (palette) {
+    const paletteParts = [
+      palette.primary ? `primary ${palette.primary}` : null,
+      palette.secondary ? `secondary ${palette.secondary}` : null,
+      palette.accent ? `accent ${palette.accent}` : null,
+      palette.background ? `background ${palette.background}` : null,
+      palette.text ? `text ${palette.text}` : null,
+    ].filter(Boolean);
+    if (paletteParts.length > 0) parts.push(`- **Palette:** ${paletteParts.join(", ")}`);
+  }
+  if (typography?.headings || typography?.body) {
+    parts.push(`- **Typography:** headings ${typography.headings || "system"}, body ${typography.body || "system"}`);
+  }
+  if (domainProfile) parts.push(`- **Domain profile:** ${domainProfile}`);
+  if (mustHave.length > 0) parts.push(`- **Must-have:** ${mustHave.join("; ")}`);
+  if (avoid.length > 0) parts.push(`- **Avoid:** ${avoid.join("; ")}`);
+
+  parts.push(
+    "- **Rule:** Do not let scaffold variant theme tokens, font pairings, prompt hints, motifs, or anti-patterns weaken these values.",
+    "- **Rule:** If the variant says dark/corporate/minimal but the brief says warm/editorial/lively/premium, follow the brief.",
+    "",
+  );
+  return parts;
+}
+
 export function renderVisualIdentityBlock(params: {
   themeOverride: ThemeColors | null | undefined;
   brief: Brief | null | undefined;
