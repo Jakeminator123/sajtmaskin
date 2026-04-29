@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildDynamicContext } from "../system-prompt";
 import * as registry from "./registry";
+import { selectDossiersForRequest } from "./select";
 import type { DossierSelectionResult } from "./types";
 import type { BuildSpec } from "../build-spec";
 
@@ -184,5 +185,27 @@ describe("buildDynamicContext + new dossier shape", () => {
     expect(result.context).toContain("## Dossier Files To Emit Verbatim");
     expect(result.context).toContain('file="api/checkout-session/route.ts"');
     expect(result.context).toContain("import Stripe from");
+  });
+
+  it("renders three-fiber-canvas shell as verbatim safety wrapper", async () => {
+    const selection = selectDossiersForRequest({
+      requestedCapabilities: ["visual-3d"],
+    });
+    expect(selection.selected[0]?.entry.id).toBe("three-fiber-canvas");
+    const result = await buildDynamicContext({
+      intent: "website",
+      generationMode: "init",
+      brief: { projectTitle: "3D Test" },
+      buildSpec: {
+        ...TINY_BUILD_SPEC,
+        scaffoldId: "landing-page",
+      },
+      scaffoldContext: "scaffold",
+      dossierSelection: selection,
+    });
+    expect(result.context).toContain("## Dossier Files To Emit Verbatim");
+    expect(result.context).toContain('file="three-canvas-shell.tsx"');
+    expect(result.context).toContain("export function ThreeCanvasShell");
+    expect(result.context).toContain("SSR-safe 3D shells");
   });
 });

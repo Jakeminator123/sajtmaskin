@@ -43,7 +43,9 @@ export default function HomePage() {
 }
 ```
 
-The shell expects you (the LLM) to write the actual scene as a child component. A typical scene looks like:
+`three-canvas-shell.tsx` is emitted verbatim by the dossier pipeline. Do **not** rewrite that shell, rename its export, remove the dynamic Canvas import, or inline Canvas directly in `app/page.tsx`. The shell is the safety boundary (SSR, error boundary, reduced-motion, DPR cap). Write the actual scene as a separate child component and place that child inside `ThreeCanvasShell`.
+
+A typical scene looks like:
 
 ```tsx
 "use client";

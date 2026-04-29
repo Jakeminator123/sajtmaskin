@@ -16,7 +16,8 @@
   "files": [
     {
       "path": "components/three-canvas-shell.tsx",
-      "role": "client"
+      "role": "client",
+      "injectionMode": "verbatim"
     }
   ],
   "exposes": [
