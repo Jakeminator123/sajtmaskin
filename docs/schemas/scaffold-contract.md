@@ -99,6 +99,9 @@ Supporting subtypes:
 - `ScaffoldFile`
   - `path`
   - `content`
+  - optional `role` — Scaffold Contract V2 prompt role (`root-layout` / `global-styles` / `config` / `route-page` / `shared-component` / `api-route` / `default`). When omitted, derived from `path` by `defaultRoleForPath()` in `serialize.ts`.
+  - optional `serialization` — explicit policy override (`full` / `excerpt` / `signature`). Default comes from the resolved role: `full` for `root-layout`/`global-styles`/`config`, `signature` for `shared-component`/`api-route`, `excerpt` otherwise.
+  - optional `maxPromptChars` — per-file ceiling when the resolved serialization is `excerpt`. Lets manifests trim a verbose `app/page.tsx` without dropping it from prompt context.
 - `ScaffoldResearchMetadata`
   - `upgradeTargets`
   - `referenceTemplates`
@@ -108,6 +111,22 @@ Supporting subtypes:
   - `categorySlug`
   - `qualityScore`
   - `strengths`
+
+### Scaffold Contract V2 — render policy
+
+The system prompt does not need every scaffold file in full. `serialize.ts`
+renders each selected critical file based on its resolved
+`(role, serialization)`:
+
+| Resolved policy | What reaches the LLM |
+|-----------------|----------------------|
+| `full` | Verbatim file content (used for `app/layout.tsx`, `app/globals.css`, `package.json`, `tailwind.config.*`, `next.config.*`). |
+| `excerpt` | Imports + exported identifiers + structural body excerpt (default ~700 chars; `route-page` gets ~900). The block ends with a marker comment that records the full file size. |
+| `signature` | Imports + exported identifiers only — used for `components/*` and `app/.../route.ts` so the LLM sees the contract without re-reading bodies. |
+
+Manifest authors override the defaults by setting the optional V2 fields on a
+`ScaffoldFile`. Validation flags unknown roles, unknown serialization values,
+and non-positive `maxPromptChars` so manifest drift fails loud.
 
 ## Current scaffold ids
 
@@ -170,6 +189,10 @@ handkuraterad för auto-matchning eller retry-heuristik.
 - total `files` content should stay under ~15 000 chars (warning). Larger scaffolds waste prompt budget since serialization truncates anyway.
 - `qualityChecklist` should have at least 3 entries (warning)
 - `promptHints` should have at least 2 entries (warning)
+- Scaffold Contract V2 file fields:
+  - `role` must be one of the V2 roles when set (error)
+  - `serialization` must be `full` / `excerpt` / `signature` when set (error)
+  - `maxPromptChars` must be a positive number when set (error)
 
 ## Research enrichment
 

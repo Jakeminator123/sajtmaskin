@@ -95,6 +95,93 @@ describe("serializeScaffoldForPrompt", () => {
     expect(out).toContain('file="components/login-form.tsx"');
   });
 
+  it("renders a route-page as excerpt by default and shrinks Critical Scaffold Files", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "landing-page",
+      label: "Excerpt scaffold",
+      description: "A scaffold used to verify excerpt-by-default for page.tsx.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/layout.tsx", content: makeLongFile("Layout") },
+        {
+          path: "app/page.tsx",
+          content: [
+            'import Hero from "@/components/hero";',
+            'import Features from "@/components/features";',
+            "",
+            "export default function HomePage() {",
+            "  return (",
+            "    <main>",
+            "      <Hero>",
+            `        ${"long body content ".repeat(500)}`,
+            "      </Hero>",
+            "      <Features />",
+            "    </main>",
+            "  );",
+            "}",
+          ].join("\n"),
+        },
+        { path: "app/globals.css", content: ".root { color: red; }" },
+        {
+          path: "components/hero.tsx",
+          content: [
+            'import Link from "next/link";',
+            "",
+            "export const Hero = (props: { title: string }) => {",
+            `  return <section>${"hero body ".repeat(300)}</section>;`,
+            "};",
+          ].join("\n"),
+        },
+      ],
+    };
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 22_000,
+      contextPolicy: "normal",
+    });
+
+    expect(out).toContain('file="app/page.tsx"');
+    expect(out).toContain("excerpt truncated — full file");
+    expect(out).not.toContain(
+      "long body content long body content long body content long body content",
+    );
+    expect(out).toContain("// signature only — full file");
+    expect(out).not.toContain("hero body hero body hero body");
+  });
+
+  it("respects an explicit serialization=full override on a route-page file", () => {
+    const fullPage = [
+      'import Hero from "@/components/hero";',
+      "",
+      "export default function HomePage() {",
+      `  return <main>${"full body content ".repeat(40)}</main>;`,
+      "}",
+    ].join("\n");
+    const scaffold: ScaffoldManifest = {
+      id: "landing-page",
+      label: "Override scaffold",
+      description: "A scaffold used to verify per-file serialization overrides.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/layout.tsx", content: makeLongFile("Layout") },
+        { path: "app/page.tsx", content: fullPage, serialization: "full" },
+        { path: "app/globals.css", content: ".root { color: red; }" },
+      ],
+    };
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 22_000,
+      contextPolicy: "normal",
+    });
+
+    expect(out).toContain("full body content full body content");
+    expect(out).not.toContain("// excerpt truncated — full file");
+  });
+
   it("omits oversized scaffold files instead of emitting truncated TSX snippets", () => {
     const scaffold: ScaffoldManifest = {
       id: "landing-page",

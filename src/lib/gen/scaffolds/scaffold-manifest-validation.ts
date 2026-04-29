@@ -1,11 +1,31 @@
 import { getAllScaffolds } from "./registry";
-import type { ScaffoldManifest } from "./types";
+import type {
+  ScaffoldFilePromptRole,
+  ScaffoldFileSerialization,
+  ScaffoldManifest,
+} from "./types";
 
 export interface ScaffoldManifestIssue {
   scaffoldId: string;
   severity: "error" | "warning";
   message: string;
 }
+
+const VALID_FILE_ROLES: ReadonlySet<ScaffoldFilePromptRole> = new Set([
+  "root-layout",
+  "global-styles",
+  "config",
+  "route-page",
+  "shared-component",
+  "api-route",
+  "default",
+]);
+
+const VALID_FILE_SERIALIZATIONS: ReadonlySet<ScaffoldFileSerialization> = new Set([
+  "full",
+  "excerpt",
+  "signature",
+]);
 
 /**
  * SAJ-43 clarification — scaffold layout is `app/`-rooted by design.
@@ -51,6 +71,39 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
       severity: "error",
       message: `Scaffold manifests must use \`app/\`-prefix, not \`src/app/\`. Drifted files: ${srcAppFiles.map((f) => f.path).join(", ")}`,
     });
+  }
+
+  // Scaffold Contract V2: validate optional per-file render policy fields
+  // so manifest drift fails loud instead of silently rendering the wrong
+  // shape in `serialize.ts`.
+  for (const file of scaffold.files) {
+    if (file.role !== undefined && !VALID_FILE_ROLES.has(file.role)) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `Invalid role "${file.role}" on ${file.path}. Allowed: ${[...VALID_FILE_ROLES].join(", ")}`,
+      });
+    }
+    if (
+      file.serialization !== undefined &&
+      !VALID_FILE_SERIALIZATIONS.has(file.serialization)
+    ) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `Invalid serialization "${file.serialization}" on ${file.path}. Allowed: ${[...VALID_FILE_SERIALIZATIONS].join(", ")}`,
+      });
+    }
+    if (
+      file.maxPromptChars !== undefined &&
+      (!Number.isFinite(file.maxPromptChars) || file.maxPromptChars <= 0)
+    ) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `maxPromptChars on ${file.path} must be a positive number (got ${file.maxPromptChars})`,
+      });
+    }
   }
 
   const globalsCss = scaffold.files.find((file) => file.path === "app/globals.css");

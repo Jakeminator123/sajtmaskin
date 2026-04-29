@@ -151,11 +151,13 @@ Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRo
 | Mode | Triggas av | Vad som injiceras |
 |---|---|---|
 | `inspirational` | `init` + INTE heavy contextPolicy | Filträd + layout/theme-filer. "Invent a unique page flow." |
-| `structural` | `followUp` ELLER heavy contextPolicy | Full/kritisk filstruktur. Modellen följer scaffoldens baseline. |
+| `structural` | `followUp` ELLER heavy contextPolicy | Filträd + kritiska filer renderade per **Scaffold Contract V2** (full/excerpt/signature). Modellen följer scaffoldens baseline. |
 
 `detectScaffoldMode()` med kreativa nyckelord finns men **anropas inte i production**. Mode bestäms mekaniskt i `orchestrate.ts`.
 
 `selectCriticalScaffoldFiles()` prioriterar baserat på kritiska patterns + route-relevans + capability-relevans.
+
+**Scaffold Contract V2 (2026-04-29):** varje vald kritisk fil renderas via `(role, serialization)`. Defaults härleds från path så befintliga manifest fungerar oförändrade. Manifest kan overrida via valfria fält på `ScaffoldFile` (`role`, `serialization`, `maxPromptChars`). Resultat: `app/page.tsx` renderas som `excerpt` (imports + struktur), shared `components/*` som `signature` (imports + exports), medan `layout.tsx`/`globals.css`/config-filer förblir `full`. Se [`docs/schemas/scaffold-contract.md`](../schemas/scaffold-contract.md) för fullständig policy-tabell.
 
 ### STEG 10 — System Prompt (`src/lib/gen/system-prompt/`)
 

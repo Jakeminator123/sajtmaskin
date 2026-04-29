@@ -227,7 +227,19 @@ def _variants_by_scaffold(variants: list[dict[str, Any]]) -> dict[str, list[dict
     return grouped
 
 
-def _load_dossier_lookup(ctx: BackofficeContext) -> tuple[dict[str, dict[str, Any]], str | None]:
+def _load_template_catalog_lookup(
+    ctx: BackofficeContext,
+) -> tuple[dict[str, dict[str, Any]], str | None]:
+    """Load the **template-reference catalog** used by variants'
+    ``sourceTemplateIds``.
+
+    NOTE: These are catalog entries from
+    ``data/external-template-pipeline/reference-library/catalog.json`` —
+    *not* runtime dossiers from ``data/dossiers/{hard,soft}``. Backoffice
+    used to label this lookup "dossier" which made it look like the
+    runtime dossier pool was being validated; the rename here keeps the
+    UI honest about which artifact each id resolves against.
+    """
     source_path = ctx.catalog_json
     if not source_path.is_file():
         return {}, None
@@ -248,6 +260,27 @@ def _load_dossier_lookup(ctx: BackofficeContext) -> tuple[dict[str, dict[str, An
     if lookup:
         return lookup, source_path.relative_to(ctx.repo_root).as_posix()
     return {}, None
+
+
+def _count_runtime_dossiers(ctx: BackofficeContext) -> dict[str, int]:
+    """Count runtime dossier directories under ``data/dossiers/{hard,soft}``.
+
+    Used purely for backoffice display so the operator can see at a glance
+    that runtime dossiers are a different population than the template
+    catalog referenced by variant ``sourceTemplateIds``.
+    """
+    base = ctx.repo_root / "data" / "dossiers"
+    counts = {"hard": 0, "soft": 0}
+    for class_name in counts:
+        class_dir = base / class_name
+        if not class_dir.is_dir():
+            continue
+        counts[class_name] = sum(
+            1
+            for entry in class_dir.iterdir()
+            if entry.is_dir() and not entry.name.startswith("_")
+        )
+    return counts
 
 
 def _load_structural_priority_rules(ctx: BackofficeContext) -> tuple[list[tuple[re.Pattern, int]], int]:
@@ -566,8 +599,9 @@ def _render_tree_view(
     ctx: BackofficeContext,
     manifests: list[dict[str, Any]],
     variants_by_scaffold: dict[str, list[dict[str, Any]]],
-    dossier_lookup: dict[str, dict[str, Any]],
-    dossier_source_label: str | None,
+    catalog_lookup: dict[str, dict[str, Any]],
+    catalog_source_label: str | None,
+    runtime_dossier_counts: dict[str, int],
 ) -> None:
     priority_rules, default_prio = _load_structural_priority_rules(ctx)
     total_links = sum(
@@ -582,18 +616,28 @@ def _render_tree_view(
             for variants in variants_by_scaffold.values()
             for variant in variants
             for template_id in (variant.get("sourceTemplateIds", []) or [])
-            if template_id not in dossier_lookup
+            if template_id not in catalog_lookup
         }
     )
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Scaffolds", len(manifests))
     c2.metric("Varianter", sum(len(variants) for variants in variants_by_scaffold.values()))
-    c3.metric("Dossier-länkar", total_links)
-    c4.metric("Saknade dossier-ID:n", len(missing_links))
+    c3.metric("Katalog-länkar (sourceTemplateIds)", total_links)
+    c4.metric("Saknade katalog-ID:n", len(missing_links))
 
-    if dossier_source_label:
-        st.caption(f"Dossiermetadata laddas från `{dossier_source_label}`.")
+    runtime_total = runtime_dossier_counts.get("hard", 0) + runtime_dossier_counts.get("soft", 0)
+    st.caption(
+        "**Katalog ≠ runtime dossiers.** Variantens `sourceTemplateIds` pekar på poster i "
+        "`data/external-template-pipeline/reference-library/catalog.json` (kuratoriskt arkiv), "
+        "inte på runtime-dossiers under `data/dossiers/{hard,soft}/`. "
+        f"Runtime-pool just nu: {runtime_total} dossiers "
+        f"(hard={runtime_dossier_counts.get('hard', 0)}, soft={runtime_dossier_counts.get('soft', 0)}). "
+        "Se `Dossiers` i backoffice för runtime-poolen."
+    )
+
+    if catalog_source_label:
+        st.caption(f"Katalogmetadata laddas från `{catalog_source_label}`.")
 
     overview_rows = []
     for manifest in manifests:
@@ -609,8 +653,10 @@ def _render_tree_view(
                 "scaffold": scaffold_id,
                 "label": manifest.get("label", ""),
                 "variants": len(variants),
-                "dossierLinks": len(linked_ids),
-                "missingDossiers": sum(1 for template_id in linked_ids if template_id not in dossier_lookup),
+                "catalogLinks": len(linked_ids),
+                "missingCatalogIds": sum(
+                    1 for template_id in linked_ids if template_id not in catalog_lookup
+                ),
             }
         )
 
@@ -649,37 +695,37 @@ def _render_tree_view(
                     )
 
                 if source_ids:
-                    dossier_rows = []
+                    catalog_rows = []
                     structural_rows = []
                     for template_id in source_ids:
-                        dossier = dossier_lookup.get(template_id)
-                        dossier_rows.append(
+                        catalog_entry = catalog_lookup.get(template_id)
+                        catalog_rows.append(
                             {
                                 "id": template_id,
-                                "title": dossier.get("title", "saknas i katalog")
-                                if dossier
+                                "title": catalog_entry.get("title", "saknas i katalog")
+                                if catalog_entry
                                 else "saknas i katalog",
-                                "category": dossier.get("categorySlug", "")
-                                if dossier
+                                "category": catalog_entry.get("categorySlug", "")
+                                if catalog_entry
                                 else "",
-                                "qualityScore": dossier.get("qualityScore", "")
-                                if dossier
+                                "qualityScore": catalog_entry.get("qualityScore", "")
+                                if catalog_entry
                                 else "",
                             }
                         )
-                        if dossier:
-                            for structural in _collect_structural_selected_files(dossier, priority_rules, default_prio):
+                        if catalog_entry:
+                            for structural in _collect_structural_selected_files(catalog_entry, priority_rules, default_prio):
                                 structural_rows.append(
                                     {
                                         "sourceId": template_id,
-                                        "sourceTitle": dossier.get("title", template_id),
+                                        "sourceTitle": catalog_entry.get("title", template_id),
                                         "path": structural["path"],
                                         "priority": structural["priority"],
                                         "reason": structural["reason"],
                                         "truncated": structural["truncated"],
                                     }
                                 )
-                    st.dataframe(pd.DataFrame(dossier_rows), width="stretch", hide_index=True)
+                    st.dataframe(pd.DataFrame(catalog_rows), width="stretch", hide_index=True)
                     if structural_rows:
                         st.caption("Strukturella filer som skulle kunna injiceras för varianten.")
                         st.dataframe(pd.DataFrame(structural_rows), width="stretch", hide_index=True)
@@ -1274,7 +1320,8 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
 
     st.caption(
         f"Källan `{source_scaffold_id}` har {source_manifest.get('file_count', 0)} filer och används bara som filshell. "
-        "Matcher/retry-semantik och dossier-kopplingar kurateras separat."
+        "Matcher/retry-semantik och katalogreferenser (`sourceTemplateIds`) kurateras separat. "
+        "Runtime-dossiers (`data/dossiers/{hard,soft}`) är en separat pool och hanteras i sidan **Dossiers**."
     )
     with st.expander("Vad skapas automatiskt?", expanded=False):
         st.markdown("- `manifest.ts` + klonad `files/` från vald källscaffold")
@@ -1282,7 +1329,7 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
         st.markdown("- import + registrering i `registry.ts`")
         st.markdown("- svensk embedding-locale i `scaffold-embedding-locale.ts`")
         st.markdown("- neutral startvariant i `config/scaffold-variants/` om du lämnar checkboxen på")
-        st.markdown("Det som inte autokureras här är `matcher.ts`, `scaffold-aware-retry.ts`, eval-fall och dossier-rekommendationer.")
+        st.markdown("Det som inte autokureras här är `matcher.ts`, `scaffold-aware-retry.ts`, eval-fall och katalog-/dossier-rekommendationer.")
     form_key = f"create_scaffold_form_{source_scaffold_id}"
     default_label = str(source_defaults.get("label", "")).strip()
     default_description = str(source_defaults.get("description", "")).strip()
@@ -1886,13 +1933,16 @@ def render(ctx: BackofficeContext) -> None:
     scaffold_ids = [str(manifest.get("id", "")).strip() for manifest in manifests if manifest.get("id")]
     variants = _load_variants(ctx)
     variants_by_scaffold = _variants_by_scaffold(variants)
-    dossier_lookup, dossier_source_label = _load_dossier_lookup(ctx)
+    catalog_lookup, catalog_source_label = _load_template_catalog_lookup(ctx)
+    runtime_dossier_counts = _count_runtime_dossiers(ctx)
 
     st.header("Scaffold Lifecycle")
     render_where_panel("Scaffold Lifecycle", domain_map)
     st.info(
-        "Den här sidan binder ihop runtime-scaffolds, scaffold-variants och deras dossier-kopplingar. "
-        "Själva varianten är det visuella uttrycket inom en scaffold, inte ett separat runtime-lager."
+        "Den här sidan binder ihop runtime-scaffolds, scaffold-variants och deras "
+        "katalogreferenser (`sourceTemplateIds` → `data/external-template-pipeline/reference-library/catalog.json`). "
+        "Själva varianten är det visuella uttrycket inom en scaffold, inte ett separat runtime-lager. "
+        "Runtime-dossiers under `data/dossiers/{hard,soft}` är en **separat** pool som hanteras i sidan **Dossiers**."
     )
 
     overview_tab, create_tab, variants_tab, delete_tab, pipeline_tab = st.tabs(
@@ -1900,7 +1950,14 @@ def render(ctx: BackofficeContext) -> None:
     )
 
     with overview_tab:
-        _render_tree_view(ctx, manifests, variants_by_scaffold, dossier_lookup, dossier_source_label)
+        _render_tree_view(
+            ctx,
+            manifests,
+            variants_by_scaffold,
+            catalog_lookup,
+            catalog_source_label,
+            runtime_dossier_counts,
+        )
 
     with create_tab:
         st.subheader("Skapa ny scaffold")

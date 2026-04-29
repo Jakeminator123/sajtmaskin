@@ -172,6 +172,7 @@ export interface DynamicContextBlockTrace {
   title: string;
   priority: number;
   required: boolean;
+  chars: number;
   estimatedTokens: number;
   kept: boolean;
 }

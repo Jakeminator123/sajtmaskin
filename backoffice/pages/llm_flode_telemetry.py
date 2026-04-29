@@ -30,7 +30,7 @@ import pandas as pd
 import streamlit as st
 
 from backoffice.observability_io import load_tail_ndjson
-from backoffice.shared import BackofficeContext
+from backoffice.shared import BackofficeContext, load_latest_prompt_size_metrics
 
 _MAX_RUNS = 20
 _MAX_ROWS_PER_RUN = 500
@@ -382,6 +382,88 @@ def _render_image_replaced(run_dirs: list[Path]) -> None:
     _ = run_dirs  # används inte ännu
 
 
+def _render_prompt_size(ctx: BackofficeContext) -> None:
+    st.subheader("Senaste prompt-storlek (`promptSize` i `generation-input-package.json`)")
+    st.caption(
+        "Aggregerade chars/tokens från senaste orchestration-dynamic prompt-dump. "
+        "Visas när `SAJTMASKIN_PROMPT_DUMP=true` har skrivit "
+        "`data/prompt-dumps/orchestration-dynamic/generation-input-package.json`. "
+        "Källa: `prepareGenerationContext` → `buildPromptSizeMetrics`."
+    )
+    snapshot = load_latest_prompt_size_metrics(ctx.repo_root)
+    if not snapshot:
+        st.info(
+            "Ingen `promptSize`-data hittad. Sätt `SAJTMASKIN_PROMPT_DUMP=true` i "
+            "`.env.local` och kör en generation för att populera dump-filen."
+        )
+        return
+
+    prompt_size = snapshot["promptSize"]
+    total = prompt_size.get("total", {}) or {}
+    static_core = prompt_size.get("staticCore", {}) or {}
+    dynamic_context = prompt_size.get("dynamicContext", {}) or {}
+    dynamic_budget = prompt_size.get("dynamicBudget", {}) or {}
+    blocks = prompt_size.get("blocks", {}) or {}
+
+    cap_meta = []
+    if snapshot.get("scaffoldId"):
+        cap_meta.append(f"scaffold `{snapshot['scaffoldId']}`")
+    if snapshot.get("variantId"):
+        cap_meta.append(f"variant `{snapshot['variantId']}`")
+    if snapshot.get("dumpedAtUtc"):
+        cap_meta.append(f"dumpedAt `{snapshot['dumpedAtUtc'][:19]}Z`")
+    if cap_meta:
+        st.caption("Kontext: " + " · ".join(cap_meta))
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric(
+        "Total prompt",
+        f"{int(total.get('chars', 0)):,} chars",
+        f"~{int(total.get('estimatedTokens', 0)):,} tokens",
+    )
+    col2.metric(
+        "Static core",
+        f"{int(static_core.get('chars', 0)):,} chars",
+        f"~{int(static_core.get('estimatedTokens', 0)):,} tokens",
+    )
+    col3.metric(
+        "Dynamic context",
+        f"{int(dynamic_context.get('chars', 0)):,} chars",
+        f"~{int(dynamic_context.get('estimatedTokens', 0)):,} tokens",
+    )
+
+    col4, col5, col6 = st.columns(3)
+    col4.metric("Budget tokens", f"{int(dynamic_budget.get('budgetTokens', 0)):,}")
+    col5.metric("Used tokens", f"{int(dynamic_budget.get('usedTokens', 0)):,}")
+    col6.metric(
+        "Dropped blocks",
+        int(dynamic_budget.get("droppedBlocks", 0)),
+        f"of {int(blocks.get('total', 0))}",
+    )
+
+    largest = blocks.get("largest")
+    if isinstance(largest, list) and largest:
+        rows = []
+        for entry in largest:
+            if not isinstance(entry, dict):
+                continue
+            rows.append(
+                {
+                    "Block": entry.get("title") or entry.get("key") or "—",
+                    "Chars": int(entry.get("chars", 0)),
+                    "Tokens": int(entry.get("estimatedTokens", 0)),
+                    "Priority": entry.get("priority", "—"),
+                    "Required": "ja" if entry.get("required") else "nej",
+                    "Kept": "ja" if entry.get("kept") else "nej",
+                }
+            )
+        if rows:
+            st.markdown("**Topp dynamic blocks (största först)**")
+            st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+    st.caption(f"Källfil: `{snapshot.get('dumpPath', '?')}`")
+
+
 def _render_dossier_stubs(run_dirs: list[Path]) -> None:
     st.subheader("Cross-file stubs (`dossier_stub_created` / `crossFileStubs`)")
     st.caption(
@@ -456,6 +538,9 @@ def render(ctx: BackofficeContext) -> None:
         f"Läser {len(run_dirs)} senaste körning(ar). "
         "Alla värden är aggregerade observability-signaler, inte alarm."
     )
+
+    st.divider()
+    _render_prompt_size(ctx)
 
     st.divider()
     _render_site_aborted(run_dirs)

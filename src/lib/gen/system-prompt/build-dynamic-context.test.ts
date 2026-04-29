@@ -14,6 +14,7 @@ describe("buildDynamicContext", () => {
     expect(result.context).toContain("## Scaffold-default files");
     expect(result.blocks.find((block) => block.title === "Scaffold-default files")).toMatchObject({
       required: true,
+      chars: expect.any(Number),
     });
     for (const path of SCAFFOLD_PROTECTED_PATHS) {
       expect(result.context).toContain(`\`${path}\``);

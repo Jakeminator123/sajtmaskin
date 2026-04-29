@@ -276,6 +276,7 @@ export function buildDynamicContext(
     title: block.title,
     priority: block.priority,
     required: Boolean(block.required),
+    chars: block.text.length,
     estimatedTokens: block.estimatedTokens,
     kept: keptKeys.has(block.key),
   }));

@@ -1,6 +1,7 @@
 import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "../prompt-dump";
 import {
   type GenerationInputPackage,
+  buildGenerationPromptSize,
   computeLineageHash,
   serializePackageForDump,
 } from "../generation-input-package";
@@ -63,6 +64,13 @@ export function buildGenerationInputPackage(
     variantId: finalized.variantId,
   });
 
+  const promptSize = buildGenerationPromptSize({
+    engineSystemPrompt: finalized.engineSystemPrompt,
+    dynamicContext: finalized.dynamicContext,
+    dynamicContextPruning: finalized.dynamicContextPruning,
+    dynamicContextBlocks: finalized.dynamicContextBlocks,
+  });
+
   return {
     ...base,
     userPrompt: input.prompt,
@@ -73,6 +81,7 @@ export function buildGenerationInputPackage(
     dynamicContext: finalized.dynamicContext,
     dynamicContextPruning: finalized.dynamicContextPruning,
     dynamicContextBlocks: finalized.dynamicContextBlocks,
+    promptSize,
     variantId: finalized.variantId,
     lineageHash,
   };
@@ -97,9 +106,16 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       buildSpecContextPolicy: pkg.buildSpec.contextPolicy,
       buildSpecPreviewPolicy: pkg.buildSpec.previewPolicy,
       promptLength: pkg.userPrompt.length,
+      engineSystemPromptLength: pkg.promptSize.total.chars,
+      engineSystemPromptEstimatedTokens: pkg.promptSize.total.estimatedTokens,
+      staticCoreLength: pkg.promptSize.staticCore.chars,
+      staticCoreEstimatedTokens: pkg.promptSize.staticCore.estimatedTokens,
+      dynamicContextLength: pkg.promptSize.dynamicContext.chars,
+      dynamicContextEstimatedTokens: pkg.promptSize.dynamicContext.estimatedTokens,
       dynamicContextBudgetTokens: pkg.dynamicContextPruning.budgetTokens,
       dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
       dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
+      dynamicContextLargestBlocks: pkg.promptSize.blocks.largest,
       variantId: pkg.variantId ?? null,
     },
   );
