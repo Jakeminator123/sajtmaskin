@@ -121,8 +121,12 @@ renders each selected critical file based on its resolved
 | Resolved policy | What reaches the LLM |
 |-----------------|----------------------|
 | `full` | Verbatim file content (used for `app/layout.tsx`, `app/globals.css`, `package.json`, `tailwind.config.*`, `next.config.*`). |
-| `excerpt` | Imports + exported identifiers + structural body excerpt (default ~700 chars; `route-page` gets ~900). The block ends with a marker comment that records the full file size. |
-| `signature` | Imports + exported identifiers only — used for `components/*` and `app/.../route.ts` so the LLM sees the contract without re-reading bodies. |
+| `excerpt` | A `FileContract` block, not a source-code fence. It lists path, role, completeness, ownership, mustEmit, source size, imports, exports, detected structure, and rules. Used for `route-page` and other files where partial code would be misleading. |
+| `signature` | A `FileContract` block with imports/exports/structure only — used for `components/*` and `app/.../route.ts` so the LLM sees the interface without re-reading bodies. |
+
+`FileContract` blocks are explicitly **not executable source**. They must never
+be copied into output. If the LLM emits a path described by a FileContract, it
+must emit a complete valid file that follows the contract.
 
 Manifest authors override the defaults by setting the optional V2 fields on a
 `ScaffoldFile`. Validation flags unknown roles, unknown serialization values,

@@ -40,6 +40,11 @@ const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
 
 const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 10_000;
 const INSPIRATIONAL_LAYOUT_FILE_BUDGET_CHARS = 2_400;
+const FILE_CONTRACT_HEADER = [
+  "The following entries are **FileContract** summaries, not complete source files.",
+  "Never copy a FileContract block verbatim into output.",
+  "When you emit any listed path, emit a complete valid file that follows the contract.",
+].join(" ");
 
 function extractImportLines(content: string): string[] {
   const lines = content.split("\n");
@@ -117,34 +122,94 @@ function extractTopLevelExports(content: string): string[] {
   return Array.from(new Set(exports)).slice(0, 8);
 }
 
-function buildSignatureBody(file: ScaffoldFile): string {
-  const importLines = extractImportLines(file.content);
-  const exports = extractTopLevelExports(file.content);
-  const importBlock = importLines.join("\n");
-  const exportLine = exports.length
-    ? `// exports: ${exports.join(", ")}`
-    : "// (no top-level exports detected)";
-  const sizeNote = `// signature only — full file ${file.content.length} chars in scaffold runtime`;
-  return [importBlock, "", exportLine, sizeNote].filter(Boolean).join("\n");
+function extractJsxOutline(content: string): string[] {
+  const tags = Array.from(
+    content.matchAll(/<([A-Z][A-Za-z0-9_.]*|main|section|header|footer|nav|article|aside)\b/g),
+    (match) => match[1],
+  );
+  return Array.from(new Set(tags)).slice(0, 12);
 }
 
-function buildExcerptBody(file: ScaffoldFile, maxBodyChars: number): string {
+function routePathForFile(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  if (normalized === "app/page.tsx" || normalized === "src/app/page.tsx") return "/";
+  const match = normalized.match(/^(?:src\/)?app\/(.+)\/page\.tsx$/);
+  if (!match) return "(unknown)";
+  return `/${match[1].replace(/\[[^\]]+\]/g, ":param")}`;
+}
+
+function formatContractList(label: string, values: string[]): string[] {
+  if (values.length === 0) return [`- ${label}: (none detected)`];
+  return [`- ${label}:`, ...values.map((value) => `  - \`${value}\``)];
+}
+
+function buildFileContract(params: {
+  file: ScaffoldFile;
+  role: ScaffoldFilePromptRole;
+  serialization: ScaffoldFileSerialization;
+  completeness: "partial-not-executable" | "signature-only";
+  ownership: "llm-owned" | "scaffold-owned";
+  mustEmit: boolean;
+  notes: string[];
+}): string {
+  const { file, role, serialization, completeness, ownership, mustEmit, notes } = params;
   const importLines = extractImportLines(file.content);
-  const importBlock = importLines.join("\n");
   const exports = extractTopLevelExports(file.content);
-  let body = file.content;
-  if (importBlock && file.content.startsWith(importLines[0] ?? "")) {
-    const importEndIndex = file.content.indexOf(importBlock) + importBlock.length;
-    body = file.content.slice(importEndIndex).replace(/^\s+/, "");
-  }
-  let bodyExcerpt = body;
-  if (bodyExcerpt.length > maxBodyChars) {
-    const cut = bodyExcerpt.lastIndexOf("\n", maxBodyChars);
-    bodyExcerpt = bodyExcerpt.slice(0, cut > 0 ? cut : maxBodyChars).trimEnd();
-    bodyExcerpt += `\n// ... excerpt truncated — full file ${file.content.length} chars in scaffold runtime`;
-  }
-  const exportLine = exports.length ? `// exports: ${exports.join(", ")}` : "";
-  return [importBlock, exportLine, "", bodyExcerpt].filter(Boolean).join("\n");
+  const outline = extractJsxOutline(file.content);
+  return [
+    `### FileContract: ${file.path}`,
+    `- role: ${role}`,
+    `- serialization: ${serialization}`,
+    `- completeness: ${completeness}`,
+    `- ownership: ${ownership}`,
+    `- mustEmit: ${mustEmit ? "true" : "false"}`,
+    `- sourceChars: ${file.content.length}`,
+    ...(role === "route-page" ? [`- routePath: ${routePathForFile(file.path)}`] : []),
+    ...formatContractList("imports", importLines),
+    ...formatContractList("exports", exports),
+    ...formatContractList("structure", outline),
+    "- rules:",
+    "  - Do not copy this FileContract into generated code.",
+    "  - Preserve listed imports/exports unless intentionally replacing the dependency.",
+    "  - If you emit this path, return a complete valid file.",
+    ...notes.map((note) => `  - ${note}`),
+  ].join("\n");
+}
+
+function buildSignatureContract(
+  file: ScaffoldFile,
+  role: ScaffoldFilePromptRole,
+  serialization: ScaffoldFileSerialization,
+): string {
+  return buildFileContract({
+    file,
+    role,
+    serialization,
+    completeness: "signature-only",
+    ownership: role === "route-page" ? "llm-owned" : "scaffold-owned",
+    mustEmit: role === "route-page",
+    notes: ["Use this as an interface/shape reference, not as a body template."],
+  });
+}
+
+function buildExcerptContract(
+  file: ScaffoldFile,
+  role: ScaffoldFilePromptRole,
+  serialization: ScaffoldFileSerialization,
+  maxBodyChars: number,
+): string {
+  return buildFileContract({
+    file,
+    role,
+    serialization,
+    completeness: "partial-not-executable",
+    ownership: role === "route-page" ? "llm-owned" : "scaffold-owned",
+    mustEmit: role === "route-page",
+    notes: [
+      `Full source body intentionally omitted from prompt (excerpt budget ${maxBodyChars} chars).`,
+      "Use the structure list and imports/exports to produce your own complete implementation.",
+    ],
+  });
 }
 
 function resolveFileRenderPolicy(
@@ -160,14 +225,16 @@ function renderScaffoldFileBlock(file: ScaffoldFile): {
   serialization: ScaffoldFileSerialization;
 } {
   const { role, serialization } = resolveFileRenderPolicy(file);
-  let body: string;
   switch (serialization) {
-    case "full":
-      body = file.content;
-      break;
+    case "full": {
+      const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
+      return { block, serialization };
+    }
     case "signature":
-      body = buildSignatureBody(file);
-      break;
+      return {
+        block: buildSignatureContract(file, role, serialization),
+        serialization,
+      };
     case "excerpt":
     default: {
       const baseBudget =
@@ -176,12 +243,12 @@ function renderScaffoldFileBlock(file: ScaffoldFile): {
         typeof file.maxPromptChars === "number" && file.maxPromptChars > 0
           ? file.maxPromptChars
           : baseBudget;
-      body = buildExcerptBody(file, budget);
-      break;
+      return {
+        block: buildExcerptContract(file, role, serialization, budget),
+        serialization,
+      };
     }
   }
-  const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${body}\n\`\`\``;
-  return { block, serialization };
 }
 
 const CRITICAL_PATH_PATTERNS = [
@@ -275,7 +342,7 @@ export function serializeScaffoldForPrompt(
   const fileTree = buildScaffoldFileTree(scaffold);
   const criticalFiles = selectCriticalScaffoldFiles(scaffold, contextPolicy, options);
   const usedBeforeCritical =
-    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n_Scaffold files are rendered using a per-role policy: \`layout.tsx\`, \`globals.css\`, and config files are full; \`page.tsx\` is shown as imports + structural excerpt; shared components and route handlers as imports + export signature. Treat the excerpts as canonical interfaces — keep the imports/exports stable, and fill in the body to match the user's request._\n\n`;
+    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n${FILE_CONTRACT_HEADER}\n\nScaffold files are rendered using a per-role policy: \`layout.tsx\`, \`globals.css\`, and config files are complete code fences; \`page.tsx\` becomes a FileContract; shared components and route handlers become FileContracts with imports/exports/signature only.\n\n`;
   const criticalBudget = Math.max(3_000, maxChars - usedBeforeCritical.length - hints.length);
   const criticalBlocks = renderSelectedScaffoldFiles(criticalFiles, criticalBudget);
 

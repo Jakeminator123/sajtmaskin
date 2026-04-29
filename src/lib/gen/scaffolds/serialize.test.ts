@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getAllScaffolds } from "./registry";
 import { serializeScaffoldForPrompt } from "./serialize";
 import type { ScaffoldManifest } from "./types";
 
@@ -44,7 +45,7 @@ describe("serializeScaffoldForPrompt", () => {
     expect(out).toContain("## Scaffold File Tree");
     expect(out).toContain("## Critical Scaffold Files");
     expect(out).toContain('file="app/layout.tsx"');
-    expect(out).toContain('file="app/page.tsx"');
+    expect(out).toContain("### FileContract: app/page.tsx");
     expect(out).not.toContain("NON_CRITICAL_PAYLOAD");
   });
 
@@ -92,7 +93,7 @@ describe("serializeScaffoldForPrompt", () => {
       },
     });
 
-    expect(out).toContain('file="components/login-form.tsx"');
+    expect(out).toContain("### FileContract: components/login-form.tsx");
   });
 
   it("renders a route-page as excerpt by default and shrinks Critical Scaffold Files", () => {
@@ -142,12 +143,17 @@ describe("serializeScaffoldForPrompt", () => {
       contextPolicy: "normal",
     });
 
-    expect(out).toContain('file="app/page.tsx"');
-    expect(out).toContain("excerpt truncated — full file");
+    expect(out).toContain("### FileContract: app/page.tsx");
+    expect(out).toContain("- completeness: partial-not-executable");
+    expect(out).toContain("- mustEmit: true");
+    expect(out).toContain("- routePath: /");
+    expect(out).toContain("Full source body intentionally omitted");
+    expect(out).not.toContain('```tsx file="app/page.tsx"');
     expect(out).not.toContain(
       "long body content long body content long body content long body content",
     );
-    expect(out).toContain("// signature only — full file");
+    expect(out).toContain("### FileContract: components/hero.tsx");
+    expect(out).toContain("- completeness: signature-only");
     expect(out).not.toContain("hero body hero body hero body");
   });
 
@@ -204,5 +210,22 @@ describe("serializeScaffoldForPrompt", () => {
     expect(out).not.toContain("// ... truncated");
     expect(out).toContain("omitted for prompt budget");
     expect(out).toContain("components/site-header.tsx");
+  });
+
+  it("keeps Critical Scaffold Files under 6k across all runtime scaffolds", () => {
+    for (const scaffold of getAllScaffolds()) {
+      const out = serializeScaffoldForPrompt(scaffold, "structural", {
+        maxChars: 10_000,
+        contextPolicy: "normal",
+      });
+      const critical = out.split("## Critical Scaffold Files\n\n")[1] ?? "";
+      const criticalWithoutHints = critical.split("\n\nScaffold hints:")[0] ?? critical;
+      expect(
+        criticalWithoutHints.length,
+        `${scaffold.id} Critical Scaffold Files too large`,
+      ).toBeLessThanOrEqual(6_000);
+      expect(criticalWithoutHints).not.toMatch(/```tsx file="(?:app|src\/app)\/[^"]*page\.tsx"/);
+      expect(criticalWithoutHints).toContain("FileContract");
+    }
   });
 });
