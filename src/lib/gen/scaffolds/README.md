@@ -28,7 +28,7 @@ when generating code.
 | File | Size | What it is |
 |------|------|-----------|
 | `scaffold-embeddings.json` | ~2 MB | OpenAI vectors for the 9 scaffolds. Used by `searchScaffolds()` when semantic fallback is needed. |
-| `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, `referenceTemplates`). Built from the external template-library pipeline. |
+| `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, `referenceTemplates`). Historically built from the external template-library pipeline (now deprecated). Treated as a legacy snapshot until rebuild path is rewired. |
 
 ## Indexed files (readable by agents)
 
@@ -56,6 +56,6 @@ when generating code.
 
 ## Regeneration Notes
 
-- `scaffold-research.generated.json` is rebuilt by `scripts/template-library/build-template-library.ts`.
-- `scaffold-embeddings.json` is rebuilt by `scripts/embeddings/generate-scaffold-embeddings.ts`.
+- `scaffold-research.generated.json` was historically rebuilt by `scripts/template-library/build-template-library.ts`. That script + its `template-library:*` npm targets are deprecated/removed (see `registry.ts` header). Treat the file as a legacy snapshot until the dossier-based research path replaces it.
+- `scaffold-embeddings.json` is rebuilt by `npm run scaffolds:embeddings` (`scripts/embeddings/generate-scaffold-embeddings.ts`).
 - If scaffold research changes, regenerate embeddings too so semantic matching uses the same merged scaffold data as runtime.

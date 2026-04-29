@@ -194,12 +194,12 @@ Samlat från audit-rapporter, plans/active och denna analys. Detta är **inte ny
 |---|---|---|---|
 | **Single repair gate** | 5 callsites till `runLlmFixer` | 1 RepairGate-modul med 3 buckets internt | `L1-unified-repair-call.md` (parkad — väntar telemetri) |
 | **Status event bus** | DB-flaggor + SSE-events parallellt; UI läser DB | UI läser projektion `selectVersionStatus(events)` | `Kvarvarande-uppgifter.md` #11 |
-| **Brief-vägar** | klient-brief / server-auto-brief / snapshot-brief / fallback-addendum | Sekventiell hierarki: klient → server-auto → snapshot → ingen | P2 (öppet, fas1-doc) |
+| **Brief-vägar** | klient-brief / server-auto-brief / snapshot-brief; fallback-addendum finns kvar som degraderad helper, inte som init-chat-wrapper | Sekventiell hierarki: klient → server-auto → snapshot → ingen | P2 (öppet, fas1-doc) |
 | **Follow-up som strikt delta** | rätt i praktiken, men spritt över helpers | `FollowUpContract`-typ som samlar inheritance | (ingen aktiv plan) |
 | **Verifier-pass placering** | Inline i finalize, men hoppas över på fast-path | Antingen alltid inline (med budget) eller helt asynk | Audit §3.1 (telemetri-blockad) |
 | **Partial-file-repair** | 1 LLM-fixer-runda + abort | Ta bort när fast-tier byts till GPT-5+ (kompletta filer alltid) | Audit §3.3 (telemetri-blockad) |
 | **3D runtime smoke-check** | Saknas | WebGL render mount-check ingår i F2-checks vid `needs3D` | (ingen aktiv plan) |
-| **Prompt-lager-konsolidering** | Deep Brief + Rewrite + Polish + formatPrompt + server-auto-brief | En kanonisk path | P7 (öppet) |
+| **Prompt-lager-konsolidering** | Deep Brief + server-auto-brief + snapshot-brief + kvarvarande prompt-assist helpers (`formatPrompt` i wizard/runner). Rewrite/Polish-UI är legacy. | En kanonisk path | P7 (öppet) |
 | **WebContainers istället för Fly-VM** | preview boot 2-5 min | 5 sek (50-60×) | Audit Tier D #38 — strategisk satsning |
 
 ---

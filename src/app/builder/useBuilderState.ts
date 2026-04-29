@@ -108,8 +108,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
   const [isDeployNameSaving, setIsDeployNameSaving] = useState(false);
   const [externalProjectId, setExternalProjectId] = useState<string | null>(null);
-  const [promptAssistContext, setPromptAssistContext] = useState<string | null>(null);
-  const promptAssistContextKeyRef = useRef<string | null>(null);
+  const filesContextKeyRef = useRef<string | null>(null);
   // Raw page code for section analysis in component picker
   const [currentPageCode, setCurrentPageCode] = useState<string | undefined>(undefined);
   const [existingUiComponents, setExistingUiComponents] = useState<string[]>([]);
@@ -265,9 +264,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setIsDeployNameSaving,
     externalProjectId,
     setExternalProjectId,
-    promptAssistContext,
-    setPromptAssistContext,
-    promptAssistContextKeyRef,
+    filesContextKeyRef,
     currentPageCode,
     setCurrentPageCode,
     existingUiComponents,

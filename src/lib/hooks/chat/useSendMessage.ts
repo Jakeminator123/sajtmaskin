@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { formatPrompt } from "@/lib/builder/prompt-assist";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
@@ -214,7 +213,9 @@ export function useSendMessage(
       let streamController: AbortController | null = null;
 
       try {
-        const formattedMessage = formatPrompt(messageText);
+        // Follow-ups are delta operations; keep the user's wording intact.
+        // Shared requirements live in Core Rules and snapshot context.
+        const formattedMessage = messageText;
         const finalMessage = appendAttachmentPrompt(
           formattedMessage,
           options.attachmentPrompt,

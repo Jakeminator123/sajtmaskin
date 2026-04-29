@@ -1,7 +1,6 @@
 "use client";
 
 import type { ChatMessage } from "@/lib/builder/types";
-import { buildPromptAssistContext } from "@/lib/builder/promptAssistContext";
 import { normalizeBuildIntent } from "@/lib/builder/build-intent";
 import { normalizeDesignTheme } from "@/lib/builder/theme-presets";
 import {
@@ -93,7 +92,7 @@ export function useBuilderPageController() {
     setEnableImageGenerations, setEnableThinking, setEntryIntentActive,
     setExistingUiComponents,
     setIsImageGenerationsSupported, setIsIntentionalReset, setIsMediaEnabled,
-    setMessages, setPaletteState, setPreviewRefreshToken, setPromptAssistContext,
+    setMessages, setPaletteState, setPreviewRefreshToken,
     setResolvedPrompt, setSelectedModelTier, setSelectedVersionId,
     setServerProjectChatId, setServerProjectDemoUrl, setServerProjectMessages,
     setServerProjectPreviewOverrideUrl, setServerProjectPreviewOverrideVersionId,
@@ -104,7 +103,7 @@ export function useBuilderPageController() {
     lastPaletteSavedRef, lastProjectIdRef,
     loadedGenerationSettingsChatRef, paletteLoadedRef, pendingBriefRef,
     pendingInstructionsOnceRef, pendingInstructionsRef,
-    promptAssistContextKeyRef, promptFetchDoneRef,
+    filesContextKeyRef, promptFetchDoneRef,
     promptFetchInFlightRef,
   } = state;
 
@@ -1397,13 +1396,12 @@ export function useBuilderPageController() {
         ? `${chatId}:${derived.activeVersionId}:${state.previewRefreshToken}`
         : null;
     if (!contextKey) {
-      promptAssistContextKeyRef.current = null;
-      setPromptAssistContext(null);
+      filesContextKeyRef.current = null;
       setExistingUiComponents([]);
       return;
     }
-    if (promptAssistContextKeyRef.current === contextKey) return;
-    promptAssistContextKeyRef.current = contextKey;
+    if (filesContextKeyRef.current === contextKey) return;
+    filesContextKeyRef.current = contextKey;
 
     let isActive = true;
     const controller = new AbortController();
@@ -1411,7 +1409,6 @@ export function useBuilderPageController() {
     const fetchContext = async () => {
       try {
         if (!chatId || !derived.activeVersionId) {
-          if (isActive) setPromptAssistContext("");
           return;
         }
         // Liten delay sa fetchen inte race:ar mot finalize-pipens
@@ -1427,9 +1424,6 @@ export function useBuilderPageController() {
         // mot finalize-persist). Vi tystar dem och provar igen vid nasta
         // refreshToken-tick istallet for att spamma Chrome-konsolen.
         if (response.status === 404) {
-          if (isActive) {
-            setPromptAssistContext("");
-          }
           return;
         }
         const data = (await response.json().catch(() => null)) as {
@@ -1437,14 +1431,11 @@ export function useBuilderPageController() {
         } | null;
         if (!response.ok || !Array.isArray(data?.files)) {
           if (isActive) {
-            setPromptAssistContext("");
             setCurrentPageCode(undefined);
             setExistingUiComponents([]);
           }
           return;
         }
-        const context = buildPromptAssistContext(data.files);
-        if (isActive) setPromptAssistContext(context);
 
         const pageFile = data.files.find(
           (f) =>
@@ -1483,7 +1474,6 @@ export function useBuilderPageController() {
       } catch (error) {
         if (!isActive) return;
         if (error instanceof Error && error.name === "AbortError") return;
-        setPromptAssistContext("");
         setExistingUiComponents([]);
       }
     };
@@ -1493,13 +1483,13 @@ export function useBuilderPageController() {
       isActive = false;
       controller.abort();
     };
-  }, [chatId, derived.activeVersionId, state.previewRefreshToken, promptAssistContextKeyRef, setPromptAssistContext, setExistingUiComponents, setCurrentPageCode]);
+  }, [chatId, derived.activeVersionId, state.previewRefreshToken, filesContextKeyRef, setExistingUiComponents, setCurrentPageCode]);
 
   const handleFilesSaved = useCallback(() => {
-    promptAssistContextKeyRef.current = null;
+    filesContextKeyRef.current = null;
     promptFetchDoneRef.current = null;
     setPreviewRefreshToken(Date.now());
-  }, [promptAssistContextKeyRef, promptFetchDoneRef, setPreviewRefreshToken]);
+  }, [filesContextKeyRef, promptFetchDoneRef, setPreviewRefreshToken]);
 
   // Auto-start generation for prompt-handoff flows from landing page.
   // Triggers when user submitted a prompt on `/` and was navigated to /builder

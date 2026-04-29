@@ -55,7 +55,7 @@ Två lager bearbetar prompten **före** kodgenerering:
 | Lager | Vad det gör | Var output hamnar | Kodfiler |
 |-------|-------------|-------------------|----------|
 | **Deep brief** (`/api/ai/brief`) | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kanonisk semantisk expansion för init. | `meta.brief` → systemprompten via `buildDynamicContext()`. Genererar ~15–20k tecken dynamisk kontext. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
-| **`formatPrompt()`** *(fallback)* | Enkel client-side formatter som wrappar text i `MÅL / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. Körs **bara** när Deep Brief inte är aktiv (assist off eller brief-generering misslyckades). | User-meddelandet i streamen (`message`-fältet). | `src/lib/builder/prompt-assist/formatters.ts` (post-OMTAG-03 split) |
+| **`formatPrompt()`** *(legacy wrapper)* | Enkel client-side formatter som wrappar text i `MÅL / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. **Inte längre i `useCreateChat`-init-vägen** (sedan 2026-04-28 — Core Rules bar redan kraven, wrappern var brus). Lever kvar i prompt-wizard och `prompt-assist/runner`. | User-meddelandet i de paths som fortfarande använder den. | `src/lib/builder/prompt-assist/formatters.ts` (post-OMTAG-03 split) |
 
 Flödet vid freeform create-chat:
 
@@ -67,7 +67,7 @@ Flödet vid freeform create-chat:
 6. Användarens **råa prompttext** skickas som user-message (ingen MÅL/CONSTRAINTS-wrappning)
 7. Kodgeneratorn ser: statisk kärna (23k) + dynamisk kontext (17k) + rå user-message
 
-**Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) körs `formatPrompt()` som fallback och `buildDynamicInstructionAddendumFromPrompt()` för en enklare prompt-baserad expansion.
+**Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) skickar `useCreateChat` user-prompten rå (sedan 2026-04-28) och kör `buildDynamicInstructionAddendumFromPrompt()` för en enklare prompt-baserad expansion. `formatPrompt()` används inte i den vägen längre.
 
 ## Viktiga noter
 

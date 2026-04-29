@@ -22,7 +22,7 @@ Den här filen är **nästa sessions anchor**. Den summerar målbilden från ext
 
 | # | Lager | Canonical kod | Senaste verifierade gap |
 |---|---|---|---|
-| 1 | Brief / intent | `src/lib/gen/site-brief-generation.ts` + `src/lib/gen/orchestrate.ts` (`requestKind`) | `requestKind` loggas men styr inte `deriveBuildSpec` (P32 Fas B) → frågor blir full regen |
+| 1 | Brief / intent | `src/lib/builder/site-brief-generation.ts` + `src/lib/gen/orchestrate.ts` (`requestKind`) | `requestKind` loggas men styr inte `deriveBuildSpec` (P32 Fas B) → frågor blir full regen |
 | 2 | Orkestrering | `src/lib/gen/orchestrate.ts`, `src/lib/gen/scaffolds/scaffold-search.ts`, `src/lib/gen/dossiers/select.ts` | 3 olika init/follow-up-bedömningar i `orchestrate.ts` kan divergera; `inferScaffoldRetrySuggestion` får wrappad `optimizedMessage` istället för rå prompt (P26-poisoning); **Audit D (2026-04-27): cap-bridge nu utökad till 6 cap-keys** (`needs3D`, `needsParallax`, `needsPayments`, `needsAuth`, `needsCarousel`, `needsCommandSearch`); 12 övriga cap-keys förblir scaffold/system-prompt-concerns |
 | 3 | LLM Codegen | `src/lib/providers/own-engine/`, `src/lib/gen/system-prompt/` | LLM får producera "Parallax" som litterärt innehåll (literal-tolkning); ingen kreativ-vs-strukturell separation i prompt |
 | 4 | Deterministisk autofix | `src/lib/gen/autofix/*` | `runAutoFix.rebuildContent` global `replace` kan uppdatera fel fil; LLM-fixer balanced-delimiters kan acceptera ofullständig fil |

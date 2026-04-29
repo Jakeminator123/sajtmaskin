@@ -46,15 +46,17 @@ own-engine stream
 ```
 
 This module is the canonical generation path (own-engine). If you need the
-actual scaffold/template lookup behavior, read `scaffolds/README.md` and
-`template-library/README.md` before opening the generated JSON blobs.
+actual scaffold/template lookup behavior, read `scaffolds/README.md` before
+opening the generated JSON blobs. The legacy `template-library/` runtime
+artifact is no longer present in this folder (pipeline deprecated 2026-04-17;
+see `scaffolds/registry.ts` header comment).
 
 ## Phase Model
 
 Files in `gen/` follow the LLM pipeline's three phases:
 
-- **Phase 2 (orchestration + generation):** Root files — orchestrate, scaffold, route plan, contracts, BuildSpec, system prompt, engine, streaming. Subdirs: `scaffolds/`, `contract/`, `context/`, `data/`, `plan/`, `template-library/`, `packs/`, `security/`.
-- **Phase 3 (post-generation):** Autofix, repair, verify, quality gate, preview, export, finalize. Subdirs: `autofix/`, `stream/`, `verify/`, `validation/`, `post-process/`, `export/`, `preview/`, `suspense/`, `retry/`.
+- **Phase 2 (orchestration + generation):** Root files — orchestrate, scaffold, route plan, contracts, BuildSpec, system prompt, engine, streaming. Subdirs: `scaffolds/`, `scaffold-variants/`, `contract/`, `dossiers/`, `system-prompt/`, `build-spec/`, `orchestrate/`, `plan/`, `packs/`, `security/`.
+- **Phase 3 (post-generation):** Autofix, repair, verify, quality gate, preview, export, finalize. Subdirs: `autofix/`, `stream/` (incl. `finalize-version/`), `verify/`, `validation/`, `post-process/`, `export/`, `preview/`, `suspense/`, `retry/`.
 - **Phase 1 (pre-orchestration):** Prompt processing, brief, intent, model selection. Lives in `src/lib/builder/`, not here.
 
 ## Key Files
@@ -62,18 +64,20 @@ Files in `gen/` follow the LLM pipeline's three phases:
 | File | Phase | Role |
 |------|-------|------|
 | `orchestrate.ts` | 2 | Canonical fan-in: scaffold selection, route planning, contract inference, BuildSpec, prompt assembly. |
-| `system-prompt/` | 2 | Builds dynamic prompt context and composes the final engine system prompt. |
+| `orchestrate/` | 2 | Helpers split out of `orchestrate.ts` (generation-package, scaffold-query-context, scaffold-variant-resolver, policy-helpers). |
+| `system-prompt/` | 2 | Builds dynamic prompt context (`build-dynamic-context.ts`) and composes the final engine system prompt (`compose.ts`). |
 | `engine.ts` | 2 | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
 | `generation-input-package.ts` | 2 | `GenerationInputPackage` type, `computeLineageHash()`, dump serialization. |
-| `build-spec.ts` | 2 | Derives `BuildSpec` (policy, budgets, quality targets) from all inputs. |
+| `build-spec/` | 2 | Derives `BuildSpec` (policy, budgets, quality targets) from all inputs. Public entry: `deriveBuildSpec` in `builder.ts`, types in `types.ts`, barrel in `index.ts` (post-OMTAG-03 split — no top-level `build-spec.ts` anymore). |
 | `route-plan.ts` | 2 | Builds and normalizes route plans from brief/prompt/scaffold. |
 | `capability-inference.ts` | 2 | Regex-based prompt capability classification. |
 | `parser.ts` | 2–3 | Parses fenced code blocks from streamed content. Used across phases. |
 | `version-manager.ts` | 2–3 | DB version accessors, file parsing, merge. Used across phases. |
 | `url-compress.ts` | 2 | Compresses long URLs to aliases before LLM, expands after. |
 | `scaffolds/` | 2 | Runtime scaffold manifests, matcher/search/serialize, research/embeddings. |
-| `template-library/` | 2 | Curated external-template artifacts + validation/tooling. |
-| `stream/finalize-version.ts` | 3 | Shared post-stream pipeline: autofix, parse/merge/preflight, persistence. |
+| `scaffold-variants/` | 2 | Visual variant per scaffold: signature patterns, motifs, anti-patterns, embedding pick. |
+| `dossiers/` | 2 | Capability-baserad dossier-pipeline (ersättare för legacy template-library guidance). |
+| `stream/finalize-version/` | 3 | Shared post-stream pipeline package: autofix, parse/merge/preflight, persistence (`runner.ts` + phase/policy/persist-helpers; post-OMTAG-03 split). |
 | `stream/stream-format.ts` | 2–3 | Converts AI SDK stream to SSE events. |
 | `stream/sse-parser.ts` | 2–3 | SSE buffer parser + suspense line processor (f.d. `route-helpers.ts`). |
 | `autofix/` | 3 | Post-generation fixers: imports, JSX, deps, repair. |
@@ -94,13 +98,13 @@ Paths in the table below are relative to `src/lib/gen/` unless noted otherwise.
 |------|------|----------------|
 | `scaffolds/scaffold-research.generated.json` | Generated scaffold research metadata overlaid into runtime scaffold manifests. | Generated locally, gitignored, do not hand-edit unless you are deliberately repairing a bad artifact. |
 | `scaffolds/scaffold-embeddings.json` | Embeddings for the internal runtime scaffolds. | Generated locally, gitignored, only used by semantic scaffold fallback/debugging. |
-| `template-library/template-library.generated.json` | Curated template-library artifact used by scaffold validation and template-pipeline tooling. | Generated locally, gitignored, not injected into the current own-engine prompt path. |
-| `template-library/template-library-embeddings.json` | Embeddings for the curated template-library artifact. | Generated locally, gitignored, only needed for local template-library checks/tooling. |
 | `../../data/external-template-pipeline/reports/scaffold-candidates-curated.json` | Ranked scaffold candidate report from the external template pipeline. | Generated, not a runtime dependency, useful for curation and agent orientation only. |
+
+The legacy `template-library/template-library.generated.json` + embeddings file is no longer present in this folder; the pipeline was deprecated 2026-04-17 (see `scaffolds/registry.ts`). Use the dossier pipeline (`dossiers/`) for per-integration runtime guidance.
 
 Guidelines:
 
-- Treat scaffold artifacts as runtime/build-time helpers and template-library artifacts as pipeline/validation helpers, not disposable scratch output.
+- Treat scaffold artifacts as runtime/build-time helpers, not disposable scratch output.
 - Do not hand-edit them as a normal workflow. Prefer regenerating them from the
   scripts documented in `scripts/README.md`.
 - Keeping them in `.cursorignore` is about search/indexing cost, not about
@@ -109,14 +113,14 @@ Guidelines:
 - When you only need orientation, prefer this README plus
   `docs/architecture/repository-and-platform.md` over opening the full JSON artifacts.
 
-Common regeneration entry points:
+Common regeneration entry points (verify against `package.json` "scripts" — `template-library:*` is gone):
 
 ```bash
-npm run template-library:build
-npm run template-library:embeddings
 npm run scaffolds:embeddings
-npm run scaffolds:curate
+npm run scaffolds:variant-embeddings
+npm run scaffolds:variant-patterns
 npm run scaffolds:validate
+npm run scaffolds:eval
 ```
 
 ## Practical Smoke Test

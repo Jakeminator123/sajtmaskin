@@ -2,7 +2,7 @@
 
 Vad som händer från knapptryck på landningssidan tills LLM-streamen startar (eller misslyckas).
 
-**Senast uppdaterad:** 2026-04-20. **Kod är source of truth.** Ordlista: [glossary.md](./glossary.md).
+**Senast uppdaterad:** 2026-04-29. **Kod är source of truth.** Ordlista: [glossary.md](./glossary.md).
 
 ---
 
@@ -45,9 +45,9 @@ Prompten fylls i inputfältet via `useBuilderDerivedState`. **Ingen chatt skapas
    - `generateDynamicInstructions()` (`useInitBrief.ts`)
    - Vid deep brief: `POST /api/ai/brief` → `generateSiteBriefObject()` → `pendingBriefRef`
 2. `createNewChat()` (`useCreateChat.ts`)
-   - Om `pendingBriefRef` finns → rå prompt (briefen bärs i `meta.brief`)
-   - Annars `formatPrompt()` (MÅL/TILLGÄNGLIGHET-wrapper)
-   - Bilagor via `appendAttachmentPrompt()`
+   - Skickar `initialMessage` rå (`formattedMessage = initialMessage`) — den mekaniska MÅL/TILLGÄNGLIGHET-wrappern är borttagen från init-vägen sedan 2026-04-28: Core Rules + brief bär redan dessa krav, wrappern bidrog bara med brus.
+   - `formatPrompt()` lever fortfarande i prompt-wizarden (`prompt-wizard-modal-v2.tsx`) och `prompt-assist/runner.ts`.
+   - Bilagor läggs på via `appendAttachmentPrompt()`.
 3. Bygger `meta`-objekt och `POST /api/engine/chats/stream` (SSE)
 
 ```ts
@@ -191,8 +191,8 @@ Output: `RoutePlan { routes[], siteType, provenance }`.
 | Syfte | Funktion | Nyckel |
 |---|---|---|
 | Codegen (own-engine) | `getOpenAIModel()` | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` |
-| Brief / prompt-assist | `createDirectModel()` | samma |
-| Prompt rewrite/polish | `createDirectModel()` | samma |
+| Deep Brief / server auto-brief | `createDirectModel()` | samma |
+| Prompt rewrite/polish | Legacy HTTP-yta (`/api/ai/chat`) finns kvar, men rewrite/polish-knapparna är borttagna ur builder-UI | samma |
 
 `PromptAssistProvider` är `"openai" | "anthropic"`. HTTP-scheman accepterar `"gateway"` för bakåtkompatibilitet och normaliserar till `"openai"` server-side.
 
@@ -219,7 +219,7 @@ Output: `RoutePlan { routes[], siteType, provenance }`.
 | URL-parsing | `src/app/builder/builder-entry.ts` |
 | Klient skapar chatt | `src/lib/hooks/chat/useCreateChat.ts` |
 | Follow-up skickar | `src/lib/hooks/chat/useSendMessage.ts` |
-| Init brief-orchestration | `src/lib/hooks/chat/useInitBrief.ts` |
+| Init brief-orchestration | `src/lib/hooks/useInitBrief.ts` |
 | Prompt-formatering | `src/lib/builder/prompt-assist/` |
 | Deep Brief | `src/lib/builder/site-brief-generation.ts` |
 | Auto-brief policy | `src/lib/builder/server-auto-brief-policy.ts` |
@@ -240,7 +240,7 @@ Output: `RoutePlan { routes[], siteType, provenance }`.
 | P2 | Dubbel brief: client+server kan båda köra om klient-brief inte hinner före request | Öppet |
 | P4 | `ProjectEnvVarsPanel` visar inte preview-merge-lagret (placeholders + project-env + generated) | Öppet |
 | P6 | Anthropic-grenen loggar inte `brief.full` i devLog (asymmetrisk logging) | Öppet |
-| P7 | Flera överlappande prompt-lager: Deep Brief, Rewrite, Polish, formatPrompt, server-auto-brief | Öppet |
+| P7 | Flera brief-/promptvägar: klient-brief, server-auto-brief, Snapshot-Brief och kvarvarande prompt-assist helpers. Rewrite/Polish-UI är legacy; `formatPrompt()` är borttaget från init-chat men finns kvar i prompt-wizard/runner. | Öppet |
 | P10 | UI-kosmetik under generering (rå JSX i chat, knappar disabled, badge-inkonsistens) | Öppet |
 
 Lösta tidigare: P1 tool-only output (execute lades till), P3 brief-schema (simplified borttaget), P5 NEXT_PUBLIC_SITE_URL (klassad som harmless), P8 preview overlay race (bootstrap-guard), P9 Unsplash garbage queries (sanitize + viability check).
@@ -251,5 +251,5 @@ Lösta tidigare: P1 tool-only output (execute lades till), P3 brief-schema (simp
 
 - Slå ihop brief-vägarna (client vs server-auto) eller gör dem strikt sekventiella.
 - Symmetrisera brief-loggning OpenAI/Anthropic.
-- Reducera prompt-lager: en kanonisk path (Deep Brief eller Rewrite, inte båda).
+- Reducera prompt-lager: en kanonisk init-path (Deep Brief först, server-auto-brief som fallback, Snapshot-Brief för follow-up).
 - Synliggör placeholder-merge i env-panelen.

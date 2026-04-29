@@ -67,7 +67,7 @@ Varje signal i init-pipelinen har **exakt en canonical source**. Konsumenter lä
 | **Capability-inferens** | `capability-inference.ts` | regexar + manifest | `buildDynamicContext()`, `BuildSpec`, `follow-up-clarification` | Nej |
 | **Capability → dossier-bridge** | `src/lib/gen/capability-dossier-bridge.ts` | deklarativ map | `orchestrate.ts` → `selectDossiersForRequest({ requestedCapabilities })` | Nej — single source. Bridge-mappar inferred flags till dossier capability-id:n innan urval |
 | **Fallback-addendum (non-init)** | `src/lib/builder/prompt-assist/` | `MOTION_GUIDANCE`, `VISUAL_IDENTITY_GUIDANCE`, `QUALITY_BAR_GUIDANCE` | `useInitBrief.ts` → `generateDynamicInstructions` vid brief-miss | Legacy-fallback, skippas vid init |
-| **User-message formattering (fallback)** | `formatPrompt()` i `src/lib/builder/prompt-assist/` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `useCreateChat.ts` (bara utan brief) | Fallback — init skickar rå text |
+| **User-message formattering (legacy fallback)** | `formatPrompt()` i `src/lib/builder/prompt-assist/` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `prompt-wizard-modal-v2.tsx`, `prompt-assist/runner.ts` | Borttagen från `useCreateChat`-init 2026-04-28 (init skickar rå text). Kvar för wizard/runner. |
 | **Init Brief hook** | `useInitBrief.ts` | `generateDynamicInstructions` | `useBuilderPageController.ts` | Hook — konsumerar `/api/ai/brief` + fallback addendum |
 
 ### Princip

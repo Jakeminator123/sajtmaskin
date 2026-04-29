@@ -51,7 +51,7 @@ Av ~15 nya fynd från 5 parallella agenter var 7 äkta buggar, resten dubbletter
 - `classifyFollowUpIntentWithLlmFallback` ej inkopplad i runtime — **deliberate feature-flag**, planerat för P32 Fas F.
 - `inferContextPolicy`/`inferVerificationPolicy` använder inte `isFirstCodeGeneration` — **designval**; `isEffectiveInit` är medvetet begränsat till route-realization. Bredare semantik kräver aktivt designbeslut.
 - `fixerTier = originatingTier ?? DEFAULT_MODEL_ID` i `server-verify.ts` — **intentional**, bättre än `undefined`.
-- `useCreateChat` kör rå prompt när brief finns och `formatPrompt` när brief saknas — **by design** (brief bär semantiken).
+- `useCreateChat` skickar rå prompt till streamen oavsett om brief finns eller inte (sedan 2026-04-28; mekaniska wrappern togs bort eftersom Core Rules + ev. brief redan bär semantiken). `formatPrompt()` lever vidare i prompt-wizard och prompt-assist/runner, men inte i create-chat-init-vägen.
 - Flaky 1/863 i `warm-eslint.test.ts` under bred parallell testsvit — känd race, passerar isolerat; inte relaterat till LLM-flödet.
 - `"Byt bild till en elefant. Gör också hela bakgrunden mörk"` → `clear-redesign` — **design call** (verb+noun-combo med `bakgrund`).
 
