@@ -274,6 +274,13 @@ export interface OrchestrationInput {
    */
   requestKind?: RequestKindClass | null;
   /**
+   * Conservative init fast lane for simple F2 website/template prompts.
+   * When true, orchestration skips optional external/component-reference
+   * enrichment and dossier selection, but keeps scaffold selection, route
+   * plan, BuildSpec, system prompt, autofix/finalize/preflight unchanged.
+   */
+  simpleWebsitePath?: boolean;
+  /**
    * OMTAG Fas 2·A / E2: number of previously-persisted files resolved for
    * this chat's follow-up base version. Optional so legacy callers compile
    * unchanged. When present, feeds {@link deriveFollowUpStateFromInputs}
@@ -375,6 +382,7 @@ export async function resolveOrchestrationBase(
     existingRoutePaths = [],
     existingShellRoutePaths = [],
     capabilities: providedCapabilities,
+    simpleWebsitePath = false,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
@@ -429,16 +437,20 @@ export async function resolveOrchestrationBase(
     ...getPromptDrivenExampleNames(intentSourcePrompt),
   ];
   const uniqueRefNames = [...new Set(componentRefNames)];
-  const localRefs = loadShadcnExamples(uniqueRefNames);
-  const officialRefsPromise = fetchMissingRegistryExamples(uniqueRefNames, localRefs)
-    .then((fetched) => [...localRefs, ...fetched])
-    .catch(() => localRefs);
+  const localRefs = simpleWebsitePath ? [] : loadShadcnExamples(uniqueRefNames);
+  const officialRefsPromise = simpleWebsitePath
+    ? Promise.resolve<ComponentReference[]>([])
+    : fetchMissingRegistryExamples(uniqueRefNames, localRefs)
+        .then((fetched) => [...localRefs, ...fetched])
+        .catch(() => localRefs);
   // Use intentSourcePrompt (same clean source that drives capability/scaffold
   // signals) instead of the wrapped `prompt` — otherwise file-context-wrapping
   // in optimizedMessage would poison `detectSectionTypes` and make us fetch
   // community blocks based on historical file contents instead of the user's
   // actual intent for this turn.
-  const communityRefsPromise = fetchCommunityBlocks(capabilities, intentSourcePrompt).catch(() => []);
+  const communityRefsPromise = simpleWebsitePath
+    ? Promise.resolve<ComponentReference[]>([])
+    : fetchCommunityBlocks(capabilities, intentSourcePrompt).catch(() => []);
   let officialRefs: ComponentReference[] = localRefs;
   let communityRefs: ComponentReference[] = [];
   let resolvedReferenceFetches = false;
@@ -695,7 +707,7 @@ export async function resolveOrchestrationBase(
   // pipeline is gated by FEATURES.useDossierPipeline so it can be disabled
   // per environment if the dossier pool is unhealthy.
   let dossierSelection: DossierSelectionResult | null = null;
-  if (FEATURES.useDossierPipeline) {
+  if (FEATURES.useDossierPipeline && !simpleWebsitePath) {
     try {
       const inferredCapabilityIds =
         resolveDossierCapabilitiesFromInferredCapabilities(capabilities);

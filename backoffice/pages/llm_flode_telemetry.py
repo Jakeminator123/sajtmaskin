@@ -10,6 +10,7 @@ telemetri-events som introducerats i LLM-flöde-körplanen 2026-04-24:
   - ``site.done`` → ``warmTscSkipped``        (wave 7)   — latency-vinst-mätning
   - ``site.done`` → ``f2TimeMs`` / ``f3TimeMs``           (wave 7)   — fas-uppdelad latens (TODO i källan)
   - ``site.aborted``               (P0 2026-04-26) — stream-/transport-/provider-abort innan version
+  - ``orchestration.simple_website_path`` (2026-04-29) — snabb init-lane enabled/reason
 
 Separat hantering (se respektive notering i sidans sektioner):
   - ``image_replaced_with_placeholder`` — skrivs via ``debugLog`` (console), ej i NDJSON.
@@ -464,6 +465,52 @@ def _render_prompt_size(ctx: BackofficeContext) -> None:
     st.caption(f"Källfil: `{snapshot.get('dumpPath', '?')}`")
 
 
+def _render_simple_website_path(run_dirs: list[Path]) -> None:
+    st.subheader("Simple Website Path (`orchestration.simple_website_path`)")
+    st.caption(
+        "Konservativ init-lane som kan hoppa Server Auto-Brief, externa/component refs "
+        "och dossier selection för korta website/template-prompts utan heavy signals."
+    )
+    events = _collect_events_by_type(run_dirs, "orchestration.simple_website_path")
+    if not events:
+        st.info("Inga `orchestration.simple_website_path`-events hittade i de senaste körningarna.")
+        return
+
+    enabled = [e for e in events if e.get("enabled") is True]
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Events", len(events))
+    col2.metric("Enabled", len(enabled), _pct(len(enabled), len(events)))
+    col3.metric("Disabled", len(events) - len(enabled))
+
+    reason_counts: dict[str, int] = {}
+    for event in events:
+        reason = str(event.get("reason", "unknown"))
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {"Reason": reason, "Antal": count, "Andel": _pct(count, len(events))}
+                for reason, count in sorted(reason_counts.items(), key=lambda item: -item[1])
+            ]
+        ),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    rows = [
+        {
+            "Tid": event.get("_ts", "")[:19],
+            "Run": event.get("_run", ""),
+            "Enabled": "ja" if event.get("enabled") is True else "nej",
+            "Reason": event.get("reason", "—"),
+            "Scaffold": event.get("scaffoldId", "—"),
+        }
+        for event in events[:50]
+    ]
+    st.markdown("**Senaste events**")
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+
 def _render_dossier_stubs(run_dirs: list[Path]) -> None:
     st.subheader("Cross-file stubs (`dossier_stub_created` / `crossFileStubs`)")
     st.caption(
@@ -541,6 +588,9 @@ def render(ctx: BackofficeContext) -> None:
 
     st.divider()
     _render_prompt_size(ctx)
+
+    st.divider()
+    _render_simple_website_path(run_dirs)
 
     st.divider()
     _render_site_aborted(run_dirs)
