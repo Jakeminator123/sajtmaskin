@@ -157,7 +157,7 @@ Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRo
 
 `selectCriticalScaffoldFiles()` prioriterar baserat på kritiska patterns + route-relevans + capability-relevans.
 
-**Scaffold Contract V2 (2026-04-29):** varje vald kritisk fil renderas via `(role, serialization)`. Defaults härleds från path så befintliga manifest fungerar oförändrade. Manifest kan overrida via valfria fält på `ScaffoldFile` (`role`, `serialization`, `maxPromptChars`). Resultat: `app/page.tsx` renderas som `FileContract` (inte halv TSX), shared `components/*` som `FileContract`-signatur (imports + exports + struktur), medan `layout.tsx`/`globals.css`/config-filer förblir kompletta source-fences. Se [`docs/schemas/scaffold-contract.md`](../schemas/scaffold-contract.md) för fullständig policy-tabell.
+**Scaffold Contract V2 (2026-04-29):** varje vald kritisk fil renderas via `(role, serialization)`. Defaults härleds från path så befintliga manifest fungerar oförändrade. Manifest kan overrida via valfria fält på `ScaffoldFile` (`role`, `serialization`, `maxPromptChars`). Resultat: `app/page.tsx` renderas som `FileContract` (inte halv TSX), shared `components/*` som `FileContract`-signatur (imports + exports + struktur), medan små `layout.tsx`/`globals.css`/config-filer kan vara kompletta source-fences. Stora `full`-filer faller tillbaka till FileContract så `## Critical Scaffold Files` håller 6k-capen. Se [`docs/schemas/scaffold-contract.md`](../schemas/scaffold-contract.md) för fullständig policy-tabell.
 
 ### STEG 10 — System Prompt (`src/lib/gen/system-prompt/`)
 

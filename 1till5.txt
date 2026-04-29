@@ -1,0 +1,354 @@
+1)
+
+
+
+Jag gör en read-only audit av scaffold-serialisering, promptbyggnad och kontraktsdokumenten, med fokus på hur LLM:en uppfattar filkontexten och hur budgeten kan hållas under 6k.
+
+Jag har bekräftat att nuvarande kontrakt redan har full/excerpt/signature, men promptformatet saknar ett tydligt maskinläsbart “detta är inte komplett kod”-lager runt excerpter. Nästa steg är att följa hur blocket injiceras och budgeteras i system-prompten.
+
+Audit Answer
+Question	Answer
+1. Broken TSX risk?
+Yes. route-page is rendered as a tsx file="app/page.tsx" fence even when truncated. That can look like real incomplete TSX.
+2. FileContract should contain
+path, role, serialization, completeness, ownership, mustEmit, imports, exports, route purpose, structural outline, dependencies, source size, and adaptation rules.
+3. Keep <6k
+Stop putting partial TSX in tsx file= fences. Render contracts + outlines, reserve full code only for small complete files. Hard-cap the whole Critical Scaffold Files block.
+4. File rules
+See below.
+5. Tests
+Add budget, completeness, no-broken-TSX, role policy, and all-scaffold regression tests.
+Proposed FileContract Format
+### FileContract: app/page.tsx
+- role: route-page
+- render: excerpt
+- completeness: partial-not-executable
+- ownership: llm-owned
+- mustEmit: true
+- sourceChars: 8420
+Imports:
+```tsx
+import Header from "@/components/site-header";
+Exports:
+
+default function Page()
+Structure:
+
+main
+hero
+feature grid
+CTA
+footer
+Rules:
+
+Do not copy this as a complete file.
+Preserve imports/exports unless intentionally replacing the dependency.
+Emit a complete valid file if this path is generated.
+## Exact Rules By File Role
+| Role | Render | Rule |
+|---|---:|---|
+| `root-layout` | full if small, else contract | Keep complete if under ~1.2k; otherwise imports/export/metadata/provider outline. |
+| `global-styles` | excerpt/contract | Include `@import`, `@theme inline`, key tokens, globals. Avoid full long CSS. |
+| `config` | full | Full for `package.json`, `next.config.*`, `postcss`, `tailwind` if small. Path-only if boilerplate and unchanged. |
+| `route-page` | contract/excerpt | Never partial TSX as `tsx file=...`; show imports, exports, route path, section/component outline. |
+| `shared-component` | signature | Imports, exported component/type signatures, props, children/dependency notes. No body unless tiny. |
+| `api-route` | signature | HTTP methods, imports, runtime/env needs, response shape. No body unless tiny and security-safe. |
+| `default` | path-only or signature | Path + reason + exports if detected. Promote only when route/capability-relevant. |
+## Migration Risks
+| Risk | Mitigation |
+|---|---|
+| LLM copies `FileContract` into output | Add explicit “never emit FileContract blocks” instruction. |
+| Less visual imitation from pages | Use structural outline + component list, not broken JSX. |
+| `app/page.tsx` is LLM-owned | Mark `mustEmit: true`; do not imply scaffold fallback exists. |
+| Budget splitter may prune subparts | Keep FileContracts under one `## Critical Scaffold Files` heading. |
+| Docs/types drift | Update `types.ts`, validation, schema docs, and tests together. |
+## Max 3 Implementation Steps
+1. Replace partial `tsx file=` excerpts with `FileContract` blocks and full-code fences only for complete files.
+2. Add role-based hard budgets so `Critical Scaffold Files` stays `< 6_000` chars across all scaffolds.
+3. Add regression tests over all 9 scaffolds plus no-partial-TSX and `app/page.tsx mustEmit` checks.
+## Files Reviewed
+`src/lib/gen/scaffolds/serialize.ts`, `types.ts`, `serialize.test.ts`, `scaffold-manifest-validation.ts`, `load-scaffold-files.ts`, `src/lib/gen/system-prompt/*`, `src/lib/gen/build-spec/token-budgets.ts`, `src/lib/gen/orchestrate.ts`, `docs/schemas/scaffold-contract.md`.
+`data/prompt-dumps/orchestration-dynamic/` was checked; no files found.
+Confidence: 0.86.
+
+----
+
+
+I’ll audit this read-only and trace how Deep Brief design signals flow into build spec, dynamic context, scaffold stack, and variants before answering the four questions.
+
+I’ve got the canonical signal-flow doc now: it already states Deep Brief owns visual direction, tone, qualityBar, and motionLevel, while scaffolds are only a structure hypothesis. Next I’m checking whether the runtime code actually preserves that priority.
+
+So far the main runtime gap is not that variants are treated as contracts in the prompt, but that variant/scaffold selection is still allowed to pick away from brief nominations and then only logs drift. I’m checking BuildSpec now because qualityBar and context budgets can indirectly weaken design detail.
+
+Current Signal Chain
+raw prompt → pre-match scaffold/variant → variantHints → Deep Brief → scaffold match/buildSpec/routePlan → resolved variant → Dynamic Context → budget pruning → codegen
+
+Follow-up: snapshot.briefSummary → mini brief → locked prior variant unless clear-redesign → Dynamic Context.
+
+Main Weakening Points
+Area	Risk
+Pre-brief variant hints
+variantHints are injected into Deep Brief and then the same pre-match variantId is locked for codegen, so variant can shape the brief before brief becomes canonical.
+Follow-up snapshot
+Snapshot rehydrates only styleKeywords + toneAndVoice; qualityBar, motionLevel, full palette, typography are lost.
+Prompt budgeting
+Scaffold Variant has higher keep-priority than Visual Identity, Quality Bar, Interaction & Motion, and Imagery, so tight budgets can keep variant while dropping brief design detail.
+Scaffold/variant selection
+Brief context boosts selection but does not hard-lock it; scaffold/variant drift is logged, not prevented.
+Simplified brief fallback
+Defaults to qualityBar: clean, motionLevel: minimal, empty style/tone, which can downgrade clear intent if full schema fails.
+Priority Contract
+User-locked theme tokens > Deep Brief design values > explicit route/structure constraints > scaffold/variant defaults > static Core Rules
+
+Variant may provide structure, component vocabulary, fallback tokens, and inspiration. It must not override brief visualDirection, qualityBar, motionLevel, or toneAndVoice when those are present.
+
+Proposed Brief-Locked Block
+## Brief-Locked Design Values
+These values are the highest design source for this generation after user-locked theme tokens. Use scaffold variant cues only as fallback or structural inspiration when they do not conflict.
+- Visual direction: {styleKeywords}
+- Tone: {toneAndVoice}
+- Quality bar: {qualityBar}
+- Motion level: {motionLevel}
+- Palette: primary {primary}, secondary {secondary}, accent {accent}, background {background}, text {text}
+- Typography: headings {headings}, body {body}
+- Domain profile: {domainProfile}
+Rules:
+- Do not let scaffold variant theme tokens, font pairings, prompt hints, motifs, or anti-patterns weaken these values.
+- If the variant says dark/corporate/minimal but the brief says warm/editorial/lively/premium, follow the brief.
+- BuildSpec may allocate budget and verification level, but must not lower the brief’s design ambition.
+Tests That Prove Brief Wins
+Test	Assertion
+Dynamic context conflict
+Brief says warm/light/lively/premium; variant is dark/corporate. Context includes Brief-Locked block and explicit “brief overrides variant”.
+Budget pruning
+With tiny systemContextTokens, Brief-Locked block is required/kept before variant-specific visual cues.
+Init variant lock
+Pre-match variant conflicts with brief; final prompt still instructs brief values as dominant, or variant is re-picked from brief.
+Follow-up inheritance
+Snapshot restores qualityBar, motionLevel, palette, typography, style, tone; follow-up prompt uses those without rerunning full Deep Brief.
+Max 3 Implementation Steps
+Add Brief-Locked Design Values renderer + high required budget priority above variant/scaffold visual blocks.
+Stop treating pre-match variant as a hard init design lock when a brief exists; use it only as hint/fallback.
+Persist and rehydrate full design values in briefSummary: palette, typography, qualityBar, motionLevel, tone, style.
+Files Reviewed
+src/lib/gen/site-brief-generation.ts does not exist; actual file is src/lib/builder/site-brief-generation.ts.
+
+Reviewed: src/lib/builder/site-brief-generation.ts, src/lib/gen/build-spec/, src/lib/gen/orchestrate.ts, src/lib/gen/system-prompt/build-dynamic-context.ts, src/lib/gen/system-prompt/sections/scaffold-stack.ts, src/lib/gen/system-prompt/sections/brief-visual-media.ts, src/lib/gen/scaffold-variants/, src/lib/gen/scaffolds/matcher.ts, config/scaffold-variants/, docs/architecture/llm-signal-flow.md.
+
+Confidence: 0.83.
+
+
+---
+
+
+3)
+
+Jag gör en read-only audit av init-flödet och jämför kodens faktiska initväg med målbilden, särskilt var scaffold, build-spec och system prompt redan ger tillräckliga begränsningar.
+
+Jag har laddat repo-/pipeline-reglerna och går nu direkt på de efterfrågade filerna plus sök efter befintliga “simple path”/scaffold-signaler så att svaret bygger på faktisk kod, inte docs-antaganden.
+
+Hittills pekar koden på att “simple init” bör vara en smal init-variant ovanpå befintlig orchestration, inte en ny rollback-bana: F2 är default, F3 är explicit, och scaffold/variant/route-contract är redan single fan-in.
+
+Predicate
+Activate simpleWebsitePath only for conservative init/F2 website cases:
+
+Gate	Requirement
+Request shape
+init create-chat, lifecycleStage === "design", no plan mode, no technical/preserved payload
+Scope
+buildIntent is website/template, prompt is direct, short, low complexity, no attachments/custom system prompt
+Scaffold
+scaffoldMode !== "off", sync pre-match picks base-nextjs, landing-page, portfolio, or blog; not app/commerce/advanced
+Capabilities
+no heavy caps: 3D, charts, carousel, app shell, data UI, ecommerce, premium visuals, command search
+Contracts/routes
+no auth/db/payment/integration/env contract; one real route, or primary route only with intentional shells
+In practice: decide before tryGenerateServerAutoBrief, using deterministic orchestratePromptMessage, matchScaffold, inferCapabilities, route/contracts.
+
+Flow Diagram
+create-chat init
+  -> prompt strategy + sync scaffold pre-match
+  -> simpleWebsitePath predicate
+      no -> current full init path
+      yes
+        -> skip server Deep Brief
+        -> resolve orchestration with keyword/manual scaffold only
+        -> build compact dynamic context:
+             Static Core + F2 contract + BuildSpec + route plan
+             + scaffold variant + materialized scaffold slots
+        -> codegen
+        -> unchanged finalize:
+             url expand -> deterministic autofix -> validate
+             -> merge scaffold/defaults -> preflight
+             -> F2 preview boot/render
+What To Skip / Keep
+Skip safely on simple path	Must still run
+Server auto Deep Brief, embedding scaffold match, official/community component ref fetches, dossier selection, large scaffold research/reference inspiration blocks
+Static Core, F2 contract, route plan, BuildSpec, scaffold/variant, protected-path rules, deterministic autofix, syntax validation, merge/preflight, F2 preview
+Verifier LLM pass can follow existing policy and usually skip for standard simple F2
+F3 must not auto-run; only explicit integrations stage
+Slots/materialized scaffold should constrain the model as a scaffold-backed fill-in contract: keep canonical routes, file tree, imports/exports, theme-token ownership, and protected paths fixed; require the model to emit app/page.tsx and adapted app/globals.css; allow changes only in named content/design slots like hero, sections, CTA, copy, metadata, and palette.
+
+Risks
+Risk	Mitigation
+False-positive “simple” loses Deep Brief specificity
+Very conservative predicate + telemetry reason
+Keyword-only scaffold mismatch
+Restrict to simple/medium website scaffolds; fallback to full path on low confidence if needed
+Model under-emits essential files
+Keep LLM_ONLY_PATHS, preflight, and verification-blocked behavior unchanged
+Quality drop from skipped refs/dossiers
+Predicate excludes heavy/product/integration capabilities
+Max 3 Implementation Steps
+Add a pure classifySimpleWebsitePath() near create-chat/orchestration and log {enabled, reason}.
+Thread flags into orchestration: no server auto brief, embeddingScaffoldMatch: false, skip refs/dossiers, compact scaffold slot context.
+Add predicate/orchestration/finalize tests; do not change finalize gates.
+Tests
+Predicate matrix: positive local-business landing; negatives for app, ecommerce, auth/db/payment, 3D, attachments, plan mode, custom system, long/complex prompt.
+Orchestration test: no server auto brief/embedding/ref/dossier calls; F2 BuildSpec; selected scaffold + variant present.
+Finalize test: autofix/validate/preflight still run; missing app/page.tsx blocks; protected scaffold paths are dropped; F3 not triggered.
+Confidence: 0.78. Code paths are clear; the only uncertainty is exact product tolerance for skipping Deep Brief on visually ambitious but short prompts.
+
+
+---
+
+
+4)
+
+Jag gör en read-only genomgång av dossier-systemet med fokus på 3D och soft/hard-kontrakt, och börjar med repo-kontext + de angivna filytorna innan jag sammanfattar risker och nästa steg.
+
+Jag har bekräftat att v2-valet är deterministiskt per capability och att målbilden redan pekar ut 3D som vanlig capability, med ett uttryckligt glapp kring WebGL-smoke. Nu läser jag manifest, selector och dep-completer för att se vad som faktiskt täcks.
+
+Ur koden ser jag att 3D redan kopplas via needs3D → visual-3d → three-fiber-canvas, och att dependencies fylls deterministiskt även om modellen glömmer imports. Nästa bit är legacy-poolen/referenserna för att bedöma vad som är värt att kurera om till v2.
+
+Legacy-arkivet och template-reference-cache är gitignore:ade och finns inte lokalt i checkouten, så jag verifierar legacy-bilden via git-historik i stället för att byta branch eller röra worktree.
+
+Current Capability Coverage
+Area	Status
+Hard dossiers
+auth, payments, ai-chat, analytics, error-tracking, contact-form, newsletter-subscribe
+Soft dossiers
+visual-3d, parallax-scroll, parallax-pointer, carousel, command-search, faq-section, marquee, pricing-section, testimonials-section
+Main gaps
+CMS/data, booking/calendar, maps/location, charts/data-viz, image/video gen, richer commerce, and 3D beyond decorative scenes
+3D Shim/Template Strategy
+three-fiber-canvas is a good base shim, but not enough as the full 3D module story. It covers SSR-safe R3F mounting, DPR cap, fallback, reduced-motion intent, and dependency selection via visual-3d.
+
+Missing 3D module patterns:
+
+Pattern	Why
+r3f-physics
+needsPhysics exists, but no dossier adds @react-three/rapier deterministically.
+r3f-gltf-viewer
+GLB/GLTF needs asset placement, useGLTF, suspense/cache rules, and size limits.
+r3f-product-orbit
+Product/model viewer with OrbitControls, camera presets, responsive bounds.
+r3f-particles-shader
+Common “wow” prompt class, but needs strict perf/material guardrails.
+r3f-scene-recipes
+Reusable primitive hero/mascot/abstract scene templates so the LLM is not inventing every scene from scratch.
+Also: make the stable shell closer to verbatim; current rewritable lets the LLM damage the safety wrapper.
+
+Dossier Contract Gaps
+Gap	Impact
+No machine-readable selection policy
+Soft modules rely on upstream capability ids/prose; hard to express “only when explicit”, mutual exclusion, or tiering.
+needsPhysics has no dossier capability
+Physics is prompt-only today, not a deterministic module.
+No asset contract
+3D models/textures need public paths, size budgets, loader/cache rules, licensing notes.
+No runtime smoke contract
+Target doc already calls out missing WebGL mount check.
+Rewritable wrapper risk
+Safety-critical wrappers like ThreeCanvasShell should not be freely paraphrased.
+Legacy archive unavailable locally
+archive/dossiers-legacy-2026-04-20/ and template refs are gitignored/missing, so exact legacy files were not directly inspectable.
+Soft Module Selection
+Soft modules should stay capability-driven: Deep Brief / follow-up detector emits exact capability ids, selector picks one default dossier per capability. Avoid fuzzy matching and domain/category boosting.
+
+Constrain soft modules with:
+
+Constraint	Rule
+Precision
+Only select on explicit/strong semantic intent, not generic words like “scene”, “canvas”, “pricing”, or “form”.
+Granularity
+Prefer parallax-scroll vs parallax-pointer, visual-3d vs r3f-physics, not broad bundles.
+Budget
+Cap by complexity/token cost once the pool grows; 3D + physics + model viewer should not all inject automatically.
+Legacy Ideas Worth Re-curating
+Not a rollback to v1. Worth re-curating only as v2 capability-shaped modules:
+
+3D variants: physics, GLTF viewer, particles/shaders, product orbit viewer.
+Data/CMS modules: Supabase/Postgres CRUD, CMS content feed, booking/calendar.
+AI/media modules: Fal/image generation, richer chat/tool UI, upload/transcription if references exist.
+Max 3 Implementation Steps
+Split 3D into stable shell + scene recipes: mark shell verbatim or protected, add r3f-physics and r3f-gltf-viewer capabilities.
+Add schema fields for soft constraints: selection tier, incompatible capabilities, asset requirements, runtime smoke checks.
+Tighten capability emission: map needsPhysics to its own dossier, keep soft modules selected only from exact capability ids.
+Files Reviewed
+data/dossiers/{hard,soft}/, data/dossiers/_index/capability-map.json, src/lib/gen/dossiers/, src/lib/gen/autofix/dep-completer.ts, scripts/dossiers/, docs/architecture/dossier-system.md, plus capability bridge/detection and prompt integration files.
+
+Confidence: 0.82. Main uncertainty is exact legacy content because the archived pool is gitignored and absent locally.
+
+----
+
+
+
+5)
+
+Jag gör en read-only genomgång av autofix, finalize, verifier och F2-docen för att kartlägga var reparationsvägar överlappar och var en ledger/single gate bör ligga.
+
+Första läsningen visar redan flera LLM-repair call-sites i fasdokumentet och finalize-preflight.ts: syntax-escalation, home-route recovery, verifier-fixer och partial-file repair. Jag smalnar nu ner på de faktiska anroparna och deterministiska pass som körs mer än en gång.
+
+Koden bekräftar att runLlmRepairGate bara är en tunn wrapper runt runLlmFixer, inte en samlad beslutsledger. Det finns dessutom en separat server-repair-loop som anropar runLlmFixer direkt och därmed ligger utanför samma gate.
+
+Current Repair Paths
+Path	Stack Risk
+validateAndFix
+Syntax loop + warm-tsc + warm-eslint can each call LLM repair, with runAutoFix after each.
+verifier-phase
+Verifier blockers call LLM repair after syntax passed; code reruns verifier once, but fas2 doc still says rerun is skipped.
+finalize-preflight
+Runs repairGeneratedFiles, merged-syntax runAutoFix, merged-syntax LLM escalation, home-route LLM recovery, then repairGeneratedFiles again after buildCompleteProject.
+partial-file
+Preflight can trigger LLM partial-file repair, then rerun parse/merge/preflight.
+Post-finalize
+Preview build-error, server-verify, and manual /repair all enter runRepairLoop; this calls runLlmFixer directly, outside runLlmRepairGate.
+Duplicated deterministic passes: runAutoFix and repairGeneratedFiles overlap heavily; typecheck appears both as warm-tsc and quality gate; eslint can duplicate in F3; protected-path partitioning is repeated as safety defense.
+
+Proposed Ledger Fields
+Field Group	Fields
+Identity
+versionId, chatId, runId, repairPassIndex, phase, trigger, attempt
+Input Fingerprint
+contentHashBefore, diagnosticFingerprint, requiredFiles, diagnosticSources
+Deterministic Record
+mechanicalPassesRun, fixerIds, fixCount, warnings, contentHashAfterMechanical
+LLM Decision
+escalated, escalationReason, blockedReason, model, timeoutMs, budgetRemainingMs
+Outcome
+success, partial, aborted, changedFiles, incompleteFiles, errorsBefore, errorsAfter, qualityGateAfter, contentHashAfter
+Safety
+protectedPathsDropped, previewBlocked, verificationBlocked, promotionAllowed
+Single-Gate Proposal
+Single rule: after one canonical deterministic pass and one diagnostic collection, call LLM repair at most once per unique {versionId/runId, contentHash, diagnosticFingerprint} only when a blocking, actionable, file-scoped diagnostic remains and deterministic repair did not clear it.
+
+Verifier-only quality findings should not trigger their own LLM pass unless mapped to an allowlisted blocking class. Server-verify, build-error, partial-file, home-route, tsc/eslint, and syntax should all enqueue diagnostics into the same gate/ledger instead of calling separate fixers.
+
+Max 3 Implementation Steps
+Introduce RepairLedger + invokeRepairGate() and route all existing runLlmRepairGate callers through it.
+Move server/manual runRepairLoop LLM calls behind the same gate; keep targeted repair, but ledger-dedupe by diagnostic fingerprint.
+Consolidate repairGeneratedFiles vs runAutoFix into one canonical deterministic adapter, leaving protected-path guards as explicit safety checks.
+Tests
+Area	Test
+Dedupe
+Syntax + verifier + preflight blockers with same file trigger one LLM call.
+Safety
+Partial/incomplete LLM output never marks fixed and keeps blockers live.
+Server stack
+Build-error + server-verify on same version dedupe by ledger/inflight.
+Deterministic
+runAutoFix adapter remains idempotent and preserves protected-path drops.
+Docs
+fas2 verifier description updated to match rerun behavior.
+Confidence: 0.84. Read-only audit only; no tests run.

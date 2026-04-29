@@ -29,6 +29,8 @@ export interface ScaffoldSerializeOptions {
  */
 const ROUTE_PAGE_BODY_BUDGET_CHARS = 900;
 const EXCERPT_BODY_BUDGET_CHARS = 700;
+const FULL_SOURCE_PROMPT_LIMIT_CHARS = 2_000;
+const CRITICAL_SCAFFOLD_FILES_HARD_CAP_CHARS = 6_000;
 
 const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
   "**CRITICAL — Replace ALL placeholders before shipping.**",
@@ -143,6 +145,48 @@ function formatContractList(label: string, values: string[]): string[] {
   return [`- ${label}:`, ...values.map((value) => `  - \`${value}\``)];
 }
 
+function withoutImportBlock(content: string, importLines: string[]): string {
+  if (importLines.length === 0) return content;
+  const lines = content.split("\n");
+  const importStartIndex = lines.findIndex((line) => line === importLines[0]);
+  if (importStartIndex === -1) return content;
+  return [
+    ...lines.slice(0, importStartIndex),
+    ...lines.slice(importStartIndex + importLines.length),
+  ].join("\n").replace(/^\s+/, "");
+}
+
+function extractRepresentativeLines(
+  content: string,
+  importLines: string[],
+  maxChars: number,
+): string[] {
+  if (maxChars <= 0) return [];
+  const body = withoutImportBlock(content, importLines);
+  const lines: string[] = [];
+  let used = 0;
+
+  for (const line of body.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const nextUsed = used + trimmed.length + 1;
+    if (nextUsed > maxChars) break;
+    lines.push(trimmed);
+    used = nextUsed;
+    if (lines.length >= 20) break;
+  }
+
+  return lines;
+}
+
+function formatRepresentativeLines(lines: string[]): string[] {
+  if (lines.length === 0) return ["- representativeLines: (omitted)"];
+  return [
+    "- representativeLines (not executable; do not copy verbatim):",
+    ...lines.map((line) => `  - ${line.replace(/`/g, "'")}`),
+  ];
+}
+
 function buildFileContract(params: {
   file: ScaffoldFile;
   role: ScaffoldFilePromptRole;
@@ -150,9 +194,19 @@ function buildFileContract(params: {
   completeness: "partial-not-executable" | "signature-only";
   ownership: "llm-owned" | "scaffold-owned";
   mustEmit: boolean;
+  representativeLines?: string[];
   notes: string[];
 }): string {
-  const { file, role, serialization, completeness, ownership, mustEmit, notes } = params;
+  const {
+    file,
+    role,
+    serialization,
+    completeness,
+    ownership,
+    mustEmit,
+    representativeLines = [],
+    notes,
+  } = params;
   const importLines = extractImportLines(file.content);
   const exports = extractTopLevelExports(file.content);
   const outline = extractJsxOutline(file.content);
@@ -168,6 +222,7 @@ function buildFileContract(params: {
     ...formatContractList("imports", importLines),
     ...formatContractList("exports", exports),
     ...formatContractList("structure", outline),
+    ...formatRepresentativeLines(representativeLines),
     "- rules:",
     "  - Do not copy this FileContract into generated code.",
     "  - Preserve listed imports/exports unless intentionally replacing the dependency.",
@@ -198,6 +253,12 @@ function buildExcerptContract(
   serialization: ScaffoldFileSerialization,
   maxBodyChars: number,
 ): string {
+  const importLines = extractImportLines(file.content);
+  const representativeLines = extractRepresentativeLines(
+    file.content,
+    importLines,
+    maxBodyChars,
+  );
   return buildFileContract({
     file,
     role,
@@ -205,9 +266,35 @@ function buildExcerptContract(
     completeness: "partial-not-executable",
     ownership: role === "route-page" ? "llm-owned" : "scaffold-owned",
     mustEmit: role === "route-page",
+    representativeLines,
     notes: [
-      `Full source body intentionally omitted from prompt (excerpt budget ${maxBodyChars} chars).`,
+      `Representative lines are capped by maxPromptChars/excerpt budget (${maxBodyChars} chars).`,
       "Use the structure list and imports/exports to produce your own complete implementation.",
+    ],
+  });
+}
+
+function buildOversizedFullContract(
+  file: ScaffoldFile,
+  role: ScaffoldFilePromptRole,
+  serialization: ScaffoldFileSerialization,
+): string {
+  const importLines = extractImportLines(file.content);
+  return buildFileContract({
+    file,
+    role,
+    serialization,
+    completeness: "partial-not-executable",
+    ownership: role === "route-page" ? "llm-owned" : "scaffold-owned",
+    mustEmit: role === "route-page",
+    representativeLines: extractRepresentativeLines(
+      file.content,
+      importLines,
+      file.maxPromptChars ?? EXCERPT_BODY_BUDGET_CHARS,
+    ),
+    notes: [
+      `Resolved policy is full, but source is ${file.content.length} chars; omitted to keep Critical Scaffold Files under ${CRITICAL_SCAFFOLD_FILES_HARD_CAP_CHARS} chars.`,
+      "Use this contract as the implementation shape and emit a complete file if modifying this path.",
     ],
   });
 }
@@ -227,6 +314,12 @@ function renderScaffoldFileBlock(file: ScaffoldFile): {
   const { role, serialization } = resolveFileRenderPolicy(file);
   switch (serialization) {
     case "full": {
+      if (file.content.length > FULL_SOURCE_PROMPT_LIMIT_CHARS) {
+        return {
+          block: buildOversizedFullContract(file, role, serialization),
+          serialization,
+        };
+      }
       const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
       return { block, serialization };
     }
@@ -272,7 +365,7 @@ export function serializeScaffoldForPrompt(
 ): string {
   const maxChars = Math.max(4_000, options.maxChars ?? DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS);
   const hints = scaffold.promptHints.length > 0
-    ? `\n\nScaffold hints:\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`
+    ? `\n\n## Scaffold Hints\n\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`
     : "";
   const traitLines = [
     scaffold.structureProfile ? `- structure_profile: ${scaffold.structureProfile}` : null,
@@ -341,9 +434,24 @@ export function serializeScaffoldForPrompt(
   });
   const fileTree = buildScaffoldFileTree(scaffold);
   const criticalFiles = selectCriticalScaffoldFiles(scaffold, contextPolicy, options);
+  const criticalIntro =
+    `${FILE_CONTRACT_HEADER}\n\n` +
+    "Scaffold files are rendered using a per-role policy: `layout.tsx`, `globals.css`, and config files are complete code fences; `page.tsx` becomes a FileContract; shared components and route handlers become FileContracts with imports/exports/signature only.\n\n";
   const usedBeforeCritical =
-    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n${FILE_CONTRACT_HEADER}\n\nScaffold files are rendered using a per-role policy: \`layout.tsx\`, \`globals.css\`, and config files are complete code fences; \`page.tsx\` becomes a FileContract; shared components and route handlers become FileContracts with imports/exports/signature only.\n\n`;
-  const criticalBudget = Math.max(3_000, maxChars - usedBeforeCritical.length - hints.length);
+    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n${criticalIntro}`;
+  const requestedCriticalBudget = Math.max(
+    3_000,
+    maxChars - usedBeforeCritical.length - hints.length,
+  );
+  const criticalBudget = Math.max(
+    0,
+    Math.min(
+      requestedCriticalBudget,
+      CRITICAL_SCAFFOLD_FILES_HARD_CAP_CHARS -
+        "## Critical Scaffold Files\n\n".length -
+        criticalIntro.length,
+    ),
+  );
   const criticalBlocks = renderSelectedScaffoldFiles(criticalFiles, criticalBudget);
 
   return `${usedBeforeCritical}${criticalBlocks}${hints}`;
@@ -469,13 +577,20 @@ function renderSelectedScaffoldFiles(
 
   for (const file of files) {
     const { block } = renderScaffoldFileBlock(file);
-    if (usedChars + block.length > maxChars) {
+    const separatorChars = blocks.length > 0 ? 2 : 0;
+    if (usedChars + separatorChars + block.length > maxChars) {
       const omittedSummary = renderOmittedScaffoldFiles(files.slice(files.indexOf(file)), "prompt budget");
-      if (omittedSummary) blocks.push(omittedSummary);
+      const omittedSeparatorChars = blocks.length > 0 ? 2 : 0;
+      if (
+        omittedSummary &&
+        usedChars + omittedSeparatorChars + omittedSummary.length <= maxChars
+      ) {
+        blocks.push(omittedSummary);
+      }
       break;
     }
     blocks.push(block);
-    usedChars += block.length;
+    usedChars += separatorChars + block.length;
   }
 
   return blocks.join("\n\n");

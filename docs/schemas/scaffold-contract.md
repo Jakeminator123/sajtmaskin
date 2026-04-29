@@ -100,8 +100,8 @@ Supporting subtypes:
   - `path`
   - `content`
   - optional `role` — Scaffold Contract V2 prompt role (`root-layout` / `global-styles` / `config` / `route-page` / `shared-component` / `api-route` / `default`). When omitted, derived from `path` by `defaultRoleForPath()` in `serialize.ts`.
-  - optional `serialization` — explicit policy override (`full` / `excerpt` / `signature`). Default comes from the resolved role: `full` for `root-layout`/`global-styles`/`config`, `signature` for `shared-component`/`api-route`, `excerpt` otherwise.
-  - optional `maxPromptChars` — per-file ceiling when the resolved serialization is `excerpt`. Lets manifests trim a verbose `app/page.tsx` without dropping it from prompt context.
+  - optional `serialization` — explicit policy override (`full` / `excerpt` / `signature`). Default comes from the resolved role: `full` for `root-layout`/`global-styles`/`config`, `signature` for `shared-component`/`api-route`, `excerpt` otherwise. Large `full` files fall back to FileContract to preserve the critical-files budget.
+  - optional `maxPromptChars` — per-file ceiling for `representativeLines` when the resolved serialization is `excerpt`, or when a large `full` file falls back to FileContract. Lets manifests expose a few safe outline lines from a verbose file without sending partial executable TSX.
 - `ScaffoldResearchMetadata`
   - `upgradeTargets`
   - `referenceTemplates`
@@ -120,13 +120,17 @@ renders each selected critical file based on its resolved
 
 | Resolved policy | What reaches the LLM |
 |-----------------|----------------------|
-| `full` | Verbatim file content (used for `app/layout.tsx`, `app/globals.css`, `package.json`, `tailwind.config.*`, `next.config.*`). |
-| `excerpt` | A `FileContract` block, not a source-code fence. It lists path, role, completeness, ownership, mustEmit, source size, imports, exports, detected structure, and rules. Used for `route-page` and other files where partial code would be misleading. |
+| `full` | Verbatim file content when the file is small enough for prompt context. Oversized `full` files are rendered as FileContract instead of truncated source. |
+| `excerpt` | A `FileContract` block, not a source-code fence. It lists path, role, completeness, ownership, mustEmit, source size, imports, exports, detected structure, capped `representativeLines`, and rules. Used for `route-page` and other files where partial code would be misleading. |
 | `signature` | A `FileContract` block with imports/exports/structure only — used for `components/*` and `app/.../route.ts` so the LLM sees the interface without re-reading bodies. |
 
 `FileContract` blocks are explicitly **not executable source**. They must never
 be copied into output. If the LLM emits a path described by a FileContract, it
 must emit a complete valid file that follows the contract.
+
+`## Critical Scaffold Files` is hard-capped to 6 000 characters including the
+FileContract intro. This keeps request-specific scaffold context bounded even
+when `BuildSpec.tokenBudgets.scaffoldChars` is generous.
 
 Manifest authors override the defaults by setting the optional V2 fields on a
 `ScaffoldFile`. Validation flags unknown roles, unknown serialization values,

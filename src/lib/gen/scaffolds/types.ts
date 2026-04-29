@@ -34,9 +34,11 @@ export type ScaffoldFilePromptRole =
 
 /**
  * Scaffold Contract V2 — how much of a scaffold file is materialized in
- * the system prompt. `full` keeps the entire content, `excerpt` keeps
- * imports + a structural body excerpt, and `signature` keeps only
- * imports + exported identifiers. The default is derived from `role`.
+ * the system prompt. `full` keeps the entire content when it fits the
+ * critical-files budget, `excerpt` renders a FileContract with imports,
+ * exports, structure, and capped representative lines, and `signature`
+ * keeps imports/exports/structure without body lines. The default is
+ * derived from `role`.
  */
 export type ScaffoldFileSerialization = "full" | "excerpt" | "signature";
 
@@ -57,10 +59,9 @@ export interface ScaffoldFile {
    */
   serialization?: ScaffoldFileSerialization;
   /**
-   * V2 (optional): per-file ceiling for excerpt body characters. Only
-   * used when `serialization` resolves to `"excerpt"`. Lets manifest
-   * authors trim a verbose page without dropping it from prompt
-   * context entirely.
+   * V2 (optional): per-file ceiling for FileContract representative
+   * lines. Used when `serialization` resolves to `"excerpt"` and when a
+   * large `"full"` file falls back to FileContract.
    */
   maxPromptChars?: number;
 }

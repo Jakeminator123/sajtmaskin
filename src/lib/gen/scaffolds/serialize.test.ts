@@ -44,7 +44,7 @@ describe("serializeScaffoldForPrompt", () => {
     expect(out.length).toBeLessThanOrEqual(22_500);
     expect(out).toContain("## Scaffold File Tree");
     expect(out).toContain("## Critical Scaffold Files");
-    expect(out).toContain('file="app/layout.tsx"');
+    expect(out).toContain("### FileContract: app/layout.tsx");
     expect(out).toContain("### FileContract: app/page.tsx");
     expect(out).not.toContain("NON_CRITICAL_PAYLOAD");
   });
@@ -108,6 +108,7 @@ describe("serializeScaffoldForPrompt", () => {
         { path: "app/layout.tsx", content: makeLongFile("Layout") },
         {
           path: "app/page.tsx",
+          maxPromptChars: 120,
           content: [
             'import Hero from "@/components/hero";',
             'import Features from "@/components/features";',
@@ -147,7 +148,9 @@ describe("serializeScaffoldForPrompt", () => {
     expect(out).toContain("- completeness: partial-not-executable");
     expect(out).toContain("- mustEmit: true");
     expect(out).toContain("- routePath: /");
-    expect(out).toContain("Full source body intentionally omitted");
+    expect(out).toContain("representativeLines");
+    expect(out).toContain("export default function HomePage()");
+    expect(out).toContain("excerpt budget (120 chars)");
     expect(out).not.toContain('```tsx file="app/page.tsx"');
     expect(out).not.toContain(
       "long body content long body content long body content long body content",
@@ -188,7 +191,42 @@ describe("serializeScaffoldForPrompt", () => {
     expect(out).not.toContain("// excerpt truncated — full file");
   });
 
-  it("omits oversized scaffold files instead of emitting truncated TSX snippets", () => {
+  it("keeps inspirational mode page context to import-reference only", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "landing-page",
+      label: "Inspirational scaffold",
+      description: "A scaffold used to verify init/inspirational safety.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/layout.tsx", content: makeLongFile("Layout") },
+        {
+          path: "app/page.tsx",
+          content: [
+            'import Hero from "@/components/hero";',
+            "",
+            "export default function HomePage() {",
+            `  return <main>${"never include page body ".repeat(100)}</main>;`,
+            "}",
+          ].join("\n"),
+        },
+        { path: "app/globals.css", content: ".root { color: red; }" },
+      ],
+    };
+
+    const out = serializeScaffoldForPrompt(scaffold, "inspirational", {
+      maxChars: 10_000,
+      contextPolicy: "normal",
+    });
+
+    expect(out).toContain("## Import Reference (from scaffold app/page.tsx)");
+    expect(out).toContain('import Hero from "@/components/hero";');
+    expect(out).not.toContain('```tsx file="app/page.tsx"');
+    expect(out).not.toContain("never include page body");
+  });
+
+  it("renders oversized scaffold files as contracts instead of truncated TSX snippets", () => {
     const scaffold: ScaffoldManifest = {
       id: "landing-page",
       label: "Oversized scaffold",
@@ -208,18 +246,60 @@ describe("serializeScaffoldForPrompt", () => {
     });
 
     expect(out).not.toContain("// ... truncated");
-    expect(out).toContain("omitted for prompt budget");
-    expect(out).toContain("components/site-header.tsx");
+    expect(out).not.toContain("content content content content");
+    expect(out).toContain("### FileContract: app/layout.tsx");
+    expect(out).toContain("### FileContract: components/site-header.tsx");
+    expect(out).toContain("omitted to keep Critical Scaffold Files under 6000 chars");
+  });
+
+  it("keeps client-component imports out of representative lines", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "landing-page",
+      label: "Client component scaffold",
+      description: "A scaffold used to verify client component contract extraction.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/layout.tsx", content: "export default function Layout(){ return null; }" },
+        {
+          path: "components/site-header.tsx",
+          serialization: "excerpt",
+          maxPromptChars: 240,
+          content: [
+            '"use client";',
+            "",
+            'import { Button } from "@/components/ui/button";',
+            'import { useState } from "react";',
+            "",
+            "export function SiteHeader() {",
+            "  const [open, setOpen] = useState(false);",
+            "  return <Button onClick={() => setOpen(!open)}>Menu</Button>;",
+            "}",
+          ].join("\n"),
+        },
+      ],
+    };
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 10_000,
+      contextPolicy: "normal",
+    });
+
+    expect(out).toContain('  - `import { Button } from "@/components/ui/button";`');
+    const representativeLines = out.split("- representativeLines")[1] ?? "";
+    expect(representativeLines).toContain('"use client";');
+    expect(representativeLines).not.toContain('import { Button } from "@/components/ui/button";');
   });
 
   it("keeps Critical Scaffold Files under 6k across all runtime scaffolds", () => {
     for (const scaffold of getAllScaffolds()) {
       const out = serializeScaffoldForPrompt(scaffold, "structural", {
-        maxChars: 10_000,
+        maxChars: 42_000,
         contextPolicy: "normal",
       });
       const critical = out.split("## Critical Scaffold Files\n\n")[1] ?? "";
-      const criticalWithoutHints = critical.split("\n\nScaffold hints:")[0] ?? critical;
+      const criticalWithoutHints = critical.split("\n\n## Scaffold Hints")[0] ?? critical;
       expect(
         criticalWithoutHints.length,
         `${scaffold.id} Critical Scaffold Files too large`,
