@@ -121,6 +121,22 @@ describe("dep-completer", () => {
     );
   });
 
+  it("detects side-effect CSS, CommonJS require, and dynamic imports", () => {
+    const result = runDepCompleter(
+      [
+        'import "mapbox-gl/dist/mapbox-gl.css";',
+        'const axios = require("axios");',
+        'const charts = await import("chart.js");',
+        "void axios;",
+        "void charts;",
+      ].join("\n"),
+    );
+
+    expect(result.dependencies["mapbox-gl"]).toBe(KNOWN_PACKAGES["mapbox-gl"]);
+    expect(result.dependencies.axios).toBe(KNOWN_PACKAGES.axios);
+    expect(result.dependencies["chart.js"]).toBe(KNOWN_PACKAGES["chart.js"]);
+  });
+
   it("does not treat @/ path alias as an npm package", () => {
     const result = runDepCompleter('import { cn } from "@/lib/utils";\n');
     expect(result.dependencies["@/lib/utils"]).toBeUndefined();

@@ -7,6 +7,7 @@ telemetri-events som introducerats i LLM-flöde-körplanen 2026-04-24:
   - ``llm_fixer_aborted``          (wave 1/5) — abort + duration + retry-signal
   - ``dossier_verbatim_restored``  (wave 6)   — säkerhetshygien: LLM korrumperade verbatim
   - ``llm_fixer_partial_response`` (wave 1/5) — excludedFiles per session
+  - ``llm_repair_gate.deduped``     (fas 5)    — ledger dedupe av upprepat LLM-repairförsök
   - ``site.done`` → ``warmTscSkipped``        (wave 7)   — latency-vinst-mätning
   - ``site.done`` → ``f2TimeMs`` / ``f3TimeMs``           (wave 7)   — fas-uppdelad latens (TODO i källan)
   - ``site.aborted``               (P0 2026-04-26) — stream-/transport-/provider-abort innan version
@@ -296,6 +297,42 @@ def _render_llm_fixer_partial_response(run_dirs: list[Path]) -> None:
                 "Run": e.get("_run", ""),
                 "excludedFiles": excluded_count,
                 "totalFixedFilesAttempted": attempted,
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+
+def _render_llm_repair_gate_deduped(run_dirs: list[Path]) -> None:
+    st.subheader("LLM Repair Gate — dedupe (`llm_repair_gate.deduped`)")
+    st.caption(
+        "Emitteras när `RepairLedger` stoppar ett upprepat LLM-repairförsök "
+        "med samma scope/contentHash/diagnosticFingerprint/requiredFiles. "
+        "Schema: `docs/schemas/strict/llm-repair-gate-deduped.schema.json`."
+    )
+    events = _collect_events_by_type(run_dirs, "llm_repair_gate.deduped")
+    if not events:
+        st.info("Inga `llm_repair_gate.deduped`-events hittade i de senaste körningarna.")
+        return
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Dedupade repairförsök", len(events))
+    phases = {str(e.get("phase", "unknown")) for e in events}
+    scopes = {str(e.get("scopeId", "unknown")) for e in events}
+    col2.metric("Phases", len(phases))
+    col3.metric("Scopes", len(scopes))
+
+    rows = []
+    for event in events[:100]:
+        rows.append(
+            {
+                "Tid": event.get("_ts", "")[:19],
+                "Run": event.get("_run", ""),
+                "Chat": (event.get("chatId") or event.get("_slug") or "")[:36],
+                "Phase": event.get("phase", "—"),
+                "Scope": event.get("scopeId", "—"),
+                "Attempts": event.get("attempts", "—"),
+                "Last outcome": event.get("lastOutcome", "—"),
+                "Required files": ", ".join(event.get("requiredFiles") or []),
             }
         )
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
@@ -603,6 +640,9 @@ def render(ctx: BackofficeContext) -> None:
 
     st.divider()
     _render_llm_fixer_partial_response(run_dirs)
+
+    st.divider()
+    _render_llm_repair_gate_deduped(run_dirs)
 
     st.divider()
     _render_warm_tsc_skipped(run_dirs)

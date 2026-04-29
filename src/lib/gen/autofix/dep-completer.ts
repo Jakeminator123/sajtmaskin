@@ -1,12 +1,27 @@
 import type { AutoFixEntry } from "./pipeline";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 
+const PACKAGE_SOURCE_PATTERN = String.raw`((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))`;
+
 /**
- * Static `import … from "pkg"` sources. Supports scoped npm packages (`@scope/name`);
- * excludes path aliases like `@/…` (no slash after scope segment).
+ * Static dependency sources in generated code. Supports:
+ * - `import x from "pkg"`
+ * - `import "pkg/styles.css"`
+ * - `require("pkg")`
+ * - `import("pkg")`
+ *
+ * Scoped npm packages are supported (`@scope/name`); path aliases like `@/…`
+ * are excluded because the scoped pattern requires a non-slash scope segment.
  */
-const IMPORT_SOURCE_RE =
-  /from\s+["']((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))["']/g;
+const IMPORT_SOURCE_RE = new RegExp(
+  [
+    String.raw`from\s+["']${PACKAGE_SOURCE_PATTERN}["']`,
+    String.raw`import\s+["']${PACKAGE_SOURCE_PATTERN}["']`,
+    String.raw`require\s*\(\s*["']${PACKAGE_SOURCE_PATTERN}["']\s*\)`,
+    String.raw`import\s*\(\s*["']${PACKAGE_SOURCE_PATTERN}["']\s*\)`,
+  ].join("|"),
+  "g",
+);
 
 /**
  * Packages the preview runtime already ships (Next.js, React, tailwind, etc.).
@@ -237,7 +252,8 @@ export function runDepCompleter(code: string): {
 
   IMPORT_SOURCE_RE.lastIndex = 0;
   for (const match of code.matchAll(IMPORT_SOURCE_RE)) {
-    const raw = match[1];
+    const raw = match.slice(1).find((group): group is string => typeof group === "string");
+    if (!raw) continue;
     const pkg = normalizePackageName(raw);
 
     if (seen.has(pkg)) continue;

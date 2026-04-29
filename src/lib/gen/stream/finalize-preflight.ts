@@ -13,7 +13,7 @@ import {
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
+import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import {
@@ -75,6 +75,8 @@ export interface RunFinalizePreflightParams {
   routePlan?: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
   originalPrompt?: string;
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
 }
 
 export interface RunFinalizePreflightResult {
@@ -231,6 +233,8 @@ async function tryRecoverMissingHomeRoute(params: {
   originalPrompt?: string;
   buildSpec: BuildSpec | null | undefined;
   routePlan: RoutePlan | null | undefined;
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
 }): Promise<{ files: CodeFile[]; recovered: boolean; attempted: boolean; message?: string }> {
   const detectedHome = findHomePageFile(params.files);
   const homeIssue = buildMissingHomeRouteIssue(detectedHome);
@@ -257,6 +261,9 @@ async function tryRecoverMissingHomeRoute(params: {
       timeoutMs: HOME_ROUTE_RECOVERY_TIMEOUT_MS,
       requiredFiles: [HOME_ROUTE_RECOVERY_PATH],
       resolvedTier: params.resolvedTier,
+      scopeId: params.repairScopeId,
+      phase: "home-route-recovery",
+      ledger: params.repairLedger,
     });
     const repairResult = repairGate.result;
     if (!repairResult.success || typeof repairResult.fixedContent !== "string") {
@@ -602,7 +609,10 @@ export async function runFinalizePreflight({
   routePlan = null,
   orchestrationContract = null,
   originalPrompt: _originalPrompt,
+  repairLedger: providedRepairLedger,
+  repairScopeId,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
+  const repairLedger = providedRepairLedger ?? new RepairLedger();
   let nextFilesJson = filesJson;
   const preflightIssues: FinalizePreflightIssue[] = [];
   let preflightFileCount = 0;
@@ -787,6 +797,9 @@ export async function runFinalizePreflight({
             chatId,
             timeoutMs: 60_000,
             ...(requiredFiles.length > 0 ? { requiredFiles } : {}),
+            scopeId: repairScopeId,
+            phase: "merged-syntax",
+            ledger: repairLedger,
           });
           const repairResult = repairGate.result;
           let errorsAfter = errorsBefore;
@@ -869,6 +882,8 @@ export async function runFinalizePreflight({
       originalPrompt: _originalPrompt,
       buildSpec,
       routePlan,
+      repairLedger,
+      repairScopeId,
     });
     if (homeRecovery.attempted) {
       if (homeRecovery.recovered) {

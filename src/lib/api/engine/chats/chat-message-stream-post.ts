@@ -90,7 +90,6 @@ import {
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import {
-  buildFollowUpBriefFromSnapshot,
   extractBriefSummaryFromSnapshot,
   formatPriorDesignContext,
   prependOrchestrationContinuityToFollowUp,
@@ -300,7 +299,6 @@ export async function handleMessageStreamRequest(
         const metaAppProjectId = parsedMeta.appProjectId;
         const metaScaffoldMode = parsedMeta.scaffoldMode;
         const metaScaffoldId = parsedMeta.scaffoldId;
-        const metaThemeColors = parsedMeta.themeColors;
         // Follow-ups do not carry the init brief inline. For clear-redesign
         // follow-ups, a delta-brief is generated below. Otherwise `metaBrief`
         // stays null — but the original brief still lives in the chat's
@@ -315,8 +313,6 @@ export async function handleMessageStreamRequest(
             engineChat.orchestration_snapshot as Record<string, unknown> | null,
           ),
         );
-        const metaDesignThemePreset = parsedMeta.designThemePreset;
-        const metaPalette = parsedMeta.palette;
         const metaPromptAssistModel = parsedMeta.promptAssistModel;
         const metaPromptAssistDeep = parsedMeta.promptAssistDeep;
         const metaPromptAssistMode = parsedMeta.promptAssistMode;

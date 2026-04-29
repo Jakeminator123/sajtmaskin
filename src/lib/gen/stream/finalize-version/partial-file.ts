@@ -10,7 +10,7 @@
  */
 
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
+import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { incPartialFileRepair } from "@/lib/observability/metrics";
@@ -64,13 +64,24 @@ export async function tryRepairPartialFileOutput(params: {
   resolvedTier?: CanonicalModelId;
   partialFileIssues: string[];
   previewPolicy?: BuildSpec["previewPolicy"];
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
 }): Promise<{
   repairedContent: string | null;
   attempts: number;
   succeeded: boolean;
   partialFiles: string[];
 }> {
-  const { contentForVersion, chatId, resolvedTier, partialFileIssues, previewPolicy } = params;
+  const {
+    contentForVersion,
+    chatId,
+    resolvedTier,
+    partialFileIssues,
+    previewPolicy,
+    repairLedger: providedRepairLedger,
+    repairScopeId,
+  } = params;
+  const repairLedger = providedRepairLedger ?? new RepairLedger();
   const partialFiles = extractPartialFileNames(partialFileIssues);
   if (partialFiles.length === 0) {
     return {
@@ -95,6 +106,9 @@ export async function tryRepairPartialFileOutput(params: {
         timeoutMs: PARTIAL_FILE_REPAIR_TIMEOUT_MS,
         requiredFiles: partialFiles,
         resolvedTier,
+        scopeId: repairScopeId,
+        phase: "partial-file",
+        ledger: repairLedger,
       });
       if (!result.success) {
         // partial output is also treated as a no-success here: a partial

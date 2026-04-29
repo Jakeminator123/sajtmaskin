@@ -181,6 +181,10 @@ export async function finalizeAndSaveVersion(
     buildSpec?.generationMode === "followUp" || Boolean(targetVersionId)
       ? "followup"
       : "init";
+  const repairScopeId = [
+    targetVersionId ?? lineageHash ?? chatId,
+    repairPassIndex > 0 ? `repair-${repairPassIndex}` : "root",
+  ].join(":");
   let telemetryRecordId: string | null = null;
   const finalizeStepTelemetry: FinalizeStepTelemetryMap = {};
   const resolveStepDurationMs = (step: OwnEnginePostStreamPhaseId): number => {
@@ -288,6 +292,7 @@ export async function finalizeAndSaveVersion(
     selectedDossiers: resolveSelectedDossiersFromStreamMeta(
       orchestrationStreamMeta as Record<string, unknown> | null | undefined,
     ),
+    repairScopeId,
   });
   contentForVersion = fastPathContent;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);

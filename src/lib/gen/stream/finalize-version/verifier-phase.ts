@@ -18,7 +18,7 @@
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { CanonicalModelId } from "@/lib/models/catalog";
-import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
+import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
 import {
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
@@ -54,6 +54,8 @@ export async function runVerifierPhase(params: {
   contentForVersion: string;
   onProgress?: FinalizeProgressCallback;
   runAutoFix: (content: string) => Promise<AutoFixResult>;
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
 }): Promise<VerifierPhaseResult> {
   const {
     enabled,
@@ -66,7 +68,10 @@ export async function runVerifierPhase(params: {
     repairPassIndex,
     onProgress,
     runAutoFix,
+    repairLedger: providedRepairLedger,
+    repairScopeId,
   } = params;
+  const repairLedger = providedRepairLedger ?? new RepairLedger();
   let contentForVersion = params.contentForVersion;
   let verifierBlockingFindings: Array<{ id: string; detail: string }> = [];
 
@@ -163,6 +168,9 @@ export async function runVerifierPhase(params: {
           timeoutMs: VERIFIER_REPAIR_TIMEOUT_MS,
           resolvedTier,
           ...(requiredFiles.length > 0 ? { requiredFiles } : {}),
+          scopeId: repairScopeId,
+          phase: "verifier",
+          ledger: repairLedger,
         });
         const repaired = repairGate.result;
         let rerunBlockingCount: number | null = null;

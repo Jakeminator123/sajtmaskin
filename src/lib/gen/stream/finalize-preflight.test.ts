@@ -49,6 +49,14 @@ vi.mock("@/lib/gen/autofix/llm-fixer", () => ({
 
 vi.mock("@/lib/gen/autofix/llm-repair-gate", () => ({
   runLlmRepairGate,
+  RepairLedger: class {
+    begin() {
+      return { allowed: true, record: { key: "test-ledger-key" } };
+    }
+    complete() {}
+    markError() {}
+    clear() {}
+  },
 }));
 
 vi.mock("@/lib/gen/post-process/image-materializer", () => ({

@@ -1,4 +1,4 @@
-import { resolveLlmRepairConfig, runLlmRepairGate } from "./llm-repair-gate";
+import { RepairLedger, resolveLlmRepairConfig, runLlmRepairGate } from "./llm-repair-gate";
 import { runAutoFix } from "./pipeline";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { CanonicalModelId } from "@/lib/models/catalog";
@@ -93,6 +93,22 @@ export type ValidateFixProgressCallback = (event: {
   errorCount: number;
 }) => void;
 
+export interface ValidateAndFixOptions {
+  chatId: string;
+  model: string;
+  resolvedTier?: CanonicalModelId;
+  onProgress?: ValidateFixProgressCallback;
+  fixBudgetMs?: number;
+  previewPolicy?: BuildSpecPreviewPolicy;
+  alreadyMechanicallyFixed?: boolean;
+  resolvedScaffold?: ScaffoldManifest | null;
+  forceTsc?: boolean;
+  skipWarmTsc?: boolean;
+  forceEslint?: boolean;
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
+}
+
 function isBudgetExceeded(deadline: number): boolean {
   return Date.now() >= deadline;
 }
@@ -137,6 +153,8 @@ async function runWarmTscPass(
     onProgress?: ValidateFixProgressCallback;
     pass: number;
     budgetDeadline: number;
+    repairLedger: RepairLedger;
+    repairScopeId?: string;
   },
 ): Promise<{ content: string; tsc: TscPassOutcome; mechanicalFixesAdded: number; llmFixesAdded: number }> {
   const startedAt = Date.now();
@@ -216,6 +234,9 @@ async function runWarmTscPass(
         chatId: opts.chatId,
         timeoutMs: Math.min(TSC_REPAIR_TIMEOUT_MS, remainingBudgetMs),
         resolvedTier: opts.resolvedTier,
+        scopeId: opts.repairScopeId,
+        phase: "warm-tsc",
+        ledger: opts.repairLedger,
       });
       const repaired = repairGate.result;
       if (repaired.success && repaired.fixedContent) {
@@ -296,6 +317,8 @@ async function runWarmEslintPass(
     onProgress?: ValidateFixProgressCallback;
     pass: number;
     budgetDeadline: number;
+    repairLedger: RepairLedger;
+    repairScopeId?: string;
   },
 ): Promise<{
   content: string;
@@ -396,6 +419,9 @@ async function runWarmEslintPass(
         chatId: opts.chatId,
         timeoutMs: Math.min(ESLINT_REPAIR_TIMEOUT_MS, remainingBudgetMs),
         resolvedTier: opts.resolvedTier,
+        scopeId: opts.repairScopeId,
+        phase: "warm-eslint",
+        ledger: opts.repairLedger,
       });
       const repaired = repairGate.result;
       if (repaired.success && repaired.fixedContent) {
@@ -466,7 +492,7 @@ async function runWarmEslintPass(
  */
 export async function validateAndFix(
   content: string,
-  opts: Parameters<typeof validateAndFixInner>[1],
+  opts: ValidateAndFixOptions,
 ): Promise<ValidateFixResult> {
   const startedAt = Date.now();
   try {
@@ -482,49 +508,12 @@ export async function validateAndFix(
 
 async function validateAndFixInner(
   content: string,
-  opts: {
-    chatId: string;
-    model: string;
-    resolvedTier?: CanonicalModelId;
-    onProgress?: ValidateFixProgressCallback;
-    fixBudgetMs?: number;
-    /** Forwarded to `runAutoFix` so the F2 SDK guard can run when active. */
-    previewPolicy?: BuildSpecPreviewPolicy;
-    /**
-     * Skip the initial mechanical `runAutoFix` pass when the caller already
-     * ran it on the same content (e.g. finalize-version.ts → outer autofix).
-     * Avoids redundant idempotent work. The post-LLM mechanical pass inside
-     * the repair loop is unaffected.
-     */
-    alreadyMechanicallyFixed?: boolean;
-    /**
-     * Resolved scaffold manifest — drives the warm-tsc cache lookup
-     * (`scaffoldId`). Null/undefined disables the tsc pass; the function
-     * still returns `passed` based on esbuild only.
-     */
-    resolvedScaffold?: ScaffoldManifest | null;
-    /**
-     * Force the warm-tsc pass even when `SAJTMASKIN_PRE_VM_TYPECHECK` is
-     * disabled. Set by F3 (integrations) callers since the integrations
-     * build always pays for the extra check.
-     */
-    forceTsc?: boolean;
-    /**
-     * Skip warm-tsc entirely because a downstream quality gate is expected
-     * to run `typecheck` shortly after finalize.
-     */
-    skipWarmTsc?: boolean;
-    /**
-     * Force the warm-eslint pass even when `SAJTMASKIN_BLOCKING_ESLINT`
-     * is disabled. Set by F3 (integrations) callers. Part of P34 / SAJ-28
-     * fix to close the eslint-fire-and-forget gap.
-     */
-    forceEslint?: boolean;
-  },
+  opts: ValidateAndFixOptions,
 ): Promise<ValidateFixResult> {
   const onProgress = opts.onProgress;
   const fixBudgetMs = Math.max(1_000, opts.fixBudgetMs ?? 180_000);
   const budgetDeadline = Date.now() + fixBudgetMs;
+  const repairLedger = opts.repairLedger ?? new RepairLedger();
   let totalMechanicalFixes = 0;
   let totalLlmFixes = 0;
 
@@ -650,6 +639,7 @@ async function validateAndFixInner(
               onProgress,
               pass,
               budgetDeadline,
+              repairLedger,
             });
         currentContent = tscResult.content;
         totalMechanicalFixes += tscResult.mechanicalFixesAdded;
@@ -673,6 +663,7 @@ async function validateAndFixInner(
               onProgress,
               pass,
               budgetDeadline,
+              repairLedger,
             })
           : null;
         if (eslintResult) {
@@ -786,6 +777,9 @@ async function validateAndFixInner(
           timeoutMs: remainingBudgetMs,
           requiredFiles: brokenFiles,
           config: syntaxRepairConfig,
+          scopeId: opts.repairScopeId,
+          phase: "syntax",
+          ledger: repairLedger,
         });
         const fixerResult = repairGate.result;
 
@@ -888,6 +882,7 @@ async function validateAndFixInner(
                 onProgress,
                 pass,
                 budgetDeadline,
+                repairLedger,
               });
           currentContent = tscResult.content;
           totalMechanicalFixes += tscResult.mechanicalFixesAdded;
@@ -907,6 +902,7 @@ async function validateAndFixInner(
                 onProgress,
                 pass,
                 budgetDeadline,
+                repairLedger,
               })
             : null;
           if (eslintResult) {

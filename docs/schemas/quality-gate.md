@@ -156,6 +156,14 @@ Det betyder att quality gate i nuläget är både:
 - verifieringslager
 - källa till repair-kontext
 
+Finalize-pipeline använder dessutom `runLlmRepairGate()` med en per-finalize
+`RepairLedger` för syntax/warm-tsc/warm-eslint, verifier, preflight,
+home-route recovery och partial-file repair. Ledger dedupe:ar samma
+`contentHash + diagnosticFingerprint + requiredFiles` inom samma finalize
+scope även när felet dyker upp i en annan phase. `phase` loggas men ingår inte
+i dedupe-nyckeln. Post-finalize `runRepairLoop()` för server-verify/manuell
+repair ligger fortfarande utanför denna ledger och är ett separat hardening-spår.
+
 ## Repair-accept (ingen tyst filersättning)
 
 När post-repair quality gate passerar skrivs inte reparerade filer direkt över

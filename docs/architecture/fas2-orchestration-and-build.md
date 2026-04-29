@@ -249,7 +249,15 @@ SSE-progress emitterar phases: `validating` / `fixing` / `tsc-validating` / `tsc
 
 ### Steg 5 — `verifier` i detalj
 
-Blocking-fynd matas in i `runLlmFixer` direkt efter verifier-passet via `formatVerifierFindingsAsFixerErrors()` (samma `phaseRouting.fixer`-modell + 60 s abort). Fixerns output körs genom `runAutoFix` igen. Re-validation av verifier hoppas medvetet över (skulle förlänga `done` med 5–15 s); server-verify (Fas 3) fångar resten. Lyckad fixer → `verifierBlockingFindings = []` så versionen INTE markeras verifier-blocked.
+Blocking-fynd matas in via `runLlmRepairGate()` direkt efter verifier-passet via `formatVerifierFindingsAsFixerErrors()` (samma `phaseRouting.fixer`-modell + 60 s abort). Fixerns output körs genom `runAutoFix` igen. Re-validation av verifier hoppas medvetet över (skulle förlänga `done` med 5–15 s); server-verify (Fas 3) fångar resten. Lyckad fixer → `verifierBlockingFindings = []` så versionen INTE markeras verifier-blocked.
+
+### Repair ledger
+
+`runFinalizeFastPath()` skapar en per-finalize `RepairLedger` och trådar den till syntax/warm-tsc/warm-eslint, verifier, preflight, home-route recovery och partial-file repair. Ledgerns dedupe-nyckel är `scopeId + chatId + contentHash + diagnosticFingerprint + requiredFiles`; `phase` ingår **inte** i nyckeln, men loggas för observability. Därmed kan samma innehåll + samma diagnostik inte trigga flera LLM-repairförsök bara för att felet vandrar från syntax till verifier/preflight i samma finalize-run.
+
+`scopeId` sätts av finalize-runnern från `targetVersionId` eller `lineageHash` plus `repairPassIndex` (`root`/`repair-N`). Dedupe är fortfarande opt-in för callers som explicit skickar ledger; post-finalize `server-verify`/manual repair-loop kan fortfarande ha egen repairlogik utanför denna ledger.
+
+När en repair dedupe:as skrivs devLog-eventet `llm_repair_gate.deduped` med `phase`, `scopeId`, `requiredFiles`, `diagnosticFingerprint`, `contentHash`, `attempts` och `lastOutcome`.
 
 ### Steg 6 — `parse_merge_preflight` cross-checks
 

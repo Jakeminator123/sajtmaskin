@@ -26,6 +26,7 @@ import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
+import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -119,6 +120,8 @@ export async function runFinalizeFastPath(params: {
    * hittar inga skyddade filer).
    */
   selectedDossiers?: DossierEntry[];
+  /** Stable id for repair-ledger dedupe within this finalize run. */
+  repairScopeId: string;
 }): Promise<FinalizeFastPathResult> {
   const {
     chatId,
@@ -140,9 +143,11 @@ export async function runFinalizeFastPath(params: {
     qualityGateChecksIncludesTypecheck,
     qualityGatePlanned,
     selectedDossiers,
+    repairScopeId,
   } = params;
   let contentForVersion = params.contentForVersion;
   const stepTelemetry: FinalizeStepTelemetryMap = {};
+  const repairLedger = new RepairLedger();
   // Wave 7 R2 guard: warm-tsc skippas BARA när callsiten explicit flaggar
   // att quality-gate är planerad OCH kommer köra typecheck. Utan båda
   // signalerna: kör warm-tsc ändå (säker fallback).
@@ -190,6 +195,8 @@ export async function runFinalizeFastPath(params: {
     resolvedScaffold,
     forceTsc: !skipWarmTsc && buildSpec?.previewPolicy === "fidelity3",
     skipWarmTsc,
+    repairLedger,
+    repairScopeId,
     // P34 / SAJ-28: eslint pass mirrors tsc — feature-flag gated via
     // `SAJTMASKIN_BLOCKING_ESLINT`; F3 (integrations) also forces it on.
     forceEslint: buildSpec?.previewPolicy === "fidelity3",
@@ -313,6 +320,8 @@ export async function runFinalizeFastPath(params: {
     onProgress,
     runAutoFix: (content) =>
       runAutoFix(content, { chatId, model, previewPolicy: buildSpec?.previewPolicy }),
+    repairLedger,
+    repairScopeId,
   });
   contentForVersion = verifierOutcome.contentForVersion;
   stepTelemetry.verifier = verifierOutcome.stepTelemetry;
@@ -333,6 +342,8 @@ export async function runFinalizeFastPath(params: {
     contentForVersion,
     onProgress,
     selectedDossiers,
+    repairLedger,
+    repairScopeId,
   });
 
   return {

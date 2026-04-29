@@ -51,10 +51,10 @@ Rekommendation: kör som **4 + 4 spår**, men inte som åtta oberoende implement
 | A2 dossiers | Klar 2026-04-29 | Runtime läser `data/dossiers/{hard,soft}` direkt via diskregistry + deterministic capability-select. Viktigaste glapp: manifest-`dependencies` används inte deterministiskt för de flesta dossiers; `files[].path` saknar explicit targetPath/canonical path-regel. |
 | A3 scaffolds | Klar 2026-04-29 | `src/lib/gen/scaffolds/registry.ts` + 9 manifests är runtime source of truth. Formatet är konkret men init är fortfarande prompt-first/inspirational; `app/page.tsx` är LLM-only, så huvudytan måste genereras av modellen. |
 | A4 variants/fonts/shadcn | Klar 2026-04-29 | Variant-fonts är promptmaterial, inte deterministiskt materialiserade. Baseline-scaffolds startar med `Inter`; font-import-fixer hjälper först när modellen redan använder fontfunktionen. Shadcn metadata är tom men `code` används för compact refs. |
-| B1 prompt size/latency | Implementerad 2026-04-29 | `generation-input-package.json` och prompt-dump metadata har nu `promptSize`: total/static/dynamic chars + estimerade tokens, dynamic budget/pruning, och topp-10 största dynamic blocks. Nästa steg är att kapa största blocken baserat på mätdata, inte känsla. |
-| B2 Deep Brief signal chain | Klar 2026-04-29 | Brief når prompten, scaffold/variant och dossiers, men inte BuildSpec-policy starkt nog: `qualityBar=premium` kan ändå bli `qualityTarget=standard`, `visualDirection` kan divergera från `stylePack`, snapshot kan tappa pages/sections/qualityBar. |
-| B3 build/finalize/repair | Klar 2026-04-29 | Robustheten är stark men LLM-fix kan triggas från flera vägar: syntax/tsc/eslint, verifier, partial-file, home-route recovery, merged-syntax escalation, VM build-error och server-verify. Behov: repair-budget ledger + mer samlad repair-gate + dedupade mekaniska pass. |
-| B4 simple creative path | Klar 2026-04-29 | Det finns ingen init-light lane för enkla websites. Kandidat: låg-risk `simpleWebsitePath` för website/template + 1 route + inga heavy capabilities/contracts/dossiers → kortare Dynamic Context + materialiserad scaffold-baseline, men behåll autofix/validate/preflight/F2. |
+| B1 prompt size/latency | Implementerad 2026-04-29 | `generation-input-package.json` och prompt-dump metadata har nu `promptSize`. FileContract + hard cap kapade Critical Scaffold Files till <6k och tog bort partial TSX som promptkälla. |
+| B2 Deep Brief signal chain | Implementerad 2026-04-29 | `## Brief-Locked Design Values` ligger före Scaffold Variant och är required i pruning. Snapshot-brief rehydrerar nu `qualityBar`, `motionLevel`, `colorPalette`, `typography`, style och tone. |
+| B3 build/finalize/repair | Implementerad smalt 2026-04-29 | `RepairLedger` dedupe:ar LLM-repair inom finalize fast-path över syntax/warm-tsc/warm-eslint, verifier, preflight, home-route och partial-file. Server/manual `runRepairLoop` ligger kvar som senare hardening. |
+| B4 simple creative path | Implementerad 2026-04-29 | `simpleWebsitePath` hoppar Server Auto-Brief, externa/component refs och dossier selection för korta website/template-init prompts utan heavy/multi-route/integration-signaler, men behåller scaffold/route/BuildSpec/system prompt/finalize/F2. |
 
 ## Gemensam rapportmall
 
@@ -82,15 +82,26 @@ Varje cloud-agent ska svara i samma format:
 | scaffold eval reports | Delvis tooling/eval, vissa latest-filer kan påverka blocklist | `data/scaffold-eval/reports/` |
 | template references | Nej, kuration-input | `data/template-references/` |
 
-## Första PR-paket efter audits
+## Implementation status 2026-04-29
 
-| PR | Kandidat | Varför |
+| Pass | Status | Bevis / yta |
 |---|---|---|
-| PR 1 | Source-map docs + operating docs | Stoppar begreppsförvirring: v0-mallar vs scaffolds vs variants vs dossiers |
-| PR 2 | Dossier validation hardening | Fångar formatklagomål via schema/test, inte magkänsla |
-| PR 3 | Variant-font materialization audit/test | Största tydliga designrisk: variant säger fontpar, scaffold startar ofta med `Inter` |
-| PR 4 | Prompt-size observability | Implementerad lokalt 2026-04-29: mät först, kapa sedan baserat på `promptSize.blocks.largest` och pruning-data |
-| PR 5 | Simple creative path spec/MVP | Kombinera milstolpe-känsla med dagens robusthet utan rollback |
+| FileContract / scaffold context | Genomfört | `src/lib/gen/scaffolds/serialize.ts`, all-scaffold budgettest, Critical Scaffold Files <6k |
+| Prompt-size observability | Genomfört | `src/lib/gen/prompt-size-metrics.ts`, `generation-input-package.promptSize`, backoffice prompt-size-panel |
+| Brief-Locked Design Values | Genomfört | `buildDynamicContext()` renderar brief före variant; snapshot bevarar designvärden |
+| Simple website path | Genomfört | `simple-website-path.ts`, `orchestrate.ts`, backoffice/event `orchestration.simple_website_path` |
+| 3D verbatim shell | Genomfört smalt | `three-fiber-canvas` emitterar `three-canvas-shell.tsx` som verbatim safety wrapper |
+| Repair ledger | Genomfört smalt | `RepairLedger` i `runLlmRepairGate`, per-finalize dedupe + `llm_repair_gate.deduped` telemetry |
+
+## Kvarvarande nästa pass
+
+| Nästa våg | Varför |
+|---|---|
+| Eval / faktisk generation | Kör 2–3 prompts och jämför promptSize, output-kvalitet, repair-count och preview-resultat. |
+| Template-first slots | FileContract är grund, men slots/materialiserad baseline är ännu inte full produktmodell. |
+| 3D-modulvariationer | Physics, GLTF/product viewer och scene recipes är inte byggda; endast säkrare shell är klart. |
+| Repair ledger i post-finalize repair-loop | `server-verify`/manuell `runRepairLoop` kör fortfarande separat från per-finalize ledger. |
+| Env source-of-truth hardening | Många `process.env`-läsningar finns utanför `src/lib/env.ts`; kräver separat kontrakts-/migrationspass. |
 
 ## Dossier legacy inventering (2026-04-29)
 
@@ -119,8 +130,8 @@ Read-only audit av historiska curated dossiers innan ev. migration:
 
 | Krav | Bevis |
 |---|---|
-| A1-A4 klara | Fyra read-only rapporter finns i PR-kommentar, issue eller denna planfil |
-| B1-B4 klara | Fyra LLM-flow rapporter med gemensam mall |
-| Parent syntes | Max 3 rekommenderade implementation-PR:er väljs |
+| A1-A4 klara | Read-only rapportstatus ovan |
+| B1-B4 klara | Runtime-pass ovan genomförda och verifierade |
+| Parent syntes | Implementation status + kvarvarande nästa pass i denna router |
 | Planhygien | Inga nya aktiva planfiler utan konkret PR-scope |
-| Runtime-säkerhet | `npm run typecheck` krävs för implementation-PR:er; docs-only behöver bara review |
+| Runtime-säkerhet | `npm run test:ci` 1976/1976, `npm run typecheck` 0 fel, `npm run lint` 0 warnings, backoffice smoke 3/3 |

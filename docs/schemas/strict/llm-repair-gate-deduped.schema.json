@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/schemas/llm-repair-gate-deduped.schema.json",
+  "title": "LLM repair gate deduped event",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "type",
+    "chatId",
+    "phase",
+    "scopeId",
+    "requiredFiles",
+    "diagnosticFingerprint",
+    "contentHash",
+    "attempts",
+    "lastOutcome"
+  ],
+  "properties": {
+    "type": {
+      "const": "llm_repair_gate.deduped"
+    },
+    "chatId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase": {
+      "type": ["string", "null"]
+    },
+    "scopeId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requiredFiles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "diagnosticFingerprint": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contentHash": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "lastOutcome": {
+      "type": ["string", "null"],
+      "enum": ["success", "failed", "partial", "aborted", "error", null]
+    }
+  }
+}

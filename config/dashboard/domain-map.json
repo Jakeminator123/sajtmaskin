@@ -249,9 +249,7 @@
         "src/lib/db/schema.ts"
       ],
       "docsPaths": [
-        "docs/architecture/data-layer-overview.md",
-        "docs/plans/avklarat/master-post-cleanup-2026-04-23/lineage/2026-04-24-langbank-databas-redis-observability.md",
-        "docs/plans/avklarat/master-post-cleanup-2026-04-23/lineage/2026-04-24-langbank-perf-indexes-auto-och-knapp.md"
+        "docs/architecture/data-layer-overview.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/integrations-and-data.md"
