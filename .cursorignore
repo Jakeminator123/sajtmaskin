@@ -34,7 +34,6 @@ package-lock.json
 #ENV_JAMFORRELSE.txt
 #di-d.txt
 
-# --- Data & prompt-dumpar (samma som .gitignore: dumps bort, README kan indexeras) ---
 #data/prompt-dumps/*
 !data/prompt-dumps/README.md
 
