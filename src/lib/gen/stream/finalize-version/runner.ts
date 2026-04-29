@@ -161,6 +161,15 @@ export async function finalizeAndSaveVersion(
   const requestedCapabilities = resolveRequestedCapabilitiesFromStreamMeta(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
   );
+  // Read the orchestrate-locked variantId off the stream meta so the
+  // autofix pre-phase can materialize the variant's first fontPairing
+  // into the baseline `app/layout.tsx`. Falls back to null when meta
+  // does not carry a variant (legacy snapshots, eval, repair-only).
+  const orchestrationVariantId =
+    typeof orchestrationStreamMeta?.variantId === "string" &&
+    orchestrationStreamMeta.variantId.trim().length > 0
+      ? (orchestrationStreamMeta.variantId as string)
+      : null;
 
   const finalizePath = resolveFinalizePathPolicy({
     buildSpec,
@@ -219,6 +228,7 @@ export async function finalizeAndSaveVersion(
         buildSpec,
         resolvedScaffold,
         resolvedTier,
+        variantId: orchestrationVariantId,
         onProgress,
         stepTelemetry: finalizeStepTelemetry,
       }),

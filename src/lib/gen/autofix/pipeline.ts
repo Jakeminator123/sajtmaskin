@@ -73,6 +73,19 @@ export interface AutoFixContext {
    * Example: `visual-3d` -> `three` + `@react-three/fiber` + `@react-three/drei`.
    */
   requestedCapabilities?: string[];
+  /**
+   * Scaffold id picked by orchestrate. Combined with `variantId` it lets
+   * `font-import-fixer` materialize the chosen variant's `fontPairings[0]`
+   * into baseline `app/layout.tsx` files instead of relying on the LLM
+   * to swap `Inter`. Absent => no-op (safe default for eval/repair).
+   */
+  scaffoldId?: string | null;
+  /**
+   * Scaffold-variant id picked by orchestrate (or carried over from a
+   * locked snapshot on follow-ups). Used together with `scaffoldId` to
+   * resolve the variant's first font pair.
+   */
+  variantId?: string | null;
 }
 
 const CLIENT_HOOKS =
@@ -842,10 +855,13 @@ async function runAutoFixSinglePass(
         );
       }
 
-      // 4g. font-import-fixer — layout font imports
+      // 4g. font-import-fixer — layout font imports + variant font materialization
       if (file.path.match(/(^|\/).*layout\.(tsx|jsx)$/i)) {
         try {
-          const fontResult2 = fixFontImport(currentCode, file.path);
+          const fontResult2 = fixFontImport(currentCode, file.path, {
+            scaffoldId: context?.scaffoldId ?? null,
+            variantId: context?.variantId ?? null,
+          });
           if (fontResult2.fixed) {
             currentCode = fontResult2.code;
             for (const fix of fontResult2.fixes) {

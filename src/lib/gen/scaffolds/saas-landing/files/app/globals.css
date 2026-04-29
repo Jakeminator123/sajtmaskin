@@ -30,4 +30,8 @@
       radial-gradient(circle at top center, color-mix(in oklab, var(--color-primary) 16%, transparent) 0%, transparent 30%),
       linear-gradient(to bottom, color-mix(in oklab, var(--color-accent) 28%, transparent) 0%, transparent 20%);
   }
+
+  :where(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--font-display, var(--font-sans)), ui-sans-serif, system-ui, sans-serif;
+  }
 }
