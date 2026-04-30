@@ -96,6 +96,10 @@ describe("error-log retriever", () => {
           faultText: "Missing React import on page.tsx",
           fixText: "Added import React from react",
           scaffoldId: "landing-page",
+          routePath: null,
+          variantId: null,
+          capabilityIds: [],
+          generationMode: null,
           lineageHash: null,
           result: "fixed",
         },
@@ -110,6 +114,10 @@ describe("error-log retriever", () => {
           faultText: "Unknown utility in @apply",
           fixText: null,
           scaffoldId: "landing-page",
+          routePath: null,
+          variantId: null,
+          capabilityIds: [],
+          generationMode: null,
           lineageHash: null,
           result: null,
         },
@@ -121,6 +129,59 @@ describe("error-log retriever", () => {
     });
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0].fault).toBe("react-import-missing");
+  });
+
+  it("reranks same fault and capability above plain text matches", () => {
+    writeSnapshot([
+      {
+        id: "row-0",
+        text: "react import missing generic",
+        payload: {
+          time: null,
+          phase: "post-gen",
+          fault: "react-import-missing",
+          faultText: "Missing React import",
+          fixText: "Added import",
+          scaffoldId: "base-nextjs",
+          routePath: "/",
+          variantId: null,
+          capabilityIds: [],
+          generationMode: "init",
+          lineageHash: null,
+          result: "fixed",
+        },
+      },
+      {
+        id: "row-1",
+        text: "react import missing generic",
+        payload: {
+          time: null,
+          phase: "post-gen",
+          fault: "undefined-jsx-symbol",
+          faultText: "Missing symbol in 3D scene",
+          fixText: "Imported missing symbol",
+          scaffoldId: "landing-page",
+          routePath: "/",
+          variantId: null,
+          capabilityIds: ["visual-3d"],
+          generationMode: "followup",
+          lineageHash: null,
+          result: "fixed",
+        },
+      },
+    ]);
+    const hits = retrieveSimilarFailures({
+      prompt: "react import missing generic",
+      faultType: "undefined-jsx-symbol",
+      scaffoldId: "landing-page",
+      capabilityIds: ["visual-3d"],
+      generationMode: "followup",
+    });
+    expect(hits[0]).toMatchObject({
+      fault: "undefined-jsx-symbol",
+      scaffoldId: "landing-page",
+      capabilityIds: ["visual-3d"],
+    });
   });
 
   it("renderErrorLogRagBlockLines outputs a header + items + respects budget", () => {
