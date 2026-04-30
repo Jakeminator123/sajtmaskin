@@ -107,6 +107,32 @@ describe("maybeAnalyzeVisualQAForPassedExportable", () => {
     expect(result?.checks.length).toBeGreaterThan(0);
     expect(typeof result?.overallScore).toBe("number");
   });
+
+  it("adds a WebGL readiness check for React Three Fiber client boundaries", () => {
+    vi.stubEnv("SAJTMASKIN_VISUAL_QA", "1");
+
+    const result = maybeAnalyzeVisualQAForPassedExportable({
+      exportable: [
+        ...sampleExportable,
+        {
+          path: "components/scene.tsx",
+          language: "tsx",
+          content: [
+            'import { Canvas } from "@react-three/fiber";',
+            "export function Scene() {",
+            "  return <Canvas><mesh /></Canvas>;",
+            "}",
+          ].join("\n"),
+        },
+      ],
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "" }],
+    });
+
+    expect(result?.checks.find((check) => check.check === "webgl-readiness")).toMatchObject({
+      passed: false,
+      score: 0,
+    });
+  });
 });
 
 describe("qualityGateAllPassed", () => {

@@ -53,6 +53,7 @@ export function analyzeVisualQuality(
   checks.push(checkMetadata(layout?.content));
   checks.push(checkImageUsage(mainPage?.content));
   checks.push(checkSectionVariety(mainPage?.content));
+  checks.push(checkWebGLReadiness(files));
 
   const totalWeight = checks.length * 100;
   const totalScore = checks.reduce((sum, c) => sum + c.score, 0);
@@ -65,6 +66,47 @@ export function analyzeVisualQuality(
     passed: overallScore >= PASS_THRESHOLD,
     checks,
     screenshotCaptured: false,
+  };
+}
+
+function checkWebGLReadiness(
+  files: Array<{ path: string; content: string }>,
+): VisualQACheckResult {
+  const r3fFiles = files.filter(
+    (file) =>
+      /\.(t|j)sx$/i.test(file.path) &&
+      (file.content.includes("@react-three/fiber") || /<Canvas\b/.test(file.content)),
+  );
+
+  if (r3fFiles.length === 0) {
+    return {
+      check: "webgl-readiness",
+      passed: true,
+      score: 100,
+      detail: "No React Three Fiber/WebGL canvas detected.",
+    };
+  }
+
+  const missingClientBoundary = r3fFiles.filter(
+    (file) => !/^\s*["']use client["']\s*;?/m.test(file.content),
+  );
+
+  if (missingClientBoundary.length === 0) {
+    return {
+      check: "webgl-readiness",
+      passed: true,
+      score: 100,
+      detail: `React Three Fiber canvas has client boundary in ${r3fFiles.length} file(s).`,
+    };
+  }
+
+  return {
+    check: "webgl-readiness",
+    passed: false,
+    score: 0,
+    detail: `React Three Fiber canvas missing "use client" in ${missingClientBoundary
+      .map((file) => file.path)
+      .join(", ")}.`,
   };
 }
 

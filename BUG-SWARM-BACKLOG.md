@@ -25,7 +25,7 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [x] | Fixad nu | P1 | Same-sandbox preview update skickar inte om `.env.local` | G#8 | Fixad: update-path bygger om `.env.local` via `buildPreviewEnvLocalContents()` innan `updatePreviewHostSession`. |
 | [x] | Fixad nu | P1 | Env merge kan skippas vid preview update | G#9 | Fixad med samma update-path som G#8; täckt av `preview-session.test.ts`. |
 | [ ] | Öppen design-risk | P1 | F2 quality gate fångar inte runtime/UI-fel | G#10 | Lägg separat runtime smoke/postcheck, inte bara typecheck. |
-| [ ] | Öppen testlucka | P1 | Ingen runtime smoke för WebGL/3D | G#11 | Lägg WebGL/Canvas-smoke i verifiering utan att röra live-builder. |
+| [x] | Fixad nu | P1 | Ingen runtime smoke för WebGL/3D | G#11 | Fixad med statisk WebGL/R3F-readiness smoke: verifier blockerar R3F Canvas utan `"use client"` och Visual QA rapporterar `webgl-readiness`. |
 | [ ] | Öppen produktbugg | P1 | Ingen tydlig game/interactive capability | G#12 | Lägg canonical capability eller styrning för spel/interactive canvas. |
 | [ ] | Öppen kvalitet-risk | P1 | Simplified brief fallback sänker premium/3D | G#13 | Begränsa fallback eller markera som degraded mode i generationen. |
 | [ ] | Öppen drift-risk | P1 | Rate limit faller tillbaka till per-instance memory utan Redis | G#14, U#45 | Kräv Redis i prod eller gör fallback tydligt degraded. |

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checkMotionReduceTrap,
+  checkR3FClientBoundary,
   checkUndefinedJsxSymbols,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
@@ -64,6 +65,43 @@ describe("checkMotionReduceTrap", () => {
     const findings = checkMotionReduceTrap([
       { path: "app/globals.css", content: `.bad { /* ${TRAP_CLASS} */ }` },
     ]);
+    expect(findings).toEqual([]);
+  });
+});
+
+describe("checkR3FClientBoundary", () => {
+  it("flags React Three Fiber Canvas in files without use client", () => {
+    const findings = checkR3FClientBoundary([
+      {
+        path: "components/scene.tsx",
+        content: [
+          'import { Canvas } from "@react-three/fiber";',
+          "export function Scene() {",
+          "  return <Canvas><mesh /></Canvas>;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("r3f-client-boundary");
+    expect(findings[0]?.detail).toContain("components/scene.tsx");
+  });
+
+  it("accepts R3F Canvas in client components", () => {
+    const findings = checkR3FClientBoundary([
+      {
+        path: "components/scene.tsx",
+        content: [
+          '"use client";',
+          'import { Canvas } from "@react-three/fiber";',
+          "export function Scene() {",
+          "  return <Canvas><mesh /></Canvas>;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
     expect(findings).toEqual([]);
   });
 });

@@ -251,6 +251,9 @@ function buildVerifierPromptSnippetFromFiles(files: CodeFile[], charsPerFile: nu
 const MOTION_REDUCE_HIDDEN = `motion-reduce` + `:hidden`;
 const CANVAS_WITH_CLASSNAME_RE =
   /<Canvas\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|\{[^}]*\})/g;
+const R3F_IMPORT_RE = /from\s+["']@react-three\/fiber["']|import\s*\(\s*["']@react-three\/fiber["']\s*\)/;
+const JSX_CANVAS_RE = /<Canvas\b/;
+const USE_CLIENT_RE = /^\s*["']use client["']\s*;?/m;
 const ELEMENT_WITH_CLASSNAME_RE =
   /<[A-Za-z][A-Za-z0-9]*\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`)/g;
 
@@ -581,6 +584,28 @@ export function checkMotionReduceTrap(
   return findings;
 }
 
+/**
+ * R3F `<Canvas>` is a browser-only runtime boundary. In Next App Router, any
+ * file that imports/renders it must be a client component; typecheck can pass
+ * while runtime preview fails with server-component/client-hook errors.
+ */
+export function checkR3FClientBoundary(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): VerifierFindings["blocking"] {
+  const findings: VerifierFindings["blocking"] = [];
+  for (const f of files) {
+    if (!f.path || !f.content) continue;
+    if (!/\.(t|j)sx$/i.test(f.path)) continue;
+    const hasR3FCanvas = R3F_IMPORT_RE.test(f.content) || JSX_CANVAS_RE.test(f.content);
+    if (!hasR3FCanvas || USE_CLIENT_RE.test(f.content)) continue;
+    findings.push({
+      id: "r3f-client-boundary",
+      detail: `${f.path}: React Three Fiber \`<Canvas>\` appears in a file without \`"use client"\`; this can pass typecheck but fail at runtime in Next App Router.`,
+    });
+  }
+  return findings;
+}
+
 export async function runVerifierPass(
   codeProjectContent: string,
   opts: { resolvedTier: CanonicalModelId; abortSignal?: AbortSignal },
@@ -605,9 +630,10 @@ export async function runVerifierPass(
 
   const { files } = parseCodeProject(codeProjectContent);
   const motionTraps = checkMotionReduceTrap(files);
+  const r3fClientBoundary = checkR3FClientBoundary(files);
   const undefinedJsx = checkUndefinedJsxSymbols(files);
   const deterministic: VerifierFindings = {
-    blocking: [...motionTraps, ...undefinedJsx],
+    blocking: [...motionTraps, ...r3fClientBoundary, ...undefinedJsx],
     quality: [],
   };
 
