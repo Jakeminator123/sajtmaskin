@@ -43,6 +43,7 @@ Quality gate är alltså inte samma sak som:
 - syntaxvalidering i finalize
 - verifier-pass (hybrid: deterministiska checks + LLM-audit) — kör
   regex-/AST-baserade guards (t.ex. `undefined-jsx-symbol`,
+  `r3f-client-boundary`, `navigation-placeholder-actions`,
   `motion-reduce-canvas-trap`, `motion-reduce-overlay-trap`) innan
   LLM-passet och matar eventuella blocking findings in i fixern
 - live-previewns `npm run dev`

@@ -96,9 +96,10 @@ def render(ctx: BackofficeContext) -> None:
   | "tsc-fixing" | "tsc-passed" | "tsc-skipped" | "passed" | "gave-up"`.
 - **Verifier-pass är hybrid (2026-04-22)**: före LLM-auditen kör `runVerifierPass` nu deterministiska
   guards i `verifier-pass.ts` — `undefined-jsx-symbol` (kollar JSX-taggar mot importerade/deklarerade
-  symboler, med TS-generic-registrering så `<T>` inte false-positivas), `motion-reduce-canvas-trap` och
-  `motion-reduce-overlay-trap`. `lazy(`-bailouten är smal: bara filer med `React.lazy(` eller `lazy`
-  importerat från `react`/`react-dom` skippas.
+  symboler, med TS-generic-registrering så `<T>` inte false-positivas), `r3f-client-boundary`,
+  `navigation-placeholder-actions`, `motion-reduce-canvas-trap` och `motion-reduce-overlay-trap`.
+  `lazy(`-bailouten är smal: bara filer med `React.lazy(` eller `lazy` importerat från
+  `react`/`react-dom` skippas.
 - **Verifier-fynd → fixer (Wave 2 2026-04-20)**: blocking-fynd från `runVerifierPass` (både deterministiska
   och LLM-reported) matas in i `runLlmFixer` direkt efter verifier-passet. Lyckad fixer rensar
   `verifierBlockingFindings` så versionen inte markeras blocked för fynd som redan reparerats.
