@@ -171,7 +171,7 @@ const RULES: CapabilityRule[] = [
     key: "needsGame",
     patterns: [
       /(?:^|[^\p{L}\p{N}])(?:spel|tv-?spel|minigame|mini-?game|game|playable|arcade|pacman|pac-man|platformer|snake|tetris|quiz.?game|interactive.?game)(?=[^\p{L}\p{N}]|$)/iu,
-      /\b(spelbar|interaktivt spel|interactive canvas game|playable canvas)\b/i,
+      /(?:^|[^\p{L}\p{N}])(?:spelbar|interaktivt spel|interactive canvas game|playable canvas)(?=[^\p{L}\p{N}]|$)/iu,
     ],
   },
   {
