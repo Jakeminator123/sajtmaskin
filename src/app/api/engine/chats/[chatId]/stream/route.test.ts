@@ -892,9 +892,10 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(buildFileContext).toHaveBeenCalledWith(
       expect.objectContaining({
-        maxChars: 140_000,
+        maxChars: 72_000,
         includeContents: true,
-        maxFilesWithContent: 8,
+        maxFilesWithContent: 6,
+        includeStructuralInventory: true,
       }),
     );
   });
