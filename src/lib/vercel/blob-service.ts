@@ -1,4 +1,5 @@
 import path from "path";
+import { randomUUID } from "crypto";
 import { PATHS } from "@/lib/config";
 import { LocalFsProvider } from "@/lib/storage/local-fs-provider";
 import type { StorageProvider } from "@/lib/storage/types";
@@ -45,7 +46,7 @@ function buildBlobPath(
 export function generateUniqueFilename(originalName: string, prefix?: string): string {
   const ext = getExtension(originalName);
   const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 8);
+  const random = randomUUID().replace(/-/g, "").slice(0, 8);
   const prefixStr = prefix ? `${prefix}_` : "";
   return `${prefixStr}${timestamp}_${random}${ext}`;
 }

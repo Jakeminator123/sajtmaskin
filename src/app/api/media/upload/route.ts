@@ -17,10 +17,10 @@ import { errorLog, warnLog } from "@/lib/utils/debug";
  * Handles uploading media files to a user's persistent media library.
  *
  * SUPPORTED FILE TYPES:
- * - Images (jpg, png, gif, webp, svg) - max 10 total
+ * - Images (jpg, png, gif, webp) - max 10 total
  * - Videos (mp4, webm, mov) - max 3 total
  * - PDFs - no limit
- * - Text files (txt, md, json) - no limit
+ * - Text files (txt, md, json, css) - no limit
  *
  * SECURITY:
  * - All files are scoped to the authenticated user
@@ -50,7 +50,6 @@ const ALLOWED_MIME_TYPES = [
   "image/png",
   "image/gif",
   "image/webp",
-  "image/svg+xml",
   "image/x-icon",
   "image/vnd.microsoft.icon",
   // Videos
@@ -64,7 +63,6 @@ const ALLOWED_MIME_TYPES = [
   "text/plain",
   "text/markdown",
   "application/json",
-  "text/html",
   "text/css",
 ];
 
@@ -134,7 +132,14 @@ export async function POST(request: NextRequest) {
     let tags: string[] | undefined;
     if (tagsStr) {
       try {
-        tags = JSON.parse(tagsStr);
+        const parsed = JSON.parse(tagsStr);
+        if (Array.isArray(parsed)) {
+          tags = parsed
+            .filter((tag): tag is string => typeof tag === "string")
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+            .slice(0, 20);
+        }
       } catch {
         // Ignore invalid JSON
       }

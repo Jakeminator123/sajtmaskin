@@ -133,10 +133,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    console.info(
-      "[API/transcribe] Transcription successful:",
-      transcript.slice(0, 80) + (transcript.length > 80 ? "..." : ""),
-    );
+    console.info("[API/transcribe] Transcription successful:", {
+      characters: transcript.length,
+    });
 
     return NextResponse.json({
       success: true,
