@@ -27,14 +27,32 @@ function summarizeReport(payload: unknown): string {
   return `directive=${String(directive)} blocked=${String(blocked)} doc=${String(docUri)}`;
 }
 
+function isReportOnlyEvalNoise(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const report =
+    (payload as { "csp-report"?: unknown })["csp-report"] ??
+    (payload as { cspReport?: unknown }).cspReport ??
+    payload;
+  if (!report || typeof report !== "object") return false;
+  const r = report as Record<string, unknown>;
+  return (
+    r.disposition === "report" &&
+    r["effective-directive"] === "script-src" &&
+    r["blocked-uri"] === "eval"
+  );
+}
+
 export async function POST(req: Request) {
   return withRateLimit(req, "csp:report", async () => {
     try {
       const body = await req.json();
+      if (process.env.NODE_ENV === "production" && isReportOnlyEvalNoise(body)) {
+        return new NextResponse(null, { status: 204 });
+      }
       if (process.env.NODE_ENV !== "production") {
         console.info("[csp-report]", summarizeReport(body));
       } else {
-        console.warn("[CSP Violation]", JSON.stringify(body));
+        console.warn("[CSP Violation]", summarizeReport(body));
       }
     } catch {
       // Malformed report — ignore

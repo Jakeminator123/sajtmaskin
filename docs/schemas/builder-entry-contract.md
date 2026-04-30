@@ -16,6 +16,7 @@ Primary code sources:
 - `src/lib/hooks/chat/useChatMessaging.ts`
 - `src/lib/hooks/chat/useCreateChat.ts`
 - `src/app/api/template/route.ts`
+- `src/app/api/template-image/[templateId]/route.ts`
 - `src/app/api/v0/chats/init-registry/route.ts`
 - `src/lib/tenant.ts`
 
@@ -72,6 +73,19 @@ klassningen som resten av buildern ska utgå från.
 |-------|--------|---------|
 | `previewUrl` | **canonical** | Iframe/live preview URL for a chat or version (svar och normal klientpayload). |
 | `demoUrl` | **legacy inbound only** | Inte längre i API-svar. Fortfarande accepterad i vissa bodies (t.ex. `POST .../save`) och webhooks; tolkas via `resolveInboundPreviewUrl` server-side. DB-kolumn `demo_url` oförändrad. |
+
+`POST /api/template` kan returnera `409` när en lokal v0-template saknar repo-zip. Svaret är recoverable och strukturerat:
+
+```json
+{
+  "success": false,
+  "reason": "local_template_source_missing",
+  "templateId": "<id>",
+  "recoverable": true
+}
+```
+
+`GET /api/template-image/<id>` returnerar en cachebar SVG-fallback med `X-Template-Image-Fallback: 1` när den lokala thumbnail-filen saknas, så normal galleri-rendering inte skapar 404-brus.
 
 ## Canonical Entry Shapes
 

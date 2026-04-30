@@ -143,8 +143,11 @@ describe("POST /api/template", () => {
     const json = await response.json();
 
     expect(response.status).toBe(409);
-    expect(json).toEqual({
+    expect(json).toMatchObject({
       success: false,
+      reason: "local_template_source_missing",
+      templateId: "tmpl_1",
+      recoverable: true,
       error:
         "Den här v0-mallen finns inte nedladdad lokalt ännu och kan därför inte startas som repo i VM-previewn.",
     });

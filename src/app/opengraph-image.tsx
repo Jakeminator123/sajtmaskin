@@ -23,6 +23,7 @@ export default function OgImage() {
         <div
           style={{
             position: "absolute",
+            display: "flex",
             top: 0,
             left: 0,
             right: 0,
@@ -106,6 +107,9 @@ export default function OgImage() {
             <div
               key={label}
               style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 padding: "10px 24px",
                 borderRadius: 12,
                 border: "1px solid rgba(255,255,255,0.12)",

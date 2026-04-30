@@ -190,6 +190,8 @@ Sedan valde follow-up `warm-local` istället. Sajten har därmed olika look mell
 
 CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter till enforcing-mode kommer detta att blockera den iframen.
 
+**Prod-logg-hygien 2026-04-30:** `/api/csp-report` filtrerar nu report-only `script-src`/`blocked-uri: eval`-brus i produktion. Övriga CSP-rapporter loggas fortsatt med sammanfattning. Detta är inte samma sak som att tillåta `'unsafe-eval'` i enforcing-läge.
+
 **Troliga kandidater:**
 - Hidden `<iframe>` för clipboard/print/download i builder-UI
 - Element-inspector mount-point (har sett relaterade buggar tidigare)

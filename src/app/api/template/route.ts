@@ -229,15 +229,17 @@ async function initializeLocalTemplateProject(params: {
 
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "template:init", async () => {
+    let setCookie: string | null = null;
+    const attachSessionCookie = (response: Response) => {
+      if (setCookie) {
+        response.headers.set("Set-Cookie", setCookie);
+      }
+      return response;
+    };
     try {
       const session = ensureSessionIdFromRequest(request);
       const sessionId = session.sessionId;
-      const attachSessionCookie = (response: Response) => {
-        if (session.setCookie) {
-          response.headers.set("Set-Cookie", session.setCookie);
-        }
-        return response;
-      };
+      setCookie = session.setCookie;
 
       const body = await request.json();
       const { templateId, quality = "max" } = body as {
@@ -315,6 +317,9 @@ export async function POST(request: NextRequest) {
           NextResponse.json(
             {
               success: false,
+              reason: "local_template_source_missing",
+              templateId,
+              recoverable: true,
               error:
                 "Den här v0-mallen finns inte nedladdad lokalt ännu och kan därför inte startas som repo i VM-previewn.",
             },
@@ -388,22 +393,26 @@ export async function POST(request: NextRequest) {
 
       // Handle specific error types with appropriate status codes
       if (errorMessage.includes("not found") || errorMessage.includes("404")) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Template hittades inte. Välj en annan template.",
-          },
-          { status: 404 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              error: "Template hittades inte. Välj en annan template.",
+            },
+            { status: 404 },
+          ),
         );
       }
 
       if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "För många förfrågningar. Vänta en stund och försök igen.",
-          },
-          { status: 429 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              error: "För många förfrågningar. Vänta en stund och försök igen.",
+            },
+            { status: 429 },
+          ),
         );
       }
 
@@ -412,21 +421,25 @@ export async function POST(request: NextRequest) {
         errorMessage.includes("401") ||
         errorMessage.includes("Project ID is required")
       ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "API-konfigurationsfel. Kontakta support.",
-          },
-          { status: 500 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              error: "API-konfigurationsfel. Kontakta support.",
+            },
+            { status: 500 },
+          ),
         );
       }
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Kunde inte ladda template: ${errorMessage}`,
-        },
-        { status: 500 },
+      return attachSessionCookie(
+        NextResponse.json(
+          {
+            success: false,
+            error: `Kunde inte ladda template: ${errorMessage}`,
+          },
+          { status: 500 },
+        ),
       );
     }
   });
