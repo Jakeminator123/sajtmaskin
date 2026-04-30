@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
     const { prompt, siteType } = parsed.data;
 
-    const buildIntent = siteType === "webshop" ? "e-commerce" as const : "website" as const;
+    const buildIntent = "website" as const;
     const matched = matchScaffold(prompt, buildIntent);
 
     const scaffold = matched
