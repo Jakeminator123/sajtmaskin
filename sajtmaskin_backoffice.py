@@ -19,6 +19,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 def main() -> None:
     app_path = Path(__file__).resolve()
     if not _running_under_streamlit():
