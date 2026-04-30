@@ -153,7 +153,8 @@ describe("formatEvalReport", () => {
     expect(output).toContain("28.4k tok/over");
     expect(output).toContain("static=49k");
     expect(output).toContain("budget=13125/30000t");
-    expect(output).toContain("files=generatedSurface:4/finalProject:10");
+    expect(output).toContain("Surface/Final");
+    expect(output).toContain("files=surface:4 final:10");
     expect(output).toContain("Selected Dossier Instructions 8900c/~2782t");
   });
 });

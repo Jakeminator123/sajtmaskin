@@ -268,7 +268,7 @@ Ny path läggs ENDAST i `SCAFFOLD_PROTECTED_PATHS`-set:et i `protected-paths.ts`
 
 ### Eval-mätning (2026-04-27)
 
-`src/lib/gen/eval/runner.ts` mäter gate-checks (`syntax`, `project-sanity`, `imports`, `required-files`, `exports`) på den **canonical persist-payloaden** efter `runFinalizePreflight`, inte på raw LLM-stream. `deriveEvalCheckSources` i samma fil ger ett `userEmittedPaths`-subset av `preflight.filesJson`, så scaffold-defaults som `buildCompleteProject` injicerar inte räknas mot `file-count` etc. Det innebär att ett LLM-emitterat `app/api/placeholder/route.ts` med JSX-i-`.ts` som droppas av guarden inte längre rapporteras som eval-syntax-fel — bara reella content-buggar i LLM-owned filer (`app/page.tsx` etc.) faller eval-gaten.
+`src/lib/gen/eval/runner.ts` mäter gate-checks (`syntax`, `project-sanity`, `imports`, `required-files`, `exports`) på den **canonical persist-payloaden** efter `runFinalizePreflight`, inte på raw LLM-stream. `deriveEvalCheckSources` i samma fil skiljer också `generatedSurfaceFiles` (LLM-emitterade app-ytefiler) från `finalProjectFiles` (komplett körbart Next-projekt efter scaffold/finalize-materialisering). Evalrapportens `Surface/Final`, t.ex. `7/27`, betyder därför 7 genererade app-ytefiler och 27 finala projektfiler. Scaffold-defaults, placeholder-routes, config och andra runtime/support-filer räknas inte mot surface-budgeten. Ett LLM-emitterat `app/api/placeholder/route.ts` med JSX-i-`.ts` som droppas av guarden rapporteras inte längre som eval-syntax-fel — bara reella content-buggar i LLM-owned filer (`app/page.tsx` etc.) faller eval-gaten.
 
 ---
 

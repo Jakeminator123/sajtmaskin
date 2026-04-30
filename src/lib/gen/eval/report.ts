@@ -46,7 +46,7 @@ export function formatEvalReport(report: EvalReport): string {
     );
   }
 
-  lines.push("| # | Prompt | Score | Files | Prompt | Preflight | Time | Status | Issues |");
+  lines.push("| # | Prompt | Score | Surface/Final | Prompt | Preflight | Time | Status | Issues |");
   lines.push("|---|--------|-------|-------|--------|-----------|------|--------|--------|");
 
   for (let i = 0; i < report.results.length; i++) {
@@ -116,7 +116,7 @@ export function formatEvalReport(report: EvalReport): string {
         `static=${fmtKChars(r.promptSize.staticCoreChars)}c/~${r.promptSize.staticCoreEstimatedTokens}t, ` +
         `dynamic=${r.promptSize.dynamicContextChars} chars/~${r.promptSize.dynamicContextEstimatedTokens}t, ` +
         `budget=${r.promptSize.dynamicBudgetUsedTokens}/${r.promptSize.dynamicBudgetBudgetTokens}t, ` +
-        `files=generatedSurface:${r.generatedSurfaceFiles}/finalProject:${r.finalProjectFiles}, ` +
+        `files=surface:${r.generatedSurfaceFiles} final:${r.finalProjectFiles}, ` +
         `droppedBlocks=${r.promptSize.droppedBlocks}, ` +
         `preflight=${r.preflight.errors}E/${r.preflight.warnings}W${r.preflight.previewBlocked ? " preview-blocked" : ""}` +
         (largest ? `, largest: ${largest}` : ""),
