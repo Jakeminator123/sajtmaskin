@@ -177,9 +177,13 @@ function makePreflightEnvFailureResult(evalPrompt: EvalPrompt, message: string):
  * - `rawFiles` — the LLM's post-mechanical-autofix emission. Use for
  *   *content quality* checks where the LLM's output itself is the
  *   signal: `no-bracket-placeholders`, `responsive`, `accessibility`,
- *   `semantic-tokens`. Also kept as the authoritative count for
- *   `file-count` because users care how many files the model produced,
- *   not how many `buildCompleteProject` injected.
+ *   `semantic-tokens`.
+ *
+ * - `generatedSurfaceFiles` — the filtered subset of `rawFiles` that counts
+ *   as generated app surface for `file-count`. Excludes config, API routes,
+ *   metadata/image routes and other scaffold/runtime support paths so the
+ *   eval reports "surface/final" instead of conflating app files with the
+ *   complete runnable Next project.
  *
  * - `canonicalRuntimeFiles` — full post-preflight payload. Use for
  *   runtime-readiness checks where deterministic additions from

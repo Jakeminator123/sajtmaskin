@@ -76,7 +76,7 @@ Codegen-evalen är mer produktlik än scaffold-eval, men den är fortfarande int
 - Den persistar ingen chat/version, drar inga credits och startar ingen preview-VM.
 - Den kör inte exakt client-brief/server-auto-brief-vägen från create-chat-routen.
 - Den mäter nu `promptSize`, största dynamic blocks, preflight errors/warnings, preview-block och skyddade paths så skillnaden mot manuella generationer blir lättare att se.
-- Rapportens `Surface/Final` visar två olika file-counts: `surface` är filer LLM:en emitterade för appens synliga yta; `final` är komplett körbart Next-projekt efter scaffold/finalize-materialisering. `7/27` är därför ofta bra: 7 app-ytefiler plus runtime/support-filer.
+- Rapportens `Surface/Final` visar två olika file-counts: `surface` är eval-ytan (`rawFiles` filtrerade via `isGeneratedSurfacePath`: config, API-routes, metadata/image-routes, loading/error/not-found/template och andra runtime/support paths räknas bort); `final` är komplett körbart Next-projekt efter scaffold/finalize-materialisering. `7/27` är därför ofta bra: 7 app-ytefiler plus runtime/support-filer.
 - Den kör en lokal env-Preflight innan första LLM-anropet. Saknas DB-env rapporteras `preflight=failed_env` och generationen markeras `skipped`, så rapporten inte blandar ihop miljöfel med 0% LLM-kvalitet.
 
 För slutlig produktverifiering: kör samma prompt manuellt i lokal builder och jämför mot evalrapportens `Prompt / Preflight Telemetry`.

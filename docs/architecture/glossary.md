@@ -88,6 +88,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Repair Available | Versionstatus när serverrepair passerat quality gate men väntar på explicit accept. |
 | Engine Version Lifecycle | `draft` → `verifying` → `repairing` → `repair_available` / `failed` / `promoted`. |
 | Element Preservation Guard | Skydd mot att follow-up tappar high-value-element (`<video>`, `<canvas>`, `<iframe>`, R3F `<Canvas>`, Rapier `<Physics>`). |
+| Codegen-eval `Surface/Final` | Eval-rapportens filräkning: `surface` = LLM-emitterad app-yta filtrerad från supportpaths; `final` = komplett körbart Next-projekt efter scaffold/finalize. |
 
 ---
 

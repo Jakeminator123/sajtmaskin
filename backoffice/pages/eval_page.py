@@ -253,7 +253,8 @@ def render(ctx: BackofficeContext) -> None:
         "Codegen-evalen mäter hela LLM-pipelinen för 15 fasta prompts (~15 min, "
         "kostar OPENAI-quota). `eval:smoke` kör 3 prompts och visar prompt/preflight-telemetri. "
         "Båda lever i `src/lib/gen/eval/`; gate-läget jämför mot `eval-baseline.json`. "
-        "Backoffice-knapparna sparar rapporter under `docs/evals/`."
+        "Backoffice-knapparna sparar rapporter under `docs/evals/`. "
+        "`Surface/Final` betyder LLM-genererad app-yta / komplett körbart Next-projekt."
     )
     baseline_path = ctx.repo_root / "src" / "lib" / "gen" / "eval" / "eval-baseline.json"
     if baseline_path.is_file():
