@@ -166,6 +166,14 @@ export interface DynamicContextOptions {
     capabilityIds: string[];
     references: string[];
   } | null;
+  /** Optional exact fault context for error-log RAG reranking. */
+  ragContext?: {
+    faultType?: string | null;
+    routePath?: string | null;
+    variantId?: string | null;
+    capabilityIds?: string[];
+    generationMode?: "init" | "followup" | "auto_repair" | null;
+  };
 }
 
 /** Observability for dynamic-context token budgeting (`buildBudgetedSystemPrompt`). */

@@ -40,6 +40,10 @@ describe("fault event adapters", () => {
       faultText: "Cannot find module '@/components/foo'",
       result: "fixed",
       scaffoldId: "landing-page",
+      routePath: "/",
+      variantId: "warm-local",
+      capabilityIds: ["visual-3d"],
+      generationMode: "followup",
     });
 
     expect(event).toMatchObject({
@@ -47,6 +51,10 @@ describe("fault event adapters", () => {
       phase: "preflight",
       severity: "blocking",
       scaffoldId: "landing-page",
+      routePath: "/",
+      variantId: "warm-local",
+      capabilityIds: ["visual-3d"],
+      generationMode: "followup",
       success: true,
     });
     expect(event.normalizedPattern).toContain("<path>");

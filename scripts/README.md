@@ -40,6 +40,8 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`env/`](env/) | `manage_env.py`, `model_trace_overlay.py` |
 | [`observability/`](observability/) | RAG-index, fixer-registry dump och `faults:report` för återkommande fault patterns |
 
+Observability-kommandon: `npm run rag:error-log:reindex`, `npm run rag:error-log:reindex:force`, `npm run fixers:dump`, `npm run faults:report`, `npm run observability:rebuild-all`.
+
 ### Next / dev-server (npm hooks)
 
 | Fil | `package.json` |

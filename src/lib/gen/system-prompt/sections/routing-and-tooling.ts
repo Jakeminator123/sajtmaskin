@@ -21,8 +21,15 @@ export function renderRoutePlanBlock(params: {
   chatId: string | null | undefined;
   userPrompt: string | undefined;
   resolvedScaffold: ScaffoldManifest | null | undefined;
+  ragContext?: {
+    faultType?: string | null;
+    routePath?: string | null;
+    variantId?: string | null;
+    capabilityIds?: string[];
+    generationMode?: "init" | "followup" | "auto_repair" | null;
+  };
 }): string[] {
-  const { routePlan, buildSpec, isFollowUp, chatId, userPrompt, resolvedScaffold } = params;
+  const { routePlan, buildSpec, isFollowUp, chatId, userPrompt, resolvedScaffold, ragContext } = params;
   if (!routePlan || routePlan.routes.length === 0) return [];
 
   const parts: string[] = [];
@@ -140,7 +147,22 @@ export function renderRoutePlanBlock(params: {
   if (FEATURES.useErrorLogRag) {
     const ragLines = renderErrorLogRagBlockLines({
       prompt: userPrompt ?? "",
+      faultType: ragContext?.faultType ?? null,
+      routePath:
+        ragContext?.routePath ??
+        buildSpec?.routeRealization?.primaryRoutePath ??
+        routePlan.routes[0]?.path ??
+        null,
       scaffoldId: resolvedScaffold?.id ?? buildSpec?.scaffoldId ?? null,
+      variantId: ragContext?.variantId ?? null,
+      capabilityIds: ragContext?.capabilityIds ?? buildSpec?.capabilityFlags?.signals ?? [],
+      generationMode:
+        ragContext?.generationMode ??
+        (buildSpec?.generationMode === "followUp"
+          ? "followup"
+          : buildSpec?.generationMode === "init"
+            ? "init"
+            : null),
       // lineageHash is not surfaced into DynamicContextOptions today; the
       // retriever happily works without it. P26 follow-up could thread it
       // through orchestration-snapshot.

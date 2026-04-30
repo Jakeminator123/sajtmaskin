@@ -105,7 +105,10 @@ export function faultEventFromErrorLogEvent(event: ErrorLogEvent): FaultEvent {
     severity: severityFromString(event.severity),
     message: event.faultText || event.fixText || event.fault || "Unknown fault",
     normalizedPattern: normalizeErrorPattern(event.faultText || event.fault || ""),
+    routePath: event.routePath ?? null,
     scaffoldId: event.scaffoldId ?? null,
+    variantId: event.variantId ?? null,
+    capabilityIds: Array.isArray(event.capabilityIds) ? event.capabilityIds : [],
     fixerId: event.fixer ?? null,
     action: event.fixText ?? null,
     success,
@@ -113,9 +116,10 @@ export function faultEventFromErrorLogEvent(event: ErrorLogEvent): FaultEvent {
     chatId: event.chatId ?? null,
     versionId: event.versionId ?? null,
     generationMode:
-      typeof event.repairPassIndex === "number" && event.repairPassIndex > 0
+      event.generationMode ??
+      (typeof event.repairPassIndex === "number" && event.repairPassIndex > 0
         ? "followup"
-        : null,
+        : null),
   };
 }
 

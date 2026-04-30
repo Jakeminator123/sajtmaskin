@@ -140,6 +140,7 @@ export function buildDynamicContext(
     sessionSeed,
     chatId,
     componentReferences,
+    ragContext,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -237,6 +238,7 @@ export function buildDynamicContext(
       chatId,
       userPrompt,
       resolvedScaffold,
+      ragContext,
     }),
   );
   parts.push(...renderScaffoldProtectedPathsBlock());
