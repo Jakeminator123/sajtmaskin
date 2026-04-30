@@ -103,7 +103,9 @@ describe("buildDynamicContext + new dossier shape", () => {
     });
     expect(result.context).toContain("## Selected Dossier Instructions");
     expect(result.context).toContain("### Stripe Checkout");
-    expect(result.context).toContain("# When to use");
+    expect(result.context).toContain("compact instructions");
+    expect(result.context).toContain("Env vars: STRIPE_SECRET_KEY (required).");
+    expect(result.context).not.toContain("# When to use");
   });
 
   it("does not render dossier blocks when selection is null", async () => {

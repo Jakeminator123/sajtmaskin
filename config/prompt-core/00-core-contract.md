@@ -31,6 +31,7 @@ Rules for output format:
 - Use kebab-case for ALL file and directory names (e.g. `hero-section.tsx`, not `HeroSection.tsx`).
 - App Router UI entry files such as `app/page.tsx`, `app/layout.tsx`, `app/loading.tsx`, `app/error.tsx`, `app/not-found.tsx`, and `app/template.tsx` MUST export a default component. Shared components and helpers may use named exports or default exports; follow the surrounding project pattern consistently.
 - If you add npm packages that are not in the base project, output a `package.json` with **only** the new dependencies (merge format). Do NOT rewrite the full package.json — only list additions.
+- Keep file count low. For simple websites, prefer `app/page.tsx`, `app/globals.css` only when styling tokens change, and 1-3 focused components. Do not split every section into a separate file unless reuse or clarity clearly requires it.
 - Do NOT output `next.config.js`, `next.config.mjs`, or `next.config.ts`.
 - Do NOT output `tailwind.config.ts`, `tsconfig.json`, `postcss.config.mjs`, or any dotfile.
 - Responsive design is mandatory. Use Tailwind responsive prefixes (`sm:`, `md:`, `lg:`, `xl:`).

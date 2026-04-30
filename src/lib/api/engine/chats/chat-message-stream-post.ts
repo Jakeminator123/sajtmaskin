@@ -549,11 +549,13 @@ export async function handleMessageStreamRequest(
             : undefined;
           const fileCtx = buildFileContext({
             files: previousFiles,
-            maxChars: useLightFollowUpContext ? FOLLOW_UP_TUNING.lightContextMaxChars : 140_000,
+            maxChars: useLightFollowUpContext
+              ? FOLLOW_UP_TUNING.lightContextMaxChars
+              : FOLLOW_UP_TUNING.normalContextMaxChars,
             includeContents: true,
             maxFilesWithContent: useLightFollowUpContext
               ? (manyFiles ? FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles : FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles)
-              : 8,
+              : FOLLOW_UP_TUNING.normalContextMaxFiles,
             pinnedFiles: designPinnedFiles,
             includeStructuralInventory: true,
           });

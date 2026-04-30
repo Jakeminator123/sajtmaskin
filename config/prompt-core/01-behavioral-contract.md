@@ -14,23 +14,7 @@
 
 ## Planning
 
-Plan the solution before emitting files. Reason through these points internally; if the host surfaces reasoning separately when `thinking` is enabled, keep it brief, but do not make a visible `<Thinking>` block part of the normal output contract.
-
-1. **Component breakdown** — What React components are needed? What's the hierarchy?
-2. **File structure** — Which files to create, how to organize them under `app/` and `components/`.
-3. **Library usage** — Which shadcn/ui components apply? Need Recharts for charts? Specific Lucide icons?
-4. **Data modeling** — What data structures, types, or mock data are needed?
-5. **Styling approach** — Color scheme, layout strategy, responsive breakpoints, animation plan.
-6. **Accessibility** — Any ARIA patterns needed? Keyboard navigation? Screen reader considerations?
-7. **Edge cases** — Empty states, loading states, error boundaries, very long text, zero items.
-
-Example internal checklist:
-- Pricing page with three tiers
-- Components: `app/page.tsx`, `components/pricing-card.tsx`
-- shadcn/ui: Card, Button, Badge
-- Icons: Check, X
-- Layout: responsive grid, 1 col mobile -> 3 cols desktop
-- Accessibility: semantic headings per tier, sr-only price period labels
+Plan internally before emitting files. Keep visible output in CodeProject format only; do not add a visible `<Thinking>` block.
 
 ## Behavioral Rules
 
@@ -88,47 +72,26 @@ Follow these rules strictly to produce valid ES module syntax:
 
 ### Import Completeness Checklist
 
-Before finishing each file, verify that EVERY symbol used in the file body has a corresponding import at the top. This is the single most common generation error. Specifically:
+Before finishing each file, verify that every JSX tag, hook, type, and helper used in that file has a real import or local definition.
 
-- **Next.js builtins:** `Link` from `next/link`, `Image` from `next/image`, `notFound` from `next/navigation`, `useRouter` / `usePathname` / `useSearchParams` from `next/navigation`.
-- **React:** If using `useState`, `useEffect`, `useContext`, `useMemo`, `useCallback`, `createContext`, or `type ReactNode`, import them from `react`.
-- **shadcn/ui (TOP autofix trigger — verify per file):** Every `<Button>`, `<Badge>`, `<Card>`, `<CardContent>`, `<CardHeader>`, `<CardTitle>`, `<CardDescription>`, `<Sheet>`, `<Input>`, `<Label>`, `<Tabs>`, `<Dialog>`, `<Avatar>`, `<Separator>`, `<Accordion>`, etc. needs an explicit import from `@/components/ui/<name>` (kebab-case file). It is NOT enough to import them in `app/layout.tsx` — every file that renders the JSX tag must import it. Missing shadcn imports is the #1 deterministic-autofix trigger; the host repair layer will add them, but every miss costs latency and risks instability upstream.
-- **Next.js metadata files (commonly missed):**
-  - `app/opengraph-image.tsx` and `app/twitter-image.tsx` MUST `import { ImageResponse } from "next/og"`.
-  - `app/sitemap.ts` MUST `import type { MetadataRoute } from "next"` (the return type is `MetadataRoute.Sitemap`).
-  - `app/robots.ts` MUST `import type { MetadataRoute } from "next"` (the return type is `MetadataRoute.Robots`).
-  - `app/manifest.ts` MUST `import type { MetadataRoute } from "next"` (the return type is `MetadataRoute.Manifest`).
-- **React types — single source of truth:** When typing `children` or other React node values, pick ONE style and stick to it: either `import type { ReactNode } from "react"` and use bare `ReactNode`, OR `import * as React from "react"` and use `React.ReactNode`. Never import `ReactNode` and then write `React.ReactNode` in the body — that creates an unused-import lint warning.
-- **Local modules:** If you create a Context provider (e.g. `CartProvider` with `useCart`), every file that calls `useCart()` MUST import it. Every file that references a type (e.g. `StoreProduct`) MUST import it.
-- **Provider wrapping:** If you create a React Context provider, you MUST wrap it around `{children}` in `app/layout.tsx`. Without this, any component calling the context hook will crash at runtime.
+- Next.js builtins: import `Link`, `Image`, navigation hooks, metadata route types, and `ImageResponse` from their canonical Next modules.
+- React hooks/types: import hooks as values and types with `import type`.
+- shadcn/ui: every file that renders `<Button>`, `<Card>`, `<Input>`, `<Label>`, `<Sheet>`, etc. imports the primitive from `@/components/ui/<name>`.
+- Local modules: if a file uses a provider hook, helper, or exported type, import it from the file that defines it.
 
 ### DOM and Global Types — Never Import
 
 Built-in DOM interface types and standard-library types are global in TypeScript and MUST NOT be imported as modules. Generic positions like `useRef<HTMLDivElement>`, `FormEvent<HTMLFormElement>`, or `MouseEvent<HTMLButtonElement>` already work without any import.
 
-Concretely, never write any of these:
-
-- `import HTMLDivElement from "@/components/html-div-element"` — `HTMLDivElement` is a global DOM type.
-- `import HTMLFormElement from "@/components/html-form-element"` — same; use the bare name in generics.
-- `import FormEvent from "..."`, `import MouseEvent from "..."`, etc. — React event types come from `react` (`import type { FormEvent } from "react"`) only when used as a value-position type alias; in generic positions you can rely on `React.FormEvent<...>` or import the type once at the top.
-
-If you need a React event type, use `import type { FormEvent, MouseEvent } from "react"` (named, type-only) — never invent local component modules for them.
+Never invent local modules for DOM globals such as `HTMLDivElement`, `HTMLFormElement`, `FormEvent`, or `MouseEvent`. If a React event type is needed, import it type-only from `react`.
 
 When importing a type already exposed by a third-party package (e.g. `RapierRigidBody` from `@react-three/rapier`), write a single import that combines the value and the type binding:
 
-```ts
-import { RigidBody, type RapierRigidBody } from "@react-three/rapier";
-```
+`import { RigidBody, type RapierRigidBody } from "@react-three/rapier";`
 
-Do NOT add a second `import RapierRigidBody from "@/components/rapier-rigid-body"` — the local module does not exist and TypeScript will fail with a duplicate-identifier / missing-module error.
+### Default Export Checklist
 
-### Default Export Checklist (every component / page / layout file)
-
-The repair layer can add a missing `export default`, but the safer path is to write it correctly the first time. Verify before finishing each file:
-
-- **Pages and route handlers under `app/`:** `app/page.tsx`, `app/<route>/page.tsx`, `app/layout.tsx`, `app/<route>/layout.tsx`, `app/loading.tsx`, `app/error.tsx`, `app/not-found.tsx`, `app/opengraph-image.tsx`, `app/twitter-image.tsx`, `app/sitemap.ts`, `app/robots.ts`, `app/manifest.ts` — each MUST have exactly one `export default`.
-- **Component files under `components/`:** every component file (e.g. `components/marketing-header.tsx`, `components/pricing-card.tsx`, `components/marketing-footer.tsx`) MUST end with either an inline `export default function Foo()` or an explicit trailing `export default Foo` — not both. Named-only exports (`export function Foo`) without a default are fine for utility files but NOT for top-level components imported as default elsewhere.
-- **Consistency check:** if file A does `import Foo from "@/components/foo"`, then `components/foo.tsx` MUST have `export default`. If file A does `import { Foo } from "@/components/foo"`, then `components/foo.tsx` MUST have a named `export function Foo` or `export const Foo`. Mixing causes silent build failures or undefined-component runtime errors.
+App Router pages/layouts/loading/error/not-found/metadata image files and top-level component files must have exactly one default export when imported as default. Match import style to export style; do not mix named and default imports for the same component.
 
 ### Known Pitfalls
 

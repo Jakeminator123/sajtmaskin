@@ -8,57 +8,25 @@ Write realistic, specific content that matches the site's purpose. NEVER use lor
 
 ## Domain-Specific Content Examples
 
-### Restaurant / Hospitality
-- Real-sounding menu items with prices, opening hours, location description.
-- Evocative descriptions of atmosphere, ingredients, preparation methods.
-- Named dishes with plausible pricing (not "$X.XX" placeholders).
-
-### SaaS / Product
-- Specific feature names, benefit-driven descriptions, tiered pricing.
-- Concrete metrics and social proof: "Trusted by 2,500+ teams", "99.9% uptime".
-- Clear value propositions per tier, not generic "Basic / Pro / Enterprise" without differentiation.
-
-### Portfolio / Creative
-- Project names with descriptions, skills, testimonials from named people.
-- Case study narratives with before/after or challenge/solution structure.
-- Specific tool/technology mentions relevant to the creative domain.
-
-### Ecommerce
-- Product names, descriptions with materials/specifications, realistic pricing.
-- Trust signals: shipping info, return policies, customer reviews.
-- Category organization that reflects real shopping behavior.
-
-### Agency / Services
-- Named service offerings with scope descriptions.
-- Team member profiles with roles and brief bios.
-- Client testimonials with names and company affiliations.
+- Restaurant/hospitality: menu items, prices, hours, location, ingredients, atmosphere.
+- SaaS/product: named features, metrics, social proof, differentiated tiers.
+- Portfolio/creative: project names, case-study snippets, skills, named testimonials.
+- Ecommerce: product names, materials/specs, prices, shipping/return trust signals.
+- Agency/services: named services, scope, team roles, client testimonials.
 
 ## Media Assets
 
 Images and videos must be subject-matter relevant. A site for a carpentry firm gets workshop, wood, and craft visuals — never an unrelated nature documentary or a generic abstract loop. Off-topic placeholders read as a broken or careless build.
 
-### Forbidden public-domain stock videos
-
-Do NOT use the following well-known free test videos, regardless of how convenient they are. They are immediately recognizable and destroy credibility:
-
-- "Big Buck Bunny", "Sintel", "Tears of Steel", and especially "Elephants Dream" (Blender Foundation open movies).
-- Any URL on `commondatastorage.googleapis.com/gtv-videos-bucket/` (Google's public sample bucket).
-- `sample-videos.com` and similar generic sample-clip hosts.
-
-### How to handle video placeholders
-
-- Prefer `<video>` with a relative path under `/public/media/<topic>.mp4` (or `.webm`). The asset itself can be filled in later via the media bank — your job is to render the markup with subject-relevant filename and `poster` attribute.
-- Always provide a `poster` attribute pointing to a topic-relevant still image (Unsplash-style URL with a query that names the subject is acceptable as a poster).
-- Use `aria-label` or visible caption that names the subject so missing assets degrade gracefully.
-- Do NOT materialize external `.mp4` / `.webm` URLs in the build pipeline — they are excluded from blob upload (`src/lib/imageAssets.ts`) and will remain as live external links pointing wherever you put them.
+- Never use generic public test videos (`Big Buck Bunny`, `Sintel`, `Tears of Steel`, `Elephants Dream`, `commondatastorage.googleapis.com/gtv-videos-bucket`, `sample-videos.com`).
+- Video placeholders should use relative `/public/media/<topic>.mp4` or `.webm` paths with subject-relevant `poster`, labels/captions, and graceful fallback copy.
+- Do not materialize external `.mp4` / `.webm` URLs.
 
 ### Image placeholders
 
 - For placeholder images use either `images.unsplash.com/photo-<id>?...` direct CDN URLs (resolved post-generation by the image-materializer) or named placeholder services with topic-relevant queries. **NEVER** emit `https://source.unsplash.com/...` URLs — that domain was shut down in mid-2024 and every such URL ships as a broken image. Avoid generic `/placeholder.svg` filler when the subject is clear enough to query.
 - Always set descriptive `alt` text — the alt is the fallback when the image fails or is replaced later by the validator.
-- When the user prompt mentions specific persons (names like "Emilia Eberg", ages like "40 år", or descriptions like "blond woman"), do NOT use Unsplash URLs of stock-photo people. Either:
-  - Use `<Image src="/api/placeholder?label=Emilia" alt="Porträtt av Emilia" />` so the user sees a deliberate placeholder, OR
-  - Mark the section as data-demo-only so postcheck can flag it as "fake content".
+- When the user prompt mentions specific persons, do not use stock-photo people as if they were that person. Use a deliberate placeholder or mark the section as demo-only.
 - This is a prompt-rule, not a hard gate. Postchecks will catch broken/wrong-person images and either replace with placeholder or warn.
 
 ### React Three Fiber Canvas placement (A6/A7/A8)

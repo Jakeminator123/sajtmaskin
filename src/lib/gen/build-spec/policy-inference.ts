@@ -298,8 +298,16 @@ export function inferVerificationPolicy(params: {
 
 function isExplicitSmallFollowUpPrompt(prompt: string): boolean {
   const trimmedPrompt = prompt.trim();
-  if (trimmedPrompt.length > 220) return false;
+  if (trimmedPrompt.length > 420) return false;
   if (includesAny(IMAGERY_FOLLOWUP_ESCAPE_PATTERNS, trimmedPrompt)) return false;
+  if (includesAny(COPY_PATTERNS, trimmedPrompt)) return true;
+  if (
+    includesAny(LAYOUT_PATTERNS, trimmedPrompt) &&
+    (includesAny(SMALL_FOLLOW_UP_TARGET_PATTERNS, trimmedPrompt) ||
+      isInPageSectionRequest(trimmedPrompt.toLowerCase()))
+  ) {
+    return true;
+  }
   return (
     includesAny(SMALL_FOLLOW_UP_HINT_PATTERNS, trimmedPrompt) &&
     includesAny(SMALL_FOLLOW_UP_TARGET_PATTERNS, trimmedPrompt)

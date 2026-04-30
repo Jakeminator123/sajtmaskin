@@ -14,7 +14,12 @@ function evalResult(overrides: Partial<EvalResult>): EvalResult {
     promptSize: {
       totalChars: 40_000,
       totalEstimatedTokens: 12_000,
+      staticCoreChars: 30_000,
+      staticCoreEstimatedTokens: 9_375,
       dynamicContextChars: 10_000,
+      dynamicContextEstimatedTokens: 3_125,
+      dynamicBudgetUsedTokens: 3_125,
+      dynamicBudgetBudgetTokens: 30_000,
       droppedBlocks: 0,
       largestBlocks: [],
     },
@@ -100,5 +105,52 @@ describe("formatEvalReport", () => {
     expect(output).toContain("failed_env");
     expect(output).toContain("skipped");
     expect(output).toContain("Top blockers: preflight_env (1)");
+  });
+
+  it("prints prompt budget breakdown and largest block details", () => {
+    const report: EvalReport = {
+      timestamp: "2026-04-03T12:00:00.000Z",
+      model: "gpt-5.4",
+      results: [
+        evalResult({
+          promptSize: {
+            totalChars: 91_000,
+            totalEstimatedTokens: 28_438,
+            staticCoreChars: 49_000,
+            staticCoreEstimatedTokens: 15_313,
+            dynamicContextChars: 42_000,
+            dynamicContextEstimatedTokens: 13_125,
+            dynamicBudgetUsedTokens: 13_125,
+            dynamicBudgetBudgetTokens: 30_000,
+            droppedBlocks: 1,
+            largestBlocks: [
+              {
+                title: "Selected Dossier Instructions",
+                chars: 8_900,
+                estimatedTokens: 2_782,
+                kept: true,
+                required: false,
+              },
+            ],
+          },
+        }),
+      ],
+      summary: {
+        total: 1,
+        passed: 0,
+        avgScore: 0.6,
+        avgTimeMs: 900,
+        blockingFailures: 1,
+        blockingCheckCounts: {
+          "tier2-readiness": 1,
+        },
+      },
+    };
+
+    const output = formatEvalReport(report);
+    expect(output).toContain("28.4k tok/over");
+    expect(output).toContain("static=49k");
+    expect(output).toContain("budget=13125/30000t");
+    expect(output).toContain("Selected Dossier Instructions 8900c/~2782t");
   });
 });

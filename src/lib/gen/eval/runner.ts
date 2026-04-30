@@ -43,9 +43,20 @@ export interface EvalResult {
   promptSize: {
     totalChars: number;
     totalEstimatedTokens: number;
+    staticCoreChars: number;
+    staticCoreEstimatedTokens: number;
     dynamicContextChars: number;
+    dynamicContextEstimatedTokens: number;
+    dynamicBudgetUsedTokens: number;
+    dynamicBudgetBudgetTokens: number;
     droppedBlocks: number;
-    largestBlocks: Array<{ title: string; chars: number; kept: boolean }>;
+    largestBlocks: Array<{
+      title: string;
+      chars: number;
+      estimatedTokens: number;
+      kept: boolean;
+      required: boolean;
+    }>;
   };
   preflight: {
     errors: number;
@@ -115,7 +126,12 @@ function makePreflightEnvFailureResult(evalPrompt: EvalPrompt, message: string):
     promptSize: {
       totalChars: 0,
       totalEstimatedTokens: 0,
+      staticCoreChars: 0,
+      staticCoreEstimatedTokens: 0,
       dynamicContextChars: 0,
+      dynamicContextEstimatedTokens: 0,
+      dynamicBudgetUsedTokens: 0,
+      dynamicBudgetBudgetTokens: 0,
       droppedBlocks: 0,
       largestBlocks: [],
     },
@@ -413,13 +429,23 @@ async function evaluatePrompt(
     promptSize: {
       totalChars: generationInput.promptSize.total.chars,
       totalEstimatedTokens: generationInput.promptSize.total.estimatedTokens,
+      staticCoreChars: generationInput.promptSize.staticCore.chars,
+      staticCoreEstimatedTokens: generationInput.promptSize.staticCore.estimatedTokens,
       dynamicContextChars: generationInput.promptSize.dynamicContext.chars,
+      dynamicContextEstimatedTokens:
+        generationInput.promptSize.dynamicContext.estimatedTokens,
+      dynamicBudgetUsedTokens: generationInput.promptSize.dynamicBudget.usedTokens,
+      dynamicBudgetBudgetTokens: generationInput.promptSize.dynamicBudget.budgetTokens,
       droppedBlocks: generationInput.promptSize.dynamicBudget.droppedBlocks,
-      largestBlocks: generationInput.promptSize.blocks.largest.slice(0, 5).map((block) => ({
-        title: block.title,
-        chars: block.chars,
-        kept: block.kept,
-      })),
+      largestBlocks: generationInput.promptSize.blocks.largest
+        .slice(0, 10)
+        .map((block) => ({
+          title: block.title,
+          chars: block.chars,
+          estimatedTokens: block.estimatedTokens,
+          kept: block.kept,
+          required: block.required,
+        })),
     },
     preflight: {
       errors: preflight.preflightIssues.filter((issue) => issue.severity === "error").length,
@@ -491,7 +517,12 @@ export async function runEval(
         promptSize: {
           totalChars: 0,
           totalEstimatedTokens: 0,
+          staticCoreChars: 0,
+          staticCoreEstimatedTokens: 0,
           dynamicContextChars: 0,
+          dynamicContextEstimatedTokens: 0,
+          dynamicBudgetUsedTokens: 0,
+          dynamicBudgetBudgetTokens: 0,
           droppedBlocks: 0,
           largestBlocks: [],
         },

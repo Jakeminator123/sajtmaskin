@@ -48,18 +48,17 @@ interface DossierRenderOptions {
   requestedCapabilityTiers?: Record<string, string> | null;
 }
 
-function shouldUseCompactInstructions(
+function shouldUseFullInstructions(
   sel: DossierSelectionResult["selected"][number],
   opts: DossierRenderOptions,
 ): boolean {
   if (opts.generationMode !== "followUp") return false;
   if (sel.entry.id !== "three-fiber-canvas") return false;
   const tier = opts.requestedCapabilityTiers?.[sel.entry.capability];
-  // Generic/specific follow-ups only need the stable shell contract plus a
-  // short scene recipe. Missing tier info falls back to the full dossier so
-  // callers that do not use follow-up capability detection keep the safer,
-  // complete instructions.
-  return tier === "generic" || tier === "specific";
+  // Beyond-dossier means the user asks for behavior outside the standard
+  // ThreeCanvasShell recipe. Keep the full author instructions for that rare
+  // case; normal init/follow-up paths use compact manifest-derived guidance.
+  return tier === "beyond-dossier";
 }
 
 function renderCompactDossierInstructions(
@@ -68,15 +67,31 @@ function renderCompactDossierInstructions(
   const exposed = (sel.entry.exposes ?? [])
     .map((item) => `${item.name} from \`${item.import}\``)
     .join(", ");
+  const dependencies = (sel.entry.dependencies ?? []).join(", ");
+  const envVars = (sel.entry.envVars ?? [])
+    .map((envVar) => {
+      const required = envVar.required ? "required" : "optional";
+      return `${envVar.key} (${required})`;
+    })
+    .join(", ");
+  const configuredLine =
+    sel.entry.class === "hard"
+      ? sel.configured
+        ? "- Configured hard dossier: real provider values may be used only in F3/integration context."
+        : "- Unconfigured hard dossier: render placeholder-safe UI; do not require real env values in F2."
+      : "- Soft dossier: use the pattern only where it directly supports the requested capability.";
+
   return [
-    `### ${sel.entry.label} (\`${sel.entry.id}\`) — compact follow-up mode`,
+    `### ${sel.entry.label} (\`${sel.entry.id}\`) — compact instructions`,
     "",
     `- ${sel.entry.summary}`,
-    "- Use the emitted `ThreeCanvasShell` as the SSR/error-boundary/reduced-motion wrapper; do not inline `Canvas` in a Server Component.",
-    "- Put the actual scene in a separate client component and place it as a child of `ThreeCanvasShell`.",
-    "- Decorative hover/floating/orbiting motion should use `useFrame`, mesh transforms and drei helpers such as `Float`.",
-    "- Do not add physics libraries or rigid-body wrappers for decorative hovering/floating motion; those belong only to the separate `physics-3d` capability.",
-    exposed ? `- Exposed import: ${exposed}.` : "- Preserve the dossier's exposed imports if you use them.",
+    configuredLine,
+    `- Capability: \`${sel.entry.capability}\`; code fidelity: ${sel.entry.codeFidelity}.`,
+    dependencies ? `- Dependencies if used: ${dependencies}.` : "- Dependencies: none beyond the scaffold baseline.",
+    envVars ? `- Env vars: ${envVars}.` : "- Env vars: none.",
+    exposed ? `- Preserve exposed import(s): ${exposed}.` : "- No exposed imports.",
+    "- Use this dossier only for the selected capability; do not let it expand unrelated scope.",
+    "- If a verbatim file block follows, emit that file exactly and adapt behavior in separate/wrapper files.",
     "",
   ];
 }
@@ -93,8 +108,9 @@ export function renderDossierBlocks(
   // Två block:
   //   ## Available Dossiers — kompakt lista av valda legoklossar (LLM ser
   //      vad som finns att stoppa in om prompten begär det)
-  //   ## Selected Dossier Instructions — full instructions.md per vald
-  //      dossier (When to use / How to integrate / UX rules / Avoid)
+  //   ## Selected Dossier Instructions — compact runtime instructions per vald
+  //      dossier. Full instructions.md stays on disk for authors/debugging;
+  //      verbatim code still renders in its own block below.
   // Drivs av FEATURES.useDossierPipeline; opt-in. Tomt → block hoppas över.
   parts.push(
     "## Available Dossiers",
@@ -121,18 +137,18 @@ export function renderDossierBlocks(
     parts.push(
       "## Selected Dossier Instructions",
       "",
-      "Concrete usage instructions for each selected dossier. Adapt to the user's request — do not paste blindly.",
+      "Compact runtime instructions for each selected dossier. Adapt to the user's request — do not paste blindly.",
       "",
       "For dossier files whose `codeFidelity` is **rewritable**: you MAY adapt these files, but you MUST preserve all `export` statements (named + default) listed in the dossier's `exposes`. Failure to export an exposed name will cause cross-file-import-checker to log a `dossier_exposed_path` warning.",
       "",
     );
     for (const sel of withInstructions) {
-      if (shouldUseCompactInstructions(sel, opts)) {
+      if (shouldUseFullInstructions(sel, opts)) {
+        parts.push(`### ${sel.entry.label} (\`${sel.entry.id}\`)`, "");
+        parts.push(sel.entry.instructions!.trim(), "");
+      } else {
         parts.push(...renderCompactDossierInstructions(sel));
-        continue;
       }
-      parts.push(`### ${sel.entry.label} (\`${sel.entry.id}\`)`, "");
-      parts.push(sel.entry.instructions!.trim(), "");
     }
   }
 

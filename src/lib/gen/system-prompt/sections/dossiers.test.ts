@@ -44,7 +44,7 @@ describe("renderCapabilityModifyHintBlock — plan 11 bug 3", () => {
   });
 });
 
-describe("renderDossierBlocks — compact 3D follow-up", () => {
+describe("renderDossierBlocks — compact dossier instructions", () => {
   const threeFiberSelection: DossierSelectionResult = {
     poolSize: 1,
     byCapability: { "visual-3d": ["three-fiber-canvas"] },
@@ -84,12 +84,22 @@ describe("renderDossierBlocks — compact 3D follow-up", () => {
       generationMode: "followUp",
       requestedCapabilityTiers: { "visual-3d": "generic" },
     }).join("\n");
-    expect(text).toContain("compact follow-up mode");
+    expect(text).toContain("compact instructions");
     expect(text).toContain("ThreeCanvasShell");
     expect(text).not.toContain("Very long full instructions");
     expect(text).not.toContain("@react-three/rapier");
     expect(text).not.toContain("<Physics>");
     expect(text).not.toContain("<RigidBody>");
+  });
+
+  it("uses compact instructions by default for init", () => {
+    const text = renderDossierBlocks(threeFiberSelection, {
+      generationMode: "init",
+      requestedCapabilityTiers: null,
+    }).join("\n");
+    expect(text).toContain("compact instructions");
+    expect(text).toContain("Dependencies if used: three, @react-three/fiber, @react-three/drei.");
+    expect(text).not.toContain("Very long full instructions");
   });
 
   it("keeps full instructions for beyond-dossier 3D follow-ups", () => {
@@ -105,7 +115,7 @@ describe("renderDossierBlocks — compact 3D follow-up", () => {
       generationMode: "followUp",
       requestedCapabilityTiers: null,
     }).join("\n");
-    expect(text).toContain("Very long full instructions");
-    expect(text).not.toContain("compact follow-up mode");
+    expect(text).toContain("compact instructions");
+    expect(text).not.toContain("Very long full instructions");
   });
 });

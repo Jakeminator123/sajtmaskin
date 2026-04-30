@@ -447,6 +447,8 @@ export const FEATURES = {
 export const FOLLOW_UP_TUNING = {
   maxRecentHistoryPairs: 4,
   lightContextMaxChars: 32_000,
+  normalContextMaxChars: 72_000,
   lightContextMaxFilesManyFiles: 4,
   lightContextMaxFilesFewFiles: 6,
+  normalContextMaxFiles: 6,
 } as const;

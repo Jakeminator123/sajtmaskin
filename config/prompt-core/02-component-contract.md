@@ -12,82 +12,13 @@ When building custom shadcn-style components that wrap Radix UI primitives:
 
 ## Type-only Imports
 
-When a binding is used **only** to annotate a type (prop type, ref generic, event handler), import it with `import type` — NEVER plain `import`. Mixing the two styles inside one specifier (`X as type Y`) is invalid TypeScript and a recurring generation bug.
+When a binding is used only as a type, import it with `import type`. Icons/components used in JSX or data arrays are value imports. DOM interfaces are never JSX tags. Do not redeclare an imported value name as a local type.
 
-**Lucide icons as prop type** — keep the `LucideIcon` type separate from the icon value:
-
-```tsx
-import type { LucideIcon } from "lucide-react";
-import { Star } from "lucide-react";
-
-type Feature = { icon: LucideIcon; label: string };
-const features: Feature[] = [{ icon: Star, label: "Kvalitet" }];
-```
-
-NEVER write `import { Star, Type as type LucideIcon } from "lucide-react"` — the stray `type` keyword between `as` and the alias is invalid syntax.
-
-**Reused prop types from another component** — use `import type` so the runtime value isn't pulled in:
-
-```tsx
-import type { ButtonProps } from "@/components/ui/button";
-```
-
-**`VariantProps` from `class-variance-authority`** — the type helper is type-only; `cva` is the runtime value:
-
-```tsx
-import type { VariantProps } from "class-variance-authority";
-import { cva } from "class-variance-authority";
-
-const badgeVariants = cva("inline-flex items-center", {
-  variants: { tone: { default: "bg-primary", outline: "border" } },
-});
-type BadgeProps = VariantProps<typeof badgeVariants>;
-```
-
-**Counter-examples — what NOT to do.** These three mistakes caused a real bug where a generated `/showcase` route rendered as a white page (chat `341cdc37...`, 2026-04-23). Every one is deterministic and fixable upstream — do not ship them.
-
-```tsx
-// ❌ NEVER — TS1361. If an icon is used as JSX or as a value in data,
-// it MUST be a value import, not `import type`.
-import type { Building2, Camera } from "lucide-react";
-const features = [{ icon: Building2 }];   // TS1361 here
-<Camera className="h-4 w-4" />            // TS1361 here
-
-// ✅ CORRECT — value import.
-import { Building2, Camera } from "lucide-react";
-```
-
-```tsx
-// ❌ NEVER — HTMLFormElement is a DOM interface, not a React component.
-// Using it as a JSX tag is an unresolved symbol and Next build fails.
-<HTMLFormElement onSubmit={handleSubmit}>…</HTMLFormElement>
-
-// ✅ CORRECT — use the lowercase HTML tag.
-<form onSubmit={handleSubmit}>…</form>
-// If you need the DOM type in an event handler signature, use
-// `FormEvent<HTMLFormElement>`: `import type { FormEvent } from "react";`
-// then `function handleSubmit(e: FormEvent<HTMLFormElement>) {}`.
-```
-
-```tsx
-// ❌ NEVER — re-declaring an imported identifier as a local type causes
-// TS2300 duplicate-identifier errors AND shadows the import so the
-// runtime value is unreachable.
-import ShowcaseVehicle from "@/components/showcase-vehicle";
-export type ShowcaseVehicle = { make: string };
-
-// ✅ CORRECT — pick one: either the import IS the value (then the local
-// type must have a distinct name), or the module you are importing from
-// only exports a type (then use `import type`).
-import ShowcaseVehicleCard from "@/components/showcase-vehicle";
-export type ShowcaseVehicle = { make: string };
-// or:
-import type { ShowcaseVehicle } from "@/components/showcase-vehicle";
-```
+Never write mixed alias syntax such as `import { Star, Type as type LucideIcon } from "lucide-react"` — `as type` inside a named import is invalid TypeScript. Split values and types into separate imports instead.
 
 ## Compositions and High-Risk Usage Patterns
 
-These are non-trivial compositions or import patterns where the model frequently gets it wrong. The simple "this component exists, here is its tag" cases are already covered by the dynamic Toolkit block — only patterns with real failure modes live here.
+These are non-trivial compositions or import patterns where the model frequently gets it wrong. The simple "this component exists, here is its tag" cases are covered by the dynamic Toolkit block.
 
 - **Form**: Always pair with `useForm()` from `react-hook-form` + a `zod` schema + `@hookform/resolvers/zod`. Structure: `<Form><FormField control={form.control} name="x" render={({ field }) => <FormItem><FormLabel /><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>} />`. Skipping the resolver or wiring `name` to a value that is not in the schema silently breaks validation.
 - **DataTable** (composition): use `@tanstack/react-table` for column definitions, sorting, filtering, and pagination logic; render with the shadcn Table primitives (`<Table><TableHeader><TableBody><TableRow><TableCell>`). Do not invent a manual table — DataTable is a composition, not a single component.
@@ -97,7 +28,7 @@ These are non-trivial compositions or import patterns where the model frequently
 - **Combobox**: a local `@/components/ui/combobox` wrapper exists. Preferred pattern: `<Combobox><ComboboxInput ... /><ComboboxContent><ComboboxList><ComboboxItem ... /></ComboboxList></ComboboxContent></Combobox>`. Use the local wrapper directly unless a lower-level custom composition is intentional.
 - **Sonner** (toasts) — import-fall trap: `toast("Message")` or `toast.success("Done")` must be imported as `import { toast } from "sonner"`. Do NOT import `toast` from `"@/components/ui/sonner"` — that file only exports the `Toaster` provider.
 - **InputOTP**: `<InputOTP maxLength={6}><InputOTPGroup><InputOTPSlot index={0} />...` for verification codes. Wraps `input-otp`. The `index` prop on each slot must match its position; mismatched indexes break paste-fill.
-- **next-themes ThemeProvider**: in `app/layout.tsx`, wrap `{children}` directly inside `<body>` — `<body><ThemeProvider attribute="class" defaultTheme="system" enableSystem>{children}</ThemeProvider></body>`. NEVER place it inside `<main>` or wrap only the page content; header / footer / fixed overlays render outside `<main>` and would otherwise stay locked to the system theme even after the user toggles dark mode. Toggle from a `"use client"` component via `const { setTheme } = useTheme()`. Without the body-level provider, every theme hook crashes and the dark-mode switch only re-paints the page body.
+- **next-themes ThemeProvider**: wrap `{children}` directly inside `<body>` in `app/layout.tsx`; never only inside `<main>`.
 
 ## No Empty Stub Modules
 

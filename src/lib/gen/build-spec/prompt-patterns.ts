@@ -115,7 +115,7 @@ export const SMALL_FOLLOW_UP_HINT_PATTERNS = [
 ];
 
 export const SMALL_FOLLOW_UP_TARGET_PATTERNS = [
-  /\b(?:rubrik(?:en)?|titel(?:n)?|heading|copy|text|cta|spacing|marginal|padding|color|färg|font|button|knapp|hero|footer|header|ikon|icon)\b/i,
+  /\b(?:rubrik(?:en)?|titel(?:n)?|heading|copy|text|cta|spacing|marginal|padding|color|färg|font|button|knapp(?:en)?|hero|footer|header(?:n)?|ikon|icon)\b/i,
 ];
 
 export const INTEGRATION_PATTERNS = wholeWordPatterns([

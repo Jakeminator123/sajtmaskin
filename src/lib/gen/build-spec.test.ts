@@ -90,6 +90,24 @@ describe("deriveBuildSpec", () => {
     }
   });
 
+  it("uses light context for short copy and targeted layout follow-ups", () => {
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Byt rubriken i hero till Hantverk med hjärta.",
+        followUpIntent: "clear-refine",
+        capabilityHeavy: false,
+      }),
+    ).toBe("light");
+
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Gör knappen i headern större och flytta den lite åt höger.",
+        followUpIntent: "clear-refine",
+        capabilityHeavy: false,
+      }),
+    ).toBe("light");
+  });
+
   it("keeps init generations compact and deterministic", () => {
     const spec = deriveBuildSpec({
       prompt: "Bygg en modern hemsida för ett arkitektkontor.",
@@ -176,7 +194,7 @@ describe("deriveBuildSpec", () => {
     expect(spec.contextPolicy).toBe("heavy");
   });
 
-  it("uses normal context by default for narrow follow-up edits", () => {
+  it("uses light context by default for narrow copy follow-up edits", () => {
     const spec = deriveBuildSpec({
       prompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
       buildIntent: "website",
@@ -188,7 +206,7 @@ describe("deriveBuildSpec", () => {
     });
 
     expect(spec.changeScope).toBe("copy");
-    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.contextPolicy).toBe("light");
     expect(spec.verificationPolicy).toBe("fast");
     expect(spec.forbiddenPatterns).toContain("layout_reset_for_copy_change");
     expect(spec.forbiddenPatterns).toContain("unrequested_full_redesign");

@@ -15,7 +15,12 @@ function evalResult(overrides: Partial<EvalResult>): EvalResult {
     promptSize: {
       totalChars: 40_000,
       totalEstimatedTokens: 12_000,
+      staticCoreChars: 30_000,
+      staticCoreEstimatedTokens: 9_375,
       dynamicContextChars: 10_000,
+      dynamicContextEstimatedTokens: 3_125,
+      dynamicBudgetUsedTokens: 3_125,
+      dynamicBudgetBudgetTokens: 30_000,
       droppedBlocks: 0,
       largestBlocks: [],
     },
