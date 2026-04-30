@@ -42,16 +42,18 @@ alwaysApply: true
 
 (`git worktree` = ytterligare arbetsmapp som pekar på samma `.git/`, men med egen HEAD)
 
-```bash
+**Placering:** worktrees ska ligga bredvid huvudcheckouten under `C:\Users\jakem\dev\projects\`, inte under `C:\Users\jakem\.cursor\`. `.cursor` är Cursor intern state/cache och ger trasiga Windows-länkar för plan-/agentfiler utanför repo.
+
+```powershell
 # i huvudcheckouten (där användaren jobbar på master):
-git worktree add ../sajtmaskin-feat-X feat/X-min-branch
-cd ../sajtmaskin-feat-X
+git worktree add ..\sajtmaskin-feat-X -b feat/X-min-branch
+Set-Location ..\sajtmaskin-feat-X
 # här kan du checkout/switch/commit/rebase fritt — egen HEAD, eget working tree
 # användarens huvudcheckout påverkas inte
 
 # när färdigt (efter merge eller PR):
-cd ../sajtmaskin
-git worktree remove ../sajtmaskin-feat-X
+Set-Location ..\sajtmaskin
+git worktree remove ..\sajtmaskin-feat-X
 ```
 
 `.cursor/README.md § Workspace` säger redan: *"om du medvetet skapar ett separat worktree för isolering, öppna bara den checkouten i sitt eget fönster och ta bort worktreet när det inte längre bär unikt arbete."* Den här regeln gör isoleringen **obligatorisk** för agenter som behöver mer än en read-only pass.

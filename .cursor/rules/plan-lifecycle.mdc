@@ -11,6 +11,8 @@ Planfiler dokumenterar pågående arbete. Rådande tillstånd avgör mapp. Linea
 
 **Grundregel:** `active/` är inte ett museum. Mål är **färre planfiler över tid**, inte fler. Skapa inte en ny planfil om en kort kommentar i existerande plan, en Linear-issue eller en `.cursor/bugs/`-fil räcker.
 
+**Windows/Cursor-regel:** använd inte `%USERPROFILE%\.cursor\plans\*.plan.md` som aktiv planplats. Cursor på Windows kan skapa trasiga agentlänkar till sådana filer (`c:%5CUsers%5C...` i stället för `file:///c%3A/...`), särskilt när filen ligger utanför repo/worktree. Om en plan dyker upp där: kopiera eller flytta arbetsinnehållet till aktuell checkout under `docs/plans/active/` (eller `docs/plans/active/parked/`) och hänvisa därefter bara till repo-filen.
+
 ## Innan du börjar (påminnelse om öppna spår)
 
 Innan du startar arbete eller skapar ny planfil: **läs `docs/plans/active/README.md`** först. Det är router till alla aktiva spår.
