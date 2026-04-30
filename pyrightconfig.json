@@ -1,0 +1,38 @@
+{
+  "include": [
+    "backoffice",
+    "scripts",
+    "config/dashboard",
+    "sajtmaskin_backoffice.py"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.venv",
+    "**/node_modules",
+    ".git",
+    ".next",
+    ".cache",
+    ".cursor",
+    "archive",
+    "build",
+    "coverage",
+    "data/observability",
+    "data/runs",
+    "dist",
+    "eval-output",
+    "logs",
+    "manual_log",
+    "out",
+    "playwright-report",
+    "preview-host/data",
+    "public/images",
+    "public/video",
+    "services/mpc/docs",
+    "services/mpc/logs",
+    "templates_v0/downloads",
+    "templates_v0/out",
+    "test-results"
+  ],
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "basic"
+}

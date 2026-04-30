@@ -130,6 +130,22 @@ async function main() {
     assert.equal(updated.body.versionId, "ver_2");
     assert.equal(updated.body.lastAction, "update");
 
+    const replaced = await postJson(`${baseUrl}/preview/session/update`, {
+      sessionId,
+      versionId: "ver_replace",
+      changeClass: "light",
+      replaceFiles: true,
+      filesJson: {
+        "app/page.tsx": "export default function Page() { return <div>Replaced</div>; }",
+      },
+    });
+    assert.equal(replaced.status, 200);
+    assert.equal(replaced.body.versionId, "ver_replace");
+    const filesAfterReplace = readSessionFilesJsonFromStore(sessionId);
+    assert.deepEqual(Object.keys(filesAfterReplace).sort(), ["app/page.tsx"]);
+    assert.equal(typeof filesAfterReplace["package.json"], "undefined");
+    assert.equal(typeof filesAfterReplace["server.js"], "undefined");
+
     const invalidReplace = await postJson(`${baseUrl}/preview/session/update`, {
       sessionId,
       versionId: "ver_bad_replace",
@@ -142,7 +158,7 @@ async function main() {
 
     const afterInvalidReplace = await getJson(`${baseUrl}/preview/session/${sessionId}`);
     assert.equal(afterInvalidReplace.status, 200);
-    assert.equal(afterInvalidReplace.body.versionId, "ver_2");
+    assert.equal(afterInvalidReplace.body.versionId, "ver_replace");
 
     const hibernated = await postJson(`${baseUrl}/preview/session/hibernate`, {
       sessionId,
@@ -213,6 +229,16 @@ async function waitForPreviewHtml(url, readyPattern) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
   throw new Error(`Preview did not become ready in time. Last HTML: ${lastHtml.slice(0, 400)}`);
+}
+
+function readSessionFilesJsonFromStore(sessionId) {
+  const fp = path.join(process.env.PREVIEW_HOST_DATA_DIR, "preview-host-store.json");
+  const parsed = JSON.parse(fs.readFileSync(fp, "utf8"));
+  const session = parsed?.sessions?.[sessionId];
+  assert.ok(session && typeof session === "object", "session should exist in store");
+  const filesJson = session.filesJson;
+  assert.ok(filesJson && typeof filesJson === "object" && !Array.isArray(filesJson), "filesJson should be object");
+  return filesJson;
 }
 
 main()

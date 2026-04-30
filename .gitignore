@@ -5,6 +5,8 @@
 # Python bytecode
 __pycache__/
 *.pyc
+.venv/
+venv/
 
 # Node/Next.js
 node_modules/
@@ -162,9 +164,9 @@ pnpm-debug.log*
 mcp-monitoring-report.txt
 # logs/ innehåller runtime-artefakter (NDJSON/CSV/JSON som växer per körning).
 # Capping/retention sker i src/lib/logging/generation-log-writer.ts:
-#   - generationslogg/<run>/   max 15 mappar
-#   - site-observability/<chat>/ max 30 mappar (LRU)
-#   - generationslogg/_unrouted/<bucket>/ max 10 mappar (LRU)
+#   - generationslogg/<run>/   max 5 mappar
+#   - site-observability/<chat>/ history cap 5 rader/chat + max 5 chat-mappar (LRU)
+#   - generationslogg/_unrouted/<bucket>/ max 5 mappar (LRU)
 #   - llm-segmentts-and-index/error-log.csv   max 2000 rader
 logs/*
 manual_log/

@@ -19,7 +19,7 @@ import {
 import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
-import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
+import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";

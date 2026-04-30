@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { normalizeErrorPattern } from "@/lib/gen/autofix/types";
 import { normalizeSlug } from "./shared";
+import { readRunStatusForChat as readRunStatusForChatFromDisk } from "./run-status-reader";
 
 type GenerationLogTarget = "in-progress" | "latest";
 
@@ -30,13 +31,12 @@ const GLOBAL_ERROR_LOG_CSV_FILE = "error-log.csv";
 const SITE_HISTORY_FILE = "history.ndjson";
 const SITE_LATEST_DIR = "latest";
 const FALSE_VALUES = new Set(["0", "false", "off", "no"]);
-// Per-run-mappar under generationslogg/. Vi vill behålla mer historik än
-// förut (3 var aggressivt — du tappade kontext från igår direkt) men inte
-// heller låta det svälla. 15 räcker för ett par dagars gen-iteration.
-const MAX_RUN_DIRS = 15;
+// Per-run-mappar under generationslogg/. Hålls låg för att undvika bred
+// Turbopack/NFT-trace i lokala builds och hålla observability-mapparna smala.
+const MAX_RUN_DIRS = 5;
 const MAX_TIMELINE_ENTRIES_PER_RUN = 1_000;
 const MAX_SUMMARY_TIMELINE_ROWS = 180;
-// Per-chat history.ndjson cappar fortfarande till 50 rader per chat. Det här
+// Per-chat history.ndjson cappar till 5 rader per chat. Det här
 // är OCAPAT antalet *chat-mappar* under site-observability/. Med LRU-prune
 // nedan kommer äldsta chats att rensas bort när vi går över taket.
 //
@@ -44,11 +44,11 @@ const MAX_SUMMARY_TIMELINE_ROWS = 180;
 // medan dessa per-chat-mappar bara används för (a) LLM-fixerns kortminne om
 // återkommande fel inom en aktiv session och (b) telemetri-snapshots. 5
 // senaste räcker för normal arbetsbelastning och håller Cursor-indexet smalt.
-const MAX_SITE_HISTORY_RUNS = 50;
+const MAX_SITE_HISTORY_RUNS = 5;
 const MAX_SITE_OBSERVABILITY_CHATS = 5;
 // _unrouted/ är fallback-bucketar för events som saknar runId/chatId/slug.
 // Förut kunde de ackumuleras för evigt; vi cappar dem på samma sätt.
-const MAX_UNROUTED_BUCKETS = 10;
+const MAX_UNROUTED_BUCKETS = 5;
 // Legacy global CSV (logs/llm-segmentts-and-index/error-log.csv) läses av
 // backoffice (Autofix & Kvalitet, llm_config.py). Förut växte den utan tak.
 // 2000 senaste rader räcker för fix-statistiken; äldre rader trunkeras.
@@ -1780,30 +1780,7 @@ export function readRunStatusForChat(
   startedAt: string | null;
   updatedAt: string | null;
 } | null {
-  const trimmed = (chatId ?? "").trim();
-  if (!trimmed || trimmed === "-") return null;
-  try {
-    const runDir = resolveRunDirFromContext({ chatId: trimmed });
-    if (!runDir || !fs.existsSync(runDir)) return null;
-    const entries = readRunEntries(runDir);
-    if (entries.length === 0) return null;
-    const meta = buildMeta(entries);
-    const status = readString(meta.status) ?? "in_progress";
-    const statusReason = readString(meta.statusReason);
-    const versionId = readString(meta.versionId);
-    const startedAt = readString(meta.startedAt);
-    const updatedAt = readString(meta.updatedAt);
-    return {
-      runId: path.basename(runDir),
-      status,
-      statusReason,
-      versionId,
-      startedAt,
-      updatedAt,
-    };
-  } catch {
-    return null;
-  }
+  return readRunStatusForChatFromDisk(chatId);
 }
 
 function buildSummary(dir: string, entries: StoredGenerationEntry[]): string {

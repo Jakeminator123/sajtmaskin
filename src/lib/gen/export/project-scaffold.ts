@@ -15,13 +15,11 @@ import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-l
 /**
  * Node-engine-range för **exporterade/nedladdade** projekt.
  *
- * Vi tillåter Node 22, 23 och 24. Bredare än preview-host och repots egna
- * package.json (som låser till 22 eftersom Fly-imagen och Vercel-runtime kör
- * Node 22), men exporterade projekt landar på användarens egen maskin där
- * Node 24 redan är vanligt. Strikt `<23` triggade kosmetisk EBADENGINE-warn
- * vid `npm install` utan att paketen faktiskt var inkompatibla.
+ * Matcha Vercel/preview-host-lanen: Node 22. Bredare ranges kan få Vercel
+ * att välja/varna om runtime-versioner som Next/Vercel inte stödjer för
+ * exporterade projekt.
  */
-const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <25";
+const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <23";
 
 const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",

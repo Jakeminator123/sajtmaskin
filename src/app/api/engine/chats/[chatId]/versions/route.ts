@@ -16,7 +16,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
-import { readRunStatusForChat } from "@/lib/logging/generation-log-writer";
+import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 
 // P0 stream-abort recovery (2026-04-26). The `/versions` route is the
 // canonical poll surface used by useVersions. By piggy-backing the chat's

@@ -165,6 +165,12 @@
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
+    "SAJTMASKIN_MODEL_ANTHROPIC",
+    "SAJTMASKIN_MODEL_CODEX",
+    "SAJTMASKIN_MODEL_FAST",
+    "SAJTMASKIN_MODEL_MAX",
+    "SAJTMASKIN_MODEL_PRO",
+    "SAJTMASKIN_POLISH_MODEL",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
     "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
     "SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS",
@@ -322,6 +328,76 @@
         "production"
       ],
       "notes": "Canonical server-side default for own-engine reasoning/thinking when the client does not send an explicit toggle."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_FAST",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for the fast model profile used by own-engine model resolution."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_PRO",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for the pro model profile used by own-engine model resolution."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_MAX",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for the max model profile used by own-engine model resolution."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_CODEX",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for the codex model profile used by own-engine model resolution."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_ANTHROPIC",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional Anthropic profile override used by capability routing and legacy fallback paths."
+    },
+    {
+      "key": "SAJTMASKIN_ASSIST_MODEL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for Prompt Assist model selection."
+    },
+    {
+      "key": "SAJTMASKIN_POLISH_MODEL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for prompt polish rewrites."
     },
     {
       "key": "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",

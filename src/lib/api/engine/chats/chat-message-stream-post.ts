@@ -11,7 +11,7 @@ import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
-import { readRunStatusForChat } from "@/lib/logging/generation-log-writer";
+import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
