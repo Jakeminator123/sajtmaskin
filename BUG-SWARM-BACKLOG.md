@@ -28,7 +28,7 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [x] | Fixad nu | P1 | Ingen runtime smoke för WebGL/3D | G#11 | Fixad med statisk WebGL/R3F-readiness smoke: verifier blockerar R3F Canvas utan `"use client"` och Visual QA rapporterar `webgl-readiness`. |
 | [ ] | Öppen produktbugg | P1 | Ingen tydlig game/interactive capability | G#12 | Lägg canonical capability eller styrning för spel/interactive canvas. |
 | [ ] | Öppen kvalitet-risk | P1 | Simplified brief fallback sänker premium/3D | G#13 | Begränsa fallback eller markera som degraded mode i generationen. |
-| [ ] | Öppen drift-risk | P1 | Rate limit faller tillbaka till per-instance memory utan Redis | G#14, U#45 | Kräv Redis i prod eller gör fallback tydligt degraded. |
+| [x] | Fixad nu | P1 | Rate limit faller tillbaka till per-instance memory utan Redis | G#14, U#45 | Fixad: produktion failar stängt utan Upstash REST om inte `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD` sätts explicit. |
 | [x] | Fixad nu | P1 | `default-seed` kan ge predikterbara slug-lösen | G#15 | Fixad: lösen kräver `KOSTNADSFRI_PASSWORD_SEED`, `KOSTNADSFRI_API_KEY` eller explicit secret. |
 | [ ] | Öppen städ | P2 | `process.env` drift utanför `env.ts` | G#16 | Audita mot `src/lib/env.ts` och `config/env-policy.json`. |
 | [ ] | Öppen design-risk | P2 | `allowPlaceholdersInF3` kan släppa stub secrets | G#17 | Låt bara explicita dev/test-lägen tillåta placeholders. |
@@ -114,7 +114,7 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [ ] | Öppen search-risk | P3 | Template search apps/games hint vs saknad game capability | U#39 | Lös ihop med G#12/G#30. |
 | [ ] | Öppen scraper-risk | P3 | Webscraper prioriterar about/services/product/blog | U#42 | Justera ranking efter domain/site-type. |
 | [ ] | Öppen scraper-risk | P3 | Webscraper strips `www.` jämförelse | U#44 | Normalisera host jämnt. |
-| [ ] | Öppen rate-limit-risk | P3 | `x-forwarded-for` första IP används som client-id | U#46 | Lita bara på trusted proxy/header-policy. |
+| [x] | Fixad nu | P3 | `x-forwarded-for` första IP används som client-id | U#46 | Fixad: produktion ignorerar `x-forwarded-for` om inte `SAJTMASKIN_TRUST_X_FORWARDED_FOR` är explicit satt; `x-real-ip` prioriteras. |
 | [ ] | Öppen prompt-budget-risk | P3 | OpenClaw chat 180k code context | U#47 | Lägg sammanfattning/chunking. |
 | [x] | Inte bug / dev ergonomics | P3 | OpenClaw tips kräver modul-restart | U#48 | Avsiktligt modul-init-beteende; kan dokumenteras. |
 | [ ] | Öppen session-risk | P3 | D-ID avatar ny `sessionId` om saknas | U#49 | Persist/återanvänd session tydligare. |

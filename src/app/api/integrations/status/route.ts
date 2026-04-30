@@ -100,7 +100,7 @@ export async function GET() {
       affects: "Rate limiting m.m. via HTTPS REST — annan kodväg än Redis-raden ovan.",
       notes: upstash.enabled
         ? upstash.notes
-        : "Saknas — rate limits använder minne på en nod (OK för dev/låg trafik).",
+        : "Saknas — rate limits failar stängt i production om inte SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD är explicit satt.",
       layer: "optional",
     },
     {

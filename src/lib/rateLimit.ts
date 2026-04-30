@@ -88,6 +88,23 @@ let _cachedRedis: Redis | null = null;
 let _cachedRedisConfigKey: string | null = null;
 const _cachedLimiters = new Map<string, Ratelimit>();
 
+function isTruthyEnv(value: string | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function allowMemoryRateLimitFallback(): boolean {
+  return !isProductionRuntime() || isTruthyEnv(process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD);
+}
+
+function trustForwardedForHeader(): boolean {
+  return !isProductionRuntime() || isTruthyEnv(process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR);
+}
+
 function resolveRedisCredentials(): { url: string; token: string } | null {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || "";
@@ -116,9 +133,14 @@ function getRedis(): { redis: Redis; cacheKey: string } | null {
 function getLimiter(
   endpoint: string,
   limits: RateLimitConfig,
-): { mode: "upstash"; limiter: Ratelimit } | { mode: "memory" } {
+):
+  | { mode: "upstash"; limiter: Ratelimit }
+  | { mode: "memory" }
+  | { mode: "unconfigured" } {
   const redisConnection = getRedis();
-  if (!redisConnection) return { mode: "memory" };
+  if (!redisConnection) {
+    return allowMemoryRateLimitFallback() ? { mode: "memory" } : { mode: "unconfigured" };
+  }
 
   const key = `${redisConnection.cacheKey}:${endpoint}:${limits.maxRequests}:${limits.windowMs}`;
   const cached = _cachedLimiters.get(key);
@@ -139,10 +161,11 @@ function getLimiter(
 export function getClientId(request: Request, userId?: string): string {
   if (userId) return `user:${userId}`;
 
-  const ip =
-    request.headers.get("x-real-ip") ||
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    "unknown";
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  const forwardedIp = trustForwardedForHeader()
+    ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    : null;
+  const ip = realIp || forwardedIp || "unknown";
 
   return `ip:${ip}`;
 }
@@ -233,6 +256,19 @@ export async function withRateLimit(
       remaining: Math.max(0, Number(remaining ?? 0)),
       resetAt: typeof reset === "number" ? reset : Date.now() + limits.windowMs,
     };
+  } else if (limiter.mode === "unconfigured") {
+    return new Response(
+      JSON.stringify({
+        error: "Rate limiting is not configured",
+      }),
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RateLimit-Mode": rateLimitMode,
+        },
+      },
+    );
   } else {
     result = checkRateLimit(clientId, endpoint, limits);
   }

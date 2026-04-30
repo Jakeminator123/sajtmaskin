@@ -33,6 +33,8 @@ export const serverSchema = z.object({
   // Vercel Upstash integration uses these names instead
   KV_REST_API_URL: z.string().optional(),
   KV_REST_API_TOKEN: z.string().optional(),
+  SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD: z.string().optional(),
+  SAJTMASKIN_TRUST_X_FORWARDED_FOR: z.string().optional(),
 
   // Storage
   DATA_DIR: z.string().optional(),

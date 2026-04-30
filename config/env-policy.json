@@ -31,6 +31,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
+    "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
     "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
     "SAJTMASKIN_METRICS_TOKEN",
@@ -189,6 +190,7 @@
     "SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS",
     "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
+    "SAJTMASKIN_TRUST_X_FORWARDED_FOR",
     "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_VERIFIER_PASS",
     "SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE",
@@ -702,6 +704,18 @@
         "production"
       ],
       "notes": "REST token for Upstash-backed flows."
+    },
+    {
+      "key": "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Emergency opt-in only. When true/1, production may use per-instance in-memory rate limiting if Upstash REST is missing; default production behavior is fail-closed."
+    },
+    {
+      "key": "SAJTMASKIN_TRUST_X_FORWARDED_FOR",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Opt-in trust for x-forwarded-for in production when a trusted edge/proxy strips spoofed client headers. Default production behavior ignores x-forwarded-for and uses x-real-ip when present."
     },
     {
       "key": "BACKOFFICE_PASSWORD",
