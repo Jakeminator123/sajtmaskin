@@ -1,0 +1,65 @@
+---
+id: prompt-slim-systemprompt
+status: active
+created: 2026-04-30
+linear: null
+parent: null
+supersedes: null
+---
+
+# Systemprompt-Kapning Utan Ny Komplexitet
+
+## Status 2026-04-30
+
+Planen ska inte stängas än. Det mesta av infrastrukturen är genomfört, men promptmålen är inte nådda.
+
+Genomfört:
+
+- Budget-telemetri finns i `GenerationInputPackage`, prompt-dumps och evalrapport: static/dynamic, budget, dropped blocks och största block.
+- `Selected Dossier Instructions` renderas kompakt som default; verbatim-filer fortsätter ligga i separat exakt block.
+- `visual-3d`/`physics-3d`-splitten finns redan; dekorativ `visual-3d` ska inte dra Rapier/Physics-text annat än vid explicit physics-intent.
+- Fokuserade tester passerar: prompt-size metrics, eval report, dossier rendering, dynamic-context budgetering och follow-up-input.
+
+Kvar:
+
+- Static Core är fortfarande cirka `40k+` chars i follow-up-evalen; målet är under `35k`.
+- Follow-up-evalen passerar funktionellt men ligger runt `70k` total systemprompt och `29k` dynamic context; målet var normal follow-up under `45k`.
+- Dynamic context ligger under hard warning `35k`, men inte under önskat `25k`.
+- Senaste fulla `eval:smoke` i ursprungsplanen är äldre än den här kontrollen; kör om efter nästa kapning innan stängning.
+
+## Nästa Smala Kapning
+
+- Kapa/reformulera `config/prompt-core/*.md` först; sikta på minst `6k` färre chars utan ny promptmodul.
+- Lägg follow-up-specifik kompakt rendering för `Scaffold Variant (this generation)`, `Your Toolkit` och `Route Plan` när `generationMode === "followUp"` och ändringen inte är `clear-redesign`.
+- Behåll `Brief-Locked Design Values`, `Generation Mode: Follow-Up`, file-context och capability-modify-hint som load-bearing.
+- Kör `npm run eval:followup`, fokuserade vitest-tester och sedan `npm run eval:smoke`.
+
+## Originala Implementationssteg
+
+1. Budget-telemetri som source of truth.
+2. Dossier compact default.
+3. Variant och layout-block caps.
+4. Static Core första kapning.
+5. Follow-up delta-context.
+6. 3D kontrollera, inte döpa om i onödan.
+
+## Verifiering
+
+```powershell
+npm run typecheck
+npm run lint
+npx vitest run src/lib/gen/eval/runner.test.ts src/lib/gen/eval/report.test.ts
+npm run eval:smoke
+git diff --check
+```
+
+Acceptera inte en prompt-kapning om smoke går från PASS till FAIL eller om avg score faller utan tydlig orsak.
+
+## Mål
+
+- Init simple website: total prompt under `65k` chars.
+- Smoke dynamic context: helst under `25k`, hård varning över `35k`.
+- Selected dossier instructions: normal under `2k`, tung väg under `4k`.
+- Static Core: första fas under `35k`.
+- Follow-up normal: under `45k`.
+- Kvalitet: `eval:smoke` fortsatt 3/3 PASS, ingen ny blocking check.

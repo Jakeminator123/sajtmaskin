@@ -144,4 +144,32 @@ describe("renderRoutePlanBlock recurring-pattern gating", () => {
     expect(output).toContain("Sidebar");
     expect(output).toContain("Form");
   });
+
+  it("keeps baseline checklist rows in compact mode even with many contextual groups", () => {
+    const lines = renderRequiredImportsChecklistBlock({
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "app-shell",
+        reason: "fixture",
+        routes: [
+          { path: "/dashboard", name: "Dashboard", intent: "Data", required: true },
+          { path: "/kontakt", name: "Kontakt", intent: "Contact", required: true },
+          { path: "/search", name: "Search", intent: "Search", required: true },
+        ],
+      },
+      capabilityHints: [
+        "- forms requested",
+        "- app shell requested",
+        "- search/command palette requested",
+        "- calendar/date selection requested",
+        "- e-commerce requested",
+      ].join("\n"),
+      compactMode: true,
+    });
+
+    const output = lines.join("\n");
+    expect(output).toContain("Button");
+    expect(output).toContain("Card");
+    expect(output).toContain("Badge");
+  });
 });
