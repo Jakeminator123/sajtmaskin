@@ -76,6 +76,7 @@
     "baseline-deps:tree": "npx tsx scripts/deps/validate-baseline-npm-tree.ts",
     "eval": "npx tsx scripts/eval/run-eval.ts",
     "scaffolds:eval": "npx tsx scripts/scaffolds/eval-scaffold-selection.ts",
+    "eval:followup": "npx tsx src/lib/gen/eval/follow-up-context-cli.ts",
     "eval:suite": "npx tsx src/lib/gen/eval/cli.ts",
     "eval:smoke": "npx tsx src/lib/gen/eval/cli.ts --smoke",
     "eval:gate": "npx tsx src/lib/gen/eval/cli.ts --gate",

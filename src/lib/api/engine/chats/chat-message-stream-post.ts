@@ -31,12 +31,11 @@ import {
   buildStoredContractClarificationUiPart,
 } from "@/lib/gen/contract/clarification";
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
-import { hasHeavyCapabilities, inferCapabilities } from "@/lib/gen/capability-inference";
 import {
   detectFollowUpCapabilities,
   type FollowUpCapabilityDetection,
 } from "@/lib/builder/follow-up-capability-detection";
-import { deriveFollowUpContextPolicy, isShellPageContent } from "@/lib/gen/build-spec";
+import { isShellPageContent } from "@/lib/gen/build-spec";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildGenerationInputPackage,
@@ -63,7 +62,6 @@ import { createCommitCreditsOnce } from "./credits-handler";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { isAppScaffold } from "@/lib/builder/build-intent";
-import { buildFileContext } from "@/lib/gen/context/file-context-builder";
 import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import { extractAppRoutePathsFromFilePaths } from "@/lib/gen/route-plan";
@@ -84,11 +82,11 @@ import { createPreGenerationContractGateReadableStream } from "@/lib/providers/o
 import {
   buildAwaitingClarificationStream,
   classifyFollowUpIntent,
-  hasDesignFollowUpSignal,
   persistFollowUpClarification,
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
+import { buildFollowUpFileContextDecision } from "./follow-up-file-context";
 import {
   extractBriefSummaryFromSnapshot,
   formatPriorDesignContext,
@@ -532,33 +530,13 @@ export async function handleMessageStreamRequest(
         }
 
         if (hasFollowUpBase) {
-          const inferredCapabilities = inferCapabilities(message);
-          const capabilityHeavy = hasHeavyCapabilities(inferredCapabilities);
-          const followUpContextPolicy = deriveFollowUpContextPolicy({
-            prompt: message,
-            skipIntentClassification,
+          const followUpFileContext = buildFollowUpFileContextDecision({
+            message,
+            previousFiles,
             followUpIntent,
-            capabilityHeavy,
+            skipIntentClassification,
           });
-          // `FEATURES.useFollowUpLightContext` was hardcoded ON 2026-04-22.
-          // Light context is purely a policy decision now.
-          const useLightFollowUpContext = followUpContextPolicy === "light";
-          const manyFiles = previousFiles.length > 14;
-          const designPinnedFiles = hasDesignFollowUpSignal(message)
-            ? ["app/globals.css", "app/layout.tsx"]
-            : undefined;
-          const fileCtx = buildFileContext({
-            files: previousFiles,
-            maxChars: useLightFollowUpContext
-              ? FOLLOW_UP_TUNING.lightContextMaxChars
-              : FOLLOW_UP_TUNING.normalContextMaxChars,
-            includeContents: true,
-            maxFilesWithContent: useLightFollowUpContext
-              ? (manyFiles ? FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles : FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles)
-              : FOLLOW_UP_TUNING.normalContextMaxFiles,
-            pinnedFiles: designPinnedFiles,
-            includeStructuralInventory: true,
-          });
+          const fileCtx = followUpFileContext.fileContext;
 
           // OMTAG Fas 2·A / E1: follow-up rules live in the system prompt's
           // `## Generation Mode: Follow-Up` block (intro.ts). Previously this

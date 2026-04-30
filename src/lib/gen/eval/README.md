@@ -8,6 +8,7 @@ Sajtmaskin har **tre olika "eval"-system** som det är lätt att blanda ihop. De
 |---|---|---|---|
 | Verifiera att codegen-pipelinen inte regressat | `npm run eval:gate` | ~15 min | OPENAI-quota för 15 prompts |
 | Snabbare produktlik smoke med 3 prompts + prompt/preflight telemetry | `npm run eval:smoke` | ~3–8 min | OPENAI-quota för 3 prompts |
+| Mäta follow-up-context utan LLM-codegen | `npm run eval:followup` | ~10 sek | Ingen LLM-kostnad |
 | Uppdatera baseline efter en avsiktlig förbättring | `npm run eval:baseline` | ~15 min | Samma som ovan |
 | Få en human-läsbar rapport + scorecard | `npm run eval` | ~15 min | Samma som ovan |
 | Bara mäta att scaffold-pickern väljer rätt | `npm run scaffolds:eval` | ~10 sek | Bara embeddings (snabbt + billigt) |
@@ -54,7 +55,13 @@ npm run eval:baseline   # köra + exit 1 vid regression OCH spara ny baseline (-
 
 **Backoffice:** `Backoffice → Overhead → Eval` har en bekräftad knapp för `npm run eval:gate`. Den laddar `.env.local` in i subprocess-env, kör från repo-roten och sparar en datumstämplad markdownrapport under `docs/evals/`. Den kör aldrig `eval:baseline` och uppdaterar därför inte `eval-baseline.json`.
 
-### 2. Klassisk eval — `npm run eval`
+### 2. Follow-up context eval — `npm run eval:followup`
+
+**Vad:** bygger representativa follow-up-prompts med samma filkontextpolicy som chat-routen och kör `prepareGenerationContext()` utan LLM-codegen. Den mäter `optimizedMessage`, systemprompt, Dynamic Context och om `light`/`normal` policy triggas.
+
+**När köra:** efter ändringar i follow-up-context, Snapshot-Brief, file-context-budget eller prompt wrappers. Den validerar storlek och policy, inte visuell output.
+
+### 3. Klassisk eval — `npm run eval`
 
 **Vad:** wrapper kring samma `runEval()` MEN lägger till:
 - Markdown-rapport till `eval-output/eval-report-YYYY-MM-DD.md` (gitignored)
@@ -81,7 +88,7 @@ Codegen-evalen är mer produktlik än scaffold-eval, men den är fortfarande int
 
 För slutlig produktverifiering: kör samma prompt manuellt i lokal builder och jämför mot evalrapportens `Prompt / Preflight Telemetry`.
 
-### 3. Scaffold-selection-eval — `npm run scaffolds:eval`
+### 4. Scaffold-selection-eval — `npm run scaffolds:eval`
 
 **Vad:** mäter bara att `matchScaffoldAuto()` väljer rätt scaffold för en given prompt. Inte codegen.
 
