@@ -9,6 +9,18 @@ supersedes: null
 
 # Systemprompt-Kapning Utan Ny Komplexitet
 
+## Roll efter doc-konsolidering 2026-05-01
+
+Den här filen är **child-planen för promptbudget** under [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md). Startlinjen äger prioritering och agentfördelning; den här planen äger bara konkret kapning av Static Core, Dynamic Context, follow-up-kontext och dossier-rendering.
+
+Avgränsning:
+
+- Skapa inte ett nytt promptlager, ny promptmodul eller parallell policyfil.
+- Ändra inte follow-up-output-kontraktet från hela filer till diffs/snippets i denna plan. "Target files only" är en möjlig senare kontraktsändring, inte en prompt-slim quickfix.
+- Duplicera inte F2/F3 env/readiness eller UX-status här; länka till startlinjens P4e/P4f.
+
+Backlog-koppling: U#47, G#13, G#25, G#26 och G#57.
+
 ## Status 2026-04-30
 
 Planen ska inte stängas än. Det mesta av infrastrukturen är genomfört, men promptmålen är inte nådda.
@@ -32,6 +44,8 @@ Kvar:
 - Kapa/reformulera `config/prompt-core/*.md` först; sikta på minst `6k` färre chars utan ny promptmodul.
 - Lägg follow-up-specifik kompakt rendering för `Scaffold Variant (this generation)`, `Your Toolkit` och `Route Plan` när `generationMode === "followUp"` och ändringen inte är `clear-redesign`.
 - Behåll `Brief-Locked Design Values`, `Generation Mode: Follow-Up`, file-context och capability-modify-hint som load-bearing.
+- Kapa "Lessons from similar past builds" till topp-3 mest specifika rader och släpp generiska återkommande rader.
+- Dokumentera explicit om nästa kapning är **A: aggressiv trim inom nuvarande full-fil-kontrakt** eller **B: kontraktsändring för file-context/follow-up**. Default är A.
 - Kör `npm run eval:followup`, fokuserade vitest-tester och sedan `npm run eval:smoke`.
 
 ## Originala Implementationssteg

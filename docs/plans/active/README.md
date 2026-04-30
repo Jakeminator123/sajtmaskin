@@ -1,6 +1,6 @@
 # Aktiva planer — konsoliderad översikt
 
-Senast uppdaterad: 2026-04-30 (prompt-slim-planen flyttad till workspace efter Cursor Windows-länkbugg för `%USERPROFILE%\.cursor\plans`). Alla öppna steg listas i enhetligt A/B/C/D-format. Varje planfil behåller sin detaljerade text — tabellen nedan är routern.
+Senast uppdaterad: 2026-05-01 (LLM-planer konsoliderade efter fem read-only agentrapporter). Alla öppna steg listas i enhetligt format. Varje planfil behåller sin detaljerade text, men startlinjen är nu styrande för LLM-flödet.
 
 ## Lifecycle (snabb)
 
@@ -19,7 +19,8 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 ## Scope-anchor (nästa session)
 
-- **Startlinje 2026-04-28:** [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) — konsoliderad superlista efter hardening-PR (`3475484e9`, `8181f87e4`), inkl. PR #117/#118-fynd, postmortem-koppling och föreslagen agent-fördelning A/B/C/D över P0-P4. **Läs först innan nytt LLM-flöde-arbete startar.**
+- **Startlinje 2026-04-28:** [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) — **primär LLM-masterplan** efter hardening-PR (`3475484e9`, `8181f87e4`) och doc-konsolidering 2026-05-01. Äger follow-up/major-change, F3/readiness, UX/status och backlog-koppling. **Läs först innan nytt LLM-flöde-arbete startar.**
+- **Prompt-slim child-plan:** [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) — enda aktiva child-planen för Static Core + follow-up dynamic context. Skapa inte nytt prompt-planlager.
 - **10-lagers målbild:** [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) — extern review. Wave 4 (designval B2.x) + Wave 5 (säkerhet) + Wave 6 (observability) är nästa spår.
 
 ## Öppna steg (konsoliderat efter 2026-04-27-städ)
@@ -28,8 +29,8 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 | # | Plan | Kvarvarande steg | Prio |
 |---|------|------------------|------|
-| O | [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) | **P0–P4** superlista över verifier-status-semantik, init/follow-up-konsistens, latency/parallellisering, prompt-kvalitet och observability. Föreslår agent-fördelning A/B/C/D. | **Hög (anchor för nästa runda)** |
-| P | [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) | Static Core + follow-up dynamic context ska kapas utan nya promptlager. Infrastruktur klar; kvar: Core Rules under ~35k och normal follow-up under ~45k. | Hög |
+| O | [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) | **P0–P4 masterplan**: verifier-status, init/follow-up-konsistens, major-change detector, F3/readiness, latency, UX/status, env/doc-sync och backlog-koppling. | **Hög (anchor för nästa runda)** |
+| P | [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) | **Child-plan till O**: Static Core + follow-up dynamic context ska kapas utan nya promptlager. Kvar: Core Rules under ~35k och normal follow-up under ~45k. | Hög |
 | A | [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | **C2** — aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Vercel Preview via Dashboard. **D** — aktivera i prod efter latens. **E** — ta bort lint från bakgrundsgate. | Medel |
 | B | [`cloudagent-paket-A-doc-rewrite.md`](./cloudagent-paket-A-doc-rewrite.md) | 3 dossier v1→v2 doc-omskrivningar (D3, D5, D7) — redo för cloudagent. | Låg |
 | C | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #7 | **E3** — `recurringQualityPatterns` in i codegen-prompt. Enda kvarvarande från E-laget. ~2h. | Medel |
@@ -38,7 +39,16 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | F | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #11 | **Event-bus UI-flip** — UI läser `selectVersionStatus(events)` istället för DB-flaggor. | Medel |
 | L | [`KRAVER-DIALOG-2026-04-24.md`](./KRAVER-DIALOG-2026-04-24.md) | 7 punkter från långbänk-trion (databas/Redis observability) som kräver dialog: mega-cleanup ordering, TOCTOU-races, env-konvent, NDJSON-precision, refaktor-koordinering, fler strict schemas. | Låg–Medel |
 | M | [`OPEN-THREADS-SCAFFOLDS-2026-04-24.md`](./OPEN-THREADS-SCAFFOLDS-2026-04-24.md) | 6 öppna trådar: scaffold-retry brief-context, matcher-kwNorm, scoring wire/keep/delete, scaffoldRetryUsed-upstream, sv-locale-routing, latency-mätning. SEO-spec (PR-A #103 + PR-B #105 ✅) arkiverad → [`../avklarat/SEO-F3-PROMOTION-NEXT-PR.md`](../avklarat/SEO-F3-PROMOTION-NEXT-PR.md). | Låg–Medel |
-| N | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) | Utred och lås separation mellan användar-follow-up och auto-repair-lane så stale repair inte krockar med ny user-turn. | Medel |
+| N | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) | Aktiv child-plan till startlinjens P1d. När P1d syntetiseras in i O kan denna flyttas till `avklarat/` eller `archived/`. | Medel |
+
+### Konsolideringskandidater
+
+| Plan | Föreslagen hantering |
+|---|---|
+| [`2026-04-29-llm-flow-source-router.md`](./2026-04-29-llm-flow-source-router.md) | Mestadels genomförd syntes/source-router. Flytta till `avklarat/` när länkarna i startlinjen räcker. |
+| [`2026-04-28-pixelkallaren-eval-och-uppfoljning.md`](./2026-04-28-pixelkallaren-eval-och-uppfoljning.md) | Behåll tills Pixelkällaren-fixturen/eval är omhändertagen; flytta sedan spår 1-7 in i startlinjen eller arkivera som eval-scope. |
+| [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) | Child-plan för P1d tills implementation är gjord. |
+| [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) | Målbild/scope-historik. Länka från startlinjen; undvik att använda den som aktiv körplan. |
 
 ### Paused per OMTAG `PARKED.md` — ligger i [`./parked/`](./parked/)
 
