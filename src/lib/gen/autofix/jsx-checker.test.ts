@@ -112,6 +112,25 @@ export default function CoffeeBeanBody() {
     ).toBe(false);
   });
 
+  it("does not generate component stubs for known runtime class names", () => {
+    const code = `
+"use client";
+
+export default function BrokenScene() {
+  return (
+    <CanvasErrorBoundary>
+      <WebGLRenderer />
+    </CanvasErrorBoundary>
+  );
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(code);
+    expect(out).not.toMatch(/web-gl-renderer/);
+    expect(out).not.toMatch(/canvas-error-boundary/);
+    expect(fixes.some((f) => f.description?.includes("WebGLRenderer"))).toBe(false);
+    expect(fixes.some((f) => f.description?.includes("CanvasErrorBoundary"))).toBe(false);
+  });
+
   // SAJ-63: TS generics like `useState<GamePhase>(…)` were treated as JSX
   // openings, producing phantom imports from non-existent files and
   // "Tag mismatch for <GamePhase>" warnings. Same root cause as SAJ-61b but

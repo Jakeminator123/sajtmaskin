@@ -287,4 +287,24 @@ describe("checkCrossFileImports", () => {
     const updated = result.files.find((f) => f.path === "app/form.tsx");
     expect(updated?.content ?? "").not.toContain("html-form-element");
   });
+
+  it("strips denylisted runtime-class imports without stubbing", () => {
+    const page: CodeFile = {
+      path: "components/three-canvas-shell.tsx",
+      language: "tsx",
+      content: [
+        'import WebGLRenderer from "@/components/web-gl-renderer";',
+        'import CanvasErrorBoundary from "@/components/canvas-error-boundary";',
+        "export default function Shell() { return null; }",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+
+    expect(result.files.some((f) => f.path === "components/web-gl-renderer.tsx")).toBe(false);
+    expect(result.files.some((f) => f.path === "components/canvas-error-boundary.tsx")).toBe(false);
+    const updated = result.files.find((f) => f.path === "components/three-canvas-shell.tsx");
+    expect(updated?.content ?? "").not.toContain("web-gl-renderer");
+    expect(updated?.content ?? "").not.toContain("canvas-error-boundary");
+  });
 });
