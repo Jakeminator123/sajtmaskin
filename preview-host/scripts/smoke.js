@@ -130,6 +130,20 @@ async function main() {
     assert.equal(updated.body.versionId, "ver_2");
     assert.equal(updated.body.lastAction, "update");
 
+    const invalidReplace = await postJson(`${baseUrl}/preview/session/update`, {
+      sessionId,
+      versionId: "ver_bad_replace",
+      changeClass: "light",
+      replaceFiles: true,
+      filesJson: null,
+    });
+    assert.equal(invalidReplace.status, 400);
+    assert.match(String(invalidReplace.body.message || ""), /replaceFiles update requires/);
+
+    const afterInvalidReplace = await getJson(`${baseUrl}/preview/session/${sessionId}`);
+    assert.equal(afterInvalidReplace.status, 200);
+    assert.equal(afterInvalidReplace.body.versionId, "ver_2");
+
     const hibernated = await postJson(`${baseUrl}/preview/session/hibernate`, {
       sessionId,
     });

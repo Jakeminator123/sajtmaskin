@@ -167,6 +167,9 @@ function validateUpdatePayload(payload) {
   const filesJson =
     p.filesJson === undefined ? undefined : validateFilesJson(p.filesJson, "filesJson");
   const replaceFiles = p.replaceFiles === true;
+  if (replaceFiles && (!filesJson || Object.keys(filesJson).length === 0)) {
+    throw new Error("Invalid filesJson: replaceFiles update requires a non-empty preview file set");
+  }
   return {
     sessionId: typeof p.sessionId === "string" ? p.sessionId.trim() : undefined,
     sandboxId: typeof p.sandboxId === "string" ? p.sandboxId.trim() : undefined,

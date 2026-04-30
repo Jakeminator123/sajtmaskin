@@ -24,7 +24,6 @@ const {
   proxyPreviewRequest,
   proxyPreviewUpgrade,
   queueRuntimeBoot,
-  runIdResolverFromSession,
   runQueuedVerifyJob,
   stopRuntimeForSession,
 } = require("./runtime.js");
@@ -209,21 +208,6 @@ function sessionExpiresAtIso() {
 }
 
 /**
- * Optional `runId` lives outside the strict validate.js contract during P24
- * rollout — we accept it from the raw body when present and shape-check it
- * here. P26 promotes it into the formal payload schema.
- */
-function readOptionalRunId(raw) {
-  if (!raw || typeof raw !== "object") return null;
-  const value = /** @type {Record<string, unknown>} */ (raw).runId;
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (trimmed.length > 128) return null;
-  return trimmed;
-}
-
-/**
  * @param {object} session
  */
 function sessionResponse(session) {
@@ -241,7 +225,6 @@ function sessionResponse(session) {
     updatedAt: session.updatedAt,
     createdAt: session.createdAt,
     runtimePort: Number.isFinite(Number(session.runtimePort)) ? Number(session.runtimePort) : null,
-    runId: runIdResolverFromSession(session),
   };
 }
 
@@ -425,7 +408,6 @@ async function routeRequest(req, res) {
   if (req.method === "POST" && url.pathname === "/preview/session/start") {
     const raw = await readJsonBody(req);
     const validated = validateStartPayload(raw);
-    const runId = readOptionalRunId(raw);
     await maybeRunOpportunisticCleanup();
     const created = await withStoreLock((data) => {
       const existing = findSessionByChatId(data, validated.chatId);
@@ -448,7 +430,6 @@ async function routeRequest(req, res) {
         dependencyFingerprint: validated.dependencyFingerprint,
         resumeStrategy: validated.resumeStrategy,
         filesJson: validated.filesJson,
-        runId: runId ?? existing?.runId ?? null,
         createdAt,
         updatedAt,
         sessionExpiresAt,
@@ -472,12 +453,6 @@ async function routeRequest(req, res) {
   if (req.method === "POST" && url.pathname === "/preview/session/update") {
     const raw = await readJsonBody(req);
     const validated = validateUpdatePayload(raw);
-    const runId = readOptionalRunId(raw);
-    // /preview/session/update always queues a `restart: true` boot below, so
-    // bootRuntimeForSession will stop any live child and spawn a new one (or
-    // spawn fresh if no child existed). Either branch is semantically a
-    // "recreated" runtime — the previous hardcoded "resumed" lied to telemetry
-    // and broke the version_mismatch_overlay_payload heuristic in the client.
     const updated = await withStoreLock((data) => {
       let session = null;
       if (validated.sessionId) {
@@ -492,46 +467,20 @@ async function routeRequest(req, res) {
       if (!isSessionUsable(session, Date.now())) {
         return null;
       }
-      const runtimeStateBefore = getRuntimeStateForChat(getSessionChatId(session));
-      const wasRunningBefore = runtimeStateBefore.running === true;
-      // restart:true is hardcoded below in queueRuntimeBoot — this branch
-      // therefore always lands on "recreated". Keep the conditional so the
-      // logic stays honest if the restart flag is ever made dynamic.
-      const restart = true;
-      const startOutcome = restart
-        ? "recreated"
-        : wasRunningBefore
-          ? "resumed"
-          : "recreated";
       session.versionId = validated.versionId;
       session.changeClass = validated.changeClass;
       if (validated.filesJson !== undefined) {
-        session.filesJson = validated.replaceFiles
-          ? validated.filesJson
-          : {
-              ...(session.filesJson && typeof session.filesJson === "object" ? session.filesJson : {}),
-              ...validated.filesJson,
-            };
-      }
-      if (runId) {
-        session.runId = runId;
+        session.filesJson = {
+          ...(session.filesJson && typeof session.filesJson === "object" ? session.filesJson : {}),
+          ...validated.filesJson,
+        };
       }
       session.status = "warm_project";
       session.lastAction = "update";
-      session.startOutcome = startOutcome;
+      session.startOutcome = "resumed";
       session.updatedAt = nowIso();
       session.sessionExpiresAt = sessionExpiresAtIso();
-      const restartLabel =
-        startOutcome === "recreated"
-          ? wasRunningBefore
-            ? "killing live runtime and respawning"
-            : "spawning fresh runtime (no live child)"
-          : "reusing live runtime";
-      appendLog(
-        data,
-        session.sandboxId,
-        `Session updated (changeClass=${session.changeClass}, startOutcome=${startOutcome}, ${restartLabel}).`,
-      );
+      appendLog(data, session.sandboxId, `Session updated with changeClass=${session.changeClass}.`);
       return session;
     });
     if (!updated) {
