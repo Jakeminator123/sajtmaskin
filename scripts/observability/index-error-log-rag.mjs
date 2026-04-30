@@ -101,7 +101,9 @@ function buildSnapshot(rows) {
       routePath: row.routePath ?? null,
       variantId: row.variantId ?? null,
       capabilityIds: Array.isArray(row.capabilityIds) ? row.capabilityIds.filter((v) => typeof v === "string") : [],
-      generationMode: row.generationMode ?? null,
+      generationMode: row.generationMode ?? (
+        typeof row.repairPassIndex === "number" && row.repairPassIndex > 0 ? "followup" : null
+      ),
       lineageHash: row.lineageHash ?? null,
       result: row.result ?? null,
     },

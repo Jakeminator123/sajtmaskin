@@ -94,9 +94,16 @@ export interface RetrievedFailure {
   score: number;
 }
 
-function overlapCount(a: readonly string[] | undefined, b: readonly string[] | undefined): number {
-  if (!a?.length || !b?.length) return 0;
-  const right = new Set(b.map((item) => item.toLowerCase()));
+function safeStringArray(value: readonly string[] | unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function overlapCount(a: readonly string[] | undefined, b: readonly string[] | unknown): number {
+  const rightValues = safeStringArray(b);
+  if (!a?.length || rightValues.length === 0) return 0;
+  const right = new Set(rightValues.map((item) => item.toLowerCase()));
   return a.filter((item) => right.has(item.toLowerCase())).length;
 }
 
@@ -138,12 +145,12 @@ export function retrieveSimilarFailures(
   });
   reranked.sort((a, b) => b.score - a.score);
   return reranked.slice(0, topK).map((hit) => ({
-    fault: hit.document.payload.fault,
-    faultText: hit.document.payload.faultText,
+    fault: hit.document.payload.fault || "unknown_fault",
+    faultText: hit.document.payload.faultText || "",
     fixText: hit.document.payload.fixText,
     scaffoldId: hit.document.payload.scaffoldId,
     routePath: hit.document.payload.routePath ?? null,
-    capabilityIds: hit.document.payload.capabilityIds ?? [],
+    capabilityIds: safeStringArray(hit.document.payload.capabilityIds),
     result: hit.document.payload.result,
     score: Math.round(hit.score * 1000) / 1000,
   }));
@@ -162,7 +169,8 @@ export function renderErrorLogRagBlockLines(options: RetrieveSimilarFailuresOpti
   const items: string[] = [];
   for (const hit of hits) {
     const fix = hit.fixText ? ` → fix: ${hit.fixText}` : "";
-    items.push(`- \`${hit.fault}\` — ${hit.faultText.slice(0, 120)}${fix}`);
+    const faultText = hit.faultText || "(no detail)";
+    items.push(`- \`${hit.fault || "unknown_fault"}\` — ${faultText.slice(0, 120)}${fix}`);
   }
   const block = [header, "", intro, "", ...items, ""];
   while (block.join("\n").length > RAG_BLOCK_MAX_CHARS && block.length > 4) {

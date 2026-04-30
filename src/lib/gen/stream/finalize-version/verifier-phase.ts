@@ -105,6 +105,16 @@ export async function runVerifierPhase(params: {
     });
     // Phase 3.1 producer — feed the RAG NDJSON so retriever can surface
     // these to future generations on similar inputs.
+    const ragGenerationMode =
+      params.buildSpec?.generationMode === "followUp"
+        ? "followup"
+        : params.buildSpec?.generationMode === "init"
+          ? "init"
+          : repairPassIndex > 0
+            ? "followup"
+            : null;
+    const ragCapabilityIds = params.buildSpec?.capabilityFlags?.signals ?? [];
+    const ragRoutePath = params.buildSpec?.routeRealization?.primaryRoutePath ?? null;
     for (const finding of findings.blocking.slice(0, 5)) {
       appendErrorLogEvent({
         phase: "post-gen",
@@ -122,6 +132,9 @@ export async function runVerifierPhase(params: {
         chatId,
         versionId: null, // version not minted yet at this point
         scaffoldId: resolvedScaffold?.id ?? null,
+        routePath: ragRoutePath,
+        capabilityIds: ragCapabilityIds,
+        generationMode: ragGenerationMode,
         lineageHash: null, // not threaded into runFinalizeFastPath today
       });
     }
@@ -276,6 +289,9 @@ export async function runVerifierPhase(params: {
               chatId,
               versionId: null,
               scaffoldId: resolvedScaffold?.id ?? null,
+              routePath: ragRoutePath,
+              capabilityIds: ragCapabilityIds,
+              generationMode: ragGenerationMode,
               lineageHash: null,
             });
           }

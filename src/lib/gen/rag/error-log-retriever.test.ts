@@ -207,4 +207,37 @@ describe("error-log retriever", () => {
     expect(joined.length).toBeLessThanOrEqual(800);
     expect(joined).toContain("react-import-missing");
   });
+
+  it("handles legacy malformed payload fields defensively", () => {
+    writeSnapshot([
+      {
+        id: "row-0",
+        text: "missing symbol",
+        payload: {
+          time: null,
+          phase: "post-gen",
+          fault: null,
+          faultText: null,
+          fixText: null,
+          scaffoldId: "landing-page",
+          capabilityIds: "visual-3d",
+          lineageHash: null,
+          result: null,
+        },
+      },
+    ]);
+
+    const hits = retrieveSimilarFailures({
+      prompt: "missing symbol",
+      capabilityIds: ["visual-3d"],
+    });
+    expect(hits[0]).toMatchObject({
+      fault: "unknown_fault",
+      faultText: "",
+      capabilityIds: [],
+    });
+    expect(renderErrorLogRagBlockLines({ prompt: "missing symbol" }).join("\n")).toContain(
+      "(no detail)",
+    );
+  });
 });
