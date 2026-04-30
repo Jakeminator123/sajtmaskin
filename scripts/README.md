@@ -199,6 +199,8 @@ sist för att ge mer verifieringssignal även när repot redan har kända lintfe
 
 Kör eval-suite + scorecard via `scripts/eval/run-eval.ts`. **Utdata:** katalogen `eval-output/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. *(Äldre körningar kan ligga i `EGEN_MOTOR_V2/` — byt till `eval-output/` eller flytta filer.)* Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
 
+För prompt-slim/follow-up-budget utan LLM-codegen: kör `npm run eval:followup` (se `src/lib/gen/eval/README.md`).
+
 Nuvarande eval-checkar inkluderar också:
 
 - `project-sanity` för cross-file/dependency-risker som saknade package pins eller kända installproblem

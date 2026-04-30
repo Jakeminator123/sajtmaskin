@@ -144,6 +144,10 @@ export function buildDynamicContext(
   } = options;
 
   const isFollowUp = generationMode === "followUp";
+  const compactFollowUpContext =
+    isFollowUp &&
+    buildSpec?.contextPolicy === "light" &&
+    buildSpec?.changeScope !== "redesign";
   const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
   const toneKeywords = strList(brief?.toneAndVoice);
 
@@ -203,19 +207,26 @@ export function buildDynamicContext(
       themeOverride,
     }),
   );
-  parts.push(...renderScaffoldVariantBlock(effectiveVariant));
+  parts.push(
+    ...renderScaffoldVariantBlock(effectiveVariant, {
+      compact: compactFollowUpContext,
+    }),
+  );
   parts.push(...renderDesignPriorityBlock());
 
   // ── Import Rules & Known Pitfalls live in config/prompt-core/01-behavioral-contract.md
   // (static core, cached per process — no longer eats dynamic context token budget)
 
   parts.push(...renderScaffoldContextBlock(scaffoldContext));
-  parts.push(...renderScaffoldResearchBlock(resolvedScaffold));
+  if (!compactFollowUpContext) {
+    parts.push(...renderScaffoldResearchBlock(resolvedScaffold));
+  }
   parts.push(
     ...renderToolkitBlock({
       resolvedScaffold,
       capabilityHints,
       componentPalette,
+      compact: compactFollowUpContext,
     }),
   );
   parts.push(
@@ -235,6 +246,7 @@ export function buildDynamicContext(
       routePlan,
       buildSpec,
       isFollowUp,
+      compactMode: compactFollowUpContext,
       chatId,
       userPrompt,
       resolvedScaffold,
@@ -251,9 +263,12 @@ export function buildDynamicContext(
     ...renderRequiredImportsChecklistBlock({
       routePlan,
       capabilityHints,
+      compactMode: compactFollowUpContext,
     }),
   );
-  parts.push(...renderLucideIconsReminderBlock());
+  if (!compactFollowUpContext) {
+    parts.push(...renderLucideIconsReminderBlock());
+  }
   parts.push(...renderTier3IntegrationBlock({ buildSpec, preGenerationContracts }));
   parts.push(...renderPreGenerationContractsBlock(preGenerationContracts));
   parts.push(...renderBriefBlocks(brief));

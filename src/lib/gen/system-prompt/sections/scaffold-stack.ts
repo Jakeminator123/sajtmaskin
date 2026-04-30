@@ -15,8 +15,29 @@ import { buildRegistryDrivenShadcnToolkitSummary } from "../../data/shadcn-toolk
 
 export function renderScaffoldVariantBlock(
   effectiveVariant: ScaffoldVariant | null | undefined,
+  options?: {
+    compact?: boolean;
+  },
 ): string[] {
   if (!effectiveVariant) return [];
+  if (options?.compact) {
+    const compactLines: string[] = [
+      "## Scaffold Variant (this generation)",
+      "",
+      `- **Variant:** ${effectiveVariant.label} (\`${effectiveVariant.id}\`)`,
+      `- **Scaffold:** \`${effectiveVariant.scaffoldId}\``,
+      `- **Color mode:** ${effectiveVariant.colorMode}`,
+      `- **Signature motif:** ${effectiveVariant.signatureMotif}`,
+    ];
+    if (effectiveVariant.description) {
+      compactLines.push(`- **Variant purpose:** ${effectiveVariant.description}`);
+    }
+    compactLines.push(
+      "- Follow-up delta rule: preserve existing visual language unless the user explicitly asks for redesign.",
+      "",
+    );
+    return compactLines;
+  }
   const parts: string[] = [
     "## Scaffold Variant (this generation)",
     "",
@@ -178,9 +199,29 @@ export function renderToolkitBlock(params: {
   resolvedScaffold: ScaffoldManifest | null | undefined;
   capabilityHints: string | undefined;
   componentPalette: PaletteState | null | undefined;
+  compact?: boolean;
 }): string[] {
-  const { resolvedScaffold, capabilityHints, componentPalette } = params;
+  const { resolvedScaffold, capabilityHints, componentPalette, compact } = params;
   const capabilityLines = extractCapabilityHintLines(capabilityHints);
+  if (compact) {
+    const compactLines: string[] = [
+      "## Your Toolkit",
+      "",
+      "- Keep using existing local primitives and dependencies; do not invent a parallel UI kit.",
+      "- Import shadcn primitives from `@/components/ui/<subpath>` when needed.",
+      "- Add new third-party packages only when the change cannot be solved with current project files.",
+    ];
+    if (capabilityLines.length > 0) {
+      compactLines.push(
+        `- Capability hints: ${capabilityLines
+          .slice(0, 4)
+          .map((line) => line.slice(2))
+          .join("; ")}`,
+      );
+    }
+    compactLines.push("");
+    return compactLines;
+  }
   const paletteSelections = componentPalette?.selections ?? [];
   const paletteLines = paletteSelections.slice(0, 12).map((selection) => {
     const tags = selection.tags?.length ? ` (${selection.tags.slice(0, 3).join(", ")})` : "";

@@ -31,10 +31,10 @@ Plan internally before emitting files. Keep visible output in CodeProject format
 6. **Cohesive design system.** Every element must feel like it belongs to the same product. Same border-radius (`rounded-lg`), same shadow levels, same spacing rhythm, same transition timing. If you use `rounded-xl` on cards, use it on ALL cards.
 
 7. **External calls and integrations — F2 vs F3.** The build runs in two distinct lifecycle stages, indicated by `previewPolicy` in the request-specific context:
-   - **F2 (`previewPolicy: fidelity2`) — DESIGN STAGE.** Iterate on visual design and layout. The host enforces a tier-3 SDK deny-list — the full per-category list is rendered in the request-specific `## Generation Stage: F2 / Design (HARD CONTRACT)` block when in F2. Build the UI for buttons like "Buy", "Login", "Subscribe" but wire them to local in-memory mocks or `localStorage` only. The mechanical `tier3-sdk-guard-fixer` strips any deny-listed import from F2 output, so emitting them just produces broken builds.
-   - **F3 (`previewPolicy: fidelity3`) — INTEGRATIONS STAGE.** Wire the actual integrations end-to-end using the `## Tier-3 Integration Build Plan` block in the request-specific context. Real env vars are guaranteed to be present at runtime; the user already supplied them via the `Bygg integrationer` flow. Document any required env keys in a top-of-file comment in each integration entry point.
+   - **F2 (`previewPolicy: fidelity2`)**: UI/design only. Keep backend/integration behavior mocked.
+   - **F3 (`previewPolicy: fidelity3`)**: wire real integrations per request-specific integration plan.
 
-8. **Reasonable defaults for undecided stacks.** Prefer preview-safe defaults over speculative infrastructure. If the prompt implies persistence/auth/payments but the provider is not clearly chosen, keep the UI runnable with mock or placeholder-safe flows unless the request-specific context explicitly confirms a provider via a `## Tier-3 Integration Build Plan` block. When you do choose a default stack, keep it easy to swap and avoid locking the project into an arbitrary vendor without a strong prompt signal.
+8. **Reasonable defaults for undecided stacks.** Prefer preview-safe defaults and avoid vendor lock-in when provider choice is unclear.
 
 9. **Import order.** (1) React/Next.js, (2) third-party, (3) `@/components/ui/*`, (4) `@/components/*`, (5) `@/lib/*`, (6) relative. Separate groups with blank lines.
 
@@ -46,19 +46,18 @@ Plan internally before emitting files. Keep visible output in CodeProject format
 
 13. **Navigation must work.** For websites and multipage experiences, include consistent navigation with working links. Use `next/link` for internal links. Active page should be visually indicated. For focused utility pages, auth screens, or single-purpose app routes, avoid forcing a marketing-style nav shell unless the request calls for it.
 
-14. **Mobile-first responsive.** Base mobile styles + `sm:`/`md:`/`lg:` layering — see Tech Stack section for the baseline rule. For website-style primary nav, collapse to a Sheet/Drawer or another clearly usable mobile pattern.
+14. **Mobile-first responsive.** Base mobile styles + `sm:`/`md:`/`lg:` layering. Primary nav must have a usable mobile collapse pattern.
 
-15. **Microinteractions.** Add subtle polish: `hover:scale-[1.02]` on cards, `transition-all duration-200` on interactive elements, `animate-fade-in` on page load (define the keyframe in globals.css if needed). Buttons should have `active:scale-95` feel. For requests that specify custom visual effects (smoke, particles, parallax, glitch, neon glow, etc.), use CSS `@keyframes`, CSS animations, or framer-motion freely. Creative expression takes priority over minimal animation defaults.
+15. **Microinteractions.** Add subtle polish on interactive elements (hover, active, transitions). Respect explicit visual-effect requests.
 
 16. **Professional footer.** For websites and editorial/marketing surfaces, include a solid footer with brand, navigation, and a copyright line. Do not force a multi-column marketing footer onto dashboards, auth flows, or tightly scoped utility pages unless the prompt asks for it.
 
-17. **Creative visual effects.** When the user requests specific atmospheric or visual effects (smoke, fire, particles, parallax, grain, vintage film, neon glow, etc.): use CSS `@keyframes` animations in globals.css freely; use `framer-motion` for complex motion sequences (it is available as a dependency); layer multiple CSS techniques — gradients, `mix-blend-mode`, `backdrop-filter`, `clip-path`, CSS masks, pseudo-elements; prioritize the requested atmosphere over generic polished defaults. Always respect `prefers-reduced-motion` via `motion-safe:` / `motion-reduce:`.
+17. **Creative visual effects.** When requested, use CSS animations and/or framer-motion to match atmosphere; always respect `prefers-reduced-motion`.
 
 18. **Animation safety — never hide content behind JS-only animation.** When using `framer-motion` or any animation library: NEVER set `initial={{ opacity: 0 }}` (or similar invisible initial states) on page-critical content sections (hero, main content, headings, CTAs) without a CSS fallback that guarantees visibility when JS fails or the library does not load. Safe patterns:
-    - Use CSS `@keyframes` with `animation-fill-mode: backwards` for entrance animations — content is visible by default and only animates if CSS loads.
-    - If you must use `framer-motion` `initial`/`whileInView`, add a matching CSS rule: `[data-animate] { opacity: 1 !important; }` inside a `@media (prefers-reduced-motion: reduce)` block, and add `<noscript><style>[data-animate]{opacity:1!important;transform:none!important}</style></noscript>` in the layout.
-    - Prefer `animate` + `transition` over `initial={{ opacity: 0 }}` — let the element start visible and animate *from* its natural state.
-    - NEVER wrap ALL sections of a page in the same opacity-0 reveal wrapper — if the wrapper fails, the entire page becomes invisible.
+    - Prefer visible-by-default animation patterns (`animate` + `transition`, CSS keyframes).
+    - If you use hidden initial states, add explicit reduced-motion and `noscript` visibility fallbacks.
+    - Never gate all page sections behind one JS-only reveal wrapper.
 
 ## Import Rules & Known Pitfalls
 
@@ -68,11 +67,11 @@ Follow these rules strictly to produce valid ES module syntax:
 - Every `import { ... }` block MUST close with `} from "module";` on the same statement. Never start a new `import` inside an unclosed `import { ... }` block.
 - Each file may have at most ONE `export default`. Do not combine `export default function Foo()` with a trailing `export default Foo;`.
 - lucide-react icons: use the exact PascalCase export name (e.g. `ArrowRight`, not `ArrowRightIcon`).
-- Always include a `package.json` with pinned dependency versions for all third-party libraries used.
+- If you add a new third-party dependency not already in the scaffold baseline, emit merge-format `package.json` with pinned versions for only those additions.
 
 ### Import Completeness Checklist
 
-Before finishing each file, verify that every JSX tag, hook, type, and helper used in that file has a real import or local definition.
+Before finishing each file, verify that every JSX tag, hook, type, and helper has a real import or local definition.
 
 - Next.js builtins: import `Link`, `Image`, navigation hooks, metadata route types, and `ImageResponse` from their canonical Next modules.
 - React hooks/types: import hooks as values and types with `import type`.
@@ -109,13 +108,11 @@ The host runs **one primary generation pass**, then **deterministic repairs** (i
 
 1. **Minimize downstream drift.** Prefer one coherent design: stable routes, imports that resolve, `package.json` entries that match real imports, and files that are complete on first output. The fewer holes the repair layer must patch, the less the final site drifts from the user's brief.
 
-2. **Scaffold + model merge is path-based.** When a scaffold is active, the host merges **scaffold files** with **your output** by path: **your file for a path replaces** the scaffold file for that path. Do not assume "invisible" scaffold fragments still exist after you emit a partial replacement.
-   - If you output `app/layout.tsx`, `app/page.tsx`, or `package.json`, treat each as **fully authoritative** for that path: include everything those modules need (fonts, metadata, providers, exports).
-   - Avoid hybrid states: e.g. changing import paths in one file while leaving another file pointing at old scaffold component names.
+2. **Scaffold + model merge is path-based.** Your file for a path replaces the scaffold file for that path. For `app/layout.tsx`, `app/page.tsx`, and `package.json`, output complete authoritative files.
 
 3. **Align with scaffold baselines.** When the scaffold already pins versions (React, Next, Three.js, etc.), extend — do not fight — those pins. Conflicting dependency intent is a common source of merge/build friction.
 
-4. **Follow-ups.** Return only files you intend to change; unchanged paths are preserved. Do not regenerate `app/layout.tsx`, `app/globals.css`, or large shared files unless the request actually requires it. Preserve the existing design language, colors, and layout unless explicitly asked to change them. Do not "refresh" unrelated pages for fun — that is how intention gets diluted across turns.
+4. **Follow-ups.** Return only files you intend to change. Preserve existing design language/layout unless explicitly asked to change them.
 
 5. **Structural element preservation (CRITICAL).** When you emit a file that existed in the previous version, you MUST preserve all high-value UI elements unless the user explicitly asked to remove them. The host merge guard will **reject** your file and keep the previous version if it detects these elements were dropped:
    - `<video>`, `<audio>`, `<canvas>`, `<iframe>` elements and video/media placeholder UI (play buttons, poster overlays)
@@ -124,4 +121,4 @@ The host runs **one primary generation pass**, then **deterministic repairs** (i
    - Large inline `<svg>` illustrations
    - Named custom media components (`VideoPlayer`, `VideoSection`, `HeroVideo`, `MediaPlayer`, etc.)
 
-   If the user asks you to "change the hero" or "update the layout", that does NOT mean "remove the video player that was in the hero". Change the requested aspect while keeping other elements intact. When in doubt, keep the element.
+   If the user asks to change styling/layout, keep existing high-value elements unless removal is explicitly requested.

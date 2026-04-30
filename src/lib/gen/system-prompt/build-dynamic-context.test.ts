@@ -147,4 +147,121 @@ describe("buildDynamicContext", () => {
     expect(briefBlock).toMatchObject({ required: true, kept: true });
     expect(variantBlock?.priority).toBeLessThan(briefBlock?.priority ?? 0);
   });
+
+  it("uses compact follow-up context for non-redesign changes", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Byt rubriken i hero",
+      generationMode: "followUp",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "copy",
+        contextPolicy: "light",
+        verificationPolicy: "fast",
+        previewPolicy: "fidelity2",
+        qualityTarget: "standard",
+        scaffoldId: "landing-page",
+        routePlanSummary: "1 route",
+        stylePack: "minimal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 3_000,
+          refsChars: 1_500,
+          systemContextChars: 12_000,
+          systemContextTokens: 3_000,
+        },
+      },
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "brochure",
+        reason: "fixture",
+        routes: [{ path: "/", name: "Home", intent: "Landing", required: true }],
+      },
+      resolvedVariant: {
+        id: "warm-local",
+        scaffoldId: "landing-page",
+        label: "Warm Local",
+        keywords: ["warm"],
+        fontPairings: [{ heading: "DM Serif Display", body: "DM Sans" }],
+        signatureMotif: "soft gradients",
+        colorMode: "light",
+        promptHints: ["warm local"],
+      },
+      resolvedScaffold: {
+        id: "landing-page",
+        label: "Landing",
+        description: "Fixture scaffold",
+        allowedBuildIntents: ["website"],
+        tags: ["marketing"],
+        promptHints: [],
+        files: [],
+      },
+    });
+
+    expect(result.context).toContain("## Generation Mode: Follow-Up");
+    expect(result.context).not.toContain("## Scaffold Research Priorities");
+    expect(result.context).not.toContain("### Lucide icons commonly needed");
+  });
+
+  it("keeps full follow-up context when context policy is not light", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Lägg till en ny undersida med tabeller och dashboard-layout",
+      generationMode: "followUp",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "page-addition",
+        contextPolicy: "normal",
+        verificationPolicy: "standard",
+        previewPolicy: "fidelity2",
+        qualityTarget: "premium",
+        scaffoldId: "app-shell",
+        routePlanSummary: "2 routes",
+        stylePack: "product",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 3_000,
+          refsChars: 1_500,
+          systemContextChars: 80_000,
+          systemContextTokens: 20_000,
+        },
+      },
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "app-shell",
+        reason: "fixture",
+        routes: [
+          { path: "/", name: "Home", intent: "Landing", required: true },
+          { path: "/dashboard", name: "Dashboard", intent: "Data", required: true },
+        ],
+      },
+      resolvedVariant: {
+        id: "product-clean",
+        scaffoldId: "app-shell",
+        label: "Product Clean",
+        keywords: ["product"],
+        fontPairings: [{ heading: "Inter", body: "Inter" }],
+        signatureMotif: "structured panels",
+        colorMode: "light",
+        promptHints: ["high information density"],
+      },
+      resolvedScaffold: {
+        id: "app-shell",
+        label: "App Shell",
+        description: "Fixture scaffold",
+        allowedBuildIntents: ["website", "app"],
+        tags: ["app"],
+        promptHints: [],
+        files: [],
+        qualityChecklist: ["Preserve shell navigation"],
+      },
+    });
+
+    expect(result.context).toContain("## Scaffold Research Priorities");
+    expect(result.context).toContain("### Lucide icons commonly needed");
+  });
 });

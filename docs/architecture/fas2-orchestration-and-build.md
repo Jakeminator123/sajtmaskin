@@ -114,7 +114,8 @@ Baserade på 200k-fönster. Skalas av `modelBudgetScale()` mellan **0.6×** och 
 └──────────────────────────────────────────────┘
                  SYSTEM_PROMPT_SEPARATOR
 ┌──── DYNAMISK KONTEXT (per request) ──────────┐
-│  20+ markdown-block med ## rubriker          │
+│  20+ markdown-block med ## rubriker (init)   │
+│  Follow-up (light, ej redesign) kör kompakt │
 │  Prioriterade och prunade efter token-budget │
 └──────────────────────────────────────────────┘
 ```
@@ -147,6 +148,12 @@ Baserade på 200k-fönster. Skalas av `modelBudgetScale()` mellan **0.6×** och 
 14. Imagery + Media Catalog
 15. Component References (upp till 5 fenced shadcn-exempel)
 16. SEO
+
+**Follow-up compact-läge (2026-04-30):** När `generationMode === "followUp"` och
+`BuildSpec` är `contextPolicy: "light"` samt inte `changeScope: "redesign"`,
+renderas kortare varianter av `Scaffold Variant`, `Your Toolkit` och `Route Plan`.
+`Scaffold Research Priorities` och `Lucide icons`-blocket hoppas över i det läget.
+Målet är lägre dynamic context utan att ändra produkttermer eller kontrakt.
 
 `## Structural References` är **borttaget 2026-04-17** — strukturella exempel sköts av dossier-pipen v2 (`data/dossiers/{hard,soft}/<id>/`). `data/dossiers/_index/capability-map.json` är en genererad backoffice-view, inte en runtime-källa.
 

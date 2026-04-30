@@ -18,6 +18,7 @@ export function renderRoutePlanBlock(params: {
   routePlan: RoutePlan | null | undefined;
   buildSpec: BuildSpec | null | undefined;
   isFollowUp: boolean;
+  compactMode?: boolean;
   chatId: string | null | undefined;
   userPrompt: string | undefined;
   resolvedScaffold: ScaffoldManifest | null | undefined;
@@ -29,7 +30,16 @@ export function renderRoutePlanBlock(params: {
     generationMode?: "init" | "followup" | "auto_repair" | null;
   };
 }): string[] {
-  const { routePlan, buildSpec, isFollowUp, chatId, userPrompt, resolvedScaffold, ragContext } = params;
+  const {
+    routePlan,
+    buildSpec,
+    isFollowUp,
+    compactMode,
+    chatId,
+    userPrompt,
+    resolvedScaffold,
+    ragContext,
+  } = params;
   if (!routePlan || routePlan.routes.length === 0) return [];
 
   const parts: string[] = [];
@@ -37,6 +47,35 @@ export function renderRoutePlanBlock(params: {
   const routeMode = routeRealization?.mode ?? "full";
   const shellRoutes = routeRealization?.shellRoutePaths ?? [];
   const fullRoutes = routeRealization?.fullRoutePaths ?? routePlan.routes.map((route) => route.path);
+  if (compactMode) {
+    const primaryPath = routeRealization?.primaryRoutePath ?? routePlan.routes[0]?.path ?? "/";
+    parts.push(
+      "## Route Plan",
+      "",
+      `- **Primary route:** \`${primaryPath}\``,
+      `- **Routes in scope:** ${routePlan.routes
+        .slice(0, 8)
+        .map((route) => `\`${route.path}\``)
+        .join(", ")}`,
+      `- **Route mode:** ${routeMode}`,
+    );
+    if (routeMode === "primary-full-with-shells") {
+      parts.push(
+        `- **Shell routes:** ${shellRoutes.map((path) => `\`${path}\``).join(", ") || "none"}`,
+        "- Follow-up shell rule: keep existing shell routes as-is unless the user explicitly asks to expand that route.",
+      );
+    }
+    parts.push(
+      "",
+      "### Canonical route paths (use these EXACTLY)",
+      "",
+      ...routePlan.routes.map((route) => `- \`${route.path}\``),
+      "",
+      "- Never invent paths outside this list.",
+      "- Sub-routes must render their own content; do not redirect sub-routes to `/` on mount.",
+      "",
+    );
+  } else {
   parts.push(
     "## Route Plan",
     "",
@@ -122,6 +161,7 @@ export function renderRoutePlanBlock(params: {
     "- Sub-routes (anything other than `/`) MUST NOT auto-redirect back to `/`. Even when the scaffold is one-page-marketing, sub-routes are intentional and must render their own content. NEVER emit `router.push('/')`, `redirect('/')`, or `window.location.href = '/'` inside a sub-route page, layout, or client component on mount. The only legitimate redirect-on-mount target from a sub-route is to a sibling sub-route after a real user action (e.g. successful form submit) — never the root.",
   );
   parts.push("");
+  }
 
   // Phase 2D — recurring failures block. Only on follow-ups (init has no
   // historical patterns), only when the FEATURES.recurringPatternsInMainPrompt
@@ -178,6 +218,7 @@ export function renderRoutePlanBlock(params: {
 export interface RequiredImportsChecklistParams {
   routePlan?: RoutePlan | null;
   capabilityHints?: string | null;
+  compactMode?: boolean;
 }
 
 /**
@@ -251,6 +292,29 @@ const GROUP_COMPONENTS: Record<ChecklistGroup, readonly string[]> = {
 /** Baseline groups — always included. These are the components that turn up
  *  in almost every landing/portfolio/brochure generation. */
 const BASELINE_GROUPS: readonly ChecklistGroup[] = ["button", "card", "badge"];
+
+const COMPACT_GROUP_PRIORITY: readonly ChecklistGroup[] = [
+  "form",
+  "input",
+  "label",
+  "textarea",
+  "sidebar",
+  "sheet",
+  "table",
+  "tabs",
+  "dialog",
+  "drawer",
+  "command",
+  "calendar",
+  "carousel",
+  "separator",
+  "button",
+  "card",
+  "badge",
+  "skeleton",
+  "progress",
+  "popover",
+];
 
 /**
  * Capability → group mapping. Keys are the `capabilityHints` bullet markers
@@ -373,7 +437,20 @@ export function renderRequiredImportsChecklistBlock(
   if (!hasAnyContext) return [];
 
   const groups = collectGroups(params);
-  const rows = groups.map(renderRow).filter((line): line is string => Boolean(line));
+  const compactOrderIndex = new Map<ChecklistGroup, number>(
+    COMPACT_GROUP_PRIORITY.map((group, index) => [group, index]),
+  );
+  const orderedGroups = params.compactMode
+    ? [...groups].sort((a, b) => {
+        const aRank = compactOrderIndex.get(a) ?? Number.MAX_SAFE_INTEGER;
+        const bRank = compactOrderIndex.get(b) ?? Number.MAX_SAFE_INTEGER;
+        return aRank - bRank;
+      })
+    : groups;
+  const rows = orderedGroups
+    .map(renderRow)
+    .filter((line): line is string => Boolean(line))
+    .slice(0, params.compactMode ? 6 : undefined);
   if (rows.length === 0) return [];
 
   return [

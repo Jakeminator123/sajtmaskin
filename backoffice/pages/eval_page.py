@@ -164,6 +164,7 @@ def _run_eval_command(
         started_at=started_at,
     )
     return {
+        "commandName": " ".join(command),
         "exitCode": exit_code,
         "elapsedSec": round(elapsed_sec, 1),
         "reportPath": report_path,
@@ -188,6 +189,16 @@ def _run_eval_smoke(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]
         timeout_s=timeout_s,
         report_slug="codegen-eval-smoke",
         title="Codegen eval smoke",
+    )
+
+
+def _run_eval_followup(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
+    return _run_eval_command(
+        ctx,
+        command=("npm", "run", "eval:followup"),
+        timeout_s=timeout_s,
+        report_slug="codegen-eval-followup",
+        title="Codegen eval follow-up context",
     )
 
 
@@ -252,6 +263,7 @@ def render(ctx: BackofficeContext) -> None:
     st.caption(
         "Codegen-evalen mäter hela LLM-pipelinen för 15 fasta prompts (~15 min, "
         "kostar OPENAI-quota). `eval:smoke` kör 3 prompts och visar prompt/preflight-telemetri. "
+        "`eval:followup` mäter follow-up-context och promptstorlek utan LLM-codegen. "
         "Båda lever i `src/lib/gen/eval/`; gate-läget jämför mot `eval-baseline.json`. "
         "Backoffice-knapparna sparar rapporter under `docs/evals/`. "
         "`Surface/Final` betyder LLM-genererad app-yta / komplett körbart Next-projekt."
@@ -303,7 +315,7 @@ def render(ctx: BackofficeContext) -> None:
         "Jag vill köra codegen-eval och förstår att det använder LLM-quota.",
         key="codegen_eval_gate_confirm",
     )
-    run_col1, run_col2 = st.columns(2)
+    run_col1, run_col2, run_col3 = st.columns(3)
     with run_col1:
         if st.button(
             "Kör eval:smoke (3 prompts)",
@@ -315,6 +327,16 @@ def render(ctx: BackofficeContext) -> None:
             st.session_state["codegen_eval_gate_last_result"] = result
             st.rerun()
     with run_col2:
+        if st.button(
+            "Kör eval:followup (ingen LLM-kostnad)",
+            disabled=not confirmed,
+            key="codegen_eval_followup_run",
+        ):
+            with st.spinner("Kör npm run eval:followup ..."):
+                result = _run_eval_followup(ctx, timeout_s=int(timeout_min * 60))
+            st.session_state["codegen_eval_gate_last_result"] = result
+            st.rerun()
+    with run_col3:
         if st.button(
             "Kör eval:gate (15 prompts)",
             type="primary",
@@ -329,6 +351,7 @@ def render(ctx: BackofficeContext) -> None:
     last_result = st.session_state.get("codegen_eval_gate_last_result")
     if isinstance(last_result, dict):
         code = last_result.get("exitCode")
+        command_name = str(last_result.get("commandName") or "npm run eval:gate")
         report_path = last_result.get("reportPath")
         rel_report = (
             report_path.relative_to(ctx.repo_root).as_posix()
@@ -336,9 +359,11 @@ def render(ctx: BackofficeContext) -> None:
             else str(report_path)
         )
         if code == 0:
-            st.success(f"Senaste eval:gate passerade. Rapport: `{rel_report}`")
+            st.success(f"Senaste körning (`{command_name}`) passerade. Rapport: `{rel_report}`")
         else:
-            st.error(f"Senaste eval:gate failade med exit code `{code}`. Rapport: `{rel_report}`")
+            st.error(
+                f"Senaste körning (`{command_name}`) failade med exit code `{code}`. Rapport: `{rel_report}`"
+            )
         st.caption(f"Körtid: {last_result.get('elapsedSec', '?')}s")
         with st.expander("Output-tail", expanded=False):
             st.code(str(last_result.get("outputTail", "")), language="text")
