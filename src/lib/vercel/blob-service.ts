@@ -23,12 +23,25 @@ export interface BlobUploadOptions {
 const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
 
 function getExtension(filename: string): string {
-  const lastDot = filename.lastIndexOf(".");
-  if (lastDot === -1 || lastDot === 0) return ".png";
-  return filename.substring(lastDot);
+  const basename = filename.replace(/\\/g, "/").split("/").pop() ?? "";
+  const lastDot = basename.lastIndexOf(".");
+  if (lastDot <= 0 || lastDot === basename.length - 1) return ".bin";
+  const ext = basename.slice(lastDot).toLowerCase().replace(/[^.a-z0-9]/g, "");
+  return ext && ext !== "." ? ext : ".bin";
 }
 
-function buildBlobPath(
+function sanitizeBlobPathSegment(value: string | undefined, fallback: string): string {
+  const sanitized = (value ?? "")
+    .trim()
+    .replace(/[\\/]+/g, "-")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^[.-]+|[.-]+$/g, "");
+  if (!sanitized || sanitized === "." || sanitized === "..") return fallback;
+  return sanitized;
+}
+
+/** @internal exported for path-contract regression tests. */
+export function buildBlobPath(
   userId: string,
   filename: string,
   options?: {
@@ -36,18 +49,22 @@ function buildBlobPath(
     category?: "media" | "ai-images" | "project-files";
   },
 ): string {
+  const safeUserId = sanitizeBlobPathSegment(userId, "anonymous");
+  const safeFilename = sanitizeBlobPathSegment(filename, "file.bin");
   const category = options?.category || "media";
   if (options?.projectId) {
-    return `${userId}/projects/${options.projectId}/${category}/${filename}`;
+    const safeProjectId = sanitizeBlobPathSegment(options.projectId, "project");
+    return `${safeUserId}/projects/${safeProjectId}/${category}/${safeFilename}`;
   }
-  return `${userId}/${category}/${filename}`;
+  return `${safeUserId}/${category}/${safeFilename}`;
 }
 
 export function generateUniqueFilename(originalName: string, prefix?: string): string {
   const ext = getExtension(originalName);
   const timestamp = Date.now();
   const random = randomUUID().replace(/-/g, "").slice(0, 8);
-  const prefixStr = prefix ? `${prefix}_` : "";
+  const safePrefix = prefix ? sanitizeBlobPathSegment(prefix, "file") : "";
+  const prefixStr = safePrefix ? `${safePrefix}_` : "";
   return `${prefixStr}${timestamp}_${random}${ext}`;
 }
 

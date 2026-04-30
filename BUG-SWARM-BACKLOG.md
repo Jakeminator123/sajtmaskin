@@ -23,14 +23,14 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [x] | Fixad i HEAD | P1 | Domain link/verify accepterar arbitrary `projectId` | G#5 | Fixad i senaste commit med projekt-scope och test. |
 | [x] | Inte bug / fixad | P1 | Dep-completer missar CSS/`require()`/dynamic import | G#6 | Avskriven: test täcker side-effect CSS, CommonJS och dynamic imports. |
 | [x] | Fixad i HEAD | P1 | `/api/text/analyze` auth ignorerad | G#7 | Fixad i senaste commit och testad. |
-| [ ] | Öppen bug | P1 | Same-sandbox preview update skickar inte om `.env.local` | G#8 | Fixa update-path så preview-env materialiseras om när env ändras. |
-| [ ] | Öppen bug | P1 | Env merge kan skippas vid preview update | G#9 | Samma fixspår som G#8; verifiera mot `src/lib/gen/preview/`. |
+| [x] | Fixad nu | P1 | Same-sandbox preview update skickar inte om `.env.local` | G#8 | Fixad: update-path bygger om `.env.local` via `buildPreviewEnvLocalContents()` innan `updatePreviewHostSession`. |
+| [x] | Fixad nu | P1 | Env merge kan skippas vid preview update | G#9 | Fixad med samma update-path som G#8; täckt av `preview-session.test.ts`. |
 | [ ] | Öppen design-risk | P1 | F2 quality gate fångar inte runtime/UI-fel | G#10 | Lägg separat runtime smoke/postcheck, inte bara typecheck. |
 | [ ] | Öppen testlucka | P1 | Ingen runtime smoke för WebGL/3D | G#11 | Lägg WebGL/Canvas-smoke i verifiering utan att röra live-builder. |
 | [ ] | Öppen produktbugg | P1 | Ingen tydlig game/interactive capability | G#12 | Lägg canonical capability eller styrning för spel/interactive canvas. |
 | [ ] | Öppen kvalitet-risk | P1 | Simplified brief fallback sänker premium/3D | G#13 | Begränsa fallback eller markera som degraded mode i generationen. |
 | [ ] | Öppen drift-risk | P1 | Rate limit faller tillbaka till per-instance memory utan Redis | G#14, U#45 | Kräv Redis i prod eller gör fallback tydligt degraded. |
-| [ ] | Öppen bug | P1 | `default-seed` kan ge predikterbara slug-lösen | G#15 | Byt till kryptografisk seed där lösen/slug används. |
+| [x] | Fixad nu | P1 | `default-seed` kan ge predikterbara slug-lösen | G#15 | Fixad: lösen kräver `KOSTNADSFRI_PASSWORD_SEED`, `KOSTNADSFRI_API_KEY` eller explicit secret. |
 | [ ] | Öppen städ | P2 | `process.env` drift utanför `env.ts` | G#16 | Audita mot `src/lib/env.ts` och `config/env-policy.json`. |
 | [ ] | Öppen design-risk | P2 | `allowPlaceholdersInF3` kan släppa stub secrets | G#17 | Låt bara explicita dev/test-lägen tillåta placeholders. |
 | [ ] | Öppen docs-städ | P2 | Dubbla env-docs och genererad `.env.local`-sanning | G#18 | Konsolidera docs runt `docs/ENV.md` och env-policy. |
@@ -88,7 +88,7 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [ ] | Öppen PDF-UX | P3 | PDF report `window.open` + `document.write` | G#71, U#13 | Byt till blob/download eller server-renderad fil. |
 | [x] | Inte bug / låg risk | P3 | Date formatting locale/timezone varierar | G#72, U#67, U#68 | Inte bug utan rapportpolicy; öppna ny produktfråga om determinism krävs. |
 | [x] | Fixad nu | P3 | `generateUniqueFilename` använder `Math.random` | G#73, U#30 | Fixad: använder `crypto.randomUUID`. |
-| [ ] | Öppen validator-risk | P3 | Image validator HEAD-fallback missar CDNs | G#74, U#71 | Lägg GET fallback med byte-range eller explicit degraded result. |
+| [x] | Fixad i HEAD | P3 | Image validator HEAD-fallback missar CDNs | G#74, U#71 | Avskriven/fixad: HEAD 405/501 har GET fallback med byte-range och tester. |
 | [ ] | Öppen UX-risk | P3 | Domain manager polling/save-fail döljs | G#75, U#11, U#12 | Visa save/link-status och fel tydligt. |
 | [ ] | Öppen UI-bug | P3 | ThinkingOverlay nested `setTimeout` rensas inte vid unmount | U#1 | Rensa timer refs i cleanup. |
 | [ ] | Öppen copy-risk | P3 | ThinkingOverlay säger "visuell QA" fast default kan vara av | U#2 | Koppla copy till faktisk flagga. |
@@ -109,8 +109,8 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [ ] | Öppen PDF-risk | P3 | PDF extract fallback regex nonsens | U#27 | Byt fallback eller returnera tydligt unsupported. |
 | [ ] | Öppen i18n-risk | P3 | PDF extract strippar icke-Latin-1 | U#28 | Bevara Unicode-text. |
 | [ ] | Öppen preview-risk | P3 | Media local fallback `/api/uploads/media` kanske ej nås av VM | U#29 | Kräv Blob för preview eller visa tydligt degraded state. |
-| [ ] | Öppen storage-risk | P3 | Originalfiländelse / dubbeländelse okontrollerad | U#31 | Sanera originalnamn och tvinga extension från MIME. |
-| [ ] | Öppen storage-risk | P3 | Blob path använder rå `projectId` | U#32 | Sanera path-segment och verifiera owner-scope. |
+| [x] | Fixad nu | P3 | Originalfiländelse / dubbeländelse okontrollerad | U#31 | Fixad delvis vid blob-namn: path-segment saneras och extensionless filer defaultar till `.bin`, inte `.png`. |
+| [x] | Fixad nu | P3 | Blob path använder rå `projectId` | U#32 | Fixad: blob path-segment för user/project/filename saneras innan upload. |
 | [ ] | Öppen cache-risk | P3 | Registry async refresh stale vid misslyckad fetch | U#35 | Behåll last-good med timestamp/status. |
 | [ ] | Öppen search-risk | P3 | Template search apps/games hint vs saknad game capability | U#39 | Lös ihop med G#12/G#30. |
 | [ ] | Öppen scraper-risk | P3 | Webscraper prioriterar about/services/product/blog | U#42 | Justera ranking efter domain/site-type. |
@@ -126,7 +126,7 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [ ] | Öppen React-städ | P3 | VoiceRecorder/VideoRecorder exhaustive-deps av | U#57 | Fixa hooks eller dokumentera stabila deps. |
 | [ ] | Öppen React-städ | P3 | LocationPicker exhaustive-deps av | U#58 | Fixa hooks eller dokumentera stabila deps. |
 | [ ] | Öppen debug-risk | P3 | ModelTraceOverlay URL/localStorage state | U#59 | Prefixa/sanera debug-state. |
-| [ ] | Öppen storage-bug | P3 | `decodeStoragePathname` malformed `%` | U#61 | Wrap `decodeURIComponent` och returnera tydligt fel. |
+| [x] | Fixad nu | P3 | `decodeStoragePathname` malformed `%` | U#61 | Fixad: malformed percent-encoding ger tydligt storage-fel i stället för rå `URIError`. |
 | [ ] | Öppen UX-risk | P3 | Local storage delete false utan UI | U#62 | Visa toast/fel. |
 | [ ] | Öppen backoffice-städ | P3 | Backoffice domain-map / manuella paths | U#63 | Synka med `backoffice/shared.py` om ytan rörs. |
 | [ ] | Öppen observability-risk | P3 | Metrics route token blind | U#65 | Logga token-miss utan läckage och returnera rätt status. |

@@ -72,8 +72,8 @@ Indelning: **enkla** (≤2h) → **medel** (½–2 dagar) → **stora** (3+ daga
 
 **Manual:**
 
-1. Skapa `npm run preflight:dev` och `npm run preflight:build` som var och en bara har en lista som invokar `npm run preflight:common`.
-2. `preflight:common` = `check-systemprompt && check-lucide-icons`.
+1. Skapa gemensam preflight-kedja som `predev` och `prebuild` anropar.
+2. Låt aktuell checklista ägas av `package.json` → `preflight:common`.
 
 ---
 

@@ -88,13 +88,14 @@ Sedan 2026-04-20 (P29 Fas 1B) finns **inga** `/api/v0/chats/...` compat-routes k
 
 1. **Dedupe**: Samma `chatId:versionId` delar in-flight promise.
 2. **Resume**: Om lagrad session matchar version → `fetchPreviewHostStatus()` → om running → touch store, returnera `"resumed"`.
-3. **Kall start**:
+3. **Update**: Om lagrad session finns för samma chat men äldre version → bygg om filpaketet, bygg om `.env.local` via `buildPreviewEnvLocalContents()` och skicka allt till `POST /preview/session/update`.
+4. **Kall start**:
    - Reparera filer (optional)
    - `buildCompleteProject()` (full filstruktur)
    - Injicera placeholder API-route om saknas
    - Bygg `.env.local` via `buildPreviewEnvLocalContents()` (lager: globala placeholders → projekt-env → genererad env)
    - `POST /preview/session/start` till Fly-host med `filesJson`
-4. **Lagra**: `touchPreviewSessionAsync()` (in-memory Map + optional Redis).
+5. **Lagra**: `touchPreviewSessionAsync()` (in-memory Map + optional Redis).
 
 ### Preview-host (`preview-host/`)
 

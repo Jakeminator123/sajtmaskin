@@ -265,6 +265,19 @@ async function runStartPreviewSession(
             updateFiles,
             collectRequiredUiComponents(updateFiles),
           ).map((f) => ({ name: f.path, content: f.content }));
+      const envLocalPath = ".env.local";
+      const envIdx = runtimeForUpdate.findIndex((f) => f.name === envLocalPath);
+      let priorEnvLocal: string | null = null;
+      if (envIdx >= 0) {
+        priorEnvLocal = runtimeForUpdate[envIdx]!.content;
+        runtimeForUpdate.splice(envIdx, 1);
+      }
+      const envBody = await buildPreviewEnvLocalContents({
+        appProjectId: options?.appProjectId ?? null,
+        generatedEnvLocal: priorEnvLocal,
+        lifecycleStage: options?.lifecycleStage,
+      });
+      runtimeForUpdate.push({ name: envLocalPath, content: envBody });
       const updatePayload = Object.fromEntries(
         runtimeForUpdate.map((f) => [f.name, f.content]),
       );
