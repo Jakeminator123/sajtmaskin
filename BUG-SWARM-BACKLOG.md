@@ -11,6 +11,53 @@ Kanonisk lista efter sammanslagning av de tidigare rålistorna: `BUG-SWARM-BACKL
 
 Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 
+## Triage för nästa agent
+
+| Grupp | Antal | Hantering |
+| --- | ---: | --- |
+| Totalt | 121 | Alla rader i tabellen nedan. |
+| Avslutade (`[x]`) | 42 | Filtrera bort från aktiv bugfix. |
+| Öppna (`[ ]`) | 79 | Kandidater för fortsatt triage/fix. |
+| Explicit `Inte bug` | 13 | Avskrivna eller naming/copy/fallback-beslut; ska inte räknas som aktiv buggrisk. |
+
+| Aktiv prioritet | Kvar | Kommentar |
+| --- | ---: | --- |
+| P0 | 1 | Endast full verifiering/testsvit-raden kvar. |
+| P1 | 2 | F2 runtime/UI-smoke och simplified-brief kvalitet. |
+| P2 | 16 | F3/dossier/env/verify/policy-risker. |
+| P3 | 60 | UI-race, cache/search/scrape, copy/naming/städ. |
+
+### Avskrivet / inte bug
+
+| Källa | Fynd | Bedömning |
+| --- | --- | --- |
+| G#6 | Dep-completer missar CSS/`require()`/dynamic import | Inte bug / fixad; test täcker fallen. |
+| G#23 | `feature-runtime` env keys blockerar inte F3 | Inte bug / beslutad arkitektur; bara `build`-enforcement blockerar. |
+| G#41, G#42 | `/api/v0/*` finns kvar | Inte bug; API-version/naming debt. |
+| G#43, U#40 | `TemplateCatalogSource = "v0"` | Inte bug; naming debt. |
+| G#44 | `ModelProviderFamily` innehåller `v0` | Inte bug; naming debt. |
+| G#45, U#76 | `demoUrl`, `webhook:v0`, `v0-catalog` kvar | Inte bug; terminologistäd senare. |
+| G#69, U#25 | Unsplash `placehold.co` fallback | Inte bug / fallback. |
+| G#72, U#67, U#68 | Date formatting locale/timezone varierar | Inte bug; rapportpolicy. |
+| U#8 | F3PlaceholderToggle saknar skeleton | Inte bug; UX debt/polish. |
+| U#22 | Transcribe accepterar `video/mp4` | Inte bug; Whisper hanterar video-containers. |
+| U#26 | Unsplash POST gör upp till 3 externa sökningar | Inte bug; redan hårt cappad. |
+| U#48 | OpenClaw tips kräver modul-restart | Inte bug; modul-init-beteende. |
+| U#74 | Shadcn category emojis enterprise | Inte bug; copy/brand-städ. |
+
+### Öppen men inte akut bug
+
+| Källa | Fynd | Typ |
+| --- | --- | --- |
+| G#18 | Dubbla env-docs och genererad `.env.local`-sanning | Docs-städ. |
+| G#46 | Root lockfile saknas | Reproducibility-/package-manager-beslut. |
+| G#55 | `/api/ai/spec` naming debt | Naming debt. |
+| G#58, U#80 | "Bygg nu" / "F3" / "Bygg integrationer" copy-blandning | Copy-/terminologistäd. |
+| U#23 | Transcribe språkfallback bara sv/en | Produkt-gap. |
+| U#63 | Backoffice domain-map / manuella paths | Backoffice-städ. |
+| U#66 | `console.info` hot paths brus | Logg-städ. |
+| U#78 | SSE ping `Date.now` var 15s loggar | Logg-städ. |
+
 ## Lista
 
 | Klar | Status | Prio | Fynd | Källa | Beslut / nästa steg |

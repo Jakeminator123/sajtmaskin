@@ -46,7 +46,13 @@ alwaysApply: true
 
 ```powershell
 # i huvudcheckouten (där användaren jobbar på master):
+
+# Skapa en ny branch från aktuell HEAD och öppna den i ett nytt worktree:
 git worktree add ..\sajtmaskin-feat-X -b feat/X-min-branch
+
+# Eller: öppna en redan existerande branch i ett nytt worktree:
+git worktree add ..\sajtmaskin-feat-X feat/X-min-branch
+
 Set-Location ..\sajtmaskin-feat-X
 # här kan du checkout/switch/commit/rebase fritt — egen HEAD, eget working tree
 # användarens huvudcheckout påverkas inte
