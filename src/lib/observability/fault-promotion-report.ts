@@ -108,7 +108,7 @@ export function formatFaultPromotionReport(
     return [
       "# Fault Promotion Candidates",
       "",
-      "No local fault-log data found. Nothing to promote yet.",
+      "No promotion candidates found in local fault-log data.",
       "",
     ].join("\n");
   }

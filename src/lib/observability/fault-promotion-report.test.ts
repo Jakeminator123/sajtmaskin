@@ -40,6 +40,6 @@ describe("fault promotion report", () => {
   });
 
   it("prints a no-data report", () => {
-    expect(formatFaultPromotionReport([])).toContain("No local fault-log data found");
+    expect(formatFaultPromotionReport([])).toContain("No promotion candidates found");
   });
 });

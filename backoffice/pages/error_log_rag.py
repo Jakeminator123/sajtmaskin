@@ -97,7 +97,8 @@ def render(ctx: BackofficeContext) -> None:
         "Vector RAG över historiska fault/fix-events. "
         "Producer skriver NDJSON i `logs/llm-segmentts-and-index/error-log.ndjson`; "
         "indexer bygger TF-IDF-snapshot i `data/observability/`. "
-        "Auto-ingest sker vid `npm run dev|build|start`."
+        "Auto-ingest sker vid `npm run dev|build|start`. "
+        "För aggregerade promotion-kandidater: kör `npm run faults:report` lokalt."
     )
 
     cols = st.columns(2)

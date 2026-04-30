@@ -40,7 +40,8 @@ function looksLikeErrorLogEvent(value: unknown): value is ErrorLogEvent {
       typeof value === "object" &&
       typeof (value as { fault?: unknown }).fault === "string" &&
       typeof (value as { faultText?: unknown }).faultText === "string" &&
-      typeof (value as { phase?: unknown }).phase === "string",
+      typeof (value as { phase?: unknown }).phase === "string" &&
+      typeof (value as { subphase?: unknown }).subphase === "string",
   );
 }
 
