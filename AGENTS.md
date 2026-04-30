@@ -36,3 +36,33 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 ## Source-of-truth-regel
 
 Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera dem i glossaryn.
+
+## Cursor Cloud specific instructions
+
+### Environment
+
+- Node.js 22.22.2 (pinned via Volta in `package.json`). The `.cursor/Dockerfile` builds from `node:22.22.2-bookworm`.
+- Package manager: **npm** (lockfile: `package-lock.json`). Use `npm ci --no-audit --no-fund` to install.
+- `.env.local` is gitignored. Secrets are injected as environment variables by the Cloud Agent platform; write them to `.env.local` before running the app (Next.js reads from dotenv).
+
+### Running services
+
+| Service | Command | Notes |
+|---------|---------|-------|
+| Next.js dev | `node scripts/dev/next-runner.mjs dev` | Starts on port 3000. Bypasses `predev` if DB init already done. Full `npm run dev` runs `predev` first (preflight checks, schema-drift, shadcn sync, db:init). |
+| Inspector worker | Starts automatically with dev server | Runs on port 3310 (embedded in `next-runner.mjs`). |
+
+### Gotchas
+
+- `npm run dev` runs a `predev` hook that includes `db:perf-indexes:soft`. This may fail with `sh: Syntax error` in minimal shells (dash vs bash). It is soft-failing (`|| echo ...`) and does not block the dev server from starting. If `predev` exits non-zero, run `node scripts/dev/next-runner.mjs dev` directly.
+- The `db:init` script requires `POSTGRES_URL` to be set. Without it, the script exits with code 1 — but the Next.js app itself starts fine (DB features degrade gracefully).
+- Typecheck uses `--max-old-space-size=8192`; ensure sufficient memory.
+- 6 test files have pre-existing failures (route handler assertion mismatches). These are not caused by environment issues — they are in `domains/link`, `kostnadsfri/verify`, and similar API route tests.
+
+### Useful commands (see `package.json` for full list)
+
+- `npm run typecheck` — TypeScript check (0 errors expected)
+- `npm run lint` — ESLint (0 errors expected)
+- `npm run test:ci` — Vitest run all tests
+- `npm run dev` — Full dev startup with preflight
+- `node scripts/dev/next-runner.mjs dev` — Dev server only (skip predev)
