@@ -37,8 +37,8 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [ ] | Öppen bug | P2 | F3 Build Plan saknas när follow-up inte återinfererar integration | G#20 | Återanvänd Snapshot-Brief + faktisk version/imports. |
 | [ ] | Öppen bug | P2 | `/finalize-design` kan säga ready utan integrationkrav | G#21 | Readiness ska spegla faktiska F3-krav. |
 | [ ] | Öppen bug | P2 | Hard dossiers ger placeholder UI i stället för blocker | G#22 | Blocka eller degradera explicit när required integration saknas. |
-| [ ] | Öppen design-risk | P2 | `feature-runtime` env keys blockerar inte F3 | G#23 | Bestäm vilka env-krav som ska vara blockerande. |
-| [ ] | Öppen kvalitet-risk | P2 | Dossier verbatim-missing bara warning | G#24 | Gör blockerande för required dossier-innehåll. |
+| [x] | Inte bug / beslutad | P2 | `feature-runtime` env keys blockerar inte F3 | G#23 | Avsiktligt: bara `build`-enforcement blockerar F3; `feature-runtime` surfacas som warning/info. Ändra dossier-enforcement till `build` om en nyckel ska blocka. |
+| [x] | Fixad nu | P2 | Dossier verbatim-missing bara warning | G#24 | Fixad: selected dossier med saknad verbatim-fil failar prompt-compose i stället för att bara varna och fortsätta. |
 | [ ] | Öppen kvalitet-risk | P2 | Dossier/capability-threading svagt vissa paths | G#25 | Verifiera init/follow-up/dossier bridge. |
 | [ ] | Öppen bug | P2 | Init och follow-up har olika capability-universum | G#26 | Konsolidera capability-källa och följ ägarmatrisen. |
 | [x] | Fixad i HEAD | P2 | `canvas` triggar 3D för 2D/dekorativa canvas | G#27 | Fixad i tidigare commit: dekorativ 3D och physics delas, med tester. |

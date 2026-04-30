@@ -165,15 +165,9 @@ export function renderDossierBlocks(
       if (mode !== "verbatim") continue;
       const content = getDossierFileContent(sel.entry.class, sel.entry.id, file.path);
       if (content === null) {
-        // The dossier asked for verbatim injection but the file is missing
-        // on disk (or path-traversal blocked it). Use console.warn (not
-        // debugLog, which is gated on DEBUG=true) — missing integration
-        // glue would crash the generated site at runtime, so the operator
-        // must see this even in production.
-        console.warn(
+        throw new Error(
           `[dossiers] verbatim-missing ${sel.entry.id}: file '${file.path}' was requested verbatim but cannot be read from data/dossiers/${sel.entry.class}/${sel.entry.id}/`,
         );
-        continue;
       }
       // Dossier files live under data/dossiers/<id>/components/<path-in-project>
       // The "components/" prefix is the dossier-internal staging dir; strip it

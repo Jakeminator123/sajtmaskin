@@ -118,4 +118,43 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     expect(text).toContain("compact instructions");
     expect(text).not.toContain("Very long full instructions");
   });
+
+  it("fails fast when a selected verbatim dossier file is missing on disk", () => {
+    const selection: DossierSelectionResult = {
+      poolSize: 1,
+      byCapability: { payments: ["missing-hard-dossier"] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: true,
+          entry: {
+            class: "hard",
+            id: "missing-hard-dossier",
+            label: "Missing hard dossier",
+            capability: "payments",
+            codeFidelity: "verbatim",
+            complexity: "medium",
+            defaultForCapability: true,
+            summary: "Test dossier with a missing verbatim file.",
+            envVars: [],
+            dependencies: [],
+            files: [
+              {
+                path: "components/api/missing/route.ts",
+                role: "server",
+                injectionMode: "verbatim",
+              },
+            ],
+            exposes: [],
+            lastVerified: "2026-04-30",
+            instructions: "Emit missing file.",
+          },
+        },
+      ],
+    };
+
+    expect(() => renderDossierBlocks(selection)).toThrow(
+      "verbatim-missing missing-hard-dossier",
+    );
+  });
 });
