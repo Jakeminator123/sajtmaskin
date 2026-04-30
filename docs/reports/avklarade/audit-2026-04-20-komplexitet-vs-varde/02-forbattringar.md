@@ -44,17 +44,19 @@ Indelning: **enkla** (≤2h) → **medel** (½–2 dagar) → **stora** (3+ daga
 
 ---
 
-### §1.4 Aktivera `build`-check i F2 quality gate
+### §1.4 Verifiera F2 quality gate-policy
+
+> **Superseded 2026-04-23:** F2 `designPreview` är medvetet typecheck-only. `build`/`lint` ligger i warm-cache-/pre-VM-passen och F3 `integrationsBuild`. Se `docs/schemas/quality-gate.md` och `config/ai_models/manifest.json`.
 
 | Fält | Värde |
 |------|-------|
 | **Fil** | `config/ai_models/manifest.json` (`qualityGateTiers.designPreview`) |
 | **Svårighet** | Enkel |
 | **Tidsåtgång** | 1 timme + monitor i en vecka |
-| **Kostnad infra** | +5–10 USD/mån (mer Fly-CPU per generering) |
+| **Kostnad infra** | 0 enligt nuvarande policy (F2 typecheck-only; build/lint i warm-cache/F3) |
 | **Värde** | Fångar Next-runtime-fel *före* preview-iframe — undviker "ren HTML"-incidenter |
 
-**Manual:** Se [`01-buggar.md`](./01-buggar.md) §1.5 — samma åtgärd, listad där eftersom det också är en bugg-fix.
+**Historisk manual:** Se [`01-buggar.md`](./01-buggar.md) §1.5. Ska inte återinföras i F2 utan nytt explicit policybeslut.
 
 > **Trade-off:** Om bootkostnaden är intolerabel, kör `build` bara på explicit "Refresh preview"-klick, inte automatiskt vid varje finalize.
 
@@ -62,13 +64,15 @@ Indelning: **enkla** (≤2h) → **medel** (½–2 dagar) → **stora** (3+ daga
 
 ### §1.5 Slå ihop `predev` och `prebuild` så de delar logik
 
+> **DONE:** `predev` och `prebuild` delar `preflight:common`; aktuell checkkedja ägs av `package.json`.
+
 | Fält | Värde |
 |------|-------|
 | **Fil** | `package.json` (`predev`, `prebuild`) |
 | **Svårighet** | Enkel |
 | **Tidsåtgång** | 30 minuter |
 | **Kostnad infra** | 0 |
-| **Värde** | Mindre dupliceringsbug: idag har `predev` (`check-systemprompt`, `shadcn:sync:soft`, `refresh-token`, `db:init`) men `prebuild` har bara (`check-systemprompt`, `check-lucide-icons`). Asymmetrin är inte avsiktlig. |
+| **Värde** | Mindre dupliceringsbug: `predev` och `prebuild` ska dela en gemensam preflight-kedja. |
 
 **Manual:**
 

@@ -93,13 +93,13 @@ Källor: `docs/plans/active/P27-validator.md` blocking_note, `docs/plans/active/
 
 > **Historisk notering (policy upphävd 2026-04-23):** Avsnittet nedan var korrekt vid audit-datumet 2026-04-20, men nuvarande policy är F2 `designPreview = ["typecheck"]` och `build` är reserverat för F3 `integrationsBuild`.
 
-### §1.5 Quality-gate kör bara `typecheck` på F2 — inte `build` — **DONE 2026-04-20**
+### §1.5 Quality-gate kör bara `typecheck` på F2 — inte `build` — **SUPERSEDED 2026-04-23**
 
 | Fält | Värde |
 |------|-------|
 | **Fil** | `config/ai_models/manifest.json`, `src/lib/gen/verify/quality-gate-checks.ts` |
-| **Status** | Klart 2026-04-20. `qualityGateTiers.designPreview` är nu `["typecheck", "build"]` och `DEFAULT_DESIGN_PREVIEW`-fallback matchar. Backoffice `pages/ai_models.py` läser värdet direkt från manifest så panelen surfar nya policyn automatiskt. Testerna i `server-verify.test.ts` + `preview-quality-gate.test.ts` uppdaterade att asserta nya beteendet. För att revertera per-miljö (kostnad), sätt arrayen till `["typecheck"]`. |
-| **Kostnad** | +5–20 sek per finalize, +5–10 USD/mån (Fly-CPU). |
+| **Status** | Historisk fix 2026-04-20, upphävd av 2026-04-23-policy: F2 `designPreview` är typecheck-only; `build`/`lint` hör till warm-cache/F3. Backoffice läser fortsatt manifestet direkt. |
+| **Kostnad** | 0 i F2 enligt nuvarande policy. |
 
 ---
 

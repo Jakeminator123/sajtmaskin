@@ -77,7 +77,7 @@ Den här filen visar **vad som faktiskt händer** när en user-prompt går genom
         │ 3. validate_syntax + warm tsc          │
         │    → llm-fixer (loop, max 1-4 pass)    │
         │ 4. materialize_images                  │
-        │ 5. verifier (read-only LLM)            │
+        │ 5. verifier (guards + read-only LLM)   │
         │    → blocking → llm-fixer              │
         │ 6. parse_merge_preflight               │
         │ 7. partial-file repair (om behövs)     │

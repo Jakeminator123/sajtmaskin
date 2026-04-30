@@ -19,7 +19,7 @@ Kanonisk ordlista. **Korta entries.** Bara termer som är förväxlingsbenägna 
 | Snapshot-Brief | Minimal brief rehydrerad från `orchestration_snapshot.briefSummary` på follow-up | 1 |
 | Plan Mode | Planner-LLM som returnerar plan (JSON), inte sajtkod | 1→2 |
 | Repair | LLM-fix efter genereringsfel; mekanisk autofix kommer först | 3 |
-| Verifier Pass | Read-only LLM-granskning som producerar findings | 2/3 |
+| Verifier Pass | Hybrid-pass: deterministiska guardrails + read-only LLM-granskning som producerar findings | 2/3 |
 | Clarification | Agent ställer motfråga via `askClarifyingQuestion`-tool | 1 |
 
 ---
@@ -81,7 +81,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Finalize | Samlad pipeline: URL-expansion → autofix → validate → image materialize → ev. verifier → save. |
 | Finalize Path | `FinalizePathPolicy { runDeepPath: boolean, reason }` i `stream/finalize-version/policy.ts`. Telemetri: `runDeepPath: true → "full"`, `false → "light"`. `light` skippar image/verifier; repair-pass tvingar deep. |
 | Preflight | Teknisk kontroll inför preview: routing, filkonsistens, blocking. Symbol: `runFinalizePreflight()`. |
-| Verifier Pass | Read-only LLM-granskning. Blocking-fynd → `runLlmFixer` → re-run 1×. |
+| Verifier Pass | Hybrid: deterministiska guardrails + read-only LLM-granskning. Blocking-fynd → `runLlmFixer` → re-run 1×. |
 | Quality Gate | Binärt pass/fail. Två lanes: `designPreview` (F2, `["typecheck"]`) och `integrationsBuild` (F3, `["typecheck", "build", "lint"]`). |
 | Repair Loop Core | `runRepairLoop` — delad kärna för server-verify och manuell `/repair`. |
 | Warm Repair | Targeted repair där bara trasiga filer (+ imports) skickas till LLM-fixer. |

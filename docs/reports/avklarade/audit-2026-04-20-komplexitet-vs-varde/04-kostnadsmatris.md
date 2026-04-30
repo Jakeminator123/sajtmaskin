@@ -24,9 +24,9 @@
 | 4 | ESLint `--cache` flag | F | enkel | 1 h | 0 | 9 | `02-forbattringar.md` §1.2 | ✅ DONE |
 | 5 | `.editorconfig` | F | enkel | 15 min | 0 | 9 | `02-forbattringar.md` §1.8 | ✅ DONE (preexisterande) |
 | 6 | P28 7 pre-existing failures | B | medel | ½ dag | 0 | 9 | `01-buggar.md` §2.1 | ✅ DONE |
-| 7 | Aktivera `build` i F2 quality gate | F+B | enkel | 1 h | +5–10 USD | 9 | `01-buggar.md` §1.5 + `02-forbattringar.md` §1.4 | ✅ DONE |
+| 7 | Verifiera F2 quality gate-policy | F+B | enkel | 1 h | 0 | 9 | `01-buggar.md` §1.5 + `02-forbattringar.md` §1.4 | ✅ SUPERSEDED 2026-04-23 |
 
-**Tier S-summa:** **7/7 KLART 2026-04-20.** Master grön (1172/1172), -10 USD/mån (`v0-chats-compat.ts` + lint-cache), +5–10 USD/mån (build i F2). Netto ~0.
+**Tier S-summa:** **7/7 KLART 2026-04-20.** Master grön (1172/1172), -10 USD/mån (`v0-chats-compat.ts` + lint-cache). Senare policy (2026-04-23): F2 `designPreview` är typecheck-only; build/lint ligger i warm-cache/F3.
 
 ---
 
@@ -108,7 +108,7 @@
 
 | Tier | Antal | Tid | Löpande/mån |
 |------|-------|-----|-------------|
-| S | 7 | ~1 dag | +5–10 USD |
+| S | 7 | ~1 dag | 0 |
 | A | 11 | ~2 veckor | -10 USD |
 | B | 13 | ~3 veckor | +20 USD |
 | C | 6 | ~3 veckor | -10–18 USD |

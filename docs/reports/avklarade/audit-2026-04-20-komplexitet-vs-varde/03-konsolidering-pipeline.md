@@ -26,7 +26,7 @@ Här är den faktiska kedjan, kategoriserad:
 | 7 | `validate_syntax` (esbuild + LLM-fixer-loop) | `src/lib/gen/autofix/validate-and-fix.ts` | Deterministisk + LLM | 200 ms – 30 sek |
 | 8 | `pre_vm_typecheck` (warm scaffold cache + LLM-fix om fel) | `src/lib/gen/preview/warm-typecheck.ts` | Deterministisk + LLM | 2–8 sek |
 | 9 | `materialize_images` | `src/lib/gen/post-process/image-materializer.ts` | Deterministisk | 1–5 sek |
-| 10 | `verifier` (read-only LLM) | `src/lib/gen/verify/verifier-pass.ts` | LLM | 5–15 sek |
+| 10 | `verifier` (deterministiska guardrails + read-only LLM) | `src/lib/gen/verify/verifier-pass.ts` | hybrid | 5–15 sek |
 | 11 | `parse_merge_preflight` | `src/lib/gen/stream/finalize-merge.ts` + `finalize-preflight.ts` | Deterministisk | 50–200 ms |
 | 12 | Partial-file-repair (om preflight failar) | `src/lib/gen/stream/finalize-version.ts` | LLM | 0–60 sek |
 | 13 | Persist (DB) | `src/lib/db/chat-repository-pg.ts` | DB | ~20 ms |

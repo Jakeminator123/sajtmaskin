@@ -1,5 +1,5 @@
 import path from "path";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { PATHS } from "@/lib/config";
 import { LocalFsProvider } from "@/lib/storage/local-fs-provider";
 import type { StorageProvider } from "@/lib/storage/types";
@@ -40,6 +40,27 @@ function sanitizeBlobPathSegment(value: string | undefined, fallback: string): s
   return sanitized;
 }
 
+function shortSegmentHash(value: string): string {
+  return createHash("sha256").update(value).digest("hex").slice(0, 8);
+}
+
+function sanitizeBlobFilename(value: string): string {
+  const sanitized = sanitizeBlobPathSegment(value, "");
+  const ext = getExtension(value);
+  const extOnly = ext.slice(1);
+  if (!sanitized || sanitized === extOnly || sanitized === ext) {
+    return `file-${shortSegmentHash(value)}${ext}`;
+  }
+  if (sanitized !== value) {
+    const dot = sanitized.lastIndexOf(".");
+    if (dot > 0 && dot < sanitized.length - 1) {
+      return `${sanitized.slice(0, dot)}-${shortSegmentHash(value)}${sanitized.slice(dot)}`;
+    }
+    return `${sanitized}-${shortSegmentHash(value)}${ext}`;
+  }
+  return sanitized;
+}
+
 /** @internal exported for path-contract regression tests. */
 export function buildBlobPath(
   userId: string,
@@ -50,7 +71,7 @@ export function buildBlobPath(
   },
 ): string {
   const safeUserId = sanitizeBlobPathSegment(userId, "anonymous");
-  const safeFilename = sanitizeBlobPathSegment(filename, "file.bin");
+  const safeFilename = sanitizeBlobFilename(filename);
   const category = options?.category || "media";
   if (options?.projectId) {
     const safeProjectId = sanitizeBlobPathSegment(options.projectId, "project");

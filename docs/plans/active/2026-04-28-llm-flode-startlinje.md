@@ -76,7 +76,7 @@ Postmortem från en annan körning samma dag finns under repo-roten ([`postmorte
 |---|---|---|
 | P2a | Reasoning ≈ 220s + output ≈ 130s = ca 350s före autofix; brief ytterligare ≈ 30s seriellt | Mät om brief-modellens output kan strömmas in i orchestration parallellt med scaffold-pick (idag väntar orchestrate på brief). Värdera prompt cache-vänlig static/dynamic-uppdelning. |
 | P2b | Mekaniska autofix-pass är seriella per fil i en pipeline | Hela `runAutoFixSinglePass` itererar filer i loop. Per-fil-fixers är pure functions → kan parallelliseras med `Promise.all` om vi behåller deterministisk ordning för loggning. Mät innan. |
-| P2c | Verifier + preview-host-VM-start är seriella | Verifier är read-only LLM. Preview-host-VM-bootstrap kan starta så fort `version.created` finns. Mät om vi kan kicka VM-bootstrap i parallell-trail med verifier-pass. |
+| P2c | Verifier + preview-host-VM-start är seriella | Verifier är hybrid: deterministiska guardrails + read-only LLM-granskning. Preview-host-VM-bootstrap kan starta så fort `version.created` finns. Mät om vi kan kicka VM-bootstrap i parallell-trail med verifier-pass. |
 | P2d | First-token watchdog finns men inducerar ingen action | Tröskel `120s` triggar `engine.first_token_slow` event + UI-progress, men ingen retry. Förslag: efter `240s` utan content-token, abort + retry på snabbare tier (gpt-5.4-mini) eller utan `thinking`. |
 | P2e | Token rate / output cap | `SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=102768`. Vi använde `35070` på Nordtak-init. Capen är inte boven. Höj **inte** capen utan att samtidigt mäta latency-effekt. |
 | P2f | OpenAI prompt cache | Static core (`47608` chars) byter aldrig per request. Säkerställ att vi sätter `prompt_cache_key` (eller motsvarande) så cache faktiskt utnyttjas. |

@@ -5,6 +5,7 @@ import { getKostnadsfriPageBySlug } from "@/lib/db/services/kostnadsfri";
 import {
   extractCompanyData,
   companyDataFromSlug,
+  hasKostnadsfriPasswordSecret,
   isPageAccessible,
   verifyDeterministicPassword,
 } from "@/lib/kostnadsfri";
@@ -109,6 +110,13 @@ export async function POST(
     }
 
     // Mode 2: No DB record — verify deterministically
+    if (!hasKostnadsfriPasswordSecret()) {
+      return NextResponse.json(
+        { success: false, error: "Länkverifiering är inte konfigurerad." },
+        { status: 503 },
+      );
+    }
+
     if (!verifyDeterministicPassword(slug, password)) {
       return NextResponse.json(
         { success: false, error: "Felaktigt lösenord." },
@@ -122,8 +130,10 @@ export async function POST(
       companyData: companyDataFromSlug(slug),
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API/kostnadsfri/verify] Error:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Kunde inte verifiera länken." },
+      { status: 500 },
+    );
   }
 }

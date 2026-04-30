@@ -127,6 +127,10 @@ export function verifyDeterministicPassword(slug: string, password: string): boo
   return password === expected;
 }
 
+export function hasKostnadsfriPasswordSecret(secretKey?: string): boolean {
+  return Boolean(secretKey || process.env.KOSTNADSFRI_PASSWORD_SEED || process.env.KOSTNADSFRI_API_KEY);
+}
+
 // ============================================================================
 // LABEL MAPS (mirrors PromptWizardModalV2 constants)
 // ============================================================================

@@ -6,8 +6,7 @@ Kanonisk lista efter sammanslagning av de tidigare rålistorna: `BUG-SWARM-BACKL
 
 | Markering | Status | Regel |
 | --- | --- | --- |
-| `[x]` | Fixad | Verifierad i HEAD eller åtgärdad i samma pass. |
-| `[x]` | Inte bug | Avskriven som avsiktligt beteende, naming debt eller redan täckt testfall. |
+| `[x]` | Avslutad | Läs `Status`-kolumnen för om raden är `Fixad`, `Fixad i HEAD` eller `Inte bug`. |
 | `[ ]` | Öppen | Bug, risk eller städpunkt som inte ska bockas av förrän den är verifierad/fixad. |
 
 Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.

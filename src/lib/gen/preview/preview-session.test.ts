@@ -52,7 +52,7 @@ describe("startPreviewSession update path", () => {
       ok: true,
       sandboxId: "sb-existing",
       sandboxUrl: "https://preview-host.example.com/sb-existing",
-      startOutcome: "resumed",
+      startOutcome: "recreated",
     });
 
     await touchPreviewSessionAsync({
@@ -86,6 +86,9 @@ describe("startPreviewSession update path", () => {
     );
 
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result.startOutcome).toBe("recreated");
+    }
     expect(updatePreviewHostSession).toHaveBeenCalledOnce();
     expect(startPreviewHostSession).not.toHaveBeenCalled();
 

@@ -301,7 +301,7 @@ async function runStartPreviewSession(
             sandboxId: updated.sandboxId,
             sandboxPreviewMode: resolvedMode,
             fidelityTier: 2,
-            startOutcome: "resumed",
+            startOutcome: updated.startOutcome ?? "resumed",
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };

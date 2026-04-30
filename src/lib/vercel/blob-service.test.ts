@@ -8,7 +8,16 @@ describe("blob-service paths", () => {
         projectId: "../project:42",
         category: "media",
       }),
-    ).toBe("user-..-x/projects/project-42/media/avatar-..-..-evil.png");
+    ).toMatch(/^user-\.\.-x\/projects\/project-42\/media\/avatar-\.\.-\.\.-evil-[a-f0-9]{8}\.png$/);
+  });
+
+  it("keeps non-latin filenames from collapsing into the same extension-only key", () => {
+    const first = buildBlobPath("user-1", "😀.png");
+    const second = buildBlobPath("user-1", "😎.png");
+
+    expect(first).toMatch(/^user-1\/media\/file-[a-f0-9]{8}\.png$/);
+    expect(second).toMatch(/^user-1\/media\/file-[a-f0-9]{8}\.png$/);
+    expect(first).not.toBe(second);
   });
 
   it("does not default extensionless uploads to png", () => {

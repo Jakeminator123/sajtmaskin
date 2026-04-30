@@ -2,7 +2,7 @@
 
 Vad som händer efter att en version sparats i databasen: preview-start, post-checks, quality gate och deploy.
 
-**Senast uppdaterad:** 2026-04-20. **Kod är source of truth.** Ordlista: [glossary.md](./glossary.md).
+**Senast uppdaterad:** 2026-04-30. **Kod är source of truth.** Ordlista: [glossary.md](./glossary.md).
 
 ---
 
@@ -188,7 +188,7 @@ Preview-host kör **två separata lanes**: live-preview (iframe, `npm install` +
 
 ### Verifier-pass (Fas 2)
 
-Skild från quality gate. `runVerifierPass()` är read-only LLM-granskning som rapporterar findings (`blocking` / `quality`). Findings är **advisory** — stoppar inte persist (men matas in i `runLlmFixer` direkt efter, se Fas 2).
+Skild från quality gate. `runVerifierPass()` är ett hybridpass: deterministiska guardrails körs först och kompletteras med read-only LLM-granskning som rapporterar findings (`blocking` / `quality`). Findings är **advisory** — stoppar inte persist (men matas in i `runLlmFixer` direkt efter, se Fas 2).
 
 ---
 

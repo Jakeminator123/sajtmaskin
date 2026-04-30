@@ -47,9 +47,9 @@ Sorterade på (värde / kostnad). Detaljer i [`04-kostnadsmatris.md`](./04-kostn
 | 1 | Fixa `prefer-const` lint i `font-import-fixer.ts:45` | Bugg-enkel | 2 min | Master grön | `01-buggar.md` §1.1 | ✅ DONE |
 | 2 | Lägg `.next/dev/cache/turbopack/**` i `.gitignore` | Bugg-enkel | 5 min | Hundratals untracked filer borta | `01-buggar.md` §1.2 | ✅ DONE |
 | 3 | Slå ihop `pre_vm_typecheck` med `validate_syntax` | Konsolidering | 2 timmar | Ett stadium mindre i pipelinen | `03-konsolidering-pipeline.md` §2.1 | ✅ DONE (Wave 3) |
-| 4 | Fasa ut `verifier-pass` (LLM read-only) | Konsolidering | 3 timmar | -1 LLM-anrop per generering, sparar tid + tokens | `03-konsolidering-pipeline.md` §3.1 | ⏸ DEFER (kräver A/B-data; W2 går motsatt riktning) |
+| 4 | Fasa ut `verifier-pass` (hybrid: deterministiska guardrails + LLM-granskning) | Konsolidering | 3 timmar | Mindre verifierkostnad om LLM-lagret kan tas bort utan kvalitetstapp | `03-konsolidering-pipeline.md` §3.1 | ⏸ DEFER (kräver A/B-data; W2 går motsatt riktning) |
 | 5 | Slå ihop `/api/v0/*` ↔ `/api/engine/*` (compat-routes) | Konsolidering | 1 dag | -50 % API-yta | `03-konsolidering-pipeline.md` §3.4 | ✅ DONE (P29: chat-ytan borta, Class C beh. permanent) |
-| 6 | Aktivera `build`-check i F2 quality gate (inte bara `typecheck`) | Förbättring-enkel | 1 timme | Fångar Next-runtime-fel före preview | `01-buggar.md` §1.5 / `02-forbattringar.md` §1.4 | ✅ DONE |
+| 6 | Verifiera F2 quality gate-policy | Förbättring-enkel | 1 timme | F2 är numera medvetet typecheck-only; build/lint hör till warm-cache/F3 | `01-buggar.md` §1.5 / `02-forbattringar.md` §1.4 | ✅ SUPERSEDED 2026-04-23 |
 | 7 | Fixa P28-spåret (7 pre-existing testfailures) | Bugg-medel | ½ dag | Master grön | `01-buggar.md` §2.1 | ✅ DONE (alla 7 löstes organiskt) |
 | 8 | Migrera live-preview från Fly-VM → StackBlitz WebContainers | Förbättring-stor | 2–3 veckor | Boot 5 min → 5 sek (50–60×) | `02-forbattringar.md` §3.1 | ⏸ Strategiskt nästa steg |
 | 9 | Konsolidera 5 cross-file-import-fixers → 1 (med telemetri) | Konsolidering | 1 dag | -4 fixers, lättare att underhålla | `03-konsolidering-pipeline.md` §2.2 | ⏸ DEFER (audit säger telemetri först) |
