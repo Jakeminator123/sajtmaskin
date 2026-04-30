@@ -10,7 +10,7 @@ export interface InferredCapabilities {
   needs3D: boolean;
   /**
    * Stronger signal than `needs3D` — the prompt describes physics-driven
-   * motion (bouncing, drift, gravity, collisions). Implies `needs3D` and
+   * motion (bouncing, falling, gravity, collisions). Implies `needs3D` and
    * upgrades the 3D instruction to require @react-three/rapier.
    *
    * Optional so existing fixtures across the test suite keep type-checking
@@ -105,8 +105,8 @@ const RULES: CapabilityRule[] = [
     patterns: [
       /\b(3d|three\.?js|webgl|canvas|mesh|orb|sphere|particle|three-fiber|@react-three|drei|scene|3d-?model)\b/i,
       /\b3d[a-zåäö-]+\b/i,
-      /\b(rotat.*3d|tilt|perspect.*card|floating.*object)\b/i,
-      /\b(rapier|cannon|physics|gravitation|gravity|rigidbody|collider|gltf|glb|usegltf)\b/i,
+      /\b(rotat.*3d|tilt|perspect.*card|floating.*object|hovrande|svävande)\b/i,
+      /\b(gltf|glb|usegltf)\b/i,
     ],
   },
   {
@@ -116,7 +116,7 @@ const RULES: CapabilityRule[] = [
       // so `\båker\b` would never match inside "som åker omkring" (the leading
       // `å` is not an ASCII word char). Mirrors the boundary trick used for
       // ecommerce/hospitality vetoes in `inferCapabilities` below.
-      /(?:^|[^\p{L}\p{N}])(?:åker omkring|svävar|flyger|drivs av gravity|bouncing|kolliderar|fysik|gravitation|flying|flies|floats|floating|hovers|hovering|levitate|levitates|levitating)(?=[^\p{L}\p{N}]|$)/iu,
+      /(?:^|[^\p{L}\p{N}])(?:studsar|studsande|studsa|kolliderar|kollisioner?|fysik|fysiksimulering|gravitation|gravity|falling|faller|bouncing|colliding|collisions?|rigidbody|collider|rapier|cannon)(?=[^\p{L}\p{N}]|$)/iu,
     ],
   },
   {
@@ -313,8 +313,8 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
     // so we keep the warning text at runtime only.
     const reducedMotionTrap = `motion-reduce` + `:hidden`;
     const physicsClause = caps.needsPhysics
-      ? "Because the prompt describes physics-driven motion (bouncing, drift, gravity, collisions), you MUST add @react-three/rapier and wrap interactive bodies in `<Physics>` + `<RigidBody>` so motion has mass, restitution, and gravity instead of being faked with CSS transforms."
-      : "For optional **physics / gravity**, add @react-three/rapier (Physics, RigidBody) only when the requested motion truly requires simulated forces.";
+      ? "Because the prompt describes physics-driven motion (bouncing, falling, gravity, collisions), you MUST add @react-three/rapier and wrap interactive bodies in `<Physics>` + `<RigidBody>` so motion has mass, restitution, and gravity instead of being faked with CSS transforms."
+      : "Treat hovering, floating, orbiting, and gentle product motion as decorative 3D: use `useFrame`, drei helpers such as `Float`, and mesh transforms — do NOT add physics libraries unless the prompt explicitly asks for gravity, bouncing, falling, or collisions.";
     lines.push(
       `- **3D/WebGL detected**: You MUST implement 3D elements using @react-three/fiber code — NEVER as placeholder SVGs or static images. Create a real \`<Canvas>\` scene with meshes, lighting, and camera. Wrap the Canvas component in \`"use client"\`. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. ${physicsClause} For **GLB/GLTF**, use useGLTF from drei and put assets under public/. **Reduced-motion trap (do NOT trip):** NEVER apply '${reducedMotionTrap}' on the entire Canvas — that hides the 3D layer for users with reduced-motion preference. Use 'motion-safe:'-prefixed animation classes on the inner mesh so the static scene still renders. If the requested 3D content is too complex, create a simplified but real Three.js version (rotating shape, abstract geometry, or particle system with the requested theme) rather than falling back to an image.`,
     );

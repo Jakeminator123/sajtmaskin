@@ -53,7 +53,7 @@ Den här filen är **nästa sessions anchor**. Den summerar målbilden från ext
 2. Docs/test refs `promptAssist.ts` → `prompt-assist/`-paket (`a95c83a6c`)
 3. Manifest verifier-pass `codeEntry`-path (`76fcaa7ba`)
 4. `validateAndFix` rollback till `bestContent` vid regression (`f37dc74ed`)
-5. `needsPhysics` regex utvidgad för engelska flying/floating-verb (`169863855`)
+5. `needsPhysics` regex utvidgades historiskt för engelska flying/floating-verb (`169863855`); senare 2026-04-30 snävades floating/hovering tillbaka till dekorativ `visual-3d` och physics kräver gravity/bounce/collision.
 6. `FEATURES.escalateMergeSyntaxToLlm = true` (`f2a3cf0b5`)
 7. Batch: partial-file repair, quality-gate stillLatest-check, profile-link auth, project upload-limits (`e00a231ab`)
 8. Merge-preflight escalates LLM repair på **alla** `!valid` syntax; warm-tsc/eslint exception → empty diagnostics; verifier-phase legacy "optimistic clear" borttagen (`7fce679c2`)

@@ -439,6 +439,7 @@ def _render_prompt_size(ctx: BackofficeContext) -> None:
     prompt_size = snapshot["promptSize"]
     total = prompt_size.get("total", {}) or {}
     static_core = prompt_size.get("staticCore", {}) or {}
+    separator = prompt_size.get("separator", {}) or {}
     dynamic_context = prompt_size.get("dynamicContext", {}) or {}
     dynamic_budget = prompt_size.get("dynamicBudget", {}) or {}
     blocks = prompt_size.get("blocks", {}) or {}
@@ -478,6 +479,30 @@ def _render_prompt_size(ctx: BackofficeContext) -> None:
         int(dynamic_budget.get("droppedBlocks", 0)),
         f"of {int(blocks.get('total', 0))}",
     )
+
+    col7, col8, col9 = st.columns(3)
+    col7.metric(
+        "Separator",
+        f"{int(separator.get('chars', 0)):,} chars",
+        f"~{int(separator.get('estimatedTokens', 0)):,} tokens",
+    )
+    col8.metric("Kept blocks", int(dynamic_budget.get("keptBlocks", blocks.get("kept", 0) or 0)))
+    col9.metric("All blocks", int(blocks.get("total", 0)))
+
+    dropped_keys = dynamic_budget.get("droppedBlockKeys")
+    if isinstance(dropped_keys, list) and dropped_keys:
+        with st.expander("Droppade dynamic blocks", expanded=False):
+            st.code("\n".join(str(key) for key in dropped_keys[:80]), language="text")
+
+    with st.expander("Promptdump-kontext", expanded=False):
+        st.markdown(f"- `lineageHash`: `{snapshot.get('lineageHash') or '—'}`")
+        st.markdown(f"- `scaffoldId`: `{snapshot.get('scaffoldId') or '—'}`")
+        st.markdown(f"- `variantId`: `{snapshot.get('variantId') or '—'}`")
+        st.markdown(f"- `dumpPath`: `{snapshot.get('dumpPath', '?')}`")
+        st.caption(
+            "Full blocklista finns i `dynamicContextBlocks` i generation-input-package.json; "
+            "Backoffice visar bara summering + största block för att undvika långsam UI-render."
+        )
 
     largest = blocks.get("largest")
     if isinstance(largest, list) and largest:

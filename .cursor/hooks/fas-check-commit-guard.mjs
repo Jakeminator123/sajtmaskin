@@ -71,9 +71,9 @@ const extra = riskyFiles.length > 12 ? `\n- ... +${riskyFiles.length - 12} fler`
 respond({
   permission: "ask",
   user_message:
-    "Den här committen rör riskytor där `/fas-check` bör köras först.\n\n" +
+    "Den här committen rör riskytor där `/post-review` bör köras först.\n\n" +
     `${sample}${extra}\n\n` +
-    "Kör `/fas-check` om det här är en fas/större agentändring. Om du redan har gjort review + verifiering kan du godkänna commiten.",
+    "Kör `/post-review` om det här är en fas/större agentändring. Om du redan har gjort review + verifiering kan du godkänna commiten.",
   agent_message:
-    "Commit guard flagged risky Sajtmaskin surfaces. Remind the user to run /fas-check before committing larger phase work.",
+    "Commit guard flagged risky Sajtmaskin surfaces. Remind the user to run /post-review before committing larger phase work.",
 });

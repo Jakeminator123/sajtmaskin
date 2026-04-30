@@ -43,8 +43,47 @@ interface VerbatimFile {
   content: string;
 }
 
+interface DossierRenderOptions {
+  generationMode?: "init" | "followUp";
+  requestedCapabilityTiers?: Record<string, string> | null;
+}
+
+function shouldUseCompactInstructions(
+  sel: DossierSelectionResult["selected"][number],
+  opts: DossierRenderOptions,
+): boolean {
+  if (opts.generationMode !== "followUp") return false;
+  if (sel.entry.id !== "three-fiber-canvas") return false;
+  const tier = opts.requestedCapabilityTiers?.[sel.entry.capability];
+  // Generic/specific follow-ups only need the stable shell contract plus a
+  // short scene recipe. Missing tier info falls back to the full dossier so
+  // callers that do not use follow-up capability detection keep the safer,
+  // complete instructions.
+  return tier === "generic" || tier === "specific";
+}
+
+function renderCompactDossierInstructions(
+  sel: DossierSelectionResult["selected"][number],
+): string[] {
+  const exposed = (sel.entry.exposes ?? [])
+    .map((item) => `${item.name} from \`${item.import}\``)
+    .join(", ");
+  return [
+    `### ${sel.entry.label} (\`${sel.entry.id}\`) — compact follow-up mode`,
+    "",
+    `- ${sel.entry.summary}`,
+    "- Use the emitted `ThreeCanvasShell` as the SSR/error-boundary/reduced-motion wrapper; do not inline `Canvas` in a Server Component.",
+    "- Put the actual scene in a separate client component and place it as a child of `ThreeCanvasShell`.",
+    "- Decorative hover/floating/orbiting motion should use `useFrame`, mesh transforms and drei helpers such as `Float`.",
+    "- Do not add physics libraries or rigid-body wrappers for decorative hovering/floating motion; those belong only to the separate `physics-3d` capability.",
+    exposed ? `- Exposed import: ${exposed}.` : "- Preserve the dossier's exposed imports if you use them.",
+    "",
+  ];
+}
+
 export function renderDossierBlocks(
   dossierSel: DossierSelectionResult | null | undefined,
+  opts: DossierRenderOptions = {},
 ): string[] {
   if (!dossierSel || dossierSel.selected.length === 0) return [];
 
@@ -88,6 +127,10 @@ export function renderDossierBlocks(
       "",
     );
     for (const sel of withInstructions) {
+      if (shouldUseCompactInstructions(sel, opts)) {
+        parts.push(...renderCompactDossierInstructions(sel));
+        continue;
+      }
       parts.push(`### ${sel.entry.label} (\`${sel.entry.id}\`)`, "");
       parts.push(sel.entry.instructions!.trim(), "");
     }

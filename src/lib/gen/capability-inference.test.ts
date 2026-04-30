@@ -69,8 +69,10 @@ describe("inferCapabilities", () => {
     expect(caps.needsPhysics).toBe(true);
   });
 
-  it("detects English flying/hovering vocabulary for needsPhysics", () => {
-    expect(inferCapabilities("a chimp that hovers").needsPhysics).toBe(true);
+  it("keeps hovering/floating vocabulary decorative unless physics is explicit", () => {
+    const caps = inferCapabilities("a 3d chimp that hovers and floats");
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsPhysics).toBe(false);
   });
 
   it("does not flag physics for plain 3D corner art", () => {
@@ -298,5 +300,16 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).toContain("@react-three/rapier");
     expect(hints).toContain("Physics");
     expect(hints).toContain("RigidBody");
+  });
+
+  it("3D hint does not mention rapier for decorative hovering/floating motion", () => {
+    const caps = inferCapabilities("lägg till en hovrande 3d-klocka som svävar i hero");
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsPhysics).toBe(false);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("decorative 3D");
+    expect(hints).not.toContain("@react-three/rapier");
+    expect(hints).not.toContain("<Physics>");
+    expect(hints).not.toContain("<RigidBody>");
   });
 });

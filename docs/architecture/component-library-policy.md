@@ -27,7 +27,8 @@ Components like `carousel`, `chart`, `sidebar`, `calendar`, `command`, and `data
 | Capability flag | Library | Gate policy |
 |---|---|---|
 | `needsMotion` | `framer-motion` (Motion for React) | Install only when prompt clearly requires reveal animations, scroll motion, drag/gesture, or micro-interactions. Not default. |
-| `needs3D` | `@react-three/fiber` + `@react-three/drei` + `@react-three/rapier` (physics) | Strong feature gate. Only when explicit 3D signal (WebGL, Three.js, 3D model, particle). Rapier added for physics/gravity. Bundle risk warning in hints. |
+| `needs3D` | `three` + `@react-three/fiber` + `@react-three/drei` | Strong feature gate for decorative WebGL/Three.js/R3F. Hovering, floating and product-orbit motion stay here without physics. |
+| `needsPhysics` | `@react-three/rapier` via `physics-3d` | Only when explicit gravity, bouncing, falling, collisions, rigid bodies or physics simulation are requested. |
 | `needsCharts` | `recharts` (via shadcn `ChartContainer`) | Install when chart/graph/analytics signal is present. |
 | `needsCarousel` | `embla-carousel-react` (via shadcn `Carousel`) | Install when carousel/slider/gallery signal is present. |
 | `needsForms` | `react-hook-form` + `zod` (via shadcn `Form`) | Install when form/booking/contact-form signal is present. |

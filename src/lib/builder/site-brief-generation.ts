@@ -99,7 +99,7 @@ export const siteBriefSchema = z.object({
     .array(z.string())
     .max(12)
     .describe(
-      "Real requested capability ids in kebab-case, e.g. auth, payments, visual-3d, parallax-scroll, parallax-pointer, carousel, command-search. Do not list ordinary page sections.",
+      "Real requested capability ids in kebab-case, e.g. auth, payments, visual-3d, physics-3d, parallax-scroll, parallax-pointer, carousel, command-search. Do not list ordinary page sections.",
     ),
   pages: z
     .array(
@@ -279,7 +279,7 @@ const BRIEF_SYSTEM_PROMPT =
   "- `motionLevel`: use `minimal` for calm/static sites, `moderate` for normal polished interaction, `lively` only when the user asks for strong animation, 3D, immersive, parallax, or highly dynamic visuals.\n" +
   "- `qualityBar`: use `clean` for simple/local pages, `premium` for polished or high-end work, and `bold-dramatic` only for explicitly cinematic, moody, experimental, or dramatic design directions.\n" +
   "- `seasonalHints` should be an empty array unless the prompt clearly mentions a season, holiday, event, campaign, or location-specific seasonal cue.\n" +
-  "- `requestedCapabilities` is for real implementation capabilities only. Prefer existing ids when relevant: `auth`, `payments`, `visual-3d`, `parallax-scroll`, `parallax-pointer`, `carousel`, `command-search`. Do NOT list ordinary sections like hero, about, pricing, contact, FAQ, gallery, footer, or SEO.\n\n" +
+  "- `requestedCapabilities` is for real implementation capabilities only. Prefer existing ids when relevant: `auth`, `payments`, `visual-3d`, `physics-3d`, `parallax-scroll`, `parallax-pointer`, `carousel`, `command-search`. Use `physics-3d` only for explicit gravity, bouncing, falling, collisions, rigid bodies or physics simulation — ordinary hovering/floating 3D stays `visual-3d`. Do NOT list ordinary sections like hero, about, pricing, contact, FAQ, gallery, footer, or SEO.\n\n" +
   "SCOPE AWARENESS (important):\n" +
   "- Match the scope to the complexity of the user's request.\n" +
   "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +

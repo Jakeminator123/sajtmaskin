@@ -1,6 +1,6 @@
 # When to use
 
-Use this dossier whenever the brief mentions 3D, three.js, WebGL, an animated mascot/hero element, a rotating object, or a "playful" interactive scene. Triggers: `3d`, `three`, `webgl`, `animerad`, `roterande`, `flygande`, `hovrande`, `mascot`, `alien`, `köttbulle`, `figur`, `objekt`.
+Use this dossier whenever the brief mentions decorative 3D, three.js, WebGL, an animated mascot/hero element, a rotating object, or a "playful" interactive scene. Triggers: `3d`, `three`, `webgl`, `animerad`, `roterande`, `flygande`, `hovrande`, `svävande`, `mascot`, `alien`, `köttbulle`, `figur`, `objekt`.
 
 Best fit:
 
@@ -11,6 +11,7 @@ Best fit:
 Do not use for:
 
 - Static images that happen to look 3D-ish (use a regular `<img>` or `<svg>` instead — much smaller bundle).
+- Physics simulations with bouncing, collisions, falling objects, gravity or rigid bodies — those use the separate `physics-3d` capability.
 - Heavy CAD-style scenes with many models — those need a dedicated viewer with model loader/cache that is outside the scope of this dossier.
 - Background video loops (those should use `<video>` tags, not WebGL).
 
@@ -103,7 +104,7 @@ import {
 
 - `Cuboid`, `Cube`, `Block`, `Box3d`, `Sphere3d`, `Prism`, `Rectangle3d`, `Cylinder3d` — none of these exist. Use `<mesh><boxGeometry />...</mesh>` or `Box` from drei.
 - `Lucide`, `Icon3d`, `Emoji3d`, any generic wrapper name you cannot find in the import list above — they are hallucinations.
-- `RigidBody`, `Cuboid` (as a physics collider), `Ball` from `@react-three/rapier` — do NOT add physics. This dossier is for decorative animation only.
+- Physics-specific rigid body, collider, gravity or simulation wrappers — do NOT add physics. This dossier is for decorative animation only.
 
 Rule of thumb: every capitalised JSX tag in the generated scene MUST have a corresponding `import` statement at the top of the file. No exceptions. If you cannot remember the exact import, fall back to the lowercase `<mesh>` + `<xGeometry />` + `<xMaterial />` pattern shown in the scene example above.
 

@@ -209,7 +209,12 @@ export function buildDynamicContext(
       componentPalette,
     }),
   );
-  parts.push(...renderDossierBlocks(options.dossierSelection));
+  parts.push(
+    ...renderDossierBlocks(options.dossierSelection, {
+      generationMode,
+      requestedCapabilityTiers: options.dossierPromptContext?.requestedCapabilityTiers ?? null,
+    }),
+  );
   // Plan 11 / open-question #12: when the follow-up was classified as
   // `capability-modify` the dossier branch above is intentionally
   // empty (upstream suppresses `requestedDossierCapabilities`). Restore

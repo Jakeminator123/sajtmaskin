@@ -7,6 +7,7 @@ type CapabilityDossierBridgeEntry = {
 
 export const INFERRED_CAPABILITY_DOSSIER_BRIDGE = [
   { flag: "needs3D", dossierCapabilities: ["visual-3d"] },
+  { flag: "needsPhysics", dossierCapabilities: ["physics-3d"] },
   { flag: "needsParallax", dossierCapabilities: ["parallax-scroll", "parallax-pointer"] },
   { flag: "needsPayments", dossierCapabilities: ["payments"] },
   { flag: "needsAuth", dossierCapabilities: ["auth"] },

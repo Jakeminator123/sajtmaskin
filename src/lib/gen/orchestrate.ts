@@ -890,6 +890,10 @@ export async function finalizeOrchestrationPrompts(
     componentReferences: base.componentReferences,
     resolvedVariant,
     dossierSelection: base.dossierSelection,
+    dossierPromptContext: {
+      generationMode: resolvedMode,
+      requestedCapabilityTiers: base.requestedCapabilityTiers ?? null,
+    },
     capabilityModifyHint: base.capabilityModifyHint,
   };
 

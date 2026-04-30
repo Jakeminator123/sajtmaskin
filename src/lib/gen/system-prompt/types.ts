@@ -143,6 +143,15 @@ export interface DynamicContextOptions {
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
   dossierSelection?: DossierSelectionResult | null;
   /**
+   * Prompt-shaping context for dossier blocks. Follow-ups can render selected
+   * dossiers in a compact shape when the deterministic files/context already
+   * carry the safety contract.
+   */
+  dossierPromptContext?: {
+    generationMode?: "init" | "followUp";
+    requestedCapabilityTiers?: Record<string, string> | null;
+  };
+  /**
    * Plan 11 / open-question #12: when the follow-up was classified as
    * `capability-modify` (user named a dossier capability AND referenced
    * an existing on-page element such as "pricken" / "den 3D-grejen"),

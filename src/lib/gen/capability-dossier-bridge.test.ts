@@ -50,6 +50,7 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
       resolveDossierCapabilitiesFromInferredCapabilities(
         capabilities({
           needs3D: true,
+          needsPhysics: true,
           needsParallax: true,
           needsPayments: true,
           needsAuth: true,
@@ -60,6 +61,7 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
       ),
     ).toEqual([
       "visual-3d",
+      "physics-3d",
       "parallax-scroll",
       "parallax-pointer",
       "payments",
@@ -81,6 +83,7 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
   it("keeps the declarative bridge table narrow", () => {
     expect(INFERRED_CAPABILITY_DOSSIER_BRIDGE.map((entry) => entry.flag)).toEqual([
       "needs3D",
+      "needsPhysics",
       "needsParallax",
       "needsPayments",
       "needsAuth",

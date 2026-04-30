@@ -165,7 +165,7 @@ request needs 3D
   → runtime smoke includes WebGL / render mount check
 ```
 
-**Idag:** detta fungerar. `needs3D` + `needsPhysics` är egna capability-flaggor; `visual-3d` / `parallax-scroll` / `parallax-pointer` dossiers är 1:1-mapping. **Glapp:** runtime smoke-check för WebGL render mount finns inte ännu — om Canvas misslyckas mounta hamnar det i F2-overlay-runbook istället.
+**Idag:** detta fungerar. `needs3D` + `needsPhysics` är egna capability-flaggor; `visual-3d` är dekorativ Three/R3F, `physics-3d` är Rapier/rigid-body-tillägg, och `parallax-scroll` / `parallax-pointer` är separata dossiers. **Glapp:** runtime smoke-check för WebGL render mount finns inte ännu — om Canvas misslyckas mounta hamnar det i F2-overlay-runbook istället.
 
 ---
 
