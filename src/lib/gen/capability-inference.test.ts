@@ -61,6 +61,19 @@ describe("inferCapabilities", () => {
     expect(caps.needsThemeToggle).toBe(true);
   });
 
+  it("detects playable game intent without forcing 3D for ordinary 2D games", () => {
+    const caps = inferCapabilities("Bygg ett litet spel där man styr en orm och samlar poäng");
+    expect(caps.needsGame).toBe(true);
+    expect(caps.needsMotion).toBe(true);
+    expect(caps.needs3D).toBe(false);
+  });
+
+  it("detects game + canvas/WebGL as interactive 3D/canvas work", () => {
+    const caps = inferCapabilities("Bygg ett interaktivt canvas game med WebGL och poängräkning");
+    expect(caps.needsGame).toBe(true);
+    expect(caps.needs3D).toBe(true);
+  });
+
   it("detects command search from 'cmd+k' prompt", () => {
     const caps = inferCapabilities("Add a cmd+k command palette for quick navigation");
     expect(caps.needsCommandSearch).toBe(true);
@@ -283,6 +296,14 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).toContain("Chart");
     expect(hints).toContain("Table");
     expect(hints).toContain("Skeleton");
+  });
+
+  it("game hint requires a real playable interaction", () => {
+    const caps = inferCapabilities("Bygg ett litet spel med score och kontroller");
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("Game / interactive canvas requested");
+    expect(hints).toContain("score/status");
+    expect(hints).toContain("keyboard/pointer handlers");
   });
 
   it("ecommerce hint includes Drawer and Dialog guidance", () => {

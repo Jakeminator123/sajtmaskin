@@ -40,6 +40,8 @@ export interface InferredCapabilities {
   needsAppShell: boolean;
   needsDataUI: boolean;
   needsForms: boolean;
+  /** Interactive game/playable canvas intent, distinct from decorative canvas/3D. */
+  needsGame?: boolean;
   needsEcommerce: boolean;
   needsCarousel: boolean;
   needsPremiumVisuals: boolean;
@@ -166,6 +168,13 @@ const RULES: CapabilityRule[] = [
     ],
   },
   {
+    key: "needsGame",
+    patterns: [
+      /(?:^|[^\p{L}\p{N}])(?:spel|tv-?spel|minigame|mini-?game|game|playable|arcade|pacman|pac-man|platformer|snake|tetris|quiz.?game|interactive.?game)(?=[^\p{L}\p{N}]|$)/iu,
+      /\b(spelbar|interaktivt spel|interactive canvas game|playable canvas)\b/i,
+    ],
+  },
+  {
     key: "needsEcommerce",
     patterns: [
       /\b(ecommerce|e-?commerce|e-?handel|shop|store|cart|varukorg|product|produkt|storefront|webshop)\b/i,
@@ -218,6 +227,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     needsAppShell: false,
     needsDataUI: false,
     needsForms: false,
+    needsGame: false,
     needsEcommerce: false,
     needsCarousel: false,
     needsPremiumVisuals: false,
@@ -236,6 +246,12 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   }
 
   if (result.needsPhysics) result.needs3D = true;
+  if (result.needsGame) {
+    result.needsMotion = true;
+    if (/3d|three|webgl|canvas|physics|fysik|studs|gravity|collision|rapier/i.test(prompt)) {
+      result.needs3D = true;
+    }
+  }
   if (result.needs3D) result.needsMotion = true;
   if (result.needsPremiumVisuals) result.needsMotion = true;
   if (result.needsCalendar) result.needsForms = true;
@@ -283,6 +299,12 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
  */
 export const HEAVY_CAPABILITY_KEYS = [
   "needs3D",
+  "needsPhysics",
+  "needsParallax",
+  "needsPayments",
+  "needsAuth",
+  "needsForms",
+  "needsGame",
   "needsCarousel",
   "needsCharts",
   "needsPremiumVisuals",
@@ -332,6 +354,11 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
   if (caps.needsPayments) {
     lines.push(
       "- **Payments requested**: Use the payments dossier selected for this build (typically `stripe-checkout`). Mount `<CheckoutButton>` from `@/components/checkout-button` on the pricing/buy CTA, and ship the `/api/checkout-session` server route as-is from the dossier. Treat `STRIPE_SECRET_KEY` as a build-blocking env (sajten kraschar utan), and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as warn-only (publishable, harmless placeholder OK). Style the button with the project's color tokens — do not import Stripe Elements UI; the dossier uses hosted Checkout.",
+    );
+  }
+  if (caps.needsGame) {
+    lines.push(
+      "- **Game / interactive canvas requested**: Build a real playable interaction, not a static illustration. Include explicit state, controls, keyboard/pointer handlers, a visible score/status area, and accessible instructions. If using `<canvas>` or React Three Fiber, wrap the interactive component in `\"use client\"`; for 2D games, plain React state + CSS/SVG/canvas is acceptable when physics/WebGL is not explicitly requested.",
     );
   }
   if (caps.needsCharts) {

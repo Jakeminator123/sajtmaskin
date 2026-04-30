@@ -338,7 +338,7 @@ Persisted errors for this version:
     });
 
     expect(spec.changeScope).toBe("local-layout");
-    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.contextPolicy).toBe("heavy");
     expect(spec.verificationPolicy).toBe("standard");
   });
 
@@ -582,6 +582,54 @@ Persisted errors for this version:
     });
     expect(localLayout.changeScope).toBe("local-layout");
     expect(localLayout.forbiddenPatterns).toContain("unrequested_full_redesign");
+  });
+
+  it("treats physics, forms, auth, payments, parallax and game as heavy capability context", () => {
+    const heavyFlags = [
+      "needsPhysics",
+      "needsForms",
+      "needsAuth",
+      "needsPayments",
+      "needsParallax",
+      "needsGame",
+    ] as const;
+
+    for (const flag of heavyFlags) {
+      const spec = deriveBuildSpec({
+        prompt: `Follow-up requiring ${flag}`,
+        buildIntent: "website",
+        generationMode: "followUp",
+        resolvedScaffold: saasScaffold,
+        routePlan: marketingRoutePlan,
+        preGenerationContracts: emptyContracts,
+        promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+        capabilities: {
+          needsMotion: false,
+          needs3D: false,
+          needsPhysics: false,
+          needsParallax: false,
+          needsPayments: false,
+          needsCharts: false,
+          needsDatabase: false,
+          needsAuth: false,
+          needsAppShell: false,
+          needsDataUI: false,
+          needsForms: false,
+          needsGame: false,
+          needsEcommerce: false,
+          needsCarousel: false,
+          needsPremiumVisuals: false,
+          needsCalendar: false,
+          needsCommandSearch: false,
+          needsThemeToggle: false,
+          [flag]: true,
+        },
+      });
+
+      expect(spec.contextPolicy, flag).toBe("heavy");
+      expect(spec.capabilityFlags?.heavy, flag).toBe(true);
+      expect(spec.capabilityFlags?.signals, flag).toContain(flag);
+    }
   });
 
   it("treats isFirstCodeGeneration as effective init for route realization", async () => {

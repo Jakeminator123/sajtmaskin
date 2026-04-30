@@ -20,6 +20,7 @@ function capabilities(overrides: Partial<InferredCapabilities> = {}): InferredCa
     needsAppShell: false,
     needsDataUI: false,
     needsForms: false,
+    needsGame: false,
     needsEcommerce: false,
     needsCarousel: false,
     needsPremiumVisuals: false,

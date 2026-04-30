@@ -26,7 +26,7 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [x] | Fixad nu | P1 | Env merge kan skippas vid preview update | G#9 | Fixad med samma update-path som G#8; täckt av `preview-session.test.ts`. |
 | [ ] | Öppen design-risk | P1 | F2 quality gate fångar inte runtime/UI-fel | G#10 | Lägg separat runtime smoke/postcheck, inte bara typecheck. |
 | [x] | Fixad nu | P1 | Ingen runtime smoke för WebGL/3D | G#11 | Fixad med statisk WebGL/R3F-readiness smoke: verifier blockerar R3F Canvas utan `"use client"` och Visual QA rapporterar `webgl-readiness`. |
-| [ ] | Öppen produktbugg | P1 | Ingen tydlig game/interactive capability | G#12 | Lägg canonical capability eller styrning för spel/interactive canvas. |
+| [x] | Fixad nu | P1 | Ingen tydlig game/interactive capability | G#12 | Fixad: `needsGame` infereras för spel/playable canvas, ger egen prompt-hint och räknas som heavy. |
 | [ ] | Öppen kvalitet-risk | P1 | Simplified brief fallback sänker premium/3D | G#13 | Begränsa fallback eller markera som degraded mode i generationen. |
 | [x] | Fixad nu | P1 | Rate limit faller tillbaka till per-instance memory utan Redis | G#14, U#45 | Fixad: produktion failar stängt utan Upstash REST om inte `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD` sätts explicit. |
 | [x] | Fixad nu | P1 | `default-seed` kan ge predikterbara slug-lösen | G#15 | Fixad: lösen kräver `KOSTNADSFRI_PASSWORD_SEED`, `KOSTNADSFRI_API_KEY` eller explicit secret. |
@@ -42,9 +42,9 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [ ] | Öppen kvalitet-risk | P2 | Dossier/capability-threading svagt vissa paths | G#25 | Verifiera init/follow-up/dossier bridge. |
 | [ ] | Öppen bug | P2 | Init och follow-up har olika capability-universum | G#26 | Konsolidera capability-källa och följ ägarmatrisen. |
 | [x] | Fixad i HEAD | P2 | `canvas` triggar 3D för 2D/dekorativa canvas | G#27 | Fixad i tidigare commit: dekorativ 3D och physics delas, med tester. |
-| [ ] | Öppen bug | P2 | `needsPhysics` triggar inte heavy budget | G#28 | Koppla physics-capability till budget/build intent. |
-| [ ] | Öppen produkt-risk | P2 | Forms/auth/payments/parallax räknas inte som heavy | G#29 | Definiera vilka capabilities som höjer budget. |
-| [ ] | Öppen produkt-risk | P2 | Kort prompt med spel/game/shadcn missar capability-kontext | G#30 | Lägg prompt-heuristik i canonical owner, inte i konsument. |
+| [x] | Fixad nu | P2 | `needsPhysics` triggar inte heavy budget | G#28 | Fixad: `needsPhysics` ingår i canonical `HEAVY_CAPABILITY_KEYS`. |
+| [x] | Fixad nu | P2 | Forms/auth/payments/parallax räknas inte som heavy | G#29 | Fixad: `needsForms`, `needsAuth`, `needsPayments` och `needsParallax` ingår i canonical heavy-listan. |
+| [x] | Fixad nu | P2 | Kort prompt med spel/game/shadcn missar capability-kontext | G#30 | Fixad via `needsGame` + heavy context/prompt-hint för korta spelprompter. |
 | [ ] | Öppen verifier-risk | P2 | Warm tsc/eslint fail-open vid kall cache | G#31 | Faila tydligare eller kör kall-cache fallback. |
 | [ ] | Öppen design-risk | P2 | Preview kan visas trots verifier-blocked draft | G#32 | UI ska skilja preview-materialisering från verifierad version. |
 | [ ] | Öppen kvalitet-risk | P2 | LLM-verifier ser snippets, inte hela filer | G#33 | Ge verifieraren rätt filkontext eller begränsa claimen. |
@@ -111,7 +111,7 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [x] | Fixad nu | P3 | Originalfiländelse / dubbeländelse okontrollerad | U#31 | Fixad delvis vid blob-namn: path-segment saneras och extensionless filer defaultar till `.bin`, inte `.png`. |
 | [x] | Fixad nu | P3 | Blob path använder rå `projectId` | U#32 | Fixad: blob path-segment för user/project/filename saneras innan upload. |
 | [ ] | Öppen cache-risk | P3 | Registry async refresh stale vid misslyckad fetch | U#35 | Behåll last-good med timestamp/status. |
-| [ ] | Öppen search-risk | P3 | Template search apps/games hint vs saknad game capability | U#39 | Lös ihop med G#12/G#30. |
+| [x] | Fixad nu | P3 | Template search apps/games hint vs saknad game capability | U#39 | Fixad ihop med G#12/G#30: spel/prompts får `needsGame` i canonical capability-inference. |
 | [ ] | Öppen scraper-risk | P3 | Webscraper prioriterar about/services/product/blog | U#42 | Justera ranking efter domain/site-type. |
 | [ ] | Öppen scraper-risk | P3 | Webscraper strips `www.` jämförelse | U#44 | Normalisera host jämnt. |
 | [x] | Fixad nu | P3 | `x-forwarded-for` första IP används som client-id | U#46 | Fixad: produktion ignorerar `x-forwarded-for` om inte `SAJTMASKIN_TRUST_X_FORWARDED_FOR` är explicit satt; `x-real-ip` prioriteras. |

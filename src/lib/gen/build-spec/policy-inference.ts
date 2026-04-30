@@ -450,6 +450,10 @@ export function inferContextPolicy(params: {
     changeScope,
     capabilityHeavy,
   } = params;
+  if (capabilityHeavy) {
+    const score = scoreContextPolicy(params);
+    return { policy: "heavy", score: Math.max(score, CONTEXT_POLICY_HEAVY_THRESHOLD) };
+  }
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
     if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
       return { policy: "normal", score: 0 };

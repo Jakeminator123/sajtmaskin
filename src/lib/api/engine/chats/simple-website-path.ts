@@ -66,6 +66,7 @@ function hasHeavyCapability(capabilities: InferredCapabilities): boolean {
       capabilities.needsCommandSearch ||
       capabilities.needsThemeToggle ||
       capabilities.needsPayments ||
+      capabilities.needsGame ||
       capabilities.needsParallax,
   );
 }
