@@ -292,6 +292,7 @@ const GROUP_COMPONENTS: Record<ChecklistGroup, readonly string[]> = {
 /** Baseline groups — always included. These are the components that turn up
  *  in almost every landing/portfolio/brochure generation. */
 const BASELINE_GROUPS: readonly ChecklistGroup[] = ["button", "card", "badge"];
+const COMPACT_CONTEXTUAL_GROUP_LIMIT = 6;
 
 const COMPACT_GROUP_PRIORITY: readonly ChecklistGroup[] = [
   "form",
@@ -308,9 +309,6 @@ const COMPACT_GROUP_PRIORITY: readonly ChecklistGroup[] = [
   "calendar",
   "carousel",
   "separator",
-  "button",
-  "card",
-  "badge",
   "skeleton",
   "progress",
   "popover",
@@ -437,20 +435,26 @@ export function renderRequiredImportsChecklistBlock(
   if (!hasAnyContext) return [];
 
   const groups = collectGroups(params);
+  const baselineSet = new Set<ChecklistGroup>(BASELINE_GROUPS);
   const compactOrderIndex = new Map<ChecklistGroup, number>(
     COMPACT_GROUP_PRIORITY.map((group, index) => [group, index]),
   );
   const orderedGroups = params.compactMode
-    ? [...groups].sort((a, b) => {
-        const aRank = compactOrderIndex.get(a) ?? Number.MAX_SAFE_INTEGER;
-        const bRank = compactOrderIndex.get(b) ?? Number.MAX_SAFE_INTEGER;
-        return aRank - bRank;
-      })
+    ? [
+        ...groups
+          .filter((group) => !baselineSet.has(group))
+          .sort((a, b) => {
+            const aRank = compactOrderIndex.get(a) ?? Number.MAX_SAFE_INTEGER;
+            const bRank = compactOrderIndex.get(b) ?? Number.MAX_SAFE_INTEGER;
+            return aRank - bRank;
+          })
+          .slice(0, COMPACT_CONTEXTUAL_GROUP_LIMIT),
+        ...BASELINE_GROUPS.filter((group) => groups.includes(group)),
+      ]
     : groups;
   const rows = orderedGroups
     .map(renderRow)
-    .filter((line): line is string => Boolean(line))
-    .slice(0, params.compactMode ? 6 : undefined);
+    .filter((line): line is string => Boolean(line));
   if (rows.length === 0) return [];
 
   return [
