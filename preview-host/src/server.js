@@ -506,10 +506,12 @@ async function routeRequest(req, res) {
       session.versionId = validated.versionId;
       session.changeClass = validated.changeClass;
       if (validated.filesJson !== undefined) {
-        session.filesJson = {
-          ...(session.filesJson && typeof session.filesJson === "object" ? session.filesJson : {}),
-          ...validated.filesJson,
-        };
+        session.filesJson = validated.replaceFiles
+          ? validated.filesJson
+          : {
+              ...(session.filesJson && typeof session.filesJson === "object" ? session.filesJson : {}),
+              ...validated.filesJson,
+            };
       }
       if (runId) {
         session.runId = runId;

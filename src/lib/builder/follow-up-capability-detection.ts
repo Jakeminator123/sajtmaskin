@@ -161,7 +161,7 @@ function hasRefineOrMoveVerb(message: string): boolean {
  *     opposite failure mode from capability-add.
  */
 const MODIFY_REFERENCE_MARKERS: RegExp[] = [
-  /(?<![\p{L}\p{N}_])(?:pricken|bubblan|figuren|scenen|kuben|sfären|formen|ikonen|elementet|widgeten)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:pricken|bubbla|bubblan|cirkel|cirkeln|figuren|scenen|kuben|sfären|formen|ikonen|elementet|widgeten)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:3d[-\s]?(?:saken|grejen|grejjen|grejet|grejjet|grejer|modellen|figuren|elementet))(?![\p{L}\p{N}_])/iu,
   // Demonstrative + verb of transformation ("gör den till X", "byt ut den mot Y",
   // "ändra den så att …"). The pronoun anchors the change to an existing element.

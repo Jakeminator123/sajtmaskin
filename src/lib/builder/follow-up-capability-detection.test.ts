@@ -222,6 +222,15 @@ describe("detectFollowUpCapabilities — plan 11 bug 3: capability-modify refere
     expect(result.referencesExistingCapability).toBe(true);
   });
 
+  it("flags a bubble/circle placeholder complaint as a visual-3d modify request", () => {
+    const result = detectFollowUpCapabilities(
+      "Har som en bubbla, ingen hamburgare.. Den ska flyga omkring ovandför sajtens förstasida.. skapa en ha,mburgare som gör detta",
+    );
+    expect(result.capabilityIds).toContain("visual-3d");
+    expect(result.referencesExistingCapability).toBe(true);
+    expect(result.modifyReferenceMatches).toContain("bubbla");
+  });
+
   it("flags referencesExistingCapability for 'den 3D-grejen' shorthand", () => {
     const result = detectFollowUpCapabilities(
       "ändra den 3D-grejen så den roterar långsammare",

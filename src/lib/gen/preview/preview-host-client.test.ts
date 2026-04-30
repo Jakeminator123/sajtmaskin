@@ -4,6 +4,7 @@ import {
   isPreviewHostDiskFullMessage,
   runPreviewHostQualityGate,
   startPreviewHostSession,
+  updatePreviewHostSession,
 } from "./preview-host-client";
 
 afterEach(() => {
@@ -44,6 +45,36 @@ describe("isPreviewHostDiskFullMessage", () => {
 });
 
 describe("preview-host cleanup retry", () => {
+  it("marks session updates as full file-set replacements", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          previewUrl: "https://preview-host.example.com/chat-1",
+          sandboxId: "sbx_123",
+          startOutcome: "recreated",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await updatePreviewHostSession({
+      sandboxId: "sbx_123",
+      versionId: "version-2",
+      filesJson: { "app/page.tsx": "export default function Page(){return null;}" },
+    });
+
+    expect(result.ok).toBe(true);
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({
+      sandboxId: "sbx_123",
+      versionId: "version-2",
+      replaceFiles: true,
+    });
+  });
+
   it("retries preview session start after cleanup on disk full", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
 

@@ -166,12 +166,14 @@ function validateUpdatePayload(payload) {
   }
   const filesJson =
     p.filesJson === undefined ? undefined : validateFilesJson(p.filesJson, "filesJson");
+  const replaceFiles = p.replaceFiles === true;
   return {
     sessionId: typeof p.sessionId === "string" ? p.sessionId.trim() : undefined,
     sandboxId: typeof p.sandboxId === "string" ? p.sandboxId.trim() : undefined,
     versionId,
     changeClass,
     filesJson,
+    replaceFiles,
   };
 }
 
