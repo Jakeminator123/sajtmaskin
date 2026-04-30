@@ -98,7 +98,7 @@ Postmortem från en annan körning samma dag finns under repo-roten ([`postmorte
 | P4a | Lägg till nya event-typer i glossary: `engine.first_token_slow`, `verifier.skipped` (reason `autofix_heavy_load`), `engine.reasoning-slow` (UI progress phase) | `docs/architecture/glossary.md` § Termer |
 | P4b | Backoffice-trend för `autofix.heavy_load` per scaffold + per modell | `backoffice/pages/llm_flode_telemetry.py` |
 | P4c | Component-Reference compact format dokumenterat (`compact API/pattern hints`, max 3 referenser, max 8 imports) | `docs/llm/llm-chain-flowchart.md` eller `docs/architecture/fas2-orchestration-and-build.md` |
-| P4d | `data/prompt-dumps/own-engine-codegen/meta.json` borde innehålla `staticCoreChars`, `dynamicChars`, `total` så vi snabbt kan korsreferensa run-by-run | `src/lib/gen/prompt-dump.ts` |
+| ~~P4d~~ ✅ **FIXAD 2026-05-01** | `data/prompt-dumps/own-engine-codegen/meta.json` innehåller nu `staticCoreChars`, `dynamicChars`, `totalChars` och `separatorFound` så vi snabbt kan korsreferensa run-by-run | `src/lib/gen/prompt-dump.ts` |
 
 ## Förslag: arbetsfördelning för en till agent
 
