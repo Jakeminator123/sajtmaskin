@@ -28,6 +28,10 @@ const DEFAULT_FUNCTION_EXPORT_RE = /\bexport\s+default\s+(?:async\s+)?function(?
 const DEFAULT_CLASS_EXPORT_RE = /\bexport\s+default\s+class(?:\s+([A-Za-z_$][\w$]*))?/g;
 const DEFAULT_IDENTIFIER_EXPORT_RE = /\bexport\s+default\s+([A-Za-z_$][\w$]*)\s*;/g;
 
+const BASELINE_EXPORTS: Array<{ symbol: string; importPath: string }> = [
+  { symbol: "useReducedMotion", importPath: "@/hooks/use-reduced-motion" },
+];
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -283,6 +287,10 @@ function addNamedImport(code: string, importPath: string, names: string[]): stri
 
 export function buildProjectExportIndex(files: CodeFile[]): ExportIndex {
   const index = new Map<string, string[]>();
+
+  for (const entry of BASELINE_EXPORTS) {
+    index.set(entry.symbol, [entry.importPath]);
+  }
 
   for (const file of files) {
     if (!/\.(tsx?|jsx?)$/i.test(file.path)) continue;

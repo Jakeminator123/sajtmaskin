@@ -238,6 +238,33 @@ describe("common-import-fixer", () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   describe("buildProjectExportIndex (SAJ-61: hooks/components/utils)", () => {
+    it("includes baseline scaffold exports before hook files are materialized", () => {
+      const files: CodeFile[] = [
+        {
+          path: "components/site-header.tsx",
+          content:
+            'export default function SiteHeader() {\n' +
+            "  const reducedMotion = useReducedMotion();\n" +
+            "  return <header data-reduced={reducedMotion} />;\n" +
+            "}",
+          language: "tsx",
+        },
+      ];
+
+      const exportIndex = buildProjectExportIndex(files);
+      const result = fixMissingLocalSymbolImports(
+        files[0]!.content,
+        files[0]!.path,
+        exportIndex,
+      );
+
+      expect(result.fixed).toBe(true);
+      expect(result.addedSymbols).toEqual(["useReducedMotion"]);
+      expect(result.code).toContain(
+        'import { useReducedMotion } from "@/hooks/use-reduced-motion";',
+      );
+    });
+
     it("indexes named exports from hooks/* so useReducedMotion auto-imports", () => {
       const files: CodeFile[] = [
         {
