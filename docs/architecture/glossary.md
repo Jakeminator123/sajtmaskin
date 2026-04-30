@@ -90,7 +90,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Element Preservation Guard | Skydd mot att follow-up tappar high-value-element (`<video>`, `<canvas>`, `<iframe>`, R3F `<Canvas>`, Rapier `<Physics>`). |
 | Codegen-eval `Surface/Final` | Eval-rapportens filräkning: `surface` = LLM-emitterad app-yta filtrerad från supportpaths; `final` = komplett körbart Next-projekt efter scaffold/finalize. |
 | FaultEvent | Normaliserad läsmodell för befintliga fel-/fix-källor (`FixEntry`, error-log RAG, verifier-fynd, recurring patterns). Kan bära `routePath`, `capabilityIds` och `generationMode` för RAG-rerank. Adapterkontrakt, inte ny event-bus. |
-| Fault promotion candidate | Read-only gruppering från `npm run faults:report` som visar återkommande fault patterns och föreslår om de bör bli mekanisk fixer, Core Rule, dossier/scaffold-fix eller fortsatt utredning. |
+| Fault promotion candidate | Read-only gruppering från `npm run faults:report` som visar återkommande fault patterns. Kolumnen `recommendedPromotion` använder interna taggar från `fault-promotion-report.ts` (t.ex. `mechanical-fixer-or-core-rule`, `scaffold-or-variant-fix`, `investigate`). |
 
 ---
 

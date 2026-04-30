@@ -29,7 +29,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | Mapp | Innehåll |
 |------|----------|
 | [`db/`](db/) | Postgres-init, migrationer, push, sanity (`db-target-guard.mjs` delas här) |
-| [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt` (npm `predev` / `dev` / `build`) |
+| [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt`, `check-unicode-regex` (npm `predev` / `dev` / `build` / `preflight:common`) |
 | [`embeddings/`](embeddings/) | Mall- och scaffold-embeddings (template-library-embeddings borttagen 2026-04-17) |
 | [`dossiers/`](dossiers/) | AI-curate dossiers från klonade referens-repos (`curate-from-reference.ts`) |
 | [`v0-templates/`](v0-templates/) | Separat v0/runtime/workflow-spår: lokal sync, validering och local refresh av mallkatalog |
