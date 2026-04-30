@@ -292,6 +292,34 @@ export interface OrchestrationInput {
   previousFilesCount?: number;
 }
 
+function explicitlyRequestsContactDelivery(prompt: string): boolean {
+  return /\b(resend|smtp|webhook|server action|backend|api route|send(?:a)? email|email delivery|mail delivery|skicka mejl|skicka mail|skicka e-?post|mejlutskick|mailutskick)\b/i.test(prompt);
+}
+
+function explicitlyRequestsCarousel(prompt: string): boolean {
+  return /\b(carousel|slider|slideshow|swipe|embla|karusell|bildspel|hero[-\s]?slider|produktkarusell)\b/i.test(prompt);
+}
+
+export function filterDossierCapabilitiesForPrompt(params: {
+  capabilities: string[];
+  prompt: string;
+  previewPolicy: BuildSpec["previewPolicy"];
+}): string[] {
+  return params.capabilities.filter((capability) => {
+    if (
+      capability === "contact-form" &&
+      params.previewPolicy !== "fidelity3" &&
+      !explicitlyRequestsContactDelivery(params.prompt)
+    ) {
+      return false;
+    }
+    if (capability === "carousel" && !explicitlyRequestsCarousel(params.prompt)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export interface OrchestrationBase {
   resolvedScaffold: ScaffoldManifest | null;
   scaffoldSelection?: ScaffoldSelectionMeta;
@@ -724,13 +752,18 @@ export async function resolveOrchestrationBase(
       const callerProvidedCapabilityIds = (input.requestedDossierCapabilities ?? [])
         .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
         .map((c) => c.trim().toLowerCase());
-      const mergedCaps = Array.from(
+      const mergedCapsRaw = Array.from(
         new Set([
           ...briefCapsArray.map((c) => c.toLowerCase()),
           ...inferredCapabilityIds,
           ...callerProvidedCapabilityIds,
         ]),
       );
+      const mergedCaps = filterDossierCapabilitiesForPrompt({
+        capabilities: mergedCapsRaw,
+        prompt: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
+        previewPolicy: buildSpec.previewPolicy,
+      });
       dossierSelection = selectDossiersForRequest({
         brief,
         requestedCapabilities: mergedCaps,
@@ -742,6 +775,7 @@ export async function resolveOrchestrationBase(
           byCapability: dossierSelection.byCapability,
           inferredCapabilityBridge: inferredCapabilityIds,
           callerProvidedCapabilities: callerProvidedCapabilityIds,
+          filteredCapabilities: mergedCapsRaw.filter((cap) => !mergedCaps.includes(cap)),
           requestedCapabilityTiers: input.requestedCapabilityTiers ?? null,
         });
       }

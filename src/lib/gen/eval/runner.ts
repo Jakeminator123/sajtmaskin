@@ -38,6 +38,8 @@ export interface EvalResult {
   failureStage: EvalFailureStage;
   generationTimeMs: number;
   fileCount: number;
+  finalProjectFiles: number;
+  generatedSurfaceFiles: number;
   scaffoldId: string | null;
   variantId: string | null;
   promptSize: {
@@ -121,6 +123,8 @@ function makePreflightEnvFailureResult(evalPrompt: EvalPrompt, message: string):
     failureStage: "preflight_env",
     generationTimeMs: 0,
     fileCount: 0,
+    finalProjectFiles: 0,
+    generatedSurfaceFiles: 0,
     scaffoldId: null,
     variantId: null,
     promptSize: {
@@ -200,8 +204,24 @@ export interface EvalCheckSources {
   rawFiles: CodeFile[];
   canonicalRuntimeFiles: CodeFile[];
   canonicalFiles: CodeFile[];
+  generatedSurfaceFiles: CodeFile[];
   canonicalContent: string;
   droppedProtectedPaths: string[];
+}
+
+function isGeneratedSurfacePath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  if (!normalized) return false;
+  if (normalized === "package.json") return false;
+  if (/^(next|postcss|tailwind|tsconfig|eslint)\.config\./.test(normalized)) return false;
+  if (/^\.[^/]+/.test(normalized)) return false;
+  if (/^app\/api\//.test(normalized)) return false;
+  if (/^app\/(?:icon|apple-icon|opengraph-image|twitter-image)\./.test(normalized)) return false;
+  if (/^app\/(?:manifest|robots|sitemap)\./.test(normalized)) return false;
+  if (/(^|\/)(loading|error|not-found|template)\.(tsx|jsx|ts|js)$/.test(normalized)) return false;
+  if (/^hooks\/use-reduced-motion\.ts$/.test(normalized)) return false;
+  if (/^lib\/utils\.(ts|tsx)$/.test(normalized)) return false;
+  return true;
 }
 
 export function deriveEvalCheckSources(params: {
@@ -231,12 +251,14 @@ export function deriveEvalCheckSources(params: {
   const userEmittedPaths = new Set(rawFiles.map((f) => f.path));
   const canonicalRuntimeFiles = canonicalAll;
   const canonicalFiles = canonicalRuntimeFiles.filter((f) => userEmittedPaths.has(f.path));
+  const generatedSurfaceFiles = rawFiles.filter((f) => isGeneratedSurfacePath(f.path));
   const canonicalContent = serializeCodeProject(canonicalRuntimeFiles);
 
   return {
     rawFiles,
     canonicalRuntimeFiles,
     canonicalFiles,
+    generatedSurfaceFiles,
     canonicalContent,
     droppedProtectedPaths,
   };
@@ -391,7 +413,7 @@ async function evaluatePrompt(
     checkTier2Readiness(preflight),
     checkVisualQuality(completeProjectFiles),
     checkFileCount(
-      sources.rawFiles,
+      sources.generatedSurfaceFiles,
       evalPrompt.expected.minFiles,
       evalPrompt.expected.maxFiles,
     ),
@@ -423,7 +445,9 @@ async function evaluatePrompt(
     generationStatus: "passed",
     failureStage: null,
     generationTimeMs,
-    fileCount: project.files.length,
+    fileCount: sources.generatedSurfaceFiles.length,
+    finalProjectFiles: sources.canonicalRuntimeFiles.length,
+    generatedSurfaceFiles: sources.generatedSurfaceFiles.length,
     scaffoldId: generationInput.resolvedScaffold?.id ?? null,
     variantId: generationInput.variantId ?? null,
     promptSize: {
@@ -512,6 +536,8 @@ export async function runEval(
         failureStage: "generation",
         generationTimeMs: 0,
         fileCount: 0,
+        finalProjectFiles: 0,
+        generatedSurfaceFiles: 0,
         scaffoldId: null,
         variantId: null,
         promptSize: {

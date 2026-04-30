@@ -72,7 +72,7 @@ export function formatEvalReport(report: EvalReport): string {
       `| ${pad(String(i + 1), 1)} ` +
         `| ${pad(r.promptId, 6)} ` +
         `| ${pad(pct(r.totalScore), 5)} ` +
-        `| ${pad(String(r.fileCount), 5)} ` +
+        `| ${pad(`${r.generatedSurfaceFiles}/${r.finalProjectFiles}`, 5)} ` +
         `| ${pad(promptSize, 7)} ` +
         `| ${pad(preflight, 9)} ` +
         `| ${pad(time, 7)} ` +
@@ -116,6 +116,7 @@ export function formatEvalReport(report: EvalReport): string {
         `static=${fmtKChars(r.promptSize.staticCoreChars)}c/~${r.promptSize.staticCoreEstimatedTokens}t, ` +
         `dynamic=${r.promptSize.dynamicContextChars} chars/~${r.promptSize.dynamicContextEstimatedTokens}t, ` +
         `budget=${r.promptSize.dynamicBudgetUsedTokens}/${r.promptSize.dynamicBudgetBudgetTokens}t, ` +
+        `files=generatedSurface:${r.generatedSurfaceFiles}/finalProject:${r.finalProjectFiles}, ` +
         `droppedBlocks=${r.promptSize.droppedBlocks}, ` +
         `preflight=${r.preflight.errors}E/${r.preflight.warnings}W${r.preflight.previewBlocked ? " preview-blocked" : ""}` +
         (largest ? `, largest: ${largest}` : ""),

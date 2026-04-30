@@ -55,6 +55,7 @@ import {
   renderBuildIntentBlock,
   renderCustomInstructionsBlock,
   renderF2ContractBlock,
+  renderFileSurfaceBudgetBlock,
   renderGenerationModeBlock,
   renderGenerationProfileBlock,
   renderPreGenerationContractsBlock,
@@ -188,6 +189,13 @@ export function buildDynamicContext(
   parts.push(...renderF2ContractBlock(buildSpec));
   parts.push(...renderBuildIntentBlock(intent));
   parts.push(...renderGenerationProfileBlock(buildSpec));
+  parts.push(
+    ...renderFileSurfaceBudgetBlock({
+      buildSpec,
+      routeCount: routePlan?.routes?.length ?? 1,
+      scaffoldId: resolvedScaffold?.id ?? null,
+    }),
+  );
   parts.push(
     ...renderBriefLockedDesignValuesBlock({
       brief,

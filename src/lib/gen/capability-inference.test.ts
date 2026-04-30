@@ -16,7 +16,15 @@ describe("inferCapabilities", () => {
     expect(caps.needsPremiumVisuals).toBe(true);
   });
 
-  it("detects carousel + charts from a mixed prompt", () => {
+  it("does not treat ordinary portfolio galleries as carousel capabilities", () => {
+    const caps = inferCapabilities(
+      "Jag vill ha en portfolio med bildgalleri och statistik-grafer.",
+    );
+    expect(caps.needsCarousel).toBe(false);
+    expect(caps.needsCharts).toBe(true);
+  });
+
+  it("detects explicit carousel + charts from a mixed prompt", () => {
     const caps = inferCapabilities(
       "Jag vill ha en portfolio med karusell för bilder och statistik-grafer.",
     );

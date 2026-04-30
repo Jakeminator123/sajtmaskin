@@ -45,7 +45,7 @@ Images and videos must be subject-matter relevant. A site for a carpentry firm g
 
 ### Default Next.js error / loading / 404 routes (A18)
 
-- For every generated `app/<route>/page.tsx` that is non-trivial, also generate a sibling `loading.tsx` and `error.tsx`. At the app-root, generate `app/error.tsx` and `app/not-found.tsx`. Keep them minimal but on-brand (heading + supportive copy + a `Link href="/"`-back action) so SSR errors and missing routes do not surface as a blank white page in preview or production.
+- Do not generate `loading.tsx`, `error.tsx`, or `not-found.tsx` by default for simple static marketing pages. Add them only when the route has real async/data/error states or the request explicitly asks for robust route fallbacks.
 
 ### One import per source (A16)
 

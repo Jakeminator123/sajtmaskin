@@ -174,7 +174,7 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsCarousel",
     patterns: [
-      /\b(carousel|slider|slideshow|gallery|swipe|karusell|bildspel|image.?gallery|hero.?slider)\b/i,
+      /\b(carousel|slider|slideshow|swipe|karusell|bildspel|hero.?slider|product.?gallery|produktkarusell)\b/i,
     ],
   },
   {

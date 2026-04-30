@@ -9,6 +9,8 @@ function evalResult(overrides: Partial<EvalResult>): EvalResult {
     failureStage: null,
     generationTimeMs: 900,
     fileCount: 4,
+    finalProjectFiles: 10,
+    generatedSurfaceFiles: 4,
     scaffoldId: "landing-page",
     variantId: "corporate-grid",
     promptSize: {
@@ -151,6 +153,7 @@ describe("formatEvalReport", () => {
     expect(output).toContain("28.4k tok/over");
     expect(output).toContain("static=49k");
     expect(output).toContain("budget=13125/30000t");
+    expect(output).toContain("files=generatedSurface:4/finalProject:10");
     expect(output).toContain("Selected Dossier Instructions 8900c/~2782t");
   });
 });

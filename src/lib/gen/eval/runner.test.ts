@@ -191,6 +191,7 @@ export async function GET(_request: NextRequest) {
     });
 
     expect(sources.droppedProtectedPaths).toEqual(["app/api/placeholder/route.ts"]);
+    expect(sources.generatedSurfaceFiles.map((f) => f.path)).toEqual(["app/page.tsx"]);
     expect(sources.canonicalFiles.map((f) => f.path).sort()).toEqual([
       "app/api/placeholder/route.ts",
       "app/page.tsx",
@@ -287,6 +288,7 @@ export async function GET(_request: NextRequest) {
       preflightFilesJson: JSON.stringify(preflightFiles),
     });
     expect(sources.canonicalFiles.map((f) => f.path)).toEqual(["app/page.tsx"]);
+    expect(sources.generatedSurfaceFiles.map((f) => f.path)).toEqual(["app/page.tsx"]);
     expect(sources.canonicalRuntimeFiles.map((f) => f.path)).toContain("components/icon.tsx");
     const sanity = checkProjectSanity(sources.canonicalRuntimeFiles);
     expect(sanity.passed).toBe(true);
@@ -310,6 +312,30 @@ export async function GET(_request: NextRequest) {
     });
 
     expect(sources.canonicalFiles.map((f) => f.path)).toEqual(["app/page.tsx"]);
+  });
+
+  it("excludes generated support files from surface file count", () => {
+    const rawFiles = [
+      file("app/page.tsx", VALID_PAGE_TSX),
+      file("components/hero.tsx", "export default function Hero(){return <section/>;}"),
+      file("app/loading.tsx", "export default function Loading(){return null;}"),
+      file("app/error.tsx", "export default function Error(){return null;}"),
+      file("app/not-found.tsx", "export default function NotFound(){return null;}"),
+      file("app/sitemap.ts", "export default [];", "ts"),
+      file("app/api/contact/route.ts", VALID_TS, "ts"),
+      file("package.json", '{"dependencies":{}}', "json"),
+    ];
+
+    const sources = deriveEvalCheckSources({
+      rawFiles,
+      preflightFilesJson: JSON.stringify(rawFiles),
+    });
+
+    expect(sources.generatedSurfaceFiles.map((f) => f.path)).toEqual([
+      "app/page.tsx",
+      "components/hero.tsx",
+    ]);
+    expect(sources.canonicalRuntimeFiles.map((f) => f.path)).toContain("app/loading.tsx");
   });
 
   it("malformed preflight JSON degrades gracefully to empty canonical", () => {

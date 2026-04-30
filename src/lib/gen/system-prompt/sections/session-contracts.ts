@@ -124,6 +124,29 @@ export function renderGenerationProfileBlock(buildSpec: BuildSpec | null | undef
   return profileLines;
 }
 
+export function renderFileSurfaceBudgetBlock(params: {
+  buildSpec: BuildSpec | null | undefined;
+  routeCount: number;
+  scaffoldId?: string | null;
+}): string[] {
+  const { buildSpec, routeCount, scaffoldId } = params;
+  if (!buildSpec) return [];
+  const simpleWebsite =
+    buildSpec.buildIntent === "website" &&
+    buildSpec.previewPolicy === "fidelity2" &&
+    routeCount <= 3;
+  const maxSurfaceFiles = simpleWebsite ? (routeCount <= 1 ? 8 : 12) : 14;
+  return [
+    "## File Surface Budget",
+    "",
+    `- **Generated surface budget:** aim for <= ${maxSurfaceFiles} app-surface files for this generation (${routeCount} route${routeCount === 1 ? "" : "s"}, scaffold: ${scaffoldId ?? "none"}).`,
+    "- Prefer route files plus 3-5 focused components. Do not split every section into its own file.",
+    "- Do not emit scaffold-owned files, placeholder API routes, icons, config files, or duplicated theme/layout files unless explicitly required by the user.",
+    "- `finalProjectFiles` may be higher after scaffold/finalize materialization; keep your own generated surface small.",
+    "",
+  ];
+}
+
 export function renderTier3IntegrationBlock(params: {
   buildSpec: BuildSpec | null | undefined;
   preGenerationContracts: PreGenerationContractContext | null | undefined;

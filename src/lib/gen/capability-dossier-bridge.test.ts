@@ -5,6 +5,7 @@ import {
   INFERRED_CAPABILITY_DOSSIER_BRIDGE,
   resolveDossierCapabilitiesFromInferredCapabilities,
 } from "./capability-dossier-bridge";
+import { filterDossierCapabilitiesForPrompt } from "./orchestrate";
 
 function capabilities(overrides: Partial<InferredCapabilities> = {}): InferredCapabilities {
   return {
@@ -91,5 +92,27 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
       "needsCarousel",
       "needsCommandSearch",
     ]);
+  });
+});
+
+describe("filterDossierCapabilitiesForPrompt", () => {
+  it("keeps portfolio contact/gallery UI free of hard delivery and carousel dossiers in F2", () => {
+    expect(
+      filterDossierCapabilitiesForPrompt({
+        capabilities: ["contact-form", "carousel"],
+        prompt: "Create a portfolio website for a photographer with a gallery grid, about section, and contact form",
+        previewPolicy: "fidelity2",
+      }),
+    ).toEqual([]);
+  });
+
+  it("keeps explicit delivery and carousel requests", () => {
+    expect(
+      filterDossierCapabilitiesForPrompt({
+        capabilities: ["contact-form", "carousel"],
+        prompt: "Create a contact form that sends email with Resend and an Embla carousel",
+        previewPolicy: "fidelity2",
+      }),
+    ).toEqual(["contact-form", "carousel"]);
   });
 });

@@ -10,6 +10,8 @@ function evalResult(overrides: Partial<EvalResult>): EvalResult {
     failureStage: null,
     generationTimeMs: 900,
     fileCount: 4,
+    finalProjectFiles: 10,
+    generatedSurfaceFiles: 4,
     scaffoldId: "landing-page",
     variantId: "corporate-grid",
     promptSize: {
