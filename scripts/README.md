@@ -38,6 +38,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`deps/`](deps/) | Baseline `package.json`-verifiering (peer/registry) |
 | [`audit/`](audit/) | Shadcn-mirror + runtime component-library snapshot |
 | [`env/`](env/) | `manage_env.py`, `model_trace_overlay.py` |
+| [`observability/`](observability/) | RAG-index, fixer-registry dump och `faults:report` för återkommande fault patterns |
 
 ### Next / dev-server (npm hooks)
 
