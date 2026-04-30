@@ -76,6 +76,7 @@ Codegen-evalen är mer produktlik än scaffold-eval, men den är fortfarande int
 - Den persistar ingen chat/version, drar inga credits och startar ingen preview-VM.
 - Den kör inte exakt client-brief/server-auto-brief-vägen från create-chat-routen.
 - Den mäter nu `promptSize`, största dynamic blocks, preflight errors/warnings, preview-block och skyddade paths så skillnaden mot manuella generationer blir lättare att se.
+- Den kör en lokal env-Preflight innan första LLM-anropet. Saknas DB-env rapporteras `preflight=failed_env` och generationen markeras `skipped`, så rapporten inte blandar ihop miljöfel med 0% LLM-kvalitet.
 
 För slutlig produktverifiering: kör samma prompt manuellt i lokal builder och jämför mot evalrapportens `Prompt / Preflight Telemetry`.
 
@@ -109,7 +110,7 @@ Baserat på baseline från 2026-03-18 (`gpt-5.3-codex`, 15 prompts):
 
 ## Felsökning
 
-- `Error: Database URL missing` → eval triggar `prepareGenerationContext` som vill ha DB. Sätt `POSTGRES_URL` eller kör `npm run env:pull` först.
+- `preflight=failed_env` → eval stoppade före LLM-kostnad eftersom DB-env saknas. Sätt `POSTGRES_URL` / `STORAGE_POSTGRES_URL` eller kör `npm run env:pull` först.
 - `OPENAI_API_KEY missing` → exporta i shell eller lägg i `.env.local`.
 - Eval failar på en specifik prompt utan tydlig orsak → kör med en eller två prompts: importera `runEval` direkt och passa `{ prompts: [EVAL_PROMPTS[0]] }`.
 - Baseline-jämförelsen saknar prompts → en ny prompt har lagts till i `prompts.ts` men baseline är gammal. Det är OK — `compareWithBaseline` skippar prompts som saknas i baseline. Kör `eval:baseline` när du är klar att flytta över.

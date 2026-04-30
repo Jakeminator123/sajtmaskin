@@ -50,8 +50,11 @@ export function formatEvalReport(report: EvalReport): string {
     const promptSize = `${Math.round(r.promptSize.totalEstimatedTokens / 100) / 10}k tok`;
     const preflight =
       r.preflight.errors > 0 || r.preflight.warnings > 0 || r.preflight.previewBlocked
-        ? `${r.preflight.errors}E/${r.preflight.warnings}W${r.preflight.previewBlocked ? " blocked" : ""}`
+        ? r.failureStage === "preflight_env"
+          ? "failed_env"
+          : `${r.preflight.errors}E/${r.preflight.warnings}W${r.preflight.previewBlocked ? " blocked" : ""}`
         : "ok";
+    const time = r.generationStatus === "skipped" ? "skipped" : fmtTime(r.generationTimeMs);
 
     lines.push(
       `| ${pad(String(i + 1), 1)} ` +
@@ -60,7 +63,7 @@ export function formatEvalReport(report: EvalReport): string {
         `| ${pad(String(r.fileCount), 5)} ` +
         `| ${pad(promptSize, 7)} ` +
         `| ${pad(preflight, 9)} ` +
-        `| ${pad(fmtTime(r.generationTimeMs), 4)} ` +
+        `| ${pad(time, 7)} ` +
         `| ${pad(status, 6)} ` +
         `| ${failedChecks}${blocking} |`,
     );

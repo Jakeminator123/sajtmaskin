@@ -5,6 +5,7 @@ import { prepareGenerationContext } from "../orchestrate";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "../parser";
 import { runAutoFix } from "../autofix/pipeline";
 import { DEFAULT_MODEL } from "../models";
+import { DB_ENV_VARS, resolveConfiguredDbEnv } from "@/lib/db/env";
 import { buildCompleteProject } from "../export/project-scaffold";
 import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reader";
 import { runFinalizePreflight } from "../stream/finalize-preflight";
@@ -28,8 +29,13 @@ import {
   type CheckResult,
 } from "./checks";
 
+export type EvalGenerationStatus = "skipped" | "passed" | "failed";
+export type EvalFailureStage = "preflight_env" | "generation" | null;
+
 export interface EvalResult {
   promptId: string;
+  generationStatus: EvalGenerationStatus;
+  failureStage: EvalFailureStage;
   generationTimeMs: number;
   fileCount: number;
   scaffoldId: string | null;
@@ -79,7 +85,60 @@ const CRITICAL_EVAL_CHECKS = new Set([
   "exports",
   "imports",
   "syntax",
+  "preflight_env",
 ]);
+
+const MISSING_DB_ENV_MESSAGE =
+  "preflight=failed_env: missing database connection string. " +
+  `Set one of ${DB_ENV_VARS.join(", ")} before running codegen evals.`;
+
+export function resolveEvalEnvironment(
+  env: NodeJS.ProcessEnv = process.env,
+): { ok: true; dbEnvName: string } | { ok: false; message: string } {
+  const configuredDb = resolveConfiguredDbEnv(env);
+  if (!configuredDb) {
+    return { ok: false, message: MISSING_DB_ENV_MESSAGE };
+  }
+
+  return { ok: true, dbEnvName: configuredDb.name };
+}
+
+function makePreflightEnvFailureResult(evalPrompt: EvalPrompt, message: string): EvalResult {
+  return {
+    promptId: evalPrompt.id,
+    generationStatus: "skipped",
+    failureStage: "preflight_env",
+    generationTimeMs: 0,
+    fileCount: 0,
+    scaffoldId: null,
+    variantId: null,
+    promptSize: {
+      totalChars: 0,
+      totalEstimatedTokens: 0,
+      dynamicContextChars: 0,
+      droppedBlocks: 0,
+      largestBlocks: [],
+    },
+    preflight: {
+      errors: 1,
+      warnings: 0,
+      previewBlocked: true,
+      previewBlockingReason: "failed_env",
+    },
+    droppedProtectedPaths: [],
+    checks: [
+      {
+        name: "preflight_env",
+        passed: false,
+        message,
+        score: 0,
+      },
+    ],
+    totalScore: 0,
+    passed: false,
+    blockingChecks: ["preflight_env"],
+  };
+}
 
 /**
  * Sources used by the per-prompt gate checks in `evaluatePrompt`.
@@ -345,6 +404,8 @@ async function evaluatePrompt(
 
   return {
     promptId: evalPrompt.id,
+    generationStatus: "passed",
+    failureStage: null,
     generationTimeMs,
     fileCount: project.files.length,
     scaffoldId: generationInput.resolvedScaffold?.id ?? null,
@@ -379,6 +440,28 @@ export async function runEval(
 ): Promise<EvalReport> {
   const model = options?.model ?? DEFAULT_MODEL;
   const prompts = options?.prompts ?? EVAL_PROMPTS;
+  const environment = resolveEvalEnvironment();
+
+  if (!environment.ok) {
+    console.error(`[eval] ${environment.message}`);
+    const results = prompts.map((prompt) =>
+      makePreflightEnvFailureResult(prompt, environment.message),
+    );
+    const blockingCheckCounts = { preflight_env: results.length };
+    return {
+      timestamp: new Date().toISOString(),
+      model,
+      results,
+      summary: {
+        total: results.length,
+        passed: 0,
+        avgScore: 0,
+        avgTimeMs: 0,
+        blockingFailures: results.length,
+        blockingCheckCounts,
+      },
+    };
+  }
 
   const results: EvalResult[] = [];
 
@@ -399,6 +482,8 @@ export async function runEval(
       );
       results.push({
         promptId: evalPrompt.id,
+        generationStatus: "failed",
+        failureStage: "generation",
         generationTimeMs: 0,
         fileCount: 0,
         scaffoldId: null,

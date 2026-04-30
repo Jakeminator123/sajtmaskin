@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { deriveEvalCheckSources, resolveEvalPassOutcome } from "./runner";
+import {
+  deriveEvalCheckSources,
+  resolveEvalEnvironment,
+  resolveEvalPassOutcome,
+} from "./runner";
 import { checkProjectSanity, type CheckResult } from "./checks";
 import type { CodeFile } from "../parser";
 
@@ -93,6 +97,26 @@ describe("resolveEvalPassOutcome", () => {
 
     expect(result.passed).toBe(true);
     expect(result.blockingChecks).toEqual([]);
+  });
+});
+
+describe("resolveEvalEnvironment", () => {
+  it("fails fast when no database connection env is configured", () => {
+    const result = resolveEvalEnvironment({} as NodeJS.ProcessEnv);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain("preflight=failed_env");
+      expect(result.message).toContain("POSTGRES_URL");
+    }
+  });
+
+  it("accepts configured database env before eval spends LLM tokens", () => {
+    const result = resolveEvalEnvironment({
+      POSTGRES_URL: "postgresql://example.test/db",
+    } as unknown as NodeJS.ProcessEnv);
+
+    expect(result).toEqual({ ok: true, dbEnvName: "POSTGRES_URL" });
   });
 });
 

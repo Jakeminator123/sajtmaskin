@@ -6,6 +6,8 @@ import type { EvalReport, EvalResult } from "./runner";
 function evalResult(overrides: Partial<EvalResult>): EvalResult {
   return {
     promptId: "coffee-shop",
+    generationStatus: "passed",
+    failureStage: null,
     generationTimeMs: 900,
     fileCount: 4,
     scaffoldId: "landing-page",
