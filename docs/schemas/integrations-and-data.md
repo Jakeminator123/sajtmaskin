@@ -80,6 +80,12 @@ These tables are used by the own-engine build path and are fully integrated:
 - `meta.projectEnvVars` — project-specific env vars (encrypted when sensitive)
 - Used by both own-engine (after save) and v0-fallback
 
+### Company profiles
+
+- `company_profiles` — structured company/brand profile data linked to `app_projects` through `project_id`.
+- API access is owner-scoped through `userId` / `sessionId`: list, search and `companyName` lookup only return profiles attached to projects owned by the current scope.
+- PATCH linking verifies both the target project ownership and, when already attached, the profile's current project ownership before relinking.
+
 **Lagringsmodell (användarprojekt):** Kanonisk kod per version ligger i **`engine_versions.files_json`** (versionerad, lämplig för historik och rebuild). `project_data` speglar ofta samma sajt i ett app-projekt-format (t.ex. MCP-flöden). Stora monorepon eller binärt innehåll lagras inte som git i databasen — `files_json`-storlek och Postgres-kostnad är avvägningar; för tung media använd blob/CDN. Se även [ENV.md](../ENV.md) för Supabase/infra.
 
 ### Preview vs persisted URL

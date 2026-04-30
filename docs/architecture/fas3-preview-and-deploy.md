@@ -50,6 +50,9 @@ Primär previewväg är `preview_host` (Fly). Tier-1 shim (`/api/preview-render`
 | `POST /api/engine/chats/[chatId]/finalize-design` | F3-trigger ("Bygg integrationer"). Validerar tier-3 readiness mot dossier-`enforcement`-tags + `allowPlaceholdersInF3`-toggle; 412 + `missingByIntegration` bara när `build`-enforcement-keys saknas och inte är placeholder-täckta. |
 | `PATCH /api/projects/[id]/preferences` | Sätter app-project-preferenser (P31: `allowPlaceholdersInF3` boolean i `project_data.meta`). |
 | `POST /api/v0/deployments` | Deploy till Vercel |
+| `POST /api/domains/link` | Länkar domän till det konfigurerade Vercel-projektet. Kräver inloggning + rate-limit, `VERCEL_TOKEN` och `VERCEL_PROJECT_ID`; `VERCEL_TEAM_ID` är valfri. Body-`projectId` får bara matcha konfigurerat `VERCEL_PROJECT_ID` — avvikelse ger 403. `.se`/`.nu` kan även använda valfria `LOOPIA_*` för DNS. |
+| `POST /api/domains/verify` | Triggar Vercel-verifiering för domänen mot konfigurerat `VERCEL_PROJECT_ID`. Kräver inloggning + rate-limit; avvikande body-`projectId` ger 403. |
+| `POST /api/domains/save` | Sparar domän på deployment-raden efter tenant-/ägarkoll via deployment → chat → project (`setDeploymentDomainForRequest`). |
 
 Sedan 2026-04-20 (P29 Fas 1B) finns **inga** `/api/v0/chats/...` compat-routes kvar — chat-ytan är konsoliderad under `/api/engine/chats/...`. Övriga `/api/v0/*`-segment (deployments, projects, integrations) är Class C legacy med riktiga klient-callsites.
 

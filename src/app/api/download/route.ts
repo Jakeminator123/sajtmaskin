@@ -5,7 +5,7 @@ import { generateBackofficeFiles } from "@/lib/backoffice/template-generator";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
-import { getVersionById } from "@/lib/db/chat-repository-pg";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 
@@ -19,14 +19,15 @@ import { buildExportableProject } from "@/lib/gen/export/build-exportable-projec
  */
 
 async function buildZipBufferFromEngineVersion(
+  request: NextRequest,
   chatId: string,
   versionId: string,
 ): Promise<ArrayBuffer | null> {
-  const version = await getVersionById(versionId);
-  if (!version || version.chat_id !== chatId) {
+  const scopedVersion = await getEngineVersionForChatByIdForRequest(request, chatId, versionId);
+  if (!scopedVersion) {
     return null;
   }
-  const files = parseCodeFilesFromFilesJson(version.files_json);
+  const files = parseCodeFilesFromFilesJson(scopedVersion.version.files_json);
   if (!files || files.length === 0) {
     return null;
   }
@@ -41,6 +42,7 @@ async function buildZipBufferFromEngineVersion(
 }
 
 async function processDownload(
+  request: NextRequest,
   chatId: string,
   versionId: string,
   includeBackoffice: boolean,
@@ -49,7 +51,7 @@ async function processDownload(
   try {
     let zipBuffer: ArrayBuffer | null;
     try {
-      zipBuffer = await buildZipBufferFromEngineVersion(chatId, versionId);
+      zipBuffer = await buildZipBufferFromEngineVersion(request, chatId, versionId);
     } catch (downloadError) {
       const errorMessage = downloadError instanceof Error ? downloadError.message : "Okänt fel";
       console.error("[API/download] Failed to build ZIP:", errorMessage);
@@ -182,7 +184,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return processDownload(chatId, versionId, !!includeBackoffice, password);
+      return processDownload(request, chatId, versionId, !!includeBackoffice, password);
     } catch (error) {
       console.error("[API/download] POST error:", error);
       return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
@@ -213,6 +215,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return processDownload(chatId, versionId, includeBackoffice, password || undefined);
+    return processDownload(request, chatId, versionId, includeBackoffice, password || undefined);
   });
 }

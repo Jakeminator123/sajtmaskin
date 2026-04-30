@@ -12,6 +12,9 @@ Den motsvarande runtime-logiken som webbappen använder ligger i:
 - `src/app/api/domains/whois/route.ts` — HTTP-endpoint för RDAP/WHOIS.
 - `src/app/api/domains/check/route.ts` — availability + pris (5x markup) +
   RDAP-berikning per resultat.
+- `src/app/api/domains/link/route.ts` — länkar domän till konfigurerat Vercel-projekt.
+- `src/app/api/domains/verify/route.ts` — triggar Vercel domain verification.
+- `src/app/api/domains/save/route.ts` — sparar domän på ägarsäkrad deployment-rad.
 
 ## Filer här
 

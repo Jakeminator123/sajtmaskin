@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { setDeploymentDomain } from "@/lib/deployment";
+import { setDeploymentDomainForRequest } from "@/lib/deployment";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
 
@@ -35,7 +35,13 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      await setDeploymentDomain(deploymentId, domain);
+      const updated = await setDeploymentDomainForRequest(req, deploymentId, domain);
+      if (!updated) {
+        return NextResponse.json(
+          { error: "Deployment not found" },
+          { status: 404 },
+        );
+      }
 
       return NextResponse.json({ success: true, deploymentId, domain });
     } catch (error) {
