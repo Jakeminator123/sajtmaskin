@@ -206,6 +206,38 @@ function isValidInPageHashNavigationFinding(
   });
 }
 
+const PLACEHOLDER_HREF_RE =
+  /<(a|Link|Button)\b[^>]*\bhref\s*=\s*(?:""|''|"#"|'#'|\{\s*(?:""|"#"|''|'#')\s*\})/g;
+
+export function checkNavigationPlaceholderActions(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+  options: { maxFindings?: number } = {},
+): VerifierFindings["blocking"] {
+  const maxFindings = options.maxFindings ?? 8;
+  const findings: VerifierFindings["blocking"] = [];
+  for (const file of files) {
+    if (findings.length >= maxFindings) break;
+    if (!file.path || !file.content) continue;
+    if (!/\.(t|j)sx$/i.test(file.path)) continue;
+    PLACEHOLDER_HREF_RE.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = PLACEHOLDER_HREF_RE.exec(file.content)) !== null) {
+      const rawHrefMatch = match[0].match(/href\s*=\s*(.*?)(?:\s|>|$)/);
+      const rawHref = rawHrefMatch?.[1]?.replace(/[{}'"]/g, "").trim() ?? "#";
+      if (rawHref.startsWith("#") && rawHref.length > 1) {
+        const id = rawHref.slice(1);
+        if (fileContainsId(file.content, id)) continue;
+      }
+      findings.push({
+        id: "navigation-placeholder-actions",
+        detail: `${file.path}: <${match[1]}> uses placeholder href ${rawHref || "(empty)"}. Provide a real route, in-page target with matching id, submit/action handler, or mark it demo-only.`,
+      });
+      if (findings.length >= maxFindings) break;
+    }
+  }
+  return findings;
+}
+
 export function suppressValidInPageAnchorNavigationFindings(
   findings: VerifierFindings,
   files: Array<Pick<CodeFile, "path" | "content">>,
@@ -632,8 +664,9 @@ export async function runVerifierPass(
   const motionTraps = checkMotionReduceTrap(files);
   const r3fClientBoundary = checkR3FClientBoundary(files);
   const undefinedJsx = checkUndefinedJsxSymbols(files);
+  const navigationPlaceholders = checkNavigationPlaceholderActions(files);
   const deterministic: VerifierFindings = {
-    blocking: [...motionTraps, ...r3fClientBoundary, ...undefinedJsx],
+    blocking: [...motionTraps, ...r3fClientBoundary, ...undefinedJsx, ...navigationPlaceholders],
     quality: [],
   };
 

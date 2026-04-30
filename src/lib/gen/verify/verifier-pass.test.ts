@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checkMotionReduceTrap,
+  checkNavigationPlaceholderActions,
   checkR3FClientBoundary,
   checkUndefinedJsxSymbols,
   extractFilePathsFromVerifierFindings,
@@ -518,6 +519,33 @@ describe("suppressValidInPageAnchorNavigationFindings", () => {
     );
 
     expect(findings.blocking).toHaveLength(1);
+  });
+});
+
+describe("checkNavigationPlaceholderActions", () => {
+  it("flags placeholder hrefs deterministically", () => {
+    const findings = checkNavigationPlaceholderActions([
+      {
+        path: "components/hero.tsx",
+        content: 'export function Hero(){ return <a href="#">Boka demo</a>; }',
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("navigation-placeholder-actions");
+    expect(findings[0]?.detail).toContain("components/hero.tsx");
+  });
+
+  it("accepts in-page hash targets when the id exists in the same file", () => {
+    const findings = checkNavigationPlaceholderActions([
+      {
+        path: "app/page.tsx",
+        content:
+          'export default function Page(){ return <main><a href="#menu">Meny</a><section id="menu" /></main>; }',
+      },
+    ]);
+
+    expect(findings).toEqual([]);
   });
 });
 
