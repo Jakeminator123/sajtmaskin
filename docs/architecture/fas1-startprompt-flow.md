@@ -154,7 +154,7 @@ Boostar scaffold-matchning och styr prompt-kontext.
 
 ## Route Plan
 
-`buildRoutePlan()` i `src/lib/gen/route-plan.ts`.
+`buildRoutePlan()` i `src/lib/gen/route-plan/`.
 
 | Källa | Prioritet |
 |---|---|
@@ -227,7 +227,7 @@ Output: `RoutePlan { routes[], siteType, provenance }`.
 | Scaffold-matchning | `src/lib/gen/scaffolds/matcher.ts` |
 | Embedding-sökning | `src/lib/gen/scaffolds/scaffold-search.ts` |
 | Capability-inferens | `src/lib/gen/capability-inference.ts` |
-| Route plan | `src/lib/gen/route-plan.ts` |
+| Route plan | `src/lib/gen/route-plan/` |
 | Server init-handler | `src/lib/api/engine/chats/create-chat-stream-post.ts` |
 | Server follow-up-handler | `src/lib/api/engine/chats/chat-message-stream-post.ts` |
 

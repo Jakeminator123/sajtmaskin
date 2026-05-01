@@ -1535,6 +1535,15 @@ function buildRunFixPatterns(entries: StoredGenerationEntry[]): RunFixPattern[] 
         }
       }
     }
+    if (type === "server-verify.policy" && Array.isArray(entry.data.findings)) {
+      for (const finding of entry.data.findings) {
+        if (!finding || typeof finding !== "object") continue;
+        const id = readString((finding as { id?: unknown }).id);
+        const detail = readString((finding as { detail?: unknown }).detail);
+        const candidate = [id, detail].filter(Boolean).join(": ");
+        if (candidate) candidates.push(candidate);
+      }
+    }
     const directReason = readString(entry.data.reason);
     const directMessage = readString(entry.data.message);
     if (type === "syntax-validation.early-stop" && directReason) candidates.push(directReason);

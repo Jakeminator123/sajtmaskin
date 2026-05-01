@@ -134,7 +134,7 @@ scaffoldMode?
 ### STEG 4 — Capability-inferens (`capability-inference.ts`)
 Flaggor: `needsAuth`, `needsEcommerce`, `needsAppShell`, `needsForms`, `needsCharts`, `needs3D`, `needsMotion`, m.fl. + `hasHeavyCapabilities()`. Boostar matchning + prioriterar filer + matar BuildSpec.
 
-### STEG 5 — Route Plan (`route-plan.ts`)
+### STEG 5 — Route Plan (`src/lib/gen/route-plan/`)
 Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `RoutePlan { routes[], siteType, provenance }`.
 
 ### STEG 6 — Pre-generation Contracts (`pre-generation-contracts.ts`)
@@ -252,6 +252,20 @@ ALL_SCAFFOLDS (registry.ts)
 `SCAFFOLD_PROTECTED_PATHS` är endast för rena utility-filer utan brand/copy/affärslogik. `app/api/placeholder/route.ts` lades till 2026-04-27 efter att eval-rapporten visade att 6/13 fail-prompts berodde på att LLM:n regenererade filen som JSX i `.ts` (`Expected ">" but found "style"`). `app/icon.svg` är en minimal favicon-default som tar bort preview-404 utan att bära kundspecifik brand. Att låsa scaffold-versionen är deterministiskt och byter inte några brand-relaterade beslut.
 
 Lägg endast till nya entries om filen är ren utility (verifierad korrekt scaffold-version, ingen kund vill anpassa).
+
+### Baseline-owned helpers och extension-kollisioner (2026-05-01)
+
+`buildCompleteProject()` i [`src/lib/gen/export/project-scaffold.ts`](../../src/lib/gen/export/project-scaffold.ts) injicerar runtime-helpers som scaffolden alltid äger (t.ex. `hooks/use-reduced-motion.ts`, `lib/utils.ts`). Två regler styr hur dessa skyddas:
+
+1. **Cross-file-import-checker stubbar inte baseline-helpers.** `@/hooks/use-reduced-motion` står i [`src/lib/gen/autofix/runtime-imports.ts`](../../src/lib/gen/autofix/runtime-imports.ts) `RUNTIME_PROVIDED_EXACT`. Listan delas av cross-file-stubbern, preview-renderern, snapshot-repair och dossier-validering — så samma definition gäller överallt.
+2. **Generated siblings dedupas mot baseline-stem.** Om LLM eller en tidig autofix-runda emitterar `hooks/use-reduced-motion.tsx` parallellt med scaffold-baselinens `.ts`, droppas LLM-filen i `buildCompleteProject` innan merge. Bundler-resolver är annars non-deterministisk för samma module-stem med olika extension — den tidigare buggen plockade `.tsx`-stubben (med `return {}` truthy) i stället för matchMedia-baselinen och frös all motion.
+
+`runProjectSanityChecks()` i [`src/lib/gen/validation/project-sanity.ts`](../../src/lib/gen/validation/project-sanity.ts) kompletterar med två deterministiska guards:
+
+- **Bare language-fence-token på rad 1** (`ts`/`tsx`/`js`/`jsx`/`typescript`/`javascript`) blockas som `code_structure_failure`. Detta fångar LLM-fixar som returnerar fenced markdown-block som filinnehåll och annars kraschar runtime med `ReferenceError: ts is not defined`.
+- **Duplicate module-stems** med olika source-extensions blockas. Ingen import-specifier får ha både `.ts` och `.tsx` som potentiella resolutionsmål i samma artifact.
+
+Verifier-pass har en kompletterande check ([`checkUseReducedMotionStub`](../../src/lib/gen/verify/verifier-pass.ts)) som flaggar `useReducedMotion`-funktioner vars body är exakt `return {}` eller `return null` — fångar regression om någon framtida autofix återinför stub-shapen.
 
 ### Källa och konsumenter (2026-04-27 P0)
 

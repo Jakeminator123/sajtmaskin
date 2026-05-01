@@ -13,4 +13,4 @@ Small shared lookup tables for generation and registry-related helpers. Parent: 
 ## Notes
 
 - The older docs-snippet knowledge-base / semantic-retrieval layer is no longer part of the active own-engine prompt path.
-- If generation needs more library guidance in the future, prefer updating static prompt fragments or scaffold/context serialization rather than re-introducing a hidden docs-RAG layer by accident.
+- If generation needs more library guidance in the future, prefer updating Core Rules (`config/prompt-core/`) or scaffold/context serialization rather than re-introducing a hidden docs-RAG layer by accident.

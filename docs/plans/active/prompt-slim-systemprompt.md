@@ -11,7 +11,7 @@ supersedes: null
 
 ## Roll efter doc-konsolidering 2026-05-01
 
-Den här filen är **child-planen för promptbudget** under [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md). Startlinjen äger prioritering och agentfördelning; den här planen äger bara konkret kapning av Static Core, Dynamic Context, follow-up-kontext och dossier-rendering.
+Den här filen är **child-planen för promptbudget** under [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md). Startlinjen äger prioritering och agentfördelning; den här planen äger bara konkret kapning av Core Rules, Dynamic Context, follow-up-kontext och dossier-rendering.
 
 Avgränsning:
 
@@ -35,7 +35,7 @@ Genomfört:
 
 Kvar:
 
-- Static Core är fortfarande cirka `40k+` chars i follow-up-evalen; målet är under `35k`.
+- Core Rules är fortfarande cirka `40k+` chars i follow-up-evalen; målet är under `35k`.
 - Follow-up-evalen passerar funktionellt men ligger runt `70k` total systemprompt och `29k` dynamic context; målet var normal follow-up under `45k`.
 - Dynamic context ligger under hard warning `35k`, men inte under önskat `25k`.
 - Senaste fulla `eval:smoke` i ursprungsplanen är äldre än den här kontrollen; kör om efter nästa kapning innan stängning.
@@ -53,7 +53,7 @@ Kvar:
 1. Budget-telemetri som source of truth.
 2. Dossier compact default.
 3. Variant och layout-block caps.
-4. Static Core första kapning.
+4. Core Rules första kapning.
 5. Follow-up delta-context.
 6. 3D kontrollera, inte döpa om i onödan.
 
@@ -74,6 +74,6 @@ Acceptera inte en prompt-kapning om smoke går från PASS till FAIL eller om avg
 - Init simple website: total prompt under `65k` chars.
 - Smoke dynamic context: helst under `25k`, hård varning över `35k`.
 - Selected dossier instructions: normal under `2k`, tung väg under `4k`.
-- Static Core: första fas under `35k`.
+- Core Rules: första fas under `35k`.
 - Follow-up normal: under `45k`.
 - Kvalitet: `eval:smoke` fortsatt 3/3 PASS, ingen ny blocking check.

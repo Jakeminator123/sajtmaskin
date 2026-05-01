@@ -19,6 +19,8 @@ Steg: spåra beroenden → utför → uppdatera referenser → `npm run typechec
 
 Agenten får själv trigga `/818-swarm-decide` utan extra användarbeslut när en ändring kräver konsensus före beslut: riskfylld codegen-/status-/schema-yta, möjlig namnskugga, oklart canonical ownership, eller flera rimliga implementationer. Använd 8 read-only `explore`-agenter med distinkta vinklar, aggregera kort, verifiera osäkra fakta mot kod och implementera bara om utfallet är tydligt och smalt. Vid bred refaktor eller arkitekturbeslut: rapportera blocker i stället för att smyga in ändringen.
 
+Subagent-notiser eller task-resultat som säger "svara inte" gäller bara passiv notifiering. Om användaren uttryckligen ber att fortsätta, syntetisera relevanta agentfynd och fortsätt arbetet i stället för att stanna tyst.
+
 ## Efter varje runda
 
 Gör en kort scope-check innan leverans:

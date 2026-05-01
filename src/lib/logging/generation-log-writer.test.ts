@@ -102,6 +102,10 @@ describe("generation-log writer", () => {
       reason: "fast_policy",
       verificationPolicy: "fast",
       qualityTarget: "standard",
+      findings: [
+        { id: "missing-accessible-name", detail: "Hero CTA button lacks accessible name" },
+        { id: "missing-accessible-name", detail: "Hero CTA button lacks accessible name" },
+      ],
       slug: "retro-arcade",
     });
     devLogAppend("latest", {
@@ -127,7 +131,7 @@ describe("generation-log writer", () => {
     };
     const fixPatterns = JSON.parse(
       fs.readFileSync(path.join(runDir, "fix-patterns.json"), "utf8"),
-    ) as Array<{ pattern: string; occurrences: number }>;
+    ) as Array<{ pattern: string; occurrences: number; sources?: Record<string, number> }>;
     const timeline = fs.readFileSync(path.join(runDir, "timeline.ndjson"), "utf8");
     const faultFix = fs.readFileSync(path.join(runDir, "fault-fix-index.md"), "utf8");
     const faultFixCsv = fs.readFileSync(path.join(runDir, "fault-fix-index.csv"), "utf8");
@@ -150,7 +154,7 @@ describe("generation-log writer", () => {
         path.join(tempDir, "logs", "site-observability", "chat_1", "latest", "fix-patterns.json"),
         "utf8",
       ),
-    ) as Array<{ pattern: string; occurrences: number }>;
+    ) as Array<{ pattern: string; occurrences: number; sources?: Record<string, number> }>;
     const siteHistory = fs.readFileSync(
       path.join(tempDir, "logs", "site-observability", "chat_1", "history.ndjson"),
       "utf8",
@@ -182,8 +186,18 @@ describe("generation-log writer", () => {
     expect(observability.chatId).toBe("chat_1");
     expect(Array.isArray(observability.recurringPatterns)).toBe(true);
     expect(Array.isArray(fixPatterns)).toBe(true);
+    const verifierPattern = fixPatterns.find((pattern) =>
+      pattern.pattern.includes("button lacks accessible name"),
+    );
+    expect(verifierPattern?.occurrences).toBe(2);
+    expect(verifierPattern?.sources?.["server-verify.policy"]).toBe(2);
     expect(siteObservability.chatId).toBe("chat_1");
     expect(Array.isArray(siteFixPatterns)).toBe(true);
+    expect(
+      siteFixPatterns.some((pattern) =>
+        pattern.pattern.includes("button lacks accessible name"),
+      ),
+    ).toBe(true);
     expect(siteHistory).toContain("\"runId\"");
     expect(faultFix).toContain("| Tid | Fas | Steg | Severity |");
     expect(faultFix).toContain("chat_1");

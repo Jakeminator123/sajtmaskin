@@ -1,6 +1,6 @@
 # AI-modeller — hur du konfigurerar Sajtmaskin
 
-Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/` + `codegen-static-prompt.json`: **innehållet i repot styr beteendet**, så du kan ändra standardmodeller och tokenbudgetar utan att leta genom hela TypeScript-trädet.
+Det här biblioteket är tänkt att fungera ungefär som `config/prompt-core/` + `codegen-core-manifest.json`: **innehållet i repot styr beteendet**, så du kan ändra standardmodeller och tokenbudgetar utan att leta genom hela TypeScript-trädet.
 
 ## Var börjar jag?
 

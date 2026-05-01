@@ -1,5 +1,5 @@
 {
-  "description": "Compare external template repos (e.g. shadcn-io-mirror) against Sajtmaskin TCH: package.json engines, .node-version, config/prompt-static/01-tech-stack.md",
+  "description": "Compare external template repos (e.g. shadcn-io-mirror) against Sajtmaskin TCH: package.json engines, .node-version, config/prompt-core/04-coding-direction.md",
   "sajtmaskinTarget": {
     "nodeRuntime": "22.14.x",
     "nodeMajorAllowed": [22],

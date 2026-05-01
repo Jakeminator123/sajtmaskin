@@ -285,7 +285,7 @@ som visar datan så operatören kan bedöma om scoring är meningsfull.
 
 **Beslutsväntan:** 2–4 veckors data i panelen → välj en av tre vägar:
 1. Wire upp i matchern som tie-breaker.
-2. Behåll som dashboard-data.
+2. Behåll som backoffice-data.
 3. Ta bort modulen + DB-kolumnerna.
 
 **Beroende av SAJ-57** — utan retry-tracking är `retryRate` permanent 0

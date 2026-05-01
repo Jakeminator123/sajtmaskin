@@ -12,7 +12,7 @@
 
 **Djupare ämnesdokument** (lägg inte in backlog eller långa tabeller här):
 
-- Preview / sandbox / credentials: [`architecture/fas3-preview-and-deploy.md`](./architecture/fas3-preview-and-deploy.md)
+- Preview / VM / credentials: [`architecture/fas3-preview-and-deploy.md`](./architecture/fas3-preview-and-deploy.md)
 - Modeller / assist / builder-generering: [`architecture/fas2-orchestration-and-build.md`](./architecture/fas2-orchestration-and-build.md), `src/lib/models/catalog.ts`
 - Historisk nyckeljämförelse (utan hemligheter): borttagen — se git-historik
 
@@ -162,7 +162,7 @@ Filen tar bort behovet av att fråga användaren om env-variabler i chatten unde
 | **F2** (`design`) | Alla harmless-placeholders **+** tier-3-stubs **+** projekt-preview-tokens. Användaren ser exakt vilka nycklar projektet kan tänkas använda. Ingen interaktion krävs — preview-VM:en bootar oberoende av denna fil. | `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt` + `project-preview-env.ts` |
 | **F3** (`integrations`) | Tier-3-stubs strippas. Värden från env-panelen (`projectEnvVars` i DB) mergas in som "user"-lager. Saknade tier-3 nycklar surfar som blockers via [`src/lib/integrations/tier3-build-spec.ts`](../src/lib/integrations/tier3-build-spec.ts). | Som F2 utan tier-3 + DB-lagrade `projectEnvVars` + ev. modell-emitterad `.env.local` |
 
-`env.example` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i sandboxen — det är `.env.local` som faktiskt boot:ar previewen, `env.example` är **användarsynlig spegling** + förklaringsdokument. Detaljer: [`src/lib/gen/stream/finalize-version/`](../src/lib/gen/stream/finalize-version/) (post-OMTAG-03 package; `runner.ts` kallar `injectProjectEnvFileIntoFilesJson`).
+`env.example` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i VM:en — det är `.env.local` som faktiskt boot:ar previewen, `env.example` är **användarsynlig spegling** + förklaringsdokument. Detaljer: [`src/lib/gen/stream/finalize-version/`](../src/lib/gen/stream/finalize-version/) (post-OMTAG-03 package; `runner.ts` kallar `injectProjectEnvFileIntoFilesJson`).
 
 ### Regelkontrakt: F2-tystnad
 

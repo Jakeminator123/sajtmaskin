@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const readRecurringPatternsForChatMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/logging/generation-log-writer", () => ({
+vi.mock("@/lib/logging/recurring-patterns-reader", () => ({
   readRecurringPatternsForChat: readRecurringPatternsForChatMock,
 }));
 

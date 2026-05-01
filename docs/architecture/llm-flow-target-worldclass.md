@@ -176,7 +176,7 @@ request needs 3D
 | Rikt orchestration-lager (`orchestrate.ts`) | ✅ Mature | Inte bara "skicka prompt till modell" — riktig planning-fas |
 | Scaffold + variant + dossier som separata begrepp | ✅ | Tydlig ansvarsuppdelning (struktur / visuell signatur / capability-implementation) |
 | Snapshot-baserad follow-up-kontinuitet | ✅ | `orchestration-snapshot.ts` + `buildFollowUpBriefFromSnapshot` |
-| Static Core + Dynamic Context-uppdelning | ✅ | Stabil produktregel-baseline + per-request-kontext |
+| Core Rules + Dynamic Context-uppdelning | ✅ | Stabil produktregel-baseline + per-request-kontext |
 | Per-Request Signal Cascade | ✅ | EXPLICIT > INDICATED > INFERRED > DEFAULT > FALLBACK |
 | Lifecycle stage (F2/F3) | ✅ | Distinkta gates och kontrakt |
 | Element Preservation Guard | ✅ | Mekaniskt skydd mot att follow-ups tappar high-value-element |

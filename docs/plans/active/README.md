@@ -20,7 +20,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 ## Scope-anchor (nästa session)
 
 - **Startlinje 2026-04-28:** [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) — **primär LLM-masterplan** efter hardening-PR (`3475484e9`, `8181f87e4`) och doc-konsolidering 2026-05-01. Äger follow-up/major-change, F3/readiness, UX/status och backlog-koppling. **Läs först innan nytt LLM-flöde-arbete startar.**
-- **Prompt-slim child-plan:** [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) — enda aktiva child-planen för Static Core + follow-up dynamic context. Skapa inte nytt prompt-planlager.
+- **Prompt-slim child-plan:** [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) — enda aktiva child-planen för Core Rules + follow-up Dynamic Context. Skapa inte nytt prompt-planlager.
 - **10-lagers målbild:** [`2026-04-27-llm-flode-varldsklass-scope.md`](../avklarat/2026-04-27-llm-flode-varldsklass-scope.md) — historisk scope-/målbildsanchor. Använd som bakgrund; startlinjen ovan äger aktiv LLM-körplan.
 
 ## Öppna steg (konsoliderat efter 2026-04-27-städ)
@@ -30,13 +30,13 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | # | Plan | Kvarvarande steg | Prio |
 |---|------|------------------|------|
 | O | [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) | **P0–P4 masterplan**: verifier-status, init/follow-up-konsistens, major-change detector, F3/readiness, latency, UX/status, env/doc-sync och backlog-koppling. | **Hög (anchor för nästa runda)** |
-| P | [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) | **Child-plan till O**: Static Core + follow-up dynamic context ska kapas utan nya promptlager. Kvar: Core Rules under ~35k och normal follow-up under ~45k. | Hög |
+| P | [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) | **Child-plan till O**: Core Rules + follow-up Dynamic Context ska kapas utan nya promptlager. Kvar: Core Rules under ~35k och normal follow-up under ~45k. | Hög |
 | A | [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | **C2** — aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Vercel Preview via Dashboard. **D** — aktivera i prod efter latens. **E** — ta bort lint från bakgrundsgate. | Medel |
 | B | [`cloudagent-paket-A-doc-rewrite.md`](./cloudagent-paket-A-doc-rewrite.md) | 3 dossier v1→v2 doc-omskrivningar (D3, D5, D7) — redo för cloudagent. | Låg |
-| C | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #7 | **E3** — `recurringQualityPatterns` in i codegen-prompt. Enda kvarvarande från E-laget. ~2h. | Medel |
+| C | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #7 | ~~E3~~ — recurring patterns är inkopplat i dev/follow-up via `renderRecurringFailuresBlockLines(chatId)`. Prod-on kräver separat eval-/produktbeslut. | — |
 | D | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #8 | **P26 rest** — PR3–9 från ursprungliga P26-paketet (quality-gate probe, HMR-spam, raw-msg-log, bygg-nu-UX, backoffice build-template, three-fiber-dossier). | Låg–Medel per PR |
-| E | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #9 | **Core-split v2:** `orchestrate.ts` (912) + `route-plan.ts` (742) splittas enligt samma mönster som OMTAG 03. | Medel |
-| F | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #11 | **Event-bus UI-flip (spår A)** — UI läser `selectVersionStatus(events)` istället för DB-flaggor. Copy-spåret ligger i `2026-05-01-f2-f3-ux-copy-konsolidering.md`. | Medel |
+| E | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #9 | **Core-split v2:** `route-plan` är redan paket; kvar är främst `orchestrate.ts` + små helper-extraktioner. | Medel |
+| F | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #11 | **Event-bus UI-flip (spår A)** — backend/projection/hook finns; consumer cut-over från DB-flaggor till `selectVersionStatus(events)` kvar. Copy-spåret ligger i `2026-05-01-f2-f3-ux-copy-konsolidering.md`. | Medel |
 | Q | [`2026-05-01-f2-f3-ux-copy-konsolidering.md`](./2026-05-01-f2-f3-ux-copy-konsolidering.md) | **F2/F3 copy (spår B)** — samla "Bygg nu" / "F3" / "Bygg integrationer" och `preview`/`VM`-ordval utan att blanda in signal-/statuslogik. | Låg–Medel |
 | L | [`KRAVER-DIALOG-2026-04-24.md`](./KRAVER-DIALOG-2026-04-24.md) | 7 punkter från långbänk-trion (databas/Redis observability) som kräver dialog: mega-cleanup ordering, TOCTOU-races, env-konvent, NDJSON-precision, refaktor-koordinering, fler strict schemas. | Låg–Medel |
 | M | [`OPEN-THREADS-SCAFFOLDS-2026-04-24.md`](./OPEN-THREADS-SCAFFOLDS-2026-04-24.md) | 6 öppna trådar: scaffold-retry brief-context, matcher-kwNorm, scoring wire/keep/delete, scaffoldRetryUsed-upstream, sv-locale-routing, latency-mätning. SEO-spec (PR-A #103 + PR-B #105 ✅) arkiverad → [`../avklarat/SEO-F3-PROMOTION-NEXT-PR.md`](../avklarat/SEO-F3-PROMOTION-NEXT-PR.md). | Låg–Medel |
@@ -69,7 +69,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 ## Kanonisk checklista
 
-[`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) — kort smal lista (~4 öppna punkter) + telemetri-blockad + strategiska satsningar + bevarad historik över alla leverans-waves (2026-04-20, 2026-04-21, 2026-04-22, …).
+[`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) — prioriterad öppen lista + telemetri-blockad + strategiska satsningar + bevarad historik över alla leverans-waves (2026-04-20, 2026-04-21, 2026-04-22, …).
 
 ## Avklarade waves
 

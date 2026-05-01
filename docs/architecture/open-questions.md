@@ -42,9 +42,9 @@ Levande dokument för **antaganden** vi gör i koden eller pratet om systemet, m
 
 ## Aktiva frågor
 
-### 1. ❌ Redis cache — vet vi ens om den körs?
+### 1. 🟡 Redis cache verifierad — observatory write-bugg kvar
 
-**Antagande:** `useRedisCache` styr brief-cache + rate-limit + preview-session-store. Vi var osäkra på om den var no-op:ad i dev.
+**Tidigare antagande:** `useRedisCache` styr brief-cache + rate-limit + preview-session-store. Vi var osäkra på om den var no-op:ad i dev.
 
 **Verifierat 2026-04-23 (chatId `b71dafb3`):** Redis körs aktivt mot Upstash. Lazy-init när någon route faktiskt behöver den (inte vid server-boot).
 
@@ -78,7 +78,7 @@ Levande dokument för **antaganden** vi gör i koden eller pratet om systemet, m
 
 **Tekniska kandidater:**
 - WebContainers (StackBlitz tech) — Node.js i browser via WASM
-- Bolt-stil sandbox-iframe med pre-built bundles
+- Bolt-stil preview-iframe med pre-built bundles
 - esbuild WASM in-browser bundling
 
 **Hur integrera utan att bryta nuvarande:**

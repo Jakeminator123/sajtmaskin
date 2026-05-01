@@ -3,7 +3,7 @@
  *
  * Architecture (post 2026-04-18 directive-cascade removal):
  *  ┌─────────────────────────────────────────────────┐
- *  │  Static Core — config/codegen-core-manifest.json +             │
+ *  │  Core Rules — config/codegen-core-manifest.json +              │
  *  │    config/prompt-core/*.md (immutable product rules,           │
  *  │    incl. visual-design + coding-direction)                     │
  *  │  (size varies; see prompt telemetry + slim plan) │
@@ -27,7 +27,7 @@
  * signal those defaults pretended to switch on.
  *
  * What reaches the model (own-engine):
- *  - **Static Core** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
+ *  - **Core Rules** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
  *    **dynamic context** from this file = full **system** message.
  *  - **User turn** = current request prompt; not duplicated here.
  *  - **Chat history** = prior turns, assembled by the generation pipeline.
