@@ -125,6 +125,16 @@ const PERSISTED_SCAFFOLD_UNLOCK_SUPPLEMENT_PATTERNS: RegExp[] = [
  * current website: playable game/app logic, canvas interaction, physics,
  * scoring or collisions. These unlock scaffold rematching without widening
  * every visual-3d overlay into a full redesign.
+ *
+ * **Strictly narrower than `BEYOND_DOSSIER_MARKERS["visual-3d"]` in
+ * `src/lib/builder/follow-up-capability-detection.ts` and `needsGame` /
+ * `needsPhysics` in `src/lib/gen/capability-inference.ts`.** A bare
+ * "lägg till en 3d-kaffekopp" detects `visual-3d` capability and may set
+ * `needs3D` on the inferred capabilities, but must NOT unlock scaffold
+ * rematch — see regression matrix in `follow-up-clarification.test.ts`.
+ * Do not consolidate these three sources into a single regex bank without
+ * preserving the per-consumer threshold (capability injection vs scaffold
+ * unlock vs build-spec context policy).
  */
 const FOLLOW_UP_MAJOR_CHANGE_UNLOCK_PATTERNS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:bygg|skapa|gör|designa|implementera|build|create|make|design|implement)[\s\S]{0,80}(?:spel|game|playable|arkad|arcade|pac-?man|pong|tetris)(?![\p{L}\p{N}_])/iu,

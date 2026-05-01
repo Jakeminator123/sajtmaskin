@@ -20,6 +20,24 @@
  *    accidental hits when the prompt clearly belongs to a different domain
  *    (e.g. `payments` vetoes generic "betala räkningen" without a card
  *    instrument noun).
+ *
+ * **Parallel implementations — INTENTIONALLY SEPARATE:**
+ * The 3D / game / physics / canvas signal families also live in two other
+ * files because each consumer has a different decision threshold. Do NOT
+ * merge them blindly into one shared regex bank — they emit different
+ * outputs:
+ *  - `src/lib/gen/capability-inference.ts` — `needs3D` / `needsPhysics` /
+ *    `needsGame` boolean flags for prompt/build-spec/context-policy. Uses
+ *    ASCII `\b` in some rules, Unicode boundaries in others.
+ *  - `src/lib/providers/own-engine/follow-up-clarification.ts` —
+ *    `FOLLOW_UP_MAJOR_CHANGE_UNLOCK_PATTERNS` for scaffold rematch unlock.
+ *    Strictly narrower than this vocabulary: e.g. "lägg till en
+ *    3d-kaffekopp" detects `visual-3d` here but does NOT unlock scaffold
+ *    there.
+ *
+ * Touching one consumer's tokens? Read the regression matrix in
+ * `src/lib/providers/own-engine/follow-up-clarification.test.ts` (describe
+ * "follow-up signal regression matrix") before merging.
  */
 
 export interface CapabilityVocabularyEntry {

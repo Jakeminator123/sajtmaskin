@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import {
   _resetLlmFallbackCacheForTests,
   classifyFollowUpIntent,
@@ -251,6 +252,83 @@ describe("shouldIgnorePersistedScaffoldForMatch", () => {
         scaffoldId: "landing-page",
       }),
     ).toBe(false);
+  });
+});
+
+// 2026-05-01: end-to-end regressionsmatris som binder ihop
+// `detectFollowUpCapabilities` + `classifyFollowUpIntent` +
+// `shouldIgnorePersistedScaffoldForMatch` för fyra kanoniska 3D/game-fall.
+// Skyddar mot framtida regex-konsolideringar som råkar förskjuta
+// gränsen mellan capability-injection, scaffold-unlock och ren refine.
+// Varje fall är en hel rad (intent + capability + scaffold-beslut), så
+// bredare refaktorer av delade marker-grupper måste röra alla tre eller
+// inget — inte bara halva spåret.
+describe("follow-up signal regression matrix (3D / game / refine / modify)", () => {
+  it("'lägg till en 3d-kaffekopp …' = capability-add + visual-3d, scaffold pinned", () => {
+    const message = "lägg till en 3d-kaffekopp som hoovrar och flyger ovanför";
+    const detection = detectFollowUpCapabilities(message);
+
+    expect(classifyFollowUpIntent(message)).toBe("capability-add");
+    expect(detection.capabilityIds).toContain("visual-3d");
+    expect(detection.referencesExistingCapability).toBe(false);
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "capability-add",
+        message,
+        scaffoldMode: "auto",
+        scaffoldId: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("'bygg Pac-Man-spel med score och collision' = scaffold unlocks (major-change)", () => {
+    const message = "bygg ett Pac-Man-spel med score och collision";
+
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "capability-add",
+        message,
+        scaffoldMode: "auto",
+        scaffoldId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("'ändra rubriken' = clear-refine, no dossier capability, no scaffold unlock", () => {
+    const message = "ändra rubriken";
+    const detection = detectFollowUpCapabilities(message);
+
+    expect(classifyFollowUpIntent(message)).toBe("clear-refine");
+    expect(detection.capabilityIds).toEqual([]);
+    expect(detection.referencesExistingCapability).toBe(false);
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "clear-refine",
+        message,
+        scaffoldMode: "auto",
+        scaffoldId: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("'gör pricken till en 3d-kaffekopp …' = capability-modify + referencesExistingCapability", () => {
+    // Notera: vokabulären idag kräver `3d`-prefix för att 'kaffekopp' ska
+    // fånga visual-3d (`3d-?[\p{L}\p{N}_]+`-mönstret i
+    // follow-up-capability-vocabulary.ts). Bare "kaffekopp" utan 3D är
+    // medvetet utanför scope för denna regression — det är produktdesign,
+    // inte tester. Dokumenterat så framtida refaktor inte tror att
+    // testfallet täcker det bredare språket.
+    const message =
+      "gör pricken till en 3d-kaffekopp som häller kaffe när jag nuddar den med musen";
+    const detection = detectFollowUpCapabilities(message);
+
+    expect(classifyFollowUpIntent(message)).toBe("capability-modify");
+    expect(detection.capabilityIds).toContain("visual-3d");
+    expect(detection.referencesExistingCapability).toBe(true);
+    expect(detection.modifyReferenceMatches).toContain("pricken");
   });
 });
 

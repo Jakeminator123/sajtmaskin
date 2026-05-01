@@ -3,6 +3,25 @@
  * system prompt and docs injection can be tuned accordingly.
  *
  * Runs before generation. Fast, deterministic, no API calls.
+ *
+ * **Parallel implementations — INTENTIONALLY SEPARATE:**
+ * The `needs3D` / `needsPhysics` / `needsGame` flags here are NOT the same
+ * decision as dossier capability detection in
+ * `src/lib/builder/follow-up-capability-vocabulary.ts` or scaffold-unlock
+ * in `src/lib/providers/own-engine/follow-up-clarification.ts`. Each
+ * consumer has a different threshold:
+ *  - This file: boolean flags into prompt + build-spec context policy.
+ *    Some rules use ASCII `\b`, others Unicode boundaries — see per-rule
+ *    comments before changing.
+ *  - `follow-up-capability-vocabulary.ts`: dossier id (`visual-3d`)
+ *    selection + tier. Always Unicode look-arounds.
+ *  - `follow-up-clarification.ts`: scaffold rematch unlock. Strictly
+ *    narrower than both above.
+ *
+ * Regression matrix lives in
+ * `src/lib/providers/own-engine/follow-up-clarification.test.ts`
+ * (describe "follow-up signal regression matrix"). Read it before merging
+ * regex banks across these three files.
  */
 
 export interface InferredCapabilities {
