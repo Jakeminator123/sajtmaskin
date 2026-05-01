@@ -24,6 +24,8 @@ export const serverSchema = z.object({
   // Database
   POSTGRES_URL: z.string().optional(),
   POSTGRES_URL_NON_POOLING: z.string().optional(),
+  POSTGRES_POOL_MAX: z.string().optional(),
+  POSTGRES_POOL_IDLE_TIMEOUT_MS: z.string().optional(),
 
   // Redis
   REDIS_URL: z.string().optional(),
@@ -94,6 +96,8 @@ export const serverSchema = z.object({
   SUPERADMIN_DIAMONDS: z.string().optional(),
   ENV_VAR_ENCRYPTION_KEY: z.string().optional(),
   TEMPLATE_SYNC_GITHUB_TOKEN: z.string().optional(),
+  GITHUB_WORKFLOW_TOKEN: z.string().optional(),
+  GITHUB_TOKEN: z.string().optional(),
   TEMPLATE_SYNC_REPO_OWNER: z.string().optional(),
   TEMPLATE_SYNC_REPO_NAME: z.string().optional(),
   TEMPLATE_SYNC_WORKFLOW_FILE: z.string().optional(),
@@ -171,6 +175,8 @@ export const serverSchema = z.object({
   DEBUG: z.string().optional(),
   SAJTMASKIN_DEV_LOG: z.string().optional(),
   GENERATIONSLOGG: z.string().optional(),
+  SAJTMASKIN_PROMPT_DUMP: z.string().optional(),
+  SAJTMASKIN_SHIM_PREVIEW_DISABLED: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
 
