@@ -125,7 +125,7 @@ export function retrieveSimilarFailures(
   if (!FEATURES.useErrorLogRag) return [];
   const entry = loadIndexFromDisk();
   if (!entry) return [];
-  const topK = options.topK ?? 5;
+  const topK = options.topK ?? 3;
   // Bias the query with structured context so related failures remain
   // retrievable even before the reranker applies exact-field boosts.
   const queryParts = [options.prompt];
@@ -156,7 +156,7 @@ export function retrieveSimilarFailures(
   }));
 }
 
-const RAG_BLOCK_MAX_CHARS = 800;
+const RAG_BLOCK_MAX_CHARS = 600;
 
 export function renderErrorLogRagBlockLines(options: RetrieveSimilarFailuresOptions): string[] {
   if (!FEATURES.useErrorLogRag) return [];

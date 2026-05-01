@@ -31,6 +31,7 @@ Genomfört:
 - `Selected Dossier Instructions` renderas kompakt som default; verbatim-filer fortsätter ligga i separat exakt block.
 - `visual-3d`/`physics-3d`-splitten finns redan; dekorativ `visual-3d` ska inte dra Rapier/Physics-text annat än vid explicit physics-intent.
 - Normal follow-up som inte är `clear-redesign` och inte `contextPolicy: "heavy"` renderar nu kompakt `Scaffold Variant`, `Your Toolkit` och `Route Plan`; clear-redesign och heavy-context behåller full context.
+- "Lessons from similar past builds" är kapad till topp-3 och 600 chars; relaterad recurring-failures-testmock pekar nu på rätt reader-modul.
 - Fokuserade tester passerar: prompt-size metrics, eval report, dossier rendering, dynamic-context budgetering och follow-up-input.
 
 Kvar:
@@ -44,7 +45,6 @@ Kvar:
 
 - Kapa/reformulera `config/prompt-core/*.md` först; sikta på minst `6k` färre chars utan ny promptmodul.
 - Behåll `Brief-Locked Design Values`, `Generation Mode: Follow-Up`, file-context och capability-modify-hint som load-bearing.
-- Kapa "Lessons from similar past builds" till topp-3 mest specifika rader och släpp generiska återkommande rader.
 - Dokumentera explicit om nästa kapning är **A: aggressiv trim inom nuvarande full-fil-kontrakt** eller **B: kontraktsändring för file-context/follow-up**. Default är A.
 - Kör `npm run eval:followup`, fokuserade vitest-tester och sedan `npm run eval:smoke`.
 

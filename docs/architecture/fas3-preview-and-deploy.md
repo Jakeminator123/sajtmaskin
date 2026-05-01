@@ -213,8 +213,8 @@ Skild från quality gate. `runVerifierPass()` är ett hybridpass: deterministisk
 | `lifecycle_stage` | `"design"` | `"integrations"` |
 | Tier-3 SDK-imports (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, Resend, ...) | Strippas av `tier3-sdk-guard-fixer` → placeholder-baserat | Behålls; kräver riktiga env-keys |
 | System prompt | Standard | + `## Tier-3 Integration Build Plan` med per-integration `requiredRealEnvKeys` + 4–8 build-steg |
-| `env-local.ts` | Tier-3 stub-lager aktivt | Stub-lager strippas helt (om inte `allowPlaceholdersInF3`-toggle är på) |
-| Readiness | Ingen tier-3 check | `validateTier3Readiness` mot `projectEnvVars` filtrerat på dossier-`enforcement: "build"` (P31). 412 + `missingByIntegration` bara om verkligt blockerande keys saknas. `feature-runtime` rapporteras som warning, `warn-only` som info. |
+| `env-local.ts` | Tier-3 stub-lager aktivt | Stub-lager strippas helt. `allowPlaceholdersInF3` påverkar readiness-bedömningen, inte VM:ens `.env.local`-merge. |
+| Readiness | Ingen tier-3 check | `validateTier3Readiness` mot `projectEnvVars` filtrerat på dossier-`enforcement: "build"` (P31). 412 + `missingByIntegration` bara om verkligt blockerande keys saknas och inte är tillåtet placeholder-täckta. `feature-runtime` rapporteras som warning, `warn-only` som info. |
 
 ---
 

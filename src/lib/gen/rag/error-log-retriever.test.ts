@@ -204,8 +204,30 @@ describe("error-log retriever", () => {
     const lines = renderErrorLogRagBlockLines({ prompt: "react import" });
     expect(lines[0]).toBe("### Lessons from similar past builds");
     const joined = lines.join("\n");
-    expect(joined.length).toBeLessThanOrEqual(800);
+    expect(joined.length).toBeLessThanOrEqual(600);
     expect(joined).toContain("react-import-missing");
+  });
+
+  it("defaults the prompt block to the top 3 similar failures", () => {
+    writeSnapshot(
+      Array.from({ length: 5 }, (_, index) => ({
+        id: `row-${index}`,
+        text: `react import missing symbol ${index}`,
+        payload: {
+          time: null,
+          phase: "post-gen",
+          fault: `fault-${index}`,
+          faultText: `Missing React import on component ${index}`,
+          fixText: "Added import React from react",
+          scaffoldId: null,
+          lineageHash: null,
+          result: "fixed",
+        },
+      })),
+    );
+    const lines = renderErrorLogRagBlockLines({ prompt: "react import missing symbol" });
+    const itemLines = lines.filter((line) => line.startsWith("- `fault-"));
+    expect(itemLines.length).toBe(3);
   });
 
   it("handles legacy malformed payload fields defensively", () => {

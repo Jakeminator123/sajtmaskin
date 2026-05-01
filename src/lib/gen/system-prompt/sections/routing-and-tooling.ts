@@ -183,7 +183,7 @@ export function renderRoutePlanBlock(params: {
   // by `scripts/observability/index-error-log-rag.mjs` and renders
   // them as `### Lessons from similar past builds`. Auto-rebuilt at
   // npm run dev|build|start (see scripts/dev/next-runner.mjs hook).
-  // Capped at 800 chars; falls silently when index is empty/missing.
+  // Capped tightly; falls silently when index is empty/missing.
   if (FEATURES.useErrorLogRag) {
     const ragLines = renderErrorLogRagBlockLines({
       prompt: userPrompt ?? "",
