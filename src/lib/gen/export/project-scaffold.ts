@@ -385,13 +385,16 @@ const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for 
 /**
  * Dependencies where the scaffold baseline must always win over the model.
  * The LLM sometimes pins older majors that conflict with peer requirements
- * (e.g. fiber 8 + React 19, or React 18 + Next 16).  Keep this list short
+ * (e.g. fiber 8 + React 19, or React 18 + Next 16). Keep this list short
  * and only add packages whose version is load-bearing for the whole tree.
+ * Lucide is pinned because generated icon validation is tied to its exact
+ * runtime export set.
  */
 const BASELINE_PINNED_DEPS = [
   "react",
   "react-dom",
   "next",
+  "lucide-react",
   "three",
   "@react-three/fiber",
   "@react-three/drei",

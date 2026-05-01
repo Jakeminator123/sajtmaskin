@@ -34,6 +34,7 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.dependencies.next).toBe("16.2.3");
     expect(merged.dependencies.react).toBe("19.2.4");
     expect(merged.dependencies["react-dom"]).toBe("19.2.4");
+    expect(merged.dependencies["lucide-react"]).toBe("0.469.0");
   });
 
   it("lets the model override individual script names", () => {
@@ -45,17 +46,23 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.scripts.build).toBe("next build");
   });
 
-  it("pins three / @react-three/* to baseline so model cannot downgrade below React 19–compatible majors", () => {
+  it("pins lucide and three / @react-three/* to baseline so model cannot downgrade load-bearing deps", () => {
     const model = {
       dependencies: {
+        "lucide-react": "^0.460.0",
         "@react-three/fiber": "^8.17.10",
         "@react-three/drei": "^9.117.3",
         three: "^0.150.0",
       },
     } as Record<string, unknown>;
     const merged = mergePackageJsonWithBaseline(model, {
-      dependencies: { "@react-three/fiber": "^9", "@react-three/drei": "^10" },
+      dependencies: {
+        "lucide-react": "^0.469",
+        "@react-three/fiber": "^9",
+        "@react-three/drei": "^10",
+      },
     }) as { dependencies: Record<string, string> };
+    expect(merged.dependencies["lucide-react"]).toBe("0.469.0");
     expect(merged.dependencies["@react-three/fiber"]).toBe("9.1.2");
     expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(merged.dependencies.three).toBe("0.176.0");
