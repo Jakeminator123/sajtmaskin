@@ -18,7 +18,7 @@ Sajtmaskin har **tre olika "eval"-system** som det är lätt att blanda ihop. De
 
 ### 1. Codegen-eval — `npm run eval:suite` / `eval:gate` / `eval:baseline`
 
-**Vad:** kör hela orkestreringen + LLM-codegen för 15 fasta prompts (`coffee-shop`, `dashboard`, `portfolio`, `blog`, `pricing`, `auth`, `ecommerce`, `restaurant`, `agency`, `settings`, `booking-service`, `multi-page-brochure`, `saas-dashboard`, `content-heavy-blog`, `consultant-landing`). `eval:smoke` kör en snabbare delmängd (`coffee-shop`, `restaurant`, `portfolio`) och rapporterar samma prompt/preflight-telemetri.
+**Vad:** kör hela orkestreringen + LLM-codegen för 18 fasta prompts (`coffee-shop`, `dashboard`, `portfolio`, `blog`, `pricing`, `auth`, `ecommerce`, `restaurant`, `agency`, `settings`, `booking-service`, `multi-page-brochure`, `saas-dashboard`, `content-heavy-blog`, `consultant-landing`, `realtor-multipage`, `dog-daycare`, `arcade-with-klarna`). `eval:smoke` kör en snabbare delmängd (`coffee-shop`, `restaurant`, `portfolio`) och rapporterar samma prompt/preflight-telemetri. De tre senaste (realtor/hunddagis/arcade) saknar baseline-rader tills `npm run eval:baseline` körs och fungerar som bredd-test för nya domäner + game/payments-kapabilitetskedjor.
 
 För varje prompt körs 12 deterministiska checks (sanity, syntax, exports, imports, accessibility, semantic-tokens, …) plus ev. en `syntax`-check när `shouldCompile: true`.
 
