@@ -41,7 +41,18 @@ files_envvars
 tsconfig.tsbuildinfo
 package-lock.json
 
-# --- Data & prompt-dumpar ---
+# --- Eval runs (metadata ja, fil-dumps nej) ---
+data/eval-runs/**
+!data/eval-runs/
+!data/eval-runs/README.md
+!data/eval-runs/latest/
+!data/eval-runs/latest/summary.json
+!data/eval-runs/latest/summary.md
+!data/eval-runs/runs/
+!data/eval-runs/runs/**/
+!data/eval-runs/runs/**/summary.json
+!data/eval-runs/runs/**/checks.json
+!data/eval-runs/runs/**/preflight.json
 data/prompt-dumps/*
 !data/prompt-dumps/README.md
 !data/prompt-dumps/own-engine-codegen/
@@ -136,16 +147,16 @@ research/_sidor/
 output/generations/
 
 # --- MCP/docs/logs ---
-services/mpc/docs/**
-services/mpc/logs/
+#services/mpc/docs/**
+#services/mpc/logs/
 
 # --- v0 template local payloads ---
 templates_v0/downloads/agenter/
 templates_v0/downloads/animationer/
-templates_v0/downloads/apps-and-games/
-templates_v0/downloads/blogg-och-portfolio/
+templates_v0/downloads/appar och spel/
+templates_v0/downloads/blogg och portfolio/
 templates_v0/downloads/komponenter/
-templates_v0/downloads/ecommerce/
+#templates_v0/downloads/ecommerce/
 templates_v0/downloads/AI/
 templates_v0/downloads/designsystem/
 templates_v0/downloads/e-handel/
