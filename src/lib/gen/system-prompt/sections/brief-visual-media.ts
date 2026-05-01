@@ -12,6 +12,7 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { isDomainProfile } from "@/lib/builder/domain-inference";
 import { resolveGuidanceBlocks, type ColorPalette } from "../../guidance-resolvers";
 import type { Brief, DesignReferenceAsset, MediaCatalogItem } from "../types";
+import type { ShadcnUiRecipe } from "../../data/shadcn-ui-recipes";
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -379,42 +380,90 @@ export function renderMediaCatalogBlock(
   return parts;
 }
 
-export function renderComponentReferencesBlock(
-  componentReferences: { name: string; code: string }[] | undefined,
-): string[] {
-  if (!componentReferences || componentReferences.length === 0) return [];
-  const summarizeImports = (code: string): string[] => {
-    const imports = code
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith("import "))
-      .slice(0, 8);
-    return imports.length > 0 ? imports : ["(no imports detected)"];
-  };
-  const summarizeExports = (code: string): string[] => {
-    const exports = Array.from(
-      code.matchAll(/\bexport\s+(?:default\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/g),
-      (match) => match[1],
-    );
-    return Array.from(new Set(exports)).slice(0, 6);
-  };
+function summarizeImports(code: string): string[] {
+  const imports = code
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("import "))
+    .slice(0, 8);
+  return imports.length > 0 ? imports : [];
+}
+
+function summarizeExports(code: string): string[] {
+  return Array.from(
+    new Set(
+      Array.from(
+        code.matchAll(/\bexport\s+(?:default\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/g),
+        (match) => match[1],
+      ),
+    ),
+  ).slice(0, 8);
+}
+
+function excerptCode(code: string): string {
+  const lines = code.split("\n");
+  const clipLine = (line: string) =>
+    line.length > 80 ? `${line.slice(0, 80)} // ... line truncated` : line;
+  const importLines = lines
+    .filter((line) => line.trim().startsWith("import "))
+    .slice(0, 10)
+    .map(clipLine);
+  const bodyLines = lines
+    .filter((line) => !line.trim().startsWith("import "))
+    .slice(0, 32)
+    .map(clipLine);
+  const excerpt = [...importLines, "", ...bodyLines].join("\n").trim();
+  return excerpt.length > 2_400 ? `${excerpt.slice(0, 2_400)}\n// ... truncated` : excerpt;
+}
+
+export function renderUiRecipesBlock(uiRecipes: ShadcnUiRecipe[] | undefined): string[] {
+  if (!uiRecipes || uiRecipes.length === 0) return [];
   const parts: string[] = [
-    "## Component References",
+    "## UI Recipes",
     "",
-    "Verified usage examples for components relevant to this request. Use these as compact API/pattern hints only — do not copy verbatim.",
+    "Curated shadcn registry patterns for this request. Use them with `## Your Toolkit`: adapt the UX and imports to the generated project, but do not blindly paste entire blocks when a smaller composition is enough.",
     "",
   ];
-  for (const ref of componentReferences.slice(0, 3)) {
-    const imports = summarizeImports(ref.code);
-    const exports = summarizeExports(ref.code);
-    parts.push(`### ${ref.name}`, "");
-    parts.push("- Import/API hints:");
-    parts.push(...imports.map((line) => `  - \`${line}\``));
-    if (exports.length > 0) {
-      parts.push(`- Exported symbols: ${exports.map((name) => `\`${name}\``).join(", ")}`);
+
+  for (const recipe of uiRecipes.slice(0, 3)) {
+    const deps = recipe.dependencies?.length ? recipe.dependencies.join(", ") : "";
+    const registryDeps = recipe.registryDependencies?.length
+      ? recipe.registryDependencies.join(", ")
+      : "";
+    const description = recipe.description ? ` — ${recipe.description}` : "";
+    parts.push(
+      `### ${recipe.title || recipe.name} (\`${recipe.name}\`)`,
+      "",
+      `- Source: ${recipe.source}; type: ${recipe.itemType}; reason: ${recipe.reason}.${description}`,
+    );
+    if (registryDeps) parts.push(`- Registry dependencies: ${registryDeps}.`);
+    if (deps) parts.push(`- npm dependencies if used: ${deps}.`);
+
+    const files = recipe.files.slice(0, 2);
+    if (files.length > 0) {
+      parts.push("- Useful file/API patterns:");
+      for (const file of files) {
+        const imports = summarizeImports(file.content);
+        const exports = summarizeExports(file.content);
+        const target = file.target ? ` → ${file.target}` : "";
+        parts.push(`  - \`${file.path}\`${target}`);
+        if (imports.length > 0) {
+          parts.push(...imports.slice(0, 5).map((line) => `    - \`${line}\``));
+        }
+        if (exports.length > 0) {
+          parts.push(`    - exports: ${exports.map((name) => `\`${name}\``).join(", ")}`);
+        }
+      }
+      const primary = files[0];
+      if (primary) {
+        const fence = primary.path.endsWith(".json") ? "json" : primary.path.endsWith(".ts") ? "ts" : "tsx";
+        parts.push("", `\`\`\`${fence} file="${primary.target || primary.path}"`);
+        parts.push(excerptCode(primary.content));
+        parts.push("```", "");
+      }
     }
-    parts.push("- Adapt the layout idea and component API. Do not paste the full example code.", "");
   }
+
   return parts;
 }
 

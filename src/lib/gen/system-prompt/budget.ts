@@ -43,6 +43,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^media catalog$/i, priority: 80 },
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
+  { match: /^ui recipes$/i, priority: 80 },
   { match: /^component references$/i, priority: 80 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },

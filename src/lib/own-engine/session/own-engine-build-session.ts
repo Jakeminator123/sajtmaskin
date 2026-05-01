@@ -186,6 +186,9 @@ export function buildOwnEngineGenerationStreamMeta(
   input: OwnEngineGenerationStreamMetaInput,
 ): GenerationStreamMeta {
   const { orchestrationBase: orch, strategyMeta: sm } = input;
+  const selectedDossierIds =
+    orch.dossierSelection?.selected.map((selected) => selected.entry.id) ?? [];
+  const requestedCapabilities = orch.dossierRequestedCapabilities ?? [];
   const meta: GenerationStreamMeta = {
     modelId: input.engineModel,
     modelTier: input.resolvedModelTier,
@@ -220,6 +223,8 @@ export function buildOwnEngineGenerationStreamMeta(
     systemPromptLength: input.engineSystemPromptLength,
     briefApplied: input.metaBriefApplied,
     briefSummary: extractBriefSummary(input.metaBrief),
+    selectedDossierIds,
+    requestedCapabilities,
     customInstructionsLength: input.customInstructionsLength,
     variantId: input.variantId ?? null,
   };

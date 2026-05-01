@@ -93,7 +93,8 @@ function minimalOrchestrationBase(): OrchestrationBase {
     },
     buildSpec,
     serializeMode: null,
-    componentReferences: [],
+    uiRecipes: [],
+    dossierRequestedCapabilities: [],
     capabilityHints: undefined,
     scaffoldVariantId: null,
     capabilityModifyHint: null,
@@ -202,6 +203,41 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
     });
     expect("chatPrivacy" in meta).toBe(false);
     expect("scaffoldLabel" in meta).toBe(false);
+  });
+
+  it("uses canonical requested dossier capabilities, not selected dossier capabilities", () => {
+    const meta = buildOwnEngineGenerationStreamMeta({
+      ...common,
+      routeVariant: "follow-up",
+      orchestrationBase: {
+        ...common.orchestrationBase,
+        dossierRequestedCapabilities: ["payments", "unknown-capability"],
+        dossierSelection: {
+          poolSize: 19,
+          byCapability: { payments: ["stripe-checkout"] },
+          selected: [
+            {
+              configured: false,
+              reason: "capability-match",
+              entry: {
+                class: "hard",
+                id: "stripe-checkout",
+                label: "Stripe Checkout",
+                capability: "payments",
+                codeFidelity: "verbatim",
+                complexity: "medium",
+                defaultForCapability: true,
+                summary: "Hosted Stripe Checkout.",
+                lastVerified: "2026-04-20",
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(meta.selectedDossierIds).toEqual(["stripe-checkout"]);
+    expect(meta.requestedCapabilities).toEqual(["payments", "unknown-capability"]);
   });
 
   it("persists brief design values for follow-up snapshot rehydration", () => {

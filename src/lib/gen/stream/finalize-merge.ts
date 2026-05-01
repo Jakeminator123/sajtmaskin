@@ -80,12 +80,8 @@ export interface MergeGeneratedProjectFilesParams {
    * Dossiers active for this generation. When provided, verbatim-mode files
    * are restored to their canonical on-disk content after merge if the LLM
    * drifted or omitted them.
-   *
-   * TODO(P5+): thread `selectedDossiers` from upstream orchestration context
-   * (e.g. via `orchestrationStreamMeta.dossierIds` → `getDossierById`) so
-   * this param is always populated. Currently not available at this callsite
-   * without significant pipeline threading — the policy function is wired but
-   * the upstream caller (`preflight-phase.ts`) doesn't yet pass dossiers.
+   * Primary runtime path gets these from explicit orchestration meta
+   * `selectedDossierIds`; legacy/eval paths may still pass [].
    */
   selectedDossiers?: DossierEntry[];
 }

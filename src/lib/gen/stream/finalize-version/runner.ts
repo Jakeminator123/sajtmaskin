@@ -40,6 +40,7 @@ import {
 } from "../finalize-pipeline-contract";
 import { postFinalizeQualityGateIncludesTypecheck } from "../post-finalize-policies";
 import { runFinalizeFastPath } from "./fast-path";
+import { getDossierById } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { resolveFinalizePathPolicy } from "./policy";
@@ -70,12 +71,22 @@ function normalizeCapabilityIds(input: unknown): string[] {
   );
 }
 
+function normalizeDossierIds(input: unknown): string[] {
+  if (!Array.isArray(input) || input.length === 0) return [];
+  return Array.from(
+    new Set(
+      input
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
 function resolveRequestedCapabilitiesFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
 ): string[] {
   const fromTopLevel = normalizeCapabilityIds(streamMeta?.requestedCapabilities);
-  if (fromTopLevel.length > 0) return fromTopLevel;
-
   const briefSummary =
     streamMeta?.briefSummary &&
     typeof streamMeta.briefSummary === "object" &&
@@ -83,7 +94,10 @@ function resolveRequestedCapabilitiesFromStreamMeta(
       ? (streamMeta.briefSummary as Record<string, unknown>)
       : null;
   const fromBriefSummary = normalizeCapabilityIds(briefSummary?.requestedCapabilities);
-  if (fromBriefSummary.length > 0) return fromBriefSummary;
+  const explicitCapabilities = Array.from(
+    new Set([...fromBriefSummary, ...fromTopLevel]),
+  );
+  if (explicitCapabilities.length > 0) return explicitCapabilities;
 
   const inferredCapabilities =
     streamMeta?.capabilities &&
@@ -98,18 +112,24 @@ function resolveRequestedCapabilitiesFromStreamMeta(
 }
 
 /**
- * Wave 6 verbatim-restore: härled vilka dossiers som faktiskt valdes
- * för denna generering så att verbatim-policy kan skydda Stripe/Clerk-glue
- * från LLM-omskrivning vid merge.
+ * Wave 6 verbatim-restore: resolve the dossiers selected by orchestration so
+ * verbatim-policy can protect Stripe/Clerk-glue from LLM rewrites at merge.
  *
- * Strategi: använd resolveRequestedCapabilitiesFromStreamMeta för att få
- * capability-listan, kör selectDossiers för att hämta de dossiers som
- * matchar (samma logik som prompt-injection använder). Tomt resultat ⇒
- * verbatim-policy kör med [] vilket är säkert (no-op).
+ * Primary path: `selectedDossierIds` from orchestration meta. Legacy fallback:
+ * replay the older requested-capabilities metadata so old streams/evals still
+ * get best-effort protection.
  */
 export function resolveSelectedDossiersFromStreamMeta(
   streamMeta: Record<string, unknown> | null | undefined,
 ): DossierEntry[] {
+  const explicitDossierIds = normalizeDossierIds(streamMeta?.selectedDossierIds);
+  if (explicitDossierIds.length > 0) {
+    const selected = explicitDossierIds
+      .map((id) => getDossierById(id))
+      .filter((entry): entry is DossierEntry => entry !== null);
+    if (selected.length > 0) return selected;
+  }
+
   const capabilities = resolveRequestedCapabilitiesFromStreamMeta(streamMeta);
   if (capabilities.length === 0) return [];
   try {

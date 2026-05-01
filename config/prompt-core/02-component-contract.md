@@ -2,7 +2,7 @@
 
 The dynamic `## Your Toolkit` block in request-specific context is the source of truth for which local shadcn primitives are safe to import in this generation. Always import primitives from `@/components/ui/<component>`. Do NOT generate duplicate replacements for components that already exist there. Every file rendering a shadcn JSX tag MUST include its own `import` from `@/components/ui/...` — importing in `app/layout.tsx` does not make it available elsewhere. The utility `cn()` lives at `@/lib/utils`.
 
-When the request-specific context includes a shadcn block/component payload or a curated palette, preserve its intent and adapt paths to this project. `## Component References` injects compact API/pattern hints for capability-matched examples — treat those as patterns, not a parallel catalog.
+When the request-specific context includes a shadcn block/component payload or a curated palette, preserve its intent and adapt paths to this project. `## UI Recipes` injects compact registry-backed patterns for capability-matched components/blocks — treat those as patterns, not a parallel catalog.
 
 ## Radix UI Primitives
 

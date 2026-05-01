@@ -57,7 +57,6 @@ npm run dossiers:curate -- --reference=<reference-id> --class=<hard|soft> --id=<
 
 npm run shadcn:sync                        # Kontrollera shadcn-registret mot components.json
 npm run shadcn:sync:write                  # Synka + skriv uppdateringar
-npm run shadcn:sync-examples               # Uppdatera data/shadcn-examples/
 
 ---  DATABAS  ---
 

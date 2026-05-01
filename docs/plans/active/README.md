@@ -59,7 +59,6 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | H | [`parked/L2-prompt-kit.md`](./parked/L2-prompt-kit.md) | system-prompt-splittningen (OMTAG 03) settle:ad |
 | I | [`parked/L3-dossier-variants.md`](./parked/L3-dossier-variants.md) | M2 + observationstid |
 | J | [`parked/P32-request-type-taxonomy.md`](./parked/P32-request-type-taxonomy.md) Fas B–F | Stabil follow-up-semantik (✅) + bredare eval-surface |
-| K | [`parked/P33-shadcn-ecosystem-expansion.md`](./parked/P33-shadcn-ecosystem-expansion.md) | Produktbeslut + core-split klart |
 
 **Summa aktivt öppet arbete:** O/P + A-F + Q + L/M/N (icke-parkerat) ≈ 1-2 veckor; **O** är startlinje 2026-04-28 och konsoliderar nästa rundas LLM-flöde-arbete.
 

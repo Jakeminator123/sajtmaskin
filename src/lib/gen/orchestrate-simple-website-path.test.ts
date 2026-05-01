@@ -45,7 +45,7 @@ describe("resolveOrchestrationBase simpleWebsitePath", () => {
     expect(base.resolvedScaffold?.id).toBeTruthy();
     expect(base.routePlan.routes.length).toBeGreaterThan(0);
     expect(base.buildSpec.previewPolicy).toBe("fidelity2");
-    expect(base.componentReferences).toEqual([]);
+    expect(base.uiRecipes).toEqual([]);
     expect(base.dossierSelection).toBeNull();
   });
 });

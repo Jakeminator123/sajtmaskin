@@ -157,8 +157,8 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
     ├── Selected Dossier Instructions (per vald dossier)
     ├── Dossier Files To Emit Verbatim (krävs oförändrade)
     ├── Route Plan + Pre-generation Contracts
-    ├── Your Toolkit (shadcn + komponent-palette)
-    └── Component References (shadcn examples)
+    ├── Your Toolkit (shadcn primitives + komponent-palette)
+    └── UI Recipes (shadcn registry-recept)
         │
         ▼
 [7] COMPOSE FINAL SYSTEM PROMPT (composeEngineSystemPrompt)

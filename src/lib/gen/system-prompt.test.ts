@@ -373,7 +373,7 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("do not invent a parallel UI kit");
     });
 
-    it("keeps component references compact instead of injecting full example source", async () => {
+    it("keeps UI Recipes compact instead of injecting full registry source", async () => {
       const longExample = [
         "import Link from \"next/link\";",
         "import { Button } from \"@/components/ui/button\";",
@@ -390,11 +390,19 @@ describe("buildDynamicContext", () => {
         intent: "website",
         generationMode: "init",
         buildSpec: lightFollowUpSpec,
-        componentReferences: [{ name: "@example/huge", code: longExample }],
+        uiRecipes: [
+          {
+            name: "@example/huge",
+            source: "official",
+            itemType: "block",
+            files: [{ path: "registry/radix-vega/blocks/huge/page.tsx", content: longExample }],
+            reason: "test",
+          },
+        ],
       });
 
-      expect(context).toContain("## Component References");
-      expect(context).toContain("Import/API hints");
+      expect(context).toContain("## UI Recipes");
+      expect(context).toContain("Useful file/API patterns");
       expect(context).toContain("HugeExample");
       expect(context).not.toContain("x".repeat(100));
     });

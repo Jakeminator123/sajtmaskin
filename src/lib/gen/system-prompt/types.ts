@@ -16,6 +16,7 @@ import type { RoutePlan } from "../route-plan";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import type { PromptBudgetBlock } from "../tokens";
 import type { DossierSelectionResult } from "../dossiers";
+import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
 
 export interface Brief {
   projectTitle?: string;
@@ -140,8 +141,8 @@ export interface DynamicContextOptions {
    * unchanged; the block is silently skipped when missing.
    */
   chatId?: string | null;
-  /** Verified shadcn usage examples matched to this request's capabilities. */
-  componentReferences?: { name: string; code: string }[];
+  /** Curated shadcn registry/UI recipes matched to this request's capabilities. */
+  uiRecipes?: ShadcnUiRecipe[];
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
   dossierSelection?: DossierSelectionResult | null;
   /**

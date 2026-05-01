@@ -59,17 +59,16 @@ Observability-kommandon: `npm run rag:error-log:reindex`, `npm run rag:error-log
 
 ### shadcn registry sync
 
-Använd dessa när du vill hålla den lokala shadcn-ytan och exempelcachen uppdaterad:
+Använd dessa när du vill hålla den lokala shadcn-primitivytan uppdaterad:
 
 ```bash
 npm run shadcn:sync
 npm run shadcn:sync:write
-npm run shadcn:sync-examples
 ```
 
 - `shadcn:sync` jämför lokal `SHADCN_COMPONENTS` mot officiella registret och skriver inte filer.
 - `shadcn:sync:write` uppdaterar `src/lib/gen/data/shadcn-components.ts`.
-- `shadcn:sync-examples` uppdaterar `data/shadcn-examples/`.
+- UI Recipes hämtas via `src/lib/gen/data/shadcn-ui-recipes.ts`; den gamla `data/shadcn-examples/`-cachen är borttagen.
 - `predev` kör också `shadcn:sync:soft` automatiskt som en non-blocking kontroll innan `npm run dev`.
 
 ## Tre separata spår

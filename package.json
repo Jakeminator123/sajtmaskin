@@ -70,7 +70,6 @@
     "shadcn:sync:write": "npx tsx scripts/shadcn/sync-shadcn-registry.ts --write",
     "plans:archive": "node scripts/plans/auto-archive.mjs",
     "plans:archive:apply": "node scripts/plans/auto-archive.mjs --apply",
-    "shadcn:sync-examples": "npx tsx scripts/shadcn/sync-shadcn-examples.ts",
     "typography:validate-pairings": "npx tsx scripts/typography/validate-font-pairings.ts",
     "baseline-deps:verify": "npx tsx scripts/deps/validate-baseline-npm-versions.ts",
     "baseline-deps:tree": "npx tsx scripts/deps/validate-baseline-npm-tree.ts",

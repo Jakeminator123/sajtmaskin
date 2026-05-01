@@ -58,10 +58,10 @@ import {
 } from "./build-spec";
 import { estimateCharsForTokens } from "./tokens";
 import { FEATURES } from "@/lib/config";
-import { getRelevantExampleNames, getPromptDrivenExampleNames } from "./data/shadcn-example-map";
-import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-example-loader";
-import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
-import { fetchCommunityBlocks } from "./data/community-registry-fetch";
+import {
+  resolveShadcnUiRecipes,
+  type ShadcnUiRecipe,
+} from "./data/shadcn-ui-recipes";
 import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
 import { deriveFollowUpStateFromInputs } from "./follow-up-predicate";
@@ -339,7 +339,13 @@ export interface OrchestrationBase {
   capabilities: InferredCapabilities;
   buildSpec: BuildSpec;
   serializeMode: "inspirational" | "structural" | null;
-  componentReferences: ComponentReference[];
+  uiRecipes: ShadcnUiRecipe[];
+  /**
+   * Exact capability ids passed into `selectDossiersForRequest` after brief +
+   * inferred + caller merge and F2/F3 filtering. Used by finalize/autofix
+   * legacy fallbacks; selected dossiers are a subset of this list.
+   */
+  dossierRequestedCapabilities: string[];
   /** Selected dossiers when FEATURES.useDossierPipeline is on, else null/undefined. Optional to keep test fixtures backward-compatible. */
   dossierSelection?: DossierSelectionResult | null;
   /**
@@ -468,28 +474,15 @@ export async function resolveOrchestrationBase(
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
-  const componentRefNames = [
-    ...getRelevantExampleNames(capabilities),
-    ...getPromptDrivenExampleNames(intentSourcePrompt),
-  ];
-  const uniqueRefNames = [...new Set(componentRefNames)];
-  const localRefs = simpleWebsitePath ? [] : loadShadcnExamples(uniqueRefNames);
-  const officialRefsPromise = simpleWebsitePath
-    ? Promise.resolve<ComponentReference[]>([])
-    : fetchMissingRegistryExamples(uniqueRefNames, localRefs)
-        .then((fetched) => [...localRefs, ...fetched])
-        .catch(() => localRefs);
-  // Use intentSourcePrompt (same clean source that drives capability/scaffold
-  // signals) instead of the wrapped `prompt` — otherwise file-context-wrapping
-  // in optimizedMessage would poison `detectSectionTypes` and make us fetch
-  // community blocks based on historical file contents instead of the user's
-  // actual intent for this turn.
-  const communityRefsPromise = simpleWebsitePath
-    ? Promise.resolve<ComponentReference[]>([])
-    : fetchCommunityBlocks(capabilities, intentSourcePrompt).catch(() => []);
-  let officialRefs: ComponentReference[] = localRefs;
-  let communityRefs: ComponentReference[] = [];
-  let resolvedReferenceFetches = false;
+  const uiRecipesPromise = simpleWebsitePath
+    ? Promise.resolve<ShadcnUiRecipe[]>([])
+    : resolveShadcnUiRecipes({
+        capabilities,
+        prompt: intentSourcePrompt,
+        maxRecipes: 3,
+      }).catch(() => []);
+  let uiRecipes: ShadcnUiRecipe[] = [];
+  let resolvedUiRecipes = false;
 
   if (scaffoldMode === "off") {
     resolvedScaffold = null;
@@ -518,18 +511,16 @@ export async function resolveOrchestrationBase(
     // message, not the wrapped optimizedMessage. See `scaffoldMatchPrompt`
     // doc on `OrchestrationInput` for the full failure mode.
     const scaffoldMatcherPrompt = input.scaffoldMatchPrompt ?? prompt;
-    const [autoSelection, fetchedOfficialRefs, fetchedCommunityRefs] = await Promise.all([
+    const [autoSelection, fetchedUiRecipes] = await Promise.all([
       matchScaffoldAuto(scaffoldMatcherPrompt, buildIntent, {
         useEmbeddings: embeddingScaffoldMatch,
         queryContext: scaffoldQueryContext,
         capabilities,
       }),
-      officialRefsPromise,
-      communityRefsPromise,
+      uiRecipesPromise,
     ]);
-    officialRefs = fetchedOfficialRefs;
-    communityRefs = fetchedCommunityRefs;
-    resolvedReferenceFetches = true;
+    uiRecipes = fetchedUiRecipes;
+    resolvedUiRecipes = true;
     resolvedScaffold = autoSelection.scaffold;
     scaffoldSelection = autoSelection.meta;
 
@@ -609,8 +600,8 @@ export async function resolveOrchestrationBase(
     }
   }
 
-  if (!resolvedReferenceFetches) {
-    [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
+  if (!resolvedUiRecipes) {
+    uiRecipes = await uiRecipesPromise;
   }
 
   // P26 (OMTAG Fas 2·A guard): `build_intent_promoted` (website -> app) must
@@ -655,7 +646,6 @@ export async function resolveOrchestrationBase(
   }
 
   const capabilityHints = buildCapabilityHints(capabilities);
-  const componentReferences = [...officialRefs, ...communityRefs];
 
   // Locale resolution priority:
   //   1. Explicit `input.locale` (caller-overridable, e.g. CLI traces)
@@ -744,6 +734,7 @@ export async function resolveOrchestrationBase(
   // pipeline is gated by FEATURES.useDossierPipeline so it can be disabled
   // per environment if the dossier pool is unhealthy.
   let dossierSelection: DossierSelectionResult | null = null;
+  let dossierRequestedCapabilities: string[] = [];
   if (FEATURES.useDossierPipeline && !simpleWebsitePath) {
     try {
       const inferredCapabilityIds =
@@ -773,6 +764,7 @@ export async function resolveOrchestrationBase(
         prompt: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
         previewPolicy: buildSpec.previewPolicy,
       });
+      dossierRequestedCapabilities = mergedCaps;
       dossierSelection = selectDossiersForRequest({
         brief,
         requestedCapabilities: mergedCaps,
@@ -808,7 +800,8 @@ export async function resolveOrchestrationBase(
     capabilities,
     buildSpec,
     serializeMode: resolvedSerializeMode,
-    componentReferences,
+    uiRecipes,
+    dossierRequestedCapabilities,
     dossierSelection,
     requestedCapabilityTiers: input.requestedCapabilityTiers,
     scaffoldVariantId: input.persistedVariantId ?? null,
@@ -931,7 +924,7 @@ export async function finalizeOrchestrationPrompts(
     followUpIntent: input.followUpIntent,
     sessionSeed: input.sessionSeed,
     chatId: input.chatId ?? null,
-    componentReferences: base.componentReferences,
+    uiRecipes: base.uiRecipes,
     resolvedVariant,
     dossierSelection: base.dossierSelection,
     dossierPromptContext: {

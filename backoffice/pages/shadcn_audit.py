@@ -25,29 +25,6 @@ def _count_local_ui_files(repo_root: Path) -> int:
     return count
 
 
-def _count_example_files(repo_root: Path) -> int:
-    examples_dir = repo_root / "data" / "shadcn-examples"
-    if not examples_dir.is_dir():
-        return 0
-    return sum(1 for f in examples_dir.iterdir() if f.suffix == ".json")
-
-
-def _check_leaked_registry_imports(repo_root: Path) -> list[str]:
-    examples_dir = repo_root / "data" / "shadcn-examples"
-    if not examples_dir.is_dir():
-        return []
-    leaked: list[str] = []
-    for f in sorted(examples_dir.glob("*.json")):
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            code = data.get("code", "")
-            if "@/registry/" in code:
-                leaked.append(f.name)
-        except (json.JSONDecodeError, OSError):
-            leaked.append(f"{f.name} (unreadable)")
-    return leaked
-
-
 def _read_components_json(repo_root: Path) -> dict:
     cj = repo_root / "components.json"
     if not cj.is_file():
@@ -64,32 +41,26 @@ def _render_sync_status(ctx: BackofficeContext) -> None:
     components_ts = ctx.repo_root / "src" / "lib" / "gen" / "data" / "shadcn-components.ts"
     entry_count = _count_component_entries(components_ts)
     ui_file_count = _count_local_ui_files(ctx.repo_root)
-    example_count = _count_example_files(ctx.repo_root)
-    leaked = _check_leaked_registry_imports(ctx.repo_root)
     cj = _read_components_json(ctx.repo_root)
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     col1.metric("SHADCN_COMPONENTS entries", entry_count)
     col2.metric("Local UI files", ui_file_count)
-    col3.metric("Example cache files", example_count)
 
     registries = cj.get("registries", {})
     style = cj.get("style", "?")
     hooks_alias = cj.get("aliases", {}).get("hooks", "?")
 
     st.markdown(f"**components.json:** style `{style}` · hooks alias `{hooks_alias}` · registries: {', '.join(f'`{k}`' for k in registries) or '(inga)'}")
-
-    if leaked:
-        st.error(f"Läckta `@/registry/` importer i exempelcachen: {', '.join(leaked)}")
-        st.caption("Kör `npm run shadcn:sync-examples` för att rewritea.")
-    else:
-        st.success("Exempelcachen: inga läckta registry-importer.")
+    st.info(
+        "UI Recipes hämtas nu direkt från shadcn registry + community registries "
+        "vid orkestrering. Den gamla `data/shadcn-examples/`-cachen är borttagen."
+    )
 
     with st.expander("Sync-kommandon"):
         st.code(
             "npm run shadcn:sync          # Jämför mot upstream (warn-only)\n"
-            "npm run shadcn:sync:write    # Uppdatera shadcn-components.ts\n"
-            "npm run shadcn:sync-examples # Uppdatera data/shadcn-examples/",
+            "npm run shadcn:sync:write    # Uppdatera shadcn-components.ts",
             language="bash",
         )
 

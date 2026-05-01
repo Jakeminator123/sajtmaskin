@@ -40,8 +40,8 @@ Rekommendation: kör som **4 + 4 spår**, men inte som åtta oberoende implement
 | A | A1 v0-mallar | `templates_v0/` som lokal referensbank: downloads, ZIP, metadata, bilder, vad får användas och vad är aldrig runtime | Kort rapport + "do/don't" |
 | A | A2 dossiers | `data/dossiers/{hard,soft}` + `src/lib/gen/dossiers/`: schema, instructions-format, hard/soft, verbatim/rewritable, capability-map | Validator-/docs-förslag |
 | A | A3 scaffolds | `src/lib/gen/scaffolds/`: manifest, files, registry, serialize, om formatet är för prompt-first | Formatkritik + små PR-förslag |
-| A | A4 variants/fonts/shadcn | `config/scaffold-variants/`, `data/shadcn-examples/`, font registry, variant-font materialisering | Font- och reference-riskrapport |
-| B | B1 prompt size/latency | static core, dynamic context, component refs, scaffold serialization, prompt dumps, timeline | Mätpunkter + topp-5 bloat |
+| A | A4 variants/fonts/shadcn | `config/scaffold-variants/`, `src/lib/gen/data/shadcn-ui-recipes.ts`, font registry, variant-font materialisering | Font- och reference-riskrapport |
+| B | B1 prompt size/latency | static core, dynamic context, UI Recipes, scaffold serialization, prompt dumps, timeline | Mätpunkter + topp-5 bloat |
 | B | B2 Deep Brief signal chain | `site-brief-generation.ts` → scaffold/variant/dossier/BuildSpec; var tappas `qualityBar`, `visualDirection`, `requestedCapabilities` | Signal-gap + testförslag |
 | B | B3 build/finalize/repair | own-engine stream → autofix → validate → verifier → repair/finalize path; var skapas repairstorm | Pipeline-risk + förenklingsförslag |
 | B | B4 simple creative path | "milstolpe/BRA" + dagens robusthet: när ska kort prompt + materialiserad scaffold/template vinna? | Spec för experiment-PR |
@@ -53,11 +53,11 @@ Rekommendation: kör som **4 + 4 spår**, men inte som åtta oberoende implement
 | A1 v0-mallar | Klar 2026-04-29 | `templates_v0/` är lokal intake/referensbank, inte runtime. Runtime-sanning är `src/lib/templates/*` för Mallar-tabben och `src/lib/gen/scaffolds/registry.ts` för promptstyrd generation. Råa ZIP:ar, bilder, Playwright-login och v0-scraping ska inte kopplas direkt till production/codegen. |
 | A2 dossiers | Klar 2026-04-29 | Runtime läser `data/dossiers/{hard,soft}` direkt via diskregistry + deterministic capability-select. Viktigaste glapp: manifest-`dependencies` används inte deterministiskt för de flesta dossiers; `files[].path` saknar explicit targetPath/canonical path-regel. |
 | A3 scaffolds | Klar 2026-04-29 | `src/lib/gen/scaffolds/registry.ts` + 9 manifests är runtime source of truth. Formatet är konkret men init är fortfarande prompt-first/inspirational; `app/page.tsx` är LLM-only, så huvudytan måste genereras av modellen. |
-| A4 variants/fonts/shadcn | Klar 2026-04-29 | Variant-fonts är promptmaterial, inte deterministiskt materialiserade. Baseline-scaffolds startar med `Inter`; font-import-fixer hjälper först när modellen redan använder fontfunktionen. Shadcn metadata är tom men `code` används för compact refs. |
+| A4 variants/fonts/shadcn | Klar 2026-04-29 | Variant-fonts är promptmaterial, inte deterministiskt materialiserade. Baseline-scaffolds startar med `Inter`; font-import-fixer hjälper först när modellen redan använder fontfunktionen. Sedan 2026-05-02 ersätter `shadcn-ui-recipes.ts` gamla `data/shadcn-examples/` som runtime-referensyta. |
 | B1 prompt size/latency | Implementerad 2026-04-29 | `generation-input-package.json` och prompt-dump metadata har nu `promptSize`. FileContract + hard cap kapade Critical Scaffold Files till <6k och tog bort partial TSX som promptkälla. |
 | B2 Deep Brief signal chain | Implementerad 2026-04-29 | `## Brief-Locked Design Values` ligger före Scaffold Variant och är required i pruning. Snapshot-brief rehydrerar nu `qualityBar`, `motionLevel`, `colorPalette`, `typography`, style och tone. |
 | B3 build/finalize/repair | Implementerad smalt 2026-04-29 | `RepairLedger` dedupe:ar LLM-repair inom finalize fast-path över syntax/warm-tsc/warm-eslint, verifier, preflight, home-route och partial-file. Server/manual `runRepairLoop` ligger kvar som senare hardening. |
-| B4 simple creative path | Implementerad 2026-04-29 | `simpleWebsitePath` hoppar Server Auto-Brief, externa/component refs och dossier selection för korta website/template-init prompts utan heavy/multi-route/integration-signaler, men behåller scaffold/route/BuildSpec/system prompt/finalize/F2. |
+| B4 simple creative path | Implementerad 2026-04-29 | `simpleWebsitePath` hoppar Server Auto-Brief, externa/UI Recipes och dossier selection för korta website/template-init prompts utan heavy/multi-route/integration-signaler, men behåller scaffold/route/BuildSpec/system prompt/finalize/F2. |
 
 ## Gemensam rapportmall
 
@@ -81,7 +81,7 @@ Varje cloud-agent ska svara i samma format:
 | Runtime scaffolds | Ja | `src/lib/gen/scaffolds/`, `registry.ts` |
 | Scaffold variants | Ja | `config/scaffold-variants/`, `src/lib/gen/scaffold-variants/` |
 | Dossiers | Ja | `data/dossiers/{hard,soft}/`, `src/lib/gen/dossiers/` |
-| shadcn examples | Ja, som compact Component References | `data/shadcn-examples/`, `src/lib/gen/data/shadcn-example-loader.ts` |
+| shadcn UI Recipes | Ja, som compact registry-referenser | `src/lib/gen/data/shadcn-ui-recipes.ts` + `config/community-registries.json` |
 | scaffold eval reports | Delvis tooling/eval, vissa latest-filer kan påverka blocklist | `data/scaffold-eval/reports/` |
 | template references | Nej, kuration-input | `data/template-references/` |
 

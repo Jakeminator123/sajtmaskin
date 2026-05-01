@@ -80,12 +80,12 @@ import {
 import {
   renderBriefLockedDesignValuesBlock,
   renderBriefBlocks,
-  renderComponentReferencesBlock,
   renderDesignReferencesBlock,
   renderGuidanceBlocks,
   renderImageryBlock,
   renderMediaCatalogBlock,
   renderSeoBlock,
+  renderUiRecipesBlock,
   renderVisualIdentityBlock,
 } from "./sections/brief-visual-media";
 
@@ -140,7 +140,7 @@ export function buildDynamicContext(
     buildSpec,
     sessionSeed,
     chatId,
-    componentReferences,
+    uiRecipes,
     ragContext,
   } = options;
 
@@ -304,7 +304,7 @@ export function buildDynamicContext(
   );
   parts.push(...renderImageryBlock({ brief, styleKeywords }));
   parts.push(...renderMediaCatalogBlock(mediaCatalog));
-  parts.push(...renderComponentReferencesBlock(componentReferences));
+  parts.push(...renderUiRecipesBlock(uiRecipes));
   parts.push(...renderSeoBlock(brief));
 
   // User prompt text is carried by the **user** message in the chat/completions

@@ -34,11 +34,11 @@ Components like `carousel`, `chart`, `sidebar`, `calendar`, `command`, and `data
 | `needsForms` | `react-hook-form` + `zod` (via shadcn `Form`) | Install when form/booking/contact-form signal is present. |
 | `needsDataUI` | `@tanstack/react-table` (via shadcn `Table`) | Install when data table/CRUD/sorting/filtering signal is present. |
 
-## Dynamic component references
+## Dynamic UI Recipes
 
-When capabilities are detected, the orchestration pipeline loads verified shadcn usage examples from a local cache (`data/shadcn-examples/`) and injects them into the dynamic context as `## Component References`. This gives the LLM actual working code patterns (DatePicker = Calendar + Popover, Combobox = Command + Popover, etc.) rather than just component names.
+When capabilities are detected, the orchestration pipeline resolves curated shadcn registry items through `src/lib/gen/data/shadcn-ui-recipes.ts` and injects them into the dynamic context as `## UI Recipes`. A recipe is a small, request-specific prompt reference: item metadata, dependencies, registry dependencies and compact excerpts from the most relevant files.
 
-The cache is synced via `npm run shadcn:sync-examples` from `ui.shadcn.com/r/`. Static component patterns in `config/prompt-core/02-component-contract.md` serve as always-present baseline; dynamic references add depth for capability-matched components.
+UI Recipes replace the old local `data/shadcn-examples/` cache and the old `## Component References` path. Static component patterns in `config/prompt-core/02-component-contract.md` still serve as always-present baseline; `## UI Recipes` add request-specific depth for blocks/components without giving the codegen LLM live MCP or arbitrary web access.
 
 ## Libraries evaluated but not default
 

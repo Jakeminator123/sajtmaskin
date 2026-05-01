@@ -17,7 +17,8 @@ interface OrchestrationBaseLike {
   capabilities: GenerationInputPackage["capabilities"];
   buildSpec: GenerationInputPackage["buildSpec"];
   serializeMode: GenerationInputPackage["serializeMode"];
-  componentReferences: GenerationInputPackage["componentReferences"];
+  uiRecipes: GenerationInputPackage["uiRecipes"];
+  dossierRequestedCapabilities: GenerationInputPackage["dossierRequestedCapabilities"];
   dossierSelection?: GenerationInputPackage["dossierSelection"];
   requestedCapabilityTiers?: GenerationInputPackage["requestedCapabilityTiers"];
   scaffoldVariantId: GenerationInputPackage["scaffoldVariantId"];

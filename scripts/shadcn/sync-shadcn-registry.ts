@@ -25,7 +25,8 @@ const REGISTRY_BASE = "https://ui.shadcn.com/r/styles";
  * styles. Senast 2026-04 saknar `radix-vega/form.json` files-arrayen helt
  * medan `new-york/form.json` har den intakt. Vi försöker primary först (matchar
  * runtime-default i `src/lib/shadcn/registry-url.ts`), sen `new-york-v4` och
- * `new-york` som fallback. Speglar mönstret i `shadcn-registry-fetch.ts`.
+ * `new-york` som fallback. Speglar mönstret i `src/lib/shadcn/registry-url.ts`
+ * och `src/lib/gen/data/shadcn-ui-recipes.ts`.
  */
 const STYLE_FALLBACK_CHAIN = ["radix-vega", "new-york-v4", "new-york"] as const;
 const COMPONENTS_PATH = join(

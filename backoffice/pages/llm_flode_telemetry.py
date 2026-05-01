@@ -532,7 +532,7 @@ def _render_prompt_size(ctx: BackofficeContext) -> None:
 def _render_simple_website_path(run_dirs: list[Path]) -> None:
     st.subheader("Simple Website Path (`orchestration.simple_website_path`)")
     st.caption(
-        "Konservativ init-lane som kan hoppa Server Auto-Brief, externa/component refs "
+        "Konservativ init-lane som kan hoppa Server Auto-Brief, externa/UI Recipes "
         "och dossier selection för korta website/template-prompts utan heavy signals."
     )
     events = _collect_events_by_type(run_dirs, "orchestration.simple_website_path")

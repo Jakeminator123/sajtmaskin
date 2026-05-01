@@ -31,6 +31,25 @@ describe("resolveSelectedDossiersFromStreamMeta — orchestration → finalize t
     expect(resolveSelectedDossiersFromStreamMeta({ capabilities: {} })).toEqual([]);
   });
 
+  it("föredrar explicit selectedDossierIds från orchestration framför capability-replay", () => {
+    const result = resolveSelectedDossiersFromStreamMeta({
+      selectedDossierIds: ["stripe-checkout"],
+      requestedCapabilities: ["visual-3d"],
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe("stripe-checkout");
+    expect(result[0]?.capability).toBe("payments");
+  });
+
+  it("faller tillbaka till requestedCapabilities om explicit dossier-id är stale", () => {
+    const result = resolveSelectedDossiersFromStreamMeta({
+      selectedDossierIds: ["dossier-that-does-not-exist"],
+      requestedCapabilities: ["visual-3d"],
+    });
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0]?.id).toBe("three-fiber-canvas");
+  });
+
   it("returnerar dossier entries när requestedCapabilities matchar visual-3d", () => {
     const result = resolveSelectedDossiersFromStreamMeta({
       requestedCapabilities: ["visual-3d"],
@@ -57,6 +76,18 @@ describe("resolveSelectedDossiersFromStreamMeta — orchestration → finalize t
     });
     expect(result.length).toBeGreaterThan(0);
     expect(result[0]?.id).toBe("three-fiber-canvas");
+  });
+
+  it("mergar top-level och briefSummary capabilities för legacy-replay", () => {
+    const result = resolveSelectedDossiersFromStreamMeta({
+      requestedCapabilities: ["visual-3d"],
+      briefSummary: {
+        requestedCapabilities: ["payments"],
+      },
+    });
+    const ids = result.map((entry) => entry.id);
+    expect(ids).toContain("three-fiber-canvas");
+    expect(ids).toContain("stripe-checkout");
   });
 
   it("ignorerar tomma/whitespace strings i requestedCapabilities", () => {
