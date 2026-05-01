@@ -90,8 +90,8 @@ Fem read-only granskningar jämförde deep-researchen, `BUG-SWARM-BACKLOG.md` oc
 | P1c | Follow-up merge kan regressa `app/page.tsx` utan samma `code_structure_failure`-skydd som init | PR #117 if-05 / PR #118 r2-06 | `src/lib/gen/stream/finalize-merge.ts` (`LLM_ONLY_PATHS` + structural guard) |
 | P1d | `2026-04-27-followup-vs-autorepair-lane-collision.md` — auto-repair-prompt sväljer user-follow-up. Befintlig aktiv plan, inte påbörjad | egen plan | `src/lib/gen/verify/server-verify.ts` (`triggerBuildErrorRepair`) + `useSendMessage` |
 | P1e | Status från DB-flag istället för event-bus-projektion → UI hänger efter | PR #118 r2-04, r2-14, plans/active/README **F** | `src/lib/db/schema.ts` `engine_versions.preview_blocked` + `selectVersionStatus(events)` |
-| P1f | Major-change detector saknas för follow-ups som byter projektets natur: game/3D/canvas/physics/score/collision/app-logik. Vanlig follow-up är för defensiv här. | Deep-research 2026-05-01 + BUG-SWARM G#10/G#13/G#57 | `classifyFollowUpIntent`, capability inference, `resolveBuildIntentPromotion`, `shouldIgnorePersistedScaffoldForMatch` |
-| P1g | Safe unlock-kontrakt: vid major-change ska systemet kunna välja clear-redesign-policy, capability refresh, scaffold unlock och heavy context utan att tappa F2/F3-readiness. | BUG-SWARM G#20-G#22/G#25-G#26 | `orchestrate.ts`, `buildFollowUpBriefFromSnapshot`, dossier/capability bridge, readiness/finalize |
+| ~~P1f~~ ✅ **FIXAD 2026-05-01** | Major-change detector för follow-ups som byter projektets natur: game/canvas/physics/score/collision/app-logik släpper nu scaffold-låset utan att små 3D-overlays gör det. | Deep-research 2026-05-01 + BUG-SWARM G#10/G#13/G#57 | `shouldIgnorePersistedScaffoldForMatch` + regressionstester |
+| P1g | Safe unlock-kontrakt nästa lager: vid major-change ska systemet också kunna välja rätt context/readiness-policy utan att tappa F2/F3-semantik. | BUG-SWARM G#20-G#22/G#25-G#26 | `orchestrate.ts`, `buildFollowUpBriefFromSnapshot`, dossier/capability bridge, readiness/finalize |
 
 ### P2 — Latency / parallellisering / robusthet
 
@@ -139,7 +139,7 @@ Agent B — P1 (init/follow-up)
   P1b briefSummary null
   P1c follow-up app/page.tsx guard
   P1d använder existerande plan 2026-04-27-followup-vs-autorepair-lane-collision
-  P1f/P1g major-change detector + safe unlock för game/3D/app-logik
+  P1g safe unlock context/readiness för game/3D/app-logik
 
 Agent C — P2 (latency/parallellisering)
   P2a brief + scaffold-pick parallellisering
@@ -163,7 +163,8 @@ Agent D — P3+P4 (prompt + observability)
 | P0c | ✅ Stale `engine_version_error_logs` raderas när repair på samma `versionId` saknar preflight-/syntaxblockers |
 | P1a–b | Snapshot test över follow-up med `briefSummary` både null och full → samma final variant + brief |
 | P1d | Auto-repair-prompt får inte sväljas av user-follow-up — telemetry `user_followup_replayed_after_repair > 0` när relevant |
-| P1f/P1g | Follow-up som explicit ber om spel/3D/canvas/physics/app-logik kan klassas som major-change, låsa upp scaffold/capability-policy och behålla korrekt F2/F3-readiness |
+| P1f | ✅ Follow-up som explicit ber om spel/canvas/physics/score/collision kan låsa upp scaffold-rematch utan att små 3D-overlays gör det |
+| P1g | Major-change follow-up behåller korrekt context/readiness-policy och F2/F3-semantik |
 | P2 | Latency-eval (`evals/results/`) visar mätbar förbättring av init-latens utan kvalitetsregression |
 | P3a | Mekaniska autofixes ≤ `15` på Nordtak-prompt-eqv |
 | P3e | `prompt-slim-systemprompt.md` visar normal follow-up <45k och static core <35k utan smoke-regression |

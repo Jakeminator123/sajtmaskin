@@ -204,6 +204,42 @@ describe("shouldIgnorePersistedScaffoldForMatch", () => {
       }),
     ).toBe(true);
   });
+
+  it("unlocks on major game/canvas follow-ups without requiring clear-redesign wording", () => {
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "capability-add",
+        message: "Gör ett Pac-Man-spel med delfiner, poäng och kollisioner.",
+        scaffoldMode: "auto",
+        scaffoldId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps small visual-3d overlays on the current scaffold", () => {
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "capability-add",
+        message: "lägg till en 3d-kaffekopp som hoovrar ovanför hero",
+        scaffoldMode: "auto",
+        scaffoldId: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not unlock major-change signals when the scaffold is explicitly pinned", () => {
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "capability-add",
+        message: "Bygg ett playable canvas game med score och collisions",
+        scaffoldMode: "manual",
+        scaffoldId: "landing-page",
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("classifyFollowUpIntentWithLlmFallback (P22)", () => {
