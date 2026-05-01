@@ -72,7 +72,7 @@ const QUALITY_TARGET_RANK: Record<BuildSpecQualityTarget, number> = {
  * Inheritance får aldrig SÄNKA qualityTarget. Om baseSpec just blivit
  * promoted (t.ex. multipage → premium, eller F3 → release-candidate) och
  * priorQualityTarget är lägre, behåller vi baseSpec. Skälet: en användare
- * som ber om "snyggare", lägger till routes, eller startar F3-bygget får
+ * som ber om "snyggare", lägger till routes, eller startar integrationsbygget får
  * inte tappa kvalitetsambition bara för att förra version råkade ha lägre rank. Loggar
  * `quality_target_inheritance_blocked` så vi kan följa när det händer.
  *

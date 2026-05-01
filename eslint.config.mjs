@@ -62,6 +62,7 @@ export default defineConfig([
     "next-env.d.ts",
     "**/*.tsbuildinfo",
     "node_modules/**/*",
+    ".venv/**/*",
     "sajtmaskin/**/*",
     "base/**/*",
     "old/**/*",

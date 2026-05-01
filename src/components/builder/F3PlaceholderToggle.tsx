@@ -136,7 +136,7 @@ export function F3PlaceholderToggle({ projectId, className, onChanged }: Props) 
             </div>
           </div>
           <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-            När på: F3-bygget passerar med placeholder-värden för secrets.
+            När på: integrationsbygget passerar med placeholder-värden för secrets.
             Sajten deployas men integrationer som anropar riktiga API:er
             (Stripe, OpenAI, Resend …) kraschar tills du fyller i riktiga
             nycklar. Bra för att förhandsvisa innan affärsavtalen är klara.

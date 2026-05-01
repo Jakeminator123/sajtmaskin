@@ -33,6 +33,11 @@ Kort plan för copy-spåret (spår B) från `Kvarvarande-uppgifter.md` #11. Den 
 | F3 klar | `Integrationsbuild klar` |
 | Degraded/silent osäkerhet | Neutral text + länk till diagnos, inte "klart" |
 
+## Progress 2026-05-01
+
+- UI-/prompt-/env-copy för F3-triggern använder nu `Bygg integrationer` som användarterm istället för blandningen `Bygg nu` / `F3-bygget` / engelska statuslabels.
+- Separat statuslogik är fortfarande out-of-scope här; spår A ligger kvar i `Kvarvarande-uppgifter.md` #11.
+
 ## Källor
 
 - `docs/plans/active/Kvarvarande-uppgifter.md` #11 (spår B)

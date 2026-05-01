@@ -104,7 +104,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           // är skipped via `design_preview_skip_verify`) från F3-integrations-
           // rader. När fältet inte mappas hit försvinner det till `undefined`
           // i UI:t och `isServerVerifyExpectedForLifecycle` defaultar till
-          // `false`, vilket tystade "Verifying"-labeln för F3-rader.
+          // `false`, vilket tystade "Verifierar"-labeln för F3-rader.
           lifecycleStage: v.lifecycle_stage,
           canPin: false,
       }));

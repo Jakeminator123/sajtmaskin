@@ -16,7 +16,7 @@ Definierat i [`src/lib/db/engine-version-lifecycle.ts`](../../src/lib/db/engine-
 | `draft` | `failed` | Verifiering misslyckades definitivt. |
 | `promoted` | (vilken som) | Publicerad — live. |
 
-UI:n läser dessa via `resolveEngineVersionLifecycleStatus(version)` och visar "Draft"/"Verifying"/"Repairing"/"Repair available"/"Fel"/"Promoted".
+UI:n läser dessa via `resolveEngineVersionLifecycleStatus(version)` och visar labels som "Draft"/"Verifierar"/"Reparerar"/"Fix redo"/"Fel"/"Publicerad".
 
 ## Transitioner
 
@@ -54,7 +54,7 @@ stateDiagram-v2
 **Nytt beteende (fas D1–D2 av showcase-bug-rotorsaksfixen):**
 
 1. Endast **preflight hard errors** (syntax/parse/merge) → pre-committa `failed` i finalize. Dessa är deterministiska och ska fast-fail:a.
-2. **Verifier-only blocking** → state stannar i `pending` tills server-verify landat. UI:n visar "Verifying" under fönstret.
+2. **Verifier-only blocking** → state stannar i `pending` tills server-verify landat. UI:n visar "Verifierar" under fönstret.
 3. Server-verify i `diagnosticOnly: true` **resolverar** terminalt via `failVersionVerification` både vid gate-pass (verifier-LLM och tsc oeniga) och gate-fail (båda eniga om fel). Detta säkrar att versionen aldrig fastnar i `pending` utan att någon sätter slutstatus.
 4. `triggerBuildErrorRepair` (VM build-error SSE) kan fortfarande override:a vilket state som helst genom `saveRepairedFiles` → `repair_available`.
 

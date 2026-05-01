@@ -105,7 +105,7 @@ export interface PreviewPanelProps {
   onComposerAiFallback?: (payload: ComposerAiFallbackPayload) => void | Promise<void>;
   /**
    * F2 vs F3 stage of the active version. Controls visibility of the
-   * "Bygg nu" (F3 trigger) button in the preview chrome. F2 (`design`)
+   * "Bygg integrationer" (F3 trigger) button in the preview chrome. F2 (`design`)
    * shows the button; F3 (`integrations`) hides it (already in F3).
    * See `.cursor/rules/env-flow-f2-mute.mdc`.
    */
@@ -113,7 +113,7 @@ export interface PreviewPanelProps {
   /**
    * Whether the builder shell is busy (creating chat, streaming a previous
    * generation, loading a template, preparing a prompt). Forwarded down to
-   * `PreviewPanelF3Trigger` so a second "Bygg nu" click cannot race the
+   * `PreviewPanelF3Trigger` so a second "Bygg integrationer" click cannot race the
    * F3 stream that the previous click is currently running.
    */
   isBusy?: boolean;

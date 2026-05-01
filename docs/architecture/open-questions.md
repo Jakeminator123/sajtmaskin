@@ -390,6 +390,8 @@ LLM:n tolkade scaffoldens `siteKind: "marketing"` + `structureProfile: "one-page
 
 **Användarens observation 2026-04-24:** Badge-texten "Promoted" är förvirrande. Den signalerar "denna är live-preview-versionen", inte "F3 verifierat". Användare antar att "Promoted" = "klar för deploy", men det stämmer bara om F3 också grönade.
 
+**Status 2026-05-01:** Delvis åtgärdat i UI-copy: `VersionHistory` visar inte längre `Promoted` utan svensk label `Publicerad`. Förslaget att byta till `Fidelity 2/3` är fortfarande ett produktbeslut och inte gjort i copy-passet.
+
 **Förslag:**
 - `Fidelity 2` — preview bootar, sidan renderar, F2-checks gröna
 - `Fidelity 3` — F2 + build/integrations/typecheck verifierade

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { ChatReadiness, ChatReadinessItem } from "@/lib/chat-readiness";
 import {
   deployReadinessBadgeClassName,
+  envKeysForReadinessItem,
   formatDeployReadinessStatusLabel,
 } from "@/lib/builder/deploy-readiness-ui";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
@@ -24,7 +25,7 @@ type Props = {
 
 function renderItem(
   item: ChatReadinessItem,
-  missingEnvKeys: string[],
+  envKeys: string[],
   isIntegrations: boolean,
 ) {
   const isWarning = item.severity === "warning";
@@ -53,7 +54,7 @@ function renderItem(
           variant="ghost"
           size="sm"
           className="mt-1 h-7 px-2 text-[11px]"
-          onClick={() => openProjectEnvVarsPanel(missingEnvKeys)}
+          onClick={() => openProjectEnvVarsPanel(envKeys)}
         >
           Öppna miljövariabler
         </Button>
@@ -107,22 +108,17 @@ export function LaunchReadinessCard({
         <div className="mt-2 text-[11px] text-muted-foreground">Kontrollerar publiceringsstatus...</div>
       ) : readiness ? (
         <div className="mt-2 space-y-2">
-          {/* Phase-4: when dossier metadata is available, prefer the
-            * narrower `buildBlockingKeys` list so the env panel opens with
-            * only the keys that truly block F3 — not the broader 17-key
-            * detection set. Falls back to legacy `missingEnvKeys` when the
-            * field is absent (older readiness payloads). */}
           {readiness.blockers.map((item) =>
             renderItem(
               item,
-              readiness.info.buildBlockingKeys ?? readiness.info.missingEnvKeys,
+              envKeysForReadinessItem(item, readiness.info),
               isIntegrations,
             ),
           )}
           {readiness.warnings.map((item) =>
             renderItem(
               item,
-              readiness.info.buildBlockingKeys ?? readiness.info.missingEnvKeys,
+              envKeysForReadinessItem(item, readiness.info),
               isIntegrations,
             ),
           )}

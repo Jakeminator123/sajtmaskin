@@ -178,7 +178,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     triggers: ["import {X} where X is only used as a type"],
     status: "active",
     ownerPhase: "pre-syntax",
-    notes: "Documented in docs/plans/active/P31-feature-runtime-envs-and-f3-toggle.md.",
+    notes: "Documented in docs/plans/avklarat/P31-feature-runtime-envs-and-f3-toggle.md.",
   },
   {
     id: "value-used-from-type-import-fixer",

@@ -1067,7 +1067,7 @@ describe("finalizeAndSaveVersion", () => {
   it("(fas D1) preflight hard errors still pre-commit failed (unchanged path)", async () => {
     // Preflight code-structure failures — distinct from verifier-LLM findings —
     // ARE deterministic and should still immediately fail the version so
-    // the UI doesn't spin on "Verifying" for something that can't render.
+    // the UI doesn't spin on "Verifierar" for something that can't render.
     runProjectSanityChecks.mockReturnValueOnce({
       valid: false,
       issues: [

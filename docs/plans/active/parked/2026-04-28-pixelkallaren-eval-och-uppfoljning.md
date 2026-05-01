@@ -111,7 +111,7 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 |---|---|
 | Pure helper | `resolveVersionDisplayState({ releaseState, verificationState, serverVerify, isLatest })` i `src/lib/db/engine-version-lifecycle.ts` returnerar enum |
 | UI-konsumtion | [`src/components/builder/VersionHistory.tsx`](../../../../src/components/builder/VersionHistory.tsx) `lifecycleLabel`/`lifecycleTooltip` läser enum |
-| Tooltip korrekthet | "Verifying" visas BARA om `serverVerify.run === true && outcome === undefined`. När `policy === "design_preview_skip_verify"`: label är "Klar (utan server verify)" |
+| Tooltip korrekthet | "Verifierar" visas BARA om `serverVerify.run === true && outcome === undefined`. När `policy === "design_preview_skip_verify"`: label är "Klar (utan server verify)" |
 | Tester | Tabell-driven snapshot per enum-värde + tooltip |
 
 **Risk:** Medel — central UI-state. Mitigeras av pure helper + tabell-driven test.

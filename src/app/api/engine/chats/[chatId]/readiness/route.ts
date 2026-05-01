@@ -59,6 +59,7 @@ function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
     detail: `Saknas: ${missingEnvKeys.join(", ")}`,
     severity: "blocker",
     action: "env",
+    envKeys: missingEnvKeys,
   };
 }
 
@@ -69,6 +70,7 @@ function buildPlaceholderCoveredEnvWarning(keys: string[]): ChatReadinessItem {
     detail: `Fungerar i preview men behöver riktiga värden vid publicering: ${keys.join(", ")}`,
     severity: "warning",
     action: "env",
+    envKeys: keys,
   };
 }
 
@@ -79,6 +81,7 @@ function buildFeatureRuntimeEnvInfo(keys: string[]): ChatReadinessItem {
     detail: `Sajten bygger och visas utan dessa, men respektive feature visar en konfigurations-banner när användaren aktiverar den: ${keys.join(", ")}`,
     severity: "warning",
     action: "env",
+    envKeys: keys,
   };
 }
 
@@ -299,7 +302,7 @@ async function buildEngineReadiness(
   // F2 (`design`) is a pure visual fidelity stage. Env vars are
   // auto-handled in the project's `env.example` file with placeholders so
   // the chat never has to ask the user. Only when the user opts into
-  // F3 ("Bygg nu") do missing env keys become blockers.
+  // F3 ("Bygg integrationer") do missing env keys become blockers.
   // See `.cursor/rules/env-flow-f2-mute.mdc`.
   const lifecycleStage =
     typeof version.lifecycle_stage === "string" ? version.lifecycle_stage : "design";

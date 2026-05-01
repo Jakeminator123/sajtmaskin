@@ -47,7 +47,7 @@ export function renderCustomInstructionsBlock(customInstructions?: string): stri
 // NOT on backend integrations. Tier-3 imports/process.env references
 // bloat output, leak imports the user didn't ask for, and force the
 // builder UI into "fill in env vars"-mode which we explicitly want
-// to avoid. F3 ("Bygg nu" / fidelity3) is when integrations are wired
+// to avoid. F3 ("Bygg integrationer" / fidelity3) is when integrations are wired
 // in — and only when the user has clicked that button.
 // See `.cursor/rules/env-flow-f2-mute.mdc`.
 export function renderF2ContractBlock(buildSpec: BuildSpec | null | undefined): string[] {
@@ -73,10 +73,10 @@ export function renderF2ContractBlock(buildSpec: BuildSpec | null | undefined): 
     "- Mock all data inline as TypeScript constants: `const ROOMS = [{ id: \"1\", name: \"Skogssvit\", price: 1290 }, ...]`.",
     "- Forms: use `useState` + `toast.success(\"Bokningen mottagen!\")` on submit. No POST endpoint, no DB.",
     "- Auth UIs: render a beautiful `<LoginForm>` with email/password fields that calls `toast.success(\"Inloggad (demo)\")` on submit. No real session.",
-    "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg nu' i previewpanelen.\" No Stripe, no API call.",
+    "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg integrationer' i previewpanelen.\" No Stripe, no API call.",
     "- Search: client-side `Array.filter()` over the inline mock data.",
     "",
-    "Why: the user will click **\"Bygg nu\"** in the preview panel when they want to lift the site to F3 / integrations stage. THAT is when real keys, SDKs and API routes get wired in — by a separate generation pass with a separate prompt that explicitly asks for it. Right now, your job is to make the visual frontend perfect.",
+    "Why: the user will click **\"Bygg integrationer\"** in the preview panel when they want to lift the site to F3 / integrations stage. THAT is when real keys, SDKs and API routes get wired in — by a separate generation pass with a separate prompt that explicitly asks for it. Right now, your job is to make the visual frontend perfect.",
     "",
   ];
 }

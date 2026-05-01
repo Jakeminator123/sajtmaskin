@@ -549,7 +549,7 @@ async function runAutoFixSinglePass(
       // 3c-typeonly. type-only-import-fixer — convert `import { X }` to
       // `import type { X }` when the binding is never used as a value
       // (TS2749 prevention). Empirical hit logged in
-      // docs/plans/active/P31-feature-runtime-envs-and-f3-toggle.md.
+      // docs/plans/avklarat/P31-feature-runtime-envs-and-f3-toggle.md.
       try {
         const typeOnlyResult = fixTypeOnlyImports(currentCode, file.path);
         if (typeOnlyResult.fixed) {

@@ -58,7 +58,7 @@ export function resolveEngineVersionParentId(
  * runs there. F3 integrations rows run `verificationPolicy: "standard"`
  * which executes server-verify after persist.
  *
- * UI consumers: when this returns `false`, do NOT show "Verifying" or
+ * UI consumers: when this returns `false`, do NOT show "Verifierar" or
  * "Server-verify kör i bakgrunden..." for a `verificationState: "pending"`
  * row — the row has reached its terminal display state for design preview.
  *

@@ -843,7 +843,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 env.example
               </code>{" "}
               för det här projektet. Klicka{" "}
-              <span className="text-foreground font-medium">&quot;Bygg nu&quot;</span> i
+              <span className="text-foreground font-medium">&quot;Bygg integrationer&quot;</span> i
               previewen för att fylla i riktiga värden för externa
               integrationer.
             </div>

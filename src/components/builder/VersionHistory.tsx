@@ -66,7 +66,7 @@ type VersionSummary = {
    * Lifecycle stage from `engine_versions.lifecycle_stage`. Threaded so
    * tooltip/label can tell F2 design rows ("Klar — server-verify körs
    * först vid Bygg integrationer") apart from F3 integrations rows
-   * ("Verifying"). When missing, defaults to "design" via
+   * ("Verifierar"). When missing, defaults to "design" via
    * `resolveEngineVersionLifecycleStage`.
    */
   lifecycleStage?: string | null;
@@ -609,20 +609,20 @@ export function VersionHistory({
             });
             // Postmortem 2026-04-28: F2 design-versioner kör inte server-verify
             // (`design_preview_skip_verify`) — visa "Klar" istället för
-            // "Verifying" för dem så UI inte påstår en bakgrundskörning som
+            // "Verifierar" för dem så UI inte påstår en bakgrundskörning som
             // aldrig sker. F3-integrationsversioner kör verify aktivt och
-            // behåller "Verifying"-labeln.
+            // behåller "Verifierar"-labeln.
             const lifecycleLabel =
               lifecycleStatus === "promoted"
-                ? "Promoted"
+                ? "Publicerad"
                 : lifecycleStatus === "verifying"
                   ? willRunServerVerify
-                    ? "Verifying"
+                    ? "Verifierar"
                     : "Klar"
                   : lifecycleStatus === "repairing"
-                    ? "Repairing"
+                    ? "Reparerar"
                     : lifecycleStatus === "repair_available"
-                      ? "Repair available"
+                      ? "Fix redo"
                     : lifecycleStatus === "retrying"
                       ? "Ersatt"
                       : lifecycleStatus === "failed"
@@ -630,18 +630,18 @@ export function VersionHistory({
                         : "Draft";
             // P25b-rest: surface what each lifecycle badge actually means in
             // a hover-tooltip so users don't need to read the runbook to
-            // tell "Verifying" (background server-verify still running)
-            // apart from "Promoted" (released live) or "Fel" (verifier
+            // tell "Verifierar" (background server-verify still running)
+            // apart from "Publicerad" (released live) or "Fel" (verifier
             // produced blocking findings — open the diagnostics dialog).
             const lifecycleTooltip =
               lifecycleStatus === "promoted"
                 ? "Publicerad live. Klart att deploya."
                 : lifecycleStatus === "verifying"
                   ? willRunServerVerify
-                    ? "Server-verify kör i bakgrunden — typecheck/build mot scaffold-cache. Kan landa i 'Promoted' eller 'Fel' när den är klar."
+                    ? "Server-verify kör i bakgrunden — typecheck/build mot scaffold-cache. Kan landa i 'Publicerad' eller 'Fel' när den är klar."
                     : "Design-preview klar. Server-verify körs först när du klickar 'Bygg integrationer'."
                   : lifecycleStatus === "repairing"
-                    ? "Server försöker reparera fel automatiskt. Vänta — utfallet rapporteras som 'Repair available' eller 'Fel'."
+                    ? "Server försöker reparera fel automatiskt. Vänta — utfallet rapporteras som 'Fix redo' eller 'Fel'."
                     : lifecycleStatus === "repair_available"
                       ? "Reparerad version finns sparad och väntar på godkännande. Klicka för att se diff och acceptera."
                       : lifecycleStatus === "retrying"

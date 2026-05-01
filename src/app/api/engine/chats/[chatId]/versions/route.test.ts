@@ -127,7 +127,7 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     // integrations-rader (server-verify aktiv). Pre-fix mappade route.ts
     // bort fältet och frontend defaultade alltid till "design", vilket gjorde
     // att F3 integrations-rader felaktigt visades som "Klar" istället för
-    // "Verifying".
+    // "Verifierar".
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
     getVersionsByChat.mockResolvedValue([
       {
