@@ -349,7 +349,7 @@ describe("buildDynamicContext", () => {
       });
 
       expect(context).toContain("## Your Toolkit");
-      expect(context).toContain("- Capability-driven additions for this request:");
+      expect(context).toContain("- Capability hints:");
       expect(context).toContain("**Carousel/slider requested**: Use shadcn Carousel.");
       expect(context.indexOf("## Scaffold")).toBeLessThan(
         context.indexOf("## Your Toolkit"),
@@ -368,10 +368,9 @@ describe("buildDynamicContext", () => {
         scaffoldContext: "Scaffold context",
       });
 
-      expect(context).toContain("Registry-synced local layer:");
-      expect(context).toContain("combobox");
-      expect(context).toContain("button-group");
-      expect(context).toContain("field");
+      expect(context).toContain("## Your Toolkit");
+      expect(context).toContain("Import shadcn primitives from `@/components/ui/<subpath>`");
+      expect(context).toContain("do not invent a parallel UI kit");
     });
 
     it("keeps component references compact instead of injecting full example source", async () => {

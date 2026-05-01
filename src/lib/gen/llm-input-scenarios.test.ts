@@ -137,7 +137,7 @@ describe("LLM input scenarios (dynamic context)", () => {
     });
 
     expect(context).toContain("## Your Toolkit");
-    expect(context).toContain("- Capability-driven additions for this request:");
+    expect(context).toContain("- Capability hints:");
     expect(context).toContain("**Carousel/slider requested**: Use shadcn Carousel.");
     expect(context.indexOf("## Scaffold")).toBeLessThan(
       context.indexOf("## Your Toolkit"),
