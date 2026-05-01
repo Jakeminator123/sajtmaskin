@@ -62,7 +62,7 @@ describe("applyDossierVerbatimPolicy", () => {
       mockGetDossierFileContent.mockReturnValue(canonical);
 
       const dossier = makeVerbatimDossier();
-      const llmFile = makeFile("checkout-button.tsx", "// LLM rewrote me");
+      const llmFile = makeFile("components/checkout-button.tsx", "// LLM rewrote me");
       const { files, restored } = applyDossierVerbatimPolicy({
         llmFiles: [llmFile],
         selectedDossiers: [dossier],
@@ -71,10 +71,10 @@ describe("applyDossierVerbatimPolicy", () => {
 
       expect(restored).toHaveLength(1);
       expect(restored[0].reason).toBe("verbatim_content_drift");
-      expect(restored[0].path).toBe("checkout-button.tsx");
+      expect(restored[0].path).toBe("components/checkout-button.tsx");
       expect(restored[0].dossierId).toBe("test-dossier");
 
-      const outputFile = files.find((f) => f.path === "checkout-button.tsx");
+      const outputFile = files.find((f) => f.path === "components/checkout-button.tsx");
       expect(outputFile?.content).toBe(canonical);
     });
 
@@ -83,7 +83,7 @@ describe("applyDossierVerbatimPolicy", () => {
       mockGetDossierFileContent.mockReturnValue(canonical);
 
       const dossier = makeVerbatimDossier();
-      const llmFile = makeFile("checkout-button.tsx", canonical);
+      const llmFile = makeFile("components/checkout-button.tsx", canonical);
       const { restored } = applyDossierVerbatimPolicy({
         llmFiles: [llmFile],
         selectedDossiers: [dossier],
@@ -94,12 +94,12 @@ describe("applyDossierVerbatimPolicy", () => {
   });
 
   describe("verbatim_file_missing_in_llm_output — LLM omitted a verbatim file", () => {
-    it("pushes the canonical file when LLM did not emit it", () => {
+    it("pushes the canonical file at app/api/<route> when LLM did not emit it", () => {
       const canonical = "export default function WebhookHandler() {}";
       mockGetDossierFileContent.mockReturnValue(canonical);
 
       const dossier = makeVerbatimDossier({
-        files: [{ path: "components/api/webhook.ts", role: "server" }],
+        files: [{ path: "components/api/webhook/route.ts", role: "server" }],
       });
       const { files, restored } = applyDossierVerbatimPolicy({
         llmFiles: [],
@@ -109,9 +109,10 @@ describe("applyDossierVerbatimPolicy", () => {
 
       expect(restored).toHaveLength(1);
       expect(restored[0].reason).toBe("verbatim_file_missing_in_llm_output");
-      expect(restored[0].path).toBe("api/webhook.ts"); // "components/" prefix stripped
+      // API routes belong under app/api/<route>/route.ts in the user project.
+      expect(restored[0].path).toBe("app/api/webhook/route.ts");
 
-      const pushed = files.find((f) => f.path === "api/webhook.ts");
+      const pushed = files.find((f) => f.path === "app/api/webhook/route.ts");
       expect(pushed).toBeDefined();
       expect(pushed?.content).toBe(canonical);
       expect(pushed?.language).toBe("ts");
@@ -139,14 +140,14 @@ describe("applyDossierVerbatimPolicy", () => {
         files: [{ path: "components/hero.tsx", role: "client" }],
       });
       const llmContent = "LLM-rewritten hero content";
-      const llmFile = makeFile("hero.tsx", llmContent);
+      const llmFile = makeFile("components/hero.tsx", llmContent);
       const { files, restored } = applyDossierVerbatimPolicy({
         llmFiles: [llmFile],
         selectedDossiers: [dossier],
       });
 
       expect(restored).toHaveLength(0);
-      const hero = files.find((f) => f.path === "hero.tsx");
+      const hero = files.find((f) => f.path === "components/hero.tsx");
       expect(hero?.content).toBe(llmContent); // LLM version untouched
     });
 
@@ -165,7 +166,7 @@ describe("applyDossierVerbatimPolicy", () => {
       });
       const llmContent = "LLM adapted content";
       const { restored } = applyDossierVerbatimPolicy({
-        llmFiles: [makeFile("checkout-button.tsx", llmContent)],
+        llmFiles: [makeFile("components/checkout-button.tsx", llmContent)],
         selectedDossiers: [dossier],
       });
 
@@ -180,19 +181,21 @@ describe("applyDossierVerbatimPolicy", () => {
         codeFidelity: "rewritable",
         files: [
           {
-            path: "components/auth-middleware.ts",
+            path: "components/middleware.ts",
             role: "server",
             injectionMode: "verbatim",
           },
         ],
       });
       const { restored } = applyDossierVerbatimPolicy({
-        llmFiles: [makeFile("auth-middleware.ts", "// LLM modified middleware")],
+        // middleware.ts lands at root in the user project (Next.js convention).
+        llmFiles: [makeFile("middleware.ts", "// LLM modified middleware")],
         selectedDossiers: [dossier],
       });
 
       expect(restored).toHaveLength(1);
       expect(restored[0].reason).toBe("verbatim_content_drift");
+      expect(restored[0].path).toBe("middleware.ts");
     });
   });
 
@@ -203,7 +206,7 @@ describe("applyDossierVerbatimPolicy", () => {
       const dossier = makeVerbatimDossier();
       const llmContent = "LLM modified content";
       const { files, restored } = applyDossierVerbatimPolicy({
-        llmFiles: [makeFile("checkout-button.tsx", llmContent)],
+        llmFiles: [makeFile("components/checkout-button.tsx", llmContent)],
         selectedDossiers: [dossier],
       });
 
@@ -217,7 +220,7 @@ describe("applyDossierVerbatimPolicy", () => {
       mockGetDossierFileContent.mockReturnValue("canonical");
       const dossier = makeVerbatimDossier();
       applyDossierVerbatimPolicy({
-        llmFiles: [makeFile("checkout-button.tsx", "different")],
+        llmFiles: [makeFile("components/checkout-button.tsx", "different")],
         selectedDossiers: [dossier],
         chatId: "chat-telemetry",
       });
@@ -234,7 +237,7 @@ describe("applyDossierVerbatimPolicy", () => {
       mockGetDossierFileContent.mockReturnValue("same content");
       const dossier = makeVerbatimDossier();
       applyDossierVerbatimPolicy({
-        llmFiles: [makeFile("checkout-button.tsx", "same content")],
+        llmFiles: [makeFile("components/checkout-button.tsx", "same content")],
         selectedDossiers: [dossier],
         chatId: "chat-no-op",
       });
@@ -246,7 +249,7 @@ describe("applyDossierVerbatimPolicy", () => {
       mockGetDossierFileContent.mockReturnValue("canonical");
       const dossier = makeVerbatimDossier();
       applyDossierVerbatimPolicy({
-        llmFiles: [makeFile("checkout-button.tsx", "different")],
+        llmFiles: [makeFile("components/checkout-button.tsx", "different")],
         selectedDossiers: [dossier],
         // chatId omitted
       });

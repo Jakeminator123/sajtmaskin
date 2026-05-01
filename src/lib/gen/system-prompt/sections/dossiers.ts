@@ -11,6 +11,7 @@ import {
   getDossierFileContent,
   type DossierSelectionResult,
 } from "../../dossiers";
+import { mapDossierPathToOutput } from "../../dossiers/output-path";
 
 // Paths that belong to the scaffold and are dangerous to overwrite via a
 // dossier verbatim block (would clobber fonts, providers, metadata). We
@@ -169,10 +170,12 @@ export function renderDossierBlocks(
           `[dossiers] verbatim-missing ${sel.entry.id}: file '${file.path}' was requested verbatim but cannot be read from data/dossiers/${sel.entry.class}/${sel.entry.id}/`,
         );
       }
-      // Dossier files live under data/dossiers/<id>/components/<path-in-project>
-      // The "components/" prefix is the dossier-internal staging dir; strip it
-      // for the actual output path so files land at app/.../route.ts etc.
-      const outputPath = file.path.replace(/^components\//, "");
+      // Dossier files live under data/dossiers/<id>/components/<path-in-project>.
+      // `mapDossierPathToOutput` translates the staging path to the path the
+      // user project expects (UI components keep `components/`, API routes
+      // move to `app/api/`, middleware/instrumentation/sentry-config land at
+      // root). See `dossiers/output-path.ts` for the rotorsaks-historik.
+      const outputPath = mapDossierPathToOutput(file.path);
       if (SCAFFOLD_RESERVED_PATHS.has(outputPath)) {
         debugLog(
           "GEN",
