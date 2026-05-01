@@ -16,6 +16,11 @@ Sajtmaskin har **tre olika "eval"-system** som det är lätt att blanda ihop. De
 | Bara mäta att scaffold-pickern väljer rätt | `npm run scaffolds:eval` | ~10 sek | Bara embeddings (snabbt + billigt) |
 | Köra gate manuellt från driftpanelen | `Backoffice → Overhead → Eval → Kör eval:gate` | ~15-45+ min | OPENAI-quota för 18 prompts |
 
+## Snabba arbetsflöden
+
+- Efter en lokal generation (billig kontroll): `npm run eval:post-generation`
+- Innan större promptändringar: `npm run eval:before-prompt-change`
+
 ## De tre eval-systemen
 
 ### 1. Codegen-eval — `npm run eval:suite` / `eval:gate` / `eval:baseline`

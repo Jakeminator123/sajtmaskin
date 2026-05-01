@@ -77,6 +77,8 @@
     "eval": "npx tsx scripts/eval/run-eval.ts",
     "scaffolds:eval": "npx tsx scripts/scaffolds/eval-scaffold-selection.ts",
     "eval:followup": "npx tsx src/lib/gen/eval/follow-up-context-cli.ts",
+    "eval:post-generation": "npm run eval:followup",
+    "eval:before-prompt-change": "npm run eval:followup && npm run eval:weird-smoke",
     "eval:suite": "npx tsx src/lib/gen/eval/cli.ts",
     "eval:smoke": "npx tsx src/lib/gen/eval/cli.ts --smoke",
     "eval:weird-smoke": "npx tsx src/lib/gen/eval/cli.ts --prompts=realtor-multipage,dog-daycare,arcade-with-klarna",
