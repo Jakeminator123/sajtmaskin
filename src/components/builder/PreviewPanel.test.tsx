@@ -105,6 +105,29 @@ describe("PreviewPanel", () => {
     }).not.toThrow();
   });
 
+  it("renders version mismatch overlay and exposes retry action", () => {
+    const onPreviewSessionSuspect = vi.fn();
+
+    renderPreviewPanel({
+      onPreviewSessionSuspect,
+      versionMismatchPayload: {
+        chatId: "chat_1",
+        expectedVersionId: "expected_ver_2",
+        currentVersionId: "current_ver_1",
+        msSinceMismatch: 12_000,
+      },
+    });
+
+    expect(screen.getByTestId("version-mismatch-overlay")).toBeTruthy();
+    expect(screen.getByText("Preview startar om")).toBeTruthy();
+    expect(screen.getByText("expected")).toBeTruthy();
+    expect(screen.getByText("current_")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /Försök igen/i }));
+
+    expect(onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the footer editor and not the nav editor for footer link files", async () => {
     vi.stubGlobal(
       "fetch",

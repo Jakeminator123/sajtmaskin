@@ -15,6 +15,18 @@ Vid **städa/ta bort/flytta/refaktor**: utför, inte bara lista. Radera duplicat
 
 Steg: spåra beroenden → utför → uppdatera referenser → `npm run typecheck` (+ test). Överstyr "minimal diff" vid explicit städ-request.
 
+## 818-svärm vid risk
+
+Agenten får själv trigga `/818-swarm-decide` utan extra användarbeslut när en ändring kräver konsensus före beslut: riskfylld codegen-/status-/schema-yta, möjlig namnskugga, oklart canonical ownership, eller flera rimliga implementationer. Använd 8 read-only `explore`-agenter med distinkta vinklar, aggregera kort, verifiera osäkra fakta mot kod och implementera bara om utfallet är tydligt och smalt. Vid bred refaktor eller arkitekturbeslut: rapportera blocker i stället för att smyga in ändringen.
+
+## Efter varje runda
+
+Gör en kort scope-check innan leverans:
+
+- **Legacy-/namnskuggor:** om berört scope innehåller lätta–medelsvåra legacy-benämningar (`sandbox`, `demoUrl`, `prompt-static`, felaktigt `v0`, "dashboard" för backoffice, osv.) ska de städas eller kommenteras bort när det är säkert. Vid bred rename: stoppa och skapa plan.
+- **Docs/schema/backoffice:** om runtime-sanning, env-yta, schema, signal eller adminflöde ändrats, synka relevanta docs, strict schemas och `backoffice/`/`sajtmaskin_backoffice.py` i samma runda. Om ingen sync behövs, säg kort varför.
+- **Verifiering:** kör riktad test/lint/typecheck efter risk. För docs-only räcker diff-/lint-check när ingen runtime-yta ändrats.
+
 ## Git
 
 Stage bara aktuell uppgift. Ingen bred formattering utan scope. Commit/push när användaren ber. Stor PR (>~40 filer): nämn `git rev-parse HEAD`.
