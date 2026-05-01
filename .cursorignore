@@ -15,6 +15,27 @@ __pycache__
 .venv
 venv
 
+
+# --- Secrets (spegel av .gitignore) ---
+# Cursor ska aldrig indexera dessa — de kan innehålla API-nycklar som
+# smugglas in i LLM-kontexten via sökning.
+.env
+.env.*
+!.env.example
+!.env.*.example
+OLD.env*
+env.vercel*.local
+*.env.backup
+*.env.bak
+_env.production
+_env.development
+environments.production
+ENV_JAMFORRELSE.txt
+vercel-env-deploy.txt
+git_env.txt
+.env*.local
+files_envvars
+
 # --- Git / lockfile ---
 .git
 tsconfig.tsbuildinfo
@@ -23,6 +44,13 @@ package-lock.json
 # --- Data & prompt-dumpar ---
 data/prompt-dumps/*
 !data/prompt-dumps/README.md
+!data/prompt-dumps/own-engine-codegen/
+!data/prompt-dumps/own-engine-codegen/meta.json
+!data/prompt-dumps/own-engine-codegen/full-system.md
+!data/prompt-dumps/own-engine-codegen/dynamic-context.md
+!data/prompt-dumps/orchestration-dynamic/
+!data/prompt-dumps/orchestration-dynamic/meta.json
+!data/prompt-dumps/orchestration-dynamic/latest.md
 
 # --- Tunga genererade artefakter ---
 src/lib/templates/template-embeddings.json
@@ -66,6 +94,17 @@ logs/**
 !logs/site-observability/**/fix-patterns.json
 !logs/llm-segmentts-and-index/
 !logs/llm-segmentts-and-index/readme.txt
+!logs/generationslogg/**/meta.json
+!logs/generationslogg/**/timeline.ndjson
+!logs/generationslogg/**/observability.json
+!logs/generationslogg/**/fault-fix-index.csv
+!logs/generationslogg/**/fault-fix-index.md
+!logs/generationslogg/_index/
+!logs/generationslogg/_index/chat-to-run.json
+!logs/site-observability/**/history.ndjson
+!logs/site-observability/**/_source_run.txt
+!logs/llm-segmentts-and-index/error-log.csv
+!logs/llm-segmentts-and-index/error-log.ndjson
 
 # RAG snapshots / event mirrors
 data/observability/error-log-tfidf-*.json

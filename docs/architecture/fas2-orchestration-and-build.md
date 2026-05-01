@@ -28,7 +28,7 @@ Relaterade: [fas1-startprompt-flow.md](./fas1-startprompt-flow.md), [fas3-previe
 | Tokenbudget / pruning | `src/lib/gen/tokens.ts` |
 | Core Rules loader | `src/lib/gen/static-core-loader.ts` |
 | Core Rules manifest | `config/codegen-core-manifest.json` |
-| Core Rules fragment | `config/prompt-core/*.md` (6 filer inkl. `_READ_ME_FIRST.md`) |
+| Core Rules fragment | `config/prompt-core/*.md` (5 concat-fragment `00..04`; `_READ_ME_FIRST.md` är editorial, inte i manifestet) |
 | LLM-anrop | `src/lib/gen/engine.ts` |
 | SSE-formatering | `src/lib/gen/stream/stream-format.ts` |
 | Scaffold-val / matcher | `src/lib/gen/scaffolds/matcher.ts` + `src/lib/gen/scaffolds/keyword-banks.ts` |
