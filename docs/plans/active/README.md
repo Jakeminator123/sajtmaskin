@@ -61,7 +61,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | J | [`parked/P32-request-type-taxonomy.md`](./parked/P32-request-type-taxonomy.md) Fas B–F | Stabil follow-up-semantik (✅) + bredare eval-surface |
 | K | [`parked/P33-shadcn-ecosystem-expansion.md`](./parked/P33-shadcn-ecosystem-expansion.md) | Produktbeslut + core-split klart |
 
-**Summa aktivt öppet arbete:** O/P + A-F + L/M/N (icke-parkerat) ≈ 1-2 veckor; **O** är startlinje 2026-04-28 och konsoliderar nästa rundas LLM-flöde-arbete.
+**Summa aktivt öppet arbete:** O/P + A-F + Q + L/M/N (icke-parkerat) ≈ 1-2 veckor; **O** är startlinje 2026-04-28 och konsoliderar nästa rundas LLM-flöde-arbete.
 
 **Städat 2026-04-27:** `2026-04-24-llm-flode-korplan/` (alla 7 waves via PR #101+103 ✅) + `SEO-F3-PROMOTION-NEXT-PR.md` (PR-A #103 + PR-B #105 ✅) → arkiverade i [`../avklarat/`](../avklarat/).
 
