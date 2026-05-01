@@ -47,6 +47,7 @@ env.vercel*.local
 # Local notes / chat dumps (keep secrets and noise out of git)
 ENV_JAMFORRELSE.txt
 di-d.txt
+logg-meta*.txt
 
 # Temp commit-message files from local commit workflow
 COMMIT_MSG.tmp
