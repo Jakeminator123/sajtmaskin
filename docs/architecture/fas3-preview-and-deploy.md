@@ -45,6 +45,7 @@ Primär previewväg är `preview_host` (Fly). Tier-1 shim (`/api/preview-render`
 | `POST /api/engine/chats/[chatId]/preview-hibernate` | Parkera vid dold flik/pagehide |
 | `POST /api/engine/chats/[chatId]/preview-destroy` | Stäng session + rensa preview-url |
 | `POST /api/engine/chats/[chatId]/quality-gate` | Interaktiv quality-gate lane |
+| `GET /api/engine/chats/[chatId]/version-status` | Server-projektion av OMTAG-06 event-bus (`selectVersionStatus`) som klient-läsbar `VersionStatus`. Konsumeras av `useVersionStatus`-hook (poll 4s, stoppar på `done`/`failed`). Bär `degradations[]` så UI ser "works but degraded"-skips utan att kolla DB-flaggor. |
 | `POST /api/engine/chats/[chatId]/repair` | Manual/klientdriven repair |
 | `POST /api/engine/chats/[chatId]/accept-repair` | Applicera serverrepair från `repair_available` |
 | `POST /api/engine/chats/[chatId]/finalize-design` | F3-trigger ("Bygg integrationer"). Validerar tier-3 readiness mot dossier-`enforcement`-tags + `allowPlaceholdersInF3`-toggle; 412 + `missingByIntegration` bara när `build`-enforcement-keys saknas och inte är placeholder-täckta. |

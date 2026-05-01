@@ -2,7 +2,7 @@
 
 Hur signallagren samspelar i create-chat, follow-up och repair, plus **vem äger vilken signal** (canonical source).
 
-**Senast uppdaterad:** 2026-04-29.
+**Senast uppdaterad:** 2026-05-01.
 
 För kontraktslika tabellen över lager, inputs och outputs: `docs/schemas/orchestration-signal-contract.md`.
 För matrisen över LLM-roller/modeller: `docs/schemas/llm-role-matrix.md`.
@@ -65,7 +65,8 @@ Varje signal i init-pipelinen har **exakt en canonical source**. Konsumenter lä
 | **Request-specifik designkontext** | `buildDynamicContext()` i `src/lib/gen/system-prompt/` | brief + scaffold + theme | codegen system prompt (`## Brief-Locked Design Values` före variant) | Nej — brief-driven, inte omtolkad |
 | **Build intent (codegen + assist)** | `BUILD_INTENT_GUIDANCE` i `src/lib/gen/intent-guidance.ts` | delad konstant | `src/lib/gen/system-prompt/` (`buildDynamicContext()`) + `src/lib/builder/prompt-assist/` | Nej — en canonical konstant, båda ytor importerar den |
 | **Capability-inferens (init)** | `capability-inference.ts` | regexar + manifest | `buildDynamicContext()`, `BuildSpec`, `follow-up-clarification` | Nej. Follow-up dossier-mapning sker parallellt via `follow-up-capability-detection.ts` + `follow-up-capability-vocabulary.ts` (annan tröskel än `needs3D`/`needsGame` här) — se regressionsmatris i `follow-up-clarification.test.ts`. |
-| **Capability → dossier-bridge** | `src/lib/gen/capability-dossier-bridge.ts` | deklarativ map | `orchestrate.ts` → `selectDossiersForRequest({ requestedCapabilities })` | Nej — single source. Bridge-mappar inferred flags till dossier capability-id:n innan urval |
+| **Capability → dossier-bridge** | `src/lib/gen/capability-dossier-bridge.ts` | deklarativ map | `orchestrate.ts` → `selectDossiersForRequest({ requestedCapabilities })` | Nej — single source. Bridge-mappar inferred flags till dossier capability-id:n innan urval. **Täcker idag:** `needs3D` → `visual-3d`, `needsPhysics` → `physics-3d`, `needsParallax` → `parallax-scroll`+`parallax-pointer`, `needsPayments` → `payments`, `needsAuth` → `auth`, `needsForms` → `contact-form`, `needsCarousel` → `carousel`, `needsCommandSearch` → `command-search`, `needsGame` → `interactive-game`. |
+| **Game-specifik routing** | `needsGame` i `capability-inference.ts` → bridge → `interactive-game-loop`-dossier + scaffold-matcher-boost mot `base-nextjs`/`app-shell` | — | `scaffolds/matcher.ts` (`GAME_SYNC_PATTERN` + `needsGame`-boost i `buildKeywordScores`), `system-prompt/sections/dossiers.ts` | Nej — spåret är medvetet separat från `visual-3d` (dekorativt) och `physics-3d` (rigid bodies). Game kräver state+loop+controls+collision+score+restart, inte bara motion. |
 | **Fallback-addendum (non-init)** | `src/lib/builder/prompt-assist/` | `MOTION_GUIDANCE`, `VISUAL_IDENTITY_GUIDANCE`, `QUALITY_BAR_GUIDANCE` | `useInitBrief.ts` → `generateDynamicInstructions` vid brief-miss | Legacy-fallback, skippas vid init |
 | **User-message formattering (legacy fallback)** | `formatPrompt()` i `src/lib/builder/prompt-assist/` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `prompt-wizard-modal-v2.tsx`, `prompt-assist/runner.ts` | Borttagen från `useCreateChat`-init 2026-04-28 (init skickar rå text). Kvar för wizard/runner. |
 | **Init Brief hook** | `useInitBrief.ts` | `generateDynamicInstructions` | `useBuilderPageController.ts` | Hook — konsumerar `/api/ai/brief` + fallback addendum |
@@ -87,6 +88,53 @@ config/*.json      = editerbar data (domain rules, ai models, env policy)
 - Vid ändring av `config/domain-rules.json`: kör `server-auto-brief-policy.test.ts`.
 - Vid ändring av brief-schema: kontrollera att `buildDynamicContext` konsumerar nya fält.
 - Vid ändring av Core Rules: kontrollera att inga duplicerade regler skapas i dynamic context.
+
+---
+
+## Runtime-livscykel — event-bus + VersionStatus
+
+Sidoyta till prompt-/scaffold-signalerna ovan. Owners-matrix:
+
+| Signal | Source-of-truth | Konsument | Notering |
+|----|-----|-----|-----|
+| **Lifecycle-events per `versionId`** | `src/lib/logging/event-bus.ts` (`emit`) → `data/runs/<versionId>/<runId>/events.ndjson` | `selectVersionStatus()` projection, `event-bus-subscribers.ts` (devLog mirror), `backoffice/pages/llm_flode_telemetry.py` | `EngineEventType` är closed union — nya event-typer kräver också projection-rule |
+| **Aggregerad `VersionStatus`** | `src/lib/logging/event-bus-projection.ts` (`selectVersionStatus`) | server: `GET /api/engine/chats/[chatId]/version-status`; client: `useVersionStatus`-hook | Parallell DB-helper `resolveEngineVersionDisplayStatus` lever kvar tills per-komponent cut-over är klar (`Kvarvarande-uppgifter.md` #11) |
+| **Degraded "works but degraded"-spårning** | `version.degraded` event (`VersionDegradationKind` enum) → `VersionStatus.degradations` | `_render_degradations`-sektionen i backoffice; framtida UI badge | Idag emitteras `verifier_skipped_by_policy` + `product_postcheck_skipped` (inkl. runtime_error). Lägg INTE till nya kinds utan emitter + UX-konsument. |
+
+---
+
+## Prompt vs verifier/autofix — coverage
+
+Målet: mekaniska regler (imports, syntax, Tailwind `@apply`-fällor, missing deps) ska täckas deterministiskt av `src/lib/gen/autofix/rules/*.ts` och verifier-passet, **inte** genom att utöka static core. Den här tabellen håller reda på var vi är — nya static-core-regler ska stoppas här om den mekaniska vägen redan täcker dem.
+
+| Static-core-regel | Täcks av | Status |
+|---|---|---|
+| Import completeness (alla JSX-tags + hooks har imports) | `cross-file-import-checker.ts` | täckt |
+| Type-only imports (`import type`) | `type-only-import-fixer.ts` | täckt |
+| DOM-built-in typer som JSX-tagg (`<HTMLInputElement />`) | `dom-builtin-jsx-fixer.ts` | täckt |
+| lucide misuse (fel import-path / alias-syntax) | `lucide-misuse-fixer.ts` + `icon-component-value-fixer.ts` | täckt |
+| Duplicate imports från samma modul | `duplicate-import-binding-fixer.ts` + `duplicate-import-local-type-collision-fixer.ts` | täckt |
+| R3F vector-tuple-form (`position={[x,y,z]}` vs `new Vector3`) | `r3f-vector-tuple-fixer.ts` | täckt |
+| Tailwind `@apply` mot egen custom class | `tailwind-apply-component-fixer.ts` | täckt (overlap med prompt — behåll prompt som backup tills autofix bevisat stabilt) |
+| next/font import / `display`-prop | `font-import-fixer.ts` | täckt |
+| Tier-3 SDK-import i F2 | `tier3-sdk-guard-fixer.ts` | täckt |
+| ThemeProvider inuti `<body>` i `app/layout.tsx` | `layout-provider-fixer.ts` | täckt |
+| `next/navigation` imports i metadata-fil | `metadata-import-fixer.ts` + `metadata-client-conflict-fixer.ts` | täckt |
+| React import consolidation | `react-import-consolidated.ts` | täckt |
+| Value-used-from-type-only-import | `value-used-from-type-import-fixer.ts` + `type-only-module-default-import-fixer.ts` | täckt |
+| `as const` boolean keys | `as-const-boolean-keys.ts` | täckt |
+| Escape-leakage i string literals | `escape-leakage-fixer.ts` | täckt |
+| Duplicerad import-alias-typ-syntax | `import-alias-type-syntax-fixer.ts` | täckt |
+
+### Gap — mekaniska regler som fortfarande är prompt-only
+
+Bara tre rader så listan inte sväller:
+
+1. **Image placeholder host-regeln** (`04-coding-direction.md`: inte `source.unsplash.com`, inte `Big Buck Bunny` m.m.). Prompt-only idag. Rekommendation: behåll i prompt tills en `<img>`/`<Image>` src-validator skrivs som preflight-scanner (`src/lib/gen/verify/…`), skapa Linear-issue för det — **flytta inte prompt-text innan validatorn finns**.
+2. **Default Next.js error/loading/404-routes** (`04-coding-direction.md`: generera inte `loading.tsx`/`error.tsx`/`not-found.tsx` för simpla sidor). Prompt-only idag. Rekommendation: flytta till en post-generation file-count-check som droppar `app/<route>/loading.tsx` när sidan är synkron. Behåll prompt som fallback under utrullning.
+3. **R3F Canvas z-index-clamp** (`04-coding-direction.md`: dekorativ Canvas får inte `fixed inset-0 z-[70]`). Prompt-only idag. Rekommendation: lägg en JSX-scanner som vägrar `className` med `fixed inset-0 z-[5-9][0-9]+` på en komponent som också innehåller `<Canvas>`. Tills den finns — behåll prompt-text.
+
+Gemensam rekommendation för alla tre: **utöka inte Core Rules** för att lägga till fler varianter. Om prompten redan säger regeln och den ändå tappas — skapa checker, skriv Linear-issue, skicka inte mer prompttext.
 
 ---
 

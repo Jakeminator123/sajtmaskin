@@ -101,15 +101,21 @@ export function useVersionStatus(params: {
 
     let intervalId: number | undefined;
 
+    const isTerminal = (s: VersionStatus | null): boolean =>
+      s?.done === true || s?.phase === "failed";
+
     void fetchOnce().then((status) => {
       if (cancelled || lastKeyRef.current !== key) return;
       if (pollIntervalMs <= 0) return;
-      // Stop polling on a terminal phase — saves bandwidth on finished
-      // versions while leaving the last-fetched status in state.
-      if (status?.done) return;
+      // Stop polling on a terminal projection — saves bandwidth on
+      // finished versions while leaving the last-fetched status in
+      // state. `failed` is terminal too: a version that reached
+      // build-error / verifier-failed without a `version.done` won't
+      // resolve itself by re-polling, so we'd otherwise poll forever.
+      if (isTerminal(status)) return;
       intervalId = window.setInterval(async () => {
         const next = await fetchOnce();
-        if (next?.done && intervalId !== undefined) {
+        if (isTerminal(next) && intervalId !== undefined) {
           window.clearInterval(intervalId);
           intervalId = undefined;
         }

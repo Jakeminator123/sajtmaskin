@@ -18,50 +18,77 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
   return withRateLimit(req, "engine:product-postcheck", () => handlePOST(req, ctx));
 }
 
-async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+function emitPostcheckDegraded(params: {
+  versionId: string;
+  chatId: string;
+  reason: string;
+  checkedUrl: string | null;
+  durationMs: number | null;
+}): void {
   try {
-    const { chatId } = await ctx.params;
-    const body = await req.json().catch(() => ({}));
-    const validation = requestSchema.safeParse(body);
-    if (!validation.success) {
-      return NextResponse.json(
-        { ok: false, error: "Validation failed", details: validation.error.issues },
-        { status: 400 },
-      );
-    }
+    emitBusEvent({
+      t: "version.degraded",
+      versionId: params.versionId,
+      chatId: params.chatId,
+      kind: "product_postcheck_skipped",
+      message: `F2 Product Postcheck skipped (${params.reason}).`,
+      meta: {
+        skippedReason: params.reason,
+        checkedUrl: params.checkedUrl,
+        durationMs: params.durationMs,
+      },
+    });
+  } catch {
+    // Bus emit is fire-and-forget telemetry — never let a logging
+    // failure break the route response.
+  }
+}
 
-    const { versionId, previewUrl } = validation.data;
-    if (!FEATURES.f2ProductPostcheck) {
-      return NextResponse.json({
-        ok: true,
-        skipped: true,
-        skippedReason: "feature_disabled",
-        warnings: [],
-        warningCount: 0,
-        productBlocked: false,
-        durationMs: 0,
-        checkedUrl: previewUrl?.trim() || null,
-      });
-    }
+async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  const { chatId } = await ctx.params;
+  const body = await req.json().catch(() => ({}));
+  const validation = requestSchema.safeParse(body);
+  if (!validation.success) {
+    return NextResponse.json(
+      { ok: false, error: "Validation failed", details: validation.error.issues },
+      { status: 400 },
+    );
+  }
 
-    if (!previewUrl?.trim()) {
-      return NextResponse.json({
-        ok: true,
-        skipped: true,
-        skippedReason: "missing_preview_url",
-        warnings: [],
-        warningCount: 0,
-        productBlocked: false,
-        durationMs: 0,
-        checkedUrl: null,
-      });
-    }
+  const { versionId, previewUrl } = validation.data;
+  if (!FEATURES.f2ProductPostcheck) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      skippedReason: "feature_disabled",
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 0,
+      checkedUrl: previewUrl?.trim() || null,
+    });
+  }
 
-    const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
-    if (!scopedVersion) {
-      return NextResponse.json({ ok: false, error: "Version not found for chat" }, { status: 404 });
-    }
+  if (!previewUrl?.trim()) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      skippedReason: "missing_preview_url",
+      warnings: [],
+      warningCount: 0,
+      productBlocked: false,
+      durationMs: 0,
+      checkedUrl: null,
+    });
+  }
 
+  const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
+  if (!scopedVersion) {
+    return NextResponse.json({ ok: false, error: "Version not found for chat" }, { status: 404 });
+  }
+  const resolvedVersionId = scopedVersion.version.id;
+
+  try {
     const result = await runProductPostcheck({
       previewUrl,
       chatId,
@@ -73,26 +100,31 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     // `skipped: true` to the caller and post-checks.ts logs an info-level
     // engine_version_error_logs row, but neither surfaced the skip on
     // the version-status projection — so the UI showed "preview ok"
-    // with no hint that DOM-level verification was missing. This makes
-    // the silent skip visible to backoffice/llm_flode_telemetry.py.
+    // with no hint that DOM-level verification was missing.
     if (result.skipped) {
-      emitBusEvent({
-        t: "version.degraded",
-        versionId: scopedVersion.version.id,
+      emitPostcheckDegraded({
+        versionId: resolvedVersionId,
         chatId,
-        kind: "product_postcheck_skipped",
-        message: `F2 Product Postcheck skipped (${result.skippedReason ?? "unknown"}).`,
-        meta: {
-          skippedReason: result.skippedReason ?? "unknown",
-          checkedUrl: result.checkedUrl ?? null,
-          durationMs: result.durationMs ?? null,
-        },
+        reason: result.skippedReason ?? "unknown",
+        checkedUrl: result.checkedUrl ?? null,
+        durationMs: result.durationMs ?? null,
       });
     }
 
     return NextResponse.json(result);
   } catch (err) {
     console.error("[product-postcheck] Error:", err);
+    // Mirror the skip emission for the runtime-error branch — same
+    // observability surface for "ran but threw" as for the planned
+    // skip cases above. Without this the version-status projection
+    // can show solid green even when the postcheck blew up.
+    emitPostcheckDegraded({
+      versionId: resolvedVersionId,
+      chatId,
+      reason: "runtime_error",
+      checkedUrl: null,
+      durationMs: null,
+    });
     return NextResponse.json({
       ok: true,
       skipped: true,
