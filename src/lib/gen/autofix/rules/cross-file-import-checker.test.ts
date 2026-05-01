@@ -108,6 +108,38 @@ describe("checkCrossFileImports", () => {
     ).toEqual([]);
   });
 
+  it("does not stub @/hooks/use-reduced-motion (baseline-provided)", () => {
+    // Repro: scaffold ships `hooks/use-reduced-motion.ts` (matchMedia hook
+    // returning a boolean). Earlier autofix runs created
+    // `hooks/use-reduced-motion.tsx` whose body was `return {}` — truthy in
+    // JS, so every motion component silently froze. Lock the baseline path
+    // so the checker never re-introduces the competing `.tsx` stub.
+    const page: CodeFile = {
+      path: "app/page.tsx",
+      language: "tsx",
+      content: [
+        '"use client";',
+        'import { useReducedMotion } from "@/hooks/use-reduced-motion";',
+        "export default function Page() {",
+        "  const reduceMotion = useReducedMotion();",
+        "  return <div data-reduce={String(reduceMotion)} />;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([page]);
+
+    expect(result.files.some((f) => f.path === "hooks/use-reduced-motion.tsx")).toBe(false);
+    expect(result.files.some((f) => f.path === "hooks/use-reduced-motion.ts")).toBe(false);
+    expect(result.fixes.some((f) => f.missingImport === "@/hooks/use-reduced-motion")).toBe(false);
+    const sanity = runProjectSanityChecks(result.files, {
+      scaffoldBaselineCoversPackageJson: true,
+    });
+    expect(
+      sanity.issues.filter((issue) => issue.message.includes("@/hooks/use-reduced-motion")),
+    ).toEqual([]);
+  });
+
   it("does not stub runtime-provided hooks like @/lib/hooks/use-mobile", () => {
     const sidebar: CodeFile = {
       path: "components/ui/sidebar.tsx",

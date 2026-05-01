@@ -617,6 +617,44 @@ export function checkMotionReduceTrap(
 }
 
 /**
+ * Deterministic check for the silent `useReducedMotion` stub. The autofix
+ * pipeline historically fell back on `(..._args: unknown[]) => ({})` when
+ * the cross-file checker couldn't find a hook implementation. Because `{}`
+ * is truthy in JS, every consumer of the hook (`reduceMotion ? ... : ...`)
+ * short-circuits to the reduced-motion branch and animations silently
+ * disable, which Jake hit when the fiber-modem decoration appeared frozen.
+ *
+ * Block any in-project `useReducedMotion` whose body is the literal
+ * `return {}` or `return null` shape. Real implementations either:
+ *   - return a boolean derived from `matchMedia(...)` (canonical baseline)
+ *   - re-export `useReducedMotion` from `framer-motion`
+ *
+ * Stays narrow: only matches function bodies that consist of exactly the
+ * stub shape so legitimate hooks with conditional branches are not flagged.
+ */
+export function checkUseReducedMotionStub(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): VerifierFindings["blocking"] {
+  const findings: VerifierFindings["blocking"] = [];
+  // `export function useReducedMotion(...) { return {}; }` — match either an
+  // empty-object or null return body, optionally with the `_args: unknown[]`
+  // rest signature the cross-file stub used to emit.
+  const STUB_SHAPE_RE =
+    /export\s+function\s+useReducedMotion\s*\([^)]*\)\s*(?::\s*[^{]+)?\s*\{\s*return\s+(?:\{\s*\}|null)\s*;?\s*\}/;
+  for (const f of files) {
+    if (!f.path || !f.content) continue;
+    if (!/\.(t|j)sx?$/i.test(f.path)) continue;
+    if (!/\buseReducedMotion\b/.test(f.content)) continue;
+    if (!STUB_SHAPE_RE.test(f.content)) continue;
+    findings.push({
+      id: "use-reduced-motion-stub",
+      detail: `${f.path}: \`useReducedMotion\` returns an empty object/null. JS treats \`{}\` as truthy so every motion component reading this hook silently freezes. Replace with the canonical \`hooks/use-reduced-motion.ts\` baseline (matchMedia subscription returning a boolean).`,
+    });
+  }
+  return findings;
+}
+
+/**
  * R3F `<Canvas>` is a browser-only runtime boundary. In Next App Router, any
  * file that imports/renders it must be a client component; typecheck can pass
  * while runtime preview fails with server-component/client-hook errors.
@@ -662,11 +700,18 @@ export async function runVerifierPass(
 
   const { files } = parseCodeProject(codeProjectContent);
   const motionTraps = checkMotionReduceTrap(files);
+  const useReducedMotionStub = checkUseReducedMotionStub(files);
   const r3fClientBoundary = checkR3FClientBoundary(files);
   const undefinedJsx = checkUndefinedJsxSymbols(files);
   const navigationPlaceholders = checkNavigationPlaceholderActions(files);
   const deterministic: VerifierFindings = {
-    blocking: [...motionTraps, ...r3fClientBoundary, ...undefinedJsx, ...navigationPlaceholders],
+    blocking: [
+      ...motionTraps,
+      ...useReducedMotionStub,
+      ...r3fClientBoundary,
+      ...undefinedJsx,
+      ...navigationPlaceholders,
+    ],
     quality: [],
   };
 

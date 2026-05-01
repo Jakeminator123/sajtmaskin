@@ -121,8 +121,21 @@ function unresolvedImportSeverity(): "error" | "warning" {
   return "error";
 }
 
+/**
+ * Markdown language fences (` ```ts ... ``` `) sometimes leak into a file
+ * when an LLM repair pass returns a fenced code block instead of raw source.
+ * The fence head ends up as a bare identifier on line 1 (`ts`), which the
+ * runtime then evaluates as `ReferenceError: ts is not defined` and aborts
+ * the page. Block these as `code_structure_failure` so preflight refuses
+ * the artifact instead of letting it crash on the next preview boot.
+ */
+const LEADING_LANGUAGE_FENCE_RE = /^(?:ts|tsx|js|jsx|typescript|javascript)$/;
+
 function detectSuspiciousPartialFileSnippet(content: string): string | null {
   const firstLine = firstMeaningfulLine(content);
+  if (LEADING_LANGUAGE_FENCE_RE.test(firstLine)) {
+    return `File begins with a bare \`${firstLine}\` token (likely a leaked Markdown code-fence marker). The runtime will throw \`ReferenceError: ${firstLine} is not defined\` on first evaluation.`;
+  }
   if (LEADING_CONTINUATION_LINE_RE.test(firstLine)) {
     return "File starts with what looks like a continuation line, not a complete file.";
   }
@@ -134,6 +147,29 @@ function detectSuspiciousPartialFileSnippet(content: string): string | null {
   }
   if (MALFORMED_INLINE_NAMED_IMPORT_RE.test(content)) {
     return "File contains a malformed named import that looks like a partial repair snippet.";
+  }
+  return null;
+}
+
+/**
+ * Bundler module-resolution treats `foo.ts` and `foo.tsx` as candidates for
+ * the same import specifier `@/foo`. When both exist the resolver picks one
+ * non-deterministically (typically `.tsx` first), and the unselected file
+ * becomes silent dead weight while the selected one may be a stale stub.
+ *
+ * Real-world repro: scaffold ships `hooks/use-reduced-motion.ts`. A repair
+ * pass earlier in the pipeline persists `hooks/use-reduced-motion.tsx` (or
+ * an earlier autofix stub leaks). Webpack picks the `.tsx`, the hook stops
+ * returning a boolean, and every motion component silently freezes. Block
+ * this at preflight so the artifact never reaches the preview host with
+ * two competing files for the same module.
+ */
+const COLLIDING_MODULE_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"] as const;
+
+function moduleStemFromPath(path: string): string | null {
+  const normalized = path.replace(/\\/g, "/");
+  for (const ext of COLLIDING_MODULE_EXTENSIONS) {
+    if (normalized.endsWith(ext)) return normalized.slice(0, -ext.length);
   }
   return null;
 }
@@ -276,6 +312,34 @@ export function runProjectSanityChecks(
           file.path,
           "error",
           'Client component exports metadata/generateMetadata, which Next.js App Router disallows',
+          "code_structure_failure",
+        ),
+      );
+    }
+  }
+
+  // 3c. Duplicate module stems with different source extensions
+  //     (e.g. `hooks/use-reduced-motion.ts` + `.tsx`). Bundler resolver
+  //     picks one non-deterministically; the loser becomes silent dead
+  //     weight and the winner may be a stale stub. See
+  //     `LEADING_LANGUAGE_FENCE_RE` for the original repro.
+  const collidingStems = new Map<string, Set<string>>();
+  for (const file of files) {
+    const stem = moduleStemFromPath(file.path);
+    if (!stem) continue;
+    const existing = collidingStems.get(stem) ?? new Set<string>();
+    existing.add(file.path.replace(/\\/g, "/"));
+    collidingStems.set(stem, existing);
+  }
+  for (const [stem, paths] of collidingStems) {
+    if (paths.size <= 1) continue;
+    const sortedPaths = [...paths].sort();
+    for (const conflictingPath of sortedPaths) {
+      issues.push(
+        createSanityIssue(
+          conflictingPath,
+          "error",
+          `Duplicate module sources for "${stem}": ${sortedPaths.join(", ")}. Bundler resolution is non-deterministic — keep exactly one extension per module.`,
           "code_structure_failure",
         ),
       );

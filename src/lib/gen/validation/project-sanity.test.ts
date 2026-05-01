@@ -146,4 +146,102 @@ import { Button } from "@/components/ui/button"
     expect(issue?.message).toMatch(/package\.json is missing/i);
     expect(result.valid).toBe(false);
   });
+
+  it("flags a leading bare `ts` token as a leaked Markdown code-fence", () => {
+    // Real repro from `Ny mapp (2)`: an LLM "fix" round wrote the language
+    // tag from a Markdown ```ts fence as the first line of the file, which
+    // the runtime evaluated as `ReferenceError: ts is not defined` on first
+    // boot. Block at preflight so this never reaches the preview host.
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({
+          name: "test-project",
+          private: true,
+          dependencies: { next: "16.2.3", react: "19.2.4", "react-dom": "19.2.4" },
+        }),
+      },
+      {
+        path: "app/globals.css",
+        language: "css",
+        content: "@theme inline { --color-background: black; }",
+      },
+      {
+        path: "app/layout.tsx",
+        language: "tsx",
+        content:
+          "export default function RootLayout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+      },
+      {
+        path: "hooks/use-reduced-motion.tsx",
+        language: "tsx",
+        content: [
+          "ts",
+          'import { useReducedMotion as useFramerReducedMotion } from "framer-motion";',
+          "",
+          "export function useReducedMotion() {",
+          "  return useFramerReducedMotion();",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+    const fenceIssue = result.issues.find((entry) =>
+      entry.message.includes("ReferenceError: ts is not defined"),
+    );
+    expect(fenceIssue?.severity).toBe("error");
+    expect(fenceIssue?.file).toBe("hooks/use-reduced-motion.tsx");
+    expect(result.valid).toBe(false);
+  });
+
+  it("errors on duplicate module stems with different source extensions", () => {
+    // Bundler resolution is non-deterministic when both `.ts` and `.tsx`
+    // exist for the same import specifier — the loser becomes silent dead
+    // weight and the winner may be a stale stub. Block at preflight.
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({
+          name: "test-project",
+          private: true,
+          dependencies: { next: "16.2.3", react: "19.2.4", "react-dom": "19.2.4" },
+        }),
+      },
+      {
+        path: "app/globals.css",
+        language: "css",
+        content: "@theme inline { --color-background: black; }",
+      },
+      {
+        path: "app/layout.tsx",
+        language: "tsx",
+        content:
+          "export default function RootLayout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+      },
+      {
+        path: "hooks/use-reduced-motion.ts",
+        language: "ts",
+        content: '"use client";\nexport function useReducedMotion(): boolean { return false; }',
+      },
+      {
+        path: "hooks/use-reduced-motion.tsx",
+        language: "tsx",
+        content:
+          '"use client";\nimport { useReducedMotion as useFramerReducedMotion } from "framer-motion";\nexport function useReducedMotion() { return useFramerReducedMotion(); }',
+      },
+    ]);
+    const collisionIssues = result.issues.filter((entry) =>
+      entry.message.includes("Duplicate module sources"),
+    );
+    expect(collisionIssues.length).toBeGreaterThanOrEqual(2);
+    expect(collisionIssues.every((issue) => issue.severity === "error")).toBe(true);
+    expect(
+      collisionIssues.some((issue) => issue.file === "hooks/use-reduced-motion.ts"),
+    ).toBe(true);
+    expect(
+      collisionIssues.some((issue) => issue.file === "hooks/use-reduced-motion.tsx"),
+    ).toBe(true);
+    expect(result.valid).toBe(false);
+  });
 });

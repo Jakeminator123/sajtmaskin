@@ -182,6 +182,38 @@ describe("buildCompleteProject", () => {
     expect(hook!.content).toContain("removeEventListener");
   });
 
+  it("drops generated hooks/use-reduced-motion.tsx so baseline .ts wins (extension collision)", () => {
+    // Repro: an earlier autofix/repair pass emitted `.tsx` alongside the
+    // baseline `.ts`. Webpack picked the `.tsx` (which contained a leaked
+    // `ts` markdown fence on line 1) and the preview crashed with
+    // `ReferenceError: ts is not defined`. The baseline must always win.
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <div />; }`,
+        language: "tsx",
+      },
+      {
+        path: "hooks/use-reduced-motion.tsx",
+        content: [
+          "ts",
+          'import { useReducedMotion as useFramerReducedMotion } from "framer-motion";',
+          "",
+          "export function useReducedMotion() {",
+          "  return useFramerReducedMotion();",
+          "}",
+        ].join("\n"),
+        language: "tsx",
+      },
+    ];
+    const files = buildCompleteProject(generated);
+    const matching = files.filter((f) => f.path.startsWith("hooks/use-reduced-motion"));
+    expect(matching).toHaveLength(1);
+    expect(matching[0]!.path).toBe("hooks/use-reduced-motion.ts");
+    expect(matching[0]!.content).toContain("matchMedia");
+  });
+
   it("baseline package.json passes peer-compatibility sanity checks", () => {
     const generated: CodeFile[] = [
       { path: "package.json", content: "{}", language: "json" },

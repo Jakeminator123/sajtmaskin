@@ -4,6 +4,7 @@ import {
   checkNavigationPlaceholderActions,
   checkR3FClientBoundary,
   checkUndefinedJsxSymbols,
+  checkUseReducedMotionStub,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
   suppressValidInPageAnchorNavigationFindings,
@@ -65,6 +66,85 @@ describe("checkMotionReduceTrap", () => {
   it("ignores non-tsx/jsx files even when the literal substring appears", () => {
     const findings = checkMotionReduceTrap([
       { path: "app/globals.css", content: `.bad { /* ${TRAP_CLASS} */ }` },
+    ]);
+    expect(findings).toEqual([]);
+  });
+});
+
+describe("checkUseReducedMotionStub", () => {
+  it("flags a useReducedMotion hook whose body is `return {}` (autofix stub shape)", () => {
+    const findings = checkUseReducedMotionStub([
+      {
+        path: "hooks/use-reduced-motion.tsx",
+        content: [
+          "export function useReducedMotion(..._args: unknown[]) {",
+          "  return {};",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("use-reduced-motion-stub");
+    expect(findings[0]?.detail).toContain("hooks/use-reduced-motion.tsx");
+    expect(findings[0]?.detail).toContain("truthy");
+  });
+
+  it("flags a useReducedMotion stub whose body is `return null`", () => {
+    const findings = checkUseReducedMotionStub([
+      {
+        path: "hooks/use-reduced-motion.ts",
+        content: "export function useReducedMotion(): null { return null; }",
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("use-reduced-motion-stub");
+  });
+
+  it("accepts the canonical baseline matchMedia hook", () => {
+    const findings = checkUseReducedMotionStub([
+      {
+        path: "hooks/use-reduced-motion.ts",
+        content: [
+          '"use client";',
+          'import { useEffect, useState } from "react";',
+          'const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";',
+          "export function useReducedMotion(): boolean {",
+          "  const [reduced, setReduced] = useState(false);",
+          "  useEffect(() => {",
+          '    if (typeof window === "undefined") return;',
+          "    const query = window.matchMedia(REDUCED_MOTION_QUERY);",
+          "    setReduced(query.matches);",
+          "  }, []);",
+          "  return reduced;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("accepts a framer-motion re-export wrapper", () => {
+    const findings = checkUseReducedMotionStub([
+      {
+        path: "hooks/use-reduced-motion.tsx",
+        content: [
+          'import { useReducedMotion as useFramerReducedMotion } from "framer-motion";',
+          "export function useReducedMotion() {",
+          "  return useFramerReducedMotion();",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("ignores files that do not mention useReducedMotion", () => {
+    const findings = checkUseReducedMotionStub([
+      { path: "components/header.tsx", content: "export function Header() { return null; }" },
     ]);
     expect(findings).toEqual([]);
   });

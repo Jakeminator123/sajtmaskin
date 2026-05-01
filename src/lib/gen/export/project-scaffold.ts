@@ -548,15 +548,70 @@ function buildPlaceholderEnvLocalBody(): string | null {
   }
 }
 
+/**
+ * Sibling source extensions that resolve to the same module under bundler
+ * resolution. When a baseline-shipped helper exists at one extension, any
+ * generated file with the same module stem at a different extension creates
+ * an extension-collision that the bundler resolves non-deterministically.
+ *
+ * Real-world repro: scaffold ships `hooks/use-reduced-motion.ts`. An older
+ * autofix path (or an LLM "fix" round) emits `hooks/use-reduced-motion.tsx`
+ * with a markdown fence remnant on line 1. Webpack picks the `.tsx` and the
+ * preview crashes with `ReferenceError: ts is not defined`. Drop the
+ * generated sibling so the baseline always wins.
+ */
+const COLLIDING_SOURCE_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"] as const;
+
+function moduleStemForCollision(path: string): string | null {
+  const normalized = path.replace(/\\/g, "/");
+  for (const ext of COLLIDING_SOURCE_EXTENSIONS) {
+    if (normalized.endsWith(ext)) {
+      return normalized.slice(0, -ext.length);
+    }
+  }
+  return null;
+}
+
+/**
+ * Build the set of module stems that the baseline scaffold owns (i.e. paths
+ * in `SCAFFOLD_FILES` that have a source extension). Used to drop any
+ * generated sibling at a different extension (`.ts` vs `.tsx`) so the
+ * baseline file is the single canonical source after merge.
+ */
+function buildBaselineOwnedStems(): Map<string, string> {
+  const stems = new Map<string, string>();
+  for (const baselinePath of Object.keys(SCAFFOLD_FILES)) {
+    const stem = moduleStemForCollision(baselinePath);
+    if (stem) stems.set(stem, baselinePath);
+  }
+  return stems;
+}
+
 export function buildCompleteProject(
   generatedFiles: CodeFile[],
   uiComponents?: Array<{ filename: string; content: string }>,
 ): CodeFile[] {
   const result: CodeFile[] = [];
-  const generatedPaths = new Set(generatedFiles.map((f) => f.path));
+
+  const baselineOwnedStems = buildBaselineOwnedStems();
+  const filteredGeneratedFiles: CodeFile[] = [];
+  for (const file of generatedFiles) {
+    const stem = moduleStemForCollision(file.path);
+    if (stem !== null && baselineOwnedStems.has(stem)) {
+      const canonicalPath = baselineOwnedStems.get(stem);
+      if (canonicalPath !== file.path.replace(/\\/g, "/")) {
+        // Extension collision against a baseline-owned helper — drop the
+        // generated sibling so the baseline file is the single source.
+        continue;
+      }
+    }
+    filteredGeneratedFiles.push(file);
+  }
+
+  const generatedPaths = new Set(filteredGeneratedFiles.map((f) => f.path));
 
   const allCode = [
-    ...generatedFiles.map((f) => f.content),
+    ...filteredGeneratedFiles.map((f) => f.content),
     ...(uiComponents ?? []).map((component) => component.content),
   ].join("\n");
   const detected = runDepCompleter(allCode);
@@ -603,7 +658,9 @@ export function buildCompleteProject(
     }
   }
 
-  result.push(...generatedFiles.map((file) => mergeModelTsconfig(mergeModelPackageJson(file))));
+  result.push(
+    ...filteredGeneratedFiles.map((file) => mergeModelTsconfig(mergeModelPackageJson(file))),
+  );
 
   if (!result.some((f) => f.path === ".env.local")) {
     const envBody = buildPlaceholderEnvLocalBody();
