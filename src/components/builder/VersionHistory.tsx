@@ -820,7 +820,8 @@ export function VersionHistory({
                           className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadgeClassName)}
                           title={lifecycleTooltip}
                         >
-                          {(lifecycleStatus === "verifying" || lifecycleStatus === "repairing") && (
+                          {((lifecycleStatus === "verifying" && willRunServerVerify) ||
+                            lifecycleStatus === "repairing") && (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           )}
                           {lifecycleStatus === "retrying" && <RotateCcw className="h-3 w-3" />}
