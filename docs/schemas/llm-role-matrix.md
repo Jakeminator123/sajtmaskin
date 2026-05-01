@@ -54,7 +54,7 @@ Två lager bearbetar prompten **före** kodgenerering:
 
 | Lager | Vad det gör | Var output hamnar | Kodfiler |
 |-------|-------------|-------------------|----------|
-| **Deep brief** (`/api/ai/brief`) | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kanonisk semantisk expansion för init. | `meta.brief` → systemprompten via `buildDynamicContext()`. Genererar ~15–20k tecken dynamisk kontext. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
+| **Deep brief** (`/api/ai/brief`) | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kanonisk semantisk expansion för init. | `meta.brief` → systemprompten via `buildDynamicContext()`. Storlek varierar med prompt, scaffold, dossiers och follow-up-policy; mät aktuell verklighet via `promptSize` i `GenerationInputPackage` / prompt-dumps. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
 | **`formatPrompt()`** *(legacy wrapper)* | Enkel client-side formatter som wrappar text i `MÅL / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. **Inte längre i `useCreateChat`-init-vägen** (sedan 2026-04-28 — Core Rules bar redan kraven, wrappern var brus). Lever kvar i prompt-wizard och `prompt-assist/runner`. | User-meddelandet i de paths som fortfarande använder den. | `src/lib/builder/prompt-assist/formatters.ts` (post-OMTAG-03 split) |
 
 Flödet vid freeform create-chat:
@@ -62,10 +62,10 @@ Flödet vid freeform create-chat:
 1. Användaren skriver prompt (t.ex. 400 tecken)
 2. `/api/ai/brief` producerar strukturerad JSON (deep brief, ~28s)
 3. Brief-objektet skickas via `meta.brief` till servern
-4. Serverns `buildDynamicContext(brief)` bygger rik dynamisk kontext (~17k tecken)
+4. Serverns `buildDynamicContext(brief)` bygger rik dynamisk kontext (mät via `promptSize.dynamicContext`)
 5. Kontexten injiceras i **systemprompten** (dynamisk del)
 6. Användarens **råa prompttext** skickas som user-message (ingen MÅL/CONSTRAINTS-wrappning)
-7. Kodgeneratorn ser: statisk kärna (23k) + dynamisk kontext (17k) + rå user-message
+7. Kodgeneratorn ser: statisk kärna + dynamisk kontext + rå user-message; exakta storlekar mäts i prompt-telemetrin och följs upp i `docs/plans/active/prompt-slim-systemprompt.md`.
 
 **Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) skickar `useCreateChat` user-prompten rå (sedan 2026-04-28) och kör `buildDynamicInstructionAddendumFromPrompt()` för en enklare prompt-baserad expansion. `formatPrompt()` används inte i den vägen längre.
 

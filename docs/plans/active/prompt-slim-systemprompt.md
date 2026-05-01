@@ -30,7 +30,7 @@ Genomfört:
 - Budget-telemetri finns i `GenerationInputPackage`, prompt-dumps och evalrapport: static/dynamic, budget, dropped blocks och största block.
 - `Selected Dossier Instructions` renderas kompakt som default; verbatim-filer fortsätter ligga i separat exakt block.
 - `visual-3d`/`physics-3d`-splitten finns redan; dekorativ `visual-3d` ska inte dra Rapier/Physics-text annat än vid explicit physics-intent.
-- Normal follow-up som inte är `clear-redesign` och inte `contextPolicy: "heavy"` renderar nu kompakt `Scaffold Variant`, `Your Toolkit` och `Route Plan`; clear-redesign och heavy-context följer behåller full context.
+- Normal follow-up som inte är `clear-redesign` och inte `contextPolicy: "heavy"` renderar nu kompakt `Scaffold Variant`, `Your Toolkit` och `Route Plan`; clear-redesign och heavy-context behåller full context.
 - Fokuserade tester passerar: prompt-size metrics, eval report, dossier rendering, dynamic-context budgetering och follow-up-input.
 
 Kvar:

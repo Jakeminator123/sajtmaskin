@@ -6,7 +6,7 @@
  *  │  Static Core — config/codegen-core-manifest.json +             │
  *  │    config/prompt-core/*.md (immutable product rules,           │
  *  │    incl. visual-design + coding-direction)                     │
- *  │  (~8–10K tokens, mtime-cached per process)       │
+ *  │  (size varies; see prompt telemetry + slim plan) │
  *  ├─────────────────────────────────────────────────┤
  *  │  Dynamic context  (varies per request)           │
  *  │  → Build intent, scaffold variant, brief, route, │
@@ -147,6 +147,7 @@ export function buildDynamicContext(
   const isFollowUp = generationMode === "followUp";
   const compactFollowUpContext =
     isFollowUp &&
+    Boolean(buildSpec) &&
     buildSpec?.contextPolicy !== "heavy" &&
     buildSpec?.changeScope !== "redesign" &&
     followUpIntent !== "clear-redesign";

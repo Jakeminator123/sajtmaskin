@@ -426,7 +426,9 @@ def _render_prompt_size(ctx: BackofficeContext) -> None:
         "Aggregerade chars/tokens från senaste orchestration-dynamic prompt-dump. "
         "Visas när `SAJTMASKIN_PROMPT_DUMP=true` har skrivit "
         "`data/prompt-dumps/orchestration-dynamic/generation-input-package.json`. "
-        "Källa: `prepareGenerationContext` → `buildPromptSizeMetrics`."
+        "Källa: `prepareGenerationContext` → `buildPromptSizeMetrics`. "
+        "Follow-ups kan kompaktera variant/toolkit/route-plan när BuildSpec finns, "
+        "contextPolicy inte är heavy och ändringen inte är clear-redesign."
     )
     snapshot = load_latest_prompt_size_metrics(ctx.repo_root)
     if not snapshot:

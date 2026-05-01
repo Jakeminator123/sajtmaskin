@@ -315,6 +315,37 @@ describe("buildDynamicContext", () => {
     expect(result.context).toContain("### Lucide icons commonly needed");
   });
 
+  it("keeps full follow-up context when BuildSpec is missing", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Lägg till en ny undersida med tabeller och dashboard-layout",
+      generationMode: "followUp",
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "app-shell",
+        reason: "fixture",
+        routes: [
+          { path: "/", name: "Home", intent: "Landing", required: true },
+          { path: "/dashboard", name: "Dashboard", intent: "Data", required: true },
+        ],
+      },
+      resolvedScaffold: {
+        id: "app-shell",
+        label: "App Shell",
+        description: "Fixture scaffold",
+        allowedBuildIntents: ["website", "app"],
+        tags: ["app"],
+        promptHints: [],
+        files: [],
+        qualityChecklist: ["Preserve shell navigation"],
+      },
+    });
+
+    expect(result.context).toContain("## Scaffold Research Priorities");
+    expect(result.context).toContain("### Lucide icons commonly needed");
+    expect(result.context).toContain("**Planning source:**");
+  });
+
   it("keeps full follow-up context for heavy non-redesign changes", () => {
     const result = buildDynamicContext({
       intent: "website",
