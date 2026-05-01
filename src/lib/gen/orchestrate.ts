@@ -920,6 +920,7 @@ export async function finalizeOrchestrationPrompts(
     customInstructions,
     userPrompt: input.prompt,
     generationMode: resolvedMode,
+    followUpIntent: input.followUpIntent,
     sessionSeed: input.sessionSeed,
     chatId: input.chatId ?? null,
     componentReferences: base.componentReferences,

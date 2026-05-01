@@ -205,7 +205,7 @@ describe("buildDynamicContext", () => {
     expect(result.context).not.toContain("### Lucide icons commonly needed");
   });
 
-  it("keeps full follow-up context when context policy is not light", () => {
+  it("uses compact follow-up context for normal non-redesign changes", () => {
     const result = buildDynamicContext({
       intent: "website",
       userPrompt: "Lägg till en ny undersida med tabeller och dashboard-layout",
@@ -258,6 +258,56 @@ describe("buildDynamicContext", () => {
         promptHints: [],
         files: [],
         qualityChecklist: ["Preserve shell navigation"],
+      },
+    });
+
+    expect(result.context).not.toContain("## Scaffold Research Priorities");
+    expect(result.context).not.toContain("### Lucide icons commonly needed");
+    expect(result.context).toContain("- **Routes in scope:** `/`, `/dashboard`");
+    expect(result.context).not.toContain("**Planning source:**");
+  });
+
+  it("keeps full follow-up context for clear redesign intent", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Gör en tydlig redesign av hela upplevelsen",
+      generationMode: "followUp",
+      followUpIntent: "clear-redesign",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "redesign",
+        contextPolicy: "normal",
+        verificationPolicy: "standard",
+        previewPolicy: "fidelity2",
+        qualityTarget: "premium",
+        scaffoldId: "landing-page",
+        routePlanSummary: "1 route",
+        stylePack: "editorial",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 3_000,
+          refsChars: 1_500,
+          systemContextChars: 80_000,
+          systemContextTokens: 20_000,
+        },
+      },
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "brochure",
+        reason: "fixture",
+        routes: [{ path: "/", name: "Home", intent: "Landing", required: true }],
+      },
+      resolvedScaffold: {
+        id: "landing-page",
+        label: "Landing",
+        description: "Fixture scaffold",
+        allowedBuildIntents: ["website"],
+        tags: ["marketing"],
+        promptHints: [],
+        files: [],
+        qualityChecklist: ["Preserve landing hierarchy"],
       },
     });
 

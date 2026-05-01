@@ -127,6 +127,8 @@ export interface DynamicContextOptions {
   userPrompt?: string;
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
+  /** Follow-up intent controls whether compact context is safe. Clear redesign keeps full context. */
+  followUpIntent?: "clear-refine" | "clear-redesign" | "ambiguous-redesign" | "ambiguous-followup" | "capability-add" | "capability-modify" | "neutral";
   buildSpec?: BuildSpec | null;
   /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;

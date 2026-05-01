@@ -136,6 +136,7 @@ export function buildDynamicContext(
     customInstructions,
     userPrompt,
     generationMode,
+    followUpIntent,
     buildSpec,
     sessionSeed,
     chatId,
@@ -146,8 +147,8 @@ export function buildDynamicContext(
   const isFollowUp = generationMode === "followUp";
   const compactFollowUpContext =
     isFollowUp &&
-    buildSpec?.contextPolicy === "light" &&
-    buildSpec?.changeScope !== "redesign";
+    buildSpec?.changeScope !== "redesign" &&
+    followUpIntent !== "clear-redesign";
   const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
   const toneKeywords = strList(brief?.toneAndVoice);
 
