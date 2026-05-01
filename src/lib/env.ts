@@ -166,6 +166,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
   /** F2 Product Postcheck: server-side Playwright DOM checks for preview URLs. Default off. */
   SAJTMASKIN_F2_PRODUCT_POSTCHECK: z.string().optional(),
+  /** Static visual-QA heuristic on exportable files (no screenshot). Optional, default off. Read via `isVisualQAEnabled` in `src/lib/gen/verify/visual-qa.ts`. */
+  SAJTMASKIN_VISUAL_QA: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
@@ -233,5 +235,15 @@ export function getServerEnv(): ServerEnv {
 
   _cached = result.data;
   return _cached;
+}
+
+/**
+ * Test-only: reset the cached parsed env so `vi.stubEnv()` changes take
+ * effect on the next `getServerEnv()` call. Production code must never
+ * call this — it is a deliberate escape hatch for unit tests that mutate
+ * `process.env` after the singleton has already been computed.
+ */
+export function resetServerEnvCacheForTests(): void {
+  _cached = null;
 }
 

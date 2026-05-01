@@ -83,7 +83,7 @@ quality-gate / repair architecture, not a separate lint-fix subsystem.
 
 Engine-routen `POST /api/engine/chats/[chatId]/quality-gate` accepterar en `checks`-lista; **minst en** check krävs (tom lista avvisas vid validering).
 
-När alla verify-resultat är godkända och `SAJTMASKIN_VISUAL_QA` är på kan Sajtmaskin köra **statisk** Visual QA (`analyzeVisualQuality` i `src/lib/gen/visual-qa.ts`) på exportabla filer. Det är **inte** en del av preview-hostens JSON-svar från verify-lanen, men kan:
+När alla verify-resultat är godkända och `SAJTMASKIN_VISUAL_QA` är på kan Sajtmaskin köra **statisk** Visual QA (`analyzeVisualQuality` i `src/lib/gen/verify/visual-qa.ts`) på exportabla filer. Det är **inte** en del av preview-hostens JSON-svar från verify-lanen, men kan:
 
 - returneras i quality-gate-API-svaret som `visualQA`, och
 - sparas kompakt i versionslogg-meta under `preflight:quality-gate` via `buildServerVerifyQualityGateMeta` / `compactVisualQAForQualityGateLog` (`src/lib/gen/verify/server-verify-log-meta.ts`).

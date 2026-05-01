@@ -4,11 +4,15 @@
  * When preview is running, captures a screenshot of the index route and
  * applies heuristic checks to detect common visual quality issues.
  *
- * Behind feature flag SAJTMASKIN_VISUAL_QA=1.
+ * Behind feature flag SAJTMASKIN_VISUAL_QA=1. Validated via `serverSchema`
+ * in `src/lib/env.ts` so tooling (`scripts/env/manage_env.py`, env-audit)
+ * sees the key. Default off.
  */
 
+import { getServerEnv } from "@/lib/env";
+
 export function isVisualQAEnabled(): boolean {
-  const v = process.env.SAJTMASKIN_VISUAL_QA?.trim().toLowerCase();
+  const v = getServerEnv().SAJTMASKIN_VISUAL_QA?.trim().toLowerCase();
   return v === "1" || v === "true";
 }
 

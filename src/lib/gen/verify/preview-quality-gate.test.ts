@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CodeFile } from "@/lib/gen/parser";
+import { resetServerEnvCacheForTests } from "@/lib/env";
 import {
   describeQualityGateVerification,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -66,8 +67,12 @@ body {
 ];
 
 describe("maybeAnalyzeVisualQAForPassedExportable", () => {
+  beforeEach(() => {
+    resetServerEnvCacheForTests();
+  });
   afterEach(() => {
     vi.unstubAllEnvs();
+    resetServerEnvCacheForTests();
   });
 
   it("returns undefined when visual QA is disabled", () => {
