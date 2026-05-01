@@ -1,7 +1,8 @@
 ---
 id: 2026-04-28-pixelkallaren-eval-och-uppfoljning
-status: scope
+status: paused
 created: 2026-04-28
+paused: 2026-05-01
 linear: null
 parent: 2026-04-28-llm-flode-startlinje
 supersedes: null
@@ -9,10 +10,12 @@ supersedes: null
 
 # Pixelkällaren-eval och uppföljning av LLM-flöde-bugfix-koreografin
 
+> **Parkerad 2026-05-01:** Den aktiva LLM-körplanen bor i [`../2026-04-28-llm-flode-startlinje.md`](../2026-04-28-llm-flode-startlinje.md). Den här filen bevarar Pixelkällaren som eval-fixture/scope. Gate för återaktivering: en konkret eval-runner/baseline eller en PR som explicit implementerar gaming/appig variant, F2 3D-policy eller form-a11y-regel.
+
 Konsoliderad uppföljning efter master `fbeb9321a` (rewire-before-stub, direct iframe nav, qualityTarget-rank, inspector unavailable-200 och reviewfixar levererade). Innehåller:
 
 1. Pixelkällaren-prompten som **eval-fixture / regressionstest** för 2026-04-28-fixarna.
-2. Återstående spår från [`llm-flode_varldsklass_bugfix-koreografi`](./2026-04-28-llm-flode-startlinje.md): versionstatus, lane separation/capability cleanup, variant-/3D-policy och systemprompt-komprimering.
+2. Återstående spår från [`llm-flode_varldsklass_bugfix-koreografi`](../2026-04-28-llm-flode-startlinje.md): versionstatus, lane separation/capability cleanup, variant-/3D-policy och systemprompt-komprimering.
 3. Två nya spår som inkom från extern review-summary: **"appig"-variant** och **form-a11y-policy**.
 
 ## Kontext
@@ -107,7 +110,7 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 | Mål | Innehåll |
 |---|---|
 | Pure helper | `resolveVersionDisplayState({ releaseState, verificationState, serverVerify, isLatest })` i `src/lib/db/engine-version-lifecycle.ts` returnerar enum |
-| UI-konsumtion | [`src/components/builder/VersionHistory.tsx`](../../../src/components/builder/VersionHistory.tsx) `lifecycleLabel`/`lifecycleTooltip` läser enum |
+| UI-konsumtion | [`src/components/builder/VersionHistory.tsx`](../../../../src/components/builder/VersionHistory.tsx) `lifecycleLabel`/`lifecycleTooltip` läser enum |
 | Tooltip korrekthet | "Verifying" visas BARA om `serverVerify.run === true && outcome === undefined`. När `policy === "design_preview_skip_verify"`: label är "Klar (utan server verify)" |
 | Tester | Tabell-driven snapshot per enum-värde + tooltip |
 
@@ -129,7 +132,7 @@ ska ha id/name/label. Gör startsidan visuellt stark, detaljrik och responsiv.
 
 | Del | Beskrivning |
 |---|---|
-| C1 (existing plan) | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) — auto-repair får inte starta inom user-followup-fönster |
+| C1 (existing plan) | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](../2026-04-27-followup-vs-autorepair-lane-collision.md) — auto-repair får inte starta inom user-followup-fönster |
 | C2 | Capability diff på follow-up: "ta bort 3D" rensar `visual-3d` + dossiers + deps |
 
 **Bevis:** logg från 2026-04-28 visar `dossiers_selected.byCapability: { "visual-3d": ["three-fiber-canvas"] }` på follow-ups som INTE bad om 3D.

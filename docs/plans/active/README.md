@@ -46,7 +46,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | Plan | Föreslagen hantering |
 |---|---|
 | [`2026-04-29-llm-flow-source-router.md`](../avklarat/2026-04-29-llm-flow-source-router.md) | Flyttad till `avklarat/` 2026-05-01; source-routerhistoriken är bevarad där. |
-| [`2026-04-28-pixelkallaren-eval-och-uppfoljning.md`](./2026-04-28-pixelkallaren-eval-och-uppfoljning.md) | Behåll tills Pixelkällaren-fixturen/eval är omhändertagen; flytta sedan spår 1-7 in i startlinjen eller arkivera som eval-scope. |
+| [`parked/2026-04-28-pixelkallaren-eval-och-uppfoljning.md`](./parked/2026-04-28-pixelkallaren-eval-och-uppfoljning.md) | Parkerad 2026-05-01 som eval-fixture/scope. Återaktivera först när en konkret eval-runner/baseline eller variant-/F2-3D-/form-a11y-PR ska göras. |
 | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) | Child-plan för P1d tills implementation är gjord. |
 | [`2026-04-27-llm-flode-varldsklass-scope.md`](../avklarat/2026-04-27-llm-flode-varldsklass-scope.md) | Flyttad till `avklarat/` 2026-05-01; används som bakgrund, inte aktiv körplan. |
 
