@@ -30,6 +30,7 @@ export function envKeysForReadinessItem(
   if (item.envKeys && item.envKeys.length > 0) return item.envKeys;
   if (item.id === "placeholder-env") return info.placeholderCoveredKeys ?? [];
   if (item.id === "feature-runtime-env") return info.featureRuntimeKeys ?? [];
+  if (item.id === "warn-only-env") return info.warnOnlyKeys ?? [];
   if (item.id === "missing-env") {
     return info.buildBlockingKeys ?? info.missingEnvKeys;
   }

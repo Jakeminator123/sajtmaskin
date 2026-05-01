@@ -21,8 +21,7 @@ import {
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
-import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
-import { getProjectData } from "@/lib/db/services/projects";
+import { getStoredProjectEnvVarMap, readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
 import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
@@ -87,19 +86,6 @@ async function deriveTier3BuildSpecForVersion(
   );
   const contracts = buildContractsFromDetectedIntegrations(detected);
   return deriveTier3BuildSpec(contracts);
-}
-
-async function readAllowPlaceholdersInF3(
-  projectId: string | null | undefined,
-): Promise<boolean> {
-  if (!projectId) return false;
-  try {
-    const data = await getProjectData(projectId);
-    const meta = data?.meta as Record<string, unknown> | null | undefined;
-    return meta?.allowPlaceholdersInF3 === true;
-  } catch {
-    return false;
-  }
 }
 
 export async function POST(

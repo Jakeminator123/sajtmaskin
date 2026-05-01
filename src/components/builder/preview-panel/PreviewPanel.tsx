@@ -103,6 +103,7 @@ export function PreviewPanel({
   activeVersionStatus = null,
   activeVersionSummary = null,
   activeVersionIsLatest = true,
+  versionMismatchPayload = null,
   onPreviewSessionSuspect,
   placementMode = false,
   pendingPlacementItem = null,
@@ -946,6 +947,8 @@ export function PreviewPanel({
               iframeRef={iframeRef}
               handleIframeLoad={handleIframeLoad}
               handleIframeError={handleIframeError}
+              versionMismatchPayload={versionMismatchPayload}
+              onForceRestart={onPreviewSessionSuspect}
             >
               {showComposerOverlay ? (
                 <PreviewPanelComposerOverlay

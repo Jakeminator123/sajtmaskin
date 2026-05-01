@@ -184,8 +184,9 @@ Ingår:
 
 1. `npm run typecheck`
 2. `npm run scaffolds:validate`
-3. `npm run test:ci`
-4. `npm run lint`
+3. `npm run dossiers:validate-all`
+4. `npm run test:ci`
+5. `npm run lint`
 
 ```bash
 npm run devtest
@@ -210,7 +211,7 @@ Nuvarande eval-checkar inkluderar också:
 - `tier2-readiness` för om samma preflight-kontrakt som runtime använder fortfarande skulle tillåta tier-2 preview
 - baseline-gaten tittar nu också på `PASS -> FAIL` och `FAIL -> PASS`, inte bara score-delta
 - baseline-jämförelsen rapporterar också nya eller borttagna blockerande checks per prompt
-- eval-resultat far nu blockerande checks, sa `PASS` kraver att kritiska readiness-/sanity-checkar ocksa ar gröna, inte bara att medelscoren är okej
+- eval-resultat får nu blockerande checks, så `PASS` kräver att kritiska readiness-/sanity-checkar också är gröna, inte bara att medelscoren är okej
 
 ## Synk med `package.json`
 

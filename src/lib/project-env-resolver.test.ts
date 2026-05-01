@@ -110,9 +110,20 @@ describe("resolveEnvRequirementsFromDetected enforcement buckets (P31 follow-up)
     const env = envFixture({});
     const result = resolveEnvRequirementsFromDetected([STRIPE_DETECTED], env, {
       allowPlaceholdersInF3: true,
+      lifecycleStage: "integrations",
     });
     expect(result.buildBlockingKeys).not.toContain("STRIPE_SECRET_KEY");
     expect(result.placeholderCoveredKeys).toContain("STRIPE_SECRET_KEY");
+  });
+
+  it("does not treat tier-3 stubs as placeholder-covered during F3 unless explicitly allowed", () => {
+    const env = envFixture({});
+    const result = resolveEnvRequirementsFromDetected([STRIPE_DETECTED], env, {
+      lifecycleStage: "integrations",
+    });
+    expect(result.buildBlockingKeys).toContain("STRIPE_SECRET_KEY");
+    expect(result.placeholderCoveredKeys).not.toContain("STRIPE_SECRET_KEY");
+    expect(result.missingEnvKeys).toContain("STRIPE_SECRET_KEY");
   });
 
   it("missingEnvKeys (legacy field) preserves old semantics: unconfigured + no placeholder", () => {

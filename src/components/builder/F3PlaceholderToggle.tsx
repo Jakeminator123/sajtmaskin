@@ -3,8 +3,8 @@
 /**
  * F3 placeholder-toggle.
  *
- * Drops a single switch into the env panel: "Tillåt placeholders för
- * tier-3 i F3 (sajten kraschar vid riktiga API-anrop)". When ON, the F3
+ * Drops a single switch into the env panel: "Tillåt placeholders vid
+ * integrationsbygge (sajten kraschar vid riktiga API-anrop)". When ON, the F3
  * readiness gate accepts placeholder-covered keys with a warning instead
  * of blocking the build. Persists in `project_data.meta.allowPlaceholdersInF3`
  * via `PATCH /api/projects/[id]/preferences`.
@@ -121,7 +121,7 @@ export function F3PlaceholderToggle({ projectId, className, onChanged }: Props) 
               htmlFor="f3-placeholder-toggle"
               className="text-[11px] font-medium text-foreground"
             >
-              Tillåt placeholders för tier-3 i F3
+              Tillåt placeholders vid integrationsbygge
             </Label>
             <div className="flex items-center gap-1.5">
               {loading || pending ? (

@@ -23,7 +23,7 @@ import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
-import { getProjectData } from "@/lib/db/services/projects";
+import { readAllowPlaceholdersInF3 } from "@/lib/project-env-vars";
 import { resolveSelectedDossiersFromSnapshot } from "@/lib/gen/dossiers/snapshot-selection";
 import {
   getEngineChatByIdForRequest,
@@ -84,21 +84,6 @@ function buildFeatureRuntimeEnvInfo(keys: string[]): ChatReadinessItem {
     envKeys: keys,
   };
 }
-
-async function readAllowPlaceholdersInF3(
-  projectId: string | null | undefined,
-): Promise<boolean> {
-  if (!projectId) return false;
-  try {
-    const data = await getProjectData(projectId);
-    const meta = data?.meta as Record<string, unknown> | null | undefined;
-    const value = meta?.allowPlaceholdersInF3;
-    return value === true;
-  } catch {
-    return false;
-  }
-}
-
 
 function buildLifecycleBlocker(status: string, summary?: string | null): ChatReadinessItem | null {
   if (status === "draft") {
@@ -332,6 +317,7 @@ async function buildEngineReadiness(
     placeholderCoveredKeys,
     buildBlockingKeys,
     featureRuntimeKeys,
+    warnOnlyKeys,
   } = envRequirements;
 
   if (envGateActive) {
@@ -397,6 +383,7 @@ async function buildEngineReadiness(
       placeholderCoveredKeys,
       buildBlockingKeys,
       featureRuntimeKeys,
+      warnOnlyKeys,
     },
   });
 }

@@ -81,6 +81,7 @@ describe("deploy-readiness-ui", () => {
       buildBlockingKeys: ["STRIPE_SECRET_KEY"],
       placeholderCoveredKeys: ["RESEND_API_KEY"],
       featureRuntimeKeys: ["CONTACT_EMAIL_TO"],
+      warnOnlyKeys: ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
     };
 
     expect(
@@ -101,6 +102,12 @@ describe("deploy-readiness-ui", () => {
         info,
       ),
     ).toEqual(["CONTACT_EMAIL_TO"]);
+    expect(
+      envKeysForReadinessItem(
+        { id: "warn-only-env", title: "Optional", severity: "info" },
+        info,
+      ),
+    ).toEqual(["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"]);
   });
 
   it("uses explicit env keys on readiness items before fallback buckets", () => {

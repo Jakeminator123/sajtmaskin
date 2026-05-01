@@ -107,16 +107,27 @@ function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
 }
 
-let _cachedPlaceholderKeys: Set<string> | null = null;
-function getPlaceholderKeys(): Set<string> {
-  if (!_cachedPlaceholderKeys) {
+const _cachedPlaceholderKeys = new Map<string, Set<string>>();
+function getPlaceholderKeys(params: {
+  lifecycleStage: PreviewLifecycleStage;
+  allowPlaceholdersInF3: boolean;
+}): Set<string> {
+  const includeTier3Stubs =
+    params.lifecycleStage !== "integrations" || params.allowPlaceholdersInF3;
+  const cacheKey = includeTier3Stubs ? "with-tier3" : "harmless-only";
+  const cached = _cachedPlaceholderKeys.get(cacheKey);
+  if (!cached) {
     try {
-      _cachedPlaceholderKeys = loadPlaceholderKeySet();
+      const next = loadPlaceholderKeySet({ includeTier3Stubs });
+      _cachedPlaceholderKeys.set(cacheKey, next);
+      return next;
     } catch {
-      _cachedPlaceholderKeys = new Set();
+      const empty = new Set<string>();
+      _cachedPlaceholderKeys.set(cacheKey, empty);
+      return empty;
     }
   }
-  return _cachedPlaceholderKeys;
+  return cached;
 }
 
 /**
@@ -145,15 +156,19 @@ function flattenEnforcement(
 export function resolveEnvRequirementsFromDetected(
   detectedIntegrations: DetectedIntegration[],
   env: ResolvedProjectEnv,
-  options: { allowPlaceholdersInF3?: boolean } = {},
+  options: {
+    allowPlaceholdersInF3?: boolean;
+    lifecycleStage?: PreviewLifecycleStage;
+  } = {},
 ): ResolvedProjectEnvRequirements {
   const requiredEnvKeys = dedupeStrings(
     detectedIntegrations.flatMap((integration) => integration.envVars ?? []),
   );
   const configuredEnvKeys = Array.from(env.configuredKeys);
-  const placeholderKeys = getPlaceholderKeys();
-  const enforcement = flattenEnforcement(detectedIntegrations);
   const allowPlaceholdersInF3 = options.allowPlaceholdersInF3 === true;
+  const lifecycleStage = options.lifecycleStage ?? "design";
+  const placeholderKeys = getPlaceholderKeys({ lifecycleStage, allowPlaceholdersInF3 });
+  const enforcement = flattenEnforcement(detectedIntegrations);
 
   const unconfigured = requiredEnvKeys.filter(
     (key) => !env.configuredKeys.has(key),
@@ -223,5 +238,6 @@ export function resolveEnvRequirementsFromVersionFiles(
   );
   return resolveEnvRequirementsFromDetected(detectedIntegrations, env, {
     allowPlaceholdersInF3: options.allowPlaceholdersInF3,
+    lifecycleStage: options.lifecycleStage,
   });
 }

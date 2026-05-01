@@ -29,6 +29,7 @@
  */
 
 import {
+  buildProvenanceGroupedSections,
   resolvePreviewEnvLayers,
   type EnvVarProvenance,
   type PreviewLifecycleStage,
@@ -107,17 +108,6 @@ const SECTION_ORDER: EnvVarProvenance[] = [
   "harmless",
 ];
 
-function quoteEnvValue(val: string): string {
-  if (val === "") return '""';
-  if (/[\s#"'\\]/.test(val) || val.includes("\n")) {
-    return `"${val
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, "\\n")}"`;
-  }
-  return val;
-}
-
 /**
  * Build a "detected integrations" section as a comment block. F2 only:
  * if the model still managed to wire in real integrations (despite the
@@ -187,25 +177,12 @@ export async function buildProjectEnvFileContents(params: {
   const lifecycleStage = params.lifecycleStage ?? "design";
   const { merged, provenance } = await resolvePreviewEnvLayers(params);
 
-  const groups: Record<EnvVarProvenance, string[]> = {
-    user: [],
-    generated: [],
-    "project-preview": [],
-    "tier3-stub": [],
-    harmless: [],
-  };
-
-  for (const key of Object.keys(merged).sort((a, b) => a.localeCompare(b))) {
-    const tier = provenance[key] ?? "harmless";
-    groups[tier].push(`${key}=${quoteEnvValue(merged[key] ?? "")}`);
-  }
-
-  const sections: string[] = [];
-  for (const tier of SECTION_ORDER) {
-    if (groups[tier].length === 0) continue;
-    sections.push(SECTION_HEADERS[tier]);
-    sections.push(groups[tier].join("\n"));
-  }
+  const sections = buildProvenanceGroupedSections(
+    merged,
+    provenance,
+    SECTION_HEADERS,
+    SECTION_ORDER,
+  );
 
   // F2 only: surface any detected integration env-keys as comments so
   // the user can see them without them ever blocking boot.

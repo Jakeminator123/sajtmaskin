@@ -44,6 +44,11 @@ export type ChatReadinessInfo = {
    * Surfaced as informational warnings, never blockers.
    */
   featureRuntimeKeys?: string[];
+  /**
+   * Phase-4: keys whose dossier marks them `enforcement: "warn-only"`.
+   * Components self-disable when missing; surfaced for diagnostics, not as a blocker.
+   */
+  warnOnlyKeys?: string[];
 };
 
 export type ChatReadiness = {

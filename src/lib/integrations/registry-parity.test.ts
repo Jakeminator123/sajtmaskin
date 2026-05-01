@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { integrationRegistry } from "./registry";
-import { loadPlaceholderRecord } from "@/lib/gen/preview/env-local";
+import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 
 describe("integrationRegistry parity", () => {
   it("has unique definition keys", () => {
@@ -14,7 +14,7 @@ describe("integrationRegistry parity", () => {
   });
 
   it("core registry envVars are covered by placeholder file", () => {
-    const placeholderKeys = new Set(Object.keys(loadPlaceholderRecord()));
+    const placeholderKeys = loadPlaceholderKeySet({ includeTier3Stubs: true });
     const coreProviders = new Set([
       "stripe", "clerk", "next-auth", "supabase", "resend",
       "openai", "vercel-blob", "upstash", "contentful",

@@ -851,7 +851,7 @@ export function VersionHistory({
                             className={cn("px-1.5 py-0 text-[10px]", runtimeBadge.className)}
                             title={
                               runtimeStatusForRow === "version_mismatch"
-                                ? "Preview-VM kör en annan version än den valda. Klicka 'Återställ preview' eller vänta på återstart."
+                                ? "Preview-VM kör en annan version än den valda. Vänta på återstart eller öppna preview-panelen för status."
                                 : runtimeStatusForRow === "missing"
                                   ? "Ingen aktiv preview-VM för denna version. Starta en ny preview-session från knappraden."
                                   : runtimeStatusForRow === "starting"

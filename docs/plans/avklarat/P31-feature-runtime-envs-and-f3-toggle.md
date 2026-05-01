@@ -56,7 +56,7 @@ Backfill:
 
 [src/lib/project-env-resolver.ts](../../../src/lib/project-env-resolver.ts) — `ResolvedProjectEnvRequirements` får `buildBlockingKeys`, `featureRuntimeKeys`, `warnOnlyKeys`. Tar `selectedDossiers` + `allowPlaceholdersInF3`.
 
-[src/lib/chat-readiness.ts](../../../src/lib/chat-readiness.ts) — `ChatReadinessInfo` får `buildBlockingKeys` + `featureRuntimeKeys`.
+[src/lib/chat-readiness.ts](../../../src/lib/chat-readiness.ts) — `ChatReadinessInfo` får `buildBlockingKeys`, `featureRuntimeKeys` + `warnOnlyKeys`.
 
 [src/app/api/engine/chats/[chatId]/readiness/route.ts](../../../src/app/api/engine/chats/[chatId]/readiness/route.ts):
 - Läser `allowPlaceholdersInF3` från `project_data.meta`.

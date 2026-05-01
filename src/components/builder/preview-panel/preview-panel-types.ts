@@ -5,6 +5,7 @@ import type {
   EngineVersionLifecycleStage,
 } from "@/lib/db/engine-version-lifecycle";
 import type { AlternatePreviewUrls } from "@/lib/gen/preview/preview-url-classifier";
+import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
 
 export type CaptureResponse = {
@@ -93,6 +94,8 @@ export interface PreviewPanelProps {
   activeVersionStatus?: EngineVersionDisplayStatus | null;
   activeVersionSummary?: string | null;
   activeVersionIsLatest?: boolean;
+  /** Non-blocking overlay payload when the selected version and preview-VM diverge. */
+  versionMismatchPayload?: VersionMismatchOverlayPayload | null;
   /** Ask controller to verify server session and recover preview if needed. */
   onPreviewSessionSuspect?: () => void;
   placementMode?: boolean;

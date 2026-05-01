@@ -124,7 +124,7 @@ function parseDotenvBody(text: string): Record<string, string> {
   return out;
 }
 
-function quoteEnvValue(val: string): string {
+export function quoteEnvValue(val: string): string {
   if (val === "") return '""';
   if (/[\s#"'\\]/.test(val) || val.includes("\n")) {
     return `"${val
@@ -165,21 +165,30 @@ export function loadTier3StubPlaceholderRecord(): Record<string, string> {
   return loadFragmentRecord(readTier3StubPlaceholdersEnvText, "Tier-3 stub");
 }
 
-/**
- * Combined record (harmless + tier3-stub).
- * @deprecated Prefer the per-tier loaders so callers can decide whether to
- *   strip tier-3 stubs in F3.
- */
-export function loadPlaceholderRecord(): Record<string, string> {
+/** Combined F2 placeholder record (harmless + tier3-stub). */
+export function loadAllPlaceholderRecordForF2(): Record<string, string> {
   return {
     ...loadHarmlessPlaceholderRecord(),
     ...loadTier3StubPlaceholderRecord(),
   };
 }
 
-/** Set of keys covered by both placeholder fragments. */
-export function loadPlaceholderKeySet(): Set<string> {
-  return new Set(Object.keys(loadPlaceholderRecord()));
+/**
+ * Combined record (harmless + tier3-stub).
+ * @deprecated Prefer the per-tier loaders so callers can decide whether to
+ *   strip tier-3 stubs in F3.
+ */
+export function loadPlaceholderRecord(): Record<string, string> {
+  return loadAllPlaceholderRecordForF2();
+}
+
+/** Set of keys covered by preview placeholder fragments. */
+export function loadPlaceholderKeySet(options: { includeTier3Stubs?: boolean } = {}): Set<string> {
+  const record =
+    options.includeTier3Stubs === false
+      ? loadHarmlessPlaceholderRecord()
+      : loadAllPlaceholderRecordForF2();
+  return new Set(Object.keys(record));
 }
 
 /** Pure merge for tests — later records override earlier keys. */
@@ -247,10 +256,12 @@ export async function resolvePreviewEnvLayers(params: {
   return { merged, provenance };
 }
 
-function formatGroupedDotenvBody(
+export function buildProvenanceGroupedSections(
   merged: Record<string, string>,
   provenance: Record<string, EnvVarProvenance>,
-): string {
+  headers: Record<EnvVarProvenance, string>,
+  order: EnvVarProvenance[],
+): string[] {
   const groups: Record<EnvVarProvenance, string[]> = {
     harmless: [],
     "tier3-stub": [],
@@ -265,19 +276,25 @@ function formatGroupedDotenvBody(
   }
 
   const sections: string[] = [];
-  const order: EnvVarProvenance[] = [
-    "user",
-    "generated",
-    "project-preview",
-    "tier3-stub",
-    "harmless",
-  ];
   for (const tier of order) {
     if (groups[tier].length === 0) continue;
-    sections.push(SECTION_HEADERS[tier]);
+    sections.push(headers[tier]);
     sections.push(groups[tier].join("\n"));
   }
 
+  return sections;
+}
+
+function formatGroupedDotenvBody(
+  merged: Record<string, string>,
+  provenance: Record<string, EnvVarProvenance>,
+): string {
+  const sections = buildProvenanceGroupedSections(
+    merged,
+    provenance,
+    SECTION_HEADERS,
+    ["user", "generated", "project-preview", "tier3-stub", "harmless"],
+  );
   return sections.join("\n\n");
 }
 

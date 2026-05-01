@@ -1,7 +1,7 @@
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "../autofix/dep-completer";
 import type { CodeFile } from "../parser";
-import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-local";
+import { loadAllPlaceholderRecordForF2, formatDotenvBody } from "@/lib/gen/preview/env-local";
 
 /**
  * Download/export scaffold.
@@ -540,7 +540,7 @@ export function mergeTsconfigWithBaseline(
 
 function buildPlaceholderEnvLocalBody(): string | null {
   try {
-    const record = loadPlaceholderRecord();
+    const record = loadAllPlaceholderRecordForF2();
     if (Object.keys(record).length === 0) return null;
     return `${GENERATED_ENV_LOCAL_HEADER}\n${formatDotenvBody(record)}\n`;
   } catch {
