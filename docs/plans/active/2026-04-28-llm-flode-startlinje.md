@@ -59,14 +59,14 @@ Fem read-only granskningar jämförde deep-researchen, `BUG-SWARM-BACKLOG.md` oc
 | Follow-up / 3D / app-semantik | Lägg in som **P1f/P1g** här: major-change detector + safe unlock för website→app. Ingen ny topp-plan. | G#10, G#13, G#20-G#22, G#25-G#26, G#57 |
 | Prompt / context / dossiers | Behåll child-planen `prompt-slim-systemprompt.md`. Startlinjen anger bara beroenden och DoD. | U#47, G#13, G#25-G#26, G#57 |
 | Env / runtime truth | Doc-sync i `docs/ENV.md` + `fas3-preview-and-deploy.md`, inte ny planfil. | G#16-G#22, U#6, U#77 |
-| UX / status / preview-verifiering | Event-bus UI-flip och degraded states ska ligga i **P1e/P4f** + `Kvarvarande-uppgifter.md` #11. Copy-städ är lägre prio. | G#32, G#35, G#58/U#80, G#60, U#2 |
+| UX / status / preview-verifiering | Kör två spår: **A signal-first** i `Kvarvarande-uppgifter.md` #11 (event-bus UI-flip + degraded/silent), **B copy/städ** i [`2026-05-01-f2-f3-ux-copy-konsolidering.md`](./2026-05-01-f2-f3-ux-copy-konsolidering.md). Startlinjen länkar bara, den duplicerar inte UX-listor. | G#32, G#35, G#58/U#80, G#60, U#2 |
 | Docs/backlog | `BUG-SWARM-BACKLOG.md` är inventering. Planer äger exekveringsordning. | Alla öppna P0-P3 |
 
 ### Planhygien
 
 - Skapa inte nya LLM-planfiler innan detta dokument eller `prompt-slim-systemprompt.md` inte räcker.
 - Om en överlappande scope-fil är färdigsyntetiserad hit, flytta den till `docs/plans/avklarat/` eller `docs/plans/archived/` i separat städcommit.
-- Terminologi-/naming debt (`v0`, `sandbox`, copy) ska inte lyftas till P1 utan runtime-symtom.
+- Terminologi-/naming debt (`v0`, `preview`/`VM`-ordval, copy) ska inte lyftas till P1 utan runtime-symtom.
 
 ## Superlista — prio + agentinstruktion
 
@@ -124,7 +124,7 @@ Fem read-only granskningar jämförde deep-researchen, `BUG-SWARM-BACKLOG.md` oc
 | P4c | Component-Reference compact format dokumenterat (`compact API/pattern hints`, max 3 referenser, max 8 imports) | `docs/llm/llm-chain-flowchart.md` eller `docs/architecture/fas2-orchestration-and-build.md` |
 | ~~P4d~~ ✅ **FIXAD 2026-05-01** | `data/prompt-dumps/own-engine-codegen/meta.json` innehåller nu `staticCoreChars`, `dynamicChars`, `totalChars` och `separatorFound` så vi snabbt kan korsreferensa run-by-run | `src/lib/gen/prompt-dump.ts` |
 | P4e | Env/F2/F3-sanning behöver doc-sync: `env.example` är dokumentation, preview-host/VM `.env.local` är effektiv runtime, och F3-readiness måste spegla verkliga integrationkrav. | `docs/ENV.md`, `docs/architecture/fas3-preview-and-deploy.md`, BUG-SWARM G#16-G#22 |
-| P4f | UX-status ska skilja preview-materialisering från verifierad version samt visa degraded/silent states när backend-signaler finns. **Delvis klart 2026-05-01:** VersionHistory har separat runtime/preview-badge och verifieringsbadge. | `Kvarvarande-uppgifter.md` #11, BUG-SWARM G#32/G#35/G#58/U#80/G#60 |
+| P4f | UX-status ska skilja preview-materialisering från verifierad version samt visa degraded/silent states när backend-signaler finns. **Delvis klart 2026-05-01:** VersionHistory har separat runtime/preview-badge och verifieringsbadge. **Operativ split:** spår A (signal/event-bus) i `Kvarvarande-uppgifter.md` #11, spår B (F2/F3-copy) i `2026-05-01-f2-f3-ux-copy-konsolidering.md`. | `Kvarvarande-uppgifter.md` #11 + `2026-05-01-f2-f3-ux-copy-konsolidering.md` |
 
 ## Förslag: arbetsfördelning för en till agent
 
@@ -178,4 +178,4 @@ Agent D — P3+P4 (prompt + observability)
 - `provider_aborted` på providersidan (kan kräva multi-provider-fallback, för stort scope för en runda).
 - `Static core` 47608 chars som paket-split — kräver eval-baseline för säker uppdelning.
 - `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL` brus-loggar — fungerar som det ska, bara verbose.
-- Terminologi-/naming debt kring `v0`, `sandbox`, "Bygg nu"/F3-copy utan runtime-symtom. Hanteras som P3/städ, inte som kärnfix.
+- Terminologi-/naming debt kring `v0`, `preview`/`VM`-ordval och "Bygg nu"/F3-copy utan runtime-symtom. Hanteras som P3/städ, inte som kärnfix.

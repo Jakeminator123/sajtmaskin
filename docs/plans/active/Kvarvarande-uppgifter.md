@@ -91,9 +91,18 @@ Typecheck 0 fel, lint 0 fel, 1417/1417 tester gröna efter varje commit. Branche
 | 8 | **P26-rest: PR3–9** | Kvarstående från ursprungliga P26-paketet efter OMTAG fas 2·A (se OMTAG-arkivet `../avklarat/omtag-2026-04-23/meta/INDEX.md` och arkiverad P26-sammanfattning): PR3 quality-gate readiness probe (HEAD 200 innan gate startar), ~~PR4 HMR-spam mitigation~~ **klart 2026-04-23** via inline RFC 6455 101-handshake i `proxyPreviewUpgrade` (404-stubben visade sig trigga HMR-klientens retry-loop; handshake-and-hold tystar konsolen), PR5 raw-message logging, PR6 bygg-nu UX-copy, PR7 backoffice scaffold_lifecycle FileNotFound fix, PR8 dossier re-embed (delvis gjord via fas 2·B variant-embeddings), PR9 three-fiber-dossier (kan redan finnas i `soft/three-fiber-canvas`). | Låg–Medel per PR | Individuell |
 | 9 | **Core-simplification: `orchestrate.ts` + `route-plan.ts`** | Gpt-rapporten (2026-04-23): dessa är 912 + 742 rader. Ej adresserade av OMTAG 03 (endast `orchestrate/{scaffold-query-context,scaffold-variant-resolver}.ts` och `route-plan/route-patterns.ts` extraherades). Kandidater för nästa split-våg — samma mönster som OMTAG 03. | Medel | Egen agent-session |
 | 10 | **Core-simplification: `config/ai_models/manifest.json`** | ~1023 rader. Delningskandidat per phase-routing-grupp. | Låg | Telemetri-data |
-| 11 | **Event-bus UI-flip** | Delvis hårdat 2026-05-01: `VersionHistory` skiljer nu runtime/preview-badge från verifieringsbadge (`Design redo`/`Verifierar`/`Verifierad`). Kvar: koppla `selectVersionStatus(events)` in i `BuilderShellContent.tsx` + preview-panel SSE-handling så UI inte längre härleder allt från DB-flaggor. | Medel | — |
+| 11 | **Event-bus UI-flip (spår A) + UX-copy-konsolidering (spår B)** | Delvis hårdat 2026-05-01: `VersionHistory` skiljer runtime/preview-badge från verifieringsbadge (`Design redo`/`Verifierar`/`Verifierad`). Kvar i **spår A (signal-first)**: koppla `selectVersionStatus(events)` i `BuilderShellContent.tsx` + preview-panel SSE-handling så UI inte längre härleder allt från DB-flaggor. Kvar i **spår B (copy/städ)**: konsolidera F2/F3-ordval och parkera spridda copy-noter i en dedikerad plan ([`2026-05-01-f2-f3-ux-copy-konsolidering.md`](./2026-05-01-f2-f3-ux-copy-konsolidering.md)). | Medel | — |
 
 > Tidigare punkt #1 (`Source_Sans_3`-violation) löstes 2026-04-20 i cloud-loopen, commit `808735e2`.
+
+### UX-statusspår A/B (operativ split)
+
+| ID | Klassning | Kräver ny backend-signal först? | Ägare |
+|---|---|---|---|
+| `G#32` + #11 | Produkt/UX-status (preview vs verifierad) | Nej (signal finns), men UI-flip krävs | #11 spår A |
+| `G#35` | Degraded UX | Ja (persistenta degraded-signaler till UI) | #11 spår A (efter signal) |
+| `G#60` | Observability → UX | Ja (silent catches måste exponeras) | #11 spår A (efter signal) |
+| `G#58` + `U#80` + `U#2` | Copy/terminologi | Nej för v1 | #11 spår B + copy-plan |
 
 ## Telemetri-blockad (vänta 1 vecka, sen plocka)
 

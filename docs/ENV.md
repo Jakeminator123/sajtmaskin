@@ -114,6 +114,17 @@ Praktisk rekommendation:
 
 När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host som den aktiva tier-2-vägen.
 
+### Env-precedence för genererade användarsajter
+
+| Lager | Roll | Stoppar F2/F3? |
+|---|---|---|
+| `env.example` / genererad env-dokumentation | Dokumentation för användaren | Nej |
+| Harmless placeholders + tier-3 stub placeholders | Gör F2-designpreview körbar utan riktiga integrationer | Nej för F2; F3 strippar tier-3 stub-lagret om inte `allowPlaceholdersInF3` är på |
+| Project env vars (`projectEnvVars`) | Effektiva runtime-värden för F3/deploy | Ja, om dossier-nyckeln har `enforcement: "build"` och saknas |
+| Preview-host `.env.local` | Faktisk runtime-fil inne i preview-VM | Speglar lagren ovan via `buildPreviewEnvLocalContents()` |
+
+F3-readiness ska alltså spegla **verkliga integrationkrav**, inte om en nyckel råkar finnas i `env.example`. `feature-runtime` rapporteras som warning och `warn-only` som info; bara `build`-enforcement blockerar.
+
 ---
 
 ## Ny nyckel i projektet
