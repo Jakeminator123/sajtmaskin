@@ -33,7 +33,7 @@ Relaterade: [fas1-startprompt-flow.md](./fas1-startprompt-flow.md), [fas3-previe
 | SSE-formatering | `src/lib/gen/stream/stream-format.ts` |
 | Scaffold-val / matcher | `src/lib/gen/scaffolds/matcher.ts` + `src/lib/gen/scaffolds/keyword-banks.ts` |
 | Scaffold-serialisering | `src/lib/gen/scaffolds/serialize.ts` |
-| Route-plan | `src/lib/gen/route-plan.ts` + `src/lib/gen/route-plan/route-patterns.ts` |
+| Route-plan | `src/lib/gen/route-plan/` (`index.ts` + builder/parse/verify/helpers) |
 | Finalize | `src/lib/gen/stream/finalize-version/` (OMTAG 03: `runner.ts` orchestrator + phase + persist helpers). Gamla monoliten `finalize-version.ts` borttagen. |
 | Finalize-kontrakt (ordning) | `src/lib/gen/stream/finalize-pipeline-contract.ts` |
 | Finalize-preflight | `src/lib/gen/stream/finalize-preflight.ts` + `src/lib/gen/stream/finalize-preflight/shell-pages.ts` |
@@ -242,7 +242,7 @@ Definierad i `finalize-pipeline-contract.ts`:
 | 4 | `materialize_images` | Byt placeholder-bilder mot Unsplash (6–8 st). Endast full path, non-fatal | Nätverk |
 | 5 | `verifier` | Read-only LLM-granskning. Endast full path + verifier-policy. Blocking-fynd matas in i `runLlmFixer` direkt efter | LLM |
 | 6 | `parse_merge_preflight` | Parse → merge med befintliga filer → preflight → integration-manifest | Deterministisk |
-| 7 | Partial-file repair | Om preflight hittar avhuggna filer: max `partialFileRepairMaxAttempts` LLM-fixer-rundor (default 1, max 3, 60 s timeout). Lyckas → kör parse+merge+preflight om. Misslyckas → `PartialFileOutputError` stoppar persist | LLM |
+| 7 | Partial-file repair | Om preflight hittar avhuggna filer: max `partialFileRepairMaxAttempts` LLM-fixer-rundor (manifest-default 2, max 3, 60 s timeout). Lyckas → kör parse+merge+preflight om. Misslyckas → `PartialFileOutputError` stoppar persist | LLM |
 | 8 | Persist | `addAssistantMessageAndCreateDraftVersion` (init) eller `addAssistantMessageAndUpdateExistingVersion` (follow-up) | Deterministisk |
 | 9 | Best-effort | Telemetry, preflight-loggar, ev. `failVersionVerification` | Deterministisk |
 

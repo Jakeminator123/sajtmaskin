@@ -10,6 +10,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI, { toFile } from "openai";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { withRateLimit } from "@/lib/rateLimit";
 
 // Allow 60 seconds for audio processing
@@ -51,6 +53,15 @@ export async function POST(req: NextRequest) {
     console.info("[API/transcribe] Request received");
 
     try {
+      const user = await getCurrentUser(req);
+      const sessionId = getSessionIdFromRequest(req);
+      if (!user && !sessionId) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized" },
+          { status: 401 },
+        );
+      }
+
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) {
       console.error("[API/transcribe] Missing OPENAI_API_KEY");

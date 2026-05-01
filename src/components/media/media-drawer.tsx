@@ -266,6 +266,7 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
   const handleDelete = async (id: number) => {
     if (!confirm("Är du säker på att du vill ta bort filen?")) return;
 
+    setError(null);
     try {
       const response = await fetch(`/api/media/${id}`, { method: "DELETE" });
       const data = await response.json();

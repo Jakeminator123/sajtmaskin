@@ -342,7 +342,7 @@
     "manualRepairRouteLlmPasses": 2,
     "serverRepairPasses": 2,
     "repairAcceptTimeoutMinutes": 5,
-    "partialFileRepairMaxAttempts": 1
+    "partialFileRepairMaxAttempts": 2
   },
   "qualityGateTiers": {
     "designPreview": [

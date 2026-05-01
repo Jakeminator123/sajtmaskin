@@ -159,7 +159,7 @@ Output: `GenerationInputPackage` (debug-dump i `data/prompt-dumps/orchestration-
 
 ```
 composeEngineSystemPrompt() returnerar:
-[Static Core (config/prompt-core/*.md, alltid)]
+[Core Rules (config/prompt-core/*.md, alltid)]
 + SYSTEM_PROMPT_SEPARATOR
 + [Dynamic context, byggd av buildDynamicContext()]
 ```
@@ -199,7 +199,7 @@ Dynamic context renderas i strikt prioritetsordning. När token-budget överskri
 | Verifier | 1 | 1 |
 | Verifier-blocking → fixer | 0 | 1 |
 | Syntax-fixer-loop | 0 | upp till `syntaxFixPasses` (3–4) |
-| Partial-file repair | 0 | upp till `partialFileRepairMaxAttempts` (1) |
+| Partial-file repair | 0 | upp till `partialFileRepairMaxAttempts` (manifest-default 2) |
 | Server-repair (efter `done`) | 0 | upp till 4 (`serverRepairPasses` × `manualRepairRouteLlmPasses`) |
 | **Summa** | **2–3** | **9–13** |
 

@@ -10,7 +10,7 @@ import { withRateLimit } from "@/lib/rateLimit";
  *
  * Downloads an image from a URL and uploads it to Vercel Blob storage.
  * This is used for stock photos (Unsplash/Pexels) to ensure we have
- * PUBLIC URLs that work in v0 preview.
+ * PUBLIC URLs that work in live preview.
  *
  * POST /api/media/upload-from-url
  * Body: { url: string, filename?: string, source?: string, photographer?: string }
@@ -34,6 +34,10 @@ function getContentLengthBytes(response: Response): number | null {
   if (!value) return null;
   const bytes = Number(value);
   return Number.isFinite(bytes) && bytes >= 0 ? bytes : null;
+}
+
+function describeUrlForLog(url: URL): string {
+  return `${url.protocol}//${url.host}${url.pathname}`.slice(0, 160);
 }
 
 async function readBodyWithLimit(response: Response, maxBytes: number): Promise<Buffer | null> {
@@ -99,7 +103,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.info(`[Media/UploadFromUrl] Downloading image from: ${url.substring(0, 100)}...`);
+    console.info(`[Media/UploadFromUrl] Downloading image from: ${describeUrlForLog(parsedUrl)}`);
 
     const response = await safeFetch(url, {
       headers: {

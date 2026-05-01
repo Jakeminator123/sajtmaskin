@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,8 +29,8 @@ type MapRequest = {
 const cache = new Map<string, { data: unknown; ts: number }>();
 const CACHE_TTL_MS = 60_000;
 
-function cacheKey(url: string, w: number, h: number): string {
-  return `${url}|${w}x${h}`;
+function cacheKey(url: string, w: number, h: number, maxElements: number): string {
+  return `${url}|${w}x${h}|max=${maxElements}`;
 }
 
 /** Expected "inspector capture is unavailable right now" response. */
@@ -173,7 +176,23 @@ async function localElementMap(
   }
 }
 
+async function requireInspectorIdentity(req: Request): Promise<Response | null> {
+  const user = await getCurrentUser(req);
+  const sessionId = getSessionIdFromRequest(req);
+  if (!user && !sessionId) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
+
 export async function POST(req: Request) {
+  return withRateLimit(req, "inspector:element-map", () => handlePOST(req));
+}
+
+async function handlePOST(req: Request) {
+  const authError = await requireInspectorIdentity(req);
+  if (authError) return authError;
+
   if (!isBuilderInspectorEnabled()) {
     return NextResponse.json(
       { success: false, error: getBuilderInspectorDisabledMessage() },
@@ -189,7 +208,7 @@ export async function POST(req: Request) {
   const vpW = Math.round(Number(body.viewportWidth) || 1280);
   const vpH = Math.round(Number(body.viewportHeight) || 800);
   const maxElements = body.maxElements || 300;
-  const key = cacheKey(body.url, vpW, vpH);
+  const key = cacheKey(body.url, vpW, vpH, maxElements);
   const cached = cache.get(key);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
     return NextResponse.json(cached.data);

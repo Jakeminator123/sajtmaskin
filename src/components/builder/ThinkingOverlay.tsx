@@ -11,7 +11,7 @@ import { Loader2 } from "lucide-react";
 const FACTS = [
   { company: "Sajtmaskin", fact: "Genererar Next.js-sajter med AI — från prompt till live-preview" },
   { company: "Scaffold-system", fact: "Väljer automatiskt rätt sidstruktur baserat på din beskrivning" },
-  { company: "Quality Gate", fact: "Varje genererad sajt genomgår syntax-validering och visuell QA" },
+  { company: "Quality Gate", fact: "Varje genererad sajt genomgår syntax- och kvalitetskontroller" },
   { company: "Live Preview", fact: "Din sajt körs i en riktig VM med Next.js — inte bara en statisk bild" },
   { company: "Autofix", fact: "Mekaniska och LLM-drivna fixar rättar vanliga kodfel automatiskt" },
   { company: "Post-check", fact: "SEO, analytics och tillgänglighet granskas efter varje generering" },
@@ -27,15 +27,19 @@ function ThinkingOverlayContent() {
   const [fadeIn, setFadeIn] = useState(true);
 
   useEffect(() => {
+    let fadeTimeout: ReturnType<typeof setTimeout> | null = null;
     const interval = setInterval(() => {
       setFadeIn(false);
-      setTimeout(() => {
+      fadeTimeout = setTimeout(() => {
         setFactIndex((prev) => (prev + 1) % FACTS.length);
         setFadeIn(true);
       }, 300);
     }, 4000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (fadeTimeout) clearTimeout(fadeTimeout);
+    };
   }, []);
 
   const current = FACTS[factIndex];

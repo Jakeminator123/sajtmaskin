@@ -112,7 +112,7 @@ interface VersionHistoryProps {
   /** Pre-fetched versions from parent to avoid duplicate polling */
   versions?: VersionSummary[];
   /** Mutate function from parent's useVersions instance */
-  mutateVersions?: () => void;
+  mutateVersions?: () => void | Promise<unknown>;
   /**
    * F2 vs F3 lifecycle gate. Forwarded to dialogs (e.g.
    * VersionDiagnosticsDialog) that conditionally render env-panel actions.
@@ -351,7 +351,7 @@ export function VersionHistory({
         throw new Error(data?.error || `Pin failed (HTTP ${res.status})`);
       }
       toast.success(nextPinned ? "Version pinned" : "Version unpinned");
-      mutate();
+      await Promise.resolve(mutate());
     } catch (error) {
       console.error("Pin error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to update pin");
@@ -381,7 +381,7 @@ export function VersionHistory({
         onVersionSelect(String(data.versionId));
       }
       toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version restored som ny draftversion");
-      mutate();
+      await Promise.resolve(mutate());
       setConfirmRestoreVersion(null);
     } catch (error) {
       console.error("Restore error:", error);
@@ -414,7 +414,7 @@ export function VersionHistory({
         throw new Error(data?.error || `Accept repair failed (HTTP ${res.status})`);
       }
       toast.success("Serverreparation accepterad och applicerad");
-      mutate();
+      await Promise.resolve(mutate());
       if (data?.versionId) {
         onVersionSelect(String(data.versionId), data.previewUrl ?? undefined);
       }
