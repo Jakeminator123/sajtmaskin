@@ -977,6 +977,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               activeVersionSummary={activeVersionSummary?.verificationSummary ?? null}
               activeVersionIsLatest={activeVersionIsLatest}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
+              versionMismatchPayload={vm.versionMismatchPayload}
               onNavigatePreviewUrl={(url) => {
                 vm.setCurrentPreviewUrl(url);
                 vm.bumpPreviewRefreshToken();
