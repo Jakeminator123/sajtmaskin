@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 
 const file = "BUG-SWARM-BACKLOG.md";
+const verbose =
+  process.argv.includes("--verbose") ||
+  process.env.CHECK_BUG_BACKLOG_VERBOSE === "1" ||
+  process.env.CHECK_BUG_BACKLOG_VERBOSE === "true";
 let body = "";
 try {
   body = readFileSync(file, "utf8");
@@ -33,4 +37,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.info(`[check-bug-backlog] ${file} OK (${lines.length} lines)`);
+if (verbose) {
+  console.info(`[check-bug-backlog] ${file} OK (${lines.length} lines)`);
+}
