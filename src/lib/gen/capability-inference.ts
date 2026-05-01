@@ -376,8 +376,11 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
     );
   }
   if (caps.needsGame) {
+    // Ship the six-point contract from the `interactive-game-loop` dossier
+    // verbatim in the capability hint so the model sees the same mental
+    // model in both places. Output MUST be playable — not a mockup.
     lines.push(
-      "- **Game / interactive canvas requested**: Build a real playable interaction, not a static illustration. Include explicit state, controls, keyboard/pointer handlers, a visible score/status area, and accessible instructions. If using `<canvas>` or React Three Fiber, wrap the interactive component in `\"use client\"`; for 2D games, plain React state + CSS/SVG/canvas is acceptable when physics/WebGL is not explicitly requested.",
+      "- **Game / playable mechanic requested**: Build a real, playable game using the `interactive-game-loop` dossier contract: **state** (React state with `status: \"idle\" | \"playing\" | \"won\" | \"lost\"` + `score` + mechanic-specific fields) + **loop** (`requestAnimationFrame` inside `useEffect` with `cancelAnimationFrame` cleanup, OR keyboard-driven state transitions for grid games; stop loop when `status !== \"playing\"`) + **controls** (`window.addEventListener(\"keydown\", ...)` + removal on unmount AND a visible touch fallback; wrap game component in `\"use client\"`) + **collision** (AABB or distance check, no physics library unless `needsPhysics` is also set) + **score/win-lose** (large visible score area and clear transition) + **restart** (button AND keyboard shortcut that fully resets state). A static illustration or one-shot animation is NOT a game.",
     );
   }
   if (caps.needsCharts) {

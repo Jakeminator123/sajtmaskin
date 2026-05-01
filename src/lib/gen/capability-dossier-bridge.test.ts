@@ -59,6 +59,7 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
           needsForms: true,
           needsCarousel: true,
           needsCommandSearch: true,
+          needsGame: true,
         }),
       ),
     ).toEqual([
@@ -71,6 +72,7 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
       "contact-form",
       "carousel",
       "command-search",
+      "interactive-game",
     ]);
   });
 
@@ -80,6 +82,29 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
         capabilities({ needsParallax: true }),
       ),
     ).toEqual(["parallax-scroll", "parallax-pointer"]);
+  });
+
+  it("bridges needsGame to the interactive-game dossier capability", () => {
+    expect(
+      resolveDossierCapabilitiesFromInferredCapabilities(
+        capabilities({ needsGame: true }),
+      ),
+    ).toEqual(["interactive-game"]);
+  });
+
+  it("lights up game + visual-3d + physics together for a physics-driven 3D game", () => {
+    // "Bygg ett 3D-spel där bollar studsar" triggers all three flags so the
+    // codegen LLM sees the game contract AND the ThreeCanvasShell verbatim
+    // file AND the rapier physics guidance without competing instructions.
+    expect(
+      resolveDossierCapabilitiesFromInferredCapabilities(
+        capabilities({
+          needsGame: true,
+          needs3D: true,
+          needsPhysics: true,
+        }),
+      ),
+    ).toEqual(["visual-3d", "physics-3d", "interactive-game"]);
   });
 
   it("keeps the declarative bridge table narrow", () => {
@@ -92,6 +117,7 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
       "needsForms",
       "needsCarousel",
       "needsCommandSearch",
+      "needsGame",
     ]);
   });
 });

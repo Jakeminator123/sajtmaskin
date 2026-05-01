@@ -14,6 +14,13 @@ export const INFERRED_CAPABILITY_DOSSIER_BRIDGE = [
   { flag: "needsForms", dossierCapabilities: ["contact-form"] },
   { flag: "needsCarousel", dossierCapabilities: ["carousel"] },
   { flag: "needsCommandSearch", dossierCapabilities: ["command-search"] },
+  // `needsGame` is distinct from `needs3D` / `needsPhysics` — a game requires
+  // state + loop + controls + collision + score + restart, not just
+  // decorative motion or rigid bodies. When the prompt is both a game AND
+  // asks for WebGL/physics, all three capabilities light up simultaneously
+  // so the codegen LLM sees the compact Game contract + the ThreeCanvasShell
+  // verbatim file + the physics guidance without competing instructions.
+  { flag: "needsGame", dossierCapabilities: ["interactive-game"] },
 ] as const satisfies readonly CapabilityDossierBridgeEntry[];
 
 export function resolveDossierCapabilitiesFromInferredCapabilities(

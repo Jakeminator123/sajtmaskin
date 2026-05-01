@@ -406,4 +406,60 @@ describe("buildDynamicContext", () => {
     expect(result.context).not.toContain("**Planning source:**");
     expect(result.context).toContain("- **Routes in scope:** `/`, `/scene`");
   });
+
+  // ──────────────────────────────────────────────────────────────────
+  // Capability-hint cleanliness: prompts that are neither 3D nor game
+  // MUST NOT emit the 3D / interactive-game capability-hint lines.
+  // Reviewers have flagged this several times — it's the single most
+  // common way capability-specific hints leak into unrelated prompts.
+  // ──────────────────────────────────────────────────────────────────
+  it("does NOT emit 3D/WebGL or game capability hints on a plain landing prompt", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Bygg en tydlig hemsida för en frisörsalong med öppettider och boka-knapp",
+      generationMode: "init",
+    });
+
+    expect(result.context).not.toContain("3D/WebGL detected");
+    expect(result.context).not.toContain("Game / playable mechanic requested");
+    expect(result.context).not.toContain("interactive-game-loop");
+  });
+
+  it("emits the game capability hint for a Pac-Man prompt", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Bygg Pac-Man med delfiner på startsidan",
+      generationMode: "init",
+      capabilityHints: [
+        "## Detected Capabilities",
+        "",
+        "- **Game / playable mechanic requested**: state + loop + controls + collision + score + restart …",
+      ].join("\n"),
+    });
+
+    // The hint itself is passed in via capabilityHints (normal orchestrate
+    // flow), but the surrounding context (toolkit, route plan, etc.) must
+    // still render and the game-hint bullet must survive budget pruning.
+    expect(result.context).toContain("Game / playable mechanic requested");
+    expect(result.context).toContain("state + loop + controls + collision + score + restart");
+    // 3D must NOT bleed in when only game is signalled.
+    expect(result.context).not.toContain("3D/WebGL detected");
+  });
+
+  it("emits both 3D and game hints when the prompt triggers both capabilities", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Bygg ett 3D-arcade-game med fysik",
+      generationMode: "init",
+      capabilityHints: [
+        "## Detected Capabilities",
+        "",
+        "- **3D/WebGL detected**: You MUST implement 3D elements …",
+        "- **Game / playable mechanic requested**: state + loop + controls + collision + score + restart …",
+      ].join("\n"),
+    });
+
+    expect(result.context).toContain("3D/WebGL detected");
+    expect(result.context).toContain("Game / playable mechanic requested");
+  });
 });

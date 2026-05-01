@@ -88,6 +88,51 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
+    // Interactive game / playable mechanic — distinct from decorative visual-3d.
+    // When the user asks for a playable thing (Pac-Man, Snake, Tetris, arcade,
+    // quiz-game, "spel", "playable canvas") the prompt MUST reach the
+    // interactive-game-loop dossier so the codegen LLM sees the
+    // state+loop+controls+collision+score+restart contract.
+    //
+    // Vetoes keep generic nouns that collide with non-game domains from
+    // over-triggering: "spelet i marknaden" / "spela upp musik" / gaming-news
+    // sites are NOT game builds.
+    capability: "interactive-game",
+    patterns: [
+      // Narrow arcade/mechanic nouns — these are game-builds almost always.
+      /(?<![\p{L}\p{N}_])(?:pac-?man|pacman|snake(?:-?game)?|tetris|breakout|pong|arkanoid|space-?invaders|flappy(?:-?bird)?|asteroids|frogger|galaga)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:platformer|shoot-?em-?up|shmup|bullet-?hell|roguelike|rogue-?like|idle-?clicker|idle-?game)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:mini-?game|mini-?spel|quiz-?game|quiz-?spel|reaction-?game|reaktionsspel|memory-?game|minnesspel|puzzle-?game|pusselspel|typing-?game|skrivspel)(?![\p{L}\p{N}_])/iu,
+      // Explicit "playable" / "spelbar" / "interactive game" phrases.
+      /(?<![\p{L}\p{N}_])(?:playable|spelbar(?:t)?|interactive\s+game|interaktivt\s+spel|playable\s+canvas|game\s+loop|spelloop|game-?mekanik|game-?mechanic|arcade(?:-?game)?|spelhall)(?![\p{L}\p{N}_])/iu,
+      // Bare "spel" / "game" — widest trigger, so vetoes below must catch
+      // the common non-game uses ("tv-spel"-butik sales pitch, gaming news,
+      // "spelade upp musiken"). Veto-driven prompt domain disambiguation.
+      /(?<![\p{L}\p{N}_])(?:tv-?spel|video-?spel|dator-?spel|browser-?spel|webb-?spel)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:bygg(?:a)?\s+(?:ett|en|mitt)?\s*spel|skapa(?:r)?\s+(?:ett|en|mitt)?\s*spel|build\s+(?:a|me|my)?\s*game|create\s+(?:a|me|my)?\s*game)(?![\p{L}\p{N}_])/iu,
+      // Game-mechanic verbs that imply actual play — score/collision/win/lose
+      // in active voice, not just "show scores on a page".
+      /(?<![\p{L}\p{N}_])(?:keyboard-?controls?|tangentbords-?kontroller|pil-?tangenter|arrow-?keys|wasd)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:samla\s+poäng|score-?tracking|high-?score|poängjakt|win-?condition|lose-?condition|vinstvillkor|förlorar-villkor)(?![\p{L}\p{N}_])/iu,
+    ],
+    // Non-game usages of "spel" / "game" / "play" that must NOT activate the
+    // dossier. Vetoes are intentionally narrow: each matches a concrete
+    // non-game phrase, not a broad keyword family.
+    vetoes: [
+      // "spela upp musik/video/ljud" = media playback, not a game.
+      /(?<![\p{L}\p{N}_])spela\s+upp\s+(?:musik|en\s+video|en\s+låt|ljud|en\s+podcast)(?![\p{L}\p{N}_])/iu,
+      // Analytics / gaming-news sales pages mention "gaming" / "e-sport"
+      // without wanting a game build. Allow optional separator (bindestreck
+      // eller mellanslag) mellan "gaming"/"spel" och butiks-/nyhetsnomen
+      // så vi fångar både "gaming-news" och "gaming news".
+      /(?<![\p{L}\p{N}_])(?:spel[-\s]?butik|tv-?spel\s+butik|game[-\s]?store|gaming[-\s]?news|gaming[-\s]?blog|e-?sport(?:[-\s]?nyheter)?|esport[-\s]?site)(?![\p{L}\p{N}_])/iu,
+      // "spel" as part of a compound for something that is not a real game:
+      // "rollspel" (role-play) in team-building context, "skådespel"
+      // (theatrical performance).
+      /(?<![\p{L}\p{N}_])(?:skådespel|rollspel(?:sövning)?|teaterspel)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
     capability: "payments",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:stripe(?:-?betalning|-?checkout)?|klarna|swish|paypal|adyen|mollie|braintree)(?![\p{L}\p{N}_])/iu,

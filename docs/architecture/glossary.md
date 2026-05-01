@@ -127,6 +127,7 @@ Samma ord, flera kontexter. Skriv full term när det finns risk för missförst�
 | `preflight` | `runFinalizePreflight()` | generellt "förkontroll" | Stor bokstav: "Preflight" |
 | `autofix` | Mekanisk pipeline | LLM-reparation | **mekanisk autofix** / **LLM-fix** |
 | `template-library` | Legacy artefakt-pipeline (deprecated) | builderns Mallar-tab eller scaffolds | undvik — använd "scaffold" eller "Mallar-tab" |
+| `3D` / `game` | Dekorativ 3D (`visual-3d` / `physics-3d`) — `<Canvas>` som rör sig men ingen state/win/lose | Spelbar mini-game (`interactive-game` / `interactive-game-loop`) — state + loop + controls + collision + score + restart | full capability-id: `visual-3d` (decorative) · `physics-3d` (rigid bodies) · `interactive-game` (playable mechanic) |
 
 ---
 

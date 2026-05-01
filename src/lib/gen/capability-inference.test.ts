@@ -298,12 +298,21 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).toContain("Skeleton");
   });
 
-  it("game hint requires a real playable interaction", () => {
+  it("game hint ships the six-point playable contract", () => {
     const caps = inferCapabilities("Bygg ett litet spel med score och kontroller");
     const hints = buildCapabilityHints(caps)!;
-    expect(hints).toContain("Game / interactive canvas requested");
-    expect(hints).toContain("score/status");
-    expect(hints).toContain("keyboard/pointer handlers");
+    // The hint must surface the mental model from the interactive-game-loop
+    // dossier verbatim so the codegen LLM sees identical phrasing in both
+    // places. "state + loop + controls + collision + score + restart" is
+    // the contract — downgrading any of these turns a game into a mockup.
+    expect(hints).toContain("Game / playable mechanic requested");
+    expect(hints).toContain("state");
+    expect(hints).toContain("loop");
+    expect(hints).toContain("controls");
+    expect(hints).toContain("collision");
+    expect(hints).toContain("restart");
+    expect(hints).toContain("interactive-game-loop");
+    expect(hints).toContain("\"use client\"");
   });
 
   it("ecommerce hint includes Drawer and Dialog guidance", () => {

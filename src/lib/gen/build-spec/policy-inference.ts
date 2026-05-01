@@ -461,6 +461,14 @@ export function inferContextPolicy(params: {
     scaffoldUnlockedForMatch,
   } = params;
   if (capabilityHeavy) {
+    // `capabilityHeavy` lights up for any key in `HEAVY_CAPABILITY_KEYS`
+    // (capability-inference.ts) — including `needsGame`, `needs3D`,
+    // `needsPhysics`, `needsPayments`, `needsAuth`, `needsForms`,
+    // `needsCarousel`, `needsCharts`, `needsPremiumVisuals`, `needsAppShell`,
+    // `needsDataUI`, `needsEcommerce`, `needsCommandSearch`. All of these
+    // need heavy context regardless of changeScope so the interactive-game
+    // dossier (or any capability dossier) fits next to scaffold + brief
+    // blocks without the budget pass dropping it.
     const score = scoreContextPolicy(params);
     return { policy: "heavy", score: Math.max(score, CONTEXT_POLICY_HEAVY_THRESHOLD) };
   }
