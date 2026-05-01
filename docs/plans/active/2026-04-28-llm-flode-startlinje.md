@@ -92,6 +92,7 @@ Fem read-only granskningar jämförde deep-researchen, `BUG-SWARM-BACKLOG.md` oc
 | P1e | Status från DB-flag istället för event-bus-projektion → UI hänger efter | PR #118 r2-04, r2-14, plans/active/README **F** | `src/lib/db/schema.ts` `engine_versions.preview_blocked` + `selectVersionStatus(events)` |
 | ~~P1f~~ ✅ **FIXAD 2026-05-01** | Major-change detector för follow-ups som byter projektets natur: game/canvas/physics/score/collision/app-logik släpper nu scaffold-låset utan att små 3D-overlays gör det. | Deep-research 2026-05-01 + BUG-SWARM G#10/G#13/G#57 | `shouldIgnorePersistedScaffoldForMatch` + regressionstester |
 | ~~P1g~~ ✅ **FIXAD 2026-05-01** | Scaffold-unlocked follow-ups hålls nu borta från light/fast small-edit-policy och behåller F2/F3-semantiken (`fidelity3` kräver fortsatt explicit F3-trigger). | BUG-SWARM G#20-G#22/G#25-G#26 | `deriveBuildSpec`, `inferContextPolicy`, `inferVerificationPolicy` + tester |
+| ~~P1h~~ ✅ **FIXAD 2026-05-01 (rotorsak)** | Dossier staging→output path-mapping samlad i en helper som både system-prompten och verbatim-policyn delar. Tidigare strippade båda `^components/` självständigt, vilket lade verbatim-filen på root medan `@/components/...`-importen pekade på `components/`-mappen. Resultatet var två filer med samma basnamn per version (LLM försökte brygga drift:en) och en halv shell som importen plockade. Drabbade alla 18 dossiers; först synligt i `three-fiber-canvas` (3D + inspector trasig). Validate-manifest cross-checkar nu `exposes[].import` mot mapped `files[].path` så samma drift fångas vid registry-load. | Användarrapport + repo-grepp 2026-05-01 + BUG-SWARM G#13/G#57 | `src/lib/gen/dossiers/output-path.ts` + tester, `dossiers/verbatim-policy.ts`, `system-prompt/sections/dossiers.ts`, `dossiers/validate-manifest.ts#findExposesImportMismatches` |
 
 ### P2 — Latency / parallellisering / robusthet
 
@@ -165,6 +166,7 @@ Agent D — P3+P4 (prompt + observability)
 | P1d | Auto-repair-prompt får inte sväljas av user-follow-up — telemetry `user_followup_replayed_after_repair > 0` när relevant |
 | P1f | ✅ Follow-up som explicit ber om spel/canvas/physics/score/collision kan låsa upp scaffold-rematch utan att små 3D-overlays gör det |
 | P1g | ✅ Scaffold-unlocked follow-up använder minst normal context + standard verification, men auto-promotar inte till F3 |
+| P1h | ✅ `mapDossierPathToOutput` är ende source of truth; `npm run dossiers:validate-all` + `output-path.test.ts` skyddar mot framtida drift |
 | P2 | Latency-eval (`evals/results/`) visar mätbar förbättring av init-latens utan kvalitetsregression |
 | P3a | Mekaniska autofixes ≤ `15` på Nordtak-prompt-eqv |
 | P3e | `prompt-slim-systemprompt.md` visar normal follow-up <45k och static core <35k utan smoke-regression |
