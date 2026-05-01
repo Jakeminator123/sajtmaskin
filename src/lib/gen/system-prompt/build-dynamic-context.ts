@@ -147,6 +147,7 @@ export function buildDynamicContext(
   const isFollowUp = generationMode === "followUp";
   const compactFollowUpContext =
     isFollowUp &&
+    buildSpec?.contextPolicy !== "heavy" &&
     buildSpec?.changeScope !== "redesign" &&
     followUpIntent !== "clear-redesign";
   const styleKeywords = strList(brief?.visualDirection?.styleKeywords);

@@ -314,4 +314,56 @@ describe("buildDynamicContext", () => {
     expect(result.context).toContain("## Scaffold Research Priorities");
     expect(result.context).toContain("### Lucide icons commonly needed");
   });
+
+  it("keeps full follow-up context for heavy non-redesign changes", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Lägg till en komplex 3D-scen med animationer och interaktion",
+      generationMode: "followUp",
+      followUpIntent: "capability-add",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "page-addition",
+        contextPolicy: "heavy",
+        verificationPolicy: "standard",
+        previewPolicy: "fidelity2",
+        qualityTarget: "premium",
+        scaffoldId: "app-shell",
+        routePlanSummary: "2 routes",
+        stylePack: "product",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 6_000,
+          refsChars: 3_000,
+          systemContextChars: 160_000,
+          systemContextTokens: 40_000,
+        },
+      },
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "app-shell",
+        reason: "fixture",
+        routes: [
+          { path: "/", name: "Home", intent: "Landing", required: true },
+          { path: "/scene", name: "Scene", intent: "3D scene", required: true },
+        ],
+      },
+      resolvedScaffold: {
+        id: "app-shell",
+        label: "App Shell",
+        description: "Fixture scaffold",
+        allowedBuildIntents: ["website", "app"],
+        tags: ["app"],
+        promptHints: [],
+        files: [],
+        qualityChecklist: ["Preserve shell navigation"],
+      },
+    });
+
+    expect(result.context).toContain("## Scaffold Research Priorities");
+    expect(result.context).toContain("### Lucide icons commonly needed");
+    expect(result.context).toContain("**Planning source:**");
+  });
 });
