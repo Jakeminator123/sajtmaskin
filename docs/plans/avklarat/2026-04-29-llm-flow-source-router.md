@@ -1,13 +1,16 @@
 ---
 id: 2026-04-29-llm-flow-source-router
-status: active
+status: done
 created: 2026-04-29
+completed: 2026-05-01
 linear: null
 parent: 2026-04-28-llm-flode-startlinje
 supersedes: null
 ---
 
 # LLM-flow + source router 2026-04-29
+
+Flyttad till `avklarat/` 2026-05-01 efter doc-konsolidering. Startlinjen `docs/plans/active/2026-04-28-llm-flode-startlinje.md` är nu primär LLM-masterplan; den här filen bevarar source-router- och rapportstatushistorik.
 
 Syfte: en enda router-plan för att undvika planfilshamstring medan vi parallelliserar två saker:
 

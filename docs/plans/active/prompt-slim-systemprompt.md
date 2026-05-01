@@ -3,7 +3,7 @@ id: prompt-slim-systemprompt
 status: active
 created: 2026-04-30
 linear: null
-parent: null
+parent: 2026-04-28-llm-flode-startlinje
 supersedes: null
 ---
 

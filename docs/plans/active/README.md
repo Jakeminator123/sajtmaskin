@@ -21,7 +21,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 - **Startlinje 2026-04-28:** [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) — **primär LLM-masterplan** efter hardening-PR (`3475484e9`, `8181f87e4`) och doc-konsolidering 2026-05-01. Äger follow-up/major-change, F3/readiness, UX/status och backlog-koppling. **Läs först innan nytt LLM-flöde-arbete startar.**
 - **Prompt-slim child-plan:** [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) — enda aktiva child-planen för Static Core + follow-up dynamic context. Skapa inte nytt prompt-planlager.
-- **10-lagers målbild:** [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) — extern review. Wave 4 (designval B2.x) + Wave 5 (säkerhet) + Wave 6 (observability) är nästa spår.
+- **10-lagers målbild:** [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) — historisk scope-/målbildsanchor. Använd som bakgrund; startlinjen ovan äger aktiv LLM-körplan.
 
 ## Öppna steg (konsoliderat efter 2026-04-27-städ)
 
@@ -45,7 +45,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 | Plan | Föreslagen hantering |
 |---|---|
-| [`2026-04-29-llm-flow-source-router.md`](./2026-04-29-llm-flow-source-router.md) | Mestadels genomförd syntes/source-router. Flytta till `avklarat/` när länkarna i startlinjen räcker. |
+| [`2026-04-29-llm-flow-source-router.md`](../avklarat/2026-04-29-llm-flow-source-router.md) | Flyttad till `avklarat/` 2026-05-01; source-routerhistoriken är bevarad där. |
 | [`2026-04-28-pixelkallaren-eval-och-uppfoljning.md`](./2026-04-28-pixelkallaren-eval-och-uppfoljning.md) | Behåll tills Pixelkällaren-fixturen/eval är omhändertagen; flytta sedan spår 1-7 in i startlinjen eller arkivera som eval-scope. |
 | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) | Child-plan för P1d tills implementation är gjord. |
 | [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) | Målbild/scope-historik. Länka från startlinjen; undvik att använda den som aktiv körplan. |
