@@ -68,6 +68,13 @@ describe("inferCapabilities", () => {
     expect(caps.needs3D).toBe(false);
   });
 
+  it("detects Swedish compound game words such as platformerspel without forcing 3D", () => {
+    const caps = inferCapabilities("Bygg ett platformerspel med pixelgrafik och poäng");
+    expect(caps.needsGame).toBe(true);
+    expect(caps.needsMotion).toBe(true);
+    expect(caps.needs3D).toBe(false);
+  });
+
   it("detects game + canvas/WebGL as interactive 3D/canvas work", () => {
     const caps = inferCapabilities("Bygg ett interaktivt canvas game med WebGL och poängräkning");
     expect(caps.needsGame).toBe(true);
@@ -100,6 +107,23 @@ describe("inferCapabilities", () => {
     const caps = inferCapabilities("en 3d-bild i hörnet");
     expect(caps.needs3D).toBe(true);
     expect(caps.needsPhysics).toBe(false);
+  });
+
+  it("treats a plain floating coffee-cup follow-up as motion, not 3D", () => {
+    const caps = inferCapabilities("Lägg till en svävande kaffekopp på förstasidan");
+    expect(caps.needsMotion).toBe(true);
+    expect(caps.needs3D).toBe(false);
+    expect(caps.needsPhysics).toBe(false);
+  });
+
+  it("keeps explicit floating 3D/WebGL coffee-cup prompts on the 3D path", () => {
+    const explicit3d = inferCapabilities("svävande 3D-kaffekopp som roterar");
+    expect(explicit3d.needsMotion).toBe(true);
+    expect(explicit3d.needs3D).toBe(true);
+
+    const webgl = inferCapabilities("flygande kaffekopp i WebGL ovanför hero");
+    expect(webgl.needsMotion).toBe(true);
+    expect(webgl.needs3D).toBe(true);
   });
 
   it("detects scroll-parallax from English 'parallax scroll'", () => {

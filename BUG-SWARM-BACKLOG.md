@@ -23,8 +23,8 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 
 | Grupp | Antal | Hantering |
 | --- | ---: | --- |
-| Totalt | 128 | Alla rader i tabellen nedan. |
-| Avslutade (`[x]`) | 64 | Filtrera bort från aktiv bugfix. |
+| Totalt | 129 | Alla rader i tabellen nedan. |
+| Avslutade (`[x]`) | 65 | Filtrera bort från aktiv bugfix. |
 | Öppna (`[ ]`) | 64 | Kandidater för fortsatt triage/fix. |
 | Explicit `Inte bug` | 13 | Avskrivna eller naming/copy/fallback-beslut; ska inte räknas som aktiv buggrisk. |
 
@@ -224,7 +224,7 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Fixad nu | P3 | Blob path använder rå `projectId` | U#32 | Fixad: blob path-segment för user/project/filename saneras innan upload. |
 | [ ] | Öppen cache-risk | P3 | Registry async refresh stale vid misslyckad fetch | U#35 | Behåll last-good med timestamp/status. |
 | [x] | Fixad nu | P3 | Template search apps/games hint vs saknad game capability | U#39 | Fixad ihop med G#12/G#30: spel/prompts får `needsGame` i canonical capability-inference. |
-| [ ] | Öppen capability-routing-risk | P3 | `svävande`/`hovrande` ensamma triggar `needs3D` (false positive) i `capability-inference.ts:127`; `platformerspel` matchar inte `needsGame`-regex (false negative). Verifierat med `inferCapabilities` 2026-05-01 mot prompt-set från `3d-motion-stub-fix`-planen. | N#7 | Smal regex-justering: kräv `svävande`/`hovrande` + (`3d`/`canvas`/`mesh`/`webgl`/`gltf`) för `needs3D`, eller flytta dem till `needsParallax` ensamt. Lägg `platformerspel`/`pacmanspel`/`snake-spel` som compound-mönster i `needsGame`. Egen PR — separat från 3d-motion-stub-fix. |
+| [x] | Fixad nu | P3 | `svävande`/`hovrande` ensamma triggar `needs3D` (false positive) i `capability-inference.ts:127`; `platformerspel` matchar inte `needsGame`-regex (false negative). Verifierat med `inferCapabilities` 2026-05-01 mot prompt-set från `3d-motion-stub-fix`-planen. | N#7 | Fixad: `svävande`/`hovrande`/`flygande` ensamma ger `needsMotion`, inte `needs3D`; explicit `3D`/`WebGL` fortsätter ge `visual-3d`. `platformer-?spel`, `pac-?man-?spel`, `snake-?spel`, `tetris-?spel`, `quiz-?spel`, `arkadspel`, `minispel` matchar nu `needsGame`. |
 | [ ] | Öppen scraper-risk | P3 | Webscraper prioriterar about/services/product/blog | U#42 | Justera ranking efter domain/site-type. |
 | [ ] | Öppen scraper-risk | P3 | Webscraper strips `www.` jämförelse | U#44 | Normalisera host jämnt. |
 | [x] | Fixad nu | P3 | `x-forwarded-for` första IP används som client-id | U#46 | Fixad: produktion ignorerar `x-forwarded-for` om inte `SAJTMASKIN_TRUST_X_FORWARDED_FOR` är explicit satt; `x-real-ip` prioriteras. |

@@ -24,6 +24,8 @@
  * regex banks across these three files.
  */
 
+import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
+
 export interface InferredCapabilities {
   needsMotion: boolean;
   needs3D: boolean;
@@ -80,6 +82,7 @@ const RULES: CapabilityRule[] = [
     patterns: [
       /\b(animat|motion|framer|transition|fade|slide|stagger|entrance|animate|rörelse|animering|effekt|wow|premium|immersive|futurist)\b/i,
       /\b(hover.*(effect|animation)|scroll.*(reveal|trigger|animat))\b/i,
+      uWordRegex("svävande|hovrande|flygande|floating|hovering", "iu"),
     ],
   },
   {
@@ -126,7 +129,7 @@ const RULES: CapabilityRule[] = [
     patterns: [
       /\b(3d|three\.?js|webgl|canvas|mesh|orb|sphere|particle|three-fiber|@react-three|drei|scene|3d-?model)\b/i,
       /\b3d[a-zåäö-]+\b/i,
-      /\b(rotat.*3d|tilt|perspect.*card|floating.*object|hovrande|svävande)\b/i,
+      /\b(rotat.*3d|tilt|perspect.*card|floating.*object)\b/i,
       /\b(gltf|glb|usegltf)\b/i,
     ],
   },
@@ -190,6 +193,7 @@ const RULES: CapabilityRule[] = [
     key: "needsGame",
     patterns: [
       /(?:^|[^\p{L}\p{N}])(?:spel|tv-?spel|minigame|mini-?game|game|playable|arcade|pacman|pac-man|platformer|snake|tetris|quiz.?game|interactive.?game)(?=[^\p{L}\p{N}]|$)/iu,
+      uWordRegex("platformer-?spel|pac-?man-?spel|pacmanspel|snake-?spel|tetris-?spel|quiz-?spel|arkadspel|minispel", "iu"),
       /(?:^|[^\p{L}\p{N}])(?:spelbar|interaktivt spel|interactive canvas game|playable canvas)(?=[^\p{L}\p{N}]|$)/iu,
     ],
   },
