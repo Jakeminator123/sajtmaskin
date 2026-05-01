@@ -286,9 +286,17 @@ export function inferVerificationPolicy(params: {
   changeScope: BuildSpecChangeScope;
   previewPolicy: BuildSpecPreviewPolicy;
   capabilityHeavy: boolean;
+  scaffoldUnlockedForMatch?: boolean | null;
 }): BuildSpecVerificationPolicy {
-  const { generationMode, changeScope, previewPolicy, capabilityHeavy } = params;
+  const {
+    generationMode,
+    changeScope,
+    previewPolicy,
+    capabilityHeavy,
+    scaffoldUnlockedForMatch,
+  } = params;
   if (previewPolicy === "fidelity3") return "strict";
+  if (generationMode === "followUp" && scaffoldUnlockedForMatch) return "standard";
   if (generationMode === "followUp" && capabilityHeavy) return "standard";
   if (generationMode === "followUp" && changeScope === "copy") {
     return "fast";
@@ -441,6 +449,7 @@ export function inferContextPolicy(params: {
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilityHeavy: boolean;
+  scaffoldUnlockedForMatch?: boolean | null;
   isFirstCodeGeneration?: boolean | null;
   brief?: BuildSpecBriefSignals;
 }): { policy: BuildSpecContextPolicy; score: number } {
@@ -449,12 +458,16 @@ export function inferContextPolicy(params: {
     generationMode,
     changeScope,
     capabilityHeavy,
+    scaffoldUnlockedForMatch,
   } = params;
   if (capabilityHeavy) {
     const score = scoreContextPolicy(params);
     return { policy: "heavy", score: Math.max(score, CONTEXT_POLICY_HEAVY_THRESHOLD) };
   }
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
+    if (scaffoldUnlockedForMatch) {
+      return { policy: "normal", score: 0 };
+    }
     if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
       return { policy: "normal", score: 0 };
     }

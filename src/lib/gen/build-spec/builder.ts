@@ -69,6 +69,12 @@ type DeriveBuildSpecParams = {
    */
   previewPolicyOverride?: BuildSpecPreviewPolicy;
   /**
+   * Follow-up scaffold lock was intentionally released (clear-redesign or
+   * major-change). Keep this off the light/fast small-edit path even when the
+   * prompt wording looks like a local edit.
+   */
+  scaffoldUnlockedForMatch?: boolean;
+  /**
    * Optional input-context capacity (in tokens) of the model that will
    * actually consume this generation. When provided, `tokenBudgets` are
    * scaled relative to a 200k baseline so a 1M-window model can use a
@@ -94,6 +100,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     isFirstCodeGeneration,
     existingShellRoutePaths,
     previewPolicyOverride,
+    scaffoldUnlockedForMatch,
     modelContextWindowTokens,
   } = params;
 
@@ -132,6 +139,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     changeScope,
     previewPolicy,
     capabilityHeavy,
+    scaffoldUnlockedForMatch,
   });
   const { policy: contextPolicy, score: contextPolicyScore } = inferContextPolicy({
     prompt,
@@ -143,6 +151,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     preGenerationContracts,
     promptStrategyMeta,
     capabilityHeavy,
+    scaffoldUnlockedForMatch,
     isFirstCodeGeneration,
     brief,
   });

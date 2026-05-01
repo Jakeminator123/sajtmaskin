@@ -290,6 +290,24 @@ describe("deriveBuildSpec", () => {
     expect(spec.verificationPolicy).toBe("standard");
   });
 
+  it("keeps scaffold-unlocked follow-ups off the light/fast small-edit path", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+      scaffoldUnlockedForMatch: true,
+    });
+
+    expect(spec.changeScope).toBe("copy");
+    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.verificationPolicy).toBe("standard");
+    expect(spec.previewPolicy).toBe("fidelity2");
+  });
+
   it("keeps targeted repair follow-ups at least normal context", () => {
     const spec = deriveBuildSpec({
       prompt: `AUTO-FIX REQUEST — TARGETED REPAIR

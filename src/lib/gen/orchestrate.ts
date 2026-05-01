@@ -691,6 +691,7 @@ export async function resolveOrchestrationBase(
     brief,
     isFirstCodeGeneration: input.isFirstCodeGeneration,
     existingShellRoutePaths,
+    scaffoldUnlockedForMatch: ignorePersistedScaffoldForMatch,
     previewPolicyOverride:
       input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
     // Q5a (2026-04-21): scale token budgets based on the resolved
