@@ -123,6 +123,23 @@ export function mapEventToDevLog(event: EngineEvent): {
         },
       };
 
+    case "version.degraded":
+      // Mirror to devLog so backoffice/llm_flode_telemetry.py picks the
+      // event up via timeline.ndjson. Type prefix is `version.degraded.<kind>`
+      // so existing per-type filters can target a specific kind without
+      // string-parsing meta.
+      return {
+        target: "in-progress",
+        entry: {
+          type: `version.degraded.${event.kind}`,
+          chatId: event.chatId ?? null,
+          versionId: event.versionId,
+          kind: event.kind,
+          message: event.message,
+          meta: event.meta ?? null,
+        },
+      };
+
     case "version.done":
       // `site.done` is still emitted directly by the legacy path during
       // cut-over; skip to avoid duplicate rows. Remove once the legacy

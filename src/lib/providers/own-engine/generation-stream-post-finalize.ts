@@ -548,6 +548,25 @@ export async function runOwnEngineStreamPostFinalize(params: {
       blocked: false,
       reason: serverVerifyDecision.reason,
     });
+    // OMTAG-06 follow-up: also emit a degraded note so the UI knows
+    // server-verify never ran. Without this the version-status
+    // projection only sees `verifierOutcome: "skipped"`, which the
+    // existing UI maps to "no verifier needed" rather than "ran
+    // pipeline without verifier coverage". For design-preview skips
+    // this is intentional and harmless, but operators still want it
+    // surfaced so a wrongly-skipped F3 verify is visible in
+    // backoffice/llm_flode_telemetry.py.
+    emitBusEvent({
+      t: "version.degraded",
+      versionId: finalized.version.id,
+      chatId,
+      kind: "verifier_skipped_by_policy",
+      message: `Server-verify skipped (${serverVerifyDecision.reason}).`,
+      meta: {
+        reason: serverVerifyDecision.reason,
+        verificationPolicy: resolvedVerificationPolicy,
+      },
+    });
   }
   devLogAppend("in-progress", {
     type: "server-verify.policy",

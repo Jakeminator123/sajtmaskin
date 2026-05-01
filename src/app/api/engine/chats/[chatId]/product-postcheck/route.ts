@@ -4,6 +4,7 @@ import { FEATURES } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { runProductPostcheck } from "@/lib/gen/verify/product-postcheck";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -66,6 +67,28 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       chatId,
       versionId,
     });
+
+    // OMTAG-06 follow-up: emit a `version.degraded` bus event when the
+    // product-postcheck never ran. The route already returns
+    // `skipped: true` to the caller and post-checks.ts logs an info-level
+    // engine_version_error_logs row, but neither surfaced the skip on
+    // the version-status projection — so the UI showed "preview ok"
+    // with no hint that DOM-level verification was missing. This makes
+    // the silent skip visible to backoffice/llm_flode_telemetry.py.
+    if (result.skipped) {
+      emitBusEvent({
+        t: "version.degraded",
+        versionId: scopedVersion.version.id,
+        chatId,
+        kind: "product_postcheck_skipped",
+        message: `F2 Product Postcheck skipped (${result.skippedReason ?? "unknown"}).`,
+        meta: {
+          skippedReason: result.skippedReason ?? "unknown",
+          checkedUrl: result.checkedUrl ?? null,
+          durationMs: result.durationMs ?? null,
+        },
+      });
+    }
 
     return NextResponse.json(result);
   } catch (err) {

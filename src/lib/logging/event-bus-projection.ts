@@ -25,10 +25,13 @@
 import type {
   EngineEvent,
   VersionBuildErrorEvent,
+  VersionDegradedEvent,
   VersionStatus,
   VersionStatusPhase,
   VersionVerifierDoneEvent,
 } from "./event-bus-types";
+
+type Degradation = VersionStatus["degradations"][number];
 
 export function selectVersionStatus(events: EngineEvent[]): VersionStatus {
   if (events.length === 0) {
@@ -42,6 +45,7 @@ export function selectVersionStatus(events: EngineEvent[]): VersionStatus {
       eventCount: 0,
       done: false,
       verifierOutcome: null,
+      degradations: [],
     };
   }
 
@@ -52,6 +56,10 @@ export function selectVersionStatus(events: EngineEvent[]): VersionStatus {
   let verifierOutcome: VersionVerifierDoneEvent["outcome"] | null = null;
   let done = false;
   let lastRunId: string | null = null;
+  // Use a Map keyed by `kind` so duplicate emissions (same condition
+  // observed across multiple passes) collapse to the most recent message.
+  // A clean save resets this — see the `version.saved` branch below.
+  const degradations = new Map<VersionDegradedEvent["kind"], Degradation>();
 
   // Track which phases we've seen in order so a reverse-scan can pick
   // the most recent. `phaseSignals` is the ordered history of projected
@@ -112,8 +120,21 @@ export function selectVersionStatus(events: EngineEvent[]): VersionStatus {
         if (!event.previewBlocked && !event.verificationBlocked) {
           lastBuildError = null;
           verifierOutcome = null;
+          // Same logic for degradations: once we commit a clean save,
+          // skipped-by-heavy-load notes from earlier passes are stale.
+          degradations.clear();
         }
         phaseSignals.push("preflighting");
+        break;
+
+      case "version.degraded":
+        degradations.set(event.kind, {
+          kind: event.kind,
+          message: event.message,
+          meta: event.meta ?? null,
+        });
+        // Degradations are observability — they don't move the phase
+        // signal stream. The UI surface is the new `degradations` array.
         break;
 
       case "version.build.error": {
@@ -170,6 +191,7 @@ export function selectVersionStatus(events: EngineEvent[]): VersionStatus {
     eventCount: events.length,
     done,
     verifierOutcome,
+    degradations: Array.from(degradations.values()),
   };
 }
 

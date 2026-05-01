@@ -609,6 +609,59 @@ def _render_dossier_stubs(run_dirs: list[Path]) -> None:
     _ = run_dirs
 
 
+def _render_degradations(run_dirs: list[Path]) -> None:
+    st.subheader("Degradations (`version.degraded.*`)")
+    st.caption(
+        'Emitteras av `event-bus` när pipelinen lyckas men "ÅN ENDAST DEGRADERAT" '
+        "— t.ex. server-verify hoppades p.g.a. policy, eller F2 product-postcheck "
+        "fick aldrig en tillåten preview-URL. Speglas till devLog som "
+        "`type: 'version.degraded.<kind>'` av `event-bus-subscribers.installDefaultSubscribers()`. "
+        "Surfaces så att 'grön status' inte döljer att en kontroll aldrig kördes. "
+        "Källa: `src/lib/logging/event-bus-types.ts` (`VersionDegradationKind`)."
+    )
+
+    kinds = [
+        "verifier_skipped_heavy_load",
+        "verifier_skipped_by_policy",
+        "product_postcheck_skipped",
+    ]
+    all_events: list[dict[str, Any]] = []
+    for kind in kinds:
+        all_events.extend(_collect_events_by_type(run_dirs, f"version.degraded.{kind}"))
+
+    if not all_events:
+        st.info(
+            "Inga `version.degraded.*`-events hittade i de senaste körningarna. "
+            "Antingen kördes alla quality-gates utan skip, eller så går NDJSON-mirror "
+            "inte igenom (kontrollera `GENERATIONSLOGG=true`)."
+        )
+        return
+
+    counts = {k: 0 for k in kinds}
+    for ev in all_events:
+        kind = ev.get("kind") or ev.get("type", "").removeprefix("version.degraded.")
+        if kind in counts:
+            counts[kind] += 1
+
+    cols = st.columns(len(kinds))
+    for col, kind in zip(cols, kinds):
+        col.metric(kind, counts.get(kind, 0))
+
+    rows = []
+    for ev in all_events:
+        rows.append(
+            {
+                "Tid": ev.get("_ts", "")[:19],
+                "Run": ev.get("_run", ""),
+                "Slug / Chat": (ev.get("_slug") or "")[:40],
+                "kind": ev.get("kind") or ev.get("type", "").removeprefix("version.degraded."),
+                "message": (ev.get("message") or "")[:80],
+                "versionId": (ev.get("versionId") or "")[:12],
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+
 # ---------------------------------------------------------------------------
 # Page entrypoint
 # ---------------------------------------------------------------------------
@@ -682,6 +735,9 @@ def render(ctx: BackofficeContext) -> None:
 
     st.divider()
     _render_dossier_stubs(run_dirs)
+
+    st.divider()
+    _render_degradations(run_dirs)
 
     with st.expander("Om datakällan", expanded=False):
         st.markdown(

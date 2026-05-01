@@ -36,6 +36,7 @@ export type EngineEventType =
   | "version.repair.passIndex"
   | "version.saved"
   | "version.build.error"
+  | "version.degraded"
   | "version.done";
 
 interface EngineEventBase {
@@ -139,6 +140,35 @@ export interface VersionDoneEvent extends EngineEventBase {
   previewUrl?: string | null;
 }
 
+/**
+ * Closed enum of "works but degraded" states the pipeline can land in.
+ * Each kind maps to a known place in the codebase that previously logged
+ * the condition silently (devLog or info-level engine_version_error_logs)
+ * without surfacing it on the version-status projection. The bus event
+ * makes degradations a first-class signal so UI / backoffice can show
+ * "green but missing X" instead of pretending nothing happened.
+ *
+ * Add new kinds here only when you also wire an emitter and have a
+ * concrete UX consumer. Random log strings should NOT become event kinds.
+ */
+export type VersionDegradationKind =
+  /** Verifier-pass was skipped because autofix reported heavy load. */
+  | "verifier_skipped_heavy_load"
+  /** Verifier-pass was skipped by policy (design-only, fast-path, etc.). */
+  | "verifier_skipped_by_policy"
+  /** F2 product-postcheck (Playwright DOM snapshot) was skipped — usually
+   *  because the preview URL was not in the trusted allowlist or no URL
+   *  was available. Quality-gate still passed but DOM-level verification
+   *  is missing. */
+  | "product_postcheck_skipped";
+
+export interface VersionDegradedEvent extends EngineEventBase {
+  t: "version.degraded";
+  kind: VersionDegradationKind;
+  message: string;
+  meta?: Record<string, unknown> | null;
+}
+
 export type EngineEvent =
   | VersionStartedEvent
   | VersionStreamTokenProgressEvent
@@ -150,6 +180,7 @@ export type EngineEvent =
   | VersionRepairPassIndexEvent
   | VersionSavedEvent
   | VersionBuildErrorEvent
+  | VersionDegradedEvent
   | VersionDoneEvent;
 
 /**
@@ -207,4 +238,17 @@ export interface VersionStatus {
   done: boolean;
   /** Verifier outcome if one has landed. */
   verifierOutcome: VersionVerifierDoneEvent["outcome"] | null;
+  /**
+   * "Works but degraded" notes accumulated during this version run.
+   * Empty when the version completed without any silent skips. Surfacing
+   * these prevents the UI from showing solid-green when verifier was
+   * skipped by heavy-load, product-postcheck never ran, or similar
+   * fall-back paths fired. Cleared on a successful repair pass via
+   * `version.saved` (mirrors how `lastBuildError` is cleared).
+   */
+  degradations: Array<{
+    kind: VersionDegradedEvent["kind"];
+    message: string;
+    meta?: Record<string, unknown> | null;
+  }>;
 }
