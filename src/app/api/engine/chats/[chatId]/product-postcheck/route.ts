@@ -25,13 +25,23 @@ function emitPostcheckDegraded(params: {
   checkedUrl: string | null;
   durationMs: number | null;
 }): void {
+  // `runtime_error` means the postcheck CRASHED, not that it was
+  // intentionally skipped. The human-readable `message` must reflect
+  // that distinction — `meta.skippedReason` already disambiguates for
+  // structured consumers, but devLog/UI readers see `message` directly
+  // and "skipped" reads as a planned no-op. Policy/feature/missing-URL
+  // skips keep the original phrasing.
+  const isRuntimeError = params.reason === "runtime_error";
+  const message = isRuntimeError
+    ? `F2 Product Postcheck failed at runtime (${params.reason}).`
+    : `F2 Product Postcheck skipped (${params.reason}).`;
   try {
     emitBusEvent({
       t: "version.degraded",
       versionId: params.versionId,
       chatId: params.chatId,
       kind: "product_postcheck_skipped",
-      message: `F2 Product Postcheck skipped (${params.reason}).`,
+      message,
       meta: {
         skippedReason: params.reason,
         checkedUrl: params.checkedUrl,
