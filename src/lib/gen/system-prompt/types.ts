@@ -152,6 +152,15 @@ export interface DynamicContextOptions {
   dossierPromptContext?: {
     generationMode?: "init" | "followUp";
     requestedCapabilityTiers?: Record<string, string> | null;
+    /**
+     * Output paths already present in the previous version (follow-up /
+     * auto-repair). When a verbatim dossier file resolves to one of these
+     * paths we skip the full CodeProject block and emit a short pointer
+     * instead — the file is already visible to the LLM via
+     * `## Current Project Files` + file contents, and re-shipping the
+     * verbatim block costs ~5k chars for a 3D repair.
+     */
+    previousFilePaths?: string[] | null;
   };
   /**
    * Plan 11 / open-question #12: when the follow-up was classified as

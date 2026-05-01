@@ -172,6 +172,14 @@ export interface OrchestrationInput {
   existingRoutePaths?: string[];
   /** Route paths whose existing content is a deferred shell page (auto-detected from file content). */
   existingShellRoutePaths?: string[];
+  /**
+   * All file paths present in the previous version (follow-up / auto-repair).
+   * Used by the dossier renderer to suppress redundant verbatim blocks for
+   * files that already exist in `## Current Project Files`. Optional — an
+   * empty/undefined value falls back to the legacy "always emit verbatim"
+   * behavior, so init callers that don't carry this signal stay unaffected.
+   */
+  previousFilePaths?: string[];
   /** Optional pre-inferred capabilities so callers can reuse the same deterministic pass. */
   capabilities?: InferredCapabilities;
   /** Per-session seed (e.g. chatId) to vary scaffold variant selection across sessions with identical prompts. */
@@ -929,6 +937,7 @@ export async function finalizeOrchestrationPrompts(
     dossierPromptContext: {
       generationMode: resolvedMode,
       requestedCapabilityTiers: base.requestedCapabilityTiers ?? null,
+      previousFilePaths: input.previousFilePaths ?? null,
     },
     capabilityModifyHint: base.capabilityModifyHint,
   };

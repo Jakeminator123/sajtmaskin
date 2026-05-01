@@ -32,6 +32,13 @@ export interface BuildFollowUpOrchestrationInputParams {
   promptStrategyMeta: OrchestrationInput["promptStrategyMeta"];
   existingRoutePaths: string[];
   existingShellRoutePaths: string[];
+  /**
+   * All previous-version file paths. Forwarded as-is to orchestrate so the
+   * dossier renderer can skip verbatim blocks for files that already exist
+   * in `## Current Project Files`. Defaults to `[]` for plan mode / callers
+   * that don't carry the full file list.
+   */
+  previousFilePaths?: string[];
   followUpCapabilityDetection: FollowUpCapabilityDetection;
   followUpIntent: OrchestrationInput["followUpIntent"] | null;
   orchestrationSnapshot: Record<string, unknown> | null;
@@ -89,6 +96,7 @@ export function buildFollowUpOrchestrationInput(
     promptStrategyMeta: params.promptStrategyMeta,
     existingRoutePaths: params.existingRoutePaths,
     existingShellRoutePaths: params.existingShellRoutePaths,
+    previousFilePaths: params.previousFilePaths ?? [],
     capabilities: params.hasFollowUpBase ? inferCapabilities(params.message) : undefined,
     requestedDossierCapabilities: detectedDossierCapabilities
       ? params.followUpCapabilityDetection.capabilityIds

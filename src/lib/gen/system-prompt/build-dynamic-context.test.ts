@@ -346,7 +346,15 @@ describe("buildDynamicContext", () => {
     expect(result.context).toContain("**Planning source:**");
   });
 
-  it("keeps full follow-up context for heavy non-redesign changes", () => {
+  it("keeps compact follow-up context even for heavy non-redesign changes", () => {
+    // Previously `contextPolicy: "heavy"` forced the full (non-compact)
+    // render path. That made 3D/capability-heavy follow-ups re-expand the
+    // scaffold variant, toolkit, route plan, lucide reminder and scaffold
+    // research blocks even though the previous project files already carry
+    // that detail — costing ~8-10k chars per repair/follow-up. The compact
+    // branch now runs for every non-redesign follow-up; required blocks
+    // (dossier files, brief-locked values, preservation) still come through
+    // because the budget pass honors their priority.
     const result = buildDynamicContext({
       intent: "website",
       userPrompt: "Lägg till en komplex 3D-scen med animationer och interaktion",
@@ -393,8 +401,9 @@ describe("buildDynamicContext", () => {
       },
     });
 
-    expect(result.context).toContain("## Scaffold Research Priorities");
-    expect(result.context).toContain("### Lucide icons commonly needed");
-    expect(result.context).toContain("**Planning source:**");
+    expect(result.context).not.toContain("## Scaffold Research Priorities");
+    expect(result.context).not.toContain("### Lucide icons commonly needed");
+    expect(result.context).not.toContain("**Planning source:**");
+    expect(result.context).toContain("- **Routes in scope:** `/`, `/scene`");
   });
 });

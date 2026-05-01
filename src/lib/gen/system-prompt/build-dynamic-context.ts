@@ -145,10 +145,22 @@ export function buildDynamicContext(
   } = options;
 
   const isFollowUp = generationMode === "followUp";
+  // Follow-ups render compact unless the user actually asked for a redesign
+  // (BuildSpec `changeScope === "redesign"` or explicit `clear-redesign`
+  // intent). Previously `contextPolicy: "heavy"` also forced the full
+  // (non-compact) path, but `heavy` triggers on capability weight (e.g.
+  // needs3D) even for small edits on an existing 3D site — the previous
+  // project files already carry the variant/toolkit/route detail, so
+  // re-expanding those blocks wastes ~8-10k chars per repair/follow-up.
+  //
+  // Required blocks (Brief-Locked Design Values, Generation Stage, File
+  // Surface Budget, Route Plan, Dossier Files To Emit Verbatim, …) survive
+  // compact rendering because their `required: true` priority comes from
+  // rubric-matching in `system-prompt/budget.ts`, independently of the
+  // contextPolicy/heavy signal.
   const compactFollowUpContext =
     isFollowUp &&
     Boolean(buildSpec) &&
-    buildSpec?.contextPolicy !== "heavy" &&
     buildSpec?.changeScope !== "redesign" &&
     followUpIntent !== "clear-redesign";
   const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
@@ -236,6 +248,7 @@ export function buildDynamicContext(
     ...renderDossierBlocks(options.dossierSelection, {
       generationMode,
       requestedCapabilityTiers: options.dossierPromptContext?.requestedCapabilityTiers ?? null,
+      previousFilePaths: options.dossierPromptContext?.previousFilePaths ?? null,
     }),
   );
   // Plan 11 / open-question #12: when the follow-up was classified as

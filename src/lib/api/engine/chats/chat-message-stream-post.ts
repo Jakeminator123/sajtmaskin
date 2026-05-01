@@ -17,7 +17,6 @@ import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
-import { FOLLOW_UP_TUNING } from "@/lib/config";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import {
   canonicalModelIdToOwnModelId,
@@ -87,6 +86,7 @@ import {
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import { buildFollowUpFileContextDecision } from "./follow-up-file-context";
+import { buildBoundedChatHistory } from "./follow-up-history";
 import {
   extractBriefSummaryFromSnapshot,
   formatPriorDesignContext,
@@ -108,9 +108,6 @@ import { createDirectModel } from "@/lib/builder/direct-model";
 
 // ── Follow-up history management ──────────────────────────────────────────
 
-type HistoryMessage = { role: "user" | "assistant"; content: string };
-
-const CODE_BLOCK_HEAVY_THRESHOLD = 500;
 const QA_SHORTCIRCUIT_MODEL = canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
 
 async function generateQaShortCircuitText(params: {
@@ -144,43 +141,6 @@ function buildQaShortCircuitStream(params: {
   });
 }
 
-/**
- * QW-4: bevara assistant-prosa innan första file-blocket. Designrationale
- * (typ "jag valde glassmorphism för att matcha ditt premium-tema", "lade
- * pricing överst för konvertering") skrivs typiskt FÖRE file-blocken.
- * Att kasta hela meddelandet gör att codegen-LLM:n förlorar sin egen
- * motivering på senare turns och kan välja motsatt riktning. Vi behåller
- * upp till ~800 tecken prosa-prefix + filsammanfattning.
- */
-function compressOldAssistantContent(content: string): string {
-  if (content.length < CODE_BLOCK_HEAVY_THRESHOLD) return content;
-  const fileMatches = [...content.matchAll(/file="([^"]+)"/g)].map((m) => m[1]);
-  const firstFileIdx = content.search(/file="/);
-  // Ta prosa-prefixet om det finns (innan första file=) — annars första 800.
-  const proseHead = (firstFileIdx > 0 ? content.slice(0, firstFileIdx) : content.slice(0, 800)).trim();
-  if (fileMatches.length === 0) {
-    const codeBlocks = (content.match(/```/g) || []).length / 2;
-    if (codeBlocks < 1) return content;
-    return proseHead + "\n\n[Earlier code blocks truncated — see current project files for latest version.]";
-  }
-  const fileSummary = `${fileMatches.slice(0, 8).join(", ")}${fileMatches.length > 8 ? ` (+${fileMatches.length - 8} more)` : ""}`;
-  return `${proseHead}\n\n[Earlier code generation: ${fileSummary}. Current project files contain the latest version.]`;
-}
-
-function buildBoundedChatHistory(messages: Array<{ role: string; content: string }>): HistoryMessage[] {
-  const filtered = messages
-    .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
-
-  const recentCount = FOLLOW_UP_TUNING.maxRecentHistoryPairs * 2;
-  if (filtered.length <= recentCount) return filtered;
-
-  const older = filtered.slice(0, -recentCount).map((m) =>
-    m.role === "assistant" ? { ...m, content: compressOldAssistantContent(m.content) } : m,
-  );
-  const recent = filtered.slice(-recentCount);
-  return [...older, ...recent];
-}
 
 /** Follow-up chat stream (own-engine). Route files set `runtime` / `maxDuration`. */
 
@@ -718,6 +678,9 @@ export async function handleMessageStreamRequest(
               promptStrategyMeta: promptOrchestration.strategyMeta,
               existingRoutePaths,
               existingShellRoutePaths,
+              previousFilePaths: hasFollowUpBase
+                ? previousFiles.map((file) => file.path)
+                : [],
               followUpCapabilityDetection,
               followUpIntent,
               orchestrationSnapshot:
@@ -916,6 +879,9 @@ export async function handleMessageStreamRequest(
           promptStrategyMeta: promptOrchestration.strategyMeta,
           existingRoutePaths,
           existingShellRoutePaths,
+          previousFilePaths: hasFollowUpBase
+            ? previousFiles.map((file) => file.path)
+            : [],
           followUpCapabilityDetection,
           followUpIntent,
           orchestrationSnapshot:

@@ -47,6 +47,14 @@ interface VerbatimFile {
 interface DossierRenderOptions {
   generationMode?: "init" | "followUp";
   requestedCapabilityTiers?: Record<string, string> | null;
+  /**
+   * Output paths already present in the previous version. When a verbatim
+   * dossier file resolves to one of these paths we emit a compact pointer
+   * instead of shipping the full `file="..."` block again — the file is
+   * already available via `## Current Project Files` and duplicating it
+   * inflates the auto-repair/follow-up prompt by ~5k chars per 3D pass.
+   */
+  previousFilePaths?: string[] | null;
 }
 
 function shouldUseFullInstructions(
@@ -159,6 +167,8 @@ export function renderDossierBlocks(
   // codegen LLM exactly as given. This protects integration glue (Stripe
   // webhook signing, auth middleware, SDK init) from accidental rewrites.
   const verbatimFiles: VerbatimFile[] = [];
+  const skippedExistingFiles: Array<Pick<VerbatimFile, "dossierId" | "dossierLabel" | "outputPath">> = [];
+  const existingFilePaths = new Set(opts.previousFilePaths ?? []);
   for (const sel of dossierSel.selected) {
     const files = sel.entry.files ?? [];
     for (const file of files) {
@@ -181,6 +191,20 @@ export function renderDossierBlocks(
           "GEN",
           `[verbatim-skip] ${sel.entry.id}: refusing to emit verbatim file at scaffold-reserved path '${outputPath}'`,
         );
+        continue;
+      }
+      // On follow-up / auto-repair the file is already in the user's
+      // project — re-shipping the full CodeProject block wastes ~2-5k
+      // chars and tempts the LLM to return it unchanged when its real
+      // work is elsewhere. Emit a short pointer instead; the
+      // verbatim-policy layer still restores the canonical content at
+      // save time if the model rewrote it.
+      if (opts.generationMode === "followUp" && existingFilePaths.has(outputPath)) {
+        skippedExistingFiles.push({
+          dossierId: sel.entry.id,
+          dossierLabel: sel.entry.label,
+          outputPath,
+        });
         continue;
       }
       const ext = (outputPath.split(".").pop() ?? "ts").toLowerCase();
@@ -217,6 +241,18 @@ export function renderDossierBlocks(
       parts.push("```");
       parts.push("");
     }
+  }
+  if (skippedExistingFiles.length > 0) {
+    parts.push(
+      "## Dossier Verbatim Files Already in Project",
+      "",
+      "These verbatim dossier files exist in the previous version and are listed in `## Current Project Files` below. Do NOT re-emit them unless your change requires editing them — their canonical content is already deployed and will be restored automatically if you try to modify it in this pass.",
+      "",
+    );
+    for (const vf of skippedExistingFiles) {
+      parts.push(`- \`${vf.outputPath}\` — from \`${vf.dossierId}\` (${vf.dossierLabel})`);
+    }
+    parts.push("");
   }
 
   return parts;

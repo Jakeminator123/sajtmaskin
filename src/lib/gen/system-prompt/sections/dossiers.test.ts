@@ -119,6 +119,155 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     expect(text).not.toContain("Very long full instructions");
   });
 
+  it("emits three-fiber-canvas verbatim at components/three-canvas-shell.tsx", () => {
+    // Regression guard for the 2026-05-01 rotorsaken: verbatim dossier
+    // paths MUST go through `mapDossierPathToOutput`. Before the fix the
+    // block stripped `components/` and produced a root-level file — the
+    // `@/components/three-canvas-shell` import in app/page.tsx then
+    // pointed at the scaffold baseline instead of the dossier shell, and
+    // the LLM tried to bridge by emitting a second half-stub file.
+    const realSelection: DossierSelectionResult = {
+      poolSize: 1,
+      byCapability: { "visual-3d": ["three-fiber-canvas"] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: true,
+          entry: {
+            class: "soft",
+            id: "three-fiber-canvas",
+            label: "Three Fiber 3D Canvas",
+            capability: "visual-3d",
+            codeFidelity: "rewritable",
+            complexity: "medium",
+            defaultForCapability: true,
+            summary: "SSR-safe React Three Fiber canvas wrapper.",
+            envVars: [],
+            dependencies: ["three", "@react-three/fiber"],
+            files: [
+              {
+                path: "components/three-canvas-shell.tsx",
+                role: "client",
+                injectionMode: "verbatim",
+              },
+            ],
+            exposes: [
+              {
+                name: "ThreeCanvasShell",
+                type: "component",
+                import: "@/components/three-canvas-shell",
+              },
+            ],
+            lastVerified: "2026-04-30",
+          },
+        },
+      ],
+    };
+    const text = renderDossierBlocks(realSelection).join("\n");
+    expect(text).toContain("## Dossier Files To Emit Verbatim");
+    expect(text).toContain('```tsx file="components/three-canvas-shell.tsx"');
+    // The emitted path must live under `components/` (so `@/components/...`
+    // imports resolve). The old bug stripped the prefix and put the shell
+    // at the project root, producing a duplicate and a broken import.
+    expect(text).not.toContain('```tsx file="three-canvas-shell.tsx"\n');
+    expect(text).toContain("→ `components/three-canvas-shell.tsx`");
+  });
+
+  it("skips verbatim blocks for files already in the previous project", () => {
+    // Auto-repair / follow-up regression: the `three-canvas-shell.tsx` file
+    // exists in the previous version and is listed in `## Current Project
+    // Files`. Re-shipping the full CodeProject block wastes ~5k chars and
+    // tempts the LLM to emit it unchanged when the real fix is elsewhere.
+    // The new `previousFilePaths` signal lets us collapse it to a pointer.
+    const realSelection: DossierSelectionResult = {
+      poolSize: 1,
+      byCapability: { "visual-3d": ["three-fiber-canvas"] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: true,
+          entry: {
+            class: "soft",
+            id: "three-fiber-canvas",
+            label: "Three Fiber 3D Canvas",
+            capability: "visual-3d",
+            codeFidelity: "rewritable",
+            complexity: "medium",
+            defaultForCapability: true,
+            summary: "SSR-safe canvas wrapper.",
+            envVars: [],
+            dependencies: [],
+            files: [
+              {
+                path: "components/three-canvas-shell.tsx",
+                role: "client",
+                injectionMode: "verbatim",
+              },
+            ],
+            exposes: [
+              {
+                name: "ThreeCanvasShell",
+                type: "component",
+                import: "@/components/three-canvas-shell",
+              },
+            ],
+            lastVerified: "2026-04-30",
+          },
+        },
+      ],
+    };
+    const text = renderDossierBlocks(realSelection, {
+      generationMode: "followUp",
+      previousFilePaths: ["components/three-canvas-shell.tsx", "app/page.tsx"],
+    }).join("\n");
+    expect(text).toContain("## Dossier Verbatim Files Already in Project");
+    expect(text).toContain("`components/three-canvas-shell.tsx`");
+    // Critical: no full CodeProject block for an already-present file.
+    expect(text).not.toContain('```tsx file="components/three-canvas-shell.tsx"');
+    expect(text).not.toContain("## Dossier Files To Emit Verbatim");
+  });
+
+  it("still emits full verbatim blocks on init even with previousFilePaths set", () => {
+    const realSelection: DossierSelectionResult = {
+      poolSize: 1,
+      byCapability: { "visual-3d": ["three-fiber-canvas"] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: true,
+          entry: {
+            class: "soft",
+            id: "three-fiber-canvas",
+            label: "Three Fiber 3D Canvas",
+            capability: "visual-3d",
+            codeFidelity: "rewritable",
+            complexity: "medium",
+            defaultForCapability: true,
+            summary: "SSR-safe canvas wrapper.",
+            envVars: [],
+            dependencies: [],
+            files: [
+              {
+                path: "components/three-canvas-shell.tsx",
+                role: "client",
+                injectionMode: "verbatim",
+              },
+            ],
+            exposes: [],
+            lastVerified: "2026-04-30",
+          },
+        },
+      ],
+    };
+    const text = renderDossierBlocks(realSelection, {
+      generationMode: "init",
+      previousFilePaths: ["components/three-canvas-shell.tsx"],
+    }).join("\n");
+    expect(text).toContain("## Dossier Files To Emit Verbatim");
+    expect(text).toContain('```tsx file="components/three-canvas-shell.tsx"');
+    expect(text).not.toContain("## Dossier Verbatim Files Already in Project");
+  });
+
   it("fails fast when a selected verbatim dossier file is missing on disk", () => {
     const selection: DossierSelectionResult = {
       poolSize: 1,
