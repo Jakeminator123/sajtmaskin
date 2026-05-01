@@ -9,22 +9,30 @@ Kanonisk lista efter sammanslagning av de tidigare rålistorna: `BUG-SWARM-BACKL
 | `[x]` | Avslutad | Läs `Status`-kolumnen för om raden är `Fixad`, `Fixad i HEAD` eller `Inte bug`. |
 | `[ ]` | Öppen | Bug, risk eller städpunkt som inte ska bockas av förrän den är verifierad/fixad. |
 
-Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
+Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan, `N#` = inkommande defensiv triage 2026-05-01.
+
+Defensiv triage använder samma backlogg-system men med en extra bedömning:
+
+| Bedömning | Regel |
+| --- | --- |
+| Bekräfta | Kod/docs visar ett reellt kvarvarande problem eller en tydlig regression-gate. Behåll som aktiv rad. |
+| Edge | Plausibelt men behöver reproduktion eller smal verifiering. Behåll som verifieringsrad, inte byggblocker. |
+| Avfärda / kassera | Dubblett, redan fixat, by-design eller inte ett relevant edge case. Räkna inte som aktiv buggrisk. |
 
 ## Triage för nästa agent
 
 | Grupp | Antal | Hantering |
 | --- | ---: | --- |
-| Totalt | 121 | Alla rader i tabellen nedan. |
+| Totalt | 125 | Alla rader i tabellen nedan. |
 | Avslutade (`[x]`) | 42 | Filtrera bort från aktiv bugfix. |
-| Öppna (`[ ]`) | 79 | Kandidater för fortsatt triage/fix. |
+| Öppna (`[ ]`) | 83 | Kandidater för fortsatt triage/fix. |
 | Explicit `Inte bug` | 13 | Avskrivna eller naming/copy/fallback-beslut; ska inte räknas som aktiv buggrisk. |
 
 | Aktiv prioritet | Kvar | Kommentar |
 | --- | ---: | --- |
 | P0 | 1 | Endast full verifiering/testsvit-raden kvar. |
-| P1 | 2 | F2 runtime/UI-smoke och simplified-brief kvalitet. |
-| P2 | 16 | F3/dossier/env/verify/policy-risker. |
+| P1 | 3 | Autofix-stubbar, F2 runtime/UI-smoke och simplified-brief kvalitet. |
+| P2 | 19 | F3/dossier/env/verify/policy-risker + follow-up-budget/status-projektion. |
 | P3 | 60 | UI-race, cache/search/scrape, copy/naming/städ. |
 
 ### Avskrivet / inte bug
@@ -58,45 +66,79 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | U#66 | `console.info` hot paths brus | Logg-städ. |
 | U#78 | SSE ping `Date.now` var 15s loggar | Logg-städ. |
 
+## Defensiv nytriage 2026-05-01
+
+Inkommande rapporten pekar främst på falskt gröna states. Raderna nedan är inte en ny separat backlogg; de mappar till huvudlistans källor och anger om fyndet ska bekräftas, hållas som edge-verifiering eller kasseras.
+
+| Källa | Inkommande fynd | Backlogg-koppling | Defensiv koll | Beslut |
+| --- | --- | --- | --- | --- |
+| N#1 | Autofix-stubbar / tomma ersättningsfiler | Ny P1-rad | Bekräfta | `cross-file-import-checker.ts` har fortfarande PascalCase null-render fallback och TODO för dossier-exposed path-stubbar. Inte kassera: vägra dossier-stubbar eller markera dem blocker/degraded. |
+| N#2 | Capability/dossier single source | G#25, G#26 | Bekräfta | Dossier-pipen är default-on, men init/follow-up och capability-bridge ska verifieras mot en canonical källa. |
+| N#3 | Follow-up context-budget | Ny P2-rad | Bekräfta som regression-gate | `eval:followup` och budgetering finns, men backloggen behöver en gate så budgeten inte växer igen. |
+| N#4 | Tysta verify-skips | G#10, G#31, G#32 | Bekräfta | R2-guard hjälper, men warm/cold cache och runtime/UI-gap är fortfarande falskt-grönt-risker. |
+| N#5 | Recurring verifier-fynd in i nästa prompt | Ny P2-rad | Bekräfta | Finns kvar som E3 i `Kvarvarande-uppgifter.md`; inte duplicerat i huvudlistan förrän nu. |
+| N#6 | Event-bus UI-flip | Ny P2-rad | Bekräfta | `selectVersionStatus(events)` finns, men builder-UI importerar fortfarande äldre DB-statusresolver på centrala ytor. |
+| N#H1 | Full testsvit / stale `domain-map.json` | G#3 | Bekräfta tills testsvit passerar | Håll P0 tills full suite visar om fixture-driften är borta; om pass: stäng som fixad. |
+| N#H2 | F3 readiness truth | G#20, G#21 | Bekräfta | `/finalize-design` har `ready: true` när inga requirements detekteras; edge är om follow-up missar integrationkrav. |
+| N#H3 | Product Postcheck default i preview/staging | G#10 | Bekräfta | Product Postcheck är flaggstyrd default-off och fail-open; produktifiering hör till runtime/UI-gaten. |
+| N#H4 | Placeholder/degraded-state policy | G#17, G#22, G#35, G#51, U#29 | Bekräfta som policyspår | Dubblett över flera rader, men behåll som sammanhållande policy: placeholder får inte signalera success. |
+| N#H5 | UI race cleanup | U#4, U#5, U#6, U#7, U#9 | Edge | Håll som P3-verifieringar. Kassera enskild rad om kodläsning visar abort/token redan finns eller repro saknas efter smal test. |
+
+### Rekommenderad körordning efter nytriage
+
+| Ordning | Agent-jobb | Effekt |
+| --- | --- | --- |
+| 1 | Fixa full testsvit / stale `domain-map.json` | Gör master pålitlig innan fler agent-run. |
+| 2 | Stoppa dossier-stubbar från att bli tyst success | Höjer faktisk output-kvalitet och minskar falskt grönt. |
+| 3 | Aktivera/produktifiera Product Postcheck | Fångar UI/runtime som typecheck missar. |
+| 4 | F3 readiness truth | Stoppar falsk "redo att bygga". |
+| 5 | Capability-universum init/follow-up | Minskar drift och förbättrar follow-ups. |
+| 6 | Recurring verifier patterns | Billig promptkvalitetsvinst. |
+| 7 | Event-bus UI-flip | Minskar status-mismatch i buildern. |
+
 ## Lista
 
 | Klar | Status | Prio | Fynd | Källa | Beslut / nästa steg |
 | --- | --- | --- | --- | --- | --- |
 | [x] | Fixad i HEAD | P0 | `/api/download` owner-scope för ZIP | G#1 | Fixad i senaste commit: routen använder scoped version-helper och har test. |
 | [x] | Fixad i HEAD | P0 | `/api/domains/save` deployment utan owner-scope | G#2 | Fixad i senaste commit via `setDeploymentDomainForRequest` och test. |
-| [ ] | Öppen verifiering | P0 | Full testsvit failar pga stale `domain-map.json` | G#3 | Kör full testsvit när backloggfixarna är klara. |
+| [ ] | Öppen verifiering | P0 | Full testsvit failar pga stale `domain-map.json` | G#3, N#H1 | Bekräfta med full testsvit. Om stale fixture redan är fixad: stäng som fixad och uppdatera triage-räkningen. |
 | [x] | Fixad i HEAD | P1 | `companyProfile?companyName` global lookup | G#4 | Fixad i senaste commit med owner/session-scope och test. |
 | [x] | Fixad i HEAD | P1 | Domain link/verify accepterar arbitrary `projectId` | G#5 | Fixad i senaste commit med projekt-scope och test. |
 | [x] | Inte bug / fixad | P1 | Dep-completer missar CSS/`require()`/dynamic import | G#6 | Avskriven: test täcker side-effect CSS, CommonJS och dynamic imports. |
 | [x] | Fixad i HEAD | P1 | `/api/text/analyze` auth ignorerad | G#7 | Fixad i senaste commit och testad. |
 | [x] | Fixad nu | P1 | Same-sandbox preview update skickar inte om `.env.local` | G#8 | Fixad: update-path bygger om `.env.local` via `buildPreviewEnvLocalContents()` innan `updatePreviewHostSession`. |
 | [x] | Fixad nu | P1 | Env merge kan skippas vid preview update | G#9 | Fixad med samma update-path som G#8; täckt av `preview-session.test.ts`. |
-| [ ] | Öppen design-risk | P1 | F2 quality gate fångar inte runtime/UI-fel | G#10 | Lägg separat runtime smoke/postcheck, inte bara typecheck. |
+| [ ] | Öppen design-risk | P1 | F2 quality gate fångar inte runtime/UI-fel | G#10, N#4, N#H3 | Bekräfta: Product Postcheck finns men är default-off/fail-open. Produktifiera runtime smoke/postcheck, inte bara typecheck. |
 | [x] | Fixad nu | P1 | Ingen runtime smoke för WebGL/3D | G#11 | Fixad med statisk WebGL/R3F-readiness smoke: verifier blockerar R3F Canvas utan `"use client"` och Visual QA rapporterar `webgl-readiness`. |
 | [x] | Fixad nu | P1 | Ingen tydlig game/interactive capability | G#12 | Fixad: `needsGame` infereras för spel/playable canvas, ger egen prompt-hint och räknas som heavy. |
 | [ ] | Öppen kvalitet-risk | P1 | Simplified brief fallback sänker premium/3D | G#13 | Begränsa fallback eller markera som degraded mode i generationen. |
+| [ ] | Öppen bug | P1 | Autofix null-render/dossier stubs kan bli tyst success | N#1 | Bekräfta: `cross-file-import-checker.ts` skapar fortfarande null-render-stubbar och har TODO för dossier-exposed path-stubbar. Vägra dossier-stubbar eller gör dem blocker/degraded i stället för tyst success. |
 | [x] | Fixad nu | P1 | Rate limit faller tillbaka till per-instance memory utan Redis | G#14, U#45 | Fixad: produktion failar stängt utan Upstash REST om inte `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD` sätts explicit. |
 | [x] | Fixad nu | P1 | `default-seed` kan ge predikterbara slug-lösen | G#15 | Fixad: lösen kräver `KOSTNADSFRI_PASSWORD_SEED`, `KOSTNADSFRI_API_KEY` eller explicit secret. |
 | [ ] | Öppen städ | P2 | `process.env` drift utanför `env.ts` | G#16 | Audita mot `src/lib/env.ts` och `config/env-policy.json`. |
-| [ ] | Öppen design-risk | P2 | `allowPlaceholdersInF3` kan släppa stub secrets | G#17 | Låt bara explicita dev/test-lägen tillåta placeholders. |
+| [ ] | Öppen design-risk | P2 | `allowPlaceholdersInF3` kan släppa stub secrets | G#17, N#H4 | Bekräfta som policyspår: låt bara explicita dev/test-lägen eller tydlig degraded/publicera-ändå-UX tillåta placeholders. |
 | [ ] | Öppen docs-städ | P2 | Dubbla env-docs och genererad `.env.local`-sanning | G#18 | Konsolidera docs runt `docs/ENV.md` och env-policy. |
 | [ ] | Öppen drift-risk | P2 | Generated `.env.local` kan vinna över user env | G#19 | Dokumentera/ändra precedence i preview-env-byggaren. |
-| [ ] | Öppen bug | P2 | F3 Build Plan saknas när follow-up inte återinfererar integration | G#20 | Återanvänd Snapshot-Brief + faktisk version/imports. |
-| [ ] | Öppen bug | P2 | `/finalize-design` kan säga ready utan integrationkrav | G#21 | Readiness ska spegla faktiska F3-krav. |
-| [ ] | Öppen bug | P2 | Hard dossiers ger placeholder UI i stället för blocker | G#22 | Blocka eller degradera explicit när required integration saknas. |
+| [ ] | Öppen bug | P2 | F3 Build Plan saknas när follow-up inte återinfererar integration | G#20, N#H2 | Bekräfta: återanvänd Snapshot-Brief + faktisk version/imports så F3-krav inte tappas vid follow-up. |
+| [ ] | Öppen bug | P2 | `/finalize-design` kan säga ready utan integrationkrav | G#21, N#H2 | Bekräfta: readiness ska spegla faktiska F3-krav; särskilt edge där `spec.requirements.length === 0` beror på missad integration-detektion. |
+| [ ] | Öppen bug | P2 | Hard dossiers ger placeholder UI i stället för blocker | G#22, N#H4 | Bekräfta: blocka eller degradera explicit när required integration saknas; placeholder UI får inte räknas som success. |
 | [x] | Inte bug / beslutad | P2 | `feature-runtime` env keys blockerar inte F3 | G#23 | Avsiktligt: bara `build`-enforcement blockerar F3; `feature-runtime` surfacas som warning/info. Ändra dossier-enforcement till `build` om en nyckel ska blocka. |
 | [x] | Fixad nu | P2 | Dossier verbatim-missing bara warning | G#24 | Fixad: selected dossier med saknad verbatim-fil failar prompt-compose i stället för att bara varna och fortsätta. |
-| [ ] | Öppen kvalitet-risk | P2 | Dossier/capability-threading svagt vissa paths | G#25 | Verifiera init/follow-up/dossier bridge. |
-| [ ] | Öppen bug | P2 | Init och follow-up har olika capability-universum | G#26 | Konsolidera capability-källa och följ ägarmatrisen. |
+| [ ] | Öppen kvalitet-risk | P2 | Dossier/capability-threading svagt vissa paths | G#25, N#2 | Bekräfta: verifiera init/follow-up/dossier bridge mot canonical capability-källa. |
+| [ ] | Öppen bug | P2 | Init och follow-up har olika capability-universum | G#26, N#2 | Bekräfta: konsolidera capability-källa och följ ägarmatrisen. |
 | [x] | Fixad i HEAD | P2 | `canvas` triggar 3D för 2D/dekorativa canvas | G#27 | Fixad i tidigare commit: dekorativ 3D och physics delas, med tester. |
 | [x] | Fixad nu | P2 | `needsPhysics` triggar inte heavy budget | G#28 | Fixad: `needsPhysics` ingår i canonical `HEAVY_CAPABILITY_KEYS`. |
 | [x] | Fixad nu | P2 | Forms/auth/payments/parallax räknas inte som heavy | G#29 | Fixad: `needsForms`, `needsAuth`, `needsPayments` och `needsParallax` ingår i canonical heavy-listan. |
 | [x] | Fixad nu | P2 | Kort prompt med spel/game/shadcn missar capability-kontext | G#30 | Fixad via `needsGame` + heavy context/prompt-hint för korta spelprompter. |
-| [ ] | Öppen verifier-risk | P2 | Warm tsc/eslint fail-open vid kall cache | G#31 | Faila tydligare eller kör kall-cache fallback. |
-| [ ] | Öppen design-risk | P2 | Preview kan visas trots verifier-blocked draft | G#32 | UI ska skilja preview-materialisering från verifierad version. |
+| [ ] | Öppen verifier-risk | P2 | Warm tsc/eslint fail-open vid kall cache | G#31, N#4 | Bekräfta: faila tydligare eller kör kall-cache fallback så skip inte blir tyst success. |
+| [ ] | Öppen design-risk | P2 | Preview kan visas trots verifier-blocked draft | G#32, N#4 | Bekräfta: UI ska skilja preview-materialisering från verifierad version. |
 | [ ] | Öppen kvalitet-risk | P2 | LLM-verifier ser snippets, inte hela filer | G#33 | Ge verifieraren rätt filkontext eller begränsa claimen. |
 | [ ] | Öppen kvalitet-risk | P2 | Max 1 partial-file repair attempt | G#34 | Höj/kontextualisera repair-budget. |
-| [ ] | Öppen UX-risk | P2 | Placeholder-bild maskerar trasigt original | G#35, U#72 | Visa placeholder som degraded state, inte success. |
+| [ ] | Öppen prompt-risk | P2 | Recurring verifier-fynd saknas i nästa codegen-prompt | N#5 | Bekräfta: ta 3-5 senaste verifier-fynd per chat som "Quality patterns to avoid"; matcha E3 i `Kvarvarande-uppgifter.md`. |
+| [ ] | Öppen UX-risk | P2 | Placeholder-bild maskerar trasigt original | G#35, U#72, N#H4 | Bekräfta: visa placeholder som degraded state, inte success. |
+| [ ] | Öppen regression-risk | P2 | Follow-up context-budget saknar hård regression-gate | N#3 | Bekräfta som gate-risk: `eval:followup` finns, men budgeten bör stoppa PR/agent-run som åter blåser upp Snapshot-Brief/file-context. |
+| [ ] | Öppen UI-status-risk | P2 | Event-bus statusprojektion inte fullt inkopplad i builder-UI | N#6 | Bekräfta: `selectVersionStatus(events)` finns, men centrala UI-ytor läser fortfarande äldre DB-statusresolver. Koppla projectionen innan DB-flaggor fasas ut. |
 | [x] | Fixad nu | P2 | `upload-from-url` läser body före size-check | G#36, U#20 | Fixad: content-length precheck + streamad läsning med 4MB stopp. |
 | [x] | Fixad nu | P2 | SVG/HTML tillåts i media-upload | G#37, U#15, U#16 | Fixad: `image/svg+xml` och `text/html` tas bort ur upload-allowlist. |
 | [ ] | Öppen policy-fråga | P2 | Publik PDF-parse-yta / 10MB input | G#38, U#27, U#28 | Bestäm om text-extract ska kräva auth och språkbevarande parse. |
@@ -111,7 +153,7 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [ ] | Öppen scaffold-risk | P3 | Placeholder copy kvar i scaffoldfiler | G#48 | Greppa scaffoldcopy och ersätt konkret text. |
 | [ ] | Öppen scaffold-risk | P3 | Dashboard `[Företagsnamn]` kan slinka igenom | G#49 | Gör blocker eller materialisering. |
 | [ ] | Öppen scaffold-risk | P3 | Blog placeholder body | G#50 | Byt defaulttext eller verifiera bort. |
-| [ ] | Öppen UX-risk | P3 | Placeholder CTAs non-blocking | G#51 | Markera som warning/blocker beroende på lane. |
+| [ ] | Öppen UX-risk | P3 | Placeholder CTAs non-blocking | G#51, N#H4 | Bekräfta som degraded-state-policy: markera som warning/blocker beroende på lane. |
 | [ ] | Öppen variant-risk | P3 | Variant pre-match keyword-only vs final logik | G#52 | Konsolidera selector/logg. |
 | [ ] | Öppen typography-risk | P3 | Font materializer träffar mest baseline Inter | G#53 | Verifiera variant-font-parningar. |
 | [ ] | Öppen typography-risk | P3 | Geist workaround kan sabotera variant-typografi | G#54 | Begränsa workaround till kända fall. |
@@ -139,12 +181,12 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [ ] | Öppen UI-bug | P3 | ThinkingOverlay nested `setTimeout` rensas inte vid unmount | U#1 | Rensa timer refs i cleanup. |
 | [ ] | Öppen copy-risk | P3 | ThinkingOverlay säger "visuell QA" fast default kan vara av | U#2 | Koppla copy till faktisk flagga. |
 | [ ] | Öppen perf-risk | P3 | MessageList elapsed interval kan trigga render-loop | U#3 | Begränsa intervallet till aktiva messages. |
-| [ ] | Öppen UI-race | P3 | PreviewPanelFrame debounce + hard-cap vid snabb URL-switch | U#4 | Abortera gamla loads och verifiera URL-token. |
-| [ ] | Öppen UI-race | P3 | `usePreviewIframe` timers/refs race tier2/shim | U#5 | Samla timers/abort i en state machine. |
-| [ ] | Öppen UI-race | P3 | ProjectEnvVarsPanel parallella fetches utan gemensam abort | U#6, U#79 | Lägg request-token/abortcontroller. |
-| [ ] | Öppen UI-race | P3 | SeoOptInPanel prefs-fetch stale vid snabb open/close | U#7 | Abortera prefs-fetch vid close/unmount. |
+| [ ] | Öppen UI-race | P3 | PreviewPanelFrame debounce + hard-cap vid snabb URL-switch | U#4, N#H5 | Edge: abortera gamla loads och verifiera URL-token; kassera om kodläsning redan visar token/abort på alla paths. |
+| [ ] | Öppen UI-race | P3 | `usePreviewIframe` timers/refs race tier2/shim | U#5, N#H5 | Edge: samla timers/abort i en state machine eller kassera efter smal repro/kodläsning. |
+| [ ] | Öppen UI-race | P3 | ProjectEnvVarsPanel parallella fetches utan gemensam abort | U#6, U#79, N#H5 | Edge: lägg request-token/abortcontroller om parallella fetches kan vinna stale. |
+| [ ] | Öppen UI-race | P3 | SeoOptInPanel prefs-fetch stale vid snabb open/close | U#7, N#H5 | Edge: abortera prefs-fetch vid close/unmount om repro/kodläsning bekräftar stale write. |
 | [x] | Inte bug / UX debt | P3 | F3PlaceholderToggle saknar skeleton | U#8 | Inte bug; ren polish. |
-| [ ] | Öppen UI-race | P3 | VersionHistory actions före mutate synkad | U#9 | Disable actions eller optimistic state tills mutate klart. |
+| [ ] | Öppen UI-race | P3 | VersionHistory actions före mutate synkad | U#9, N#H5 | Edge: disable actions eller optimistic state tills mutate klart; kassera om ny VersionHistory-statuspass redan täcker actions. |
 | [ ] | Öppen collaboration-risk | P3 | VersionCollaboration saknar optimistic conflict | U#10 | Lägg conflict UI eller etag/version guard. |
 | [ ] | Öppen PDF-risk | P3 | Audit PDF inline SVG escaping | U#14, U#73 | Escape/testa SVG-innehåll. |
 | [x] | Fixad nu | P3 | Media upload tags JSON saknar shape-validering | U#17 | Fixad: endast array av strings sparas, max 20 tags. |
@@ -154,7 +196,7 @@ Källor: `G#` = gamla GPT/masterlistan, `U#` = gamla UI/media-svärmlistan.
 | [x] | Inte bug | P3 | Unsplash POST gör upp till 3 externa sökningar | U#26 | Redan hårt capad till max 3 termer. |
 | [ ] | Öppen PDF-risk | P3 | PDF extract fallback regex nonsens | U#27 | Byt fallback eller returnera tydligt unsupported. |
 | [ ] | Öppen i18n-risk | P3 | PDF extract strippar icke-Latin-1 | U#28 | Bevara Unicode-text. |
-| [ ] | Öppen preview-risk | P3 | Media local fallback `/api/uploads/media` kanske ej nås av VM | U#29 | Kräv Blob för preview eller visa tydligt degraded state. |
+| [ ] | Öppen preview-risk | P3 | Media local fallback `/api/uploads/media` kanske ej nås av VM | U#29, N#H4 | Bekräfta/edge: kräv Blob för preview eller visa tydligt degraded state; verifiera mot VM innan blocker. |
 | [x] | Fixad nu | P3 | Originalfiländelse / dubbeländelse okontrollerad | U#31 | Fixad delvis vid blob-namn: path-segment saneras och extensionless filer defaultar till `.bin`, inte `.png`. |
 | [x] | Fixad nu | P3 | Blob path använder rå `projectId` | U#32 | Fixad: blob path-segment för user/project/filename saneras innan upload. |
 | [ ] | Öppen cache-risk | P3 | Registry async refresh stale vid misslyckad fetch | U#35 | Behåll last-good med timestamp/status. |
