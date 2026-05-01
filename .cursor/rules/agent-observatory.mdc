@@ -18,6 +18,12 @@ När en agent ombeds live-rapportera vad som händer medan en användare bygger 
 | **Unrouted** | Events utan runId/chatId/slug hamnar här — konsultera bara om ingen annan källa gav svar | `logs/generationslogg/_unrouted/<bucket>/` |
 | **Prometheus / backoffice** | Aggregerade latenser (P50/P95) per fas, inte per körning | `/api/metrics` (bearer `SAJTMASKIN_METRICS_TOKEN`), visas i `backoffice/pages/observability.py` |
 
+## Ignorerade men tillåtna felsökningskällor
+
+Agenter får läsa direkta paths i `logs/generationslogg/`, `logs/site-observability/`, `logs/llm-segmentts-and-index/`, `data/prompt-dumps/` och `data/eval-runs/` när felsökning kräver det, även om Cursor-indexet eller `.cursorignore` inte hittar dem. Läs bara relevanta filer och citera inte hemligheter.
+
+Öppna inte live builder-sessioner för att verifiera dessa loggar. Följ `builder-coexistence.mdc`: använd loggar, prompt-dumps och eval-artefakter, eller be användaren om screenshot/export om live-vy behövs.
+
 ## Kodidentitet och gamla runs
 
 `_latest.txt` är bara en pekare till senaste run-mappen på disk. Den säger inte att runnen kördes mot aktuell `master`, aktuell fix eller senaste merge.

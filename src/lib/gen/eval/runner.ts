@@ -13,6 +13,14 @@ import { runSeoPreflightChecks } from "../validation/seo-preflight";
 import { partitionGeneratedFilesForProtectedPaths } from "../scaffolds/protected-paths";
 import { EVAL_PROMPTS, type EvalPrompt } from "./prompts";
 import {
+  createEvalRunId,
+  resolveEvalDumpMode,
+  writeEvalArtifacts,
+  writeEvalSuiteSummary,
+  type EvalDumpMode,
+  type EvalPromptArtifactRecord,
+} from "./artifact-dump";
+import {
   checkProjectSanity,
   checkNoBracketPlaceholders,
   checkSeoPublishReadiness,
@@ -323,10 +331,30 @@ async function collectSSEContent(stream: ReadableStream<Uint8Array>): Promise<st
   return accumulated;
 }
 
+async function recordPromptArtifacts(params: {
+  runId: string;
+  dumpMode: EvalDumpMode;
+  prompt: EvalPrompt;
+  result: EvalResult;
+  stages?: Parameters<typeof writeEvalArtifacts>[0]["stages"];
+}): Promise<EvalPromptArtifactRecord | null> {
+  try {
+    return await writeEvalArtifacts(params);
+  } catch (err) {
+    console.warn(
+      `[eval] Failed to write artifacts for ${params.prompt.id}: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return null;
+  }
+}
+
 async function evaluatePrompt(
   evalPrompt: EvalPrompt,
   model: string,
-): Promise<EvalResult> {
+  artifactContext: { runId: string; dumpMode: EvalDumpMode },
+): Promise<{ result: EvalResult; artifact: EvalPromptArtifactRecord | null }> {
   const start = performance.now();
 
   // Run the full orchestration pipeline so eval tests the SAME system prompt
@@ -359,6 +387,7 @@ async function evaluatePrompt(
   // Eval path: standalone mechanical pass on raw stream content. Mirrors the
   // outer autofix in finalize-version.ts but without the surrounding pipeline.
   const { fixedContent } = await runAutoFix(content);
+  const rawProject = parseCodeProject(content);
   const project = parseCodeProject(fixedContent);
   // Dynamic import keeps runner.test.ts able to import pure helpers
   // without pulling the finalize stack (and its database side imports)
@@ -444,7 +473,7 @@ async function evaluatePrompt(
     totalScore,
   });
 
-  return {
+  const result: EvalResult = {
     promptId: evalPrompt.id,
     generationStatus: "passed",
     failureStage: null,
@@ -487,14 +516,40 @@ async function evaluatePrompt(
     passed: passOutcome.passed,
     blockingChecks: passOutcome.blockingChecks,
   };
+
+  const artifact = await recordPromptArtifacts({
+    ...artifactContext,
+    prompt: evalPrompt,
+    result,
+    stages: {
+      rawContent: content,
+      fixedContent,
+      rawFiles: rawProject.files,
+      fixedFiles: project.files,
+      mergedFiles,
+      completeProjectFiles,
+      sources,
+      preflight,
+    },
+  });
+
+  return { result, artifact };
 }
 
 export async function runEval(
-  options?: { model?: string; prompts?: EvalPrompt[] },
+  options?: {
+    model?: string;
+    prompts?: EvalPrompt[];
+    dumpMode?: EvalDumpMode;
+    runId?: string;
+  },
 ): Promise<EvalReport> {
   const model = options?.model ?? DEFAULT_MODEL;
   const prompts = options?.prompts ?? EVAL_PROMPTS;
+  const runId = options?.runId ?? createEvalRunId();
+  const dumpMode = options?.dumpMode ?? resolveEvalDumpMode();
   const environment = resolveEvalEnvironment();
+  const promptArtifacts: EvalPromptArtifactRecord[] = [];
 
   if (!environment.ok) {
     console.error(`[eval] ${environment.message}`);
@@ -502,7 +557,7 @@ export async function runEval(
       makePreflightEnvFailureResult(prompt, environment.message),
     );
     const blockingCheckCounts = { preflight_env: results.length };
-    return {
+    const report = {
       timestamp: new Date().toISOString(),
       model,
       results,
@@ -515,6 +570,8 @@ export async function runEval(
         blockingCheckCounts,
       },
     };
+    await writeEvalSuiteSummary({ runId, report, promptArtifacts });
+    return report;
   }
 
   const results: EvalResult[] = [];
@@ -522,7 +579,11 @@ export async function runEval(
   for (const evalPrompt of prompts) {
     try {
       console.info(`[eval] Running: ${evalPrompt.id}...`);
-      const result = await evaluatePrompt(evalPrompt, model);
+      const { result, artifact } = await evaluatePrompt(evalPrompt, model, {
+        runId,
+        dumpMode,
+      });
+      if (artifact) promptArtifacts.push(artifact);
       results.push(result);
       console.info(
         `[eval] ${evalPrompt.id}: score=${(result.totalScore * 100).toFixed(0)}% ` +
@@ -534,7 +595,7 @@ export async function runEval(
         `[eval] ${evalPrompt.id} failed:`,
         err instanceof Error ? err.message : err,
       );
-      results.push({
+      const result: EvalResult = {
         promptId: evalPrompt.id,
         generationStatus: "failed",
         failureStage: "generation",
@@ -574,7 +635,15 @@ export async function runEval(
         totalScore: 0,
         passed: false,
         blockingChecks: ["generation"],
+      };
+      const artifact = await recordPromptArtifacts({
+        runId,
+        dumpMode,
+        prompt: evalPrompt,
+        result,
       });
+      if (artifact) promptArtifacts.push(artifact);
+      results.push(result);
     }
   }
 
@@ -595,7 +664,7 @@ export async function runEval(
     }
   }
 
-  return {
+  const report = {
     timestamp: new Date().toISOString(),
     model,
     results,
@@ -608,4 +677,6 @@ export async function runEval(
       blockingCheckCounts,
     },
   };
+  await writeEvalSuiteSummary({ runId, report, promptArtifacts });
+  return report;
 }

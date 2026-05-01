@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { compareWithBaseline as compareWithBaselineFn } from "./baseline";
+import type { EvalDumpMode } from "./artifact-dump";
 import type { EVAL_PROMPTS as EVAL_PROMPTS_TYPE } from "./prompts";
 
 const SMOKE_PROMPT_IDS = ["coffee-shop", "restaurant", "portfolio"] as const;
@@ -104,6 +105,19 @@ function parsePromptFilter(args: string[]): string[] | null {
     .filter(Boolean);
 }
 
+function parseDumpModeFlag(args: string[]): EvalDumpMode | null {
+  const flag = args.find((arg) => arg === "--dump-files" || arg.startsWith("--dump-files="));
+  if (!flag) return null;
+  if (flag === "--dump-files") return "failed";
+
+  const value = flag.slice(flag.indexOf("=") + 1).trim().toLowerCase();
+  if (value === "all") return "all";
+  if (value === "failed" || value === "1" || value === "true") return "failed";
+  if (value === "off" || value === "0" || value === "false") return "off";
+  console.error("Invalid --dump-files value. Use --dump-files, --dump-files=failed, or --dump-files=all.");
+  process.exit(2);
+}
+
 async function main(): Promise<void> {
   loadDotEnvLocal();
   const [
@@ -122,6 +136,7 @@ async function main(): Promise<void> {
   const shouldSaveBaseline = args.includes("--save-baseline");
   const gateMode = args.includes("--gate");
   const smokeMode = args.includes("--smoke");
+  const dumpMode = parseDumpModeFlag(args);
   const promptFilter = smokeMode ? [...SMOKE_PROMPT_IDS] : parsePromptFilter(args);
 
   let prompts: EvalPrompts[number][] = EVAL_PROMPTS;
@@ -144,8 +159,9 @@ async function main(): Promise<void> {
     console.log("Running eval suite...");
   }
 
-  const report = await runEval({ prompts });
+  const report = await runEval({ prompts, dumpMode: dumpMode ?? undefined });
   console.log(formatEvalReport(report));
+  console.log("Structured eval summary written to data/eval-runs/latest/summary.json");
 
   const baseline = await loadBaseline();
   if (baseline) {

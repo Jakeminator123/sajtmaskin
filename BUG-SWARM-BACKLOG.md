@@ -150,6 +150,7 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Fixad nu | P2 | `needsPhysics` triggar inte heavy budget | G#28 | Fixad: `needsPhysics` ingår i canonical `HEAVY_CAPABILITY_KEYS`. |
 | [x] | Fixad nu | P2 | Forms/auth/payments/parallax räknas inte som heavy | G#29 | Fixad: `needsForms`, `needsAuth`, `needsPayments` och `needsParallax` ingår i canonical heavy-listan. |
 | [x] | Fixad nu | P2 | Kort prompt med spel/game/shadcn missar capability-kontext | G#30, R#10 | Fixad via `needsGame` + heavy context/prompt-hint för korta spelprompter. |
+| [ ] | Öppen eval-bug | P1 | `arcade-with-klarna` failar med merge-syntax | E#1, R#10 | FAIL 81%: scaffold/capability-route verkar korrekt, men merged syntax fick `Expected '(' / 'from' but found '-'` i `app/page.tsx`, `components/home-shell.tsx`, `components/snake-game.tsx`, `app/checkout/page.tsx`; LLM-fixer abortade. Nästa steg: kör `npm run eval:weird-smoke:dump` och jämför raw/fixed/merged/canonical files. |
 | [ ] | Öppen verifier-risk | P2 | Warm tsc/eslint fail-open vid kall cache | G#31, N#4 | Bekräfta: faila tydligare eller kör kall-cache fallback så skip inte blir tyst success. |
 | [ ] | Öppen design-risk | P2 | Preview kan visas trots verifier-blocked draft | G#32, N#4 | Bekräfta: UI ska skilja preview-materialisering från verifierad version. |
 | [ ] | Öppen kvalitet-risk | P2 | LLM-verifier ser snippets, inte hela filer | G#33 | Ge verifieraren rätt filkontext eller begränsa claimen. |

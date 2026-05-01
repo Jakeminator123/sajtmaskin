@@ -101,6 +101,11 @@ data/external-template-pipeline/reports/**
 # run-eval / codegen harness markdown output (scripts/eval/run-eval.ts)
 eval-output/
 
+# Structured codegen eval run artifacts. Metadata README is committed;
+# per-run summaries/file dumps stay local to avoid repo noise.
+data/eval-runs/*
+!data/eval-runs/README.md
+
 # OMTAG-02 eval baseline local runs — all per-branch/per-timestamp dirs under
 # evals/results/ are gitignored EXCEPT evals/results/baseline-master/ which is
 # the incheckade referensen. See evals/README.md.
