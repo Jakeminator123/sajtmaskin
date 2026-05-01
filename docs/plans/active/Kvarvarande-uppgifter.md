@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-23 efter OMTAG-waven (11 uppdrag mergade). Tidigare: 2026-04-22 efter LLM-flow-audit + follow-up-pass. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** Se [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md) (senast) + [`../../status-archive/STATUS-2026-04-20.md`](../../status-archive/STATUS-2026-04-20.md) + [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) för fullständig wave-sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+Senast uppdaterad: 2026-05-01 efter LLM-plan-konsolidering och VersionHistory-statuspass. Tidigare: 2026-04-23 efter OMTAG-waven (11 uppdrag mergade), 2026-04-22 efter LLM-flow-audit + follow-up-pass. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** Se [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md) + [`../../status-archive/STATUS-2026-04-20.md`](../../status-archive/STATUS-2026-04-20.md) + [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) för fullständig wave-sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
 
 ## Roll efter LLM-plan-konsolidering 2026-05-01
 

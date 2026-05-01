@@ -229,6 +229,18 @@ describe("shouldIgnorePersistedScaffoldForMatch", () => {
     ).toBe(false);
   });
 
+  it("does not unlock on standalone score/leaderboard/collision copy", () => {
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "clear-refine",
+        message: "Lägg till en leaderboard-sektion och förbättra SEO-copy.",
+        scaffoldMode: "auto",
+        scaffoldId: null,
+      }),
+    ).toBe(false);
+  });
+
   it("does not unlock major-change signals when the scaffold is explicitly pinned", () => {
     expect(
       shouldIgnorePersistedScaffoldForMatch({

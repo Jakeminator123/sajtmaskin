@@ -180,7 +180,7 @@
       ]
     },
     "Preview och versioner": {
-      "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previewUrlHint` innan previewn är redo; `previewUrlHint` är tillfällig boot-hint (inte färdig previewUrl). `legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. F3 (`previewPolicy: fidelity3`) triggas explicit via `POST .../finalize-design` efter tier-3 readiness-validering — F2 är default. Partial-file-output stoppas före versionpersist och ska synas som tidigt finalize-fel.",
+      "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previewUrlHint` innan previewn är redo; `previewUrlHint` är tillfällig boot-hint (inte färdig previewUrl). Shim/fallback går via flaggad `/api/preview-render`, inte via `legacyShimPreviewUrl` i own-engine-versionpayload. F3 (`previewPolicy: fidelity3`) triggas explicit via `POST .../finalize-design` efter tier-3 readiness-validering — F2 är default. Partial-file-output stoppas före versionpersist och ska synas som tidigt finalize-fel.",
       "canonicalPaths": [
         "src/lib/db/engine-version-lifecycle.ts",
         "src/lib/gen/verify/server-verify.ts",
