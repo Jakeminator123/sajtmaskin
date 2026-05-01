@@ -1,7 +1,8 @@
 ---
 id: 2026-04-27-llm-flode-varldsklass-scope
-status: scope
+status: done
 created: 2026-04-27
+completed: 2026-05-01
 linear: null
 trigger: /långbänk efter session 897ab640 — användarens externa review beskrev målbild i 10 lager
 context_links:
@@ -12,6 +13,8 @@ context_links:
 ---
 
 # LLM-flöde i världsklass — Scope 2026-04-27
+
+Flyttad till `avklarat/` 2026-05-01 efter att [`docs/plans/active/2026-04-28-llm-flode-startlinje.md`](../active/2026-04-28-llm-flode-startlinje.md) blev primär LLM-masterplan. Den här filen bevarar scope-/auditbakgrunden.
 
 Den här filen är **nästa sessions anchor**. Den summerar målbilden från extern review och kopplar varje lager till **kod-källan** + **vad som faktiskt felar idag** + **kommande spår**.
 

@@ -3,7 +3,7 @@ id: 2026-04-28-llm-flode-startlinje
 status: scope
 created: 2026-04-28
 linear: null
-parent: 2026-04-27-llm-flode-varldsklass-scope
+parent: docs/plans/avklarat/2026-04-27-llm-flode-varldsklass-scope.md
 supersedes: null
 ---
 
@@ -44,7 +44,7 @@ Postmortem från en annan körning samma dag finns under repo-roten ([`postmorte
 | `data/prompt-dumps/orchestration-dynamic/generation-input-package.json` | Fan-in: brief, scaffold, variant, route plan, contracts |
 | `logs/generationslogg/<run>/` | Per-run timeline + observability + fault-fix-index |
 | `logs/site-observability/<chatId>/` | Per-chat history över flera versioner |
-| `docs/plans/active/2026-04-27-llm-flode-varldsklass-scope.md` | Föregående scope-anchor (10-lager målbild) |
+| `docs/plans/avklarat/2026-04-27-llm-flode-varldsklass-scope.md` | Föregående scope-anchor (10-lager målbild, historik) |
 | `docs/plans/active/2026-04-27-followup-vs-autorepair-lane-collision.md` | Existerande aktiv plan över användar-follow-up vs auto-repair-lane — relaterar till **P1d** nedan |
 | `BUG-SWARM-BACKLOG.md` | Kanonisk bugg-/riskinventering. Använd som triagekälla, inte som daglig körplan. |
 | `docs/plans/active/prompt-slim-systemprompt.md` | Child-plan för promptbudget. Startlinjen länkar dit; duplicera inte prompt-slim-detaljer här. |

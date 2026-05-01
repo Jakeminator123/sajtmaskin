@@ -21,7 +21,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 - **Startlinje 2026-04-28:** [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) — **primär LLM-masterplan** efter hardening-PR (`3475484e9`, `8181f87e4`) och doc-konsolidering 2026-05-01. Äger follow-up/major-change, F3/readiness, UX/status och backlog-koppling. **Läs först innan nytt LLM-flöde-arbete startar.**
 - **Prompt-slim child-plan:** [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) — enda aktiva child-planen för Static Core + follow-up dynamic context. Skapa inte nytt prompt-planlager.
-- **10-lagers målbild:** [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) — historisk scope-/målbildsanchor. Använd som bakgrund; startlinjen ovan äger aktiv LLM-körplan.
+- **10-lagers målbild:** [`2026-04-27-llm-flode-varldsklass-scope.md`](../avklarat/2026-04-27-llm-flode-varldsklass-scope.md) — historisk scope-/målbildsanchor. Använd som bakgrund; startlinjen ovan äger aktiv LLM-körplan.
 
 ## Öppna steg (konsoliderat efter 2026-04-27-städ)
 
@@ -48,7 +48,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | [`2026-04-29-llm-flow-source-router.md`](../avklarat/2026-04-29-llm-flow-source-router.md) | Flyttad till `avklarat/` 2026-05-01; source-routerhistoriken är bevarad där. |
 | [`2026-04-28-pixelkallaren-eval-och-uppfoljning.md`](./2026-04-28-pixelkallaren-eval-och-uppfoljning.md) | Behåll tills Pixelkällaren-fixturen/eval är omhändertagen; flytta sedan spår 1-7 in i startlinjen eller arkivera som eval-scope. |
 | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) | Child-plan för P1d tills implementation är gjord. |
-| [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md) | Målbild/scope-historik. Länka från startlinjen; undvik att använda den som aktiv körplan. |
+| [`2026-04-27-llm-flode-varldsklass-scope.md`](../avklarat/2026-04-27-llm-flode-varldsklass-scope.md) | Flyttad till `avklarat/` 2026-05-01; används som bakgrund, inte aktiv körplan. |
 
 ### Paused per OMTAG `PARKED.md` — ligger i [`./parked/`](./parked/)
 
@@ -72,7 +72,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 
 ## Avklarade waves
 
-- **2026-04-27** — **LLM-flöde världsklass audit-session** (commits `d8525cbd6`…`dded81259`). 9 levererade SAJ-fixes (verifier suppress, manifest codeEntry, rollback till bestContent, needsPhysics regex, FEATURES.escalateMergeSyntaxToLlm, batch quality-gate/repair/readiness/product-postcheck, merge-preflight LLM-repair, abortSignal propagation, hibernate 404). Scope-doc: [`2026-04-27-llm-flode-varldsklass-scope.md`](./2026-04-27-llm-flode-varldsklass-scope.md).
+- **2026-04-27** — **LLM-flöde världsklass audit-session** (commits `d8525cbd6`…`dded81259`). 9 levererade SAJ-fixes (verifier suppress, manifest codeEntry, rollback till bestContent, needsPhysics regex, FEATURES.escalateMergeSyntaxToLlm, batch quality-gate/repair/readiness/product-postcheck, merge-preflight LLM-repair, abortSignal propagation, hibernate 404). Scope-doc: [`2026-04-27-llm-flode-varldsklass-scope.md`](../avklarat/2026-04-27-llm-flode-varldsklass-scope.md).
 - **2026-04-26** — **SEO + F3-promotion** (PR #102 docs + #103 PR-A + #105 PR-B → master `854bb9a31`). `seoPreferencesSchema`, `applyScaffoldSeoDefaults`, GET/PATCH `/api/projects/[id]/preferences`, `SeoOptInPanel`, deploy-time SEO-injection. Arkiverat: [`../avklarat/SEO-F3-PROMOTION-NEXT-PR.md`](../avklarat/SEO-F3-PROMOTION-NEXT-PR.md).
 - **2026-04-24** — **LLM-flöde korplan** (7 waves + PR #101 + PR #103). Arkiverat: [`../avklarat/2026-04-24-llm-flode-korplan/`](../avklarat/2026-04-24-llm-flode-korplan/README.md).
 - **2026-04-24** — **Långbänk-trio: databas + Redis observability** (4 commits över 3 långbänkar). Postgres FK-index (17 saknade applicerade), backoffice "Databashälsa" + "Redis-hälsa"-sidor med audit-loggad APPLY-knapp, 3 strict schemas (db-health/redis-health/audit), schema-drift-test, 19 vitest-tester + 15 backoffice-smoke. Arkiverat: [`../avklarat/master-post-cleanup-2026-04-23/`](../avklarat/master-post-cleanup-2026-04-23/).
