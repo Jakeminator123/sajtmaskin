@@ -123,7 +123,7 @@ Fem read-only granskningar jämförde deep-researchen, `BUG-SWARM-BACKLOG.md` oc
 | P4c | Component-Reference compact format dokumenterat (`compact API/pattern hints`, max 3 referenser, max 8 imports) | `docs/llm/llm-chain-flowchart.md` eller `docs/architecture/fas2-orchestration-and-build.md` |
 | ~~P4d~~ ✅ **FIXAD 2026-05-01** | `data/prompt-dumps/own-engine-codegen/meta.json` innehåller nu `staticCoreChars`, `dynamicChars`, `totalChars` och `separatorFound` så vi snabbt kan korsreferensa run-by-run | `src/lib/gen/prompt-dump.ts` |
 | P4e | Env/F2/F3-sanning behöver doc-sync: `env.example` är dokumentation, preview-host/VM `.env.local` är effektiv runtime, och F3-readiness måste spegla verkliga integrationkrav. | `docs/ENV.md`, `docs/architecture/fas3-preview-and-deploy.md`, BUG-SWARM G#16-G#22 |
-| P4f | UX-status ska skilja preview-materialisering från verifierad version samt visa degraded/silent states när backend-signaler finns. | `Kvarvarande-uppgifter.md` #11, BUG-SWARM G#32/G#35/G#58/U#80/G#60 |
+| P4f | UX-status ska skilja preview-materialisering från verifierad version samt visa degraded/silent states när backend-signaler finns. **Delvis klart 2026-05-01:** VersionHistory har separat runtime/preview-badge och verifieringsbadge. | `Kvarvarande-uppgifter.md` #11, BUG-SWARM G#32/G#35/G#58/U#80/G#60 |
 
 ## Förslag: arbetsfördelning för en till agent
 

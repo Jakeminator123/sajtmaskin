@@ -4,6 +4,7 @@ import {
   isServerVerifyExpectedForLifecycle,
   resolveEngineVersionLifecycleStatus,
   resolveEngineVersionDisplayStatus,
+  resolveEngineVersionVerificationSurfaceStatus,
   canExposeEnginePreview,
   selectPreferredEngineVersion,
   resolveQualityTier,
@@ -105,6 +106,35 @@ describe("resolveEngineVersionDisplayStatus", () => {
     const pending = { verificationState: "pending", versionNumber: 1 };
     const newer = { verificationState: "verifying", versionNumber: 2 };
     expect(resolveEngineVersionDisplayStatus(pending, [pending, newer])).toBe("draft");
+  });
+});
+
+describe("resolveEngineVersionVerificationSurfaceStatus", () => {
+  it("distinguishes F2 design-ready from server-verified", () => {
+    expect(
+      resolveEngineVersionVerificationSurfaceStatus({
+        lifecycleStage: "design",
+        verificationState: "pending",
+      }),
+    ).toBe("design_ready");
+  });
+
+  it("keeps F3 pending as verifying", () => {
+    expect(
+      resolveEngineVersionVerificationSurfaceStatus({
+        lifecycleStage: "integrations",
+        verificationState: "pending",
+      }),
+    ).toBe("verifying");
+  });
+
+  it("reports verified only for passed or promoted rows", () => {
+    expect(resolveEngineVersionVerificationSurfaceStatus({ verificationState: "passed" })).toBe(
+      "verified",
+    );
+    expect(resolveEngineVersionVerificationSurfaceStatus({ releaseState: "promoted" })).toBe(
+      "verified",
+    );
   });
 });
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   isServerVerifyExpectedForLifecycle,
   resolveEngineVersionDisplayStatus,
+  resolveEngineVersionVerificationSurfaceStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
 import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
@@ -601,6 +602,11 @@ export function VersionHistory({
             const willRunServerVerify = isServerVerifyExpectedForLifecycle({
               lifecycleStage: version.lifecycleStage,
             });
+            const verificationSurfaceStatus = resolveEngineVersionVerificationSurfaceStatus({
+              releaseState: version.releaseState,
+              verificationState: version.verificationState,
+              lifecycleStage: version.lifecycleStage,
+            });
             // Postmortem 2026-04-28: F2 design-versioner kör inte server-verify
             // (`design_preview_skip_verify`) — visa "Klar" istället för
             // "Verifying" för dem så UI inte påstår en bakgrundskörning som
@@ -697,6 +703,45 @@ export function VersionHistory({
                   : qualityTier === "preview"
                     ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
                     : undefined;
+            const verificationBadge =
+              verificationSurfaceStatus === "verified"
+                ? {
+                    label: "Verifierad",
+                    title: "Server-verify eller promotion har passerat för denna version.",
+                    className:
+                      "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+                  }
+                : verificationSurfaceStatus === "design_ready"
+                  ? {
+                      label: "Design redo",
+                      title:
+                        "F2-designversion: preview kan vara materialiserad, men server-verify körs först i F3.",
+                      className:
+                        "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+                    }
+                  : verificationSurfaceStatus === "verifying"
+                    ? {
+                        label: "Verifierar",
+                        title: "Server-verify kör fortfarande för denna version.",
+                        className:
+                          "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+                      }
+                    : verificationSurfaceStatus === "repair_available"
+                      ? {
+                          label: "Fix redo",
+                          title:
+                            "Serverreparation finns men är inte accepterad ännu.",
+                          className:
+                            "border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+                        }
+                      : verificationSurfaceStatus === "failed"
+                        ? {
+                            label: "Ej verifierad",
+                            title: "Verifiering hittade blockerande fel.",
+                            className:
+                              "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300",
+                          }
+                        : null;
             const runtimeStatusForRow =
               isSelected && isEngineVersionRow ? selectedPreviewStatus?.status ?? null : null;
             const runtimeBadge =
@@ -785,8 +830,18 @@ export function VersionHistory({
                           <Badge
                             variant="outline"
                             className={cn("px-1.5 py-0 text-[10px]", qualityTierBadgeClass)}
+                            title="Runtime/preview-status: detta säger att en preview-URL eller VM-yta finns, inte att versionen är server-verifierad."
                           >
                             {qualityTierLabel}
+                          </Badge>
+                        )}
+                        {isEngineVersionRow && verificationBadge && (
+                          <Badge
+                            variant="outline"
+                            className={cn("px-1.5 py-0 text-[10px]", verificationBadge.className)}
+                            title={verificationBadge.title}
+                          >
+                            {verificationBadge.label}
                           </Badge>
                         )}
                         {runtimeBadge && (

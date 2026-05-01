@@ -85,6 +85,14 @@ export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retryin
 
 export type QualityTier = "none" | "preview" | "tier2" | "production";
 
+export type EngineVersionVerificationSurfaceStatus =
+  | "verified"
+  | "design_ready"
+  | "verifying"
+  | "repair_available"
+  | "failed"
+  | "unverified";
+
 export function resolveQualityTier(
   version: EngineVersionLifecycleLike | null | undefined,
   opts?: { hasDemoUrl?: boolean; hasTier2LivePreviewUrl?: boolean; sandboxPassed?: boolean },
@@ -161,6 +169,22 @@ export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecyc
   }
 
   return lifecycleStatus;
+}
+
+export function resolveEngineVersionVerificationSurfaceStatus(
+  version: EngineVersionLifecycleLike | null | undefined,
+): EngineVersionVerificationSurfaceStatus {
+  if (!version) return "unverified";
+  const lifecycleStatus = resolveEngineVersionLifecycleStatus(version);
+  if (lifecycleStatus === "promoted") return "verified";
+  if (lifecycleStatus === "failed") return "failed";
+  if (lifecycleStatus === "repair_available") return "repair_available";
+  if (lifecycleStatus === "repairing" || lifecycleStatus === "verifying") {
+    return isServerVerifyExpectedForLifecycle(version) ? "verifying" : "design_ready";
+  }
+  const verificationState = version.verificationState ?? version.verification_state ?? null;
+  if (verificationState === "passed") return "verified";
+  return "unverified";
 }
 
 export function canExposeEnginePreview(
