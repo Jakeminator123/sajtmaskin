@@ -84,6 +84,8 @@ export default function OgImage() {
 
         <div
           style={{
+            display: "flex",
+            flexDirection: "column",
             fontSize: 28,
             color: "rgba(255,255,255,0.7)",
             textAlign: "center",
