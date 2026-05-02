@@ -716,9 +716,12 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
       versionId: null,
       messageId: null,
       previewUrl: null,
-      awaitingInput: false,
-      reason: "done_empty_output",
+      awaitingInput: true,
+      reason: "tool_only_empty_generation",
       toolCalls: ["suggestIntegration"],
     });
+    expect(String((doneEvent?.data as Record<string, unknown>)?.awaitingInputPrompt)).toContain(
+      "Integrationer signalerades",
+    );
   });
 });

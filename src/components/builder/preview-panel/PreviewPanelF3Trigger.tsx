@@ -43,7 +43,10 @@ export interface PreviewPanelF3TriggerProps {
 
 type FinalizeDesignResponse = {
   ready: boolean;
+  reason?: string;
   parentVersionId?: string;
+  requestedVersionId?: string;
+  latestVersionId?: string;
   requirements?: Array<{
     key: string;
     name: string;
@@ -142,6 +145,16 @@ export function PreviewPanelF3Trigger({
       );
 
       const data = (await res.json().catch(() => ({}))) as FinalizeDesignResponse;
+
+      if (res.status === 409 && data.reason === "stale_design_version") {
+        toast.warning("Nyare designversion finns", {
+          description:
+            data.message ??
+            "Välj den senaste versionen i versionspanelen innan du bygger integrationer.",
+          duration: 8000,
+        });
+        return;
+      }
 
       if (res.status === 412 && data.parentVersionId) {
         const missing = data.missingByIntegration ?? [];
