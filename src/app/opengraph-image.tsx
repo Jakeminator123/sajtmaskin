@@ -86,6 +86,7 @@ export default function OgImage() {
           style={{
             display: "flex",
             flexDirection: "column",
+            alignItems: "center",
             fontSize: 28,
             color: "rgba(255,255,255,0.7)",
             textAlign: "center",
@@ -93,9 +94,8 @@ export default function OgImage() {
             lineHeight: 1.4,
           }}
         >
-          AI-driven webbplatsgenerering.
-          <br />
-          Skapa professionella webbplatser på minuter.
+          <span>AI-driven webbplatsgenerering.</span>
+          <span>Skapa professionella webbplatser på minuter.</span>
         </div>
 
         <div
