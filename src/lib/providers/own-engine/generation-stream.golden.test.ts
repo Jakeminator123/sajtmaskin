@@ -35,6 +35,7 @@ vi.mock("@/lib/utils/debug", () => ({
 }));
 
 import { createOwnEngineGenerationStream } from "./generation-stream";
+import { devLogAppend } from "@/lib/logging/devLog";
 
 async function collectSseEvents(stream: ReadableStream<Uint8Array>): Promise<
   Array<{ event: string; data: unknown }>
@@ -256,5 +257,85 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       accumulatedThinking?: string | null;
     };
     expect(finalizeArg.accumulatedThinking).toBe("I picked the hero scaffold because…");
+  });
+
+  it("turns tool-only suggestIntegration output into explicit awaiting input", async () => {
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_tool_only", null),
+    );
+    const pipelinePayload =
+      formatSSEEvent("tool-call", {
+        toolName: "suggestIntegration",
+        args: {
+          provider: "stripe",
+          name: "Stripe",
+          envVars: ["STRIPE_SECRET_KEY"],
+        },
+      }) +
+      formatSSEEvent("done", { promptTokens: 2, completionTokens: 1 });
+
+    const out = createOwnEngineGenerationStream({
+      chatId: "chat_tool_only",
+      pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
+      meta: {
+        modelId: "gpt-5.4",
+        modelTier: "pro",
+        buildProfileId: "default",
+        buildProfileLabel: "Default",
+        enginePath: "own-engine",
+        thinking: false,
+      },
+      engineModel: "gpt-5.4",
+      optimizedMessage: "bygg integrationer",
+      engineIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "followUp",
+        changeScope: "local-layout",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      },
+      routePlan: null,
+      resolvedScaffold: null,
+      urlMap: {},
+      commitCredits,
+    });
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((event) => event.event === "done")?.data as Record<
+      string,
+      unknown
+    >;
+
+    expect(doneData.versionId).toBeNull();
+    expect(doneData.awaitingInput).toBe(true);
+    expect(doneData.reason).toBe("tool_only_empty_generation");
+    expect(doneData.toolCalls).toEqual(["suggestIntegration"]);
+    expect(String(doneData.awaitingInputPrompt)).toContain("Integrationer signalerades");
+    expect(events.some((event) => event.event === "integration")).toBe(true);
+    expect(events.some((event) => event.event === "content")).toBe(true);
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "site.awaiting_input",
+        chatId: "chat_tool_only",
+        reason: "tool_only_empty_generation",
+        toolCalls: ["suggestIntegration"],
+      }),
+    );
   });
 });

@@ -328,6 +328,36 @@ describe("buildCompleteProject", () => {
     expect(pkg.dependencies["@radix-ui/react-dialog"]).toBeDefined();
   });
 
+  it("pins tier-3 SDK imports restored from dossiers before project sanity", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/api/checkout-session/route.ts",
+        content: `import Stripe from "stripe";\nexport async function POST() { return Response.json({ ok: Boolean(Stripe) }); }`,
+        language: "ts",
+      },
+      {
+        path: "components/clerk-provider-shell.tsx",
+        content: `import { ClerkProvider } from "@clerk/nextjs";\nexport function ClerkProviderShell({ children }: { children: React.ReactNode }) { return <ClerkProvider>{children}</ClerkProvider>; }`,
+        language: "tsx",
+      },
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <main>Checkout</main>; }`,
+        language: "tsx",
+      },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
+      dependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies.stripe).toBeDefined();
+    expect(pkg.dependencies["@clerk/nextjs"]).toBeDefined();
+    const sanity = runProjectSanityChecks(files);
+    expect(sanity.issues.filter((issue) => issue.category === "dependency_install_failure")).toEqual([]);
+  });
+
   it("ships a minimal eslint flat config for generated Next projects", () => {
     const generated: CodeFile[] = [
       { path: "package.json", content: "{}", language: "json" },

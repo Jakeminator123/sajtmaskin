@@ -93,8 +93,8 @@ public/images/
 *.webm
 
 # --- Logs ---
-logs/**
-!logs/
+#logs/**
+#!logs/
 !logs/generationslogg/
 !logs/generationslogg/_latest.txt
 !logs/generationslogg/**/

@@ -10,6 +10,7 @@ import { inferPreGenerationContracts } from "@/lib/gen/contract/pre-generation-c
 import { buildRoutePlan } from "@/lib/gen/route-plan";
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
 import { buildGenerationInputPackage } from "@/lib/gen/orchestrate/generation-package";
+import { filterDossierCapabilitiesForPrompt } from "@/lib/gen/orchestrate";
 
 const minimalCapabilities: InferredCapabilities = {
   needsMotion: false,
@@ -89,6 +90,30 @@ describe("orchestration integration (matchScaffold → deriveBuildSpec)", () => 
     expect(emptyContracts.contracts.envVars).toEqual([]);
     expect(emptyContracts.unresolvedDecisions).toEqual([]);
     expect(emptyContracts.confirmedAnswers).toEqual([]);
+  });
+
+  it("keeps hard integration dossiers out of F2 design generations", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["payments", "auth", "ai-chat", "carousel", "visual-3d"],
+      prompt: "Bygg en e-handel med bildkarusell och en snygg 3D-produkt.",
+      previewPolicy: "fidelity2",
+    });
+
+    expect(result).not.toContain("payments");
+    expect(result).not.toContain("auth");
+    expect(result).not.toContain("ai-chat");
+    expect(result).toContain("carousel");
+    expect(result).toContain("visual-3d");
+  });
+
+  it("allows hard integration dossiers in explicit F3 integrations builds", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["payments", "auth", "ai-chat", "carousel"],
+      prompt: "Bygg integrationer för betalning, inloggning och chat.",
+      previewPolicy: "fidelity3",
+    });
+
+    expect(result).toEqual(["payments", "auth", "ai-chat"]);
   });
 
   it("deriveBuildSpec works with explicit emptyContracts and buildRoutePlan", () => {

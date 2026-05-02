@@ -126,6 +126,10 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "visx": "^3",
   "mathjs": "^13",
   "katex": "^0.16",
+  "stripe": "^20",
+  "@stripe/stripe-js": "^8",
+  "@clerk/nextjs": "^6",
+  "resend": "^6",
 };
 
 /**

@@ -161,6 +161,7 @@ export function createOwnEngineGenerationStream(
       const toolCallNames = new Set<string>();
       let sawBlockingToolCall = false;
       const suspense = new SuspenseLineProcessor(undefined, { urlMap });
+      const toolOnlyIntegrationTools = new Set(["suggestIntegration", "requestEnvVar"]);
 
       const safeEnqueue = (data: Uint8Array) => {
         if (engineControllerClosed) return;
@@ -189,7 +190,7 @@ export function createOwnEngineGenerationStream(
 
       const finishWithoutVersion = async (
         reason: string,
-        options?: { userMessage?: string; awaitingInput?: boolean },
+        options?: { userMessage?: string; awaitingInput?: boolean; awaitingInputPrompt?: string },
       ) => {
         didSendDone = true;
         const toolCalls = Array.from(toolCallNames);
@@ -211,6 +212,9 @@ export function createOwnEngineGenerationStream(
               messageId: null,
               ...previewUrlField(null),
               awaitingInput,
+              ...(options?.awaitingInputPrompt
+                ? { awaitingInputPrompt: options.awaitingInputPrompt }
+                : {}),
               toolCalls,
               reason,
             }),
@@ -222,6 +226,7 @@ export function createOwnEngineGenerationStream(
           chatId,
           reason,
           toolCalls,
+          awaitingInputPrompt: options?.awaitingInputPrompt ?? null,
           message: options?.userMessage ?? null,
         });
         devLogFinalizeSite();
@@ -236,6 +241,20 @@ export function createOwnEngineGenerationStream(
           reason,
           toolCalls,
         });
+
+        const hasOnlyIntegrationToolCalls =
+          toolCalls.length > 0 && toolCalls.every((name) => toolOnlyIntegrationTools.has(name));
+
+        if (hasOnlyIntegrationToolCalls) {
+          const awaitingInputPrompt =
+            "Integrationer signalerades, men modellen skrev inga kodfiler. Välj om du vill köra integrationsbygget igen eller fortsätta med designversionen.";
+          await finishWithoutVersion("tool_only_empty_generation", {
+            awaitingInput: true,
+            awaitingInputPrompt,
+            userMessage: awaitingInputPrompt,
+          });
+          return;
+        }
 
         if (toolCalls.length > 0) {
           await finishWithoutVersion(reason, { awaitingInput: sawBlockingToolCall });

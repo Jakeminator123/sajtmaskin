@@ -6,6 +6,7 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { normalizeAssistModel } from "@/lib/builder/prompt-assist";
 import {
+  buildBriefTrace,
   briefRequestSchema,
   generateSiteBriefObject,
   validateBriefModelForHttp,
@@ -27,7 +28,11 @@ type CachedBriefPayload = {
   provider: "openai" | "anthropic";
 };
 
-function buildBriefHeaders(payload: CachedBriefPayload, cacheState: "hit" | "miss" | "skip"): Record<string, string> {
+function buildBriefHeaders(
+  payload: CachedBriefPayload,
+  cacheState: "hit" | "miss" | "skip",
+  trace: ReturnType<typeof buildBriefTrace>,
+): Record<string, string> {
   return {
     "Cache-Control": "no-store",
     "X-Provider": payload.provider === "anthropic" ? "anthropic" : "openai",
@@ -35,6 +40,9 @@ function buildBriefHeaders(payload: CachedBriefPayload, cacheState: "hit" | "mis
       payload.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY",
     "X-Brief-Quality": payload.briefQuality,
     "X-Brief-Cache": cacheState,
+    "X-Brief-Trace-Id": trace.traceId,
+    "X-Brief-Prompt-Hash": trace.promptHash,
+    "X-Brief-Source": trace.source,
   };
 }
 
@@ -65,6 +73,14 @@ export async function POST(req: Request) {
       const { prompt, provider, model, temperature, imageGenerations, maxTokens, source } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const briefSource = source?.trim() || "unspecified_client";
+      const trace = buildBriefTrace({
+        source: briefSource,
+        prompt,
+        modelId: normalizedModel,
+        imageGenerations,
+        temperature,
+        maxTokens,
+      });
 
       const validationError = validateBriefModelForHttp(normalizedModel, provider);
       if (validationError) {
@@ -99,9 +115,12 @@ export async function POST(req: Request) {
               type: "brief-cache.hit",
               chatId: cacheKey.chatId,
               modelId: cacheKey.modelId,
+              source: trace.source,
+              traceId: trace.traceId,
+              promptHash: trace.promptHash,
             });
             return NextResponse.json(payload.brief, {
-              headers: buildBriefHeaders(payload, "hit"),
+              headers: buildBriefHeaders(payload, "hit", trace),
             });
           }
         }
@@ -148,13 +167,16 @@ export async function POST(req: Request) {
             type: "brief-cache.miss",
             chatId: cacheKey.chatId,
             modelId: cacheKey.modelId,
+            source: result.trace.source,
+            traceId: result.trace.traceId,
+            promptHash: result.trace.promptHash,
           });
           await writeBriefCache(cacheKey, payload);
         }
 
         const cacheState = FEATURES.useRedisCache ? "miss" : "skip";
         return NextResponse.json(brief, {
-          headers: buildBriefHeaders(payload, cacheState),
+          headers: buildBriefHeaders(payload, cacheState, result.trace),
         });
       } catch (briefErr) {
         const errMsg = briefErr instanceof Error ? briefErr.message : String(briefErr);

@@ -16,7 +16,7 @@ import {
 } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { shouldRunServerAutoBrief } from "@/lib/builder/server-auto-brief-policy";
-import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
+import { tryGenerateServerAutoBrief, type BriefTrace } from "@/lib/builder/site-brief-generation";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/devLog";
@@ -243,6 +243,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
       let serverAutoBrief: Record<string, unknown> | null = null;
       let serverAutoBriefModel: string | null = null;
+      let serverAutoBriefTrace: BriefTrace | null = null;
       if (
         !simpleWebsitePath.enabled &&
         shouldRunServerAutoBrief({
@@ -266,13 +267,31 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         if (generated) {
           serverAutoBrief = generated.brief;
           serverAutoBriefModel = generated.modelUsed;
+          serverAutoBriefTrace = generated.trace;
           debugLog("orchestration", "Server auto brief applied", {
             durationMs: Date.now() - autoBriefStartedAt,
             modelUsed: serverAutoBriefModel,
+            traceId: serverAutoBriefTrace.traceId,
+            promptHash: serverAutoBriefTrace.promptHash,
+            pages: Array.isArray(serverAutoBrief?.pages) ? serverAutoBrief.pages.length : 0,
+          });
+          devLogAppend("in-progress", {
+            type: "orchestration.server_auto_brief",
+            status: "applied",
+            source: serverAutoBriefTrace.source,
+            model: serverAutoBriefModel,
+            traceId: serverAutoBriefTrace.traceId,
+            promptHash: serverAutoBriefTrace.promptHash,
+            durationMs: Date.now() - autoBriefStartedAt,
             pages: Array.isArray(serverAutoBrief?.pages) ? serverAutoBrief.pages.length : 0,
           });
         } else {
           debugLog("orchestration", "Server auto brief skipped or returned empty", {
+            durationMs: Date.now() - autoBriefStartedAt,
+          });
+          devLogAppend("in-progress", {
+            type: "orchestration.server_auto_brief",
+            status: "skipped_or_empty",
             durationMs: Date.now() - autoBriefStartedAt,
           });
         }
@@ -306,6 +325,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 copy.serverAutoBriefGenerated = Boolean(serverAutoBrief);
                 copy.briefQuality = briefQuality;
                 if (serverAutoBriefModel) copy.serverAutoBriefModel = serverAutoBriefModel;
+                if (serverAutoBriefTrace) {
+                  copy.serverAutoBriefTraceId = serverAutoBriefTrace.traceId;
+                  copy.serverAutoBriefPromptHash = serverAutoBriefTrace.promptHash;
+                }
                 return Object.keys(copy).length > 0 ? copy : null;
               })()
             : {
@@ -320,6 +343,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 serverAutoBriefGenerated: Boolean(serverAutoBrief),
                 briefQuality,
                 ...(serverAutoBriefModel ? { serverAutoBriefModel } : {}),
+                ...(serverAutoBriefTrace
+                  ? {
+                      serverAutoBriefTraceId: serverAutoBriefTrace.traceId,
+                      serverAutoBriefPromptHash: serverAutoBriefTrace.promptHash,
+                    }
+                  : {}),
               };
         const metaObj = meta && typeof meta === "object" ? (meta as Record<string, unknown>) : null;
         const promptOriginal =

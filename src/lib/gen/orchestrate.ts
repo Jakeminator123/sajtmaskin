@@ -305,8 +305,16 @@ function explicitlyRequestsContactDelivery(prompt: string): boolean {
 }
 
 function explicitlyRequestsCarousel(prompt: string): boolean {
-  return /\b(carousel|slider|slideshow|swipe|embla|karusell|bildspel|hero[-\s]?slider|produktkarusell)\b/i.test(prompt);
+  return /\b(carousel|slider|slideshow|swipe|embla|karusell|bildkarusell|bildspel|hero[-\s]?slider|produktkarusell)\b/i.test(prompt);
 }
+
+const F3_ONLY_DOSSIER_CAPABILITIES = new Set([
+  "ai-chat",
+  "analytics",
+  "auth",
+  "error-tracking",
+  "payments",
+]);
 
 export function filterDossierCapabilitiesForPrompt(params: {
   capabilities: string[];
@@ -314,6 +322,12 @@ export function filterDossierCapabilitiesForPrompt(params: {
   previewPolicy: BuildSpec["previewPolicy"];
 }): string[] {
   return params.capabilities.filter((capability) => {
+    if (
+      params.previewPolicy !== "fidelity3" &&
+      F3_ONLY_DOSSIER_CAPABILITIES.has(capability)
+    ) {
+      return false;
+    }
     if (
       capability === "contact-form" &&
       params.previewPolicy !== "fidelity3" &&

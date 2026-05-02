@@ -30,6 +30,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | # | Plan | Kvarvarande steg | Prio |
 |---|------|------------------|------|
 | O | [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) | **P0–P4 masterplan**: verifier-status, init/follow-up-konsistens, major-change detector, F3/readiness, latency, UX/status, env/doc-sync och backlog-koppling. | **Hög (anchor för nästa runda)** |
+| R | [`2026-05-02-builder-followup-preview-incident.md`](./2026-05-02-builder-followup-preview-incident.md) | **Incident child-plan**: stale follow-up/F3-basversion, tool-only `suggestIntegration`, Stripe/Clerk dependency-preflight och preview-session/version-mismatch efter restart. | **Hög (nästa smala fixrunda)** |
 | P | [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) | **Child-plan till O**: Core Rules + follow-up Dynamic Context ska kapas utan nya promptlager. Kvar: Core Rules under ~35k och normal follow-up under ~45k. | Hög |
 | A | [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | **C2** — aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Vercel Preview via Dashboard. **D** — aktivera i prod efter latens. **E** — ta bort lint från bakgrundsgate. | Medel |
 | B | [`cloudagent-paket-A-doc-rewrite.md`](./cloudagent-paket-A-doc-rewrite.md) | 3 dossier v1→v2 doc-omskrivningar (D3, D5, D7) — redo för cloudagent. | Låg |
@@ -60,7 +61,7 @@ Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`)
 | I | [`parked/L3-dossier-variants.md`](./parked/L3-dossier-variants.md) | M2 + observationstid |
 | J | [`parked/P32-request-type-taxonomy.md`](./parked/P32-request-type-taxonomy.md) Fas B–F | Stabil follow-up-semantik (✅) + bredare eval-surface |
 
-**Summa aktivt öppet arbete:** O/P + A-F + Q + L/M/N (icke-parkerat) ≈ 1-2 veckor; **O** är startlinje 2026-04-28 och konsoliderar nästa rundas LLM-flöde-arbete.
+**Summa aktivt öppet arbete:** O/R/P + A-F + Q + L/M/N (icke-parkerat) ≈ 1-2 veckor; **O** är startlinje 2026-04-28 och konsoliderar LLM-flöde-arbete, medan **R** bär 2026-05-02-incidentens smala fixrunda.
 
 **Städat 2026-04-27:** `2026-04-24-llm-flode-korplan/` (alla 7 waves via PR #101+103 ✅) + `SEO-F3-PROMOTION-NEXT-PR.md` (PR-A #103 + PR-B #105 ✅) → arkiverade i [`../avklarat/`](../avklarat/).
 

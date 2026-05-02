@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { briefRequestSchema, simplifiedBriefSchema, siteBriefSchema } from "./site-brief-generation";
+import {
+  briefRequestSchema,
+  buildBriefTrace,
+  simplifiedBriefSchema,
+  siteBriefSchema,
+} from "./site-brief-generation";
 
 describe("siteBriefSchema", () => {
   it("accepts canonical init signals consumed by orchestration", () => {
@@ -83,5 +88,48 @@ describe("siteBriefSchema", () => {
   it("keeps request defaults for the HTTP brief entrypoint", () => {
     const parsed = briefRequestSchema.parse({ prompt: "Bygg en sajt" });
     expect(parsed.imageGenerations).toBe(true);
+  });
+});
+
+describe("buildBriefTrace", () => {
+  it("creates stable trace ids for equivalent brief inputs", () => {
+    const a = buildBriefTrace({
+      source: "dynamic_instructions",
+      prompt: "  En sajt för pizzaälskare  ",
+      modelId: "openai/gpt-5.4",
+      imageGenerations: true,
+      temperature: 0.2,
+      maxTokens: 8000,
+    });
+    const b = buildBriefTrace({
+      source: "dynamic_instructions",
+      prompt: "En sajt för pizzaälskare",
+      modelId: "openai/gpt-5.4",
+      imageGenerations: true,
+      temperature: 0.2,
+      maxTokens: 8000,
+    });
+
+    expect(a).toEqual(b);
+    expect(a.promptHash).toHaveLength(24);
+    expect(a.traceId).toBe(`brief:dynamic_instructions:openai/gpt-5.4:${a.promptHash}`);
+  });
+
+  it("separates client and server auto brief sources for GPT-log correlation", () => {
+    const base = {
+      prompt: "En sajt för pizzaälskare",
+      modelId: "openai/gpt-5.4",
+      imageGenerations: true,
+      temperature: 0.2,
+      maxTokens: 8000,
+    };
+
+    const client = buildBriefTrace({ ...base, source: "dynamic_instructions" });
+    const server = buildBriefTrace({ ...base, source: "server_auto_brief" });
+
+    expect(client.promptHash).toBe(server.promptHash);
+    expect(client.traceId).not.toBe(server.traceId);
+    expect(client.source).toBe("dynamic_instructions");
+    expect(server.source).toBe("server_auto_brief");
   });
 });

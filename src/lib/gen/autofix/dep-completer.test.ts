@@ -182,9 +182,31 @@ describe("dep-completer", () => {
   it("injects dependencies declared by selected dossier manifests", () => {
     const deps = resolveCapabilityDependencies(["payments", "auth", "contact-form"]);
 
-    expect(deps.stripe).toBe("latest");
-    expect(deps["@stripe/stripe-js"]).toBe("latest");
-    expect(deps["@clerk/nextjs"]).toBe("latest");
-    expect(deps.resend).toBe("latest");
+    expect(deps.stripe).toBe(KNOWN_PACKAGES.stripe);
+    expect(deps["@stripe/stripe-js"]).toBe(KNOWN_PACKAGES["@stripe/stripe-js"]);
+    expect(deps["@clerk/nextjs"]).toBe(KNOWN_PACKAGES["@clerk/nextjs"]);
+    expect(deps.resend).toBe(KNOWN_PACKAGES.resend);
+  });
+
+  it("pins tier-3 SDK imports detected in restored dossier files", () => {
+    const result = runDepCompleter(
+      [
+        'import Stripe from "stripe";',
+        'import { loadStripe } from "@stripe/stripe-js";',
+        'import { ClerkProvider } from "@clerk/nextjs";',
+        'import { Resend } from "resend";',
+      ].join("\n"),
+    );
+
+    expect(result.dependencies).toMatchObject({
+      stripe: KNOWN_PACKAGES.stripe,
+      "@stripe/stripe-js": KNOWN_PACKAGES["@stripe/stripe-js"],
+      "@clerk/nextjs": KNOWN_PACKAGES["@clerk/nextjs"],
+      resend: KNOWN_PACKAGES.resend,
+    });
+    expect(result.unknownPackages).not.toContain("stripe");
+    expect(result.unknownPackages).not.toContain("@stripe/stripe-js");
+    expect(result.unknownPackages).not.toContain("@clerk/nextjs");
+    expect(result.unknownPackages).not.toContain("resend");
   });
 });

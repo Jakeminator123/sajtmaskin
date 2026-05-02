@@ -10,6 +10,7 @@ import type { InitBriefOptions } from "@/lib/hooks/prompt-assist-types";
 import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/palette";
 import {
   useCallback,
+  useRef,
   useState,
   type Dispatch,
   type MutableRefObject,
@@ -105,6 +106,7 @@ export function useBuilderPromptActions({
   applyAppProjectId: _applyAppProjectId,
 }: Args) {
   const [templateSwitchDialog, setTemplateSwitchDialog] = useState<TemplateSwitchDialogState>(null);
+  const createPreparationInFlightRef = useRef(false);
 
   const applyTemplateSwitch = useCallback(
     (templateId: string) => {
@@ -215,17 +217,45 @@ export function useBuilderPromptActions({
 
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
-      setEntryIntentActive(false);
-      const userInstructions = await applyDynamicInstructionsForNewChat(message);
-      // Dynamic path sets pendingInstructionsRef synchronously to `combined`; captureInstructionSnapshot
-      // would overwrite it with stale `customInstructions` from the previous render (setState is async).
-      if (userInstructions == null) {
-        captureInstructionSnapshot();
+      const isNewChat = !chatId;
+      if (
+        isNewChat &&
+        (createPreparationInFlightRef.current || isPreparingPrompt || isCreatingChat || isAnyStreaming)
+      ) {
+        toast("En skapning förbereds redan. Vänta en stund och försök igen.");
+        return false;
       }
-      const systemOverride = userInstructions?.trim() ? userInstructions.trim() : undefined;
-      return await createNewChat(message, options, systemOverride);
+
+      if (isNewChat) {
+        createPreparationInFlightRef.current = true;
+      }
+
+      setEntryIntentActive(false);
+      try {
+        const userInstructions = await applyDynamicInstructionsForNewChat(message);
+        // Dynamic path sets pendingInstructionsRef synchronously to `combined`; captureInstructionSnapshot
+        // would overwrite it with stale `customInstructions` from the previous render (setState is async).
+        if (userInstructions == null) {
+          captureInstructionSnapshot();
+        }
+        const systemOverride = userInstructions?.trim() ? userInstructions.trim() : undefined;
+        return await createNewChat(message, options, systemOverride);
+      } finally {
+        if (isNewChat) {
+          createPreparationInFlightRef.current = false;
+        }
+      }
     },
-    [createNewChat, captureInstructionSnapshot, applyDynamicInstructionsForNewChat, setEntryIntentActive],
+    [
+      applyDynamicInstructionsForNewChat,
+      captureInstructionSnapshot,
+      chatId,
+      createNewChat,
+      isAnyStreaming,
+      isCreatingChat,
+      isPreparingPrompt,
+      setEntryIntentActive,
+    ],
   );
 
   const handleStartFromRegistry = useCallback(

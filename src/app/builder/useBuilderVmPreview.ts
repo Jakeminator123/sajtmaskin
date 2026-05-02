@@ -24,6 +24,17 @@ function isLegacyMappedChatRecord(chat: unknown): boolean {
   return Boolean(c?.v0ChatId);
 }
 
+export function hasMatchingPreviewSessionMeta(
+  meta: { previewSessionId: string; versionId: string } | null | undefined,
+  versionId: string | null | undefined,
+): boolean {
+  return Boolean(
+    versionId?.trim() &&
+      meta?.versionId === versionId &&
+      meta.previewSessionId.trim(),
+  );
+}
+
 export type UseBuilderVmPreviewParams = {
   isAuthenticated: boolean;
   chatId: string | null;
@@ -200,13 +211,13 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
 
     const key = `${chatId}:${activeVersionId}`;
     const isForcedRestart = forcedPreviewRestartKey === key;
+    const hasMatchingSession = hasMatchingPreviewSessionMeta(
+      activePreviewSessionMeta,
+      activeVersionId,
+    );
     if (previewBootstrapDoneKeysRef.current.has(key) && !isForcedRestart) return;
 
-    if (
-      !isForcedRestart &&
-      activePreviewSessionMeta?.versionId === activeVersionId &&
-      activePreviewSessionMeta.previewSessionId
-    ) {
+    if (!isForcedRestart && hasMatchingSession) {
       previewBootstrapDoneKeysRef.current.add(key);
       return;
     }
@@ -219,11 +230,14 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
       previewBootstrapDoneKeysRef.current.add(key);
       return;
     }
-    if (versionSummaryHasPreview(activeMatch, { allowFailed: isForcedRestart })) {
+    if (
+      versionSummaryHasPreview(activeMatch, { allowFailed: isForcedRestart }) &&
+      hasMatchingSession
+    ) {
       if (!isForcedRestart) return;
     }
 
-    if (!isShimOrMissingPreviewUrl(currentPreviewUrl) && !isForcedRestart) {
+    if (!isShimOrMissingPreviewUrl(currentPreviewUrl) && !isForcedRestart && hasMatchingSession) {
       previewBootstrapDoneKeysRef.current.add(key);
       queueMicrotask(() => setPreviewPending(false));
       return;

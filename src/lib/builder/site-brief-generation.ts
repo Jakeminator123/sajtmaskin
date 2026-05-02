@@ -2,6 +2,7 @@
  * Shared Deep Brief (structured site brief) generation for `/api/ai/brief`
  * and server-side auto-brief in create-chat streams.
  */
+import { createHash } from "node:crypto";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
@@ -58,6 +59,49 @@ function resolveMaxTokens(requested: number | undefined): number {
 function normalizeBriefLogSource(source: string | undefined): string {
   const normalized = source?.trim();
   return normalized ? normalized : "unspecified";
+}
+
+export type BriefTrace = {
+  source: string;
+  promptHash: string;
+  traceId: string;
+};
+
+function stableTracePayload(input: Record<string, unknown>): string {
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(input).sort()) {
+    sorted[key] = input[key] ?? null;
+  }
+  return JSON.stringify(sorted);
+}
+
+export function buildBriefTrace(input: {
+  source?: string;
+  prompt: string;
+  modelId: string;
+  imageGenerations: boolean;
+  temperature?: number;
+  maxTokens?: number;
+}): BriefTrace {
+  const source = normalizeBriefLogSource(input.source);
+  const promptHash = createHash("sha256")
+    .update(
+      stableTracePayload({
+        prompt: input.prompt.trim(),
+        imageGenerations: input.imageGenerations,
+        temperature: typeof input.temperature === "number" ? input.temperature : null,
+        maxTokens: typeof input.maxTokens === "number" ? input.maxTokens : null,
+      }),
+      "utf8",
+    )
+    .digest("hex")
+    .slice(0, 24);
+
+  return {
+    source,
+    promptHash,
+    traceId: `brief:${source}:${input.modelId}:${promptHash}`,
+  };
 }
 
 const sectionTypeSchema = z.enum([
@@ -313,6 +357,7 @@ export type SiteBriefGenerationResult = {
   usedSimplified: boolean;
   provider: "openai" | "anthropic";
   normalizedModel: string;
+  trace: BriefTrace;
 };
 
 export type SiteBriefHttpError = {
@@ -435,9 +480,19 @@ export async function generateSiteBriefObject(
         : ENV_MAX_TOKENS;
   const outputTokenCap = Math.min(maxTokens, dynamicMaxTokens);
   const briefSource = normalizeBriefLogSource(source);
+  const trace = buildBriefTrace({
+    source: briefSource,
+    prompt,
+    modelId: normalizedModel,
+    imageGenerations,
+    temperature,
+    maxTokens: requestedMaxTokens,
+  });
 
   debugLog("AI", "Brief model call started (same request, direct provider)", {
     source: briefSource,
+    traceId: trace.traceId,
+    promptHash: trace.promptHash,
     provider: logProvider,
     transport: "direct_provider_api",
     sdk: "ai",
@@ -453,6 +508,8 @@ export async function generateSiteBriefObject(
   devLogAppend("latest", {
     type: "assist.brief.request",
     source: briefSource,
+    traceId: trace.traceId,
+    promptHash: trace.promptHash,
     provider: logProvider,
     model: normalizedModel,
     prompt,
@@ -517,6 +574,9 @@ export async function generateSiteBriefObject(
     const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
     devLogAppend("latest", {
       type: "assist.brief.response",
+      source: briefSource,
+      traceId: trace.traceId,
+      promptHash: trace.promptHash,
       provider: "anthropic",
       model: normalizedModel,
       schema: usedSimplified ? "simplified" : "full",
@@ -528,6 +588,7 @@ export async function generateSiteBriefObject(
       usedSimplified,
       provider: "anthropic",
       normalizedModel,
+      trace,
     };
   }
 
@@ -585,6 +646,9 @@ export async function generateSiteBriefObject(
   const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
   devLogAppend("latest", {
     type: "assist.brief.response",
+    source: briefSource,
+    traceId: trace.traceId,
+    promptHash: trace.promptHash,
     provider: "openai",
     model: normalizedModel,
     schema: usedSimplified ? "simplified" : "full",
@@ -596,6 +660,7 @@ export async function generateSiteBriefObject(
     usedSimplified,
     provider: "openai",
     normalizedModel,
+    trace,
   };
 }
 
@@ -635,7 +700,7 @@ export async function tryGenerateServerAutoBrief(params: {
    *  clear-redesign follow-ups to preserve brand/structure while allowing
    *  visual changes. */
   priorDesignContext?: string;
-}): Promise<{ brief: Record<string, unknown>; modelUsed: string } | null> {
+}): Promise<{ brief: Record<string, unknown>; modelUsed: string; trace: BriefTrace } | null> {
   const normalized = normalizeAssistModel(
     params.assistModelHint?.trim() || AUTO_BRIEF_MODEL_OPENAI,
   );
@@ -643,7 +708,7 @@ export async function tryGenerateServerAutoBrief(params: {
   if (!runnable) return null;
 
   try {
-    const { brief, normalizedModel } = await generateSiteBriefObject({
+    const { brief, normalizedModel, trace } = await generateSiteBriefObject({
       prompt: params.prompt,
       normalizedModel: runnable,
       imageGenerations: params.imageGenerations,
@@ -652,7 +717,7 @@ export async function tryGenerateServerAutoBrief(params: {
       variantHints: params.variantHints,
       priorDesignContext: params.priorDesignContext,
     });
-    return { brief, modelUsed: normalizedModel };
+    return { brief, modelUsed: normalizedModel, trace };
   } catch (e) {
     console.warn("[server-auto-brief] Generation failed:", e instanceof Error ? e.message : e);
     return null;

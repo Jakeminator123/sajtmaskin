@@ -115,10 +115,29 @@ export async function POST(
           parsed.data.versionId,
         )
       : null;
-    const baseVersion =
-      requestedVersion?.version ??
-      (await getPreferredVersion(chat.id)) ??
-      (await getLatestVersion(chat.id));
+    const preferredVersion = await getPreferredVersion(chat.id);
+    const latestVersion = preferredVersion ?? (await getLatestVersion(chat.id));
+    if (
+      requestedVersion?.version &&
+      preferredVersion &&
+      preferredVersion.chat_id === chat.id &&
+      preferredVersion.lifecycle_stage !== "integrations" &&
+      preferredVersion.id !== requestedVersion.version.id
+    ) {
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: "stale_design_version",
+          requestedVersionId: requestedVersion.version.id,
+          latestVersionId: preferredVersion.id,
+          message:
+            "En nyare designversion finns. Välj den senaste versionen innan du bygger integrationer.",
+        },
+        { status: 409 },
+      );
+    }
+
+    const baseVersion = requestedVersion?.version ?? latestVersion;
     if (!baseVersion || baseVersion.chat_id !== chat.id) {
       return NextResponse.json(
         { error: "No design version found for this chat." },
