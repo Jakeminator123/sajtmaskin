@@ -1,0 +1,54 @@
+Task:
+Create or extend a lifecycle validator for scaffolds, variants, embeddings and dossier capability-map consistency.
+
+Goal:
+Detect drift between:
+- scaffold registry
+- scaffold ids/types
+- scaffold folders/manifests
+- scaffold embeddings
+- scaffold variants
+- variant embeddings
+- dossier capability-map
+- backoffice-editable fields
+
+The validator should initially be warning-friendly, but CI-ready.
+
+Check:
+1. Every scaffold id in registry has a folder and manifest.
+2. Every scaffold folder is present in registry or explicitly deprecated.
+3. scaffold-embeddings.json does not contain unknown scaffold ids.
+4. scaffold-embeddings.json is not missing active scaffold ids.
+5. scaffold variant JSON does not reference unknown scaffold ids.
+6. variant embeddings do not contain unknown variant ids.
+7. Backoffice does not write legacy fields that runtime no longer treats as first-class, or at least warns about them.
+8. dossier capability-map references real dossier ids/capabilities.
+9. Deleted/renamed scaffold ids produce clear errors.
+
+Constraints:
+- No new dependencies unless necessary.
+- Prefer existing scripts/validation conventions.
+- Do not change scaffold behavior.
+- Good error messages matter more than perfect architecture.
+
+Possible command:
+npm run scaffolds:validate
+
+If command exists:
+Extend it.
+
+If not:
+Add a minimal script and package.json entry only if consistent with repo conventions.
+
+Tests:
+Add small tests or snapshot/golden checks for:
+- unknown scaffold id in embedding file
+- unknown scaffold id in variant file
+- legacy variant field warning
+- missing manifest warning
+
+Deliverable:
+- validator location
+- command added/changed
+- examples of warnings/errors
+- tests run

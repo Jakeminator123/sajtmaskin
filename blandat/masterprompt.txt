@@ -1,0 +1,77 @@
+Du arbetar i repo Jakeminator123/sajtmaskin på branch master, men du får inte arbeta direkt på master för större ändringar.
+
+Mål:
+Förbättra repoets LLM-/builder-routing utan stor refaktor. Arbetet ska fokusera på hög ROI:
+1. regressionsskydd för sköra promptfall
+2. scaffold/dossier/variant-validator
+3. read-only routing/scaffold inspector i backoffice
+4. compatibility metadata mellan dossier, scaffold, route och buildIntent
+5. inga stora arkitekturbyten utan testbevis
+
+Bakgrund:
+Repot har flera parallella signalmotorer:
+- scaffold-val använder keyword/regex + embeddings
+- capability/dossier-val är främst deterministiskt keyword/regex
+- dossier selection använder inte embeddings
+- route planning är regex/phrase-baserad
+- scaffold variant-val använder keyword först och embeddings när tillgängligt
+- template search använder embeddings med keyword fallback
+
+Viktiga filer att läsa först:
+- src/lib/gen/scaffolds/matcher.ts
+- src/lib/gen/scaffolds/scaffold-search.ts
+- src/lib/gen/scaffolds/scaffold-embeddings-core.ts
+- src/lib/gen/scaffolds/registry.ts
+- src/lib/gen/scaffolds/types.ts
+- src/lib/gen/scaffold-variants/matcher.ts
+- src/lib/gen/scaffold-variants/types.ts
+- src/lib/gen/route-plan/route-plan-builder.ts
+- src/lib/gen/route-plan/route-patterns.ts
+- src/lib/gen/route-plan/route-matchers.ts
+- src/lib/gen/build-spec/prompt-patterns.ts
+- src/lib/gen/build-spec/policy-inference.ts
+- src/lib/gen/capability-inference.ts
+- src/lib/builder/follow-up-capability-vocabulary.ts
+- src/lib/builder/follow-up-capability-detection.ts
+- src/lib/gen/dossiers/select.ts
+- data/dossiers/_index/capability-map.json
+- backoffice/shared.py
+- backoffice/pages/scaffold_lifecycle.py
+- backoffice/pages/ai_models.py
+- package.json
+
+Viktiga begrepp:
+- Capability = behov/signal, t.ex. ai-chat, payments, visual-3d
+- Dossier = recept/instruktionspaket som bygger capabilityn
+- Scaffold = grundskelett/struktur
+- Variant = visuell/stilistisk variant av scaffold
+- RoutePlan = vilka sidor/routes som ska finnas
+- Veto = stoppar en matchning när ordet betyder fel sak
+- Regressionstest = test som hindrar en gammal buggrisk från att komma tillbaka
+
+Arbetsregler:
+- Gör inte stor refaktor.
+- Lägg inte till dependencies utan tydligt behov.
+- Ändra inte produktionkod om ett nytt test inte visar behov.
+- Håll varje PR/fas liten.
+- Om du hittar större designproblem: dokumentera dem, men bygg inte om allt.
+- Börja med tester och validatorer före ny funktionalitet.
+- Backoffice-editing ska vara warning/read-only först, inte live-styrning direkt.
+
+Git-regler:
+1. Kör git fetch origin.
+2. Arbeta inte direkt på master.
+3. Skapa branch: agent/<kort-task-namn>.
+4. Innan final rapport: git fetch origin igen.
+5. Om origin/master flyttat sig: rebase:a mot origin/master.
+6. Kör relevanta tester.
+7. Rapportera branch, base commit, filer ändrade, tester körda och kvarvarande risker.
+
+Verifiering:
+Kör så mycket som är rimligt:
+- npm run typecheck
+- npx vitest run <berörda testfiler>
+- npm run scaffolds:validate om det finns
+- npm run dossiers:validate-all om relevant
+
+Stoppa efter varje fas och rapportera.

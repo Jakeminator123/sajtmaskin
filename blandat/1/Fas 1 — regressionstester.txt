@@ -1,0 +1,53 @@
+Task:
+Add targeted regression tests for routing and capability edge cases.
+
+Scope:
+Only add/extend tests. Do not refactor production code unless a new test fails and the minimal fix is obvious.
+
+Focus areas:
+1. Game routing and vetoes
+2. Page vs section detection
+3. Explicit page-count caps
+4. Follow-up capability add vs modify
+5. Dossier selection remains deterministic
+
+Add test cases:
+
+Scaffold/game:
+- "Bygg ett Pac-Man spel" should not select landing-page.
+- "Bygg en app med ett Pac-Man spel" should prefer app-shell or game-compatible scaffold.
+- "Sajt för en tv-spel butik" should not become interactive-game/base-nextjs due only to "spel".
+- "Gaming news blog" should not set needsGame.
+
+Page/section:
+- "add a pricing section" should be local-layout/section-level, not page-addition.
+- "add a pricing page" should be page-addition.
+- "lägg till kontaktinfo i footern" should not add /contact route.
+- "lägg till en ny kontaktsida" should add contact route.
+
+Route count:
+- Prompt with explicit "2 pages" should not get extra scaffold-default routes beyond cap.
+- "landing page with 3 pages: home, about, contact" should allow 3 routes if prompt explicitly asks for it.
+
+Capability:
+- "lägg till en ai-chatt" should detect ai-chat.
+- "flytta chatten längre ner" should modify/reference existing capability, not add duplicate capability.
+- "lägg till physics simulation" should trigger visual-3d/game-related capability only when context supports it.
+
+Likely files:
+- src/lib/gen/scaffolds/matcher.test.ts or existing scaffold matcher test
+- src/lib/builder/follow-up-capability-detection.test.ts
+- src/lib/gen/route-plan*.test.ts
+- src/lib/gen/dossiers/select.test.ts
+- src/lib/gen/orchestration-integration.test.ts
+
+Commands:
+- npm run typecheck
+- npx vitest run <touched test files>
+
+Deliverable:
+Report exactly:
+- tests added
+- whether any failed before fix
+- production files changed, if any
+- remaining uncovered cases

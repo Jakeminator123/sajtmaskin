@@ -1,0 +1,15 @@
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.avif
+*.svg
+*.mp4
+*.webm
+*.mov
+*.bin
+.env
+out/
+downloads/

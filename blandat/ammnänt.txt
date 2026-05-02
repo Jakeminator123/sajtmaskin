@@ -1,0 +1,66 @@
+TILL CURSORAGENT FÖRESLÅS DETTQ NEDDAN. men är det inte bättre att olika agenter får läsa på sig om resp område och rapportera till dig?
+
+----
+
+
+Jag skulle inte låta en enda agent “göra allt” i ett svep. Bättre är en högkontext-agent som förstår hela kartan, men som bara får genomföra arbetet i små, verifierbara faser.Thought for 19sJa, jag tycker du har delvis rätt: en agent behöver hög kontext för att förstå helheten. Men jag tror inte att en agent bör få “göra allt” i ett stort svep.
+Bästa upplägget är:
+1. En högkontext-agent läser helheten och gör en konkret plan.2. Samma agent, eller separata agenter, kör sedan små faser.3. Varje fas ska ha liten diff, tester och tydligt stopp.
+Rapporten pekar också åt det hållet: högsta ROI är inte stor refaktor, utan små regressionsskydd, validator, inspector och kompatibilitetsmetadata. 
+
+Rekommenderad struktur
+Inte så här
+Agent, bygg om scaffold/dossier/routing/backoffice/embeddings-systemet.
+Det blir för stort. Risken är:
+- för stor diff- svårt att reviewa- dyr modellkostnad- master hinner röra sig- agenten börjar “förbättra” saker som inte var scope
+Gör så här i stället
+Agent 1: Läs allt och skapa plan.Agent 2: Lägg regressionstester.Agent 3: Bygg validator.Agent 4: Bygg routing inspector.Agent 5: Lägg compatibility metadata, warning-only.
+Eller en enda högkontext-agent, men med hård regel:
+Du får bara genomföra en fas i taget.Stanna efter varje fas.Rapportera diff, tester och risker.
+
+---
+
+Kort prioritering
+
+Gör i denna ordning:
+
+1. Regressionstester
+2. Scaffold/variant/dossier validator
+3. Read-only routing inspector
+4. Compatibility metadata warning-only
+5. Backoffice/runtime schema validation
+6. Först därefter större refaktor
+
+
+---
+
+
+Metadata/konversation i sin helhet:
+
+Kolla efter commits/pushar det finns
+e72573e3890ab2a2343bf34bdbe053a73493bcc2
+Kolla nyaste versionen nu då
+Vad är vetors? Vad gör: "git fetch origin
+
+git log origin/master -5 --oneline --decorate
+
+npm run typecheck
+
+npx vitest run"?
+”Även om ett ord matchar, stoppa träffen om texten också innehåller något som tyder på fel betydelse.” Förklara mer
+Är detta ngt som man borde ha 1 centralstyrt via backoffice? 2( embeddings ist? 3) en jätte-tunn llm för ist?
+Hur många delar av repot kör ordmatchning. Hur många med  embeddings? Är dessa redigerbara i backofice nu? Allt? Är zogschemqt också där? Vad är ett zonschema?
+"Task" i cursor. Vad är det? 2) embeddings finns här va: "lägg till ny sida"
+
+"create new page"
+
+"new route? 3) varför finns inte zod för backoffice? Varför kallar jag saker scheman.. kanske är polecy jag menar med tex "strikta schwman"
+1) Vad borde jag ha som tasks? 2) De scaffolds som finns. Kan jag lägga in en fil kanske/komponent och editera dem? Är det, det känns svårt att radera en sån men också lyckas få all dess ordmatchning/embeddings och så vidare att försvinna med? 3) om tex "landing page" väljs. Men om jag också säger att jag vill ha 3 sidor. Bil inte logiken konstig då om du förstår?
+1) Vad är regression? 2) vad tycker du jag kanske borde ha in mer av.. tänker på lotties, radix, chakra.. sånt man normalt ser i package-filen 3) asså allt du säger är ju bra. Men sen säger alla att mitt projekt är sp stort samtidigt och komplext..
+Förklara enklarw de sär regressionstestwrna 2) känns som jag klr så jäkla dyra modeller och skulle jag genomföra alla ändringar du vill kostar det lixom 5k sek pwr dag
+Men nör kickar tasksen in då?
+Men jag har väl massor av sånna tester isf? Min cursor kör set där hela tiden ju
+Ser uppbyggnad och steuktur ut på bara 2 sätt av mina schaffolds? (App/webpage/( kanske template)? I så fall - varför kan inte enbart "scaffold variants styra?)
+Är alla capabilleties/dossiers kompatibla med alla appar/websidor? Vad händer om jag dkapar en till sida (samma som route?) till en app-shell säger vi. Kommer den page.tsx alltid på samma ställe? Säg att jag lägger in en hård dossein/vapabillety som är en ai-chatt samtidigt som en ny sida. Blir det stökigt då? Är dossein och capabilety samma sak?
+Gör en analys över det vi talat om sedan senaste gången jag bad om en poämg/score av repot. Kolla delr på gitgub och Jakeminator123/sajtmaskin branch:master om du vill. Summerra och skriv en utförlig rapport där du tar med de saker som jag borde göra och fokusera på. Vissa saker fixk jg inte tydligt svar på (som tex hur många olika delr i kodwn som använder embeddings och/eller ordmatchning. Ta med de som hr högt ROI och skriv lite som prompter, så  jag kan copy pejsta till Cursor-agwnter 
+Tack. Jag ska läsanu. men jag undrar också hur kanske figma skulle kunna hjälpa design bland annat? Också om jag gör massa ändringar lokalt hela tiden. oavsätt och jag har en cloudagent elelr worktree som gör en sån här stor grejj så kommer ju master hina bli aningen anonorlunda inan detta är kalrt. Vad görm an?

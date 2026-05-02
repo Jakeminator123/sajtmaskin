@@ -8,9 +8,6 @@
     },
     "linear": {
       "enabled": true
-    },
-    "context7-plugin": {
-      "enabled": true
     }
   }
 }

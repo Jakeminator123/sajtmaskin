@@ -57,7 +57,10 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     now: nowParam,
   } = params;
 
-  const now: () => number = nowParam ?? (() => Date.now());
+  const now = useCallback(
+    () => (typeof nowParam === "function" ? nowParam() : Date.now()),
+    [nowParam],
+  );
 
   const lastPreviewRecoverAtRef = useRef(0);
   const previewRecoverAttemptsRef = useRef(0);
@@ -75,8 +78,14 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     statusUnavailableCountRef.current = 0;
     lastPreviewRecoverAtRef.current = 0;
     mismatchObservedAtRef.current = null;
-    setVersionMismatchPayload(null);
   }, [chatId, activeVersionId]);
+
+  const effectiveVersionMismatchPayload =
+    versionMismatchPayload &&
+    versionMismatchPayload.chatId === chatId &&
+    versionMismatchPayload.expectedVersionId === activeVersionId
+      ? versionMismatchPayload
+      : null;
 
   const handlePreviewSessionSuspect = useCallback(async () => {
     const versionId = activeVersionId;
@@ -222,5 +231,9 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     statusUnavailableCountRef.current = 0;
   }, []);
 
-  return { handlePreviewSessionSuspect, resetRecoverAttempts, versionMismatchPayload };
+  return {
+    handlePreviewSessionSuspect,
+    resetRecoverAttempts,
+    versionMismatchPayload: effectiveVersionMismatchPayload,
+  };
 }

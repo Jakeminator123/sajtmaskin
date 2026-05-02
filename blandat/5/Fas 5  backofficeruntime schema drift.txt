@@ -1,0 +1,30 @@
+Task:
+Reduce schema drift between Python backoffice and TypeScript runtime.
+
+Goal:
+Backoffice should not be able to save config that runtime rejects or ignores silently.
+
+Focus:
+- scaffold variants
+- scaffold manifests
+- ai_models manifest
+- dossier capability map
+
+Steps:
+1. Identify runtime schemas/types for each editable config.
+2. Identify Python backoffice forms that write these files.
+3. Find fields that backoffice still writes but runtime treats as removed/legacy.
+4. Add validation/warnings before save.
+5. Prefer shared generated JSON schema or a CLI validation step invoked by backoffice.
+
+Constraints:
+- Do not rewrite backoffice.
+- Do not migrate everything at once.
+- Start with scaffold variants because legacy fields were identified there.
+- Warning-first; blocking only if safe.
+
+Deliverable:
+- list of drift fields
+- validation hook or CLI call
+- warning shown in backoffice before save
+- tests or fixture validation
