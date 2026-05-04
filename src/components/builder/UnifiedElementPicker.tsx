@@ -85,6 +85,7 @@ import {
   type CategoryInfo,
   type Template,
 } from "@/lib/templates/client";
+import { TemplatePreviewMedia } from "@/components/templates/template-preview-media";
 
 import {
   DESIGN_THEME_OPTIONS,
@@ -105,6 +106,11 @@ interface TemplateSearchResultItem {
     title: string;
     category: string;
     previewImageUrl: string;
+    previewStillUrl?: string | null;
+    previewLoopUrl?: string | null;
+    previewLoopKind?: string | null;
+    previewLoopFrameDurationMs?: number | null;
+    previewFrameUrls?: string[];
   };
   score: number;
 }
@@ -889,8 +895,15 @@ export function UnifiedElementPicker({
                           return (
                             <button key={result.template.id} type="button" onClick={() => handleSearchResultSelect(result)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"}`}>
                               <div className="relative aspect-16/10 w-full overflow-hidden bg-muted/30">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={result.template.previewImageUrl} alt={result.template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
+                                <TemplatePreviewMedia
+                                  title={result.template.title}
+                                  stillUrl={result.template.previewStillUrl || result.template.previewImageUrl}
+                                  loopUrl={result.template.previewLoopUrl}
+                                  loopKind={result.template.previewLoopKind}
+                                  frameUrls={result.template.previewFrameUrls}
+                                  frameDurationMs={result.template.previewLoopFrameDurationMs}
+                                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                />
                                 <Badge className="absolute top-2 left-2 border-emerald-400/20 bg-emerald-500/85 text-[10px] text-white">
                                   Mall
                                 </Badge>
@@ -919,8 +932,15 @@ export function UnifiedElementPicker({
                             return (
                               <button key={template.id} type="button" onClick={() => setSelectedTemplate(template)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"}`}>
                                 <div className="relative aspect-16/10 w-full overflow-hidden bg-muted/30">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={getTemplateImageUrl(template)} alt={template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
+                                  <TemplatePreviewMedia
+                                    title={template.title}
+                                    stillUrl={template.previewStillUrl || getTemplateImageUrl(template)}
+                                    loopUrl={template.previewLoopUrl}
+                                    loopKind={template.previewLoopKind}
+                                    frameUrls={template.previewFrameUrls}
+                                    frameDurationMs={template.previewLoopFrameDurationMs}
+                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                  />
                                   <Badge className="absolute top-2 left-2 border-emerald-400/20 bg-emerald-500/85 text-[10px] text-white">
                                     Mall
                                   </Badge>

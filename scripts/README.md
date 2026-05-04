@@ -51,7 +51,7 @@ Observability-kommandon: `npm run rag:error-log:reindex`, `npm run rag:error-log
 | [`dev/refresh-token.mjs`](dev/refresh-token.mjs) | `predev`, `refresh-token` |
 | [`db/db-init.mjs`](db/db-init.mjs) | `predev`, `db:init` |
 
-**v0-mallar (builderns Mallar-tab, enbart lokal data):** [`v0-templates/sync-v0-templates.mjs`](v0-templates/sync-v0-templates.mjs), [`v0-templates/validate-templates.mjs`](v0-templates/validate-templates.mjs), [`v0-templates/refresh-local-v0-catalog.mjs`](v0-templates/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
+**v0-mallar (builderns Mallar-tab, lokal/Blob-data):** [`v0-templates/sync-v0-templates.mjs`](v0-templates/sync-v0-templates.mjs), [`v0-templates/sync-blob-catalog.mjs`](v0-templates/sync-blob-catalog.mjs), [`v0-templates/validate-templates.mjs`](v0-templates/validate-templates.mjs), [`v0-templates/refresh-local-v0-catalog.mjs`](v0-templates/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:blob:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
 
 **Externa referenser (dossier-curation):** klonade referens-repon ligger i `data/template-references/repos/`. Kura en dossier från en referens med `npm run dossiers:curate` (anropar [`dossiers/curate-from-reference.ts`](dossiers/curate-from-reference.ts)).
 
@@ -73,7 +73,7 @@ npm run shadcn:sync:write
 
 ## Tre separata spår
 
-1. **`v0-mallar`** — Builderns Mallar-tab. Källa: `templates_v0/*`. Runtimefiler: `src/lib/templates/*`.
+1. **`v0-mallar`** — Builderns Mallar-tab. Källa: `templates_v0/*` eller Blob-manifest från `downloads/<kategori>/<slug>__<id>/`. Runtimefiler: `src/lib/templates/*`.
 
 2. **Dossiers (legoklossar)** — Återanvändbara byggblock injicerade i codegen-prompten. Källa: `data/dossiers/{hard|soft}/*/manifest.json`. Curation: `npm run dossiers:curate` från en klonad referens i `data/template-references/repos/`. Schema: `docs/schemas/strict/dossier.schema.json`. Arkitektur: `docs/architecture/dossier-system.md`.
 
@@ -114,6 +114,7 @@ Se [`templates_v0/README.txt`](../templates_v0/README.txt) för komplett mappstr
 | `templates_v0/out/collected-template-ids.json` | **Krävs.** Lokal manifestfil med alla insamlade mall-ID:n. |
 | `templates_v0/out/template-metadata/*.json` | Titel, beskrivning, og:image per mall — läses av sync-scriptet. |
 | `templates_v0/out/downloaded.jsonl` | Valfri. Logg per nedladdad ZIP, ger extra kategorisignal. |
+| `src/lib/templates/template-blob-manifest.json` | Valfri. Blob-manifest för uppladdade ZIP:ar, stillbilder och listing-loopar från den nya `downloads/<kategori>/<slug>__<id>/`-strukturen. |
 | `src/lib/templates/templates.json` | **Genererad** katalog som appen läser vid runtime. |
 | `src/lib/templates/template-categories.json` | **Genererad** kategorimappning för kategorisidor och modaler. |
 | `src/lib/templates/template-embeddings.json` | Embeddings för semantisk sökning i builderns Mallar-tab. Commitad och läses lokalt av produktionen; byggs om via scripts, inte via blob/cron i drift. |
@@ -123,12 +124,16 @@ Se [`templates_v0/README.txt`](../templates_v0/README.txt) för komplett mappstr
 ```bash
 npm run templates:local:refresh              # Sync + validering (enbart lokal data)
 npm run templates:local:refresh:embeddings   # Sync + validering + regenerera embeddings
+npm run templates:blob:sync -- --source=test_förslag_templates_blob --dry-run
+npm run templates:blob:sync -- --source=<mapp> --upload --write-manifest --limit=3
 ```
 
 ### Bra att veta
 
 - `templates:sync` arbetar **enbart** mot lokala manifest — ingen remote-html-fallback finns kvar.
+- `templates:blob:sync` arbetar mot redan nedladdad mappstruktur och laddar upp råa ZIP:ar/media till Vercel Blob när `--upload` används.
 - När en mall finns som lokal ZIP i `templates_v0/downloads/` initierar builderns mallflöde own-engine direkt från filerna i arkivet.
+- När en mall finns i `template-blob-manifest.json` kan importen hämta ZIP:en från Blob om lokal ZIP saknas.
 - Preview-bilderna i galleriet kommer från `preview_image_url` i katalogen (hämtad ur lokal metadata, pekar på Vercel Blob CDN).
 - Nya ZIP-filer eller metadata-filer blir inte synliga i appen förrän ett sync-kommando har uppdaterat `src/lib/templates/*`.
 

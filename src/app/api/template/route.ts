@@ -36,11 +36,13 @@ const STALENESS_THRESHOLD_SECONDS = 60 * 60 * 24 * 30;
 
 type TemplateSourceMetadata = {
   templateId: string;
+  sourceKind: "local" | "blob";
   timestamp: string | null;
   ageSeconds: number | null;
   stale: boolean;
   sourceSlugs: string[];
   categoryLabel: string | null;
+  archiveUrl?: string | null;
 };
 
 function buildTemplateSourceMetadata(
@@ -57,11 +59,13 @@ function buildTemplateSourceMetadata(
   const stale = ageSeconds !== null && ageSeconds > STALENESS_THRESHOLD_SECONDS;
   return {
     templateId: source.templateId,
+    sourceKind: source.sourceKind ?? "local",
     timestamp: source.timestamp,
     ageSeconds,
     stale,
     sourceSlugs: [...source.sourceSlugs],
     categoryLabel: source.categoryLabel,
+    archiveUrl: source.sourceKind === "blob" ? source.archiveUrl ?? null : null,
   };
 }
 
@@ -307,9 +311,10 @@ export async function POST(request: NextRequest) {
       const localTemplateSource = await getLocalV0TemplateSourceById(templateId);
       if (localTemplateSource) {
         console.info(
-          "[API /template] Using local v0 template archive:",
+          "[API /template] Using v0 template archive:",
           templateId,
-          localTemplateSource?.archivePath,
+          localTemplateSource.sourceKind ?? "local",
+          localTemplateSource.archivePath ?? localTemplateSource.archiveUrl,
         );
       }
       if (!localTemplateSource) {
@@ -321,7 +326,7 @@ export async function POST(request: NextRequest) {
               templateId,
               recoverable: true,
               error:
-                "Den här v0-mallen finns inte nedladdad lokalt ännu och kan därför inte startas som repo i VM-previewn.",
+                "Den här v0-mallen finns varken lokalt eller i Blob-manifestet och kan därför inte startas som repo i VM-previewn.",
             },
             { status: 409 },
           ),

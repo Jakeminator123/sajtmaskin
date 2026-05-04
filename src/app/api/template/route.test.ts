@@ -149,7 +149,7 @@ describe("POST /api/template", () => {
       templateId: "tmpl_1",
       recoverable: true,
       error:
-        "Den här v0-mallen finns inte nedladdad lokalt ännu och kan därför inte startas som repo i VM-previewn.",
+        "Den här v0-mallen finns varken lokalt eller i Blob-manifestet och kan därför inte startas som repo i VM-previewn.",
     });
     expect(loadLocalV0TemplateFiles).not.toHaveBeenCalled();
     expect(commitCredits).not.toHaveBeenCalled();
@@ -404,11 +404,13 @@ describe("POST /api/template", () => {
     expect(response.status).toBe(200);
     expect(json.source).toEqual({
       templateId: "tmpl_1",
+      sourceKind: "local",
       timestamp: null,
       ageSeconds: null,
       stale: false,
       sourceSlugs: [],
       categoryLabel: null,
+      archiveUrl: null,
     });
     expect(devLogAppend).not.toHaveBeenCalled();
   });

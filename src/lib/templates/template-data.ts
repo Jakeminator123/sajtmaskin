@@ -34,6 +34,12 @@ export interface Template {
   slug: string;
   imageFilename: string;
   previewImageUrl: string;
+  previewStillUrl?: string | null;
+  previewLoopUrl?: string | null;
+  previewLoopKind?: "none" | "frames" | "animated-image" | "video" | string | null;
+  previewLoopFrameDurationMs?: number | null;
+  previewFrameUrls?: string[];
+  archiveUrl?: string | null;
   category: string;
 }
 
@@ -45,6 +51,12 @@ const rawTemplates = (
     slug: string;
     image_filename: string;
     preview_image_url: string;
+    preview_still_url?: string | null;
+    preview_loop_url?: string | null;
+    preview_loop_kind?: string | null;
+    preview_loop_frame_duration_ms?: number | null;
+    preview_frame_urls?: string[];
+    archive_url?: string | null;
     category: string;
   }>
 ).filter((t) => t.slug !== "categories" && t.id !== "categories");
@@ -55,6 +67,12 @@ export const TEMPLATES: Template[] = rawTemplates.map((t) => ({
   slug: t.slug,
   imageFilename: t.image_filename,
   previewImageUrl: t.preview_image_url,
+  previewStillUrl: t.preview_still_url ?? t.preview_image_url,
+  previewLoopUrl: t.preview_loop_url ?? null,
+  previewLoopKind: t.preview_loop_kind ?? null,
+  previewLoopFrameDurationMs: t.preview_loop_frame_duration_ms ?? null,
+  previewFrameUrls: Array.isArray(t.preview_frame_urls) ? t.preview_frame_urls : [],
+  archiveUrl: t.archive_url ?? null,
   category: t.category,
 }));
 

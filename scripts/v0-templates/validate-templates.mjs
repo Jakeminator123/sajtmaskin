@@ -49,6 +49,36 @@ function validateTemplateShape(template, errors, warnings) {
     }
   }
 
+  const optionalStringFields = [
+    "preview_still_url",
+    "preview_loop_url",
+    "preview_loop_kind",
+    "archive_url",
+  ];
+  for (const key of optionalStringFields) {
+    if (template[key] !== undefined && template[key] !== null && typeof template[key] !== "string") {
+      errors.push(`Template ${template.id || "<unknown>"} has non-string optional field "${key}"`);
+    }
+  }
+
+  if (
+    template.preview_loop_frame_duration_ms !== undefined &&
+    template.preview_loop_frame_duration_ms !== null &&
+    typeof template.preview_loop_frame_duration_ms !== "number"
+  ) {
+    errors.push(
+      `Template ${template.id || "<unknown>"} has non-number optional field "preview_loop_frame_duration_ms"`,
+    );
+  }
+
+  if (
+    template.preview_frame_urls !== undefined &&
+    (!Array.isArray(template.preview_frame_urls) ||
+      template.preview_frame_urls.some((url) => typeof url !== "string"))
+  ) {
+    errors.push(`Template ${template.id || "<unknown>"} has invalid "preview_frame_urls"`);
+  }
+
   if (template.id && template.slug && template.id !== template.slug) {
     warnings.push(`Template ${template.id} has slug "${template.slug}" (expected same as id)`);
   }
@@ -56,7 +86,8 @@ function validateTemplateShape(template, errors, warnings) {
   if (
     template.id &&
     template.preview_image_url &&
-    template.preview_image_url !== `/api/template-image/${template.id}`
+    template.preview_image_url !== `/api/template-image/${template.id}` &&
+    !/^https?:\/\//i.test(template.preview_image_url)
   ) {
     warnings.push(
       `Template ${template.id} has unexpected preview_image_url: ${template.preview_image_url}`,

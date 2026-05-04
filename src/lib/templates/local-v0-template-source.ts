@@ -4,6 +4,7 @@ import { isAbsolute, resolve } from "node:path";
 import process from "node:process";
 import type { CodeFile } from "@/lib/gen/parser";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
+import blobManifestData from "./template-blob-manifest.json";
 
 const DOWNLOADED_LOG_PATH = resolve(process.cwd(), "templates_v0/out/downloaded.jsonl");
 const MAX_ARCHIVE_BYTES = 50 * 1024 * 1024;
@@ -83,12 +84,56 @@ type DownloadedTemplateRow = {
 
 export type LocalV0TemplateSource = {
   templateId: string;
-  archivePath: string;
+  sourceKind?: "local" | "blob";
+  archivePath?: string;
+  archiveUrl?: string;
+  archiveSizeBytes?: number | null;
+  archiveSha256?: string | null;
   sourceSlugs: string[];
   sourceLabelsSv: string[];
   categoryLabel: string | null;
   timestamp: string | null;
 };
+
+type BlobManifestItem = {
+  id: string;
+  archiveUrl: string;
+  archiveSizeBytes?: number | null;
+  archiveSha256?: string | null;
+  category?: string | null;
+  sourceCategory?: string | null;
+};
+
+function readBlobManifestItems(): BlobManifestItem[] {
+  const raw = blobManifestData as unknown;
+  if (!raw || typeof raw !== "object") return [];
+  const templates = (raw as { templates?: unknown }).templates;
+  if (!Array.isArray(templates)) return [];
+  return templates.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    const id = typeof row.id === "string" ? row.id.trim() : "";
+    const archiveUrl = typeof row.archiveUrl === "string" ? row.archiveUrl.trim() : "";
+    if (!id || !archiveUrl) return [];
+    return [
+      {
+        id,
+        archiveUrl,
+        archiveSizeBytes:
+          typeof row.archiveSizeBytes === "number" && Number.isFinite(row.archiveSizeBytes)
+            ? row.archiveSizeBytes
+            : null,
+        archiveSha256: typeof row.archiveSha256 === "string" ? row.archiveSha256 : null,
+        category: typeof row.category === "string" ? row.category : null,
+        sourceCategory: typeof row.sourceCategory === "string" ? row.sourceCategory : null,
+      },
+    ];
+  });
+}
+
+function getBlobManifestItemById(templateId: string): BlobManifestItem | null {
+  return readBlobManifestItems().find((item) => item.id === templateId) ?? null;
+}
 
 async function fileExists(path: string): Promise<boolean> {
   try {
@@ -154,6 +199,7 @@ export async function getLocalV0TemplateSourceById(
 
     return {
       templateId: trimmedId,
+      sourceKind: "local",
       archivePath,
       sourceSlugs: normalizeStringArray(row.sourceSlugs),
       sourceLabelsSv: normalizeStringArray(row.sourceLabelsSv),
@@ -165,7 +211,22 @@ export async function getLocalV0TemplateSourceById(
     };
   }
 
-  return null;
+  const blobItem = getBlobManifestItemById(trimmedId);
+  if (!blobItem) return null;
+
+  return {
+    templateId: trimmedId,
+    sourceKind: "blob",
+    archiveUrl: blobItem.archiveUrl,
+    archiveSizeBytes: blobItem.archiveSizeBytes ?? null,
+    archiveSha256: blobItem.archiveSha256 ?? null,
+    sourceSlugs: blobItem.category ? [blobItem.category] : [],
+    sourceLabelsSv: blobItem.sourceCategory ? [blobItem.sourceCategory] : [],
+    categoryLabel: blobItem.sourceCategory ?? blobItem.category ?? null,
+    timestamp: typeof (blobManifestData as { _lastUpdated?: unknown })._lastUpdated === "string"
+      ? String((blobManifestData as { _lastUpdated?: unknown })._lastUpdated)
+      : null,
+  };
 }
 
 function normalizeImportedPath(rawPath: string): string | null {
@@ -209,12 +270,46 @@ function stripCommonArchiveRoot(paths: string[]): string[] {
   return segments.map((parts) => parts.slice(1).join("/"));
 }
 
-async function readArchiveBuffer(path: string): Promise<Buffer> {
+async function readLocalArchiveBuffer(path: string): Promise<Buffer> {
   const buffer = await readFile(path);
   if (buffer.byteLength > MAX_ARCHIVE_BYTES) {
     throw new Error("Template archive is too large for import");
   }
   return buffer;
+}
+
+async function readRemoteArchiveBuffer(url: string): Promise<Buffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Template archive fetch failed (${response.status})`);
+  }
+  const contentLength = response.headers.get("content-length");
+  if (contentLength) {
+    const parsedLength = Number.parseInt(contentLength, 10);
+    if (Number.isFinite(parsedLength) && parsedLength > MAX_ARCHIVE_BYTES) {
+      throw new Error("Template archive is too large for import");
+    }
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  if (buffer.byteLength > MAX_ARCHIVE_BYTES) {
+    throw new Error("Template archive is too large for import");
+  }
+  return buffer;
+}
+
+async function readArchiveBuffer(source: LocalV0TemplateSource): Promise<Buffer> {
+  if (source.sourceKind === "blob") {
+    if (!source.archiveUrl) {
+      throw new Error("Template Blob archive URL is missing");
+    }
+    return readRemoteArchiveBuffer(source.archiveUrl);
+  }
+
+  if (!source.archivePath) {
+    throw new Error("Local template archive path is missing");
+  }
+  return readLocalArchiveBuffer(source.archivePath);
 }
 
 async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeFile[]> {
@@ -274,7 +369,7 @@ export async function loadLocalV0TemplateFiles(
   const source = await getLocalV0TemplateSourceById(templateId);
   if (!source) return null;
 
-  const buffer = await readArchiveBuffer(source.archivePath);
+  const buffer = await readArchiveBuffer(source);
   const files = await extractImportedFilesFromZip(buffer);
   if (files.length === 0) {
     throw new Error("No supported text files found in local template archive");

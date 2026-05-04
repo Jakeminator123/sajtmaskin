@@ -29,6 +29,12 @@ function isPromptDumpEnabled(): boolean {
   return v === "1" || v === "true" || v === "yes";
 }
 
+function shouldSkipDisabledPromptDumpWrite(): boolean {
+  // Prompt dumps are local debug artifacts. On Vercel the application filesystem
+  // is not a durable place for these stale markers, and writes can fail noisily.
+  return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+}
+
 function readExistingMeta(dir: string): Record<string, unknown> | null {
   const metaPath = join(dir, "meta.json");
   if (!existsSync(metaPath)) return null;
@@ -87,10 +93,11 @@ export function writeLatestPromptDump(
   meta?: Record<string, unknown>,
 ): void {
   const dir = PROMPT_DUMP_DIR_BY_CATEGORY[category];
-  mkdirSync(dir, { recursive: true });
   const now = new Date().toISOString();
   const dumpingEnabled = isPromptDumpEnabled();
   if (!dumpingEnabled) {
+    if (shouldSkipDisabledPromptDumpWrite()) return;
+    mkdirSync(dir, { recursive: true });
     const existingMeta = readExistingMeta(dir);
     writePromptDumpMeta(dir, {
       category,
@@ -106,6 +113,7 @@ export function writeLatestPromptDump(
     return;
   }
 
+  mkdirSync(dir, { recursive: true });
   const writtenFiles = Object.keys(files).filter(
     (name) => name && !name.includes("..") && !name.includes("/") && !name.includes("\\"),
   );

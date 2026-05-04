@@ -36,8 +36,8 @@ import {
 import { createProject } from "@/lib/project-client";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
-import Image from "next/image";
 import { PreviewModal } from "@/components/templates/preview-modal";
+import { TemplatePreviewMedia } from "@/components/templates/template-preview-media";
 import { toast } from "sonner";
 
 // Icon mapping - includes all icons used in V0_CATEGORIES and legacy CATEGORIES
@@ -409,6 +409,7 @@ function V0TemplateCard({
   const [isCreating, setIsCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const imageUrl = getTemplateImageUrl(template);
+  const catalogItem = getTemplateCatalogItemById(template.id);
   const type = useParams().type as string;
 
   const handlePreviewClick = (event: React.MouseEvent) => {
@@ -425,7 +426,6 @@ function V0TemplateCard({
 
     setIsCreating(true);
     try {
-      const catalogItem = getTemplateCatalogItemById(template.id);
       const resolvedIntent: BuildIntent = catalogItem?.buildIntent ?? buildIntent;
       const project = await createProject(
         `${template.title || template.id} - ${new Date().toLocaleDateString("sv-SE")}`,
@@ -448,14 +448,14 @@ function V0TemplateCard({
     <>
       <div className="group hover:border-brand-teal/50 cursor-pointer overflow-hidden rounded-lg border border-gray-800 bg-black/50 transition-all">
         <div className="relative aspect-video overflow-hidden bg-gray-900">
-          <Image
-            src={imageUrl}
-            alt={template.title || template.id}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            unoptimized
+          <TemplatePreviewMedia
+            title={template.title || template.id}
+            stillUrl={catalogItem?.previewStillUrl || imageUrl}
+            loopUrl={catalogItem?.previewLoopUrl}
+            loopKind={catalogItem?.previewLoopKind}
+            frameUrls={catalogItem?.previewFrameUrls}
+            frameDurationMs={catalogItem?.previewLoopFrameDurationMs}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
         <div className="space-y-3 p-4">

@@ -13,6 +13,11 @@ export type TemplateCatalogItem = {
   title: string;
   category: string;
   previewImageUrl: string;
+  previewStillUrl?: string | null;
+  previewLoopUrl?: string | null;
+  previewLoopKind?: string | null;
+  previewLoopFrameDurationMs?: number | null;
+  previewFrameUrls?: string[];
   source: TemplateCatalogSource;
   buildIntent: BuildIntent;
   repoUrl?: string;
@@ -35,6 +40,11 @@ function mapV0Template(template: Template): TemplateCatalogItem {
     title: template.title,
     category: getTemplateCategoryTitle(template),
     previewImageUrl: template.previewImageUrl,
+    previewStillUrl: template.previewStillUrl ?? template.previewImageUrl,
+    previewLoopUrl: template.previewLoopUrl ?? null,
+    previewLoopKind: template.previewLoopKind ?? null,
+    previewLoopFrameDurationMs: template.previewLoopFrameDurationMs ?? null,
+    previewFrameUrls: template.previewFrameUrls ?? [],
     source: "v0",
     buildIntent: inferBuildIntent(categoryId),
   };
