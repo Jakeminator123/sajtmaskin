@@ -60,7 +60,6 @@ export function useVersionStatus(params: {
 
   useEffect(() => {
     if (!chatId || !versionId) {
-      setState({ status: null, loading: false, error: null });
       lastKeyRef.current = null;
       return;
     }
@@ -68,7 +67,11 @@ export function useVersionStatus(params: {
     const key = `${chatId}:${versionId}:${refreshNonce}`;
     lastKeyRef.current = key;
     let cancelled = false;
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    queueMicrotask(() => {
+      if (!cancelled && lastKeyRef.current === key) {
+        setState((prev) => ({ ...prev, loading: true, error: null }));
+      }
+    });
 
     const url = `${engineChatBaseUrl(chatId)}/version-status?versionId=${encodeURIComponent(versionId)}`;
 
@@ -130,5 +133,8 @@ export function useVersionStatus(params: {
     };
   }, [chatId, versionId, pollIntervalMs, refreshNonce]);
 
+  if (!chatId || !versionId) {
+    return { status: null, loading: false, error: null };
+  }
   return state;
 }

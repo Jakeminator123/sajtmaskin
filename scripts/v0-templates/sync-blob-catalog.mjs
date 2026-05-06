@@ -259,7 +259,11 @@ async function uploadFile(template, absolutePath, relativeFilePath) {
     };
   }
   const contentType = CONTENT_TYPES[extname(absolutePath).toLowerCase()] || "application/octet-stream";
-  const blob = await put(key, createReadStream(absolutePath), {
+  // Use a Buffer payload instead of a file stream. In some Node/undici combos,
+  // stream bodies can trigger "response body object should not be disturbed or locked"
+  // during SDK response parsing/retries.
+  const fileBuffer = await readFile(absolutePath);
+  const blob = await put(key, fileBuffer, {
     access: "public",
     addRandomSuffix: false,
     allowOverwrite: overwrite,

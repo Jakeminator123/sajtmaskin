@@ -100,6 +100,44 @@ import { Button } from "@/components/ui/button"
     expect(result.valid).toBe(false);
   });
 
+  it("flags generated DialogContent without DialogTitle", () => {
+    const result = runProjectSanityChecks([
+      {
+        path: "package.json",
+        language: "json",
+        content: JSON.stringify({
+          name: "test-project",
+          private: true,
+          dependencies: { next: "16.2.3", react: "19.2.4", "react-dom": "19.2.4" },
+        }),
+      },
+      {
+        path: "app/layout.tsx",
+        language: "tsx",
+        content:
+          "export default function RootLayout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+      },
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content: [
+          'import { Dialog, DialogContent } from "@/components/ui/dialog";',
+          "export default function Page() {",
+          "  return <Dialog><DialogContent>Body only</DialogContent></Dialog>;",
+          "}",
+        ].join("\n"),
+      },
+      {
+        path: "app/globals.css",
+        language: "css",
+        content: "@theme inline { --color-background: black; }",
+      },
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((issue) => issue.message.includes("missing DialogTitle"))).toBe(true);
+  });
+
   it("allows warning severity for unresolved imports behind env flag", () => {
     process.env.SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS = "true";
     const result = runProjectSanityChecks([

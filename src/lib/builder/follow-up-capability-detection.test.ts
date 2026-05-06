@@ -100,6 +100,18 @@ describe("detectFollowUpCapabilities — payments", () => {
   });
 });
 
+describe("detectFollowUpCapabilities — negated capabilities", () => {
+  it("does not detect auth or payments when the user explicitly forbids them", () => {
+    const result = detectFollowUpCapabilities(
+      "Lägg till en flygande 3D-anka. Lägg inte till backend, API-routes, auth, betalning eller externa tjänster.",
+    );
+
+    expect(result.capabilityIds).toContain("visual-3d");
+    expect(result.capabilityIds).not.toContain("auth");
+    expect(result.capabilityIds).not.toContain("payments");
+  });
+});
+
 describe("detectFollowUpCapabilities — assorted dossier capabilities", () => {
   it("detects 'kundomdömen' as `testimonials-section`", () => {
     const result = detectFollowUpCapabilities("lägg till kundomdömen under hero");

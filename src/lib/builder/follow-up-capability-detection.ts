@@ -27,6 +27,7 @@
  */
 
 import { CAPABILITY_VOCABULARY } from "./follow-up-capability-vocabulary";
+import { isCapabilityNegated } from "./prompt-negation";
 
 export type CapabilitySpecificityTier = "generic" | "specific" | "beyond-dossier";
 
@@ -169,7 +170,7 @@ const MODIFY_REFERENCE_MARKERS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:byt\s+ut\s+(?:den|det|dem)\s+(?:mot|till|med))(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:ändra\s+(?:den|det|dem)\s+(?:till|så))(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:den\s+(?:där|som|jag\s+(?:har|gjorde|skapade)))(?![\p{L}\p{N}_])/iu,
-  /(?<![\p{L}\p{N}_])(?:befintliga|existerande|nuvarande)\s+\p{L}+(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:befintliga|existerande|nuvarande)\s+(?:3d[-\s]?)?(?:saken|grejen|modellen|figuren|scenen|elementet|bubblan|sfären|kuben)(?![\p{L}\p{N}_])/iu,
   // English equivalents — narrow set because "the X" is too noisy alone.
   /(?<![\p{L}\p{N}_])(?:turn\s+(?:it|that|the\s+\p{L}+)\s+into|change\s+(?:it|that|the\s+\p{L}+)\s+(?:to|into)|make\s+(?:it|that|the\s+\p{L}+)\s+(?:into|a))(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:the\s+(?:existing|current)\s+\p{L}+)(?![\p{L}\p{N}_])/iu,
@@ -298,6 +299,7 @@ export function detectFollowUpCapabilities(message: string): FollowUpCapabilityD
   for (const entry of CAPABILITY_VOCABULARY) {
     const matchedKeywords = findMatches(trimmed, entry.patterns);
     if (matchedKeywords.length === 0) continue;
+    if (isCapabilityNegated(trimmed, entry.capability)) continue;
     if (entry.vetoes && entry.vetoes.some((re) => re.test(trimmed))) continue;
     const tier = resolveTier({
       capability: entry.capability,

@@ -91,6 +91,43 @@ describe("applyDossierVerbatimPolicy", () => {
 
       expect(restored).toHaveLength(0);
     });
+
+    it("restores a corrupted ThreeCanvasShell wrapper back to the canonical dossier file", () => {
+      const canonical = '"use client";\nexport function ThreeCanvasShell() { return null; }\n';
+      mockGetDossierFileContent.mockReturnValue(canonical);
+
+      const dossier = makeVerbatimDossier({
+        class: "soft",
+        id: "three-fiber-canvas",
+        capability: "visual-3d",
+        files: [
+          {
+            path: "components/three-canvas-shell.tsx",
+            role: "client",
+            injectionMode: "verbatim",
+          },
+        ],
+      });
+      const llmFile = makeFile(
+        "components/three-canvas-shell.tsx",
+        '"use client";\nimport type { ReactNode } from "react";\nimport { type ReactNode } from "react";\n',
+      );
+
+      const { files, restored } = applyDossierVerbatimPolicy({
+        llmFiles: [llmFile],
+        selectedDossiers: [dossier],
+        chatId: "chat-3d",
+      });
+
+      expect(restored).toEqual([
+        {
+          path: "components/three-canvas-shell.tsx",
+          dossierId: "three-fiber-canvas",
+          reason: "verbatim_content_drift",
+        },
+      ]);
+      expect(files.find((f) => f.path === "components/three-canvas-shell.tsx")?.content).toBe(canonical);
+    });
   });
 
   describe("verbatim_file_missing_in_llm_output — LLM omitted a verbatim file", () => {

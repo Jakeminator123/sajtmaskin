@@ -90,7 +90,7 @@ function renderCompactDossierInstructions(
         : "- Unconfigured hard dossier: render placeholder-safe UI; do not require real env values in F2."
       : "- Soft dossier: use the pattern only where it directly supports the requested capability.";
 
-  return [
+  const lines = [
     `### ${sel.entry.label} (\`${sel.entry.id}\`) — compact instructions`,
     "",
     `- ${sel.entry.summary}`,
@@ -101,8 +101,16 @@ function renderCompactDossierInstructions(
     exposed ? `- Preserve exposed import(s): ${exposed}.` : "- No exposed imports.",
     "- Use this dossier only for the selected capability; do not let it expand unrelated scope.",
     "- If a verbatim file block follows, emit that file exactly and adapt behavior in separate/wrapper files.",
-    "",
   ];
+  if (sel.entry.id === "three-fiber-canvas") {
+    lines.push(
+      "- For a concrete requested object (duck, cup, mascot, product), emit ONE self-contained client component for that object/scene. Do not split it into extra `DuckMesh`/`DuckScene` files unless you also emit complete implementations for those files.",
+      "- Put React hooks such as `useRef`, `useFrame`, and `useReducedMotion` inside React components only. Never leave hooks at module top-level.",
+      "- Use lowercase React Three Fiber primitives (`<group>`, `<mesh>`, `<sphereGeometry>`, `<boxGeometry>`, `<coneGeometry>`). Never use `<Group>`, `<Mesh>`, `<HTMLDivElement>`, or `<HTMLElement>` as JSX tags.",
+    );
+  }
+  lines.push("");
+  return lines;
 }
 
 export function renderDossierBlocks(

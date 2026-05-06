@@ -13,6 +13,7 @@ const startPreviewSession = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => true));
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const parseCodeFilesFromFilesJson = vi.hoisted(() => vi.fn(() => []));
+const getActivePreviewSessionAsync = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -59,6 +60,10 @@ vi.mock("@/lib/gen/version-manager", () => ({
   parseCodeFilesFromFilesJson,
 }));
 
+vi.mock("@/lib/gen/preview/session-store", () => ({
+  getActivePreviewSessionAsync,
+}));
+
 import { POST } from "./route";
 
 describe("POST preview-session (engine)", () => {
@@ -87,6 +92,7 @@ describe("POST preview-session (engine)", () => {
     getVersionFiles.mockResolvedValue([
       { path: "app/page.tsx", content: "export default function Page(){return null;}" },
     ]);
+    getActivePreviewSessionAsync.mockResolvedValue(null);
     startPreviewSession.mockResolvedValue({
       ok: true,
       result: {
@@ -125,6 +131,14 @@ describe("POST preview-session (engine)", () => {
       },
     });
     isTier2LivePreviewUrl.mockReturnValue(true);
+    getActivePreviewSessionAsync.mockResolvedValue({
+      sandboxId: "sb_1",
+      sandboxUrl: "https://preview.example/chat_1",
+      versionId: "ver_1",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+      tier2Provider: "preview_host",
+    });
 
     const res = await POST(
       new Request("http://localhost/api/engine/chats/chat_1/preview-session", {
@@ -136,12 +150,46 @@ describe("POST preview-session (engine)", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; startOutcome?: string; previewUrl?: string };
+    const body = (await res.json()) as {
+      ok: boolean;
+      startOutcome?: string;
+      previewUrl?: string;
+      previewSessionId?: string;
+    };
     expect(body.ok).toBe(true);
     expect(body.startOutcome).toBe("reused_url");
     expect(body.previewUrl).toBe("https://preview.example/chat_1");
+    expect(body.previewSessionId).toBe("sb_1");
     expect(startPreviewSession).not.toHaveBeenCalled();
     expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
+  });
+
+  it("does not reuse a stored preview_url when there is no matching active preview session", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: {
+        id: "ver_1",
+        preview_url: "https://preview.example/chat_1",
+        files_json: "{}",
+      },
+    });
+    isTier2LivePreviewUrl.mockReturnValue(true);
+    getActivePreviewSessionAsync.mockResolvedValue(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver_1" }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(startPreviewSession).toHaveBeenCalled();
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example/chat_1");
+    const body = (await res.json()) as { startOutcome?: string; previewSessionId?: string };
+    expect(body.startOutcome).toBe("recreated");
+    expect(body.previewSessionId).toBe("sb_1");
   });
 
   it("starts preview session and persists previewUrl for version-bound session", async () => {

@@ -303,6 +303,41 @@ describe("checkCrossFileImports", () => {
     expect(fix?.rewireTarget).toBeUndefined();
   });
 
+  it("does not create null-render stubs for missing 3D scene parts", () => {
+    const scene: CodeFile = {
+      path: "components/flying-duck-3d.tsx",
+      language: "tsx",
+      content: [
+        '"use client";',
+        'import DuckMesh from "@/components/duck-mesh";',
+        'import DuckScene from "@/components/duck-scene";',
+        'import { Canvas } from "@react-three/fiber";',
+        "export function FlyingDuck3d() {",
+        "  return <Canvas><DuckScene><DuckMesh /></DuckScene></Canvas>;",
+        "}",
+      ].join("\n"),
+    };
+
+    const result = checkCrossFileImports([scene]);
+
+    expect(result.files.some((f) => f.path === "components/duck-mesh.tsx")).toBe(false);
+    expect(result.files.some((f) => f.path === "components/duck-scene.tsx")).toBe(false);
+    expect(result.fixes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceFile: "components/flying-duck-3d.tsx",
+          missingImport: "@/components/duck-mesh",
+          capability: "visual-3d",
+        }),
+        expect.objectContaining({
+          sourceFile: "components/flying-duck-3d.tsx",
+          missingImport: "@/components/duck-scene",
+          capability: "visual-3d",
+        }),
+      ]),
+    );
+  });
+
   it("strips denylisted default imports like HTMLFormElement without stubbing", () => {
     const page: CodeFile = {
       path: "app/form.tsx",

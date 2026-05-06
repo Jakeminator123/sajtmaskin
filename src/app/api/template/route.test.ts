@@ -92,6 +92,8 @@ vi.mock("@/lib/templates/template-catalog", () => ({
 import { POST } from "./route";
 
 describe("POST /api/template", () => {
+  const freshTimestamp = () => new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
   beforeEach(() => {
     createProject.mockReset();
     saveProjectData.mockReset();
@@ -156,13 +158,14 @@ describe("POST /api/template", () => {
   });
 
   it("imports local repo-backed v0 templates into own-engine", async () => {
+    const sourceTimestamp = freshTimestamp();
     getLocalV0TemplateSourceById.mockResolvedValue({
       templateId: "tmpl_1",
       archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
       sourceSlugs: ["ai"],
       sourceLabelsSv: ["AI"],
       categoryLabel: "AI",
-      timestamp: "2026-04-05T12:00:00Z",
+      timestamp: sourceTimestamp,
     });
     loadLocalV0TemplateFiles.mockResolvedValue({
       source: {
@@ -171,7 +174,7 @@ describe("POST /api/template", () => {
         sourceSlugs: ["ai"],
         sourceLabelsSv: ["AI"],
         categoryLabel: "AI",
-        timestamp: "2026-04-05T12:00:00Z",
+        timestamp: sourceTimestamp,
       },
       files: [
         {
@@ -211,7 +214,7 @@ describe("POST /api/template", () => {
       previewUrl: "https://vm-fly-jakem.fly.dev/chat_import",
       source: {
         templateId: "tmpl_1",
-        timestamp: "2026-04-05T12:00:00Z",
+        timestamp: sourceTimestamp,
         stale: false,
         sourceSlugs: ["ai"],
         categoryLabel: "AI",

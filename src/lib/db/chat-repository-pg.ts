@@ -16,7 +16,7 @@ import {
   engineVersions,
   engineGenerationLogs,
 } from "./schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { and, eq, desc, sql } from "drizzle-orm";
 import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
 
 export interface Chat {
@@ -324,10 +324,11 @@ export async function addAssistantMessageAndUpdateExistingVersion(
       .update(engineChats)
       .set({ updatedAt: new Date() })
       .where(eq(engineChats.id, chatId));
-    await tx
+    const result = await tx
       .update(engineVersions)
       .set({
         filesJson,
+        previewUrl: null,
         repairedFilesJson: null,
         repairAvailableAt: null,
         messageId,
@@ -336,10 +337,17 @@ export async function addAssistantMessageAndUpdateExistingVersion(
         verificationSummary: null,
         promotedAt: null,
       })
-      .where(eq(engineVersions.id, versionId));
+      .where(and(eq(engineVersions.id, versionId), eq(engineVersions.chatId, chatId)));
+    if ((result.rowCount ?? 0) === 0) {
+      throw new Error("Version not found for chat.");
+    }
 
     const msgRows = await tx.select().from(engineMessages).where(eq(engineMessages.id, messageId)).limit(1);
-    const verRows = await tx.select().from(engineVersions).where(eq(engineVersions.id, versionId)).limit(1);
+    const verRows = await tx
+      .select()
+      .from(engineVersions)
+      .where(and(eq(engineVersions.id, versionId), eq(engineVersions.chatId, chatId)))
+      .limit(1);
     return {
       message: toRow(msgRows[0]) as unknown as Message,
       version: toRow(verRows[0]) as unknown as Version,
@@ -566,6 +574,7 @@ export async function acceptRepair(
       .update(engineVersions)
       .set({
         filesJson: repairedFilesJson,
+        previewUrl: null,
         repairedFilesJson: null,
         repairAvailableAt: null,
         releaseState: "promoted" as EngineVersionReleaseState,

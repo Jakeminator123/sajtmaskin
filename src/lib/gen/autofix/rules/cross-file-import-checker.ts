@@ -84,6 +84,16 @@ function deriveComponentName(importPath: string): string {
     .replace(/^\w/, (c) => c.toUpperCase());
 }
 
+function isThreeDImportGap(params: {
+  importerPath: string;
+  importSource: string;
+  projectPath: string;
+  content: string;
+}): boolean {
+  const combined = `${params.importerPath}\n${params.importSource}\n${params.projectPath}\n${params.content}`;
+  return /(?:3d|three|webgl|canvas|r3f|react-three|mesh|scene|duck)/i.test(combined);
+}
+
 /**
  * Try to find an existing project file that the missing import most likely
  * meant. Returns the existing project path (without extension) when an
@@ -576,6 +586,22 @@ export function checkCrossFileImports(
 
       const spec = importSpecifiersFromDeclaration(st);
       const source = meta.moduleSpecifier;
+      if (
+        isThreeDImportGap({
+          importerPath: file.path,
+          importSource: source,
+          projectPath,
+          content: file.content,
+        })
+      ) {
+        fixes.push({
+          sourceFile: file.path,
+          missingImport: source,
+          stubFile: stubPath,
+          capability: "visual-3d",
+        });
+        continue;
+      }
 
       const existing = pendingStubs.get(projectPath);
       if (existing) {

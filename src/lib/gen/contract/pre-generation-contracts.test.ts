@@ -21,6 +21,22 @@ const baseCaps = (over: Partial<InferredCapabilities> = {}): InferredCapabilitie
 });
 
 describe("inferPreGenerationContracts — UI answers", () => {
+  it("keeps visual-only 3D follow-ups free from backend/auth/payment contracts despite negated keywords", () => {
+    const ctx = inferPreGenerationContracts({
+      prompt:
+        "Lägg till en tydligt synlig flygande 3D-anka. Lägg inte till backend, API-routes, auth, betalning eller externa tjänster.",
+      buildIntent: "website",
+      capabilities: baseCaps({ needs3D: true, needsAuth: true, needsPayments: true, needsDatabase: true }),
+    });
+
+    expect(ctx.contracts.dataMode).toBe("none");
+    expect(ctx.contracts.integrations).toEqual([]);
+    expect(ctx.contracts.envVars).toEqual([]);
+    expect(ctx.contracts.authProvider).toBeUndefined();
+    expect(ctx.contracts.paymentProvider).toBeUndefined();
+    expect(ctx.contracts.databaseProvider).toBeUndefined();
+  });
+
   it("defaults to SQLite (no modal) when persistence is implied but no DB named in prompt", () => {
     const ctx = inferPreGenerationContracts({
       prompt: "Vi behöver spara data i en databas",

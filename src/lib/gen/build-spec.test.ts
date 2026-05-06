@@ -602,6 +602,43 @@ Persisted errors for this version:
     expect(localLayout.forbiddenPatterns).toContain("unrequested_full_redesign");
   });
 
+  it("treats explicit visual-only 3D follow-ups as local layout, not redesign or integration", () => {
+    const spec = deriveBuildSpec({
+      prompt:
+        "Lägg till en tydligt synlig flygande 3D-anka ovanpå den befintliga sidan. Behåll nuvarande sida och ingen redesign. Lägg inte till backend, API-routes, auth, betalning eller externa tjänster.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_technical" },
+      capabilities: {
+        needsMotion: true,
+        needs3D: true,
+        needsPhysics: false,
+        needsParallax: false,
+        needsPayments: false,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: false,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: false,
+        needsGame: false,
+        needsEcommerce: false,
+        needsCarousel: false,
+        needsPremiumVisuals: false,
+        needsCalendar: false,
+        needsCommandSearch: false,
+        needsThemeToggle: false,
+      },
+    });
+
+    expect(spec.changeScope).toBe("local-layout");
+    expect(spec.referenceCategories).not.toContain("backend");
+    expect(spec.forbiddenPatterns).toContain("unrequested_full_redesign");
+  });
+
   it("treats physics, forms, auth, payments, parallax and game as heavy capability context", () => {
     const heavyFlags = [
       "needsPhysics",

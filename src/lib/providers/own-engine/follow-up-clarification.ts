@@ -3,6 +3,7 @@ import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
+import { hasNegatedRedesignIntent } from "@/lib/builder/prompt-negation";
 import {
   FOLLOW_UP_INTENT_MODES,
   type FollowUpIntentMode,
@@ -247,13 +248,14 @@ function looksLikeDetailedNewSiteBrief(message: string): boolean {
 export function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   const trimmed = message.trim();
   if (!trimmed) return "neutral";
-  if (FOLLOW_UP_REDESIGN_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+  const suppressRedesign = hasNegatedRedesignIntent(trimmed);
+  if (!suppressRedesign && FOLLOW_UP_REDESIGN_PATTERNS.some((pattern) => pattern.test(trimmed))) {
     return "clear-redesign";
   }
-  if (hasRedesignVerbNounCombo(trimmed)) {
+  if (!suppressRedesign && hasRedesignVerbNounCombo(trimmed)) {
     return "clear-redesign";
   }
-  if (looksLikeDetailedNewSiteBrief(trimmed)) {
+  if (!suppressRedesign && looksLikeDetailedNewSiteBrief(trimmed)) {
     return "clear-redesign";
   }
   const mentionsNewSite = FOLLOW_UP_NEW_SITE_PATTERNS.some((pattern) => pattern.test(trimmed));

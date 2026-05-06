@@ -49,6 +49,26 @@ import type {
   FinalizeStepTelemetry,
 } from "./types";
 
+function isThreeDStubLike(stub: PreflightPhaseResult["crossFileStubs"][number]): boolean {
+  return (
+    stub.capability === "visual-3d" ||
+    /(?:3d|three|webgl|canvas|r3f|mesh|scene|duck)/i.test(
+      `${stub.sourceFile}\n${stub.missingImport}\n${stub.stubFile}`,
+    )
+  );
+}
+
+function buildThreeDStubIssues(
+  stubs: PreflightPhaseResult["crossFileStubs"],
+): FinalizePreflightIssue[] {
+  return stubs.filter(isThreeDStubLike).map((stub) => ({
+    file: stub.sourceFile,
+    severity: "error" as const,
+    message: `3D component references missing local part ${stub.missingImport}; refusing null-render stub ${stub.stubFile}.`,
+    category: "code_structure_failure" as const,
+  }));
+}
+
 export interface PreflightPhaseResult {
   contentForVersion: string;
   filesJson: string;
@@ -234,6 +254,17 @@ export async function runPreflightPhase(params: {
   let preflightFileCount = preflightResult.preflightFileCount;
   let preflightIssues = preflightResult.preflightIssues;
   let previewBlockingReason = preflightResult.previewBlockingReason;
+  const threeDStubIssues = buildThreeDStubIssues(crossFileStubs);
+  if (threeDStubIssues.length > 0) {
+    preflightIssues = [...preflightIssues, ...threeDStubIssues];
+    preflightResult = {
+      ...preflightResult,
+      preflightIssues,
+    };
+    previewBlockingReason =
+      previewBlockingReason ??
+      `Automatic preflight blocked preview: ${threeDStubIssues[0].file}: ${threeDStubIssues[0].message}`;
+  }
   let partialFileIssues = preflightIssues
     .filter(isPartialFileOutputIssue)
     .map((issue) => `${issue.file}: ${issue.message}`);
@@ -325,6 +356,17 @@ export async function runPreflightPhase(params: {
       preflightFileCount = preflightResult.preflightFileCount;
       preflightIssues = preflightResult.preflightIssues;
       previewBlockingReason = preflightResult.previewBlockingReason;
+      const remergeThreeDStubIssues = buildThreeDStubIssues(crossFileStubs);
+      if (remergeThreeDStubIssues.length > 0) {
+        preflightIssues = [...preflightIssues, ...remergeThreeDStubIssues];
+        preflightResult = {
+          ...preflightResult,
+          preflightIssues,
+        };
+        previewBlockingReason =
+          previewBlockingReason ??
+          `Automatic preflight blocked preview: ${remergeThreeDStubIssues[0].file}: ${remergeThreeDStubIssues[0].message}`;
+      }
       partialFileIssues = preflightIssues
         .filter(isPartialFileOutputIssue)
         .map((issue) => `${issue.file}: ${issue.message}`);

@@ -29,6 +29,9 @@ const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
 const USE_CLIENT_RE = /^["']use client["'];?\s*$/m;
 const METADATA_EXPORT_RE =
   /\bexport\s+(?:const\s+metadata\b|(?:async\s+)?function\s+generateMetadata\b)/;
+const DIALOG_CONTENT_RE = /<DialogContent(?:\s|>)/;
+const DIALOG_TITLE_RE = /<DialogTitle(?:\s|>)/;
+const DIALOG_DESCRIPTION_RE = /<DialogDescription(?:\s|>)/;
 const BUILTIN_PACKAGES = new Set([
   "react",
   "react-dom",
@@ -315,6 +318,31 @@ export function runProjectSanityChecks(
           "code_structure_failure",
         ),
       );
+    }
+
+    // 3d. Radix Dialog accessibility requirements. Missing title/description
+    // spams production console and makes generated dialogs inaccessible.
+    if (DIALOG_CONTENT_RE.test(file.content)) {
+      if (!DIALOG_TITLE_RE.test(file.content)) {
+        issues.push(
+          createSanityIssue(
+            file.path,
+            "error",
+            "DialogContent is missing DialogTitle. Add a visible or sr-only DialogTitle inside the dialog.",
+            "code_structure_failure",
+          ),
+        );
+      }
+      if (!DIALOG_DESCRIPTION_RE.test(file.content)) {
+        issues.push(
+          createSanityIssue(
+            file.path,
+            "warning",
+            "DialogContent is missing DialogDescription. Add a description or set aria-describedby={undefined} intentionally.",
+            "non_blocking_quality_warning",
+          ),
+        );
+      }
     }
   }
 

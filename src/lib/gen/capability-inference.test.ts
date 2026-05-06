@@ -126,6 +126,18 @@ describe("inferCapabilities", () => {
     expect(webgl.needs3D).toBe(true);
   });
 
+  it("suppresses backend/auth/payment capability flags when explicitly negated in a visual-only 3D follow-up", () => {
+    const caps = inferCapabilities(
+      "Lägg till en flygande 3D-anka. Lägg inte till backend, API-routes, auth, betalning eller externa tjänster.",
+    );
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsMotion).toBe(true);
+    expect(caps.needsAuth).toBe(false);
+    expect(caps.needsPayments).toBe(false);
+    expect(caps.needsDatabase).toBe(false);
+    expect(caps.needsDataUI).toBe(false);
+  });
+
   it("detects scroll-parallax from English 'parallax scroll'", () => {
     const caps = inferCapabilities("a landing page with parallax scroll effects");
     expect(caps.needsParallax).toBe(true);

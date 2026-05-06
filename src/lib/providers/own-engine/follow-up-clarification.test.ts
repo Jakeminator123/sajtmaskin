@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
+import { inferCapabilities } from "@/lib/gen/capability-inference";
+import { inferPreGenerationContracts } from "@/lib/gen/contract/pre-generation-contracts";
+import { deriveBuildSpec } from "@/lib/gen/build-spec";
+import type { RoutePlan } from "@/lib/gen/route-plan";
 import {
   _resetLlmFallbackCacheForTests,
   classifyFollowUpIntent,
@@ -8,6 +12,13 @@ import {
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
 } from "./follow-up-clarification";
+
+const duckRoutePlan: RoutePlan = {
+  provenance: { primarySource: "prompt", sources: ["prompt"] },
+  siteType: "one-page",
+  reason: "test",
+  routes: [{ path: "/", name: "Home", intent: "Keep root route", required: true }],
+};
 
 describe("follow-up clarification intent classification", () => {
   it("treats a detailed new-site brief as a clear redesign when explicit redesign-intent is present (QW-3)", () => {
@@ -98,6 +109,64 @@ describe("follow-up clarification intent classification", () => {
     expect(
       classifyFollowUpIntent("Skapa en 3d-kaffekopp som hoovrar och flyger ovanför"),
     ).toBe("capability-add");
+  });
+
+  it("keeps explicit visual-only 3D follow-ups out of clear-redesign", () => {
+    const message = [
+      "Lägg till en tydligt synlig flygande 3D-anka ovanpå den befintliga sidan.",
+      "Behåll nuvarande sida, layout, texter, navigation och sektioner.",
+      "Ingen redesign och inga nya routes.",
+      "Lägg inte till backend, API-routes, auth, betalning eller externa tjänster.",
+    ].join(" ");
+
+    expect(classifyFollowUpIntent(message)).toBe("capability-add");
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "capability-add",
+        message,
+        scaffoldMode: "auto",
+        scaffoldId: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps the duck prompt visual-only across intent, capability, contracts and build spec", () => {
+    const message = [
+      "Lägg till en tydligt synlig flygande 3D-anka ovanpå den befintliga sidan.",
+      "Behåll nuvarande sida, layout, texter, navigation och sektioner. Ingen redesign och inga nya routes.",
+      "Skapa riktig Three/R3F-geometri, inte bild, SVG eller lucide-ikon.",
+      "Lägg inte till backend, API-routes, auth, betalning eller externa tjänster.",
+    ].join(" ");
+    const caps = inferCapabilities(message);
+    const contracts = inferPreGenerationContracts({
+      prompt: message,
+      buildIntent: "website",
+      capabilities: caps,
+    });
+    const spec = deriveBuildSpec({
+      prompt: message,
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: { id: "landing-page", label: "Landing", description: "", allowedBuildIntents: ["website"], tags: [], promptHints: [], files: [] },
+      routePlan: duckRoutePlan,
+      preGenerationContracts: contracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_technical" },
+      capabilities: caps,
+    });
+    const detection = detectFollowUpCapabilities(message);
+
+    expect(classifyFollowUpIntent(message)).toBe("capability-add");
+    expect(detection.capabilityIds).toEqual(["visual-3d"]);
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsAuth).toBe(false);
+    expect(caps.needsPayments).toBe(false);
+    expect(caps.needsDatabase).toBe(false);
+    expect(contracts.contracts.dataMode).toBe("none");
+    expect(contracts.contracts.integrations).toEqual([]);
+    expect(contracts.contracts.envVars).toEqual([]);
+    expect(spec.changeScope).toBe("local-layout");
+    expect(spec.referenceCategories).toEqual(["marketing-sites"]);
   });
 
   it("classifies 'lägg till en kontaktform' as capability-add (not clear-refine)", () => {

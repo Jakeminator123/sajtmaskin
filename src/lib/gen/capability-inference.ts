@@ -25,6 +25,12 @@
  */
 
 import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
+import {
+  hasNegatedAuthIntent,
+  hasNegatedBackendIntent,
+  hasNegatedPaymentIntent,
+  isVisualOnlyFollowUpPrompt,
+} from "@/lib/builder/prompt-negation";
 
 export interface InferredCapabilities {
   needsMotion: boolean;
@@ -266,6 +272,14 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
         break;
       }
     }
+  }
+
+  const visualOnlyFollowUp = isVisualOnlyFollowUpPrompt(prompt);
+  if (visualOnlyFollowUp || hasNegatedAuthIntent(prompt)) result.needsAuth = false;
+  if (visualOnlyFollowUp || hasNegatedPaymentIntent(prompt)) result.needsPayments = false;
+  if (visualOnlyFollowUp || hasNegatedBackendIntent(prompt)) {
+    result.needsDatabase = false;
+    result.needsDataUI = false;
   }
 
   if (result.needsPhysics) result.needs3D = true;

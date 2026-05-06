@@ -9,6 +9,13 @@
  */
 import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import {
+  hasNegatedAuthIntent,
+  hasNegatedBackendIntent,
+  hasNegatedIntegrationIntent,
+  hasNegatedPaymentIntent,
+  isVisualOnlyFollowUpPrompt,
+} from "@/lib/builder/prompt-negation";
 import type { InferredCapabilities } from "../capability-inference";
 import type {
   PlanContracts,
@@ -488,17 +495,33 @@ export function inferPreGenerationContracts(params: {
 }): PreGenerationContractContext {
   const { prompt, buildIntent, brief = null, capabilities, contractAnswers = [] } = params;
   const corpus = getPromptCorpus(prompt, brief);
+  const visualOnly = isVisualOnlyFollowUpPrompt(corpus);
+  const suppressAuth = visualOnly || hasNegatedAuthIntent(corpus);
+  const suppressPayment = visualOnly || hasNegatedPaymentIntent(corpus);
+  const suppressBackend = visualOnly || hasNegatedBackendIntent(corpus);
+  const suppressIntegration = visualOnly || hasNegatedIntegrationIntent(corpus);
+  const effectiveCapabilities: InferredCapabilities = {
+    ...capabilities,
+    needsAuth: suppressAuth ? false : capabilities.needsAuth,
+    needsPayments: suppressPayment ? false : capabilities.needsPayments,
+    needsDatabase: suppressBackend ? false : capabilities.needsDatabase,
+    needsDataUI: suppressBackend ? false : capabilities.needsDataUI,
+  };
   const integrations: PlanIntegrationContract[] = [];
   const envVars: PlanEnvVarContract[] = [];
   const unresolvedDecisions: PreGenerationContractContext["unresolvedDecisions"] = [];
 
   const contracts: PlanContracts = {
-    dataMode: inferDataMode(buildIntent, corpus, capabilities),
+    dataMode: suppressBackend ? "none" : inferDataMode(buildIntent, corpus, effectiveCapabilities),
     integrations,
     envVars,
   };
 
   for (const rule of PROVIDER_RULES) {
+    if (rule.kind === "auth" && suppressAuth) continue;
+    if (rule.kind === "payment" && suppressPayment) continue;
+    if (rule.kind === "database" && suppressBackend) continue;
+    if (rule.kind === "integration" && suppressIntegration) continue;
     if (!rule.patterns.some((pattern) => pattern.test(corpus))) continue;
 
     if (rule.kind === "database" && !contracts.databaseProvider) {
@@ -524,23 +547,29 @@ export function inferPreGenerationContracts(params: {
     pushEnvVars(envVars, rule.envVars, rule.reason, false);
   }
 
-  applyDefaultCredentialsAuthWhenNeeded(capabilities, contracts, integrations, envVars);
+  if (!suppressAuth) {
+    applyDefaultCredentialsAuthWhenNeeded(effectiveCapabilities, contracts, integrations, envVars);
+  }
 
-  applyDefaultStripePlaceholderWhenPaymentNeeded(
-    corpus,
-    capabilities,
-    contracts,
-    integrations,
-    envVars,
-  );
+  if (!suppressPayment) {
+    applyDefaultStripePlaceholderWhenPaymentNeeded(
+      corpus,
+      effectiveCapabilities,
+      contracts,
+      integrations,
+      envVars,
+    );
+  }
 
-  applyDefaultSqliteWhenPersistenceNeedsProvider(
-    corpus,
-    capabilities,
-    contracts,
-    integrations,
-    envVars,
-  );
+  if (!suppressBackend) {
+    applyDefaultSqliteWhenPersistenceNeedsProvider(
+      corpus,
+      effectiveCapabilities,
+      contracts,
+      integrations,
+      envVars,
+    );
+  }
 
   // Vague "integration" hints no longer block the stream — codegen stubs or uses placeholders.
   // (Previously `oauth` in this regex caused spurious blocking modals.)

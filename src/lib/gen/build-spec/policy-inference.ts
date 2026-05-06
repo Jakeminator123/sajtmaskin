@@ -13,6 +13,10 @@ import {
 } from "@/lib/builder/promptOrchestration";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { PreGenerationContractContext } from "../contract/pre-generation-contracts";
+import {
+  hasNegatedRedesignIntent,
+  isVisualOnlyFollowUpPrompt,
+} from "@/lib/builder/prompt-negation";
 import type { RoutePlan } from "../route-plan";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { effectiveInitRouteCount } from "./route-realization";
@@ -148,6 +152,14 @@ export function inferChangeScope(params: {
     return "redesign";
   }
 
+  if (isVisualOnlyFollowUpPrompt(prompt)) return "local-layout";
+  if (hasNegatedRedesignIntent(prompt)) {
+    if (includesAny(PAGE_ADDITION_PATTERNS, promptLower) && !isInPageSectionRequest(promptLower)) {
+      return "page-addition";
+    }
+    if (includesAny(COPY_PATTERNS, promptLower)) return "copy";
+    return "local-layout";
+  }
   if (includesAny(REDESIGN_PATTERNS, promptLower)) return "redesign";
   if (
     integrationCount > 0 &&

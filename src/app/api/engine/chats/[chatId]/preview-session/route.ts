@@ -20,6 +20,7 @@ import {
 import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { incIngressEvent } from "@/lib/observability/metrics";
+import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 
 const postBodySchema = z.object({
   versionId: z.string().min(1).optional(),
@@ -118,28 +119,31 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         isTier2LivePreviewUrl(versionRow.preview_url)
       ) {
         const trimmedPreviewUrl = versionRow.preview_url.trim();
-        // P19 ingress 1: preview-session short-circuit. Wrapped + try/catch so
-        // telemetry can never block the response — same posture as other
-        // observability call-sites in this route.
-        try {
-          incIngressEvent("preview_reused_url");
-        } catch {}
-        try {
-          devLogAppend("latest", {
-            type: "preview.reused-url",
-            chatId,
-            versionId: versionRow.id,
-            previewUrl: trimmedPreviewUrl.slice(0, 60),
+        const activeSession = await getActivePreviewSessionAsync(chatId);
+        if (activeSession?.versionId === versionRow.id && activeSession.sandboxUrl === trimmedPreviewUrl) {
+          // P19 ingress 1: preview-session short-circuit. Wrapped + try/catch so
+          // telemetry can never block the response — same posture as other
+          // observability call-sites in this route.
+          try {
+            incIngressEvent("preview_reused_url");
+          } catch {}
+          try {
+            devLogAppend("latest", {
+              type: "preview.reused-url",
+              chatId,
+              versionId: versionRow.id,
+              previewUrl: trimmedPreviewUrl.slice(0, 60),
+            });
+          } catch {}
+          return NextResponse.json({
+            ok: true,
+            previewUrl: trimmedPreviewUrl,
+            previewSessionId: activeSession.sandboxId,
+            previewMode: "dev_only",
+            previewTier: 2,
+            startOutcome: "reused_url",
           });
-        } catch {}
-        return NextResponse.json({
-          ok: true,
-          previewUrl: trimmedPreviewUrl,
-          previewSessionId: null,
-          previewMode: null,
-          previewTier: 2,
-          startOutcome: "reused_url",
-        });
+        }
       }
 
       let files = (await getVersionFiles(versionRow.id)) ?? [];
