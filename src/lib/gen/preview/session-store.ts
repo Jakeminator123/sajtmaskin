@@ -12,8 +12,8 @@ import { getRedis } from "@/lib/data/redis";
 export type Tier2Provider = "preview_host";
 
 export type PreviewSessionEntry = {
-  sandboxId: string;
-  sandboxUrl: string;
+  previewSessionId: string;
+  previewUrl: string;
   /** When set, reuse is only attempted if the requested preview matches this version. */
   versionId: string | null;
   createdAt: number;
@@ -44,10 +44,16 @@ function parseTier2Provider(raw: unknown): Tier2Provider | undefined {
   return undefined;
 }
 
+function nonEmptyString(raw: unknown): string | null {
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
 function parsePreviewSessionJson(raw: string): PreviewSessionEntry | null {
   try {
     const o = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof o.sandboxId !== "string" || typeof o.sandboxUrl !== "string") return null;
+    const previewSessionId = nonEmptyString(o.previewSessionId) ?? nonEmptyString(o.sandboxId);
+    const previewUrl = nonEmptyString(o.previewUrl) ?? nonEmptyString(o.sandboxUrl);
+    if (!previewSessionId || !previewUrl) return null;
     const createdAt = Number(o.createdAt);
     const lastUsedAt = Number(o.lastUsedAt);
     if (!Number.isFinite(createdAt) || !Number.isFinite(lastUsedAt)) return null;
@@ -56,8 +62,8 @@ function parsePreviewSessionJson(raw: string): PreviewSessionEntry | null {
     else if (o.versionId !== null && o.versionId !== undefined) return null;
     const tier2Provider = parseTier2Provider(o.tier2Provider);
     return {
-      sandboxId: o.sandboxId,
-      sandboxUrl: o.sandboxUrl,
+      previewSessionId,
+      previewUrl,
       versionId,
       createdAt,
       lastUsedAt,
@@ -91,8 +97,8 @@ async function writePreviewSessionToRedis(chatId: string, entry: PreviewSessionE
       redisSessionKey(chatId),
       REDIS_TTL_SECONDS,
       JSON.stringify({
-        sandboxId: entry.sandboxId,
-        sandboxUrl: entry.sandboxUrl,
+        previewSessionId: entry.previewSessionId,
+        previewUrl: entry.previewUrl,
         versionId: entry.versionId,
         createdAt: entry.createdAt,
         lastUsedAt: entry.lastUsedAt,
@@ -122,8 +128,8 @@ function isExpired(entry: PreviewSessionEntry, now: number, idleMs: number, hard
 
 export type TouchPreviewSessionParams = {
   chatId: string;
-  sandboxId: string;
-  sandboxUrl: string;
+  previewSessionId: string;
+  previewUrl: string;
   versionId?: string | null;
   now?: number;
   tier2Provider?: Tier2Provider;
@@ -136,7 +142,11 @@ function resolveTier2ProviderForTouch(
   if (params.tier2Provider === "preview_host") {
     return params.tier2Provider;
   }
-  if (prev && prev.sandboxId === params.sandboxId && prev.tier2Provider === "preview_host") {
+  if (
+    prev &&
+    prev.previewSessionId === params.previewSessionId &&
+    prev.tier2Provider === "preview_host"
+  ) {
     return "preview_host";
   }
   return "preview_host";
@@ -151,10 +161,10 @@ export function touchPreviewSession(params: TouchPreviewSessionParams): void {
       : null;
   const tier2Provider = resolveTier2ProviderForTouch(params, prev);
   sessions.set(params.chatId, {
-    sandboxId: params.sandboxId,
-    sandboxUrl: params.sandboxUrl,
+    previewSessionId: params.previewSessionId,
+    previewUrl: params.previewUrl,
     versionId,
-    createdAt: prev?.sandboxId === params.sandboxId ? prev.createdAt : now,
+    createdAt: prev?.previewSessionId === params.previewSessionId ? prev.createdAt : now,
     lastUsedAt: now,
     tier2Provider,
   });

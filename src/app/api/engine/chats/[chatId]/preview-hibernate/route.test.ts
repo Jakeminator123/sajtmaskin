@@ -66,8 +66,8 @@ describe("POST preview-hibernate", () => {
 
   it("hibernates matching preview_host session", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb1",
-      sandboxUrl: "https://preview.example",
+      previewSessionId: "ps1",
+      previewUrl: "https://preview.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -79,7 +79,7 @@ describe("POST preview-hibernate", () => {
       new Request("http://localhost/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "v1", previewSessionId: "sb1" }),
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "ps1" }),
       }),
       { params: Promise.resolve({ chatId: "c1" }) },
     );
@@ -87,6 +87,6 @@ describe("POST preview-hibernate", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean; hibernated?: boolean };
     expect(body).toMatchObject({ ok: true, hibernated: true });
-    expect(hibernatePreviewHostSession).toHaveBeenCalledWith({ sandboxId: "sb1" });
+    expect(hibernatePreviewHostSession).toHaveBeenCalledWith({ previewSessionId: "ps1" });
   });
 });

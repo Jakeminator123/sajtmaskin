@@ -72,6 +72,17 @@ Sedan 2026-04-20 (P29 Fas 1B) finns **inga** `/api/v0/chats/...` compat-routes k
 
 `project_data` är app-/builder-snapshot, inte primär kodsanning när version finns.
 
+Kanoniska ID-fält i preview/version-flödet:
+
+| Fält | Ägarskap |
+|---|---|
+| `appProjectId` | Builder-projekt, tenant/env-scope |
+| `chatId` | own-engine chat/lane och preview-host path key |
+| `versionId` | `engine_versions`-rad |
+| `previewSessionId` | Aktiv preview-session |
+| `previewUrl` / `engine_versions.preview_url` | Publik preview-URL |
+| `runId` | Observability/logg-run |
+
 ---
 
 ## Preview

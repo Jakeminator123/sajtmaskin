@@ -74,8 +74,8 @@ describe("GET preview-status (engine)", () => {
 
   it("returns stopped + preview_session_id_mismatch for mismatched client session id", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb_server",
-      sandboxUrl: "https://preview.example",
+      previewSessionId: "ps_server",
+      previewUrl: "https://preview.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -83,7 +83,7 @@ describe("GET preview-status (engine)", () => {
 
     const res = await GET(
       new Request(
-        "http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1&previewSessionId=sb_client",
+        "http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1&previewSessionId=ps_client",
       ),
       { params: Promise.resolve({ chatId: "chat_1" }) },
     );
@@ -110,8 +110,8 @@ describe("GET preview-status (engine)", () => {
 
   it("returns version_mismatch when session points to another version", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb_server",
-      sandboxUrl: "https://preview.example",
+      previewSessionId: "ps_server",
+      previewUrl: "https://preview.example",
       versionId: "v2",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -137,8 +137,8 @@ describe("GET preview-status (engine)", () => {
 
   it("marks version_mismatch when the active VM session is newer than the selected version", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb_server",
-      sandboxUrl: "https://preview.example",
+      previewSessionId: "ps_server",
+      previewUrl: "https://preview.example",
       versionId: "v4",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -168,8 +168,8 @@ describe("GET preview-status (engine)", () => {
   it("returns stopped + provider_not_running_or_unreachable when resume fails", async () => {
     const oldEnough = Date.now() - 120_000;
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb_1",
-      sandboxUrl: "https://preview.example",
+      previewSessionId: "ps_1",
+      previewUrl: "https://preview.example",
       versionId: "v1",
       createdAt: oldEnough,
       lastUsedAt: oldEnough,
@@ -189,14 +189,14 @@ describe("GET preview-status (engine)", () => {
 
   it("returns running when resume succeeds", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb_1",
-      sandboxUrl: "https://stored.example",
+      previewSessionId: "ps_1",
+      previewUrl: "https://stored.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
     });
     tryResumeTier2Runtime.mockResolvedValue({
-      sandboxId: "sb_1",
+      previewSessionId: "ps_1",
       primaryUrl: "https://live.example",
     });
 

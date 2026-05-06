@@ -149,7 +149,7 @@ Utan:
 
 - ta emot ett `chatId` (legacy alias: `projectId`) och `versionId`
 - skapa eller uppdatera en preview-session
-- komma ihag `sandboxId`, `previewUrl` och status
+- komma ihag `previewSessionId`, `previewUrl` och status
 - senare kunna prata med riktig Docker/Machines-runtime
 
 Just nu ar detta alltsa en **saker prototyp att bygga vidare pa**, inte den fardiga preview-motorn.
@@ -190,8 +190,8 @@ Viktiga test-endpoints i prototypen:
 - `POST /preview/session/hibernate`
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
-- `GET /preview/session/:sandboxId/status`
-- `GET /preview/logs/:sandboxId`
+- `GET /preview/session/:previewSessionId/status`
+- `GET /preview/logs/:previewSessionId`
 - `POST /preview/verify`
 
 Detta ar nu en **minimal riktig sessionskontrolltjanst** for Tier 2-kontraktet. Det ar fortfarande **inte** en full runtime-motor: ingen riktig Docker-worker, ingen workspace-orkestrering och ingen multi-machine-store ar inkopplad an.
@@ -258,8 +258,9 @@ Minsta viktiga kontrakt just nu:
 - `POST /preview/session/hibernate`
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
-- `GET /preview/session/:sandboxId/status`
-- `GET /preview/logs/:sandboxId`
+- `GET /preview/session/:previewSessionId/status`
+- `GET /preview/sandbox/:previewSessionId/status` (legacy path-alias)
+- `GET /preview/logs/:previewSessionId`
 - `POST /preview/verify`
 
 Alla `/preview/*`-endpoints kraver `PREVIEW_HOST_API_KEY` i icke-lokal miljo (Bearer eller `X-Preview-Host-Key`).
@@ -277,7 +278,7 @@ Payload in fran Sajtmaskin bor minst innehalla:
 Svar tillbaka bor minst innehalla:
 
 - `chatId`
-- `sandboxId`
+- `previewSessionId`
 - `previewUrl`
 - `startOutcome`
 - `sessionExpiresAt`

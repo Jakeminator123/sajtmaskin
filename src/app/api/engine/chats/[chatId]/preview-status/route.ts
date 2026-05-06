@@ -93,7 +93,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           chatId,
           status: "missing",
           versionId,
-          sandboxId: null,
+          previewSessionId: null,
         });
         return NextResponse.json(body);
       }
@@ -108,8 +108,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         const body: PreviewStatusApiJson = {
           ok: true,
           status: "version_mismatch",
-          previewSessionId: session.sandboxId,
-          previewUrl: session.sandboxUrl,
+          previewSessionId: session.previewSessionId,
+          previewUrl: session.previewUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
           reason: "session_bound_to_other_version",
@@ -120,17 +120,17 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           chatId,
           status: "version_mismatch",
           versionId,
-          sandboxId: session.sandboxId,
+          previewSessionId: session.previewSessionId,
         });
         return NextResponse.json(body);
       }
 
-      if (clientPreviewSessionId && session.sandboxId !== clientPreviewSessionId) {
+      if (clientPreviewSessionId && session.previewSessionId !== clientPreviewSessionId) {
         const body: PreviewStatusApiJson = {
           ok: true,
           status: "stopped",
-          previewSessionId: session.sandboxId,
-          previewUrl: session.sandboxUrl,
+          previewSessionId: session.previewSessionId,
+          previewUrl: session.previewUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
           reason: "preview_session_id_mismatch",
@@ -140,7 +140,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           chatId,
           status: "stopped",
           versionId,
-          sandboxId: session.sandboxId,
+          previewSessionId: session.previewSessionId,
         });
         return NextResponse.json(body);
       }
@@ -153,8 +153,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         const body: PreviewStatusApiJson = {
           ok: true,
           status,
-          previewSessionId: session.sandboxId,
-          previewUrl: session.sandboxUrl,
+          previewSessionId: session.previewSessionId,
+          previewUrl: session.previewUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
           reason,
@@ -164,7 +164,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           chatId,
           status,
           versionId,
-          sandboxId: session.sandboxId,
+          previewSessionId: session.previewSessionId,
         });
         return NextResponse.json(body);
       }
@@ -172,7 +172,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const body: PreviewStatusApiJson = {
         ok: true,
         status: "running",
-        previewSessionId: resumed.sandboxId,
+        previewSessionId: resumed.previewSessionId,
         previewUrl: resumed.primaryUrl,
         versionId: sessionVid,
         sessionExpiresAt: sessionSoftExpiryAt(session),
@@ -182,7 +182,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         chatId,
         status: "running",
         versionId,
-        sandboxId: resumed.sandboxId,
+        previewSessionId: resumed.previewSessionId,
       });
       return NextResponse.json(body);
     } catch (err) {

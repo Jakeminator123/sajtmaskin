@@ -120,7 +120,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       ) {
         const trimmedPreviewUrl = versionRow.preview_url.trim();
         const activeSession = await getActivePreviewSessionAsync(chatId);
-        if (activeSession?.versionId === versionRow.id && activeSession.sandboxUrl === trimmedPreviewUrl) {
+        if (activeSession?.versionId === versionRow.id && activeSession.previewUrl === trimmedPreviewUrl) {
           // P19 ingress 1: preview-session short-circuit. Wrapped + try/catch so
           // telemetry can never block the response — same posture as other
           // observability call-sites in this route.
@@ -138,7 +138,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           return NextResponse.json({
             ok: true,
             previewUrl: trimmedPreviewUrl,
-            previewSessionId: activeSession.sandboxId,
+            previewSessionId: activeSession.previewSessionId,
             previewMode: "dev_only",
             previewTier: 2,
             startOutcome: "reused_url",
@@ -219,8 +219,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       }
 
       const sr = started.result;
-      if (sr.sandboxUrl.trim()) {
-        await updateVersionPreviewUrl(versionRow.id, sr.sandboxUrl);
+      if (sr.previewUrl.trim()) {
+        await updateVersionPreviewUrl(versionRow.id, sr.previewUrl);
       }
 
       logPreviewLifecycleTelemetry({
@@ -233,9 +233,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       return NextResponse.json({
         ok: true,
-        previewUrl: sr.sandboxUrl,
-        previewSessionId: sr.sandboxId,
-        previewMode: sr.sandboxPreviewMode,
+        previewUrl: sr.previewUrl,
+        previewSessionId: sr.previewSessionId,
+        previewMode: sr.previewMode,
         previewTier: sr.fidelityTier,
         ...(sr.prodBuildVerified !== undefined ? { prodBuildVerified: sr.prodBuildVerified } : {}),
         startOutcome: sr.startOutcome,

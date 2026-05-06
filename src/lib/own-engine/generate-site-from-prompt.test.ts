@@ -228,9 +228,9 @@ function setupMocks() {
     startPreviewSessionMock.mockResolvedValue({
     ok: true,
     result: {
-      sandboxUrl: `https://preview.test/${CHAT_ID}/${VERSION_ID}`,
-      sandboxId: "sbx_test_1",
-      sandboxPreviewMode: "dev_only",
+      previewUrl: `https://preview.test/${CHAT_ID}/${VERSION_ID}`,
+      previewSessionId: "ps_test_1",
+      previewMode: "dev_only",
       fidelityTier: 2,
       startOutcome: "recreated",
     },

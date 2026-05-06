@@ -23,6 +23,8 @@ export type GenerateSiteResult = {
   previewUrl: string | null;
   runtimeMode: RuntimeMode;
   runtimeUrl: string | null;
+  previewSessionId?: string;
+  /** @deprecated Legacy alias for external MCP clients. Use `previewSessionId`. */
   sandboxId?: string;
   runtime?: string;
   ports?: number[];
@@ -94,6 +96,8 @@ export async function generateSiteFromPrompt(
     previewUrl: generated.previewUrl,
     runtimeMode: generated.runtimeMode,
     runtimeUrl: generated.runtimeUrl,
+    previewSessionId: generated.previewSessionId,
+    // Legacy MCP response alias retained for existing clients.
     sandboxId: generated.sandboxId,
     runtime: generated.runtime,
     ports: generated.ports,

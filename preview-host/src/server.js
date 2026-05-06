@@ -117,7 +117,7 @@ function readFilesystemUsage(targetPath) {
   }
 }
 
-function getPreviewStatusSandboxId(pathname) {
+function getPreviewStatusSessionId(pathname) {
   const parts = pathname.split("/").filter(Boolean);
   if (parts.length !== 4 || parts[0] !== "preview" || parts[3] !== "status") {
     return "";
@@ -211,9 +211,12 @@ function sessionExpiresAtIso() {
  * @param {object} session
  */
 function sessionResponse(session) {
+  const previewSessionId = session.previewSessionId;
   return {
     sessionId: session.sessionId,
-    sandboxId: session.sandboxId,
+    previewSessionId,
+    /** @legacy External alias for older Sajtmaskin app deployments. */
+    sandboxId: previewSessionId,
     chatId: getSessionChatId(session),
     versionId: session.versionId,
     previewUrl: session.previewUrl,
@@ -229,13 +232,13 @@ function sessionResponse(session) {
 }
 
 /** @param {ReturnType<typeof readStoreSync>} data */
-function appendLog(data, sandboxId, message) {
-  const lines = data.logs[sandboxId] ?? [];
+function appendLog(data, previewSessionId, message) {
+  const lines = data.logs[previewSessionId] ?? [];
   lines.push({
     ts: nowIso(),
     message,
   });
-  data.logs[sandboxId] = lines;
+  data.logs[previewSessionId] = lines;
 }
 
 /**
@@ -249,10 +252,10 @@ function findSessionById(data, sessionId) {
 
 /**
  * @param {ReturnType<typeof readStoreSync>} data
- * @param {string} sandboxId
+ * @param {string} previewSessionId
  */
-function findSessionBySandboxId(data, sandboxId) {
-  const sid = data.sandboxToSession[sandboxId];
+function findSessionByPreviewSessionId(data, previewSessionId) {
+  const sid = data.previewSessionToSession[previewSessionId];
   if (!sid) {
     return null;
   }
@@ -336,9 +339,9 @@ async function routeRequest(req, res) {
         "POST /preview/session/destroy",
         "POST /preview/verify",
         "GET /preview/session/:id",
-        "GET /preview/session/:sandboxId/status",
-        "GET /preview/sandbox/:sandboxId/status",
-        "GET /preview/logs/:sandboxId",
+        "GET /preview/session/:previewSessionId/status",
+        "GET /preview/sandbox/:previewSessionId/status (legacy path)",
+        "GET /preview/logs/:previewSessionId",
         "GET /admin/sessions",
         "GET /admin/storage",
         "POST /admin/cleanup",
@@ -365,15 +368,15 @@ async function routeRequest(req, res) {
     return undefined;
   }
 
-  const previewStatusSandboxId = getPreviewStatusSandboxId(url.pathname);
-  if (req.method === "GET" && previewStatusSandboxId) {
-    const sandboxId = previewStatusSandboxId;
-    if (!sandboxId) {
-      return json(res, 400, { error: "bad_request", message: "Missing sandboxId." });
+  const previewStatusSessionId = getPreviewStatusSessionId(url.pathname);
+  if (req.method === "GET" && previewStatusSessionId) {
+    const previewSessionId = previewStatusSessionId;
+    if (!previewSessionId) {
+      return json(res, 400, { error: "bad_request", message: "Missing previewSessionId." });
     }
     const statusResult = await withStoreLock((data) => {
       const nowMs = Date.now();
-      const session = findSessionBySandboxId(data, sandboxId);
+      const session = findSessionByPreviewSessionId(data, previewSessionId);
       if (!session || !isSessionUsable(session, nowMs)) {
         return { type: "missing" };
       }
@@ -385,7 +388,7 @@ async function routeRequest(req, res) {
     if (statusResult.type === "missing") {
       return json(res, 404, {
         error: "session_not_found",
-        message: "No active preview session for this sandbox id.",
+        message: "No active preview session for this previewSessionId.",
       });
     }
     const chatId = getSessionChatId(statusResult.session);
@@ -393,11 +396,13 @@ async function routeRequest(req, res) {
     if (!runtimeState.running && statusResult.session.status !== "error" && statusResult.session.status !== "hibernated") {
       queueRuntimeBoot(chatId);
     }
-    const latest = findSessionBySandboxId(readStoreSync(), sandboxId) ?? statusResult.session;
+    const latest = findSessionByPreviewSessionId(readStoreSync(), previewSessionId) ?? statusResult.session;
     return json(res, 200, {
       ok: true,
       running: runtimeState.running,
-      sandboxId: latest.sandboxId,
+      previewSessionId: latest.previewSessionId,
+      /** @legacy External alias for older Sajtmaskin app deployments. */
+      sandboxId: latest.previewSessionId,
       previewUrl: latest.previewUrl,
       versionId: latest.versionId,
       status: latest.status,
@@ -415,10 +420,10 @@ async function routeRequest(req, res) {
       const updatedAt = nowIso();
       const sessionExpiresAt = sessionExpiresAtIso();
       const sessionId = existing?.sessionId ?? randomUUID();
-      const sandboxId = existing?.sandboxId ?? `sbx_${randomUUID()}`;
+      const previewSessionId = existing?.previewSessionId ?? `ps_${randomUUID()}`;
       const session = {
         sessionId,
-        sandboxId,
+        previewSessionId,
         chatId: validated.chatId,
         versionId: validated.versionId,
         previewUrl: buildPreviewUrl(PREVIEW_BASE_URL, validated.chatId),
@@ -436,10 +441,10 @@ async function routeRequest(req, res) {
         runtimePort: existing?.runtimePort ?? null,
       };
       data.sessions[sessionId] = session;
-      data.sandboxToSession[sandboxId] = sessionId;
+      data.previewSessionToSession[previewSessionId] = sessionId;
       appendLog(
         data,
-        sandboxId,
+        previewSessionId,
         existing
           ? `Session reused for chat ${validated.chatId}; booting updated runtime.`
           : `Session created for chat ${validated.chatId}.`,
@@ -458,8 +463,8 @@ async function routeRequest(req, res) {
       if (validated.sessionId) {
         session = findSessionById(data, validated.sessionId);
       }
-      if (!session && validated.sandboxId) {
-        session = findSessionBySandboxId(data, validated.sandboxId);
+      if (!session && validated.previewSessionId) {
+        session = findSessionByPreviewSessionId(data, validated.previewSessionId);
       }
       if (!session) {
         return null;
@@ -482,7 +487,7 @@ async function routeRequest(req, res) {
       session.startOutcome = "resumed";
       session.updatedAt = nowIso();
       session.sessionExpiresAt = sessionExpiresAtIso();
-      appendLog(data, session.sandboxId, `Session updated with changeClass=${session.changeClass}.`);
+      appendLog(data, session.previewSessionId, `Session updated with changeClass=${session.changeClass}.`);
       return session;
     });
     if (!updated) {
@@ -503,8 +508,8 @@ async function routeRequest(req, res) {
       if (validated.sessionId) {
         session = findSessionById(data, validated.sessionId);
       }
-      if (!session && validated.sandboxId) {
-        session = findSessionBySandboxId(data, validated.sandboxId);
+      if (!session && validated.previewSessionId) {
+        session = findSessionByPreviewSessionId(data, validated.previewSessionId);
       }
       if (!session || !isSessionUsable(session, Date.now())) {
         return null;
@@ -512,7 +517,7 @@ async function routeRequest(req, res) {
       session.status = "hibernated";
       session.lastAction = "hibernate";
       session.updatedAt = nowIso();
-      appendLog(data, session.sandboxId, "Session hibernated.");
+      appendLog(data, session.previewSessionId, "Session hibernated.");
       return session;
     });
     if (!out) {
@@ -533,21 +538,21 @@ async function routeRequest(req, res) {
       if (validated.sessionId) {
         session = findSessionById(data, validated.sessionId);
       }
-      if (!session && validated.sandboxId) {
-        session = findSessionBySandboxId(data, validated.sandboxId);
+      if (!session && validated.previewSessionId) {
+        session = findSessionByPreviewSessionId(data, validated.previewSessionId);
       }
       if (!session) {
         return null;
       }
       const chatId = getSessionChatId(session);
-      const { sessionId, sandboxId } = session;
+      const { sessionId, previewSessionId } = session;
       session.status = "destroyed";
       session.lastAction = "destroy";
       session.updatedAt = nowIso();
-      appendLog(data, sandboxId, "Session destroyed.");
+      appendLog(data, previewSessionId, "Session destroyed.");
       delete data.sessions[sessionId];
-      delete data.sandboxToSession[sandboxId];
-      return { sessionId, sandboxId, chatId };
+      delete data.previewSessionToSession[previewSessionId];
+      return { sessionId, previewSessionId, chatId };
     });
     if (!destroyed) {
       return json(res, 404, {
@@ -564,7 +569,9 @@ async function routeRequest(req, res) {
     return json(res, 200, {
       destroyed: true,
       sessionId: destroyed.sessionId,
-      sandboxId: destroyed.sandboxId,
+      previewSessionId: destroyed.previewSessionId,
+      /** @legacy External alias for older Sajtmaskin app deployments. */
+      sandboxId: destroyed.previewSessionId,
     });
   }
 
@@ -617,11 +624,13 @@ async function routeRequest(req, res) {
   }
 
   if (req.method === "GET" && url.pathname.startsWith("/preview/logs/")) {
-    const sandboxId = url.pathname.split("/").at(-1);
+    const previewSessionId = url.pathname.split("/").at(-1);
     const data = readStoreSync();
-    const logs = sandboxId ? data.logs[sandboxId] ?? [] : [];
+    const logs = previewSessionId ? data.logs[previewSessionId] ?? [] : [];
     return json(res, 200, {
-      sandboxId: sandboxId ?? "",
+      previewSessionId: previewSessionId ?? "",
+      /** @legacy External alias for older Sajtmaskin app deployments. */
+      sandboxId: previewSessionId ?? "",
       lines: logs,
     });
   }
@@ -663,11 +672,11 @@ async function routeRequest(req, res) {
       const toDestroy = [];
       for (const session of activeSessions) {
         const chatId = getSessionChatId(session);
-        const { sessionId, sandboxId } = session;
+        const { sessionId, previewSessionId } = session;
         delete data.sessions[sessionId];
-        delete data.sandboxToSession[sandboxId];
-        delete data.logs[sandboxId];
-        toDestroy.push({ sessionId, sandboxId, chatId });
+        delete data.previewSessionToSession[previewSessionId];
+        delete data.logs[previewSessionId];
+        toDestroy.push({ sessionId, previewSessionId, chatId });
       }
       return toDestroy;
     });

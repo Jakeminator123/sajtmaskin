@@ -31,10 +31,10 @@ Machine-oriented companion:
 | `appProjectId` / `projects.id` | builder/app state | canonical | The durable Sajtmaskin project ID |
 | `chatId` / `engine_chats.id` | engine + preview lane | canonical | The durable own-engine chat ID and the current preview-host runtime key |
 | `versionId` / `engine_versions.id` | version state | canonical | The specific saved version within a chat |
-| `sandboxId` | tier-2 runtime/session | legacy canonical | Internal/legacy tier-2 runtime/session ID carried behind public preview-session APIs |
+| `previewSessionId` | active preview session | canonical | The active preview-session ID used by app state and preview-host session control |
 | `previewUrl` | public API/client | canonical | The public preview/live URL field |
-| `sandboxUrl` | version/runtime state | legacy structural | Legacy internal/session variable name in parts of preview/runtime flow |
 | `preview_url` | DB column (`engine_versions`) | canonical | Persisted tier-2 preview URL in Postgres |
+| `runId` | observability/logs | canonical | Per-run log/telemetry correlation ID |
 | `VERCEL_PROJECT_ID` | Vercel auth/config | canonical in Vercel scope | Vercel project ID, not a Sajtmaskin project identifier |
 
 ## Preview lane vs verify lane
@@ -216,8 +216,9 @@ For `version_mismatch`, `versionId` is the preview-session-bound version. Option
 - `POST /preview/session/hibernate`
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
-- `GET /preview/session/:sandboxId/status`
-- `GET /preview/logs/:sandboxId`
+- `GET /preview/session/:previewSessionId/status`
+- `GET /preview/sandbox/:previewSessionId/status` (legacy path alias)
+- `GET /preview/logs/:previewSessionId`
 
 When preview-host runs outside local development, all `/preview/*` routes require
 auth via the shared preview-host key:
@@ -255,8 +256,8 @@ Response contains:
 
 1. `appProjectId` is never the preview-host path key.
 2. `chatId` is the current preview-host lane key.
-3. `sandboxId` remains the legacy tier-2 runtime/session identifier.
-4. `previewUrl` is the public field; `sandboxUrl` remains structural legacy naming.
+3. `previewSessionId` is the canonical active preview-session identifier.
+4. `previewUrl` is the public field; `engine_versions.preview_url` is the persisted DB column.
 5. The verify lane is part of preview-host infrastructure, but it is not the same
    thing as the live preview lane.
 6. `repair_available` means pending server repair exists; files are applied first
@@ -270,9 +271,9 @@ categories unless a dedicated migration removes them:
 | Category | Examples | Why it stays |
 |---|---|---|
 | HTML | `<iframe sandbox="...">` | Browser attribute; unrelated to tier-2 naming. |
-| Preview-host / HTTP paths | `/preview/session/:sandboxId/status`, `GET /preview/logs/:sandboxId` | Route segments on the VM host; renaming requires host + client rollout. |
-| Storage / Redis | `sandbox-preview:session:` prefix, legacy `sandbox*` JSON/session fields | Persisted keys/values — migration scope. |
-| Wire / SSE / API fields | `sandboxId`, `sandboxUrl`, `sandboxPending`, `sandbox_disabled` stage | Backwards-compatible payloads until versioned. |
+| Preview-host legacy HTTP paths | `/preview/sandbox/:previewSessionId/status` | Kept for older host clients during rollout. |
+| Storage / Redis reads | `sandbox-preview:session:` prefix, legacy `sandbox*` JSON/session fields | Read-only migration input; new writes use `preview-session:session:*` + `previewSessionId`/`previewUrl`. |
+| Wire/API aliases | `sandboxId`, `sandboxUrl` | Backwards-compatible preview-host aliases parsed/emitted at the boundary only. |
 | Heuristics | hostname contains `sandbox`, `.vercel.run` | Detecting legacy preview URLs, not product naming. |
 | Provider copy | Resend/email “sandbox mode” | Third-party terminology. |
 | Tests / mocks | fixtures using legacy field names | Must mirror production shapes. |
@@ -286,5 +287,5 @@ If another agent is cleaning unrelated areas, the safest rule is:
 
 - touch `preview-session` / `preview-status` / `preview-heartbeat` / `preview-hibernate` / `preview-destroy`
   only when the change is explicitly about preview/Fly behavior
-- treat `sandboxUrl` and `sandboxId` as **legacy structural names** in runtime/session layers
-  unless the task is a dedicated migration of storage/tests/docs
+- treat `sandboxUrl` and `sandboxId` as **legacy boundary aliases**; internal preview-session code should use
+  `previewUrl` and `previewSessionId`

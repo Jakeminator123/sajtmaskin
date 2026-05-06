@@ -49,8 +49,8 @@ describe("POST preview-destroy", () => {
 
   it("destroys preview_host sessions and clears stored preview url", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb1",
-      sandboxUrl: "https://preview.example",
+      previewSessionId: "ps1",
+      previewUrl: "https://preview.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -62,7 +62,7 @@ describe("POST preview-destroy", () => {
       new Request("http://localhost/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "v1", previewSessionId: "sb1" }),
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "ps1" }),
       }),
       { params: Promise.resolve({ chatId: "c1" }) },
     );
@@ -80,7 +80,7 @@ describe("POST preview-destroy", () => {
       clearedPreviewUrl: true,
       tier2Provider: "preview_host",
     });
-    expect(destroyPreviewHostSession).toHaveBeenCalledWith({ sandboxId: "sb1" });
+    expect(destroyPreviewHostSession).toHaveBeenCalledWith({ previewSessionId: "ps1" });
     expect(clearPreviewSessionAsync).toHaveBeenCalledWith("c1");
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("v1", null);
   });
@@ -122,8 +122,8 @@ describe("POST preview-destroy", () => {
     // `providerDestroyDeferred: true`. Host orphans are reaped by idle TTL or
     // `/admin/cleanup`.
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb1",
-      sandboxUrl: "https://preview.example",
+      previewSessionId: "sb1",
+      previewUrl: "https://preview.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -163,8 +163,8 @@ describe("POST preview-destroy", () => {
 
   it("returns 400 when preview_host destroy fails non-retryably", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb1",
-      sandboxUrl: "https://preview.example",
+      previewSessionId: "sb1",
+      previewUrl: "https://preview.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -172,7 +172,7 @@ describe("POST preview-destroy", () => {
     });
     destroyPreviewHostSession.mockResolvedValue({
       ok: false,
-      message: "invalid sandboxId",
+      message: "invalid previewSessionId",
       retryable: false,
     });
 

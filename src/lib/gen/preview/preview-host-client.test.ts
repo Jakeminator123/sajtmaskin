@@ -52,7 +52,7 @@ describe("preview-host cleanup retry", () => {
       new Response(
         JSON.stringify({
           previewUrl: "https://preview-host.example.com/chat-1",
-          sandboxId: "sbx_123",
+          previewSessionId: "ps_123",
           startOutcome: "recreated",
         }),
         { status: 200, headers: { "content-type": "application/json" } },
@@ -61,7 +61,7 @@ describe("preview-host cleanup retry", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await updatePreviewHostSession({
-      sandboxId: "sbx_123",
+      previewSessionId: "ps_123",
       versionId: "version-2",
       filesJson: { "app/page.tsx": "export default function Page(){return null;}" },
     });
@@ -69,7 +69,10 @@ describe("preview-host cleanup retry", () => {
     expect(result.ok).toBe(true);
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
     expect(body).toMatchObject({
-      sandboxId: "sbx_123",
+      previewSessionId: "ps_123",
+      // Legacy rollout alias for older preview-host deployments.
+      // Legacy alias intentionally sent to support older preview-host deploys.
+      sandboxId: "ps_123",
       versionId: "version-2",
       replaceFiles: true,
     });
@@ -95,7 +98,7 @@ describe("preview-host cleanup retry", () => {
         new Response(
           JSON.stringify({
             previewUrl: "https://preview-host.example.com/chat-1",
-            sandboxId: "sbx_123",
+            previewSessionId: "ps_123",
             startOutcome: "recreated",
           }),
           { status: 201, headers: { "content-type": "application/json" } },
@@ -111,10 +114,39 @@ describe("preview-host cleanup retry", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.sandboxId).toBe("sbx_123");
+      expect(result.previewSessionId).toBe("ps_123");
     }
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://preview-host.example.com/admin/cleanup");
+  });
+
+  it("accepts legacy sandboxId from older preview-host responses", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            previewUrl: "https://preview-host.example.com/chat-legacy",
+            sandboxId: "legacy_sbx_123",
+            startOutcome: "recreated",
+          }),
+          { status: 201, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+
+    const result = await startPreviewHostSession({
+      chatId: "chat-legacy",
+      versionId: "version-legacy",
+      filesJson: { "app/page.tsx": "export default function Page(){return null;}" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.previewSessionId).toBe("legacy_sbx_123");
+      expect(result.previewUrl).toBe("https://preview-host.example.com/chat-legacy");
+    }
   });
 
   it("retries verify lane once after cleanup on disk full", async () => {

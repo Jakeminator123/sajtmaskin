@@ -14,6 +14,7 @@ export function isPreviewHostDiskFullMessage(message: string | null | undefined)
 export function describePreviewHostHttpFailure(params: {
   endpoint:
     | "/preview/session/start"
+    | "/preview/session/update"
     | "/preview/session/destroy"
     | "/preview/session/hibernate"
     | "/preview/verify";
@@ -57,6 +58,30 @@ const STATUS_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.status;
 const VERIFY_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.verify;
 const CLEANUP_TIMEOUT_MS = PREVIEW_HOST_CLIENT_TIMEOUTS_MS.cleanup;
 
+function nonEmptyString(raw: unknown): string | null {
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+function readPreviewSessionIdFromHostBody(body: Record<string, unknown>): string | null {
+  return nonEmptyString(body.previewSessionId) ?? nonEmptyString(body.sandboxId);
+}
+
+function readPreviewUrlFromHostBody(body: Record<string, unknown>): string | null {
+  return nonEmptyString(body.previewUrl) ?? nonEmptyString(body.sandboxUrl);
+}
+
+function previewSessionRefBody(params: {
+  previewSessionId?: string | null;
+  sessionId?: string | null;
+}): Record<string, string> {
+  const previewSessionId = params.previewSessionId?.trim() || null;
+  const sessionId = params.sessionId?.trim() || null;
+  return {
+    ...(previewSessionId ? { previewSessionId, sandboxId: previewSessionId } : {}),
+    ...(sessionId ? { sessionId } : {}),
+  };
+}
+
 async function triggerPreviewHostCleanup(): Promise<boolean> {
   const base = getPreviewHostBaseUrl();
   if (!base) return false;
@@ -89,10 +114,10 @@ async function retryPreviewHostRequestAfterCleanup<T extends { ok: boolean; mess
 }
 
 export async function fetchPreviewHostStatus(
-  sandboxId: string,
-): Promise<{ sandboxId: string; primaryUrl: string } | null> {
+  previewSessionId: string,
+): Promise<{ previewSessionId: string; primaryUrl: string } | null> {
   const base = getPreviewHostBaseUrl();
-  const id = sandboxId.trim();
+  const id = previewSessionId.trim();
   if (!base || !id) return null;
   try {
     const res = await fetch(
@@ -107,10 +132,10 @@ export async function fetchPreviewHostStatus(
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
     if (body.ok !== true || body.running !== true) return null;
-    const url = typeof body.previewUrl === "string" ? body.previewUrl.trim() : "";
-    const sid = typeof body.sandboxId === "string" ? body.sandboxId.trim() : "";
+    const url = readPreviewUrlFromHostBody(body);
+    const sid = readPreviewSessionIdFromHostBody(body);
     if (!url || !sid) return null;
-    return { sandboxId: sid, primaryUrl: url };
+    return { previewSessionId: sid, primaryUrl: url };
   } catch {
     return null;
   }
@@ -118,8 +143,8 @@ export async function fetchPreviewHostStatus(
 
 export type PreviewHostStartOk = {
   ok: true;
-  sandboxUrl: string;
-  sandboxId: string;
+  previewUrl: string;
+  previewSessionId: string;
   startOutcome: "resumed" | "recreated";
 };
 
@@ -255,9 +280,9 @@ export async function startPreviewHostSession(params: {
           retryable: res.status >= 500 || res.status === 429,
         };
       }
-      const sandboxUrl = typeof responseBody.previewUrl === "string" ? responseBody.previewUrl.trim() : "";
-      const sandboxId = typeof responseBody.sandboxId === "string" ? responseBody.sandboxId.trim() : "";
-      if (!sandboxUrl || !sandboxId) {
+      const previewUrl = readPreviewUrlFromHostBody(responseBody);
+      const previewSessionId = readPreviewSessionIdFromHostBody(responseBody);
+      if (!previewUrl || !previewSessionId) {
         return {
           ok: false,
           message: "Preview host returned an invalid session payload.",
@@ -267,7 +292,7 @@ export async function startPreviewHostSession(params: {
       const raw =
         typeof responseBody.startOutcome === "string" ? responseBody.startOutcome.trim() : "fresh";
       const startOutcome: "resumed" | "recreated" = raw === "resumed" ? "resumed" : "recreated";
-      return { ok: true, sandboxUrl, sandboxId, startOutcome };
+      return { ok: true, previewUrl, previewSessionId, startOutcome };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Preview host request failed";
       return { ok: false, message, retryable: true };
@@ -290,12 +315,12 @@ export async function startPreviewHostSession(params: {
  */
 export type PreviewHostUpdateOk = PreviewHostStartOk;
 export type PreviewHostUpdateErr = PreviewHostStartErr & {
-  /** True när host returnerade 404 (sandbox saknas). Caller bör då falla tillbaka till `startPreviewHostSession`. */
+  /** True när host returnerade 404 (preview-session saknas). Caller bör då falla tillbaka till `startPreviewHostSession`. */
   sessionMissing?: boolean;
 };
 
 export async function updatePreviewHostSession(params: {
-  sandboxId: string;
+  previewSessionId: string;
   versionId: string;
   filesJson: Record<string, string>;
 }): Promise<PreviewHostUpdateOk | PreviewHostUpdateErr> {
@@ -310,7 +335,7 @@ export async function updatePreviewHostSession(params: {
   return retryPreviewHostRequestAfterCleanup(async () => {
     try {
       const requestBody = {
-        sandboxId: params.sandboxId,
+        ...previewSessionRefBody({ previewSessionId: params.previewSessionId }),
         versionId: params.versionId,
         filesJson: params.filesJson,
         replaceFiles: true,
@@ -339,7 +364,7 @@ export async function updatePreviewHostSession(params: {
       }
       if (!res.ok) {
         const msg = describePreviewHostHttpFailure({
-          endpoint: "/preview/session/start",
+          endpoint: "/preview/session/update",
           status: res.status,
           body: responseBody,
         });
@@ -349,16 +374,16 @@ export async function updatePreviewHostSession(params: {
           retryable: res.status >= 500 || res.status === 429,
         };
       }
-      const sandboxUrl = typeof responseBody.previewUrl === "string" ? responseBody.previewUrl.trim() : "";
-      const sandboxId = typeof responseBody.sandboxId === "string" ? responseBody.sandboxId.trim() : "";
-      if (!sandboxUrl || !sandboxId) {
+      const previewUrl = readPreviewUrlFromHostBody(responseBody);
+      const previewSessionId = readPreviewSessionIdFromHostBody(responseBody);
+      if (!previewUrl || !previewSessionId) {
         return {
           ok: false,
           message: "Preview host returned an invalid update payload.",
           retryable: true,
         };
       }
-      return { ok: true, sandboxUrl, sandboxId, startOutcome: "resumed" };
+      return { ok: true, previewUrl, previewSessionId, startOutcome: "resumed" };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Preview host update failed";
       return { ok: false, message, retryable: true };
@@ -367,11 +392,12 @@ export async function updatePreviewHostSession(params: {
 }
 
 /**
- * Destroys a preview-host session by sandboxId or sessionId.
+ * Destroys a preview-host session by previewSessionId or sessionId.
+ * Sends legacy `sandboxId` in the body as a rollout alias for older hosts.
  * Host 404 is treated as already gone, so callers can still clear local state safely.
  */
 export async function destroyPreviewHostSession(params: {
-  sandboxId?: string | null;
+  previewSessionId?: string | null;
   sessionId?: string | null;
 }): Promise<PreviewHostDestroyOk | PreviewHostDestroyErr> {
   const base = getPreviewHostBaseUrl();
@@ -383,12 +409,12 @@ export async function destroyPreviewHostSession(params: {
     };
   }
 
-  const sandboxId = params.sandboxId?.trim() || null;
+  const previewSessionId = params.previewSessionId?.trim() || null;
   const sessionId = params.sessionId?.trim() || null;
-  if (!sandboxId && !sessionId) {
+  if (!previewSessionId && !sessionId) {
     return {
       ok: false,
-      message: "preview-host destroy requires sandboxId or sessionId.",
+      message: "preview-host destroy requires previewSessionId or sessionId.",
       retryable: false,
     };
   }
@@ -400,10 +426,7 @@ export async function destroyPreviewHostSession(params: {
         "content-type": "application/json",
         ...previewHostAuthHeaders(),
       },
-      body: JSON.stringify({
-        ...(sandboxId ? { sandboxId } : {}),
-        ...(sessionId ? { sessionId } : {}),
-      }),
+      body: JSON.stringify(previewSessionRefBody({ previewSessionId, sessionId })),
       signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
     });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
@@ -433,7 +456,7 @@ export async function destroyPreviewHostSession(params: {
 }
 
 export async function hibernatePreviewHostSession(params: {
-  sandboxId?: string | null;
+  previewSessionId?: string | null;
   sessionId?: string | null;
 }): Promise<PreviewHostHibernateOk | PreviewHostHibernateErr> {
   const base = getPreviewHostBaseUrl();
@@ -445,12 +468,12 @@ export async function hibernatePreviewHostSession(params: {
     };
   }
 
-  const sandboxId = params.sandboxId?.trim() || null;
+  const previewSessionId = params.previewSessionId?.trim() || null;
   const sessionId = params.sessionId?.trim() || null;
-  if (!sandboxId && !sessionId) {
+  if (!previewSessionId && !sessionId) {
     return {
       ok: false,
-      message: "preview-host hibernate requires sandboxId or sessionId.",
+      message: "preview-host hibernate requires previewSessionId or sessionId.",
       retryable: false,
     };
   }
@@ -462,10 +485,7 @@ export async function hibernatePreviewHostSession(params: {
         "content-type": "application/json",
         ...previewHostAuthHeaders(),
       },
-      body: JSON.stringify({
-        ...(sandboxId ? { sandboxId } : {}),
-        ...(sessionId ? { sessionId } : {}),
-      }),
+      body: JSON.stringify(previewSessionRefBody({ previewSessionId, sessionId })),
       signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
     });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;

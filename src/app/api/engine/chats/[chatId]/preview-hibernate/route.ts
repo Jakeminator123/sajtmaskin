@@ -63,7 +63,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const matchedSession =
         session &&
         session.versionId === requestedVersion.version.id &&
-        (!requestedPreviewSessionId || session.sandboxId === requestedPreviewSessionId)
+        (!requestedPreviewSessionId || session.previewSessionId === requestedPreviewSessionId)
           ? session
           : null;
 
@@ -75,7 +75,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       }
 
       const hibernated = await hibernatePreviewHostSession({
-        sandboxId: matchedSession.sandboxId,
+        previewSessionId: matchedSession.previewSessionId,
       });
       if (!hibernated.ok) {
         return NextResponse.json(

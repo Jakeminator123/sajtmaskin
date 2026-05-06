@@ -78,9 +78,9 @@ describe("POST /api/engine/chats/init", () => {
     startPreviewSession.mockResolvedValue({
       ok: true,
       result: {
-        sandboxUrl: "https://example-preview.test/?chatId=chat_import",
-        sandboxId: "sandbox_import",
-        sandboxPreviewMode: "dev_only",
+        previewUrl: "https://example-preview.test/?chatId=chat_import",
+        previewSessionId: "preview_import",
+        previewMode: "dev_only",
         fidelityTier: 2,
         startOutcome: "recreated",
         tier2Meta: { tier2Provider: "preview_host" },

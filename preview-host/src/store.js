@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-/** @typedef {{ sessions: Record<string, object>, logs: Record<string, object[]>, sandboxToSession: Record<string, string> }} StoreRoot */
+/** @typedef {{ sessions: Record<string, object>, logs: Record<string, object[]>, previewSessionToSession: Record<string, string> }} StoreRoot */
 
 function getDataDir() {
   const raw = process.env.PREVIEW_HOST_DATA_DIR || process.env.DATA_DIR;
@@ -19,7 +19,72 @@ function getStoreFilePath() {
 
 /** @returns {StoreRoot} */
 function emptyStore() {
-  return { sessions: {}, logs: {}, sandboxToSession: {} };
+  return { sessions: {}, logs: {}, previewSessionToSession: {} };
+}
+
+function normalizeSession(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return raw;
+  }
+  const session = { ...raw };
+  if (typeof session.previewSessionId !== "string" || !session.previewSessionId.trim()) {
+    if (typeof session.sandboxId === "string" && session.sandboxId.trim()) {
+      session.previewSessionId = session.sandboxId.trim();
+    }
+  }
+  if (typeof session.previewUrl !== "string" && typeof session.sandboxUrl === "string") {
+    session.previewUrl = session.sandboxUrl;
+  }
+  delete session.sandboxId;
+  delete session.sandboxUrl;
+  return session;
+}
+
+function normalizeSessions(rawSessions) {
+  if (!rawSessions || typeof rawSessions !== "object" || Array.isArray(rawSessions)) {
+    return {};
+  }
+  const sessions = {};
+  for (const [sessionId, session] of Object.entries(rawSessions)) {
+    sessions[sessionId] = normalizeSession(session);
+  }
+  return sessions;
+}
+
+function normalizePreviewSessionMap(parsed, sessions) {
+  const next = {};
+  const canonical =
+    parsed &&
+    typeof parsed.previewSessionToSession === "object" &&
+    parsed.previewSessionToSession &&
+    !Array.isArray(parsed.previewSessionToSession)
+      ? parsed.previewSessionToSession
+      : null;
+  const legacy =
+    parsed &&
+    typeof parsed.sandboxToSession === "object" &&
+    parsed.sandboxToSession &&
+    !Array.isArray(parsed.sandboxToSession)
+      ? parsed.sandboxToSession
+      : null;
+  for (const source of [legacy, canonical]) {
+    if (!source) continue;
+    for (const [previewSessionId, sessionId] of Object.entries(source)) {
+      if (typeof previewSessionId === "string" && typeof sessionId === "string") {
+        next[previewSessionId] = sessionId;
+      }
+    }
+  }
+  for (const [sessionId, session] of Object.entries(sessions)) {
+    const previewSessionId =
+      typeof session?.previewSessionId === "string" && session.previewSessionId.trim()
+        ? session.previewSessionId.trim()
+        : null;
+    if (previewSessionId) {
+      next[previewSessionId] = sessionId;
+    }
+  }
+  return next;
 }
 
 function readStoreSync() {
@@ -30,21 +95,14 @@ function readStoreSync() {
     if (!parsed || typeof parsed !== "object") {
       return emptyStore();
     }
+    const sessions = normalizeSessions(parsed.sessions);
     return {
-      sessions:
-        typeof parsed.sessions === "object" && parsed.sessions && !Array.isArray(parsed.sessions)
-          ? parsed.sessions
-          : {},
+      sessions,
       logs:
         typeof parsed.logs === "object" && parsed.logs && !Array.isArray(parsed.logs)
           ? parsed.logs
           : {},
-      sandboxToSession:
-        typeof parsed.sandboxToSession === "object" &&
-        parsed.sandboxToSession &&
-        !Array.isArray(parsed.sandboxToSession)
-          ? parsed.sandboxToSession
-          : {},
+      previewSessionToSession: normalizePreviewSessionMap(parsed, sessions),
     };
   } catch (e) {
     if (e && e.code === "ENOENT") {
