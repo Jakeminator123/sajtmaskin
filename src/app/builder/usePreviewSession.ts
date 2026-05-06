@@ -145,6 +145,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
         chatId,
         expectedVersionId: versionId,
         currentVersionId: statusPayload.versionId ?? null,
+        mismatchDirection: statusPayload.mismatchDirection ?? "unknown",
         msSinceMismatch: Math.max(0, now() - observedAt),
       };
       setVersionMismatchPayload(payload);

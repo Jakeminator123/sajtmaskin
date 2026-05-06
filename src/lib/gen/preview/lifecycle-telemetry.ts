@@ -68,6 +68,28 @@ export type PreviewLifecycleTelemetryEvent =
 
 const PREFIX = "[telemetry:preview-lifecycle]";
 
+function shortId(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value.length > 10 ? value.slice(0, 8) : value;
+}
+
+function buildPreviewTelemetrySummary(event: PreviewLifecycleTelemetryEvent): string {
+  const parts = [`kind=${event.kind}`];
+  if ("chatId" in event) parts.push(`chat=${shortId(event.chatId)}`);
+  if ("versionId" in event && event.versionId) parts.push(`version=${shortId(event.versionId)}`);
+  if ("sandboxId" in event && event.sandboxId) parts.push(`sandbox=${shortId(event.sandboxId)}`);
+  if ("status" in event) parts.push(`status=${event.status}`);
+  if ("phase" in event) parts.push(`phase=${event.phase}`);
+  if ("outcome" in event) parts.push(`outcome=${event.outcome}`);
+  if ("startOutcome" in event) parts.push(`outcome=${event.startOutcome}`);
+  if ("stage" in event) parts.push(`stage=${event.stage}`);
+  if ("failureCode" in event && event.failureCode) parts.push(`code=${event.failureCode}`);
+  if ("reason" in event && event.reason) parts.push(`reason=${event.reason}`);
+  if ("detail" in event && event.detail) parts.push(`detail=${event.detail.slice(0, 90)}`);
+  if ("msSinceEngineStart" in event) parts.push(`ms=${event.msSinceEngineStart}`);
+  return parts.join(" | ");
+}
+
 /**
  * Log a preview lifecycle event to `console.info`.
  *
@@ -81,5 +103,5 @@ const PREFIX = "[telemetry:preview-lifecycle]";
  * server logs without a file-system dependency.
  */
 export function logPreviewLifecycleTelemetry(event: PreviewLifecycleTelemetryEvent): void {
-  console.info(PREFIX, JSON.stringify(event));
+  console.info(PREFIX, buildPreviewTelemetrySummary(event), JSON.stringify(event));
 }

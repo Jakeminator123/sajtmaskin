@@ -133,6 +133,26 @@ describe("isBuildBreakingFinding", () => {
     ).toBe(true);
   });
 
+  it("classifies DOM globals rendered as JSX as build-breaking", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "undefined-jsx-symbol",
+        detail:
+          "app/login/page.tsx: `<HTMLFormElement />` is used but `HTMLFormElement` is neither imported nor declared in this file.",
+      }),
+    ).toBe(true);
+  });
+
+  it("classifies preview-blocking autofix tag mismatch warnings as build-breaking", () => {
+    expect(
+      isBuildBreakingFinding({
+        id: "autofix-preview-blocking",
+        detail:
+          "[components/floating-watch-3d.tsx] preview-blocking: Tag mismatch for <Group>: 3 opening vs 0 closing",
+      }),
+    ).toBe(true);
+  });
+
   it("does NOT classify quality / design findings", () => {
     expect(
       isBuildBreakingFinding({

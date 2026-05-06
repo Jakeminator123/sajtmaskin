@@ -11,6 +11,7 @@ import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-teleme
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
+import { getVersionById } from "@/lib/db/chat-repository-pg";
 
 const BOOT_GRACE_MS = 90_000;
 
@@ -20,6 +21,28 @@ function sessionSoftExpiryAt(entry: PreviewSessionEntry): number {
 
 function isWithinBootGrace(entry: PreviewSessionEntry, now: number): boolean {
   return now - entry.createdAt < BOOT_GRACE_MS;
+}
+
+async function resolveMismatchDirection(params: {
+  chatId: string;
+  expectedVersionId: string;
+  sessionVersionId: string | null;
+}): Promise<PreviewStatusApiJson["mismatchDirection"]> {
+  const { chatId, expectedVersionId, sessionVersionId } = params;
+  if (!sessionVersionId) return "unknown";
+  try {
+    const [expected, current] = await Promise.all([
+      getVersionById(expectedVersionId),
+      getVersionById(sessionVersionId),
+    ]);
+    if (!expected || !current) return "unknown";
+    if (expected.chat_id !== chatId || current.chat_id !== chatId) return "unknown";
+    if (current.version_number > expected.version_number) return "session_newer";
+    if (current.version_number < expected.version_number) return "session_older";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -77,6 +100,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
 
       const sessionVid = session.versionId ?? null;
       if (sessionVid !== versionId) {
+        const mismatchDirection = await resolveMismatchDirection({
+          chatId,
+          expectedVersionId: versionId,
+          sessionVersionId: sessionVid,
+        });
         const body: PreviewStatusApiJson = {
           ok: true,
           status: "version_mismatch",
@@ -85,6 +113,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session),
           reason: "session_bound_to_other_version",
+          mismatchDirection,
         };
         logPreviewLifecycleTelemetry({
           kind: "preview_status",

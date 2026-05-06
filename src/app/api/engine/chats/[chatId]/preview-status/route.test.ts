@@ -4,6 +4,7 @@ const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getActivePreviewSessionAsync = vi.hoisted(() => vi.fn());
 const tryResumeTier2Runtime = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => true));
+const getVersionById = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -31,6 +32,10 @@ vi.mock("@/lib/gen/preview/tier2-resume", () => ({
   tryResumeTier2Runtime,
 }));
 
+vi.mock("@/lib/db/chat-repository-pg", () => ({
+  getVersionById,
+}));
+
 vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
   logPreviewLifecycleTelemetry: vi.fn(),
 }));
@@ -42,6 +47,7 @@ describe("GET preview-status (engine)", () => {
     vi.clearAllMocks();
     isTier2PreviewConfigured.mockReturnValue(true);
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionById.mockResolvedValue(null);
   });
 
   it("returns 400 without versionId", async () => {
@@ -121,10 +127,42 @@ describe("GET preview-status (engine)", () => {
       status: string;
       reason?: string;
       versionId?: string | null;
+      mismatchDirection?: string;
     };
     expect(body.status).toBe("version_mismatch");
     expect(body.reason).toBe("session_bound_to_other_version");
     expect(body.versionId).toBe("v2");
+    expect(body.mismatchDirection).toBe("unknown");
+  });
+
+  it("marks version_mismatch when the active VM session is newer than the selected version", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      sandboxId: "sb_server",
+      sandboxUrl: "https://preview.example",
+      versionId: "v4",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+    });
+    getVersionById.mockImplementation(async (versionId: string) => {
+      if (versionId === "v3") return { id: "v3", chat_id: "chat_1", version_number: 3 };
+      if (versionId === "v4") return { id: "v4", chat_id: "chat_1", version_number: 4 };
+      return null;
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v3"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      status: string;
+      versionId?: string | null;
+      mismatchDirection?: string;
+    };
+    expect(body.status).toBe("version_mismatch");
+    expect(body.versionId).toBe("v4");
+    expect(body.mismatchDirection).toBe("session_newer");
   });
 
   it("returns stopped + provider_not_running_or_unreachable when resume fails", async () => {

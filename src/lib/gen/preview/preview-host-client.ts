@@ -141,6 +141,8 @@ export type VersionMismatchOverlayPayload = {
   expectedVersionId: string;
   /** Version id the preview-VM most recently booted, or null if unknown. */
   currentVersionId: string | null;
+  /** Ordering between selected/expected version and the preview-session-bound version. */
+  mismatchDirection?: "session_newer" | "session_older" | "unknown";
   /** Milliseconds elapsed since the mismatch was first observed. */
   msSinceMismatch: number;
 };

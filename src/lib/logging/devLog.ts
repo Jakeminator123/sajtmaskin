@@ -26,8 +26,11 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "comm.integration_signals",
   "engine.integration_signals",
   "orchestration.styleDirection",
+  "stream.summary",
+  "finalize.pipeline",
   "autofix.result",
   "autofix.mechanical-residual",
+  "autofix.heavy_load",
   "syntax-validation.pass",
   "syntax-validation.fixer.start",
   "syntax-validation.fixer.result",
@@ -52,6 +55,13 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "version.created",
   "preflight.summary",
   "preflight.version.failed",
+  "preflight.version.verifier-blocked-pending-server-verify",
+  "verifier-pass",
+  "verifier_rerun_after_fix",
+  "verifier-pass.fixer",
+  "preview_start_outcome",
+  "preview_ready",
+  "preview_failed",
   "scaffold-retry.suggested",
   "site.done",
   "site.message.done",
@@ -215,10 +225,26 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       if (readString(entry, "styleDirection")) details.push(`variant=${readString(entry, "styleDirection")}`);
       if (readString(entry, "scaffoldId")) details.push(`scaffold=${readString(entry, "scaffoldId")}`);
       break;
+    case "stream.summary":
+      if (readString(entry, "model")) details.push(`model=${readString(entry, "model")}`);
+      if (readNumber(entry, "durationMs") !== null) details.push(`durationMs=${readNumber(entry, "durationMs")}`);
+      if (readNumber(entry, "inputTokens") !== null) details.push(`in=${readNumber(entry, "inputTokens")}`);
+      if (readNumber(entry, "outputTokens") !== null) details.push(`out=${readNumber(entry, "outputTokens")}`);
+      break;
+    case "finalize.pipeline":
+      if (readString(entry, "finalizePath")) details.push(`path=${readString(entry, "finalizePath")}`);
+      if (readString(entry, "finalizePathReason")) details.push(`reason=${readString(entry, "finalizePathReason")}`);
+      if (readNumber(entry, "repairPassIndex") !== null) details.push(`repairPass=${readNumber(entry, "repairPassIndex")}`);
+      if (countArray(entry, "phases") !== null) details.push(`phases=${countArray(entry, "phases")}`);
+      break;
     case "autofix.result":
       if (countArray(entry, "fixes") !== null) details.push(`fixes=${countArray(entry, "fixes")}`);
       if (countArray(entry, "warnings") !== null) details.push(`warnings=${countArray(entry, "warnings")}`);
       if (countArray(entry, "dependencies") !== null) details.push(`deps=${countArray(entry, "dependencies")}`);
+      break;
+    case "autofix.heavy_load":
+      if (readNumber(entry, "fixCount") !== null) details.push(`fixes=${readNumber(entry, "fixCount")}`);
+      if (readNumber(entry, "threshold") !== null) details.push(`threshold=${readNumber(entry, "threshold")}`);
       break;
     case "autofix.mechanical-residual":
       if (readNumber(entry, "mechanicalFixCount") !== null) details.push(`mechanical=${readNumber(entry, "mechanicalFixCount")}`);
@@ -298,6 +324,40 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       break;
     case "preflight.version.failed":
       if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      break;
+    case "preflight.version.verifier-blocked-pending-server-verify":
+      if (readNumber(entry, "verifierBlockingFindingCount") !== null) details.push(`blockers=${readNumber(entry, "verifierBlockingFindingCount")}`);
+      break;
+    case "verifier-pass":
+      if (readNumber(entry, "blocking") !== null) details.push(`blocking=${readNumber(entry, "blocking")}`);
+      if (readNumber(entry, "quality") !== null) details.push(`quality=${readNumber(entry, "quality")}`);
+      break;
+    case "verifier_rerun_after_fix":
+      if (readNumber(entry, "before") !== null) details.push(`before=${readNumber(entry, "before")}`);
+      if (readNumber(entry, "after") !== null) details.push(`after=${readNumber(entry, "after")}`);
+      if (readNumber(entry, "durationMs") !== null) details.push(`durationMs=${readNumber(entry, "durationMs")}`);
+      break;
+    case "verifier-pass.fixer":
+      if (readNumber(entry, "findingsBefore") !== null) details.push(`before=${readNumber(entry, "findingsBefore")}`);
+      if (readNumber(entry, "findingsAfterRerun") !== null) details.push(`after=${readNumber(entry, "findingsAfterRerun")}`);
+      if (readBoolean(entry, "success") !== null) details.push(`success=${readBoolean(entry, "success")}`);
+      if (readBoolean(entry, "partial") !== null) details.push(`partial=${readBoolean(entry, "partial")}`);
+      break;
+    case "preview_start_outcome":
+      if (readString(entry, "outcome")) details.push(`outcome=${readString(entry, "outcome")}`);
+      if (readString(entry, "previewPolicy")) details.push(`policy=${readString(entry, "previewPolicy")}`);
+      if (readString(entry, "tier2Provider")) details.push(`provider=${readString(entry, "tier2Provider")}`);
+      break;
+    case "preview_ready":
+      if (readString(entry, "sandboxId")) details.push(`sandbox=${shortId(readString(entry, "sandboxId"))}`);
+      if (readString(entry, "startOutcome")) details.push(`outcome=${readString(entry, "startOutcome")}`);
+      if (readNumber(entry, "fidelityTier") !== null) details.push(`fidelity=${readNumber(entry, "fidelityTier")}`);
+      if (readNumber(entry, "msSinceEngineStart") !== null) details.push(`ms=${readNumber(entry, "msSinceEngineStart")}`);
+      break;
+    case "preview_failed":
+      if (readString(entry, "stage")) details.push(`stage=${readString(entry, "stage")}`);
+      if (readString(entry, "failureCode")) details.push(`code=${readString(entry, "failureCode")}`);
+      if (readString(entry, "detail")) details.push(`detail=${truncateInline(readString(entry, "detail")!, 90)}`);
       break;
     case "scaffold-retry.suggested":
       if (readString(entry, "currentScaffoldId")) details.push(`from=${readString(entry, "currentScaffoldId")}`);

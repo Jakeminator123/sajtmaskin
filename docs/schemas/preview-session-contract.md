@@ -194,6 +194,10 @@ is released even when the user hasn't explicitly clicked "destroy".
 `starting` is returned during the 90-second boot grace period after session creation
 when the preview-host VM has not yet responded to status checks.
 
+For `version_mismatch`, `versionId` is the preview-session-bound version. Optional
+`mismatchDirection` clarifies the order relative to the requested query
+`versionId`: `session_newer`, `session_older`, or `unknown`.
+
 `PreviewStatusApiJson.reason` (when present) uses these stable values:
 
 - `preview_session_not_configured`

@@ -56,6 +56,7 @@ describe("usePreviewSession — version mismatch detection", () => {
       versionId: "ver_1",
       sessionExpiresAt: null,
       reason: "session_bound_to_other_version",
+      mismatchDirection: "session_older",
     });
 
     const { result } = harness({ now: () => clock });
@@ -71,6 +72,7 @@ describe("usePreviewSession — version mismatch detection", () => {
     expect(payload?.chatId).toBe("chat_1");
     expect(payload?.expectedVersionId).toBe("ver_2");
     expect(payload?.currentVersionId).toBe("ver_1");
+    expect(payload?.mismatchDirection).toBe("session_older");
     expect(payload?.msSinceMismatch).toBe(0);
 
     // Andra observation efter 12s+4s: anchor pinnas vid första observationen,
@@ -95,6 +97,7 @@ describe("usePreviewSession — version mismatch detection", () => {
         versionId: "ver_1",
         sessionExpiresAt: null,
         reason: "session_bound_to_other_version",
+        mismatchDirection: "session_older",
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -141,5 +144,30 @@ describe("usePreviewSession — version mismatch detection", () => {
     });
 
     expect(result.current.session.versionMismatchPayload).toBeNull();
+  });
+
+  it("keeps newer-session mismatch direction so UI can avoid restart-only copy", async () => {
+    vi.mocked(fetchPreviewStatus).mockResolvedValue({
+      ok: true,
+      status: "version_mismatch",
+      previewSessionId: "sbx_1",
+      previewUrl: TIER2_URL,
+      versionId: "ver_4",
+      sessionExpiresAt: null,
+      reason: "session_bound_to_other_version",
+      mismatchDirection: "session_newer",
+    });
+
+    const { result } = harness();
+
+    await act(async () => {
+      await result.current.session.handlePreviewSessionSuspect();
+    });
+
+    expect(result.current.session.versionMismatchPayload).toMatchObject({
+      expectedVersionId: "ver_2",
+      currentVersionId: "ver_4",
+      mismatchDirection: "session_newer",
+    });
   });
 });

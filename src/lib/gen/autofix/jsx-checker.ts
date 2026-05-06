@@ -271,6 +271,15 @@ function checkTagMatching(code: string, localDecls: Set<string>): string[] {
   return warnings;
 }
 
+function isPreviewCriticalJsxFile(filePath: string | undefined, code: string): boolean {
+  const normalized = (filePath ?? "").replace(/\\/g, "/").toLowerCase();
+  if (/components\/.*(?:3d|three|webgl|canvas).*\.tsx?$/.test(normalized)) return true;
+  if (/@react-three\/fiber|@react-three\/drei|<Canvas\b|<mesh\b|<group\b/i.test(code)) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Fix missing component imports:
  * - Lucide icons → merge into existing lucide-react import or add new one
@@ -472,7 +481,13 @@ export function runJsxChecker(
   // `type GamePhase`) do not produce phantom `Tag mismatch` warnings.
   const localDecls = extractLocalDeclarations(code);
 
-  warnings.push(...checkTagMatching(code, localDecls));
+  const tagWarnings = checkTagMatching(code, localDecls);
+  const criticalJsxFile = isPreviewCriticalJsxFile(filePath, code);
+  warnings.push(
+    ...tagWarnings.map((warning) =>
+      criticalJsxFile ? `preview-blocking: ${warning}` : warning,
+    ),
+  );
 
   const importResult = fixMissingImports(code);
   let currentCode = importResult.code;

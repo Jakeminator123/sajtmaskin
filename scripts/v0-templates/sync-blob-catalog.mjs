@@ -19,8 +19,11 @@ import { createReadStream } from "node:fs";
 import { access, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { extname, isAbsolute, relative, resolve } from "node:path";
 import process from "node:process";
+import { config as loadDotenv } from "dotenv";
 
 const ROOT = process.cwd();
+loadDotenv({ path: resolve(ROOT, ".env.local"), override: false });
+loadDotenv({ path: resolve(ROOT, ".env"), override: false });
 const DEFAULT_SOURCE = "test_förslag_templates_blob";
 const DEFAULT_BLOB_PREFIX = "v0-templates";
 const MANIFEST_PATH = resolve(ROOT, "src/lib/templates/template-blob-manifest.json");

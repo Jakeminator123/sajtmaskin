@@ -25,6 +25,7 @@ export interface VerifierFinding {
  * lanes have their own UX surface.
  */
 const BUILD_BREAKING_PATTERNS: readonly RegExp[] = [
+  /\bTag mismatch for <[A-Z]\w*>/i,
   /\bCannot find name\b/i,
   /\bCannot find module\b/i,
   /\bis not exported from\b/i,
@@ -35,6 +36,8 @@ const BUILD_BREAKING_PATTERNS: readonly RegExp[] = [
 
 export function isBuildBreakingFinding(finding: VerifierFinding): boolean {
   if (finding.id === "build-breaking-missing-imports") return true;
+  if (finding.id === "undefined-jsx-symbol") return true;
+  if (finding.id === "autofix-preview-blocking") return true;
   if (!finding.detail) return false;
   return BUILD_BREAKING_PATTERNS.some((re) => re.test(finding.detail));
 }

@@ -57,6 +57,11 @@ export function VersionMismatchOverlay({
   payload,
   onForceRestart,
 }: VersionMismatchOverlayProps) {
+  const sessionIsNewer = payload.mismatchDirection === "session_newer";
+  const title = sessionIsNewer ? "Preview kör en nyare version" : "Preview startar om";
+  const description = sessionIsNewer
+    ? "VM:en är redan bunden till en nyare version än den du försöker visa. Byt till senaste version eller starta om den valda versionen explicit."
+    : "VM:en kör fortfarande en tidigare version. De nya filerna installeras och servern startar om — vanligtvis 5–10 sekunder.";
   return (
     <div
       className="absolute inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
@@ -66,10 +71,9 @@ export function VersionMismatchOverlay({
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
           <div className="min-w-0 flex-1">
-            <h4 className="text-sm font-semibold">Preview startar om</h4>
+            <h4 className="text-sm font-semibold">{title}</h4>
             <p className="mt-1 text-[12px] leading-snug text-amber-100/90">
-              VM:en kör fortfarande en tidigare version. Den nya filerna
-              installeras och servern startar om — vanligtvis 5–10 sekunder.
+              {description}
             </p>
             <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[11px] text-amber-200/80">
               <dt>Förväntad version</dt>

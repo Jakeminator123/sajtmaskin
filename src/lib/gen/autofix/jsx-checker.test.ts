@@ -220,4 +220,27 @@ export function useReducedMotion() {
       prefixedHookWarnings.some((w) => w.includes("No default export found")),
     ).toBe(false);
   });
+
+  it("marks R3F tag mismatch warnings as preview-blocking", () => {
+    const code = `
+"use client";
+
+import { Canvas } from "@react-three/fiber";
+
+export default function FloatingWatch3d() {
+  return (
+    <Canvas>
+      <Group>
+        <mesh />
+    </Canvas>
+  );
+}
+`.trim();
+    const { warnings } = runJsxChecker(code, "components/floating-watch-3d.tsx");
+    expect(
+      warnings.some((warning) =>
+        warning.includes("preview-blocking: Tag mismatch for <Group>"),
+      ),
+    ).toBe(true);
+  });
 });

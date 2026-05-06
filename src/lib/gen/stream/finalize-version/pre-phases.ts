@@ -43,6 +43,7 @@ export interface AutofixPhaseResult {
   autoFixWarningCount: number;
   autoFixDependencyCount: number;
   autoFixHeavyLoad: boolean;
+  previewBlockingWarnings: string[];
 }
 
 export async function runAutofixPrePhase(params: {
@@ -81,6 +82,7 @@ export async function runAutofixPrePhase(params: {
   let autoFixWarningCount = 0;
   let autoFixDependencyCount = 0;
   let autoFixHeavyLoad = false;
+  let previewBlockingWarnings: string[] = [];
   let autofixSucceeded = false;
 
   if (!runAutofix) {
@@ -94,6 +96,7 @@ export async function runAutofixPrePhase(params: {
       autoFixWarningCount,
       autoFixDependencyCount,
       autoFixHeavyLoad,
+      previewBlockingWarnings,
     };
   }
 
@@ -114,6 +117,9 @@ export async function runAutofixPrePhase(params: {
     autoFixWarningCount = autoFixResult.warnings.length;
     autoFixDependencyCount = Object.keys(autoFixResult.dependencies).length;
     autoFixHeavyLoad = autoFixFixCount > 5;
+    previewBlockingWarnings = autoFixResult.warnings.filter((warning) =>
+      warning.includes("preview-blocking:"),
+    );
 
     if (autoFixResult.fixes.length > 0 || autoFixResult.warnings.length > 0) {
       devLogAppend("in-progress", {
@@ -161,5 +167,6 @@ export async function runAutofixPrePhase(params: {
     autoFixWarningCount,
     autoFixDependencyCount,
     autoFixHeavyLoad,
+    previewBlockingWarnings,
   };
 }

@@ -37,6 +37,7 @@ export type PreviewStatusApiJson = {
   versionId: string | null;
   sessionExpiresAt: number | null;
   reason?: PreviewStatusReason;
+  mismatchDirection?: "session_newer" | "session_older" | "unknown";
   message?: string;
 };
 

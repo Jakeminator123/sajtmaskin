@@ -142,6 +142,11 @@
         "versionId": { "type": ["string", "null"], "required": true },
         "sessionExpiresAt": { "type": ["number", "null"], "required": true },
         "reason": { "type": "string", "required": false },
+        "mismatchDirection": {
+          "type": "string",
+          "required": false,
+          "enum": ["session_newer", "session_older", "unknown"]
+        },
         "message": { "type": "string", "required": false }
       }
     },

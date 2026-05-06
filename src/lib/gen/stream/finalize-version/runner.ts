@@ -264,6 +264,7 @@ export async function finalizeAndSaveVersion(
     autoFixWarningCount,
     autoFixDependencyCount,
     autoFixHeavyLoad,
+    previewBlockingWarnings,
   } = autofixPhase;
 
   // 3–4. Fast path: validate syntax → materialize images → verifier →
@@ -315,6 +316,13 @@ export async function finalizeAndSaveVersion(
     repairScopeId,
   });
   contentForVersion = fastPathContent;
+  const effectiveVerifierBlockingFindings = [
+    ...previewBlockingWarnings.map((warning) => ({
+      id: "autofix-preview-blocking",
+      detail: warning,
+    })),
+    ...verifierBlockingFindings,
+  ];
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
   recordPhaseDuration("syntax-validate", resolveStepDurationMs("validate_syntax"), {
     kind: latencyBudgetKind,
@@ -417,7 +425,7 @@ export async function finalizeAndSaveVersion(
     routePlan,
     scaffoldSelection,
     syntaxResult,
-    verifierBlockingFindings,
+    verifierBlockingFindings: effectiveVerifierBlockingFindings,
     repairPassIndex,
     lineageHash,
     autoFixHeavyLoad,
@@ -430,15 +438,15 @@ export async function finalizeAndSaveVersion(
   // preflight bundle only knows about preflight errors, so we OR the verifier
   // signal in here and use the effective flag for telemetry, generation log
   // status, and `failVersionVerification` below.
-  const verifierBlocked = verifierBlockingFindings.length > 0;
+  const verifierBlocked = effectiveVerifierBlockingFindings.length > 0;
   const hasCurrentPreflightBlockers =
     preflightErrors.length > 0 || syntaxResult.status === "failed";
   const hasVerificationBlockingErrors =
     hasVerificationBlockingPreflightErrors || verifierBlocked;
   const verificationFailureSummary = verifierBlocked
     ? hasVerificationBlockingPreflightErrors
-      ? `${preflightFailureSummary} Verifier reported ${verifierBlockingFindings.length} blocking finding(s).`
-      : `Verifier reported ${verifierBlockingFindings.length} blocking finding(s).`
+      ? `${preflightFailureSummary} Verifier reported ${effectiveVerifierBlockingFindings.length} blocking finding(s).`
+      : `Verifier reported ${effectiveVerifierBlockingFindings.length} blocking finding(s).`
     : preflightFailureSummary;
 
   // OMTAG-06: preflight.summary now flows through the single-writer
@@ -519,7 +527,7 @@ export async function finalizeAndSaveVersion(
     autoFixDependencyCount,
     autoFixHeavyLoad,
     verifierBlocked,
-    verifierBlockingFindings,
+    verifierBlockingFindings: effectiveVerifierBlockingFindings,
     preflightIssueCount: preflightIssues.length,
     finalizedPreviewFileCount: finalizedFilesForPreview.length,
     unresolvedImportFallbackUsed: preflightResult.unresolvedImportFallbackUsed,
@@ -552,7 +560,7 @@ export async function finalizeAndSaveVersion(
       versionId: version.id,
       verificationFailureSummary,
       preflightErrorsCount: preflightErrors.length,
-      verifierBlockingFindingCount: verifierBlockingFindings.length,
+      verifierBlockingFindingCount: effectiveVerifierBlockingFindings.length,
     });
     if (failedVersion?.id) {
       version = failedVersion;
@@ -562,7 +570,7 @@ export async function finalizeAndSaveVersion(
       type: "preflight.version.verifier-blocked-pending-server-verify",
       chatId,
       versionId: version.id,
-      verifierBlockingFindingCount: verifierBlockingFindings.length,
+      verifierBlockingFindingCount: effectiveVerifierBlockingFindings.length,
     });
   }
   recordPhaseDuration("persist", Math.max(0, Date.now() - persistStartedAt), {
@@ -615,7 +623,7 @@ export async function finalizeAndSaveVersion(
     rejectedShrinks: rejectedShrinks ?? [],
     rejectedStructural: rejectedStructural ?? [],
     crossFileStubs: crossFileStubs ?? [],
-    verifierBlockingFindings: verifierBlockingFindings ?? [],
+    verifierBlockingFindings: effectiveVerifierBlockingFindings ?? [],
     warmTscSkipped: syntaxResult.tsc?.ran === false && syntaxResult.tsc.skipped === "quality_gate_planned",
     ...(requestedCapabilities.length > 0 ? { requestedCapabilities } : {}),
   };
