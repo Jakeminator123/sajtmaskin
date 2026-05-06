@@ -15,7 +15,6 @@ export function describePreviewHostHttpFailure(params: {
   endpoint:
     | "/preview/session/start"
     | "/preview/session/update"
-    | "/preview/session/update"
     | "/preview/session/destroy"
     | "/preview/session/hibernate"
     | "/preview/verify";
