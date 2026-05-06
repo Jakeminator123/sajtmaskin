@@ -270,7 +270,7 @@ export async function startPreviewHostSession(params: {
       const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       if (!res.ok) {
         const msg = describePreviewHostHttpFailure({
-          endpoint: "/preview/session/update",
+          endpoint: "/preview/session/start",
           status: res.status,
           body: responseBody,
         });
