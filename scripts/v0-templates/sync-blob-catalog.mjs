@@ -99,6 +99,7 @@ const upload = argv.includes("--upload");
 const dryRun = argv.includes("--dry-run") || !upload;
 const writeManifest = argv.includes("--write-manifest");
 const writeCatalog = argv.includes("--write-catalog");
+const overwrite = argv.includes("--overwrite");
 const force = argv.includes("--force");
 const sourceArg = readArg("--source") ?? DEFAULT_SOURCE;
 const blobPrefix = stripSlashes(readArg("--blob-prefix") ?? DEFAULT_BLOB_PREFIX);
@@ -261,6 +262,7 @@ async function uploadFile(template, absolutePath, relativeFilePath) {
   const blob = await put(key, createReadStream(absolutePath), {
     access: "public",
     addRandomSuffix: false,
+    allowOverwrite: overwrite,
     contentType,
   });
   return {
@@ -494,6 +496,9 @@ async function main() {
   const tooLargeArchives = selected.filter(
     (template) => template.archiveExists && template.archiveSizeBytes > MAX_IMPORT_ARCHIVE_BYTES,
   );
+  const uploadableTemplates = selected.filter(
+    (template) => template.archiveExists && template.archiveSizeBytes <= MAX_IMPORT_ARCHIVE_BYTES,
+  );
   const frameLoops = selected.filter((template) => template.preview.loopKind === "frames").length;
   const animatedLoops = selected.filter((template) =>
     ["animated-image", "video"].includes(template.preview.loopKind),
@@ -503,6 +508,7 @@ async function main() {
   console.log("[templates:blob] Archives over import limit:", tooLargeArchives.length);
   console.log("[templates:blob] Listing frame loops:", frameLoops);
   console.log("[templates:blob] Native animated loops:", animatedLoops);
+  console.log("[templates:blob] Uploadable templates:", uploadableTemplates.length);
 
   if (dryRun) {
     for (const template of selected.slice(0, 10)) {
@@ -515,7 +521,7 @@ async function main() {
   }
 
   const manifestItems = [];
-  for (const template of selected) {
+  for (const template of uploadableTemplates) {
     console.log(`[templates:blob] Uploading ${template.id} (${template.sourceCategory})`);
     manifestItems.push(await buildManifestItem(template));
   }
