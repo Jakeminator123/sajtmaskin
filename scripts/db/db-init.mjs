@@ -624,7 +624,18 @@ async function applySqlMigrations() {
     .filter((file) => file.endsWith(".sql"))
     .sort();
 
-  for (const file of files) {
+  // Dependency-aware ordering: some migrations must run before others that
+  // reference their tables via ALTER TABLE / FK.
+  const dependencyOrder = [
+    "add-generation-telemetry.sql",
+    "add-collaboration-tables.sql",
+  ];
+  const ordered = [
+    ...dependencyOrder.filter((f) => files.includes(f)),
+    ...files.filter((f) => !dependencyOrder.includes(f)),
+  ];
+
+  for (const file of ordered) {
     const sql = await readFile(join(MIGRATIONS_DIR, file), "utf-8");
     await pool.query(sql);
   }
