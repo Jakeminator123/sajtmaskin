@@ -349,7 +349,11 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       if (readString(entry, "tier2Provider")) details.push(`provider=${readString(entry, "tier2Provider")}`);
       break;
     case "preview_ready":
-      if (readString(entry, "sandboxId")) details.push(`sandbox=${shortId(readString(entry, "sandboxId"))}`);
+      if (readString(entry, "previewSessionId")) {
+        details.push(`previewSession=${shortId(readString(entry, "previewSessionId"))}`);
+      } else if (readString(entry, "sandboxId")) {
+        details.push(`previewSession=${shortId(readString(entry, "sandboxId"))}`);
+      }
       if (readString(entry, "startOutcome")) details.push(`outcome=${readString(entry, "startOutcome")}`);
       if (readNumber(entry, "fidelityTier") !== null) details.push(`fidelity=${readNumber(entry, "fidelityTier")}`);
       if (readNumber(entry, "msSinceEngineStart") !== null) details.push(`ms=${readNumber(entry, "msSinceEngineStart")}`);

@@ -191,7 +191,7 @@ async function initializeLocalTemplateProject(params: {
     skipProjectScaffold: true,
   });
   if (previewSessionStarted.ok) {
-    previewUrl = previewSessionStarted.result.sandboxUrl?.trim() || null;
+    previewUrl = previewSessionStarted.result.previewUrl?.trim() || null;
     if (previewUrl) {
       await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
     }

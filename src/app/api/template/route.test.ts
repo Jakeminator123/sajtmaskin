@@ -118,9 +118,9 @@ describe("POST /api/template", () => {
     startPreviewSession.mockResolvedValue({
       ok: true,
       result: {
-        sandboxUrl: "https://vm-fly-jakem.fly.dev/chat_import",
-        sandboxId: "sbx_1",
-        sandboxPreviewMode: "dev_only",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_import",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
         fidelityTier: 2,
         startOutcome: "recreated",
       },

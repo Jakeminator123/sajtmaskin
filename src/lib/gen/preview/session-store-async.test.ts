@@ -37,23 +37,23 @@ describe("preview-session-store async + Redis", () => {
   it("getActivePreviewSessionAsync reads from Redis after in-memory store was cleared", async () => {
     await touchPreviewSessionAsync({
       chatId: "c-r1",
-      sandboxId: "sb-1",
-      sandboxUrl: "https://preview.vercel.run",
+      previewSessionId: "ps-1",
+      previewUrl: "https://preview.vercel.run",
       versionId: "ver-a",
       now: 5_000,
     });
     resetPreviewSessionStoreForTests();
     const entry = await getActivePreviewSessionAsync("c-r1", { now: 6_000 });
     expect(entry).not.toBeNull();
-    expect(entry?.sandboxId).toBe("sb-1");
+    expect(entry?.previewSessionId).toBe("ps-1");
     expect(entry?.versionId).toBe("ver-a");
   });
 
   it("clearPreviewSessionAsync removes Redis entry", async () => {
     await touchPreviewSessionAsync({
       chatId: "c-r2",
-      sandboxId: "sb-2",
-      sandboxUrl: "https://x.run",
+      previewSessionId: "ps-2",
+      previewUrl: "https://x.run",
       now: 0,
     });
     await clearPreviewSessionAsync("c-r2");
@@ -75,7 +75,29 @@ describe("preview-session-store async + Redis", () => {
 
     const entry = await getActivePreviewSessionAsync("c-legacy", { now: 2500 });
     expect(entry).not.toBeNull();
-    expect(entry?.sandboxId).toBe("legacy-sb-1");
+    expect(entry?.previewSessionId).toBe("legacy-sb-1");
     expect(entry?.versionId).toBe("v-legacy");
+  });
+
+  it("writes only canonical Redis session key and fields", async () => {
+    await touchPreviewSessionAsync({
+      chatId: "c-write",
+      previewSessionId: "ps-write",
+      previewUrl: "https://preview.example/c-write",
+      versionId: "ver-write",
+      now: 1000,
+    });
+
+    expect(fakeStore.has(`${REDIS_KEY_PREFIX}sandbox-preview:session:c-write`)).toBe(false);
+    const raw = fakeStore.get(`${REDIS_KEY_PREFIX}preview-session:session:c-write`);
+    expect(raw).toBeTypeOf("string");
+    const parsed = JSON.parse(raw!);
+    expect(parsed).toMatchObject({
+      previewSessionId: "ps-write",
+      previewUrl: "https://preview.example/c-write",
+      versionId: "ver-write",
+    });
+    expect(parsed.sandboxId).toBeUndefined();
+    expect(parsed.sandboxUrl).toBeUndefined();
   });
 });

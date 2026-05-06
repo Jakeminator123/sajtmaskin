@@ -45,11 +45,26 @@
       "layer": "version state",
       "meaning": "Specific saved version within a chat"
     },
-    "sandboxId": {
+    "previewSessionId": {
       "type": "string",
       "canonical": true,
       "layer": "tier-2 runtime/session",
-      "meaning": "Active tier-2 runtime or preview session ID"
+      "meaning": "Active tier-2 preview session ID",
+      "legacyAliases": ["sandboxId"]
+    },
+    "previewUrl": {
+      "type": "string",
+      "canonical": true,
+      "layer": "public preview",
+      "meaning": "Public preview URL",
+      "dbColumn": "engine_versions.preview_url",
+      "legacyAliases": ["sandboxUrl"]
+    },
+    "runId": {
+      "type": "string",
+      "canonical": true,
+      "layer": "observability",
+      "meaning": "Observability/log run identifier"
     },
     "VERCEL_PROJECT_ID": {
       "type": "string",

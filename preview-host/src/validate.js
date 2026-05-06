@@ -30,6 +30,18 @@ function requireChatId(payload) {
   throw new Error("Missing or invalid field: chatId");
 }
 
+function readPreviewSessionId(payload) {
+  if (typeof payload.previewSessionId === "string" && payload.previewSessionId.trim()) {
+    return payload.previewSessionId.trim();
+  }
+  // Legacy external aliases accepted during rollout. New callers should send
+  // previewSessionId; preview-host writes only canonical store fields.
+  if (typeof payload.sandboxId === "string" && payload.sandboxId.trim()) {
+    return payload.sandboxId.trim();
+  }
+  return undefined;
+}
+
 /**
  * Reject paths that could escape the workspace via traversal, absolute refs,
  * or Windows drive letters. Only clean relative paths are allowed.
@@ -152,8 +164,9 @@ function validateUpdatePayload(payload) {
     throw new Error("Body must be a JSON object");
   }
   const p = /** @type {Record<string, unknown>} */ (payload);
-  if (!p.sessionId && !p.sandboxId) {
-    throw new Error("Provide sessionId or sandboxId");
+  const previewSessionId = readPreviewSessionId(p);
+  if (!p.sessionId && !previewSessionId) {
+    throw new Error("Provide previewSessionId or sessionId");
   }
   const versionId = requireTrimString(p.versionId, "versionId");
   let changeClass = "light";
@@ -172,7 +185,7 @@ function validateUpdatePayload(payload) {
   }
   return {
     sessionId: typeof p.sessionId === "string" ? p.sessionId.trim() : undefined,
-    sandboxId: typeof p.sandboxId === "string" ? p.sandboxId.trim() : undefined,
+    previewSessionId,
     versionId,
     changeClass,
     filesJson,
@@ -188,12 +201,13 @@ function validateSessionRefPayload(payload) {
     throw new Error("Body must be a JSON object");
   }
   const p = /** @type {Record<string, unknown>} */ (payload);
-  if (!p.sessionId && !p.sandboxId) {
-    throw new Error("Provide sessionId or sandboxId");
+  const previewSessionId = readPreviewSessionId(p);
+  if (!p.sessionId && !previewSessionId) {
+    throw new Error("Provide previewSessionId or sessionId");
   }
   return {
     sessionId: typeof p.sessionId === "string" ? p.sessionId.trim() : undefined,
-    sandboxId: typeof p.sandboxId === "string" ? p.sandboxId.trim() : undefined,
+    previewSessionId,
   };
 }
 

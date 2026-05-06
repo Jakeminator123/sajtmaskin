@@ -6,6 +6,6 @@ import type { PreviewSessionEntry } from "./session-store";
  */
 export async function tryResumeTier2Runtime(
   entry: PreviewSessionEntry,
-): Promise<{ sandboxId: string; primaryUrl: string } | null> {
-  return fetchPreviewHostStatus(entry.sandboxId);
+): Promise<{ previewSessionId: string; primaryUrl: string } | null> {
+  return fetchPreviewHostStatus(entry.previewSessionId);
 }

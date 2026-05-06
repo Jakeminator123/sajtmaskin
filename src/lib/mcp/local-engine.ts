@@ -27,7 +27,7 @@ export interface LocalGeneratedRuntimeResult {
   versionId: string | null;
   projectId: string | null;
   url?: string;
-  sandboxId?: string;
+  previewSessionId?: string;
 }
 
 export interface CreateLocalGeneratedRuntimeParams {
@@ -141,7 +141,7 @@ export async function createLocalGeneratedRuntime(
     );
   }
   if (resolvedVersionId) {
-    await chatRepo.updateVersionPreviewUrl(resolvedVersionId, started.result.sandboxUrl);
+    await chatRepo.updateVersionPreviewUrl(resolvedVersionId, started.result.previewUrl);
   }
 
   return {
@@ -149,7 +149,7 @@ export async function createLocalGeneratedRuntime(
     chatId,
     versionId: resolvedVersionId,
     projectId,
-    url: started.result.sandboxUrl,
-    sandboxId: started.result.sandboxId,
+    url: started.result.previewUrl,
+    previewSessionId: started.result.previewSessionId,
   };
 }

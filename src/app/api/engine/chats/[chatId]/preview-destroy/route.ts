@@ -56,7 +56,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const matchedSession =
         session &&
         session.versionId === requestedVersion.version.id &&
-        (!requestedPreviewSessionId || session.sandboxId === requestedPreviewSessionId)
+        (!requestedPreviewSessionId || session.previewSessionId === requestedPreviewSessionId)
           ? session
           : null;
 
@@ -65,7 +65,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       let providerDestroyRetryable = false;
       if (matchedSession?.tier2Provider === "preview_host") {
         const destroyed = await destroyPreviewHostSession({
-          sandboxId: matchedSession.sandboxId,
+          previewSessionId: matchedSession.previewSessionId,
         });
         if (destroyed.ok) {
           destroyedOnProvider = destroyed.destroyed;
@@ -89,7 +89,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           providerDestroyMessage = destroyed.message;
           providerDestroyRetryable = true;
           console.warn(
-            `[preview-destroy] retryable host failure for ${chatId}/${matchedSession.sandboxId}: ${destroyed.message}. Clearing local state anyway.`,
+            `[preview-destroy] retryable host failure for ${chatId}/${matchedSession.previewSessionId}: ${destroyed.message}. Clearing local state anyway.`,
           );
         }
       }

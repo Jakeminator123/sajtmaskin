@@ -98,11 +98,11 @@ function clipVerifyOutput(stage, rawOutput) {
     .join("\n");
 }
 
-async function appendRuntimeLog(sandboxId, message) {
+async function appendRuntimeLog(previewSessionId, message) {
   await withStoreLock((data) => {
-    const lines = data.logs[sandboxId] ?? [];
+    const lines = data.logs[previewSessionId] ?? [];
     lines.push({ ts: nowIso(), message });
-    data.logs[sandboxId] = lines.slice(-300);
+    data.logs[previewSessionId] = lines.slice(-300);
   });
 }
 
@@ -869,7 +869,7 @@ function projectOwnsLintSetup(filesJson) {
   }
 }
 
-async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
+async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
   const fingerprint = dependencyFingerprint(filesJson);
   const install = resolveInstallCommand(filesJson);
   const nodeModulesDir = path.join(workspaceDir, "node_modules");
@@ -881,7 +881,7 @@ async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
     fs.existsSync(nodeModulesDir)
   ) {
     await appendRuntimeLog(
-      sandboxId,
+      previewSessionId,
       `Skipping npm install; dependency fingerprint unchanged (${fingerprint.slice(0, 12)}).`,
     );
     return;
@@ -891,7 +891,7 @@ async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
       ? priorDeps.fingerprint.slice(0, 12)
       : "none";
   await appendRuntimeLog(
-    sandboxId,
+    previewSessionId,
     `Dependency fingerprint changed (prior=${priorFingerprint}, next=${fingerprint.slice(0, 12)}); installing with ${install.logLabel}.`,
   );
   const installResult = await runInstallCommandWithFallback(workspaceDir, install);
@@ -906,21 +906,21 @@ async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
         ? "encountered peer dependency conflicts"
         : "primary install failed";
       await appendRuntimeLog(
-        sandboxId,
+        previewSessionId,
         `${install.logLabel} ${fallbackReason}; fallback ${install.fallbackLogLabel} succeeded.`,
       );
       await appendRuntimeLog(
-        sandboxId,
+        previewSessionId,
         trimSnippet(installResult.output || install.successLabel),
       );
     } else {
-      await appendRuntimeLog(sandboxId, `${install.logLabel} completed.`);
+      await appendRuntimeLog(previewSessionId, `${install.logLabel} completed.`);
     }
     return;
   }
 
   await appendRuntimeLog(
-    sandboxId,
+    previewSessionId,
     `${install.logLabel} failed.\n${trimSnippet(installResult.output || "")}`,
   );
   throw new Error(
@@ -1148,20 +1148,20 @@ function stopChildProcessTree(child) {
   });
 }
 
-async function stopTrackedRuntime(sessionId, sandboxId = null) {
+async function stopTrackedRuntime(sessionId, previewSessionId = null) {
   const tracked = runtimeChildren.get(sessionId);
   if (!tracked) return false;
   runtimeChildren.delete(sessionId);
   tracked.ignoreExit = true;
   await stopChildProcessTree(tracked.child);
-  if (sandboxId) {
-    await appendRuntimeLog(sandboxId, "Runtime stopped.");
+  if (previewSessionId) {
+    await appendRuntimeLog(previewSessionId, "Runtime stopped.");
   }
   return true;
 }
 
 async function stopRuntimeForSession(session) {
-  await stopTrackedRuntime(session.sessionId, session.sandboxId);
+  await stopTrackedRuntime(session.sessionId, session.previewSessionId);
 }
 
 async function spawnDevServer(session, workspaceDir, runtimePort) {
@@ -1195,7 +1195,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     ignoreExit: false,
     workspaceDir,
     chatId,
-    sandboxId: session.sandboxId,
+    previewSessionId: session.previewSessionId,
   };
   runtimeChildren.set(session.sessionId, tracked);
 
@@ -1215,13 +1215,13 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
       stored.updatedAt = nowIso();
     });
     await appendRuntimeLog(
-      session.sandboxId,
+      session.previewSessionId,
       `Runtime exited (code=${code ?? "null"}, signal=${signal ?? "null"}).`,
     );
   });
 
   await appendRuntimeLog(
-    session.sandboxId,
+    session.previewSessionId,
     `Starting dev runtime on port ${runtimePort} for chat ${chatId}.`,
   );
 }
@@ -1255,7 +1255,7 @@ async function bootRuntimeForSession(session, options = {}) {
       const workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
       patchNextConfigForPreviewBasePath(workspaceDir);
       const runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
-      await runInstallCommand(workspaceDir, session.sandboxId, session.filesJson);
+      await runInstallCommand(workspaceDir, session.previewSessionId, session.filesJson);
       await spawnDevServer(session, workspaceDir, runtimePort);
 
       await updateSessionById(session.sessionId, (stored) => {
@@ -1267,13 +1267,13 @@ async function bootRuntimeForSession(session, options = {}) {
       waitForReady(`http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`)
         .then(() =>
           appendRuntimeLog(
-            session.sandboxId,
+            session.previewSessionId,
             `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
           ),
         )
         .catch((err) =>
           appendRuntimeLog(
-            session.sandboxId,
+            session.previewSessionId,
             `Readiness probe timed out but runtime is still running: ${err instanceof Error ? err.message : "unknown"}`,
           ),
         );
@@ -1284,7 +1284,7 @@ async function bootRuntimeForSession(session, options = {}) {
     return await withNoSpaceCleanupRetry(runBoot, {
       onRetry: async () => {
         await appendRuntimeLog(
-          session.sandboxId,
+          session.previewSessionId,
           "Preview-host disk full; cleaning stale workspaces and retrying runtime boot once.",
         );
         const tracked = runtimeChildren.get(session.sessionId);
@@ -1299,7 +1299,7 @@ async function bootRuntimeForSession(session, options = {}) {
       stored.updatedAt = nowIso();
     });
     await appendRuntimeLog(
-      session.sandboxId,
+      session.previewSessionId,
       `Runtime boot failed: ${error instanceof Error ? error.message : "unknown error"}`,
     );
     const tracked = runtimeChildren.get(session.sessionId);
@@ -1597,7 +1597,7 @@ async function stopStaleRuntimes(nowMs) {
   const snapshot = readStoreSync();
   const preservedSessionIds = new Set();
   const preservedWorkspaceEntries = new Set();
-  const preservedSandboxIds = new Set();
+  const preservedPreviewSessionIds = new Set();
   let stoppedRuntimes = 0;
 
   for (const [sessionId, tracked] of runtimeChildren.entries()) {
@@ -1606,18 +1606,18 @@ async function stopStaleRuntimes(nowMs) {
       continue;
     }
 
-    const sandboxId =
-      (typeof session?.sandboxId === "string" && session.sandboxId.trim()) ||
-      (typeof tracked.sandboxId === "string" && tracked.sandboxId.trim()) ||
+    const previewSessionId =
+      (typeof session?.previewSessionId === "string" && session.previewSessionId.trim()) ||
+      (typeof tracked.previewSessionId === "string" && tracked.previewSessionId.trim()) ||
       "";
     try {
-      if (sandboxId) {
+      if (previewSessionId) {
         await appendRuntimeLog(
-          sandboxId,
+          previewSessionId,
           "Cleanup stopping stale runtime before removing session/workspace.",
         );
       }
-      const stopped = await stopTrackedRuntime(sessionId, sandboxId || null);
+      const stopped = await stopTrackedRuntime(sessionId, previewSessionId || null);
       if (stopped) {
         stoppedRuntimes += 1;
       }
@@ -1626,10 +1626,10 @@ async function stopStaleRuntimes(nowMs) {
       if (typeof tracked.chatId === "string" && tracked.chatId.trim()) {
         preservedWorkspaceEntries.add(safeChatKey(tracked.chatId));
       }
-      if (sandboxId) {
-        preservedSandboxIds.add(sandboxId);
+      if (previewSessionId) {
+        preservedPreviewSessionIds.add(previewSessionId);
         await appendRuntimeLog(
-          sandboxId,
+          previewSessionId,
           `Cleanup could not stop stale runtime: ${error instanceof Error ? error.message : "unknown error"}`,
         ).catch(() => {});
       }
@@ -1639,7 +1639,7 @@ async function stopStaleRuntimes(nowMs) {
   return {
     preservedSessionIds,
     preservedWorkspaceEntries,
-    preservedSandboxIds,
+    preservedPreviewSessionIds,
     stoppedRuntimes,
   };
 }
@@ -1648,7 +1648,7 @@ async function cleanupPreviewHostStorage() {
   const nowMs = Date.now();
   const staleRuntimeCleanup = await stopStaleRuntimes(nowMs);
   const activeWorkspaceEntries = new Set(staleRuntimeCleanup.preservedWorkspaceEntries);
-  const activeSandboxIds = new Set(staleRuntimeCleanup.preservedSandboxIds);
+  const activePreviewSessionIds = new Set(staleRuntimeCleanup.preservedPreviewSessionIds);
   let removedSessions = 0;
   let removedLogs = 0;
   let removedMappings = 0;
@@ -1663,8 +1663,8 @@ async function cleanupPreviewHostStorage() {
         if (chatId) {
           activeWorkspaceEntries.add(safeChatKey(chatId));
         }
-        if (typeof session.sandboxId === "string" && session.sandboxId.trim()) {
-          activeSandboxIds.add(session.sandboxId.trim());
+        if (typeof session.previewSessionId === "string" && session.previewSessionId.trim()) {
+          activePreviewSessionIds.add(session.previewSessionId.trim());
         }
         continue;
       }
@@ -1672,26 +1672,26 @@ async function cleanupPreviewHostStorage() {
       removedSessions++;
       delete data.sessions[sessionId];
 
-      const sandboxId =
-        typeof session?.sandboxId === "string" && session.sandboxId.trim()
-          ? session.sandboxId.trim()
+      const previewSessionId =
+        typeof session?.previewSessionId === "string" && session.previewSessionId.trim()
+          ? session.previewSessionId.trim()
           : "";
-      if (sandboxId && data.sandboxToSession[sandboxId] === sessionId) {
-        delete data.sandboxToSession[sandboxId];
+      if (previewSessionId && data.previewSessionToSession[previewSessionId] === sessionId) {
+        delete data.previewSessionToSession[previewSessionId];
         removedMappings++;
       }
     }
 
-    for (const [sandboxId, sessionId] of Object.entries(data.sandboxToSession)) {
+    for (const [previewSessionId, sessionId] of Object.entries(data.previewSessionToSession)) {
       if (!data.sessions[sessionId]) {
-        delete data.sandboxToSession[sandboxId];
+        delete data.previewSessionToSession[previewSessionId];
         removedMappings++;
       }
     }
 
-    for (const sandboxId of Object.keys(data.logs)) {
-      if (!activeSandboxIds.has(sandboxId)) {
-        delete data.logs[sandboxId];
+    for (const previewSessionId of Object.keys(data.logs)) {
+      if (!activePreviewSessionIds.has(previewSessionId)) {
+        delete data.logs[previewSessionId];
         removedLogs++;
       }
     }

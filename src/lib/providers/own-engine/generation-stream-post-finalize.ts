@@ -390,8 +390,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
           kind: "preview_ready",
           chatId,
           versionId: finalized.version.id,
-          sandboxId: sr.sandboxId,
-          sandboxPreviewMode: sr.sandboxPreviewMode,
+          previewSessionId: sr.previewSessionId,
+          previewMode: sr.previewMode,
           fidelityTier: sr.fidelityTier,
           prodBuildVerified: sr.prodBuildVerified,
           startOutcome: sr.startOutcome,
@@ -402,21 +402,21 @@ export async function runOwnEngineStreamPostFinalize(params: {
         safeEnqueue(
           enc.encode(
             formatSSEEvent("preview-ready", {
-              previewUrl: sr.sandboxUrl,
-              previewSessionId: sr.sandboxId,
-              previewMode: sr.sandboxPreviewMode,
+              previewUrl: sr.previewUrl,
+              previewSessionId: sr.previewSessionId,
+              previewMode: sr.previewMode,
               previewTier: sr.fidelityTier,
               ...(sr.prodBuildVerified !== undefined ? { prodBuildVerified: sr.prodBuildVerified } : {}),
               ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
             }),
           ),
         );
-        if (sr.sandboxUrl.trim()) {
-          chatRepo.updateVersionPreviewUrl(finalized.version.id, sr.sandboxUrl).catch((error) => {
+        if (sr.previewUrl.trim()) {
+          chatRepo.updateVersionPreviewUrl(finalized.version.id, sr.previewUrl).catch((error) => {
             warnLog("engine", "Failed to persist previewUrl after preview-ready", {
               chatId,
               versionId: finalized.version.id,
-              previewUrl: sr.sandboxUrl,
+              previewUrl: sr.previewUrl,
               message: error instanceof Error ? error.message : "Unknown error",
             });
           });

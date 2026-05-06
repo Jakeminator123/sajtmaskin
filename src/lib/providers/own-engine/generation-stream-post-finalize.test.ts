@@ -192,9 +192,9 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     startPreviewSessionMock.mockResolvedValue({
       ok: true,
       result: {
-        sandboxUrl: "https://preview.example",
-        sandboxId: "sbx_1",
-        sandboxPreviewMode: "dev_only",
+        previewUrl: "https://preview.example",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
         fidelityTier: 2,
         startOutcome: "recreated",
         tier2Meta: { tier2Provider: "preview_host" },
@@ -255,8 +255,8 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         kind: "preview_ready",
         chatId: "chat_1",
         versionId: "ver_1",
-        sandboxId: "sbx_1",
-        sandboxPreviewMode: "dev_only",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
         fidelityTier: 2,
         previewPolicy: "fidelity3",
         verificationPolicy: "strict",

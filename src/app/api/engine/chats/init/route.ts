@@ -507,7 +507,7 @@ export async function POST(req: Request) {
           `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
         );
       }
-      const previewUrl = previewSessionStarted.result.sandboxUrl?.trim();
+      const previewUrl = previewSessionStarted.result.previewUrl?.trim();
       if (!previewUrl) {
         throw new Error("Tier-2 preview started without a preview URL.");
       }

@@ -34,6 +34,8 @@ export type GenerateOwnEngineSiteFromPromptResult = {
   previewUrl: string | null;
   runtimeMode: RuntimeMode;
   runtimeUrl: string | null;
+  previewSessionId?: string;
+  /** @deprecated Legacy external alias for `previewSessionId`. */
   sandboxId?: string;
   runtime?: string;
   ports?: number[];
@@ -275,8 +277,8 @@ export async function generateOwnEngineSiteFromPrompt(
       `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
     );
   }
-  runtimeUrl = previewSessionStarted.result.sandboxUrl;
-  const previewSessionId = previewSessionStarted.result.sandboxId;
+  runtimeUrl = previewSessionStarted.result.previewUrl;
+  const previewSessionId = previewSessionStarted.result.previewSessionId;
   await chatRepo.updateVersionPreviewUrl(finalized.version.id, runtimeUrl);
 
   return {
@@ -287,6 +289,8 @@ export async function generateOwnEngineSiteFromPrompt(
     previewUrl: finalized.previewUrl,
     runtimeMode,
     runtimeUrl,
+    previewSessionId,
+    // Legacy external alias for callers not yet migrated.
     sandboxId: previewSessionId,
     runtime,
     ports,

@@ -15,17 +15,17 @@ describe("preview-session-store", () => {
     expect(getActivePreviewSession("c1", { now: 0 })).toBeNull();
   });
 
-  it("touchPreviewSession records entry and preserves createdAt for same sandboxId", () => {
+  it("touchPreviewSession records entry and preserves createdAt for same previewSessionId", () => {
     touchPreviewSession({
       chatId: "c1",
-      sandboxId: "s1",
-      sandboxUrl: "https://x.vercel.run",
+      previewSessionId: "ps1",
+      previewUrl: "https://x.vercel.run",
       now: 1_000,
     });
     touchPreviewSession({
       chatId: "c1",
-      sandboxId: "s1",
-      sandboxUrl: "https://x.vercel.run",
+      previewSessionId: "ps1",
+      previewUrl: "https://x.vercel.run",
       now: 2_000,
     });
     const e = getActivePreviewSession("c1", { now: 2_000 });
@@ -37,8 +37,8 @@ describe("preview-session-store", () => {
     const t0 = 1_000_000;
     touchPreviewSession({
       chatId: "c1",
-      sandboxId: "s1",
-      sandboxUrl: "https://x.run",
+      previewSessionId: "ps1",
+      previewUrl: "https://x.run",
       now: t0,
     });
     const idleMs = 30 * 60 * 1000;
@@ -49,8 +49,8 @@ describe("preview-session-store", () => {
   it("stores versionId when provided", () => {
     touchPreviewSession({
       chatId: "c1",
-      sandboxId: "s1",
-      sandboxUrl: "https://x.run",
+      previewSessionId: "ps1",
+      previewUrl: "https://x.run",
       versionId: "ver-99",
       now: 0,
     });
@@ -60,8 +60,8 @@ describe("preview-session-store", () => {
   it("stores tier2Provider preview_host when set", () => {
     touchPreviewSession({
       chatId: "c1",
-      sandboxId: "s1",
-      sandboxUrl: "https://fly.example",
+      previewSessionId: "ps1",
+      previewUrl: "https://fly.example",
       versionId: "v1",
       tier2Provider: "preview_host",
       now: 0,
@@ -72,8 +72,8 @@ describe("preview-session-store", () => {
   it("clearPreviewSession removes entry", () => {
     touchPreviewSession({
       chatId: "c1",
-      sandboxId: "s1",
-      sandboxUrl: "https://x.run",
+      previewSessionId: "ps1",
+      previewUrl: "https://x.run",
       now: 0,
     });
     clearPreviewSession("c1");

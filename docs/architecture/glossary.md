@@ -113,6 +113,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | F2 SDK Guard | Mekanisk fixer som strippar tier-3 SDK-imports från F2-output. Deny-lista: `config/integrations/tier3-sdk-deny.json`. |
 | EnvVar enforcement | Per envVar i hard-dossier: `build` (default, krävs i F3) / `feature-runtime` (banner när nyckel saknas) / `warn-only` (self-disable). |
 | `allowPlaceholdersInF3` | Toggle på `project_data.meta`. När true: placeholder-täckta build-keys passerar F3-gaten med varning. |
+| Preview ID-set | `appProjectId` = builder-projekt, `chatId` = own-engine chat/lane + preview-host path key, `versionId` = `engine_versions`-rad, `previewSessionId` = aktiv preview-session, `previewUrl` = publik preview-URL, `runId` = observability/logg-run. Legacy: `sandboxId`/`sandboxUrl` bara som kompatibilitetsalias. |
 
 ---
 

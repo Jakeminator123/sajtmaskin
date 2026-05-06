@@ -48,7 +48,7 @@ type BuildIntent = "website" | "app" | "template";
 | `type` | URL transport | non-canonical | Category UI context only; not part of current builder state contract |
 | `v0ProjectId` | server/client payload | legacy compatibility | Old payload key for external project identity; not part of builder entry URL |
 | `externalProjectId` | client state | non-entry state | Builder-local name for external legacy project identity; not the canonical project root |
-| `sandboxUrl` | server/client version state | non-entry state | Version-level sandbox runtime URL, not part of builder entry |
+| `previewUrl` | server/client version state | non-entry state | Version-level preview URL, not part of builder entry |
 
 ## Normalized Entry Classifier
 

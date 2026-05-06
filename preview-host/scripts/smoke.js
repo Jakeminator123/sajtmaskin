@@ -77,12 +77,12 @@ async function main() {
     assert.equal(started.body.lastAction, "start");
 
     const sessionId = started.body.sessionId;
-    const sandboxId = started.body.sandboxId;
+    const previewSessionId = started.body.previewSessionId;
 
-    const st = await getJson(`${baseUrl}/preview/session/${encodeURIComponent(sandboxId)}/status`);
+    const st = await getJson(`${baseUrl}/preview/session/${encodeURIComponent(previewSessionId)}/status`);
     assert.equal(st.status, 200);
     assert.equal(st.body.ok, true);
-    assert.equal(st.body.sandboxId, sandboxId);
+    assert.equal(st.body.previewSessionId, previewSessionId);
 
     const verified = await postJson(`${baseUrl}/preview/verify`, {
       chatId: "chat_demo_1",
@@ -119,7 +119,7 @@ async function main() {
     assert.equal(fetched.body.sessionId, sessionId);
 
     const updated = await postJson(`${baseUrl}/preview/session/update`, {
-      sessionId,
+      previewSessionId,
       versionId: "ver_2",
       changeClass: "light",
       filesJson: {
@@ -131,7 +131,7 @@ async function main() {
     assert.equal(updated.body.lastAction, "update");
 
     const replaced = await postJson(`${baseUrl}/preview/session/update`, {
-      sessionId,
+      previewSessionId,
       versionId: "ver_replace",
       changeClass: "light",
       replaceFiles: true,
@@ -147,7 +147,7 @@ async function main() {
     assert.equal(typeof filesAfterReplace["server.js"], "undefined");
 
     const invalidReplace = await postJson(`${baseUrl}/preview/session/update`, {
-      sessionId,
+      previewSessionId,
       versionId: "ver_bad_replace",
       changeClass: "light",
       replaceFiles: true,
@@ -161,19 +161,19 @@ async function main() {
     assert.equal(afterInvalidReplace.body.versionId, "ver_replace");
 
     const hibernated = await postJson(`${baseUrl}/preview/session/hibernate`, {
-      sessionId,
+      previewSessionId,
     });
     assert.equal(hibernated.status, 200);
     assert.equal(hibernated.body.status, "hibernated");
     assert.equal(hibernated.body.lastAction, "hibernate");
 
-    const logs = await getJson(`${baseUrl}/preview/logs/${sandboxId}`);
+    const logs = await getJson(`${baseUrl}/preview/logs/${previewSessionId}`);
     assert.equal(logs.status, 200);
     assert.ok(Array.isArray(logs.body.lines));
     assert.ok(logs.body.lines.length >= 3);
 
     const destroyed = await postJson(`${baseUrl}/preview/session/destroy`, {
-      sessionId,
+      previewSessionId,
     });
     assert.equal(destroyed.status, 200);
     assert.equal(destroyed.body.destroyed, true);
@@ -236,6 +236,10 @@ function readSessionFilesJsonFromStore(sessionId) {
   const parsed = JSON.parse(fs.readFileSync(fp, "utf8"));
   const session = parsed?.sessions?.[sessionId];
   assert.ok(session && typeof session === "object", "session should exist in store");
+  assert.equal(typeof session.previewSessionId, "string");
+  assert.equal(typeof session.sandboxId, "undefined");
+  assert.equal(typeof parsed.sandboxToSession, "undefined");
+  assert.ok(parsed.previewSessionToSession && typeof parsed.previewSessionToSession === "object");
   const filesJson = session.filesJson;
   assert.ok(filesJson && typeof filesJson === "object" && !Array.isArray(filesJson), "filesJson should be object");
   return filesJson;

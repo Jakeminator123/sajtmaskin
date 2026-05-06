@@ -61,7 +61,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         return NextResponse.json({ ok: false, reason: "no_session" } satisfies PreviewHeartbeatApiJson);
       }
 
-      if ((session.versionId ?? "") !== versionId || session.sandboxId !== previewSessionId) {
+      if ((session.versionId ?? "") !== versionId || session.previewSessionId !== previewSessionId) {
         logPreviewLifecycleTelemetry({
           kind: "heartbeat",
           ok: false,
@@ -74,8 +74,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       await touchPreviewSessionAsync({
         chatId,
-        sandboxId: session.sandboxId,
-        sandboxUrl: session.sandboxUrl,
+        previewSessionId: session.previewSessionId,
+        previewUrl: session.previewUrl,
         versionId: session.versionId,
       });
 

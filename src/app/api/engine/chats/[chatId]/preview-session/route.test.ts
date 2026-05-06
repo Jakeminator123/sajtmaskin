@@ -96,9 +96,9 @@ describe("POST preview-session (engine)", () => {
     startPreviewSession.mockResolvedValue({
       ok: true,
       result: {
-        sandboxUrl: "https://preview.example/chat_1",
-        sandboxId: "sb_1",
-        sandboxPreviewMode: "dev_only",
+        previewUrl: "https://preview.example/chat_1",
+        previewSessionId: "ps_1",
+        previewMode: "dev_only",
         fidelityTier: 2,
         startOutcome: "recreated",
         tier2Meta: { tier2Provider: "preview_host" },
@@ -132,8 +132,8 @@ describe("POST preview-session (engine)", () => {
     });
     isTier2LivePreviewUrl.mockReturnValue(true);
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb_1",
-      sandboxUrl: "https://preview.example/chat_1",
+      previewSessionId: "ps_1",
+      previewUrl: "https://preview.example/chat_1",
       versionId: "ver_1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -159,7 +159,7 @@ describe("POST preview-session (engine)", () => {
     expect(body.ok).toBe(true);
     expect(body.startOutcome).toBe("reused_url");
     expect(body.previewUrl).toBe("https://preview.example/chat_1");
-    expect(body.previewSessionId).toBe("sb_1");
+    expect(body.previewSessionId).toBe("ps_1");
     expect(startPreviewSession).not.toHaveBeenCalled();
     expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
   });
@@ -189,7 +189,40 @@ describe("POST preview-session (engine)", () => {
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example/chat_1");
     const body = (await res.json()) as { startOutcome?: string; previewSessionId?: string };
     expect(body.startOutcome).toBe("recreated");
-    expect(body.previewSessionId).toBe("sb_1");
+    expect(body.previewSessionId).toBe("ps_1");
+  });
+
+  it("does not return reused_url when the active preview session points at a different previewUrl", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: {
+        id: "ver_1",
+        preview_url: "https://preview.example/chat_1",
+        files_json: "{}",
+      },
+    });
+    isTier2LivePreviewUrl.mockReturnValue(true);
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_1",
+      previewUrl: "https://preview.example/other-chat",
+      versionId: "ver_1",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+      tier2Provider: "preview_host",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver_1" }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { startOutcome?: string };
+    expect(body.startOutcome).toBe("recreated");
+    expect(startPreviewSession).toHaveBeenCalled();
   });
 
   it("starts preview session and persists previewUrl for version-bound session", async () => {
@@ -233,7 +266,7 @@ describe("POST preview-session (engine)", () => {
     expect(body).toMatchObject({
       ok: true,
       previewUrl: "https://preview.example/chat_1",
-      previewSessionId: "sb_1",
+      previewSessionId: "ps_1",
       startOutcome: "recreated",
     });
   });

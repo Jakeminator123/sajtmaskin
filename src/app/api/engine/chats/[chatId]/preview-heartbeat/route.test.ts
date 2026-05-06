@@ -60,8 +60,8 @@ describe("POST preview-heartbeat", () => {
 
   it("touches session when ids match", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb1",
-      sandboxUrl: "https://x.example",
+      previewSessionId: "ps1",
+      previewUrl: "https://x.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),
@@ -70,7 +70,7 @@ describe("POST preview-heartbeat", () => {
       new Request("http://localhost/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "v1", previewSessionId: "sb1", viewerId: "tab1" }),
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "ps1", viewerId: "tab1" }),
       }),
       { params: Promise.resolve({ chatId: "c1" }) },
     );
@@ -79,7 +79,7 @@ describe("POST preview-heartbeat", () => {
     expect(touchPreviewSessionAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: "c1",
-        sandboxId: "sb1",
+        previewSessionId: "ps1",
         versionId: "v1",
       }),
     );
@@ -87,8 +87,8 @@ describe("POST preview-heartbeat", () => {
 
   it("rejects on previewSessionId mismatch", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
-      sandboxId: "sb1",
-      sandboxUrl: "https://x.example",
+      previewSessionId: "ps1",
+      previewUrl: "https://x.example",
       versionId: "v1",
       createdAt: Date.now(),
       lastUsedAt: Date.now(),

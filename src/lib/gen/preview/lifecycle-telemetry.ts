@@ -16,7 +16,7 @@ export type PreviewLifecycleTelemetryEvent =
       chatId: string;
       status: string;
       versionId?: string;
-      sandboxId?: string | null;
+      previewSessionId?: string | null;
     }
   | {
       kind: "recover";
@@ -38,8 +38,8 @@ export type PreviewLifecycleTelemetryEvent =
       kind: "preview_ready";
       chatId: string;
       versionId?: string | null;
-      sandboxId?: string | null;
-      sandboxPreviewMode: string;
+      previewSessionId?: string | null;
+      previewMode: string;
       fidelityTier: 2 | 3;
       prodBuildVerified?: boolean;
       startOutcome: "resumed" | "recreated";
@@ -77,7 +77,9 @@ function buildPreviewTelemetrySummary(event: PreviewLifecycleTelemetryEvent): st
   const parts = [`kind=${event.kind}`];
   if ("chatId" in event) parts.push(`chat=${shortId(event.chatId)}`);
   if ("versionId" in event && event.versionId) parts.push(`version=${shortId(event.versionId)}`);
-  if ("sandboxId" in event && event.sandboxId) parts.push(`sandbox=${shortId(event.sandboxId)}`);
+  if ("previewSessionId" in event && event.previewSessionId) {
+    parts.push(`previewSession=${shortId(event.previewSessionId)}`);
+  }
   if ("status" in event) parts.push(`status=${event.status}`);
   if ("phase" in event) parts.push(`phase=${event.phase}`);
   if ("outcome" in event) parts.push(`outcome=${event.outcome}`);

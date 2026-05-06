@@ -43,7 +43,7 @@ Separat Codex/tanker-run
   -> previewBlocked=true
 
 Preview-yta
-  -> session lagras per chatId med versionId/sandboxId
+  -> session lagras per chatId med versionId/previewSessionId
   -> UI kan ha stale previewUrl/sessionMeta efter reload/versionbyte
   -> version_mismatch eller preview_session_id_mismatch
   -> recover/overlay kan upplevas som "sidan trasig"
