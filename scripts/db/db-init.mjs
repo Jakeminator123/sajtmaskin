@@ -26,16 +26,28 @@ if (!connectionString) {
 
 // Parse connection string to handle SSL properly with Supabase pooler
 const url = new URL(connectionString);
+
+// Check sslmode before removing it from the URL
+const sslMode = url.searchParams.get("sslmode")?.trim().toLowerCase() || null;
+
 // Remove sslmode from search params - we handle it via ssl option
 url.searchParams.delete("sslmode");
 url.searchParams.delete("supa");
 
-const pool = new Pool({
-  connectionString: url.toString(),
-  ssl: {
+// Resolve SSL config: handle sslmode=disable explicitly, otherwise use env var
+let sslConfig;
+if (sslMode === "disable") {
+  sslConfig = false;
+} else {
+  sslConfig = {
     rejectUnauthorized:
       process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
-  },
+  };
+}
+
+const pool = new Pool({
+  connectionString: url.toString(),
+  ssl: sslConfig,
 });
 const MIGRATIONS_DIR = join(process.cwd(), "src/lib/db/migrations");
 
@@ -621,7 +633,18 @@ async function applySqlMigrations() {
     .filter((file) => file.endsWith(".sql"))
     .sort();
 
-  for (const file of files) {
+  // Dependency-aware ordering: some migrations must run before others that
+  // reference their tables via ALTER TABLE / FK.
+  const dependencyOrder = [
+    "add-generation-telemetry.sql",
+    "add-collaboration-tables.sql",
+  ];
+  const ordered = [
+    ...dependencyOrder.filter((f) => files.includes(f)),
+    ...files.filter((f) => !dependencyOrder.includes(f)),
+  ];
+
+  for (const file of ordered) {
     const sql = await readFile(join(MIGRATIONS_DIR, file), "utf-8");
     await pool.query(sql);
   }

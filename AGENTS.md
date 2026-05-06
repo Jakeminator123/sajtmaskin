@@ -56,6 +56,8 @@ Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera
 
 - `npm run dev` runs a `predev` hook that includes `db:perf-indexes:soft`. This may fail with `sh: Syntax error` in minimal shells (dash vs bash). It is soft-failing (`|| echo ...`) and does not block the dev server from starting. If `predev` exits non-zero, run `node scripts/dev/next-runner.mjs dev` directly.
 - The `db:init` script requires `POSTGRES_URL` to be set. Without it, the script exits with code 1 — but the Next.js app itself starts fine (DB features degrade gracefully).
+- **Local Postgres SSL:** For local Postgres without SSL, add `?sslmode=disable` to `POSTGRES_URL`. Both `db-init.mjs` and the runtime client respect this parameter.
+- **Migration ordering:** Fixed -- `db-init.mjs` runs dependency migrations first automatically. No manual steps needed on fresh DB.
 - Typecheck uses `--max-old-space-size=8192`; ensure sufficient memory.
 - 6 test files have pre-existing failures (route handler assertion mismatches). These are not caused by environment issues — they are in `domains/link`, `kostnadsfri/verify`, and similar API route tests.
 
