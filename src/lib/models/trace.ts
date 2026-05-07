@@ -23,6 +23,7 @@ import {
   getBuildProfileId,
   type CanonicalModelId,
 } from "@/lib/models/catalog";
+import { getPhaseRoutingTrace, type PhaseRoutingTrace } from "@/lib/models/phase-routing";
 export type ModelProviderFamily = "openai" | "anthropic" | "v0" | "off" | "unknown";
 
 export type ModelTraceRequest = {
@@ -114,6 +115,7 @@ export interface ModelTraceSnapshot {
     polishModel: string;
     polishModelAllowed: boolean;
     polishProviderFamily: ModelProviderFamily;
+    phaseRouting: PhaseRoutingTrace;
   };
   buildProfiles: BuildProfileTrace[];
   promptAssistOptions: PromptAssistOptionTrace[];
@@ -351,6 +353,7 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       polishModel: DEFAULT_PROMPT_POLISH_MODEL,
       polishModelAllowed: isPromptAssistModelAllowed(DEFAULT_PROMPT_POLISH_MODEL),
       polishProviderFamily: resolvePromptAssistProviderFamily(DEFAULT_PROMPT_POLISH_MODEL),
+      phaseRouting: getPhaseRoutingTrace(selectedTier),
     },
     buildProfiles,
     promptAssistOptions,

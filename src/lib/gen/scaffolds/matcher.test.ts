@@ -22,6 +22,20 @@ describe("matchScaffold", () => {
     expect(matchScaffold(prompt, "website")?.id).toBe("portfolio");
   });
 
+  it("does not let generic project/gallery wording pull illustrators back to landing-page", () => {
+    const prompt =
+      "Bygg en stilren hemsida för en illustratör som visar projekt, utvalda arbeten och ett galleri.";
+
+    expect(matchScaffold(prompt, "website")?.id).toBe("portfolio");
+  });
+
+  it("does not let weak creator showcase prompts collapse into landing-page", () => {
+    const prompt =
+      "Skapa en sida för en skribent med texter, projekt och utvalda arbeten.";
+
+    expect(matchScaffold(prompt, "website")?.id).toBe("portfolio");
+  });
+
   it("does not route named restaurant prompts to an ecommerce-like scaffold", () => {
     const prompt =
       "Jag vill ha en hemsida för restaurangen Marias matrestaurang med meny, om oss, bokning och kontakt.";

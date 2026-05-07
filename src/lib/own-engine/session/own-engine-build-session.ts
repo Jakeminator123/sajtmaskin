@@ -12,6 +12,7 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { GenerationStreamMeta } from "@/lib/providers/own-engine/generation-stream";
 import type { PreGenerationContractGateReadableParams } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import type { CanonicalModelId } from "@/lib/models/catalog";
+import { getPhaseRoutingTrace } from "@/lib/models/phase-routing";
 
 function extractBriefSummary(brief: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
   if (!brief || typeof brief !== "object") return null;
@@ -220,6 +221,7 @@ export function buildOwnEngineGenerationStreamMeta(
     promptStrategyReason: sm.reason,
     promptComplexityScore: sm.complexityScore,
     buildSpec: input.buildSpec,
+    phaseModelTrace: getPhaseRoutingTrace(input.resolvedModelTier),
     systemPromptLength: input.engineSystemPromptLength,
     briefApplied: input.metaBriefApplied,
     briefSummary: extractBriefSummary(input.metaBrief),

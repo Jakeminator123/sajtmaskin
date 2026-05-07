@@ -187,6 +187,13 @@ Lightweight structural (default): filträd + `selectCriticalScaffoldFiles()` (3 
 - **Thinking**: Anthropic `thinking: { type: "adaptive" }` eller OpenAI `reasoningEffort`
 - **Tools/Steps**: `maxSteps: 4`
 
+Own-engine stream-meta persisterar också `phaseModelTrace` för den valda
+build-profilen: planner / generator / fixer / verifier / deploy-assistant med
+konkret `modelId`, `thinking` och `reasoningEffort` från
+`src/lib/models/phase-routing.ts`. Det gör att observability/debug-surfacer kan
+visa den faktiska per-fas-routing som användes, inte bara den övergripande
+build-tiern.
+
 Returnerar `createCodeGenSSEStream()` → SSE.
 
 ### SSE-events

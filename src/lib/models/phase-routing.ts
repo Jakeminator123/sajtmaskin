@@ -38,6 +38,14 @@ export type PhaseThinkingOverride = {
   reason: string;
 };
 
+export type PhaseRoutingTraceEntry = {
+  modelId: OwnModelId;
+  thinking: boolean;
+  reasoningEffort: ReasoningEffortFromManifest;
+};
+
+export type PhaseRoutingTrace = Record<GenerationPhase, PhaseRoutingTraceEntry>;
+
 function resolvePhaseModelRef(
   selectedTier: CanonicalModelId,
   phase: GenerationPhaseFromManifest,
@@ -118,4 +126,30 @@ export function getPhaseRoutingSummary(
   return Object.fromEntries(
     phases.map((phase) => [phase, resolvePhaseModel(selectedTier, phase).modelId]),
   ) as Record<GenerationPhase, OwnModelId>;
+}
+
+export function getPhaseRoutingTrace(
+  selectedTier: CanonicalModelId,
+): PhaseRoutingTrace {
+  const phases: GenerationPhase[] = [
+    "planner",
+    "generator",
+    "fixer",
+    "verifier",
+    "deploy-assistant",
+  ];
+  return Object.fromEntries(
+    phases.map((phase) => {
+      const phaseModel = resolvePhaseModel(selectedTier, phase);
+      const phaseThinking = resolvePhaseThinking(selectedTier, phase);
+      return [
+        phase,
+        {
+          modelId: phaseModel.modelId,
+          thinking: phaseThinking.thinking,
+          reasoningEffort: phaseThinking.reasoningEffort,
+        } satisfies PhaseRoutingTraceEntry,
+      ];
+    }),
+  ) as PhaseRoutingTrace;
 }

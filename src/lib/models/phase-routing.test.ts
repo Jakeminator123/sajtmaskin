@@ -3,6 +3,7 @@ import {
   resolvePhaseModel,
   resolvePhaseThinking,
   getPhaseRoutingSummary,
+  getPhaseRoutingTrace,
   type GenerationPhase,
 } from "./phase-routing";
 
@@ -158,6 +159,38 @@ describe("resolvePhaseThinking", () => {
       thinking: false,
       reasoningEffort: "medium",
       reason: "manifest-phase-thinking",
+    });
+  });
+});
+
+describe("getPhaseRoutingTrace", () => {
+  it("returns model + thinking metadata for every phase", () => {
+    const trace = getPhaseRoutingTrace("max");
+
+    expect(trace.planner).toEqual({
+      modelId: "gpt-5.4",
+      thinking: true,
+      reasoningEffort: "high",
+    });
+    expect(trace.generator).toEqual({
+      modelId: "gpt-5.4",
+      thinking: true,
+      reasoningEffort: "high",
+    });
+    expect(trace.fixer).toEqual({
+      modelId: "gpt-5.3-codex",
+      thinking: false,
+      reasoningEffort: "medium",
+    });
+    expect(trace.verifier).toEqual({
+      modelId: "gpt-5.3-codex",
+      thinking: false,
+      reasoningEffort: "medium",
+    });
+    expect(trace["deploy-assistant"]).toEqual({
+      modelId: "gpt-5.3-codex",
+      thinking: false,
+      reasoningEffort: "medium",
     });
   });
 });

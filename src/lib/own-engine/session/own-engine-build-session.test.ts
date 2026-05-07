@@ -194,6 +194,28 @@ describe("buildOwnEngineGenerationStreamMeta", () => {
     expect(meta.enginePath).toBe("own-engine");
     expect(meta.contractDataMode).toBe("none");
     expect(meta.buildSpec).toEqual(buildSpec);
+    expect(meta.phaseModelTrace).toMatchObject({
+      planner: {
+        modelId: "gpt-5.4",
+        thinking: true,
+        reasoningEffort: "high",
+      },
+      generator: {
+        modelId: "gpt-5.4",
+        thinking: true,
+        reasoningEffort: "high",
+      },
+      fixer: {
+        modelId: "gpt-5.3-codex",
+        thinking: false,
+        reasoningEffort: "medium",
+      },
+      verifier: {
+        modelId: "gpt-5.3-codex",
+        thinking: false,
+        reasoningEffort: "medium",
+      },
+    });
   });
 
   it("omits chatPrivacy and scaffoldLabel for follow-up", () => {

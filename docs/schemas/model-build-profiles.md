@@ -67,7 +67,7 @@ They are not the same thing as:
 
 | Profile | UI label | Env key | Default own-engine model | Default provider family | Legacy v0 fallback model |
 |---------|----------|---------|--------------------------|-------------------------|--------------------------|
-| `fast` | `Snabb` | `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | OpenAI | `v0-max-fast` |
+| `fast` | `Snabb` | `SAJTMASKIN_MODEL_FAST` | `gpt-5.4-mini` | OpenAI | `v0-max-fast` |
 | `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | OpenAI | `v0-1.5-md` |
 | `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | OpenAI | `v0-1.5-lg` |
 | `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.3-codex` | OpenAI | `v0-gpt-5` |
@@ -197,14 +197,16 @@ Important current behavior:
 
 Current default thinking profile:
 
-- **fast** / **pro**: planner + generator default to `thinking=true`, `reasoningEffort=medium`
+- **fast**: planner = `thinking=true`, `reasoningEffort=low`; generator = `thinking=true`, `reasoningEffort=medium`
+- **pro**: planner + generator default to `thinking=true`, `reasoningEffort=high`
 - **max** / **codex** / **anthropic**: planner + generator default to `thinking=true`, `reasoningEffort=high`
-- **fixer**, **verifier**, and **deploy-assistant** default to `thinking=false` across tiers
+- **fixer**, **verifier**, and **deploy-assistant** default to `thinking=false` on the OpenAI tiers
+- **anthropic**: fixer + verifier default to `thinking=true`, `reasoningEffort=medium`; deploy-assistant remains `thinking=false`
 
 Model routing still works like this:
 
 - **fast**: every phase follows `selected_build_model` (the tier’s primary model,
-  default `gpt-4.1`).
+  default `gpt-5.4-mini`).
 - **pro**: **planner**, **generator**, and **fixer** follow
   `selected_build_model`; **verifier** and **deploy-assistant** use
   **`gpt-5.3-codex`**.
@@ -214,12 +216,18 @@ Model routing still works like this:
   `selected_build_model`; **verifier** and **deploy-assistant** use
   **`gpt-5.3-codex`**.
 - **anthropic**: **planner**, **generator**, **fixer**, and **verifier** follow the
-  tier’s primary Claude model; **deploy-assistant** uses **`gpt-4.1`**.
+  manifest-routed Claude split: **planner** + **generator** use **`claude-opus-4.6`**,
+  while **fixer**, **verifier**, and **deploy-assistant** use **`claude-sonnet-4.6`**.
 
 Env overrides on the build profile still apply to the resolved **base** model for
 phases that resolve via `selected_build_model`. The `thinkingByTier` settings do
 not change the resolved model ID; they only change whether that phase asks the
 provider for reasoning and at what effort.
+
+The generation runtime now also persists this as `phaseModelTrace` in own-engine
+stream metadata, so logs/debug surfaces can show the concrete planner /
+generator / fixer / verifier / deploy-assistant routing for each run instead of
+only the selected build tier.
 
 ## Archived docs
 

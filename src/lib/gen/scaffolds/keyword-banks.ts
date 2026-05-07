@@ -14,6 +14,12 @@
  * galleri, showcase, work, projekt, projects, stories, feature, solution,
  * tjänst were unique to that bank and are now shared. See
  * `docs/architecture/glossary.md` for the migration note.
+ *
+ * 2026-05-07: several overly generic "content/showcase/projects/gallery"
+ * tokens were removed again. They made `landing-page` win too eagerly for
+ * weak personal/editorial prompts ("illustratör ... projekt ... galleri"),
+ * even though `landing-page` is already the generic website fallback when no
+ * better scaffold scores above threshold.
  */
 export const LANDING_KEYWORDS = [
   "landing",
@@ -39,18 +45,6 @@ export const LANDING_KEYWORDS = [
   "byrå",
   "tjänster",
   "kampanj",
-  "content",
-  "innehåll",
-  "gallery",
-  "galleri",
-  "showcase",
-  "work",
-  "projekt",
-  "projects",
-  "stories",
-  "feature",
-  "solution",
-  "tjänst",
 ];
 
 export const SAAS_KEYWORDS = [
@@ -91,8 +85,10 @@ export const PORTFOLIO_KEYWORDS = [
   "artist",
   "stylist",
   "copywriter",
+  "skribent",
   "consultant profile",
   "illustrator",
+  "illustratör",
   "videographer",
   "portfolio site",
   "fotograf",
@@ -100,6 +96,9 @@ export const PORTFOLIO_KEYWORDS = [
   "kreatör",
   "personlig",
   "case",
+  "arbete",
+  "arbeten",
+  "utvalda arbeten",
 ];
 
 export const PORTFOLIO_MEDIA_KEYWORDS = [
