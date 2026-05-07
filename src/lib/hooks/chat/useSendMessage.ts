@@ -420,6 +420,9 @@ export function useSendMessage(
           ),
         );
       } finally {
+        if (streamAbortRef.current === streamController) {
+          streamAbortRef.current = null;
+        }
         clearStreamSafetyTimer();
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),

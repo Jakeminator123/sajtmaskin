@@ -92,6 +92,8 @@ const DEDUPE_TTL_MS = readClientNumberEnv(
   "NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS",
   5 * 60 * 1000,
 );
+const AUTOFIX_DEFER_RETRY_DELAY_MS = 3_000;
+const MAX_AUTOFIX_DEFER_RETRIES = 4;
 const SOFT_ONLY_AUTOFIX_REASONS = new Set([
   "misstänkt scaffold-mismatch",
   "planerade routes saknas",
@@ -394,11 +396,16 @@ async function isVersionUnderServerRepair(chatId: string, versionId: string): Pr
 
 export function useAutoFix(
   sendMessage: (messageText: string, options?: MessageOptions) => Promise<void>,
+  options?: {
+    isStreamActive?: () => boolean;
+  },
 ) {
+  const isStreamActive = options?.isStreamActive;
   const autoFixAttemptsRef = useRef<Record<string, AttemptEntry>>({});
   const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPayloadKeyRef = useRef<string | null>(null);
+  const deferRetryCountsRef = useRef<Record<string, number>>({});
   const autoFixInFlightRef = useRef(false);
 
   const handleAutoFix = useCallback(
@@ -446,9 +453,6 @@ export function useAutoFix(
 
         if (!(await isLatestVersionPayload(payload))) return;
 
-        autoFixAttemptsRef.current[reasonKey] = { count: reasonAttempts + 1, ts: now };
-        autoFixAttemptsRef.current[chatKey] = { count: chatTotal + 1, ts: now };
-
         const enrichedPayload = await enrichAutoFixPayload(payload);
         const prompt = buildAutoFixPrompt(enrichedPayload);
         const scaffoldRetry =
@@ -468,37 +472,105 @@ export function useAutoFix(
         }
         pendingPayloadKeyRef.current = reasonKey;
 
+        const attemptPendingSend = async () => {
+          if (pendingPayloadKeyRef.current !== reasonKey) return;
+          if (!(await isLatestVersionPayload(payload))) {
+            pendingPayloadKeyRef.current = null;
+            delete deferRetryCountsRef.current[reasonKey];
+            return;
+          }
+          if (isStreamActive?.()) {
+            scheduleDeferredRetry("stream_active");
+            return;
+          }
+          if (await isVersionUnderServerRepair(payload.chatId, payload.versionId)) {
+            scheduleDeferredRetry("server_repair");
+            return;
+          }
+          const freshChatTotal = autoFixAttemptsRef.current[chatKey]?.count ?? 0;
+          if (freshChatTotal >= MAX_AUTOFIX_PER_CHAT) {
+            pendingPayloadKeyRef.current = null;
+            delete deferRetryCountsRef.current[reasonKey];
+            return;
+          }
+          const freshReasonAttempts = autoFixAttemptsRef.current[reasonKey]?.count ?? 0;
+          if (freshReasonAttempts >= MAX_ATTEMPTS_PER_REASON) {
+            pendingPayloadKeyRef.current = null;
+            delete deferRetryCountsRef.current[reasonKey];
+            return;
+          }
+          autoFixAttemptsRef.current[reasonKey] = {
+            count: freshReasonAttempts + 1,
+            ts: Date.now(),
+          };
+          autoFixAttemptsRef.current[chatKey] = {
+            count: freshChatTotal + 1,
+            ts: Date.now(),
+          };
+          pendingPayloadKeyRef.current = null;
+          delete deferRetryCountsRef.current[reasonKey];
+          const messageOptions: MessageOptions = {
+            engineBaseVersionIdOverride: payload.versionId,
+            promptSourceMeta: {
+              sourceKind: "autofix",
+              isTechnical: true,
+              preservePayload: true,
+            },
+          };
+          if (retryScaffoldId) {
+            messageOptions.scaffoldModeOverride = "manual";
+            messageOptions.scaffoldIdOverride = retryScaffoldId;
+          }
+          await sendMessage(
+            prompt,
+            messageOptions,
+          );
+        };
+
+        const scheduleDeferredRetry = (
+          deferReason: "stream_active" | "server_repair",
+        ) => {
+          const nextRetry = (deferRetryCountsRef.current[reasonKey] ?? 0) + 1;
+          deferRetryCountsRef.current[reasonKey] = nextRetry;
+          if (nextRetry > MAX_AUTOFIX_DEFER_RETRIES) {
+            if (typeof window !== "undefined") {
+              console.info("[autofix] giving up after deferred retries", {
+                chatId: payload.chatId,
+                versionId: payload.versionId,
+                reasonKey,
+                deferReason,
+                retries: nextRetry - 1,
+              });
+            }
+            pendingPayloadKeyRef.current = null;
+            delete deferRetryCountsRef.current[reasonKey];
+            return;
+          }
+          if (typeof window !== "undefined") {
+            console.info("[autofix] deferred retry scheduled", {
+              chatId: payload.chatId,
+              versionId: payload.versionId,
+              reasonKey,
+              deferReason,
+              retry: nextRetry,
+            });
+          }
+          pendingTimerRef.current = setTimeout(() => {
+            pendingTimerRef.current = null;
+            void attemptPendingSend();
+          }, AUTOFIX_DEFER_RETRY_DELAY_MS);
+        };
+
         pendingTimerRef.current = setTimeout(() => {
           pendingTimerRef.current = null;
-          void (async () => {
-            if (pendingPayloadKeyRef.current !== reasonKey) return;
-            if (!(await isLatestVersionPayload(payload))) return;
-            if (await isVersionUnderServerRepair(payload.chatId, payload.versionId)) return;
-            pendingPayloadKeyRef.current = null;
-            const messageOptions: MessageOptions = {
-              engineBaseVersionIdOverride: payload.versionId,
-              promptSourceMeta: {
-                sourceKind: "autofix",
-                isTechnical: true,
-                preservePayload: true,
-              },
-            };
-            if (retryScaffoldId) {
-              messageOptions.scaffoldModeOverride = "manual";
-              messageOptions.scaffoldIdOverride = retryScaffoldId;
-            }
-            await sendMessage(
-              prompt,
-              messageOptions,
-            );
-          })();
+          void attemptPendingSend();
         }, delayMs);
         } finally {
           autoFixInFlightRef.current = false;
         }
       })();
     },
-    [sendMessage],
+    [isStreamActive, sendMessage],
   );
 
   useEffect(() => {
@@ -516,6 +588,7 @@ export function useAutoFix(
       window.removeEventListener(AUTO_FIX_EVENT_NAME, handler as EventListener);
       if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
       pendingPayloadKeyRef.current = null;
+      deferRetryCountsRef.current = {};
     };
   }, [handleAutoFix]);
 

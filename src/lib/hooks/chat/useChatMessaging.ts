@@ -94,7 +94,9 @@ export function useChatMessaging(params: ChatMessagingParams): ChatMessagingRetu
 
   const { sendMessage } = useSendMessage(params, { createNewChat, ...sharedDeps });
 
-  const { autoFixHandlerRef: resolvedAutoFixRef } = useAutoFix(sendMessage);
+  const { autoFixHandlerRef: resolvedAutoFixRef } = useAutoFix(sendMessage, {
+    isStreamActive: () => Boolean(streamAbortRef.current),
+  });
   useEffect(() => {
     autoFixHandlerRef.current = resolvedAutoFixRef.current;
   });

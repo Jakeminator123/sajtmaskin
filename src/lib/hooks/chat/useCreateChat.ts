@@ -554,6 +554,9 @@ export function useCreateChat(
           ),
         );
       } finally {
+        if (streamAbortRef.current === streamController) {
+          streamAbortRef.current = null;
+        }
         clearStreamSafetyTimer();
         pendingCreateKeyRef.current = null;
         clearCreateChatLock();

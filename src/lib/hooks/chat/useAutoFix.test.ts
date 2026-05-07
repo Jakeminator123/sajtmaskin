@@ -102,6 +102,12 @@ describe("useAutoFix", () => {
             headers: { "Content-Type": "application/json" },
           });
         }
+      if (url.includes("/readiness")) {
+        return new Response(JSON.stringify({ verificationState: "" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
         throw new Error(`Unexpected fetch: ${url}`);
       }),
     );
@@ -140,6 +146,112 @@ describe("useAutoFix", () => {
         engineBaseVersionIdOverride: "ver_failed",
         scaffoldModeOverride: "manual",
         scaffoldIdOverride: "landing-page",
+      }),
+    );
+  });
+
+  it("defers autofix while another stream is active, then sends when the stream clears", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    let streamActive = true;
+    const { result } = renderHook(() =>
+      useAutoFix(sendMessage, { isStreamActive: () => streamActive }),
+    );
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_500);
+    });
+
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    streamActive = false;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        engineBaseVersionIdOverride: "ver_failed",
+      }),
+    );
+  });
+
+  it("retries autofix after server repair finishes instead of dropping the payload", async () => {
+    const sendMessage = vi.fn(async () => undefined);
+    let readinessCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/versions")) {
+          return new Response(
+            JSON.stringify({
+              versions: [{ id: "ver_failed", createdAt: "2026-03-31T00:00:00.000Z" }],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        if (url.includes("/error-log")) {
+          return new Response(JSON.stringify({ logs: [] }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        if (url.includes("/readiness")) {
+          readinessCalls += 1;
+          return new Response(
+            JSON.stringify({
+              verificationState: readinessCalls === 1 ? "repairing" : "",
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+    const { result } = renderHook(() => useAutoFix(sendMessage));
+
+    await act(async () => {
+      result.current.autoFixHandlerRef.current({
+        chatId: "chat_1",
+        versionId: "ver_failed",
+        reasons: ["build failed"],
+      });
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_500);
+    });
+
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(readinessCalls).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
+    });
+
+    expect(readinessCalls).toBe(2);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        engineBaseVersionIdOverride: "ver_failed",
       }),
     );
   });
