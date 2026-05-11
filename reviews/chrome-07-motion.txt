@@ -1,0 +1,12 @@
+Builder motion — transition/animate grep (components/builder, app/builder)
+
+Prioritized:
+1. Duration mix — vars (--transition-base ~200ms, --fast ~150) in ChatInterface/MessageList/FloatingChatBox vs literal duration-200/300/150 across header, shell, popups. NextStepPickerPopup animate-in duration-150 vs OnboardingOverlay/PostGenerationAdvisor duration-300 — same product, different feel.
+2. Long ramps — ScrapeProgressBar/GenerationProgress duration-500/700 — OK for progress, not chrome rule.
+3. transition-all + hover lift — ModeSelector, UiElementPickerPreview — jank risk; prefer named properties + fixed duration.
+4. prefers-reduced-motion — motion-safe on shell/header/wizard/preview; many transition-colors not wrapped — uneven.
+5. Implicit timing — transition-colors without duration-* uses defaults.
+
+Scores: Consistency 3/5 | 200–300ms chrome band 3/5 | Jank risk 3/5 | reduced-motion 4/5 | Polish loaders 4/5 | Overall 3/5
+
+Follow-up: tighten tokens; align dialog enter/extend motion-safe to parity.

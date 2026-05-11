@@ -1,3 +1,10 @@
+---
+id: P34
+status: active
+created: 2026-04-21
+linear: SAJ-28
+---
+
 # P34 — Blocking lint in the pre-save validation loop
 
 **Status:** Fas A+B+C(delvis) levererade 2026-04-21. `warm-eslint.ts` + integration i `validateAndFix` finns bakom flaggan `SAJTMASKIN_BLOCKING_ESLINT`. F3 (integrationer) forcerar passet på. Vercel `development` har flaggan aktiverad (`SAJTMASKIN_BLOCKING_ESLINT="true"`, verifierat via `vercel env pull`). Preview/production kräver separat aktivering via Vercel Dashboard (CLI 51.8.0 kräver explicit git-branch för preview-scope; master kan inte användas eftersom det är production-branch).

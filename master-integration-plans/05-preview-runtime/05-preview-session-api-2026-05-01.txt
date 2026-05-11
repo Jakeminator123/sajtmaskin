@@ -1,0 +1,49 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 05-preview-session-api
+Date: 2026-05-01
+
+## Master Runtime Changes
+- Preview API endpoints: session create, status, heartbeat, hibernate, destroy.
+- Contracts live in `preview-contract.ts`; client helpers in builder preview-session API.
+- Rate-limit scopes under `preview-session:*`.
+
+## Local Preview UX To Preserve
+- Bootstrap through `useBuilderVmPreview`.
+- Heartbeat every 25s with per-tab viewer id.
+- Hibernate hidden/pagehide with keepalive.
+- Status/recover loop with forced restart.
+- Clear preview destroys session then local state.
+
+## Coupling Points
+- Redis session store must match `versionId` + `sandboxId`.
+- `reused_url` may return null `previewSessionId`, which can prevent heartbeats.
+- `fetchPreviewStatus` collapses HTTP failures to null.
+- Destroy intentionally clears local state even on retryable host failure.
+
+## Required Preview UI / Controls
+- Keep viewer id, force restart, hibernate, status labels, and clear-preview behavior.
+- Map status values to UI: missing, stopped, mismatch, running, error, hibernated.
+
+## Exact LLM Implementation Instructions
+- Do not change request JSON without updating route schemas, `preview-contract.ts`, and client helpers.
+- Add new status branches in `usePreviewSession`.
+- Sync TTL/touch changes with heartbeat interval.
+- Update preview-session docs if semantics change.
+
+## Failure Modes
+- Heartbeat 409 mismatch.
+- Status id mismatch.
+- Provider unreachable after boot grace.
+- Heartbeat without id due to reused URL.
+- Destroy deferred host cleanup.
+- Recover abort after status unavailable.
+
+## Verification Matrix
+- Route tests for preview session/status/heartbeat/hibernate/destroy.
+- Contract types.
+- Client hooks: heartbeat, session, VM preview, clear preview.
+
+## Do Not Break
+- Rate-limit scopes.
+- Heartbeat while hidden for long F3 sessions.
+- `previewSessionId` + `viewerId`.
+- Destroy local clear on retryable host failure.

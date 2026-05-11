@@ -37,17 +37,9 @@ function sanitizeTierChecks(
 
 const qualityGateTiers = getQualityGateTiersFromManifest();
 
-// Defaults match the manifest baseline: both lanes run typecheck + build
-// since 2026-04-20. Used as fallback if the manifest array is empty / drops
-// to only invalid check names. Override in `config/ai_models/manifest.json`
-// `qualityGateTiers.designPreview` if you need to disable `build` for cost
-// reasons (e.g. set to `["typecheck"]` only). The schema in
-// `config/ai_models/manifest.schema.json` requires both lane keys.
-// Defaults match the manifest baseline: lint was added 2026-04-21 so
-// eslint errors (e.g. `react-hooks/set-state-in-effect`, `no-undef`) no
-// longer slip through to the downloaded project. See P34 plan for the
-// blocking-lint variant that moves lint into validateAndFix itself.
-const DEFAULT_DESIGN_PREVIEW = ["typecheck", "build", "lint"] as const;
+// Defaults match the manifest baseline: F2 design preview stays light and
+// runs typecheck only; F3 integrationsBuild pays for full build + lint.
+const DEFAULT_DESIGN_PREVIEW = ["typecheck"] as const;
 const DEFAULT_INTEGRATIONS_BUILD = ["typecheck", "build", "lint"] as const;
 
 export const DESIGN_PREVIEW_QUALITY_GATE_CHECKS = sanitizeTierChecks(

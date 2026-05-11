@@ -1,0 +1,14 @@
+Builder Interaction Review — Agent 8: Contextmenyer & long-press (ui/context-menu.tsx finns, sällan i builder; MessageList, PreviewPanelChrome, media-drawer)
+
+- Chat-bubbla: ingen högerklick/long-press, inga Kopiera/Citera/Regen → ContextMenu/long-press med tre åtgärder → 1
+- Preview-element: inspect via läge/verktyg, ej högerklick på element → Kontext: Inspektera, Regenerera sektion → 2
+- Rutt-flik: klick + overflow + Bygg ut, saknas rename/duplicate/delete → samma meny + bekräftelse Ta bort → 2
+- Media drawer: klick + hover Ta bort, saknas Öppna/Kopiera/Ladda ner, mobil utan hover → long-press meny med fyra val → 2
+- Radix ContextMenu oanvänd i builder-ytan → återanvänd ui/context-menu + touch timer → 1
+- Inga onContextMenu i src/components/builder enligt genomsökning → etablera mönsterkomponent + guidelines → 1
+- Message/ai-elements message: vanliga div:ar → wrapper med context trigger → 2
+- Preview verktygsrad täcker gest → se till att long-press på flik fortfarande når tab → 3
+- Filstigar i drawer: ingen kopiera sökväg → “Kopiera sökväg” i meny → 3
+- Kodvy filer (om separat lista): ingen meny → öppna/kopiera/ladda ner som mål → 3
+
+Minimal uppsättning enligt skill: bubbla (3), preview (2), flik (3), fil (4), bas (2) — genomsnittlig readiness ~2/5 idag.

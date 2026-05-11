@@ -62,6 +62,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "figma:preview": { maxRequests: 20, windowMs: 60 * 1000 },
   "github:export": { maxRequests: 8, windowMs: 60 * 1000 },
   "fetch:html": { maxRequests: 12, windowMs: 60 * 1000 },
+  "inspector:capture": { maxRequests: 12, windowMs: 60 * 1000 },
+  "inspector:element-map": { maxRequests: 20, windowMs: 60 * 1000 },
+  "inspector:ai-match": { maxRequests: 10, windowMs: 60 * 1000 },
   read: { maxRequests: 150, windowMs: 60 * 1000 },
   default: { maxRequests: 90, windowMs: 60 * 1000 },
   "webhook:v0": { maxRequests: 180, windowMs: 60 * 1000 },
@@ -83,6 +86,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "engine:quality-gate": { maxRequests: 12, windowMs: 60 * 1000 },
   "engine:repair": { maxRequests: 12, windowMs: 60 * 1000 },
   "engine:readiness": { maxRequests: 60, windowMs: 60 * 1000 },
+  // Polled by `useVersionStatus` (default 4s while a version is non-terminal).
+  // 60/min matches engine:readiness — same client cadence pattern.
+  "engine:version-status": { maxRequests: 60, windowMs: 60 * 1000 },
   "engine:product-postcheck": { maxRequests: 12, windowMs: 60 * 1000 },
   "preferences:get": { maxRequests: 60, windowMs: 60 * 1000 },
   "preferences:patch": { maxRequests: 20, windowMs: 60 * 1000 },
@@ -91,6 +97,23 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
 let _cachedRedis: Redis | null = null;
 let _cachedRedisConfigKey: string | null = null;
 const _cachedLimiters = new Map<string, Ratelimit>();
+
+function isTruthyEnv(value: string | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function allowMemoryRateLimitFallback(): boolean {
+  return !isProductionRuntime() || isTruthyEnv(process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD);
+}
+
+function trustForwardedForHeader(): boolean {
+  return !isProductionRuntime() || isTruthyEnv(process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR);
+}
 
 function resolveRedisCredentials(): { url: string; token: string } | null {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || "";
@@ -120,9 +143,14 @@ function getRedis(): { redis: Redis; cacheKey: string } | null {
 function getLimiter(
   endpoint: string,
   limits: RateLimitConfig,
-): { mode: "upstash"; limiter: Ratelimit } | { mode: "memory" } {
+):
+  | { mode: "upstash"; limiter: Ratelimit }
+  | { mode: "memory" }
+  | { mode: "unconfigured" } {
   const redisConnection = getRedis();
-  if (!redisConnection) return { mode: "memory" };
+  if (!redisConnection) {
+    return allowMemoryRateLimitFallback() ? { mode: "memory" } : { mode: "unconfigured" };
+  }
 
   const key = `${redisConnection.cacheKey}:${endpoint}:${limits.maxRequests}:${limits.windowMs}`;
   const cached = _cachedLimiters.get(key);
@@ -143,10 +171,11 @@ function getLimiter(
 export function getClientId(request: Request, userId?: string): string {
   if (userId) return `user:${userId}`;
 
-  const ip =
-    request.headers.get("x-real-ip") ||
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    "unknown";
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  const forwardedIp = trustForwardedForHeader()
+    ? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    : null;
+  const ip = realIp || forwardedIp || "unknown";
 
   return `ip:${ip}`;
 }
@@ -237,6 +266,19 @@ export async function withRateLimit(
       remaining: Math.max(0, Number(remaining ?? 0)),
       resetAt: typeof reset === "number" ? reset : Date.now() + limits.windowMs,
     };
+  } else if (limiter.mode === "unconfigured") {
+    return new Response(
+      JSON.stringify({
+        error: "Rate limiting is not configured",
+      }),
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+          "X-RateLimit-Mode": rateLimitMode,
+        },
+      },
+    );
   } else {
     result = checkRateLimit(clientId, endpoint, limits);
   }

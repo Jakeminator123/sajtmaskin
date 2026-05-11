@@ -1,0 +1,36 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 07-validation-schemas
+Date: 2026-04-27
+
+## Master Changes To Preserve
+- `src/lib/env.ts` — `serverSchema` / `getServerEnv()` (Zod, enda server-env-sanning; bygg med `NEXT_PHASE` fallback där så konstruerat).
+- `src/lib/validations/chatSchemas.ts` + `create-chat-stream-post` / `chat-message-stream-post` — 400 `{ error: "Validation failed", details: issues }`.
+- `src/lib/gen/dossiers/validate-manifest.ts` + `docs/schemas/strict/dossier.schema.json` (AJV) — uteslut manifest som misslyckas.
+- `src/lib/db/health-schemas.test.ts` — strict health-scheman.
+- `docs/schemas/strict/README.md` — runtime vs CI vs editor; synka med `pipeline-rules.mdc`.
+- `src/app/api/v0/deployments/route.ts` — `createDeploymentSchema`, 400 med `details`.
+- `src/app/api/projects/[id]/preferences/route.ts` — `preferencesSchema`; 200 `{ success, preferences }` / 400 `success: false, error, details`.
+
+## Frontend Consumers
+- Stream: indirekt samma body som schemat; tester mockar `safeParse`.
+- Typer: `ModelTier` m.fl. från `chatSchemas` i builder.
+- `useBuilderDeployActions` — toasts på `data.error`/`data.message` vid deploy-fel, **inte** full `details` array; **DEPLOY_SPECIAL** hantering.
+- `F3PlaceholderToggle` — PATCH kollar `!ok || success === false`; **GET** kan tolka 500/ HTML som tomt om `res.ok` inte stänger av tolkning (risk som redan fanns).
+
+## Contract Risks
+- Diverse kropp: deploy vs preferences vs chat 400.
+- `details` döljs ofta i UI toasts.
+- `GET preferences` utan strikt `res.ok` — skör HTTP-hantering.
+- Strict JSON-schema drift: manifest vs kod vs `docs/schemas/strict`.
+
+## Required Adaptations
+- Nya env: `env.ts` + `docs/ENV.md` + `config/env-policy.json`.
+- Nya fält i chat: `chatSchemas` + `chatSchemas.test.ts` + stream 400 form.
+- Dossier: schema + `validate-manifest` samma commit.
+- Deploy: `createDeploymentSchema` + `route.test.ts` + bygg-UI.
+- preferences: `preferencesSchema` + F3 + typer.
+
+## Tests / Runtime Checks
+- `chatSchemas.test.ts`, `stream/route.test.ts` (mock schema), `deployments/route.test.ts`, `health-schemas.test.ts`, `getServerEnv` vid körning.
+
+## Do Not Break
+- `sendMessageSchema` / `createChatSchema` + `ModelTier`-importer; `getServerEnv`; dossier-gate; POST deployments fält/flow; `preferences` success-mönster; `useBuilderDeployActions` specialfelkoder inkl. `DEPLOY_MISSING_ENV` + `persistVersionErrorLogs`.

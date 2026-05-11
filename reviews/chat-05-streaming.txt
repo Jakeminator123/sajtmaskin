@@ -1,0 +1,21 @@
+Streaming & typing (MessageList + reasoning.tsx)
+
+1. Tre-prickar visas bara om streaming, ingen text än, ingen reasoning/strukturerade delar/verktyg — bra gate; reasoning ersätter prickar → split mental modell. 4/5
+
+2. Rörelse — bg-primary/45, pulse 0.75s, stagger 180ms; synkad opacity, inte iMessage våg. 3/5
+
+3. Text anlänt — Streamdown + block caret vid streaming; tydlig “skriver”. 5/5
+
+4. Reasoning — Separat zinc-kantad yta + “Tänker” + emoji; tyngre än iMessage typing bubble. 2/5
+
+5. Jämförelse iMessage — Dots inuti bubbla vs Messages neutral wave under tråden. 3/5
+
+Poängtabell:
+- Tom-ström tydlighet — 4/5
+- Motion lugn — 3/5
+- Tänker vs skriver — 3/5
+- Visuell konsistens (tokens) — 2/5 (zinc i reasoning)
+- iMessage-paritet — 3/5
+- A11y — 4/5 (role=status, aria-live, sr-only)
+
+Följder: Token-align reasoning; överväg sekventiell dot-animation eller långsammare varaktighet; synka copy med fas om stream exponerar den.

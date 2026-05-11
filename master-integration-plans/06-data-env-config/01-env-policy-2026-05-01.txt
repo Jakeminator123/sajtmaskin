@@ -1,0 +1,51 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 01-env-policy
+Date: 2026-05-01
+
+## Master Changes
+- Master expands `src/lib/env.ts` with Postgres pool, rate-limit proxy trust, GitHub tokens, LLM fixer timeouts, Visual QA, prompt dump, and shim preview flags.
+- `docs/ENV.md` has richer rate-limit, LLM fixer, proxy trust, runtime-only, and env precedence docs.
+- `config/env-policy.json` expands and reorders known/allowed keys.
+- `.env.example` is local-only and must be reconciled.
+
+## Local Changes / Dirty Files
+- Local `env.ts`, `ENV.md`, and env policy are slimmer than master.
+- `.env.example` includes some commented removed runtime flags.
+- Many plan/data files are unrelated noise.
+
+## Compatibility Risks
+- Schema vs `process.env` drift.
+- Env audit can become misleading if policy/schema diverge.
+- Visual QA docs path drift.
+- Legacy env keys remaining in policy/docs.
+
+## Files To Update
+- `src/lib/env.ts`
+- `config/env-policy.json`
+- `docs/ENV.md`
+- `.env.example`
+- `src/lib/env-audit.ts` only if rules change.
+
+## Frontend Impact / UI States
+- Builder F2/F3 copy around “Bygg nu” vs “Bygg integrationer”.
+- Client flags like `NEXT_PUBLIC_AUTOFIX_*`.
+- OpenClaw/avatar/preview flags affect available UI affordances.
+
+## Exact LLM Implementation Instructions
+- Diff env files both directions.
+- For every key, determine whether source is `getServerEnv()`, `process.env`, or both.
+- Sync policy `knownEmptyOk`, `runtimeOnlyKeys`, `extraKnownKeys`, and rules with final schema.
+- Update ENV docs to match actual code paths.
+- Remove dead flags from `.env.example`.
+- Keep `resetServerEnvCacheForTests` test-only.
+
+## Verification Commands
+- `npm run typecheck`
+- `npm run env:audit`
+- `npm run env:audit:strict`
+- `python3 scripts/env/manage_env.py audit`
+- `npm run lint`
+
+## Commit / Ignore Guidance
+- Commit env schema, policy, and docs together.
+- Do not commit `.env.local`, real secrets, or Vercel env snapshots.
+- Keep generated logs/data out of env-policy commits.

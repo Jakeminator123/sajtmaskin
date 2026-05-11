@@ -311,6 +311,7 @@ export async function updatePreviewHostSession(params: {
         sandboxId: params.sandboxId,
         versionId: params.versionId,
         filesJson: params.filesJson,
+        replaceFiles: true,
         changeClass: "patch",
       };
       const res = await fetch(`${base}/preview/session/update`, {

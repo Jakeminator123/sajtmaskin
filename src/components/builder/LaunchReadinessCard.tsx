@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { ChatReadiness, ChatReadinessItem } from "@/lib/chat-readiness";
 import {
   deployReadinessBadgeClassName,
+  envKeysForReadinessItem,
   formatDeployReadinessStatusLabel,
 } from "@/lib/builder/deploy-readiness-ui";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
@@ -25,7 +26,7 @@ type Props = {
 
 function renderItem(
   item: ChatReadinessItem,
-  missingEnvKeys: string[],
+  envKeys: string[],
   isIntegrations: boolean,
 ) {
   const isWarning = item.severity === "warning";
@@ -54,7 +55,7 @@ function renderItem(
           variant="ghost"
           size="sm"
           className="mt-1 h-7 px-2 text-[11px]"
-          onClick={() => openProjectEnvVarsPanel(missingEnvKeys)}
+          onClick={() => openProjectEnvVarsPanel(envKeys)}
         >
           Öppna miljövariabler
         </Button>
@@ -84,13 +85,16 @@ export function LaunchReadinessCard({
         }
       : null;
 
-  const StatusIcon = isLoading && !readiness
-    ? () => <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-    : readiness?.status === "blocked"
-      ? () => <AlertCircle className="h-3.5 w-3.5 text-red-400" />
-      : readiness?.status === "warning"
-        ? () => <TriangleAlert className="h-3.5 w-3.5 text-amber-400" />
-        : () => <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />;
+  const statusIcon =
+    isLoading && !readiness ? (
+      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+    ) : readiness?.status === "blocked" ? (
+      <AlertCircle className="h-3.5 w-3.5 text-red-400" />
+    ) : readiness?.status === "warning" ? (
+      <TriangleAlert className="h-3.5 w-3.5 text-amber-400" />
+    ) : (
+      <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+    );
 
   return (
     <div className="border-border/70 border-b text-xs">
@@ -100,7 +104,7 @@ export function LaunchReadinessCard({
         className="flex w-full items-center justify-between gap-2 px-3 py-1.5 hover:bg-muted/30 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <StatusIcon />
+          {statusIcon}
           <span className="font-medium text-foreground">Lansering</span>
           {badge && (
             <Badge variant="outline" className={cn("text-[10px]", badge.className)}>
@@ -117,22 +121,17 @@ export function LaunchReadinessCard({
             <div className="mt-2 text-[11px] text-muted-foreground">Kontrollerar publiceringsstatus...</div>
           ) : readiness ? (
             <div className="mt-2 space-y-2">
-              {/* Phase-4: when dossier metadata is available, prefer the
-                * narrower `buildBlockingKeys` list so the env panel opens with
-                * only the keys that truly block F3 — not the broader 17-key
-                * detection set. Falls back to legacy `missingEnvKeys` when the
-                * field is absent (older readiness payloads). */}
               {readiness.blockers.map((item) =>
                 renderItem(
                   item,
-                  readiness.info.buildBlockingKeys ?? readiness.info.missingEnvKeys,
+                  envKeysForReadinessItem(item, readiness.info),
                   isIntegrations,
                 ),
               )}
               {readiness.warnings.map((item) =>
                 renderItem(
                   item,
-                  readiness.info.buildBlockingKeys ?? readiness.info.missingEnvKeys,
+                  envKeysForReadinessItem(item, readiness.info),
                   isIntegrations,
                 ),
               )}

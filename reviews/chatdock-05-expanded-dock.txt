@@ -1,0 +1,19 @@
+Chat Dock — Agent 5: expanded dock UX (READ-ONLY)
+
+1. Panel width vs 360–420px — 2/5 — BuilderShellContent: lg:w-80 lg:max-w-[20rem] (~320px), not 360–420. Consider min-w-[22.5rem] max-w-[26.25rem] or w-[min(100%,24rem)].
+
+2. Full height column — 4/5 — flex-col min-h-0; messages flex-1 overflow-hidden + ChatInterface below = footer at bottom (flex, not position:sticky).
+
+3. Message padding — 4/5 — MessageList ConversationContent space-y-3 px-3 py-3 sm:px-4 sm:py-4 (~191); conversation default p-4 overridden.
+
+4. Message density — 4/5 — space-y-3; empty px-6; CollapsibleUserMessage for long tech user text.
+
+5. Sticky input — 3/5 — ChatInterface border-t p-4 (~861) behaves as flex footer; not sticky — edge case if parent scroll differs.
+
+6. Scroll to new — 3/5 — conversation.tsx auto-scroll when isAtBottom (~92–97); ConversationScrollButton removed (MessageList ~415 comment) — no “jump down” when scrolled up.
+
+7. PromptInput — 4/5 — ai-elements rounded-2xl; ChatInterface adds rounded-lg shadow-sm + dense header (~11px). Textarea min-h-[80px] (~1033).
+
+Rec: min 360px, max 420–440px (380 sweet spot). Drag resize: optional low priority; if yes, left edge 4–8px hit, persist per project/global; else skip for simplicity.
+
+Refs: BuilderShellContent ~1784–1855; ChatInterface ~860–1100; MessageList ~188–416; ai-elements/conversation.tsx ~49–100; ai-elements/prompt-input.tsx ~77–119.

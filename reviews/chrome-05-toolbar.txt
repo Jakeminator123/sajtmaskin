@@ -1,0 +1,16 @@
+BuilderHeader + PreviewPanelChrome — toolbar density
+
+Visible controls (approx. desktop lg+): Header ~8–9 primary + settings; settings menu 15+ controls inside one panel. Preview chrome: ~5 core + route pills + Verktyg dropdown.
+
+Redundancy: Two MoreHorizontal patterns (“Fler åtgärder” vs “Mer”); mobile duplicates Inställningar/Ny chat/Spara/Domän vs desktop strip. Tooltip repeats model line on button.
+
+Progressive disclosure: Strong — heavy AI/config behind Inställningar; import behind Mer; preview modes behind Verktyg (Notion-like). Weaker vs Figma — right cluster stays busy (IDE/dashboard density).
+
+Scores:
+- Primary-bar density — 3/5
+- Progressive disclosure — 4/5
+- Redundancy / wayfinding — 3/5
+- Preview chrome clarity — 4/5
+- Overall clutter risk — 3/5
+
+Improvements: unify or distinguish dual overflow entry points; consider splitting Inställnings-scroll into sections (Build vs Advanced); watch preview vertical stack on short viewports.

@@ -33,9 +33,22 @@ function needsUserAuth(pathname: string): boolean {
 }
 
 const DID_EMBED_HOSTS = ["https://agent.d-id.com", "https://d-id.com", "https://*.d-id.com", "https://studio.d-id.com"];
+const VERCEL_ANALYTICS_SCRIPT_SRC = "https://va.vercel-scripts.com";
+const VERCEL_ANALYTICS_CONNECT_SRC = "https://vitals.vercel-insights.com";
 
 function isAvatarRoute(pathname: string): boolean {
   return pathname === "/avatar";
+}
+
+function allowsStaticSeoInlineScripts(pathname: string): boolean {
+  return (
+    pathname === "/landningssidor" ||
+    pathname.startsWith("/ai-hemsida/") ||
+    pathname.startsWith("/alternativ-till/") ||
+    pathname.startsWith("/hemsida-for/") ||
+    pathname.startsWith("/hemsida/") ||
+    pathname.startsWith("/skapa-hemsida/")
+  );
 }
 
 function getTier2PreviewHostCspSources(): string[] {
@@ -68,9 +81,15 @@ function getTier2PreviewHostCspSources(): string[] {
   return Array.from(sources);
 }
 
-function buildCspPolicy(pathname: string, nonce: string): string {
+export function buildCspPolicy(
+  pathname: string,
+  nonce: string,
+  allowLocalRuntimeScripts: boolean,
+  currentOriginSources: string[],
+): string {
   const isDev = process.env.NODE_ENV !== "production";
   const allowDidEmbed = isAvatarRoute(pathname);
+  const allowInlineScriptElements = allowsStaticSeoInlineScripts(pathname);
   const tier2PreviewHosts = getTier2PreviewHostCspSources();
 
   if (pathname.startsWith("/api/preview-render")) {
@@ -90,9 +109,15 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     ].join("; ");
   }
 
-  const scriptSrc = [`'self'`, `'nonce-${nonce}'`];
+  const scriptSrc = [
+    `'self'`,
+    ...currentOriginSources,
+    `'nonce-${nonce}'`,
+    VERCEL_ANALYTICS_SCRIPT_SRC,
+  ];
   const imgSrc = [
     "'self'",
+    ...currentOriginSources,
     "data:",
     "blob:",
     "https:",
@@ -101,10 +126,19 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "*.vercel.run",
     "*.vercel.app",
   ];
-  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "player.vimeo.com", ...tier2PreviewHosts];
-  const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:", ...tier2PreviewHosts];
-  const mediaSrc = [`'self'`, "blob:"];
-  const workerSrc = [`'self'`, "blob:"];
+  const frameSrc = [`'self'`, ...currentOriginSources, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "player.vimeo.com", ...tier2PreviewHosts];
+  const connectSrc = [
+    `'self'`,
+    ...currentOriginSources,
+    "*.vusercontent.net",
+    "*.vercel.run",
+    "*.vercel.app",
+    "wss:",
+    VERCEL_ANALYTICS_CONNECT_SRC,
+    ...tier2PreviewHosts,
+  ];
+  const mediaSrc = [`'self'`, ...currentOriginSources, "blob:"];
+  const workerSrc = [`'self'`, ...currentOriginSources, "blob:"];
 
   // D-ID SDK (bundled npm) needs connect-src for WebRTC signaling on any page
   connectSrc.push("https://*.d-id.com", "https://d-id.com");
@@ -117,18 +151,26 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     workerSrc.push(...DID_EMBED_HOSTS);
   }
 
-  if (isDev) {
-    // Turbopack and Vercel's local analytics debug script trip CSP in dev.
-    scriptSrc.push("'unsafe-eval'", "https://va.vercel-scripts.com");
+  if (isDev || allowLocalRuntimeScripts) {
+    // Turbopack trips CSP in dev. Vercel analytics script is allowed above in
+    // both prod and dev because root layout mounts it when VERCEL_ENV is set.
+    scriptSrc.push("'unsafe-eval'");
     connectSrc.push("ws:");
+  }
+
+  const scriptElemSrc = [`'self'`, ...currentOriginSources, "'unsafe-inline'"];
+  if (isDev || allowLocalRuntimeScripts) {
+    scriptElemSrc.push(VERCEL_ANALYTICS_SCRIPT_SRC);
   }
 
   return [
     "default-src 'self'",
     `script-src ${scriptSrc.join(" ")}`,
+    allowInlineScriptElements ? `script-src-elem ${scriptElemSrc.join(" ")}` : null,
     "style-src 'self' 'unsafe-inline'",
+    `style-src-elem 'self' ${currentOriginSources.join(" ")} 'unsafe-inline'`.trim(),
     `img-src ${imgSrc.join(" ")}`,
-    "font-src 'self' data:",
+    `font-src 'self' ${currentOriginSources.join(" ")} data:`.trim(),
     `frame-src ${frameSrc.join(" ")}`,
     `connect-src ${connectSrc.join(" ")}`,
     `media-src ${mediaSrc.join(" ")}`,
@@ -137,7 +179,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "base-uri 'self'",
     "frame-ancestors 'self'",
     "report-uri /api/csp-report",
-  ].join("; ");
+  ].filter(Boolean).join("; ");
 }
 
 function addSecurityHeaders(
@@ -145,13 +187,17 @@ function addSecurityHeaders(
   pathname: string,
   nonce: string,
   enforceCsp: boolean,
+  allowLocalRuntimeScripts: boolean,
+  currentOriginSources: string[],
 ): void {
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+  if (!allowLocalRuntimeScripts) {
+    response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+  }
 
-  const policy = buildCspPolicy(pathname, nonce);
+  const policy = buildCspPolicy(pathname, nonce, allowLocalRuntimeScripts, currentOriginSources);
   if (enforceCsp) {
     response.headers.set("Content-Security-Policy", policy);
     response.headers.delete("Content-Security-Policy-Report-Only");
@@ -176,6 +222,18 @@ function addCorsHeaders(response: NextResponse, origin: string | null): void {
   response.headers.set("Access-Control-Max-Age", "86400");
 }
 
+function getCurrentOriginSources(request: NextRequest): string[] {
+  const sources = new Set<string>();
+  sources.add(request.nextUrl.origin);
+
+  const host = request.headers.get("host");
+  if (host) {
+    sources.add(`${request.nextUrl.protocol}//${host}`);
+  }
+
+  return Array.from(sources).filter(Boolean);
+}
+
 let _jwtMissingWarned = false;
 
 // ---------------------------------------------------------------------------
@@ -185,6 +243,9 @@ let _jwtMissingWarned = false;
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const origin = request.headers.get("origin");
+  const allowLocalRuntimeScripts =
+    request.nextUrl.hostname === "localhost" || request.nextUrl.hostname === "127.0.0.1";
+  const currentOriginSources = getCurrentOriginSources(request);
   const nonce = crypto.randomUUID();
   const enforceCsp = process.env.CSP_ENFORCE?.trim().toLowerCase() === "true";
   const requestHeaders = new Headers(request.headers);
@@ -194,7 +255,7 @@ export async function proxy(request: NextRequest) {
   if (isApiRoute(pathname) && request.method === "OPTIONS") {
     const preflight = new NextResponse(null, { status: 204 });
     addCorsHeaders(preflight, origin);
-    addSecurityHeaders(preflight, pathname, nonce, enforceCsp);
+    addSecurityHeaders(preflight, pathname, nonce, enforceCsp, allowLocalRuntimeScripts, currentOriginSources);
     return preflight;
   }
 
@@ -213,12 +274,12 @@ export async function proxy(request: NextRequest) {
     if (needsAdminAuth(pathname)) {
       if (!payload || !isAdminEmailEdge(payload.email)) {
         const redirect = NextResponse.redirect(new URL("/", request.url));
-        addSecurityHeaders(redirect, pathname, nonce, enforceCsp);
+        addSecurityHeaders(redirect, pathname, nonce, enforceCsp, allowLocalRuntimeScripts, currentOriginSources);
         return redirect;
       }
     } else if (!payload) {
       const redirect = NextResponse.redirect(new URL("/", request.url));
-      addSecurityHeaders(redirect, pathname, nonce, enforceCsp);
+      addSecurityHeaders(redirect, pathname, nonce, enforceCsp, allowLocalRuntimeScripts, currentOriginSources);
       return redirect;
     }
   }
@@ -236,7 +297,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // ---- Security headers on all responses ----
-  addSecurityHeaders(response, pathname, nonce, enforceCsp);
+  addSecurityHeaders(response, pathname, nonce, enforceCsp, allowLocalRuntimeScripts, currentOriginSources);
 
   return response;
 }

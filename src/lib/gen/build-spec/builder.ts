@@ -19,6 +19,7 @@ import {
   inferPreviewPolicy,
   inferQualityTarget,
   inferVerificationPolicy,
+  type BuildSpecBriefSignals,
   type PromptStrategyMetaForBuildSpec,
 } from "./policy-inference";
 import {
@@ -47,6 +48,7 @@ type DeriveBuildSpecParams = {
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilities?: InferredCapabilities | null;
+  brief?: BuildSpecBriefSignals;
   /**
    * True when this is the first real code generation in a chat that already
    * has a persistedScaffoldId (e.g. after a contract-gate turn).
@@ -66,6 +68,12 @@ type DeriveBuildSpecParams = {
    * (`POST /api/engine/chats/[chatId]/finalize-design`).
    */
   previewPolicyOverride?: BuildSpecPreviewPolicy;
+  /**
+   * Follow-up scaffold lock was intentionally released (clear-redesign or
+   * major-change). Keep this off the light/fast small-edit path even when the
+   * prompt wording looks like a local edit.
+   */
+  scaffoldUnlockedForMatch?: boolean;
   /**
    * Optional input-context capacity (in tokens) of the model that will
    * actually consume this generation. When provided, `tokenBudgets` are
@@ -88,9 +96,11 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     preGenerationContracts,
     promptStrategyMeta = null,
     capabilities = null,
+    brief = null,
     isFirstCodeGeneration,
     existingShellRoutePaths,
     previewPolicyOverride,
+    scaffoldUnlockedForMatch,
     modelContextWindowTokens,
   } = params;
 
@@ -113,6 +123,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
   });
   const previewPolicy = previewPolicyOverride ?? inferPreviewPolicy();
   const qualityTarget = inferQualityTarget({
+    prompt,
     buildIntent,
     generationMode,
     resolvedScaffold,
@@ -121,12 +132,14 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     preGenerationContracts,
     previewPolicy,
     isFirstCodeGeneration,
+    brief,
   });
   const verificationPolicy = inferVerificationPolicy({
     generationMode,
     changeScope,
     previewPolicy,
     capabilityHeavy,
+    scaffoldUnlockedForMatch,
   });
   const { policy: contextPolicy, score: contextPolicyScore } = inferContextPolicy({
     prompt,
@@ -138,10 +151,12 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     preGenerationContracts,
     promptStrategyMeta,
     capabilityHeavy,
+    scaffoldUnlockedForMatch,
     isFirstCodeGeneration,
+    brief,
   });
 
-  const styleResult = inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope);
+  const styleResult = inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope, brief);
 
   return {
     buildIntent,

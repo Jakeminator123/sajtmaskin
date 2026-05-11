@@ -1,4 +1,8 @@
 {
+  "name": "sajtmaskin-node22-cloud",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "install": "npm ci --no-audit --no-fund",
   "start": "node scripts/db/db-init.mjs || true",
   "terminals": [

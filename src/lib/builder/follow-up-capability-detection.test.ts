@@ -157,6 +157,92 @@ describe("detectFollowUpCapabilities — assorted dossier capabilities", () => {
   });
 });
 
+describe("detectFollowUpCapabilities — interactive-game", () => {
+  it("detects 'Pac-Man' as `interactive-game`", () => {
+    const result = detectFollowUpCapabilities("lägg till ett Pac-Man på startsidan");
+    expect(result.capabilityIds).toContain("interactive-game");
+  });
+
+  it("detects 'Snake' with hyphen form", () => {
+    const result = detectFollowUpCapabilities("bygga ett snake-game");
+    expect(result.capabilityIds).toContain("interactive-game");
+  });
+
+  it("detects 'platformer' in English", () => {
+    const result = detectFollowUpCapabilities("add a tiny platformer demo to the hero");
+    expect(result.capabilityIds).toContain("interactive-game");
+  });
+
+  it("detects 'tv-spel' compound", () => {
+    const result = detectFollowUpCapabilities("bygg ett tv-spel för barnen");
+    expect(result.capabilityIds).toContain("interactive-game");
+  });
+
+  it("detects 'bygg ett spel' add-verb form", () => {
+    // ADD_VERB_PATTERNS in follow-up-capability-detection.ts already covers
+    // `bygg(er|de)?` — so "bygg ett spel" triggers the add-verb guard AND
+    // the interactive-game vocabulary pattern for "bygg ett spel".
+    const result = detectFollowUpCapabilities("bygg ett spel där man samlar frukter");
+    expect(result.capabilityIds).toContain("interactive-game");
+  });
+
+  it("vetoes 'spela upp musik' media playback", () => {
+    const result = detectFollowUpCapabilities("lägg till en knapp som spelar upp musik");
+    expect(result.capabilityIds).not.toContain("interactive-game");
+  });
+
+  it("vetoes 'gaming-news' sales page phrasing", () => {
+    const result = detectFollowUpCapabilities(
+      "bygg en gaming-news blog med senaste spel-nyheterna",
+    );
+    expect(result.capabilityIds).not.toContain("interactive-game");
+  });
+
+  it("vetoes 'gaming news' (space-separated) phrasing", () => {
+    // Post-review: the veto used to require hyphen between gaming & news.
+    const result = detectFollowUpCapabilities(
+      "bygg en gaming news portal med recensioner",
+    );
+    expect(result.capabilityIds).not.toContain("interactive-game");
+  });
+
+  it("vetoes 'tv-spel butik' retail phrasing", () => {
+    // Post-review: "tv-spel butik" (space before butik) is a retail
+    // store, not a game build. Narrower veto now handles this case.
+    const result = detectFollowUpCapabilities(
+      "bygg en hemsida för en tv-spel butik med öppettider och lagerstatus",
+    );
+    expect(result.capabilityIds).not.toContain("interactive-game");
+  });
+
+  it("vetoes 'rollspel' and 'skådespel' compounds", () => {
+    const resultA = detectFollowUpCapabilities("beskrivning av ett rollspel för teambuilding");
+    const resultB = detectFollowUpCapabilities("en teater-sida med bilder från skådespelet");
+    expect(resultA.capabilityIds).not.toContain("interactive-game");
+    expect(resultB.capabilityIds).not.toContain("interactive-game");
+  });
+
+  it("detects game + visual-3d when the prompt describes both (dolphin Pac-Man)", () => {
+    // Reviewer's canonical example: "bygg Pac-Man med delfiner". The
+    // prompt carries an interactive-game signal ("Pac-Man"), and the
+    // delfiner term is flavour, not a 3D cue. The dossier selector
+    // downstream should only pick `interactive-game-loop` here; a
+    // separate explicit "3D" token would be required to also light up
+    // `visual-3d`.
+    const result = detectFollowUpCapabilities("bygg Pac-Man med delfiner");
+    expect(result.capabilityIds).toContain("interactive-game");
+    expect(result.capabilityIds).not.toContain("visual-3d");
+  });
+
+  it("detects game AND visual-3d when the prompt explicitly asks for 3D", () => {
+    const result = detectFollowUpCapabilities(
+      "bygg ett 3D-arcade-game med fysik",
+    );
+    expect(result.capabilityIds).toContain("interactive-game");
+    expect(result.capabilityIds).toContain("visual-3d");
+  });
+});
+
 describe("detectFollowUpCapabilities — parallax disambiguation", () => {
   it("detects pointer-parallax when the prompt names the pointer", () => {
     const result = detectFollowUpCapabilities("ha en pointer-parallax på hero-bilden");
@@ -220,6 +306,15 @@ describe("detectFollowUpCapabilities — plan 11 bug 3: capability-modify refere
     );
     expect(result.capabilityIds).toContain("visual-3d");
     expect(result.referencesExistingCapability).toBe(true);
+  });
+
+  it("flags a bubble/circle placeholder complaint as a visual-3d modify request", () => {
+    const result = detectFollowUpCapabilities(
+      "Har som en bubbla, ingen hamburgare.. Den ska flyga omkring ovandför sajtens förstasida.. skapa en ha,mburgare som gör detta",
+    );
+    expect(result.capabilityIds).toContain("visual-3d");
+    expect(result.referencesExistingCapability).toBe(true);
+    expect(result.modifyReferenceMatches).toContain("bubbla");
   });
 
   it("flags referencesExistingCapability for 'den 3D-grejen' shorthand", () => {

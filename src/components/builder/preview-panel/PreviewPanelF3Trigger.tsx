@@ -124,7 +124,7 @@ export function PreviewPanelF3Trigger({
 
   const handleClick = useCallback(async () => {
     if (productBlocked) {
-      toast.warning("F3 är spärrad av Product Postcheck.", {
+      toast.warning("Integrationsbygget är spärrat av Product Postcheck.", {
         description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
         duration: 8000,
       });
@@ -175,11 +175,11 @@ export function PreviewPanelF3Trigger({
       }
 
       if (!res.ok || !data.ready || !data.parentVersionId) {
-        toast.error(data.message ?? "Kunde inte starta F3-bygget.");
+        toast.error(data.message ?? "Kunde inte starta integrationsbygget.");
         return;
       }
 
-      toast.success("F3 redo att starta.");
+      toast.success("Integrationsbygget startar.");
       onReady?.({
         parentVersionId: data.parentVersionId,
         requirements: data.requirements ?? [],
@@ -187,8 +187,8 @@ export function PreviewPanelF3Trigger({
     } catch (err) {
       toast.error(
         err instanceof Error
-          ? `F3-trigger fel: ${err.message}`
-          : "F3-trigger fel.",
+          ? `Integrationsbygget kunde inte starta: ${err.message}`
+          : "Integrationsbygget kunde inte starta.",
       );
     } finally {
       setIsLoading(false);
@@ -209,12 +209,12 @@ export function PreviewPanelF3Trigger({
       disabled={isLoading || isBusy || noVersion || disabledByProduct}
       title={
         isBusy
-          ? "En annan generering pågår — vänta tills den är klar innan du startar F3-bygget."
+          ? "En annan generering pågår — vänta tills den är klar innan du startar integrationsbygget."
           : noVersion
-            ? "Vänta tills första versionen är skapad innan du startar F3-bygget."
+            ? "Vänta tills första versionen är skapad innan du startar integrationsbygget."
             : disabledByProduct
-              ? "Product Postcheck hittade blockerande F2-previewproblem. Åtgärda dem innan du startar F3-bygget."
-            : "Lyft sajten till F3 / fidelity 3 — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
+              ? "Product Postcheck hittade blockerande F2-previewproblem. Åtgärda dem innan du startar integrationsbygget."
+            : "Bygg integrationer — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
       }
       className={className}
     >

@@ -2,7 +2,7 @@
 
 Vad som händer efter att en version sparats i databasen: preview-start, post-checks, quality gate och deploy.
 
-**Senast uppdaterad:** 2026-04-20. **Kod är source of truth.** Ordlista: [glossary.md](./glossary.md).
+**Senast uppdaterad:** 2026-04-30. **Kod är source of truth.** Ordlista: [glossary.md](./glossary.md).
 
 ---
 
@@ -45,11 +45,15 @@ Primär previewväg är `preview_host` (Fly). Tier-1 shim (`/api/preview-render`
 | `POST /api/engine/chats/[chatId]/preview-hibernate` | Parkera vid dold flik/pagehide |
 | `POST /api/engine/chats/[chatId]/preview-destroy` | Stäng session + rensa preview-url |
 | `POST /api/engine/chats/[chatId]/quality-gate` | Interaktiv quality-gate lane |
+| `GET /api/engine/chats/[chatId]/version-status` | Server-projektion av OMTAG-06 event-bus (`selectVersionStatus`) som klient-läsbar `VersionStatus`. Konsumeras av `useVersionStatus`-hook (poll 4s, stoppar på `done`/`failed`). Bär `degradations[]` så UI ser "works but degraded"-skips utan att kolla DB-flaggor. |
 | `POST /api/engine/chats/[chatId]/repair` | Manual/klientdriven repair |
 | `POST /api/engine/chats/[chatId]/accept-repair` | Applicera serverrepair från `repair_available` |
 | `POST /api/engine/chats/[chatId]/finalize-design` | F3-trigger ("Bygg integrationer"). Validerar tier-3 readiness mot dossier-`enforcement`-tags + `allowPlaceholdersInF3`-toggle; 412 + `missingByIntegration` bara när `build`-enforcement-keys saknas och inte är placeholder-täckta. |
 | `PATCH /api/projects/[id]/preferences` | Sätter app-project-preferenser (P31: `allowPlaceholdersInF3` boolean i `project_data.meta`). |
 | `POST /api/v0/deployments` | Deploy till Vercel |
+| `POST /api/domains/link` | Länkar domän till det konfigurerade Vercel-projektet. Kräver inloggning + rate-limit, `VERCEL_TOKEN` och `VERCEL_PROJECT_ID`; `VERCEL_TEAM_ID` är valfri. Body-`projectId` får bara matcha konfigurerat `VERCEL_PROJECT_ID` — avvikelse ger 403. `.se`/`.nu` kan även använda valfria `LOOPIA_*` för DNS. |
+| `POST /api/domains/verify` | Triggar Vercel-verifiering för domänen mot konfigurerat `VERCEL_PROJECT_ID`. Kräver inloggning + rate-limit; avvikande body-`projectId` ger 403. |
+| `POST /api/domains/save` | Sparar domän på deployment-raden efter tenant-/ägarkoll via deployment → chat → project (`setDeploymentDomainForRequest`). |
 
 Sedan 2026-04-20 (P29 Fas 1B) finns **inga** `/api/v0/chats/...` compat-routes kvar — chat-ytan är konsoliderad under `/api/engine/chats/...`. Övriga `/api/v0/*`-segment (deployments, projects, integrations) är Class C legacy med riktiga klient-callsites.
 
@@ -85,13 +89,14 @@ Sedan 2026-04-20 (P29 Fas 1B) finns **inga** `/api/v0/chats/...` compat-routes k
 
 1. **Dedupe**: Samma `chatId:versionId` delar in-flight promise.
 2. **Resume**: Om lagrad session matchar version → `fetchPreviewHostStatus()` → om running → touch store, returnera `"resumed"`.
-3. **Kall start**:
+3. **Update**: Om lagrad session finns för samma chat men äldre version → bygg om filpaketet, bygg om `.env.local` via `buildPreviewEnvLocalContents()` och skicka allt till `POST /preview/session/update`.
+4. **Kall start**:
    - Reparera filer (optional)
    - `buildCompleteProject()` (full filstruktur)
    - Injicera placeholder API-route om saknas
    - Bygg `.env.local` via `buildPreviewEnvLocalContents()` (lager: globala placeholders → projekt-env → genererad env)
    - `POST /preview/session/start` till Fly-host med `filesJson`
-4. **Lagra**: `touchPreviewSessionAsync()` (in-memory Map + optional Redis).
+5. **Lagra**: `touchPreviewSessionAsync()` (in-memory Map + optional Redis).
 
 ### Preview-host (`preview-host/`)
 
@@ -163,7 +168,7 @@ Konsoliderat 2026-04 från fyra (`tier2`/`serverVerify`/`promotion`/`interactive
 
 | Profil | Checks | När |
 |---|---|---|
-| `designPreview` (F2) | `["typecheck", "build", "lint"]` | Efter finalize och i bakgrunds-server-verify. `build` lades till 2026-04-20, `lint` (`--max-warnings=20`) 2026-04-21. Se SAJ-28 / P34 för blockerande lint-variant. |
+| `designPreview` (F2) | `["typecheck"]` | Efter finalize och i bakgrunds-server-verify. `build`/`lint` flyttades bort från F2-lanen 2026-04-23 och hör till warm-cache/F3. |
 | `integrationsBuild` (F3) | `["typecheck", "build", "lint"]` | I `/finalize-design`/promotion-flödet. Lint tillagd 2026-04-21. |
 
 Verify-lane returnerar även informativa checks: `install-cache-share` (node_modules-delning), `install-peer-fallback` (peer-konflikt fallback med `--legacy-peer-deps`).
@@ -184,7 +189,7 @@ Preview-host kör **två separata lanes**: live-preview (iframe, `npm install` +
 
 ### Verifier-pass (Fas 2)
 
-Skild från quality gate. `runVerifierPass()` är read-only LLM-granskning som rapporterar findings (`blocking` / `quality`). Findings är **advisory** — stoppar inte persist (men matas in i `runLlmFixer` direkt efter, se Fas 2).
+Skild från quality gate. `runVerifierPass()` är ett hybridpass: deterministiska guardrails körs först och kompletteras med read-only LLM-granskning som rapporterar findings (`blocking` / `quality`). Findings är **advisory** — stoppar inte persist (men matas in i `runLlmFixer` direkt efter, se Fas 2).
 
 ---
 

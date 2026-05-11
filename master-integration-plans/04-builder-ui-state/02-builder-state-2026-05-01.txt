@@ -1,0 +1,45 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 02-builder-state
+Date: 2026-05-01
+
+## UI/UX To Preserve
+- Chat hooks held until ready for fresh entry.
+- Versionless aborted status stops polling.
+- Repair toast appears once per version.
+- Server/local message restoration order.
+- `uiMode`, `detailsDrawerOpen`, and expanded chat defaults.
+
+## New Master Capabilities To Surface
+- New fields from chat GET, versions, project APIs, or run status must update `useChat`, `useVersions`, `useBuilderDerivedState`, `useBuilderPageController`, `useChatMessaging`, and preview hooks.
+
+## State/Props Impact
+- `useBuilderState` owns fat client state, server shadow fields, preview, deploy/domain, scaffold/theme, and refs.
+- `useBuilderPageController` binds SWR, derived state, readiness, VM preview, recover, actions, chat messaging, and effects.
+- `BuilderViewModel` exposes setters, derived fields, callbacks, and mutators.
+
+## Required Buttons / Choices / Copy
+- No direct new buttons.
+- New run statuses must map to existing loading/empty/start-over states.
+
+## Exact LLM Implementation Instructions
+- Stream contract changes should update `useChatMessaging` and shared types, not only state files.
+- Keep payload construction in controller/hooks with build intent, scaffold mode, theme colors, palette, and prompt metadata.
+
+## Merge Conflict Plan
+- In `useBuilderState`, preserve all new states and returned setters.
+- In `useBuilderPageController`, preserve effect order around fresh entry, project restore, and versions.
+- Merge action hook props instead of duplicating logic in shell.
+
+## Test Plan
+- New chat without `chatId`.
+- Project URL restore.
+- Project hydration.
+- Chat ID generation settings.
+- Repair-available toast.
+- Aborted versionless polling stop.
+
+## Do Not Break
+- `readyForChatHooks` / `chatHooksChatId`.
+- `usePersistedChatMessages`.
+- `ChatRunStatus` stop statuses.
+- Per-chat generation settings.
+- Active version/preview derivation.

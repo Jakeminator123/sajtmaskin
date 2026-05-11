@@ -1,0 +1,11 @@
+Builder Delight Review — Agent 7: Ljud & haptics (moment → nuvarande → föreslagen → S/M/L)
+
+Generation klar | Bara visuellt/toast | Opt-in kort “tink” 80–120 ms låg volym, en gång, aldrig autoplay vid load | M
+Deploy klar desktop | Inget taktilt | Ingen vibrate (stöd saknas meningsfullt) | —
+Deploy klar mobil | Inget | navigator.vibrate(12) eller [10,30,10] endast vid tydlig user-success, aldrig vid fel | S
+Inställning ljud | Finns ej centralt | Avancerat: “Ljud vid färdigt steg” default OFF | M
+Inställning haptics | Finns ej | Samma toggle eller separat; koppla till reduced-motion | M
+Reduced motion | Delvis motion-safe | Ingen ljud/vibrate när användaren minskar rörelse | S
+Kontor/möten | — | Default tyst; max en signal per händelse; ingen loop | S
+iOS Safari | — | vibrate ofta no-op — alltid visuell sanning kvar | S
+Repo idag | Ingen vibrate; Audio/play endast video/avatar | Inga ändringar tills opt-in finns | —

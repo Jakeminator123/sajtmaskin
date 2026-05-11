@@ -64,6 +64,7 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   contextLines: string[];
   maxLlmPasses: number;
   llmTimeoutMs: number;
+  llmRetryTimeoutMs?: number;
   fixerModel?: string;
   fixerThinking?: boolean;
   fixerReasoningEffort?: ReasoningEffort;
@@ -508,11 +509,12 @@ export async function runRepairLoop<TPayload = unknown>(
     const runFixerAttempt = async (
       attemptErrors: string[],
       maxTokens: number,
+      timeoutMs: number,
     ): Promise<Awaited<ReturnType<typeof runLlmFixer>>> => {
       const fixerAbort = new AbortController();
       const timeoutHandle = setTimeout(
         () => fixerAbort.abort(),
-        Math.max(1_000, params.llmTimeoutMs),
+        Math.max(1_000, timeoutMs),
       );
       fixerAttemptCount++;
       try {
@@ -532,10 +534,14 @@ export async function runRepairLoop<TPayload = unknown>(
       }
     };
 
-    let fixerResult = await runFixerAttempt(errorSummary, originalMaxTokens);
+    let fixerResult = await runFixerAttempt(errorSummary, originalMaxTokens, params.llmTimeoutMs);
     if (fixerResult.aborted) {
       console.warn("[repair-loop] LLM-fixer aborted, retrying with reduced budget");
-      fixerResult = await runFixerAttempt(errorSummary.slice(0, 3), reducedMaxTokens);
+      fixerResult = await runFixerAttempt(
+        errorSummary.slice(0, 3),
+        reducedMaxTokens,
+        params.llmRetryTimeoutMs ?? params.llmTimeoutMs,
+      );
     }
     llmPasses += fixerAttemptCount;
 

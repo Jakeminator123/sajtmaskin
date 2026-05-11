@@ -1,0 +1,15 @@
+IntakeWizard steg-formulär (CompanyStep, SiteTypeStep, ContentStep-grenar, m.fl.)
+
+| Område | Poäng | Not |
+| Fält design (tokens, touch, focus) | 4 | FIELD_CLASS, min-h-11 |
+| Labels | 3 | SectionLabel/FieldLabel; htmlFor inkonsekvent |
+| Placeholders | 4 | Svenska, konkreta exempel |
+| Validering | 2 | Bara canContinue-gate; sällan inline/aria-invalid |
+| Obligatoriska | 2 | * mest company; siteType/pages krav utan tydlig markering |
+| Autofill | 2 | Saknas autoComplete på tel/email/name/url |
+| Scrape/AI-prefill | 5 | applyScrapeToBusiness, badges, mustHave/goal |
+| Täthet per steg | 2–3 | ~25 site types; pages + feature grid — tung scroll |
+
+Prioriterat: (1) Tydlig disabled-Fortsätt-feedback eller fältfel. (2) * eller “obligatoriskt” där canContinue kräver val. (3) autoComplete på kontakt. (4) MinimalContent “Huvudbudskap” → testimonials — semantisk risk.
+
+Helhetsformulär-UX: 3/5

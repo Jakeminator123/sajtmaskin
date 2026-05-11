@@ -1,0 +1,24 @@
+Builder Information Architecture Review — Agent 1: Zonkarta
+
+Nuvarande IA (kort)
+BuilderLayout: vertikal flex h-screen. Desktop expanded: BuilderHeader (TOP), ev. ModelTraceOverlay under header, <lg flikrad Chatt|Sajt, lg:flex-row-reverse med visuell HÖGER = chat-kolumn (LaunchReadiness, ProjectEnvVars, MessageList, TipCard, ThinkingOverlay, ChatInterface) och visuell VÄNSTER = PreviewPanel + längst höger VersionHistory-rail. Minimal: samma chat inuti BuilderDetailsDrawer + flytande BuilderDisclosurePill; preview tar bredd. Ägare: BuilderShellContent (läge), BuilderHeader (top), PreviewPanel+Chrome (center), MessageList+Chat (right/drawer).
+
+ASCII (expanded, förenklad)
+  [TOP] BuilderHeader
+  [---] ModelTraceOverlay (expanded eller drawer öppen)
+  [---] <lg: flikar Chatt|Sajt
+  [ROW row-reverse lg]
+    [HÖGER visuellt] Chat-kolumn …
+    [VÄNSTER visuellt] Preview | VersionHistory
+
+Föreslagen IA
+TOP: identitet + publicera (+ sekundärt i overflow). CENTER: enbart preview (ingen andra “topbar” i samma semantiska zon). RIGHT: konversation + detaljer (readiness/env i drawer eller kompakt stack). BOTTOM: en global statusrad (generering/deploy/nät) separat från preview-innehåll.
+
+Brott / motsägelser
+Två topbar-lager: BuilderHeader + PreviewPanelChrome bryter “center = bara preview”.
+Högerkolumn blandar chatt med readiness/env — delvis “details”, delvis publish-pipeline i samma zon som konversation.
+VersionHistory på centerkant, inte global RIGHT — splittrad historik vs chatt.
+Ingen dedikerad BOTTOM; GenerationProgress lever i PreviewPanelEmptyState (center), inte som fot.
+Minimal: ingen fast RIGHT — chatt i drawer; avviker från “fast höger = chat”.
+ModelTraceOverlay i top-stack bredvid identitet/publicera — teknisk yta i identitetszon.
+Mobil: extra nav-zon mellan header och huvudrad som saknas i målbilden.

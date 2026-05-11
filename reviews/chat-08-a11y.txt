@@ -1,0 +1,16 @@
+Tillgänglighet & tangentbord
+
+| Område | Poäng | Not |
+| aria-labels | 3 | Textarea + Skicka bra; Bifoga/Verktyg voice compact ofta title bara |
+| Tangentbord | 4 | Enter skickar, Shift+Enter rad (prompt-input) |
+| Fokus efter skicka | 3 | Enter behåller fokus; klick på Skicka återfokuserar ej textarea |
+| Roving / struktur | 2 | Inga landmarks/log på konversation; Message bara data-role |
+
+Prioriterat:
+1. Fokus tillbaka till composer efter submit (särskilt knapp).
+2. aria-label på ikon-only (Bifoga, kompakt voice) matchande title.
+3. Överväg role="log" eller aria-label på scroll-yta för skärmläsare.
+
+Positivt: FloatingChatBox aria; StreamingTypingIndicator status/live; Scroll-knapp aria; vissa popover-knappar aria-label.
+
+Helhet a11y: 3/5

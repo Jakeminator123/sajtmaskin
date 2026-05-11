@@ -1,0 +1,34 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 07-accessibility-responsive
+Date: 2026-04-27
+
+## UX To Preserve
+- **Fokus:** `Button` `focus-visible:ring` — mönster att bygga vidare på; `IntakeWizard` `FOCUS`-utility.
+- **Live regions:** `MessageList`, `PreviewPanel` status, `PreviewPanelFrame` alert, `GenerationProgress` progressbar.
+- **Ikonknappar:** `aria-label` ofta satt i `BuilderHeader`, `PreviewPanelChrome` (behåll vid master-merge av nya knappar).
+- **Reduced motion:** `globals.css` + `landing-v2.css` + `motion-safe`/`motion-reduce` + `usePrefersReducedMotion` där använt.
+- **Break points:** `lg:` dominerar builder shell; `sm:`/`md:` i wizard/landing; `dvh`/`h-dvh`.
+
+## Master UI Changes To Inspect
+- Nya komponenter utan `aria-label` på **ikononly**-knappar.
+- Färger som enda status — kompletteras med `aria`/`text` (master som “bara rött” = regression).
+- Tema: master `dark` bryter mot tvingat ljust i `layout` — a11y-kontrast + design.
+
+## Token / Copy Risks
+- Nya shadcn-delar: engelska `sr-only` (pagination, carousel, dialog) — samma som agent 08; föreslå sv defaults i wrappers **utan** backendändring.
+- Fokus: `PromptInputTextarea` `focus-visible:ring-0` i `ChatInterface` — tydliggör `focus-within` på kort yta så tangentbord inte tappar synlighet.
+- Fokus-trap saknas ofta (tab kan lämna `aria-modal`) — **försämra inte**; förbättring = egen PR.
+
+## Recommended Merge Choices
+- Vid UI-import från master: följ **samma** `min-h-11`/`touch-manipulation` där `IntakeWizard` redan satt standard.
+- Små toolbar-knappar från master: öka **hit target** (padding) innan release om pekplatta är mål.
+- Ikonknappar utan label: alltid `aria-label` + ev. `title` konsekvent.
+
+## Visual Verification
+- Tab genom: landing hero, Intake dialog, header, preview chrome, chat (ingen osynlig fokusfälla i tomma ytor).
+- iPhone bredd: tabbar, drawer, chatt, preview — inga instängda scrollar (dubbla `overflow` kända risk).
+- `prefers-reduced-motion: reduce` — pulser, hero fade, wizard transitions av.
+
+## Do Not Break
+- `role="status"`/live-logik i preview; `aria-busy` under generation.
+- Landmärke `main` + `data-builder-shell` (screen reader overview).
+- Endast förbättra touch targets — gör inte inputs **mindre** utan designbeslut.

@@ -1,0 +1,42 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 02-domain-publish
+Date: 2026-05-01
+
+## Production Changes In Master
+- Domain suggestions route exists but has no current TSX consumer.
+- Domain check/pricing/RDAP and Vercel/Loopia logic.
+- Link, verify, save domain routes.
+- Rate limits for domains.
+- Deploy UI state provides `lastDeployVercelProjectId` and `activeDeploymentId`.
+- DomainSearchDialog and DomainManager UI.
+
+## Local Behavior To Preserve
+- After deploy, domain manager uses Vercel project id for link/verify and internal deployment id for save.
+- Domain check powers UI price display.
+- Domain search fallback before deploy remains separate.
+
+## Security / Secret Risks
+- Wrong Vercel project id can link domain to wrong project.
+- Avoid logging domain/customer PII unnecessarily.
+- Keep rate limits on public-ish domain endpoints.
+
+## Required Deploy / Observability UI
+- Show clear connection between deployment and Vercel project.
+- Add visible handling for failed domain save if product wants persistence guarantees.
+- Decide whether LLM domain suggestions are exposed or removed.
+
+## Exact LLM Implementation Instructions
+- Verify deploy response still has `vercelProjectId` and internal `id`.
+- Update DomainManager props/state if new domain states appear.
+- Do not cache or expose PII-heavy domain suggestion data.
+
+## Deploy Verification
+- Deploy ready -> manager opens -> link -> verify -> save deployment domain.
+- Verify Vercel dashboard project id matches UI project id.
+
+## Observability Checks
+- Logs: domain suggestions/check/link/verify/save.
+- Client search error logs.
+- Deploy error-log persistence.
+
+## Do Not Commit
+- `.vercel`, customer domains/tokens in logs, wholesale price internals.

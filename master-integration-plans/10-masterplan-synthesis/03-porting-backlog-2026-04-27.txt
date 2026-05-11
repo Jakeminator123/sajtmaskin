@@ -1,0 +1,22 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 03-porting-backlog
+Date: 2026-04-27
+
+## Inputs Read
+- `04-builder-ui-state/` (shell, state, chat, drawers, header), `05-preview-runtime/` (panel, frame, hooks, chrome, VM, matris), `08-design-system-ux/` (tokens, dock, preview polish, a11y).
+
+## Synthesis
+Backlog = **lokal beteendelista** som master inte får tappa: preview-first `lg:flex-row-reverse`, `data-builder-shell`, panel-IDs, `vmReady`/iframe/postMessage, minimal vs expanded + drawer, `chatCollapsed`, z-lager, `onBuildOutRouteRequest`, F2 env-mute, help vs bygg chatt, `rejectedShrinkCount` / faser, `stream-handlers` + post-check/quality/retry.
+
+## Ordered Plan
+Prioritera i PR-ordning: (1) `BuilderLayout`+`BuilderShellContent`+controller, (2) `PreviewPanel*`+hooks+`preview-host` runtime, (3) `MessageList`+`ChatInterface`+`stream-handlers`+`BuilderMessageTooling`, (4) token/hex i chrome (`PreviewPanelChrome`, m.fl.), (5) design/a11y-touch, (6) tester enligt `04/05/08` co-lokala `*.test.*`.
+
+## Acceptance Criteria
+- Ingen dubbel `MessageList`; `id`/`aria-*` oförstörda; en postMessage-kedja `preview-starting` → `preview-ready` med `vmReady` gate.
+- Hook-ordning: `usePreviewPanelOwnEnginePreviewTelemetry` efter `usePreviewIframe` där så krävs i plan 05.
+
+## Risks / Mitigations
+- Master ersätter `PreviewPanel` layout → manuell visuell + `PreviewPanel.test`.
+- Nya färger → mappa till tokens; undvik `sky-`/`indigo-` ytor utan pass (`08/01`).
+
+## Final Recommendations
+Owner hints: **shell** `src/app/builder/`, **preview** `src/components/builder/preview-panel/` + hooks, **chat** `src/lib/hooks/chat/`, **gen** för shrink/finalize bindningar (`src/lib/gen/stream/`, `post-checks`).

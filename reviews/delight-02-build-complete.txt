@@ -1,0 +1,13 @@
+Builder Delight Review — Agent 2: Sajten klar @100% (moment → nuvarande → föreslagen → S/M/L)
+
+Progress till mål | GenerationProgress stor % + tunn bar + fas | Behåll subtil rörelse; undvik hero-% om preview <1 s | M
+100 % vs preview | phase mappas ej till done; forceComplete oanvänd — praktiskt tak ~95 % tills URL | Koppla preview-ready/live till forceComplete eller fas done | S
+Validerad beat | Ingen tyst “klar”-rytm | Diskret checkmark i preview-rad 200 ms, ingen konfetti | S
+Tystnad före chat | toast.success “Sajt skapad!” på done | Ta bort success-toast vid ren succé eller endast badge | S
+Mobil fokus | useEffect hoppar till preview vid första URL | Valfritt: kort fokus chat efter live med copy ≤8 ord | M
+Assistent copy | Ingen dedikerad post-gen-rad | En injicerad rad endast vid första preview-ready: “Vad vill du justera?” (6 ord) | L
+Fas null | Fallback brief “Planerar sidor” | När previewPending utan fas: “Förbereder preview” | S
+Tom empty under load | GenerationProgress i empty state | Samordna så sista % inte krockar med toast | S
+Delvis felström | toast.warning lång text | Inline i preview, kort rad + “Visa detaljer” | M
+
+Sammanfattning: stor % + toast bryter “inget fyrverkeri”; koppla 100 % till preview-ready och kort svensk rad (max 8 ord).

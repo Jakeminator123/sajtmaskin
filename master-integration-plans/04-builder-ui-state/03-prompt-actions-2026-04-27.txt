@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 03-prompt-actions
+Date: 2026-04-27
+
+## UI/UX To Preserve
+- `useChatMessaging` samlar create/send/autofix; en `streamAbortRef`, `lastSentSystemPromptRef` så samma systemprompt inte dubblettskickas.
+- Första prompt: `useCreateChat` + `meta.isFirstPrompt: true` + `meta.brief` när init brief finns; följd: `useSendMessage` + `isFirstPrompt: false`, **no Deep Brief re-send** på follow-up (se kommentarer).
+- Följd baseras på `activeVersion` → `engineBaseVersionId` / `engineBaseVersionIdOverride` (autofix, F3) — UI måste fortsätta skicka `MessageOptions` konsekvent.
+- Awaiting input: `done.awaitingInput`, `tool-call` ask, non-stream `awaitingInput` — samma tolkning i kort, skandinavisk kopia i `MessageList`/`BuilderMessageTooling` (där ytan tillämpar).
+
+## New Master Capabilities To Surface
+- Nya SSE- eller JSON-fält från master (`meta`, `done`, `error`, `tool-call` typer) → uppdatera `stream-handlers` + `MessagePart` + ev. `BuilderMessageTooling` branches, inte bara hooks.
+- Nya `promptSource` / `promptStrategy` värden → `appendPromptStrategyPart` (short labels i UI).
+- Nya `retry-suggestion` / `pendingStreamRetryHint` mönster — samma CTA-UX (toast/warning) som idag.
+
+## State/Props Impact
+- Påverkar indirekt `BuilderShellContent` + `ChatInterface` via `onSendMessage` / `onCreateChat` callbacks; inga färger i hooks — men *payload shape* bryter UI om oförenligt.
+- `useAutoFix` använder samma `sendMessage` + `promptSourceMeta` — fält måste förbli förenliga.
+
+## Merge Conflict Plan
+- Merge i ordning: `types` (MessageOptions) → `useCreateChat` / `useSendMessage` → `stream-handlers` (ofta störst) → uppdatera `ChatInterface` endast om props/argument ändras.
+- Behåll `engineChatBaseUrl` / `ENGINE_CHATS_API_PREFIX` som enda sanningskälla.
+
+## Test Plan
+- `src/lib/hooks/chat/*.test` + `stream-handlers.test` om de finns; stream `route.test` med mockar.
+- Efter merge: följ upp + awaiting-input + autofix (en session per `chatId`).
+
+## Do Not Break
+- Följd: **ingen** dubbel brief (`meta.brief`) där `useBuilderPromptActions` förlitar sig på endast en källa.
+- `buildOut` + `parse-chat-request-meta` (server) + hooks måste samma fält.
+- `done` efter `error` recovery (stream-handlers) — samma toasts/empty-state som shell förväntar.
+- `feature-coexistence`: ingen andra ström samma `chatId`.

@@ -42,7 +42,10 @@ function listIds(klass: string): string[] {
 
 function readManifestCapability(klass: string, id: string): string | null {
   const manifestPath = join(ROOT, klass, id, "manifest.json");
-  if (!existsSync(manifestPath)) return null;
+  if (!existsSync(manifestPath)) {
+    console.error(`[capability-map] missing manifest: ${klass}/${id}/manifest.json`);
+    process.exit(2);
+  }
   try {
     const parsed = JSON.parse(readFileSync(manifestPath, "utf-8")) as Record<string, unknown>;
     const cap = parsed.capability;
@@ -101,11 +104,17 @@ function main(): void {
   const writeMode = process.argv.includes("--write");
   const capabilities = collectCapabilities();
   const existing = readExistingMap();
+  const dossierCount = Object.values(capabilities).flat().length;
+
+  if (dossierCount === 0 || Object.keys(capabilities).length === 0) {
+    console.error("[capability-map] no dossiers/capabilities found under data/dossiers/{hard,soft}");
+    process.exit(2);
+  }
 
   if (existing && sameCapabilities(existing.capabilities, capabilities) && !writeMode) {
     console.log(
       `[capability-map] in sync (${Object.keys(capabilities).length} capabilities across ${
-        Object.values(capabilities).flat().length
+        dossierCount
       } dossiers)`,
     );
     process.exit(0);
@@ -139,7 +148,7 @@ function main(): void {
   writeFileSync(MAP_PATH, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
   console.log(
     `[capability-map] wrote ${MAP_PATH} (${Object.keys(capabilities).length} capabilities, ${
-      Object.values(capabilities).flat().length
+      dossierCount
     } dossiers)`,
   );
 }

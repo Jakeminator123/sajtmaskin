@@ -25,9 +25,6 @@ vi.mock("@/lib/utils/debug", () => ({
   infoLog: vi.fn(),
   errorLog: vi.fn(),
 }));
-vi.mock("@/lib/gen/autofix/rules/scaffold-import-checker", () => ({
-  checkScaffoldImports: (files: unknown) => ({ files, fixes: [] }),
-}));
 vi.mock("@/lib/gen/autofix/rules/cross-file-import-checker", () => ({
   checkCrossFileImports: (files: unknown) => ({ files, fixes: [] }),
 }));

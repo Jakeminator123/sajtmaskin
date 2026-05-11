@@ -51,37 +51,56 @@ describe("GET /api/metrics", () => {
 
   it("returns 401 when token is set but request has no auth header and no query token", async () => {
     process.env.SAJTMASKIN_METRICS_TOKEN = "secret-abc";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const res = await GET(makeReq("http://localhost/api/metrics"));
+    try {
+      const res = await GET(makeReq("http://localhost/api/metrics"));
 
-    expect(res.status).toBe(401);
-    expect(await res.text()).toBe("unauthorized");
-    expect(res.headers.get("www-authenticate")).toBe('Bearer realm="sajtmaskin-metrics"');
-    expect(getPrometheusMetrics).not.toHaveBeenCalled();
+      expect(res.status).toBe(401);
+      expect(await res.text()).toBe("unauthorized");
+      expect(res.headers.get("www-authenticate")).toBe('Bearer realm="sajtmaskin-metrics"');
+      expect(getPrometheusMetrics).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith("[metrics] unauthorized request", {
+        hasAuthorizationHeader: false,
+        hasQueryToken: false,
+      });
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("returns 401 when bearer header carries the wrong token", async () => {
     process.env.SAJTMASKIN_METRICS_TOKEN = "secret-abc";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const res = await GET(
-      makeReq("http://localhost/api/metrics", {
-        headers: { authorization: "Bearer wrong-token" },
-      }),
-    );
+    try {
+      const res = await GET(
+        makeReq("http://localhost/api/metrics", {
+          headers: { authorization: "Bearer wrong-token" },
+        }),
+      );
 
-    expect(res.status).toBe(401);
-    expect(await res.text()).toBe("unauthorized");
-    expect(getPrometheusMetrics).not.toHaveBeenCalled();
+      expect(res.status).toBe(401);
+      expect(await res.text()).toBe("unauthorized");
+      expect(getPrometheusMetrics).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("returns 401 when query token is wrong", async () => {
     process.env.SAJTMASKIN_METRICS_TOKEN = "secret-abc";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const res = await GET(makeReq("http://localhost/api/metrics?token=wrong-token"));
+    try {
+      const res = await GET(makeReq("http://localhost/api/metrics?token=wrong-token"));
 
-    expect(res.status).toBe(401);
-    expect(await res.text()).toBe("unauthorized");
-    expect(getPrometheusMetrics).not.toHaveBeenCalled();
+      expect(res.status).toBe(401);
+      expect(await res.text()).toBe("unauthorized");
+      expect(getPrometheusMetrics).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("returns 200 with Prometheus body when bearer header matches", async () => {

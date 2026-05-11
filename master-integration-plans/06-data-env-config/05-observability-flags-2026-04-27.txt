@@ -1,0 +1,25 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 05-observability-flags
+Date: 2026-04-27
+
+## Master Changes
+- Sök: `data/backoffice/`, `ops/`, `scripts/dev/log-stream.ts` — t.ex. `app-project-inspector.json` schema-drift, `sajtmaskin-logs.json` filter.
+- I diff (grep): förekomst av t.ex. `sajtmaskin-logs` i `data/backoffice/`.
+
+## Local Changes / Dirty Files
+- Backoffice JSON-scheman: om du redigerat filter/log-vyer, merge kan skriva om samma fil — diff innan committ.
+
+## Compatibility Risks
+- Nya/andra telemetrinycklar får innehållet att **se** tom ut om filter inte inkluderar nya mönster; master kan uppdatera default-filter utan att bryta build.
+- Bygg-flöde vs dashboard: t.ex. `sajtmaskin-logs` utan samma query-parametrar i UI = falsk "tyst" vy.
+
+## Files To Update
+- `data/backoffice/sajtmaskin-logs.json` (+ ev. `app-project-inspector.json` om merge drar in schema-ändring)
+- Rör du log-stream scripts: `scripts/dev/log-stream.ts` / relaterat
+
+## Verification Commands
+- Rök: öppna backoffice-vyn (Streamlit) mot dev-data **eller** kör lokal log-stream enligt docs; inga backend-kontrakt får ändras här
+- Efter merge: snabb sök efter hårda filter-strängar i JSON — matcha mot nya `logs/generationslogg/`-fält om pipeline ändrat format
+
+## Commit / Ignore Guidance
+- JSON-ändringar: commit när de speglar **faktiskt** sökbehov; undvik stora orelaterade filter-commits i samma PR som env-merge om möjligt.
+- Lägg aldrig hemligheter i `data/backoffice/`.

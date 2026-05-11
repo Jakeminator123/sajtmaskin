@@ -1,0 +1,35 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 03-media-upload
+Date: 2026-04-27
+
+## Master Changes To Preserve
+- `src/app/api/projects/[id]/upload/route.ts` — FormData `file`, `getCurrentUser`, `getProjectByIdForOwner`, `uploadBlob` (`project-files`), `saveImage` → `images` — JSON `{ success, image: { url, filename, ... } }`.
+- `src/lib/vercel/blob-service.ts` — sökväg `{userId}/projects/{projectId}/project-files/...`.
+- `src/lib/db/services/media.ts` + `images` / `media_library` i schema (dubbel modell).
+- `src/lib/api/engine/chats/build-media-catalog.ts` + stream posts — `mediaCatalog` från **request attachments**, inte `images`-rader.
+- `src/app/api/media/upload/route.ts` — huvudväg: rate limit `media:upload`, `saveMediaLibraryItem` (de flesta UI använder denna).
+
+## Frontend Consumers
+- `src/lib/project-client.ts` — `uploadImage` → `POST /api/projects/${id}/upload` (få/inga andra anropare i träd).
+- `file-upload-zone`, `media-drawer`, `ImageUploadPopup`, m.fl. → `/api/media/upload` (och upload-from-url).
+
+## Contract Risks
+- Dubbla system: `images` vs `media_library` + olika auth (inloggad user vs session).
+- `buildMediaCatalogForOrchestration` använder inte DB-projektbilder — enhetlig "project media" kräver extra pipeline om policy ändras.
+- Project route saknar samma MIME-cap som `media/upload` (förlitar sig på blob size där det gäller).
+
+## Required Adaptations
+- Om master ändrar `upload`/`saveImage`/`blob` — uppdatera `project-client` + `project-cleanup.ts` + eventuell admin-DB.
+- För en enda riktning: depreka project-upload eller wire UI till `uploadImage` medvetet.
+- `buildMediaCatalog` från DB: ny kedja (finns ej idag).
+
+## Tests / Runtime Checks
+- `src/lib/api/engine/chats/build-media-catalog.test.ts`
+- Ingen dedikerad test för `projects/[id]/upload/route` — manuell eller ny integrationstest.
+- `POST /api/media/upload` + `rateLimit` `media:upload`.
+
+## Do Not Break
+- `POST /api/projects/[id]/upload` kuvert + `image.url` för dolda konsumenter.
+- `uploadBlob` + path `project-files` + token.
+- `buildMediaCatalogForOrchestration` + stream `urlMapOverrides` / `userMediaUrls`.
+- `POST /api/media/upload` (primär bygg-väg).
+- `images` FK + `project-cleanup`.

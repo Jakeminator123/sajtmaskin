@@ -1,0 +1,22 @@
+BuilderHeader.tsx — Chrome UX review (Apple-minimalist lens)
+Scope: src/components/builder/BuilderHeader.tsx + model/defaults copy from src/lib/builder/defaults.ts
+
+1. Settings dropdown is a dense “control center,” not a calm menu — 1/5 — One surface stacks build profiles, long per-option descriptions/hints (MODEL_TIER_OPTIONS), prompt-assist radios, scaffolds, generation toggles, Figma, instructions, debug, and tips/credits; fights progressive disclosure.
+
+2. Help copy is essay-length (especially “Promptverktyg”) — 1/5 — Multi-sentence tooltips with product jargon clash with Apple-like restraint; belongs in docs, not inline chrome.
+
+3. Two overflow affordances both use MoreHorizontal — 2/5 — “Fler åtgärder” vs “Mer” (import/export); same icon doubles mental mapping cost.
+
+4. Settings trigger: invisible/absolute desktop button + settingsOpen from mobile menu — 2/5 — Two entry points, brittle for focus/a11y vs single explicit control.
+
+5. Swedish UI mixed with English product names, model IDs, dev terms — 2/5 — “Blob saknas”, “GPT-5.4”, “credits”, “ZIP”, “runtime” increase scanning noise.
+
+6. Right cluster uses flex-wrap — 2/5 — Risk of two-row header on mid-width breakpoints; Apple chrome stays one line or collapses earlier.
+
+7. Bar height h-10 is lean — 3/5 — Good density; with many outline buttons may feel cramped; touch targets may sit small with size="sm".
+
+8. Commercial line “Tips · 2 credits per hämtning” inside general settings — 2/5 — Billing mixed with creative controls.
+
+9. Redundant: header tooltip vs dropdown labels — 3/5 — Tooltip repeats model + assist + scaffold already on trigger.
+
+10. Globe icon reused (Domän, Publik preview, Publicerad) — 3/5 — Saves space; weakens scan clarity.

@@ -1,0 +1,16 @@
+Apple polish — CTA/button system (builder scope)
+
+FINDINGS
+- System: shadcn Button — variants default|outline|secondary|ghost|destructive|link; sizes default/xs/sm/lg + icon*. Base rounded-lg (not pill); heights h-6–h-9 (not 32/40/48 grid).
+- Builder: dominant outline+sm (header, preview, dialogs); ghost quiet; secondary on cards/empty. >2 “primary” languages: shared Button vs custom rounded-full CTAs (IntakeWizard, ImageUploadPopup, TemplatePickerPopup, SiteTypePickerPopup) ad-hoc min-h/py/px.
+- Tertiary: ghost, size=icon, raw rounded-full/icon divs — no single icon-pill recipe.
+- Consolidation: (1) filled pill primary, (2) text/link secondary, (3) icon-pill tertiary; align sm/md/lg = 32/40/48 in buttonVariants + replace one-off CTAs.
+
+SCORES (1–5)
+Variant discipline: 2 — six variants + custom CTAs
+Size scale: 2 — h-6–9 + overrides, not 32/40/48
+Primary/filled clarity: 2 — default underused; pills duplicated ad hoc
+Secondary (link/text): 3 — link exists; outline used as “secondary”
+Tertiary (icon-pill): 2 — ghost/icon inconsistent vs Apple icon-pill
+
+Refs: src/components/ui/button.tsx; BuilderHeader.tsx; IntakeWizard.tsx; ImageUploadPopup.tsx; TemplatePickerPopup.tsx; ChatInterface.tsx

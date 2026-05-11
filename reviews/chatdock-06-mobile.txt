@@ -1,0 +1,16 @@
+Chat Dock — Agent 6: mobile (READ-ONLY)
+Scope: BuilderShellContent (lg / <lg tabs), ChatInterface, use-mobile.ts (sidebar imports; builder chat path does not use it per scan)
+
+Bottom sheet Apple-like — 2/5 — BuilderDetailsDrawer: Radix Sheet side="right" (~36–41), slide-over not bottom sheet. Expanded: tab bar + full-column chat/preview swap (~1643–1686, ~1788–1792, ~1928–1937).
+
+Swipe down minimize — 1/5 — No custom drag/snap; sheet.tsx standard overlay + animation.
+
+Floating “‹ Chat” when closed — 2/5 — BuilderDisclosurePill fixed right-5 bottom-5; label default “Verktyg”, not “‹ Chat”; hidden sm:inline hides label on narrow (~70).
+
+Keyboard vs composer — 2/5 — ChatInterface min-h-[80px] textarea (~1043); no visualViewport / scrollIntoView found. BuilderLayout h-dvh when supported (~15).
+
+Safe-area — 2/5 — No env(safe-area-inset-*) on pill/chat shell; TemplatePickerPopup uses safe-area (~86, ~199) as contrast.
+
+Files: BuilderShellContent.tsx; ChatInterface.tsx; BuilderDetailsDrawer.tsx; BuilderDisclosurePill.tsx; src/lib/hooks/use-mobile.ts; src/components/ui/sheet.tsx
+
+Overall mobile dock fit vs skill: ~2/5 — responsive split strong; bottom sheet, swipe-dismiss, safe-area/keyboard polish weak.

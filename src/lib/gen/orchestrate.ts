@@ -37,6 +37,7 @@ import {
   buildCapabilityHints,
   type InferredCapabilities,
 } from "./capability-inference";
+import { resolveDossierCapabilitiesFromInferredCapabilities } from "./capability-dossier-bridge";
 import { buildRoutePlan } from "./route-plan";
 import type { RoutePlan } from "./route-plan";
 import {
@@ -64,10 +65,10 @@ import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
 import { fetchCommunityBlocks } from "./data/community-registry-fetch";
 import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
+import { deriveFollowUpStateFromInputs } from "./follow-up-predicate";
 import type { RequestKindClass } from "./request-kind";
 import type { FollowUpIntentMode } from "./follow-up-intent-types";
 import type { CapabilitySpecificityTier } from "@/lib/builder/follow-up-capability-detection";
-import { isAppScaffold } from "@/lib/builder/build-intent";
 import {
   buildGenerationInputPackage,
   writeOrchestrationDynamicDump,
@@ -137,7 +138,6 @@ export interface OrchestrationInput {
   brief?: Record<string, unknown> | null;
   themeColors?: ThemeColors | null;
   imageGenerations?: boolean;
-  /** Optional media catalog (user uploads + stock fallbacks) — see `system-prompt.ts`. */
   mediaCatalog?: MediaCatalogItem[];
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
@@ -174,6 +174,14 @@ export interface OrchestrationInput {
   existingRoutePaths?: string[];
   /** Route paths whose existing content is a deferred shell page (auto-detected from file content). */
   existingShellRoutePaths?: string[];
+  /**
+   * All file paths present in the previous version (follow-up / auto-repair).
+   * Used by the dossier renderer to suppress redundant verbatim blocks for
+   * files that already exist in `## Current Project Files`. Optional — an
+   * empty/undefined value falls back to the legacy "always emit verbatim"
+   * behavior, so init callers that don't carry this signal stay unaffected.
+   */
+  previousFilePaths?: string[];
   /** Optional pre-inferred capabilities so callers can reuse the same deterministic pass. */
   capabilities?: InferredCapabilities;
   /** Per-session seed (e.g. chatId) to vary scaffold variant selection across sessions with identical prompts. */
@@ -254,17 +262,6 @@ export interface OrchestrationInput {
     references: string[];
   } | null;
   /**
-   * B3: Structured build-out-request for a specific shell route. Propagated
-   * into the dynamic system-prompt context so the model knows this follow-up
-   * is a targeted build-out of an existing placeholder (vs. generic edit or
-   * redesign). The `intent` + `name` come from the original `PlannedRoute`.
-   */
-  buildOut?: {
-    path: string;
-    intent?: string | null;
-    name?: string | null;
-  } | null;
-  /**
    * Project locale forwarded to {@link buildRoutePlan} for locale-alternate
    * route dedupe. When omitted, we read `brief.locale` (forward-compatible
    * with future brief schema additions) and finally fall back to "sv" — the
@@ -286,6 +283,51 @@ export interface OrchestrationInput {
    * branch the pipeline; does not change {@link deriveBuildSpec} yet.
    */
   requestKind?: RequestKindClass | null;
+  /**
+   * Conservative init fast lane for simple F2 website/template prompts.
+   * When true, orchestration skips optional external/component-reference
+   * enrichment and dossier selection, but keeps scaffold selection, route
+   * plan, BuildSpec, system prompt, autofix/finalize/preflight unchanged.
+   */
+  simpleWebsitePath?: boolean;
+  /**
+   * OMTAG Fas 2·A / E2: number of previously-persisted files resolved for
+   * this chat's follow-up base version. Optional so legacy callers compile
+   * unchanged. When present, feeds {@link deriveFollowUpStateFromInputs}
+   * alongside `persistedScaffoldId` to resolve `generationMode` consistently
+   * with `finalize-merge.ts` (the P26 edge case
+   * `persistedScaffoldId !== null && previousFilesCount === 0` used to split
+   * the two call-sites).
+   */
+  previousFilesCount?: number;
+}
+
+function explicitlyRequestsContactDelivery(prompt: string): boolean {
+  return /\b(resend|smtp|webhook|server action|backend|api route|send(?:a)? email|email delivery|mail delivery|skicka mejl|skicka mail|skicka e-?post|mejlutskick|mailutskick)\b/i.test(prompt);
+}
+
+function explicitlyRequestsCarousel(prompt: string): boolean {
+  return /\b(carousel|slider|slideshow|swipe|embla|karusell|bildspel|hero[-\s]?slider|produktkarusell)\b/i.test(prompt);
+}
+
+export function filterDossierCapabilitiesForPrompt(params: {
+  capabilities: string[];
+  prompt: string;
+  previewPolicy: BuildSpec["previewPolicy"];
+}): string[] {
+  return params.capabilities.filter((capability) => {
+    if (
+      capability === "contact-form" &&
+      params.previewPolicy !== "fidelity3" &&
+      !explicitlyRequestsContactDelivery(params.prompt)
+    ) {
+      return false;
+    }
+    if (capability === "carousel" && !explicitlyRequestsCarousel(params.prompt)) {
+      return false;
+    }
+    return true;
+  });
 }
 
 export interface OrchestrationBase {
@@ -378,6 +420,7 @@ export async function resolveOrchestrationBase(
     existingRoutePaths = [],
     existingShellRoutePaths = [],
     capabilities: providedCapabilities,
+    simpleWebsitePath = false,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
@@ -401,11 +444,28 @@ export async function resolveOrchestrationBase(
   // pin needsAuth/needsEcommerce to whatever the previous version imported.
   const intentSourcePrompt = input.capabilitiesPrompt ?? prompt;
   const capabilities = providedCapabilities ?? inferCapabilities(intentSourcePrompt);
-  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
+  // OMTAG Fas 2·A / E2: a single predicate decides follow-up semantics.
+  // When the caller passes an explicit `generationMode` (stream-post does),
+  // respect it. Otherwise, fall back to the unified predicate using
+  // `previousFilesCount` if known — or `persistedScaffoldId` as a best-effort
+  // signal for legacy callers that omit both. This keeps orchestrate and
+  // finalize-merge in agreement on the P26 edge case (scaffold pinned, no
+  // files yet) instead of disagreeing via separate truthy-checks.
+  const { isOrchestrationFollowUp } = deriveFollowUpStateFromInputs({
+    persistedScaffoldId,
+    previousFilesCount:
+      input.previousFilesCount ?? (persistedScaffoldId ? 1 : 0),
+  });
+  const resolvedMode: "init" | "followUp" =
+    generationMode ?? (isOrchestrationFollowUp ? "followUp" : "init");
 
-  // P32 Fas A: requestKind is propagated for downstream phases. Logging is
-  // owned by the call-site (devLog `request.kind.classified`) — orchestrate
-  // intentionally does not double-log to console.
+  // P32 Fas A: `requestKind` carried on `OrchestrationInput` for *future*
+  // branching in `deriveBuildSpec()`. Today it is logged at the call-site
+  // (devLog `request.kind.classified`) and does **not** alter the pipeline —
+  // see `docs/plans/active/P32-request-type-taxonomy.md` (Fas B is the step
+  // that wires it into BuildSpec). Multiple audit-rounds have flagged the
+  // apparent disconnect; keep the field + this explicit note until Fas B
+  // lands so the intent of the dead-looking signal is documented in code.
 
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
@@ -415,11 +475,20 @@ export async function resolveOrchestrationBase(
     ...getPromptDrivenExampleNames(intentSourcePrompt),
   ];
   const uniqueRefNames = [...new Set(componentRefNames)];
-  const localRefs = loadShadcnExamples(uniqueRefNames);
-  const officialRefsPromise = fetchMissingRegistryExamples(uniqueRefNames, localRefs)
-    .then((fetched) => [...localRefs, ...fetched])
-    .catch(() => localRefs);
-  const communityRefsPromise = fetchCommunityBlocks(capabilities, prompt).catch(() => []);
+  const localRefs = simpleWebsitePath ? [] : loadShadcnExamples(uniqueRefNames);
+  const officialRefsPromise = simpleWebsitePath
+    ? Promise.resolve<ComponentReference[]>([])
+    : fetchMissingRegistryExamples(uniqueRefNames, localRefs)
+        .then((fetched) => [...localRefs, ...fetched])
+        .catch(() => localRefs);
+  // Use intentSourcePrompt (same clean source that drives capability/scaffold
+  // signals) instead of the wrapped `prompt` — otherwise file-context-wrapping
+  // in optimizedMessage would poison `detectSectionTypes` and make us fetch
+  // community blocks based on historical file contents instead of the user's
+  // actual intent for this turn.
+  const communityRefsPromise = simpleWebsitePath
+    ? Promise.resolve<ComponentReference[]>([])
+    : fetchCommunityBlocks(capabilities, intentSourcePrompt).catch(() => []);
   let officialRefs: ComponentReference[] = localRefs;
   let communityRefs: ComponentReference[] = [];
   let resolvedReferenceFetches = false;
@@ -510,7 +579,7 @@ export async function resolveOrchestrationBase(
     const knownIds = new Set(getScaffoldIds().map((id) => id.toLowerCase()));
     if (!knownIds.has(briefNomNorm)) {
       console.info("[orchestrate] scaffold_unknown_brief_nomination", {
-        mode: input.generationMode ?? "init",
+        mode: resolvedMode,
         briefNominated: briefScaffoldNom!.id,
         briefConfidence: briefScaffoldNom!.confidence ?? null,
         finalPick: resolvedScaffold!.id,
@@ -531,7 +600,7 @@ export async function resolveOrchestrationBase(
           ? "picker_default_low_brief_confidence"
           : "picker_override";
       console.info("[orchestrate] scaffold_drift", {
-        mode: input.generationMode ?? "init",
+        mode: resolvedMode,
         briefNominated: briefScaffoldNom!.id,
         briefConfidence: briefConfidenceValue,
         finalPick: resolvedScaffold!.id,
@@ -546,23 +615,24 @@ export async function resolveOrchestrationBase(
     [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
   }
 
-  // P26: build_intent_promoted (website -> app) must not fire on follow-ups
-  // when the user already has a persisted non-app scaffold. A bug-fix prompt
-  // that happens to land on `app-shell` via keyword fallback would otherwise
-  // permanently flip the entire project's intent, route plan and BuildSpec
-  // policy. Init runs and explicit clear-redesign follow-ups still promote.
-  const wouldPromote =
-    buildIntent === "website" &&
-    scaffoldMode === "auto" &&
-    isAppScaffold(resolvedScaffold?.id) &&
-    scaffoldSelection.selectionConfidence !== "low";
+  // P26 (OMTAG Fas 2·A guard): `build_intent_promoted` (website -> app) must
+  // not fire on follow-ups when the user already has a persisted non-app
+  // scaffold. A bug-fix prompt that happens to land on `app-shell` via
+  // keyword fallback would otherwise permanently flip the entire project's
+  // intent, route plan and BuildSpec policy. Pure helper below so the
+  // decision is unit-testable in isolation.
+  const intentPromotionDecision = resolveBuildIntentPromotion({
+    buildIntent,
+    scaffoldMode,
+    resolvedScaffoldId: resolvedScaffold?.id ?? null,
+    selectionConfidence: scaffoldSelection.selectionConfidence ?? null,
+    resolvedMode,
+    persistedScaffoldId,
+    ignorePersistedScaffoldForMatch,
+  });
   const intentPromotionBlockedForFollowUp =
-    wouldPromote &&
-    resolvedMode === "followUp" &&
-    !!persistedScaffoldId &&
-    !ignorePersistedScaffoldForMatch &&
-    !isAppScaffold(persistedScaffoldId);
-  const intentPromoted = wouldPromote && !intentPromotionBlockedForFollowUp;
+    intentPromotionDecision.blockedForFollowUp;
+  const intentPromoted = intentPromotionDecision.promoted;
   const effectiveBuildIntent: BuildIntent = intentPromoted ? "app" : buildIntent;
 
   if (intentPromotionBlockedForFollowUp) {
@@ -628,8 +698,10 @@ export async function resolveOrchestrationBase(
     preGenerationContracts,
     promptStrategyMeta,
     capabilities,
+    brief,
     isFirstCodeGeneration: input.isFirstCodeGeneration,
     existingShellRoutePaths,
+    scaffoldUnlockedForMatch: ignorePersistedScaffoldForMatch,
     previewPolicyOverride:
       input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
     // Q5a (2026-04-21): scale token budgets based on the resolved
@@ -657,8 +729,12 @@ export async function resolveOrchestrationBase(
     const scaffoldBudgetChars =
       buildSpec.tokenBudgets.scaffoldChars ??
       estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
+    const promptScaffoldBudgetChars =
+      resolvedSerializeMode === "inspirational"
+        ? Math.min(scaffoldBudgetChars, 10_000)
+        : scaffoldBudgetChars;
     scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, resolvedSerializeMode, {
-      maxChars: scaffoldBudgetChars,
+      maxChars: promptScaffoldBudgetChars,
       contextPolicy: buildSpec.contextPolicy,
       routePlan,
       capabilities,
@@ -670,36 +746,10 @@ export async function resolveOrchestrationBase(
   // pipeline is gated by FEATURES.useDossierPipeline so it can be disabled
   // per environment if the dossier pool is unhealthy.
   let dossierSelection: DossierSelectionResult | null = null;
-  if (FEATURES.useDossierPipeline) {
+  if (FEATURES.useDossierPipeline && !simpleWebsitePath) {
     try {
-      // P26: bridge inferred capabilities to dossier capability ids so
-      // dossiers trigger even when brief-LLM did not explicitly mark them.
-      // Currently: needs3D -> "visual-3d" (covers Three Fiber dossier).
-      // Adds capability to brief.requestedCapabilities; safe because
-      // selectDossiersForRequest just looks up dossier ids by capability.
-      const inferredCapabilityIds: string[] = [];
-      if (capabilities.needs3D) inferredCapabilityIds.push("visual-3d");
-      if (capabilities.needsParallax) {
-        // Both parallax dossiers are independently useful — selectDossiersForRequest
-        // picks one per capability, so listing both means we get the right one
-        // when the prompt mentions just one direction (scroll vs pointer) and
-        // both when the prompt is unspecific.
-        inferredCapabilityIds.push("parallax-scroll", "parallax-pointer");
-      }
-      if (capabilities.needsPayments) inferredCapabilityIds.push("payments");
-      // Audit D 2026-04-27: capability-inference RULES detect 18 cap-keys but
-      // only 3 had a dossier bridge. The 3 below have a 1:1 dossier-capability
-      // match in `data/dossiers/_index/capability-map.json`, so adding a
-      // bridge is safe — `selectDossiersForRequest` deduplicates against
-      // brief + caller-provided ids and picks at most one dossier per
-      // capability. Wider cap-keys without 1:1 dossiers (needsForms,
-      // needsCharts, needsDatabase, needsAppShell, needsEcommerce,
-      // needsPremiumVisuals, needsCalendar, needsThemeToggle, needsDataUI,
-      // needsMotion) are intentionally not bridged here — those map to
-      // scaffold/system-prompt concerns, not single dossiers.
-      if (capabilities.needsAuth) inferredCapabilityIds.push("auth");
-      if (capabilities.needsCarousel) inferredCapabilityIds.push("carousel");
-      if (capabilities.needsCommandSearch) inferredCapabilityIds.push("command-search");
+      const inferredCapabilityIds =
+        resolveDossierCapabilitiesFromInferredCapabilities(capabilities);
       const briefCapsRaw = (brief as { requestedCapabilities?: unknown } | null | undefined)
         ?.requestedCapabilities;
       const briefCapsArray = Array.isArray(briefCapsRaw)
@@ -713,13 +763,18 @@ export async function resolveOrchestrationBase(
       const callerProvidedCapabilityIds = (input.requestedDossierCapabilities ?? [])
         .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
         .map((c) => c.trim().toLowerCase());
-      const mergedCaps = Array.from(
+      const mergedCapsRaw = Array.from(
         new Set([
           ...briefCapsArray.map((c) => c.toLowerCase()),
           ...inferredCapabilityIds,
           ...callerProvidedCapabilityIds,
         ]),
       );
+      const mergedCaps = filterDossierCapabilitiesForPrompt({
+        capabilities: mergedCapsRaw,
+        prompt: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
+        previewPolicy: buildSpec.previewPolicy,
+      });
       dossierSelection = selectDossiersForRequest({
         brief,
         requestedCapabilities: mergedCaps,
@@ -731,6 +786,7 @@ export async function resolveOrchestrationBase(
           byCapability: dossierSelection.byCapability,
           inferredCapabilityBridge: inferredCapabilityIds,
           callerProvidedCapabilities: callerProvidedCapabilityIds,
+          filteredCapabilities: mergedCapsRaw.filter((cap) => !mergedCaps.includes(cap)),
           requestedCapabilityTiers: input.requestedCapabilityTiers ?? null,
         });
       }
@@ -875,12 +931,17 @@ export async function finalizeOrchestrationPrompts(
     customInstructions,
     userPrompt: input.prompt,
     generationMode: resolvedMode,
+    followUpIntent: input.followUpIntent,
     sessionSeed: input.sessionSeed,
     chatId: input.chatId ?? null,
     componentReferences: base.componentReferences,
     resolvedVariant,
     dossierSelection: base.dossierSelection,
-    buildOut: input.buildOut ?? null,
+    dossierPromptContext: {
+      generationMode: resolvedMode,
+      requestedCapabilityTiers: base.requestedCapabilityTiers ?? null,
+      previousFilePaths: input.previousFilePaths ?? null,
+    },
     capabilityModifyHint: base.capabilityModifyHint,
   };
 

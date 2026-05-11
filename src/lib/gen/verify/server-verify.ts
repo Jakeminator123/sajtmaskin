@@ -23,10 +23,22 @@ import {
   markVersionSupersededByRepair,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
+import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { emit as emitBusEvent } from "@/lib/logging/event-bus";
+import { devLogAppend } from "@/lib/logging/devLog";
+import { warnLog } from "@/lib/utils/debug";
+import {
+  partitionGeneratedFilesForProtectedPaths,
+  reinjectProtectedPathsFromFallback,
+} from "@/lib/gen/scaffolds/protected-paths";
+// Side-effect imports: wire default subscribers (devLog-mirror + DB
+// sink) so every `version.verifier.done`/`version.build.error` emit
+// below reaches both the legacy surfaces and the UI projection.
+import "@/lib/logging/event-bus-subscribers";
+import "@/lib/logging/event-bus-error-log-sink";
 import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
 import {
   isQualityGateConfigured,
@@ -35,9 +47,13 @@ import {
   runQualityGateOnExportable,
   shouldPromoteAfterRepair,
 } from "./preview-quality-gate";
-import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
-import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
+import {
+  LLM_FIXER_RETRY_TIMEOUT_MS,
+  LLM_FIXER_TIMEOUT_MS,
+  SERVER_REPAIR_MAX_PASSES,
+} from "@/lib/gen/defaults";
 import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
@@ -59,10 +75,6 @@ export function isServerVerifyEligible(versionId: string): boolean {
   if (!isQualityGateConfigured()) return false;
   if (inflight.has(versionId)) return false;
   return true;
-}
-
-export function isServerVerifyInFlight(versionId: string): boolean {
-  return inflight.has(versionId);
 }
 
 async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
@@ -134,21 +146,38 @@ export async function triggerServerVerification(params: {
       },
     });
 
+    // OMTAG-06: emit `version.verifier.done` as the canonical outcome
+    // signal. The DB sink subscriber (see `event-bus-error-log-sink.ts`)
+    // still persists the legacy `engine_version_error_logs` row via the
+    // same payload, so no downstream reader breaks.
+    const qualityGateMeta = buildServerVerifyQualityGateMeta({
+      passed,
+      results: gateResult.results,
+      verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
+      firstFailureCheck: gateResult.firstFailureCheck,
+      jobStartedAt: gateResult.jobStartedAt,
+      jobFinishedAt: gateResult.jobFinishedAt,
+      visualQA: visualQA ? compactVisualQAForQualityGateLog(visualQA) : undefined,
+    });
+    emitBusEvent({
+      t: "version.verifier.done",
+      versionId,
+      chatId,
+      outcome: passed ? "passed" : "failed",
+      blocked: !passed,
+      findings: passed
+        ? []
+        : gateResult.results
+            .filter((r) => !r.passed)
+            .map((r) => ({ id: r.check, detail: r.output?.slice(0, 200) ?? "" })),
+    });
     await createEngineVersionErrorLogs([{
       chatId,
       versionId,
       level: passed ? "info" : "error",
       category: "preflight:quality-gate",
       message: passed ? "Server verify passed." : "Server verify failed.",
-      meta: buildServerVerifyQualityGateMeta({
-        passed,
-        results: gateResult.results,
-        verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
-        firstFailureCheck: gateResult.firstFailureCheck,
-        jobStartedAt: gateResult.jobStartedAt,
-        jobFinishedAt: gateResult.jobFinishedAt,
-        visualQA: visualQA ? compactVisualQAForQualityGateLog(visualQA) : undefined,
-      }),
+      meta: qualityGateMeta,
     }]).catch((err) => {
       console.warn("[server-verify] Failed to persist quality gate summary log:", err);
     });
@@ -168,6 +197,16 @@ export async function triggerServerVerification(params: {
             "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
           meta: { serverOwned: true, diagnosticOnly: true },
         }]).catch(() => null);
+        // 2026-04-23 (showcase-bug rootfix, fas D2): terminal-state resolve.
+        // Since runner.ts no longer pre-commits `failed` for verifier-only
+        // blocking, server-verify is the authority that must set terminal
+        // state. A verifier-LLM/real-build mismatch (verifier flagged, tsc
+        // passed) still disallows promotion, so resolve to `failed` with a
+        // summary that distinguishes this case from a real build failure.
+        await failVersionVerification(
+          versionId,
+          "Verifier-LLM flagged blocking findings; server-verify gate passed. Manual review or repair required.",
+        ).catch(() => null);
         return;
       }
       await promoteVersion(versionId, "Automatic server verification passed.").catch(() => null);
@@ -206,6 +245,17 @@ export async function triggerServerVerification(params: {
           failedChecks: failedOutputs.map((f) => f.check),
         },
       }]).catch(() => null);
+      // 2026-04-23 (showcase-bug rootfix, fas D2): terminal-state resolve.
+      // See matching comment in the `passed` branch above. Here verifier-LLM
+      // and server-verify both agree the version is broken, so resolve to
+      // `failed` cleanly. `triggerBuildErrorRepair` can still flip this to
+      // `repair_available` later when the VM emits a build-error SSE.
+      await failVersionVerification(
+        versionId,
+        `Verifier-LLM blockers + server-verify gate failed (${failedOutputs
+          .map((f) => f.check)
+          .join(", ")}).`,
+      ).catch(() => null);
       return;
     }
 
@@ -239,7 +289,7 @@ export async function triggerServerVerification(params: {
  * there too. Explicit `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1|true|false`
  * always wins over the default.
  */
-export function isAutoRepairBuildErrorEnabled(): boolean {
+function isAutoRepairBuildErrorEnabled(): boolean {
   const explicit = process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR?.trim().toLowerCase();
   if (explicit === "1" || explicit === "true" || explicit === "on" || explicit === "yes") {
     return true;
@@ -291,6 +341,21 @@ export async function triggerBuildErrorRepair(params: {
   const { chatId, versionId, buildError, onRepairAvailable } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
+  // OMTAG-06: surface the preview-VM build error as a first-class bus
+  // event. The projection will flip `phase` to "failed" until a clean
+  // repair pass lands and emits `version.saved` without blockers.
+  emitBusEvent({
+    t: "version.build.error",
+    versionId,
+    chatId,
+    error: {
+      stage: buildError.stage,
+      message: buildError.message,
+      failureCode: buildError.failureCode ?? null,
+    },
+    level: "error",
+    category: "preview-vm",
+  });
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) return;
     const codeFiles = await getVersionFiles(versionId);
@@ -360,7 +425,48 @@ async function tryServerRepairLoop(params: {
   const initialContent = serializeCodeProject(exportable);
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
-    const repairedFiles = parseCodeProject(projectContent).files;
+    const rawRepairedFiles = parseCodeProject(projectContent).files;
+    // Block the server-repair bypass of SCAFFOLD_PROTECTED_PATHS: even if
+    // the LLM regenerates `app/api/placeholder/route.ts` (the JSX-in-`.ts`
+    // failure mode that motivated the protected set) and the quality gate
+    // happens to pass, never persist the LLM version. Re-inject the path
+    // from `codeFiles` (the pre-repair persisted version) which already
+    // carries the canonical scaffold/previous content. See
+    // `@/lib/gen/scaffolds/protected-paths` for context.
+    const protectedPartition =
+      partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
+    const reinjection = reinjectProtectedPathsFromFallback({
+      kept: protectedPartition.kept,
+      droppedPaths: protectedPartition.dropped.map((f) => f.path),
+      fallbackFiles: codeFiles,
+    });
+    const repairedFiles = reinjection.files;
+    if (protectedPartition.dropped.length > 0) {
+      const droppedPaths = protectedPartition.dropped.map((f) => f.path);
+      warnLog(
+        "engine",
+        "Scaffold-protected paths emitted by repair LLM — dropped from saveRepairedFiles input",
+        {
+          chatId,
+          versionId,
+          droppedPaths,
+          reinjected: reinjection.reinjected,
+          stillMissing: reinjection.stillMissing,
+          branch: "server-repair",
+          method,
+        },
+      );
+      devLogAppend("in-progress", {
+        type: "scaffold-protected-overwrite-blocked",
+        chatId,
+        versionId,
+        branch: "server-repair",
+        method,
+        droppedPaths,
+        reinjected: reinjection.reinjected,
+        stillMissing: reinjection.stillMissing,
+      });
+    }
     const exportableForGate = await buildExportableProject(repairedFiles);
     const decision = await shouldPromoteAfterRepair({
       chatId,
@@ -446,12 +552,14 @@ async function tryServerRepairLoop(params: {
 
   const originatingChat = await getChat(chatId).catch(() => null);
   const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
-  const fixerModel = originatingTier
-    ? resolvePhaseModel(originatingTier, "fixer").modelId
-    : undefined;
-  const fixerThinking = originatingTier
-    ? resolvePhaseThinking(originatingTier, "fixer")
-    : null;
+  // Bug 01#3 (2026-04-22 audit): fallback till default-tier (pro) när chat-
+  // modellen inte mappar till en känd canonical tier. Tidigare blev fixerModel
+  // `undefined` och runLlmFixer använde sin interna default — det bröt
+  // förutsägbarheten i manifestens phaseRouting (reparation och fas 2 kunde
+  // köra på olika tiers utan att det syntes i logs).
+  const fixerTier = originatingTier ?? DEFAULT_MODEL_ID;
+  const fixerModel = resolvePhaseModel(fixerTier, "fixer").modelId;
+  const fixerThinking = resolvePhaseThinking(fixerTier, "fixer");
 
   const repairLogContext = buildRepairLogContextLines({
     failedOutputs,
@@ -470,7 +578,8 @@ async function tryServerRepairLoop(params: {
     failedOutputs,
     contextLines: repairLogContext.contextLines,
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,
-    llmTimeoutMs: 60_000,
+    llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
+    llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
     fixerModel,
     fixerThinking: fixerThinking?.thinking,
     fixerReasoningEffort: fixerThinking?.reasoningEffort,

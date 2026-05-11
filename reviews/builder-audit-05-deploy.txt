@@ -1,0 +1,42 @@
+Här är granskningen. **Obs:** Jag får inte skapa eller skriva filer i det här läget (read-only / subagent). Kopiera texten nedan till `reviews/builder-audit-05-deploy.txt` lokalt, eller byt till Agent-läge om du vill att filen skapas automatiskt.
+
+**Faktakorrigering mot din lista:** `DeployDialog.tsx` och `DeploymentStatusDialog` finns inte i repot. Publiceringsdialogen heter `DeployNameDialog.tsx`. Byggstatus visas i `BuilderHeader` (knappar ”Bygger…”, ”Publicerad”, ”Publicera”) via `useDeploymentStatus` + SSE, inte via en separat statusdialog i `BuilderShellContent.tsx`.
+
+---
+
+```
+builder-audit-05 — Publisering & domän (READ-ONLY)
+
+Sammanfattning statusflöde: activeDeploymentId sätts från POST /api/v0/deployments → useDeploymentStatus prenumererar på GET /api/v0/deployments/:id/events (SSE, ev. Redis + Vercel-poll). Status/url uppdateras tills ready/error/cancelled. Risk: efter POST är isDeploying=false medan SSE fortfarande kan vara "building" — canDeploy blir true igen så användaren kan starta ny deploy parallellt (ingen server-side “lås” i UI).
+
+API: POST /api/v0/deployments — prepareCredits (deploy.production/preview) före arbete; vid fel returneras prepared.response; vid lyckad Vercel-skapelse commit(). Env: 409 DEPLOY_MISSING_ENV. Ingen engineChatBaseUrl för själva deploy; error-log/normalize går mot engine.
+
+[4] Publicera (header) — onDeployProduction → handleOpenDeployDialog → öppnar DeployNameDialog. Ingen API. Gating: disabled om !canDeploy || isBusy || isDeploying; tooltip deployDisabledReason. E2E: ja som “öppna dialog”. Ingen credit här.
+
+[4] Publicera (DeployNameDialog bekräfta) — handleConfirmDeploy → ev. updateProject (PUT /api/projects/:id) → deployActiveVersionToVercel → POST /api/v0/deployments (JSON: chatId, versionId, projectId, target production, imageStrategy, projectName). Return: id, url, vercelProjectId, status… Fel: toast + error-log till engine. deployReadiness.canDeploy kollas i deployActiveVersionToVercel. Credit: server prepareCredits. Retry: nej (manuell om).
+
+[3] Bygger… / Publicerad (header) — rendering från deploymentStatus + deploymentUrl (SSE). pending/error utan särskild knapp → faller tillbaka till Publicera (pending kan kort overlappa med färdig POST). E2E: oftast ja. Ingen toast för error i header (bara status i hook).
+
+[3] Domän (header) — onDomainSearch → DomainManager om lastDeployVercelProjectId annars DomainSearchDialog. Gating: canManageDomain (chat+version, ej busy). Ingen credit.
+
+[3] Sök (DomainSearchDialog / DomainManager steg search) — POST /api/domains/check → results[]. DomainSearchDialog: toast vid fel. DomainManager: console.error, tom lista, ingen toast.
+
+[4] Koppla domän (DomainManager) — POST /api/domains/link → ev. POST /api/domains/save (deploymentId). verify-steg: POST /api/domains/verify var 10s tills verified. Fel: linkError i UI. Retry: manuell “Verifiera”, polling.
+
+Verifikation mot spec: DeployDialog.tsx / DeploymentStatusDialog / DomainManagerDialog.tsx — saknas; använd DeployNameDialog + DomainManager.
+
+Betyg skala 1–5 per huvudknapp: Publicera header 4, dialogbekräftelse 4, statusknappar 3, Domän 3, domänsök 3, koppla 4.
+```
+
+**Källfiler (absoluta sökvägar):**  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/app/builder/useBuilderDeployActions.ts`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/app/builder/BuilderShellContent.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/builder/BuilderHeader.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/builder/DeployNameDialog.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/builder/DomainSearchDialog.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/builder/DomainManager.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/lib/hooks/useDeploymentStatus.ts`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/app/api/v0/deployments/route.ts`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/app/api/v0/deployments/[deploymentId]/events/route.ts`
+
+[REDACTED]

@@ -83,6 +83,26 @@ describe("dep-version-validator", () => {
     expect(result.corrections).toHaveLength(0);
   });
 
+  it("resolves latest placeholders to ^latest registry version", async () => {
+    const pkg = uniq();
+    mockNpmFetch({
+      [pkg]: { latest: "2.3.4", versions: ["2.3.4"] },
+    });
+
+    const result = await validateAndUpgradeDeps({
+      dependencies: { [pkg]: "latest" },
+    });
+
+    expect(result.dependencies[pkg]).toBe("^2.3.4");
+    expect(result.corrections).toHaveLength(1);
+    expect(result.corrections[0]).toMatchObject({
+      pkg,
+      from: "latest",
+      to: "^2.3.4",
+      field: "dependencies",
+    });
+  });
+
   it("does not change spec when registry is unreachable", async () => {
     const pkg = uniq();
     mockNpmFetch({

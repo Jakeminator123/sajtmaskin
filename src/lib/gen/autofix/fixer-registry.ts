@@ -12,8 +12,8 @@
  *   syntax validator, jsx checker, dep version validator.
  * - `llm-*` — LLM-backed repair. Costs reasoning tokens. Triggered when a
  *   validator failed.
- * - `verifier-*` — verifier-pass + verifier-fixer (optional re-verify when
- *   `FEATURES.verifierRerunAfterFix` is on).
+ * - `verifier-*` — verifier-pass + verifier-fixer (always re-verifies once
+ *   after the fixer rewrites a file; see `verifier-phase.ts`).
  * - `repair-loop-*` — server-side repair loop (`repair-loop.ts`).
  *
  * Backoffice (`backoffice/pages/fixer_registry.py`) renders this list as a
@@ -92,7 +92,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "use-client-fixer",
     category: "mechanical-misc",
-    sourcePath: "src/lib/gen/autofix/use-client-fixer.ts",
+    sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Missing `\"use client\"` directive on client components",
     triggers: ["client hooks", "event handlers", "browser APIs", "framer-motion import"],
     status: "active",
@@ -161,7 +161,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     triggers: ["import {X} where X is only used as a type"],
     status: "active",
     ownerPhase: "pre-syntax",
-    notes: "Documented in docs/plans/active/P31-feature-runtime-envs-and-f3-toggle.md.",
+    notes: "Documented in docs/plans/avklarat/P31-feature-runtime-envs-and-f3-toggle.md.",
   },
   {
     id: "next-image-import-fixer",
@@ -283,7 +283,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "tailwind-font-arbitrary-fixer",
     category: "mechanical-tailwind",
-    sourcePath: "src/lib/gen/autofix/rules/tailwind-font-arbitrary-fixer.ts",
+    sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Unsupported font-[family-name:var(--x)] arbitrary class",
     triggers: ["font-[family-name:var(--…)] in className"],
     status: "active",
@@ -402,7 +402,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
   {
     id: "syntax-validator",
     category: "validator-syntax",
-    sourcePath: "src/lib/gen/autofix/syntax-validator.ts",
+    sourcePath: "src/lib/gen/autofix/pipeline.ts",
     targetFailureMode: "Esbuild transform errors per file",
     triggers: ["esbuild transform fail"],
     status: "active",
@@ -459,8 +459,8 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     ownerPhase: "verifier",
     telemetryCounter: 'sajtmaskin_fixer_call_total{phase="verifier"}',
     notes:
-      "When FEATURES.verifierRerunAfterFix=true the verifier re-runs once " +
-      "after this fixer pass to confirm the fix actually addressed the finding.",
+      "The verifier re-runs once after this fixer pass to confirm the fix " +
+      "actually addressed the finding (unconditional since 2026-04-28).",
   },
   {
     id: "llm-partial-file-repair",

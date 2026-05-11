@@ -1,6 +1,6 @@
 # AI-modeller — hur du konfigurerar Sajtmaskin
 
-Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/` + `codegen-static-prompt.json`: **innehållet i repot styr beteendet**, så du kan ändra standardmodeller och tokenbudgetar utan att leta genom hela TypeScript-trädet.
+Det här biblioteket är tänkt att fungera ungefär som `config/prompt-core/` + `codegen-core-manifest.json`: **innehållet i repot styr beteendet**, så du kan ändra standardmodeller och tokenbudgetar utan att leta genom hela TypeScript-trädet.
 
 ## Var börjar jag?
 
@@ -33,7 +33,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
 
 - **Dokumentation om modeller och prompts:** Länkar under `manifest.docLinks` med `appliesTo: "direct_provider_api"` avser **direktanrop** till OpenAI respektive Anthropic (samma tänk som officiella SDK:er mot standard endpoint). Läs även `documentationDirectApiNote` i `manifest.json` och [00-overview.md](00-overview.md).
 - **Miljövariabler vinner alltid** över värden i `manifest.json`. Se `src/lib/gen/defaults.ts` och `src/lib/models/catalog.ts`.
-- När du ändrar **tillåtna assist-modeller** i manifestet ska runtime och UI läsa samma källa. `promptAssist.ts` och builder-defaults ska inte bära en separat osynkad allowlist.
+- När du ändrar **tillåtna assist-modeller** i manifestet ska runtime och UI läsa samma källa. `src/lib/builder/prompt-assist/` (paketet, post-Omtag 03) och builder-defaults ska inte bära en separat osynkad allowlist.
 - `phaseRouting.defaultByTier` använder sentinel-värdet **`selected_build_model`** för att följa vald byggprofil. Det gör att planner/generator/fixer kan fortsätta följa buildprofilen även om du byter `buildProfiles.defaults.*`.
 - `phaseRouting.thinkingByTier` styr om varje fas **får** använda provider-reasoning och vilken `reasoningEffort` som skickas. Planner/generator kräver fortfarande att builderns vanliga thinking-toggle är på; fixer/verifier/server-repair använder fasinställningen direkt.
 - `repairPolicies` styr hur aggressivt systemet försöker laga fel efter generering. Höj varsamt: fler pass ger dyrare och långsammare repair-kedjor.
@@ -45,4 +45,4 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
 
 ## Anthropic-modell-ID:n (punkt vs bindestreck)
 
-I UI och interna strängar används ofta formen `claude-sonnet-4.6`. Anthropic API förväntar sig i praktiken **`4-6`** i slutet av modellnamnet. Koden normaliserar med regex (`(\d+)\.(\d+)$` → `$1-$2`) i `src/lib/gen/models.ts` och `src/lib/builder/gateway-policy.ts`. Se `10-own-engine.md`.
+I UI och interna strängar används ofta formen `claude-sonnet-4.6`. Anthropic API förväntar sig i praktiken **`4-6`** i slutet av modellnamnet. Koden normaliserar med regex (`(\d+)\.(\d+)$` → `$1-$2`) i `src/lib/gen/models.ts` och `src/lib/builder/direct-model.ts`. Se `10-own-engine.md`.

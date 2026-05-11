@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildZipBufferFromEngineVersion } from "@/lib/gen/export/engine-version-zip";
 import JSZip from "jszip";
 import { extractContent } from "@/lib/backoffice/content-extractor";
 import { generateBackofficeFiles } from "@/lib/backoffice/template-generator";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { withRateLimit } from "@/lib/rateLimit";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
+import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
+import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 
 /**
  * Download endpoint with optional backoffice injection
@@ -16,7 +18,31 @@ import { sanitizeProjectPath } from "@/lib/utils/path-utils";
  * POST body: { chatId, versionId, includeBackoffice, password }
  */
 
+async function buildZipBufferFromEngineVersion(
+  request: NextRequest,
+  chatId: string,
+  versionId: string,
+): Promise<ArrayBuffer | null> {
+  const scopedVersion = await getEngineVersionForChatByIdForRequest(request, chatId, versionId);
+  if (!scopedVersion) {
+    return null;
+  }
+  const files = parseCodeFilesFromFilesJson(scopedVersion.version.files_json);
+  if (!files || files.length === 0) {
+    return null;
+  }
+  const completeProject = await buildExportableProject(files);
+  const zip = new JSZip();
+  for (const file of completeProject) {
+    const path = typeof file.path === "string" ? file.path.trim() : "";
+    if (!path || typeof file.content !== "string") continue;
+    zip.file(path, file.content);
+  }
+  return zip.generateAsync({ type: "arraybuffer" });
+}
+
 async function processDownload(
+  request: NextRequest,
   chatId: string,
   versionId: string,
   includeBackoffice: boolean,
@@ -25,7 +51,7 @@ async function processDownload(
   try {
     let zipBuffer: ArrayBuffer | null;
     try {
-      zipBuffer = await buildZipBufferFromEngineVersion(chatId, versionId);
+      zipBuffer = await buildZipBufferFromEngineVersion(request, chatId, versionId);
     } catch (downloadError) {
       const errorMessage = downloadError instanceof Error ? downloadError.message : "Okänt fel";
       console.error("[API/download] Failed to build ZIP:", errorMessage);
@@ -158,7 +184,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return processDownload(chatId, versionId, !!includeBackoffice, password);
+      return processDownload(request, chatId, versionId, !!includeBackoffice, password);
     } catch (error) {
       console.error("[API/download] POST error:", error);
       return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
@@ -189,6 +215,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return processDownload(chatId, versionId, includeBackoffice, password || undefined);
+    return processDownload(request, chatId, versionId, includeBackoffice, password || undefined);
   });
 }

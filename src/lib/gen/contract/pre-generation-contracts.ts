@@ -132,7 +132,9 @@ function pushIntegration(target: PlanIntegrationContract[], nextIntegration: Pla
 }
 
 function mentionsDataPersistence(corpus: string, capabilities: InferredCapabilities): boolean {
-  if (capabilities.needsDatabase || capabilities.needsAuth || capabilities.needsEcommerce) return true;
+  // Do not treat `needsEcommerce` alone as persistence — storefront prompts often
+  // lack real DB intent; SQLite default belongs on explicit persistence signals.
+  if (capabilities.needsDatabase || capabilities.needsAuth) return true;
   if (/\b(database|databas|save|persist|storage|crm|member area|portal)\b/i.test(corpus)) return true;
   if (/\b(booking|calendar|submission|submissions|konto)\b/i.test(corpus)) {
     const hasExplicitBackendIntent = /\b(database|databas|backend|server|api route|persist|save to|store in)\b/i.test(corpus);
@@ -227,7 +229,8 @@ function applyDefaultStripePlaceholderWhenPaymentNeeded(
   envVars: PlanEnvVarContract[],
 ): void {
   const needsPayment =
-    capabilities.needsEcommerce || /\b(payment|checkout|billing|subscription|betalning|kassa)\b/i.test(corpus);
+    capabilities.needsPayments === true ||
+    /\b(payment|checkout|billing|subscription|betalning|kassa)\b/i.test(corpus);
   if (!needsPayment || contracts.paymentProvider) {
     return;
   }

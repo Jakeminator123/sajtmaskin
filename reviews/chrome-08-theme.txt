@@ -1,0 +1,17 @@
+Theme, tokens & dark mode (globals.css, tailwind.config.cjs, layout.tsx, builder sample)
+
+P1 — Duplicate :root in globals.css — 2/5 — Layered HSL tokens vs later unlayered oklch block; later wins override risk.
+
+P1 — HSL bridge vs oklch — 2/5 — tailwind maps hsl(var(--background)); if vars are oklch(), pairing may break — verify computed styles.
+
+P2 — @theme inline + animations — 4/5 — Variable-first, shimmer, chat-shadow-pulse.
+
+P2 — Tailwind v4 imports — 4/5 — shadcn, dark variant.
+
+Dark mode — 3/5 — darkMode: class; ThemeProvider forcedTheme="light" — dark disabled for users; builder dark: classes may be dead weight.
+
+Builder tokens vs hardcoded — 3/5 — Strong: bg-card, border-border, hsl(var(--primary)). Weak: emerald/amber/red/sky/slate status UIs.
+
+Category scores: globals coherence 2/5 | tailwind semantic mapping 4/5 | core chrome tokens 4/5 | secondary flows palette 2/5 | dark architecture vs product 3/5
+
+Follow-ups: merge duplicate :root; verify hsl(oklch) pairing; gate or strip dead dark: in builder if light-only persists.

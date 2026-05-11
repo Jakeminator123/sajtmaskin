@@ -1,0 +1,53 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 01-unit-core
+Date: 2026-05-01
+
+## Required Checks
+- CI: typecheck, lint, test:ci, baseline deps, build.
+- Stronger local: `npm run devtest`.
+- Run focused suites if manifest, orchestration, env, schemas, scaffolds, or dossiers change.
+
+## Existing Tests
+- Orchestrate/build-spec/contract tests.
+- Stream/finalize tests.
+- own-engine/generation golden tests.
+- Model routing/manifest tests.
+- Env/DB/crypto/project-env tests.
+- Chat schema and telemetry schema tests.
+- Scaffold/dossier validation commands.
+
+## Missing Coverage
+- Dedicated `src/lib/env.test.ts`.
+- Full Deep Brief unit coverage.
+- Broader Zod schema tests.
+- Model manifest parity can skip locally under env overrides.
+
+## Frontend Behaviors To Assert
+- Stream event handling.
+- Autofix/post-check wiring.
+- Init brief behavior.
+- Builder tooling units that touch generated outputs.
+
+## Exact LLM Implementation Instructions
+- Update tests in owning module before adding features.
+- If model manifest changes, update parity/phase routing expectations.
+- If orchestration changes, update snapshots intentionally.
+- Add dedicated env/schema tests for new contracts.
+
+## Failure Triage Guide
+- Manifest parity red: catalog/manifest drift.
+- Phase routing red: manifest overrides.
+- Health schemas red: strict schema drift.
+- Scaffold/dossier checks red: data contract drift.
+
+## Exact Commands
+- `npm run test:ci`
+- targeted Vitest for gen/model/env/chat schema suites
+- `npm run scaffolds:validate`
+- `npm run dossiers:validate-all`
+- `npm run devtest`
+
+## Pass Criteria
+- `test:ci` exits 0.
+- Manifest/model tests do not skip unexpectedly.
+- Scaffold/dossier gates pass if data changed.
+- `devtest` passes for merge-heavy changes.

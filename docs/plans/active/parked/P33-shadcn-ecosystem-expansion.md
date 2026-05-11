@@ -1,6 +1,17 @@
+---
+id: P33
+status: paused
+created: 2026-04-21
+linear: null
+paused: 2026-04-23
+paused_by: OMTAG-2026-04-23
+---
+
 # P33 — shadcn-ekosystem-expansion
 
-**Status:** Förslag — väntar på agreement innan implementation.
+> **Paused 2026-04-23:** Parkerad per OMTAG-waven. Feature-breddning, inte kärnkonsolidering — vänta tills kvarvarande `orchestrate.ts`-split/settling är klar (`route-plan` är redan paket). Se [`../../avklarat/omtag-2026-04-23/meta/PARKED.md`](../../avklarat/omtag-2026-04-23/meta/PARKED.md).
+
+**Status:** Paused — väntar på agreement + kärnkonsolidering innan implementation.
 **Skapad:** 2026-04-21.
 **Triggad av:** SAJ-flödesrunda — användaren vill ha mer av shadcn-katalogen tillgängligt för codegen-LLM:en (idag ser den bara en delmängd) utan att bygga full MCP-integration.
 
@@ -26,7 +37,7 @@ Sajtmaskin har 4 lager för shadcn-integration idag:
 - **Ingen embedding-baserad retrieval** för shadcn-exempel — bara regex/keyword-mapping.
 - **`llms.txt`** ([https://ui.shadcn.com/llms.txt](https://ui.shadcn.com/llms.txt)) är ett strukturerat AI-index över shadcn — vi använder det inte som källa för synk.
 
-**MEN:** vi vill INTE bygga full shadcn-MCP idag (kräver runtime-tool-API i codegen-stream + sandbox + agent-loop). Det är en separat, större insats.
+**MEN:** vi vill INTE bygga full shadcn-MCP idag (kräver runtime-tool-API i codegen-stream + isolerad agent-loop). Det är en separat, större insats.
 
 ---
 
@@ -100,9 +111,9 @@ Output: `docs/reports/shadcn-coverage.md` med "X komponenter saknar exempel: tab
 
 ## Vad vi INTE gör i denna plan
 
-- ❌ Full shadcn-MCP-integration (kräver runtime-tool-API + sandbox + agent-loop) — separat större insats
+- ❌ Full shadcn-MCP-integration (kräver runtime-tool-API + isolerad agent-loop) — separat större insats
 - ❌ On-demand fetch av shadcn-komponenter under generering — för osäker timing/kostnad
-- ❌ Auto-install via shadcn CLI i prod-VM — kräver sandbox
+- ❌ Auto-install via shadcn CLI i prod-VM — kräver separat VM-/preview_host-beslut
 
 ---
 

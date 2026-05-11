@@ -1,0 +1,114 @@
+---
+description: Agentbrancher i delat working tree → använd git worktree, inte git checkout
+alwaysApply: true
+---
+
+# Agent worktree-isolation
+
+**Kärnregel:** Flera Cursor-agenter (cloud agent, background agent, subagent, parent agent) delar **samma lokala working tree** med användaren. `git checkout <branch>` på en branch som inte redan är HEAD **flyttar HEAD globalt** — användaren och andra agenter ser sin branch byta i statusbaren mitt i sitt arbete och förlorar context. Lös det med **`git worktree`**, inte genom att tävla om HEAD.
+
+## Symptom på överträdelse
+
+| Symptom | Trolig orsak |
+|---|---|
+| IDE-statusbar byter branch oväntat under användarens session | Annan agent gjorde `git checkout` |
+| `git reflog` visar `checkout: moving from master to <feature-branch>` du inte initierade | Samma |
+| `git stash list` har entry `On <annan-branch>: ...` du inte skapat | Annan agent stashade åt dig |
+| `npx tsc --noEmit` rapporterar `File ... not found` för fil som finns i annan branch | HEAD står på fel commit |
+| Två agenter rör samma fil i working tree med olika committed parents | Ingen worktree-isolering |
+
+## Förbjudet i delat working tree (default-läget)
+
+| Operation | Varför |
+|---|---|
+| `git checkout <branch>` mot icke-HEAD branch | Flyttar HEAD globalt |
+| `git switch <branch>` mot icke-HEAD branch | Samma |
+| `git reset --hard` mot annan ref än aktuell HEAD | Förstör annans WIP i working tree |
+| `git stash pop` utan att läsa `git stash list` först | Riskerar applicera fel stash på fel branch |
+| `git rebase`, `git merge --no-ff` mot annan branch utan worktree | Långkörande operation håller HEAD låst medan andra väntar |
+
+## Tillåtet (säkert i delat working tree)
+
+| Operation | Varför |
+|---|---|
+| Läsa filer, köra `tsc --noEmit` / `vitest` mot HEAD | Påverkar inte HEAD |
+| `git fetch`, `git log`, `git diff <ref1> <ref2>` | Read-only |
+| `git push origin <local-ref>:<remote-ref>` | Refspec-push beror inte på HEAD |
+| `git stash push -m "<tydligt-namn>" -- <files>` | Sparar isolerat, taggat |
+| `git cherry-pick <commit>` mot aktuell HEAD-branch när du äger den | Lokalt på din egen branch |
+| FF-merge in i din egen branch när du redan står på den | Ingen branch-switch |
+
+## Långkörande agentarbete: använd `git worktree`
+
+(`git worktree` = ytterligare arbetsmapp som pekar på samma `.git/`, men med egen HEAD)
+
+**Placering:** worktrees ska ligga bredvid huvudcheckouten under `C:\Users\jakem\dev\projects\`, inte under `C:\Users\jakem\.cursor\`. `.cursor` är Cursor intern state/cache och ger trasiga Windows-länkar för plan-/agentfiler utanför repo.
+
+```powershell
+# i huvudcheckouten (där användaren jobbar på master):
+
+# Skapa en ny branch från aktuell HEAD och öppna den i ett nytt worktree:
+git worktree add ..\sajtmaskin-feat-X -b feat/X-min-branch
+
+# Eller: öppna en redan existerande branch i ett nytt worktree:
+git worktree add ..\sajtmaskin-feat-X feat/X-min-branch
+
+Set-Location ..\sajtmaskin-feat-X
+# här kan du checkout/switch/commit/rebase fritt — egen HEAD, eget working tree
+# användarens huvudcheckout påverkas inte
+
+# när färdigt (efter merge eller PR):
+Set-Location ..\sajtmaskin
+git worktree remove ..\sajtmaskin-feat-X
+```
+
+`.cursor/README.md § Workspace` säger redan: *"om du medvetet skapar ett separat worktree för isolering, öppna bara den checkouten i sitt eget fönster och ta bort worktreet när det inte längre bär unikt arbete."* Den här regeln gör isoleringen **obligatorisk** för agenter som behöver mer än en read-only pass.
+
+## När du ändå måste merga annans branch in i master
+
+Om du måste göra merge-operationer i huvudcheckouten (kort fönster, ingen worktree tillgänglig), använd `update-ref` + refspec-push så **HEAD aldrig flyttas onödigt**:
+
+```bash
+git fetch
+git rev-parse refs/heads/master                  # snapshot före
+git rev-parse refs/remotes/origin/master          # verifiera synk
+
+# om FF-mergeable: uppdatera master-refen direkt utan att switcha
+git update-ref refs/heads/master <target-commit>
+
+# pusha med explicit refspec (HEAD spelar ingen roll)
+git push origin refs/heads/master:refs/heads/master
+```
+
+Vid cherry-pick eller icke-FF-merge: gör det i ett worktree, inte i huvudcheckouten.
+
+## Om du redan brutit regeln
+
+```
+1. STOP — ingen mer git-operation som rör annans WIP
+2. git stash push -u -m "rescue-<beskrivning>-<datum-tid>"   (skydda annans WIP)
+3. git checkout master                                       (acceptabelt sista steg)
+4. Rapportera till användaren:
+   - vilken branch HEAD låg på
+   - vilken stash du skapade (namn + innehåll)
+   - om någon ref blivit ändrad
+```
+
+## Vad användaren kan göra om HEAD driver under sessionen
+
+| Åtgärd | Effekt |
+|---|---|
+| `git checkout master` | Återställer din HEAD |
+| `git stash list` | Se vad agenten skyddat åt dig |
+| `git stash apply stash@{N}` (på rätt branch) | Återhämtar WIP — använd `apply` inte `pop` om du är osäker |
+| Säga till agenten: "kör i ett worktree" | Förhindrar att det händer igen |
+
+## Detekterbara nyckelfraser i agent-output
+
+Om dessa dyker upp i agentens loggar är det en träff för regeln:
+
+- "Switched to branch '<branch>'"
+- "Saved working directory and index state On <branch>: ..."
+- "checkout: moving from <X> to <Y>"
+
+Agenten ska då kontrollera om `<X>`/`<Y>` är användarens master eller annan agents branch innan nästa kommando.

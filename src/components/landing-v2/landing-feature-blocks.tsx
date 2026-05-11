@@ -110,7 +110,7 @@ export function FeatureModal({
           type="button"
           onClick={onClose}
           className="absolute top-4 right-4 z-30 w-9 h-9 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/30 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all cursor-pointer"
-          aria-label="St&auml;ng"
+          aria-label="Stäng"
         >
           <X className="w-4 h-4" />
         </button>

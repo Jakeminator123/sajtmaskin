@@ -100,7 +100,7 @@ describe("import-validator (SAJ-61 namespace + LucideIcon)", () => {
     );
     expect(
       result.fixes.some((f) =>
-        f.description.includes("type import for LucideIcon"),
+        f.description.includes("LucideIcon"),
       ),
     ).toBe(true);
   });
@@ -163,8 +163,94 @@ describe("import-validator (SAJ-61 namespace + LucideIcon)", () => {
     expect(result.code).toContain("LucideIcon");
     expect(
       result.fixes.some((f) =>
-        f.description.includes("type import for LucideIcon"),
+        f.description.includes("LucideIcon"),
       ),
     ).toBe(true);
+  });
+
+  it("regression: does not rewrite LucideIcon to a fallback runtime icon alias", () => {
+    const code = [
+      '"use client";',
+      'import { LucideIcon, Flame } from "lucide-react";',
+      "",
+      "type FeatureCard = {",
+      "  icon: LucideIcon;",
+      "  title: string;",
+      "};",
+      "",
+      'const cards: FeatureCard[] = [{ icon: Flame, title: "Grill" }];',
+      "",
+      "export default function HomePage() {",
+      "  return <Flame aria-hidden />;",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+
+    expect(result.code).toContain('import type { LucideIcon } from "lucide-react"');
+    expect(result.code).toContain('import { Flame } from "lucide-react"');
+    expect(result.code).not.toContain("Circle as LucideIcon");
+    expect(result.code).not.toContain('import { LucideIcon, Flame } from "lucide-react"');
+  });
+
+  it("regression: removes existing Circle as LucideIcon aliases before adding the type import", () => {
+    const code = [
+      '"use client";',
+      'import { Circle as LucideIcon, Flame } from "lucide-react";',
+      "",
+      "type FeatureCard = {",
+      "  icon: LucideIcon;",
+      "  title: string;",
+      "};",
+      "",
+      'const cards: FeatureCard[] = [{ icon: Flame, title: "Grill" }];',
+      "",
+      "export default function HomePage() {",
+      "  return <Flame aria-hidden />;",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+
+    expect(result.code).toContain('import type { LucideIcon } from "lucide-react"');
+    expect(result.code).toContain('import { Flame } from "lucide-react"');
+    expect(result.code).not.toContain("Circle as LucideIcon");
+  });
+
+  it("preserves valid lucide runtime icons instead of aliasing them to Circle", () => {
+    const code = [
+      '"use client";',
+      'import { Cpu, Gamepad2, Sandwich } from "lucide-react";',
+      "",
+      "export default function IconRow() {",
+      "  return <Cpu aria-hidden />;",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+
+    expect(result.code).toContain('import { Cpu, Gamepad2, Sandwich } from "lucide-react"');
+    expect(result.code).not.toContain("Circle as Cpu");
+    expect(result.code).not.toContain("Circle as Gamepad2");
+    expect(result.code).not.toContain("Circle as Sandwich");
+  });
+
+  it("moves lucide type-only exports from value imports to type imports", () => {
+    const code = [
+      '"use client";',
+      'import { LucideProps, Flame } from "lucide-react";',
+      "",
+      "type FlameIconProps = LucideProps & { hot?: boolean };",
+      "",
+      "export default function IconRow(props: FlameIconProps) {",
+      "  return <Flame {...props} />;",
+      "}",
+    ].join("\n");
+
+    const result = runImportValidator(code);
+
+    expect(result.code).toContain('import type { LucideProps } from "lucide-react"');
+    expect(result.code).toContain('import { Flame } from "lucide-react"');
+    expect(result.code).not.toContain('import { LucideProps, Flame } from "lucide-react"');
   });
 });

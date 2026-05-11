@@ -1,0 +1,54 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 04-preview-runtime-tests
+Date: 2026-05-01
+
+## Required Checks
+- Preview lib tests.
+- Preview session/status/heartbeat/hibernate/destroy route tests.
+- Quality gate, product postcheck, server verify tests.
+- PreviewPanel and preview lifecycle tests.
+- E2E iframe smoke where needed.
+
+## Existing Tests
+- `src/lib/gen/preview/**/*.test.ts`
+- preview route tests.
+- quality gate/product postcheck tests.
+- server verify and manifest parity tests.
+- PreviewPanel test.
+- preview lifecycle/bootstrap retry helpers.
+- persona E2E with iframe.
+
+## Missing Coverage
+- Real preview-host VM integration suite.
+- Direct iframe postMessage unit tests.
+- preview-host service tests.
+
+## Frontend Behaviors To Assert
+- Empty preview vs URL.
+- Iframe diagnostics.
+- Stream handling of preview-ready/done/shim.
+- Builder preview helpers.
+
+## Exact LLM Implementation Instructions
+- Run `test:focused` and preview lib tests after preview/VM/gate changes.
+- Update manifest parity and server verify expectations if lanes change.
+- Add tests for new postMessage logic.
+- Update preview-session/quality gate docs if API changes.
+
+## Failure Triage Guide
+- Gate/tier: manifest parity/quality gate/server verify.
+- Session/TTL: session-store and preview routes.
+- URL/shim: preview-url and stream handlers.
+- Warm/VM: warm typecheck/eslint.
+- F2 product block: product-postcheck and post-checks.
+
+## Exact Commands
+- `npm run test:ci`
+- `npm run test:focused`
+- `npx vitest run src/lib/gen/preview`
+- targeted PreviewPanel and preview-status route tests.
+- Optional Playwright persona.
+
+## Pass Criteria
+- test:ci green.
+- Focused preview/gate tests green when touched.
+- Manual/CI Playwright if iframe risk is high.

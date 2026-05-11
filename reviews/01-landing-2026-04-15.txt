@@ -1,0 +1,50 @@
+══════════════════════════════════════════════════════════════════════════════
+LANDING & HERO — Apple-minimalist design review
+Date: 2026-04-15
+Scope: src/app/page.tsx, src/components/landing-v2/* (read-only)
+Criteria: CSS vars / Tailwind tokens; rounded-2xl/3xl; ~150–200ms micro-interactions; orange CTAs rounded-xl; short Swedish copy; reduce clutter.
+══════════════════════════════════════════════════════════════════════════════
+
+SCORES (5=Excellent … 1=Poor)
+
+| # | Checklist item        | Score | Notes |
+|---|------------------------|-------|-------|
+| 1 | Hero clarity           | 3 | Headline + subcopy are crisp (“Bygg din sajt.” / “En kort beskrivning räcker.”) and the primary card explains the default path. There is no in-hero control to switch build mode (mallar / audit / fritext); `pickCategory` exists in the controller but is never wired into `ChatArea` / `LandingHero`, so mode discovery relies on URL/entry flows rather than the hero itself. |
+| 2 | Clutter level          | 3 | Above-the-fold hero is intentionally sparse. Below the fold, `ChatArea` adds sticky tabbed sections (Funktioner / Teknik / Priser) with large grids, pricing, and studio upsell — substantial surface area vs. a strict “one screen” minimalist landing. |
+| 3 | Primary CTA            | 5 | “Starta” / “Analysera” use `landing-cta-primary`, `rounded-xl`, `bg-primary`, `duration-200` / `ease-out` on focus rings and secondary controls; matches orange CTA + ~200ms interaction target. |
+| 4 | Background             | 5 | `LandingBackground` layers `bg-background`, semantic `data-landing-bg` orbs, grid, and noise; orb tints in `src/styles/landing-v2.css` use `hsl(var(--brand-navy))`, `hsl(var(--brand-orange))`, etc. — token-aligned, calm motion with reduced-motion fallbacks. |
+| 5 | Navbar                 | 3 | `Navbar` uses `duration-200` scroll-state transition, blur, border token; logo hover `duration-200`. `HeaderActions` (outside this folder) drives register/login — hash links in the shared menu target `#funktioner` / `#teknik` while `chat-area.tsx` does not define matching `id`s on those sections, so in-page nav from the sheet is likely ineffective. |
+| 6 | Footer                 | 4 | `LandingMinimalFooter` is short: copyright, two legal links, `duration-200` hovers, `border-border/40`, adequate touch targets (`min-h-11`). |
+| 7 | Mobile                 | 4 | Root shell uses `h-dvh` / `min-h-0`, `overflow-x-hidden`, scroll container with `touch-pan-y` and `overscroll-y-contain`; hero uses responsive padding and `min-h-[min(100dvh,880px)]`. Long scroll + dense lower sections still add cognitive load on small screens. |
+| 8 | Color tokens           | 3 | Hero and primary shell lean on `bg-background`, `border-border`, `text-muted-foreground`, `hsl(var(--primary) / …)`. Several `landing-v2` modules still hardcode hex/rgba for 3D, glow, or data (e.g. `particle-orb.tsx`, `how-it-works-scene.tsx`, `landing-tech-integration-cards.tsx` teal-tinted gradient, `landing-chat-data.ts` glow strings) — off-palette risk and criteria drift from “tokens only”. |
+
+Average: 3.75 / 5.0
+
+──────────────────────────────────────────────────────────────────────────────
+TOP IMPROVEMENTS (concrete, with file:line)
+──────────────────────────────────────────────────────────────────────────────
+
+1. Wire or remove entry-mode selection — `use-landing-controller.ts:112-120` defines `pickCategory`; `use-landing-controller.ts:233` exports it; `chat-area.tsx:25-41` never destructures it — add a minimal segmented control or links in `landing-hero.tsx` (or pass props from `page.tsx`) so mallar/audit/fritext are discoverable without deep links.
+
+2. Align in-page navigation with tab content — `chat-area.tsx:71-88` sticky tab strip has no `id="funktioner"` / `id="teknik"` (grep shows no `id=` in file); fix hashes expected by `SiteNavMenu` (`#funktioner`, `#teknik`) or change menu hrefs to match the Tabs implementation.
+
+3. Tighten motion to the 150–200ms band where appropriate — `landing-feature-blocks.tsx:36` uses `duration-700` for card entrance/hover affordances; consider shorter transitions for hover/focus to match the stated micro-interaction budget (keep longer duration only for scroll-reveal if needed).
+
+4. Reduce hardcoded color literals in `landing-v2` — `particle-orb.tsx:55-124`, `how-it-works-scene.tsx:31-234`, `landing-tech-integration-cards.tsx:44-49`: migrate glows and gradients to `hsl(var(--primary) / …)` / `--brand-*` or document exceptions for WebGL/Three.js.
+
+5. Below-fold density — `chat-area.tsx:155-262` pricing + SajtStudio block + grids: consider progressive disclosure (e.g. single “Mer” expansion) to match Apple-like restraint on first visit.
+
+──────────────────────────────────────────────────────────────────────────────
+WHAT WORKS WELL
+──────────────────────────────────────────────────────────────────────────────
+
+• `landing-hero.tsx:77-87` — Very short Swedish copy, strong hierarchy (`font-(--font-heading)`, `text-balance`).
+• `landing-hero.tsx:113-189` — Input card `rounded-3xl`, `border-border/50`, `duration-200` on focus; voice/audit branches stay symmetrical.
+• `src/styles/landing-v2.css:1-24` — `.landing-cta-primary` centralizes orange glow using `hsl(var(--primary) / …)` and 200ms easing.
+• `landing-background.tsx:34-48` — Layered, non-interactive backdrop with semantic tinting via `data-landing-bg`.
+• `navbar.tsx:26-31` — Lightweight chrome: blur + border only after scroll, `duration-200`.
+• `page.tsx:355-368` — Clean composition: full-height column, `Navbar` + `ChatArea` only (modals aside).
+
+══════════════════════════════════════════════════════════════════════════════
+END
+══════════════════════════════════════════════════════════════════════════════

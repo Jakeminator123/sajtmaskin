@@ -15,11 +15,6 @@ import {
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
-import {
-  resolveProjectEnv,
-  resolveEnvRequirementsFromVersionFiles,
-} from "@/lib/project-env-resolver";
-import { deriveSetupContract, buildEnvExampleContent } from "@/lib/gen/contract/setup-contract";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
 function engineErrorResponse(err: unknown, fallbackMessage: string) {
@@ -176,36 +171,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
         }
       }
 
+      // env.example (no leading dot) is canonical and is materialized into
+      // version files by `injectProjectEnvFileIntoFilesJson` in the
+      // finalize preflight phase. We deliberately do NOT inject a second
+      // `.env.example` here — that would surface two near-identical env
+      // files in the builder file panel and confuse users about which
+      // one to copy. Builder shows env.example; export-only `.env.local`
+      // is added by `buildCompleteProject` in the export scaffold.
       const formattedFiles = files.map((f) => ({
         name: f.path,
         content: f.content,
         language: f.language,
       }));
-
-      const versionRows = files
-        .filter((f) => typeof f?.path === "string" && typeof f?.content === "string")
-        .map((f) => ({ path: f.path as string, content: f.content as string }));
-      const projectEnv = await resolveProjectEnv(
-        engineChat?.project_id ?? null,
-      );
-      const envReqs = resolveEnvRequirementsFromVersionFiles(versionRows, projectEnv);
-      if (envReqs.requiredEnvKeys.length > 0) {
-        const setupContract = deriveSetupContract(undefined, projectEnv.configuredKeys);
-        const envExampleContent = buildEnvExampleContent({
-          ...setupContract,
-          requiredEnvKeys: envReqs.requiredEnvKeys,
-        });
-        const alreadyHasEnvExample = formattedFiles.some(
-          (f) => f.name === ".env.example" || f.name === ".env.local.example",
-        );
-        if (!alreadyHasEnvExample && envExampleContent.trim().length > 30) {
-          formattedFiles.push({
-            name: ".env.example",
-            content: envExampleContent,
-            language: "text",
-          });
-        }
-      }
 
       return NextResponse.json({
         versionId: resolvedVersionId,

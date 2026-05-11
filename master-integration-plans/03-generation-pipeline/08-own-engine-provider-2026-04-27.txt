@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 08-own-engine-provider
+Date: 2026-04-27
+
+## Master Pipeline Changes
+- Diff: `src/lib/providers/own-engine/generation-stream.ts`, `generation-stream-post-finalize.ts`, `generation-stream-post-finalize.test`, `generation-stream` golden-liknande tester, koppling till `shared-own-engine-helpers`, `shrink-retry` / `FinalizeResult` fält.
+- `generation-stream.ts` — tolkar pipeline-SSE (thinking, content, tool, progress, done, error) till klient-`formatSSEEvent`; ping, `SuspenseLineProcessor`, `parseSSEBuffer`; anropar `finalizeOrHandleEmptyGeneration`.
+- `generation-stream-post-finalize.ts` — bygger **`done`**: `versionId`, preflight, `previewPending`, `verificationBlocked`, `rejectedShrinks`, **`shrinkRetry`**, `verifierBlockingFindings`, `rejectedStructural`, `crossFileStubs`; F3 mute: `integration`-SSE endast när F3; preview-session / `preview-ready` / `build-error`; `version-repair-available` + `triggerServerVerification` enligt policy.
+- Käll-pipeline: `src/lib/gen/engine` + `stream-format.ts` (`createCodeGenSSEStream`) — own-engine tolkar **output**-SSE, importar **inte** `stream-format` direkt.
+
+## Local Behaviors To Preserve
+- `builder-stream-contract` + `stream-handlers` konsumerar: `meta`, `integration`, `preview-ready`, `done` med samma fält; **lokal gren** använder även `post-checks-preview` + tool UI för `shrinkRetry` (parsing ej alltid i `stream-handlers`).
+- **port_ours:** inga tysta borttag av `rejectedShrinks` / `verifierBlockingFindings` / CTA i `done` utan UI-diff.
+- Golden-ordning: reasoning/`thinking` före konsumerad `done` (testkommentarer).
+
+## Merge/Port Plan
+- Merge `generation-stream` + `generation-stream-post-finalize` tillsammans; kör `generation-stream*.test.ts` + `stream-handlers` om signaturer ändras.
+- Om masterna ändrar `done` JSON: uppdatera `src/lib/hooks/chat/stream-handlers.ts` + `post-checks*.ts` + `types` i samma pass.
+- Synka med `shrink-retry.ts` + `FinalizeResult` om nya fält (t.ex. extra retry metadata).
+
+## Regression Risks
+- `done` utan `versionId` när UI förväntar — race med preview heartbeat.
+- F2 integration-signaler oavsiktligt i F2 (mute-lager).
+- Töm stream / stängd pipeline utan `done` kasserar affärsenligt tillstånd — `handleSseStream` fortfarande assert `didReceiveDone`.
+- För mycket data i `done` (payload size) → klient/telemetri.
+
+## Required Tests
+- `src/lib/providers/own-engine/generation-stream-post-finalize.test.ts`, `generation-stream` golden, `stream-handlers.test`, engine integration om mockade.
+
+## Open Questions
+- Ska `shrinkRetry` alltid gå via `stream-handlers` när port_ours förenklar — eller bevaras nuvarande uppdelning mot `post-checks-preview`?
+- Masterna: nya SSE-event före `done` — lista från `git diff` före manuell port.

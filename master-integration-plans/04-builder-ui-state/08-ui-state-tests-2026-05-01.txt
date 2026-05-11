@@ -1,0 +1,49 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 08-ui-state-tests
+Date: 2026-05-01
+
+## UI/UX To Preserve
+- Own-engine preview preferred over shim/demo.
+- Preview URL exposed only when lifecycle allows it.
+- Awaiting-input has no false approve/reject buttons.
+- Preview empty state and code editor file PATCH behavior.
+- Tool cards and quick actions.
+- Follow-up base badge.
+- SEO deploy panel dirty tracking.
+- Deploy readiness labels/badges.
+
+## New Master Capabilities To Surface
+- New props on builder components require updated test mocks.
+- New `tool:*` events need BuilderMessageTooling coverage.
+- New preview/file API paths require PreviewPanel mocks.
+- New preview empty states require intentional test updates.
+- Version preview lifecycle changes require helper tests.
+
+## State/Props Impact
+- `VersionLike` fixtures may need new fields.
+- `pickVersionPreviewUrl` should test `failed` plus `allowFailed` if behavior changes.
+- PreviewPanel hook mocks must grow with new hooks.
+
+## Required Buttons / Choices / Copy
+- Existing locked copy includes `Svar krävs för att fortsätta`, `Kodvy`, editor labels, quality/repair texts, SEO field copy, and readiness labels.
+
+## Exact LLM Implementation Instructions
+- Do not update tests just to make them green unless product copy/behavior intentionally changed.
+- Add minimal new RTL assertions for new surfaces.
+- Use stable mocks and `waitFor`; avoid flaky timers.
+
+## Merge Conflict Plan
+- Resolve co-located tests with component/helper changes first.
+- Run scoped Vitest across builder components, app builder, and lib builder tests.
+- For preview URL failures, compare helper behavior to engine version lifecycle.
+
+## Test Plan
+- P0: `useBuilderCallbacks.test.ts`, `builder-page-preview-helpers.test.ts`, `PreviewPanel.test.tsx`.
+- P1: `MessageList.test.tsx`, `BuilderMessageTooling.test.tsx`, `ChatInterface.followup-base-badge.test.tsx`, `SeoOptInPanel.test.tsx`.
+- P2: `deploy-readiness-ui.test.ts`.
+- Add tests for BuilderShellContent, wizard, drawer, and header if master heavily changes them.
+
+## Do Not Break
+- PreviewPanel hook order.
+- Awaiting-input vs approval behavior.
+- SEO dirty tracking.
+- Engine files API GET/PATCH mock shape.

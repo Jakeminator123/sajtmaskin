@@ -1,6 +1,6 @@
 # When to use
 
-Use this dossier whenever the brief mentions 3D, three.js, WebGL, an animated mascot/hero element, a rotating object, or a "playful" interactive scene. Triggers: `3d`, `three`, `webgl`, `animerad`, `roterande`, `flygande`, `hovrande`, `mascot`, `alien`, `köttbulle`, `figur`, `objekt`.
+Use this dossier whenever the brief mentions decorative 3D, three.js, WebGL, an animated mascot/hero element, a rotating object, or a "playful" interactive scene. Triggers: `3d`, `three`, `webgl`, `animerad`, `roterande`, `flygande`, `hovrande`, `svävande`, `mascot`, `alien`, `köttbulle`, `figur`, `objekt`.
 
 Best fit:
 
@@ -11,6 +11,7 @@ Best fit:
 Do not use for:
 
 - Static images that happen to look 3D-ish (use a regular `<img>` or `<svg>` instead — much smaller bundle).
+- Physics simulations with bouncing, collisions, falling objects, gravity or rigid bodies — those use the separate `physics-3d` capability.
 - Heavy CAD-style scenes with many models — those need a dedicated viewer with model loader/cache that is outside the scope of this dossier.
 - Background video loops (those should use `<video>` tags, not WebGL).
 
@@ -43,7 +44,9 @@ export default function HomePage() {
 }
 ```
 
-The shell expects you (the LLM) to write the actual scene as a child component. A typical scene looks like:
+`three-canvas-shell.tsx` is emitted verbatim by the dossier pipeline. Do **not** rewrite that shell, rename its export, remove the dynamic Canvas import, or inline Canvas directly in `app/page.tsx`. The shell is the safety boundary (SSR, error boundary, reduced-motion, DPR cap). Write the actual scene as a separate child component and place that child inside `ThreeCanvasShell`.
+
+A typical scene looks like:
 
 ```tsx
 "use client";
@@ -73,6 +76,37 @@ export function YourScene() {
 ```
 
 Mouse-responsive scenes should use a small client-only hook that records pointer state, then lerp the mesh toward it inside `useFrame`. Keep the hook in a separate file (`components/pointer-state.tsx`) so the wrapper stays generic.
+
+# Allowed primitives (allowlist)
+
+The scene may ONLY use the following. Anything else is almost certainly a hallucination — do NOT invent component names.
+
+**Lowercase R3F intrinsics (preferred for mascots / hero decor — zero extra imports needed):**
+
+- Meshes: `<mesh>`, `<group>`, `<points>`, `<lineSegments>`.
+- Geometries: `<boxGeometry>`, `<sphereGeometry>`, `<planeGeometry>`, `<cylinderGeometry>`, `<coneGeometry>`, `<torusGeometry>`, `<torusKnotGeometry>`, `<capsuleGeometry>`, `<ringGeometry>`, `<tetrahedronGeometry>`, `<icosahedronGeometry>`, `<octahedronGeometry>`, `<dodecahedronGeometry>`.
+- Materials: `<meshStandardMaterial>`, `<meshBasicMaterial>`, `<meshPhongMaterial>`, `<meshNormalMaterial>`, `<meshMatcapMaterial>`, `<meshLambertMaterial>`, `<shaderMaterial>`, `<lineBasicMaterial>`, `<pointsMaterial>`.
+- Lights: `<ambientLight>`, `<directionalLight>`, `<pointLight>`, `<spotLight>`, `<hemisphereLight>`.
+
+**Capitalised helpers — ONLY if explicitly imported from `@react-three/drei`** (import exactly what you use, nothing else):
+
+```tsx
+import {
+  Box, Sphere, Plane, Cylinder, Cone, Torus, TorusKnot, Capsule, Ring,
+  Tetrahedron, Icosahedron, Octahedron, Dodecahedron,
+  OrbitControls, PerspectiveCamera, OrthographicCamera,
+  Environment, ContactShadows, Float, Html, Text, Billboard,
+  MeshDistortMaterial, MeshWobbleMaterial, MeshTransmissionMaterial,
+} from "@react-three/drei";
+```
+
+**Avoid entirely (these names do NOT exist in `three`, `@react-three/fiber`, or `@react-three/drei`):**
+
+- `Cuboid`, `Cube`, `Block`, `Box3d`, `Sphere3d`, `Prism`, `Rectangle3d`, `Cylinder3d` — none of these exist. Use `<mesh><boxGeometry />...</mesh>` or `Box` from drei.
+- `Lucide`, `Icon3d`, `Emoji3d`, any generic wrapper name you cannot find in the import list above — they are hallucinations.
+- Physics-specific rigid body, collider, gravity or simulation wrappers — do NOT add physics. This dossier is for decorative animation only.
+
+Rule of thumb: every capitalised JSX tag in the generated scene MUST have a corresponding `import` statement at the top of the file. No exceptions. If you cannot remember the exact import, fall back to the lowercase `<mesh>` + `<xGeometry />` + `<xMaterial />` pattern shown in the scene example above.
 
 # UX rules
 

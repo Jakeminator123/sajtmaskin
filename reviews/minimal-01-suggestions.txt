@@ -1,0 +1,22 @@
+Agent 1 — Post-Generation Suggestions (minimalism)
+Scope: BuilderShellContent, ChatInterface, PostGenerationAdvisor, NextStepPickerPopup, post-generation-advisor.ts
+Datum: 2026-04-16
+Betyg: 1 = mycket brus / dålig minimalism, 5 = acceptabelt rent default-läge
+
+1. Tre parallella listor för samma idé (POST_GEN_SUGGESTIONS i BuilderShellContent, DEFAULT_SUGGESTIONS i PostGenerationAdvisor, SUGGESTIONS i NextStepPickerPopup) — ingen gemensam källa. Underhållsrisk och inkonsistent copy. Betyg: 1
+
+2. PostGenerationAdvisor.tsx och NextStepPickerPopup.tsx importeras inte någonstans i src (död UI-kod). Bygger falsk förväntan om “två sätt” att visa nästa steg. Betyg: 1
+
+3. Aktiv bana: currentAnswerSuggestions matar ChatInterface med upp till 5 strängar vid live preview (samma fem som POST_GEN_SUGGESTIONS). Alla visas som chips ovanför textfältet när input är tom och !showAdvancedControls — hög informationsdensitet, flera rader på smal vy. Betyg: 2
+
+4. Samma förslag finns dubbelt i verktygsraden: inline-chips + HelpCircle-popover “Svarsförslag” (när !hasActionHub). Default bör vara ett enda diskret entry (t.ex. bara ikon), inte båda. Betyg: 2
+
+5. Advisor-meddelanden (buildPostGenerationAdvisorMessage): lång assistant-text (“Din sajt är redo!…”, punktlista, “Vad vill du göra?”) plus tool-ui — mycket copy i tråden jämfört med ren “välj nästa steg”. Kortare intro eller ren chip-rad skulle matcha “minimal words”. Betyg: 2
+
+6. NextStepPickerPopup (om den återaktiveras): modal med rubrik + fem rader med label + description vardera — tyngre än nödvändigt; beskrivningarna dubblerar etiketterna semantiskt. Betyg: 2
+
+7. PostGenerationAdvisor-komponenten (om den återaktiveras): 1,5 s fördröjning + flytande kort över chatten — konkurrerar med preview/chat; fem ikonknappar + rubrik. Skulle krocka med “max 5 kontroller”-målet. Betyg: 2
+
+8. Positivt: chips döljs när användaren börjat skriva (input tom-krav); advisor-läge begränsar till 3 förslag i logiken. Betyg: 4
+
+Rekommendation (prioritet): Ta bort eller koppla in döda komponenter; en källa för snabbval; default = inga inline-chips, öppna “Nästa steg” via en kontroll; korta advisor-texter.

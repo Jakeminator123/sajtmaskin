@@ -1,0 +1,59 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 08-command-plan
+Date: 2026-04-27
+
+## Scope
+Icke-förstörande sekvens för `origin/master` → `frontend/christopher` (ingen force-push, ingen `reset --hard`).
+
+## Evidence
+- `package.json`: `typecheck` = tsc, `lint` = eslint, `test:ci` / `vitest run` — ev. `test:focused` som smalare scope.
+- `commit_first` (från skill) tolkas som: **committa avsiktligt WIP (scoped) före merge, annars `git stash push -u`.**
+
+## Findings
+1. Verifieringskedja: `npm run typecheck && npm run lint && npx vitest run` (tung — ev. `npm run test:focused`).
+2. Säker merge: `git merge origin/master` (inga tvingande `-X ours` i skill).
+3. Smeta arbetskopia: commit_first **eller** `git stash push -u -m "…"` före merge, `stash pop` efter lyckad merge + verify.
+
+## Recommended Actions
+
+**A. Baseline**
+```bash
+cd /Users/christophergenberg/Desktop/Sajtmaskin_Genberg
+git status
+git branch --show-current
+git fetch origin
+git rev-parse HEAD
+git rev-parse origin/master
+git merge-base HEAD origin/master
+git rev-list --left-right --count HEAD...origin/master
+```
+
+**B. commit_first (avsiktlig WIP)**
+```bash
+git add <scoped paths>
+git commit -m "wip(frontend): scoped WIP before origin/master merge"
+git merge origin/master
+# resolve → git add → git commit
+```
+
+**C. stash**
+```bash
+git stash push -u -m "pre-merge-frontend-christopher-$(date +%Y%m%d)"
+git merge origin/master
+# efter typecheck+lint+vitest (nedan):
+git stash pop
+```
+
+**D. Efter merge**
+```bash
+npm run typecheck && npm run lint && npx vitest run
+# regex? ev. node scripts/dev/check-unicode-regex.mjs
+```
+
+**E. Push (frivilligt)**
+`git push origin frontend/christopher` utan `--force`.
+
+## Verification Needed
+Se steg D; F2/regex enligt workspace om berört.
+
+## Do Not Break
+Builder coexistence: ingen parallell curl/browser mot samma `chatId` / engine-stream för "verifiering". Ingen destruktiv git.

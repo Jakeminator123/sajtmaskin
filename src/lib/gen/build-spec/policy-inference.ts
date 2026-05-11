@@ -46,6 +46,84 @@ export type PromptStrategyMetaForBuildSpec = Pick<
 > &
   Partial<Pick<PromptStrategyMeta, "complexityScore">>;
 
+export type BuildSpecBriefSignals = {
+  qualityBar?: "clean" | "premium" | "bold-dramatic" | string | null;
+  motionLevel?: "minimal" | "moderate" | "lively" | string | null;
+  domainProfile?: string | null;
+  visualDirection?: {
+    styleKeywords?: string[] | null;
+    typography?: {
+      headings?: string | null;
+      body?: string | null;
+    } | null;
+  } | null;
+  toneAndVoice?: string[] | null;
+} | null;
+
+/**
+ * Promotionsord som signalerar att användaren förväntar sig en visuellt
+ * ambitiös, detaljrik leverans. Träffar trippar `qualityTarget = "premium"`
+ * även när strukturella signaler (routes, integrations, scaffold-id) saknas.
+ *
+ * Hålls smal med vilja — ord som "site", "snabb", "enkel" får inte ligga här.
+ * Lägg gärna till nya ord vid behov, men logga `quality_target_promoted_for_keyword`
+ * i prod först och se om det matchar något verkligt mönster.
+ */
+const QUALITY_PREMIUM_KEYWORDS = [
+  // svenska
+  "snygg",
+  "snyggt",
+  "snygga",
+  "påkostad",
+  "påkostat",
+  "lyxig",
+  "lyxigt",
+  "exklusiv",
+  "exklusivt",
+  "rockig",
+  "rockigt",
+  "atmosfärisk",
+  "atmosfäriskt",
+  "stämningsfull",
+  "stämningsfullt",
+  "dramatisk",
+  "dramatiskt",
+  "detaljrik",
+  "detaljrikt",
+  // english (svenska "premium" täcker engelska "premium" via samma sträng)
+  "premium",
+  "luxury",
+  "luxurious",
+  "elegant",
+  "polished",
+  "atmospheric",
+  "moody",
+  "dramatic",
+  "high-end",
+  "boutique",
+  "editorial",
+  "cinematic",
+  "immersive",
+] as const;
+
+function escapeRegExpLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchQualityPremiumKeyword(prompt: string): string | null {
+  if (!prompt) return null;
+  const lower = prompt.toLowerCase();
+  for (const word of QUALITY_PREMIUM_KEYWORDS) {
+    // Word-boundary respekterande svensk diakritik. Inte ASCII-`\b`.
+    const pattern = new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])${escapeRegExpLiteral(word.toLowerCase())}(?:[^\\p{L}\\p{N}]|$)`,
+      "iu",
+    );
+    if (pattern.test(lower)) return word;
+  }
+  return null;
+}
+
 export function inferChangeScope(params: {
   prompt: string;
   generationMode: BuildSpecGenerationMode;
@@ -94,6 +172,7 @@ export function inferChangeScope(params: {
 }
 
 export function inferQualityTarget(params: {
+  prompt: string;
   buildIntent: BuildIntent;
   generationMode: BuildSpecGenerationMode;
   resolvedScaffold: ScaffoldManifest | null;
@@ -103,8 +182,10 @@ export function inferQualityTarget(params: {
   /** Explicit override — F3 lifecycle stage forces release-candidate. */
   previewPolicy: BuildSpecPreviewPolicy;
   isFirstCodeGeneration?: boolean | null;
+  brief?: BuildSpecBriefSignals;
 }): BuildSpecQualityTarget {
   const {
+    prompt,
     buildIntent,
     generationMode,
     resolvedScaffold,
@@ -113,8 +194,25 @@ export function inferQualityTarget(params: {
     preGenerationContracts,
     previewPolicy,
     isFirstCodeGeneration,
+    brief,
   } = params;
   if (previewPolicy === "fidelity3") return "release-candidate";
+
+  const briefQualityBar =
+    typeof brief?.qualityBar === "string" ? brief.qualityBar.trim() : "";
+  if (
+    generationMode === "init" &&
+    (briefQualityBar === "premium" || briefQualityBar === "bold-dramatic")
+  ) {
+    console.info("[build-spec] quality_target_promoted_for_brief_quality_bar", {
+      qualityBar: briefQualityBar,
+      generationMode,
+      buildIntent,
+      from: "standard",
+      to: "premium",
+    });
+    return "premium";
+  }
 
   const advancedScaffoldId =
     resolvedScaffold?.id === "dashboard" ||
@@ -154,6 +252,20 @@ export function inferQualityTarget(params: {
     return "premium";
   }
 
+  const matchedWord =
+    generationMode === "init" ? matchQualityPremiumKeyword(prompt) : null;
+  if (matchedWord) {
+    console.info("[build-spec] quality_target_promoted_for_keyword", {
+      matchedWord,
+      generationMode,
+      scaffoldId: resolvedScaffold?.id ?? null,
+      buildIntent,
+      from: "standard",
+      to: "premium",
+    });
+    return "premium";
+  }
+
   return premiumSignals ? "premium" : "standard";
 }
 
@@ -174,9 +286,17 @@ export function inferVerificationPolicy(params: {
   changeScope: BuildSpecChangeScope;
   previewPolicy: BuildSpecPreviewPolicy;
   capabilityHeavy: boolean;
+  scaffoldUnlockedForMatch?: boolean | null;
 }): BuildSpecVerificationPolicy {
-  const { generationMode, changeScope, previewPolicy, capabilityHeavy } = params;
+  const {
+    generationMode,
+    changeScope,
+    previewPolicy,
+    capabilityHeavy,
+    scaffoldUnlockedForMatch,
+  } = params;
   if (previewPolicy === "fidelity3") return "strict";
+  if (generationMode === "followUp" && scaffoldUnlockedForMatch) return "standard";
   if (generationMode === "followUp" && capabilityHeavy) return "standard";
   if (generationMode === "followUp" && changeScope === "copy") {
     return "fast";
@@ -186,8 +306,16 @@ export function inferVerificationPolicy(params: {
 
 function isExplicitSmallFollowUpPrompt(prompt: string): boolean {
   const trimmedPrompt = prompt.trim();
-  if (trimmedPrompt.length > 220) return false;
+  if (trimmedPrompt.length > 420) return false;
   if (includesAny(IMAGERY_FOLLOWUP_ESCAPE_PATTERNS, trimmedPrompt)) return false;
+  if (includesAny(COPY_PATTERNS, trimmedPrompt)) return true;
+  if (
+    includesAny(LAYOUT_PATTERNS, trimmedPrompt) &&
+    (includesAny(SMALL_FOLLOW_UP_TARGET_PATTERNS, trimmedPrompt) ||
+      isInPageSectionRequest(trimmedPrompt.toLowerCase()))
+  ) {
+    return true;
+  }
   return (
     includesAny(SMALL_FOLLOW_UP_HINT_PATTERNS, trimmedPrompt) &&
     includesAny(SMALL_FOLLOW_UP_TARGET_PATTERNS, trimmedPrompt)
@@ -250,6 +378,7 @@ function scoreContextPolicy(params: {
   promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilityHeavy: boolean;
   isFirstCodeGeneration?: boolean | null;
+  brief?: BuildSpecBriefSignals;
 }): number {
   const {
     generationMode,
@@ -260,12 +389,16 @@ function scoreContextPolicy(params: {
     promptStrategyMeta,
     capabilityHeavy,
     isFirstCodeGeneration,
+    brief,
   } = params;
   let score = 0;
 
   if (generationMode === "init") score += 1;
   if (buildIntent === "app") score += 2;
   if (capabilityHeavy) score += 1;
+  if (generationMode === "init" && brief?.qualityBar === "bold-dramatic") score += 2;
+  else if (generationMode === "init" && brief?.qualityBar === "premium") score += 1;
+  if (generationMode === "init" && brief?.motionLevel === "lively") score += 1;
 
   if (
     promptStrategyMeta?.strategy === "phase_plan_build_refine" ||
@@ -316,15 +449,33 @@ export function inferContextPolicy(params: {
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: PromptStrategyMetaForBuildSpec | null;
   capabilityHeavy: boolean;
+  scaffoldUnlockedForMatch?: boolean | null;
   isFirstCodeGeneration?: boolean | null;
+  brief?: BuildSpecBriefSignals;
 }): { policy: BuildSpecContextPolicy; score: number } {
   const {
     prompt,
     generationMode,
     changeScope,
     capabilityHeavy,
+    scaffoldUnlockedForMatch,
   } = params;
+  if (capabilityHeavy) {
+    // `capabilityHeavy` lights up for any key in `HEAVY_CAPABILITY_KEYS`
+    // (capability-inference.ts) — including `needsGame`, `needs3D`,
+    // `needsPhysics`, `needsPayments`, `needsAuth`, `needsForms`,
+    // `needsCarousel`, `needsCharts`, `needsPremiumVisuals`, `needsAppShell`,
+    // `needsDataUI`, `needsEcommerce`, `needsCommandSearch`. All of these
+    // need heavy context regardless of changeScope so the interactive-game
+    // dossier (or any capability dossier) fits next to scaffold + brief
+    // blocks without the budget pass dropping it.
+    const score = scoreContextPolicy(params);
+    return { policy: "heavy", score: Math.max(score, CONTEXT_POLICY_HEAVY_THRESHOLD) };
+  }
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
+    if (scaffoldUnlockedForMatch) {
+      return { policy: "normal", score: 0 };
+    }
     if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
       return { policy: "normal", score: 0 };
     }

@@ -1,0 +1,31 @@
+Backend Capability Audit — Agent 4: Deploy & publish
+
+- [API] POST deploy — DB, preflight, Vercel v13, credits, url/inspectorUrl/deployReadiness/fixesApplied — src/app/api/v0/deployments/route.ts:364-615 — DELVIS — 4
+- [API] target production/preview — Vercel target + credit-nyckel — deployments/route.ts:391-399,552-557 — NEJ — 3
+- [API] precheckOnly + skipAutoFix — torrkörning/felsök — deployments/route.ts:358-361,474-485 — NEJ — 3
+- [API] GET deployments lista per chatId + Vercel refresh — deployments/route.ts:636-713 — NEJ — 2
+- [API] GET deployment by id — src/app/api/v0/deployments/[deploymentId]/route.ts:11-80 — NEJ — 2
+- [API] SSE deployment events Redis/poll — .../events/route.ts:16-172 — DELVIS — 4
+- [VERCEL] createVercelDeployment POST env+build.env — src/lib/vercelDeploy.ts:89-134 — NEJ — 4
+- [VERCEL] getVercelDeployment status/url — vercelDeploy.ts:136-169 — DELVIS — 4
+- [VERCEL] syncEnvVarsToVercelProject upsert — vercelDeploy.ts:176-224 — NEJ — 3
+- [VERCEL] mapVercelReadyStateToStatus CANCELED→cancelled — vercelDeploy.ts:226-234 — DELVIS — 3
+- [VERCEL] sanitizeProjectName + toVercelFilesFromTextFiles — vercelDeploy.ts:62-87 — NEJ — 4
+- [ENV] resolveProjectEnv configuredMap — src/lib/project-env-resolver.ts:43-69 — NEJ — 4
+- [ENV] resolveEnvRequirementsFromVersionFiles missingEnv — project-env-resolver.ts:118-126 — DELVIS — 4
+- [PREFLIGHT] buildDeployReadiness ready/missingEnv/invalidFiles — src/lib/deploy/deploy-readiness.ts:15-26 — DELVIS — 4
+- [PREFLIGHT] dependency-utils i POST auto-fix — deployments/route.ts:278-306 — NEJ — 4
+- [PREFLIGHT] version-file-integrity via readiness-route ej direkt deploy — version-file-integrity.ts — DELVIS — 3
+- [OBS] devLogAppend site.deploy.* — deployments/route.ts:501-627 — NEJ — 3
+- [DB] createDeploymentRecord/updateDeploymentStatus — src/lib/deployment.ts:8-62 — DELVIS — 4
+- [WEBHOOK] vercel webhook Redis SSE — src/app/api/webhooks/vercel/route.ts:26-192 — NEJ — 4
+- [UI] useBuilderDeployActions POST target production — useBuilderDeployActions.ts:149-186,278-302 — JA — 4
+- [UI] useDeploymentStatus EventSource events — src/lib/hooks/useDeploymentStatus.ts:13-118 — JA — 4
+- [UI] BuilderHeader deploymentUrl ej inspectorUrl — BuilderHeader.tsx:785-799 — DELVIS — 3
+- [GAP] Vercel production rollback/reassign — saknas i API — n/a — NEJ — 1
+- [GAP] App-initierad cancel Vercel deploy — saknas — n/a — NEJ — 1
+- [GAP] Bygg/deploy-loggar i API-svar — endast inspector — n/a — DELVIS — 2
+- [GAP] Env-diff Vercel vs lokal — saknas — n/a — NEJ — 2
+- [REL] engine versions rollback — återställer draft — engine/chats/.../versions/route.ts:197 — JA — 3
+
+Slutsats: prod+Vercel+SSE OK; preview-target, list-GET, inspector, loggar/env-diff oftast oexponerade. Ingen Vercel rollback/cancel i detta lager.

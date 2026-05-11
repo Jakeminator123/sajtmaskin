@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 03-build-spec-contracts
+Date: 2026-05-01
+
+## Master Pipeline Changes
+- `deriveBuildSpec` controls change scope, preview policy, quality target, verification policy, context policy, style pack, token budgets, references, capabilities, and route realization.
+- `buildOrchestrationContract` defines `requiredRoutePaths` and `generationToValidate`.
+- Route realization supports `primary-full-with-shells`, full routes, companion auth routes, and deferred extra routes.
+- Capability detection feeds heavy flags and verification/context policy.
+- F3 remains explicit through lifecycle/override.
+- Website-to-app promotion is guarded on follow-up.
+
+## Local Behaviors To Preserve
+- F3 only by explicit integrations lifecycle or override.
+- P26 intent-promotion guard for persisted non-app scaffolds.
+- Required-route subset semantics for shell mode.
+- Capability flags stay synced with heavy capability keys.
+
+## Merge/Port Plan
+- Merge `build-spec/*`, `orchestration-contract.ts`, `orchestrate.ts`, and policy helpers together.
+- Update generation package/snapshot fields when BuildSpec expands.
+- Update finalize-preflight tests when required routes/files change.
+
+## Frontend Wiring / UI Surface Needed
+- UI lifecycle stage must remain the practical F3 trigger.
+- Any progress/labels for heavy generation should read backend-derived policy, not duplicate heuristics.
+
+## Exact LLM Implementation Instructions
+- System prompt and dynamic context must respect BuildSpec forbidden patterns, route realization, change scope, and pre-generation contracts.
+- In F2, preserve full-build verification forbiddance where encoded.
+
+## Regression Risks
+- Route plan vs required route path mismatch.
+- Follow-up quality target lock masking new inference.
+- Capability keys added without dossier/verification mapping.
+
+## Required Tests
+- Build-spec tests.
+- `orchestrate.test.ts`.
+- Orchestration snapshot/integration tests.
+- Finalize-preflight tests for required routes.
+- Capability inference tests.
+
+## Open Questions
+- Should more inferred capabilities bridge to dossiers?
+- Do required files need expansion for new scaffolds?
+- Should UI expose explicit preview policy override beyond integrations?

@@ -1,0 +1,22 @@
+Agent 4 — Kategori & Modulväljare (wizard onboarding)
+Scope: IntakeWizard.tsx — PagesStep, MUST_HAVE_OPTIONS, FEATURE_MODULES, SITE_TYPE_FEATURE_MAP
+Datum: 2026-04-16
+Betyg: 1 = rörigt / svag Apple-känsla, 5 = tydligt och lugnt
+
+1. Steg "Sidor" (`pages`) packar ihop många beslut: sidchips (MUST_HAVE), modulgrid per kategori, målgrupp, CTA, mål — inte bara “modulväljare”. Risk att användaren upplever steget som långt trots en progress-dot. Betyg: 2
+
+2. Modulerna grupperas i fyra rubriker: Interaktion, Innehåll, E-handel, Funktioner — logisk indelning, `uppercase tracking-wider` ger tydlig scanbarhet. Betyg: 4
+
+3. Kort-UX: ikon i kvadrat + rubrik + en rad beskrivning + checkbox-hörn — konsekvent, touchvänlig, tydlig selected state (`border-primary/40`, check). Jämfört med Shopify-appgallery saknas **sökning**, **filter** och **antal installerade** — här är listan fix och kräver scroll vid många val. Betyg: 3
+
+4. AI-stöd: `suggestedFeatureIds` + texten “AI-förslag baserat på din beskrivning” (Sparkles) sänker friktion; `SITE_TYPE_FEATURE_MAP` + `inferFeatureModules` backar upp heuristiken. Bra koppling sajttyp → moduler. Betyg: 4
+
+5. Överlapp mot sid-chips: MUST_HAVE innehåller t.ex. “Blogg / Nyheter”, “Kundrecensioner”, medan FEATURE_MODULES har `blog`, `reviews` — två parallella begrepp (sidor vs funktioner) kan förvirra om användaren väljer samma sak dubbelt eller undviker det ena. Betyg: 2
+
+6. Ikoner: `BookOpen` återanvänds för newsletter och blogg i FEATURE_MODULES — visuellt lika kort i samma steg kan kännas duplicerade. `ShoppingBag` för katalog, varukorg och checkout — tre lika ikoner i rad under E-handel. Betyg: 2
+
+7. Rutnät `sm:grid-cols-2` med ~20+ modulkort — på desktop två kolumner, fortfarande lång lista; ingen kollaps av kategorier eller “visa färre”. Betyg: 3
+
+8. Hjälptext: “Välj vilka funktioner du vill ha med. Alla går att lägga till eller ta bort senare.” — lugnar (bra); sidsteget har även separat AI-knapp för **sid**-förslag (`/api/ai/suggest-pages`) — två AI-ingångar i samma vy (sidor + moduler). Betyg: 3
+
+Sammanfattning: Stark struktur och valbarhet, men steget är tungt; överväg sök/kollaps, unika ikoner, och tydligare skiljelinje mellan “vilka sidor” och “vilka funktioner”.

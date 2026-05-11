@@ -1,0 +1,20 @@
+Builder panels UX (Apple-minimalist)
+Scope: BuilderLayout.tsx (thin full-viewport shell); panel behavior in BuilderShellContent.tsx
+
+1. Preview-first desktop split (preview flex-1, chat fixed lg:w-80 / max-w-[20rem]) — 4/5 — Canvas dominates; predictable hierarchy.
+
+2. No user-resizable or collapsible chat column — 2/5 — Fixed width; only version rail toggles. Misses focus mode / density control.
+
+3. Mobile: default mobileTab chat, auto-switch to preview when currentPreviewUrl appears — 4/5 — Progressive reveal; reduces hunting.
+
+4. Chat column vertical stack (LaunchReadinessCard, ProjectEnvVarsPanel, MessageList, IntakeSummaryCard, ChatInterface, AdvancedSettingsPanel) — 3/5 — Many regions in one narrow column; busy vs calm minimalism.
+
+5. Horizontal “waste” on very wide screens — 3/5 — Preview grows; chat stays 320px; no drag-to-resize for long threads.
+
+6. Separation: bg-muted/20 chat, borders, flex-row-reverse — 4/5 — Clear affordance; low visual noise.
+
+7. BuilderLayout minimalism (main only, h-dvh, overflow) — 5/5 — Clean container.
+
+8. Version panel collapse — 4/5 — Good secondary disclosure; does not replace chat collapse.
+
+Prioritized: (1) Chat collapse or resizable split for max canvas / readable thread. (2) Reduce vertical stacking above MessageList or collapse by default.

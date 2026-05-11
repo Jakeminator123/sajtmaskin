@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 02-landing-marketing
+Date: 2026-05-01
+
+## UX To Preserve
+- Client-heavy start page with landing-v2 flow.
+- Shared SEO shell/layout through `SeoLandingPage` and `render-seo-page`.
+- Static/ISR SEO pages and `generateStaticParams`.
+- Intentional split between landing-v2 nav and layout nav.
+
+## Master UI Changes To Inspect
+- Root layout metadata and JSON-LD.
+- Client pages without route metadata.
+- SEO pipeline helpers and components.
+- Sitemap/robots.
+- Global and landing styles.
+
+## Token / Copy Risks
+- Hardcoded domains in JSON-LD.
+- Static SoftwareApplication price.
+- Longer SEO chrome copy.
+- Old rules contradicting brandbook.
+
+## Required UI Additions Without Redesign
+- Reuse landing-v2 card/button/token patterns.
+- Add new public routes to sitemap and footer only when visible.
+- Use RSC wrappers/layouts for metadata on client-heavy pages.
+
+## Exact LLM Implementation Instructions
+- Diff layout, page, SEO libs/components, sitemap, robots, content, landing-v2.
+- Keep `renderSeoLandingRoute` as central route renderer.
+- Verify JSON-LD nonce for SEO pages.
+
+## Recommended Merge Choices
+- Extend central SEO helper, do not duplicate metadata per route.
+- Keep forced light unless explicitly redesigned.
+- Sync hardcoded JSON-LD domains to base URL if master already does so.
+
+## Visual Verification
+- `/`, `/landningssidor`, dynamic SEO pages, `/om`, `/blogg`, `/faq`, `/buy-credits`.
+- JSON-LD and canonical output in head.
+
+## Do Not Break
+- SEO slug mapping and `notFound`.
+- `builderHref` to `/builder?prompt=...`.
+- CSP nonce on JSON-LD.
+- Static params/dynamic params.
+- robots/sitemap disallow and redirects.

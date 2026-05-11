@@ -1,0 +1,12 @@
+Builder Delight Review — Agent 3: Chat-dock transition (moment → nuvarande → föreslagen → S/M/L)
+
+Kolumnbredd kollaps | lg:hidden tar bort panel — ingen width tween | Fast spår 380→40 px på 200 ms cubic-bezier(0,0,0.2,1) (ease-out) | M
+Öppet läge | lg:w-80 max-w-[20rem] (320) | Välj 380 eller behåll 320 som mål; samma kurva | S
+Innehåll fade kollaps | Ingen opacity-sekvens | Innehåll 1→0 opacity första 80 ms ease-out; pointer-events none efter 80 ms | S
+Expand spegling | Direkt flex + w-80 | 40→380 ms 200 ms ease-out; fade in sista 80 ms eller sista 40 % av bredd | S
+Preview reflow | preview-panel bara bg transition | Låt syskonbredd styra reflow i samma 200 ms (undvik dubbel transition) | S
+Reduced motion | motion-safe duration-200 på panel | Vid reduce: kortare eller endast opacity | S
+Handle rörelse | Chevron utan söm-animation | Samma timeline som bredd (Agent IA-handle) | S
+Mobil tab | hidden/flex växling | Behåll instant; desktop får tween | S
+
+Not: Föreslagen 380 px ≠ nuvarande 320 — lås designval explicit.

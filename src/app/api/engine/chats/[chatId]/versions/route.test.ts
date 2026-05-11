@@ -117,11 +117,55 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].previewUrl).toBeNull();
-    expect(json.versions[0].legacyShimPreviewUrl).toBeNull();
+    expect(json.versions[0]).not.toHaveProperty("legacyShimPreviewUrl");
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
-  it("keeps legacyShimPreviewUrl null for own-engine version rows", async () => {
+  it("forwards lifecycleStage so VersionHistory tooltip can tell F2 design from F3 integrations", async () => {
+    // Postmortem follow-up: VersionHistory.tsx tooltip läser `lifecycleStage`
+    // för att skilja F2 design-rader (server-verify skipped) från F3
+    // integrations-rader (server-verify aktiv). Pre-fix mappade route.ts
+    // bort fältet och frontend defaultade alltid till "design", vilket gjorde
+    // att F3 integrations-rader felaktigt visades som "Klar" istället för
+    // "Verifierar".
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+    getVersionsByChat.mockResolvedValue([
+      {
+        id: "ver_f3",
+        created_at: "2026-04-28T10:00:00.000Z",
+        version_number: 5,
+        message_id: "msg_1",
+        release_state: "draft",
+        verification_state: "pending",
+        verification_summary: null,
+        promoted_at: null,
+        lifecycle_stage: "integrations",
+      },
+      {
+        id: "ver_f2",
+        created_at: "2026-04-28T09:00:00.000Z",
+        version_number: 4,
+        message_id: "msg_0",
+        release_state: "draft",
+        verification_state: "pending",
+        verification_summary: null,
+        promoted_at: null,
+        lifecycle_stage: "design",
+      },
+    ]);
+
+    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1/versions"), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.versions).toHaveLength(2);
+    expect(json.versions[0].lifecycleStage).toBe("integrations");
+    expect(json.versions[1].lifecycleStage).toBe("design");
+  });
+
+  it("keeps own-engine version rows free of legacyShimPreviewUrl entirely", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
     getVersionsByChat.mockResolvedValue([
       {
@@ -146,7 +190,7 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].previewUrl).toBeNull();
-    expect(json.versions[0].legacyShimPreviewUrl).toBeNull();
+    expect(json.versions[0]).not.toHaveProperty("legacyShimPreviewUrl");
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 

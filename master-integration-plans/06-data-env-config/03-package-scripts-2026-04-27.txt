@@ -1,0 +1,26 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 03-package-scripts
+Date: 2026-04-27
+
+## Master Changes
+- För **denna** gren: `git diff HEAD...origin/master` gav **tom** utdata för `package.json`, `package-lock.json`, `vitest.config.ts`, `eslint.config.mjs` (agent) — förvänta **inga** script-rubbningar från ren merge; kör `git fetch && git diff` igen före beslut.
+
+## Local Changes / Dirty Files
+- Rot: `package.json` med `engines.node` `>=22.14 <23`, Volta 22.22.2; `predev`/`dev`/`devtest`/`test:ci`/`lint`/`typecheck` m.m.
+- Lockfiles: rot `package-lock.json` + satelliter `preview-host/`, `services/inspector-worker/`, `video/...` (separata).
+
+## Compatibility Risks
+- Indirekt: master ändrar **skript som anropas av** `package.json` (t.ex. under `scripts/`) utan att röra `package.json` — `devtest` kan fortfarande faila.
+- Underpaket-merge utan `npm install` i respektive mapp.
+
+## Files To Update
+- Om master **senare** ändrar `package.json`: lockfile + ev. `.node-version`, CI Node-version, Volta-fält i samma PR.
+- `vitest.config.ts` / `eslint.config.mjs` endast om diff faktiskt landar.
+
+## Verification Commands
+- `npm ci` (CI) / `npm install` (lokal) efter lock-ändring
+- `npm run typecheck && npm run lint && npm run test:ci`
+- `npm run devtest` om du vill en enda gate lokalt
+
+## Commit / Ignore Guidance
+- Committa `package-lock.json` tillsammans med `package.json` när någon av dem ändras.
+- Committa inte `node_modules/`.

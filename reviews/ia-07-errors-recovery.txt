@@ -1,0 +1,10 @@
+Builder IA — Agent 7: Fel och återhämtning
+
+Nuvarande IA
+Genereringsfel: ofta både chatbubbla och toast.error med samma text (stream-handlers). Preview/iframe: toast + error-log POST + full overlay i PreviewPanelFrame med “Öppna ny flik” / “Försök reparera” (usePreviewPanelOwnEnginePreviewTelemetry). Deploy: toast.error i useBuilderDeployActions utan alltid synlig in-context-yta. “Ångra” i PreviewPanelChrome composer = text-historik, inte versionsrevert — risk för förväxling.
+
+Föreslagen IA (en policy)
+Primär yta per händelse — aldrig samma fel dubbelt. Turn-relaterat: chatbubbla som berättelse + tydlig CTA. Preview-påverkat: overlay/panel i preview; toast bara om användaren inte ser huvudytan eller som sekundär action-länk. Deploy: sheet med fel + “Försök igen”. Återhämtning: Försök igen primärt där felet uppstod; Rapportera sekundärt när logg redan skickas men synlig CTA saknas; Ångra endast med ärligt scope i copy (t.ex. “Ångra text”).
+
+Brott / motsägelser
+Dubbel feedback (bubbla + toast) vid generation. Oenhet preview (toast + overlay). Deploy utan in-context bekräftelse. Ångra-scope otydligt vs versionsångra. Rapportera inte alltid synlig trots error-log backend.

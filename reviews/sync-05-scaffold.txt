@@ -1,0 +1,22 @@
+Agent 5 — Scaffold & Template Selection (backend–frontend sync)
+Scope: orchestrate.ts (resolveOrchestrationBase, resolveTemplateGuidance, resolveScaffoldVariant), create-chat-stream-post.ts, chat-message-stream-post.ts, useBuilderState.ts, defaults.ts
+Datum: 2026-04-16
+Betyg: 1 = stor risk att data/intent tappas, 5 = robust koppling
+
+1. Builder-state → motor: `useBuilderState` skickar `scaffoldMode` (default `"auto"`) och `scaffoldId` (default `null`) via chat-meta till `POST …/engine/chats/stream`. `resolveOrchestrationBase` tillämpar ordning: `off` → ingen scaffold; `manual` + id → `getScaffoldById`; annars `persistedScaffoldId` (vid follow-up); annars `auto` → `matchScaffoldAuto`. Tydlig kedja från UI-val till resolution. Betyg: 4
+
+2. Första vs senare meddelanden: Ny chat använder request-meta för scaffold. Uppföljning: `chat-message-stream-post.ts` matar `persistedScaffoldId` från `engine_chats.scaffold_id` så samma scaffold låses om inte `ignorePersistedScaffoldForMatch` — frontend/backend i linje med “samma sajt fortsätter”. Betyg: 4
+
+3. Intake-wizard / sajttyp: Wizarden styr främst brief och needs analysis, inte direkt `scaffoldId`. Auto-val av scaffold bygger på prompt/brief/heuristik, inte en 1:1-knapp “jag valde Restaurang” → specifik scaffold-fil. Rimligt för auto-läge men användaren kan uppleva mismatch om de förväntar sig explicit mallval från wizard. Betyg: 3
+
+4. Template-library guidance: `resolveTemplateGuidance` plockar top 1–2 av `resolvedScaffold.research.referenceTemplates`, rerankar med `scoreReferenceRelevance` (prompt, brief, buildSpec-kategorier), injicerar kompakt `runtimeGuidance` i prompten. Kräver att scaffold-manifestet har `referenceTemplates`; annars tomt. Betyg: 4 när data finns
+
+5. Feature-flag risk (prod): `FEATURES.useRuntimeTemplateGuidance` och `useVariantStructuralFiles` är **på i development** om env inte är `"false"`; i **production** krävs explicit `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true` (resp. variant-flag) för att slå på — annars **ingen** runtime template-guidance / variant-strukturfiler trots att backend stödjer det. Det är en verklig sync-klyfta mellan “kapacitet i kod” och “aktiverat i deploy”. Betyg: 2
+
+6. Variantval: `resolveScaffoldVariant` använder `pickScaffoldVariant` med prompt + `brief.visualDirection.styleKeywords` + `brief.toneAndVoice`. Om brief saknar dessa fält blir valet mer seed/prompt-baserat — ingen bugg, men svagare koppling till wizarden om tone/style inte fyllts i structured brief. Betyg: 3
+
+7. Manual app-scaffold: `create-chat-stream-post` höjer `buildIntent` från `website` till `app` när manual scaffold är app-scaffold (`isAppScaffold`) — viktigt så rätt pipeline körs; edge case hanterad. Betyg: 4
+
+8. Mallar “missas”: Auto-match kan välja annan top-kandidat än användarens mentala mall; mitigering är manual scaffold eller tydligare prompt. Template gallery i UI väljer separat flöde (templateId entry) — utanför denna agents narrow trace men värt att hålla isär från runtime scaffold-id. Betyg: 3
+
+Sammanfattning: Orkestrering och persistens är solida; största gapet är **env-styrd avstängning** av template-guidance/variant-filer i prod samt **indirekt** koppling wizard → scaffold jämfört med explicit Advanced-inställningar.

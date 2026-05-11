@@ -40,6 +40,14 @@ Om du är osäker på om texten kan vara svensk/tysk/japansk/emoji: använd `uWo
 
 ## Snabb self-check innan commit
 
+Kör den automatiska guarden:
+
+```pwsh
+node scripts/dev/check-unicode-regex.mjs
+```
+
+Den ingår också i `npm run preflight:common`.
+
 Sök efter nya `\b`-regex i diffen:
 
 ```pwsh

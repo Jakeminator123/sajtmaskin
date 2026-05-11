@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
 import {
   canUserUploadFile,
   getMediaLibraryByUser,
@@ -18,10 +17,10 @@ import { errorLog, warnLog } from "@/lib/utils/debug";
  * Handles uploading media files to a user's persistent media library.
  *
  * SUPPORTED FILE TYPES:
- * - Images (jpg, png, gif, webp, svg) - max 10 total
+ * - Images (jpg, png, gif, webp) - max 10 total
  * - Videos (mp4, webm, mov) - max 3 total
  * - PDFs - no limit
- * - Text files (txt, md, json) - no limit
+ * - Text files (txt, md, json, css) - no limit
  *
  * SECURITY:
  * - All files are scoped to the authenticated user
@@ -40,14 +39,9 @@ import { errorLog, warnLog } from "@/lib/utils/debug";
 // CONSTANTS
 // ============================================================================
 
-// Per-user media library caps. The library is persistent across projects, so
-// these need to be high enough to survive many wizard/builder iterations.
-// TEMPORARY dev values — essentially unlimited while we iterate. Tighten
-// these before going to production (see limit_reached code path + client
-// messaging that already handles counts/limits payload).
-const MAX_IMAGES = 10_000;
-const MAX_VIDEOS = 1_000;
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_IMAGES = 10; // Includes logos
+const MAX_VIDEOS = 3;
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview reliability)
 
 const ALLOWED_MIME_TYPES = [
   // Images
@@ -56,10 +50,6 @@ const ALLOWED_MIME_TYPES = [
   "image/png",
   "image/gif",
   "image/webp",
-  "image/avif",
-  "image/heic",
-  "image/heif",
-  "image/svg+xml",
   "image/x-icon",
   "image/vnd.microsoft.icon",
   // Videos
@@ -69,13 +59,10 @@ const ALLOWED_MIME_TYPES = [
   "video/x-msvideo",
   // Documents
   "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/msword",
   // Text
   "text/plain",
   "text/markdown",
   "application/json",
-  "text/html",
   "text/css",
 ];
 
@@ -86,10 +73,10 @@ const ALLOWED_MIME_TYPES = [
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "media:upload", async () => {
     try {
+    // Require authentication
     const user = await getCurrentUser(request);
-    const sessionId = getSessionIdFromRequest(request);
-    if (!user && !sessionId) {
-      warnLog("Media", "Upload blocked: no user or session");
+    if (!user) {
+      warnLog("Media", "Upload blocked: unauthenticated");
       return NextResponse.json(
         {
           success: false,
@@ -98,7 +85,6 @@ export async function POST(request: NextRequest) {
         { status: 401 },
       );
     }
-    const ownerId = user?.id ?? sessionId!;
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -107,21 +93,16 @@ export async function POST(request: NextRequest) {
     const tagsStr = formData.get("tags") as string | null;
 
     if (!file) {
-      return NextResponse.json(
-        { success: false, code: "missing_file", error: "Ingen fil bifogad" },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: "Ingen fil bifogad" }, { status: 400 });
     }
 
     // Validate file type
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      warnLog("Media", "Upload blocked: unsupported file type", { type: file.type, name: file.name });
+      warnLog("Media", "Upload blocked: unsupported file type", { type: file.type });
       return NextResponse.json(
         {
           success: false,
-          code: "unsupported_mime",
-          mime: file.type || "unknown",
-          error: `Filtypen ${file.type || "(okänd)"} stöds inte. Tillåtet: JPG, PNG, WebP, AVIF, HEIC, SVG, GIF, MP4, WebM, PDF.`,
+          error: `Filtypen ${file.type} är inte tillåten. Tillåtna: bilder, videos, PDF, textfiler.`,
         },
         { status: 400 },
       );
@@ -133,44 +114,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          code: "too_large",
-          sizeMb: Number((file.size / 1024 / 1024).toFixed(2)),
-          maxSizeMb: MAX_FILE_SIZE / (1024 * 1024),
           error: `Filen är för stor (${(file.size / 1024 / 1024).toFixed(
             2,
-          )}MB). Max storlek: ${MAX_FILE_SIZE / (1024 * 1024)}MB.`,
+          )}MB). Max storlek: 4MB (krävs för stabil Blob-preview).`,
         },
         { status: 400 },
       );
     }
 
     // SERVER-SIDE LIMIT CHECK - Can't be bypassed by client
-    const limitCheck = await canUserUploadFile(ownerId, file.type, MAX_IMAGES, MAX_VIDEOS);
+    const limitCheck = await canUserUploadFile(user.id, file.type, MAX_IMAGES, MAX_VIDEOS);
     if (!limitCheck.allowed) {
-      const counts = await getMediaLibraryCounts(ownerId).catch(() => null);
-      warnLog("Media", "Upload blocked: library limit reached", {
-        ownerId,
-        mimeType: file.type,
-        counts,
-        limits: { maxImages: MAX_IMAGES, maxVideos: MAX_VIDEOS },
-      });
-      return NextResponse.json(
-        {
-          success: false,
-          code: "limit_reached",
-          error: limitCheck.reason,
-          counts,
-          limits: { maxImages: MAX_IMAGES, maxVideos: MAX_VIDEOS },
-        },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: limitCheck.reason }, { status: 400 });
     }
 
     // Parse tags if provided
     let tags: string[] | undefined;
     if (tagsStr) {
       try {
-        tags = JSON.parse(tagsStr);
+        const parsed = JSON.parse(tagsStr);
+        if (Array.isArray(parsed)) {
+          tags = parsed
+            .filter((tag): tag is string => typeof tag === "string")
+            .map((tag) => tag.trim())
+            .filter(Boolean)
+            .slice(0, 20);
+        }
       } catch {
         // Ignore invalid JSON
       }
@@ -186,7 +155,7 @@ export async function POST(request: NextRequest) {
     // Upload via centralized blob-service (handles Blob + local fallback)
     // Files are now isolated under userId: {userId}/media/{filename}
     const uploadResult = await uploadBlob({
-      userId: ownerId,
+      userId: user.id,
       filename,
       buffer,
       contentType: file.type,
@@ -206,7 +175,7 @@ export async function POST(request: NextRequest) {
 
     // Save metadata to database
     const mediaItem = await saveMediaLibraryItem(
-      ownerId,
+      user.id,
       filename,
       file.name,
       uploadResult.path,
@@ -248,15 +217,14 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Require authentication
     const user = await getCurrentUser(request);
-    const sessionId = getSessionIdFromRequest(request);
-    if (!user && !sessionId) {
+    if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad" },
         { status: 401 },
       );
     }
-    const ownerId = user?.id ?? sessionId!;
 
     const { searchParams } = new URL(request.url);
     const fileType = searchParams.get("fileType") as
@@ -268,8 +236,12 @@ export async function GET(request: NextRequest) {
       | "other"
       | null;
 
-    const items = await getMediaLibraryByUser(ownerId, fileType || undefined);
-    const counts = await getMediaLibraryCounts(ownerId);
+    // SECURITY: Only return the current user's files
+    // projectId filter removed - users should only see their own files
+    const items = await getMediaLibraryByUser(user.id, fileType || undefined);
+
+    // Also return counts for limit display in UI
+    const counts = await getMediaLibraryCounts(user.id);
 
     return NextResponse.json({
       success: true,

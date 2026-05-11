@@ -1,0 +1,51 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 03-preview-chrome
+Date: 2026-05-01
+
+## Master Runtime Changes
+- Preview chrome includes toolbar, route list, refresh, open/clear, code view, inspector/composer/registry in pro mode.
+- `simplifiedPreviewChrome` defaults minimal and follows `sajtmaskin-builder-mode`.
+
+## Local Preview UX To Preserve
+- Minimal mode hides advanced controls but keeps refresh/open/clear and F3 where relevant.
+- Route list collapsible and shell routes can trigger build-out.
+- Refresh cache-busts iframe without extra API.
+- Code view styling stays token-consistent where already migrated.
+
+## Coupling Points
+- `usePreviewPanelPreviewRoutes` fetches version files and shell paths.
+- Route navigation differs for own-engine (`?route=`) and external URL path.
+- Shell content detection must match finalize shell pages.
+- Builder mode localStorage controls simplified chrome.
+
+## Required Preview UI / Controls
+- Preview title and status badges.
+- Routes “Sidor”.
+- Refresh/open/clear.
+- Device controls.
+- Build-out on shell routes.
+- Code view and element registry only in pro/non-simplified modes.
+
+## Exact LLM Implementation Instructions
+- Keep simplified default unless user has pro mode.
+- Do not expose advanced chrome in minimal UX.
+- Preserve own-engine vs external route URL builders.
+- Use current tokens where editing chrome; avoid adding new hardcoded palette.
+
+## Failure Modes
+- Master changes simplified default and exposes too much chrome.
+- Token split between upper chrome and code panel.
+- Mobile toolbar height regressions.
+- Shell route build-out disappears.
+
+## Verification Matrix
+- Toggle pro/minimal.
+- Route click changes correct URL.
+- Shell route shows build-out.
+- Refresh works in both modes.
+- Code view hidden in minimal and available in pro.
+
+## Do Not Break
+- Minimal-first preview UX.
+- Route/build-out logic.
+- Refresh cache bust.
+- Token styling consistency.

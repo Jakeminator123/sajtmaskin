@@ -1,0 +1,198 @@
+Här är loggen omskriven som en begriplig rapport.
+
+Genereringslogg — sammanfattning
+Kort dom
+Sak	Resultat
+Dev-start	✅ Lyckades
+DB-schema	✅ 6/6 tester gröna
+shadcn sync	✅ Uppdaterad, 56 komponenter kollade
+Redis	✅ Kopplade upp
+Första generering	✅ Version skapad
+Första preview	✅ Startade
+Follow-up 1	✅ Version skapad
+Follow-up 2	✅ Version skapad
+Quality gate	✅ Kördes, men långsam
+Största flaskhals	LLM-reasoning + quality gate + tung follow-up-context
+1. Dev-server startar rent
+Steg	Status	Kommentar
+preflight:common	✅ OK	systemprompt, lucide-icons, unicode-regex, autofix-load, backlog
+DB schema drift	✅ OK	6 tester passerade
+shadcn sync	✅ OK	56 registry-items, inga ändringar behövdes
+Vercel token refresh	✅ OK	token var expired, refresh lyckades
+DB init	✅ OK	RLS aktivt, tabeller redo
+Perf-indexes	✅ OK	24 index fanns redan
+Next dev	✅ OK	Ready på 901ms
+
+Viktigt: dev-starten ser frisk ut. Inga blockerande startup-fel.
+
+2. Första genereringen
+
+Prompten var liten:
+
+Mått	Värde
+User prompt	322 chars
+Brief call	23.9s
+Modell	gpt-5.3-codex
+Scaffold	landing-page
+Variant	warm-local
+Systemprompt total	60,833 chars
+Static prompt	32,243 chars
+Dynamic prompt	28,555 chars
+Tidslinje första generering
+Fas	Tid
+Pre-stream/orchestration	3.3s
+Reasoning	105s
+Output streaming	68.7s
+Autofix	0.99s
+Syntax validation + LLM fixer	34.7s
+Parse/merge/preflight	0.9s
+Total engine duration	213.6s / 3.6 min
+Preview start	0.9s efter version
+Quality gate	73s
+Resultat
+Sak	Resultat
+Version	97a396f6
+Files	23
+Preflight issues	0
+Errors	0
+Warnings	0
+Preview blocked	false
+Verification blocked	false
+Preview	✅ Ready
+
+Det fanns 1 syntax error, men LLM-fixern löste den:
+
+Steg	Före	Efter
+Syntax errors	1	0
+3. Follow-up 1
+
+Follow-up-prompten från användaren var liten, men systemet byggde mycket context.
+
+Mått	Värde
+User prompt	128 chars
+Prompt length in request	27,876 chars
+Systemprompt total	69,998 chars
+Static	32,243 chars
+Dynamic	37,720 chars
+Context policy	heavy
+Modell	gpt-5.3-codex
+Dossier	three-fiber-canvas
+Tidslinje follow-up 1
+Fas	Tid
+Reasoning	61s
+Output streaming	23.5s
+Autofix	1.4s
+Syntax validation	0.05s
+Parse/merge/preflight	0.47s
+Total	88.7s
+Quality gate	66s senare
+Resultat
+Sak	Resultat
+Version	c667b3d9
+Files	27
+Syntax errors	0
+Preflight issues	0
+Preview blocked	false
+Verification blocked	false
+Preview	✅ Ready
+
+Noterbart:
+dossier_verbatim_restored kördes. Det betyder att systemet återställde exakt dossier-innehåll som modellen inte fick ändra fritt.
+
+4. Follow-up 2
+
+Här bytte du till kraftigare profil.
+
+Mått	Värde
+User prompt	23 chars
+Prompt length in request	28,296 chars
+Modell	gpt-5.4
+Profile	max / Tanker
+Systemprompt total	69,894 chars
+Static	32,243 chars
+Dynamic	37,616 chars
+Context policy	heavy
+Tidslinje follow-up 2
+Fas	Tid
+Reasoning	127s
+Output streaming	31.5s
+Autofix	0.44s
+Syntax validation	0.05s
+Parse/merge/preflight	0.9s
+Total	166.7s / 2.8 min
+Resultat
+Sak	Resultat
+Version	55666bc9
+Files	27
+Syntax errors	0
+Preflight issues	0
+Preview blocked	false
+Verification blocked	false
+Preview	✅ Ready
+5. Viktigaste flaskhalsarna
+Flaskhals	Exempel från loggen	Bedömning
+Brief call	23.9s	Lite högt
+Init reasoning	105s	Stor kostnad
+Init output	68.7s	Stor kostnad
+Init syntax fixer	34.7s	Onödigt dyrt när bara 1 fel
+Quality gate	66–73s	Väldigt dyrt
+Follow-up context	~70k chars total	För tungt för små ändringar
+Inspector element map	ibland 3.6–3.7s	UI/inspector kan bli segt
+Readiness endpoints	ofta 1.2–1.8s	Kan ge trög UI-känsla
+6. Det som ser bra ut
+Sak	Varför bra
+Preflight grönt	Inga schema/lint/startproblem
+Prompt-cache-mätning finns	Du ser static/dynamic tydligt
+Autofix fungerar	10 → 9 → 7 fixes, inga kvarvarande syntaxfel
+Dossier-val fungerar	visual-3d plockar three-fiber-canvas
+Verbatim restore fungerar	Dossier-innehåll skyddas
+Preview startar snabbt	~0.9–1.2s efter version
+Versioner sparas korrekt	3 versioner skapade utan blockering
+Product postcheck körs	Snabbt: 140ms–1.3s
+7. Det som sticker ut negativt
+A. Follow-ups är fortfarande för tunga
+
+User prompt:
+
+Follow-up	User chars	Systemprompt total
+Follow-up 1	128	69,998
+Follow-up 2	23	69,894
+
+Det är mycket context för små ändringar. Detta matchar tidigare slutsats: follow-up behöver bli mer delta-baserat.
+
+B. Quality gate kostar mycket
+Körning	Quality gate
+Första versionen	73s
+Senare version	66s
+
+Det är bra för säkerhet, men dyrt för upplevd snabbhet.
+
+C. contextPolicy: heavy på små follow-ups
+
+Båda follow-ups fick heavy, trots att originalpromptarna var 128 och 23 chars. Det kan vara rätt om 3D/visual-dossier kräver det, men det är troligen en stor latensorsak.
+
+8. Min tolkning
+
+Det här är en lyckad körning tekniskt.
+
+Men den visar tre tydliga förbättringsområden:
+
+Prio	Förbättring	ROI
+1	Gör små follow-ups billigare än heavy	95%
+2	Minska quality-gate-latens eller kör mer parallellt	90%
+3	Undvik LLM-fixer för enkla syntaxfel om mekanisk fix räcker	80%
+4	Optimera readiness/preview-status polling	70%
+5	Kapa dynamic context från ~37k till <25k	85%
+Slutbetyg på just den här körningen
+Område	Betyg
+Stabilitet	8.7 / 10
+Observability	8.8 / 10
+Latens	6.8 / 10
+Follow-up-effektivitet	6.5 / 10
+Preview/quality pipeline	8.2 / 10
+Helhet	8.1 / 10
+
+Kort sagt:
+Pipeline fungerar. Den skapar fungerande versioner, preview startar och verifieringen går igenom. Men små follow-ups är fortfarande för tunga, och quality gate + reasoning gör att upplevelsen känns långsam.
+
+Säkerhet: 90%. Jag bygger detta direkt på loggen du klistrade in, men jag har inte sett den faktiska visuella outputen.

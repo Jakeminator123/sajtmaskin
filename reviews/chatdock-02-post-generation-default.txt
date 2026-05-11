@@ -1,0 +1,26 @@
+Chat Dock — Agent 2: default after generation (READ-ONLY)
+
+“Site built” / completion
+• Toast “Sajt skapad!” on stream done + onGenerationComplete: src/lib/hooks/chat/stream-handlers.ts ~995–1004.
+• Same pattern: src/lib/hooks/chat/useCreateChat.ts ~299–310.
+• Wiring: useBuilderPageController.ts ~353–387 passes onGenerationComplete → deployActions.handleGenerationComplete.
+
+Handler (no chat dock today)
+• useBuilderDeployActions.ts ~327–511 — version/instructions/save; no setChatCollapsed / dock open.
+
+Chat panel
+• Collapse only in shell: BuilderShellContent.tsx ~707–718 (builder:chatCollapsed); no auto-open on generation end.
+• Post-stream: tip auto-fetch ~1060–1073, not dock.
+• Mobile: first currentPreviewUrl switches tab to preview ~729–733, not chat.
+• ChatInterface.tsx — no onGenerationComplete / dock logic in scoped grep.
+
+Current vs desired (per skill)
+• Current: chat follows user toggle + localStorage; gen end does not expand dock; no ~200ms slide-in.
+• Desired: default open after successful gen + short delayed slide-in.
+
+Alt triggers (pro / con)
+1) Effect vm.isAnyStreaming false → setTimeout 200ms + setChatCollapsed(false) in BuilderShellContent — pro: UI-local; con: dedupe multi-phase streams.
+2) Extend onGenerationComplete / sibling callback from controller — pro: one “gen finished”; con: couples shell to stream contract.
+3) Custom event from stream-handlers — pro: decoupled; con: another global signal to test.
+
+Scores (1–5): Post-gen discoverability 2 | Timing polish 1 | Parity w/ preview auto-switch 2 | Layering clarity 4 | Test surface 3

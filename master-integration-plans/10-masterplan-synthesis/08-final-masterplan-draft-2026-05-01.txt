@@ -1,0 +1,60 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 08-final-masterplan-draft
+Date: 2026-05-01
+
+## Inputs Read
+- All integration-plan areas 01–09, including git delta, backend API contracts, generation pipeline, builder UI state, preview runtime, env/config, tests, design system/UX and deploy/observability reports.
+
+## Synthesis
+Draft for `MASTER-INTEGRATION-MASTERPLAN.md`: safely integrate `origin/master` into the frontend branch while strictly preserving local Apple-minimal UI/UX, preview-first layout, Swedish copy, postMessage build-out, VM readiness and builder coexistence.
+
+Policy:
+- Clean tree before merge.
+- Master owns backend contracts, security, rate limits, media validation, verifier/quality-gate, SSE payloads and route handlers.
+- Ours owns builder shell layout, chat dock, preview iframe lifecycle, help-chat filtering, design tokens and UI handling.
+- No automation against a user’s active builder session.
+
+## Ordered Plan
+1. Refresh refs and classify WIP.
+2. Clean tree and isolate generated data/plans.
+3. Merge tooling/config.
+4. Merge env/schema/docs.
+5. Merge backend API routes and stream clients.
+6. Merge generation pipeline in dependency order.
+7. Merge preview runtime/session/heartbeat.
+8. Merge builder shell/UI state/chat/wizard/header.
+9. Wire deploy/SEO/domain/CSP/analytics/observability.
+10. Run verification ladder and isolated manual builder smoke.
+
+## Exact LLM Implementation Brief
+- Preserve port-ours behaviors: postMessage order, `preview-starting`, `preview-ready`, `vmReady`, build-out request, URL fallback, help-chat filter, preview session heartbeat/viewerId, local tokens and Swedish copy.
+- Take master for CSP/security/rate-limit/media/server verifier/quality-gate/SSE payloads, then adapt local UI reactions.
+- Merge stream stack atomically: routes, stream posts, `orchestrate`, `stream-format`, client hooks, `builder-stream-contract`, tests.
+- Follow master prompt transport and only add minimal `reasoning-slow` UI.
+- Keep finalize order: merge, preflight, manifest/env injection, home/count parity and shell fingerprint.
+- Integrate product-postcheck once and dedupe UI states.
+- Any preview session schema change updates contract, routes and hooks together.
+- Do not stage secrets, `.vercel`, `data/runs/**`, logs or prompt dumps.
+- Minimum verification: typecheck, lint, test:ci, build; add scaffold/dossier checks when data changes.
+
+## Acceptance Criteria
+- Working tree clean except intentional ignored/report files.
+- Typecheck, lint, test:ci and build green.
+- Stream route tests and `stream-handlers` pass when stream touched.
+- Dossier/scaffold validators pass when generation data changes.
+- Manual smoke with isolated chat: init/follow-up done, preview ready, build-out works, help messages isolated, no stale error UI.
+- CSP/CORS/nonce consistent.
+- Credits, media, deploy 409 logging and domain flows not regressed.
+
+## Risks / Mitigations
+- SSE drift: atomic stream merge and tests.
+- Finalize/version races: one client per chat.
+- Duplicate viewers/heartbeat TTL skew: one viewerId per tab.
+- postMessage timing regression: port local runtime/hooks before aesthetic tweaks.
+- product-postcheck duplicate truth: one consumer.
+- Env/schema drift: atomic env slice.
+- CSP/proxy duplication: single CSP source.
+- Design regression: token checklist and grep.
+- Test gaps: add P0 route tests when hotspots are touched.
+
+## Final Recommendations
+Treat integration as two phases: first clean WIP + merge, then port-ours reapplication and UI-safe smoke. Keep commits small by domain, refresh refs before merge, and write one internal note for intentional hidden/ported master features so future LLMs do not undo them.

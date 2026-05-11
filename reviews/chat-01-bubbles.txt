@@ -1,0 +1,28 @@
+Chat UX – bubblar (Apple Messages / iMessage-lins)
+Scope: MessageList.tsx + ai-elements/message.tsx (Message / MessageContent)
+
+1. User vs assistent — User ml-auto + border-primary/20 + bg-primary/[0.06]; AI vänster + bg-card/75 + border-border/40. Tydlig sidindelning utan avatar. 5/5
+
+2. Bubbelbredd — max-w-[min(88%,28rem)]; läsbar thread-kolumn. 4/5
+
+3. Rundning — rounded-[1.25rem] överallt; generisk app-bubbla, inte iMessage-svans. 3/5
+
+4. Padding — px-4 py-3, gap-2.5; kan kännas tight om reasoning + verktyg + text staplas. 4/5
+
+5. Färger (tokens) — Ingen per-bubbel hård hex här. 5/5
+
+6. Skugga + kant — shadow + border; mer “kort” än platt SMS. 3/5
+
+7. Tidsstämplar — Inga MessageTimestamp i listan; minimalt metadata. 5/5
+
+8. Tomt tillstånd — Ikon + kort rad; mer app empty state än ren Messages-yta. 3/5
+
+9. Typing — StreamingTypingIndicator: tre prickar + sr-only “Skriver”; inte samma språk som Messages’ bubbel-indikator. 3/5
+
+10. Extra krom — Reasoning, källor, plan, Steg · N, quick-reply, VersionFeedback: tungt vs iMessage-minimalism. 2/5
+
+11. Message-rad — flex gap-3 utan avatar; ren lista. 5/5
+
+12. MessageContent / role — Utseende styrs av className i MessageList; role i primitiv kan divergera om någon förlitar sig på den. 3/5
+
+Sammanfattning: Stark rollsärskiljning; svagare vs iMessage på asymmetrisk bubbel, platt yta och mindre krom i assistent-bubblar.

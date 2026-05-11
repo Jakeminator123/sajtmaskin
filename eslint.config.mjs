@@ -32,6 +32,8 @@ export default defineConfig([
   globalIgnores([
     // Vendored / cached third-party trees (not maintained in this repo)
     "research/**/*",
+    // Eval artifacts deliberately preserve broken generated code for debugging.
+    "data/eval-runs/**/*",
     "data/external-template-pipeline/repo-cache/**/*",
     // Vendored upstream repos used as reference material for the dossier /
     // template pipeline (e.g. the full `next.js` checkout under `repos/`).
@@ -69,6 +71,7 @@ export default defineConfig([
     "next-env.d.ts",
     "**/*.tsbuildinfo",
     "node_modules/**/*",
+    ".venv/**/*",
     "sajtmaskin/**/*",
     "base/**/*",
     "old/**/*",

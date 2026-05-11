@@ -12,13 +12,13 @@
       "key": "STRIPE_SECRET_KEY",
       "required": true,
       "enforcement": "build",
-      "purpose": "Server-side Stripe API authentication. Find it in the Stripe dashboard under Developers > API keys. Tagged 'build' because the checkout-session route instantiates the Stripe client at module scope; a missing/placeholder value makes deploy crash on first request."
+      "purpose": "Server-side Stripe API authentication. Find it in the Stripe dashboard under Developers > API keys. Tagged 'build' because the route creates the Stripe client at module scope."
     },
     {
       "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
       "required": true,
       "enforcement": "warn-only",
-      "purpose": "Client-side Stripe.js initialization. Safe to expose; the secret key is never sent to the browser. Tagged 'warn-only' because the publishable key is in the harmless placeholder set and a missing real value only disables the checkout button gracefully."
+      "purpose": "Client-side Stripe.js initialization. Safe to expose; the secret key is never sent to the browser. Tagged 'warn-only' because missing values only disable checkout."
     }
   ],
   "dependencies": ["stripe", "@stripe/stripe-js"],

@@ -1,0 +1,43 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 06-domains-deployments
+Date: 2026-04-27
+
+## Master Changes To Preserve
+| Sökväg | Beteende |
+|--------|----------|
+| `src/app/api/v0/deployments/route.ts` | POST: validering, credits, pre-deploy, `buildDeployReadiness`, 409 `DEPLOY_MISSING_ENV` vid env-gap; `createVercelDeployment`, sync env; JSON med `id`, `vercelProjectId`, `url`. GET `?chatId=`: list + ev. Vercel-refresh. |
+| `src/app/api/v0/deployments/[deploymentId]/route.ts` | GET: ownership via chat, Vercel-poll tills terminal. |
+| `src/app/api/v0/deployments/[deploymentId]/events/route.ts` | SSE: initial + Redis-pubsub eller 4s poll. |
+| **På origin/master (saknas lokalt i diff-ögonblicks arbetskopia per agent):** `src/app/api/v0/deployments/resolve-seo.ts` (+ tester) — efter `git merge` MÅSTE denna in portas/verifieras mot `SeoOptInPanel` / byggflöde. |
+| `src/app/api/domains/{check,link,verify,save,whois}/` | Sök, koppling, spara `deploymentId`+domän via `setDeployment`. |
+
+## Frontend Consumers
+- `useBuilderState` — `isDeploying`, `activeDeploymentId`, `lastDeployVercelProjectId`, `domainManagerOpen`.
+- `useBuilderPageController` — `deployReadiness`, `useBuilderDeployActions`, `useDeploymentStatus` → `deploymentStatus`, `url`, `inspectorUrl`.
+- `useBuilderDeployActions` — `deployActiveVersionToVercel` (POST `/api/v0/deployments`, 409 + `persistVersionErrorLogs`), `handleDomainSearch` (POST `/api/domains/check`).
+- `BuilderShellContent` — `DeployNameDialog`, `DomainManager` (`vercelProjectId` vs `deploymentId` enligt komponenten).
+- `useDeploymentStatus` — `EventSource` till `.../deployments/{id}/events`.
+- `DomainManager` — check → link → verify; POST `/api/domains/save` efter link.
+
+**ASCII:** Publicera → dialog → `POST /api/v0/deployments` → `EventSource` .../events. Domän: check/link/save.
+
+## Contract Risks
+- **resolve-seo (master-only tills merge):** ny SEO-post-deploy väg; måste stämma med publish-flöde och `projects/.../preferences` om mastern kopplar.
+- 409 `DEPLOY_MISSING_ENV` + error-log till `versions/.../error-log` — ändra inte fält utan uppdatera toasts.
+- `useDeploymentStatus` förväntar `status`, `url`, `inspectorUrl` i SSE; backend måste förbli terminal-kompatibelt.
+- Vercel `projectId` vs `deploymentId` förväxling i doman-API (se `DomainManager` + `lib/deployment.ts`).
+
+## Required Adaptations
+- När `resolve-seo` landar: läs route + trä `useBuilderDeployActions` / publicera-UI; om mastern anropar efter POST deployments, följ samma `chatId`/`versionId`/`vercelProjectId` som deploy-svar.
+- Om deployment POST-body utökas: uppdatera `createDeploymentSchema` + `route.test.ts` + `deployActiveVersionToVercel` body.
+
+## Tests / Runtime Checks
+- `src/app/api/v0/deployments/route.test.ts` (+ `resolve-seo.test.ts` när filer finns efter merge).
+- Manuell: POST deploy, SSE tills klar, öppna Domän, check/link om miljö finns.
+
+## Do Not Break
+- `POST /api/v0/deployments` — credits + ägarkedja + `precheckOnly` m.m. enligt nuvarande `route`.
+- `GET .../events` SSE + Redis-fallback.
+- `DEPLOY_MISSING_ENV` + `persistVersionErrorLogs` + `deployReadiness` tolkning i `useBuilderDeployActions`.
+- Domäner: Vercel projectId vs DB `deploymentId` där `save` kräver det.
+
+Merge-diff (`HEAD...origin/master`) inkluderar: `route.ts`, `[deploymentId]/*`, `resolve-seo.ts` (+ test) — bekräfta faktiskt innehåll efter `git fetch && merge`.

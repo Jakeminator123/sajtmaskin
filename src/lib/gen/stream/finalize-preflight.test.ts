@@ -49,6 +49,14 @@ vi.mock("@/lib/gen/autofix/llm-fixer", () => ({
 
 vi.mock("@/lib/gen/autofix/llm-repair-gate", () => ({
   runLlmRepairGate,
+  RepairLedger: class {
+    begin() {
+      return { allowed: true, record: { key: "test-ledger-key" } };
+    }
+    complete() {}
+    markError() {}
+    clear() {}
+  },
 }));
 
 vi.mock("@/lib/gen/post-process/image-materializer", () => ({
@@ -64,7 +72,6 @@ vi.mock("@/lib/logging/devLog", () => ({
 }));
 
 import { runFinalizePreflight } from "./finalize-preflight";
-import { FEATURES } from "@/lib/config";
 import { serializeCodeProject } from "@/lib/gen/parser";
 
 /**
@@ -183,7 +190,6 @@ describe("runFinalizePreflight", () => {
     runLlmFixer.mockResolvedValue({ success: false });
     runLlmRepairGate.mockResolvedValue({ result: { success: false }, fixerModel: "gpt-5.4" });
     runAutoFix.mockResolvedValue({ fixedContent: "", fixes: [], warnings: [], dependencies: [] });
-    (FEATURES as { escalateMergeSyntaxToLlm: boolean }).escalateMergeSyntaxToLlm = false;
   });
 
   it("marks preview as blocked when no renderable page can be built", async () => {
@@ -331,7 +337,6 @@ describe("runFinalizePreflight", () => {
   });
 
   it("escalates merged syntax to LLM once when mechanical pass is a no-op", async () => {
-    (FEATURES as { escalateMergeSyntaxToLlm: boolean }).escalateMergeSyntaxToLlm = true;
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     const repairedContent = serializeCodeProject([
       {
@@ -586,6 +591,91 @@ describe("runFinalizePreflight", () => {
     expect(homeIssue?.message).toMatch(/Required home route is missing/);
     expect(result.previewStart.canStartPreview).toBe(false);
     expect(result.previewStart.hasCriticalCodeFailure).toBe(true);
+  });
+
+  it("P2: recovers a missing app/page.tsx with a targeted home-route repair", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    buildCompleteProject.mockImplementation((files: unknown) => withMinimalBaseline(files));
+
+    const recoveredHome = RICH_PAGE_CONTENT.replace("Welcome to Acme", "Welcome to Cartwell");
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        success: true,
+        partial: false,
+        fixedContent: serializeCodeProject([
+          {
+            path: "app/products/page.tsx",
+            content: "export default function Products() { return <main>Products</main>; }",
+            language: "tsx",
+          },
+          {
+            path: "app/page.tsx",
+            content: recoveredHome,
+            language: "tsx",
+          },
+        ]),
+        fixedFiles: ["app/page.tsx"],
+        missingFiles: [],
+        incompleteFiles: [],
+      },
+      fixerModel: "gpt-5.4",
+    });
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_p2_ecommerce_missing_home",
+      model: "gpt-5.4",
+      originalPrompt: "Build an ecommerce storefront for Cartwell",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "page-addition",
+        scaffoldId: "ecommerce",
+        routePlanSummary: "prompt:storefront:/,/products",
+        stylePack: "commerce",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["ecommerce"],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 28_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      },
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "brochure",
+        reason: "test",
+        routes: [
+          { path: "/", name: "Home", intent: "Storefront landing page", required: true },
+          { path: "/products", name: "Products", intent: "Product catalog", required: false },
+        ],
+      },
+      filesJson: JSON.stringify([
+        {
+          path: "app/products/page.tsx",
+          content: "export default function Products() { return <main>Products</main>; }",
+          language: "tsx",
+        },
+      ]),
+    });
+
+    const persisted = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(runLlmRepairGate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_p2_ecommerce_missing_home",
+        requiredFiles: ["app/page.tsx"],
+      }),
+    );
+    expect(persisted.find((file) => file.path === "app/page.tsx")?.content).toContain(
+      "Welcome to Cartwell",
+    );
+    expect(
+      result.preflightIssues.some((issue) => /Required home route is missing/i.test(issue.message)),
+    ).toBe(false);
+    expect(result.previewStart.canStartPreview).toBe(true);
   });
 
   it("plan-11 bug 1: blocks persist when home route content is trivial (empty <main>)", async () => {

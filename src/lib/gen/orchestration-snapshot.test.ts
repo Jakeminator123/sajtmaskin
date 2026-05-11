@@ -227,6 +227,11 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
     expect(
       buildFollowUpBriefFromSnapshot({ briefSummary: { primaryCTA: "Boka" } }),
     ).toBeNull();
+    expect(
+      buildFollowUpBriefFromSnapshot({
+        briefSummary: { colorPalette: {}, typography: {}, domainProfile: {} },
+      }),
+    ).toBeNull();
   });
 
   it("hydrates requestedCapabilities + domainProfile so dossier-pick works on follow-up", () => {
@@ -236,18 +241,68 @@ describe("buildFollowUpBriefFromSnapshot (A1+A2 fix)", () => {
         brandName: "Solskenet AB",
         requestedCapabilities: ["payments", "auth", "booking"],
         domainProfile: { domain: "hospitality", industry: "hotel" },
-        // Fält som INTE ska propageras till brief-objektet (style/tone hör till
-        // continuity-blocket, inte till capability-driven dossier-pick).
+        // Rapport 07#3 (2026-04-22 audit): style/tone måste rehydreras under
+        // de shape-nycklar consumers läser (system-prompt.ts läser
+        // `brief.visualDirection.styleKeywords` + `brief.toneAndVoice`;
+        // scaffold-query-context.ts samma). Continuity-prosan ersätter inte
+        // strukturerade fält — utan rehydrering tappade follow-ups hela art
+        // direction fast snapshot bevarade den.
         styleKeywords: ["minimal", "warm"],
+        toneKeywords: ["professionell", "välkomnande"],
+        qualityBar: "premium",
+        motionLevel: "lively",
+        colorPalette: {
+          primary: "#f59e0b",
+          secondary: "#7c2d12",
+          accent: "#fde68a",
+          background: "#fff7ed",
+          text: "#1f1308",
+        },
+        typography: {
+          headings: "serif editorial",
+          body: "humanist sans",
+        },
       },
     };
     const brief = buildFollowUpBriefFromSnapshot(snapshot);
     expect(brief).not.toBeNull();
     expect(brief?.requestedCapabilities).toEqual(["payments", "auth", "booking"]);
-    expect(brief?.domainProfile).toEqual({ domain: "hospitality", industry: "hotel" });
+    // 2026-04-22 follow-up audit: rehydreras nu som slug-sträng eftersom
+    // system-prompt + guidance-resolvers förväntar `brief.domainProfile?: string`
+    // (object-formen slukades av str(...)-coercing i system-prompt).
+    expect(brief?.domainProfile).toBe("hospitality");
     expect(brief?.projectTitle).toBe("Hotel Solskenet");
     expect(brief?.brandName).toBe("Solskenet AB");
-    expect(brief?.styleKeywords).toBeUndefined();
+    expect(brief?.visualDirection).toEqual({
+      styleKeywords: ["minimal", "warm"],
+      colorPalette: {
+        primary: "#f59e0b",
+        secondary: "#7c2d12",
+        accent: "#fde68a",
+        background: "#fff7ed",
+        text: "#1f1308",
+      },
+      typography: {
+        headings: "serif editorial",
+        body: "humanist sans",
+      },
+    });
+    expect(brief?.toneAndVoice).toEqual(["professionell", "välkomnande"]);
+    expect(brief?.qualityBar).toBe("premium");
+    expect(brief?.motionLevel).toBe("lively");
+  });
+
+  it("hydrates style/tone when nothing else is present so art direction carries on follow-up", () => {
+    // Rapport 07#3: style/tone alone ska ge ett icke-tomt brief-objekt så
+    // att system-prompt.ts och scaffold-query-context.ts ser designfälten
+    // även när ingen capability-data finns i snapshot.
+    const brief = buildFollowUpBriefFromSnapshot({
+      briefSummary: { styleKeywords: ["editorial"], toneKeywords: ["confident"] },
+    });
+    expect(brief).toEqual({
+      visualDirection: { styleKeywords: ["editorial"] },
+      toneAndVoice: ["confident"],
+    });
   });
 
   it("returns minimal brief with just requestedCapabilities when nothing else is set", () => {
@@ -284,6 +339,22 @@ describe("extractBriefSummaryFromSnapshot — capability/domain extraction", () 
     });
     expect(out).not.toBeNull();
     expect(out?.domainProfile).toEqual({ domain: "hospitality", industry: "hotel" });
+  });
+
+  it("reads design values used by Brief-Locked Design Values from snapshot", () => {
+    const out = extractBriefSummaryFromSnapshot({
+      briefSummary: {
+        qualityBar: "bold-dramatic",
+        motionLevel: "lively",
+        colorPalette: { primary: "#111111", background: "#fef3c7" },
+        typography: { headings: "display serif", body: "sans" },
+      },
+    });
+    expect(out).not.toBeNull();
+    expect(out?.qualityBar).toBe("bold-dramatic");
+    expect(out?.motionLevel).toBe("lively");
+    expect(out?.colorPalette).toMatchObject({ primary: "#111111", background: "#fef3c7" });
+    expect(out?.typography).toEqual({ headings: "display serif", body: "sans" });
   });
 
   it("ignores empty domainProfile object", () => {

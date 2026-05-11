@@ -1,0 +1,16 @@
+Processtext & status (Apple = spinner, inte roman)
+
+Prioriterade problem (1=lätt, 5=värsta bruset):
+1. GenerationSummary streamingNoticeSimple/Pro — 5 — Två långa marketingrader duplicerar overlay + spinner; byt mot tyst/ikon.
+2. stream-handlers buildProgressSteps — 5 — Många helmeningar i Steg-kollaps; hög ordvolym.
+3. ThinkingOverlay + GenerationSummary — 4 — “Genererar din sajt…” vs “Skapar din sajt…” vs enheter — välj en yta eller spinner-only.
+4. ReasoningTrigger (reasoning.tsx) — 4 — “Tänker…” / “Tänker (Ns)…” + emoji; zink hardcoded i filen.
+5. Pending-reply dialog — 3 — Titel OK; DialogDescription lång stycke — korta till en rad.
+6. ChatInterface footer “Förbereder…” — 3 — OK kort; kan slås ihop med global busy.
+7. Figma/inspect — 2 — “Hämtar Figma-preview…” m.m. — kortbara till “Laddar…”.
+8. StreamingTypingIndicator — 1 — Prickar + sr-only “Skriver” — bra.
+9. Tomma tillstånd — 1 — “Inga meddelanden ännu” — OK.
+
+Inventering (kort): MessageList (Steg · N, Planåtgärder, Svar krävs-modaler); ChatInterface (Förbereder, Figma, upload); GenerationSummary; ThinkingOverlay; stream-handlers rader; BuilderMessageTooling loggar.
+
+Rekommendationer: (1) Trunkera/ta bort streamingNotice*. (2) Fas-labels eller en “Logg” för power users. (3) Dedupe overlay vs summary. (4) Reasoning: text + token, utan emoji om minimal.

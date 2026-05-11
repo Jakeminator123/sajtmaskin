@@ -75,8 +75,8 @@ Komplement:
 | Bana | Vad den styr |
 |---|---|
 | Byggmodell (`fast`/`pro`/`max`/`codex`/`anthropic`) | Generation/refine-streamen |
-| Prompt assist | Deep brief, rewrite och promptverktyg |
-| Polish | "Skriv om"-lanen (lätt omskrivning) |
+| Deep Brief | Init-expansion via `/api/ai/brief`; separat från byggmodellen |
+| Prompt assist / polish | Legacy-paraply. Rewrite/polish-knapparna är borttagna; kvarvarande aktiv yta är Deep Brief + fallback helpers i `prompt-assist/` |
 | Thinking | Resonemangsflagga, inte separat modellbana |
 
 Kanonisk modellkarta: `docs/schemas/model-build-profiles.md` + `config/ai_models/manifest.json`.

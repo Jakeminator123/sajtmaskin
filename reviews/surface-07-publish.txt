@@ -1,0 +1,17 @@
+Backend Surface Mapping — Agent 7: Publicera (EN orange pill BuilderHeader + sheet; backend-svar som ofta döljs)
+
+- BACKEND: POST v0/deployments (deployments/route.ts:364) → UI-YTA: Publicera-sheet — INTERAKTION: bekräfta efter blockers — SYNLIG DEFAULT? NEJ — Kolla först
+- BACKEND: precheckOnly skipAutoFix (route.ts:358) → UI-YTA: Sheet sektion — INTERAKTION: kör utan Vercel — SYNLIG DEFAULT? NEJ — Torrkör koll
+- BACKEND: svar fixesApplied readiness (route.ts:596) → UI-YTA: Sheet hopfällbar — INTERAKTION: expandera — SYNLIG DEFAULT? NEJ — Vad hände
+- BACKEND: target preview|production (route.ts:391) → UI-YTA: Sheet segment — INTERAKTION: välj miljö — SYNLIG DEFAULT? NEJ — Preview först
+- BACKEND: GET deployments lista (route.ts:636) → UI-YTA: Sheet historik — INTERAKTION: scroll — SYNLIG DEFAULT? NEJ — Tidigare builds
+- BACKEND: GET deployment/[id] ([deploymentId]/route.ts:11) → UI-YTA: Sheet rad — INTERAKTION: uppdatera — SYNLIG DEFAULT? NEJ — Hämta status
+- BACKEND: SSE events (useDeploymentStatus.ts:31) → UI-YTA: Pill+sheet rad — INTERAKTION: auto — SYNLIG DEFAULT? JA — Bygger… / Live
+- BACKEND: inspectorUrl i SSE → UI-YTA: Sheet länk — INTERAKTION: ny flik — SYNLIG DEFAULT? NEJ — Öppna bygge
+- BACKEND: deploymentInspectorUrl controller → UI-YTA: (saknar UI) — INTERAKTION: koppla sheet — SYNLIG DEFAULT? NEJ — Koppla inspektion
+- BACKEND: domains/check (useBuilderDeployActions.ts:106) → UI-YTA: Sheet under URL — INTERAKTION: koppla domän — SYNLIG DEFAULT? NEJ — Domän
+- BACKEND: resolveProjectEnv 409 (deploy route) → UI-YTA: Sheet CTA — INTERAKTION: öppna env-panel — SYNLIG DEFAULT? NEJ — Fixa env
+- BACKEND: ingen Vercel rollback API → UI-YTA: Sheet hjälp — INTERAKTION: länk Vercel — SYNLIG DEFAULT? NEJ — Ångra i Vercel
+- BACKEND: DeployNameDialog (DeployNameDialog.tsx) → UI-YTA: Ersätt/merge sheet — INTERAKTION: namn+env+historik — SYNLIG DEFAULT? NEJ — Förbered publicering
+
+Känsla: lugnt default = en pill; sheet = URL + env + historik + inspector + hopfälld logg.

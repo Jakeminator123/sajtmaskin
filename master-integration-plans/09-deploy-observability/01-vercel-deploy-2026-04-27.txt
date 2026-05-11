@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 01-vercel-deploy
+Date: 2026-04-27
+
+## Production Changes In Master
+- **Sannolik merge-yta (ingen diff körd här):** `POST/GET /api/v0/deployments` (`src/app/api/v0/deployments/route.ts`), `GET/…/[deploymentId]`, **SSE** `.../events/route.ts`, `vercelDeploy.ts` (v13 deploy, v10 env), `vercel.ts` / `getVercelToken`, `webhooks/vercel` → DB + valfri Redis, `lib/deployment.ts`, `deploy-readiness`, `credits` commit, admin `api/admin/vercel/*`, `domain` verify beroende.
+- **Flöde (nuvarande):** Body-validering → ev. credits → filer/Postgres → `buildDeployReadiness` → 409 `DEPLOY_MISSING_ENV` ev. → `createVercelDeployment` → `syncEnvVarsToVercelProject` → `devLogAppend` — webhook + SSE (poll Vercel om Redis saknas).
+
+## Local Behavior To Preserve
+- **`precheckOnly`**, **`skipAutoFix`**, 409 vs varningar för env; bildstrategi `blob` med `BLOB_READ_WRITE_TOKEN` annars `external`.
+- Credits endast när **inte** precheck; **GET** `?chatId=` lazy refresh sista icke-terminala deploy.
+- **Tenant:** `project_id` på chat; kropps-`projectId` får inte krocka.
+- `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX` / `DEPLOY_DISABLE_AUTO_FIX`.
+
+## Security / Secret Risks
+- `VERCEL_TOKEN` / `VERCEL_TOKEN_FULL` — aldrig logg/commit.
+- `VERCEL_WEBHOOK_SECRET` + `x-vercel-signature` — HMAC-acceptans.
+- `syncEnvVarsToVercelProject` skickar krypterad env — fel projekt-ID = fel mål.
+- `BLOB_READ_WRITE_TOKEN`, `ENV_VAR_ENCRYPTION_KEY`, `REDIS_URL` / `KV_*` beroenden.
+- Admin `api/admin/vercel/*` — session/ACL måste förbli hård.
+
+## Deploy Verification
+- `src/app/api/v0/deployments/route.test.ts`, `lib/deploy/deploy-readiness.test.ts`, m.fl. version-integrity.
+- E2E: `e2e/deploy/deploy-api-precheck.smoke.spec.ts` (`precheckOnly`).
+- Manuellt: `POST` precheck; Vercel dashboard; webhook URL mot produktion.
+
+## Observability Checks
+- `devLogAppend` typer `site.deploy.*` i deployments-route.
+- Loggar: `[deploy]`, `[credits]`, `[deployments-sse]`, webhook "ignored/ok" paths.
+
+## Do Not Commit
+- `.env*`, `VERCEL_*` secrets, `BLOB_READ_WRITE_TOKEN`, `VERCEL_WEBHOOK_SECRET`, DB/Redis/Stripe, exporterade loggar med payload-hemligheter, `.vercel/`.

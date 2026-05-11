@@ -62,6 +62,7 @@ export function dumpOwnEngineCodegenFromFullSystem(
   meta?: Record<string, unknown>,
 ): void {
   const sepIdx = fullSystem.indexOf(SYSTEM_PROMPT_SEPARATOR);
+  const staticCore = sepIdx === -1 ? fullSystem : fullSystem.slice(0, sepIdx);
   const dynamic =
     sepIdx === -1 ? "" : fullSystem.slice(sepIdx + SYSTEM_PROMPT_SEPARATOR.length);
   writeLatestPromptDump(
@@ -70,7 +71,13 @@ export function dumpOwnEngineCodegenFromFullSystem(
       "full-system.md": fullSystem,
       "dynamic-context.md": dynamic,
     },
-    meta,
+    {
+      staticCoreChars: staticCore.length,
+      dynamicChars: dynamic.length,
+      totalChars: fullSystem.length,
+      separatorFound: sepIdx !== -1,
+      ...meta,
+    },
   );
 }
 

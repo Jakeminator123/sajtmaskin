@@ -3,6 +3,7 @@ id: cloudagent-paket-A-doc-rewrite
 title: Cloudagent Paket A — Dossier v1→v2 doc-omskrivningar
 status: redo-för-cloudagent
 created: 2026-04-21
+linear: null
 priority: low
 parent_plan: docs/plans/avklarat/dossier-cleanup-2026-04-21.md
 parallel_safe_with: [cloudagent-paket-B-schema-validation]

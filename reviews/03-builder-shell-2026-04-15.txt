@@ -1,0 +1,58 @@
+Agent 3/8 — BUILDER SHELL & CHROME
+Date: 2026-04-15
+Scope (read-only): src/app/builder/BuilderShellContent.tsx, src/app/builder/BuilderLayout.tsx, src/components/builder/BuilderHeader.tsx
+Criteria: Apple-minimalist; CSS vars / design tokens; rounded; 150–200ms motion; orange CTAs; Swedish copy; minimal chrome.
+Scoring: 5 = excellent · 4 = strong · 3 = adequate · 2 = weak · 1 = poor
+
+────────────────────────────────────────
+CHECKLIST
+
+1. Header slimness — Score: 4
+   • Strengths: Single compact bar (`h-10`, `shrink-0`), semantic tokens (`border-border`, `bg-background/95`, backdrop blur), brand wordmark + optional `projectLabel` without extra vertical chrome.
+   • Gaps: Right rail packs many actions (Inställningar w/ long summary, Mer, Ny chat, Spara, Domän, Publicera, conditional Avbryt) with `flex-wrap` — slim height but visually busy on small widths; mega-dropdown for settings is power-user dense vs “minimal chrome.”
+
+2. Layout preview-first — Score: 5
+   • Main column order uses `lg:flex-row-reverse` with chat in a fixed narrow column (`lg:w-80`) and preview as `flex-1` — desktop clearly prioritizes preview surface; comment in code matches (“Preview panel … primary”).
+   • Mobile defaults tab to “chat” until site exists (`mobileTab` default `"chat"`) — acceptable tradeoff for input-first onboarding; still structurally preview-primary on large screens.
+
+3. Chrome density — Score: 3
+   • Shell layers: `BuilderLayout` → header → mobile tab bar → chat stack (LaunchReadinessCard, ProjectEnvVarsPanel, messages, tips, thinking overlay, composer, advanced panel) + preview + version rail — a lot of persistent UI beyond these three files but orchestrated here.
+   • Header exposes many global actions inline; “minimal chrome” product goal is only partly met — progressive disclosure exists (dropdowns) but surface area remains high.
+
+4. Transitions — Score: 5
+   • Repeated `motion-safe:duration-200` on header, mobile tabs, chat/preview panels, version rail — aligns with 150–200ms target; `transition-colors` / `transition-[background-color,border-color]` patterns are consistent.
+
+5. Loading / empty — Score: 4
+   • `isPreviewLoading` derived in shell and passed to `PreviewPanel`; header uses `Loader2` on Ny chat, Spara, Publicera, deployment “Bygger…”. Empty states live mostly in child components — wiring is reasonable; no empty-state copy in these three files.
+
+6. Error states — Score: 4
+   • `deployDisabledReason` surfaced via tooltip on disabled Publicera — good Swedish UX for blocked deploy.
+   • `ErrorBoundary` wraps shell in `BuilderLayout` — recovery at layout level. Placement/clear-preview toasts are outside this narrow file list. No dedicated inline error banner in header (acceptable if children handle).
+
+7. Surface consistency — Score: 4
+   • UI uses Tailwind semantic tokens (`background`, `foreground`, `muted`, `primary`, `border`) — maps to CSS variables in theme.
+   • Dropdown content uses `rounded-xl`; panels use borders/muted washes — coherent.
+   • Nit: dev-only `MutationObserver` logging uses inline `color:#f59e0b` in `console.info` — not user-visible but breaks strict “CSS vars only” purity in this file.
+   • Primary CTA: “Publicera” uses default `Button` (typically primary/orange in design system); secondary flows use `variant="outline"` — hierarchy is plausible; “Publicerad” uses outline + primary tint — OK.
+
+────────────────────────────────────────
+SWEDISH COPY (spot)
+• Header labels: “Inställningar”, “Ny chat”, “Spara”, “Domän”, “Publicera”, “Publicerad”, tooltips — clear Swedish; some strings are long for minimalist copy (e.g. dropdown help paragraphs) — acceptable for settings, not for hero-level brevity.
+
+────────────────────────────────────────
+SCORES SUMMARY
+1. Header slimness: 4
+2. Layout preview-first: 5
+3. Chrome density: 3
+4. Transitions: 5
+5. Loading/empty: 4
+6. Error states: 4
+7. Surface consistency: 4
+
+Average: (4+5+3+5+4+4+4) / 7 ≈ 4.14 → 4.1 / 5
+
+────────────────────────────────────────
+TOP GAPS (non-code, observation only)
+• Reduce header horizontal competition: merge or demote outline actions behind a single overflow on narrow breakpoints.
+• Align mobile default tab with “preview-first” if product wants consistency (optional).
+• Replace dev console hex with theme-agnostic logging or remove for strict token discipline.

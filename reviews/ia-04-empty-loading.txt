@@ -1,0 +1,10 @@
+Builder IA — Agent 4: Tomma och laddande tillstånd (PreviewPanelEmptyState, GenerationProgress, MessageList tom chat)
+
+Nuvarande IA
+Laddning: empty state delegerar till GenerationProgress — centrerad, OK. Fel/väntar/tom simplified: ikon + rubrik + ofta två informationsrader före CTA — tätare än Apple “1 rubrik + 1 mening”. Full awaitingInput: titel + undertitel + frågeruta + upp till sex badges + ev. “Svara i chatten” — flera informationslager. GenerationProgress: stor % + tunn bar + fasetikett — två primära fokus; många fasbyten över tid. MessageList tom: ikon + “Ingen chat vald” / “Inga meddelanden” — ofta utan tydlig titel+väg fram.
+
+Föreslagen IA
+Fel: titel “Previewn laddades inte”, en rad orsak, en CTA “Försök igen”; vid input en rad “Svara i chatten” utan extra bröd. Awaiting: titel “Behöver svar”, en trunkerad rad, max en sekundär “Visa alternativ”; badges max 3 eller flytta till chat. GenerationProgress: titel “Bygger”, en fasrad, procent sekundär eller bort. Tom chat: titel “Chat”, rad “Skriv nedan” eller “Välj projekt”, valfri diskret CTA till wizard.
+
+Brott / motsägelser
+För många rader före CTA i fel-läge. Full state bryter “max 1 CTA” och “en mening” med badges+fråga. Dubbelt primärfokus i GenerationProgress. Tom chat saknar tydlig primär handling om produkt kräver den.

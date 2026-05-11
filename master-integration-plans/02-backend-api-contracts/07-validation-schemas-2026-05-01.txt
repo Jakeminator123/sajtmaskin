@@ -1,0 +1,59 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 07-validation-schemas
+Date: 2026-05-01
+
+## Master Changes To Preserve
+- `src/lib/env.ts` server schema and `getServerEnv`.
+- Chat schemas in `src/lib/validations/chatSchemas.ts`.
+- Direct 400 validation responses with `{ error: "Validation failed", details }`.
+- Init, files, deployment, preferences, dossier, and strict JSON schema validation.
+- AJV strict schemas and tests for health/telemetry/dossiers.
+
+## Frontend Consumers
+- `useCreateChat` and `useSendMessage` via `buildApiErrorMessage`.
+- `useBuilderDeployActions`.
+- `F3PlaceholderToggle`.
+- Builder/model selection types through `ModelTier`.
+
+## Contract Risks
+- Validation error envelopes are heterogeneous: `issues`, `flatten()`, `ok: false`, `success: false`.
+- Chat UI currently ignores detailed Zod issues and shows generic validation failure.
+- Deploy SEO validation errors can become generic toasts.
+- `F3PlaceholderToggle` GET does not guard `res.ok`.
+- Strict JSON schemas can drift from runtime types.
+
+## Required Adaptations
+- Extend chat error mapping to show first useful validation path/message.
+- Extend deploy error type with optional `details`.
+- Guard preferences GET with `res.ok`.
+- Normalize or document validation envelope shape if master changes routes.
+- Update UI request bodies and types with every schema field change.
+
+## New Buttons / Choices / UI States
+- No new buttons.
+- More specific validation copy for chat and deploy.
+- New toggles only if preferences schema adds new fields.
+
+## Exact LLM Implementation Instructions
+- Treat `chatSchemas.ts` and `preferences-schema.ts` as canonical for request bodies.
+- Diff schemas plus stream, init, files, deployment, and preferences routes.
+- For every changed schema field, trace callers in builder, components, and chat hooks.
+- Add API tests for `details[0].path` when freezing contracts; keep UI assertions less brittle.
+- Sync `docs/schemas/strict/*.json` and validators when dossier/manifest rules change.
+
+## Tests / Runtime Checks
+- `chatSchemas.test.ts`
+- stream route tests
+- init route tests
+- preferences route tests
+- deployment route tests
+- quality-gate validation tests
+- dossier AJV tests
+- env boot check through `getServerEnv`.
+
+## Do Not Break
+- Accepted model ids and `ModelTier` sync.
+- Env schema as single gate for server env.
+- Dossier AJV validation.
+- Deploy `DEPLOY_MISSING_ENV` branch.
+- Preferences PATCH response shape.
+- Difference between direct validation 400 and normalized stream error response.

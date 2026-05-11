@@ -1,0 +1,22 @@
+Agent 3 — Device Switcher (preview polish)
+Scope: PreviewPanelChrome.tsx (Viewport), PreviewPanelFrame.tsx (deviceMode), PreviewPanel.tsx (state)
+Datum: 2026-04-16
+Betyg: 1 = svagt mot målet “preview som riktig sajt”, 5 = starkt
+
+1. Placering & synlighet: Tre ikonknappar (Monitor / Tablet / Smartphone) sitter alltid i första verktygsraden när `showPreviewToolbar` — bredvid info-ikon och före URL-fältet. Ingen döljning bakom meny; hög synlighet men ökar chrome. Betyg: 3
+
+2. Övergång: `PreviewPanelFrame` sätter `transition-[max-width] duration-300 ease-out` på iframe-kortet som begränsar bredd — byten mellan desktop (full bredd) och tablet/mobil känns mjuka i bredd, inte hårdkodad animate på hela panelen. Betyg: 4
+
+3. Storlekar: Mobil `max-w-[390px]` + `h-[min(100%,720px)]`, surfplatta `max-w-[768px]` + `h-[min(100%,900px)]`, desktop `h-full w-full`. Rimliga referensbredder (iPhone-lik / standard tablet), inte exakta enhets-DPR. Betyg: 4
+
+4. Ram / bezel: Ingen realistisk enhetsram (inga rundade hörn som “telefon”, notch, hem-indikator). Bara `rounded-[var(--radius)] border border-border bg-card shadow-sm ring-1` — neutral “kort” runt iframe, mer devtools än marknadsföringsdemo. Betyg: 3
+
+5. Centrering: Vid tablet/mobil wrappas ytan i `flex items-start justify-center overflow-auto` — innehållet centreras; scroll om höjd tar slut. Bra för “titta på smal vy” utan att kapa preview. Betyg: 4
+
+6. Tillgänglighet: `role="group"` + `aria-label="Viewport"`, `aria-pressed` per läge, titlar “Dator/Surfplatta/Mobil”. Betyg: 4
+
+7. “Riktig sajt”-känsla: Iframe får vit/ljus bakgrund inline (`#fafafa`) — kan skilja sig från mörk builder; själva switchern ändrar inte sajten, bara viewport-bredd (responsivitet syns om CSS följer breakpoints). Betyg: 4
+
+8. Förbättring (progressive disclosure): För “minimal chrome”-målet skulle viewport-gruppen kunna ligga i Verktyg-dropdown eller visas som endast aktiv ikon + chevron; nu tar den alltid tre ikon-slots i primär rad. Betyg: 2 (prioriterad förbättring om chrome ska ner)
+
+Sammanfattning: Tekniskt solid (transition, bredder, a11y), ingen gimmick-bezel — medvetet verktyg. För wow-faktor: valfri ram eller kompaktare default-kontroll.

@@ -20,7 +20,8 @@ import { join } from "node:path";
 import dossierSchema from "../../../../docs/schemas/strict/dossier.schema.json";
 import { isRuntimeProvidedImport } from "../autofix/runtime-imports";
 
-import type { DossierClass, DossierEntry } from "./types";
+import { mapDossierPathToOutput } from "./output-path";
+import type { DossierClass, DossierEntry, DossierExposes, DossierFile } from "./types";
 
 const ajv = new Ajv({ allErrors: true, allowUnionTypes: true, strict: false });
 // Silence repeated `unknown format "uri" ignored in schema` warnings without
@@ -96,11 +97,79 @@ export function validateDossierManifest(
 
   if (errors.length > 0) return { valid: false, errors };
 
+  // Cross-check: every `exposes[].import` of shape `@/<path>` must resolve to
+  // a `files[]` entry once `mapDossierPathToOutput` has been applied. Catches
+  // the rotorsaks-bug where dossiers shipped with a path/import drift that
+  // made verbatim emit at one location while the user-project import looked
+  // at another (Jakob 2026-05-01).
+  const dataMaybe = raw as { files?: unknown; exposes?: unknown };
+  const exposesMismatches = findExposesImportMismatches(
+    Array.isArray(dataMaybe.files) ? (dataMaybe.files as DossierFile[]) : [],
+    Array.isArray(dataMaybe.exposes) ? (dataMaybe.exposes as DossierExposes[]) : [],
+  );
+  if (exposesMismatches.length > 0) {
+    return {
+      valid: false,
+      errors: exposesMismatches.map(
+        (m) =>
+          `exposes[].import "${m.importPath}" does not resolve to any files[].path (after mapDossierPathToOutput) — candidates: ${m.candidates.join(", ") || "(none)"}`,
+      ),
+    };
+  }
+
   return {
     valid: true,
     data: raw as DossierValidationOk["data"],
     warnings: [],
   };
+}
+
+export interface ExposesImportMismatch {
+  importPath: string;
+  candidates: string[];
+}
+
+/**
+ * For each `exposes[].import` of shape `@/<rel>` ensure there is at least one
+ * `files[].path` entry whose mapped output path matches `<rel>` (with the
+ * usual TS/TSX/JS extensions appended). Returns the entries that don't match
+ * — empty array means the manifest's exposes contract is internally
+ * consistent.
+ *
+ * The mapping must use the same `mapDossierPathToOutput` that the runtime
+ * uses; otherwise the cross-check would itself drift from the system-prompt
+ * + verbatim-policy emit path.
+ */
+export function findExposesImportMismatches(
+  files: DossierFile[],
+  exposes: DossierExposes[],
+): ExposesImportMismatch[] {
+  if (exposes.length === 0) return [];
+
+  const outputPaths = files
+    .map((f) => (typeof f?.path === "string" ? mapDossierPathToOutput(f.path) : null))
+    .filter((p): p is string => typeof p === "string" && p.length > 0);
+
+  const mismatches: ExposesImportMismatch[] = [];
+  for (const exp of exposes) {
+    if (typeof exp?.import !== "string") continue;
+    if (!exp.import.startsWith("@/")) continue;
+    const importTarget = exp.import.slice(2);
+    const candidates = [
+      importTarget,
+      `${importTarget}.ts`,
+      `${importTarget}.tsx`,
+      `${importTarget}.js`,
+      `${importTarget}.jsx`,
+      `${importTarget}/index.ts`,
+      `${importTarget}/index.tsx`,
+    ];
+    const matched = candidates.some((c) => outputPaths.includes(c));
+    if (!matched) {
+      mismatches.push({ importPath: exp.import, candidates: outputPaths });
+    }
+  }
+  return mismatches;
 }
 
 const CODE_IMPORT_RE = /import\s+(?:[^"']*from\s+)?["']([^"']+)["']/g;

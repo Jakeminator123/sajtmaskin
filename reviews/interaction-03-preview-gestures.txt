@@ -1,0 +1,14 @@
+Builder Interaction Review — Agent 3: Preview-panel gester (PreviewPanel, PreviewPanelFrame, inspect hooks)
+
+- Inspect via overlay ovanpå iframe (procent mot overlay), ej riktigt DOM-klick i iframe → postMessage/pekare där same-origin; dokumentera begränsning → 3
+- Ingen shiftKey-gren i capture-klick → Shift = föräldernivå eller djup AI utan extra UI-läge → 2
+- Ingen pinch-/wheel-styrning i panelen; browser default → touch-action + valfri zoomkontroll → 2
+- Mobil/tablet: yttre overflow-auto centrerar ram, ingen dedikerad pan → hand-pan på tom yta + overscroll-behavior contain → 3
+- Ingen body scroll-lock vid inspect → contain på kolumn + ev. lås mobil bakgrund → 2
+- inspectPulse röd/destruktiv ping → diskret primär kort puls, lägre opacitet → 2
+- MouseEvent utan PointerEvent på overlays → pointer events gemensam hit-test → 2
+- EditModeOverlay/inspector dev mus-only → touch-paritet för placering → 2
+- usePreviewIframe utan gester för zoom/pan → separat mobil-läge “ram zoom” → 3
+- Dubbelklick i iframe ohanterat → medvetet inget / eller zoom reset om ni lägger till → 3
+
+Samlat läge: desktop overlay OK; mobil/gester och lugn feedback svag → helhetsbetyg ca 2.5/5 som nu; föreslagen riktning 4/5 med pointer + scroll-contain + lugn tap-feedback.

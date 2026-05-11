@@ -18,37 +18,40 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 2. **Generella regler** (`alwaysApply: true`) gäller i alla sessioner.
 3. **Glob-triggrade regler** gäller automatiskt vid relevanta filändringar.
 4. **Manuellt bifogade regler** gäller när användaren lägger till dem med `@`.
-5. "Ta inte bort om du är osäker" gäller alltid — men enkelhet är ett självständigt mål (se `cleanup-and-scope.mdc`).
+5. "Ta inte bort om du är osäker" gäller alltid — men enkelhet är ett självständigt mål (se `workflow.mdc § Städning och scope`).
 
 ## Projektregler (`.cursor/rules/*.mdc`)
 
-### Generella (alwaysApply)
+### Generella (alwaysApply: true)
 
 | Regel | Syfte |
 |-------|-------|
-| [terminology.mdc](rules/terminology.mdc) | Snabb förväxlingstabell; pekar till glossaryn |
-| [session-git-docs.mdc](rules/session-git-docs.mdc) | Git-hygien, en-sanning-ett-ställe, docs-livscykel |
-| [repo-env-indexing.mdc](rules/repo-env-indexing.mdc) | Workspace, `.env*`, cursorignored paths |
-| [cleanup-and-scope.mdc](rules/cleanup-and-scope.mdc) | Cleanup-execution, enkelhetsprincip, scope-disciplin |
+| [agent-worktree.mdc](rules/agent-worktree.mdc) | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
+| [builder-coexistence.mdc](rules/builder-coexistence.mdc) | Agent får inte navigera till användarens aktiva builder-URL |
+| [repo-router.mdc](rules/repo-router.mdc) | Snabb repo-router + env/indexering |
+| [response-format.mdc](rules/response-format.mdc) | Hur agenten svarar — kort, matris/flöde, svenska vid behov |
+| [terminology.mdc](rules/terminology.mdc) | Snabb förväxlingstabell + signal-ownership; pekar till glossaryn |
+| [workflow.mdc](rules/workflow.mdc) | Git, filstruktur, städning, verifiering — hur ändringar utförs |
 
 ### Glob-triggrade (aktiveras vid relevanta filer)
 
 | Regel | Trigger | Syfte |
 |-------|---------|-------|
-| [llm-pipeline-docs-sync.mdc](rules/llm-pipeline-docs-sync.mdc) | LLM-pipeline, backoffice, config, schemas | Synka kod ↔ docs/schemas vid pipeline-ändringar |
-| [signal-ownership.mdc](rules/signal-ownership.mdc) | builder, gen, hooks, config | Varje signal har exakt en canonical source |
-| [gen-pipeline-simplicity.mdc](rules/gen-pipeline-simplicity.mdc) | gen, prompt-static | Färre lager, bättre första pass |
-| [file-structure-conventions.mdc](rules/file-structure-conventions.mdc) | src/lib | Filnamn, mappstruktur, namngivning |
-| [scaffold-architecture.mdc](rules/scaffold-architecture.mdc) | scaffolds, orchestrate, builder, backoffice | Scaffold-systemets arkitektur och flöde |
-| [openclaw-bridge.mdc](rules/openclaw-bridge.mdc) | openclaw-bridge | OpenClaw inbox/outbox (opt-in) |
+| [env-flow-f2-mute.mdc](rules/env-flow-f2-mute.mdc) | engine/chats, own-engine, gen/preview, ProjectEnvVarsPanel | F2 får aldrig generera env-frågor — all env-trafik gates till F3 |
+| [openclaw-bridge.mdc](rules/openclaw-bridge.mdc) | `.cursor/openclaw-bridge/**` | OpenClaw inbox/outbox (opt-in) |
+| [pipeline-rules.mdc](rules/pipeline-rules.mdc) | backoffice, config/codegen, prompt-core, ai_models, scaffold-variants | Pipeline-enkelhet + docs/schemas/backoffice-sync vid LLM-flödesändringar |
+| [plan-lifecycle.mdc](rules/plan-lifecycle.mdc) | `docs/plans/**`, `.cursor/bugs/**` | När planer ska skapas, parkas, avklaras och raderas |
+| [scaffold-rules.mdc](rules/scaffold-rules.mdc) | gen/scaffolds, gen/orchestrate, gen/system-prompt, gen/build-spec, scripts/scaffolds | Agentregler vid scaffold-ändringar |
 
-### Manuellt bifogade
+### Manuellt bifogade (alwaysApply: false, ingen glob)
 
 | Regel | Syfte |
 |-------|-------|
-| [useful-commands.mdc](rules/useful-commands.mdc) | Snabb kommandoöversikt per område |
-| [platform-quirks.mdc](rules/platform-quirks.mdc) | PowerShell, Sandbox, Playwright, streams, git-commit |
-| [subagent-verification.mdc](rules/subagent-verification.mdc) | Verifiering efter subagent-ändringar (fast model) |
+| [agent-observatory.mdc](rules/agent-observatory.mdc) | Var agenter hittar per-körning- och per-chat-loggar |
+| [git.mdc](rules/git.mdc) | Inga PRs; commit/push/merge bara på explicit begäran |
+| [platform-quirks.mdc](rules/platform-quirks.mdc) | Windows/PowerShell och repo-specifika fallgropar |
+| [unicode-regex.mdc](rules/unicode-regex.mdc) | Regex för mänsklig text — alltid Unicode-medveten, aldrig ASCII `\b` |
+| [useful-commands.mdc](rules/useful-commands.mdc) | Snabb kommandoöversikt; `package.json` är kanonisk källa |
 
 I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
 
@@ -70,6 +73,7 @@ Kod är source of truth; strict schemas speglar kod, ersätter den inte.
 
 ## Slash-kommandon (`.cursor/commands/*.md`)
 
+- `/818` = **en** fråga, **åtta** parallella read-only Composer-agenter (korta röster, gärna %), du sammanfattar, gör **minimal** ändring, verifierar, **review-pass** på diffen. Snabbare än `/långbänk`. Se `.cursor/skills/818-swarm-decide/SKILL.md`.
 - `/avslutning` = stäng arbete: review, scoped cleanup, docs-/schema-/backoffice-sync, verifiering, commit + push. Hanterar både vanligt slutpass och stängning av hela arbetsspår.
 - `/buggrapport` = skapa Linear-issue i team Sajtmaskin med label Bug + lokal mirror i `.cursor/bugs/`.
 - `/långbänk` = lång orkestrator-session där flera tunga subagents körs **parallellt** över olika spår med rätt modell per spår, sedan sammanfattning + glasklar-fixar + verifiering + leverans. Tar en mapp som underlag eller frågar dig om scope. Förvänta 20–60 min wall-clock.

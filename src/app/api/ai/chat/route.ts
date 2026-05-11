@@ -20,7 +20,7 @@ import {
 } from "@/lib/builder/direct-model";
 import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
 export const runtime = "nodejs";
-export const maxDuration = 600;
+export const maxDuration = 300;
 
 import { ASSIST_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
 

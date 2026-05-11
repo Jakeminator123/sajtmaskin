@@ -13,8 +13,8 @@ import {
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
-import { FEATURES } from "@/lib/config";
+import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
+import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import {
   buildShellPageContent,
@@ -75,6 +75,8 @@ export interface RunFinalizePreflightParams {
   routePlan?: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
   originalPrompt?: string;
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
 }
 
 export interface RunFinalizePreflightResult {
@@ -189,6 +191,125 @@ function buildMissingHomeRouteIssue(
 
 function normPath(p: string): string {
   return p.replace(/\\/g, "/");
+}
+
+const HOME_ROUTE_RECOVERY_PATH = "app/page.tsx";
+const HOME_ROUTE_RECOVERY_TIMEOUT_MS = 60_000;
+
+function formatRoutePlanForHomeRecovery(routePlan: RoutePlan | null | undefined): string {
+  if (!routePlan || routePlan.routes.length === 0) return "Route plan: unavailable";
+  const routes = routePlan.routes
+    .slice(0, 8)
+    .map((route) => {
+      const required = route.required ? "required" : "optional";
+      return `${route.path} (${route.name}; ${required}) — ${route.intent}`;
+    })
+    .join("; ");
+  return `Route plan: siteType=${routePlan.siteType}; routes=${routes}`;
+}
+
+function formatBuildSpecForHomeRecovery(buildSpec: BuildSpec | null | undefined): string {
+  if (!buildSpec) return "Build spec: unavailable";
+  return [
+    `Build spec: intent=${buildSpec.buildIntent}`,
+    `mode=${buildSpec.generationMode}`,
+    `scaffoldId=${buildSpec.scaffoldId ?? "unknown"}`,
+    `stylePack=${buildSpec.stylePack}`,
+    `qualityTarget=${buildSpec.qualityTarget}`,
+    `routePlanSummary=${buildSpec.routePlanSummary}`,
+  ].join("; ");
+}
+
+function summarizeFilesForHomeRecovery(files: CodeFile[]): string {
+  const paths = files.map((file) => normPath(file.path)).sort();
+  const sample = paths.slice(0, 24).join(", ");
+  return `Existing generated files (${paths.length}): ${sample}${paths.length > 24 ? ", ..." : ""}`;
+}
+
+async function tryRecoverMissingHomeRoute(params: {
+  chatId: string;
+  resolvedTier?: CanonicalModelId;
+  files: CodeFile[];
+  originalPrompt?: string;
+  buildSpec: BuildSpec | null | undefined;
+  routePlan: RoutePlan | null | undefined;
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
+}): Promise<{ files: CodeFile[]; recovered: boolean; attempted: boolean; message?: string }> {
+  const detectedHome = findHomePageFile(params.files);
+  const homeIssue = buildMissingHomeRouteIssue(detectedHome);
+  if (!homeIssue) {
+    return { files: params.files, recovered: false, attempted: false };
+  }
+
+  const content = serializeCodeProject(params.files);
+  const errors = [
+    `${HOME_ROUTE_RECOVERY_PATH}:1:1 CRITICAL: ${homeIssue.message}`,
+    `Create or replace ${HOME_ROUTE_RECOVERY_PATH} with a complete Next.js App Router page. The scaffold default is blocked by LLM_ONLY_PATHS and must not be used as a silent fallback.`,
+    "The recovered page must be a real branded startsida with hero, CTA, and relevant sections; never return an empty, trivial, placeholder, or skeleton-only page.",
+    `Original prompt / brief: ${params.originalPrompt?.trim() || "unavailable"}`,
+    formatBuildSpecForHomeRecovery(params.buildSpec),
+    formatRoutePlanForHomeRecovery(params.routePlan),
+    summarizeFilesForHomeRecovery(params.files),
+  ];
+
+  try {
+    const repairGate = await runLlmRepairGate({
+      content,
+      errors,
+      chatId: params.chatId,
+      timeoutMs: HOME_ROUTE_RECOVERY_TIMEOUT_MS,
+      requiredFiles: [HOME_ROUTE_RECOVERY_PATH],
+      resolvedTier: params.resolvedTier,
+      scopeId: params.repairScopeId,
+      phase: "home-route-recovery",
+      ledger: params.repairLedger,
+    });
+    const repairResult = repairGate.result;
+    if (!repairResult.success || typeof repairResult.fixedContent !== "string") {
+      return {
+        files: params.files,
+        recovered: false,
+        attempted: true,
+        message:
+          repairResult.missingFiles?.length
+            ? `missing required files: ${repairResult.missingFiles.join(", ")}`
+            : "repair gate did not return a successful app/page.tsx",
+      };
+    }
+
+    const recoveredProject = parseCodeProject(repairResult.fixedContent);
+    const protectedPartition =
+      partitionGeneratedFilesForProtectedPaths(recoveredProject.files);
+    const recoveredFiles = protectedPartition.kept;
+    if (protectedPartition.dropped.length > 0) {
+      const droppedPaths = protectedPartition.dropped.map((file) => file.path);
+      devLogAppend("in-progress", {
+        type: "scaffold-protected-overwrite-blocked",
+        chatId: params.chatId,
+        branch: "home-route-recovery",
+        droppedPaths,
+      });
+    }
+    const recoveredHome = findHomePageFile(recoveredFiles);
+    if (!recoveredHome || normPath(recoveredHome.path) !== HOME_ROUTE_RECOVERY_PATH) {
+      return {
+        files: params.files,
+        recovered: false,
+        attempted: true,
+        message: "repair gate output did not include app/page.tsx",
+      };
+    }
+
+    return { files: recoveredFiles, recovered: true, attempted: true };
+  } catch (error) {
+    return {
+      files: params.files,
+      recovered: false,
+      attempted: true,
+      message: error instanceof Error ? error.message : "unknown home route recovery error",
+    };
+  }
 }
 
 /** Catch Tier-2 / export foot-guns (missing next, broken package.json, etc.). */
@@ -488,7 +609,10 @@ export async function runFinalizePreflight({
   routePlan = null,
   orchestrationContract = null,
   originalPrompt: _originalPrompt,
+  repairLedger: providedRepairLedger,
+  repairScopeId,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
+  const repairLedger = providedRepairLedger ?? new RepairLedger();
   let nextFilesJson = filesJson;
   const preflightIssues: FinalizePreflightIssue[] = [];
   let preflightFileCount = 0;
@@ -504,6 +628,40 @@ export async function runFinalizePreflight({
     let finalFiles = (
       JSON.parse(nextFilesJson) as Array<{ path: string; content: string; language?: string }>
     ).map((file) => ({ ...file, language: file.language || "tsx" }));
+
+    // GUARD 0 — last-line defence for SCAFFOLD_PROTECTED_PATHS.
+    //
+    // `mergeGeneratedProjectFiles` (upstream of this function) already
+    // partitions LLM-broken protected paths out of `generatedFiles` before
+    // merging with the scaffold base. Empirically (eval restaurant /
+    // booking-service / multi-page-brochure / consultant-landing
+    // 2026-04-27) we still see broken `app/api/placeholder/route.ts`
+    // arriving here, which means *some* upstream code path either
+    //   (a) bypasses partitionGeneratedFilesForProtectedPaths in merge, or
+    //   (b) re-introduces the LLM emission between merge and preflight.
+    //
+    // Until that source is pinned, run partition once on the parsed
+    // input. `buildCompleteProject` lower in this function injects the
+    // scaffold default for any path that ends up missing, so dropping
+    // is safe — we will never persist a route.ts without route.ts.
+    {
+      const partition = partitionGeneratedFilesForProtectedPaths(finalFiles);
+      if (partition.dropped.length > 0) {
+        const droppedPaths = partition.dropped.map((f) => f.path);
+        finalFiles = partition.kept;
+        nextFilesJson = JSON.stringify(finalFiles);
+        console.warn(
+          "[finalize-preflight] Initial post-merge files contained scaffold-protected paths — dropped to keep scaffold default",
+          { chatId, droppedPaths },
+        );
+        devLogAppend("in-progress", {
+          type: "scaffold-protected-overwrite-blocked",
+          chatId,
+          branch: "post-merge-initial-parse",
+          droppedPaths,
+        });
+      }
+    }
 
     const shellFill = ensureDeferredRouteShells({ files: finalFiles, routePlan, buildSpec });
     finalFiles = shellFill.files;
@@ -550,17 +708,8 @@ export async function runFinalizePreflight({
       // handled by the deterministic mechanical pipeline. Saves 1 (often
       // wasted) LLM-fixer call per follow-up.
       //
-      // Hardcoded ON (FEATURES.skipDoubleValidateAndFixOnMerge=true) since
-      // omtag-04 (2026-04-23). Revert via code if the legacy validateAndFix
-      // behaviour is ever needed again.
-      if (!FEATURES.skipDoubleValidateAndFixOnMerge) {
-        devLogAppend("in-progress", {
-          type: "merged-syntax.mechanical-only.unexpected-flag-state",
-          chatId,
-          skipDoubleValidateAndFixOnMerge: FEATURES.skipDoubleValidateAndFixOnMerge,
-        });
-      }
-      let mechanicalFixCount: number | null = null;
+      // Inlined unconditionally 2026-04-28 (was hardcoded ON since
+      // omtag-04 / 2026-04-23 via FEATURES.skipDoubleValidateAndFixOnMerge).
       const mechanicalStartedAt = Date.now();
       try {
         const mechanicalResult = await runAutoFix(mergedProjectContent, {
@@ -568,7 +717,6 @@ export async function runFinalizePreflight({
           model: _model,
           previewPolicy: undefined,
         });
-        mechanicalFixCount = mechanicalResult.fixes.length;
         mergedProjectContent = mechanicalResult.fixedContent;
         mergedSyntax = await validateGeneratedCode(mergedProjectContent);
         devLogAppend("in-progress", {
@@ -582,7 +730,29 @@ export async function runFinalizePreflight({
         if (mechanicalResult.fixes.length > 0) {
           const fixedProject = parseCodeProject(mergedProjectContent);
           if (fixedProject.files.length > 0) {
-            finalFiles = fixedProject.files;
+            // Belt-and-braces: mechanical autofix is deterministic and
+            // unlikely to (re)emit `app/api/placeholder/route.ts`, but
+            // mirror the post-LLM-escalation guard so any future fixer
+            // that does mutate the project payload cannot bypass
+            // SCAFFOLD_PROTECTED_PATHS via this code path.
+            const partition =
+              partitionGeneratedFilesForProtectedPaths(fixedProject.files);
+            finalFiles = partition.kept;
+            if (partition.dropped.length > 0) {
+              const droppedPaths = partition.dropped.map((f) => f.path);
+              mergedProjectContent = serializeCodeProject(finalFiles);
+              mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+              console.warn(
+                "[finalize-preflight] Mechanical autofix output contained scaffold-protected paths — dropped to keep scaffold default",
+                { chatId, droppedPaths },
+              );
+              devLogAppend("in-progress", {
+                type: "scaffold-protected-overwrite-blocked",
+                chatId,
+                branch: "post-merge-mechanical",
+                droppedPaths,
+              });
+            }
             nextFilesJson = JSON.stringify(finalFiles);
           }
         }
@@ -606,7 +776,10 @@ export async function runFinalizePreflight({
       // import) but the underlying brace/parse error remained. The failure
       // mode that motivated this gate (the v2/flying-can `Unexpected "}"`)
       // happens precisely when mechanical can't see the brace context.
-      if (!mergedSyntax.valid && FEATURES.escalateMergeSyntaxToLlm) {
+      //
+      // Inlined unconditionally 2026-04-28 (was hardcoded ON since omtag-04
+      // via FEATURES.escalateMergeSyntaxToLlm).
+      if (!mergedSyntax.valid) {
         const errorsBefore = mergedSyntax.errors.length;
         const requiredFiles = [
           ...new Set(
@@ -624,6 +797,9 @@ export async function runFinalizePreflight({
             chatId,
             timeoutMs: 60_000,
             ...(requiredFiles.length > 0 ? { requiredFiles } : {}),
+            scopeId: repairScopeId,
+            phase: "merged-syntax",
+            ledger: repairLedger,
           });
           const repairResult = repairGate.result;
           let errorsAfter = errorsBefore;
@@ -638,7 +814,34 @@ export async function runFinalizePreflight({
               mergedProjectContent = repairResult.fixedContent;
               mergedSyntax = llmValidation;
               const repairedProject = parseCodeProject(mergedProjectContent);
-              finalFiles = repairedProject.files;
+              // Block the post-merge LLM-escalation bypass of
+              // SCAFFOLD_PROTECTED_PATHS: runLlmRepairGate is given the
+              // merged project (which contains the canonical scaffold
+              // version of protected paths after finalize-merge's
+              // partition) and can re-emit broken JSX-in-`.ts` versions
+              // while fixing unrelated syntax errors. Drop those LLM
+              // emissions; `buildCompleteProject` lower in this function
+              // re-injects the scaffold default for any path that's
+              // missing afterwards.
+              const partition =
+                partitionGeneratedFilesForProtectedPaths(repairedProject.files);
+              finalFiles = partition.kept;
+              if (partition.dropped.length > 0) {
+                const droppedPaths = partition.dropped.map((f) => f.path);
+                mergedProjectContent = serializeCodeProject(finalFiles);
+                mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+                errorsAfter = mergedSyntax.errors.length;
+                console.warn(
+                  "[finalize-preflight] LLM-escalation re-emitted scaffold-protected paths — dropped to keep scaffold default",
+                  { chatId, droppedPaths },
+                );
+                devLogAppend("in-progress", {
+                  type: "scaffold-protected-overwrite-blocked",
+                  chatId,
+                  branch: "post-merge-llm-escalation",
+                  droppedPaths,
+                });
+              }
               nextFilesJson = JSON.stringify(finalFiles);
               fixed = true;
             }
@@ -669,6 +872,56 @@ export async function runFinalizePreflight({
             )
           ),
         );
+      }
+    }
+
+    const homeRecovery = await tryRecoverMissingHomeRoute({
+      chatId,
+      resolvedTier: _resolvedTier,
+      files: finalFiles,
+      originalPrompt: _originalPrompt,
+      buildSpec,
+      routePlan,
+      repairLedger,
+      repairScopeId,
+    });
+    if (homeRecovery.attempted) {
+      if (homeRecovery.recovered) {
+        finalFiles = homeRecovery.files;
+        nextFilesJson = JSON.stringify(finalFiles);
+        mergedProjectContent = serializeCodeProject(
+          finalFiles.map((file) => ({
+            ...file,
+            language: file.language || inferCodeFenceLanguage(file.path),
+          })),
+        );
+        mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+        devLogAppend("in-progress", {
+          type: "home-route-recovery.succeeded",
+          chatId,
+          path: HOME_ROUTE_RECOVERY_PATH,
+          fileCount: finalFiles.length,
+          syntaxValid: mergedSyntax.valid,
+        });
+        if (!mergedSyntax.valid) {
+          preflightIssues.push(
+            ...mergedSyntax.errors.slice(0, 20).map((error) =>
+              createIssue(
+                error.file,
+                "error",
+                `Home route recovery produced syntax error line ${error.line}:${error.column} — ${error.message}`,
+                "code_structure_failure",
+              )
+            ),
+          );
+        }
+      } else {
+        devLogAppend("in-progress", {
+          type: "home-route-recovery.failed",
+          chatId,
+          path: HOME_ROUTE_RECOVERY_PATH,
+          message: homeRecovery.message ?? "unknown failure",
+        });
       }
     }
 

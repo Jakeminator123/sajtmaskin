@@ -1,0 +1,61 @@
+Jag kan **inte skriva** `reviews/builder-audit-03-preview.txt` i det här läget (read-only / Ask mode). Kopiera texten nedan till filen lokalt, eller växla till **Agent mode** om du vill att filen skapas automatiskt.
+
+**Källor:** `PreviewPanelChrome.tsx`, `PreviewPanel.tsx`, `PreviewPanelFrame.tsx`, `PreviewPanelEmptyState.tsx`, `PreviewPanelCodeSectionEditors.tsx`, `usePreviewPanelPreviewRoutes.ts`, `usePreviewPanelOwnEnginePreviewTelemetry.ts`, `chat-version-files-fetch.ts`, `engine-files-patch.ts`, `useBuilderCallbacks.ts` (`handleFixPreview`), `GenerationProgress.tsx`.
+
+---
+
+```
+builder-audit-03-preview (preview-panel)
+
+API-prefix: GET/PATCH `/api/engine/chats/:chatId/files` (versionId query/body). Telemetry: POST `.../versions/:versionId/error-log`. Ingen direkt `/api/v0/chats/*/repair` från dessa knappar — autofix triggas via dispatch från telemetry vid vissa diagnoser.
+
+[4] Info (yta-badge) — tooltip endast → ingen API → OK (informativ).
+
+[4] Viewport (desktop/tablet/mobil) — setPreviewDevice → ingen API → lokal CSS-ram, synkar ej backend.
+
+[4] Uppdatera — handleRefresh → iframe.src + t, rensar felstate → ingen API → E2E=iframe reload; disabled om isLoading/!previewUrl.
+
+[4] Öppna i ny flik — window.open(previewUrl) → ingen API → E2E=ny flik; disabled om !previewUrl.
+
+[4] Detaljer (chevron) — expanderar URL-rad/rutter → ingen API → OK.
+
+[4] Rout-flikar — onNavigateRoute → handleNavigateRoute → onNavigatePreviewUrl (URL-state) → ingen GET/preview-* vid klick; E2E om parent uppdaterar previewUrl korrekt (own-engine: ?route=).
+
+[4] “+N” overflow / dropdown-rutter — samma onNavigateRoute → som ovan.
+
+[4] Skapa sida / “Bygg ut” (ArrowUpRight, shell-rutter) — onRequestBuildOutRoute → onSuggestionClick(chat-prompt) → ingen fil/preview-API → E2E beroende av chat/LLM, ej hård backend-bindning.
+
+[4] Byt till live-preview — onNavigatePreviewUrl(alternate) → state/byt URL → ingen PATCH → OK om banner-data stämmer.
+
+[4] Verktyg → Composer/Inspektera/Register/Kod/Rensa — togglar läge eller handleClear → Rensa: onClear (t.ex. nollställ previewUrl) → ingen engine-fil-API.
+
+[4] Verktyg → snabbprompter (Lägg till sida m.fl.) — onSuggestionClick → chat → ingen preview-API.
+
+[4] Composer Ångra/Gör om — patchEngineChatFile → PATCH `.../files` → E2E med version; disabled vid busy/placement/inspect m.m.
+
+[3] Iframe-fel: Öppna i ny flik — handleOpenInNewTab → ingen API → ofta workaround vid X-Frame/CSP.
+
+[3] Iframe-fel: Försök reparera preview — onFixPreview → sendMessage(repair-prompt) i useBuilderCallbacks → ingen dedikerad repair-route; E2E “mjuk” (beror på agent/stream), disabled vid isLoading.
+
+[3] Empty: Försök igen / auto-recover (simplified) — onFixPreview → samma chat-flöde → ej deterministisk repair-API.
+
+[3] Empty: Försök igen (full) — samma → som ovan.
+
+[4] Kodvy: Redigera fil / Spara fil / Avbryt — saveSelectedFileContent / drafts → PATCH `.../files` → fel via toast/state; disabled vid saving/dirty rules.
+
+[4] Sektionseditorer (“Spara metadata/hero/…/footer” m.fl.) — handleSave* i drafts → PATCH `.../files` → samma mönster; per-sektion dirty+spinner.
+
+[4] CodeBlockCopyButton — klippbord → ingen API.
+
+[5] GenerationProgress — endast visning/animation → ingen handler/API → ej klickbar (OK).
+
+[4] postMessage “Skapa sida” (iframe → build-out-request) — usePreviewPanelOwnEnginePreviewTelemetry → onBuildOutRouteRequest (chat-prompt); **gäller även VM/tier-2** (ej låst till shim). Gating: event.source === iframe contentWindow.
+
+[4] Navigation-attempt (own-engine) — postMessage → buildOwnEngineRoutePreviewUrl + onNavigatePreviewUrl → spårar SPA-länkar i shim.
+
+Halvtrasigt kort: repair/“Försök igen” är **prompt till chat**, inte garanterad `/repair`; rout-flikar **byter bara URL-state** tills backend/preview levererar ny `previewUrl`; telemetry/error-log är **best-effort** utan synlig bekräftelse.
+```
+
+**Obs:** Önskade sökvägar som `/api/engine/chats/*/preview-*` och `/api/v0/chats/*/files` används i praktiken som **`/api/engine/chats/:id/files`** (kanon enligt `engine-chats-path.ts`); v0-prefix nämns som legacy alias i samma fil.
+
+[REDACTED]

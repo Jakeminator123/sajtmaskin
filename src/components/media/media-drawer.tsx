@@ -41,8 +41,8 @@ import type { MediaFileType, MediaItem } from "./media-bank";
 // CONSTANTS
 // ============================================================================
 
-const MAX_IMAGES = 30;
-const MAX_VIDEOS = 3;
+const DEFAULT_MAX_IMAGES = 10;
+const DEFAULT_MAX_VIDEOS = 3;
 
 // ============================================================================
 // TYPES
@@ -71,6 +71,11 @@ interface MediaCounts {
   images: number;
   videos: number;
   other: number;
+}
+
+interface MediaLimits {
+  maxImages: number;
+  maxVideos: number;
 }
 
 // ============================================================================
@@ -107,6 +112,10 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
   const [filterType, setFilterType] = useState<MediaFileType | "all">("all");
   const [draggedItem, setDraggedItem] = useState<UploadedMediaItem | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [limits, setLimits] = useState<MediaLimits>({
+    maxImages: DEFAULT_MAX_IMAGES,
+    maxVideos: DEFAULT_MAX_VIDEOS,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const searchInputId = useId();
@@ -136,6 +145,15 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
 
       if (data.success) {
         setItems(data.items);
+        if (
+          typeof data.limits?.maxImages === "number" &&
+          typeof data.limits?.maxVideos === "number"
+        ) {
+          setLimits({
+            maxImages: data.limits.maxImages,
+            maxVideos: data.limits.maxVideos,
+          });
+        }
       } else {
         setError(data.error || "Kunde inte ladda mediabiblioteket");
       }
@@ -178,18 +196,18 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
 
   const canUploadFileType = (mimeType: string): { ok: boolean; reason?: string } => {
     if (mimeType.startsWith("image/")) {
-      if (counts.images >= MAX_IMAGES) {
+      if (counts.images >= limits.maxImages) {
         return {
           ok: false,
-          reason: `Max ${MAX_IMAGES} bilder/logos. Ta bort någon först.`,
+          reason: `Max ${limits.maxImages} bilder/logos. Ta bort någon först.`,
         };
       }
     }
     if (mimeType.startsWith("video/")) {
-      if (counts.videos >= MAX_VIDEOS) {
+      if (counts.videos >= limits.maxVideos) {
         return {
           ok: false,
-          reason: `Max ${MAX_VIDEOS} videos. Ta bort någon först.`,
+          reason: `Max ${limits.maxVideos} videos. Ta bort någon först.`,
         };
       }
     }
@@ -266,6 +284,7 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
   const handleDelete = async (id: number) => {
     if (!confirm("Är du säker på att du vill ta bort filen?")) return;
 
+    setError(null);
     try {
       const response = await fetch(`/api/media/${id}`, { method: "DELETE" });
       const data = await response.json();
@@ -394,11 +413,11 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
 
             {/* Limits */}
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span className={cn(counts.images >= MAX_IMAGES && "text-brand-amber")}>
-                Bilder: {counts.images}/{MAX_IMAGES}
+              <span className={cn(counts.images >= limits.maxImages && "text-brand-amber")}>
+                Bilder: {counts.images}/{limits.maxImages}
               </span>
-              <span className={cn(counts.videos >= MAX_VIDEOS && "text-brand-amber")}>
-                Videos: {counts.videos}/{MAX_VIDEOS}
+              <span className={cn(counts.videos >= limits.maxVideos && "text-brand-amber")}>
+                Videos: {counts.videos}/{limits.maxVideos}
               </span>
             </div>
           </div>

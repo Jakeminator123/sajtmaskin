@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 01-commit-graph
+Date: 2026-05-01
+
+## Scope
+Read-only commit graph for integrating `origin/master` into current `HEAD`, using merge-base `85228af2adbb9fa5a3a4f2d726a9fc532242e73b`. Scope covers symmetric ahead/behind, master-only commits, local-only commits, and subsystem categorization of incoming master changes.
+
+## Evidence
+- `HEAD`: `a7b682a0c53b5011fbbf6f4fb122819528ba3015`
+- `origin/master`: `c13b515922ff147a5c8deff28bf9c5faa993b21a`
+- Merge-base: `85228af2adbb9fa5a3a4f2d726a9fc532242e73b`
+- Ahead/behind: `50 / 186`
+- Master-only commits: 186, including 9 merge commits
+- Aggregate master diff from merge-base: 612 files, roughly +28514 / -22234 lines
+- Incoming path weight: `src/` 329, `docs/` 191, `.cursor/` 22, `scripts/` 18, `config/` 15, `backoffice/` 9, `data/` 8, `preview-host/` 4
+- Under `src/lib/`, `gen` dominates with about 179 paths
+
+## Findings
+- Branches are deeply diverged, not fast-forwardable: current branch is 50 commits ahead and master is 186 commits ahead of the shared base.
+- Incoming master work is concentrated in generation/pipeline, engine routes, builder/preview UI, deploy/domain APIs, observability, config, scripts, and large docs/plans churn.
+- `src/lib/gen`, `src/app/api/engine`, `src/components/builder`, `src/app/builder`, and `preview-host` are the highest-risk integration areas.
+- The current branch already contains prior merge attempts and UI/preview follow-up fixes, so conflict resolution must preserve local frontend behavior rather than blindly taking master.
+
+## Recommended Actions
+- Re-run `git fetch origin`, `git rev-parse HEAD`, `git rev-parse origin/master`, `git merge-base HEAD origin/master`, and `git rev-list --left-right --count HEAD...origin/master` immediately before merge.
+- Treat `docs/plans` and `.cursor` churn as a separate review slice from runtime code.
+- Resolve backend contracts and generation pipeline before applying UI polish.
+- Keep local dirty-tree artifacts out of the merge until classified.
+
+## Exact LLM Implementation Instructions
+- Build a path-to-subsystem map from `git diff --name-only 85228af2..origin/master`.
+- Prioritize three-way inspection for `src/lib/gen`, `src/app/api/engine`, `src/app/builder`, `src/components/builder`, `src/components/builder/preview-panel`, and `preview-host`.
+- Preserve local builder/preview UX and postMessage behavior while accepting master backend contract and verifier changes.
+- Do not squash, rewrite history, or run merge commands without explicit user approval.
+- After merge work, run `npm run typecheck`, `npm run lint`, and targeted Vitest suites.
+
+## Verification Needed
+- Confirm refs and ahead/behind after fetch.
+- Confirm incoming scope with `git diff --stat 85228af2..origin/master`.
+- Inventory merge commits with `git log --merges --oneline 85228af2..origin/master`.
+- Verify generated/runtime paths separately from documentation paths.
+
+## Do Not Break
+- `/api/engine/chats/*` streaming contracts.
+- Finalize, preview, VM, quality-gate, and error-log semantics.
+- Local builder UI/UX, preview-first flow, postMessage build-out, and Swedish minimalist copy.
+- Dirty tree artifacts, review reports, and data runs unless explicitly classified and handled.

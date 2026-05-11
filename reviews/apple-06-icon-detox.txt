@@ -1,0 +1,26 @@
+Sajtmaskin builder — Apple polish icon / emoji detox (READ-ONLY)
+Scope: src/components/builder/**, src/components/ai-elements/**, src/app/builder/**
+Scores: 5 = strongest emoji/novelty debt; 1 = appropriate.
+
+01 | UnifiedElementPicker.tsx — COMPONENT_CATEGORY_META: 10 emoji labels in UI | DECORATIVE remove / replace text-first | 5
+02 | UiElementPickerPreview.tsx — duplicate emoji map + {componentMeta.emoji} | DECORATIVE remove (DRY #01) | 5
+03 | UiElementPicker.tsx — fallback "📦" | REDUNDANT → neutral Lucide or text | 4
+04 | ModeSelector.tsx — large Sparkles + Wrench hero tiles; copy names modes | DECORATIVE remove or typographic | 4
+05 | PreviewPanelEmptyState.tsx — Wand2 / MessageCircleQuestion / AlertCircle | Wand2 novelty DECORATIVE; others FUNCTIONAL lean | 3
+06 | MustHavePickerPopup.tsx — Sparkles on AI-suggest | REDUNDANT if label exists | 3
+07 | BuildPlanCard.tsx — Sparkles in plan chrome | DECORATIVE remove | 3
+08 | PreviewPanelChrome.tsx — Sparkles in toolbar | DECORATIVE remove | 3
+09 | BuilderHeader.tsx — Wand2 / Rocket among Lucide | Audit per control REDUNDANT vs text | 3
+10 | IntakeSummaryCard.tsx — Rocket micro-icon | DECORATIVE remove | 3
+11 | OnboardingOverlay.tsx — MessageSquare / Wand2 / Eye per step | FUNCTIONAL wayfinding | 2
+12 | BuilderShellContent.tsx — MessageSquare / Eye / Chevrons dock | FUNCTIONAL | 1
+13 | app/builder/error.tsx — AlertCircle / Home / RefreshCw | FUNCTIONAL | 1
+14 | PreviewPanelInspectorDev.tsx — BrainCircuit / Zap dev badges | FUNCTIONAL | 2
+15 | NeedsAnalysisProgress.tsx — inline SVG ring | FUNCTIONAL | 1
+16 | ai-elements/open-in-chat.tsx — brand SVGs in menu | FUNCTIONAL | 2
+17 | ai-elements/prompt-input.tsx — multiple inline SVG | verify vs Lucide | 2
+18 | Policy: 40+ files import lucide — target Sparkles/Wand2/Rocket/Brain novelty cluster first; keep chevron/X/Loader chrome.
+19 | Emoji debt concentrated in pickers (#01–03); no Extended_Pictographic in app/builder or ai-elements trees per scan.
+20 | PreviewPanel / Composer: ASCII "→" in strings — optional copy tighten (REDUNDANT) | 1
+
+Takeaway: Worst debt — duplicated emoji category UI (UnifiedElementPicker + UiElementPickerPreview) + 📦 fallback. Secondary: Sparkles/Wand2/Rocket “AI flair” where headings suffice.

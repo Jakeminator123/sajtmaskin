@@ -114,55 +114,55 @@ async function main() {
   const tempFile = ".env.vercel-temp";
 
   try {
-    execSync(`npx --yes vercel env pull ${tempFile} --yes`, {
-      stdio: "pipe",
-      encoding: "utf8",
-    });
-  } catch (err) {
-    log(`Failed to pull env: ${err.message}`, "error");
-    log("Try running 'npx vercel link' first", "warn");
-    updateStatus("refresh_failed", expiry, "vercel_error");
-    return;
-  }
-
-  if (!existsSync(tempFile)) {
-    log("Temp file not created", "error");
-    return;
-  }
-
-  const newEnvContent = readFileSync(tempFile, "utf8");
-  const newTokenMatch = newEnvContent.match(/VERCEL_OIDC_TOKEN="?([^"\r\n]+)"?/);
-
-  if (!newTokenMatch) {
-    log("No OIDC token in pulled env", "error");
     try {
-      unlinkSync(tempFile);
+      execSync(`npx --yes vercel env pull ${tempFile} --yes`, {
+        stdio: "pipe",
+        encoding: "utf8",
+      });
+    } catch (err) {
+      log(`Failed to pull env: ${err.message}`, "error");
+      log("Try running 'npx vercel link' first", "warn");
+      updateStatus("refresh_failed", expiry, "vercel_error");
+      return;
+    }
+
+    if (!existsSync(tempFile)) {
+      log("Temp file not created", "error");
+      updateStatus("refresh_failed", expiry, "temp_missing");
+      return;
+    }
+
+    const newEnvContent = readFileSync(tempFile, "utf8");
+    const newTokenMatch = newEnvContent.match(/VERCEL_OIDC_TOKEN="?([^"\r\n]+)"?/);
+
+    if (!newTokenMatch) {
+      log("No OIDC token in pulled env", "error");
+      updateStatus("refresh_failed", expiry, "token_missing");
+      return;
+    }
+
+    const newToken = newTokenMatch[1];
+    const newExpiry = decodeJwtExpiry(newToken);
+
+    // Update only the OIDC token in .env.local
+    const updatedContent = envContent.replace(
+      /VERCEL_OIDC_TOKEN="?[^"\r\n]+"?/,
+      `VERCEL_OIDC_TOKEN="${newToken}"`,
+    );
+    writeFileSync(ENV_FILE, updatedContent);
+
+    const newExpiryDate = new Date(newExpiry * 1000).toLocaleString("sv-SE");
+    const newRemainingMinutes = Math.floor((newExpiry - now) / 60);
+
+    log("Token refreshed successfully!", "success");
+    log(`New expiry: ${newExpiryDate} (${newRemainingMinutes} min)`, "success");
+
+    updateStatus("refreshed", newExpiry, "ok");
+  } finally {
+    try {
+      if (existsSync(tempFile)) unlinkSync(tempFile);
     } catch {}
-    return;
   }
-
-  const newToken = newTokenMatch[1];
-  const newExpiry = decodeJwtExpiry(newToken);
-
-  // Update only the OIDC token in .env.local
-  const updatedContent = envContent.replace(
-    /VERCEL_OIDC_TOKEN="?[^"\r\n]+"?/,
-    `VERCEL_OIDC_TOKEN="${newToken}"`,
-  );
-  writeFileSync(ENV_FILE, updatedContent);
-
-  // Cleanup
-  try {
-    unlinkSync(tempFile);
-  } catch {}
-
-  const newExpiryDate = new Date(newExpiry * 1000).toLocaleString("sv-SE");
-  const newRemainingMinutes = Math.floor((newExpiry - now) / 60);
-
-  log("Token refreshed successfully!", "success");
-  log(`New expiry: ${newExpiryDate} (${newRemainingMinutes} min)`, "success");
-
-  updateStatus("refreshed", newExpiry, "ok");
 }
 
 main().catch(console.error);

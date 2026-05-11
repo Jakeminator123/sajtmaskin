@@ -1,0 +1,10 @@
+Builder IA — Agent 3: Progressiv avslöjning (L0 alltid, L1 hover/fokus, L2 klick/meny, L3 drawer/sheet)
+
+Nuvarande IA (15 funktioner i kortform)
+Regen preview: L0 RefreshCw i PreviewPanelChrome. Deploy: L0 Publicera + status i BuilderHeader. Env: L3 ProjectEnvVarsPanel i drawer (minimal) och samma inline expanded. Inspector: L2 under Verktyg → Inspektera. Scaffold/modell: L2 dropdown header; i compact dold — väg in via ··· eller lägebyte. Trace: egen ModelTraceOverlay + ?modelTrace / Alt+Shift+M — utanför L0–L3-modellen. Filer kodvy: L2 Verktyg → Kod. Domän: L0 eller L2 beroende på compact. Import: L2 Mer/compact-meny. VersionHistory: L0 rail alltid synlig (kan smalnas). Tips: L2 checkbox Inställningar + TipCard över chat. Thinking: expanded alltid vid stream; minimal bara om drawer öppen — tyst annars. Readiness: överst i chat-kolumn (L0-yta). Feedback: inline efter sista gen-bubblan (scrollbunden).
+
+Föreslagen IA
+Regen: L0 + L1 förklaring; skilj iframe-reload från AI-regen i copy. Deploy: L0 CTA + L3 sheet. Env: L3 sheet “Miljö” från readiness/blocker. Inspector: L2 verktyg. Scaffold/modell: L2 samlad “Bygg”-meny även compact. Trace: L3 Diagnostik-flik eller L2 overflow — bort från flytande eget lager. Filer: L2. Domän/Import: L2 konsekvent. VersionHistory: L0 kompakt indikator + L3 full lista. Tips: L2 toggle; kort L3 vid behov. Thinking: L0 diskret indikator eller alltid synlig minimal — samma sanning i båda lägena. Readiness: L0 pill i header + L3 detalj. Feedback: L2 entry på version + L3 formulär.
+
+Brott / motsägelser
+Env/readiness/chat duplicerad zon drawer vs expanded. Trace utanför disclosure-skalan. Compact gömmer modell/scaffold utan tydlig L0→L2-kedja. VersionHistory alltid L0 — tung på små skärmar. Thinking saknas i minimal utan öppen drawer trots stream. Feedback lätt att missa (scroll, inte krom).

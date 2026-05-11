@@ -1,0 +1,51 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 01-vercel-deploy
+Date: 2026-05-01
+
+## Production Changes In Master
+- Deploy routes under `/api/v0/deployments`.
+- Deployment status/SSE with Redis and Vercel polling fallback.
+- Vercel deploy, env sync, project/domain APIs.
+- Admin Vercel project/env routes.
+- Vercel deploy webhook with HMAC.
+- Vercel token policy and env keys.
+
+## Local Behavior To Preserve
+- `precheckOnly`, `skipAutoFix`, deploy auto-fix env toggles.
+- Credits gating and commit behavior.
+- Blob image strategy fallback.
+- Lazy refresh of non-terminal deployments.
+- Chat/project tenant ownership.
+- Builder deploy action contract.
+
+## Security / Secret Risks
+- Do not expose Vercel tokens or env values.
+- Avoid env sync to wrong Vercel project.
+- Protect webhook secret/signature.
+- Admin env routes must return metadata only.
+- Never commit `.vercel` or real env files.
+
+## Required Deploy / Observability UI
+- States: deploying, ready, error, cancelled.
+- Links: deployed URL and inspector URL.
+- Clear missing-env explanation.
+- SSE/poll fallback must not show false ready.
+
+## Exact LLM Implementation Instructions
+- Diff deployments routes, Vercel libs, webhook/admin/domain APIs.
+- Preserve zod body, credits gate, tenant checks.
+- If Vercel API version changes, update deploy/env-sync together.
+- Update frontend only when response/SSE shape changes.
+
+## Deploy Verification
+- Deployment route tests.
+- Deploy precheck E2E.
+- Manual precheck, full staging deploy, webhook update.
+
+## Observability Checks
+- Logs: `[deploy]`, `[credits]`, `[deployments-sse]`, webhook ignored/mismatch.
+- Redis availability for SSE.
+
+## Do Not Commit
+- `.env*`, Vercel/Blob/DB/Redis/Stripe secrets.
+- `.vercel/`.
+- Raw webhook/deploy payloads with sensitive fields.

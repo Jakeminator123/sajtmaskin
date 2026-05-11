@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 03-prompt-actions
+Date: 2026-05-01
+
+## UI/UX To Preserve
+- Prompt submit path through `ChatInterface`, `buildMessagePayload`, and `MessageOptions`.
+- First prompt with wizard brief skips extra `/api/ai/brief`.
+- Follow-up sends no init `brief` by default.
+- Follow-up base banner remains informative and separate from engine base version.
+- Clarification/awaiting input and retry suggestion behavior.
+- One stream abort controller and safety timer.
+
+## New Master Capabilities To Surface
+- New SSE/message parts must update stream handlers, helpers, adapter, MessageList, and tooling.
+- New meta keys must update create/send hooks and server parser.
+- New prompt/tool types must update strategy parts and tooling branches.
+
+## State/Props Impact
+- `ChatInterface` props include follow-up base info and plan mode.
+- `requestCreateChat` remains the end entry for brief-seeded first generation.
+- Autofix reuses `sendMessage` and is affected by MessageOptions changes.
+
+## Required Buttons / Choices / Copy
+- Keep compact Swedish copy for awaiting input, retry, and clarification.
+- Keep quick reply patterns.
+
+## Exact LLM Implementation Instructions
+- Merge order: types -> create/send hooks -> stream handlers -> helpers/adapters -> UI.
+- Follow-up remains `isFirstPrompt: false`.
+- `engineBaseVersionId` must come from active version or explicit override.
+- Keep one active stream per chat.
+
+## Merge Conflict Plan
+- Port-ours for `ChatInterface` submit UX/copy.
+- Take master SSE/meta updates via hooks and handlers first.
+- Keep canonical API path helpers.
+
+## Test Plan
+- First prompt with and without wizard brief.
+- Follow-up on older version with badge and correct base.
+- Awaiting-input and retry UI.
+- One active session per chat.
+
+## Do Not Break
+- No duplicate Deep Brief.
+- Error/done ordering for retry and recovered artifacts.
+- Awaiting-input dedupe.
+- `lastSentSystemPromptRef`.

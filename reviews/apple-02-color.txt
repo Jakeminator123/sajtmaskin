@@ -1,0 +1,34 @@
+Scope: src/components/builder/**, src/app/builder/**, src/app/globals.css
+Criteria: Apple-like white/gray + single accent; avoid tinted panes, halos, gradients, rainbow accents.
+
+1. [5/5] globals.css: --primary navy vs --brand-orange / --accent-orange split — builder primary tints read navy wash; unclear single warm CTA accent story.
+
+2. [5/5] Rainbow Tailwind accents (violet/cyan/emerald/indigo/fuchsia) in element-picker config — monochrome + one-accent broken. UnifiedElementPicker.tsx, UiElementPickerPreview.tsx, review-panels.tsx.
+
+3. [4/5] bg-primary/5–/15 + border-primary + text-primary saturate selection/lists/hovers in UnifiedElementPicker / UiElementPicker — whole surfaces tinted vs neutral + accent on confirm.
+
+4. [4/5] Preview chrome: bg-primary/15, ring-primary/20, hover stacks — toolbar second accent layer over preview. PreviewPanelChrome.tsx.
+
+5. [4/5] Decorative primary gradients: bg-linear-to-br from-primary/20 via-primary/15 + hairline via-primary/50 in picker dialogs. UnifiedElementPicker.tsx, UiElementPicker.tsx.
+
+6. [3/5] shadow-sm shadow-primary/20 (and /5, /30) — colored halos on CTAs/cards vs neutral elevation. UnifiedElementPicker, UiElementPicker, IntakeWizard.
+
+7. [3/5] IntakeWizard chips bg-primary/10 + border-primary/40; focus ring-primary/30 — repeated accent in form chrome.
+
+8. [3/5] Edit/inspect overlays: border-primary/60, bg-primary/5, filled label chip — high-contrast accent framing. EditModeOverlay.tsx.
+
+9. [3/5] InlineEditPopup: text-primary on icons/labels; border-primary on options — accent for labels not only primary action.
+
+10. [3/5] MessageList user bubble border-primary/20 bg-primary/[0.06] + meta + typing dot — multi-point primary on thread.
+
+11. [3/5] ModeSelector: hover border-primary/40 + shadow-xl + -translate-y — promotional vs restrained.
+
+12. [2/5] TemplatePickerPopup ring-2 ring-primary on selected — loud single focus.
+
+13. [2/5] Stray hues: emerald (DomainSearchDialog), indigo (VersionHistory), purple badge (ProjectEnvVarsPanel).
+
+14. [2/5] BuilderShellContent tabs border-primary text-primary border-b-2 — persistent accent in nav.
+
+15. [1/5] GenerationProgress + NeedsAnalysisProgress neutral gradients; bar bg-foreground/90 — calm minimal contrast.
+
+Summary: Worst gaps — multi-hue picker badges, primary-tinted selection everywhere, preview toolbar accent stack, primary gradients + shadow-primary halos. Align tokens (navy vs orange) for black/gray + one CTA accent narrative.

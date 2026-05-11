@@ -47,9 +47,29 @@ function normalizeLiteralPath(raw: string): { rel: string; kind: "file" | "dir" 
 //    rule file is restructured is a wrong-coupling. The domain-map may
 //    still reference them as "where to look" hints, but their existence is
 //    not a contract.
+//
+// 3. `data/scaffold-eval/reports/**` — per-machine eval output written by
+//    `npm run scaffolds:eval` (scripts/scaffolds/eval-scaffold-selection.ts
+//    and eval-landing-variants.ts). The backoffice "Eval"-page reads the
+//    latest local JSON report; the file is not produced on a clean CI
+//    checkout. Same wrong-coupling as `logs/**`.
+//
+// 4. `data/prompt-dumps/**` — per-run prompt artefakter skrivna av
+//    `prompt-dump-writer.ts` under generation. Mappen är gitignored
+//    (`data/prompt-dumps/*`) och finns bara på utvecklarmaskiner efter
+//    minst en generation. Backoffice "Prompt-dumps"-sidan läser dem.
+//    Samma wrong-coupling som `logs/**` och `data/scaffold-eval/reports/**`.
 function isRuntimeArtifactPath(rel: string): boolean {
   if (rel === "logs" || rel.startsWith("logs/")) return true;
   if (rel === ".cursor" || rel.startsWith(".cursor/")) return true;
+  if (
+    rel === "data/scaffold-eval/reports" ||
+    rel.startsWith("data/scaffold-eval/reports/")
+  )
+    return true;
+  if (rel === "data/prompt-dumps" || rel.startsWith("data/prompt-dumps/")) {
+    return true;
+  }
   return false;
 }
 

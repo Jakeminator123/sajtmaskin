@@ -12,7 +12,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import {
   getAllCompanyProfiles,
-  getCompanyProfileByName,
+  getCompanyProfileByNameForOwner,
   getCompanyProfileByProjectId,
   linkCompanyProfileToProject,
   saveCompanyProfile,
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
 
     // Get by company name
     if (companyName) {
-      const profile = await getCompanyProfileByName(companyName);
+      const profile = await getCompanyProfileByNameForOwner(companyName, scope);
       if (!profile) {
         return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
       }

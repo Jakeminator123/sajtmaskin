@@ -1,0 +1,53 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 05-verification-ladder
+Date: 2026-05-01
+
+## Inputs Read
+- Git command plan, API contract checklist, rate-limit/error report, autofix/verifier report, UI state tests, quality-gate runtime, package scripts, CI/DX, regression gaps, deploy/domain/CSP/analytics/webhook/production-smoke reports.
+
+## Synthesis
+Verification should climb from cheap static checks to unit/integration, data contracts, build, domain-specific Vitest, safe E2E and staging runtime checks. Builder coexistence is mandatory: no Playwright/curl against a user’s active builder chat.
+
+## Ordered Plan
+1. `git status -sb` clean before merge.
+2. `npm ci`.
+3. Optional `npm run preflight:common`.
+4. `npm run typecheck`.
+5. `npm run lint`.
+6. `npm run test:ci`.
+7. `npm run baseline-deps:verify` and `npm run baseline-deps:tree`.
+8. Logging/event-bus tests if touched.
+9. Scaffold/dossier validation if touched.
+10. Focused stream/preview/builder Vitest as needed.
+11. `NEXT_TELEMETRY_DISABLED=1 npm run build`.
+12. Optional `npm run devtest` and `npm run format:check`.
+13. Safe deploy-smoke E2E.
+14. Isolated builder/persona E2E only with new chat or user-closed builder tab.
+15. Staging API/CORS/rate-limit checks.
+16. CSP/security header checks.
+17. Analytics checks.
+18. Deploy/domain staging checks.
+19. Webhook/cron checks.
+20. Metrics/error-log/admin observability checks.
+
+## Exact LLM Implementation Brief
+- Run steps in order; do not skip full `test:ci` if shared contracts changed.
+- Add route tests for touched P0 gaps: repair/readiness/accept-repair/finalize-design, preview-render, credits/upload, Stripe.
+- Do not hit live user chat streams, heartbeat, finalize or preview-session endpoints.
+- Use staging/non-production secrets for deploy/domain/webhook smoke.
+- Do not commit logs, dumps, `.env`, `.vercel` or generated runs.
+
+## Acceptance Criteria
+- Typecheck, lint, test:ci, baseline-deps and build pass.
+- Dossier/scaffold checks pass when their data changes.
+- E2E is isolated or explicitly skipped with reason.
+- CSP/analytics/deploy/domain/webhook/cron/metrics checks pass in staging.
+- No secrets appear in command output committed to repo.
+
+## Risks / Mitigations
+- CI green but data contracts broken: run dossier/scaffold checks on data changes.
+- Builder race: one active client per chat.
+- CSP blocks analytics: check `/api/csp-report` before enforce.
+- Webhook parity gaps: use Stripe CLI replay and signed Vercel test event.
+
+## Final Recommendations
+Make typecheck, lint, test:ci and build the merge definition of done; add data and staging checks when touched areas require them.

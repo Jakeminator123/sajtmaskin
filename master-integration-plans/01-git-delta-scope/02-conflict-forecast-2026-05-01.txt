@@ -1,0 +1,44 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 02-conflict-forecast
+Date: 2026-05-01
+
+## Scope
+Forecast likely conflicts when integrating `origin/master` (`c13b515`) into current `HEAD` (`a7b682a`) from merge-base `85228af2`. Focus: frontend/backend wiring, builder/chat stream, preview/finalize behavior, and UI/UX preservation.
+
+## Evidence
+- Symmetric diff since merge-base: 612 paths.
+- Tracked dirty files: 24.
+- Dirty path also present in `HEAD...origin/master`: `src/app/api/engine/chats/[chatId]/stream/route.test.ts`.
+- Files touched on both branches since merge-base: 74.
+- High-risk both-sides paths include `package.json`, `tsconfig.json`, `eslint.config.mjs`, `preview-host/src/runtime.js`, `src/app/api/engine/chats/[chatId]/versions/route.ts`, `src/app/api/media/upload/route.ts`, `src/app/builder/BuilderShellContent.tsx`, `src/app/builder/useBuilderPageController.ts`, `src/app/builder/useBuilderState.ts`, `src/components/builder/PreviewPanel.test.tsx`, `src/components/builder/preview-panel/PreviewPanel.tsx`, `src/lib/api/engine/chats/*`, `src/lib/gen/orchestrate.ts`, `src/lib/gen/system-prompt/*`, `src/lib/gen/verify/*`, `src/lib/providers/own-engine/generation-stream-post-finalize.ts`, `src/lib/rateLimit.ts`, and `src/lib/vercel/blob-service.ts`.
+
+## Findings
+- Highest textual and semantic conflict risk is in engine stream routes, chat hooks, builder state, preview panel, generation orchestration, finalize, verifier, autofix, and preview runtime.
+- `src/app/api/engine/chats/[chatId]/stream/route.test.ts` should not remain dirty during merge because it overlaps incoming master delta.
+- Dirty SEO, layout, proxy, and Next config files may not all conflict textually but can regress routing, CSP, analytics, JSON-LD, or preview iframe behavior.
+- `data/runs/**` edits are likely generated noise and should not be mixed into runtime integration commits.
+
+## Recommended Actions
+- Commit or stash dirty engine/API files before merge.
+- Resolve tooling and config first, then API clients/routes, then builder state, then preview panel, then generation pipeline.
+- For both-sides touched docs and rules, preserve canonical master facts while keeping local UI policy notes where needed.
+- Keep review artifacts and run logs out of product commits.
+
+## Exact LLM Implementation Instructions
+- For each both-sides path, inspect base/ours/theirs before choosing a side.
+- Use master for backend contract, rate-limit, blob/media, verifier, schema, and security behavior.
+- Use local branch for established UI layout, chrome, copy, interaction model, preview postMessage flow, and chat dock behavior.
+- Update `useCreateChat`, `useSendMessage`, `create-chat-stream-post`, and `chat-message-stream-post` together when stream body/event fields change.
+- Merge `BuilderShellContent`, `useBuilderState`, `useBuilderPageController`, and `PreviewPanel` as one behavioral unit to avoid partial state wiring.
+
+## Verification Needed
+- Chat init and follow-up stream route tests.
+- Builder preview smoke with one active viewer per chat.
+- Media upload validation and blob-service compatibility.
+- Versions route plus `VersionHistory` and diagnostics UI.
+- `npm run typecheck`, `npm run lint`, and relevant Vitest suites.
+
+## Do Not Break
+- One live stream/finalize client per `chatId`.
+- Current builder UI/UX and preview-first interaction.
+- Master security, rate-limit, media validation, and verifier gates.
+- `preview-host/src/runtime.js` postMessage timing and preview heartbeat behavior.

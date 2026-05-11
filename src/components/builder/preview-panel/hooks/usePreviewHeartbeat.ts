@@ -60,7 +60,8 @@ export function usePreviewHeartbeat(params: {
   };
 
   const sendHeartbeat = useCallback(async () => {
-    if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
+    const resolvedPreviewSessionId = previewSessionId?.trim();
+    if (!chatId || !versionId || !resolvedPreviewSessionId) return;
     if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
     // Heartbeat must keep firing even when the tab is hidden — long F3 builds
     // (tab switched away) were TTL-ing out of preview-session because we
@@ -69,7 +70,7 @@ export function usePreviewHeartbeat(params: {
     const data = await postPreviewHeartbeat({
       chatId,
       versionId,
-      previewSessionId: activePreviewSessionId.trim(),
+      previewSessionId: resolvedPreviewSessionId,
       viewerId: viewerIdRef.current ?? "unknown",
     });
     if (
@@ -79,7 +80,7 @@ export function usePreviewHeartbeat(params: {
     ) {
       onSessionSuspect?.();
     }
-  }, [chatId, versionId, activePreviewSessionId, previewUrl, onSessionSuspect]);
+  }, [chatId, versionId, previewSessionId, previewUrl, onSessionSuspect]);
 
   useEffect(() => {
     if (!chatId || !versionId || !previewSessionId?.trim()) return;

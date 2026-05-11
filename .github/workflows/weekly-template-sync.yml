@@ -1,9 +1,6 @@
 name: Weekly Template Sync
 
 on:
-  schedule:
-    # Every Monday at 03:23 UTC
-    - cron: "23 3 * * 1"
   workflow_dispatch:
     inputs:
       include_embeddings:

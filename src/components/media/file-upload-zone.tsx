@@ -5,11 +5,11 @@
  * ========================
  *
  * Drag & drop zone for uploading images and files to include in website generation.
- * Uploaded files are stored in Vercel Blob storage to get PUBLIC URLs that v0 can access.
+ * Uploaded files are stored in Vercel Blob storage to get PUBLIC URLs the live preview can access.
  *
- * CRITICAL: v0's demoUrl is hosted on Vercel's servers and CANNOT access local files.
+ * CRITICAL: the preview/VM runs outside the user's local machine and CANNOT access local files.
  * All images must be uploaded to Vercel Blob (or similar public storage) BEFORE
- * being included in v0 prompts.
+ * being included in own-engine prompts.
  *
  * SUPPORTED FILE TYPES:
  * - Images: jpg, jpeg, png, gif, webp, svg
@@ -19,7 +19,7 @@
  * 1. User drags files or clicks to select
  * 2. Files are IMMEDIATELY uploaded to Vercel Blob via /api/media/upload
  * 3. Public URLs are returned instantly
- * 4. URLs can be included in prompts - v0 can access them!
+ * 4. URLs can be included in prompts - the live preview can access them!
  */
 
 import { useState, useRef, useCallback, useId } from "react";
@@ -45,8 +45,8 @@ const ACCEPTED_IMAGE_TYPES = [
 ];
 const ACCEPTED_DOC_TYPES = ["application/pdf"];
 const ACCEPTED_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_DOC_TYPES];
-const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3MB (v0 API attachment limit)
-const MAX_DOC_SIZE = 3 * 1024 * 1024; // 3MB (v0 API attachment limit)
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // Mirrors /api/media/upload Blob-safe limit
+const MAX_DOC_SIZE = 4 * 1024 * 1024; // Mirrors /api/media/upload Blob-safe limit
 const MAX_FILES = 5;
 
 export interface UploadedFile {
@@ -92,12 +92,13 @@ export function FileUploadZone({
 
   // Handle file selection
   // CRITICAL: Files are uploaded to Vercel Blob to get PUBLIC URLs
-  // v0's preview cannot access local files - must use public URLs!
+  // The live preview cannot access local files - must use public URLs.
   const handleFiles = useCallback(
     async (selectedFiles: FileList | null) => {
       if (!selectedFiles || disabled) return;
 
       const filesToUpload = Array.from(selectedFiles).slice(0, MAX_FILES - files.length);
+      let workingFiles = files;
 
       for (const file of filesToUpload) {
         // Validate file type
@@ -111,7 +112,8 @@ export function FileUploadZone({
             status: "error",
             error: "Filtyp stöds inte. Använd JPG, PNG, GIF, WebP, SVG eller PDF.",
           };
-          onFilesChange([...files, errorFile]);
+          workingFiles = [...workingFiles, errorFile];
+          onFilesChange(workingFiles);
           continue;
         }
 
@@ -125,9 +127,10 @@ export function FileUploadZone({
             mimeType: file.type,
             size: file.size,
             status: "error",
-            error: "Filen är för stor. Max 3 MB för bilagor.",
+            error: "Filen är för stor. Max 4 MB för bilagor.",
           };
-          onFilesChange([...files, errorFile]);
+          workingFiles = [...workingFiles, errorFile];
+          onFilesChange(workingFiles);
           continue;
         }
 
@@ -141,8 +144,8 @@ export function FileUploadZone({
           status: "uploading",
         };
 
-        const updatedFiles = [...files, uploadingFile];
-        onFilesChange(updatedFiles);
+        workingFiles = [...workingFiles, uploadingFile];
+        onFilesChange(workingFiles);
 
         // Upload file to Vercel Blob via media API (gets public URLs!)
         // Use project-specific endpoint if projectId exists, otherwise use general media API
@@ -154,7 +157,7 @@ export function FileUploadZone({
           }
 
           // Use media upload API - it handles Vercel Blob uploads
-          // and returns PUBLIC URLs that v0 can access
+          // and returns PUBLIC URLs that the preview can access.
           const response = await fetch("/api/media/upload", {
             method: "POST",
             body: formData,
@@ -180,7 +183,7 @@ export function FileUploadZone({
               isPublicUrl,
             };
 
-            // Log warning if URL is not public (won't work in v0 preview)
+            // Log warning if URL is not public (won't work in the live preview).
             if (!isPublicUrl) {
               console.warn(
                 "[FileUploadZone] ⚠️ File uploaded but URL is NOT public!",
@@ -192,7 +195,8 @@ export function FileUploadZone({
               console.info("[FileUploadZone] ✓ File uploaded with public URL:", result.media.url);
             }
 
-            onFilesChange(updatedFiles.map((f) => (f.id === uploadingFile.id ? successFile : f)));
+            workingFiles = workingFiles.map((f) => (f.id === uploadingFile.id ? successFile : f));
+            onFilesChange(workingFiles);
           } else {
             // Update with error — use structured code when available
             const code = result?.code as string | undefined;
@@ -217,7 +221,8 @@ export function FileUploadZone({
               status: "error",
               error: friendly,
             };
-            onFilesChange(updatedFiles.map((f) => (f.id === uploadingFile.id ? errorFile : f)));
+            workingFiles = workingFiles.map((f) => (f.id === uploadingFile.id ? errorFile : f));
+            onFilesChange(workingFiles);
           }
         } catch (error) {
           console.error("[FileUploadZone] Upload error:", error);
@@ -227,7 +232,8 @@ export function FileUploadZone({
             status: "error",
             error: "Nätverksfel vid uppladdning",
           };
-          onFilesChange(files.map((f) => (f.id === uploadingFile.id ? errorFile : f)));
+          workingFiles = workingFiles.map((f) => (f.id === uploadingFile.id ? errorFile : f));
+          onFilesChange(workingFiles);
         }
       }
     },
@@ -510,7 +516,7 @@ export function FileUploadZone({
  * This text is appended to user prompts to include file URLs
  *
  * CRITICAL: Only includes files with public URLs (isPublicUrl !== false)
- * Non-public URLs won't work in v0's preview!
+ * Non-public URLs won't work in live preview.
  */
 export function filesToPromptText(files: UploadedFile[]): string {
   // Filter for successful uploads with public URLs only
@@ -560,11 +566,11 @@ export function filesToPromptText(files: UploadedFile[]): string {
 }
 
 /**
- * Convert uploaded files to V0UserFileAttachment array for message attachments
+ * Convert uploaded files to user-file attachments.
  */
 export function filesToAttachments(files: UploadedFile[]): V0UserFileAttachment[] {
   return files
-    .filter((f) => f.status === "success")
+    .filter((f) => f.status === "success" && f.isPublicUrl !== false)
     .map((f) => ({
       type: "user_file" as const,
       url: f.url,

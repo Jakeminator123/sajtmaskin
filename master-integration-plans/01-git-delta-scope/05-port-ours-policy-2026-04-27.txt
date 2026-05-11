@@ -1,0 +1,36 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 05-port-ours-policy
+Date: 2026-04-27
+
+## Scope
+Filer/ beteenden på **frontend/christopher** som bör bevaras eller manuellt återföras efter merge, gentemot `origin/master` i builder/preview/chat.
+
+## Evidence (agent: `git diff origin/master...HEAD` förenklad)
+- `BuilderShellContent.tsx` — stor diff (bl.a. IntakeWizard, help-chat, `isHelpMessage`).
+- `PreviewPanel.tsx` + telemetri hooks — egen FSM, `vmReady`, `notifyPreviewStarting`, enheter, build-out.
+- `usePreviewIframe.ts` — cross-origin, `preview-starting`, vmReady.
+- `useBuilderCallbacks.ts` — own-engine iframe-URL, `isOwnEngineVersionRow`.
+- `useBuilderPageController.ts` — m.fl.
+- `stream-handlers.ts` — `pendingStreamRetryHint`, `rejectedShrinks`, `verifierBlockingFindings`.
+- `useBuilderHelpChat.ts` — kan vara gren-specifik.
+- Engine `stream` routes: ofta **ingen** committed skillnad mot `origin/master` (lokal WIP kan fortfarande vara M).
+
+Kod: `usePreviewPanelOwnEnginePreviewTelemetry.ts` (postMessage, `error-log`), `preview-panel-types.ts`, `useBuilderCallbacks.ts`.
+
+## Findings
+1. Preview-livscykel: prioritera `usePreviewIframe` + telemetri + `PreviewPanel` integration.
+2. Build-out / route requests / chrome — gren-specifika props.
+3. Shell: onboarding/help — risk att "ta master rakt" tappar flöde.
+4. Efter merge: kolla igenom **server**-stream mot master even om gammal HEAD var lik.
+
+## Recommended Actions
+1. Vid konflikt: "ours" eller manuell cherry-pick för: `usePreviewIframe.ts`, `usePreviewPanelOwnEnginePreviewTelemetry.ts`, `PreviewPanel*.tsx`, `preview-panel-types.ts`, relaterade hooks, `usePreviewPanelPreviewRoutes`, heartbeat.
+2. Säkra: `BuilderShellContent.tsx`, `useBuilderPageController`, ev. `useBuilderState`/`useBuilderEffects`.
+3. Behåll `useBuilderCallbacks.ts` + tester.
+4. Port `stream-handlers` (retry, verifier, postCheck).
+5. Nya moduler (help chat m.m.) om fortfarande i scope.
+
+## Verification Needed
+Manuell cross-origin preview; build-out; post-check UI; diffa `api/engine/chats/**/stream/**` igen efter merge.
+
+## Do Not Break
+postMessage-ordning (preview-starting vs vmReady), `event.source` vs `contentWindow`, `pickEngineIframeUrl` / `bumpPreviewRefreshToken`, help → inte förorena byggkontext (`isHelpMessage`), SSE `pendingStreamRetryHint` / postCheck-kö.

@@ -1,0 +1,37 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 01-orchestrate
+Date: 2026-04-27
+
+## Master Pipeline Changes
+- Tung diff i `orchestrate.ts`, `orchestrate/generation-package.ts`, `orchestration-snapshot.ts`, `capability-inference.ts`, `orchestration-*.test.ts` (se `git diff HEAD...origin/master`).
+- Förväntat innehåll: `resolveOrchestrationBase` / `finalizeOrchestrationPrompts` / `prepareGenerationContext`; QW-1 separata prompts (`contractsPrompt`, `capabilitiesPrompt`, `scaffoldMatchPrompt`); P26/embedding; dossier merge med `FEATURES.useDossierPipeline` + `requestedDossierCapabilities`; `deriveBuildSpec` + `inheritQualityTargetFromPriorVersion`; F3 via `lifecycleStage === "integrations"`; `buildOut` → `buildDynamicContext`; `lockedVariantForFollowUp` / `persistedVariantId`; intent-promotion-guards (website→app) på follow-up.
+- `orchestration-snapshot`: sanitize, merge, K-019 continuity, `buildFollowUpBriefFromSnapshot`, `prependOrchestrationContinuityToFollowUp`.
+- `buildGenerationInputPackage` + `writeOrchestrationDynamicDump` → `data/prompt-dumps` (kategori `orchestrationDynamic`).
+
+## Local Behaviors To Preserve
+- **port_ours:** `buildOut` från `parse-chat-request-meta` + `chatSchemas` → `chat-message-stream-post` / `create-chat-stream-post` → orchestration; `useSendMessage` merge av buildOut.
+- Separata inferens-prompter (QW-1) så inpackad filkontext inte förvrider `matchScaffoldAuto` / `inferCapabilities`.
+- Intent-promotion block när follow-up har persisted icke-app-scaffold.
+- Snapshot `capturedAt` / `buildSpec` merge guards — master får inte ta bort stale-skydd.
+
+## Merge/Port Plan
+1. Tre-vägs diff: `orchestrate.ts`, `generation-package.ts`, `orchestration-snapshot.ts`, `capability-inference.ts`.
+2. Vid konflikt: behåll **anropskontrakt** i `chat-message-stream-post`, `create-chat-stream-post`, `parse-chat-request-meta` så `OrchestrationInput` fylls (buildOut, meta, lifecycle).
+3. Om `GenerationInputPackage` / `serializePackageForDump` ändras: uppdatera dump-läsare + ev. backoffice.
+4. Efter merge: kör `orchestrate.test.ts`, `orchestration-snapshot.test.ts`, `orchestration-integration.test.ts` + uppdatera stream `route.test` mocks om signatur byte.
+
+## Regression Risks
+- Follow-up tappar `briefSummary` / capabilities → tom `requestedCapabilities`.
+- En enda “wrapped” prompt till scaffold/match igen (P26-regression).
+- `mergePersistedOrchestrationSnapshots` utan `capturedAt`-guard.
+- `buildOut` tappat i `finalizeOrchestrationPrompts` → ingen shell route-hint i prompt.
+
+## Required Tests
+- `src/lib/gen/orchestrate.test.ts` (P22 quality inheritance)
+- `src/lib/gen/orchestration-snapshot.test.ts` (sanitize, merge, continuity)
+- `src/lib/gen/orchestration-integration.test.ts`
+- `src/app/api/engine/chats/**/stream/route.test.ts` (mock `prepareGenerationContext` / `resolveOrchestrationBase`)
+
+## Open Questions
+- Faktisk `git diff` master↔HEAD per fil innan port (källsanna lista).
+- Nya snapshot-fält på master (variant/dossier) → `extractBriefSummaryFromSnapshot`?
+- Embeddings fail-open/timeout i `matchScaffoldAuto` — policy mot borttagen dead fallback (kommentarer i `orchestrate`).

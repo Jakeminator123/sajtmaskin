@@ -1,0 +1,29 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 07-webhooks-cron
+Date: 2026-04-27
+
+## Production Changes In Master
+- **Cron (minimal):** endast `GET /api/cron/templates/embeddings` — faktiskt no-op: `skipped: true`, lokal regen + deploy (läs `route.ts`).
+- **Vercel-scheduled (vercel.json):** t.ex. `/api/shadcn/registry/refresh` (schema `0 */2 * * *` per agent) — `CRON_SECRET` bearer/header.
+- **Webhooks:** `POST /api/webhooks/vercel` (HMAC, deployment status, Redis pub), `POST/GET /api/webhooks/v0` (v0, health GET), `POST /api/stripe/webhook` (raw body + signatur), ev. andra providers (D-ID) separat.
+- `validateWebhookSecret` mönster i `@/lib/webhooks`.
+
+## Local Behavior To Preserve
+- Stripe: `constructEvent` med samma rå body som skickats till Stripe — middleware som äter body = bruten signatur.
+- Vercel webhook: `VERCEL_PROJECT_ID` filter, deployment channel naming.
+- Embeddings cron: **inte** förvänta server-side embedding från cron; run `npm run templates:embeddings` vid behov + deploya artifact.
+
+## Security / Secret Risks
+- `STRIPE_WEBHOOK_SECRET` / `VERCEL_WEBHOOK_SECRET` / `CRON_SECRET` — aldrig logga, rotera vid leak.
+- Webhook endpoints utan signatur där så förväntas = öppen abuse — gate behålls efter merge.
+
+## Deploy Verification
+- Stripe: test event i dashboard → 200, DB-transaktion spårbar (staging).
+- Vercel: deployment event når `deployments` row + eventuellt SSE.
+- Cron: `Authorization: Bearer $CRON_SECRET` mot shadcn refresh, 200/expected; embeddings cron svar 200 med skipped JSON.
+
+## Observability Checks
+- Loggar i `webhooks/vercel` för ignored/ok; Stripe unhandled log lines.
+- Vercel “Cron Jobs” i dashboard visar sista körning för shadcn.
+
+## Do Not Commit
+- Webhook signing secrets, Stripe live keys, `vercel.json` med inbäddade hemligheter, curl-exempel med bärare i docs om de innehåller sanna tokens.

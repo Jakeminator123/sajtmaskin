@@ -78,7 +78,7 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("F2 / F3 livscykel (2026-04)")
     st.markdown(
         """
-- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck", "build", "lint"]` sedan 2026-04-21; var `["typecheck", "build"]` 2026-04-20 → 2026-04-21, och bara `["typecheck"]` före 2026-04-20). Lint kör `--max-warnings=20` så tolereranta warnings inte fryser gate:n. Tier-3 SDK-imports
+- **F2 (`previewPolicy: fidelity2`)** — design-loopen. `designPreview` quality gate (`["typecheck"]` sedan 2026-04-23; var `["typecheck", "build", "lint"]` 2026-04-21 → 2026-04-23, `["typecheck", "build"]` 2026-04-20 → 2026-04-21, `["typecheck"]` före 2026-04-20). `build`/`lint` flyttades till pre-VM warm-cache-passen i Sajtmaskin-backend (`warm-typecheck.ts` + `warm-eslint.ts`) som körs innan filerna når preview-host — samma diagnostik, ingen Fly-CPU-kostnad. Tier-3 SDK-imports
   (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, …) strippas mekaniskt av `tier3-sdk-guard-fixer`.
 - **F3 (`previewPolicy: fidelity3`)** — bygg integrationer. `integrationsBuild` quality gate (`["typecheck", "build", "lint"]`).
   Triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Validerar tier-3 readiness mot
@@ -94,9 +94,15 @@ def render(ctx: BackofficeContext) -> None:
   `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS` (default 20).
   med `forceTsc: true`. Fail-open vid kall cache. SSE-progress: `phase: "validating" | "fixing" | "tsc-validating"
   | "tsc-fixing" | "tsc-passed" | "tsc-skipped" | "passed" | "gave-up"`.
-- **Verifier-fynd → fixer (Wave 2 2026-04-20)**: blocking-fynd från `runVerifierPass` matas in i `runLlmFixer`
-  direkt efter verifier-passet. Lyckad fixer rensar `verifierBlockingFindings` så versionen inte markeras
-  blocked för fynd som redan reparerats. Tidigare paid-no-op pass.
+- **Verifier-pass är hybrid (2026-04-22)**: före LLM-auditen kör `runVerifierPass` nu deterministiska
+  guards i `verifier-pass.ts` — `undefined-jsx-symbol` (kollar JSX-taggar mot importerade/deklarerade
+  symboler, med TS-generic-registrering så `<T>` inte false-positivas), `r3f-client-boundary`,
+  `navigation-placeholder-actions`, `motion-reduce-canvas-trap` och `motion-reduce-overlay-trap`.
+  `lazy(`-bailouten är smal: bara filer med `React.lazy(` eller `lazy` importerat från
+  `react`/`react-dom` skippas.
+- **Verifier-fynd → fixer (Wave 2 2026-04-20)**: blocking-fynd från `runVerifierPass` (både deterministiska
+  och LLM-reported) matas in i `runLlmFixer` direkt efter verifier-passet. Lyckad fixer rensar
+  `verifierBlockingFindings` så versionen inte markeras blocked för fynd som redan reparerats.
 - **Auto-repair på `build-error` (Wave 4 2026-04-20)**: `triggerBuildErrorRepair` är default ON i
   `development` + Vercel `preview`, default OFF i `production`. Override via `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=0|1`.
 - **Placeholder-merge** (`src/lib/gen/preview/env-local.ts`): `harmless → tier3-stub → project-preview → user → generated`.

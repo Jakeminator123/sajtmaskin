@@ -186,6 +186,9 @@ export async function handleSseStream(
       if (phase === "reasoning") {
         return ["Modellen analyserar uppgiften innan första synliga outputen kommer."];
       }
+      if (phase === "reasoning-slow") {
+        return ["Modellen tänker längre än vanligt. Vi fortsätter vänta på första outputen."];
+      }
       if (phase === "awaiting-output") {
         return ["Väntar på första kod- eller textoutput från modellen."];
       }

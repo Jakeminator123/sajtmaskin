@@ -50,6 +50,29 @@ export function resolveEngineVersionParentId(
   return version?.parentVersionId ?? version?.parent_version_id ?? null;
 }
 
+/**
+ * True when this version's lifecycle stage triggers server-verify on save.
+ *
+ * Runtime-truth: `verificationPolicy: "design_preview_skip_verify"` is set
+ * for F2 design rows (lifecycleStage `"design"`) — server-verify never
+ * runs there. F3 integrations rows run `verificationPolicy: "standard"`
+ * which executes server-verify after persist.
+ *
+ * UI consumers: when this returns `false`, do NOT show "Verifierar" or
+ * "Server-verify kör i bakgrunden..." for a `verificationState: "pending"`
+ * row — the row has reached its terminal display state for design preview.
+ *
+ * Postmortem 2026-04-28 (run `20260428-041927-freeform`): the
+ * version-diagnostics tooltip claimed "Server-verify kör i bakgrunden"
+ * for a version where the policy was already
+ * `design_preview_skip_verify`. This helper closes that lie at the source.
+ */
+export function isServerVerifyExpectedForLifecycle(
+  version: EngineVersionLifecycleLike | null | undefined,
+): boolean {
+  return resolveEngineVersionLifecycleStage(version) === "integrations";
+}
+
 export type EngineVersionLifecycleStatus =
   | "draft"
   | "verifying"
@@ -61,6 +84,14 @@ export type EngineVersionLifecycleStatus =
 export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
 
 export type QualityTier = "none" | "preview" | "tier2" | "production";
+
+export type EngineVersionVerificationSurfaceStatus =
+  | "verified"
+  | "design_ready"
+  | "verifying"
+  | "repair_available"
+  | "failed"
+  | "unverified";
 
 export function resolveQualityTier(
   version: EngineVersionLifecycleLike | null | undefined,
@@ -138,6 +169,22 @@ export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecyc
   }
 
   return lifecycleStatus;
+}
+
+export function resolveEngineVersionVerificationSurfaceStatus(
+  version: EngineVersionLifecycleLike | null | undefined,
+): EngineVersionVerificationSurfaceStatus {
+  if (!version) return "unverified";
+  const lifecycleStatus = resolveEngineVersionLifecycleStatus(version);
+  if (lifecycleStatus === "promoted") return "verified";
+  if (lifecycleStatus === "failed") return "failed";
+  if (lifecycleStatus === "repair_available") return "repair_available";
+  if (lifecycleStatus === "repairing" || lifecycleStatus === "verifying") {
+    return isServerVerifyExpectedForLifecycle(version) ? "verifying" : "design_ready";
+  }
+  const verificationState = version.verificationState ?? version.verification_state ?? null;
+  if (verificationState === "passed") return "verified";
+  return "unverified";
 }
 
 export function canExposeEnginePreview(

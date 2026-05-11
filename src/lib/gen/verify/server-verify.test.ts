@@ -92,12 +92,8 @@ describe("resolveServerRepairEarlyStopReason", () => {
 });
 
 describe("DESIGN_PREVIEW_QUALITY_GATE_CHECKS", () => {
-  it("runs typecheck + build + lint for F2 design-preview verification (lint added 2026-04-21)", () => {
-    // Build was added to the F2 lane to catch Next-runtime errors before
-    // the preview iframe renders ("blank HTML" incidents). Audit Tier S #7.
-    // To revert (cost-driven), set `qualityGateTiers.designPreview` in
-    // `config/ai_models/manifest.json` to `["typecheck"]`.
-    expect(DESIGN_PREVIEW_QUALITY_GATE_CHECKS).toEqual(["typecheck", "build", "lint"]);
+  it("runs typecheck only for F2 design-preview verification", () => {
+    expect(DESIGN_PREVIEW_QUALITY_GATE_CHECKS).toEqual(["typecheck"]);
   });
 });
 

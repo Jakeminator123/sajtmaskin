@@ -134,7 +134,7 @@ scaffoldMode?
 ### STEG 4 — Capability-inferens (`capability-inference.ts`)
 Flaggor: `needsAuth`, `needsEcommerce`, `needsAppShell`, `needsForms`, `needsCharts`, `needs3D`, `needsMotion`, m.fl. + `hasHeavyCapabilities()`. Boostar matchning + prioriterar filer + matar BuildSpec.
 
-### STEG 5 — Route Plan (`route-plan.ts`)
+### STEG 5 — Route Plan (`src/lib/gen/route-plan/`)
 Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `RoutePlan { routes[], siteType, provenance }`.
 
 ### STEG 6 — Pre-generation Contracts (`pre-generation-contracts.ts`)
@@ -151,11 +151,13 @@ Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRo
 | Mode | Triggas av | Vad som injiceras |
 |---|---|---|
 | `inspirational` | `init` + INTE heavy contextPolicy | Filträd + layout/theme-filer. "Invent a unique page flow." |
-| `structural` | `followUp` ELLER heavy contextPolicy | Full/kritisk filstruktur. Modellen följer scaffoldens baseline. |
+| `structural` | `followUp` ELLER heavy contextPolicy | Filträd + kritiska filer renderade per **Scaffold Contract V2** (full/excerpt/signature). Modellen följer scaffoldens baseline. |
 
 `detectScaffoldMode()` med kreativa nyckelord finns men **anropas inte i production**. Mode bestäms mekaniskt i `orchestrate.ts`.
 
 `selectCriticalScaffoldFiles()` prioriterar baserat på kritiska patterns + route-relevans + capability-relevans.
+
+**Scaffold Contract V2 (2026-04-29):** varje vald kritisk fil renderas via `(role, serialization)`. Defaults härleds från path så befintliga manifest fungerar oförändrade. Manifest kan overrida via valfria fält på `ScaffoldFile` (`role`, `serialization`, `maxPromptChars`). Resultat: `app/page.tsx` renderas som `FileContract` (inte halv TSX), shared `components/*` som `FileContract`-signatur (imports + exports + struktur), medan små `layout.tsx`/`globals.css`/config-filer kan vara kompletta source-fences. Stora `full`-filer faller tillbaka till FileContract så `## Critical Scaffold Files` håller 6k-capen. Se [`docs/schemas/scaffold-contract.md`](../schemas/scaffold-contract.md) för fullständig policy-tabell.
 
 ### STEG 10 — System Prompt (`src/lib/gen/system-prompt/`)
 
@@ -215,7 +217,11 @@ base manifest (per scaffold-mapp, t.ex. blog/manifest.ts)
    └─ scaffold-research.generated.json → upgradeTargets, referenceTemplates
         │
         ▼
-2. applyScaffoldSeoDefaults(scaffold, options?)
+2. withDefaultIcon(scaffold)
+   └─ registry.ts → adds protected `app/icon.svg` favicon default
+      │
+      ▼
+3. applyScaffoldSeoDefaults(scaffold, options?)
    └─ seo-defaults.ts → SEO-metadata
       │
       ├─ no options + env unset      → noop (default-safe; ingen example.com-leak)
@@ -241,11 +247,42 @@ ALL_SCAFFOLDS (registry.ts)
 | Set | Beteende | Default-innehåll |
 |-----|----------|------------------|
 | `LLM_ONLY_PATHS` | Scaffold-versionen **filtreras bort**. Om LLM inte emitterar en egen version saknas filen → versionen markeras verification-blocked via `missingEmittedEssentials`. | `app/page.tsx`, `src/app/page.tsx` |
-| `SCAFFOLD_PROTECTED_PATHS` | LLM-emissionen **filtreras bort**. Scaffold-default (init) eller previous-version (follow-up) vinner alltid. Logg: `scaffold-protected-overwrite-blocked`. | `app/api/placeholder/route.ts` |
+| `SCAFFOLD_PROTECTED_PATHS` | LLM-emissionen **filtreras bort**. Scaffold-default (init) eller previous-version (follow-up) vinner alltid. Logg: `scaffold-protected-overwrite-blocked`. | `app/icon.svg`, `app/api/placeholder/route.ts` |
 
-`SCAFFOLD_PROTECTED_PATHS` är endast för rena utility-filer utan brand/copy/affärslogik. `app/api/placeholder/route.ts` lades till 2026-04-27 efter att eval-rapporten visade att 6/13 fail-prompts berodde på att LLM:n regenererade filen som JSX i `.ts` (`Expected ">" but found "style"`). Att låsa scaffold-versionen är deterministiskt och byter inte några brand-relaterade beslut.
+`SCAFFOLD_PROTECTED_PATHS` är endast för rena utility-filer utan brand/copy/affärslogik. `app/api/placeholder/route.ts` lades till 2026-04-27 efter att eval-rapporten visade att 6/13 fail-prompts berodde på att LLM:n regenererade filen som JSX i `.ts` (`Expected ">" but found "style"`). `app/icon.svg` är en minimal favicon-default som tar bort preview-404 utan att bära kundspecifik brand. Att låsa scaffold-versionen är deterministiskt och byter inte några brand-relaterade beslut.
 
 Lägg endast till nya entries om filen är ren utility (verifierad korrekt scaffold-version, ingen kund vill anpassa).
+
+### Baseline-owned helpers och extension-kollisioner (2026-05-01)
+
+`buildCompleteProject()` i [`src/lib/gen/export/project-scaffold.ts`](../../src/lib/gen/export/project-scaffold.ts) injicerar runtime-helpers som scaffolden alltid äger (t.ex. `hooks/use-reduced-motion.ts`, `lib/utils.ts`). Två regler styr hur dessa skyddas:
+
+1. **Cross-file-import-checker stubbar inte baseline-helpers.** `@/hooks/use-reduced-motion` står i [`src/lib/gen/autofix/runtime-imports.ts`](../../src/lib/gen/autofix/runtime-imports.ts) `RUNTIME_PROVIDED_EXACT`. Listan delas av cross-file-stubbern, preview-renderern, snapshot-repair och dossier-validering — så samma definition gäller överallt.
+2. **Generated siblings dedupas mot baseline-stem.** Om LLM eller en tidig autofix-runda emitterar `hooks/use-reduced-motion.tsx` parallellt med scaffold-baselinens `.ts`, droppas LLM-filen i `buildCompleteProject` innan merge. Bundler-resolver är annars non-deterministisk för samma module-stem med olika extension — den tidigare buggen plockade `.tsx`-stubben (med `return {}` truthy) i stället för matchMedia-baselinen och frös all motion.
+
+`runProjectSanityChecks()` i [`src/lib/gen/validation/project-sanity.ts`](../../src/lib/gen/validation/project-sanity.ts) kompletterar med två deterministiska guards:
+
+- **Bare language-fence-token på rad 1** (`ts`/`tsx`/`js`/`jsx`/`typescript`/`javascript`) blockas som `code_structure_failure`. Detta fångar LLM-fixar som returnerar fenced markdown-block som filinnehåll och annars kraschar runtime med `ReferenceError: ts is not defined`.
+- **Duplicate module-stems** med olika source-extensions blockas. Ingen import-specifier får ha både `.ts` och `.tsx` som potentiella resolutionsmål i samma artifact.
+
+Verifier-pass har en kompletterande check ([`checkUseReducedMotionStub`](../../src/lib/gen/verify/verifier-pass.ts)) som flaggar `useReducedMotion`-funktioner vars body är exakt `return {}` eller `return null` — fångar regression om någon framtida autofix återinför stub-shapen.
+
+### Källa och konsumenter (2026-04-27 P0)
+
+`SCAFFOLD_PROTECTED_PATHS` + partition/reinjection-helpers bor i [`src/lib/gen/scaffolds/protected-paths.ts`](../../src/lib/gen/scaffolds/protected-paths.ts) — en gemensam källa för alla pipelines som persisterar `files_json`:
+
+| Pipeline | Callsite | Källa |
+|---|---|---|
+| Init / follow-up merge | `mergeGeneratedProjectFiles` partition | `finalize-merge.ts` |
+| Post-merge preflight (initial parse + post-mekanisk-autofix + post-LLM-escalation) | tre guards i `runFinalizePreflight` med `branch: "post-merge-…"` | `finalize-preflight.ts` |
+| Server-verify auto-repair (quality-gate eller VM build-error) | `tryPromoteAfterGate` partition + reinject från `codeFiles` | `server-verify.ts` |
+| Manuell repair-knapp | `promoteIfPostRepairGatePasses` partition + reinject från persisterad `version.files_json` | `app/api/engine/chats/[chatId]/repair/route.ts` |
+
+Ny path läggs ENDAST i `SCAFFOLD_PROTECTED_PATHS`-set:et i `protected-paths.ts`. Alla fyra pipelines plockar då upp den automatiskt — inget mer att synka.
+
+### Eval-mätning (2026-04-27)
+
+`src/lib/gen/eval/runner.ts` mäter gate-checks (`syntax`, `project-sanity`, `imports`, `required-files`, `exports`) på den **canonical persist-payloaden** efter `runFinalizePreflight`, inte på raw LLM-stream. `deriveEvalCheckSources` i samma fil skiljer också `generatedSurfaceFiles` (LLM-emitterade app-ytefiler) från `finalProjectFiles` (komplett körbart Next-projekt efter scaffold/finalize-materialisering). Evalrapportens `Surface/Final`, t.ex. `7/27`, betyder därför 7 genererade app-ytefiler och 27 finala projektfiler. Scaffold-defaults, placeholder-routes, config och andra runtime/support-filer räknas inte mot surface-budgeten. Ett LLM-emitterat `app/api/placeholder/route.ts` med JSX-i-`.ts` som droppas av guarden rapporteras inte längre som eval-syntax-fel — bara reella content-buggar i LLM-owned filer (`app/page.tsx` etc.) faller eval-gaten.
 
 ---
 

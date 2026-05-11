@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const runAutoFix = vi.hoisted(() => vi.fn());
 const runLlmFixer = vi.hoisted(() => vi.fn());
 const validateAndFix = vi.hoisted(() => vi.fn());
-const checkScaffoldImports = vi.hoisted(() => vi.fn());
 const checkCrossFileImports = vi.hoisted(() => vi.fn());
 const runProjectSanityChecks = vi.hoisted(() => vi.fn());
 const expandUrls = vi.hoisted(() => vi.fn());
@@ -28,17 +27,16 @@ const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 
-// Mock the FEATURES gate so SAJ-25 prune logic exercises in test (default ON).
-// Tests that need it OFF can override via vi.doMock per-test.
+// Mock the FEATURES gate so optional dossier RAG / recurring-patterns
+// blocks stay deterministic in tests. The repair-pass / verifier-rerun /
+// merge-syntax-escalation flags were inlined 2026-04-28 and no longer
+// need overrides here.
 vi.mock("@/lib/config", async () => {
   const actual = await vi.importActual<typeof import("@/lib/config")>("@/lib/config");
   return {
     ...actual,
     FEATURES: {
       ...actual.FEATURES,
-      consistentRepairPassIndex: true,
-      verifierRerunAfterFix: true,
-      skipDoubleValidateAndFixOnMerge: true,
       recurringPatternsInMainPrompt: false,
       useErrorLogRag: false,
     },
@@ -55,10 +53,6 @@ vi.mock("@/lib/gen/autofix/llm-fixer", () => ({
 
 vi.mock("@/lib/gen/autofix/validate-and-fix", () => ({
   validateAndFix,
-}));
-
-vi.mock("@/lib/gen/autofix/rules/scaffold-import-checker", () => ({
-  checkScaffoldImports,
 }));
 
 vi.mock("@/lib/gen/autofix/rules/cross-file-import-checker", () => ({
@@ -137,8 +131,10 @@ vi.mock("@/lib/gen/retry/validate-syntax", () => ({
   validateGeneratedCode,
 }));
 
+const devLogAppend = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/logging/devLog", () => ({
-  devLogAppend: vi.fn(),
+  devLogAppend,
 }));
 
 vi.mock("@/lib/utils/debug", () => ({
@@ -166,7 +162,6 @@ describe("finalizeAndSaveVersion", () => {
     runAutoFix.mockReset();
     runLlmFixer.mockReset();
     validateAndFix.mockReset();
-    checkScaffoldImports.mockReset();
     checkCrossFileImports.mockReset();
     runProjectSanityChecks.mockReset();
     expandUrls.mockReset();
@@ -266,10 +261,6 @@ describe("finalizeAndSaveVersion", () => {
       warnings: [],
     }));
     checkCrossFileImports.mockImplementation((files: unknown) => ({
-      files,
-      fixes: [],
-    }));
-    checkScaffoldImports.mockImplementation((files: unknown) => ({
       files,
       fixes: [],
     }));
@@ -901,7 +892,57 @@ describe("finalizeAndSaveVersion", () => {
       ]),
       { rejectSignificantShrinks: true, rejectDroppedStructuralElements: true },
     );
-    expect(checkScaffoldImports).toHaveBeenCalled();
+  });
+
+  it("returns shrinkRetry when a critical follow-up page shrink is rejected", async () => {
+    const previousFiles = [
+      {
+        path: "src/app/page.tsx",
+        content: "export default function PreviousPage() { return <main>Previous full page</main>; }",
+        language: "tsx",
+      },
+    ];
+
+    mergeVersionFilesWithWarnings.mockImplementationOnce((_base: unknown, files: unknown) => ({
+      files,
+      warnings: [
+        {
+          type: "significant-shrink",
+          file: "src/app/page.tsx",
+          previousSize: 13_000,
+          newSize: 200,
+        },
+      ],
+    }));
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello</h1></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: {
+        id: "scaffold_1",
+        files: [
+          {
+            path: "src/app/layout.tsx",
+            content: "export default function Layout({ children }) { return children; }",
+          },
+        ],
+      } as never,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+      previousFiles,
+    });
+
+    expect(result.rejectedShrinks).toEqual([
+      { file: "src/app/page.tsx", previousSize: 13_000, newSize: 200 },
+    ]);
+    expect(result.shrinkRetry).toEqual(
+      expect.objectContaining({
+        files: ["src/app/page.tsx"],
+        ctaLabel: "Försök igen med mer innehåll",
+      }),
+    );
   });
 
   it("skips merge and scaffold import checks for non-scaffold first generations", async () => {
@@ -916,7 +957,6 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(mergeVersionFilesWithWarnings).not.toHaveBeenCalled();
-    expect(checkScaffoldImports).not.toHaveBeenCalled();
     expect(checkCrossFileImports).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
@@ -1078,7 +1118,7 @@ describe("finalizeAndSaveVersion", () => {
   it("(fas D1) preflight hard errors still pre-commit failed (unchanged path)", async () => {
     // Preflight code-structure failures — distinct from verifier-LLM findings —
     // ARE deterministic and should still immediately fail the version so
-    // the UI doesn't spin on "Verifying" for something that can't render.
+    // the UI doesn't spin on "Verifierar" for something that can't render.
     runProjectSanityChecks.mockReturnValueOnce({
       valid: false,
       issues: [
@@ -1554,6 +1594,72 @@ describe("finalizeAndSaveVersion", () => {
       expect(pruneStaleVersionErrorLogs).toHaveBeenCalledWith("ver_1", 1);
     });
 
+    it("verifier-only blockers do not prevent pruning older repair-pass logs", async () => {
+      runVerifierPass.mockResolvedValueOnce({
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail: "src/app/page.tsx: CTA href is empty",
+          },
+        ],
+        quality: [],
+      });
+
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledTimes(1);
+      expect(pruneStaleVersionErrorLogs).toHaveBeenCalledWith("ver_1", 1);
+    });
+
+    it("current preflight errors still prevent pruning older repair-pass logs", async () => {
+      runProjectSanityChecks.mockReturnValueOnce({
+        valid: false,
+        issues: [
+          {
+            file: "src/app/page.tsx",
+            severity: "error",
+            message: "Missing required export",
+          },
+        ],
+      });
+
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+
+      expect(pruneStaleVersionErrorLogs).not.toHaveBeenCalled();
+    });
+
+    it("syntax validation failures prevent pruning older repair-pass logs", async () => {
+      validateAndFix.mockResolvedValueOnce({
+        content:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+        hadErrors: true,
+        fixerUsed: false,
+        fixerImproved: false,
+        errorsBefore: 2,
+        errorsAfter: 2,
+        passes: 1,
+        status: "failed",
+        pipelineError: null,
+        earlyStopReason: "no_improvement",
+      });
+
+      await finalizeAndSaveVersion({
+        ...baseFinalizeArgs(),
+        repairPassIndex: 1,
+        targetVersionId: "ver_existing",
+      });
+
+      expect(pruneStaleVersionErrorLogs).not.toHaveBeenCalled();
+    });
+
     it("prune failure is non-fatal — finalize still completes (best-effort)", async () => {
       pruneStaleVersionErrorLogs.mockRejectedValue(new Error("transient db error"));
       const result = await finalizeAndSaveVersion({
@@ -1567,8 +1673,8 @@ describe("finalizeAndSaveVersion", () => {
   });
 
   // Repair-loop hardening B — verifier re-run after LLM-fixer.
-  // Tests use vi.doMock to flip FEATURES.verifierRerunAfterFix per-case so
-  // the legacy optimistic-clear path is also covered.
+  // The re-run is unconditional (was hardcoded ON via the now-removed
+  // FEATURES.verifierRerunAfterFix flag, inlined 2026-04-28).
   describe("Phase 2B — verifier re-run after LLM-fixer", () => {
     const verifierTriggeringBuildSpec = {
       buildIntent: "website" as const,
@@ -1672,6 +1778,53 @@ describe("finalizeAndSaveVersion", () => {
           }),
         }),
       );
+    });
+
+    it("postmortem 2026-04-28: rerun reports REGRESSION (3>2) → success:false in devLog (was true)", async () => {
+      // Postmortem run `20260428-041927-freeform`: the verifier-pass.fixer
+      // devLog row was emitted with `success: true` even when
+      // `findingsAfterRerun: 3` exceeded `findingsBefore: 2`. That gave UI
+      // and telemetry a false-positive "fixed" signal. The fix anchors
+      // `success` on `rerunBlockingCount < findings.blocking.length`.
+      runVerifierPass
+        .mockResolvedValueOnce({
+          blocking: [
+            { id: "missing-h1", detail: "page missing h1" },
+            { id: "missing-meta", detail: "page missing meta" },
+          ],
+          quality: [],
+        })
+        .mockResolvedValueOnce({
+          blocking: [
+            { id: "missing-h1", detail: "page missing h1" },
+            { id: "missing-meta", detail: "page missing meta" },
+            { id: "broken-import", detail: "extra blocker added" },
+          ],
+          quality: [],
+        });
+      runLlmFixer.mockResolvedValue({
+        fixedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <h1>Still bad</h1>; }\n```',
+        fixedFiles: [],
+        missingFiles: [],
+        partial: false,
+        success: true,
+        durationMs: 50,
+      });
+      devLogAppend.mockClear();
+      await finalizeAndSaveVersion(baseArgs());
+      expect(runVerifierPass).toHaveBeenCalledTimes(2);
+      const fixerLogCalls = devLogAppend.mock.calls.filter(
+        (call) =>
+          call[1] && typeof call[1] === "object" && (call[1] as { type?: string }).type === "verifier-pass.fixer",
+      );
+      expect(fixerLogCalls).toHaveLength(1);
+      const fixerLogPayload = fixerLogCalls[0]?.[1] as Record<string, unknown>;
+      expect(fixerLogPayload.success).toBe(false);
+      expect(fixerLogPayload.fixerImproved).toBe(false);
+      expect(fixerLogPayload.findingsBefore).toBe(2);
+      expect(fixerLogPayload.findingsAfterRerun).toBe(3);
+      expect(fixerLogPayload.repairGateSuccess).toBe(true);
     });
 
     it("SAJ-61 c5: rerun failure → keeps the original blockers so UI does not lie 'fixed'", async () => {

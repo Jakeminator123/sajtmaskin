@@ -1,0 +1,30 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 02-conflict-forecast
+Date: 2026-04-27
+
+## Scope
+Jämförelse `HEAD` (`frontend/christopher`) mot `origin/master` via `git diff --name-status HEAD...origin/master` (~**198** sökvägar), korsad med **ospårad/ändrad** arbetskopia: `next.config.ts`, `src/proxy.ts`, `src/app/layout.tsx`, SEO-sidor, `api/ai/*`, `api/engine/chats/**/stream/*`, `json-ld`, `render-seo-page`, `data/dossiers`, `data/runs`, `??` reviews/skills/vercel-insights.
+
+## Evidence
+- `HEAD...origin/master` innehåller **inga** rader för: `next.config.ts`, `src/proxy.ts`, `layout`, `json-ld`, `render-seo-page`, de listade SEO-`page.tsx` (baserat på agentkörning), **men** innehåller: `src/lib/api/engine/chats/*` (stream-post, stream-error) och flera `src/app/api/engine/chats/[chatId]/*`.
+- Lokal WIP: ändringar i `stream/route.ts` medan master rör **lib**-lager ovanför samma call chain.
+
+## Findings
+| Kategori | Bedömning |
+|----------|-------------|
+| Git-filför-fil samma sida (klassisk konflikt) | **Låg** för rena SEO/proxy/next/stream-route om dessa filer **inte** finns i `HEAD...origin/master` (agentens grep). |
+| Semantisk/transport-konflikt | **Hög**: `src/lib/api/engine/chats/*` + lokala `stream/route.ts` delar call chain. |
+| `data/*` | Ingen motsvarande path i nät-diff → ingen upstream git-konflikt; validering mot `scripts/dossiers` kan ändå falla. |
+| `??` | Krockar normalt ej om master lagt samma sökväg. |
+
+## Recommended Actions
+1. Innan merge: stash/commit WIP så config/seo/stream inte försvinner.
+2. Efter merge: diffa `src/lib/api/engine/chats/*.ts` mot lokala `stream/route.ts` (importer, SSE, felpayload).
+3. Målriktade stream-/versions-/quality-gate-tester. `scripts/dossiers/validate-all` om dossier-manifest ändrats.
+
+## Verification Needed
+`typecheck` + stream-relaterade tester; rök ai/brief om `env`/`config` rörts transitivt; manifest mot validering.
+
+## Do Not Break
+Builder coexistence, stream-kontrakt, data/runs som oavsiktlig CI-bråte.
+
+Parent note: faktisk `git diff --name-only HEAD...origin/master` bör styrka vilka exakta paths som krockar; listan 198 filer i repo-rot är canonical.

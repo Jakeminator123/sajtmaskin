@@ -3,8 +3,8 @@
 /**
  * F3 placeholder-toggle.
  *
- * Drops a single switch into the env panel: "Tillåt placeholders för
- * tier-3 i F3 (sajten kraschar vid riktiga API-anrop)". When ON, the F3
+ * Drops a single switch into the env panel: "Tillåt placeholders vid
+ * integrationsbygge (sajten kraschar vid riktiga API-anrop)". When ON, the F3
  * readiness gate accepts placeholder-covered keys with a warning instead
  * of blocking the build. Persists in `project_data.meta.allowPlaceholdersInF3`
  * via `PATCH /api/projects/[id]/preferences`.
@@ -50,7 +50,13 @@ export function F3PlaceholderToggle({ projectId, className, onChanged }: Props) 
       method: "GET",
       credentials: "same-origin",
     })
-      .then(async (res) => (await res.json()) as PreferencesResponse)
+      .then(async (res) => {
+        const body = (await res.json().catch(() => ({}))) as PreferencesResponse;
+        if (!res.ok || body.success === false) {
+          throw new Error(body.error || `HTTP ${res.status}`);
+        }
+        return body;
+      })
       .then((body) => {
         if (cancelled) return;
         setAllow(body.preferences?.allowPlaceholdersInF3 === true);
@@ -106,13 +112,13 @@ export function F3PlaceholderToggle({ projectId, className, onChanged }: Props) 
   return (
     <div
       className={cn(
-        "rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px]",
+        "rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px]",
         className,
       )}
     >
       <div className="flex items-start gap-2">
         <TriangleAlert
-          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500"
+          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground"
           aria-hidden="true"
         />
         <div className="flex-1">
@@ -121,7 +127,7 @@ export function F3PlaceholderToggle({ projectId, className, onChanged }: Props) 
               htmlFor="f3-placeholder-toggle"
               className="text-[11px] font-medium text-foreground"
             >
-              Tillåt placeholders för tier-3 i F3
+              Tillåt placeholders vid integrationsbygge
             </Label>
             <div className="flex items-center gap-1.5">
               {loading || pending ? (
@@ -136,13 +142,13 @@ export function F3PlaceholderToggle({ projectId, className, onChanged }: Props) 
             </div>
           </div>
           <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
-            När på: F3-bygget passerar med placeholder-värden för secrets.
+            När på: integrationsbygget passerar med placeholder-värden för secrets.
             Sajten deployas men integrationer som anropar riktiga API:er
             (Stripe, OpenAI, Resend …) kraschar tills du fyller i riktiga
             nycklar. Bra för att förhandsvisa innan affärsavtalen är klara.
           </p>
           {error ? (
-            <p className="mt-1 text-[10px] text-red-400">Fel: {error}</p>
+            <p className="mt-1 text-[10px] text-destructive">Fel: {error}</p>
           ) : null}
         </div>
       </div>

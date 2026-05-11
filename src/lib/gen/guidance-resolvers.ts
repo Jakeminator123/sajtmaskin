@@ -11,7 +11,11 @@
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
-import { type DomainProfile, inferDomain } from "@/lib/builder/domain-inference";
+import {
+  type DomainProfile,
+  inferDomain,
+  isDomainProfile,
+} from "@/lib/builder/domain-inference";
 
 // ── Keyword arrays ────────────────────────────────────────────────────────
 
@@ -435,10 +439,14 @@ export function resolveGuidanceBlocks(input: GuidanceBlocksInput): GuidanceBlock
     briefDomainProfile, briefMotionLevel, briefQualityBar, briefSeasonalHints,
   } = input;
 
-  // Domain: brief override (Level 1) > deterministic inference (Level 3)
-  const domainProfile: DomainProfile = briefDomainProfile
-    ? (briefDomainProfile as DomainProfile)
-    : inferDomain(userPrompt);
+  // Domain: brief override (Level 1) > deterministic inference (Level 3).
+  // Guard the LLM-provided field: an unknown slug should fall back to the
+  // deterministic canonical domain inference instead of silently disabling
+  // all domain-specific structure/contract hints.
+  const domainProfile: DomainProfile =
+    briefDomainProfile && isDomainProfile(briefDomainProfile)
+      ? briefDomainProfile
+      : inferDomain(userPrompt);
   const domainStructureHints = buildDomainStructureHints(domainProfile);
   const domainContractHints = buildDomainContractHints(domainProfile);
 

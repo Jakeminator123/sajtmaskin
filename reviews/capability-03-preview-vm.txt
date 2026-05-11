@@ -1,0 +1,33 @@
+Backend Capability Audit — Agent 3: Preview & VM (preview-host, gen/preview, builder/preview-session)
+
+- [VM] POST preview/session/start — skapa/återanvänd session, kö runtime-boot — preview-host/src/server.js:408 — DELVIS — 4
+- [VM] POST preview/session/update — merge filesJson, TTL, warm_project — server.js:453 — NEJ — 3
+- [VM] POST preview/session/hibernate — hibernated, stop dev — server.js:496 — NEJ — 3
+- [VM] POST preview/session/destroy — ta bort session/workspace — server.js:526 — DELVIS — 3
+- [VM] bootRuntimeForSession — skrivfiler, basePath, npm dev, readiness — preview-host/src/runtime.js:991 — DELVIS — 4
+- [VM] cleanupPreviewHostStorage — stale processer/workspaces — runtime.js:1311 — NEJ — 2
+- [VM] withNoSpaceCleanupRetry — disk full cleanup — runtime.js:1385 — NEJ — 3
+- [SESSION] Filbaserad session-store PREVIEW_HOST_DATA_DIR — preview-host/src/store.js:16 — NEJ — 4
+- [SESSION] appendLog runtime-loggar per sandboxId — server.js:232 — NEJ — 2
+- [SESSION] GET preview/session/:id/status — previewUrl, queue boot — server.js:368 — DELVIS — 4
+- [SESSION] getActivePreviewSessionAsync Redis — src/lib/gen/preview/session-store.ts:5 — NEJ — 4
+- [SESSION] startPreviewSession — repair/scaffold → host — src/lib/gen/preview/preview-session.ts:104 — NEJ — 4
+- [SESSION] fetchPreviewStatus pollar engine — src/lib/builder/preview-session/api.ts:12 — DELVIS — 4
+- [SESSION] usePreviewSession recover/URL-match — src/app/builder/usePreviewSession.ts:55 — DELVIS — 4
+- [SESSION] postPreviewHeartbeat/Hibernate — usePreviewHeartbeat.ts:53 — NEJ — 3
+- [HMR] proxy.ws rewriteRequestUrl WebSocket till next dev — runtime.js:1177 — JA — 5
+- [HMR] dev stdout/stderr undertryckt — runtime.js:964 — NEJ — 2
+- [FEL] Boot fail status error + runtime log — runtime.js:1058 — DELVIS — 3
+- [FEL] proxy error ECONNREFUSED omstart — runtime.js:1199 — DELVIS — 3
+- [FEL] usePreviewIframe own-engine DOM-poll diagnostics — usePreviewIframe.ts:106 — JA — 5
+- [FEL] Tier2 fly.dev load/timeout suspect — usePreviewIframe.ts:86 — DELVIS — 3
+- [FEL] previewDiagnosticCodeFromKind taxonomi — src/lib/gen/preview/diagnostics.ts:62 — DELVIS — 4
+- [FEL] logPreviewLifecycleTelemetry console — lifecycle-telemetry.ts:6 — NEJ — 2
+- [ROUTE] routeInfoFromPathname basePath — runtime.js:146 — JA — 5
+- [ROUTE] usePreviewPanelPreviewRoutes — filversion→routes — usePreviewPanelPreviewRoutes.ts:15 — JA — 5
+- [ROUTE] PreviewPanelChrome route-lista — PreviewPanelChrome.tsx:323 — JA — 5
+- [DRIFT] POST preview/verify workspace install/tsc/build — server.js:569 — NEJ — 3
+- [DRIFT] preview-host-client start/destroy + ENOSPC admin — src/lib/gen/preview/preview-host-client.ts:41 — NEJ — 4
+- [DOK] preview-host README tier-2 begränsningar — preview-host/README.md:32 — NEJ — 5
+
+Slutsats: stark host+server; builder-UI mest indirekt (iframe, recover, routes). HMR via WS utan egen UI. Route-switching i chrome tydligt exponerad.

@@ -127,6 +127,10 @@ export function verifyDeterministicPassword(slug: string, password: string): boo
   return password === expected;
 }
 
+export function hasKostnadsfriPasswordSecret(secretKey?: string): boolean {
+  return Boolean(secretKey || process.env.KOSTNADSFRI_PASSWORD_SEED || process.env.KOSTNADSFRI_API_KEY);
+}
+
 // ============================================================================
 // LABEL MAPS (mirrors PromptWizardModalV2 constants)
 // ============================================================================
@@ -326,7 +330,10 @@ export function buildPromptFromWizardData(data: MiniWizardData): string {
  * If not set, falls back to KOSTNADSFRI_API_KEY.
  */
 export function generatePassword(slug: string, secretKey?: string): string {
-  const key = secretKey || process.env.KOSTNADSFRI_PASSWORD_SEED || process.env.KOSTNADSFRI_API_KEY || "default-seed";
+  const key = secretKey || process.env.KOSTNADSFRI_PASSWORD_SEED || process.env.KOSTNADSFRI_API_KEY;
+  if (!key) {
+    throw new Error("KOSTNADSFRI_PASSWORD_SEED or KOSTNADSFRI_API_KEY is required to generate passwords.");
+  }
   const hmac = crypto.createHmac("sha256", key).update(slug).digest("hex");
   // Take first 12 hex chars and convert to a readable base62-ish password
   return hexToReadablePassword(hmac.slice(0, 12));

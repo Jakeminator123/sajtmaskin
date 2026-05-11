@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 06-error-observability
+Date: 2026-05-01
+
+## Production Changes In Master
+- Error-log RAG is development-only through config.
+- Version error-log route persists production-relevant DB errors.
+- RAG NDJSON/indexer is local file based.
+- Metrics route is token-gated.
+
+## Local Behavior To Preserve
+- TF-IDF error-log RAG block in dynamic prompt.
+- Verifier appends error log events.
+- Admin frontlogs and prompt dumps.
+- `/api/metrics` with prom-client metrics.
+
+## Security / Secret Risks
+- Metrics token.
+- Admin frontlogs must require admin.
+- Version error-log must stay tenant-scoped.
+- RAG NDJSON may contain sensitive prompts/errors.
+
+## Required Deploy / Observability UI
+- Admin Frontloggar.
+- VersionDiagnosticsDialog/version error logs.
+- Backoffice observability pages.
+- Operator runbook paths.
+
+## Exact LLM Implementation Instructions
+- Do not change error-log event schema without indexer/schema sync.
+- Keep scaffold bias and cap in RAG block.
+- Distinguish DB version error-log from historical RAG NDJSON.
+- Treat prod RAG as infra/product decision, not just env.
+
+## Deploy Verification
+- `/api/metrics` with/without token.
+- POST/GET version error-log.
+- Prod tolerates missing local RAG/generation folders.
+
+## Observability Checks
+- Prometheus phase/prompt metrics.
+- Generation log files in dev.
+- Prompt dump metadata.
+- Admin frontlogs note in prod.
+
+## Do Not Commit
+- RAG NDJSON, generation logs, prompt dumps, metrics token, sensitive snapshots, `.vercel`.

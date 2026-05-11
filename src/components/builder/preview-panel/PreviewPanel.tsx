@@ -108,6 +108,7 @@ export function PreviewPanel({
   activeVersionStatus = null,
   activeVersionSummary = null,
   activeVersionIsLatest = true,
+  versionMismatchPayload = null,
   onPreviewSessionSuspect,
   placementMode = false,
   pendingPlacementItem = null,
@@ -723,7 +724,13 @@ export function PreviewPanel({
         ? buildOwnEngineRoutePreviewUrl(previewUrl, route)
         : buildExternalRoutePreviewUrl(previewUrl, route);
       if (!nextUrl || nextUrl === previewUrl) return;
+      // Route buttons should update the visible iframe immediately; the
+      // parent callback keeps outer builder state in sync.
       onNavigatePreviewUrl?.(nextUrl);
+      const iframe = iframeRef.current;
+      if (iframe) {
+        iframe.src = buildPreviewSrc(nextUrl, Date.now());
+      }
       setIframeLoading(true);
       setIframeError(false);
       setIframeErrorMessage(null);
@@ -732,6 +739,7 @@ export function PreviewPanel({
       previewUrl,
       isOwnEnginePreview,
       onNavigatePreviewUrl,
+      buildPreviewSrc,
       setIframeLoading,
       setIframeError,
       setIframeErrorMessage,
@@ -761,7 +769,7 @@ export function PreviewPanel({
     chatId,
     versionId,
     previewUrl,
-    activeSandboxId: activePreviewSessionId,
+    activePreviewSessionId,
     previewLifecycle,
     onSessionSuspect: onPreviewSessionSuspect,
   });
@@ -1093,6 +1101,8 @@ export function PreviewPanel({
               handleIframeLoad={handleIframeLoad}
               handleIframeError={handleIframeError}
               deviceMode={previewDevice}
+              versionMismatchPayload={versionMismatchPayload}
+              onForceRestart={onPreviewSessionSuspect}
             >
               {showComposerOverlay ? (
                 <PreviewPanelComposerOverlay

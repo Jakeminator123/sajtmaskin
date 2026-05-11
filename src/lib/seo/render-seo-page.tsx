@@ -7,6 +7,7 @@
  */
 
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { SeoLandingPage } from "@/components/seo/SeoLandingPage";
 import { SEO_CITIES } from "@/content/seo/config";
@@ -85,6 +86,8 @@ export async function buildSeoMetadata(descriptor: SeoPageDescriptor): Promise<M
 }
 
 export async function renderSeoLandingRoute(descriptor: SeoPageDescriptor) {
+  const requestHeaders = await headers();
+  const nonce = requestHeaders.get("x-csp-nonce") ?? undefined;
   const content = await loadSeoLanding(descriptor.family, descriptor.slug);
   if (!content) {
     notFound();
@@ -121,6 +124,8 @@ export async function renderSeoLandingRoute(descriptor: SeoPageDescriptor) {
       {jsonLdBlocks.map((block, index) => (
         <script
           key={`seo-ld-${index}`}
+          nonce={nonce}
+          suppressHydrationWarning
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(block) }}
         />

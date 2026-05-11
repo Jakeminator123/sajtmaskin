@@ -42,6 +42,7 @@ import { postFinalizeQualityGateIncludesTypecheck } from "../post-finalize-polic
 import { runFinalizeFastPath } from "./fast-path";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
+import { buildShrinkRetrySuggestion } from "../shrink-retry";
 import { resolveFinalizePathPolicy } from "./policy";
 import { runAutofixPrePhase, runUrlExpandPhase } from "./pre-phases";
 import {
@@ -161,6 +162,15 @@ export async function finalizeAndSaveVersion(
   const requestedCapabilities = resolveRequestedCapabilitiesFromStreamMeta(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
   );
+  // Read the orchestrate-locked variantId off the stream meta so the
+  // autofix pre-phase can materialize the variant's first fontPairing
+  // into the baseline `app/layout.tsx`. Falls back to null when meta
+  // does not carry a variant (legacy snapshots, eval, repair-only).
+  const orchestrationVariantId =
+    typeof orchestrationStreamMeta?.variantId === "string" &&
+    orchestrationStreamMeta.variantId.trim().length > 0
+      ? (orchestrationStreamMeta.variantId as string)
+      : null;
 
   const finalizePath = resolveFinalizePathPolicy({
     buildSpec,
@@ -172,6 +182,10 @@ export async function finalizeAndSaveVersion(
     buildSpec?.generationMode === "followUp" || Boolean(targetVersionId)
       ? "followup"
       : "init";
+  const repairScopeId = [
+    targetVersionId ?? lineageHash ?? chatId,
+    repairPassIndex > 0 ? `repair-${repairPassIndex}` : "root",
+  ].join(":");
   let telemetryRecordId: string | null = null;
   const finalizeStepTelemetry: FinalizeStepTelemetryMap = {};
   const resolveStepDurationMs = (step: OwnEnginePostStreamPhaseId): number => {
@@ -219,6 +233,7 @@ export async function finalizeAndSaveVersion(
         buildSpec,
         resolvedScaffold,
         resolvedTier,
+        variantId: orchestrationVariantId,
         onProgress,
         stepTelemetry: finalizeStepTelemetry,
       }),
@@ -265,6 +280,7 @@ export async function finalizeAndSaveVersion(
     finalizePath,
     repairPassIndex,
     alreadyMechanicallyFixed: autofixSucceeded,
+    autoFixHeavyLoad,
     willRunQualityGate,
     qualityGateChecksIncludesTypecheck:
       willRunQualityGate && postFinalizeQualityGateIncludesTypecheck(buildSpec),
@@ -277,6 +293,7 @@ export async function finalizeAndSaveVersion(
     selectedDossiers: resolveSelectedDossiersFromStreamMeta(
       orchestrationStreamMeta as Record<string, unknown> | null | undefined,
     ),
+    repairScopeId,
   });
   contentForVersion = fastPathContent;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
@@ -395,6 +412,8 @@ export async function finalizeAndSaveVersion(
   // signal in here and use the effective flag for telemetry, generation log
   // status, and `failVersionVerification` below.
   const verifierBlocked = verifierBlockingFindings.length > 0;
+  const hasCurrentPreflightBlockers =
+    preflightErrors.length > 0 || syntaxResult.status === "failed";
   const hasVerificationBlockingErrors =
     hasVerificationBlockingPreflightErrors || verifierBlocked;
   const verificationFailureSummary = verifierBlocked
@@ -449,7 +468,7 @@ export async function finalizeAndSaveVersion(
     chatId,
     versionId: version.id,
     repairPassIndex,
-    hasVerificationBlockingErrors,
+    hasCurrentPreflightBlockers,
   });
 
   telemetryRecordId = await persistTelemetryRecord({
@@ -575,6 +594,7 @@ export async function finalizeAndSaveVersion(
       routePlan,
     },
     rejectedShrinks: rejectedShrinks ?? [],
+    shrinkRetry: buildShrinkRetrySuggestion(rejectedShrinks),
     rejectedStructural: rejectedStructural ?? [],
     crossFileStubs: crossFileStubs ?? [],
     verifierBlockingFindings: verifierBlockingFindings ?? [],

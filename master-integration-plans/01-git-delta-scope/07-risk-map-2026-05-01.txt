@@ -1,0 +1,51 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 07-risk-map
+Date: 2026-05-01
+
+## Scope
+Severity-ranked conflict and regression risk map for integrating `origin/master` into the current frontend branch. Focus: API streams, generation pipeline, builder/preview UI, config/deploy, schemas, and builder coexistence.
+
+## Evidence
+- Current refs: `HEAD=a7b682a`, `origin/master=c13b515`, merge-base `85228af`, ahead/behind `50 / 186`.
+- Prior plan evidence and fresh preflight both show heavy churn in engine routes, generation pipeline, preview, builder state, config, docs, and schemas.
+- Local dirty files include stream routes/tests, `next.config.ts`, `src/proxy.ts`, layout/SEO files, and generated data.
+
+## Findings
+- R1 high: init/follow-up stream contracts across `create-chat-stream-post.ts`, `chat-message-stream-post.ts`, stream routes, finalize, credits, and abort handling.
+- R2 high: client parsing, error badges, stale verifier findings, and `versionId` semantics.
+- R3 high: preview session/status/heartbeat/prewarm may double-count viewers or extend TTL incorrectly.
+- R4 high: iframe postMessage FSM, `preview-starting`, `vmReady`, and build-out requests.
+- R5 high: finalize/autofix/quality-gate order and idempotency.
+- R6 medium-high: env policy and config changes can break runtime parity.
+- R7 medium-high: deploy/SEO chain and opt-in semantics.
+- R8 medium-high: `next.config.ts` and `src/proxy.ts` can silently break CSP/SSE/CORS.
+- R9 medium: strict schemas/dossiers can drift from pipeline.
+- R10 medium: duplicate postcheck truths can confuse UI.
+
+## Recommended Actions
+- Rebuild the risk map against fresh `HEAD...origin/master` immediately before merge.
+- Review API stream paths first, then preview, then finalize/autofix, then config/deploy.
+- Apply port-ours policy to local preview/postMessage/stream-handler UI behavior.
+- Isolate docs/plans and `.cursor` diff from runtime code.
+
+## Exact LLM Implementation Instructions
+- Run read-only preflight: `git fetch origin`, refs, merge-base, ahead/behind, and name-status.
+- Open hotspots: `create-chat-stream-post.ts`, `chat-message-stream-post.ts`, both stream route files, `preview-contract.ts`, preview panel hooks, and port-ours files.
+- Resolve conflicts using master event schemas plus local UX/postMessage behavior.
+- If product-postcheck or preview-prewarm arrives from master, map it into existing stream handlers and preview-session UI without duplicating visible statuses.
+- Update env-policy and schema files in the same integration step as the code that uses them.
+- Do not run browser/curl/Playwright against a live user builder chat.
+
+## Verification Needed
+- `npm run typecheck`.
+- `npm run lint`.
+- Targeted Vitest for both stream route variants.
+- Deploy/SEO tests if those files change.
+- Dossier/schema validation if manifests or strict JSON change.
+- Manual single-browser builder smoke only with an isolated/new chat when approved.
+
+## Do Not Break
+- SSE/event contract between API routes and chat hooks.
+- Preview contract and heartbeat/session lifecycle.
+- Finalize idempotency and `versionId` behavior.
+- Env-policy validation.
+- Local preview iframe, stream retry, verifier findings, help-chat filtering, and UI tokens.

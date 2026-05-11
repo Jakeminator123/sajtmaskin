@@ -1,5 +1,5 @@
 """
-Error-log RAG dashboard — Phase 3 visualisation.
+Error-log RAG backoffice page — Phase 3 visualisation.
 
 Surfaces:
 - Producer NDJSON status (row count, latest mtime).
@@ -7,8 +7,9 @@ Surfaces:
 - Top-N most-frequent fault categories (count of faultId).
 - Manual reindex trigger.
 
-Reads only — does not write to logs or snapshots. The auto-ingest hook in
-`scripts/dev/next-runner.mjs` keeps everything in sync at npm run dev|build|start.
+Reads logs/NDJSON by default. The optional manual reindex action writes the
+TF-IDF snapshot under `data/observability/`; the auto-ingest hook in
+`scripts/dev/next-runner.mjs` keeps the same index in sync at npm run dev|build|start.
 """
 
 from __future__ import annotations
@@ -97,7 +98,8 @@ def render(ctx: BackofficeContext) -> None:
         "Vector RAG över historiska fault/fix-events. "
         "Producer skriver NDJSON i `logs/llm-segmentts-and-index/error-log.ndjson`; "
         "indexer bygger TF-IDF-snapshot i `data/observability/`. "
-        "Auto-ingest sker vid `npm run dev|build|start`."
+        "Auto-ingest sker vid `npm run dev|build|start`. "
+        "För aggregerade promotion-kandidater: kör `npm run faults:report` lokalt."
     )
 
     cols = st.columns(2)

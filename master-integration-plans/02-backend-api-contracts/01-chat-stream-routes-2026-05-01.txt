@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 01-chat-stream-routes
+Date: 2026-05-01
+
+## Master Changes To Preserve
+- Keep `POST /api/engine/chats/stream` and `POST /api/engine/chats/[chatId]/stream`.
+- Preserve master refactors in `chat-message-stream-post.ts`: follow-up file context decision, bounded chat history, follow-up orchestration input, `run-status-reader`, and reduced file context limits.
+- Preserve create-stream changes: simple website path classification, capability inference, fast-lane behavior, and updated orchestration flags.
+- Preserve new stream progress event `phase: "reasoning-slow"` after long reasoning.
+
+## Frontend Consumers
+- `src/lib/hooks/chat/useCreateChat.ts`
+- `src/lib/hooks/chat/useSendMessage.ts`
+- `src/lib/hooks/chat/stream-handlers.ts`
+- `src/lib/builder/sse.ts`
+- `src/lib/gen/stream/builder-stream-contract.ts`
+
+## Contract Risks
+- Request body appears stable, but prompt transport changed: master sends raw text rather than local `formatPrompt` wrapping.
+- New `reasoning-slow` progress phase falls back to generic copy unless handled.
+- Partial merge of stream routes without orchestration/finalize updates will be inconsistent.
+
+## Required Adaptations
+- Port master prompt-transport policy for create and follow-up streams.
+- Keep `handleSseStream` semantics for `done`, `preview-ready`, `meta`, `error`, and progress.
+- Add optional minimalist Swedish copy for `reasoning-slow`.
+- Merge `chat-message-stream-post`, follow-up helpers, simple website path, run-status reader, `orchestrate.ts`, and `stream-format.ts` together.
+
+## New Buttons / Choices / UI States
+- No new required buttons.
+- Optional new chat progress state for slow reasoning, preferably as existing progress text only.
+
+## Exact LLM Implementation Instructions
+- Do not reintroduce `formatPrompt` wrapping for normal create/follow-up stream bodies if master removed it.
+- Preserve current Apple-minimal chat UI and do not add overlays.
+- Add only a compact text mapping for `reasoning-slow` if needed.
+- Keep builder coexistence rule: no duplicate live stream client for the same `chatId`.
+
+## Tests / Runtime Checks
+- `src/app/api/engine/chats/stream/route.test.ts`
+- `src/app/api/engine/chats/[chatId]/stream/route.test.ts`
+- `src/lib/hooks/chat/stream-handlers.test.ts`
+- Runtime smoke: stream to `done` + `preview-ready`, abort path, fallback POST paths.
+
+## Do Not Break
+- Stream URLs and SSE content type.
+- Existing event handlers and timeout/AbortController behavior.
+- Current chat layout and copy.

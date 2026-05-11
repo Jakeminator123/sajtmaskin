@@ -58,6 +58,7 @@ export function VoiceRecorder({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationRef = useRef<number | null>(null);
+  const transcribeAudioRef = useRef<((audioBlob: Blob) => Promise<void>) | null>(null);
 
   // Start recording
   const startRecording = useCallback(async () => {
@@ -122,7 +123,7 @@ export function VoiceRecorder({
         });
 
         // Transcribe the audio
-        await transcribeAudio(audioBlob);
+        await transcribeAudioRef.current?.(audioBlob);
       };
 
       // Start recording
@@ -143,7 +144,6 @@ export function VoiceRecorder({
         setError("Kunde inte starta inspelning. Kontrollera din mikrofon.");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onRecordingChange]);
 
   // Transcribe audio using Whisper API
@@ -182,6 +182,7 @@ export function VoiceRecorder({
     },
     [language, onTranscript],
   );
+  transcribeAudioRef.current = transcribeAudio;
 
   // Stop recording
   const stopRecording = useCallback(() => {

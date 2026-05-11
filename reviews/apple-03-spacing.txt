@@ -1,0 +1,22 @@
+Apple polish — spacing (builder) | 2026-04-17
+Scope: BuilderShellContent, BuilderHeader, ChatInterface, PreviewPanelChrome, overlays
+Overall: 3/5 | Shell 3 | Header 4 | Chat 2 | Preview chrome 2 | Overlays 3
+
+Scale: 4/8/16/24/32px → p-1/gap-1, p-2/gap-2, p-4/gap-4, p-6/gap-6, p-8/gap-8; reserve gap-1.5 / px-1.5 / py-1.5 for dense chips only, not whole toolbars.
+
+Too tight (needs air):
+1. PreviewPanelChrome — toolbar gap-2 px-3 py-2, icon p-1, suggestion row gap-0.5 px-2 py-1; device p-0.5; route scroller py-1.5.
+2. ChatInterface — chip row/footer/tools gap-1.5 + h-6 px-1.5; inspect popover p-2 vs root p-4 rhythm clash.
+3. BuilderShellContent — mobile tabs gap-1.5 py-2.5; chat rail px-2 pt-1, collapse p-1 / px-1 py-3.
+4. ModelTraceOverlay — header gap-1, controls p-1.5, body p-2.
+5. EditModeOverlay — floater gap-1 py-0.5.
+6. BuilderHeader — dialog apply block gap-1 / p-3 slightly tight for copy.
+
+Too airy / uneven:
+1. OnboardingOverlay — card p-8 vs chrome p-2–p-4 band.
+2. GenerationProgress — px-8 py-12 gap-8 vs preview bar density.
+3. ChatInterface — outer p-4 + inner px-3 stacks horizontal padding.
+4. ThinkingOverlay — py-6 vs bottom composer.
+5. PreviewPanelChrome — stacked alerts mx-3 mt-2 heavy next to py-2 bars.
+
+Paths: src/app/builder/BuilderShellContent.tsx; src/components/builder/BuilderHeader.tsx; ChatInterface.tsx; preview-panel/PreviewPanelChrome.tsx; ThinkingOverlay.tsx; ModelTraceOverlay.tsx; OnboardingOverlay.tsx; preview-panel/EditModeOverlay.tsx; preview-panel/GenerationProgress.tsx

@@ -1,0 +1,25 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 08-ci-dx
+Date: 2026-04-27
+
+## Master Changes
+- Sök: `.github/`, `Dockerfile`, `vercel.*`, `turbo.json` — t.ex. `sajtmaskin-logs` förekomst i yml, Node-version, `npm run test:ci`, env-referenser.
+- Säkerställ: CI förväntar samma `engines` + lockfile som lokal (volta/`.node-version` om använt i CI).
+
+## Local Changes / Dirty Files
+- För pre-merge snapshot: ofta tomt här; efter `git fetch` + merge kan konflikter träffa `.github/workflows/*`.
+
+## Compatibility Risks
+- Dolda env i CI: `GITHUB_`, `CI=true` m.m. får aldrig blandas med appens `serverSchema` förrän dokumenterat.
+- Caching: workflow som cachar `~/.npm` **utan** lås på lockfile** kan bygga mot fel träd efter merge.
+- Multi-root: `preview-host/`, andra `package.json` i monorepon — se till att rätt jobb körs.
+
+## Files To Update
+- `.github/workflows/*`, `vercel.json` (om sådan fortfarande används; annars se `vercel.ts`/dashboard), `Dockerfile`, `turbo.json` vid multi-package build
+
+## Verification Commands
+- Lokal: `ACT`-liknande dry-run (om använt) **eller** bara: `npm run typecheck && npm run lint && npm run test:ci` — ska spegla CI
+- Efter push: titta Vercel/GitHub Actions build-logg för samma steg
+
+## Commit / Ignore Guidance
+- Yml-ändring + tydlig commitmeddelande (vad som ändrades: Node, cache key, nya steg)
+- Säkra hemligheter: GitHub Secrets / Vercel — aldrig incheckade

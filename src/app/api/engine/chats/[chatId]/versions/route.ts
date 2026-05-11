@@ -16,7 +16,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
-import { readRunStatusForChat } from "@/lib/logging/generation-log-writer";
+import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 
 // P0 stream-abort recovery (2026-04-26). The `/versions` route is the
 // canonical poll surface used by useVersions. By piggy-backing the chat's
@@ -87,7 +87,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           id: v.id,
           versionId: v.id,
           ...previewUrlField(v.preview_url),
-          legacyShimPreviewUrl: null,
           createdAt: v.created_at,
           versionNumber: v.version_number,
           messageId: v.message_id,
@@ -100,6 +99,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             v.repaired_files_json.trim().length > 0,
           repairAvailableAt: v.repair_available_at,
           promotedAt: v.promoted_at,
+          // Postmortem follow-up: VersionHistory-tooltip i frontend läser
+          // `lifecycleStage` för att skilja F2-design-rader (där server-verify
+          // är skipped via `design_preview_skip_verify`) från F3-integrations-
+          // rader. När fältet inte mappas hit försvinner det till `undefined`
+          // i UI:t och `isServerVerifyExpectedForLifecycle` defaultar till
+          // `false`, vilket tystade "Verifierar"-labeln för F3-rader.
+          lifecycleStage: v.lifecycle_stage,
           canPin: false,
       }));
       return NextResponse.json({

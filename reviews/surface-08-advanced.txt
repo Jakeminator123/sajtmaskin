@@ -1,0 +1,22 @@
+Backend Surface Mapping — Agent 8: Avancerat (gömd sektion; Cmd+Shift+A och /avancerat saknas — inför + länka från palett)
+
+- BACKEND: FEATURES.useBuildSpec (config.ts:342) → UI-YTA: Avancerat — INTERAKTION: toggle env speglad — SYNLIG DEFAULT? NEJ — Använd BuildSpec
+- BACKEND: FEATURES.useFinalizeDeepPath (config.ts:350) → UI-YTA: Avancerat — INTERAKTION: toggle — SYNLIG DEFAULT? NEJ — Djup finalize
+- BACKEND: FEATURES.deferExtraRoutesOnInit (config.ts:361) → UI-YTA: Avancerat — INTERAKTION: toggle — SYNLIG DEFAULT? NEJ — Senarelägg routes
+- BACKEND: FEATURES.useFollowUpLightContext (347) → UI-YTA: Avancerat — INTERAKTION: toggle — SYNLIG DEFAULT? NEJ — Lätt uppföljning
+- BACKEND: FEATURES.useRuntimeTemplateGuidance (351) → UI-YTA: Avancerat — INTERAKTION: toggle — SYNLIG DEFAULT? NEJ — Mallguidning
+- BACKEND: FEATURES.useVariantStructuralFiles (356) → UI-YTA: Avancerat — INTERAKTION: toggle — SYNLIG DEFAULT? NEJ — Variantfiler
+- BACKEND: FEATURES.strictGeneratedArtifacts (364) → UI-YTA: Avancerat — INTERAKTION: endast support — SYNLIG DEFAULT? NEJ — Strikta artefakter
+- BACKEND: FOLLOW_UP_TUNING (config.ts:400) → UI-YTA: Avancerat — INTERAKTION: siffror inputs — SYNLIG DEFAULT? NEJ — Uppföljningsgränser
+- BACKEND: OPENCLAW.surfaceEnabled (317) → UI-YTA: Avancerat — INTERAKTION: toggle yta — SYNLIG DEFAULT? NEJ — OpenClaw-yta
+- BACKEND: SAJTMASKIN_SHOW_THINKING (default-thinking.ts:12) → UI-YTA: Avancerat — INTERAKTION: default tänkande — SYNLIG DEFAULT? NEJ — Visa resonemang
+- BACKEND: BuilderHeader modell-dropdown → UI-YTA: Byggprofil — INTERAKTION: redan header — SYNLIG DEFAULT? JA — Välj modell
+- BACKEND: AdvancedSettingsPanel.tsx (ingen import) → UI-YTA: Avancerat — INTERAKTION: återanvänd eller ta bort — SYNLIG DEFAULT? NEJ — Samlad avancerat
+- BACKEND: ?debug=1 showStructuredChat (BuilderHeader) → UI-YTA: Avancerat — INTERAKTION: query flagga — SYNLIG DEFAULT? NEJ — Strukturerad chatt
+- BACKEND: SAJTMASKIN_BUILDER_INSPECTOR (inspector-feature.ts) → UI-YTA: Avancerat — INTERAKTION: toggle preview DOM — SYNLIG DEFAULT? NEJ — Inspektör på
+- BACKEND: shouldRunServerAutoBrief (server-auto-brief-policy.ts:7) → UI-YTA: Avancerat — INTERAKTION: disable env hint — SYNLIG DEFAULT? NEJ — Stäng auto-brief
+- BACKEND: promptAssistDeep chatSchemas → UI-YTA: Avancerat — INTERAKTION: default djup brief — SYNLIG DEFAULT? NEJ — Djup brief läge
+- BACKEND: ModelTraceOverlay → UI-YTA: Avancerat eller Logs — INTERAKTION: visa rå — SYNLIG DEFAULT? NEJ — Visa modellspår
+- BACKEND: ?autofix BuilderHeader tooltip → UI-YTA: Avancerat — INTERAKTION: dokumentera — SYNLIG DEFAULT? NEJ — Autofix-URL
+
+Åtkomst: lägg Cmd+Shift+A global keydown + /avancerat slash + länk längst ned i drawer "Avancerat…".

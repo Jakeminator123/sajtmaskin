@@ -305,9 +305,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       if (wizardColors && wizardColors.length > 0) {
         vm.setDesignTheme("custom");
         vm.setCustomThemeColors({
-          primary: wizardColors[0] || "#1a1f36",
-          secondary: wizardColors[1] || wizardColors[0] || "#4a5568",
-          accent: wizardColors[2] || wizardColors[0] || "#f97316",
+          primary: wizardColors[0],
+          secondary: wizardColors[1] || wizardColors[0],
+          accent: wizardColors[2] || wizardColors[0],
         });
       }
 
@@ -550,7 +550,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     const toolType = typeof last.type === "string" ? (last.type as string).replace("tool:engine-", "") : "";
     const phaseMap: Record<string, GenerationPhase> = {
       generation: "generation",
+      url_expand: "url_expand",
       autofix: "autofix",
+      materialize_images: "materialize_images",
       "build-error": "autofix",
       verifier: "verifier",
       validate_syntax: "validate_syntax",
@@ -2292,6 +2294,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               activeVersionIsLatest={activeVersionIsLatest}
               rejectedShrinkCount={rejectedShrinkCount}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
+              versionMismatchPayload={vm.versionMismatchPayload}
               onNavigatePreviewUrl={(url) => {
                 vm.setCurrentPreviewUrl(url);
                 vm.bumpPreviewRefreshToken();

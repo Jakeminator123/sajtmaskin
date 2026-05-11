@@ -1,0 +1,30 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 01-executive-plan
+Date: 2026-04-27
+
+## Inputs Read
+- `01-git-delta-scope/` (bl.a. `01-commit-graph`, `04-merge-order`, `05-port-ours-policy`, `07-risk-map`, `08-command-plan`), `02/00-backend-contract-checklist`, `03/00-dependency-ordered-plan`, `04/00-ui-preservation-checklist`, `05/00-runtime-smoke-matrix`, `06/00-config-migration-and-ignore`, `07/00-preflight` + `00-verification-ladder`, `08/00-design-preservation` + `00-preflight-design-rules`, `09/00-preflight` + `00-production-readiness-checklist`.
+- **ASSUMPTION:** delar av `01` (t.ex. full `02-conflict-forecast`, `03-local-uncommitted-scope`) kan kräva kompletterande läsning före merge.
+
+## Synthesis
+En programstyrd integration: **master = funktionell/kontrakts-sanning** (API, stream, finalize, deploy, env); **lokal gren = Apple-minimal yta, tokens, preview-first shell, postMessage/telemetri** där `05-port-ours-policy` anger det. Arbetet är lib + api + UI; lös **kedjor** (stream route ↔ lib ↔ `stream-handlers` ↔ shell), inte fil-i-isolation. **En aktiv klient per `chatId`** vid manuell rök (`.cursor/rules/builder-coexistence.mdc`).
+
+## Ordered Plan
+1. Klassificera/committa/stasha WIP enligt `01/04-merge-order`.
+2. `git fetch` + `git merge origin/master` på integrationsgrenen.
+3. Lös konflikter i ordning: `src/lib` (MI03-ordning: orchestrate → prompt → scaffolds/dossiers → stream/finalize → autofix/verifier) → `src/app/api` (MI02) → `src/components` builder/preview (MI04/08).
+4. Port-ours: `BuilderShellContent`, preview hooks/telemetri, `stream-handlers` — återapplicera master buggfixar utan att skriva över avsiktlig lokal policy.
+5. Gå MI02 checklista; MI06 env-trippel; MI08 design-checklist; MI07 steg; MI05 runtime-matris; MI09 readiness före promotion.
+6. Efter `stash pop` (om använt): kör verify igen.
+
+## Acceptance Criteria
+- `typecheck` + `lint` + `test:ci` gröna (eller dokumenterad flake-fix; MI07 noterade 3 fail i preflight inkl. stream `beforeEach` timeout).
+- MI02/04/05/08 “Do not break”-rader respekterade; inga tysta SSE/finalize/preview-session-avbrott.
+- Design: brandbook/tokens; env: `env.ts` + `env-policy.json` + `docs/ENV.md` i synk om nycklar ändrats.
+
+## Risks / Mitigations
+- Semantisk stream-splitting → diff hela kedjan, stream-tester, en klient per chat.
+- `product-postcheck` vs befintlig post-check → en sanning (MI02/MI03).
+- Mega-commit / `data/runs` i PR → separata commits, `git rm --cached` enligt policy (MI06/MI01).
+
+## Final Recommendations
+Behandla integration som **projekt**: logisk ordning, dokumentera varje “Nej” i MI08 conflict-tabell; före push: minst MI07 steg 1–3 + `build` om `next`/`proxy`/`CSP` rörts; MI09 om staging/prod.

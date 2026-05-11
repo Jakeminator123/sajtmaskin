@@ -1,0 +1,26 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 06-strict-schemas
+Date: 2026-04-27
+
+## Master Changes
+- Sök: `z.object`, `Zod` i `config/`, `src/lib/utils/brief-*.ts`, `build-spec-*.ts`, katalog-JSON under `data/` där strikta scheman validerar brief/build-spec.
+- Risken är **inte** bara env: JSON-drivna prompts kan spricka när fält renames/optionals ändras server-side.
+
+## Local Changes / Dirty Files
+- Om lokal `data/`-kataloger eller prompt-dumps anpassats: merge kan få konflikt på samma filer; prioritera **kanonisk** källa (repo + schema) över lokal kopia.
+
+## Compatibility Risks
+- Tyst drift: t.ex. `industryDossierId: z.string().min(1)` där UI skickat tom sträng = 400/validation fail i pipeline; alignera UI + API + zod.
+- "Extra" fält i input som strikt schema städar bort skadar feedback-loop om klienten tror fältet sparats.
+- Dossier-/heuristic-JSON: om master ändrat nyckelnamn, lokala heuristiker eller katalogmappar kanske fortfarande använder gamla namn.
+
+## Files To Update
+- Nära brief/build-spec: sök `z.object` + relevanta `config/*.json` + konsumenter i `src/lib/gen/` / `site-brief-generation`.
+- Validera mot `AGENTS.md` + glossary före nya fält (undvik dubbletter).
+
+## Verification Commands
+- `npm run typecheck` + enhetstest på schema-exempel
+- Försök med en minimal payload mot brief/chat om du rört API-kontraktet (i dev, utan att bryta builder-regler om samma `chatId`)
+
+## Commit / Ignore Guidance
+- Schema-ändring + exempelpayload + 1 test som låser beteende = föredraget.
+- Genererade/klientdumpade stora `data/`-loggar: **ignore** (`.gitignore`) om de inte ska in i repo; committa endast när avsikten är fixtures.

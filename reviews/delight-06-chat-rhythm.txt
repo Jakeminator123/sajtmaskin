@@ -1,0 +1,13 @@
+Builder Delight Review — Agent 6: Skriv- och svarsrytm (moment → nuvarande → föreslagen → S/M/L)
+
+Block-caret streaming | Streamdown caret block + isAnimating | Finjustera opacity/tjocklek via token “skarp penna” | S
+Token-takt | SSE uppdaterar direkt ojämnt | rAF-batch 32–48 ms för synlig text | M
+Styckepauser | Ren markdown-ström | Vid \n\n: mjuk reflow/scroll-margin, ingen gimmick-delay | S
+Auto-scroll | scrollTop direkt + scroll-smooth container | Under stream: konsekvent instant eller rAF-buntad scroll | S
+List-markdown jank | Omritning per token | Samma batching; ev. contain:layout på MessageResponse | M
+Tomt streaming | StreamingTypingIndicator bounce | En stilla puls / en prick | S
+Dubbel bana | GenerationSummary vs Streamdown | Samma lugna tomma läge före text i båda | S
+Composer debounce | Endast Figma 500 ms | Ingen ändring om inte input-synk ska kännas annorlunda | —
+Pill vs caret | Pulser under stream | En primär rörelse i taget (caret eller pill) | S
+
+Sammanfattning: caret finns; jämn takt och scroll-stabilitet saknas; bounce-indikator mest “tacky” i listan.

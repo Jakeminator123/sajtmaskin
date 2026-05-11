@@ -1,0 +1,22 @@
+Chat Dock — Agent 8: overlays + z-index (READ-ONLY)
+
+Scope: BuilderDetailsDrawer.tsx (Sheet), GenerationProgress.tsx, z-index/focus. Note: NextStepPickerPopup.tsx not in repo (skill name stale) — grep finds no matches.
+
+Z map (observed)
+• z-[99999] — IntakeWizard shell, TemplatePickerPopup, SiteTypePickerPopup, MustHavePickerPopup, ActionHubPopup, ImageUploadPopup (full-screen overlays).
+• z-50 — Sheet overlay+content (sheet.tsx); Dialog/AlertDialog; ModelTraceOverlay fixed.
+• z-30 — ChatInterface tooltip (absolute).
+• z-10 — ThinkingOverlay in drawer column; PreviewPanelFrame loading/error absolute.
+
+Chat × drawer × gen
+• Minimal: chat inside BuilderDetailsDrawer when open — same Sheet z-50 layer.
+• Sheet portal dims viewport; preview (incl. GenerationProgress in PreviewPanelEmptyState while loading) under overlay while drawer open.
+• Wizard/pickers at 99999 always above Sheet z-50.
+
+Focus + ESC: Sheet/Dialog Radix defaults — focus trap + ESC dismiss (BuilderDetailsDrawer does not set modal=false). GenerationProgress informational — no trap.
+
+Single policy (proposal): chat chrome 40 | drawer/sheet 50 | gen-blocking overlay 60 | modal/dialog 70 | system wizard 80 — centralize tokens; retire scattered 99999.
+
+Scores (1–5): Z sanity 2 (99999 vs 50) | drawer vs preview stacking 3 | focus/ESC predictability 4 | skill/doc vs code 2 | maintainability 2
+
+Evidence: src/components/ui/sheet.tsx overlay/content z-50; BuilderShellContent ThinkingOverlay + BuilderDetailsDrawer ~1729–1764; PreviewPanelEmptyState returns GenerationProgress when loading (~57–58).

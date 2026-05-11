@@ -1,0 +1,17 @@
+Backend Surface Mapping — Agent 5: BuilderDetailsDrawer (filen är Sheet-wrapper; innehåll = children från BuilderShellContent — omstrukturera till sektioner)
+
+- BACKEND: children slot (BuilderDetailsDrawer.tsx:48) → UI-YTA: Sidor-sektion — INTERAKTION: lista rutter kompakt expandera meta — SYNLIG DEFAULT? NEJ — Sidor
+- BACKEND: open/onOpenChange (BuilderDetailsDrawer.tsx:14) → UI-YTA: Sheet — INTERAKTION: stäng swipe — SYNLIG DEFAULT? NEJ — Stäng panel
+- BACKEND: children slot → UI-YTA: Filer-sektion — INTERAKTION: media lista expandera storlek — SYNLIG DEFAULT? NEJ — Filer
+- BACKEND: children slot → UI-YTA: Brief-sektion — INTERAKTION: visa kärna expandera JSON — SYNLIG DEFAULT? NEJ — Brief
+- BACKEND: children slot → UI-YTA: Inställningar — INTERAKTION: toggles expandera env — SYNLIG DEFAULT? NEJ — Inställningar
+- BACKEND: children slot → UI-YTA: Logs-sektion — INTERAKTION: tidsrader expandera payload — SYNLIG DEFAULT? NEJ — Loggar
+- BACKEND: SheetTitle sr-only (BuilderDetailsDrawer.tsx:44) → UI-YTA: A11y — INTERAKTION: AT läser — SYNLIG DEFAULT? NEJ — Detaljer
+- BACKEND: SheetContent className (BuilderDetailsDrawer.tsx:39) → UI-YTA: Layout — INTERAKTION: bredd brytpunkt — SYNLIG DEFAULT? JA öppen — Verktygslåda
+- BACKEND: MessageList+Chat idag i shell → UI-YTA: Chat-flik — INTERAKTION: behåll som första flik — SYNLIG DEFAULT? JA — Chatt kvar
+- BACKEND: LaunchReadinessCard (shell) → UI-YTA: Sidor/Inställningar — INTERAKTION: flytta under Sidor — SYNLIG DEFAULT? NEJ — Lanseringskrav
+- BACKEND: ProjectEnvVarsPanel (shell) → UI-YTA: Inställningar — INTERAKTION: inbäddad expanderad — SYNLIG DEFAULT? NEJ — Env-hantering
+- BACKEND: TipCard (shell) → UI-YTA: Logs eller Brief — INTERAKTION: kompakt tipsrad — SYNLIG DEFAULT? NEJ — Tips
+- BACKEND: ModelTraceOverlay data (shell) → UI-YTA: Logs — INTERAKTION: kopiera spår — SYNLIG DEFAULT? NEJ — Modellspår
+
+Ordning föreslagen: Chatt (kompakt) · Sidor · Filer · Brief · Inställningar · Logs — intro en rad per sektion, första raden tät läsning.

@@ -9,9 +9,25 @@ alwaysApply: true
 
 Vid **städa/ta bort/flytta/refaktor**: utför, inte bara lista. Radera duplicat och död kod. Fixa importer, länkar och env-referenser i samma svep. Städning ≠ fri omorganisation — smalna scope vid vag begäran.
 
-**Enkelhet:** Färre begrepp, klarare vägar. Förenkling får inte ske på bekostnad av kvalitet.
+**Enkelhet:** Färre begrepp, klarare vägar. Förenkling får inte ske på bekostnad av kvalitet. Om en förenkling kräver pipeline-/arkitekturbeslut: notera fyndet i plan/rapport, smyg inte in det i cleanup.
+
+**Namnskuggor:** Introducera inga nya filnamn, routes, config-nycklar eller docs-termer som skuggar glossaryns § Namnskuggor eller legacy-namn. Vid rename: uppdatera importer, tester, docs i samma PR — pausa om bred diff.
 
 Steg: spåra beroenden → utför → uppdatera referenser → `npm run typecheck` (+ test). Överstyr "minimal diff" vid explicit städ-request.
+
+## 818-svärm vid risk
+
+Agenten får själv trigga `/818-swarm-decide` utan extra användarbeslut när en ändring kräver konsensus före beslut: riskfylld codegen-/status-/schema-yta, möjlig namnskugga, oklart canonical ownership, eller flera rimliga implementationer. Använd 8 read-only `explore`-agenter med distinkta vinklar, aggregera kort, verifiera osäkra fakta mot kod och implementera bara om utfallet är tydligt och smalt. Vid bred refaktor eller arkitekturbeslut: rapportera blocker i stället för att smyga in ändringen.
+
+Subagent-notiser eller task-resultat som säger "svara inte" gäller bara passiv notifiering. Om användaren uttryckligen ber att fortsätta, syntetisera relevanta agentfynd och fortsätt arbetet i stället för att stanna tyst.
+
+## Efter varje runda
+
+Gör en kort scope-check innan leverans:
+
+- **Legacy-/namnskuggor:** om berört scope innehåller lätta–medelsvåra legacy-benämningar (`sandbox`, `demoUrl`, `prompt-static`, felaktigt `v0`, "dashboard" för backoffice, osv.) ska de städas eller kommenteras bort när det är säkert. Vid bred rename: stoppa och skapa plan.
+- **Docs/schema/backoffice:** om runtime-sanning, env-yta, schema, signal eller adminflöde ändrats, synka relevanta docs, strict schemas och `backoffice/`/`sajtmaskin_backoffice.py` i samma runda. Om ingen sync behövs, säg kort varför.
+- **Verifiering:** kör riktad test/lint/typecheck efter risk. För docs-only räcker diff-/lint-check när ingen runtime-yta ändrats.
 
 ## Git
 

@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 01-orchestrate
+Date: 2026-05-01
+
+## Master Pipeline Changes
+- Dossier bridge moved into `capability-dossier-bridge.ts`.
+- New capability filtering suppresses contact-form/carousel dossiers unless preview policy or prompt proves need.
+- `simpleWebsitePath` can skip shadcn/community refs and dossier selection.
+- `previousFilePaths` and `dossierPromptContext` improve follow-up dossier rendering.
+- `deriveBuildSpec` gains brief and scaffold-unlock inputs.
+- Dynamic context receives `followUpIntent` and dossier prompt context.
+
+## Local Behaviors To Preserve
+- `buildOut` meta from preview/build-out flow.
+- Raw prompt usage for capability/scaffold matching.
+- UI meta fields: lifecycle stage, parent version, build-out intent.
+- Quality inheritance and build-intent promotion guards.
+
+## Merge/Port Plan
+- Take master dossier bridge/filter/simpleWebsitePath/previousFilePaths.
+- Preserve local `buildOut` and postMessage request-meta behavior.
+- Merge system-prompt and orchestration type changes as one unit.
+
+## Frontend Wiring / UI Surface Needed
+- Keep sending `meta.buildOut`.
+- Define one deterministic owner for `simpleWebsitePath`, defaulting false for builder-heavy flows.
+- Populate `previousFilePaths` on follow-ups if master expects it.
+
+## Exact LLM Implementation Instructions
+- Capability flow: merged capabilities -> filter using raw prompt + previewPolicy -> select dossiers.
+- Do not remove F2 suppression of contact-form/carousel without product sign-off.
+- Preserve route-targeted build-out dynamic context.
+
+## Regression Risks
+- Missing dossiers due to `simpleWebsitePath` or filters.
+- Follow-ups losing needed carousel/contact-form context.
+- BuildSpec drift if new args are half-merged.
+- Raw prompt/classification regressions.
+
+## Required Tests
+- Add tests for dossier filter F2/F3 and Swedish/English prompt terms.
+- Extend stream route tests for `previousFilePaths` and `simpleWebsitePath`.
+- Manual build-out from preview.
+
+## Open Questions
+- Who sets `simpleWebsitePath`?
+- Where is `previousFilePaths` populated?
+- Should Unicode-aware matching replace ASCII word-boundary regex if extended?

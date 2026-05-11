@@ -12,19 +12,22 @@
 
 import rulesJson from "@/../config/domain-rules.json";
 
-export type DomainProfile =
-  | "restaurant"
-  | "hotel"
-  | "spa-salon"
-  | "clinic"
-  | "event-venue"
-  | "ecommerce"
-  | "portfolio"
-  | "saas"
-  | "agency"
-  | "education"
-  | "real-estate"
-  | "general";
+export const DOMAIN_PROFILES = [
+  "restaurant",
+  "hotel",
+  "spa-salon",
+  "clinic",
+  "event-venue",
+  "ecommerce",
+  "portfolio",
+  "saas",
+  "agency",
+  "education",
+  "real-estate",
+  "general",
+] as const;
+
+export type DomainProfile = (typeof DOMAIN_PROFILES)[number];
 
 interface DomainRule {
   domain: DomainProfile;
@@ -66,6 +69,10 @@ function buildRules(
 }
 
 const DOMAIN_RULES: DomainRule[] = buildRules(rulesJson);
+
+export function isDomainProfile(value: string): value is DomainProfile {
+  return (DOMAIN_PROFILES as readonly string[]).includes(value);
+}
 
 export function inferDomain(prompt: string): DomainProfile {
   const lower = prompt.toLowerCase();

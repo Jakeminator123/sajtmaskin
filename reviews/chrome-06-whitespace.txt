@@ -1,0 +1,27 @@
+Chrome whitespace — src/components/builder/ + BuilderShellContent
+
+1. Preview-chrome vertical stack (PreviewPanelChrome) — 4/5 — Primary → secondary → tertiary via tighter py; tools row may feel tight vs row above.
+
+2. max-h-[38vh] scrollbar on chrome — 3/5 — Controls vs iframe balance.
+
+3. BuilderHeader h-10, px-2.5–3 — 3/5 — Compact vs chat p-3/4.
+
+4. Chat column — 4/5 — MessageList + ChatInterface padding relatively unified.
+
+5. MessageList empty vs thread — 4/5 — Intentional px-6 vs px-3/4.
+
+6. LaunchReadinessCard + ProjectEnvVarsPanel — 3/5 — Tight admin zone above airy thread.
+
+7. PreviewPanelFrame loading/error — 5/5 — Generous centered air on disruption.
+
+8. PreviewPanelCode — 4/5 — File list vs code pad tension.
+
+9. Horizontal token spread (2.5/3 vs 3 vs 3/4) — 3/5 — No single chrome gutter token.
+
+10. Banners in PreviewPanelChrome — 4/5 — mx-3 inset tertiary layer.
+
+11. Mobile tab row — 4/5 — px-3 py-2 aligned with 3-scale.
+
+12. FloatingChatBox — 3/5 — Own scale if mixed with fixed layout.
+
+Summary: Harmonize horizontal base token; consider tools row vertical air; header vs input-luft tension.

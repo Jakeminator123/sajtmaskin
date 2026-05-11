@@ -1,0 +1,33 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 03-wizard-onboarding
+Date: 2026-04-27
+
+## UX To Preserve
+- **Intake:** `IntakeWizard.tsx` — stegordning `company` → `siteType` → `content` → `story` → `pages` → `media`; `STEP_TITLES` / `STEP_SUBTITLES` (sv), `FOCUS`/`touch-manipulation`/`min-h-11` där satt, modal `role="dialog"`.
+- **Montering:** `BuilderShellContent.tsx` — `showIntakeWizard` när `!vm.chatId`, `handleIntakeWizardScrape` → `company-intel`, `handleIntakeWizardComplete` (brief/upload/generation).
+- **Kortare microcopy** — minimal ord per steg; undvik längre master-texter i samma ytor.
+
+## Master UI Changes To Inspect
+- **Stor fil:** `IntakeWizard.tsx` — hög konfliktrisk; inre steg `CompanyStep`/`ContentStep`/`MediaStep`/`PagesStep` m.m.
+- **Parallell onboarding:** `OnboardingOverlay`, `onboarding-modal`, `mini-wizard` — merge kan duplicera entry eller visuell stil; håll **ett** primärt spår.
+- `wizard-brief.ts`, `needs-analysis.ts` — fält/ton mot motor; rör inte datakontrakt utan pipeline-ägare.
+- Suggest: `api/ai/suggest-pages` + `handleSuggestMustHaves` — UI + loading states.
+
+## Token / Copy Risks
+- Svenska toasts och etiketter genom filen; master-engelska nya fält bryter språkpolicy.
+- Scrape-UI: “Hämta”/progress/overlay — behåll lugn, tät layout (Apple-lugn).
+- Färg i wizard: följ tokens; undvik nya `indigo-`/`sky-` block från master (jmf agent 01).
+
+## Recommended Merge Choices
+- Lös konflikter **sektionsvis** (progress → `CompanyStep` → … → `MediaStep`).
+- Scrape-API-ändringar: behåll lokalt flyt om branch har finputs; plocka master buggar selektivt.
+- För andra wizards (kostnadsfri): samma copy/token-principer men separat användarkontext.
+
+## Visual Verification
+- Öppna intake utan `chatId` — modal, fokus, escape, stegpunkter.
+- Kör URL-scrape (dev) — overlay, toasts, inga layout-sprickor mobil/desktop.
+- Media: dropzone, `ImagePickerThumb` — pekbar storlek (min-h) bibehålls.
+
+## Do Not Break
+- `WizardAnswers` / `onComplete` payload till `BuilderShellContent` / upload-kedja.
+- `data-openclaw-text-label` där satt — extern konsumtion.
+- A11y: dialog får inte tappa `aria-modal` utan ersättning; fokus-trap = backlog men inte sämre än idag.

@@ -1,0 +1,60 @@
+Intake Wizard — UX / design review (Agent 2/8)
+Date: 2026-04-15
+Scope: src/components/builder/IntakeWizard.tsx (strict file scope)
+Criteria: Apple-minimalist feel; design tokens / CSS variables via Tailwind semantic colors; rounded geometry; ~150–200ms motion; orange/primary CTAs; Swedish copy; low clutter.
+
+Scoring key: 5 = excellent · 4 = strong · 3 = adequate · 2 = weak · 1 = poor
+
+────────────────────────────────────────────────────────────────────────
+CHECKLIST SCORES
+────────────────────────────────────────────────────────────────────────
+
+1. Dialog surface — 5/5
+   Native <dialog> with showModal, frosted card treatment (bg-card + backdrop-blur where supported), rounded-3xl, subtle ring and shadow using hsl(var(--foreground)/…). Backdrop uses backdrop:bg-foreground/40 with blur — cohesive, premium shell. Inline style duplicates max-height already implied by classes (minor nit only).
+
+2. Step indicators — 4/5
+   Linear progress bar (primary fill, 200ms width transition) plus micro-dot row; motion-safe + motion-reduce respected. Dots are minimal (h-1 w-1) — elegant but low discoverability; step identity lives only in header (no numbered labels on the rail).
+
+3. Form fields — 4/5
+   Shared FIELD_CLASS: rounded-xl, border-border, bg-background, focus ring on ring token, min-h-11, touch-manipulation — consistent and calm. Branch-specific ContentStep adds many optional blocks (inherent product complexity); some inner controls use transition-all without the shared MOTION/prefers-reduced bundle everywhere.
+
+4. Category grid — 4/5
+   SiteTypeStep: responsive grid (2 cols mobile, 3 sm+), icon + label, clear selected vs suggested (Sparkles) vs idle; primary-tinted selection. Twenty-five categories means vertical scroll on small phones — acceptable for completeness, less “minimal” in time-on-step.
+
+5. Scrape success — 4/5
+   Loading row (“Hämtar från din sajt…”), toast feedback, and post-scrape “Hämtat” checklist with check/X icons. Success UX is clear; optional keys still render rows with X marks which can read as failure for non-fetched optional data. Toast + inline summary can feel slightly redundant.
+
+6. Badges — 4/5
+   ScrapeBadge “Från sajt” uses primary-tinted pill; Chip shows suggested state and check when selected. Cohesive token use. Badge text at text-[10px] is very small (readability / tap target is label-adjacent, not the badge itself).
+
+7. Buttons — 5/5
+   Primary actions (Fortsätt / Bygg min sajt, Hämta) use bg-primary + primary-foreground with hover/active polish; disabled states muted; secondary actions ghost into muted. Aligns with orange-CTA expectation when --primary maps to brand.
+
+8. Mobile — 4/5
+   Footer stacks (flex-col gap-3), full-width primary CTA on narrow viewports, sm: breakpoints for header padding and scrape row; touch-manipulation on interactive surfaces. Long category list and tiny step dots remain the main mobile friction points.
+
+9. Typography — 3/5
+   Clear hierarchy in shell (text-lg/xl title, sm subtitle, xs field labels). Micro-type on ScrapeBadge (10px) and ImagePickerThumb label (9px) pushes below comfortable body scale; SectionLabel/FieldLabel pattern is otherwise consistent.
+
+────────────────────────────────────────────────────────────────────────
+STRENGTHS (brief)
+────────────────────────────────────────────────────────────────────────
+• Central MOTION constant at 200ms with explicit motion-reduce handling for the main interactive layer.
+• Semantic Tailwind tokens (primary, muted, border, ring, destructive) — no ad-hoc palette classes observed in grep pass.
+• Swedish copy throughout primary flows; concise CTAs (Fortsätt, Bygg min sajt, Hämta, Tillbaka).
+• Rounded-2xl/3xl and card-like grouping match Apple-adjacent minimal chrome.
+
+────────────────────────────────────────────────────────────────────────
+GAPS / RISKS (brief)
+────────────────────────────────────────────────────────────────────────
+• Information density in content branches and 25 category tiles trades minimalism for coverage.
+• Step dots + optional scrape checklist semantics could be refined for clearer “success only” messaging.
+• Very small badge/helper text sizes may fail readability or WCAG contrast intent for some users.
+
+────────────────────────────────────────────────────────────────────────
+AVERAGE SCORE
+────────────────────────────────────────────────────────────────────────
+(5 + 4 + 4 + 4 + 4 + 4 + 5 + 4 + 3) / 9 ≈ 4.1 / 5
+
+ONE-PARAGRAPH SUMMARY
+The IntakeWizard presents a polished native dialog with token-driven surfaces, consistent ~200ms transitions, rounded geometry, and strong primary/orange CTA styling for the main actions; Swedish copy is lean and the site-type grid handles selection and scrape-based suggestions well, though the sheer number of categories and branch-specific fields works against ultra-minimal clutter, step affordances stay quite subtle (tiny dots), and very small typography on scrape badges and image thumbs drags the typography score down—overall average approximately 4.1 out of 5 against the Apple-minimal checklist.

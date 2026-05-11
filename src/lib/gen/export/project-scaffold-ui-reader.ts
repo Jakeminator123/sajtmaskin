@@ -1,7 +1,11 @@
 import fs from "node:fs";
 import nodePath from "node:path";
 import type { CodeFile } from "../parser";
-import type { UiComponent } from "./project-scaffold-ui-types";
+
+export interface UiComponent {
+  filename: string;
+  content: string;
+}
 
 const UI_IMPORT_RE = /@\/components\/ui\/([a-z][a-z0-9-]*)/g;
 
@@ -10,8 +14,6 @@ const SEARCH_ROOTS = [
   nodePath.join(PROJECT_ROOT, "src", "components", "ui"),
   nodePath.join(PROJECT_ROOT, "components", "ui"),
 ] as const;
-
-export type { UiComponent } from "./project-scaffold-ui-types";
 
 type UiComponentFileIndex = Map<string, string>;
 

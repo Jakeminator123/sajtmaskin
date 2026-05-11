@@ -30,7 +30,7 @@ const VerifierFindingsSchema = z.object({
 
 export type VerifierFindings = z.infer<typeof VerifierFindingsSchema>;
 
-export const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
+const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
   blocking: [],
   quality: [],
 };
@@ -132,7 +132,7 @@ export function extractFilePathsFromVerifierFindings(
  * Promote known production-quality issues from `quality` to `blocking` so they
  * cannot silently slip through when the LLM mis-classifies them.
  */
-export function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFindings {
+function promoteForcedBlockingFindings(findings: VerifierFindings): VerifierFindings {
   if (findings.quality.length === 0) return findings;
   const promoted: typeof findings.blocking = [];
   const remainingQuality: typeof findings.quality = [];
@@ -206,6 +206,38 @@ function isValidInPageHashNavigationFinding(
   });
 }
 
+const PLACEHOLDER_HREF_RE =
+  /<(a|Link|Button)\b[^>]*\bhref\s*=\s*(?:""|''|"#"|'#'|\{\s*(?:""|"#"|''|'#')\s*\})/g;
+
+export function checkNavigationPlaceholderActions(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+  options: { maxFindings?: number } = {},
+): VerifierFindings["blocking"] {
+  const maxFindings = options.maxFindings ?? 8;
+  const findings: VerifierFindings["blocking"] = [];
+  for (const file of files) {
+    if (findings.length >= maxFindings) break;
+    if (!file.path || !file.content) continue;
+    if (!/\.(t|j)sx$/i.test(file.path)) continue;
+    PLACEHOLDER_HREF_RE.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = PLACEHOLDER_HREF_RE.exec(file.content)) !== null) {
+      const rawHrefMatch = match[0].match(/href\s*=\s*(.*?)(?:\s|>|$)/);
+      const rawHref = rawHrefMatch?.[1]?.replace(/[{}'"]/g, "").trim() ?? "#";
+      if (rawHref.startsWith("#") && rawHref.length > 1) {
+        const id = rawHref.slice(1);
+        if (fileContainsId(file.content, id)) continue;
+      }
+      findings.push({
+        id: "navigation-placeholder-actions",
+        detail: `${file.path}: <${match[1]}> uses placeholder href ${rawHref || "(empty)"}. Provide a real route, in-page target with matching id, submit/action handler, or mark it demo-only.`,
+      });
+      if (findings.length >= maxFindings) break;
+    }
+  }
+  return findings;
+}
+
 export function suppressValidInPageAnchorNavigationFindings(
   findings: VerifierFindings,
   files: Array<Pick<CodeFile, "path" | "content">>,
@@ -251,66 +283,294 @@ function buildVerifierPromptSnippetFromFiles(files: CodeFile[], charsPerFile: nu
 const MOTION_REDUCE_HIDDEN = `motion-reduce` + `:hidden`;
 const CANVAS_WITH_CLASSNAME_RE =
   /<Canvas\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|\{[^}]*\})/g;
+const R3F_IMPORT_RE = /from\s+["']@react-three\/fiber["']|import\s*\(\s*["']@react-three\/fiber["']\s*\)/;
+const JSX_CANVAS_RE = /<Canvas\b/;
+const USE_CLIENT_RE = /^\s*["']use client["']\s*;?/m;
 const ELEMENT_WITH_CLASSNAME_RE =
   /<[A-Za-z][A-Za-z0-9]*\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`)/g;
-const JSX_TAG_RE = /<(?!\/)([A-Z][A-Za-z0-9]*)(?:\.[A-Za-z][A-Za-z0-9]*)?(?=[\s/>])/g;
-const BUILT_IN_JSX_SYMBOLS = new Set(["Fragment", "React", "Suspense"]);
 
-function stripCommentsAndStrings(content: string): string {
-  return content
-    .replace(/\/\*[\s\S]*?\*\//g, (match) => " ".repeat(match.length))
-    .replace(/\/\/[^\n\r]*/g, (match) => " ".repeat(match.length))
-    .replace(/(["'`])(?:\\[\s\S]|(?!\1)[\s\S])*?\1/g, (match) => " ".repeat(match.length));
+/**
+ * Strip JS/TS line and block comments plus string literals so downstream
+ * regex scans don't trip on capitalised words that appear inside text,
+ * error messages or type comments. Conservative: keeps whitespace and
+ * newlines so line-based regex still works on the scrubbed source.
+ */
+function stripCommentsAndStrings(source: string): string {
+  let out = "";
+  let i = 0;
+  const len = source.length;
+  while (i < len) {
+    const ch = source[i];
+    const next = source[i + 1];
+    // Line comment
+    if (ch === "/" && next === "/") {
+      const eol = source.indexOf("\n", i + 2);
+      const end = eol === -1 ? len : eol;
+      out += " ".repeat(end - i);
+      i = end;
+      continue;
+    }
+    // Block comment
+    if (ch === "/" && next === "*") {
+      const close = source.indexOf("*/", i + 2);
+      const end = close === -1 ? len : close + 2;
+      // Preserve newlines so error line numbers still roughly line up.
+      for (let j = i; j < end; j++) out += source[j] === "\n" ? "\n" : " ";
+      i = end;
+      continue;
+    }
+    // Double/single quoted string
+    if (ch === '"' || ch === "'") {
+      const quote = ch;
+      out += quote;
+      i++;
+      while (i < len) {
+        const c = source[i];
+        if (c === "\\" && i + 1 < len) {
+          out += "  ";
+          i += 2;
+          continue;
+        }
+        if (c === quote) {
+          out += quote;
+          i++;
+          break;
+        }
+        out += c === "\n" ? "\n" : " ";
+        i++;
+      }
+      continue;
+    }
+    // Template literal (no nested expression tracking — we just blank the
+    // contents; good enough to avoid false positives from code samples
+    // quoted in template strings).
+    if (ch === "`") {
+      out += "`";
+      i++;
+      while (i < len) {
+        const c = source[i];
+        if (c === "\\" && i + 1 < len) {
+          out += "  ";
+          i += 2;
+          continue;
+        }
+        if (c === "`") {
+          out += "`";
+          i++;
+          break;
+        }
+        out += c === "\n" ? "\n" : " ";
+        i++;
+      }
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
 }
 
-function collectDeclaredJsxSymbols(content: string): Set<string> {
-  const symbols = new Set<string>(BUILT_IN_JSX_SYMBOLS);
-  const add = (value: string | undefined) => {
-    if (value && /^[A-Z]/.test(value)) symbols.add(value);
-  };
+/**
+ * Deterministic check for undefined capitalised JSX component references.
+ *
+ * Catches the "model invented a component name" failure mode — e.g.
+ * `<Cuboid />` (drei/rapier confusion), `<Lucide />`, `<Box3d />` etc. —
+ * where the generated `.tsx` uses a symbol that is neither imported nor
+ * locally declared. TypeScript + ESLint will also catch it, but those
+ * run on the preview-host verify lane AFTER streaming; this runs in-app
+ * so the repair-loop can surface a precise, file+symbol-scoped finding
+ * to the fixer BEFORE the next verify round.
+ *
+ * Conservative by design: we skip files with dynamic patterns the simple
+ * scanner cannot interpret (re-exports, `React.lazy`, `createElement`)
+ * so false positives stay at zero. The cost of missing a real undefined
+ * symbol is bounded — tsc/eslint still catches it on the verify lane.
+ */
+export function checkUndefinedJsxSymbols(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+  options: { maxFindings?: number } = {},
+): VerifierFindings["blocking"] {
+  const maxFindings = options.maxFindings ?? 12;
+  const findings: VerifierFindings["blocking"] = [];
 
-  for (const match of content.matchAll(/import\s+([A-Za-z_$][\w$]*)\s*(?:,|\s+from\b)/g)) add(match[1]);
-  for (const match of content.matchAll(/import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\b/g)) add(match[1]);
-  for (const match of content.matchAll(/import\s*\{([^}]+)\}\s*from\b/g)) {
-    for (const part of (match[1] ?? "").split(",")) {
-      const [, alias, named] = part.trim().match(/\bas\s+([A-Za-z_$][\w$]*)$/) ?? [];
-      add(alias ?? part.trim().match(/^([A-Za-z_$][\w$]*)/)?.[1] ?? named);
+  for (const f of files) {
+    if (findings.length >= maxFindings) break;
+    if (!f.path || !f.content) continue;
+    if (!/\.(t|j)sx$/i.test(f.path)) continue;
+
+    // Bail on patterns that introduce components dynamically — we'd rather
+    // miss than false-positive. SAJ-33 (2026-04-22 audit): tidigare skippades
+    // hela filen så fort den innehöll bokstäverna `lazy(` (t.ex. en egen
+    // util `lazyRetry(...)` eller `db.users.lazy(...)`), vilket dolde
+    // verkliga undefined-JSX-symboler. Begränsa bailouten till `lazy(` som
+    // rimligen är React.lazy — antingen namespace-anropat eller importerat
+    // från "react" / "react-dom".
+    if (/\bcreateElement\s*\(/.test(f.content)) continue;
+    if (/\bReact\.lazy\s*\(/.test(f.content)) continue;
+    const lazyImportedFromReact =
+      /import\s*\{[^}]*\blazy\b[^}]*\}\s*from\s*['"]react['"]/.test(f.content) ||
+      /import\s*\{[^}]*\blazy\b[^}]*\}\s*from\s*['"]react-dom['"]/.test(f.content);
+    if (lazyImportedFromReact && /\blazy\s*\(/.test(f.content)) continue;
+
+    const scrubbed = stripCommentsAndStrings(f.content);
+    const declared = collectDeclaredIdentifiers(scrubbed);
+    const seen = new Set<string>();
+
+    const JSX_OPENING_TAG = /<([A-Z][A-Za-z0-9_$]*)(?:\.[A-Za-z0-9_$]+)*[\s/>]/g;
+    let match: RegExpExecArray | null;
+    while ((match = JSX_OPENING_TAG.exec(scrubbed)) !== null) {
+      const name = match[1];
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      if (declared.has(name)) continue;
+      if (ALWAYS_IN_SCOPE.has(name)) continue;
+      findings.push({
+        id: "undefined-jsx-symbol",
+        detail: `${f.path}: \`<${name} />\` is used but \`${name}\` is neither imported nor declared in this file. Either import it from the correct package or replace it with a supported element. (If the model meant a React Three Fiber primitive, use lowercase \`<mesh>\` + \`<boxGeometry>\`, or import \`Box\` from \`@react-three/drei\`.)`,
+      });
+      if (findings.length >= maxFindings) break;
     }
   }
 
-  for (const match of content.matchAll(/\b(?:function|class)\s+([A-Z][A-Za-z0-9_$]*)\b/g)) add(match[1]);
-  for (const match of content.matchAll(/\b(?:const|let|var)\s+([A-Z][A-Za-z0-9_$]*)\b/g)) add(match[1]);
-  for (const match of content.matchAll(/\b(?:const|let|var)\s+\[([^\]]+)\]\s*=/g)) {
-    for (const part of (match[1] ?? "").split(",")) {
-      const name = part.trim().replace(/^\.\.\./, "").split("=")[0]?.trim();
-      add(name?.match(/^([A-Z][A-Za-z0-9_$]*)/)?.[1]);
-    }
-  }
-
-  return symbols;
+  return findings;
 }
 
-function usesReactLazy(content: string): boolean {
-  if (/\bReact\.lazy\s*\(/.test(content) || /\bReact\.createElement\s*\(/.test(content)) return true;
-  const reactLazyNames = new Set<string>();
-  for (const match of content.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']react["']/g)) {
-    for (const part of (match[1] ?? "").split(",")) {
+/**
+ * Identifiers that are always considered in-scope for JSX even when not
+ * explicitly imported in the file. `React` is the classic case (old JSX
+ * transform, or namespaced access like `<React.Suspense>`). `Fragment`
+ * is included because some toolchains auto-inject it.
+ */
+const ALWAYS_IN_SCOPE = new Set<string>(["React", "Fragment"]);
+
+function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
+  const declared = new Set<string>();
+
+  // Named imports: `import { A, B as C, D } from "..."` (supports multi-line).
+  const NAMED_IMPORT_RE = /import\s+(?:[A-Za-z_$][\w$]*\s*,\s*)?\{([\s\S]*?)\}\s*from\s+['"][^'"]+['"]/g;
+  let m: RegExpExecArray | null;
+  while ((m = NAMED_IMPORT_RE.exec(scrubbedSource)) !== null) {
+    const body = m[1];
+    if (!body) continue;
+    for (const part of body.split(",")) {
       const trimmed = part.trim();
-      if (!/\blazy\b/.test(trimmed)) continue;
-      reactLazyNames.add(trimmed.match(/\bas\s+([A-Za-z_$][\w$]*)$/)?.[1] ?? "lazy");
+      if (!trimmed) continue;
+      const alias = trimmed.split(/\s+as\s+/).pop();
+      const id = alias?.trim().replace(/^type\s+/, "");
+      if (id && /^[A-Za-z_$][\w$]*$/.test(id)) declared.add(id);
     }
   }
-  return [...reactLazyNames].some((name) => new RegExp(String.raw`\b${escapeRegExp(name)}\s*\(`).test(content));
-}
 
-function isLikelyTypeScriptGeneric(content: string, matchStart: number): boolean {
-  const end = content.indexOf(">", matchStart);
-  if (end === -1) return false;
-  const tagLike = content.slice(matchStart, end + 1);
-  if (/^<[A-Z][A-Za-z0-9]*\s+extends\b/.test(tagLike)) return true;
-  if (/^<[A-Z][A-Za-z0-9]*,/.test(tagLike)) return true;
-  const next = content.slice(end + 1).match(/\S/)?.[0];
-  return /^<[A-Z][A-Za-z0-9]*>$/.test(tagLike) && (next === "(" || next === "{");
+  // Default / namespace / side-effect-only imports.
+  const DEFAULT_IMPORT_RE = /import\s+([A-Za-z_$][\w$]*)(?:\s*,\s*(?:\{[\s\S]*?\}|\*\s+as\s+[A-Za-z_$][\w$]*))?\s+from\s+['"][^'"]+['"]/g;
+  while ((m = DEFAULT_IMPORT_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const NAMESPACE_IMPORT_RE = /import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]+['"]/g;
+  while ((m = NAMESPACE_IMPORT_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+
+  // Top-level-ish declarations: function, class, const/let/var NAME.
+  const FN_DECL_RE = /\b(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)/g;
+  while ((m = FN_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const CLASS_DECL_RE = /\b(?:export\s+(?:default\s+)?)?class\s+([A-Za-z_$][\w$]*)/g;
+  while ((m = CLASS_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const VAR_DECL_RE = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*[=:]/g;
+  while ((m = VAR_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+
+  // Object-destructured consts: `const { A, B: C } = obj;`
+  const OBJECT_DESTRUCT_RE = /\b(?:const|let|var)\s*\{([^}]+)\}\s*=/g;
+  while ((m = OBJECT_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
+    const body = m[1];
+    if (!body) continue;
+    for (const part of body.split(",")) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      const alias = trimmed.split(/\s*:\s*/).pop();
+      const id = alias?.trim();
+      if (id && /^[A-Za-z_$][\w$]*$/.test(id)) declared.add(id);
+    }
+  }
+
+  // Array-destructured consts: `const [A, B = Default, ...rest] = tuple;`
+  // Handles the `const [Component, setComponent] = useState(Initial)` pattern
+  // plus holes (`const [, Second]`), defaults, and rest elements. Nested
+  // destructuring (`const [{ x }, [y]] = …`) is skipped — conservative.
+  const ARRAY_DESTRUCT_RE = /\b(?:const|let|var)\s*\[([^\]]+)\]\s*=/g;
+  while ((m = ARRAY_DESTRUCT_RE.exec(scrubbedSource)) !== null) {
+    const body = m[1];
+    if (!body) continue;
+    for (const part of body.split(",")) {
+      let trimmed = part.trim();
+      if (!trimmed) continue; // hole, e.g. `const [, second] = …`
+      if (trimmed.startsWith("...")) trimmed = trimmed.slice(3).trim();
+      const eq = trimmed.indexOf("=");
+      if (eq !== -1) trimmed = trimmed.slice(0, eq).trim();
+      // Skip nested object/array patterns — conservative.
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) continue;
+      if (/^[A-Za-z_$][\w$]*$/.test(trimmed)) declared.add(trimmed);
+    }
+  }
+
+  // Type-only symbols also count — someone could JSX-reference a type
+  // in error; we want to still treat it as "defined" to avoid noise.
+  const TYPE_DECL_RE = /\btype\s+([A-Za-z_$][\w$]*)\s*=/g;
+  while ((m = TYPE_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const INTERFACE_DECL_RE = /\binterface\s+([A-Za-z_$][\w$]*)/g;
+  while ((m = INTERFACE_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+  const ENUM_DECL_RE = /\benum\s+([A-Za-z_$][\w$]*)/g;
+  while ((m = ENUM_DECL_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) declared.add(m[1]);
+  }
+
+  // SAJ-33 (2026-04-22 audit): TS generic type parameters (`function f<T>`,
+  // `class Foo<T, U>`, `interface Bar<T extends X>`, `type Baz<T> = …`, and
+  // arrow generics `<T,>(x) => …`) look like JSX opening tags to the coarse
+  // `JSX_OPENING_TAG` regex. Register the declared type-parameter names here
+  // so legitimate .tsx code with generics does not get flagged with
+  // `undefined-jsx-symbol: T` and block the quality gate.
+  const addGenericParams = (paramList: string) => {
+    for (const part of paramList.split(",")) {
+      const head = part
+        .trim()
+        .replace(/^readonly\s+/, "")
+        .match(/^([A-Za-z_$][\w$]*)/);
+      if (head && head[1]) declared.add(head[1]);
+    }
+  };
+  const FN_GENERIC_RE = /\bfunction\s*\*?\s*(?:[A-Za-z_$][\w$]*)?\s*<([^<>]+)>/g;
+  while ((m = FN_GENERIC_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) addGenericParams(m[1]);
+  }
+  const CLASS_IFACE_GENERIC_RE = /\b(?:class|interface)\s+[A-Za-z_$][\w$]*\s*<([^<>]+)>/g;
+  while ((m = CLASS_IFACE_GENERIC_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) addGenericParams(m[1]);
+  }
+  const TYPE_GENERIC_RE = /\btype\s+[A-Za-z_$][\w$]*\s*<([^<>]+)>\s*=/g;
+  while ((m = TYPE_GENERIC_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) addGenericParams(m[1]);
+  }
+  // Arrow-generic context: `<T,>(` or `<T extends X>(` — trailing `(` is
+  // required so ordinary JSX `<Foo>` never matches. Also covers the common
+  // `const useThing = <T,>(…) => …` and method-generic shapes.
+  const ARROW_GENERIC_RE =
+    /<\s*([A-Z][\w$]*(?:\s+extends\s+[^,<>]+)?(?:\s*=\s*[^,<>]+)?(?:\s*,\s*(?:[A-Z][\w$]*)(?:\s+extends\s+[^,<>]+)?(?:\s*=\s*[^,<>]+)?)*\s*,?\s*)>\s*\(/g;
+  while ((m = ARROW_GENERIC_RE.exec(scrubbedSource)) !== null) {
+    if (m[1]) addGenericParams(m[1]);
+  }
+
+  return declared;
 }
 
 /**
@@ -356,32 +616,63 @@ export function checkMotionReduceTrap(
   return findings;
 }
 
-export function checkUndefinedJsxSymbols(
+/**
+ * Deterministic check for the silent `useReducedMotion` stub. The autofix
+ * pipeline historically fell back on `(..._args: unknown[]) => ({})` when
+ * the cross-file checker couldn't find a hook implementation. Because `{}`
+ * is truthy in JS, every consumer of the hook (`reduceMotion ? ... : ...`)
+ * short-circuits to the reduced-motion branch and animations silently
+ * disable, which Jake hit when the fiber-modem decoration appeared frozen.
+ *
+ * Block any in-project `useReducedMotion` whose body is the literal
+ * `return {}` or `return null` shape. Real implementations either:
+ *   - return a boolean derived from `matchMedia(...)` (canonical baseline)
+ *   - re-export `useReducedMotion` from `framer-motion`
+ *
+ * Stays narrow: only matches function bodies that consist of exactly the
+ * stub shape so legitimate hooks with conditional branches are not flagged.
+ */
+export function checkUseReducedMotionStub(
   files: Array<Pick<CodeFile, "path" | "content">>,
-  opts: { maxFindings?: number } = {},
 ): VerifierFindings["blocking"] {
-  const maxFindings = opts.maxFindings ?? 12;
   const findings: VerifierFindings["blocking"] = [];
-
-  for (const file of files) {
-    if (!file.path || !file.content) continue;
-    if (!/\.(t|j)sx$/i.test(file.path)) continue;
-    if (usesReactLazy(file.content)) continue;
-
-    const stripped = stripCommentsAndStrings(file.content);
-    const declaredSymbols = collectDeclaredJsxSymbols(stripped);
-    for (const match of stripped.matchAll(JSX_TAG_RE)) {
-      const symbol = match[1];
-      if (typeof match.index === "number" && isLikelyTypeScriptGeneric(stripped, match.index)) continue;
-      if (!symbol || declaredSymbols.has(symbol)) continue;
-      findings.push({
-        id: "undefined-jsx-symbol",
-        detail: `${file.path}: JSX tag <${symbol}> is used but the symbol is neither imported nor declared in this file.`,
-      });
-      if (findings.length >= maxFindings) return findings;
-    }
+  // `export function useReducedMotion(...) { return {}; }` — match either an
+  // empty-object or null return body, optionally with the `_args: unknown[]`
+  // rest signature the cross-file stub used to emit.
+  const STUB_SHAPE_RE =
+    /export\s+function\s+useReducedMotion\s*\([^)]*\)\s*(?::\s*[^{]+)?\s*\{\s*return\s+(?:\{\s*\}|null)\s*;?\s*\}/;
+  for (const f of files) {
+    if (!f.path || !f.content) continue;
+    if (!/\.(t|j)sx?$/i.test(f.path)) continue;
+    if (!/\buseReducedMotion\b/.test(f.content)) continue;
+    if (!STUB_SHAPE_RE.test(f.content)) continue;
+    findings.push({
+      id: "use-reduced-motion-stub",
+      detail: `${f.path}: \`useReducedMotion\` returns an empty object/null. JS treats \`{}\` as truthy so every motion component reading this hook silently freezes. Replace with the canonical \`hooks/use-reduced-motion.ts\` baseline (matchMedia subscription returning a boolean).`,
+    });
   }
+  return findings;
+}
 
+/**
+ * R3F `<Canvas>` is a browser-only runtime boundary. In Next App Router, any
+ * file that imports/renders it must be a client component; typecheck can pass
+ * while runtime preview fails with server-component/client-hook errors.
+ */
+export function checkR3FClientBoundary(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): VerifierFindings["blocking"] {
+  const findings: VerifierFindings["blocking"] = [];
+  for (const f of files) {
+    if (!f.path || !f.content) continue;
+    if (!/\.(t|j)sx$/i.test(f.path)) continue;
+    const hasR3FCanvas = R3F_IMPORT_RE.test(f.content) || JSX_CANVAS_RE.test(f.content);
+    if (!hasR3FCanvas || USE_CLIENT_RE.test(f.content)) continue;
+    findings.push({
+      id: "r3f-client-boundary",
+      detail: `${f.path}: React Three Fiber \`<Canvas>\` appears in a file without \`"use client"\`; this can pass typecheck but fail at runtime in Next App Router.`,
+    });
+  }
   return findings;
 }
 
@@ -408,11 +699,21 @@ export async function runVerifierPass(
   }
 
   const { files } = parseCodeProject(codeProjectContent);
-  const deterministicBlocking = [
-    ...checkMotionReduceTrap(files),
-    ...checkUndefinedJsxSymbols(files),
-  ];
-  const deterministic: VerifierFindings = { blocking: deterministicBlocking, quality: [] };
+  const motionTraps = checkMotionReduceTrap(files);
+  const useReducedMotionStub = checkUseReducedMotionStub(files);
+  const r3fClientBoundary = checkR3FClientBoundary(files);
+  const undefinedJsx = checkUndefinedJsxSymbols(files);
+  const navigationPlaceholders = checkNavigationPlaceholderActions(files);
+  const deterministic: VerifierFindings = {
+    blocking: [
+      ...motionTraps,
+      ...useReducedMotionStub,
+      ...r3fClientBoundary,
+      ...undefinedJsx,
+      ...navigationPlaceholders,
+    ],
+    quality: [],
+  };
 
   const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim());
   if (!hasKey) {

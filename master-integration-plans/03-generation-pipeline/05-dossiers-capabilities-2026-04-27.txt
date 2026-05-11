@@ -1,0 +1,32 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 05-dossiers-capabilities
+Date: 2026-04-27
+
+## Master Pipeline Changes
+- Diff: `src/lib/gen/dossiers/{index,registry,validate-manifest,verbatim-policy}.ts`, `validate-manifest.test`, `docs/schemas/strict/*` (dossier- och relaterade artifacts), `scripts/dossiers/validate-all.ts` (om rört).
+- Registry läser `data/dossiers/{hard,soft}/<id>/manifest.json`, mtime-cache, default `codeFidelity` hard=verbatim, soft=rewritable om saknat.
+- `validate-manifest` — AJV `docs/schemas/strict/dossier.schema.json`; CI `scripts/dossiers/validate-all` inkl. verbatim-filer **måste** finnas på disk.
+
+## Local Behaviors To Preserve
+- Kör `npm run dossiers:validate-all` (eller motsv.) före merge-PR som rör manifest; capability-map: `dossiers:capability-map:write` när `capability` ändras (genererad `_index/capability-map.json` — se docs).
+- **port_ours** här = bevara hårda repo-regler: `id` = mappnamn, `envVars` katalog, dokumenterade hard/soft skillnader, inte tyst drop av dossier pga “tolerant” parse (runtime registry loggar/utesluter — CI är sträng med AJV).
+- Inkommande `origin/master` kan strama åt `verbatim`/`injectionMode` — synka `data/dossiers/**/manifest.json` + filer samma diff.
+
+## Merge/Port Plan
+1. Tre-vägs diff: `dossiers/*.ts` + `dossier.schema.json` + berörda manifests under `data/dossiers/`.
+2. Efter uppdaterade scheman: kör `validate-all` tills 0 fel.
+3. Uppdatera `capability-inference` / `orchestrate` bara om mastern ändrat capability-nycklar (samma PR eller uppföljande).
+4. Tydliggör drift: `registry` vs CI — båda måste peka på samma `codeFidelity`-sanning före prod.
+
+## Regression Risks
+- Tolerant registry vs strikt CI — team tror allt “OK” tills `validate-all` röd i CI.
+- Nya stränga fält (t.ex. `envVars`, fil-listor) utan uppdaterade mappar → exclude av dossier.
+- `verbatim-policy.test` / `verbatim` filkrav bryts vid merge i `data/dossiers/`.
+
+## Required Tests
+- `src/lib/gen/dossiers/validate-manifest.test.ts`, `verbatim-policy.test`, `dossiers/system-prompt-integration.test` (kors), `orchestrate.test` där capabilities påverkas, `validate-all` script.
+
+## Open Questions
+- Ska masterna flytta all runtime-validering till `registry` (tuffare fail) — brytande vs nuvarande warn-only?
+- Förenklad synk: borde `npm run dossiers:capability-map:write` vara obligatorisk i CI vid manifest-edit?
+
+(Referens policy **port_ours** för *builder UI* ligger i `master-integration-plans/01-git-delta-scope/05-port-ours-policy-2026-04-27.txt` — samma merge-strategi, annat scope.)

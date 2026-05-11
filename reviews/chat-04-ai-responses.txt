@@ -1,0 +1,21 @@
+AI-svar & formatering (MessageList + adapter + GenerationSummary)
+
+1. Markdown-path — MessageResponse + Streamdown; streaming caret isAnimating. 4/5
+
+2. hasGenerationContent() — file=" eller ``` triggar GenerationSummary; risk att vanlig prose med staket felroutas. 2/5
+
+3. GenerationSummary — Strippar fence + Thinking; fil-chips + opt-in Råtext pre max-h 400px. 3/5
+
+4. Edge — Ingen generic + inga öppna staket → raw content i div; ostrukturerat kan läcka. 2/5
+
+5. Reasoning — Collapsible msg.thinking; kan bli lång/teknisk. 3/5
+
+6. Sanitize — Bara user-meddelanden saniteras; assistent rå output kan innehålla konstiga wrappers. 3/5
+
+7. Längd — Ingen assistent-trunkering (vs CollapsibleUserMessage för user); långa svar dominerar. 3/5
+
+8. Tool debug — showStructuredParts kan JSON.stringify(toolDebug); medvetet debug men tungt. 2/5
+
+Prioritet: (1) Förfina hasGenerationContent-heuristik. (2) Vänlig fallback när raw branch träffar. (3) Mjukare Råtext/reasoning för slutanvändare.
+
+Helhet AI-läsbarhet: 3/5

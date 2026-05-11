@@ -3,7 +3,7 @@ import {
   renderRequiredImportsChecklistBlock,
   renderLucideIconsReminderBlock,
   __testing,
-} from "./required-imports-checklist";
+} from "./routing-and-tooling";
 import type { RoutePlan } from "../../route-plan";
 
 function makeRoutePlan(paths: string[]): RoutePlan {

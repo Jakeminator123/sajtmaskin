@@ -1,0 +1,32 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 05-chat-dock
+Date: 2026-04-27
+
+## UX To Preserve
+- **Ingen** separat `ChatDock`-komponent — beteende: `minimal` → innehåll i `BuilderDetailsDrawer` (Sheet); `expanded` → `#builder-chat-panel` (ca `w-80`, `border-l`, `bg-muted/20`); `BuilderDisclosurePill` när drawer stängd.
+- **Kollaps:** `chatCollapsed` + `builder:chatCollapsed` — smal remsa “Visa chatt” / in-panel “Dölj chatt”, `lg:hidden` på kollaps.
+- **ChatInterface:** nederst i kolumnen (`border-t`), **inte** global `position: fixed` mot viewport; overlay-float främst i `PreviewPanelComposerOverlay` (preview) och inspect tooltips.
+- **MessageList:** `Conversation*`, `BuilderMessageTooling`, `aria-live` — får inte tappa scroll/politeness vid merge.
+
+## Master UI Changes To Inspect
+- `BuilderShellContent.tsx` där `rightColumnContent` / IIFE byter mellan minimal drawer och inline panel.
+- `ChatInterface.tsx` — `PromptInput`, headers (Plan/Element), busy states.
+- `MessageList.tsx` + `ChatInterface.followup-base-badge.test.tsx` — följ props-kontrakt.
+- Nya “dock”-bibliotek / flytande input från master — stäm av mot faktiskt mönster (kolumn nederst vs float).
+
+## Token / Copy Risks
+- Svenska toasts/labels; små hårdknappar (Media/Text `h-6`) — dålig touch; master som lägger fler dylika utan `min-h-11` = regress.
+- Mörda/shadcn-default engelska i nya `sr-only` — följ agent 08-lista (wrappers).
+
+## Recommended Merge Choices
+- Behåll **två-läge-modellen** (minimal/expanded) om grenens UX är avsikten; acceptera inte en master-layout som tvingar alltid-inline utan designbeslut.
+- Om master ersätter `Sheet` med annan drawer — verifiera fokus, `aria-modal`, samma `id="builder-chat-panel"`-koppling mot flikar där satt.
+
+## Visual Verification
+- `minimal`: öppna drawer från pill, scroll i lista, stäng, tangentbord.
+- `expanded`: kollapsa/expand chatt, desktop vs `<lg` synlighet.
+- Dubblett-innehåll: ingen dubbel `MessageList` när både drawer och panel renderas (villkors-UI).
+
+## Do Not Break
+- `id="builder-chat-panel"` + mobila `aria-controls`.
+- `TipCard` + overlay-sibling ovanför listan (relativ wrapper) — z-index/scroll.
+- Stream/tooling-props in i `MessageList` (`lifecycleStage`, m.m.).

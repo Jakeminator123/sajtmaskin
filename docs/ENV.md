@@ -2,7 +2,7 @@
 
 **Den här filen är inte “source of truth”.** Den ska bara hjälpa människor att snabbt förstå *vad som krävs*, *vad som är valfritt*, och *var sanningen finns i kod*.
 
-**Viktigt:** `.env.local` i **repo-roten** gäller **Sajtmaskin-appen**. En **annan** `.env.local` finns i **användarens genererade Next-projekt** (sandbox / export) — se avsnitt *Genererade användarsajter*, [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc) och [`docs/architecture/glossary.md`](architecture/glossary.md) (§ Env-lager). Rotens `.env*` är ofta gitignorerad **och** borttagen från Cursor-index (`.cursorignore`); agenter ser dem inte om du inte öppnar dem explicit.
+**Viktigt:** `.env.local` i **repo-roten** gäller **Sajtmaskin-appen**. En **annan** `.env.local` finns i **användarens genererade Next-projekt** (preview-VM / export) — se avsnitt *Genererade användarsajter*, [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc) och [`docs/architecture/glossary.md`](architecture/glossary.md) (§ Env-lager). Rotens `.env*` är ofta gitignorerad **och** borttagen från Cursor-index (`.cursorignore`); agenter ser dem inte om du inte öppnar dem explicit.
 
 | Källa | Roll |
 |--------|------|
@@ -12,7 +12,7 @@
 
 **Djupare ämnesdokument** (lägg inte in backlog eller långa tabeller här):
 
-- Preview / sandbox / credentials: [`architecture/fas3-preview-and-deploy.md`](./architecture/fas3-preview-and-deploy.md)
+- Preview / VM / credentials: [`architecture/fas3-preview-and-deploy.md`](./architecture/fas3-preview-and-deploy.md)
 - Modeller / assist / builder-generering: [`architecture/fas2-orchestration-and-build.md`](./architecture/fas2-orchestration-and-build.md), `src/lib/models/catalog.ts`
 - Historisk nyckeljämförelse (utan hemligheter): borttagen — se git-historik
 
@@ -37,7 +37,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 | Område | Exempel på variabler | Kommentar |
 |--------|----------------------|-----------|
-| Cache / rate limit | `REDIS_URL`, `UPSTASH_REDIS_REST_URL` + token | Utan Redis: cache/rate limit degradar (se kod). |
+| Cache / rate limit | `REDIS_URL`, `UPSTASH_REDIS_REST_URL` + token | Cache kan degradera utan Redis. Rate limiting använder Upstash REST när det finns; i produktion failar rate-limitade routes stängt om REST saknas, om du inte explicit sätter `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD=true` för nödläge/dev-lik deploy. |
 | Blob / uppladdning | `BLOB_READ_WRITE_TOKEN` | Vercel Blob; lokalt kan vissa flöden falla tillbaka till filsystem (`DATA_DIR`). |
 | Betalning | `STRIPE_*` | Om credits/betalning används. |
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
@@ -48,16 +48,20 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | Pre-VM typecheck | `SAJTMASKIN_PRE_VM_TYPECHECK=true`, ev. `SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT` | Aktiverar `tsc --noEmit` mot varm scaffold-cache före VM. F3-genereringar tvingar alltid på den. Fail-open vid kall cache. Källa: `src/lib/gen/preview/warm-typecheck.ts`. |
 | Pre-VM eslint | `SAJTMASKIN_BLOCKING_ESLINT=true`, ev. `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS=20` | Aktiverar `eslint` mot samma warm-cache efter att warm-tsc passerar. Fail-open vid kall cache. Samma cache-rot som warm-typecheck (`SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT`). Källa: `src/lib/gen/preview/warm-eslint.ts`. Provisioneras via `npm run provision:warm-cache` (se `scripts/provision-warm-cache.ts`). |
 | F2/F3 quality gate på VM | **Inte env** — ligger i `config/ai_models/manifest.json` → `qualityGateTiers` | `designPreview` (F2) och `integrationsBuild` (F3) är listor av `typecheck` / `build` / `lint`. Läses i `src/lib/gen/verify/quality-gate-checks.ts`. Ändring åker med repo-commit, ingen Vercel-variabel behövs. |
+| LLM-fixer timeout | `SAJTMASKIN_LLM_FIXER_TIMEOUT_MS`, `SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS` | Tuning för LLM-fixern i server-verify/manuell repair. Defaults: 90s primär attempt, 120s reducerad retry. Använd när stora filer ger `llm_fixer_aborted` trots bra felkontext. |
 | F2/F3 placeholder-fragments | (inga env-vars; två filer i `config/ai_models/`) | F2 mergar `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`. F3 (`/finalize-design`) stripar tier-3-stubben och kräver riktiga värden via stored project env vars. Per-key-klassificering: `src/lib/integrations/placeholder-harmless.ts`. |
 | Scaffold SEO defaults (F3) | `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL=https://din-domän.se` | **Opt-in.** Default unset → `applyScaffoldSeoDefaults` är noop (inga `app/robots.ts`/`app/sitemap.ts`/`app/opengraph-image.tsx` injectas, layout-metadata enrichas inte). När satt → SEO-paket injectas med riktig domän. **Detta är en global/per-process fallback** för single-tenant-deploys; per-projekt/per-generation siteUrl ska komma via Bygg-dialog vid F3-promotion (planerat — se [`docs/plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md`](plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md)). **SEO ska inte aktiveras i Fidelity 1/2 / design-preview** — bara vid Bygg / F3-promotion när användaren har en faktisk domän. Källa: `src/lib/gen/scaffolds/seo-defaults.ts`. |
-| Statisk Visual QA (heuristik) | `SAJTMASKIN_VISUAL_QA` satt till `1` eller `true` | Efter att **alla** verify-lanekontroller passerat kan appen köra `analyzeVisualQuality` på exportabla filer (ingen screenshot). Resultatet syns i quality-gate-svar och kan loggas kompakt i `preflight:quality-gate`-meta. Standard är av. Läses direkt från `process.env` i `src/lib/gen/visual-qa.ts`, inte via `serverSchema` i `env.ts`. |
+| Statisk Visual QA (heuristik) | `SAJTMASKIN_VISUAL_QA` satt till `1` eller `true` | Efter att **alla** verify-lanekontroller passerat kan appen köra `analyzeVisualQuality` på exportabla filer (ingen screenshot). Resultatet syns i quality-gate-svar och kan loggas kompakt i `preflight:quality-gate`-meta. Standard är av. Validerad via `serverSchema` i `env.ts` och läses via `getServerEnv()` i `src/lib/gen/verify/visual-qa.ts`. |
+| Rate-limit proxy trust | `SAJTMASKIN_TRUST_X_FORWARDED_FOR=true` | **Opt-in för produktion.** Använd bara om edge/proxy är betrodd och strippar spoofade `x-forwarded-for`-headers. Utan flaggan använder produktion `x-real-ip` eller `unknown`; dev/test fortsätter acceptera `x-forwarded-for`. |
 | LLM reasoning/thinking | `SAJTMASKIN_DEFAULT_THINKING=true` | Kanonisk server-side default för reasoning/thinking-flaggan i kodgenerering. Gäller när klienten inte skickar ett explicit val. Legacy-aliaset `SAJTMASKIN_SHOW_THINKING` togs bort i omtag-04 (2026-04-23). |
 | Dossier pipeline (v2) | `SAJTMASKIN_DOSSIER_PIPELINE=true` | Aktiverar deterministic capability-driven dossier-urval. Läser `data/dossiers/{hard,soft}/<id>/manifest.json` direkt och matchar `brief.requestedCapabilities` 1:1 mot dossiers. Injicerar `## Available Dossiers` + `## Selected Dossier Instructions` + `## Dossier Files To Emit Verbatim` i system-prompten. **Kod-default:** på i alla miljöer; stäng av explicit med `SAJTMASKIN_DOSSIER_PIPELINE=false` eller `0` (fallback i `src/lib/config.ts`). **Deploy-status sedan 2026-04-23:** explicit satt till `true` på alla tre Vercel-miljöer (Development / Preview / Production). Inga tuning-knoppar — det finns inga fler `DOSSIER_*`-variabler. Se [`docs/architecture/dossier-system.md`](architecture/dossier-system.md). |
 | Klient-autofix-tak | `NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=2`, `NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON=1`, `NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS=300000` | Styr klient-driven autofix i [`useAutoFix.ts`](../src/lib/hooks/chat/useAutoFix.ts). Max-per-chat hindrar oändliga repair-loopar. Max-per-reason hindrar samma fel-typ från att försöka fler gånger än tillåtet. NEXT_PUBLIC_-prefix krävs eftersom värdena läses i klient-bundlen. |
 | Deferred extra init routes | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true` | Opt-in för att låta init-genereringar (inklusive `isFirstCodeGeneration`-fallet efter scaffold/contract-gate) planera flera routes men bara fullt realisera primärrouten direkt. Extrasidor blir då giltiga shells med tydlig `Skapa sida`-yta. På follow-up bevaras shells automatiskt om inte användaren explicit ber om att bygga ut en specifik sida. Default av. |
-| Lokal dev-logg | `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod); `GENERATIONSLOGG` styr generationsloggen | Runtime-only, inte i Zod-schemat. `logs/generationslogg/` behåller bara de 3 senaste körningarna. `SAJTMASKIN_LOG` / `file-logger.ts` är borttagna (2026-04). `SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS` togs bort i omtag-04 (hårdkodat 10 000 ord). |
+| Lokal dev-logg | `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod); `GENERATIONSLOGG` styr generationsloggen | Validerade via `serverSchema` men listade i `runtimeOnlyKeys` i `config/env-policy.json` så env-tooling (`manage_env.py`) inte kräver dem i `.env.local`/Vercel-snapshots. Default av. `logs/generationslogg/` behåller bara de 3 senaste körningarna. `SAJTMASKIN_LOG` / `file-logger.ts` är borttagna (2026-04). `SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS` togs bort i omtag-04 (hårdkodat 10 000 ord). |
 | Postgres-pool | `POSTGRES_POOL_MAX`, `POSTGRES_POOL_IDLE_TIMEOUT_MS` | Override för pool-storlek + idle-timeout per processinstans i [`src/lib/db/client.ts`](../src/lib/db/client.ts). Default väljs automatiskt: pooled connection (Supabase pgbouncer / `?pgbouncer=true` / hostname `pooler.*` / port 6543/5433) får `max=3` + idle 5s, direkt Postgres får `max=10` + idle 30s. Sätt `POSTGRES_POOL_MAX` lägre om du ser `EMAXCONNSESSION: max clients` i Fly-loggar (SAJ-7 / B1). |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
+
+> **Termnot — `runtimeOnlyKeys` i `env-policy.json`** styr env-tooling (`manage_env.py`, audit, reconcile) så vissa nycklar inte behöver finnas i `.env.local`/Vercel-snapshots. Det betyder **inte** "saknas i `serverSchema`" — t.ex. `SAJTMASKIN_DEV_LOG` och `SAJTMASKIN_VISUAL_QA` finns i båda. `serverSchema` är fortsatt single source of truth för varje env-var appen läser.
 
 ---
 
@@ -80,9 +84,9 @@ Följande `SAJTMASKIN_*`-flaggor togs bort från `serverSchema` (`src/lib/env.ts
 | Borttagen flagga | Ersatt av | Effekt |
 |---|---|---|
 | `SAJTMASKIN_SHOW_THINKING` | `SAJTMASKIN_DEFAULT_THINKING` | Legacy-alias borttaget; sätt den kanoniska flaggan direkt. |
-| `SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX` | `FEATURES.consistentRepairPassIndex = true` | SAJ-25-härdningen är alltid på. |
-| `SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX` | `FEATURES.verifierRerunAfterFix = true` | Verifier-rerun efter LLM-fixer är alltid på. |
-| `SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE` | `FEATURES.skipDoubleValidateAndFixOnMerge = true` | Mekanisk-only på merged-syntax-fail är alltid på. |
+| `SAJTMASKIN_CONSISTENT_REPAIR_PASS_INDEX` | inlinad i `persist-side-effects.ts` | SAJ-25-härdningen är ovillkorlig (FEATURES.consistentRepairPassIndex togs bort 2026-04-28). |
+| `SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX` | inlinad i `verifier-phase.ts` | Verifier-rerun efter LLM-fixer är ovillkorlig (FEATURES.verifierRerunAfterFix togs bort 2026-04-28). |
+| `SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE` | inlinad i `finalize-preflight.ts` | Mekanisk-only på merged-syntax-fail är ovillkorlig (FEATURES.skipDoubleValidateAndFixOnMerge togs bort 2026-04-28). |
 | `SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT` | `FEATURES.recurringPatternsInMainPrompt = NODE_ENV === "development"` | Bevarar dev-on/prod-off-defaulten; ändras i kod. |
 | `SAJTMASKIN_USE_ERROR_LOG_RAG` | `FEATURES.useErrorLogRag = NODE_ENV === "development"` | Samma — RAG är på i dev, av i prod. |
 | `SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS` | `FOLLOW_UP_TUNING.maxRecentHistoryPairs = 4` | Konstant. |
@@ -111,6 +115,17 @@ Praktisk rekommendation:
 - Låt `SAJTMASKIN_PREVIEW_DISABLE_HMR=true` (default) ligga på host-sidan; ändra bara om du behöver hot-reload mellan kod-ändringar i en pågående preview-VM
 
 När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host som den aktiva tier-2-vägen.
+
+### Env-precedence för genererade användarsajter
+
+| Lager | Roll | Stoppar F2/F3? |
+|---|---|---|
+| `env.example` / genererad env-dokumentation | Dokumentation för användaren | Nej |
+| Harmless placeholders + tier-3 stub placeholders | Gör F2-designpreview körbar utan riktiga integrationer | Nej för F2; F3 strippar tier-3 stub-lagret om inte `allowPlaceholdersInF3` är på |
+| Project env vars (`projectEnvVars`) | Effektiva runtime-värden för F3/deploy | Ja, om dossier-nyckeln har `enforcement: "build"` och saknas |
+| Preview-host `.env.local` | Faktisk runtime-fil inne i preview-VM | Speglar lagren ovan via `buildPreviewEnvLocalContents()` |
+
+F3-readiness ska alltså spegla **verkliga integrationkrav**, inte om en nyckel råkar finnas i `env.example`. `feature-runtime` rapporteras som warning och `warn-only` som info; bara `build`-enforcement blockerar.
 
 ---
 
@@ -147,7 +162,7 @@ Filen tar bort behovet av att fråga användaren om env-variabler i chatten unde
 | **F2** (`design`) | Alla harmless-placeholders **+** tier-3-stubs **+** projekt-preview-tokens. Användaren ser exakt vilka nycklar projektet kan tänkas använda. Ingen interaktion krävs — preview-VM:en bootar oberoende av denna fil. | `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt` + `project-preview-env.ts` |
 | **F3** (`integrations`) | Tier-3-stubs strippas. Värden från env-panelen (`projectEnvVars` i DB) mergas in som "user"-lager. Saknade tier-3 nycklar surfar som blockers via [`src/lib/integrations/tier3-build-spec.ts`](../src/lib/integrations/tier3-build-spec.ts). | Som F2 utan tier-3 + DB-lagrade `projectEnvVars` + ev. modell-emitterad `.env.local` |
 
-`env.example` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i sandboxen — det är `.env.local` som faktiskt boot:ar previewen, `env.example` är **användarsynlig spegling** + förklaringsdokument. Detaljer: [`src/lib/gen/stream/finalize-version/`](../src/lib/gen/stream/finalize-version/) (post-OMTAG-03 package; `runner.ts` kallar `injectProjectEnvFileIntoFilesJson`).
+`env.example` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i VM:en — det är `.env.local` som faktiskt boot:ar previewen, `env.example` är **användarsynlig spegling** + förklaringsdokument. Detaljer: [`src/lib/gen/stream/finalize-version/`](../src/lib/gen/stream/finalize-version/) (post-OMTAG-03 package; `runner.ts` kallar `injectProjectEnvFileIntoFilesJson`).
 
 ### Regelkontrakt: F2-tystnad
 
@@ -155,7 +170,7 @@ F2 får aldrig generera env-frågor i chatten. Detta är en hård regel — se [
 
 1. **Tool exposure gate** — `requestEnvVar` / `suggestIntegration` exponeras inte för LLM:n i F2 ([`create-chat-stream-post.ts`](../src/lib/api/engine/chats/create-chat-stream-post.ts), [`chat-message-stream-post.ts`](../src/lib/api/engine/chats/chat-message-stream-post.ts)).
 2. **SSE filter** — om verktygen ändå råkar kallas droppas tool-events av [`generation-stream-tools.ts`](../src/lib/providers/own-engine/generation-stream-tools.ts) i F2 (defense-in-depth, tool-call-pathen).
-3. **Panel mount-gate** — `ProjectEnvVarsPanel` renderas bara när `lifecycleStage === "integrations"` ([`BuilderShellContent.tsx`](../src/app/builder/BuilderShellContent.tsx)). I F2 visas en kompakt rad som pekar på `env.example` + "Bygg nu"-knappen.
+3. **Panel mount-gate** — `ProjectEnvVarsPanel` renderas bara när `lifecycleStage === "integrations"` ([`BuilderShellContent.tsx`](../src/app/builder/BuilderShellContent.tsx)). I F2 visas en kompakt rad som pekar på `env.example` + "Bygg integrationer"-knappen.
 4. **Post-finalize code-scan gate** — efter finalize scannar [`generation-stream-post-finalize.ts`](../src/lib/providers/own-engine/generation-stream-post-finalize.ts) genererad kod efter integrations-imports (Stripe, Upstash etc.). I F2 droppas resultatet (loggas som warning). I F3 emitteras integration-SSE som vanligt. Tillagt 2026-04-18 efter regression där Stripe+Upstash visades i F2-chatten på en museum-prompt.
 
 Lansering-spärren (readiness-route) gatas också på lifecycleStage så att F2 alltid returnerar `ready: true` oavsett vad som detekteras i koden.

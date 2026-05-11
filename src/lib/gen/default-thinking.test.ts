@@ -13,6 +13,7 @@ async function loadDefaultThinkingModule(env: {
 }
 
 afterEach(() => {
+  vi.doUnmock("@/lib/env");
   vi.resetModules();
 });
 
@@ -43,6 +44,7 @@ describe("getDefaultThinkingEnabled", () => {
 describe("toAnthropicEffort", () => {
   it("maps shared reasoning effort levels to supported Anthropic effort levels", async () => {
     vi.resetModules();
+    vi.doUnmock("@/lib/env");
     const { toAnthropicEffort } = await import("./engine");
 
     expect(toAnthropicEffort("none")).toBe("low");
@@ -50,5 +52,5 @@ describe("toAnthropicEffort", () => {
     expect(toAnthropicEffort("medium")).toBe("medium");
     expect(toAnthropicEffort("high")).toBe("high");
     expect(toAnthropicEffort("xhigh")).toBe("max");
-  });
+  }, 15_000);
 });

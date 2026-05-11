@@ -24,6 +24,10 @@
  *     chatId,
  *     versionId,
  *     scaffoldId,
+ *     routePath,       // optional structured rerank context
+ *     variantId,       // optional structured rerank context
+ *     capabilityIds,   // optional structured rerank context
+ *     generationMode,  // init | followup | auto_repair | null
  *     lineageHash,
  *   }
  *
@@ -74,6 +78,10 @@ export interface ErrorLogEvent {
   chatId?: string | null;
   versionId?: string | null;
   scaffoldId?: string | null;
+  routePath?: string | null;
+  variantId?: string | null;
+  capabilityIds?: string[];
+  generationMode?: "init" | "followup" | "auto_repair" | null;
   lineageHash?: string | null;
 }
 
@@ -117,6 +125,10 @@ export function appendErrorLogEvent(event: ErrorLogEvent): void {
       chatId: event.chatId ?? null,
       versionId: event.versionId ?? null,
       scaffoldId: event.scaffoldId ?? null,
+      routePath: event.routePath ?? null,
+      variantId: event.variantId ?? null,
+      capabilityIds: event.capabilityIds ?? [],
+      generationMode: event.generationMode ?? null,
       lineageHash: event.lineageHash ?? null,
     };
     const line = JSON.stringify(row) + "\n";

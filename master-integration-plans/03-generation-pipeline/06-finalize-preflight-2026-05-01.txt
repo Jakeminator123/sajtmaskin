@@ -1,0 +1,43 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 06-finalize-preflight
+Date: 2026-05-01
+
+## Master Pipeline Changes
+- `runFinalizePreflight` parses, ensures deferred route shells, repairs files, validates syntax, builds preview HTML, removes duplicate routes, builds complete project, enforces home gate/count parity, runs all preflight checks, and builds preview start contract.
+- `preflight-phase.ts` merges generated project files, runs finalize preflight, adds missing emitted essentials, and injects integration manifest/env files.
+- `preflight-contract.ts` defines issue categories and `canStartPreview`.
+
+## Local Behaviors To Preserve
+- Deferred shell pages include deterministic postMessage build-out and URL fallback.
+- `isShellPageContent` fingerprints must match shell templates.
+- Build-out request listener remains tolerant of HMR/source nuances.
+- `nextFilesJson` after preflight is the complete persisted project list.
+
+## Merge/Port Plan
+- Preserve order: merge -> finalize preflight -> manifest/env injection.
+- Keep home-route and count-parity invariants.
+- Keep `ensureDeferredRouteShells` aligned with route realization semantics.
+
+## Frontend Wiring / UI Surface Needed
+- Shell pages must emit `{ source: "sajtmaskin-preview", type: "build-out-request", payload }`.
+- Builder must route that through preview telemetry to `onBuildOutRouteRequest`.
+- Preview route UI should filter shell pages with `isShellPageContent`.
+
+## Exact LLM Implementation Instructions
+- Do not ask LLM to create shell pages; use deterministic templates.
+- Use LLM repair only for invalid merged syntax where feature flag allows it.
+- Keep shell-page fingerprint and build-out request contract in sync.
+
+## Regression Risks
+- Count parity blocks preview/persist.
+- Home gate false positives/negatives.
+- Broken shell postMessage removes “Skapa sida”.
+- Confusion between preview file count and complete persisted count.
+
+## Required Tests
+- `finalize-preflight.test.ts`.
+- `build-spec.test.ts` for `isShellPageContent`.
+- Finalize-version integration tests.
+
+## Open Questions
+- Should missing required files remain warnings or become blockers?
+- Should preview vs persisted file counts be explicitly surfaced in UI/logs?

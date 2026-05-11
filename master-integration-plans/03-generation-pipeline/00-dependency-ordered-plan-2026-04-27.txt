@@ -1,0 +1,41 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 00 dependency-ordered plan
+Date: 2026-04-27
+
+Pre-flight: HEAD=6dab64a97567e48a907e0896a3bf877148c63aeb, origin/master=4de2fabd261d3d34d7c1770064ed5fd7a3882190, merge-base=9ec2045a814c7e65a1829f7cf1f638d56855b7da. Policy: **port_ours** för lokal builder-UI/UX + postMessage build-out (se MI01 `05-port-ours-policy`).
+
+Beroendeordning (nedströms — port/merge i ungefär denna ordning minskar kaskadbrott):
+
+1. **Capability + build intent + route/orchestration contract**  
+   `orchestrate.ts`, `orchestrate/policy-helpers.ts`, `capability-inference.ts`, `build-spec/*`, `orchestration-contract.ts`, `generation-input-package.ts`, `orchestrate/generation-package.ts`, `orchestration-snapshot.ts`  
+   → Allt annat antar stabil `OrchestrationBase`, `buildSpec.previewPolicy`, `routeRealization`, `lineageHash`.
+
+2. **System prompt + budget**  
+   `system-prompt/build-dynamic-context.ts`, `sections/*`, `budget.ts`, `compose.ts` + `config/prompt-core/*`  
+   → Bygger på fält från (1); merge-konflikter: behåll buildOut, capability-modify, F2/Tier3-deny, route-plan + imports-checklist ordning.
+
+3. **Scaffolds + variant-JSON + embeddings**  
+   `config/scaffold-variants/**` (+ kör `npm run scaffolds:variant-embeddings` om nya varianter), `src/lib/gen/scaffolds/*`, `scaffold-variants/{registry,matcher}.ts`  
+   → Matchar manifest / orchestrate; nya landning-varianter i master-diff kräver index + `getScaffoldIds()`-match.
+
+4. **Dossiers + strict schema + capability map**  
+   `data/dossiers/**`, `src/lib/gen/dossiers/*`, `docs/schemas/strict/dossier.schema.json`, `scripts/dossiers/validate-all.ts`  
+   → Före prompt-dump: validera manifest; CI verbatim-filkrav.
+
+5. **Engine pipeline SSE (stream-format) → own-engine**  
+   `src/lib/gen/engine.ts` / `stream-format.ts` → `providers/own-engine/generation-stream.ts` → `generation-stream-post-finalize.ts`  
+   → Klient: `stream-handlers`, `builder-stream-contract`; postMessage/preview/heartbeats fortfarande enligt lokal port_ours.
+
+6. **Finalize: fast-path + preflight + merge + partial-file**  
+   `finalize-version/*`, `finalize-preflight.ts`, `finalize-merge.ts`, `preflight-contract.ts`, `preview/should-start-preview`, `warm-typecheck` / `warm-eslint`, `post-finalize-policies.ts`  
+   → Home-route + count parity + `PreviewStartContract` måste hållas när master rör repair/merge.
+
+7. **Autofix + verifier + quality-gate + repair-loop + server-verify**  
+   `autofix/*` (inkl. `import-validator`, `llm-fixer`, `tier3-sdk-guard`), `verify/*` (verifier-pass, `product-postcheck` i diff, `quality-gate-checks`, `repair-loop`, `server-verify`, `preview-quality-gate`)  
+   → Konsument: `stream-handlers` post-check UI, `post-checks.ts` API-anrop; undvik dubbel “sanning” mot ny product-postcheck-route på API.
+
+8. **Exporter + project-scaffold baseline**  
+   `export/project-scaffold.ts` + `dep-completer` / tester — sista lås mot VM/preview-filer.
+
+Efter varje större steg: `npm run typecheck` + relevanta `vitest` (minst `orchestrate*.test`, `orchestration-snapshot.test`, `finalize-*.test`, `autofix/*test`, `verifier*.test`, `generation-stream*.test`).
+
+Rapportfiler: `01-…`–`08-…-2026-04-27.txt` i samma mapp.

@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 04-intake-wizard
+Date: 2026-04-27
+
+## UI/UX To Preserve
+- 6 steg: företag → siteType → innehåll → story → sidor → media (`IntakeWizard.tsx`); steg-titlar och kort svensk copy.
+- Scrape: `onScrapeUrl` + `BuilderShellContent` `POST /api/builder/company-intel` (`synthesize: true`) → fyller `WizardScrapeData` / fält; auto-scrape när `initialExistingUrl` — **AbortSignal** i `IntakeWizard`.
+- Completion: `buildWizardBrief` / `buildWizardCreativePrompt` (`wizard-brief.ts`); `handleIntakeWizardComplete` sätter `meta: { brief }` och startar bygg (upload + `createChat`) utan att dubbelkalla `/api/ai/brief` där `useBuilderPromptActions` föredrar en källa.
+- Kategori: `CATEGORIES` ↔ `CATEGORY_LABEL_TO_ID` måste förbli i synk med `category-inference` + scrape (kommenterad koppling i `wizard-brief.ts`).
+
+## New Master Capabilities To Surface
+- Master: nya fält i wizard state / API-svar (company-intel) → uppdatera mappning i `handleIntakeWizardScrape` + typer.
+- Nya steg/val: kräver UI-komponent + lokal validering + samma 6-rubriks- och minimal typografi.
+- Fler media/sources: förankra i samma steg-UX (kort, progressiv).
+
+## State/Props Impact
+- `IntakeWizard` props: `onComplete`, `onScrapeUrl?`, `suggestContext?`, `initialExistingUrl?`, `initialPrompt?` — masterns extra props måste trådas i `BuilderShellContent` utan att tappa ovan.
+- Typer: `WizardAnswers`, `IntakeWizardResult`, `WizardScrapeData`.
+
+## Merge Conflict Plan
+1. Merge `IntakeWizard.tsx` + `wizard-brief.ts` tillsammans; kontrollera `CATEGORY` tabeller.
+2. Merge `BuilderShellContent` wizard-block med scrape + complete; håll **meta.brief** format kompatibelt med `useCreateChat`.
+3. Rök `suggest-pages` / upload om master ändrar beroenden.
+4. `IntakeSummaryCard` o.d. följer samma kategori-IDs.
+
+## Test Plan
+- Manuell: wizard igenom → skapa chat → kolla `options.meta.brief` i nät; scrape med avbrott/validering; mobil layout.
+- Ingen dedikerad `IntakeWizard.test` (ev. lägg när kritiskt) — tills dess API-integrationstester där sådana finns.
+
+## Do Not Break
+- `applyScrapeToBusiness` + `scrapedCategoryIds` + `scrapedFields` (komplex state).
+- Auto-brief: ingen dubbel `/ai/brief` när wizard redan byggt `brief` (dokumenterat i `useBuilderPromptActions`).

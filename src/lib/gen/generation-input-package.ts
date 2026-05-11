@@ -12,6 +12,10 @@ import { createHash } from "node:crypto";
 import type { OrchestrationBase } from "./orchestrate";
 import type { BuildSpec } from "./build-spec";
 import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
+import {
+  buildPromptSizeMetrics,
+  type PromptSizeMetrics,
+} from "./prompt-size-metrics";
 
 export interface GenerationInputPackage extends OrchestrationBase {
   /** User-turn text that shaped orchestration/system assembly for this run. */
@@ -30,6 +34,8 @@ export interface GenerationInputPackage extends OrchestrationBase {
   dynamicContextPruning: DynamicContextPruning;
   /** Structured observability for the dynamic prompt blocks before/after pruning. */
   dynamicContextBlocks: DynamicContextBlockTrace[];
+  /** Prompt-size observability used to identify bloat before trimming context. */
+  promptSize: PromptSizeMetrics;
   /** Chosen scaffold variant for this generation. */
   variantId: string | null;
   /** SHA-256 of deterministic inputs for lineage tracking. */
@@ -104,6 +110,24 @@ export function serializePackageForDump(
     dynamicContextLength: pkg.dynamicContext.length,
     dynamicContextPruning: pkg.dynamicContextPruning,
     dynamicContextBlocks: pkg.dynamicContextBlocks,
+    promptSize: pkg.promptSize,
     variantId: pkg.variantId,
   };
+}
+
+export function buildGenerationPromptSize(
+  pkg: Pick<
+    GenerationInputPackage,
+    | "engineSystemPrompt"
+    | "dynamicContext"
+    | "dynamicContextPruning"
+    | "dynamicContextBlocks"
+  >,
+): PromptSizeMetrics {
+  return buildPromptSizeMetrics({
+    engineSystemPrompt: pkg.engineSystemPrompt,
+    dynamicContext: pkg.dynamicContext,
+    dynamicContextPruning: pkg.dynamicContextPruning,
+    dynamicContextBlocks: pkg.dynamicContextBlocks,
+  });
 }

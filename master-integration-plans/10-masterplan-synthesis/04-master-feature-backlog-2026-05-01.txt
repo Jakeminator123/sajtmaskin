@@ -1,0 +1,51 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 04-master-feature-backlog
+Date: 2026-05-01
+
+## Inputs Read
+- Master new-features report, backend API contracts, generation pipeline, builder state, preview session, env/observability, regression gaps, deploy/domain/CSP/analytics reports.
+
+## Synthesis
+Master adds or tightens product-postcheck, preview-prewarm, SEO deploy opt-in, version diagnostics, strict import/schema validation, scaffold variants, telemetry, `reasoning-slow`, raw prompt transport, capability/dossier bridge, preview session/heartbeat, deploy SSE/409 errors, domain check/link/verify/save, CSP/proxy, analytics and event-bus logging.
+
+## Ordered Plan
+1. Clean tree and slice commits.
+2. Align env and schemas.
+3. Update stream routes and chat clients.
+4. Update generation pipeline and finalize/preflight/autofix/verifier.
+5. Update preview runtime/session/quality gate.
+6. Wire builder UI state/tooling/deploy SEO.
+7. Align media, credits, auth and validation errors.
+8. Wire deploy/domain/CSP/analytics.
+9. Update observability event unions.
+10. Add tests for touched gaps.
+
+## Exact LLM Implementation Brief
+- Stream: use master raw prompt body and map `reasoning-slow` to existing progress UI.
+- CRUD/readiness: update versions, readiness, files and post-check clients with route key changes.
+- Product postcheck: one UI error source only.
+- Preview prewarm: fire-and-forget only.
+- Orchestration: merge dossier bridge, filters, `simpleWebsitePath`, `previousFilePaths`, `followUpIntent`, while preserving `meta.buildOut`.
+- Finalize/shell: shell pages emit build-out postMessage.
+- Autofix/verifier: keep blocking/advisory distinction and avoid stale `Fel`.
+- Preview session: update contract, routes and client helpers together.
+- Deploy/SEO: respect `siteUrl: null` opt-out and handle `DEPLOY_MISSING_ENV`.
+- Domains: Vercel project id for link/verify, internal deployment id for save.
+- CSP/analytics: one nonce pipeline and whitelisted analytics hosts.
+
+## Acceptance Criteria
+- Stream and CRUD clients match backend contracts.
+- Postcheck, readiness and verifier show one coherent state.
+- Preview heartbeat uses valid session/viewer ids.
+- Deploy SEO opt-in and domain flows work.
+- Env/config audit clean.
+- Analytics/CSP smoke clean.
+- Required buttons/states exist for chat progress, publish, deploy dialog, preview, domain, media, auth and credits.
+
+## Risks / Mitigations
+- Stream/version races: one client and atomic stream/finalize merge.
+- Domain id confusion: explicit type/comments and staging smoke.
+- CSP/analytics breakage: report-only first.
+- Tracked generated data: exclude from product commits.
+
+## Final Recommendations
+Treat stream, orchestration, finalize, preview session and deploy typings as one critical integration slice before UI polish.

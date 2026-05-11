@@ -54,6 +54,13 @@ export async function runAutofixPrePhase(params: {
   buildSpec?: BuildSpec | null;
   resolvedScaffold: ScaffoldManifest | null;
   resolvedTier?: CanonicalModelId;
+  /**
+   * Orchestrate-resolved variant id (snapshot/meta). Forwarded to
+   * `runAutoFix` so `font-import-fixer` can materialize the variant's
+   * first font pair into baseline `app/layout.tsx` deterministically.
+   * No-op when null/undefined.
+   */
+  variantId?: string | null;
   onProgress?: FinalizeProgressCallback;
   stepTelemetry: FinalizeStepTelemetryMap;
 }): Promise<AutofixPhaseResult> {
@@ -65,6 +72,7 @@ export async function runAutofixPrePhase(params: {
     buildSpec,
     resolvedScaffold,
     resolvedTier,
+    variantId,
     onProgress,
     stepTelemetry,
   } = params;
@@ -97,6 +105,8 @@ export async function runAutofixPrePhase(params: {
       model,
       requestedCapabilities,
       previewPolicy: buildSpec?.previewPolicy,
+      scaffoldId: resolvedScaffold?.id ?? null,
+      variantId: variantId ?? null,
     });
     contentForVersion = autoFixResult.fixedContent;
     autofixSucceeded = true;

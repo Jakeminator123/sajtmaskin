@@ -1,0 +1,22 @@
+Agent 2 — Minimize/Expand (chattpanel)
+Scope: BuilderShellContent.tsx, ChatInterface.tsx, FloatingChatBox.tsx (referens)
+Datum: 2026-04-16
+Betyg: 1 = saknas/dåligt mot målet, 5 = bra
+
+1. Desktop (lg+): Ingen knapp för att minimera eller kollapsa själva chatpanelen (`#builder-chat-panel`). Kolumnen är alltid `lg:w-80 lg:max-w-[20rem]` (~320px), `flex-row-reverse` placerar den till höger; preview (`flex-1`) delar bara resterande bredd — ingen toggle som ger preview 100%. Betyg: 1
+
+2. ChatInterface.tsx: Inga props eller UI för min/max, dölj/visa panel — endast innehåll i redan tilldelad kolumn. Betyg: 1
+
+3. Mobil (<lg): `mobileTab` "Chatt" | "Sajt" — fullbredds växling mellan chat och förhandsvisning (tablist). Det är inte samma som en "<"-minimera, men låter användaren lägga hela skärmen på preview. Betyg: 3
+
+4. Versionspanel (höger om preview, inte chat): `VersionHistory` har `isCollapsed` / `onToggleCollapse` och smalnar till `w-10` — tydlig minimeringsmönster, men gäller versioner, inte chatt. Risk att förväxla med "minimera chat". Betyg: 3
+
+5. FloatingChatBox.tsx: Implementerar exakt mönster — rubrikrad "Chatt" + `ChevronLeft` ("Minimera chatten"), minimerat läge = flytande `MessageSquare`-knapp `absolute bottom-3 left-3` ("Öppna chatten"); toast på desktop när `autoMinimize` slår till. Komponenten importeras inte i builder-flödet (endast egen fil). Betyg: 2 (bra idé, ej inkopplad)
+
+6. Förhandsvisning vid minimerad chat (om FloatingChatBox användes): chatten skulle ligga `lg:absolute` vänster 340px ovanpå; minimerad ⇒ teoretiskt mer yta till preview — men i nuvarande shell styrs det inte. Betyg: n/a (ej aktiv)
+
+7. Var en knapp borde sitta (rekommendation): vertikal skarv mellan preview och chat (resize + ikon), eller överst i chatkolumnen bredvid "Chatt"-rubrik om sådan införs; undvik att duplicera versionspanelens collapse. Flytande bubbla som i FloatingChatBox är ett alternativ om chat blir overlay.
+
+8. Persistens: ingen localStorage för chat min/max i BuilderShellContent (endast nämnt för advanced panel). Betyg: 2
+
+Sammanfattning: Primär builder saknar minimering av chat på desktop; enda "dölj chat" är mobil tab. Återanvänd eller ta bort FloatingChatBox för att undvika spök-UX.

@@ -1,5 +1,4 @@
 import type { ScaffoldFile, ScaffoldManifest } from "./types";
-import { warnLog } from "@/lib/utils/debug";
 import type { SeoBrand } from "@/lib/projects/preferences-schema";
 
 /**
@@ -40,38 +39,17 @@ import type { SeoBrand } from "@/lib/projects/preferences-schema";
  *     because the scaffold's metadata has no locale today — the previous
  *     hardcoded `"sv_SE"` is replaced by `brand.locale` if provided.)
  *
- * Operators see a single warn at boot if the env-fallback path is hit
- * with no env set, so the gap is visible. Backoffice → "Scaffold
- * Performance" page surfaces the disabled state.
+ * Backoffice → "Scaffold Performance" surfaces the disabled state. Dev/build
+ * preflight also prints a single operator hint; this hot path intentionally
+ * stays quiet because it is called by many API routes and scaffold lookups.
  */
 
 const SEO_SITE_URL_ENV = "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL";
-
-/**
- * Cross-module-instance warn-once flag. Lives on `globalThis` so Next dev
- * HMR + edge/node runtime split (which both re-import this module) doesn't
- * reset the flag and spam the console with the same warning per scaffold
- * (registry.ts maps over 9 scaffolds, each calling this function).
- *
- * Reset semantics: only on full process restart, which is correct — we
- * want exactly one warn per process lifetime.
- */
-const WARN_FLAG_KEY = "__sajtmaskinSeoDefaultsWarned" as const;
-type WarnFlagHolder = { [WARN_FLAG_KEY]?: boolean };
 
 function readSeoSiteUrl(): string | null {
   const fromEnv = process.env[SEO_SITE_URL_ENV]?.trim();
   if (!fromEnv) return null;
   return fromEnv.replace(/\/$/, "");
-}
-
-function warnOnceAboutMissingSeoSiteUrl(): void {
-  const holder = globalThis as unknown as WarnFlagHolder;
-  if (holder[WARN_FLAG_KEY]) return;
-  holder[WARN_FLAG_KEY] = true;
-  warnLog("scaffold", "seo_defaults_disabled", {
-    reason: `${SEO_SITE_URL_ENV} unset — scaffold SEO files (robots/sitemap/opengraph) and layout metadata enrichment are disabled. Set the env var (e.g. when promoting to fidelity3) to activate.`,
-  });
 }
 
 /**
@@ -356,11 +334,6 @@ function applySeoCore(
 } {
   const resolved = resolveSeoSiteUrl(options);
   if (resolved.siteUrl === null) {
-    if (resolved.source === "env-missing") {
-      // Only warn in env-fallback path. Caller-driven explicit-noop is a
-      // deliberate choice and shouldn't trigger an operator warning.
-      warnOnceAboutMissingSeoSiteUrl();
-    }
     return {
       applied: false,
       files: inputFiles as SeoTargetFile[],

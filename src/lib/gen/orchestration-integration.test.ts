@@ -226,4 +226,57 @@ describe("orchestration integration (matchScaffold → deriveBuildSpec)", () => 
     expect(pkg.userPrompt).toBe("WRAPPED optimized prompt with file context");
     expect(pkg.rawPrompt).toBe("Vad tycker du om hero-sektionen?");
   });
+
+  it("records prompt-size metrics in the generation input package", () => {
+    const pkg = buildGenerationInputPackage(
+      {
+        resolvedScaffold: null,
+        orchestrationContract: {},
+        routePlan: { routes: [] },
+        preGenerationContracts: emptyContracts,
+        capabilities: minimalCapabilities,
+        buildSpec: { buildIntent: "website" },
+        serializeMode: null,
+        componentReferences: [],
+        scaffoldVariantId: null,
+        capabilityModifyHint: null,
+      } as never,
+      {
+        prompt: "Bygg en enkel hemsida",
+      },
+      {
+        engineSystemPrompt: [
+          "static core",
+          "",
+          "---",
+          "",
+          "# Request-Specific Context",
+          "",
+          "dynamic context",
+        ].join("\n"),
+        dynamicContext: "dynamic context",
+        dynamicContextPruning: { budgetTokens: 100, usedTokens: 5, droppedBlockKeys: [] },
+        dynamicContextBlocks: [
+          {
+            key: "project_context",
+            title: "Project Context",
+            priority: 88,
+            required: true,
+            chars: 42,
+            estimatedTokens: 14,
+            kept: true,
+          },
+        ],
+        variantId: null,
+      } as never,
+    );
+
+    expect(pkg.promptSize.total.chars).toBe(pkg.engineSystemPrompt.length);
+    expect(pkg.promptSize.dynamicContext.chars).toBe(pkg.dynamicContext.length);
+    expect(pkg.promptSize.blocks.largest[0]).toMatchObject({
+      key: "project_context",
+      chars: 42,
+      kept: true,
+    });
+  });
 });

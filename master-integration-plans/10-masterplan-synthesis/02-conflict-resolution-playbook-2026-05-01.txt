@@ -1,0 +1,49 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 02-conflict-resolution-playbook
+Date: 2026-05-01
+
+## Inputs Read
+- Git conflict forecast, merge order, port-ours policy, risk map and command plan.
+- Backend API, generation, builder, preview, env, tests, design and deploy/observability reports.
+
+## Synthesis
+Default policy:
+- Take master for backend routes, validation, auth, rate limits, media, credits, deploy, domains, security headers, verifier, quality-gate, and canonical stream events.
+- Take ours for builder shell layout, chat dock, wizard/chat UX, Swedish copy, design tokens, and preview-first composition.
+- Manual merge for generation pipeline, preview runtime, preview-host, `PreviewPanel`, builder state/controllers, stream clients, CSP/proxy, env trilogy and tests.
+
+## Ordered Plan
+1. Clean tree and remove generated/report noise from product merge scope.
+2. Resolve tooling roots first.
+3. Merge `env.ts`, `env-policy.json`, `ENV.md`, `.env.example` atomically.
+4. Merge API routes and clients before UI.
+5. Merge generation pipeline in dependency order.
+6. Merge preview runtime as one vertical.
+7. Merge builder UI bundle as one behavioral unit.
+8. Reconcile design tokens.
+9. Reconcile deploy/CSP/analytics.
+10. Run verification ladder.
+
+## Exact LLM Implementation Brief
+- For each conflict, compare merge-base/ours/theirs before choosing side.
+- Stream files must be resolved together: routes, `chat-message-stream-post`, `create-chat-stream-post`, `stream-format`, `orchestrate`, hooks and tests.
+- Preview files are manual: preserve postMessage order, `vmReady`, cross-origin grace, `pickEngineIframeUrl`, `bumpPreviewRefreshToken`, heartbeat/session coupling and build-out.
+- Builder files are ours-first for UX, master-first only for required props/API wiring.
+- `globals.css` and `tailwind.config.cjs` start from ours; incoming classes must be tokenized.
+- `src/proxy.ts`/`next.config.ts` are master-first manual with one CSP/nonce truth.
+
+## Acceptance Criteria
+- No product commit includes `data/runs/**`, logs, prompt dumps, secrets, planning artifacts or unrelated review files.
+- Stream, preview and builder tests pass after conflict resolution.
+- Env audits pass when env files change.
+- Builder remains preview-first and visually unchanged.
+- CSP/CORS/nonce behavior matches master security requirements.
+
+## Risks / Mitigations
+- Half-merged stream stack: resolve as one unit.
+- Broken preview timing: port local runtime/hooks behavior after master structural changes.
+- Env drift: one atomic env slice.
+- Duplicate CSP: keep one authority.
+- Dirty merge: commit or stash before merge.
+
+## Final Recommendations
+Use the conflict forecast as the war-room board and avoid file-at-a-time guesses on shared stream/preview/builder surfaces.

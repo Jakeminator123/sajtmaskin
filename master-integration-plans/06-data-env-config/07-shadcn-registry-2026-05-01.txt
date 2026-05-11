@@ -1,0 +1,45 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 07-shadcn-registry
+Date: 2026-05-01
+
+## Master Changes
+- Diff shadcn config, sync scripts, generated components data, registry service/cache, API routes, examples, and mirror audit policy.
+
+## Local Changes / Dirty Files
+- No known shadcn dirty paths in initial status.
+
+## Compatibility Risks
+- Style drift between `components.json`, registry URL mapping, and env style.
+- Two index formats are intentionally used by sync and runtime cache.
+- `--write` preserves removed entries unless manually cleaned.
+- Soft predev registry sync can hide network failures.
+
+## Files To Update
+- `src/lib/gen/data/shadcn-components.ts`
+- `scripts/shadcn/*`
+- `src/lib/shadcn/registry-url.ts`
+- registry cache/API routes.
+- `data/shadcn-examples/*.json`
+- docs if prompt/toolkit contract changes.
+
+## Frontend Impact / UI States
+- Builder registry UX and component suggestions.
+- LLM toolkit summary, import validator, JSX checker, shadcn import fix.
+- Example fetch cache and component refs.
+
+## Exact LLM Implementation Instructions
+- Run `npm run shadcn:sync` after merge.
+- If diff is real, run `npm run shadcn:sync:write` and commit generated component data.
+- Ensure local UI component files exist before adding exports.
+- Sync examples when official demo blocks change.
+
+## Verification Commands
+- `npm run shadcn:sync`
+- `npm run shadcn:sync:write`
+- `npm run shadcn:sync-examples`
+- registry-url and registry-utils tests
+- system prompt tests
+- `npm run typecheck`
+
+## Commit / Ignore Guidance
+- Commit generated shadcn component data only after verified sync.
+- Do not mix runtime data/logs into registry commit.

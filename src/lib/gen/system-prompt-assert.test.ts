@@ -5,7 +5,7 @@ import { SYSTEM_PROMPT_SEPARATOR } from "./system-prompt";
 const PADDING = "x".repeat(300);
 
 function buildHealthyPrompt(extra = ""): string {
-  return `# Static Core\n${PADDING}${SYSTEM_PROMPT_SEPARATOR}# Dynamic\n${extra}`;
+  return `# Core Rules\n${PADDING}${SYSTEM_PROMPT_SEPARATOR}# Dynamic\n${extra}`;
 }
 
 describe("assertSystemPromptShape", () => {
@@ -24,7 +24,7 @@ describe("assertSystemPromptShape", () => {
   });
 
   it("flags a missing separator as a blocker", () => {
-    const result = assertSystemPromptShape(`# Static Core\n${PADDING}\nNo separator here.`);
+    const result = assertSystemPromptShape(`# Core Rules\n${PADDING}\nNo separator here.`);
     expect(result.hasBlocker).toBe(true);
     expect(result.issues.some((i) => i.code === "missing-separator")).toBe(true);
   });

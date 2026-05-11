@@ -1,0 +1,49 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 04-intake-wizard
+Date: 2026-05-01
+
+## UI/UX To Preserve
+- Wizard steps: company, siteType, content, story, pages, media.
+- Wizard only before chat exists.
+- Scrape UX with abort and field/category inference.
+- Swedish chips/copy/progress and Escape handling.
+
+## New Master Capabilities To Surface
+- New company-intel payload fields must map into scrape handler and `WizardScrapeData`.
+- New request fields require schema and client updates.
+- New wizard fields require `WizardAnswers`, `goNext`, `fieldMessages`, and `buildWizardBrief` updates.
+
+## State/Props Impact
+- `IntakeWizardProps`: complete/scrape/suggest/initial URL/prompt.
+- `IntakeWizardResult`: answers, fieldMessages, mediaFiles/purpose.
+- Shell refs: company brief, scrape data, uploaded media.
+- VM fields: scaffold mode/id, design theme/colors, initial messages.
+
+## Required Buttons / Choices / Copy
+- Site type category chips.
+- CTA/must-have/features choices.
+- Short creative prompt, not long raw brief text.
+
+## Exact LLM Implementation Instructions
+- Structured brief source is `options.meta.brief` from wizard.
+- `useCreateChat` merges wizard brief over pending prompt meta.
+- `formatPrompt` is skipped when brief exists.
+- `requestCreateChat` must skip dynamic brief when wizard brief is seeded.
+- company-intel is input to wizard, not the only final source.
+
+## Merge Conflict Plan
+- Merge `IntakeWizard`, `wizard-brief`, and `category-inference` together.
+- Preserve shell completion order: messages -> meta.brief -> media upload -> execute starter generation.
+- Preserve seeded-brief gate in prompt actions.
+- Update scrape response mapping if backend shape changes.
+
+## Test Plan
+- Wizard to chat creates `briefSource: "wizard"` and `briefQuality: "full"`.
+- Scrape fills fields/theme and supports abort.
+- Media uploads handle error codes.
+- Non-wizard start still runs dynamic instructions.
+
+## Do Not Break
+- `applyScrapeToBusiness`.
+- fieldMessages into needs analysis/scaffold hint.
+- Wizard brief merge and no double brief.
+- Media purpose stamps.

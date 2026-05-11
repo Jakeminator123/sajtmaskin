@@ -1,0 +1,36 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 01-commit-graph
+Date: 2026-04-27
+
+## Scope
+Analyser av `origin/master` jämfört med gemensamt **merge-base** gentemot `frontend/christopher` @ `HEAD` **6dab64a97567e48a907e0896a3bf877148c63aeb**. Endast **`9ec2045a814c7e65a1829f7cf1f638d56855b7da..origin/master`** (master-innehåll som inte finns på din gren).
+
+## Evidence
+| Mätning | Värde |
+|--------|--------|
+| `HEAD` | `6dab64a97567e48a907e0896a3bf877148c63aeb` |
+| `origin/master` | `4de2fabd261d3d34d7c1770064ed5fd7a3882190` |
+| Merge-base | `9ec2045a814c7e65a1829f7cf1f638d56855b7da` |
+| Commits på master efter merge-base | **88** |
+| Diff omfattning | **198 filer**, **+19313 / -3962** (indikativt från agent) |
+| Merge-commits i intervallet | **9** (indikativt) |
+
+**Största path-prefix (ungefärlig tyngdpunkt):** `src/lib` (~99), `docs/plans` (~25), `src/app` (~20), `docs/schemas` (~12), `docs/architecture` (~10), `src/components` (~7), `.cursor/rules` (~6).
+
+## Findings
+Subsystem (överlapp förekommer): **docs** (LLM-flöde, arkiv), **gen/pipeline** (orchestrate, verifier/autofix, quality-gate, product postcheck), **builder UI** (t.ex. SeoOptInPanel, P0), **API routes** (stream, SEO preferences, deployments), **preview** (SAJ-61, VM-gate), **config**, **tests**, **backoffice**, **scripts** (migrations, DB env).
+
+**Strukturella pelare (master-intervallet, teman):** (1) Merge/PR llm-flöde waves, (2) SEO F3-kedja preferences/deploy/builder, (3) SAJ-61 structured verifier, (4) P0 abort / site.aborted, (5) DB migrations, (6) product postcheck MVP, (7) nya landing scaffold-varianter, dokumentflytt.
+
+## Recommended Actions
+1. Konfliktlösning gärna i ordning: `src/lib` → `src/app/api` → `src/components`; eller en merge med review per katalog.
+2. Separat pass för `docs/plans` + `.cursor/rules` + `docs/schemas` så lokala parallella docs inte tappas utan review.
+3. Checklista: stream `site.aborted`, seo-preferences, deployments body, verifier vs preview start.
+
+## Verification Needed
+- Fil-för-fil `git diff 9ec2045a..origin/master` mot lokala 48 commits.
+- `npm run typecheck` + vitest efter merge; manuell Bygg-dialog/Publicera, versionless abort, preview när verifier blockerar.
+
+## Do Not Break
+Stream-/chat-kontrakt, finalize/preview/VM-flags, deploy SEO-kedja, orchestrate/dossier rawPrompt där lokal wizard divergerat.
+
+Per pre-flight: `git rev-list --left-right --count HEAD...origin/master` = **48	88** (48 endast lokal, 88 endast master efter merge-base).

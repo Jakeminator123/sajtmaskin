@@ -15,8 +15,11 @@ alwaysApply: false
 | `npm run dev:clean` | Rensa .next/cache + starta (vid 404-routes, efter reinstall) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run test:ci` | Hela Vitest-sviten |
+| `npm run test:focused` | Kort kärn-subset (~12 filer) — snabb dev-loop |
 | `npm run lint` | ESLint |
+| `npm run lint:fix` | ESLint --fix |
 | `npm run devtest` | typecheck + scaffolds:validate + dossiers:validate-all + test + lint |
+| `npm run backoffice` | Starta Streamlit-backoffice (kanonisk entry; se AGENTS.md) |
 
 ## Databas
 
@@ -44,6 +47,7 @@ alwaysApply: false
 |----------|-----|
 | `npm run plans:archive` | Dry-run: lista klara plan-filer |
 | `npm run plans:archive:apply` | Flytta klara plans till avklarat/ |
+| `npm run env:status` | Snabb env-status |
 | `npm run env:pull` | Hämta Vercel-envs till .env.local |
 | `npm run env:audit` | Audit av env-policy |
 

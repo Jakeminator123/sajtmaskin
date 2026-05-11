@@ -1,0 +1,42 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 01-preview-panel
+Date: 2026-04-27
+
+## Master Runtime Changes
+- Diff: `PreviewPanel.tsx`, `PreviewPanelEmptyState.tsx`, `preview-panel-types.ts` (vs `origin/master`). Troligen props/fälten: `activePreviewSessionId`, `previewLifecycle`, `alternatePreviewUrls`, F3-callbacks, `rejectedShrinkCount`, `onBuildOutRouteRequest`, `simplified`, `generationPhase`.
+- Beroende hooks: `usePreviewIframe`, `usePreviewPanelOwnEnginePreviewTelemetry`, `usePreviewHeartbeat`, `usePreviewPanelPreviewRoutes` — samma merge som panel.
+
+## Local Preview UX To Preserve
+- **Tom preview:** tidig return `!previewUrl && !isCodeView` → endast `PreviewPanelEmptyState` (ingen frame/chrome).
+- **Glapp:** `GenerationProgress` när chat/version men ingen URL; `previewPending` / laddning.
+- **Simplified** empty state: auto-`onFixPreview`, kortare copy, avvikande UI.
+- **Tier-2 yta:** `surfaceDescriptor` (Live-preview, blob/integration), own-engine vs shim.
+- **vmReady:** dölja tom iframe tills reell render (samma som `usePreviewIframe` + telemetri).
+- **port-ours (MI01):** vid konflikt prioritera lokala `PreviewPanel*`, `preview-panel-types`, telemetri-hooks före generisk master-layout.
+
+## Coupling Points
+- `BuilderShellContent` → `PreviewPanel` + `#builder-preview-panel`.
+- `preview-lifecycle` / `engine-version-lifecycle` typer, `error-log` POST från `reportPreviewIssue`, `CHAT_TOOL_EVENT` bus.
+- `postPreviewHeartbeat` (parameternamn `activeSandboxId` i någon callsite = legacy; semantik = preview-session id).
+
+## Failure Modes
+- Villkorlig hook-ordning om master flyttar hooks kring `previewUrl` / `isCodeView`.
+- `preview-starting` före `onLoad` / cross-origin grace — fel tids-`vmReady`.
+- Dubblett heartbeats / fel `previewSessionId` (coexistence).
+- `simplified` + `onFixPreview` loop.
+- `event.source` vs innehåll i build-out (medvetet utan source-jämförelse).
+
+## Verification Matrix
+| Scenario | Förväntat |
+|----------|-----------|
+| Ingen URL, ingen kodvy | Endast empty state / progress där tänkt |
+| `awaitingInput` | Titel, badges, samma copy |
+| `previewBuildError` + `showFixAction` | Fel + försök igen |
+| URL null→satt | Ingen “hooks order”-krasch (`PreviewPanel.test` om finns) |
+| Tier-2 | Heartbeat bara när `isTier2LivePreviewUrl` + live lifecycle (se 05) |
+| Own-engine / shim | Telemetri + `reportOwnEngineRenderFailure` sökväg |
+
+## Do Not Break
+- `preview-starting` → `preview-ready` / `markVmReady` / `notifyPreviewStarting` (telemetri efter `usePreviewIframe` ordning).
+- `reportOwnEngineRenderFailureSinkRef` mönster (stabil sink).
+- `PreviewPanelProps` fullständiga mot `BuilderShellContent` (F3, build-out, `rejectedShrinkCount`).
+- Terminologi: kalla saker **preview** / **VM** / **preview_host** i nya strängar/kommentarer; `sandbox*`-alias i props är skuld, inte förläng.

@@ -3,10 +3,10 @@
  *
  * Architecture (post 2026-04-18 directive-cascade removal):
  *  ┌─────────────────────────────────────────────────┐
- *  │  Static Core — config/codegen-core-manifest.json +             │
+ *  │  Core Rules — config/codegen-core-manifest.json +              │
  *  │    config/prompt-core/*.md (immutable product rules,           │
  *  │    incl. visual-design + coding-direction)                     │
- *  │  (~8–10K tokens, mtime-cached per process)       │
+ *  │  (size varies; see prompt telemetry + slim plan) │
  *  ├─────────────────────────────────────────────────┤
  *  │  Dynamic context  (varies per request)           │
  *  │  → Build intent, scaffold variant, brief, route, │
@@ -27,7 +27,7 @@
  * signal those defaults pretended to switch on.
  *
  * What reaches the model (own-engine):
- *  - **Static Core** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
+ *  - **Core Rules** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
  *    **dynamic context** from this file = full **system** message.
  *  - **User turn** = current request prompt; not duplicated here.
  *  - **Chat history** = prior turns, assembled by the generation pipeline.
@@ -39,6 +39,7 @@
  */
 
 import { debugLog } from "@/lib/utils/debug";
+import { SCAFFOLD_PROTECTED_PATHS } from "../scaffolds/protected-paths";
 import { pickScaffoldVariant } from "../scaffold-variants";
 import { BUILD_INTENT_GUIDANCE } from "../intent-guidance";
 import {
@@ -54,43 +55,39 @@ import {
   renderBuildIntentBlock,
   renderCustomInstructionsBlock,
   renderF2ContractBlock,
+  renderFileSurfaceBudgetBlock,
   renderGenerationModeBlock,
   renderGenerationProfileBlock,
-} from "./sections/intro";
+  renderPreGenerationContractsBlock,
+  renderTier3IntegrationBlock,
+} from "./sections/session-contracts";
 import {
   renderDesignPriorityBlock,
-  renderScaffoldVariantBlock,
-} from "./sections/scaffold-variant";
-import {
   renderScaffoldContextBlock,
   renderScaffoldResearchBlock,
+  renderScaffoldVariantBlock,
   renderToolkitBlock,
-} from "./sections/scaffold-and-toolkit";
+} from "./sections/scaffold-stack";
 import {
   renderCapabilityModifyHintBlock,
   renderDossierBlocks,
 } from "./sections/dossiers";
-import { renderRoutePlanBlock } from "./sections/route-plan";
-import {
-  renderPreGenerationContractsBlock,
-  renderTier3IntegrationBlock,
-} from "./sections/contracts";
-import { renderBriefBlocks } from "./sections/brief";
-import {
-  renderDesignReferencesBlock,
-  renderGuidanceBlocks,
-  renderVisualIdentityBlock,
-} from "./sections/visual-and-guidance";
-import {
-  renderComponentReferencesBlock,
-  renderImageryBlock,
-  renderMediaCatalogBlock,
-  renderSeoBlock,
-} from "./sections/imagery-media-seo";
 import {
   renderLucideIconsReminderBlock,
   renderRequiredImportsChecklistBlock,
-} from "./sections/required-imports-checklist";
+  renderRoutePlanBlock,
+} from "./sections/routing-and-tooling";
+import {
+  renderBriefLockedDesignValuesBlock,
+  renderBriefBlocks,
+  renderComponentReferencesBlock,
+  renderDesignReferencesBlock,
+  renderGuidanceBlocks,
+  renderImageryBlock,
+  renderMediaCatalogBlock,
+  renderSeoBlock,
+  renderVisualIdentityBlock,
+} from "./sections/brief-visual-media";
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -98,6 +95,20 @@ function str(v: unknown): string {
 
 function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
+}
+
+function renderScaffoldProtectedPathsBlock(): string[] {
+  const paths = Array.from(SCAFFOLD_PROTECTED_PATHS).sort();
+  if (paths.length === 0) return [];
+
+  return [
+    [
+      "## Scaffold-default files",
+      "",
+      "Do NOT emit these files. They are owned by the scaffold runtime, and generated copies are dropped before save:",
+      ...paths.map((path) => `- \`${path}\``),
+    ].join("\n"),
+  ];
 }
 
 /**
@@ -125,14 +136,33 @@ export function buildDynamicContext(
     customInstructions,
     userPrompt,
     generationMode,
+    followUpIntent,
     buildSpec,
     sessionSeed,
     chatId,
     componentReferences,
-    buildOut,
+    ragContext,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
+  // Follow-ups render compact unless the user actually asked for a redesign
+  // (BuildSpec `changeScope === "redesign"` or explicit `clear-redesign`
+  // intent). Previously `contextPolicy: "heavy"` also forced the full
+  // (non-compact) path, but `heavy` triggers on capability weight (e.g.
+  // needs3D) even for small edits on an existing 3D site — the previous
+  // project files already carry the variant/toolkit/route detail, so
+  // re-expanding those blocks wastes ~8-10k chars per repair/follow-up.
+  //
+  // Required blocks (Brief-Locked Design Values, Generation Stage, File
+  // Surface Budget, Route Plan, Dossier Files To Emit Verbatim, …) survive
+  // compact rendering because their `required: true` priority comes from
+  // rubric-matching in `system-prompt/budget.ts`, independently of the
+  // contextPolicy/heavy signal.
+  const compactFollowUpContext =
+    isFollowUp &&
+    Boolean(buildSpec) &&
+    buildSpec?.changeScope !== "redesign" &&
+    followUpIntent !== "clear-redesign";
   const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
   const toneKeywords = strList(brief?.toneAndVoice);
 
@@ -175,46 +205,52 @@ export function buildDynamicContext(
 
   const parts: string[] = [];
   parts.push(...renderGenerationModeBlock(isFollowUp));
-  // ── Build-Out Request (targeted shell-route expansion) ─────────────────
-  if (buildOut?.path) {
-    const displayName = buildOut.name?.trim() || buildOut.path;
-    parts.push(
-      "## Build-Out Request",
-      "",
-      `The user clicked "build out" for the shell route **${buildOut.path}** (${displayName}). Expand ONLY this route with full content, copy, and interactive sections that match the rest of the site.`,
-      "",
-    );
-    if (buildOut.intent?.trim()) {
-      parts.push(
-        `Planned intent for this page (from the route plan): ${buildOut.intent.trim()}`,
-        "",
-      );
-    }
-    parts.push(
-      "Do NOT redesign unrelated pages or the global layout. Keep existing navigation, theme tokens, and shared components intact.",
-      "",
-    );
-  }
   parts.push(...renderCustomInstructionsBlock(customInstructions));
   parts.push(...renderF2ContractBlock(buildSpec));
   parts.push(...renderBuildIntentBlock(intent));
   parts.push(...renderGenerationProfileBlock(buildSpec));
-  parts.push(...renderScaffoldVariantBlock(effectiveVariant));
+  parts.push(
+    ...renderFileSurfaceBudgetBlock({
+      buildSpec,
+      routeCount: routePlan?.routes?.length ?? 1,
+      scaffoldId: resolvedScaffold?.id ?? null,
+    }),
+  );
+  parts.push(
+    ...renderBriefLockedDesignValuesBlock({
+      brief,
+      themeOverride,
+    }),
+  );
+  parts.push(
+    ...renderScaffoldVariantBlock(effectiveVariant, {
+      compact: compactFollowUpContext,
+    }),
+  );
   parts.push(...renderDesignPriorityBlock());
 
   // ── Import Rules & Known Pitfalls live in config/prompt-core/01-behavioral-contract.md
   // (static core, cached per process — no longer eats dynamic context token budget)
 
   parts.push(...renderScaffoldContextBlock(scaffoldContext));
-  parts.push(...renderScaffoldResearchBlock(resolvedScaffold));
+  if (!compactFollowUpContext) {
+    parts.push(...renderScaffoldResearchBlock(resolvedScaffold));
+  }
   parts.push(
     ...renderToolkitBlock({
       resolvedScaffold,
       capabilityHints,
       componentPalette,
+      compact: compactFollowUpContext,
     }),
   );
-  parts.push(...renderDossierBlocks(options.dossierSelection));
+  parts.push(
+    ...renderDossierBlocks(options.dossierSelection, {
+      generationMode,
+      requestedCapabilityTiers: options.dossierPromptContext?.requestedCapabilityTiers ?? null,
+      previousFilePaths: options.dossierPromptContext?.previousFilePaths ?? null,
+    }),
+  );
   // Plan 11 / open-question #12: when the follow-up was classified as
   // `capability-modify` the dossier branch above is intentionally
   // empty (upstream suppresses `requestedDossierCapabilities`). Restore
@@ -226,11 +262,14 @@ export function buildDynamicContext(
       routePlan,
       buildSpec,
       isFollowUp,
+      compactMode: compactFollowUpContext,
       chatId,
       userPrompt,
       resolvedScaffold,
+      ragContext,
     }),
   );
+  parts.push(...renderScaffoldProtectedPathsBlock());
   // E4 (OMTAG fas 2·C) — deterministic shadcn imports checklist. Placed
   // right after the route plan so the LLM has scaffold + route context
   // in mind when it reads which components are about to be in play.
@@ -240,9 +279,12 @@ export function buildDynamicContext(
     ...renderRequiredImportsChecklistBlock({
       routePlan,
       capabilityHints,
+      compactMode: compactFollowUpContext,
     }),
   );
-  parts.push(...renderLucideIconsReminderBlock());
+  if (!compactFollowUpContext) {
+    parts.push(...renderLucideIconsReminderBlock());
+  }
   parts.push(...renderTier3IntegrationBlock({ buildSpec, preGenerationContracts }));
   parts.push(...renderPreGenerationContractsBlock(preGenerationContracts));
   parts.push(...renderBriefBlocks(brief));
@@ -287,6 +329,7 @@ export function buildDynamicContext(
     title: block.title,
     priority: block.priority,
     required: Boolean(block.required),
+    chars: block.text.length,
     estimatedTokens: block.estimatedTokens,
     kept: keptKeys.has(block.key),
   }));

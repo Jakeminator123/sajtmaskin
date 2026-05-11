@@ -1,0 +1,34 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 06-master-new-features
+Date: 2026-04-27
+
+## Scope
+Master-sida **nya/ändrade** förmågor synliga i `git diff` (exempl från `HEAD...origin/master`):
+
+- `src/app/api/engine/chats/[chatId]/product-postcheck/` (ny)
+- `src/lib/api/engine/chats/preview-prewarm.*` (ny)
+- `SeoOptInPanel`, `VersionDiagnostics` m.fl. under `src/components/builder/`
+- `src/app/api/v0/deployments/resolve-seo.*` (ny)
+- `src/lib/gen/autofix/import-validator*`, strict schemas under `docs/schemas/strict/`
+- `backoffice/pages/llm_flode_telemetry.py` (ny, om path kvarstår)
+- nya `config/scaffold-variants/landing-page/*`
+
+**Korrektion:** Agent som sökte *nuvarande träd* utan att jämföra kunde missa ovan — dessa pathen kommer från **faktisk** `git diff --name-status HEAD...origin/master` i pre-flight (2026-04-27).
+
+## Evidence
+- Diff-lista (utdrag): product-postcheck, preview-prewarm, SeoOptInPanel, resolve-seo, mängder `docs/schemas/strict/*.json`, repair/quality/versions under `[chatId]`, deployments routes.
+
+## Findings
+- Postcheck på servern kan komplettera befintlig post-check i chat; undvik **dubbel** sanning — läs nya route-handlers.
+- Prewarm = sannolikt kost/latens/TTL — följ preview-host + rate limit.
+- SEO: panel + resolve-seo — följ builder deploy-flöde och projekt-preferenser.
+- import-validator + strict schemas: kör parity-/dossier-valideringstester.
+- Backoffice-telemetry: om ny sida, synka uppläsningspunkter i Streamlit.
+
+## Recommended Actions
+Efter fetch: `git log --oneline <merge-base>..origin/master` + filtrerad `git diff` på `api/`, `components/builder/`, `lib/gen/`, `docs/schemas/strict/`, `backoffice/`.
+
+## Verification Needed
+Nya API:er + befintlig `PostCheckPanel` / `stream-handlers` — inga motsägelseartifact. Preview contract + prewarm. Deploy SEO end-to-end om miljö finns. `import-validator` + registries.
+
+## Do Not Break
+Befintlig post-check i stream, `preview-session`-kontrakt, strict schema parity, `import-validator` som kanonisk fixer, scaffold `$schema`.

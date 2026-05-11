@@ -1,0 +1,44 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 08-production-smoke
+Date: 2026-05-01
+
+## Production Changes In Master
+- Smoke scripts/checklists cover health, env, API, deploy, domains, preview, analytics, cron, webhooks.
+- Production readiness depends on secrets and Vercel project config, not just code.
+
+## Local Behavior To Preserve
+- Local dev smoke must avoid live builder/chat collisions.
+- Do not navigate active user builder sessions.
+- Prefer logs/data/backoffice for observation.
+
+## Security / Secret Risks
+- Smoke commands must not print secrets.
+- Do not run destructive deploy/domain actions against production by accident.
+- Use staging/new chat IDs.
+
+## Required Deploy / Observability UI
+- A single production smoke checklist after merge.
+- Status surfaces for deployment, preview readiness, analytics, cron/webhooks.
+- Clear operator notes when env is missing.
+
+## Exact LLM Implementation Instructions
+- Build a staged smoke ladder: lint/type/build, API health, deploy dry-run/staging, domain verify staging, analytics, cron, webhooks.
+- Keep smoke isolated from existing user chats/projects.
+- Record expected evidence and failure triage paths.
+
+## Deploy Verification
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
+- API route health and auth boundaries.
+- Staging deploy and preview runtime.
+- Domain link/verify only against staging domain.
+
+## Observability Checks
+- Vercel build/deploy logs.
+- App server logs for deploy/domain/preview.
+- Metrics endpoint.
+- CSP reports.
+- Admin frontlogs/error-log.
+
+## Do Not Commit
+- Smoke output with secrets, `.vercel`, real customer domains, generated logs/data dumps.

@@ -1,0 +1,48 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 01-design-tokens
+Date: 2026-05-01
+
+## UX To Preserve
+- Brandbook HSL variables in `globals.css`.
+- Legacy brand aliases mapped to current ink/sand tokens.
+- Forced light runtime.
+- Landing v2 token-driven CTA/orbs.
+- Tailwind semantic color mapping via CSS variables.
+
+## Master UI Changes To Inspect
+- `globals.css` imports and shadcn/tailwind source plumbing.
+- `components.json` base color/style assumptions.
+- Duplicate base layer rules.
+- Old docs/rules that still mention navy/orange.
+
+## Token / Copy Risks
+- Hardcoded hex in builder fallbacks, landing, maps, wizard modal, and 3D scenes.
+- Raw Tailwind palettes in editor/admin/log surfaces.
+- Generator/scaffold defaults can reintroduce dark slate/navy.
+- Blue status-info may violate brandbook if treated as accent.
+
+## Required UI Additions Without Redesign
+- Use semantic classes only.
+- Add new CSS variable for any new category color.
+- Keep WebGL exceptions scoped and documented.
+
+## Exact LLM Implementation Instructions
+- Preserve `:root`, `.dark`, brand aliases, scrollbar, and `@theme inline` mappings in conflicts.
+- Preserve Tailwind variable mappings.
+- Grep for hex and raw palette classes after merge.
+- Keep light-lock script unless product decides otherwise.
+
+## Recommended Merge Choices
+- Use local `globals.css` and Tailwind config as base.
+- Accept new shadcn component code but convert classes to tokens.
+- Keep landing v2 3D unless master fixes are necessary.
+
+## Visual Verification
+- Landing off-white/near-black/sand/stone.
+- Builder panels use card/border tokens.
+- Scrollbar and reduced motion remain consistent.
+
+## Do Not Break
+- `hsl(var(--*))` contract.
+- Legacy brand aliases.
+- Light-lock inline script.
+- Tailwind v4 `@theme inline` color mapping.

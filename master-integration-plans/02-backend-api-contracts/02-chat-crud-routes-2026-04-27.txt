@@ -1,0 +1,40 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 02-chat-crud-routes
+Date: 2026-04-27
+
+## Master Changes To Preserve
+- Efter merge: `GET/POST` under `.../product-postcheck/` (ny på master) — avstämma mot befintlig post-check/quality-gate så samma `chatId`/`versionId` inte får dubblettaggressiva anrop.
+- `quality-gate` — `POST` `{ versionId, checks }`; 501 = skippat; annat → error i post-checks.
+- `readiness` — `GET` `?versionId=`; `useChatReadiness` + `useAutoFix` (verificationState); `ChatReadiness` i `src/lib/chat-readiness.ts`.
+- `repair` — `POST` `{ versionId, repairContext }` → `ServerRepairResult` / `tryServerRepair` i `post-checks.ts`.
+- `versions` — SWR `useVersions`, `fetchChatVersions`, autofix, `VersionHistory`, `accept-repair`, underresurser `error-log`, download, export, feedback, m.m.
+- `accept-repair` — `VersionHistory` POST.
+
+## Frontend Consumers
+- `src/lib/hooks/chat/post-checks.ts` — kvalitetsgrind, repair, error-log.
+- `useChatReadiness.ts`, `useAutoFix.ts`, `useVersions.ts`, `VersionHistory.tsx`, `BuilderMessageTooling` (tool:quality-gate), `useBuilderPageController` (deploy-readiness).
+- Bas-URL: `engineChatBaseUrl` från `src/lib/api/engine-chats-path.ts`.
+
+## Contract Risks
+- Nya/omdöpta fält i `readiness` bryter `LaunchReadinessCard` / F3.
+- `readiness` utan `versionId` → pollar ej — beteendemåste oförändrat.
+- `quality-gate` statuskropp: `passed`, `checks`, visuell QA, timing.
+- `repair` / `ServerRepairResult` + toast + `mutateVersions`.
+- `GET /versions` + `VersionEntry` + sortering påverkar "senaste version" i autofix.
+
+## Required Adaptations
+1. När `product-postcheck` finns: bestäm ersätt vs kompletterar `runPostGenerationChecks` (undvik parallell sanning + coexistence).
+2. `readiness`/`ChatReadiness`-ändring: uppdatera `chat-readiness.ts` + alla konsumenter samma pass.
+3. `repair`/`accept-repair`: håll `VersionHistory` + `post-checks` i synk.
+4. `GET /versions` ska fortsatt ge `{ versions: [...] }`.
+
+## Tests / Runtime Checks
+- `.../quality-gate/route.test.ts`, `.../versions/route.test.ts`, `.../error-log/route.test.ts` där de finns.
+- `post-checks.test.ts`, `useAutoFix.test.ts`, `BuilderMessageTooling.test.tsx`.
+- Ingen `route.test` för alltid readiness/repair i träd — efter merge kör fokus-/full `vitest`.
+
+## Do Not Break
+- `engineChatBaseUrl` + path-segment ovan.
+- `POST quality-gate` + `POST repair` från `post-checks.ts`.
+- `GET readiness` för deploy/autofix.
+- `error-log` GET/POST för autofix och paneler.
+- `POST accept-repair` + SWR `GET /versions`.

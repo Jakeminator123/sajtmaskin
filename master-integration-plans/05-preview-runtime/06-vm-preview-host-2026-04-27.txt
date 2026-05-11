@@ -1,0 +1,32 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 06-vm-preview-host
+Date: 2026-04-27
+
+## Master Runtime Changes
+- `src/lib/gen/preview/preview-host-client.ts` (diff vs master) — HTTP: start/update/destroy/hibernate, status, quality-gate, timeouts; `VersionMismatchOverlayPayload`; `ENOSPC` hantering.
+- Katalog: `preview-host/` — `runtime.js` (install, `npm run dev`, proxy, verify queue, `patchNextConfigForPreviewBasePath`, `SAJTMASKIN_PREVIEW_BASE_PATH=/{chatId}`), `server.js`, `store.js`, `Dockerfile`, `fly.toml`, `scripts/smoke.js`, `README.md`.
+- Docs: `docs/architecture/fas3-preview-and-deploy.md` (status: running/starting/stopped/missing/version_mismatch).
+
+## Local Preview UX To Preserve
+- När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` satt: **VM**-väg = tier-2; UI ska fortfarande visa samma `surfaceDescriptor` + heartbeat mot session (samma användar-mental modell: **live preview**).
+- **preview_host** som `tier2Provider` i kontrakt (inte omdöp till "sandbox" i nya fält).
+- Lokal `preview-host` smoke: `npm run smoke` (underkatalog) enligt README när man rör `runtime.js`.
+
+## Coupling Points
+- App → host: `preview-hibernate`/`preview-destroy` routes anropar `hibernatePreviewHostSession` / `destroyPreviewHostSession`.
+- `runPreviewHostQualityGate` från `preview-quality-gate` + kø `verifyQueue` (seriell verify i host — undvik race).
+- `next dev` in host: hostname `127.0.0.1`, valfri `SAJTMASKIN_PREVIEW_DISABLE_HMR` — inverkar på när `preview-ready` vs HMR (parent måste tåla).
+
+## Failure Modes
+- Disk/ENOSPC → client retry path (läs i `preview-host-client`).
+- `fly.toml` **vs** `README` CPU/RAM-inkonsekvens (agent noterade) — verifiera mot faktisk Fly före prod-ändringar.
+- Version mismatch payload till overlay — om master stramar payload utan uppdaterad `VersionMismatchOverlay`.
+
+## Verification Matrix
+- Health `GET /health` på host (enligt fly).
+- Ett `chatId` path: install → dev → `waitForReady` → first paint.
+- Destroy/hibernate: process tree stop (`SIGTERM` → `SIGKILL`).
+
+## Do Not Break
+- Køad verify: ingen parallell install+verify samma maskin.
+- `basePath` injektion som Next preview kräver för app under `/{chatId}`.
+- Pekare `SAJTMASKIN_PREVIEW_HOST_BASE_URL` i app-CSP (proxy) + tier-2 suffix env — samma här som i 08.

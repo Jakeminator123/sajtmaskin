@@ -1,0 +1,48 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 02-preview-frame
+Date: 2026-05-01
+
+## Master Runtime Changes
+- Iframe lives in PreviewPanelFrame.
+- preview-host runtime sends `preview-starting`.
+- Compatibility shim sends `preview-ready` and errors.
+
+## Local Preview UX To Preserve
+- Debounced loading overlay with hard cap.
+- GenerationProgress over iframe until VM ready.
+- Desktop/tablet/mobile width presets.
+- Same-origin DOM poll plus cross-origin postMessage grace.
+
+## Coupling Points
+- `previewSrc`/`previewUrl` resets iframe state.
+- Telemetry must run after iframe hook.
+- `notifyPreviewStarting` prevents premature ready.
+- `markVmReady` comes from preview-ready or fallback timers/DOM.
+
+## Required Preview UI / Controls
+- Iframe id/title/class and sandbox attributes.
+- Error overlay with diagnostics/runbook.
+- Version mismatch overlay suppressed during iframe error.
+
+## Exact LLM Implementation Instructions
+- Preserve telemetry/iframe hook order.
+- Preserve `data-sajtmaskin-preview-state="starting"` contract.
+- Document if generated Next apps start emitting `preview-ready`.
+
+## Failure Modes
+- Early `vmReady` or flickering stub.
+- Loading overlay hard-cap hides long boot.
+- Preview ready timeout.
+- Same-origin document unavailable.
+- postMessage spoofing risks in intentionally permissive build-out listener.
+
+## Verification Matrix
+- Compatibility shim ready/error.
+- Tier-2 same-origin DOM state.
+- Tier-2 cross-origin starting/load grace.
+- Builder CSP does not block iframe.
+- Device modes visually correct.
+
+## Do Not Break
+- Sandbox whitelist for scripts/forms/pointer-lock/modals.
+- `notifyPreviewStarting` to cross-origin grace.
+- Pointer-lock/modal permissions for generated apps.

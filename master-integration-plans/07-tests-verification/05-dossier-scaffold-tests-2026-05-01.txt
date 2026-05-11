@@ -1,0 +1,52 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 05-dossier-scaffold-tests
+Date: 2026-05-01
+
+## Required Checks
+- Dossier JSON strict schema.
+- Full dossier repo gate.
+- Capability map check.
+- Scaffold manifest validation.
+- Scaffold embedding parity.
+- Scaffold variant JSON/schema validation gap.
+
+## Existing Tests
+- Dossier validate/registry/select/snapshot/system prompt/verbatim tests.
+- Dossier threading tests.
+- Scaffold manifest validation, embeddings parity, project scaffold, retry/research tests.
+- Scaffold variant matcher/hints tests.
+- CLI gates for dossiers/scaffolds.
+
+## Missing Coverage
+- Dossier validator/capability map not in CI.
+- No automated all-variants AJV suite.
+- Orchestrate dossier coverage is limited.
+
+## Frontend Behaviors To Assert
+- Primarily data/build contract, not TSX.
+- Ensure invalid dossiers cannot silently influence prompt/capability behavior.
+
+## Exact LLM Implementation Instructions
+- Run dossier and scaffold gates after data/scaffold changes.
+- Write capability map if check fails due to intentional new data.
+- Ensure manifests, instructions headings, verbatim files, and import closure are valid.
+
+## Failure Triage Guide
+- AJV errors: manifest/schema mismatch.
+- defaultForCapability: duplicate default.
+- headings/verbatim/import closure failures.
+- capability map stale.
+- scaffold embeddings stale.
+- scaffold manifest path/required file errors.
+
+## Exact Commands
+- `npm run scaffolds:validate`
+- `npm run scaffolds:embeddings:check`
+- `npm run dossiers:validate-all`
+- `npm run dossiers:capability-map:check`
+- targeted dossier/scaffold Vitest
+- `npm run devtest`
+
+## Pass Criteria
+- Dossier validators exit 0.
+- Scaffold validators and embedding checks pass.
+- CI/devtest includes relevant gates before merge.

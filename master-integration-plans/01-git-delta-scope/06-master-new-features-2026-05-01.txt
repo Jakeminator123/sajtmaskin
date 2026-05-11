@@ -1,0 +1,50 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 06-master-new-features
+Date: 2026-05-01
+
+## Scope
+Incoming master features that must be retained and wired into the current frontend/backend integration while preserving the existing minimalist builder and landing UX.
+
+## Evidence
+- Product postcheck: `src/app/api/engine/chats/[chatId]/product-postcheck/route.ts`, `src/lib/gen/verify/product-postcheck.ts`, and strict schema under `docs/schemas/strict/`.
+- Client postchecks: `src/lib/hooks/chat/post-checks.ts`.
+- Preview prewarm: `src/lib/api/engine/chats/preview-prewarm.ts`, `create-chat-stream-post.ts`, and `src/lib/gen/preview/preview-session.ts`.
+- SEO deploy opt-in: `src/components/builder/SeoOptInPanel.tsx`, `DeployNameDialog.tsx`, `src/app/api/v0/deployments/resolve-seo.ts`, and deployments route.
+- Version diagnostics: `VersionDiagnosticsDialog.tsx` and `VersionHistory.tsx`.
+- Autofix and strict validation: `import-validator.ts`, `pipeline.ts`, `fixer-registry.ts`, `docs/schemas/strict/*.json`.
+- Backoffice telemetry and scaffold variants: `backoffice/pages/llm_flode_telemetry.py`, `config/scaffold-variants/landing-page/*.json`.
+
+## Findings
+- Product postcheck adds a server-side quality gate that the chat UI must consume without duplicate error truth.
+- Preview prewarm improves perceived latency but must remain opportunistic and non-blocking.
+- SEO deploy opt-in must preserve explicit `null` versus `undefined` semantics.
+- Version diagnostics must stay connected to version history without redesigning the UI.
+- Import validator and strict schemas are backend/pipeline correctness features that reduce generated-site failures.
+- Landing scaffold variants must flow through orchestration without changing the wizard’s visual model.
+
+## Recommended Actions
+- Keep master API contracts, schemas, rate limits, and validation behavior.
+- Preserve local dialog placement, compact copy, tokens, and current builder chrome.
+- Document any new product-postcheck or SEO preference fields in the implementation brief.
+
+## Exact LLM Implementation Instructions
+- Search incoming diff for `product-postcheck`, `preview-prewarm`, `resolve-seo`, `SeoOptIn`, `VersionDiagnostics`, `import-validator`, `schemas/strict`, `scaffold-variants/landing-page`, and `llm_flode_telemetry`.
+- Ensure `post-checks.ts` POST body and `ProductPostcheckResult` response shape stay aligned.
+- Keep `schedulePreviewPreWarm` non-blocking and safe to fail.
+- Sync `DeployNameDialog` and `SeoOptInPanel` props with `seoPreferencesSchema` without changing dialog structure.
+- Keep diagnostics parsing up to date but preserve `VersionHistory` trigger and local copy unless backend fields demand change.
+- Merge `import-validator` into autofix pipeline without duplicate fixer IDs.
+- Validate new strict schemas and scaffold variant JSON.
+
+## Verification Needed
+- Product postcheck route returns JSON that `post-checks.ts` consumes.
+- Preview prewarm attempts do not block chat stream.
+- Deploy with and without SEO opt-in, including explicit `siteUrl: null`.
+- Version diagnostics opens without runtime error.
+- Targeted tests for postcheck, prewarm, SEO resolver, import-validator, and panel UI.
+
+## Do Not Break
+- Chat postcheck ordering and one source of truth for visible errors.
+- Preview session and heartbeat contracts.
+- `resolveDeploySeoOptions` null/undefined semantics.
+- Autofix pipeline order.
+- Local builder chrome, chat dock, landing redesign, tokens, and Swedish copy.

@@ -1,0 +1,10 @@
+Builder IA — Agent 6: Navigerbarhet (rutter, versioner, filer)
+
+Nuvarande IA
+Rutter: PreviewPanelChrome — upp till fem piller + overflow +N; aktiv utanför topp fem kan visas dubbelt (synlig + overflow). role=tablist men egna knappar, inte ToggleGroup. Enheter: tre knappar Dator/Surfplatta/Mobil — segmentliknande men separat mönster. Versioner: VersionHistory vertikal lista, ingen växling 2–4 vs >4. Filer: FileExplorer träd + editor — ingen cardinalitetsstyrd växel. Preview/Kod/Register: tre lägen gömda under Verktyg-dropdown.
+
+Föreslagen IA
+Rutter: tröskel 4; ≤4 riktig segmentkomponent (Tabs/ToggleGroup); >4 dropdown som idag; undvik dubbel aktiv i rad + overflow. Versioner: senaste 3–4 som chips/segment; full lista i rail eller sheet. Filer: behåll träd för många; vid ≤4 toppfiler valfri segmentrad ovanför trädet. Verktygsläge: tre val = segment synligt (inte gömt i dropdown) om alltid tre.
+
+Brott / motsägelser
+Rutter använder tröskel 5 och dubbel aktiv markering möjlig. Versioner saknar segment/dropdown-mönster. Filer alltid träd-only. Verktygsläge använder “dropdown för få val” i stället för segment. Enheter delar inte komponent med rutter — inkonsekvent system.

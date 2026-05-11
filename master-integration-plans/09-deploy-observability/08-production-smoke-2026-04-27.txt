@@ -1,0 +1,29 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 08-production-smoke
+Date: 2026-04-27
+
+## Production Changes In Master
+- **E2E deploy (Playwright):** `npm run test:deploy-smoke:e2e` — `e2e/deploy/*.smoke.spec.ts`, `SAJTMASKIN_E2E_BASE_URL` + `SESSION_COOKIE` + `..._DEPLOY_CHAT_ID` + `..._DEPLOY_VERSION_ID` (alla fyra = annars **skip**).
+- **Health:** `GET /api/health` (flags, ev. Redis ping), `GET /api/openclaw/health` (ok/unconfigured/502).
+- **CSP rapporter:** ström till `POST /api/csp-report` per `report-uri` i `proxy` CSP.
+- **Handoff preview → prod:** se `docs/architecture/fas3-preview-and-deploy.md` — samma `versionId`/filer, `precheck`, `DEPLOY_MISSING_ENV`, `repair_available` blockering, separata verify/preview-lanes.
+
+## Local Behavior To Preserve
+- `useBuilderDeployActions` kan pinga `/api/health` före deploy-UX — bryt inte 200/JSON form.
+- Precheck utan kreditförbruk; full deploy endast när förväntat.
+- Opt-in e2e: CI kan gå “skip” medvetet — ersätt manuell staging-checklista.
+
+## Security / Secret Risks
+- E2E env-variabler (session cookie, chatId) — **dokumentera** som secrets i CI, aldrig commit.
+- Publika health kan läcka feature-flags; accepterat; överdrivna detaljer i error body = håll kort.
+
+## Deploy Verification
+- Steg: `00-verification-ladder` (07-plan) t.o.m. `build` + (val) deploy-smoke med env.
+- Efter Vercel promote: `GET /api/health`, (val) OpenClaw health, kort rök `POST /api/v0/deployments` precheck, `GET` deployment-lista per `chatId`.
+- CSP: prod-loggar `CSP Violation` / staging report-only; browser smoke på `/` + `/builder`.
+
+## Observability Checks
+- Fas3 + runtime-smoke-matriser i `master-integration-plans/05-*` (referens).
+- Preview-host egen: `preview-host/scripts/smoke.js` / `/health` om separat tjänst.
+
+## Do Not Commit
+- Fyllda värden för E2E env, session cookies, råa deploy JSON med secrets; lokal `vercel pull` innehåll i repo (`.vercel`).

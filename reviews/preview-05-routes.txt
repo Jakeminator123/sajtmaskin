@@ -1,0 +1,17 @@
+Route pills — PreviewPanelChrome (tablist “Rutter”)
+
+| Område | Poäng |
+| Visuell tydlighet pill vs URL | 4 |
+| Hitta alla sidor | 3 — horisontell scroll gömmer slutet |
+| vs verklig sitemap | 3 — statiska filrutter; dynamiska `[param]` saknas medvetet |
+| vs Webflow Navigator | 2 — platt URL-lista, inte DOM-träd |
+
+1. Mental modell: Snabb statisk rutt-växlare, inte full sitemap.
+
+2. “Alla sidor”: Dynamiska segment syns inte — dokumentera förväntan.
+
+3. Overflow-x: Risk att missa rutter; saknar “Visa alla”/antal.
+
+4. Styrka: Active state, routesEqual, ?route= vs pathname.
+
+5. Första gången: aria “Rutter” utan synlig etikett — tunn synlig label skulle hjälpa.

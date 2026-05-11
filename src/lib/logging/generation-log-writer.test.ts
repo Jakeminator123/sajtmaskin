@@ -102,6 +102,10 @@ describe("generation-log writer", () => {
       reason: "fast_policy",
       verificationPolicy: "fast",
       qualityTarget: "standard",
+      findings: [
+        { id: "missing-accessible-name", detail: "Hero CTA button lacks accessible name" },
+        { id: "missing-accessible-name", detail: "Hero CTA button lacks accessible name" },
+      ],
       slug: "retro-arcade",
     });
     devLogAppend("latest", {
@@ -127,7 +131,7 @@ describe("generation-log writer", () => {
     };
     const fixPatterns = JSON.parse(
       fs.readFileSync(path.join(runDir, "fix-patterns.json"), "utf8"),
-    ) as Array<{ pattern: string; occurrences: number }>;
+    ) as Array<{ pattern: string; occurrences: number; sources?: Record<string, number> }>;
     const timeline = fs.readFileSync(path.join(runDir, "timeline.ndjson"), "utf8");
     const faultFix = fs.readFileSync(path.join(runDir, "fault-fix-index.md"), "utf8");
     const faultFixCsv = fs.readFileSync(path.join(runDir, "fault-fix-index.csv"), "utf8");
@@ -150,7 +154,7 @@ describe("generation-log writer", () => {
         path.join(tempDir, "logs", "site-observability", "chat_1", "latest", "fix-patterns.json"),
         "utf8",
       ),
-    ) as Array<{ pattern: string; occurrences: number }>;
+    ) as Array<{ pattern: string; occurrences: number; sources?: Record<string, number> }>;
     const siteHistory = fs.readFileSync(
       path.join(tempDir, "logs", "site-observability", "chat_1", "history.ndjson"),
       "utf8",
@@ -182,8 +186,18 @@ describe("generation-log writer", () => {
     expect(observability.chatId).toBe("chat_1");
     expect(Array.isArray(observability.recurringPatterns)).toBe(true);
     expect(Array.isArray(fixPatterns)).toBe(true);
+    const verifierPattern = fixPatterns.find((pattern) =>
+      pattern.pattern.includes("button lacks accessible name"),
+    );
+    expect(verifierPattern?.occurrences).toBe(2);
+    expect(verifierPattern?.sources?.["server-verify.policy"]).toBe(2);
     expect(siteObservability.chatId).toBe("chat_1");
     expect(Array.isArray(siteFixPatterns)).toBe(true);
+    expect(
+      siteFixPatterns.some((pattern) =>
+        pattern.pattern.includes("button lacks accessible name"),
+      ),
+    ).toBe(true);
     expect(siteHistory).toContain("\"runId\"");
     expect(faultFix).toContain("| Tid | Fas | Steg | Severity |");
     expect(faultFix).toContain("chat_1");
@@ -208,7 +222,7 @@ describe("generation-log writer", () => {
     );
   });
 
-  it("retains only the latest MAX_RUN_DIRS (15) generation folders", async () => {
+  it("retains only the latest MAX_RUN_DIRS (5) generation folders", async () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
     process.chdir(tempDir);
     vi.stubEnv("NODE_ENV", "development");
@@ -217,12 +231,12 @@ describe("generation-log writer", () => {
 
     const { devLogStartGeneration, devLogAppend } = await import("./devLog");
 
-    // Create 17 runs; expect prune to retain the 15 most recent.
+    // Create 9 runs; expect prune to retain the 5 most recent.
     // We zero-pad the slug so lexicographic sort matches numeric order even
     // when all runs share the same `formatRunTimestamp(...)` prefix (the
     // tests run in well under a second).
-    const totalRuns = 17;
-    const expectedRetained = 15;
+    const totalRuns = 9;
+    const expectedRetained = 5;
     const pad = (n: number) => String(n).padStart(2, "0");
     for (let i = 1; i <= totalRuns; i += 1) {
       const chatId = `chat_${pad(i)}`;

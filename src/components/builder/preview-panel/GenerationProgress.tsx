@@ -7,7 +7,9 @@ export type GenerationPhase =
   | "brief"
   | "scaffold"
   | "generation"
+  | "url_expand"
   | "autofix"
+  | "materialize_images"
   | "verifier"
   | "validate_syntax"
   | "parse_merge_preflight"
@@ -19,7 +21,9 @@ const PHASE_TARGETS: Record<NonNullable<GenerationPhase>, { target: number; labe
   brief:                 { target: 10, label: "Planerar sidor" },
   scaffold:              { target: 22, label: "Väljer layout" },
   generation:            { target: 52, label: "Bygger layout" },
+  url_expand:            { target: 62, label: "Förbereder länkar" },
   autofix:               { target: 70, label: "Polerar detaljer" },
+  materialize_images:    { target: 74, label: "Hämtar bilder" },
   verifier:              { target: 80, label: "Kvalitetskoll" },
   validate_syntax:       { target: 86, label: "Validerar syntax" },
   parse_merge_preflight: { target: 92, label: "Förbereder filer" },

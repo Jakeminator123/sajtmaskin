@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 03-builder-ui-tests
+Date: 2026-05-01
+
+## Required Checks
+- `npm run test:ci` or focused Vitest for builder components.
+- `npm run test:focused` for quick tooling/chat smoke.
+
+## Existing Tests
+- MessageList awaiting-input.
+- ChatInterface follow-up base badge.
+- PreviewPanel empty/awaiting/input/hook-order.
+- SeoOptInPanel.
+- BuilderMessageTooling.
+- useBuilderCallbacks.
+- builder-page-preview helpers.
+
+## Missing Coverage
+- BuilderShell, wizard, drawers, header, launch panels lack broad component tests.
+- Version panel and launch header need more dedicated tests.
+- Builder E2E is outside this TSX scope.
+
+## Frontend Behaviors To Assert
+- Awaiting-input vs approval.
+- Follow-up base badge.
+- SEO opt-in default/validation/dirty.
+- Tooling and quality-gate rows.
+- Version preview URL selection.
+
+## Exact LLM Implementation Instructions
+- Run focused builder Vitest after UI changes.
+- Update tests only for intentional UI/copy changes.
+- Mock fetch/hooks consistently.
+
+## Failure Triage Guide
+- Missing copy: MessageList/PreviewPanel/tooling.
+- Badge missing: ChatInterface props.
+- SEO switch/URL: SeoOptInPanel.
+- Preview URL wrong: helper/callback.
+- Hook-order crash: PreviewPanel conditional hooks.
+
+## Exact Commands
+- `npm run test:ci`
+- targeted Vitest for builder tests listed above.
+
+## Pass Criteria
+- Builder UI tests green.
+- Copy/state changes reflected intentionally in tests.

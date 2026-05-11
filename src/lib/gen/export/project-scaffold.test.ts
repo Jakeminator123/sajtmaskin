@@ -34,6 +34,7 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.dependencies.next).toBe("16.2.3");
     expect(merged.dependencies.react).toBe("19.2.4");
     expect(merged.dependencies["react-dom"]).toBe("19.2.4");
+    expect(merged.dependencies["lucide-react"]).toBe("0.469.0");
   });
 
   it("lets the model override individual script names", () => {
@@ -45,17 +46,23 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.scripts.build).toBe("next build");
   });
 
-  it("pins three / @react-three/* to baseline so model cannot downgrade below React 19–compatible majors", () => {
+  it("pins lucide and three / @react-three/* to baseline so model cannot downgrade load-bearing deps", () => {
     const model = {
       dependencies: {
+        "lucide-react": "^0.460.0",
         "@react-three/fiber": "^8.17.10",
         "@react-three/drei": "^9.117.3",
         three: "^0.150.0",
       },
     } as Record<string, unknown>;
     const merged = mergePackageJsonWithBaseline(model, {
-      dependencies: { "@react-three/fiber": "^9", "@react-three/drei": "^10" },
+      dependencies: {
+        "lucide-react": "^0.469",
+        "@react-three/fiber": "^9",
+        "@react-three/drei": "^10",
+      },
     }) as { dependencies: Record<string, string> };
+    expect(merged.dependencies["lucide-react"]).toBe("0.469.0");
     expect(merged.dependencies["@react-three/fiber"]).toBe("9.1.2");
     expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(merged.dependencies.three).toBe("0.176.0");
@@ -154,7 +161,7 @@ describe("buildCompleteProject", () => {
       devDependencies: Record<string, string>;
       scripts: Record<string, string>;
     };
-    expect(pkg.engines.node).toBe(">=22.14.0 <25");
+    expect(pkg.engines.node).toBe(">=22.14.0 <23");
     expect(pkg.dependencies.next).toBe("16.2.3");
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
@@ -180,6 +187,38 @@ describe("buildCompleteProject", () => {
     expect(hook!.content).toContain("export function useReducedMotion");
     expect(hook!.content).toContain("addEventListener");
     expect(hook!.content).toContain("removeEventListener");
+  });
+
+  it("drops generated hooks/use-reduced-motion.tsx so baseline .ts wins (extension collision)", () => {
+    // Repro: an earlier autofix/repair pass emitted `.tsx` alongside the
+    // baseline `.ts`. Webpack picked the `.tsx` (which contained a leaked
+    // `ts` markdown fence on line 1) and the preview crashed with
+    // `ReferenceError: ts is not defined`. The baseline must always win.
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <div />; }`,
+        language: "tsx",
+      },
+      {
+        path: "hooks/use-reduced-motion.tsx",
+        content: [
+          "ts",
+          'import { useReducedMotion as useFramerReducedMotion } from "framer-motion";',
+          "",
+          "export function useReducedMotion() {",
+          "  return useFramerReducedMotion();",
+          "}",
+        ].join("\n"),
+        language: "tsx",
+      },
+    ];
+    const files = buildCompleteProject(generated);
+    const matching = files.filter((f) => f.path.startsWith("hooks/use-reduced-motion"));
+    expect(matching).toHaveLength(1);
+    expect(matching[0]!.path).toBe("hooks/use-reduced-motion.ts");
+    expect(matching[0]!.content).toContain("matchMedia");
   });
 
   it("baseline package.json passes peer-compatibility sanity checks", () => {

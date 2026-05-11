@@ -1,0 +1,26 @@
+Builder IA — Agent 8: En-sides masterkarta (max 12 ytor)
+
+Nuvarande IA
+Två spår: uiMode minimal (preview-first, chat i drawer + pill/⌘K) vs expanded (fast höger-rail, ModelTraceOverlay). Mobil <lg: flikar Chatt|Sajt (döljs i minimal). IntakeWizard när !chatId. Modaler portalerade utanför grid. Dubblerad högerstack drawer/expanded.
+
+Föreslagen IA
+Kärntrinity: Stage (preview) | Timeline (versioner) | Conversation (en väg in: sheet eller rail, samma inre ordning). Andra spår = power. Alla modaler samma prioritetslager och copy-regler.
+
+Brott / motsägelser
+Duplicerad högerkolumn. Trace synlig i olika lägen utan “varför här”. Minimal döljer mobilflikar — upptäckbarhet för chatt sänks.
+
+#  Yta                    Ägare      Innehåll (kort)                    Synlighet              Inre ordning (t→b)
+1  BuilderLayout         Shell      Ram, overflow, error              Alltid                 header → body
+2  BuilderHeader         Shell      Publicera, domän, import, modell  Alltid                 en rad actions
+3  Mobilflikar           Shell      Chatt / Sajt                      <lg, ej minimal         flikar → panel
+4  BuilderDisclosurePill Shell      Öppna verktyg                    minimal ∧ ¬drawer      flytande CTA
+5  BuilderDetailsDrawer  Shell      Readiness, env, tråd, tips, input Minimal on-demand      LaunchReadiness → EnvVars → MessageList → Tip → Thinking → ChatInterface
+6  Chat rail (expanded)  Shell      Samma som 5                       Expanded desktop       som 5
+7  IntakeWizard          Produkt    Brief/scrape                      !chatId                steg ovanpå yta
+8  PreviewPanel          Eng+Gen    Iframe, routes, kod, inspect      Alltid primär         Chrome → vy → Frame → overlays
+9  VersionHistory        Shell      Versionlista, kollaps             Höger om preview       lista + åtgärder
+10 ModelTraceOverlay     Power      Modellspår                        Expanded ∨ drawer      overlay
+11 Dialogkluster         Shell      Deploy, domän, mall…              Transient              modal/sheet
+12 PlacementConfirm      Shell+AI   Bekräfta UI-placering             Vid pending          modal
+
+Referenser: BuilderShellContent.tsx, BuilderDetailsDrawer.tsx, PreviewPanel.tsx.

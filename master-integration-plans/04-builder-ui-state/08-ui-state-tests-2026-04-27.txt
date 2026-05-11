@@ -1,0 +1,35 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 08-ui-state-tests
+Date: 2026-04-27
+
+## UI/UX To Preserve
+- Tester fångar **preview-first** (`useBuilderCallbacks` own-engine), **follow-up base badge**, **message list** snabb svar, **BuilderMessageTooling** post-check/quality — samma invariants bör förbli efter merge (förväntat beteende = dokumentation).
+
+## New Master Capabilities To Surface
+- När `SeoOptInPanel` + `SeoOptInPanel.test` kommer från master: kör/lägg in i `vitest` samma mönster som övriga builder-`.test.tsx`.
+- Nya props på `ChatInterface` / `PreviewPanel` / header — uppdatera motsv. test förväntan.
+
+## State/Props Impact
+- Mocks: `ChatInterface.followup-base-badge` mockar pickers; om master byter provider/layout → uppdatera.
+- Ingen enhetstest idag som importerar `useBuilderState` / full `useBuilderPageController` — förenklad integration via shell kan krävas senare, inte här tvingande.
+
+## Merge Conflict Plan
+1. Efter merge, kör: `npx vitest run` på listan under Test Plan.  
+2. Först fixa `tsc` fel, sedan re-run vitest.  
+3. Lägg till/justera `SeoOptInPanel.test` när filer finns.  
+4. Uppdatera `PreviewPanel.test` + `builder-page-preview-helpers.test` när masterna rör `pickVersionPreviewUrl` / empty state / SEO-antecken.
+
+## Test Plan
+| Filer (prioriterat) | Syfte |
+|---------------------|--------|
+| `src/app/builder/useBuilderCallbacks.test.ts` | own-engine / legacy / preview URL val |
+| `src/app/builder/builder-page-preview-helpers.test.ts` | `pickVersionPreviewUrl` m.m. |
+| `src/components/builder/PreviewPanel.test.tsx` | tom state, laddar, `previewUrl` |
+| `MessageList.test.tsx` | list + reply |
+| `BuilderMessageTooling.test.tsx` | post-check, quality, quick actions |
+| `ChatInterface.followup-base-badge.test.tsx` | badge + pickers |
+| (efter merge) `SeoOptInPanel.test.tsx` | master |
+
+## Do Not Break
+- Grönt test suite innan större builder UI merge pushas — minst fokuspaket ovan.  
+- Mock av engine paths — uppdatera när `engineChatBaseUrl` anrop ändras.
+- Förhindra flak: inga rena timer-tester i builder utan fake timers (befintlig policy i projekt följs).

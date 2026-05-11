@@ -1,0 +1,50 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 08-error-rate-limit
+Date: 2026-05-01
+
+## Master Changes To Preserve
+- `withRateLimit` 429 response: `{ error: "Too many requests", retryAfter }` plus `Retry-After` and `X-RateLimit-*` headers.
+- Pre-stream engine JSON errors via `buildStreamErrorResponse`: `{ error, code, retryAfter }`.
+- Provider error normalization for rate limit, quota, unauthorized, forbidden, and generic errors.
+- SSE `error` events with `message`, optional `code`, and `permanent`.
+- Rate limit wrappers on create and follow-up stream handlers.
+
+## Frontend Consumers
+- `buildApiErrorMessage` and `getRetryAfterSeconds`.
+- `useCreateChat` and `useSendMessage`.
+- `stream-handlers.ts` and `buildStreamErrorMessage`.
+- Existing toast/error bubble and retry suggestion UI.
+
+## Contract Risks
+- Rate-limit code namespaces differ (`rate_limit` vs provider `rate_limit_exceeded`).
+- Wrapper 429 lacks `code`, provider errors include `code`.
+- 403 may be just `{ error: "forbidden" }`.
+- New endpoints must not invent third error field names outside `error`, `message`, `code`, `retryAfter`, `details`.
+
+## Required Adaptations
+- Mirror any rate-limit payload/header change in frontend helpers.
+- New stream routes must preserve rate-limit → validation → stream or equivalent JSON error chain.
+- For new 403 semantics, add consistent `code` or ensure status-only handling remains.
+
+## New Buttons / Choices / UI States
+- Existing: toast, assistant warning text, retry suggestion uiPart.
+- Potential improvement: compact retry countdown or billing link, but not required for merge.
+- Avoid new overlays.
+
+## Exact LLM Implementation Instructions
+- Diff all uses of `withRateLimit`, `buildStreamErrorResponse`, `normalizeProviderError`, and SSE `error` formatting.
+- Update `buildApiErrorMessage` and `buildStreamErrorMessage` for any new `code` or status.
+- Keep JSON errors on known fields only.
+- Add UI affordances only inside existing chat/toast surfaces.
+
+## Tests / Runtime Checks
+- `src/lib/rateLimit.test.ts`
+- `provider-error-messages.test.ts`
+- engine stream route tests with rate-limit mocks
+- Manual HTTP 429 and SSE error smoke.
+
+## Do Not Break
+- 429 body and headers.
+- Pre-stream JSON error shape.
+- SSE error propagation.
+- Existing 429/402/401/403/422 helper branches.
+- Network fallback path for send.

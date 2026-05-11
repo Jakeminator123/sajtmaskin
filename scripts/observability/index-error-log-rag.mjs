@@ -78,6 +78,10 @@ function indexableText(row) {
     row.creator,
     row.fixer,
     row.scaffoldId,
+    row.routePath,
+    row.variantId,
+    ...(Array.isArray(row.capabilityIds) ? row.capabilityIds : []),
+    row.generationMode,
     row.phase,
   ];
   return parts.filter(Boolean).join(" ").slice(0, 800);
@@ -94,6 +98,12 @@ function buildSnapshot(rows) {
       faultText: row.faultText ?? "",
       fixText: row.fixText ?? null,
       scaffoldId: row.scaffoldId ?? null,
+      routePath: row.routePath ?? null,
+      variantId: row.variantId ?? null,
+      capabilityIds: Array.isArray(row.capabilityIds) ? row.capabilityIds.filter((v) => typeof v === "string") : [],
+      generationMode: row.generationMode ?? (
+        typeof row.repairPassIndex === "number" && row.repairPassIndex > 0 ? "followup" : null
+      ),
       lineageHash: row.lineageHash ?? null,
       result: row.result ?? null,
     },

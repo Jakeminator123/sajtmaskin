@@ -1,53 +1,56 @@
 {
   "knownEmptyOk": [
-    "PEXELS_API_KEY",
+    "AUTH_DEBUG",
+    "BACKOFFICE_PASSWORD",
+    "CRON_SECRET",
+    "DATA_DIR",
+    "DEBUG",
+    "GITHUB_CLIENT_ID_DEV",
+    "GITHUB_CLIENT_SECRET_DEV",
+    "GITHUB_REDIRECT_URI",
+    "GODADDY_API",
+    "GODADDY_SECRET",
+    "GOOGLE_CLIENT_ID_DEV",
+    "GOOGLE_CLIENT_SECRET_DEV",
+    "GOOGLE_REDIRECT_URI",
+    "INSPECTOR_CAPTURE_WORKER_TOKEN",
+    "INSPECTOR_CAPTURE_WORKER_URL",
+    "LOOPIA_API_PASSWORD",
+    "LOOPIA_API_USER",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
     "NEXT_PUBLIC_REGISTRY_STYLE",
-    "GOOGLE_CLIENT_ID_DEV",
-    "GOOGLE_CLIENT_SECRET_DEV",
-    "GITHUB_CLIENT_ID_DEV",
-    "GITHUB_CLIENT_SECRET_DEV",
-    "GOOGLE_REDIRECT_URI",
-    "GITHUB_REDIRECT_URI",
-    "DATA_DIR",
+    "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
+    "OTE_GODADDY_API",
+    "OTE_GODADDY_SECRET",
+    "PEXELS_API_KEY",
     "POSTGRES_URL_NON_POOLING",
     "REGISTRY_AUTH_TOKEN",
-    "CRON_SECRET",
-    "BACKOFFICE_PASSWORD",
-    "SUPERADMIN_PASSWORD",
-    "TEST_USER_EMAIL",
-    "TEST_USER_PASSWORD",
-    "AUTH_DEBUG",
-    "DEBUG",
-    "SAJTMASKIN_BUILD_SPEC_ENABLED",
-    "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
-    "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
-    "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
-    "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
-    "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
-    "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
-    "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
-    "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
-    "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
-    "SAJTMASKIN_PRE_VM_TYPECHECK",
-    "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
+    "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
-    "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
+    "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
+    "SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF",
+    "SAJTMASKIN_EVAL_RETENTION_PROMPT_DIRS",
+    "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
+    "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
+    "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
+    "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
     "SAJTMASKIN_METRICS_TOKEN",
     "SAJTMASKIN_PREVIEW_HOST_API_KEY",
     "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
-    "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
-    "LOOPIA_API_USER",
-    "LOOPIA_API_PASSWORD",
-    "GODADDY_API",
-    "GODADDY_SECRET",
-    "OTE_GODADDY_API",
-    "OTE_GODADDY_SECRET",
-    "INSPECTOR_CAPTURE_WORKER_TOKEN",
+    "SAJTMASKIN_PRE_VM_TYPECHECK",
+    "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
+    "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
+    "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
+    "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
+    "SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS",
+    "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
+    "SAJTMASKIN_STRICT_SYSTEM_PROMPT_ASSERT",
     "SUPERADMIN_EMAIL",
-    "INSPECTOR_CAPTURE_WORKER_URL",
+    "SUPERADMIN_PASSWORD",
+    "TEST_USER_EMAIL",
+    "TEST_USER_PASSWORD",
     "VERCEL_GIT_COMMIT_AUTHOR_LOGIN",
     "VERCEL_GIT_COMMIT_AUTHOR_NAME",
     "VERCEL_GIT_COMMIT_MESSAGE",
@@ -66,7 +69,6 @@
     "NEXT_PHASE",
     "RENDER",
     "SAJTMASKIN_DEV_LOG",
-    "SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS",
     "GENERATIONSLOGG",
     "SAJTMASKIN_VISUAL_QA",
     "AI_BRIEF_MAX_TOKENS",
@@ -78,19 +80,19 @@
     "EMAIL_FROM"
   ],
   "extraKnownKeys": [
-    "ADMIN_EMAILS",
     "ADMIN_CREDENTIALS",
+    "ADMIN_EMAILS",
     "ALGOLIA_ADMIN_API_KEY",
     "ANTHROPIC_API_KEY",
     "BACKOFFICE_PASSWORD",
     "BACKOFFICE_SESSION_VERSION",
-    "BLOB_CONTENT_KEY",
     "BLOB_COLORS_KEY",
+    "BLOB_CONTENT_KEY",
     "BLOB_READ_WRITE_TOKEN",
     "BRAVE_API_KEY",
-    "CRON_SECRET",
     "CONTENTFUL_ACCESS_TOKEN",
     "CONTENTFUL_SPACE_ID",
+    "CRON_SECRET",
     "CSP_ENFORCE",
     "DB_SSL_REJECT_UNAUTHORIZED",
     "DESIGN_SYSTEM_ID",
@@ -98,16 +100,19 @@
     "ELASTICSEARCH_NODE_URL",
     "EMAIL_FROM",
     "ENABLE_PEXELS",
+    "GENERATIONSLOGG",
     "GITHUB_CLIENT_ID",
     "GITHUB_CLIENT_ID_DEV",
     "GITHUB_CLIENT_SECRET",
     "GITHUB_CLIENT_SECRET_DEV",
+    "GITHUB_TOKEN",
+    "GITHUB_WORKFLOW_TOKEN",
     "GOOGLE_API_KEY",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_ID_DEV",
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CLIENT_SECRET_DEV",
-    "GENERATIONSLOGG",
+    "IMPLEMENT_UNDERSCORE_CLAW",
     "INBOUND_WEBHOOK_SHARED_SECRET",
     "INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS",
     "INSPECTOR_CAPTURE_WORKER_URL",
@@ -117,78 +122,88 @@
     "KV_REST_API_TOKEN",
     "KV_REST_API_URL",
     "KV_URL",
-    "MEILISEARCH_API_KEY",
-    "MEILISEARCH_HOST",
-    "TYPESENSE_API_KEY",
-    "TYPESENSE_HOST",
     "LOG_PROMPTS",
     "LOOPIA_API_PASSWORD",
     "LOOPIA_API_USER",
+    "MEILISEARCH_API_KEY",
+    "MEILISEARCH_HOST",
     "MONGODB_URI",
-    "NEXT_PUBLIC_ALGOLIA_APPLICATION_ID",
-    "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY",
-    "NEXT_PUBLIC_MEILISEARCH_HOST",
-    "NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY",
-    "NEXT_PUBLIC_TYPESENSE_HOST",
-    "NEXT_PUBLIC_TYPESENSE_SEARCH_ONLY_API_KEY",
-    "NEXT_PUBLIC_ELASTICSEARCH_NODE_URL",
-    "NEXT_PUBLIC_ELASTICSEARCH_SEARCH_API_KEY",
     "NEXT_PUBLIC_ADMIN_EMAIL",
     "NEXT_PUBLIC_ADMIN_EMAILS",
+    "NEXT_PUBLIC_ALGOLIA_APPLICATION_ID",
+    "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY",
     "NEXT_PUBLIC_AVATAR_AGENT_ID",
     "NEXT_PUBLIC_AVATAR_CLIENT_KEY",
     "NEXT_PUBLIC_BETA_BANNER",
+    "NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS",
+    "NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT",
+    "NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON",
+    "NEXT_PUBLIC_ELASTICSEARCH_NODE_URL",
+    "NEXT_PUBLIC_ELASTICSEARCH_SEARCH_API_KEY",
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+    "NEXT_PUBLIC_MEILISEARCH_HOST",
+    "NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
     "NEXT_PUBLIC_REGISTRY_STYLE",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "NEXT_PUBLIC_SANITY_DATASET",
     "NEXT_PUBLIC_SANITY_PROJECT_ID",
     "NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN",
-    "IMPLEMENT_UNDERSCORE_CLAW",
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+    "NEXT_PUBLIC_TYPESENSE_HOST",
+    "NEXT_PUBLIC_TYPESENSE_SEARCH_ONLY_API_KEY",
     "OPENCLAW_GATEWAY_TOKEN",
     "OPENCLAW_GATEWAY_URL",
     "PEXELS_API_KEY",
+    "POSTGRES_POOL_IDLE_TIMEOUT_MS",
+    "POSTGRES_POOL_MAX",
     "REDIS_URL",
     "REGISTRY_AUTH_TOKEN",
     "RESEND_API_KEY",
-    "SANITY_API_TOKEN",
-    "SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_ASSIST_MODEL",
+    "SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS",
+    "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC",
     "SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI",
-    "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
+    "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
+    "SAJTMASKIN_BLOCKING_ESLINT",
+    "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_BRIEF_MODEL",
-    "SAJTMASKIN_BUILD_SPEC_ENABLED",
+    "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_DEFAULT_THINKING",
+    "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
+    "SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
-    "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
-    "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
-    "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
-    "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
-    "SAJTMASKIN_SHOW_THINKING",
+    "SAJTMASKIN_EVAL_RETENTION_PROMPT_DIRS",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
-    "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
-    "SAJTMASKIN_METRICS_TOKEN",
+    "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
+    "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
+    "SAJTMASKIN_MODEL_ANTHROPIC",
+    "SAJTMASKIN_MODEL_CODEX",
+    "SAJTMASKIN_MODEL_FAST",
+    "SAJTMASKIN_MODEL_MAX",
+    "SAJTMASKIN_MODEL_PRO",
+    "SAJTMASKIN_POLISH_MODEL",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
     "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
-    "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
     "SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS",
     "SAJTMASKIN_MAX_SYSTEM_LENGTH",
+    "SAJTMASKIN_METRICS_TOKEN",
     "SAJTMASKIN_PHASE_FORCE_AUDIT_CHARS",
     "SAJTMASKIN_PHASE_FORCE_CHARS",
     "SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS",
     "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
+    "SAJTMASKIN_PREVIEW_HOST_API_KEY",
+    "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
     "SAJTMASKIN_PRE_VM_TYPECHECK",
     "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
-    "SAJTMASKIN_BLOCKING_ESLINT",
-    "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
-    "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
+    "SAJTMASKIN_PROMPT_DUMP",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
+    "SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS",
+    "SAJTMASKIN_SHIM_PREVIEW_DISABLED",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
     "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
     "SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS",
@@ -196,15 +211,16 @@
     "SAJTMASKIN_SOFT_TARGET_TECHNICAL_CHARS",
     "SAJTMASKIN_SOFT_TARGET_TEMPLATE_CHARS",
     "SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS",
-    "SAJTMASKIN_PREVIEW_HOST_API_KEY",
-    "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
-    "SAJTMASKIN_SPEC_MODEL",
     "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
-    "SAJTMASKIN_VERIFIER_PASS",
+    "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
+    "SAJTMASKIN_STRICT_SYSTEM_PROMPT_ASSERT",
+    "SAJTMASKIN_TRUST_X_FORWARDED_FOR",
     "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
-    "SAJTMASKIN_VERIFIER_TIMEOUT_MS",
+    "SAJTMASKIN_VERIFIER_PASS",
     "SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE",
+    "SAJTMASKIN_VERIFIER_TIMEOUT_MS",
     "SAJTMASKIN_WARN_SYSTEM_LENGTH",
+    "SANITY_API_TOKEN",
     "STORAGE_BACKEND",
     "STORYBLOK_ACCESS_TOKEN",
     "STRIPE_PRICE_10_CREDITS",
@@ -221,13 +237,15 @@
     "TEMPLATE_SYNC_REPO_NAME",
     "TEMPLATE_SYNC_REPO_OWNER",
     "TEMPLATE_SYNC_WORKFLOW_FILE",
+    "TYPESENSE_API_KEY",
+    "TYPESENSE_HOST",
     "UPSTASH_REDIS_REST_TOKEN",
     "UPSTASH_REDIS_REST_URL",
     "USE_RESPONSES_API",
     "VERCEL",
     "VERCEL_ENV",
-    "VERCEL_URL",
     "VERCEL_OIDC_TOKEN",
+    "VERCEL_URL",
     "VERCEL_WEBHOOK_SECRET"
   ],
   "rules": [
@@ -252,145 +270,288 @@
     {
       "key": "POSTGRES_URL",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Primary database connection for the app."
     },
     {
       "key": "POSTGRES_URL_NON_POOLING",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Direct non-pooled database URL."
+    },
+    {
+      "key": "POSTGRES_POOL_MAX",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional per-process Postgres pool size override. Default is chosen automatically based on pooled vs direct connection."
+    },
+    {
+      "key": "POSTGRES_POOL_IDLE_TIMEOUT_MS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional per-process Postgres pool idle timeout override. Default is chosen automatically based on pooled vs direct connection."
     },
     {
       "key": "JWT_SECRET",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Required for auth and session integrity."
     },
     {
       "key": "OPENAI_API_KEY",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Required for the default own-engine path."
     },
     {
       "key": "AUDIT_WEB_SEARCH",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Optional flag for OpenAI-backed audit web search."
     },
     {
       "key": "FIGMA_ACCESS_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Optional token for Figma-backed imports and design-related flows."
     },
     {
       "key": "ENV_VAR_ENCRYPTION_KEY",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Encrypts and decrypts stored project env vars. Keep it configured anywhere ciphertext may be written or read."
-    },
-    {
-      "key": "SAJTMASKIN_BUILD_SPEC_ENABLED",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Feature flag for additive BuildSpec derivation and rollout in the generation pipeline."
     },
     {
       "key": "SAJTMASKIN_DEFAULT_THINKING",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Canonical server-side default for own-engine reasoning/thinking when the client does not send an explicit toggle."
     },
     {
-      "key": "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
+      "key": "SAJTMASKIN_MODEL_FAST",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Feature flag for budgeted scaffold serialization instead of broad scaffold file dumps."
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for the fast model profile used by own-engine model resolution."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_PRO",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for the pro model profile used by own-engine model resolution."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_MAX",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for the max model profile used by own-engine model resolution."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_CODEX",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for the codex model profile used by own-engine model resolution."
+    },
+    {
+      "key": "SAJTMASKIN_MODEL_ANTHROPIC",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional Anthropic profile override used by capability routing and legacy fallback paths."
+    },
+    {
+      "key": "SAJTMASKIN_ASSIST_MODEL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for Prompt Assist model selection."
+    },
+    {
+      "key": "SAJTMASKIN_POLISH_MODEL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Optional override for prompt polish rewrites."
     },
     {
       "key": "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "When true/1, init generations may still plan multiple routes but should fully realize only the primary route while extra planned routes start as lightweight shells. Default off."
-    },
-    {
-      "key": "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Feature flag for lighter follow-up context and reduced reference retrieval on narrow edits."
-    },
-    {
-      "key": "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Feature flag for fast/deep finalize routing. Setting it to false disables the light fast-path shortcut and keeps deep-path finalize steps enabled."
     },
     {
       "key": "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
       "notes": "Opt-in. Enables server-side F2 Product Postcheck via Playwright for trusted preview URLs only (localhost / configured preview-host / vm-fly-jakem.fly.dev). Produces product_postcheck.* warnings in existing version diagnostics; does not block F2 rendering. Blocking product findings can keep the F3 trigger disabled until the visible preview works."
     },
     {
       "key": "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Fail fast when required generated template-library or scaffold-research artifacts are missing or empty. Default is strict outside tests."
     },
     {
       "key": "SAJTMASKIN_PRE_VM_TYPECHECK",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Feature flag for pre-VM `tsc --noEmit` against the warm scaffold node_modules cache (`src/lib/gen/preview/warm-typecheck.ts`). Off by default. F3 generations force-run regardless. When the cache is cold the phase fails open so the pipeline never blocks."
     },
     {
       "key": "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Override directory for the per-scaffold typecheck cache (defaults to `<tmpdir>/sajtmaskin/typecheck-cache`). One subdirectory per scaffold id, each with its own `node_modules` + `tsconfig.json`."
     },
     {
       "key": "SAJTMASKIN_BLOCKING_ESLINT",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Feature flag for the blocking eslint pass in `validateAndFix` (src/lib/gen/preview/warm-eslint.ts). Off by default — lint still runs in background verify-lane. When on, eslint runs after warm-tsc passes and feeds errors into the LLM fixer, closing SAJ-28. F3 generations force-run regardless. Fails open on cache-cold / eslint-unavailable."
     },
     {
       "key": "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Override `--max-warnings` for the blocking eslint pass. Default 20. Errors always fail the gate; warnings only fail when count exceeds this cap. Set higher (e.g. 50) to be more lenient, or 0 to treat all warnings as gate failures."
     },
     {
       "key": "SAJTMASKIN_SCAFFOLD_SEO_SITE_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["preview", "production"],
+      "recommendedVercelTargets": [
+        "preview",
+        "production"
+      ],
       "notes": "Opt-in. Default unset → `applyScaffoldSeoDefaults` (src/lib/gen/scaffolds/seo-defaults.ts) is a noop and no SEO files (robots/sitemap/opengraph) are injected. When set to a real site URL → robots/sitemap/opengraph are injected and `app/layout.tsx` metadata is enriched with `metadataBase`/`alternates`/`openGraph`/`twitter`. **Should NOT be set in development or fidelity1/2 design previews** — SEO belongs to Bygg / fidelity3-promotion. Per-project/per-generation siteUrl is planned (see `docs/plans/avklarat/SEO-F3-PROMOTION-NEXT-PR.md`); this env is the global single-tenant fallback."
+    },
+    {
+      "key": "SAJTMASKIN_SHIM_PREVIEW_DISABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "preview",
+        "production"
+      ],
+      "notes": "Legacy shim-preview opt-out/opt-in switch. Default runtime behavior is disabled; set to 0/false/off/no only for temporary compatibility debugging."
     },
     {
       "key": "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Controls the post-VM `triggerBuildErrorRepair` loop in `src/lib/gen/verify/server-verify.ts`. Default ON in `development` and Vercel `preview`, default OFF in `production`. Explicit `1`/`true`/`on`/`yes` or `0`/`false`/`off`/`no` overrides the per-environment default. Same `inflight` dedup as server-verify so the same versionId never repairs twice in parallel."
     },
     {
       "key": "SAJTMASKIN_METRICS_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Bearer token required to access /api/metrics. Empty/unset = route returns 503 (disabled)."
-    },
-    {
-      "key": "SAJTMASKIN_SHOW_THINKING",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Legacy alias for SAJTMASKIN_DEFAULT_THINKING. Keep only for backward compatibility during env migration."
     },
     {
       "key": "VERCEL_TOKEN",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API across deploy/admin/domain flows in this repo."
     },
     {
@@ -402,67 +563,105 @@
     {
       "key": "VERCEL_TEAM_ID",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Team / org scope (often team_…). Used together with VERCEL_TOKEN + VERCEL_PROJECT_ID for Vercel REST API calls that need explicit team/project scoping. Find via linked project: run vercel link in the repo and read .vercel/project.json → orgId, or Team Settings → Team ID in the dashboard."
     },
     {
       "key": "VERCEL_PROJECT_ID",
       "classification": "shared_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Project id (prj_…). Used with VERCEL_TOKEN + VERCEL_TEAM_ID for Vercel REST API calls against the linked project. From Project Settings → General, or .vercel/project.json after vercel link."
     },
     {
       "key": "VERCEL_WEBHOOK_SECRET",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Validates inbound Vercel webhooks."
     },
     {
       "key": "VERCEL_OIDC_TOKEN",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["development"],
+      "recommendedVercelTargets": [
+        "development"
+      ],
       "notes": "Pulled locally via `vercel env pull` or injected by Vercel on hosted runtimes. Treat pulled `.env` values as local snapshots; useful for Vercel-authenticated platform flows, not as a tier-2 preview selector."
     },
     {
       "key": "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Root URL for the preview-host / VM service. Use the host root URL (not /preview), and let values differ by environment if different hosts are used."
     },
     {
       "key": "SAJTMASKIN_PREVIEW_HOST_API_KEY",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Bearer token the app uses for preview-host HTTP calls. Must match PREVIEW_HOST_API_KEY on the host when preview-host runs outside local development."
     },
     {
       "key": "NEXT_PUBLIC_APP_URL",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["preview", "production"],
+      "recommendedVercelTargets": [
+        "preview",
+        "production"
+      ],
       "notes": "Public app URL varies between local and deployed environments."
     },
     {
       "key": "NEXT_PUBLIC_BASE_URL",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["preview", "production"],
+      "recommendedVercelTargets": [
+        "preview",
+        "production"
+      ],
       "notes": "Public base URL for callbacks and sharing."
     },
     {
       "key": "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Comma-separated hostname suffixes used by the app to recognize tier-2 preview-host URLs in dev and deployed environments."
     },
     {
       "key": "NEXT_PUBLIC_AVATAR_AGENT_ID",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production", "preview"],
+      "recommendedVercelTargets": [
+        "production",
+        "preview"
+      ],
       "notes": "Public D-ID agent ID for the isolated /avatar test route."
     },
     {
       "key": "NEXT_PUBLIC_AVATAR_CLIENT_KEY",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production", "preview"],
+      "recommendedVercelTargets": [
+        "production",
+        "preview"
+      ],
       "notes": "Public D-ID client key for the isolated /avatar test route."
     },
     {
@@ -476,6 +675,18 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": [],
       "notes": "Optional override. If unset, the GitHub callback is derived from the current app base URL."
+    },
+    {
+      "key": "GITHUB_TOKEN",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "Local GitHub API fallback for tooling/template sync. Prefer TEMPLATE_SYNC_GITHUB_TOKEN for deployed template sync."
+    },
+    {
+      "key": "GITHUB_WORKFLOW_TOKEN",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "Local GitHub workflow-dispatch fallback for template sync. Prefer TEMPLATE_SYNC_GITHUB_TOKEN for deployed template sync."
     },
     {
       "key": "DATA_DIR",
@@ -502,16 +713,16 @@
       "notes": "Development-only logging flag."
     },
     {
-      "key": "SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "Development-only logging tuning."
-    },
-    {
       "key": "GENERATIONSLOGG",
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "Opt-in local generation timeline writer under logs/generationslogg/."
+    },
+    {
+      "key": "SAJTMASKIN_PROMPT_DUMP",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "Opt-in local prompt dump writer under data/prompt-dumps/. Keep out of deployed Vercel envs unless explicitly debugging a short-lived preview."
     },
     {
       "key": "TEST_USER_EMAIL",
@@ -528,302 +739,482 @@
     {
       "key": "INSPECTOR_CAPTURE_WORKER_URL",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Can point to localhost in dev and a deployed worker in preview/production."
     },
     {
       "key": "INSPECTOR_CAPTURE_WORKER_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Shared secret for the inspector worker."
     },
     {
       "key": "INSPECTOR_FORCE_WORKER_ONLY",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "May differ between local fallback and deployed worker-only environments."
     },
     {
       "key": "INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Timeout tuning for inspector capture."
     },
     {
       "key": "OPENCLAW_GATEWAY_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Required where OpenClaw-backed flows should work."
     },
     {
       "key": "OPENCLAW_GATEWAY_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Required where OpenClaw-backed flows should work."
     },
     {
       "key": "IMPLEMENT_UNDERSCORE_CLAW",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Feature flag for exposing the OpenClaw UI surface. Accepts y/yes/true/1."
     },
     {
       "key": "REDIS_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Primary Redis cache URL."
     },
     {
       "key": "KV_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Redis fallback URL."
     },
     {
       "key": "UPSTASH_REDIS_REST_URL",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "REST endpoint for Upstash-backed flows."
     },
     {
       "key": "UPSTASH_REDIS_REST_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "REST token for Upstash-backed flows."
+    },
+    {
+      "key": "SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Emergency opt-in only. When true/1, production may use per-instance in-memory rate limiting if Upstash REST is missing; default production behavior is fail-closed."
+    },
+    {
+      "key": "SAJTMASKIN_TRUST_X_FORWARDED_FOR",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Opt-in trust for x-forwarded-for in production when a trusted edge/proxy strips spoofed client headers. Default production behavior ignores x-forwarded-for and uses x-real-ip when present."
     },
     {
       "key": "BACKOFFICE_PASSWORD",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["preview", "production"],
+      "recommendedVercelTargets": [
+        "preview",
+        "production"
+      ],
       "notes": "Admin/backoffice secret that may live only in deployed environments."
     },
     {
       "key": "BACKOFFICE_SESSION_VERSION",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Backoffice session invalidation version."
     },
     {
       "key": "BLOB_READ_WRITE_TOKEN",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Required for blob-backed preview media and blob JSON persistence."
     },
     {
       "key": "BLOB_CONTENT_KEY",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Optional explicit backoffice blob content key. Prefer leaving unset to use env-specific defaults like backoffice/dev|preview|prod/content.json."
     },
     {
       "key": "BLOB_COLORS_KEY",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Optional explicit backoffice blob colors key. Prefer leaving unset to use env-specific defaults like backoffice/dev|preview|prod/colors.json."
     },
     {
       "key": "STORAGE_BACKEND",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Backoffice storage backend selection."
     },
     {
       "key": "DB_SSL_REJECT_UNAUTHORIZED",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Database TLS strictness."
     },
     {
       "key": "LOG_PROMPTS",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Prompt logging toggle."
     },
     {
       "key": "CSP_ENFORCE",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "CSP enforce-mode toggle."
     },
     {
       "key": "LOOPIA_API_USER",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Required where Loopia-backed domain flows are used."
     },
     {
       "key": "LOOPIA_API_PASSWORD",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Required where Loopia-backed domain flows are used."
     },
     {
       "key": "GODADDY_API",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "GoDaddy production availability API key. Used by src/lib/domains/godaddy-client.ts as a supplementary availability/price source."
     },
     {
       "key": "GODADDY_SECRET",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "GoDaddy production availability API secret. Pairs with GODADDY_API."
     },
     {
       "key": "OTE_GODADDY_API",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
       "notes": "GoDaddy OTE (test) availability API key. Used in dev/preview by src/lib/domains/godaddy-client.ts and the standalone tools in scripts/domains/."
     },
     {
       "key": "OTE_GODADDY_SECRET",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
       "notes": "GoDaddy OTE (test) availability API secret. Pairs with OTE_GODADDY_API."
     },
     {
       "key": "UNSPLASH_ACCESS_KEY",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Optional image sourcing key for placeholder materialization."
     },
     {
       "key": "SAJTMASKIN_VISUAL_QA",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["preview", "production"],
+      "recommendedVercelTargets": [
+        "preview",
+        "production"
+      ],
       "notes": "Optional app-side static visual QA after passing preview-host verify checks."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
-      "notes": "Production-only prompt budget tuning."
-    },
-    {
-      "key": "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_MAX_SYSTEM_LENGTH",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_PHASE_FORCE_AUDIT_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_PHASE_FORCE_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_FREEFORM_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_TECHNICAL_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_TEMPLATE_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_WARN_SYSTEM_LENGTH",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only prompt budget tuning."
     },
     {
       "key": "SAJTMASKIN_VERIFIER_PASS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Feature flag for post-generation verifier pass. Explicitly set on all three Vercel targets so verifier runs the same way locally (.env.local), on preview deploys, and on production."
     },
     {
       "key": "SAJTMASKIN_DOSSIER_PIPELINE",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["development", "preview", "production"],
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
       "notes": "Deterministic capability-driven dossier pipeline. Code-default is on (see src/lib/config.ts). Explicitly set to true on all three Vercel targets per docs/ENV.md (deploy-status 2026-04-23). Set to 'false'/'0' to disable. No tuning knobs."
     },
     {
       "key": "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only verifier tuning."
     },
     {
       "key": "SAJTMASKIN_VERIFIER_TIMEOUT_MS",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only verifier tuning."
     },
     {
       "key": "SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE",
       "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
+      "recommendedVercelTargets": [
+        "production"
+      ],
       "notes": "Production-only verifier tuning."
+    },
+    {
+      "key": "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Timeout for each primary LLM-fixer repair attempt in milliseconds. Default 90000; raise when large generated files repeatedly abort during typecheck/quality-gate repair."
+    },
+    {
+      "key": "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Timeout for the reduced-budget LLM-fixer retry attempt in milliseconds. Default 120000 so retries get enough wall time after an abort."
     }
   ]
 }

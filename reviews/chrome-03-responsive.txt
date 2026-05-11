@@ -1,0 +1,23 @@
+Builder shell mobile (BuilderShellContent + BuilderLayout)
+
+1. Tab pattern & a11y — 4/5 — role=tablist/tab, aria-selected, aria-controls; icons + “Chatt” / “Sajt”.
+
+2. Tab clarity — 4/5 — “Sajt” + eye; orange dot when preview exists while on chat.
+
+3. Touch targets — 3/5 — py-2 px-3 text-xs; vertical hit area modest vs 44px comfort.
+
+4. Chat ↔ preview exclusivity — 3/5 — <lg one panel hidden; both-at-once needs tab switching.
+
+5. Auto-switch to preview — 3/5 — First URL can pull users away from chat mid-flow.
+
+6. Version rail default collapsed — 4/5 — Preserves preview width; expanded steals ~20rem on phone.
+
+7. Header reachability — 4/5 — “Fler åtgärder” exposes settings, Ny chat, Spara, Domän; features reachable.
+
+8. BuilderLayout viewport — 5/5 — h-dvh, overflow-x-hidden, flex-col.
+
+9. Chat stack on mobile — 3/5 — Env/deploy readiness on chat tab; “Sajt” users must switch back.
+
+10. Keyboard roving tabindex — 3/5 — Tabs are buttons; no arrow-key pattern.
+
+Recommendations: larger tab min-height; reconsider auto-jump to preview; sheet for versions on narrow screens. Overall ~3.5/5.

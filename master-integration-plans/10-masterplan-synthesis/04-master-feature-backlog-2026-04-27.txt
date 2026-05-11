@@ -1,0 +1,24 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 04-master-feature-backlog
+Date: 2026-04-27
+
+## Inputs Read
+- `01-git-delta-scope/06-master-new-features` (om finns), `02/00-backend-contract-checklist`, `02/01-chat-stream-routes`, `02/02-chat-crud-routes`, `02/06-domains-deployments`, `03/00-dependency-ordered-plan`, `03/05-dossiers-capabilities`, `03/06-finalize-preflight`, `03/07-autofix-verifier`.
+
+## Synthesis
+Nya/ändrade master-förmågor = **accepterad funktion** när: (1) exakt en post-check-ägare (jmf `product-postcheck` vs `runPostGenerationChecks`), (2) SSE-ordning matchar `stream-handlers` och builder-kontrakt, (3) prewarm/preview rate limits alignade med builder/coexistence, (4) deploy+`resolve-seo`+`SeoOptInPanel`+version diagnostics trådas utan motstridig publicerings-UI, (5) dossier/strict schema + import-validator + repair-loop utan oändliga loppingar, (6) nya scaffold-variants indexerade/embedded.
+
+## Ordered Plan
+- Triangulera `06-master-new-features` mot faktisk `git diff` efter fetch.
+- För varje yta: API-acceptans → front wiring (builder) → data (dossier/env) → tester.
+- Särskild pass: `preview-prewarm`, `resolve-seo`, `import-validator` + `docs/schemas/strict`, backoffice-telemetry om path kvarstår.
+
+## Acceptance Criteria
+- Ingen dubblett aggressiv post-check; `quality-gate`/`readiness`/`repair` kontrakt oförändrade för kunder av `useAutoFix`, `VersionHistory`, `LaunchReadinessCard` om inte avsiktligt breaking change med release notes.
+- Finalize/verifier: `done`-payload inkl. shrink/reject-fält matchar UI.
+
+## Risks / Mitigations
+- Tyst “laggs på” i master utan UI → spåra i MI02/04 och lägg **wire-up**-task innan “klart”.
+- Duplicerad post-check orsakar dålig kvalitetsmätning / dubbla credits — en ägare beslutat.
+
+## Final Recommendations
+Skapa gärna en tabell: **feature | accepterad? | app-route/lib | test | manuell rök** innan du slår ihop stora PR:er.

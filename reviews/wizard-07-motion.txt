@@ -1,0 +1,24 @@
+IntakeWizard — motion & övergångar
+
+1. Steg-byte — 2/5 — Villkorlig render utan enter/exit; hårt klipp, ingen AnimatePresence.
+
+2. direction state — 2/5 — Sätts forward/back men används inte för animation — död affordance.
+
+3. MOTION-token — 4/5 — Explicita properties, motion-safe duration-200, motion-reduce — bra vs oskyddad CSS.
+
+4. Progress bar + prickar — 4/5 — width-transition 200ms; dots transition-colors; lite mer än iOS Settings (ofta ett mönster).
+
+5. Primär CTA — 3/5 — active:scale-0.99, hover shadow — iOS Settings ofta plattare.
+
+6. Inkonsistent policy — 3/5 — Scrape-overlay transition-all duration-300 utan motion-reduce-paritet; ImagePickerThumb transition-all utan MOTION.
+
+7. Jank-risk — 2.5/5 — overflow-y-auto, varierande steg-höjd → scroll hoppar; mycket backdrop-blur.
+
+| Område | Poäng |
+| Stegkontinuitet | 2 |
+| MOTION + reduce | 4 |
+| Progress feedback | 4 |
+| CTA micro | 3 |
+| Jank vs iOS | 2.5 |
+
+Verdict: Bra timing/token; saknar steg-animation och riktning; rikta om direction till slide eller ta bort.

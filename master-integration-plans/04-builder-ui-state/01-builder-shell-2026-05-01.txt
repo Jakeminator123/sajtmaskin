@@ -1,0 +1,56 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 01-builder-shell
+Date: 2026-05-01
+
+## UI/UX To Preserve
+- Full-height builder shell with preview-first desktop layout.
+- Minimal mode: chat lives in `BuilderDetailsDrawer` plus disclosure pill.
+- Expanded mode: right chat column with collapse state.
+- Mobile tabs: `Chatt` / `Sajt`, auto-switch to preview on first preview URL.
+- Pro/minimal preview chrome behavior.
+- Intake wizard visible only before `chatId`.
+
+## New Master Capabilities To Surface
+- New deploy/readiness/lifecycle fields.
+- New preview phases/callbacks.
+- New chat tool event ids.
+- New assistant uiParts and pending reply behavior.
+- F3/build-out changes while preserving `meta.buildOut`.
+
+## State/Props Impact
+- `BuilderViewModel` from `useBuilderPageController` drives shell props.
+- Local state includes mobile tab, chat collapsed, simplified preview chrome, autofix, tips, wizard, placement, and dialogs.
+- New VM fields should be added to prop wiring, not moved into shell business logic.
+
+## Required Buttons / Choices / Copy
+- `Chatt`, `Sajt`, `Visa chatt`, `Dölj chatt`.
+- F2 env info copy and `env.example` reference.
+- Guest build-out login copy.
+- Post-generation suggestions and chat tool event toasts.
+
+## Exact LLM Implementation Instructions
+- Port-ours for layout, minimal/expanded split, drawer/pill, intake, and needs-analysis pickers.
+- Take master bugfixes/new props case-by-case.
+- Keep env panel gated by `lifecycleStage === "integrations"`.
+- Extend `generationPhase` mappings without removing existing keys.
+
+## Merge Conflict Plan
+- Preserve flex grid/mobile/preview wrappers first.
+- Add master props to `PreviewPanel` and `BuilderHeader` manually.
+- Keep both minimal drawer and expanded sidebar branches.
+- Union `CHAT_TOOL_EVENT` cases.
+- Avoid dead imports.
+
+## Test Plan
+- Desktop expanded chat collapse.
+- Desktop minimal drawer/pill pulse.
+- Mobile tabs and auto-switch.
+- Wizard first generation.
+- Build-out from preview and URL fallback.
+- F2 no env panel; F3 env panel.
+
+## Do Not Break
+- Builder coexistence.
+- Help vs build filtering.
+- F2 env mute.
+- `displayMessages` and post-check/shrink behavior.
+- OpenClaw context and placement flow.

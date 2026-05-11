@@ -1,0 +1,34 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 07-autofix-verifier
+Date: 2026-04-27
+
+## Master Pipeline Changes
+- Stor diff: `autofix/*` (pipeline, `validate-and-fix`, `llm-fixer`, `import-validator`, `common-import-fixer`, `jsx-checker`, rules, `verifier-pass`), `verify/*` (verifier-pass, `quality-gate-checks`, `product-postcheck`, `repair-loop`, `preview-quality-gate`, `server-verify`, `server-repair-policy`).
+- `runAutoFix` sekvens + `lanes` (`verifier-pass` ↪ `static_gate`).
+- `verifier-pass.ts` — structured `blocking`/`quality`; `isVerifierPassEnabled` + modell från manifest; `verifier-phase.ts` orkestrerar + fixer re-run.
+- `quality-gate-checks` — F2 `DESIGN_PREVIEW_*` vs F3 `INTEGRATIONS_*` från manifest `qualityGateTiers`.
+- `runRepairLoop` — mekanik + `runLlmFixer`, promotion callbacks.
+- `triggerServerVerification` + `server-repair-policy` (early stop, `gateFailureSignals`).
+
+## Local Behaviors To Preserve
+- **Klient-UI** (`stream-handlers`, `BuilderMessageTooling`, `post-checks.ts`, `useAutoFix`, `useChatReadiness`) förlitar sig på: `rejectedShrinks`, `verifierBlockingFindings`, `done`-payload, quality-gate HTTP (501 skipp) — port_ours på dessa lager när masterna ändrar samma fält.
+- När **API** `product-postcheck` (master) existerar parallellt: se MI02 så samma `versionId` inte får dubblettkörningar mot `runPostGenerationChecks`.
+- F2 `tier3-sdk-guard` måste förbli alignad med F2-prompts (MI03-03).
+
+## Merge/Port Plan
+1. Autofix pipeline + `fixer-registry` + `import-validator` före LLM-fixer-ändringar.
+2. `verifier-pass` + `verifier-phase` + `verifier-pass.test` + manifest `postGenerationPasses`.
+3. `quality-gate-checks` + `preview-quality-gate` + `server-verify` (exportable) + `repair-loop`.
+4. Nya scheman under `docs/schemas/strict/llm-fixer-*.json` (diff) + feltelemetri — uppdatera `stream-handlers` om felklasser nya.
+5. Kör `npx vitest run` med fokus `autofix`, `verify`, `verifier`, `import-validator` tester.
+
+## Regression Risks
+- Dödloop: repair ↔ verifier (policy ändring utan `server-repair-policy`).
+- `DESIGN` vs `INTEGRATIONS` tier-lista och fel 501/409 i UI.
+- `runQualityGateOnExportable` när `SAJTMASKIN_PREVIEW_HOST_BASE_URL` saknas.
+- Nya stränga import-validator / lucide R3F regler som bränner legitimat Tier3 i F2 (guard måste sitta rätt).
+
+## Required Tests
+- `autofix/*.test.ts` (i diff), `verifier-pass.test`, `product-postcheck.test` (när fil finns), `validate-and-fix.test` path, `post-checks.test` / `useAutoFix.test`, E2E manuell med en stream-session.
+
+## Open Questions
+- Ska `product-postcheck` (server) slås samman med befintlig **product**-postcheck i `gen/verify` + chat tool-output — en ägare?

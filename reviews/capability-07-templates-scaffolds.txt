@@ -1,0 +1,38 @@
+Backend Capability Audit — Agent 7: Templates & scaffolds
+
+- [DOK] template-library README genererad katalog embeddings — src/lib/gen/template-library/README.md:1 — NEJ — 5
+- [DOK] scaffolds README 10 runtime-familjer — src/lib/gen/scaffolds/README.md:1 — NEJ — 5
+- [METADATA] TemplateLibraryEntry demoUrl runtimeGuidance selectedFiles — template-library/types.ts:57 — NEJ — 4
+- [KATALOG] catalog.ts template-library.generated.json — template-library/catalog.ts:18 — NEJ — 4
+- [SÖK] searchTemplateLibrary hybrid embedding/keyword — template-library/search.ts:416 — NEJ — 3
+- [ORKESTRERING] resolveTemplateGuidance referenceTemplates — gen/orchestrate.ts:508 — NEJ — 4
+- [EMBEDDINGS] embeddings-core template-library — template-library/embeddings-core.ts:1 — NEJ — 3
+- [REGISTRY] BASE_SCAFFOLDS 10 familjer — scaffolds/registry.ts:28 — DELVIS — 5
+- [SCAFFOLD] base-nextjs manifest — scaffolds/base-nextjs/manifest.ts:4 — JA — 4
+- [SCAFFOLD] landing-page manifest + referenceTemplates — scaffolds/landing-page/manifest.ts:4 — JA — 5
+- [SCAFFOLD] saas-landing manifest — scaffolds/saas-landing/manifest.ts:4 — JA — 5
+- [SCAFFOLD] portfolio manifest — scaffolds/portfolio/manifest.ts:4 — JA — 4
+- [SCAFFOLD] blog manifest — scaffolds/blog/manifest.ts:4 — JA — 4
+- [SCAFFOLD] dashboard manifest — scaffolds/dashboard/manifest.ts:4 — JA — 4
+- [SCAFFOLD] auth-pages manifest — scaffolds/auth-pages/manifest.ts:4 — JA — 4
+- [SCAFFOLD] ecommerce manifest — scaffolds/ecommerce/manifest.ts:4 — JA — 5
+- [SCAFFOLD] content-site manifest — scaffolds/content-site/manifest.ts:4 — JA — 4
+- [SCAFFOLD] app-shell manifest — scaffolds/app-shell/manifest.ts:4 — JA — 4
+- [MATCHNING] matchScaffoldAuto keyword+semantik — scaffolds/matcher.ts:1004 — NEJ — 5
+- [PROMPT] serializeScaffoldForPrompt — scaffolds/serialize.ts:67 — NEJ — 5
+- [SÖK] searchScaffolds embedding-rank — scaffolds/scaffold-search.ts:116 — NEJ — 4
+- [FILER] loadScaffoldFiles materialisera files[] — scaffolds/load-scaffold-files.ts:7 — NEJ — 4
+- [RESEARCH] getScaffoldResearchOverrides scaffold-research.generated — scaffolds/scaffold-research.ts:93 — NEJ — 4
+- [SEO] applyScaffoldSeoDefaults — scaffolds/seo-defaults.ts:172 — NEJ — 3
+- [TELEMETRI] getScaffoldBoost scoring — scaffolds/scaffold-scoring.ts:144 — NEJ — 3
+- [RETRY] inferScaffoldRetrySuggestion — scaffold-aware-retry.ts:213 — NEJ — 4
+- [VALIDERING] validateScaffoldManifest — scaffold-manifest-validation.ts:11 — NEJ — 4
+- [UI] SCAFFOLD_CLIENT_LIST etiketter — scaffolds/types.ts:62 — JA — 5
+- [UI] BuilderHeader scaffold-dropdown — BuilderHeader.tsx:356 — JA — 5
+- [UI] AdvancedSettingsPanel scaffold-lista — AdvancedSettingsPanel.tsx:13 — JA — 4
+- [VARIANT] config/scaffold-variants/*.json ~21 varianter — scaffold-variants/registry.ts:12 — NEJ — 4
+- [VARIANT] pickScaffoldVariant orchestrate — gen/orchestrate.ts:571 — NEJ — 4
+- [LEGACY] templates_v0 local-v0-template-source — src/lib/templates/local-v0-template-source.ts:8 — JA (Mallar-tab) — 3
+- [LEGACY] template-image API downloads/template-images — template-image/[templateId]/route.ts:10 — DELVIS — 3
+
+Slutsats: 10 ScaffoldId JA i UI; gen/template-library metadata mest orchestrering; 21 JSON-varianter utan variantväljare; templates_v0 separat legacy.

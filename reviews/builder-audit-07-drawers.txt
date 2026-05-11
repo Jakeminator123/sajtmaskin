@@ -1,0 +1,38 @@
+**Lägesbild:** Flera sökvägar i din scope finns **inte** i det här repot (`BuilderSidebar*.tsx`, `BuilderSettingsDialog.tsx`, `TemplateBrowserDialog.tsx`, `ImportFromUrlDialog.tsx`, `src/components/builder/dialogs/*`). Motsvarande funktion ligger i `BuilderHeader.tsx`, `InitFromRepoModal.tsx`, m.m. **Jag kan inte skapa `reviews/builder-audit-07-drawers.txt` i read-only-läge** — kopiera texten nedan eller kör i Agent mode om du vill att filen skrivs åt dig.
+
+---
+
+```
+builder-audit-07-drawers (READ-ONLY)
+Saknade filer i repo: BuilderSidebar*, BuilderSettingsDialog, TemplateBrowserDialog, ImportFromUrlDialog, builder/dialogs/* — ingen granskning där.
+
+[1] TemplatePickerPopup + vm.showTemplatePicker — ingen import av popup, setShowTemplatePicker(true) saknas — död gren / UI-state som aldrig öppnas → trasigt oanvänt.
+[2] templatePickerItems / isTemplatePickerLoading / handleTemplateSelect — bara lokala handlers utan mountad popup → samma döda spår.
+[4] BuilderDetailsDrawer (Sheet) — onOpenChange → vm.setDetailsDrawerOpen — endast UI-state; innehåll = chat/env/messages → fungerar i minimal-läge.
+[5] BuilderDisclosurePill — onOpen + ⌘K → setDetailsDrawerOpen(true) — ren UI-state, kopplad i BuilderShellContent.
+[5] Mobil flikar Chatt/Sajt — setMobileTab — lokal UI; preview-badge från vm.currentPreviewUrl.
+[5] Dölj/visa chatt (expanded) — toggleChatCollapsed + localStorage — UI.
+[5] DeployNameDialog — handleConfirmDeploy → ev. updateProject + POST /api/v0/deployments — backend E2E.
+[4] Template-byte AlertDialog — confirmTemplateSwitchDialog → router ?templateId + reset state — navigation-driven, inte direkt API i dialogen.
+[4] DomainSearchDialog Sök — handleDomainSearch → POST /api/domains/check — API OK; tom query avbryter tyst i handler (kräver ifylld söksträng).
+[4] Domän-knapp header — om lastDeployVercelProjectId → DomainManager annars sökdialog — entrypoint OK, olika flöden.
+[5] InitFromRepoModal — POST ENGINE_CHATS_API_PREFIX/init — ny chat + onSuccess uppdaterar router/state — E2E.
+[5] PlacementConfirmDialog — handlePlacementConfirm → vm.sendMessage — chat/API via motor — E2E när preview+chat finns.
+[5] RequireAuthModal — stängning + ev. redirect — auth-state.
+[5] BuilderHeader "Inställningar" dropdown — checkboxes → vm-setters (modell, scaffold, generering, integritet m.m.) — synkar mot builder-state; vissa värden följer vid create/save-flöden.
+[5] Dialog "Egna instruktioner" i BuilderHeader — Textarea/Switch → vm customInstructions/applyOnce — används vid ny chat.
+[5] Importera (GitHub/ZIP) — onOpenImport → setIsImportModalOpen — öppnar InitFromRepoModal.
+[4] VersionDiagnosticsDialog — från VersionHistory (sidopanel) — egen dialogfil, kopplad till versioner (detalj utanför denna genomgång men entrypoint finns).
+[—] FeedbackButton / ShareButton / AssetDrawer — inga symboler i src.
+[5] Kompakt header "Verktyg & inställningar" — onOpenDetailsDrawer — samma drawer som pill.
+```
+
+**Källhänvisningar (repo):**  
+- Drawer/pill: `src/app/builder/BuilderShellContent.tsx` (ca 1846–1923), `src/components/builder/BuilderDetailsDrawer.tsx`, `src/components/builder/BuilderDisclosurePill.tsx`  
+- Dialoger: samma `BuilderShellContent.tsx` (ca 2025–2214), `src/components/builder/BuilderHeader.tsx` (dropdown + instruktionsdialog ca 859–913)  
+- Import: `src/components/builder/InitFromRepoModal.tsx` (`fetch` … `/init`)  
+- Domän: `src/app/builder/useBuilderDeployActions.ts` (`handleDomainSearch`, `handleConfirmDeploy`)  
+- Mall-byte: `src/app/builder/useBuilderPromptActions.ts` (`handleStartFromTemplate`, `confirmTemplateSwitchDialog`)  
+- TemplatePickerPopup: endast `src/components/builder/TemplatePickerPopup.tsx` (ingen konsument)
+
+[REDACTED]

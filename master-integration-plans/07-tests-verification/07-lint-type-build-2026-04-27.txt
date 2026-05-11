@@ -1,0 +1,36 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 07-lint-type-build
+Date: 2026-04-27
+
+## Required Checks
+- **Rekommenderad ordning (matchar CI):** `typecheck` → `lint` → `test:ci` → `baseline-deps:verify` → `baseline-deps:tree` → `build`.
+- **Lokal alternativ (utan build, striktare data):** `devtest` = `typecheck` → `scaffolds:validate` → `dossiers:validate-all` → `test:ci` → `lint`.
+
+## Existing Tests
+- N/A (denna agent = verktyg); `npm test` = watch, `test:ci` = `vitest run`.
+
+## Missing Coverage
+- Ingen; se istället skillens övriga agenter för innehålls-luckor.
+
+## Failure Triage Guide
+- **tsc** — före lint om massor av fel: snabbast signal.
+- **lint** — `globalIgnores` + per-fil overrides i `eslint.config.mjs` (t.ex. `data/dossiers/**` ignorerat).
+- **tsconfig `exclude`** — t.ex. `e2e/`, `data/` typas ej av rot-tsc; rör du dem, special-case.
+- **build** — `prebuild` kör `preflight:common` + `scaffolds:embeddings:check`; fail där före Next.
+- `next.config.ts` — `serverExternalPackages`, `images.remotePatterns`, `outputFileTracingExcludes` — fånga vid bundling/edge.
+
+## Exact Commands
+```bash
+npm run typecheck
+npm run lint
+npm run test:ci
+npm run baseline-deps:verify
+npm run baseline-deps:tree
+npm run build
+# Alt:
+npm run devtest
+npm run format:check
+```
+
+## Pass Criteria
+- Samma som CI: all sex steg 0 (local env med Node enligt `package.json` `engines`).
+- `devtest` 0 när du vill inkludera dossier+scaffold utan full `build`.

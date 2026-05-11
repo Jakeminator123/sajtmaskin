@@ -1,0 +1,36 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 04-auth-user-session
+Date: 2026-04-27
+
+## Master Changes To Preserve
+- Custom JWT: HttpOnly `sajtmaskin_auth` (HS256, 7d); `getCurrentUser` i `src/lib/auth/auth.ts`.
+- Gäst: `sajtmaskin_session` + `x-session-id` — `getSessionIdFromRequest` / `ensureSessionIdFromRequest` (ej samma som login).
+- Edge: `src/lib/auth/edge-auth.ts` + `src/proxy.ts` samma cookie/JWT.
+- API: `GET /api/auth/me`, `POST login|register|logout`, verify/resend, GitHub/Google OAuth (egna routes, **inte** NextAuth/Clerk i `package.json`).
+- `src/lib/auth/auth-store.ts` — `fetchUser` / Zustand.
+
+## Frontend Consumers
+- `useAuth` / `AuthModal` / `RequireAuthModal` — samma form från `/me` och login/register.
+- `page.tsx`, `projects`, `navbar` — `login`, `verified` query, `fetchUser`.
+- `useBuilderPageController`, `BuilderShellContent` — gäst vs inloggad, modaler.
+- `VersionHistory`, `InitFromRepoModal` — `user.github_token` (full user kan komma från login, inte alltid från `/me` — risk för fält-drift).
+- `scripts/qa/browser-autoloop.ts` — POST login.
+
+## Contract Risks
+- `/me` returnerar subset — GitHub-fält kanske helt på login-svar, inte `/me` — Zustand kan bli inkonsistent efter `fetchUser`.
+- Logga in returnerar **200** med `success: false` i vissa e-post/ Google-only vägar (medvetet tystare).
+- `JWT_SECRET` + dev-fallback i `proxy` (prod kräv secret).
+- Dubbla cookies: JWT + session — får inte kollapsas.
+- CORS: `ALLOWED_ORIGINS` + `VERCEL_URL` i `proxy`.
+- Registrera utan session när e-postverifiering krävs.
+
+## Required Adaptations
+- Om master inför Clerk/NextAuth för appen: brygg till `getCurrentUser` ELLER koordinerat byte av ~40+ API-anrop, behåll `sajtmaskin_session` där gäst krävs.
+- Ändra `/me`-form: uppdatera `auth-store`, tester, QA, alla `authenticated` gate.
+
+## Tests / Runtime Checks
+- `src/lib/auth/auth.test.ts` (m.fl.).
+- Ingen `api/auth/**/*.test.ts` i större del — efter policy: rök `me`, login, logout, verify redirect, `proxy` på `/projects`/`/buy-credits`/`/admin`.
+
+## Do Not Break
+- Cookie-namn `sajtmaskin_auth`, `sajtmaskin_session`.
+- JWT/edge-synk; `GET /api/auth/me` kontrakt; session på engine + projects; `proxy` `AUTH_REQUIRED_PATHS` + admin; rate limit på register/login; svenska strängar/redirects för verify.

@@ -1,0 +1,24 @@
+IntakeWizard flow — iPhone setup lens
+Source: IntakeWizard.tsx (6 steg: company → siteType → content → design → pages → media)
+
+1. Stegantal (6) vs upplevd längd — 3/5 — Många underytor (24 site types, branchat innehåll); känns längre än prickarna visar på mobil.
+
+2. Ordning — 4/5 — Identitet → kategori → substans → look → IA → assets; liten spänning logo/färger över grenar.
+
+3. Gate vs hoppa — 3/5 — company/siteType hårda; content/design/media kan Fortsätt tomt; pages kräver mustHave men “Hoppa över” kringgår — otydlig regel.
+
+4. “Hoppa över” — 3/5 — Inte steg 1–2, inte sista; media alltid besöks om man inte hoppar från pages? Tydlig escape men begränsad genväg.
+
+5. Progress bar + prickar — 4/5 — Tunn bar, dekorativa dots (aria-hidden); låg brus; “Steg X av 6” skulle lugna mer än mikroprickar för vissa.
+
+6. Navigation — 4/5 — min-h-11/12, fullbredd primär på små skärmar; Tillbaka i header när currentStep > 0.
+
+7. siteType-täthet — 2/5 — Stort rutnät på telefon = scroll + skanning; konkurrerar med “snabb setup”.
+
+8. content-gren — 3/5 — resolveContentBranch dominerar upplevd längd mer än stegnummer.
+
+9. Sammanslagning — Rek: korta siteType (sök, färre tiles) hellre än ta bort steg; ev. design+media om kort nog.
+
+10. Helhet iPhone-setup — 3/5 — Tydlig struktur; största risk kumulativ scroll + kategori/innehållsbranch.
+
+Prioritet: (A) Minska siteType-scan. (B) Förtydliga pages skip vs mustHave. (C) Valfritt “Steg X av 6”. (D) Smalare innehåll per gren på smal skärm.

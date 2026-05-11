@@ -1,0 +1,24 @@
+Apple polish — surfaces / radius / shadows (builder)
+Workspace: src/components/builder/**
+
+Surface types observed
+1) Modal/picker shells — rounded-2xl/3xl + shadow-2xl (UnifiedElementPicker, UiElementPicker, MustHavePickerPopup, SiteTypePickerPopup, OnboardingOverlay); InitFromRepoModal rounded-xl + shadow-2xl.
+2) Drawers — Sheet via BuilderDetailsDrawer; base SheetContent shadow-lg (src/components/ui/sheet.tsx).
+3) Preview device/chrome — PreviewPanelFrame: rounded-[var(--radius)] + shadow-sm|md + ring-1 ring-border/40.
+4) Inset cards — rounded-md/lg (BuilderMessageTooling, review-panels, VersionCompareDialog, ChatInterface composer).
+5) Floating overlays — ModelTraceOverlay rounded-xl + shadow-2xl; InlineEditPopup; ChatInterface shadow-lg tooltips.
+6) Chips/tabs — rounded-md/sm/full + ring-1 ring-primary/20 or ring-2 ring-primary (TemplatePickerPopup selected).
+7) Buttons/CTAs — rounded-full/xl + shadow-sm|md|shadow-primary/* (ImageUploadPopup, IntakeSummaryCard, picker footers).
+
+Issues: Radius sm through 3xl + rounded-[1.25rem] (MessageList), rounded-[var(--radius)]. Shadow split: heavy 2xl/xl/lg vs hairline; ring-2 + ring-offset “hardware” vs diffuse lift.
+
+Proposed ONE pair per type
+1) Modals/large pickers: rounded-2xl + shadow-lg (drop 2xl; backdrop-blur if needed).
+2) Drawer/sheet: softer shadow-md or avoid stacking modal shadow on sheet.
+3) Preview frame: rounded-[var(--radius)] + shadow-sm; ring-1 ring-border/30 max.
+4) Nested/dense cards: rounded-lg + shadow-none (border-only).
+5) Floating/inspector: rounded-xl + shadow-md (no 2xl).
+6) Chips/tabs: rounded-full or rounded-md; shadow-none; selected ring-1 ring-primary/25 OR border-primary/40 — avoid ring-2+offset default.
+7) Primary buttons: rounded-full + shadow-sm; remove colored shadow-primary stacks on filled.
+
+Scores: Radius 2 | Shadow subtlety 2 | Ring vs diffuse 2 | Elevation ladder 2 | Overall 2/5

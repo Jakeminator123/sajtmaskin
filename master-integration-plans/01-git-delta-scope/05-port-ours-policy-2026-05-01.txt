@@ -1,0 +1,48 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 05-port-ours-policy
+Date: 2026-05-01
+
+## Scope
+Files and behaviors where current local UI/UX, preview postMessage lifecycle, build-out flow, help-chat separation, and stream UX must be preserved or manually ported into master structures.
+
+## Evidence
+- Preview postMessage code: `src/components/builder/preview-panel/hooks/usePreviewIframe.ts`, `usePreviewPanelOwnEnginePreviewTelemetry.ts`, `src/lib/gen/stream/finalize-preflight/shell-pages.ts`, `src/lib/gen/preview/legacy/shims.ts`, and `preview-host/src/runtime.js`.
+- Message contracts: `src/components/builder/preview-panel/preview-panel-types.ts`.
+- Design tokens: `src/app/globals.css` and `tailwind.config.cjs`.
+- Builder state/callbacks: `src/app/builder/useBuilderState.ts`, `useBuilderPageController.ts`, `useBuilderCallbacks.ts`, `useBuilderVmPreview.ts`, `usePreviewSession.ts`.
+
+## Findings
+- Preserve local preview iframe and VM readiness behavior, including `preview-starting`, `vmReady`, and cross-origin message handling.
+- Preserve postMessage build-out flow and URL fallback through `BuilderShellContent`.
+- Preserve `pickEngineIframeUrl`, preview refresh token behavior, heartbeat, route resolution, and preview telemetry.
+- Preserve help-chat filtering (`isHelpMessage`) so help messages do not mutate generation state.
+- Preserve stream UX signals including retry hints and verifier blocking findings.
+- Preserve minimalist builder chrome, Swedish copy, wizard flow, and design tokens.
+
+## Recommended Actions
+- Resolve preview hooks and `preview-host/src/runtime.js` before broader builder UI conflicts.
+- Verify build-out from generated preview through both postMessage and URL intent fallback.
+- Diff stream handlers against master and reintroduce local retry/verifier UI signals.
+- Keep local design tokens and avoid reintroducing hardcoded palette drift.
+
+## Exact LLM Implementation Instructions
+- Run `git diff origin/master...HEAD --` for every path listed above before conflict resolution.
+- In conflicts, take master structural API/props where backend contracts require it, then reapply local preview message types and VM readiness behavior.
+- In `BuilderShellContent.tsx`, preserve help-message filtering, preview build-out handling, and `sajtmaskin_buildout` fallback.
+- In `useBuilderCallbacks.ts`, preserve `pickEngineIframeUrl` and `bumpPreviewRefreshToken()` side effects.
+- Keep `preview-host/src/runtime.js` aligned with the client expectation for `preview-starting` timing.
+- Do not alter backend routes in this port-ours pass except for contract checks.
+
+## Verification Needed
+- Cross-origin preview: `preview-starting` then ready state, no false empty state.
+- Build-out request from preview button and from opened shell URL intent.
+- Chat stream with retry hint and verifier findings.
+- Help-chat messages excluded from build generation thread.
+- Token/style regression check for hardcoded color drift.
+
+## Do Not Break
+- postMessage ordering and payload shape.
+- Cross-origin source/window identity handling.
+- `build-out-request` and URL fallback behavior.
+- `pickEngineIframeUrl` and preview refresh on version changes.
+- `isHelpMessage` filtering.
+- Brandbook tokens in `globals.css`.

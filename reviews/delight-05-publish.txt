@@ -1,0 +1,14 @@
+Builder Delight Review — Agent 5: Publiceringsögonblick (moment → nuvarande → föreslagen → S/M/L)
+
+Klick Publicera | Öppnar namn-dialog sedan POST | Behåll; lägg tunn progressindikator redan i dialog | S
+Efter POST | toast “Publicering startad…” + ev. URL-toast 15 s | En sammanhållen sheet/toast-rad med Kopiera + Öppna | M
+pending/building | Header-outline “Bygger…” / disabled | Samma visuella språk pending=building så knapp inte blinkar tillbaka | S
+ready + URL | Grön outline “Publicerad” öppnar bara länk | Tokeniserad success + inline Kopiera + mjuk opacity till “Publicerad” | M
+Fel deploy | toast.error | Samma yta som success med tydlig återhämtning “Försök igen” | M
+Ingen progressbåge | Endast texter/toast | Lugn båge eller stegtext kopplad till SSE events | M
+Domän action | Toast action “Koppla domän” | Flytta in i publish-sheet som sekundär rad | S
+Kopiera URL | Saknas i header | Monospace + kopiera alltid vid ready | S
+Färg | green-* hårdkodad risk | Använd tokens enligt redesign-policy | S
+Avslut | Hårda hopp | 150 ms fade mellan statuslägen | S
+
+Sekvens ideal: tryck → lugn progress → URL kopierbar → kort fade “Publicerad” utan reklamkänsla.

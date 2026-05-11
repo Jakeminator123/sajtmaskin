@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 07-commit-pr-plan
+Date: 2026-04-27
+
+## Inputs Read
+- `01-git-delta-scope/04-merge-order`, `03-local-uncommitted-scope`, `08-command-plan`, `06-data-env-config/00-config-migration`, `07/00-verification-ladder`, `09/00-production-readiness`, `workflow.mdc`.
+
+## Synthesis
+Små, **reversibla** commits: merge först, sedan produkt (`src`+`next`+`proxy`), därefter env i triplet, därefter scheman/manifest, därefter “rent” design/token, därefter tester, sist avsiktlig `data/`-leverans — **blanda aldrig** `data/runs`, körloggar, `reviews/`, orelaterad docs med samma commit som kärnan.
+
+## Ordered Plan
+- **Commit 0:** WIP `stash push -u` eller scoped commit före merge.
+- **Commit 1:** `git merge origin/master` + conflict resolve.
+- **Commit 2:** App-kropp: `src/**`, `next.config.ts`, `src/proxy.ts` (+ ev. `vercel-insights` om samma logiska ändring).
+- **Commit 3:** `env.ts` + `env-policy.json` + `docs/ENV.md` tillsammans.
+- **Commit 4:** `docs/schemas/strict/`, `manifest` + `load-manifest` om samma feature.
+- **Commit 5:** Rening av hårdkod/tokens (om separat från mergebråk).
+- **Commit 6:** Teständringar/fixtures.
+- **Commit 7:** Dossier/scaffold data — **egen** diff.
+
+## Acceptance Criteria
+- Ingen `git add` av hemligheter, `.vercel/`, oavsiktlig `data/runs/**`, prompt-dumps, stora `logs/`.
+- PR: lista merge-konfliktytor, env-nycklar (namn), vad som *medvetet* utesluts, SHA om stor PR, verifieringssteg körda.
+
+## Risks / Mitigations
+- Bred `prettier` på hela repo tillsammans med merge = omöjlig review — förbjuden i samma commit.
+
+## Final Recommendations
+Review-fokus: `api/engine/.../stream`, `next`+`proxy`, trippel env, `data/dossiers` om i diff, coexistence-dok i PR om builder testas.
+
+## Do not commit (upprepning)
+`.env*`, `.vercel/`, webhook-raw, E2E session cookies, `data/runs` (om team policy = ignore).

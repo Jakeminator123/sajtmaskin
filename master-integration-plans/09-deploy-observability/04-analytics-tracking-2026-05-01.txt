@@ -1,0 +1,38 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 04-analytics-tracking
+Date: 2026-05-01
+
+## Production Changes In Master
+- First-party analytics tracker posts page views.
+- Vercel Analytics and Speed Insights mount through `VercelInsights`.
+- Root layout always includes first-party tracker and gates Vercel package by `VERCEL_ENV`.
+
+## Local Behavior To Preserve
+- VercelInsights suppressed on localhost.
+- First-party tracker skips admin/api but can run locally.
+- CSP dev allows Vercel analytics scripts.
+
+## Security / Secret Risks
+- Production CSP may block Vercel analytics if strict and hosts are not whitelisted.
+- Dossier/generated apps use a different Vercel analytics import surface; avoid duplicate mounts.
+
+## Required Deploy / Observability UI
+- Enable Vercel Analytics/Speed Insights in Vercel project.
+- Admin analytics tab is first-party stats, distinct from Vercel dashboard.
+
+## Exact LLM Implementation Instructions
+- Keep a single root mount for Vercel analytics packages.
+- Generated apps should mount analytics once in layout.
+- Reconcile CSP production hosts for Vercel analytics/speed insights.
+
+## Deploy Verification
+- Vercel dashboard events appear.
+- First-party page views record.
+- VercelInsights absent on localhost.
+- CSP reports checked under enforce.
+
+## Observability Checks
+- `[API/analytics]` route errors.
+- `/api/csp-report` for blocked analytics.
+
+## Do Not Commit
+- `.vercel`, real env secrets, analytics IDs if treated as sensitive.

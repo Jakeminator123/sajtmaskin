@@ -113,6 +113,7 @@ export async function resolveLatestVersion(pkg: string): Promise<string | null> 
  * Hanterade prefix: `^`, `~`, `>=`, `>`, `=`. Exakta versioner stöds också.
  */
 export async function isVersionSpecValid(pkg: string, spec: string): Promise<boolean> {
+  if (spec.trim().toLowerCase() === "latest") return false;
   const clean = spec.replace(/^[\^~=<>]+/, "").trim();
   if (!clean) return true;
 

@@ -1,0 +1,56 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 06-domains-deployments
+Date: 2026-05-01
+
+## Master Changes To Preserve
+- `POST /api/v0/deployments` schema with `chatId`, `versionId`, target, project fields, image strategy, `precheckOnly`, `skipAutoFix`, and `seo`.
+- `DEPLOY_MISSING_ENV` 409 payload with deploy readiness, fixes, and warnings.
+- Deployment response fields: internal id, chat/version, status, Vercel ids, url, inspectorUrl, readiness, image strategy, SEO result.
+- `resolveDeploySeoOptions` precedence: body > persisted project preferences > no opt-in; explicit `siteUrl: null` opts out.
+- Deployment SSE events route with `{ status, url, inspectorUrl }`.
+- Domain check/link/verify/save APIs and their project/deployment id semantics.
+
+## Frontend Consumers
+- `useBuilderState`
+- `useBuilderDeployActions`
+- `useDeploymentStatus`
+- `BuilderShellContent`
+- `DeployNameDialog`
+- `DomainManager`
+- `DomainSearchDialog`
+
+## Contract Risks
+- `projectId` has mixed semantics: Vercel project id for link/verify and internal deployment id for save.
+- `DEPLOY_MISSING_ENV` field names must stay aligned with `useBuilderDeployActions`.
+- SSE status can lead DB list refresh; frontend treats stream status as current truth.
+- `domains/save` errors are currently swallowed.
+- `domains/check` is unauthenticated and rate-limited.
+- SEO zod/precedence changes must match UI payload and preferences patch.
+
+## Required Adaptations
+- Preserve post-deploy toast, error-log persistence, and 409 handling.
+- Update `useBuilderDeployActions` typings whenever deployment response/schema changes.
+- If domains/save auth changes, add explicit UI feedback instead of silent catch.
+- Keep list GET response shape stable if deployment history UI consumes it.
+
+## New Buttons / Choices / UI States
+- Existing required UI: Deploy dialog, SEO opt-in switch and URL field, publish/loading buttons, deploy success/error toasts, DomainManager search/connect/verify states.
+- No redesign; add new states only within existing dialog/drawer surfaces.
+
+## Exact LLM Implementation Instructions
+- Diff `createDeploymentSchema`, deployments route, `resolve-seo.ts`, project preferences schema, and domain routes against master.
+- Update `DeployNameDialog`, `SeoOptInPanel`, `useBuilderDeployActions`, and `useDeploymentStatus` together if payloads change.
+- Preserve internal deployment id vs Vercel project id distinction in `DomainManager`.
+- Keep `DEPLOY_MISSING_ENV` branch and `persistVersionErrorLogs`.
+
+## Tests / Runtime Checks
+- `src/app/api/v0/deployments/route.test.ts`
+- `src/app/api/v0/deployments/resolve-seo.test.ts`
+- `SeoOptInPanel.test.tsx`
+- Manual domain check/link/save/verify.
+- SSE to terminal deployment state.
+
+## Do Not Break
+- Deploy credits, readiness, env sync, Vercel creation, and response fields.
+- Deployment SSE format.
+- Engine error-log compatibility.
+- Domain `check`, `link`, `verify`, and `save` contracts.

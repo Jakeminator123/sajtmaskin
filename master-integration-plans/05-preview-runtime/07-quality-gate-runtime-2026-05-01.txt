@@ -1,0 +1,51 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 07-quality-gate-runtime
+Date: 2026-05-01
+
+## Master Runtime Changes
+- F2/F3 quality gate decision lives in post-finalize policies.
+- Manifest currently has designPreview and integrationsBuild lanes.
+- Client post-check quality gate posts designPreview checks.
+- API route runs preview-host verify lane.
+- Server verify may be skipped for clean F2 init.
+- Post-finalize emits verifier skipped/done events.
+
+## Local Preview UX To Preserve
+- Quality gate tool panels in chat.
+- Preview empty states for verifying/repairing/retrying.
+- LaunchReadinessCard remains separate from quality-gate tool output.
+
+## Coupling Points
+- Manifest vs comments may drift around F2 lanes.
+- F2/F3 lane split is not fully wired into all quality gate paths.
+- Projection can reset verifier outcome; skipped events must remain consistent.
+
+## Required Preview UI / Controls
+- Show gate pending/skipped/error states.
+- Handle 501 not configured gracefully.
+- Keep readiness blockers/warnings separate.
+
+## Exact LLM Implementation Instructions
+- Preserve order: finalize -> post-check/autofix -> client gate -> server verify decision.
+- If lane lists diverge, sync manifest, client gate, and server verify.
+- Resolve F2 build/lint warning vs manifest intent explicitly.
+
+## Failure Modes
+- Missing preview-host skips gate.
+- Superseded version causes stale errors.
+- Diagnostic-only verify misread as promoted.
+- Wider F2 lane increases latency.
+- Docs/reality mismatch.
+
+## Verification Matrix
+- F2 init skip decision.
+- F3 verify run decision.
+- Client quality-gate POST.
+- Tool states in BuilderMessageTooling tests.
+- Event projection tests.
+
+## Do Not Break
+- Fire-and-forget server verify.
+- Skipped verifier bus events.
+- Rate-limit/auth on quality-gate route.
+- Preview-block on build-breaking verifier findings.
+- Env signals vs F2 env mute.

@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 04-database-client
+Date: 2026-05-01
+
+## Master Changes
+- Diff Drizzle DB client, env resolution, schema, migrations, db scripts, drizzle config/meta, and schema-drift tests.
+- App DB is Drizzle + `pg.Pool`, not Prisma.
+
+## Local Changes / Dirty Files
+- No known dirty DB files in initial status.
+
+## Compatibility Risks
+- Multiple schema truths: Drizzle schema, init script, migrations, performance indexes.
+- Migration vs init drift can break new DBs.
+- Migrations run alphabetically.
+- Pool/serverless settings and SSL can drift between runtime and migration scripts.
+
+## Files To Update
+- `src/lib/db/schema.ts`
+- `scripts/db/db-init.mjs`
+- `src/lib/db/migrations/*.sql`
+- `scripts/db/add-performance-indexes.mjs`
+- `drizzle.config.ts` / `drizzle/meta`
+- DB client/env scripts if connection behavior changes.
+
+## Frontend Impact / UI States
+- Missing DB runtime leads API 500s and chat/project failures.
+- Pool exhaustion can surface as flaky API/builder states.
+
+## Exact LLM Implementation Instructions
+- Diff DB paths against master.
+- Every DDL change must update all schema/init/migration/test chains.
+- Add new SQL migration with sortable filename.
+- Run migrations only against intended dev DB.
+- Commit migration and metadata with schema change.
+
+## Verification Commands
+- `npm run db:schema-drift`
+- `npm run db:check`
+- `npm run db:health`
+- `npm run db:rows`
+- `npm run db:migrate`
+- `npx vitest run scripts/db/run-migrations.test.ts`
+
+## Commit / Ignore Guidance
+- Commit schema, SQL migrations, drizzle meta, script/test updates.
+- Do not commit connection strings or generated data/logs.

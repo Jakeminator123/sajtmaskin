@@ -1,0 +1,30 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 06-drawers-disclosure
+Date: 2026-04-27
+
+## UI/UX To Preserve
+- `BuilderDetailsDrawer`: shadcn `Sheet` höger, `p-0`, a11y `sr-only` titel/beskrivning; samma tidslinje som `detailsDrawerOpen` + disclosure-pill.
+- `BuilderDisclosurePill`: `fixed right-5 bottom-5` **`z-40`**, ⌘/Ctrl+K, visas i **minimal** `uiMode` när drawer stängd (shell styr `vm.detailsDrawerOpen` + `vm.uiMode`).
+- Chat-rail kollaps i `BuilderShellContent` (expanded `lg:w-80` / smal "Visa chatt") — primära ytor som definition av “Apple-minimal dock”.
+- Modala lager: delad `dialog.tsx` / `sheet.tsx` **`z-50`**; vissa egen-UI `z-[99999]` (wizard, pickers, `ActionHubPopup`, `IntakeWizard` lager) — låt dem ligga ovanför.
+- **Preview innanför container:** `PreviewPanelFrame` m.fl. `z-10`–`z-40` — **lokalt** vs app-top — ändra inte tänkt stapel när masterna rör overlay.
+
+## New Master Capabilities To Surface
+- Master: nya drawer/SEO/deploy paneler (t.ex. `SeoOptInPanel` i diff) — placera så de antingen **delar samma z-stapel** (sheet/dialog) eller samma "fullskärm" som övriga `z-[99999]`; dokumentera.
+- Nya genvägar: om master lägger extra ⌘-lyssnare, undvik konflikt med `BuilderDisclosurePill`.
+
+## State/Props Impact
+- Drivs av `vm.uiMode`, `vm.detailsDrawerOpen` + setters, `setChatCollapsed` m.fl. Nya state-fält i shell-kontext kräver samma ternary som idag (minimal vs expanded layout).
+
+## Merge Conflict Plan
+1. Först merge **shell** layout där rail + drawer/pill (01), sedan komponenter under `ui/sheet` `ui/dialog` om masterna ändrar z.
+2. Vid nya toppnivå-popups: välj `z-50` vs `z-[99999]` efter samma mönster som `SiteTypePickerPopup` / `ImageUploadPopup` (dokumenterat ovan från agent).
+3. Preview in-container vs global modal: **korsa aldrig** fokus-trap så chattfält tappar tangentbord (manuell a11y).
+
+## Test Plan
+- Manuell: öppna drawer från pill, ⌘K, öppna sheet+dialog, säkerställ fokus/escape; testa minimal vs expanded: pill synlig endast där tänkt.
+- Ingen enhetstest enbart z — ev. visuell regression (ej mandatory här).
+
+## Do Not Break
+- Pill under `z-50` när dialog öppen (förväntat: dold/under — shell döljer via state).
+- Iframe-postMessage-ytor i preview: ändra ej `z` stack i `VersionMismatchOverlay` / inline edit utan egen review.
+- Tidslinje: disclosure → drawer **ska inte** ersättas av tung tredje panel utan tydlig UX (policy: minimal yta).

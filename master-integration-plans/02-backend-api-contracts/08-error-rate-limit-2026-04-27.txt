@@ -1,0 +1,34 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 08-error-rate-limit
+Date: 2026-04-27
+
+## Master Changes To Preserve
+- `src/lib/rateLimit.ts` — `withRateLimit`; 429 `{ error: "Too many requests", retryAfter }` + `Retry-After` + `X-RateLimit-*` på success efter handlern.
+- `src/lib/api/engine/chats/stream-error-response.ts` — `buildStreamErrorResponse` → `NextResponse.json({ error, code, retryAfter })`; `buildEngineStreamResponse` — SSE + `createSSEHeaders` + `wrapStreamForPromptToDoneMetric` + session.
+- `src/lib/providers/errors/normalize-provider-error.ts` — mappning till koder: `rate_limit`, `quota_exceeded`, `unauthorized`, `forbidden`, m.m. + svenska meddelanden där så.
+- `chat-message-stream-post.ts` — vissa 403 IDOR: `{ error: "forbidden" }` **utan** `code` (status 403 bär semantik).
+- `withRateLimit` omsluter logik; try/catch runt innehåll som kallar `buildEngineStreamResponse` (ordning: rate limit → validering → stream).
+
+## Frontend Consumers
+- `useCreateChat` / `useSendMessage` — `!response.ok` → `buildApiErrorMessage` (JSON, inte stream).
+- `stream-handlers` — `case "error"`: `buildStreamErrorMessage`; toasts.
+- `helpers.ts` — `getRetryAfterSeconds` (body + header), 429/402/401/403/422, SSE vs HTTP.
+
+## Contract Risks
+- 429: `withRateLimit` kropp **utan** `code`; 429/402 från normalize **med** `code: "rate_limit"`.
+- 403: IDOR `error: "forbidden"` utan `code` — klienten använder `status` eller `code`.
+- Blanda inte `message` vs `error` fält; standard idag: stream JSON föredrar `error` text, helpers läser båda.
+- Ren 429 från rate limit kör **inte** `buildStreamErrorResponse` (annan telemetri).
+
+## Required Adaptations
+- Nya stream-routes: använd `buildStreamErrorResponse` / `buildEngineStreamResponse` ELLER identiskt JSON/header-kontrakt.
+- `withRateLimit`-kropp ändrad → `buildApiErrorMessage` + `rateLimit.test.ts` + ev. `route.test` mocks.
+- Nya 403-orsaker: ruta in `normalize` + `code: "forbidden"` eller håll ren JSON + 403 så `buildApiErrorMessage` fortfarande hittar.
+
+## Tests / Runtime Checks
+- `src/lib/rateLimit.test.ts`; `.../chats/**/stream/route.test.ts` (mocksar `withRateLimit` pass-through — uppdatera mock om signatur byte).
+- Manuell: 429, 403 IDOR, fel inne i try så `buildStreamErrorResponse` nårs.
+
+## Do Not Break
+- JSON stream-fel: `{ error, code, retryAfter }` (där så satt), 429 withRateLimit: `{ error, retryAfter }` + headers.
+- SSE: `createSSEHeaders` + wrapped stream + `attachSessionCookie` där använt.
+- `buildApiErrorMessage` + `buildStreamErrorMessage` grenar + `Retry-After` — behåll runt `chat:create` / `message:send` så 429 före körning av tung logik, utan oavsiktlig ordningsändring.

@@ -1,0 +1,12 @@
+Builder Delight Review — Agent 4: Hover-skymt (8 ställen; moment → nuvarande → föreslagen → S/M/L)
+
+Preview rutter inaktiva | hover:bg-muted/70 | +0.5px translate-y, samma ton, kort duration | S
+Preview +N overflow | mono pill hover muted | Samma lift + 1 px chevron-slide i group-hover | S
+Preview Bygg ut | hover:bg-primary/15 | Ikon +0.5 px diagonal, +1 % luminans, ingen scale | S
+Preview viewport inaktiva | ghost default | hover:bg-muted/40 per cell, gruppen stilla | S
+Header Publicera | primary hover/90 | Hairline shadow ring-primary/15, yta primary/92 | S
+Header Sajtmaskin hem | opacity-80 | + rounded hover:bg-muted/30 “plate” | S
+Chat skicka-knapp | hover:bg-primary/90 colors | Pil translate-x-1 px vid hover, disabled oförändrad | S
+Verktygspill | border/text-shift | shadow-sm→hairline + kbd 0.5 px höger group-hover | S
+
+Källor: PreviewPanelChrome.tsx (~338–404), BuilderHeader.tsx (~228–236, ~805–820), prompt-input.tsx (~267–273), BuilderDisclosurePill.tsx (~40–52).

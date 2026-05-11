@@ -1,4 +1,3 @@
-// TODO(plan-09): kvar tills nästa cleanup — wrappern används fortfarande brett i preflight/preview/export och kan dö först efter entrypoint-konsolidering.
 import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,

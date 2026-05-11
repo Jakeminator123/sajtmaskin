@@ -1,0 +1,16 @@
+Builder IA — Agent 2: Ansvarsfördelning header / drawer / chat
+
+Nuvarande IA
+BuilderDetailsDrawer: tom Sheet; äger ingen produkt-IA, bara ram. BuilderShellContent: IntakeWizard, needs-analysis, Preview+VersionHistory, deploy/domain-modaler; samma högerstack (LaunchReadinessCard, ProjectEnvVarsPanel, MessageList, TipCard, ChatInterface) monteras dubbelt — i drawer (minimal) och i expanded högerkolumn. BuilderHeader: modell, mall, Inställningar (motor/figma/instruktioner/tips), import/ZIP, ny chat, spara, domän, Publicera + statuslänk; compact öppnar drawer via “Verktyg & inställningar”.
+
+Föreslagen IA (ett hem + spegel OK)
+Projekt (env, spara, import, domän): Launch-stack i shell eller ett “Projekt”-sheet; spegel: header Spara/kortkommandon.
+Rutter/sidor: PreviewPanel + VersionHistory som kanon; chat endast promptar.
+Brief/intake: wizard + chat tills chatId; spegel: “Egna instruktioner” = default för nya chatter, inte kanonisk brief-editor.
+Publicera: header primär CTA; spegel: LaunchReadinessCard som preflight, inte andra konkurrerande Publicera-knappar.
+
+Brott / motsägelser
+Dubbel mount av samma chattkolumn (drawer vs expanded) — underhåll och tillståndsrisk.
+“Inställningar” blandar motor-, UI- och delningslägen utan tydlig Projekt vs session-etikett.
+Figma: toggle i header samtidigt som ChatInterface har isFigmaInputOpen — delat ägarskap.
+Drawer speglar expanded utan egen informationsarkitektur — risk att allt kallas “verktyg”.

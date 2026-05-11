@@ -106,6 +106,11 @@ export function SeoOptInPanel({
     }
   }, [onDirtyChange]);
 
+  useEffect(() => {
+    dirtyRef.current = false;
+    onDirtyChange?.(false);
+  }, [projectId, onDirtyChange]);
+
   // Load persisted preferences once on mount and seed parent state.
   useEffect(() => {
     if (!projectId) return;
@@ -116,9 +121,15 @@ export function SeoOptInPanel({
       method: "GET",
       credentials: "same-origin",
     })
-      .then(async (res) => (await res.json()) as PreferencesResponse)
+      .then(async (res) => {
+        const body = (await res.json().catch(() => ({}))) as PreferencesResponse;
+        if (!res.ok || body.success === false) {
+          throw new Error(body.error || `HTTP ${res.status}`);
+        }
+        return body;
+      })
       .then((body) => {
-        if (cancelled) return;
+        if (cancelled || dirtyRef.current) return;
         const seo = body.preferences?.seo;
         if (seo) {
           onChange({
@@ -225,12 +236,12 @@ export function SeoOptInPanel({
                 aria-invalid={showUrlError ? true : undefined}
               />
               {showRequiredError ? (
-                <p className="text-[10px] text-amber-500">
+                <p className="text-[10px] text-muted-foreground">
                   Ange URL för att aktivera SEO.
                 </p>
               ) : null}
               {showUrlError ? (
-                <p className="text-[10px] text-red-400">
+                <p className="text-[10px] text-destructive">
                   Ogiltig URL. Måste börja med http:// eller https://.
                 </p>
               ) : null}
@@ -243,7 +254,7 @@ export function SeoOptInPanel({
           ) : null}
 
           {loadError ? (
-            <p className="text-[10px] text-red-400">
+            <p className="text-[10px] text-destructive">
               Kunde inte läsa SEO-inställningar: {loadError}
             </p>
           ) : null}

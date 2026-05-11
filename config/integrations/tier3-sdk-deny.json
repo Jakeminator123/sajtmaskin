@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "purpose": "Single source of truth for the F2 (design-stage) deny-list of tier-3 backend SDKs. Read by `src/lib/integrations/tier3-sdk-deny.ts`, which feeds both the autofix `tier3-sdk-guard-fixer` (mechanical strip) and the dynamic 'F2 / Design Stage Contract (HARD)' block in `src/lib/gen/system-prompt.ts` (LLM instruction). Add a module here and both consumers pick it up. Categories drive the prompt rendering (one bullet per category); the flat module list drives the autofix matcher.",
+    "purpose": "Single source of truth for the F2 (design-stage) deny-list of tier-3 backend SDKs. Read by `src/lib/integrations/tier3-sdk-deny.ts`, which feeds both the autofix `tier3-sdk-guard-fixer` (mechanical strip) and the dynamic 'F2 / Design Stage Contract (HARD)' block in `src/lib/gen/system-prompt/` (post-Omtag 03 the legacy `system-prompt.ts` was split into a package — the contract block is rendered by `system-prompt/build-dynamic-context.ts`). Add a module here and both consumers pick it up. Categories drive the prompt rendering (one bullet per category); the flat module list drives the autofix matcher.",
     "consumers": [
       "src/lib/gen/autofix/rules/tier3-sdk-guard-fixer.ts",
-      "src/lib/gen/system-prompt.ts (F2 design stage contract block)"
+      "src/lib/gen/system-prompt/build-dynamic-context.ts (F2 design stage contract block)"
     ]
   },
   "categories": [

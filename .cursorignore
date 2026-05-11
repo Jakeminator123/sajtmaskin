@@ -12,50 +12,68 @@ coverage
 playwright-report
 test-results
 __pycache__
-#*.log
+.venv
+venv
 
-# --- Git / lockfile (versioner i package.json) ---
+
+# --- Secrets (spegel av .gitignore) ---
+# Cursor ska aldrig indexera dessa — de kan innehålla API-nycklar som
+# smugglas in i LLM-kontexten via sökning.
+.env
+.env.*
+!.env.example
+!.env.*.example
+OLD.env*
+env.vercel*.local
+*.env.backup
+*.env.bak
+_env.production
+_env.development
+environments.production
+ENV_JAMFORRELSE.txt
+vercel-env-deploy.txt
+git_env.txt
+.env*.local
+files_envvars
+
+# --- Git / lockfile ---
 .git
 tsconfig.tsbuildinfo
 package-lock.json
 
-# --- Hemligheter & lokala env (docs/ENV.md, src/lib/env.ts) ---
-#.env
-#.env.local
-#.env.production
-#.env.development
-#.env.test
-#.env.*
-#!.env.example
-#!.env.*.example
-#.token-status.json
-#OLD.env.local
-#OLD.env.production
-#ENV_JAMFORRELSE.txt
-#di-d.txt
-
-# --- Data & prompt-dumpar (samma som .gitignore: dumps bort, README kan indexeras) ---
-#data/prompt-dumps/*
+# --- Data & prompt-dumpar ---
+data/prompt-dumps/*
 !data/prompt-dumps/README.md
+!data/prompt-dumps/own-engine-codegen/
+!data/prompt-dumps/own-engine-codegen/meta.json
+!data/prompt-dumps/own-engine-codegen/full-system.md
+!data/prompt-dumps/own-engine-codegen/dynamic-context.md
+!data/prompt-dumps/orchestration-dynamic/
+!data/prompt-dumps/orchestration-dynamic/meta.json
+!data/prompt-dumps/orchestration-dynamic/latest.md
 
-archive/scripts-labs-testning_scarf/output/
-archive/scripts-labs-testning_scarf/output_test_scaffold/
-archive/scripts-labs-testning_scarf/output_first_llm_underlag/
-scripts/output_test_scaffold/
-
+# --- Tunga genererade artefakter ---
 src/lib/templates/template-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
 
-src\lib\templates\template-embeddings.json
+# --- External-template pipeline ---
+data/external-template-pipeline/scrape-cache/**
+data/external-template-pipeline/repo-cache/**
+data/external-template-pipeline/raw-discovery/current/catalog.json
+data/external-template-pipeline/raw-discovery/current/summary.json
+data/external-template-pipeline/reference-library/catalog.json
+data/external-template-pipeline/reports/**
+data/external-template-pipeline/reference-library/dossiers/*/selected_files/**
+data/external-template-pipeline/reference-library/dossiers/*/manifest.json
 
-
-# --- MCP & lokal config ---
-#.cursor/mcp.json
-#config.browser.txt
-#config.txt
+# --- Cursor session / automation / migration ---
+.cursor/automation/runs/
+.cursor/automation/archive/
+.cursor/automation/input/
+.cursor/migration-archive/
 
 # --- Media ---
 public/video/
@@ -63,68 +81,65 @@ public/images/
 *.mp4
 *.webm
 
-# --- Canonical external-template pipeline (tung lokal data) ---
-data/external-template-pipeline/scrape-cache/**
-data/external-template-pipeline/repo-cache/**
-data/external-template-pipeline/raw-discovery/current/catalog.json
-data/external-template-pipeline/raw-discovery/current/summary.json
-data/external-template-pipeline/repo-cache/**
-data/external-template-pipeline/reference-library/catalog.json
-data/external-template-pipeline/reports/**
-data/external-template-pipeline/reference-library/dossiers/*/selected_files/**
-data/external-template-pipeline/reference-library/dossiers/*/manifest.json
-
-# --- Genererade artefakter (stora lokala JSON / embeddings) ---
-src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
-src/lib/templates/template-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
-
-# --- Cursor session / automation / migration ---
-#.cursor/plans/
-#.cursor/documents/
-.cursor/automation/runs/
-.cursor/automation/archive/
-.cursor/automation/input/
-.cursor/migration-archive/
-
-# --- Vercel CLI (lokal länk) ---
-#.vercel/
-
-# --- Loggar & skrot i roten ---
-#logs/*
-# Loggar är runtime-artefakter. Capping/retention sker i src/lib/logging/generation-log-writer.ts.
-# Vi exkluderar logs/-trädet från Cursor-indexet men whitelistar värdefulla snapshots.
-logs/*
+# --- Logs ---
+logs/**
+!logs/
 !logs/generationslogg/
 !logs/generationslogg/_latest.txt
+!logs/generationslogg/**/
 !logs/generationslogg/**/summary.md
 !logs/site-observability/
+!logs/site-observability/**/
 !logs/site-observability/**/observability.json
 !logs/site-observability/**/fix-patterns.json
+!logs/llm-segmentts-and-index/
+!logs/llm-segmentts-and-index/readme.txt
+!logs/generationslogg/**/meta.json
+!logs/generationslogg/**/timeline.ndjson
+!logs/generationslogg/**/observability.json
+!logs/generationslogg/**/fault-fix-index.csv
+!logs/generationslogg/**/fault-fix-index.md
+!logs/generationslogg/_index/
+!logs/generationslogg/_index/chat-to-run.json
+!logs/site-observability/**/history.ndjson
+!logs/site-observability/**/_source_run.txt
+!logs/llm-segmentts-and-index/error-log.csv
+!logs/llm-segmentts-and-index/error-log.ndjson
 
+# RAG snapshots / event mirrors
+data/observability/error-log-tfidf-*.json
+data/runs/**
 
-# --- Template references (klonade Vercel-repos, input till AI-kuration) ---
+# --- Template references / local archives ---
 data/template-references/repos/**
 data/template-references/_metadata/**
-# --- Dossier-arkiv (gammal pipeline) ---
 archive/dossiers-legacy-2026-04-20/**
+archive/scripts-labs-testning_scarf/output/
+archive/scripts-labs-testning_scarf/output_test_scaffold/
+archive/scripts-labs-testning_scarf/output_first_llm_underlag/
 
-
+# --- Local scratch / old roots ---
 manual_log/
 input_files_for_cursor/
 .preprompt_history.json
 DOM_dev_tols.txt
 chat_till_vanster.txt
-
-# --- Övrigt lokalt ---
 pot_buggs/
 internt_jakob/
 old/
 skrapning/
-#övrigt/
+eval-output/
+EGEN_MOTOR_V2/
+vercel_templates_levels/
+_sidor/
+research/_sidor/
+output/generations/
 
+# --- MCP/docs/logs ---
+services/mpc/docs/**
+services/mpc/logs/
+
+# --- v0 template local payloads ---
 templates_v0/downloads/agenter/
 templates_v0/downloads/animationer/
 templates_v0/downloads/apps-and-games/
@@ -138,26 +153,9 @@ templates_v0/downloads/landningssidor/
 templates_v0/downloads/layouter/
 templates_v0/downloads/webbplatsmallar/
 templates_v0/downloads/alla mallar/
-
-eval-output/
-EGEN_MOTOR_V2/
-#_template_refs/
-vercel_templates_levels/
-_sidor/
-research/_sidor/
-services/mpc/docs/**
-services/mpc/logs/
-next-env.d.ts
-# archive/scripts-labs-testning_scarf (labb under archive/ — se archive/README.md)
-#files_envars
-
-
 templates_v0/out/
-# Matchar .gitignore: bara generations-output, inte hela output/
-output/generations/
 
-
-# --- Dossier-pipeline (skrap- och enrich-output, embeddings, repo-cache) ---
+# --- Dossier-pipeline ---
 data/dossiers/_raw/playwright-catalog-light.json
 data/dossiers/_raw/_enriched/**
 data/dossiers/_raw/_curation-queue.md
@@ -167,5 +165,7 @@ data/dossiers/_index/dossier-embeddings.json
 data/dossiers/_repo-cache/**
 data/dossiers/_index/master.json
 data/dossiers/_index/by-category.json
-# Auto-curate rollback-backup — gitignored ocksa, ingen runtime-konsumerar
 data/dossiers/*/_removed/**
+
+# --- Generated TS env ---
+next-env.d.ts

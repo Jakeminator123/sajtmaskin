@@ -1,0 +1,40 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 04-preview-runtime
+Date: 2026-04-27
+
+## Required Checks
+- `src/lib/gen/preview/*`: session-store, tier2-config, preview-host-klient, env merge, HTML/shim, warm-typecheck/eslint, diagnostik.
+- **API:** `preview-status`, `preview-session`, `preview-heartbeat`, `preview-hibernate`, `preview-destroy` — statuskoder och JSON.
+- **Quality gate:** `preview-quality-gate` + `POST .../quality-gate` + manifest `quality-gate-checks` paritet.
+- **Riktig VM** — i unit: mest mockade URLs; särskilj från E2E.
+
+## Existing Tests
+- **gen/preview:** `preview-host-client.test.ts`, `preview-errors.test.ts`, `session-store*.test.ts`, `tier2-config.test.ts`, `env-local.test.ts`, `project-preview-env.test.ts`, `diagnostics.test.ts`, `warm-typecheck.test.ts`, `warm-eslint.test.ts`, `legacy/compatibility-shim.test.ts`, `__tests__/parse-format-symmetry.test.ts`, m.fl.
+- `src/lib/gen/preview.test.ts` (t.ex. `buildPreviewHtml`).
+- **Gate:** `src/lib/gen/verify/preview-quality-gate.test.ts`, `src/app/api/engine/chats/[chatId]/quality-gate/route.test.ts`, `manifest-parity.test.ts`.
+- **Engine preview routes:** `preview-status`, `preview-session`, `preview-heartbeat`, `preview-hibernate`, `preview-destroy` — vardera `route.test.ts`.
+- **UI / lib:** `PreviewPanel.test.tsx`, `preview-lifecycle.test.ts`, `preview-bootstrap-retry.test.ts`, `builder-page-preview-helpers.test.ts`, `preview-url-contract.test.ts`, `ssrf-guard.test.ts`.
+- **`preview-host/`** — 0 `*.test.*` i tjänstkatalog (vid inventering).
+
+## Missing Coverage
+- Levande preview-host / Vercel sandbox (ingen standard unit-suite).
+- **postMessage / PreviewFrame** — sällan enhet; diagnostik + stream-hantering delvis.
+- E2E preview — Playwright (persona/deploy) separat, inte ersatt av Vitest.
+
+## Failure Triage Guide
+- **Gate/verifier:** `preview-quality-gate.test.ts`, `quality-gate/route.test.ts`, `finalize-version.test.ts`, `manifest-parity.test.ts`.
+- **Session/TTL:** `session-store*.test.ts`, `preview-status`, `preview-heartbeat` routes.
+- **Host/cleanup/503:** `preview-host-client.test.ts`, `preview-destroy`, `preview-hibernate`, `preview-errors.test.ts`.
+- **URL/SSRF:** `preview-url-contract.test.ts`, `ssrf-guard.test.ts`, `compatibility-shim.test.ts`.
+- **warm-***  hook failures — se preflight; kan vara tids-/FS-känsliga.
+
+## Exact Commands
+```bash
+npm run test:ci
+npm run test:focused
+npx vitest run src/lib/gen/preview
+npx vitest run src/components/builder/PreviewPanel.test.tsx "src/app/api/engine/chats/[chatId]/preview-status/route.test.ts"
+```
+
+## Pass Criteria
+- `test:ci` exit 0.
+- För preview-ändringar: minst fokus/preview + gate-tester; om prebuild failar — kör `npm run build` när `embeddings`-check rör scaffolds.

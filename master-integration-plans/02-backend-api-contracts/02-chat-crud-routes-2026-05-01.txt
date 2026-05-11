@@ -1,0 +1,61 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 02-chat-crud-routes
+Date: 2026-05-01
+
+## Master Changes To Preserve
+- `POST /api/engine/chats/init` for archive/repo bootstrap.
+- `GET|POST /api/engine/chats` for chat list and sync creation.
+- `GET /api/engine/chats/[chatId]` for messages, thinking/uiParts, latest version, auto-accept repair, and error-log behavior.
+- `POST /api/engine/chats/[chatId]/messages` as sync fallback.
+- `GET|PATCH|POST /api/engine/chats/[chatId]/versions` with `{ versions, chatStatus }`.
+- `GET|PATCH /api/engine/chats/[chatId]/files` with `versionId`, `materialize`, `wait`.
+- `GET /api/engine/chats/[chatId]/readiness` and related postcheck/quality-gate/repair routes.
+
+## Frontend Consumers
+- `InitFromRepoModal`
+- `useCreateChat`
+- `useSendMessage`
+- `useVersions`
+- `VersionHistory`
+- `post-checks-fetch.ts`
+- `post-checks.ts`
+- `useChatReadiness`
+- `useBuilderPageController`
+- Preview files fetchers and file patch helpers.
+
+## Contract Risks
+- `GET /versions` must keep `chatStatus`; otherwise polling and version history can break.
+- `useChatReadiness` intentionally avoids polling without `versionId`.
+- `ChatReadiness` status/actions affect `LaunchReadinessCard` and deploy gates.
+- `GET /files` query semantics are spread across preview, deploy, and post-checks.
+- Fallback `POST /messages` must match stream-completion semantics.
+
+## Required Adaptations
+- For every changed route response key, update `useVersions`, `useChatReadiness`, `post-checks-fetch`, and related panel components in the same step.
+- Keep `engineChatBaseUrl` and `ENGINE_CHATS_API_PREFIX` as canonical path builders.
+- If new readiness actions appear, extend `LaunchReadinessCard` minimally without redesigning builder chrome.
+
+## New Buttons / Choices / UI States
+- No new required surfaces if contracts stay stable.
+- Possible new readiness action states in existing readiness/deploy cards.
+
+## Exact LLM Implementation Instructions
+- Diff all `src/app/api/engine/chats/**` CRUD routes against master.
+- Update TypeScript types and SWR fetchers whenever response bodies change.
+- Grep hardcoded `/api/engine/chats` and consolidate to canonical helpers where appropriate.
+- Smoke: new chat, existing chat open, versions list, readiness card, file panel.
+
+## Tests / Runtime Checks
+- `init/route.test.ts`
+- `[chatId]/messages/route.test.ts`
+- `[chatId]/route.test.ts`
+- `[chatId]/versions/route.test.ts`
+- `[chatId]/files/route.test.ts`
+- quality-gate/product-postcheck tests
+- `post-checks.test.ts`, autofix tests, preview panel tests.
+
+## Do Not Break
+- `GET /versions` with `chatStatus`.
+- `GET /readiness` behavior when `versionId` is absent.
+- `POST /messages` fallback.
+- Files `wait`/`materialize` semantics.
+- Repair/autofix/error-log chain.

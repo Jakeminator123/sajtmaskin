@@ -183,7 +183,7 @@ export function PreviewPanelFrame({
             id="preview-iframe"
             ref={iframeRef}
             src={previewSrc}
-            className="h-full min-h-0 w-full flex-1 border-0 bg-white"
+            className="h-full min-h-0 w-full flex-1 border-0 bg-background"
             onLoad={handleIframeLoad}
             onError={handleIframeError}
             // allow-pointer-lock: required by R3F's OrbitControls + drei pointer-locking helpers.

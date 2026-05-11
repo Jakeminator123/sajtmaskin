@@ -1,0 +1,35 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 03-builder-ui-tests
+Date: 2026-04-27
+
+## Required Checks
+- Alla `*.{test,spec}.{ts,tsx}` under `src/` som ingår i Vitest.
+- Regressionsyta: builder-skal, chat, preview wrapper — få komponenter med co-lokala tester.
+
+## Existing Tests
+- `src/components/builder/`: `MessageList.test.tsx`, `PreviewPanel.test.tsx`, `BuilderMessageTooling.test.tsx`, `ChatInterface.followup-base-badge.test.tsx` (RTL + mocks).
+- `src/app/builder/`: `useBuilderCallbacks.test.ts`, `builder-page-preview-helpers.test.ts`.
+- `src/lib/hooks/chat/`: `helpers.test.ts`, `post-checks*.test.ts`, `stream-handlers.test.ts`, `auto-fix-events.test.ts`, `useAutoFix.test.ts`, `useInitBrief.test.ts`.
+- `src/lib/builder/**/*.test.ts` — logik, ej nödvändigtvis `.tsx`.
+- **Snapshots:** inga `toMatchSnapshot` i sökte builder/hooks-mappar (vid inventeringen).
+
+## Missing Coverage
+- Många `.tsx` i `src/components/builder` och `app/builder` **utan** tester (t.ex. stora shell/header/wizard/ChatInterface utom badge-fil).
+- Flera hooks: `useChat*`, `useSendMessage`, `useVersions`, m.fl. utan `*.test.*`.
+
+## Failure Triage Guide
+- `document is not defined` — jsdom (ska vara satt i Vitest).
+- `renderHook` / `act` — async state; följ befintliga mönster.
+- **Alias `@/`** — `vitest.config.ts` `resolve.alias`.
+- Tunga moduler — mocka enligt `ChatInterface.followup-base-badge.test.tsx` (`sonner`, media, voice).
+- Nätverk — `vi.stubGlobal("fetch", ...)` eller modulmocks.
+
+## Exact Commands
+```bash
+npm run test:ci
+npx vitest run src/components/builder src/app/builder src/lib/hooks
+npm run test:focused
+```
+
+## Pass Criteria
+- `test:ci` exit 0.
+- Builder-relaterade ändringar: kör minst mapp-scope `vitest` enligt ovan vid stor UI-diff.

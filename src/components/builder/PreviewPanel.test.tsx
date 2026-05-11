@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanel } from "./preview-panel/PreviewPanel";
+import { PreviewPanelFrame } from "./preview-panel/PreviewPanelFrame";
 
 vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
   useIntegrationStatus: () => ({
@@ -78,6 +79,55 @@ describe("PreviewPanel", () => {
     expect(() => {
       rerender(<PreviewPanel {...props} previewUrl="https://preview.example/ver_1" />);
     }).not.toThrow();
+  });
+
+  it("renders version mismatch overlay and exposes retry action", () => {
+    const onPreviewSessionSuspect = vi.fn();
+
+    renderPreviewPanel({
+      onPreviewSessionSuspect,
+      versionMismatchPayload: {
+        chatId: "chat_1",
+        expectedVersionId: "expected_ver_2",
+        currentVersionId: "current_ver_1",
+        msSinceMismatch: 12_000,
+      },
+    });
+
+    const overlay = screen.getByTestId("version-mismatch-overlay");
+    expect(within(overlay).getByText("Preview startar om")).toBeTruthy();
+    expect(within(overlay).getByText("expected")).toBeTruthy();
+    expect(within(overlay).getByText("current_")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /Försök igen/i }));
+
+    expect(onPreviewSessionSuspect).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses version mismatch overlay when iframe error is visible", () => {
+    render(
+      <PreviewPanelFrame
+        isLoading={false}
+        iframeError
+        iframeErrorMessage="Iframe failed to load."
+        iframeDiagnosticCode={null}
+        iframeRunbookLines={[]}
+        handleOpenInNewTab={vi.fn()}
+        previewSrc="https://preview.example/ver_1"
+        iframeRef={{ current: null }}
+        handleIframeLoad={vi.fn()}
+        handleIframeError={vi.fn()}
+        versionMismatchPayload={{
+          chatId: "chat_1",
+          expectedVersionId: "expected_ver_2",
+          currentVersionId: "current_ver_1",
+          msSinceMismatch: 12_000,
+        }}
+      />,
+    );
+
+    expect(screen.queryByTestId("version-mismatch-overlay")).toBeNull();
+    expect(screen.getByText("Iframe failed to load.")).toBeTruthy();
   });
 
   it("shows the footer editor and not the nav editor for footer link files", async () => {

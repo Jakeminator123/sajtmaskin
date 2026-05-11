@@ -1,0 +1,27 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 04-analytics-tracking
+Date: 2026-04-27
+
+## Production Changes In Master
+- Paket: `@vercel/analytics`, `@vercel/speed-insights` (`package.json`).
+- `VercelInsights` (`vercel-insights.tsx`): `enabled` + `hostname` ≠ localhost → render `Analytics` + `SpeedInsights`.
+- `layout.tsx`: `enableVercelInsights = Boolean(process.env.VERCEL_ENV)`; **separat** `AnalyticsTracker` → `POST /api/analytics` (förstaparts, DB) — *inte* samma som Vercel Web Analytics.
+
+## Local Behavior To Preserve
+- Lokal: `VERCEL_ENV` ofta odefinierat → Vercel insights av; **plus** client-block på `localhost` / `127.0.0.1`.
+- GA/GTM: i root-layout **saknas** gtag; registry/detect-integrations m.m. gäller **genererade** projekt — särskilj produktroten.
+- Dossier-mallar med egen `@vercel/analytics` mönster = **separat** yta, inte ersättare för `next`-import i appen.
+
+## Security / Secret Risks
+- Förstaparts analytics (`/api/analytics`) — spårar path/referrer; utvärdera rate/PII när master ändrar fält.
+- Sätt inte oavsiktligt `VERCEL_ENV` lokalt om du tror “production analytics off” (ovanlig, men tänk efter i CI).
+
+## Deploy Verification
+- Prod Vercel: se Web Analytics + Speed i dashboard; jämför med trafik.
+- `VERCEL_ENV=production` i preview **kan** låta insights skicka — förväntad; dev-laptop ska fortsatt vara tyst.
+
+## Observability Checks
+- Sida-vy via egen `analytics` route; inga beroenden i denna tråd av gamla gtag-nycklar i `layout` (för närvarande).
+- Efter master-merge: sök nya tredjepartsskript i `layout` (kan bryta CSP).
+
+## Do Not Commit
+- Inga `GA_MEASUREMENT_ID` i committat repo om policy säger hemlig via env; inga faktiska cookies/sessiondump i buggrapporter.

@@ -1,0 +1,14 @@
+Builder Interaction Review — Agent 4: Ruttflikar (PreviewPanelChrome, PreviewPanel navigate, usePreviewPanelPreviewRoutes)
+
+- Tablist klick byter route via onNavigateRoute/handleNavigateRoute → oförändrat; behåll tydlig aktiv markering → 4
+- Max 5 synliga + overflow +N; aktiv kan visas dubbelt (synlig + overflow) → deduplicera visning eller scrolla aktiv in i synlig uppsättning → 3
+- shellRoutePaths + Bygg ut till chat-prompt → oförändrat; tydligare etikett “Fyll i sida” → 4
+- Ordning härledd från filer, ej användarstyrd → valfri pin-ordning persist om produkt kräver → 3
+- Ingen högerklick/context → högerklick: Bygg ut, Duplicera, Byt namn, Ta bort (med guard) → 2
+- Ingen drag-omordning av flikar → drag endast om persist av route-ordning stöds; annars dölj → 2
+- Ingen ⌘1–9 hopp → ⌘1–9 mot aktuell tablista + tooltip → 2
+- Ingen tangentbordsnavigation mellan tabbar → pilar/Home/End i tablist → 3
+- Overflow-dropdown endast lista → samma context actions som flik → 3
+- Tier-1/tier-2 URL-byte fungerar → oförändrat; undvik dubbel laddningsspinner → 4
+
+Navigering/byta sida: 4/5. IDE-lik redigering (meny, reorder, shortcuts): 2/5. Totalt flikar: 3/5 nu; 4–5/5 med context + kortkommandon + tydlig overflow utan dubbel aktiv.

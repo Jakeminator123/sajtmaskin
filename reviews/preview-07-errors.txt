@@ -1,0 +1,25 @@
+Preview fel — PreviewPanelFrame, usePreviewIframe, diagnostics, PreviewPanel
+
+1. Copy diagnostics.ts — ASCII/teckenfel i svenska strängar. 3/5
+
+2. Runbook “Utvecklare:” i samma lista som slutanvändare ser. 3/5
+
+3. 404/500 som HTML — onError fångar inte; hasBodyContent kan ge “lyckad” tom sida. 3/5
+
+4. own-engine detect vs iframe-overlay — Fel kan visas annorstädes; medveten split. 4/5
+
+5. Timeout blank 45s + suspect tier-2 — Tydlig. 4/5
+
+6. Cross-origin / document unavailable — Ny flik-runbook. 4/5
+
+7. Transport error — Öppna ny flik, ev. reparera. 4/5
+
+8. Refresh — Chrome refresh + cache-bust; ingen dedikerad “Försök igen” i frame. 4/5
+
+9. Graceful — Live-preview-banner, build error i chrome; fler kanaler att följa. 4/5
+
+10. Fel-overlay a11y — Ingen motsvarande live region som loading. 3/5
+
+11. Blandad EN/SV i fallback copy. 3/5
+
+Sammanfattning transport/timeout/degrade: 4 | 404-innehåll: 3 | copy: 3

@@ -1,0 +1,56 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 06-vm-preview-host
+Date: 2026-05-01
+
+## Master Runtime Changes
+- preview-host is separate Node 22 service.
+- Runtime knobs include session TTL, port pool, ready max ms, cleanup interval.
+- Public preview path is `/{chatId}`.
+
+## Local Preview UX To Preserve
+- Starting page emits `preview-starting`.
+- Proxy queues runtime boot when process missing.
+- HMR disabled/stubbed to avoid WSS spam.
+- Session store maps sandbox/session ids.
+
+## Coupling Points
+- JSON session store and process lifecycle.
+- Status API can reboot dead process.
+- File validation: max files/size.
+- Install command selection from lockfiles.
+- Dependency fingerprint skip.
+- Next basePath patching.
+
+## Required Preview UI / Controls
+- Builder handles sandbox/session id, preview URL, status, version id, heartbeat.
+- UI handles starting/warm/error/hibernated/stopped statuses.
+
+## Exact LLM Implementation Instructions
+- Generated apps must start with `npm run dev` and bind to host/port.
+- Ensure `next.config` supports preview base path or host patching.
+- Include lockfiles when possible.
+- Keep `/placeholder.svg` expectations working.
+
+## Failure Modes
+- TTL expiry.
+- Install failure.
+- Readiness timeout.
+- Disk full cleanup/retry.
+- Proxy ECONNREFUSED restart.
+- Double boot dedupe.
+- Verify queue resource pressure.
+
+## Verification Matrix
+- preview-host smoke script.
+- `/health`.
+- Start/status/get preview.
+- Hibernate.
+- Destroy.
+- CSS/JS under basePath.
+- CSP frame-source for host.
+
+## Do Not Break
+- `chatId` as path key.
+- Rewrite/basePath chain.
+- Dependency install fingerprint.
+- API key auth in non-local env.
+- Verify queue serialization.

@@ -1,0 +1,48 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 05-chat-dock
+Date: 2026-05-01
+
+## UX To Preserve
+- Minimal mode: no inline desktop chat, disclosure pill and drawer.
+- Expanded mode: right column and persisted collapse state.
+- Mobile chat/preview tab behavior.
+- Chat stack order: readiness/env, messages, tip overlay, composer.
+- Structured vs compact tooling modes.
+
+## Master UI Changes To Inspect
+- New message part types.
+- Column width/drawer breakpoint/composer placement changes.
+- AI-elements component changes.
+- Reintroduction of ChatToolsPalette.
+
+## Token / Copy Risks
+- Hardcoded zinc/gray/amber in composer and message states.
+- ChatToolsPalette is orphan-ish and risks duplicate implementation.
+
+## Required UI Additions Without Redesign
+- Render new backend actions through existing picker/tooling/message surfaces.
+- Keep one tool palette owner.
+- Preserve F2 env mute.
+
+## Exact LLM Implementation Instructions
+- Do not change stream/finalize data flow in UI work.
+- Update both minimal drawer and expanded right-column branches.
+- Use semantic tokens for new colors.
+- Preserve disclosure pill and OpenClaw text target attributes.
+
+## Recommended Merge Choices
+- Keep minimal preview-first default.
+- Merge or delete duplicate tool palettes explicitly.
+- Prefer token-first composer styling.
+
+## Visual Verification
+- Minimal pill/drawer.
+- Expanded chat collapse reload persistence.
+- Structured chat toggle.
+- Contrast and z-index.
+
+## Do Not Break
+- Drawer/expanded prop parity.
+- `builder:chatCollapsed` and `uiMode`.
+- F2 env auto-open rules.
+- Pending reply modal.
+- OpenClaw textarea attributes.

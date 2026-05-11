@@ -1,0 +1,23 @@
+PreviewPanelChrome — vs minimal Safari-chrome
+
+Upp till fyra band + scroll (max-h-[38vh] overflow-y-auto): primär rad, route-tabs, Verktyg-rad, banners/alerts — mer devtools+konsol än en lugn adressrad.
+
+1. Vertikal stack & scroll — Fler border-t + alerts; högt beroende av scroll. Safari-lik lugn: 2/5
+
+2. Primär rad — flex-wrap; Info + device + URL + ikoner kan bli två rader. 3/5
+
+3. URL-bar — truncate, title; 11px mono utilitär. Läsbarhet 4/5, premium-känsla 3/5
+
+4. Device-toggle — role=group, aria-pressed; bekant mönster. 4/5
+
+5. Verktyg-dropdown — Progressiv avslöjande; egen persistent rad. 4/5
+
+6. Route strip — Extra rad vs en Safari-bar. 3/5
+
+7. Info/tooltip — Restraint på badges i baren. 4/5
+
+8. Status/alerts — Byggfel, prod, blob… tung kognitiv last. 2/5
+
+Dimensioner: en-band-lugn 2 | URL 3–4 | device 4 | verktyg 4 | visuellt brus 2–3
+
+Verdict: Stark builder-chrome; för “Quick Look” — komprimera till ett icke-scrollande band och flytta status till overlay/toast/kollaps.

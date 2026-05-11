@@ -54,6 +54,27 @@ type Args = {
   } | null>;
 };
 
+function firstValidationDetail(details: unknown): string | null {
+  if (!Array.isArray(details)) return null;
+  for (const detail of details) {
+    if (!detail || typeof detail !== "object") continue;
+    const record = detail as Record<string, unknown>;
+    const message =
+      typeof record.message === "string" && record.message.trim().length > 0
+        ? record.message.trim()
+        : null;
+    if (!message) continue;
+    const pathValue = record.path;
+    const path = Array.isArray(pathValue)
+      ? pathValue.filter((part) => typeof part === "string" || typeof part === "number").join(".")
+      : typeof pathValue === "string"
+        ? pathValue
+        : "";
+    return path ? `${path}: ${message}` : message;
+  }
+  return null;
+}
+
 export function useBuilderDeployActions({
   selectedVersionIdRef,
   latestVersionIdRef,
@@ -207,10 +228,13 @@ export function useBuilderDeployActions({
           deployReadiness?: { missingEnv?: string[]; warnings?: string[] };
           fixesApplied?: string[];
           preDeployWarnings?: string[];
+          details?: unknown;
         };
         if (!response.ok) {
-          const base =
-            data?.error || data?.message || `Deploy failed (HTTP ${response.status})`;
+          const detail = firstValidationDetail(data.details);
+          const base = detail
+            ? `${data?.error || data?.message || "Valideringen misslyckades"}: ${detail}`
+            : data?.error || data?.message || `Deploy failed (HTTP ${response.status})`;
           const missing =
             data?.code === "DEPLOY_MISSING_ENV" &&
             Array.isArray(data.deployReadiness?.missingEnv) &&
@@ -308,6 +332,9 @@ export function useBuilderDeployActions({
       } catch (error) {
         debugLog("builder", "Failed to update project name", error);
         toast.error("Kunde inte uppdatera projektnamn.");
+        setPendingProjectName(null);
+        setDeployNameDialogOpen(true);
+        return;
       } finally {
         setIsDeployNameSaving(false);
       }
@@ -321,12 +348,16 @@ export function useBuilderDeployActions({
         ? { optIn: true as const, siteUrl: payload.seo.siteUrl.trim() }
         : { optIn: false as const };
       try {
-        await fetch(`/api/projects/${encodeURIComponent(appProjectId)}/preferences`, {
+        const res = await fetch(`/api/projects/${encodeURIComponent(appProjectId)}/preferences`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
           body: JSON.stringify({ seo: seoPatch }),
         });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error || `HTTP ${res.status}`);
+        }
       } catch (error) {
         debugLog("builder", "Failed to persist SEO preferences", error);
       }

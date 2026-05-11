@@ -14,6 +14,10 @@ import {
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import { createDirectModel, getTemperatureConfig } from "@/lib/builder/direct-model";
+import {
+  DOMAIN_PROFILES,
+  inferSiteTypeHintFromDomain,
+} from "@/lib/builder/domain-inference";
 import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
 import {
   ASSIST_MAX_OUTPUT_TOKENS,
@@ -72,13 +76,31 @@ const sectionTypeSchema = z.enum([
   "custom",
 ]);
 
-const siteBriefSchema = z.object({
+const domainProfileSchema = z.enum(DOMAIN_PROFILES);
+
+const motionLevelSchema = z.enum(["minimal", "moderate", "lively"]);
+const qualityBarSchema = z.enum(["clean", "premium", "bold-dramatic"]);
+
+export const siteBriefSchema = z.object({
   projectTitle: z.string().describe("Short internal project title"),
   brandName: z.string().describe("Brand/company name if present, else empty string"),
   oneSentencePitch: z.string().describe("A single sentence describing what the site is about"),
   targetAudience: z.string().describe("Primary audience / persona"),
   primaryCallToAction: z.string().describe('Main CTA label, e.g. "Book a demo"'),
   toneAndVoice: z.array(z.string()).min(1).max(8).describe("Tone keywords"),
+  domainProfile: domainProfileSchema.describe("Canonical domain profile slug, or general"),
+  motionLevel: motionLevelSchema.describe("How much motion the generated site should use"),
+  qualityBar: qualityBarSchema.describe("Visual quality bar for downstream prompt guidance"),
+  seasonalHints: z
+    .array(z.string())
+    .max(8)
+    .describe("Optional seasonal or contextual visual hints; empty array when none"),
+  requestedCapabilities: z
+    .array(z.string())
+    .max(12)
+    .describe(
+      "Real requested capability ids in kebab-case, e.g. auth, payments, visual-3d, physics-3d, parallax-scroll, parallax-pointer, carousel, command-search. Do not list ordinary page sections.",
+    ),
   pages: z
     .array(
       z.object({
@@ -131,13 +153,18 @@ const siteBriefSchema = z.object({
   }),
 });
 
-const simplifiedBriefSchema = z.object({
+export const simplifiedBriefSchema = z.object({
   projectTitle: z.string(),
   brandName: z.string().default(""),
   oneSentencePitch: z.string(),
   targetAudience: z.string().default("General audience"),
   primaryCallToAction: z.string().default("Get Started"),
   toneAndVoice: z.array(z.string()).default([]),
+  domainProfile: domainProfileSchema.default("general"),
+  motionLevel: motionLevelSchema.default("minimal"),
+  qualityBar: qualityBarSchema.default("clean"),
+  seasonalHints: z.array(z.string()).default([]),
+  requestedCapabilities: z.array(z.string()).default([]),
   pages: z
     .array(
       z.object({
@@ -235,73 +262,6 @@ const simplifiedBriefSchema = z.object({
     }),
 });
 
-type SiteTypeRule = { hint: string; keywords: string[] };
-
-const SITE_TYPE_RULES: SiteTypeRule[] = [
-  {
-    hint: "ecommerce storefront",
-    keywords: [
-      "ecommerce",
-      "e-commerce",
-      "webshop",
-      "shop",
-      "store",
-      "cart",
-      "checkout",
-      "product",
-    ],
-  },
-  {
-    hint: "saas product marketing site",
-    keywords: ["saas", "b2b", "platform", "subscription", "dashboard", "startup"],
-  },
-  {
-    hint: "portfolio site",
-    keywords: ["portfolio", "designer", "photography", "photographer", "case study", "showcase"],
-  },
-  {
-    hint: "restaurant or cafe site",
-    keywords: ["restaurant", "cafe", "menu", "reservation", "takeaway"],
-  },
-  {
-    hint: "agency or services site",
-    keywords: ["agency", "consulting", "consultant", "services", "company", "foretag", "tjanst"],
-  },
-  {
-    hint: "event or conference site",
-    keywords: ["event", "conference", "ticket", "schedule", "speaker", "workshop"],
-  },
-  {
-    hint: "education or course site",
-    keywords: ["course", "education", "academy", "school", "training", "learning"],
-  },
-  {
-    hint: "real estate site",
-    keywords: ["real estate", "property", "listing", "broker", "apartment"],
-  },
-  {
-    hint: "healthcare site",
-    keywords: ["clinic", "health", "medical", "dentist", "therapy"],
-  },
-];
-
-function normalizePromptText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function inferSiteTypeHint(prompt: string): string | null {
-  const normalized = normalizePromptText(prompt);
-  for (const rule of SITE_TYPE_RULES) {
-    if (rule.keywords.some((keyword) => normalized.includes(keyword))) {
-      return rule.hint;
-    }
-  }
-  return null;
-}
-
 function resolveAnthropicBriefModelId(model: string): string {
   const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
   return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
@@ -314,6 +274,12 @@ const BRIEF_SYSTEM_PROMPT =
   "Be specific about pages/sections, visual direction, and copy direction. " +
   "Include every field in the schema. If a value is unknown, use an empty string. " +
   "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
+  "CANONICAL INIT SIGNALS:\n" +
+  "- `domainProfile` must be one canonical slug from the schema; use `general` when no specific domain is clear.\n" +
+  "- `motionLevel`: use `minimal` for calm/static sites, `moderate` for normal polished interaction, `lively` only when the user asks for strong animation, 3D, immersive, parallax, or highly dynamic visuals.\n" +
+  "- `qualityBar`: use `clean` for simple/local pages, `premium` for polished or high-end work, and `bold-dramatic` only for explicitly cinematic, moody, experimental, or dramatic design directions.\n" +
+  "- `seasonalHints` should be an empty array unless the prompt clearly mentions a season, holiday, event, campaign, or location-specific seasonal cue.\n" +
+  "- `requestedCapabilities` is for real implementation capabilities only. Prefer existing ids when relevant: `auth`, `payments`, `visual-3d`, `physics-3d`, `parallax-scroll`, `parallax-pointer`, `carousel`, `command-search`. Use `physics-3d` only for explicit gravity, bouncing, falling, collisions, rigid bodies or physics simulation — ordinary hovering/floating 3D stays `visual-3d`. Do NOT list ordinary sections like hero, about, pricing, contact, FAQ, gallery, footer, or SEO.\n\n" +
   "SCOPE AWARENESS (important):\n" +
   "- Match the scope to the complexity of the user's request.\n" +
   "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +
@@ -327,7 +293,7 @@ function buildBriefUserPrompt(
   variantHints?: string,
   priorDesignContext?: string,
 ): string {
-  const siteTypeHint = inferSiteTypeHint(prompt);
+  const siteTypeHint = inferSiteTypeHintFromDomain(prompt);
   // Order: raw prompt -> prior design context (for clear-redesign followups)
   // -> variant hints (scaffold variant tokens the orchestrator pre-matched)
   // -> site-type domain hint -> imagery guidance. Each block optional.

@@ -15,21 +15,37 @@ Run from repo root:
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
-
-from dotenv import load_dotenv
-
-from backoffice.app_main import run_backoffice_app
-from backoffice.shared import launch_streamlit_if_needed
-
-load_dotenv(".env.local", override=False)
 
 
 def main() -> None:
     app_path = Path(__file__).resolve()
-    launch_streamlit_if_needed(app_path, sys.argv[1:])
+    if not _running_under_streamlit():
+        raise SystemExit(
+            subprocess.call(
+                [sys.executable, "-m", "streamlit", "run", str(app_path), *sys.argv[1:]],
+            )
+        )
+
+    from dotenv import load_dotenv
+
+    from backoffice.app_main import run_backoffice_app
+
+    load_dotenv(".env.local", override=False)
     run_backoffice_app(title="Sajtmaskin Backoffice")
+
+
+def _running_under_streamlit() -> bool:
+    try:
+        from streamlit.runtime.scriptrunner_utils.script_run_context import (
+            get_script_run_ctx,
+        )
+
+        return get_script_run_ctx() is not None
+    except Exception:
+        return False
 
 
 if __name__ == "__main__":

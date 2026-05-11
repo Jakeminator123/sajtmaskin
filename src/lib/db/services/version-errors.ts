@@ -150,12 +150,11 @@ export async function getLatestEngineVersionErrorLogs(
 /**
  * Repair-loop hardening — SAJ-25.
  *
- * When a follow-up/repair pass on the SAME `versionId` finalizes cleanly
- * (verificationBlocked === false), the error-log rows from PREVIOUS passes
- * (rows whose `meta.repairPassIndex < currentRepairPassIndex`) are stale
- * because they describe state that no longer exists. UI consumes the full
- * row set per `versionId` and renders a red "Fel"-badge even though the
- * latest pass is clean.
+ * When a follow-up/repair pass on the SAME `versionId` has no current
+ * preflight/syntax blockers, the error-log rows from PREVIOUS passes (rows
+ * whose `meta.repairPassIndex < currentRepairPassIndex`) are stale because
+ * they describe state that no longer exists. Verifier-only findings from the
+ * current pass may still be active, but they must not keep older rows alive.
  *
  * This prune is best-effort:
  *  - only deletes rows with strictly lower `meta.repairPassIndex`

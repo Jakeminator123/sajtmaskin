@@ -1,0 +1,26 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 07-shadcn-assets
+Date: 2026-04-27
+
+## Master Changes
+- `src/components/ui/` i diff (t.ex. `sonner` ny fil i grep) — tillsammans med andra faser (design-system) bör "registry"-filer och komponenter synkas.
+- Sök: `shadcn`, `components.json` (rot).
+
+## Local Changes / Dirty Files
+- Om du använt `npx shadcn@latest` lokalt: `components.json` + nya `src/components/ui/*` — merge kan dubbletter eller olika `tailwind` alias.
+
+## Compatibility Risks
+- Dubbletter/alias: flera "button"-varianter ger inkonsekvent import och bundle-bloat
+- Tema/variabler: shadcn-uppdatering kan förlita sig på andra `globals.css`-tokens än ert brandbook-lager — matcha redesign-fasregler
+- "Env-koppling": sällan **direkt** — men t.ex. `Toaster` kan kräva `NEXT_PUBLIC_`-färger om temat hårdkodats
+
+## Files To Update
+- `components.json`, `src/components/ui/`, `src/app/globals.css` om merge ändrat base styles
+- Importer: `grep` nya shadcn-komponenter och uppdatera re-exports enligt repo-mönster
+
+## Verification Commands
+- `npm run typecheck` + `npm run lint` (många TSX-ändringar)
+- Visuell spot-check: komponenter som faktiskt används i byggaren/landing (ingen `/builder` samtidighet med användarens generering enligt coexistence)
+
+## Commit / Ignore Guidance
+- Bunt shadcn-uppdatering i en tydlig commit; undvik att blanda med env/Zod-ändringar samma fil om onödigt
+- Lägg inte in genererade `.next/`-artefakter

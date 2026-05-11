@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { findNearestIcon, FALLBACK_ICON } from "./lucide-icon-fix";
+import { findNearestIcon, lucideIconFix } from "./lucide-icon-fix";
 
 describe("findNearestIcon — semantic alias map (SAJ-15 / A2)", () => {
   it("maps hospitality bed variants to Bed instead of Circle", () => {
@@ -24,7 +24,33 @@ describe("findNearestIcon — semantic alias map (SAJ-15 / A2)", () => {
     expect(findNearestIcon("MailIcon")).toBe("Mail");
   });
 
-  it("falls back to Circle when nothing matches", () => {
-    expect(findNearestIcon("TotallyMadeUpThing")).toBe(FALLBACK_ICON);
+  it("does not invent Circle aliases when nothing matches", () => {
+    expect(findNearestIcon("TotallyMadeUpThing")).toBeNull();
+  });
+});
+
+describe("lucideIconFix", () => {
+  it("does not rewrite LucideIcon into a fallback runtime icon alias", () => {
+    const line = 'import { LucideIcon, Flame } from "lucide-react";';
+    const fixed = lucideIconFix.transform(line, {} as never);
+
+    expect(fixed).toBe('import { Flame } from "lucide-react";');
+    expect(fixed).not.toContain("Circle as LucideIcon");
+  });
+
+  it("removes existing runtime aliases whose local name is LucideIcon", () => {
+    const line = 'import { Circle as LucideIcon, Flame } from "lucide-react";';
+    const fixed = lucideIconFix.transform(line, {} as never);
+
+    expect(fixed).toBe('import { Flame } from "lucide-react";');
+    expect(fixed).not.toContain("Circle as LucideIcon");
+  });
+
+  it("preserves real lucide runtime icons that are short or uncommon", () => {
+    const line = 'import { Cpu, Gamepad2, Sandwich } from "lucide-react";';
+    const fixed = lucideIconFix.transform(line, {} as never);
+
+    expect(fixed).toBe(line);
+    expect(fixed).not.toContain("Circle as");
   });
 });

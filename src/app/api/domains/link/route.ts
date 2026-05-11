@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
     try {
       const body = await req.json();
       const domain = (body.domain ?? "").trim().toLowerCase();
-      const projectId =
-        body.projectId?.trim() || process.env.VERCEL_PROJECT_ID;
+      const configuredProjectId = process.env.VERCEL_PROJECT_ID?.trim() || "";
+      const requestedProjectId = body.projectId?.trim() || "";
+      const projectId = configuredProjectId;
       const teamId = process.env.VERCEL_TEAM_ID;
 
       if (!domain) {
@@ -52,10 +53,17 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      if (requestedProjectId && requestedProjectId !== configuredProjectId) {
+        return NextResponse.json(
+          { error: "projectId is not allowed for this workspace" },
+          { status: 403 },
+        );
+      }
+
       if (!projectId) {
         return NextResponse.json(
-          { error: "projectId is required (or set VERCEL_PROJECT_ID)" },
-          { status: 400 },
+          { error: "Vercel project is not configured (missing VERCEL_PROJECT_ID)" },
+          { status: 503 },
         );
       }
 

@@ -146,7 +146,13 @@ export async function POST(req: Request) {
 
   const projectId = extractProjectId(body);
   const configuredProjectId = process.env.VERCEL_PROJECT_ID?.trim() || null;
-  if (configuredProjectId && projectId && projectId !== configuredProjectId) {
+  if (!configuredProjectId) {
+    return NextResponse.json({ error: "Missing VERCEL_PROJECT_ID" }, { status: 500 });
+  }
+  if (!projectId) {
+    return NextResponse.json({ ok: true, ignored: true, reason: "missing project id" });
+  }
+  if (projectId !== configuredProjectId) {
     return NextResponse.json({
       ok: true,
       ignored: true,

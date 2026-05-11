@@ -1,0 +1,16 @@
+Builder Interaction Review — Agent 1: Globala kortkommandon (src/app/builder + src/components/builder)
+
+- Cmd/Ctrl+K öppnar verktygslåda (BuilderDisclosurePill), ej kommando­palett → ⌘K = sökbar palett med åtgärder; låda på annan chord → 3
+- ⌘\ saknas för chat-dock → ⌘\ växlar dock globalt i shell → 1
+- ⌘⇧P publicera saknas → ⌘⇧P öppnar publicera/sheet → 1
+- ⌘/ fokus chat saknas → ⌘/ fokuserar promptfält → 1
+- ⌘⌥R regenerera saknas → ⌘⌥R triggar regen/omförsök utan krock med spår → 1
+- ? för shortcut-overlay saknas → ? / Shift+? visar fuskblad → 1
+- ⌥⇧M togglar ModelTraceOverlay (persist) → behåll som dev/avancerat; dokumentera i fuskblad → 3
+- Escape stänger ActionHubPopup, InlineEditPopup → behåll Esc i dialoger; konsekvent över modaler → 4
+- IntakeWizard: Escape preventDefault utan extra åtgärd → tydlig stäng/ångra-koppling om modal → 3
+- Enter/Space i domänfält lokalt → OK lokalt; inga globala krockar → 4
+- Inga keydown i src/app/builder → central hook i BuilderLayout/shell med guard i input/textarea → 2
+- Ingen cheatsheet-lista → en källa sanning (?-modal) mac först, Ctrl fallback → 2
+
+Rekommendation: ett useBuilderShortcuts-hook, input-guards, explicit mappning mot skillens standardchords.

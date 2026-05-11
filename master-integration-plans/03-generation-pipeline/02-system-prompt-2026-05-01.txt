@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 02-system-prompt
+Date: 2026-05-01
+
+## Master Pipeline Changes
+- System prompt package is split into dynamic context, sections, budget, compose, and types.
+- Static core plus dynamic context remains canonical.
+- Dynamic context uses explicit/indicated/inferred signal cascade.
+
+## Local Behaviors To Preserve
+- Two-step prompt assembly from orchestration.
+- `buildOut` block from preview postMessage.
+- `mediaCatalog` threading from API/orchestration to prompt.
+- Budget floor and default dynamic context budget.
+
+## Merge/Port Plan
+- Treat `system-prompt/` as one unit.
+- Add budget priority rules for every new `##` section.
+- Keep compose static-core loader/cache behavior.
+- Align stream/API callers for `mediaCatalog` and `buildOut`.
+
+## Frontend Wiring / UI Surface Needed
+- Builder must convert preview postMessage/URL params into `input.buildOut`.
+- Upload/media flows must populate `MediaCatalogItem[]` aliases.
+- Observability can surface dropped dynamic context blocks if budget prunes.
+
+## Exact LLM Implementation Instructions
+- Preserve dynamic context order: mode, build-out, custom instructions, contracts, build intent, profile, scaffold/variant, route plan, imports, dossiers, brief, visual identity, references, guidance, imagery, media catalog, SEO.
+- Media catalog uses `{{alias}}` placeholders and caps at 30 items.
+- Budget keeps original block order after selecting by priority.
+
+## Regression Risks
+- Heading drift causing wrong budget priority.
+- Missing follow-up generation mode.
+- Build-out block truncation under budget.
+- Media catalog dropped under tight budgets.
+- Silent media overflow beyond 30 aliases.
+
+## Required Tests
+- `system-prompt.test.ts`
+- dossier system prompt integration tests
+- LLM input scenario tests
+- Add assertions for build-out and media catalog survival if priorities change.
+
+## Open Questions
+- Is token estimator still good enough for provider token counts?
+- Should media catalog priority increase for brand-critical uploads?

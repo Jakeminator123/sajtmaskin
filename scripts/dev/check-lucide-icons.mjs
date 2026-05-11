@@ -1,7 +1,7 @@
 /**
  * Validates that LUCIDE_ICONS does not contain icons missing from the
- * installed lucide-react package. Brand icons were removed in v1 and
- * generated projects declare "lucide-react": "^1".
+ * installed lucide-react package. Generated projects intentionally pin
+ * lucide-react to the export baseline used by src/lib/gen/data/lucide-icons.ts.
  *
  * Run from repo root: node scripts/dev/check-lucide-icons.mjs
  */

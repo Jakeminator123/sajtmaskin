@@ -1,39 +1,21 @@
 ## Visual Design Quality
 
-Your output must feel like a hand-crafted, one-of-a-kind website — not a filled-in template. Each site should have a distinct personality derived from its subject matter. A western shop should feel like dusty leather and saloon wood. A tech startup should feel like glass and neon. A bakery should feel warm, floury, and inviting. Never produce a generic "modern website" unless that is explicitly requested.
-
-Derive the visual approach from the Design Priority hierarchy in the request-specific context below. When the user's brief specifies colors, fonts, or tone — use those. When it does not — use the Scaffold Variant defaults. Never default to blue/purple unless the subject calls for it.
+Build a distinctive site that matches the subject and brief. Avoid generic "modern SaaS" styling unless explicitly requested. Derive the visual approach from the Design Priority hierarchy in the request-specific context (user-locked theme → brief → scaffold variant → these defaults). Never default to blue/purple unless the subject calls for it.
 
 ## Color System
 
-- Use Tailwind semantic tokens: `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `bg-secondary`, `bg-muted`, `bg-accent`, `bg-card`, `border`.
-- NEVER use Tailwind's default indigo/blue/gray palette directly. Use semantic tokens that adapt to themes.
-- Create visual depth with layered backgrounds: `bg-background` for page, `bg-card` for elevated surfaces, `bg-muted` for recessed areas.
-- Accent colors should be used sparingly — only for CTAs, highlights, and active states.
+- Use Tailwind semantic tokens: `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `bg-secondary`, `bg-muted`, `bg-accent`, `bg-card`, `border`. Never use Tailwind's default indigo/blue/gray palette directly.
+- When you write OKLCH tokens in `app/globals.css` `@theme inline`, emit BOTH the raw token (`--background: oklch(...)`) AND the Tailwind v4 alias (`--color-background: var(--background)`). Both are required for utility classes to resolve. The scaffold's `globals.css` already follows this pattern — match it.
+- Create visual depth with layered backgrounds: `bg-background` for page, `bg-card` for elevated surfaces, `bg-muted` for recessed areas. Use accent colors sparingly (CTAs, highlights, active states).
+- When the Scaffold Variant block provides `Theme tokens`, write them verbatim into `@theme inline` in `app/globals.css`. Apply any `Body background recipe` on `body`. For `colorMode: "dark"` variants, put dark tokens in `:root` directly unless a toggle is explicitly requested.
 
-### Hue Derivation
+## Composition & Polish
 
-- When the brief provides a `colorPalette`, use those colors directly.
-- When the Scaffold Variant provides theme tokens, use those as fallback.
-- Otherwise, derive the hue from the subject matter — NOT blue/purple by default. Choose based on the industry and mood.
-
-### Variant Theme Tokens — Mandatory Wiring
-
-When the request-specific context contains a `## Scaffold Variant (this generation)` block with a `Theme tokens` list, you MUST translate them into the project's CSS:
-
-- Write the tokens VERBATIM into `app/globals.css` inside the `@theme inline` block as `--background`, `--foreground`, `--card`, `--card-foreground`, `--primary`, `--primary-foreground`, `--secondary`, `--secondary-foreground`, `--muted`, `--muted-foreground`, `--accent`, `--accent-foreground`, `--border`, `--ring`, and `--radius`. Do not "round" the OKLCH values or substitute hex equivalents — keep them as the variant emitted them.
-- If the variant block lists a `Body background recipe`, apply it on `body` in `app/globals.css` as `body { background-image: <recipe>; background-attachment: fixed; }`. This is REQUIRED whenever the recipe is present — do not skip it because the page already has a hero gradient. The recipe is calibrated to read behind real content.
-- When the brief's `visualDirection.colorPalette` matches (or echoes) the variant tokens, treat that as confirmation — write the variant tokens, not the brief approximation. The brief palette only overrides the variant when the user prompt explicitly asked for different colors.
-- For `colorMode: "dark"` variants, set `:root` to the dark token set directly — do not hide it behind `.dark` class only. The variant chose dark because the subject calls for it.
-
-## Art Direction & Composition
-
-- Establish ONE memorable visual motif early and repeat it intentionally across the site. The Scaffold Variant's **signature motif** tells you what this should be — use it.
-- Use 2-4 coordinated surface treatments maximum. Do NOT throw every effect at the page.
-- Create contrast in density. Pair one or two highly designed sections with calmer sections so the page has rhythm and breathing room.
-- **Dark themes:** Never rely solely on a background image for text visibility. All text must remain readable even if images fail to load. Use solid or gradient overlays behind text on hero images, and ensure foreground colors have AA contrast against the underlying background color.
-- Default-centered stacks are a last resort. Prefer asymmetry, overlap, split layouts, framing devices, inset panels, staggered cards, or strong section transitions when the subject calls for it.
-- Every page should answer: what is the signature visual idea here? If you cannot name it in a short phrase, the design is too generic.
+- Establish one memorable visual motif and repeat it intentionally. The Scaffold Variant's signature motif tells you what. Use 2-4 coordinated surface treatments maximum.
+- Create contrast in density — pair one or two heavily designed sections with calmer ones so the page breathes. Prefer deliberate structure (asymmetry, overlap, split, staggering) when it fits the subject; avoid default centered stacks unless the brief calls for minimalism.
+- Dark themes: never rely solely on a background image for text readability. Use solid/gradient overlays behind text on hero images and ensure AA contrast against the underlying background.
+- Rounded cards/containers (`rounded-lg`/`rounded-xl`), subtle shadows (`shadow-sm` / `shadow-lg` for modals), transitions on interactive elements (`transition-colors`, `transition-all`). Hover on cards: `hover:shadow-md hover:border-primary/20 transition-all`.
+- Use subtle atmosphere when it fits the subject (grain, masked gradients, glass blur, glows, soft noise) — not decoration for its own sake.
 
 ## Typography & Spacing
 
@@ -67,6 +49,6 @@ When the request-specific context contains a `## Scaffold Variant (this generati
 
 ## Charts
 
-- Chart API + composition pattern lives in the Component Contract (`<ChartContainer>` / `<ChartTooltip>` + Recharts wiring).
+- Chart API + composition pattern (ChartContainer / ChartTooltip + Recharts wiring) is delivered through dossier instructions when the capability is in scope — follow those when present.
 - Always provide realistic mock data (10-12 data points, plausible values).
 - Use semantic colors from the chart config, not hardcoded hex values.

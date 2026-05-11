@@ -1,0 +1,24 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 00 production readiness checklist
+Date: 2026-04-27
+Syntes efter `01`–`08`. Använd innan sista merge commit / promotion till prod.
+
+| # | Check | Utfört (bocka) |
+|---|--------|-----------------|
+| **CI / build** | 1) `npm run typecheck` + `lint` + `test:ci` + `build` (enligt CI) | |
+| **Secrets** | 2) Vercel env: `VERCEL_TOKEN*`, `VERCEL_WEBHOOK_SECRET`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID`, `BLOB_*`, `STRIPE_*`, `CRON_SECRET`, `SAJTMASKIN_METRICS_TOKEN`, `POSTGRES*`, `REDIS_URL`, `CSP_ENFORCE` — satta där de ska; **inga** i commit | |
+| **Git ignore** | 3) Ingen `.env*`, `.vercel/`, råa webhook dumps i PR | |
+| **CSP** | 4) Prod: förväntad nivå enforce vs report-only; spot-check headers; övervaka `[CSP Violation]` / `/api/csp-report` efter cutover | |
+| **CORS** | 5) `proxy` leder fortfarande `/api/`-CORS; media `*`-origin kvar *medvetet*; inga oavsiktliga nya `*` | |
+| **Webhooks** | 6) Vercel + Stripe endpoints i dashboard pekar rätt URL, secrets matchar, test-event ok (staging) | |
+| **Cron** | 7) `vercel.json` shadcn refresh + secret; embeddings cron = no-op (inga tomma förväntningar på live embedding) | |
+| **Deploy API** | 8) `precheckOnly` 200, `409 DEPLOY_MISSING_ENV` när avsiktligt, credits bara real deploy, SSE / webhook status synkar | |
+| **Domän** | 9) Verify/link mot rätt Vercel project; rate limits kvar | |
+| **Analytics** | 10) `VERCEL_ENV` driven insights i prod; lokal/localhost tyst; förstaparts `POST /api/analytics` får fortfarande 200/DB | |
+| **Obs** | 11) `/api/health` grön; (val) OpenClaw; metrics med token i staging | |
+| **E2E** | 12) `test:deploy-smoke:e2e` med fyrfälts-env ELLER dokumenterat manuellt precheck+SSE i staging | |
+| **Preview→prod** | 13) Läs Fas3-doc: samma `versionId`, env-gate, `repair` block följt | |
+| **Logs** | 14) Inga prompt-dump/generationslogg-PII i artefakt som ska med i release-PR; event-bus + writer tester gröna | |
+
+**Om någon rad failar:** stoppa promotion, öppna issue per agent-rapport (`01`–`08`).
+
+**Do not commit (återupprepning):** hemligheter, `.vercel/`, stora körloggar, session cookies till E2E, produktionsspecifika tokens i exempel-filer.

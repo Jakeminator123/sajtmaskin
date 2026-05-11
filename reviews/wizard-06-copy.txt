@@ -1,0 +1,18 @@
+IntakeWizard — synlig copy (korthetsgranskning)
+
+Helhet Apple-minimal: 2.5/5 — Komplett för power users; för tungt i hjälptexter och modulbeskrivningar.
+
+Prioritet hög:
+- Skal: “Intake-guiden” → kortare aria; stegrubriker/underrubriker halvera eller en rad.
+- CTAs: “Bygg min sajt” → “Bygg sajten” / “Starta”; Tillbaka/Fortsätt/Hoppa över redan bra.
+- Site type: “Automatiskt förvalt…” → kortare banner.
+- Media ingress: två meningar → en.
+- Pages: “AI-förslag baserat på…” → “Förslag från AI”; modulbeskrivningar −40–60% ord.
+- Fixa typo: “Kostaternativ” → “Kostalternativ”; svenska istället för checkout/signup/case studies där det syns.
+
+Prioritet medel:
+- Företag: korta placeholders; “Kontaktuppgifter (valfritt)” → “Kontakt”.
+- Innehållsgren: enhetliga “Styrkor”, “Tjänster”, korta em-dash-meningar bort.
+- Design: “Ladda upp din logotyp” → “Ladda logotyp”; slå ihop överlapp ton/stil.
+
+Sammanfattning: Största vinst Media + Pages ingress/modulkort; sedan språk och dubbletter mellan subtitle och branch.

@@ -1,0 +1,32 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 06-preview-polish
+Date: 2026-04-27
+
+## UX To Preserve
+- **Orkestrering:** `PreviewPanel.tsx` + `preview-panel-types` — tom vy vs chrome+iframe, `previewDevice` desktop/tablet/mobile, `usePreviewIframe`, `GenerationProgress` tills `vmReady`.
+- **Ram:** `PreviewPanelFrame` — sandbox iframe, 350 ms debounce, 6 s cap, `iframeError`/`vmReady`/`role="alert"`.
+- **Chrome:** `PreviewPanelChrome` — “Preview” titel, badges, F3, lägen (inline/composer/inspect/code), route-rad, device-ikoner.
+- **Tomt/fel:** `PreviewPanelEmptyState`, `VersionMismatchOverlay` prioritet, `PreviewPanelCode` + filfel, `PreviewPanelComposer`/`EditModeOverlay` där aktivt.
+- **Devices:** brytpunkter 390/768, “kort” runt enheten i ramen.
+
+## Master UI Changes To Inspect
+- `PreviewPanel*`, `hooks/usePreviewIframe`, `iframe-diagnostics` — timeout/postMessage-kontrakt ofta samma filer som VM-ändringar.
+- Nya varningsrader/alertar — använd `Alert`+tokens, undvik hårdkod färg.
+- `PreviewPanel.test.tsx` — förväntningar tom state / hook-ordning.
+
+## Token / Copy Risks
+- Feltext och runbook-rader — svenska, korta; master engelska tekniska strängar = drift.
+- Badges (Next.js, live) — innehålls-/tech-etikett vs produkt-CTA; undvik ljudlig marknadsfärg.
+
+## Recommended Merge Choices
+- Merge master **beteendefixar** (iframe, diagnostik) in i befintlig chrome-struktur — inte ersätt helt utan visuell diff på tom vy.
+- Rör du device-knappar: behåll Apple-lugn spacing och ikonordning (Monitor/Tablet/Phone) om grenen så designat.
+
+## Visual Verification
+- Ingen `previewUrl`: progress + input hints + simplified variant.
+- Fel: overlay i frame, “Öppna i ny flik” / reparationsknapp, version mismatch döljs när `iframeError`.
+- Kod-vy: sidlistor, filfel, scroll.
+
+## Do Not Break
+- `id="preview-iframe"`, `sandbox`, telemetri-callbacks till `BuilderShellContent`.
+- `previewBuildError` / `previewProdBuild` alert-prioritering.
+- F3-knapp och F2/F3 indikationer får inte tappas utan ersättare.

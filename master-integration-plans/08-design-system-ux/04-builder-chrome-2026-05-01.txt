@@ -1,0 +1,44 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 04-builder-chrome
+Date: 2026-05-01
+
+## UX To Preserve
+- Two-mode shell: minimal preview-first drawer, expanded classic right rail.
+- Compact header in minimal mode.
+- Disclosure pill / Cmd-K.
+- Full-height builder layout.
+- Mobile tab bar only where intended.
+
+## Master UI Changes To Inspect
+- `BuilderShellContent`, `BuilderHeader`, `BuilderLayout`, drawer, state/controller.
+- Any new global navbar or permanent header buttons.
+
+## Token / Copy Risks
+- Hardcoded green deploy success.
+- Header flex-wrap can increase density.
+- Logout text adds chrome in compact mode.
+
+## Required UI Additions Without Redesign
+- Add new feature actions to existing dropdown/drawer/action hub.
+- Avoid permanent new header rows.
+
+## Exact LLM Implementation Instructions
+- Preserve `compact === uiMode === "minimal"`.
+- Mirror new actions in compact dropdown and expanded controls.
+- Use semantic tokens for chrome.
+- Do not change full-viewport/overflow chain without mobile/desktop retest.
+
+## Recommended Merge Choices
+- Prefer local minimal shell and progressive disclosure.
+- Reject duplicate site nav above builder.
+- Normalize deploy success colors to tokens when touched.
+
+## Visual Verification
+- Minimal desktop/mobile.
+- Expanded chat/collapse.
+- Streaming abort button.
+- Published state.
+
+## Do Not Break
+- `uiMode`, drawer, disclosure pill.
+- Preview flex/min-height chain.
+- `sajtmaskin:uiMode:expanded` persistence.

@@ -1,0 +1,15 @@
+IntakeWizard — skrapning (handleScrape, scrapeProgress, overlay)
+
+1. Progress vs verklighet — 2/5 — Syntetisk ease mot ~90% på ~25s, sedan 100% vid stop; “Klar!” kan visas före resolve — dissonans.
+
+2. Modal — 3/5 — Fullskärm z-50 “Analyserar din sajt”; fokus bra, låser formulär under.
+
+3. Avbryt — 1/5 — scrapeAbortRef aldrig satt från UI — ingen Avbryt.
+
+4. Fel — 3/5 — toast.error; generisk “Något gick fel”; lite data → neutral toast lätt att missa.
+
+5. Vänt-UX — 4/5 — canContinue false under scrape steg 1; stegvisa rader; auto-scrape tyst vs manuell toast.
+
+6. Efter hämtning — 4/5 — Checklista bra; vissa rader dolda — kan förvirra vertikal data.
+
+Åtgärder: synka progress med request; AbortController/Avbryt; samma feedback vid auto-scrape; ev. banner istället för fullskärm.

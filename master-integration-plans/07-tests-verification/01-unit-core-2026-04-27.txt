@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 01-unit-core
+Date: 2026-04-27
+
+## Required Checks
+- CI-bar (`.github/workflows/ci.yml`): `typecheck`, `lint`, `test:ci`, `baseline-deps:verify`, `baseline-deps:tree`, `build` (med `NEXT_TELEMETRY_DISABLED=1` i CI).
+- Lokal strängare gate: `npm run devtest` — lägger till `scaffolds:validate`, `dossiers:validate-all` (saknas i CI-jobbet).
+- Efter master-merge: samma CI-kedja; utöka med `devtest` om du rört manifest, scaffolds, dossiers, env, orchestration.
+
+## Existing Tests
+- **Vitest:** `vitest.config.ts` — `jsdom`, `include` `src/**/*.{test,spec}.{ts,tsx}`, `tests/**`, `scripts/**`, `_isolated_tests/**`; `exclude` bl.a. `e2e/`, `data/`.
+- **Orchestration / build-spec / contracts:** `src/lib/gen/orchestration-integration.test.ts`, `orchestration-snapshot.test.ts`, `orchestrate.test.ts`, `build-spec.test.ts`, `pre-generation-contracts.test.ts`, `route-plan.test.ts`.
+- **Stream / finalize:** `src/lib/gen/stream/finalize-version.test.ts`, `finalize-merge.test.ts`, `finalize-preflight.test.ts`, `finalize-pipeline-contract.test.ts`, `shared-own-engine-helpers.test.ts`, `stream-format.test.ts`, `shrink-retry.test.ts`.
+- **System prompt / engine:** `system-prompt.test.ts`, `system-prompt-assert.test.ts`, `llm-input-scenarios.test.ts`, `engine.test.ts`; eval: `src/lib/gen/eval/runner.test.ts`, m.fl.
+- **own-engine:** `src/lib/providers/own-engine/generation-stream-*.test.ts`, `src/lib/own-engine/generate-site-from-prompt.test.ts`, `session/own-engine-build-session.test.ts`, m.fl.
+- **Model routing / manifest:** `src/lib/models/selection.test.ts`, `src/lib/ai-models/manifest-parity.test.ts` (hoppa över delar när vissa `SAJTMASKIN_MODEL_*` satt).
+- **Env / DB / preview-env:** `src/lib/db/env.test.ts`, `env-affirmative.test.ts`, `health-schemas.test.ts`, `src/lib/gen/preview/env-local.test.ts`, `project-env-file.test.ts`, `project-preview-env.test.ts`, `project-env-vars.test.ts`, `crypto/env-var-cipher.test.ts` — **ingen** enhetssvit enbart för `src/lib/env.ts`.
+- **Brief:** indirekt via `src/app/api/engine/chats/.../stream/route.test.ts` (mockar), `useInitBrief.test.ts`, `brief-cache.test.ts`.
+- **Scaffolds:** `npm run scaffolds:validate` → `npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts`.
+
+## Missing Coverage
+- Full `prepareGenerationContext` + hela `orchestrate.ts` — splittrad täckning.
+- **Deep Brief** (`site-brief-generation`) — ingen dedicerad enhetssvit, mest route-mockar.
+- `src/lib/env.ts` — ingen `env.test.ts`.
+- Bred Zod i appen — få explicita Zod-tester; lean på `health-schemas` + validators.
+
+## Failure Triage Guide
+- **manifest-parity** efter `config/ai_models/manifest.json`:** synka `load-manifest`, `catalog`, `promptAssist`-allowlist.
+- **Manifest “skip” lokalt:** kolla `SAJTMASKIN_MODEL_*` / `SAJTMASKIN_ASSIST_MODEL` / `SAJTMASKIN_POLISH_MODEL`.
+- **health-schemas:** output från `db-health-check` / `redis-health-check` vs `docs/schemas/strict/*.schema.json`.
+- **scaffolds:validate / dossiers:** data under `config/`, `data/dossiers/`.
+- **orchestration / build-spec:** `deriveBuildSpec`, `matchScaffold`, pre-generation contracts.
+
+## Exact Commands
+```bash
+cd /Users/christophergenberg/Desktop/Sajtmaskin_Genberg
+npm run test:ci
+npx vitest run src/lib/gen/orchestration-integration.test.ts src/lib/ai-models/manifest-parity.test.ts src/lib/models/selection.test.ts
+npm run scaffolds:validate
+npm run dossiers:validate-all
+npm run devtest
+```
+
+## Pass Criteria
+- `npm run test:ci` exit 0, alla inkluderade suiter.
+- `npm run typecheck` exit 0; CI: samma stegordning som workflow.
+- Vid manifest/env/scaffold-ändring: `devtest` 0 (om du använder den formella lokala barriären).

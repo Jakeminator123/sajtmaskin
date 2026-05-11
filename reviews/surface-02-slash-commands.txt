@@ -1,0 +1,25 @@
+Backend Surface Mapping — Agent 2: Slash-kommandon (repo saknar /-parser; mappning = tänkt kommando → befintlig backend)
+
+- BACKEND: handleMessageStreamRequest (chat-message-stream-post.ts:130) → UI-YTA: Chatt — INTERAKTION: /regen som prompt+meta → POST …/stream — SYNLIG DEFAULT? NEJ — Generera om sajt
+- BACKEND: handleCreateChatStreamPost (create-chat-stream-post.ts:171) → UI-YTA: Chatt — INTERAKTION: /ny som ny stream — SYNLIG DEFAULT? NEJ — Starta nytt
+- BACKEND: useSendMessage (useSendMessage.ts:288) → UI-YTA: Chatt — INTERAKTION: samma stream — SYNLIG DEFAULT? NEJ — Skickar till motor
+- BACKEND: POST /api/ai/brief (ai/brief/route.ts:16) → UI-YTA: Chatt — INTERAKTION: /brief → JSON brief — SYNLIG DEFAULT? NEJ — Uppdatera brief
+- BACKEND: usePromptRewrite shallow (usePromptRewrite.ts:138) → UI-YTA: Prompt — INTERAKTION: /polish → /api/ai/chat — SYNLIG DEFAULT? NEJ — Polera prompt
+- BACKEND: usePromptRewrite deep (usePromptRewrite.ts:189) → UI-YTA: Prompt — INTERAKTION: /djup → /api/ai/brief — SYNLIG DEFAULT? NEJ — Djup brief klar
+- BACKEND: POST v0/deployments (deployments/route.ts:364) → UI-YTA: Publicera — INTERAKTION: /deploy → dialog — SYNLIG DEFAULT? NEJ — Publicerar nu
+- BACKEND: quality-gate (post-checks.ts:344) → UI-YTA: Efter gen — INTERAKTION: /gate → POST …/quality-gate — SYNLIG DEFAULT? NEJ — Verifierar bygget
+- BACKEND: tryServerRepair (post-checks.ts:644) → UI-YTA: Efter fel — INTERAKTION: /fix → POST …/repair — SYNLIG DEFAULT? NEJ — Reparerar server
+- BACKEND: repair route (repair/route.ts:1) → UI-YTA: Chatt — INTERAKTION: manuell repair — SYNLIG DEFAULT? NEJ — Kör reparation
+- BACKEND: useAutoFix helpers (helpers.ts:1094) → UI-YTA: Chatt — INTERAKTION: /autofix → ny stream — SYNLIG DEFAULT? NEJ — Autofix följer
+- BACKEND: orchestrate route plan (orchestrate.ts) → UI-YTA: Chatt — INTERAKTION: /route som vanlig prompt stream — SYNLIG DEFAULT? NEJ — Uppdaterar sidor
+- BACKEND: post-checks-analysis (post-checks-analysis.ts:1) → UI-YTA: Metadata — INTERAKTION: indirekt — SYNLIG DEFAULT? NEJ — Kontrollerar routes
+- BACKEND: GET shadcn registry/item (shadcn/registry/item/route.ts:28) → UI-YTA: Data — INTERAKTION: /stil hämtar JSON — SYNLIG DEFAULT? NEJ — Hämtar komponent
+- BACKEND: useSendMessage designTheme (useSendMessage.ts:234) → UI-YTA: Chatt — INTERAKTION: /stil + tema meta — SYNLIG DEFAULT? NEJ — Byt visuell stil
+- BACKEND: GET engine/chats/[id] (engine/chats/[chatId]/route.ts:15) → UI-YTA: Palett — INTERAKTION: /kontext — SYNLIG DEFAULT? NEJ — Ladda historik
+- BACKEND: GET readiness (readiness/route.ts:31) → UI-YTA: Drawer — INTERAKTION: /redo — SYNLIG DEFAULT? NEJ — Lanseringsstatus
+- BACKEND: GET preview-status (preview-status/route.ts:25) → UI-YTA: Preview — INTERAKTION: /preview — SYNLIG DEFAULT? NEJ — Sessionstatus
+- BACKEND: POST normalize-text (normalize-text/route.ts:16) → UI-YTA: Verktyg — INTERAKTION: /normalize — SYNLIG DEFAULT? NEJ — Normalisera text
+- BACKEND: OpenClaw chat (useBuilderHelpChat.ts:135) → UI-YTA: Hjälp — INTERAKTION: /hjälp — SYNLIG DEFAULT? NEJ — Fråga hjälp
+- BACKEND: ChatInterface upload (ChatInterface.tsx:399) → UI-YTA: Bilaga — INTERAKTION: /bild → media/upload — SYNLIG DEFAULT? NEJ — Ladda media
+
+Alias: /api/v0/chats/* speglar engine där så finns.

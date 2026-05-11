@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 08-csp-analytics-runtime
+Date: 2026-05-01
+
+## Master Runtime Changes
+- Merge risk in `next.config.ts`, `src/proxy.ts`, CSP/CORS/nonce handling, preview-origin CSP, and inline scripts.
+- `CSP_ENFORCE` controls enforce vs report-only.
+
+## Local Preview UX To Preserve
+- Edge nonce via proxy to RSC headers and JSON-LD/inline scripts.
+- SEO path allowances for static inline scripts.
+- `/api/preview-render` has separate CSP.
+- Preview iframe issues may be child-origin, not parent app.
+
+## Coupling Points
+- Preview host env/suffixes must feed frame/connect CSP.
+- App base URL and Vercel URL feed CORS origins.
+- CSP reports go to `/api/csp-report`.
+- VercelInsights gated by env and non-localhost.
+- First-party analytics uses `/api/analytics`.
+
+## Required Preview UI / Controls
+- No new controls; requires smoke/log verification.
+- Builder preview must retain correct `frame-src` for tier-2 URLs.
+
+## Exact LLM Implementation Instructions
+- Every new inline script needs nonce or explicit whitelist.
+- Add external domains only to relevant CSP branches.
+- Preserve Vercel Analytics non-localhost and env gate.
+- Test with `CSP_ENFORCE=true`.
+
+## Failure Modes
+- Enforced CSP breaks hydration/inline scripts.
+- CORS blocks hybrid origin.
+- Preview-render CSP differs from app and hides bugs.
+- COOP/COEP accidentally applied to builder/preview routes.
+
+## Verification Matrix
+- `npm run dev`: report-only, JSON-LD nonce, builder entry.
+- `next build` + `next start`: proxy/nonce still active.
+- `CSP_ENFORCE=true`: no console/server CSP reports for landing, SEO, builder.
+
+## Do Not Break
+- Nonce pipeline.
+- `/api/csp-report` and rate-limit.
+- COOP/COEP only on `/project/:path*`.
+- VercelInsights localhost skip.
+- Preview-host CSP source matching actual VM URL.

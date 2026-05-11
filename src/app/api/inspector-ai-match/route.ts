@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { INSPECTOR_AI_MATCH_DEFAULT_MODEL } from "@/lib/gen/defaults";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,7 +62,23 @@ function truncateCode(files: Array<{ name: string; content: string }>): string {
   return parts.join("\n\n");
 }
 
+async function requireInspectorIdentity(req: Request): Promise<Response | null> {
+  const user = await getCurrentUser(req);
+  const sessionId = getSessionIdFromRequest(req);
+  if (!user && !sessionId) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
+
 export async function POST(req: Request) {
+  return withRateLimit(req, "inspector:ai-match", () => handlePOST(req));
+}
+
+async function handlePOST(req: Request) {
+  const authError = await requireInspectorIdentity(req);
+  if (authError) return authError;
+
   if (!isBuilderInspectorEnabled()) {
     return NextResponse.json(
       { success: false, error: getBuilderInspectorDisabledMessage() },

@@ -1,5 +1,4 @@
 import { createSSEHeaders } from "@/lib/streaming";
-import { FEATURES } from "@/lib/config";
 import {
   withPromptToDoneMetricResponse,
   wrapStreamForPromptToDoneMetric,
@@ -57,7 +56,6 @@ import {
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
 import { buildMediaCatalogForOrchestration } from "./build-media-catalog";
 import { createCommitCreditsOnce } from "./credits-handler";
-import { schedulePreviewPreWarm } from "./preview-prewarm";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -80,10 +78,12 @@ import { createPreGenerationContractGateReadableStream } from "@/lib/providers/o
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 import { pickScaffoldVariant } from "@/lib/gen/scaffold-variants";
+import { inferCapabilities } from "@/lib/gen/capability-inference";
 import {
   buildVariantHintsForBrief,
   formatVariantHintsForPrompt,
 } from "@/lib/gen/scaffold-variants/variant-hints";
+import { classifySimpleWebsitePath } from "./simple-website-path";
 
 /**
  * True when a wizard brief is missing creative direction fields that the
@@ -301,6 +301,30 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const variantHintsText = variantHints
         ? formatVariantHintsForPrompt(variantHints)
         : undefined;
+      const initCapabilities = inferCapabilities(message);
+      const simpleWebsitePath = classifySimpleWebsitePath({
+        generationMode: "init",
+        planMode: Boolean(metaPlanMode),
+        hasClientBrief: Boolean(clientBriefFromMeta),
+        attachmentsCount: requestAttachments.length,
+        hasCustomSystem: hasSystemPrompt,
+        promptSourceTechnical: metaPromptSourceTechnical,
+        promptSourcePreservePayload: metaPromptSourcePreservePayload,
+        buildIntent:
+          metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
+            ? (metaBuildIntent as BuildIntent)
+            : "website",
+        promptStrategyMeta: strategyMeta,
+        prompt: message,
+        preMatchScaffold,
+        capabilities: initCapabilities,
+      });
+      devLogAppend("in-progress", {
+        type: "orchestration.simple_website_path",
+        enabled: simpleWebsitePath.enabled,
+        reason: simpleWebsitePath.reason,
+        scaffoldId: simpleWebsitePath.scaffoldId,
+      });
 
       let serverAutoBrief: Record<string, unknown> | null = null;
       let serverAutoBriefModel: string | null = null;
@@ -314,6 +338,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const clientBriefAllowsEnrichment = clientBriefIsWizard && briefHasNoCreative(clientBriefFromMeta);
 
       if (
+        !simpleWebsitePath.enabled &&
         shouldRunServerAutoBrief({
           hasClientBrief: Boolean(clientBriefFromMeta),
           promptSourceTechnical: metaPromptSourceTechnical,
@@ -532,6 +557,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           contractsPrompt: message,
           scaffoldMatchPrompt: message,
           capabilitiesPrompt: message,
+          capabilities: initCapabilities,
           buildIntent: engineIntent,
           scaffoldMode: parsedMeta.scaffoldMode,
           scaffoldId: parsedMeta.scaffoldId,
@@ -738,6 +764,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // brief→codegen drift. If preMatchVariant is null, async picker runs.
           // getVariantById fallback in orchestrate.ts re-picks if id is stale.
           persistedVariantId: preMatchVariant?.id ?? null,
+          embeddingScaffoldMatch: !simpleWebsitePath.enabled,
+          simpleWebsitePath: simpleWebsitePath.enabled,
           // Q5a: pass resolved engine model id so deriveBuildSpec scales
           // tokenBudgets to the model's actual context window.
           engineModelId: resolveEngineModelId(resolvedModelTier),
@@ -919,12 +947,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         devLogAppend("in-progress", {
           type: "site.chatId",
           chatId: engineChat.id,
-        });
-        schedulePreviewPreWarm({
-          enabled: FEATURES.previewPreWarm,
-          buildIntent: engineIntent,
-          chatId: engineChat.id,
-          scaffoldFiles: resolvedScaffold?.files ?? [],
         });
         devLogAppend("in-progress", {
           type: "contracts.inferred",

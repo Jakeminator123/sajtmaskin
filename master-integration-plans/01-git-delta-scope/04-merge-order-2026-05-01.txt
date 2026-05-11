@@ -1,0 +1,44 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 04-merge-order
+Date: 2026-05-01
+
+## Scope
+Safe merge order for a dirty tree before integrating `origin/master` (`c13b515`) into `HEAD` (`a7b682a`). Policy: `commit_first`; stash with `-u` only if commit is not appropriate. This report does not execute merge or modify code.
+
+## Evidence
+- Ahead/behind: `50 / 186`.
+- Merge-base: `85228af2adbb9fa5a3a4f2d726a9fc532242e73b`.
+- Dirty tracked work spans data, Next config, proxy, app layout, API routes, SEO pages, JSON-LD, and engine stream tests.
+- Untracked planning/review outputs are numerous and should not be mixed into product-code merge commits.
+
+## Findings
+- Merge with a dirty tree would make conflict resolution harder, especially around engine stream routes and tests.
+- `data/runs/**` and review outputs should be separated from runtime commits.
+- `layout.tsx` plus untracked `vercel-insights.tsx` should be handled deliberately as one analytics/layout decision.
+- SEO/programmatic route edits should not be mixed into engine stream/API commits.
+
+## Recommended Actions
+- Decide first whether `data/**` changes are intentional.
+- Commit or ignore planning artifacts separately.
+- Recommended product commit slices before merge: SEO pages/helpers, global config/layout/proxy/analytics, AI routes, engine stream routes/tests.
+- Only after a clean tree should a merge be attempted.
+
+## Exact LLM Implementation Instructions
+- Re-check `git status`, current branch, current `HEAD`, `origin/master`, merge-base, and ahead/behind.
+- Classify `data/` changes as keep/revert/separate before product merge work.
+- Handle all untracked reports/skills/reviews explicitly.
+- Stage product changes in small slices or one WIP commit only with user approval.
+- Do not run `git merge origin/master` until user approves and the tree is clean.
+- After merge, run typecheck/lint/tests and inspect that local UI/UX behavior from port-ours reports remains present.
+
+## Verification Needed
+- `git status --porcelain` clean before merge, except ignored files.
+- `npm run typecheck`.
+- `npm run lint`.
+- `npx vitest run` or repo test command.
+- Diff hygiene: no accidental run logs or review artifacts in product commit.
+
+## Do Not Break
+- Local brandbook UI, builder chrome, chat dock, preview-first flow, header/panels.
+- own-engine stream contracts.
+- Intentional SEO changes.
+- Secret/env hygiene.

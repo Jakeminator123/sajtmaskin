@@ -20,6 +20,7 @@ Rules:
 | `db-health-check-report.schema.json` | stdout-payload from `scripts/db/db-health-check.mjs` | `scripts/db/db-health-check.mjs` | CI: AJV mot fixtures (`src/lib/db/health-schemas.test.ts`). Ingen live-DB-validering i CI; manuell roundtrip-validering kan köras lokalt med `node scripts/db/db-health-check.mjs \| ajv …` |
 | `redis-health-check-report.schema.json` | stdout-payload from `scripts/db/redis-health-check.mjs` | `scripts/db/redis-health-check.mjs` | CI: AJV mot fixtures. Manuell live-roundtrip lokalt. |
 | `db-perf-indexes-audit-line.schema.json` | One NDJSON line per run of `scripts/db/add-performance-indexes.mjs` (logged to `data/observability/db-perf-indexes-runs.ndjson`) | `scripts/db/add-performance-indexes.mjs` | CI: AJV mot fixtures. NDJSON-rader skrivs av skriptet vid varje körning men valideras inte runtime. |
+| FaultEvent / fault-promotion report | CLI stdout från `npm run faults:report` (read-only rapport, ingen persisted JSON-fil) | `src/lib/observability/fault-events.ts` + `fault-promotion-report.ts` | No — TS types + unit tests, ingen strict schema eftersom rapporten är human-readable stdout |
 
 ### LLM-flöde telemetri-event schemas
 

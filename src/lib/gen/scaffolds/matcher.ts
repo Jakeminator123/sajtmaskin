@@ -145,6 +145,21 @@ function buildKeywordScores(
     if (capabilities.needsAppShell) boost("app-shell", 2);
     if (capabilities.needsAuth) boost("auth-pages", 2);
     if (capabilities.needsEcommerce) boost("ecommerce", 2);
+    // Game builds belong on a minimal runtime, not a landing/marketing
+    // scaffold — landing-page/saas-landing drag in hero+features+pricing
+    // sections that directly compete with the playable area. We boost
+    // app-shell and base-nextjs, and concurrently push landing/saas down
+    // so they cannot win unless the prompt has an overwhelming marketing
+    // signal (site about a game company, with a hero+features+pricing
+    // request; `landingScore` then still outpaces the -3 penalty).
+    if (capabilities.needsGame) {
+      boost("app-shell", 3);
+      boost("base-nextjs", 3);
+      boost("landing-page", -3);
+      boost("saas-landing", -3);
+      boost("portfolio", -2);
+      boost("blog", -2);
+    }
   }
 
   return scores;
@@ -313,6 +328,36 @@ function pickBestScaffold(
  * Synchronous keyword-based scaffold matching.
  * Fast and deterministic -- used as the primary matcher.
  */
+/**
+ * Narrow game-prompt gate for the synchronous matcher. The async
+ * matcher already boosts/penalises via `buildKeywordScores`
+ * + `capabilities.needsGame`, but `matchScaffold()` (the synchronous
+ * path used before orchestration has inferred capabilities) would
+ * otherwise hand a Pac-Man / Snake prompt to `landing-page`.
+ *
+ * Narrow by design — pattern must name an actual game noun or verb,
+ * not just the token `spel` (which collides with "tv-spel butik" or
+ * "rollspel" / "skådespel"). Keep in sync with the high-precision
+ * rows of `CAPABILITY_VOCABULARY.interactive-game` in
+ * `src/lib/builder/follow-up-capability-vocabulary.ts`.
+ */
+const GAME_SYNC_PATTERN =
+  /(?<![\p{L}\p{N}_])(?:pac-?man|pacman|snake(?:-?game)?|tetris|breakout|pong|arkanoid|space-?invaders|flappy(?:-?bird)?|asteroids|frogger|galaga|platformer|arcade-?game|playable\s+canvas|mini-?game|mini-?spel|quiz-?game|quiz-?spel|reaction-?game|reaktionsspel|memory-?game|minnesspel|tv-?spel|video-?spel|dator-?spel|browser-?spel)(?![\p{L}\p{N}_])/iu;
+
+/**
+ * Retail / news / commentary signals that mention game-related nouns but
+ * are NOT build-a-game requests. Keep in sync with the vetoes in
+ * `CAPABILITY_VOCABULARY.interactive-game` so the sync matcher and the
+ * follow-up detector agree on the non-game cases.
+ *
+ * Examples:
+ *  - "sajt för en tv-spel butik" → marketing for a retail store
+ *  - "bygg en gaming news blog" → content site, not a game
+ *  - "esport-site för vår liga" → portal, not a game
+ */
+const GAME_SYNC_VETO_PATTERN =
+  /(?<![\p{L}\p{N}_])(?:tv-?spel\s+butik|spel[-\s]?butik|game[-\s]?store|gaming[-\s]?news|gaming[-\s]?blog|e-?sport(?:[-\s]?nyheter)?|esport[-\s]?site)(?![\p{L}\p{N}_])/iu;
+
 export function matchScaffold(
   prompt: string,
   buildIntent?: BuildIntent | null,
@@ -322,6 +367,17 @@ export function matchScaffold(
   }
 
   const lower = prompt.toLowerCase();
+
+  // Game intent wins before auth/ecommerce/landing — the game-specific
+  // runtime surface (state+loop+controls) is orthogonal to these scaffolds.
+  // Veto first: retail/news pages that mention game nouns are NOT game
+  // builds and must fall through to the normal keyword/embedding matcher.
+  if (GAME_SYNC_PATTERN.test(prompt) && !GAME_SYNC_VETO_PATTERN.test(prompt)) {
+    // Apps (explicit buildIntent=app) get app-shell; everything else
+    // gets base-nextjs so the game owns the route without marketing
+    // chrome fighting for attention.
+    return getScaffoldById(buildIntent === "app" ? "app-shell" : "base-nextjs");
+  }
 
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   if (authScore >= MIN_SCORE) {

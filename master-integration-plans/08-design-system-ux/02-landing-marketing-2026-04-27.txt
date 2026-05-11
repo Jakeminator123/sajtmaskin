@@ -1,0 +1,38 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 02-landing-marketing
+Date: 2026-04-27
+
+## UX To Preserve
+- **Start:** `src/app/page.tsx` — chat-first, tabs/under fold (`ChatArea`), `h-dvh`/`landing-v2` navbar, `window.__SITEMASKIN_CONTEXT` + event.
+- **SEO:** `render-seo-page.tsx` + `load-landing` + `SeoLandingPage.tsx` — breadcrumbs, `familyBadge`, en artikellayout, `<details>` FAQ, semantiska tokens.
+- **Statisk/ISR** där routes satt `revalidate`/`force-static` — förutsägbar SEO-build.
+- **Dubbel navbar:** bevarat medvetet: `landing-v2/navbar` vs `layout/navbar` för SEO — unifiera endast med design-API, inte hårdkort byte av shell.
+
+## Master UI Changes To Inspect
+- `layout.tsx` global metadata + JSON-LD + tvingat `light` (inline script) — master dark/system bryter intention.
+- `page.tsx` är **client** utan egen `generateMetadata` — titel/description = layout; master som flyttar metadata behöver RSC-mönster.
+- `landningssidor`, `hemsida/...`, `skapa-hemsida/...`, m.fl. — samma `renderSeoLandingRoute`.
+- `json-ld.ts` / `components/layout/json-ld.tsx` — pris (`49`), publisher-URL, SoftwareApplication; juridik/brand synk.
+- `globals.css` + `landing-v2.css` — sida-importerar båda; merge kan påverka alla ytor.
+- `sitemap.ts` / `proxy.ts` — route-lista matchar faktiska sidor.
+
+## Token / Copy Risks
+- `SeoLandingPage` använder i huvudsak `bg-background`, `text-muted-foreground` — **bra**; undvik hårdkod här.
+- Hårdkodad marknadstext i `SeoLandingPage` (CTA, FAQ, “Populära orter”) — dubbletter med master = längre, mindre “minimal”.
+- LLM-innehåll i JSON under `content/` — håll chrome tunn runt innehållet.
+
+## Recommended Merge Choices
+- **En** SEO-pipeline: `buildSeoMetadata` + `renderSeoLandingRoute` — utöka inte dubbletter.
+- **Brandbook** vinner över gammal “navy/orange”-doc för produktions-UI; uppdatera regel om master drar in gammal copy.
+- Metadata för `/`: lös i **RSC-lager** (layout/wrapper) om `Home` ska få egen `generateMetadata` — blanda inte server-exports in i nuvarande client-`page` rakt av.
+- Pris/erbjudande i JSON-LD: ändras endast med produkt/prissida i repo.
+
+## Visual Verification
+- `localhost:3000/` — hero, tabs, en scrollbar, v2-nav.
+- `…/landningssidor` + minst en route per mönster (stad, bransch, skapa, alternativ).
+- DevTools: `application/ld+json`, nonce på script där så krävs.
+
+## Do Not Break
+- `load-landing` slug → filnamn (`__`); `content.family` / `notFound` gate.
+- `builderHref` query till builder; `dynamicParams` + `generateStaticParams` 404-strategi.
+- CSP `x-csp-nonce` + JSON-LD i `renderSeoLandingRoute`.
+- Canonical bygger på samma `URLS.baseUrl` / metadata helpers.

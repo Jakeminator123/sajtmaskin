@@ -1,0 +1,13 @@
+Builder IA — Agent 5: Inmatning → resultat (chat → stream → preview → versioner)
+
+Nuvarande IA
+ChatInterface → useSendMessage/useCreateChat → POST …/stream → stream-handlers uppdaterar bubblor, uiParts (tool:engine-*), previewUrl, versioner, onGenerationComplete. Feedback: användar- + assistentbubbla, verktygsdelar, iframe i PreviewPanel, GenerationProgress/phase kopplad till senaste tool/brief (BuilderShellContent). Ingen explicit “detta svar = denna diff” i chatten; kod via kodvy/register, inte jämförelse mot föregående prompt. Autofix-loop: useAutoFix kan skicka nytt meddelande efter delay — magisk om inte märkt.
+
+ASCII
+  [Användarmeddelande] → append bubblor → SSE stream → Chat UI + Preview state (URL, fas) → klar/post-check → ev. autofix-loop → artefakt (version + preview)
+
+Föreslagen IA
+En synlig “resultatspår”-rad eller etikett per turn: “Uppdaterar preview …” / “Sparad version n” som binder bubbla ↔ iframe ↔ version. Vid autofix: diskret systemrad “Automatisk åtgärd skickad” med länk till logg.
+
+Brott / motsägelser
+Parallella kanaler (bubbla, verktyg, iframe, toast, versionsrad) utan gemensam etikett. Progress i preview känns lösryckt från chat. Kod/diff gömt i läge — inte uppenbart “resultat av detta meddelande”. Autofix utan tydlig orsak→effekt i UI.

@@ -1,0 +1,40 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 05-observability-data
+Date: 2026-05-01
+
+## Master Changes
+- Unified event bus writes NDJSON under `data/runs/<versionId>/(root|repair-N)/events.ndjson`.
+- Generation log channel writes under `logs/generationslogg/` when enabled.
+
+## Local Changes / Dirty Files
+- Several `data/runs/**/events.ndjson` files are modified despite ignore rules, likely because they are already tracked.
+
+## Compatibility Risks
+- Event bus types and generation-log rows are different “truths”.
+- New event types require union, emitter, projection, docs, and UI/status consumers.
+- Strict schemas do not cover every NDJSON bus row.
+
+## Files To Update
+- `src/lib/logging/event-bus-types.ts`
+- `event-bus.ts`, subscribers, projection.
+- `generation-log-writer.ts` and tests.
+- architecture/orchestration docs.
+- env policy for logging flags.
+- `.gitignore` if runtime artifacts leak.
+
+## Frontend Impact / UI States
+- Version status projection depends on bus events.
+- Generation logs mainly support agents/backoffice, not normal prod UI.
+
+## Exact LLM Implementation Instructions
+- Diff event bus files against docs.
+- Add new `t` values to union, emit sites, and projection together.
+- Keep logs out of product commits.
+
+## Verification Commands
+- `npx vitest run src/lib/logging/event-bus.test.ts src/lib/logging/generation-log-writer.test.ts`
+- `npm run typecheck`
+- Manual run: NDJSON grows and `.runs.json` indexes repair passes.
+
+## Commit / Ignore Guidance
+- Do not commit `data/runs/**`, `logs/**`, `data/prompt-dumps/**`, `output/generations/**`.
+- Commit code/docs/schema changes for observability contracts.

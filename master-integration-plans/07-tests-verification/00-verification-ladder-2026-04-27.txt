@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 00 verification ladder (synthesis)
+Date: 2026-04-27
+
+## Ordnad stege (snabbast → längst)
+
+| Steg | Kommando | Syfte |
+|------|----------|--------|
+| 1 | `npm run typecheck` | Fånga TS/contract-fel omedelbart (CI-paritet). |
+| 2 | `npm run lint` | Flat-config ESLint; samma som CI. |
+| 3 | `npm run test:ci` | Full Vitest (`vitest run`). **Merge-bar enligt CI.** |
+| 4 | `npm run baseline-deps:verify` && `npm run baseline-deps:tree` | CI parity (om rört deps). |
+| 5 | `npm run scaffolds:validate` | Vitest: `scaffold-manifest-validation.test.ts`. |
+| 6 | `npm run dossiers:validate-all` | **Ej** i nuvarande `ci.yml` — kör manuellt om dossier/manifest rörs. |
+| 7 | `npm run dossiers:capability-map:check` | Om `data/dossiers` capability ändrats. |
+| 8 | `npm run build` | Next + `prebuild` (bl.a. `scaffolds:embeddings:check`). |
+| 9 | `npm run devtest` | En-grepps “allt utom build” om du vill `dossiers`+`scaffolds`+test+lint i serie. |
+| 10 | `npm run test:focused` | Snabbare delmängd (stream/preview/finalize m.m. per `package.json`). |
+| 11 | `npm run test:deploy-smoke:e2e` | Playwright deploy API-precheck (se env i spec). |
+| 12 | Manuell `playwright` med `playwright.persona.config.ts` | Builder/preview (ej i `package.json` som standard). |
+
+## CI vs lokal “full”
+
+- **GitHub CI** kör **inte** `dossiers:validate-all` / `capability-map:check` — `devtest` är strängare på data.
+- **E2E:** tre separata Playwright-configs; `tests/openclaw` kan sakna specs — verifiera `package.json` innan du förlitar dig på `test:openclaw:e2e`.
+
+## När stegen räcker
+
+- **Bara TypeScript-ändring:** steg 1–3.
+- **Env/manifest/model:** 1 + 3 + fokus `src/lib/ai-models/manifest-parity.test.ts`, `src/lib/models/selection.test.ts`.
+- **Preview/VM-gren:** 3 + `test:focused` + ev. riktad `npx vitest run src/lib/gen/preview` (se 04).
+- **Dossier/scaffold-data:** 5–7 innan commit.

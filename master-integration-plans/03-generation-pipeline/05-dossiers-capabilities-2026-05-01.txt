@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 05-dossiers-capabilities
+Date: 2026-05-01
+
+## Master Pipeline Changes
+- Dossiers live under `data/dossiers/hard|soft/<id>`.
+- Strict schema: `docs/schemas/strict/dossier.schema.json`.
+- CI validates manifests, imports, default uniqueness, headings, and verbatim files.
+- Runtime registry is permissive and warns/defaults rather than strict AJV.
+- Capability map is generated tooling/sanity, not runtime source.
+- Dossier selection is deterministic by capability and default/id ordering.
+- Orchestration merges brief, inferred capabilities, and caller follow-up capabilities.
+
+## Local Behaviors To Preserve
+- Permissive runtime load plus strict CI.
+- Merge order: brief -> inferred bridge -> caller follow-up.
+- Deterministic tie-break and duplicate default warnings.
+- Env var `configured` state based on `process.env`.
+- `SAJTMASKIN_DOSSIER_PIPELINE=false|0` opt-out.
+
+## Merge/Port Plan
+- Diff `data/dossiers/**`, strict schema, manifest validator, orchestrate inference, follow-up vocabulary, and scripts.
+- After dossier additions, run validation and capability-map check/write.
+- If master adds runtime AJV, explicitly decide permissive vs strict runtime behavior.
+
+## Frontend Wiring / UI Surface Needed
+- Follow-up capability UI/state must populate `requestedDossierCapabilities` and tiers.
+- No separate dossier picker required.
+- Capability modify hints may affect chat/prompt copy indirectly.
+
+## Exact LLM Implementation Instructions
+- Dynamic context must include dossier class, fidelity, configured state, and selected dossiers.
+- Verbatim policy must restore disk content for protected paths.
+- Keep capability names aligned between manifest, map, and follow-up vocabulary.
+
+## Regression Risks
+- Silent bad pool in dev due to permissive runtime.
+- Duplicate defaults.
+- Vocabulary/map drift.
+- Env var enforcement drift between manifest and F3/runtime gate.
+
+## Required Tests
+- Dossier registry/select/validate/verbatim/snapshot/system-prompt tests.
+- `npm run dossiers:validate-all`.
+- Capability map check/write where appropriate.
+
+## Open Questions
+- Should runtime registry validate strictly in production?

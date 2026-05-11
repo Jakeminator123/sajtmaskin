@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import {
+  isServerVerifyExpectedForLifecycle,
   resolveEngineVersionDisplayStatus,
+  resolveEngineVersionVerificationSurfaceStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
 import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
@@ -61,6 +63,14 @@ type VersionSummary = {
   promotedAt?: string | Date | null;
   pinned?: boolean;
   canPin?: boolean;
+  /**
+   * Lifecycle stage from `engine_versions.lifecycle_stage`. Threaded so
+   * tooltip/label can tell F2 design rows ("Klar — server-verify körs
+   * först vid Bygg integrationer") apart from F3 integrations rows
+   * ("Verifierar"). When missing, defaults to "design" via
+   * `resolveEngineVersionLifecycleStage`.
+   */
+  lifecycleStage?: string | null;
 };
 
 type BlobExportResponse = {
@@ -104,7 +114,7 @@ interface VersionHistoryProps {
   /** Pre-fetched versions from parent to avoid duplicate polling */
   versions?: VersionSummary[];
   /** Mutate function from parent's useVersions instance */
-  mutateVersions?: () => void;
+  mutateVersions?: () => void | Promise<unknown>;
   /**
    * F2 vs F3 lifecycle gate. Forwarded to dialogs (e.g.
    * VersionDiagnosticsDialog) that conditionally render env-panel actions.
@@ -343,7 +353,7 @@ export function VersionHistory({
         throw new Error(data?.error || `Pin failed (HTTP ${res.status})`);
       }
       toast.success(nextPinned ? "Version pinned" : "Version unpinned");
-      mutate();
+      await Promise.resolve(mutate());
     } catch (error) {
       console.error("Pin error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to update pin");
@@ -373,7 +383,7 @@ export function VersionHistory({
         onVersionSelect(String(data.versionId));
       }
       toast.success(rollbackMode ? "Rollback skapade en ny draftversion" : "Version restored som ny draftversion");
-      mutate();
+      await Promise.resolve(mutate());
       setConfirmRestoreVersion(null);
     } catch (error) {
       console.error("Restore error:", error);
@@ -406,7 +416,7 @@ export function VersionHistory({
         throw new Error(data?.error || `Accept repair failed (HTTP ${res.status})`);
       }
       toast.success("Serverreparation accepterad och applicerad");
-      mutate();
+      await Promise.resolve(mutate());
       if (data?.versionId) {
         onVersionSelect(String(data.versionId), data.previewUrl ?? undefined);
       }
@@ -579,6 +589,7 @@ export function VersionHistory({
                 versionNumber: version.versionNumber,
                 releaseState: version.releaseState,
                 verificationState: version.verificationState,
+                lifecycleStage: version.lifecycleStage,
               },
               versionList.map((entry) => ({
                 versionId: entry.versionId,
@@ -587,17 +598,33 @@ export function VersionHistory({
                 versionNumber: entry.versionNumber,
                 releaseState: entry.releaseState,
                 verificationState: entry.verificationState,
+                lifecycleStage: entry.lifecycleStage,
               })),
             );
+            const willRunServerVerify = isServerVerifyExpectedForLifecycle({
+              lifecycleStage: version.lifecycleStage,
+            });
+            const verificationSurfaceStatus = resolveEngineVersionVerificationSurfaceStatus({
+              releaseState: version.releaseState,
+              verificationState: version.verificationState,
+              lifecycleStage: version.lifecycleStage,
+            });
+            // Postmortem 2026-04-28: F2 design-versioner kör inte server-verify
+            // (`design_preview_skip_verify`) — visa "Klar" istället för
+            // "Verifierar" för dem så UI inte påstår en bakgrundskörning som
+            // aldrig sker. F3-integrationsversioner kör verify aktivt och
+            // behåller "Verifierar"-labeln.
             const lifecycleLabel =
               lifecycleStatus === "promoted"
-                ? "Promoted"
+                ? "Publicerad"
                 : lifecycleStatus === "verifying"
-                  ? "Verifying"
+                  ? willRunServerVerify
+                    ? "Verifierar"
+                    : "Klar"
                   : lifecycleStatus === "repairing"
-                    ? "Repairing"
+                    ? "Reparerar"
                     : lifecycleStatus === "repair_available"
-                      ? "Repair available"
+                      ? "Fix redo"
                     : lifecycleStatus === "retrying"
                       ? "Ersatt"
                       : lifecycleStatus === "failed"
@@ -605,16 +632,18 @@ export function VersionHistory({
                         : "Draft";
             // P25b-rest: surface what each lifecycle badge actually means in
             // a hover-tooltip so users don't need to read the runbook to
-            // tell "Verifying" (background server-verify still running)
-            // apart from "Promoted" (released live) or "Fel" (verifier
+            // tell "Verifierar" (background server-verify still running)
+            // apart from "Publicerad" (released live) or "Fel" (verifier
             // produced blocking findings — open the diagnostics dialog).
             const lifecycleTooltip =
               lifecycleStatus === "promoted"
                 ? "Publicerad live. Klart att deploya."
                 : lifecycleStatus === "verifying"
-                  ? "Server-verify kör i bakgrunden — typecheck/build mot scaffold-cache. Kan landa i 'Promoted' eller 'Fel' när den är klar."
+                  ? willRunServerVerify
+                    ? "Server-verify kör i bakgrunden — typecheck/build mot scaffold-cache. Kan landa i 'Publicerad' eller 'Fel' när den är klar."
+                    : "Design-preview klar. Server-verify körs först när du klickar 'Bygg integrationer'."
                   : lifecycleStatus === "repairing"
-                    ? "Server försöker reparera fel automatiskt. Vänta — utfallet rapporteras som 'Repair available' eller 'Fel'."
+                    ? "Server försöker reparera fel automatiskt. Vänta — utfallet rapporteras som 'Fix redo' eller 'Fel'."
                     : lifecycleStatus === "repair_available"
                       ? "Reparerad version finns sparad och väntar på godkännande. Klicka för att se diff och acceptera."
                       : lifecycleStatus === "retrying"
@@ -627,11 +656,13 @@ export function VersionHistory({
                 ? "destructive"
                 : lifecycleStatus === "promoted"
                   ? "default"
-                  : lifecycleStatus === "retrying" ||
-                      lifecycleStatus === "repairing" ||
-                      lifecycleStatus === "repair_available"
-                    ? "outline"
-                    : "secondary";
+                  : lifecycleStatus === "verifying" && !willRunServerVerify
+                    ? "secondary"
+                    : lifecycleStatus === "retrying" ||
+                        lifecycleStatus === "repairing" ||
+                        lifecycleStatus === "repair_available"
+                      ? "outline"
+                      : "secondary";
             const lifecycleBadgeClassName =
               lifecycleStatus === "retrying"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
@@ -675,6 +706,45 @@ export function VersionHistory({
                   : qualityTier === "preview"
                     ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
                     : undefined;
+            const verificationBadge =
+              verificationSurfaceStatus === "verified"
+                ? {
+                    label: "Verifierad",
+                    title: "Server-verify eller promotion har passerat för denna version.",
+                    className:
+                      "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+                  }
+                : verificationSurfaceStatus === "design_ready"
+                  ? {
+                      label: "Design redo",
+                      title:
+                        "F2-designversion: preview kan vara materialiserad, men server-verify körs först i F3.",
+                      className:
+                        "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+                    }
+                  : verificationSurfaceStatus === "verifying"
+                    ? {
+                        label: "Verifierar",
+                        title: "Server-verify kör fortfarande för denna version.",
+                        className:
+                          "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+                      }
+                    : verificationSurfaceStatus === "repair_available"
+                      ? {
+                          label: "Fix redo",
+                          title:
+                            "Serverreparation finns men är inte accepterad ännu.",
+                          className:
+                            "border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+                        }
+                      : verificationSurfaceStatus === "failed"
+                        ? {
+                            label: "Ej verifierad",
+                            title: "Verifiering hittade blockerande fel.",
+                            className:
+                              "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300",
+                          }
+                        : null;
             const runtimeStatusForRow =
               isSelected && isEngineVersionRow ? selectedPreviewStatus?.status ?? null : null;
             const runtimeBadge =
@@ -753,7 +823,8 @@ export function VersionHistory({
                           className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadgeClassName)}
                           title={lifecycleTooltip}
                         >
-                          {(lifecycleStatus === "verifying" || lifecycleStatus === "repairing") && (
+                          {((lifecycleStatus === "verifying" && willRunServerVerify) ||
+                            lifecycleStatus === "repairing") && (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           )}
                           {lifecycleStatus === "retrying" && <RotateCcw className="h-3 w-3" />}
@@ -763,8 +834,18 @@ export function VersionHistory({
                           <Badge
                             variant="outline"
                             className={cn("px-1.5 py-0 text-[10px]", qualityTierBadgeClass)}
+                            title="Runtime/preview-status: detta säger att en preview-URL eller VM-yta finns, inte att versionen är server-verifierad."
                           >
                             {qualityTierLabel}
+                          </Badge>
+                        )}
+                        {isEngineVersionRow && verificationBadge && (
+                          <Badge
+                            variant="outline"
+                            className={cn("px-1.5 py-0 text-[10px]", verificationBadge.className)}
+                            title={verificationBadge.title}
+                          >
+                            {verificationBadge.label}
                           </Badge>
                         )}
                         {runtimeBadge && (
@@ -773,7 +854,7 @@ export function VersionHistory({
                             className={cn("px-1.5 py-0 text-[10px]", runtimeBadge.className)}
                             title={
                               runtimeStatusForRow === "version_mismatch"
-                                ? "Preview-VM kör en annan version än den valda. Klicka 'Återställ preview' eller vänta på återstart."
+                                ? "Preview-VM kör en annan version än den valda. Vänta på återstart eller öppna preview-panelen för status."
                                 : runtimeStatusForRow === "missing"
                                   ? "Ingen aktiv preview-VM för denna version. Starta en ny preview-session från knappraden."
                                   : runtimeStatusForRow === "starting"
@@ -937,8 +1018,8 @@ export function VersionHistory({
                       size="icon-sm"
                       onClick={(e) => handleDownload(e, version)}
                       disabled={isDownloading}
-                      title="Download version"
-                      aria-label="Download version"
+                      title="Ladda ner version"
+                      aria-label="Ladda ner version"
                       className="h-7 w-7"
                     >
                       {isDownloading ? (
@@ -952,8 +1033,8 @@ export function VersionHistory({
                       size="icon-sm"
                       onClick={(e) => handleExportToBlob(e, version)}
                       disabled={isExporting}
-                      title="Export to Vercel Blob"
-                      aria-label="Export to Vercel Blob"
+                      title="Exportera till Vercel Blob"
+                      aria-label="Exportera till Vercel Blob"
                       className="h-7 w-7"
                     >
                       {isExporting ? (
@@ -967,8 +1048,8 @@ export function VersionHistory({
                       size="icon-sm"
                       onClick={(e) => handleExportToGitHub(e, version)}
                       disabled={isExportingGitHub}
-                      title="Export to GitHub"
-                      aria-label="Export to GitHub"
+                      title="Exportera till GitHub"
+                      aria-label="Exportera till GitHub"
                       className="h-7 w-7"
                     >
                       {isExportingGitHub ? (

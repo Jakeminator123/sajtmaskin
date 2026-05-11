@@ -1,0 +1,14 @@
+Backend Surface Mapping — Agent 6: Inline i chatten (MessageList/ChatInterface — inga ghost-actions på bubblor idag; VersionFeedback separat)
+
+- BACKEND: POST versions/.../feedback (feedback/route.ts:14) → UI-YTA: Under sista bubbla — INTERAKTION: tummar kategori — SYNLIG DEFAULT? JA efter gen — Tyck till
+- BACKEND: handleMessageStreamRequest (chat-message-stream-post.ts:130) → UI-YTA: Ghost länk — INTERAKTION: klick → ny stream — SYNLIG DEFAULT? NEJ — Generera om
+- BACKEND: GET files + diff UI (VersionCompareDialog) → UI-YTA: Ghost länk — INTERAKTION: öppna diff — SYNLIG DEFAULT? NEJ — Visa diff
+- BACKEND: POST versions fork/rollback (versions/route.ts:190) → UI-YTA: Ghost länk — INTERAKTION: bekräfta — SYNLIG DEFAULT? NEJ — Spara version
+- BACKEND: sendMessage quickReply (MessageList) → UI-YTA: Snabb svar — INTERAKTION: välj chip — SYNLIG DEFAULT? NEJ — Snabb fråga
+- BACKEND: Preview composer ångra (PreviewPanelChrome) → UI-YTA: Inte i chat — INTERAKTION: flytta eller spegla — SYNLIG DEFAULT? NEJ — Ångra steg
+- BACKEND: currentAnswerSuggestions (BuilderShellContent) → UI-YTA: (oanvänd memo) — INTERAKTION: koppla chips — SYNLIG DEFAULT? NEJ — Förslag syns ej
+- BACKEND: PreviewPanelChrome suggestions (516) → UI-YTA: Verktyg meny — INTERAKTION: ej bubbla — SYNLIG DEFAULT? NEJ — Snabb åtgärd
+- BACKEND: CompactToolParts (MessageList) → UI-YTA: I bubbla — INTERAKTION: expandera verktyg — SYNLIG DEFAULT? JA — Verktygsdetaljer
+- BACKEND: Pending reply modal (MessageList) → UI-YTA: Overlay — INTERAKTION: svara — SYNLIG DEFAULT? JA vid gate — Svar krävs
+
+Max 3 ghost per bubbla (förslag): Generera om · Visa diff · Spara version — övrigt i ··· eller drawer.

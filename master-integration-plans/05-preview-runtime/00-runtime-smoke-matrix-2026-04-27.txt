@@ -1,0 +1,17 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 00 runtime smoke matrix
+Date: 2026-04-27
+
+Pre-flight: branch `frontend/christopher`, `HEAD=6dab64a9`, `origin/master=4de2fabd`. Termer: **preview** (yta/URL), **VM** (tier-2 körning), **preview_host** (provider), undvik nya "sandbox" produktnamn (legacy `activeSandboxId` m.m. får förekomma i kod).
+
+Syntes: rök efter merge i tre **miljöprofiler** (en aktiv builder-klient per `chatId` — coexistence).
+
+| Aspekt | `npm run dev` (lokal) | `next build` + `next start` (lokal prod-lik) | **CSP_ENFORCE=true** (prod / staging) |
+|--------|------------------------|---------------------------------------------|----------------------------------------|
+| **App** | Root layout, `proxy` CORS, `nonce` i layout/JSON-LD, Vercel insights av om `VERCEL_ENV` + ej localhost | Samma + kontrollera att `proxy` faktiskt triggas (Next 16: `src/proxy.ts` — verifiera i er deploy) | Report-only av om `CSP_ENFORCE` false; enforce: inga nya `unsafe-inline` utanför whitelisted paths; kolla `/api/csp-report` loggar |
+| **Builder preview** | own-engine + tier-2: postMessage `preview-starting`→`preview-ready`, `vmReady`, cross-origin grace; build-out, routes | — | Iframe + parent CSP: `frame-ancestors` / `X-Frame-Options` på **preview-URL origin** (ej bara app-CSP) |
+| **Session** | `POST …/preview-session` bootstrap, heartbeat 25s, dold flik hibernate, `session_mismatch` | — | Rate limits oförändrade; två `viewerId` samma session → TTL/fakturering (coexistence) |
+| **preview_host** (om `SAJTMASKIN_PREVIEW_HOST_BASE_URL`) | För ev. lokal pekare: host health + unik `chatId` path; `npm run smoke` i `preview-host/` enligt README | Fly/remote: samma + status `running` | TLS + CORS + host-side headers |
+| **Quality gate** | F2: design verify-lane + ev. skip async server verify; F3: build/lint efter policy | `runQualityGateOnExportable` path om preview_host når | N/A särskilt utöver nätverk |
+| **Minimikommando** | Manuell: ny chat → generera → preview laddar → byt route i chrome → build-out (om shell) | Efter `next start`: öppna `/builder?…`, samma rök | Ladda sida med strict CSP, kolla konsol 0 viol + ev. csp-report endpoint |
+
+Rapportfiler: `01-…`–`08-…-2026-04-27.txt` i samma mapp. **preview-prewarm** (på `origin/master` per plan) testas **efter** att filer mergats — förväntad nät/latens-effekt, inget i lokal WIP tills merge.

@@ -1,0 +1,39 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 04-preview-hooks
+Date: 2026-04-27
+
+## Master Runtime Changes
+- Stora delar: `usePreviewIframe`, `usePreviewPanelOwnEnginePreviewTelemetry`, `usePreviewHeartbeat`, `usePreviewPanelPreviewRoutes`, `preview-route-helpers`. Master `git diff` träffar samma ytor indirekt via `PreviewPanel`.
+- När **preview-prewarm** (master) anländer: förväntad nät-anrop före session — följ MI03/MI04 API-plan efter merge.
+
+## Local Preview UX To Preserve
+- **Hook-ordning:** `usePreviewPanelOwnEnginePreviewTelemetry` **efter** `usePreviewIframe` (dokumenterat i källan).
+- **Build-out:** `build-out-request` **utan** `event.source` gate (HMR) → `onBuildOutRouteRequest` / `onSuggestionClick` fallback.
+- **Telemetri:** `preview-starting` / `preview-ready` / `markVmReady` / `onPreviewLifecycleChange` — samma orkestrering som MI01 port-ours.
+- **Felflöde:** `reportOwnEngineRenderFailure` → `error-log` + toast/autofix enligt nuvarande `reportPreviewIssue`.
+
+## Coupling Points
+- `PreviewIframeMessage` / `BuildOutRouteRequestContext` (types).
+- `isTier2LivePreviewUrl` för heartbeat — annars inga onödiga POST:ar.
+- `useBuilderVmPreview` (bootstrap) + `startPreviewSession` (server) — samma `previewSessionId` i heartbeat body (se Failure).
+
+## Failure Modes
+- **Verifiera runtime:** I `PreviewPanel` skickas `activeSandboxId: activePreviewSessionId` in i heartbeat-hook medan en annan gate använder `activePreviewSessionId` — bekräfta att POST får rätt id (ev. bugg; agent flaggade diskrepans) **före** merge-accept.
+- Dold flik: hibernate timer / `pagehide` — om master ändrar delay.
+- `session_mismatch` / `no_session` → `onSessionSuspect` återhämtning.
+- Polling 250ms/45s own-engine — krock med master timeout-ändring.
+
+## Verification Matrix
+| Path | Check |
+|------|--------|
+| own-engine | Poll → `vmReady` / fel / autofix event |
+| tier-2 same-origin | Bortplocka `starting` attr |
+| tier-2 cross-origin | Grace + `sawStartingSinceLoadRef` |
+| Heartbeat | 25s, `viewerId` stabil, **en** flik / chat (coexistence) |
+| Routes | `buildOwnEngineRoutePreviewUrl` vs `buildExternalRoutePreviewUrl` |
+| Error | `POST …/error-log` med `category: preview` |
+
+## Do Not Break
+- `event.source` krav endast där så i telemetri (`navigation-attempt`, `preview-error` own-engine).
+- `data.source === "sajtmaskin-preview"` filter oförstört.
+- Build-out får aldrig kräva samma `contentWindow` som navigationsförsök.
+- `engineChatBaseUrl` för API-anrop — ingen hårdkodad path.

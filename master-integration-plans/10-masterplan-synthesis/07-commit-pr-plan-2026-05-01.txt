@@ -1,0 +1,48 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 07-commit-pr-plan
+Date: 2026-05-01
+
+## Inputs Read
+- Git delta reports, conflict forecast, uncommitted scope, merge order, port-ours policy, CI/DX, lint/type/build, regression gaps, design checklist, CSP/deploy reports and representative API/generation/builder/preview reports.
+
+## Synthesis
+Product integration should be split into reviewable slices. Do not mix generated data, plans, reviews, skills, secrets or `.vercel` with runtime commits. Commit boundaries should mirror dependency order and allow bisecting stream, preview and builder regressions.
+
+## Ordered Plan
+1. Preflight: fetch, record refs, inspect dirty paths.
+2. Commit or stash WIP before merge.
+3. Slice A: tooling/root config.
+4. Slice B: SEO/app shell/proxy/layout if already dirty.
+5. Slice C: engine/API surface and tests.
+6. Merge `origin/master` only after explicit approval.
+7. Slice D: generation core conflict resolution.
+8. Slice E: builder + preview behavioral unit.
+9. Slice F: schemas/env/config parity.
+10. Slice G: observability/deploy/CSP if code touched.
+11. Slice H: tests for touched hotspots.
+12. Keep plans/docs/reviews separate or uncommitted unless explicitly requested.
+
+## Exact LLM Implementation Brief
+- Use path-specific staging; never stage the whole tree blindly.
+- Ensure stream route tests are not half-dirty across merge.
+- Master for HTTP/security/validation/verifier; ours for iframe/postMessage/help-chat/design/copy.
+- Keep one CSP/nonce truth.
+- Run typecheck, lint, test:ci after large resolves; build before release.
+- QA with new isolated chat and one viewer.
+- Do not run git commit/push unless explicitly requested by the user.
+
+## Acceptance Criteria
+- Clean status before merge, aside from intentionally excluded plan/report files.
+- Product commits exclude `data/runs/**`, reviews, plans, `.cursor/skills/master-integration-*`, secrets and `.vercel`.
+- Typecheck, lint, test:ci and build pass.
+- Stream/finalize/client parsers are consistent.
+- Preview-starting/build-out/help-chat/design tokens survive.
+
+## Risks / Mitigations
+- Dirty merge: commit/stash slices first.
+- Huge mixed PR: split by domain.
+- Duplicate CSP: dedicated config/proxy slice.
+- Heartbeat races: one viewer in QA.
+- Docs noise: separate plan/doc commit or branch.
+
+## Final Recommendations
+Future PR shape: pre-merge hygiene, master merge/core resolution, then test hardening. PR summary should call out preserved preview postMessage/build-out, Swedish UI, SSE contract updates, CSP/proxy harmonization and excluded generated data.

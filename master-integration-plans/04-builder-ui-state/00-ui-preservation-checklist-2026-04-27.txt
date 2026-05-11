@@ -1,0 +1,20 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 00 UI preservation checklist
+Date: 2026-04-27
+
+Pre-flight: branch `frontend/christopher`, `HEAD=6dab64a97567e48a907e0896a3bf877148c63aeb`, `origin/master=4de2fabd261d3d34d7c1770064ed5fd7a3882190`. Lokal designpolicy: **Apple-minimal**, **CSS-variabler/tokens** (inga hårda navy/sky/brand-kluster utanför system), **kort svensk copy**, **preview-first** layout (preview primär yta, chat-rail, `lg:flex-row-reverse` i `BuilderLayout` enligt nuvarande).
+
+Master-diff som rör builder (källa: `git diff --name-only HEAD...origin/master` + planer): `BuilderShellContent`, `useBuilder{Callbacks,DeployActions,PageController}`, `DeployNameDialog`, `SeoOptInPanel*`, `VersionDiagnosticsDialog`, `preview-panel/*` (+ ev. föregångare), `preview-panel-types`. **SeoOptInPanel** / `resolve-seo` finns på master per plan, ej nödvändigt i lokal WIP tills merge.
+
+Bocka före ni löser manuella merge-konflikter i builder:
+
+[ ] **Shell-layout:** `BuilderLayout` + `BuilderShellContent` — preview vänster/huvud, chat höger, `mobileTab` chat↔preview, `data-builder-shell` / panel-id, **preview-first** oförstörd.  
+[ ] **Dock / minimal:** `uiMode` (minimal/expanded), `chatCollapsed`, disclosure-pill vs `detailsDrawerOpen`, kortkommando ⌘K på pill. **z-index:** pill `z-40`, sheet/dialog `z-50`, `z-[99999]`-popups ovanför.  
+[ ] **Build-out / preview:** `onBuildOutRouteRequest`, `?sajtmaskin_buildout=`, egen `usePreviewIframe`/`PreviewPanel`/`useBuilderCallbacks` (port-ours, se MI01 `05-port-ours-policy`).  
+[ ] **Hjälpchatt vs bygg:** `useBuilderHelpChat` + `isHelpMessage` filtreras ur byggkontext; `isHelpStreaming` i `isBusy`.  
+[ ] **F2/F3 & env-mute:** `lifecycleStage` — F2: ingen `ProjectEnvVarsPanel`/env-block; F3: genvägar, `onF3Ready`/`sendMessage` med overrides. Följ `env-flow-f2-mute.mdc`.  
+[ ] **Readiness + publicera:** `deployReadiness.canDeploy`, `DeployNameDialog` → `POST /api/v0/deployments`, 409 `DEPLOY_MISSING_ENV` + `persistVersionErrorLogs`; domänsök via `POST /api/domains/check`. Efter master-merge: ev. **SeoOptInPanel** + `resolve-seo` kopplat till preferences/deploy (se `02-api-contracts/06` + `01/06` plan).  
+[ ] **Strukturerad chatt:** `vm.showStructuredChat` ↔ `MessageList` + `BuilderMessageTooling` / `PostCheckPanel` / tool-typer — samma `MessagePart`/`stream-handlers` kontrakt.  
+[ ] **Coexistence:** en aktiv klient / `chatId` vid manuell rök.  
+[ ] **Tester (post-merge):** `useBuilderCallbacks.test`, `MessageList.test`, `ChatInterface.followup-base-badge.test`, `BuilderMessageTooling.test`, `PreviewPanel.test`, `builder-page-preview-helpers.test` — nya/ändrade `SeoOptInPanel.test` när filer från master laddas.
+
+Rapportfiler: `01-…`–`08-…-2026-04-27.txt` i samma mapp.

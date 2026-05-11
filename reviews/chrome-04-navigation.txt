@@ -1,0 +1,17 @@
+src/app/builder/ — layouts, routes, navigation UX
+Scope: page.tsx, BuilderLayout.tsx, shell/hooks. No builder/layout.tsx; no dynamic /builder/[id] segments.
+
+Area scores:
+- URL / deeplink (deriveBuilderEntryState, query params) — 4/5 — Documented (docs/schemas/builder-entry-contract.md).
+- Single /builder page — 4/5 — Simple; no path-based chatId.
+- Breadcrumbs — 2/5 — None; wayfinding = header + in-shell UI.
+- Browser Back — 3/5 — Heavy router.replace; Back often skips steps; push home can loop expectations.
+- Dead ends & recovery — 4/5 — Invalid chat: clear session, toast, replace /builder. Template init: cleanup + toast.
+- loading.tsx / error.tsx in builder/ — 3/5 — Suspense + spinner; no segment error boundary.
+
+Prioritized:
+1. History vs mental model — replace weakens “Back through steps”; home push vs Back expectations — 3/5.
+2. Shareable URLs — query-heavy vs readable REST paths — function 4, readability 2.
+3. No route-level error.tsx — client boundary in BuilderLayout only — 3/5.
+4. No breadcrumbs — orientation on header only — 2/5.
+5. Deeplink failure recovery — toast + reset — 4/5.

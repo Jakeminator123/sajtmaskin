@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 04-builder-chrome
+Date: 2026-04-27
+
+## UX To Preserve
+- **Shell:** `BuilderLayout.tsx` — `data-builder-shell`, `h-screen`/`dvh`, `bg-background`/`text-foreground`, `ErrorBoundary`.
+- **Lägen:** `uiMode` `minimal` vs `expanded` — tät header, `lg:flex-row-reverse` (preview vänster), mobila flikar döljs i minimal, `BuilderDetailsDrawer` + `BuilderDisclosurePill` (Apple-minimal default).
+- **F2/F3 copy & env:** `ProjectEnvVarsPanel` endast när `lifecycleStage === "integrations"` — får inte förorenas av master “alltid synlig” utan avsikt.
+
+## Master UI Changes To Inspect
+- `BuilderShellContent.tsx` — monolit; header/preview/chat props; hög konfliktrisk (jmf `master-integration-plans/04-builder-ui-state/01-builder-shell-…`).
+- `BuilderHeader.tsx`, `BuilderProjectMenu`, `useBuilderPageController` / `useBuilderState` — nya `vm.*` fält.
+- `ModelTraceOverlay`, `BuilderDetailsDrawer` — disclosure/drawer vs inline.
+
+## Token / Copy Risks
+- `BuilderLayout` redan token-ren; risk i **barn** från master: nya färgade badges/alertar utanför `muted`/`destructive`/`accent`.
+- Hjälp vs bygg-chatt: `isHelpMessage` / `displayMessages` — copy får inte blandas slarvigt i merge.
+
+## Recommended Merge Choices
+- Strategi: börja **ours** på shell-layout, plocka master **selektivt** (sektion: layout → wizard props → preview props → F3).
+- Nya funktioner från master: kräv samma `compact` / `uiMode` beteende innan merge accepteras.
+- Följ builder-samexistens: ingen andra klienter mot samma `chatId` under manuell visuell QA.
+
+## Visual Verification
+- Minimal: drawer öppen/stängd, pill, Cmd/Ctrl+K om dokumenterat.
+- Expanded: desktop tvåkolumn, mobil tabbar, chat collapse rail.
+- Header: modell, deploy, domän — tät vs expanded etiketter (`sm:inline`).
+
+## Do Not Break
+- `usePreviewSession` / `onF3Ready` / `generationPhase` / `vmReady` wiring mot `PreviewPanel`.
+- `chatCollapsed` + `localStorage` `builder:chatCollapsed`.
+- Test-förväntningar: `useBuilderCallbacks.test.ts`, `builder-page-preview-helpers.test.ts` (om props ändras, uppdatera test **parallellt** med UI — utanför design-only merge om policy kräver).

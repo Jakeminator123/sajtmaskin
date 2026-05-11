@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 08-copy-content
+Date: 2026-05-01
+
+## UX To Preserve
+- Swedish action hub labels.
+- Short Swedish onboarding and wizard steps.
+- Swedish client error UI.
+- Consistent “du” tone in assistant flows.
+
+## Master UI Changes To Inspect
+- Preview chrome/tooltips.
+- Help chips.
+- Landing/SEO JSON.
+- Shadcn wrappers with English defaults.
+
+## Token / Copy Risks
+- User-visible technical jargon: tier, scaffold, finalize, Playwright, model ids.
+- Mixed-language help groups.
+- English sr-only strings in UI primitives.
+- SEO English should stay isolated to SERP-intent content.
+
+## Required UI Additions Without Redesign
+- New feature copy should follow existing short Swedish CTA/error patterns.
+- No long tooltip paragraphs; put technical detail in logs/backoffice.
+
+## Exact LLM Implementation Instructions
+- Translate new visible strings to short Swedish.
+- Replace product jargon with user terms: förhandsvisning, bygget, uppdatering.
+- Align group labels to Swedish.
+- Consider localizing sr-only labels if policy requires full Swedish a11y.
+- Keep OpenClaw/builder system prompts Swedish.
+
+## Recommended Merge Choices
+- Keep local Swedish builder copy as source of truth.
+- Port master code with copy replacement.
+- Keep intentional SEO English isolated.
+
+## Visual Verification
+- Preview header tooltips.
+- Help chip groups.
+- Dialog close labels with screen reader.
+
+## Do Not Break
+- Short Swedish CTAs.
+- Consistent “du” tone.
+- User-facing errors should not expose raw English API errors.

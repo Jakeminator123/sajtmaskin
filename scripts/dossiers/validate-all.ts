@@ -196,6 +196,10 @@ function main(): void {
     defaultErrors.length +
     headingErrors.length +
     verbatimErrors.length;
+  if (validRows.length === 0 && totalFailures === 0) {
+    console.error("✗ no dossiers found under data/dossiers/{hard,soft}");
+    process.exit(1);
+  }
   if (totalFailures > 0) {
     console.error(
       `\n${totalFailures} validation error(s) across ${validRows.length} valid + ${schemaFailures} rejected dossier(s).`,

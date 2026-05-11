@@ -1,0 +1,17 @@
+Chat Dock — Agent 7: persistence (READ-ONLY)
+
+Findings: useBuilderState has uiMode / detailsDrawerOpen only; no chatDockCollapsed. uiMode syncs useLocalStorageBooleanSync("sajtmaskin:uiMode:expanded", …) in useBuilderPageController.ts ~997–1009. Expanded chat column: BuilderShellContent chatCollapsed + global key builder:chatCollapsed ("true" when collapsed; missing ⇒ open). useLocalStorageBooleanSync in useLocalStorageSync.ts: parse raw==="true", serialize String(boolean).
+
+Should chatDockCollapsed persist? Yes — aligns with prefs; partially done as builder:chatCollapsed.
+
+Per chatId vs global? Recommend global (one layout habit per browser). Optional later: per appProjectId for workspace layouts.
+
+New project: new chat does not clear dock keys today; same global preference applies. For “fresh session”, clear or scope by project on intentional new project only.
+
+Default after first gen + last choice: Not wired — no force-open once after first successful gen. Optional one-shot sajtmaskin:chatDockPostFirstGenNudgeSeen then user toggles + main key.
+
+Proposed key: sajtmaskin:chatDockCollapsed — "true"|"false" (same pattern as useLocalStorageBooleanSync). Migrate: read legacy builder:chatCollapsed once, then write new key only.
+
+Scores (1–5): persistence alignment 3 | state split clarity (uiMode vs chatCollapsed) 3 | key naming consistency 2 | new-project / first-gen story 2 | overall 3
+
+Evidence: BuilderShellContent.tsx ~707–718; useBuilderPageController.ts ~997–1009; useBuilderState.ts ~80–83.

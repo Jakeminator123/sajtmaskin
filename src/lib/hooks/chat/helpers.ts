@@ -984,6 +984,41 @@ function looksLikeUnsupportedModelError(message: string | null | undefined): boo
   );
 }
 
+function getValidationDetail(errorData: Record<string, unknown> | null): string | null {
+  const details = errorData?.details;
+  if (Array.isArray(details)) {
+    for (const detail of details) {
+      if (!detail || typeof detail !== "object") continue;
+      const record = detail as Record<string, unknown>;
+      const message =
+        typeof record.message === "string" && record.message.trim().length > 0
+          ? record.message.trim()
+          : null;
+      if (!message) continue;
+      const pathValue = record.path;
+      const path = Array.isArray(pathValue)
+        ? pathValue.filter((part) => typeof part === "string" || typeof part === "number").join(".")
+        : typeof pathValue === "string"
+          ? pathValue
+          : "";
+      return path ? `${path}: ${message}` : message;
+    }
+  }
+
+  const issues = errorData?.issues;
+  if (Array.isArray(issues)) {
+    for (const issue of issues) {
+      if (!issue || typeof issue !== "object") continue;
+      const record = issue as Record<string, unknown>;
+      if (typeof record.message === "string" && record.message.trim().length > 0) {
+        return record.message.trim();
+      }
+    }
+  }
+
+  return null;
+}
+
 export function buildApiErrorMessage(params: {
   response: Response;
   errorData: Record<string, unknown> | null;
@@ -994,9 +1029,12 @@ export function buildApiErrorMessage(params: {
   const code = typeof errorData?.code === "string" ? errorData.code : "";
   const retryAfter = getRetryAfterSeconds(response, errorData);
 
-  if (status === 429 || code === "rate_limit") {
+  if (status === 429 || code === "rate_limit" || code === "rate_limit_exceeded") {
     const suffix = retryAfter ? ` Prova igen om ${retryAfter}s.` : "";
     return `Rate limit: för många förfrågningar.${suffix}`;
+  }
+  if (status === 400 && getValidationDetail(errorData)) {
+    return `Valideringen misslyckades: ${getValidationDetail(errorData)}`;
   }
   if (status === 402) {
     const serverError =
@@ -1108,7 +1146,7 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
     (typeof errorData?.error === "string" && errorData.error) ||
     "";
 
-  if (code === "rate_limit") {
+  if (code === "rate_limit" || code === "rate_limit_exceeded") {
     const suffix = retryAfter ? ` Prova igen om ${retryAfter}s.` : "";
     return `Rate limit: för många förfrågningar.${suffix}`;
   }

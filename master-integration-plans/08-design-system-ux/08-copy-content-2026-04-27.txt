@@ -1,0 +1,32 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 08-copy-content
+Date: 2026-04-27
+
+## UX To Preserve
+- **Ett språk (sv) i ytan** — toasts, primära CTA, fel användaren ser; undvik långa strängar (minimal copy-regeln).
+- **Konsument-mönster:** `provider-error-messages.ts` → färdig **sv** `userMessage` per kod.
+- **SEO/layout:** `layout.tsx` `openGraph.locale: "sv_SE"`; byggd metadata svensk där satt.
+- **Behåll lokal** formulering i `useBuilderPageController` toasts m.m. vid master som överskriver med en-US.
+
+## Master UI Changes To Inspect
+- Nya shadcn- eller upstream-komponenter med `Previous`/`Next`/`Close` (pagination, carousel, dialog) — ersätt med sv props eller tunn wrapper.
+- `useCssValidation.ts` — helt engelska toasts: översätt / propsifiera *om* du rör filen (design/locale PR, inte data).
+- `stream-handlers` — vissa toasts sv; rå `errTail` från server kan vara en — samma elände före/efter merge, men nya fält från master = ny drift-risk.
+- OpenClaw/assist: `OpenClawChatPanel` Svenska labels där satt; master engelsk assist = språkkluvenhet.
+
+## Token / Copy Risks
+- Blandad **tilltalsstil** (“du” i regler / neutral annorstädes) — välj en huvudlinje vid större copy-PR, inte ad hoc per merge.
+- `Plan`-fallback `planArtifact.goal` (eng) i stream-handlers — märkbar i UI när satt.
+- Terminologi: samma begrepp över byggare/SEO (glossaryn) — nya engelska produkttermer i master bryter mot glossary.
+
+## Recommended Merge Choices
+- **Konflikt i TSX med strängar:** föredra **lokala sv** om grenen = svensk produkt, utom medveten engelsk tech-label (t.ex. “Next.js” badge).
+- Dämpa master-massor av nya hjalptext/footers i SEO — behåll kort SeoLandingPage-yta.
+- Dör inte in `next-intl` i samma merge som design preservation — föreslå separat spår.
+
+## Visual Verification
+- Sök igenom nya/ändrade filer efter: `toast(`, `Previous`, `Next`, `Failed to`, `Validation failed` efter merge.
+- Snabbkoll: byggar-toasts, CSS-validering, pagination om synlig i produkten, carousel om används on-page.
+
+## Do Not Break
+- `CODE_TO_USER_MESSAGE` kontrakt i `provider-error-messages` (nyckel → användartext) — omskriv försiktigt.
+- `needs-analysis` krav “sv text” i **genererat** innehåll (konceptuell koppling) — särskilj från endast **UI**-strängar.

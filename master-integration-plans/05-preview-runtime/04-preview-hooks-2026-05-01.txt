@@ -1,0 +1,49 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 04-preview-hooks
+Date: 2026-05-01
+
+## Master Runtime Changes
+- Preview hooks likely touched by master: iframe, telemetry, heartbeat, routes, route helpers, lifecycle telemetry.
+- Preview prewarm/session-id changes must preserve postMessage order and polling timeouts.
+
+## Local Preview UX To Preserve
+- `usePreviewIframe` before telemetry.
+- Cross-origin VM starting grace.
+- Build-out request listener without strict event source.
+- Own-engine route navigation vs external route navigation.
+- Shim navigation/errors gated to iframe source where intended.
+
+## Coupling Points
+- Render failure sink ref.
+- Error-log reporting and render outcome reporting.
+- Version file routes and shell detection.
+- Heartbeat mismatch risk: hook guard uses `activePreviewSessionId`, while caller may pass only legacy `activeSandboxId`.
+
+## Required Preview UI / Controls
+- Lifecycle-driven loading/ready states.
+- Route list/build-out controls.
+- Preview issue logging and autofix toasts.
+
+## Exact LLM Implementation Instructions
+- Preserve `data.source === "sajtmaskin-preview"` handling.
+- Do not move build-out/lifecycle under own-engine-only gate.
+- Harmonize session id variable in heartbeat guard and payload.
+- Preserve report-preview-issue dedupe.
+
+## Failure Modes
+- Heartbeat POST never fires due to prop mismatch.
+- Duplicate viewer TTL from multiple tabs.
+- Cross-origin load race.
+- Own-engine timeout.
+- Recover spam.
+
+## Verification Matrix
+- Own-engine shim success/failure.
+- Tier-2 same-origin and cross-origin ready.
+- Route navigation.
+- Preview lifecycle telemetry.
+- Network: heartbeat every 25s with valid session id.
+
+## Do Not Break
+- Event source checks where intentionally present.
+- Own-engine route query vs external pathname semantics.
+- Client-safe lifecycle telemetry imports.

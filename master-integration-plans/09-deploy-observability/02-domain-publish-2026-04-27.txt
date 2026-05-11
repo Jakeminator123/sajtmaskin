@@ -1,0 +1,28 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 02-domain-publish
+Date: 2026-04-27
+
+## Production Changes In Master
+- **Filer (repo-nuläge):** `api/domains/check` (Loopia, Vercel registrar, Google DNS), `api/domain-suggestions` (LLM+RDAP), `lib/domains/pricing`, `api/vercel/domains/price`, `vercel/vercel-client` (getDomainPrice, addDomain, …), `domains/link|save|verify|whois`, `webhooks/v0` (relaterat status), `v0/deployments` kedjan.
+- Rate limits: `domains:*`, `deployment:create` i `rateLimit.ts`.
+- Jmf master: ändringar här bryter builder publish + Vercel-domänlager.
+
+## Local Behavior To Preserve
+- **Builder:** `useBuilderDeployActions` → `POST /api/domains/check` + `POST /api/v0/deployments` (`useBuilderDeployActions.ts`).
+- **UI:** `DomainSearchDialog`, `DomainManager`, `DeployNameDialog`, header deployment props; `BuilderShellContent` actions `publish.*`.
+- **SSE deploy:** `useDeploymentStatus` → `GET .../deployments/:id/events` (`useDeploymentStatus.ts`).
+
+## Security / Secret Risks
+- `getVercelToken()` får aldrig exponeras i loggar/clients; verify/link rör Vercel project-domäner — fel `VERCEL_PROJECT_ID` default = fel mål.
+- **WHOIS/RDAP** sökintention; rate-limit bör förbli tajt.
+- `webhooks/v0` (deployment updates) — signera/autentisera enligt route; validera vid master-merge.
+
+## Deploy Verification
+- E2E/CI: efter deploy, `deploymentId` via SSE till `ready` + `url` (dokumenterat flöde); `route.test.ts` deployments.
+- `POST /api/domains/verify` anropar Vercel `.../domains/.../verify` — stäm mot faktiskt Vercel-projekt efter release.
+
+## Observability Checks
+- Rutter loggar: `[domains/check]`, `[domains/link]`, m.fl.; `deployments-sse` för ström.
+- `generation-telemetry` kan ha `deployResult` — särskilj från full “observability UI”.
+
+## Do Not Commit
+- `.vercel/`, kunddomäner i fritext-loggar, wholesale/price i debug, tokens; inga faktiska DNS-hemligheter i repo (håll i Vercel/secret store).

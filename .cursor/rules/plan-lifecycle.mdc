@@ -1,0 +1,124 @@
+---
+description: Plan-fil livscykel — när planer ska skapas, parkas, avklaras och raderas
+globs:
+  - docs/plans/**
+  - .cursor/bugs/**
+---
+
+# Plan-fil livscykel
+
+Planfiler dokumenterar pågående arbete. Rådande tillstånd avgör mapp. Linear är fortsatt källa till sanning för status — denna regel styr **var i workspace:t** filen bor.
+
+**Grundregel:** `active/` är inte ett museum. Mål är **färre planfiler över tid**, inte fler. Skapa inte en ny planfil om en kort kommentar i existerande plan, en Linear-issue eller en `.cursor/bugs/`-fil räcker.
+
+**Windows/Cursor-regel:** använd inte `%USERPROFILE%\.cursor\plans\*.plan.md` som aktiv planplats. Cursor på Windows kan skapa trasiga agentlänkar till sådana filer (`c:%5CUsers%5C...` i stället för `file:///c%3A/...`), särskilt när filen ligger utanför repo/worktree. Om en plan dyker upp där: kopiera eller flytta arbetsinnehållet till aktuell checkout under `docs/plans/active/` (eller `docs/plans/active/parked/`) och hänvisa därefter bara till repo-filen.
+
+## Innan du börjar (påminnelse om öppna spår)
+
+Innan du startar arbete eller skapar ny planfil: **läs `docs/plans/active/README.md`** först. Det är router till alla aktiva spår.
+
+- Är ditt arbete relaterat till ett aktivt spår? → Kontinuera det, länka till det, eller motivera tydligt varför det är separat.
+- Ser du `status: active` utan progress på 14+ dagar? → Påminn användaren om det innan du gör nytt arbete; spåret bör parkas, avklaras eller `git rm`:as.
+- Ser du parkerade spår där gate-villkoret nu är uppfyllt? → Flagga till användaren.
+
+Detta gäller cloud agents, Cursor-chatten, MCP-agenter och bakgrundsagenter likadant.
+
+## Mappar
+
+| Mapp | Vad |
+|---|---|
+| `docs/plans/active/` | Pågående arbete eller redo-att-startas |
+| `docs/plans/active/parked/` | Planerat men väntar på gate (annan plan, milstolpe, beslut) |
+| `docs/plans/avklarat/` | Implementerat och mergat — historik |
+| `docs/plans/archived/` | Gammalt material som inte ska aktiveras igen |
+| `docs/inspiration/` | Framtidsidéer / lärdomar — **inte** planfiler. Se egen sektion längst ner. |
+
+## Frontmatter-krav (minimum)
+
+```yaml
+---
+id: <kort-slug>           # P34, OPEN-THREADS, 2026-04-27-långbänk, etc.
+status: active|paused|redo-för-cloudagent|scope|done
+created: YYYY-MM-DD
+linear: SAJ-<n> | null    # null om ingen issue (t.ex. lokal scope-doc)
+parent: <plan-id> | null  # Vilken plan/scope-doc/issue gav upphov till denna? null om rotplan.
+supersedes: <plan-id> | null  # Ersätter denna en tidigare plan? Den gamla flyttas till avklarat/ eller archived/.
+---
+```
+
+`parent` och `supersedes` är **lineage-fält** — de förklarar varför planen finns och vad som hände innan. Index-/router-filer får sakna frontmatter (`README.md`, `Kvarvarande-uppgifter.md`).
+
+## När flytta?
+
+| Tillstånd | Mapp | Trigger |
+|---|---|---|
+| Aktivt arbete denna vecka | `active/` | — |
+| Väntar på annan plan/beslut/milstolpe | `active/parked/` | när gate identifierad; lägg `paused: YYYY-MM-DD` + gate-anteckning |
+| Mergat med commit-länk | `avklarat/` | när PR mergat och CI grönt; behåll commit-hash i frontmatter eller body |
+| Inte aktuellt mer (skrotat) | `archived/` | manuellt beslut |
+
+## Strävan mot avslut
+
+Default-läget för en plan är att stängas — antingen levereras (→ `avklarat/`) eller skrotas (→ `archived/` eller `git rm`). Parkerat är ett undantagstillstånd, inte ett vilolägesförvar.
+
+| Tillstånd efter 14 dagar utan commit-progress | Aktion |
+|---|---|
+| `status: active`, ingen progress | Parka, avklara, eller `git rm` (övergivet utkast) |
+| `status: paused`, gate-villkor uppfyllt | Aktivera eller skrota |
+| `status: paused`, gate-villkor kvarstår | Verifiera att gate-anteckningen fortfarande stämmer |
+
+`active/`-mappen ska helst rymma **≤8 filer**. Förbi det är en städ-runda försenad — radera utkast, slå ihop syskonplaner, flytta levererat. Git-historik bevarar allt; `active/` ska representera arbete som styr **just nu**.
+
+Aldrig lämnas i `active/` utan kommentar.
+
+## Linear-bridge
+
+| Händelse | Aktion |
+|---|---|
+| Plan har Linear-issue | Sätt `linear: SAJ-<n>` i frontmatter |
+| Plan flyttas till `avklarat/` | Kommentera Linear-issue med commit-länk + stäng issue |
+| Plan parkas | Kommentera Linear-issue om varför + sätt prio låg |
+| Plan utan Linear-koppling | OK för scope-/audit-/lokala docs (`linear: null`) |
+
+## Bug-rapporter (`.cursor/bugs/`)
+
+Mappen är **gitignored** (lokal mirror, Linear är sanning). Egen kontrakt:
+
+| Händelse | Aktion |
+|---|---|
+| Ny bugg → `/buggrapport` skapar lokal fil + Linear-issue | Filnamn: `YYYY-MM-DD_HHMM_<LINEAR-ID>_<slug>.md` |
+| Bugg åtgärdad och mergad | **Radera lokal fil** — Linear behåller historik. Se [`.cursor/bugs/README.md`](../bugs/README.md). |
+| Agent vill rapportera bug | Måste först grep:a `.cursor/bugs/` för dubletter |
+
+## Naming
+
+- Datumprefix: `YYYY-MM-DD-<slug>.md` för tidsbundna scope-/audit-docs
+- ID-prefix: `<P-ID>-<slug>.md` när planen är döpt efter ett internt projekt-ID (P34, P32 osv)
+- kebab-case alltid
+
+## Anti-mönster
+
+- **Halvfärdiga planer som ligger kvar i `active/` utan progress** → parka eller avklara
+- **Planer med `status: done` i `active/`** → flytta till `avklarat/`
+- **Bug-rapporter kvar lokalt efter fix** → radera; Linear sköter historik
+- **Ny plan utan frontmatter** → fyll i minimum innan första commit
+- **Ny plan utan `parent`-länk** när den växer ur en existerande scope-doc — bryter lineage
+- **Linear-issue utan motsvarande planfil för stora arbetsspår** → skapa scope-doc i `active/` med `linear: SAJ-<n>`
+- **Skapa planfil när en Linear-issue eller `.cursor/bugs/`-fil räcker** — målet är färre filer, inte fler
+
+## `docs/inspiration/`
+
+Mappen finns för **framtidsinnehåll** som inte är aktiv plan men har potentiellt värde:
+
+- Designidéer som inte är mogna att implementera
+- Lärdomar från audits eller misslyckade spår
+- Konsoliderade insikter extraherade ur `avklarat/`-arkivet före radering
+
+**Inte:**
+- Planfiler (`status: active`, to-do-listor, ägar-tilldelningar)
+- Råa transkript / chat-dumpar
+- Status-rapporter
+
+När en idé i `inspiration/` mognar → skapa planfil i `active/` med `parent: inspiration/<filename>` i frontmatter, eller flytta innehållet in i en existerande aktiv plan.
+
+Mappen får inte växa okontrollerat. Vid varje städ-runda: vad har mognat, vad har förlorat värde, vad kan ta sig in i kanon-docs istället?

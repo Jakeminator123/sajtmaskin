@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 02-config-models
+Date: 2026-05-01
+
+## Master Changes
+- Merge risk centers on `config/ai_models/manifest.json`, manifest schema, model build profiles, phase routing, and provider/direct model prefixes.
+
+## Local Changes / Dirty Files
+- No known dirty files under model config in the initial status, but verify before merge.
+
+## Compatibility Risks
+- Manifest structure mismatch crashes `getAiModelsManifest`.
+- Missing `qualityToOwnEngineModel` throws.
+- Phase routing and env model overrides can drift.
+- Prompt-assist model prefix conventions differ from own-engine model IDs.
+- Docs can drift from manifest model defaults.
+
+## Files To Update
+- `config/ai_models/manifest.json`
+- `config/ai_models/manifest.schema.json`
+- `src/lib/ai-models/load-manifest.ts`
+- `src/lib/gen/defaults.ts`
+- `src/lib/models/catalog.ts`
+- `src/lib/models/phase-routing.ts`
+- `src/lib/builder/direct-model.ts`
+- prompt-assist model allowlists
+- `docs/schemas/model-build-profiles.md`
+
+## Frontend Impact / UI States
+- Model labels and trace overlay.
+- Builder model selectors and generation settings.
+- OpenClaw/image/Responses API feature visibility.
+
+## Exact LLM Implementation Instructions
+- Change manifest first, then schema/Zod/catalog/phase routing.
+- Update canonical and own model ID unions for new tiers or models.
+- Ensure API chat route and direct model creation handle all allowed prefixes.
+- Run manifest parity and phase-routing tests.
+
+## Verification Commands
+- `npm run test -- src/lib/ai-models/manifest-parity.test.ts src/lib/models/phase-routing.test.ts`
+- `npm run typecheck`
+- Validate manifest against schema if schema changed.
+
+## Commit / Ignore Guidance
+- Commit manifest, schema, routing/catalog, prompt-assist docs together.
+- Do not commit local model env overrides.

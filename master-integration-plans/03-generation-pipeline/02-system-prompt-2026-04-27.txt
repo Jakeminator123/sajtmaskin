@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 02-system-prompt
+Date: 2026-04-27
+
+## Master Pipeline Changes
+- Diff: `build-dynamic-context.ts`, `sections/dossiers|intro|route-plan|scaffold-variant|required-imports-checklist`, `system-prompt.test.ts`, `config/prompt-core/*`.
+- Kärna: `buildDynamicContext` + `buildBudgetedSystemPrompt` + `budget.ts` + `compose.ts`; `DynamicContextOptions` fylls från `orchestrate` (call-site ~orchestrate.ts).
+- Sektioner: intro (F2, Tier3 deny från JSON), dossiers (verbatim, capability-modify, `SCAFFOLD_RESERVED_PATHS`), route-plan (shell, recurring/RAG, `FEATURES`), scaffold-variant (theme tokens), required-imports (SHADCN, E4/ordning efter route-plan).
+
+## Local Behaviors To Preserve
+- **port_ours:** `buildOut.path`-block tidigt; variant-fallback `resolvedVariant` / `pickScaffoldVariant` med `sessionSeed`; F2 `renderF2ContractBlock` + `tier3-sdk-deny.json`; `renderGenerationModeBlock` follow-up-regler; dossier verbatim + `capabilityModifyHint`; route canonical paths; checklist **efter** route plan per kommentar; budget-prioritering i `budget.ts` (nya `##`-rubriker behöver explicit rad elers default 60).
+- Publik entry: `system-prompt/index.ts` (inga monolit-imports bryts).
+
+## Merge/Port Plan
+- Vid textkonflikt i `sections/*.ts`: bevara lokala semantiska block ovan, merge master bugfix/typer in i samma sektioner.
+- Om master ändrar `DynamicContextOptions`: synka `orchestrate` + `types.ts` + validering i samma PR.
+- Nya `##` i master → lägg i `prompt-section-meta` / `budget.ts` med priority så de inte trunkeras tyst.
+- Efter merge: kör `system-prompt.test.ts`, `dossiers.test` / `system-prompt-integration`, `required-imports-checklist.test`, `llm-input-scenarios.test.ts`.
+
+## Regression Risks
+- Tunnare prompt: options saknas vid call-site.
+- Fel `variantId` om fallback + orchestrate indata divergerar.
+- Budget kapar `## Modify Existing Capability…` utan dedikerad priority.
+- Dossier dubbel-shell / förlorad `capabilityModifyHint` (Plan 11).
+
+## Required Tests
+- `src/lib/gen/system-prompt.test.ts`, `dossiers/system-prompt-integration.test.ts`, `sections/dossiers.test.ts`, `sections/required-imports-checklist.test.ts`, `llm-input-scenarios.test.ts`, stream routes som mockar `@/lib/gen/system-prompt`.
+
+## Open Questions
+- Ska capability-modify-rubriken få explicit `required`/priority i `budget.ts`?
+- `lineageHash` in i error-log RAG enligt route-plan-kommentarer — master ändring?
+- Golden test för full `composeEngineSystemPrompt` vs bara dynamic context?

@@ -1,0 +1,35 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 01-design-tokens
+Date: 2026-04-27
+
+## UX To Preserve
+- **Token-lager:** `src/app/globals.css` — `:root`/`.dark` HSL, shadcn-koppling, **legacy-alias** så `bg-brand-navy` m.m. kompilerar men visuellt går mot sand/sten.
+- **Tailwind-brygga:** `tailwind.config.cjs` — `hsl(var(--…))` för `colors` + `brand.*`.
+- **Rörelse:** `prefers-reduced-motion` i `globals.css` (t.ex. puls) — får inte tyst tas bort.
+- **Kodpanel:** `--code-section-*` och scrollbar-variabler för läsbarhet i builder.
+
+## Master UI Changes To Inspect
+- `globals.css` — Tailwind v4 `@import`/`@config`/`@theme inline`; shadcn-path; nya variabler.
+- `tailwind.config.cjs` — nya `extend.colors` som bryter `hsl(var(--*))`.
+- Filer med **rå** `sky-*`/`indigo-*`/`orange-*`: t.ex. `VersionHistory.tsx`, `PreviewPanelCodeSectionEditors.tsx`, `prompt-wizard-modal-v2.tsx`, `log-viewer.tsx`, m.fl. (jmf `redesign-autopilot` hex-grep).
+- **Data/LLM:** `site-brief-generation.ts` hex-defaults, `scaffolds/seo-defaults.ts` — genererat innehåll vs UI.
+- `frontend-redesign.mdc` (navy/orange-dok) vs faktisk `globals` — rensa post-merge så agenter inte återställer fel palett.
+
+## Token / Copy Risks
+- Hex + Tailwind i landing/shader/3D (`shader-background`, `how-it-works`, `landing-hero`) skiljer sig från enkla sidor.
+- Färgväljare: `color-palette-picker` med preset `navy-orange` — produkt-UX särskiljd från byggarens tokens.
+- Brief-defaults (blå/lila) divergerar från on-page brandbook.
+
+## Recommended Merge Choices
+- Vid konflikt: **behåll lokal** `:root`/`@theme` brandbook + legacy-alias; plocka masters **struktur** (imports, buggfixar) in i samma token-ram.
+- Nya färger från master → mappa till **befintliga** CSS-variabler, inte nya hårdkodade skalor.
+- Planera särskild pass för `PreviewPanelCodeSectionEditors` + `VersionHistory` så de matchar `muted`/`accent`/`--code-section-*`.
+
+## Visual Verification
+- Jämför `/` (landing-v2, shader) mot `hsl(var(--background))` / stone.
+- Builder: kodsektioner, version badges, wizard modal, färgväljare.
+- Mörk klass: där gammal `*-300` kvar finns — kontrast efter `brand` remap.
+
+## Do Not Break
+- `globals.css` — `:root`/`.dark`, `@config`-sökväg, `brand` alias, `--code-section-*`, scrollbar.
+- `tailwind.config.cjs` — hela `colors` → `hsl(var(…))`.
+- `layout.tsx` tema-FOUC-antaganden utan ersättning.

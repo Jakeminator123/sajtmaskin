@@ -1,0 +1,17 @@
+Apple-08 overall pixel pass — Sajtmaskin builder (read-only skim)
+Sources: BuilderShellContent.tsx, IntakeWizard.tsx, PreviewPanel.tsx, PreviewPanelEmptyState.tsx, GenerationProgress.tsx, BuilderHeader.tsx, ChatInterface.tsx, ThinkingOverlay.tsx, BuilderLayout.tsx
+North star: apple.com/mac (quiet product) vs ChatGPT-for-websites (explaining, rotating facts, dense chrome).
+
+Scores (1=chatty, 5=Apple calm): Shell density 2 | Wizard restraint 2 | Loading progress UI 4 | ThinkingOverlay 1 | Preview-as-hero 3 | Chat affordance 2 → blended ~2.5
+
+Empty state — Remove: competing branches/icon stacks; marketing tone; motion that fills silence; badge/chip noise. Strengthen: one line + one CTA; preview negative space; typography like product page; motion only on real state change.
+
+Wizard — Remove: many fields/steps at once; jargon labels; redundant chips; engine-explain copy; admin-form parity. Strengthen: one decisive question/screen; vertical rhythm; save without celebration; exit = continue to product.
+
+Loading — Remove: ThinkingOverlay rotating facts + “AI genererar…”; duplicate loaders chat+preview; phase names in two places; toast narration. Strengthen: GenerationProgress single % + thin bar + one label; snap to 100; silence beats education.
+
+Built site (preview) — Remove: default code/inspector/composer prominence; stacked diagnostic chrome; IDE controls; competing FABs. Strengthen: edge-to-edge preview; chrome fades idle; hover-only depth; one quiet primary (refine) vs toolbar parade.
+
+Post-generation — Remove: model tier/scaffold/settings density in header; trace in casual paths; cockpit modals; assistant theatrics. Strengthen: site forward chat recedes; progressive disclosure ship/env; fewer words/badges/modes visible.
+
+Code note: GenerationProgress ≈ Apple-minimal (big number, thin bar, one label). ThinkingOverlay opposite. BuilderShellContent orchestrates many surfaces → “console”. IntakeWizard large form → onboarding form not product story.

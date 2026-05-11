@@ -1,0 +1,18 @@
+Chat Dock — Agent 4: collapsed rail + preview width (READ-ONLY)
+Scope: BuilderShellContent, BuilderDetailsDrawer, ChatInterface, PreviewPanel.tsx
+
+1) Expanded desktop collapse: chatCollapsed → chat panel lg:hidden (0 width); slim column ChevronLeft + “Visa chatt” (~1772–1782). Width follows button+padding, not explicit w-9/w-10. Score 3/5 vs skill 36–40px.
+
+2) Collapsed rail content: expand only; no pulse/dot for generation on this rail. Minimal: BuilderDisclosurePill attention when drawer closed (~1689–1694) — different surface. Score 3/5 (skill: ‹ + optional gen dot missing on expanded rail).
+
+3) Preview full width without bad shift: flex lg:flex-row-reverse; #builder-preview-panel flex-1 min-h-0 (~1928–1933); inner min-w-0 flex-1 (~1940). Chat column width/max-width transition (~1789). Preview takes remaining flex — correct flex-1 + min-w-0. Score 5/5.
+
+4) PreviewPanel iframe row: min-h-0 min-w-0 flex-1 (~1045–1053). Score 5/5.
+
+5) BuilderDetailsDrawer: Sheet right, breakpoint max-w — not 36px rail; minimal = sheet + pill, not inline collapsed chat rail. N/A same UX.
+
+6) ChatInterface: no own dock width; parent lg:w-80 lg:max-w-[20rem] (~1788–1791). Score 4/5.
+
+7) Avoid confusion: VersionHistory column w-10/w-80 (~1998–2014) is version rail, not chat dock.
+
+Refs: BuilderShellContent.tsx ~1770–1814, ~1927–2014; BuilderDetailsDrawer.tsx; preview-panel/PreviewPanel.tsx ~1045–1053.

@@ -1,0 +1,18 @@
+Backend Surface Mapping — Agent 4: BuilderHeader overflow (mål max 7 poster; idag kompakt overflow innehåller mer — flytta ut)
+
+- BACKEND: Projekt drawer (BuilderHeader.tsx:758) → UI-YTA: Overflow — INTERAKTION: ett klick — SYNLIG DEFAULT? NEJ — Projektinställningar
+- BACKEND: ProjectEnvVarsPanel (via shell) → UI-YTA: Overflow — INTERAKTION: öppna env — SYNLIG DEFAULT? NEJ — Miljövariabler
+- BACKEND: Scaffold dropdown (BuilderHeader.tsx:316) → UI-YTA: Overflow — INTERAKTION: undermeny — SYNLIG DEFAULT? NEJ — Byt mall
+- BACKEND: ZIP export (BuilderHeader.tsx:603) → UI-YTA: Overflow Mer — INTERAKTION: ladda ner — SYNLIG DEFAULT? NEJ — Ladda ner ZIP
+- BACKEND: versions rollback API/UI → UI-YTA: Overflow — INTERAKTION: bekräfta — SYNLIG DEFAULT? NEJ — Återställ version
+- BACKEND: release notes (saknas) → UI-YTA: Overflow — INTERAKTION: modal — SYNLIG DEFAULT? NEJ — Nytt i byggaren
+- BACKEND: kopiera ID/URL (saknas) → UI-YTA: Overflow — INTERAKTION: undermeny ⌘⇧C — SYNLIG DEFAULT? NEJ — Kopiera länkar
+
+Idag fel plats (flytta till palett eller sekundär yta):
+- BACKEND: Ny chat (BuilderHeader.tsx:699) → UI-YTA: Kompakt rad — INTERAKTION: ska bort här — SYNLIG DEFAULT? NEJ — (flytta)
+- BACKEND: Spara projekt (709) → UI-YTA: Kompakt rad — INTERAKTION: ska bort — SYNLIG DEFAULT? NEJ — (flytta)
+- BACKEND: Domän (721) → UI-YTA: Kompakt rad — INTERAKTION: ska bort — SYNLIG DEFAULT? NEJ — (flytta)
+- BACKEND: Import GitHub/ZIP (593) → UI-YTA: Mer — INTERAKTION: ska bort — SYNLIG DEFAULT? NEJ — (flytta)
+- BACKEND: Utökat läge (770) → UI-YTA: Kompakt rad — INTERAKTION: ska bort — SYNLIG DEFAULT? NEJ — (flytta)
+
+Icke-kompakt: modell+mall synliga; Mer = import+ZIP. Rollback/env/notes saknas.

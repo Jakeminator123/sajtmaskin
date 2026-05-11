@@ -1,0 +1,28 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 06-risk-register
+Date: 2026-04-27
+
+## Inputs Read
+- `01-git-delta-scope/` (forecast, risk-map, merge-order), `07-tests-verification/`, `08-design-system-ux/`, `09-deploy-observability/`.
+
+## Synthesis
+Risker klustras i: **(A) git/semantisk stream**, **(B) CSP/proxy/env/secrets**, **(C) tester/flake & HTTP-täckningshål**, **(D) design tokens & coexistence**, **(E) data/dossier utan CI-gate**.
+
+## Ordered Plan
+| Allvar | Risk | Snabb mitigering |
+|--------|------|-------------------|
+| H | Stream route ↔ lib mock/kontrakt; dubbel klient samma `chatId` | Diff + stream-tester; en flik; logs |
+| M–H | `proxy`/`CSP_ENFORCE`/`next.config`, deploy secrets, fel Vercel-projekt | Staging `curl -I`; 09-checklista; rotera token vid leak |
+| M | `test:ci` flake (stream `beforeEach` 10s) | `hookTimeout`/isolat; bisect; inte merge som tror “röd är okej” långsiktigt |
+| M | Dossier/scaffold ej i CI | `dossiers:validate-all` manuellt före merge vid data-PR |
+| M | `globals`/`take-theirs` tappar brandbook | 08 conflict-tabell, manual merge |
+
+**Rollback:** `revert` merge; `reset --hard` pre-merge endast om ej push; env rollback i Vercel; `CSP_ENFORCE` report-only; revert `proxy`/`next` commit.
+
+## Acceptance Criteria
+- Riskregistret gånget igenom före merge; minst en sign-off på A+B om touchat.
+
+## Risks / Mitigations
+Se tabell; lägg till projektsspecifika (t.ex. Stripe) om 02/09 räknar så.
+
+## Final Recommendations
+Bifoga denna fil eller en kort RPN-tabell i PR när `>~40` filer (`workflow.mdc`).

@@ -1,0 +1,38 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 01-builder-shell
+Date: 2026-04-27
+
+## UI/UX To Preserve
+- `BuilderLayout` + `BuilderShellContent`: `data-builder-shell`, `lg:flex-row-reverse` (preview primär, chat-panel), `id="builder-preview-panel"` / `id="builder-chat-panel"`.
+- `uiMode` minimal|expanded, `chatCollapsed` (localStorage), `mobileTab` chat/preview, preview-first enligt policy.
+- `PreviewPanel` yta, `simplifiedPreviewChrome` / `sajtmaskin-builder-mode`, `VersionHistory`-kolumn, **build-out** `onBuildOutRouteRequest` + `?sajtmaskin_buildout=*`.
+- `IntakeWizard` när `!vm.chatId` + `handleIntakeWizardComplete` / `company-intel` scrape.
+- Hjälpchatt: `useBuilderHelpChat` — `isHelpStreaming` i `isBusy`, **isHelpMessage** får ej blanda in i byggkontext.
+- F2: ingen env-panel i F2; F3: `ProjectEnvVarsPanel`, `onF3Ready`, toasts. Kort svenska strängar, token-klasser (bg-background, border-border, …).
+
+## New Master Capabilities To Surface
+- Nya fält i `deployReadiness` / `LaunchReadinessCard` — plugg in utan att dölja F2-mute.
+- F3 efter design: `PreviewPanel` `onF3Ready` → `sendMessage` med `lifecycleStageOverride` / `parentVersionIdOverride` (behåll signaturer).
+- Nya `CHAT_TOOL_EVENT` typer: utöka switch i shell utan ta bort case.
+- Nya generation-/post-check faser: uppdatera `generationPhase` / mappning om master lägger faser; `rejectedShrinkCount` från post-check.
+
+## State/Props Impact
+- Huvudkonsument: `BuilderViewModel` = `useBuilderPageController` return; shell har minimalt eget state (`mobileTab`, `chatCollapsed`, `simplifiedPreviewChrome`, …). Nya `vm.*` från master → uppdatera endast bindningar i `BuilderShellContent` + sektioner som nämner dem.
+- Beroende: `smartCreateChat` / `smartSendMessage`, `classifyIntent`, `displayMessages` vs help-separation.
+
+## Merge Conflict Plan
+1. För `BuilderShellContent.tsx`: börja **ours (frontend/christopher)**, plocka master **bugfixar** / nya props som inte ersätter port-ours block (jmf MI01 `05-port-ours-policy`).
+2. Sektion för sektion: layout → `IntakeWizard` → `PreviewPanel` prop-lista → F3 / build-out → chattfält.
+3. Håll synkade stödfiler: `usePreviewPanel*` hooks, `useBuilderCallbacks` när shell berör version/preview-URL.
+4. Efter merge: `npx tsc` + rök: wizard → skapa chat → preview laddar → build-out; ingen andra flik samma `chatId`.
+
+## Test Plan
+- Manuell: desktop expanded/collapsed, mobil flikar, kollaps chat-rail, build-out från preview/URL, F2 vs F3.
+- Befintliga: `useBuilderCallbacks.test.ts`, `builder-page-preview-helpers.test.ts` — uppdatera förväntningar vid nya `vm` props.
+- Ingen dedikerad `BuilderShellContent.test` (ev. lägg e2e om stora ändringar).
+
+## Do Not Break
+- postMessage / `vmReady` / `pickEngineIframeUrl` / `bumpPreviewRefreshToken` (förtydligas i `PreviewPanel` props).
+- Hjälp vs bygg (`isHelpMessage` filter, stream-handlers kontext).
+- F2 tyst env (samma som shell-gating ovan).
+- `pendingStreamRetryHint` + post-check partypost — slutar fungera i shell om `displayMessages` trunkeras fel.
+- Builder coexistence: ingen andra klientsession samma `chatId` under egen rök.

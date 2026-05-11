@@ -1,0 +1,21 @@
+Kontext, historik, projekt, ny chat
+
+1. Engelsk validation — useCreateChat “Please enter a message…” vs svensk UI. 2/5
+
+2. “Var är jag?” i composer — Identitet i header/URL; input saknar explicit projekt/chat-etikett. 3/5
+
+3. chatId null→id — Effect rensar draft/media; bra reset. 4/5
+
+4. Ny chat dedupe — sessionStorage + buildCreateChatKey; robust men copy kan förvirra. 3/5
+
+5. Projekt-binding — projectId i create, URL replace med chatId+project; solid data. 4/5
+
+6. Historik-modell — createNewChat vs sendMessage append; tydligt. 4/5
+
+7. resetBeforeCreateChat — Preview rensas före ny sajt. 4/5
+
+8. FileUploadZone projectId=null — Eventuell mismatch om upload scopes per projekt. 3/5
+
+Dimensioner: tråd vs composer 4 | binding 4 | yta-i-chat 3 | ny chat-skydd 3 | språk 2
+
+Helhet kontext: 3.5/5

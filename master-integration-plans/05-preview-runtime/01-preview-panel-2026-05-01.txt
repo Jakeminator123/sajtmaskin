@@ -1,0 +1,52 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 01-preview-panel
+Date: 2026-05-01
+
+## Master Runtime Changes
+- PreviewPanel prop surface includes preview session, lifecycle, alternate URLs, F3 callbacks, shrink count, build-out callback, simplified chrome, generation phase, and versionless abort/restart.
+- Hook order matters: `usePreviewIframe` before telemetry.
+- Lifecycle chain: `preview-starting` -> notify starting; `preview-ready` -> mark VM ready.
+
+## Local Preview UX To Preserve
+- Empty preview returns empty state, not heavy frame/chrome.
+- Boot overlay stays until `vmReady`.
+- Surface descriptor for live/recovering/fallback preview.
+- Existing PreviewPanel and telemetry hooks are port-ours conflict areas.
+
+## Coupling Points
+- `BuilderShellContent` props.
+- `preview-panel-types.ts`.
+- postMessage lifecycle hooks.
+- Heartbeat API via preview session id.
+- Render-failure sink ref.
+
+## Required Preview UI / Controls
+- Routes/build-out/device/refresh/clear/code/inspector/inline-edit controls.
+- Frame with refresh token and runbook/error controls.
+- Code mode with tree, raw edit, section editors, element registry.
+
+## Exact LLM Implementation Instructions
+- Update PreviewPanel props and all callers together.
+- Do not change hook order.
+- Harmonize `activePreviewSessionId` and legacy `activeSandboxId` naming before heartbeat changes.
+- Use preview/VM/preview_host terminology.
+
+## Failure Modes
+- Hooks behind conditions cause React errors.
+- VM ready too early.
+- Duplicate/missing heartbeats.
+- Lost build-out callback.
+
+## Verification Matrix
+- No URL empty state.
+- Awaiting input/build error/versionless abort states.
+- URL null to set without hook crash.
+- Tier-2 live heartbeat.
+- Own-engine render failure telemetry.
+- VM boot overlay.
+
+## Do Not Break
+- `preview-starting` / `preview-ready`.
+- Render-failure sink pattern.
+- Full PreviewPanel prop surface.
+- `vmReady` overlay.
+- Cross-origin grace in `usePreviewIframe`.

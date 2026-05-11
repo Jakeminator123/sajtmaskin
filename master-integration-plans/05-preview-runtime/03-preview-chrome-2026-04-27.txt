@@ -1,0 +1,29 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 03-preview-chrome
+Date: 2026-04-27
+
+## Master Runtime Changes
+- `PreviewPanelChrome.tsx` — toolbars: titel "Preview", `surfaceDescriptor`, badges, refresh, F3, kodvy, inline, device switcher, routes "Sidor" (build-out `PlusCircle`), composer/inspection dolda i `simplified`.
+- Shell: `simplifiedPreviewChrome` synkad `localStorage` `sajtmaskin-builder-mode` — default **minimal** (simplified) om inte `"pro"`.
+
+## Local Preview UX To Preserve
+- **Apple-minimal** + tokens: notera nuvarande split i chrome — övre rad använder delvis `text-white` / `border-gray-800` / färgade `amber-` `violet-` badges; routes-raden mer `border-border` / `text-muted-foreground` — **merge: flytta mot enhetliga semantiska tokens** utan att tappa tydlig status (föredraget i separat design-PR, inte blandat opåtänkt i runtime-merge).
+- Device: desktop/tablet/mobile med `aria-pressed`, tydlig aktiv yta.
+- **Kodvy** dölj tills `pro` där så tänkt; refresh alltid (ej simplified-bunden).
+
+## Coupling Points
+- `usePreviewPanelPreviewRoutes` + `onRequestBuildOutRoute` + `onBuildOutRouteRequest` (panel parent).
+- `simplified` prop från `BuilderShellContent` + `viewMode` kodvy.
+
+## Failure Modes
+- `simplified` default ändras på master → döljer verktyg användare förlitar sig på.
+- För tät toolbar på mobil (scroll `max-h-[40%]`); regression om master ändrar shrink.
+
+## Verification Matrix
+- Toggle pro/minimal: alla knappar som ska försvinna försvinner; refresh kvar.
+- Sidor-band: klick route → rätt `handleNavigateRoute` (own-engine query vs extern path, se 04).
+- F3-knapp bara när F3 (lifecycle).
+
+## Do Not Break
+- **Preview-first** copy (kort svenska) i badges/actions.
+- Build-out CTA synlig endast där `shellRoutePaths` + handler finns.
+- Token-konsolidering: om merge rör klassnamn, kör visuell diff + redesign-autopilot / brandbook-riktlinjer.

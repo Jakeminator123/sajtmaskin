@@ -394,7 +394,7 @@ describe("POST /api/engine/chats/[chatId]/stream", () => {
 
   it("uses node runtime and stream maxDuration", () => {
     expect(runtime).toBe("nodejs");
-    expect(maxDuration).toBe(800);
+    expect(maxDuration).toBe(300);
   });
 });
 
@@ -892,9 +892,10 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(buildFileContext).toHaveBeenCalledWith(
       expect.objectContaining({
-        maxChars: 140_000,
+        maxChars: 72_000,
         includeContents: true,
-        maxFilesWithContent: 8,
+        maxFilesWithContent: 6,
+        includeStructuralInventory: true,
       }),
     );
   });

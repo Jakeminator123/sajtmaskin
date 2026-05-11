@@ -1,0 +1,26 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 02-config-models
+Date: 2026-04-27
+
+## Master Changes
+- `config/ai_models/manifest.json` + `src/lib/config.ts` i diff (grep). Jämför exakt: `git diff origin/master -- config/ai_models/manifest.json` före merge — lokal gren kan ha **briefing.specModel**, utökade `qualityGateTiers.designPreview`, `promptOrchestration.hardCaps`, uppdaterade `workloads[].codeEntry` (subagent noterade avvikelse; **verifiera siffror mot faktisk diff**).
+- `src/lib/ai-models/load-manifest.ts` måste matcha JSON (Zod) — bygger annars.
+
+## Local Changes / Dirty Files
+- `src/lib/config.ts` — `FEATURES`, `SECRETS`, Redis, paths; ingen modell-ID här (modeller = manifest + `SAJTMASKIN_MODEL_*` + `phase-routing`).
+
+## Compatibility Risks
+- Nya manifestfält utan Zod-uppdatering → import-fel.
+- `qualityGateTiers` vs faktisk pipeline (`quality-gate-checks`) — manifest kan kräva `build`/`lint` medan server fortfarande kör annat.
+- `FEATURES` styr gates (cache, Responses API, dossier) — **inte** vilken GPT-modell; modelval = manifest + env + `catalog`/`phase-routing`.
+
+## Files To Update
+- `config/ai_models/manifest.json`, `src/lib/ai-models/load-manifest.ts`, ev. `config/ai_models/_READ_ME_FIRST.md`, `docs/schemas/model-build-profiles.md`.
+- Kod som läser nya env-nycklar per manifest (t.ex. `SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS`) — in i `env.ts` **om** de ska valideras centralt, annars dokumentera som runtime-only tydligt.
+
+## Verification Commands
+- `npm run typecheck`
+- `npx vitest run` (tester som importerar manifest / phase-routing)
+- `rg getPhaseRoutingFromManifest` / `load-manifest` call-sites efter strukturändring
+
+## Commit / Ignore Guidance
+- Commit manifest + `load-manifest.ts` + ev. konsumenter i **en** leverans; granska att `qualityGateTiers`-ändring inte bara är "dokument" om den ändrar faktisk gate.

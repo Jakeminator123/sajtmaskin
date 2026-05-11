@@ -1,0 +1,45 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 03-security-csp
+Date: 2026-05-01
+
+## Production Changes In Master
+- Next 16 proxy handles CSP, CORS, nonce, and security headers.
+- CSP is enforce or report-only based on env.
+- Nonce is passed through request headers to layout.
+- COEP/COOP only for `/project/:path*`.
+
+## Local Behavior To Preserve
+- Report-only CSP default.
+- Dev/local script relaxations.
+- Nonce forwarding via `NextResponse.next`.
+- Preview-render special CSP.
+
+## Security / Secret Risks
+- Missing JWT secret in prod breaks auth gates.
+- CORS origin list must include real production/custom origins.
+- Media upload route has `Access-Control-Allow-Origin: *`.
+- Preview-render CSP is permissive and should stay contained.
+
+## Required Deploy / Observability UI
+- Operator hint for `CSP_ENFORCE`.
+- CSP report route visibility.
+- Verify app URL and Vercel URL match deployed domains.
+
+## Exact LLM Implementation Instructions
+- Keep one nonce source and same nonce in CSP/script.
+- Diff full CSP policy/matcher on merge.
+- Avoid duplicate CSP sources in `next.config` and proxy.
+- Preserve OPTIONS/CORS handling.
+
+## Deploy Verification
+- HTML headers include CSP/Report-Only, HSTS, XFO, etc.
+- Script nonces match CSP.
+- `/project/*` has COEP/COOP.
+- API OPTIONS returns CORS headers.
+
+## Observability Checks
+- Monitor CSP report logs.
+- Rate limit for CSP reports.
+- Compare report-only vs enforce before enabling.
+
+## Do Not Commit
+- `.vercel`, real env files, JWT/preview secrets.

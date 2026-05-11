@@ -1,0 +1,13 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 00 preflight
+Date: 2026-04-27
+
+## Begränsningar (skill)
+
+- **Inga** riktiga hemligheter i rapporterna; **rekommendera aldrig** committa `.vercel/`, `.env*`, klistrade tokens, rå webhook-body med secrets.
+- Verifiera deploy mot **Vercel/secret store** enligt `docs/ENV.md` — repot listar endast *namn* på variabler där så passar.
+- Läs-only inventering: **ingen** `git diff origin/master` kör här; “master” = sannolika ytor när man integrerar.
+
+## Utdata
+
+- `01`–`08` … `2026-04-27.txt` (sex sektioner vardera)
+- `00-production-readiness-checklist-2026-04-27.txt` (syntes efter agenter)

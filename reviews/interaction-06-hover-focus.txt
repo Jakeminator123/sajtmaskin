@@ -1,0 +1,20 @@
+Builder Interaction Review — Agent 6: Hover & fokus (builder + app/builder; mål: focus-visible ring-2 ring-ring/40, hover tydlig, disabled inte som CTA)
+
+- ChatInterface PromptInputTextarea focus-visible:ring-0 → ring-2 ring-ring/40, ring-offset-2 → 1
+- BuilderHeader hemknapp bara hover opacity, saknar focus-visible → samma ringpaket som ghost-knappar → 2
+- IntakeWizard kategori-knappar border/hover utan focus-visible → focus-visible ring-2 ring-ring/40 → 2
+- UnifiedElementPicker rader/tabs hover utan focus-visible → ring per interaktiv rad → 2
+- UiElementPicker samma mönster → som ovan → 2
+- IntakeWizard input focus:ring-1 primary/30 (mus) → focus-visible ring-2 ring-ring/40 → 2
+- AdvancedSettingsPanel inputs focus:ring-1 primary/50 → focus-visible + ring-2 /40 → 2
+- ElementRegistry focus-visible ring-[3px] ring-ring/50 → enhet ring-2 /40 → 3
+- InitFromRepoModal focus border + ring-1 → tokens + focus-visible ring-2 /40 → 2
+- ImageUploadPopup primary disabled opacity-50 ser klickbar ut → disabled:pointer-events-none cursor-not-allowed muted yta → 2
+- Positivt: PreviewPanelChrome shell-knapp focus-visible ring-2 ring-ring/40 → sprida mönstret → 4
+- Positivt: BuilderDisclosurePill ring + offset nära mål → justera till /40 konsekvent → 4
+- IntakeWizard FIELD_CLASS redan ring-ring/30 → höj till /40 överallt → 3
+- TemplatePickerPopup (jämförelse): mix av ring-stilar → en tokeniserad ring-stil → 3
+- Många hover:bg utan fokus-paritet → alltid focus-visible-par → 3
+- Ghost-knappar utan tydlig disabled → cursor-not-allowed + muted → 3
+
+Värsta klustret: chat textarea ring-0, pickers utan focus, disabled primär ser aktiv ut.

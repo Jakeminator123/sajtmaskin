@@ -33,7 +33,6 @@ const CONTENT_TYPE_MAP: Record<string, string> = {
   ".png": "image/png",
   ".gif": "image/gif",
   ".webp": "image/webp",
-  ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
   // Videos
   ".mp4": "video/mp4",
@@ -46,7 +45,6 @@ const CONTENT_TYPE_MAP: Record<string, string> = {
   ".txt": "text/plain",
   ".md": "text/markdown",
   ".json": "application/json",
-  ".html": "text/html",
   ".css": "text/css",
 };
 
@@ -98,12 +96,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Filen hittades inte" }, { status: 404 });
     }
 
+    // Determine content type from extension. Never serve active/scriptable
+    // document types from local fallback storage.
+    const ext = path.extname(filename).toLowerCase();
+    if (ext === ".svg" || ext === ".html") {
+      return NextResponse.json({ error: "Filtypen får inte serveras" }, { status: 415 });
+    }
+    const contentType = CONTENT_TYPE_MAP[ext] || "application/octet-stream";
+
     // Read file
     const fileBuffer = await readFile(filePath);
-
-    // Determine content type from extension
-    const ext = path.extname(filename).toLowerCase();
-    const contentType = CONTENT_TYPE_MAP[ext] || "application/octet-stream";
 
     // Return file with appropriate headers
     return new NextResponse(fileBuffer, {
@@ -111,7 +113,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         "Content-Type": contentType,
         // Aggressive caching since filenames are unique (timestamp + random)
         "Cache-Control": "public, max-age=31536000, immutable",
-        // Allow cross-origin access (needed for v0 preview)
+        // Allow cross-origin access (needed for live preview).
         "Access-Control-Allow-Origin": "*",
       },
     });

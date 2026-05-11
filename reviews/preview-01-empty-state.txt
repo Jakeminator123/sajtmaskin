@@ -1,0 +1,20 @@
+Preview empty state — Quick Look / Figma empty-canvas lens
+Scope: PreviewPanelEmptyState.tsx, PreviewPanel early exit, BuilderShellContent #builder-preview-panel
+
+Innan previewUrl: bara PreviewPanelEmptyState (ingen Chrome/Frame). Yta: bg-muted/15 utanför kort, inner bg-card; navy --background som stor tom yta → “tom panel” snarare än “tom sida”. simplified={false} från shell — minimal variant oanvänd.
+
+1. Canvas vs app-bakgrund — Stor mörk yta utan tydlig “dokument”-rektangel. 2/5
+
+2. Kontinuitet pre/post URL — Hopp från void till iframe + chrome; ingen gemensam ram. 2/5
+
+3. Kort-struktur — Border, shadow, hierarki läsbar. 4/5
+
+4. Copy — Fler rader + awaiting-input; tyngre än “en rad + en CTA”. 3/5
+
+5. GenerationProgress — Centrerat kort; fortfarande på mörk shell. 3/5
+
+6. Tokens — Ingen rå hex i komponenten. 5/5
+
+7. simplified vs full — Dubbel implementation; bara full path. 3/5
+
+Rekommendation: Preview-kolumn eller tom-state som ljus, avgränsad “canvas”-yta (paper/device frame) så tom läge = empty document, inte mörk panel.

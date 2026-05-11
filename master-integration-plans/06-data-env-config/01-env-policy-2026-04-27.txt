@@ -1,0 +1,29 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 01-env-policy
+Date: 2026-04-27
+
+## Master Changes
+- `git diff HEAD...origin/master` inkluderar: `src/lib/env.ts`, `config/env-policy.json`, `docs/ENV.md` (källa: pre-flight grep).
+- Typiskt: nya Zod-fält i `serverSchema`; policy `knownEmptyOk` / `runtimeOnlyKeys` / `rules` / `extraKnownKeys`; ENV.md tabellrader (t.ex. omtag-04 borttagna flaggor, preview-host, F2/F3).
+
+## Local Changes / Dirty Files
+- Verifiera `git status` lokalt — start-snapshot hade ej nödvändigtvis M på dessa tre; ocommittat `next.config` / `proxy` etc. påverkar **inte** env-schema men kan påverka CSP/CORS-dokumentation i samma release-PR.
+
+## Compatibility Risks
+- **Policy vs Zod:** `env-audit.ts` slår ihop `serverSchema.shape`, `extraKnownKeys`, `rules` — ensidig merge ger fel klassificering.
+- **Runtime-only:** nycklar som läses via rå `process.env` utan `serverSchema` (dokumenterat i ENV.md) får inte förväxlas med "måste i Zod".
+- **Legacy:** t.ex. `SAJTMASKIN_SHOW_THINKING` kan finnas i policy men ej i `env.ts` — rensa `.env` / audit output.
+- **NEXT_PUBLIC_** klientnycklar: kan saknas i policy — `manage_env.py` kan varna; håll lista i docs eller policy medvetet.
+
+## Files To Update
+- `src/lib/env.ts`, `config/env-policy.json`, `docs/ENV.md` (tillsammans).
+- Ev. `src/lib/env-audit.ts`, `scripts/env/manage_env.py`, `.env.example` när nya nycklar dokumenteras.
+
+## Verification Commands
+- `npm run typecheck`
+- `python3 scripts/env/manage_env.py audit` (eller `npm run env:status` om script finns i `package.json`)
+- `npm run lint` om konsumenter av `getServerEnv()` rörs
+
+## Commit / Ignore Guidance
+- **En** logisk commit (eller tight serie) för env+policy+ENV när paritet klar.
+- Committa aldrig `.env.local` / `vercel pull` hemligheter.
+- Efter merge: Vercel endast för nya **obligatoriska** nycklar; följ `recommendedVercelTargets` i policy.

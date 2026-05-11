@@ -1,0 +1,22 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 00 design preservation checklist
+Date: 2026-04-27
+Use during `git merge` / conflict resolution. Check each before staging resolved files.
+
+| # | Område | Kontroll (Ja = OK att behålla merge-resultat) |
+|---|--------|-----------------------------------------------|
+| 1 | **Token-kanon** | `globals.css` `:root`/`.dark` + `brand` alias oförstörda; `tailwind.config.cjs` mappar fortfarande `hsl(var(--*))`. Inga nya hårdkodade hex i produkt-UI från master utan ersättning. |
+| 2 | **Brandbook** | Färger följer off-white / near-black / sand / stone; inga nya `sky-`/`indigo-`/`orange-` ytor där vår gren redan rensat — eller planerad följup-PR. |
+| 3 | **Layout tema** | Ljust tvingat i `layout.tsx`? Om master byter: medveten beslut + visuell QA (inte oavsiktlig dark). |
+| 4 | **SEO** | `renderSeoLandingRoute` + `load-landing` + `json-ld`/`nonce` intakta; `builderHref` query, canonical, `dynamicParams` oförstörda. |
+| 5 | **Start `/`** | `__SITEMASKIN_CONTEXT`, v2 nav, en scrollbar, `ChatArea`-tabs/under-fold — inga dubblett-navbars “av misstag”. |
+| 6 | **Intake** | `IntakeWizard` stegordning, sv titlar, scrape/media UX; `BuilderShellContent` `onComplete`-kedja. |
+| 7 | **Builder shell** | `uiMode` minimal/expanded, drawer vs inline panel, `BuilderDisclosurePill`, `chatCollapsed` persist. |
+| 8 | **Chatt** | Ingen dubblett `MessageList`; `#builder-chat-panel` + flikar; `ChatInterface` längst i kolumn (ej oväntad `fixed` dock). |
+| 9 | **Preview** | `PreviewPanel` + iframe id/sandbox, `vmReady`/overlay-prioritering, device-knappar, fel/runbook kort (sv där så är policy). |
+| 10 | **A11y** | Nya ikonknappar: `aria-label`; live regions preview/chat; `prefers-reduced-motion` oförsämrad. |
+| 11 | **Copy (sv)** | Nya toasts/CTA/shadcn defaults **inte** engelska där ytan var sv; undvik längre copy än före. |
+| 12 | **Backend** | Inga dataflöden/API-ändringar i “design”-resolve — flytta till egen commit om så hände. |
+| 13 | **Samexistens** | Efter manuell QA: ingen andra live-klient mot samma `chatId` (byggar-regel). |
+| 14 | **Dok** | Uppdatera/align `frontend-redesign.mdc` vs `redesign-autopilot` om någon fortfarande pekar “navy/orange” som målbild. |
+
+**När något får "Nej":** anteckna fil, välj *ours* eller manuell edit; gör inte "ta deras" på `globals`/`tailwind` utan visuell diff.

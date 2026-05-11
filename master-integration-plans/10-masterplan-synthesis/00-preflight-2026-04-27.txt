@@ -1,0 +1,13 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 00 preflight
+Date: 2026-04-27
+
+## Inlästa källor
+- `master-integration-plans/01-git-delta-scope/` … `09-deploy-observability/` (datumerade `*-2026-04-27.txt` där de finns).
+- Vissa agenter noterade att **inte** alla `01`-filer lästs rad för rad; **antaganden** är markerade i respektive `10/0N-*.txt`.
+
+## Regel från skill
+- **Ingen** `git merge` exekveras från denna skill ensam; denna mapp = plan + checklista.
+- Syntesfil: `../MASTER-INTEGRATION-MASTERPLAN.md` (repo: `master-integration-plans/MASTER-INTEGRATION-MASTERPLAN.md`).
+
+## Känd extern snapshot (MI01, ev. föråldrad)
+- Gren `frontend/christopher` @ `6dab64a9`, `origin/master` @ `4de2fabd`, merge-base `9ec2045a` — använd `git fetch` + faktisk diff före merge.

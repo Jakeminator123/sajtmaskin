@@ -21,10 +21,13 @@ def load_local_env() -> None:
     if _ENV_LOADED:
         return
 
+    repo_env_local = Path(__file__).resolve().parents[2] / ".env.local"
     env_path = Path(__file__).with_name(".env")
+    if repo_env_local.exists():
+        load_dotenv(repo_env_local, override=False)
     if env_path.exists():
         load_dotenv(env_path, override=False)
-    else:
+    elif not repo_env_local.exists():
         load_dotenv(override=False)
 
     _ENV_LOADED = True

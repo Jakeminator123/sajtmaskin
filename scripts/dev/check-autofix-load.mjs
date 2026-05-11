@@ -132,6 +132,12 @@ function printHelp() {
   process.stdout.write(lines.join("\n"));
 }
 
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
 function runSelfTest() {
   const threshold = 0.8;
   const minSample = 5;
@@ -156,10 +162,10 @@ function runSelfTest() {
     '{ "type": "autofix.result", "chatId": "e" }',
   ].join("\n");
   const low = countAutofixEvents(fixtureLow);
-  console.assert(low.autofixResult === 5, `expected 5 autofix.result, got ${low.autofixResult}`);
-  console.assert(low.heavyLoad === 1, `expected 1 heavy_load, got ${low.heavyLoad}`);
+  assert(low.autofixResult === 5, `expected 5 autofix.result, got ${low.autofixResult}`);
+  assert(low.heavyLoad === 1, `expected 1 heavy_load, got ${low.heavyLoad}`);
   const lowRatio = low.heavyLoad / low.autofixResult;
-  console.assert(lowRatio < threshold, `low-fixture should be under threshold; got ${lowRatio}`);
+  assert(lowRatio < threshold, `low-fixture should be under threshold; got ${lowRatio}`);
 
   // Build a fixture where > threshold of runs triggered heavy_load.
   const highBlocks = [];
@@ -175,14 +181,14 @@ function runSelfTest() {
   highBlocks.push('2026-04-23T10:00:30.000Z [in-progress]');
   highBlocks.push('{ "type": "autofix.result", "chatId": "clean1" }');
   const high = countAutofixEvents(highBlocks.join("\n"));
-  console.assert(high.autofixResult === 9, `expected 9 autofix.result, got ${high.autofixResult}`);
-  console.assert(high.heavyLoad === 8, `expected 8 heavy_load, got ${high.heavyLoad}`);
+  assert(high.autofixResult === 9, `expected 9 autofix.result, got ${high.autofixResult}`);
+  assert(high.heavyLoad === 8, `expected 8 heavy_load, got ${high.heavyLoad}`);
   const highRatio = high.heavyLoad / high.autofixResult;
-  console.assert(highRatio > threshold, `high-fixture should exceed threshold; got ${highRatio}`);
+  assert(highRatio > threshold, `high-fixture should exceed threshold; got ${highRatio}`);
 
   // Empty fixture.
   const empty = countAutofixEvents("");
-  console.assert(empty.autofixResult === 0 && empty.heavyLoad === 0, "empty fixture should have zero counts");
+  assert(empty.autofixResult === 0 && empty.heavyLoad === 0, "empty fixture should have zero counts");
 
   // Small-sample guard — ratio can be 100 % but minSample is not reached.
   const smallBlocks = [
@@ -193,8 +199,8 @@ function runSelfTest() {
     '{ "type": "autofix.heavy_load", "chatId": "x" }',
   ].join("\n");
   const small = countAutofixEvents(smallBlocks);
-  console.assert(small.autofixResult === 1 && small.heavyLoad === 1, "small fixture counts");
-  console.assert(small.autofixResult < minSample, "small fixture is below minSample");
+  assert(small.autofixResult === 1 && small.heavyLoad === 1, "small fixture counts");
+  assert(small.autofixResult < minSample, "small fixture is below minSample");
 
   console.log("[check-autofix-load] self-test OK");
 }

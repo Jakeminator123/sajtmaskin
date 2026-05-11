@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 04-scaffolds-variants
+Date: 2026-04-27
+
+## Master Pipeline Changes
+- `config/scaffold-variants/_index/variant-embeddings.json` (modell `text-embedding-3-small`, dimensions 1536).
+- Nya: `config/scaffold-variants/landing-page/asymmetric-stack.json`, `hero-fullbleed-bg.json` (i diff) — validera mot `docs/schemas/strict/scaffold-variant.schema.json`.
+- `src/lib/gen/scaffolds/seo-defaults.*`, `scaffolds/landing-page` placeholder under gen (diff list).
+- Kör `npm run scaffolds:variant-embeddings` när nya/ändrade variant-JSON lagts in (saknad embedding → fallback till keyword i `pickScaffoldVariant`).
+
+## Local Behaviors To Preserve
+- `registry.ts`: endast `getScaffoldIds()`-mappar läses; övriga JSON under `config/scaffold-variants` ignoreras.
+- `matcher.ts`: `pickScaffoldVariant` (sync keywords + tie-break) / `pickScaffoldVariantAsync` (cosine vs index, tröskel) / `lockedVariantForFollowUp`.
+- **Scaffold-val** (landing vs saas) = `scaffolds/matcher.ts` + `keyword-banks.ts`; **variant** = per-JSON `keywords` i `config/scaffold-variants` — särskilj.
+- `applyScaffoldSeoDefaults` (noop utan `SAJTMASKIN_SCAFFOLD_SEO_SITE_URL`).
+
+## Merge/Port Plan
+1. Merge JSON + kör `scaffolds:variant-embeddings` om nya varianter.
+2. Verifiera `scaffoldId` mappar manifest i `src/lib/gen/scaffolds/registry.ts` (`BASE_SCAFFOLDS`).
+3. Om master ändrar trösklar (`VARIANT_EMBEDDING_MIN_SCORE`) — regressionstest + keyword-fallback.
+4. `orchestrate` / `build-dynamic-context` importkedjor till `pickScaffoldVariant` / `getVariantById` — typkontrakt oförstörda.
+
+## Regression Risks
+- Trunkerad/stonålad embedding-fil (async pick fel).
+- Nya scaffolds utan motsvarande mapp i `getScaffoldIds` → tyst bortplockning.
+- SEO defaults ändring → oavsiktlig `example.com` om URL-policy bryts.
+
+## Required Tests
+- Scaffold/variant relaterade tester (grep `scaffold-variants`, `scaffolds`), `seo-defaults.test.ts` i diff, ev. manuell `parseVariant` + AJV.
+
+## Open Questions
+- Ska nya varianter gate:as i UI (A/B) eller alltid in i `matchScaffoldAuto`?

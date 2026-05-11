@@ -1,0 +1,17 @@
+Device preview — PreviewPanelChrome + PreviewPanelFrame
+
+Fakta: Bara desktop | mobile — ingen tablet. title “Desktop” vs “Mobil” (EN/SV-blandning).
+
+1. Tydlighet kontroll — 4/5 — Ikoner, segment, aria-pressed.
+
+2. Smooth resize — 2/5 — Ingen width-transition; hopp mellan full bredd och ~390px centrerad kolumn.
+
+3. Verklig respons — 3/5 — Bara bredd ~390px; ingen DPR, UA, throttling, safe-area som DevTools.
+
+4. vs Chrome DevTools — 2/5 — Förväntningsgap om “device mode” jämförs 1:1.
+
+5. A11y — 4/5 — Grupp bra; valfritt roving tabindex.
+
+Snabb layout-check: 3/5 — Inte pixel-QA-emulering.
+
+Bottom line: Bra för smal vs bred; svag polish på animation; ingen tablet.

@@ -99,7 +99,7 @@ export interface MediaCatalogItem {
   url: string;
   alt?: string;
   source?: "user" | "stock";
-  kind?: "logo";
+  kind?: "logo" | "image" | "video";
   credit?: string;
 }
 
@@ -130,6 +130,8 @@ export interface DynamicContextOptions {
   userPrompt?: string;
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
+  /** Follow-up intent helps choose compact context; heavy context and redesign still keep full context. */
+  followUpIntent?: "clear-refine" | "clear-redesign" | "ambiguous-redesign" | "ambiguous-followup" | "capability-add" | "capability-modify" | "neutral";
   buildSpec?: BuildSpec | null;
   /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
@@ -146,6 +148,24 @@ export interface DynamicContextOptions {
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
   dossierSelection?: DossierSelectionResult | null;
   /**
+   * Prompt-shaping context for dossier blocks. Follow-ups can render selected
+   * dossiers in a compact shape when the deterministic files/context already
+   * carry the safety contract.
+   */
+  dossierPromptContext?: {
+    generationMode?: "init" | "followUp";
+    requestedCapabilityTiers?: Record<string, string> | null;
+    /**
+     * Output paths already present in the previous version (follow-up /
+     * auto-repair). When a verbatim dossier file resolves to one of these
+     * paths we skip the full CodeProject block and emit a short pointer
+     * instead — the file is already visible to the LLM via
+     * `## Current Project Files` + file contents, and re-shipping the
+     * verbatim block costs ~5k chars for a 3D repair.
+     */
+    previousFilePaths?: string[] | null;
+  };
+  /**
    * Plan 11 / open-question #12: when the follow-up was classified as
    * `capability-modify` (user named a dossier capability AND referenced
    * an existing on-page element such as "pricken" / "den 3D-grejen"),
@@ -160,16 +180,14 @@ export interface DynamicContextOptions {
     capabilityIds: string[];
     references: string[];
   } | null;
-  /**
-   * B3: structured build-out-request for a shell page. Rendered as a
-   * high-priority directive block so the model treats this follow-up as a
-   * targeted build-out rather than a regeneration of the whole site.
-   */
-  buildOut?: {
-    path: string;
-    intent?: string | null;
-    name?: string | null;
-  } | null;
+  /** Optional exact fault context for error-log RAG reranking. */
+  ragContext?: {
+    faultType?: string | null;
+    routePath?: string | null;
+    variantId?: string | null;
+    capabilityIds?: string[];
+    generationMode?: "init" | "followup" | "auto_repair" | null;
+  };
 }
 
 /** Observability for dynamic-context token budgeting (`buildBudgetedSystemPrompt`). */
@@ -185,6 +203,7 @@ export interface DynamicContextBlockTrace {
   title: string;
   priority: number;
   required: boolean;
+  chars: number;
   estimatedTokens: number;
   kept: boolean;
 }

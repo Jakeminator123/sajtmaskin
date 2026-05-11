@@ -6,9 +6,8 @@ import "@/styles/landing-v2.css";
 import { AnalyticsTracker } from "@/components/layout/analytics-tracker";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { OrganizationJsonLd, SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
+import { VercelInsights } from "@/components/layout/vercel-insights";
 import { ThemeProvider } from "next-themes";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
 import { URLS } from "@/lib/config";
 
@@ -56,6 +55,7 @@ export default async function RootLayout({
 }>) {
   const requestHeaders = await headers();
   const nonce = requestHeaders.get("x-csp-nonce") ?? undefined;
+  const enableVercelInsights = Boolean(process.env.VERCEL_ENV);
 
   return (
     <html
@@ -65,6 +65,8 @@ export default async function RootLayout({
     >
       <head>
         <script
+          nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `(function(){try{document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';localStorage.setItem('theme','light')}catch(e){}})()`,
           }}
@@ -79,11 +81,10 @@ export default async function RootLayout({
           </div>
         </noscript>
         <ThemeProvider attribute="class" defaultTheme="light" forcedTheme="light" enableSystem={false} nonce={nonce}>
-          <OrganizationJsonLd />
-          <SoftwareApplicationJsonLd />
+          <OrganizationJsonLd nonce={nonce} />
+          <SoftwareApplicationJsonLd nonce={nonce} />
           <AnalyticsTracker />
-          <Analytics />
-          <SpeedInsights />
+          <VercelInsights enabled={enableVercelInsights} />
           {children}
           <Toaster position="top-right" />
           <CookieBanner />

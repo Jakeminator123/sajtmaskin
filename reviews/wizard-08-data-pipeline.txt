@@ -1,0 +1,18 @@
+Wizard → Deep Brief / needs-analysis pipeline
+
+Flöde: IntakeWizard onComplete → fieldMessages (+ media) → BuilderShellContent handleIntakeWizardComplete → meddelanden + upload → buildNeedsAnalysisPrompt (needs-analysis.ts) → /api/ai/brief via useInitBrief → pendingBriefRef → engine stream.
+
+Når brief: Hel monolit inkl. extractWizardSections (wizard-* id), media/logo, buildPageStructure + wizard-features-evidence.
+
+Svagheter:
+- NeedsAnalysisField vs wizard-nycklar — osäkra casts; type matchar inte alla fält.
+- QUESTION_ORDER/summary kan säga “Inte tydligt” medan wizard-sektioner är rika — motsägelse för modellen.
+- audience/style/images inte förstaklass alla grenar.
+- answers rå — aldrig skickade; bara fieldMessages.
+- executeStarterGeneration vs upload timing — user-rader efter upload kan missas i messages medan uploadedMediaRef fyller media-block.
+
+Moduler/bilder — features i wizard-features-meddelande; bilder via upload + text-URL i siteMedia.
+
+Poäng: E2E wiring 4 | schema-paritet 2 | inget tappat vs answers 3 | media+features kontext 4 | monolit redundans 3 | verify wizard-specifik 3
+
+Åtgärder: WizardField-typ matchad kod; synka summary med wizard; audience explicit; final message list efter upload eller dokumentera single source.

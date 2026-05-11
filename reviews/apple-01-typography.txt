@@ -1,0 +1,32 @@
+Builder typography — Apple marketing polish (read-only)
+Scope: src/app/builder/**, src/components/builder/**, src/app/globals.css, tailwind.config.cjs
+
+1. No canonical type scale in Tailwind/theme — Only fontFamily extended; no fontSize/lineHeight/letterSpacing tokens. Hierarchy invented per component. Score: 2/5
+
+2. Arbitrary pixel sizes — Frequent text-[9px]–text-[22px] alongside xs–7xl (IntakeWizard text-[22px], pickers 10–13px, ChatInterface 11px). Engineering UI, not calm system. Score: 2/5
+
+3. font-semibold as default “heading” — Dialogs, rails, BuildPlanCard, ModelTraceOverlay, UnifiedElementPicker, ModeSelector, TemplatePickerPopup, GenerationProgress percent. Apple reserves semibold for few lines. Score: 2/5
+
+4. font-medium overuse — PreviewPanelCodeSectionEditors.tsx ~63 font-medium hits; many panels stack medium on labels. Score: 2/5
+
+5. font-bold outliers — OnboardingOverlay title (text-xl font-bold), NeedsAnalysisProgress (text-4xl font-bold). Score: 2/5
+
+6. Competing tracking — tracking-tight vs tracking-wide/wider vs custom [0.14em]–[0.18em] (ModelTraceOverlay). Score: 3/5
+
+7. Uppercase micro-labels repeated — BuildPlanCard, ActionHubPopup, AdvancedSettingsPanel, ImageUploadPopup, review-panels, pickers. Cumulative shouty. Score: 3/5
+
+8. globals.css body — antialiased + font-sans only; no document line-height/type ramp. Score: 3/5
+
+9. Positive: tracking-tight on major titles — BuilderHeader, ModeSelector, TemplatePickerPopup, wizard step title. Score: 4/5
+
+10. Positive: large metric display — GenerationProgress text-6xl/7xl + tabular-nums + tight tracking (Display moment). Score: 4/5
+
+11. Positive: preview empty states — PreviewPanelEmptyState mostly sm/xs with one medium line. Score: 4/5
+
+12. Token drift in chat — ChatInterface text-[11px] text-zinc-500 bypasses muted-foreground cohesion. Score: 2/5
+
+13. BuilderShellContent tabs — text-sm font-medium appropriate chrome if titles stay lighter. Score: 4/5
+
+14. Suggested ramp: Display — one size (4xl–7xl) hero metrics only. Title — one step (lg–2xl), semibold max once/pane. Body — sm/base normal. Footnote — xs muted. Caption — single small (10 OR 11px token) + mono for URLs.
+
+15. Net: Scale fragmentation + semibold/medium competition block calm marketing system. Overall ~2.5/5.

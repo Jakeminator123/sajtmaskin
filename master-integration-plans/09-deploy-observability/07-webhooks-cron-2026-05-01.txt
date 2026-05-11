@@ -1,0 +1,44 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 07-webhooks-cron
+Date: 2026-05-01
+
+## Production Changes In Master
+- Stripe webhook verifies signature and handles checkout/payment/subscription events.
+- Vercel project webhook writes deployment state updates.
+- Cron warms shadcn registry cache.
+- Vercel cron config hits registry warm endpoint.
+
+## Local Behavior To Preserve
+- Stripe raw body verification.
+- Deployment update mapping through DB helpers.
+- Registry warm route secured by cron secret.
+
+## Security / Secret Risks
+- Stripe webhook secret, cron secret, Vercel webhook signature/allowlist if present.
+- Webhook logs can expose customer/payment identifiers.
+- Idempotency required for repeated Stripe/Vercel events.
+
+## Required Deploy / Observability UI
+- Internal visibility for payment/subscription webhook outcomes.
+- Deployment status should update without manual refresh.
+- Registry cache warm failures should not break builder.
+
+## Exact LLM Implementation Instructions
+- Preserve raw body for Stripe signature verification.
+- Add/update idempotency checks if master changes event set.
+- Keep cron auth consistent with `vercel.json`.
+- Surface webhook failures in logs/admin, not public UI.
+
+## Deploy Verification
+- Stripe CLI webhook replay.
+- Vercel deployment webhook test event.
+- Cron endpoint rejects missing secret and accepts valid cron secret.
+- Registry warm does not mutate generated project content.
+
+## Observability Checks
+- Stripe event type/error logs.
+- Deployment status transitions.
+- Cron execution logs.
+- Registry warm cache timestamps.
+
+## Do Not Commit
+- Stripe secrets, webhook payloads with customer data, cron secret, `.vercel`.

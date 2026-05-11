@@ -1,0 +1,61 @@
+Här är granskningen. **Jag kan inte skapa eller skriva `reviews/builder-audit-01-header.txt` i Ask-läge** (inga filskrivningar tillåtna). Kopiera texten nedan till filen lokalt, eller byt till **Agent-läge** om du vill att den sparas automatiskt.
+
+---
+
+## Builder header – audit (read-only)
+
+**Spår:** `BuilderShellContent.tsx` props → `useBuilderPageController.ts` → `useBuilderProjectActions` / `useBuilderDeployActions` / `useBuilderPromptActions` / `useChatMessaging` / `project-client` / `engineChatBaseUrl`.
+
+---
+
+`[3] Anthropic-jämförelse — handleApplyAnthropicComparePreset → vm.setSelectedModelTier("anthropic") → ingen API — bara profilbyte; namnet lovar “jämförelse” som inte finns.`
+
+`[2] Modell / Mall / Inställningar (hela dropdowns under stream) — setters i vm — ingen direkt PATCH — korrekt låst (`isConfigLocked`); persist sker via nästa stream, inte “sparad” i backend som egen entitet.`
+
+`[4] Inställningar: Publik preview — setChatPrivacy — skickas in i `useChatMessaging` vid generering — funkar för nya streams; ingen separat synk om man bara växlar utan att generera.`
+
+`[4] AI-bilder / Blob-bilder — setEnableImageGenerations / setEnableBlobMedia — blob-varning i UI — logiken OK; risk att användare slår på utan att förstå att blob saknas tills deploy (toast vid deploy i deploy-hook).`
+
+`[4] Åtgärda fel automatiskt — handleEnableAutofixChange i shell → localStorage + state — inte server; avsiktligt men “backend” är bara nästa körning.`
+
+`[4] Tips efter AI-svar — setTipsEnabled — credits dras vid tips-hämtning annorstädes; header-knappen bara flagga.`
+
+`[5] Figma-länk — setIsFigmaInputOpen — lokal UI — OK.`
+
+`[5] Egna instruktioner (öppna dialog) — setIsInstructionsOpen — vm.setCustomInstructions via textarea — samma state som chat/stream — OK; “Klar” persisterar inget extra (live-edit).`
+
+`[5] Felsökningsvy — setShowStructuredChat — endast `?debug=1` — OK.`
+
+`[5] Mer → Importera — vm.setIsImportModalOpen(true) — modal — OK.`
+
+`[4] Mer → Ladda ner ZIP — `window.open(engineChatBaseUrl(...)/versions/.../download?format=zip)` — beror på engine-route + session; disabled utan chatId/version — rimligt; fel visas som nedladdningsfel i flik, ingen toast i header.`
+
+`[5] Avbryt — cancelActiveGeneration — AbortController + rensa streaming-state — ingen separat API — korrekt för client-stream.`
+
+`[4] Tidigare (`BuilderProjectMenu`) — `getProjects()` → `GET /api/projects` — lista + länkar `?project=` — refresh vid `currentProjectId`; fel rad i dropdown — OK; extra refetch vid projektbyte kan kännas tung.`
+
+`[4] Ny chat — resetToNewChat — router `/builder` + nollställ state + `clearPersistedMessages` — ingen server “stäng chat”; medvetet flöde men kan förvåna om man förväntar sig backend-rensning.`
+
+`[5] Spara — handleSaveProject → ev. `POST /api/projects`, `GET .../files?versionId=`, `POST /api/projects/:id/save` — tydlig toast vid fel; disabled utan chatId.`
+
+`[4] Domän — onDomainSearch: `lastDeployVercelProjectId` ? `setDomainManagerOpen` : `setDomainSearchOpen` — UI öppnas; själva domänsök är annan kod (`/api/domains/check` i deploy-actions) — rimlig branch men två olika vägar.`
+
+`[5] Publicera — onDeployProduction → `handleOpenDeployDialog` — bara dialog; själva deploy är `POST /api/v0/deployments` från dialog — `canDeploy` + `deployDisabledReason` från shell — bra tooltip.`
+
+`[4] Publicerad (ready) / Bygger... — öppnar URL resp. disabled — ingen avbryt-knapp i “Bygger...” i header (ev. frustration om bygge hänger).`
+
+`[5] Logo — onGoHome → handleGoHome — avbryter vid aktiv generering + `router.push("/")` — konsekvent.`
+
+`[5] Logga ut — `logout()` + onGoHome — klient-auth — OK.`
+
+`[3–4] Minimal läge (`compact`) — stora delar av headern göms; “Mer” innehåller Ny chat/Spara/Domän/import — funktion finns kvar; `BuilderProjectMenu` (“Tidigare”) visas inte i compact-header (finns som “Tidigare projekt”-länk i dropdown) — inkonsekvent synlighet vs expanded.`
+
+---
+
+**Sammanfattning:** Inga uppenbart “trasiga” API-kopplingar i headern; största bristerna är **missvisande Anthropic-etikett**, **inställningar som bara följer med nästa generering**, **ZIP/domän utan central felhantering i headern**, och **compact vs full** för projektmeny.
+
+*(Radantal: ~32 punkter + rubriker; håller under 40 rader om man räknar sammanfattningen som en rad.)*
+
+Om du vill att rapporten landar exakt i `reviews/builder-audit-01-header.txt`, säg till i Agent-läge så kan den filen skapas.
+
+[REDACTED]

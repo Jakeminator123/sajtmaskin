@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   RATE_LIMITS,
   checkRateLimit,
@@ -10,8 +10,11 @@ const originalUpstashUrl = process.env.UPSTASH_REDIS_REST_URL;
 const originalUpstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 const originalKvUrl = process.env.KV_REST_API_URL;
 const originalKvToken = process.env.KV_REST_API_TOKEN;
+const originalAllowMemoryProd = process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD;
+const originalTrustForwardedFor = process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR;
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   if (originalUpstashUrl) process.env.UPSTASH_REDIS_REST_URL = originalUpstashUrl;
   else delete process.env.UPSTASH_REDIS_REST_URL;
   if (originalUpstashToken) process.env.UPSTASH_REDIS_REST_TOKEN = originalUpstashToken;
@@ -20,6 +23,10 @@ afterEach(() => {
   else delete process.env.KV_REST_API_URL;
   if (originalKvToken) process.env.KV_REST_API_TOKEN = originalKvToken;
   else delete process.env.KV_REST_API_TOKEN;
+  if (originalAllowMemoryProd) process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD = originalAllowMemoryProd;
+  else delete process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD;
+  if (originalTrustForwardedFor) process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR = originalTrustForwardedFor;
+  else delete process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR;
 });
 
 describe("rateLimit", () => {
@@ -54,6 +61,28 @@ describe("rateLimit", () => {
     const req = new Request("https://example.com", {
       headers: { "x-forwarded-for": "9.9.9.9, 10.0.0.1" },
     });
+    expect(getClientId(req)).toBe("ip:9.9.9.9");
+  });
+
+  it("does not trust x-forwarded-for in production unless explicitly enabled", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    delete process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR;
+
+    const req = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "9.9.9.9, 10.0.0.1" },
+    });
+
+    expect(getClientId(req)).toBe("ip:unknown");
+  });
+
+  it("can explicitly trust x-forwarded-for in production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.SAJTMASKIN_TRUST_X_FORWARDED_FOR = "true";
+
+    const req = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "9.9.9.9, 10.0.0.1" },
+    });
+
     expect(getClientId(req)).toBe("ip:9.9.9.9");
   });
 
@@ -118,5 +147,41 @@ describe("rateLimit", () => {
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get("Retry-After")).toBeTruthy();
     expect(blocked.headers.get("X-RateLimit-Remaining")).toBe("0");
+  });
+
+  it("fails closed in production when distributed rate limiting is not configured", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
+    delete process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD;
+
+    const res = await withRateLimit(
+      new Request("https://example.com"),
+      `unit:prod-missing-redis:${Date.now()}`,
+      async () => new Response("should-not-run", { status: 200 }),
+    );
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("X-RateLimit-Mode")).toBe("unconfigured");
+  });
+
+  it("allows explicit production memory fallback for emergency/dev-like deployments", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    delete process.env.KV_REST_API_URL;
+    delete process.env.KV_REST_API_TOKEN;
+    process.env.SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD = "1";
+
+    const res = await withRateLimit(
+      new Request("https://example.com"),
+      `unit:prod-memory-opt-in:${Date.now()}`,
+      async () => new Response("ok", { status: 200 }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-RateLimit-Mode")).toBe("memory");
   });
 });

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   checkMotionReduceTrap,
+  checkNavigationPlaceholderActions,
+  checkR3FClientBoundary,
   checkUndefinedJsxSymbols,
+  checkUseReducedMotionStub,
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
   suppressValidInPageAnchorNavigationFindings,
@@ -64,6 +67,122 @@ describe("checkMotionReduceTrap", () => {
     const findings = checkMotionReduceTrap([
       { path: "app/globals.css", content: `.bad { /* ${TRAP_CLASS} */ }` },
     ]);
+    expect(findings).toEqual([]);
+  });
+});
+
+describe("checkUseReducedMotionStub", () => {
+  it("flags a useReducedMotion hook whose body is `return {}` (autofix stub shape)", () => {
+    const findings = checkUseReducedMotionStub([
+      {
+        path: "hooks/use-reduced-motion.tsx",
+        content: [
+          "export function useReducedMotion(..._args: unknown[]) {",
+          "  return {};",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("use-reduced-motion-stub");
+    expect(findings[0]?.detail).toContain("hooks/use-reduced-motion.tsx");
+    expect(findings[0]?.detail).toContain("truthy");
+  });
+
+  it("flags a useReducedMotion stub whose body is `return null`", () => {
+    const findings = checkUseReducedMotionStub([
+      {
+        path: "hooks/use-reduced-motion.ts",
+        content: "export function useReducedMotion(): null { return null; }",
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("use-reduced-motion-stub");
+  });
+
+  it("accepts the canonical baseline matchMedia hook", () => {
+    const findings = checkUseReducedMotionStub([
+      {
+        path: "hooks/use-reduced-motion.ts",
+        content: [
+          '"use client";',
+          'import { useEffect, useState } from "react";',
+          'const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";',
+          "export function useReducedMotion(): boolean {",
+          "  const [reduced, setReduced] = useState(false);",
+          "  useEffect(() => {",
+          '    if (typeof window === "undefined") return;',
+          "    const query = window.matchMedia(REDUCED_MOTION_QUERY);",
+          "    setReduced(query.matches);",
+          "  }, []);",
+          "  return reduced;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("accepts a framer-motion re-export wrapper", () => {
+    const findings = checkUseReducedMotionStub([
+      {
+        path: "hooks/use-reduced-motion.tsx",
+        content: [
+          'import { useReducedMotion as useFramerReducedMotion } from "framer-motion";',
+          "export function useReducedMotion() {",
+          "  return useFramerReducedMotion();",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toEqual([]);
+  });
+
+  it("ignores files that do not mention useReducedMotion", () => {
+    const findings = checkUseReducedMotionStub([
+      { path: "components/header.tsx", content: "export function Header() { return null; }" },
+    ]);
+    expect(findings).toEqual([]);
+  });
+});
+
+describe("checkR3FClientBoundary", () => {
+  it("flags React Three Fiber Canvas in files without use client", () => {
+    const findings = checkR3FClientBoundary([
+      {
+        path: "components/scene.tsx",
+        content: [
+          'import { Canvas } from "@react-three/fiber";',
+          "export function Scene() {",
+          "  return <Canvas><mesh /></Canvas>;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("r3f-client-boundary");
+    expect(findings[0]?.detail).toContain("components/scene.tsx");
+  });
+
+  it("accepts R3F Canvas in client components", () => {
+    const findings = checkR3FClientBoundary([
+      {
+        path: "components/scene.tsx",
+        content: [
+          '"use client";',
+          'import { Canvas } from "@react-three/fiber";',
+          "export function Scene() {",
+          "  return <Canvas><mesh /></Canvas>;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
     expect(findings).toEqual([]);
   });
 });
@@ -480,6 +599,33 @@ describe("suppressValidInPageAnchorNavigationFindings", () => {
     );
 
     expect(findings.blocking).toHaveLength(1);
+  });
+});
+
+describe("checkNavigationPlaceholderActions", () => {
+  it("flags placeholder hrefs deterministically", () => {
+    const findings = checkNavigationPlaceholderActions([
+      {
+        path: "components/hero.tsx",
+        content: 'export function Hero(){ return <a href="#">Boka demo</a>; }',
+      },
+    ]);
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.id).toBe("navigation-placeholder-actions");
+    expect(findings[0]?.detail).toContain("components/hero.tsx");
+  });
+
+  it("accepts in-page hash targets when the id exists in the same file", () => {
+    const findings = checkNavigationPlaceholderActions([
+      {
+        path: "app/page.tsx",
+        content:
+          'export default function Page(){ return <main><a href="#menu">Meny</a><section id="menu" /></main>; }',
+      },
+    ]);
+
+    expect(findings).toEqual([]);
   });
 });
 

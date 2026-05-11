@@ -2,6 +2,7 @@ import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { getChatByIdForRequest } from "@/lib/tenant";
 
 export type DeploymentStatus = "pending" | "building" | "ready" | "error" | "cancelled";
 
@@ -69,4 +70,26 @@ export async function setDeploymentDomain(
     .update(deployments)
     .set({ domain, updatedAt: new Date() })
     .where(eq(deployments.id, deploymentId));
+}
+
+export async function setDeploymentDomainForRequest(
+  req: Request,
+  deploymentId: string,
+  domain: string,
+): Promise<boolean> {
+  const [deployment] = await db
+    .select({ chatId: deployments.chatId })
+    .from(deployments)
+    .where(eq(deployments.id, deploymentId))
+    .limit(1);
+  if (!deployment) return false;
+
+  const chat = await getChatByIdForRequest(req, deployment.chatId);
+  if (!chat) return false;
+
+  const result = await db
+    .update(deployments)
+    .set({ domain, updatedAt: new Date() })
+    .where(eq(deployments.id, deploymentId));
+  return (result.rowCount ?? 0) > 0;
 }

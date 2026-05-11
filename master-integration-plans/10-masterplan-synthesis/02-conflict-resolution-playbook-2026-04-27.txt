@@ -1,0 +1,32 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 02-conflict-resolution-playbook
+Date: 2026-04-27
+
+## Inputs Read
+- `01-git-delta-scope/02-conflict-forecast`, `05-port-ours-policy`, `04-merge-order`, `07-risk-map`, `04-builder-ui-state/01-builder-shell`, `04/07-header-launch`, `05/08-csp-analytics-runtime`, `08/01-design-tokens`, `08/04-builder-chrome`.
+
+## Synthesis
+Konflikter är oftast **semantiska kedjor** (stream ↔ lib ↔ hooks), inte “en markör per fil”. **Aldrig ren `theirs` på `BuilderShellContent` eller blint `theirs` på `globals.css`.** Nya master-only ytor (t.ex. `SeoOptInPanel`, `resolve-seo`) integreras som **separat** wiring efter att shell + deploy-409-kedja bevarats där så anges.
+
+## Ordered Plan
+1. Före merge: commit/stash enligt `01/04`.
+2. Efter merge: tre-vägsdiff: båda stream-routes, `create-chat-stream-post` / `chat-message-stream-post`, `stream-handlers` → `BuilderShellContent`.
+3. `globals.css` + `tailwind.config.cjs`: **manual** — token **ours**, struktur/importer från master där ofarligt (`08/01`).
+4. Deploy/SEO: **ours** på 409/toast/`deployReadiness`; **ta in** master `SeoOptInPanel` / `resolve-seo` när sida-vid-sida; `next`/`layout`/`proxy` + `vercel-insights` — manual CSP/CORS/nonce.
+5. Verifiera med stream-tester + bygg; coexistence vid manuell rök.
+
+## Acceptance Criteria
+- Stream: master libs körbara med lokal route-WIP där så valts; inga hopp i SSE utan uppdaterad klient.
+- `globals.css`: `:root` / legacy-alias / `--code-section-*` / reduced-motion oförstörda.
+- Deploy UI: samma användarupplevelse för precheck/409 som lokala intentionen.
+
+## Risks / Mitigations
+- Ren “take-theirs” i shell tappar wizard/help — **förbjudet** enligt policy; manual merge.
+- `next`+`proxy` förenklad merge tappar CSP i prod — egen smoke (`05/08`, `09/03`).
+
+## Final Recommendations — filpolicy (kort)
+| Fil | Policy |
+|-----|--------|
+| `BuilderShellContent.tsx` | Manual, bas **ours**; plocka nya `vm.*`/events selektivt. |
+| `src/app/globals.css` | Manual; token ours, @import/@theme från master försiktigt. |
+| `.../chats/.../stream/route.ts` + `lib/api/engine/chats/*` | Manual; ev. **theirs** på upstream-owned **lib** om lokal diff bara WIP, sedan reapply route. |
+| `useBuilderDeployActions`, `BuilderHeader`, `SeoOptInPanel`, `resolve-seo`, `next.config`, `src/proxy.ts`, `layout`, `vercel-insights` | Manual; nya filer från master = take-theirs om färska; beteendekedja 409/ready från ours. |

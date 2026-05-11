@@ -599,6 +599,48 @@ def describe_workload_model_resolution(
     )
 
 
+def load_latest_prompt_size_metrics(repo_root: Path) -> dict[str, Any] | None:
+    """Read `data/prompt-dumps/orchestration-dynamic/generation-input-package.json`
+    and return its `promptSize` payload along with light context (lineageHash,
+    scaffoldId, variantId, mtime).
+
+    Returns ``None`` when the dump file does not exist or is unreadable.
+    The dump only exists when ``SAJTMASKIN_PROMPT_DUMP=true`` was set during
+    the most recent generation; backoffice pages should fall back gracefully.
+
+    Schema is intentionally narrow — we only surface the bytes/tokens
+    summary, not the entire generation-input-package, because the latter
+    can be very large and is already inspectable via the file system.
+    """
+    dump_path = (
+        repo_root
+        / "data"
+        / "prompt-dumps"
+        / "orchestration-dynamic"
+        / "generation-input-package.json"
+    )
+    if not dump_path.is_file():
+        return None
+    payload = _load_json_file(dump_path)
+    if not isinstance(payload, dict):
+        return None
+    prompt_size = payload.get("promptSize")
+    if not isinstance(prompt_size, dict):
+        return None
+    try:
+        mtime = datetime.fromtimestamp(dump_path.stat().st_mtime, tz=timezone.utc)
+    except OSError:
+        mtime = None
+    return {
+        "promptSize": prompt_size,
+        "lineageHash": payload.get("lineageHash"),
+        "scaffoldId": payload.get("scaffoldId"),
+        "variantId": payload.get("variantId"),
+        "dumpPath": dump_path.relative_to(repo_root).as_posix(),
+        "dumpedAtUtc": mtime.isoformat() if mtime else None,
+    }
+
+
 PROMPT_DUMP_SPECS: dict[str, dict[str, Any]] = {
     "orchestration-dynamic": {
         "label": "Orchestration dynamic",

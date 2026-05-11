@@ -1,0 +1,17 @@
+PreviewPanelComposer — palette + DnD + overlay
+
+Helhet: 3/5 — Tydlig composer-modell; svag som enhetlig Squarespace-inline.
+
+1. Palett — 200px aside, kategorier, beskrivningar, aria “Sajtblock”. 4/5 — “Composer” på engelska i svensk UI.
+
+2. DnD — draggable copy; disabled utan URL/placement busy; ingen tap-to-add/tangentbord här. 3/5 — desktop-first.
+
+3. Overlay — primary wash, dashed line, popover-label; tom zon → top/bottom fallback. 4/5
+
+4. Hint-kort nederst — pointer-events, kan skymma preview tills dismissed; duplicerad “Composer”-branding. 3/5
+
+5. Aktivering — Verktyg → Composer; exklusivt mot Redigera/Inspektera. 3/5 — gömd i meny.
+
+6. vs Squarespace — Inline-edit är EditModeOverlay/annat; composer = separat läge + overlay. 2/5 enhetlighet.
+
+Prioritet: Minska hint-kortets intrång; touch-path; språk “Composer”.

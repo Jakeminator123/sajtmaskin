@@ -1,0 +1,54 @@
+Agent 4/8 — CHAT INTERFACE (READ-ONLY REVIEW)
+Date: 2026-04-15
+Scope: src/components/builder/ChatInterface.tsx, MessageList.tsx, FloatingChatBox.tsx
+Criteria: Apple-minimalist; CSS vars / design tokens; rounded bubbles; ~150–200ms motion; orange CTAs; Swedish copy; collapsed tool calls; ghost action buttons.
+
+SCORING KEY: 5 = excellent match · 4 = strong with minor gaps · 3 = acceptable · 2 = weak · 1 = fails
+
+────────────────────────────────────────────────────────────────
+CHECKLIST SCORES
+────────────────────────────────────────────────────────────────
+
+1. Message bubbles — 4/5
+   - MessageList uses generous rounded-[1.25rem] containers, subtle border + shadow via hsl(var(--border)/…), user messages tinted with primary/20 + primary/[0.06], assistant uses card/backdrop-blur — reads as calm, iMessage-adjacent without clutter.
+   - Gap: nested structured UI still surfaces English in the same message surface (e.g. “Plan actions” in plan footer), which breaks Swedish-copy consistency for assistant content.
+
+2. Input area — 4/5
+   - ChatInterface wraps ai-elements PromptInput in tokenized surfaces (bg-card/90, border-border/45, ring-border/25), focus-within ring-primary/22, transitions use var(--transition-base,200ms) / var(--transition-fast,150ms).
+   - Placeholders and aria-labels are Swedish where defined; progressive disclosure (Plus popover, help, Figma block) fits minimalist intent though power-user density remains high when showAdvancedControls is on.
+
+3. Streaming state — 4/5
+   - Assistant streaming: Streamdown with isAnimating + optional block caret; reasoning uses Reasoning + ReasoningTrigger; empty streaming without text shows StreamingTypingIndicator (three dots with staggered delay).
+   - “Förbereder…” row uses Loader2 + motion-safe:animate-pulse; send button swaps to spinner when isSending.
+   - Gap: typing dots use fixed animationDuration "1.35s" and pulse timing not aligned to the 150–200ms motion guideline (more of a slow ambient pulse than snappy UI motion).
+
+4. Tool calls collapsed — 4/5
+   - Non-structured path wraps tooling in Collapsible with “Steg · N”, defaultOpen when pending reply targets that message — good collapse-by-default with auto-expand when input is needed.
+   - CompactToolParts / AgentLogCard live inside collapsible content — avoids raw tool dump in the main bubble.
+   - Gap: when showStructuredParts is true, behavior differs (StructuredToolParts); scope files don’t guarantee collapse in that mode.
+
+5. Action buttons — 3/5
+   - Toolbar pattern: circular icon buttons with muted-foreground, hover:bg-muted/55 — matches “ghost” icon treatment; PromptInputSubmit is rounded-full primary (orange when --primary is brand orange) with short transform/shadow transition — strong send CTA.
+   - Gaps: pending-reply modal and floating “Svar krävs” use Button variant="outline" / border-border — secondary, not orange-forward; answer-suggestion chips mix primary tint and border-muted patterns — coherent but not uniformly “orange CTA vs ghost” everywhere.
+
+6. Scroll behavior — 5/5
+   - Conversation uses scroll-smooth + scrollbar-thin; ConversationScrollButton provides explicit jump-to-bottom affordance — clear, accessible scroll model for long threads.
+
+7. Picker popups — 4/5
+   - ChatInterface: PopoverContent uses rounded-xl, border-border/50, shadow-lg; tool/help/attachment menus are compact lists — consistent with tokenized chrome.
+   - UnifiedElementPicker is mounted when pickerTab is set — actual gallery UX is mostly outside these three files; within scope, triggers and popover shells are minimal and rounded.
+
+────────────────────────────────────────────────────────────────
+CRITERIA CROSS-CHECK
+────────────────────────────────────────────────────────────────
+- Apple-minimalist: Strong empty states and bubble chrome; input can feel busy with all advanced affordances visible in sequence.
+- CSS variables / tokens: Heavy use of border-border, bg-card, primary, muted-foreground, hsl(var(--…)); no stray hex/sky/indigo in scoped files.
+- Rounded bubbles: Yes (1.25rem message shells; chips/buttons rounded-xl/2xl).
+- 150–200ms motion: Present on many interactions; streaming dot animation is slower/ambient.
+- Orange CTAs: Primary submit and primary-accent hints where intended; some flows use outline/ghost instead of orange emphasis.
+- Swedish copy: Mostly Swedish; notable exception “Plan actions” in MessageList structured plan footer.
+- Collapse tool calls: Yes for default assistant tooling path.
+- Ghost action buttons: Icon row largely ghost-like; primary send stands out as intended.
+
+────────────────────────────────────────────────────────────────
+AVERAGE (checklist 1–7): 4.0 / 5

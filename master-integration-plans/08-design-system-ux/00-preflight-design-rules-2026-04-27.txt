@@ -1,0 +1,21 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 00 preflight
+Date: 2026-04-27
+
+## Designregler (repo-kanon)
+
+| Regel | Källa |
+|--------|--------|
+| **Färger** | `redesign-autopilot.mdc` + brandbook: off-white `#F7F6F3`, near-black/CTA `#0F0F0F`, sand `#E6E1D8`, stone `#EFEDE7` — **ingen** navy/orange som primär yta. |
+| **Token** | CSS-variabler / Tailwind som mappar mot `hsl(var(--…))` — **inte** hårdkodade hex i nya ytor. |
+| **Kod** | Integrera **master backend/features** utan att byta **API/dataflöde** enligt samexistens- och pipeline-regler. |
+| **Copy** | Minimal svensk text; enhetlig ton där möjligt. |
+| **layout-tema** | `layout.tsx` tvingar ofta ljust läge (script) — master som återinför dark/system kräver medveten designreview. |
+| **Legacy-klasser** | `globals.css` kan mappa `brand-navy` / `brand-orange` → ink/sten (visuell av-navy) — **merge:** behåll token-intent, inte gamla regeldokument som motsäger brandbook. |
+
+## Skill vs repo
+
+- Skillen nämner “navy/orange/white” i äldre mönster; **faktisk produktmål** = brandbook ovan. Vid konflikt: följ `globals.css` + `redesign-autopilot`, uppdatera `frontend-redesign.mdc` om det divergerar.
+
+## Output-mapp
+
+`master-integration-plans/08-design-system-ux/*-2026-04-27.txt` + `00-design-preservation-checklist-2026-04-27.txt`.

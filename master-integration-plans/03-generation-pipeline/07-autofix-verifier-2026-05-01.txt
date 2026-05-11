@@ -1,0 +1,50 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 07-autofix-verifier
+Date: 2026-05-01
+
+## Master Pipeline Changes
+- Mechanical autofix lanes and registry.
+- LLM syntax fix loop with max passes from manifest.
+- Server/quality-gate repair loop runs mechanical autofix after LLM passes.
+- Verifier phase can run LLM repair gate and rerun verifier behind flag.
+- Structured verifier findings include blocking/quality and forced-blocking IDs.
+- Quality gate has designPreview and integrationsBuild tracks.
+- Server repair policy supports timeout/noop/contentChanged/gate-only early-stop.
+
+## Local Behaviors To Preserve
+- Stream fields for verifier blocking findings, rejected shrinks, and quality-gate results.
+- Findings-to-fixer mapping and required file extraction.
+- `alreadyMechanicallyFixed` to avoid duplicate work.
+- F2/F3 quality gate and tier3 SDK guard alignment.
+
+## Merge/Port Plan
+- Merge `autofix/` before repair/verifier code that references fixer IDs.
+- Merge verifier pass/phase/tests together.
+- Merge quality gate, server verify, repair loop, and server repair policy together.
+- Validate AI model manifest repair policies and quality gate tiers.
+
+## Frontend Wiring / UI Surface Needed
+- Continue surfacing blocking verifier findings distinctly from advisory findings.
+- Avoid stale “Fel” state after rerun/fix success.
+- Keep `useAutoFix`, readiness, and post-checks aligned with new backend error classes.
+
+## Exact LLM Implementation Instructions
+- Keep structured verifier schema strict.
+- Always run mechanical normalization after LLM fixes before the next validation pass.
+- Respect syntax max passes and fix budget.
+- Preserve server repair max passes and timeout/early-stop logic.
+
+## Regression Risks
+- Dead repair loop or false no-improvement due to contentChanged/gate signals.
+- Optimistic UI clearing blockers without rerun.
+- Wrong design vs integrations quality gate lane.
+- Forced-blocking IDs drift from prompt/catalog.
+
+## Required Tests
+- Autofix tests including validate-and-fix and import-validator.
+- Verifier pass tests.
+- Server verify/repair policy tests.
+- Manual stream with verifier block and quality-gate fail.
+
+## Open Questions
+- Should product-postcheck become the sole post-generation check owner?
+- Should verifier rerun/repair timeout budgets be harmonized?

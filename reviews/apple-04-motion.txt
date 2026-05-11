@@ -1,0 +1,18 @@
+apple-04-motion — Sajtmaskin builder (src/components/builder/**, src/app/builder/**)
+
+FINDINGS
+- Shell panels: motion-safe:duration-200 resize/bg — good Apple band (BuilderShellContent.tsx).
+- Wizard: motion-safe:duration-200 + ease-out — aligned (IntakeWizard.tsx).
+- Preview: Chrome ~150ms; Frame overlay 200ms vs max-width 300ms — panel vs inner chrome skew (PreviewPanelChrome / PreviewPanelFrame).
+- Generation overlay: opacity 300ms, animate-in 300ms, progress width 500ms — hero tempo vs bar slow (GenerationProgress.tsx).
+- Long tails: NeedsAnalysisProgress 500ms; ScrapeProgressBar 500/700; Onboarding/Thinking 300ms — long fade risk vs 150–250ms target.
+- Drift: many transition-colors/transition-all without explicit duration/easing.
+- Bouncy: MessageList animate-bounce typing dot; ModeSelector hover -translate-y + shadow — playful vs Apple calm.
+- BuilderDetailsDrawer Sheet timing in ui/sheet — likely mismatch with local 200ms shell.
+
+PROPOSE (one system)
+- Curve: cubic-bezier(0.25, 0.1, 0.25, 1) — decelerate into rest (Tailwind ease-out).
+- Duration: 150ms hover/focus, 200ms default UI, 250ms large layout/sheet only. Ban >250ms except true data waits.
+
+SCORES (1–5)
+Tempo consistency: 2 | Easing discipline: 2 | motion-safe / reduce: 4 | Panel vs overlay unity: 2 | Overall calm: 3

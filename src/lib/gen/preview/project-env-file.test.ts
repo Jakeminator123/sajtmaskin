@@ -17,7 +17,7 @@ describe("buildProjectEnvFileContents", () => {
       generatedEnvLocal: null,
     });
     expect(body).toContain("F2 / fidelity 2");
-    expect(body).toContain('Bygg nu');
+    expect(body).toContain("Bygg integrationer");
     expect(body).toContain("# ── Tier-3 placeholders");
     expect(body).toContain("# ── Säkra placeholders");
     expect(body).toContain("STRIPE_SECRET_KEY=");

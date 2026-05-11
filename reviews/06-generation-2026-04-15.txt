@@ -1,0 +1,51 @@
+AGENT 6/8 — GENERATION OVERLAYS (READ-ONLY REVIEW)
+Date: 2026-04-15
+Scope: GenerationProgress.tsx, ThinkingOverlay.tsx, GenerationSummary.tsx
+Criteria: Apple-minimalist; CSS vars / design tokens; calm UI; Swedish short copy; restrained animation.
+
+FILES TOUCHED (review only)
+- src/components/builder/preview-panel/GenerationProgress.tsx
+- src/components/builder/ThinkingOverlay.tsx
+- src/components/builder/GenerationSummary.tsx
+
+---
+
+CHECKLIST SCORES (1 = weak, 5 = strong)
+
+1. Progress bar — 4/5
+   Strengths: Thin track (`h-1.5`), rounded-full, fill uses `bg-primary` with a restrained `transition-all duration-500`, container uses `border-border`, `bg-card`, `text-foreground` / `bg-muted` — aligned with token-based theming. Phase strip gives at-a-glance position without heavy chrome.
+   Gaps: Very large numeric percentage (`text-6xl`) reads more “dashboard” than “calm Apple wait state”; active phase segment uses `animate-pulse`, which adds perpetual motion. Time-eased progress vs. discrete phases can feel slightly uncoupled from real work (acceptable UX pattern but not maximally “honest” minimal).
+
+2. Thinking overlay — 3/5
+   Strengths: Bottom placement, `pointer-events-none`, simple row with `Loader2` + short label “AI genererar...”, opacity fade between states is subtle.
+   Gaps: Comment and behavior position this as “engaging” marketing copy; `FACTS` rotates every 4s through long product sentences (brand names + em dashes). That conflicts with a minimalist, low-copy loading state and increases cognitive load during generation. `animate-spin` on the icon is standard but still constant motion.
+
+3. Generation summary — 3/5
+   Strengths: Clear information architecture (prose vs. file list vs. raw toggle); `simplified` branch uses `bg-card`, `text-foreground`, `text-primary` / `Loader2` consistently with the broader system.
+   Gaps: Non-simplified paths rely heavily on hardcoded Tailwind palette classes (`bg-zinc-800`, `text-zinc-100`, `border-zinc-700`, `emerald-*`, and `langBadge` with `blue/sky/pink/amber/zinc`). That diverges from “CSS variables only” / single token story and from a navy/orange calm palette. Streaming header uses `animate-ping` plus `animate-spin` together — visually busy for a summary card.
+
+4. Animation noise — 3/5
+   GenerationProgress: interval tick (400ms), tip crossfade (300ms) every 6s, bar transition 500ms, phase dot `animate-pulse`. ThinkingOverlay: 4s rotation + fade, perpetual spin. GenerationSummary: spin, ping, possible streaming updates. Individually reasonable; stacked across surfaces they add up to more motion and churn than a strict “calm, minimal” bar would allow.
+
+5. Phase transitions — 3/5
+   Strengths: `PHASE_CONFIG` maps phases to label, nominal progress, and tip; `orderedPhases` gives a compact stepper when `phase` is set.
+   Gaps: `orderedPhases` lists only brief → scaffold → generation → autofix → verifier → preview; phases like `validate_syntax`, `parse_merge_preflight`, and `done` exist in `PHASE_CONFIG` but do not appear as steps, so the strip can disagree with the textual label during late pipeline stages. Blending `timeProgress` with phase floors/ceilings is smooth but not always legible as discrete “transitions.”
+
+6. Copy quality — 3/5
+   Strengths: Swedish throughout; phase labels are short and task-oriented (“Genererar kod”, “Startar preview”). Simplified streaming strings are user-facing and clear.
+   Gaps: Phase tips and `FALLBACK_TIPS` are often long and somewhat promotional; “LLM:en” and multi-clause sentences are more technical/marketing than “short Swedish UI copy.” ThinkingOverlay facts read like onboarding slides, not overlay chrome. Pro-mode streaming notice is dense; simplified notice is one long sentence — both could be tighter for minimalist rules.
+
+---
+
+CROSS-CUTTING NOTES
+- Token use: GenerationProgress (main card) and GenerationSummary simplified mode lean on semantic Tailwind tokens; GenerationSummary full mode and `langBadge` introduce many fixed zinc/emerald/sky/blue accents — weakest fit for “CSS vars only.”
+- Consistency: Emerald/green success language in GenerationSummary vs. orange `primary` elsewhere may feel like two accent systems in one flow.
+- Accessibility: ThinkingOverlay is `pointer-events-none` (fine for overlay); phase strip `title` attributes help. Contrast on zinc stacks is typical dark-UI but not evaluated against WCAG here.
+
+---
+
+AVERAGED SCORE
+(4 + 3 + 3 + 3 + 3 + 3) / 6 ≈ 3.17 → report as ~3.2/5 overall for the stated minimalist/token/calm criteria.
+
+ONE-PARAGRAPH SUMMARY (for parent agent)
+Generation overlays split between token-aligned, calmer pieces (GenerationProgress card structure; simplified GenerationSummary) and noisier or less token-faithful ones (ThinkingOverlay’s rotating marketing facts; GenerationSummary’s zinc/emerald stack, rainbow language badges, and ping+spin). The progress bar and phase row are visually clear (avg ~4 on that axis) but the giant percentage and pulsing active dot add flair; animation and copy churn across tips, facts, and long streaming sentences pull the set toward “engaging” rather than Apple-sparse, yielding an approximate average score of 3.2/5 against CSS-var discipline, calm UI, short Swedish text, and restrained motion.

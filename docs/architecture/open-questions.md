@@ -42,9 +42,9 @@ Levande dokument för **antaganden** vi gör i koden eller pratet om systemet, m
 
 ## Aktiva frågor
 
-### 1. ❌ Redis cache — vet vi ens om den körs?
+### 1. 🟡 Redis cache verifierad — observatory write-bugg kvar
 
-**Antagande:** `useRedisCache` styr brief-cache + rate-limit + preview-session-store. Vi var osäkra på om den var no-op:ad i dev.
+**Tidigare antagande:** `useRedisCache` styr brief-cache + rate-limit + preview-session-store. Vi var osäkra på om den var no-op:ad i dev.
 
 **Verifierat 2026-04-23 (chatId `b71dafb3`):** Redis körs aktivt mot Upstash. Lazy-init när någon route faktiskt behöver den (inte vid server-boot).
 
@@ -78,7 +78,7 @@ Levande dokument för **antaganden** vi gör i koden eller pratet om systemet, m
 
 **Tekniska kandidater:**
 - WebContainers (StackBlitz tech) — Node.js i browser via WASM
-- Bolt-stil sandbox-iframe med pre-built bundles
+- Bolt-stil preview-iframe med pre-built bundles
 - esbuild WASM in-browser bundling
 
 **Hur integrera utan att bryta nuvarande:**
@@ -189,6 +189,8 @@ Sedan valde follow-up `warm-local` istället. Sajten har därmed olika look mell
 - en `javascript:` URL (sällan)
 
 CSP är `report-only` så det loggas men blockas inte. Latent bugg: om CSP byter till enforcing-mode kommer detta att blockera den iframen.
+
+**Prod-logg-hygien 2026-04-30:** `/api/csp-report` filtrerar nu report-only `script-src`/`blocked-uri: eval`-brus i produktion. Övriga CSP-rapporter loggas fortsatt med sammanfattning. Detta är inte samma sak som att tillåta `'unsafe-eval'` i enforcing-läge.
 
 **Troliga kandidater:**
 - Hidden `<iframe>` för clipboard/print/download i builder-UI
@@ -387,6 +389,8 @@ LLM:n tolkade scaffoldens `siteKind: "marketing"` + `structureProfile: "one-page
 ### 13. 💡 UX-förslag: byt "Promoted" → "Fidelity 2" / "Fidelity 3"
 
 **Användarens observation 2026-04-24:** Badge-texten "Promoted" är förvirrande. Den signalerar "denna är live-preview-versionen", inte "F3 verifierat". Användare antar att "Promoted" = "klar för deploy", men det stämmer bara om F3 också grönade.
+
+**Status 2026-05-01:** Delvis åtgärdat i UI-copy: `VersionHistory` visar inte längre `Promoted` utan svensk label `Publicerad`. Förslaget att byta till `Fidelity 2/3` är fortfarande ett produktbeslut och inte gjort i copy-passet.
 
 **Förslag:**
 - `Fidelity 2` — preview bootar, sidan renderar, F2-checks gröna

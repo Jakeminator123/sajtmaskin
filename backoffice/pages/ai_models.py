@@ -311,12 +311,6 @@ def _render_prompt_orchestration(man_path, manifest: dict[str, Any]) -> None:
         step=5000,
         key="po_max_ai_chat",
     )
-    max_ai_spec = st.number_input(
-        "Max längd: prompt till spec-first helper",
-        value=int((hard_caps.get("maxAiSpecPromptChars") or {}).get("default", 800000)),
-        step=5000,
-        key="po_max_ai_spec",
-    )
     c1, c2, c3 = st.columns(3)
     with c1:
         soft_freeform = st.number_input(
@@ -385,7 +379,6 @@ def _render_prompt_orchestration(man_path, manifest: dict[str, Any]) -> None:
         hard_caps.setdefault("maxPromptHandoffChars", {})["default"] = int(max_handoff)
         hard_caps.setdefault("maxAiBriefPromptChars", {})["default"] = int(max_brief_prompt)
         hard_caps.setdefault("maxAiChatMessageChars", {})["default"] = int(max_ai_chat)
-        hard_caps.setdefault("maxAiSpecPromptChars", {})["default"] = int(max_ai_spec)
         soft_targets.setdefault("freeformChars", {})["default"] = int(soft_freeform)
         soft_targets.setdefault("templateChars", {})["default"] = int(soft_template)
         soft_targets.setdefault("followupChars", {})["default"] = int(soft_followup)

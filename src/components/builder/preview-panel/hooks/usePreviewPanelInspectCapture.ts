@@ -119,10 +119,6 @@ export function usePreviewPanelInspectCapture(options: {
           ? ` → ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}`
           : "";
         setInspectStatus(`<${el.tag}>${el.text ? ` "${el.text.slice(0, 50)}"` : ""}${matchHint}`);
-        toast.success(
-          `Valde <${el.tag}>${codeMatch ? ` i ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}` : ""}`,
-        );
-
         dispatchInspectCaptureEvent({
           id: captureId,
           demoUrl: previewUrl,
@@ -144,6 +140,9 @@ export function usePreviewPanelInspectCapture(options: {
           },
           source: "local",
         });
+        toast.success(
+          `Punkt tillagd i chatten: <${el.tag}>${codeMatch ? ` i ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}` : ""}`,
+        );
 
         setIsCapturePending(false);
         return;
@@ -218,14 +217,6 @@ export function usePreviewPanelInspectCapture(options: {
               (el.reasoning ? `\n${el.reasoning}` : ""),
           );
 
-          if (registryHit) {
-            toast.success(`AI hittade <${el.tag}> i ${el.filePath}:${el.lineNumber}`);
-          } else {
-            toast(
-              `AI-gissning: <${el.tag}> i ${el.filePath}:${el.lineNumber} (${confLabel} konfidens)`,
-            );
-          }
-
           dispatchInspectCaptureEvent({
             id: captureId,
             demoUrl: previewUrl,
@@ -247,6 +238,13 @@ export function usePreviewPanelInspectCapture(options: {
             },
             source: "local",
           });
+          if (registryHit) {
+            toast.success(`Punkt tillagd i chatten: AI hittade <${el.tag}> i ${el.filePath}:${el.lineNumber}`);
+          } else {
+            toast(
+              `Punkt tillagd i chatten: AI-gissning <${el.tag}> i ${el.filePath}:${el.lineNumber} (${confLabel} konfidens)`,
+            );
+          }
         } catch {
           toast.error("Nätverksfel vid AI-matchning.");
           setInspectStatus("AI-matchning misslyckades (nätverksfel).");

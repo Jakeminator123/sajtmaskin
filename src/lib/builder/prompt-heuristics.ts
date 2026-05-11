@@ -6,8 +6,10 @@
  *
  * Consumers:
  * - prompt-assist/                 fallback addendum keyword extraction
- * - server-auto-brief-policy.ts   "looks structured" check
  * - promptOrchestration.ts        complexity analysis / design-heavy detection
+ *
+ * Note: server-side Deep Brief no longer skips structured website prompts;
+ * `server-auto-brief-policy.ts` intentionally does not depend on these tokens.
  */
 
 import tokensJson from "@/../config/prompt-heuristic-tokens.json";

@@ -1,0 +1,58 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 05-credits-payments
+Date: 2026-05-01
+
+## Master Changes To Preserve
+- `POST /api/stripe/checkout` body `{ packageId }`, response `{ success, sessionId?, url?, error? }`.
+- Stripe webhook idempotency via `stripe_session_id` and metadata `userId`, `packageId`, `diamonds`.
+- `prepareCredits` error shape: auth, insufficient credits, required/current fields, 401/400/402.
+- Pricing actions and model tiers in `src/lib/credits/pricing.ts`.
+- Package definitions in `src/lib/stripe.ts`.
+- User balance via `/api/auth/me` field `diamonds`.
+
+## Frontend Consumers
+- `src/app/buy-credits/page.tsx`
+- Landing pricing/chat data
+- Nav/header links to `/buy-credits`
+- `src/proxy.ts` auth protection
+- Audit UI cost handling
+- Deploy copy in `DeployNameDialog`
+- Chat helpers for 402
+- Auth/register credit copy
+
+## Contract Risks
+- Buy-credits page has duplicate package definitions that can drift from `lib/stripe.ts`.
+- Pricing copy can drift from actual `getCreditCost` values.
+- Checkout copy mentions Apple Pay/Google Pay while server only lists card unless Stripe handles wallets implicitly.
+- 429 checkout has no dedicated UI handling.
+- Webhook latency can make balance stale after success redirect.
+
+## Required Adaptations
+- Use one package source for buy-credits and landing pricing.
+- Sync “what it costs” copy with `pricing.ts` and model catalog.
+- Add 429 handling with `retryAfter`.
+- If checkout/payment methods change in master, align frontend copy.
+
+## New Buttons / Choices / UI States
+- No new required backend commands.
+- Existing states: logged-in vs guest buy buttons, loading per package, success/cancel banners, AuthModal.
+- If master adds packages/customer portal, add cards or a compact portal link.
+
+## Exact LLM Implementation Instructions
+- Do not change webhook idempotency or session metadata without migration plan.
+- Drive UI package IDs/prices from canonical server package data.
+- Preserve `prepareCredits` error JSON for chat and stream consumers.
+- Run stream tests that mock credits after any pricing/credit changes.
+
+## Tests / Runtime Checks
+- Engine stream route tests for credits.
+- Template route credits tests.
+- Manual Stripe test checkout per package.
+- Webhook delivery and balance refresh via `/api/auth/me`.
+- Guest first-generation behavior.
+
+## Do Not Break
+- Checkout metadata: `userId`, `packageId`, `diamonds`.
+- Success/cancel URLs.
+- `prepareCredits` statuses and JSON fields.
+- Unique webhook transaction idempotency.
+- `diamonds` as frontend credit balance.

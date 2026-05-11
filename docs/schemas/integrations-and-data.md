@@ -70,7 +70,7 @@ These tables are used by the own-engine build path and are fully integrated:
 
 - `engine_chats` — chat sessions, scaffold choice, model
 - `engine_messages` — message history (assistant rows may carry `thinking` text, see [chat-message-ui-parts.md](./chat-message-ui-parts.md))
-- `engine_versions` — generated code (`files_json`), release state, optional **`preview_url`** (kanonisk live-preview för own-engine när preview-session lyckats; tom tills dess). HTTP-API för own-engine annonserar inte shim som primär `demoUrl`; shim finns som **`legacyShimPreviewUrl`** vid behov (2026-03-30) — se [fas3-preview-and-deploy.md](../architecture/fas3-preview-and-deploy.md).
+- `engine_versions` — generated code (`files_json`), release state, optional **`preview_url`** (kanonisk live-preview för own-engine när preview-session lyckats; tom tills dess). HTTP-API för own-engine annonserar inte shim som primär `demoUrl` och bär inget `legacyShimPreviewUrl`-fält; legacy-shim nås bara via flaggade `/api/preview-render`-länkar vid diagnostik — se [fas3-preview-and-deploy.md](../architecture/fas3-preview-and-deploy.md).
 - `engine_generation_logs` — token usage, duration, errors
 - `engine_version_error_logs` — per-version error diagnostics
 
@@ -80,11 +80,17 @@ These tables are used by the own-engine build path and are fully integrated:
 - `meta.projectEnvVars` — project-specific env vars (encrypted when sensitive)
 - Used by both own-engine (after save) and v0-fallback
 
+### Company profiles
+
+- `company_profiles` — structured company/brand profile data linked to `app_projects` through `project_id`.
+- API access is owner-scoped through `userId` / `sessionId`: list, search and `companyName` lookup only return profiles attached to projects owned by the current scope.
+- PATCH linking verifies both the target project ownership and, when already attached, the profile's current project ownership before relinking.
+
 **Lagringsmodell (användarprojekt):** Kanonisk kod per version ligger i **`engine_versions.files_json`** (versionerad, lämplig för historik och rebuild). `project_data` speglar ofta samma sajt i ett app-projekt-format (t.ex. MCP-flöden). Stora monorepon eller binärt innehåll lagras inte som git i databasen — `files_json`-storlek och Postgres-kostnad är avvägningar; för tung media använd blob/CDN. Se även [ENV.md](../ENV.md) för Supabase/infra.
 
 ### Preview vs persisted URL
 
-- **Shim / legacy:** ingen egen DB-kolumn för shim; `/api/preview-render` används via **`legacyShimPreviewUrl`** i API när det behövs. `project_data.demo_url` kan fortfarande bära äldre värden i vissa flöden.
+- **Shim / legacy:** ingen egen DB-kolumn och inget own-engine payload-fält för shim; `/api/preview-render` är en flaggad diagnostik-/compat-route. `project_data.demo_url` kan fortfarande bära äldre värden i vissa legacyflöden.
 - **Tier-2 preview (Fidelity 2):** `engine_versions.preview_url` när servern sparat lyckad preview-start — [fas3-preview-and-deploy.md](../architecture/fas3-preview-and-deploy.md).
 
 ## Request validation

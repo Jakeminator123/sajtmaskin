@@ -1,0 +1,25 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 04-database-client
+Date: 2026-04-27
+
+## Master Changes
+- Kör `git diff HEAD...origin/master -- scripts/db src/lib/db drizzle` — vissa MI-planer nämnde `run-migrations.test.ts` / migrationsskript; inga garantier utan färsk diff.
+- Produkt-ORM: **Drizzle** (`src/lib/db/schema.ts`, `drizzle.config.ts`, `src/lib/db/client.ts`, `pg` Pool, `resolveConfiguredDbEnv`).
+
+## Local Changes / Dirty Files
+- Ingen automatisk status här — kör `git status` om du rört `migrations/` eller `drizzle/`.
+
+## Compatibility Risks
+- Två spår: `drizzle-kit generate` → `./drizzle` **och** `scripts/db/run-migrations.ts` kör **alla** SQL under `src/lib/db/migrations/` sorterat — ordning och idempotens måste hållas.
+- `POSTGRES_URL` vs pool (`POSTGRES_POOL_MAX`, `POSTGRES_POOL_IDLE_TIMEOUT_MS`) — se ENV.md; prod vs dev target.
+
+## Files To Update
+- `src/lib/db/schema.ts`, `drizzle/meta/`, `src/lib/db/migrations/*.sql`, `scripts/db/run-migrations.ts`, `drizzle.config.ts`.
+- Tester: `scripts/db/run-migrations.test.ts`, `src/lib/db/schema-drift.test.ts` om diff rör dem.
+
+## Verification Commands
+- `npm run db:check` / `db:health` (om i package.json), `npm run db:migrate` mot **dev** DB
+- `npx vitest run` på `schema-drift` + `db-target-guard` om berört
+
+## Commit / Ignore Guidance
+- Migrations + genererad drizzle metadata i **samma** PR som schemaändring.
+- Committa aldrig `.env` med `POSTGRES_URL` hemligheter; använd separat dev DB.

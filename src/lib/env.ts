@@ -24,6 +24,8 @@ export const serverSchema = z.object({
   // Database
   POSTGRES_URL: z.string().optional(),
   POSTGRES_URL_NON_POOLING: z.string().optional(),
+  POSTGRES_POOL_MAX: z.string().optional(),
+  POSTGRES_POOL_IDLE_TIMEOUT_MS: z.string().optional(),
 
   // Redis
   REDIS_URL: z.string().optional(),
@@ -33,6 +35,8 @@ export const serverSchema = z.object({
   // Vercel Upstash integration uses these names instead
   KV_REST_API_URL: z.string().optional(),
   KV_REST_API_TOKEN: z.string().optional(),
+  SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD: z.string().optional(),
+  SAJTMASKIN_TRUST_X_FORWARDED_FOR: z.string().optional(),
 
   // Storage
   DATA_DIR: z.string().optional(),
@@ -92,6 +96,8 @@ export const serverSchema = z.object({
   SUPERADMIN_DIAMONDS: z.string().optional(),
   ENV_VAR_ENCRYPTION_KEY: z.string().optional(),
   TEMPLATE_SYNC_GITHUB_TOKEN: z.string().optional(),
+  GITHUB_WORKFLOW_TOKEN: z.string().optional(),
+  GITHUB_TOKEN: z.string().optional(),
   TEMPLATE_SYNC_REPO_OWNER: z.string().optional(),
   TEMPLATE_SYNC_REPO_NAME: z.string().optional(),
   TEMPLATE_SYNC_WORKFLOW_FILE: z.string().optional(),
@@ -124,8 +130,25 @@ export const serverSchema = z.object({
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS: z.string().optional(),
+  SAJTMASKIN_LLM_FIXER_TIMEOUT_MS: z.string().optional(),
+  SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS: z.string().optional(),
   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS: z.string().optional(),
+  SAJTMASKIN_MAX_PROMPT_LENGTH: z.string().optional(),
+  SAJTMASKIN_WARN_PROMPT_LENGTH: z.string().optional(),
   SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS: z.string().optional(),
+  SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS: z.string().optional(),
+  SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS: z.string().optional(),
+  SAJTMASKIN_MAX_SYSTEM_LENGTH: z.string().optional(),
+  SAJTMASKIN_WARN_SYSTEM_LENGTH: z.string().optional(),
+  SAJTMASKIN_PHASE_FORCE_CHARS: z.string().optional(),
+  SAJTMASKIN_PHASE_FORCE_AUDIT_CHARS: z.string().optional(),
+  SAJTMASKIN_SOFT_TARGET_FREEFORM_CHARS: z.string().optional(),
+  SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS: z.string().optional(),
+  SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS: z.string().optional(),
+  SAJTMASKIN_SOFT_TARGET_TEMPLATE_CHARS: z.string().optional(),
+  SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS: z.string().optional(),
+  SAJTMASKIN_SOFT_TARGET_TECHNICAL_CHARS: z.string().optional(),
+  SAJTMASKIN_SOFT_TARGET_APP_CHARS: z.string().optional(),
   SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_VERIFIER_TIMEOUT_MS: z.string().optional(),
   SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE: z.string().optional(),
@@ -158,6 +181,21 @@ export const serverSchema = z.object({
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
   /** F2 Product Postcheck: server-side Playwright DOM checks for preview URLs. Default off. */
   SAJTMASKIN_F2_PRODUCT_POSTCHECK: z.string().optional(),
+  SAJTMASKIN_PRE_VM_TYPECHECK: z.string().optional(),
+  SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT: z.string().optional(),
+  SAJTMASKIN_BLOCKING_ESLINT: z.string().optional(),
+  SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS: z.string().optional(),
+  SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR: z.string().optional(),
+  /** Static visual-QA heuristic on exportable files (no screenshot). Optional, default off. Read via `isVisualQAEnabled` in `src/lib/gen/verify/visual-qa.ts`. */
+  SAJTMASKIN_VISUAL_QA: z.string().optional(),
+  SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH: z.string().optional(),
+  SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS: z.string().optional(),
+  SAJTMASKIN_SCAFFOLD_SEO_SITE_URL: z.string().optional(),
+  SAJTMASKIN_METRICS_TOKEN: z.string().optional(),
+  SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF: z.string().optional(),
+  SAJTMASKIN_STRICT_SYSTEM_PROMPT_ASSERT: z.string().optional(),
+  SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS: z.string().optional(),
+  SAJTMASKIN_EVAL_RETENTION_PROMPT_DIRS: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
@@ -167,6 +205,8 @@ export const serverSchema = z.object({
   DEBUG: z.string().optional(),
   SAJTMASKIN_DEV_LOG: z.string().optional(),
   GENERATIONSLOGG: z.string().optional(),
+  SAJTMASKIN_PROMPT_DUMP: z.string().optional(),
+  SAJTMASKIN_SHIM_PREVIEW_DISABLED: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
 
@@ -191,6 +231,9 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
   NEXT_PUBLIC_SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
+  NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON: z.string().optional(),
+  NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT: z.string().optional(),
+  NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS: z.string().optional(),
   /** Comma-separated hostname suffixes for tier-2 preview URLs (e.g. `.fly.dev`) — iframe live detection. */
   NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES: z.string().optional(),
 });
@@ -223,5 +266,15 @@ export function getServerEnv(): ServerEnv {
 
   _cached = result.data;
   return _cached;
+}
+
+/**
+ * Test-only: reset the cached parsed env so `vi.stubEnv()` changes take
+ * effect on the next `getServerEnv()` call. Production code must never
+ * call this — it is a deliberate escape hatch for unit tests that mutate
+ * `process.env` after the singleton has already been computed.
+ */
+export function resetServerEnvCacheForTests(): void {
+  _cached = null;
 }
 

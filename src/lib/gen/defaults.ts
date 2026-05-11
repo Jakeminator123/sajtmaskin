@@ -75,12 +75,6 @@ export const AUTO_BRIEF_MODEL_ANTHROPIC = readStringEnv(
   briefing.serverAutoAnthropic,
 );
 
-/** Older spec-first helper default model. */
-export const SPEC_MODEL = readStringEnv(
-  briefingEnvKeys.specModel,
-  briefing.specModel,
-);
-
 // ============================================================================
 // TOKEN BUDGETS
 // ============================================================================
@@ -129,6 +123,20 @@ export const ASSIST_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
   rt.assistRouteMaxDurationSeconds.default,
   rt.assistRouteMaxDurationSeconds.min,
   rt.assistRouteMaxDurationSeconds.max,
+);
+
+export const LLM_FIXER_TIMEOUT_MS = readIntEnv(
+  "SAJTMASKIN_LLM_FIXER_TIMEOUT_MS",
+  90_000,
+  15_000,
+  300_000,
+);
+
+export const LLM_FIXER_RETRY_TIMEOUT_MS = readIntEnv(
+  "SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS",
+  120_000,
+  15_000,
+  300_000,
 );
 
 export const SYNTAX_FIX_MAX_PASSES = repairPolicies.syntaxFixPasses;

@@ -105,23 +105,6 @@ const nextConfig: NextConfig = {
   // NOT applied to /builder/* where preview iframes may point at sandbox/runtime surfaces
   // See: https://webcontainers.io/guides/configuring-headers
   async headers() {
-    // CSP report-only: surface unexpected egress without breaking the page.
-    // Mixpanel client SDK posts to https://api-js.mixpanel.com — must be in
-    // connect-src, otherwise DevTools floods the Issues panel with violations.
-    const cspReportOnly = [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' https: wss: https://api-js.mixpanel.com",
-      "frame-src 'self' https: blob:",
-      "worker-src 'self' blob:",
-      "media-src 'self' blob: https:",
-      "object-src 'none'",
-      "base-uri 'self'",
-    ].join("; ");
-
     return [
       {
         // Only apply to project pages (where WebContainer runs after takeover)
@@ -134,15 +117,6 @@ const nextConfig: NextConfig = {
           {
             key: "Cross-Origin-Opener-Policy",
             value: "same-origin",
-          },
-        ],
-      },
-      {
-        source: "/:path*",
-        headers: [
-          {
-            key: "Content-Security-Policy-Report-Only",
-            value: cspReportOnly,
           },
         ],
       },

@@ -77,7 +77,7 @@ Den här filen visar **vad som faktiskt händer** när en user-prompt går genom
         │ 3. validate_syntax + warm tsc          │
         │    → llm-fixer (loop, max 1-4 pass)    │
         │ 4. materialize_images                  │
-        │ 5. verifier (read-only LLM)            │
+        │ 5. verifier (guards + read-only LLM)   │
         │    → blocking → llm-fixer              │
         │ 6. parse_merge_preflight               │
         │ 7. partial-file repair (om behövs)     │
@@ -159,7 +159,7 @@ Output: `GenerationInputPackage` (debug-dump i `data/prompt-dumps/orchestration-
 
 ```
 composeEngineSystemPrompt() returnerar:
-[Static Core (config/prompt-core/*.md, alltid)]
+[Core Rules (config/prompt-core/*.md, alltid)]
 + SYSTEM_PROMPT_SEPARATOR
 + [Dynamic context, byggd av buildDynamicContext()]
 ```
@@ -199,11 +199,11 @@ Dynamic context renderas i strikt prioritetsordning. När token-budget överskri
 | Verifier | 1 | 1 |
 | Verifier-blocking → fixer | 0 | 1 |
 | Syntax-fixer-loop | 0 | upp till `syntaxFixPasses` (3–4) |
-| Partial-file repair | 0 | upp till `partialFileRepairMaxAttempts` (1) |
+| Partial-file repair | 0 | upp till `partialFileRepairMaxAttempts` (manifest-default 2) |
 | Server-repair (efter `done`) | 0 | upp till 4 (`serverRepairPasses` × `manualRepairRouteLlmPasses`) |
 | **Summa** | **2–3** | **9–13** |
 
-Plan för att kapa värsta fallet ligger i [`L1-unified-repair-call.md`](../plans/active/L1-unified-repair-call.md).
+Plan för att kapa värsta fallet ligger i [`L1-unified-repair-call.md`](../plans/active/parked/L1-unified-repair-call.md).
 
 ---
 

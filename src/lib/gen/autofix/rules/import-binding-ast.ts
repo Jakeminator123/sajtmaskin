@@ -115,8 +115,13 @@ export function applyImportBindingRemovals(
   return ts.factory.updateSourceFile(sf, newStatements);
 }
 
-/** Known collisions with npm runtime exports when LLM adds a bogus @/components/* default import. */
-const DENY_STUB_DEFAULT_NAMES = new Set<string>(["RapierRigidBody"]);
+/** Known collisions with npm/runtime exports when LLM adds a bogus @/components/* default import. */
+const DENY_STUB_DEFAULT_NAMES = new Set<string>([
+  "RapierRigidBody",
+  "WebGLRenderer",
+  "CanvasErrorBoundary",
+  "WebGLErrorBoundary",
+]);
 
 const DENY_STUB_NAME_RE = /^(?:HTML|SVG)[A-Z][A-Za-z0-9]*$/;
 

@@ -1,0 +1,31 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 07-quality-gate-runtime
+Date: 2026-04-27
+
+## Master Runtime Changes
+- Diff: `src/lib/gen/verify/preview-quality-gate.ts` (vs master) + förenklad kedja: `post-finalize-policies`, `should-start-preview`, `server-verify`, `quality-gate-checks`, F2 design vs F3 integrations i manifest.
+- API: `.../quality-gate/route.ts`; UI: `post-checks.ts` tier-2 verify-lane, `BuilderMessageTooling` quality tools.
+
+## Local Preview UX To Preserve
+- F2: **design** preview quality gate efter egen policy; `design_preview_skip_verify` för vissa init-scenar (async server verify hoppa över när OK enligt `post-finalize-policies`).
+- F3: bygg/lint/typecheck enligt `qualityGateTiers` / `DESIGN_*` vs `INTEGRATIONS_*` listor.
+- `shouldStartOwnEnginePreview` = konfig + preflight + `canStartPreview` (ingen preview om gate säger nej).
+- `ChatReadiness` + deploy: `useChatReadiness` / header — **kort** blockers, ingen roman.
+
+## Coupling Points
+- `triggerServerVerification` efter `generation-stream-post-finalize` (F2 skip vs F3/repair/verificationBlocked).
+- `runQualityGateOnExportable` när `SAJTMASKIN_PREVIEW_HOST_BASE_URL` + filer exportbara.
+- `readiness` route + `useBuilderDeployActions` 409 när env saknas (nära men inte samma som preview gate).
+
+## Failure Modes
+- "Stale verifying" (lång tid) i readiness.
+- F2 tänkt tyst, men UI visar fortfarande gammal Fel-badge (version ack — se coexistence/verify-log).
+- Repair-loop oändlig: `server-repair-policy` early stop.
+
+## Verification Matrix
+- `npx vitest` på `preview-quality-gate` test, `server-verify` test, `quality-gate/route`, `post-finalize` tester.
+- Manuell: F2 run → förväntad **design**-gate; F3 → tungare; repair-pass → `diagnosticOnly` när tänkt.
+
+## Do Not Break
+- F2 `verificationBlocked` vs tyst F2 (env-mute) — samma regler som builder shell.
+- `config/ai_models/manifest.json` `qualityGateTiers` + `quality-gate-checks` defaults.
+- Coexistence: ingen andra klients `quality-gate`/`verify` samma `versionId` out-of-band.

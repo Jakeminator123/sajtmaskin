@@ -51,7 +51,10 @@ function matchesThreeDStubPattern(stub: {
   sourceFile: string;
   missingImport: string;
   stubFile: string;
+  rewireTarget?: string;
+  rewireImportSpec?: string;
 }): boolean {
+  if (stub.rewireTarget) return false;
   return (
     THREE_D_STUB_NAME_RE.test(stub.stubFile) ||
     THREE_D_STUB_NAME_RE.test(stub.sourceFile) ||
@@ -233,32 +236,34 @@ export async function runOwnEngineStreamPostFinalize(params: {
     ),
   );
 
-  // plan-02 / STATUS-02: cross-file-import-checker stubs (e.g. coffee-cup-3d
-  // importerade `./coffee-cup-scene` som inte existerade → checker auto-stubbade
-  // den så bygget gick igenom, men användaren såg en tom shell). Innan den här
-  // patchen var det helt tyst i UI:t — nu landar varje stub som en `warning`-rad
-  // i `engine_version_error_logs` så `VersionDiagnosticsDialog` visar
-  // "1 fil saknades och stubbades" under category `merge:cross-file-stub`.
-  // Avsiktligt INTE `error` (bygget är shippable, bara hollow) och INTE event-bus
-  // `version.build.error` (vilket skulle ha satt `verificationBlocked = true`
-  // och brutit modal-truth). Direkt DB-skriv mot `createEngineVersionErrorLogs`
-  // är samma mönster som quality-gate-routens `quality-gate:superseded`-warnings.
+  // Cross-file import repair diagnostics: stubs are shippable-but-hollow and
+  // rewires are shippable-but-worth-surfacing. Keep both as warning rows, not
+  // event-bus build errors, so diagnostics stay informative without flipping
+  // version status red.
   if (finalized.crossFileStubs.length > 0 && dbConfigured) {
-    const warningPayloads = finalized.crossFileStubs.map((stub) => ({
-      chatId,
-      versionId: finalized.version.id,
-      level: "warning" as const,
-      category: "merge:cross-file-stub",
-      message: `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade målfil — auto-stubbade ${stub.stubFile}. Komponenten renderar tom tills LLM emitterar en riktig implementation.`,
-      meta: {
-        sourceFile: stub.sourceFile,
-        missingImport: stub.missingImport,
-        stubFile: stub.stubFile,
-        repairPassIndex,
-        dossierId: stub.dossierId ?? null,
-        capability: stub.capability ?? null,
-      },
-    }));
+    const warningPayloads = finalized.crossFileStubs.map((stub) => {
+      const isRewire = typeof stub.rewireTarget === "string" && stub.rewireTarget.trim().length > 0;
+      const rewireImportSpec = stub.rewireImportSpec ?? stub.stubFile;
+      return {
+        chatId,
+        versionId: finalized.version.id,
+        level: "warning" as const,
+        category: isRewire ? "merge:cross-file-rewire" : "merge:cross-file-stub",
+        message: isRewire
+          ? `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade exakt målfil — pekades om till befintliga ${rewireImportSpec}.`
+          : `Importen "${stub.missingImport}" från ${stub.sourceFile} saknade målfil — auto-stubbade ${stub.stubFile}. Komponenten renderar tom tills LLM emitterar en riktig implementation.`,
+        meta: {
+          sourceFile: stub.sourceFile,
+          missingImport: stub.missingImport,
+          stubFile: stub.stubFile,
+          rewireTarget: stub.rewireTarget ?? null,
+          rewireImportSpec: stub.rewireImportSpec ?? null,
+          repairPassIndex,
+          dossierId: stub.dossierId ?? null,
+          capability: stub.capability ?? null,
+        },
+      };
+    });
     const missingCapabilityWarnings =
       hasVisual3dCapability
         ? []
@@ -552,6 +557,25 @@ export async function runOwnEngineStreamPostFinalize(params: {
       outcome: "skipped",
       blocked: false,
       reason: serverVerifyDecision.reason,
+    });
+    // OMTAG-06 follow-up: also emit a degraded note so the UI knows
+    // server-verify never ran. Without this the version-status
+    // projection only sees `verifierOutcome: "skipped"`, which the
+    // existing UI maps to "no verifier needed" rather than "ran
+    // pipeline without verifier coverage". For design-preview skips
+    // this is intentional and harmless, but operators still want it
+    // surfaced so a wrongly-skipped F3 verify is visible in
+    // backoffice/llm_flode_telemetry.py.
+    emitBusEvent({
+      t: "version.degraded",
+      versionId: finalized.version.id,
+      chatId,
+      kind: "verifier_skipped_by_policy",
+      message: `Server-verify skipped (${serverVerifyDecision.reason}).`,
+      meta: {
+        reason: serverVerifyDecision.reason,
+        verificationPolicy: resolvedVerificationPolicy,
+      },
     });
   }
   devLogAppend("in-progress", {

@@ -1,6 +1,10 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-23 efter OMTAG-waven (11 uppdrag mergade). Tidigare: 2026-04-22 efter LLM-flow-audit + follow-up-pass. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** Se [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md) (senast) + [`../../status-archive/STATUS-2026-04-20.md`](../../status-archive/STATUS-2026-04-20.md) + [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) för fullständig wave-sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+Senast uppdaterad: 2026-05-01 efter LLM-plan-konsolidering och VersionHistory-statuspass. Tidigare: 2026-04-23 efter OMTAG-waven (11 uppdrag mergade), 2026-04-22 efter LLM-flow-audit + follow-up-pass. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** Se [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md) + [`../../status-archive/STATUS-2026-04-20.md`](../../status-archive/STATUS-2026-04-20.md) + [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) för fullständig wave-sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+
+## Roll efter LLM-plan-konsolidering 2026-05-01
+
+Den här filen är **tvärgående kö** för rester som inte ryms i en smal LLM-plan. För LLM-flödet är [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) masterplan och [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) child-plan för promptbudget. `BUG-SWARM-BACKLOG.md` äger buggstatus; den här filen äger bara exekveringsordning när en backloggrad blir ett konkret arbetsspår.
 
 ## Avklarat i OMTAG-waven (2026-04-23)
 
@@ -51,7 +55,7 @@ Av ~15 nya fynd från 5 parallella agenter var 7 äkta buggar, resten dubbletter
 - `classifyFollowUpIntentWithLlmFallback` ej inkopplad i runtime — **deliberate feature-flag**, planerat för P32 Fas F.
 - `inferContextPolicy`/`inferVerificationPolicy` använder inte `isFirstCodeGeneration` — **designval**; `isEffectiveInit` är medvetet begränsat till route-realization. Bredare semantik kräver aktivt designbeslut.
 - `fixerTier = originatingTier ?? DEFAULT_MODEL_ID` i `server-verify.ts` — **intentional**, bättre än `undefined`.
-- `useCreateChat` kör rå prompt när brief finns och `formatPrompt` när brief saknas — **by design** (brief bär semantiken).
+- `useCreateChat` skickar rå prompt till streamen oavsett om brief finns eller inte (sedan 2026-04-28; mekaniska wrappern togs bort eftersom Core Rules + ev. brief redan bär semantiken). `formatPrompt()` lever vidare i prompt-wizard och prompt-assist/runner, men inte i create-chat-init-vägen.
 - Flaky 1/863 i `warm-eslint.test.ts` under bred parallell testsvit — känd race, passerar isolerat; inte relaterat till LLM-flödet.
 - `"Byt bild till en elefant. Gör också hela bakgrunden mörk"` → `clear-redesign` — **design call** (verb+noun-combo med `bakgrund`).
 
@@ -77,19 +81,28 @@ Typecheck 0 fel, lint 0 fel, 1417/1417 tester gröna efter varje commit. Branche
 
 | # | Område | Beskrivning | Prio | Blocker |
 |---|--------|-------------|------|---------|
-| 1 | UX (P25b-rest) | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. | Låg | Visuell verifiering — [SAJ-23](https://linear.app/sajtmaskin/issue/SAJ-23) |
+| 1 | UX (P25b-rest) | VersionHistory-tooltips/statuslabels ("Verifierar"/"Fel"/"Publicerad") + `VersionMismatchOverlayPayload`-konsument/render-path finns (`usePreviewSession` → `BuilderShellContent` → `PreviewPanelFrame`); kvar är visuell verifiering av badge/overlay-layout. | Låg | Visuell verifiering — [SAJ-23](https://linear.app/sajtmaskin/issue/SAJ-23) |
 | 2 | ~~Ingress (P19 Steg 3)~~ | ~~UX-transparens vid follow-up-bas != latest.~~ **Klart via OMTAG fas 2·A 2026-04-23** (amber basversions-badge i chat-composer). | — | — |
 | 3 | Eval | ~~Automatisk baseline-uppdatering (CI-script för eval-svit). Grund etablerad via OMTAG fas 0·02; CI-gate kvar.~~ **Klart 2026-04-24:** veckovis `eval-baseline-update.yml` (måndag 04:11 UTC) kör `cli.ts --gate --save-baseline` och öppnar draft-PR vid förbättring. **Backoffice klart 2026-04-27:** `Overhead → Eval` kan köra `npm run eval:gate` manuellt och sparar datumstämplade rapporter i `docs/evals/` utan att uppdatera baseline. PR-triggered eval:gate saknas medvetet (kostnad). Lokalt `npm run eval:baseline` är nu också `--gate --save-baseline` (förhindrar att råka commita regression). Se `src/lib/gen/eval/README.md`. | — | — |
 | 4 | Pre-existing test failures | 4 fail på master (phase-routing 3, model-selection 1) — inte rörda. **Dossier-failet borta 2026-04-20** efter v2-refactor. | Medel | Egen PR |
 | 5 | shadcn (P20 Nivå 3) | Uppströms `registry:font`-ingestion (fullt format). CI-MVP-validering klar 2026-04-20. | Låg | Inte blockerande |
 | 6 | shadcn (P20 Nivå 2) | Uppströms `registry:block`-integration (fullt format). Deterministic-pick shrink-leverans klar 2026-04-20. | Låg | Inte blockerande |
-| 7 | **E3 — recurring quality-patterns** | Flytta 3–5 senaste verifier-fynd per chat in i nästa codegen-prompt som "Quality patterns to avoid" (mönstra efter `recurringFailurePatterns` i `fixer-prompt.ts`). Enda kvarvarande från `E-easy-medium-layer.md` (arkiverad). ~2h effort. Acceptans: 1 verifier-fixer-anrop sparat/followup mätbart via `sajtmaskin_verifier_blocking_total`. | Medel | — |
-| 8 | **P26-rest: PR3–9** | Kvarstående från ursprungliga P26-paketet efter OMTAG fas 2·A (se `../avklarat/omtag-2026-04-23/P19-old-content-ingress.md` och arkiverad P26): PR3 quality-gate readiness probe (HEAD 200 innan gate startar), ~~PR4 HMR-spam mitigation~~ **klart 2026-04-23** via inline RFC 6455 101-handshake i `proxyPreviewUpgrade` (404-stubben visade sig trigga HMR-klientens retry-loop; handshake-and-hold tystar konsolen), PR5 raw-message logging, PR6 bygg-nu UX-copy, PR7 backoffice scaffold_lifecycle FileNotFound fix, PR8 dossier re-embed (delvis gjord via fas 2·B variant-embeddings), PR9 three-fiber-dossier (kan redan finnas i `soft/three-fiber-canvas`). | Låg–Medel per PR | Individuell |
-| 9 | **Core-simplification: `orchestrate.ts` + `route-plan.ts`** | Gpt-rapporten (2026-04-23): dessa är 912 + 742 rader. Ej adresserade av OMTAG 03 (endast `orchestrate/{scaffold-query-context,scaffold-variant-resolver}.ts` och `route-plan/route-patterns.ts` extraherades). Kandidater för nästa split-våg — samma mönster som OMTAG 03. | Medel | Egen agent-session |
+| 7 | ~~E3 — recurring quality-patterns~~ | **Klart i dev/follow-up:** verifier-fynd aggregeras nu in i `fix-patterns.json`; `renderRecurringFailuresBlockLines(chatId)` läser `logs/site-observability/<chatId>/latest/fix-patterns.json` och injiceras via route-plan-blocket när `FEATURES.recurringPatternsInMainPrompt` är aktiv. Tester: `generation-log-writer.test.ts`, `system-prompt-recurring-failures.test.ts` + `sections/route-plan.test.ts`. Prod-on är separat produktbeslut/eval-gate. | — | — |
+| 8 | **P26-rest: PR3–9** | Kvarstående från ursprungliga P26-paketet efter OMTAG fas 2·A (se OMTAG-arkivet `../avklarat/omtag-2026-04-23/meta/INDEX.md` och arkiverad P26-sammanfattning): PR3 quality-gate readiness probe (HEAD 200 innan gate startar), ~~PR4 HMR-spam mitigation~~ **klart 2026-04-23** via inline RFC 6455 101-handshake i `proxyPreviewUpgrade` (404-stubben visade sig trigga HMR-klientens retry-loop; handshake-and-hold tystar konsolen), PR5 raw-message logging, PR6 `Bygg integrationer` UX-copy, PR7 backoffice scaffold_lifecycle FileNotFound fix, PR8 dossier re-embed (delvis gjord via fas 2·B variant-embeddings), PR9 three-fiber-dossier (kan redan finnas i `soft/three-fiber-canvas`). | Låg–Medel per PR | Individuell |
+| 9 | **Core-simplification: `orchestrate.ts`** | `route-plan` är redan paket (`src/lib/gen/route-plan/{index,route-plan-builder,route-plan-parse,route-plan-verify,...}.ts`). Kvarvarande core-split v2 gäller främst `src/lib/gen/orchestrate.ts` (~965 rader) + ev. mindre helper-extraktionar där call-sites är tydliga. | Medel | Egen agent-session |
 | 10 | **Core-simplification: `config/ai_models/manifest.json`** | ~1023 rader. Delningskandidat per phase-routing-grupp. | Låg | Telemetri-data |
-| 11 | **Event-bus UI-flip** | `selectVersionStatus(events)`-projektion finns (OMTAG fas 3·06) men UI läser fortfarande gamla DB-flaggor via `resolveEngineVersionDisplayStatus`. Rör `BuilderShellContent.tsx` + `preview-panel` SSE-handling. | Medel | — |
+| 11 | **Event-bus UI-flip (spår A) + UX-copy-konsolidering (spår B)** | Delvis hårdat 2026-05-01: `VersionHistory` skiljer runtime/preview-badge från verifieringsbadge (`Design redo`/`Verifierar`/`Verifierad`). **Backend/read-path klar 2026-05-01:** `version.degraded` event + `degradations[]` på `VersionStatus` (commit `6b139fb5a`), `GET /api/engine/chats/[chatId]/version-status` + `useVersionStatus`-hook (commit `448102f53`). Två emitterar wireade: `verifier_skipped_by_policy` + `product_postcheck_skipped` (inkl. runtime_error-grenen). Kvar i **spår A (consumer cut-over)**: `BuilderShellContent`/`VersionHistory` läser fortfarande DB-helper `resolveEngineVersionDisplayStatus` — flip till `useVersionStatus` per-komponent när UX-mappning av `phase + degradations[]` → labels är klar. Kvar i **spår B (copy/städ)**: konsolidera F2/F3-ordval i [`2026-05-01-f2-f3-ux-copy-konsolidering.md`](./2026-05-01-f2-f3-ux-copy-konsolidering.md). | Låg–Medel | — |
 
 > Tidigare punkt #1 (`Source_Sans_3`-violation) löstes 2026-04-20 i cloud-loopen, commit `808735e2`.
+
+### UX-statusspår A/B (operativ split)
+
+| ID | Klassning | Kräver ny backend-signal först? | Ägare |
+|---|---|---|---|
+| `G#32` + #11 | Produkt/UX-status (preview vs verifierad) | Nej (signal finns), men UI-flip krävs | #11 spår A |
+| `G#35` | Degraded UX | Backend klar 2026-05-01 (`version.degraded` + `degradations[]`); UI-konsument kvar | #11 spår A (UX-mappning + flip) |
+| `G#60` | Observability → UX | Backend klar 2026-05-01 (samma kanal som `G#35`) | #11 spår A (UX-mappning + flip) |
+| `G#58` + `U#80` + `U#2` | Copy/terminologi | Nej för v1 | #11 spår B + copy-plan |
 
 ## Telemetri-blockad (vänta 1 vecka, sen plocka)
 
@@ -170,7 +183,7 @@ Typecheck 0 fel, lint 0 fel, 1417/1417 tester gröna efter varje commit. Branche
 | **Audit Tier S #3:** Manifest-schema synkat — `qualityGateTiers.required` följer nu runtime (`["designPreview", "integrationsBuild"]`), inte pre-konsoliderings-namnen. Audit-rapporten pekade på `docs/schemas/strict/manifest.schema.json` (existerar inte); kanoniska schemat är `config/ai_models/manifest.schema.json`. Audit §1.6 markerad DONE. | `config/ai_models/manifest.schema.json`, `docs/reports/audit-2026-04-20-komplexitet-vs-varde/01-buggar.md` |
 | **Audit Tier S #10:** Filnamn-typo: `docs/övergipande-vision-och-mål.md` → `docs/övergripande-vision-och-mål.md`. ÅÄÖ-policy: behåll svenska tecken i docs-filnamn. Audit §1.4 markerad DONE. | `docs/övergripande-vision-och-mål.md` |
 | **Audit Tier S #4:** ESLint `--cache --cache-location .eslintcache` på `lint`/`lint:fix`/`lint:watch`. Cache i `.gitignore`. 5–10× snabbare lokal lint. | `package.json`, `.gitignore` |
-| **Audit Tier A #11:** `preflight:common` extraherad (`check-systemprompt && check-lucide-icons`), delas av `predev` och `prebuild`. Lucide-icon-check körs nu i dev också — asymmetrin som var källan till audit-bug §1.5/Tier A #11 är borta. | `package.json` |
+| **Audit Tier A #11:** `preflight:common` extraherad och delas av `predev`/`prebuild`; aktuell checkkedja ägs av `package.json` (`preflight:common`). Lucide-icon-check körs nu i dev också — asymmetrin som var källan till audit-bug §1.5/Tier A #11 är borta. | `package.json` |
 | Glossary + fas2-orchestration-and-build synkade: `Validate-step`-entry, ny entry `Preview-URL invalidation (P19 ingress 1)`, ny entry `Community registry block selection (deterministic)`. | `docs/architecture/glossary.md`, `docs/architecture/fas2-orchestration-and-build.md` |
 
 ## Avklarat i konsolideringspass (2026-04-20)
@@ -209,7 +222,7 @@ Typecheck 0 fel, lint 0 fel, 1417/1417 tester gröna efter varje commit. Branche
 ## Strykt (bekräftat inte uppgifter)
 
 - ~~Fallback-guidance (MOTION/VISUAL/QUALITY)~~ — aktiv motion-inference-logik, inte ett problem att fixa
-- ~~Konsolidera dashboards~~ — redan gjort: `sajtmaskin_backoffice.py` → `backoffice/` (legacy-stubbar forwärdar)
+- ~~Konsolidera backoffice-ytor~~ — redan gjort: `sajtmaskin_backoffice.py` → `backoffice/` (legacy-stubbar forwärdar)
 - ~~themeTokens aktivare i prompten~~ — redan aktiv via `formatThemeTokenLines()` i `system-prompt.ts`
 - ~~Keyword taxonomy consolidation~~ — keywords kan fasas ut helt
 - ~~Cart-provider cross-file-kedja~~ — låg prio, möjligen löst

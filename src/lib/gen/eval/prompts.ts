@@ -210,4 +210,60 @@ export const EVAL_PROMPTS: EvalPrompt[] = [
       shouldCompile: true,
     },
   },
+  {
+    // Multi-page brochure test that is NOT a law firm — guards against
+    // `multi-page-brochure` being overfit to that one domain. Broker
+    // hero + listings + team + market-insight + contact exercises the
+    // route plan + scaffold pages without triggering ecommerce.
+    id: "realtor-multipage",
+    prompt:
+      "Bygg en fyrsidig sajt för en mäklarfirma i Malmö: startsida, objekt till salu, om mäklarna, och kontakt. Skarp, förtroendeingivande stil.",
+    intent: "website",
+    expected: {
+      minFiles: 3,
+      maxFiles: 15,
+      requiredFiles: ["app/page.tsx", "app/layout.tsx"],
+      requiredImports: [],
+      shouldCompile: true,
+    },
+  },
+  {
+    // Hospitality/service multi-page that is NOT a restaurant or hotel —
+    // verifies the hospitality-ecommerce-veto still holds for daycare
+    // domain and the route plan produces distinct pages (tjänster, priser,
+    // personal, kontakt) instead of collapsing to a single landing.
+    id: "dog-daycare",
+    prompt:
+      "Bygg en fyrsidig sajt för ett hunddagis i Stockholm. Sidorna ska vara startsida, tjänster och priser, vårt team, och kontakt med bokningsformulär. Varm och trygg ton.",
+    intent: "website",
+    expected: {
+      minFiles: 3,
+      maxFiles: 15,
+      requiredFiles: ["app/page.tsx", "app/layout.tsx"],
+      requiredImports: [],
+      shouldCompile: true,
+    },
+  },
+  {
+    // Flagship integration test for the game-capability chain merged in
+    // `feat(capabilities): add interactive-game dossier + full signal
+    // routing` (83466fbd2). Arcade shop = marketing + playable mini-game
+    // + Klarna checkout simultaneously. Exercises:
+    //  - `needsGame` → `interactive-game-loop` dossier (state + loop +
+    //    controls + collision + score + restart)
+    //  - `needsPayments` → `stripe-checkout` / Klarna dossier
+    //  - scaffold-matcher must NOT drop to `landing-page` despite the
+    //    marketing hero — the playable mechanic on the homepage wins.
+    id: "arcade-with-klarna",
+    prompt:
+      "Bygg en sajt för tv-spelshallen Pixelkällaren i Göteborg. Startsidan ska ha ett spelbart mini-game (Snake) med poängräknare. Sidan ska också sälja klippkort med Klarna-checkout. Retrocomputer-estetik med neon.",
+    intent: "website",
+    expected: {
+      minFiles: 2,
+      maxFiles: 12,
+      requiredFiles: ["app/page.tsx"],
+      requiredImports: [],
+      shouldCompile: true,
+    },
+  },
 ];

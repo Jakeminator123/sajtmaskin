@@ -108,6 +108,21 @@ export async function getCompanyProfileByName(name: string): Promise<CompanyProf
   return rows[0] ?? null;
 }
 
+export async function getCompanyProfileByNameForOwner(
+  name: string,
+  scope: OwnerScope,
+): Promise<CompanyProfile | null> {
+  assertDbConfigured();
+  const projectIds = await getOwnedProjectIds(scope);
+  if (projectIds.length === 0) return null;
+  const rows = await db
+    .select()
+    .from(companyProfiles)
+    .where(and(eq(companyProfiles.company_name, name), inArray(companyProfiles.project_id, projectIds)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function getAllCompanyProfiles(scope: OwnerScope): Promise<CompanyProfile[]> {
   assertDbConfigured();
   const projectIds = await getOwnedProjectIds(scope);

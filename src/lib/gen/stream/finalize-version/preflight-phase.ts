@@ -25,6 +25,7 @@ import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { inferScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
+import type { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { warnLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -63,16 +64,16 @@ export interface PreflightPhaseResult {
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
   /**
-   * Cross-file imports that resolved to missing files and were silently
-   * stubbed by `cross-file-import-checker`. Bubbled to `FinalizeResult` so
-   * post-finalize can persist a `warning`-level row in the version
-   * diagnostics modal (plan-02 / STATUS-02 — coffee-cup-3d-style "looks
-   * shipped, actually hollow" anti-pattern).
+   * Cross-file imports that resolved to missing files. The checker either
+   * stubs them or rewires obvious sibling-name mistakes; post-finalize
+   * persists a `warning`-level diagnostics row for both cases.
    */
   crossFileStubs: Array<{
     sourceFile: string;
     missingImport: string;
     stubFile: string;
+    rewireTarget?: string;
+    rewireImportSpec?: string;
     dossierId?: string;
     capability?: string;
   }>;
@@ -98,6 +99,8 @@ export async function runPreflightPhase(params: {
    * Om tom: verbatim-policy körs men hittar inga dossiers att skydda.
    */
   selectedDossiers?: DossierEntry[];
+  repairLedger?: RepairLedger;
+  repairScopeId?: string;
 }): Promise<PreflightPhaseResult> {
   const {
     chatId,
@@ -112,6 +115,8 @@ export async function runPreflightPhase(params: {
     previousFiles,
     onProgress,
     selectedDossiers,
+    repairLedger,
+    repairScopeId,
   } = params;
   let contentForVersion = params.contentForVersion;
 
@@ -174,6 +179,8 @@ export async function runPreflightPhase(params: {
     routePlan,
     orchestrationContract,
     originalPrompt,
+    repairLedger,
+    repairScopeId,
   });
   filesJson = preflightResult.filesJson;
   // OMTAG 1·05: scaffold-default blocking on LLM-only paths surfaces as a
@@ -250,6 +257,8 @@ export async function runPreflightPhase(params: {
       resolvedTier,
       partialFileIssues,
       previewPolicy: buildSpec?.previewPolicy,
+      repairLedger,
+      repairScopeId,
     });
     const repairedContent = partialRepair.repairedContent;
 
@@ -284,6 +293,8 @@ export async function runPreflightPhase(params: {
         routePlan,
         orchestrationContract,
         originalPrompt,
+        repairLedger,
+        repairScopeId,
       });
       filesJson = preflightResult.filesJson;
       // OMTAG 1·05: re-check LLM-only paths after the partial-file repair

@@ -1,0 +1,17 @@
+preview-session + gen/preview — koppling VM/sandbox (arkitektur/UX-koppling)
+
+1. VM-binding tier-2 — sandboxId/sandboxUrl per chatId, start via preview-host; resume status. 4/5
+
+2. Lager — builder preview-session/api.ts → engine-routes; host privilegierat separat. 4/5
+
+3. Dataflöde — repair/scaffold/env → host start → session-store Redis + minne. 4/5
+
+4. Race — inflight dedupe samma chat+version stark; Redis/Map concurrent writers svagare. 3/5
+
+5. Reconnect/resume — version match + host status; boot_grace vs unreachable; 4/5
+
+6. API — AbortSignal.timeout host; klient null vid fel → opak för UI. 4/5 mönster, 3/5 transparens
+
+7. Namn/koppling — Logik ofta i gen/preview + routes; builder “preview-session” tunn. 3/5
+
+Helhet: 4/5 — Tydlig tier-2-modell och dedupe; kvar: distribuerad konsistens och tydligare felfeedback från null-svar.

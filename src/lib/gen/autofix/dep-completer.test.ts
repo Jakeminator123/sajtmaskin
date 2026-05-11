@@ -79,6 +79,26 @@ describe("dep-completer", () => {
     expect(result.dependencies["@react-three/drei"]).toBe(KNOWN_PACKAGES["@react-three/drei"]);
   });
 
+  it("adds Vercel Analytics from the curated allowlist", () => {
+    const result = runDepCompleter(
+      'import { Analytics } from "@vercel/analytics/react";\n',
+    );
+    expect(result.dependencies["@vercel/analytics"]).toBe(
+      KNOWN_PACKAGES["@vercel/analytics"],
+    );
+    expect(result.unknownPackages).not.toContain("@vercel/analytics");
+  });
+
+  it("adds next-mdx-remote from the curated allowlist", () => {
+    const result = runDepCompleter(
+      'import { MDXRemote } from "next-mdx-remote/rsc";\n',
+    );
+    expect(result.dependencies["next-mdx-remote"]).toBe(
+      KNOWN_PACKAGES["next-mdx-remote"],
+    );
+    expect(result.unknownPackages).not.toContain("next-mdx-remote");
+  });
+
   it("adds a few common app packages used by generated projects", () => {
     const result = runDepCompleter(
       [
@@ -99,6 +119,22 @@ describe("dep-completer", () => {
     expect(result.dependencies["@radix-ui/react-hover-card"]).toBe(
       resolveKnownVersion("@radix-ui/react-hover-card"),
     );
+  });
+
+  it("detects side-effect CSS, CommonJS require, and dynamic imports", () => {
+    const result = runDepCompleter(
+      [
+        'import "mapbox-gl/dist/mapbox-gl.css";',
+        'const axios = require("axios");',
+        'const charts = await import("chart.js");',
+        "void axios;",
+        "void charts;",
+      ].join("\n"),
+    );
+
+    expect(result.dependencies["mapbox-gl"]).toBe(KNOWN_PACKAGES["mapbox-gl"]);
+    expect(result.dependencies.axios).toBe(KNOWN_PACKAGES.axios);
+    expect(result.dependencies["chart.js"]).toBe(KNOWN_PACKAGES["chart.js"]);
   });
 
   it("does not treat @/ path alias as an npm package", () => {
@@ -141,5 +177,14 @@ describe("dep-completer", () => {
       "@react-three/fiber": KNOWN_PACKAGES["@react-three/fiber"],
       "@react-three/drei": KNOWN_PACKAGES["@react-three/drei"],
     });
+  });
+
+  it("injects dependencies declared by selected dossier manifests", () => {
+    const deps = resolveCapabilityDependencies(["payments", "auth", "contact-form"]);
+
+    expect(deps.stripe).toBe("latest");
+    expect(deps["@stripe/stripe-js"]).toBe("latest");
+    expect(deps["@clerk/nextjs"]).toBe("latest");
+    expect(deps.resend).toBe("latest");
   });
 });

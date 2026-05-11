@@ -19,10 +19,19 @@ import {
 import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
-import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
+import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
+import { devLogAppend } from "@/lib/logging/devLog";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
-import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
+import {
+  LLM_FIXER_RETRY_TIMEOUT_MS,
+  LLM_FIXER_TIMEOUT_MS,
+  MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
+} from "@/lib/gen/defaults";
+import {
+  partitionGeneratedFilesForProtectedPaths,
+  reinjectProtectedPathsFromFallback,
+} from "@/lib/gen/scaffolds/protected-paths";
 import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
@@ -37,7 +46,6 @@ import {
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-const MANUAL_REPAIR_LLM_TIMEOUT_MS = 60_000;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
@@ -182,7 +190,48 @@ async function handlePOST(
         method === "deterministic"
           ? "Server repair passed quality gate (deterministic). Awaiting acceptance."
           : "Server repair passed quality gate (LLM). Awaiting acceptance.";
-      const repairedFiles = codeProjectToFiles(projectContent);
+      const rawRepairedFiles = codeProjectToFiles(projectContent);
+      // Block the manual-repair bypass of SCAFFOLD_PROTECTED_PATHS:
+      // mirrors the server-verify guard. `codeFiles` here is the
+      // pre-repair persisted version fetched at the top of handlePOST,
+      // so it carries the canonical scaffold/previous content for any
+      // protected path the LLM regenerated.
+      const protectedPartition =
+        partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
+      const reinjection = reinjectProtectedPathsFromFallback({
+        kept: protectedPartition.kept,
+        droppedPaths: protectedPartition.dropped.map((f) => f.path),
+        // codeFiles is narrowed by the early-return null check at the top
+        // of handlePOST, but TypeScript loses that narrowing across this
+        // async closure boundary; cast back to the verified shape.
+        fallbackFiles: codeFiles as CodeFile[],
+      });
+      const repairedFiles = reinjection.files;
+      if (protectedPartition.dropped.length > 0) {
+        const droppedPaths = protectedPartition.dropped.map((f) => f.path);
+        console.warn(
+          "[repair] Scaffold-protected paths emitted by repair LLM — dropped from saveRepairedFiles input",
+          {
+            chatId,
+            versionId: currentVersionId,
+            droppedPaths,
+            reinjected: reinjection.reinjected,
+            stillMissing: reinjection.stillMissing,
+            branch: "manual-repair",
+            method,
+          },
+        );
+        devLogAppend("in-progress", {
+          type: "scaffold-protected-overwrite-blocked",
+          chatId,
+          versionId: currentVersionId,
+          branch: "manual-repair",
+          method,
+          droppedPaths,
+          reinjected: reinjection.reinjected,
+          stillMissing: reinjection.stillMissing,
+        });
+      }
       const exportable = await buildExportableProject(repairedFiles);
       const decision = await shouldPromoteAfterRepair({
         chatId,
@@ -285,7 +334,8 @@ async function handlePOST(
       failedOutputs: normalizedFailures,
       contextLines: gateErrorLines,
       maxLlmPasses: MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
-      llmTimeoutMs: MANUAL_REPAIR_LLM_TIMEOUT_MS,
+      llmTimeoutMs: LLM_FIXER_TIMEOUT_MS,
+      llmRetryTimeoutMs: LLM_FIXER_RETRY_TIMEOUT_MS,
       fixerModel,
       fixerThinking: fixerThinking?.thinking,
       fixerReasoningEffort: fixerThinking?.reasoningEffort,

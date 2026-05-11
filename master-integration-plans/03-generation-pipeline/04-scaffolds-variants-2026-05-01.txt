@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 04-scaffolds-variants
+Date: 2026-05-01
+
+## Master Pipeline Changes
+- Scaffold registry contains manifests with files, tags, prompt hints, and allowed build intents.
+- Matcher combines keyword and embedding paths with app/auth/ecommerce guards.
+- Precomputed scaffold embeddings and parity tests must stay in sync.
+- Keyword banks expanded across landing, SaaS, portfolio, blog, dashboard, app, auth, ecommerce, hospitality.
+- Scaffold variants load from `config/scaffold-variants/<scaffoldId>`.
+- Variant embeddings plus keyword fallback choose style variants.
+- Follow-up locks persisted/default variants unless clear-redesign releases.
+
+## Local Behaviors To Preserve
+- Follow-up variant stability and default fallback.
+- Keyword vs embedding override thresholds.
+- No default boost in embedding variant picker.
+- Brief nomination vs final variant drift logging.
+
+## Merge/Port Plan
+- Keep matcher, search, embeddings, and registry in sync.
+- For new scaffold IDs, update registry, manifest, embeddings, keywords, variants, and variant embeddings.
+- Validate schema after variant/manifest changes.
+
+## Frontend Wiring / UI Surface Needed
+- Preserve persisted `variantId`, follow-up intent, and scaffold meta in builder state.
+- If UI offers style switch, map it to clear-redesign or new chat semantics.
+
+## Exact LLM Implementation Instructions
+- Init: scaffold auto-match then variant resolution via embedding/keyword/brief style.
+- Follow-up: lock variant unless clear-redesign.
+- Keep brief `styleKeywords` and `toneAndVoice` feeding variant picker.
+
+## Regression Risks
+- Stale embeddings.
+- Variant flip during follow-up.
+- Wrong scaffold due to keyword/bias changes.
+- Empty variant list after blocklist.
+
+## Required Tests
+- `scaffolds/matcher.test.ts`
+- `scaffold-embeddings-parity.test.ts`
+- `scaffold-variants/matcher.test.ts`
+- `npm run scaffolds:validate`
+
+## Open Questions
+- Should orphan `content-site` variants be removed or reconnected?
+- Should UI expose variant drift explanation?

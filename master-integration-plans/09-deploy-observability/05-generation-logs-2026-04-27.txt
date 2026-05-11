@@ -1,0 +1,28 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 05-generation-logs
+Date: 2026-04-27
+
+## Production Changes In Master
+- **`logs/generationslogg/`** — `generation-log-writer.ts`, påslag när `GENERATIONSLOGG` satt + `NODE_ENV !== "production"`; retention, `_index`, `chat-to-run.json` (jmf `agent-observatory.mdc`).
+- **`timeline.ndjson`** per run, append; tester i `generation-log-writer.test.ts`.
+- **Event bus:** `lib/logging/event-bus.ts` (emit/subscribe, NDJSON, repair-pass mappar `root` / `repair-N`), `orchestration-contract.md`.
+- **`data/runs/**`** — ofta gitignored; kan finnas guld/test-exempel trackade; `events.ndjson` + `.runs.json`.
+
+## Local Behavior To Preserve
+- Single-writer, subscribers → legacy `devLog` — **inte** dubbelkopiera till disk utan bus-kontrakt.
+- `runId` vs samma `chatId` får inte läcka kataloger; `DEFAULT_RUN_ID` beteende vid merge.
+- Prod: generation-log typiskt av — **förlita dig** DB/metrics, inte lokal mapp, på Vercel.
+
+## Security / Secret Risks
+- Kataloger kan innehålla användarinnehåll/prompt-snuttar — exkludera i paste/PR, inga stora körloggar i commit.
+- `data/prompt-dumps` — samma: gitignored; flagga i deploy om agent leak.
+
+## Deploy Verification
+- Efter merge: `event-bus` tester + `finalize` pipeline grönt; lokal kör `GENERATIONSLOGG=1` smoke om rört writer.
+- `.cursorignore` / agent-läsning: generationslogg undantag — förlita repo-policy.
+
+## Observability Checks
+- Backoffice/Streamlit pekar ofta `logs/generationslogg` — sökväg måste förbli sann om mappar flyttas.
+- `site-observability`, legacy index paths i `generation-log-writer` — sök brutna imports om master byter träd.
+
+## Do Not Commit
+- Nya stora `logs/`, nya kunddata under `data/runs/`, råa `timeline.ndjson` (om inte avsedd fixture); prompt-dump output.

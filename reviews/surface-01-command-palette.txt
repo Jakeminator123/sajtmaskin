@@ -1,0 +1,34 @@
+Backend Surface Mapping — Agent 1: Global ⌘K (mål: overlay i BuilderShellContent, alltid aktiv oavsett chat/drawer; idag ⌘K i BuilderDisclosurePill endast minimal+stängd låda)
+
+- BACKEND: keydown ⌘K (BuilderDisclosurePill.tsx:28) → UI-YTA: Verktygspill minimal — INTERAKTION: öppnar drawer — SYNLIG DEFAULT? JA — Öppna verktyg
+- BACKEND: handleCreateChatStreamPost (create-chat-stream-post.ts:171) → UI-YTA: Global palett — INTERAKTION: ⌘K välj bekräfta — SYNLIG DEFAULT? NEJ — Ny generation
+- BACKEND: POST engine/chats/stream (stream/route.ts:9) → UI-YTA: Global palett — INTERAKTION: samma — SYNLIG DEFAULT? NEJ — Ny generation
+- BACKEND: chat-message-stream-post (chat-message-stream-post.ts:945) → UI-YTA: Global palett — INTERAKTION: ⌘K skicka uppföljning — SYNLIG DEFAULT? NEJ — Fortsätt chatt
+- BACKEND: cancelActiveGeneration (useChatMessaging.ts:102) → UI-YTA: Global palett — INTERAKTION: ⌘K avbryt — SYNLIG DEFAULT? NEJ — Stoppa nu
+- BACKEND: matchScaffold (create-chat-stream-post.ts:79) → UI-YTA: Global palett — INTERAKTION: välj scaffold — SYNLIG DEFAULT? NEJ — Byt mall
+- BACKEND: resolveBuildIntentWithScaffold (useBuilderState.ts:156) → UI-YTA: Global palett — INTERAKTION: spara intent — SYNLIG DEFAULT? NEJ — Uppdatera intention
+- BACKEND: dispatchAutoFixEvent (auto-fix-events.ts:5) → UI-YTA: Global palett — INTERAKTION: trigga kör — SYNLIG DEFAULT? NEJ — Kör autofix
+- BACKEND: runFinalizePreflight (finalize-preflight.ts:442) → UI-YTA: Global palett — INTERAKTION: omkör preflight — SYNLIG DEFAULT? NEJ — Kör preflight
+- BACKEND: POST repair (repair/route.ts:103) → UI-YTA: Global palett — INTERAKTION: bekräfta — SYNLIG DEFAULT? NEJ — Reparera kod
+- BACKEND: POST accept-repair (accept-repair/route.ts:15) → UI-YTA: Global palett — INTERAKTION: godkänn — SYNLIG DEFAULT? NEJ — Godkänn fix
+- BACKEND: POST quality-gate (quality-gate/route.ts:108) → UI-YTA: Global palett — INTERAKTION: kör gate — SYNLIG DEFAULT? NEJ — Kör kvalitet
+- BACKEND: startPreviewSession (preview-session.ts:63) → UI-YTA: Global palett — INTERAKTION: POST omstart — SYNLIG DEFAULT? NEJ — Starta preview
+- BACKEND: POST preview-session (preview-session/route.ts:27) → UI-YTA: Global palett — INTERAKTION: forceRestart — SYNLIG DEFAULT? NEJ — Ny förhandsession
+- BACKEND: POST preview-destroy (preview-destroy/route.ts:21) → UI-YTA: Global palett — INTERAKTION: OK — SYNLIG DEFAULT? NEJ — Stäng VM
+- BACKEND: GET preview-status (preview-status/route.ts:25) → UI-YTA: Global palett — INTERAKTION: läs status — SYNLIG DEFAULT? NEJ — Förhandsstatus
+- BACKEND: postPreviewHeartbeat (preview-session/api.ts:32) → UI-YTA: Global palett — INTERAKTION: ping — SYNLIG DEFAULT? NEJ — Håll liv
+- BACKEND: postPreviewHibernate (preview-session/api.ts:59) → UI-YTA: Global palett — INTERAKTION: bekräfta — SYNLIG DEFAULT? NEJ — Viloläge VM
+- BACKEND: POST /api/ai/brief (ai/brief/route.ts:16) → UI-YTA: Global palett — INTERAKTION: generera — SYNLIG DEFAULT? NEJ — Ny brief
+- BACKEND: useBuilderDeployActions fetch (useBuilderDeployActions.ts:175) → UI-YTA: Global palett — INTERAKTION: öppna publicera — SYNLIG DEFAULT? NEJ — Publicera
+- BACKEND: POST v0/deployments (deployments/route.ts:364) → UI-YTA: Global palett — INTERAKTION: bekräfta sheet — SYNLIG DEFAULT? NEJ — Skapa deploy
+- BACKEND: GET deployment (deployments/[id]/route.ts:11) → UI-YTA: Global palett — INTERAKTION: uppdatera rad — SYNLIG DEFAULT? NEJ — Hämta status
+- BACKEND: Vercel rollback API → UI-YTA: Palett + länk — INTERAKTION: öppna Vercel — SYNLIG DEFAULT? NEJ — Återställ manuellt
+- BACKEND: POST engine/chats/init (init/route.ts:332) → UI-YTA: Global palett — INTERAKTION: nytt projekt — SYNLIG DEFAULT? NEJ — Initiera chat
+- BACKEND: GET credits/check (credits/check/route.ts:45) → UI-YTA: Global palett — INTERAKTION: visa — SYNLIG DEFAULT? NEJ — Visa saldo
+- BACKEND: POST media/upload (media/upload/route.ts:86) → UI-YTA: Global palett — INTERAKTION: välj fil — SYNLIG DEFAULT? NEJ — Ladda upp
+- BACKEND: POST validate-images (validate-images/route.ts:17) → UI-YTA: Global palett — INTERAKTION: kör — SYNLIG DEFAULT? NEJ — Validera bilder
+- BACKEND: POST validate-css (validate-css/route.ts:16) → UI-YTA: Global palett — INTERAKTION: kör — SYNLIG DEFAULT? NEJ — Validera CSS
+- BACKEND: POST normalize-text (normalize-text/route.ts:16) → UI-YTA: Global palett — INTERAKTION: kör — SYNLIG DEFAULT? NEJ — Normalisera text
+- BACKEND: Command (ui/command.tsx:37) → UI-YTA: Palett-UI — INTERAKTION: sök filter — SYNLIG DEFAULT? NEJ — Kommandon
+
+Not: Ingen inbyggd global ⌘K-lista idag; flytta keydown till shell + återanvänd command.tsx.

@@ -1,5 +1,10 @@
 import type { AutoFixEntry } from "../pipeline";
-import { GOOGLE_FONT_IMPORT_NAMES } from "@/lib/gen/data/google-font-registry";
+import {
+  GOOGLE_FONT_IMPORT_NAMES,
+  resolveGoogleFontImportName,
+} from "@/lib/gen/data/google-font-registry";
+import { getVariantById } from "@/lib/gen/scaffold-variants/registry";
+import type { ScaffoldId } from "@/lib/gen/scaffolds/types";
 
 const FONT_USAGE_RE = /\bconst\s+\w+\s*=\s*(\w+)\s*\(\s*\{/g;
 const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
@@ -13,6 +18,51 @@ const PREVIEW_FONT_REPLACEMENTS: Record<string, string> = {
   Geist: "Inter",
   Geist_Mono: "JetBrains_Mono",
 };
+
+export interface VariantFontContext {
+  scaffoldId?: string | null;
+  variantId?: string | null;
+}
+
+interface ResolvedVariantFontPair {
+  heading: string;
+  body: string;
+}
+
+function applyPreviewFontReplacement(name: string): string {
+  return PREVIEW_FONT_REPLACEMENTS[name] ?? name;
+}
+
+/**
+ * Resolve the first `fontPairings` entry of the locked variant into
+ * concrete `next/font/google` import names. Returns `null` when the
+ * variant is unknown, has no font pairings, or maps to a font we cannot
+ * materialize (display name not in the registry).
+ *
+ * Geist/Geist_Mono are remapped to the preview-host workaround pair so
+ * the generated layout renders without missing-glyph 404s. Drop this
+ * remap once `preview-host/src/runtime.js` serves the woff2 assets
+ * correctly under basePath (TODO #4).
+ */
+function resolveVariantFontPair(
+  context: VariantFontContext | undefined,
+): ResolvedVariantFontPair | null {
+  if (!context?.scaffoldId || !context?.variantId) return null;
+  const variant = getVariantById(
+    context.scaffoldId as ScaffoldId,
+    context.variantId,
+  );
+  if (!variant) return null;
+  const first = variant.fontPairings?.[0];
+  if (!first) return null;
+  const heading = resolveGoogleFontImportName(first.heading);
+  const body = resolveGoogleFontImportName(first.body);
+  if (!heading || !body) return null;
+  return {
+    heading: applyPreviewFontReplacement(heading),
+    body: applyPreviewFontReplacement(body),
+  };
+}
 
 function applyPreviewFontReplacements(
   code: string,
@@ -33,17 +83,119 @@ function applyPreviewFontReplacements(
   return { code: next, fixes };
 }
 
+const BASELINE_INTER_IMPORT_RE = /import\s+\{\s*Inter\s*\}\s+from\s+["']next\/font\/google["'];?/;
+const BASELINE_INTER_CONST_RE =
+  /const\s+inter\s*=\s*Inter\s*\(\s*\{[^}]*\}\s*\)\s*;?/;
+const BODY_INTER_VARIABLE_BARE_RE = /className=\{inter\.variable\}/g;
+const BODY_INTER_VARIABLE_TEMPLATE_RE = /\$\{inter\.variable\}/g;
+
+/**
+ * One-shot materialization of the variant's first `fontPairings` into a
+ * baseline scaffold layout that ships a single `Inter` font (the
+ * convention used by every scaffold under `src/lib/gen/scaffolds/`).
+ *
+ * Conservative by design — only triggers on the recognised baseline
+ * pattern. If the LLM (or a previous pass) already swapped the imports
+ * the function is a no-op so we never clobber user-shaped layouts.
+ *
+ * Heading variable is `--font-display` and body variable is `--font-sans`
+ * regardless of the font category. Two same-category fonts (e.g.
+ * `Manrope` + `Inter` for `corporate-grid`) therefore live on distinct
+ * CSS variables and can be referenced separately in scaffold CSS.
+ */
+function materializeVariantFontPair(
+  code: string,
+  filePath: string,
+  pair: ResolvedVariantFontPair,
+): { code: string; fixed: boolean; fixes: AutoFixEntry[] } {
+  if (pair.heading === "Inter" && pair.body === "Inter") {
+    return { code, fixed: false, fixes: [] };
+  }
+  if (
+    !BASELINE_INTER_IMPORT_RE.test(code) ||
+    !BASELINE_INTER_CONST_RE.test(code)
+  ) {
+    return { code, fixed: false, fixes: [] };
+  }
+
+  const samePair = pair.heading === pair.body;
+  const importNames = samePair ? [pair.body] : [pair.heading, pair.body];
+  const importLine = `import { ${importNames.join(", ")} } from "next/font/google";`;
+
+  const constBlock = samePair
+    ? `const fontSans = ${pair.body}({ subsets: ["latin"], variable: "--font-sans", display: "swap" });`
+    : [
+        `const fontDisplay = ${pair.heading}({ subsets: ["latin"], variable: "--font-display", display: "swap" });`,
+        `const fontSans = ${pair.body}({ subsets: ["latin"], variable: "--font-sans", display: "swap" });`,
+      ].join("\n");
+
+  const bareBodyReplacement = samePair
+    ? "className={fontSans.variable}"
+    : "className={`${fontDisplay.variable} ${fontSans.variable}`}";
+  const templateBodyReplacement = samePair
+    ? "${fontSans.variable}"
+    : "${fontDisplay.variable} ${fontSans.variable}";
+
+  let next = code;
+  next = next.replace(BASELINE_INTER_IMPORT_RE, importLine);
+  next = next.replace(BASELINE_INTER_CONST_RE, constBlock);
+  next = next.replace(BODY_INTER_VARIABLE_BARE_RE, bareBodyReplacement);
+  next = next.replace(BODY_INTER_VARIABLE_TEMPLATE_RE, templateBodyReplacement);
+
+  if (next === code) {
+    return { code, fixed: false, fixes: [] };
+  }
+
+  const description = samePair
+    ? `Materialized variant font (${pair.body}) into ${filePath}`
+    : `Materialized variant font pair (heading=${pair.heading}, body=${pair.body}) into ${filePath}`;
+
+  return {
+    code: next,
+    fixed: true,
+    fixes: [
+      {
+        fixer: "variant-font-materializer",
+        description,
+        file: filePath,
+      },
+    ],
+  };
+}
+
 export function fixFontImport(
   code: string,
   filePath: string,
+  variantContext?: VariantFontContext,
 ): { code: string; fixed: boolean; fixes: AutoFixEntry[] } {
   if (!filePath.includes("layout")) {
     return { code, fixed: false, fixes: [] };
   }
 
-  const replaced = applyPreviewFontReplacements(code, filePath);
-  const workingCode = replaced.code;
-  const aggregatedFixes: AutoFixEntry[] = [...replaced.fixes];
+  let workingCode = code;
+  const aggregatedFixes: AutoFixEntry[] = [];
+
+  // 1. Variant font materialization (one-shot on the baseline `Inter`
+  // scaffold layouts). Runs BEFORE preview-host Geist replacement so we
+  // never accidentally overwrite an LLM-shaped pair we just materialized.
+  const variantPair = resolveVariantFontPair(variantContext);
+  if (variantPair) {
+    const materialized = materializeVariantFontPair(
+      workingCode,
+      filePath,
+      variantPair,
+    );
+    if (materialized.fixed) {
+      workingCode = materialized.code;
+      aggregatedFixes.push(...materialized.fixes);
+    }
+  }
+
+  // 2. Preview-host Geist workaround: rewrite remaining Geist/Geist_Mono
+  // references the LLM might emit even after variant materialization.
+  const replaced = applyPreviewFontReplacements(workingCode, filePath);
+  workingCode = replaced.code;
+  aggregatedFixes.push(...replaced.fixes);
 
   const usedFonts = new Set<string>();
   for (const match of workingCode.matchAll(FONT_USAGE_RE)) {
@@ -59,21 +211,25 @@ export function fixFontImport(
     }
     return { code, fixed: false, fixes: [] };
   }
-  code = workingCode;
 
-  if (FONT_IMPORT_RE.test(code)) {
-    const importMatch = code.match(/import\s+\{([^}]*)\}\s+from\s+["']next\/font\/google["']/);
+  if (FONT_IMPORT_RE.test(workingCode)) {
+    const importMatch = workingCode.match(
+      /import\s+\{([^}]*)\}\s+from\s+["']next\/font\/google["']/,
+    );
     if (importMatch) {
       const imported = new Set(
         importMatch[1].split(",").map((s) => s.trim()).filter(Boolean),
       );
       const missing = [...usedFonts].filter((f) => !imported.has(f));
       if (missing.length === 0) {
+        if (aggregatedFixes.length > 0) {
+          return { code: workingCode, fixed: true, fixes: aggregatedFixes };
+        }
         return { code, fixed: false, fixes: [] };
       }
       const allImports = [...imported, ...missing].join(", ");
       const newImport = `import { ${allImports} } from "next/font/google"`;
-      const fixedCode = code.replace(
+      const fixedCode = workingCode.replace(
         /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/,
         newImport,
       );
@@ -92,13 +248,13 @@ export function fixFontImport(
     }
   }
 
-  if (aggregatedFixes.length > 0 && FONT_IMPORT_RE.test(code)) {
-    return { code, fixed: true, fixes: aggregatedFixes };
+  if (aggregatedFixes.length > 0 && FONT_IMPORT_RE.test(workingCode)) {
+    return { code: workingCode, fixed: true, fixes: aggregatedFixes };
   }
 
   const fontList = [...usedFonts].join(", ");
   const importLine = `import { ${fontList} } from "next/font/google";\n`;
-  const fixedCode = importLine + code;
+  const fixedCode = importLine + workingCode;
 
   return {
     code: fixedCode,

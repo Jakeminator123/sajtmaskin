@@ -1,0 +1,74 @@
+PREVIEW PANEL — UX / VISUAL REVIEW (Agent 5/8)
+Date: 2026-04-15
+Scope: src/components/builder/preview-panel/ EXCEPT GenerationProgress.tsx
+Criteria: Apple-minimalist; CSS variables / token styling; minimal chrome around iframe; rounded surfaces; 150–200ms transitions; clutter removal.
+Scoring: 5 = excellent, 1 = poor
+
+================================================================================
+CHECKLIST SCORES
+================================================================================
+
+1. Chrome / toolbar minimal — Score: 2/5
+   - PreviewPanelChrome stacks multiple bands: surface badges (“Live-preview”, “Next.js”, “Live-preview väntar”), viewport toggle, monospace URL bar, refresh/external, optional route tablist, then a full secondary row (Composer, undo/redo, Redigera, Inspektera, Register, Kod, Rensa). Below that, conditional alternate-preview banner, build/production alerts, and a legacy integration warning strip (lines ~516–543 in PreviewPanelChrome.tsx).
+   - PreviewPanel.tsx feeds long surfaceDescriptor copy (Kompatibilitetsvy, tier-2, shim) — informative but not “as few words as possible”; increases perceived density above the iframe.
+   - Strength: ghost/icon sizing is relatively compact; rounded controls align with a calm system UI.
+   - Gap vs Apple-minimal: too many simultaneous affordances visible; progressive disclosure is weak (everything competes in one chrome stack). max-h-[38vh] on the chrome container allows the header region to consume a large fraction of the panel.
+
+2. Empty state — Score: 4/5
+   - PreviewPanelEmptyState: centered card uses rounded-[var(--radius)], border-border, bg-card — token-aligned. Icon + title + subtitle; optional awaiting-input block with badges — still readable.
+   - Simplified mode paths are lighter (icon, short lines, single CTA where needed).
+   - Note: loading-without-error defers to <GenerationProgress /> (file out of scope); behavior is acknowledged but not scored here.
+   - Minor: full-mode subtitles can expose raw sandbox error strings — functional, not elegant.
+
+3. iframe wrapper — Score: 4/5
+   - PreviewPanelFrame wraps the iframe in rounded-[var(--radius)] + border + ring + shadow-sm; mobile mode uses max-w-[390px] and vertical inset — phone frame reads clearly.
+   - Outer padding (p-2 sm:p-3) adds a modest frame; iframe itself is border-0 inside the card — good separation from chrome.
+   - Loading/error layers are full-bleed overlays with backdrop blur — acceptable for status, slightly heavy vs “minimal spinner only.”
+   - Gap: no explicit 150–200ms transition on opacity/layout when switching loading ↔ content; state changes feel abrupt.
+
+4. Code view — Score: 2/5
+   - PreviewPanelCode: predictable two-pane layout (w-64 explorer/registry + scrollable editor) — structure is fine.
+   - PreviewPanelCodeSectionEditors: many section blocks use distinct Tailwind hues (cyan, amber, fuchsia, sky, teal, violet, orange, pink, lime, indigo, rose, slate, emerald, etc.) for borders/backgrounds/labels — high visual noise, far from a single navy/orange/foreground system; reads as “rainbow debug UI,” not Apple-minimal.
+   - CodeBlock copy control uses hardcoded grays (text-gray-300 hover:text-white) in PreviewPanelCodeSectionEditors — bypasses semantic tokens.
+   - “Målrad” line in purple-300 is another one-off accent.
+
+5. Edit overlays (Composer, inline edit, placement/inspect) — Score: 3/5
+   - PreviewPanelComposer: palette sidebar + overlay; overlay uses primary-tint wash and dashed insertion line — focused. Persistent bottom “Composer” explainer card (always visible in composer mode) adds fixed chrome over the preview — helpful but busy.
+   - EditModeOverlay: primary-based highlight + floating instruction pill — reasonable; top-center banner is extra layer over content.
+   - InlineEditPopup: animate-in fade/zoom with duration-150 — matches the 150ms target well; rounded-xl card, token borders — good.
+   - PreviewPanelInspectorDev (when inspector enabled): placement uses bg-sky-950/10, dashed sky-400, sky tooltips; inspect uses emerald/violet/rose/zinc/purple palettes and a thick bottom console — strong “dev tool” aesthetic, clashes with product token discipline and adds heavy visual clutter over the iframe.
+
+6. Route navigation — Score: 4/5
+   - Route strip: horizontal tablist with rounded-full pills, mono routes, active state with bg-primary/15 + ring — clean and scannable.
+   - Loading: 32px-wide pulse skeleton — subtle.
+   - Gap: transition-colors without an explicit 150–200ms duration in class (browser default may differ); no cross-fade when switching routes (iframe swap is immediate).
+
+7. Loading states — Score: 4/5
+   - PreviewPanelFrame: skeleton blocks + “Laddar…” + aria-live polite — good accessibility posture.
+   - PreviewPanelChrome: refresh icon spins when isLoading; route skeleton as above.
+   - usePreviewIframe: own-engine path polls until DOM ready — loading can be long; UI relies on overlay rather than a slimmer inline indicator.
+   - Overall coherent; not overly marketing-heavy.
+
+================================================================================
+CROSS-CUTTING FINDINGS (CSS / MOTION / CLUTTER)
+================================================================================
+
+- Token vs hardcoded color: Core chrome (PreviewPanel, PreviewPanelChrome, PreviewPanelFrame, EditModeOverlay, InlineEditPopup) leans on semantic classes (border-border, bg-muted, primary). Major exceptions: PreviewPanelInspectorDev and most of PreviewPanelCodeSectionEditors use non–design-system Tailwind color families (sky, emerald, violet, zinc, purple, fuchsia, lime, etc.).
+- Transitions: InlineEditPopup explicitly uses duration-150. Route pills use transition-colors without stated duration. View mode switches use React useTransition (not a 150–200ms CSS transition on the panel). Composer/iframe lack coordinated motion specs.
+- Iframe chrome: The physical frame around the iframe is relatively tight and rounded; the larger issue is vertical chrome above the preview (toolbar + modes + warnings), not the iframe bezel.
+- Clutter: Informational alerts (build, prod build, blob, images, integration) are necessary for power users but stack and fight the “preview-first” calm the criteria ask for — consider collapsing into one dismissible status or an overflow menu.
+
+================================================================================
+AVERAGE SCORE
+================================================================================
+Checklist scores: 2, 4, 4, 2, 3, 4, 4
+Average: 23 / 7 ≈ 3.29 → 3.3 / 5
+
+================================================================================
+QUICK WINS (for a future polish pass; not applied in this read-only review)
+================================================================================
+- Unify PreviewPanelInspectorDev and section editors onto semantic tokens (or a single muted “inspector” surface) and remove rainbow section colors.
+- Collapse PreviewPanelChrome into two rows max: primary actions + overflow “More”; hide long surface copy behind tooltip.
+- Add transition duration-150 (or duration-200) to route pills, chrome segment controls, and iframe overlay fade.
+- Replace gray-* in CodeBlockCopyButton with muted-foreground / foreground tokens.
+- Shorten surfaceDescriptor.detail strings or move to tooltips only.

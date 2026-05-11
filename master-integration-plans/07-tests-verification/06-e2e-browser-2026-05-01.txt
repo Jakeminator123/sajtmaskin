@@ -1,0 +1,51 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 06-e2e-browser
+Date: 2026-05-01
+
+## Required Checks
+- Dev and prod smoke for public routes.
+- Deploy API precheck.
+- CSP header assertion.
+- Console/pageerror gate.
+- Avoid builder in standard smoke.
+
+## Existing Tests
+- deploy Playwright config and deploy precheck spec.
+- openclaw config, but tests directory may be missing.
+- persona builder E2E, manual/long-running.
+- external Vercel template specs.
+
+## Missing Coverage
+- Public route matrix smoke.
+- Console/pageerror gate.
+- CSP header assertion.
+- npm script for persona config.
+- openclaw E2E may run zero tests.
+
+## Frontend Behaviors To Assert
+- Public pages render expected document/main content.
+- Known dynamic SEO routes return 200 for stable fixtures.
+- Builder persona only in isolated environment/new chat.
+
+## Exact LLM Implementation Instructions
+- Add a non-builder public-routes smoke spec.
+- Capture console/pageerror and whitelist known dev-only noise.
+- Assert CSP or Report-Only header depending on env.
+- Parameterize base URL with `SAJTMASKIN_E2E_BASE_URL`.
+- Do not open live `/builder` in default smoke.
+
+## Failure Triage Guide
+- Deploy skip: missing E2E env.
+- CSP fail: enforce/report-only mismatch.
+- Console fail: dev tooling/analytics noise.
+- OpenClaw zero tests: missing suite.
+- Persona timeout: backend/preview/generation issue.
+
+## Exact Commands
+- `npm run test:deploy-smoke:e2e`
+- `npm run test:openclaw:e2e`
+- `npx playwright test -c playwright.persona.config.ts`
+
+## Pass Criteria
+- Deploy smoke runs or explicitly skips.
+- Public-route smoke passes once added.
+- Standard smoke does not touch shared builder sessions.

@@ -1,0 +1,24 @@
+Chat Dock Behavior Review — Agent 1 (current open/close logic)
+Workspace: Sajtmaskin_Genberg | Scope: useBuilderState.ts, useBuilderPageController.ts, BuilderShellContent.tsx
+
+1. [5] uiMode "minimal"|"expanded" (useBuilderState.ts ~82–83) — Primary gate: minimal mounts chat inside BuilderDetailsDrawer; expanded mounts MessageList+ChatInterface in inline #builder-chat-panel (BuilderShellContent ~1758–1765 vs ~1784–1856).
+
+2. [5] detailsDrawerOpen (useBuilderState.ts ~83) — In minimal, chat visible when drawer open={vm.detailsDrawerOpen} (~1758–1764). Header opens drawer (~1627).
+
+3. [4] chatCollapsed + localStorage "builder:chatCollapsed" (BuilderShellContent ~707–718) — Only uiMode==="expanded": hides lg chat column, shows chevron strip (~1772–1791). Ignored in minimal.
+
+4. [4] mobileTab "chat"|"preview" (~706, 1788–1791, 1933–1937) — Expanded: tab bar toggles chat vs preview on small screens. Orthogonal to drawer.
+
+5. [2] uiMode persisted via useBuilderPageController (~997–1009) — Key sajtmaskin:uiMode:expanded mirrors expanded; does not encode drawer.
+
+6. [1] showStructuredChat (useBuilderState ~79–80) — Message rendering only; not spatial dock.
+
+7. [1] isVersionPanelCollapsed (~54–55) — VersionHistory width on preview rail (~1998–2012); not chat panel.
+
+8. [2] showIntakeWizard (!vm.chatId) (~754–757, 1859) — Blocks main UI pre-chat; affects when chat matters.
+
+Contradiction/overlap: Three concepts — uiMode (shell), detailsDrawerOpen (drawer), chatCollapsed (expanded desktop strip). No hard conflict; risk = model drift + duplicated MessageList/ChatInterface (minimal drawer vs expanded inline).
+
+Canonical proposal: chatDockCollapsed: boolean — true = dock hidden (minimal && !detailsDrawerOpen) OR (expanded && chatCollapsed && lg+); false = visible. Optionally fold mobileTab into mobileActivePane or derive from same boolean + breakpoint.
+
+Scores: 5=direct chat visibility gate, 1=indirect.

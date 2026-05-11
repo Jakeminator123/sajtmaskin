@@ -1,0 +1,29 @@
+Backend Capability Audit — Agent 5: Brief, prompt assist, needs-analysis
+
+- [HEURISTIK] detectSiteTypeFromText — regex sajttyp ur text — src/lib/builder/needs-analysis.ts:77-86 — DELVIS — 3
+- [HEURISTIK] chipToSiteType — chip→SiteTypeKey — needs-analysis.ts:1102-1110 — DELVIS — 4
+- [HEURISTIK] FIELD_PATTERNS + getEvidenceForField — vilka frågor räknas besvarade — needs-analysis.ts:272-352 — NEJ — 4
+- [HEURISTIK] buildPageStructure — sidförslag från must-have/siteType — needs-analysis.ts:599-770 — NEJ — 4
+- [BEHOVSANALYS] QUESTION_ORDER + createNeedsAnalysisMessage — uiParts needs-analysis — needs-analysis.ts:103-401 — JA — 5
+- [BEHOVSANALYS] deriveNeedsAnalysisState missingFields/ready/ratio — needs-analysis.ts:408-429 — DELVIS — 4
+- [BEHOVSANALYS] buildNeedsAnalysisPrompt — faktablad intake/mallar/scrape/brief — needs-analysis.ts:803-1026 + BuilderShellContent.tsx:263-270 — DELVIS — 4
+- [BEHOVSANALYS] extractWizardSections wizard-rader i prompt — needs-analysis.ts:789-821 — DELVIS — 4
+- [BEHOVSANALYS] searchTemplatesForPicker /api/templates/search fallback — needs-analysis.ts:1058-1099 — DELVIS — 3
+- [WIZARD-BRIEF] buildWizardBrief WizardAnswers→brief-fält — src/lib/builder/wizard-brief.ts:188-389 — DELVIS — 5
+- [WIZARD-BRIEF] CATEGORY_LABEL_TO_ID / CATEGORY_TO_BUSINESS_TYPE — wizard-brief.ts:17-74 — NEJ — 4
+- [WIZARD-BRIEF] MUST_HAVE_TO_PAGE must-have→routes — wizard-brief.ts:79-215 — NEJ — 4
+- [WIZARD-BRIEF] buildWizardCreativePrompt kort user + meta.brief — wizard-brief.ts:404-446 + BuilderShellContent.tsx:346-347 — DELVIS — 4
+- [WIZARD-BRIEF] qualityBar/motionLevel heuristik — wizard-brief.ts:278-298 — NEJ — 3
+- [API-BRIEF] POST /api/ai/brief rate limit bot briefRequestSchema — src/app/api/ai/brief/route.ts:16-120 — NEJ — 4
+- [API-BRIEF] briefRequestSchema gränser prompt/source — site-brief-generation.ts:29-41 — NEJ — 5
+- [API-BRIEF] siteBriefSchema zod strukturerat svar — site-brief-generation.ts:84+ — NEJ — 5
+- [PROMPT-ASSIST] usePromptRewrite deep /api/ai/brief shallow /api/ai/chat — usePromptRewrite.ts:59-247 — DELVIS — 4
+- [PROMPT-ASSIST] useInitBrief deep/shallow instructions — useInitBrief.ts:54-103 — NEJ — 3
+- [INTEGRATION] useCreateChat pendingBriefRef meta.brief merge — useCreateChat.ts:340-404 — NEJ — 4
+- [POLICY] shouldRunServerAutoBrief env SAJTMASKIN_DISABLE_* — server-auto-brief-policy.ts:7-38 — NEJ — 4
+- [UI] ModelTraceOverlay deep brief/modell — ModelTraceOverlay.tsx ~212 — DELVIS — 3
+- [UI] GenerationProgress fas brief copy — GenerationProgress.tsx:7-22 — DELVIS — 2
+- [UI] BuilderDetailsDrawer shell chat/plan/trace — BuilderDetailsDrawer.tsx:27-50 — DELVIS — 2
+- [TEST] needs-analysis.test regression — needs-analysis.test.ts — NEJ — 4
+
+Slutsats: heuristik driver prompt/meta; användare ser wizard + behovs-chatt + slutprompt, sällan full faktablad/JSON-brief som matar orchestrator.

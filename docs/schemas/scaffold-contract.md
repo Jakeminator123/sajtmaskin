@@ -53,6 +53,13 @@ scaffold into:
 This is then combined with route plan, contracts, brief, design/theme context,
 and other request-specific data.
 
+Some scaffold files are protected utility defaults rather than LLM-owned
+content. `SCAFFOLD_PROTECTED_PATHS` in `src/lib/gen/scaffolds/protected-paths.ts`
+is injected into dynamic context and enforced in persist paths: if the LLM emits
+those paths, its copies are dropped and the scaffold/previous-version files win.
+Current protected defaults include `app/icon.svg` and
+`app/api/placeholder/route.ts`.
+
 `RoutePlan` is separate from the scaffold itself. It includes **`provenance`**:
 
 - **`primarySource`** — `brief` if the brief pages drive structure; else `scaffold` if scaffold defaults added routes beyond prompt inference; else `prompt`.
@@ -63,7 +70,7 @@ Legacy stored payloads may still use a flat `source` field; parsers normalize th
 The plan may draw routes from:
 
 - `brief` — explicit pages from the current brief/spec
-- `prompt` — prompt-pattern inference in `route-plan.ts`
+- `prompt` — prompt-pattern inference in `src/lib/gen/route-plan/`
 - `scaffold` — scaffold defaults that add real routes (for example blog/auth/commerce helpers)
 
 After all sources contribute, `buildRoutePlan()` runs `dedupePlannedRoutesInPlaceByLocale()` (since 2026-04-21) to collapse locale-alternate route pairs (`/blog`↔`/blogg`, `/contact`↔`/kontakt`, `/about`↔`/om`, `/services`↔`/tjanster`) down to the variant matching the project's resolved locale (default `sv`). This means scaffolds that contribute `/blog` plus a brief that defines `/blogg` will reach the LLM as a single `/blogg` route — the LLM should never see both variants. Scaffold authors do not need to worry about locale-alternate collisions.
@@ -92,6 +99,9 @@ Supporting subtypes:
 - `ScaffoldFile`
   - `path`
   - `content`
+  - optional `role` — Scaffold Contract V2 prompt role (`root-layout` / `global-styles` / `config` / `route-page` / `shared-component` / `api-route` / `default`). When omitted, derived from `path` by `defaultRoleForPath()` in `serialize.ts`.
+  - optional `serialization` — explicit policy override (`full` / `excerpt` / `signature`). Default comes from the resolved role: `full` for `root-layout`/`global-styles`/`config`, `signature` for `shared-component`/`api-route`, `excerpt` otherwise. Large `full` files fall back to FileContract to preserve the critical-files budget.
+  - optional `maxPromptChars` — per-file ceiling for `representativeLines` when the resolved serialization is `excerpt`, or when a large `full` file falls back to FileContract. Lets manifests expose a few safe outline lines from a verbose file without sending partial executable TSX.
 - `ScaffoldResearchMetadata`
   - `upgradeTargets`
   - `referenceTemplates`
@@ -101,6 +111,30 @@ Supporting subtypes:
   - `categorySlug`
   - `qualityScore`
   - `strengths`
+
+### Scaffold Contract V2 — render policy
+
+The system prompt does not need every scaffold file in full. `serialize.ts`
+renders each selected critical file based on its resolved
+`(role, serialization)`:
+
+| Resolved policy | What reaches the LLM |
+|-----------------|----------------------|
+| `full` | Verbatim file content when the file is small enough for prompt context. Oversized `full` files are rendered as FileContract instead of truncated source. |
+| `excerpt` | A `FileContract` block, not a source-code fence. It lists path, role, completeness, ownership, mustEmit, source size, imports, exports, detected structure, capped `representativeLines`, and rules. Used for `route-page` and other files where partial code would be misleading. |
+| `signature` | A `FileContract` block with imports/exports/structure only — used for `components/*` and `app/.../route.ts` so the LLM sees the interface without re-reading bodies. |
+
+`FileContract` blocks are explicitly **not executable source**. They must never
+be copied into output. If the LLM emits a path described by a FileContract, it
+must emit a complete valid file that follows the contract.
+
+`## Critical Scaffold Files` is hard-capped to 6 000 characters including the
+FileContract intro. This keeps request-specific scaffold context bounded even
+when `BuildSpec.tokenBudgets.scaffoldChars` is generous.
+
+Manifest authors override the defaults by setting the optional V2 fields on a
+`ScaffoldFile`. Validation flags unknown roles, unknown serialization values,
+and non-positive `maxPromptChars` so manifest drift fails loud.
 
 ## Current scaffold ids
 
@@ -164,6 +198,10 @@ handkuraterad för auto-matchning eller retry-heuristik.
 - total `files` content should stay under ~15 000 chars (warning). Larger scaffolds waste prompt budget since serialization truncates anyway.
 - `qualityChecklist` should have at least 3 entries (warning)
 - `promptHints` should have at least 2 entries (warning)
+- Scaffold Contract V2 file fields:
+  - `role` must be one of the V2 roles when set (error)
+  - `serialization` must be `full` / `excerpt` / `signature` when set (error)
+  - `maxPromptChars` must be a positive number when set (error)
 
 ## Research enrichment
 

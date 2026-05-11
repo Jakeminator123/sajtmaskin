@@ -28,7 +28,7 @@ when generating code.
 | File | Size | What it is |
 |------|------|-----------|
 | `scaffold-embeddings.json` | ~2 MB | OpenAI vectors for the 9 scaffolds. Used by `searchScaffolds()` when semantic fallback is needed. |
-| `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, `referenceTemplates`). Built from the external template-library pipeline. |
+| `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, `referenceTemplates`). Historically built from the external template-library pipeline (now deprecated). Treated as a legacy snapshot until rebuild path is rewired. |
 
 ## Indexed files (readable by agents)
 
@@ -51,11 +51,11 @@ when generating code.
 2. `orchestrate.ts` resolves scaffold mode (`auto` / `manual` / `off`).
 3. In `auto`, `matchScaffoldAuto()` runs keyword matching first and only falls back to `searchScaffolds()` when the keyword result is missing or lands on a generic default such as `landing-page` or `base-nextjs`.
 4. `serializeScaffoldForPrompt()` turns the resolved scaffold into prompt text.
-5. `system-prompt.ts` combines scaffold context with route plan, contracts, brief/context signals, and visual direction.
-6. `finalize-version.ts` can later call `scaffold-aware-retry.ts` if preflight suggests that the original scaffold was a poor fit.
+5. `system-prompt/` combines scaffold context with route plan, contracts, brief/context signals, and visual direction.
+6. `stream/finalize-version/` can later call `scaffold-aware-retry.ts` if preflight suggests that the original scaffold was a poor fit.
 
 ## Regeneration Notes
 
-- `scaffold-research.generated.json` is rebuilt by `scripts/template-library/build-template-library.ts`.
-- `scaffold-embeddings.json` is rebuilt by `scripts/embeddings/generate-scaffold-embeddings.ts`.
+- `scaffold-research.generated.json` was historically rebuilt by `scripts/template-library/build-template-library.ts`. That script + its `template-library:*` npm targets are deprecated/removed (see `registry.ts` header). Treat the file as a legacy snapshot until the dossier-based research path replaces it.
+- `scaffold-embeddings.json` is rebuilt by `npm run scaffolds:embeddings` (`scripts/embeddings/generate-scaffold-embeddings.ts`).
 - If scaffold research changes, regenerate embeddings too so semantic matching uses the same merged scaffold data as runtime.

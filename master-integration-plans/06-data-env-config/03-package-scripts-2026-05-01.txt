@@ -1,0 +1,49 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 03-package-scripts
+Date: 2026-05-01
+
+## Master Changes
+- Diff `package.json`, root lockfile, and nested lockfiles before merge.
+- Script/dependency conflicts likely around dev/build/test/preflight and preview-host/services.
+
+## Local Changes / Dirty Files
+- No known package.json dirty change in initial status.
+- Many plan files are unrelated.
+
+## Compatibility Risks
+- Node version mismatch.
+- Next/ESLint config drift.
+- `overrides` can alter transitive dependency tree.
+- Multiple package roots need their own lockfiles.
+- Soft predev scripts can hide real failures.
+
+## Files To Update
+- `package.json` + root lockfile.
+- Nested package files/locks for preview-host, inspector-worker, video promo if touched.
+- Scaffold baseline dependencies if changed.
+- Docs for new env/dev scripts.
+
+## Frontend Impact / UI States
+- Dev may start with hidden soft warnings.
+- Build/CI can block preview/deploy.
+- `devtest` is stronger local readiness signal.
+
+## Exact LLM Implementation Instructions
+- Resolve dependency conflicts via package manager, not hand-edited locks.
+- Verify scripts are cross-platform or routed through node helpers.
+- Keep Node engine/CI consistent.
+- Run baseline dependency checks.
+- Do not hide critical checks behind soft scripts.
+
+## Verification Commands
+- `npm run preflight:common`
+- `npm run typecheck`
+- `npm run test:ci`
+- `npm run lint`
+- `npm run baseline-deps:verify`
+- `npm run baseline-deps:tree`
+- `npm run devtest`
+
+## Commit / Ignore Guidance
+- Commit lockfile with dependency changes.
+- Commit nested locks only when nested deps change.
+- Never commit node_modules or secrets in scripts.

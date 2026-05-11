@@ -3,12 +3,25 @@ import type { SuspenseRule, StreamContext } from "../transform";
 
 export const FALLBACK_ICON = "Circle";
 
+const LUCIDE_TYPE_ONLY_EXPORTS = new Set([
+  "IconNode",
+  "LucideIcon",
+  "LucideProps",
+  "SVGAttributes",
+]);
+
+export function isLucideTypeOnlyExport(name: string): boolean {
+  return LUCIDE_TYPE_ONLY_EXPORTS.has(name);
+}
+
 /**
  * Matches `import { ... } from "lucide-react"` and validates each
  * imported name against the known icon set. Unknown icons get:
  *   1. A case-insensitive exact match  (e.g. "arrowRight" → ArrowRight)
  *   2. A substring/similarity match    (e.g. "MailIcon" → Mail)
- *   3. Fallback to Circle              (e.g. "VercelLogo" → Circle as VercelLogo)
+ *   3. No rewrite if no real match exists. Hard fallback aliases like
+ *      `Circle as Foo` hide upstream mistakes and can corrupt valid icons
+ *      missing from our generated allow-list.
  */
 
 const LUCIDE_IMPORT_RE =
@@ -26,9 +39,9 @@ for (const icon of LUCIDE_ICONS) {
  *  1. Case-insensitive exact match
  *  2. Strip common suffixes ("Icon", "Outlined", "Filled") then re-check
  *  3. Substring containment (icon name contained in query or vice versa)
- *  4. Fallback to Circle
+ *  4. No match
  */
-export function findNearestIcon(name: string): string {
+export function findNearestIcon(name: string): string | null {
   const brandReplacement = LUCIDE_BRAND_ICON_REPLACEMENTS[name];
   if (brandReplacement) return brandReplacement;
 
@@ -60,7 +73,7 @@ export function findNearestIcon(name: string): string {
   }
   if (best) return best;
 
-  return FALLBACK_ICON;
+  return null;
 }
 
 /**
@@ -93,26 +106,33 @@ export const lucideIconFix: SuspenseRule = {
     if (specifiers.length === 0) return line;
 
     let changed = false;
-    const fixed = specifiers.map((raw) => {
+    const fixed = specifiers.flatMap((raw) => {
       const { imported, local } = parseSpecifier(raw);
+
+      if (isLucideTypeOnlyExport(imported) || isLucideTypeOnlyExport(local)) {
+        changed = true;
+        return [];
+      }
 
       if (LUCIDE_ICONS.has(imported)) {
         // Already valid — preserve original text (including alias).
-        return raw;
+        return [raw];
       }
 
-      changed = true;
       const nearest = findNearestIcon(imported);
+      if (!nearest) return [raw];
+      changed = true;
 
       if (nearest === local) {
         // Nearest match IS the desired local name — no alias needed.
-        return nearest;
+        return [nearest];
       }
 
-      return `${nearest} as ${local}`;
+      return [`${nearest} as ${local}`];
     });
 
     if (!changed) return line;
+    if (fixed.length === 0) return "";
 
     return `${prefix} ${fixed.join(", ")} ${middle}${quote}lucide-react${quote}${semi}${trailing}`;
   },

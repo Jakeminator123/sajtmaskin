@@ -1,0 +1,52 @@
+DESIGN SYSTEM & CROSS-CUTTING REVIEW (Agent 8/8)
+Date: 2026-04-15
+Scope: src/app/globals.css, tailwind.config.cjs, src/styles/landing-v2.css, src/components/ui/button.tsx, src/components/ui/sonner.tsx, src/app/layout.tsx, src/components/layout/cookie-banner.tsx
+Criteria: CSS vars/tokens only; navy/orange/white brand; no hardcoded colors; consistent tokens.
+
+SCORING KEY: 5 = excellent, 4 = good, 3 = adequate, 2 = weak, 1 = poor
+
+──────────────────────────────────────────────────────────────────────────────
+CHECKLIST SCORES
+
+1. CSS variables completeness — 5/5
+   Evidence: globals.css :root defines full shadcn-style semantic set (background, foreground, card, popover, primary, secondary, muted, accent, destructive, border, input, ring, radius), transition tokens (--transition-fast/base/slow, --ease-out-soft), brand tokens (--brand-navy, --brand-orange, --accent-orange, --brand-amber, --brand-warm), backward-compat --brand-blue/--brand-teal, chart-1–5, sidebar-* , scrollbar-thumb/hover. .dark mirrors core surfaces. tailwind.config.cjs maps colors to hsl(var(--*)). landing-v2.css consistently uses hsl(var(--primary|foreground|brand-navy|brand-orange|…)).
+   Gap (minor): legacy brand-blue/teal remain as aliases; documented as backward-compat.
+
+2. Hardcoded color audit — 5/5
+   Evidence: Within scope, no #hex, rgb(), or arbitrary Tailwind palette classes (e.g. sky-*) in components. Token definitions use HSL component triplets in :root (expected). button.tsx uses only semantic tokens (bg-primary, border-border, ring-ring, etc.). sonner.tsx wires Sonner CSS variables to --popover, --border, --radius. cookie-banner.tsx uses border-border, bg-card, text-muted-foreground, text-foreground. layout.tsx avoids inline colors; noscript uses token classes / .noscript-fallback in globals uses hsl(var(--foreground/--background)).
+   Note: Destructive red is still a semantic token (--destructive), not a one-off hex in UI code.
+
+3. Font loading — 4/5
+   Evidence: layout.tsx loads Geist, Geist_Mono, Space_Grotesk via next/font/google; CSS variables --font-geist-sans, --font-geist-mono, --font-heading on <html>. tailwind extends fontFamily sans/mono/heading to those variables.
+   Gap: Space_Grotesk sets display: "swap"; Geist/Geist_Mono rely on next/font defaults—worth aligning explicit display strategy across families for CLS consistency.
+
+4. Global transitions — 4/5
+   Evidence: globals.css defines shared easing/duration variables and uses them in .smooth-transition, .hover-lift, focus-ring, shimmer, etc. landing-v2.css uses var(--transition-base) in several places and prefers-reduced-motion in key areas (landing-cta-primary, landing-chat-bg, landing-v2-page).
+   Gap: Some blocks repeat literal 200ms cubic-bezier(0.4, 0, 0.2, 1) (e.g. .landing-cta-primary, .intent-card) instead of always referencing --transition-* tokens—small consistency drift, not a color issue.
+
+5. Dark mode — 3/5
+   Evidence: .dark in globals.css is populated; tailwind darkMode: "class"; button/sonner include dark: variants where relevant.
+   Gap: Root layout forces light theme: ThemeProvider defaultTheme="light" forcedTheme="light" enableSystem={false}, plus inline script stripping .dark and pinning color-scheme/light in localStorage. Dark tokens exist but the product path does not exercise them—risk of visual drift if dark is re-enabled without a pass.
+
+6. shadcn tokens — 5/5
+   Evidence: tailwind theme.extend colors mirror CSS variables; borderRadius uses var(--radius). button.tsx cva variants map to primary/secondary/destructive/accent/background/input (standard shadcn pattern). sonner.tsx passes --normal-bg/text/border and --border-radius from design tokens. @theme inline in globals exposes sidebar colors for Tailwind v4 alignment.
+
+7. Cookie / beta banner — 5/5
+   Evidence: cookie-banner.tsx is token-driven (border-border, bg-card/95, text-muted-foreground, text-foreground on link), minimal copy, uses Button. No stray colors; animation uses Tailwind animate utilities. Scope has no separate “beta” banner—cookie consent only.
+
+8. Scrollbar — 5/5
+   Evidence: :root defines --scrollbar-thumb and --scrollbar-thumb-hover; html uses scrollbar-width/color and webkit thumb with hsl(var(--scrollbar-thumb) / α). Utilities .scrollbar-thin and .scrollbar-hidden in globals. landing-v2 .hero-chat-scroll reuses same tokens for nested scroll areas. Dark block adjusts thumb variables.
+
+──────────────────────────────────────────────────────────────────────────────
+AVERAGE SCORE: 4.5 / 5  (sum 36 / 8 items)
+
+TOP STRENGTHS
+• Coherent HSL-token pipeline from :root → Tailwind → components; brand navy/orange expressed as variables, not ad hoc colors in scoped UI files.
+• Scrollbar and toast chrome tied to semantic tokens; landing-v2 hero/CTA/shader orbs stay on brand variables.
+
+PRIORITY IMPROVEMENTS (design-system hygiene)
+• If dark mode is intentionally off, document or gate .dark usage so future enablement gets a QA pass; otherwise consider removing dead dark variants from hot paths to reduce confusion.
+• Unify transition declarations to --transition-* / --ease-out-soft everywhere in landing-v2 for one source of truth.
+• Optional: explicit display: "swap" (or consistent strategy) on all next/font instances.
+
+STRICT READ-ONLY: No source files were modified for this review.

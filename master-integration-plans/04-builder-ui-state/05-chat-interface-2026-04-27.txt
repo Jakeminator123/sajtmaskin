@@ -1,0 +1,33 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 05-chat-interface
+Date: 2026-04-27
+
+## UI/UX To Preserve
+- `MessageList` + `ChatInterface`: kort, minimalistiska bubblor, `toAIElementsFormat`; **strukturerad** vs **kompakt** (`showStructuredParts` = `vm.showStructuredChat`):
+  - structured → `StructuredToolParts`
+  - compact → `AgentLogCard` + `CompactToolParts` (kortare rader, mindre krom)
+- `BuilderMessageTooling` — tool-kort, `PostCheckPanel` (via `review-panels`), quality-gate / server-repair, `getPostCheckSummary` m.m.; F2 döljer env-CTA tills F3/integrations (`lifecycleStage`).
+- `getLatestPendingReply` dubbletterad i shell + `MessageList` — båda måste uppdateras tillsammans.
+- Färger: vissa `text-amber-300` etc. i tooling — låg risk; vid redesign-PR: ersätt med tokens (redesign-autopilot).
+
+## New Master Capabilities To Surface
+- Nya `tool` typer / `isActionableToolPart` / `MessagePart` — masterns stream måste få motsvarande `toolType`-grener i `BuilderMessageTooling`.
+- Post-check schema-ändring → uppdatera `getPostCheckSummary` + quick actions; quality-gate verify-lane.
+- Master: Seo/SEO-relaterat i diagnostics — redan viss SEO-logg i `VersionDiagnosticsDialog` (kategori) — särskilj från framtida `SeoOptInPanel` (saknas lokalt, kommer i merge).
+
+## State/Props Impact
+- Konsumerar `BuilderViewModel` fält: meddelanden, `lifecycleStage`, `showStructuredChat`, callbacks till skick/åtgärder, `openProjectEnvVarsPanel` m.m. — varje master-tillägg här når 3–4 komponenter.
+
+## Merge Conflict Plan
+- Merge: `messageAdapter` / `types` ↔ `MessageList` ↔ `BuilderMessageTooling` ↔ `review-panels` i samma arbetspass.
+- **ChatToolsPalette:** ingen `import` i träd — merge: antingen **koppla in** (command palette) eller låt ligga/ ta bort per scope (död kod varning från agent) — bestäm explicit.
+- Säkerställ `CHAT_TOOL_EVENT` i `BuilderShellContent` utökad när masterna lägger händelser (se 01).
+
+## Test Plan
+- `BuilderMessageTooling.test.tsx` — post-check, verify-lane, quick actions.
+- `MessageList.test.tsx`, `ChatInterface.followup-base-badge.test.tsx`.
+- Manuell: `showStructuredChat` on/off, F2→F3, env-panel auto-open bara F3 (nuvarande effekt i `MessageList`).
+
+## Do Not Break
+- `tool-post-check`, `tool-quality-gate`, `retry-suggestion` delning med stream-handlers.
+- Dubblett `getLatestPendingReplyFromTooling` — håll identisk beteende mellan filer.
+- Coexistence: samma rekommendation som övriga builder-PR.

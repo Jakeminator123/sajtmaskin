@@ -1,0 +1,12 @@
+Builder Delight Review — Agent 8: Dag 2/7/30 (moment → nuvarande → föreslagen → S/M/L)
+
+Välkommen tillbaka | lastChatId/lastProjectId i localStorage utan rad i UI | Tunn banner första minuten: “Välkommen tillbaka · [statusrad]” dismiss | M
+Versioner igår | VersionHistory listar tider, ingen aggregering | Rad under rubrik: “3 sparade igår” max en gång per session | M
+Nytt AI-förslag | Tips efter stream om tips på; ej “nytt sedan sist” | Max ett kort + badge “Nytt”; separat opt-out “Dagliga förslag” | M/L
+WelcomeOverlay | Partner-ingång med namn | Inte samma som retur — använd ej för daglig hälsning | S
+Tips credits | requestTip kostar credits | Tydlig copy + opt-out synlig innan förslag | S
+Max tre moments | — | Global opt-out + per-moment dismiss; ingen konfetti | S
+
+Slutsats: tips-opt-out och versionsdata finns delvis; ingen komplett dag-2/7/30-upplevelse ännu.
+
+Källor: welcome-overlay.tsx, useBuilderPageController.ts (localStorage), VersionHistory.tsx, BuilderShellContent (tips), BuilderHeader (tips-checkbox).

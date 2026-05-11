@@ -27,32 +27,49 @@ function extractBriefSummary(brief: Record<string, unknown> | null | undefined):
           .map((s) => s.trim().toLowerCase())
           .slice(0, 16)
       : [];
+  const compact = <T extends Record<string, string | undefined>>(value: T | undefined): T | undefined =>
+    value && Object.values(value).some(Boolean) ? value : undefined;
   const vis = brief.visualDirection as Record<string, unknown> | undefined;
   const palette = vis?.colorPalette as Record<string, unknown> | undefined;
-  const domainProfile = brief.domainProfile as Record<string, unknown> | undefined;
+  const typography = vis?.typography as Record<string, unknown> | undefined;
+  const domainProfile = brief.domainProfile;
+  const colorPalette = compact(palette ? {
+    primary: str(palette.primary),
+    secondary: str(palette.secondary),
+    accent: str(palette.accent),
+    background: str(palette.background),
+    text: str(palette.text),
+  } : undefined);
+  const typographySummary = compact(typography ? {
+    headings: str(typography.headings),
+    body: str(typography.body),
+  } : undefined);
+  const domainProfileSummary =
+    typeof domainProfile === "string"
+      ? { domain: str(domainProfile), industry: undefined }
+      : domainProfile && typeof domainProfile === "object"
+        ? {
+            domain: str((domainProfile as Record<string, unknown>).domain),
+            industry: str((domainProfile as Record<string, unknown>).industry),
+          }
+        : undefined;
   return {
     projectTitle: str(brief.projectTitle) ?? str(brief.siteName),
     brandName: str(brief.brandName),
     styleKeywords: strList(vis?.styleKeywords),
     toneKeywords: strList(brief.toneAndVoice),
+    qualityBar: str(brief.qualityBar),
+    motionLevel: str(brief.motionLevel),
     primaryCTA: str(brief.primaryCallToAction),
-    colorPalette: palette ? {
-      primary: str(palette.primary),
-      secondary: str(palette.secondary),
-      accent: str(palette.accent),
-    } : undefined,
+    colorPalette,
+    typography: typographySummary,
     // Persist capability + domain so follow-ups can drive deterministic
     // dossier selection (`selectDossiersForRequest`) without re-running
     // Deep Brief. Without this, capability-driven dossiers are silently
     // dropped on every follow-up — tracked as bug A1+A2 in the
     // 2026-04-21 LLM-flow audit.
     requestedCapabilities: capList(brief.requestedCapabilities),
-    domainProfile: domainProfile
-      ? {
-          domain: str(domainProfile.domain),
-          industry: str(domainProfile.industry),
-        }
-      : undefined,
+    domainProfile: compact(domainProfileSummary),
   };
 }
 

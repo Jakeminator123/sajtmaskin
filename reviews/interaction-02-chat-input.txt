@@ -1,0 +1,27 @@
+Builder Interaction Review — Agent 2: Chat-input (prompt-input.tsx — mapp prompt-input/ saknas; ChatInterface.tsx; file-upload-zone)
+
+- Enter skickar trim, Shift+Enter ny rad → dokumentera Shift+Enter + valfritt Cmd+Enter i hint → 4
+- Enter på tomt preventDefault utan radbrytning → tillåt ny rad eller tydlig tom-etikett → 3
+- Saknar isComposing-guard vid Enter → ignorera submit under IME → 2
+- isLoading på PromptInput används ej i ChatInterface → visa sändningsläge vs bara disabled → 3
+- Auto-grow med hårdkodad lineHeight 24 → mät från computed line-height → 3
+- Dubbel min-h (CSS + minRows) → en källa för minhöjd → 3
+- maxRows 6 intern scroll utan signal → max-rad-indikator eller expandera → 4
+- Inga @mentions filer/rutter → @-picker kopplad till version/preview → 1
+- Inga slash-kommandon → /-prefix eller palett → 1
+- Ingen onPaste för clipboard-filer i textarea → återanvänd upload-flöde → 2
+- PromptInputMessage/ActionAddAttachments oanvända här → koppla eller ta bort API → 3
+- mediaEnabled false otydlig → tydlig disable-copy för paste/drag → 3
+- FileUploadZone compact utan onDrop på raden → drop-target över hela composer → 2
+- Full drop-zone finns ej i builder-raden → dela drop-logik till input-kort → 3
+- Drag över textarea gör inget → overlay “Släpp bifoga” på PromptInput-root → 2
+- Placeholder nämner Enter men ej Shift+Enter → kort tvåradig hint → 4
+- Voice append utan fokus tillbaka → fokus textarea efter inspelning → 4
+- Submit-knapp skickar bara text, bilagor parallellt → enhetlig payload om mål → 3
+- Inga kortkommandon listade i footer → diskret “?” eller länk till lista → 2
+- Figma separat fält OK → valfri hint “klistra länk i chatten” → 4
+- Textarea disabled under isBusy → ev. read-only utkast → 3
+- Tom text + bilagor med dold engelsk fallback → tydlig svensk tom-CTA → 4
+- Saknar aria-describedby för hints → koppla beskrivning till textarea → 3
+- resize-none + auto-höjd passar chat → behåll → 5
+- Dynamiskt file input i ActionAddAttachments → dold input som FileUploadZone → 3

@@ -1,0 +1,30 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 03-security-csp
+Date: 2026-04-27
+
+## Production Changes In Master
+- **Kanonisk edge:** `src/proxy.ts` (ersätter gammal middleware; `config.matcher` bred), JWT/admin gates, CORS, `addSecurityHeaders`, `buildCspPolicy`.
+- **CSP:** `CSP_ENFORCE` → full header vs `Content-Security-Policy-**Report-Only**`; särregler `preview-render`, `/avatar` (D-ID), dev `unsafe-eval`/localhost, `report-uri /api/csp-report`.
+- **next.config** `headers`: `Cross-Origin-*` endast `/project/:path*` (WebContainer) — **inte** `/builder`.
+- **`/api/csp-report`:** rate-limited POST, 204, loggar i prod som warn.
+
+## Local Behavior To Preserve
+- **Nonce:** `proxy` sätter `x-csp-nonce` → `layout.tsx` + `render-seo-page` för JSON-LD ThemeProvider/scripts.
+- **CORS** på `/api/`: `ALLOWED_ORIGINS` = app base + ev. Vercel URL; **särdrag:** `uploads/media` kan ha `Access-Control-Allow-Origin: *` (preview cross-origin) — oförändrat utan medveten audit.
+- Lokal/Preview: ofta `Report-Only` tills `CSP_ENFORCE=true` i prod.
+
+## Security / Secret Risks
+- För svag CSP i merge (fler `unsafe-*`) = XSS-risk.
+- Dubbla CORS-modeller (proxy vs media route) — försämra inte oavsiktligt.
+- `fetch-html` strippar `<meta http-equiv` CSP i importerad HTML — **separat** från huvud-CSP; ändra inte att det läcker in i builder-preview utan granskning.
+
+## Deploy Verification
+- Efter release: förvänta rapporter till `POST /api/csp-report`; i prod: logga `[CSP Violation]`.
+- Browser devtools: inga udda blockers på kritiska rutter (`/`, `/builder`) med `CSP_ENFORCE` på.
+- A/B: enforce vs report-only beroende på `CSP_ENFORCE` i Vercel env.
+
+## Observability Checks
+- Konsol/log: `[csp-report]` (dev) vs `warn` (prod).
+- Sök `report-uri` i faktiskt svarheader efter deploy (curl `-I`).
+
+## Do Not Commit
+- Inga CORS-allowlist med interna hemligheter; inga hårda secrets i `proxy` — env-only.

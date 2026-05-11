@@ -148,7 +148,7 @@ Plan: `L1-unified-repair-call.md` (parkad — väntar på telemetri-data).
 
 **Idag:** version-status sätts på flera ställen (DB-flaggor, SSE-events, klient-state). UI:t läser blandat. OMTAG fas 3·06 levererade `selectVersionStatus(events)` som projektion — men `BuilderShellContent.tsx` + preview-panel SSE-handling läser fortfarande gamla DB-flaggor (`resolveEngineVersionDisplayStatus`).
 
-**Plan:** event-bus UI-flip — se `Kvarvarande-uppgifter.md` punkt 11.
+**Plan:** event-bus UI-flip (spår A) — se `Kvarvarande-uppgifter.md` punkt 11. F2/F3-ordval (spår B) ägs separat av `docs/plans/active/2026-05-01-f2-f3-ux-copy-konsolidering.md`, så signalfrågor och copyfrågor inte blandas ihop.
 
 ---
 
@@ -165,7 +165,7 @@ request needs 3D
   → runtime smoke includes WebGL / render mount check
 ```
 
-**Idag:** detta fungerar. `needs3D` + `needsPhysics` är egna capability-flaggor; `visual-3d` / `parallax-scroll` / `parallax-pointer` dossiers är 1:1-mapping. **Glapp:** runtime smoke-check för WebGL render mount finns inte ännu — om Canvas misslyckas mounta hamnar det i F2-overlay-runbook istället.
+**Idag:** detta fungerar. `needs3D` + `needsPhysics` är egna capability-flaggor; `visual-3d` är dekorativ Three/R3F, `physics-3d` är Rapier/rigid-body-tillägg, och `parallax-scroll` / `parallax-pointer` är separata dossiers. **Glapp:** runtime smoke-check för WebGL render mount finns inte ännu — om Canvas misslyckas mounta hamnar det i F2-overlay-runbook istället.
 
 ---
 
@@ -176,7 +176,7 @@ request needs 3D
 | Rikt orchestration-lager (`orchestrate.ts`) | ✅ Mature | Inte bara "skicka prompt till modell" — riktig planning-fas |
 | Scaffold + variant + dossier som separata begrepp | ✅ | Tydlig ansvarsuppdelning (struktur / visuell signatur / capability-implementation) |
 | Snapshot-baserad follow-up-kontinuitet | ✅ | `orchestration-snapshot.ts` + `buildFollowUpBriefFromSnapshot` |
-| Static Core + Dynamic Context-uppdelning | ✅ | Stabil produktregel-baseline + per-request-kontext |
+| Core Rules + Dynamic Context-uppdelning | ✅ | Stabil produktregel-baseline + per-request-kontext |
 | Per-Request Signal Cascade | ✅ | EXPLICIT > INDICATED > INFERRED > DEFAULT > FALLBACK |
 | Lifecycle stage (F2/F3) | ✅ | Distinkta gates och kontrakt |
 | Element Preservation Guard | ✅ | Mekaniskt skydd mot att follow-ups tappar high-value-element |
@@ -194,12 +194,12 @@ Samlat från audit-rapporter, plans/active och denna analys. Detta är **inte ny
 |---|---|---|---|
 | **Single repair gate** | 5 callsites till `runLlmFixer` | 1 RepairGate-modul med 3 buckets internt | `L1-unified-repair-call.md` (parkad — väntar telemetri) |
 | **Status event bus** | DB-flaggor + SSE-events parallellt; UI läser DB | UI läser projektion `selectVersionStatus(events)` | `Kvarvarande-uppgifter.md` #11 |
-| **Brief-vägar** | klient-brief / server-auto-brief / snapshot-brief / fallback-addendum | Sekventiell hierarki: klient → server-auto → snapshot → ingen | P2 (öppet, fas1-doc) |
+| **Brief-vägar** | klient-brief / server-auto-brief / snapshot-brief; fallback-addendum finns kvar som degraderad helper, inte som init-chat-wrapper | Sekventiell hierarki: klient → server-auto → snapshot → ingen | P2 (öppet, fas1-doc) |
 | **Follow-up som strikt delta** | rätt i praktiken, men spritt över helpers | `FollowUpContract`-typ som samlar inheritance | (ingen aktiv plan) |
 | **Verifier-pass placering** | Inline i finalize, men hoppas över på fast-path | Antingen alltid inline (med budget) eller helt asynk | Audit §3.1 (telemetri-blockad) |
 | **Partial-file-repair** | 1 LLM-fixer-runda + abort | Ta bort när fast-tier byts till GPT-5+ (kompletta filer alltid) | Audit §3.3 (telemetri-blockad) |
 | **3D runtime smoke-check** | Saknas | WebGL render mount-check ingår i F2-checks vid `needs3D` | (ingen aktiv plan) |
-| **Prompt-lager-konsolidering** | Deep Brief + Rewrite + Polish + formatPrompt + server-auto-brief | En kanonisk path | P7 (öppet) |
+| **Prompt-lager-konsolidering** | Deep Brief + server-auto-brief + snapshot-brief + kvarvarande prompt-assist helpers (`formatPrompt` i wizard/runner). Rewrite/Polish-UI är legacy. | En kanonisk path | P7 (öppet) |
 | **WebContainers istället för Fly-VM** | preview boot 2-5 min | 5 sek (50-60×) | Audit Tier D #38 — strategisk satsning |
 
 ---
@@ -223,4 +223,5 @@ Samlat från audit-rapporter, plans/active och denna analys. Detta är **inte ny
 | [`fas1-startprompt-flow.md`](./fas1-startprompt-flow.md) · [`fas2-*.md`](./fas2-orchestration-and-build.md) · [`fas3-*.md`](./fas3-preview-and-deploy.md) | Per-fas-detalj |
 | [`mental-model-vs-actual-flow.md`](./mental-model-vs-actual-flow.md) | Vart användarintuition divergerar från koden |
 | [`llm-signal-flow.md`](./llm-signal-flow.md) | Signal-ownership-matris |
-| [`docs/plans/active/Kvarvarande-uppgifter.md`](../plans/active/Kvarvarande-uppgifter.md) | Konkreta öppna punkter |
+| [`docs/plans/active/Kvarvarande-uppgifter.md`](../plans/active/Kvarvarande-uppgifter.md) | Konkreta öppna punkter (inkl. event-bus UI-flip, spår A) |
+| [`docs/plans/active/2026-05-01-f2-f3-ux-copy-konsolidering.md`](../plans/active/2026-05-01-f2-f3-ux-copy-konsolidering.md) | F2/F3 copy-konsolidering (spår B) |

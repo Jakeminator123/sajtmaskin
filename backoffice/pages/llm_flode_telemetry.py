@@ -7,9 +7,11 @@ telemetri-events som introducerats i LLM-flöde-körplanen 2026-04-24:
   - ``llm_fixer_aborted``          (wave 1/5) — abort + duration + retry-signal
   - ``dossier_verbatim_restored``  (wave 6)   — säkerhetshygien: LLM korrumperade verbatim
   - ``llm_fixer_partial_response`` (wave 1/5) — excludedFiles per session
+  - ``llm_repair_gate.deduped``     (fas 5)    — ledger dedupe av upprepat LLM-repairförsök
   - ``site.done`` → ``warmTscSkipped``        (wave 7)   — latency-vinst-mätning
   - ``site.done`` → ``f2TimeMs`` / ``f3TimeMs``           (wave 7)   — fas-uppdelad latens (TODO i källan)
   - ``site.aborted``               (P0 2026-04-26) — stream-/transport-/provider-abort innan version
+  - ``orchestration.simple_website_path`` (2026-04-29) — snabb init-lane enabled/reason
 
 Separat hantering (se respektive notering i sidans sektioner):
   - ``image_replaced_with_placeholder`` — skrivs via ``debugLog`` (console), ej i NDJSON.
@@ -30,7 +32,7 @@ import pandas as pd
 import streamlit as st
 
 from backoffice.observability_io import load_tail_ndjson
-from backoffice.shared import BackofficeContext
+from backoffice.shared import BackofficeContext, load_latest_prompt_size_metrics
 
 _MAX_RUNS = 20
 _MAX_ROWS_PER_RUN = 500
@@ -300,6 +302,42 @@ def _render_llm_fixer_partial_response(run_dirs: list[Path]) -> None:
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
 
+def _render_llm_repair_gate_deduped(run_dirs: list[Path]) -> None:
+    st.subheader("LLM Repair Gate — dedupe (`llm_repair_gate.deduped`)")
+    st.caption(
+        "Emitteras när `RepairLedger` stoppar ett upprepat LLM-repairförsök "
+        "med samma scope/contentHash/diagnosticFingerprint/requiredFiles. "
+        "Schema: `docs/schemas/strict/llm-repair-gate-deduped.schema.json`."
+    )
+    events = _collect_events_by_type(run_dirs, "llm_repair_gate.deduped")
+    if not events:
+        st.info("Inga `llm_repair_gate.deduped`-events hittade i de senaste körningarna.")
+        return
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Dedupade repairförsök", len(events))
+    phases = {str(e.get("phase", "unknown")) for e in events}
+    scopes = {str(e.get("scopeId", "unknown")) for e in events}
+    col2.metric("Phases", len(phases))
+    col3.metric("Scopes", len(scopes))
+
+    rows = []
+    for event in events[:100]:
+        rows.append(
+            {
+                "Tid": event.get("_ts", "")[:19],
+                "Run": event.get("_run", ""),
+                "Chat": (event.get("chatId") or event.get("_slug") or "")[:36],
+                "Phase": event.get("phase", "—"),
+                "Scope": event.get("scopeId", "—"),
+                "Attempts": event.get("attempts", "—"),
+                "Last outcome": event.get("lastOutcome", "—"),
+                "Required files": ", ".join(event.get("requiredFiles") or []),
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+
 def _render_warm_tsc_skipped(run_dirs: list[Path]) -> None:
     st.subheader("Warm-tsc hoppades över (`warmTscSkipped` i `site.done`)")
     st.caption(
@@ -382,6 +420,161 @@ def _render_image_replaced(run_dirs: list[Path]) -> None:
     _ = run_dirs  # används inte ännu
 
 
+def _render_prompt_size(ctx: BackofficeContext) -> None:
+    st.subheader("Senaste prompt-storlek (`promptSize` i `generation-input-package.json`)")
+    st.caption(
+        "Aggregerade chars/tokens från senaste orchestration-dynamic prompt-dump. "
+        "Visas när `SAJTMASKIN_PROMPT_DUMP=true` har skrivit "
+        "`data/prompt-dumps/orchestration-dynamic/generation-input-package.json`. "
+        "Källa: `prepareGenerationContext` → `buildPromptSizeMetrics`. "
+        "Follow-ups kan kompaktera variant/toolkit/route-plan när BuildSpec finns, "
+        "contextPolicy inte är heavy och ändringen inte är clear-redesign."
+    )
+    snapshot = load_latest_prompt_size_metrics(ctx.repo_root)
+    if not snapshot:
+        st.info(
+            "Ingen `promptSize`-data hittad. Sätt `SAJTMASKIN_PROMPT_DUMP=true` i "
+            "`.env.local` och kör en generation för att populera dump-filen."
+        )
+        return
+
+    prompt_size = snapshot["promptSize"]
+    total = prompt_size.get("total", {}) or {}
+    static_core = prompt_size.get("staticCore", {}) or {}
+    separator = prompt_size.get("separator", {}) or {}
+    dynamic_context = prompt_size.get("dynamicContext", {}) or {}
+    dynamic_budget = prompt_size.get("dynamicBudget", {}) or {}
+    blocks = prompt_size.get("blocks", {}) or {}
+
+    cap_meta = []
+    if snapshot.get("scaffoldId"):
+        cap_meta.append(f"scaffold `{snapshot['scaffoldId']}`")
+    if snapshot.get("variantId"):
+        cap_meta.append(f"variant `{snapshot['variantId']}`")
+    if snapshot.get("dumpedAtUtc"):
+        cap_meta.append(f"dumpedAt `{snapshot['dumpedAtUtc'][:19]}Z`")
+    if cap_meta:
+        st.caption("Kontext: " + " · ".join(cap_meta))
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric(
+        "Total prompt",
+        f"{int(total.get('chars', 0)):,} chars",
+        f"~{int(total.get('estimatedTokens', 0)):,} tokens",
+    )
+    col2.metric(
+        "Static core",
+        f"{int(static_core.get('chars', 0)):,} chars",
+        f"~{int(static_core.get('estimatedTokens', 0)):,} tokens",
+    )
+    col3.metric(
+        "Dynamic context",
+        f"{int(dynamic_context.get('chars', 0)):,} chars",
+        f"~{int(dynamic_context.get('estimatedTokens', 0)):,} tokens",
+    )
+
+    col4, col5, col6 = st.columns(3)
+    col4.metric("Budget tokens", f"{int(dynamic_budget.get('budgetTokens', 0)):,}")
+    col5.metric("Used tokens", f"{int(dynamic_budget.get('usedTokens', 0)):,}")
+    col6.metric(
+        "Dropped blocks",
+        int(dynamic_budget.get("droppedBlocks", 0)),
+        f"of {int(blocks.get('total', 0))}",
+    )
+
+    col7, col8, col9 = st.columns(3)
+    col7.metric(
+        "Separator",
+        f"{int(separator.get('chars', 0)):,} chars",
+        f"~{int(separator.get('estimatedTokens', 0)):,} tokens",
+    )
+    col8.metric("Kept blocks", int(dynamic_budget.get("keptBlocks", blocks.get("kept", 0) or 0)))
+    col9.metric("All blocks", int(blocks.get("total", 0)))
+
+    dropped_keys = dynamic_budget.get("droppedBlockKeys")
+    if isinstance(dropped_keys, list) and dropped_keys:
+        with st.expander("Droppade dynamic blocks", expanded=False):
+            st.code("\n".join(str(key) for key in dropped_keys[:80]), language="text")
+
+    with st.expander("Promptdump-kontext", expanded=False):
+        st.markdown(f"- `lineageHash`: `{snapshot.get('lineageHash') or '—'}`")
+        st.markdown(f"- `scaffoldId`: `{snapshot.get('scaffoldId') or '—'}`")
+        st.markdown(f"- `variantId`: `{snapshot.get('variantId') or '—'}`")
+        st.markdown(f"- `dumpPath`: `{snapshot.get('dumpPath', '?')}`")
+        st.caption(
+            "Full blocklista finns i `dynamicContextBlocks` i generation-input-package.json; "
+            "Backoffice visar bara summering + största block för att undvika långsam UI-render."
+        )
+
+    largest = blocks.get("largest")
+    if isinstance(largest, list) and largest:
+        rows = []
+        for entry in largest:
+            if not isinstance(entry, dict):
+                continue
+            rows.append(
+                {
+                    "Block": entry.get("title") or entry.get("key") or "—",
+                    "Chars": int(entry.get("chars", 0)),
+                    "Tokens": int(entry.get("estimatedTokens", 0)),
+                    "Priority": entry.get("priority", "—"),
+                    "Required": "ja" if entry.get("required") else "nej",
+                    "Kept": "ja" if entry.get("kept") else "nej",
+                }
+            )
+        if rows:
+            st.markdown("**Topp dynamic blocks (största först)**")
+            st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+    st.caption(f"Källfil: `{snapshot.get('dumpPath', '?')}`")
+
+
+def _render_simple_website_path(run_dirs: list[Path]) -> None:
+    st.subheader("Simple Website Path (`orchestration.simple_website_path`)")
+    st.caption(
+        "Konservativ init-lane som kan hoppa Server Auto-Brief, externa/component refs "
+        "och dossier selection för korta website/template-prompts utan heavy signals."
+    )
+    events = _collect_events_by_type(run_dirs, "orchestration.simple_website_path")
+    if not events:
+        st.info("Inga `orchestration.simple_website_path`-events hittade i de senaste körningarna.")
+        return
+
+    enabled = [e for e in events if e.get("enabled") is True]
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Events", len(events))
+    col2.metric("Enabled", len(enabled), _pct(len(enabled), len(events)))
+    col3.metric("Disabled", len(events) - len(enabled))
+
+    reason_counts: dict[str, int] = {}
+    for event in events:
+        reason = str(event.get("reason", "unknown"))
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {"Reason": reason, "Antal": count, "Andel": _pct(count, len(events))}
+                for reason, count in sorted(reason_counts.items(), key=lambda item: -item[1])
+            ]
+        ),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    rows = [
+        {
+            "Tid": event.get("_ts", "")[:19],
+            "Run": event.get("_run", ""),
+            "Enabled": "ja" if event.get("enabled") is True else "nej",
+            "Reason": event.get("reason", "—"),
+            "Scaffold": event.get("scaffoldId", "—"),
+        }
+        for event in events[:50]
+    ]
+    st.markdown("**Senaste events**")
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+
 def _render_dossier_stubs(run_dirs: list[Path]) -> None:
     st.subheader("Cross-file stubs (`dossier_stub_created` / `crossFileStubs`)")
     st.caption(
@@ -414,6 +607,59 @@ def _render_dossier_stubs(run_dirs: list[Path]) -> None:
             "Konsultera `Databashälsa`-sidan för att se stub-varningar per version."
         )
     _ = run_dirs
+
+
+def _render_degradations(run_dirs: list[Path]) -> None:
+    st.subheader("Degradations (`version.degraded.*`)")
+    st.caption(
+        'Emitteras av `event-bus` när pipelinen lyckas men "ÅN ENDAST DEGRADERAT" '
+        "— t.ex. server-verify hoppades p.g.a. policy, eller F2 product-postcheck "
+        "fick aldrig en tillåten preview-URL. Speglas till devLog som "
+        "`type: 'version.degraded.<kind>'` av `event-bus-subscribers.installDefaultSubscribers()`. "
+        "Surfaces så att 'grön status' inte döljer att en kontroll aldrig kördes. "
+        "Källa: `src/lib/logging/event-bus-types.ts` (`VersionDegradationKind`)."
+    )
+
+    kinds = [
+        "verifier_skipped_heavy_load",
+        "verifier_skipped_by_policy",
+        "product_postcheck_skipped",
+    ]
+    all_events: list[dict[str, Any]] = []
+    for kind in kinds:
+        all_events.extend(_collect_events_by_type(run_dirs, f"version.degraded.{kind}"))
+
+    if not all_events:
+        st.info(
+            "Inga `version.degraded.*`-events hittade i de senaste körningarna. "
+            "Antingen kördes alla quality-gates utan skip, eller så går NDJSON-mirror "
+            "inte igenom (kontrollera `GENERATIONSLOGG=true`)."
+        )
+        return
+
+    counts = {k: 0 for k in kinds}
+    for ev in all_events:
+        kind = ev.get("kind") or ev.get("type", "").removeprefix("version.degraded.")
+        if kind in counts:
+            counts[kind] += 1
+
+    cols = st.columns(len(kinds))
+    for col, kind in zip(cols, kinds):
+        col.metric(kind, counts.get(kind, 0))
+
+    rows = []
+    for ev in all_events:
+        rows.append(
+            {
+                "Tid": ev.get("_ts", "")[:19],
+                "Run": ev.get("_run", ""),
+                "Slug / Chat": (ev.get("_slug") or "")[:40],
+                "kind": ev.get("kind") or ev.get("type", "").removeprefix("version.degraded."),
+                "message": (ev.get("message") or "")[:80],
+                "versionId": (ev.get("versionId") or "")[:12],
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
 
 
 # ---------------------------------------------------------------------------
@@ -458,6 +704,12 @@ def render(ctx: BackofficeContext) -> None:
     )
 
     st.divider()
+    _render_prompt_size(ctx)
+
+    st.divider()
+    _render_simple_website_path(run_dirs)
+
+    st.divider()
     _render_site_aborted(run_dirs)
 
     st.divider()
@@ -470,6 +722,9 @@ def render(ctx: BackofficeContext) -> None:
     _render_llm_fixer_partial_response(run_dirs)
 
     st.divider()
+    _render_llm_repair_gate_deduped(run_dirs)
+
+    st.divider()
     _render_warm_tsc_skipped(run_dirs)
 
     st.divider()
@@ -480,6 +735,9 @@ def render(ctx: BackofficeContext) -> None:
 
     st.divider()
     _render_dossier_stubs(run_dirs)
+
+    st.divider()
+    _render_degradations(run_dirs)
 
     with st.expander("Om datakällan", expanded=False):
         st.markdown(

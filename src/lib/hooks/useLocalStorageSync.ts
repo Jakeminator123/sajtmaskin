@@ -7,8 +7,8 @@ function useLocalStorageSync<T extends string | boolean>(
   opts?: { parse?: (raw: string) => T; serialize?: (v: T) => string },
 ) {
   const parse = opts?.parse ?? ((raw: string) => raw as unknown as T);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stableSerialize = useCallback(opts?.serialize ?? ((v: T) => String(v)), []);
+  const serialize = opts?.serialize;
+  const stableSerialize = useCallback((v: T) => (serialize ? serialize(v) : String(v)), [serialize]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

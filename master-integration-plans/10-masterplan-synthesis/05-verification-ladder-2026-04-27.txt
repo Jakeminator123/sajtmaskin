@@ -1,0 +1,29 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 05-verification-ladder
+Date: 2026-04-27
+
+## Inputs Read
+- `07-tests-verification/00-verification-ladder`, `00-preflight-baseline`, `09-deploy-observability/00-production-readiness-checklist`, `05-preview-runtime/00-runtime-smoke-matrix`, `package.json` `devtest` script.
+
+## Synthesis
+**En** sammanslagen stege: **CI-kedja först** (samma som `.github/workflows/ci.yml`), därefter strängare data (scaffold/dossier/capability-map) som ofta **inte** körs i full CI, sedan `devtest` som ersättare för “lokal allt utom build”, sedan fokus + E2E + manuell runtime (preview/postMessage/CSP), sist MI09 manuell checklista (secrets, webhooks, health).
+
+**Preflight-fakta (MI07):** `test:ci` var **röd** (3 misslyckade) i snapshot; triage före merge som ska förlita sig på helt grönt (stream hook timeout, m.m.).
+
+## Ordered Plan
+1. `npm run typecheck` → 2) `lint` → 3) `test:ci` → 4) `baseline-deps:verify` && `baseline-deps:tree` (om deps/lock) → 5) `build`.
+2. `scaffolds:validate` → `dossiers:validate-all` → (vid behov) `dossiers:capability-map:check`.
+3. Alternativ snabb: `npm run devtest` (typecheck + scaffolds + dossiers + test:ci + lint, **utan** `build`). **Ersätter ej** steg 1-5 när exakt CI-paritet krävs före deploy.
+4. `npm run test:focused` / riktad `npx vitest run src/lib/gen/preview` vid ytfokus.
+5. `npm run test:deploy-smoke:e2e` (fyrfälts env) + ev. manuell Playwright persona; **sätt aldrig secrets i repo** (09).
+6. Manuell: 05-matris (dev / `next start` / CSP), 09 (health, CSP-loggar, webhooks), **en** builder-klient per `chatId`.
+
+## Acceptance Criteria
+- Exit 0 på steg 1-5 före merge om PR ska motsvara CI; vid dataändring även steg 2a-b.
+- Dossier: om endast `test:ci` körs, **dokumentera** att `dossiers:validate-all` inte är i CI (MI07) om manifest rörts.
+
+## Risks / Mitigations
+- Förlitande på röd `test:ci` = merge-risk — fixa flake/timeout före eller isolera.
+- Bara `devtest` = kan missa `build`/prebuild — kör `build` om `next`/`prebuild` ändrats.
+
+## Final Recommendations
+Skriv i PR: **vilken stege som faktiskt körts** (inkl. om 11–12 hoppats över).

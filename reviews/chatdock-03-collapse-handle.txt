@@ -1,0 +1,22 @@
+Chat Dock — Agent 3: >/< minimize handle (READ-ONLY)
+Scope: BuilderShellContent.tsx, BuilderDetailsDrawer.tsx, ChatInterface.tsx, preview layout
+
+Skill spec: left edge of chat rail (seam toward preview), 50% vertical, 40×40 hit, 1px border, ›/‹, hover, ⌘\, aria-label, tooltip.
+
+Current vs spec
+• Expanded + chat open: collapse control top-right inside #builder-chat-panel (justify-end), ChevronRight h-3.5 w-3.5, p-1 — NOT left seam. BuilderShellContent.tsx ~1794–1802.
+• Expanded + chat collapsed: narrow column border-l, ChevronLeft; items-start pt-2 — top-aligned, not 50% mid-rail. ~1772–1781.
+• ChatInterface: no rail handle; collapse only in BuilderShellContent.
+• BuilderDetailsDrawer: Sheet right; pill + Cmd/Ctrl+K (~22–25 comment), not same as expanded seam rail.
+• PreviewPanel: no handle — shell-only.
+
+Gap: seam-left ›/‹, 40×40, 1px chrome, vertical center, ⌘\ not implemented. Expanded toggles have some title/aria; tooltip/shortcut story thin vs spec.
+
+ASCII (spec vs current)
+OPEN spec:  | preview | › | chat…
+OPEN now:   | preview | chat… [‹ top-right]
+
+COLLAPSED spec: | preview | ‹ |  (mid)
+COLLAPSED now: | preview | ‹ strip top
+
+Scores (1–5): Placement seam 2 | Hit 40×40 2 | Vertical 50% 2 | ›/‹ + 1px 2 | Hover 3 | aria+tooltip 3 | Keyboard ⌘\ 1 | Overall 2

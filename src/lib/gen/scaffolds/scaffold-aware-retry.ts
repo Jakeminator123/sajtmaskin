@@ -93,8 +93,16 @@ function classifyFailureType(
     issueText.includes("missing a default export");
   const hasMergedSyntaxOnlySignal =
     issueText.includes("merged syntax error") && !hasImportDriftSignal;
+  const hasCodeStructureRoot =
+    preflightIssues.some(
+      (issue) =>
+        issue.severity === "error" &&
+        issue.category === "code_structure_failure",
+    ) ||
+    issueText.includes("home route renders trivial content") ||
+    issueText.includes("required home route is missing");
 
-  if (hasMergedSyntaxOnlySignal) {
+  if (hasMergedSyntaxOnlySignal || hasCodeStructureRoot) {
     return "blocking-preflight";
   }
 

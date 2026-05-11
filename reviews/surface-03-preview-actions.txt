@@ -1,0 +1,26 @@
+Backend Surface Mapping — Agent 3: Preview-chrome (PreviewPanelChrome.tsx; idag MAX_VISIBLE=5 rutter + overflow +, ej max 3 synliga — justera vid implementation)
+
+- BACKEND: iframe reload cache-bust (PreviewPanel.tsx:635) → UI-YTA: Preview-rad — INTERAKTION: klick Uppdatera — SYNLIG DEFAULT? JA — Uppdatera
+- BACKEND: (saknas) hard rebuild POST i chrome → UI-YTA: Verktyg ··· — INTERAKTION: palett eller meny — SYNLIG DEFAULT? NEJ — Hård ombyggnad
+- BACKEND: previewBuildError props (PreviewPanelChrome.tsx:588) → UI-YTA: Varningsrader — INTERAKTION: läs scroll — SYNLIG DEFAULT? JA vid fel — Visa felet
+- BACKEND: (saknas) copy console API → UI-YTA: Verktyg ··· — INTERAKTION: kopiera — SYNLIG DEFAULT? NEJ — Kopiera logg
+- BACKEND: window.open previewUrl (PreviewPanel.tsx:648) → UI-YTA: Preview-rad — INTERAKTION: ny flik — SYNLIG DEFAULT? JA — Öppna ny flik
+- BACKEND: GET files versionId (chat-version-files-fetch.ts:18) → UI-YTA: Ruttflikar — INTERAKTION: klick route — SYNLIG DEFAULT? JA — Byt sida
+- BACKEND: onNavigateRoute (PreviewPanel.tsx:666) → UI-YTA: Flikar+overflow — INTERAKTION: välj +n — SYNLIG DEFAULT? JA — Välj rutt
+- BACKEND: onRequestBuildOutRoute prompt (PreviewPanel.tsx:935) → UI-YTA: Shell-flik — INTERAKTION: Bygg ut — SYNLIG DEFAULT? JA shell — Bygg ut route
+- BACKEND: POST preview-destroy (preview-session/api.ts:94) → UI-YTA: Verktyg meny — INTERAKTION: Rensa — SYNLIG DEFAULT? NEJ — Rensa session
+- BACKEND: GET integrations/status (useIntegrationStatus.ts:29) → UI-YTA: Varningsremsa — INTERAKTION: passiv — SYNLIG DEFAULT? NEJ — Blob saknas
+- BACKEND: POST preview-heartbeat (preview-session/api.ts:39) → UI-YTA: Bakgrund — INTERAKTION: auto 25s — SYNLIG DEFAULT? NEJ — (ingen etikett)
+- BACKEND: POST preview-hibernate (preview-session/api.ts:66) → UI-YTA: Bakgrund — INTERAKTION: auto — SYNLIG DEFAULT? NEJ — (ingen etikett)
+- BACKEND: POST error-log (usePreviewPanelOwnEnginePreviewTelemetry.ts:101) → UI-YTA: Toast/autofix — INTERAKTION: auto — SYNLIG DEFAULT? NEJ — Rapportera fel
+- BACKEND: POST inspector-ai-match (usePreviewPanelInspectCapture.ts:175) → UI-YTA: Verktyg — INTERAKTION: Inspektera — SYNLIG DEFAULT? NEJ — AI-matcha
+- BACKEND: POST inspector-capture (usePreviewPanelInspectCapture.ts:262) → UI-YTA: Overlay — INTERAKTION: klick punkt — SYNLIG DEFAULT? NEJ — Ta punktbild
+- BACKEND: PATCH engine/files (engine-files-patch.ts:11) → UI-YTA: Verktyg Composer — INTERAKTION: spara — SYNLIG DEFAULT? NEJ — Composer
+- BACKEND: sendMessage repair (PreviewPanelFrame.tsx:119) → UI-YTA: Fel-overlay — INTERAKTION: reparera — SYNLIG DEFAULT? NEJ — Reparera preview
+- BACKEND: onSuggestionClick (PreviewPanelChrome.tsx:516) → UI-YTA: Verktyg snabbval — INTERAKTION: fyll chatt — SYNLIG DEFAULT? NEJ — Snabb förslag
+- BACKEND: alternatePreviewBanner (PreviewPanelChrome.tsx:573) → UI-YTA: Banner — INTERAKTION: byt URL — SYNLIG DEFAULT? NEJ — Live-preview
+- BACKEND: setViewMode (PreviewPanel.tsx:614) → UI-YTA: Verktyg — INTERAKTION: Register/Kod — SYNLIG DEFAULT? NEJ — Byt vy
+- BACKEND: setPreviewDevice (PreviewPanelChrome.tsx:217) → UI-YTA: Viewport — INTERAKTION: Dator/Mobil — SYNLIG DEFAULT? JA — Byt enhet
+- BACKEND: surfaceDescriptor tooltip (PreviewPanelChrome.tsx:187) → UI-YTA: Info-ikon — INTERAKTION: hover — SYNLIG DEFAULT? JA — Förhandsinfo
+
+Rekommendation synlig rad: Uppdatera · Öppna · Byt enhet — övrigt under ··· (Rensa, Inspektera, Composer, snabbval).

@@ -1,0 +1,36 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 06-e2e-browser
+Date: 2026-04-27
+
+## Required Checks
+- Playwright-konfig: `playwright.deploy-smoke.config.ts` (deploy `e2e/deploy`), `playwright.openclaw.config.ts` (`tests/openclaw`), `playwright.persona.config.ts` (persona, ej npm-script i rot).
+- **Ingen** root-`playwright.config.ts` — explicit `-c` krävs.
+- Dev/prod smoke: deploy-smoke använder ofta `SAJTMASKIN_E2E_BASE_URL` / lokal 3000; se skip-logik i spec.
+- Vercel-templates-specs ligger i `e2e/vercel-templates` — kan vara **utanför** default `testDir` om man inte anpassat config (kör med rätt `-c` / path).
+
+## Existing Tests
+- `e2e/deploy/deploy-api-precheck.smoke.spec.ts` — `POST /api/v0/deployments` `precheckOnly` (fetch, ej browser i praktiken).
+- `e2e/persona/persona-klippstugan-flow.spec.ts` — `builder`, wizard, suggest API, preview iframe (lång timeout, workers: 1).
+- `e2e/vercel-templates/*.spec.ts` — externt `vercel.com/templates` m.m.
+- `package.json`: `test:openclaw:e2e`, `test:deploy-smoke:e2e` — `inspector:install` separat (Playwright i `services/inspector-worker`).
+
+## Missing Coverage
+- `tests/openclaw` + `*.e2e.ts` **kan saknas** — `test:openclaw:e2e` riskerar 0 filer tills de finns.
+- **CSP / browser console** — inga samlade `page.on("console" | "pageerror")`-gate i sökträd.
+- Persona: ingen standard npm-wrapper — manuell `playwright test -c playwright.persona.config.ts`.
+
+## Failure Triage Guide
+- Deploy-smoke: env saknas — spec kan skippa; läs `*.spec.ts` topp.
+- OpenClaw: `webServer` 3007 — kollision med annan process.
+- Externa mall-sites — flakes nät/selector.
+
+## Exact Commands
+```bash
+npm run test:deploy-smoke:e2e
+npm run test:openclaw:e2e
+npx playwright test -c playwright.persona.config.ts
+# Sätt SAJTMASKIN_E2E_BASE_URL om riktat mot remote
+```
+
+## Pass Criteria
+- Exit 0 när körning faktiskt inkluderar testfiler; dokumentera “0 tests” om mappar är tomma.
+- E2E är **komplement** — merge-bar är fortfarande `test:ci`+CI enligt workflow, om inte team utökar.

@@ -219,6 +219,9 @@ async function curateOne(args: {
 
 async function main(): Promise<void> {
   const args = parseArgs();
+  if (args.limit !== null && (!Number.isInteger(args.limit) || args.limit <= 0)) {
+    throw new Error("--limit must be a positive integer");
+  }
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
     console.error("OPENAI_API_KEY is required. Set it in .env.local.");
@@ -240,6 +243,9 @@ async function main(): Promise<void> {
   console.log("");
 
   if (candidates.length === 0) {
+    if (args.only) {
+      throw new Error(`No scaffold variant matched --only=${args.only}`);
+    }
     console.log("Nothing to do.");
     return;
   }

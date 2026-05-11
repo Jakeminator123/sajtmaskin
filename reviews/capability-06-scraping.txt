@@ -1,0 +1,38 @@
+Backend Capability Audit — Agent 6: Scraping & extern data (OBS: src/lib/scrape/** saknas — webscraper.ts, company-intel, APIs)
+
+- [META] src/lib/scrape/** — efterfrågad modulväg finns ej i repo — n/a — NEJ — 1
+- [SCRAPE] quickScrapeWebsite en sida titel/meta/rubriker/textSummary — src/lib/webscraper.ts:654-701 — DELVIS — 4
+- [SCRAPE] scrapeWebsite upp till 8 sidor sitemap JSON-LD produkter — webscraper.ts:708-873 — NEJ — 5
+- [SCRAPE] parsePage title/description/headings/images/links/meta JSON-LD — webscraper.ts:429-630 — NEJ — 4
+- [SCRAPE] tryWordPressFallback JSON-API — webscraper.ts:214-311 — NEJ — 4
+- [SCRAPE] validateSsrfTarget guardedFetch SSRF-skydd — webscraper.ts:139-151,318-322 — NEJ — 5
+- [SCRAPE] validateAndNormalizeUrl canonical cache-nyckel — webscraper.ts:889-976 — NEJ — 4
+- [API] POST /api/wizard/quick-scrape — wizard/quick-scrape/route.ts:22-51 — DELVIS — 4
+- [API] POST /api/analyze-website scrapedContent — analyze-website/route.ts:57-172 — DELVIS — 4
+- [API] POST /api/builder/company-intel scrape+syntes+wizardFields — builder/company-intel/route.ts:39-113 — NEJ — 5
+- [ORKESTRERING] collectCompanyIntel scrapeWebsite+Brave+Allabolag — src/lib/builder/company-intel.ts:380-426 — NEJ — 5
+- [EXTERN] braveWebSearch categorizeBraveResults — company-intel.ts:230-265 — NEJ — 4
+- [EXTERN] Allabolag lookupViaCheerio — company-intel.ts:69-188 — DELVIS — 4
+- [DATA] websiteContentToScraped intel.scrapedContent sampledUrls — company-intel.ts:283-298 — NEJ — 4
+- [AI] synthesizeCompanyBrief extractWizardFields confidence — company-brief-synthesis.ts:14+ — NEJ — 5
+- [KLIENT] handleIntakeWizardScrape merge intel/brief/registry — BuilderShellContent.tsx:426-519 — DELVIS — 4
+- [KLIENT] scrapeDataRef komprimerad ScrapeResult chat — BuilderShellContent.tsx:442-452 — NEJ — 3
+- [TYP] WizardScrapeData kontrakt wizard-fält — IntakeWizard.tsx:118-157 — DELVIS — 4
+- [WIZARD] applyScrapeToBusiness siteType inferred scrapedFields — IntakeWizard.tsx:733-893 — DELVIS — 4
+- [WIZARD] handleScrape auto-scrape progress toast — IntakeWizard.tsx:920-978 — JA — 4
+- [WIZARD] scrapeAbortRef Avbryt UI (fetch kan fortgå) — IntakeWizard.tsx:1379-1384 — JA — 3
+- [WIZARD] Hämta om på samma URL — IntakeWizard.tsx:1599-1612 — JA — 4
+- [WIZARD] ScrapeBadge scrapedFields — IntakeWizard.tsx:1581-1711 — JA — 4
+- [WIZARD] clearScrapedField tar badge ej värden — IntakeWizard.tsx:1059-1064 — DELVIS — 2
+- [WIZARD] SCRAPE_CHECKS checklista — IntakeWizard.tsx:1556-1667 — DELVIS — 3
+- [WIZARD] heuristik menylister vs e-handel — IntakeWizard.tsx:749-767 — NEJ — 4
+- [CACHE] ingen server TTL för scrape i webscraper — webscraper.ts — NEJ — 3
+- [CACHE] stock-providers Map CACHE_TTL_MS 5min — src/lib/media/stock-providers.ts:43-67 — NEJ — 4
+- [EXTERN] fetchStockImages/Videos Unsplash/Pexels — stock-providers.ts:62-169 — NEJ — 4
+- [EXTERN] buildStockImageQueries kategori→query — stock-providers.ts:207-239 — NEJ — 3
+- [INTEGRATION] create-chat-stream-post mediaCatalog stock fallback — create-chat-stream-post.ts:695-738 — NEJ — 4
+- [TYP] WebsiteContent audit.ts — types/audit.ts:352-375 — NEJ — 4
+- [ÖVRIGT] IntakeSummaryCard scrapeText suggest — IntakeSummaryCard.tsx:16-40 — NEJ — 3
+- [ÖVRIGT] prompt-wizard-modal-v2 quick-scrape→analyze-website — prompt-wizard-modal-v2.tsx:814-852 — DELVIS — 4
+
+Slutsats: extraherade fält rika; TTL endast stock; “scrape igen”=Hämta; clearScrapedField begränsad ignore.

@@ -1,4 +1,8 @@
-export function OrganizationJsonLd() {
+interface JsonLdProps {
+  nonce?: string;
+}
+
+export function OrganizationJsonLd({ nonce }: JsonLdProps) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -10,13 +14,15 @@ export function OrganizationJsonLd() {
 
   return (
     <script
+      nonce={nonce}
+      suppressHydrationWarning
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
     />
   );
 }
 
-export function SoftwareApplicationJsonLd() {
+export function SoftwareApplicationJsonLd({ nonce }: JsonLdProps) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -40,6 +46,8 @@ export function SoftwareApplicationJsonLd() {
 
   return (
     <script
+      nonce={nonce}
+      suppressHydrationWarning
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
     />

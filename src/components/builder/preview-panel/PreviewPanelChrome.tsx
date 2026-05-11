@@ -192,11 +192,23 @@ export function PreviewPanelChrome({
     typeof chatId === "string" &&
     chatId.length > 0 &&
     lifecycleStage !== "integrations";
+  const chromeButtonClassName = "text-muted-foreground hover:text-foreground";
+  const activeToolClassName = "bg-accent text-accent-foreground hover:text-accent-foreground";
+  const warningPanelClassName =
+    "border-[hsl(var(--status-warning)/0.35)] bg-[hsl(var(--status-warning)/0.1)] text-[hsl(var(--status-warning))]";
+  const successPanelClassName =
+    "border-[hsl(var(--status-success)/0.35)] bg-[hsl(var(--status-success)/0.1)] text-[hsl(var(--status-success))]";
+  const hasTier2UnifiedWarnings =
+    showBlobWarning ||
+    showBlobConfigWarning ||
+    integrationError ||
+    showImagesDisabledWarning ||
+    showImagesUnsupportedWarning;
   return (
     <div className="max-h-[40%] shrink-0 overflow-y-auto">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold tracking-tight text-white">Preview</h3>
+          <h3 className="font-semibold tracking-tight text-foreground">Förhandsvisning</h3>
           <Badge variant="outline" className={surfaceDescriptor.badgeClassName}>
             {surfaceDescriptor.label}
           </Badge>
@@ -251,8 +263,8 @@ export function PreviewPanelChrome({
                   : "Klicka i previewn för att redigera direkt"
               }
               className={cn(
-                "text-gray-400 hover:text-white",
-                inlineEditMode && "bg-amber-900/40 text-amber-200 hover:text-amber-100",
+                chromeButtonClassName,
+                inlineEditMode && activeToolClassName,
               )}
             >
               <Pencil className="mr-1 h-4 w-4" />
@@ -276,8 +288,8 @@ export function PreviewPanelChrome({
                     : "Dra sajblock till previewn (startsida)"
             }
             className={cn(
-              "text-gray-400 hover:text-white",
-              composerMode && "bg-violet-900/45 text-violet-200 hover:text-violet-100",
+              chromeButtonClassName,
+              composerMode && activeToolClassName,
             )}
           >
             <LayoutGrid className="mr-1 h-4 w-4" />
@@ -297,7 +309,7 @@ export function PreviewPanelChrome({
                   !composerCanUndo
                 }
                 title="Ångra senaste direkta patch i Composer"
-                className="text-gray-400 hover:text-white"
+                className={chromeButtonClassName}
               >
                 <Undo2 className="mr-1 h-4 w-4" />
                 Ångra
@@ -314,7 +326,7 @@ export function PreviewPanelChrome({
                   !composerCanRedo
                 }
                 title="Gör om senast ångrade direkta patch"
-                className="text-gray-400 hover:text-white"
+                className={chromeButtonClassName}
               >
                 <Redo2 className="mr-1 h-4 w-4" />
                 Gör om
@@ -336,8 +348,8 @@ export function PreviewPanelChrome({
                     : "Markera punkt i preview och skicka till chatten"
             }
             className={cn(
-              "text-gray-400 hover:text-white",
-              inspectMode && "bg-emerald-900/50 text-emerald-300 hover:text-emerald-200",
+              chromeButtonClassName,
+              inspectMode && activeToolClassName,
             )}
           >
             <Search className="mr-1 h-4 w-4" />
@@ -350,8 +362,8 @@ export function PreviewPanelChrome({
             disabled={!canShowCode || isViewSwitchPending}
             title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"}
             className={cn(
-              "text-gray-400 hover:text-white",
-              showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100",
+              chromeButtonClassName,
+              showElementRegistry && activeToolClassName,
             )}
           >
             <Code2 className="mr-1 h-4 w-4" />
@@ -364,8 +376,8 @@ export function PreviewPanelChrome({
             disabled={!canShowCode || isViewSwitchPending}
             title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"}
             className={cn(
-              "text-gray-400 hover:text-white",
-              viewMode === "code" && "bg-gray-800 text-white hover:text-white",
+              chromeButtonClassName,
+              viewMode === "code" && activeToolClassName,
             )}
           >
             <FileText className="mr-1 h-4 w-4" />
@@ -380,7 +392,7 @@ export function PreviewPanelChrome({
               onClick={handleClear}
               disabled={isLoading}
               title="Rensa preview"
-              className="text-gray-400 hover:text-white"
+              className={chromeButtonClassName}
             >
               Rensa
             </Button>
@@ -392,7 +404,7 @@ export function PreviewPanelChrome({
             disabled={isLoading}
             title="Uppdatera preview"
             aria-label="Uppdatera preview"
-            className="text-gray-400 hover:text-white"
+            className={chromeButtonClassName}
           >
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
           </Button>
@@ -401,7 +413,7 @@ export function PreviewPanelChrome({
             size="sm"
             onClick={handleOpenInNewTab}
             title="Öppna i ny flik"
-            className="text-gray-400 hover:text-white"
+            className={chromeButtonClassName}
           >
             <ExternalLink className="mr-1 h-4 w-4" />
             Öppna
@@ -414,16 +426,16 @@ export function PreviewPanelChrome({
       </div>
 
       {previewBuildError ? (
-        <Alert variant="destructive" className="mx-4 mt-2 border-rose-900/55 bg-rose-950/45 text-rose-50">
+        <Alert variant="destructive" className="mx-4 mt-2 border-destructive/40 bg-destructive/10 text-destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle className="text-sm text-rose-100">
+          <AlertTitle className="text-sm text-destructive">
             {previewBuildError.stage === "sandbox_disabled"
               ? "Tier-2-preview inte tillgänglig"
               : `Tier-2 / build: ${previewBuildError.stage}`}
           </AlertTitle>
           <AlertDescription
             className={cn(
-              "max-h-36 overflow-y-auto text-[11px] whitespace-pre-wrap text-rose-200/95",
+              "max-h-36 overflow-y-auto text-[11px] whitespace-pre-wrap text-destructive",
               previewBuildError.stage === "sandbox_disabled" ? "font-medium" : "font-mono",
             )}
           >
@@ -434,22 +446,22 @@ export function PreviewPanelChrome({
 
       {previewProdBuild && !previewBuildError ? (
         previewProdBuild.verified ? (
-          <Alert className="mx-4 mt-2 border-emerald-900/50 bg-emerald-950/35 text-emerald-50">
-            <CircleCheck className="h-4 w-4 text-emerald-400" />
-            <AlertTitle className="text-sm text-emerald-100">Production build OK</AlertTitle>
-            <AlertDescription className="text-[11px] text-emerald-200/90">
+          <Alert className={cn("mx-4 mt-2", successPanelClassName)}>
+            <CircleCheck className="h-4 w-4" />
+            <AlertTitle className="text-sm">Produktionsbygget är OK</AlertTitle>
+            <AlertDescription className="text-[11px]">
               <code className="font-mono">npm run build</code> lyckades i verifierings-VM — separat signal från
               dev-preview (<code className="font-mono">npm run dev</code>).
             </AlertDescription>
           </Alert>
         ) : (
-          <Alert className="mx-4 mt-2 border-amber-900/50 bg-amber-950/40 text-amber-50">
-            <AlertCircle className="h-4 w-4 text-amber-400" />
-            <AlertTitle className="text-sm text-amber-100">Production build misslyckades</AlertTitle>
-            <AlertDescription className="space-y-1 text-[11px] text-amber-200/90">
+          <Alert className={cn("mx-4 mt-2", warningPanelClassName)}>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle className="text-sm">Produktionsbygget misslyckades</AlertTitle>
+            <AlertDescription className="space-y-1 text-[11px]">
               <p>Dev-preview kan ändå fungera. Åtgärda build-fel innan deploy — se loggutdrag nedan.</p>
               {previewProdBuild.logSnippet ? (
-                <pre className="max-h-36 overflow-y-auto rounded border border-amber-900/40 bg-black/30 p-2 font-mono text-[10px] whitespace-pre-wrap text-amber-100/95">
+                <pre className="max-h-36 overflow-y-auto rounded border border-border/60 bg-background/50 p-2 font-mono text-[10px] whitespace-pre-wrap text-foreground">
                   {previewProdBuild.logSnippet}
                 </pre>
               ) : null}
@@ -553,13 +565,13 @@ export function PreviewPanelChrome({
         </div>
       ) : null}
 
-      {showTier2UnifiedStrip ? (
-        <div className="border-b border-amber-900/45 bg-amber-950/30 px-4 py-2 text-xs text-amber-100">
-          <p className="font-medium text-amber-50">Live-preview (Next.js)</p>
-          <p className="mt-1 text-amber-100/90">
+      {showTier2UnifiedStrip && hasTier2UnifiedWarnings ? (
+        <div className={cn("border-b px-4 py-2 text-xs", warningPanelClassName)}>
+          <p className="font-medium">Live-preview (Next.js)</p>
+          <p className="mt-1">
             Din genererade kod körs med Next.js i den här miljön. Följande kan fortfarande gälla:
           </p>
-          <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-amber-100/85">
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
             {(showBlobWarning || showBlobConfigWarning) ? (
               <li>Bilder och uppladdningar kan saknas om mediastorage inte är aktivt i byggaren.</li>
             ) : null}
@@ -585,10 +597,10 @@ export function PreviewPanelChrome({
         showImagesDisabledWarning ||
         showImagesUnsupportedWarning ||
         showBlobConfigWarning) ? (
-        <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
+        <div className={cn("border-b px-4 py-2 text-xs", warningPanelClassName)}>
           {showExternalWarning ? (
             <div>
-              Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404
+              Sajtmaskinens preview körs i utvecklingsmiljö för snabbhet. Externa media‑URL:er kan ge 404
               eller blockeras. Ladda upp media via mediabiblioteket för publika Blob‑URL:er.
             </div>
           ) : null}

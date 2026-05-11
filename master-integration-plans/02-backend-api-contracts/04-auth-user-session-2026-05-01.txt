@@ -1,0 +1,55 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 04-auth-user-session
+Date: 2026-05-01
+
+## Master Changes To Preserve
+- `GET /api/auth/me` returns authenticated user or guest object.
+- `POST /api/auth/login` returns `{ success, user? }` or auth error fields.
+- `POST /api/auth/logout` clears `sajtmaskin_auth`.
+- `POST /api/auth/register` supports email verification flow.
+- Google OAuth routes use same-origin redirect and query params.
+- Guest identity uses `sajtmaskin_session`; JWT uses `sajtmaskin_auth`.
+
+## Frontend Consumers
+- `auth-store`
+- `AuthModal`
+- `RequireAuthModal`
+- `useBuilderPageController`
+- Navbar/start/buy-credits/admin/builder modals.
+
+## Contract Risks
+- `/me` does not currently expose GitHub fields expected by parts of `AuthUser`; server/client can drift.
+- Email verification redirects to base URL, while builder has its own query toast cleanup.
+- Some auth failures use status 200 plus `success: false`; UI must not rely only on HTTP status.
+- 429/rate-limit payload changes require modal copy updates.
+- Cookie name/path/SameSite changes would affect all server auth checks.
+
+## Required Adaptations
+- Sync `AuthUser` with `/me`, login, and register responses.
+- If master changes verify/OAuth redirects, centralize query feedback handling or update builder/page handlers.
+- Extend `AuthModal` only if new auth fields such as 2FA/magic link/terms appear.
+- Update `logout()` and admin pages if logout contract changes.
+
+## New Buttons / Choices / UI States
+- Existing: Google, email form, resend verification, buy credits, auth-required modal.
+- New UI only if backend adds a new auth mode.
+
+## Exact LLM Implementation Instructions
+- Read actual master JSON for `me`, `login`, `logout`, `register`, `google`, `verify-email`, and `resend-verification`.
+- Update `AuthUser` and `fetchUser` mapping at the same time.
+- Preserve query params: `login`, `error`, `verified`, `reason`, GitHub connection params.
+- Grep `/api/auth/`, `useAuth`, `RequireAuthModal`, `AuthModal`, `sajtmaskin_auth`, `sajtmaskin_session`.
+
+## Tests / Runtime Checks
+- Register non-admin, verify, login.
+- Login wrong password, Google-only account, unverified account.
+- Google success/error redirect.
+- Invalid verify token redirect.
+- Rate-limit resilience.
+- GitHub status after `fetchUser`.
+
+## Do Not Break
+- Builder query-param cleanup/toasts.
+- `POST /api/auth/logout`.
+- Same-origin Google redirect.
+- Guest generation/refine gating.
+- HttpOnly JWT cookie model.

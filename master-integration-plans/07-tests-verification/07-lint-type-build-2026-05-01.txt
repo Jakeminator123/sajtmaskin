@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 07-lint-type-build
+Date: 2026-05-01
+
+## Required Checks
+- `npm run typecheck`
+- `npm run lint`
+- `npm run test:ci`
+- `npm run baseline-deps:verify`
+- `npm run baseline-deps:tree`
+- `npm run build`
+- Optional stronger: `npm run devtest`, `npm run format:check`.
+
+## Existing Tests
+- Covered by `test:ci` and focused suites.
+
+## Missing Coverage
+- Not this agent’s scope.
+
+## Frontend Behaviors To Assert
+- Not this agent’s scope; this is static/build verification.
+
+## Exact LLM Implementation Instructions
+- Run CI order before runtime smoke.
+- Remember CI and `devtest` have different order and contents.
+- Files excluded from root typecheck need targeted validation if touched.
+- `format:check` is not in CI but useful locally.
+
+## Failure Triage Guide
+- Typecheck: TS/source errors.
+- Lint: errors block, warnings usually do not.
+- Prebuild: preflight or scaffold embedding failures.
+- Baseline deps: lock/policy drift.
+- Build: Next/bundle/env issues.
+
+## Exact Commands
+- `npm run typecheck`
+- `npm run lint`
+- `npm run test:ci`
+- `npm run baseline-deps:verify`
+- `npm run baseline-deps:tree`
+- `npm run build`
+- `npm run devtest`
+
+## Pass Criteria
+- All CI commands exit 0.
+- Lint has no errors; warnings are non-blocking unless policy changes.
+- Build passes after prebuild gates.

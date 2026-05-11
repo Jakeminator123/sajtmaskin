@@ -23,7 +23,7 @@ import { URLS } from "@/lib/config";
 import { listSeoLandingSlugs } from "@/lib/seo/load-landing";
 
 export const dynamic = "force-static";
-export const revalidate = 60 * 60 * 24;
+export const revalidate = 86400;
 
 const PAGE_TITLE = "Alla landningssidor — Sajtmaskin";
 const PAGE_DESCRIPTION =

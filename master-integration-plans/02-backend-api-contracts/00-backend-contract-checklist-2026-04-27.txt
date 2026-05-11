@@ -1,0 +1,21 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts
+Date: 2026-04-27
+
+Syntes-checklista innan kodmerge från `origin/master` in i `frontend/christopher` (se även 01 delta-scope, merge-base `9ec2045a`).
+
+Pre-flight dirty: räkna med ocommittade `src/app/api/**/stream` + `api/ai/*` + `next`/`proxy` + data — commit/stash enligt MI01.
+
+[ ] **SSE (01)** `builder-stream-contract` ↔ `stream-handlers` switch; `versionId` ordning vs `preview-ready`; `done` efter `error` semantik; `src/lib/api/engine-chats-path.ts` orörd; testa efter `preview-prewarm` när det finns.
+[ ] **CRUD / post (02)** `post-checks` ↔ `quality-gate` / `repair` / `readiness` / `versions` / `error-log` / `accept-repair`; **ny** `product-postcheck` får ej dubbelspruta post-check/quality.
+[ ] **Media (03)** `buildMediaCatalog` fortfarande från attachments; om master ändrar `projects/[id]/upload` eller `media/upload` — blob path + `media_library` + `images` + cleanup.
+[ ] **Auth (04)** `sajtmaskin_auth` + `sajtmaskin_session` + `proxy` + `/me`-form; ingen tyst bytess till annan host-auth utan full brygga.
+[ ] **Credits/Stripe (05)** `prepareCredits`→`commit` + webhooks + `buy-credits`/`lib/stripe` prisdubbelsanning; stream-test mocks av credits oförstörda.
+[ ] **Deploy/domän (06)** `POST /api/v0/deployments` + 409/409-logg; SSE `.../events`; **när filer från master laddas:** `resolve-seo` + bygg-UI/SEO; `DomainManager` + `vercelProjectId` vs `deploymentId`.
+[ ] **Validation (07)** `chatSchemas` + `env.serverSchema` + `preferences` + `createDeploymentSchema` + AJV manifest — samma PR-lager som schema-/ENV-docs.
+[ ] **Fel/rate (08)** `buildStreamErrorResponse` vs `withRateLimit` 429-form; 403 `forbidden` med/utan `code`; `helpers` matchar.
+
+Kör alltid efter lösning: `npm run typecheck` + `npm run lint` + `npx vitest run` (ev. `npm run test:focused` tidstak).
+
+Coexistence: en aktiv builder-klient per `chatId` under manuell rök.
+
+Rapportfiler: `master-integration-plans/02-backend-api-contracts/01-…08-…-2026-04-27.txt`, denna `00-…-checklist-2026-04-27.txt`.

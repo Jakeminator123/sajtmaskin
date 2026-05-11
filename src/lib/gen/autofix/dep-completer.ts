@@ -1,11 +1,27 @@
 import type { AutoFixEntry } from "./pipeline";
+import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
+
+const PACKAGE_SOURCE_PATTERN = String.raw`((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))`;
 
 /**
- * Static `import … from "pkg"` sources. Supports scoped npm packages (`@scope/name`);
- * excludes path aliases like `@/…` (no slash after scope segment).
+ * Static dependency sources in generated code. Supports:
+ * - `import x from "pkg"`
+ * - `import "pkg/styles.css"`
+ * - `require("pkg")`
+ * - `import("pkg")`
+ *
+ * Scoped npm packages are supported (`@scope/name`); path aliases like `@/…`
+ * are excluded because the scoped pattern requires a non-slash scope segment.
  */
-const IMPORT_SOURCE_RE =
-  /from\s+["']((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))["']/g;
+const IMPORT_SOURCE_RE = new RegExp(
+  [
+    String.raw`from\s+["']${PACKAGE_SOURCE_PATTERN}["']`,
+    String.raw`import\s+["']${PACKAGE_SOURCE_PATTERN}["']`,
+    String.raw`require\s*\(\s*["']${PACKAGE_SOURCE_PATTERN}["']\s*\)`,
+    String.raw`import\s*\(\s*["']${PACKAGE_SOURCE_PATTERN}["']\s*\)`,
+  ].join("|"),
+  "g",
+);
 
 /**
  * Packages the preview runtime already ships (Next.js, React, tailwind, etc.).
@@ -60,7 +76,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@hookform/resolvers": "^5",
   "@reduxjs/toolkit": "^2",
   "react-redux": "^9",
-  "lucide-react": "^0.469",
+  "lucide-react": "0.469.0",
   "canvas-confetti": "^1.9",
   "radix-ui": "^1",
   "cmdk": "^1",
@@ -72,6 +88,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "input-otp": "^1",
   "react-resizable-panels": "^4",
   "next-themes": "^0.4",
+  "@vercel/analytics": "^1.6.1",
   "nuqs": "^2",
   "swr": "^2",
   "axios": "^1",
@@ -100,6 +117,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "highlight.js": "^11",
   "marked": "^15",
   "react-markdown": "^9",
+  "next-mdx-remote": "^6",
   "remark-gfm": "^4",
   "rehype-highlight": "^7",
   "chart.js": "^4",
@@ -131,14 +149,6 @@ const BLOCKED_PACKAGES = new Set([
  */
 const SCOPED_PACKAGE_PREFIXES: Record<string, string> = {
   "@radix-ui/react-": "^1",
-};
-
-const CAPABILITY_DEPENDENCY_REQUIREMENTS: Record<string, string[]> = {
-  "visual-3d": [
-    "three",
-    "@react-three/fiber",
-    "@react-three/drei",
-  ],
 };
 
 export function resolveKnownVersion(pkg: string): string | undefined {
@@ -177,16 +187,39 @@ function normalizeCapabilityList(requestedCapabilities: string[] | null | undefi
   );
 }
 
+function parseManifestDependencySpec(raw: string): { pkg: string; version: string | null } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { pkg: "", version: null };
+  if (trimmed.startsWith("@")) {
+    const match = trimmed.match(/^(@[^/\s]+\/[^@\s]+)(?:@(.+))?$/);
+    return { pkg: match?.[1] ?? trimmed, version: match?.[2] ?? null };
+  }
+  const match = trimmed.match(/^([^@\s]+)(?:@(.+))?$/);
+  return { pkg: match?.[1] ?? trimmed, version: match?.[2] ?? null };
+}
+
 export function resolveCapabilityDependencies(
   requestedCapabilities: string[] | null | undefined,
 ): Record<string, string> {
   const deps: Record<string, string> = {};
-  for (const capability of normalizeCapabilityList(requestedCapabilities)) {
-    const requiredPackages = CAPABILITY_DEPENDENCY_REQUIREMENTS[capability];
-    if (!requiredPackages) continue;
-    for (const pkg of requiredPackages) {
+  const capabilities = normalizeCapabilityList(requestedCapabilities);
+  if (capabilities.length === 0) return deps;
+
+  const selection = selectDossiersForRequest({ requestedCapabilities: capabilities });
+  for (const selected of selection.selected) {
+    for (const rawPkg of selected.entry.dependencies ?? []) {
+      const { pkg, version: manifestVersion } = parseManifestDependencySpec(rawPkg);
+      if (!pkg) continue;
+      if (isBuiltin(pkg)) continue;
       const version = resolveKnownVersion(pkg);
-      if (version) deps[pkg] = version;
+      if (version) {
+        deps[pkg] = version;
+      } else {
+        // Manifest dependencies are curated runtime contract. If the central
+        // allowlist lacks a version, use the manifest range when present;
+        // otherwise let dep-version-validator resolve `latest` to ^<version>.
+        deps[pkg] = manifestVersion?.trim() || "latest";
+      }
     }
   }
   return deps;
@@ -234,7 +267,8 @@ export function runDepCompleter(code: string): {
 
   IMPORT_SOURCE_RE.lastIndex = 0;
   for (const match of code.matchAll(IMPORT_SOURCE_RE)) {
-    const raw = match[1];
+    const raw = match.slice(1).find((group): group is string => typeof group === "string");
+    if (!raw) continue;
     const pkg = normalizePackageName(raw);
 
     if (seen.has(pkg)) continue;

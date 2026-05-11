@@ -1,0 +1,46 @@
+Backend Capability Audit — Agent 2: own-engine / gen pipelines (src/lib/gen, providers/own-engine, own-engine)
+
+- [DOK] Kanonisk pipelineöversikt — orchestrate → stream → finalize — src/lib/gen/README.md:11 — NEJ — 5
+- [ORKESTRERING] prepareGenerationContext — scaffold, route plan, kontrakt, BuildSpec, promptpaket — src/lib/gen/orchestrate.ts:730 — DELVIS — 5
+- [ORKESTRERING] resolveOrchestrationBase — scaffold auto/manuell/off, capabilities, route plan, pre-gen-kontrakt — orchestrate.ts:262 — DELVIS — 5
+- [ORKESTRERING] finalizeOrchestrationPrompts — dynamisk kontext + composeEngineSystemPrompt — orchestrate.ts:627 — NEJ — 4
+- [ORKESTRERING] buildGenerationInputPackage / computeLineageHash — deterministiskt fingerprint — orchestrate.ts:197 — NEJ — 4
+- [BUILD-SPEC] deriveBuildSpec — policy, budgets, routeRealization — src/lib/gen/build-spec.ts:786 — NEJ — 5
+- [POLICY] deriveRouteRealizationPolicy + FEATURES.deferExtraRoutesOnInit — companions/shell routes — build-spec.ts:296 — NEJ — 5
+- [POLICY] isShellPageContent + SHELL_PAGE_FINGERPRINT — uppskjutna skal-sidor — build-spec.ts:53 — NEJ — 4
+- [ORKESTRERING] buildRoutePlan — normaliserar routes — src/lib/gen/route-plan.ts:419 — NEJ — 4
+- [ORKESTRERING] inferPreGenerationContracts — planeringskontrakt före kod — src/lib/gen/contract/pre-generation-contracts.ts:478 — DELVIS — 4
+- [ORKESTRERING] buildOrchestrationContract — scaffold→routes, verify-policy — src/lib/gen/orchestration-contract.ts:29 — NEJ — 5
+- [SCAFFOLD] matchScaffoldAuto — keyword + ev. embeddings — src/lib/gen/scaffolds/matcher.ts:1004 — DELVIS — 5
+- [STREAM] generateCode — streamText + verktyg — src/lib/gen/engine.ts:65 — DELVIS — 5
+- [STREAM] createGenerationPipeline — wrapper runt generateCode — engine.ts:143 — NEJ — 3
+- [STREAM] createCodeGenSSEStream — SSE meta/content/thinking/tool-call/done — src/lib/gen/stream/stream-format.ts:154 — DELVIS — 5
+- [FINALIZE-KONTRAKT] OWN_ENGINE_POST_STREAM_PIPELINE — ordning + etiketter telemetry — src/lib/gen/stream/finalize-pipeline-contract.ts:10 — DELVIS — 5
+- [FINALIZE] finalizeAndSaveVersion — autofix, URL, syntax, bilder, verifier, merge, preflight, persist — src/lib/gen/stream/finalize-version.ts:858 — DELVIS — 5
+- [AUTOFIX] runAutoFix — deterministisk pipeline — src/lib/gen/autofix/pipeline.ts:855 — NEJ — 4
+- [AUTOFIX] repairGeneratedFiles — import/JSX/Lucide/metadata — src/lib/gen/autofix/repair-generated-files.ts:55 — NEJ — 4
+- [AUTOFIX] runLlmFixer — LLM-reparation finalize — src/lib/gen/autofix/llm-fixer.ts:25 — NEJ — 3
+- [AUTOFIX] validateAndFix — syntax + fixerundor — src/lib/gen/autofix/validate-and-fix.ts:61 — NEJ — 4
+- [FINALIZE] expandUrls — återställer URL-alias — src/lib/gen/url-compress.ts:56 — NEJ — 3
+- [POST-PROCESS] materializeImages — placeholders → riktiga bilder — src/lib/gen/post-process/image-materializer.ts:190 — NEJ — 3
+- [VERIFIER] runVerifierPass / isVerifierPassEnabled — read-only LLM verify — src/lib/gen/verify/verifier-pass.ts:64 — NEJ — 3
+- [FINALIZE] mergeGeneratedProjectFiles — merge mot baseline — src/lib/gen/stream/finalize-merge.ts:16 — NEJ — 4
+- [FINALIZE] runFinalizePreflight — komplett projekt, sanity, preview-kontrakt — src/lib/gen/stream/finalize-preflight.ts:442 — NEJ — 5
+- [FINALIZE] buildShellPageContent — deferred shell-sidor — finalize-preflight.ts:281 — NEJ — 4
+- [SCAFFOLD] inferScaffoldRetrySuggestion — byte vid uppenbart fel — src/lib/gen/scaffolds/scaffold-aware-retry.ts:213 — NEJ — 3
+- [TELEMETRI] buildPersistedOrchestrationSnapshot — sanerad orchestration på chat — src/lib/gen/orchestration-snapshot.ts:65 — NEJ — 3
+- [PROVIDER] createOwnEngineGenerationStream — SSE, ack, finalize, ping — src/lib/providers/own-engine/generation-stream.ts:56 — DELVIS — 5
+- [PROVIDER] finalizeOrHandleEmptyGeneration — gemensam finalize/empty — src/lib/gen/stream/shared-own-engine-helpers.ts:68 — NEJ — 4
+- [PROVIDER] runOwnEngineStreamPostFinalize — credits, preview-boot, server verify — generation-stream-post-finalize.ts:47 — DELVIS — 5
+- [POLICY] resolvePostFinalizeServerVerifyDecision — fire-and-forget verify — src/lib/gen/stream/post-finalize-policies.ts:49 — NEJ — 4
+- [POLICY] shouldTriggerPostFinalizePreview — tier-2 preview — post-finalize-policies.ts:30 — DELVIS — 4
+- [PROVIDER] createPreGenerationContractGateReadableStream — SSE gate före kod — pre-generation-contract-gate.ts:37 — DELVIS — 3
+- [OWN-ENGINE] createOwnEnginePipelineAndGenerationStream — pipeline + tools — src/lib/own-engine/session/own-engine-pipeline-generation.ts:56 — NEJ — 5
+- [VERKTYG] getAgentTools — modellverktyg — src/lib/gen/agent-tools.ts:219 — DELVIS — 3
+- [DOLD] Shell follow-up heuristik + route-match — build-spec.ts:338 — NEJ — 5
+- [DOLD] Auth-companion routes vid deferral — build-spec.ts:277 — NEJ — 4
+- [DOLD] targetVersionId + repair skriver samma version — finalize-version.ts:78 — NEJ — 4
+- [DOLD] recoveredAfterStreamAbort — post-finalize efter abort — generation-stream-post-finalize.ts:56 — NEJ — 3
+- [DOLD] embeddingScaffoldMatch avstängning — orchestrate.ts:115 — NEJ — 2
+- [DOLD] writeOrchestrationDynamicDump — felsök dump — orchestrate.ts:228 — NEJ — 2
+- [VERIFIER] triggerServerVerification — bakgrund efter finalize — src/lib/gen/verify/server-verify.ts:75 — NEJ — 3

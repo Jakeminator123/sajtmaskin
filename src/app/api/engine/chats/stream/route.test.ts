@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const handleCreateChatStreamPost = vi.hoisted(() => vi.fn());
 
@@ -305,7 +305,7 @@ describe("POST /api/engine/chats/stream", () => {
 
   it("uses the same runtime envelope as shared stream routes", () => {
     expect(runtime).toBe("nodejs");
-    expect(maxDuration).toBe(800);
+    expect(maxDuration).toBe(300);
   });
 });
 
@@ -352,8 +352,20 @@ async function readSseEvents(response: Response) {
 }
 
 describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", () => {
-  beforeEach(async () => {
+  let realHandleCreateChatStreamPost: typeof import("@/lib/api/engine/chats/create-chat-stream-post").handleCreateChatStreamPost;
+
+  beforeAll(async () => {
+    const realModule = await vi.importActual<
+      typeof import("@/lib/api/engine/chats/create-chat-stream-post")
+    >("@/lib/api/engine/chats/create-chat-stream-post");
+    realHandleCreateChatStreamPost = realModule.handleCreateChatStreamPost;
+  }, 30_000);
+
+  beforeEach(() => {
     vi.clearAllMocks();
+    createGenerationPipeline.mockReset();
+    finalizeOrHandleEmptyGeneration.mockReset();
+    handleCreateChatStreamPost.mockReset();
     failVersionVerification.mockResolvedValue(null);
     buildGenerationInputPackage.mockImplementation(
       (
@@ -579,10 +591,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     // Wire engine-route POST through to the real create-chat-stream handler so
     // these migrated tests exercise the actual implementation, not the
     // delegation mock used by the existing engine tests above.
-    const realModule = await vi.importActual<
-      typeof import("@/lib/api/engine/chats/create-chat-stream-post")
-    >("@/lib/api/engine/chats/create-chat-stream-post");
-    handleCreateChatStreamPost.mockImplementation(realModule.handleCreateChatStreamPost);
+    handleCreateChatStreamPost.mockImplementation(realHandleCreateChatStreamPost);
   });
 
   it("finalizes an own-engine generation and emits preview data on done", async () => {

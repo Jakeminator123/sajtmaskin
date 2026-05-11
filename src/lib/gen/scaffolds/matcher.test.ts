@@ -74,6 +74,82 @@ describe("matchScaffold", () => {
     expect(result?.id).not.toBe("dashboard");
   });
 
+  // Game-intent gate: interactive-game prompts belong on base-nextjs
+  // (website intent) or app-shell (app intent), not landing-page /
+  // portfolio / saas-landing. The marketing-scaffold chrome (hero,
+  // features, pricing, testimonials) directly competes with the
+  // playable area and confuses the codegen LLM.
+  it("routes a Pac-Man prompt to base-nextjs, not landing-page", () => {
+    expect(matchScaffold("Bygg Pac-Man med delfiner", "website")?.id).toBe(
+      "base-nextjs",
+    );
+  });
+
+  it("routes a Snake-game prompt to base-nextjs for website intent", () => {
+    expect(matchScaffold("Bygg ett snake-game på startsidan", "website")?.id).toBe(
+      "base-nextjs",
+    );
+  });
+
+  it("routes a platformer prompt to base-nextjs", () => {
+    expect(matchScaffold("Bygg en platformer med pixelgrafik", "website")?.id).toBe(
+      "base-nextjs",
+    );
+  });
+
+  it("routes a tv-spel prompt to base-nextjs", () => {
+    expect(matchScaffold("Bygg ett tv-spel för barnen", "website")?.id).toBe(
+      "base-nextjs",
+    );
+  });
+
+  it("routes a mini-game prompt to app-shell when intent is app", () => {
+    expect(matchScaffold("Bygg ett mini-game", "app")?.id).toBe("app-shell");
+  });
+
+  it("does NOT reroute a gaming-news blog prompt to base-nextjs", () => {
+    // "gaming-news" + "blog" is a content site, not a game build.
+    // The sync matcher's GAME_SYNC_PATTERN must not match "gaming-news"
+    // alone — a real game noun or verb is required.
+    const result = matchScaffold(
+      "Bygg en gaming-news blog med senaste spel-nyheterna",
+      "website",
+    );
+    expect(result?.id).not.toBe("base-nextjs");
+  });
+
+  it("does NOT reroute a 'gaming news' (space-separated) blog to base-nextjs", () => {
+    // Post-review regression guard: the veto used to require a hyphen
+    // between "gaming" and "news"/"blog". Space-separated phrases now
+    // match too.
+    const result = matchScaffold(
+      "Bygg en gaming news portal med recensioner",
+      "website",
+    );
+    expect(result?.id).not.toBe("base-nextjs");
+  });
+
+  it("does NOT reroute a 'tv-spel butik' retail prompt to base-nextjs", () => {
+    // "tv-spel butik" (space between tv-spel and butik) is a retail
+    // store, not a game build. `GAME_SYNC_PATTERN` still matches
+    // `tv-spel`, but `GAME_SYNC_VETO_PATTERN` must vetoa it.
+    const result = matchScaffold(
+      "Bygg en hemsida för en tv-spel butik med öppettider och lagerstatus",
+      "website",
+    );
+    expect(result?.id).not.toBe("base-nextjs");
+    expect(result?.id).not.toBe("app-shell");
+  });
+
+  it("does NOT reroute 'rollspel' team-building prompts to base-nextjs", () => {
+    const result = matchScaffold(
+      "Beskrivning av ett rollspel för teambuilding",
+      "website",
+    );
+    expect(result?.id).not.toBe("base-nextjs");
+    expect(result?.id).not.toBe("app-shell");
+  });
+
   it("lowers confidence when semantic fallback is unavailable for a generic default", async () => {
     mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
       results: [],

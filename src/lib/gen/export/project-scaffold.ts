@@ -1,7 +1,7 @@
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "../autofix/dep-completer";
 import type { CodeFile } from "../parser";
-import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-local";
+import { loadAllPlaceholderRecordForF2, formatDotenvBody } from "@/lib/gen/preview/env-local";
 
 /**
  * Download/export scaffold.
@@ -15,13 +15,11 @@ import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-l
 /**
  * Node-engine-range för **exporterade/nedladdade** projekt.
  *
- * Vi tillåter Node 22, 23 och 24. Bredare än preview-host och repots egna
- * package.json (som låser till 22 eftersom Fly-imagen och Vercel-runtime kör
- * Node 22), men exporterade projekt landar på användarens egen maskin där
- * Node 24 redan är vanligt. Strikt `<23` triggade kosmetisk EBADENGINE-warn
- * vid `npm install` utan att paketen faktiskt var inkompatibla.
+ * Matcha Vercel/preview-host-lanen: Node 22. Bredare ranges kan få Vercel
+ * att välja/varna om runtime-versioner som Next/Vercel inte stödjer för
+ * exporterade projekt.
  */
-const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <25";
+const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <23";
 
 const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
@@ -74,6 +72,9 @@ const PACKAGE_JSON = `{
     "@types/react-dom": "19.1.2",
     "@tailwindcss/postcss": "4.1.5",
     "tailwindcss": "4.1.5"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
   }
 }`;
 
@@ -385,13 +386,16 @@ const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for 
 /**
  * Dependencies where the scaffold baseline must always win over the model.
  * The LLM sometimes pins older majors that conflict with peer requirements
- * (e.g. fiber 8 + React 19, or React 18 + Next 16).  Keep this list short
+ * (e.g. fiber 8 + React 19, or React 18 + Next 16). Keep this list short
  * and only add packages whose version is load-bearing for the whole tree.
+ * Lucide is pinned because generated icon validation is tied to its exact
+ * runtime export set.
  */
 const BASELINE_PINNED_DEPS = [
   "react",
   "react-dom",
   "next",
+  "lucide-react",
   "three",
   "@react-three/fiber",
   "@react-three/drei",
@@ -400,6 +404,10 @@ const BASELINE_PINNED_DEPS = [
 /**
  * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
  * and core tooling survive thin LLM output (zip export / preview runtime use the same merge).
+ *
+ * `overrides` are merged with the baseline winning on conflicts. The postcss
+ * override (`^8.5.10`) closes the GHSA-qx2v-qp2m-jg93 audit warning that
+ * Next 16.x's transitive postcss otherwise triggers on user `npm audit`.
  */
 export function mergePackageJsonWithBaseline(
   model: Record<string, unknown>,
@@ -409,9 +417,11 @@ export function mergePackageJsonWithBaseline(
   const bScripts = (b.scripts as Record<string, string> | undefined) ?? {};
   const bDep = (b.dependencies as Record<string, string> | undefined) ?? {};
   const bDevDep = (b.devDependencies as Record<string, string> | undefined) ?? {};
+  const bOverrides = (b.overrides as Record<string, string> | undefined) ?? {};
   const mScripts = (model.scripts as Record<string, string> | undefined) ?? {};
   const mDep = (model.dependencies as Record<string, string> | undefined) ?? {};
   const mDevDep = (model.devDependencies as Record<string, string> | undefined) ?? {};
+  const mOverrides = (model.overrides as Record<string, string> | undefined) ?? {};
 
   const dependencies: Record<string, string> = {
     ...bDep,
@@ -430,6 +440,7 @@ export function mergePackageJsonWithBaseline(
     scripts: { ...bScripts, ...mScripts },
     dependencies,
     devDependencies: { ...bDevDep, ...mDevDep },
+    overrides: { ...mOverrides, ...bOverrides },
   };
 }
 
@@ -533,7 +544,7 @@ export function mergeTsconfigWithBaseline(
 
 function buildPlaceholderEnvLocalBody(): string | null {
   try {
-    const record = loadPlaceholderRecord();
+    const record = loadAllPlaceholderRecordForF2();
     if (Object.keys(record).length === 0) return null;
     return `${GENERATED_ENV_LOCAL_HEADER}\n${formatDotenvBody(record)}\n`;
   } catch {
@@ -541,15 +552,70 @@ function buildPlaceholderEnvLocalBody(): string | null {
   }
 }
 
+/**
+ * Sibling source extensions that resolve to the same module under bundler
+ * resolution. When a baseline-shipped helper exists at one extension, any
+ * generated file with the same module stem at a different extension creates
+ * an extension-collision that the bundler resolves non-deterministically.
+ *
+ * Real-world repro: scaffold ships `hooks/use-reduced-motion.ts`. An older
+ * autofix path (or an LLM "fix" round) emits `hooks/use-reduced-motion.tsx`
+ * with a markdown fence remnant on line 1. Webpack picks the `.tsx` and the
+ * preview crashes with `ReferenceError: ts is not defined`. Drop the
+ * generated sibling so the baseline always wins.
+ */
+const COLLIDING_SOURCE_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"] as const;
+
+function moduleStemForCollision(path: string): string | null {
+  const normalized = path.replace(/\\/g, "/");
+  for (const ext of COLLIDING_SOURCE_EXTENSIONS) {
+    if (normalized.endsWith(ext)) {
+      return normalized.slice(0, -ext.length);
+    }
+  }
+  return null;
+}
+
+/**
+ * Build the set of module stems that the baseline scaffold owns (i.e. paths
+ * in `SCAFFOLD_FILES` that have a source extension). Used to drop any
+ * generated sibling at a different extension (`.ts` vs `.tsx`) so the
+ * baseline file is the single canonical source after merge.
+ */
+function buildBaselineOwnedStems(): Map<string, string> {
+  const stems = new Map<string, string>();
+  for (const baselinePath of Object.keys(SCAFFOLD_FILES)) {
+    const stem = moduleStemForCollision(baselinePath);
+    if (stem) stems.set(stem, baselinePath);
+  }
+  return stems;
+}
+
 export function buildCompleteProject(
   generatedFiles: CodeFile[],
   uiComponents?: Array<{ filename: string; content: string }>,
 ): CodeFile[] {
   const result: CodeFile[] = [];
-  const generatedPaths = new Set(generatedFiles.map((f) => f.path));
+
+  const baselineOwnedStems = buildBaselineOwnedStems();
+  const filteredGeneratedFiles: CodeFile[] = [];
+  for (const file of generatedFiles) {
+    const stem = moduleStemForCollision(file.path);
+    if (stem !== null && baselineOwnedStems.has(stem)) {
+      const canonicalPath = baselineOwnedStems.get(stem);
+      if (canonicalPath !== file.path.replace(/\\/g, "/")) {
+        // Extension collision against a baseline-owned helper — drop the
+        // generated sibling so the baseline file is the single source.
+        continue;
+      }
+    }
+    filteredGeneratedFiles.push(file);
+  }
+
+  const generatedPaths = new Set(filteredGeneratedFiles.map((f) => f.path));
 
   const allCode = [
-    ...generatedFiles.map((f) => f.content),
+    ...filteredGeneratedFiles.map((f) => f.content),
     ...(uiComponents ?? []).map((component) => component.content),
   ].join("\n");
   const detected = runDepCompleter(allCode);
@@ -596,7 +662,9 @@ export function buildCompleteProject(
     }
   }
 
-  result.push(...generatedFiles.map((file) => mergeModelTsconfig(mergeModelPackageJson(file))));
+  result.push(
+    ...filteredGeneratedFiles.map((file) => mergeModelTsconfig(mergeModelPackageJson(file))),
+  );
 
   if (!result.some((f) => f.path === ".env.local")) {
     const envBody = buildPlaceholderEnvLocalBody();

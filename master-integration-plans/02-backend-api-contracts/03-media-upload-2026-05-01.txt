@@ -1,0 +1,52 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 03-media-upload
+Date: 2026-05-01
+
+## Master Changes To Preserve
+- `POST /api/media/upload` FormData: `file`, optional `projectId`, `description`, `tags`.
+- `GET /api/media/upload?fileType=...` returning `items`, `counts`, `limits`.
+- `DELETE /api/media/[id]`.
+- `POST /api/media/purge`.
+- `POST /api/media/upload-from-url` for authenticated URL-to-blob imports.
+- Orchestration media catalog via `build-media-catalog.ts`.
+
+## Frontend Consumers
+- `FileUploadZone`
+- `MediaDrawer`
+- `ChatInterface`
+- `TextUploader`
+- `BuilderShellContent` wizard upload loop
+- `ImageUploadPopup` if it is reconnected
+
+## Contract Risks
+- Client and server upload size/type limits differ.
+- MediaDrawer hardcoded limits can drift from server `limits`.
+- Wizard sends `context`/`purpose` in FormData, but upload route does not persist them.
+- `upload-from-url` is authenticated only and has no current builder consumer.
+- `ImageUploadPopup` appears mostly orphaned and should not be half-wired.
+
+## Required Adaptations
+- Diff all `src/app/api/media/**`, blob-service, media DB service, and rate-limit keys against master.
+- Map new upload error codes to existing Swedish UI messages.
+- Keep FormData compatibility unless all upload consumers are updated together.
+- Sync logo/media catalog heuristics with design-reference summarization.
+
+## New Buttons / Choices / UI States
+- Existing surfaces: Media button, Text button, FileUploadZone drag/upload states, drawer filters/search/delete, wizard upload toasts.
+- No new buttons required unless `upload-from-url` or client upload token flow becomes productized.
+
+## Exact LLM Implementation Instructions
+- Build a table of media endpoints: method, path, changed fields, status codes.
+- Align UI MIME/max-size validation with server or document deliberate stricter chat attachment rules.
+- Use server `limits` in MediaDrawer where possible.
+- Decide whether `upload-from-url`, `upload/client`, and `ImageUploadPopup` should be connected or archived.
+
+## Tests / Runtime Checks
+- Add/keep route tests for upload POST/GET/DELETE and rate-limit behavior.
+- `build-media-catalog.test.ts`.
+- Manual: guest upload, logged-in upload, list, delete, purge, chat send with attachment, logo alias generation.
+
+## Do Not Break
+- Public Blob URLs for preview/generation.
+- URL normalization in wizard/popup/zone.
+- Inspector upload-to-attachment flow.
+- `mediaCatalog`, `urlMapOverrides`, and `userMediaUrls` in orchestration.

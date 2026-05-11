@@ -1,0 +1,38 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 05-preview-session-api
+Date: 2026-04-27
+
+## Master Runtime Changes
+- Diff: `src/lib/api/engine/chats/preview-prewarm.ts` + test ( **ny från master** — lokal WIP kanske utan tills merge). Förväntan: förvärm / latens före full `preview-session` start — läs faktisk fil efter `git merge`.
+- Diff: `src/lib/gen/preview/preview-session.ts`, `preview-host-client.ts`, `should-start-preview*`, `warm-typecheck` / `warm-eslint` (kopplad till session/gate, se MI03).
+- Befintliga routes under `api/engine/chats/[chatId]/`: `preview-session`, `preview-status`, `preview-heartbeat`, `preview-hibernate`, `preview-destroy` (rate limits per route).
+- **Ingen** `destroy-all` route hittad; **inga** `destroy-all` i sök (agent).
+
+## Local Preview UX To Preserve
+- Browser-API: `src/lib/builder/preview-session/api.ts` — `fetchPreviewStatus`, `postPreviewHeartbeat`, `postPreviewHibernate`, `postPreviewDestroy` (struktur från `preview-contract.ts`).
+- Bootstrap: `useBuilderVmPreview` m.fl. använder `fetch` direkt till `preview-session` där wrapper saknas — samma mönster efter merge.
+- Kalla **session**-id för preview, inte “sandbox” i nya strängar; kodbundna namn `activeSandboxId` = skuld (semantik = preview session).
+
+## Coupling Points
+- `startPreviewSession` / `session-store` (Redis) / version `previewUrl` uppdatering.
+- `preview-host-client`: hibernate/destroy/quality-gate när `tier2Provider === "preview_host"`.
+- `docs/schemas/preview-session-contract.md` — lane: preview vs verify (läs innan API-ändring).
+- När `preview-prewarm` landar: anropas sannolikt från stream eller pre-session — följ MI01/02 stream-plan.
+
+## Failure Modes
+- Prewarm dubbel mot samma `chatId` + kost.
+- `session_mismatch` — fel `viewerId` eller andra flikar (coexistence).
+- Rate limit 429 — UI ska tolerera (helpers i chat layer).
+
+## Verification Matrix
+| API | Minimikontroll |
+|-----|-----------------|
+| POST preview-session | 201/200 + `previewUrl` där tänkt |
+| GET preview-status | JSON matchar `PreviewStatus` typ |
+| POST preview-heartbeat | ack, TTL förlängd |
+| POST hibernate/destroy | idempotent, preview_host anropas vid rätt flagga |
+| (efter merge) prewarm | ny testfil grön |
+
+## Do Not Break
+- `engineChatBaseUrl` prefix för alla anrop.
+- `preview-contract.ts` som käll-typ; synka route + klient tillsammans.
+- `tier2Provider` `"preview_host"` vs null — destroy/hibernate förgrenar där.

@@ -29,7 +29,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | Mapp | Innehåll |
 |------|----------|
 | [`db/`](db/) | Postgres-init, migrationer, push, sanity (`db-target-guard.mjs` delas här) |
-| [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt` (npm `predev` / `dev` / `build`) |
+| [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt`, `check-unicode-regex` (npm `predev` / `dev` / `build` / `preflight:common`) |
 | [`embeddings/`](embeddings/) | Mall- och scaffold-embeddings (template-library-embeddings borttagen 2026-04-17) |
 | [`dossiers/`](dossiers/) | AI-curate dossiers från klonade referens-repos (`curate-from-reference.ts`) |
 | [`v0-templates/`](v0-templates/) | Separat v0/runtime/workflow-spår: lokal sync, validering och local refresh av mallkatalog |
@@ -38,6 +38,9 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`deps/`](deps/) | Baseline `package.json`-verifiering (peer/registry) |
 | [`audit/`](audit/) | Shadcn-mirror + runtime component-library snapshot |
 | [`env/`](env/) | `manage_env.py`, `model_trace_overlay.py` |
+| [`observability/`](observability/) | RAG-index, fixer-registry dump och `faults:report` för återkommande fault patterns |
+
+Observability-kommandon: `npm run rag:error-log:reindex`, `npm run rag:error-log:reindex:force`, `npm run fixers:dump`, `npm run faults:report`, `npm run observability:rebuild-all`.
 
 ### Next / dev-server (npm hooks)
 
@@ -181,8 +184,9 @@ Ingår:
 
 1. `npm run typecheck`
 2. `npm run scaffolds:validate`
-3. `npm run test:ci`
-4. `npm run lint`
+3. `npm run dossiers:validate-all`
+4. `npm run test:ci`
+5. `npm run lint`
 
 ```bash
 npm run devtest
@@ -196,6 +200,8 @@ sist för att ge mer verifieringssignal även när repot redan har kända lintfe
 
 Kör eval-suite + scorecard via `scripts/eval/run-eval.ts`. **Utdata:** katalogen `eval-output/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. *(Äldre körningar kan ligga i `EGEN_MOTOR_V2/` — byt till `eval-output/` eller flytta filer.)* Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
 
+För prompt-slim/follow-up-budget utan LLM-codegen: kör `npm run eval:followup` (se `src/lib/gen/eval/README.md`).
+
 Nuvarande eval-checkar inkluderar också:
 
 - `project-sanity` för cross-file/dependency-risker som saknade package pins eller kända installproblem
@@ -205,7 +211,7 @@ Nuvarande eval-checkar inkluderar också:
 - `tier2-readiness` för om samma preflight-kontrakt som runtime använder fortfarande skulle tillåta tier-2 preview
 - baseline-gaten tittar nu också på `PASS -> FAIL` och `FAIL -> PASS`, inte bara score-delta
 - baseline-jämförelsen rapporterar också nya eller borttagna blockerande checks per prompt
-- eval-resultat far nu blockerande checks, sa `PASS` kraver att kritiska readiness-/sanity-checkar ocksa ar gröna, inte bara att medelscoren är okej
+- eval-resultat får nu blockerande checks, så `PASS` kräver att kritiska readiness-/sanity-checkar också är gröna, inte bara att medelscoren är okej
 
 ## Synk med `package.json`
 

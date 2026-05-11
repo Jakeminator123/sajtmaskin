@@ -6,7 +6,7 @@
  * never has to answer "which env vars do you need?" in F2 — instead, every
  * detected/required key is silently parked in `env.example` with placeholder
  * values that document what the project COULD use. The only place a user
- * is ever asked to fill in real values is the F3 ("Bygg nu") flow, which
+ * is ever asked to fill in real values is the F3 ("Bygg integrationer") flow, which
  * mounts `ProjectEnvVarsPanel`.
  *
  * IMPORTANT: this file is intentionally `env.example` (not `.env.local`,
@@ -29,6 +29,7 @@
  */
 
 import {
+  buildProvenanceGroupedSections,
   resolvePreviewEnvLayers,
   type EnvVarProvenance,
   type PreviewLifecycleStage,
@@ -57,7 +58,7 @@ const F2_HEADER = `# ───────────────────�
 # inte göra något — preview-VM:en bootar med interna placeholders.
 #
 # När du är redo att koppla på riktiga integrationer klickar du på
-# "Bygg nu" — då får du en env-panel där du fyller i bara de nycklar
+# "Bygg integrationer" — då får du en env-panel där du fyller i bara de nycklar
 # som faktiskt behövs (t.ex. STRIPE_SECRET_KEY, RESEND_API_KEY).
 #
 # Allt nedan auto-regenereras vid varje generering. Egna ändringar i
@@ -107,23 +108,12 @@ const SECTION_ORDER: EnvVarProvenance[] = [
   "harmless",
 ];
 
-function quoteEnvValue(val: string): string {
-  if (val === "") return '""';
-  if (/[\s#"'\\]/.test(val) || val.includes("\n")) {
-    return `"${val
-      .replace(/\\/g, "\\\\")
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, "\\n")}"`;
-  }
-  return val;
-}
-
 /**
  * Build a "detected integrations" section as a comment block. F2 only:
  * if the model still managed to wire in real integrations (despite the
  * F2 contract in the system prompt + the SDK guard fixer), surface them
  * as commented-out env-key hints so the user knows what would need to
- * be filled in if they hit "Bygg nu" — but never as active env values
+ * be filled in if they hit "Bygg integrationer" — but never as active env values
  * that could block boot.
  */
 function buildDetectedIntegrationsCommentBlock(
@@ -164,7 +154,7 @@ function buildDetectedIntegrationsCommentBlock(
     "# ── Upptäckta integrationer i koden (kommenterade, inaktiva) ────",
     "# Modellen har refererat till dessa env-variabler i den genererade",
     "# koden. De är AVSIKTLIGT kommenterade i F2 — sajten ska bootas",
-    "# utan dem. När du klickar \"Bygg nu\" kommer du få fylla i de",
+    "# utan dem. När du klickar \"Bygg integrationer\" kommer du få fylla i de",
     "# som faktiskt behövs.",
     "",
     ...lines,
@@ -187,25 +177,12 @@ export async function buildProjectEnvFileContents(params: {
   const lifecycleStage = params.lifecycleStage ?? "design";
   const { merged, provenance } = await resolvePreviewEnvLayers(params);
 
-  const groups: Record<EnvVarProvenance, string[]> = {
-    user: [],
-    generated: [],
-    "project-preview": [],
-    "tier3-stub": [],
-    harmless: [],
-  };
-
-  for (const key of Object.keys(merged).sort((a, b) => a.localeCompare(b))) {
-    const tier = provenance[key] ?? "harmless";
-    groups[tier].push(`${key}=${quoteEnvValue(merged[key] ?? "")}`);
-  }
-
-  const sections: string[] = [];
-  for (const tier of SECTION_ORDER) {
-    if (groups[tier].length === 0) continue;
-    sections.push(SECTION_HEADERS[tier]);
-    sections.push(groups[tier].join("\n"));
-  }
+  const sections = buildProvenanceGroupedSections(
+    merged,
+    provenance,
+    SECTION_HEADERS,
+    SECTION_ORDER,
+  );
 
   // F2 only: surface any detected integration env-keys as comments so
   // the user can see them without them ever blocking boot.

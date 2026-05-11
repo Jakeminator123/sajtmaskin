@@ -1,0 +1,47 @@
+Jag får **inte** skriva filer i det här läget (read-only / subagent). Här är audit-texten klar att klistras in som `reviews/builder-audit-06-wizard.txt`.
+
+---
+
+**builder-audit-06-wizard** — `IntakeWizard.tsx` + `BuilderShellContent.tsx` (chat/brief-ingång)
+
+**Relaterade API i detta spår:** `POST /api/builder/company-intel` (scrape), `POST /api/ai/suggest-pages` (sidförslag). **`/api/wizard/enrich`, `/api/wizard/company-lookup`, `/api/ai/brief` anropas inte från `IntakeWizard` / denna wizard-montering** (saknar koppling i `BuilderShellContent.tsx`).
+
+---
+
+`[2] Hoppa över` — `setCurrentStep(+1)` utan `canContinue` → från steget *Sidor* kan användaren hoppa till *Media* med `mustHave=[]` och ändå slutföra → `buildWizardBrief` utan sidor. **Ingen API.**
+
+`[3] Avbryt (scrape-overlay)` — `scrapeAbortRef=true` + stoppar UI; **`fetch` till company-intel avbryts inte** (ingen `AbortController`). Tyst bortkastning av svar möjlig. **Ingen API-avbryt.**
+
+`[4] AI-förslag (auto + knapp)** — `handleSuggestMustHaves` → **`/api/ai/suggest-pages`**; vid `!res.ok` eller tom kontext: **tyst exit** (`suggestContext` sätts aldrig från shell → ofta bara `siteType`+`offer`). State: `Set`-dedupe till `mustHave`. **Halvtrasigt.**
+
+`[5] Feature-moduler (inferFeatureModules)** — endast `useEffect` på *pages*-steget, **ingen UI**; hamnar i `fieldMessages` vid slutför, **ej** i `buildWizardBrief` → init-brief saknar modulspåret (endast chat-meddelande). **Halvtrasigt.**
+
+`[3] Mål (`goal`)** — fylls av scrape eller tom; `toggleChip("goal")` finns men **ingen yta anropar det**. **Dött / missvisande.**
+
+`[4] Hämta + Enter på URL** — `handleScrape` → **`onScrapeUrl` → `/api/builder/company-intel`** → `applyScrapeToBusiness` muterar `answers`, `scrapedFields`, ev. `siteType`; fel: toast / null. **`companyName` skickas inte** till API (prop är bara `url`). **Stabilt med reservationer.**
+
+`[5] Fortsätt / Bygg min sajt** — `goNext` / `canContinue` (blockerar vid `scraping`); sista steget bygger `fieldMessages` + `onComplete` → **`handleIntakeWizardComplete`**: `buildWizardBrief(answers)` → `meta.brief`, synkade fakta (kontakt, produkter, longCopy, …) + `triggerStarterGeneration` / upload. **E2E bra** om `mustHave` inte kringgåtts.
+
+`[5] Tillbaka** — `goBack`, lokal steg-state. **OK.**
+
+`[5] Must-have-chips** — `toggleChip("mustHave")`; AI-förslag markeras med `suggested`; merge med `Set`. **OK.**
+
+`[5] Site type-kort** — `selectSiteType` (en aktiv etikett); `deriveMustHaveDefaults` om tom. **OK.**
+
+`[4] Kryss/chips i ContentStep (kök, betalning, toggles)** — uppdaterar `answers`; **delvis** `onClearScraped` (t.ex. inte alla chip-ändringar) → **ScrapeBadge** kan vara stale på vissa fält.
+
+`[4] ScrapeBadge / “Hämtat”-lista** — `setScrapedFields(filled)` **ersätter** mängden per körning; checklistan täcker t.ex. **inte e-post** som egen rad. **OK men grovt.**
+
+`[5] Media: filväljare, drag-drop, kontext** — `MediaStep` → `onComplete` → `/api/media/upload` i **`handleIntakeWizardComplete`**; fel → toast, kan falla tillbaka utan bilaga. **OK.**
+
+`[4] company-intel → answers → initBrief** — skrapade strukturfält mappas i `handleIntakeWizardScrape` till `WizardScrapeData`; `applyScrapeToBusiness` fyller `answers`; **`buildWizardBrief` speglar det mesta** (produkter, meny, team, …). Avvikelse: **`features`** och viss text endast i `fieldMessages`, inte i `meta.brief`.
+
+---
+
+**Sammanfattning (trasigt först):** `Hoppa över` kringgår validering av sidor; scrape-**Avbryt** stoppar inte nätverket; **AI-suggest** och **feature-moduler** är halva mot `initBrief` / kontext; **`goal`** saknar UI. Övrig kedja scrape → `answers` → `buildWizardBrief` → create-chat är i stort **sammanhängande**.
+
+---
+
+**Om filen:** Kopiera blocket ovan till `reviews/builder-audit-06-wizard.txt` lokalt, eller byt till Agent-läge om du vill att filen skapas automatiskt i repot.
+
+[REDACTED]

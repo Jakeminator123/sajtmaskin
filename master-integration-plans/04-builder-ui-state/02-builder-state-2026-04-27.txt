@@ -1,0 +1,34 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 02-builder-state
+Date: 2026-04-27
+
+## UI/UX To Preserve
+- `useBuilderState` — primitiv state, URL entry, `uiMode` (default `expanded` med tydlig preview+chat), `detailsDrawerOpen`, kollaps versionpanel (`isVersionPanelCollapsed` default true), progressiva ytor.
+- `useBuilderPageController` — **stort** VM-aggregat: `useChat` gated via `chatHooksChatId` (coexistence), `useBuilderVmPreview` + `usePreviewSession`, `useChatMessaging` + `onGenerationComplete` → deploy, `useBuilderDeployActions`, `useBuilderCallbacks` / derived state.
+- **Preview-first:** `useBuilderCallbacks` — own-engine: prioritera `previewUrl` (tier-2) framför `demoUrl` / shim; `useBuilderVmPreview` bootstrap, `useBuilderDeployActions.handleGenerationComplete` (version, CSS, error-log, `saveProjectData`).
+- Apple-minimal: state styr *vilka* paneler — inga färger här, men `uiMode`/drawer/versions-kollaps är produkt-UX.
+
+## New Master Capabilities To Surface
+- Fält i `useChat` / `useChatReadiness` / `deployReadiness` som masterna exponerar i controller — mappa till `BuilderViewModel` + header/shell.
+- Nya `useDeploymentStatus` / `POST /api/v0/*` fält — `useBuilderDeployActions` måste fortsätta 409/429/error-log mönster.
+- Nya `activeVersion` / engine-version fält i versionslista — håll `useBuilderDerivedState` + `selectPreferredEngineVersion` logik (om master rör) synkad med `useBuilderCallbacks.test`.
+
+## State/Props Impact
+- Filkonflikter: `useBuilderPageController.ts` (hög), `useBuilderDeployActions.ts`, `useBuilderCallbacks.ts`, `useBuilderState`, `useBuilderDerivedState`, `useBuilderEffects`, `useBuilderVmPreview`.
+- Varje ändring i `useChatMessaging` signatur/effekt → följ deploy + vm + generation-complete kedjan samma commit.
+
+## Merge Conflict Plan
+1. Tredje-vägs merge per **logiskt block**: state → derived → preview/vm → chat → deploy → return `BuilderViewModel` (undvik “ta hela masterns fil” i ett steg).
+2. Särskilj master bugfixar från borttagen **chatHooks** gate (coexistence).
+3. Efter merge: `npx tsc` + `vitest` `useBuilderCallbacks` + rök deploy-dialog.
+
+## Test Plan
+- `src/app/builder/useBuilderCallbacks.test.ts` (own-engine vs legacy preview URL).
+- `builder-page-preview-helpers.test.ts`.
+- `useBuilderPageController` har inga enhetstester — manuell template + ny chat efter större merge.
+- 409 `DEPLOY_MISSING_ENV` sökväg från `useBuilderDeployActions`.
+
+## Do Not Break
+- `engineChatBaseUrl` + `error-log` / `files` / normalisering i deploy-flöde.
+- `onPreviewSessionMeta` + version-bindning.
+- `chatHooksChatId` / `shouldHoldChatHooksForFreshEntry` (dubbel klient-skydd).
+- Own-engine fortsatt prioriterar live preview-URL; legacy `canPin: true` behåll beteende i test och kod.

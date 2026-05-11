@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 06-drawers-disclosure
+Date: 2026-05-01
+
+## UI/UX To Preserve
+- `BuilderDetailsDrawer` as right Radix Sheet with sr-only title/description.
+- `BuilderDisclosurePill` fixed bottom-right, pulse/attention states.
+- Minimal mode mounts right column only in drawer.
+- Expanded mode uses inline chat panel and collapse rail.
+- Dialog/modal block at shell bottom.
+
+## New Master Capabilities To Surface
+- New builder actions should open the same drawer via `setDetailsDrawerOpen(true)`.
+- New header menu items should call `onOpenDetailsDrawer`.
+- New modals should live in existing dialogs block and z-index system.
+
+## State/Props Impact
+- `uiMode` controls drawer vs inline panel.
+- `detailsDrawerOpen` controls Sheet, pill, and `ModelTraceOverlay`.
+- `chatCollapsed` only affects expanded desktop.
+
+## Required Buttons / Choices / Copy
+- Pill label `Verktyg` and shortcut `⌘K`.
+- Drawer a11y copy `Detaljer` / `Chat, planering och verktyg.`
+- Header compact drawer opener.
+
+## Exact LLM Implementation Instructions
+- Do not collapse drawer and sidebar into one branch without product decision.
+- Centralize or guard new cmd/ctrl-K listeners.
+- Reuse Sheet sizing/tokens for new slideovers.
+- Route all “open side panel” actions through `setDetailsDrawerOpen(true)`.
+
+## Merge Conflict Plan
+- High-risk: `BuilderShellContent`.
+- Medium: `BuilderHeader`, `useBuilderState`, `useBuilderPageController`.
+- Low: isolated drawer/pill files.
+
+## Test Plan
+- Minimal pill visibility and Sheet close behavior.
+- Expanded chat collapse persistence.
+- Action palette opens drawer.
+- Media drawer z-index sanity.
+
+## Do Not Break
+- Minimal means preview primary, chat in drawer.
+- `ModelTraceOverlay` only in expanded or open drawer.
+- `chatCollapsed` not affecting minimal.
+- Parity between drawer and expanded right-column contents.

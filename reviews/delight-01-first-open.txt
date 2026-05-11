@@ -1,0 +1,23 @@
+Builder Delight Review — Agent 1: Första mötet efter wizard (moment → nuvarande → föreslagen detalj → insats S/M/L)
+
+Wizard stängs | IntakeWizard unmount direkt, ingen exit-fade | 250 ms modal+backdrop fade, fokus släpps mjukt | M
+Första canvas | Preview synlig utan mjuk intro | Preview-wrapper opacity 0→1 på 300 ms ease-out efter wizard | S
+Tom preview | PreviewPanelEmptyState + ev. “till vänster”-copy i minimal | En rad “Startar din sajt…” tills URL finns | S
+Minimal chatt | Endast Verktyg ⌘K-pill, chat gömd | Auto-öppna drawer en gång (sessionStorage) efter 150 ms delay, slide 200 ms | M
+Expanded chatt | Panel transition 200 ms men collapse använder hidden | Samma slide+fade som Agent 3 (380→40 / öppning) | S
+Progressring | GenerationProgress stor % + fas | Starta visning ~3 % utan hopp; fasetikett crossfade 200 ms | S
+Fas-copy | Långa faser | Max två ord per stadie: Plan → Struktur → Bygger → Preview | S
+Bild-steg | triggerStarterGeneration sätter showImageUpload men ImageUploadPopup ej wired i shell | Koppla popup eller kör execute direkt + “Lägg till senare” | M
+Första assistant | Bubblor direkt när stream startar | Stagger 100 ms efter preview fade så ögat landar först i canvas | S
+ThinkingOverlay | Täcker lista vid stream expanded | I minimal: synka med drawer; annars diskret pill-puls | S
+Mobilflik | Chatt först tills URL | Auto-flik till Sajt när currentPreviewUrl finns (intent redan delvis) | S
+Header första 10 s | Alla actions lika höga | Dämpa sekundära; en “Bygger”-status primär | M
+Model trace första sek | Kan synas direkt expanded | Håll dold tills preview fade klar i minimal | S
+Iframe första load | Skeleton i Frame | Skeleton bort opacity 200 ms, ingen bounce | S
+Drawer animation | Sheet default | 200 ms cubic-bezier(0.16,1,0.3,1) match preview | S
+Copy minimal | “Skriv prompt till vänster” fel i minimal | “Öppna Verktyg (⌘K)” eller auto-drawer en gång | S
+Reduced motion | motion-safe delvis | prefers-reduced-motion: korta fades, inga slides | S
+Tom ram estetik | Kort empty | Lugn kant som matchar preview-läge | M
+Första hälsning | Modellberoende långt | Max 8 ord fast: “Så här blev första versionen.” | M
+Timing vs backend | Långsam create | Deterministisk progress före första token | L
+Mätning | Ingen | Logga wizard_end→preview_ready (produkt) | M

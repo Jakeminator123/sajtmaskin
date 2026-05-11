@@ -1,0 +1,58 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 08-regression-gaps
+Date: 2026-05-01
+
+## Required Checks
+- Route test coverage for API hotspots.
+- Repair/finalize/readiness chain.
+- Preview-render and preview routes.
+- Credits/Stripe/upload/AI routes.
+- E2E vs Vitest coverage split.
+
+## Existing Tests
+- Strong lib/generation tests.
+- About 20 colocated API route tests.
+- Limited builder component tests.
+- Existing focused tests around stream/preview/finalize.
+
+## Missing Coverage
+- P0: repair, readiness, accept-repair, finalize-design route tests.
+- P0: normalize-text, validate-css, validate-images, messages by id.
+- P0: version export/download/approval/feedback/comments.
+- P1: preview-render.
+- P1: credits, credits/check, media upload/client, project upload.
+- P1: AI chat/brief routes.
+- P1: Stripe checkout/webhook.
+- P2: broader builder shell/landing/wizard and Playwright matrix.
+
+## Frontend Behaviors To Assert
+- Preview lifecycle and viewer/heartbeat correctness.
+- Error/readiness UI clearing vs error-log.
+- Credits blocking before stream.
+- Upload validation and prompt attachment flow.
+
+## Exact LLM Implementation Instructions
+- Add route tests in priority order for repair/readiness/accept-repair/finalize-design.
+- Add preview-render 4xx/410/HTML tests.
+- Add minimal credits and upload route tests.
+- Add component test for readiness/repair UI if merge touches it.
+- Add Playwright smoke without shared live builder.
+
+## Failure Triage Guide
+- Lib green but prod red: HTTP/auth/content-type issue.
+- Repair hangs: route/persistence/readiness chain.
+- Old preview shown: session/heartbeat/double client.
+- E2E only red: env/CSP/origin.
+
+## Exact Commands
+- `npm run typecheck`
+- `npm run lint`
+- `npm run test:ci`
+- `npm run test:focused`
+- `npm run scaffolds:validate`
+- `npm run dossiers:validate-all`
+- `npm run test:deploy-smoke:e2e`
+
+## Pass Criteria
+- CI green.
+- P0 route tests added when corresponding files change.
+- API route test ratio improves for hotspots instead of staying around current low coverage.

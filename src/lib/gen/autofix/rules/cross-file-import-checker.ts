@@ -13,6 +13,10 @@ interface CrossFileImportFix {
   sourceFile: string;
   missingImport: string;
   stubFile: string;
+  /** Existing project path used instead of creating a null-render stub. */
+  rewireTarget?: string;
+  /** Import specifier written into `sourceFile` when `rewireTarget` is set. */
+  rewireImportSpec?: string;
   /** Set when the missing import matches a dossier `exposes[].import`. */
   dossierId?: string;
   capability?: string;
@@ -22,6 +26,25 @@ const LOCAL_PREFIXES = ["@/", "./", "../"];
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 const INDEX_EXTENSIONS = EXTENSIONS.map((ext) => `/index${ext}`);
 const CANDIDATES = [...EXTENSIONS, ...INDEX_EXTENSIONS];
+
+/**
+ * Common suffix/prefix variants the LLM frequently mixes up when emitting
+ * imports. Order matters slightly: longer suffixes first so we don't
+ * accidentally match `-canvas` inside `-canvas-shell`.
+ */
+const REWIRE_SUFFIX_VARIANTS = [
+  "-canvas-shell",
+  "-canvas",
+  "-shell",
+  "-component",
+  "-wrapper",
+  "-container",
+  "-provider",
+  "-context",
+  "-overlay",
+  "-scene",
+  "-runtime",
+] as const;
 
 function isLocalImport(source: string): boolean {
   return LOCAL_PREFIXES.some((p) => source.startsWith(p));
@@ -59,6 +82,109 @@ function deriveComponentName(importPath: string): string {
   return segment
     .replace(/[-_](\w)/g, (_, c: string) => c.toUpperCase())
     .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+/**
+ * Try to find an existing project file that the missing import most likely
+ * meant. Returns the existing project path (without extension) when an
+ * obvious suffix/prefix sibling exists. Conservative on purpose: we never
+ * rewire to a file that is itself a stub fallback or has an unrelated
+ * basename root.
+ */
+function findRewireTarget(
+  missingProjectPath: string,
+  fileMap: Map<string, CodeFile>,
+): string | null {
+  const lastSlash = missingProjectPath.lastIndexOf("/");
+  const dir = lastSlash >= 0 ? missingProjectPath.slice(0, lastSlash) : "";
+  const basename = lastSlash >= 0 ? missingProjectPath.slice(lastSlash + 1) : missingProjectPath;
+  if (!basename) return null;
+
+  const candidateBases = new Set<string>();
+
+  // 1. The model imported the "core" name; the real file has a suffix.
+  for (const suffix of REWIRE_SUFFIX_VARIANTS) {
+    candidateBases.add(`${basename}${suffix}`);
+  }
+  // 2. The model imported a suffixed name; the real file is unsuffixed.
+  for (const suffix of REWIRE_SUFFIX_VARIANTS) {
+    if (basename.endsWith(suffix) && basename.length > suffix.length) {
+      candidateBases.add(basename.slice(0, -suffix.length));
+    }
+  }
+
+  const tryProbe = (probedDir: string, probedBase: string): string | null => {
+    const root = probedDir ? `${probedDir}/${probedBase}` : probedBase;
+    if (fileMap.has(root)) return root.replace(/\.(tsx|ts|jsx|js)$/, "");
+    for (const ext of EXTENSIONS) {
+      if (fileMap.has(root + ext)) return root;
+    }
+    for (const indexExt of INDEX_EXTENSIONS) {
+      if (fileMap.has(root + indexExt)) return root;
+    }
+    return null;
+  };
+
+  for (const candidateBase of candidateBases) {
+    const direct = tryProbe(dir, candidateBase);
+    if (direct) return direct;
+    // Some scaffolds live under `src/` — probe the mirrored path too.
+    const srcDir = dir.startsWith("src/") ? dir : `src/${dir}`.replace(/\/$/, "");
+    const mirrored = tryProbe(srcDir, candidateBase);
+    if (mirrored) return mirrored;
+  }
+  return null;
+}
+
+/**
+ * Convert a resolved project path back to an import specifier in the same
+ * style the importer used. Preserves `@/` aliases and falls back to leaving
+ * the path as-is when the source spec was relative — relative-import rewire
+ * is intentionally not handled here to keep the change minimal.
+ */
+function projectPathToImportSpec(
+  resolvedProjectPath: string,
+  originalSpec: string,
+  importerPath: string,
+): string | null {
+  if (originalSpec.startsWith("@/")) {
+    const cleaned = resolvedProjectPath.replace(/^src\//, "");
+    return `@/${cleaned}`;
+  }
+  if (originalSpec.startsWith("./") || originalSpec.startsWith("../")) {
+    const importerDir = importerPath.includes("/")
+      ? importerPath.slice(0, importerPath.lastIndexOf("/"))
+      : "";
+    const fromParts = importerDir.split("/").filter(Boolean);
+    const toParts = resolvedProjectPath.split("/").filter(Boolean);
+    while (fromParts.length > 0 && toParts.length > 0 && fromParts[0] === toParts[0]) {
+      fromParts.shift();
+      toParts.shift();
+    }
+    const relativeParts = [...fromParts.map(() => ".."), ...toParts];
+    const relative = relativeParts.join("/");
+    if (!relative) return null;
+    return relative.startsWith("..") ? relative : `./${relative}`;
+  }
+  return null;
+}
+
+/**
+ * Replace `from "<oldSpec>"` (and side-effect `import "<oldSpec>"`) with
+ * `<newSpec>` while preserving the original quote style. The pattern is
+ * scoped to import statements only.
+ */
+function rewireImportSpecInSource(
+  content: string,
+  oldSpec: string,
+  newSpec: string,
+): string {
+  const escaped = oldSpec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const fromPattern = new RegExp(`(\\bfrom\\s+['"])${escaped}(['"])`, "g");
+  const sideEffectPattern = new RegExp(`(\\bimport\\s+['"])${escaped}(['"])`, "g");
+  return content
+    .replace(fromPattern, `$1${newSpec}$2`)
+    .replace(sideEffectPattern, `$1${newSpec}$2`);
 }
 
 interface ImportSpecifiers {
@@ -183,6 +309,9 @@ function createStubFile(
   specifiers: ImportSpecifiers,
   fallbackName: string,
 ): string {
+  const semanticHelper = createSemanticMissingComponentHelper(importPath, specifiers);
+  if (semanticHelper) return semanticHelper;
+
   if (specifiers.isTypeOnly) {
     return `// Type-only stub for ${importPath}\nexport {};\n`;
   }
@@ -219,6 +348,150 @@ function createStubFile(
 
   lines.push("");
   return lines.join("\n");
+}
+
+function uniqueExportNames(specifiers: ImportSpecifiers, fallbackName: string): string[] {
+  const names = new Set<string>();
+  for (const name of specifiers.namedImports) {
+    if (/^[A-Z_$a-z][\w$]*$/.test(name)) names.add(name);
+  }
+  if (names.size === 0 && !specifiers.defaultImport) names.add(fallbackName);
+  return [...names];
+}
+
+/**
+ * Minimal real helpers for common hallucinated `@/components/*` imports.
+ *
+ * These are intentionally not null-render stubs: they provide visible,
+ * harmless UI for generic helper imports the model often assumes exist
+ * (`@/components/icon`, `@/components/date`). This keeps canonical
+ * output runnable without hiding missing visuals behind empty placeholders.
+ */
+function createSemanticMissingComponentHelper(
+  importPath: string,
+  specifiers: ImportSpecifiers,
+): string | null {
+  const normalized = importPath.replace(/\\/g, "/");
+  if (normalized === "@/components/icon") {
+    const namedExports = uniqueExportNames(specifiers, "Icon").filter((name) => name !== "Icon");
+    const extraExports = namedExports
+      .map(
+        (name) => `export function ${name}(props: IconProps) {
+  return <Icon {...props} name={props.name ?? "${name}"} />;
+}`,
+      )
+      .join("\n\n");
+    return `"use client";
+
+import {
+  Activity,
+  ArrowRight,
+  BarChart3,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  HelpCircle,
+  LineChart,
+  Search,
+  Sparkles,
+  Star,
+  User,
+  type LucideIcon,
+} from "lucide-react";
+
+const ICONS: Record<string, LucideIcon> = {
+  activity: Activity,
+  arrow: ArrowRight,
+  arrowright: ArrowRight,
+  barchart: BarChart3,
+  barchart3: BarChart3,
+  calendar: Calendar,
+  check: CheckCircle2,
+  clock: Clock,
+  creditcard: CreditCard,
+  date: Calendar,
+  default: Sparkles,
+  help: HelpCircle,
+  linechart: LineChart,
+  search: Search,
+  sparkles: Sparkles,
+  star: Star,
+  user: User,
+};
+
+export interface IconProps {
+  name?: string;
+  className?: string;
+  size?: number;
+  "aria-hidden"?: boolean;
+}
+
+export function Icon({ name = "default", className, size = 20, ...props }: IconProps) {
+  const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const Component = ICONS[key] ?? ICONS.default;
+  return <Component className={className} size={size} aria-hidden={props["aria-hidden"] ?? true} />;
+}
+
+${extraExports ? `${extraExports}\n\n` : ""}export default Icon;
+`;
+  }
+
+  if (normalized === "@/components/date") {
+    const namedExports = uniqueExportNames(specifiers, "DateDisplay").filter(
+      (name) => name !== "DateDisplay",
+    );
+    const extraExports = namedExports
+      .map(
+        (name) => `export function ${name}(props: DateDisplayProps) {
+  return <DateDisplay {...props} />;
+}`,
+      )
+      .join("\n\n");
+    return `"use client";
+
+export type DateLike = Date | string | number | null | undefined;
+
+export interface DateDisplayProps {
+  value?: DateLike;
+  date?: DateLike;
+  label?: string;
+  className?: string;
+}
+
+function formatDate(value: DateLike): string {
+  if (value === null || value === undefined || value === "") return "Välj datum";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("sv-SE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function toDateTime(value: DateLike): string | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}
+
+export function DateDisplay({ value, date, label, className }: DateDisplayProps) {
+  const resolvedValue = value ?? date;
+  return (
+    <time className={className} dateTime={toDateTime(resolvedValue)}>
+      {label ? label + ": " : ""}
+      {formatDate(resolvedValue)}
+    </time>
+  );
+}
+
+${extraExports ? `${extraExports}\n\n` : ""}export default DateDisplay;
+`;
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -259,6 +532,7 @@ export function checkCrossFileImports(
     if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
 
     const sf = createTsxSourceFile(file.path, file.content);
+    let rewiredContent: string | null = null;
     for (const st of sf.statements) {
       if (!ts.isImportDeclaration(st)) continue;
 
@@ -271,6 +545,34 @@ export function checkCrossFileImports(
           ? projectPath
           : `${projectPath}.tsx`;
       if (fileMap.has(stubPath)) continue;
+
+      // Prefer an obvious sibling import over a null-render stub.
+      // Example: `@/components/three-canvas` can mean the existing
+      // `@/components/three-canvas-shell`.
+      const rewireResolved = findRewireTarget(projectPath, fileMap);
+      const rewireSpec =
+        rewireResolved !== null
+          ? projectPathToImportSpec(rewireResolved, meta.moduleSpecifier, file.path)
+          : null;
+      if (rewireResolved && rewireSpec) {
+        const baseContent: string = rewiredContent ?? file.content;
+        const nextContent = rewireImportSpecInSource(
+          baseContent,
+          meta.moduleSpecifier,
+          rewireSpec,
+        );
+        if (nextContent !== baseContent) {
+          rewiredContent = nextContent;
+          fixes.push({
+            sourceFile: file.path,
+            missingImport: meta.moduleSpecifier,
+            stubFile: rewireResolved,
+            rewireTarget: rewireResolved,
+            rewireImportSpec: rewireSpec,
+          });
+          continue;
+        }
+      }
 
       const spec = importSpecifiersFromDeclaration(st);
       const source = meta.moduleSpecifier;
@@ -285,6 +587,12 @@ export function checkCrossFileImports(
           importers: [file.path],
           specs: [spec],
         });
+      }
+    }
+    if (rewiredContent !== null) {
+      const updated = fileMap.get(file.path);
+      if (updated) {
+        fileMap.set(file.path, { ...updated, content: rewiredContent });
       }
     }
   }

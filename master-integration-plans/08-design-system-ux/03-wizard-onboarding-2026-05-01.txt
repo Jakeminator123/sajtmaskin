@@ -1,0 +1,48 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 03-wizard-onboarding
+Date: 2026-05-01
+
+## UX To Preserve
+- Intake step order and progress.
+- Swedish footer buttons and primary CTA.
+- Scrape overlay with abort and checklist.
+- Media dropzone and per-file context.
+- Wizard only before chat, then complete flow through brief/media/generation.
+
+## Master UI Changes To Inspect
+- `IntakeWizard.tsx` monolith.
+- Onboarding overlay/modal duplication.
+- Prompt wizard/openclaw label differences.
+- Page suggestion state/copy.
+
+## Token / Copy Risks
+- English strings in new master copy.
+- Long story/media text.
+- New raw palette classes in scrape/media UI.
+
+## Required UI Additions Without Redesign
+- Map new backend scrape fields into existing scrape data and checks.
+- Extend accepted media types and helper copy consistently.
+- Reuse existing image picker/grid patterns.
+
+## Exact LLM Implementation Instructions
+- Merge wizard step-by-step.
+- Keep `IntakeWizardResult`, `WizardAnswers`, and fieldMessages in sync with wizard brief and needs analysis.
+- Keep new copy Swedish and short.
+- Preserve z-index order.
+
+## Recommended Merge Choices
+- Preserve local scrape/abort UX.
+- Consolidate onboarding into one primary path.
+- Archive or connect unused onboarding components deliberately.
+
+## Visual Verification
+- Builder without chatId.
+- Scrape URL success/error/abort.
+- Media uploads and context dropdowns.
+- No double modal.
+
+## Do Not Break
+- `handleIntakeWizardComplete`.
+- Media upload purpose values.
+- company-intel scrape side effects.
+- Step order and validation.

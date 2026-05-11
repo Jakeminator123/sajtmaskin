@@ -1,0 +1,48 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 06-strict-schemas
+Date: 2026-05-01
+
+## Master Changes
+- Strict schemas under `docs/schemas/strict` cover dossiers, health, telemetry, preview contracts, scaffold variants, etc.
+
+## Local Changes / Dirty Files
+- Dossier manifests are dirty.
+- `data/runs/**` artifacts should not be part of schema integration.
+
+## Compatibility Risks
+- AJV strict mode is disabled in validators/tests.
+- Different URI format behavior across validators.
+- Dossier schema and TS types can drift.
+- Scaffold variant runtime parser can be looser than JSON schema.
+- Preview-session contract schema is a metadata wrapper, not direct payload schema.
+- Telemetry schemas may not have runtime emitters/tests.
+
+## Files To Update
+- `docs/schemas/strict/*.schema.json`
+- `docs/schemas/strict/README.md`
+- dossier types/validator.
+- scaffold variant types/registry/schema.
+- telemetry emitters/tests.
+- health schema tests and dashboard domain map.
+
+## Frontend Impact / UI States
+- Invalid dossier manifests reduce capability coverage.
+- Most other strict schemas affect observability/backoffice rather than direct builder widgets.
+
+## Exact LLM Implementation Instructions
+- Never change only JSON Schema; update runtime parser/types/tests in same change.
+- Add telemetry schema, docs, fixture tests, and emitter together.
+- Align scaffold variant schema with runtime parser strictness.
+
+## Verification Commands
+- `npm run dossiers:validate-all`
+- `npm run scaffolds:validate`
+- dossier validator tests
+- health schema tests
+- LLM telemetry schema tests
+- dashboard domain map parity
+- `npm run test:ci`
+
+## Commit / Ignore Guidance
+- Commit schema + runtime code + tests together.
+- Do not commit local run NDJSON.
+- Treat dossier manifest changes as intentional only after validation.

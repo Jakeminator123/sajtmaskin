@@ -1,0 +1,22 @@
+Agent 6 — Content Quality (Swedish)
+Scope: `src/lib/builder/needs-analysis.ts` (buildNeedsAnalysisPrompt, buildPageStructure), `config/prompt-static/14-swedish-content.md`
+Datum: 2026-04-16
+Betyg: 1 = svag styrning mot naturlig svensk sajt, 5 = stark
+
+1. Dubbel lager: Statisk `14-swedish-content.md` (språk, SEO-arrayer, sluggar, vanliga fel) + inline-sektion "## Språk och ton (svenska)" i `buildNeedsAnalysisPrompt` (emoji-förbud, svenska namn/adresser, exempel på telefon/nav). Tydlig signal — låg risk för “läckage” om modellen följer paketet. Betyg: 4
+
+2. Anti-engelska: Explicit “Inga engelska placeholder”, inga emojis, navigationsknappar på svenska, OG på svenska — konsekvent med målet. `14-swedish-content.md` varnar för anglicismer och blandning i samma mening. Betyg: 5
+
+3. Kundcitat / social proof: `buildPageStructure` kräver “2-3 kundcitat med namn och roll” och tillåter “trovärdiga” fiktiva med platshållare om data saknas — risk att många sajter får liknande “Maria, VD”-mönster om modellen inte varierar; styrningen är kvantitet och trovärdighet, inte unikhet per bransch. Betyg: 3
+
+4. CTA-variation: Fasta exempel i språksektionen (“Kom igång, Läs mer, Kontakta oss…”) + branschspecifika CTA-rader per sidmall (t.ex. “Boka bord”). Bra spännvidd, men upprepade exempelformuleringar i prompten kan **homogenisera** knapptexter om modellen överanvänder listan. Betyg: 3
+
+5. SEO-metadata: Krav på svensk `description` 150–160 tecken, `keywords` som `string[]` utan `as const`, OG på svenska; titel-mönster med `companyName`, erbjudande och `location` när det finns — stödjer **unika** titlar per sajt om fälten är ifyllda. Undersidor får generisk risk om modellen återanvänder samma title-template. Betyg: 4
+
+6. Upphovs-/footer: `needs-analysis` säger `© 2025 Företagsnamn` och “INTE All rights reserved”; `14-swedish-content.md` tillåter “Alla rättigheter förbehållna.” — liten **inkonsekvens** i rekommenderad footer-fras (båda acceptabla men olika defaults). Årtal 2025 i prompt kan kännas föråldrat 2026. Betyg: 3
+
+7. Branschinnehåll: `buildPageStructure` varierar sektioner (restaurang vs e-handel vs salong) och betonar “RIKTIGT innehåll” / trovärdiga exempel — stark koppling till valda sidor/moduler från wizard. Betyg: 4
+
+8. Produkt-/menytext: Explicit “fyll med RIKTIGA rätter om de finns i underlaget” — binder till skrapad data när den finns; annars generiska men svenska exempel — rimlig men inte unik per default. Betyg: 3
+
+Sammanfattning: Språk- och SEO-regler är tydliga och på svenska; största kvalitetsrisken är **homogenitet** (citat, CTA, exempeltelefon/adress) snarare än engelska läckor. Justera år i copyright-exempel och överväg mer variation i citat/CTA-hints.

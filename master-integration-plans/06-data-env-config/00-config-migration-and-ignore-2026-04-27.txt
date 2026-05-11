@@ -1,0 +1,30 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 00 config migration + must-not-commit
+Date: 2026-04-27
+
+Pre-flight: `HEAD=6dab64a9`, `origin/master=4de2fabd`. Källor: `docs/ENV.md` (mänsklig), `src/lib/env.ts` (Zod), `config/env-policy.json` (policy/audit). Paritet: tre lager ska hållas i synk vid nya nycklar.
+
+## Config migration checklist (i ordning)
+1. [ ] `git fetch origin` + `git diff HEAD...origin/master -- src/lib/env.ts config/env-policy.json docs/ENV.md` — lista nya/skapade borttagna nycklar.
+2. [ ] Merga `env.ts` `serverSchema` + `env-policy.json` `knownEmptyOk` / `rules` / `extraKnownKeys` i samma commit som ändringen.
+3. [ ] Uppdatera `docs/ENV.md` tabellrader (inga långa duplicerade listor — ersätt gammal text).
+4. [ ] Kör `python3 scripts/env/manage_env.py audit` (eller teamets motsv.) tills 0 oväntade "unknown" där så förväntat.
+5. [ ] `config/ai_models/manifest.json` + `src/lib/ai-models/load-manifest.ts` (Zod) samma PR om manifest-struktur ändras.
+6. [ ] Nya `docs/schemas/strict/*.json` + `dashboard-domain-map.parity.test.ts` + AJV-ägare (dossier, health, m.m.) enligt `docs/schemas/strict/README.md`.
+7. [ ] `npm run typecheck` && `npm run lint` && `npx vitest run` (minst berörda testpaket).
+8. [ ] Vercel: nya **obligatoriska** servernycklar enligt policy `recommendedVercelTargets` — aldrig committa värden.
+
+## Filer / mönster som **inte** ska committas (eller ska rensas från index)
+| Mönster | Varför |
+|---------|--------|
+| `.env`, `.env.local`, `.env.*` (hemlig) | — |
+| `data/runs/**` (NDJSON event-bus) | ofta redan i `.gitignore` — om **modified** i `git status`, filer trackades historiskt → `git rm --cached` efter teambeslut, inte i product-PR |
+| `data/prompt-dumps/*` (utom ev. `README.md`) | prompt-innehåll / kost |
+| `logs/**`, `logs/generationslogg/**` | runtime |
+| `data/observability/**` | återskapas |
+| `data/backoffice/**` (om ignorerad) | lokal panelstate |
+| Stora genererade `variant-embeddings.json` / golden runs | committa endast om avsedd kontraktsleverans (annars `scaffolds:variant-embeddings` lokalt) |
+| `agent-session-*.txt`, `*.pem` | — |
+
+**Granskning:** om `git status` visar `M data/dossiers/.../manifest.json` eller `M data/runs/...` — stage **inte** i samma commit som env/config utan eget beslut (se MI01 03 local scope).
+
+Rapportfiler: `01-…`–`08-…-2026-04-27.txt`.

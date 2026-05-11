@@ -1,0 +1,50 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 01-chat-stream-routes
+Date: 2026-04-27
+
+## Master Changes To Preserve
+- Kanonisk SSE-typning: `src/lib/gen/stream/builder-stream-contract.ts` (BuilderStreamEventMap, händelser: meta, thinking, content, parts, integration, tool-call, progress, ping, chatId, projectId, preview-ready, build-error, version-repair-available, done, error).
+- `src/lib/builder/sse.ts` — `consumeSseResponse`, `isBuilderStreamEventName` (okända event ignoreras).
+- `src/lib/gen/stream/stream-format.ts` — mappning till samma vokabulär där använt.
+- `src/lib/providers/own-engine/generation-stream.ts` + finalize/post — ping, formatSSEEvent, error/done.
+- `src/lib/api/engine/chats/chat-message-stream-post.ts`, `create-chat-stream-post.ts` — scheman, `buildEngineStreamResponse`, F3/ autofix/ meta.engineBaseVersionId, lifecycle.
+- `src/lib/api/engine/chats/stream-error-response.ts` — `{ error, code, retryAfter }`, `normalizeProviderError`, SSE-headers.
+- `src/lib/gen/stream/finalize-version/*` — done-payload (versionId, previewUrl, rejectedShrinks, verifierBlockingFindings, awaitingInput, m.m.) som `stream-handlers` läser.
+- App-routes: `src/app/api/engine/chats/stream/route.ts`, `.../chats/[chatId]/stream/route.ts` (tunna lager).
+- På `origin/master`: `preview-prewarm.ts` (+ ev. nya event) — kartlägg efter merge; lokal sök fann 0 före merge.
+
+## Frontend Consumers
+- `useChatMessaging.ts` → `useCreateChat` / `useSendMessage`
+- `useCreateChat.ts` — POST `/api/engine/chats/stream` via `ENGINE_CHATS_API_PREFIX` / `src/lib/api/engine-chats-path.ts`
+- `useSendMessage.ts` — POST `.../stream`, fallback `.../messages`
+- `stream-handlers.ts` — switch på alla builder-events; `versionIdFromStream`, `onPreviewSessionMeta` vid preview-ready
+- `types.ts` — `MessageOptions` (engineBaseVersionIdOverride, F3), callbacks
+- `helpers.ts` — `buildStreamErrorMessage`, `buildApiErrorMessage`
+- post-checks / useAutoFix — samma `versionId`-sanning, ej samma parser
+- `useBuilderHelpChat` — egen parser; blanda ej med `BuilderStreamEventName`
+
+## Contract Risks
+- Ordning: `meta.versionId` vs `preview-ready` — fel binding till heartbeat om ordning ändras.
+- `done` efter `error` utan recovery — tom done bryter felväg.
+- Builder coexistence — två streams mot samma `chatId`.
+- Init vs följd: content-type måste vara `text/event-stream` när klienten förväntar SSE.
+- Nya event från master — antingen nya `case` i `stream-handlers` eller tysta via kontrakt.
+
+## Required Adaptations
+- Nya event: `builder-stream-contract.ts` + `stream-handlers` om UI reagerar.
+- Ändrad `done`/`error` HTTP: synka `stream-handlers`, `post-checks`, `helpers`.
+- Tunn `route.ts` ska fortsatt delegera till lib så test-URL:er hålls.
+- `engineBaseVersionIdOverride` / autofix: behåll genom `useSendMessage`.
+
+## Tests / Runtime Checks
+- `src/app/api/engine/chats/**/stream/route.test.ts`, `src/lib/hooks/chat/stream-handlers.test.ts`, `helpers.test.ts`, own-engine/generation-stream + finalize tester.
+- Manuell: en klient, meta → progress → preview-ready → done, ev. error → recovery.
+
+## Do Not Break
+- `src/lib/api/engine-chats-path.ts` — kanonisk bas-URL.
+- `consumeSseResponse` + tysta okända event.
+- `done` måste avsluta affärssökväg enligt nuvarande semantik.
+- `buildEngineStreamResponse` + `wrapStreamForPromptToDoneMetric` + session cookie där så.
+- F2/F3: `includeIntegrationSignals` + klient-meta.
+- Builder coexistence — ingen andra `fetch` till samma `.../stream` för samma `chatId`.
+
+Pre-flight dirty context: ocommittade ändringar i `.../stream/route.ts` förekom; verifiera efter merge mot samma lib-handlers.

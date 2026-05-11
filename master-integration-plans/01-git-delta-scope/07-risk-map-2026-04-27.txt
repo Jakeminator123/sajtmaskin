@@ -1,0 +1,26 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 07-risk-map
+Date: 2026-04-27
+
+## Scope
+8 prioriterade regressions-/konfliktrisker vid `origin/master` → `frontend/christopher`.
+
+## Findings
+| # | Risk | Område | Varför | Testa |
+|---|------|--------|--------|--------|
+| 1 | Engine stream (init + follow-up) | `api/.../stream`, `create-chat-stream-post`, `chat-message-stream-post` | Hög churn, events, version/finalize | `route.test.ts` för båda streams; en klient, en `chatId` |
+| 2 | SSE-klient | `src/lib/hooks/chat` | chunk/meta/tool events | följ upp/ny chat, parse-fel, Fel-badge |
+| 3 | Preview session/status/heartbeat | `[chatId]/preview-*`, `preview-contract`, `preview-session/api` | fält/JSON/404 | API-tester + builder smoke |
+| 4 | Preview panel iframe/postMessage | `preview-panel/hooks` | timing, dubblett heartbeat, coexistence | en flik, postMessage-typer |
+| 5 | Finalize + autofix | `finalize-version`, `pre-phases`, `autofix/pipeline` | ordning, preview start | gen/autofix-tester, import scenario |
+| 6 | `env.ts` + policy | `src/lib/env.ts`, `config/env-policy` | nya/omdöpta nycklar, Zod | `typecheck`, `env:status` om förekommer |
+| 7 | Deploy API | `api/v0/deployments` | publicera-flöde | `route.test.ts` + manuell om miljö |
+| 8 | `next.config` + `proxy` | root routing | rewrites, CSP, SSE | bygg, träffa `/api/engine` via samma origin som builder |
+
+## Recommended Actions
+Tre- eller tvåvägs diff på: båda stream-routes, `chat-message-stream-post`, `create-chat-stream-post`, `preview-contract`, `preview-session/api`, finalize + pre-phases, `env.ts`, `next.config` + `proxy`.
+
+## Verification Needed
+Se tabell; inga parallella builder-klienter (coexistence). Publish-smoke om deployment rörs.
+
+## Do Not Break
+Stream-kontrat mot hooks, `preview-contract` + heartbeat, F2 env-mute-kedja, `env.ts` som schema, finalize/ idempotent `versionId` (dubbel-finalize-race).

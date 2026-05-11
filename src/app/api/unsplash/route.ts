@@ -51,6 +51,20 @@ interface UnsplashSearchResponse {
   results: UnsplashPhoto[];
 }
 
+const MAX_UNSPLASH_IMAGES = 12;
+
+function clampImageCount(value: unknown, fallback = 5): number {
+  const count =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? parseInt(value, 10)
+        : fallback;
+
+  if (!Number.isFinite(count)) return fallback;
+  return Math.min(MAX_UNSPLASH_IMAGES, Math.max(1, Math.floor(count)));
+}
+
 export interface MarkedImage {
   marker: string; // P1, P2, P3...
   id: string;
@@ -98,7 +112,8 @@ function getSearchTerms(industry: string, customTerms?: string[]): string[] {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { industry, customTerms, count = 5 } = body;
+    const { industry, customTerms } = body;
+    const count = clampImageCount(body.count);
 
     // Use centralized config
     if (!FEATURES.useUnsplash) {
@@ -183,7 +198,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const query = searchParams.get("query") || "business";
-  const count = parseInt(searchParams.get("count") || "5", 10);
+  const count = clampImageCount(searchParams.get("count"));
 
   // Use centralized config
   if (!FEATURES.useUnsplash) {

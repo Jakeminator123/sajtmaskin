@@ -10,11 +10,64 @@ import { withRateLimit } from "@/lib/rateLimit";
  *
  * Downloads an image from a URL and uploads it to Vercel Blob storage.
  * This is used for stock photos (Unsplash/Pexels) to ensure we have
- * PUBLIC URLs that work in v0 preview.
+ * PUBLIC URLs that work in live preview.
  *
  * POST /api/media/upload-from-url
  * Body: { url: string, filename?: string, source?: string, photographer?: string }
  */
+
+const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024;
+const ALLOWED_REMOTE_IMAGE_TYPES = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/jpg", "jpg"],
+  ["image/png", "png"],
+  ["image/gif", "gif"],
+  ["image/webp", "webp"],
+]);
+
+function normalizeContentType(value: string): string {
+  return value.split(";")[0]?.trim().toLowerCase() || "";
+}
+
+function getContentLengthBytes(response: Response): number | null {
+  const value = response.headers.get("content-length");
+  if (!value) return null;
+  const bytes = Number(value);
+  return Number.isFinite(bytes) && bytes >= 0 ? bytes : null;
+}
+
+function describeUrlForLog(url: URL): string {
+  return `${url.protocol}//${url.host}${url.pathname}`.slice(0, 160);
+}
+
+async function readBodyWithLimit(response: Response, maxBytes: number): Promise<Buffer | null> {
+  if (!response.body) {
+    const arrayBuffer = await response.arrayBuffer();
+    if (arrayBuffer.byteLength > maxBytes) return null;
+    return Buffer.from(arrayBuffer);
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let received = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return Buffer.concat(chunks, received);
+}
 
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "media:upload-url", async () => {
@@ -50,7 +103,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.info(`[Media/UploadFromUrl] Downloading image from: ${url.substring(0, 100)}...`);
+    console.info(`[Media/UploadFromUrl] Downloading image from: ${describeUrlForLog(parsedUrl)}`);
 
     const response = await safeFetch(url, {
       headers: {
@@ -70,23 +123,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Get content type from response
-    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const contentType = normalizeContentType(response.headers.get("content-type") || "image/jpeg");
 
-    // Validate it's an image
-    if (!contentType.startsWith("image/")) {
+    // Validate it's an image type safe to serve back from public Blob storage.
+    const extension = ALLOWED_REMOTE_IMAGE_TYPES.get(contentType);
+    if (!extension) {
       return NextResponse.json(
-        { success: false, error: "URL:en pekar inte på en bild" },
+        { success: false, error: "URL:en pekar inte på en tillåten bildtyp" },
         { status: 400 },
       );
     }
 
-    // Get the image data
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
     // Check size (Blob-safe for preview reliability)
-    const maxSize = 4 * 1024 * 1024;
-    if (buffer.length > maxSize) {
+    const contentLength = getContentLengthBytes(response);
+    if (contentLength !== null && contentLength > MAX_REMOTE_IMAGE_BYTES) {
+      return NextResponse.json(
+        { success: false, error: "Bilden är för stor (max 4MB för Blob-preview)" },
+        { status: 400 },
+      );
+    }
+
+    // Get the image data, but stop reading once the Blob-safe limit is exceeded.
+    const buffer = await readBodyWithLimit(response, MAX_REMOTE_IMAGE_BYTES);
+    if (!buffer) {
       return NextResponse.json(
         { success: false, error: "Bilden är för stor (max 4MB för Blob-preview)" },
         { status: 400 },
@@ -94,8 +153,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate filename
-    const extension = contentType.split("/")[1] || "jpg";
-    const safeFilename = filename || `stock-${Date.now()}.${extension}`;
+    const requestedName = typeof filename === "string" && filename.trim() ? filename : "stock";
+    const safeFilename = `${requestedName.replace(/\.[^.]*$/, "")}.${extension}`;
     const uniqueFilename = generateUniqueFilename(safeFilename, source || "stock");
 
     // Upload to Vercel Blob

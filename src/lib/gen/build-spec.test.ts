@@ -90,6 +90,24 @@ describe("deriveBuildSpec", () => {
     }
   });
 
+  it("uses light context for short copy and targeted layout follow-ups", () => {
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Byt rubriken i hero till Hantverk med hjärta.",
+        followUpIntent: "clear-refine",
+        capabilityHeavy: false,
+      }),
+    ).toBe("light");
+
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Gör knappen i headern större och flytta den lite åt höger.",
+        followUpIntent: "clear-refine",
+        capabilityHeavy: false,
+      }),
+    ).toBe("light");
+  });
+
   it("keeps init generations compact and deterministic", () => {
     const spec = deriveBuildSpec({
       prompt: "Bygg en modern hemsida för ett arkitektkontor.",
@@ -117,7 +135,66 @@ describe("deriveBuildSpec", () => {
     });
   });
 
-  it("uses normal context by default for narrow follow-up edits", () => {
+  it("promotes init quality from Deep Brief qualityBar", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en hemsida för en ljudbutik.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+      brief: {
+        qualityBar: "premium",
+      },
+    });
+
+    expect(spec.qualityTarget).toBe("premium");
+    expect(spec.contextPolicy).toBe("normal");
+  });
+
+  it("uses Deep Brief visual direction when inferring style pack", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en hemsida för en ljudbutik.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+      brief: {
+        visualDirection: {
+          styleKeywords: ["editorial", "noir"],
+          typography: { headings: "Playfair Display", body: "Inter" },
+        },
+        toneAndVoice: ["atmospheric"],
+      },
+    });
+
+    expect(spec.stylePack).toBe("editorial");
+    expect(spec.stylePackSecondary).toBeNull();
+  });
+
+  it("uses bold-dramatic brief quality as a heavy-context signal", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en hemsida för en ljudbutik.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+      brief: {
+        qualityBar: "bold-dramatic",
+        motionLevel: "lively",
+      },
+    });
+
+    expect(spec.qualityTarget).toBe("premium");
+    expect(spec.contextPolicy).toBe("heavy");
+  });
+
+  it("uses light context by default for narrow copy follow-up edits", () => {
     const spec = deriveBuildSpec({
       prompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
       buildIntent: "website",
@@ -129,7 +206,7 @@ describe("deriveBuildSpec", () => {
     });
 
     expect(spec.changeScope).toBe("copy");
-    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.contextPolicy).toBe("light");
     expect(spec.verificationPolicy).toBe("fast");
     expect(spec.forbiddenPatterns).toContain("layout_reset_for_copy_change");
     expect(spec.forbiddenPatterns).toContain("unrequested_full_redesign");
@@ -213,6 +290,24 @@ describe("deriveBuildSpec", () => {
     expect(spec.verificationPolicy).toBe("standard");
   });
 
+  it("keeps scaffold-unlocked follow-ups off the light/fast small-edit path", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+      scaffoldUnlockedForMatch: true,
+    });
+
+    expect(spec.changeScope).toBe("copy");
+    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.verificationPolicy).toBe("standard");
+    expect(spec.previewPolicy).toBe("fidelity2");
+  });
+
   it("keeps targeted repair follow-ups at least normal context", () => {
     const spec = deriveBuildSpec({
       prompt: `AUTO-FIX REQUEST — TARGETED REPAIR
@@ -261,7 +356,7 @@ Persisted errors for this version:
     });
 
     expect(spec.changeScope).toBe("local-layout");
-    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.contextPolicy).toBe("heavy");
     expect(spec.verificationPolicy).toBe("standard");
   });
 
@@ -505,6 +600,54 @@ Persisted errors for this version:
     });
     expect(localLayout.changeScope).toBe("local-layout");
     expect(localLayout.forbiddenPatterns).toContain("unrequested_full_redesign");
+  });
+
+  it("treats physics, forms, auth, payments, parallax and game as heavy capability context", () => {
+    const heavyFlags = [
+      "needsPhysics",
+      "needsForms",
+      "needsAuth",
+      "needsPayments",
+      "needsParallax",
+      "needsGame",
+    ] as const;
+
+    for (const flag of heavyFlags) {
+      const spec = deriveBuildSpec({
+        prompt: `Follow-up requiring ${flag}`,
+        buildIntent: "website",
+        generationMode: "followUp",
+        resolvedScaffold: saasScaffold,
+        routePlan: marketingRoutePlan,
+        preGenerationContracts: emptyContracts,
+        promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+        capabilities: {
+          needsMotion: false,
+          needs3D: false,
+          needsPhysics: false,
+          needsParallax: false,
+          needsPayments: false,
+          needsCharts: false,
+          needsDatabase: false,
+          needsAuth: false,
+          needsAppShell: false,
+          needsDataUI: false,
+          needsForms: false,
+          needsGame: false,
+          needsEcommerce: false,
+          needsCarousel: false,
+          needsPremiumVisuals: false,
+          needsCalendar: false,
+          needsCommandSearch: false,
+          needsThemeToggle: false,
+          [flag]: true,
+        },
+      });
+
+      expect(spec.contextPolicy, flag).toBe("heavy");
+      expect(spec.capabilityFlags?.heavy, flag).toBe(true);
+      expect(spec.capabilityFlags?.signals, flag).toContain(flag);
+    }
   });
 
   it("treats isFirstCodeGeneration as effective init for route realization", async () => {

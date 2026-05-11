@@ -1,0 +1,45 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 03-local-uncommitted-scope
+Date: 2026-05-01
+
+## Scope
+Classify current working-tree changes before integrating `origin/master`. Baseline: `HEAD=a7b682a`, `origin/master=c13b515`, ahead/behind `50 / 186`.
+
+## Evidence
+- Modified tracked paths: 24.
+- Untracked groups: `.cursor/skills/master-integration-*`, `master-integration-plans/**`, `reviews/**`, and `src/components/layout/vercel-insights.tsx`.
+- Modified runtime/config paths include `next.config.ts`, `src/proxy.ts`, `src/app/layout.tsx`, engine stream routes/tests, AI routes, JSON-LD/SEO helpers, and programmatic SEO pages.
+- Modified data paths include dossier manifests and generated `data/runs/**/events.ndjson`.
+
+## Findings
+- Integration-critical tracked files: `next.config.ts`, `src/proxy.ts`, `src/app/layout.tsx`, `src/app/api/engine/chats/**`, `src/app/api/ai/**`, `src/components/layout/json-ld.tsx`, `src/lib/seo/render-seo-page.tsx`, and programmatic SEO route pages.
+- Generated/log noise: `data/runs/ver_*/**/events.ndjson`.
+- Borderline fixture drift: `data/dossiers/hard/openai-chat/manifest.json` and `data/dossiers/hard/stripe-checkout/manifest.json`.
+- Review/planning artifacts: `.cursor/skills/master-integration-*`, `master-integration-plans/**`, and `reviews/**`.
+- Orphan WIP: `src/components/layout/vercel-insights.tsx` should either be wired deliberately or removed later by user decision.
+
+## Recommended Actions
+- Stage only integration-critical product/config files for any pre-merge commit.
+- Keep generated run logs out of merge commits unless explicitly intended.
+- Treat dossier manifests as intentional only if capability/dossier definitions changed, not timestamps or generated metadata.
+- Commit planning artifacts separately or keep them untracked by policy.
+- Decide whether `vercel-insights.tsx` belongs with `layout.tsx` analytics work.
+
+## Exact LLM Implementation Instructions
+- Re-run `git status --porcelain -u` before merge.
+- Diff key paths against `origin/master`: `next.config.ts`, `src/proxy.ts`, `src/app/api/engine/chats`, `src/app/api/ai`, `src/app/layout.tsx`, `src/lib/seo`, and `src/components/layout/json-ld.tsx`.
+- For `data/runs/**`, do not port into runtime integration.
+- For dossier manifests, inspect exact JSON field changes and coordinate with generation-pipeline reports.
+- Keep `.cursor/skills`, `master-integration-plans`, and `reviews` separate from product-code changes.
+
+## Verification Needed
+- `npm run typecheck`.
+- `npm run lint`.
+- Targeted tests for both stream route variants.
+- SEO route smoke for one marketing route and JSON-LD rendering.
+- Clean diff free of accidental `data/runs/**` before any integration commit.
+
+## Do Not Break
+- Own-engine streaming routes and their tests.
+- App shell, analytics/SEO injection, and CSP/proxy behavior.
+- Programmatic SEO route stability.
+- User-created review/planning artifacts.

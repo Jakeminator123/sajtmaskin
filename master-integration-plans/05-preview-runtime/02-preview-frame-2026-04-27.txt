@@ -1,0 +1,33 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 02-preview-frame
+Date: 2026-04-27
+
+## Master Runtime Changes
+- `PreviewPanelFrame.tsx` — `<iframe id="preview-iframe">`, `onLoad`/`onError`, debounce overlay 350ms / cap 6s (där `onLoad` kan utebli cross-origin/HMR/VM kall start).
+- HTML **`sandbox` attribute** (inte VM-sandlåda i ordlista): `allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-modals` (R3F/alert/confirm i genererade appar).
+- `usePreviewIframe` — own-engine poll, tier-2 same-origin vs cross-origin, `data-sajtmaskin-preview-state=starting` stub, timeouts.
+- `preview-host/src/runtime.js` — stub postMessage `preview-starting` till parent.
+
+## Local Preview UX To Preserve
+- Vit bakgrund, `title="Preview"`, `VersionMismatchOverlay` undertryckt när hårdd `iframeError` (error wins z-order).
+- Cross-origin: **ingen** `contentDocument` — livscykel från postMessage + `notifyPreviewStarting` + grace `VM_CROSS_ORIGIN_GRACE_MS`.
+- Same-origin: polla bort starting-stub tills `isTier2DocumentReady` / egen heuristik.
+
+## Coupling Points
+- `PreviewPanel.tsx` wired `onPreviewLifecycleChange` → `notifyPreviewStarting` / `markVmReady` från child hooks.
+- **CSP/embedding** på **preview-URL:ens origin** (`frame-ancestors`, `X-Frame-Options`) — felsök utanför endast denna React-komponent; iframe-`sandbox` ersätter ej server-CSP.
+- Ingen egen `suppressHydration` i frame (contra ev. `PreviewPanelEmptyState`).
+
+## Failure Modes
+- 6s overlay cap vs långsam VM (falsk “hänger”).
+- R3F/Orbit: kräver `allow-pointer-lock` — master får inte minska utan koll.
+- Blanda same-origin DOM-read med cross-origin (Safari) — tyst fel i loggar.
+
+## Verification Matrix
+- Ladda tier-2 URL (same-origin där möjligt) vs fly.dev-URL: olika `vmReady` timing.
+- Simulera `onError` på iframe: `preview_transport_error` sökväg.
+- Öppna devtools: inga försök `contentDocument` när cross-origin (kommentar i koden).
+
+## Do Not Break
+- Iframe-`sandbox` strängen utan tyst bortplock av samma-origin (annars tappar script-access).
+- Stub → riktig app: ordning i `usePreviewIframe` får inte tappa `sawStartingSinceLoadRef` logik.
+- `preview-host` `runtime.js` fortsatt posta `sajtmaskin-preview` + `preview-starting` före ready.

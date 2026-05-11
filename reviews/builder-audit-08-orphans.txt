@@ -1,0 +1,37 @@
+**Read-only:** Filen `reviews/builder-audit-08-orphans.txt` skapades inte (skrivskyddat läge). Kopiera texten nedan dit om du vill.
+
+---
+
+## Inventering
+
+- **~171** st `route.ts` under `/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/app/api/**`.
+- **Utelämnat i “infra/webhook”-sinne här:** `stripe/webhook`, `webhooks/*`, `csp-report`, `cron/*` (plus stora `admin/*` som har egen admin-UI, inte builder).
+
+**Metod:** `fetch(\`/api/...\`)` i `src/app/`, `src/components/`, `src/lib/hooks/`. **Viktigt:** mycket builder-trafik går via `src/lib/project-client.ts`, `src/lib/api/engine-chats-path` (`engineChatBaseUrl` / `ENGINE_CHATS_API_PREFIX`) och `src/lib/builder/*` — utanför din strikta sökväg men **används av builder**.
+
+**`/api/chats`:** finns inte (ingen sådan rot-route). **Aktivt i produkt:** `/api/engine/chats/...` från klient. **`/api/v0/chats/...`:** kompat-lager (re-export/wrapper + telemetri i bl.a. `v0-chats-compat.ts`); ska inte duplicera logik i nya klientanrop.
+
+---
+
+## [PRIO] Rader (max 40)
+
+1. **[HÖG] `/api/engine/chats/*` vs `/api/v0/chats/*`** — dubbel yta för samma handlers; risk att ny kod råkar anropa fel prefix eller att bryta bara ena spåret utan att märkas.
+2. **[HÖG] Gästkvot / credits** — `prepareCredits` sätter `guest_limit` som **402** med `requiresAuth: true` i JSON (`credits/server.ts`), men chat-felhantering använder mest `buildApiErrorMessage` (402 → text) utan att `requiresAuth` konsumeras någon annanstans → **“inloggning”-modal vs fel toast** kan bli inkonsekvent jämfört med `RequireAuthModal` (som bara triggas på vissa 401/403, t.ex. projekt-skapande).
+3. **[HÖG] `guest.canGenerate` / `canRefine` från `/api/auth/me`** — lagras i Zustand men **används inte** i builder/components (`guest` läses inte ut); UI “synkar” inte proaktivt med server — sanning vid generering sitter i **HTTP-svar** (402), inte i header/state.
+4. **[MED] `/api/credits/check` + GET `/api/credits`** — inga anrop i `src/app|components|lib/hooks`; **ORPHAN** mot UI (om inget annat lager anropar dem). Dubbel källa till samma typ av info som redan finns i `auth/me` + stream-gate.
+5. **[MED] GET `/api/credits` kommentar “POST internal”** — filen exporterar bara **GET** (`credits/route.ts` slutar rad 76) — **dokumentation/kommentar och verklighet divergerar**.
+6. **[MED] `/api/projects/[id]/download`, `/files`, `/analyze`** — inga `fetch` i scoped dirs; **ORPHAN i builder** (API finns, ingen knapp/flow hittad här). *Undantag:* logik kan finnas via annan klient — sök i hela `src/lib` om ni ska spika det.
+7. **[MED] `/api/media/upload/client`, `/api/media/upload-from-url`** — inga träffar i scoped dirs; **ORPHAN** för nuvarande builder-UI (Blob client / URL-upload kan vara död yta eller endast för framtida verktyg).
+8. **[MED] `/api/media/[id]`** — bara **DELETE** i routen; **ingen rename/PATCH** — “rename lifecycle” finns inte som separat endpoint (om ni förväntar PATCH).
+9. **[LÅG] `/api/unsplash`, `/api/unsplash/download`** — inga komponent-träffar; **ORPHAN** mot frontend i nuvarande kod.
+10. **[LÅG] `GET /api/engine/chats/[chatId]/messages/[messageId]`** (och v0-re-export) — inga klient-anrop hittade; **ORPHAN** för UI.
+11. **[LÅG] `/api/v0/chats/init-registry`** — inga referenser; **ORPHAN** / möjligen död entrypoint.
+12. **[LÅG] `/api/fetch-html`, `/api/contact`, `/api/audits/[id]`, `/api/vercel/domains/price`, `/api/did/conversation`, `/api/text/analyze`, `/api/domain-suggestions`, `/api/ai/spec`** — inga direkta `fetch` i scoped dirs (vissa kan nås indirekt eller vara tomgång); **ORPHAN eller “endast server/indirekt”** tills verifierat i hela `src/lib`.
+13. **[INFO] `/api/auth/me`** — `isGuestUnlimited()` används för att **beräkna** `canGenerate`/`canRefine` (samma mönster som credits-route); **ingen egen flagga `isGuestUnlimited` skickas till klient** — bara härledda booleans.
+14. **[INFO] Projektbank** — spara/lista/öppna/radera/duplicera: **duplicera** hittades inte som egen route; övrigt täcks av `project-client` (`/api/projects`, `GET/PUT/DELETE /api/projects/[id]`, `/save`, `/upload`, `/chat` där builder anropar chat-route explicit).
+
+---
+
+**Sammanfattning:** För **synk** mellan “du har använt din generation” och UI: server och `auth/me` är **logiskt alignade** (`isGuestUnlimited()` + samma räknare), men **builder-UI använder inte** `guest`-fälten — användaren ser konsekvensen först via **402/feltext** (eller modal endast där 401/403 hanteras), vilket är den största **feltolknings-/modal-risken**.
+
+[REDACTED]

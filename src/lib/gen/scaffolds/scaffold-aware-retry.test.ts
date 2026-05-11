@@ -46,4 +46,35 @@ describe("inferScaffoldRetrySuggestion", () => {
 
     expect(suggestion).toBeNull();
   });
+
+  it("does not suggest scaffold pivots for home-route code structure failures", async () => {
+    const saas = getScaffoldById("saas-landing");
+    expect(saas).toBeTruthy();
+
+    const suggestion = await inferScaffoldRetrySuggestion({
+      prompt: "Skapa en modern hantverkarsajt för Nordtak AB.",
+      buildIntent: "website",
+      resolvedScaffold: saas!,
+      preflightIssues: [
+        {
+          file: "app/page.tsx",
+          severity: "error",
+          message:
+            "Home route renders trivial content (≈199 chars after stripping imports/JSX braces; threshold 200).",
+          category: "code_structure_failure",
+        },
+      ],
+      previewBlockingReason:
+        "Automatic preflight blocked preview: app/page.tsx: Home route renders trivial content.",
+      finalizedFilesForPreview: [
+        {
+          path: "app/page.tsx",
+          language: "tsx",
+          content: "export default function Page() { return <main />; }",
+        },
+      ],
+    });
+
+    expect(suggestion).toBeNull();
+  });
 });

@@ -1,0 +1,62 @@
+**Obs:** Jag är i **read-only-läge** och får **inte** skriva `reviews/builder-audit-02-chat.txt`. Kopiera innehållet nedan till filen lokalt, eller byt till Agent-läge om du vill att filen skapas automatiskt.
+
+---
+
+```text
+Builder audit 02 — Chat-panel (read-only)
+
+Källa: ChatInterface, MessageList, file-upload-zone (compact), ImageUploadPopup, media-drawer, text-uploader, voice-recorder, BuilderShellContent + useSendMessage/useCreateChat/useChatMessaging.
+
+VIKTIGT: `src/components/builder/ChatArea.tsx` finns inte i repot (0 filer) — kan inte granskas.
+
+[2] Stop/avbryt generering — `dispatchChatToolAction("generate.stop")` → `vm.cancelActiveGeneration()` → `streamAbortRef.abort()` (useChatMessaging). Ingen backend “cancel”-route; avbryter bara klientens fetch/SSE. Disabled: via Verktyg-palettens regler. Fel: tyst abort.
+
+[3] Regenerera — `generate.regenerate` → `vm.sendMessage(senaste user)` → `POST /api/engine/chats/:chatId/stream`. Inte egen regenerate-API; funkar som “skicka om” men otydligt mot backend.
+
+[3] ImageUploadPopup — mount: `POST /api/media/purge`; upload `POST /api/media/upload`; remove `DELETE /api/media/:id`. Purge vid varje öppning är aggressivt/svåröverskådligt. Knappar: confirm/skip/hoppa, fil-remove, logo-zone. Disabled under upload.
+
+[4] Verktyg-dropdown — ChatToolsPalette → `handleToolAction` / `dispatchChatToolAction` → `CustomEvent` → BuilderShellContent. Delvis bara toast/UI (t.ex. “inte kopplat än”). `generate.stop`/`regenerate`/`plan`/preview m.m. kopplade. Disabled: `inputDisabled` (isSending||isBusy).
+
+[4] Skicka (PromptInputSubmit) — `handleSubmit` → `sendMessagePayload` → `smartCreateChat` / `smartSendMessage` → `POST /api/engine/chats/stream` (ny chat) resp. `POST /api/engine/chats/:id/stream`. Disabled: `submitDisabled` (sändning, busy, eller fil laddas upp). Loading: spinner via `isSending`. Bilagor: `filesToAttachments` + text i prompt.
+
+[4] Lägg till media (compact FileUploadZone) — `POST /api/media/upload`; max/filtyper; status uploading/success/error; X tar bort lokalt. OBS: catch-gren uppdaterar med `files.map` som kan vara stale vid parallella uploads. Submit blockerad under `hasUploading`.
+
+[4] Media-knapp (toolbar) — öppnar MediaDrawer; val → `handleMediaSelect` lägger bara i `files` tills sändning (ingen API förrän skicka).
+
+[4] Mediabibliotek (MediaDrawer) — lista: `GET /api/media/upload?...`; upload: `POST /api/media/upload`; delete: `DELETE /api/media/:id`. Klick på kort → `onFileSelect`. Loading/error states finns.
+
+[4] Text-knapp / TextUploader — PDF: `POST /api/text/extract`; valfritt spara: `POST /api/media/upload`; sedan `onContentReady` → samma stream som skicka. Checkbox/fel/”Använd i chatten”; save-fel blockar inte sändning (endast console).
+
+[4] VoiceRecorder (compact) — inspelning lokalt → `POST /api/transcribe`; `onTranscript` append till prompt. Disabled under transkribering/busy; fel som ikon/title.
+
+[4] Snabb-svar (MessageList dialog + CompactToolParts) — `onQuickReply` → `smartSendMessage` → engine stream. Knappar disabled om `quickReplyDisabled` (isBusy) eller globalt pending key (alla låses vid ett aktivt svar).
+
+[4] Godkänn build plan (BuildPlanCard) — `onApproveBuildPlan` → byggd prompt → `sendMessage` → engine stream.
+
+[3] VersionFeedback (tummar/kategorier/skicka) — `POST {engineChatBaseUrl(chatId)}/versions/:versionId/feedback`. Ingen tydlig toast vid fel (console).
+
+[5] “Råtext”/toggle (GenerationSummary) — ren lokal `useState`; ingen API.
+
+[5] Användarmeddelande Visa mer/Dölj (CollapsibleUserMessage) — lokal UI.
+
+[4] Figma-fält: Rensa, Öppna preview — preview via `POST /api/figma/preview`; rensa lokal state. Bilaga vid sändning via samma preview-URL eller direkt bild-URL.
+
+[4] Inspect-punkter: ta bort, ev. upload — `POST /api/media/upload` för punkt-bild; övrigt event-baserat från preview.
+
+Sammanfattning: Motor-synk för sändning/quick reply/plan-godkännande sker via `/api/engine/chats/.../stream`. Media/text/röst mot `/api/media/*`, `/api/text/extract`, `/api/transcribe`. Svagheter: ingen `ChatArea.tsx`, klient-only stop, regenerate = omsändning, ImageUploadPopup purge, FileUploadZone stale state i catch, VersionFeedback tyst fel.
+```
+
+**Absoluta sökvägar (huvudfiler):**  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/builder/ChatInterface.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/builder/MessageList.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/media/file-upload-zone.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/builder/ImageUploadPopup.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/media/media-drawer.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/media/text-uploader.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/components/forms/voice-recorder.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/app/builder/BuilderShellContent.tsx`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/lib/hooks/chat/useChatMessaging.ts`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/lib/hooks/chat/useSendMessage.ts`  
+`/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/src/lib/hooks/chat/useCreateChat.ts`
+
+[REDACTED]

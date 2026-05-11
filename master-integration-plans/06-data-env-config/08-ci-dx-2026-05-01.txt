@@ -1,0 +1,49 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 06 Data Env Config — 08-ci-dx
+Date: 2026-05-01
+
+## Master Changes
+- Diff CI workflows, package files, ESLint/Vitest config, dev scripts, preflight/env/db/eval steps.
+
+## Local Changes / Dirty Files
+- Initial status includes data and plan file noise unrelated to CI if not committed.
+
+## Compatibility Risks
+- CI does not run every local predev/prebuild check.
+- Node version must match `.node-version`, engines, and CI.
+- Secondary workflows need secrets and may fail independently.
+- Weekly sync can push generated templates/embeddings to default branch.
+
+## Files To Update
+- `.github/workflows/ci.yml`
+- eval baseline and weekly template sync workflows.
+- dependabot config.
+- `package.json`
+- `eslint.config.mjs`
+- `vitest.config.ts`
+- `.node-version`
+- dev runner scripts.
+
+## Frontend Impact / UI States
+- Indirect: CI/build failures block deploy and merge.
+- Local preflight mismatch can cause “CI green, dev broken”.
+
+## Exact LLM Implementation Instructions
+- Read incoming workflow diff.
+- Ensure `npm ci` and script sequence match new scripts.
+- Mirror new required CI checks in docs/AGENTS if they replace devtest.
+- Keep generated data/logs and env files out of commits.
+
+## Verification Commands
+- `npm ci`
+- `npm run typecheck`
+- `npm run lint`
+- `npm run test:ci`
+- `npm run baseline-deps:verify`
+- `npm run baseline-deps:tree`
+- `NEXT_TELEMETRY_DISABLED=1 npm run build`
+- `npm run devtest`
+- `npm run preflight:common`
+
+## Commit / Ignore Guidance
+- Commit intended workflows/config/scripts only.
+- Do not commit secrets, `.env.local`, `data/runs/**`, or local generated embeddings.

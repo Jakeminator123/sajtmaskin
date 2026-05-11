@@ -1,0 +1,32 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 06-finalize-preflight
+Date: 2026-04-27
+
+## Master Pipeline Changes
+- Diff: `finalize-preflight.ts`, `finalize-preflight.test`, `finalize-version/*` (runner, fast-path, preflight-phase, partial-file, verifier-phase, types), `finalize-merge.ts`, `post-finalize-policies.ts`, `gen/preview/should-start-preview*`, `warm-typecheck` / `warm-eslint`, `preview/preview-host-client`, `stream-format` m.fl.
+- `runFinalizePreflight`: `ensureDeferredRouteShells`, `repairGeneratedFiles` / mekanisk autofix, `buildPreviewHtml`, hård home-route + **count parity**, `buildPreviewStartContract` via `preflight-contract.ts`.
+- `preflight-phase` → `mergeGeneratedProjectFiles` → preflight → `injectIntegrationManifest*`, `injectProjectEnvFileIntoFilesJson` (F3/F2), `appProjectId` från chat.
+- `fast-path` / `validate-and-fix`: F3 tvingar warm tsc/eslint; fail-open när cache kall.
+- `post-finalize-policies` + `shouldStartOwnEnginePreview`: `previewStart.canStartPreview` + tier2 config + `parsedFileCount` > 0; `resolvePostFinalizeServerVerifyDecision` (F2 init skip design verify vs F3/verify, m.m.).
+
+## Local Behaviors To Preserve
+- Lokal **preview/VM-UX** (postMessage, iframe) förlitar sig på: komplett filpayload efter preflight, `PreviewStartContract`, och att `should-start-preview` / server-verify inte tyst ändras utan builder-koordinering (MI05/MI04 API plan).
+- Home-route invariants + `LLM_ONLY_PATHS` (merge) — samma `missingEmittedEssentials` kedja.
+- `SAJTMASKIN_PRE_VM_TYPECHECK` + cache paths — operativt; F3 `forceTsc`/`forceEslint` beteende.
+
+## Merge/Port Plan
+- Merge i ordning: `finalize-merge` → `finalize-preflight` → `preflight-phase` → `runner` → `post-finalize-policies` → `should-start-preview` → `warm-*`.
+- Efter konflikt: kör `finalize-preflight.test`, `finalize-version.test`, `runner-dossier-threading.test` (i diff), golden data om ni har.
+- Kolla `previewStart` fält + `getPostFinalizePreviewStartContract` konsumenter (own-engine post-finalize).
+
+## Regression Risks
+- Home-route < tröskel / count parity false positive → spärrar preview.
+- F3 warm pass ordning (tsc före eslint) rubbad.
+- `previewBlockingReason` / `shim_preview_failure` feltolkning i kontrakt.
+- Merge: `LLM_ONLY_PATHS` tappat → otagliga essentials.
+
+## Required Tests
+- `src/lib/gen/stream/finalize-preflight.test.ts`, `finalize-version.test.ts`, `should-start-preview.test.ts`, `post-finalize` policy tester i repo, manuell smoke efter egen `chatId` (en klient, coexistence).
+
+## Open Questions
+- Ska masterna ändra tröskel home-route längd — produkt/SEO konsekvens?
+- Ska fail-open för pre-VM tsc försvagas (hårdare gate) — då synka med användaranvisningar?

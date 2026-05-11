@@ -1,0 +1,48 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 01-executive-plan
+Date: 2026-05-01
+
+## Inputs Read
+- Reports from `master-integration-plans/01-*` through `09-*`, prioritizing `*-2026-05-01.txt` where present.
+- Key inputs: git delta refs (`HEAD` a7b682a, `origin/master` c13b515, merge-base 85228af), backend API contracts, generation pipeline reports, builder UI preservation reports, preview runtime reports, env/config reports, verification ladder, design-token reports, deploy/observability reports.
+
+## Synthesis
+Use a contract-first merge: `origin/master` owns backend/API, stream, security, env, preview-session, verifier, deploy, CSP and observability semantics. The local frontend branch owns Apple-minimal UI/UX, preview-first builder layout, Swedish copy, chat dock behavior, help-chat isolation, postMessage/build-out behavior, and design tokens.
+
+## Ordered Plan
+1. Clean tree and isolate generated data/plans.
+2. Merge tooling/platform config first.
+3. Reconcile env/config/docs.
+4. Integrate backend API contracts and stream clients.
+5. Integrate generation pipeline and finalize/autofix/verifier.
+6. Integrate preview runtime/session/heartbeat.
+7. Reapply builder UI preservation rules.
+8. Wire deploy/domain/SEO/analytics/CSP.
+9. Run verification ladder.
+
+## Exact LLM Implementation Brief
+- Do not merge with dirty WIP.
+- Adopt master raw prompt transport and stream event schema; do not reintroduce removed prompt wrapping.
+- Reapply local `preview-starting`, `preview-ready`, `vmReady`, build-out postMessage, URL fallback, `isHelpMessage`, retry/verifier UI, and drawer/minimal/expanded behavior.
+- Harmonize `activePreviewSessionId`/heartbeat/viewerId semantics.
+- Preserve local `globals.css` and Tailwind semantic tokens.
+- Keep product-postcheck and verifier as one UI truth.
+- Verify with a fresh chat and one browser tab only.
+
+## Acceptance Criteria
+- Typecheck, lint, test:ci, baseline-deps and build pass.
+- Init and follow-up streams complete to `done`/`preview-ready`.
+- Preview lifecycle and build-out still work.
+- No duplicate error badges or stale verifier state.
+- Env policy, `env.ts`, `ENV.md`, `.env.example` are aligned.
+- CSP/nonce/CORS are consistent.
+- Visual surface keeps brandbook tokens and Swedish minimalist copy.
+
+## Risks / Mitigations
+- Partial stream merge: merge stream routes, orchestrate, finalize and clients together.
+- Preview heartbeat drift: one session id source and one viewer per tab.
+- CSP regression: resolve proxy/config before UI work and test report-only first.
+- Env drift: update code, policy and docs in one slice.
+- Design regression: grep hardcoded hex/raw palette classes after merge.
+
+## Final Recommendations
+Keep commits sliced by domain, run automated gates before manual smoke, and treat builder coexistence as a release requirement.

@@ -144,12 +144,6 @@ export type StartPreviewSessionOptions = {
    * becomes ineffective). Defaults to `"design"` when omitted.
    */
   lifecycleStage?: PreviewLifecycleStage;
-  /**
-   * Opportunistic pre-warm boot (no persisted version yet). Allows callers
-   * to start a sandbox with scaffold seed files before finalize creates the
-   * first version row.
-   */
-  precache?: boolean;
 };
 
 /**
@@ -202,8 +196,7 @@ async function runStartPreviewSession(
     typeof options?.versionIdForSession === "string" && options.versionIdForSession.trim()
       ? options.versionIdForSession.trim()
       : null;
-  const isPrecache = options?.precache === true;
-  const hostVersionId = vid ?? (isPrecache ? "__preview-prewarm__" : null);
+  const hostVersionId = vid;
 
   if (cid && options?.forceRestart) {
     // forceRestart is the user's signal that the previous sandbox should
@@ -272,6 +265,19 @@ async function runStartPreviewSession(
             updateFiles,
             collectRequiredUiComponents(updateFiles),
           ).map((f) => ({ name: f.path, content: f.content }));
+      const envLocalPath = ".env.local";
+      const envIdx = runtimeForUpdate.findIndex((f) => f.name === envLocalPath);
+      let priorEnvLocal: string | null = null;
+      if (envIdx >= 0) {
+        priorEnvLocal = runtimeForUpdate[envIdx]!.content;
+        runtimeForUpdate.splice(envIdx, 1);
+      }
+      const envBody = await buildPreviewEnvLocalContents({
+        appProjectId: options?.appProjectId ?? null,
+        generatedEnvLocal: priorEnvLocal,
+        lifecycleStage: options?.lifecycleStage,
+      });
+      runtimeForUpdate.push({ name: envLocalPath, content: envBody });
       const updatePayload = Object.fromEntries(
         runtimeForUpdate.map((f) => [f.name, f.content]),
       );
@@ -295,7 +301,7 @@ async function runStartPreviewSession(
             sandboxId: updated.sandboxId,
             sandboxPreviewMode: resolvedMode,
             fidelityTier: 2,
-            startOutcome: "resumed",
+            startOutcome: updated.startOutcome ?? "resumed",
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };
@@ -375,7 +381,7 @@ async function runStartPreviewSession(
       ok: false,
       error: {
         stage: "preview-start",
-        message: "preview_host tier requires chatId and versionIdForSession (or precache).",
+        message: "preview_host tier requires chatId and versionIdForSession.",
       },
     };
   }

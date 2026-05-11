@@ -20,6 +20,24 @@
  *    accidental hits when the prompt clearly belongs to a different domain
  *    (e.g. `payments` vetoes generic "betala räkningen" without a card
  *    instrument noun).
+ *
+ * **Parallel implementations — INTENTIONALLY SEPARATE:**
+ * The 3D / game / physics / canvas signal families also live in two other
+ * files because each consumer has a different decision threshold. Do NOT
+ * merge them blindly into one shared regex bank — they emit different
+ * outputs:
+ *  - `src/lib/gen/capability-inference.ts` — `needs3D` / `needsPhysics` /
+ *    `needsGame` boolean flags for prompt/build-spec/context-policy. Uses
+ *    ASCII `\b` in some rules, Unicode boundaries in others.
+ *  - `src/lib/providers/own-engine/follow-up-clarification.ts` —
+ *    `FOLLOW_UP_MAJOR_CHANGE_UNLOCK_PATTERNS` for scaffold rematch unlock.
+ *    Strictly narrower than this vocabulary: e.g. "lägg till en
+ *    3d-kaffekopp" detects `visual-3d` here but does NOT unlock scaffold
+ *    there.
+ *
+ * Touching one consumer's tokens? Read the regression matrix in
+ * `src/lib/providers/own-engine/follow-up-clarification.test.ts` (describe
+ * "follow-up signal regression matrix") before merging.
  */
 
 export interface CapabilityVocabularyEntry {
@@ -39,6 +57,8 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])3d-?[\p{L}\p{N}_]+/iu,
       /(?<![\p{L}\p{N}_])(?:interaktiv\s+canvas|3d-?canvas|3d-?scen|3d-?objekt|3d-?modell|3d-?animation)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:gltf|glb|usegltf|use-gltf)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:bubbla|bubblan|sfär(?:en)?|orb(?:en)?|cirkel(?:n)?)[\s\S]{0,120}(?:flyg(?:a|er|ande)?|sväv(?:a|er|ande)?|hovr(?:a|ar|ande)?|ovanför|över)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:flyg(?:a|er|ande)?|sväv(?:a|er|ande)?|hovr(?:a|ar|ande)?|ovanför|över)[\s\S]{0,120}(?:bubbla|bubblan|sfär(?:en)?|orb(?:en)?|cirkel(?:n)?|hamburgare|burger)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -65,6 +85,51 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     vetoes: [
       /(?<![\p{L}\p{N}_])(?:pointer-?parallax|mus-?parallax|mouse-?parallax|cursor-?parallax)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:följer\s+(?:musen|muspekaren|cursor|pointer)|hover-?tilt|tilt-?card)(?![\p{L}\p{N}_])/iu,
+    ],
+  },
+  {
+    // Interactive game / playable mechanic — distinct from decorative visual-3d.
+    // When the user asks for a playable thing (Pac-Man, Snake, Tetris, arcade,
+    // quiz-game, "spel", "playable canvas") the prompt MUST reach the
+    // interactive-game-loop dossier so the codegen LLM sees the
+    // state+loop+controls+collision+score+restart contract.
+    //
+    // Vetoes keep generic nouns that collide with non-game domains from
+    // over-triggering: "spelet i marknaden" / "spela upp musik" / gaming-news
+    // sites are NOT game builds.
+    capability: "interactive-game",
+    patterns: [
+      // Narrow arcade/mechanic nouns — these are game-builds almost always.
+      /(?<![\p{L}\p{N}_])(?:pac-?man|pacman|snake(?:-?game)?|tetris|breakout|pong|arkanoid|space-?invaders|flappy(?:-?bird)?|asteroids|frogger|galaga)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:platformer|shoot-?em-?up|shmup|bullet-?hell|roguelike|rogue-?like|idle-?clicker|idle-?game)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:mini-?game|mini-?spel|quiz-?game|quiz-?spel|reaction-?game|reaktionsspel|memory-?game|minnesspel|puzzle-?game|pusselspel|typing-?game|skrivspel)(?![\p{L}\p{N}_])/iu,
+      // Explicit "playable" / "spelbar" / "interactive game" phrases.
+      /(?<![\p{L}\p{N}_])(?:playable|spelbar(?:t)?|interactive\s+game|interaktivt\s+spel|playable\s+canvas|game\s+loop|spelloop|game-?mekanik|game-?mechanic|arcade(?:-?game)?|spelhall)(?![\p{L}\p{N}_])/iu,
+      // Bare "spel" / "game" — widest trigger, so vetoes below must catch
+      // the common non-game uses ("tv-spel"-butik sales pitch, gaming news,
+      // "spelade upp musiken"). Veto-driven prompt domain disambiguation.
+      /(?<![\p{L}\p{N}_])(?:tv-?spel|video-?spel|dator-?spel|browser-?spel|webb-?spel)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:bygg(?:a)?\s+(?:ett|en|mitt)?\s*spel|skapa(?:r)?\s+(?:ett|en|mitt)?\s*spel|build\s+(?:a|me|my)?\s*game|create\s+(?:a|me|my)?\s*game)(?![\p{L}\p{N}_])/iu,
+      // Game-mechanic verbs that imply actual play — score/collision/win/lose
+      // in active voice, not just "show scores on a page".
+      /(?<![\p{L}\p{N}_])(?:keyboard-?controls?|tangentbords-?kontroller|pil-?tangenter|arrow-?keys|wasd)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:samla\s+poäng|score-?tracking|high-?score|poängjakt|win-?condition|lose-?condition|vinstvillkor|förlorar-villkor)(?![\p{L}\p{N}_])/iu,
+    ],
+    // Non-game usages of "spel" / "game" / "play" that must NOT activate the
+    // dossier. Vetoes are intentionally narrow: each matches a concrete
+    // non-game phrase, not a broad keyword family.
+    vetoes: [
+      // "spela upp musik/video/ljud" = media playback, not a game.
+      /(?<![\p{L}\p{N}_])spela\s+upp\s+(?:musik|en\s+video|en\s+låt|ljud|en\s+podcast)(?![\p{L}\p{N}_])/iu,
+      // Analytics / gaming-news sales pages mention "gaming" / "e-sport"
+      // without wanting a game build. Allow optional separator (bindestreck
+      // eller mellanslag) mellan "gaming"/"spel" och butiks-/nyhetsnomen
+      // så vi fångar både "gaming-news" och "gaming news".
+      /(?<![\p{L}\p{N}_])(?:spel[-\s]?butik|tv-?spel\s+butik|game[-\s]?store|gaming[-\s]?news|gaming[-\s]?blog|e-?sport(?:[-\s]?nyheter)?|esport[-\s]?site)(?![\p{L}\p{N}_])/iu,
+      // "spel" as part of a compound for something that is not a real game:
+      // "rollspel" (role-play) in team-building context, "skådespel"
+      // (theatrical performance).
+      /(?<![\p{L}\p{N}_])(?:skådespel|rollspel(?:sövning)?|teaterspel)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {

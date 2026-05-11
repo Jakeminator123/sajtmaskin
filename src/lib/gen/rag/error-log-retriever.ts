@@ -33,6 +33,10 @@ export interface ErrorLogIndexedRow {
   faultText: string;
   fixText: string | null;
   scaffoldId: string | null;
+  routePath?: string | null;
+  variantId?: string | null;
+  capabilityIds?: string[];
+  generationMode?: "init" | "followup" | "auto_repair" | null;
   lineageHash: string | null;
   result: string | null;
 }
@@ -69,7 +73,12 @@ function loadIndexFromDisk(): CacheEntry | null {
 
 export interface RetrieveSimilarFailuresOptions {
   prompt: string;
+  faultType?: string | null;
+  routePath?: string | null;
   scaffoldId?: string | null;
+  variantId?: string | null;
+  capabilityIds?: string[];
+  generationMode?: "init" | "followup" | "auto_repair" | null;
   lineageHash?: string | null;
   topK?: number;
 }
@@ -79,8 +88,35 @@ export interface RetrievedFailure {
   faultText: string;
   fixText: string | null;
   scaffoldId: string | null;
+  routePath: string | null;
+  capabilityIds: string[];
   result: string | null;
   score: number;
+}
+
+function safeStringArray(value: readonly string[] | unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function overlapCount(a: readonly string[] | undefined, b: readonly string[] | unknown): number {
+  const rightValues = safeStringArray(b);
+  if (!a?.length || rightValues.length === 0) return 0;
+  const right = new Set(rightValues.map((item) => item.toLowerCase()));
+  return a.filter((item) => right.has(item.toLowerCase())).length;
+}
+
+function structuredBoost(row: ErrorLogIndexedRow, options: RetrieveSimilarFailuresOptions): number {
+  let boost = 1;
+  if (options.faultType && row.fault === options.faultType) boost *= 1.7;
+  if (options.scaffoldId && row.scaffoldId === options.scaffoldId) boost *= 1.25;
+  if (options.routePath && row.routePath === options.routePath) boost *= 1.2;
+  if (options.variantId && row.variantId === options.variantId) boost *= 1.1;
+  if (options.generationMode && row.generationMode === options.generationMode) boost *= 1.1;
+  const caps = overlapCount(options.capabilityIds, row.capabilityIds);
+  if (caps > 0) boost *= 1 + Math.min(caps, 3) * 0.15;
+  return boost;
 }
 
 export function retrieveSimilarFailures(
@@ -90,28 +126,31 @@ export function retrieveSimilarFailures(
   const entry = loadIndexFromDisk();
   if (!entry) return [];
   const topK = options.topK ?? 5;
-  // Bias the query with scaffoldId + lineage prefix so same-site failures
-  // outrank cross-scaffold matches when token overlap is identical.
+  // Bias the query with structured context so related failures remain
+  // retrievable even before the reranker applies exact-field boosts.
   const queryParts = [options.prompt];
+  if (options.faultType) queryParts.push(options.faultType);
   if (options.scaffoldId) queryParts.push(options.scaffoldId);
+  if (options.routePath) queryParts.push(options.routePath);
+  if (options.variantId) queryParts.push(options.variantId);
+  if (options.generationMode) queryParts.push(options.generationMode);
+  if (options.capabilityIds?.length) queryParts.push(...options.capabilityIds);
   if (options.lineageHash) queryParts.push(options.lineageHash.slice(0, 16));
   const hits = queryTfIdfIndex(entry.index, queryParts.join(" "), topK * 3);
-  // Apply scaffold-aware rerank: same scaffold gets a 1.25x multiplier.
   const reranked = hits.map((hit) => {
-    const sameScaffold =
-      options.scaffoldId &&
-      hit.document.payload.scaffoldId === options.scaffoldId;
     return {
       ...hit,
-      score: sameScaffold ? hit.score * 1.25 : hit.score,
+      score: hit.score * structuredBoost(hit.document.payload, options),
     };
   });
   reranked.sort((a, b) => b.score - a.score);
   return reranked.slice(0, topK).map((hit) => ({
-    fault: hit.document.payload.fault,
-    faultText: hit.document.payload.faultText,
+    fault: hit.document.payload.fault || "unknown_fault",
+    faultText: hit.document.payload.faultText || "",
     fixText: hit.document.payload.fixText,
     scaffoldId: hit.document.payload.scaffoldId,
+    routePath: hit.document.payload.routePath ?? null,
+    capabilityIds: safeStringArray(hit.document.payload.capabilityIds),
     result: hit.document.payload.result,
     score: Math.round(hit.score * 1000) / 1000,
   }));
@@ -130,7 +169,8 @@ export function renderErrorLogRagBlockLines(options: RetrieveSimilarFailuresOpti
   const items: string[] = [];
   for (const hit of hits) {
     const fix = hit.fixText ? ` → fix: ${hit.fixText}` : "";
-    items.push(`- \`${hit.fault}\` — ${hit.faultText.slice(0, 120)}${fix}`);
+    const faultText = hit.faultText || "(no detail)";
+    items.push(`- \`${hit.fault || "unknown_fault"}\` — ${faultText.slice(0, 120)}${fix}`);
   }
   const block = [header, "", intro, "", ...items, ""];
   while (block.join("\n").length > RAG_BLOCK_MAX_CHARS && block.length > 4) {

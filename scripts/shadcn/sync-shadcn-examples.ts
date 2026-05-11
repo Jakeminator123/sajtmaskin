@@ -162,6 +162,10 @@ async function main() {
   }
 
   console.log(`\nDone: ${fetched} fetched, ${skipped} skipped.`);
+  if (fetched === 0) {
+    console.error("[shadcn-examples] no examples fetched; registry/network likely unavailable.");
+    process.exit(1);
+  }
   console.log(`Output: ${OUTPUT_DIR}`);
 }
 

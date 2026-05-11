@@ -1,0 +1,25 @@
+Chat input UX — scope-korrektion + faktisk composer
+
+Skill pekar på FloatingChatBox.tsx + PreviewPanelComposer.tsx — dessa är INTE huvudmeddelandefältet:
+- FloatingChatBox: skal (minimera, rail); ingen textarea/send; verkar ej wired i övriga TSX. Chrome/mobil-yta: 3/5 om den används.
+- PreviewPanelComposer: DnD-block till preview, inte chatt — desktop 200px-palett, overlay “Dra till preview”; touch sekundärt. 3/5 för det syftet.
+
+Faktisk input: ChatInterface.tsx + src/components/ai-elements/prompt-input.tsx (PromptInput, PromptInputTextarea, PromptInputSubmit).
+
+1. Storlek — min-h-[76px] sm:min-h-[80px], text-[15px] leading-relaxed; tydlig träffyta. 4/5
+
+2. Placeholder — Kontextstyrd (ny chat vs uppdatering vs bildplacering); nämner “Enter för att skicka” i advanced-läge — lite lång men tydlig. 4/5
+
+3. Skicka — PromptInputSubmit aria-label="Skicka", rund primary-knapp, spinner vid isSending. 4/5
+
+4. Enter — prompt-input: Enter skickar, Shift+Enter ny rad (standard). 5/5
+
+5. Auto-resize — Textarea utan växande höjd i klassen; flerrad via scroll. 3/5
+
+6. Multiline — Ja via Shift+Enter. 5/5
+
+7. Förbereder-rad — “Förbereder…” + spinner ovanför verktygsraden; kan staplas med annan status. 3/5
+
+8. Ikoner — Bifoga: title bara (a11y-gap); Svarsförslag/Åtgärder har aria där det behövs. 3/5
+
+Rekommendation: Uppdatera skill-scope till ChatInterface + prompt-input; behåll FloatingChatBox/PreviewPanelComposer endast för panel-/preview-lager.

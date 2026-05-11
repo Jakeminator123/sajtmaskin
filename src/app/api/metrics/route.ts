@@ -48,6 +48,10 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   const provided = extractToken(req);
   if (!provided || !constantTimeEqual(provided, expected)) {
+    console.warn("[metrics] unauthorized request", {
+      hasAuthorizationHeader: Boolean(req.headers.get("authorization") ?? req.headers.get("Authorization")),
+      hasQueryToken: req.nextUrl.searchParams.has("token"),
+    });
     return new NextResponse("unauthorized", {
       status: 401,
       headers: {

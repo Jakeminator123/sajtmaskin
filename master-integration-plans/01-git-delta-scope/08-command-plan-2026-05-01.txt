@@ -1,0 +1,75 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 08-command-plan
+Date: 2026-05-01
+
+## Scope
+Non-destructive command plan for preparing integration of `origin/master` into current branch. No merge, reset, force-push, or code execution is performed by this report.
+
+## Evidence
+- `HEAD`: `a7b682a0c53b5011fbbf6f4fb122819528ba3015`
+- `origin/master`: `c13b515922ff147a5c8deff28bf9c5faa993b21a`
+- Merge-base: `85228af2adbb9fa5a3a4f2d726a9fc532242e73b`
+- Ahead/behind: `50 / 186`
+- Repo scripts include `npm run typecheck`, `npm run lint`, and test commands.
+- Dirty tree requires `commit_first` or explicit stash before merge.
+
+## Findings
+- A dirty tree makes `git merge origin/master` unsafe and hard to review.
+- Planning/review artifacts and generated `data/runs/**` should not be mixed with product merge commits.
+- Full verification should include typecheck, lint, and tests after any merge or conflict resolution.
+- Push is optional and must be non-force unless explicitly approved.
+
+## Recommended Actions
+- Stop after read-only mapping until user approves integration.
+- Choose either scoped commits or `git stash push -u` before merge.
+- Prefer scoped commits over a single opaque WIP commit when time allows.
+- Never run browser verification against the same live builder chat the user is using.
+
+## Exact LLM Implementation Instructions
+Read-only mapping:
+```bash
+cd /Users/christophergenberg/Desktop/Sajtmaskin_Genberg
+git status -sb
+git branch --show-current
+git rev-parse HEAD
+git rev-parse origin/master
+git merge-base HEAD origin/master
+git rev-list --left-right --count HEAD...origin/master
+```
+
+If user approves merge prep, choose exactly one:
+```bash
+# commit_first
+git add -p
+git commit -m "wip(frontend): scoped WIP before origin/master integration"
+git status -sb
+```
+
+```bash
+# stash fallback
+git stash push -u -m "pre-merge-dirty-$(date +%Y%m%d)-HEAD-$(git rev-parse --short HEAD)"
+git status -sb
+```
+
+Merge only after explicit approval and clean tree:
+```bash
+git merge origin/master
+```
+
+Post-merge verification:
+```bash
+npm run typecheck && npm run lint && npm run test:ci
+```
+
+## Verification Needed
+- Clean `git status` before merge.
+- `npm run typecheck` passes.
+- `npm run lint` passes.
+- `npm run test:ci` or agreed focused suite passes.
+- No accidental `data/runs/**`, review artifacts, or secrets in product merge commit.
+
+## Do Not Break
+- No destructive git commands.
+- No force-push.
+- No live builder session interference.
+- Preserve port-ours frontend policy during conflict resolution.
+- Include untracked files in stash only if stash path is chosen.

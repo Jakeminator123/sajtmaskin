@@ -1,0 +1,49 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 07-header-launch
+Date: 2026-05-01
+
+## UI/UX To Preserve
+- Compact header with logo, logout, more menu, abort while streaming, publish states.
+- `Publicera` disabled with tooltip when not deployable.
+- `Bygger...` and `Publicerad` states.
+- Separate domain action.
+- Project menu is not credit purchase UI.
+
+## New Master Capabilities To Surface
+- SEO opt-in already exists through `SeoOptInPanel` in `DeployNameDialog`.
+- New master deploy/preference fields should go into existing deploy dialog, not a new publish flow.
+
+## State/Props Impact
+- `useChatReadiness` feeds `deployReadiness`.
+- Shell computes `canDeploy` and `deployDisabledReason`.
+- Header receives finished status/URL/domain callbacks.
+- `LaunchReadinessCard` shows readiness and F3 env affordance.
+
+## Required Buttons / Choices / Copy
+- Publish CTA, building/published status, domain CTA.
+- Action hub publish/domain.
+- Deploy dialog credit copy and SEO panel.
+
+## Exact LLM Implementation Instructions
+- Keep one production publish path via `onDeployProduction` and `useBuilderDeployActions`.
+- Map new readiness blocker types to existing readiness UI helpers.
+- Add SEO fields only inside existing SEO panel/dialog chain.
+- Preserve 409 `DEPLOY_MISSING_ENV` error-log/toast behavior.
+
+## Merge Conflict Plan
+- In `BuilderHeader`, preserve compact mode and disabled tooltip.
+- In deploy actions, preserve 409/SEO/preferences chain.
+- Keep one dialog as source of truth for deploy.
+- Carefully merge shell `canDeploy` and env hint logic.
+
+## Test Plan
+- Header disabled publish tooltip.
+- Streaming disables publish.
+- SEO panel tests.
+- Deploy-readiness UI tests.
+- Domain toast action opens manager.
+
+## Do Not Break
+- Server credits/deploy gates.
+- Single active deployment state.
+- F2 env mute.
+- Domain manager/search routing based on Vercel project id.

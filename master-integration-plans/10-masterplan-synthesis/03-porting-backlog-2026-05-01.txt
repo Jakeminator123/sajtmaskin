@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 03-porting-backlog
+Date: 2026-05-01
+
+## Inputs Read
+- Port-ours policy, builder UI preservation checklist, preview panel/frame/hooks reports, chat interface, drawers/disclosure, design-token and chat-dock reports, shrink/own-engine reports.
+
+## Synthesis
+The porting backlog preserves frontend invariants while accepting master backend structure: preview lifecycle, preview-first shell, chat dock/drawers, shrink-retry UI, rich `done` handling, post-check tooling, design tokens, Swedish copy and wizard continuity.
+
+## Ordered Plan
+1. Resolve preview lifecycle spine: `usePreviewIframe`, telemetry hook, preview types, `preview-host/src/runtime.js`, shell pages and shims.
+2. Preserve `preview-starting` → `preview-ready`/DOM fallback → `vmReady` gating.
+3. Preserve preview-first builder layout and mobile chat/preview tabs.
+4. Preserve chat dock, drawer, disclosure pill, `cmd+k` behavior and z-index ladder.
+5. Preserve chat composer/tooling, pending reply, retry shrink CTA and structured/compact display.
+6. Thread stream `done`, `reasoning-slow`, verifier and shrink signals through existing UI.
+7. Preserve help-chat separation and F2/F3 env behavior.
+8. Run design token/copy sweep.
+9. Verify shadcn/registry and CSP iframe compatibility.
+
+## Exact LLM Implementation Brief
+- Port master structural props/API first, then reapply local postMessage and UX behavior.
+- Do not violate React Rules of Hooks when adapting `PreviewPanel` props.
+- Use a single heartbeat/session id path and keep viewerId per tab.
+- Gate shrink CTA on actual retry data; use neutral copy when missing.
+- Do not reintroduce prompt formatting if master removed it.
+- Keep F2 env muted and F3 integrations explicit.
+- Translate new builder-visible English to short Swedish copy.
+
+## Acceptance Criteria
+- Preview-first desktop layout and mobile tabs intact.
+- `preview-starting`, `preview-ready`, `vmReady`, empty/error overlays behave correctly.
+- Minimal and expanded chat modes work.
+- Build-out from shell and URL fallback work.
+- Help messages do not mutate generation thread.
+- No new hardcoded palette drift.
+- Focused builder/preview/chat tests pass.
+
+## Risks / Mitigations
+- Heartbeat id mismatch: single prop derivation and dev logging during smoke.
+- Duplicate message/composer mounts: grep and test.
+- shadcn palette churn: sync then retokenize.
+- CSP breakage in iframe: diff preview-render CSP and smoke in staging.
+
+## Final Recommendations
+Implement as slices: preview lifecycle, shell/dock, chat/tooling, token/copy sweep, registry/CSP smoke.

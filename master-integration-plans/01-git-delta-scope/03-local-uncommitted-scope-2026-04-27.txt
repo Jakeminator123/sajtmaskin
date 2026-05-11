@@ -1,0 +1,33 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 03-local-uncommitted-scope
+Date: 2026-04-27
+
+## Scope
+Klassificera ocommittat på `frontend/christopher`: spårade ändringar + `??` (reviews, master-integration-skills, vercel-insights).
+
+| Bucket | Innehåll | Roll vid merge |
+|--------|----------|----------------|
+| Generated / log | `data/runs/**/events.ndjson`, `data/dossiers/**/manifest.json` | Lokal körning; brus om oavsiktligt inkluderat |
+| Review / plan | `reviews/*.txt`, `.cursor/skills/master-integration-*/` | Inte produktkärna |
+| Integrationskritiskt | `next.config.ts`, `src/proxy.ts`, `layout`, `json-ld`, `render-seo-page`, marketing `page.tsx`, `api/ai/*`, `api/engine/chats/**/stream/*`, `vercel-insights.tsx` (??) | Routing, SEO, stream-kontrakt |
+
+## Evidence
+- Branch: `frontend/christopher` ahead av `origin/frontend/christopher` (t.ex. 389 enligt status).
+- Tracked diff: ~24 filer; större hopp i `data/runs`, `proxy`, `next.config`, `layout`, etc.
+- Ospårat: många `reviews/`, 10 skills, `vercel-insights.tsx`.
+
+## Findings
+1. Brus: 100+ review-texter + skills — håll utanför merge-PR om möjligt.
+2. Risk: `next.config` + `proxy` + SEO-kedja möter master (CSP, headers, rewrites, analytics).
+3. API: små diffar i stream/ai-routes — ändå kontraktkänsligt.
+4. `vercel-insights.tsx` ospårad — bestäm track vs ignorera före delad merge.
+
+## Recommended Actions
+- Håll `reviews/` + skills utanför produkt-PR (egen commit, ignorerad path, eller stash -u).
+- `git checkout -- data/...` om körloggar inte ska versioneras.
+- Gruppcommit för `src/` + config + proxy; lägg in `vercel-insights` om avsett.
+
+## Verification Needed
+`typecheck` + `vitest` (minst stream-tester). Manuell diff `next`/`proxy`/`layout` mot target.
+
+## Do Not Break
+Engine stream (coexistence), `proxy` + `next`, root layout + JSON-LD + `render-seo-page`, `api/ai/*`.

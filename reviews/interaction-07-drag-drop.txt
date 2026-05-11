@@ -1,0 +1,14 @@
+Builder Interaction Review — Agent 7: Drag & drop (IntakeWizard, file-upload-zone, ChatInterface/PromptInput, PreviewPanel composer)
+
+- IntakeWizard MediaStep dedikerad dropzon addFiles → behåll + tydligare “drop aktiv” + a11y → 4
+- file-upload-zone / ImageUploadPopup / text-uploader DnD validerat → återanvänd validering om fler ytor får drop → 5
+- Chat compact FileUploadZone utan drop på hela prompt-raden → global drop på PromptInput-root samma pipeline → 3
+- prompt-input.tsx saknar onDrop → overlay drop kopplat till upload → 3
+- PreviewPanel PAGE_BLOCK_DND_TYPE block till overlay + InlineEditPopup fil-drop → OS-fil till preview: routa till chat eller tydlig toast konflikt → 3
+- PreviewPanelChrome flikar: ingen reorder-DnD → endast om route-ordning kan persist; annars låg prio → 2
+- media-drawer drag URL text/plain → medveten separat bana; dokumentera skillnad mot builder → 4
+- @dnd-kit ej aktivt i builder-UI (endast dep-completer referens) → undvik parallella DnD-system → 4
+- Wizard logotyp endast klick → valfri drop också för logga → 3
+- Composer vs preview: risk dubbel tolkning av fil-drop → en policy “filer alltid till chat” eller tydlig zon → 3
+
+Värde/insats: chat-drop hög/medel (3); wizard/media redan stark (4–5); route-reorder låg ROI utan backend (2).

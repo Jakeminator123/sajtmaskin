@@ -1,6 +1,7 @@
 {
   "markdownlint.ignore": [
     "**/node_modules/**",
+    "**/.git/**",
     "**/.next/**",
     "**/out/**",
     "**/build/**",
@@ -9,7 +10,11 @@
     "**/research/**",
     "**/pot_buggs/**",
     "**/src/templates/**",
-    "**/.cursor/**"
+    "**/.cursor/**",
+    "templates_v0/**",
+    "data/template-references/repos/**",
+    "data/external-template-pipeline/repo-cache/**",
+    "data/dossiers/_repo-cache/**"
   ],
 
   "editor.formatOnSave": false,
@@ -21,21 +26,51 @@
   },
 
   "eslint.useFlatConfig": true,
+
   "files.eol": "\n",
   "files.autoSave": "off",
 
   "files.exclude": {
     "**/.git": true,
     "**/.next": true,
-    "**/node_modules": true
+    "**/node_modules": true,
+    "templates_v0/**": true,
+    "data/template-references/repos/**": true,
+    "data/external-template-pipeline/repo-cache/**": true,
+    "data/dossiers/_repo-cache/**": true
   },
 
   "search.exclude": {
+    "**/.git": true,
     "**/.next": true,
     "**/node_modules": true,
     "**/out": true,
-    "**/build": true
+    "**/build": true,
+    "**/dist": true,
+    "templates_v0/**": true,
+    "data/template-references/repos/**": true,
+    "data/external-template-pipeline/repo-cache/**": true,
+    "data/dossiers/_repo-cache/**": true
   },
+
+  "files.watcherExclude": {
+    "**/.git/**": true,
+    "**/.next/**": true,
+    "**/node_modules/**": true,
+    "**/out/**": true,
+    "**/build/**": true,
+    "**/dist/**": true,
+    "templates_v0/**": true,
+    "data/template-references/repos/**": true,
+    "data/external-template-pipeline/repo-cache/**": true,
+    "data/dossiers/_repo-cache/**": true
+  },
+
+  "search.useIgnoreFiles": true,
+  "search.useGlobalIgnoreFiles": true,
+  "search.useParentIgnoreFiles": true,
+
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
 
   "[jsonc]": {
     "editor.defaultFormatter": "vscode.json-language-features"
@@ -44,12 +79,15 @@
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+
   "[javascriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
@@ -62,6 +100,7 @@
   "git.autofetch": true,
 
   "terminal.integrated.defaultProfile.windows": "PowerShell 7",
+
   "terminal.integrated.profiles.windows": {
     "PowerShell 7": {
       "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
@@ -74,18 +113,7 @@
     "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
     "args": ["-NoLogo", "-NoProfile"]
   },
-  // Ingen `terminal.integrated.cwd` här. En explicit cwd — även
-  // "${workspaceFolder}" — kan i Cursor Agent / remote få hostens Windows-sökväg
-  // sammanslagen med /workspace/ → "/workspace/C:\Users\...". Utebliven nyckel
-  // = standard: starta i faktisk workspace-rot i varje miljö. (Behöver du alltid
-  // en viss katalog lokalt, sätt i User settings.json, inte i denna fil.)
 
-  // Statisk PATH-prepend som gäller ALLA terminaler i workspace:
-  // - default-profil (laddar PROFILE) → får Volta först via båda
-  // - automation-profil (-NoProfile) → får Volta först via env nedan
-  // - background agents (.cursor/environment.json) → ärver env nedan
-  // Tar bort behovet av manuell `$env:Path = User + Machine`-injektion i
-  // worktree-agent-skript.
   "terminal.integrated.env.windows": {
     "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}"
   }

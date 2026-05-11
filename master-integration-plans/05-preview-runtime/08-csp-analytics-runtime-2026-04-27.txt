@@ -1,0 +1,36 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 05 Preview Runtime — 08-csp-analytics-runtime
+Date: 2026-04-27
+
+## Master Runtime Changes
+- Sannolikt diff: `next.config.ts`, `src/proxy.ts` (CORS, auth paths, ev. `SAJTMASKIN_PREVIEW_HOST_BASE_URL` i `frame-ancestors`/`CSP` byggande), `src/lib/env.ts` CSP-flags, `json-ld`, `render-seo-page` — matcha **lokal WIP** om ocommittat (git status historik: `next.config` modified).
+- `CSP_ENFORCE` — när `true` → `Content-Security-Policy` else Report-Only (`src/lib/env.ts`).
+- Vercel: `src/components/layout/vercel-insights.tsx` + villkor i `layout.tsx` (`VERCEL_ENV`, skip localhost i klienten).
+
+## Local Preview UX To Preserve
+- **Parent** app: nonce `x-csp-nonce` → `RootLayout` + `json-ld` script tags — samma mönster i SEO pages (`render-seo-page`).
+- SEO paths med extra `script-src-elem` `unsafe-inline` där policy säger så; `/api/preview-render` särskild policy.
+- CORS: `ALLOWED_ORIGINS` + `VERCEL_URL` i `proxy` — preview och API anrop ska svara med rätt origin när lokal+preview_port blandat.
+- **I embed:** om preview-**VM**-URL sätter `X-Frame-Options` / `CSP` som blockerar inbäddning, är det **preview origin**-problem, inte enbart parent `next.config`.
+
+## Coupling Points
+- `proxy` + tier-2 preview host i CSP-allow list (jmf env docs).
+- `/api/csp-report` mottagning vid Report-Only / intrång.
+- `analytics-tracker` → `/api/analytics` (separat från Vercel insights).
+- `next start` via `scripts/dev/next-runner.mjs` (samma pipeline som `dev`/`build` — prod-smoke: `00`-matris).
+
+## Failure Modes
+- `CSP` enforce i prod: inline script utan nonce/whitelist bryter layout.
+- Miss `proxy` i deployment: CORS/edge auth borta (verifiera Next 16 wiring — kommentar i källan `proxy` ersätter middleware).
+- Vercel insights dubbel ladda om `VERCEL_ENV` satt i fel miljö.
+
+## Verification Matrix
+- Dev: ladda `/`, öppna konsol — inga brutna CSP (report-only: kolla `csp-report` endpoint logg).
+- Prod: `CSP_ENFORCE` staging — hard refresh alla marketing routes + builder entry.
+- JSON-LD: `view-source` se `nonce` satt, ogiltig JSON 0.
+- Iframe: om preview laddar men blank — kolla nätverk på **barn-**origin CSP.
+
+## Do Not Break
+- Nonce pipeline från edge till layout (ingen ad hoc `eval` nya ställen).
+- `COOP/COEP` endast där tänkt (`/project/:path*` WebContainer) — blanda ej med preview-iframe.
+- CORS-allow inte vidga till vilket skämt-ursprung; håll `getAppBaseUrl()` sann.
+- Lokal: `vercel-insights` ska förbli tyst mot localhost (beteende bevarat).

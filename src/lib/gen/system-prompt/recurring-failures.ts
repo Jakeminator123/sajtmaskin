@@ -9,7 +9,7 @@
  * Split out of `system-prompt.ts` (OMTAG-03 wave-rest) — no behavior change.
  */
 
-import { readRecurringPatternsForChat } from "@/lib/logging/generation-log-writer";
+import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 
 const RECURRING_BLOCK_MAX_PATTERNS = 5;
 const RECURRING_BLOCK_MAX_CHARS = 600;

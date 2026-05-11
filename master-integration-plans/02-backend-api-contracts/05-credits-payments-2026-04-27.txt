@@ -1,0 +1,35 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 02 Backend API Contracts — 05-credits-payments
+Date: 2026-04-27
+
+## Master Changes To Preserve
+- `src/app/api/stripe/checkout/route.ts` — `withRateLimit(…"stripe:checkout")`, `success_url`/`cancel_url` → `/buy-credits`, metadata (userId, packageId, diamonds).
+- `src/app/api/stripe/webhook/route.ts` — `checkout.session.completed` idempotens, duplicate handling, `payment_intent.payment_failed` logg.
+- `src/app/api/credits/route.ts` — kommenterad POST-mention; faktiskt: **GET** beroende fil.
+- `src/app/api/credits/check/route.ts` — `action` + `getCreditCost` (VALID_ACTIONS / `CreditAction` i `src/lib/credits/pricing.ts`).
+- `prepareCredits` / `commit` + `createCommitCreditsOnce` i init/template/stream/v0 deployments m.fl. (samma mönster).
+- Dossier `data/dossiers/hard/stripe-checkout` — genererat annat mönster än plattformens API (dubbel mental modell).
+- Lokal WIP: manifest ändring i git status — särskilj från produkt-API.
+
+## Frontend Consumers
+- `src/app/buy-credits/page.tsx` — POST `/api/stripe/checkout`; paketlista måste stämma `src/lib/stripe.ts` (`DIAMOND_PACKAGES` / `PACKAGES` — dubbel sanning).
+- `auth-store` — `user.diamonds` från `/me`.
+- `require-auth-modal` — redirect till `/buy-credits` när `reason === "credits"`.
+- `GET /api/credits` / `check` — sällan/aldri anropade från huvud-UI (orphan-risk).
+
+## Contract Risks
+- Dubblett: `buy-credits` + `lib/stripe` priser och `priceId`/env.
+- `commit` får endast träffa en gång per transaktion (`createCommitCreditsOnce` i stream där så konstruerat).
+- Webhook: metadata-strikt, annars 4xx så Stripe inte dålig retry.
+- Dossier-genererad "checkout" ≠ `/api/stripe/*` i host-app.
+
+## Required Adaptations
+- Nya `CreditAction` → `pricing.ts` + `credits/check` + `prepareCredits`-kall.
+- Nya betal-URL:er — håll webhook + success/cancel + env.
+- Om UI bör använda `GET /api/credits`: byt från endast `auth/me` medvetet.
+
+## Tests / Runtime Checks
+- `.../chats/stream/route.test.ts` (credits mock), `init`, `template`, `v0/deployments/route.test.ts` (credits/Stripe-readiness).
+- Manuell: checkout, dubblett-webhook, utloggad → 401.
+
+## Do Not Break
+- `prepareCredits` → `commit` ordning; webhook-idempotens; POST checkout-svar; `/me` `diamonds`; checkout `metadata`; transaktioner + `setUserDiamonds` efter betalning.

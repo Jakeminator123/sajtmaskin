@@ -1,0 +1,28 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 08-final-masterplan-draft
+Date: 2026-04-27
+
+## Inputs Read
+- Sammanslagning av `10/01`–`10/07` samt kataloger `01`–`09` under `master-integration-plans/`.
+- Kanoniskt färdig dokument: **`master-integration-plans/MASTER-INTEGRATION-MASTERPLAN.md`** (samma repo; skapas/uppdateras i samma uppgift som denna fil).
+
+## Synthesis
+Den fullständiga **markdown**-planen ligger i **en** fil på repo-roten `master-integration-plans/` så sök- och länkbar. Denna `08-*.txt` pekar dit och fångar **execution intent**: syfte, förutsättningar, fas-ordning A–I, checklistor, verifiering, rollback, källindex 01–09.
+
+## Ordered Plan
+1. Läs `MASTER-INTEGRATION-MASTERPLAN.md` före merge-implementation.
+2. Följ fas A–I i den filen; uppdatera `MASTER-INTEGRATION-MASTERPLAN.md` endast om team beslutat ny ordning/ny checklista.
+3. Exekvera **inga** git-steg inuti skill 10; användaren kör manuellt.
+
+## Acceptance Criteria
+- `MASTER-INTEGRATION-MASTERPLAN.md` existerar, datum och pekare till 01–09 stämmer med filträd i repo.
+- 10/01–10/08 mappar till sektioner i .md där det är motiverat.
+
+## Risks / Mitigations
+- Föråldrade SHA:er i 01-anteckning — validera med `git rev-parse`/`fetch` före merge.
+- Dubblett sanningskällor — **en** fil (`MASTER-INTEGRATION-MASTERPLAN.md` + 01/09) som canonical execution steps.
+
+## Final Recommendations
+Efter varje lyckas merge-wave: fyll i kort "vad som faktiskt hände" i PR; vid avvikelse från plan, uppdatera .md *eller* boka tech-debt.
+
+## Reference
+Se: `/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/master-integration-plans/MASTER-INTEGRATION-MASTERPLAN.md`

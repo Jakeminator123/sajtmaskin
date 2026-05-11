@@ -23,18 +23,18 @@ Relaterade: [fas1-startprompt-flow.md](./fas1-startprompt-flow.md), [fas3-previe
 | Område | Fil |
 |---|---|
 | Orkestrering | `src/lib/gen/orchestrate.ts` + `src/lib/gen/orchestrate/{scaffold-query-context,scaffold-variant-resolver}.ts` |
-| BuildSpec | `src/lib/gen/build-spec.ts` + `src/lib/gen/build-spec/{prompt-patterns,regex-utils,derived-fields}.ts` |
-| System prompt | `src/lib/gen/system-prompt.ts` + `src/lib/gen/system-prompt/{types,budget,compose,helpers}.ts` |
+| BuildSpec | `src/lib/gen/build-spec/` (OMTAG 03: `builder.ts`, `types.ts`, `policy-inference.ts`, `prompt-patterns.ts`, `references.ts`, `route-realization.ts`, `style-pack.ts`, `token-budgets.ts`, `index.ts`). Gamla monoliten `build-spec.ts` borttagen. |
+| System prompt | `src/lib/gen/system-prompt/` (OMTAG 03: `compose.ts` orchestrator + `sections/` peers). Gamla monoliten `system-prompt.ts` borttagen. |
 | Tokenbudget / pruning | `src/lib/gen/tokens.ts` |
 | Core Rules loader | `src/lib/gen/static-core-loader.ts` |
 | Core Rules manifest | `config/codegen-core-manifest.json` |
-| Core Rules fragment | `config/prompt-core/*.md` (6 filer inkl. `_READ_ME_FIRST.md`) |
+| Core Rules fragment | `config/prompt-core/*.md` (5 concat-fragment `00..04`; `_READ_ME_FIRST.md` är editorial, inte i manifestet) |
 | LLM-anrop | `src/lib/gen/engine.ts` |
 | SSE-formatering | `src/lib/gen/stream/stream-format.ts` |
 | Scaffold-val / matcher | `src/lib/gen/scaffolds/matcher.ts` + `src/lib/gen/scaffolds/keyword-banks.ts` |
 | Scaffold-serialisering | `src/lib/gen/scaffolds/serialize.ts` |
-| Route-plan | `src/lib/gen/route-plan.ts` + `src/lib/gen/route-plan/route-patterns.ts` |
-| Finalize | `src/lib/gen/stream/finalize-version.ts` + `src/lib/gen/stream/finalize-version/{errors,policies,failure-logs,partial-file,partial-file-repair,step-telemetry}.ts` |
+| Route-plan | `src/lib/gen/route-plan/` (`index.ts` + builder/parse/verify/helpers) |
+| Finalize | `src/lib/gen/stream/finalize-version/` (OMTAG 03: `runner.ts` orchestrator + phase + persist helpers). Gamla monoliten `finalize-version.ts` borttagen. |
 | Finalize-kontrakt (ordning) | `src/lib/gen/stream/finalize-pipeline-contract.ts` |
 | Finalize-preflight | `src/lib/gen/stream/finalize-preflight.ts` + `src/lib/gen/stream/finalize-preflight/shell-pages.ts` |
 | Deterministisk autofix | `src/lib/gen/autofix/pipeline.ts` + `src/lib/gen/autofix/rules/*.ts` |
@@ -73,11 +73,11 @@ Relaterade: [fas1-startprompt-flow.md](./fas1-startprompt-flow.md), [fas3-previe
 | Scaffold-serialisering | `serializeScaffoldForPrompt()` med budget | Ja |
 | Request kind (P32 Fas A) | `classifyRequestKind()` på rå follow-up när filkontext finns | Ja (regex) |
 
-Follow-up: `OrchestrationInput.requestKind` sätts i `chat-message-stream-post.ts`, loggas som `[request_kind_classified]` och i dev-log (`request.kind.classified`). **Styr ännu inte** `deriveBuildSpec()` — se [P32-request-type-taxonomy.md](../plans/active/P32-request-type-taxonomy.md).
+Follow-up: `OrchestrationInput.requestKind` sätts i `chat-message-stream-post.ts`, loggas som `[request_kind_classified]` och i dev-log (`request.kind.classified`). **Styr ännu inte** `deriveBuildSpec()` — se [P32-request-type-taxonomy.md](../plans/active/parked/P32-request-type-taxonomy.md).
 
 ---
 
-## BuildSpec (`build-spec.ts`)
+## BuildSpec (`build-spec/`)
 
 Härledd policy-bundle som styr körningen.
 
@@ -93,7 +93,7 @@ Härledd policy-bundle som styr körningen.
 
 ### Token-budgetar per `contextPolicy`
 
-Källa: `BASE_TOKEN_BUDGETS` i `src/lib/gen/build-spec.ts` (~rad 913).
+Källa: `BASE_TOKEN_BUDGETS` i `src/lib/gen/build-spec/token-budgets.ts` (efter OMTAG 03 split).
 
 | Policy | scaffoldTokens | refsTokens | systemContextTokens |
 |---|---|---|---|
@@ -114,7 +114,8 @@ Baserade på 200k-fönster. Skalas av `modelBudgetScale()` mellan **0.6×** och 
 └──────────────────────────────────────────────┘
                  SYSTEM_PROMPT_SEPARATOR
 ┌──── DYNAMISK KONTEXT (per request) ──────────┐
-│  20+ markdown-block med ## rubriker          │
+│  20+ markdown-block med ## rubriker (init)   │
+│  Follow-up (light, ej redesign) kör kompakt │
 │  Prioriterade och prunade efter token-budget │
 └──────────────────────────────────────────────┘
 ```
@@ -134,18 +135,25 @@ Baserade på 200k-fönster. Skalas av `modelBudgetScale()` mellan **0.6×** och 
 1. Generation Mode (vid follow-up)
 2. Custom instructions + Build Intent
 3. Generation Profile (style pack, quality, forbidden patterns)
-4. Scaffold Variant (typografi, motif, theme tokens)
-5. Design Priority (locked theme → brief → variant → scaffold CSS)
-6. Scaffold (serialiserade filer)
-7. Scaffold Research Priorities (checklist, upgrade targets)
-8. Your Toolkit (shadcn + capability hints + palett)
-9. Route Plan
-10. Pre-generation Contracts (data mode, providers, env vars)
-11. Project Context (brief-fält, pages, must-have/avoid)
-12. Visual Identity + Design References
-13. Imagery + Media Catalog
-14. Component References (upp till 5 fenced shadcn-exempel)
-15. SEO
+4. Brief-Locked Design Values (briefens designvärden vinner över variant/scaffold)
+5. Scaffold Variant (typografi, motif, theme tokens)
+6. Design Priority (locked theme → brief → variant → scaffold CSS)
+7. Scaffold (serialiserade filer)
+8. Scaffold Research Priorities (checklist, upgrade targets)
+9. Your Toolkit (shadcn + capability hints + palett)
+10. Route Plan
+11. Pre-generation Contracts (data mode, providers, env vars)
+12. Project Context (brief-fält, pages, must-have/avoid)
+13. Visual Identity + Design References
+14. Imagery + Media Catalog
+15. Component References (upp till 5 fenced shadcn-exempel)
+16. SEO
+
+**Follow-up compact-läge (2026-04-30):** När `generationMode === "followUp"` och
+`BuildSpec` är `contextPolicy: "light"` samt inte `changeScope: "redesign"`,
+renderas kortare varianter av `Scaffold Variant`, `Your Toolkit` och `Route Plan`.
+`Scaffold Research Priorities` och `Lucide icons`-blocket hoppas över i det läget.
+Målet är lägre dynamic context utan att ändra produkttermer eller kontrakt.
 
 `## Structural References` är **borttaget 2026-04-17** — strukturella exempel sköts av dossier-pipen v2 (`data/dossiers/{hard,soft}/<id>/`). `data/dossiers/_index/capability-map.json` är en genererad backoffice-view, inte en runtime-källa.
 
@@ -234,7 +242,7 @@ Definierad i `finalize-pipeline-contract.ts`:
 | 4 | `materialize_images` | Byt placeholder-bilder mot Unsplash (6–8 st). Endast full path, non-fatal | Nätverk |
 | 5 | `verifier` | Read-only LLM-granskning. Endast full path + verifier-policy. Blocking-fynd matas in i `runLlmFixer` direkt efter | LLM |
 | 6 | `parse_merge_preflight` | Parse → merge med befintliga filer → preflight → integration-manifest | Deterministisk |
-| 7 | Partial-file repair | Om preflight hittar avhuggna filer: max `partialFileRepairMaxAttempts` LLM-fixer-rundor (default 1, max 3, 60 s timeout). Lyckas → kör parse+merge+preflight om. Misslyckas → `PartialFileOutputError` stoppar persist | LLM |
+| 7 | Partial-file repair | Om preflight hittar avhuggna filer: max `partialFileRepairMaxAttempts` LLM-fixer-rundor (manifest-default 2, max 3, 60 s timeout). Lyckas → kör parse+merge+preflight om. Misslyckas → `PartialFileOutputError` stoppar persist | LLM |
 | 8 | Persist | `addAssistantMessageAndCreateDraftVersion` (init) eller `addAssistantMessageAndUpdateExistingVersion` (follow-up) | Deterministisk |
 | 9 | Best-effort | Telemetry, preflight-loggar, ev. `failVersionVerification` | Deterministisk |
 
@@ -248,7 +256,15 @@ SSE-progress emitterar phases: `validating` / `fixing` / `tsc-validating` / `tsc
 
 ### Steg 5 — `verifier` i detalj
 
-Blocking-fynd matas in i `runLlmFixer` direkt efter verifier-passet via `formatVerifierFindingsAsFixerErrors()` (samma `phaseRouting.fixer`-modell + 60 s abort). Fixerns output körs genom `runAutoFix` igen. Re-validation av verifier hoppas medvetet över (skulle förlänga `done` med 5–15 s); server-verify (Fas 3) fångar resten. Lyckad fixer → `verifierBlockingFindings = []` så versionen INTE markeras verifier-blocked.
+Blocking-fynd matas in via `runLlmRepairGate()` direkt efter verifier-passet via `formatVerifierFindingsAsFixerErrors()` (samma `phaseRouting.fixer`-modell + 60 s abort). Fixerns output körs genom `runAutoFix` igen. Re-validation av verifier hoppas medvetet över (skulle förlänga `done` med 5–15 s); server-verify (Fas 3) fångar resten. Lyckad fixer → `verifierBlockingFindings = []` så versionen INTE markeras verifier-blocked.
+
+### Repair ledger
+
+`runFinalizeFastPath()` skapar en per-finalize `RepairLedger` och trådar den till syntax/warm-tsc/warm-eslint, verifier, preflight, home-route recovery och partial-file repair. Ledgerns dedupe-nyckel är `scopeId + chatId + contentHash + diagnosticFingerprint + requiredFiles`; `phase` ingår **inte** i nyckeln, men loggas för observability. Därmed kan samma innehåll + samma diagnostik inte trigga flera LLM-repairförsök bara för att felet vandrar från syntax till verifier/preflight i samma finalize-run.
+
+`scopeId` sätts av finalize-runnern från `targetVersionId` eller `lineageHash` plus `repairPassIndex` (`root`/`repair-N`). Dedupe är fortfarande opt-in för callers som explicit skickar ledger; post-finalize `server-verify`/manual repair-loop kan fortfarande ha egen repairlogik utanför denna ledger.
+
+När en repair dedupe:as skrivs devLog-eventet `llm_repair_gate.deduped` med `phase`, `scopeId`, `requiredFiles`, `diagnosticFingerprint`, `contentHash`, `attempts` och `lastOutcome`.
 
 ### Steg 6 — `parse_merge_preflight` cross-checks
 
@@ -313,6 +329,10 @@ Defaults: NextAuth Credentials om `needsAuth`; Stripe test-placeholders om betal
 | Route plan | Fri planering + ev. shell deferral | Shell preservation + frys |
 | Finalize path | Full (typiskt) | Light möjlig för small copy/layout |
 | Merge | Ren version | `mergeGeneratedProjectFiles` med `previousFiles` |
+| Rå-signalpaket in till `OrchestrationInput` | `routePlanPrompt`, `buildSpecPrompt`, `contractsPrompt`, `scaffoldMatchPrompt`, `capabilitiesPrompt` = rå `message` (paritet med follow-up sedan 2026-04-22) | Samma 5 fält. Plan-mode-grenen skickar samma paket (init + follow-up) sedan 2026-04-22 audit |
+| Brief | `meta.brief` (Deep Brief / Server Auto-Brief) | Ingen ny LLM-brief. `buildFollowUpBriefFromSnapshot()` hydrerar en minimal brief från `briefSummary` (requestedCapabilities, domainProfile-slug, visualDirection.styleKeywords, toneAndVoice, qualityBar, motionLevel, colorPalette, typography, projectTitle, brandName) när `metaBrief` saknas |
+| Simple website path | Konservativ snabb-lane kan hoppa Server Auto-Brief, externa/component refs och dossier selection för korta website/template-init prompts utan heavy signals | Aldrig aktiv på follow-up |
+| `effectiveInitRouteCount` (driver `qualityTarget` + `contextPolicy`) | `init` | `followUp` räknas som "effective init" via `isEffectiveInit({ generationMode, isFirstCodeGeneration })` — första kodgen efter contract gate får samma route-count som riktig init |
 
 ---
 

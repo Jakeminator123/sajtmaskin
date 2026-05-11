@@ -70,7 +70,10 @@ function createFallbackClientConfig(): FallbackClientConfig | null {
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "text:analyze", async () => {
     try {
-      await getCurrentUser(request);
+      const user = await getCurrentUser(request);
+      if (!user) {
+        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      }
 
     const body = await request.json();
     const { content, filename, contentType } = body;

@@ -1,0 +1,51 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 02-stream-integration
+Date: 2026-05-01
+
+## Required Checks
+- Init stream route.
+- Follow-up stream route.
+- Own-engine stream golden tests.
+- Post-finalize and tool stream tests.
+- SSE parsing/format/projection tests.
+
+## Existing Tests
+- `src/app/api/engine/chats/stream/route.test.ts`
+- `[chatId]/stream/route.test.ts`
+- chat CRUD route tests.
+- `stream-handlers.test.ts`, helpers.
+- finalize and post-finalize tests.
+- own-engine generation stream golden/tool tests.
+
+## Missing Coverage
+- Direct tests for `chat-message-stream-post.ts` and `create-chat-stream-post.ts`.
+- Some underroutes around finalize/repair/readiness may lack route tests.
+- Real SSE with next dev/DB belongs to E2E.
+
+## Frontend Behaviors To Assert
+- `handleSseStream` error/done/recovery states.
+- Version polling after abort.
+- Done/finalize payload fields.
+
+## Exact LLM Implementation Instructions
+- After merge, run test:ci and both stream route tests.
+- Update hoisted mocks for changed signatures.
+- Update golden tests for intentional SSE event order/shape changes.
+- Test new own-engine phases with mocked provider stream.
+
+## Failure Triage Guide
+- Mock signature drift.
+- Finalize return shape drift.
+- Import path moves.
+- Vitest timeouts.
+- Observability event naming drift.
+
+## Exact Commands
+- `npm run test:ci`
+- targeted stream route Vitest
+- `npm run test:focused`
+- `npm run typecheck`
+
+## Pass Criteria
+- Stream route tests green.
+- Typecheck green.
+- own-engine golden tests green when generation/finalize changed.

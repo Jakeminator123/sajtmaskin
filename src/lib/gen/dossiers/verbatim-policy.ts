@@ -14,6 +14,7 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import type { DossierEntry } from "./types";
 import { getDossierFileContent } from "./registry";
+import { mapDossierPathToOutput } from "./output-path";
 import { devLogAppend } from "@/lib/logging/devLog";
 
 export interface VerbatimRestoreEvent {
@@ -55,9 +56,10 @@ export function applyDossierVerbatimPolicy(params: {
         continue; // Cannot verify — leave as-is.
       }
 
-      // Strip the dossier-internal "components/" staging prefix to match the
-      // output path the system-prompt tells the LLM to emit at.
-      const outputPath = file.path.replace(/^components\//, "");
+      // Translate the dossier-internal staging path to the output path the
+      // system-prompt told the LLM to emit at (must use the same mapping as
+      // `dossiers.ts` — see `output-path.ts` for rotorsaks-historik).
+      const outputPath = mapDossierPathToOutput(file.path);
 
       const llmFile = llmByPath.get(outputPath);
       if (!llmFile) {

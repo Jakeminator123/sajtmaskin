@@ -1,4 +1,9 @@
-import type { ScaffoldManifest } from "./types";
+import type {
+  ScaffoldFile,
+  ScaffoldFilePromptRole,
+  ScaffoldFileSerialization,
+  ScaffoldManifest,
+} from "./types";
 import type { BuildSpecContextPolicy } from "../build-spec";
 import type { InferredCapabilities } from "../capability-inference";
 import type { RoutePlan } from "../route-plan";
@@ -14,6 +19,19 @@ export interface ScaffoldSerializeOptions {
   capabilities?: InferredCapabilities;
 }
 
+/**
+ * Scaffold Contract V2: per-file render policy used by
+ * `renderSelectedScaffoldFiles`. Manifest authors can set
+ * `role`/`serialization`/`maxPromptChars` on `ScaffoldFile`. When the
+ * fields are absent the default policy is derived from the file path
+ * via `defaultRoleForPath()` so all 9 existing scaffolds shrink without
+ * touching any manifest.
+ */
+const ROUTE_PAGE_BODY_BUDGET_CHARS = 900;
+const EXCERPT_BODY_BUDGET_CHARS = 700;
+const FULL_SOURCE_PROMPT_LIMIT_CHARS = 2_000;
+const CRITICAL_SCAFFOLD_FILES_HARD_CAP_CHARS = 6_000;
+
 const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
   "**CRITICAL — Replace ALL placeholders before shipping.**",
   "Bracket placeholders like `[Butiksnamn]`, `[Företagsnamn]`, `[Produktnamn]`, `[Pris]`, `[Kundens namn]`, `[Roll]`, `[Företag]` MUST be replaced with real content derived from the user's prompt.",
@@ -22,9 +40,15 @@ const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
   "Never leave literal brackets, curly-brace tokens, or obvious scaffold boilerplate in the final output.",
 ].join(" ");
 
-const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 20_000;
+const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 10_000;
+const INSPIRATIONAL_LAYOUT_FILE_BUDGET_CHARS = 2_400;
+const FILE_CONTRACT_HEADER = [
+  "The following entries are **FileContract** summaries, not complete source files.",
+  "Never copy a FileContract block verbatim into output.",
+  "When you emit any listed path, emit a complete valid file that follows the contract.",
+].join(" ");
 
-function extractImportBlock(content: string, filePath: string): string {
+function extractImportLines(content: string): string[] {
   const lines = content.split("\n");
   const importLines: string[] = [];
   let braceDepth = 0;
@@ -45,8 +69,279 @@ function extractImportBlock(content: string, filePath: string): string {
       break;
     }
   }
+  return importLines;
+}
+
+function extractImportBlock(content: string, filePath: string): string {
+  const importLines = extractImportLines(content);
   if (importLines.length === 0) return "";
   return `\n\n## Import Reference (from scaffold ${filePath})\n\nEvery generated file MUST include complete imports at the top. Follow this pattern:\n\n\`\`\`tsx\n${importLines.join("\n")}\n\`\`\``;
+}
+
+function defaultRoleForPath(path: string): ScaffoldFilePromptRole {
+  const norm = path.replace(/\\/g, "/").toLowerCase();
+  if (/(^|\/)layout\.tsx$/.test(norm)) return "root-layout";
+  if (/(^|\/)globals\.css$/.test(norm)) return "global-styles";
+  if (
+    /^package\.json$/.test(norm) ||
+    /^tailwind\.config\./.test(norm) ||
+    /^next\.config\./.test(norm) ||
+    /^postcss\.config\./.test(norm)
+  ) {
+    return "config";
+  }
+  if (/(^|\/)page\.tsx$/.test(norm)) return "route-page";
+  if (/(^|\/)route\.(ts|tsx)$/.test(norm)) return "api-route";
+  if (/^(?:src\/)?components\//.test(norm)) return "shared-component";
+  return "default";
+}
+
+function defaultSerializationForRole(
+  role: ScaffoldFilePromptRole,
+): ScaffoldFileSerialization {
+  switch (role) {
+    case "root-layout":
+    case "global-styles":
+    case "config":
+      return "full";
+    case "route-page":
+      return "excerpt";
+    case "shared-component":
+    case "api-route":
+      return "signature";
+    default:
+      return "excerpt";
+  }
+}
+
+function extractTopLevelExports(content: string): string[] {
+  const exports = Array.from(
+    content.matchAll(
+      /^export\s+(?:default\s+)?(?:async\s+)?(?:function|const|let|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gm,
+    ),
+    (match) => match[1],
+  );
+  return Array.from(new Set(exports)).slice(0, 8);
+}
+
+function extractJsxOutline(content: string): string[] {
+  const tags = Array.from(
+    content.matchAll(/<([A-Z][A-Za-z0-9_.]*|main|section|header|footer|nav|article|aside)\b/g),
+    (match) => match[1],
+  );
+  return Array.from(new Set(tags)).slice(0, 12);
+}
+
+function routePathForFile(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  if (normalized === "app/page.tsx" || normalized === "src/app/page.tsx") return "/";
+  const match = normalized.match(/^(?:src\/)?app\/(.+)\/page\.tsx$/);
+  if (!match) return "(unknown)";
+  return `/${match[1].replace(/\[[^\]]+\]/g, ":param")}`;
+}
+
+function formatContractList(label: string, values: string[]): string[] {
+  if (values.length === 0) return [`- ${label}: (none detected)`];
+  return [`- ${label}:`, ...values.map((value) => `  - \`${value}\``)];
+}
+
+function withoutImportBlock(content: string, importLines: string[]): string {
+  if (importLines.length === 0) return content;
+  const lines = content.split("\n");
+  const importStartIndex = lines.findIndex((line) => line === importLines[0]);
+  if (importStartIndex === -1) return content;
+  return [
+    ...lines.slice(0, importStartIndex),
+    ...lines.slice(importStartIndex + importLines.length),
+  ].join("\n").replace(/^\s+/, "");
+}
+
+function extractRepresentativeLines(
+  content: string,
+  importLines: string[],
+  maxChars: number,
+): string[] {
+  if (maxChars <= 0) return [];
+  const body = withoutImportBlock(content, importLines);
+  const lines: string[] = [];
+  let used = 0;
+
+  for (const line of body.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const nextUsed = used + trimmed.length + 1;
+    if (nextUsed > maxChars) break;
+    lines.push(trimmed);
+    used = nextUsed;
+    if (lines.length >= 20) break;
+  }
+
+  return lines;
+}
+
+function formatRepresentativeLines(lines: string[]): string[] {
+  if (lines.length === 0) return ["- representativeLines: (omitted)"];
+  return [
+    "- representativeLines (not executable; do not copy verbatim):",
+    ...lines.map((line) => `  - ${line.replace(/`/g, "'")}`),
+  ];
+}
+
+function buildFileContract(params: {
+  file: ScaffoldFile;
+  role: ScaffoldFilePromptRole;
+  serialization: ScaffoldFileSerialization;
+  completeness: "partial-not-executable" | "signature-only";
+  ownership: "llm-owned" | "scaffold-owned";
+  mustEmit: boolean;
+  representativeLines?: string[];
+  notes: string[];
+}): string {
+  const {
+    file,
+    role,
+    serialization,
+    completeness,
+    ownership,
+    mustEmit,
+    representativeLines = [],
+    notes,
+  } = params;
+  const importLines = extractImportLines(file.content);
+  const exports = extractTopLevelExports(file.content);
+  const outline = extractJsxOutline(file.content);
+  return [
+    `### FileContract: ${file.path}`,
+    `- role: ${role}`,
+    `- serialization: ${serialization}`,
+    `- completeness: ${completeness}`,
+    `- ownership: ${ownership}`,
+    `- mustEmit: ${mustEmit ? "true" : "false"}`,
+    `- sourceChars: ${file.content.length}`,
+    ...(role === "route-page" ? [`- routePath: ${routePathForFile(file.path)}`] : []),
+    ...formatContractList("imports", importLines),
+    ...formatContractList("exports", exports),
+    ...formatContractList("structure", outline),
+    ...formatRepresentativeLines(representativeLines),
+    "- rules:",
+    "  - Do not copy this FileContract into generated code.",
+    "  - Preserve listed imports/exports unless intentionally replacing the dependency.",
+    "  - If you emit this path, return a complete valid file.",
+    ...notes.map((note) => `  - ${note}`),
+  ].join("\n");
+}
+
+function buildSignatureContract(
+  file: ScaffoldFile,
+  role: ScaffoldFilePromptRole,
+  serialization: ScaffoldFileSerialization,
+): string {
+  return buildFileContract({
+    file,
+    role,
+    serialization,
+    completeness: "signature-only",
+    ownership: role === "route-page" ? "llm-owned" : "scaffold-owned",
+    mustEmit: role === "route-page",
+    notes: ["Use this as an interface/shape reference, not as a body template."],
+  });
+}
+
+function buildExcerptContract(
+  file: ScaffoldFile,
+  role: ScaffoldFilePromptRole,
+  serialization: ScaffoldFileSerialization,
+  maxBodyChars: number,
+): string {
+  const importLines = extractImportLines(file.content);
+  const representativeLines = extractRepresentativeLines(
+    file.content,
+    importLines,
+    maxBodyChars,
+  );
+  return buildFileContract({
+    file,
+    role,
+    serialization,
+    completeness: "partial-not-executable",
+    ownership: role === "route-page" ? "llm-owned" : "scaffold-owned",
+    mustEmit: role === "route-page",
+    representativeLines,
+    notes: [
+      `Representative lines are capped by maxPromptChars/excerpt budget (${maxBodyChars} chars).`,
+      "Use the structure list and imports/exports to produce your own complete implementation.",
+    ],
+  });
+}
+
+function buildOversizedFullContract(
+  file: ScaffoldFile,
+  role: ScaffoldFilePromptRole,
+  serialization: ScaffoldFileSerialization,
+): string {
+  const importLines = extractImportLines(file.content);
+  return buildFileContract({
+    file,
+    role,
+    serialization,
+    completeness: "partial-not-executable",
+    ownership: role === "route-page" ? "llm-owned" : "scaffold-owned",
+    mustEmit: role === "route-page",
+    representativeLines: extractRepresentativeLines(
+      file.content,
+      importLines,
+      file.maxPromptChars ?? EXCERPT_BODY_BUDGET_CHARS,
+    ),
+    notes: [
+      `Resolved policy is full, but source is ${file.content.length} chars; omitted to keep Critical Scaffold Files under ${CRITICAL_SCAFFOLD_FILES_HARD_CAP_CHARS} chars.`,
+      "Use this contract as the implementation shape and emit a complete file if modifying this path.",
+    ],
+  });
+}
+
+function resolveFileRenderPolicy(
+  file: ScaffoldFile,
+): { role: ScaffoldFilePromptRole; serialization: ScaffoldFileSerialization } {
+  const role = file.role ?? defaultRoleForPath(file.path);
+  const serialization = file.serialization ?? defaultSerializationForRole(role);
+  return { role, serialization };
+}
+
+function renderScaffoldFileBlock(file: ScaffoldFile): {
+  block: string;
+  serialization: ScaffoldFileSerialization;
+} {
+  const { role, serialization } = resolveFileRenderPolicy(file);
+  switch (serialization) {
+    case "full": {
+      if (file.content.length > FULL_SOURCE_PROMPT_LIMIT_CHARS) {
+        return {
+          block: buildOversizedFullContract(file, role, serialization),
+          serialization,
+        };
+      }
+      const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
+      return { block, serialization };
+    }
+    case "signature":
+      return {
+        block: buildSignatureContract(file, role, serialization),
+        serialization,
+      };
+    case "excerpt":
+    default: {
+      const baseBudget =
+        role === "route-page" ? ROUTE_PAGE_BODY_BUDGET_CHARS : EXCERPT_BODY_BUDGET_CHARS;
+      const budget =
+        typeof file.maxPromptChars === "number" && file.maxPromptChars > 0
+          ? file.maxPromptChars
+          : baseBudget;
+      return {
+        block: buildExcerptContract(file, role, serialization, budget),
+        serialization,
+      };
+    }
+  }
 }
 
 const CRITICAL_PATH_PATTERNS = [
@@ -70,7 +365,7 @@ export function serializeScaffoldForPrompt(
 ): string {
   const maxChars = Math.max(4_000, options.maxChars ?? DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS);
   const hints = scaffold.promptHints.length > 0
-    ? `\n\nScaffold hints:\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`
+    ? `\n\n## Scaffold Hints\n\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`
     : "";
   const traitLines = [
     scaffold.structureProfile ? `- structure_profile: ${scaffold.structureProfile}` : null,
@@ -104,7 +399,7 @@ export function serializeScaffoldForPrompt(
     );
     const layoutBlocks = renderSelectedScaffoldFiles(
       layoutAndStyleFiles,
-      Math.min(maxChars, 4_000),
+      Math.min(maxChars, INSPIRATIONAL_LAYOUT_FILE_BUDGET_CHARS),
     );
 
     const pageFile = scaffold.files.find(
@@ -139,9 +434,24 @@ export function serializeScaffoldForPrompt(
   });
   const fileTree = buildScaffoldFileTree(scaffold);
   const criticalFiles = selectCriticalScaffoldFiles(scaffold, contextPolicy, options);
+  const criticalIntro =
+    `${FILE_CONTRACT_HEADER}\n\n` +
+    "Scaffold files are rendered using a per-role policy: `layout.tsx`, `globals.css`, and config files are complete code fences; `page.tsx` becomes a FileContract; shared components and route handlers become FileContracts with imports/exports/signature only.\n\n";
   const usedBeforeCritical =
-    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n`;
-  const criticalBudget = Math.max(3_000, maxChars - usedBeforeCritical.length - hints.length);
+    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n${criticalIntro}`;
+  const requestedCriticalBudget = Math.max(
+    3_000,
+    maxChars - usedBeforeCritical.length - hints.length,
+  );
+  const criticalBudget = Math.max(
+    0,
+    Math.min(
+      requestedCriticalBudget,
+      CRITICAL_SCAFFOLD_FILES_HARD_CAP_CHARS -
+        "## Critical Scaffold Files\n\n".length -
+        criticalIntro.length,
+    ),
+  );
   const criticalBlocks = renderSelectedScaffoldFiles(criticalFiles, criticalBudget);
 
   return `${usedBeforeCritical}${criticalBlocks}${hints}`;
@@ -235,6 +545,29 @@ function buildScaffoldFileTree(scaffold: ScaffoldManifest): string {
   return scaffold.files.map((file) => `- ${file.path}`).join("\n");
 }
 
+function extractExportSummary(content: string): string {
+  const exports = Array.from(
+    content.matchAll(/\bexport\s+(?:default\s+)?(?:async\s+)?(?:function|const|class|interface|type)\s+([A-Za-z_$][\w$]*)/g),
+    (match) => match[1],
+  );
+  const unique = Array.from(new Set(exports)).slice(0, 6);
+  return unique.length > 0 ? `; exports: ${unique.join(", ")}` : "";
+}
+
+function renderOmittedScaffoldFiles(
+  files: Array<{ path: string; content: string }>,
+  reason: "prompt budget" | "length",
+): string {
+  if (files.length === 0) return "";
+  const lines = files.map((file) => (
+    `- \`${file.path}\` omitted for ${reason} (${file.content.length} chars${extractExportSummary(file.content)})`
+  ));
+  return [
+    "_Additional scaffold files omitted. Do not infer missing JSX from partial snippets; create complete files from the file paths, imports, and request context._",
+    ...lines,
+  ].join("\n");
+}
+
 function renderSelectedScaffoldFiles(
   files: Array<{ path: string; content: string }>,
   maxChars: number,
@@ -243,21 +576,21 @@ function renderSelectedScaffoldFiles(
   let usedChars = 0;
 
   for (const file of files) {
-    const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
-    if (usedChars + block.length > maxChars) {
-      const remaining = Math.max(0, maxChars - usedChars - 200);
-      if (remaining > 200) {
-        const truncated = file.content.slice(0, remaining);
-        blocks.push(`\`\`\`${inferLang(file.path)} file="${file.path}"\n${truncated}\n// ... truncated\n\`\`\``);
-      }
-      const omitted = files.length - blocks.length;
-      if (omitted > 0) {
-        blocks.push(`_${omitted} additional critical scaffold file${omitted > 1 ? "s" : ""} omitted for prompt budget_`);
+    const { block } = renderScaffoldFileBlock(file);
+    const separatorChars = blocks.length > 0 ? 2 : 0;
+    if (usedChars + separatorChars + block.length > maxChars) {
+      const omittedSummary = renderOmittedScaffoldFiles(files.slice(files.indexOf(file)), "prompt budget");
+      const omittedSeparatorChars = blocks.length > 0 ? 2 : 0;
+      if (
+        omittedSummary &&
+        usedChars + omittedSeparatorChars + omittedSummary.length <= maxChars
+      ) {
+        blocks.push(omittedSummary);
       }
       break;
     }
     blocks.push(block);
-    usedChars += block.length;
+    usedChars += separatorChars + block.length;
   }
 
   return blocks.join("\n\n");
@@ -270,15 +603,8 @@ function renderScaffoldFiles(scaffold: ScaffoldManifest, maxChars = 140_000): st
   for (const file of scaffold.files) {
     const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
     if (usedChars + block.length > maxChars) {
-      if (usedChars === 0) {
-        const truncated = file.content.substring(0, maxChars - 200);
-        blocks.push(`\`\`\`${inferLang(file.path)} file="${file.path}"\n${truncated}\n// ... truncated\n\`\`\``);
-        usedChars = maxChars;
-      }
-      const omitted = scaffold.files.length - blocks.length;
-      if (omitted > 0) {
-        blocks.push(`_${omitted} additional scaffold file${omitted > 1 ? "s" : ""} omitted for length_`);
-      }
+      const omittedSummary = renderOmittedScaffoldFiles(scaffold.files.slice(scaffold.files.indexOf(file)), "length");
+      if (omittedSummary) blocks.push(omittedSummary);
       break;
     }
 

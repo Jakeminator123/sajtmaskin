@@ -1,0 +1,54 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 10 Masterplan Synthesis — 06-risk-register
+Date: 2026-05-01
+
+## Inputs Read
+- Risk map, conflict forecast, stream routes, validation schemas, finalize/preflight, autofix/verifier, builder state, preview hooks/session, env policy, strict schemas, regression gaps, design tokens, domain/CSP/error-observability reports.
+
+## Synthesis
+Highest risk sits at contract boundaries: SSE/events, Zod/AJV schemas, preview-contract/session ids, builder coexistence, CSP/proxy and env policy. User-visible risks are broken streams, stale `Fel`, preview heartbeat/TTL bugs, CSP blocking runtime scripts, wrong domain project binding and missing route tests.
+
+## Ordered Plan
+1. Clean dirty/generated paths.
+2. Resolve tooling/config/CSP early.
+3. Merge backend stream contracts and clients.
+4. Merge generation/finalize/autofix/verifier as one dependency chain.
+5. Fix preview session id/heartbeat before UI polish.
+6. Merge builder shell/state/preview panel together.
+7. Merge env/config/docs atomically.
+8. Validate schemas/dossiers.
+9. Wire deploy/domain/observability.
+10. Run design and verification passes.
+
+## Exact LLM Implementation Brief
+- Update schema, route, client and test in the same change for any JSON contract shift.
+- Map `reasoning-slow`; do not add second live client to the same chat.
+- Use one preview session id source and one viewerId per tab.
+- Clear verifier UI only for the latest version after aligned rerun.
+- Merge env code/policy/docs together and run audits.
+- Test CSP report-only before enforce.
+- Keep metrics token-gated and error logs tenant-scoped.
+- Add P0 route tests when touching hotspot routes.
+
+## Acceptance Criteria
+- Streams complete and tests pass.
+- Preview heartbeat/status/destroy/recover work.
+- No stale false `Fel` on healthy latest version.
+- Env audit/typecheck clean.
+- CSP enforce works in staging.
+- Domain link/verify/save use correct ids.
+- Observability has no leaked secrets or unscoped logs.
+- Touched UI keeps design tokens.
+
+## Risks / Mitigations
+- Critical: SSE drift. Mitigate with atomic stream/client merge and tests. Rollback stream slice.
+- Critical: duplicate clients same chat. Mitigate one-client QA. Stop duplicate client and re-finalize if needed.
+- High: stale verifier. Tie errors to latest `versionId`.
+- High: preview id mismatch. Harmonize hooks/routes/contracts.
+- High: CSP/CORS regression. Use report-only and single CSP authority.
+- High: env drift. Atomic env slice and audits.
+- Medium: domain wrong project id. Staging dashboard cross-check.
+- Medium: secret/log leakage. Exclude dumps and rotate if leaked.
+- Medium: test gaps. Block hotspot merges without tests.
+
+## Final Recommendations
+Merge in dependency order and treat coexistence, env-policy, CSP and preview-session id as release blockers, not polish items.

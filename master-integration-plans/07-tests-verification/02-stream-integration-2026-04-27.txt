@@ -1,0 +1,34 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 02-stream-integration
+Date: 2026-04-27
+
+## Required Checks
+- Båda SSE-vägarna: `POST /api/engine/chats/stream` (init) vs `POST /api/engine/chats/[chatId]/stream` (follow-up) — skilda `route.test.ts` + mocklager.
+- `finalizeOrHandleEmptyGeneration`-kontrakt mot finalize-lib (mockat i route-tester).
+- Rate limit, `chatSchemas`, credits — schemaändringar kan bryta tester utan produktionsbugg.
+
+## Existing Tests
+- **Huvud:** `src/app/api/engine/chats/stream/route.test.ts`, `src/app/api/engine/chats/[chatId]/stream/route.test.ts` (delegate till `chat-message-stream-post` i follow-up-fallet).
+- **Nära:** `src/app/api/engine/chats/route.test.ts`, `init/route.test.ts`, `[chatId]/messages/route.test.ts`, m.fl. under `engine/chats/`.
+- **Lib:** `src/lib/hooks/chat/stream-handlers.test.ts`, `helpers.test.ts` (`finalizeStreamStats`), `finalize-version.test.ts`, `generation-stream-post-finalize.test.ts`, own-engine session-tester.
+
+## Missing Coverage
+- **Saknas `route.test.ts` (ur inventering):** t.ex. `finalize-design`, `repair`, `accept-repair`, `readiness`, `validate-images`, `validate-css`, `normalize-text`, `messages/[messageId]`, flera `versions/...` underrutter.
+- **E2E** mot `next dev` + riktig DB för SSE: inte ersatt av Vitest; separata Playwright-projekt.
+
+## Failure Triage Guide
+- **Mock-signatur:** `withRateLimit`, `chatSchemas.safeParse` — uppdatera hoisted mocks i båda stream-tester.
+- **Finalize return-objekt:** fält som `crossFileStubs`, `rejectedShrinks` måste finnas i mock-returer om asserts kräver dem.
+- **Importväg** till `chat-message-stream-post` vid refactor.
+- **Hook timeout** i `stream/route.test.ts` (observerat i preflight) — se global/hook `timeout` i Vitest.
+
+## Exact Commands
+```bash
+npm run test:ci
+npx vitest run src/app/api/engine/chats/stream/route.test.ts "src/app/api/engine/chats/[chatId]/stream/route.test.ts"
+npm run test:focused
+npm run typecheck
+```
+
+## Pass Criteria
+- `test:ci` exit 0; båda stream-`route.test.ts` gröna utan unhandled rejection.
+- Typecheck 0 fel före merge kring pipeline/API.

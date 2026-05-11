@@ -1,7 +1,45 @@
 import { describe, expect, it } from "vitest";
 import type { EvalBaseline } from "./baseline";
 import { compareWithBaseline } from "./baseline";
-import type { EvalReport } from "./runner";
+import type { EvalReport, EvalResult } from "./runner";
+
+function evalResult(overrides: Partial<EvalResult>): EvalResult {
+  return {
+    promptId: "coffee-shop",
+    generationStatus: "passed",
+    failureStage: null,
+    generationTimeMs: 900,
+    fileCount: 4,
+    finalProjectFiles: 10,
+    generatedSurfaceFiles: 4,
+    scaffoldId: "landing-page",
+    variantId: "corporate-grid",
+    promptSize: {
+      totalChars: 40_000,
+      totalEstimatedTokens: 12_000,
+      staticCoreChars: 30_000,
+      staticCoreEstimatedTokens: 9_375,
+      dynamicContextChars: 10_000,
+      dynamicContextEstimatedTokens: 3_125,
+      dynamicBudgetUsedTokens: 3_125,
+      dynamicBudgetBudgetTokens: 30_000,
+      droppedBlocks: 0,
+      largestBlocks: [],
+    },
+    preflight: {
+      errors: 0,
+      warnings: 0,
+      previewBlocked: false,
+      previewBlockingReason: null,
+    },
+    droppedProtectedPaths: [],
+    checks: [],
+    totalScore: 0.6,
+    passed: false,
+    blockingChecks: ["tier2-readiness"],
+    ...overrides,
+  };
+}
 
 function makeBaseline(): EvalBaseline {
   return {
@@ -43,24 +81,22 @@ function makeReport(): EvalReport {
     timestamp: "2026-04-03T01:00:00.000Z",
     model: "gpt-5.4",
     results: [
-      {
+      evalResult({
         promptId: "coffee-shop",
         generationTimeMs: 900,
         fileCount: 4,
-        checks: [],
         totalScore: 0.6,
         passed: false,
         blockingChecks: ["tier2-readiness"],
-      },
-      {
+      }),
+      evalResult({
         promptId: "dashboard",
         generationTimeMs: 1100,
         fileCount: 6,
-        checks: [],
         totalScore: 0.7,
         passed: true,
         blockingChecks: [],
-      },
+      }),
     ],
     summary: {
       total: 2,

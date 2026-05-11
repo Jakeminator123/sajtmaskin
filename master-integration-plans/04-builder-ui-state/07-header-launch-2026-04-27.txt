@@ -1,0 +1,33 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 07-header-launch
+Date: 2026-04-27
+
+## UI/UX To Preserve
+- `BuilderHeader`: publicera, domän, deployment-status, kompakt meny, **canDeploy** / `isBusy` / `isDeploying` / tooltips med `deployDisabledReason`; kort svenska, inga nya färghögar utanför design tokens där så börjat.
+- `DeployNameDialog`: fält, `.vercel.app`, kort CTA, feltext från `deployNameError`.
+- `useBuilderDeployActions`: `deployActiveVersionToVercel`, `POST /api/v0/deployments` med body enligt MI02; 409 `DEPLOY_MISSING_ENV` + `persistVersionErrorLogs` + toast/CTA; domänsök `POST /api/domains/check` after deploy tips.
+- `VersionDiagnosticsDialog`: error-log `GET` …/error-log, F3 vs F2 (miljö-genväg), kategori-SEO-amber för befintlig loggtyp (int opt-in, bara read).
+- `useChatReadiness` → `deployReadiness` → `canDeploy` (kombinerat i header/shell).
+
+## New Master Capabilities To Surface
+- **På `origin/master` (ej lokalt i WIP tills merge):** `SeoOptInPanel.tsx` + `SeoOptInPanel.test` + troligen wiring i bygg/publish/Deploy-flöde; `resolve-seo` under `api/v0/deployments` — syfte: SEO-opt-in / preferences efter bygg, kopplat till `projects/.../preferences` (se MI `02/06` + `01/06` plan).
+- Nya `ChatReadiness` fält: visa blockers i header/tooltip utan att tvinga lång copy (policy: kort).
+
+## State/Props Impact
+- Master-diff: `BuilderHeader` inte alltid i listan men beroende av samma `vm` som rörs: `useBuilderPageController` + `useBuilderDeployActions` + ev. nya `SeoOptInPanel` props.
+- När `SeoOptInPanel` landar: samordna med `DeployNameDialog` (före/efter) och `VersionDiagnosticsDialog` (read-only SEO vs opt-in) så användaren får en **linje**, inte tre motstridiga.
+
+## Merge Conflict Plan
+1. In `useBuilderDeployActions` + `BuilderHeader`: **ours** för 409/ toast-kedja; plocka master SEO/panel om separat sektion.
+2. När `SeoOptInPanel` följer med: läs masterns branch för exakt CTA, koppling till `PATCH preferences` (F3PlaceholderToggle redan) — samma tekniska `preferences` fält där så föreskrivs.
+3. Efter `resolve-seo` merge: e2e eller rök: publicera → förväntad kroppspayload + UI-lås.
+4. `VersionDiagnosticsDialog` + nya Seo-UI: undvik dubblett av samma policy i två modaler; ev. länk från diagnostics → opt-in där så designat.
+
+## Test Plan
+- Befintliga: `v0/deployments` route test (backend) + manuell deploy.
+- Nya efter landning: `SeoOptInPanel.test` (master), + uppdatera `BuilderMessageTooling` / launch om händelser når chatten.
+- Header: manuell `!canDeploy` (blockers), bygger-status, "Publicerad" länk.
+
+## Do Not Break
+- Kredit- och `prepareCredits` före deploy (server) — UI får inte skippa gate; header visar inte faktisk krediträkning (tips om "2 credits" om kvar) — håll kort, ändra endast copy om masterna ändrar policy i **text** parallellt med backend.
+- Ingen tredje publiseringsknapps-klient: samma `onDeployProduction` sökväg.
+- 409/ error-log: oförstörd loggsträng till användaren / diagnostics.

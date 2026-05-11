@@ -1,4 +1,4 @@
-import type { ChatReadiness } from "@/lib/chat-readiness";
+import type { ChatReadiness, ChatReadinessInfo, ChatReadinessItem } from "@/lib/chat-readiness";
 
 /** Badge / rubrik bredvid "Lansering" — en källa för hela byggaren. */
 export function formatDeployReadinessStatusLabel(readiness: ChatReadiness): string {
@@ -21,4 +21,18 @@ export function deployReadinessBadgeClassName(readiness: ChatReadiness): string 
     return "border-amber-500/30 bg-amber-500/10 text-amber-200";
   }
   return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+}
+
+export function envKeysForReadinessItem(
+  item: ChatReadinessItem,
+  info: ChatReadinessInfo,
+): string[] {
+  if (item.envKeys && item.envKeys.length > 0) return item.envKeys;
+  if (item.id === "placeholder-env") return info.placeholderCoveredKeys ?? [];
+  if (item.id === "feature-runtime-env") return info.featureRuntimeKeys ?? [];
+  if (item.id === "warn-only-env") return info.warnOnlyKeys ?? [];
+  if (item.id === "missing-env") {
+    return info.buildBlockingKeys ?? info.missingEnvKeys;
+  }
+  return [];
 }

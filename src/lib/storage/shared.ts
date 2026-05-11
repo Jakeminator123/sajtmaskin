@@ -39,7 +39,13 @@ export function decodeStoragePathname(pathname: string): string {
   return pathname
     .split("/")
     .filter(Boolean)
-    .map((segment) => decodeURIComponent(segment))
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        throw new Error(`Invalid encoded storage pathname: ${pathname}`);
+      }
+    })
     .join("/");
 }
 

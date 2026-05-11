@@ -1,5 +1,4 @@
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
-import { checkScaffoldImports } from "@/lib/gen/autofix/rules/scaffold-import-checker";
 import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
 import { fixTypeOnlyModuleDefaultImports } from "@/lib/gen/autofix/rules/type-only-module-default-import-fixer";
 import type { CodeFile } from "@/lib/gen/parser";
@@ -9,6 +8,67 @@ import { warnLog } from "@/lib/utils/debug";
 import { deriveFollowUpStateFromInputs } from "@/lib/gen/follow-up-predicate";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
+import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
+
+interface ImportFix {
+  file: string;
+  addedImport: string;
+  component: string;
+}
+
+function checkScaffoldImports(
+  files: CodeFile[],
+  scaffold: ScaffoldManifest,
+): { files: CodeFile[]; fixes: ImportFix[] } {
+  const layoutFile = files.find(
+    (f) => f.path === "app/layout.tsx" || f.path === "src/app/layout.tsx",
+  );
+  if (!layoutFile) return { files, fixes: [] };
+
+  const scaffoldComponents = scaffold.files
+    .filter((f) => f.path.startsWith("components/"))
+    .map((f) => {
+      const exportMatch = f.content.match(
+        /export\s+(?:default\s+)?function\s+(\w+)/,
+      );
+      if (!exportMatch) return null;
+      return {
+        name: exportMatch[1],
+        importPath: `@/${f.path.replace(/\.tsx$/, "")}`,
+      };
+    })
+    .filter(Boolean) as Array<{ name: string; importPath: string }>;
+
+  const fixes: ImportFix[] = [];
+  let layoutContent = layoutFile.content;
+
+  for (const comp of scaffoldComponents) {
+    const jsxRe = new RegExp(`<${comp.name}[\\s/>]`);
+    const isReferenced = jsxRe.test(layoutContent);
+    const importRe = new RegExp(
+      `import\\s+(?:(?:\\{[^}]*\\b${comp.name}\\b[^}]*\\})|(?:${comp.name}))\\s+from\\s+`,
+    );
+    const isImported = importRe.test(layoutContent);
+
+    if (isReferenced && !isImported) {
+      const importLine = `import { ${comp.name} } from "${comp.importPath}";\n`;
+      layoutContent = importLine + layoutContent;
+      fixes.push({
+        file: layoutFile.path,
+        addedImport: importLine.trim(),
+        component: comp.name,
+      });
+    }
+  }
+
+  if (fixes.length === 0) return { files, fixes };
+
+  const updatedFiles = files.map((f) =>
+    f.path === layoutFile.path ? { ...f, content: layoutContent } : f,
+  );
+
+  return { files: updatedFiles, fixes };
+}
 
 export interface MergeGeneratedProjectFilesParams {
   chatId: string;
@@ -72,12 +132,9 @@ export interface MergeGeneratedProjectFilesResult {
    * Imports the LLM made to local files that did not exist in the merged
    * file set. `cross-file-import-checker` auto-stubbed each of them so the
    * build doesn't die — but the stubs render `null`, meaning the user sees
-   * a hollow shell where the real component should have been (the canonical
-   * STATUS-01 example: `coffee-cup-3d.tsx → ./coffee-cup-scene` was stubbed
-   * silently, so the "3D scene" feature was visually missing without any
-   * user-facing signal). Surfacing this as a `warning`-severity log row in
-   * the version diagnostics modal lets the user understand "1 file saknades
-   * och stubbades" instead of believing the generation succeeded fully.
+   * a hollow shell where the real component should have been. When an obvious
+   * sibling exists, the checker may instead rewrite the import path and set
+   * `rewireTarget`.
    *
    * Plan-02 / STATUS-02: not an `error` — the build IS shippable; just
    * incomplete relative to what the LLM intended.
@@ -86,6 +143,8 @@ export interface MergeGeneratedProjectFilesResult {
     sourceFile: string;
     missingImport: string;
     stubFile: string;
+    rewireTarget?: string;
+    rewireImportSpec?: string;
     /** Present when the missing import matches a dossier exposes entry. */
     dossierId?: string;
     capability?: string;
@@ -115,48 +174,12 @@ function isLlmOnlyPath(path: string): boolean {
 }
 
 /**
- * Paths whose content MUST come from the scaffold default (or the previous
- * persisted version on follow-up). LLM emissions targeting these paths are
- * dropped before merge.
+ * SCAFFOLD_PROTECTED_PATHS — counterpart of `LLM_ONLY_PATHS`.
  *
- * Why this exists: LLMs frequently regenerate `app/api/placeholder/route.ts`
- * as JSX-like syntax (`<svg style="...">`) inside a `.ts` file because the
- * scaffold version contains a `<svg ...>` template literal. The result is
- * `Expected ">" but found "style"` syntax errors that block tier-2 readiness.
- * In the 2026-04-27 baseline-after-revert eval, this single path explained
- * 6 of 13 failing prompts (coffee-shop, restaurant, agency, booking-service,
- * multi-page-brochure, consultant-landing).
- *
- * Add new entries ONLY when:
- *   1. The file is pure utility — no brand, copy, design, or business logic.
- *   2. The scaffold-shipped version is verified correct.
- *   3. Customers will not need to customize it per project.
- *
- * Counterpart of `LLM_ONLY_PATHS` (which forces the LLM to emit the file).
+ * Source of truth + partition helper now live in
+ * `@/lib/gen/scaffolds/protected-paths`. See that module for context on
+ * why the set is shared with server-verify and the manual repair route.
  */
-const SCAFFOLD_PROTECTED_PATHS: ReadonlySet<string> = new Set([
-  "app/api/placeholder/route.ts",
-]);
-
-function isScaffoldProtectedPath(path: string): boolean {
-  return SCAFFOLD_PROTECTED_PATHS.has(path.replace(/\\/g, "/"));
-}
-
-function partitionGeneratedFilesForProtectedPaths(generatedFiles: CodeFile[]): {
-  kept: CodeFile[];
-  dropped: CodeFile[];
-} {
-  const kept: CodeFile[] = [];
-  const dropped: CodeFile[] = [];
-  for (const file of generatedFiles) {
-    if (isScaffoldProtectedPath(file.path)) {
-      dropped.push(file);
-    } else {
-      kept.push(file);
-    }
-  }
-  return { kept, dropped };
-}
 
 export function mergeGeneratedProjectFiles({
   chatId,

@@ -10,6 +10,8 @@ export type ChatReadinessItem = {
   detail?: string | null;
   severity: ChatReadinessSeverity;
   action?: ChatReadinessAction;
+  /** Env keys this item is about. Lets the UI open the env panel on the exact relevant keys. */
+  envKeys?: string[];
 };
 
 export type ChatReadinessInfo = {
@@ -18,7 +20,7 @@ export type ChatReadinessInfo = {
   /**
    * F2 vs F3 stage of the active version (`design` | `integrations`).
    * Used by the builder UI to hide the env panel in F2 and show the
-   * "Bygg nu" trigger in its place. See
+   * "Bygg integrationer" trigger in its place. See
    * `.cursor/rules/env-flow-f2-mute.mdc`.
    */
   lifecycleStage?: "design" | "integrations" | null;
@@ -42,6 +44,11 @@ export type ChatReadinessInfo = {
    * Surfaced as informational warnings, never blockers.
    */
   featureRuntimeKeys?: string[];
+  /**
+   * Phase-4: keys whose dossier marks them `enforcement: "warn-only"`.
+   * Components self-disable when missing; surfaced for diagnostics, not as a blocker.
+   */
+  warnOnlyKeys?: string[];
 };
 
 export type ChatReadiness = {

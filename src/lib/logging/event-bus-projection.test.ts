@@ -55,7 +55,62 @@ describe("selectVersionStatus", () => {
       eventCount: 0,
       done: false,
       verifierOutcome: null,
+      degradations: [],
     });
+  });
+
+  it("collects version.degraded events without changing phase", () => {
+    const status = selectVersionStatus([
+      ev("version.started", {}),
+      ev("version.degraded", {
+        kind: "verifier_skipped_by_policy",
+        message: "Server-verify skipped (design_preview_skip_verify).",
+        meta: { reason: "design_preview_skip_verify" },
+      }),
+      ev("version.degraded", {
+        kind: "product_postcheck_skipped",
+        message: "F2 Product Postcheck skipped (missing_preview_url).",
+        meta: { skippedReason: "missing_preview_url" },
+      }),
+    ]);
+    expect(status.degradations).toHaveLength(2);
+    expect(status.degradations.map((d) => d.kind)).toEqual([
+      "verifier_skipped_by_policy",
+      "product_postcheck_skipped",
+    ]);
+    // phase still tracks the lifecycle signals, not the degradations.
+    expect(status.phase).toBe("streaming");
+  });
+
+  it("collapses repeated degraded events of same kind to most recent meta", () => {
+    const status = selectVersionStatus([
+      ev("version.degraded", {
+        kind: "verifier_skipped_by_policy",
+        message: "first",
+        meta: { reason: "foo" },
+      }),
+      ev("version.degraded", {
+        kind: "verifier_skipped_by_policy",
+        message: "second",
+        meta: { reason: "bar" },
+      }),
+    ]);
+    expect(status.degradations).toHaveLength(1);
+    expect(status.degradations[0]?.message).toBe("second");
+  });
+
+  it("clears degradations on a clean version.saved", () => {
+    const status = selectVersionStatus([
+      ev("version.degraded", {
+        kind: "verifier_skipped_by_policy",
+        message: "stale skip from earlier pass",
+      }),
+      ev("version.saved", {
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+    ]);
+    expect(status.degradations).toEqual([]);
   });
 
   it("streaming token progress surfaces as streaming", () => {

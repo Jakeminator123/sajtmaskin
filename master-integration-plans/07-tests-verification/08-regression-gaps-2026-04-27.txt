@@ -1,0 +1,33 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 08-regression-gaps
+Date: 2026-04-27
+
+## Required Checks
+- Säkra “master-merge-hotspots” där `route.test.ts` är tunn: stream-kontrakt, repair/readiness, preview, credits, `ai/*`, upload, version-subroutes.
+- Förväntning: ~**12%** av `src/app/api/**/route.ts` har sida-vid-sida colokal `route.test.ts` (grov filräkning) — **lib** kompenserar delvis, HTTP-gren sämre.
+
+## Existing Tests
+- Täta områden: `chats` + `stream` (båda), `quality-gate`, preview-*, vissa `files`/`versions` — se MI02/04 planer.
+- Många `src/lib/**` + route med mocks ger logiktäckning **utan** full HTTP-yta.
+
+## Missing Coverage
+- **Saknade exempel** colokal `route.test.ts` (icke uttömmande): `accept-repair`, `repair`, `readiness`, `finalize-design`, `normalize-text`, `validate-css`, `validate-images`, `messages/[messageId]`, flera `versions/[versionId]/*` (export, download, approval, feedback, comments, collaboration-summaries).
+- `src/app/api/preview-render/route.ts` — tänk 4xx/410/403/HTML-shim.
+- `ai/*` routes, `media/upload`, `projects/.../upload` — sällan colokal route-test.
+- Förslag (prioritetsordning) — nya/utökade fokustester, ej scope här: `preview-render`, `repair`, `readiness`, `accept-repair`, `finalize-design`, `validate-*`, en version-export/download, credits-check, minimalt `ai/brief` eller `ai/chat` (parse/auth), en upload-route.
+
+## Failure Triage Guide
+- Route saknas men lib grön → tänk **statuskod, headers, body-schema, auth** på gränsen.
+- Stream/repair-ekosystem: felet ofta i **nästa** route längs kedja, inte i stream-filen.
+- Siffror (12% / 18 filer) — re-räkna före rapport om repo driftat: `find` + räkna `route.test.ts` vs `route.ts`.
+
+## Exact Commands
+```bash
+# Inventera API vs route.test (exempel)
+find src/app/api -name 'route.ts' | wc -l
+find src/app/api -name 'route.test.ts' | wc -l
+npm run test:ci
+```
+
+## Pass Criteria
+- Strategiskt: lägg nya `route.test.ts` där MI02/03/05/08 pekar; **kriterium = team policy** tills filpar-täckning förbättrats.
+- Minimalt vid merge: befintlig `test:ci`+CI grön; föreslagna tester = backlog, inte block om inte policy säger det.

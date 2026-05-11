@@ -208,14 +208,26 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
       setLinkResult(data);
 
       if (deploymentId) {
-        fetch("/api/domains/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            deploymentId,
-            domain: selectedDomain.domain,
-          }),
-        }).catch(() => {});
+        try {
+          const saveRes = await fetch("/api/domains/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              deploymentId,
+              domain: selectedDomain.domain,
+            }),
+          });
+          const saveData = await saveRes.json().catch(() => ({}));
+          if (!saveRes.ok) {
+            setLinkError(
+              typeof saveData.error === "string"
+                ? `Domänen kopplades, men kunde inte sparas: ${saveData.error}`
+                : "Domänen kopplades, men kunde inte sparas på deploymenten.",
+            );
+          }
+        } catch {
+          setLinkError("Domänen kopplades, men kunde inte sparas på deploymenten.");
+        }
       }
 
       setStep("verify");

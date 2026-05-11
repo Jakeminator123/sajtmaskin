@@ -16,7 +16,15 @@ describe("inferCapabilities", () => {
     expect(caps.needsPremiumVisuals).toBe(true);
   });
 
-  it("detects carousel + charts from a mixed prompt", () => {
+  it("does not treat ordinary portfolio galleries as carousel capabilities", () => {
+    const caps = inferCapabilities(
+      "Jag vill ha en portfolio med bildgalleri och statistik-grafer.",
+    );
+    expect(caps.needsCarousel).toBe(false);
+    expect(caps.needsCharts).toBe(true);
+  });
+
+  it("detects explicit carousel + charts from a mixed prompt", () => {
     const caps = inferCapabilities(
       "Jag vill ha en portfolio med karusell för bilder och statistik-grafer.",
     );
@@ -27,6 +35,7 @@ describe("inferCapabilities", () => {
   it("detects forms + ecommerce without false positives on hospitality", () => {
     const caps = inferCapabilities("Build a webshop with a checkout form and product pages");
     expect(caps.needsEcommerce).toBe(true);
+    expect(caps.needsPayments).toBe(true);
     expect(caps.needsForms).toBe(true);
   });
 
@@ -52,6 +61,19 @@ describe("inferCapabilities", () => {
     expect(caps.needsThemeToggle).toBe(true);
   });
 
+  it("detects playable game intent without forcing 3D for ordinary 2D games", () => {
+    const caps = inferCapabilities("Bygg ett litet spel där man styr en orm och samlar poäng");
+    expect(caps.needsGame).toBe(true);
+    expect(caps.needsMotion).toBe(true);
+    expect(caps.needs3D).toBe(false);
+  });
+
+  it("detects game + canvas/WebGL as interactive 3D/canvas work", () => {
+    const caps = inferCapabilities("Bygg ett interaktivt canvas game med WebGL och poängräkning");
+    expect(caps.needsGame).toBe(true);
+    expect(caps.needs3D).toBe(true);
+  });
+
   it("detects command search from 'cmd+k' prompt", () => {
     const caps = inferCapabilities("Add a cmd+k command palette for quick navigation");
     expect(caps.needsCommandSearch).toBe(true);
@@ -68,8 +90,10 @@ describe("inferCapabilities", () => {
     expect(caps.needsPhysics).toBe(true);
   });
 
-  it("detects English flying/hovering vocabulary for needsPhysics", () => {
-    expect(inferCapabilities("a chimp that hovers").needsPhysics).toBe(true);
+  it("keeps hovering/floating vocabulary decorative unless physics is explicit", () => {
+    const caps = inferCapabilities("a 3d chimp that hovers and floats");
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsPhysics).toBe(false);
   });
 
   it("does not flag physics for plain 3D corner art", () => {
@@ -126,7 +150,9 @@ describe("inferCapabilities", () => {
   });
 
   it("does NOT flag needsPayments for plain ecommerce wording without explicit payment provider", () => {
-    const caps = inferCapabilities("Visa produkter i en katalog, ingen kassa just nu");
+    const caps = inferCapabilities(
+      "Visa produkter i en katalog utan onlinebetalning i MVP",
+    );
     expect(caps.needsPayments).toBe(false);
   });
 
@@ -272,6 +298,23 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).toContain("Skeleton");
   });
 
+  it("game hint ships the six-point playable contract", () => {
+    const caps = inferCapabilities("Bygg ett litet spel med score och kontroller");
+    const hints = buildCapabilityHints(caps)!;
+    // The hint must surface the mental model from the interactive-game-loop
+    // dossier verbatim so the codegen LLM sees identical phrasing in both
+    // places. "state + loop + controls + collision + score + restart" is
+    // the contract — downgrading any of these turns a game into a mockup.
+    expect(hints).toContain("Game / playable mechanic requested");
+    expect(hints).toContain("state");
+    expect(hints).toContain("loop");
+    expect(hints).toContain("controls");
+    expect(hints).toContain("collision");
+    expect(hints).toContain("restart");
+    expect(hints).toContain("interactive-game-loop");
+    expect(hints).toContain("\"use client\"");
+  });
+
   it("ecommerce hint includes Drawer and Dialog guidance", () => {
     const caps = inferCapabilities("An ecommerce shop with product pages");
     const hints = buildCapabilityHints(caps)!;
@@ -295,5 +338,16 @@ describe("buildCapabilityHints (pack-based)", () => {
     expect(hints).toContain("@react-three/rapier");
     expect(hints).toContain("Physics");
     expect(hints).toContain("RigidBody");
+  });
+
+  it("3D hint does not mention rapier for decorative hovering/floating motion", () => {
+    const caps = inferCapabilities("lägg till en hovrande 3d-klocka som svävar i hero");
+    expect(caps.needs3D).toBe(true);
+    expect(caps.needsPhysics).toBe(false);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("decorative 3D");
+    expect(hints).not.toContain("@react-three/rapier");
+    expect(hints).not.toContain("<Physics>");
+    expect(hints).not.toContain("<RigidBody>");
   });
 });

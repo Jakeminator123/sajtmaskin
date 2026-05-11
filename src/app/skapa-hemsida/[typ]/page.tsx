@@ -7,7 +7,7 @@ import {
 import { listSeoLandingSlugs } from "@/lib/seo/load-landing";
 
 export const dynamic = "force-static";
-export const revalidate = 60 * 60 * 24 * 7;
+export const revalidate = 604800;
 export const dynamicParams = false;
 
 interface PageProps {

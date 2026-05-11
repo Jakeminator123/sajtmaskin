@@ -1,3 +1,10 @@
+---
+id: OPEN-THREADS-SCAFFOLDS-2026-04-24
+status: active
+created: 2026-04-24
+linear: null
+---
+
 # Öppna trådar — scaffolds + SEO + telemetri (2026-04-24)
 
 **Status 2026-04-26 (sen):** ✅ SEO-spåret är klart. PR #102 (docs/plan)
@@ -278,7 +285,7 @@ som visar datan så operatören kan bedöma om scoring är meningsfull.
 
 **Beslutsväntan:** 2–4 veckors data i panelen → välj en av tre vägar:
 1. Wire upp i matchern som tie-breaker.
-2. Behåll som dashboard-data.
+2. Behåll som backoffice-data.
 3. Ta bort modulen + DB-kolumnerna.
 
 **Beroende av SAJ-57** — utan retry-tracking är `retryRate` permanent 0

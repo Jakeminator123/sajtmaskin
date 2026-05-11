@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 06-preview-polish
+Date: 2026-05-01
+
+## UX To Preserve
+- Dense preview toolbar, badges, F3 trigger, simplified/pro split.
+- Frame loading stripe/overlay/hard cap.
+- Empty/loading GenerationProgress.
+- Error overlay with diagnostics/runbook/actions.
+- Device modes and responsive frame.
+
+## Master UI Changes To Inspect
+- `versionMismatchPayload` exists in frame but is not wired from PreviewPanel.
+- Empty/loading priority around preview pending/generation phase.
+- Simplified auto-recover behavior.
+
+## Token / Copy Risks
+- Hardcoded gray/white/amber/violet/emerald/purple in chrome.
+- English copy in preview labels.
+- `bg-white` iframe background.
+
+## Required UI Additions Without Redesign
+- Wire version mismatch into existing frame overlay if backend signals it.
+- Use existing Alert/strip patterns for new warnings.
+
+## Exact LLM Implementation Instructions
+- If master adds version mismatch state, plumb hook -> PreviewPanel -> PreviewPanelFrame.
+- Token-align chrome gradually without changing behavior.
+- Translate visible English labels when touched.
+- Preserve device mode transitions and sandbox attributes.
+
+## Recommended Merge Choices
+- Take master mismatch/diagnostic improvements.
+- Preserve local chrome density, simplified mode, and GenerationProgress debounce/hard cap.
+
+## Visual Verification
+- Empty -> progress -> iframe.
+- Slow navigation overlay timing.
+- Iframe error/runbook/actions.
+- Mobile/tablet frame.
+- Simplified vs pro controls.
+
+## Do Not Break
+- z-index layer order.
+- ARIA status/alert/pressed attributes.
+- Empty preview should not mount meaningless iframe.
+- Builder coexistence.

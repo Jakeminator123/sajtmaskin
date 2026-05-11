@@ -1,0 +1,38 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 03-build-spec-contracts
+Date: 2026-04-27
+
+## Master Pipeline Changes
+- `build-spec/builder.ts` — `deriveBuildSpec` (`routeRealization`, `changeScope`, `previewPolicy`, `qualityTarget`, `verificationPolicy`, m.m.).
+- `build-spec/route-realization.ts` — `primary-full-with-shells` vs `full`, companion routes, `FEATURES.deferExtraRoutesOnInit`, `isEffectiveInit`.
+- `orchestration-contract.ts` — `buildOrchestrationContract`: `requiredRoutePaths` + `generationToValidate` från `routeRealization` + `buildSpec`.
+- `orchestrate/policy-helpers` — `resolveBuildIntentPromotion` (website→app) med follow-up block om persisted icke-app.
+- `generation-input-package.ts` + `orchestrate/generation-package` — `computeLineageHash` inkl. `buildSpec`, `routePlan`, `preGenerationContracts`.
+- `guidance-resolvers.ts` + `system-prompt/sections/visual-and-guidance.ts` / `contracts.ts`.
+- `autofix/pipeline` + `tier3-sdk-guard-fixer` — F2 vs F3 (`previewPolicy !== "fidelity3"`).
+- `export/project-scaffold.ts` — baseline synkad med `dep-completer` (tester).
+
+## Local Behaviors To Preserve
+- QW-1/orchestrate separata prompter (särskilj från här men kontrakt måste följa samma F2/F3 och `requiredRoutePaths`).
+- F3 endast via override / integrations lifecycle, inte heuristik i `inferPreviewPolicy` (kolla `policy-inference` i samma pass).
+- Intent promotion block (följd: marketing scaffold) så `app` inte låses permanent fel.
+- `lineageHash` fält oförstörda vid mindre `buildSpec`-diffar.
+
+## Merge/Port Plan
+1. `orchestrate.ts` + `policy-helpers.ts` + `build-spec/*` + `orchestration-contract.ts` i samma logiska PR-steg.
+2. `generation-input-package` + dump serialization om nya fält.
+3. `autofix/tier3-sdk-guard` + `export/project-scaffold` + tester i lockstep.
+4. Verifiera `orchestrate.test`, `orchestration-integration`, `build-spec.test`, `finalize-*.test` mot `previewPolicy`.
+
+## Regression Risks
+- `inheritQualityTargetFromPriorVersion` / `priorQualityTarget` drift.
+- F3-läckage i F2 (prompt + guard) eller omvänt.
+- `requiredRoutePaths` vs faktiska filer efter `deriveRouteRealizationPolicy` ändring.
+- `project-scaffold` baseline vs VM `package.json`.
+
+## Required Tests
+- `src/lib/gen/build-spec.test.ts`, `orchestrate.test.ts`, `orchestration-integration.test.ts`, `orchestration-snapshot.test.ts`, `export/project-scaffold.test.ts`, `autofix/dep-completer.test.ts`, `src/lib/gen/stream/finalize-version.test.ts`, `finalize-preflight.test.ts`
+
+## Open Questions
+- Fler `previewPolicy`-källor (UI) utöver `lifecycleStage`?
+- `RoutePlan`-form bump → `orchestration-contract` + backoffice?
+- Nya guidance-signaler in i `computeLineageHash`?

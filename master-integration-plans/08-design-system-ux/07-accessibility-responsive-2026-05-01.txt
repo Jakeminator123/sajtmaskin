@@ -1,0 +1,47 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 08 Design System UX — 07-accessibility-responsive
+Date: 2026-05-01
+
+## UX To Preserve
+- Focus-visible rings on primitives.
+- Reduced-motion patterns.
+- Mobile builder tabs ARIA roles/states.
+- Cmd/Ctrl-K disclosure shortcut.
+- Wizard touch targets.
+- Preview live regions and alert regions.
+- Verifier/prompt guard against reduced-motion regressions.
+
+## Master UI Changes To Inspect
+- New overlays/dialogs need title/description.
+- New animations need motion-safe/reduce parity.
+- Custom tabs/menus need keyboard and ARIA support.
+
+## Token / Copy Risks
+- English screen-reader labels in shared UI components.
+- `outline-none` without focus-visible alternative.
+
+## Required UI Additions Without Redesign
+- Add aria-labels for new icon buttons.
+- Use `role=status` / `aria-live` for new loading/status UI.
+
+## Exact LLM Implementation Instructions
+- Generated code must follow motion-safe/motion-reduce rules.
+- Dialogs must have title/description or correct aria.
+- Touch controls should use min-height and touch manipulation like wizard.
+
+## Recommended Merge Choices
+- Keep current reduced-motion strategy.
+- Consider arrow/Home/End support for tablist.
+- Harmonize screen-reader language to Swedish in a copy pass.
+
+## Visual Verification
+- Keyboard through header, tabs, pill, chat input, preview states.
+- Focus ring visibility.
+- Mobile/tablet no clipping.
+- Reduced motion enabled.
+- Touch target sizes.
+
+## Do Not Break
+- `<html lang="sv">`.
+- Preview live/assertive regions.
+- Reduced-motion verifier.
+- Cmd/Ctrl-K disclosure.

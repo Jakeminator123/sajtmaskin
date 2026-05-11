@@ -1,0 +1,41 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 05-dossier-scaffold
+Date: 2026-04-27
+
+## Required Checks
+- Dossier: AJV + `docs/schemas/strict/dossier.schema.json`; `validateDossierManifest`; `scripts/dossiers/validate-all.ts` (verbatim-filer, H1, en `defaultForCapability` per cap).
+- `data/dossiers/_index/capability-map.json` i synk — `dossiers:capability-map:check` / `...:write`.
+- Scaffolds: `runScaffoldManifestChecks` → `npm run scaffolds:validate` (Vitest en fil).
+- Embeddings: `scaffolds:embeddings:check` (prebuild) vs registry.
+
+## Existing Tests
+- `src/lib/gen/dossiers/validate-manifest.test.ts`, `registry.test.ts`, `select.test.ts`, `snapshot-selection.test.ts`, `system-prompt-integration.test.ts`.
+- `src/lib/gen/system-prompt/sections/dossiers.test.ts`, `detect-integrations.test.ts`.
+- `src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts`, `scaffold-embeddings-parity.test.ts`, m.fl. scaffold-tester.
+- **Scripts (ej Vitest):** `scripts/dossiers/validate-all.ts`, `regenerate-capability-map.ts`, `scripts/embeddings/check-scaffold-embeddings.ts`.
+- `docs/schemas/strict/*.json` (editor/dok) + vissa health-fixtures i TS-tester.
+
+## Missing Coverage
+- `dossiers:validate-all` + `capability-map:check` **sitter ej** i `ci.yml` (jmf `devtest` som kör `dossiers:validate-all`).
+- Full AJV av alla variant-JSON i `config/scaffold-variants` utan samlad suite (vardag: editor/manuellt + manifest-validering).
+- Dossier-relaterat i `orchestrate.test.ts` begränsat.
+
+## Failure Triage Guide
+- `validate-all` exit 1: schema, duplicate default, H1, verbatim-sökväg saknas.
+- `dossiers:capability-map:check` exit 1: stale index — kör `...:write` efter kapabilitetsändring.
+- `scaffolds:embeddings:check` — regenerera / synka ID mot `getAllScaffolds()`.
+- `scaffold-manifest-validation.test.ts` — dubbletter, `src/app/`-förbud, struktur enligt validator.
+
+## Exact Commands
+```bash
+npm run scaffolds:validate
+npm run scaffolds:embeddings:check
+npm run dossiers:validate-all
+npm run dossiers:capability-map:check
+npx vitest run src/lib/gen/dossiers
+node scripts/dossiers/validate-one.mjs   # se scripts/README om dokumenterat
+```
+
+## Pass Criteria
+- För dataändring: `dossiers:validate-all` + `capability-map:check` exit 0 där relevant.
+- `build` lyckas om prebuild/embedding rör scaffolds.
+- **CI-minimum** kräver inte `dossiers:validate-all` idag — beslut om att lägga in workflow vid behov.

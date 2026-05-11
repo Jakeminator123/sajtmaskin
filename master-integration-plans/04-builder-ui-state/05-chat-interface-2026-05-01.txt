@@ -1,0 +1,46 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 04 Builder UI & State — 05-chat-interface
+Date: 2026-05-01
+
+## UI/UX To Preserve
+- Composer with Plan, Element, Figma, inspect points, media/text/voice, and follow-up base banner.
+- Message history above composer.
+- Structured and compact rendering modes.
+- Streaming reasoning/text/plan/generation summary.
+- Pending reply modal and floating “Svar krävs”.
+
+## New Master Capabilities To Surface
+- New SSE/message part types must be mapped in message adapter, MessageList, and tooling.
+- New composer flags or attachment fields must pass through `ChatInterfaceProps` and `MessageOptions`.
+
+## State/Props Impact
+- `followUpBaseInfo` from shell.
+- `displayMessages` into MessageList.
+- `showStructuredChat` drives rendering mode.
+- `lifecycleStage` controls F3/env behavior.
+- Busy/preparing/plan/media flags drive composer states.
+
+## Required Buttons / Choices / Copy
+- Plan, Element, Media, Text, Figma clear, inspect remove, quick replies, retry shrink CTA, Swedish placeholders and empty states.
+
+## Exact LLM Implementation Instructions
+- Update message adapter and tooling selectors for any new event/tool types.
+- Preserve F2 env mute through `lifecycleStage`.
+- Do not collapse structured and compact modes unless explicitly redesigning.
+
+## Merge Conflict Plan
+- Preserve shell stack: MessageList above ChatInterface.
+- Preserve inspect/Figma/media chains.
+- Preserve follow-up base badge.
+- Preserve Streamdown components and dual rendering branches.
+
+## Test Plan
+- `ChatInterface.followup-base-badge.test.tsx`.
+- `MessageList.test.tsx`.
+- Manual structured/compact toggle, pending reply modal, streaming assistant placeholder.
+
+## Do Not Break
+- Follow-up base info.
+- Pending reply auto-dialog.
+- F2 env hiding.
+- Collapsible auto-fix user messages.
+- Compact tool parts lifecycle gating.

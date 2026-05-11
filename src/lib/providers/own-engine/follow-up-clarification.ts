@@ -121,6 +121,35 @@ const PERSISTED_SCAFFOLD_UNLOCK_SUPPLEMENT_PATTERNS: RegExp[] = [
 ];
 
 /**
+ * Major-change signals where a follow-up is no longer a small delta on the
+ * current website: playable game/app logic, canvas interaction, physics,
+ * scoring or collisions. These unlock scaffold rematching without widening
+ * every visual-3d overlay into a full redesign.
+ *
+ * **Strictly narrower than `BEYOND_DOSSIER_MARKERS["visual-3d"]` in
+ * `src/lib/builder/follow-up-capability-detection.ts` and `needsGame` /
+ * `needsPhysics` in `src/lib/gen/capability-inference.ts`.** A bare
+ * "lägg till en 3d-kaffekopp" detects `visual-3d` capability and may set
+ * `needs3D` on the inferred capabilities, but must NOT unlock scaffold
+ * rematch — see regression matrix in `follow-up-clarification.test.ts`.
+ * Do not consolidate these three sources into a single regex bank without
+ * preserving the per-consumer threshold (capability injection vs scaffold
+ * unlock vs build-spec context policy).
+ */
+const FOLLOW_UP_MAJOR_CHANGE_UNLOCK_PATTERNS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(?:bygg|skapa|gör|designa|implementera|build|create|make|design|implement)[\s\S]{0,80}(?:spel|game|playable|arkad|arcade|pac-?man|pong|tetris)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:spel|game|playable|arkad|arcade|pac-?man|pong|tetris)[\s\S]{0,120}(?:poäng|score|level|nivå|bana|maze|labyrint|collision|kollision|physics|fysik|canvas|webgl)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:canvas-?spel|game\s+canvas|playable\s+canvas|interaktiv\s+canvas\s+där\s+man)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:physics(?:[-\s]?simulation)?|fysik(?:simulering)?|rapier|matter\.js|cannon)[\s\S]{0,120}(?:studs|bounce|collision|kollision|score|poäng|game|spel)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:spel|game|playable|canvas|webgl)[\s\S]{0,120}(?:score|poängsystem|poängtavla|leaderboard|collision|kollisioner?|hitbox|hitboxes)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:score|poängsystem|poängtavla|leaderboard|collision|kollisioner?|hitbox|hitboxes)[\s\S]{0,120}(?:spel|game|playable|canvas|webgl)(?![\p{L}\p{N}_])/iu,
+];
+
+function hasMajorChangeUnlockSignal(message: string): boolean {
+  return FOLLOW_UP_MAJOR_CHANGE_UNLOCK_PATTERNS.some((re) => re.test(message));
+}
+
+/**
  * Follow-ups: when true, {@link resolveOrchestrationBase} should not lock to the chat's
  * persisted scaffold — re-match so redesign / new-IA requests can switch scaffold.
  *
@@ -141,7 +170,8 @@ export function shouldIgnorePersistedScaffoldForMatch(params: {
 
   const wantsUnlock =
     followUpIntent === "clear-redesign" ||
-    PERSISTED_SCAFFOLD_UNLOCK_SUPPLEMENT_PATTERNS.some((re) => re.test(message));
+    PERSISTED_SCAFFOLD_UNLOCK_SUPPLEMENT_PATTERNS.some((re) => re.test(message)) ||
+    hasMajorChangeUnlockSignal(message);
 
   if (!wantsUnlock) return false;
 

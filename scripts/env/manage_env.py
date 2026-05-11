@@ -19,7 +19,7 @@ Usage:
     python manage_env.py audit             # read-only env comparison
     python manage_env.py audit --strict    # include over-target/local-only drift checks
 
-Requires: pip install requests
+Remote Vercel/v0 checks use Python standard-library HTTP clients.
 """
 
 from __future__ import annotations
@@ -29,15 +29,12 @@ import json
 import os
 import re
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections import Counter, OrderedDict
 from pathlib import Path
 from typing import Any
-
-try:
-    import requests
-except ImportError:
-    print("Missing dependency: pip install requests")
-    sys.exit(1)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
@@ -165,6 +162,45 @@ def remove_from_env_file(path: Path, key: str) -> bool:
 # Vercel API helpers
 # ---------------------------------------------------------------------------
 
+def request_json(
+    method: str,
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    params: dict[str, str] | None = None,
+    payload: dict[str, Any] | None = None,
+    timeout: int = 15,
+) -> tuple[int, str, Any]:
+    if params:
+        query = urllib.parse.urlencode(params)
+        separator = "&" if "?" in url else "?"
+        url = f"{url}{separator}{query}"
+
+    body = None
+    request_headers = dict(headers or {})
+    if payload is not None:
+        body = json.dumps(payload).encode("utf-8")
+        request_headers.setdefault("Content-Type", "application/json")
+
+    request = urllib.request.Request(url, data=body, headers=request_headers, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            text = response.read().decode("utf-8", errors="replace")
+            try:
+                parsed = json.loads(text) if text else {}
+            except json.JSONDecodeError:
+                parsed = {}
+            return response.status, text, parsed
+    except urllib.error.HTTPError as e:
+        text = e.read().decode("utf-8", errors="replace")
+        try:
+            parsed = json.loads(text) if text else {}
+        except json.JSONDecodeError:
+            parsed = {}
+        return e.code, text, parsed
+    except urllib.error.URLError as e:
+        raise RuntimeError(str(e)) from e
+
 def _read_vercel_link_json() -> dict[str, str]:
     """Read project/team IDs from .vercel/project.json created by `vercel link`."""
     link_file = REPO_ROOT / ".vercel" / "project.json"
@@ -204,14 +240,18 @@ def fetch_vercel_envs(token: str, project_id: str, team_id: str | None) -> list[
     all_envs: list[dict[str, Any]] = []
     while url:
         try:
-            resp = requests.get(url, headers={"Authorization": f"Bearer {token}"}, params=params, timeout=15)
-        except requests.RequestException as e:
+            status, text, data = request_json(
+                "GET",
+                url,
+                headers={"Authorization": f"Bearer {token}"},
+                params=params,
+            )
+        except RuntimeError as e:
             print(f"  {RED}Vercel API error: {e}{RESET}")
             return None
-        if resp.status_code != 200:
-            print(f"  {RED}Vercel API {resp.status_code}: {resp.text[:200]}{RESET}")
+        if status != 200:
+            print(f"  {RED}Vercel API {status}: {text[:200]}{RESET}")
             return None
-        data = resp.json()
         all_envs.extend(data.get("envs", []))
         nxt = data.get("pagination", {}).get("next")
         if nxt:
@@ -227,41 +267,40 @@ def delete_vercel_env_by_id(token: str, project_id: str, team_id: str | None, en
     if team_id:
         params["teamId"] = team_id
     try:
-        resp = requests.delete(
+        status, text, _ = request_json(
+            "DELETE",
             url,
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
             params=params,
-            timeout=15,
         )
-    except requests.RequestException as e:
+    except RuntimeError as e:
         print(f"  {RED}Vercel API error: {e}{RESET}")
         return False
-    if resp.status_code in (200, 204):
+    if status in (200, 204):
         return True
-    print(f"  {RED}Vercel API {resp.status_code}: {resp.text[:200]}{RESET}")
+    print(f"  {RED}Vercel API {status}: {text[:200]}{RESET}")
     return False
 
 
 def fetch_v0_envs(api_key: str, project_id: str) -> list[dict[str, Any]] | None:
     url = f"{V0_API_BASE}/projects/{project_id}/env-vars"
     try:
-        resp = requests.get(
+        status, text, data = request_json(
+            "GET",
             url,
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             },
-            timeout=15,
         )
-    except requests.RequestException as e:
+    except RuntimeError as e:
         print(f"  {RED}v0 API error: {e}{RESET}")
         return None
 
-    if resp.status_code != 200:
-        print(f"  {RED}v0 API {resp.status_code}: {resp.text[:200]}{RESET}")
+    if status != 200:
+        print(f"  {RED}v0 API {status}: {text[:200]}{RESET}")
         return None
 
-    data = resp.json()
     if isinstance(data, list):
         return data
     return data.get("envVars", data.get("data", []))
@@ -275,19 +314,25 @@ def push_to_vercel(token: str, project_id: str, team_id: str | None,
         params["teamId"] = team_id
     payload = {"key": key, "value": value, "target": targets, "type": var_type}
     try:
-        resp = requests.post(url, headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        }, params=params, json=payload, timeout=15)
-    except requests.RequestException as e:
+        status, text, _ = request_json(
+            "POST",
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            params=params,
+            payload=payload,
+        )
+    except RuntimeError as e:
         print(f"  {RED}Vercel API error: {e}{RESET}")
         return False
-    if resp.status_code in (200, 201):
+    if status in (200, 201):
         return True
-    if resp.status_code == 409:
+    if status == 409:
         print(f"  {YELLOW}{key} already exists on target(s); skipping (use Vercel UI to update).{RESET}")
         return False
-    print(f"  {RED}Vercel API {resp.status_code}: {resp.text[:200]}{RESET}")
+    print(f"  {RED}Vercel API {status}: {text[:200]}{RESET}")
     return False
 
 
@@ -319,9 +364,12 @@ def build_status_table(policy: dict[str, Any]) -> list[dict[str, Any]]:
 
     token, project_id, team_id = vercel_creds()
     vercel_map: dict[str, list[str]] = {}
+    vercel_fetch_failed = False
     if token and project_id:
         envs = fetch_vercel_envs(token, project_id, team_id)
-        if envs:
+        if envs is None:
+            vercel_fetch_failed = True
+        elif envs:
             for e in envs:
                 k = e["key"]
                 targets = e.get("target", [])
@@ -346,7 +394,9 @@ def build_status_table(policy: dict[str, Any]) -> list[dict[str, Any]]:
         is_runtime_only = key in runtime_only
 
         status = "ok"
-        if cls == "local_only" and in_vercel:
+        if vercel_fetch_failed and should_track_remote(policy, key):
+            status = "VERCEL_UNKNOWN"
+        elif cls == "local_only" and in_vercel:
             status = "LOCAL_ONLY_ON_VERCEL"
         elif cls == "shared_runtime" and not in_vercel:
             status = "MISSING_VERCEL"
@@ -393,7 +443,7 @@ def cmd_status(_args: argparse.Namespace) -> int:
     print("-" * len(header))
 
     for r in rows:
-        s_color = GREEN if r["status"] == "ok" else (RED if ("MISSING" in r["status"] or "GAP" in r["status"] or "OVERREACH" in r["status"] or "LOCAL_ONLY" in r["status"]) else YELLOW)
+        s_color = GREEN if r["status"] == "ok" else (RED if ("MISSING" in r["status"] or "GAP" in r["status"] or "OVERREACH" in r["status"] or "LOCAL_ONLY" in r["status"] or "UNKNOWN" in r["status"]) else YELLOW)
         check = lambda b: f"{GREEN}Y{RESET}" if b else f"{DIM}-{RESET}"
         print(
             f"{r['key']:<{col_w['key']}} "
@@ -961,6 +1011,12 @@ def cmd_audit(args: argparse.Namespace) -> int:
     vercel_token = env_dict.get("VERCEL_TOKEN", "").strip()
     vercel_project_id = env_dict.get("VERCEL_PROJECT_ID", "").strip()
     vercel_team_id = env_dict.get("VERCEL_TEAM_ID", "").strip() or None
+    if not vercel_project_id or not vercel_team_id:
+        link = _read_vercel_link_json()
+        if not vercel_project_id and link.get("projectId"):
+            vercel_project_id = link["projectId"]
+        if not vercel_team_id and link.get("orgId"):
+            vercel_team_id = link["orgId"]
     v0_api_key = env_dict.get("V0_API_KEY", "").strip()
 
     all_local_keys = set(audit_entries_to_dict(entries_local).keys()) | set(audit_entries_to_dict(entries_prod).keys())
@@ -970,7 +1026,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
         if not vercel_token:
             print(f"  {YELLOW}Skipped: VERCEL_TOKEN not found in local env files{RESET}")
         elif not vercel_project_id:
-            print(f"  {YELLOW}Skipped: VERCEL_PROJECT_ID not found in local env files{RESET}")
+            print(f"  {YELLOW}Skipped: VERCEL_PROJECT_ID not found in local env files or .vercel/project.json{RESET}")
         else:
             print(f"  {DIM}Fetching env vars from Vercel project {vercel_project_id}...{RESET}")
             vercel_envs = fetch_vercel_envs(vercel_token, vercel_project_id, vercel_team_id)

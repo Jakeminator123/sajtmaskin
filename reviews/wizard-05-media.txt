@@ -1,0 +1,24 @@
+MediaStep — drag-drop, skrapade bilder, kontext
+
+| Område | Poäng |
+| DnD affordance | 4 |
+| Preview uppladdade | 3 |
+| Skrapade bilder grid/val | 4 |
+| Kontextfält | 3 |
+| Helhet | 3.5 |
+
+1. Ta bort på kort — opacity-0 tills hover; på touch svår att hitta. P1
+
+2. Kontext — mest placeholder; saknar synlig label; svag SR. P1
+
+3. Video — ikon + filändelse, ingen förhandsvisning. P2
+
+4. Drop zone a11y — div+onClick; saknar fokuserbar kontroll/aria. P2
+
+5. Skrapade val — visuellt bra; saknar aria-pressed/checkbox-mönster. P2
+
+6. onDragLeave — risk flicker över children. P3
+
+7. Ingress — lång vs minimalistisk wizard. P3
+
+Styrkor: drag-over tydlig, lazy thumbs, onError, roller, välj alla, bekräftelserad vid val.

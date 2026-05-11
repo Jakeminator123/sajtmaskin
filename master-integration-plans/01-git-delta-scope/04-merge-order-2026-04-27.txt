@@ -1,0 +1,25 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 01 Git Delta & Scope — 04-merge-order
+Date: 2026-04-27
+
+## Scope
+Säker **merge-ordning** när trädet är smutsigt (`M` + `??`). **commit_first** = föredra små, avsedda commits per yta; **stash** med `-u` när committ krävs undvikas.
+
+## Evidence
+Skill: `master-integration-01-git-delta-scope` (fetch, record SHAs, 04 = merge-ordning).
+
+## Findings
+- Blandade ändringar (data, src, reviews) → en mega-commit försvårar revert/ägarskap.
+- `stash` utan `-u` tappar ospårat; **merge före pop** minskar rebase-kaos.
+- commit_first → bisect/revert enklare.
+
+## Recommended Actions
+1. **Klassificera + stage A/B/C:** (A) produkt `src/` + `next` + `proxy` — commit; (B) `data/*` eget beslut; (C) reviews/skills exkludera eller separat commit.
+2. `git fetch origin`
+3. `git merge origin/master` på `frontend/christopher`; konflikter enligt yta; lokal UI/UX (jmf agent 05) vid manuell resolution.
+4. Använd stash: `git stash push -u` före merge endast om commit inte går; **därefter** merge, sedan `stash pop`.
+
+## Verification Needed
+Efter merge + ev. pop: `typecheck`, `lint`, `vitest`; `git status` fritt från oavsiktad data.
+
+## Do Not Break
+Bokens intent för `frontend/christopher`, genererad `data/runs` som oavsiktlig historik, `reviews/` som krav för prod utan beslut.

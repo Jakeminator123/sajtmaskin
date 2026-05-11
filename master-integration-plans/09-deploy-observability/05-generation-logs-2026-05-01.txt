@@ -1,0 +1,41 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 05-generation-logs
+Date: 2026-05-01
+
+## Production Changes In Master
+- Generation log writer writes local `logs/generationslogg` when enabled and not production.
+- Event bus mirrors to `data/runs` always best-effort.
+- Subscribers map bus events to legacy dev log rows.
+- Run logs use root/repair-N layout.
+- Meta captures Vercel git commit/ref.
+
+## Local Behavior To Preserve
+- Single bus/subscriber/log writer chain.
+- `runId` root vs repair mapping.
+- Production should not rely on local writable logs.
+
+## Security / Secret Risks
+- Logs and prompt dumps may contain prompts/user data.
+- Git identity in meta is not secret but identifies build lineage.
+
+## Required Deploy / Observability UI
+- Keep agent-observatory docs accurate if paths move.
+- Backoffice readers must update if constants change.
+- DB generation log path is separate from filesystem generation logs.
+
+## Exact LLM Implementation Instructions
+- Diff event bus, generation log writer, finalize runner, subscribers.
+- Add new event types to legacy mapping or document omission.
+- Reconcile git repo id policy if added to meta.
+- Do not add duplicate NDJSON writer.
+
+## Deploy Verification
+- generation-log-writer and event-bus tests.
+- Local smoke with `GENERATIONSLOGG=1`.
+- Production should tolerate no writable disk/log folders.
+
+## Observability Checks
+- `readAll` and projection repair aggregation.
+- Watch failed mirror/write log warnings.
+
+## Do Not Commit
+- `logs/generationslogg/**`, `data/runs/**`, raw timelines/events, prompt dumps.

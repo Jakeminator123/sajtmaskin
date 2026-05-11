@@ -1,0 +1,46 @@
+AGENT 7/8 — TEMPLATES & GALLERY (READ-ONLY)
+Date: 2026-04-15
+Scope: src/app/templates/page.tsx, src/app/category/[type]/page.tsx, src/components/templates/*, src/components/builder/TemplatePickerPopup.tsx
+
+CRITERIA: Apple-minimalist; CSS vars / design tokens; rounded cards; subtle hover; minimal copy; Swedish.
+
+---
+
+CHECKLIST SCORES (1–5)
+
+1. Template cards — 4/5
+   Evidence: Category `V0TemplateCard` uses rounded-2xl, border-border, bg-card, shadow-sm, hover border-primary/20 + shadow-md, image scale 1.02 on hover — calm and consistent. Gallery (`template-gallery.tsx`) and `/templates` category links match the same card language (group hover icon → primary).
+   Gaps: Duplicate microcopy (“Startpunkt.”) adds little; “Mall” badge + two row CTAs (“Visa” / “Öppna”) is slightly busy vs. a single primary action pattern.
+
+2. Category page — 3/5
+   Evidence: Clear hierarchy (header chip + title/description), sections “Eget”, “Snabbval”, “Mallar” with rounded-2xl cards and token-based borders/focus rings. Quick prompts use same hover recipe as landing category tiles.
+   Gaps: `ShaderBackground theme="blue"` adds visual noise vs. flat navy token background; three icon+heading+tooltip rows increase chrome; repeated “Fördefinierat” under every snabbval is redundant; internal user-facing string uses English “template” in project prompt (`Baserat på template:`).
+
+3. Preview modal — 5/5
+   Evidence: `preview-modal.tsx` is image-first: backdrop blur + bg-background/85, large rounded-2xl image with ring-border, minimal title, icon close with proper aria-label “Stäng”. Empty state “Ingen bild.” is short Swedish. Strong match to Apple-like restraint.
+
+4. In-builder picker — 4/5
+   Evidence: `TemplatePickerPopup` full-screen overlay, token colors, rounded-2xl selectable cards, primary ring on selection, pagination with safe-area-aware header/footer, Swedish (“Stil”, “Letar stil…”, “Fortsätt”, “Hoppa över”, “Inga träffar.”).
+   Gaps: Selected state uses `brightness-[0.92]` (arbitrary filter); hover `-translate-y-0.5` is slightly “marketing” vs. pure subtle shadow; placeholder/search copy could be shorter for ultra-minimal.
+
+5. Typography — 4/5
+   Evidence: Consistent tracking-tight on headings, sm/base scale, muted-foreground for secondary; line-clamp on titles.
+   Gaps: Mix of 10px/11px labels and uppercase “MALL” chip; page metadata in `templates/page.tsx` is still fairly long Swedish SEO text (not visible body, but product tone leans marketing).
+
+6. Mobile — 4/5
+   Evidence: Modals/picker use `env(safe-area-inset-*)`; grids stack to one column; template image `sizes` attribute set; touch-manipulation on picker cards.
+   Gaps: Category primary CTA hides “Skapa” label on small screens (`hidden sm:inline`) — icon-only may be unclear for some users; dense vertical sections on long category pages.
+
+---
+
+TOKEN / COLOR NOTE (observed in code)
+Surfaces use semantic Tailwind (`bg-background`, `text-foreground`, `border-border`, `bg-card`, `primary`, `muted`) — aligned with CSS-variable theming. Minor exceptions: arbitrary utilities e.g. `brightness-[0.92]`, `scale-[1.02]`, `ring-[3px]` on textarea focus — not raw hex in scoped files.
+
+---
+
+AVERAGE: (4 + 3 + 5 + 4 + 4 + 4) / 6 = 4.0 / 5
+
+TOP 3 QUICK WINS (non-binding)
+- Flatten category page background (reduce shader) for calmer Apple-like canvas.
+- Shorten or remove repeated “Fördefinierat” / “Startpunkt.” lines; one word or none.
+- Replace English “template” in user-visible/project strings with Swedish (“mall”).

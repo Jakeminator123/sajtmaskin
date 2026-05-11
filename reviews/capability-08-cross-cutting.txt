@@ -1,0 +1,44 @@
+Backend Capability Audit — Agent 8: env, flags, logging, feedback (sista fältet = värde 1-5; tag keep_internal/safe i [KATEGORI])
+
+- [POLICY-keep] env-policy.json klassificerar nycklar — config/env-policy.json:1 — NEJ — 5
+- [ENV-keep] serverSchema getServerEnv Zod cache — src/lib/env.ts:16 — NEJ — 5
+- [ENV-keep] sanitizeProcessEnv — src/lib/env.ts:4 — NEJ — 4
+- [FLAGG-safe] FEATURES.useBuildSpec — src/lib/config.ts:342 — DELVIS — 4
+- [FLAGG-safe] FEATURES.useLightweightScaffoldSerialization — config.ts:345 — NEJ — 4
+- [FLAGG-safe] FEATURES.useFollowUpLightContext — config.ts:347 — NEJ — 4
+- [FLAGG-safe] FEATURES.useFinalizeDeepPath — config.ts:350 — NEJ — 5
+- [FLAGG-safe] FEATURES.useRuntimeTemplateGuidance — config.ts:351 — NEJ — 4
+- [FLAGG-safe] FEATURES.useVariantStructuralFiles — config.ts:356 — NEJ — 4
+- [FLAGG-safe] FEATURES.deferExtraRoutesOnInit — config.ts:361 — NEJ — 4
+- [FLAGG-keep] FEATURES.strictGeneratedArtifacts — config.ts:364 — NEJ — 3
+- [FLAGG-keep] FEATURES.useRedisCache auth betal blob — config.ts:342+ — DELVIS — 3
+- [FLAGG-safe] FEATURES.useAuditWebSearch — config.ts:389 — NEJ — 3
+- [ENV-safe] FOLLOW_UP_TUNING SAJTMASKIN_FOLLOWUP_* — config.ts:400 — NEJ — 4
+- [ENV-safe] OPENCLAW.surfaceEnabled — config.ts:317 — DELVIS — 3
+- [ENV-safe] SAJTMASKIN_DEFAULT_THINKING / SHOW_THINKING — gen/default-thinking.ts:12 — DELVIS — 3
+- [LOG-keep] isDevLoggingEnabled SAJTMASKIN_DEV_LOG — logging/shared.ts:9 — DELVIS — 4
+- [LOG-keep] isGenerationLogEnabled GENERATIONSLOGG — generation-log-writer.ts:76 — NEJ — 5
+- [LOG-keep] LOG_PROMPTS schema utan konsument i src — env.ts:175 — NEJ — 1
+- [TELEM-keep] logPreviewLifecycleTelemetry console — gen/preview/lifecycle-telemetry.ts:83 — NEJ — 5
+- [TELEM-keep] createGenerationTelemetryRecord DB meta — finalize-version.ts:1212 — NEJ — 5
+- [TELEM-keep] reportRenderOutcome error-log render-telemetry — gen/eval/render-telemetry.ts:29 — DELVIS — 5
+- [FEEDBACK] POST versions/.../feedback userFeedback — feedback/route.ts:14 — JA — 5
+- [FEEDBACK] POST /api/contact Resend — contact/route.ts:3 — NEJ — 3
+- [FEEDBACK] v0 re-export feedback — v0/.../feedback/route.ts:4 — JA — 4
+- [ADMIN-keep] GET /api/admin/env features FEATURES — admin/env/route.ts:168 — DELVIS — 4
+- [ADMIN-keep] ENV_KEYS checklista — admin/env/route.ts:17 — DELVIS — 4
+- [STATUS-keep] /api/integrations/status FEATURES booleans — integrations/status/route.ts:67 — JA — 3
+- [STATUS-keep] /api/health redis blob imageGen — health/route.ts:12 — DELVIS — 3
+- [KONFIG-keep] REDIS_KEY_PREFIX dev/preview/prod — config.ts:290 — NEJ — 5
+- [KONFIG-keep] RUNTIME_ENVIRONMENT VERCEL_ENV — config.ts:17 — NEJ — 4
+- [POLICY] SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED optional_runtime — env-policy.json:321 — NEJ — 4
+- [POLICY] LOG_PROMPTS optional_runtime — env-policy.json:585 — NEJ — 2
+- [POLICY] GENERATIONSLOGG local_only — env-policy.json:459 — NEJ — 5
+- [OBS-keep] PostHog/Sentry registry integrations — integrations/registry.ts:124 — DELVIS — 2
+- [FLAGG-safe] NEXT_PUBLIC_BETA_BANNER env.ts — env.ts:174 — DELVIS — 2
+- [FLAGG-safe] SAJTMASKIN_BUILDER_INSPECTOR — env.ts:184 — DELVIS — 3
+- [LOG-keep] preview-render legacy telemetry — api/preview-render/route.ts:30 — NEJ — 3
+- [FEEDBACK-keep] user-feedback category error logs — feedback/route.ts:51 — JA — 5
+- [TELEM-keep] finalize-pipeline-contract progress.step ids — finalize-pipeline-contract.ts:7 — DELVIS — 4
+
+Slutsats: FEATURES = kandidat advanced toggles; telemetri split DB/console/error-log; /api/contact utan tydlig UI; LOG_PROMPTS policy ahead of kod.

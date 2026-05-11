@@ -66,6 +66,7 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 |---|---|---|---|
 | `prompt-core/*.md` (Core Rules) | Stack (Next 16, React 19, Tailwind v4, shadcn), output-format, behavior | **Prefix** till hela system-meddelandet | **Aldrig** (bryts inte) |
 | `## Build Intent` + `## Custom Instructions` | Hård user-intent + dev-overrides | Tidigt i dynamisk del | Bara av Core Rules |
+| **Brief-Locked Design Values** | Briefens designvärden: visual direction, tone, qualityBar, motionLevel, palette, typography | `## Brief-Locked Design Values` före variant | Av user-locked theme tokens |
 | **Scaffold** (filer + research) | Faktiska TSX/CSS-filer + struktur-baseline | `## Critical Scaffold Files` + `## Scaffold File Tree` | Inte direkt — LLM får anpassa men inte bryta strukturen |
 | **Scaffold Variant** | Visuell signatur: `signaturePatterns`, `colorMode`, `fontPairings`, `themeTokens` | `## Scaffold Variant (this generation)` | Av brief-fält |
 | **Brief** (Deep Brief output) | Project context, pages, sections, visual direction, mustHave/avoid | `## Project Context`, `## Visual Identity`, `## Pages & Sections`, `## Must Have`, `## Domain Inference` | Av user-locked theme tokens (UI-låsta värden) |
@@ -80,7 +81,7 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 3. Scaffold Variant defaults (theme tokens, font pairings, signature motif, prompt hints) — fallback när brief är tyst
 4. Static core defaults (`prompt-core/03-visual-design.md` + `04-coding-direction.md`) — sista utvägen
 
-**Så svaret på "vem vinner":** Brief vinner över Variant, men bara där brief säger något konkret. Där brief är tyst tar variant över. Och scaffold-koden (TSX-filerna) levereras som baseline oavsett — variant ändrar bara visuell signatur ovanpå.
+**Så svaret på "vem vinner":** Brief vinner över Variant där briefen säger något konkret, och den prioriteten syns nu tidigt i prompten via `## Brief-Locked Design Values`. Där brief är tyst tar variant över. Och scaffold-koden (TSX-filerna) levereras som baseline oavsett — variant ändrar bara visuell signatur ovanpå.
 
 ---
 
@@ -144,9 +145,10 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
     Bygger ett 50-100 KB block med (i prioritetsordning):
     ├── Build Intent + Custom Instructions
     ├── Generation Profile + Generation Mode
+    ├── Brief-Locked Design Values (brief över variant)
+    ├── Scaffold Variant (signaturePatterns)
     ├── Design Priority (per-request signal cascade)
     ├── Scaffold (filer + research priorities)
-    ├── Scaffold Variant (signaturePatterns)
     ├── Pages & Sections (från brief)
     ├── Project Context, Visual Identity, Imagery (från brief)
     ├── Must Have, Avoid, UI Notes (från brief)

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { formatPrompt, resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/promptAssist";
+import { resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/prompt-assist";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
@@ -348,14 +348,12 @@ export function useCreateChat(
       let streamController: AbortController | null = null;
 
       try {
-        // When Deep Brief is active the brief object carries all semantic
-        // expansion (pages, tone, visual direction, etc.) via meta.brief →
-        // buildDynamicContext().  The raw user text is the best user-message
-        // for the generator — no mechanical MÅL/CONSTRAINTS wrapper needed.
-        // Fall back to formatPrompt() only when brief is absent (assist off
-        // or brief generation failed).
+        // Deep Brief carries semantic expansion through meta.brief →
+        // buildDynamicContext(). If it is absent, keep the raw user text;
+        // Core Rules already carry the base constraints, so a mechanical
+        // Prompt Assist wrapper would only add noise.
         const hasBrief = Boolean(pendingBriefRef?.current);
-        const formattedMessage = hasBrief ? initialMessage : formatPrompt(initialMessage);
+        const formattedMessage = initialMessage;
         debugLog("AI", "Prompt formatting result", {
           originalLength: initialMessage.length,
           finalLength: formattedMessage.length,

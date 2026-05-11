@@ -160,6 +160,7 @@ export function VideoRecorder({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const maxTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const processVideoRef = useRef<((videoBlob: Blob) => Promise<void>) | null>(null);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -218,7 +219,7 @@ export function VideoRecorder({
         setVideoUrl(url);
         setShowPreview(true);
         onVideoReady?.(videoBlob);
-        await processVideo(videoBlob);
+        await processVideoRef.current?.(videoBlob);
       };
 
       mediaRecorder.start(1000);
@@ -243,7 +244,6 @@ export function VideoRecorder({
         setError("Kunde inte starta videoinspelning.");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onVideoReady, stopRecordingInternal]);
 
   const stopRecording = useCallback(() => {
@@ -325,6 +325,7 @@ export function VideoRecorder({
     },
     [language, companyName, industry, onTranscript, onAnalysis],
   );
+  processVideoRef.current = processVideo;
 
   const dismissPreview = useCallback(() => {
     setShowPreview(false);

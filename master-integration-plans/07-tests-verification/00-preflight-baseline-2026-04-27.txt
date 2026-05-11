@@ -1,0 +1,22 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 07 Tests Verification — 00 preflight
+Date: 2026-04-27
+
+## Baseline (snapshot this session)
+
+| Check | Resultat (2026-04-27) |
+|--------|------------------------|
+| `npm run typecheck` | **Exit 0** |
+| `npm run test:ci` | **Exit 1** — 3 failed, 226 passed test files (1663 tests: 3 failed, 1660 passed) |
+| `npm run build` / `npm run lint` | Ej körda i denna snapshot |
+| Dossier/scaffold | Ej körda här; se agent 05 + `devtest` |
+
+## Noterade fel (för triage före/efter master-merge)
+
+- `src/app/api/engine/chats/stream/route.test.ts` — `beforeEach` **Hook timed out in 10000ms** (own-engine stream suite).
+- Minst en annan fail relaterad **warm-cache** / `warm-typecheck` (se full `vitest` output lokalt).
+- Tolkning: **flake eller långsamma hooks** — öka `hookTimeout` / isolera tung setup; inte automatiskt master-regression utan repro på ren branch.
+
+## Canonical references
+
+- CI-ordning: `.github/workflows/ci.yml` — `typecheck` → `lint` → `test:ci` → `baseline-deps:*` → `build`.
+- Strikt lokal gate: `npm run devtest` (inkl. `scaffolds:validate`, `dossiers:validate-all`, **ingen** `build`).

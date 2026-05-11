@@ -1,0 +1,30 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 09 Deploy Observability — 06-error-observability
+Date: 2026-04-27
+
+## Production Changes In Master
+- **Error-log API:** `.../versions/[versionId]/error-log/route.ts` + `version-errors` service; `summary.ts`; `POST` batch + `GET` med `logPassId` filter.
+- **Admin frontlogs:** `api/admin/frontlogs` + `dev-log-reader`, `AdminFrontlogsTab`.
+- **Metrics:** `api/metrics` + `lib/observability/metrics.ts`, bearer `SAJTMASKIN_METRICS_TOKEN`.
+- **Prompt-dumps:** `lib/gen/prompt-dump.ts`, `data/prompt-dumps/`, `SAJTMASKIN_PROMPT_DUMP` env.
+- **Error-log “RAG” (TF‑IDF):** `error-log-rag`, indexer, `retriever`, `renderErrorLogRagBlockLines`, `FEATURES.useErrorLogRag` (prod ofta off).
+
+## Local Behavior To Preserve
+- Klientskrivning till error-log: autofix, post-checks, preview-tele, ErrorBoundary — samma fält/ACL efter merge.
+- Admin: `requireAdminAccess` på alla nya `api/admin/*`.
+- RAG: prod default **off** om så satt; master som slår **on** kräver medveten policy.
+
+## Security / Secret Risks
+- `error-log` payload kan innehålla filepath/stack — förorena inte svar med extra user data; metrics token läckage = Prometheus exposure.
+- Prompt-dumps: max känslighet; aldrig commit dump-output.
+
+## Deploy Verification
+- `GET/POST` error-log med authiserad test-chat/version (lokal/ staging).
+- `GET /api/metrics` med valid token, 503 utan token förväntad.
+- Admin: frontlogs tab laddar utan 500; RAG feature-flag mätbar (metrics eller logg).
+
+## Observability Checks
+- `agent-observatory.mdc` sökväg för var loggar förväntas; backoffice `observability.py` + metrics curl-anteckningar.
+- Vercel logs: sök efter nya `console.warn` mönster efter RAG/verifier-ändring.
+
+## Do Not Commit
+- `data/observability/*` snapshots om innehåller PII, `llm-segment` index, metrics tokens, admin session exports.

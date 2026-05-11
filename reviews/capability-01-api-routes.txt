@@ -1,0 +1,49 @@
+Backend Capability Audit — Agent 1: API routes (format: [KATEGORI] Namn — vad — fil:rad — UI JA/NEJ/DELVIS — värde 1-5)
+
+- [META] Routinventering — 171 Next App Router route.ts under src/app/api (ingen README i api-träd) — src/app/api — NEJ — 5
+- [MOTOR] Chats lista + sync-skapande — GET/POST handleEngineChatsGet/PostSync — src/app/api/engine/chats/route.ts:3-4 — JA — 5
+- [MOTOR] Ny chat streaming — POST createChatStreamPost — src/app/api/engine/chats/stream/route.ts:9-10 — JA — 5
+- [MOTOR] Initiera chat — POST initChatSchema — src/app/api/engine/chats/init/route.ts:332 — JA — 5
+- [MOTOR] Hämta chat — GET — src/app/api/engine/chats/[chatId]/route.ts:15 — JA — 5
+- [MOTOR] Fortsatt chatt-SSE — POST re-export chat-message-stream — src/app/api/engine/chats/[chatId]/stream/route.ts:4-5 — JA — 5
+- [MOTOR] Synka meddelande — POST — src/app/api/engine/chats/[chatId]/messages/route.ts:235 — JA — 5
+- [MOTOR] Hämta enskilt meddelande — GET — src/app/api/engine/chats/[chatId]/messages/[messageId]/route.ts:4 — DELVIS — 3
+- [MOTOR] Versioner lista/uppdatera/fork — GET/PATCH/POST — src/app/api/engine/chats/[chatId]/versions/route.ts:20,114,190 — JA — 5
+- [MOTOR] Versionsfeedback telemetry — POST rating — src/app/api/engine/chats/[chatId]/versions/[versionId]/feedback/route.ts:14 — JA — 4
+- [MOTOR] Versionskommentarer — GET/POST/PATCH — .../versions/[versionId]/comments/route.ts:7,25,53 — DELVIS — 3
+- [MOTOR] Versionsgodkännande — GET/POST — .../approval/route.ts:9,27 — JA — 4
+- [MOTOR] Versionsfel-logg — POST/GET — .../error-log/route.ts:19,69 — DELVIS — 4
+- [MOTOR] Version export zip — POST — .../export/route.ts:20 — JA — 4
+- [MOTOR] Version nedladdning — GET — .../download/route.ts:6 — JA — 5
+- [MOTOR] Collaboration summaries — GET — .../collaboration-summaries/route.ts:9 — JA — 4
+- [MOTOR] Chatfiler registry/kod — GET/PUT/PATCH/DELETE — .../files/route.ts:63,225,283,351 — JA — 5
+- [MOTOR] Preview bootstrap — POST preview-session — .../preview-session/route.ts:27 — JA — 5
+- [MOTOR] Preview status/heartbeat/hibernate/destroy — GET+POST routes — .../preview-status, preview-heartbeat, preview-hibernate, preview-destroy — JA — 5
+- [MOTOR] Readiness — GET — .../readiness/route.ts:316 — JA — 4
+- [MOTOR] Repair + accept-repair — POST — .../repair, accept-repair — DELVIS — 4
+- [MOTOR] normalize/validate-css/validate-images/quality-gate — POST — .../normalize-text, validate-css, validate-images, quality-gate — DELVIS — 4
+- [V0] Legacy /api/v0/chats/* re-export engine — t.ex. preview-session — src/app/api/v0/chats/[chatId]/preview-session/route.ts:1 — JA (parallell yta) — 3
+- [V0] Legacy chats entry GET+POST — src/app/api/v0/chats/route.ts:4,9-11 — DELVIS — 3
+- [V0] Legacy stream + init-registry — src/app/api/v0/chats/stream, init-registry — DELVIS — 3
+- [DEPLOY] Vercel deployment skapa+lista — POST/GET — src/app/api/v0/deployments/route.ts:364,636 — JA — 5
+- [DEPLOY] Deployment status + events SSE — .../[deploymentId], .../events — JA — 5
+- [V0] Vercel projects/env-vars/instructions — src/app/api/v0/integrations/vercel/projects/* — NEJ — 2
+- [AI] Deep Brief POST briefRequestSchema — src/app/api/ai/brief/route.ts:16 — JA — 5
+- [AI] Övriga assistenter POST — ai/chat, classify-intent, intake-summary, spec, suggest-pages — DELVIS — 4
+- [MALLAR] Katalog GET — src/app/api/templates/route.ts:5 — JA — 4
+- [MALLAR] Sök/template/template-image — templates/search, template, template-image — DELVIS — 4
+- [PREVIEW] Legacy HTML-shim GET — src/app/api/preview-render/route.ts:20 — JA — 5
+- [SKRAPA] fetch-html GET + wizard quick-scrape POST — src/app/api/fetch-html, wizard/quick-scrape — DELVIS — 4
+- [WIZARD] company-lookup/competitors/enrich POST — src/app/api/wizard/* — JA — 4
+- [MEDIA] upload/client/from-url/purge/delete — src/app/api/media/* — JA — 5
+- [PROJEKT] projects CRUD + sidospår — src/app/api/projects/* — DELVIS — 4
+- [AUTH] login/logout/register/me/verify + OAuth — src/app/api/auth/* — JA — 5
+- [ADMIN] database m.fl. drift — src/app/api/admin/database/route.ts:50,102 — JA (admin) — 3
+- [BETALNING] Stripe checkout/webhook — src/app/api/stripe/* — DELVIS — 4
+- [WEBHOOK] v0 + vercel callbacks — src/app/api/webhooks/* — NEJ — 5
+- [EKONOMI] credits + check — src/app/api/credits/* — DELVIS — 3
+- [DOMÄN] domains/* + vercel price + suggestions — DELVIS — 3
+- [BYGGARE] company-intel POST — src/app/api/builder/company-intel/route.ts:39 — DELVIS — 3
+- [AGENT] openclaw + did — src/app/api/openclaw/*, did/* — DELVIS — 3
+- [INSPECTOR] capture/element-map/ai-match POST — src/app/api/inspector-* — DELVIS — 3
+- [ÖVRIGT] shadcn/audit/download/health/cron/figma/analytics/mcp/unsplash — spretiga ytor — src/app/api/* — DELVIS — 3

@@ -108,6 +108,43 @@ describe("selectDossiersForRequest (deterministic capability-driven)", () => {
     });
     expect(result.selected).toHaveLength(1);
   });
+
+  it("picks interactive-game-loop for an interactive-game capability", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["interactive-game"],
+    });
+    expect(result.selected).toHaveLength(1);
+    expect(result.selected[0]?.entry.id).toBe("interactive-game-loop");
+    expect(result.selected[0]?.entry.capability).toBe("interactive-game");
+    expect(result.selected[0]?.entry.class).toBe("soft");
+    expect(result.selected[0]?.configured).toBe(true);
+  });
+
+  it("eagerly loads the six-point contract instructions for interactive-game-loop", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["interactive-game"],
+    });
+    const instructions = result.selected[0]?.entry.instructions ?? "";
+    expect(instructions).toContain("# When to use");
+    expect(instructions).toContain("# How to integrate");
+    // The six non-negotiables must all be named in instructions so the
+    // codegen LLM sees the mental model in the dossier block.
+    expect(instructions).toContain("State");
+    expect(instructions).toContain("Loop");
+    expect(instructions).toContain("Controls");
+    expect(instructions).toContain("Collision");
+    expect(instructions).toContain("Score");
+    expect(instructions).toContain("restart");
+  });
+
+  it("selects game + 3D together for an explicitly-3D game prompt", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["visual-3d", "interactive-game"],
+    });
+    const ids = result.selected.map((s) => s.entry.id);
+    expect(ids).toContain("three-fiber-canvas");
+    expect(ids).toContain("interactive-game-loop");
+  });
 });
 
 describe("getAllDossiers", () => {

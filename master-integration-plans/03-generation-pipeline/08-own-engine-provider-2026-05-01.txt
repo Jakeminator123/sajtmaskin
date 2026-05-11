@@ -1,0 +1,49 @@
+SAJTMASKIN MASTER INTEGRATION PLAN — 03 Generation Pipeline — 08-own-engine-provider
+Date: 2026-05-01
+
+## Master Pipeline Changes
+- Pipeline assembly through `createGenerationPipeline` and `pipelineStream`.
+- Stream loop parses `thinking`, `content`, `tool-call`, `progress`, `done`, and `error`.
+- Post-finalize emits rich `done`, F3 `integration`, preview/verify progress, credits, preview session, and logs.
+- Tool bridge maps tools to `integration`/`tool-call`, filtering F2 env tools.
+- Phase model routing comes from config/model manifest.
+- Shrink detection/retry helpers exist around finalize and LLM fixer paths.
+
+## Local Behaviors To Preserve
+- Stream lifecycle: `chatId`, `meta`, progress, ping, content/thinking, tool calls, finalize on done.
+- Fallback finalize when stream ends without explicit done.
+- Repair pass threading through target version ids.
+- F2 env mute for integration SSE.
+- Reasoning token logging.
+
+## Merge/Port Plan
+- Keep `createOwnEnginePipelineAndGenerationStream` as the route-level entry.
+- Any SSE shape change must update builder `stream-handlers` and post-checks.
+- Investigate `shrinkRetry`: `done` may expose it, but runner may not populate it.
+
+## Frontend Wiring / UI Surface Needed
+- Chat/preview UI must consume rich `done`: preview blocked, verification blocked, preflight, rejected shrinks, shrink retry, verifier findings, structural issues, preview pending/url hints.
+- Progress handling should keep current compact chat rhythm.
+- F3 integration events should not leak into F2.
+
+## Exact LLM Implementation Instructions
+- Generator model must match phase routing.
+- Effective thinking comes from tier/phase config and should be reflected in meta.
+- Token usage and reasoning tokens must be forwarded/logged consistently.
+
+## Regression Risks
+- Abrupt stream-end persistence of partial artifact.
+- Double-close/double-done behavior.
+- `shrinkRetry` UI expectation without backend population.
+- F2 tool leakage.
+
+## Required Tests
+- `generation-stream.golden.test.ts`.
+- `pre-generation-contract-gate.golden.test.ts`.
+- `shrink-retry.test.ts`.
+- `phase-routing.test.ts`.
+
+## Open Questions
+- Should `buildShrinkRetrySuggestion` be invoked in finalize runner?
+- Should post-finalize `done` shape get a dedicated golden test?
+- Is engine model source identical for new-chat and follow-up?

@@ -1,0 +1,13 @@
+Builder Interaction Review — Agent 5: Chat-dock handle (BuilderShellContent ~707–719, ~1770–1802)
+
+- chatCollapsed + localStorage builder:chatCollapsed, toggle → lägg till valfri bredd-persist separat nyckel → 4
+- ChevronLeft/Right i huvud/stripe, ej enhetlig ›‹-handle → vertikal söm-handle med samma beteende överallt → 3
+- Fast lg:w-80, collapse via lg:hidden utan mjuk bredd → drag-resize + bredd-animation (inte bara hidden) → 2
+- title Dölj/Visa chatt, saknar ⌘\ i tooltip → “Minimera chatten (⌘\)” / motsvarande expand → 2
+- Knappar tabb-fokuserbara men ring svag/oinformativ → focus-visible ring-2 ring-ring/40 på handle → 3
+- motion-safe transition 200ms på panel men hidden kollaps → ease-out 200ms på width när layout tillåter → 3
+- Ingen dubbelklick reset bredd → dubbelklick återställer defaultbredd → 2
+- Ingen dra för bredd → drag på vänster kant med min/max → 2
+- Ingen global ⌘\ kopplad till handle → samma hook som interaction-01 → 1
+
+Samlat nu: ~3/5 (enkelt toggle + delvis transition). Mål: ~5/5 med söm-handle, ⌘\, resize, dubbelklick-reset, mjuk width-animation.

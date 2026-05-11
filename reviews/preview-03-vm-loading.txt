@@ -1,0 +1,17 @@
+VM loading, transitions, errors (PreviewPanelFrame, preview-session hooks, useBuilderVmPreview, usePreviewIframe, heartbeat)
+
+Scores: VM-start kommunikation 4 | Loading UI 4 | Smooth ready 3 | VM-fel + recovery 4 | Timeout/stuck 3
+
+1. Bootstrap POST utan klient-timeout — previewPending tills svar; häng → ingen countdown/cancel. Hög risk.
+
+2. fetchPreviewStatus/heartbeat null vid fel — Svårt skilja nätverk från död session för användaren.
+
+3. previewPending vs overlay — pending ofta i empty/chrome; frame overlay = externalLoading || iframeLoading; split mental modell.
+
+4. Ready — own-engine 45s blank-poll + suspect på timeout; annat: load-event (snabbare, kan flasha). Låg/med risk.
+
+5. PreviewPanelFrame — blur + 200ms overlay; skeleton aria-hidden; Laddar live region; fel med kod/runbook/ny flik. Styrka.
+
+6. Heartbeat 25s; no_session/session_mismatch → suspect; tab hidden 60s → hibernate. Styrka.
+
+Sammanfattning: Bra split pre/post URL; största gap: lång bootstrap utan synlig timeout/cancel och opaka API-null vid recovery.

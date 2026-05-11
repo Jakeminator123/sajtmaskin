@@ -55,6 +55,13 @@ export function resolveBuildIntentPromotion(
   };
 }
 
+/** Quality-target rank: higher rank = stronger quality signal. */
+const QUALITY_TARGET_RANK: Record<BuildSpecQualityTarget, number> = {
+  standard: 0,
+  premium: 1,
+  "release-candidate": 2,
+};
+
 /**
  * P22: när vi kör en follow-up och en tidigare accepterad version finns
  * (med en `qualityTarget` i sin orchestration-snapshot) ska vi ärva det
@@ -62,10 +69,18 @@ export function resolveBuildIntentPromotion(
  * loggen `quality_target_promoted_for_multipage` på samma chat och säkrar
  * att senare turns inte plötsligt ändrar kvalitetstak.
  *
+ * Inheritance får aldrig SÄNKA qualityTarget. Om baseSpec just blivit
+ * promoted (t.ex. multipage → premium, eller F3 → release-candidate) och
+ * priorQualityTarget är lägre, behåller vi baseSpec. Skälet: en användare
+ * som ber om "snyggare", lägger till routes, eller startar integrationsbygget får
+ * inte tappa kvalitetsambition bara för att förra version råkade ha lägre rank. Loggar
+ * `quality_target_inheritance_blocked` så vi kan följa när det händer.
+ *
  * Faller tillbaka till `baseSpec` oförändrat när:
  *  - `generationMode !== "followUp"`
  *  - inget `priorQualityTarget` finns
  *  - värdet redan matchar baseSpec
+ *  - priorQualityTarget skulle sänka aktuell rank
  */
 export function inheritQualityTargetFromPriorVersion(
   chatId: string | null | undefined,
@@ -75,6 +90,17 @@ export function inheritQualityTargetFromPriorVersion(
   if (baseSpec.generationMode !== "followUp") return baseSpec;
   if (!priorQualityTarget) return baseSpec;
   if (priorQualityTarget === baseSpec.qualityTarget) return baseSpec;
+  const priorRank = QUALITY_TARGET_RANK[priorQualityTarget];
+  const baseRank = QUALITY_TARGET_RANK[baseSpec.qualityTarget];
+  if (priorRank < baseRank) {
+    console.info("[orchestrate] quality_target_inheritance_blocked", {
+      chatId: chatId ?? null,
+      baseSpec: baseSpec.qualityTarget,
+      prior: priorQualityTarget,
+      reason: "would_lower_quality",
+    });
+    return baseSpec;
+  }
   console.info("[orchestrate] quality_target_inherited_from_prior_version", {
     chatId: chatId ?? null,
     from: baseSpec.qualityTarget,

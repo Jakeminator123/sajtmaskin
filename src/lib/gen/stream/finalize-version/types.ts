@@ -15,6 +15,7 @@ import type { PreviewPreflightSummary } from "@/lib/gen/preview/diagnostics";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware-retry";
+import type { ShrinkRetrySuggestion } from "../shrink-retry";
 import type { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import type * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { runFinalizePreflight, FinalizePreflightIssue } from "../finalize-preflight";
@@ -100,6 +101,8 @@ export interface FinalizeResult {
   preflight: PreviewPreflightSummary;
   /** Files whose new content was rejected (< 50% of prior size). Surfaced to user via SSE. */
   rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
+  /** Optional retry suggestion when shrink-guard blocks a critical file. */
+  shrinkRetry?: ShrinkRetrySuggestion | null;
   /**
    * Files reverted by the Element Preservation Guard (structural elements
    * such as `<video>`, `<canvas>`, `<form>`, R3F `<Canvas>`, Rapier
@@ -113,24 +116,10 @@ export interface FinalizeResult {
     droppedElements: Array<{ kind: string; label: string }>;
   }>;
   /**
-   * Optional shrink-retry payload surfaced when the LLM emitted significantly
-   * smaller versions of essential files and a one-shot retry was triggered.
-   * Local-only addition (frontend/christopher) — kept across the master merge
-   * because the builder UI relies on it to display the retry banner.
-   */
-  shrinkRetry?: {
-    files: string[];
-    reason: string;
-    retryPrompt: string;
-    ctaLabel: string;
-  } | null;
-  /**
-   * Cross-file imports the LLM made to local files that did not exist —
-   * `cross-file-import-checker` auto-stubbed them so the build passes,
-   * but the rendered component is hollow. Surfaced as `warning`-level
-   * rows in the version diagnostics modal so users understand "1 fil
-   * saknades och stubbades" instead of believing the generation succeeded
-   * fully (plan-02 / STATUS-02; coffee-cup-3d-style anti-pattern).
+   * Cross-file imports the LLM made to local files that did not exist.
+   * Most are auto-stubbed; obvious sibling-name mistakes may instead be
+   * rewired and carry `rewireTarget`. Surfaced as `warning`-level rows in
+   * the version diagnostics modal.
    * `dossierId` and `capability` are present when the missing import
    * matched a dossier `exposes` entry (dossier integration gap).
    */
@@ -138,6 +127,8 @@ export interface FinalizeResult {
     sourceFile: string;
     missingImport: string;
     stubFile: string;
+    rewireTarget?: string;
+    rewireImportSpec?: string;
     dossierId?: string;
     capability?: string;
   }>;
@@ -198,6 +189,8 @@ export interface FinalizeFastPathResult {
     sourceFile: string;
     missingImport: string;
     stubFile: string;
+    rewireTarget?: string;
+    rewireImportSpec?: string;
     dossierId?: string;
     capability?: string;
   }>;

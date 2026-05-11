@@ -1,0 +1,53 @@
+Jag kan **inte skriva** `reviews/builder-audit-04-versions.txt` i det här läget (read-only / inga filändringar). Här är innehållet att klistra in där, max ~40 rader.
+
+---
+
+**Versions-UI använder `engineChatBaseUrl` → `/api/engine/chats/...` (inte bara v0). Flera `v0`-rutter re-exporterar samma handler; `accept-repair` finns bara under `/api/engine/chats/...`.**
+
+**`useVersions`:** SWR mot `GET .../versions`, `mutate()` efter lyckade mutationer (ingen optimistisk uppdatering).
+
+---
+
+`[1]` **Återställ/Rollback (rad + bekräftelsedialog)** — `performRestore` → `POST .../versions` `{ action: restore|rollback, versionId }` → `mutate()`. **Endast om own-engine-chat finns** (`route.ts` annars 404). **Legacy-listor** (v0-rader utan engine-chat) får knappar men API svarar "Chat not found". Toast vid fel/OK.
+
+`[2]` **Pin/unpin** — `handleTogglePin` → `PATCH .../versions` → `mutate()`. Own-engine: `canPin: false` i listan så knappen döljs; om den ändå anropas → **409** "Pinning is not supported". Legacy med `canPin: true` → **404** (ingen legacy-gren i `PATCH`). Toast.
+
+`[3]` **Jämför** — sätter state → `VersionCompareDialog` hämtar `GET .../files?versionId=&wait=1` ×2. Kräver engine-chat; annars fel i dialog. Ingen SWR-mutate.
+
+`[4]` **Diagnostik (AlertCircle)** — öppnar dialog → `GET .../versions/:id/error-log`. OK med fel-UI i dialog; ingen toast.
+
+`[5]` **Download** — `window.open` `GET .../versions/:id/download?format=zip`. **Ingen kontroll av HTTP**; toast "Nedladdning startad" direkt (kan vara missvisande). Kräver engine-version.
+
+`[6]` **Blob-export (UploadCloud)** — `POST .../versions/:id/export?format=zip` → JSON + `blob.url`. Toast, loading `exportingVersionId`. Kräver BLOB-token server-side.
+
+`[7]` **GitHub-export** — `POST /api/github/export` (ej under versions). Prompt/confirm, `hasGitHub`/auth, toast, `exportingGitHubVersionId`.
+
+`[8]` **Acceptera fix** — `POST .../accept-repair` `{ versionId }` → `mutate()`, ev. `onVersionSelect`. **409** om inte senaste version eller ingen pending repair. Toast (delvis engelska felmeddelanden).
+
+`[9]` **Fäll in/ut** — `onToggleCollapse`; ingen API.
+
+`[10]` **Visa (preview-länk)** — `<a href>`; ingen API.
+
+`[11]` **Koppla GitHub (header)** — `window.open /api/auth/github?returnTo=...`; ingen versions-API.
+
+`[12]` **Kommentarer-badge / MessageSquare** — öppnar dialog med `VersionCollaboration`.
+
+`[13]` **VersionDiagnosticsDialog: Miljövariabler** — `CustomEvent "project-env-vars-open"`; ingen HTTP.
+
+`[14]` **Ladda om** — lokal `reloadToken` → ny `fetch` error-log. `disabled` vid `isLoading`.
+
+`[15]` **Kör autofix** — `dispatchAutoFixEvent` (browser-event); **inget API**; stänger dialog; ingen toast här.
+
+`[16]` **VersionCompare: Collapsible-rader** — expand/kollaps; ingen extra API.
+
+`[17]` **VersionCollaboration: Skicka kommentar** — `POST .../comments` → `fetchComments()`. Toast; `submittingComment`.
+
+`[18]` **Markera som löst** — `PATCH .../comments` `{ commentId }`. Ingen per-rad loading; toast.
+
+`[19–22]` **Begär godkännande / Godkänn / Avslå / Begär ändringar** — `POST .../approval` `{ action, comment }` → `fetchApproval()`. Godkänn-actions `disabled` utan befintligt `approval`-objekt (logik kan låsa "Begär" om API inte returnerat rad). Toast.
+
+**Orphan / sidospår:** `GET/POST .../versions/:id/feedback` används av `VersionFeedback.tsx`, **inte** av `VersionHistory`-klustret. **`/api/v0/chats/.../accept-repair` saknas** (endast engine) — okej så länge allt går via `engineChatBaseUrl`.
+
+**Sammanfattning:** Produktbanan own-engine är **sammanhängande**; **legacy v0-versioner i listan** riskerar **trasiga** restore/pin/jämför/download/export mot nuvarande routes.
+
+[REDACTED]
