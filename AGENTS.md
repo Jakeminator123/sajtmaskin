@@ -59,7 +59,7 @@ Kod är alltid source of truth. Introducera inte nya begrepp utan att registrera
 - **Local Postgres SSL:** For local Postgres without SSL, add `?sslmode=disable` to `POSTGRES_URL`. Both `db-init.mjs` and the runtime client respect this parameter.
 - **Migration ordering:** Fixed -- `db-init.mjs` runs dependency migrations first automatically. No manual steps needed on fresh DB.
 - Typecheck uses `--max-old-space-size=8192`; ensure sufficient memory.
-- 6 test files have pre-existing failures (route handler assertion mismatches). These are not caused by environment issues — they are in `domains/link`, `kostnadsfri/verify`, and similar API route tests.
+- All test files pass as of 2026-05. If a test fails, investigate — it is likely a real regression, not a pre-existing environment issue.
 
 ### Useful commands (see `package.json` for full list)
 
