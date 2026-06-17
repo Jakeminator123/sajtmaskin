@@ -71,6 +71,46 @@ function loadIndexFromDisk(): CacheEntry | null {
   }
 }
 
+// ── DB-backed index (serverless prod, where the on-disk snapshot is absent) ──
+// The retriever stays synchronous; the DB index is refreshed out-of-band
+// (throttled, fire-and-forget) and served from this module-level cache. The
+// first call on a cold instance may miss (empty cache → []); warm instances
+// serve from cache after the initial refresh. Dev keeps using the disk path.
+let dbCache: CacheEntry | null = null;
+let dbRefreshAtMs = 0;
+let dbRefreshInFlight = false;
+const DB_REFRESH_INTERVAL_MS = 60_000;
+
+function triggerDbIndexRefresh(): void {
+  if (dbRefreshInFlight) return;
+  if (dbCache && Date.now() - dbRefreshAtMs < DB_REFRESH_INTERVAL_MS) return;
+  dbRefreshInFlight = true;
+  void import("../../logging/error-log-store")
+    .then(async (m) => {
+      const docs = await m.loadRecentErrorLogDocsFromDb();
+      if (docs.length > 0) {
+        dbCache = {
+          index: buildTfIdfIndex(docs),
+          generatedAt: new Date().toISOString(),
+          mtimeMs: 0,
+        };
+      }
+      dbRefreshAtMs = Date.now();
+    })
+    .catch(() => {})
+    .finally(() => {
+      dbRefreshInFlight = false;
+    });
+}
+
+function loadIndexForRetrieval(): CacheEntry | null {
+  const disk = loadIndexFromDisk();
+  if (disk) return disk;
+  // No disk snapshot (serverless prod): fall back to the DB-backed index.
+  triggerDbIndexRefresh();
+  return dbCache;
+}
+
 export interface RetrieveSimilarFailuresOptions {
   prompt: string;
   faultType?: string | null;
@@ -123,7 +163,7 @@ export function retrieveSimilarFailures(
   options: RetrieveSimilarFailuresOptions,
 ): RetrievedFailure[] {
   if (!FEATURES.useErrorLogRag) return [];
-  const entry = loadIndexFromDisk();
+  const entry = loadIndexForRetrieval();
   if (!entry) return [];
   const topK = options.topK ?? 3;
   // Bias the query with structured context so related failures remain
@@ -179,7 +219,10 @@ export function renderErrorLogRagBlockLines(options: RetrieveSimilarFailuresOpti
   return block;
 }
 
-/** Test/debug helper — clears the in-memory snapshot cache. */
+/** Test/debug helper — clears the in-memory snapshot + DB caches. */
 export function __resetErrorLogRetrieverCacheForTests(): void {
   cache = null;
+  dbCache = null;
+  dbRefreshAtMs = 0;
+  dbRefreshInFlight = false;
 }
