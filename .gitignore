@@ -42,6 +42,8 @@ env.vercel*.local
 *.pem
 *key
 .env.production
+# Timestamped env backups from env-cleanup tooling (may contain real secrets — never commit)
+.env-backups/
 .token-status.json
 
 # Local notes / chat dumps (keep secrets and noise out of git)

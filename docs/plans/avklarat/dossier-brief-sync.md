@@ -290,7 +290,7 @@ Verifiern fångade det (quality-finding), men auto-repair-passet rörde det inte
 
 Inte pipeline-buggar, men listas här för fullständighet:
 
-- **`JUICEFACTORY_API="pk_live_..."`** — live-nyckel i lokal dev. Byt till test-nyckel.
+- **JuiceFactory-nyckeln** — den felnamngivna bare-varianten hör inte hemma i lokal dev eller på Vercel (togs bort vid env-städ). Riktig nyckel sätts endast på Render-gatewayen (`JUICEFACTORY_API_KEY=<endast på gatewayen>`) och måste roteras.
 - **Duplicates:** `SAJTMASKIN_PROMPT_DUMP` rad 167 + 174, `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT` rad 172 + 175.
 - **`SAJTMASKIN_MODEL_ANTHROPIC="claude-opus-4.6"`** — verifiera att aliaset löses i [`config/ai_models/manifest.json`](../../../config/ai_models/manifest.json).
 
