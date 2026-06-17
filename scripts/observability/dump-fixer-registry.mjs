@@ -12,7 +12,6 @@
  */
 
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -40,15 +39,29 @@ function main() {
   // because shell quoting of multiline `-e` strings is unreliable on Windows
   // (cmd.exe strips newlines / mangles double quotes) and also brittle on
   // macOS/Linux shells. A temp file is universally portable.
+  // The temp file MUST live inside the repo so (a) tsx applies its TypeScript
+  // transform to the imported registry and (b) the relative import resolves.
+  // A path in os.tmpdir() (e.g. C:\WINDOWS\TEMP) makes `./src/...` resolve from
+  // the temp dir → ERR_MODULE_NOT_FOUND on every platform.
+  const tmpFile = path.join(
+    OUT_DIR,
+    `.fixer-registry-dump-${process.pid}-${Date.now()}.mts`,
+  );
+  let relImport = path
+    .relative(path.dirname(tmpFile), TS_FILE)
+    .split(path.sep)
+    .join("/")
+    .replace(/\.ts$/, "");
+  if (!relImport.startsWith(".")) relImport = `./${relImport}`;
+  // Namespace import tolerates tsx's CJS/ESM interop: a named `import { X }`
+  // can fail with "does not provide an export named 'X'" when tsx loads the
+  // `.ts` as CJS, whereas `import * as` reads the runtime exports object.
   const snippet = [
-    'import { FIXER_REGISTRY } from "./src/lib/gen/autofix/fixer-registry";',
+    `import * as registry from ${JSON.stringify(relImport)};`,
+    "const FIXER_REGISTRY = registry.FIXER_REGISTRY ?? (registry.default && registry.default.FIXER_REGISTRY);",
     "process.stdout.write(JSON.stringify({ generatedAt: new Date().toISOString(), entries: FIXER_REGISTRY }, null, 2));",
     "",
   ].join("\n");
-  const tmpFile = path.join(
-    os.tmpdir(),
-    `sajtmaskin-fixer-registry-dump-${process.pid}-${Date.now()}.mts`,
-  );
   fs.writeFileSync(tmpFile, snippet, "utf8");
 
   // NOTE: `shell: true` is required on Windows so `npx` (resolved as
