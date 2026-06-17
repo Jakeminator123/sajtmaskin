@@ -71,6 +71,57 @@ function loadIndexFromDisk(): CacheEntry | null {
   }
 }
 
+// ── DB-backed index (serverless prod, where the on-disk snapshot is absent) ──
+// The retriever stays synchronous; the DB index is refreshed out-of-band
+// (throttled, fire-and-forget) and served from this module-level cache. The
+// first call on a cold instance may miss (empty cache → []); warm instances
+// serve from cache after the initial refresh. Dev keeps using the disk path.
+let dbCache: CacheEntry | null = null;
+let dbRefreshAtMs = 0;
+let dbRefreshInFlight = false;
+const DB_REFRESH_INTERVAL_MS = 60_000;
+
+function triggerDbIndexRefresh(): void {
+  if (dbRefreshInFlight) return;
+  // Throttle on the last ATTEMPT time, not on whether a cache exists. An empty
+  // or failing DB load never builds dbCache, so a `dbCache &&` guard would let
+  // every prompt fire another query and hammer Postgres. dbRefreshAtMs is set
+  // at the end of every attempt (incl. empty), so this throttles all of them.
+  if (dbRefreshAtMs > 0 && Date.now() - dbRefreshAtMs < DB_REFRESH_INTERVAL_MS) return;
+  dbRefreshInFlight = true;
+  void import("../../logging/error-log-store")
+    .then(async (m) => {
+      const docs = await m.loadRecentErrorLogDocsFromDb();
+      if (docs.length > 0) {
+        dbCache = {
+          index: buildTfIdfIndex(docs),
+          generatedAt: new Date().toISOString(),
+          mtimeMs: 0,
+        };
+      }
+      dbRefreshAtMs = Date.now();
+    })
+    .catch(() => {})
+    .finally(() => {
+      dbRefreshInFlight = false;
+    });
+}
+
+function loadIndexForRetrieval(): { entry: CacheEntry | null; crossTenant: boolean } {
+  // Redact in any multi-tenant environment (production), regardless of whether
+  // the index came from the on-disk snapshot OR the DB. `npm start` in prod
+  // also builds a cross-tenant on-disk snapshot from the production NDJSON
+  // producer (via next-runner's indexer), so disk-source is NOT a safe
+  // single-tenant signal outside dev. Only dev (own machine, single user)
+  // keeps raw faultText in the rendered block.
+  const crossTenant = process.env.NODE_ENV === "production";
+  const disk = loadIndexFromDisk();
+  if (disk) return { entry: disk, crossTenant };
+  // No disk snapshot: fall back to the DB-backed index.
+  triggerDbIndexRefresh();
+  return { entry: dbCache, crossTenant };
+}
+
 export interface RetrieveSimilarFailuresOptions {
   prompt: string;
   faultType?: string | null;
@@ -92,6 +143,8 @@ export interface RetrievedFailure {
   capabilityIds: string[];
   result: string | null;
   score: number;
+  /** True when served from the cross-tenant prod DB index (render redacts detail). */
+  crossTenant: boolean;
 }
 
 function safeStringArray(value: readonly string[] | unknown): string[] {
@@ -123,7 +176,7 @@ export function retrieveSimilarFailures(
   options: RetrieveSimilarFailuresOptions,
 ): RetrievedFailure[] {
   if (!FEATURES.useErrorLogRag) return [];
-  const entry = loadIndexFromDisk();
+  const { entry, crossTenant } = loadIndexForRetrieval();
   if (!entry) return [];
   const topK = options.topK ?? 3;
   // Bias the query with structured context so related failures remain
@@ -153,6 +206,7 @@ export function retrieveSimilarFailures(
     capabilityIds: safeStringArray(hit.document.payload.capabilityIds),
     result: hit.document.payload.result,
     score: Math.round(hit.score * 1000) / 1000,
+    crossTenant,
   }));
 }
 
@@ -169,8 +223,13 @@ export function renderErrorLogRagBlockLines(options: RetrieveSimilarFailuresOpti
   const items: string[] = [];
   for (const hit of hits) {
     const fix = hit.fixText ? ` → fix: ${hit.fixText}` : "";
-    const faultText = hit.faultText || "(no detail)";
-    items.push(`- \`${hit.fault || "unknown_fault"}\` — ${faultText.slice(0, 120)}${fix}`);
+    // Cross-tenant (prod DB) hits omit raw faultText — it can carry another
+    // user's site-specific labels/paths. Render the generic fault slug + fix
+    // lesson only. Dev (own on-disk snapshot, single user) keeps the detail.
+    const detail = hit.crossTenant
+      ? ""
+      : ` — ${(hit.faultText || "(no detail)").slice(0, 120)}`;
+    items.push(`- \`${hit.fault || "unknown_fault"}\`${detail}${fix}`);
   }
   const block = [header, "", intro, "", ...items, ""];
   while (block.join("\n").length > RAG_BLOCK_MAX_CHARS && block.length > 4) {
@@ -179,7 +238,10 @@ export function renderErrorLogRagBlockLines(options: RetrieveSimilarFailuresOpti
   return block;
 }
 
-/** Test/debug helper — clears the in-memory snapshot cache. */
+/** Test/debug helper — clears the in-memory snapshot + DB caches. */
 export function __resetErrorLogRetrieverCacheForTests(): void {
   cache = null;
+  dbCache = null;
+  dbRefreshAtMs = 0;
+  dbRefreshInFlight = false;
 }

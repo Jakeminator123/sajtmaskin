@@ -104,39 +104,52 @@ function clip(value: string, max = 800): string {
  */
 export function appendErrorLogEvent(event: ErrorLogEvent): void {
   if (!FEATURES.useErrorLogRag) return;
+  const row = {
+    time: new Date().toISOString(),
+    phase: event.phase,
+    subphase: clip(event.subphase, 80),
+    creator: clip(event.creator, 80),
+    fixer: event.fixer ? clip(event.fixer, 80) : null,
+    severity: event.severity,
+    fault: clip(event.fault, 80),
+    faultText: clip(event.faultText, 800),
+    fixText: event.fixText ? clip(event.fixText, 400) : null,
+    modelTier: event.modelTier ?? null,
+    model: event.model ?? null,
+    provider: event.provider ?? null,
+    passNumber: event.passNumber ?? null,
+    repairPassIndex: event.repairPassIndex ?? null,
+    result: event.result ?? null,
+    chatId: event.chatId ?? null,
+    versionId: event.versionId ?? null,
+    scaffoldId: event.scaffoldId ?? null,
+    routePath: event.routePath ?? null,
+    variantId: event.variantId ?? null,
+    capabilityIds: event.capabilityIds ?? [],
+    generationMode: event.generationMode ?? null,
+    lineageHash: event.lineageHash ?? null,
+  };
+  const line = JSON.stringify(row) + "\n";
+  if (Buffer.byteLength(line, "utf8") > MAX_ROW_BYTES) {
+    // Drop the row rather than truncate JSON (would break ndjson parser).
+    return;
+  }
+
+  // 1) Local NDJSON (dev). Best-effort; no-op on serverless read-only fs.
   try {
     ensureDirSync();
-    const row = {
-      time: new Date().toISOString(),
-      phase: event.phase,
-      subphase: clip(event.subphase, 80),
-      creator: clip(event.creator, 80),
-      fixer: event.fixer ? clip(event.fixer, 80) : null,
-      severity: event.severity,
-      fault: clip(event.fault, 80),
-      faultText: clip(event.faultText, 800),
-      fixText: event.fixText ? clip(event.fixText, 400) : null,
-      modelTier: event.modelTier ?? null,
-      model: event.model ?? null,
-      provider: event.provider ?? null,
-      passNumber: event.passNumber ?? null,
-      repairPassIndex: event.repairPassIndex ?? null,
-      result: event.result ?? null,
-      chatId: event.chatId ?? null,
-      versionId: event.versionId ?? null,
-      scaffoldId: event.scaffoldId ?? null,
-      routePath: event.routePath ?? null,
-      variantId: event.variantId ?? null,
-      capabilityIds: event.capabilityIds ?? [],
-      generationMode: event.generationMode ?? null,
-      lineageHash: event.lineageHash ?? null,
-    };
-    const line = JSON.stringify(row) + "\n";
-    if (Buffer.byteLength(line, "utf8") > MAX_ROW_BYTES) {
-      // Drop the row rather than truncate JSON (would break ndjson parser).
-      return;
-    }
     fs.appendFileSync(ERROR_LOG_NDJSON, line, "utf8");
+  } catch {
+    // intentional swallow — best-effort
+  }
+
+  // 2) Durable Postgres (prod, where the fs above no-ops). Fire-and-forget via
+  // dynamic import so the db client is only loaded when a row is actually
+  // written, and a write failure never blocks/throws on the generation path.
+  try {
+    void import("./error-log-store")
+      .then((m) => m.insertErrorLogEventToDb(row))
+      .catch(() => {});
   } catch {
     // intentional swallow — best-effort
   }

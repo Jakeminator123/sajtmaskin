@@ -400,11 +400,13 @@ export const FEATURES = {
    * Vector RAG over historical error-log rows. When ON, follow-up generation
    * retrieves top-K similar past failures (per scaffoldId/lineageHash prefix)
    * and renders them as `### Lessons from similar past builds` in the system
-   * prompt. Hardcoded to dev-default (on in development, off in production)
-   * after removing the SAJTMASKIN_USE_ERROR_LOG_RAG override in omtag-04.
+   * prompt. On (not test): dev uses the local NDJSON producer + on-disk
+   * snapshot; prod uses the durable Postgres store (`error_log_events`) — both
+   * the producer write and the retriever read are best-effort and no-op when
+   * the DB is unconfigured (see `src/lib/logging/error-log-store.ts`).
    * Auto-ingest hooks at `npm run dev|build|start` still run unchanged.
    */
-  useErrorLogRag: env.NODE_ENV === "development",
+  useErrorLogRag: env.NODE_ENV !== "test",
   strictGeneratedArtifacts:
     env.NODE_ENV !== "test" &&
     env.SAJTMASKIN_STRICT_GENERATED_ARTIFACTS !== "false",

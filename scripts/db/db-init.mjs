@@ -630,6 +630,7 @@ const ALL_TABLES = [
   "generation_telemetry",
   "version_comments",
   "version_approvals",
+  "error_log_events",
 ];
 
 async function applySqlMigrations() {
