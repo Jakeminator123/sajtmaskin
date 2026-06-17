@@ -88,7 +88,7 @@ Följande `SAJTMASKIN_*`-flaggor togs bort från `serverSchema` (`src/lib/env.ts
 | `SAJTMASKIN_VERIFIER_RERUN_AFTER_FIX` | inlinad i `verifier-phase.ts` | Verifier-rerun efter LLM-fixer är ovillkorlig (FEATURES.verifierRerunAfterFix togs bort 2026-04-28). |
 | `SAJTMASKIN_SKIP_DOUBLE_VALIDATE_AND_FIX_ON_MERGE` | inlinad i `finalize-preflight.ts` | Mekanisk-only på merged-syntax-fail är ovillkorlig (FEATURES.skipDoubleValidateAndFixOnMerge togs bort 2026-04-28). |
 | `SAJTMASKIN_RECURRING_PATTERNS_IN_MAIN_PROMPT` | `FEATURES.recurringPatternsInMainPrompt = NODE_ENV === "development"` | Bevarar dev-on/prod-off-defaulten; ändras i kod. |
-| `SAJTMASKIN_USE_ERROR_LOG_RAG` | `FEATURES.useErrorLogRag = NODE_ENV === "development"` | Samma — RAG är på i dev, av i prod. |
+| `SAJTMASKIN_USE_ERROR_LOG_RAG` | `FEATURES.useErrorLogRag = NODE_ENV !== "test"` | RAG på överallt utom test. Dev = lokal NDJSON + on-disk-snapshot; prod = Postgres-store (`error_log_events`), gated av `dbConfigured` (no-op utan DB). Cross-tenant-träffar redigeras (faultText utelämnas) i prompt-renderingen. |
 | `SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS` | `FOLLOW_UP_TUNING.maxRecentHistoryPairs = 4` | Konstant. |
 | `SAJTMASKIN_FOLLOWUP_LIGHT_MAX_CHARS` | `FOLLOW_UP_TUNING.lightContextMaxChars = 32_000` | Konstant. |
 | `SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY` | `FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles = 4` | Konstant. |
