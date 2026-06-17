@@ -20,7 +20,7 @@ supersedes: null
 | Fil | Ändring |
 |---|---|
 | `scripts/db/db-init.mjs` | Pool: `connectionTimeoutMillis: 5000`, `statement_timeout: 15000`, `query_timeout: 15000` |
-| `scripts/db/add-performance-indexes.mjs` | Samma timeouts (kördes som andra DB-steg i predev — samma hängrisk) |
+| `scripts/db/add-performance-indexes.mjs` | Bara `connectionTimeoutMillis: 5000` (anti-hang). INTE statement/query-timeout — skriptet kör plain `CREATE INDEX` som kan ta >15s på stor tabell och annars kapas |
 | `scripts/dev/refresh-token.mjs` | `timeout: 20000` på `execSync("npx --yes vercel env pull ...")` |
 | `package.json` | `predev` → `node scripts/dev/predev.mjs`; nytt `db:init:soft`; nytt `dev:fast` |
 | `scripts/dev/predev.mjs` (ny) | Wrapper: `SKIP_PREDEV=1` hoppar hela uppvärmningen; `preflight:common` är enda hårda gaten; schema-drift borttagen ur predev |

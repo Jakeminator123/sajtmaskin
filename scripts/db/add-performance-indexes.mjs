@@ -68,10 +68,12 @@ const pool = new Pool({
     rejectUnauthorized:
       process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
   },
-  // Fail fast at dev start: never let predev hang if the DB is slow/unreachable.
+  // Fail fast on an unreachable DB (this was the actual predev hang). But do
+  // NOT cap statement/query time here: this script runs plain (non-CONCURRENT)
+  // CREATE INDEX, which can legitimately take >15s on a large/prod table — a
+  // statement_timeout would abort the index build. db-init.mjs keeps the 15s
+  // cap since it only runs small DDL.
   connectionTimeoutMillis: 5000,
-  statement_timeout: 15000,
-  query_timeout: 15000,
 });
 
 /**
