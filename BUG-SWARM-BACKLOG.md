@@ -24,8 +24,8 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | Grupp | Antal | Hantering |
 | --- | ---: | --- |
 | Totalt | 129 | Alla rader i tabellen nedan. |
-| Avslutade (`[x]`) | 69 | Filtrera bort från aktiv bugfix. |
-| Öppna (`[ ]`) | 60 | Kandidater för fortsatt triage/fix. |
+| Avslutade (`[x]`) | 72 | Filtrera bort från aktiv bugfix. |
+| Öppna (`[ ]`) | 57 | Kandidater för fortsatt triage/fix. |
 | Explicit `Inte bug` | 13 | Avskrivna eller naming/copy/fallback-beslut; ska inte räknas som aktiv buggrisk. |
 
 | Aktiv prioritet | Kvar | Kommentar |
@@ -33,7 +33,7 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | P0 | 0 | Inga kvarvarande P0-rader. |
 | P1 | 3 | Autofix-stubbar, F2 runtime/UI-smoke och simplified-brief kvalitet. |
 | P2 | 18 | F3/dossier/env/verify/policy-risker + follow-up-budget/status-projektion. |
-| P3 | 39 | UI-race, cache/search/scrape, copy/naming/städ. |
+| P3 | 36 | UI-race, cache/search/scrape, copy/naming/städ. |
 
 ### Avskrivet / inte bug
 
@@ -190,9 +190,9 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Fixad nu | P3 | Shadcn cache key casing/whitespace dubletter | G#62, U#34 | Fixad: `buildRegistryCacheKey` normaliserar style/name/source (trim + lowercase) så `"New York"`/`"new york "`/`"new-york"` inte längre ger dubbletter. Alla 4 cache-key-sites i `registry-service.ts` använder helpern. Test täcker dedup. |
 | [ ] | Öppen registry-risk | P3 | Docs-only block godkänns som usable | G#63, U#36 | Kräv renderbar component/source. |
 | [ ] | Öppen cache-risk | P3 | Template embedding cache kräver restart/invalidate | G#64, U#37 | Lägg explicit invalidation. |
-| [ ] | Öppen search-risk | P3 | Template keyword fallback söker inte description | G#65, U#38 | Inkludera description/tags. |
-| [ ] | Öppen scraper-risk | P3 | Webscraper `MAX_PAGES=4` missar viktig info | G#66, U#41 | Gör cap adaptiv eller prioriterad. |
-| [ ] | Öppen scraper-risk | P3 | Footer/contact/legal kapas av word caps | G#67, U#43 | Separera legal/contact från body-cap. |
+| [x] | Inte bug / data saknar fält | P3 | Template keyword fallback söker inte description | G#65, U#38 | Avfärdad: v0-katalogen (`TemplateCatalogItem`/`Template`) exponerar inga `description`/`tags`-fält; `slug` är ett slumpmässigt ID (t.ex. `0brPGNpjNkt`, ej beskrivande). `keywordSimilarity` söker redan båda beskrivande textfälten (`title` + `category`). Att lägga till description kräver att datakällan (extern template-pipeline) får fältet, inte ett sökfix. |
+| [ ] | Öppen scraper-risk | P3 | Webscraper `MAX_PAGES=4` missar viktig info | G#66, U#41 | EDGE (triage 2026-06-18): Länkar prioriteras redan via `scoreLink` + richness-ranking. Att göra `MAX_PAGES` adaptiv är en token-budget-/produkt-avvägning (fler sidor = mer kostnad/latens), inte ett självklart smalt fix. Lämnas öppen för produktbeslut. |
+| [ ] | Öppen scraper-risk | P3 | Footer/contact/legal kapas av word caps | G#67, U#43 | EDGE (triage 2026-06-18): Att separera legal/contact-extraktion från `AGGREGATE_WORD_LIMIT`/per-sida-cap kräver ny dedikerad extraktionskanal (flera rimliga designval: separata fält, viktning, regex vs DOM). Inte ett smalt fix. Lämnas öppen. |
 | [x] | Fixad nu | P3 | Unsplash GET saknar hård cap på `count` | G#68, U#24 | Fixad: `count` clampas till 1-12 för GET och POST/fallback. |
 | [x] | Inte bug / fallback | P3 | Unsplash `placehold.co` fallback | G#69, U#25 | Avsiktlig dev/fallback; kan bytas senare som produktbeslut. |
 | [ ] | Öppen inspector-risk | P3 | Element crop kan missa små element vid DPI/zoom | G#70, U#52 | Kräver reproduktion i inspector-worker. |
@@ -225,8 +225,8 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Fixad i HEAD | P3 | Registry async refresh stale vid misslyckad fetch | U#35 | Avfärdad/redan hanterad: `getRegistryIndexWithCache` i `registry-cache.ts` triggar bakgrundsrefresh med `.catch(log)` vid stale och returnerar last-good (DB-raden med `fetched_at` + `stale`-flagga); misslyckad fetch skriver inte över raden. Last-good med timestamp/status bevaras redan. |
 | [x] | Fixad nu | P3 | Template search apps/games hint vs saknad game capability | U#39 | Fixad ihop med G#12/G#30: spel/prompts får `needsGame` i canonical capability-inference. |
 | [x] | Fixad nu | P3 | `svävande`/`hovrande` ensamma triggar `needs3D` (false positive) i `capability-inference.ts:127`; `platformerspel` matchar inte `needsGame`-regex (false negative). Verifierat med `inferCapabilities` 2026-05-01 mot prompt-set från `3d-motion-stub-fix`-planen. | N#7 | Fixad: `svävande`/`hovrande`/`flygande` ensamma ger `needsMotion`, inte `needs3D`; explicit `3D`/`WebGL` fortsätter ge `visual-3d`. `platformer-?spel`, `pac-?man-?spel`, `snake-?spel`, `tetris-?spel`, `quiz-?spel`, `arkadspel`, `minispel` matchar nu `needsGame`. |
-| [ ] | Öppen scraper-risk | P3 | Webscraper prioriterar about/services/product/blog | U#42 | Justera ranking efter domain/site-type. |
-| [ ] | Öppen scraper-risk | P3 | Webscraper strips `www.` jämförelse | U#44 | Normalisera host jämnt. |
+| [ ] | Öppen scraper-risk | P3 | Webscraper prioriterar about/services/product/blog | U#42 | EDGE (triage 2026-06-18): `scoreLink` har en fast heuristik-ranking. Att domän-/site-type-anpassa den är heuristik-/produkttuning (kopplad till domain-inference) med flera rimliga utfall — ingen entydig korrekt vikt. Lämnas öppen. |
+| [x] | Fixad nu | P3 | Webscraper strips `www.` jämförelse | U#44 | Fixad: ny `isSameSiteHost(a,b)` (strippar `www.` + lowercase) ersätter rå `hostname`-jämförelse på de tre crawl-ställena (canonical/og, internlänkar, sitemap-host) i `webscraper.ts`, konsekvent med `getCanonicalUrlKey`. Tidigare klassades `www.`↔apex-länkar fel som externa och crawlades inte. Regressionstest i `webscraper-url.test.ts`. |
 | [x] | Fixad nu | P3 | `x-forwarded-for` första IP används som client-id | U#46 | Fixad: produktion ignorerar `x-forwarded-for` om inte `SAJTMASKIN_TRUST_X_FORWARDED_FOR` är explicit satt; `x-real-ip` prioriteras. |
 | [ ] | Öppen prompt-budget-risk | P3 | OpenClaw chat 180k code context | U#47 | Lägg sammanfattning/chunking. |
 | [x] | Inte bug / dev ergonomics | P3 | OpenClaw tips kräver modul-restart | U#48 | Avsiktligt modul-init-beteende; kan dokumenteras. |
@@ -246,6 +246,6 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [ ] | Öppen naming-risk | P3 | nanoid/Date fallback deploy-namn | U#69 | Gör deterministic eller collision-safe. |
 | [x] | Fixad i HEAD | P3 | `getExtension` default `.png` | U#70 | Avskriven/fixad: blob-service defaultar redan ogiltig/saknad extension till `.bin`, inte `.png`. |
 | [x] | Inte bug / copy debt | P3 | Shadcn category emojis enterprise | U#74 | Inte bug; copy/brand-städ. |
-| [ ] | Öppen search-risk | P3 | Template-search diakritik strip | U#75 | Lägg Unicode-aware normalisering. |
+| [x] | Fixad i HEAD | P3 | Template-search diakritik strip | U#75 | Avfärdad/redan hanterad: `normalizeForSearch` i `template-search.ts` gör NFD + strip av combining marks (`[\u0300-\u036f]`) på både query och haystack, så `Malmö`↔`malmo`/`café`↔`cafe` matchar redan. Unicode-aware folding finns. (Residual: shadcn `searchBlocks` använder bara `toLowerCase()` — separat komponent-sök, inte template-search.) |
 | [ ] | Öppen preview-risk | P3 | `previewUrlHint` base path + chatId | U#77 | Verifiera URL-byggare mot preview-host. |
 | [x] | Inte bug / ej bekräftad | P3 | SSE ping `Date.now` var 15s loggar | U#78 | Avskriven: backend skickar ping med timestamp men grep visar ingen `console.*`-logg kopplad till SSE-pingen. |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getCanonicalUrlKey, validateAndNormalizeUrl } from "./webscraper";
+import { getCanonicalUrlKey, isSameSiteHost, validateAndNormalizeUrl } from "./webscraper";
 
 describe("validateAndNormalizeUrl", () => {
   it("adds https when protocol is missing", () => {
@@ -30,5 +30,26 @@ describe("getCanonicalUrlKey", () => {
 
   it("falls back to trimmed lowercase when normalization throws", () => {
     expect(getCanonicalUrlKey("   ")).toBe("");
+  });
+});
+
+describe("isSameSiteHost (U#44)", () => {
+  it("treats www and apex as the same site", () => {
+    expect(isSameSiteHost("www.example.com", "example.com")).toBe(true);
+    expect(isSameSiteHost("example.com", "www.example.com")).toBe(true);
+  });
+
+  it("is case-insensitive", () => {
+    expect(isSameSiteHost("WWW.Example.COM", "example.com")).toBe(true);
+  });
+
+  it("does not match different subdomains or sites", () => {
+    expect(isSameSiteHost("blog.example.com", "example.com")).toBe(false);
+    expect(isSameSiteHost("example.com", "other.com")).toBe(false);
+  });
+
+  it("returns false for empty hosts", () => {
+    expect(isSameSiteHost("", "example.com")).toBe(false);
+    expect(isSameSiteHost("   ", "")).toBe(false);
   });
 });
