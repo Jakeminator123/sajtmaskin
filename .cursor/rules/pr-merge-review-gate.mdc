@@ -1,0 +1,37 @@
+---
+description: Always fetch and evaluate automated PR review findings (Cursor Bugbot, Codex, Vercel Agent/VADE, GitGuardian) before merging any pull request. Read when merging, approving, or deciding to merge a PR.
+alwaysApply: true
+---
+
+# PR merge review-gate
+
+`MERGEABLE` i GitHub betyder bara "inga git-konflikter" — **inte** "granskad". Innan du mergar **någon** PR måste du hämta och värdera de automatiska review-fynden. Merga aldrig grönt blint.
+
+## Obligatorisk koll före merge
+
+1. **CI-checks:** `gh pr checks <n>` — relevanta måste vara `pass` (t.ex. `quality`, `Cursor Bugbot`, `GitGuardian`, `Vercel`).
+2. **Bot-reviews + inline-kommentarer** — hämta och läs:
+   - `gh pr view <n> --json reviews,comments`
+   - `gh api repos/<owner>/<repo>/pulls/<n>/comments` (inline review-kommentarer)
+3. **Källor att alltid uppmärksamma:**
+
+| Bot | Konto | Vad |
+|---|---|---|
+| Cursor Bugbot | `cursor[bot]` | Severity-taggade buggar (Low/Medium/High) |
+| Codex | `chatgpt-codex-connector[bot]` | P1/P2-badges |
+| Vercel Agent / VADE | `vercel` | maintainability/security-förslag |
+| GitGuardian | check | läckta secrets |
+
+4. **Triagera per allvar:**
+
+| Fynd | Åtgärd |
+|---|---|
+| P1 / High / "blocker" / security / cross-tenant-läckage | **Blockera merge** tills åtgärdat |
+| P2 / Medium | Åtgärda, eller motivera medvetet varför det lämnas |
+| Low / nit | Får lämnas med kort notis |
+
+5. Efter fix: pusha till PR-branchen, **låt botarna köra om**, och kolla fynden igen innan merge.
+
+## Princip
+
+Bot-fynd ska **alltid** uppmärksammas och värderas innan merge — även när CI är grön och PR:en är "MERGEABLE". En oadresserad P1/blocking-finding stoppar merge.
