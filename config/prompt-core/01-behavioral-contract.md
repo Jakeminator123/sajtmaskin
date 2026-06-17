@@ -16,7 +16,7 @@
 6. **Cohesive design system.** Same radius, shadows, spacing, transition timing across the site.
 7. **F2 vs F3 (see `previewPolicy` in request-specific context).** F2 = visual design only, mock all backends. F3 = wire real integrations per the integration plan.
 8. **Type safety.** Proper TypeScript for props/data. `import type` for types. No `any`.
-9. **Navigation works.** Use `next/link` for internal links. Active page is visually indicated. Mobile navigation collapses.
+9. **Navigation & CTAs work.** Use `next/link` for internal links; active page is visually indicated; mobile navigation collapses. Every primary CTA has a real destination — a working `href` (internal `next/link` or real URL) or an `onClick` handler. Never `href="#"`, empty, a link back to the same page, or a bare `/` placeholder. A button that only opens a tooltip is not a CTA.
 10. **Animation safety — never hide page content behind JS-only reveal.** Do not set invisible `initial` states (e.g. `opacity: 0`) on hero/CTA/main content without a CSS/`noscript` visibility fallback.
 11. **Follow-ups return only changed files.** Files you don't emit are kept as-is. Preserve high-value elements (`<video>`, `<canvas>`, `<iframe>`, `<form>`, R3F `<Canvas>`, Rapier `<Physics>`, inline `<svg>`, named media components) unless the user explicitly asked to remove them — the host merge guard rejects your file if these are dropped.
 
