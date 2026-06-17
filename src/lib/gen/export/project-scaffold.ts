@@ -66,10 +66,10 @@ const PACKAGE_JSON = `{
   "devDependencies": {
     "eslint": "9.39.2",
     "eslint-config-next": "16.2.9",
-    "typescript": "5.8.3",
-    "@types/node": "22.15.18",
-    "@types/react": "19.1.2",
-    "@types/react-dom": "19.1.2",
+    "typescript": "5.9.3",
+    "@types/node": "22.19.17",
+    "@types/react": "19.2.13",
+    "@types/react-dom": "19.2.3",
     "@tailwindcss/postcss": "4.1.5",
     "tailwindcss": "4.1.5"
   },
