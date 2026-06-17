@@ -72,7 +72,7 @@ Relaterade: [fas1-startprompt-flow.md](./fas1-startprompt-flow.md), [fas3-previe
 | Scaffold-serialisering | `serializeScaffoldForPrompt()` med budget | Ja |
 | Request kind (P32 Fas A) | `classifyRequestKind()` på rå follow-up när filkontext finns | Ja (regex) |
 
-Follow-up: `OrchestrationInput.requestKind` sätts i `chat-message-stream-post.ts`, loggas som `[request_kind_classified]` och i dev-log (`request.kind.classified`). **Styr ännu inte** `deriveBuildSpec()` — se [P32-request-type-taxonomy.md](../plans/active/parked/P32-request-type-taxonomy.md).
+Follow-up: `OrchestrationInput.requestKind` sätts i `chat-message-stream-post.ts`, loggas som `[request_kind_classified]` och i dev-log (`request.kind.classified`). **Styr ännu inte** `deriveBuildSpec()` — se [P32-request-type-taxonomy.md](../plans/archived/parked/P32-request-type-taxonomy.md).
 
 ---
 

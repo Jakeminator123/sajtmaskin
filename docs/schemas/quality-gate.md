@@ -109,7 +109,7 @@ togs bort från background-verify tillfälligt (tysta lint-fail blockerade
 verifiering utan att lägga värde), och åter-infördes 2026-04-21 med
 `--max-warnings=20` så errors blockerar men warnings tolereras.
 Bakgrundsgate:n är dock fortfarande fire-and-forget — se SAJ-28 +
-`docs/plans/active/P34-blocking-lint-in-validate-and-fix.md` för plan att
+`docs/plans/archived/P34-blocking-lint-in-validate-and-fix.md` för plan att
 lyfta lint till blockerande `validateAndFix`-passet.
 
 ## När quality gate körs

@@ -11,7 +11,7 @@ description: Quick domain/context skill for Sajtmaskin. Use when working on buil
 2. `.cursor/rules/terminology.mdc` — confusion table + signal ownership
 3. `docs/architecture/llm-flow-target-worldclass.md` — **målbild** för LLM-flödet (3-fasmodell, single repair gate, init/follow-up som distinkta operationer)
 4. `docs/README.md` — doc navigation
-5. `docs/plans/active/Kvarvarande-uppgifter.md` — aktuella öppna punkter
+5. `docs/plans/active/README.md` — aktiva planer + aktuella öppna punkter (koncentrat)
 
 ## Guardrails
 

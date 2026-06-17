@@ -148,7 +148,7 @@ Plan: `L1-unified-repair-call.md` (parkad — väntar på telemetri-data).
 
 **Idag:** version-status sätts på flera ställen (DB-flaggor, SSE-events, klient-state). UI:t läser blandat. OMTAG fas 3·06 levererade `selectVersionStatus(events)` som projektion — men `BuilderShellContent.tsx` + preview-panel SSE-handling läser fortfarande gamla DB-flaggor (`resolveEngineVersionDisplayStatus`).
 
-**Plan:** event-bus UI-flip (spår A) — se `Kvarvarande-uppgifter.md` punkt 11. F2/F3-ordval (spår B) ägs separat av `docs/plans/active/2026-05-01-f2-f3-ux-copy-konsolidering.md`, så signalfrågor och copyfrågor inte blandas ihop.
+**Plan:** event-bus UI-flip (spår A) — se `docs/plans/active/README.md` (öppna P2) + arkiverad `Kvarvarande-uppgifter.md` punkt 11. F2/F3-ordval (spår B) ägs separat av `docs/plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md`, så signalfrågor och copyfrågor inte blandas ihop.
 
 ---
 
@@ -223,5 +223,5 @@ Samlat från audit-rapporter, plans/active och denna analys. Detta är **inte ny
 | [`fas1-startprompt-flow.md`](./fas1-startprompt-flow.md) · [`fas2-*.md`](./fas2-orchestration-and-build.md) · [`fas3-*.md`](./fas3-preview-and-deploy.md) | Per-fas-detalj |
 | [`mental-model-vs-actual-flow.md`](./mental-model-vs-actual-flow.md) | Vart användarintuition divergerar från koden |
 | [`llm-signal-flow.md`](./llm-signal-flow.md) | Signal-ownership-matris |
-| [`docs/plans/active/Kvarvarande-uppgifter.md`](../plans/active/Kvarvarande-uppgifter.md) | Konkreta öppna punkter (inkl. event-bus UI-flip, spår A) |
-| [`docs/plans/active/2026-05-01-f2-f3-ux-copy-konsolidering.md`](../plans/active/2026-05-01-f2-f3-ux-copy-konsolidering.md) | F2/F3 copy-konsolidering (spår B) |
+| [`docs/plans/active/README.md`](../plans/active/README.md) | Koncentrat med konkreta öppna punkter (inkl. event-bus UI-flip, spår A) |
+| [`docs/plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md`](../plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md) | F2/F3 copy-konsolidering (spår B, arkiverad) |
