@@ -24,8 +24,8 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | Grupp | Antal | Hantering |
 | --- | ---: | --- |
 | Totalt | 129 | Alla rader i tabellen nedan. |
-| Avslutade (`[x]`) | 74 | Filtrera bort från aktiv bugfix. |
-| Öppna (`[ ]`) | 55 | Kandidater för fortsatt triage/fix. |
+| Avslutade (`[x]`) | 75 | Filtrera bort från aktiv bugfix. |
+| Öppna (`[ ]`) | 54 | Kandidater för fortsatt triage/fix. |
 | Explicit `Inte bug` | 13 | Avskrivna eller naming/copy/fallback-beslut; ska inte räknas som aktiv buggrisk. |
 
 | Aktiv prioritet | Kvar | Kommentar |
@@ -33,7 +33,7 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | P0 | 0 | Inga kvarvarande P0-rader. |
 | P1 | 3 | Autofix-stubbar, F2 runtime/UI-smoke och simplified-brief kvalitet. |
 | P2 | 18 | F3/dossier/env/verify/policy-risker + follow-up-budget/status-projektion. |
-| P3 | 34 | UI-race, cache/search/scrape, copy/naming/städ. |
+| P3 | 33 | UI-race, cache/search/scrape, copy/naming/städ. |
 
 ### Avskrivet / inte bug
 
@@ -196,7 +196,7 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Fixad nu | P3 | Unsplash GET saknar hård cap på `count` | G#68, U#24 | Fixad: `count` clampas till 1-12 för GET och POST/fallback. |
 | [x] | Inte bug / fallback | P3 | Unsplash `placehold.co` fallback | G#69, U#25 | Avsiktlig dev/fallback; kan bytas senare som produktbeslut. |
 | [ ] | Öppen inspector-risk | P3 | Element crop kan missa små element vid DPI/zoom | G#70, U#52 | Kräver reproduktion i inspector-worker. |
-| [ ] | Öppen PDF-UX | P3 | PDF report `window.open` + `document.write` | G#71, U#13 | Byt till blob/download eller server-renderad fil. |
+| [ ] | Öppen PDF-UX | P3 | PDF report `window.open` + `document.write` | G#71, U#13 | EDGE (triage 2026-06-18): Print-to-PDF-flödet är avsiktligt (ger A4 `@page`-formatering + sidnumrering via `@bottom-center`). Migrering till blob/download eller server-renderad fil är en feature-rework med flera rimliga designval (förlorad @page-styling vid naiv blob). Lämnas öppen som UX-beslut. (XSS-härdningen för SVG-text gjord separat i U#14/U#73.) |
 | [x] | Inte bug / låg risk | P3 | Date formatting locale/timezone varierar | G#72, U#67, U#68 | Inte bug utan rapportpolicy; öppna ny produktfråga om determinism krävs. |
 | [x] | Fixad nu | P3 | `generateUniqueFilename` använder `Math.random` | G#73, U#30 | Fixad: använder `crypto.randomUUID`. |
 | [x] | Fixad i HEAD | P3 | Image validator HEAD-fallback missar CDNs | G#74, U#71 | Avskriven/fixad: HEAD 405/501 har GET fallback med byte-range och tester. |
@@ -211,7 +211,7 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Inte bug / UX debt | P3 | F3PlaceholderToggle saknar skeleton | U#8 | Inte bug; ren polish. |
 | [x] | Fixad nu | P3 | VersionHistory actions före mutate synkad | U#9, N#H5 | Fixad: pin/restore/accept-repair väntar nu in `mutate()` innan in-flight state släpps. |
 | [ ] | Öppen collaboration-risk | P3 | VersionCollaboration saknar optimistic conflict | U#10 | Lägg conflict UI eller etag/version guard. |
-| [ ] | Öppen PDF-risk | P3 | Audit PDF inline SVG escaping | U#14, U#73 | Escape/testa SVG-innehåll. |
+| [x] | Fixad nu | P3 | Audit PDF inline SVG escaping | U#14, U#73 | Fixad: `generateRadarChartSVG`/`generateBarChartSVG` i `AuditPdfReport.tsx` injicerade rå score-kategori-`key` (utan LABELS-träff) i SVG `<text>` ovan `document.write` — nu via `escapeHtml`. Regressionstest i `AuditPdfReport.test.ts` (malicious key → `&lt;script&gt;`). Numeriska värden var redan typfiltrerade. |
 | [x] | Fixad nu | P3 | Media upload tags JSON saknar shape-validering | U#17 | Fixad: endast array av strings sparas, max 20 tags. |
 | [x] | Fixad nu | P3 | `upload-from-url` kan skapa konstig `svg+xml`-filändelse | U#19 | Fixad via allowlist + explicit extension map. |
 | [x] | Inte bug | P3 | Transcribe accepterar `video/mp4` upp till 25MB | U#22 | Avsiktligt: Whisper hanterar video-containers. |
