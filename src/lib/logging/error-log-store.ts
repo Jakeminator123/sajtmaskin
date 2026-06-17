@@ -129,17 +129,25 @@ export function errorLogDbRowToDocument(dbRow: Record<string, unknown>): ErrorLo
     lineageHash: str(dbRow.lineage_hash),
     result: str(dbRow.result),
   };
+  // Mirror the NDJSON indexer's `indexableText` (field set, order, 800-char cap)
+  // so DB-backed retrieval ranks the same as dev's on-disk snapshot.
   const text = [
     payload.fault,
     payload.faultText,
     payload.fixText ?? "",
+    str(dbRow.subphase) ?? "",
+    str(dbRow.creator) ?? "",
+    str(dbRow.fixer) ?? "",
     payload.scaffoldId ?? "",
     payload.routePath ?? "",
     payload.variantId ?? "",
     ...(payload.capabilityIds ?? []),
+    payload.generationMode ?? "",
+    payload.phase,
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(" ")
+    .slice(0, 800);
   const id = dbRow.id != null ? String(dbRow.id) : `${payload.fault}-${time ?? ""}`;
   return { id, text, payload };
 }
@@ -155,9 +163,9 @@ export async function loadRecentErrorLogDocsFromDb(
   try {
     const limit = Math.max(1, Math.min(maxRows, 20000));
     const res = await pool.query(
-      `SELECT id, created_at, phase, fault, fault_text, fix_text, scaffold_id,
-              route_path, variant_id, capability_ids, generation_mode,
-              lineage_hash, result
+      `SELECT id, created_at, phase, subphase, creator, fixer, fault, fault_text,
+              fix_text, scaffold_id, route_path, variant_id, capability_ids,
+              generation_mode, lineage_hash, result
        FROM error_log_events
        ORDER BY created_at DESC
        LIMIT $1`,

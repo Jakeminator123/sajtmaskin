@@ -397,36 +397,6 @@ const setupQueries = [
     meta JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
-  // Durable store for the error-log RAG (cross-run fault/fix telemetry).
-  // Mirrors the local NDJSON producer shape so the retriever can build the
-  // same TF-IDF index from Postgres in serverless prod (ephemeral fs).
-  // Intentionally outside the Drizzle schema (raw-query telemetry side-channel).
-  `CREATE TABLE IF NOT EXISTS error_log_events (
-    id BIGSERIAL PRIMARY KEY,
-    phase TEXT NOT NULL,
-    subphase TEXT,
-    creator TEXT,
-    fixer TEXT,
-    severity TEXT,
-    fault TEXT NOT NULL,
-    fault_text TEXT,
-    fix_text TEXT,
-    model_tier TEXT,
-    model TEXT,
-    provider TEXT,
-    pass_number INTEGER,
-    repair_pass_index INTEGER,
-    result TEXT,
-    chat_id TEXT,
-    version_id TEXT,
-    scaffold_id TEXT,
-    route_path TEXT,
-    variant_id TEXT,
-    capability_ids JSONB,
-    generation_mode TEXT,
-    lineage_hash TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-  )`,
 ];
 
 const schemaQueries = [
@@ -523,8 +493,6 @@ const schemaQueries = [
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS registry_cache_source_style_idx ON registry_cache(base_url, style, source)`,
-  `CREATE INDEX IF NOT EXISTS idx_error_log_events_created_at ON error_log_events(created_at DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_error_log_events_fault ON error_log_events(fault)`,
 ];
 
 const cascadeQueries = [

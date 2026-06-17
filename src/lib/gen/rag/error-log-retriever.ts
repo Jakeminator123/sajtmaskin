@@ -83,7 +83,11 @@ const DB_REFRESH_INTERVAL_MS = 60_000;
 
 function triggerDbIndexRefresh(): void {
   if (dbRefreshInFlight) return;
-  if (dbCache && Date.now() - dbRefreshAtMs < DB_REFRESH_INTERVAL_MS) return;
+  // Throttle on the last ATTEMPT time, not on whether a cache exists. An empty
+  // or failing DB load never builds dbCache, so a `dbCache &&` guard would let
+  // every prompt fire another query and hammer Postgres. dbRefreshAtMs is set
+  // at the end of every attempt (incl. empty), so this throttles all of them.
+  if (dbRefreshAtMs > 0 && Date.now() - dbRefreshAtMs < DB_REFRESH_INTERVAL_MS) return;
   dbRefreshInFlight = true;
   void import("../../logging/error-log-store")
     .then(async (m) => {
@@ -103,12 +107,14 @@ function triggerDbIndexRefresh(): void {
     });
 }
 
-function loadIndexForRetrieval(): CacheEntry | null {
+function loadIndexForRetrieval(): { entry: CacheEntry | null; crossTenant: boolean } {
   const disk = loadIndexFromDisk();
-  if (disk) return disk;
-  // No disk snapshot (serverless prod): fall back to the DB-backed index.
+  if (disk) return { entry: disk, crossTenant: false };
+  // No disk snapshot (serverless prod): fall back to the DB-backed index. DB
+  // rows span ALL tenants, so flag hits cross-tenant — the renderer then
+  // redacts site-specific faultText to avoid leaking one user's content.
   triggerDbIndexRefresh();
-  return dbCache;
+  return { entry: dbCache, crossTenant: dbCache !== null };
 }
 
 export interface RetrieveSimilarFailuresOptions {
@@ -132,6 +138,8 @@ export interface RetrievedFailure {
   capabilityIds: string[];
   result: string | null;
   score: number;
+  /** True when served from the cross-tenant prod DB index (render redacts detail). */
+  crossTenant: boolean;
 }
 
 function safeStringArray(value: readonly string[] | unknown): string[] {
@@ -163,7 +171,7 @@ export function retrieveSimilarFailures(
   options: RetrieveSimilarFailuresOptions,
 ): RetrievedFailure[] {
   if (!FEATURES.useErrorLogRag) return [];
-  const entry = loadIndexForRetrieval();
+  const { entry, crossTenant } = loadIndexForRetrieval();
   if (!entry) return [];
   const topK = options.topK ?? 3;
   // Bias the query with structured context so related failures remain
@@ -193,6 +201,7 @@ export function retrieveSimilarFailures(
     capabilityIds: safeStringArray(hit.document.payload.capabilityIds),
     result: hit.document.payload.result,
     score: Math.round(hit.score * 1000) / 1000,
+    crossTenant,
   }));
 }
 
@@ -209,8 +218,13 @@ export function renderErrorLogRagBlockLines(options: RetrieveSimilarFailuresOpti
   const items: string[] = [];
   for (const hit of hits) {
     const fix = hit.fixText ? ` → fix: ${hit.fixText}` : "";
-    const faultText = hit.faultText || "(no detail)";
-    items.push(`- \`${hit.fault || "unknown_fault"}\` — ${faultText.slice(0, 120)}${fix}`);
+    // Cross-tenant (prod DB) hits omit raw faultText — it can carry another
+    // user's site-specific labels/paths. Render the generic fault slug + fix
+    // lesson only. Dev (own on-disk snapshot, single user) keeps the detail.
+    const detail = hit.crossTenant
+      ? ""
+      : ` — ${(hit.faultText || "(no detail)").slice(0, 120)}`;
+    items.push(`- \`${hit.fault || "unknown_fault"}\`${detail}${fix}`);
   }
   const block = [header, "", intro, "", ...items, ""];
   while (block.join("\n").length > RAG_BLOCK_MAX_CHARS && block.length > 4) {
