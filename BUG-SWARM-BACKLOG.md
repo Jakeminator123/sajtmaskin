@@ -24,8 +24,8 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | Grupp | Antal | Hantering |
 | --- | ---: | --- |
 | Totalt | 129 | Alla rader i tabellen nedan. |
-| Avslutade (`[x]`) | 72 | Filtrera bort från aktiv bugfix. |
-| Öppna (`[ ]`) | 57 | Kandidater för fortsatt triage/fix. |
+| Avslutade (`[x]`) | 73 | Filtrera bort från aktiv bugfix. |
+| Öppna (`[ ]`) | 56 | Kandidater för fortsatt triage/fix. |
 | Explicit `Inte bug` | 13 | Avskrivna eller naming/copy/fallback-beslut; ska inte räknas som aktiv buggrisk. |
 
 | Aktiv prioritet | Kvar | Kommentar |
@@ -33,7 +33,7 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | P0 | 0 | Inga kvarvarande P0-rader. |
 | P1 | 3 | Autofix-stubbar, F2 runtime/UI-smoke och simplified-brief kvalitet. |
 | P2 | 18 | F3/dossier/env/verify/policy-risker + follow-up-budget/status-projektion. |
-| P3 | 36 | UI-race, cache/search/scrape, copy/naming/städ. |
+| P3 | 35 | UI-race, cache/search/scrape, copy/naming/städ. |
 
 ### Avskrivet / inte bug
 
@@ -184,7 +184,7 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [ ] | Öppen schema-risk | P3 | `variantNomination` nämns men produceras inte av schema | G#56 | Synka schema/docs/prompt. |
 | [ ] | Öppen kvalitet-risk | P3 | Follow-up quality promotion svagare än init | G#57 | Jämför init/follow-up gates. |
 | [ ] | Öppen copy-städ | P3 | Blandning av "Bygg nu", "F3", "Bygg integrationer" | G#58, U#80 | Konsolidera UI-copy med F2/F3-termer. |
-| [ ] | Öppen storage-risk | P3 | Builder localStorage keys utan versionsprefix | G#59, U#54 | Lägg prefix/migration för stabila keys. |
+| [ ] | Öppen storage-risk | P3 | Builder localStorage keys utan versionsprefix | G#59, U#54 | EDGE (triage 2026-06-18): Builder-nycklarna är redan namespace-prefixade (`sajtmaskin:designTheme`/`lastProjectId`/`lastChatId`). Att lägga ett schema-versions-segment + migration spänner över flera inline call-sites med lågt värde (värdena är primitiva strängar) och risk att orphan:a befintliga sparade värden. Lämnas öppen för ev. centraliserad storage-helper. |
 | [ ] | Öppen observability-städ | P3 | Silent catches i dev/log readers | G#60, U#64 | Logga med låg brusnivå eller returnera explicit degraded state. |
 | [x] | Fixad nu | P3 | Shadcn registry cache saknar maxstorlek | G#61, U#33 | Fixad: in-memory-cachen i `registry-service.ts` extraherad till `registry-memory-cache.ts` med `MAX_CACHE_ENTRIES=256` + oldest-first-eviction (TTL kvar 5 min). Regressionstest i `registry-memory-cache.test.ts`. |
 | [x] | Fixad nu | P3 | Shadcn cache key casing/whitespace dubletter | G#62, U#34 | Fixad: `buildRegistryCacheKey` normaliserar style/name/source (trim + lowercase) så `"New York"`/`"new york "`/`"new-york"` inte längre ger dubbletter. Alla 4 cache-key-sites i `registry-service.ts` använder helpern. Test täcker dedup. |
@@ -232,11 +232,11 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Inte bug / dev ergonomics | P3 | OpenClaw tips kräver modul-restart | U#48 | Avsiktligt modul-init-beteende; kan dokumenteras. |
 | [ ] | Öppen session-risk | P3 | D-ID avatar ny `sessionId` om saknas | U#49 | Persist/återanvänd session tydligare. |
 | [x] | Fixad nu | P3 | Inspector Playwright fallback rate bucket | U#51 | Fixad: inspector capture, element-map och AI-match har separata rate-limit buckets och kräver user eller befintlig guest-session. |
-| [ ] | Öppen observability-risk | P3 | ErrorBoundary frontlog fire-and-forget | U#53 | Lägg retry/visible degraded state om post misslyckas. |
+| [ ] | Öppen observability-risk | P3 | ErrorBoundary frontlog fire-and-forget | U#53 | EDGE (triage 2026-06-18): Användaren ser redan ett synligt degraded state (boundary-fallback "Något gick fel" + reload-knapp). Den fire-and-forget frontlog-POSTen är best-effort-telemetri; att lägga retry på en error-rapporterings-call är en medveten policy (loop-/brus-risk) — inte ett självklart smalt fix. Lämnas öppen. |
 | [x] | Inte bug / UI-state | P3 | `admin-auth` i localStorage UI-state | U#55 | Avskriven: admin-API:er kräver server-side admin session; localStorage är bara UI-minne. |
 | [ ] | Öppen consent-risk | P3 | cookie-banner mini-game consent | U#56 | Verifiera att tracking inte startar före consent. |
 | [x] | Fixad nu | P3 | VoiceRecorder/VideoRecorder exhaustive-deps av | U#57 | Fixad: onstop-handlers använder latest-callback refs och eslint-disable för deps är borttagen. |
-| [ ] | Öppen React-städ | P3 | LocationPicker exhaustive-deps av | U#58 | Fixa hooks eller dokumentera stabila deps. |
+| [x] | Fixad nu | P3 | LocationPicker exhaustive-deps av | U#58 | Fixad (dokumenterat): `location-picker.tsx`-effekten är en avsiktlig run-once geo-IP-bootstrap; att lägga deps skulle åter-trigga `/api/geo`-fetchen och skriva över användarens pin. Ersatte bara `eslint-disable`-raden med en tydlig motivering (stabila deps via `onChangeRef`). Ingen beteendeändring. Verifiering: typecheck + lint gröna. |
 | [x] | Inte bug / fixad | P3 | ModelTraceOverlay URL/localStorage state | U#59 | Avskriven: localStorage-nyckeln är redan prefixad `sajtmaskin:model-trace-overlay`. |
 | [x] | Fixad nu | P3 | `decodeStoragePathname` malformed `%` | U#61 | Fixad: malformed percent-encoding ger tydligt storage-fel i stället för rå `URIError`. |
 | [x] | Fixad nu | P3 | Local storage delete false utan UI | U#62 | Fixad delvis i media drawer: gamla delete-fel rensas innan nytt delete-försök så stale error inte ligger kvar. |
