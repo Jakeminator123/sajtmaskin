@@ -48,6 +48,10 @@ if (sslMode === "disable") {
 const pool = new Pool({
   connectionString: url.toString(),
   ssl: sslConfig,
+  // Fail fast at dev start: never let predev hang if the DB is slow/unreachable.
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 15000,
+  query_timeout: 15000,
 });
 const MIGRATIONS_DIR = join(process.cwd(), "src/lib/db/migrations");
 

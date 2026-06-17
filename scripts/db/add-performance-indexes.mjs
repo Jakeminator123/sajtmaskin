@@ -68,6 +68,10 @@ const pool = new Pool({
     rejectUnauthorized:
       process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
   },
+  // Fail fast at dev start: never let predev hang if the DB is slow/unreachable.
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 15000,
+  query_timeout: 15000,
 });
 
 /**

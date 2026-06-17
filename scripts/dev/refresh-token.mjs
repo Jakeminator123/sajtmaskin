@@ -118,6 +118,10 @@ async function main() {
       execSync(`npx --yes vercel env pull ${tempFile} --yes`, {
         stdio: "pipe",
         encoding: "utf8",
+        // Cap the hang: `npx vercel` can download the CLI and hit the network.
+        // 20s is generous for a dev start; on timeout we fall through to the
+        // catch below and dev continues without a fresh token.
+        timeout: 20000,
       });
     } catch (err) {
       log(`Failed to pull env: ${err.message}`, "error");
