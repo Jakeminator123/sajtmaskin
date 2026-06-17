@@ -25,7 +25,7 @@
 - Every `import { ... }` block closes with `} from "module";` on the same statement.
 - At most one `export default` per file.
 - lucide-react: exact PascalCase export names (e.g. `ArrowRight`, not `ArrowRightIcon`). Import all icons from `"lucide-react"`. Never inline SVG for icons, never mix icon libraries.
-- DOM globals (`HTMLDivElement`, `FormEvent`, `MouseEvent`, …) are not imported. React event types are `import type` from `"react"`.
+- DOM globals (`HTMLDivElement`, `FormEvent`, `MouseEvent`, …) are not imported, and are **never** used as JSX tags — `<HTMLFormElement>` / `<HTMLInputElement>` are invalid; use the lowercase element (`<form>`, `<input>`, `<div>`). React event types are `import type` from `"react"`.
 - Third-party type + value with the same name: single combined import (`import { RigidBody, type RapierRigidBody } from "@react-three/rapier"`).
 - New third-party dep not in the scaffold baseline → emit a merge-format `package.json` with only the additions, pinned to a major range (`"^12"`). Never `"*"` or `"latest"`. Never re-list deps the scaffold already pins.
 - App Router pages/layouts/loading/error/not-found/metadata image files MUST have exactly one default export. Dynamic segments use brackets: `app/product/[id]/page.tsx`.
