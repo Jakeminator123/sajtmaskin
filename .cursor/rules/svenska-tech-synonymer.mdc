@@ -1,0 +1,20 @@
+---
+description: I svenska svar — sätt en kort svensk synonym/förklaring i parentes första gången ett engelskt tech-ord eller en förkortning används, så läsaren hänger med.
+alwaysApply: true
+---
+
+# Svenska synonymer för tech-termer
+
+När svaret är på svenska och du använder ett engelskt teknik-ord (eng. *tech term*) eller en förkortning, lägg en **kort svensk förklaring i parentes första gången** ordet dyker upp i svaret.
+
+## Regler
+
+- Format: `term (kort svensk förklaring)`. Bara en synonym eller ett par ord — inte en mening.
+- Endast **första** förekomsten per svar. Upprepa inte parentesen efteråt.
+- Gäller även förkortningar: `RLS (rad-nivå-säkerhet)`, `CSP (innehålls-säkerhetspolicy)`, `RAG (sök-och-återanvänd-minne)`, `FF (fast-forward, ren framåt-merge)`.
+- Hoppa över ord som redan är vardagssvenska i repo-kontexten (`commit`, `merge`, `branch`, `push`, `fil`, `prod`) om de inte är otydliga i sammanhanget.
+- Exempel: `throttle (strypning)`, `cache (mellanlager)`, `cross-tenant (mellan kunder)`, `migration (databas-uppdateringsskript)`, `scope (avgränsa)`, `snapshot (ögonblicksbild)`.
+
+## Relation till andra regler
+
+Skärper raden "Parentes på svåra ord" i [`response-format.mdc`](./response-format.mdc) — denna gäller specifikt **engelska tech-ord/förkortningar** i svenska svar. Vid krock: denna är den mer specifika.
