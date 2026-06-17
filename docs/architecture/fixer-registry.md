@@ -100,5 +100,5 @@ See `src/lib/gen/autofix/fixer-registry.ts` for the canonical TypeScript types.
 
 - `docs/plans/avklarat/repair-loop-hardening.md` — A/B/C/D hardening steps that
   add the LLM phases visible in the registry.
-- `docs/plans/active/parked/L1-unified-repair-call.md` — future consolidation of the
+- `docs/plans/archived/parked/L1-unified-repair-call.md` — future consolidation of the
   four LLM phases into one call.

@@ -1,88 +1,118 @@
-# Aktiva planer — konsoliderad översikt
+# Aktiva planer — koncentrat (en källa)
 
-Senast uppdaterad: 2026-05-01 (LLM-planer konsoliderade efter fem read-only agentrapporter). Alla öppna steg listas i enhetligt format. Varje planfil behåller sin detaljerade text, men startlinjen är nu styrande för LLM-flödet.
+Senast uppdaterad: 2026-06-17 (plansystem-konsolidering). **Denna fil är den enda aktiva planytan.** All verbos plan-detalj ligger i [`../archived/`](../archived/) (vilande/skrotade spår, filnamn bevarade) och [`../avklarat/`](../avklarat/) (mergad historik). Git-historiken bevarar allt — länka hit, duplicera inte. Buggstatus ägs av [`../../../BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md); den här filen destillerar bara fortfarande öppna P1/P2.
 
-## Lifecycle (snabb)
+Lifecycle-kontrakt: [`.cursor/rules/plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc).
 
-Full kontrakt: [`.cursor/rules/plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc).
+---
 
-| Tillstånd | Mapp |
+## Aktivt initiativ: Repo-tvätt — terminologi + kontraktsägarskap
+
+Full plan: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
+
+Appen fungerar. Vi bygger **inte** om den och flyttar **inte** mappar i stor skala. Grundtes: namnöverlappning är symptom — flera ord blandar produkt-/pipeline-/UI-/runtime-/legacy-nivå. Repot har router + ordlista + signal-ägarmatris, men de är inte **mekaniskt enforced**. Vi gör dem det, i tre steg: (1) bestäm betydelse + ägare per term, (2) sätt en automatisk vakt, (3) fixa false-green-buggar + död kod tryggt bakom vakten. **En regel:** varje domänterm har exakt en owner, ett syfte, ett input-kontrakt, ett output-kontrakt.
+
+### Operating model
+
+```
+Scout (read-only)  ─►  term/kontrakt-karta  ─►  Jake godkänner PR-prompt
+        │                                              │
+        └──────────── foundation för PR0/PR1 ──────────┘
+                                                        ▼
+   Builder-agent per PR ─► egen branch/worktree ─► GATE ─► PR → master
+                                                        ▼
+                                       Jake + orchestrator granskar → merge
+```
+
+Isolering obligatorisk: egen branch/`git worktree`, aldrig dela HEAD ([`agent-worktree.mdc`](../../../.cursor/rules/agent-worktree.mdc)). Ingen builder öppnar `/builder` eller engine-endpoints under aktiv gen-session ([`builder-coexistence.mdc`](../../../.cursor/rules/builder-coexistence.mdc)).
+
+### PR-kö
+
+| PR | Mål | Typ | Risk | Knyter an till |
+|---|---|---|---|---|
+| **PR0** | `docs/architecture/terms-and-owners.md` (term → ägare → input/output-kontrakt → förbjudna alias) | Docs | Låg | nytt |
+| **PR1** | `naming-dictionary.json` + `scripts/dev/check-term-coverage.mjs` inkopplad i preflight/CI | Verktyg | Låg · **keystone** | nytt |
+| **PR2** | `FollowUpContract`-typ (snapshot-brief + låst scaffold/variant + route-freeze → kompileringsgaranti init↔follow-up) | Struktur | Låg–medel | spår O |
+| **PR3** | UI/docs-term-pass ("Variant" ej "Scaffold Variant"; "Design Preview"/"Integration Build"; `backoffice` ej `dashboard`) | UI/docs | Låg | spår Q |
+| **PR4** | "lane" begränsas till fixer/repair (verifiera serialiserade `FixLane`-värden först) | Kod | Medel | spår N |
+| **PR5** | False-green-härdning: dossier-stubbar, F2 product-postcheck/warm-verify fail-closed, F3 readiness — eval-gated | Beteende | Medel | öppna P1/P2 nedan |
+
+Beteende-neutrala PR0–PR3 kan köras autonoma i cloud; beteende-ändrande PR4–PR5 får tightast granskning.
+
+### Gate per PR (innan merge)
+
+`npm run typecheck` 0 · `npm run lint` 0 · `npx vitest run` befintliga gröna · `check-term-coverage` (efter PR1) inga nya förbjudna alias · deterministisk eval (beteende-PR) ingen regression mot baseline.
+
+### Regression-track (förutsättning, inte sidospår)
+
+| Del | Vad | Var |
+|---|---|---|
+| Term-coverage | Mekanisk vakt mot namnskuggor (PR1) | `scripts/dev/check-term-coverage.mjs` |
+| Deterministisk golden-path-eval | 3–4 branschcases, nyckelfri, baseline-json — billig CI-gate för scaffold/route/copy + follow-up-läckage | nytt, t.ex. `npm run eval:deterministic` |
+| Riktade router/follow-up-regressioner | ~30–50 prompt→intent + `core`-testlane | Vitest, befintlig svit |
+
+### Status / nästa beslut
+
+- [x] Scout (read-only): term → ägare → kontrakt-karta + forbidden-alias-seed.
+- [ ] **Jake:** godkänn PR-kö + gate-modell (eller ändra ordning/scope).
+- [ ] **Jake:** skriv builder-prompt för **PR0+PR1 ihop** (beteende-neutral) för signoff innan körning.
+- [ ] Kör gated builder per godkänd PR → granska → merge.
+
+---
+
+## Övriga aktiva spår
+
+Repo-tvätt-initiativet **äger inte** dessa — det lägger en terminologi/kontrakt-lins ovanpå. Varje spår bor nu i `../archived/` med full text; nästa steg sammanfattat här.
+
+| ID | Spår + nästa steg | Arkiverad källa |
+|---|---|---|
+| **O** | **LLM-masterplan (startlinje).** Kvar: P0d abort→retry/fallback, P1a–e init/follow-up-konsistens (`generationMode` split-brain, `briefSummary`-null, follow-up `app/page.tsx`-guard, status-från-DB-flag), P2 latency/parallellisering, P3 prompt-kvalitet, P4 docs/status. Läs först vid LLM-flöde-arbete. | [`2026-04-28-llm-flode-startlinje.md`](../archived/2026-04-28-llm-flode-startlinje.md) |
+| **R** | **Builder follow-up/preview-incident.** Spår A–D + F levererade (basversion-pinning, tool-only output, F2/F3-deps, preview-session, loggkorrelation). Kvar: E UX/status-copy + end-to-end-verifiering. | [`2026-05-02-builder-followup-preview-incident.md`](../archived/2026-05-02-builder-followup-preview-incident.md) |
+| **P** | **Prompt-slim (child till O).** Kvar: Core Rules <35k och normal follow-up <45k utan nytt promptlager; kör om `eval:smoke` före stängning. | [`prompt-slim-systemprompt.md`](../archived/prompt-slim-systemprompt.md) |
+| **A** | **P34 blocking lint.** Kvar: Fas C aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Vercel Preview (Dashboard) + mät latens; Fas D prod; Fas E ta bort lint ur bakgrundsgate. | [`P34-blocking-lint-in-validate-and-fix.md`](../archived/P34-blocking-lint-in-validate-and-fix.md) |
+| **B** | **Dossier v1→v2 doc-rewrite (cloudagent).** Kvar: D3/D5/D7 — arkivera/omskriv tre stale docs-sektioner. Docs-only, redo för cloudagent. | [`cloudagent-paket-A-doc-rewrite.md`](../archived/cloudagent-paket-A-doc-rewrite.md) |
+| **Q** | **F2/F3 UX-copy (spår B).** Kvar: ett kanoniskt ordval för "Bygg integrationer"/F3 per UI-yta; `sandbox`→`preview`/`VM`. Ingen status-/signallogik. | [`2026-05-01-f2-f3-ux-copy-konsolidering.md`](../archived/2026-05-01-f2-f3-ux-copy-konsolidering.md) |
+| **L** | **Kräver-dialog (databas/Redis observability).** Kvar: 7 ägarbeslut — mega-cleanup ordering, TOCTOU-race, `CONCURRENTLY`-regex, NDJSON tail, helper-flytt, fler strict schemas. | [`KRAVER-DIALOG-2026-04-24.md`](../archived/KRAVER-DIALOG-2026-04-24.md) |
+| **M** | **Öppna scaffold-trådar.** Kvar: SAJ-37/42 retry brief-context, SAJ-44 kwNorm, SAJ-55 scoring wire/keep/delete, SAJ-57 `scaffoldRetryUsed`, sv-locale-routing, latency-mätning. | [`OPEN-THREADS-SCAFFOLDS-2026-04-24.md`](../archived/OPEN-THREADS-SCAFFOLDS-2026-04-24.md) |
+| **N** | **Follow-up vs auto-repair lane-kollision.** Kvar: gate som kör repair först och replay:ar user-follow-up på reparerad version (P1d i O → PR4). | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](../archived/2026-04-27-followup-vs-autorepair-lane-collision.md) |
+| **T** | **LLM-tools för builder (scope).** Kvar: bekräfta Wave 1 (`removeCapability` + `addRoute`) innan implementation. | [`llm-tools-builder-spar.md`](../archived/llm-tools-builder-spar.md) |
+
+**Parkerat (väntar på gate)** — i [`../archived/parked/`](../archived/parked/):
+
+| Spår | Gate |
 |---|---|
-| Aktivt eller redo-att-startas | `active/` |
-| Väntar på gate | `active/parked/` |
-| Mergat — historik | `avklarat/` |
-| Skrotat | `archived/` |
+| [`L1-unified-repair-call.md`](../archived/parked/L1-unified-repair-call.md) | Telemetri-data + stabilt repo |
+| [`L2-prompt-kit.md`](../archived/parked/L2-prompt-kit.md) | system-prompt-split settle:ad |
+| [`L3-dossier-variants.md`](../archived/parked/L3-dossier-variants.md) | M2 + observationstid |
+| [`P32-request-type-taxonomy.md`](../archived/parked/P32-request-type-taxonomy.md) Fas B–F | Stabil follow-up-semantik + bredare eval-surface |
+| [`2026-04-28-pixelkallaren-eval-och-uppfoljning.md`](../archived/parked/2026-04-28-pixelkallaren-eval-och-uppfoljning.md) | Konkret eval-runner/baseline eller gaming-variant/F2-3D/form-a11y-PR |
 
-Frontmatter-minimum: `id`, `status`, `created`, `linear` (issue-ID eller `null`). Index-filer (denna README, `Kvarvarande-uppgifter.md`) får sakna frontmatter. Plan utan commit-progress på 14 dagar ska parkas, avklaras eller få färsk progress-anteckning.
+---
 
-> **Stor händelse 2026-04-23:** 11 uppdrag i OMTAG-waven mergade. Se arkivet [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/) och slutrapporten [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md). Flera planer här nedan har delvis bockats av — se top-note i respektive plan-fil.
+## Öppna buggar/uppgifter (koncentrat)
 
-## Scope-anchor (nästa session)
+Endast fortfarande öppna P1/P2 (destillerat ur [`../../../BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) + arkiverad [`Kvarvarande-uppgifter.md`](../archived/Kvarvarande-uppgifter.md)). `[x]`-rader och avskrivna fynd utelämnade. Källkolumnen pekar på backloggens `G#/N#/R#/E#`-id.
 
-- **Startlinje 2026-04-28:** [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) — **primär LLM-masterplan** efter hardening-PR (`3475484e9`, `8181f87e4`) och doc-konsolidering 2026-05-01. Äger follow-up/major-change, F3/readiness, UX/status och backlog-koppling. **Läs först innan nytt LLM-flöde-arbete startar.**
-- **Prompt-slim child-plan:** [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) — enda aktiva child-planen för Core Rules + follow-up Dynamic Context. Skapa inte nytt prompt-planlager.
-- **10-lagers målbild:** [`2026-04-27-llm-flode-varldsklass-scope.md`](../avklarat/2026-04-27-llm-flode-varldsklass-scope.md) — historisk scope-/målbildsanchor. Använd som bakgrund; startlinjen ovan äger aktiv LLM-körplan.
+### P1
 
-## Öppna steg (konsoliderat efter 2026-04-27-städ)
+| Tema | Vad | Källa |
+|---|---|---|
+| F2 false-green | F2 quality-gate fångar inte runtime/UI-fel; Product Postcheck default-off/fail-open. Produktifiera runtime-smoke, inte bara typecheck. | G#10, N#4, N#H3, R#6 |
+| Autofix-stubbar | `cross-file-import-checker` skapar null-render/dossier-stubbar → kan bli tyst success. Vägra dossier-stubbar eller markera blocker/degraded. | N#1 |
+| Brief-degradering | Simplified brief-fallback sänker premium/3D. Begränsa eller markera degraded mode explicit. | G#13 |
+| Eval merge-syntax | `arcade-with-klarna`-eval failar på merged syntax (`Expected '(' / 'from'`), LLM-fixer abortar. Kör `eval:weird-smoke:dump`, jämför raw/fixed/merged. | E#1, R#10 |
 
-### Aktiva (icke-parkerade)
+### P2 (tematiskt)
 
-| # | Plan | Kvarvarande steg | Prio |
-|---|------|------------------|------|
-| O | [`2026-04-28-llm-flode-startlinje.md`](./2026-04-28-llm-flode-startlinje.md) | **P0–P4 masterplan**: verifier-status, init/follow-up-konsistens, major-change detector, F3/readiness, latency, UX/status, env/doc-sync och backlog-koppling. | **Hög (anchor för nästa runda)** |
-| R | [`2026-05-02-builder-followup-preview-incident.md`](./2026-05-02-builder-followup-preview-incident.md) | **Incident child-plan**: stale follow-up/F3-basversion, tool-only `suggestIntegration`, Stripe/Clerk dependency-preflight och preview-session/version-mismatch efter restart. | **Hög (nästa smala fixrunda)** |
-| P | [`prompt-slim-systemprompt.md`](./prompt-slim-systemprompt.md) | **Child-plan till O**: Core Rules + follow-up Dynamic Context ska kapas utan nya promptlager. Kvar: Core Rules under ~35k och normal follow-up under ~45k. | Hög |
-| A | [`P34-blocking-lint-in-validate-and-fix.md`](./P34-blocking-lint-in-validate-and-fix.md) | **C2** — aktivera `SAJTMASKIN_BLOCKING_ESLINT=true` i Vercel Preview via Dashboard. **D** — aktivera i prod efter latens. **E** — ta bort lint från bakgrundsgate. | Medel |
-| B | [`cloudagent-paket-A-doc-rewrite.md`](./cloudagent-paket-A-doc-rewrite.md) | 3 dossier v1→v2 doc-omskrivningar (D3, D5, D7) — redo för cloudagent. | Låg |
-| C | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #7 | ~~E3~~ — recurring patterns är inkopplat i dev/follow-up via `renderRecurringFailuresBlockLines(chatId)`. Prod-on kräver separat eval-/produktbeslut. | — |
-| D | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #8 | **P26 rest** — PR3–9 från ursprungliga P26-paketet (quality-gate probe, HMR-spam, raw-msg-log, bygg-nu-UX, backoffice build-template, three-fiber-dossier). | Låg–Medel per PR |
-| E | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #9 | **Core-split v2:** `route-plan` är redan paket; kvar är främst `orchestrate.ts` + små helper-extraktioner. | Medel |
-| F | [`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) #11 | **Event-bus UI-flip (spår A)** — backend/projection/hook finns; consumer cut-over från DB-flaggor till `selectVersionStatus(events)` kvar. Copy-spåret ligger i `2026-05-01-f2-f3-ux-copy-konsolidering.md`. | Medel |
-| Q | [`2026-05-01-f2-f3-ux-copy-konsolidering.md`](./2026-05-01-f2-f3-ux-copy-konsolidering.md) | **F2/F3 copy (spår B)** — samla "Bygg nu" / "F3" / "Bygg integrationer" och `preview`/`VM`-ordval utan att blanda in signal-/statuslogik. | Låg–Medel |
-| L | [`KRAVER-DIALOG-2026-04-24.md`](./KRAVER-DIALOG-2026-04-24.md) | 7 punkter från långbänk-trion (databas/Redis observability) som kräver dialog: mega-cleanup ordering, TOCTOU-races, env-konvent, NDJSON-precision, refaktor-koordinering, fler strict schemas. | Låg–Medel |
-| M | [`OPEN-THREADS-SCAFFOLDS-2026-04-24.md`](./OPEN-THREADS-SCAFFOLDS-2026-04-24.md) | 6 öppna trådar: scaffold-retry brief-context, matcher-kwNorm, scoring wire/keep/delete, scaffoldRetryUsed-upstream, sv-locale-routing, latency-mätning. SEO-spec (PR-A #103 + PR-B #105 ✅) arkiverad → [`../avklarat/SEO-F3-PROMOTION-NEXT-PR.md`](../avklarat/SEO-F3-PROMOTION-NEXT-PR.md). | Låg–Medel |
-| N | [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) | Aktiv child-plan till startlinjens P1d. När P1d syntetiseras in i O kan denna flyttas till `avklarat/` eller `archived/`. | Medel |
+| Tema | Öppna fynd | Källa |
+|---|---|---|
+| Verify-gates fail-open | Preview visas trots verifier-blocked draft; warm tsc/eslint fail-open vid kall cache; verifier ser snippets, inte hela filer. | G#31, G#32, G#33, N#4 |
+| F3 readiness/integration | F3 build-plan tappas när follow-up inte återinfererar integration; `/finalize-design` kan säga ready utan krav; hard dossiers ger placeholder-UI i stället för blocker. | G#20, G#21, G#22, N#H2, R#7 |
+| Capability single-source | Init och follow-up har olika capability-universum; dossier/capability-threading svagt vissa paths. | G#25, G#26, N#2 |
+| Env-sanning/precedence | `process.env`-drift utanför `env.ts`; dubbla env-docs; generated `.env.local` kan vinna över user-env; `allowPlaceholdersInF3` kan släppa stub-secrets. | G#16, G#17, G#18, G#19, N#H4 |
+| Status/degraded UX | Event-bus statusprojektion (`selectVersionStatus`) inte fullt inkopplad i builder-UI (spår A / Kvarvarande #11); placeholder-bild maskerar trasigt original; recurring verifier-fynd saknas i nästa prompt (E3); follow-up context-budget saknar regression-gate. | N#6, G#35, N#5, N#3 |
+| Säkerhet/policy | Inspector SSRF-edge (publik DNS → privat IP); publik PDF-parse-yta / 10MB-input CPU-policy. | G#40, G#38, R#12 |
 
-### Konsolideringsstatus
+### Infra-förenkling + längre horisont
 
-| Plan | Föreslagen hantering |
-|---|---|
-| [`2026-04-29-llm-flow-source-router.md`](../avklarat/2026-04-29-llm-flow-source-router.md) | Flyttad till `avklarat/` 2026-05-01; source-routerhistoriken är bevarad där. |
-| [`parked/2026-04-28-pixelkallaren-eval-och-uppfoljning.md`](./parked/2026-04-28-pixelkallaren-eval-och-uppfoljning.md) | Parkerad 2026-05-01 som eval-fixture/scope. Återaktivera först när en konkret eval-runner/baseline eller variant-/F2-3D-/form-a11y-PR ska göras. |
-| [`2026-04-27-followup-vs-autorepair-lane-collision.md`](./2026-04-27-followup-vs-autorepair-lane-collision.md) | Child-plan för P1d tills implementation är gjord. |
-| [`2026-04-27-llm-flode-varldsklass-scope.md`](../avklarat/2026-04-27-llm-flode-varldsklass-scope.md) | Flyttad till `avklarat/` 2026-05-01; används som bakgrund, inte aktiv körplan. |
-
-### Paused per OMTAG `PARKED.md` — ligger i [`./parked/`](./parked/)
-
-| # | Plan | Gatekeeper |
-|---|------|------------|
-| G | [`parked/L1-unified-repair-call.md`](./parked/L1-unified-repair-call.md) | Telemetri-data + stabilt repo |
-| H | [`parked/L2-prompt-kit.md`](./parked/L2-prompt-kit.md) | system-prompt-splittningen (OMTAG 03) settle:ad |
-| I | [`parked/L3-dossier-variants.md`](./parked/L3-dossier-variants.md) | M2 + observationstid |
-| J | [`parked/P32-request-type-taxonomy.md`](./parked/P32-request-type-taxonomy.md) Fas B–F | Stabil follow-up-semantik (✅) + bredare eval-surface |
-
-**Summa aktivt öppet arbete:** O/R/P + A-F + Q + L/M/N (icke-parkerat) ≈ 1-2 veckor; **O** är startlinje 2026-04-28 och konsoliderar LLM-flöde-arbete, medan **R** bär 2026-05-02-incidentens smala fixrunda.
-
-**Städat 2026-04-27:** `2026-04-24-llm-flode-korplan/` (alla 7 waves via PR #101+103 ✅) + `SEO-F3-PROMOTION-NEXT-PR.md` (PR-A #103 + PR-B #105 ✅) → arkiverade i [`../avklarat/`](../avklarat/).
-
-**Städat 2026-04-23 (efter OMTAG):** `E-easy-medium-layer.md`, `M-medium-hard-layer.md`, `P26-followup-orchestration-glitch.md`, `P19-old-content-ingress.md`, `dossier-brief-sync.md`, `cloudagent-paket-B-schema-validation.md` → arkiverade. Se [`../avklarat/omtag-2026-04-23/meta/INDEX.md`](../avklarat/omtag-2026-04-23/meta/INDEX.md).
-
-## Kanonisk checklista
-
-[`Kvarvarande-uppgifter.md`](./Kvarvarande-uppgifter.md) — prioriterad öppen lista + telemetri-blockad + strategiska satsningar + bevarad historik över alla leverans-waves (2026-04-20, 2026-04-21, 2026-04-22, …).
-
-## Avklarade waves
-
-- **2026-04-27** — **LLM-flöde världsklass audit-session** (commits `d8525cbd6`…`dded81259`). 9 levererade SAJ-fixes (verifier suppress, manifest codeEntry, rollback till bestContent, needsPhysics regex, FEATURES.escalateMergeSyntaxToLlm, batch quality-gate/repair/readiness/product-postcheck, merge-preflight LLM-repair, abortSignal propagation, hibernate 404). Scope-doc: [`2026-04-27-llm-flode-varldsklass-scope.md`](../avklarat/2026-04-27-llm-flode-varldsklass-scope.md).
-- **2026-04-26** — **SEO + F3-promotion** (PR #102 docs + #103 PR-A + #105 PR-B → master `854bb9a31`). `seoPreferencesSchema`, `applyScaffoldSeoDefaults`, GET/PATCH `/api/projects/[id]/preferences`, `SeoOptInPanel`, deploy-time SEO-injection. Arkiverat: [`../avklarat/SEO-F3-PROMOTION-NEXT-PR.md`](../avklarat/SEO-F3-PROMOTION-NEXT-PR.md).
-- **2026-04-24** — **LLM-flöde korplan** (7 waves + PR #101 + PR #103). Arkiverat: [`../avklarat/2026-04-24-llm-flode-korplan/`](../avklarat/2026-04-24-llm-flode-korplan/README.md).
-- **2026-04-24** — **Långbänk-trio: databas + Redis observability** (4 commits över 3 långbänkar). Postgres FK-index (17 saknade applicerade), backoffice "Databashälsa" + "Redis-hälsa"-sidor med audit-loggad APPLY-knapp, 3 strict schemas (db-health/redis-health/audit), schema-drift-test, 19 vitest-tester + 15 backoffice-smoke. Arkiverat: [`../avklarat/master-post-cleanup-2026-04-23/`](../avklarat/master-post-cleanup-2026-04-23/).
-- **2026-04-23** — **OMTAG-waven** (11 uppdrag, 9 cloud-agenter över 3 faser). Arkiv: [`../avklarat/omtag-2026-04-23/`](../avklarat/omtag-2026-04-23/). Slutbedömning: [`../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md`](../avklarat/omtag-2026-04-23/status/STATUS-2026-04-23-omtag-complete.md).
-- **2026-04-22** — LLM-flow-audit + 2 follow-up-pass. 20 verifierade buggar fixade över 3 commits (`a35eaa05e` + `8de85797b` + `3a2ec25d8`). Unicode-regex-grundinfrastruktur + CI-guard etablerad. Se [`../../../audit-reports/2026-04-22-llm-flow/SUMMARY.md`](../../../audit-reports/2026-04-22-llm-flow/SUMMARY.md).
-- **2026-04-22** — Cleanup-wave pass 1+2 (7 commits över P2/P5/P1/S3/knip/P3/docs). PR #84.
-- **2026-04-21** — `href↔route-safety-net` + P30 + P31 + `repair-loop-hardening` + `P20-shadcn-ecosystem-next`. Flyttade till [`../avklarat/`](../avklarat/).
-- **2026-04-20** — Cloud-loop PR #69 (21 commits, Block 0+1+2). STATUS-sammanfattning i repo-roten.
-
-## Arkiverade P-filer
-
-Se [`../archived/`](../archived/) för historiska planer (`P17`, osv) och [`../avklarat/`](../avklarat/) för slutförda waves.
+Från arkiverad `Kvarvarande-uppgifter.md` (ej P1/P2-buggar, men styr fortfarande): core-split v2 (`orchestrate.ts` ~965 rader, `manifest.json`-split), event-bus UI-flip spår A (#11, = N#6 ovan), VersionHistory badge/overlay visuell verifiering ([SAJ-23](https://linear.app/sajtmaskin/issue/SAJ-23)). Telemetri-blockad (vänta ~1 vecka, läs counters): early-stop-inventering, verifier asynk/bort, partial-file-repair-removal, P50/brief-A/B. Strategiskt: slå ihop server-verify + quality-gate + accept-repair (§3.2); WebContainers-migration (boot 2–5 min → ~5 s). Extern: ÅÄÖ pre-commit hook. Detaljer: [`../archived/Kvarvarande-uppgifter.md`](../archived/Kvarvarande-uppgifter.md).

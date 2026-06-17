@@ -65,7 +65,7 @@ Flödet vid freeform create-chat:
 4. Serverns `buildDynamicContext(brief)` bygger rik dynamisk kontext (mät via `promptSize.dynamicContext`)
 5. Kontexten injiceras i **systemprompten** (dynamisk del)
 6. Användarens **råa prompttext** skickas som user-message (ingen MÅL/CONSTRAINTS-wrappning)
-7. Kodgeneratorn ser: statisk kärna + dynamisk kontext + rå user-message; exakta storlekar mäts i prompt-telemetrin och följs upp i `docs/plans/active/prompt-slim-systemprompt.md`.
+7. Kodgeneratorn ser: statisk kärna + dynamisk kontext + rå user-message; exakta storlekar mäts i prompt-telemetrin och följs upp i `docs/plans/archived/prompt-slim-systemprompt.md`.
 
 **Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) skickar `useCreateChat` user-prompten rå (sedan 2026-04-28) och kör `buildDynamicInstructionAddendumFromPrompt()` för en enklare prompt-baserad expansion. `formatPrompt()` används inte i den vägen längre.
 

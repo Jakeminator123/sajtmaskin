@@ -316,7 +316,7 @@
       ],
       "docsPaths": [
         "src/lib/gen/eval/README.md",
-        "docs/plans/active/Kvarvarande-uppgifter.md"
+        "docs/plans/archived/Kvarvarande-uppgifter.md"
       ],
       "codeReaders": [
         "backoffice/pages/eval_page.py",
