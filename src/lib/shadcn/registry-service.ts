@@ -22,6 +22,11 @@ import {
   resolveShadcnComponentMetadata,
   type ComponentPreviewKind,
 } from "@/lib/builder/shadcn-component-metadata";
+import {
+  buildRegistryCacheKey,
+  getRegistryMemoryCache,
+  setRegistryMemoryCache,
+} from "@/lib/shadcn/registry-memory-cache";
 
 // ============================================
 // TYPES
@@ -127,22 +132,10 @@ const CATEGORY_CONFIG: Record<
 // CACHE
 // ============================================
 
-const cache = new Map<string, { data: unknown; timestamp: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-function getCached<T>(key: string): T | null {
-  const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
-    cache.delete(key);
-    return null;
-  }
-  return entry.data as T;
-}
-
-function setCache<T>(key: string, data: T): void {
-  cache.set(key, { data, timestamp: Date.now() });
-}
+// Bounded, normalized-key in-memory cache (see registry-memory-cache.ts):
+// G#61/U#33 (max size) + G#62/U#34 (casing/whitespace key dedup).
+const getCached = getRegistryMemoryCache;
+const setCache = setRegistryMemoryCache;
 
 async function parseRegistryError(response: Response): Promise<string> {
   const text = await response.text().catch(() => "");
@@ -217,7 +210,7 @@ export function buildPreviewImageUrl(
  */
 export async function fetchRegistryIndex(style?: string): Promise<RegistryIndex> {
   const force = false;
-  const cacheKey = `index:${style || "default"}:official`;
+  const cacheKey = buildRegistryCacheKey("index", { style, source: "official" });
   const cached = getCached<RegistryIndex>(cacheKey);
   if (cached) return cached;
 
@@ -247,7 +240,7 @@ export async function fetchRegistryIndexWithOptions(
 ): Promise<RegistryIndex> {
   const force = Boolean(options.force);
   const sourceKey = options.source?.trim() || "official";
-  const cacheKey = `index:${style || "default"}:${sourceKey}`;
+  const cacheKey = buildRegistryCacheKey("index", { style, source: sourceKey });
   const cached = getCached<RegistryIndex>(cacheKey);
   if (cached && !force) return cached;
 
@@ -354,7 +347,7 @@ async function fetchRegistryItemViaFallback(
  * Fetch a specific registry item (component/block)
  */
 export async function fetchRegistryItem(name: string, style?: string): Promise<ShadcnRegistryItem> {
-  const cacheKey = `item:${name}:${style || "default"}:official`;
+  const cacheKey = buildRegistryCacheKey("item", { name, style, source: "official" });
   const cached = getCached<ShadcnRegistryItem>(cacheKey);
   if (cached) return cached;
 
@@ -370,7 +363,7 @@ export async function fetchRegistryItemWithOptions(
 ): Promise<ShadcnRegistryItem> {
   const force = Boolean(options.force);
   const sourceKey = options.source?.trim() || "official";
-  const cacheKey = `item:${name}:${style || "default"}:${sourceKey}`;
+  const cacheKey = buildRegistryCacheKey("item", { name, style, source: sourceKey });
   const cached = getCached<ShadcnRegistryItem>(cacheKey);
   if (cached && !force) return cached;
 
