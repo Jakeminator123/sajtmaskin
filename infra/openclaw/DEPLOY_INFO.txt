@@ -13,10 +13,18 @@ to your specific project before deploying.
 
 1) Architecture
 ---------------
-- The consuming app (frontend) runs separately (e.g. Vercel, Netlify, etc.).
-- OpenClaw Gateway runs as a Docker Web Service (Render, Railway, etc.).
-- The frontend calls OpenClaw through its own API proxy routes.
+- The OpenClaw Gateway runs as its OWN standalone Docker Web Service
+  (Render, Railway, etc.) — separate from the app deployment.
+- The consuming app (Sajtmaskin on Vercel) runs separately and only ships a
+  React widget + thin API proxy under src/app/api/openclaw/* and
+  src/app/api/did/chat. It calls the gateway over HTTPS.
+- App -> gateway link is just env: OPENCLAW_GATEWAY_URL +
+  OPENCLAW_GATEWAY_TOKEN. The widget is gated by IMPLEMENT_UNDERSCORE_CLAW.
+- The proxy always targets the single hardcoded agent "openclaw:sajtagenten"
+  (see src/app/api/openclaw/chat/route.ts) — there is no per-agent env var.
 - Sajtagenten reads the target site via configured URL (SAJTAGENT_TARGET_SITE_URL).
+- To run a second/new gateway: clone this service to a new Render instance
+  and repoint the app's OPENCLAW_GATEWAY_URL. No code change required.
 
 
 2) Repo Paths
@@ -39,34 +47,47 @@ Disk:
 - Mount path: /root/.openclaw
 - Size: 1 GB or larger
 
-Required environment variables:
-- OPENCLAW_GATEWAY_TOKEN=<secret>
-- OPENCLAW_GATEWAY_PORT=10000
+Required environment variables (see render.yaml for the canonical stubs):
+- OPENCLAW_GATEWAY_TOKEN=<secret>                  (shared with the app)
 - OPENAI_API_KEY=<secret>
-- SAJTAGENT_TARGET_SITE_URL=https://example.com   (the site the agent reads)
+- SAJTAGENT_TARGET_SITE_URL=https://example.com    (site the agent reads)
 
-Optional environment variables:
+Recommended / instance-specific:
+- SAJTAGENT_ALLOWED_ORIGINS=https://my-app.vercel.app,https://staging.example.com
+    Comma-separated browser origins allowed to reach the controlUi. The list
+    is built entirely from this var + SAJTAGENT_TARGET_SITE_URL at boot;
+    http://localhost:3000 is always included. No hostname is hardcoded, so a
+    new deployment URL works without a code change.
+
+Optional environment variables (have safe defaults):
+- OPENCLAW_GATEWAY_PORT=10000
 - OPENCLAW_GATEWAY_BIND=lan
+- OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=false
 - OPENCLAW_MODEL_PRIMARY=openai/gpt-5.1-codex
 - OPENCLAW_MODEL_FALLBACK=openai/gpt-5.3-codex
-- SAJTAGENT_ALLOWED_ORIGINS=https://my-app.vercel.app,https://staging.example.com
-- OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=false
-- JUICEFACTORY_API_KEY=<optional, for Qwen models>
+- JUICEFACTORY_API_KEY=<secret, only for the Qwen provider>
 
 Notes:
 - Do not manually set PORT unless you have a specific reason.
 - Port resolution order: PORT -> OPENCLAW_GATEWAY_PORT -> 18789
 
 
-4) Frontend / Consuming App Environment Variables
---------------------------------------------------
-Required:
-- OPENCLAW_GATEWAY_URL=https://sajtagenten.onrender.com
-- OPENCLAW_GATEWAY_TOKEN=<same token as Render>
-- OPENCLAW_AGENT_ID=sajtagenten
+4) App (Vercel) Environment Variables
+-------------------------------------
+All three are required for the widget + Sajtagenten surfaces to activate
+(src/lib/config.ts -> OPENCLAW.surfaceEnabled). Missing any one hides the
+widget entirely.
+- OPENCLAW_GATEWAY_URL=https://<your-gateway>.onrender.com  (this Render URL)
+- OPENCLAW_GATEWAY_TOKEN=<same secret as the Render service>
+- IMPLEMENT_UNDERSCORE_CLAW=true
 
-Recommended:
-- OPENCLAW_AGENT_TOKEN=<secret>
+WARNING: OPENCLAW_GATEWAY_URL must point at the separate gateway service —
+never at the app's own host (http://localhost:3000 or the prod app URL),
+or /api/openclaw/chat loops back onto itself and returns 404.
+
+Note: there is NO per-agent env var. OPENCLAW_AGENT_ID / OPENCLAW_AGENT_TOKEN
+were removed (2026-06) — they are not read anywhere in src/. The proxy always
+targets the hardcoded agent "openclaw:sajtagenten".
 
 
 5) Smoke Test Checklist

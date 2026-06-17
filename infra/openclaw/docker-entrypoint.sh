@@ -61,13 +61,44 @@ PROVIDERS_END
   echo "[entrypoint] JuiceFactory provider configured (qwen3-vl)"
 fi
 
-# Build allowed origins list from env, falling back to sensible defaults.
-# SAJTAGENT_ALLOWED_ORIGINS is a comma-separated list of extra origins.
-EXTRA_ORIGINS=""
-if [ -n "${SAJTAGENT_ALLOWED_ORIGINS:-}" ]; then
-  EXTRA_ORIGINS=$(echo "$SAJTAGENT_ALLOWED_ORIGINS" | sed 's/,/",\n        "/g')
-  EXTRA_ORIGINS=$(printf ',\n        "%s"' "$EXTRA_ORIGINS" | tail -c +2)
+# Build the controlUi.allowedOrigins list entirely from env so a NEW
+# deployment hostname works without any code change:
+#   - http://localhost:3000 is always kept for local development
+#   - SAJTAGENT_TARGET_SITE_URL is added when set
+#   - SAJTAGENT_ALLOWED_ORIGINS is a comma-separated list of extra origins
+# Blank entries and duplicates are dropped; the result is emitted as the
+# JSON array body (comma-separated, quoted) for openclaw.json.
+ALLOWED_ORIGINS_RAW="http://localhost:3000"
+if [ -n "${TARGET_SITE_URL:-}" ]; then
+  ALLOWED_ORIGINS_RAW="${ALLOWED_ORIGINS_RAW},${TARGET_SITE_URL}"
 fi
+if [ -n "${SAJTAGENT_ALLOWED_ORIGINS:-}" ]; then
+  ALLOWED_ORIGINS_RAW="${ALLOWED_ORIGINS_RAW},${SAJTAGENT_ALLOWED_ORIGINS}"
+fi
+
+ALLOWED_ORIGINS_JSON=""
+ORIGIN_SEEN="|"
+ORIGIN_OLD_IFS="$IFS"
+IFS=","
+for origin in $ALLOWED_ORIGINS_RAW; do
+  origin=$(printf '%s' "$origin" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+  if [ -z "$origin" ]; then
+    continue
+  fi
+  case "$ORIGIN_SEEN" in
+    *"|${origin}|"*)
+      continue
+      ;;
+  esac
+  ORIGIN_SEEN="${ORIGIN_SEEN}${origin}|"
+  if [ -z "$ALLOWED_ORIGINS_JSON" ]; then
+    ALLOWED_ORIGINS_JSON="\"${origin}\""
+  else
+    ALLOWED_ORIGINS_JSON="${ALLOWED_ORIGINS_JSON},
+        \"${origin}\""
+  fi
+done
+IFS="$ORIGIN_OLD_IFS"
 
 cat > "$CONFIG_FILE" <<EOF
 {
@@ -83,10 +114,7 @@ cat > "$CONFIG_FILE" <<EOF
       "enabled": true,
       "dangerouslyDisableDeviceAuth": ${CONTROLUI_DISABLE_DEVICE_AUTH},
       "allowedOrigins": [
-        "https://sajtagenten.onrender.com",
-        "${TARGET_SITE_URL}",
-        "http://localhost:3000"${EXTRA_ORIGINS:+,
-        ${EXTRA_ORIGINS}}
+        ${ALLOWED_ORIGINS_JSON}
       ]
     },
     "http": {
@@ -121,6 +149,7 @@ EOF
 echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallback=${MODEL_FALLBACK}, port=${LISTEN_PORT}, bind=${BIND_MODE}"
 echo "[entrypoint] OpenClaw version: ${OPENCLAW_VERSION:-unknown}"
 echo "[entrypoint] Target site: ${TARGET_SITE_URL}"
+echo "[entrypoint] controlUi.allowedOrigins: [${ALLOWED_ORIGINS_JSON}]"
 echo "[entrypoint] controlUi.dangerouslyDisableDeviceAuth=${CONTROLUI_DISABLE_DEVICE_AUTH}"
 
 if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then

@@ -1,3 +1,14 @@
+# Standalone OpenClaw gateway (Sajtagenten) — deploy as its OWN Render
+# Web Service, separate from the Next.js app. The consuming app (Vercel)
+# talks to this service over HTTPS via OPENCLAW_GATEWAY_URL +
+# OPENCLAW_GATEWAY_TOKEN; the gateway is never part of the app deployment.
+#
+# Spin up a NEW instance:
+#   1. New > Web Service (or Blueprint) from this repo, rootDir infra/openclaw.
+#   2. Fill in every `sync: false` env var below (secrets + instance config).
+#   3. Point the app's OPENCLAW_GATEWAY_URL at the resulting *.onrender.com URL.
+# No code change is needed for a new hostname — controlUi allowed origins are
+# built at boot from SAJTAGENT_ALLOWED_ORIGINS + SAJTAGENT_TARGET_SITE_URL.
 services:
   - type: web
     name: openclaw-sajtagenten
@@ -7,12 +18,24 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
+      # --- Secrets: set per instance, never commit values ---
       - key: OPENCLAW_GATEWAY_TOKEN
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      # Optional — only needed for the JuiceFactory (Qwen) provider.
+      - key: JUICEFACTORY_API_KEY
+        sync: false
+      # --- Instance-specific config: set per instance ---
+      # Site the agent gets broad read access to.
       - key: SAJTAGENT_TARGET_SITE_URL
         sync: false
+      # Comma-separated extra browser origins allowed to reach the controlUi,
+      # e.g. https://your-app.vercel.app,https://staging.example.com
+      # (http://localhost:3000 is always allowed automatically).
+      - key: SAJTAGENT_ALLOWED_ORIGINS
+        sync: false
+      # --- Defaults: safe to keep as-is ---
       - key: OPENCLAW_GATEWAY_PORT
         value: "10000"
       - key: OPENCLAW_GATEWAY_BIND
