@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { getVercelToken } from "@/lib/vercel";
 
 export type VercelDeploymentTarget = "production" | "preview";
@@ -71,7 +72,13 @@ export function sanitizeVercelProjectName(input: string): string {
   const maxLen = 52;
   const truncated = cleaned.slice(0, maxLen).replace(/-+$/, "");
 
-  return truncated.length > 0 ? truncated : `sajtmaskin-${Date.now()}`;
+  if (truncated.length > 0) return truncated;
+
+  // Collision-safe fallback (U#69): `Date.now()` alone collides for two
+  // deploys created in the same millisecond and is otherwise non-unique.
+  // `randomUUID()` is lowercase hex + hyphens, a valid Vercel project-name
+  // segment; an 8-char slice keeps it short while staying collision-safe.
+  return `sajtmaskin-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
 }
 
 export function toVercelFilesFromTextFiles(

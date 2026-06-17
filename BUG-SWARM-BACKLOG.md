@@ -24,8 +24,8 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | Grupp | Antal | Hantering |
 | --- | ---: | --- |
 | Totalt | 129 | Alla rader i tabellen nedan. |
-| Avslutade (`[x]`) | 73 | Filtrera bort från aktiv bugfix. |
-| Öppna (`[ ]`) | 56 | Kandidater för fortsatt triage/fix. |
+| Avslutade (`[x]`) | 74 | Filtrera bort från aktiv bugfix. |
+| Öppna (`[ ]`) | 55 | Kandidater för fortsatt triage/fix. |
 | Explicit `Inte bug` | 13 | Avskrivna eller naming/copy/fallback-beslut; ska inte räknas som aktiv buggrisk. |
 
 | Aktiv prioritet | Kvar | Kommentar |
@@ -33,7 +33,7 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | P0 | 0 | Inga kvarvarande P0-rader. |
 | P1 | 3 | Autofix-stubbar, F2 runtime/UI-smoke och simplified-brief kvalitet. |
 | P2 | 18 | F3/dossier/env/verify/policy-risker + follow-up-budget/status-projektion. |
-| P3 | 35 | UI-race, cache/search/scrape, copy/naming/städ. |
+| P3 | 34 | UI-race, cache/search/scrape, copy/naming/städ. |
 
 ### Avskrivet / inte bug
 
@@ -243,7 +243,7 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [ ] | Öppen backoffice-städ | P3 | Backoffice domain-map / manuella paths | U#63 | Synka med `backoffice/shared.py` om ytan rörs. |
 | [x] | Fixad nu | P3 | Metrics route token blind | U#65 | Fixad: 401 loggar token-miss utan att logga tokenvärdet; route hade redan rätt status. |
 | [ ] | Öppen logg-städ | P3 | `console.info` hot paths brus | U#66 | Gå över till debug-log med sampling. |
-| [ ] | Öppen naming-risk | P3 | nanoid/Date fallback deploy-namn | U#69 | Gör deterministic eller collision-safe. |
+| [x] | Fixad nu | P3 | nanoid/Date fallback deploy-namn | U#69 | Fixad: `sanitizeVercelProjectName` fallback bytt från `sajtmaskin-${Date.now()}` (kolliderar inom samma ms) till `sajtmaskin-${randomUUID 8 hex}` — collision-safe. Regressionstest i `vercelDeploy.test.ts`. (Deployment-record-`id` använde redan `nanoid()` = collision-safe.) |
 | [x] | Fixad i HEAD | P3 | `getExtension` default `.png` | U#70 | Avskriven/fixad: blob-service defaultar redan ogiltig/saknad extension till `.bin`, inte `.png`. |
 | [x] | Inte bug / copy debt | P3 | Shadcn category emojis enterprise | U#74 | Inte bug; copy/brand-städ. |
 | [x] | Fixad i HEAD | P3 | Template-search diakritik strip | U#75 | Avfärdad/redan hanterad: `normalizeForSearch` i `template-search.ts` gör NFD + strip av combining marks (`[\u0300-\u036f]`) på både query och haystack, så `Malmö`↔`malmo`/`café`↔`cafe` matchar redan. Unicode-aware folding finns. (Residual: shadcn `searchBlocks` använder bara `toLowerCase()` — separat komponent-sök, inte template-search.) |
