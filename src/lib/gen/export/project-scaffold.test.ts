@@ -31,7 +31,7 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.scripts.build).toBe("next build");
     expect(merged.devDependencies.typescript).toBeDefined();
     expect(merged.devDependencies.tailwindcss).toBeDefined();
-    expect(merged.dependencies.next).toBe("16.2.3");
+    expect(merged.dependencies.next).toBe("16.2.9");
     expect(merged.dependencies.react).toBe("19.2.4");
     expect(merged.dependencies["react-dom"]).toBe("19.2.4");
     expect(merged.dependencies["lucide-react"]).toBe("0.469.0");
@@ -178,12 +178,12 @@ describe("buildCompleteProject", () => {
       scripts: Record<string, string>;
     };
     expect(pkg.engines.node).toBe(">=22.14.0 <23");
-    expect(pkg.dependencies.next).toBe("16.2.3");
+    expect(pkg.dependencies.next).toBe("16.2.9");
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
     expect(pkg.scripts.lint).toBe("eslint .");
     expect(pkg.devDependencies.eslint).toBe("9.39.2");
-    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.2.3");
+    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.2.9");
   });
 
   it("ships a canonical use-reduced-motion hook so motion components avoid hand-rolled mounted guards", () => {
@@ -321,7 +321,7 @@ describe("buildCompleteProject", () => {
     };
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
-    expect(pkg.dependencies.next).toBe("16.2.3");
+    expect(pkg.dependencies.next).toBe("16.2.9");
     expect(pkg.dependencies["@react-three/fiber"]).toBe("9.1.2");
     expect(pkg.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(pkg.dependencies.three).toBe("0.176.0");
