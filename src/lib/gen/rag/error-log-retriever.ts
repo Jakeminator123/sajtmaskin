@@ -108,13 +108,18 @@ function triggerDbIndexRefresh(): void {
 }
 
 function loadIndexForRetrieval(): { entry: CacheEntry | null; crossTenant: boolean } {
+  // Redact in any multi-tenant environment (production), regardless of whether
+  // the index came from the on-disk snapshot OR the DB. `npm start` in prod
+  // also builds a cross-tenant on-disk snapshot from the production NDJSON
+  // producer (via next-runner's indexer), so disk-source is NOT a safe
+  // single-tenant signal outside dev. Only dev (own machine, single user)
+  // keeps raw faultText in the rendered block.
+  const crossTenant = process.env.NODE_ENV === "production";
   const disk = loadIndexFromDisk();
-  if (disk) return { entry: disk, crossTenant: false };
-  // No disk snapshot (serverless prod): fall back to the DB-backed index. DB
-  // rows span ALL tenants, so flag hits cross-tenant — the renderer then
-  // redacts site-specific faultText to avoid leaking one user's content.
+  if (disk) return { entry: disk, crossTenant };
+  // No disk snapshot: fall back to the DB-backed index.
   triggerDbIndexRefresh();
-  return { entry: dbCache, crossTenant: dbCache !== null };
+  return { entry: dbCache, crossTenant };
 }
 
 export interface RetrieveSimilarFailuresOptions {
