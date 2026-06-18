@@ -32,14 +32,15 @@ Merga bara när **ALLT är grönt + bot-rent + du är trygg ("okej")**. Minsta t
 | [#152](https://github.com/Jakeminator123/sajtmaskin/pull/152) | C1 deprecera `plan-file.schema.json` | 1 | **auto-mergad av PR-mergaren** (risk 1) |
 | [#153](https://github.com/Jakeminator123/sajtmaskin/pull/153) | C2 ordlista-check (`check:terms`, warn-först) | 1 | Codex-P2 fixad (`if: !cancelled()`) |
 | [#155](https://github.com/Jakeminator123/sajtmaskin/pull/155) | A7-1 false-green stabilitetstest (`done` ≠ solid-green) | 7 | test-only |
+| [#149](https://github.com/Jakeminator123/sajtmaskin/pull/149) | promote-guard / false-green runtime-fix (`passed:false` vid block, `acceptRepair`-guard, repair-pass-telemetri) | 7 | **övertagen** från annan agent: kod verifierad (11/11 tester), body + 6 trådar städade, stale `CHANGES_REQUESTED` dismissad, squash-mergad |
 
-D1 (router) mergades före denna session. **Område 1, 2, 3 = klara.**
+D1 (router) mergades före denna session. **Område 1, 2, 3 = klara**; #149 landade område 7:s runtime-kärna.
 
 ## 4. Auto-merge-automation "PR-mergare" (VIKTIGT för nästa agent)
 
 En Cursor Automation (cloud, ID `59ae4961-…`, syns som check `Cursor Automation: PR-mergare` + en `PR Auto-Merger verdict`-review) auto-mergar **bara risk 1–2 utan protected paths**; allt annat → `NEEDS_HUMAN`. Protected paths (block oavsett grönt, även test-only): `.github/workflows/**`, `package.json`, `src/lib/db|auth|logging/**`, `src/app/api/**`, m.fl. Full beskrivning + verifieringskommandon: [`auto-merge-automation.mdc`](../../.cursor/rules/auto-merge-automation.mdc). **Den ersätter inte review-gaten** — läs alltid dess verdict + Codex/Bugbot före manuell merge.
 
-## 5. Progress — "47% av vad?"
+## 5. Progress — "av vad?"
 
 Av grandmaster-planens **7 viktade arbetsområden = 100 poäng** (grov uppskattning, [`_loggbok.md`](../plans/active/grandmaster/_loggbok.md) är källan):
 
@@ -51,18 +52,18 @@ Av grandmaster-planens **7 viktade arbetsområden = 100 poäng** (grov uppskattn
 | 3 · Kontrakt & regler (C1+C2) | 10 | 10 |
 | 4 · Status & UI/UX (event-bus) | 15 | 0 |
 | 5 · Follow-up & preview-kontrakt | 20 | 0 |
-| 6 · False-green-härdning (A7-1 låst; A7-2 staged draft) | 15 | 3 |
-| **Totalt** | **100** | **~47%** |
+| 6 · False-green-härdning (#149 runtime-kärna + A7-1 test låst; A7-2 #156 draft) | 15 | 11 |
+| **Totalt** | **100** | **~55%** |
 
-47% = ungefär halva stabiliseringsinitiativet. Det som återstår (53%) är **tyngre runtime/beteende**: status/UI-event-bus, follow-up/preview-kontrakt, och resten av false-green — alla kräver Jakes go.
+~55% av stabiliseringsinitiativet. Det som återstår är **tyngre runtime/beteende**: status/UI-event-bus (omr 6), follow-up/preview-kontrakt (omr 5), och resten av false-green (A7-2-flippen) — alla kräver Jakes go.
 
 ## 6. Öppet / nästa agent tar vid
 
 | Spår | Läge | Åtgärd |
 |---|---|---|
-| **#156 A7-2** (dossier-stub-guard) | **draft, grön, CLEAN**, default-OFF → master oförändrat | Jake granskar + mergar. Flippa `SAJTMASKIN_REFUSE_DOSSIER_STUBS` PÅ **först** efter att omr 5/6 landat (kan annars flippa status röd). Vid flipp: följd-PR lägg env-nyckeln i `config/env-policy.json` + `docs/ENV.md`. |
-| **#149** promote-guard | annan agent (`hydration`-worktree), draft | **RÖR INTE** branchen/worktreet. Den agentens kvarvarande P2/P4/P5 + merge = Jakes/dess beslut. Hör till område 7. |
-| **#140** DB+Blob sync-gate | öppen, gammal/högrisk, bot-trådar | **Parkerad** tills bot-trådarna hanterats. |
+| **#156 A7-2** (dossier-stub-guard) | **draft, grön, CLEAN**, default-OFF → master oförändrat | Jake granskar + mergar. Flippa `SAJTMASKIN_REFUSE_DOSSIER_STUBS` PÅ **först** efter att omr 5/6 landat (kan annars flippa status röd). Vid flipp: följd-PR lägg env-nyckeln i `config/env-policy.json` + `docs/ENV.md`. Master rörde bara docs sedan #156 forkades → ingen rebase nödvändig (distinkta filer från #149). |
+| ~~**#149** promote-guard~~ | **MERGAD** (`b8d85a338`) | Övertagen + mergad denna runda. P2/P4/P5 (layout-guard, content-validator, preview-hardening) kvarstår som **separata** follow-up-PRs per #149-bodyn. |
+| **#140** DB+Blob sync-gate | öppen, gammal/högrisk, bot-trådar | **Parkerad** tills bot-trådarna hanterats (workflow_dispatch+secrets, require-creds, blob-pagination, identiska dev/prod-targets). |
 | **#154** LLM-flow-canvas | öppen, **ej skapad av denna session** | Inte rörd; Jakes/annan agents. |
 
 ## 7. Återstående körordning (per master-plan §6)
@@ -70,7 +71,7 @@ Av grandmaster-planens **7 viktade arbetsområden = 100 poäng** (grov uppskattn
 ```
 Steg 4: Område 6 Status & UI/UX (event-bus-flip)   ← nästa, snabb bugglättnad. Låser upp S3-statusresolver-flip.
 Steg 5: Område 5 Follow-up & preview-kontrakt       ← produktens hjärta, störst yta (20%)
-Steg 6: Område 7 False-green-härdning (resten)      ← beror på 5/6; #149+A7-1/A7-2 är förskott
+Steg 6: Område 7 False-green-härdning (resten)      ← #149 (runtime) + A7-1 (test) mergade; A7-2 #156 draft; A7-2-flipp beror på 5/6
 Löpande: Område 8 Cleanup & hygien (gemensamt, ej autonomt)
 Wave 2: Område 4 Prompter (init+follow-up) — saknar eget §6-steg, körs med steg 4–5
 ```
@@ -81,9 +82,8 @@ Bug-swarm → område-koppling: [`bug-swarm-koppling.md`](../plans/active/grandm
 
 | Worktree | Branch | Status |
 |---|---|---|
-| `sajtmaskin` (huvud) | `master` @ `a76f77eed` | ren (utöver lokal `_loggbok.md` + en `version-2637fe59.zip`-cleanup-kandidat, omr 8) |
+| `sajtmaskin` (huvud) | `master` @ `b8d85a338` | ren (utöver en `version-2637fe59.zip`-cleanup-kandidat, omr 8) |
 | `sajtmaskin-a7-2-dossier-flag` | `feat/a7-2-refuse-dossier-stubs-flag` | öppen draft #156 — behålls tills avgjord |
-| `sajtmaskin-hydration` | `investigate/hydration-falsegreen` | **annan agent (#149)** — rör inte |
 | `sajtmaskin-db-sync-test` | `feat/pydatabastest-sync-gate` | Jakes (#140) — rör inte |
 
 ## 9. Öppna beslut (väntar Jake)
@@ -91,4 +91,5 @@ Bug-swarm → område-koppling: [`bug-swarm-koppling.md`](../plans/active/grandm
 1. Merga **#156** (område 7-runtime, default-off — säker).
 2. Starta **område 6** (event-bus-status-flip) som nästa körsteg? Då låses S3-statusresolver-invarianten upp.
 3. Default-flipp av `refuseDossierStubs` (kräver omr 5/6 först).
-4. **#149/#140** — merge-/triage-beslut.
+4. **#140** — triage/park (high-risk DB/blob/secrets); **#154** — blockad tills workflow-fix (stabil branch, auto-PR-CI, P0 i risklista).
+5. #149:s parkerade follow-ups (P2 layout-guard · P4 content-validator · P5 preview-hardening) — egna PRs när område 5/7 körs.

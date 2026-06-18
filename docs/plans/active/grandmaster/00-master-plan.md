@@ -134,6 +134,7 @@ Kod är source of truth.
 - [x] Nivå 1 (denna) + 8 nivå-2-stubbar + kontraktslager + plan-regel.
 - [x] **Område 1–3 levererade** (§6 steg 0–3): `S1` #147 · `S2` #151 · `S4` #150 · `D2` #148 · `C1` #152 · `C2` #153 (+ H0/D1). Status per aktivitet: [`aktiviteter/README.md`](aktiviteter/README.md). Löpande logg: [`_loggbok.md`](_loggbok.md). Körnings-handoff: [`../../../handoffs/2026-06-18-grandmaster-execution-handoff.md`](../../../handoffs/2026-06-18-grandmaster-execution-handoff.md).
 - [ ] **Öppet i omr 2:** `S3` statusresolver-invariant — medvetet uppskjuten tills **område 6** (event-bus-status-flip) landar.
-- [ ] **Nästa körsteg (§6 steg 4):** område **6** Status & UI/UX (event-bus). Sedan steg 5 (omr **5** follow-up/preview) och steg 6 (omr **7** false-green; #149 + A7-1/A7-2 är förskott).
-- [ ] **Öppna PR:er:** #156 A7-2 (draft, default-off) · #149 promote-guard (annan agent) · #140 DB+Blob-gate (parkerad) · #154 LLM-flow-canvas (ej denna plan).
+- [x] **Område 7 runtime-kärna landad:** #149 promote-guard / false-green-fix mergad (`b8d85a338`) — `passed:false` vid block, `acceptRepair`-guard, repair-pass-telemetri. + A7-1 #155 (test).
+- [ ] **Nästa körsteg (§6 steg 4):** område **6** Status & UI/UX (event-bus). Sedan steg 5 (omr **5** follow-up/preview) och resten av steg 6 (omr **7**: A7-2-flippen).
+- [ ] **Öppna PR:er:** #156 A7-2 (draft, default-off) · #140 DB+Blob-gate (parkerad, high-risk) · #154 LLM-flow-canvas (ej denna plan, blockad tills workflow-fix).
 - [ ] När ett område startar: skapa dess nivå-3-aktiviteter, smal `owner_files` var.
