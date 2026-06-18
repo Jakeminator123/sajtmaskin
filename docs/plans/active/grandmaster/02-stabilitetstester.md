@@ -34,5 +34,9 @@ Kuraterad `test:stability`-lane som låser större buggar + UX-invarianter. Tre 
 `npm run test:stability` finns och kör lokalt + PR + push; ≥3 seed-invarianter gröna;
 varje test pekar på sin källa.
 
-## Nivå 3 (skapas när området startar)
-8–10 aktiviteter, smal `owner_files` var. Ej skapade än.
+## Nivå 3 (batch 1 skapad)
+Detta område är **först i körordningen** → första batchen finns i [`aktiviteter/`](aktiviteter/README.md):
+[`S1`](aktiviteter/S1-test-stability-lane.md) lane · [`S2`](aktiviteter/S2-aao-invariant.md) åäö ·
+[`S3`](aktiviteter/S3-statusresolver-invariant.md) statusresolver (todo tills omr 6) ·
+[`S4`](aktiviteter/S4-db-health-gate.md) DB-health-gate (koordinerar parallell PR).
+Fler aktiviteter skapas vid behov.

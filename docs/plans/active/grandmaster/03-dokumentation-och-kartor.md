@@ -24,5 +24,6 @@ ett ställe — ersätt gammal text, lägg inte lager.
 - `repo-tree.md` listar verkliga mappar (`preview-host/`, `backoffice/`, `evals/`, `drizzle/`) och saknar fantommappar (`research/`, `templates_v0/`).
 - Källdokumenten (`deep-research-report.md`, cleanup-handoff, "Controlled Aggression") hänvisade från master-planen och redo att arkiveras i område 8.
 
-## Nivå 3 (skapas när området startar)
-8–10 aktiviteter, smal `owner_files` var. Ej skapade än.
+## Nivå 3 (batch 1)
+D1 (`active/README.md` → router) **klar**. [`D2`](aktiviteter/D2-repo-tree-readme-synk.md) —
+synka repo-tree + README mot verkligheten. Övriga aktiviteter skapas när området är på tur.
