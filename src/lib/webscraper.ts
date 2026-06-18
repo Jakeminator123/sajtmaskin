@@ -22,8 +22,42 @@ type CandidateLink = {
   score: number;
 };
 
+/**
+ * Contact/legal signals extracted separately from body text so they are not
+ * truncated by the per-page / aggregate word caps (G#67/U#43). These end up
+ * prepended to the aggregated text so the audit prompt's `textPreview` can see
+ * them and the model can populate `site_content.contact`.
+ */
+type ContactSignals = {
+  emails: string[];
+  phones: string[];
+  socials: string[];
+  orgNumbers: string[];
+};
+
+const CONTACT_CAPS = { emails: 5, phones: 3, socials: 6, orgNumbers: 3 } as const;
+const CONTACT_SUMMARY_MAX_CHARS = 300;
+
+// Social profile hosts (compared after stripping a leading `www.`).
+const SOCIAL_HOSTS = [
+  "facebook.com",
+  "instagram.com",
+  "linkedin.com",
+  "twitter.com",
+  "x.com",
+  "youtube.com",
+  "tiktok.com",
+];
+
+// ASCII-only patterns (no `\b` next to non-ASCII letters) — see unicode-regex rule.
+const EMAIL_REGEX = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+// Swedish organisation number NNNNNN-NNNN; digit lookarounds avoid matching
+// longer numeric runs (e.g. phone numbers).
+const ORG_NUMBER_REGEX = /(?<!\d)\d{6}-\d{4}(?!\d)/g;
+
 type ParsedPage = WebsiteContent & {
   linksForFollow: CandidateLink[];
+  contact: ContactSignals;
 };
 
 function pageRichnessScore(page: ParsedPage): number {
@@ -119,6 +153,154 @@ function dedupeLinks(links: CandidateLink[]): CandidateLink[] {
   }
 
   return result;
+}
+
+function dedupeStrings(values: string[], cap: number, caseInsensitive = false): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of values) {
+    const value = raw.trim();
+    if (!value) continue;
+    const key = caseInsensitive ? value.toLowerCase() : value;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
+/**
+ * Extract contact/legal signals (e-mail, phone, social profiles, Swedish org.nr)
+ * from a page's raw HTML. Pure and side-effect free so it can be unit-tested with
+ * static HTML. Loads its own cheerio instance (mirrors `tryWordPressFallback`).
+ */
+export async function extractContactSignals(
+  html: string,
+  baseUrlHint?: string,
+): Promise<ContactSignals> {
+  const empty: ContactSignals = { emails: [], phones: [], socials: [], orgNumbers: [] };
+  if (!html) return empty;
+
+  let $: ReturnType<Awaited<ReturnType<typeof getCheerio>>["load"]>;
+  try {
+    const cheerio = await getCheerio();
+    $ = cheerio.load(html);
+  } catch {
+    return empty;
+  }
+
+  let base: URL | null = null;
+  if (baseUrlHint) {
+    try {
+      base = new URL(baseUrlHint);
+    } catch {
+      base = null;
+    }
+  }
+
+  const emails: string[] = [];
+  const phones: string[] = [];
+  const socials: string[] = [];
+
+  // Explicit mailto:/tel: links are the most reliable signal.
+  $('a[href^="mailto:"]').each((_, el) => {
+    const href = $(el).attr("href") || "";
+    const value = href.slice("mailto:".length).split("?")[0].trim();
+    if (value) emails.push(value);
+  });
+  $('a[href^="tel:"]').each((_, el) => {
+    const href = $(el).attr("href") || "";
+    const value = href.slice("tel:".length).split("?")[0].trim();
+    if (value) phones.push(value);
+  });
+
+  // Social profile links.
+  $("a[href]").each((_, el) => {
+    const href = $(el).attr("href");
+    if (!href) return;
+    const abs = base ? absoluteUrl(href, base) : null;
+    const candidate = abs || (href.startsWith("http://") || href.startsWith("https://") ? href : null);
+    if (!candidate) return;
+    try {
+      const host = new URL(candidate).hostname.toLowerCase().replace(/^www\./, "");
+      if (SOCIAL_HOSTS.some((s) => host === s || host.endsWith(`.${s}`))) {
+        socials.push(candidate);
+      }
+    } catch {
+      // ignore malformed URLs
+    }
+  });
+
+  // Scan visible text for inline e-mails and org numbers.
+  $("script, style, noscript").remove();
+  const text = ($("body").length ? $("body").text() : $.root().text()).replace(/\s+/g, " ");
+
+  const emailMatches = text.match(EMAIL_REGEX);
+  if (emailMatches) emails.push(...emailMatches);
+
+  const orgMatches = text.match(ORG_NUMBER_REGEX);
+  const orgNumbers = orgMatches ? [...orgMatches] : [];
+
+  return {
+    emails: dedupeStrings(emails, CONTACT_CAPS.emails, true),
+    phones: dedupeStrings(phones, CONTACT_CAPS.phones),
+    socials: dedupeStrings(socials, CONTACT_CAPS.socials, true),
+    orgNumbers: dedupeStrings(orgNumbers, CONTACT_CAPS.orgNumbers),
+  };
+}
+
+/** Merge + dedupe contact signals collected across multiple pages. */
+export function mergeContactSignals(list: ContactSignals[]): ContactSignals {
+  const emails: string[] = [];
+  const phones: string[] = [];
+  const socials: string[] = [];
+  const orgNumbers: string[] = [];
+  for (const item of list) {
+    if (!item) continue;
+    emails.push(...item.emails);
+    phones.push(...item.phones);
+    socials.push(...item.socials);
+    orgNumbers.push(...item.orgNumbers);
+  }
+  return {
+    emails: dedupeStrings(emails, CONTACT_CAPS.emails, true),
+    phones: dedupeStrings(phones, CONTACT_CAPS.phones),
+    socials: dedupeStrings(socials, CONTACT_CAPS.socials, true),
+    orgNumbers: dedupeStrings(orgNumbers, CONTACT_CAPS.orgNumbers),
+  };
+}
+
+/**
+ * Render a compact, labelled contact/legal block. Returns "" when there is
+ * nothing to show. Hard-capped so it cannot eat the whole 800-char preview.
+ */
+export function formatContactSummary(signals: ContactSignals): string {
+  const parts: string[] = [];
+  if (signals.emails.length) parts.push(`E-post: ${signals.emails.join(", ")}`);
+  if (signals.phones.length) parts.push(`Telefon: ${signals.phones.join(", ")}`);
+  if (signals.orgNumbers.length) parts.push(`Org.nr: ${signals.orgNumbers.join(", ")}`);
+  if (signals.socials.length) parts.push(`Sociala: ${signals.socials.join(", ")}`);
+  if (parts.length === 0) return "";
+  let summary = `KONTAKT & JURIDIK: ${parts.join(". ")}.`;
+  if (summary.length > CONTACT_SUMMARY_MAX_CHARS) {
+    summary = summary.slice(0, CONTACT_SUMMARY_MAX_CHARS).trimEnd();
+  }
+  return summary;
+}
+
+/**
+ * Prepend the contact summary words before the body words, then cap to `limit`.
+ * Prepending guarantees the contact/legal block survives the aggregate word cap
+ * (G#67/U#43) instead of being dropped from the tail of the body.
+ */
+export function assembleAggregatedWords(
+  contactSummary: string,
+  bodyWords: string[],
+  limit: number,
+): string[] {
+  const contactWords = contactSummary ? contactSummary.split(" ").filter(Boolean) : [];
+  return [...contactWords, ...bodyWords].slice(0, limit);
 }
 
 async function fetchWithTimeout(
@@ -549,6 +731,9 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
 
   const textPreview = limitedText.substring(0, 800) + (limitedText.length > 800 ? "..." : "");
 
+  // Extract contact/legal separately from the body so the word caps don't drop it.
+  const contact = await extractContactSignals(html, url);
+
   return {
     url,
     title,
@@ -566,6 +751,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
     wordCount,
     textPreview,
     linksForFollow: dedupeLinks(linksForFollow).sort((a, b) => b.score - a.score),
+    contact,
   };
 }
 
@@ -769,9 +955,15 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
     new Set(pagesForAggregation.flatMap((p) => p.headings).filter(Boolean)),
   ).slice(0, 20);
 
-  const combinedWords = pagesForAggregation.flatMap((p) => p.text.split(" "));
+  // Prepend extracted contact/legal so it survives the aggregate word cap and
+  // reaches the audit prompt's textPreview (G#67/U#43). The aggregated word
+  // count is intentionally left as the sum of page word counts so existing
+  // is-JS-rendered thresholds downstream are unaffected.
+  const mergedContact = mergeContactSignals(pagesForAggregation.map((p) => p.contact));
+  const contactSummary = formatContactSummary(mergedContact);
+  const bodyWords = pagesForAggregation.flatMap((p) => p.text.split(" "));
   const aggregatedWordCount = pagesForAggregation.reduce((sum, p) => sum + p.wordCount, 0);
-  const limitedWords = combinedWords.slice(0, AGGREGATE_WORD_LIMIT);
+  const limitedWords = assembleAggregatedWords(contactSummary, bodyWords, AGGREGATE_WORD_LIMIT);
   const aggregatedText = limitedWords.join(" ");
   const textPreview = aggregatedText.substring(0, 800) + (aggregatedText.length > 800 ? "..." : "");
 
