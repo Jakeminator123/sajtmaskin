@@ -90,3 +90,8 @@ jobs:
 
       - name: Stability lane (warn-only)
         run: npm run test:stability
+
+      # Grandmaster C2: light ordlista-check. Warn-first by design - the script always
+      # exits 0 and this whole job is continue-on-error, so it never blocks push/PR/merge.
+      - name: Ordlista-check (warn-only, grandmaster C2)
+        run: npm run check:terms
