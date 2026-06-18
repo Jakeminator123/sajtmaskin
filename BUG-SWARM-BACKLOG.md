@@ -24,8 +24,8 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | Grupp | Antal | Hantering |
 | --- | ---: | --- |
 | Totalt | 130 | Alla rader i tabellen nedan. |
-| Avslutade (`[x]`) | 78 | Filtrera bort från aktiv bugfix. |
-| Öppna (`[ ]`) | 52 | Kandidater för fortsatt triage/fix. |
+| Avslutade (`[x]`) | 82 | Filtrera bort från aktiv bugfix. |
+| Öppna (`[ ]`) | 48 | Kandidater för fortsatt triage/fix. |
 | Explicit `Inte bug` | 13 | Avskrivna eller naming/copy/fallback-beslut; ska inte räknas som aktiv buggrisk. |
 
 | Aktiv prioritet | Kvar | Kommentar |
@@ -33,7 +33,7 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | P0 | 0 | Inga kvarvarande P0-rader. |
 | P1 | 4 | Triage 2026-06-18: G#10/G#13/N#1 BLOCKER (pipeline/policy), E#1 Edge (kräver eval-run mot LLM-providers). Inga säkra smala fix. |
 | P2 | 18 | Triage 2026-06-18: 14 BLOCKER (F3/dossier/capability/verify/status-pipeline + policy) + 4 Edge (G#16 env-audit, G#18 docs, G#38 PDF-CPU-policy, G#40 SSRF-rebind). F3-batch: G#21 delvis fixad (empty-files false-green → `409`); G#20 BLOCKER-rot fördjupad (F3-prompt härleds från contracts, ej version-filer); G#22 omverifierad BLOCKER. |
-| P3 | 30 | Triage 2026-06-18: 8 kodfix + 5 avfärdade i HEAD; 30 kvar = Edge/BLOCKER (UI-race utan repro, degraded-state-policy, breda refaktorer, live-infra-verifiering). |
+| P3 | 26 | Triage 2026-06-18: 8 kodfix + 5 avfärdade i HEAD; reconcile 2026-06-18 stängde G#67/U#43 (PR #142), G#75/U#11/U#12 + U#6/U#79 (PR #143), G#58/U#80 (copy verifierad) och G#55 (docs-städ). 26 kvar = Edge/BLOCKER (UI-race utan repro, degraded-state-policy, breda refaktorer, live-infra-verifiering). |
 
 ### Avskrivet / inte bug
 
@@ -58,8 +58,6 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 | Källa | Fynd | Typ |
 | --- | --- | --- |
 | G#18 | Dubbla env-docs och genererad `.env.local`-sanning | Docs-städ. |
-| G#55 | `/api/ai/spec` naming debt | Naming debt. |
-| G#58, U#80 | "Bygg nu" / "F3" / "Bygg integrationer" copy-blandning | Copy-/terminologistäd. |
 | U#23 | Transcribe språkfallback bara sv/en | Produkt-gap. |
 | U#63 | Backoffice domain-map / manuella paths | Backoffice-städ. |
 | U#66 | `console.info` hot paths brus | Logg-städ. |
@@ -180,10 +178,10 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [ ] | Öppen variant-risk | P3 | Variant pre-match keyword-only vs final logik | G#52 | EDGE (triage 2026-06-18): Att konsolidera pre-match-selector (keyword) mot slutlig embedding-logik är en refaktor i scaffold-variant-matchningen med flera rimliga utfall; kräver verifiering av drift mellan pre-match och final. Lämnas öppen. |
 | [ ] | Öppen typography-risk | P3 | Font materializer träffar mest baseline Inter | G#53 | EDGE (triage 2026-06-18): Kräver verifiering av variant→font-parningar mot faktisk output (eval) för att avgöra om baseline-Inter-bias är en bugg eller korrekt fallback. Inte ett blint smalt fix. Lämnas öppen. |
 | [ ] | Öppen typography-risk | P3 | Geist workaround kan sabotera variant-typografi | G#54 | EDGE (triage 2026-06-18): Att begränsa Geist-workaround till kända fall kräver kartläggning av vilka varianter som faktiskt påverkas (verifiering mot font-materializer-output). Risk att smalna fel. Lämnas öppen tills fallen är belagda. |
-| [x] | Fixad i HEAD | P3 | `/api/ai/spec` naming debt | G#55 | Avfärdad: routen finns inte längre i koden — under `src/app/api/ai/` finns bara `brief`, `chat`, `model-trace`. Inga `src`-referenser till `/api/ai/spec`. Kvar är endast stale referenser i docs (`llm-role-matrix.md`, `model-build-profiles.md`, `glossary.md`) + logg — mindre docs-debt, inte en runtime-yta. |
+| [x] | Fixad nu | P3 | `/api/ai/spec` naming debt | G#55 | Fixad (copy-pass 2026-06-18): routen + spec-first-kedjan finns inte längre i koden (bara `brief`/`chat`/`model-trace` under `src/app/api/ai/`, inga symbolreferenser). Stale docs-rader som presenterade `/api/ai/spec`/`processPromptWithSpec` som levande borttagna ur `model-build-profiles.md` (Product lane) och `llm-role-matrix.md` (Spec-first helper). `glossary.md` behåller raden medvetet (namnskugge-tabell → Deep Brief); arkiverad plan bevaras som historik. |
 | [ ] | Öppen schema-risk | P3 | `variantNomination` nämns men produceras inte av schema | G#56 | BLOCKER (triage 2026-06-18): Fältet typas (`system-prompt/types.ts`) och konsumeras i drift-detektion (`orchestrate.ts:879`), men om brief-strict-schemat/prompten inte producerar det blir drift-koden död (alltid null). Att synka kräver beslut: lägg till i brief-strict-schema + prompt ELLER ta bort drift-detektionen — schema-/pipeline-yta med flera rimliga utfall. Eskaleras. |
 | [ ] | Öppen kvalitet-risk | P3 | Follow-up quality promotion svagare än init | G#57 | BLOCKER (triage 2026-06-18): Att jämka follow-up-quality-gate mot init-gate är ett pipeline-/gate-policybeslut (kopplat till F2/F3-skillnad och repair-gate); flera rimliga utfall. Eskaleras. |
-| [ ] | Öppen copy-städ | P3 | Blandning av "Bygg nu", "F3", "Bygg integrationer" | G#58, U#80 | EDGE (triage 2026-06-18): Copy/terminologi-konsolidering spänner över flera UI-ytor och kräver ett canonical-term-beslut (per `terminology.mdc`: F2/F3, "Bygg integrationer"). Bättre som en sammanhållen copy-pass än spridda string-byten. Lämnas öppen. |
+| [x] | Verifierad i HEAD | P3 | Blandning av "Bygg nu", "F3", "Bygg integrationer" | G#58, U#80 | Verifierad (copy-pass 2026-06-18): F3-CTA:n är redan canonical `"Bygg integrationer"` överallt (`PreviewPanelF3Trigger.tsx`, `BuilderShellContent.tsx`, `VersionHistory.tsx` m.fl.); ingen kvarvarande `"Bygg nu"`-CTA i `src`. Rå `F2`/`F3` förekommer bara i kodkommentarer/interna fält, inte som primär user-facing CTA. Den rapporterade blandningen finns inte längre i HEAD. |
 | [ ] | Öppen storage-risk | P3 | Builder localStorage keys utan versionsprefix | G#59, U#54 | EDGE (triage 2026-06-18): Builder-nycklarna är redan namespace-prefixade (`sajtmaskin:designTheme`/`lastProjectId`/`lastChatId`). Att lägga ett schema-versions-segment + migration spänner över flera inline call-sites med lågt värde (värdena är primitiva strängar) och risk att orphan:a befintliga sparade värden. Lämnas öppen för ev. centraliserad storage-helper. |
 | [ ] | Öppen observability-städ | P3 | Silent catches i dev/log readers | G#60, U#64 | EDGE (triage 2026-06-18): Bred observability-städ över flera dev/log-readers; "låg brusnivå vs explicit degraded state" är en logg-policy som bör göras sammanhållet, inte som spridda punktfix. Lämnas öppen. |
 | [x] | Fixad nu | P3 | Shadcn registry cache saknar maxstorlek | G#61, U#33 | Fixad: in-memory-cachen i `registry-service.ts` extraherad till `registry-memory-cache.ts` med `MAX_CACHE_ENTRIES=256` + oldest-first-eviction (TTL kvar 5 min). Regressionstest i `registry-memory-cache.test.ts`. |
@@ -192,7 +190,7 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Fixad i HEAD | P3 | Template embedding cache kräver restart/invalidate | G#64, U#37 | Avfärdad/redan hanterad: `invalidateEmbeddingsCache()` finns i `template-search.ts` och anropas av `regenerateTemplateEmbeddings` efter persist (`template-embeddings-refresh.ts:51`). Dessutom `retryIfTemplateEmbeddingLoadFailed` vid misslyckad load. Explicit invalidation finns och är inkopplad. |
 | [x] | Inte bug / data saknar fält | P3 | Template keyword fallback söker inte description | G#65, U#38 | Avfärdad: v0-katalogen (`TemplateCatalogItem`/`Template`) exponerar inga `description`/`tags`-fält; `slug` är ett slumpmässigt ID (t.ex. `0brPGNpjNkt`, ej beskrivande). `keywordSimilarity` söker redan båda beskrivande textfälten (`title` + `category`). Att lägga till description kräver att datakällan (extern template-pipeline) får fältet, inte ett sökfix. |
 | [ ] | Öppen scraper-risk | P3 | Webscraper `MAX_PAGES=4` missar viktig info | G#66, U#41 | EDGE (triage 2026-06-18): Länkar prioriteras redan via `scoreLink` + richness-ranking. Att göra `MAX_PAGES` adaptiv är en token-budget-/produkt-avvägning (fler sidor = mer kostnad/latens), inte ett självklart smalt fix. Lämnas öppen för produktbeslut. |
-| [ ] | Öppen scraper-risk | P3 | Footer/contact/legal kapas av word caps | G#67, U#43 | EDGE (triage 2026-06-18): Att separera legal/contact-extraktion från `AGGREGATE_WORD_LIMIT`/per-sida-cap kräver ny dedikerad extraktionskanal (flera rimliga designval: separata fält, viktning, regex vs DOM). Inte ett smalt fix. Lämnas öppen. |
+| [x] | Fixad nu | P3 | Footer/contact/legal kapas av word caps | G#67, U#43 | Fixad (PR #142): `webscraper.ts` extraherar nu kontakt-/legal-signaler (mailto/tel/sociala/org.nr) via `extractContactSignals`/`mergeContactSignals`/`formatContactSummary` och prependar ett kompakt kontakt/legal-block före body-orden innan `AGGREGATE_WORD_LIMIT`-capen — datan överlever truncering och når previewn. Regressionstest i `webscraper-contact.test.ts`. |
 | [x] | Fixad nu | P3 | Unsplash GET saknar hård cap på `count` | G#68, U#24 | Fixad: `count` clampas till 1-12 för GET och POST/fallback. |
 | [x] | Inte bug / fallback | P3 | Unsplash `placehold.co` fallback | G#69, U#25 | Avsiktlig dev/fallback; kan bytas senare som produktbeslut. |
 | [ ] | Öppen inspector-risk | P3 | Element crop kan missa små element vid DPI/zoom | G#70, U#52 | EDGE (triage 2026-06-18): Kräver reproduktion i inspector-worker (Playwright DPI/zoom) som inte finns i triage-VM:n. Lämnas öppen med repro-krav. |
@@ -200,13 +198,13 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Inte bug / låg risk | P3 | Date formatting locale/timezone varierar | G#72, U#67, U#68 | Inte bug utan rapportpolicy; öppna ny produktfråga om determinism krävs. |
 | [x] | Fixad nu | P3 | `generateUniqueFilename` använder `Math.random` | G#73, U#30 | Fixad: använder `crypto.randomUUID`. |
 | [x] | Fixad i HEAD | P3 | Image validator HEAD-fallback missar CDNs | G#74, U#71 | Avskriven/fixad: HEAD 405/501 har GET fallback med byte-range och tester. |
-| [ ] | Öppen UX-risk | P3 | Domain manager polling/save-fail döljs | G#75, U#11, U#12 | EDGE (triage 2026-06-18): Förbättrad save/link-status-UI i `DomainManager.tsx` kräver UI-arbete + verifiering i live builder (förbjudet via coexistence-regeln) — kan inte testas end-to-end i triagen. Lämnas öppen. |
+| [x] | Fixad nu | P3 | Domain manager polling/save-fail döljs | G#75, U#11, U#12 | Fixad (PR #143): `DomainManager.tsx` surfar nu sök- och save/link-fel som synliga banners (sökfel → felbanner i stället för "Inga resultat hittades"; save-fail efter link → non-blocking `saveWarning`). Stale bakgrunds-save guardas via `saveGenerationRef` och out-of-order sökresultat via `searchGenerationRef`. UI-tester i `DomainManager.test.tsx`. |
 | [x] | Fixad nu | P3 | ThinkingOverlay nested `setTimeout` rensas inte vid unmount | U#1 | Fixad: nested fade-timeout sparas och rensas i effect-cleanup. |
 | [x] | Fixad nu | P3 | ThinkingOverlay säger "visuell QA" fast default kan vara av | U#2 | Fixad: copy säger syntax- och kvalitetskontroller utan att lova visuell QA. |
 | [x] | Inte bug / fixad | P3 | MessageList elapsed interval kan trigga render-loop | U#3 | Avskriven: `RepairProgressIndicator` cappar vid 300s och clearar interval i cleanup. |
 | [x] | Fixad i HEAD | P3 | PreviewPanelFrame debounce + hard-cap vid snabb URL-switch | U#4, N#H5 | Avskriven/fixad: debounce + 6s hard-cap finns och timers rensas i cleanup. |
 | [x] | Fixad i HEAD | P3 | `usePreviewIframe` timers/refs race tier2/shim | U#5, N#H5 | Avskriven/fixad: preview-ready timers rensas vid URL-/identity-byte innan nya timers sätts. |
-| [ ] | Öppen UI-race | P3 | ProjectEnvVarsPanel parallella fetches utan gemensam abort | U#6, U#79, N#H5 | EDGE (triage 2026-06-18): `ProjectEnvVarsPanel.tsx` är >1500 rader med många parallella fetches; en gemensam abort/request-token-refaktor är icke-trivial och kan inte testas end-to-end utan live builder (coexistence-förbud). Risk > nytta för ett blint fix. Lämnas öppen. |
+| [x] | Fixad nu | P3 | ProjectEnvVarsPanel parallella fetches utan gemensam abort | U#6, U#79, N#H5 | Fixad (PR #143): gemensam request-token (`loaderGenerationRef`) delas av alla parallella loaders i `ProjectEnvVarsPanel.tsx`; sena svar dröppas när token invaliderats (collapse/dep-byte/unmount) och spinner-flaggorna nollas både i effect-cleanup och i loaderns early-returns. (N#H5 är en bredare policy-grupp; U#6/U#79 är åtgärdade.) |
 | [x] | Fixad i HEAD | P3 | SeoOptInPanel prefs-fetch stale vid snabb open/close | U#7, N#H5 | Avskriven/fixad: prefs-effect använder cancelled-guard i cleanup och undviker stale writes. |
 | [x] | Inte bug / UX debt | P3 | F3PlaceholderToggle saknar skeleton | U#8 | Inte bug; ren polish. |
 | [x] | Fixad nu | P3 | VersionHistory actions före mutate synkad | U#9, N#H5 | Fixad: pin/restore/accept-repair väntar nu in `mutate()` innan in-flight state släpps. |
