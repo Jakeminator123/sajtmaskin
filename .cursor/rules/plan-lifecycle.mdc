@@ -21,10 +21,21 @@ Läs **`docs/plans/active/README.md`** först — router till alla aktiva spår.
 
 | Mapp | Vad |
 |---|---|
-| `docs/plans/active/` | **Endast koncentratet `README.md`** (+ ev. en kortlivad scope-doc under pågående arbete). |
+| `docs/plans/active/` | Koncentratet `README.md` (router) + ev. kortlivad scope-doc + **stora initiativ i egen undermapp** (se Plan-nivåer). |
+| `docs/plans/active/<initiativ>/` | Nivå 1–3 för ett stort initiativ (`00-master-plan.md` + `NN-<område>.md` + just-in-time-aktiviteter). |
 | `docs/plans/archived/` | Vilande, parkerade (`archived/parked/`), skrotade och in-syntetiserade planer. Filnamn bevaras så länkar/historik resolvar. |
 | `docs/plans/avklarat/` | Implementerat och mergat — historik. |
 | `docs/inspiration/` | Framtidsidéer / lärdomar — **inte** planfiler. |
+
+## Plan-nivåer (stora initiativ)
+
+| Nivå | Fil | Vad |
+|---|---|---|
+| 1 | `00-master-plan.md` | Målbild + områdesindex + sekvens. **En** per initiativ. |
+| 2 | `NN-<område>.md` | Ett domänområde: syfte, yta, beroenden, klart-när. ~5–8 st. |
+| 3 | aktiviteter per område | Byggar-agent-körbara, varsin smal `owner_files`. **Skapas just-in-time** när området är på tur — inte allt uppfront. |
+
+Parallellt område/aktivitet = distinkta `owner_files`; sekventiellt = `blocked_by`. Detta ersätter gamla `P*.md`-modellen + `plan-file.schema.json` — **planering är en regel, inte ett schema**.
 
 ## Frontmatter (fristående planfiler)
 

@@ -89,9 +89,29 @@ export function generateUniqueFilename(originalName: string, prefix?: string): s
   return `${prefixStr}${timestamp}_${random}${ext}`;
 }
 
+/**
+ * Vercel serverless/edge filesystems are read-only/ephemeral: anything written
+ * to local disk vanishes on the next cold start. Falling back to LocalFsProvider
+ * there would report `success` while silently losing the bytes (the DB row +
+ * URL survive, the file does not). Render keeps local storage on a mounted
+ * persistent disk, so the fallback is only refused on Vercel.
+ */
+function isEphemeralRuntime(): boolean {
+  return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
+}
+
 export async function uploadBlob(options: BlobUploadOptions): Promise<BlobUploadResult | null> {
   const { userId, filename, buffer, contentType, projectId, category } = options;
   const storagePath = buildBlobPath(userId, filename, { projectId, category });
+
+  if (!process.env.BLOB_READ_WRITE_TOKEN && isEphemeralRuntime()) {
+    console.error(
+      "[BlobService] ❌ Refusing local-disk fallback on an ephemeral runtime: " +
+        "BLOB_READ_WRITE_TOKEN is not set. Configure Vercel Blob so uploads persist.",
+    );
+    return null;
+  }
+
   const provider = getDefaultUploadProvider();
 
   if (provider.kind === "blob" && buffer.length > MAX_SERVER_UPLOAD_BYTES) {

@@ -122,6 +122,15 @@ function getDataDir(): string {
     );
   }
 
+  if (process.env.VERCEL === "1" && !hasWarnedAboutDataDir && !isBuildPhase()) {
+    hasWarnedAboutDataDir = true;
+    console.warn(
+      "[Config] ⚠️ Falling back to an ephemeral local data directory on Vercel.\n" +
+        "  → Vercel's filesystem is read-only/ephemeral; local writes are lost between invocations\n" +
+        "  → Persist uploads via Vercel Blob (BLOB_READ_WRITE_TOKEN) instead of disk",
+    );
+  }
+
   const localDataDir = path.join(/* turbopackIgnore: true */ process.cwd(), "data");
 
   if (!IS_PRODUCTION && !hasWarnedAboutDataDir) {

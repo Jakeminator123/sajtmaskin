@@ -1,0 +1,25 @@
+---
+description: Projektfas-policy — minimal säkerhet just nu. Lägg inte till onödig kryptering/härdning innan alla delar sitter och projektet är mindre rörigt.
+alwaysApply: true
+---
+
+# Minimal säkerhet (projektfas)
+
+Projektet är i en bygg-/stabiliseringsfas. **Säkerhet är inte ett självändamål just nu** — prioritera att få alla delar att sitta ihop och funka end-to-end före härdning. Detta gäller även agentens egna ändringar och review-/audit-pass.
+
+## Regler
+
+| Gör | Gör inte |
+|---|---|
+| Håll det enkelt och läsbart. Värden får vara i klartext om det gör felsökning lättare. | Lägg **inte** till ny kryptering, nya auth-gates, nya rate-limits eller signaturkontroller "för säkerhets skull" utan att Jake bett om det. |
+| Notera säkerhetsfynd som backlog/observation. | **Blockera inte** leverans eller merge på säkerhetsfynd (P-allvar) i denna fas. |
+| Föredra Vercel-env **non-sensitive/läsbara** (så värden kan inspekteras). | Markera **inte** env-nycklar som "Sensitive" om det inte krävs. |
+| Behåll **befintlig fungerande** krypto om borttagning riskerar data. | Ta **inte** bort `ENV_VAR_ENCRYPTION_KEY` — då blir redan lagrade `projectEnvVars` odekrypterbara (tyst dataförlust). |
+
+## Vad som ändå alltid gäller
+
+- Korrekthet/dataförlust-buggar fixas (t.ex. efemär-disk-fallback, tappade uploads) — det är inte "säkerhet", det är funktion.
+- Skriv aldrig hemligheter till git (committa inte `.env*`).
+- När projektet stabiliserats: ta upp härdning (sensitive env, privata blobbar, auth på media, nyckelrotation) som ett eget pass.
+
+> Kort: **inget ska i onödan krypteras eller låsas just nu.** Säkerhet tas medvetet när bitarna sitter på plats.

@@ -315,3 +315,5 @@ docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
 docs/plans/active/2026-04-28-llm-flode-startlinje.md
 .gitignore
+
+.vercel

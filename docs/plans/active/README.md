@@ -6,7 +6,13 @@ Lifecycle-kontrakt: [`.cursor/rules/plan-lifecycle.mdc`](../../../.cursor/rules/
 
 ---
 
-## Aktivt initiativ: Repo-tvätt — terminologi + kontraktsägarskap
+## Aktiv drivlinje (2026-06-18): Grandmaster-plan — stabilitet, kontrakt, städning
+
+Den konsoliderade körplanen ligger i **[`grandmaster/00-master-plan.md`](grandmaster/00-master-plan.md)** (nivå 1) med 8 områden (nivå 2) i samma mapp; nivå 3-aktiviteter skapas just-in-time. Den slår ihop deep-research-rapporten, cleanup-handoffen och "Controlled Aggression" till en lättviktig plan (stabilitetstester, kontraktslager [`docs/contracts/`](../../contracts/README.md), gemensam städning). Plan-nivåmodellen är kodad i [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc). Den ersätter repo-tvätt som drivlinje; **repo-tvätt blev term-check light i [`område 1`](grandmaster/01-kontrakt-och-regler.md)**, resten är historik.
+
+---
+
+## Aktivt initiativ (infällt i drivlinjen ovan som lane S3): Repo-tvätt — terminologi + kontraktsägarskap
 
 Full plan: [`../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md`](../archived/2026-06-17-repo-tvatt-terminologi-kontrakt.md).
 
