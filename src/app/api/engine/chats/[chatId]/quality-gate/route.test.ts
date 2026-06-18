@@ -176,12 +176,18 @@ describe("POST quality-gate", () => {
       { params: Promise.resolve({ chatId: "chat-1" }) },
     );
 
+    const body = await res.json();
     expect(res.status).toBe(200);
     expect(promoteVersion).toHaveBeenCalledWith("ver-1", expect.any(String));
     expect(failVersionVerification).toHaveBeenCalledWith(
       "ver-1",
       expect.stringContaining("promotion was blocked"),
     );
+    // The payload must not read as fully green: VM-gate status is preserved
+    // but an explicit promotion marker is surfaced.
+    expect(body.passed).toBe(true);
+    expect(body.promotionBlocked).toBe(true);
+    expect(body.promotionBlockedReason).toBe("finalize_quality_gate_failed");
   });
 
   it("promotes a clean passed gate when the guard allows it", async () => {
@@ -221,8 +227,10 @@ describe("POST quality-gate", () => {
       { params: Promise.resolve({ chatId: "chat-1" }) },
     );
 
+    const body = await res.json();
     expect(res.status).toBe(200);
     expect(promoteVersion).toHaveBeenCalledWith("ver-1", expect.any(String));
     expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.promotionBlocked).toBeUndefined();
   });
 });

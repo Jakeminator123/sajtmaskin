@@ -253,6 +253,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             console.warn("[quality-gate] Failed to persist error logs:", err);
           });
         }
+        let promotionBlocked = false;
         if (gateResult.passed) {
           const promoted = await promoteVersion(internalVersionId, verificationSummary).catch(
             (err) => {
@@ -265,6 +266,9 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             // `promoteVersion` refused because the finalize verifier flagged
             // blocking findings (telemetry `qualityGateResult`). Resolve to a
             // truthful terminal state instead of leaving the row at "verifying".
+            // (`promoted` is null only on a guard block here — the version was
+            // already resolved and confirmed latest above.)
+            promotionBlocked = true;
             await failVersionVerification(
               internalVersionId,
               "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
@@ -281,6 +285,16 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           });
         }
 
+        // A guard-blocked promotion must NOT read as fully green to a caller
+        // that only inspects the payload. Keep `gateResult.passed` as the
+        // VM-gate status (existing semantics) and surface an explicit marker.
+        if (promotionBlocked) {
+          return NextResponse.json({
+            ...gateResult,
+            promotionBlocked: true,
+            promotionBlockedReason: "finalize_quality_gate_failed",
+          });
+        }
         return NextResponse.json(gateResult);
       } catch (err) {
         await failVersionVerification(
