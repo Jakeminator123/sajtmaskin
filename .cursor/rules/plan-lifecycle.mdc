@@ -11,7 +11,7 @@ Planer dokumenterar pågående arbete. **`docs/plans/active/README.md` är den e
 
 **Grundregel:** `active/` är varken museum eller filzoo. Mål: håll `active/README.md` som enda aktiva ytan. Allt som inte styr arbete just nu flyttas ut — vilande/parkerat/skrotat → `archived/`, mergat → `avklarat/`. Git-historik bevarar allt. Skapa inte en ny fristående planfil om en rad i koncentratet, en Linear-issue eller en `.cursor/bugs/`-fil räcker.
 
-**Windows/Cursor-regel:** använd inte `%USERPROFILE%\.cursor\plans\*.plan.md` som aktiv planplats. Cursor på Windows kan skapa trasiga agentlänkar till sådana filer (`c:%5CUsers%5C...` i stället för `file:///c%3A/...`), särskilt utanför repo/worktree. Om en plan dyker upp där: väv in innehållet i `active/README.md` (eller en arkiverad/avklarad fil som koncentratet länkar till) och hänvisa därefter bara till repo-filen.
+**Windows/Cursor:** använd inte `%USERPROFILE%\.cursor\plans\*.plan.md` som aktiv planplats — Cursor på Windows ger trasiga agentlänkar där. Dyker en plan upp: väv in i `active/README.md` (eller en arkiv-/avklarat-fil) och hänvisa bara till repo-filen.
 
 ## Innan du börjar
 
@@ -58,7 +58,7 @@ supersedes: <plan-id> | null # ersätter denna en tidigare plan?
 
 ## Strävan mot avslut
 
-Default för ett spår: antingen (a) väv in det i `active/README.md`-koncentratet, (b) leverera → `avklarat/`, eller (c) skrota/parkera → `archived/`. Ett spår utan progress på 14 dagar ska sammanfattas i koncentratet eller arkiveras — lämna det inte som löst fragment. `active/` ska aldrig växa till ett filzoo igen; nya detaljer hör hemma i koncentratet eller i en arkiverad/avklarad fil som koncentratet länkar till.
+Varje spår landar i: (a) invävt i `active/README.md`, (b) levererat → `avklarat/`, eller (c) skrotat/parkerat → `archived/`. Inget progress på 14 dagar → sammanfatta i koncentratet eller arkivera. `active/` ska aldrig bli filzoo igen.
 
 ## Linear-bridge
 
@@ -75,11 +75,8 @@ Gitignored lokal mirror (Linear är sanning). Ny bugg via `/buggrapport` → lok
 
 ## Anti-mönster
 
-- Ny fristående planfil i `active/` när en koncentrat-rad, Linear-issue eller `.cursor/bugs/`-fil räcker.
-- Löst planfragment kvar i `active/` utan att vävas in i koncentratet eller arkiveras.
-- Fristående plan i `archived/`/`avklarat/` utan frontmatter eller `parent`-lineage.
-- Bug-rapport kvar lokalt efter fix.
+Ny fristående planfil när koncentrat-rad / Linear / `.cursor/bugs/` räcker · löst fragment kvar i `active/` · plan i `archived/`/`avklarat/` utan frontmatter/`parent` · bug-rapport kvar lokalt efter fix.
 
 ## `docs/inspiration/`
 
-Framtidsidéer, lärdomar och konsoliderade insikter — inte planfiler, råa transkript eller status-rapporter. När en idé mognar → väv in i `active/README.md` (eller skapa scope-doc med `parent: inspiration/<fil>`). Mappen får inte växa okontrollerat; städa vid varje runda.
+Framtidsidéer/lärdomar — **inte** planfiler, transkript eller status. Mogen idé → väv in i `active/README.md` (ev. scope-doc med `parent: inspiration/<fil>`). Städa varje runda.

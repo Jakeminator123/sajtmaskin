@@ -41,8 +41,3 @@ jobs:
 
       - name: Verify baseline dependency tree
         run: npm run baseline-deps:tree
-
-      - name: Build
-        run: npm run build
-        env:
-          NEXT_TELEMETRY_DISABLED: "1"

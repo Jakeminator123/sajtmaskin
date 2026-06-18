@@ -27,6 +27,8 @@ alwaysApply: false
 |----------|-----|
 | `npm run db:init` | Bootstrap + SQL-migrationer |
 | `npm run db:check` | Read-only sanity-koll |
+| `npm run db:rows` | Read-only radantal per tabell |
+| `npm run db:latest` | Read-only: senaste sajten/prompten (engine_versions + prompt_logs). `-- --limit N`. `-- --prod` läser riktiga prod-DB (kräver `vercel env pull .env.vercel.production.pulled --environment=production --yes`); annars `-- --allow-insecure-ssl` mot Supabase |
 | `npm run db:migrate` | Kör SQL-migrationer via gemensam DB-env-resolver |
 | `npm run db:push` | Guardad Drizzle push |
 

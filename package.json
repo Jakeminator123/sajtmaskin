@@ -32,6 +32,7 @@
     "db:init:soft": "node scripts/db/db-init.mjs || echo [db:init] WARN: skipped (DB unreachable) - dev continues",
     "db:check": "node scripts/db/check-dev-db.mjs",
     "db:rows": "node scripts/db/db-row-overview.mjs",
+    "db:latest": "node scripts/db/latest-site.mjs",
     "db:health": "node scripts/db/db-health-check.mjs",
     "db:perf-indexes": "node scripts/db/add-performance-indexes.mjs",
     "db:perf-indexes:dry": "node scripts/db/add-performance-indexes.mjs --dry-run",

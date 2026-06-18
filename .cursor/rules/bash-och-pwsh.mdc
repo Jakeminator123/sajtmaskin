@@ -1,0 +1,13 @@
+---
+alwaysApply: true
+---
+
+Min lokala miljö är Windows med PowerShell 7 (pwsh). Allt i Shell-verktyget körs som
+PowerShell (.ps1). Använd ALLTID pwsh-syntax, aldrig bash:
+- Loopar: foreach ($x in ...) { } / for ($i=0;$i -lt N;$i++) {} — inte for..do..done
+- Kedja med ; (inte &&/||); villkor med if ($?) { ... }
+- Variabler: $env:NAMN, inte export NAMN=...
+- Flerrader: here-string @" ... "@, inte heredoc <<EOF
+- Inte ls -la / cat / grep / sed / rm -rf — använd Get-ChildItem, Get-Content,
+  Select-String, -replace, Remove-Item
+- Föredra Cursors Read/Glob/Grep/StrReplace för fil- och sökoperationer.

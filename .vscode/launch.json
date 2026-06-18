@@ -1,14 +1,16 @@
 {
-  // Use IntelliSense to learn about possible attributes.
-  // Hover to view descriptions of existing attributes.
-  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  // Node.js launch config for current file
+  // For info, see: https://code.visualstudio.com/docs/nodejs/nodejs-debugging
+  // ${file} och ${workspaceFolder} funkar oavsett Windows, macOS, Linux eller WSL.
+  // Dessa VS Code variabler mappas automatiskt till rätt form för Node-processen,
+  // även om du kör "pwsh", "cmd", eller integrerad terminal.
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "PowerShell: Launch Current File",
-      "type": "PowerShell",
+      "name": "Node.js: Launch Current File",
+      "type": "node",
       "request": "launch",
-      "script": "${file}",
+      "program": "${file}",
       "cwd": "${workspaceFolder}"
     }
   ]

@@ -26,13 +26,9 @@ Agenter får läsa direkta paths i `logs/generationslogg/`, `logs/site-observabi
 
 ## Kodidentitet och gamla runs
 
-`_latest.txt` är bara en pekare till senaste run-mappen på disk. Den säger inte att runnen kördes mot aktuell `master`, aktuell fix eller senaste merge.
+`_latest.txt` pekar bara på senaste run på disk — inte att den kördes mot aktuell `master`/fix/merge. Innan du använder en run som bevis efter en fix/merge: jämför runnens timestamp (`meta.json.startedAt`/mappnamn) mot fix-/merge-tiden, och citera `repoHead`/`repoBranch`/`repoIdentityCapturedAt` om de finns.
 
-Innan du använder en run som bevis efter en fix/merge: jämför runnens timestamp (`meta.json.startedAt` / mappnamnet) med när fixen eller mergen skedde. Om `meta.json` innehåller `repoHead`, `repoBranch` och `repoIdentityCapturedAt`, citera dem också.
-
-Gamla runs får användas som historik/baseline. De får inte beskrivas som post-fix-regression eller bevis mot aktuell kod om de startade före fixen/mergen eller saknar matchande repo-identitet.
-
-Saknas `repoHead`/`repoBranch` i runnen efter en fix/merge: säg uttryckligen **låg evidens** och be om ny generation från uppdaterad branch innan du kallar det regression.
+Gamla runs = historik/baseline, **aldrig** post-fix-regression om de startade före fixen eller saknar repo-identitet. Saknas `repoHead`/`repoBranch` efter en fix/merge: säg **låg evidens** och be om ny generation från uppdaterad branch.
 
 ## Per-run-mapp — filer och vad de säger
 
