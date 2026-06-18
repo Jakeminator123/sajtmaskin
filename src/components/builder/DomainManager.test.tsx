@@ -144,6 +144,58 @@ describe("DomainManager error/status surfacing", () => {
     expect(screen.getByRole("button", { name: "Koppla" })).toBeTruthy();
   });
 
+  it("resets the search spinner when the dialog closes mid-search", async () => {
+    // The first /api/domains/check is deferred (still in flight when the
+    // dialog closes). A stuck isSearching would leave the reopened Sök button
+    // disabled forever, because handleSearch's finally only clears it when the
+    // captured generation still matches.
+    let resolveSearch: ((res: Response) => void) | null = null;
+    const pending = new Promise<Response>((resolve) => {
+      resolveSearch = resolve;
+    });
+
+    mockFetch((url) => {
+      if (url.includes("/api/domains/check")) {
+        return pending;
+      }
+      return json({}, 200);
+    });
+
+    const { rerender } = render(
+      <DomainManager open onClose={() => {}} projectId="proj_1" />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/mittforetag\.se/i), {
+      target: { value: "mittforetag.se" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Sök/i }));
+
+    // Search is in flight → Sök is disabled.
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /Sök/i }) as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+    });
+
+    // Close while the search is still pending, then reopen fresh.
+    rerender(<DomainManager open={false} onClose={() => {}} projectId="proj_1" />);
+    rerender(<DomainManager open onClose={() => {}} projectId="proj_1" />);
+
+    // Type a fresh query; the button must be enabled again (isSearching reset).
+    fireEvent.change(screen.getByPlaceholderText(/mittforetag\.se/i), {
+      target: { value: "annat.se" },
+    });
+    expect((screen.getByRole("button", { name: /Sök/i }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+
+    // Resolve the stale search so it does not leak; the guard drops it.
+    await act(async () => {
+      resolveSearch?.(json({ results: [AVAILABLE_RESULT] }, 200));
+      await Promise.resolve();
+    });
+  });
+
   it("surfaces a non-blocking save warning when /api/domains/save fails after link", async () => {
     mockFetch((url) => {
       if (url.includes("/api/domains/check")) {

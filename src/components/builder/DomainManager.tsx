@@ -120,6 +120,11 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
       setQuery("");
       setResults(null);
       setSearchError(null);
+      // Clear the search spinner here too: handleSearch's finally only resets
+      // it when the captured generation still matches, so a search in flight
+      // when the dialog closes would otherwise leave the Sok button stuck
+      // disabled until the component unmounts.
+      setIsSearching(false);
       setSelectedDomain(null);
       setIsLinking(false);
       setLinkResult(null);
