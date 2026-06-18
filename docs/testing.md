@@ -11,7 +11,8 @@ regressionssvit. Den kör två saker, i ordning:
 
 1. `npm run db:schema-drift` — deterministisk, nyckelfri (kräver ingen DB) gate som låser att
    avsett schema (`src/lib/db/schema.ts`) matchar applicerat (`db-init` + migrations).
-2. Kuraterade stabilitetstester via glob: filer som heter `*.stability.test.ts(x)`.
+2. Kuraterade stabilitetstester via egen vitest-config ([`vitest.stability.config.ts`](../vitest.stability.config.ts)):
+   filer som heter `*.stability.test.ts(x)`.
 
 Lanen kör grönt även med **noll** stabilitetstester (`--passWithNoTests`). Testfallen läggs
 in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se
@@ -30,5 +31,7 @@ stabilitets-resultat blockerar alltså inte merge ännu. Blockering kopplas in f
 ## Skriva en stabilitetstest
 
 - Namnge filen `<namn>.stability.test.ts` (eller `.tsx`) så plockas den upp av lanen.
-- Filen körs även i den fulla sviten (`test:ci`) eftersom den matchar `*.test.ts`.
+- Filen körs **bara** av `test:stability`. Den blockerande sviten (`test:ci`) exkluderar
+  `*.stability.test.ts(x)` i [`vitest.config.ts`](../vitest.config.ts), så ett flaky
+  stability-case kan aldrig fälla `quality`-grinden medan lanen är warn-only.
 - Lägg bara till tester enligt disciplinen i [`delivery-bias.md`](delivery-bias.md).
