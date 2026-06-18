@@ -29,6 +29,10 @@ all references move in the same change.
 | `chat-message-ui-parts.md` | Structured builder message parts (plan-review cards) in own-engine chat storage. |
 | `strict/` | Machine-oriented schemas. See [`strict/README.md`](strict/README.md) for the complete list. |
 
+> **Deprecated:** `plan-file.schema.json` är pensionerat — planering är en regel,
+> se [`.cursor/rules/plan-lifecycle.mdc`](../../.cursor/rules/plan-lifecycle.mdc).
+> Raderas i grandmaster-område 8.
+
 Only stable, canonical schema docs belong in this folder. Exploratory schema
 notes belong in `docs/plans/active/` until they are promoted here or
 superseded; **historical** notes may exist in git under `docs/plans/avklarat/`
