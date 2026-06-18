@@ -472,6 +472,12 @@ async function runTier2VerifyLane(params: {
       jobFinishedAt?: string | null;
       error?: string;
       visualQA?: QualityGateVisualQaResult;
+      // Promotion guard markers (route returns `passed:false` alongside these):
+      // `vmGatePassed` keeps the underlying VM-check status for diagnostics.
+      vmGatePassed?: boolean;
+      promotionBlocked?: boolean;
+      promotionBlockedReason?: string | null;
+      promoteError?: boolean;
     } | null;
 
     if (!res.ok || !data) {
@@ -510,6 +516,16 @@ async function runTier2VerifyLane(params: {
     if (typeof data.firstFailureCheck === "string" && data.firstFailureCheck.trim()) {
       steps.push(`First failure: ${data.firstFailureCheck.trim()}`);
     }
+    // The VM checks can all pass while promotion is still blocked because the
+    // finalize verifier flagged the version. Surface that explicitly so the
+    // card reads as "not green" with a reason, instead of a confusing all-PASS.
+    if (data.promotionBlocked) {
+      steps.push(
+        "Promotion blockerad: finalize-verifieraren flaggade blockerande fynd (bygg-checkar gröna).",
+      );
+    } else if (data.promoteError) {
+      steps.push("Promotion misslyckades tillfälligt — försök verifiera igen.");
+    }
 
     const visualQa =
       data.visualQA &&
@@ -545,6 +561,11 @@ async function runTier2VerifyLane(params: {
         jobFinishedAt:
           typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
         visualQA: visualQa,
+        promotionBlocked: data.promotionBlocked === true ? true : undefined,
+        promotionBlockedReason:
+          data.promotionBlocked && typeof data.promotionBlockedReason === "string"
+            ? data.promotionBlockedReason
+            : undefined,
       },
     } as UiMessagePart);
 
