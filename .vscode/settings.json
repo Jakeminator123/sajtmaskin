@@ -48,9 +48,11 @@
     "**/build": true,
     "**/dist": true,
     "templates_v0/**": true,
-    "data/template-references/repos/**": true,
+    "data/template-references/**": true,
     "data/external-template-pipeline/repo-cache/**": true,
-    "data/dossiers/_repo-cache/**": true
+    "data/dossiers/_repo-cache/**": true,
+    "test_förslag_templates_blob/**": true,
+    "_parkering/**": true
   },
 
   "files.watcherExclude": {
@@ -60,10 +62,16 @@
     "**/out/**": true,
     "**/build/**": true,
     "**/dist/**": true,
+    "**/.venv/**": true,
+    "**/.pytest_cache/**": true,
     "templates_v0/**": true,
-    "data/template-references/repos/**": true,
+    "data/template-references/**": true,
     "data/external-template-pipeline/repo-cache/**": true,
-    "data/dossiers/_repo-cache/**": true
+    "data/dossiers/_repo-cache/**": true,
+    "test_förslag_templates_blob/**": true,
+    "eval-output/**": true,
+    "evals/results/**": true,
+    "_parkering/**": true
   },
 
   "search.useIgnoreFiles": true,
@@ -99,6 +107,8 @@
 
   "git.autofetch": true,
 
+  "python.terminal.activateEnvironment": false,
+
   "terminal.integrated.defaultProfile.windows": "PowerShell 7",
 
   "terminal.integrated.profiles.windows": {
@@ -115,6 +125,7 @@
   },
 
   "terminal.integrated.env.windows": {
-    "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}"
+    "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}",
+    "PYTHONUTF8": "1"
   }
 }

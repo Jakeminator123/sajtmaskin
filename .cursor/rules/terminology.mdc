@@ -9,6 +9,12 @@ alwaysApply: true
 
 **Grundregel:** kod är source of truth. Ny term bara om befintlig inte räcker — kolla glossaryn först. Konsolidera hellre än ny jargong.
 
+## Begrepps-stopp (nya termer kräver motivering)
+
+I stabiliseringsfasen: **inför inte nya svåra engelska tech-begrepp** — håll dig till de befintliga i [glossaryn](../../docs/architecture/glossary.md). Ny eller ändrad term är OK **bara** med en kort motivering: förbättrar tydlighet, ersätter en sämre term, eller krävs av ny förmåga. Notera motiveringen där termen införs (commit/PR-text eller glossary-rad). Föredra svensk eller redan etablerad term; konsolidera hellre än skapa jargong.
+
+**Ordlista-check (light):** glossaryn är uppslagslistan och får en warn-först-check vid push/PR/merge (grandmaster-aktivitet `C2`) — inspirerad av Sajtbyggarens term-check men medvetet mjukare (varnar, blockerar inte i början). Inga 1500-raders allowlists.
+
 ## Signal-gate
 
 Innan du lägger till en signal/ordlista/keyword-array: (1) finns canonical source redan? → ändra **ägaren**, inte konsumenten. (2) Ny signal → registrera i ägarmatrisen.
