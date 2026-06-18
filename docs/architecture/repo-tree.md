@@ -10,24 +10,25 @@
 | `config/` | Kanonisk konfiguration (promptfragment, `ai_models`, `env-policy`, m.m.) — [`config/README.md`](../../config/README.md). |
 | `config/dashboard/` | Valfri **Streamlit**-GUI (`app.py`) för att redigera/överblicka samma material — **importeras inte** av Next.js. Detta är konfigurations-/översiktspanelen. Karta: [`config/dashboard/domain-map.json`](../../config/dashboard/domain-map.json). |
 | `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). Kanonisk arkitektur i `docs/architecture/`, backlog i `docs/plans/active/`. |
-| `research/` | Icke-runtime: äldre research/experiment och eventuella kvarvarande lokala arkiv. Den kanoniska external-template-pipelinen ligger inte här längre. |
+| `backoffice/` | Konsoliderad **backoffice** (Streamlit). Startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`); sidkod i `backoffice/pages/`. |
+| `preview-host/` | Preview-host: runtime, verify och workspace-livscykel för previews — [`preview-host/README.md`](../../preview-host/README.md). |
 | `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite). Innehåller även dossier-systemet: `data/dossiers/{hard,soft}/<id>/` (committed manifests + instructions + components) samt `data/template-references/{repos,_metadata}/` (gitignored input till AI-kuration). Se [`dossier-system.md`](./dossier-system.md). |
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 3 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
-| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `template-library/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`. |
-| `archive/` | Icke-aktiva labb m.m. — [`archive/README.md`](../../archive/README.md) (t.ex. tidigare `scripts/labs/testning_scarf/`). |
+| `evals/` | LLM-eval-prompter och resultat (`*.prompt.json`, `results/`) — [`evals/README.md`](../../evals/README.md). |
+| `drizzle/` | Genererade Drizzle DB-migrationsartefakter (`meta/`). Config: `drizzle.config.ts`. |
+| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Den konsoliderade backoffice-appen startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`). Undermappar: `db/`, `dev/`, `embeddings/`, `v0-templates/`, `scaffolds/`, `eval/`, `evals/`, `deps/`, `audit/`, `env/`, `domains/`, `dossiers/`, `observability/`, `plans/`, `shadcn/`, `typography/`, `debug/`, `cursor/`, `fly_vm/`. |
 | `infra/` | OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |
 | `services/` | Hjälpprocesser (t.ex. inspector worker). |
-| `tests/` | Tester utanför `src/` där så är upplagt. |
-| `isolated_tests/` | Vitest-integrationstester som kräver isolation från `src/`-trädets tsconfig. |
-| `templates_v0/` | Lokalt nedladdade v0-mallar: Python-skript, ZIP-arkiv, bilder och metadata — [`templates_v0/README.txt`](../../templates_v0/README.txt). Data (out/, downloads/) är gitignorerat. |
+| `public/` | Next.js statiska assets (branding, bilder, ikoner, video). |
+| `_parkering/` | Medveten **parkeringsyta** — ej indexerad/sökt, men får läsas direkt vid behov — [`_parkering/README.md`](../../_parkering/README.md). |
 | `.cursor/` | Cursor-regler, skills, repo-lokala slash-kommandon och README — [`.cursor/README.md`](../../.cursor/README.md). |
 
-**Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Kanoniska env-skript ligger under `scripts/env/`.
+**Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) (öppna P1/P2-buggsanning) · `sajtmaskin_backoffice.py` (backoffice-entry). Kanoniska env-skript ligger under `scripts/env/`.
 
 ## `.cursorignore` (varför vissa sökvägar “saknas” i index)
 
-Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan** bara för att en agent ska “se” innehåll — särskilt inte `.env*`, byggartefakter eller stora dumps. För orientering: denna fil + README i respektive mapp (`archive/`, `research/`, `data/`, m.fl.) beskriver *vad* som finns. Genererade men committade filer under t.ex. `src/lib/gen/` kan vara ignorerade i index men **aktiva** i bygget — verifiera med `package.json`-scripts och importer, inte med “syns i sök”.
+Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan** bara för att en agent ska “se” innehåll — särskilt inte `.env*`, byggartefakter eller stora dumps. För orientering: denna fil + README i respektive mapp (`_parkering/`, `infra/`, `evals/`, `e2e/`, m.fl.) beskriver *vad* som finns. Genererade men committade filer under t.ex. `src/lib/gen/` kan vara ignorerade i index men **aktiva** i bygget — verifiera med `package.json`-scripts och importer, inte med “syns i sök”.
 
 `docs/plans/avklarat/` är **inte** uttryckligen ignorerad här (historik ska kunna indexeras i Cursor); motsvarande rad finns inte i `.gitignore` heller. `data/prompt-dumps/*` och `output/generations/` följer samma idé som `.gitignore` (dumps och generationslogg bort från index, undantag för README där det finns).
 
