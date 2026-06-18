@@ -1,0 +1,516 @@
+// AUTO-GENERERAD av scripts/canvas/build-llm-flow-canvas.mjs - redigera inte for hand.
+// Lagras som .txt sa repots tsc/eslint aldrig ror den. Rendera lokalt med:
+//   node scripts/canvas/sync-to-cursor.mjs
+import {
+  Callout,
+  Card,
+  CardBody,
+  CardHeader,
+  Grid,
+  H1,
+  H2,
+  Pill,
+  Row,
+  Stack,
+  Stat,
+  Table,
+  Text,
+  type StatTone,
+  type TableRowTone,
+} from "cursor/canvas";
+
+type Status = "done" | "ongoing" | "shaky" | "blocked";
+
+type Process = {
+  name: string;
+  status: Status;
+  statusLabel: string;
+  tone: TableRowTone;
+  openBugs: number;
+  openByPrio: { P1: number; P2: number; P3: number; other: number };
+  churn: number;
+  summary: string;
+  note: string;
+};
+
+type CanvasData = {
+  meta: { repo: string; commit: string; commitDate: string; sinceDays: number };
+  totals: {
+    processes: number;
+    openP1: number;
+    openP2: number;
+    openP3: number;
+    blocked: number;
+    shaky: number;
+    evalExactHitPct: number | null;
+  };
+  processes: Process[];
+  shaky: { name: string; statusLabel: string; tone: TableRowTone; reason: string }[];
+  topOpenRisks: { prio: string; blocker: boolean; fynd: string }[];
+  evals: {
+    exactHitPct: number | null;
+    acceptableHitPct: number | null;
+    total: number | null;
+    errors: number | null;
+    rows: { id: string; ok: boolean; method: string; confidence: string }[];
+  } | null;
+  phases: string[];
+  legend: string[];
+};
+
+const DATA: CanvasData = {
+  "meta": {
+    "repo": "Jakeminator123/sajtmaskin",
+    "commit": "06d7e70b",
+    "commitDate": "2026-06-18",
+    "sinceDays": 14
+  },
+  "totals": {
+    "processes": 8,
+    "openP1": 4,
+    "openP2": 18,
+    "openP3": 26,
+    "blocked": 6,
+    "shaky": 1,
+    "evalExactHitPct": 90
+  },
+  "processes": [
+    {
+      "name": "LLM-faser & runtime-sanning",
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 5,
+      "openByPrio": {
+        "P1": 1,
+        "P2": 0,
+        "P3": 4,
+        "other": 0
+      },
+      "churn": 1,
+      "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
+      "note": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
+    },
+    {
+      "name": "Codegen core",
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 5,
+      "openByPrio": {
+        "P1": 1,
+        "P2": 2,
+        "P3": 2,
+        "other": 0
+      },
+      "churn": 3,
+      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
+      "note": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
+    },
+    {
+      "name": "prompt-core",
+      "status": "done",
+      "statusLabel": "Klart",
+      "tone": "success",
+      "openBugs": 0,
+      "openByPrio": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "other": 0
+      },
+      "churn": 3,
+      "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
+      "note": "3 commits / 14d"
+    },
+    {
+      "name": "ai_models",
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 3,
+      "openByPrio": {
+        "P1": 0,
+        "P2": 2,
+        "P3": 1,
+        "other": 0
+      },
+      "churn": 0,
+      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
+      "note": "BLOCKER: `/finalize-design` kan säga ready utan integrationkrav"
+    },
+    {
+      "name": "Runtime scaffolds",
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 8,
+      "openByPrio": {
+        "P1": 2,
+        "P2": 3,
+        "P3": 3,
+        "other": 0
+      },
+      "churn": 0,
+      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet ",
+      "note": "BLOCKER: Simplified brief fallback sänker premium/3D"
+    },
+    {
+      "name": "Scaffold Lifecycle",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 1,
+      "openByPrio": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 1,
+        "other": 0
+      },
+      "churn": 0,
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt",
+      "note": "1 oppna backlog-rader (P1:0 P2:0 P3:1)"
+    },
+    {
+      "name": "Preview och versioner",
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 23,
+      "openByPrio": {
+        "P1": 2,
+        "P2": 11,
+        "P3": 10,
+        "other": 0
+      },
+      "churn": 1,
+      "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
+      "note": "BLOCKER: F2 quality gate fångar inte runtime/UI-fel"
+    },
+    {
+      "name": "Eval",
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 4,
+      "openByPrio": {
+        "P1": 1,
+        "P2": 1,
+        "P3": 2,
+        "other": 0
+      },
+      "churn": 1,
+      "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manu",
+      "note": "BLOCKER: Follow-up context-budget saknar hård regression-gate"
+    }
+  ],
+  "shaky": [
+    {
+      "name": "Preview och versioner",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: F2 quality gate fångar inte runtime/UI-fel"
+    },
+    {
+      "name": "Runtime scaffolds",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: Simplified brief fallback sänker premium/3D"
+    },
+    {
+      "name": "Codegen core",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
+    },
+    {
+      "name": "LLM-faser & runtime-sanning",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: Autofix null-render/dossier stubs kan bli tyst success"
+    },
+    {
+      "name": "Eval",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: Follow-up context-budget saknar hård regression-gate"
+    }
+  ],
+  "topOpenRisks": [
+    {
+      "prio": "P1",
+      "blocker": true,
+      "fynd": "F2 quality gate fångar inte runtime/UI-fel"
+    },
+    {
+      "prio": "P1",
+      "blocker": true,
+      "fynd": "Simplified brief fallback sänker premium/3D"
+    },
+    {
+      "prio": "P1",
+      "blocker": true,
+      "fynd": "Autofix null-render/dossier stubs kan bli tyst success"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "`allowPlaceholdersInF3` kan släppa stub secrets"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "Generated `.env.local` kan vinna över user env"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "F3 Build Plan saknas när follow-up inte återinfererar integration"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "`/finalize-design` kan säga ready utan integrationkrav"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "Hard dossiers ger placeholder UI i stället för blocker"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "Dossier/capability-threading svagt vissa paths"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "Init och follow-up har olika capability-universum"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "Warm tsc/eslint fail-open vid kall cache"
+    },
+    {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "Preview kan visas trots verifier-blocked draft"
+    }
+  ],
+  "evals": {
+    "exactHitPct": 90,
+    "acceptableHitPct": 100,
+    "total": 10,
+    "errors": 0,
+    "rows": [
+      {
+        "id": "agency-b2b",
+        "ok": true,
+        "method": "default",
+        "confidence": "low"
+      },
+      {
+        "id": "blog-minimalist",
+        "ok": true,
+        "method": "embedding",
+        "confidence": "medium"
+      },
+      {
+        "id": "dashboard-internal",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      },
+      {
+        "id": "ecommerce-skor",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "landing-pulseframe",
+        "ok": false,
+        "method": "embedding",
+        "confidence": "high"
+      },
+      {
+        "id": "landing-tvspelshall",
+        "ok": true,
+        "method": "default",
+        "confidence": "low"
+      },
+      {
+        "id": "landing-ubaten-barn",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "portfolio-fotograf",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "medium"
+      },
+      {
+        "id": "restaurant-nordic",
+        "ok": true,
+        "method": "default",
+        "confidence": "low"
+      },
+      {
+        "id": "saas-checkout",
+        "ok": true,
+        "method": "agreement",
+        "confidence": "high"
+      }
+    ]
+  },
+  "phases": [
+    "Fas 1 - Forberedelse: Deep Brief, scaffold/variant/dossiers, dynamisk prompt",
+    "Fas 2 - Codegen: orkestrering, finalize, autofix, verify, persist",
+    "Fas 3 - Verify/preview/deploy: quality-gate, repair, preview-VM, deploy"
+  ],
+  "legend": [
+    "Klart",
+    "Pagar",
+    "Skakigt",
+    "Blockerat"
+  ]
+};
+
+const STATUS_TONE: Record<Status, TableRowTone> = {
+  done: "success",
+  ongoing: "info",
+  shaky: "warning",
+  blocked: "danger",
+};
+
+const CALLOUT_TONE: Record<string, "info" | "success" | "warning" | "danger" | "neutral"> = {
+  success: "success",
+  info: "info",
+  warning: "warning",
+  danger: "danger",
+  neutral: "neutral",
+};
+
+export default function LLMFlowCanvas() {
+  const d = DATA;
+  return (
+    <Stack gap={24} style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
+      <Stack gap={6}>
+        <H1>LLM-flode - status mot master</H1>
+        <Text tone="secondary">
+          {d.meta.repo} {"·"} commit {d.meta.commit}
+          {d.meta.commitDate ? " (" + d.meta.commitDate + ")" : ""} {"·"} auto-genererad fran repo-signaler
+        </Text>
+        <Row gap={8} wrap>
+          {d.legend.map((l) => (
+            <Pill key={l}>{l}</Pill>
+          ))}
+        </Row>
+      </Stack>
+
+      <Grid columns={5} gap={12}>
+        <Stat value={String(d.totals.processes)} label="Processer" />
+        <Stat value={String(d.totals.blocked)} label="Blockerade" tone={(d.totals.blocked ? "danger" : "success") as StatTone} />
+        <Stat value={String(d.totals.shaky)} label="Skakiga" tone={(d.totals.shaky ? "warning" : "success") as StatTone} />
+        <Stat value={String(d.totals.openP1)} label="Oppna P1" tone={(d.totals.openP1 ? "warning" : "success") as StatTone} />
+        <Stat
+          value={d.totals.evalExactHitPct == null ? "-" : d.totals.evalExactHitPct + "%"}
+          label="Eval exact-hit"
+          tone={"info" as StatTone}
+        />
+      </Grid>
+
+      {d.phases.length > 0 && (
+        <Stack gap={8}>
+          <H2>Faskedja</H2>
+          <Stack gap={6}>
+            {d.phases.map((p, i) => (
+              <Row key={i} gap={8} align="start">
+                <Pill>{i + 1}</Pill>
+                <Text>{p}</Text>
+              </Row>
+            ))}
+          </Stack>
+        </Stack>
+      )}
+
+      <Stack gap={10}>
+        <H2>Processer</H2>
+        <Table
+          headers={["Process", "Status", "Oppna buggar", "Churn", "Not"]}
+          columnAlign={["left", "left", "right", "right", "left"]}
+          rowTone={d.processes.map((p) => STATUS_TONE[p.status])}
+          rows={d.processes.map((p) => [
+            p.name,
+            p.statusLabel,
+            String(p.openBugs),
+            String(p.churn),
+            p.note,
+          ])}
+        />
+      </Stack>
+
+      {d.shaky.length > 0 && (
+        <Stack gap={10}>
+          <H2>Skakigast just nu</H2>
+          {d.shaky.map((s) => (
+            <Callout key={s.name} tone={CALLOUT_TONE[s.tone] ?? "neutral"} title={s.name + " - " + s.statusLabel}>
+              {s.reason}
+            </Callout>
+          ))}
+        </Stack>
+      )}
+
+      {d.topOpenRisks.length > 0 && (
+        <Stack gap={10}>
+          <H2>Oppna huvudrisker (backlog)</H2>
+          <Text tone="secondary">
+            Oppna BLOCKER/P1/P2-rader direkt ur BUG-SWARM-BACKLOG.md. Mappas inte alltid till en enskild
+            process - visas globalt sa inget tappas.
+          </Text>
+          <Table
+            headers={["Prio", "Typ", "Fynd"]}
+            columnAlign={["left", "left", "left"]}
+            rowTone={d.topOpenRisks.map((r) => (r.blocker ? "danger" : r.prio === "P1" ? "warning" : "info") as TableRowTone)}
+            rows={d.topOpenRisks.map((r) => [r.prio, r.blocker ? "BLOCKER" : "oppen", r.fynd])}
+          />
+        </Stack>
+      )}
+
+      {d.evals && d.evals.rows.length > 0 && (
+        <Stack gap={10}>
+          <H2>Eval-scorecard (scaffold-selection, baseline-master)</H2>
+          <Text tone="secondary">
+            exact-hit {d.evals.exactHitPct ?? "-"}% {"·"} acceptable {d.evals.acceptableHitPct ?? "-"}% {"·"}{" "}
+            {d.evals.total ?? d.evals.rows.length} prompts {"·"} fel: {d.evals.errors ?? 0}
+          </Text>
+          <Table
+            headers={["Prompt", "Traff", "Metod", "Confidence"]}
+            columnAlign={["left", "left", "left", "left"]}
+            rowTone={d.evals.rows.map((r) => (r.ok ? "success" : "warning") as TableRowTone)}
+            rows={d.evals.rows.map((r) => [r.id, r.ok ? "ja" : "nej", r.method, r.confidence])}
+          />
+        </Stack>
+      )}
+
+      <Card>
+        <CardHeader>Hur den uppdateras</CardHeader>
+        <CardBody>
+          <Stack gap={6}>
+            <Text size="small" tone="secondary">
+              Genereras deterministiskt fran config/dashboard/domain-map.json, BUG-SWARM-BACKLOG.md,
+              evals/results/baseline-master/ och git-churn. Auto-uppdateras vid push till master (oppnar
+              en draft-PR som bara ror canvas-artefakten).
+            </Text>
+            <Text size="small" tone="tertiary">
+              Lokalt: git pull {"→"} node scripts/canvas/sync-to-cursor.mjs {"→"} oppna canvasen bredvid chatten.
+            </Text>
+          </Stack>
+        </CardBody>
+      </Card>
+    </Stack>
+  );
+}
