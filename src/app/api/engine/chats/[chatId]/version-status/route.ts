@@ -9,14 +9,13 @@
  * disparate DB row flags via `resolveEngineVersionDisplayStatus`.
  *
  * Use case: `useVersionStatus()` hook in the builder polls / re-fetches
- * this endpoint to keep version-history badges and the upcoming
- * degraded-state UI in sync with the authoritative bus stream.
- * `VersionMismatchOverlay` is intentionally driven by `/preview-status`
- * via `usePreviewSession`, because it tracks the live VM session rather
- * than the event-bus lifecycle. The DB-helper path stays in place for now (see
- * `src/components/builder/VersionHistory.tsx` for the active consumer);
- * cut-over happens per-component in a later commit so we don't ship a
- * "halvt byte" — the rule is single-writer-per-surface.
+ * this endpoint to keep the active version's status in sync with the
+ * authoritative bus stream. `VersionMismatchOverlay` is intentionally
+ * driven by `/preview-status` via `usePreviewSession`, because it tracks
+ * the live VM session rather than the event-bus lifecycle. As of område
+ * 6-2 the version-history badges read the bus too — via the
+ * server-enriched `busStatus` field on the `/versions` route — so the
+ * legacy DB resolver is no longer the status source for the builder.
  */
 
 import { NextResponse } from "next/server";

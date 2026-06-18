@@ -26,9 +26,11 @@
  * `done`/`promoted` collapses to `degraded` so the UI surfaces
  * "green but missing X" instead of solid green.
  *
- * Scope note: `VersionHistory.tsx` still consumes the legacy resolver —
- * its cut-over (and closing the S3 single-writer invariant) is område 6-2,
- * not here. This module only powers the shell + preview empty-state.
+ * Scope note: as of område 6-2 `VersionHistory.tsx` also consumes this
+ * mapper — via the server-enriched `busStatus` field on the `/versions`
+ * route plus the `version-history-status-labels` presentation layer — so
+ * the builder's status surfaces no longer read the legacy DB resolver.
+ * The S3 single-writer invariant flips to assert-empty in område 6-3.
  */
 
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
