@@ -17,6 +17,10 @@ concurrency:
   group: db-blob-sync-${{ github.ref }}
   cancel-in-progress: true
 
+# Read-only check: needs no write scopes and no persisted git credentials.
+permissions:
+  contents: read
+
 jobs:
   db-blob-sync:
     runs-on: ubuntu-latest
@@ -24,6 +28,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # Don't leave the GITHUB_TOKEN in git config while PR-controlled code runs.
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@v5

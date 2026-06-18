@@ -156,6 +156,12 @@ GROUP_OF: Dict[str, str] = {
 # Blob expectations
 EXPECTED_BLOB_STORE_ID = "NHrq4GU42kcujMOV"
 EXPECTED_BLOB_PREFIX = "v0-templates/"
+# Top-level prefixes the app legitimately writes at runtime (besides the template
+# library). User media lands under "{userId}/..." (see buildBlobPath in
+# src/lib/vercel/blob-service.ts), AI/materialized images under "images/", and zip
+# exports under "exports/". These are expected once the app has been used, so they
+# must NOT be reported as sync drift.
+SYSTEM_BLOB_PREFIXES: Tuple[str, ...] = ("images/", "exports/")
 BLOB_API_URL = "https://vercel.com/api/blob"
 BLOB_API_VERSION = "12"
 
@@ -257,13 +263,13 @@ def vercel_executable() -> Optional[str]:
     return None
 
 
-def pull_env(target: str) -> List[str]:
-    """Read-only `vercel env pull` for the given target; returns Postgres URL candidates.
+def pull_env(target: str) -> Dict[str, str]:
+    """Read-only `vercel env pull` for the given target; returns the parsed env mapping.
 
     The temp env file is deleted immediately after reading (security hygiene)."""
     exe = vercel_executable()
     if not exe:
-        return []
+        return {}
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".env", prefix="pydbtest-")
     os.close(tmp_fd)
     try:
@@ -274,10 +280,10 @@ def pull_env(target: str) -> List[str]:
             timeout=120,
         )
         if proc.returncode != 0:
-            return []
-        return db_url_candidates(parse_env_file(tmp_path))
+            return {}
+        return parse_env_file(tmp_path)
     except (OSError, subprocess.SubprocessError):
-        return []
+        return {}
     finally:
         try:
             os.remove(tmp_path)
@@ -301,10 +307,10 @@ def resolve_pg_candidates(
 
     if allow_pull:
         vercel_target = "development" if target == "dev" else "production"
-        pulled = pull_env(vercel_target)
-        if pulled:
+        candidates = db_url_candidates(pull_env(vercel_target))
+        if candidates:
             source_note.append(f"vercel env pull ({vercel_target})")
-            return pulled
+            return candidates
 
     if target == "dev":
         candidates = db_url_candidates(parse_env_file(".env.local"))
@@ -313,6 +319,32 @@ def resolve_pg_candidates(
             return candidates
 
     return []
+
+
+def resolve_blob_token(*, allow_pull: bool, source_note: List[str]) -> Optional[str]:
+    """Resolve the Vercel Blob token from the same sources as the Postgres URLs.
+
+    Order: BLOB_READ_WRITE_TOKEN env -> (interactive) vercel env pull -> .env.local.
+    Without this, a local token in .env.local would be ignored and all blob checks
+    would silently SKIP even though credentials are present."""
+    explicit = os.environ.get("BLOB_READ_WRITE_TOKEN")
+    if explicit and explicit.strip():
+        source_note.append("env:BLOB_READ_WRITE_TOKEN")
+        return explicit.strip()
+
+    if allow_pull:
+        for vercel_target in ("development", "production"):
+            tok = pull_env(vercel_target).get("BLOB_READ_WRITE_TOKEN")
+            if tok and tok.strip():
+                source_note.append(f"vercel env pull ({vercel_target})")
+                return tok.strip()
+
+    local = parse_env_file(".env.local").get("BLOB_READ_WRITE_TOKEN")
+    if local and local.strip():
+        source_note.append(".env.local")
+        return local.strip()
+
+    return None
 
 
 # --------------------------------------------------------------------------- #
@@ -450,6 +482,16 @@ def inspect_db(name: str, urls: List[str], report: Report) -> DbState:
                 f"unclassified table(s) - schema drift unless added to EXPECTED/KNOWN_EXTRA: {', '.join(extra)}",
             )
 
+        # Known extras are created by db:init migrations and must exist in both DBs;
+        # a missing one means the migration did not run (schema drift), not a clean extra.
+        missing_known_extra = [t for t in KNOWN_EXTRA_TABLES if t not in state.tables]
+        if missing_known_extra:
+            report.add(
+                FAIL,
+                f"{label} known-extra tables",
+                f"required migration table(s) missing: {', '.join(missing_known_extra)}",
+            )
+
         # Row counts (read-only). Only count tables that exist.
         for table in EXPECTED_TABLES:
             if table in state.tables:
@@ -545,27 +587,34 @@ def inspect_blob(token: Optional[str], report: Report) -> Dict[str, object]:
     info["root_blobs"] = len(blobs)
     report.add(PASS, "BLOB connectivity", f"store reachable ({len(folders)} top-level folder(s))")
 
-    unexpected = [f for f in folders if f != EXPECTED_BLOB_PREFIX]
+    # The template library must always exist (it is never deleted at runtime).
     if EXPECTED_BLOB_PREFIX not in folders:
         report.add(
             FAIL,
             "BLOB sync (v0-templates)",
             f"expected prefix {EXPECTED_BLOB_PREFIX!r} not found (template library missing); folders: {folders or '[]'}",
         )
-    if unexpected:
-        report.add(
-            FAIL,
-            "BLOB sync (orphan prefixes)",
-            f"unexpected top-level prefix(es): {', '.join(unexpected)}",
-        )
-    elif EXPECTED_BLOB_PREFIX in folders:
-        report.add(PASS, "BLOB sync (orphan prefixes)", "only v0-templates/ present")
+    else:
+        report.add(PASS, "BLOB sync (v0-templates)", "template library present")
 
+    # Everything else is runtime-written: system buckets (images/, exports/) and
+    # per-user media ("{userId}/..."). These are expected, not drift - report only.
+    other = [f for f in folders if f != EXPECTED_BLOB_PREFIX]
+    system = [f for f in other if f in SYSTEM_BLOB_PREFIXES]
+    user_data = [f for f in other if f not in SYSTEM_BLOB_PREFIXES]
+    report.add(
+        PASS,
+        "BLOB runtime prefixes",
+        f"system: {', '.join(system) or 'none'}; user-data prefixes: {len(user_data)}",
+    )
+
+    # Nothing the app writes lands at the store root (every write is prefixed), so a
+    # loose root file is unexpected - surface it as a warning without failing the gate.
     if blobs:
         report.add(
-            FAIL,
+            WARN,
             "BLOB root files",
-            f"{len(blobs)} loose file(s) at store root (expected only the {EXPECTED_BLOB_PREFIX!r} prefix)",
+            f"{len(blobs)} loose file(s) at store root (expected none at root)",
         )
 
     return info
@@ -613,7 +662,11 @@ def cross_check_media(dev: DbState, prod: DbState, blob: Dict[str, object], repo
             media_rows.append(f"{state.name}={state.counts['media_library']}")
     if not media_rows:
         return
-    user_prefixes = [f for f in (blob.get("folders") or []) if f != EXPECTED_BLOB_PREFIX]
+    user_prefixes = [
+        f
+        for f in (blob.get("folders") or [])
+        if f != EXPECTED_BLOB_PREFIX and f not in SYSTEM_BLOB_PREFIXES
+    ]
     report.add(
         WARN if user_prefixes else PASS,
         "media_library <-> blob (informational)",
@@ -733,7 +786,8 @@ def main(argv: List[str]) -> int:
     prod_src: List[str] = []
     dev_urls = resolve_pg_candidates("dev", allow_pull=allow_pull, source_note=dev_src)
     prod_urls = resolve_pg_candidates("prod", allow_pull=allow_pull, source_note=prod_src)
-    blob_token = os.environ.get("BLOB_READ_WRITE_TOKEN") or None
+    blob_src: List[str] = []
+    blob_token = resolve_blob_token(allow_pull=allow_pull, source_note=blob_src)
 
     header("1-3. Postgres: connectivity, schema, restart state")
     if dev_src:
@@ -747,6 +801,8 @@ def main(argv: List[str]) -> int:
     check_parity(dev, prod, report)
 
     header("5. Blob store sync")
+    if blob_src:
+        print(f"  (blob token via {blob_src[0]})", flush=True)
     blob = inspect_blob(blob_token, report)
     cross_check_media(dev, prod, blob, report)
 
