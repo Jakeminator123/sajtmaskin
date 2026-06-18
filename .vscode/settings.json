@@ -125,6 +125,7 @@
   },
 
   "terminal.integrated.env.windows": {
-    "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}"
+    "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}",
+    "PYTHONUTF8": "1"
   }
 }
