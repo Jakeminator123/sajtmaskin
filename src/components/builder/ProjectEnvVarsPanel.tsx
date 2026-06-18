@@ -287,9 +287,12 @@ export function ProjectEnvVarsPanel({
   }, [appProjectId, effectiveEnvProjectId, hasSyntheticExternalProject]);
 
   const loadIntegrationStatus = useCallback(async () => {
+    const gen = loaderGenerationRef.current;
     try {
       const res = await fetch("/api/integrations/status");
+      if (loaderGenerationRef.current !== gen) return;
       const data = (await res.json().catch(() => null)) as IntegrationStatusResponse | null;
+      if (loaderGenerationRef.current !== gen) return;
       if (res.ok && data) {
         setIntegrationStatus(data);
         setIntegrationError(false);
@@ -297,6 +300,7 @@ export function ProjectEnvVarsPanel({
         setIntegrationError(true);
       }
     } catch {
+      if (loaderGenerationRef.current !== gen) return;
       setIntegrationError(true);
     }
   }, []);
@@ -549,6 +553,11 @@ export function ProjectEnvVarsPanel({
     void loadIntegrationStatus();
     void loadMarketplaceMetadata();
     void loadDetectedIntegrations();
+    return () => {
+      // Invalidate any in-flight loaders sharing this request-token so a
+      // late response cannot write state after unmount / dep change.
+      loaderGenerationRef.current += 1;
+    };
   }, [
     expanded,
     loadDetectedIntegrations,

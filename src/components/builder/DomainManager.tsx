@@ -93,10 +93,12 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DomainSearchResult[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<DomainSearchResult | null>(null);
   const [isLinking, setIsLinking] = useState(false);
   const [linkResult, setLinkResult] = useState<LinkResult | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [saveWarning, setSaveWarning] = useState<string | null>(null);
   const [verifyStatus, setVerifyStatus] = useState<VerifyResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -106,10 +108,12 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
       setStep("search");
       setQuery("");
       setResults(null);
+      setSearchError(null);
       setSelectedDomain(null);
       setIsLinking(false);
       setLinkResult(null);
       setLinkError(null);
+      setSaveWarning(null);
       setVerifyStatus(null);
       setIsVerifying(false);
       if (verifyIntervalRef.current) {
@@ -131,6 +135,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
     if (!query.trim()) return;
     setIsSearching(true);
     setResults(null);
+    setSearchError(null);
     try {
       const res = await fetch("/api/domains/check", {
         method: "POST",
@@ -141,7 +146,8 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
       if (!res.ok) throw new Error(data.error || "Sökning misslyckades");
       setResults(data.results ?? []);
     } catch (err) {
-      setResults([]);
+      setResults(null);
+      setSearchError(err instanceof Error ? err.message : "Sökning misslyckades");
       console.error("[DomainManager] Search error:", err);
     } finally {
       setIsSearching(false);
@@ -194,6 +200,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
     if (!selectedDomain || !projectId) return;
     setIsLinking(true);
     setLinkError(null);
+    setSaveWarning(null);
     try {
       const res = await fetch("/api/domains/link", {
         method: "POST",
@@ -208,14 +215,35 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
       setLinkResult(data);
 
       if (deploymentId) {
-        fetch("/api/domains/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            deploymentId,
-            domain: selectedDomain.domain,
-          }),
-        }).catch(() => {});
+        // Persist the linked domain on the deployment record. The link
+        // itself already succeeded, so a save failure is non-blocking —
+        // but it must be surfaced (the domain would otherwise silently
+        // not persist on the deployment).
+        void (async () => {
+          try {
+            const saveRes = await fetch("/api/domains/save", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                deploymentId,
+                domain: selectedDomain.domain,
+              }),
+            });
+            if (!saveRes.ok) {
+              const saveData = (await saveRes.json().catch(() => null)) as
+                | { error?: string }
+                | null;
+              setSaveWarning(
+                saveData?.error ||
+                  "Domänen kopplades men kunde inte sparas på publiceringen.",
+              );
+            }
+          } catch {
+            setSaveWarning(
+              "Domänen kopplades men kunde inte sparas på publiceringen.",
+            );
+          }
+        })();
       }
 
       setStep("verify");
@@ -274,6 +302,12 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                   <span className="ml-1.5">Sök</span>
                 </Button>
               </div>
+
+              {searchError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400">
+                  {searchError}
+                </div>
+              )}
 
               {results && results.length > 0 && (
                 <div className="space-y-1.5">
@@ -447,6 +481,12 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                   </div>
                 </div>
               </div>
+
+              {saveWarning && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400">
+                  {saveWarning}
+                </div>
+              )}
 
               {linkResult?.dnsSetup?.success && (
                 <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm dark:border-green-900 dark:bg-green-950/50">
