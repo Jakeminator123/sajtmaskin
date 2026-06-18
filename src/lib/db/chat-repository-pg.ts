@@ -19,6 +19,7 @@ import {
 import { and, eq, desc, sql } from "drizzle-orm";
 import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
 import { assertPromoteAllowed } from "./promote-guard";
+import { recordRepairPassedQualityGate } from "./services/generation-telemetry";
 
 export interface Chat {
   id: string;
@@ -528,6 +529,12 @@ export async function saveRepairedFiles(
   if ((result.rowCount ?? 0) === 0) {
     return null;
   }
+  // A repair only reaches `repair_available` after it passed its own quality
+  // gate (`shouldPromoteAfterRepair`). Stamp that pass so the promotion guard
+  // reads the *current* (repaired) signal instead of the stale finalize
+  // `verifier_failed`/`preflight_failed` that flagged the pre-repair content —
+  // otherwise `acceptRepair`'s guard would wedge a legitimately-fixed row.
+  await recordRepairPassedQualityGate(versionId);
   return getStoredVersion(versionId);
 }
 
@@ -569,6 +576,19 @@ export async function acceptRepair(
       .limit(1);
     const repairedFilesJson = rows[0]?.repairedFilesJson;
     if (typeof repairedFilesJson !== "string" || repairedFilesJson.trim().length === 0) {
+      return null;
+    }
+    // False-green invariant: accepting a repair also promotes, so it must pass
+    // through the same guard as `promoteVersion`. `saveRepairedFiles` stamped a
+    // fresh `preflight_passed` signal when the repair passed its gate, so a
+    // legitimate repair is allowed; a still-failing latest signal (e.g. the
+    // stamp never landed, or telemetry was re-flagged) blocks promotion instead
+    // of leaking a verifier-rejected row to `promoted`/`passed`.
+    const guard = await assertPromoteAllowed(versionId);
+    if (!guard.allowed) {
+      console.warn(
+        `[promote-guard] Refusing to accept repair for version ${versionId}: ${guard.reason}`,
+      );
       return null;
     }
     const result = await tx
@@ -689,10 +709,11 @@ export async function promoteVersion(
   verificationSummary: string | null = "Automatic verification passed.",
 ): Promise<Version | null> {
   // False-green invariant guard: refuse `promoted` while the finalize quality
-  // gate (telemetry) says the verifier/preflight blocked this version. This is
-  // the single chokepoint — every promote caller (quality-gate route,
-  // server-verify, createAndPromoteDraftVersion) passes through here, so the
-  // guard cannot be bypassed. Fail-open when no signal exists (see guard).
+  // gate (telemetry) says the verifier/preflight blocked this version. Every
+  // promote path consults `assertPromoteAllowed`: this function (quality-gate
+  // route, server-verify, createAndPromoteDraftVersion) and `acceptRepair` (the
+  // repair-accept/auto-accept path, which reads the repaired-pass signal
+  // stamped by `saveRepairedFiles`). Fail-open when no signal exists (see guard).
   const guard = await assertPromoteAllowed(versionId);
   if (!guard.allowed) {
     console.warn(

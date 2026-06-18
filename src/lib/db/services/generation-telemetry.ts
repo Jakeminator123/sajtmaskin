@@ -118,3 +118,40 @@ export async function getLatestQualityGateResultForVersion(
   const rows = await getTelemetryForVersion(versionId);
   return rows[0]?.qualityGateResult ?? null;
 }
+
+/**
+ * Stamp a fresh `preflight_passed` quality-gate signal after a server repair
+ * passed its own quality gate.
+ *
+ * `saveRepairedFiles` is the only writer of `engineVersions.repaired_files_json`
+ * and only runs once `shouldPromoteAfterRepair` approved the repaired files, so
+ * the repaired content is verified-clean even though the *original* finalize
+ * telemetry row may still read `verifier_failed`/`preflight_failed`. Recording
+ * the pass keeps `getLatestQualityGateResultForVersion` (and therefore the
+ * promotion guard `assertPromoteAllowed`) aligned with the *current* files —
+ * otherwise a legitimately-repaired row would be wedged on a stale finalize
+ * signal it has already superseded.
+ *
+ * Best-effort: inherits `chatId`/`model` from the version's latest telemetry
+ * row so model/cost analytics stay coherent. If no prior telemetry exists the
+ * guard already fails open, so we simply skip. Never throws.
+ */
+export async function recordRepairPassedQualityGate(
+  versionId: string,
+): Promise<void> {
+  try {
+    const rows = await getTelemetryForVersion(versionId);
+    const prior = rows[0];
+    if (!prior) return;
+    if (prior.qualityGateResult === "preflight_passed") return;
+    await createGenerationTelemetryRecord({
+      chatId: prior.chatId,
+      versionId,
+      model: prior.model,
+      qualityGateResult: "preflight_passed",
+      meta: { source: "server-repair-pass" },
+    });
+  } catch (err) {
+    console.warn("[telemetry] Failed to stamp repair-passed quality gate:", err);
+  }
+}
