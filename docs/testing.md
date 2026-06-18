@@ -18,15 +18,30 @@ Lanen kör grönt även med **noll** stabilitetstester (`--passWithNoTests`). Te
 in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se
 [`delivery-bias.md`](delivery-bias.md)).
 
+## Två CI-lägen: hård gate vs warn-only
+
+`db:schema-drift` och den bredare vitest-stabilitets-lanen har **olika** blockerings-status i CI
+(grandmaster S4):
+
+| Del | CI-jobb | Trigger | Blockerande? | Varför |
+|---|---|---|---|---|
+| `db:schema-drift` | `schema-drift` | push + PR mot `master` | **Ja** — hård gate | Deterministisk, nyckelfri, billig → trygg att blockera |
+| Bredare stabilitets-lane (`*.stability.test.ts(x)`) | `stability` | push + PR mot `master` | **Nej** — warn-only | Kan vara flaky medan lanen stabiliseras |
+
+- Det blockerande `schema-drift`-jobbet kör enbart `npm run db:schema-drift` (utan `continue-on-error`).
+  Ett rött resultat stoppar push/PR/merge → fångar t.ex. tabell/index som finns i `schema.ts`
+  men saknas i `db-init.mjs` (tyst drift på nya miljöer).
+- Det `stability`-jobbet är medvetet `continue-on-error` (warn-only) — kör hela `npm run test:stability`
+  men ett rött vitest-resultat blockerar inte merge ännu. Blockering av vitest-delen kopplas in först
+  när lanen är stabil (separat beslut).
+
 | Körläge | Kommando / trigger | Blockerande? |
 |---|---|---|
 | Lokalt | `npm run test:stability` (innan commit, sekunder) | — |
-| PR | jobbet `stability` i CI på `pull_request` | **Nej** — warn-only |
-| Push | jobbet `stability` i CI på push till `master` | **Nej** — warn-only |
-
-CI-jobbet är medvetet `continue-on-error` (warn-only) i ett första skede — ett rött
-stabilitets-resultat blockerar alltså inte merge ännu. Blockering kopplas in först när lanen
-är stabil (separat beslut).
+| PR | jobbet `schema-drift` på `pull_request` | **Ja** — hård gate (bara schema-drift) |
+| PR | jobbet `stability` på `pull_request` | **Nej** — warn-only (vitest-delen) |
+| Push | jobbet `schema-drift` på push till `master` | **Ja** — hård gate (bara schema-drift) |
+| Push | jobbet `stability` på push till `master` | **Nej** — warn-only (vitest-delen) |
 
 ## Skriva en stabilitetstest
 

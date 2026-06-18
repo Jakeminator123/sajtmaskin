@@ -42,10 +42,35 @@ jobs:
       - name: Verify baseline dependency tree
         run: npm run baseline-deps:tree
 
+  # Blockerande schema-drift-gate (grandmaster S4). Deterministisk, nyckelfri och billig:
+  # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
+  # add-performance-indexes.mjs / migrations/*.sql). Kräver inga DB-creds. Medvetet UTAN
+  # continue-on-error → ett rött resultat blockerar push/PR/merge. Den bredare vitest-
+  # stabilitets-lanen nedan förblir warn-only (kan vara flaky).
+  schema-drift:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Schema-drift gate (blocking)
+        run: npm run db:schema-drift
+
   # Warn-only stabilitets-lane (grandmaster S1). Avsiktligt icke-blockerande:
   # continue-on-error gör att ett rött stabilitets-resultat aldrig blockerar
-  # merge medan lanen stabiliseras. Detta är platsen där S4 (db:schema-drift-gate)
-  # och C2 (ordlista-check) lägger sina CI-steg — ingen annan aktivitet äger denna fil.
+  # merge medan lanen stabiliseras. S4:s db:schema-drift-gate körs blockerande i det
+  # separata schema-drift-jobbet ovan; här ligger den bredare (flaky) vitest-lanen
+  # warn-only. Detta är platsen där C2 (ordlista-check) lägger sitt CI-steg.
   stability:
     runs-on: ubuntu-latest
     continue-on-error: true
