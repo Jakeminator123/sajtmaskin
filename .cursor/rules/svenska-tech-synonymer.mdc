@@ -9,7 +9,8 @@ När svaret är på svenska och du använder ett engelskt teknik-ord (eng. *tech
 
 ## Regler
 
-- Format: `term (kort svensk förklaring)`. Bara en synonym eller ett par ord — inte en mening.
+- Format: `term (kort svensk förklaring)`. Helst en synonym eller ett par ord; vid genuint svårt begrepp **max en kort förklarande mening**.
+- **Inför sällan och noga.** Håll dig till befintliga begrepp — krångla inte till svaret med ny tech-engelska om ett vardagsord räcker (jfr [`terminology.mdc`](./terminology.mdc) § Begrepps-stopp).
 - Endast **första** förekomsten per svar. Upprepa inte parentesen efteråt.
 - Gäller även förkortningar: `RLS (rad-nivå-säkerhet)`, `CSP (innehålls-säkerhetspolicy)`, `RAG (sök-och-återanvänd-minne)`, `FF (fast-forward, ren framåt-merge)`.
 - Hoppa över ord som redan är vardagssvenska i repo-kontexten (`commit`, `merge`, `branch`, `push`, `fil`, `prod`) om de inte är otydliga i sammanhanget.
