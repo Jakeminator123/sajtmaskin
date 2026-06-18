@@ -26,6 +26,7 @@ Cursor-regel, och starta term-check light (warn-only) så namnskuggor fångas me
 - `plan-file.schema.json` markerad för pensionering (utförs i område 8).
 - `check-term-coverage` körbar warn-only (ej CI-blockerande än).
 
-## Nivå 3 (första aktivitet i batch 1)
+## Nivå 3 (batch 1)
 [`C1`](aktiviteter/C1-plan-file-schema-deprecate.md) — markera `plan-file.schema.json` deprecated
-(rör ej fysiskt; radering i område 8). Övriga aktiviteter skapas när området är fullt på tur.
+(rör ej fysiskt; radering i område 8). [`C2`](aktiviteter/C2-ordlista-check.md) — ordlista/glossary-check
+(push/PR/merge, warn-först). Övriga aktiviteter skapas när området är fullt på tur.

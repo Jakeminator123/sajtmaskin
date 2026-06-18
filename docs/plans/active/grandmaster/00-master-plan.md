@@ -68,6 +68,12 @@ Detaljer + seed-invarianter: [`02-stabilitetstester.md`](02-stabilitetstester.md
 Fyra pelare, lätt: [`docs/contracts/`](../../../contracts/README.md). Schema = struktur ·
 Policy = värden · Regel = process · Beslut = varför. Tre finns redan; **beslut (ADR)** är nytt.
 
+**Terminologi-disciplin:** inför inte nya svåra engelska tech-begrepp i stabiliseringsfasen —
+håll dig till befintliga i [`glossary.md`](../../../architecture/glossary.md); ny/ändrad term
+kräver kort motivering (regel: [`terminology.mdc`](../../../../.cursor/rules/terminology.mdc)).
+Glossaryn är **uppslagslistan** och får en **light-check vid push/PR/merge** (warn-först) —
+aktivitet [`C2`](aktiviteter/C2-ordlista-check.md), medvetet mjukare än Sajtbyggarens.
+
 ## 5. Områdesindex (Nivå 2)
 
 Varje område = eget dokument. `owner-surface` = den yta området äger (verifieras mot HEAD
@@ -83,6 +89,13 @@ innan nivå 3-aktiviteter skapas). Parallellt = distinkta ytor.
 | [6](06-status-och-ui-ux.md) | Status & UI/UX | 2 | `VersionHistory.tsx`, `BuilderShellContent.tsx` | 1 |
 | [7](07-false-green-hardning.md) | False-green-härdning | 3 | autofix `cross-file-import-checker.ts`, F2/F3-postcheck | 2, 5 |
 | [8](08-cleanup-och-hygien.md) | Cleanup & hygien | löpande | `.cursorignore`, `.gitignore`, scratch, deps | gemensam |
+
+**Städ-/struktur-pass per område (scoped):** varje nivå-2-område **inleds eller avslutas med
+ett städ-/struktur-pass begränsat till områdets owner-surface** — radera oanvända filer,
+omorganisera mappar om en tydligare struktur finns, konsolidera dubbletter, en enkel klar
+förbättring. Standard sista nivå-3-aktivitet (`Z-städ`), körs när områdets huvudarbete är
+verifierat (typecheck/test grönt). Skilt från **område 8** = den globala, repo-breda
+städningen vi gör tillsammans. Scope smalt: städ ≠ fri omorganisation (jfr `workflow.mdc`).
 
 ## 6. Sekvens — körordning (skiljer sig från områdesnumret)
 

@@ -37,6 +37,8 @@ Läs **`docs/plans/active/README.md`** först — router till alla aktiva spår.
 
 Parallellt område/aktivitet = distinkta `owner_files`; sekventiellt = `blocked_by`. Detta ersätter gamla `P*.md`-modellen + `plan-file.schema.json` — **planering är en regel, inte ett schema**.
 
+**Städ-pass per område:** varje nivå-2-område inleds eller avslutas med ett scoped städ-/struktur-pass — standard sista nivå-3-aktivitet `Z-städ`: radera oanvänt, omorganisera områdets mappyta, konsolidera dubbletter. Smalt till områdets `owner_files`, körs efter att huvudarbetet är verifierat. Repo-bred städning hör till det gemensamma städområdet, inte hit.
+
 ## Frontmatter (fristående planfiler)
 
 Koncentratet och andra index-/router-filer behöver ingen frontmatter. En **fristående** planfil (scope-doc, audit) som ligger i `archived/` eller `avklarat/` ska ha minimum:

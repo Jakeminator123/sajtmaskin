@@ -14,5 +14,8 @@ sekventiellt = `blocked_by`). Mall + livscykel: [`plan-lifecycle.mdc`](../../../
 | [S4](S4-db-health-gate.md) | DB-health/sync-gate (koordinerar parallell PR) | 2 | — | Medel · extern ägare |
 | [D2](D2-repo-tree-readme-synk.md) | synka repo-tree + README mot verkligheten | 3 | — | Låg |
 | [C1](C1-plan-file-schema-deprecate.md) | markera `plan-file.schema.json` deprecated | 1 | — | Låg |
+| [C2](C2-ordlista-check.md) | ordlista/glossary-check (push/PR/merge, warn-först) | 1 | — | Låg |
 
-Körordning (master-plan §6): branch-hygien → **stabilitetstester (S\*)** → docs (D2) → kontrakt (C1) → event-bus UI → FollowUpContract → false-green.
+Körordning (master-plan §6): branch-hygien → **stabilitetstester (S\*)** → docs (D2) → kontrakt (C1/C2) → event-bus UI → FollowUpContract → false-green.
+
+**Städ-pass:** varje nivå-2-område avslutas med en scoped `Z-städ`-aktivitet (radera oanvänt, omorganisera områdets mappyta, konsolidera) — se master-plan §5 + [`plan-lifecycle.mdc`](../../../../.cursor/rules/plan-lifecycle.mdc). Skapas just-in-time per område.
