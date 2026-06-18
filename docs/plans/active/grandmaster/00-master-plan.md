@@ -131,5 +131,5 @@ Kod är source of truth.
 
 - [x] Nivå 1 (denna) + 8 nivå-2-stubbar + kontraktslager + plan-regel.
 - [ ] **Jake:** justera områdesnamn/ordning om något skaver.
-- [ ] **Jake:** välj första området att starta (default: område 1 → 2 → 3 parallellt).
+- [ ] **Jake:** starta första körbatchen enligt **§6** (stabilitet först, inte filordning): `S1` test:stability-lane → `S2`/`S3`/`S4` → `D2` → `C1`/`C2`.
 - [ ] När ett område startar: skapa dess nivå-3-aktiviteter (8–10 st, smal `owner_files` var).
