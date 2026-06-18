@@ -299,6 +299,11 @@ describe("selectVersionStatus", () => {
     expect(status.previewBlocked).toBe(false);
     expect(status.verifierOutcome).toBe("skipped");
     expect(status.lastBuildError).toBeNull();
+    // False-green contract: this skip-path emits no explicit
+    // `version.degraded`, so the projection derives one. A skipped
+    // verifier therefore always carries `verifier_skipped_by_policy` and
+    // can never surface downstream as degradation-free solid green.
+    expect(status.degradations.map((d) => d.kind)).toContain("verifier_skipped_by_policy");
   });
 
   it("plan-02: warning-level build events do not overshadow a clean F2 finalize", () => {
@@ -449,6 +454,34 @@ describe("selectVersionStatus", () => {
     // Degradations survive terminal-settle — the false-green guard maps
     // this `done` to `degraded`, never solid success.
     expect(status.degradations.map((d) => d.kind)).toEqual(["verifier_skipped_by_policy"]);
+  });
+
+  it("false-green contract: skipped verifier WITHOUT an explicit version.degraded still surfaces a derived degradation", () => {
+    // Contrast to the F2 design-skip path above: here the runtime emits
+    // `version.verifier.done {skipped}` but NO matching `version.degraded`
+    // event. The projection must derive `verifier_skipped_by_policy` itself
+    // so a skipped verifier can never reach the UI as a degradation-free
+    // (solid-green) success — the false-green contract is locked at the
+    // source, not just in the display mapper.
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", {
+        outcome: "skipped",
+        blocked: false,
+        reason: "design_preview_skip_verify",
+      }),
+    ]);
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
+    expect(status.degradations.map((d) => d.kind)).toContain("verifier_skipped_by_policy");
   });
 
   it("does NOT settle to done before the verifier has completed", () => {

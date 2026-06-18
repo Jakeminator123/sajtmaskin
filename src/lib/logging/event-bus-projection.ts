@@ -178,6 +178,22 @@ export function selectVersionStatus(events: EngineEvent[]): VersionStatus {
     }
   }
 
+  // False-green-kontrakt (grandmaster område 7): en skippad verifierare
+  // får ALDRIG projiceras som ren success. Runtime parar idag
+  // `version.verifier.done {skipped}` med ett `version.degraded`-event
+  // (design_preview_skip_verify-vägen), men inget *tvingar* pareringen.
+  // Härled därför en fallback-degradering ur skipped-outcomet självt, så
+  // projektionen (den enda källa UI:t mappar från) aldrig kan ge en
+  // degraderingsfri "skipped" som downstream renderar som solid grön.
+  if (verifierOutcome === "skipped" && degradations.size === 0) {
+    degradations.set("verifier_skipped_by_policy", {
+      kind: "verifier_skipped_by_policy",
+      message:
+        "Verifiering hoppades över (härledd från verifier-outcome; inget explicit version.degraded-event).",
+      meta: null,
+    });
+  }
+
   const phase = deriveFinalPhase({
     phaseSignals,
     done,

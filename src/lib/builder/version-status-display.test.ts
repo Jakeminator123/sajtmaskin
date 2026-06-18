@@ -171,4 +171,20 @@ describe("mapVersionStatusToDisplay — false-green guard (degraded ≠ success)
     expect(display.status).toBe("verifying");
     expect(display.degraded).toBe(true);
   });
+
+  it("never maps a skipped-verifier done to solid green even with zero degradations", () => {
+    // Defense-in-depth twin of the projection's derived degradation: even
+    // if a `done` status somehow arrives with `verifierOutcome: "skipped"`
+    // and an EMPTY degradations array (projection + emitter both failed to
+    // attach one), the mapper must still refuse solid green. A promoted
+    // release-state would otherwise render as a clean `promoted`.
+    const display = mapVersionStatusToDisplay(
+      status({ phase: "done", verifierOutcome: "skipped", degradations: [] }),
+      { isLatest: true, releaseState: "promoted" },
+    );
+    expect(display.status).toBe("degraded");
+    expect(display.status).not.toBe("promoted");
+    expect(display.status).not.toBe("ready");
+    expect(display.degraded).toBe(true);
+  });
 });

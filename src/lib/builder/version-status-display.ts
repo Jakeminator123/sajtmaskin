@@ -96,7 +96,9 @@ export function mapVersionStatusToDisplay(
   context: VersionDisplayContext,
 ): VersionStatusDisplay {
   const degradations: VersionStatus["degradations"] = status?.degradations ?? [];
-  const degraded = degradations.length > 0;
+  // False-green-vakt (defense-in-depth): en skippad verifierare är aldrig
+  // ren success även om projektionen/emittern inte gav en degradering.
+  const degraded = degradations.length > 0 || status?.verifierOutcome === "skipped";
   const isPromoted = context.releaseState === "promoted";
 
   // No bus data yet (hook loading / empty stream). The empty-state copy
