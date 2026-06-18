@@ -1,4 +1,5 @@
 {
+  // ── Markdown-lint: ignorera genererade/tunga mappar ──
   "markdownlint.ignore": [
     "**/node_modules/**",
     "**/.git/**",
@@ -12,34 +13,36 @@
     "**/src/templates/**",
     "**/.cursor/**",
     "templates_v0/**",
-    "data/template-references/repos/**",
+    "data/template-references/**",
     "data/external-template-pipeline/repo-cache/**",
     "data/dossiers/_repo-cache/**"
   ],
 
-  "editor.formatOnSave": false,
+  // ── Editor ──
   "editor.tabSize": 2,
-
+  "editor.formatOnSave": false,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
     "source.organizeImports": "explicit"
   },
-
   "eslint.useFlatConfig": true,
-
   "files.eol": "\n",
   "files.autoSave": "off",
 
+  // ── Dölj i Explorer ──
   "files.exclude": {
     "**/.git": true,
     "**/.next": true,
     "**/node_modules": true,
     "templates_v0/**": true,
-    "data/template-references/repos/**": true,
+    "data/template-references/**": true,
     "data/external-template-pipeline/repo-cache/**": true,
-    "data/dossiers/_repo-cache/**": true
+    "data/dossiers/_repo-cache/**": true,
+    "test_förslag_templates_blob/**": true,
+    "_parkering/**": true
   },
 
+  // ── Dölj i sök (Ctrl+Shift+F) ──
   "search.exclude": {
     "**/.git": true,
     "**/.next": true,
@@ -55,6 +58,7 @@
     "_parkering/**": true
   },
 
+  // ── Sluta filbevaka tungt (fixar "watcher stopped" — ~149k filer i template-references) ──
   "files.watcherExclude": {
     "**/.git/**": true,
     "**/.next/**": true,
@@ -73,33 +77,21 @@
     "evals/results/**": true,
     "_parkering/**": true
   },
-
   "search.useIgnoreFiles": true,
   "search.useGlobalIgnoreFiles": true,
   "search.useParentIgnoreFiles": true,
 
+  // ── TypeScript ──
   "typescript.tsserver.experimental.enableProjectDiagnostics": false,
 
-  "[jsonc]": {
-    "editor.defaultFormatter": "vscode.json-language-features"
-  },
+  // ── Formatterare per språk ──
+  "[jsonc]": { "editor.defaultFormatter": "vscode.json-language-features" },
+  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
 
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-
-  "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-
-  "[javascriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-
+  // ── Tailwind: känn igen klasser i cva()/cn() ──
   "tailwindCSS.experimental.classRegex": [
     ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
     ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
@@ -107,10 +99,11 @@
 
   "git.autofetch": true,
 
+  // ── Python: stoppa auto-aktivering av .venv i NYA terminaler ──
   "python.terminal.activateEnvironment": false,
 
+  // ── Terminal: PowerShell 7 ──
   "terminal.integrated.defaultProfile.windows": "PowerShell 7",
-
   "terminal.integrated.profiles.windows": {
     "PowerShell 7": {
       "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
@@ -118,14 +111,11 @@
       "icon": "terminal-powershell"
     }
   },
-
   "terminal.integrated.automationProfile.windows": {
     "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
     "args": ["-NoLogo", "-NoProfile"]
   },
-
   "terminal.integrated.env.windows": {
-    "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}",
-    "PYTHONUTF8": "1"
+    "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}"
   }
 }
