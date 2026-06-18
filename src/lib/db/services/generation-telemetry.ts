@@ -103,3 +103,18 @@ export async function getTelemetryForVersion(versionId: string) {
     .where(eq(generationTelemetry.versionId, versionId))
     .orderBy(desc(generationTelemetry.createdAt));
 }
+
+/**
+ * Latest `qualityGateResult` recorded for a version (newest telemetry row
+ * wins, so a corrected repair pass supersedes an earlier failing pass).
+ *
+ * Returns `null` when no telemetry row exists for the version. Used by the
+ * promotion invariant guard (`assertPromoteAllowed`) to refuse `promoted`
+ * for rows the finalize verifier rejected.
+ */
+export async function getLatestQualityGateResultForVersion(
+  versionId: string,
+): Promise<string | null> {
+  const rows = await getTelemetryForVersion(versionId);
+  return rows[0]?.qualityGateResult ?? null;
+}

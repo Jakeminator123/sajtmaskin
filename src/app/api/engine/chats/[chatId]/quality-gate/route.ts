@@ -254,9 +254,27 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           });
         }
         if (gateResult.passed) {
-          await promoteVersion(internalVersionId, verificationSummary).catch((err) => {
-            console.warn("[quality-gate] Failed to promote version:", err);
-          });
+          const promoted = await promoteVersion(internalVersionId, verificationSummary).catch(
+            (err) => {
+              console.warn("[quality-gate] Failed to promote version:", err);
+              return null;
+            },
+          );
+          if (!promoted) {
+            // False-green guard: the VM checks (tsc/eslint/build) passed but
+            // `promoteVersion` refused because the finalize verifier flagged
+            // blocking findings (telemetry `qualityGateResult`). Resolve to a
+            // truthful terminal state instead of leaving the row at "verifying".
+            await failVersionVerification(
+              internalVersionId,
+              "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
+            ).catch((err) => {
+              console.warn(
+                "[quality-gate] Failed to mark version failed after promote guard block:",
+                err,
+              );
+            });
+          }
         } else {
           await failVersionVerification(internalVersionId, verificationSummary).catch((err) => {
             console.warn("[quality-gate] Failed to mark version failed:", err);

@@ -18,6 +18,7 @@ import {
 } from "./schema";
 import { and, eq, desc, sql } from "drizzle-orm";
 import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
+import { assertPromoteAllowed } from "./promote-guard";
 
 export interface Chat {
   id: string;
@@ -687,6 +688,18 @@ export async function promoteVersion(
   versionId: string,
   verificationSummary: string | null = "Automatic verification passed.",
 ): Promise<Version | null> {
+  // False-green invariant guard: refuse `promoted` while the finalize quality
+  // gate (telemetry) says the verifier/preflight blocked this version. This is
+  // the single chokepoint — every promote caller (quality-gate route,
+  // server-verify, createAndPromoteDraftVersion) passes through here, so the
+  // guard cannot be bypassed. Fail-open when no signal exists (see guard).
+  const guard = await assertPromoteAllowed(versionId);
+  if (!guard.allowed) {
+    console.warn(
+      `[promote-guard] Refusing to promote version ${versionId}: ${guard.reason}`,
+    );
+    return null;
+  }
   const promotedAt = new Date();
   const result = await db
     .update(engineVersions)
