@@ -1,0 +1,98 @@
+{
+  "_comment": "Light, warn-FIRST naming dictionary for grandmaster activity C2 (ordlista-check). Seeded from .cursor/rules/terminology.mdc (forvaxlingstabellen) + docs/architecture/glossary.md (Legacy). Deliberately SMALL and NOT exhaustive — canonical source of truth stays the glossary. Consumed by scripts/dev/check-term-coverage.mjs, which only WARNS and always exits 0. Blocking enforcement is a separate, later decision.",
+  "_source": [
+    ".cursor/rules/terminology.mdc#forvaxlingstabell",
+    "docs/architecture/glossary.md#legacy-inte-aterintroducera"
+  ],
+  "_notes": "tier 2 / tier 3 are intentionally NOT seeded: 'tier-2 preview' and 'Tier-3 Integration' are canonical glossary usage, so a broad match would be false-positive-prone. Add later if a precise rule emerges. Per-entry knobs: caseSensitive (default false), scope (subset of scan dirs; default all), ignorePathContains (skip paths where the alias is legitimate, e.g. /api/v0/).",
+  "forbiddenAliases": [
+    {
+      "alias": "demoUrl",
+      "canonical": "previewUrl",
+      "caseSensitive": true,
+      "note": "Legacy preview-URL-falt. Anvand previewUrl."
+    },
+    {
+      "alias": "StructuredBrief",
+      "canonical": "siteBriefSchema / Brief (Deep Brief)",
+      "caseSensitive": true,
+      "note": "Legacy brief-typ. Anvand siteBriefSchema / Deep Brief."
+    },
+    {
+      "alias": "simplifiedBriefSchema",
+      "canonical": "siteBriefSchema",
+      "caseSensitive": true,
+      "note": "Legacy brief-schema. Anvand siteBriefSchema."
+    },
+    {
+      "alias": "prompt-static",
+      "canonical": "Core Rules",
+      "note": "Legacy namn pa de statiska produktreglerna (config/prompt-core/)."
+    },
+    {
+      "alias": "style direction",
+      "canonical": "scaffold variant",
+      "note": "Borttaget begrepp. Anvand scaffold variant."
+    },
+    {
+      "alias": "scaffold family",
+      "canonical": "scaffold variant",
+      "note": "Anvand scaffold variant (inte family)."
+    },
+    {
+      "alias": "sandbox",
+      "canonical": "preview / VM / preview_host",
+      "note": "Legacy preview-term. sandboxId/sandboxUrl lever kvar enbart som kompatibilitetsalias.",
+      "ignorePathContains": ["vercel-sandbox", "sandbox-skill"]
+    },
+    {
+      "alias": "dashboard",
+      "canonical": "backoffice/",
+      "scope": ["docs"],
+      "note": "Bara nar du menar admin-backoffice. Generella app-dashboards i genererad sajtkod ar OK — darfor docs-only seed."
+    },
+    {
+      "alias": "v0",
+      "canonical": "own-engine / Mallar-tab / /api/v0/",
+      "scope": ["docs"],
+      "ignorePathContains": ["api/v0", "v0-templates", "templates_v0", "webhooks/v0"],
+      "note": "v0 betyder 3 saker (API-versionering, Mallar-tab, naming debt). Advisory — verifiera mot koden vilken betydelse som avses."
+    }
+  ],
+  "canonicalTerms": [
+    "own-engine",
+    "preview",
+    "preview_host",
+    "previewUrl",
+    "template-library",
+    "scaffold",
+    "scaffold variant",
+    "Deep Brief",
+    "Snapshot-Brief",
+    "siteBriefSchema",
+    "mekanisk autofix",
+    "LLM-fix",
+    "backoffice",
+    "Core Rules",
+    "fidelity2",
+    "fidelity3",
+    "BuildSpec",
+    "Dynamic Context",
+    "Quality Gate",
+    "Dossier"
+  ],
+  "knownTechTerms": [
+    "React",
+    "TypeScript",
+    "JavaScript",
+    "NextJs",
+    "GitHub",
+    "OpenAI",
+    "PostgreSQL",
+    "VitestConfig",
+    "PowerShell",
+    "JsonSchema",
+    "Tailwind",
+    "Playwright"
+  ]
+}

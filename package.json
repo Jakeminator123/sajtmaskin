@@ -10,6 +10,7 @@
   },
   "scripts": {
     "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-autofix-load.mjs && node scripts/dev/check-bug-backlog.mjs",
+    "check:terms": "node scripts/dev/check-term-coverage.mjs",
     "db:schema-drift": "vitest run src/lib/db/schema-drift.test.ts",
     "db:schema-drift:soft": "npm run db:schema-drift || echo [db:schema-drift] WARN: schema-drift mellan src/lib/db/schema.ts och scripts/db/db-init.mjs / add-performance-indexes.mjs - se output ovan. Dev startar anda.",
     "predev": "node scripts/dev/predev.mjs",
