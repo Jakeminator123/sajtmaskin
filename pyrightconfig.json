@@ -2,7 +2,6 @@
   "include": [
     "backoffice",
     "scripts",
-    "config/dashboard",
     "sajtmaskin_backoffice.py"
   ],
   "exclude": [

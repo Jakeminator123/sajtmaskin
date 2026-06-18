@@ -121,5 +121,5 @@ Not runtime dependencies:
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Marketing sidor (landning footer) | `/om`, `/blogg`, `/faq` (App Router under `src/app/`) |
 | Env setup | `docs/ENV.md` |
-| Config GUI (Streamlit) och var `config/` vs `docs/` bor | `config/dashboard/` (`run.ps1`), `config/dashboard/domain-map.json` |
+| Config GUI (Streamlit) och var `config/` vs `docs/` bor | `npm run backoffice` (`sajtmaskin_backoffice.py`), `config/dashboard/domain-map.json` |
 | Orchestrator protocol (historical; tooling removed) | git-historik (`git log -- docs/architecture/`) — inget aktivt protokoll i trädet |
