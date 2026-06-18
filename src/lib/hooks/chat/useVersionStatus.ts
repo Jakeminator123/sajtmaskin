@@ -12,11 +12,12 @@ import type { VersionStatus } from "@/lib/logging/event-bus-types";
  * (`resolveEngineVersionDisplayStatus` in
  * `src/lib/db/engine-version-lifecycle.ts`).
  *
- * Migration note: this hook does NOT replace the DB-helper for any
- * existing surface. `VersionHistory.tsx` and friends still use the
- * legacy resolver. The hook is shipped first so downstream components
- * can opt in one-by-one — single-writer-per-surface is the rule, no
- * "halvt byte" between the two channels.
+ * Migration note: as of område 6-2 the builder's status surfaces read
+ * the bus instead of the legacy DB resolver — `BuilderShellContent` via
+ * this hook (live polling of the active version), and `VersionHistory`
+ * via the server-enriched `busStatus` field on `/versions`.
+ * Single-writer-per-surface: each surface has exactly one status
+ * channel, no "halvt byte" between the two.
  *
  * Polling cadence is intentionally light (default 4s) and stops when
  * the bus reports `phase: "done"` so a finished version doesn't

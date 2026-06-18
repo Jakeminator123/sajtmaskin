@@ -17,6 +17,8 @@ import {
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
+import { readAll } from "@/lib/logging/event-bus";
+import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
 
 // P0 stream-abort recovery (2026-04-26). The `/versions` route is the
 // canonical poll surface used by useVersions. By piggy-backing the chat's
@@ -106,6 +108,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           // i UI:t och `isServerVerifyExpectedForLifecycle` defaultar till
           // `false`, vilket tystade "Verifierar"-labeln för F3-rader.
           lifecycleStage: v.lifecycle_stage,
+          // OMTAG-06 / område 6-2: server-project the canonical event-bus
+          // stream per row so VersionHistory renders its lifecycle badge from
+          // the bus (`selectVersionStatus`) instead of the legacy DB-flag
+          // resolver `resolveEngineVersionDisplayStatus`. Additive field —
+          // existing consumers keep reading the DB-derived fields above.
+          // `readAll` is the same pure, side-effect-free reader the
+          // `version-status` route already calls in route context; a version
+          // with no events folds to `selectVersionStatus([])` → phase "idle".
+          busStatus: selectVersionStatus(readAll(v.id)),
           canPin: false,
       }));
       return NextResponse.json({
