@@ -117,6 +117,20 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 
 ---
 
+## Stabilitet, kontrakt & planering
+
+Kanoniska termer från grandmaster-planen (`docs/plans/active/grandmaster/`).
+
+| Term | Kort |
+|------|------|
+| Stabilitetstester | Kuraterad lane bredare än regression: större buggar **och** UX-invarianter (t.ex. att `åäö` renderas i builder-chatten). Tre lägen: lokalt `npm run test:stability`, på PR, vid push. Tidigare "regressionstester". Källa: `02-stabilitetstester.md`. |
+| Kontraktslager | Fyra lätta pelare i `docs/contracts/`: **schema** (struktur/dataformat) · **policy** (värden/mappningar) · **regel** (process, i `.cursor/rules/`) · **beslut/ADR** (varför). Schema låser dataformat, inte planering. |
+| Beslut (ADR) | Arkitekturbeslut med kort motivering i `docs/contracts/beslut/NNNN-*.md`. ADR = *Architecture Decision Record*. Ingen merge-blockerande ADR-stapel (anti-Sajtbyggaren). |
+| False-green (falskt grönt) | Systemet rapporterar pass/grönt fast runtime/verifiering inte stödjer det (placeholder som ser ut som success, autofix-stub, F2 fail-open). Hellre explicit `degraded`/blocker än tyst success. Härdning: `07-false-green-hardning.md`. |
+| Plan-nivåmodell | Nivå 1 = målbild/index (`00-master-plan.md`) · nivå 2 = område · nivå 3 = byggar-agent-körbar aktivitet med smal `owner_files`, skapas just-in-time. Regel: `.cursor/rules/plan-lifecycle.mdc`. |
+
+---
+
 ## Namnskuggor
 
 Samma ord, flera kontexter. Skriv full term när det finns risk för missförstånd.
