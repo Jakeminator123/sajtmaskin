@@ -23,17 +23,17 @@ Defensiv triage använder samma backlogg-system men med en extra bedömning:
 
 | Grupp | Antal | Hantering |
 | --- | ---: | --- |
-| Totalt | 129 | Alla rader i tabellen nedan. |
+| Totalt | 130 | Alla rader i tabellen nedan. |
 | Avslutade (`[x]`) | 78 | Filtrera bort från aktiv bugfix. |
-| Öppna (`[ ]`) | 51 | Kandidater för fortsatt triage/fix. |
+| Öppna (`[ ]`) | 52 | Kandidater för fortsatt triage/fix. |
 | Explicit `Inte bug` | 13 | Avskrivna eller naming/copy/fallback-beslut; ska inte räknas som aktiv buggrisk. |
 
 | Aktiv prioritet | Kvar | Kommentar |
 | --- | ---: | --- |
 | P0 | 0 | Inga kvarvarande P0-rader. |
-| P1 | 3 | Autofix-stubbar, F2 runtime/UI-smoke och simplified-brief kvalitet. |
-| P2 | 18 | F3/dossier/env/verify/policy-risker + follow-up-budget/status-projektion. |
-| P3 | 30 | UI-race, cache/search/scrape, copy/naming/städ. |
+| P1 | 4 | Triage 2026-06-18: G#10/G#13/N#1 BLOCKER (pipeline/policy), E#1 Edge (kräver eval-run mot LLM-providers). Inga säkra smala fix. |
+| P2 | 18 | Triage 2026-06-18: 14 BLOCKER (F3/dossier/capability/verify/status-pipeline + policy) + 4 Edge (G#16 env-audit, G#18 docs, G#38 PDF-CPU-policy, G#40 SSRF-rebind). |
+| P3 | 30 | Triage 2026-06-18: 8 kodfix + 5 avfärdade i HEAD; 30 kvar = Edge/BLOCKER (UI-race utan repro, degraded-state-policy, breda refaktorer, live-infra-verifiering). |
 
 ### Avskrivet / inte bug
 
@@ -175,17 +175,17 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Fixad nu | P3 | Placeholder copy kvar i scaffoldfiler | G#48 | Fixad (detektions-coverage): scaffolds använder bracket-placeholders by-design (LLM instrueras ersätta dem via `serialize.ts`). `no-bracket-placeholders`-checken (`eval/checks.ts` + `verify/visual-qa.ts`) saknade `[Roll]`/`[Företag]` som serialize.ts dokumenterar — nu tillagda i båda regexarna. Regressionstest i `checks.test.ts`. (Generiska fri-text-placeholders som `[Kort företagsbeskrivning…]` täcks medvetet inte pga false-positive-risk.) |
 | [ ] | Öppen scaffold-risk | P3 | Dashboard `[Företagsnamn]` kan slinka igenom | G#49 | BLOCKER (triage 2026-06-18): `[Företagsnamn]` detekteras redan av `no-bracket-placeholders` i både `visual-qa.ts` och `eval/checks.ts` (poängsänks). Att göra det till en hård quality-gate-blocker (vs warning/score) är ett gate-policybeslut (samma degraded-state-spår som G#51/N#H4) — kan blockera generering. Eskaleras. |
 | [ ] | Öppen scaffold-risk | P3 | Blog placeholder body | G#50 | EDGE (triage 2026-06-18): Att byta scaffold-defaulttext mot konkret innehåll motsäger template-designen (scaffolds är generiska startpunkter, LLM fyller innehåll). "Verifiera bort" sker delvis via `no-bracket-placeholders` när placeholdern matchar det namngivna settet. Fri-text-blogg-body utan bracket-token kan inte detekteras utan false-positive-risk. Lämnas öppen. |
-| [ ] | Öppen scaffold-edge | P3 | Scaffold required files kan tappas i finalize/export-path | R#9 | Edge: inga hårda bevis i denna pass. Lägg deterministiskt preflight-check + test bara om repro visar att required scaffold files tappas efter merge/export. |
-| [ ] | Öppen UX-risk | P3 | Placeholder CTAs non-blocking | G#51, N#H4 | Bekräfta som degraded-state-policy: markera som warning/blocker beroende på lane. |
-| [ ] | Öppen variant-risk | P3 | Variant pre-match keyword-only vs final logik | G#52 | Konsolidera selector/logg. |
-| [ ] | Öppen typography-risk | P3 | Font materializer träffar mest baseline Inter | G#53 | Verifiera variant-font-parningar. |
-| [ ] | Öppen typography-risk | P3 | Geist workaround kan sabotera variant-typografi | G#54 | Begränsa workaround till kända fall. |
+| [ ] | Öppen scaffold-edge | P3 | Scaffold required files kan tappas i finalize/export-path | R#9 | EDGE (triage 2026-06-18): Fortfarande inga hårda bevis/repro att required scaffold-filer tappas efter merge/export. Lägg deterministiskt preflight-check + test först när repro finns. Lämnas öppen. |
+| [ ] | Öppen UX-risk | P3 | Placeholder CTAs non-blocking | G#51, N#H4 | BLOCKER (triage 2026-06-18): Degraded-state-policy (samma spår som G#22/G#35/G#49, N#H4) — warning vs blocker per lane är ett quality-gate-policybeslut. Eskaleras. |
+| [ ] | Öppen variant-risk | P3 | Variant pre-match keyword-only vs final logik | G#52 | EDGE (triage 2026-06-18): Att konsolidera pre-match-selector (keyword) mot slutlig embedding-logik är en refaktor i scaffold-variant-matchningen med flera rimliga utfall; kräver verifiering av drift mellan pre-match och final. Lämnas öppen. |
+| [ ] | Öppen typography-risk | P3 | Font materializer träffar mest baseline Inter | G#53 | EDGE (triage 2026-06-18): Kräver verifiering av variant→font-parningar mot faktisk output (eval) för att avgöra om baseline-Inter-bias är en bugg eller korrekt fallback. Inte ett blint smalt fix. Lämnas öppen. |
+| [ ] | Öppen typography-risk | P3 | Geist workaround kan sabotera variant-typografi | G#54 | EDGE (triage 2026-06-18): Att begränsa Geist-workaround till kända fall kräver kartläggning av vilka varianter som faktiskt påverkas (verifiering mot font-materializer-output). Risk att smalna fel. Lämnas öppen tills fallen är belagda. |
 | [x] | Fixad i HEAD | P3 | `/api/ai/spec` naming debt | G#55 | Avfärdad: routen finns inte längre i koden — under `src/app/api/ai/` finns bara `brief`, `chat`, `model-trace`. Inga `src`-referenser till `/api/ai/spec`. Kvar är endast stale referenser i docs (`llm-role-matrix.md`, `model-build-profiles.md`, `glossary.md`) + logg — mindre docs-debt, inte en runtime-yta. |
 | [ ] | Öppen schema-risk | P3 | `variantNomination` nämns men produceras inte av schema | G#56 | BLOCKER (triage 2026-06-18): Fältet typas (`system-prompt/types.ts`) och konsumeras i drift-detektion (`orchestrate.ts:879`), men om brief-strict-schemat/prompten inte producerar det blir drift-koden död (alltid null). Att synka kräver beslut: lägg till i brief-strict-schema + prompt ELLER ta bort drift-detektionen — schema-/pipeline-yta med flera rimliga utfall. Eskaleras. |
-| [ ] | Öppen kvalitet-risk | P3 | Follow-up quality promotion svagare än init | G#57 | Jämför init/follow-up gates. |
-| [ ] | Öppen copy-städ | P3 | Blandning av "Bygg nu", "F3", "Bygg integrationer" | G#58, U#80 | Konsolidera UI-copy med F2/F3-termer. |
+| [ ] | Öppen kvalitet-risk | P3 | Follow-up quality promotion svagare än init | G#57 | BLOCKER (triage 2026-06-18): Att jämka follow-up-quality-gate mot init-gate är ett pipeline-/gate-policybeslut (kopplat till F2/F3-skillnad och repair-gate); flera rimliga utfall. Eskaleras. |
+| [ ] | Öppen copy-städ | P3 | Blandning av "Bygg nu", "F3", "Bygg integrationer" | G#58, U#80 | EDGE (triage 2026-06-18): Copy/terminologi-konsolidering spänner över flera UI-ytor och kräver ett canonical-term-beslut (per `terminology.mdc`: F2/F3, "Bygg integrationer"). Bättre som en sammanhållen copy-pass än spridda string-byten. Lämnas öppen. |
 | [ ] | Öppen storage-risk | P3 | Builder localStorage keys utan versionsprefix | G#59, U#54 | EDGE (triage 2026-06-18): Builder-nycklarna är redan namespace-prefixade (`sajtmaskin:designTheme`/`lastProjectId`/`lastChatId`). Att lägga ett schema-versions-segment + migration spänner över flera inline call-sites med lågt värde (värdena är primitiva strängar) och risk att orphan:a befintliga sparade värden. Lämnas öppen för ev. centraliserad storage-helper. |
-| [ ] | Öppen observability-städ | P3 | Silent catches i dev/log readers | G#60, U#64 | Logga med låg brusnivå eller returnera explicit degraded state. |
+| [ ] | Öppen observability-städ | P3 | Silent catches i dev/log readers | G#60, U#64 | EDGE (triage 2026-06-18): Bred observability-städ över flera dev/log-readers; "låg brusnivå vs explicit degraded state" är en logg-policy som bör göras sammanhållet, inte som spridda punktfix. Lämnas öppen. |
 | [x] | Fixad nu | P3 | Shadcn registry cache saknar maxstorlek | G#61, U#33 | Fixad: in-memory-cachen i `registry-service.ts` extraherad till `registry-memory-cache.ts` med `MAX_CACHE_ENTRIES=256` + oldest-first-eviction (TTL kvar 5 min). Regressionstest i `registry-memory-cache.test.ts`. |
 | [x] | Fixad nu | P3 | Shadcn cache key casing/whitespace dubletter | G#62, U#34 | Fixad: `buildRegistryCacheKey` normaliserar style/name/source (trim + lowercase) så `"New York"`/`"new york "`/`"new-york"` inte längre ger dubbletter. Alla 4 cache-key-sites i `registry-service.ts` använder helpern. Test täcker dedup. |
 | [ ] | Öppen registry-risk | P3 | Docs-only block godkänns som usable | G#63, U#36 | EDGE (triage 2026-06-18): `isUsableRegistryItem` räknar avsiktligt docs-only/markdown-payload som "fanns" (explicit kommentar). Att kräva renderbar `files`-source ändrar fallback-semantiken (legit doc-only-entries skulle behandlas som saknade och trigga fallback-kedjan/fel). Flera rimliga tolkningar → produktbeslut. Lämnas öppen. |
@@ -195,31 +195,31 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [ ] | Öppen scraper-risk | P3 | Footer/contact/legal kapas av word caps | G#67, U#43 | EDGE (triage 2026-06-18): Att separera legal/contact-extraktion från `AGGREGATE_WORD_LIMIT`/per-sida-cap kräver ny dedikerad extraktionskanal (flera rimliga designval: separata fält, viktning, regex vs DOM). Inte ett smalt fix. Lämnas öppen. |
 | [x] | Fixad nu | P3 | Unsplash GET saknar hård cap på `count` | G#68, U#24 | Fixad: `count` clampas till 1-12 för GET och POST/fallback. |
 | [x] | Inte bug / fallback | P3 | Unsplash `placehold.co` fallback | G#69, U#25 | Avsiktlig dev/fallback; kan bytas senare som produktbeslut. |
-| [ ] | Öppen inspector-risk | P3 | Element crop kan missa små element vid DPI/zoom | G#70, U#52 | Kräver reproduktion i inspector-worker. |
+| [ ] | Öppen inspector-risk | P3 | Element crop kan missa små element vid DPI/zoom | G#70, U#52 | EDGE (triage 2026-06-18): Kräver reproduktion i inspector-worker (Playwright DPI/zoom) som inte finns i triage-VM:n. Lämnas öppen med repro-krav. |
 | [ ] | Öppen PDF-UX | P3 | PDF report `window.open` + `document.write` | G#71, U#13 | EDGE (triage 2026-06-18): Print-to-PDF-flödet är avsiktligt (ger A4 `@page`-formatering + sidnumrering via `@bottom-center`). Migrering till blob/download eller server-renderad fil är en feature-rework med flera rimliga designval (förlorad @page-styling vid naiv blob). Lämnas öppen som UX-beslut. (XSS-härdningen för SVG-text gjord separat i U#14/U#73.) |
 | [x] | Inte bug / låg risk | P3 | Date formatting locale/timezone varierar | G#72, U#67, U#68 | Inte bug utan rapportpolicy; öppna ny produktfråga om determinism krävs. |
 | [x] | Fixad nu | P3 | `generateUniqueFilename` använder `Math.random` | G#73, U#30 | Fixad: använder `crypto.randomUUID`. |
 | [x] | Fixad i HEAD | P3 | Image validator HEAD-fallback missar CDNs | G#74, U#71 | Avskriven/fixad: HEAD 405/501 har GET fallback med byte-range och tester. |
-| [ ] | Öppen UX-risk | P3 | Domain manager polling/save-fail döljs | G#75, U#11, U#12 | Visa save/link-status och fel tydligt. |
+| [ ] | Öppen UX-risk | P3 | Domain manager polling/save-fail döljs | G#75, U#11, U#12 | EDGE (triage 2026-06-18): Förbättrad save/link-status-UI i `DomainManager.tsx` kräver UI-arbete + verifiering i live builder (förbjudet via coexistence-regeln) — kan inte testas end-to-end i triagen. Lämnas öppen. |
 | [x] | Fixad nu | P3 | ThinkingOverlay nested `setTimeout` rensas inte vid unmount | U#1 | Fixad: nested fade-timeout sparas och rensas i effect-cleanup. |
 | [x] | Fixad nu | P3 | ThinkingOverlay säger "visuell QA" fast default kan vara av | U#2 | Fixad: copy säger syntax- och kvalitetskontroller utan att lova visuell QA. |
 | [x] | Inte bug / fixad | P3 | MessageList elapsed interval kan trigga render-loop | U#3 | Avskriven: `RepairProgressIndicator` cappar vid 300s och clearar interval i cleanup. |
 | [x] | Fixad i HEAD | P3 | PreviewPanelFrame debounce + hard-cap vid snabb URL-switch | U#4, N#H5 | Avskriven/fixad: debounce + 6s hard-cap finns och timers rensas i cleanup. |
 | [x] | Fixad i HEAD | P3 | `usePreviewIframe` timers/refs race tier2/shim | U#5, N#H5 | Avskriven/fixad: preview-ready timers rensas vid URL-/identity-byte innan nya timers sätts. |
-| [ ] | Öppen UI-race | P3 | ProjectEnvVarsPanel parallella fetches utan gemensam abort | U#6, U#79, N#H5 | Edge: lägg request-token/abortcontroller om parallella fetches kan vinna stale. |
+| [ ] | Öppen UI-race | P3 | ProjectEnvVarsPanel parallella fetches utan gemensam abort | U#6, U#79, N#H5 | EDGE (triage 2026-06-18): `ProjectEnvVarsPanel.tsx` är >1500 rader med många parallella fetches; en gemensam abort/request-token-refaktor är icke-trivial och kan inte testas end-to-end utan live builder (coexistence-förbud). Risk > nytta för ett blint fix. Lämnas öppen. |
 | [x] | Fixad i HEAD | P3 | SeoOptInPanel prefs-fetch stale vid snabb open/close | U#7, N#H5 | Avskriven/fixad: prefs-effect använder cancelled-guard i cleanup och undviker stale writes. |
 | [x] | Inte bug / UX debt | P3 | F3PlaceholderToggle saknar skeleton | U#8 | Inte bug; ren polish. |
 | [x] | Fixad nu | P3 | VersionHistory actions före mutate synkad | U#9, N#H5 | Fixad: pin/restore/accept-repair väntar nu in `mutate()` innan in-flight state släpps. |
-| [ ] | Öppen collaboration-risk | P3 | VersionCollaboration saknar optimistic conflict | U#10 | Lägg conflict UI eller etag/version guard. |
+| [ ] | Öppen collaboration-risk | P3 | VersionCollaboration saknar optimistic conflict | U#10 | EDGE (triage 2026-06-18): Optimistic-conflict-hantering (etag/version-guard + conflict-UI) kräver både server- och klientändring + kontraktbeslut; flera rimliga designval. Inte ett smalt fix. Lämnas öppen. |
 | [x] | Fixad nu | P3 | Audit PDF inline SVG escaping | U#14, U#73 | Fixad: `generateRadarChartSVG`/`generateBarChartSVG` i `AuditPdfReport.tsx` injicerade rå score-kategori-`key` (utan LABELS-träff) i SVG `<text>` ovan `document.write` — nu via `escapeHtml`. Regressionstest i `AuditPdfReport.test.ts` (malicious key → `&lt;script&gt;`). Numeriska värden var redan typfiltrerade. |
 | [x] | Fixad nu | P3 | Media upload tags JSON saknar shape-validering | U#17 | Fixad: endast array av strings sparas, max 20 tags. |
 | [x] | Fixad nu | P3 | `upload-from-url` kan skapa konstig `svg+xml`-filändelse | U#19 | Fixad via allowlist + explicit extension map. |
 | [x] | Inte bug | P3 | Transcribe accepterar `video/mp4` upp till 25MB | U#22 | Avsiktligt: Whisper hanterar video-containers. |
-| [ ] | Öppen produkt-gap | P3 | Transcribe språkfallback bara sv/en | U#23 | Lägg fler språk eller gör valet explicit. |
+| [ ] | Öppen produkt-gap | P3 | Transcribe språkfallback bara sv/en | U#23 | EDGE (triage 2026-06-18): Produkt-gap — att lägga fler språk eller göra valet explicit är ett produktbeslut (vilka språk, UX för val), inte en bugg. Lämnas öppen. |
 | [x] | Inte bug | P3 | Unsplash POST gör upp till 3 externa sökningar | U#26 | Redan hårt capad till max 3 termer. |
 | [x] | Fixad nu | P3 | PDF extract fallback regex nonsens | U#27, R#12 | Fixad: `pdf-parse`-fel returnerar tydligt unsupported (`422`) i stället för ad hoc stream-/BT/ET-regex. |
 | [x] | Fixad nu | P3 | PDF extract strippar icke-Latin-1 | U#28, R#12 | Fixad: cleanup tar bara bort kontrolltecken och bevarar Unicode-text från parsern. |
-| [ ] | Öppen preview-risk | P3 | Media local fallback `/api/uploads/media` kanske ej nås av VM | U#29, N#H4 | Bekräfta/edge: kräv Blob för preview eller visa tydligt degraded state; verifiera mot VM innan blocker. |
+| [ ] | Öppen preview-risk | P3 | Media local fallback `/api/uploads/media` kanske ej nås av VM | U#29, N#H4 | EDGE (triage 2026-06-18): Kräver verifiering mot preview-VM:n (om `/api/uploads/media` nås från VM-kontexten) — kan inte göras i triage-VM:n. Att kräva Blob eller visa degraded state är degraded-state-policy (N#H4). Lämnas öppen med VM-repro-krav. |
 | [x] | Fixad nu | P3 | Originalfiländelse / dubbeländelse okontrollerad | U#31 | Fixad delvis vid blob-namn: path-segment saneras och extensionless filer defaultar till `.bin`, inte `.png`. |
 | [x] | Fixad nu | P3 | Blob path använder rå `projectId` | U#32 | Fixad: blob path-segment för user/project/filename saneras innan upload. |
 | [x] | Fixad i HEAD | P3 | Registry async refresh stale vid misslyckad fetch | U#35 | Avfärdad/redan hanterad: `getRegistryIndexWithCache` i `registry-cache.ts` triggar bakgrundsrefresh med `.catch(log)` vid stale och returnerar last-good (DB-raden med `fetched_at` + `stale`-flagga); misslyckad fetch skriver inte över raden. Last-good med timestamp/status bevaras redan. |
@@ -228,9 +228,9 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [ ] | Öppen scraper-risk | P3 | Webscraper prioriterar about/services/product/blog | U#42 | EDGE (triage 2026-06-18): `scoreLink` har en fast heuristik-ranking. Att domän-/site-type-anpassa den är heuristik-/produkttuning (kopplad till domain-inference) med flera rimliga utfall — ingen entydig korrekt vikt. Lämnas öppen. |
 | [x] | Fixad nu | P3 | Webscraper strips `www.` jämförelse | U#44 | Fixad: ny `isSameSiteHost(a,b)` (strippar `www.` + lowercase) ersätter rå `hostname`-jämförelse på de tre crawl-ställena (canonical/og, internlänkar, sitemap-host) i `webscraper.ts`, konsekvent med `getCanonicalUrlKey`. Tidigare klassades `www.`↔apex-länkar fel som externa och crawlades inte. Regressionstest i `webscraper-url.test.ts`. |
 | [x] | Fixad nu | P3 | `x-forwarded-for` första IP används som client-id | U#46 | Fixad: produktion ignorerar `x-forwarded-for` om inte `SAJTMASKIN_TRUST_X_FORWARDED_FOR` är explicit satt; `x-real-ip` prioriteras. |
-| [ ] | Öppen prompt-budget-risk | P3 | OpenClaw chat 180k code context | U#47 | Lägg sammanfattning/chunking. |
+| [ ] | Öppen prompt-budget-risk | P3 | OpenClaw chat 180k code context | U#47 | EDGE (triage 2026-06-18): Sammanfattning/chunking av 180k code-context är ett prompt-budget-/pipeline-designval (vad summeras, chunk-strategi) med kvalitetsavvägningar. Inte ett smalt fix. Lämnas öppen. |
 | [x] | Inte bug / dev ergonomics | P3 | OpenClaw tips kräver modul-restart | U#48 | Avsiktligt modul-init-beteende; kan dokumenteras. |
-| [ ] | Öppen session-risk | P3 | D-ID avatar ny `sessionId` om saknas | U#49 | Persist/återanvänd session tydligare. |
+| [ ] | Öppen session-risk | P3 | D-ID avatar ny `sessionId` om saknas | U#49 | EDGE (triage 2026-06-18): Sessionen hanteras av D-ID:s agent-manager-SDK (`use-did-avatar.ts`) + `/api/did/chat` genererar `avatar-${randomUUID}` när saknas. Persist/återanvändning kräver förståelse av D-ID:s session-/billing-modell — designfråga, inte tydlig bugg. Lämnas öppen. |
 | [x] | Fixad nu | P3 | Inspector Playwright fallback rate bucket | U#51 | Fixad: inspector capture, element-map och AI-match har separata rate-limit buckets och kräver user eller befintlig guest-session. |
 | [ ] | Öppen observability-risk | P3 | ErrorBoundary frontlog fire-and-forget | U#53 | EDGE (triage 2026-06-18): Användaren ser redan ett synligt degraded state (boundary-fallback "Något gick fel" + reload-knapp). Den fire-and-forget frontlog-POSTen är best-effort-telemetri; att lägga retry på en error-rapporterings-call är en medveten policy (loop-/brus-risk) — inte ett självklart smalt fix. Lämnas öppen. |
 | [x] | Inte bug / UI-state | P3 | `admin-auth` i localStorage UI-state | U#55 | Avskriven: admin-API:er kräver server-side admin session; localStorage är bara UI-minne. |
@@ -240,12 +240,12 @@ Den här rapporten var delvis äldre än nuvarande HEAD. Raderna nedan är kriti
 | [x] | Inte bug / fixad | P3 | ModelTraceOverlay URL/localStorage state | U#59 | Avskriven: localStorage-nyckeln är redan prefixad `sajtmaskin:model-trace-overlay`. |
 | [x] | Fixad nu | P3 | `decodeStoragePathname` malformed `%` | U#61 | Fixad: malformed percent-encoding ger tydligt storage-fel i stället för rå `URIError`. |
 | [x] | Fixad nu | P3 | Local storage delete false utan UI | U#62 | Fixad delvis i media drawer: gamla delete-fel rensas innan nytt delete-försök så stale error inte ligger kvar. |
-| [ ] | Öppen backoffice-städ | P3 | Backoffice domain-map / manuella paths | U#63 | Synka med `backoffice/shared.py` om ytan rörs. |
+| [ ] | Öppen backoffice-städ | P3 | Backoffice domain-map / manuella paths | U#63 | EDGE (triage 2026-06-18): Backoffice-städ (Streamlit/`backoffice/shared.py`) — relevant först när domain-map-ytan faktiskt rörs. Ingen runtime-bugg; lämnas öppen som städpunkt. |
 | [x] | Fixad nu | P3 | Metrics route token blind | U#65 | Fixad: 401 loggar token-miss utan att logga tokenvärdet; route hade redan rätt status. |
-| [ ] | Öppen logg-städ | P3 | `console.info` hot paths brus | U#66 | Gå över till debug-log med sampling. |
+| [ ] | Öppen logg-städ | P3 | `console.info` hot paths brus | U#66 | EDGE (triage 2026-06-18): Bred logg-städ — "hot path" är en bedömning och `console.info`→debug-log-med-sampling spänner över många call-sites. Bör göras som en sammanhållen logg-pass med sampling-policy, inte spridda punktfix. Lämnas öppen. |
 | [x] | Fixad nu | P3 | nanoid/Date fallback deploy-namn | U#69 | Fixad: `sanitizeVercelProjectName` fallback bytt från `sajtmaskin-${Date.now()}` (kolliderar inom samma ms) till `sajtmaskin-${randomUUID 8 hex}` — collision-safe. Regressionstest i `vercelDeploy.test.ts`. (Deployment-record-`id` använde redan `nanoid()` = collision-safe.) |
 | [x] | Fixad i HEAD | P3 | `getExtension` default `.png` | U#70 | Avskriven/fixad: blob-service defaultar redan ogiltig/saknad extension till `.bin`, inte `.png`. |
 | [x] | Inte bug / copy debt | P3 | Shadcn category emojis enterprise | U#74 | Inte bug; copy/brand-städ. |
 | [x] | Fixad i HEAD | P3 | Template-search diakritik strip | U#75 | Avfärdad/redan hanterad: `normalizeForSearch` i `template-search.ts` gör NFD + strip av combining marks (`[\u0300-\u036f]`) på både query och haystack, så `Malmö`↔`malmo`/`café`↔`cafe` matchar redan. Unicode-aware folding finns. (Residual: shadcn `searchBlocks` använder bara `toLowerCase()` — separat komponent-sök, inte template-search.) |
-| [ ] | Öppen preview-risk | P3 | `previewUrlHint` base path + chatId | U#77 | Verifiera URL-byggare mot preview-host. |
+| [ ] | Öppen preview-risk | P3 | `previewUrlHint` base path + chatId | U#77 | EDGE (triage 2026-06-18): Verifieringsrad — `previewUrlHint` byggs i `generation-stream-post-finalize.ts` och täcks redan av tester (`generation-stream-post-finalize.test.ts`, `stream-handlers.test.ts`). Full verifiering kräver jämförelse mot live preview-host (ej tillgänglig i triage-VM). Lämnas öppen. |
 | [x] | Inte bug / ej bekräftad | P3 | SSE ping `Date.now` var 15s loggar | U#78 | Avskriven: backend skickar ping med timestamp men grep visar ingen `console.*`-logg kopplad till SSE-pingen. |
