@@ -82,14 +82,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const nextMeta = meta ?? null;
       const nextMetaRecord = asRecord(nextMeta);
       if (nextMetaRecord) {
-        // Project env vars (incl. secrets) are encrypted-at-rest and may only be
-        // written via the canonical path (upsertStoredProjectEnvVars →
-        // /api/v0/projects/[projectId]/env-vars). Dropping the key here prevents
-        // a client from persisting plaintext secrets through this generic save
-        // route and preserves whatever is already stored.
-        if (Object.prototype.hasOwnProperty.call(nextMetaRecord, "projectEnvVars")) {
-          delete nextMetaRecord.projectEnvVars;
-        }
         const currentProjectData = await getProjectData(id);
         const currentMetaRecord = asRecord(currentProjectData?.meta ?? null);
         payload.meta = {

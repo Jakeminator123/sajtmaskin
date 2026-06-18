@@ -1,0 +1,29 @@
+---
+description: Projektfas-prioritering (stabilisering) — lägg inte till nya säkerhetslager utan explicit scope, men sänk inte grundhygienen.
+alwaysApply: true
+---
+
+# Projektfas-prioritering (stabilisering)
+
+Projektet är i en bygg-/stabiliseringsfas. Prioritera att få delarna att sitta ihop
+och funka end-to-end. **Lägg inte till nya säkerhetslager utan explicit scope** — men
+grundhygienen står fast. Säkerhet är inte oviktigt; det härdas medvetet i ett eget
+pass när bitarna sitter på plats.
+
+## Gör / Gör inte
+
+| Gör | Gör inte |
+|---|---|
+| Håll det enkelt och läsbart. Test-/icke-secret-värden får vara läsbara. | Lägg **inte** till ny kryptering, auth-gates, rate-limits eller signaturkontroller "för säkerhets skull" utan att Jake bett om det. |
+| Notera säkerhetsfynd som backlog/observation. | Inför **inte** nya härdningslager utan explicit scope. |
+| Föredra Vercel-env läsbara (non-sensitive) så värden kan inspekteras. | Markera **inte** env-nycklar som "Sensitive" i onödan. |
+| Behåll befintlig fungerande krypto om borttagning riskerar data. | Ta **inte** bort `ENV_VAR_ENCRYPTION_KEY` (lagrade `projectEnvVars` blir odekrypterbara — tyst dataförlust). |
+
+## Grundhygien som alltid gäller (sänks aldrig)
+
+- **Inga secrets i git eller loggar.** Committa aldrig `.env*`; logga aldrig nycklar/tokens.
+- **Cross-tenant-läckage och secret-exponering stoppar alltid** — det är korrekthet, inte "extra härdning".
+- Korrekthet/dataförlust-buggar fixas (efemär-disk-fallback, tappade uploads).
+- När projektet stabiliserats: härdning (sensitive env, privata blobbar, auth på media, nyckelrotation) tas som eget, scope:at pass.
+
+> Kort: **undvik ny onödig härdning nu — men sänk inte grundhygienen.** Inga secrets i git/loggar, inget cross-tenant-läckage, någonsin.

@@ -9,6 +9,8 @@ supersedes: 2026-06-18-stabilitet-schemas-aktivitetsplan
 
 # Grandmaster-plan — Sajtmaskin: stabilitet, kontrakt och städning (Nivå 1)
 
+> **Styrning:** Detta är produktens **stabilitetsplan, inte ett dokumentationsprojekt.** Varje aktivitet ska förbättra kärnflödet eller minska agentförvirring — annars hör den inte hemma här.
+
 **Detta är nivå 1** — målbild + index över de 8 områdena (nivå 2) + sekvens.
 Nivå 2 = ett dokument per område i samma mapp. Nivå 3 = aktiviteter per område,
 **skapas just-in-time** när området är på tur. Plan-nivåmodellen är kodad i
@@ -82,16 +84,21 @@ innan nivå 3-aktiviteter skapas). Parallellt = distinkta ytor.
 | [7](07-false-green-hardning.md) | False-green-härdning | 3 | autofix `cross-file-import-checker.ts`, F2/F3-postcheck | 2, 5 |
 | [8](08-cleanup-och-hygien.md) | Cleanup & hygien | löpande | `.cursorignore`, `.gitignore`, scratch, deps | gemensam |
 
-## 6. Sekvens (waves)
+## 6. Sekvens — körordning (skiljer sig från områdesnumret)
 
-```
-Wave 1 (fundament, parallellt):    omr 1 · omr 2 · omr 3
-            │ (gates + kontrakt + kartor på plats)
-Wave 2 (beteende, parallellt):     omr 4 · omr 5 · omr 6
-            │
-Wave 3 (högst risk):               omr 7  (false-green, efter 2+5)
-Löpande/gemensam:                  omr 8  (städning — gör vi tillsammans, ej autonomt)
-```
+Områdesnumret = **filordning**. Faktisk **körordning**: tester gör resten tryggare, så stabilitet före kontrakt (annars riskerar agenten producera mer plan än produkt).
+
+| Steg | Område | Varför |
+|---|---|---|
+| 0 | branch-hygien | ren PR-bas innan arbete |
+| 1 | **2** Stabilitetstester (minimum) | gör resten tryggare |
+| 2 | **3** Dokumentation & kartor | mindre agentförvirring |
+| 3 | **1** Kontrakt & regler (light) | undvik mer plan än produkt |
+| 4 | **6** Status & UI/UX (event-bus) | snabb bugglättnad |
+| 5 | **5** Follow-up & preview-kontrakt | produktens hjärta |
+| 6 | **7** False-green-härdning | störst kvalitet, mest beteende → sist |
+
+Område **8** (städning) löpande/gemensamt, ej autonomt. Parallellt = distinkta `owner_files`.
 
 ## 7. Städning — gemensam (område 8)
 
