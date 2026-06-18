@@ -63,7 +63,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(canvas): refresh llm-flow canvas (auto-update)"
-          branch: chore/llm-flow-canvas-${{ github.run_id }}
+          # Stabilt branch-namn (INTE run_id) sa create-pull-request uppdaterar
+          # EN rullande PR i stallet for att oppna en ny per push. Eftersom
+          # canvas-artefakten bar HEAD-commit-stampeln andras den vid varje push,
+          # sa ett run_id-suffix har skulle ge en ny draft-PR for varje push (PR-spam).
+          branch: chore/llm-flow-canvas
           delete-branch: true
           title: "chore(canvas): refresh llm-flow canvas"
           body: |
