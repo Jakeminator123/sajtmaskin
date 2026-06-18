@@ -444,7 +444,11 @@ def inspect_db(name: str, urls: List[str], report: Report) -> DbState:
 
         extra = sorted(state.tables - set(EXPECTED_TABLES) - set(KNOWN_EXTRA_TABLES))
         if extra:
-            report.add(WARN, f"{label} extra tables", f"unclassified table(s): {', '.join(extra)}")
+            report.add(
+                FAIL,
+                f"{label} extra tables",
+                f"unclassified table(s) - schema drift unless added to EXPECTED/KNOWN_EXTRA: {', '.join(extra)}",
+            )
 
         # Row counts (read-only). Only count tables that exist.
         for table in EXPECTED_TABLES:
@@ -455,17 +459,20 @@ def inspect_db(name: str, urls: List[str], report: Report) -> DbState:
                     state.counts[table] = -1
                     report.add(WARN, f"{label} count {table}", f"count failed: {exc}")
 
-        non_empty = {
-            t: state.counts[t]
-            for t in EMPTY_TABLES
-            if t in state.counts and state.counts[t] > 0
-        }
-        if non_empty:
-            detail = ", ".join(f"{t}={c}" for t, c in non_empty.items())
-            report.add(FAIL, f"{label} restart state (EMPTY group)", f"non-zero rows: {detail}")
+        present_empty = [t for t in EMPTY_TABLES if t in state.counts]
+        non_empty = {t: state.counts[t] for t in present_empty if state.counts[t] > 0}
+        # A failed count is stored as -1; it must NOT be treated as "0 rows" or the
+        # gate could pass without ever confirming the post-restart EMPTY state.
+        unverified = [t for t in present_empty if state.counts[t] < 0]
+        if non_empty or unverified:
+            parts = []
+            if non_empty:
+                parts.append("non-zero rows: " + ", ".join(f"{t}={c}" for t, c in non_empty.items()))
+            if unverified:
+                parts.append("unverified (count failed): " + ", ".join(unverified))
+            report.add(FAIL, f"{label} restart state (EMPTY group)", "; ".join(parts))
         else:
-            counted = sum(1 for t in EMPTY_TABLES if t in state.counts)
-            report.add(PASS, f"{label} restart state (EMPTY group)", f"{counted} table(s) at 0 rows")
+            report.add(PASS, f"{label} restart state (EMPTY group)", f"{len(present_empty)} table(s) at 0 rows")
 
         preserved_present = [t for t in PRESERVED_TABLES if t in state.tables]
         report.add(
@@ -541,9 +548,9 @@ def inspect_blob(token: Optional[str], report: Report) -> Dict[str, object]:
     unexpected = [f for f in folders if f != EXPECTED_BLOB_PREFIX]
     if EXPECTED_BLOB_PREFIX not in folders:
         report.add(
-            WARN,
+            FAIL,
             "BLOB sync (v0-templates)",
-            f"expected prefix {EXPECTED_BLOB_PREFIX!r} not found; folders: {folders or '[]'}",
+            f"expected prefix {EXPECTED_BLOB_PREFIX!r} not found (template library missing); folders: {folders or '[]'}",
         )
     if unexpected:
         report.add(
@@ -556,9 +563,9 @@ def inspect_blob(token: Optional[str], report: Report) -> Dict[str, object]:
 
     if blobs:
         report.add(
-            WARN,
+            FAIL,
             "BLOB root files",
-            f"{len(blobs)} loose file(s) at store root (expected none)",
+            f"{len(blobs)} loose file(s) at store root (expected only the {EXPECTED_BLOB_PREFIX!r} prefix)",
         )
 
     return info
