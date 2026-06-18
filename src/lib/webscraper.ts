@@ -503,7 +503,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
     if (!abs) return;
     try {
       const u = new URL(abs);
-      if (u.hostname !== baseUrl.hostname) return;
+      if (!isSameSiteHost(u.hostname, baseUrl.hostname)) return;
       linksForFollow.push({
         url: u.toString(),
         anchor: "canonical",
@@ -524,7 +524,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
 
     try {
       const linkUrl = new URL(abs);
-      if (linkUrl.hostname === baseUrl.hostname) {
+      if (isSameSiteHost(linkUrl.hostname, baseUrl.hostname)) {
         internalLinks++;
         const scored: CandidateLink = {
           url: linkUrl.toString(),
@@ -680,7 +680,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
           .map((u) => {
             try {
               const parsed = new URL(u);
-              if (parsed.hostname !== baseHost) return null;
+              if (!isSameSiteHost(parsed.hostname, baseHost)) return null;
               return {
                 url: parsed.toString(),
                 score: scoreLink(parsed.pathname),
@@ -900,4 +900,20 @@ export function getCanonicalUrlKey(url: string): string {
     // If normalization fails, return original trimmed URL
     return url.trim().toLowerCase();
   }
+}
+
+/**
+ * Compare two hostnames as "same site", ignoring a leading `www.` and casing.
+ *
+ * U#44: internal-vs-external link detection previously used raw `hostname`
+ * equality, so a link to `www.example.com` from a page served at
+ * `example.com` (or vice versa) was misclassified as external and never
+ * crawled — inconsistent with `getCanonicalUrlKey`, which already strips
+ * `www.`. This normalizes host comparison everywhere the crawler decides
+ * whether a link belongs to the same site.
+ */
+export function isSameSiteHost(a: string, b: string): boolean {
+  const norm = (h: string) => h.trim().toLowerCase().replace(/^www\./, "");
+  const normA = norm(a);
+  return normA.length > 0 && normA === norm(b);
 }

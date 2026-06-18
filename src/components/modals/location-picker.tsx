@@ -187,6 +187,11 @@ export function LocationPicker({
     return () => {
       cancelled = true;
     };
+    // Run-once on mount only: this is a one-time geo-IP bootstrap that picks a
+    // default location when no initial coords were provided. Adding the read
+    // values (hasInitialCoords/value/movePin) as deps would re-fire the /api/geo
+    // fetch and overwrite the user's pin on every render — exactly what we must
+    // avoid. `onChangeRef` keeps the latest callback without a dep. (U#58)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

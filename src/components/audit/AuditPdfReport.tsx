@@ -9,7 +9,7 @@ interface AuditPdfReportProps {
 
 // ── SVG Chart Generators ──────────────────────────────────────────
 
-function generateRadarChartSVG(scores: Record<string, number | undefined>): string {
+export function generateRadarChartSVG(scores: Record<string, number | undefined>): string {
   const entries = Object.entries(scores).filter(
     ([, v]) => typeof v === "number",
   ) as [string, number][];
@@ -56,7 +56,7 @@ function generateRadarChartSVG(scores: Record<string, number | undefined>): stri
     const ly = cy + labelR * Math.sin(angle);
     const anchor =
       Math.abs(Math.cos(angle)) < 0.1 ? "middle" : Math.cos(angle) > 0 ? "start" : "end";
-    axisLines += `<text x="${lx}" y="${ly + 4}" fill="#374151" font-size="9" font-weight="600" font-family="system-ui" text-anchor="${anchor}">${LABELS[key] || key}</text>`;
+    axisLines += `<text x="${lx}" y="${ly + 4}" fill="#374151" font-size="9" font-weight="600" font-family="system-ui" text-anchor="${anchor}">${escapeHtml(LABELS[key] || key)}</text>`;
   });
 
   // Data polygon
@@ -88,7 +88,7 @@ function generateRadarChartSVG(scores: Record<string, number | undefined>): stri
   </svg>`;
 }
 
-function generateBarChartSVG(scores: Record<string, number | undefined>): string {
+export function generateBarChartSVG(scores: Record<string, number | undefined>): string {
   const entries = Object.entries(scores).filter(
     ([, v]) => typeof v === "number",
   ) as [string, number][];
@@ -121,7 +121,7 @@ function generateBarChartSVG(scores: Record<string, number | undefined>): string
 
       return `
         <g transform="translate(0, ${y})">
-          <text x="${labelW - 8}" y="${barH / 2 + 4}" fill="#374151" font-size="10" font-weight="500" font-family="system-ui" text-anchor="end">${LABELS[key] || key}</text>
+          <text x="${labelW - 8}" y="${barH / 2 + 4}" fill="#374151" font-size="10" font-weight="500" font-family="system-ui" text-anchor="end">${escapeHtml(LABELS[key] || key)}</text>
           <rect x="${labelW}" y="0" width="${barW}" height="${barH}" rx="4" fill="#f1f5f9"/>
           <rect x="${labelW}" y="0" width="${w}" height="${barH}" rx="4" fill="${bgColor}" stroke="${color}" stroke-width="1"/>
           <rect x="${labelW}" y="2" width="${Math.max(w - 4, 0)}" height="${barH - 4}" rx="3" fill="${color}" opacity="0.2"/>
