@@ -28,7 +28,7 @@ Börja med `docs/ENV.md`, `src/lib/env.ts`, `config/env-policy.json`. Committa a
 
 ## Indexeringshål
 
-Sök missar ibland ignorerade paths — läs filer direkt: `data/external-template-pipeline/`, `.cursor/migration-archive/`, stora genererade under `src/lib/gen/`. Stora JSON: börja med närmaste README/manifest.
+Sök missar ibland ignorerade paths — läs filer direkt: `data/external-template-pipeline/`, `.cursor/migration-archive/`, `_parkering/` (medveten parkeringsyta — ej indexerad/sökt/bevakad, men du **får** läsa den direkt vid behov), stora genererade under `src/lib/gen/`. Stora JSON: börja med närmaste README/manifest.
 
 ## Legacy
 
