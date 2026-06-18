@@ -117,7 +117,7 @@ function checkWebGLReadiness(
 function checkBracketPlaceholders(
   files: Array<{ path: string; content: string }>,
 ): VisualQACheckResult {
-  const bracketPattern = /\[(?:Butiksnamn|Företagsnamn|Produktnamn|Pris|Kundens namn|Company Name|Product Name|Brand Name|Your (?:Company|Brand|Product))\]/gi;
+  const bracketPattern = /\[(?:Butiksnamn|Företagsnamn|Produktnamn|Pris|Kundens namn|Roll|Företag|Company Name|Product Name|Brand Name|Your (?:Company|Brand|Product))\]/gi;
   let totalHits = 0;
 
   for (const file of files) {

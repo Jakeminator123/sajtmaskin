@@ -110,6 +110,21 @@ describe("checkNoBracketPlaceholders", () => {
     expect(result.passed).toBe(false);
     expect(result.message).toContain("bracket placeholder");
   });
+
+  it("detects the [Roll] and [Företag] tokens documented in serialize.ts (G#48)", () => {
+    const files: CodeFile[] = [
+      {
+        path: "app/team/page.tsx",
+        content:
+          "export default function Page() { return <main><p>[Roll]</p><footer>[Företag]</footer></main>; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = checkNoBracketPlaceholders(files);
+    expect(result.passed).toBe(false);
+    expect(result.message).toContain("2 bracket placeholder");
+  });
 });
 
 describe("checkTier2Readiness", () => {

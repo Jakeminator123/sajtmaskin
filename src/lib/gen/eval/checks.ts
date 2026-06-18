@@ -26,7 +26,7 @@ export interface Tier2ReadinessInput {
 }
 
 const BRACKET_PLACEHOLDER_RE =
-  /\[(?:Butiksnamn|Företagsnamn|Produktnamn|Pris|Kundens namn|Company Name|Product Name|Brand Name|Your (?:Company|Brand|Product))\]/gi;
+  /\[(?:Butiksnamn|Företagsnamn|Produktnamn|Pris|Kundens namn|Roll|Företag|Company Name|Product Name|Brand Name|Your (?:Company|Brand|Product))\]/gi;
 
 export function checkProjectSanity(files: CodeFile[]): CheckResult {
   const result = runProjectSanityChecks(files);
