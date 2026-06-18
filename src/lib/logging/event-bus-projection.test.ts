@@ -396,4 +396,91 @@ describe("selectVersionStatus", () => {
     expect(status.verifierOutcome).toBe("passed");
     expect(status.runId).toBe("repair-1");
   });
+
+  // ── terminal-settle regression (no runtime `version.done` emitter) ──
+  // The runtime emits the legacy `site.done` devLog row, never the bus
+  // `version.done` event, so a successfully completed verifier is the
+  // real end-of-stream signal. Without the terminal-settle rule these
+  // versions stuck on a non-terminal `verifying` phase forever — which
+  // the builder rendered as a perpetual "Verifierar" spinner and hid the
+  // promoted release-state.
+  it("F3 success path (verifier passed, no version.done) settles to done", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false }),
+    ]);
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
+    expect(status.verifierOutcome).toBe("passed");
+    expect(status.degradations).toEqual([]);
+  });
+
+  it("F2 design-skip path (verifier skipped + degraded, no version.done) settles to done", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", {
+        outcome: "skipped",
+        blocked: false,
+        reason: "design_preview_skip_verify",
+      }),
+      ev("version.degraded", {
+        kind: "verifier_skipped_by_policy",
+        message: "Server-verify skipped (design_preview_skip_verify).",
+      }),
+    ]);
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
+    // Degradations survive terminal-settle — the false-green guard maps
+    // this `done` to `degraded`, never solid success.
+    expect(status.degradations.map((d) => d.kind)).toEqual(["verifier_skipped_by_policy"]);
+  });
+
+  it("does NOT settle to done before the verifier has completed", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+    ]);
+    expect(status.phase).toBe("preflighting");
+    expect(status.done).toBe(false);
+  });
+
+  it("a verifier that passed but left preview blocked stays blocked (not done)", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 1,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: true,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false }),
+    ]);
+    expect(status.phase).toBe("blocked");
+    expect(status.done).toBe(false);
+  });
 });
