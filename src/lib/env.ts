@@ -166,6 +166,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
   /** F2 Product Postcheck: server-side Playwright DOM checks for preview URLs. Default off. */
   SAJTMASKIN_F2_PRODUCT_POSTCHECK: z.string().optional(),
+  /** A7-2 (BUG-SWARM N#1): when affirmative, the cross-file import checker refuses to fabricate a silent null-render stub for a dossier-exposed import; the unresolved import degrades/blocks instead. Default off — flipping is a separate decision. */
+  SAJTMASKIN_REFUSE_DOSSIER_STUBS: z.string().optional(),
   /** Static visual-QA heuristic on exportable files (no screenshot). Optional, default off. Read via `isVisualQAEnabled` in `src/lib/gen/verify/visual-qa.ts`. */
   SAJTMASKIN_VISUAL_QA: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
