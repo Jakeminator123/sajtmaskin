@@ -124,7 +124,6 @@ Product lane is separate from model-lane build profile resolution.
 |---------|------------|-------------|-------|-----------|
 | Shallow rewrite | `Forbattra` | `SAJTMASKIN_ASSIST_MODEL` | `/api/ai/chat` | `streamText()` |
 | Deep brief | `Forbattra` + `Deep Brief Mode` | `SAJTMASKIN_ASSIST_MODEL` | `/api/ai/brief` | `generateObject()` |
-| Spec chain | no normal builder control | none | `/api/ai/spec` | `processPromptWithSpec()` |
 
 ## Polish lane (low-cost rewrite)
 
