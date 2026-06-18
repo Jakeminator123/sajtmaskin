@@ -1,0 +1,45 @@
+name: DB + Blob sync check
+
+# Order/regression gate: verifies that the dev + prod Supabase Postgres databases
+# and the Vercel Blob store are in the expected post-restart state. Read-only.
+# Runs pydatabastest.py --ci, which never prompts and exits non-zero on any FAIL.
+# If a DB/blob secret is empty, that target is SKIPPED with a WARN so the job still
+# passes meaningfully in forks / environments without prod credentials.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: db-blob-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  db-blob-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.dbtest.txt
+
+      - name: Run DB + Blob sync check (read-only gate)
+        run: python pydatabastest.py --ci
+        env:
+          # Postgres connection strings (prefer *_NON_POOLING-style direct URLs).
+          # If a secret is empty, that DB is SKIPPED with a WARN (job still passes).
+          POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
+          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
+          # Vercel Blob store token (store id must be sajtmaskin-blob / NHrq4GU42kcujMOV).
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          # Supabase presents a self-signed cert chain; keep TLS verification relaxed.
+          DB_SSL_REJECT_UNAUTHORIZED: "false"
