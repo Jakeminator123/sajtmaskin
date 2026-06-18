@@ -11,7 +11,7 @@
  * fetch is mocked per-endpoint via a URL switch (mirrors SeoOptInPanel.test).
  */
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DomainManager } from "./DomainManager";
 
@@ -152,6 +152,91 @@ describe("DomainManager error/status surfacing", () => {
     });
     // Verify step still rendered (non-blocking).
     expect(screen.getByText(/Väntar på DNS-propagering/i)).toBeTruthy();
+  });
+
+  it("does not warn from a stale background save after the dialog is reset", async () => {
+    // First /api/domains/save is deferred (simulates a slow save from an
+    // earlier link); later saves succeed immediately.
+    let resolveStaleSave: ((res: Response) => void) | null = null;
+    const staleSave = new Promise<Response>((resolve) => {
+      resolveStaleSave = resolve;
+    });
+    let saveCalls = 0;
+
+    mockFetch((url) => {
+      if (url.includes("/api/domains/check")) {
+        return json({ results: [AVAILABLE_RESULT] }, 200);
+      }
+      if (url.includes("/api/domains/link")) {
+        return json(
+          {
+            success: true,
+            domain: AVAILABLE_RESULT.domain,
+            verified: false,
+            dnsSetup: null,
+            dnsInstructions: null,
+          },
+          200,
+        );
+      }
+      if (url.includes("/api/domains/save")) {
+        saveCalls += 1;
+        return saveCalls === 1 ? staleSave : json({ success: true }, 200);
+      }
+      if (url.includes("/api/domains/verify")) {
+        return json({ verified: false, verification: [] }, 200);
+      }
+      return json({}, 200);
+    });
+
+    const linkToVerify = async () => {
+      fireEvent.change(screen.getByPlaceholderText(/mittforetag\.se/i), {
+        target: { value: "mittforetag.se" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /Sök/i }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Koppla" })).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Koppla" }));
+      await waitFor(() => {
+        expect(
+          screen.getByRole("button", { name: /Koppla mittforetag\.se/i }),
+        ).toBeTruthy();
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: /Koppla mittforetag\.se/i }),
+      );
+      await waitFor(() => {
+        expect(screen.getByText(/Väntar på DNS-propagering/i)).toBeTruthy();
+      });
+    };
+
+    const { rerender } = render(
+      <DomainManager open onClose={() => {}} projectId="proj_1" deploymentId="dep_1" />,
+    );
+
+    // Session 1: link → verify, save #1 is still pending.
+    await linkToVerify();
+
+    // Close (resets + bumps the save generation), then reopen fresh.
+    rerender(
+      <DomainManager open={false} onClose={() => {}} projectId="proj_1" deploymentId="dep_1" />,
+    );
+    rerender(
+      <DomainManager open onClose={() => {}} projectId="proj_1" deploymentId="dep_1" />,
+    );
+
+    // Session 2: a new link whose save succeeds.
+    await linkToVerify();
+
+    // Now the stale save #1 resolves with a failure — the guard must drop it.
+    await act(async () => {
+      resolveStaleSave?.(new Response(JSON.stringify({}), { status: 500 }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/kunde inte sparas på publiceringen/i)).toBeNull();
   });
 
   it("shows linkError and stays on connect step when link fails", async () => {

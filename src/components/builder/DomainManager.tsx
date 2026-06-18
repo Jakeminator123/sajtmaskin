@@ -102,9 +102,14 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
   const [verifyStatus, setVerifyStatus] = useState<VerifyResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Request-token for the fire-and-forget background save. Bumped on every
+  // dialog reset so a slow save from a previous link cannot land after the
+  // dialog has been closed/reopened and write a warning onto newer state.
+  const saveGenerationRef = useRef(0);
 
   useEffect(() => {
     if (!open) {
+      saveGenerationRef.current += 1;
       setStep("search");
       setQuery("");
       setResults(null);
@@ -218,7 +223,12 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
         // Persist the linked domain on the deployment record. The link
         // itself already succeeded, so a save failure is non-blocking —
         // but it must be surfaced (the domain would otherwise silently
-        // not persist on the deployment).
+        // not persist on the deployment). Guard against stale writes: if
+        // the dialog has been reset (closed/reopened) before the save
+        // resolves, the captured generation no longer matches and we drop
+        // the warning instead of writing onto a newer verify step.
+        const saveGen = saveGenerationRef.current;
+        const saveDomain = selectedDomain.domain;
         void (async () => {
           try {
             const saveRes = await fetch("/api/domains/save", {
@@ -226,19 +236,22 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 deploymentId,
-                domain: selectedDomain.domain,
+                domain: saveDomain,
               }),
             });
+            if (saveGenerationRef.current !== saveGen) return;
             if (!saveRes.ok) {
               const saveData = (await saveRes.json().catch(() => null)) as
                 | { error?: string }
                 | null;
+              if (saveGenerationRef.current !== saveGen) return;
               setSaveWarning(
                 saveData?.error ||
                   "Domänen kopplades men kunde inte sparas på publiceringen.",
               );
             }
           } catch {
+            if (saveGenerationRef.current !== saveGen) return;
             setSaveWarning(
               "Domänen kopplades men kunde inte sparas på publiceringen.",
             );

@@ -250,12 +250,17 @@ export function ProjectEnvVarsPanel({
       setEnvVars([]);
       setError(null);
       setSyntheticProject(false);
+      // Clear any spinner left true by a prior load whose response was
+      // discarded by the generation guard (e.g. project/chat changed
+      // without a remount) — otherwise the env tab spins forever.
+      setIsLoading(false);
       return;
     }
     if (hasSyntheticExternalProject && !appProjectId) {
       setEnvVars([]);
       setError(null);
       setSyntheticProject(true);
+      setIsLoading(false);
       return;
     }
     const gen = loaderGenerationRef.current;
