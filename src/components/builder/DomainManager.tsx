@@ -106,10 +106,16 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
   // dialog reset so a slow save from a previous link cannot land after the
   // dialog has been closed/reopened and write a warning onto newer state.
   const saveGenerationRef = useRef(0);
+  // Request-token for domain searches. Bumped at the start of every search
+  // (and on dialog reset) so that two concurrent searches (e.g. a double
+  // click) resolving out of order cannot write stale results / error onto
+  // a newer search.
+  const searchGenerationRef = useRef(0);
 
   useEffect(() => {
     if (!open) {
       saveGenerationRef.current += 1;
+      searchGenerationRef.current += 1;
       setStep("search");
       setQuery("");
       setResults(null);
@@ -138,6 +144,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
+    const gen = ++searchGenerationRef.current;
     setIsSearching(true);
     setResults(null);
     setSearchError(null);
@@ -148,14 +155,16 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
         body: JSON.stringify({ query: query.trim() }),
       });
       const data = await res.json();
+      if (searchGenerationRef.current !== gen) return;
       if (!res.ok) throw new Error(data.error || "Sökning misslyckades");
       setResults(data.results ?? []);
     } catch (err) {
+      if (searchGenerationRef.current !== gen) return;
       setResults(null);
       setSearchError(err instanceof Error ? err.message : "Sökning misslyckades");
       console.error("[DomainManager] Search error:", err);
     } finally {
-      setIsSearching(false);
+      if (searchGenerationRef.current === gen) setIsSearching(false);
     }
   }, [query]);
 

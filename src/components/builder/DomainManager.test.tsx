@@ -91,6 +91,59 @@ describe("DomainManager error/status surfacing", () => {
     expect(screen.queryByText(/Inga resultat hittades/i)).toBeTruthy();
   });
 
+  it("ignores a stale out-of-order search result/error from an earlier search", async () => {
+    // First /api/domains/check is deferred and will later fail; the second
+    // search resolves immediately with results. The stale first response
+    // must not overwrite the newer results nor flash an error banner.
+    let resolveStaleSearch: ((res: Response) => void) | null = null;
+    const staleSearch = new Promise<Response>((resolve) => {
+      resolveStaleSearch = resolve;
+    });
+    let checkCalls = 0;
+
+    mockFetch((url) => {
+      if (url.includes("/api/domains/check")) {
+        checkCalls += 1;
+        return checkCalls === 1
+          ? staleSearch
+          : json({ results: [AVAILABLE_RESULT] }, 200);
+      }
+      return json({}, 200);
+    });
+
+    render(<DomainManager open onClose={() => {}} projectId="proj_1" />);
+
+    const input = screen.getByPlaceholderText(/mittforetag\.se/i);
+    fireEvent.change(input, { target: { value: "mittforetag.se" } });
+
+    // Fire two searches before React can flush the disabled state (mirrors a
+    // real double-click): #1 is the slow/stale one, #2 resolves fast.
+    const searchBtn = screen.getByRole("button", { name: /Sök/i });
+    await act(async () => {
+      searchBtn.click();
+      searchBtn.click();
+      await Promise.resolve();
+    });
+
+    // Search #2 resolves with results.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Koppla" })).toBeTruthy();
+    });
+
+    // Now the stale search #1 fails — the guard must drop it.
+    await act(async () => {
+      resolveStaleSearch?.(
+        new Response(JSON.stringify({ error: "stale" }), { status: 500 }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/^stale$/i)).toBeNull();
+    expect(screen.queryByText(/Sökning misslyckades/i)).toBeNull();
+    expect(screen.getByRole("button", { name: "Koppla" })).toBeTruthy();
+  });
+
   it("surfaces a non-blocking save warning when /api/domains/save fails after link", async () => {
     mockFetch((url) => {
       if (url.includes("/api/domains/check")) {
