@@ -1,6 +1,7 @@
 ---
 id: gm-akt-S4
-status: ready
+status: done
+implemented_by: "PR #150 (blockerande schema-drift-CI-jobb), mergad till master"
 parent: gm-omrade-02-stabilitetstester
 blocked_by: [gm-akt-S1]
 owner_files:

@@ -3,6 +3,7 @@ id: gm-akt-S3
 status: ready
 parent: gm-omrade-02-stabilitetstester
 blocked_by: [gm-akt-S1]
+note: "S1 (blockeraren) klar. S3 är den ENDA öppna stabilitetsaktiviteten — medvetet uppskjuten tills område 6 (event-bus-status-flip) landar, så invarianten testar den nya statusresolvern."
 owner_files:
   - (ny) stabilitetstest/guard för statusresolver
 risk: låg

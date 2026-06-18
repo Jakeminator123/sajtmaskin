@@ -1,6 +1,7 @@
 ---
 id: gm-akt-C2
-status: ready
+status: done
+implemented_by: "PR #153 (check:terms warn-only i stability-jobbet), mergad till master"
 parent: gm-omrade-01-kontrakt-och-regler
 blocked_by: []
 owner_files:

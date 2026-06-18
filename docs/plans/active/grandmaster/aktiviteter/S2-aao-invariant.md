@@ -1,6 +1,7 @@
 ---
 id: gm-akt-S2
-status: ready
+status: done
+implemented_by: "PR #151 (åäö-invariant, SSE round-trip), mergad till master"
 parent: gm-omrade-02-stabilitetstester
 blocked_by: [gm-akt-S1]
 owner_files:

@@ -1,6 +1,7 @@
 ---
 id: gm-akt-D2
-status: ready
+status: done
+implemented_by: "PR #148 (repo-tree + README-synk), mergad till master"
 parent: gm-omrade-03-dokumentation-och-kartor
 blocked_by: []
 owner_files:
