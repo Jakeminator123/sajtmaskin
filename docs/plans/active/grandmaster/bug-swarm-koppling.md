@@ -11,9 +11,9 @@ supersedes: null
 
 **Nivå 1:** [`00-master-plan.md`](00-master-plan.md)
 
-**Syfte:** visa var de kvarvarande öppna raderna i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) hör hemma i grandmaster-områdena, vad som redan är *beslutat*, och **när** varje kluster bör tas upp (per körordningen i master-planens §6).
+**Syfte:** visa var de **tyngre** kvarvarande klustren i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) hör hemma i grandmaster-områdena, vad som redan är *beslutat*, och **när** de bör tas upp (per körordningen i master-planens §6).
 
-> Detta är **ingen ny arbetsyta** — bara en karta. Raderna stängs när respektive område körs och låser sina `N#`/`G#`-rader med stabilitetstest.
+> Detta är **ingen ny arbetsyta** och **inte uttömmande** — bara en karta över huvudklustren. Backloggen är fortsatt källan för **alla** öppna rader; varje rad stängs när dess område körs och låses med stabilitetstest.
 
 ## Redan beslutat (återbesluta inte)
 
@@ -29,10 +29,11 @@ Område 7 (false-green-härdning) har satt grundprincipen: **systemet får missl
 |---|---|---|---|---|
 | Degraded/placeholder-policy | N#1, G#17, G#22, G#35, G#49, G#51, U#29, U#72 | **7** False-green | Wave 3 / steg 6 (sist) | Beslutat: degraded, aldrig grön |
 | F2 runtime-gate (Product Postcheck) | G#10, N#4, N#H3, R#6 | **7** False-green | Wave 3 / steg 6 | Riktning satt; blocking vs advisory = nivå-3 |
-| F3 readiness / build-plan | G#20, G#22, G#56 | **5** Follow-up-kontrakt + **7** | Wave 2–3 / steg 5–6 | Grundproblem ägt (FollowUpContract, stale base → `409`) |
-| Capability single-source | G#25, G#26, N#2 | **4** Prompter + **5** | Wave 2 / steg 5 | Konsolidering vald (`FollowUpContract.capabilities`) |
+| Simplified-brief fallback sänker premium/3D | G#13 | **4** Prompter + **7** | Wave 2–3 | Degraded-mode-signal/kvalitetspolicy (samma "aldrig ljuga"-princip); påverkar brief-compose + capability-threading |
+| F3 build-plan / readiness | G#20, G#21, G#22, G#56 | **4** (build-plan-härledning) + **7** (readiness) | Wave 2–3 | G#20-rot: `renderTier3IntegrationBlock` härleder F3-planen från `preGenerationContracts.contracts`, **inte** parent-versionens filer — signal-ägar-fix i orchestrate/contract-derivering (Område 4). G#21 (detektionsfullständighet) + degraded → Område 7. Stale base → `409` (Område 5) är en **separat** readiness-guard, inte G#20-fixen. |
+| Capability single-source | G#25, G#26, N#2 | **4** Prompter + **1** Kontrakt + **5** | Wave 2 | Konsolidering vald, men canonical-källan måste spänna **init + follow-up + dossier-bridge + `orchestrate.ts`** (signal-ägarmatris) — **inte** bara `FollowUpContract.capabilities` (finns bara på follow-up-pathen → lämnar init-drift olöst) |
 | Event-bus UI-status | N#6, G#32 | **6** Status & UI/UX | Wave 2 / steg 4 | Direkt ägt |
-| Verifier-scope + recurring findings | G#33, N#5 | **4** Prompter (infogad lucka) | Wave 2 | Ny nivå-3-aktivitet när Område 4 körs |
+| Verifier-scope + recurring findings | G#33, N#5 | **4** Prompter (infogad lucka) | Wave 2 (med steg 4–5) | Lucka — infogas som nivå-3 i Område 4. Då Område 4 inte är separat sekvenserat i §6 körs den i wave-2-batchen tillsammans med steg 4–5 så den inte tappas (alt: lägg Område 4 i §6) |
 | Regression-gate follow-up-budget | N#3 | **2** Stabilitetstester | Wave 1 / steg 1 | Stabilitets-lane äger |
 
 ## Utanför grandmaster-scope (separata spår)
@@ -60,6 +61,6 @@ Steg 6:  Område 7  False-green-härdning   ← störst kvalitet, sist
 Löpande: Område 8  Cleanup & hygien (gemensamt)
 ```
 
-Område 4 (prompter) är Wave 2 men inte separat sekvenserat i §6 — körs i samma våg som 5/6. Verifier-luckan (G#33/N#5) infogas där som nivå-3-aktivitet.
+Område 4 (prompter) är Wave 2 men **saknar eget steg i §6** — kör det i wave-2-batchen tillsammans med steg 4–5 (eller lägg in det i §6) så dess arbete (verifier-luckan G#33/N#5, F3-build-plan-härledning G#20, simplified-brief G#13) inte hamnar utan körpunkt.
 
 **Starta** enligt master-planens §9: `S1` test:stability-lane → `S2`/`S3`/`S4` → `D2` → `C1`/`C2`, sedan wave 2–3. Bug-swarm-raderna ovan stängs i takt med att deras område körs.
