@@ -8,7 +8,7 @@
 |------|------|
 | `src/` | Next.js App Router, API-routes, UI, domänlogik. Egen motor: `src/lib/gen/`. |
 | `config/` | Kanonisk konfiguration (promptfragment, `ai_models`, `env-policy`, m.m.) — [`config/README.md`](../../config/README.md). |
-| `config/dashboard/` | Valfri **Streamlit**-GUI (`app.py`) för att redigera/överblicka samma material — **importeras inte** av Next.js. Detta är konfigurations-/översiktspanelen. Karta: [`config/dashboard/domain-map.json`](../../config/dashboard/domain-map.json). |
+| `config/dashboard/` | Stöddata för backoffice-appen — bara domänkartan [`config/dashboard/domain-map.json`](../../config/dashboard/domain-map.json) (mappnamnet `dashboard/` är legacy; **importeras inte** av Next.js). Streamlit-ytan startas med `npm run backoffice`. |
 | `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). Kanonisk arkitektur i `docs/architecture/`, backlog i `docs/plans/active/`. |
 | `backoffice/` | Konsoliderad **backoffice** (Streamlit). Startas från repo-roten via `npm run backoffice` (`python sajtmaskin_backoffice.py`); sidkod i `backoffice/pages/`. |
 | `preview-host/` | Preview-host: runtime, verify och workspace-livscykel för previews — [`preview-host/README.md`](../../preview-host/README.md). |

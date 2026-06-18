@@ -76,9 +76,8 @@ Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `pack
 ## Övrigt
 
 - **Konsoliderad backoffice (Streamlit)**: kanonisk start är `npm run backoffice` (kör `scripts/dev/run-python.mjs` → `python sajtmaskin_backoffice.py`, plattformsoberoende). Direktanrop `python(3) sajtmaskin_backoffice.py` fungerar också. Entrypointen relauncherar via `streamlit run`. Kod och sidmoduler ligger under `backoffice/` och täcker både konfigurationspanel, overhead/admin och artifacts/pipeline.
-- **Legacy entrypoint**: `config/dashboard/app.py` finns kvar som wrapper som öppnar samma konsoliderade app med annan startkontext.
-- **Delad dashboardlogik**: `backoffice/shared.py` är den kanoniska helperkällan för prompt-dumps, manifest, autofix-/quality-inställningar, repo-paths och scaffold-/pipelinehelpers. `config/dashboard/shared_overhead.py` är ett re-export för bakåtkompatibilitet.
-- **Dashboardkarta**: `config/dashboard/domain-map.json` beskriver vilka kanoniska paths, docs och codeReaders varje vy hör till.
+- **Delad dashboardlogik**: `backoffice/shared.py` är den kanoniska helperkällan för prompt-dumps, manifest, autofix-/quality-inställningar, repo-paths och scaffold-/pipelinehelpers.
+- **Dashboardkarta**: `config/dashboard/domain-map.json` beskriver vilka kanoniska paths, docs och codeReaders varje vy hör till (mappnamnet `dashboard/` är legacy; bara domänkartan bor kvar där).
 - **Cursor slash-kommandon**: repo-lokala kommandon kan ligga i `.cursor/commands/` och användas via `/...` i Cursor-chatten, t.ex. `/avslutning` för slutstädning/sync/verify/ship.
 - **OpenClaw / Sajtagenten**: användarytan nere till höger lever i `src/components/openclaw/` och `src/app/api/openclaw/`. Det är en separat assistent-/agentyta, inte builderns own-engine.
 - **D-ID / avatar**: isolerad pilotyta under `src/app/avatar/`, med bridge-rutter i `src/app/api/did/` och komponenter i `src/components/avatar/`. `D-ID` är medvetet avskilt från den vanliga widgeten tills ett separat beslut tas om bredare inbäddning.

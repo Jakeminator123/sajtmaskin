@@ -85,9 +85,7 @@ Kod är source of truth; strict schemas speglar kod, ersätter den inte.
 
 **Entrypoint:** `npm run backoffice` från repo-rot (kanonisk, plattformsoberoende). Direktanrop `python(3) sajtmaskin_backoffice.py` fungerar också.
 
-**Legacy wrapper** (forwardar till `backoffice/`): `config/dashboard/app.py`.
-
-**Domänkarta:** `config/dashboard/domain-map.json` — mappar backoffice-vyer till kanoniska sökvägar, docs och kodsanningar.
+**Domänkarta:** `config/dashboard/domain-map.json` — mappar backoffice-vyer till kanoniska sökvägar, docs och kodsanningar. (Mappnamnet `dashboard/` är legacy; bara domänkartan bor kvar där.)
 
 ## Flera agenter / parallellt arbete
 

@@ -1,6 +1,6 @@
 # config/
 
-Kanoniska **JSON/MD/txt** som Sajtmaskin-appen, bygget och skript **läser** vid runtime eller generation. **Undantag:** `dashboard/` — valfri Streamlit-app (`app.py`), importeras **inte** av Next.js.
+Kanoniska **JSON/MD/txt** som Sajtmaskin-appen, bygget och skript **läser** vid runtime eller generation. **Undantag:** `dashboard/` — håller bara `domain-map.json` (stöddata för backoffice-appen), importeras **inte** av Next.js.
 
 | Del | Roll |
 |-----|------|
@@ -9,6 +9,6 @@ Kanoniska **JSON/MD/txt** som Sajtmaskin-appen, bygget och skript **läser** vid
 | `env-policy.json` | Policy för env-nycklar (par med `src/lib/env.ts`, `docs/ENV.md`). |
 | `shadcn-mirror-audit-policy.json` | Audit-policy för `npm run mirror:audit` mot externa mall-repon. Research-/audit-only, inte runtime eller own-engine-generering. |
 | `user_degraded_env.txt` | Policytext för degraded/placeholder i användarprojekt. |
-| `dashboard/` | Stöddata för den konsoliderade backoffice-appen — [`domain-map.json`](dashboard/domain-map.json), kör [`dashboard/run.ps1`](dashboard/run.ps1). Den kanoniska Streamlit-ytan ligger i repo-roten (`sajtmaskin_backoffice.py`) med kod under `backoffice/`. `config/dashboard/app.py` och `dashboard/shared_overhead.py` finns kvar som bakåtkompatibla wrappers/re-exports. Delad logik ligger i `backoffice/shared.py`. |
+| `dashboard/` | Stöddata för den konsoliderade backoffice-appen — bara [`domain-map.json`](dashboard/domain-map.json) (mappnamnet `dashboard/` är legacy). Den kanoniska Streamlit-ytan startas med `npm run backoffice` (repo-roten `sajtmaskin_backoffice.py`, kod under `backoffice/`, delad logik i `backoffice/shared.py`). |
 
 **Ingångar:** [`prompt-core/_READ_ME_FIRST.md`](prompt-core/_READ_ME_FIRST.md) · [`ai_models/_READ_ME_FIRST.md`](ai_models/_READ_ME_FIRST.md) · [`docs/architecture/repo-tree.md`](../docs/architecture/repo-tree.md).

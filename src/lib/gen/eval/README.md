@@ -133,6 +133,7 @@ För slutlig produktverifiering: kör samma prompt manuellt i lokal builder och 
 - **"Varför saknas eval-baseline.json sometimes?"** — den är committad så den ska alltid finnas. Om den inte finns: kör `npm run eval:baseline` en gång för att skapa den, och commita resultatet.
 - **"Failar `eval:gate` om baseline saknas?"** — nej, den varnar bara ("No baseline found"). Bara faktiska regressions failar.
 - **"Är `npm run eval` (utan suffix) samma sak som `eval:suite`?"** — nej. Båda kör samma `runEval()`-motor, men `eval` skriver till `eval-output/` med scorecard, `eval:suite` skriver inget men jämför mot baseline. Använd `eval:gate` för CI-typ-flöden, `eval` för human-debug.
+- **"`scripts/eval/` vs `scripts/evals/` — vad är skillnaden?"** (namnskugga) — `scripts/eval/run-eval.ts` är **klassisk eval** (#3 ovan, `npm run eval`). `scripts/evals/` + `evals/` är ett **separat, manuellt** scaffold-selection-baseline-spår (deterministiskt, incheckad baseline i `evals/results/baseline-master/`, **ingen** npm/CI-koppling) — se [`evals/README.md`](../../../../evals/README.md). De är olika system trots snarlika mappnamn; förväxla dem inte.
 
 ## Förväntade tid + cost-uppskattning per körning
 
