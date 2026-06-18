@@ -1,9 +1,7 @@
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
-import type {
-  EngineVersionDisplayStatus,
-  EngineVersionLifecycleStage,
-} from "@/lib/db/engine-version-lifecycle";
+import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
+import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
 import type { AlternatePreviewUrls } from "@/lib/gen/preview/preview-url-classifier";
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
@@ -91,7 +89,7 @@ export interface PreviewPanelProps {
   /** Server-known preview session id for heartbeat / status (own-engine). */
   activePreviewSessionId?: string | null;
   previewLifecycle?: PreviewLifecycleState;
-  activeVersionStatus?: EngineVersionDisplayStatus | null;
+  activeVersionStatus?: VersionDisplayStatus | null;
   activeVersionSummary?: string | null;
   activeVersionIsLatest?: boolean;
   /** Non-blocking overlay payload when the selected version and preview-VM diverge. */

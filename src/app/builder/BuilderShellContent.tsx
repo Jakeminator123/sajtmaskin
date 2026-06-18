@@ -44,7 +44,7 @@ import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import { saveProjectData } from "@/lib/project-client";
-import { resolveEngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
+import { mapVersionStatusToDisplay } from "@/lib/builder/version-status-display";
 import {
   MODEL_TIER_OPTIONS,
   getPromptAssistModelLabel,
@@ -54,6 +54,7 @@ import {
   readAutofixLocalStorageOnly,
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
+import { useVersionStatus } from "@/lib/hooks/chat/useVersionStatus";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -153,29 +154,26 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         ) ?? null
       : null;
   }, [vm.activeVersionId, vm.effectiveVersionsList]);
-  const activeVersionStatus = useMemo(() => {
-    if (!activeVersionSummary) return null;
-    return resolveEngineVersionDisplayStatus(
-      {
-        versionId: activeVersionSummary.versionId,
-        id: activeVersionSummary.id,
-        createdAt: activeVersionSummary.createdAt,
-        versionNumber: activeVersionSummary.versionNumber,
-        releaseState: activeVersionSummary.releaseState,
-        verificationState: activeVersionSummary.verificationState,
-      },
-      vm.effectiveVersionsList.map((entry) => ({
-        versionId: entry.versionId,
-        id: entry.id,
-        createdAt: entry.createdAt,
-        versionNumber: entry.versionNumber,
-        releaseState: entry.releaseState,
-        verificationState: entry.verificationState,
-      })),
-    );
-  }, [activeVersionSummary, vm.effectiveVersionsList]);
   const activeVersionIsLatest =
     !vm.activeVersionId || !vm.latestVersionId || vm.activeVersionId === vm.latestVersionId;
+  // OMTAG-06 / område 6-1: version status now flows from the canonical
+  // event-bus projection (`selectVersionStatus`), read client-side via
+  // `useVersionStatus`, instead of being inferred from DB row flags
+  // through the legacy `resolveEngineVersionDisplayStatus`.
+  // `mapVersionStatusToDisplay` derives `retrying`/`promoted` and guards
+  // against false-green (degraded ≠ success). VersionHistory keeps the
+  // legacy resolver until område 6-2.
+  const { status: activeVersionBusStatus } = useVersionStatus({
+    chatId: vm.chatId,
+    versionId: vm.activeVersionId,
+  });
+  const activeVersionStatus = useMemo(() => {
+    if (!activeVersionSummary) return null;
+    return mapVersionStatusToDisplay(activeVersionBusStatus, {
+      isLatest: activeVersionIsLatest,
+      releaseState: activeVersionSummary.releaseState ?? null,
+    }).status;
+  }, [activeVersionBusStatus, activeVersionIsLatest, activeVersionSummary]);
   // P19 Steg 3 — transparency in follow-up base. When the user is focused
   // on an older version, the next `sendMessage` carries `engineBaseVersionId
   // = activeVersionId` (see useSendMessage.ts). Surface that decision in the
