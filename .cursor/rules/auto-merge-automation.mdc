@@ -1,0 +1,45 @@
+---
+description: En Cursor-side auto-merge-automation KAN vara aktiv och merga gröna PR:er automatiskt. PR-skapande agenter måste planera för det.
+alwaysApply: true
+---
+
+# Auto-merge-automation (kan vara aktiv)
+
+**Bekräftat (2026-06-18):** En Cursor Automation vid namn **"PR-mergare"** är aktiv. Den syns som en **check på varje PR**: `Cursor Automation: PR-mergare` (en background-agent, t.ex. run `bc-9cd8ec53-…` på `cursor.com/agents`). Den mergade PR #152 (signerat `app/cursor` / `cursor[bot]`) trots att byggar-agenten var instruerad att INTE merga — övriga PR:er samma dag mergades manuellt av `Jakeminator123`. Alltså: en **grön, öppen** PR kan auto-mergas utan explicit mänsklig/orchestrator-`gh pr merge`. (Bredvid den körs även `Cursor Automation: Find critical bugs` = Bugbot — en annan automation, mergar inte.)
+
+**Var den bor:** INTE i repot. `.github/workflows/` har inget auto-merge-jobb, inget `.mergify.yml`/kodiak/renovate, och `autoMergeRequest` på PR:erna är `null` (alltså inte GitHubs native auto-merge). Den är en **Cursor Automation cloud-side på cursor.com** (automation-ID `59ae4961-c36d-4aeb-abec-670d3dd60745`), `pull_request`-triggad mot `master`, och kan bara läsas/ändras i Automations-UI:t. Verifiera dess fingeravtryck på GitHub:
+
+```powershell
+# Vilka PR:er auto-mergaren tagit:
+gh pr list --state merged --limit 20 --json number,title,mergedBy,mergedAt `
+  | ConvertFrom-Json | Where-Object { $_.mergedBy.login -match 'cursor' }
+
+# Automationens verdict på en öppen PR (den postar en review-kommentar "PR Auto-Merger verdict"):
+gh pr view <n> --json reviews --jq '.reviews[] | select(.author.login=="cursor") | .body'
+```
+
+## Hur "PR-mergare" faktiskt beslutar (från dess egen verdict 2026-06-18)
+
+Den är **konservativ** — postar en `PR Auto-Merger verdict`-review (`AUTO_MERGE` / `WAITING_FOR_CHECKS` / `NEEDS_HUMAN`) och mergar (squash) **bara** när ALLT är sant: ej draft · base master · mergeable · alla checks success · Vercel success/saknas · inga requested changes/blocking threads/botklagomål · **risk 1–2** · **inga protected paths** · head-SHA stabil · PR-body beskriver ändringen.
+
+| Spärr | Effekt |
+|---|---|
+| **Protected paths**: `.github/workflows/**`, `package.json`, `src/lib/db/**`, `src/lib/auth/**`, `src/app/api/**`, `src/lib/logging/**`, m.fl. (även test-only diff i dessa → block) | → `NEEDS_HUMAN` oavsett grönt |
+| **Risk ≥ 3** (CI-yta, runtime, security, false-green) | → ingen auto-merge |
+| **Grandmaster-special:** plan-PR som inte är ren typo/docs | → `NEEDS_HUMAN` |
+| Pending checks / bottar inte klara | → `WAITING_FOR_CHECKS` (väntar, mergar ej) |
+
+Bevis: #152 (C1, ren docs/schema, risk 1) auto-mergades. #153 (C2, rör `ci.yml`+`package.json`) → `NEEDS_HUMAN`. Den bedömer **PR-ytan**, inte byggar-agentens interna "merga inte"-instruktion. Princip den följer: *"hellre missa 10 säkra auto-merges än göra master falskt grön."*
+
+## Konsekvens för dig som skapar PR:er (gäller även LLM-agenter)
+
+| Situation | Gör |
+|---|---|
+| Ren docs/typo-PR (risk 1) | Öppna normalt — automationen auto-mergar vid grönt. Önskat. |
+| PR som rör protected paths / risk ≥ 3 / grandmaster-kod | Automationen mergar **inte** (→ `NEEDS_HUMAN`). En människa eller orchestratorn (med Jakes mandat) mergar efter granskning. Öppna ej som draft i onödan — verdicten räcker som spärr, men draft är extra säkert för känsliga ytor. |
+| Innan du själv kör `gh pr merge` | Kolla `gh pr view <n> --json state` + läs automationens verdict — den kan redan ha mergat (undvik dubbel-merge-fel) eller flaggat `NEEDS_HUMAN`. |
+| Efter att en PR mergats (av vem som helst) | FF lokal master + be aktiva worktrees/brancher rebasea mot ny `origin/master` (annars stale bas). |
+
+## Princip
+
+Automationen ersätter **inte** review-gaten ([`pr-merge-review-gate.mdc`](./pr-merge-review-gate.mdc)) — men den **förstärker** den: den auto-mergar bara risk 1–2 utan protected paths, och deferrerar allt annat till människa. Läs alltid dess `NEEDS_HUMAN`-verdict + ev. Codex/Bugbot-fynd innan manuell merge. "Grönt CI" ≠ "granskad".
