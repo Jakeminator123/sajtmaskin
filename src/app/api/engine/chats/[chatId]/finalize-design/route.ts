@@ -73,10 +73,16 @@ function buildContractsFromDetectedIntegrations(
 async function deriveTier3BuildSpecForVersion(
   versionId: string,
   selectedDossiers: SelectedDossier[],
-): Promise<Tier3BuildSpec> {
+): Promise<Tier3BuildSpec | null> {
   const codeFiles = await getVersionFiles(versionId);
   if (!codeFiles || codeFiles.length === 0) {
-    return { requirements: [] };
+    // G#21: the version exists (caller already resolved it) but its files
+    // could not be loaded/parsed (empty or corrupt `files_json`). Returning
+    // `{ requirements: [] }` here previously made the route answer
+    // `ready: true` ("no integrations detected") — a false green that lets
+    // F3 start against a project we never actually inspected. Signal
+    // "could not determine" so the caller blocks instead of greenlighting.
+    return null;
   }
   const detected = detectIntegrationsFromVersionFiles(
     codeFiles
@@ -164,6 +170,22 @@ export async function POST(
       baseVersion.id,
       selectedDossiers,
     );
+
+    if (!spec) {
+      // G#21: version files unavailable — cannot determine F3 requirements,
+      // so we must not claim readiness. Surface an explicit, retryable error
+      // instead of a false `ready: true`.
+      return NextResponse.json(
+        {
+          ready: false,
+          reason: "version_files_unavailable",
+          parentVersionId: baseVersion.id,
+          message:
+            "Kunde inte läsa versionens filer — kan inte avgöra F3-readiness. Ladda om och försök igen.",
+        },
+        { status: 409 },
+      );
+    }
 
     if (spec.requirements.length === 0) {
       return NextResponse.json({

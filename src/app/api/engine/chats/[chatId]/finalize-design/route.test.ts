@@ -81,7 +81,9 @@ describe("POST finalize-design", () => {
     });
     getLatestVersion.mockResolvedValue(null);
     resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
-    getVersionFiles.mockResolvedValue([]);
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){return null;}" },
+    ]);
     detectIntegrationsFromVersionFiles.mockReturnValue([]);
     deriveTier3BuildSpec.mockReturnValue({ requirements: [] });
     validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
@@ -114,6 +116,21 @@ describe("POST finalize-design", () => {
     expect(body.requestedVersionId).toBe("ver_old");
     expect(body.latestVersionId).toBe("ver_new");
     expect(getVersionFiles).not.toHaveBeenCalled();
+  });
+
+  it("does not greenlight F3 when version files are unavailable (G#21)", async () => {
+    getVersionFiles.mockResolvedValue([]);
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.ready).toBe(false);
+    expect(body.reason).toBe("version_files_unavailable");
+    // Must NOT proceed to a readiness verdict on an uninspected project.
+    expect(deriveTier3BuildSpec).not.toHaveBeenCalled();
   });
 
   it("allows the preferred design version and returns the F3 parent id", async () => {
