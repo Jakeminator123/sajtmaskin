@@ -4,7 +4,7 @@ Detta är repo-rotens **snabba ingång** för människor och LLM:er som arbetar 
 
 Syftet är inte att duplicera hela `docs/`, utan att ge en stabil **första orientering** över det committade trädet. Kod är alltid source of truth.
 
-> Galler den **committade** versionen av repot pa `master` per **2026-04-24** (efter master-post-cleanup Wave 5 + 11 hot-fixes — se taggen `MILSTOLPE-2026-04-24-master-cleanup-wave5`). Lokala, ocommittade eller privata filer kan finnas utan att synas har.
+> Gäller den **committade** versionen av repot på `master` per **2026-06-18** (rotkartan synkad mot faktisk struktur, aktivitet D2). Lokala, ocommittade eller privata filer kan finnas utan att synas här.
 
 ## Borja har
 
@@ -25,8 +25,8 @@ Syftet är inte att duplicera hela `docs/`, utan att ge en stabil **första orie
 | `preview-host/` | Tier-2 preview-host / runtime / verify / workspace-livscykel. |
 | `docs/` | Kanoniska manskliga docs och arkitekturtexter. |
 | `config/` | Kanonisk konfiguration: modeller, env-policy, promptfragment, dashboard-kartor. |
-| `scripts/` | Hjapskript for dev, db, eval, env, scaffolds, template-library m.m. |
-| `templates_v0/` | Lokalt mall-/katalogarv. Inte den primara produktbanan for runtimegenerering. |
+| `scripts/` | Hjapskript for dev, db, eval, env, scaffolds, dossiers, v0-templates m.m. |
+| `backoffice/` | Konsoliderad backoffice (Streamlit), startas via `npm run backoffice` (`python sajtmaskin_backoffice.py`). |
 | `.cursor/` | Cursor-regler, lokala kommandon och agentorientering. |
 
 ## Router per uppgift
@@ -89,10 +89,10 @@ Borja i denna ordning:
 Borja i denna ordning:
 
 1. `src/lib/gen/scaffolds/`
-2. `src/lib/gen/template-library/`
-3. `scripts/scaffolds/`
-4. `scripts/template-library/`
-5. `templates_v0/` endast om du uttryckligen felsoker arv, import eller katalogunderlag
+2. `src/lib/gen/scaffold-variants/`
+3. `src/lib/gen/dossiers/`
+4. `scripts/scaffolds/`
+5. `scripts/v0-templates/`
 
 ## Viktiga lasregler for agenter
 
@@ -100,7 +100,7 @@ Borja i denna ordning:
 - Denna fil ar en **router**, inte en fullstandig arkitekturbeskrivning.
 - Om en lokal README finns i det omrade du ror, las den innan du andrar strukturen.
 - Anvand `docs/architecture/repo-tree.md` som kanonisk rotkarta.
-- Behandla `templates_v0/` och kvarvarande `v0`-namn som **legacy eller naming debt** tills kod visar annat.
+- Behandla kvarvarande `v0`-namn (t.ex. `scripts/v0-templates/`, `src/app/api/v0/`) som **legacy eller naming debt** tills kod visar annat.
 
 ## Rekommenderad Cursor-ingang
 
