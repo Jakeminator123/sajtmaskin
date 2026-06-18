@@ -50,6 +50,8 @@ Om UI visar grönt måste runtime stödja det. Follow-up är delta på tidigare 
 
 Bredare än regression: större/svårare buggar **och** UX-invarianter. Exempel (ditt):
 att `åäö` renderas korrekt i användarprompten i builder-chatten under generering.
+Ett DB-exempel: `db:schema-drift` låser att **avsett** schema (`src/lib/db/schema.ts`)
+matchar **applicerat** (migrations) — finns redan men körs bara soft; höjs till gate (S4).
 
 ```
 lokalt:   npm run test:stability     (innan commit, sekunder)

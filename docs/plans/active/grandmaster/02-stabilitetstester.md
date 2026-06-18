@@ -29,6 +29,7 @@ Kuraterad `test:stability`-lane som låser större buggar + UX-invarianter. Tre 
 | Placeholder/degraded visas aldrig som "success" | P1 N#1, falskt-grönt |
 | Central builder-yta läser inte legacy `resolveEngineVersionDisplayStatus` | N#6 |
 | Stale basversion i follow-up/F3 → 409 | spår R |
+| DB-schema: avsett (`schema.ts`) == applicerat (`db-init`/migrations) | `db:schema-drift` (höj soft→gate, S4) |
 
 ## Klart när
 `npm run test:stability` finns och kör lokalt + PR + push; ≥3 seed-invarianter gröna;

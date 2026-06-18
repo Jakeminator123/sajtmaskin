@@ -11,7 +11,7 @@ sekventiellt = `blocked_by`). Mall + livscykel: [`plan-lifecycle.mdc`](../../../
 | [S1](S1-test-stability-lane.md) | `test:stability`-lane (warn-only först) | 2 | — | Låg |
 | [S2](S2-aao-invariant.md) | åäö-invariant i builder-chat | 2 | S1 | Låg |
 | [S3](S3-statusresolver-invariant.md) | statusresolver-invariant (todo tills omr 6) | 2 | S1 | Låg |
-| [S4](S4-db-health-gate.md) | DB-health/sync-gate (koordinerar parallell PR) | 2 | — | Medel · extern ägare |
+| [S4](S4-db-health-gate.md) | DB-schema-korrekthet & drift-gate (`db:schema-drift` soft→gate; live = #140) | 2 | S1 | Medel |
 | [D2](D2-repo-tree-readme-synk.md) | synka repo-tree + README mot verkligheten | 3 | — | Låg |
 | [C1](C1-plan-file-schema-deprecate.md) | markera `plan-file.schema.json` deprecated | 1 | — | Låg |
 | [C2](C2-ordlista-check.md) | ordlista/glossary-check (push/PR/merge, warn-först) | 1 | — | Låg |

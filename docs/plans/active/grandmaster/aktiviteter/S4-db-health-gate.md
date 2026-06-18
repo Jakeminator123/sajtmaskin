@@ -1,42 +1,45 @@
 ---
 id: gm-akt-S4
-status: koordinering
+status: ready
 parent: gm-omrade-02-stabilitetstester
-blocked_by: []
-owner_files: []
-extern_agare: "parallell PR (annan agent) — pydatabastest.py + .github/workflows/"
+blocked_by: [gm-akt-S1]
+owner_files:
+  - package.json (db:schema-drift in i stability-lane)
+  - .github/workflows/ci.yml (gate-steg, samordnas i S1)
+extern_layer: "pydatabastest.py + db-blob-sync-check.yml (PR #140, annan agent)"
 risk: medel
 ---
 
-# S4 — DB-health/sync-gate (koordinerar in-flight PR)
+# S4 — DB-schema-korrekthet & drift-gate
 
-## Bakgrund
-En parallell agent bygger `pydatabastest.py` (DB- + blob-sync-health-test) i **egen
-separat PR**, tänkt som regressions-/ordningsgate på `pull_request`/`push`. Den här
-filen **äger ingen kod** — den knyter in det arbetet i stability-lanen så vi inte får
-två drivande test-spår. (Wipe-agenten lämnade dessutom `scripts/db/wipe-generated-sites.mjs`
-otrackad; den hör inte hit.)
+## Klargörande (Jakes intention)
+DB-stabilitetstestet är **schema-korrekthet/drift**, inte wipe. Tre olika saker:
 
-## Min bedömning (svar på "vad säger du?")
-Bra idé och rätt hemvist (stabilitetstest, inte governance). Den fångar precis sånt vi
-vill låsa — t.ex. **dev/prod schema-drift** (CASCADE-driften på `generation_telemetry.chat_id`
-som hittades under wipen). Villkor för att den ska bli en bra gate:
+| Sak | Vad | Roll |
+|---|---|---|
+| `db:init` | applicerar/uppdaterar senaste schemat | auto i `predev` — inte ett test |
+| **`db:schema-drift`** | avsett schema (`src/lib/db/schema.ts`) == applicerat (`db-init.mjs` / `add-performance-indexes.mjs` / `migrations/*.sql`) | **regressionstestet** vi vill ha |
+| `wipe-generated-sites.mjs` | raderar genererade sajter | sällan/destruktivt, egen branch — **inte** ett test |
 
-| Krav | Varför |
-|---|---|
-| **Read-only health** i CI (schema/RLS/förväntade tabeller, drift dev↔prod) | En gate på varje push får aldrig skriva/radera i riktig DB |
-| Kör **inte destruktivt mot prod** i CI; mot test-/CI-DB eller read-only | Prod-writes är irreversibla |
-| **CI-secrets**, aldrig creds i git/loggar; pulled `.env.vercel.*` gitignoreras | Grundhygien (`project-phase-priorities.mdc`) |
-| **Egen lane**, blockerar inte JS-`test:stability` | Dubbel-runtime (Python) får inte bromsa kärnlanen |
-| `--ci`-läge deterministiskt + snabbt | Annars blir det "Sajtbyggaren-tröghet" |
-| Namn/plats enligt kebab-case (ev. `scripts/db/db-health-check.py`) | Undvik namnskuggor; speglar `sajtmaskin_backoffice.py`-konventionen |
+## Mål — höj schema-drift från soft till gate
+`src/lib/db/schema-drift.test.ts` **finns redan** men körs bara `db:schema-drift:soft`
+(warn i predev). Det är deterministiskt, nyckelfritt och billigt → **perfekt gate**:
+- Ta in `db:schema-drift` i `test:stability`-lanen (S1).
+- Kör det som hard check vid **push/PR/merge**. Fångar t.ex. tabell/index som finns i
+  `schema.ts` men saknas i `db-init.mjs` → skapas aldrig på nya miljöer (tyst drift).
 
-## Inte scope (för denna grandmaster-PR)
-- Implementera testet (det lever i sin egen PR).
-- Wire:a in det i `ci.yml` här — görs i den PR:en + S1-lanen.
+## Live-lager (komplement, PR #140)
+`pydatabastest.py` (#140) täcker det **levande** lagret: dev/prod-paritet, 31 tabeller
+finns, restart-state, blob. Read-only. Behöver GitHub-secrets (annars SKIP). Egen PR/branch.
+Statiska `db:schema-drift` behöver inga creds — sätt secrets när live-gaten ska bita.
 
-## Verifiering (när dess PR landar)
-- `pydatabastest.py --ci` grön; inga creds i diff; prod orörd; egen workflow-lane.
+## Inte scope
+- Wipe-logik (egen branch `chore/wipe-generated-sites-tool`).
+- Skriva om `schema.ts`/migrations — bara låsa att de matchar.
+
+## Verifiering
+- `npm run db:schema-drift` grön; ingår i `npm run test:stability`; kör på push/PR/merge.
+- `npm run typecheck` 0 fel.
 
 ## Risk
-Medel — rör CI + DB-creds, och ägs av annan agent. Koordineras, granskas separat.
+Medel — statiska delen låg (deterministisk); live-delen (#140) rör CI-secrets, annan ägare.

@@ -18,6 +18,9 @@ stabilitetstester. Tre körlägen: lokalt (kommando), PR och push. Port-light
 delivery-bias-doc från Sajtbyggaren ("förmåga före dokumentation; breda
 regressionssviter är inte standard").
 
+Inkludera direkt den deterministiska, nyckelfria `db:schema-drift` (se [`S4`](S4-db-health-gate.md))
+som första riktiga gate i lanen — den finns redan men körs bara soft i predev.
+
 ## Inte scope
 - LLM-evals (parkerade) eller breda regressionssviter.
 - CI-**blockering** — börja warn-only; blockering kopplas in när lanen är stabil.
