@@ -41,3 +41,27 @@ jobs:
 
       - name: Verify baseline dependency tree
         run: npm run baseline-deps:tree
+
+  # Warn-only stabilitets-lane (grandmaster S1). Avsiktligt icke-blockerande:
+  # continue-on-error gör att ett rött stabilitets-resultat aldrig blockerar
+  # merge medan lanen stabiliseras. Detta är platsen där S4 (db:schema-drift-gate)
+  # och C2 (ordlista-check) lägger sina CI-steg — ingen annan aktivitet äger denna fil.
+  stability:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Stability lane (warn-only)
+        run: npm run test:stability
