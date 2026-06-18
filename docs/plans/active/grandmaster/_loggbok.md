@@ -53,10 +53,10 @@
 - `version-2637fe59.zip` i repo-roten — nedladdad version-zip, untracked skräp → radera eller `.gitignore`.
 - `.tmp/commit-cleanup.txt`, `.tmp/duck-ceab-duck-mesh.json` — agent-scratch, bör inte tracked:as.
 - ~~Worktree `sajtmaskin-hydration` — tom~~ → **AKTIVT** (annan agent kör där): PR #149 promote-guard / false-green (område 7). RÖR INTE branchen/worktreet. Inte en städkandidat.
-- (S1-obs) länka `docs/testing.md` + `docs/delivery-bias.md` från `docs/README.md` — **efter #147 mergats** (de finns inte på master än).
+- ~~(S1-obs) länka `docs/testing.md` + `docs/delivery-bias.md` från `docs/README.md`~~ → **klart** (omr 8-städ, PR `chore/omr8-stadning`: båda länkade i `docs/README.md` Key navigation).
 - (S1-obs) `stability`-CI-jobbet kör egen `npm ci` (extra minuter) — kan slås ihop med `quality` om kostnaden skaver.
 - Master-plan §7-kandidater: cursorignore-logs, pensionera `plan-file.schema.json` (C1), arkivera källdokument, `next`-bump.
-- (D2-obs) Trackad scratch i roten: `blandat/`, `test_förslag_templates_blob` → städkandidater (omr 8).
+- (D2-obs) Trackad scratch i roten: `blandat/` → **raderad** (omr 8-städ, PR `chore/omr8-stadning`). OBS: `test_förslag_templates_blob/` är **INTE** scratch — load-bearing `DEFAULT_SOURCE` för `npm run templates:blob:sync` (`scripts/v0-templates/sync-blob-catalog.mjs:27`, dokumenterad i `scripts/README.md:127`); behålls.
 - (D2-obs) `config/dashboard/` (Streamlit `app.py`) finns parallellt med kanoniska `backoffice/` → terminologi-/konsolideringsfråga (omr 1/8).
 - (D2-obs) `.gitignore`/`.cursorignore` har kvar `archive/...`- och `research/_sidor/`-mönster fast mapparna är borta → städ (omr 8).
 
