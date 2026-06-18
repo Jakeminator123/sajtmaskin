@@ -93,23 +93,43 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DomainSearchResult[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedDomain, setSelectedDomain] = useState<DomainSearchResult | null>(null);
   const [isLinking, setIsLinking] = useState(false);
   const [linkResult, setLinkResult] = useState<LinkResult | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const [saveWarning, setSaveWarning] = useState<string | null>(null);
   const [verifyStatus, setVerifyStatus] = useState<VerifyResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Request-token for the fire-and-forget background save. Bumped on every
+  // dialog reset so a slow save from a previous link cannot land after the
+  // dialog has been closed/reopened and write a warning onto newer state.
+  const saveGenerationRef = useRef(0);
+  // Request-token for domain searches. Bumped at the start of every search
+  // (and on dialog reset) so that two concurrent searches (e.g. a double
+  // click) resolving out of order cannot write stale results / error onto
+  // a newer search.
+  const searchGenerationRef = useRef(0);
 
   useEffect(() => {
     if (!open) {
+      saveGenerationRef.current += 1;
+      searchGenerationRef.current += 1;
       setStep("search");
       setQuery("");
       setResults(null);
+      setSearchError(null);
+      // Clear the search spinner here too: handleSearch's finally only resets
+      // it when the captured generation still matches, so a search in flight
+      // when the dialog closes would otherwise leave the Sok button stuck
+      // disabled until the component unmounts.
+      setIsSearching(false);
       setSelectedDomain(null);
       setIsLinking(false);
       setLinkResult(null);
       setLinkError(null);
+      setSaveWarning(null);
       setVerifyStatus(null);
       setIsVerifying(false);
       if (verifyIntervalRef.current) {
@@ -129,8 +149,10 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
+    const gen = ++searchGenerationRef.current;
     setIsSearching(true);
     setResults(null);
+    setSearchError(null);
     try {
       const res = await fetch("/api/domains/check", {
         method: "POST",
@@ -138,13 +160,16 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
         body: JSON.stringify({ query: query.trim() }),
       });
       const data = await res.json();
+      if (searchGenerationRef.current !== gen) return;
       if (!res.ok) throw new Error(data.error || "Sökning misslyckades");
       setResults(data.results ?? []);
     } catch (err) {
-      setResults([]);
+      if (searchGenerationRef.current !== gen) return;
+      setResults(null);
+      setSearchError(err instanceof Error ? err.message : "Sökning misslyckades");
       console.error("[DomainManager] Search error:", err);
     } finally {
-      setIsSearching(false);
+      if (searchGenerationRef.current === gen) setIsSearching(false);
     }
   }, [query]);
 
@@ -194,6 +219,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
     if (!selectedDomain || !projectId) return;
     setIsLinking(true);
     setLinkError(null);
+    setSaveWarning(null);
     try {
       const res = await fetch("/api/domains/link", {
         method: "POST",
@@ -208,14 +234,43 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
       setLinkResult(data);
 
       if (deploymentId) {
-        fetch("/api/domains/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            deploymentId,
-            domain: selectedDomain.domain,
-          }),
-        }).catch(() => {});
+        // Persist the linked domain on the deployment record. The link
+        // itself already succeeded, so a save failure is non-blocking —
+        // but it must be surfaced (the domain would otherwise silently
+        // not persist on the deployment). Guard against stale writes: if
+        // the dialog has been reset (closed/reopened) before the save
+        // resolves, the captured generation no longer matches and we drop
+        // the warning instead of writing onto a newer verify step.
+        const saveGen = saveGenerationRef.current;
+        const saveDomain = selectedDomain.domain;
+        void (async () => {
+          try {
+            const saveRes = await fetch("/api/domains/save", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                deploymentId,
+                domain: saveDomain,
+              }),
+            });
+            if (saveGenerationRef.current !== saveGen) return;
+            if (!saveRes.ok) {
+              const saveData = (await saveRes.json().catch(() => null)) as
+                | { error?: string }
+                | null;
+              if (saveGenerationRef.current !== saveGen) return;
+              setSaveWarning(
+                saveData?.error ||
+                  "Domänen kopplades men kunde inte sparas på publiceringen.",
+              );
+            }
+          } catch {
+            if (saveGenerationRef.current !== saveGen) return;
+            setSaveWarning(
+              "Domänen kopplades men kunde inte sparas på publiceringen.",
+            );
+          }
+        })();
       }
 
       setStep("verify");
@@ -274,6 +329,12 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                   <span className="ml-1.5">Sök</span>
                 </Button>
               </div>
+
+              {searchError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400">
+                  {searchError}
+                </div>
+              )}
 
               {results && results.length > 0 && (
                 <div className="space-y-1.5">
@@ -447,6 +508,12 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                   </div>
                 </div>
               </div>
+
+              {saveWarning && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400">
+                  {saveWarning}
+                </div>
+              )}
 
               {linkResult?.dnsSetup?.success && (
                 <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm dark:border-green-900 dark:bg-green-950/50">

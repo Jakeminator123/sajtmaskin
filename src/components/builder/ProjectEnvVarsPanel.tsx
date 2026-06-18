@@ -250,12 +250,17 @@ export function ProjectEnvVarsPanel({
       setEnvVars([]);
       setError(null);
       setSyntheticProject(false);
+      // Clear any spinner left true by a prior load whose response was
+      // discarded by the generation guard (e.g. project/chat changed
+      // without a remount) — otherwise the env tab spins forever.
+      setIsLoading(false);
       return;
     }
     if (hasSyntheticExternalProject && !appProjectId) {
       setEnvVars([]);
       setError(null);
       setSyntheticProject(true);
+      setIsLoading(false);
       return;
     }
     const gen = loaderGenerationRef.current;
@@ -287,9 +292,12 @@ export function ProjectEnvVarsPanel({
   }, [appProjectId, effectiveEnvProjectId, hasSyntheticExternalProject]);
 
   const loadIntegrationStatus = useCallback(async () => {
+    const gen = loaderGenerationRef.current;
     try {
       const res = await fetch("/api/integrations/status");
+      if (loaderGenerationRef.current !== gen) return;
       const data = (await res.json().catch(() => null)) as IntegrationStatusResponse | null;
+      if (loaderGenerationRef.current !== gen) return;
       if (res.ok && data) {
         setIntegrationStatus(data);
         setIntegrationError(false);
@@ -297,6 +305,7 @@ export function ProjectEnvVarsPanel({
         setIntegrationError(true);
       }
     } catch {
+      if (loaderGenerationRef.current !== gen) return;
       setIntegrationError(true);
     }
   }, []);
@@ -549,6 +558,18 @@ export function ProjectEnvVarsPanel({
     void loadIntegrationStatus();
     void loadMarketplaceMetadata();
     void loadDetectedIntegrations();
+    return () => {
+      // Invalidate any in-flight loaders sharing this request-token so a
+      // late response cannot write state after unmount / dep change. Also
+      // clear the loading spinners here: their `finally` only resets them
+      // when the captured generation still matches, so a fetch that is
+      // in-flight while the panel collapses (or a dep changes) would
+      // otherwise leave the spinner stuck. Resetting on invalidation is
+      // idempotent — a fresh run re-sets the flag synchronously.
+      loaderGenerationRef.current += 1;
+      setIsLoading(false);
+      setIsLoadingDetectedIntegrations(false);
+    };
   }, [
     expanded,
     loadDetectedIntegrations,
