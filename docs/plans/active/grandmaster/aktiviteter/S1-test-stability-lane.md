@@ -7,6 +7,7 @@ owner_files:
   - package.json
   - docs/testing.md
   - docs/delivery-bias.md
+  - .github/workflows/ci.yml (CI-lane-wiring; S4/C2 samordnar sina steg här)
 risk: låg
 ---
 
@@ -27,8 +28,10 @@ som första riktiga gate i lanen — den finns redan men körs bara soft i prede
 - Själva test-casen (S2/S3 äger dem); här bara lane + glob + docs.
 
 ## Owner-yta
-`package.json` (script + glob/tagg), `docs/testing.md`, `docs/delivery-bias.md`.
-Verifiera mot HEAD att `test:stability` inte redan finns innan du lägger till.
+`package.json` (script + glob/tagg), `docs/testing.md`, `docs/delivery-bias.md` samt
+`.github/workflows/ci.yml` — **S1 äger CI-lane-wiringen**. `S4` (db:schema-drift-gate) och
+`C2` (term-check) lägger sina CI-steg **via** S1, så ingen annan aktivitet äger samma
+workflow-fil. Verifiera mot HEAD att `test:stability` inte redan finns innan du lägger till.
 
 ## Verifiering
 - `npm run test:stability` kör grönt lokalt (även med 0 case initialt).
