@@ -322,3 +322,4 @@ docs/plans/active/2026-04-28-llm-flode-startlinje.md
 
 # Studio user uploads (runtime, not committed)
 public/uploads/
+.aider*
