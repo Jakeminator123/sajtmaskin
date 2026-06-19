@@ -1,7 +1,10 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
-import { buildFollowUpBriefFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import {
+  buildFollowUpBriefFromSnapshot,
+  buildFollowUpContract,
+} from "@/lib/gen/orchestration-snapshot";
 import type { OrchestrationInput } from "@/lib/gen/orchestrate";
 
 import type { ParsedChatRequestMeta } from "./parse-chat-request-meta";
@@ -107,6 +110,17 @@ export function buildFollowUpOrchestrationInput(
     capabilityModifyHint,
     engineModelId: params.engineModelId,
     lifecycleStage: params.parsedMeta.lifecycleStage,
+    // 5-1: consolidate the scattered inherited/frozen follow-up signals into
+    // one readable object. Additive — does not change how the fields above
+    // are read by orchestrate (parity preserved).
+    followUpContract: buildFollowUpContract({
+      snapshot: params.orchestrationSnapshot,
+      persistedScaffoldId: params.persistedScaffoldId,
+      persistedVariantId: params.persistedVariantId,
+      existingRoutePaths: params.existingRoutePaths,
+      existingShellRoutePaths: params.existingShellRoutePaths,
+      priorQualityTarget: params.priorQualityTarget,
+    }),
   };
 
   if (params.mode === "plan") {
