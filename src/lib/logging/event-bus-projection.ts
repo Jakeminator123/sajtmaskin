@@ -272,7 +272,16 @@ function deriveFinalPhase(params: {
   // from ever surfacing. The false-green guard still applies downstream:
   // a `done` carrying `degradations[]` maps to `degraded`, never solid
   // success.
-  if (verifierOutcome === "passed" || verifierOutcome === "skipped") {
+  // Gate terminal-settle på att verifier-completion är den SENASTE
+  // fas-signalen (`lastSignal === "verifying"`). Annars settlar en stale
+  // `verifierOutcome` från en tidigare pass versionen `done` så fort en
+  // repair-pass ny `preflight` är ren — innan repair-passets verifierare
+  // rapporterat (stoppar polling, visar falskt "klart" mitt i reparation).
+  // Codex P2 / VADE logic.
+  if (
+    (verifierOutcome === "passed" || verifierOutcome === "skipped") &&
+    lastSignal === "verifying"
+  ) {
     return "done";
   }
 

@@ -516,4 +516,76 @@ describe("selectVersionStatus", () => {
     expect(status.phase).toBe("blocked");
     expect(status.done).toBe(false);
   });
+
+  // ── stale-verifierOutcome gate (Codex P2 / VADE logic) ──────────────
+  // Terminal-settle must only fire when verifier-completion is the LATEST
+  // phase signal. A repair pass that emits a fresh clean `preflight` after
+  // an earlier `verifier.done` must NOT settle the version `done` on the
+  // stale outcome — that would stop polling and show a false "klart" mid
+  // repair, before the repair pass's own verifier has reported.
+  it("repair efter passed verifier settlar inte done på stale outcome", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false }),
+      ev("version.repair.started", {
+        reason: "quality-gate-failed",
+        trigger: "server-verify",
+        runId: "repair-1",
+      }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+        runId: "repair-1",
+      }),
+    ]);
+    expect(status.phase).not.toBe("done");
+    expect(status.done).toBe(false);
+  });
+
+  it("ny verifier-done efter repair settlar done igen", () => {
+    // Bevisar att gaten ÖPPNAR korrekt: när repair-passets egen verifierare
+    // rapporterar (verifier-completion blir åter den senaste fas-signalen)
+    // ska terminal-settle fyra och versionen bli `done`.
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false }),
+      ev("version.repair.started", {
+        reason: "quality-gate-failed",
+        trigger: "server-verify",
+        runId: "repair-1",
+      }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+        runId: "repair-1",
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false, runId: "repair-1" }),
+    ]);
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
+  });
 });
