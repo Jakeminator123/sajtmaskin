@@ -50,7 +50,7 @@ Smal `owner_files` var; sekventiella beroenden via `blocked_by`. Detaljspec skap
 | [5-2](aktiviteter/5-2-stale-baseversion-409.md) | Stale-`baseVersionId`-gate i follow-up-strömmen → **409** (spegla `finalize-design`) | 5-1 (delar gate-yta) el. fristående | **Medel (runtime/korrekthet)** | `chat-message-stream-post.ts:332-347` (+ `version-manager.ts`) | **ready (högst korrekthetsvärde)** |
 | 5-3 | Frys-enforcement: stäng `scaffoldMode:"manual"`-kringgång; scaffold/variant via kontraktet | 5-1 | Medel | `orchestrate.ts:488-522`, `matcher.ts:46-80` | stub |
 | 5-4 | F1-fix: clear-redesign-delta-brief ska nå orchestrate (eller tas bort om medvetet) | 5-1 | Medel | `chat-message-stream-post.ts:436-490`, `follow-up-orchestration-input.ts:82-84` | stub |
-| 5-5 | Capabilities can-only-grow / aldrig tyst tappa (snapshot-null-guard) | 5-1 | Medel | `orchestrate.ts:751-785`, `orchestration-snapshot.ts:252-265` | stub |
+| [5-5](aktiviteter/5-5-capabilities-can-only-grow.md) | Capabilities can-only-grow / aldrig tyst tappa (snapshot-null-guard) | 5-1 + 5-3 (#168) | Medel | `orchestrate.ts:761-792` (+ floor efter prompt-filter) | **ready** (bygg efter #168 mergad) |
 | 5-6 | `previewSessionId` in i kontraktet + validering vid follow-up-start | 5-1 | Låg–medel | `preview-session/route.ts`, kontrakt | stub |
 | 5-7 | Stabilitetstest: follow-up byter ej scaffold / tappar ej route / bygger ej på fel version + svensk åäö follow-up-intent-test | 5-1..5-6 | Låg (test) | `*.stability.test.ts` | stub |
 | 5-Z | Z-städ: LLM-flow-modulnamn/kartsynk, doc-drift F3/F5 | 5-1..5-7 | Låg | docs + ev. barrel | stub |
