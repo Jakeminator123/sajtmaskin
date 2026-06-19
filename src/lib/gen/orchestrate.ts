@@ -515,27 +515,42 @@ export interface FollowUpRouteFreezeInput {
   resolvedMode: "init" | "followUp";
   /** clear-redesign may rebuild the route plan; skip the drift check. */
   ignorePersistedScaffoldForMatch: boolean;
-  /** Frozen base routes from the contract. */
+  /** Frozen base routes from the contract (`routePlan.existingRoutePaths`). */
   contractExistingRoutePaths: string[];
+  /**
+   * Frozen deferred-shell route paths from the contract
+   * (`routePlan.existingShellRoutePaths`). Validated alongside
+   * `contractExistingRoutePaths` so dropping a frozen shell route also drifts.
+   * Optional / defaults to `[]` so the no-shell case stays unchanged.
+   */
+  contractShellRoutePaths?: string[];
   /** Route paths orchestrate's `buildRoutePlan` produced. */
   resolvedRoutePaths: string[];
 }
 
 export interface FollowUpRouteFreezeDecision {
-  /** Frozen contract routes missing from the resolved plan (drift evidence). */
+  /** Frozen contract routes (existing + shell) missing from the resolved plan. */
   droppedPaths: string[];
+  /** Subset of `droppedPaths` that were frozen deferred-shell routes. */
+  droppedShellPaths: string[];
   drifted: boolean;
 }
 
 /**
  * Detect whether any frozen contract route was dropped from a neutral
- * follow-up's resolved route plan. Validation-only (no clamp): `buildRoutePlan`
- * already freezes existing routes and only drops one when the user explicitly
- * asks to remove it — re-adding paths here would clobber that legitimate
- * removal, and distinguishing the two needs the builder's internal
- * `explicitRouteRemovals` context (a broader grip than 5-3's narrow scope). So
- * 5-3 emits a route drift signal and defers a hard route-clamp. clear-redesign
- * is exempt. Both sides are normalized so trailing-slash forms never false-fire.
+ * follow-up's resolved route plan. Covers the FULL frozen `routePlan` — both
+ * `existingRoutePaths` and `existingShellRoutePaths` — so dropping a frozen
+ * deferred-shell route also fires the drift signal (closes a false-green gap
+ * where only the non-shell array was validated).
+ *
+ * Validation-only (no clamp): `buildRoutePlan` already freezes existing routes
+ * and only drops one when the user explicitly asks to remove it — re-adding
+ * paths here would clobber that legitimate removal, and distinguishing the two
+ * needs the builder's internal `explicitRouteRemovals` context (a broader grip
+ * than 5-3's narrow scope). So 5-3 emits a route drift signal and DEFERS a hard
+ * route-clamp (the signal now spans the full frozen routePlan even though the
+ * clamp stays deferred). clear-redesign is exempt. Both sides are normalized so
+ * trailing-slash forms never false-fire.
  */
 export function detectFollowUpRouteDrift(
   input: FollowUpRouteFreezeInput,
@@ -544,24 +559,30 @@ export function detectFollowUpRouteDrift(
     resolvedMode,
     ignorePersistedScaffoldForMatch,
     contractExistingRoutePaths,
+    contractShellRoutePaths = [],
     resolvedRoutePaths,
   } = input;
   if (
     resolvedMode !== "followUp" ||
     ignorePersistedScaffoldForMatch ||
-    contractExistingRoutePaths.length === 0
+    (contractExistingRoutePaths.length === 0 && contractShellRoutePaths.length === 0)
   ) {
-    return { droppedPaths: [], drifted: false };
+    return { droppedPaths: [], droppedShellPaths: [], drifted: false };
   }
   const resolved = new Set(resolvedRoutePaths.map((path) => normalizeRoutePath(path)));
-  const droppedPaths = Array.from(
+  const frozenShell = Array.from(
+    new Set(contractShellRoutePaths.map((path) => normalizeRoutePath(path))),
+  );
+  const frozenAll = Array.from(
     new Set(
-      contractExistingRoutePaths
-        .map((path) => normalizeRoutePath(path))
-        .filter((path) => !resolved.has(path)),
+      [...contractExistingRoutePaths, ...contractShellRoutePaths].map((path) =>
+        normalizeRoutePath(path),
+      ),
     ),
   );
-  return { droppedPaths, drifted: droppedPaths.length > 0 };
+  const droppedShellPaths = frozenShell.filter((path) => !resolved.has(path));
+  const droppedPaths = frozenAll.filter((path) => !resolved.has(path));
+  return { droppedPaths, droppedShellPaths, drifted: droppedPaths.length > 0 };
 }
 
 /**
@@ -885,19 +906,22 @@ export async function resolveOrchestrationBase(
 
   // ── 5-3 freeze-enforcement (route) ──
   // Validation-only: detect when a neutral follow-up's plan dropped a frozen
-  // base route. `buildRoutePlan` already freezes existing routes, so this is a
-  // drift signal — not a hard clamp (see `detectFollowUpRouteDrift` for why a
-  // route-clamp is deferred). clear-redesign stays exempt.
+  // base route. Covers the FULL frozen routePlan (existing + deferred-shell
+  // routes). `buildRoutePlan` already freezes existing routes, so this is a
+  // drift signal — the hard route-clamp stays deferred (see
+  // `detectFollowUpRouteDrift`). clear-redesign stays exempt.
   const routeDrift = detectFollowUpRouteDrift({
     resolvedMode,
     ignorePersistedScaffoldForMatch,
     contractExistingRoutePaths: input.followUpContract?.routePlan.existingRoutePaths ?? [],
+    contractShellRoutePaths: input.followUpContract?.routePlan.existingShellRoutePaths ?? [],
     resolvedRoutePaths: routePlan.routes.map((route) => route.path),
   });
   if (routeDrift.drifted) {
     emitFollowUpFreezeDrift("route", {
       chatId: input.chatId ?? null,
       droppedPaths: routeDrift.droppedPaths,
+      droppedShellPaths: routeDrift.droppedShellPaths,
     });
   }
 

@@ -223,4 +223,46 @@ describe("5-3 freeze-enforcement — detectFollowUpRouteDrift (unit)", () => {
     });
     expect(decision.drifted).toBe(false);
   });
+
+  it("flags drift when a neutral follow-up dropped a frozen deferred-shell route (full routePlan coverage)", () => {
+    // Regression (false-green gap): the contract also freezes
+    // `existingShellRoutePaths`. Here the dropped route is carried ONLY in the
+    // shell array (not existingRoutePaths), so the pre-fix check — which
+    // validated existingRoutePaths only — would have missed it and stayed
+    // falsely green.
+    const decision = detectFollowUpRouteDrift({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/"],
+      contractShellRoutePaths: ["/dashboard"],
+      resolvedRoutePaths: ["/"],
+    });
+    expect(decision.drifted).toBe(true);
+    expect(decision.droppedShellPaths).toEqual(["/dashboard"]);
+    expect(decision.droppedPaths).toContain("/dashboard");
+  });
+
+  it("does NOT flag a dropped shell route on clear-redesign (exemption holds for shell routes)", () => {
+    const decision = detectFollowUpRouteDrift({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: true,
+      contractExistingRoutePaths: ["/"],
+      contractShellRoutePaths: ["/dashboard"],
+      resolvedRoutePaths: ["/"],
+    });
+    expect(decision.drifted).toBe(false);
+    expect(decision.droppedShellPaths).toEqual([]);
+  });
+
+  it("reports no drift when a frozen shell route survives in the resolved plan", () => {
+    const decision = detectFollowUpRouteDrift({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/", "/dashboard"],
+      contractShellRoutePaths: ["/dashboard"],
+      resolvedRoutePaths: ["/", "/dashboard"],
+    });
+    expect(decision.drifted).toBe(false);
+    expect(decision.droppedShellPaths).toEqual([]);
+  });
 });
