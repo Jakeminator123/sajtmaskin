@@ -65,6 +65,7 @@ import {
 import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
 import { getModelContextWindowTokens } from "@/lib/models/context-window";
 import { deriveFollowUpStateFromInputs } from "./follow-up-predicate";
+import type { FollowUpContract } from "./orchestration-snapshot";
 import type { RequestKindClass } from "./request-kind";
 import type { FollowUpIntentMode } from "./follow-up-intent-types";
 import type { CapabilitySpecificityTier } from "@/lib/builder/follow-up-capability-detection";
@@ -298,6 +299,12 @@ export interface OrchestrationInput {
    * the two call-sites).
    */
   previousFilesCount?: number;
+  /**
+   * Område 5 / 5-1: consolidated inherited/frozen follow-up signals
+   * ({@link FollowUpContract}). Additive and behaviour-neutral — orchestrate
+   * does not read this yet; later activities (5-2..5-7) validate against it.
+   */
+  followUpContract?: FollowUpContract;
 }
 
 function explicitlyRequestsContactDelivery(prompt: string): boolean {
