@@ -166,6 +166,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const { status: activeVersionBusStatus } = useVersionStatus({
     chatId: vm.chatId,
     versionId: vm.activeVersionId,
+    // Område 6-3 punkt 1: deterministic refetch after the post-check flow
+    // completes (bumped in `runPostGenerationChecks`'s `finally`), so a late
+    // `version.degraded` is read even after poll-until-stable has stopped.
+    refreshNonce: vm.versionStatusNonce,
   });
   const activeVersionStatus = useMemo(() => {
     if (!activeVersionSummary) return null;

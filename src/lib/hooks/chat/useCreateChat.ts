@@ -68,6 +68,7 @@ export function useCreateChat(
     setPreviewProdBuild,
     setPreviewPending,
     onPreviewRefresh,
+    onVersionStatusRefresh,
     onGenerationComplete,
     onPreviewSessionMeta,
     onLinkedProjectId,
@@ -333,6 +334,7 @@ export function useCreateChat(
             setMessages,
             mutateVersions,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+            onComplete: onVersionStatusRefresh,
           });
         }
 
@@ -469,6 +471,7 @@ export function useCreateChat(
               setPreviewProdBuild,
               setPreviewPending,
               onPreviewRefresh,
+              onVersionStatusRefresh,
               onGenerationComplete,
               onPreviewSessionMeta,
               mutateVersions,
@@ -584,6 +587,7 @@ export function useCreateChat(
       setPreviewBuildError,
       setPreviewProdBuild,
       onPreviewRefresh,
+      onVersionStatusRefresh,
       onGenerationComplete,
       onPreviewSessionMeta,
       onLinkedProjectId,

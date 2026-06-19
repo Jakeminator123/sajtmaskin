@@ -57,6 +57,8 @@ export type StreamContext = {
   setPreviewProdBuild?: (payload: PreviewProdBuildPayload | null) => void;
   setPreviewPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
+  /** Område 6-3 punkt 1: post-check completion → guaranteed status refetch. */
+  onVersionStatusRefresh?: () => void;
   onGenerationComplete?: (data: {
     chatId: string;
     versionId?: string;
@@ -118,6 +120,7 @@ export async function handleSseStream(
     setPreviewProdBuild,
     setPreviewPending,
     onPreviewRefresh,
+    onVersionStatusRefresh,
     onGenerationComplete,
     mutateVersions,
     enableImageMaterialization,
@@ -1119,6 +1122,7 @@ export async function handleSseStream(
       streamQuality,
       mutateVersions,
       onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+      onComplete: onVersionStatusRefresh,
     });
   }
 

@@ -242,6 +242,12 @@ export type ChatMessagingParams = {
   setPreviewProdBuild?: (payload: PreviewProdBuildPayload | null) => void;
   setPreviewPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
+  /**
+   * Område 6-3 punkt 1: bumped when the post-generation check flow
+   * completes, so `useVersionStatus` does a guaranteed final read after a
+   * late `version.degraded` from `/product-postcheck`. Stable callback.
+   */
+  onVersionStatusRefresh?: () => void;
   onGenerationComplete?: (data: {
     chatId: string;
     versionId?: string;

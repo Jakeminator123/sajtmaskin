@@ -240,6 +240,63 @@ describe("runPostGenerationChecks", () => {
     expect(fetchCalls.some((call) => call.url.includes("/quality-gate"))).toBe(false);
   });
 
+  it("revalidates both status surfaces once on completion (mutateVersions + onComplete)", async () => {
+    const mutateVersions = vi.fn();
+    const onComplete = vi.fn();
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        fetchCalls.push({ url, init });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", createdAt: "2026-03-14T10:00:00.000Z" }],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/error-log")) {
+          return jsonResponse({ ok: true });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: null,
+      // Preflight-blocked → autofix path: reaches the `finally` cleanly
+      // without the quality-gate lane (which can call mutateVersions itself).
+      preflight: {
+        previewBlocked: true,
+        verificationBlocked: true,
+        previewBlockingReason: "Own preview entrypoint could not be prepared.",
+      },
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      mutateVersions,
+      onAutoFix,
+      onComplete,
+    });
+
+    // Deterministic completion refresh (Codex P2, område 6-3): both the
+    // versions list (VersionHistory `busStatus`) and the preview badge
+    // (`useVersionStatus` via `refreshNonce`) must refetch exactly once
+    // after the postcheck so the two surfaces never disagree. Without the
+    // `finally` revalidation, mutateVersions is not called on this path.
+    expect(mutateVersions).toHaveBeenCalledTimes(1);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
   it("falls back to preview-missing diagnostics when no preflight state exists", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
