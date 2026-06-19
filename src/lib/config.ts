@@ -345,6 +345,16 @@ export const FEATURES = {
   // rate and runtime cost.
   f2ProductPostcheck: isAffirmativeEnvValue(env.SAJTMASKIN_F2_PRODUCT_POSTCHECK),
 
+  // Grandmaster område 7 / A7-2 (BUG-SWARM N#1): when ON, the cross-file
+  // import checker refuses to fabricate a silent null-render stub for a
+  // dossier-exposed import. The still-unresolved import then degrades/blocks
+  // the version via runProjectSanityChecks (#1 "Unresolved local import")
+  // instead of shipping false-green hollow output. Default OFF so master
+  // runtime behavior is unchanged; flipping the default is a separate
+  // decision once område 5/6 land. See
+  // docs/plans/active/grandmaster/aktiviteter/A7-2-refuse-dossier-stubs-flag.md.
+  refuseDossierStubs: isAffirmativeEnvValue(env.SAJTMASKIN_REFUSE_DOSSIER_STUBS),
+
   // The four previously dormant flags below were hardcoded ON on 2026-04-22
   // after confirming zero production off-toggles historically. Their env
   // keys (SAJTMASKIN_BUILD_SPEC_ENABLED, …_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION,
