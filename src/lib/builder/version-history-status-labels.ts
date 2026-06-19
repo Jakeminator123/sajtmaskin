@@ -5,7 +5,7 @@
  *
  * This is the presentation layer that replaces the inline legacy-token →
  * label/variant/tooltip mapping `VersionHistory.tsx` previously built on
- * top of `resolveEngineVersionDisplayStatus`. Keeping it here (pure +
+ * top of the now-removed `resolveEngineVersionDisplayStatus`. Keeping it here (pure +
  * unit-tested) means the component only wires data → markup and the
  * label/variant contract has one source of truth.
  *

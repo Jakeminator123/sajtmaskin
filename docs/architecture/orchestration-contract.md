@@ -184,7 +184,7 @@ Tests can opt out via `__resetSubscribersForTests()` /
 | `server-verify.policy` devLog entry | partial — policy emits `version.verifier.done` with `outcome: "skipped"` when the verifier won't run; the legacy devLog entry is retained side-by-side because the backoffice filters on this exact type |
 | `server-verify.ts` quality-gate result log | **migrated** — emits `version.verifier.done` with `passed`/`failed` + findings |
 | `triggerBuildErrorRepair` (preview-VM build error) | **migrated** — emits `version.build.error` before repair loop starts |
-| Client-derived `versionStatus` (legacy `resolveEngineVersionDisplayStatus`) | projection is available as `selectVersionStatus(events)`; the current builder UI still reads DB-row flags. A follow-up wave will flip the UI over without a schema change |
+| Client-derived `versionStatus` (legacy `resolveEngineVersionDisplayStatus`) | **migrated** — the builder UI reads the `selectVersionStatus(events)` projection (`useVersionStatus` + server-enriched `busStatus`); the legacy DB-row resolver was removed in Område 6-3 (no schema change) |
 
 ## Contract invariants
 

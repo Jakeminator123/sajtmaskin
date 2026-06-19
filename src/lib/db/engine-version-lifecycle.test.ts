@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   isServerVerifyExpectedForLifecycle,
   resolveEngineVersionLifecycleStatus,
-  resolveEngineVersionDisplayStatus,
   resolveEngineVersionVerificationSurfaceStatus,
   canExposeEnginePreview,
   selectPreferredEngineVersion,
@@ -66,46 +65,6 @@ describe("resolveEngineVersionLifecycleStatus", () => {
     expect(
       resolveEngineVersionLifecycleStatus({ releaseState: "promoted", verificationState: "repairing" }),
     ).toBe("promoted");
-  });
-});
-
-describe("resolveEngineVersionDisplayStatus", () => {
-  it("shows repairing during repair", () => {
-    expect(
-      resolveEngineVersionDisplayStatus({ verificationState: "repairing" }),
-    ).toBe("repairing");
-  });
-
-  it("shows retrying when repairing but newer version exists", () => {
-    const repairing = { verificationState: "repairing", versionNumber: 1 };
-    const newer = { verificationState: "passed", releaseState: "promoted", versionNumber: 2 };
-    expect(resolveEngineVersionDisplayStatus(repairing, [repairing, newer])).toBe("retrying");
-  });
-
-  it("shows retrying when repair_available but newer version exists", () => {
-    const repairAvailable = { verificationState: "repair_available", versionNumber: 1 };
-    const newer = { verificationState: "passed", releaseState: "promoted", versionNumber: 2 };
-    expect(resolveEngineVersionDisplayStatus(repairAvailable, [repairAvailable, newer])).toBe(
-      "retrying",
-    );
-  });
-
-  it("shows retrying when failed but newer version exists", () => {
-    const failed = { verificationState: "failed", versionNumber: 1 };
-    const newer = { verificationState: "verifying", versionNumber: 2 };
-    expect(resolveEngineVersionDisplayStatus(failed, [failed, newer])).toBe("retrying");
-  });
-
-  it("shows retrying when verifying but newer version exists", () => {
-    const verifying = { verificationState: "verifying", versionNumber: 1 };
-    const newer = { verificationState: "pending", versionNumber: 2 };
-    expect(resolveEngineVersionDisplayStatus(verifying, [verifying, newer])).toBe("retrying");
-  });
-
-  it("keeps pending versions as draft when a newer version exists", () => {
-    const pending = { verificationState: "pending", versionNumber: 1 };
-    const newer = { verificationState: "verifying", versionNumber: 2 };
-    expect(resolveEngineVersionDisplayStatus(pending, [pending, newer])).toBe("draft");
   });
 });
 

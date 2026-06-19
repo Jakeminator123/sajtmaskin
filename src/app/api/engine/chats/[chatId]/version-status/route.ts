@@ -6,7 +6,7 @@
  * the existing `selectVersionStatus()` projection that already runs
  * server-side via the bus subscribers — same code path, just exposed as
  * an HTTP read so the builder UI doesn't have to derive status from
- * disparate DB row flags via `resolveEngineVersionDisplayStatus`.
+ * disparate DB row flags via the now-removed `resolveEngineVersionDisplayStatus`.
  *
  * Use case: `useVersionStatus()` hook in the builder polls / re-fetches
  * this endpoint to keep the active version's status in sync with the

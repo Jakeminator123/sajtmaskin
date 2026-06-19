@@ -27,7 +27,7 @@ Kuraterad `test:stability`-lane som låser större buggar + UX-invarianter. Tre 
 | `åäö` i användarprompt renderas i builder-chatten under generering | ditt exempel |
 | Follow-up byter inte scaffold/variant, tappar inte route utan signal | spår O/N |
 | Placeholder/degraded visas aldrig som "success" | P1 N#1, falskt-grönt |
-| Central builder-yta läser inte legacy `resolveEngineVersionDisplayStatus` | N#6 |
+| Central builder-yta läser inte legacy `resolveEngineVersionDisplayStatus` — **aktiv hård invariant** (resolvern borttagen 6-3, `status-resolver-single-writer.stability.test.ts`) | N#6 |
 | Stale basversion i follow-up/F3 → 409 | spår R |
 | DB-schema: avsett (`schema.ts`) == applicerat (`db-init`/migrations) | `db:schema-drift` (höj soft→gate, S4) |
 
@@ -38,6 +38,6 @@ varje test pekar på sin källa.
 ## Nivå 3 (batch 1 skapad)
 Detta område är **först i körordningen** → första batchen finns i [`aktiviteter/`](aktiviteter/README.md):
 [`S1`](aktiviteter/S1-test-stability-lane.md) lane · [`S2`](aktiviteter/S2-aao-invariant.md) åäö ·
-[`S3`](aktiviteter/S3-statusresolver-invariant.md) statusresolver (todo tills omr 6) ·
+[`S3`](aktiviteter/S3-statusresolver-invariant.md) statusresolver (**klar** — hård invariant 6-3) ·
 [`S4`](aktiviteter/S4-db-health-gate.md) DB-health-gate (koordinerar parallell PR).
 Fler aktiviteter skapas vid behov.

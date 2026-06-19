@@ -1,33 +1,44 @@
 ---
 id: gm-akt-S3
-status: ready
+status: done
 parent: gm-omrade-02-stabilitetstester
 blocked_by: [gm-akt-S1]
-note: "S1 (blockeraren) klar. S3 är den ENDA öppna stabilitetsaktiviteten — medvetet uppskjuten tills område 6 (event-bus-status-flip) landar, så invarianten testar den nya statusresolvern."
+note: "Klar. Område 6 (event-bus-status-cut-over) landade (6-1 #159, 6-2 #160, 6-3 punkt 1 #162), så den parallella DB-helpern hade noll app-konsumenter och togs bort i 6-3 punkt 2. S3-invarianten flippades då från warn/xfail till en hård import-/anrops-vakt. Levererad i draft-PR (ej mergad)."
 owner_files:
-  - (ny) stabilitetstest/guard för statusresolver
+  - src/lib/builder/status-resolver-single-writer.stability.test.ts
 risk: låg
 ---
 
-# S3 — statusresolver-invariant (todo tills område 6)
+# S3 — statusresolver-invariant (klar — hård import-vakt)
 
 ## Mål
-Lås att **central builder-yta inte läser legacy `resolveEngineVersionDisplayStatus`**
-(N#6). En search-/import-invariant över `VersionHistory.tsx` + `BuilderShellContent.tsx`.
+Lås att ingen kod under `src/**` läser legacy `resolveEngineVersionDisplayStatus`
+(N#6). En grep-/import-invariant som dokumenterar single-writer-tillståndet på de
+centrala builder-ytorna (`VersionHistory.tsx` + `BuilderShellContent.tsx`).
 
-## Viktigt — författas non-blocking nu
-Dessa ytor **använder fortfarande** legacy-resolvern (öppen P2). Skriv invarianten i
-`todo`/`xfail`-läge (eller warn-only) som dokumenterar nuvarande legacy-användare, med
-kommentar: *"flippa till `assert(tom)` när område 6 (event-bus UI-flip) landat."* Lanen
-ska **inte** rödfärgas av detta innan omr 6.
+## Levererat (6-3 punkt 2)
+Event-bus-status-cut-over är klar, så helpern hade noll app-konsumenter kvar och är
+**borttagen** ur `src/lib/db/engine-version-lifecycle.ts` (funktionen + den enbart
+av den använda typen `EngineVersionDisplayStatus` + det döda test-blocket). Tidigare
+warn/xfail-planen är därför uppfylld och invarianten skrevs direkt som en **hård
+assert**:
+
+- Ny stabilitetstest `src/lib/builder/status-resolver-single-writer.stability.test.ts`
+  (`*.stability.test.ts`-glob → körs av `npm run test:stability`, exkluderas från
+  `test:ci`). Rekursiv `fs`-skanning av `src/**/*.{ts,tsx}` (skippar `node_modules`,
+  dot-kataloger och testfilen själv). Matchar BARA import-satser och faktiska anrop
+  (`symbol(`) — robust mot backtick-omsluten prosa i kommentarer.
+- Positiv sanity-assert: `BuilderShellContent.tsx` (via `useVersionStatus`) +
+  `VersionHistory.tsx` (via server-enrichat `busStatus`) läser bus-vägen.
 
 ## Inte scope
-- Själva UI-flippen (det är område 6).
+- Själva UI-flippen (det var område 6, klart).
 - Ändra statusprojektionen `selectVersionStatus`.
 
 ## Verifiering
-- `npm run test:stability` grön (invarianten i todo/xfail).
-- Grep visar att invarianten listar exakt dagens legacy-importörer.
+- `npm run test:stability` grön (hård invariant + befintliga stabilitetstester).
+- `npx vitest run -c vitest.stability.config.ts src/lib/builder/status-resolver-single-writer.stability.test.ts` grön.
+- Grep: inga `resolveEngineVersionDisplayStatus`-import/-anrop kvar i `src/**` (endast prosa).
 
 ## Risk
-Låg. Dokumenterande invariant; aktiveras som gate i område 6.
+Låg. Ren grep-/import-vakt (ingen runtime). Legacy-resolvern var redan död kod.

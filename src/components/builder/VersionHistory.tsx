@@ -618,7 +618,7 @@ export function VersionHistory({
             // OMTAG-06 / område 6-2: the lifecycle badge now derives from the
             // canonical event-bus projection — `busStatus` is enriched per row
             // by the /versions route via `selectVersionStatus(readAll(id))` —
-            // instead of the legacy DB-flag resolver
+            // instead of the now-removed DB-flag resolver
             // `resolveEngineVersionDisplayStatus`. `mapVersionStatusToDisplay`
             // adds the chat-context derivations (`retrying` when superseded,
             // `promoted` from release-state) plus the false-green guard
