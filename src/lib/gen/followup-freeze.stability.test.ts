@@ -1,0 +1,226 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  detectFollowUpRouteDrift,
+  enforceFollowUpScaffoldFreeze,
+  enforceFollowUpVariantFreeze,
+  resolveOrchestrationBase,
+  type OrchestrationInput,
+} from "./orchestrate";
+import type { FollowUpContract } from "./orchestration-snapshot";
+
+/**
+ * Grandmaster Område 5 — 5-3: frys-enforcement (freeze-enforcement).
+ *
+ * Källa: docs/plans/active/grandmaster/aktiviteter/5-3-frys-enforcement.md
+ *
+ * Invariant som låses: en *neutral* follow-up får inte drifta bort från
+ * basversionens frysta scaffold/variant/route. `FollowUpContract` är den
+ * aktiva källan; clear-redesign (avsiktlig omdesign) är undantaget och får
+ * fortsatt rematcha.
+ *
+ * Detta block kör mot den riktiga `resolveOrchestrationBase` (rena enheter:
+ * inga embeddings — `embeddingScaffoldMatch:false`/manuellt scaffold — ingen
+ * shadcn-IO — `simpleWebsitePath:true` — ingen builder, /api/engine eller
+ * preview). Det bevisar att den kända manual-kringgången (`scaffoldMode:
+ * "manual"` + annat `scaffoldId`) faktiskt stängs end-to-end.
+ *
+ * `landing-page` och `saas-landing` är två riktiga website-scaffolds i
+ * registret (src/lib/gen/scaffolds/registry.ts) → ingen build-intent-promotion
+ * brusar in.
+ */
+
+const FROZEN_SCAFFOLD_ID = "landing-page";
+const OTHER_SCAFFOLD_ID = "saas-landing";
+
+function makeContract(overrides: Partial<FollowUpContract> = {}): FollowUpContract {
+  return {
+    baseVersionId: "ver_base_1",
+    snapshotBrief: null,
+    scaffoldId: FROZEN_SCAFFOLD_ID,
+    variantId: null,
+    routePlan: {
+      existingRoutePaths: ["/", "/om", "/kontakt"],
+      existingShellRoutePaths: [],
+    },
+    capabilities: [],
+    qualityTarget: null,
+    previewSessionId: null,
+    ...overrides,
+  };
+}
+
+function makeFollowUpInput(overrides: Partial<OrchestrationInput> = {}): OrchestrationInput {
+  const contract = overrides.followUpContract ?? makeContract();
+  return {
+    prompt: "Byt knappfärgen på hero-sektionen till blå.",
+    rawPrompt: "Byt knappfärgen på hero-sektionen till blå.",
+    buildIntent: "website",
+    generationMode: "followUp",
+    scaffoldMode: "manual",
+    scaffoldId: OTHER_SCAFFOLD_ID,
+    persistedScaffoldId: FROZEN_SCAFFOLD_ID,
+    ignorePersistedScaffoldForMatch: false,
+    embeddingScaffoldMatch: false,
+    simpleWebsitePath: true,
+    previousFilesCount: 4,
+    existingRoutePaths: contract.routePlan.existingRoutePaths,
+    existingShellRoutePaths: contract.routePlan.existingShellRoutePaths,
+    followUpIntent: "neutral",
+    chatId: "chat-5-3",
+    ...overrides,
+    followUpContract: contract,
+  };
+}
+
+describe("5-3 freeze-enforcement — resolveOrchestrationBase (integration)", () => {
+  it("clamps a neutral follow-up's manual scaffold swap back to the frozen contract scaffold (closes orchestrate manual-bypass)", async () => {
+    const base = await resolveOrchestrationBase(
+      makeFollowUpInput({ scaffoldMode: "manual", scaffoldId: OTHER_SCAFFOLD_ID }),
+    );
+    // Without enforcement, the manual scaffoldId wins (orchestrate.ts manual
+    // branch) → resolvedScaffold === saas-landing. With 5-3, the frozen
+    // contract scaffold wins.
+    expect(base.resolvedScaffold?.id).toBe(FROZEN_SCAFFOLD_ID);
+  });
+
+  it("preserves the frozen contract routes on a neutral follow-up", async () => {
+    const base = await resolveOrchestrationBase(makeFollowUpInput());
+    const routePaths = base.routePlan.routes.map((route) => route.path);
+    for (const frozenPath of makeContract().routePlan.existingRoutePaths) {
+      expect(routePaths).toContain(frozenPath);
+    }
+  });
+
+  it("does NOT clamp the scaffold when the lock is released (clear-redesign / ignorePersistedScaffoldForMatch)", async () => {
+    // Isolates the exemption gate: even an explicit manual scaffold that
+    // differs from the contract is allowed through when the scaffold lock is
+    // released. The gate is `ignorePersistedScaffoldForMatch`, not scaffoldMode.
+    const base = await resolveOrchestrationBase(
+      makeFollowUpInput({
+        scaffoldMode: "manual",
+        scaffoldId: OTHER_SCAFFOLD_ID,
+        ignorePersistedScaffoldForMatch: true,
+      }),
+    );
+    expect(base.resolvedScaffold?.id).toBe(OTHER_SCAFFOLD_ID);
+  });
+});
+
+describe("5-3 freeze-enforcement — enforceFollowUpScaffoldFreeze (unit)", () => {
+  it("clamps a neutral follow-up's drifted scaffold back to the contract", () => {
+    const decision = enforceFollowUpScaffoldFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractScaffoldId: FROZEN_SCAFFOLD_ID,
+      resolvedScaffoldId: OTHER_SCAFFOLD_ID,
+    });
+    expect(decision).toEqual({ scaffoldId: FROZEN_SCAFFOLD_ID, clamped: true });
+  });
+
+  it("is a no-op when the resolved scaffold already equals the contract", () => {
+    const decision = enforceFollowUpScaffoldFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractScaffoldId: FROZEN_SCAFFOLD_ID,
+      resolvedScaffoldId: FROZEN_SCAFFOLD_ID,
+    });
+    expect(decision).toEqual({ scaffoldId: FROZEN_SCAFFOLD_ID, clamped: false });
+  });
+
+  it("does NOT clamp when the scaffold lock is released (clear-redesign exemption)", () => {
+    const decision = enforceFollowUpScaffoldFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: true,
+      contractScaffoldId: FROZEN_SCAFFOLD_ID,
+      resolvedScaffoldId: OTHER_SCAFFOLD_ID,
+    });
+    expect(decision).toEqual({ scaffoldId: OTHER_SCAFFOLD_ID, clamped: false });
+  });
+
+  it("does NOT clamp on init runs", () => {
+    const decision = enforceFollowUpScaffoldFreeze({
+      resolvedMode: "init",
+      ignorePersistedScaffoldForMatch: false,
+      contractScaffoldId: FROZEN_SCAFFOLD_ID,
+      resolvedScaffoldId: OTHER_SCAFFOLD_ID,
+    });
+    expect(decision.clamped).toBe(false);
+  });
+
+  it("does NOT clamp when the contract carries no frozen scaffold", () => {
+    const decision = enforceFollowUpScaffoldFreeze({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractScaffoldId: null,
+      resolvedScaffoldId: OTHER_SCAFFOLD_ID,
+    });
+    expect(decision.clamped).toBe(false);
+  });
+});
+
+describe("5-3 freeze-enforcement — enforceFollowUpVariantFreeze (unit)", () => {
+  it("clamps a neutral follow-up's drifted variant back to the contract", () => {
+    const decision = enforceFollowUpVariantFreeze({
+      resolvedMode: "followUp",
+      followUpIntent: "neutral",
+      contractVariantId: "warm-local",
+      resolvedVariantId: "corporate-grid",
+    });
+    expect(decision).toEqual({ variantId: "warm-local", clamped: true });
+  });
+
+  it("does NOT clamp the variant on clear-redesign (exemption)", () => {
+    const decision = enforceFollowUpVariantFreeze({
+      resolvedMode: "followUp",
+      followUpIntent: "clear-redesign",
+      contractVariantId: "warm-local",
+      resolvedVariantId: "corporate-grid",
+    });
+    expect(decision).toEqual({ variantId: "corporate-grid", clamped: false });
+  });
+
+  it("is a no-op when the resolved variant already equals the contract", () => {
+    const decision = enforceFollowUpVariantFreeze({
+      resolvedMode: "followUp",
+      followUpIntent: "neutral",
+      contractVariantId: "warm-local",
+      resolvedVariantId: "warm-local",
+    });
+    expect(decision.clamped).toBe(false);
+  });
+});
+
+describe("5-3 freeze-enforcement — detectFollowUpRouteDrift (unit)", () => {
+  it("flags drift when a neutral follow-up dropped a frozen contract route", () => {
+    const decision = detectFollowUpRouteDrift({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/", "/om", "/kontakt"],
+      resolvedRoutePaths: ["/", "/om"],
+    });
+    expect(decision.drifted).toBe(true);
+    expect(decision.droppedPaths).toEqual(["/kontakt"]);
+  });
+
+  it("reports no drift when every frozen route survives (trailing-slash insensitive)", () => {
+    const decision = detectFollowUpRouteDrift({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: false,
+      contractExistingRoutePaths: ["/", "/om/", "/kontakt"],
+      resolvedRoutePaths: ["/", "/om", "/kontakt", "/nyheter"],
+    });
+    expect(decision.drifted).toBe(false);
+    expect(decision.droppedPaths).toEqual([]);
+  });
+
+  it("does NOT flag route drift on clear-redesign (exemption)", () => {
+    const decision = detectFollowUpRouteDrift({
+      resolvedMode: "followUp",
+      ignorePersistedScaffoldForMatch: true,
+      contractExistingRoutePaths: ["/", "/om", "/kontakt"],
+      resolvedRoutePaths: ["/"],
+    });
+    expect(decision.drifted).toBe(false);
+  });
+});
