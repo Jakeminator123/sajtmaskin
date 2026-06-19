@@ -380,8 +380,14 @@ export async function runPostGenerationChecks(params: {
   } finally {
     controller.abort();
     // Deterministic completion signal (runs on both the success and catch
-    // paths, exactly once). Triggers the guaranteed post-postcheck status
-    // refetch in `useVersionStatus` via the wired `refreshNonce` bump.
+    // paths, exactly once). Refetches BOTH status surfaces after the
+    // postcheck has emitted any late `version.degraded`: `mutateVersions`
+    // revalidates `/versions` (VersionHistory `busStatus`, whose SWR
+    // otherwise idles ~60s) and `onComplete` bumps `refreshNonce` for the
+    // preview badge (`useVersionStatus`). Without the former the two
+    // surfaces disagree — history keeps the pre-postcheck green while the
+    // preview already shows degraded (Codex P2, område 6-3).
+    mutateVersions?.();
     onComplete?.();
   }
 }
