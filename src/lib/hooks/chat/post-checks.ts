@@ -206,6 +206,14 @@ export async function runPostGenerationChecks(params: {
   streamQuality?: StreamQualitySignal;
   mutateVersions?: () => void;
   onAutoFix?: (payload: AutoFixPayload) => void;
+  /**
+   * Område 6-3 punkt 1: fired exactly once when this post-check
+   * invocation finishes (success OR catch path), from the `finally`
+   * block. The builder wires this to a `refreshNonce` bump so
+   * `useVersionStatus` does a guaranteed final read AFTER the
+   * product-postcheck has emitted any late `version.degraded`.
+   */
+  onComplete?: () => void;
 }) {
   const {
     chatId,
@@ -217,6 +225,7 @@ export async function runPostGenerationChecks(params: {
     streamQuality,
     mutateVersions,
     onAutoFix,
+    onComplete,
   } = params;
   const toolCallId = `post-check:${versionId}`;
   const controller = new AbortController();
@@ -370,6 +379,10 @@ export async function runPostGenerationChecks(params: {
     });
   } finally {
     controller.abort();
+    // Deterministic completion signal (runs on both the success and catch
+    // paths, exactly once). Triggers the guaranteed post-postcheck status
+    // refetch in `useVersionStatus` via the wired `refreshNonce` bump.
+    onComplete?.();
   }
 }
 

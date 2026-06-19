@@ -63,6 +63,7 @@ export function useSendMessage(
     setPreviewProdBuild,
     setPreviewPending,
     onPreviewRefresh,
+    onVersionStatusRefresh,
     onGenerationComplete,
     onPreviewSessionMeta,
     setMessages,
@@ -202,6 +203,7 @@ export function useSendMessage(
             setMessages,
             mutateVersions,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+            onComplete: onVersionStatusRefresh,
           });
         }
       };
@@ -339,6 +341,7 @@ export function useSendMessage(
             setPreviewProdBuild,
             setPreviewPending,
             onPreviewRefresh,
+            onVersionStatusRefresh,
             onGenerationComplete,
             onPreviewSessionMeta,
             mutateVersions,
@@ -441,6 +444,7 @@ export function useSendMessage(
       setPreviewBuildError,
       setPreviewProdBuild,
       onPreviewRefresh,
+      onVersionStatusRefresh,
       onGenerationComplete,
       onPreviewSessionMeta,
       selectedModelTier,

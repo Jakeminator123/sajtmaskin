@@ -211,3 +211,83 @@ describe("useVersionStatus — Finding A (poll until stable)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });
+
+/**
+ * Område 6-3 punkt 1 — deterministic post-check completion → refetch.
+ *
+ * Poll-until-stable (above) is a cheap *secondary* guard. The *primary*
+ * guarantee is now deterministic: when the client post-check flow finishes,
+ * `runPostGenerationChecks` fires `onComplete`, which bumps the hook's
+ * `refreshNonce`. Because `/product-postcheck` emits any late
+ * `version.degraded` *before* it returns (and the client awaits that
+ * response), the nonce-driven refetch is guaranteed to read the final,
+ * possibly-degraded projection — even if poll-until-stable already stopped.
+ */
+describe("useVersionStatus — deterministic post-check refetch (område 6-3 punkt 1)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("refetches on a refreshNonce bump and surfaces a degradation that landed after polling stopped", async () => {
+    const greenN = vs({ done: true, verifierOutcome: "passed", eventCount: 5, degradations: [] });
+    const degradedN1 = vs({
+      done: true,
+      verifierOutcome: "passed",
+      eventCount: 6,
+      degradations: [
+        { kind: "product_postcheck_skipped", message: "F2 Product Postcheck skipped." },
+      ],
+    });
+    // nonce 0: [green, green] → stabilizes & stops with NO degradation. The
+    // post-check then finishes, `/product-postcheck` emits the late
+    // degradation, and the bumped nonce makes the next fetch read it.
+    const fetchMock = sequenceFetch([greenN, greenN, degradedN1, degradedN1]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ nonce }: { nonce: number }) =>
+        useVersionStatus({
+          chatId: "c1",
+          versionId: "v1",
+          pollIntervalMs: POLL,
+          refreshNonce: nonce,
+        }),
+      { initialProps: { nonce: 0 } },
+    );
+
+    // Initial fetch: green, no degradation.
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.status?.degradations).toEqual([]);
+
+    // One confirmation poll: same eventCount → stable → polling stops.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // Heuristic has stopped; the late degradation is NOT visible yet. This is
+    // exactly the window the deterministic refetch closes.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 5);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.status?.degradations).toEqual([]);
+
+    // Post-check completes → onComplete bumps the nonce → guaranteed refetch.
+    await act(async () => {
+      rerender({ nonce: 1 });
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.current.status?.degradations.length).toBeGreaterThan(0);
+    expect(result.current.status?.degradations[0]?.kind).toBe("product_postcheck_skipped");
+  });
+});

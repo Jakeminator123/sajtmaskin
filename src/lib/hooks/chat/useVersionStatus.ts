@@ -25,8 +25,18 @@ import type { VersionStatus } from "@/lib/logging/event-bus-types";
  * product-postcheck flow runs *after* finalize and can emit a late
  * `version.degraded`, so stopping on the first `done` would miss it and
  * render a degraded version as solid green (Finding A, område 6-3). A
- * `failed` phase still stops immediately. Bumping `refreshNonce` forces
- * an immediate refetch from outside (e.g. after a user-triggered repair).
+ * `failed` phase still stops immediately.
+ *
+ * Område 6-3 punkt 1: the PRIMARY guarantee against a missed late
+ * degradation is now deterministic — the client bumps `refreshNonce`
+ * when the post-check flow actually finishes (see
+ * `runPostGenerationChecks`'s `onComplete`, wired to
+ * `onVersionStatusRefresh`). Because `/product-postcheck` emits
+ * `version.degraded` *before* it returns and the client awaits that
+ * response, the nonce-driven refetch is guaranteed to read the final
+ * projection. Poll-until-stable above is kept as a cheap SECONDARY guard
+ * (it also catches a late `eventCount` bump within the polling window).
+ * `refreshNonce` is likewise bumped on user-triggered repairs.
  */
 
 const DEFAULT_POLL_INTERVAL_MS = 4_000;
@@ -162,6 +172,13 @@ export function useVersionStatus(params: {
       if (shouldStopPolling(status)) return;
       intervalId = window.setInterval(async () => {
         const next = await fetchOnce();
+        // Codex P2 #1 guard: a poll started under this key can resolve
+        // after cleanup or after the (chatId/versionId/refreshNonce) key
+        // changed. `shouldStopPolling` mutates the shared
+        // `prevEventCountRef`, so a stale in-flight poll must never reach
+        // it — otherwise it corrupts the new key's stability tracking.
+        // Mirrors the same guard the initial fetch already uses below.
+        if (cancelled || lastKeyRef.current !== key) return;
         if (shouldStopPolling(next) && intervalId !== undefined) {
           window.clearInterval(intervalId);
           intervalId = undefined;
