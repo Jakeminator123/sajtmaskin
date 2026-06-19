@@ -211,6 +211,14 @@ export type ChatMessagingParams = {
   chatId: string | null;
   /** When set, follow-up stream sends `meta.engineBaseVersionId` so the server merges from that version. */
   activeVersionId?: string | null;
+  /**
+   * 5-2 stale-base gate: the version the client currently believes is newest
+   * for this chat (`derived.latestVersionId`). useSendMessage forwards it as
+   * `meta.engineLatestKnownVersionId` on regular follow-ups so the server can
+   * 409 when a newer version exists. Distinct from `activeVersionId`, which may
+   * point at a deliberately-selected older version.
+   */
+  latestKnownVersionId?: string | null;
   setChatId: (id: string | null) => void;
   chatIdParam: string | null;
   router: RouterLike;
@@ -242,6 +250,12 @@ export type ChatMessagingParams = {
   setPreviewProdBuild?: (payload: PreviewProdBuildPayload | null) => void;
   setPreviewPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
+  /**
+   * Område 6-3 punkt 1: bumped when the post-generation check flow
+   * completes, so `useVersionStatus` does a guaranteed final read after a
+   * late `version.degraded` from `/product-postcheck`. Stable callback.
+   */
+  onVersionStatusRefresh?: () => void;
   onGenerationComplete?: (data: {
     chatId: string;
     versionId?: string;

@@ -111,6 +111,18 @@ export function useBuilderPageController() {
     setPreviewRefreshToken(Date.now());
   }, [setPreviewRefreshToken]);
 
+  // Område 6-3 punkt 1: deterministic post-check completion → version-status
+  // refetch. The post-generation check flow calls `onVersionStatusRefresh`
+  // in its `finally`, which bumps this nonce; `useVersionStatus` reads it as
+  // `refreshNonce` and does a guaranteed final fetch AFTER `/product-postcheck`
+  // has emitted any late `version.degraded`. Must stay a stable callback
+  // (empty deps; the setState setter is stable) so it never re-triggers
+  // downstream effects on every render.
+  const [versionStatusNonce, setVersionStatusNonce] = useState(0);
+  const bumpVersionStatusRefresh = useCallback(() => {
+    setVersionStatusNonce((n) => n + 1);
+  }, []);
+
   const resetRecoverAfterBootstrapRef = useRef<(() => void) | null>(null);
   /** Prevents duplicate `createProject` while the dynamic-import path is in flight. */
   const autoProjectCreateInFlightRef = useRef(false);
@@ -367,6 +379,10 @@ export function useBuilderPageController() {
     useChatMessaging({
       chatId: state.chatId,
       activeVersionId: derived.activeVersionId,
+      // 5-2 stale-base gate: the client's current notion of the newest version,
+      // distinct from `activeVersionId` (which can be a deliberately-selected
+      // older version). Forwarded as `meta.engineLatestKnownVersionId`.
+      latestKnownVersionId: derived.latestVersionId,
       setChatId: state.setChatId,
       chatIdParam: state.chatIdParam,
       router,
@@ -395,6 +411,7 @@ export function useBuilderPageController() {
       setPreviewProdBuild,
       setPreviewPending,
       onPreviewRefresh: bumpPreviewRefreshToken,
+      onVersionStatusRefresh: bumpVersionStatusRefresh,
       onGenerationComplete: deployActions.handleGenerationComplete,
       onPreviewSessionMeta,
       onLinkedProjectId: (nextId) => state.setExternalProjectId(nextId),
@@ -1580,6 +1597,7 @@ export function useBuilderPageController() {
     serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,
     bumpPreviewRefreshToken,
+    versionStatusNonce,
     isVersionPanelCollapsed: state.isVersionPanelCollapsed,
     currentPageCode: state.currentPageCode,
     existingUiComponents: state.existingUiComponents,

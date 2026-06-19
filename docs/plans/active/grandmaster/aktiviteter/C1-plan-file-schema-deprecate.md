@@ -1,6 +1,7 @@
 ---
 id: gm-akt-C1
-status: ready
+status: done
+implemented_by: "PR #152 (plan-file.schema.json deprecated), auto-mergad av PR-mergaren"
 parent: gm-omrade-01-kontrakt-och-regler
 blocked_by: []
 owner_files:

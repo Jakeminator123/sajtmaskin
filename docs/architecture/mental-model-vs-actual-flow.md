@@ -152,7 +152,7 @@ Konkret nuvarande gap:
 | Område | Idag | Mål | Plan |
 |---|---|---|---|
 | **Repair-gate** | 5 callsites till `runLlmFixer` (verifier-fixer, partial-file-repair, syntax-fixer, tsc-fixer, eslint-fixer) | 1 RepairGate-modul med 3 buckets internt | `L1-unified-repair-call.md` (parkad — väntar telemetri) |
-| **Status event bus** | DB-flaggor + SSE-events parallellt; UI läser DB-flaggor via `resolveEngineVersionDisplayStatus` | UI läser projektion `selectVersionStatus(events)` (existerar sedan OMTAG fas 3·06) | `Kvarvarande-uppgifter.md` #11 |
+| **Status event bus** | UI läser projektionen `selectVersionStatus(events)` (via `useVersionStatus` + server-enrichat `busStatus`); legacy `resolveEngineVersionDisplayStatus` **borttagen** | UI läser projektion `selectVersionStatus(events)` | klart (Område 6-3) |
 | **Brief-vägar** | klient-brief / server-auto-brief / snapshot-brief parallellexisterar; fallback-addendum finns bara som degraderad helper, inte init-chat-wrapper | Sekventiell hierarki | P2 + P7 (öppna) |
 | **Verifier-pass placering** | Inline i finalize men hoppas över på fast-path | Antingen alltid inline (med budget) eller helt asynk | Audit §3.1 (telemetri-blockad) |
 | **Prompt-lager-konsolidering** | Deep Brief + server-auto-brief + snapshot-brief + kvarvarande prompt-assist helpers (`formatPrompt` i wizard/runner). Rewrite/Polish-UI är legacy. | En kanonisk path | P7 (öppet) |

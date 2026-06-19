@@ -6,8 +6,8 @@
  * rendering the preview panel from an SSE / polling stream). It takes
  * precedence over the three parallel status writers this bus replaces:
  * `preflight.summary` devLog entries, `engine_version_error_logs`
- * rows, and the old `resolveEngineVersionDisplayStatus()` that derived
- * status from DB row flags alone.
+ * rows, and the `resolveEngineVersionDisplayStatus` DB-helper that derived
+ * status from DB row flags alone (removed in område 6-3, cut-over klar).
  *
  * Rules (ordered evaluation against the event stream):
  *
@@ -18,7 +18,13 @@
  *      `phase = "repairing"`.
  *   4. If the latest preflight / verifier shows blockers →
  *      `phase = "blocked"`.
- *   5. Otherwise fall back to the most recent lifecycle phase signalled
+ *   5. If the verifier completed successfully (`passed`/`skipped`) and
+ *      none of the above blocked/repair/failed gates fired → `phase =
+ *      "done"`. This is the terminal-settle for the common case where the
+ *      runtime never emits the canonical `version.done` event (only the
+ *      legacy `site.done` devLog row) — without it a finished version is
+ *      stuck on the non-terminal `verifying` phase forever.
+ *   6. Otherwise fall back to the most recent lifecycle phase signalled
  *      by the event stream.
  */
 
@@ -172,6 +178,22 @@ export function selectVersionStatus(events: EngineEvent[]): VersionStatus {
     }
   }
 
+  // False-green-kontrakt (grandmaster område 7): en skippad verifierare
+  // får ALDRIG projiceras som ren success. Runtime parar idag
+  // `version.verifier.done {skipped}` med ett `version.degraded`-event
+  // (design_preview_skip_verify-vägen), men inget *tvingar* pareringen.
+  // Härled därför en fallback-degradering ur skipped-outcomet självt, så
+  // projektionen (den enda källa UI:t mappar från) aldrig kan ge en
+  // degraderingsfri "skipped" som downstream renderar som solid grön.
+  if (verifierOutcome === "skipped" && degradations.size === 0) {
+    degradations.set("verifier_skipped_by_policy", {
+      kind: "verifier_skipped_by_policy",
+      message:
+        "Verifiering hoppades över (härledd från verifier-outcome; inget explicit version.degraded-event).",
+      meta: null,
+    });
+  }
+
   const phase = deriveFinalPhase({
     phaseSignals,
     done,
@@ -189,7 +211,11 @@ export function selectVersionStatus(events: EngineEvent[]): VersionStatus {
     repairPassIndex,
     lastBuildError,
     eventCount: events.length,
-    done,
+    // `done` is true for an explicit `version.done` event AND for a
+    // verifier-settled terminal `done` phase (see `deriveFinalPhase`), so
+    // the polling client (`useVersionStatus`) stops re-fetching a version
+    // that has actually finished rather than polling it forever.
+    done: done || phase === "done",
     verifierOutcome,
     degradations: Array.from(degradations.values()),
   };
@@ -232,6 +258,31 @@ function deriveFinalPhase(params: {
     // A blocked version that isn't actively being repaired shows up as
     // blocked until something clears it.
     return "blocked";
+  }
+
+  // Terminal-settle: the canonical `version.done` terminal event is not
+  // yet emitted by the runtime — only the legacy `site.done` devLog row
+  // is (see the `version.done` cut-over note in event-bus-subscribers.ts).
+  // Until that emitter is wired, a *successfully completed* verifier
+  // (`passed`/`skipped`, having passed the failed/blocked/repairing gates
+  // above) is the authoritative end-of-stream signal. Without this a
+  // finished version would be stuck forever on the non-terminal
+  // `verifying` phase — which the builder UI renders as a perpetual
+  // "Verifierar" spinner and which also masks `promoted` (release-state)
+  // from ever surfacing. The false-green guard still applies downstream:
+  // a `done` carrying `degradations[]` maps to `degraded`, never solid
+  // success.
+  // Gate terminal-settle på att verifier-completion är den SENASTE
+  // fas-signalen (`lastSignal === "verifying"`). Annars settlar en stale
+  // `verifierOutcome` från en tidigare pass versionen `done` så fort en
+  // repair-pass ny `preflight` är ren — innan repair-passets verifierare
+  // rapporterat (stoppar polling, visar falskt "klart" mitt i reparation).
+  // Codex P2 / VADE logic.
+  if (
+    (verifierOutcome === "passed" || verifierOutcome === "skipped") &&
+    lastSignal === "verifying"
+  ) {
+    return "done";
   }
 
   return lastSignal;

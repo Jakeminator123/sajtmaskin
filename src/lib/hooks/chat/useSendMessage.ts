@@ -40,6 +40,7 @@ export function useSendMessage(
   const {
     chatId,
     activeVersionId,
+    latestKnownVersionId,
     appProjectId,
     selectedModelTier,
     enableImageGenerations,
@@ -63,6 +64,7 @@ export function useSendMessage(
     setPreviewProdBuild,
     setPreviewPending,
     onPreviewRefresh,
+    onVersionStatusRefresh,
     onGenerationComplete,
     onPreviewSessionMeta,
     setMessages,
@@ -202,6 +204,7 @@ export function useSendMessage(
             setMessages,
             mutateVersions,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+            onComplete: onVersionStatusRefresh,
           });
         }
       };
@@ -255,12 +258,26 @@ export function useSendMessage(
         if (typeof promptAssistDeep === "boolean") {
           promptMeta.promptAssistDeep = promptAssistDeep;
         }
-        const trimmedVersionId =
-          typeof options.engineBaseVersionIdOverride === "string"
-            ? options.engineBaseVersionIdOverride.trim()
-            : activeVersionId?.trim();
+        const engineBaseVersionIdOverride = options.engineBaseVersionIdOverride;
+        const usedEngineBaseVersionOverride =
+          typeof engineBaseVersionIdOverride === "string";
+        const trimmedVersionId = usedEngineBaseVersionOverride
+          ? engineBaseVersionIdOverride.trim()
+          : activeVersionId?.trim();
         if (trimmedVersionId) {
           promptMeta.engineBaseVersionId = trimmedVersionId;
+        }
+        // 5-2 stale-base gate (client half): on a regular follow-up the base is
+        // the user's current builder selection, so tell the server which
+        // version we believe is newest. The server returns 409 instead of
+        // silently building on a base another writer has already superseded.
+        // Deliberately editing an older version stays allowed because this
+        // known-latest still matches the server's when the user is up to date.
+        // Explicit overrides (F3 "Bygg integrationer", autofix) target a
+        // specific version on purpose, so they skip the signal and the gate.
+        const trimmedLatestKnownVersionId = latestKnownVersionId?.trim();
+        if (!usedEngineBaseVersionOverride && trimmedLatestKnownVersionId) {
+          promptMeta.engineLatestKnownVersionId = trimmedLatestKnownVersionId;
         }
         if (options.lifecycleStageOverride) {
           promptMeta.lifecycleStage = options.lifecycleStageOverride;
@@ -316,6 +333,30 @@ export function useSendMessage(
           } catch {
             // ignore
           }
+          // 5-2 stale-base gate (client half): the server already has a newer
+          // version than the one this request was built against. Surface a
+          // reload hint and refresh the version list instead of falling
+          // through to the generic error/abort path.
+          if (response.status === 409 && errorData?.reason === "stale_base_version") {
+            toast.error(
+              "En nyare version finns. Ladda om sidan för att fortsätta från den senaste versionen.",
+            );
+            mutateVersions();
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMessageId
+                  ? {
+                      ...m,
+                      content:
+                        m.content?.trim() ||
+                        "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
+                      isStreaming: false,
+                    }
+                  : m,
+              ),
+            );
+            return;
+          }
           throw new Error(
             buildApiErrorMessage({
               response,
@@ -339,6 +380,7 @@ export function useSendMessage(
             setPreviewProdBuild,
             setPreviewPending,
             onPreviewRefresh,
+            onVersionStatusRefresh,
             onGenerationComplete,
             onPreviewSessionMeta,
             mutateVersions,
@@ -429,6 +471,7 @@ export function useSendMessage(
     [
       chatId,
       activeVersionId,
+      latestKnownVersionId,
       appProjectId,
       createNewChat,
       enableImageGenerations,
@@ -441,6 +484,7 @@ export function useSendMessage(
       setPreviewBuildError,
       setPreviewProdBuild,
       onPreviewRefresh,
+      onVersionStatusRefresh,
       onGenerationComplete,
       onPreviewSessionMeta,
       selectedModelTier,

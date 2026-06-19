@@ -8,20 +8,35 @@ import type { VersionStatus } from "@/lib/logging/event-bus-types";
  * Read-only client view of the OMTAG-06 server-side `selectVersionStatus`
  * projection. Polls `/api/engine/chats/[chatId]/version-status` so the
  * builder UI can derive its display state from the **bus stream**
- * directly, instead of inferring it from the parallel DB-helper path
- * (`resolveEngineVersionDisplayStatus` in
+ * directly, instead of inferring it from the now-removed parallel
+ * DB-helper path (the former `resolveEngineVersionDisplayStatus` in
  * `src/lib/db/engine-version-lifecycle.ts`).
  *
- * Migration note: this hook does NOT replace the DB-helper for any
- * existing surface. `VersionHistory.tsx` and friends still use the
- * legacy resolver. The hook is shipped first so downstream components
- * can opt in one-by-one — single-writer-per-surface is the rule, no
- * "halvt byte" between the two channels.
+ * Migration note: as of område 6-2 the builder's status surfaces read
+ * the bus instead of the legacy DB resolver — `BuilderShellContent` via
+ * this hook (live polling of the active version), and `VersionHistory`
+ * via the server-enriched `busStatus` field on `/versions`.
+ * Single-writer-per-surface: each surface has exactly one status
+ * channel, no "halvt byte" between the two.
  *
- * Polling cadence is intentionally light (default 4s) and stops when
- * the bus reports `phase: "done"` so a finished version doesn't
- * generate background traffic. Bumping `refreshNonce` forces an
- * immediate refetch from outside (e.g. after a user-triggered repair).
+ * Polling cadence is intentionally light (default 4s). It stops once the
+ * projection is STABLE — `done` AND its `eventCount` unchanged vs the
+ * previous fetch — rather than on the first `done`. The client
+ * product-postcheck flow runs *after* finalize and can emit a late
+ * `version.degraded`, so stopping on the first `done` would miss it and
+ * render a degraded version as solid green (Finding A, område 6-3). A
+ * `failed` phase still stops immediately.
+ *
+ * Område 6-3 punkt 1: the PRIMARY guarantee against a missed late
+ * degradation is now deterministic — the client bumps `refreshNonce`
+ * when the post-check flow actually finishes (see
+ * `runPostGenerationChecks`'s `onComplete`, wired to
+ * `onVersionStatusRefresh`). Because `/product-postcheck` emits
+ * `version.degraded` *before* it returns and the client awaits that
+ * response, the nonce-driven refetch is guaranteed to read the final
+ * projection. Poll-until-stable above is kept as a cheap SECONDARY guard
+ * (it also catches a late `eventCount` bump within the polling window).
+ * `refreshNonce` is likewise bumped on user-triggered repairs.
  */
 
 const DEFAULT_POLL_INTERVAL_MS = 4_000;
@@ -57,6 +72,12 @@ export function useVersionStatus(params: {
   });
 
   const lastKeyRef = useRef<string | null>(null);
+  // Finding A (område 6-3): the `eventCount` from the immediately
+  // preceding fetch. We only stop polling a `done` projection once this
+  // count holds steady, so a late `version.degraded` (which bumps the
+  // count) is always observed before polling ends. `null` = no prior
+  // fetch yet for this key.
+  const prevEventCountRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!chatId || !versionId) {
@@ -66,6 +87,8 @@ export function useVersionStatus(params: {
 
     const key = `${chatId}:${versionId}:${refreshNonce}`;
     lastKeyRef.current = key;
+    // Fresh stability tracking for each (chat, version, refresh) key.
+    prevEventCountRef.current = null;
     let cancelled = false;
     queueMicrotask(() => {
       if (!cancelled && lastKeyRef.current === key) {
@@ -103,22 +126,60 @@ export function useVersionStatus(params: {
     }
 
     let intervalId: number | undefined;
+    // Safety cap: stop after at most this many `done` confirmation polls
+    // even if `eventCount` never settles, so a projection whose count
+    // keeps changing can never poll forever. Stability is normally
+    // reached within 1–2 polls.
+    const MAX_DONE_CONFIRM_POLLS = 5;
+    let doneConfirmPolls = 0;
 
-    const isTerminal = (s: VersionStatus | null): boolean =>
-      s?.done === true || s?.phase === "failed";
+    // Finding A (område 6-3): decide whether to stop polling after a
+    // fetch. A `done: true` projection is NOT necessarily final — the
+    // client post-check flow runs after finalize and may emit a late
+    // `version.degraded` (product-postcheck skipped/crashed). Stopping on
+    // the first `done` would miss that and show solid green for a degraded
+    // version (the false-green the område 6/7 invariant forbids). So we
+    // stop only once the projection is STABLE (`done` + `eventCount`
+    // unchanged vs the previous fetch) — guaranteeing a late degradation,
+    // which bumps `eventCount`, is observed first. `failed` is an
+    // immediate hard-stop: a failed version must never be grace-polled
+    // into looking green.
+    const shouldStopPolling = (s: VersionStatus | null): boolean => {
+      if (s?.phase === "failed") return true;
+
+      const prev = prevEventCountRef.current;
+      const current = s?.eventCount ?? null;
+      prevEventCountRef.current = current;
+
+      if (s?.done !== true) {
+        // Still in-flight (or a transient fetch error → null): keep
+        // polling and restart the done-confirmation window.
+        doneConfirmPolls = 0;
+        return false;
+      }
+
+      doneConfirmPolls += 1;
+      // Stable: `done` AND no new event since the previous fetch.
+      if (prev !== null && current === prev) return true;
+      // First `done` fetch (no prior to compare) or a late event just
+      // bumped the count → not stable yet; keep polling within the cap.
+      return doneConfirmPolls >= MAX_DONE_CONFIRM_POLLS;
+    };
 
     void fetchOnce().then((status) => {
       if (cancelled || lastKeyRef.current !== key) return;
       if (pollIntervalMs <= 0) return;
-      // Stop polling on a terminal projection — saves bandwidth on
-      // finished versions while leaving the last-fetched status in
-      // state. `failed` is terminal too: a version that reached
-      // build-error / verifier-failed without a `version.done` won't
-      // resolve itself by re-polling, so we'd otherwise poll forever.
-      if (isTerminal(status)) return;
+      if (shouldStopPolling(status)) return;
       intervalId = window.setInterval(async () => {
         const next = await fetchOnce();
-        if (isTerminal(next) && intervalId !== undefined) {
+        // Codex P2 #1 guard: a poll started under this key can resolve
+        // after cleanup or after the (chatId/versionId/refreshNonce) key
+        // changed. `shouldStopPolling` mutates the shared
+        // `prevEventCountRef`, so a stale in-flight poll must never reach
+        // it — otherwise it corrupts the new key's stability tracking.
+        // Mirrors the same guard the initial fetch already uses below.
+        if (cancelled || lastKeyRef.current !== key) return;
+        if (shouldStopPolling(next) && intervalId !== undefined) {
           window.clearInterval(intervalId);
           intervalId = undefined;
         }

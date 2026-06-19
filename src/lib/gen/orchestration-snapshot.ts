@@ -3,6 +3,7 @@
  * successful version save so follow-up prompts can recover tier/contract/strategy
  * signals without duplicating the full optimized prompt.
  */
+import type { BuildSpecQualityTarget } from "./build-spec";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "./prompt-wrapper-contract";
 
 const SENSITIVE_KEY_SUBSTR = /pass|secret|token|auth|cookie|credential|apikey|api_key/i;
@@ -305,6 +306,131 @@ export function buildFollowUpBriefFromSnapshot(
   // expect either a populated brief or no brief at all.
   if (Object.keys(out).length === 0) return null;
   return out;
+}
+
+// ── Follow-up contract (5-1) ───────────────────────────────────────────────
+
+/**
+ * Quality targets a follow-up may inherit. Kept in sync with
+ * {@link BuildSpecQualityTarget} via `satisfies` so a future change to the
+ * union fails to compile here instead of silently widening this allowlist.
+ */
+const FOLLOW_UP_QUALITY_TARGETS = [
+  "standard",
+  "premium",
+  "release-candidate",
+] as const satisfies readonly BuildSpecQualityTarget[];
+
+/**
+ * Område 5 / 5-1: the inherited and frozen signals a follow-up reuses are
+ * today scattered across loose `OrchestrationInput` fields (snapshot brief,
+ * persisted scaffold/variant ids, existing routes, prior quality target).
+ * `FollowUpContract` collects them into one explicit, readable object so the
+ * later activities (5-2..5-7) have a single thing to validate against.
+ *
+ * Purely additive and behaviour-neutral: every field is a consolidation of a
+ * value that already flows into `buildFollowUpOrchestrationInput`. It adds
+ * **no new signal source**, and `orchestrate` does not read it yet.
+ */
+export interface FollowUpContract {
+  /** Base version the follow-up edits build on (snapshot `lastVersionId`). */
+  baseVersionId: string | null;
+  /**
+   * Deterministic snapshot-derived brief (the rehydrated init design context),
+   * or null when the snapshot has no usable `briefSummary`. This always
+   * reflects the persisted base — even for a clear-redesign follow-up whose
+   * active brief is a fresh delta — so the base lineage stays inspectable.
+   */
+  snapshotBrief: Record<string, unknown> | null;
+  /** Frozen scaffold id carried across the follow-up (persisted id, else snapshot). */
+  scaffoldId: string | null;
+  /** Frozen scaffold variant id carried across the follow-up (persisted id, else snapshot). */
+  variantId: string | null;
+  /** Frozen routes from the base version (existing route + deferred-shell paths). */
+  routePlan: {
+    existingRoutePaths: string[];
+    existingShellRoutePaths: string[];
+  };
+  /** Capabilities inherited from the init brief (snapshot `requestedCapabilities`). */
+  capabilities: string[];
+  /** Quality target inherited from the prior accepted version, or null. */
+  qualityTarget: BuildSpecQualityTarget | null;
+  /** Active preview session id carried on the snapshot, or null. */
+  previewSessionId: string | null;
+}
+
+export interface BuildFollowUpContractInput {
+  snapshot: Record<string, unknown> | null | undefined;
+  persistedScaffoldId?: string | null;
+  persistedVariantId?: string | null;
+  existingRoutePaths?: string[];
+  existingShellRoutePaths?: string[];
+  priorQualityTarget?: BuildSpecQualityTarget | null;
+}
+
+function readSnapshotString(
+  snapshot: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const value = snapshot[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function nonEmptyString(value: string | null | undefined): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function resolveContractQualityTarget(
+  priorQualityTarget: BuildSpecQualityTarget | null | undefined,
+  snapshot: Record<string, unknown> | null | undefined,
+): BuildSpecQualityTarget | null {
+  if (priorQualityTarget) return priorQualityTarget;
+  const buildSpec =
+    snapshot && typeof snapshot.buildSpec === "object" && snapshot.buildSpec !== null
+      ? (snapshot.buildSpec as Record<string, unknown>)
+      : null;
+  const raw = buildSpec?.qualityTarget;
+  if (typeof raw === "string" && (FOLLOW_UP_QUALITY_TARGETS as readonly string[]).includes(raw)) {
+    return raw as BuildSpecQualityTarget;
+  }
+  return null;
+}
+
+/**
+ * Derive the {@link FollowUpContract} from values that already exist on the
+ * follow-up path (persisted snapshot + persisted ids + existing routes +
+ * prior quality target). Pure: no IO and no new inference. Returns a fully
+ * populated contract with all-null / empty defaults for a missing or empty
+ * snapshot, so callers never have to guard against a throw.
+ */
+export function buildFollowUpContract(input: BuildFollowUpContractInput): FollowUpContract {
+  const { snapshot } = input;
+  const snapshotBrief = buildFollowUpBriefFromSnapshot(snapshot);
+  const inheritedCapabilities =
+    snapshotBrief && Array.isArray(snapshotBrief.requestedCapabilities)
+      ? (snapshotBrief.requestedCapabilities as unknown[]).filter(
+          (capability): capability is string => typeof capability === "string",
+        )
+      : [];
+  return {
+    baseVersionId: readSnapshotString(snapshot, "lastVersionId"),
+    snapshotBrief,
+    scaffoldId:
+      nonEmptyString(input.persistedScaffoldId) ?? readSnapshotString(snapshot, "scaffoldId"),
+    variantId:
+      nonEmptyString(input.persistedVariantId) ?? readSnapshotString(snapshot, "variantId"),
+    // Defensive copies: never hand out a shared array reference, so future
+    // enforcement code (5-3..5-6) cannot mutate the same arrays orchestrate
+    // reads. Same values/semantics, fresh instances.
+    routePlan: {
+      existingRoutePaths: [...(input.existingRoutePaths ?? [])],
+      existingShellRoutePaths: [...(input.existingShellRoutePaths ?? [])],
+    },
+    capabilities: [...inheritedCapabilities],
+    qualityTarget: resolveContractQualityTarget(input.priorQualityTarget, snapshot),
+    previewSessionId: readSnapshotString(snapshot, "previewSessionId"),
+  };
 }
 
 export function formatPriorDesignContext(summary: BriefSummarySnapshot): string {

@@ -12,6 +12,7 @@ import {
   markVersionSupersededByRepair,
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
+import { assertPromoteAllowed } from "@/lib/db/promote-guard";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
@@ -253,16 +254,73 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             console.warn("[quality-gate] Failed to persist error logs:", err);
           });
         }
+        let promotionBlocked = false;
+        let promoteError = false;
         if (gateResult.passed) {
-          await promoteVersion(internalVersionId, verificationSummary).catch((err) => {
-            console.warn("[quality-gate] Failed to promote version:", err);
+          // Check the false-green guard *explicitly* before promoting so we can
+          // tell a real guard block apart from a transient promote failure. A
+          // block means the finalize verifier flagged this row (telemetry
+          // `qualityGateResult`); a DB error after the guard allowed must NOT be
+          // mislabeled as a verifier block (would show a misleading red and lose
+          // the version to "failed" on an infra hiccup).
+          const guard = await assertPromoteAllowed(internalVersionId).catch((err) => {
+            console.warn("[quality-gate] Promote guard check failed (fail-open):", err);
+            return { allowed: true as const };
           });
+          if (!guard.allowed) {
+            promotionBlocked = true;
+            await failVersionVerification(
+              internalVersionId,
+              "Build checks passed but the finalize verifier flagged blocking findings; promotion was blocked.",
+            ).catch((err) => {
+              console.warn(
+                "[quality-gate] Failed to mark version failed after promote guard block:",
+                err,
+              );
+            });
+          } else {
+            const promoted = await promoteVersion(internalVersionId, verificationSummary).catch(
+              (err) => {
+                console.warn("[quality-gate] Failed to promote version:", err);
+                return null;
+              },
+            );
+            // The guard already allowed promotion, so a null here is a transient
+            // failure (DB error, or a race that re-flagged the signal between the
+            // two reads) — not a verifier block. Leave the row at "verifying" and
+            // surface a soft error so the client can retry instead of going red.
+            if (!promoted) {
+              promoteError = true;
+            }
+          }
         } else {
           await failVersionVerification(internalVersionId, verificationSummary).catch((err) => {
             console.warn("[quality-gate] Failed to mark version failed:", err);
           });
         }
 
+        // A guard-blocked promotion must NOT read as green. `vmGatePassed`
+        // preserves the underlying VM-check status (tsc/eslint/build) for
+        // diagnostics, while `passed:false` + `promotionBlocked` tell every
+        // caller (incl. ones that only inspect `passed`) the truth.
+        if (promotionBlocked) {
+          return NextResponse.json({
+            ...gateResult,
+            passed: false,
+            vmGatePassed: true,
+            promotionBlocked: true,
+            promotionBlockedReason: "finalize_quality_gate_failed",
+          });
+        }
+        // Transient promote failure: not green, but not a verifier block either.
+        if (promoteError) {
+          return NextResponse.json({
+            ...gateResult,
+            passed: false,
+            vmGatePassed: true,
+            promoteError: true,
+          });
+        }
         return NextResponse.json(gateResult);
       } catch (err) {
         await failVersionVerification(

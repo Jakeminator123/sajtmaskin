@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from "react";
 import {
-  isServerVerifyExpectedForLifecycle,
-  resolveEngineVersionDisplayStatus,
   resolveEngineVersionVerificationSurfaceStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
+import { mapVersionStatusToDisplay } from "@/lib/builder/version-status-display";
+import {
+  resolveVersionHistorySummary,
+  versionHistoryStatusBadge,
+} from "@/lib/builder/version-history-status-labels";
+import type { VersionStatus } from "@/lib/logging/event-bus-types";
 import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import {
   AlertCircle,
@@ -71,7 +75,32 @@ type VersionSummary = {
    * `resolveEngineVersionLifecycleStage`.
    */
   lifecycleStage?: string | null;
+  /**
+   * OMTAG-06 / område 6-2: server-projected canonical event-bus status
+   * (`selectVersionStatus(readAll(versionId))`, enriched by the /versions
+   * route) for this row. Drives the lifecycle badge via
+   * `mapVersionStatusToDisplay`. Absent/null for rows with no bus events
+   * (folds to an "idle" display).
+   */
+  busStatus?: VersionStatus | null;
 };
+
+/**
+ * Sort key mirroring `engine-version-lifecycle`'s legacy ordering:
+ * prefer `versionNumber`, fall back to `createdAt`. Used to derive
+ * `isLatest` for the bus display-context (`retrying`/"Ersatt" only shows
+ * for superseded, still-mid-flight rows).
+ */
+function versionRowSortKey(version: VersionSummary): number {
+  const versionNumber = version.versionNumber;
+  if (typeof versionNumber === "number" && Number.isFinite(versionNumber)) {
+    return versionNumber;
+  }
+  const createdAt = version.createdAt;
+  if (!createdAt) return 0;
+  const timestamp = createdAt instanceof Date ? createdAt.getTime() : Date.parse(createdAt);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
 
 type BlobExportResponse = {
   blob?: {
@@ -140,6 +169,12 @@ export function VersionHistory({
   const mutate = externalMutate ?? internal.mutate;
   const versionList = Array.isArray(versions) ? (versions as VersionSummary[]) : [];
   const pinnedCount = versionList.filter((version) => Boolean(version?.pinned)).length;
+  // Highest sort key in the list — a row is "latest" (no newer version
+  // exists) when its key matches this. Feeds the bus display-context.
+  const latestRowSortKey = versionList.reduce(
+    (max, entry) => Math.max(max, versionRowSortKey(entry)),
+    Number.NEGATIVE_INFINITY,
+  );
   const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null);
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
@@ -580,96 +615,25 @@ export function VersionHistory({
             const hasPendingRepair =
               version.hasPendingRepair === true || version.verificationState === "repair_available";
             const isAcceptingRepair = acceptingRepairVersionId === internalVersionId;
-            const lifecycleStatus = resolveEngineVersionDisplayStatus(
-              {
-                versionId: version.versionId,
-                id: version.id,
-                createdAt: version.createdAt,
-                versionNumber: version.versionNumber,
-                releaseState: version.releaseState,
-                verificationState: version.verificationState,
-                lifecycleStage: version.lifecycleStage,
-              },
-              versionList.map((entry) => ({
-                versionId: entry.versionId,
-                id: entry.id,
-                createdAt: entry.createdAt,
-                versionNumber: entry.versionNumber,
-                releaseState: entry.releaseState,
-                verificationState: entry.verificationState,
-                lifecycleStage: entry.lifecycleStage,
-              })),
-            );
-            const willRunServerVerify = isServerVerifyExpectedForLifecycle({
-              lifecycleStage: version.lifecycleStage,
+            // OMTAG-06 / område 6-2: the lifecycle badge now derives from the
+            // canonical event-bus projection — `busStatus` is enriched per row
+            // by the /versions route via `selectVersionStatus(readAll(id))` —
+            // instead of the now-removed DB-flag resolver
+            // `resolveEngineVersionDisplayStatus`. `mapVersionStatusToDisplay`
+            // adds the chat-context derivations (`retrying` when superseded,
+            // `promoted` from release-state) plus the false-green guard
+            // (a degraded run never renders as clean success).
+            const lifecycleDisplay = mapVersionStatusToDisplay(version.busStatus ?? null, {
+              isLatest: versionRowSortKey(version) === latestRowSortKey,
+              releaseState: version.releaseState,
             });
+            const lifecycleStatus = lifecycleDisplay.status;
+            const lifecycleBadge = versionHistoryStatusBadge(lifecycleDisplay);
             const verificationSurfaceStatus = resolveEngineVersionVerificationSurfaceStatus({
               releaseState: version.releaseState,
               verificationState: version.verificationState,
               lifecycleStage: version.lifecycleStage,
             });
-            // Postmortem 2026-04-28: F2 design-versioner kör inte server-verify
-            // (`design_preview_skip_verify`) — visa "Klar" istället för
-            // "Verifierar" för dem så UI inte påstår en bakgrundskörning som
-            // aldrig sker. F3-integrationsversioner kör verify aktivt och
-            // behåller "Verifierar"-labeln.
-            const lifecycleLabel =
-              lifecycleStatus === "promoted"
-                ? "Publicerad"
-                : lifecycleStatus === "verifying"
-                  ? willRunServerVerify
-                    ? "Verifierar"
-                    : "Klar"
-                  : lifecycleStatus === "repairing"
-                    ? "Reparerar"
-                    : lifecycleStatus === "repair_available"
-                      ? "Fix redo"
-                    : lifecycleStatus === "retrying"
-                      ? "Ersatt"
-                      : lifecycleStatus === "failed"
-                        ? "Fel"
-                        : "Draft";
-            // P25b-rest: surface what each lifecycle badge actually means in
-            // a hover-tooltip so users don't need to read the runbook to
-            // tell "Verifierar" (background server-verify still running)
-            // apart from "Publicerad" (released live) or "Fel" (verifier
-            // produced blocking findings — open the diagnostics dialog).
-            const lifecycleTooltip =
-              lifecycleStatus === "promoted"
-                ? "Publicerad live. Klart att deploya."
-                : lifecycleStatus === "verifying"
-                  ? willRunServerVerify
-                    ? "Server-verify kör i bakgrunden — typecheck/build mot scaffold-cache. Kan landa i 'Publicerad' eller 'Fel' när den är klar."
-                    : "Design-preview klar. Server-verify körs först när du klickar 'Bygg integrationer'."
-                  : lifecycleStatus === "repairing"
-                    ? "Server försöker reparera fel automatiskt. Vänta — utfallet rapporteras som 'Fix redo' eller 'Fel'."
-                    : lifecycleStatus === "repair_available"
-                      ? "Reparerad version finns sparad och väntar på godkännande. Klicka för att se diff och acceptera."
-                      : lifecycleStatus === "retrying"
-                        ? "Ersatt av en nyare version innan denna hann verifieras klart."
-                        : lifecycleStatus === "failed"
-                          ? "Verifiering hittade blockerande fel. Öppna diagnostik-dialogen för detaljer."
-                          : "Draft. Inte verifierad eller publicerad än.";
-            const lifecycleBadgeVariant =
-              lifecycleStatus === "failed"
-                ? "destructive"
-                : lifecycleStatus === "promoted"
-                  ? "default"
-                  : lifecycleStatus === "verifying" && !willRunServerVerify
-                    ? "secondary"
-                    : lifecycleStatus === "retrying" ||
-                        lifecycleStatus === "repairing" ||
-                        lifecycleStatus === "repair_available"
-                      ? "outline"
-                      : "secondary";
-            const lifecycleBadgeClassName =
-              lifecycleStatus === "retrying"
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                : lifecycleStatus === "repairing"
-                  ? "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300"
-                  : lifecycleStatus === "repair_available"
-                    ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
-                  : undefined;
             const isEngineVersionRow =
               version.canPin === false || typeof version.versionNumber === "number";
             const tier2PreviewNorm = normalizePreviewUrl(version.previewUrl ?? version.sandboxUrl);
@@ -777,20 +741,10 @@ export function VersionHistory({
                               "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
                           }
                         : null;
-            const lifecycleSummary = (() => {
-              const summary =
-                typeof version.verificationSummary === "string" &&
-                version.verificationSummary.trim()
-                  ? version.verificationSummary.trim()
-                  : null;
-              if (lifecycleStatus === "retrying") {
-                return summary || "Ersatt av en nyare version innan denna hann bli klar.";
-              }
-              if (lifecycleStatus === "repair_available") {
-                return summary || "Serverreparation finns sparad och väntar på godkännande.";
-              }
-              return summary;
-            })();
+            const lifecycleSummary = resolveVersionHistorySummary(
+              lifecycleDisplay,
+              version.verificationSummary,
+            );
 
             return (
               <Card
@@ -817,16 +771,13 @@ export function VersionHistory({
                           </Badge>
                         )}
                         <Badge
-                          variant={lifecycleBadgeVariant}
-                          className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadgeClassName)}
-                          title={lifecycleTooltip}
+                          variant={lifecycleBadge.variant}
+                          className={cn("gap-1 px-1.5 py-0 text-[10px]", lifecycleBadge.className)}
+                          title={lifecycleBadge.tooltip}
                         >
-                          {((lifecycleStatus === "verifying" && willRunServerVerify) ||
-                            lifecycleStatus === "repairing") && (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          )}
-                          {lifecycleStatus === "retrying" && <RotateCcw className="h-3 w-3" />}
-                          {lifecycleLabel}
+                          {lifecycleBadge.spinner && <Loader2 className="h-3 w-3 animate-spin" />}
+                          {lifecycleBadge.retryIcon && <RotateCcw className="h-3 w-3" />}
+                          {lifecycleBadge.label}
                         </Badge>
                         {qualityTierLabel && (
                           <Badge

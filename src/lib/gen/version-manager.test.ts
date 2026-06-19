@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion: vi.fn(),
@@ -7,10 +7,18 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 }));
 
 import {
+  getLatestVersion,
+  getPreferredVersion,
+} from "@/lib/db/chat-repository-pg";
+import {
   mergePackageJsonContent,
   mergeVersionFilesWithWarnings,
+  resolveChatPreferredVersionId,
 } from "./version-manager";
 import type { CodeFile } from "./parser";
+
+const getPreferredVersionMock = vi.mocked(getPreferredVersion);
+const getLatestVersionMock = vi.mocked(getLatestVersion);
 
 const file = (path: string, content: string): CodeFile => ({
   path,
@@ -195,5 +203,33 @@ describe("mergeVersionFilesWithWarnings", () => {
 
     expect(result.files.map((f) => f.path)).toEqual(["a.tsx", "b.tsx", "c.tsx"]);
     expect(result.files[1].content).toBe("new-b");
+  });
+});
+
+describe("resolveChatPreferredVersionId", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the preferred version id when one exists", async () => {
+    getPreferredVersionMock.mockResolvedValue({ id: "ver_pref" } as never);
+    getLatestVersionMock.mockResolvedValue({ id: "ver_latest" } as never);
+
+    expect(await resolveChatPreferredVersionId("chat_1")).toBe("ver_pref");
+    expect(getLatestVersionMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the latest version id when no preferred exists", async () => {
+    getPreferredVersionMock.mockResolvedValue(null);
+    getLatestVersionMock.mockResolvedValue({ id: "ver_latest" } as never);
+
+    expect(await resolveChatPreferredVersionId("chat_1")).toBe("ver_latest");
+  });
+
+  it("returns null when the chat has no versions", async () => {
+    getPreferredVersionMock.mockResolvedValue(null);
+    getLatestVersionMock.mockResolvedValue(null);
+
+    expect(await resolveChatPreferredVersionId("chat_1")).toBeNull();
   });
 });

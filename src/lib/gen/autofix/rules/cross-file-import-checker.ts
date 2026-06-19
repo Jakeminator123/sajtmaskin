@@ -8,6 +8,7 @@ import {
   removeImportDeclarations,
 } from "./import-binding-ast";
 import { getDossierExposesByImportPath } from "@/lib/gen/dossiers/registry";
+import { FEATURES } from "@/lib/config";
 
 interface CrossFileImportFix {
   sourceFile: string;
@@ -20,6 +21,14 @@ interface CrossFileImportFix {
   /** Set when the missing import matches a dossier `exposes[].import`. */
   dossierId?: string;
   capability?: string;
+  /**
+   * A7-2 (BUG-SWARM N#1): set when `FEATURES.refuseDossierStubs` is ON and a
+   * dossier-exposed import was deliberately NOT stubbed. No `stubFile` is
+   * written to the file set, so the unresolved import surfaces downstream as a
+   * blocking `code_structure_failure` (runProjectSanityChecks #1) instead of a
+   * silent null-render stub. Flag default-OFF → this is never set on master.
+   */
+  refused?: boolean;
 }
 
 const LOCAL_PREFIXES = ["@/", "./", "../"];
@@ -646,15 +655,47 @@ export function checkCrossFileImports(
     }
 
     const fallbackName = deriveComponentName(projectPath);
+    const dossierMatch = getDossierExposesByImportPath(source);
+
+    // A7-2 / grandmaster område 7 (BUG-SWARM N#1; see
+    // docs/plans/active/grandmaster/aktiviteter/A7-2-refuse-dossier-stubs-flag.md):
+    // when FEATURES.refuseDossierStubs is ON, refuse to fabricate a silent
+    // null-render stub for a dossier-exposed import. We skip stub creation, so
+    // the still-unresolved import is caught downstream by runProjectSanityChecks
+    // (#1 "Unresolved local import" → error / code_structure_failure) and the
+    // version degrades/blocks instead of shipping false-green hollow output.
+    // The refusal is recorded as a `refused` fix for observability. This is the
+    // loud-error path the earlier TODO described. Default-OFF → the silent-stub
+    // branch below runs exactly as on master.
+    if (dossierMatch && FEATURES.refuseDossierStubs) {
+      console.warn(
+        `[cross-file-import-checker] dossier_exposed_path refused: import "${source}" ` +
+          `from dossier "${dossierMatch.dossierId}" (capability: ${dossierMatch.capability}) ` +
+          `was not emitted by the LLM. Stub creation was refused ` +
+          `(FEATURES.refuseDossierStubs); the unresolved import will degrade/block ` +
+          `the version instead of shipping a silent null-render stub.`,
+      );
+      for (const importer of importers) {
+        fixes.push({
+          sourceFile: importer,
+          missingImport: source,
+          stubFile: stubPath,
+          dossierId: dossierMatch.dossierId,
+          capability: dossierMatch.capability,
+          refused: true,
+        });
+      }
+      continue;
+    }
+
     const stubContent = createStubFile(source, merged, fallbackName);
 
     // Check whether this missing import is a dossier-exposed path. If so,
     // log a warning for observability — the LLM should have emitted the real
     // file, or imported from the correct dossier path. We still create the
     // stub (pipeline must not break), but the warning signals a dossier gap.
-    // TODO(P5+ wave): gate stub creation behind FEATURES.refuseDossierStubs
-    // and throw a loud error instead of creating a silent null-render stub.
-    const dossierMatch = getDossierExposesByImportPath(source);
+    // The flag-gated refusal above is the loud alternative; with the flag OFF
+    // (master default) this silent-stub branch is preserved verbatim.
     if (dossierMatch) {
       console.warn(
         `[cross-file-import-checker] dossier_exposed_path stubbed: import "${source}" ` +

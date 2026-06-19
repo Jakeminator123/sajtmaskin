@@ -98,7 +98,7 @@ Sidoyta till prompt-/scaffold-signalerna ovan. Owners-matrix:
 | Signal | Source-of-truth | Konsument | Notering |
 |----|-----|-----|-----|
 | **Lifecycle-events per `versionId`** | `src/lib/logging/event-bus.ts` (`emit`) → `data/runs/<versionId>/<runId>/events.ndjson` | `selectVersionStatus()` projection, `event-bus-subscribers.ts` (devLog mirror), `backoffice/pages/llm_flode_telemetry.py` | `EngineEventType` är closed union — nya event-typer kräver också projection-rule |
-| **Aggregerad `VersionStatus`** | `src/lib/logging/event-bus-projection.ts` (`selectVersionStatus`) | server: `GET /api/engine/chats/[chatId]/version-status`; client: `useVersionStatus`-hook | Parallell DB-helper `resolveEngineVersionDisplayStatus` lever kvar tills per-komponent cut-over är klar (`Kvarvarande-uppgifter.md` #11) |
+| **Aggregerad `VersionStatus`** | `src/lib/logging/event-bus-projection.ts` (`selectVersionStatus`) | server: `GET /api/engine/chats/[chatId]/version-status`; client: `useVersionStatus`-hook | Legacy DB-helper `resolveEngineVersionDisplayStatus` **borttagen** (Område 6-3, cut-over klar) — bus-projektionen är enda statusvägen (N#6) |
 | **Degraded "works but degraded"-spårning** | `version.degraded` event (`VersionDegradationKind` enum) → `VersionStatus.degradations` | `_render_degradations`-sektionen i backoffice; framtida UI badge | Idag emitteras `verifier_skipped_by_policy` + `product_postcheck_skipped` (inkl. runtime_error). Lägg INTE till nya kinds utan emitter + UX-konsument. |
 
 ---

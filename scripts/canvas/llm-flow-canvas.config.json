@@ -1,0 +1,17 @@
+{
+  "_comment": "VALFRI override for build-llm-flow-canvas.mjs. Hela filen kan raderas - generatorn auto-upptacker allt fran config/dashboard/domain-map.json + backlog + evals. Andra bara det du vill las fast.",
+  "churnSinceDays": 14,
+  "churnHotThreshold": 4,
+  "includeAllPages": false,
+  "focus": [
+    "LLM-faser & runtime-sanning",
+    "Codegen core",
+    "prompt-core",
+    "ai_models",
+    "Runtime scaffolds",
+    "Scaffold Lifecycle",
+    "Preview och versioner",
+    "Eval"
+  ],
+  "statusOverrides": {}
+}

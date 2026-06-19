@@ -27,6 +27,7 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 | Regel | Syfte |
 |-------|-------|
 | [agent-worktree.mdc](rules/agent-worktree.mdc) | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
+| [auto-merge-automation.mdc](rules/auto-merge-automation.mdc) | En Cursor-side automation kan auto-merga gröna PR:er — håll risk-/runtime-PR:er som draft tills granskade |
 | [builder-coexistence.mdc](rules/builder-coexistence.mdc) | Agent får inte navigera till användarens aktiva builder-URL |
 | [repo-router.mdc](rules/repo-router.mdc) | Snabb repo-router + env/indexering |
 | [response-format.mdc](rules/response-format.mdc) | Hur agenten svarar — kort, matris/flöde, svenska vid behov |
@@ -84,9 +85,7 @@ Kod är source of truth; strict schemas speglar kod, ersätter den inte.
 
 **Entrypoint:** `npm run backoffice` från repo-rot (kanonisk, plattformsoberoende). Direktanrop `python(3) sajtmaskin_backoffice.py` fungerar också.
 
-**Legacy wrapper** (forwardar till `backoffice/`): `config/dashboard/app.py`.
-
-**Domänkarta:** `config/dashboard/domain-map.json` — mappar backoffice-vyer till kanoniska sökvägar, docs och kodsanningar.
+**Domänkarta:** `config/dashboard/domain-map.json` — mappar backoffice-vyer till kanoniska sökvägar, docs och kodsanningar. (Mappnamnet `dashboard/` är legacy; bara domänkartan bor kvar där.)
 
 ## Flera agenter / parallellt arbete
 

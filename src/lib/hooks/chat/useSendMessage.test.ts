@@ -1,0 +1,209 @@
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MutableRefObject } from "react";
+import type { ChatMessage } from "@/lib/builder/types";
+import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
+import type { AutoFixPayload, ChatMessagingParams, MessageOptions } from "./types";
+
+const handleSseStream = vi.hoisted(() => vi.fn());
+const toast = vi.hoisted(() => {
+  const fn = vi.fn();
+  return Object.assign(fn, {
+    success: vi.fn(),
+    warning: vi.fn(),
+    error: vi.fn(),
+    message: vi.fn(),
+  });
+});
+
+vi.mock("sonner", () => ({ toast }));
+vi.mock("./stream-handlers", () => ({ handleSseStream }));
+vi.mock("./post-checks", () => ({ runPostGenerationChecks: vi.fn() }));
+vi.mock("./post-checks-fetch", () => ({ triggerImageMaterialization: vi.fn() }));
+vi.mock("./post-checks-preview", () => ({ readPreviewPreflight: vi.fn(() => null) }));
+vi.mock("@/lib/utils/debug", () => ({
+  debugLog: vi.fn(),
+  errorLog: vi.fn(),
+  warnLog: vi.fn(),
+}));
+
+import { useSendMessage } from "./useSendMessage";
+
+let capturedBody: Record<string, unknown> | null = null;
+const fetchMock = vi.fn();
+
+function jsonResponse(status: number, body: Record<string, unknown>) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function createHarness(overrides?: Partial<ChatMessagingParams>) {
+  const messagesBox = { current: [] as ChatMessage[] };
+  const setMessages = vi.fn((next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
+    messagesBox.current =
+      typeof next === "function" ? next(messagesBox.current) : next;
+  });
+  const mutateVersions = vi.fn();
+
+  const params: ChatMessagingParams = {
+    chatId: "chat_1",
+    activeVersionId: undefined,
+    latestKnownVersionId: undefined,
+    setChatId: vi.fn(),
+    chatIdParam: null,
+    router: { replace: vi.fn() },
+    selectedModelTier: DEFAULT_MODEL_TIER,
+    enableImageGenerations: false,
+    enableThinking: false,
+    mutateVersions,
+    setCurrentPreviewUrl: vi.fn(),
+    setPreviewBuildError: vi.fn(),
+    setPreviewProdBuild: vi.fn(),
+    setPreviewPending: vi.fn(),
+    setMessages,
+    resetBeforeCreateChat: vi.fn(),
+    ...overrides,
+  };
+
+  const deps = {
+    createNewChat: vi.fn(async () => true),
+    streamAbortRef: { current: null } as MutableRefObject<AbortController | null>,
+    autoFixHandlerRef: { current: vi.fn() } as MutableRefObject<
+      (payload: AutoFixPayload) => void
+    >,
+    lastSentSystemPromptRef: { current: null } as MutableRefObject<string | null>,
+    startStreamSafetyTimer: vi.fn(),
+    touchStreamSafetyTimer: vi.fn(),
+    clearStreamSafetyTimer: vi.fn(),
+  };
+
+  const { result } = renderHook(() => useSendMessage(params, deps));
+  return { result, messagesBox, mutateVersions };
+}
+
+async function send(
+  result: { current: { sendMessage: (text: string, options?: MessageOptions) => Promise<void> } },
+  text: string,
+  options?: MessageOptions,
+) {
+  await act(async () => {
+    await result.current.sendMessage(text, options);
+  });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  capturedBody = null;
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("useSendMessage 5-2 stale-base gate (client half)", () => {
+  // S5: a 409 stale_base_version must surface a reload toast and leave the
+  // chat state consistent — no duplicate/stuck optimistic user message and
+  // the assistant turn stops streaming. The hardest scenario to smoke
+  // manually, so it is locked here.
+  it("surfaces a reload toast and resets state on a 409 stale_base_version", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(409, {
+        error: "stale_base_version",
+        reason: "stale_base_version",
+        latestVersionId: "ver_new",
+      }),
+    );
+
+    const { result, messagesBox, mutateVersions } = createHarness({
+      activeVersionId: "ver_old",
+      latestKnownVersionId: "ver_old",
+    });
+
+    await send(result, "Uppdatera hero copy");
+
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(String(toast.error.mock.calls[0]?.[0])).toMatch(/ladda om/i);
+    expect(mutateVersions).toHaveBeenCalledTimes(1);
+    expect(handleSseStream).not.toHaveBeenCalled();
+
+    const messages = messagesBox.current;
+    const userMessages = messages.filter((m) => m.role === "user");
+    expect(userMessages).toHaveLength(1);
+    expect(userMessages[0]?.content).toBe("Uppdatera hero copy");
+
+    const assistant = messages.find((m) => m.role === "assistant");
+    expect(assistant?.isStreaming).toBe(false);
+    expect(assistant?.content).toMatch(/nyare version/i);
+    expect(messages.every((m) => !m.isStreaming)).toBe(true);
+  });
+
+  // S4: with no known-latest version the client must NOT send the stale-base
+  // signal, so the follow-up proceeds normally (no false 409 on a first/
+  // signal-less message).
+  it("omits engineLatestKnownVersionId and proceeds when the client has no known-latest", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result } = createHarness({
+      activeVersionId: undefined,
+      latestKnownVersionId: undefined,
+    });
+
+    await send(result, "Lägg till en sektion");
+
+    expect(handleSseStream).toHaveBeenCalledTimes(1);
+    expect(toast.error).not.toHaveBeenCalled();
+    const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
+    expect(meta.engineLatestKnownVersionId).toBeUndefined();
+    expect(meta.engineBaseVersionId).toBeUndefined();
+  });
+
+  // S1/S2 client half: a regular follow-up forwards the known-latest version
+  // so the server gate can actually engage (or pass) for the up-to-date case.
+  it("forwards engineLatestKnownVersionId on a regular follow-up", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result } = createHarness({
+      activeVersionId: "ver_current",
+      latestKnownVersionId: "ver_current",
+    });
+
+    await send(result, "Uppdatera CTA");
+
+    const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
+    expect(meta.engineBaseVersionId).toBe("ver_current");
+    expect(meta.engineLatestKnownVersionId).toBe("ver_current");
+  });
+
+  // S3 client half: an explicit base override (F3 "Bygg integrationer" /
+  // autofix) deliberately targets a specific version, so it must skip the
+  // known-latest signal and stay exempt from the gate.
+  it("omits the signal when an explicit engineBaseVersionId override is used", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result } = createHarness({
+      activeVersionId: "ver_current",
+      latestKnownVersionId: "ver_current",
+    });
+
+    await send(result, "Reparera bygget", { engineBaseVersionIdOverride: "ver_old" });
+
+    const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
+    expect(meta.engineBaseVersionId).toBe("ver_old");
+    expect(meta.engineLatestKnownVersionId).toBeUndefined();
+  });
+});

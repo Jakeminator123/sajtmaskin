@@ -299,6 +299,11 @@ describe("selectVersionStatus", () => {
     expect(status.previewBlocked).toBe(false);
     expect(status.verifierOutcome).toBe("skipped");
     expect(status.lastBuildError).toBeNull();
+    // False-green contract: this skip-path emits no explicit
+    // `version.degraded`, so the projection derives one. A skipped
+    // verifier therefore always carries `verifier_skipped_by_policy` and
+    // can never surface downstream as degradation-free solid green.
+    expect(status.degradations.map((d) => d.kind)).toContain("verifier_skipped_by_policy");
   });
 
   it("plan-02: warning-level build events do not overshadow a clean F2 finalize", () => {
@@ -395,5 +400,192 @@ describe("selectVersionStatus", () => {
     expect(status.repairPassIndex).toBe(1);
     expect(status.verifierOutcome).toBe("passed");
     expect(status.runId).toBe("repair-1");
+  });
+
+  // ── terminal-settle regression (no runtime `version.done` emitter) ──
+  // The runtime emits the legacy `site.done` devLog row, never the bus
+  // `version.done` event, so a successfully completed verifier is the
+  // real end-of-stream signal. Without the terminal-settle rule these
+  // versions stuck on a non-terminal `verifying` phase forever — which
+  // the builder rendered as a perpetual "Verifierar" spinner and hid the
+  // promoted release-state.
+  it("F3 success path (verifier passed, no version.done) settles to done", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false }),
+    ]);
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
+    expect(status.verifierOutcome).toBe("passed");
+    expect(status.degradations).toEqual([]);
+  });
+
+  it("F2 design-skip path (verifier skipped + degraded, no version.done) settles to done", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", {
+        outcome: "skipped",
+        blocked: false,
+        reason: "design_preview_skip_verify",
+      }),
+      ev("version.degraded", {
+        kind: "verifier_skipped_by_policy",
+        message: "Server-verify skipped (design_preview_skip_verify).",
+      }),
+    ]);
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
+    // Degradations survive terminal-settle — the false-green guard maps
+    // this `done` to `degraded`, never solid success.
+    expect(status.degradations.map((d) => d.kind)).toEqual(["verifier_skipped_by_policy"]);
+  });
+
+  it("false-green contract: skipped verifier WITHOUT an explicit version.degraded still surfaces a derived degradation", () => {
+    // Contrast to the F2 design-skip path above: here the runtime emits
+    // `version.verifier.done {skipped}` but NO matching `version.degraded`
+    // event. The projection must derive `verifier_skipped_by_policy` itself
+    // so a skipped verifier can never reach the UI as a degradation-free
+    // (solid-green) success — the false-green contract is locked at the
+    // source, not just in the display mapper.
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", {
+        outcome: "skipped",
+        blocked: false,
+        reason: "design_preview_skip_verify",
+      }),
+    ]);
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
+    expect(status.degradations.map((d) => d.kind)).toContain("verifier_skipped_by_policy");
+  });
+
+  it("does NOT settle to done before the verifier has completed", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+    ]);
+    expect(status.phase).toBe("preflighting");
+    expect(status.done).toBe(false);
+  });
+
+  it("a verifier that passed but left preview blocked stays blocked (not done)", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 1,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: true,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false }),
+    ]);
+    expect(status.phase).toBe("blocked");
+    expect(status.done).toBe(false);
+  });
+
+  // ── stale-verifierOutcome gate (Codex P2 / VADE logic) ──────────────
+  // Terminal-settle must only fire when verifier-completion is the LATEST
+  // phase signal. A repair pass that emits a fresh clean `preflight` after
+  // an earlier `verifier.done` must NOT settle the version `done` on the
+  // stale outcome — that would stop polling and show a false "klart" mid
+  // repair, before the repair pass's own verifier has reported.
+  it("repair efter passed verifier settlar inte done på stale outcome", () => {
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false }),
+      ev("version.repair.started", {
+        reason: "quality-gate-failed",
+        trigger: "server-verify",
+        runId: "repair-1",
+      }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+        runId: "repair-1",
+      }),
+    ]);
+    expect(status.phase).not.toBe("done");
+    expect(status.done).toBe(false);
+  });
+
+  it("ny verifier-done efter repair settlar done igen", () => {
+    // Bevisar att gaten ÖPPNAR korrekt: när repair-passets egen verifierare
+    // rapporterar (verifier-completion blir åter den senaste fas-signalen)
+    // ska terminal-settle fyra och versionen bli `done`.
+    const status = selectVersionStatus([
+      ev("version.started", { generationKind: "create" }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false }),
+      ev("version.repair.started", {
+        reason: "quality-gate-failed",
+        trigger: "server-verify",
+        runId: "repair-1",
+      }),
+      ev("version.preflight", {
+        filesChecked: 12,
+        issueCount: 0,
+        errorCount: 0,
+        warningCount: 0,
+        previewBlocked: false,
+        verificationBlocked: false,
+        runId: "repair-1",
+      }),
+      ev("version.verifier.done", { outcome: "passed", blocked: false, runId: "repair-1" }),
+    ]);
+    expect(status.phase).toBe("done");
+    expect(status.done).toBe(true);
   });
 });

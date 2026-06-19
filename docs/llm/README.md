@@ -8,6 +8,7 @@
 |-----|-----|
 | [`llm-chain-flowchart.md`](./llm-chain-flowchart.md) | Översikt: prompt → orkestrering → codegen → finalize → preview. ASCII-schema + sektion per fas. |
 | [`dossier-selection-flow.md`](./dossier-selection-flow.md) | När väljs vilken dossier? Capability-driven urval, hard/soft, verbatim/rewritable, prompt-injection. |
+| [`../architecture/llm-callsite-matrix.md`](../architecture/llm-callsite-matrix.md) | **Kanonisk callsite-matris:** var varje LLM/embedding-anrop sker (fil:rad, fas, modellkälla, API-stil) + deterministiska steg + verifierade fynd. |
 
 ## Relaterade kanoniska källor
 

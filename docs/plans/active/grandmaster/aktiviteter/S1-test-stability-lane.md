@@ -1,6 +1,7 @@
 ---
 id: gm-akt-S1
-status: ready
+status: done
+implemented_by: "PR #147 (test:stability-lane warn-only + db:schema-drift-wiring), mergad till master"
 parent: gm-omrade-02-stabilitetstester
 blocked_by: []
 owner_files:

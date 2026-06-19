@@ -109,6 +109,8 @@ Not runtime dependencies:
 | Fas 3: preview, VM, quality-gate, deploy | [`docs/architecture/fas3-preview-and-deploy.md`](architecture/fas3-preview-and-deploy.md) |
 | Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |
 | Plans (all buckets) | `docs/plans/README.md` |
+| **Teststrategi & stabilitets-lane** | [`docs/testing.md`](testing.md) |
+| **Delivery-bias** (förmåga före dokumentation) | [`docs/delivery-bias.md`](delivery-bias.md) |
 | Plan / agent handoff (historik) | Borttagen — git-historik. Handoffs sker i chatten. |
 | Storstädning / äldre större pass | `docs/plans/avklarat/README.md` eller git-historik |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
@@ -119,5 +121,5 @@ Not runtime dependencies:
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Marketing sidor (landning footer) | `/om`, `/blogg`, `/faq` (App Router under `src/app/`) |
 | Env setup | `docs/ENV.md` |
-| Config GUI (Streamlit) och var `config/` vs `docs/` bor | `config/dashboard/` (`run.ps1`), `config/dashboard/domain-map.json` |
+| Config GUI (Streamlit) och var `config/` vs `docs/` bor | `npm run backoffice` (`sajtmaskin_backoffice.py`), `config/dashboard/domain-map.json` |
 | Orchestrator protocol (historical; tooling removed) | git-historik (`git log -- docs/architecture/`) — inget aktivt protokoll i trädet |

@@ -71,6 +71,23 @@ export async function getLatestVersionFiles(chatId: string): Promise<CodeFile[] 
 }
 
 /**
+ * 5-2 stale-base gate helper: the chat's current server-side canonical
+ * version id — the preferred lifecycle row (newest non-failed), else the
+ * newest by version number. The follow-up stream compares the version the
+ * client *believes* is newest against this to return 409 when the client
+ * built its request on a superseded base (another writer advanced the chat).
+ * Mirrors the `preferred ?? latest` resolution finalize-design uses for its
+ * own stale check. Returns null when the chat has no versions yet.
+ */
+export async function resolveChatPreferredVersionId(
+  chatId: string,
+): Promise<string | null> {
+  const preferred = await getPreferredVersion(chatId);
+  const version = preferred ?? (await getLatestVersion(chatId));
+  return version?.id ?? null;
+}
+
+/**
  * Canonical follow-up base: `engine_versions.files_json` for the explicitly selected version
  * (`engineBaseVersionId` from builder meta), else preferred lifecycle version, else latest.
  */

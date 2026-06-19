@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircle, Loader2, MessageCircleQuestion, RotateCcw, Wand2 } from "lucide-react";
-import type { EngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
+import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ interface PreviewPanelEmptyStateProps {
   previewPending: boolean;
   previewBuildError?: { stage: string; message: string } | null;
   previewLifecycle?: PreviewLifecycleState;
-  activeVersionStatus?: EngineVersionDisplayStatus | null;
+  activeVersionStatus?: VersionDisplayStatus | null;
   activeVersionSummary?: string | null;
   activeVersionIsLatest?: boolean;
   onFixPreview?: (() => void) | null;

@@ -132,6 +132,11 @@ Kod är source of truth.
 ## 9. Status / nästa beslut
 
 - [x] Nivå 1 (denna) + 8 nivå-2-stubbar + kontraktslager + plan-regel.
-- [ ] **Jake:** justera områdesnamn/ordning om något skaver.
-- [ ] **Jake:** starta första körbatchen enligt **§6** (stabilitet först, inte filordning): `S1` test:stability-lane → `S2`/`S3`/`S4` → `D2` → `C1`/`C2`.
-- [ ] När ett område startar: skapa dess nivå-3-aktiviteter (8–10 st, smal `owner_files` var).
+- [x] **Område 1–3 levererade** (§6 steg 0–3): `S1` #147 · `S2` #151 · `S4` #150 · `D2` #148 · `C1` #152 · `C2` #153 (+ H0/D1). Status per aktivitet: [`aktiviteter/README.md`](aktiviteter/README.md). Löpande logg: [`_loggbok.md`](_loggbok.md). Körnings-handoff: [`../../../handoffs/2026-06-18-grandmaster-execution-handoff.md`](../../../handoffs/2026-06-18-grandmaster-execution-handoff.md).
+- [x] **Omr 2 `S3` statusresolver-invariant:** aktiverad som hård import-invariant i **6-3 punkt 2** (`status-resolver-single-writer.stability.test.ts`) + legacy-resolvern `resolveEngineVersionDisplayStatus` borttagen. **#163 mergad 2026-06-19** (`1713d4fdf`).
+- [x] **Område 7 runtime-kärna landad:** #149 promote-guard / false-green-fix mergad (`b8d85a338`) — `passed:false` vid block, `acceptRepair`-guard, repair-pass-telemetri. + A7-1 #155 (test). + A7-2 #156 (flag-gate, default-OFF, `c2f2a25db`).
+- [x] **Område 6 (§6 steg 4) KLART:** `6-1` (#159) + `6-2` (#160) + `6-3 punkt 1` (#162) + `6-3 punkt 2` (#163, `1713d4fdf`) **alla mergade**. Event-bus-status-flip klar för shell, preview-empty-state och `VersionHistory`-badgen; legacy `resolveEngineVersionDisplayStatus` (+ typ) **raderad**, S3-invarianten vaktar mot återinförande. False-green-vakt genomgående (degraderad/skipped ≠ solid grön). Stänger N#6/G#32.
+- [ ] **Öppna PR:er:** endast **#140** (DB+Blob-gate, **parkerad** — P1-säkerhet = grundhygien-blocker; överlappar S4:s keyless `db:schema-drift`-gate; infra-/inspector-spåret ägs av annan agent). #156 (A7-2, `c2f2a25db`) + #154 (LLM-flow-canvas + P0-surfacing-fix, `674a862ac`) **mergade 2026-06-19**.
+- [ ] **Backlog (egna pass — detalj i [`_loggbok.md`](_loggbok.md) § Städ-/omorg-kandidater):** S3-lane-härdning (warn-only stability-lane → blockerande `test:ci`) · VADE-perf `readAll`-per-rad på pollade `/versions` · E2 multi-instans efemär in-memory event-bus · canvas auto-PR-CI (`CANVAS_PR_TOKEN`/PAT för `llm-flow-canvas.yml`) · område 8-svans (`.gitignore`/`.cursorignore`-prune, arkivera källdocs, `next`-bump, eval-namnskugga).
+- [ ] **Nästa stora (§6 steg 5): [Område 5](05-followup-och-preview-kontrakt.md) — Follow-up & preview-kontrakt.** Helt orört, vikt 20 = största kvarvarande. Nivå-3-aktiviteter ej skapade än.
+- [ ] När ett område startar: skapa dess nivå-3-aktiviteter, smal `owner_files` var.
