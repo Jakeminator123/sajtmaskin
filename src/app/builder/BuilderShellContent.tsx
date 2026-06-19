@@ -159,10 +159,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // OMTAG-06 / område 6-1: version status now flows from the canonical
   // event-bus projection (`selectVersionStatus`), read client-side via
   // `useVersionStatus`, instead of being inferred from DB row flags
-  // through the legacy `resolveEngineVersionDisplayStatus`.
+  // through the now-removed `resolveEngineVersionDisplayStatus`.
   // `mapVersionStatusToDisplay` derives `retrying`/`promoted` and guards
-  // against false-green (degraded ≠ success). VersionHistory keeps the
-  // legacy resolver until område 6-2.
+  // against false-green (degraded ≠ success). VersionHistory flipped to the
+  // bus in område 6-2; the legacy resolver was removed in 6-3.
   const { status: activeVersionBusStatus } = useVersionStatus({
     chatId: vm.chatId,
     versionId: vm.activeVersionId,

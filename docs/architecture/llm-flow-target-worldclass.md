@@ -146,7 +146,7 @@ Plan: `L1-unified-repair-call.md` (parkad — väntar på telemetri-data).
                      overlay
 ```
 
-**Idag:** version-status sätts på flera ställen (DB-flaggor, SSE-events, klient-state). UI:t läser blandat. OMTAG fas 3·06 levererade `selectVersionStatus(events)` som projektion — men `BuilderShellContent.tsx` + preview-panel SSE-handling läser fortfarande gamla DB-flaggor (`resolveEngineVersionDisplayStatus`).
+**Idag:** OMTAG fas 3·06 levererade `selectVersionStatus(events)` som projektion, och Område 6 (cut-over) flippade builder-ytorna dit: `BuilderShellContent.tsx` läser bus-status via `useVersionStatus`, `VersionHistory` via server-enrichat `busStatus`. Den gamla DB-flagg-helpern `resolveEngineVersionDisplayStatus` är **borttagen** (6-3).
 
 **Plan:** event-bus UI-flip (spår A) — se `docs/plans/active/README.md` (öppna P2) + arkiverad `Kvarvarande-uppgifter.md` punkt 11. F2/F3-ordval (spår B) ägs separat av `docs/plans/archived/2026-05-01-f2-f3-ux-copy-konsolidering.md`, så signalfrågor och copyfrågor inte blandas ihop.
 

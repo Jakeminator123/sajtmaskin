@@ -6,8 +6,8 @@
  * rendering the preview panel from an SSE / polling stream). It takes
  * precedence over the three parallel status writers this bus replaces:
  * `preflight.summary` devLog entries, `engine_version_error_logs`
- * rows, and the old `resolveEngineVersionDisplayStatus()` that derived
- * status from DB row flags alone.
+ * rows, and the `resolveEngineVersionDisplayStatus` DB-helper that derived
+ * status from DB row flags alone (removed in område 6-3, cut-over klar).
  *
  * Rules (ordered evaluation against the event stream):
  *

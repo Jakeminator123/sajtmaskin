@@ -8,8 +8,8 @@ import type { VersionStatus } from "@/lib/logging/event-bus-types";
  * Read-only client view of the OMTAG-06 server-side `selectVersionStatus`
  * projection. Polls `/api/engine/chats/[chatId]/version-status` so the
  * builder UI can derive its display state from the **bus stream**
- * directly, instead of inferring it from the parallel DB-helper path
- * (`resolveEngineVersionDisplayStatus` in
+ * directly, instead of inferring it from the now-removed parallel
+ * DB-helper path (the former `resolveEngineVersionDisplayStatus` in
  * `src/lib/db/engine-version-lifecycle.ts`).
  *
  * Migration note: as of område 6-2 the builder's status surfaces read

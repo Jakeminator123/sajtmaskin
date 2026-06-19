@@ -81,8 +81,6 @@ export type EngineVersionLifecycleStatus =
   | "failed"
   | "promoted";
 
-export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
-
 export type QualityTier = "none" | "preview" | "tier2" | "production";
 
 export type EngineVersionVerificationSurfaceStatus =
@@ -131,44 +129,6 @@ export function resolveEngineVersionLifecycleStatus(
     return "failed";
   }
   return "draft";
-}
-
-export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecycleLike>(
-  version: T | null | undefined,
-  versions: T[] = [],
-): EngineVersionDisplayStatus {
-  const lifecycleStatus = resolveEngineVersionLifecycleStatus(version);
-  if (!version) {
-    return lifecycleStatus;
-  }
-
-  const currentSortKey = getVersionSortKey(version);
-  const hasNewerVersion = versions.some((candidate) => {
-    if (!candidate) return false;
-    if (candidate === version) return false;
-    return getVersionSortKey(candidate) > currentSortKey;
-  });
-
-  if (!hasNewerVersion) {
-    return lifecycleStatus;
-  }
-
-  const verificationState = version?.verificationState ?? version?.verification_state ?? null;
-
-  if (lifecycleStatus === "verifying" && verificationState === "pending") {
-    return "draft";
-  }
-
-  if (
-    lifecycleStatus === "failed" ||
-    lifecycleStatus === "repairing" ||
-    lifecycleStatus === "verifying" ||
-    lifecycleStatus === "repair_available"
-  ) {
-    return "retrying";
-  }
-
-  return lifecycleStatus;
 }
 
 export function resolveEngineVersionVerificationSurfaceStatus(

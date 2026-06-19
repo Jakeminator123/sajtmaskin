@@ -3,8 +3,8 @@
  * `VersionStatus` projection.
  *
  * This is the pure, source-of-truth-from-the-bus replacement for the
- * shell/preview-empty-state slice of the legacy DB resolver
- * `resolveEngineVersionDisplayStatus` (in
+ * shell/preview-empty-state slice of the now-removed legacy DB resolver
+ * (the former `resolveEngineVersionDisplayStatus` in
  * `src/lib/db/engine-version-lifecycle.ts`). It takes the projected
  * `VersionStatus` (from `selectVersionStatus`, read client-side via
  * `useVersionStatus`) plus the small amount of context the bus stream

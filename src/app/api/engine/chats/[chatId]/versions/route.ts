@@ -110,7 +110,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           lifecycleStage: v.lifecycle_stage,
           // OMTAG-06 / område 6-2: server-project the canonical event-bus
           // stream per row so VersionHistory renders its lifecycle badge from
-          // the bus (`selectVersionStatus`) instead of the legacy DB-flag
+          // the bus (`selectVersionStatus`) instead of the now-removed DB-flag
           // resolver `resolveEngineVersionDisplayStatus`. Additive field —
           // existing consumers keep reading the DB-derived fields above.
           // `readAll` is the same pure, side-effect-free reader the
