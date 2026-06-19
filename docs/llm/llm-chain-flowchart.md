@@ -118,7 +118,7 @@ Den här filen visar **vad som faktiskt händer** när en user-prompt går genom
 Klassificering:
 
 - `generationKind`: `"init"` om ingen `chatId`-historik, annars `"followup"`.
-- `followUpIntent`: classifier i `follow-up-clarification.ts` (regex + LLM-fallback om `>= 80 ord`). Möjliga värden enligt `follow-up-intent-types.ts`: `neutral`, `clear-refine`, `clear-redesign`, `capability-add`, `capability-modify`, `ambiguous-redesign`, `ambiguous-followup`. Plan 12 lade till capability-modify-existing-spåret som kompletterar capability-add med "ändra/förenkla befintlig komponent"-semantik.
+- `followUpIntent`: classifier i `follow-up-clarification.ts` (`classifyFollowUpIntent`, **enbart deterministisk regex — ingen LLM-fallback**). Möjliga värden enligt `follow-up-intent-types.ts`: `neutral`, `clear-refine`, `clear-redesign`, `capability-add`, `capability-modify`, `ambiguous-redesign`, `ambiguous-followup`. Plan 12 lade till capability-modify-existing-spåret som kompletterar capability-add med "ändra/förenkla befintlig komponent"-semantik.
 - `previousFiles.length`: räknas från senast sparade version. Driver `generationMode` i orchestrate.
 
 ### Fas 1 — Brief
